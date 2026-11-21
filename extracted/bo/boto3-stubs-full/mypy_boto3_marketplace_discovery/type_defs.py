@@ -25,9 +25,11 @@ from .literals import (
     DimensionLabelTypeType,
     FulfillmentOptionTypeType,
     LegalDocumentTypeType,
+    ListingAttributeTypeType,
     ListingBadgeTypeType,
     PricingModelTypeType,
     PricingUnitTypeType,
+    PurchaseIndicatorTypeType,
     PurchaseOptionBadgeTypeType,
     PurchaseOptionFilterTypeType,
     PurchaseOptionTypeType,
@@ -41,7 +43,11 @@ from .literals import (
     SearchListingsSortByType,
     SearchListingsSortOrderType,
     SellerEngagementTypeType,
+    SpecializationTypeType,
     TermTypeType,
+    TrustCenterControlDomainType,
+    TrustCenterDocumentAccessTypeType,
+    TrustCenterProviderType,
 )
 
 if sys.version_info >= (3, 12):
@@ -59,6 +65,9 @@ __all__ = (
     "ApiFulfillmentOptionTypeDef",
     "AwsSupportedServiceTypeDef",
     "ByolPricingTermTypeDef",
+    "CaseStudiesSummaryTypeDef",
+    "CaseStudyResourceTypeDef",
+    "CaseStudyTypeDef",
     "CategoryTypeDef",
     "CloudFormationFulfillmentOptionTypeDef",
     "ConfigurableUpfrontPricingTermTypeDef",
@@ -73,6 +82,7 @@ __all__ = (
     "Ec2ImageBuilderComponentFulfillmentOptionTypeDef",
     "EksAddOnFulfillmentOptionTypeDef",
     "EksAddOnOperatingSystemTypeDef",
+    "EngagementDatesTypeDef",
     "FixedPercentageTypeDef",
     "FixedUpfrontPricingTermTypeDef",
     "FreeTrialPricingTermTypeDef",
@@ -96,10 +106,14 @@ __all__ = (
     "ListFulfillmentOptionsInputPaginateTypeDef",
     "ListFulfillmentOptionsInputTypeDef",
     "ListFulfillmentOptionsOutputTypeDef",
+    "ListListingAttributesInputPaginateTypeDef",
+    "ListListingAttributesInputTypeDef",
+    "ListListingAttributesOutputTypeDef",
     "ListPurchaseOptionsInputPaginateTypeDef",
     "ListPurchaseOptionsInputTypeDef",
     "ListPurchaseOptionsOutputTypeDef",
     "ListingAssociatedEntityTypeDef",
+    "ListingAttributeResultsTypeDef",
     "ListingBadgeTypeDef",
     "ListingFacetTypeDef",
     "ListingSummaryAssociatedEntityTypeDef",
@@ -123,17 +137,21 @@ __all__ = (
     "PromotionalEmbeddedImageTypeDef",
     "PromotionalEmbeddedVideoTypeDef",
     "PromotionalMediaTypeDef",
+    "PurchaseIndicatorTypeDef",
     "PurchaseOptionAssociatedEntityTypeDef",
     "PurchaseOptionBadgeTypeDef",
     "PurchaseOptionFilterTypeDef",
     "PurchaseOptionSummaryTypeDef",
     "RateCardItemTypeDef",
     "RecurringPaymentTermTypeDef",
+    "RegionalPriceTypeDef",
     "RenewalTermTypeDef",
     "ResourceTypeDef",
     "ResponseMetadataTypeDef",
     "ReviewSourceSummaryTypeDef",
     "ReviewSummaryTypeDef",
+    "SaasCloudFormationDeploymentTemplateTypeDef",
+    "SaasDeploymentTemplateTypeDef",
     "SaasFulfillmentOptionTypeDef",
     "SageMakerAlgorithmFulfillmentOptionTypeDef",
     "SageMakerAlgorithmRecommendationTypeDef",
@@ -150,11 +168,27 @@ __all__ = (
     "SelectorTypeDef",
     "SellerEngagementTypeDef",
     "SellerInformationTypeDef",
+    "SpecializationCategoryTypeDef",
+    "SpecializationDetailTypeDef",
+    "SpecializationTypeDef",
+    "SpecializationTypeDetailTypeDef",
     "SupportTermTypeDef",
     "TermTemplateTypeDef",
+    "TrustCenterCertificationAttributeTypeDef",
+    "TrustCenterCertificationSummaryTypeDef",
+    "TrustCenterControlTypeDef",
+    "TrustCenterDocumentAttributeTypeDef",
+    "TrustCenterFaqAttributeTypeDef",
+    "TrustCenterSourceSummaryTypeDef",
+    "TrustCenterSourceTypeDef",
+    "TrustCenterSummaryTypeDef",
+    "TrustCenterUpdateAttributeTypeDef",
     "UsageBasedPricingTermTypeDef",
     "UsageBasedRateCardItemTypeDef",
     "UseCaseEntryTypeDef",
+    "UseCaseInformationTypeDef",
+    "UseCaseSummaryEntryTypeDef",
+    "UseCaseSummaryTypeDef",
     "UseCaseTypeDef",
     "ValidityTermTypeDef",
     "VariablePaymentTermTypeDef",
@@ -194,6 +228,22 @@ ByolPricingTermTypeDef = TypedDict(
 )
 
 
+class CaseStudiesSummaryTypeDef(TypedDict):
+    caseStudyCount: int
+
+
+class CaseStudyResourceTypeDef(TypedDict):
+    contentType: ResourceContentTypeType
+    value: str
+    resourceType: Literal["CASE_STUDY_WEBSITE"]
+    displayName: NotRequired[str]
+
+
+class EngagementDatesTypeDef(TypedDict):
+    startDate: datetime
+    completionDate: NotRequired[datetime]
+
+
 class CategoryTypeDef(TypedDict):
     categoryId: str
     displayName: str
@@ -208,6 +258,8 @@ class CloudFormationFulfillmentOptionTypeDef(TypedDict):
     releaseNotes: NotRequired[str]
     usageInstructions: NotRequired[str]
     availableFromTime: NotRequired[datetime]
+    architectureDiagramUrl: NotRequired[str]
+    deploymentTemplateUrl: NotRequired[str]
     shortDescription: NotRequired[str]
     longDescription: NotRequired[str]
 
@@ -274,17 +326,6 @@ class ProfessionalServicesFulfillmentOptionTypeDef(TypedDict):
     fulfillmentOptionDisplayName: str
 
 
-class SaasFulfillmentOptionTypeDef(TypedDict):
-    fulfillmentOptionId: str
-    fulfillmentOptionType: FulfillmentOptionTypeType
-    fulfillmentOptionDisplayName: str
-    quickLaunch: SaasQuickLaunchStatusType
-    fulfillmentUrl: NotRequired[str]
-    usageInstructions: NotRequired[str]
-    availableFromTime: NotRequired[datetime]
-    launchUrl: NotRequired[str]
-
-
 class GetListingInputTypeDef(TypedDict):
     listingId: str
     locale: NotRequired[str]
@@ -303,6 +344,10 @@ class PricingModelTypeDef(TypedDict):
 class PricingUnitTypeDef(TypedDict):
     pricingUnitType: PricingUnitTypeType
     displayName: str
+
+
+class PurchaseIndicatorTypeDef(TypedDict):
+    indicatorType: PurchaseIndicatorTypeType
 
 
 class ResourceTypeDef(TypedDict):
@@ -376,9 +421,56 @@ class ListFulfillmentOptionsInputTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class ListListingAttributesInputTypeDef(TypedDict):
+    listingId: str
+    attributeTypes: Sequence[ListingAttributeTypeType]
+    locale: NotRequired[str]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
 class PurchaseOptionFilterTypeDef(TypedDict):
     filterType: PurchaseOptionFilterTypeType
     filterValues: Sequence[str]
+
+
+class TrustCenterCertificationAttributeTypeDef(TypedDict):
+    certificationType: str
+    displayName: str
+    logoUrl: str
+
+
+class TrustCenterControlTypeDef(TypedDict):
+    name: str
+    domains: list[TrustCenterControlDomainType]
+    description: NotRequired[str]
+
+
+class TrustCenterDocumentAttributeTypeDef(TypedDict):
+    contentType: ResourceContentTypeType
+    value: str
+    accessType: TrustCenterDocumentAccessTypeType
+    displayName: NotRequired[str]
+    subjectArea: NotRequired[str]
+
+
+class TrustCenterFaqAttributeTypeDef(TypedDict):
+    question: str
+    answer: str
+    subjectArea: NotRequired[str]
+
+
+class TrustCenterSourceTypeDef(TypedDict):
+    contentType: ResourceContentTypeType
+    value: str
+    provider: TrustCenterProviderType
+    displayName: NotRequired[str]
+
+
+class TrustCenterUpdateAttributeTypeDef(TypedDict):
+    title: str
+    description: str
+    publishedTime: datetime
 
 
 class ListingFacetTypeDef(TypedDict):
@@ -466,12 +558,26 @@ class PromotionalEmbeddedVideoTypeDef(TypedDict):
     description: NotRequired[str]
 
 
+class RegionalPriceTypeDef(TypedDict):
+    region: str
+    displayName: str
+    price: str
+
+
 class ReviewSourceSummaryTypeDef(TypedDict):
     sourceName: str
     sourceId: ReviewSourceIdType
     averageRating: str
     totalReviews: int
     sourceUrl: NotRequired[str]
+
+
+class SaasCloudFormationDeploymentTemplateTypeDef(TypedDict):
+    templateName: str
+    defaultStackName: str
+    templateUrl: str
+    iamPolicy: str
+    description: NotRequired[str]
 
 
 class SageMakerAlgorithmRecommendationTypeDef(TypedDict):
@@ -490,8 +596,37 @@ class SearchFilterTypeDef(TypedDict):
     filterValues: Sequence[str]
 
 
+class SpecializationCategoryTypeDef(TypedDict):
+    specializationCategoryId: str
+    specializationCategoryName: str
+    parentSpecializationId: str
+
+
+class SpecializationTypeDetailTypeDef(TypedDict):
+    specializationType: SpecializationTypeType
+    displayName: str
+
+
+class TrustCenterCertificationSummaryTypeDef(TypedDict):
+    certificationType: str
+    displayName: str
+    logoUrl: str
+
+
+class TrustCenterSourceSummaryTypeDef(TypedDict):
+    contentType: ResourceContentTypeType
+    value: str
+    provider: TrustCenterProviderType
+    displayName: NotRequired[str]
+
+
 class UseCaseTypeDef(TypedDict):
     description: str
+    displayName: str
+    value: str
+
+
+class UseCaseInformationTypeDef(TypedDict):
     displayName: str
     value: str
 
@@ -507,6 +642,18 @@ class ApiFulfillmentOptionTypeDef(TypedDict):
     fulfillmentOptionDisplayName: str
     awsSupportedServices: list[AwsSupportedServiceTypeDef]
     usageInstructions: NotRequired[str]
+
+
+class CaseStudyTypeDef(TypedDict):
+    caseStudyId: str
+    caseStudyName: str
+    shortDescription: str
+    engagementDates: NotRequired[EngagementDatesTypeDef]
+    challenge: NotRequired[str]
+    resolution: NotRequired[str]
+    implementationApproach: NotRequired[str]
+    outcome: NotRequired[str]
+    resources: NotRequired[list[CaseStudyResourceTypeDef]]
 
 
 class ContainerFulfillmentOptionTypeDef(TypedDict):
@@ -547,15 +694,6 @@ class GrantItemTypeDef(TypedDict):
     description: NotRequired[str]
     dimensionLabels: NotRequired[list[DimensionLabelTypeDef]]
     maxQuantity: NotRequired[int]
-
-
-class RateCardItemTypeDef(TypedDict):
-    dimensionKey: str
-    displayName: str
-    unit: str
-    price: str
-    description: NotRequired[str]
-    dimensionLabels: NotRequired[list[DimensionLabelTypeDef]]
 
 
 LegalTermTypeDef = TypedDict(
@@ -605,6 +743,13 @@ class GetOfferTermsInputPaginateTypeDef(TypedDict):
 
 class ListFulfillmentOptionsInputPaginateTypeDef(TypedDict):
     productId: str
+    locale: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListListingAttributesInputPaginateTypeDef(TypedDict):
+    listingId: str
+    attributeTypes: Sequence[ListingAttributeTypeType]
     locale: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -666,8 +811,22 @@ class PromotionalMediaTypeDef(TypedDict):
     embeddedVideo: NotRequired[PromotionalEmbeddedVideoTypeDef]
 
 
+class RateCardItemTypeDef(TypedDict):
+    dimensionKey: str
+    displayName: str
+    unit: str
+    price: str
+    regionalPrices: list[RegionalPriceTypeDef]
+    description: NotRequired[str]
+    dimensionLabels: NotRequired[list[DimensionLabelTypeDef]]
+
+
 class ReviewSummaryTypeDef(TypedDict):
     reviewSourceSummaries: list[ReviewSourceSummaryTypeDef]
+
+
+class SaasDeploymentTemplateTypeDef(TypedDict):
+    cloudFormationDeploymentTemplate: NotRequired[SaasCloudFormationDeploymentTemplateTypeDef]
 
 
 class SageMakerAlgorithmFulfillmentOptionTypeDef(TypedDict):
@@ -727,8 +886,26 @@ class SearchListingsInputTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class SpecializationTypeDef(TypedDict):
+    specializationId: str
+    specializationName: str
+    specializationTypes: list[SpecializationTypeDetailTypeDef]
+    description: NotRequired[str]
+    caseStudyIds: NotRequired[list[str]]
+
+
+class TrustCenterSummaryTypeDef(TypedDict):
+    sourceSummaries: list[TrustCenterSourceSummaryTypeDef]
+    certificationSummaries: list[TrustCenterCertificationSummaryTypeDef]
+    totalCertificationCount: int
+
+
 class UseCaseEntryTypeDef(TypedDict):
     useCase: UseCaseTypeDef
+
+
+class UseCaseSummaryEntryTypeDef(TypedDict):
+    useCase: UseCaseInformationTypeDef
 
 
 class AmazonMachineImageFulfillmentOptionTypeDef(TypedDict):
@@ -769,16 +946,6 @@ FreeTrialPricingTermTypeDef = TypedDict(
         "duration": NotRequired[str],
     },
 )
-
-
-class ConfigurableUpfrontRateCardItemTypeDef(TypedDict):
-    selector: SelectorTypeDef
-    constraints: ConstraintsTypeDef
-    rateCard: list[RateCardItemTypeDef]
-
-
-class UsageBasedRateCardItemTypeDef(TypedDict):
-    rateCard: list[RateCardItemTypeDef]
 
 
 class ListingAssociatedEntityTypeDef(TypedDict):
@@ -827,44 +994,39 @@ class GetProductOutputTypeDef(TypedDict):
     resources: list[ResourceTypeDef]
     sellerEngagements: list[SellerEngagementTypeDef]
     listingId: str
+    purchaseIndicators: list[PurchaseIndicatorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class FulfillmentOptionTypeDef(TypedDict):
-    amazonMachineImageFulfillmentOption: NotRequired[AmazonMachineImageFulfillmentOptionTypeDef]
-    apiFulfillmentOption: NotRequired[ApiFulfillmentOptionTypeDef]
-    cloudFormationFulfillmentOption: NotRequired[CloudFormationFulfillmentOptionTypeDef]
-    containerFulfillmentOption: NotRequired[ContainerFulfillmentOptionTypeDef]
-    helmFulfillmentOption: NotRequired[HelmFulfillmentOptionTypeDef]
-    eksAddOnFulfillmentOption: NotRequired[EksAddOnFulfillmentOptionTypeDef]
-    ec2ImageBuilderComponentFulfillmentOption: NotRequired[
-        Ec2ImageBuilderComponentFulfillmentOptionTypeDef
-    ]
-    dataExchangeFulfillmentOption: NotRequired[DataExchangeFulfillmentOptionTypeDef]
-    professionalServicesFulfillmentOption: NotRequired[ProfessionalServicesFulfillmentOptionTypeDef]
-    saasFulfillmentOption: NotRequired[SaasFulfillmentOptionTypeDef]
-    sageMakerAlgorithmFulfillmentOption: NotRequired[SageMakerAlgorithmFulfillmentOptionTypeDef]
-    sageMakerModelFulfillmentOption: NotRequired[SageMakerModelFulfillmentOptionTypeDef]
+class ConfigurableUpfrontRateCardItemTypeDef(TypedDict):
+    selector: SelectorTypeDef
+    constraints: ConstraintsTypeDef
+    rateCard: list[RateCardItemTypeDef]
 
 
-ConfigurableUpfrontPricingTermTypeDef = TypedDict(
-    "ConfigurableUpfrontPricingTermTypeDef",
-    {
-        "id": str,
-        "type": TermTypeType,
-        "currencyCode": str,
-        "rateCards": NotRequired[list[ConfigurableUpfrontRateCardItemTypeDef]],
-    },
-)
-UsageBasedPricingTermTypeDef = TypedDict(
-    "UsageBasedPricingTermTypeDef",
-    {
-        "id": str,
-        "type": TermTypeType,
-        "currencyCode": str,
-        "rateCards": list[UsageBasedRateCardItemTypeDef],
-    },
-)
+class UsageBasedRateCardItemTypeDef(TypedDict):
+    rateCard: list[RateCardItemTypeDef]
+
+
+class SaasFulfillmentOptionTypeDef(TypedDict):
+    fulfillmentOptionId: str
+    fulfillmentOptionType: FulfillmentOptionTypeType
+    fulfillmentOptionDisplayName: str
+    quickLaunch: SaasQuickLaunchStatusType
+    deploymentTemplates: list[SaasDeploymentTemplateTypeDef]
+    fulfillmentUrl: NotRequired[str]
+    usageInstructions: NotRequired[str]
+    availableFromTime: NotRequired[datetime]
+    launchUrl: NotRequired[str]
+
+
+class SpecializationDetailTypeDef(TypedDict):
+    specialization: NotRequired[SpecializationTypeDef]
+    specializationCategory: NotRequired[SpecializationCategoryTypeDef]
+
+
+class UseCaseSummaryTypeDef(TypedDict):
+    useCases: list[UseCaseSummaryEntryTypeDef]
 
 
 class GetListingOutputTypeDef(TypedDict):
@@ -889,23 +1051,8 @@ class GetListingOutputTypeDef(TypedDict):
     sellerEngagements: list[SellerEngagementTypeDef]
     shortDescription: str
     useCases: list[UseCaseEntryTypeDef]
+    purchaseIndicators: list[PurchaseIndicatorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
-
-
-class ListingSummaryTypeDef(TypedDict):
-    listingId: str
-    listingName: str
-    publisher: SellerInformationTypeDef
-    fulfillmentOptionSummaries: list[FulfillmentOptionSummaryTypeDef]
-    catalog: str
-    shortDescription: str
-    logoThumbnailUrl: str
-    categories: list[CategoryTypeDef]
-    badges: list[ListingBadgeTypeDef]
-    reviewSummary: ReviewSummaryTypeDef
-    pricingModels: list[PricingModelTypeDef]
-    pricingUnits: list[PricingUnitTypeDef]
-    associatedEntities: list[ListingSummaryAssociatedEntityTypeDef]
 
 
 class GetOfferOutputTypeDef(TypedDict):
@@ -962,20 +1109,72 @@ RenewalTermTypeDef = TypedDict(
         "termTemplates": NotRequired[list[TermTemplateTypeDef]],
     },
 )
+ConfigurableUpfrontPricingTermTypeDef = TypedDict(
+    "ConfigurableUpfrontPricingTermTypeDef",
+    {
+        "id": str,
+        "type": TermTypeType,
+        "currencyCode": str,
+        "rateCards": NotRequired[list[ConfigurableUpfrontRateCardItemTypeDef]],
+    },
+)
+UsageBasedPricingTermTypeDef = TypedDict(
+    "UsageBasedPricingTermTypeDef",
+    {
+        "id": str,
+        "type": TermTypeType,
+        "currencyCode": str,
+        "rateCards": list[UsageBasedRateCardItemTypeDef],
+    },
+)
 
 
-class ListFulfillmentOptionsOutputTypeDef(TypedDict):
-    locale: str
-    fulfillmentOptions: list[FulfillmentOptionTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
+class FulfillmentOptionTypeDef(TypedDict):
+    amazonMachineImageFulfillmentOption: NotRequired[AmazonMachineImageFulfillmentOptionTypeDef]
+    apiFulfillmentOption: NotRequired[ApiFulfillmentOptionTypeDef]
+    cloudFormationFulfillmentOption: NotRequired[CloudFormationFulfillmentOptionTypeDef]
+    containerFulfillmentOption: NotRequired[ContainerFulfillmentOptionTypeDef]
+    helmFulfillmentOption: NotRequired[HelmFulfillmentOptionTypeDef]
+    eksAddOnFulfillmentOption: NotRequired[EksAddOnFulfillmentOptionTypeDef]
+    ec2ImageBuilderComponentFulfillmentOption: NotRequired[
+        Ec2ImageBuilderComponentFulfillmentOptionTypeDef
+    ]
+    dataExchangeFulfillmentOption: NotRequired[DataExchangeFulfillmentOptionTypeDef]
+    professionalServicesFulfillmentOption: NotRequired[ProfessionalServicesFulfillmentOptionTypeDef]
+    saasFulfillmentOption: NotRequired[SaasFulfillmentOptionTypeDef]
+    sageMakerAlgorithmFulfillmentOption: NotRequired[SageMakerAlgorithmFulfillmentOptionTypeDef]
+    sageMakerModelFulfillmentOption: NotRequired[SageMakerModelFulfillmentOptionTypeDef]
 
 
-class SearchListingsOutputTypeDef(TypedDict):
-    totalResults: int
-    listingSummaries: list[ListingSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
+class ListingAttributeResultsTypeDef(TypedDict):
+    caseStudy: NotRequired[CaseStudyTypeDef]
+    specializationDetail: NotRequired[SpecializationDetailTypeDef]
+    trustCenterSource: NotRequired[TrustCenterSourceTypeDef]
+    trustCenterCertification: NotRequired[TrustCenterCertificationAttributeTypeDef]
+    trustCenterDocument: NotRequired[TrustCenterDocumentAttributeTypeDef]
+    trustCenterControl: NotRequired[TrustCenterControlTypeDef]
+    trustCenterFaq: NotRequired[TrustCenterFaqAttributeTypeDef]
+    trustCenterUpdate: NotRequired[TrustCenterUpdateAttributeTypeDef]
+
+
+class ListingSummaryTypeDef(TypedDict):
+    listingId: str
+    listingName: str
+    publisher: SellerInformationTypeDef
+    fulfillmentOptionSummaries: list[FulfillmentOptionSummaryTypeDef]
+    catalog: str
+    shortDescription: str
+    logoThumbnailUrl: str
+    categories: list[CategoryTypeDef]
+    badges: list[ListingBadgeTypeDef]
+    reviewSummary: ReviewSummaryTypeDef
+    pricingModels: list[PricingModelTypeDef]
+    pricingUnits: list[PricingUnitTypeDef]
+    associatedEntities: list[ListingSummaryAssociatedEntityTypeDef]
+    trustCenterSummary: NotRequired[TrustCenterSummaryTypeDef]
+    caseStudiesSummary: NotRequired[CaseStudiesSummaryTypeDef]
+    useCaseSummary: NotRequired[UseCaseSummaryTypeDef]
+    sellerEngagements: NotRequired[list[SellerEngagementTypeDef]]
 
 
 class ListPurchaseOptionsOutputTypeDef(TypedDict):
@@ -998,6 +1197,27 @@ class OfferTermTypeDef(TypedDict):
     validityTerm: NotRequired[ValidityTermTypeDef]
     variablePaymentTerm: NotRequired[VariablePaymentTermTypeDef]
     netPaymentTerm: NotRequired[NetPaymentTermTypeDef]
+
+
+class ListFulfillmentOptionsOutputTypeDef(TypedDict):
+    locale: str
+    fulfillmentOptions: list[FulfillmentOptionTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListListingAttributesOutputTypeDef(TypedDict):
+    locale: str
+    listingAttributes: list[ListingAttributeResultsTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class SearchListingsOutputTypeDef(TypedDict):
+    totalResults: int
+    listingSummaries: list[ListingSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 
 class GetOfferTermsOutputTypeDef(TypedDict):

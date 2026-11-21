@@ -86,6 +86,9 @@ typedef struct {
     PyObject *indent_type;            /* Indent (a serialize(layout=...) mode) */
     PyObject *pattern_type;           /* re.Pattern, to recognize a compiled-regex filter */
     PyObject *re_compile;             /* re.compile, to turn a str pattern into a program for re()/re_first() */
+    PyObject *mapping_abc;            /* collections.abc.Mapping, the shape test of turbohtml.build */
+    PyObject *tag_maker_type;         /* TagMaker, the base of turbohtml.build.ElementMaker */
+    PyObject *tag_factory_type;       /* TagFactory, what E.<tag> returns */
     PyObject *markup_type;            /* turbohtml.markup.Markup, stamped onto escape() results */
     PyObject *xpath_string_type;      /* turbohtml._xpath.XPathString, for smart_strings xpath() results */
     PyObject *xpath_type;             /* XPath, the precompiled reusable expression object */
@@ -121,7 +124,8 @@ typedef struct {
        skips it (a shared pool would race) and keeps the tp_alloc/tp_free path. */
     PyObject *node_freelist;
     int node_freelist_len;
-    uint64_t handles_created; /* numbers each _TreeHandle, so no two trees salt their node hashes alike */
+    uint64_t handles_created;    /* numbers each _TreeHandle, so no two trees salt their node hashes alike */
+    PyObject *codec_shift_cache; /* {id(CodecInfo): (CodecInfo, bool)}, the codec's shift answer (dom/node.c) */
 } module_state;
 
 /* Register the types and enum into module/state. Each returns 0 or -1. */
@@ -181,6 +185,9 @@ PyObject *turbohtml_tree_parse_fragment(PyObject *module, PyObject *args, PyObje
 /* Rebuild a node and its subtree from a pickle (kind, data, children) triple,
    wired as the private _reconstruct() the node __reduce__ points pickle at. */
 PyObject *turbohtml_reconstruct(PyObject *module, PyObject *args);
+/* Rebuild a node and its subtree from the flat preorder (kind, data, child count) records the node __reduce__ writes,
+   wired as the private _reconstruct_tree(). */
+PyObject *turbohtml_reconstruct_tree(PyObject *module, PyObject *args);
 
 /* Build a complete HTML5 document (doctype, <html>, <head> with an optional
    <meta charset> and <title>, <body>) from head and body node lists, wired as

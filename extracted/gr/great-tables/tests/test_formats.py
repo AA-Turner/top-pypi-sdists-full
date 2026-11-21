@@ -1,12 +1,17 @@
+import html
 import math
 import re
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta, timezone
+from decimal import Decimal
 from typing import Any, Union
+from zoneinfo import ZoneInfo
 
+import numpy as np
 import pandas as pd
 import polars as pl
 import pytest
 import sys
+from babel.dates import format_datetime
 from great_tables import GT, _locale, vals
 from great_tables._data_color.base import _html_color
 from great_tables._formats import (
@@ -25,9 +30,14 @@ from great_tables._formats import (
     _get_locale_sep_mark,
     _get_next_si_prefix,
     _has_zero_value,
+    _join_cldr_pattern,
     _normalize_locale,
+    _decimal_exponent,
+    _divide_by_power,
     _round_rhu,
     _rounds_up_to,
+    _shift_decimal_point,
+    _split_cldr_pattern,
     _SI_PREFIXES_DECIMAL,
     _SI_PREFIXES_ENGINEERING,
     _validate_currency,
@@ -37,7 +47,7 @@ from great_tables._formats import (
 )
 from great_tables.data import exibble
 from great_tables.gt import _get_column_of_values
-from tests.utils import assert_rendered_body
+from tests.utils import DataFrameConstructor, assert_rendered_body, body_cells, by_backend
 
 
 def assert_repr_html(snapshot, gt):
@@ -1051,11 +1061,243 @@ def test_fmt_number_pattern(pattern: str, x_out: str):
         (0.000033, "0.00"),
         (0.00000000446453, "0.00"),
         (-325, "-325.00"),
+        # Integers above 2^53 (which a float can't hold exactly) keep all of their digits
+        (2**53 + 1, "9,007,199,254,740,993.00"),
+        (-(2**53 + 1), "-9,007,199,254,740,993.00"),
+        (np.int64(1234567890123456789), "1,234,567,890,123,456,789.00"),
+        (np.uint64(2**64 - 1), "18,446,744,073,709,551,615.00"),
     ],
 )
 def test_format_number_fixed_decimals(value: Union[int, float], x_out: str):
     x = _format_number_fixed_decimals(value=value, decimals=2, sep_mark=",")
     assert x == x_out
+
+
+def test_large_integers_keep_all_digits(frame_constructor: DataFrameConstructor):
+    # Integers above 2^53 can't be stored exactly as floats
+    df = frame_constructor({"x": [1234567890123456789, -9007199254740993]})
+
+    gt = GT(df).fmt_integer(columns="x")
+    x = _get_column_of_values(gt, column_name="x", context="html")
+    assert x == ["1,234,567,890,123,456,789", "−9,007,199,254,740,993"]
+
+    gt = GT(df).fmt_number(columns="x", decimals=2)
+    x = _get_column_of_values(gt, column_name="x", context="html")
+    assert x == ["1,234,567,890,123,456,789.00", "−9,007,199,254,740,993.00"]
+
+    gt = GT(df).fmt_currency(columns="x", decimals=0)
+    x = _get_column_of_values(gt, column_name="x", context="html")
+    assert x == ["$1,234,567,890,123,456,789", "−$9,007,199,254,740,993"]
+
+
+@pytest.mark.parametrize("scale_by", [1000, np.int64(1000)])
+def test_large_integers_scale_by_doesnt_overflow(frame_constructor: DataFrameConstructor, scale_by):
+    # A pandas `int64` cell is a NumPy integer, which would overflow and wrap around when scaled
+    df = frame_constructor({"x": [1234567890123456789, -9007199254740993]})
+
+    gt = GT(df).fmt_integer(columns="x", scale_by=scale_by)
+    x = _get_column_of_values(gt, column_name="x", context="html")
+    assert x == ["1,234,567,890,123,456,789,000", "−9,007,199,254,740,993,000"]
+
+    gt = GT(df).fmt_number(columns="x", decimals=1, scale_by=scale_by)
+    x = _get_column_of_values(gt, column_name="x", context="html")
+    assert x == ["1,234,567,890,123,456,789,000.0", "−9,007,199,254,740,993,000.0"]
+
+    gt = GT(df).fmt_currency(columns="x", decimals=0, scale_by=scale_by)
+    x = _get_column_of_values(gt, column_name="x", context="html")
+    assert x == ["$1,234,567,890,123,456,789,000", "−$9,007,199,254,740,993,000"]
+
+
+def test_large_integers_percent_and_partsper_keep_all_digits(
+    frame_constructor: DataFrameConstructor,
+):
+    df = frame_constructor({"x": [12345678901234567]})
+
+    gt = GT(df).fmt_percent(columns="x", decimals=0)
+    assert _get_column_of_values(gt, column_name="x", context="html") == [
+        "1,234,567,890,123,456,700%"
+    ]
+
+    gt = GT(df).fmt_percent(columns="x", decimals=0, scale_values=False)
+    assert _get_column_of_values(gt, column_name="x", context="html") == ["12,345,678,901,234,567%"]
+
+    gt = GT(df).fmt_partsper(columns="x", to_units="ppm", decimals=0)
+    assert _get_column_of_values(gt, column_name="x", context="html") == [
+        "12,345,678,901,234,567,000,000 ppm"
+    ]
+
+    gt = GT(df).fmt_partsper(columns="x", decimals=0, scale_values=False)
+    assert _get_column_of_values(gt, column_name="x", context="html") == ["12,345,678,901,234,567‰"]
+
+
+def test_fmt_percent_and_partsper_decimal_column(frame_constructor: DataFrameConstructor):
+    # The scale factors are integers, so `Decimal` values can be scaled (`Decimal * float` raises)
+    df = frame_constructor({"x": [Decimal("0.125"), Decimal("1.5")]})
+
+    gt = GT(df).fmt_percent(columns="x", decimals=1)
+    assert _get_column_of_values(gt, column_name="x", context="html") == ["12.5%", "150.0%"]
+
+    gt = GT(df).fmt_partsper(columns="x", decimals=0)
+    assert _get_column_of_values(gt, column_name="x", context="html") == ["125‰", "1,500‰"]
+
+
+@pytest.mark.parametrize(
+    "scale_by", [2.5, np.float64(2.5), Decimal("2.5")], ids=["float", "np.float64", "Decimal"]
+)
+def test_decimal_column_float_scale_by(frame_constructor: DataFrameConstructor, scale_by):
+    # `Decimal * float` raises, so a float factor is turned into a `Decimal` (2.5 stays exact)
+    df = frame_constructor({"x": [Decimal("0.125"), Decimal("1.5")]})
+
+    gt = GT(df).fmt_number(columns="x", decimals=4, scale_by=scale_by)
+    assert _get_column_of_values(gt, column_name="x", context="html") == ["0.3125", "3.7500"]
+
+    gt = GT(df).fmt_currency(columns="x", scale_by=scale_by)
+    assert _get_column_of_values(gt, column_name="x", context="html") == ["$0.31", "$3.75"]
+
+
+# `convert_dtypes()` warns when it checks whether `inf` is a whole number
+@pytest.mark.filterwarnings("ignore:invalid value encountered:RuntimeWarning")
+def test_float_column_decimal_scale_by(frame_constructor: DataFrameConstructor):
+    # A `Decimal` factor for floats is turned into a float, so non-finite values stay floats
+    df = frame_constructor({"x": [0.125, 1.5, float("inf")]})
+
+    gt = GT(df).fmt_number(columns="x", decimals=4, scale_by=Decimal("2.5"))
+    assert _get_column_of_values(gt, column_name="x", context="html") == ["0.3125", "3.7500", "inf"]
+
+
+@pytest.mark.parametrize(
+    "x,x_out",
+    [
+        # 6.7405e-05 is stored as 6.74049999...e-05 and 9.395e-12 as 9.39500000...3e-12
+        (6.7405e-05, "67.40E−06"),
+        (-6.7405e-05, "−67.40E−06"),
+        (9.395e-12, "9.40E−12"),
+        # An exact tie rounds half to even, as in `fmt_scientific()`
+        (4565.0, "4.56E03"),
+        (12345, "12.34E03"),
+        # Subnormal values, where `10**-324` underflows to `0.0`
+        (2.5e-320, "25.00E−321"),
+        (5e-324, "4.94E−324"),
+    ],
+)
+def test_fmt_engineering_rounds_once_from_stored_value(x: float, x_out: str):
+    # The mantissa is rounded once, from the stored value, as in `fmt_scientific()` (#981)
+    assert vals.fmt_engineering(x, exp_style="E") == [x_out]
+
+
+def test_fmt_engineering_agrees_with_fmt_scientific():
+    # Where the exponent is a multiple of 3, the two notations give the same digits
+    for x in [9.395e-12, 4565.0, 1.2345e6, 8.585e-6, 6.2265e9]:
+        assert vals.fmt_engineering(x, n_sigfig=3, exp_style="E") == vals.fmt_scientific(
+            x, n_sigfig=3, exp_style="E"
+        )
+
+
+@pytest.mark.parametrize(
+    "fn,x,x_out",
+    [
+        (vals.fmt_number_si, 6.7405e-05, "67.40 µ"),
+        (vals.fmt_number_si, 8.585e-06, "8.58 µ"),
+        (vals.fmt_number_si, 12345, "12.34 k"),
+        (lambda x: vals.fmt_number(x, compact=True), 67405.0, "67.40K"),
+        (lambda x: vals.fmt_number(x, compact=True), 12345, "12.34K"),
+        (lambda x: vals.fmt_number(x, compact=True), -339255.0, "−339.26K"),
+    ],
+)
+def test_si_and_compact_round_once_from_stored_value(fn, x: float, x_out: str):
+    assert fn(x) == [x_out]
+
+
+def test_large_integers_engineering_si_compact_keep_all_digits(
+    frame_constructor: DataFrameConstructor,
+):
+    df = frame_constructor({"x": [1234567890123456789]})
+
+    gt = GT(df).fmt_engineering(columns="x", n_sigfig=19, exp_style="E")
+    assert _get_column_of_values(gt, column_name="x", context="html") == ["1.234567890123456789E18"]
+
+    gt = GT(df).fmt_number(columns="x", compact=True, decimals=15)
+    assert _get_column_of_values(gt, column_name="x", context="html") == ["1,234.567890123456789Q"]
+
+    gt = GT(df).fmt_number_si(columns="x", n_sigfig=19)
+    assert _get_column_of_values(gt, column_name="x", context="html") == ["1.234567890123456789 E"]
+
+
+def test_decimal_column_engineering_and_si(frame_constructor: DataFrameConstructor):
+    df = frame_constructor({"x": [Decimal("0.125"), Decimal("1500")]})
+
+    gt = GT(df).fmt_engineering(columns="x", exp_style="E")
+    assert _get_column_of_values(gt, column_name="x", context="html") == ["125.00E−03", "1.50E03"]
+
+    gt = GT(df).fmt_number_si(columns="x")
+    assert _get_column_of_values(gt, column_name="x", context="html") == ["125.00 m", "1.50 k"]
+
+
+def test_scaled_values_ignore_decimal_context():
+    from decimal import ROUND_HALF_UP, Context, localcontext
+
+    # A changed `decimal` context (low precision, rounding half up) doesn't change the output
+    with localcontext(Context(prec=3, rounding=ROUND_HALF_UP)):
+        assert vals.fmt_engineering([4565.0, 5e-324], exp_style="E") == ["4.56E03", "4.94E−324"]
+        assert vals.fmt_number_si(1234567890123456789, n_sigfig=19) == ["1.234567890123456789 E"]
+        assert vals.fmt_number(67405.0, compact=True) == ["67.40K"]
+
+
+def test_shift_decimal_point_is_exact():
+    from decimal import Context
+
+    exact = Decimal(6.7405e-05).scaleb(6, Context(prec=100))
+    assert _shift_decimal_point(6.7405e-05, 6) == exact
+    assert str(exact).startswith("67.4049999")
+    assert _shift_decimal_point(1234567890123456789, -18) == Decimal("1.234567890123456789")
+    assert _shift_decimal_point(Decimal("0.125"), 3) == 125
+    # The value is returned as is when it isn't shifted
+    assert _shift_decimal_point(1.5, 0) == 1.5 and isinstance(_shift_decimal_point(1.5, 0), float)
+
+
+@pytest.mark.parametrize(
+    "x,exponent",
+    [
+        (1000.0, 3),
+        (999.9999999999999, 2),
+        # 1e-06 is stored as 9.99999...e-07 (`fmt_engineering()` still gives `1.00E−06`, as the
+        # rounded mantissa carries)
+        (1e-6, -7),
+        (5e-324, -324),
+        (-0.125, -1),
+        (10**400, 400),
+        (Decimal("0.125"), -1),
+    ],
+)
+def test_decimal_exponent(x, exponent: int):
+    assert _decimal_exponent(x) == exponent
+
+
+def test_large_integers_n_sigfig_keep_all_digits(frame_constructor: DataFrameConstructor):
+    df = frame_constructor({"x": [1234567890123456789, -9007199254740993]})
+
+    gt = GT(df).fmt_number(columns="x", n_sigfig=19)
+    x = _get_column_of_values(gt, column_name="x", context="html")
+    assert x == ["1,234,567,890,123,456,789", "−9,007,199,254,740,993.000"]
+
+    # Rounding to fewer digits rounds the integer itself, not its float approximation
+    gt = GT(df).fmt_number(columns="x", n_sigfig=18)
+    x = _get_column_of_values(gt, column_name="x", context="html")
+    assert x == ["1,234,567,890,123,456,790", "−9,007,199,254,740,993.00"]
+
+    gt = GT(df).fmt_scientific(columns="x", n_sigfig=19, exp_style="E")
+    x = _get_column_of_values(gt, column_name="x", context="html")
+    assert x == ["1.234567890123456789E18", "−9.007199254740993000E15"]
+
+
+def test_integer_n_sigfig_ignores_decimal_context_rounding():
+    import decimal
+
+    # Integers are rounded half to even (as floats are), whatever the active `decimal` context
+    with decimal.localcontext() as ctx:
+        ctx.rounding = decimal.ROUND_DOWN
+        assert vals.fmt_number([125, 135, 129], n_sigfig=2) == ["120", "140", "130"]
+        assert vals.fmt_scientific([125, 129], n_sigfig=2, exp_style="E") == ["1.2E02", "1.3E02"]
 
 
 @pytest.mark.parametrize(
@@ -1074,6 +1316,23 @@ def test_format_number_fixed_decimals(value: Union[int, float], x_out: str):
 )
 def test_format_number_n_sigfig_3(value, out: str):
     assert _format_number_n_sigfig(value, 3) == out
+
+
+@pytest.mark.parametrize(
+    "value,n_sigfig,out",
+    [
+        # Each value is stored slightly above the halfway point (e.g., 32.85 is
+        # 32.850000000000001...), so it rounds up, as it does with `decimals=`
+        (32.85, 3, "32.9"),
+        (-79.65, 3, "-79.7"),
+        (3.45, 2, "3.5"),
+        # Very small values must not overflow when scaled up to their significant digits
+        (1e-310, 2, "0." + "0" * 309 + "10"),
+        (5e-324, 1, "0." + "0" * 323 + "5"),
+    ],
+)
+def test_format_number_n_sigfig_rounds_stored_value(value: float, n_sigfig: int, out: str):
+    assert _format_number_n_sigfig(value, n_sigfig) == out
 
 
 @pytest.mark.parametrize(
@@ -1137,7 +1396,11 @@ def test_format_number_with_sep_dec_marks():
 @pytest.mark.parametrize(
     "fmt_scientific_kwargs,x_in,x_out",
     [
-        (dict(decimals=2), [123456789], ["1.23 × 10<sup style='font-size: 65%;'>8</sup>"]),
+        (
+            dict(decimals=2),
+            [123456789],
+            ["1.23&nbsp;×&nbsp;10<sup style='font-size: 65%;'>8</sup>"],
+        ),
         (dict(exp_style="low-ten"), [123456789], ["1.23<sub style='font-size: 65%;'>10</sub>08"]),
         (dict(exp_style="E"), [123456789, 123123123123], ["1.23E08", "1.23E11"]),
         (dict(exp_style="E1"), [123456789, 123123123123], ["1.23E8", "1.23E11"]),
@@ -1173,9 +1436,9 @@ def test_fmt_scientific_case(
         (
             dict(decimals=2),
             [
-                "1.00 × 10<sup style='font-size: 65%;'>1</sup>",
-                "−1.00 × 10<sup style='font-size: 65%;'>1</sup>",
-                "1.00 × 10<sup style='font-size: 65%;'>5</sup>",
+                "1.00&nbsp;×&nbsp;10<sup style='font-size: 65%;'>1</sup>",
+                "−1.00&nbsp;×&nbsp;10<sup style='font-size: 65%;'>1</sup>",
+                "1.00&nbsp;×&nbsp;10<sup style='font-size: 65%;'>5</sup>",
                 "1.00",
                 "9.99",
             ],
@@ -1286,6 +1549,36 @@ def test_value_to_scientific_notation_exact_powers_of_ten(value: float, n_sigfig
     assert _value_to_scientific_notation(value, n_sigfig=n_sigfig) == x_out
 
 
+@pytest.mark.parametrize(
+    "value,n_sigfig,x_out",
+    [
+        # The mantissa is rounded from the stored value, as `format(value, ".2e")` does
+        (32.85, 3, "3.29E1"),
+        (9.315e-08, 3, "9.31E-8"),
+        (5.125e-25, 3, "5.13E-25"),
+        # Values near the bottom of the float range (subnormals included) don't overflow
+        (1e-308, 3, "1.00E-308"),
+        (1.5e-310, 2, "1.5E-310"),
+        (-5e-324, 1, "-5E-324"),
+    ],
+)
+def test_value_to_scientific_notation_rounds_stored_value(value: float, n_sigfig: int, x_out: str):
+    assert _value_to_scientific_notation(value, n_sigfig=n_sigfig) == x_out
+
+
+def test_fmt_number_n_sigfig_matches_decimals():
+    # With three significant digits these values have one decimal place, so `n_sigfig=3` and
+    # `decimals=1` should round them the same way
+    df = pd.DataFrame({"x": [32.85, 75.35, -79.65, 39.15]})
+    x_sigfig = _get_column_of_values(
+        GT(df).fmt_number(columns="x", n_sigfig=3), column_name="x", context="html"
+    )
+    x_decimals = _get_column_of_values(
+        GT(df).fmt_number(columns="x", decimals=1), column_name="x", context="html"
+    )
+    assert x_sigfig == x_decimals == ["32.9", "75.3", "−79.7", "39.1"]
+
+
 # ------------------------------------------------------------------------------
 # Tests of `fmt_engineering()`
 # ------------------------------------------------------------------------------
@@ -1306,12 +1599,12 @@ def test_value_to_scientific_notation_exact_powers_of_ten(value: float, n_sigfig
                 0.0000123456,  # Very small (10^-6)
             ],
             [
-                "829.30 × 10<sup style='font-size: 65%;'>18</sup>",
-                "2.32 × 10<sup style='font-size: 65%;'>6</sup>",
-                "1.00 × 10<sup style='font-size: 65%;'>3</sup>",
+                "829.30&nbsp;×&nbsp;10<sup style='font-size: 65%;'>18</sup>",
+                "2.32&nbsp;×&nbsp;10<sup style='font-size: 65%;'>6</sup>",
+                "1.00&nbsp;×&nbsp;10<sup style='font-size: 65%;'>3</sup>",
                 "10.00",
-                "123.45 × 10<sup style='font-size: 65%;'>−3</sup>",
-                "12.35 × 10<sup style='font-size: 65%;'>−6</sup>",
+                "123.45&nbsp;×&nbsp;10<sup style='font-size: 65%;'>−3</sup>",
+                "12.35&nbsp;×&nbsp;10<sup style='font-size: 65%;'>−6</sup>",
             ],
         ),
         # Negative values
@@ -1319,9 +1612,9 @@ def test_value_to_scientific_notation_exact_powers_of_ten(value: float, n_sigfig
             dict(decimals=2),
             [-50000.01, -10.00001, -0.12345],
             [
-                "−50.00 × 10<sup style='font-size: 65%;'>3</sup>",
+                "−50.00&nbsp;×&nbsp;10<sup style='font-size: 65%;'>3</sup>",
                 "−10.00",
-                "−123.45 × 10<sup style='font-size: 65%;'>−3</sup>",
+                "−123.45&nbsp;×&nbsp;10<sup style='font-size: 65%;'>−3</sup>",
             ],
         ),
         # exp_style="E" format
@@ -1349,9 +1642,9 @@ def test_value_to_scientific_notation_exact_powers_of_ten(value: float, n_sigfig
             dict(decimals=2, force_sign_m=True),
             [-3453, 0, 82794],
             [
-                "−3.45 × 10<sup style='font-size: 65%;'>3</sup>",
+                "−3.45&nbsp;×&nbsp;10<sup style='font-size: 65%;'>3</sup>",
                 "0.00",
-                "+82.79 × 10<sup style='font-size: 65%;'>3</sup>",
+                "+82.79&nbsp;×&nbsp;10<sup style='font-size: 65%;'>3</sup>",
             ],
         ),
         # force_sign_n: positive/negative exponents
@@ -1359,8 +1652,8 @@ def test_value_to_scientific_notation_exact_powers_of_ten(value: float, n_sigfig
             dict(decimals=2, force_sign_n=True),
             [-0.000234, 82794],
             [
-                "−234.00 × 10<sup style='font-size: 65%;'>−6</sup>",
-                "82.79 × 10<sup style='font-size: 65%;'>+3</sup>",
+                "−234.00&nbsp;×&nbsp;10<sup style='font-size: 65%;'>−6</sup>",
+                "82.79&nbsp;×&nbsp;10<sup style='font-size: 65%;'>+3</sup>",
             ],
         ),
         # force_sign_m and force_sign_n combined
@@ -1368,9 +1661,9 @@ def test_value_to_scientific_notation_exact_powers_of_ten(value: float, n_sigfig
             dict(decimals=2, force_sign_m=True, force_sign_n=True),
             [-3453, 0, 82794],
             [
-                "−3.45 × 10<sup style='font-size: 65%;'>+3</sup>",
+                "−3.45&nbsp;×&nbsp;10<sup style='font-size: 65%;'>+3</sup>",
                 "0.00",
-                "+82.79 × 10<sup style='font-size: 65%;'>+3</sup>",
+                "+82.79&nbsp;×&nbsp;10<sup style='font-size: 65%;'>+3</sup>",
             ],
         ),
         # pattern
@@ -1378,8 +1671,8 @@ def test_value_to_scientific_notation_exact_powers_of_ten(value: float, n_sigfig
             dict(decimals=2, pattern="a {x} b"),
             [1234.5, 0.000123],
             [
-                "a 1.23 × 10<sup style='font-size: 65%;'>3</sup> b",
-                "a 123.00 × 10<sup style='font-size: 65%;'>−6</sup> b",
+                "a 1.23&nbsp;×&nbsp;10<sup style='font-size: 65%;'>3</sup> b",
+                "a 123.00&nbsp;×&nbsp;10<sup style='font-size: 65%;'>−6</sup> b",
             ],
         ),
         # scale_by
@@ -1387,7 +1680,7 @@ def test_value_to_scientific_notation_exact_powers_of_ten(value: float, n_sigfig
             dict(decimals=2, scale_by=1 / 1000),
             [492032183020.5, 50000.01],
             [
-                "492.03 × 10<sup style='font-size: 65%;'>6</sup>",
+                "492.03&nbsp;×&nbsp;10<sup style='font-size: 65%;'>6</sup>",
                 "50.00",
             ],
         ),
@@ -1396,9 +1689,9 @@ def test_value_to_scientific_notation_exact_powers_of_ten(value: float, n_sigfig
             dict(decimals=5),
             [-1.5e200, 2.5, 3.5e200],
             [
-                "−150.00000 × 10<sup style='font-size: 65%;'>198</sup>",
+                "−150.00000&nbsp;×&nbsp;10<sup style='font-size: 65%;'>198</sup>",
                 "2.50000",
-                "350.00000 × 10<sup style='font-size: 65%;'>198</sup>",
+                "350.00000&nbsp;×&nbsp;10<sup style='font-size: 65%;'>198</sup>",
             ],
         ),
         # Rounding carries the mantissa up to 1000, so the next power of 1000 is used
@@ -1406,11 +1699,11 @@ def test_value_to_scientific_notation_exact_powers_of_ten(value: float, n_sigfig
             dict(decimals=2),
             [999999.5, -999999.5, 999.9999, 0.0009999999, 999499.0],
             [
-                "1.00 × 10<sup style='font-size: 65%;'>6</sup>",
-                "−1.00 × 10<sup style='font-size: 65%;'>6</sup>",
-                "1.00 × 10<sup style='font-size: 65%;'>3</sup>",
-                "1.00 × 10<sup style='font-size: 65%;'>−3</sup>",
-                "999.50 × 10<sup style='font-size: 65%;'>3</sup>",
+                "1.00&nbsp;×&nbsp;10<sup style='font-size: 65%;'>6</sup>",
+                "−1.00&nbsp;×&nbsp;10<sup style='font-size: 65%;'>6</sup>",
+                "1.00&nbsp;×&nbsp;10<sup style='font-size: 65%;'>3</sup>",
+                "1.00&nbsp;×&nbsp;10<sup style='font-size: 65%;'>−3</sup>",
+                "999.50&nbsp;×&nbsp;10<sup style='font-size: 65%;'>3</sup>",
             ],
         ),
         (
@@ -1423,10 +1716,12 @@ def test_value_to_scientific_notation_exact_powers_of_ten(value: float, n_sigfig
         (
             dict(decimals=2, dec_mark=""),
             [999999.5],
-            ["100 × 10<sup style='font-size: 65%;'>6</sup>"],
+            ["100&nbsp;×&nbsp;10<sup style='font-size: 65%;'>6</sup>"],
         ),
-        # At a halfway value the carried mantissa is exactly 1, not a rounded-down `0.9`
-        (dict(n_sigfig=1, exp_style="E"), [9.5e-19], ["1E−18"]),
+        # The carried mantissa is exactly 1, not a rounded-down `0.9`
+        (dict(n_sigfig=1, exp_style="E"), [9.6e-19], ["1E−18"]),
+        # 9.5e-19 is stored as 9.4999...e-19, so it rounds down, as in `fmt_scientific()` (#981)
+        (dict(n_sigfig=1, exp_style="E"), [9.5e-19], ["900E−21"]),
         (dict(exp_style="E"), [0.0], ["0.00E00"]),
     ],
 )
@@ -1440,13 +1735,20 @@ def test_fmt_engineering_case(
     assert x == x_out
 
 
-def test_fmt_engineering_with_missing_values():
-    df = pd.DataFrame({"x": [1234.5, None, float("nan"), 0.000123]})
+def test_fmt_engineering_with_missing_values(frame_constructor: DataFrameConstructor):
+    df = frame_constructor({"x": [1234.5, None, float("nan"), 0.000123]})
     gt = GT(df).fmt_engineering(columns="x", decimals=2)
-    x = _get_column_of_values(gt, column_name="x", context="html")
 
-    assert x[1] == "<NA>"
-    assert x[2] == "<NA>"
+    # Undecided: how a float NaN should render. Formatters skip it as missing on every backend,
+    # and `sub_missing()` replaces it, but polars and pyarrow keep NaN apart from null, so left as
+    # is it renders `NaN` there and `None` on pandas, where NaN is the missing value
+    nan_cell = by_backend(df, pandas="None", polars="NaN", pyarrow="NaN")
+    assert body_cells(gt) == [
+        "1.23&nbsp;×&nbsp;10<sup style='font-size: 65%;'>3</sup>",
+        "None",
+        nan_cell,
+        "123.00&nbsp;×&nbsp;10<sup style='font-size: 65%;'>−6</sup>",
+    ]
 
 
 def test_fmt_engineering_exp_style_force_sign():
@@ -1511,6 +1813,12 @@ FMT_CURRENCY_CASES: list[tuple[dict[str, Any], list[str]]] = [
     (dict(incl_space=True), ["$ 1,234,567.00", "−$ 5,432.37"]),
     (dict(compact=True), ["$1.23M", "−$5.43K"]),
     (dict(currency="LSL"), ["M1,234,567.00", "−M5,432.37"]),
+    (dict(currency="CRC"), ["&#8353;1,234,567.00", "−&#8353;5,432.37"]),
+    (dict(currency="BGN"), ["&#1083;&#1074;1,234,567.00", "−&#1083;&#1074;5,432.37"]),
+    (dict(currency="BYN"), ["Br1,234,567.00", "−Br5,432.37"]),
+    (dict(currency="MRU"), ["UM1,234,567.00", "−UM5,432.37"]),
+    (dict(currency="STN"), ["Db1,234,567.00", "−Db5,432.37"]),
+    (dict(currency="VES"), ["Bs.S1,234,567.00", "−Bs.S5,432.37"]),
 ]
 
 
@@ -1546,6 +1854,7 @@ def test_fmt_currency_force_sign():
         ("JPY", ["¥1,234", "-¥2"]),
         ("BRL", ["R\\$1,234.50", "-R\\$2.00"]),
         ("CHF", ["SFr.1,234.50", "-SFr.2.00"]),
+        ("BGN", ["лв1,234.50", "-лв2.00"]),
     ],
 )
 def test_fmt_currency_latex_symbols(currency: str, x_out: list[str]):
@@ -1565,7 +1874,12 @@ def test_fmt_currency_all_currencies(context: str):
     for i, code in enumerate(codes):
         gt = gt.fmt_currency(columns="x", rows=[i], currency=code)
     x = _get_column_of_values(gt, column_name="x", context=context)
+    if context == "html":
+        # Check the text a browser shows, so that a symbol can't run into the digits after it
+        x = [html.unescape(x_i) for x_i in x]
     assert all("1,23" in x_i for x_i in x)
+    # No invisible characters (like a zero-width non-joiner) in the symbols
+    assert all(x_i.isprintable() for x_i in x)
 
 
 @pytest.mark.parametrize("currency", ["XAG", "XAU", "XDR", "XPD", "XPT", "XSU", "XUA"])
@@ -1574,6 +1888,32 @@ def test_fmt_currency_no_minor_unit(currency: str):
     assert _get_currency_exponent(currency) == 0
     x = vals.fmt_currency([1234.5], currency=currency)
     assert x[0].endswith("1,234") or x[0].endswith("1,235")
+
+
+def test_fmt_currency_locale_currency_codes():
+    # Every locale's currency code is in the currency data, so `fmt_currency()` works with
+    # just `locale=`
+    codes = {entry["curr_code"] for entry in _locale._get_currencies_data()}
+    missing = {
+        entry["locale"]: entry["currency_code"]
+        for entry in _locale._get_locales_data()
+        if entry["currency_code"] and entry["currency_code"] not in codes
+    }
+    assert missing == {}
+
+
+@pytest.mark.parametrize(
+    "locale,x_out",
+    [
+        ("be", "Br1234,50"),
+        ("ar-MR", "UM1.234,50"),
+        ("pt-ST", "Db1234,50"),
+        ("es-VE", "Bs.S1.234,50"),
+    ],
+)
+def test_fmt_currency_locale_default_currency(locale: str, x_out: str):
+    # The locale's own currency is used when `currency=` isn't given
+    assert vals.fmt_currency([1234.5], locale=locale) == [x_out]
 
 
 # ------------------------------------------------------------------------------
@@ -1621,15 +1961,17 @@ def test_fmt_time_datetime_strings():
     assert x == ["10:59:59", "13:23:59", "23:15:00"]
 
 
-def test_fmt_time_datetime_values():
+def test_fmt_time_datetime_values(frame_constructor: DataFrameConstructor):
     # `datetime` values use their time part, as datetime strings do (and missing values pass)
-    df_pd = pd.DataFrame({"x": pd.to_datetime(["2024-01-05 10:59:59", None])})
-    gt = GT(df_pd).fmt_time(columns="x", time_style="iso")
-    assert _get_column_of_values(gt, column_name="x", context="html") == ["10:59:59", "<NA>"]
+    df = frame_constructor(
+        {"x": [datetime(2024, 1, 5, 10, 59, 59), None, datetime(2024, 1, 5, 13, 23, 59)]}
+    )
 
-    df_pl = pl.DataFrame({"x": [datetime(2024, 1, 5, 13, 23, 59)]})
-    gt = GT(df_pl).fmt_time(columns="x", time_style="h_m_p")
-    assert _get_column_of_values(gt, column_name="x", context="html") == ["1:23 PM"]
+    gt = GT(df).fmt_time(columns="x", time_style="iso")
+    assert body_cells(gt) == ["10:59:59", "None", "13:23:59"]
+
+    gt = GT(df).fmt_time(columns="x", time_style="h_m_p")
+    assert body_cells(gt) == ["10:59 AM", "None", "1:23 PM"]
 
 
 def test_fmt_time_date_string_raises():
@@ -1777,6 +2119,18 @@ def test_fmt_datetime_format_str():
     ]
 
 
+@pytest.mark.parametrize("locale", ["en", "de", "fr-CA"])
+def test_fmt_datetime_format_str_with_table_locale(locale: str):
+    # A `strftime()` format string isn't localized, so the table locale shouldn't stop it from
+    # being used
+    df = pd.DataFrame({"x": ["2013-05-15 23:15", "2020-05-20"]})
+
+    gt = GT(df, locale=locale).fmt_datetime(columns="x", format_str="%d.%m.%Y %H:%M")
+
+    x = _get_column_of_values(gt, column_name="x", context="html")
+    assert x == ["15.05.2013 23:15", "20.05.2020 00:00"]
+
+
 def test_fmt_datetime_bad_date_style_raises():
     df = pd.DataFrame(
         {
@@ -1793,6 +2147,383 @@ def test_fmt_datetime_bad_date_style_raises():
         )
 
     assert "date_style must be one of:" in exc_info.value.args[0]
+
+
+@pytest.mark.parametrize("sep", ["", "'", " o'clock ", "''", " T "])
+@pytest.mark.parametrize("date_style", ["iso", "year_week"])
+def test_fmt_datetime_sep_is_literal(sep: str, date_style: str):
+    # `sep=` was put into one CLDR pattern with the date and time, so a quote in it (or an empty
+    # one, which made `''`) broke the output (e.g., `" o'clock "` gave `" o3lo314 "`)
+    gt = GT(pl.DataFrame({"x": [datetime(2000, 2, 29, 14, 35)]})).fmt_datetime(
+        columns="x", date_style=date_style, sep=sep
+    )
+    date_str = "2000-02-29" if date_style == "iso" else "2000-W09"
+    assert _get_column_of_values(gt, column_name="x", context="html") == [
+        f"{date_str}{sep}14:35:00"
+    ]
+
+
+# ------------------------------------------------------------------------------
+# Test the flexible date and time styles
+# ------------------------------------------------------------------------------
+
+# Outputs for 2000-02-29 14:35:00; these agree with R gt (via bigD) except where CLDR has changed
+# since bigD's data (e.g., `de` "Di.," for "Di,") and where bigD has bugs (`en` `"GyMd"` gives
+# `"2/29/2000 A"`, and the `ja` 12-hour styles give `午後1:35` since bigD's `K` hour is off by one)
+FLEX_DATE_STYLE_CASES = {
+    "en": {
+        "yMd": "2/29/2000",
+        "yMEd": "Tue, 2/29/2000",
+        "yMMMd": "Feb 29, 2000",
+        "GyMd": "2/29/2000 AD",
+        "yQQQQ": "1st quarter 2000",
+        "Ed": "29 Tue",
+    },
+    "de": {
+        "yMd": "29.2.2000",
+        "yMEd": "Di., 29.2.2000",
+        "yMMMd": "29. Feb. 2000",
+        "GyMd": "29.02.2000 n. Chr.",
+        "yQQQQ": "1. Quartal 2000",
+        "Ed": "Di., 29.",
+    },
+    "ja": {
+        "yMd": "2000/2/29",
+        "yMEd": "2000/2/29(火)",
+        "yMMMd": "2000年2月29日",
+        "GyMd": "西暦2000/2/29",
+        "yQQQQ": "2000年第1四半期",
+        "Ed": "29日(火)",
+    },
+}
+
+FLEX_TIME_STYLE_CASES = {
+    "en": {
+        "Hm": "14:35",
+        "H": "14",
+        "EHm": "Tue 14:35",
+        "hm": "2:35 PM",
+        "Bhm": "2:35 in the afternoon",
+    },
+    "de": {
+        "Hm": "14:35",
+        "H": "14 Uhr",
+        "EHm": "Di., 14:35",
+        "hm": "2:35 PM",
+        "Bhm": "2:35 nachm.",
+    },
+    "ja": {"Hm": "14:35", "H": "14時", "EHm": "14:35 (火)", "hm": "午後2:35", "Bhm": "昼2:35"},
+}
+
+
+@pytest.mark.parametrize("locale", ["en", "de", "ja"])
+def test_fmt_date_flexible_styles_follow_locale(locale: str):
+    for date_style, expected in FLEX_DATE_STYLE_CASES[locale].items():
+        assert vals.fmt_date(["2000-02-29"], date_style=date_style, locale=locale) == [expected]
+
+
+@pytest.mark.parametrize("locale", ["en", "de", "ja"])
+def test_fmt_time_flexible_styles_follow_locale(locale: str):
+    for time_style, expected in FLEX_TIME_STYLE_CASES[locale].items():
+        x = vals.fmt_time(["2000-02-29 14:35:00"], time_style=time_style, locale=locale)
+        assert x == [expected]
+
+
+def test_fmt_datetime_flexible_styles_with_table_locale():
+    df = pl.DataFrame({"x": [datetime(2000, 2, 29, 14, 35)]})
+    gt = GT(df, locale="de").fmt_datetime(columns="x", date_style="yMMMEd", time_style="Hm")
+    assert _get_column_of_values(gt, column_name="x", context="html") == [
+        "Di., 29. Feb. 2000 14:35"
+    ]
+
+
+def _docstring_style_table(docstring: str, header: str) -> dict[str, str]:
+    # The rows of a docstring table of styles, as `| 1 | `"style"` | `"output"` | notes |`
+    table = docstring[docstring.index(header) :].split("\n\n")[0]
+    rows = re.findall(r'^\s*\|\s*\d+\s*\|\s*`"(.+?)"`\s*\|\s*`"(.+?)"`', table, re.MULTILINE)
+    return dict(rows)
+
+
+@pytest.mark.parametrize("method", [GT.fmt_date, GT.fmt_datetime, vals.fmt_date])
+def test_date_style_docstring_tables_match_output(method):
+    table = _docstring_style_table(method.__doc__, "| Date Style ")
+    assert len(table) == 41
+    for date_style, expected in table.items():
+        assert vals.fmt_date(["2000-02-29"], date_style=date_style) == [expected], date_style
+
+
+@pytest.mark.parametrize("method", [GT.fmt_time, GT.fmt_datetime, vals.fmt_time])
+def test_time_style_docstring_tables_match_output(method):
+    table = _docstring_style_table(method.__doc__, "| Time Style ")
+    assert len(table) == 25
+    for time_style, expected in table.items():
+        x = vals.fmt_time(["2000-02-29 14:35:00"], time_style=time_style)
+        assert x == [expected], time_style
+
+
+@pytest.mark.parametrize("time_style", ["EHm", "EHms", "Ehm", "Ehms", "EBhms", "EBhm"])
+def test_fmt_time_weekday_style_needs_a_date(
+    frame_constructor: DataFrameConstructor, time_style: str
+):
+    # Datetimes (and datetime strings) show their own weekday: 2024-01-05 is a Friday
+    df = frame_constructor({"x": [datetime(2024, 1, 5, 14, 35)]})
+    x = _get_column_of_values(
+        GT(df).fmt_time(columns="x", time_style=time_style), column_name="x", context="html"
+    )
+    assert x[0].startswith("Fri ")
+    assert vals.fmt_time(["2024-01-05 14:35"], time_style=time_style)[0].startswith("Fri ")
+
+    # A time has no date (Babel would take today's), so it raises
+    with pytest.raises(ValueError, match="has no date"):
+        vals.fmt_time(["14:35"], time_style=time_style)
+
+    df_time = frame_constructor({"x": [time(14, 35)]})
+    with pytest.raises(ValueError, match="has no date"):
+        _get_column_of_values(
+            GT(df_time).fmt_time(columns="x", time_style=time_style),
+            column_name="x",
+            context="html",
+        )
+
+
+@pytest.mark.parametrize(
+    "tzinfo,expected",
+    [
+        # A naive value is taken to be in UTC
+        (None, "2:35 PM UTC"),
+        (timezone.utc, "2:35 PM UTC"),
+        (ZoneInfo("UTC"), "2:35 PM UTC"),
+        (ZoneInfo("Etc/UTC"), "2:35 PM UTC"),
+        (timezone(timedelta(hours=-5)), "2:35 PM -0500"),
+        # Zones with a generic name use it (and the value is shown in its own zone)
+        (ZoneInfo("America/New_York"), "2:35 PM ET"),
+        (ZoneInfo("US/Eastern"), "2:35 PM ET"),
+        (ZoneInfo("Asia/Kolkata"), "2:35 PM India Time"),
+    ],
+)
+def test_fmt_time_zone_styles(tzinfo, expected: str):
+    # Babel names a zone without a generic name as "Unknown Region (UTC) Time"; the specific name
+    # (or the offset) is used for those instead (an object column keeps the `tzinfo` as given)
+    df = pd.DataFrame(
+        {"x": pd.Series([datetime(2000, 2, 29, 14, 35, tzinfo=tzinfo)], dtype=object)}
+    )
+    gt = GT(df).fmt_time(columns="x", time_style="hmv")
+    assert _get_column_of_values(gt, column_name="x", context="html") == [expected]
+
+    gt = GT(df).fmt_datetime(columns="x", time_style="hmv", sep=", ")
+    assert _get_column_of_values(gt, column_name="x", context="html") == [f"2000-02-29, {expected}"]
+
+
+def test_fmt_time_zone_style_on_time_values(frame_constructor: DataFrameConstructor):
+    df = frame_constructor({"x": [time(14, 35)]})
+    gt = GT(df).fmt_time(columns="x", time_style="Hmsv")
+    assert _get_column_of_values(gt, column_name="x", context="html") == ["14:35:00 UTC"]
+
+
+@pytest.mark.parametrize(
+    "method,kwargs,match",
+    [
+        (vals.fmt_date, dict(date_style="yMMMMd"), "date_style must be one of:.*, Ed$"),
+        (vals.fmt_time, dict(time_style="hmz"), "time_style must be one of:.*, ms$"),
+        (vals.fmt_datetime, dict(time_style="HHmm"), "time_style must be one of:"),
+    ],
+)
+def test_flexible_style_invalid_raises(method, kwargs: dict[str, Any], match: str):
+    with pytest.raises(ValueError, match=match):
+        method(["2000-02-29 14:35"], **kwargs)
+
+
+# ------------------------------------------------------------------------------
+# Test CLDR patterns in `fmt_datetime(format_str=)`
+# ------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "format_str,locale,expected",
+    [
+        ("EEEE, d MMMM y", None, "Tuesday, 29 February 2000"),
+        ("EEEE, d MMMM y", "de", "Dienstag, 29 Februar 2000"),
+        ("EEEE d MMMM y 'à' HH'h'mm", "fr", "mardi 29 février 2000 à 14h35"),
+        ("h 'o''clock' a", None, "2 o'clock PM"),
+        ("QQQQ y", "en", "1st quarter 2000"),
+        ("y年M月d日 H:mm", "ja", "2000年2月29日 14:35"),
+        ("yyyy-MM-dd'T'HH:mm:ssxxx", None, "2000-02-29T14:35:00+00:00"),
+    ],
+)
+def test_fmt_datetime_format_str_cldr(format_str: str, locale: str | None, expected: str):
+    df = pl.DataFrame({"x": [datetime(2000, 2, 29, 14, 35)]})
+
+    gt = GT(df).fmt_datetime(columns="x", format_str=format_str, locale=locale)
+    assert _get_column_of_values(gt, column_name="x", context="html") == [expected]
+
+    # The table locale is used when `locale=` isn't given
+    gt = GT(df, locale=locale).fmt_datetime(columns="x", format_str=format_str)
+    assert _get_column_of_values(gt, column_name="x", context="html") == [expected]
+
+    assert vals.fmt_datetime(
+        [datetime(2000, 2, 29, 14, 35)], format_str=format_str, locale=locale
+    ) == [expected]
+
+
+def test_fmt_datetime_format_str_cldr_zone():
+    x = [
+        datetime(2000, 2, 29, 14, 35),
+        datetime(2000, 2, 29, 14, 35, tzinfo=ZoneInfo("America/New_York")),
+    ]
+    df = pd.DataFrame({"x": pd.Series(x, dtype=object)})
+    gt = GT(df).fmt_datetime(columns="x", format_str="HH:mm vvvv")
+    assert _get_column_of_values(gt, column_name="x", context="html") == [
+        "14:35 Coordinated Universal Time",
+        "14:35 Eastern Time",
+    ]
+    # Quoted text isn't a field, so its `v` isn't changed
+    assert vals.fmt_datetime(x[:1], format_str="HH:mm 'via' v") == ["14:35 via UTC"]
+
+
+@pytest.mark.parametrize(
+    "tzinfo,locale,expected",
+    [
+        (None, None, "GMT"),
+        (timezone.utc, None, "GMT"),
+        (timezone(timedelta(hours=-5)), None, "GMT-5"),
+        (timezone(timedelta(hours=5, minutes=30)), None, "GMT+5:30"),
+        (ZoneInfo("America/New_York"), None, "GMT-5"),
+        (ZoneInfo("Asia/Kathmandu"), None, "GMT+5:45"),
+        (ZoneInfo("America/New_York"), "fr", "UTC-5"),
+        (None, "fr", "UTC"),
+    ],
+)
+def test_fmt_datetime_format_str_short_gmt(tzinfo, locale: str | None, expected: str):
+    # Babel 2.18 gives "None" for `O` (it only formats `OOOO`)
+    x = datetime(2000, 2, 29, 14, 35, tzinfo=tzinfo)
+
+    assert vals.fmt_datetime([x], format_str="HH:mm O", locale=locale) == [f"14:35 {expected}"]
+
+
+def test_fmt_datetime_format_str_short_gmt_seconds():
+    # New York's local mean time before 1883 was 4:56:02 behind GMT
+    x = datetime(1850, 1, 1, tzinfo=ZoneInfo("America/New_York"))
+
+    assert vals.fmt_datetime([x], format_str="O") == ["GMT-4:56:02"]
+
+
+@pytest.mark.parametrize(
+    "x,format_str,expected",
+    [
+        (datetime(2000, 2, 29, 14, 35), "g", "51603"),
+        (datetime(2000, 2, 29, 14, 35), "ggggggg", "0051603"),
+        (datetime(1858, 11, 17), "g", "0"),
+        (datetime(1858, 11, 16), "ggg", "-001"),
+        # The day is the value's own date, in its zone (2000-01-01 23:59 in Tokyo is 14:59 UTC)
+        (datetime(2000, 1, 1, 23, 59, tzinfo=ZoneInfo("Asia/Tokyo")), "g", "51544"),
+    ],
+)
+def test_fmt_datetime_format_str_modified_julian_day(x: datetime, format_str: str, expected: str):
+    # Babel 2.18 passes `g` as a valid field but raises a `KeyError` when formatting it
+    assert vals.fmt_datetime([x], format_str=format_str) == [expected]
+
+
+@pytest.mark.parametrize(
+    "tzinfo,expected",
+    [
+        # Babel gives "Unknown Region (UTC) Time" for `V` and `VVVV` here
+        (None, "UTC | Etc/UTC | UTC | Coordinated Universal Time"),
+        (timezone(timedelta(hours=-5)), "-0500 | UTC-05:00 | UTC-05:00 | GMT-05:00"),
+        (
+            ZoneInfo("America/New_York"),
+            "ET | America/New_York | New York | United States (New York) Time",
+        ),
+    ],
+)
+def test_fmt_datetime_format_str_zone_location(tzinfo, expected: str):
+    x = datetime(2000, 2, 29, 14, 35, tzinfo=tzinfo)
+
+    assert vals.fmt_datetime([x], format_str="V | VV | VVV | VVVV") == [expected]
+
+
+@pytest.mark.parametrize(
+    "format_str,expected",
+    [
+        # Quoted text isn't a field
+        ("'O' O 'g' g", "O GMT g 51603"),
+        # The values are quoted without joining the quotes around them into a `''`
+        ("'it''s' O''", "it's GMT'"),
+        ("''O''", "'GMT'"),
+        ("'at 'O' on 'g", "at GMT on 51603"),
+        # Fields on either side of quoted text are separate fields
+        ("O'x'O", "GMTxGMT"),
+        ("V'-'V", "UTC-UTC"),
+        # `OOOO` is still formatted by Babel
+        ("OOOO", "GMT+00:00"),
+    ],
+)
+def test_fmt_datetime_format_str_filled_in_fields_quoting(format_str: str, expected: str):
+    assert vals.fmt_datetime([datetime(2000, 2, 29, 14, 35)], format_str=format_str) == [expected]
+
+
+@pytest.mark.parametrize(
+    "pattern,parts",
+    [
+        ("HH:mm", [("HH:mm", False)]),
+        ("h 'o''clock' a", [("h ", False), ("o'clock", True), (" a", False)]),
+        ("''h''", [("'", True), ("h", False), ("'", True)]),
+        ("'a'''", [("a'", True)]),
+        ("''''", [("'", True), ("'", True)]),
+    ],
+)
+def test_split_and_join_cldr_pattern(pattern: str, parts: list[tuple[str, bool]]):
+    assert _split_cldr_pattern(pattern) == parts
+
+    # Joining gives a pattern with the same parts (adjacent literal parts are quoted together)
+    joined = _join_cldr_pattern(parts)
+    assert "".join(text for text, _ in _split_cldr_pattern(joined)) == "".join(
+        text for text, _ in parts
+    )
+    assert format_datetime(datetime(2000, 2, 29, 14, 35), joined, locale="en") == format_datetime(
+        datetime(2000, 2, 29, 14, 35), pattern, locale="en"
+    )
+
+
+@pytest.mark.parametrize(
+    "format_str,match",
+    [
+        ("d MMMM 'at", "has an unterminated quote"),
+        ("HH:mm '", "has an unterminated quote"),
+        ("jj:mm", r"aren't CLDR date or time fields \(`j`\)"),
+        ("d MMMM at HH:mm", r"aren't CLDR date or time fields \(`t`\)"),
+        ("EEEEEEE", "isn't valid: Invalid length for field: 'EEEEEEE'"),
+    ],
+)
+def test_fmt_datetime_format_str_cldr_invalid_raises(format_str: str, match: str):
+    # These are caught when `fmt_datetime()` is called, since Babel would silently drop the text
+    # after an unterminated quote or show the letters that aren't fields as is
+    df = pl.DataFrame({"x": [datetime(2000, 2, 29, 14, 35)]})
+    with pytest.raises(ValueError, match=match):
+        GT(df).fmt_datetime(columns="x", format_str=format_str)
+
+
+def test_fmt_datetime_format_str_strftime_ignores_table_locale():
+    gt = GT(pl.DataFrame({"x": [datetime(2000, 2, 29, 14, 35)]}), locale="de").fmt_datetime(
+        columns="x", format_str="%A %d.%m.%Y"
+    )
+    assert _get_column_of_values(gt, column_name="x", context="html") == ["Tuesday 29.02.2000"]
+
+
+def test_vals_fmt_datetime():
+    x = ["2025-01-01 09:30", "2025-07-14 17:45", datetime(2000, 2, 29, 14, 35)]
+    assert vals.fmt_datetime(x) == [
+        "2025-01-01 09:30:00",
+        "2025-07-14 17:45:00",
+        "2000-02-29 14:35:00",
+    ]
+    assert vals.fmt_datetime(x[:2], date_style="yMMMEd", time_style="hm", sep=", ") == [
+        "Wed, Jan 1, 2025, 9:30 AM",
+        "Mon, Jul 14, 2025, 5:45 PM",
+    ]
+    assert vals.fmt_datetime(x[:1], date_style="yMMMd", time_style="Hm", locale="de") == [
+        "1. Jan. 2025 09:30"
+    ]
+    assert vals.fmt_datetime(x[:1], format_str="%d/%m/%Y", pattern="[{x}]") == ["[01/01/2025]"]
 
 
 # ------------------------------------------------------------------------------
@@ -1843,11 +2574,12 @@ FMT_TF_CASES: list[tuple[dict[str, Any], list[str]]] = [
 
 
 @pytest.mark.parametrize("fmt_tf_kwargs,x_out", FMT_TF_CASES)
-def test_fmt_tf_case(fmt_tf_kwargs: dict[str, Any], x_out: list[str]):
-    df = pl.DataFrame({"x": [True, False, None]})
+def test_fmt_tf_case(
+    frame_constructor: DataFrameConstructor, fmt_tf_kwargs: dict[str, Any], x_out: list[str]
+):
+    df = frame_constructor({"x": [True, False, None]})
     gt = GT(df).fmt_tf(columns="x", **fmt_tf_kwargs)
-    x = _get_column_of_values(gt, column_name="x", context="html")
-    assert x == x_out
+    assert body_cells(gt) == x_out
 
 
 @pytest.mark.parametrize(
@@ -1866,15 +2598,13 @@ def test_fmt_tf_pandas_bool_dtypes(x_in: list[Any], dtype: str, x_out: list[str]
     assert x == x_out
 
 
-def test_fmt_tf_column_invalid_type():
-    df = pl.DataFrame({"x": [0, 1, 2]})
+def test_fmt_tf_column_invalid_type(frame_constructor: DataFrameConstructor):
+    df = frame_constructor({"x": [0, 1, 2]})
     gt = GT(df).fmt_tf(columns="x")
 
-    with pytest.raises(ValueError) as exc_info:
-        # This triggers the actual formatting by accessing the formatted values
+    # The message ends with the cell's type: `numpy.int64` on plain and nullable pandas, else `int`
+    with pytest.raises(ValueError, match="Expected boolean value or NA, but got"):
         _get_column_of_values(gt, column_name="x", context="html")
-
-    assert "Expected boolean value or NA, but got" in exc_info.value.args[0]
 
 
 def test_fmt_tf_invalid_na_val_type():
@@ -1994,6 +2724,68 @@ def test_fmt_bytes_minus_mark_follows_context(context: str, x_out: list[str]):
     gt = GT(pd.DataFrame({"x": [-1500]})).fmt_bytes(columns="x")
     x = _get_column_of_values(gt, column_name="x", context=context)
     assert x == x_out
+
+
+@pytest.mark.parametrize(
+    "fmt_bytes_kwargs,x_in,x_out",
+    [
+        # 1,150 bytes is exactly 1.15 kB, but `1150 / 1000` is stored as 1.1499999..., which gave
+        # `1.1 kB`; an exact tie rounds half to even, as in `fmt_number_si()`
+        (dict(), [1150, 1850, 5550], ["1.2 kB", "1.8 kB", "5.6 kB"]),
+        (dict(decimals=2), [1145, 2675], ["1.14 kB", "2.68 kB"]),
+        # Just below a power of the base, the smaller unit is used (`math.log(10**15 - 1, 1000)`
+        # gives `5.0`, which picked `PB`)
+        (dict(decimals=15), [10**15 - 1], ["999.999999999999 TB"]),
+    ],
+)
+def test_fmt_bytes_rounds_once_from_byte_count(
+    fmt_bytes_kwargs: dict[str, Any], x_in: list[int], x_out: list[str]
+):
+    df = pd.DataFrame({"x": x_in})
+    gt = GT(df).fmt_bytes(columns="x", **fmt_bytes_kwargs)
+    x = _get_column_of_values(gt, column_name="x", context="html")
+    assert x == x_out
+
+
+def test_fmt_bytes_agrees_with_fmt_number_si():
+    # Both divide by powers of 1000, so the decimal standard gives the same digits
+    for x in [1150, 1850, 5550, 1145, 2675, 67405]:
+        for decimals in [1, 2]:
+            assert vals.fmt_bytes(
+                x, decimals=decimals, drop_trailing_zeros=False
+            ) == vals.fmt_number_si(x, decimals=decimals, unit="B")
+
+
+def test_fmt_bytes_large_integers_keep_all_digits(frame_constructor: DataFrameConstructor):
+    # Integers above 2^53 can't be stored exactly as floats
+    df = frame_constructor({"x": [1234567890123456789, -9007199254740993]})
+
+    gt = GT(df).fmt_bytes(columns="x", decimals=18)
+    x = _get_column_of_values(gt, column_name="x", context="html")
+    assert x == ["1.234567890123456789 EB", "−9.007199254740993 PB"]
+
+    gt = GT(df).fmt_bytes(columns="x", standard="binary", decimals=18)
+    x = _get_column_of_values(gt, column_name="x", context="html")
+    assert x == ["1.070816950842157907 EiB", "−8.000000000000000888 PiB"]
+
+    gt = GT(df).fmt_bytes(columns="x", n_sigfig=19)
+    x = _get_column_of_values(gt, column_name="x", context="html")
+    assert x == ["1.234567890123456789 EB", "−9.007199254740993000 PB"]
+
+
+def test_divide_by_power_is_exact():
+    from fractions import Fraction
+
+    for x in [1150, -1150, 2**53 + 1, 1234567890123456789, 902487216348759693489128343269]:
+        for base in [1000, 1024]:
+            for power in [0, 1, 5, 8]:
+                assert Fraction(_divide_by_power(x, base=base, power=power)) == Fraction(
+                    x, base**power
+                )
+
+    # The value is returned as is when it isn't divided
+    assert _divide_by_power(999, base=1024, power=0) == 999
+    assert isinstance(_divide_by_power(999, base=1024, power=0), int)
 
 
 # ------------------------------------------------------------------------------
@@ -2298,7 +3090,7 @@ def test_fmt_icon_fill_color_dict_none():
     assert bool(re.search('style="fill:blue;', column_vals[1]))
     assert bool(
         re.search(
-            'style="stroke-width:1px;height:1em;width:1.12em;position:relative;vertical-align:-0.125em;overflow:visible;">',
+            'style="fill:currentColor;stroke-width:1px;height:1em;width:1.12em;margin-left:auto;margin-right:auto;position:relative;vertical-align:-0.125em;overflow:visible;">',
             column_vals[2],
         )
     )
@@ -2320,7 +3112,7 @@ def test_fmt_icon_multiple_attrs():
     )
 
     assert (
-        'style="fill:red;fill-opacity:0.25;stroke:gray;stroke-width:2px;stroke-opacity:0.5;height:20px;width:25.0px;margin-left:3px;margin-right:4px;position:relative;vertical-align:-0.125em;overflow:visible;"'
+        'style="fill:red;fill-opacity:0.25;stroke:gray;stroke-width:2px;stroke-opacity:0.5;height:20px;width:25px;margin-left:3px;margin-right:4px;position:relative;vertical-align:-0.125em;overflow:visible;"'
         in _get_column_of_values(gt, column_name="x", context="html")[0]
     )
 
@@ -2336,15 +3128,15 @@ def test_fmt_flag_one_per_cell():
         assert bool(re.search("^<span style.*?<svg.*?>.*?</svg></span>$", val))
 
 
-def test_fmt_flag_na_values():
-    df = pd.DataFrame({"x": ["FR", pd.NA]})
+def test_fmt_flag_na_values(frame_constructor: DataFrameConstructor):
+    df = frame_constructor({"x": ["FR", None]})
 
     gt = GT(df).fmt_flag(columns="x")
 
-    column_vals = _get_column_of_values(gt, column_name="x", context="html")
+    cells = body_cells(gt)
 
-    assert bool(re.search("^<span style.*?<svg.*?>.*?</svg></span>$", column_vals[0]))
-    assert column_vals[1] == "<NA>"
+    assert re.search("^<span style.*?<svg.*?>.*?</svg></span>$", cells[0])
+    assert cells[1] == "None"
 
 
 def test_fmt_flag_two_per_cell():
@@ -3516,25 +4308,33 @@ def test_fmt_bytes_n_sigfig():
     assert "B" in x[0] or "b" in x[0].lower()
 
 
-def test_fmt_bytes_na_value():
-    df = pd.DataFrame({"x": [None]})
+def test_fmt_bytes_na_value(frame_constructor: DataFrameConstructor):
+    df = frame_constructor({"x": [1536, None]})
     gt = GT(df).fmt_bytes(columns="x")
-    x = _get_column_of_values(gt, column_name="x", context="html")
-    assert x[0] is None or x[0] == "None" or isinstance(x[0], type(None)) or x[0] == x[0]
+    assert body_cells(gt) == ["1.5 kB", "None"]
 
 
-def test_fmt_partsper_na_value():
-    df = pd.DataFrame({"x": [None]})
+def test_fmt_partsper_na_value(frame_constructor: DataFrameConstructor):
+    df = frame_constructor({"x": [0.0015, None]})
     gt = GT(df).fmt_partsper(columns="x")
-    x = _get_column_of_values(gt, column_name="x", context="html")
-    assert x[0] is None or x[0] == "None" or x[0] == x[0]
+    assert body_cells(gt) == ["1.50‰", "None"]
 
 
-def test_fmt_roman_na_value():
-    df = pd.DataFrame({"x": [None]})
+def test_fmt_roman_na_value(frame_constructor: DataFrameConstructor):
+    df = frame_constructor({"x": [4, None]})
     gt = GT(df).fmt_roman(columns="x")
-    x = _get_column_of_values(gt, column_name="x", context="html")
-    assert x[0] is None or x[0] == x[0]
+    assert body_cells(gt) == ["IV", "None"]
+
+
+@pytest.mark.parametrize(
+    "fmt_method", ["fmt_bytes", "fmt_partsper", "fmt_roman", "fmt_date", "fmt_datetime"]
+)
+def test_fmt_all_missing_column(frame_constructor: DataFrameConstructor, fmt_method: str):
+    # A column of only missing values has its own dtype: pandas `object`, polars `Null`, pyarrow
+    # `null`
+    df = frame_constructor({"x": [None]})
+    gt = getattr(GT(df), fmt_method)(columns="x")
+    assert body_cells(gt) == ["None"]
 
 
 def test_get_duration_patterns_hyphen_locale():
@@ -3637,10 +4437,10 @@ def test_fmt_number_si_latex_pattern():
         (dict(decimals=1), [1e-40], ["0.0"]),
         # Carries from the zepto prefix (where rebuilding the value used to fall short of 1e-18)
         (dict(decimals=2), [9.99995e-19, 9.9996e-19], ["1.00 a", "999.96 z"]),
-        # Halfway values with `n_sigfig=` carry to exactly 1 of the next prefix
-        (dict(n_sigfig=1), [9.5e-19], ["1 a"]),
-        (dict(n_sigfig=4), [0.99995], ["1.000"]),
-        (dict(n_sigfig=2, prefix_mode="decimal"), [9.95, 0.995], ["1.0 da", "1.0"]),
+        # Values that round up with `n_sigfig=` carry to exactly 1 of the next prefix
+        (dict(n_sigfig=1), [9.6e-19], ["1 a"]),
+        (dict(n_sigfig=4), [0.99996], ["1.000"]),
+        (dict(n_sigfig=2, prefix_mode="decimal"), [9.96, 0.996], ["1.0 da", "1.0"]),
     ],
 )
 def test_fmt_number_si_rounding_carries_into_next_prefix(
@@ -3705,20 +4505,6 @@ def test_fmt_tf_invalid_tf_style_raises():
     df = pl.DataFrame({"x": [True, False]})
     with pytest.raises(ValueError, match="Invalid `tf_style`"):
         GT(df).fmt_tf(columns="x", tf_style="invalid-style").as_raw_html()
-
-
-def test_fmt_datetime_na_value():
-    df = pd.DataFrame({"x": [None]})
-    gt = GT(df).fmt_datetime(columns="x")
-    x = _get_column_of_values(gt, column_name="x", context="html")
-    assert x[0] is None or x[0] == "None" or x[0] == x[0]
-
-
-def test_fmt_date_na_value():
-    df = pd.DataFrame({"x": [None]})
-    gt = GT(df).fmt_date(columns="x")
-    x = _get_column_of_values(gt, column_name="x", context="html")
-    assert x[0] is None or x[0] == x[0]
 
 
 def test_fmt_image_get_mime_type_svg():
@@ -3985,14 +4771,13 @@ def test_fmt_time_invalid_time_style_raises():
         GT(df).fmt_time(columns="x", time_style="invalid_style").as_raw_html()
 
 
-def test_fmt_units_na_value_returns_na():
-    # fmt_units returns NA value unchanged when cell is NA
-    df = pl.DataFrame({"units": ["m^2", None]})
+def test_fmt_units_na_value_returns_na(frame_constructor: DataFrameConstructor):
+    df = frame_constructor({"units": ["m^2", None]})
     gt = GT(df).fmt_units(columns="units")
-    result = _get_column_of_values(gt, column_name="units", context="html")
-    # First row has a formatted unit, second row is NA (returns None or 'None')
-    assert "m" in result[0]
-    assert result[1] is None or str(result[1]) in ("None", "null")
+    assert body_cells(gt) == [
+        'm<span style="white-space:nowrap;"><sup style="line-height:0;">2</sup></span>',
+        "None",
+    ]
 
 
 def test_fmt_units_custom_pattern():
@@ -4027,22 +4812,22 @@ def test_fmt_units_as_latex_has_no_html():
     assert "\nkg m\\textsuperscript{\\ensuremath{-}3} \\\\" in latex
 
 
-def test_fmt_date_invalid_date_object_raises():
+def test_fmt_date_invalid_date_object_raises(frame_constructor: DataFrameConstructor):
     # ValueError when cell value is not a string or date object
     with pytest.raises(ValueError, match="Invalid date object"):
-        GT(pd.DataFrame({"d": [42]})).fmt_date(columns="d").as_raw_html()
+        GT(frame_constructor({"d": [42]})).fmt_date(columns="d").as_raw_html()
 
 
-def test_fmt_time_invalid_time_object_raises():
+def test_fmt_time_invalid_time_object_raises(frame_constructor: DataFrameConstructor):
     # ValueError when cell value is not a string or time object
     with pytest.raises(ValueError, match="Invalid time object"):
-        GT(pd.DataFrame({"t": [42]})).fmt_time(columns="t").as_raw_html()
+        GT(frame_constructor({"t": [42]})).fmt_time(columns="t").as_raw_html()
 
 
-def test_fmt_datetime_invalid_datetime_object_raises():
+def test_fmt_datetime_invalid_datetime_object_raises(frame_constructor: DataFrameConstructor):
     # ValueError when cell value is not a string or datetime object
     with pytest.raises(ValueError, match="Invalid datetime object"):
-        GT(pd.DataFrame({"dt": [42]})).fmt_datetime(columns="dt").as_raw_html()
+        GT(frame_constructor({"dt": [42]})).fmt_datetime(columns="dt").as_raw_html()
 
 
 def test_format_number_fixed_decimals_string_value():
@@ -4077,21 +4862,18 @@ def test_fmt_image_polars_expr_raises():
         GT(df).fmt_image(columns="path", height=pl.lit("2em")).as_raw_html()
 
 
-def test_fmt_time_na_value_returns_na():
-    # return x when is_na in fmt_time_context
-    df = pl.DataFrame({"t": ["10:30:00", None]})
+def test_fmt_time_na_value_returns_na(frame_constructor: DataFrameConstructor):
+    df = frame_constructor({"t": ["10:30:00", None]})
     gt = GT(df).fmt_time(columns="t")
-    result = _get_column_of_values(gt, column_name="t", context="html")
-    assert "10" in result[0]
-    assert result[1] is None or str(result[1]) in ("None", "null", "")
+    assert body_cells(gt) == ["10:30:00", "None"]
 
 
 def test_fmt_datetime_format_str_and_locale_raises():
-    # ValueError when both format_str and locale are given in fmt_datetime
+    # ValueError when both a strftime() format_str and locale are given in fmt_datetime
     import datetime
 
     df = pd.DataFrame({"dt": [datetime.datetime(2024, 1, 15, 10, 30)]})
-    with pytest.raises(ValueError, match="format_str.*locale.*cannot be used together"):
+    with pytest.raises(ValueError, match="format_str.*cannot be used together with `locale=`"):
         GT(df).fmt_datetime(columns="dt", format_str="%Y-%m-%d", locale="en_US").as_raw_html()
 
 
@@ -4217,13 +4999,12 @@ def test_validate_currency_invalid_raises():
         _validate_currency("INVALID_CURRENCY_CODE")
 
 
-def test_fmt_icon_na_value_returns_na():
-    # FmtIcon.to_html returns val unchanged when is_na
-    df = pl.DataFrame({"icon": ["star", None]})
+def test_fmt_icon_na_value_returns_na(frame_constructor: DataFrameConstructor):
+    df = frame_constructor({"icon": ["star", None]})
     gt = GT(df).fmt_icon(columns="icon")
-    result = _get_column_of_values(gt, column_name="icon", context="html")
-    assert "svg" in result[0].lower()
-    assert result[1] is None or str(result[1]) in ("None", "null", "")
+    cells = body_cells(gt)
+    assert re.search("^<span style.*?<svg.*?>.*?</svg></span>$", cells[0])
+    assert cells[1] == "None"
 
 
 def test_fmt_flag_unrecognized_codes_kept_as_text():
@@ -4352,12 +5133,10 @@ def test_fmt_fraction_pattern():
     assert x == ["~1/2~"]
 
 
-def test_fmt_fraction_na():
-    df = pd.DataFrame({"x": [float("nan")]})
+def test_fmt_fraction_na(frame_constructor: DataFrameConstructor):
+    df = frame_constructor({"x": [0.5, 1.25, 3.75, None]})
     gt = GT(df).fmt_fraction(columns="x")
-    x = _get_column_of_values(gt, column_name="x", context="html")
-    # pandas NA values pass through the is_na check and are not formatted
-    assert len(x) == 1
+    assert body_cells(gt) == ["1/2", "1 1/4", "3 3/4", "None"]
 
 
 def test_fmt_fraction_inf():
@@ -4366,13 +5145,6 @@ def test_fmt_fraction_inf():
     x = _get_column_of_values(gt, column_name="x", context="html")
     # The minus sign is the same as for finite negative fractions (and for other formatters)
     assert x == ["inf", "−inf"]
-
-
-def test_fmt_fraction_polars():
-    df = pl.DataFrame({"x": [0.5, 1.25, 3.75]})
-    gt = GT(df).fmt_fraction(columns="x")
-    x = _get_column_of_values(gt, column_name="x", context="html")
-    assert x == ["1/2", "1 1/4", "3 3/4"]
 
 
 @pytest.mark.parametrize(
@@ -4456,6 +5228,14 @@ def test_fmt_chem_parenthesized_group():
     assert "(NH" in x[0]
     assert ")2" not in x[0]  # the 2 after ) should be subscripted
     assert "<sub" in x[0]
+
+
+@pytest.mark.parametrize("bond", ["-", "="])
+def test_fmt_chem_italic_prefix_keeps_bond(bond: str):
+    # An italic prefix such as *n* is followed by a bond, which stays outside the italics
+    [x] = vals.fmt_chem(f"*n*{bond}C4H10")
+
+    assert x.startswith(f"<em>n</em>{bond}C")
 
 
 def test_fmt_chem_charges():
@@ -4590,21 +5370,12 @@ def test_fmt_chem_full_reaction():
     assert "<sub" in x[0]
 
 
-def test_fmt_chem_na():
-    df = pd.DataFrame({"x": [float("nan")]})
+def test_fmt_chem_na(frame_constructor: DataFrameConstructor):
+    df = frame_constructor({"x": ["H2O", "CO2", None]})
     gt = GT(df).fmt_chem(columns="x")
-    x = _get_column_of_values(gt, column_name="x", context="html")
+    subscript_2 = '<span style="white-space:nowrap;"><sub style="line-height:0;">2</sub></span>'
 
-    assert len(x) == 1
-
-
-def test_fmt_chem_polars():
-    df = pl.DataFrame({"x": ["H2O", "CO2"]})
-    gt = GT(df).fmt_chem(columns="x")
-    x = _get_column_of_values(gt, column_name="x", context="html")
-
-    assert "<sub" in x[0]
-    assert "<sub" in x[1]
+    assert body_cells(gt) == [f"H{subscript_2}O", f"CO{subscript_2}", "None"]
 
 
 def test_fmt_chem_rows_subset():
@@ -4743,12 +5514,11 @@ def test_round_rhu(x: float, digits: int, expected: float):
     assert math.copysign(1, result) == math.copysign(1, expected)
 
 
-def test_fmt_index_na():
-    df = pd.DataFrame({"x": [float("nan"), 1.0]})
+def test_fmt_index_na(frame_constructor: DataFrameConstructor):
+    df = frame_constructor({"x": [None, 1, 2, 3]})
     gt = GT(df).fmt_index(columns="x")
-    x = _get_column_of_values(gt, column_name="x", context="html")
 
-    assert x[1] == "A"
+    assert body_cells(gt) == ["None", "A", "B", "C"]
 
 
 def test_fmt_index_float_rounds():
@@ -4786,16 +5556,6 @@ def test_fmt_index_float32():
     x = _get_column_of_values(gt, column_name="x", context="html")
 
     assert x == ["A", "C", "AA"]
-
-
-def test_fmt_index_polars():
-    df = pl.DataFrame({"x": [1, 2, 3]})
-    gt = GT(df).fmt_index(columns="x")
-    x = _get_column_of_values(gt, column_name="x", context="html")
-
-    assert x[0] == "A"
-    assert x[1] == "B"
-    assert x[2] == "C"
 
 
 def test_fmt_index_rows_subset():
@@ -4920,20 +5680,13 @@ def test_fmt_url_target_none():
     assert "target=" not in x[0]
 
 
-def test_fmt_url_na():
-    df = pd.DataFrame({"x": [float("nan")]})
+def test_fmt_url_na(frame_constructor: DataFrameConstructor):
+    df = frame_constructor({"x": ["https://example.com", None]})
     gt = GT(df).fmt_url(columns="x")
-    x = _get_column_of_values(gt, column_name="x", context="html")
+    cells = body_cells(gt)
 
-    assert len(x) == 1
-
-
-def test_fmt_url_polars():
-    df = pl.DataFrame({"x": ["https://example.com"]})
-    gt = GT(df).fmt_url(columns="x")
-    x = _get_column_of_values(gt, column_name="x", context="html")
-
-    assert 'href="https://example.com"' in x[0]
+    assert 'href="https://example.com"' in cells[0]
+    assert cells[1] == "None"
 
 
 def test_fmt_url_rows_subset():
@@ -5034,20 +5787,13 @@ def test_fmt_email_custom_color():
     assert 'href="mailto:user@example.com"' in x[0]
 
 
-def test_fmt_email_na():
-    df = pd.DataFrame({"x": [float("nan")]})
+def test_fmt_email_na(frame_constructor: DataFrameConstructor):
+    df = frame_constructor({"x": ["test@test.com", None]})
     gt = GT(df).fmt_email(columns="x")
-    x = _get_column_of_values(gt, column_name="x", context="html")
+    cells = body_cells(gt)
 
-    assert len(x) == 1
-
-
-def test_fmt_email_polars():
-    df = pl.DataFrame({"x": ["test@test.com"]})
-    gt = GT(df).fmt_email(columns="x")
-    x = _get_column_of_values(gt, column_name="x", context="html")
-
-    assert 'href="mailto:test@test.com"' in x[0]
+    assert 'href="mailto:test@test.com"' in cells[0]
+    assert cells[1] == "None"
 
 
 def test_fmt_email_rows_subset():
@@ -5296,7 +6042,7 @@ def test_fmt_number_min_sep_threshold_invalid(min_sep_threshold: Any):
         ([-0.5, 0.4], "colon-sep", dict(force_sign=True), ["00:00:00", "00:00:00"]),
         ([-3661, 5], "colon-sep", dict(force_sign=True), ["−01:01:01", "+00:00:05"]),
         # The narrow and wide styles show such a duration as less than a second, keeping the sign
-        ([-0.5], "narrow", dict(), ["−<1s"]),
+        ([-0.5], "narrow", dict(), ["−&lt;1s"]),
     ],
 )
 def test_fmt_duration_iso_and_zero_signs(x_in, duration_style: str, kwargs: dict, x_out: list[str]):
@@ -5315,10 +6061,10 @@ def test_fmt_duration_iso_minus_in_latex():
 # Accessible markup of cell graphics ----------------------------------------------------------
 
 
-def test_fmt_image_alt_text():
+def test_fmt_image_alt_text(frame_constructor: DataFrameConstructor):
     from great_tables import from_column
 
-    df = pl.DataFrame(
+    df = frame_constructor(
         {"img": ["https://e.x/a.png", "https://e.x/b.png, https://e.x/c.png"], "d": ["A & B", None]}
     )
 
@@ -5370,10 +6116,10 @@ def test_svg_ids_in_cells_are_unique():
     assert "t-c-0-a" in ids and "t-c-2-a" in ids
 
 
-def test_fmt_nanoplot_accessible_name():
+def test_fmt_nanoplot_accessible_name(frame_constructor: DataFrameConstructor):
     from great_tables import from_column
 
-    df = pl.DataFrame({"n": ["12,30,47,20,30", "1,2,3"], "d": ["Sales", None]})
+    df = frame_constructor({"n": ["12,30,47,20,30", "1,2,3"], "d": ["Sales", None]})
 
     def labels(gt: GT) -> list[str]:
         return re.findall(r'aria-label="([^"]*)"', gt.as_raw_html())

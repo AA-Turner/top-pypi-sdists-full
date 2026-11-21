@@ -145,11 +145,10 @@ pub struct StatsigOptionsPy {
     pub event_logging_max_pending_batch_queue_size: Option<u32>,
     #[pyo3(get, set)]
     pub enable_id_lists: Option<bool>,
-    /// Fetch the manifest at initialization and load list bodies on first evaluation.
-    /// True opts in when enable_id_lists is enabled; False or None keeps eager loading.
-    /// Cold evaluations wait up to 30 ms for loading, then return a partial result
-    /// while the download continues. Read when the SDK is constructed; recreate
-    /// the SDK to change this setting. This does not change the synchronous API.
+    /// With enable_id_lists=True, fetch the manifest at startup and load all lists
+    /// reachable from a spec before evaluation. Synchronous getters wait up to
+    /// 30 ms. On timeout, they return a partial result while loading continues.
+    /// False or None selects eager loading. Recreate the SDK to switch modes.
     #[pyo3(get, set)]
     pub lazy_load_id_lists: Option<bool>,
     /// Use Elias–Fano for this instance’s private ID lists and shared ID-list files. False or unset selects the hash format.
@@ -172,7 +171,10 @@ pub struct StatsigOptionsPy {
     pub disable_country_lookup: Option<bool>,
     #[pyo3(get, set)]
     pub id_lists_url: Option<String>,
-    /// Opt into local shared ID-list snapshots. Unset keeps process-private ID lists.
+    /// Trusted directory for shared ID lists. Omit for private lists. By default,
+    /// only eager workers share downloads and updates. Add "shared_initial_id_list_base"
+    /// to experimental_flags at SDK construction to let eligible eager and lazy
+    /// workers share initial indexes and fetch their own updates.
     #[pyo3(get, set)]
     pub shared_id_lists_dir: Option<String>,
     #[pyo3(get, set)]

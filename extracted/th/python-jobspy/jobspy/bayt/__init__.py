@@ -35,7 +35,7 @@ from jobspy.util import (
 
 
 def slugify(text: str) -> str:
-    return quote("-".join(text.lower().split()), safe="")
+    return quote("-".join(text.lower().replace("/", " ").split()), safe="")
 
 
 class Bayt(Scraper):
@@ -298,7 +298,7 @@ class Bayt(Scraper):
             else:
                 raise ValueError("no JobPosting")
         except Exception as e:
-            self.log.warning(f"job {job_id}: {e}")
+            self.warn(f"job {job_id}: {e}")
             return {}
 
         def row(name: str) -> list[str]:

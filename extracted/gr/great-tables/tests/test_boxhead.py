@@ -2,12 +2,14 @@ import re
 
 import pandas as pd
 import polars as pl
+import pyarrow as pa
+import pyarrow.compute as pc
 import pytest
 from great_tables import GT
 from great_tables._boxhead import _align_to_char
 from great_tables.gt import _get_column_labels
 from great_tables._helpers import UnitStr
-from tests.utils import assert_rendered_columns
+from tests.utils import DataFrameConstructor, assert_rendered_columns
 
 
 def test_cols_label():
@@ -334,6 +336,58 @@ def test_cols_align_decimal_no_numeric_columns():
     res = gt.cols_align_decimal()
 
     assert [col.column_align for col in res._boxhead] == ["left"]
+    assert res._transforms == gt._transforms
+
+
+def test_cols_align_decimal_skips_list_columns(frame_constructor: DataFrameConstructor):
+    df = frame_constructor({"items": [[1, 2], [3], [], None], "num": [1.5, 22.25, 3.0, None]})
+    gt = GT(df)
+    res = gt.cols_align_decimal()
+
+    # The list column keeps its default alignment (it differs by backend) and isn't padded
+    before = [col.column_align for col in gt._boxhead]
+    assert [col.column_align for col in res._boxhead] == [before[0], "right"]
+    assert [t.loc.columns for t in res._transforms] == [["num"]]
+
+
+@pytest.mark.parametrize(
+    "make_frame",
+    [
+        pytest.param(
+            lambda: pl.DataFrame(
+                {"x": ["point", "line", "point"]}, schema={"x": pl.Enum(["point", "line"])}
+            ),
+            id="polars-enum",
+        ),
+        pytest.param(lambda: pd.DataFrame({"x": pd.interval_range(0, 3)}), id="pandas-interval"),
+        pytest.param(
+            lambda: pa.table({"x": pc.run_end_encode(pa.array(["a", "a", "b"]))}),
+            id="pyarrow-run_end_encoded",
+        ),
+        pytest.param(
+            lambda: pa.table({"x": pa.array(["low", "high", "low"]).dictionary_encode()}),
+            id="pyarrow-dictionary",
+        ),
+        pytest.param(
+            lambda: pd.DataFrame(
+                {
+                    "x": pd.Series(
+                        ["low", "high", "low"],
+                        dtype=pd.ArrowDtype(pa.dictionary(pa.int32(), pa.string())),
+                    )
+                }
+            ),
+            id="pandas-arrow-dictionary",
+        ),
+    ],
+)
+def test_cols_align_decimal_skips_parameterized_dtypes(make_frame):
+    # A numeric type in a dtype's parameters used to make it numeric (#1045, #1028)
+    gt = GT(make_frame())
+    res = gt.cols_align_decimal()
+
+    # The column keeps its default alignment and isn't padded
+    assert [col.column_align for col in res._boxhead] == [col.column_align for col in gt._boxhead]
     assert res._transforms == gt._transforms
 
 

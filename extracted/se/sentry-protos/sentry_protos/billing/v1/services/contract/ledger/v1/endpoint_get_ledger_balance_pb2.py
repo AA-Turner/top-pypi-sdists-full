@@ -22,17 +22,18 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 
+from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nVsentry_protos/billing/v1/services/contract/ledger/v1/endpoint_get_ledger_balance.proto\x12\x34sentry_protos.billing.v1.services.contract.ledger.v1\"F\n\x17GetLedgerBalanceRequest\x12\x17\n\x0forganization_id\x18\x01 \x01(\x04\x12\x12\n\naccount_id\x18\x02 \x01(\t\"P\n\x18GetLedgerBalanceResponse\x12\x15\n\rbalance_cents\x18\x01 \x01(\x03\x12\x1d\n\x15pending_deposit_cents\x18\x02 \x01(\x03\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nVsentry_protos/billing/v1/services/contract/ledger/v1/endpoint_get_ledger_balance.proto\x12\x34sentry_protos.billing.v1.services.contract.ledger.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"F\n\x17GetLedgerBalanceRequest\x12\x17\n\x0forganization_id\x18\x01 \x01(\x04\x12\x12\n\naccount_id\x18\x02 \x01(\t\"\xa2\x01\n\x18GetLedgerBalanceResponse\x12\x15\n\rbalance_cents\x18\x01 \x01(\x03\x12\x1d\n\x15pending_deposit_cents\x18\x02 \x01(\x03\x12:\n\x11latest_deposit_at\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00\x88\x01\x01\x42\x14\n\x12_latest_deposit_atb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.services.contract.ledger.v1.endpoint_get_ledger_balance_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_GETLEDGERBALANCEREQUEST']._serialized_start=144
-  _globals['_GETLEDGERBALANCEREQUEST']._serialized_end=214
-  _globals['_GETLEDGERBALANCERESPONSE']._serialized_start=216
-  _globals['_GETLEDGERBALANCERESPONSE']._serialized_end=296
+  _globals['_GETLEDGERBALANCEREQUEST']._serialized_start=177
+  _globals['_GETLEDGERBALANCEREQUEST']._serialized_end=247
+  _globals['_GETLEDGERBALANCERESPONSE']._serialized_start=250
+  _globals['_GETLEDGERBALANCERESPONSE']._serialized_end=412
 # @@protoc_insertion_point(module_scope)

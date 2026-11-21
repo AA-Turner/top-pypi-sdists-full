@@ -437,9 +437,10 @@ def _chromium_cookies_database(profile, config):
     elif config["profiles"]:
         search_root = config["directory"]
         if search_root.__class__ is str:
-            search_root = os.path.join(search_root, profile)
+            search_root = _chromium_profile(search_root, profile)
         else:
-            search_root = [os.path.join(dir, profile) for dir in search_root]
+            search_root = [_chromium_profile(dir, profile)
+                           for dir in search_root]
     else:
         _log_warning("%s does not support profiles", config["browser"])
         search_root = config["directory"]
@@ -449,6 +450,21 @@ def _chromium_cookies_database(profile, config):
         raise FileNotFoundError(f"Unable to find {config['browser']} cookies "
                                 f"database in '{search_root}'")
     return path
+
+
+def _chromium_profile(directory, profile):
+    state = os.path.join(directory, "Local State")
+    try:
+        with open(state, encoding="utf-8") as fp:
+            cache = util.json_loads(fp.read())["profile"]["info_cache"]
+        for dir, data in cache.items():
+            if profile == data["name"]:
+                profile = dir
+                break
+    except Exception as exc:
+        _log_debug("Error while searching profile '%s' (%s: %s)",
+                   profile, exc.__class__.__name__, exc)
+    return os.path.join(directory, profile)
 
 
 def _chromium_browser_settings(browser_name):

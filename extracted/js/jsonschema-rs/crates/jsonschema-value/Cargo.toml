@@ -1,6 +1,6 @@
 [package]
 name = "jsonschema-value"
-version = "0.61.2"
+version = "0.62.0"
 description = "JSON value representations and semantics shared by the jsonschema validator and its bindings"
 readme = "README.md"
 rust-version.workspace = true
@@ -50,7 +50,7 @@ serde_json = { workspace = true, features = ["float_roundtrip"] }
 pyo3-build-config = { version = "0.30", optional = true }
 
 [dev-dependencies]
-hegeltest = { version = "0.48", features = ["serde_json"] }
+hegeltest = { version = "0.52", features = ["serde_json"] }
 test-case = "3"
 
 [lints]

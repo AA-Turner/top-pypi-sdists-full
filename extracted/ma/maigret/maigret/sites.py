@@ -12,6 +12,22 @@ from .utils import CaseConverter, URLMatcher, is_country_tag
 logger = logging.getLogger(__name__)
 
 
+def _requests_proxies(proxy: Optional[str]) -> Optional[Dict[str, str]]:
+    """Build the requests proxy mapping for --proxy, or None when it is unset.
+
+    With PySocks, requests resolves hostnames locally for socks5:// and through
+    the proxy only for socks5h://. Rewriting the scheme keeps the database
+    host's DNS lookup inside the tunnel too, which is what --proxy promises.
+    None leaves requests reading HTTP_PROXY / HTTPS_PROXY as before.
+    """
+    if not proxy:
+        return None
+    scheme, separator, remainder = proxy.partition('://')
+    if separator and scheme.lower() == 'socks5':
+        proxy = f'socks5h://{remainder}'
+    return {'http': proxy, 'https': proxy}
+
+
 class MaigretEngine:
     site: Dict[str, Any] = {}
 
@@ -133,6 +149,12 @@ class MaigretSite:
             CaseConverter.camel_to_snake(k) for k in information
         }
 
+        # An entry on an engine gets its check type from the engine. Filling in
+        # the default here would be saved as if the entry had chosen it, the
+        # moment anyone writes the site without applying the engine first.
+        if not self.check_type and not information.get("engine"):
+            self.check_type = "status_code"
+
         if (self.alexa_rank is None) or (self.alexa_rank == 0):
             # We do not know the popularity, so make site go to bottom of list.
             self.alexa_rank = sys.maxsize
@@ -210,6 +232,8 @@ class MaigretSite:
         if self.url_regexp:
             match_groups = self.url_regexp.match(url)
             if match_groups:
+                if URLMatcher.USERNAME_GROUP in match_groups.re.groupindex:
+                    return match_groups.group(URLMatcher.USERNAME_GROUP).rstrip("/")
                 username = next(
                     (
                         group.rstrip("/")
@@ -227,20 +251,7 @@ class MaigretSite:
         Extracts username from url.
         It's outdated, detects only a format of https://example.com/{username}
         """
-        if not self.url_regexp:
-            return None
-
-        match_groups = self.url_regexp.match(url)
-        if not match_groups:
-            return None
-        _id = next(
-            (
-                group.rstrip("/")
-                for group in reversed(match_groups.groups())
-                if isinstance(group, str) and group
-            ),
-            None,
-        )
+        _id = self.detect_username(url)
         if _id is None:
             return None
         _type = self.type
@@ -299,7 +310,7 @@ class MaigretSite:
             field = CaseConverter.camel_to_snake(k)
             if isinstance(v, dict):
                 # update dicts like errors
-                target = self.__dict__.get(field, {})
+                target = self.__dict__.setdefault(field, {})
                 for item_key, item_value in v.items():
                     if item_key in target and target[item_key] != item_value:
                         logger.warning(
@@ -338,10 +349,10 @@ class MaigretSite:
         if not self.engine_obj:
             return self
 
-        self.request_future = None
-        self.url_regexp = None
-
-        self_copy = copy.deepcopy(self)
+        self_copy = copy.copy(self)
+        self_copy.request_future = None
+        self_copy.url_regexp = None
+        self_copy = copy.deepcopy(self_copy)
         engine_data = self_copy.engine_obj and self_copy.engine_obj.site or {}
         site_data_keys = list(self_copy.__dict__.keys())
 
@@ -583,13 +594,17 @@ class MaigretDatabase:
 
         return self.load_from_json(data)
 
-    def load_from_path(self, path: str) -> "MaigretDatabase":
+    def load_from_path(
+        self, path: str, proxy: Optional[str] = None
+    ) -> "MaigretDatabase":
         if '://' in path:
-            return self.load_from_http(path)
+            return self.load_from_http(path, proxy=proxy)
         else:
             return self.load_from_file(path)
 
-    def load_from_http(self, url: str) -> "MaigretDatabase":
+    def load_from_http(
+        self, url: str, proxy: Optional[str] = None, timeout: int = 60
+    ) -> "MaigretDatabase":
         is_url_valid = url.startswith("http://") or url.startswith("https://")
 
         if not is_url_valid:
@@ -598,7 +613,9 @@ class MaigretDatabase:
         import requests
 
         try:
-            response = requests.get(url=url)
+            response = requests.get(
+                url=url, proxies=_requests_proxies(proxy), timeout=timeout
+            )
         except Exception as error:
             raise FileNotFoundError(
                 f"Problem while attempting to access "
@@ -656,6 +673,15 @@ class MaigretDatabase:
             _id, _type = result
             results[_id] = _type
         return results
+
+    @staticmethod
+    def _percent(part: int, whole: int) -> float:
+        """Percentage rounded for display; 0.0 when there is nothing to divide by.
+
+        ``--stats`` must also work on an empty database (``total_count == 0``)
+        and on one where every site is disabled (``enabled_count == 0``).
+        """
+        return round(100 * part / whole, 2) if whole else 0.0
 
     def get_db_stats(self, is_markdown=False):
         # Initialize counters
@@ -731,10 +757,10 @@ class MaigretDatabase:
         # Calculate percentages
         total_count = len(sites_dict)
         enabled_count = total_count - disabled_count
-        enabled_perc = round(100 * enabled_count / total_count, 2)
-        checks_perc = round(100 * message_checks_one_factor / enabled_count, 2)
-        status_checks_perc = round(100 * status_checks / enabled_count, 2)
-        no_presence_perc = round(100 * message_checks_no_presence / enabled_count, 2)
+        enabled_perc = self._percent(enabled_count, total_count)
+        checks_perc = self._percent(message_checks_one_factor, enabled_count)
+        status_checks_perc = self._percent(status_checks, enabled_count)
+        no_presence_perc = self._percent(message_checks_no_presence, enabled_count)
         protection_summary = ", ".join(
             f"{kind} {count}"
             for kind, count in sorted(protections.items(), key=lambda x: -x[1])
@@ -758,9 +784,9 @@ class MaigretDatabase:
 
         # Format output
         weak_checks = message_checks_one_factor + status_checks
-        weak_perc = round(100 * weak_checks / enabled_count, 2)
+        weak_perc = self._percent(weak_checks, enabled_count)
         check_type_summary = ", ".join(
-            f"{kind} {count} ({round(100 * count / enabled_count, 2)}%)"
+            f"{kind} {count} ({self._percent(count, enabled_count)}%)"
             for kind, count in sorted(check_types.items(), key=lambda x: -x[1])
         )
 
@@ -773,7 +799,7 @@ class MaigretDatabase:
                     (
                         "Countries",
                         f"{len(countries)} tagged, {sites_without_country} sites "
-                        f"({round(100 * sites_without_country / total_count, 2)}%) "
+                        f"({self._percent(sites_without_country, total_count)}%) "
                         "have no country tag",
                     ),
                 ],

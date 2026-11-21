@@ -29,10 +29,18 @@ from .literals import (
     BlockTypeType,
     ContentClassifierType,
     EntityTypeType,
+    ExtractionGranularityTypeType,
     FeatureTypeType,
     JobStatusType,
+    OutputTextFormatTypeType,
+    PIIEntityTypeType,
+    PIIRedactionMaskModeType,
+    ProjectStatusType,
     RelationshipTypeType,
+    ResourceOwnerType,
     SelectionStatusType,
+    SensitiveDataDetectionModeType,
+    StateType,
     TextTypeType,
 )
 
@@ -58,13 +66,28 @@ __all__ = (
     "AnalyzeIDResponseTypeDef",
     "BlobTypeDef",
     "BlockTypeDef",
+    "BlueprintFilterTypeDef",
+    "BlueprintItemTypeDef",
+    "BlueprintSummaryTypeDef",
+    "BoundingBoxConfigurationTypeDef",
     "BoundingBoxTypeDef",
     "CreateAdapterRequestTypeDef",
     "CreateAdapterResponseTypeDef",
     "CreateAdapterVersionRequestTypeDef",
     "CreateAdapterVersionResponseTypeDef",
+    "CreateBlueprintRequestTypeDef",
+    "CreateBlueprintResponseTypeDef",
+    "CreateBlueprintVersionRequestTypeDef",
+    "CreateBlueprintVersionResponseTypeDef",
+    "CreateProjectRequestTypeDef",
+    "CreateProjectResponseTypeDef",
+    "CustomConfigurationOutputTypeDef",
+    "CustomConfigurationTypeDef",
+    "CustomConfigurationUnionTypeDef",
     "DeleteAdapterRequestTypeDef",
     "DeleteAdapterVersionRequestTypeDef",
+    "DeleteBlueprintRequestTypeDef",
+    "DeleteProjectRequestTypeDef",
     "DetectDocumentTextRequestTypeDef",
     "DetectDocumentTextResponseTypeDef",
     "DetectedSignatureTypeDef",
@@ -72,21 +95,36 @@ __all__ = (
     "DocumentLocationTypeDef",
     "DocumentMetadataTypeDef",
     "DocumentTypeDef",
+    "EncryptionConfigurationOutputTypeDef",
+    "EncryptionConfigurationTypeDef",
+    "EncryptionConfigurationUnionTypeDef",
     "EvaluationMetricTypeDef",
+    "EventBridgeConfigurationTypeDef",
     "ExpenseCurrencyTypeDef",
     "ExpenseDetectionTypeDef",
     "ExpenseDocumentTypeDef",
     "ExpenseFieldTypeDef",
     "ExpenseGroupPropertyTypeDef",
     "ExpenseTypeTypeDef",
+    "ExtractionConfigurationOutputTypeDef",
+    "ExtractionConfigurationTypeDef",
+    "ExtractionConfigurationUnionTypeDef",
+    "ExtractionGranularityOutputTypeDef",
+    "ExtractionGranularityTypeDef",
     "ExtractionTypeDef",
+    "FigureCaptionConfigurationTypeDef",
+    "GenerativeConfigurationTypeDef",
     "GeometryTypeDef",
     "GetAdapterRequestTypeDef",
     "GetAdapterResponseTypeDef",
     "GetAdapterVersionRequestTypeDef",
     "GetAdapterVersionResponseTypeDef",
+    "GetBlueprintRequestTypeDef",
+    "GetBlueprintResponseTypeDef",
     "GetDocumentAnalysisRequestTypeDef",
     "GetDocumentAnalysisResponseTypeDef",
+    "GetDocumentInsightsRequestTypeDef",
+    "GetDocumentInsightsResponseTypeDef",
     "GetDocumentTextDetectionRequestTypeDef",
     "GetDocumentTextDetectionResponseTypeDef",
     "GetExpenseAnalysisRequestTypeDef",
@@ -95,11 +133,14 @@ __all__ = (
     "GetLendingAnalysisResponseTypeDef",
     "GetLendingAnalysisSummaryRequestTypeDef",
     "GetLendingAnalysisSummaryResponseTypeDef",
+    "GetProjectRequestTypeDef",
+    "GetProjectResponseTypeDef",
     "HumanLoopActivationOutputTypeDef",
     "HumanLoopConfigTypeDef",
     "HumanLoopDataAttributesTypeDef",
     "IdentityDocumentFieldTypeDef",
     "IdentityDocumentTypeDef",
+    "InputConfigurationTypeDef",
     "LendingDetectionTypeDef",
     "LendingDocumentTypeDef",
     "LendingFieldTypeDef",
@@ -113,15 +154,32 @@ __all__ = (
     "ListAdaptersRequestPaginateTypeDef",
     "ListAdaptersRequestTypeDef",
     "ListAdaptersResponseTypeDef",
+    "ListBlueprintsRequestPaginateTypeDef",
+    "ListBlueprintsRequestTypeDef",
+    "ListBlueprintsResponseTypeDef",
+    "ListProjectsRequestPaginateTypeDef",
+    "ListProjectsRequestTypeDef",
+    "ListProjectsResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
     "NormalizedValueTypeDef",
     "NotificationChannelTypeDef",
+    "NotificationConfigurationTypeDef",
+    "OutputAdditionalFileFormatTypeDef",
     "OutputConfigTypeDef",
+    "OutputConfigurationTypeDef",
+    "OutputFormatOutputTypeDef",
+    "OutputFormatTypeDef",
+    "OutputTextFormatOutputTypeDef",
+    "OutputTextFormatTypeDef",
+    "PIIEntitiesConfigurationOutputTypeDef",
+    "PIIEntitiesConfigurationTypeDef",
     "PageClassificationTypeDef",
     "PaginatorConfigTypeDef",
     "PointTypeDef",
     "PredictionTypeDef",
+    "ProjectFilterTypeDef",
+    "ProjectSummaryTypeDef",
     "QueriesConfigTypeDef",
     "QueryOutputTypeDef",
     "QueryTypeDef",
@@ -129,22 +187,33 @@ __all__ = (
     "RelationshipTypeDef",
     "ResponseMetadataTypeDef",
     "S3ObjectTypeDef",
+    "SensitiveDataConfigurationOutputTypeDef",
+    "SensitiveDataConfigurationTypeDef",
+    "SensitiveDataConfigurationUnionTypeDef",
     "SignatureDetectionTypeDef",
     "SplitDocumentTypeDef",
+    "SplitterConfigurationTypeDef",
     "StartDocumentAnalysisRequestTypeDef",
     "StartDocumentAnalysisResponseTypeDef",
+    "StartDocumentInsightsRequestTypeDef",
+    "StartDocumentInsightsResponseTypeDef",
     "StartDocumentTextDetectionRequestTypeDef",
     "StartDocumentTextDetectionResponseTypeDef",
     "StartExpenseAnalysisRequestTypeDef",
     "StartExpenseAnalysisResponseTypeDef",
     "StartLendingAnalysisRequestTypeDef",
     "StartLendingAnalysisResponseTypeDef",
+    "SummarizationConfigurationTypeDef",
     "TagResourceRequestTypeDef",
     "TimestampTypeDef",
     "UndetectedSignatureTypeDef",
     "UntagResourceRequestTypeDef",
     "UpdateAdapterRequestTypeDef",
     "UpdateAdapterResponseTypeDef",
+    "UpdateBlueprintRequestTypeDef",
+    "UpdateBlueprintResponseTypeDef",
+    "UpdateProjectRequestTypeDef",
+    "UpdateProjectResponseTypeDef",
     "WarningTypeDef",
 )
 
@@ -224,6 +293,29 @@ RelationshipTypeDef = TypedDict(
 )
 
 
+class BlueprintFilterTypeDef(TypedDict):
+    BlueprintArn: str
+    BlueprintVersion: NotRequired[str]
+
+
+class BlueprintItemTypeDef(TypedDict):
+    BlueprintArn: str
+    BlueprintVersion: NotRequired[str]
+
+
+class BlueprintSummaryTypeDef(TypedDict):
+    BlueprintArn: str
+    CreationTime: datetime
+    BlueprintName: NotRequired[str]
+    BlueprintVersion: NotRequired[str]
+    ResourceOwner: NotRequired[ResourceOwnerType]
+    LastModifiedTime: NotRequired[datetime]
+
+
+class BoundingBoxConfigurationTypeDef(TypedDict):
+    State: StateType
+
+
 class BoundingBoxTypeDef(TypedDict):
     Width: NotRequired[float]
     Height: NotRequired[float]
@@ -245,6 +337,15 @@ class OutputConfigTypeDef(TypedDict):
     S3Prefix: NotRequired[str]
 
 
+class CreateBlueprintVersionRequestTypeDef(TypedDict):
+    BlueprintArn: str
+    ClientRequestToken: NotRequired[str]
+
+
+class SplitterConfigurationTypeDef(TypedDict):
+    State: StateType
+
+
 class DeleteAdapterRequestTypeDef(TypedDict):
     AdapterId: str
 
@@ -252,6 +353,15 @@ class DeleteAdapterRequestTypeDef(TypedDict):
 class DeleteAdapterVersionRequestTypeDef(TypedDict):
     AdapterId: str
     AdapterVersion: str
+
+
+class DeleteBlueprintRequestTypeDef(TypedDict):
+    BlueprintArn: str
+    BlueprintVersion: NotRequired[str]
+
+
+class DeleteProjectRequestTypeDef(TypedDict):
+    ProjectArn: str
 
 
 class DetectedSignatureTypeDef(TypedDict):
@@ -265,6 +375,20 @@ class SplitDocumentTypeDef(TypedDict):
 
 class UndetectedSignatureTypeDef(TypedDict):
     Page: NotRequired[int]
+
+
+class EncryptionConfigurationOutputTypeDef(TypedDict):
+    KmsKeyId: str
+    KmsEncryptionContext: NotRequired[dict[str, str]]
+
+
+class EncryptionConfigurationTypeDef(TypedDict):
+    KmsKeyId: str
+    KmsEncryptionContext: NotRequired[Mapping[str, str]]
+
+
+class EventBridgeConfigurationTypeDef(TypedDict):
+    State: StateType
 
 
 class ExpenseCurrencyTypeDef(TypedDict):
@@ -286,6 +410,22 @@ ExpenseTypeTypeDef = TypedDict(
 )
 
 
+class ExtractionGranularityOutputTypeDef(TypedDict):
+    Types: NotRequired[list[ExtractionGranularityTypeType]]
+
+
+class ExtractionGranularityTypeDef(TypedDict):
+    Types: NotRequired[Sequence[ExtractionGranularityTypeType]]
+
+
+class FigureCaptionConfigurationTypeDef(TypedDict):
+    State: StateType
+
+
+class SummarizationConfigurationTypeDef(TypedDict):
+    State: StateType
+
+
 class PointTypeDef(TypedDict):
     X: NotRequired[float]
     Y: NotRequired[float]
@@ -300,6 +440,11 @@ class GetAdapterVersionRequestTypeDef(TypedDict):
     AdapterVersion: str
 
 
+class GetBlueprintRequestTypeDef(TypedDict):
+    BlueprintArn: str
+    BlueprintVersion: NotRequired[str]
+
+
 class GetDocumentAnalysisRequestTypeDef(TypedDict):
     JobId: str
     MaxResults: NotRequired[int]
@@ -309,6 +454,14 @@ class GetDocumentAnalysisRequestTypeDef(TypedDict):
 class WarningTypeDef(TypedDict):
     ErrorCode: NotRequired[str]
     Pages: NotRequired[list[int]]
+
+
+class GetDocumentInsightsRequestTypeDef(TypedDict):
+    JobArn: str
+
+
+class OutputConfigurationTypeDef(TypedDict):
+    S3Uri: str
 
 
 class GetDocumentTextDetectionRequestTypeDef(TypedDict):
@@ -333,8 +486,16 @@ class GetLendingAnalysisSummaryRequestTypeDef(TypedDict):
     JobId: str
 
 
+class GetProjectRequestTypeDef(TypedDict):
+    ProjectArn: str
+
+
 class HumanLoopDataAttributesTypeDef(TypedDict):
     ContentClassifiers: NotRequired[Sequence[ContentClassifierType]]
+
+
+class InputConfigurationTypeDef(TypedDict):
+    S3Uri: str
 
 
 class PaginatorConfigTypeDef(TypedDict):
@@ -346,6 +507,17 @@ class PaginatorConfigTypeDef(TypedDict):
 TimestampTypeDef = Union[datetime, str]
 
 
+class ProjectFilterTypeDef(TypedDict):
+    ProjectArn: str
+
+
+class ProjectSummaryTypeDef(TypedDict):
+    ProjectArn: str
+    CreationTime: datetime
+    ProjectName: NotRequired[str]
+    LastModifiedTime: NotRequired[datetime]
+
+
 class ListTagsForResourceRequestTypeDef(TypedDict):
     ResourceARN: str
 
@@ -353,6 +525,28 @@ class ListTagsForResourceRequestTypeDef(TypedDict):
 class NotificationChannelTypeDef(TypedDict):
     SNSTopicArn: str
     RoleArn: str
+
+
+class OutputAdditionalFileFormatTypeDef(TypedDict):
+    State: StateType
+
+
+class OutputTextFormatOutputTypeDef(TypedDict):
+    Types: NotRequired[list[OutputTextFormatTypeType]]
+
+
+class OutputTextFormatTypeDef(TypedDict):
+    Types: NotRequired[Sequence[OutputTextFormatTypeType]]
+
+
+class PIIEntitiesConfigurationOutputTypeDef(TypedDict):
+    PiiEntityTypes: list[PIIEntityTypeType]
+    RedactionMaskMode: PIIRedactionMaskModeType
+
+
+class PIIEntitiesConfigurationTypeDef(TypedDict):
+    PiiEntityTypes: Sequence[PIIEntityTypeType]
+    RedactionMaskMode: PIIRedactionMaskModeType
 
 
 class PredictionTypeDef(TypedDict):
@@ -416,6 +610,23 @@ class CreateAdapterVersionResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class CreateBlueprintResponseTypeDef(TypedDict):
+    BlueprintArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateBlueprintVersionResponseTypeDef(TypedDict):
+    BlueprintArn: str
+    BlueprintVersion: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateProjectResponseTypeDef(TypedDict):
+    ProjectArn: str
+    Status: ProjectStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class GetAdapterResponseTypeDef(TypedDict):
     AdapterId: str
     AdapterName: str
@@ -424,6 +635,18 @@ class GetAdapterResponseTypeDef(TypedDict):
     FeatureTypes: list[FeatureTypeType]
     AutoUpdate: AutoUpdateType
     Tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetBlueprintResponseTypeDef(TypedDict):
+    BlueprintArn: str
+    BlueprintName: str
+    BlueprintVersion: str
+    Schema: str
+    KmsKeyId: str
+    KmsEncryptionContext: dict[str, str]
+    CreationTime: datetime
+    LastModifiedTime: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -446,6 +669,11 @@ class ListTagsForResourceResponseTypeDef(TypedDict):
 
 class StartDocumentAnalysisResponseTypeDef(TypedDict):
     JobId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StartDocumentInsightsResponseTypeDef(TypedDict):
+    JobArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -474,6 +702,17 @@ class UpdateAdapterResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class UpdateBlueprintResponseTypeDef(TypedDict):
+    BlueprintArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateProjectResponseTypeDef(TypedDict):
+    ProjectArn: str
+    Status: ProjectStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 AnalyzeIDDetectionsTypeDef = TypedDict(
     "AnalyzeIDDetectionsTypeDef",
     {
@@ -489,6 +728,28 @@ class DocumentTypeDef(TypedDict):
     S3Object: NotRequired[S3ObjectTypeDef]
 
 
+class ListProjectsRequestTypeDef(TypedDict):
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    BlueprintFilter: NotRequired[BlueprintFilterTypeDef]
+
+
+class CustomConfigurationOutputTypeDef(TypedDict):
+    Blueprints: list[BlueprintItemTypeDef]
+    FallbackBlueprints: NotRequired[list[BlueprintItemTypeDef]]
+
+
+class CustomConfigurationTypeDef(TypedDict):
+    Blueprints: Sequence[BlueprintItemTypeDef]
+    FallbackBlueprints: NotRequired[Sequence[BlueprintItemTypeDef]]
+
+
+class ListBlueprintsResponseTypeDef(TypedDict):
+    Blueprints: list[BlueprintSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
 DocumentGroupTypeDef = TypedDict(
     "DocumentGroupTypeDef",
     {
@@ -498,6 +759,18 @@ DocumentGroupTypeDef = TypedDict(
         "UndetectedSignatures": NotRequired[list[UndetectedSignatureTypeDef]],
     },
 )
+EncryptionConfigurationUnionTypeDef = Union[
+    EncryptionConfigurationTypeDef, EncryptionConfigurationOutputTypeDef
+]
+
+
+class NotificationConfigurationTypeDef(TypedDict):
+    EventBridgeConfiguration: EventBridgeConfigurationTypeDef
+
+
+class GenerativeConfigurationTypeDef(TypedDict):
+    Summarization: NotRequired[SummarizationConfigurationTypeDef]
+    FigureCaption: NotRequired[FigureCaptionConfigurationTypeDef]
 
 
 class GeometryTypeDef(TypedDict):
@@ -506,10 +779,23 @@ class GeometryTypeDef(TypedDict):
     RotationAngle: NotRequired[float]
 
 
+class GetDocumentInsightsResponseTypeDef(TypedDict):
+    Status: JobStatusType
+    OutputConfiguration: OutputConfigurationTypeDef
+    ErrorType: str
+    ErrorMessage: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class HumanLoopConfigTypeDef(TypedDict):
     HumanLoopName: str
     FlowDefinitionArn: str
     DataAttributes: NotRequired[HumanLoopDataAttributesTypeDef]
+
+
+class ListProjectsRequestPaginateTypeDef(TypedDict):
+    BlueprintFilter: NotRequired[BlueprintFilterTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
 class ListAdapterVersionsRequestPaginateTypeDef(TypedDict):
@@ -538,6 +824,47 @@ class ListAdaptersRequestTypeDef(TypedDict):
     BeforeCreationTime: NotRequired[TimestampTypeDef]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+
+
+class ListBlueprintsRequestPaginateTypeDef(TypedDict):
+    BlueprintArn: NotRequired[str]
+    ProjectFilter: NotRequired[ProjectFilterTypeDef]
+    ResourceOwner: NotRequired[ResourceOwnerType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListBlueprintsRequestTypeDef(TypedDict):
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    BlueprintArn: NotRequired[str]
+    ProjectFilter: NotRequired[ProjectFilterTypeDef]
+    ResourceOwner: NotRequired[ResourceOwnerType]
+
+
+class ListProjectsResponseTypeDef(TypedDict):
+    Projects: list[ProjectSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class OutputFormatOutputTypeDef(TypedDict):
+    AdditionalFileFormat: OutputAdditionalFileFormatTypeDef
+    TextFormat: OutputTextFormatOutputTypeDef
+
+
+class OutputFormatTypeDef(TypedDict):
+    AdditionalFileFormat: OutputAdditionalFileFormatTypeDef
+    TextFormat: OutputTextFormatTypeDef
+
+
+class SensitiveDataConfigurationOutputTypeDef(TypedDict):
+    DetectionMode: SensitiveDataDetectionModeType
+    PiiEntitiesConfiguration: NotRequired[PIIEntitiesConfigurationOutputTypeDef]
+
+
+class SensitiveDataConfigurationTypeDef(TypedDict):
+    DetectionMode: SensitiveDataDetectionModeType
+    PiiEntitiesConfiguration: NotRequired[PIIEntitiesConfigurationTypeDef]
 
 
 class PageClassificationTypeDef(TypedDict):
@@ -620,9 +947,38 @@ class DetectDocumentTextRequestTypeDef(TypedDict):
     Document: DocumentTypeDef
 
 
+CustomConfigurationUnionTypeDef = Union[
+    CustomConfigurationTypeDef, CustomConfigurationOutputTypeDef
+]
+
+
 class LendingSummaryTypeDef(TypedDict):
     DocumentGroups: NotRequired[list[DocumentGroupTypeDef]]
     UndetectedDocumentTypes: NotRequired[list[str]]
+
+
+class CreateBlueprintRequestTypeDef(TypedDict):
+    BlueprintName: str
+    Schema: str
+    ClientRequestToken: NotRequired[str]
+    EncryptionConfiguration: NotRequired[EncryptionConfigurationUnionTypeDef]
+    Tags: NotRequired[Mapping[str, str]]
+
+
+class UpdateBlueprintRequestTypeDef(TypedDict):
+    BlueprintArn: str
+    Schema: NotRequired[str]
+    EncryptionConfiguration: NotRequired[EncryptionConfigurationUnionTypeDef]
+
+
+class StartDocumentInsightsRequestTypeDef(TypedDict):
+    InputConfiguration: InputConfigurationTypeDef
+    OutputConfiguration: OutputConfigurationTypeDef
+    ProjectArn: NotRequired[str]
+    Blueprints: NotRequired[Sequence[BlueprintItemTypeDef]]
+    EncryptionConfiguration: NotRequired[EncryptionConfigurationUnionTypeDef]
+    NotificationConfiguration: NotRequired[NotificationConfigurationTypeDef]
+    Tags: NotRequired[Mapping[str, str]]
 
 
 BlockTypeDef = TypedDict(
@@ -667,6 +1023,23 @@ LendingDetectionTypeDef = TypedDict(
 class SignatureDetectionTypeDef(TypedDict):
     Confidence: NotRequired[float]
     Geometry: NotRequired[GeometryTypeDef]
+
+
+class ExtractionConfigurationOutputTypeDef(TypedDict):
+    BoundingBox: BoundingBoxConfigurationTypeDef
+    Granularity: ExtractionGranularityOutputTypeDef
+    OutputFormat: OutputFormatOutputTypeDef
+
+
+class ExtractionConfigurationTypeDef(TypedDict):
+    BoundingBox: BoundingBoxConfigurationTypeDef
+    Granularity: ExtractionGranularityTypeDef
+    OutputFormat: OutputFormatTypeDef
+
+
+SensitiveDataConfigurationUnionTypeDef = Union[
+    SensitiveDataConfigurationTypeDef, SensitiveDataConfigurationOutputTypeDef
+]
 
 
 class QueriesConfigTypeDef(TypedDict):
@@ -747,6 +1120,27 @@ LendingFieldTypeDef = TypedDict(
 )
 
 
+class GetProjectResponseTypeDef(TypedDict):
+    ProjectArn: str
+    ProjectName: str
+    ProjectDescription: str
+    Status: ProjectStatusType
+    ExtractionConfiguration: ExtractionConfigurationOutputTypeDef
+    GenerativeConfiguration: GenerativeConfigurationTypeDef
+    CustomConfiguration: CustomConfigurationOutputTypeDef
+    SplitterConfiguration: SplitterConfigurationTypeDef
+    SensitiveDataConfiguration: SensitiveDataConfigurationOutputTypeDef
+    EncryptionConfiguration: EncryptionConfigurationOutputTypeDef
+    CreationTime: datetime
+    LastModifiedTime: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+ExtractionConfigurationUnionTypeDef = Union[
+    ExtractionConfigurationTypeDef, ExtractionConfigurationOutputTypeDef
+]
+
+
 class AnalyzeDocumentRequestTypeDef(TypedDict):
     Document: DocumentTypeDef
     FeatureTypes: Sequence[FeatureTypeType]
@@ -781,6 +1175,30 @@ class LineItemFieldsTypeDef(TypedDict):
 class LendingDocumentTypeDef(TypedDict):
     LendingFields: NotRequired[list[LendingFieldTypeDef]]
     SignatureDetections: NotRequired[list[SignatureDetectionTypeDef]]
+
+
+class CreateProjectRequestTypeDef(TypedDict):
+    ProjectName: str
+    ExtractionConfiguration: ExtractionConfigurationUnionTypeDef
+    ClientRequestToken: NotRequired[str]
+    ProjectDescription: NotRequired[str]
+    GenerativeConfiguration: NotRequired[GenerativeConfigurationTypeDef]
+    CustomConfiguration: NotRequired[CustomConfigurationUnionTypeDef]
+    SplitterConfiguration: NotRequired[SplitterConfigurationTypeDef]
+    SensitiveDataConfiguration: NotRequired[SensitiveDataConfigurationUnionTypeDef]
+    EncryptionConfiguration: NotRequired[EncryptionConfigurationUnionTypeDef]
+    Tags: NotRequired[Mapping[str, str]]
+
+
+class UpdateProjectRequestTypeDef(TypedDict):
+    ProjectArn: str
+    ProjectDescription: NotRequired[str]
+    ExtractionConfiguration: NotRequired[ExtractionConfigurationUnionTypeDef]
+    GenerativeConfiguration: NotRequired[GenerativeConfigurationTypeDef]
+    CustomConfiguration: NotRequired[CustomConfigurationUnionTypeDef]
+    SplitterConfiguration: NotRequired[SplitterConfigurationTypeDef]
+    SensitiveDataConfiguration: NotRequired[SensitiveDataConfigurationUnionTypeDef]
+    EncryptionConfiguration: NotRequired[EncryptionConfigurationUnionTypeDef]
 
 
 class LineItemGroupTypeDef(TypedDict):

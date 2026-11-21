@@ -36,6 +36,7 @@ const VERSION_CHECK_THROTTLE_MS: u64 = 60_000;
 pub struct StatsigUserInternal<'statsig, 'user> {
     pub(crate) user_ref: InternalUserRef<'user>,
     pub statsig_instance: Option<&'statsig Statsig>,
+    pub(crate) membership_deadline: Option<std::time::Instant>,
 }
 
 #[derive(Clone, Copy)]
@@ -54,6 +55,7 @@ impl<'statsig, 'user> StatsigUserInternal<'statsig, 'user> {
         Self {
             user_ref: InternalUserRef::Public(user),
             statsig_instance,
+            membership_deadline: None,
         }
     }
 
@@ -66,6 +68,7 @@ impl<'statsig, 'user> StatsigUserInternal<'statsig, 'user> {
         Self {
             user_ref: InternalUserRef::Fast(user),
             statsig_instance,
+            membership_deadline: None,
         }
     }
 
@@ -76,6 +79,7 @@ impl<'statsig, 'user> StatsigUserInternal<'statsig, 'user> {
         Self {
             user_ref: InternalUserRef::Prepared(user),
             statsig_instance,
+            membership_deadline: None,
         }
     }
 

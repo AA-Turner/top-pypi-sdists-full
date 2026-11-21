@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aws-cdk-lib
-Version: 2.277.0
+Version: 2.278.0
 Summary: Version 2 of the AWS Cloud Development Kit library
 Home-page: https://github.com/aws/aws-cdk
 Author: Amazon Web Services
@@ -22,11 +22,11 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: aws-cdk.asset-awscli-v1==2.2.292
+Requires-Dist: aws-cdk.asset-awscli-v1==2.2.297
 Requires-Dist: aws-cdk.asset-node-proxy-agent-v6<3.0.0,>=2.1.3
 Requires-Dist: aws-cdk.cloud-assembly-schema<56.0.0,>=55.6.0
 Requires-Dist: constructs<11.0.0,>=10.5.0
-Requires-Dist: jsii<2.0.0,>=1.142.0
+Requires-Dist: jsii<2.0.0,>=1.143.0
 Requires-Dist: publication>=0.0.3
 
 # AWS Cloud Development Kit Library
@@ -1605,6 +1605,42 @@ stack's `StackProps` parameter. You can also set this property to `false` to ove
 the context key setting.
 
 Similarly, to do this for a specific nested stack, add a `suppressTemplateIndentation: true` property to its `NestedStackProps` parameter. You can also set this property to `false` to override the context key setting.
+
+## Metadata Context
+
+CDK offers structured APIs to populate the [CloudFormation Metadata Context attribute](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-attribute-metadata.html#aws-attribute-metadata-context-schema).
+
+### Resource-level context
+
+Use `CfnResourceMetadataContext` to add context to a CloudFormation resource:
+
+```python
+# queue: sqs.Queue
+
+
+CfnResourceMetadataContext.of(queue).set(
+    why="buffers order events for asynchronous processing",
+    must=["VisibilityTimeout must be at least six times the consumer timeout"]
+)
+```
+
+By default, the API targets a `CfnResource` scope or its immediate `CfnResource`
+`defaultChild`. Set `selector` to target other resources, including resources
+owned by L2 and L3 constructs.
+
+### Template-level context
+
+Use `CfnTemplateMetadataContext` to add context to a CloudFormation template:
+
+```python
+# stack: Stack
+
+
+CfnTemplateMetadataContext.of(stack).set(
+    arch="SQS buffer -> Lambda -> DynamoDB",
+    owner="order-processing-team"
+)
+```
 
 ## App Context
 

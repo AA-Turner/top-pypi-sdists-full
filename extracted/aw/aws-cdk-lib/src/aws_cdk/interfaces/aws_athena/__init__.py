@@ -316,6 +316,51 @@ class _IPreparedStatementRefProxy(
 typing.cast(typing.Any, IPreparedStatementRef).__jsii_proxy_class__ = lambda : _IPreparedStatementRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_athena.ISystemTablesRef")
+class ISystemTablesRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a SystemTables.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="systemTablesRef")
+    def system_tables_ref(self) -> "SystemTablesReference":
+        '''(experimental) A reference to a SystemTables resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISystemTablesRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a SystemTables.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_athena.ISystemTablesRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="systemTablesRef")
+    def system_tables_ref(self) -> "SystemTablesReference":
+        '''(experimental) A reference to a SystemTables resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SystemTablesReference", jsii.get(self, "systemTablesRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISystemTablesRef).__jsii_proxy_class__ = lambda : _ISystemTablesRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_athena.IWorkGroupRef")
 class IWorkGroupRef(
     _constructs_77d1e7e8.IConstruct,
@@ -476,6 +521,55 @@ class PreparedStatementReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_athena.SystemTablesReference",
+    jsii_struct_bases=[],
+    name_mapping={"table_name": "tableName"},
+)
+class SystemTablesReference:
+    def __init__(self, *, table_name: builtins.str) -> None:
+        '''A reference to a SystemTables resource.
+
+        :param table_name: The TableName of the SystemTables resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_athena as interfaces_athena
+            
+            system_tables_reference = interfaces_athena.SystemTablesReference(
+                table_name="tableName"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__37db99560fe34bd0400494fca29504122cbd128355386af0d684c4e9405e330f)
+            check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "table_name": table_name,
+        }
+
+    @builtins.property
+    def table_name(self) -> builtins.str:
+        '''The TableName of the SystemTables resource.'''
+        result = self._values.get("table_name")
+        assert result is not None, "Required property 'table_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SystemTablesReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_athena.WorkGroupReference",
     jsii_struct_bases=[],
     name_mapping={"work_group_name": "workGroupName"},
@@ -531,9 +625,11 @@ __all__ = [
     "IDataCatalogRef",
     "INamedQueryRef",
     "IPreparedStatementRef",
+    "ISystemTablesRef",
     "IWorkGroupRef",
     "NamedQueryReference",
     "PreparedStatementReference",
+    "SystemTablesReference",
     "WorkGroupReference",
 ]
 
@@ -568,6 +664,13 @@ def _typecheckingstub__8e79cee1079d75d49425539c959b6360f318a9ea2bf4dfcd757f36560
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__37db99560fe34bd0400494fca29504122cbd128355386af0d684c4e9405e330f(
+    *,
+    table_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__cf5da3b7d36495d1cd424f8484a3dd86b735b00d96d9015bccbe52ba012f3bab(
     *,
     work_group_name: builtins.str,
@@ -575,5 +678,5 @@ def _typecheckingstub__cf5da3b7d36495d1cd424f8484a3dd86b735b00d96d9015bccbe52ba0
     """Type checking stubs"""
     pass
 
-for cls in [ICapacityReservationRef, IDataCatalogRef, INamedQueryRef, IPreparedStatementRef, IWorkGroupRef]:
+for cls in [ICapacityReservationRef, IDataCatalogRef, INamedQueryRef, IPreparedStatementRef, ISystemTablesRef, IWorkGroupRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

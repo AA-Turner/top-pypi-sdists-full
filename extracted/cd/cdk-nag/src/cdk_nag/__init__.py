@@ -136,6 +136,8 @@ class CdkTestStack(Stack):
         )
 ```
 
+Alternatively, acknowledging the rule by its base ID (e.g., `AwsSolutions-IAM5`, without a `[FindingId]` suffix) suppresses **all** findings for that rule on the construct.
+
 </details>
 
 ## Rules and Property Overrides
@@ -238,7 +240,7 @@ cdk-nag v3 replaces the custom `NagSuppressions` API with CDK's native `Validati
 | `appliesTo: ['Action::s3:*']` | `id: 'AwsSolutions-IAM5[Action::s3:*]'` |
 | `{ id: 'CdkNagValidationFailure', reason: '...' }` | `Validations.of(construct).acknowledge({ id: 'RuleId', reason: '...' })` |
 
-**Note on bulk suppression:** In v2, suppressing a rule without `appliesTo` would suppress all findings for that rule on the construct. In v3, each finding must be acknowledged individually (e.g., `AwsSolutions-IAM5[Action::s3:*]` and `AwsSolutions-IAM5[Resource::*]` are separate acknowledgments). Prefix matching (acknowledging `AwsSolutions-IAM5` to suppress all findings) is not yet supported — tracked via [issue link].
+**Note on bulk suppression:** As in v2, acknowledging a rule by its base ID (e.g., `AwsSolutions-IAM5`) without a `[FindingId]` suffix suppresses all granular findings for that rule on the construct. Use granular IDs like `AwsSolutions-IAM5[Action::s3:*]` if you only want to acknowledge a specific finding.
 
 **Removed APIs:**
 
@@ -406,7 +408,7 @@ class _IApplyRuleProxy:
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6a23651ea44768b1af733a2b9cef46eced1602c3bca3849419b685c2c8fcba15)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "explanation", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "explanation", value)
 
     @builtins.property
     @jsii.member(jsii_name="info")
@@ -422,7 +424,7 @@ class _IApplyRuleProxy:
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5b0a9865d3a20bd3ed9f672903366f8e8197ef53dddebf5ab545d1e84de2ca16)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "info", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "info", value)
 
     @builtins.property
     @jsii.member(jsii_name="level")
@@ -438,7 +440,7 @@ class _IApplyRuleProxy:
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fca6380ef48764f27214931f0c5bf28e44b41d002da53939e9265879e403ff9e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "level", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "level", value)
 
     @builtins.property
     @jsii.member(jsii_name="node")
@@ -454,7 +456,7 @@ class _IApplyRuleProxy:
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__123173a6ce5be62d3f85f1d78609032a82004c4807c1cc883736375dfa93eb62)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "node", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "node", value)
 
     @builtins.property
     @jsii.member(jsii_name="ruleSuffixOverride")
@@ -470,7 +472,7 @@ class _IApplyRuleProxy:
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__333cce877f5798931df373ac5d819b402e92f9ac723cf0184c1db35694ca67a9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ruleSuffixOverride", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "ruleSuffixOverride", value)
 
     @jsii.member(jsii_name="rule")
     def rule(
@@ -709,7 +711,7 @@ class NagPack(metaclass=jsii.JSIIAbstractClass, jsii_type="cdk-nag.NagPack"):
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__18633cd3423c88500a3be3035af0c083c9c2a61e7358e09d541efac11ba04ecf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "packName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "packName", value)
 
 
 class _NagPackProxy(NagPack):

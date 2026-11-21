@@ -474,15 +474,6 @@ bool lookupDownward(std::span<const NamePlusLoc> nameParts, NameComponents name,
                 symbol = body.find(modport->name);
                 SLANG_ASSERT(symbol);
             }
-
-            // If we're descending into a program instance, verify that
-            // the original scope for the lookup is also within a program.
-            if (body.getDefinition().definitionKind == DefinitionKind::Program &&
-                !isInProgram(context.scope->asSymbol())) {
-                SourceRange errorRange{name.range.start(),
-                                       (nameParts.rend() - 1)->name.range.end()};
-                result.addDiag(*context.scope, diag::IllegalReferenceToProgramItem, errorRange);
-            }
         }
         else if (symbol->kind == SymbolKind::GenerateBlock &&
                  symbol->as<GenerateBlockSymbol>().isUninstantiated) {
@@ -571,6 +562,15 @@ bool lookupDownward(std::span<const NamePlusLoc> nameParts, NameComponents name,
                 // Types cannot be referenced hierarchically.
                 result.addDiag(*context.scope, diag::TypeHierarchical, name.range);
                 return false;
+            }
+
+            // Program signals (nets and variables declared within a program)
+            // cannot be referenced from outside of a program. Other kinds of
+            // symbols, such as parameters, are fine.
+            if ((symbol->kind == SymbolKind::Net || VariableSymbol::isKind(symbol->kind)) &&
+                isInProgram(*symbol) && !isInProgram(context.scope->asSymbol())) {
+                result.addDiag(*context.scope, diag::IllegalReferenceToProgramItem,
+                               result.nameRange);
             }
         }
         result.path.emplace_back(*symbol);
@@ -932,15 +932,16 @@ void unwrapResult(const Scope& scope, LookupResult& result, bool unwrapGenericCl
     if (!result.found)
         return;
 
-    if (result.flags.has(LookupResultFlags::IsHierarchical)) {
-        auto declaredType = result.found->getDeclaredType();
-        if (declaredType && declaredType->isEvaluating()) {
-            auto& diag = result.addDiag(scope, diag::RecursiveDefinition, result.nameRange);
-            diag << result.found->name;
-            diag.addNote(diag::NoteDeclarationHere, result.found->location);
-            result.found = nullptr;
-            return;
-        }
+    // Hierarchical and scoped names can reach a symbol whose type is still being resolved,
+    // which means it's being used from within its own definition. (Simple names have
+    // already been checked, since they need to account for declaration order.)
+    auto declaredType = result.found->getDeclaredType();
+    if (declaredType && declaredType->isEvaluating()) {
+        auto& diag = result.addDiag(scope, diag::RecursiveDefinition, result.nameRange);
+        diag << result.found->name;
+        diag.addNote(diag::NoteDeclarationHere, result.found->location);
+        result.found = nullptr;
+        return;
     }
 
     checkVisibility(*result.found, scope, result.nameRange, result);
@@ -1025,10 +1026,12 @@ const Symbol* findThisHandle(const Scope& scope, bitmask<LookupFlags> flags, Sou
             return &parent->as<ClassType>();
     }
     else {
-        // Find the parent method, if we can.
+        // Find the parent method, if we can. Enum value initializers are bound
+        // inside the enum type, which is nested in whatever declared it.
         const Symbol* parent = &scope.asSymbol();
         while (parent->kind == SymbolKind::StatementBlock ||
-               parent->kind == SymbolKind::RandSeqProduction) {
+               parent->kind == SymbolKind::RandSeqProduction ||
+               parent->kind == SymbolKind::EnumType) {
             auto parentScope = parent->getParentScope();
             SLANG_ASSERT(parentScope);
             parent = &parentScope->asSymbol();
@@ -1202,7 +1205,10 @@ void Lookup::name(const NameSyntax& syntax, const ASTContext& context, bitmask<L
                     &syntax);
 
     if (!result.found) {
-        if (flags.has(LookupFlags::AlwaysAllowUpward)) {
+        // Don't search upward if we already found the name but couldn't use it
+        // (e.g. a function whose return type is still being resolved), since
+        // we'd just find the same symbol again.
+        if (flags.has(LookupFlags::AlwaysAllowUpward) && !result.hasError()) {
             LookupResult originalResult = result;
             if (!lookupUpward({}, name, context, flags, result))
                 return;

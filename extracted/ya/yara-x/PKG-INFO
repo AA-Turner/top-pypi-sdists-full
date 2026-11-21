@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: yara-x
-Version: 1.23.0
+Version: 1.24.0
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy

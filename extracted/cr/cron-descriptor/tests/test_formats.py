@@ -139,8 +139,35 @@ def test_every_x_days_of_the_week_range_ending_on_sunday(options: Options) -> No
     assert get_description("0 0 12 ? * 1-7/2", options) == "At 12:00 PM, every 2 days of the week, Monday through Sunday"
     assert get_description("0 0 12 ? * FRI-SUN/2", options) == "At 12:00 PM, every 2 days of the week, Friday through Sunday"
 
+def test_sunday_as_0_and_7_in_a_list(options: Options) -> None:
+    # 0 and 7 are both Sunday, so the list names it once.
+    assert get_description("0 0 * * 0,7", options) == "At 12:00 AM, only on Sunday"
+    assert get_description("0 0 * * SUN,7", options) == "At 12:00 AM, only on Sunday"
+    assert get_description("0 0 * * 0,1,7", options) == "At 12:00 AM, only on Sunday and Monday"
+
+def test_sunday_to_sunday_range_is_the_whole_week(options: Options) -> None:
+    # 0-7 covers every day; it is not a one-day range from Sunday to Sunday.
+    assert get_description("0 0 * * 0-7", options) == "At 12:00 AM, Sunday through Saturday"
+    assert get_description("0 0 * * SUN-7", options) == "At 12:00 AM, Sunday through Saturday"
+    assert get_description("0 0 * * 00-7", options) == "At 12:00 AM, Sunday through Saturday"
+    assert get_description("0 0 * * 0-07", options) == "At 12:00 AM, Sunday through Saturday"
+    assert get_description("0 0 * * sun-07", options) == "At 12:00 AM, Sunday through Saturday"
+
 def test_last_day_of_the_week_of_the_month(options: Options) -> None:
     assert get_description("* * * * 4L", options) == "Every minute, on the last Thursday of the month"
+
+def test_last_day_of_the_week_alone(options: Options) -> None:
+    # A bare L in day-of-week is the last day of the week (Saturday), like Quartz
+    assert get_description("0 0 0 ? * L", options) == "At 12:00 AM, only on Saturday"
+    assert get_description("* * * * l", options) == "Every minute, only on Saturday"
+    assert get_description("* * * * 1,L", options) == "Every minute, only on Monday and Saturday"
+    assert get_description("0 0 0 ? 1 L", options) == "At 12:00 AM, only on Saturday, only in January"
+
+def test_last_day_of_the_week_alone_with_sunday_start_one(options: Options) -> None:
+    options.day_of_week_start_index_zero = False
+    assert get_description("* * * ? * L", options) == "Every second, only on Saturday"
+    assert get_description("* * * * l", options) == "Every minute, only on Saturday"
+    assert get_description("* * * * 2,L", options) == "Every minute, only on Monday and Saturday"
 
 def test_last_day_of_the_month(options: Options) -> None:
     assert get_description(
@@ -291,6 +318,11 @@ def test_multi_with_day_of_week_start_index_zero_false(options: Options) -> None
     options.day_of_week_start_index_zero = False
 
     assert get_description("* * * ? * 1,2,3", options) == "Every second, only on Sunday, Monday, and Tuesday"
+
+def test_saturday_with_day_of_week_start_index_zero_false(options: Options) -> None:
+    options.day_of_week_start_index_zero = False
+
+    assert get_description("* * * ? * 7", options) == "Every second, only on Saturday"
 
 def test_every3_month(options: Options) -> None:
     assert get_description("0 5 7 2 1/3 ? *", options) == "At 07:05 AM, on day 2 of the month, every 3 months"
@@ -463,6 +495,12 @@ def test_day_of_week_list_mixing_plain_and_nth_days(options: Options) -> None:
     assert get_description("* * * * 3#2,1-2", options) == (
         "Every minute, Monday through Tuesday and on the second Wednesday of the month"
     )
+    assert get_description("* * * * 1,2,3#2", options) == (
+        "Every minute, only on Monday and Tuesday, and on the second Wednesday of the month"
+    )
+    assert get_description("0 9 15 * 1,3#2", options) == (
+        "At 09:00 AM, on day 15 of the month, or on Monday and on the second Wednesday of the month"
+    )
 
 
 def test_day_of_week_list_mixing_plain_and_last_days(options: Options) -> None:
@@ -470,5 +508,8 @@ def test_day_of_week_list_mixing_plain_and_last_days(options: Options) -> None:
         "Every minute, only on Monday and on the last Friday of the month"
     )
     assert get_description("* * * * 1,3#2,5L", options) == (
-        "Every minute, only on Monday and on the second Wednesday of the month and on the last Friday of the month"
+        "Every minute, only on Monday, on the second Wednesday of the month, and on the last Friday of the month"
+    )
+    assert get_description("* * * * 1,2,3#2,5L", options) == (
+        "Every minute, only on Monday and Tuesday, on the second Wednesday of the month, and on the last Friday of the month"
     )

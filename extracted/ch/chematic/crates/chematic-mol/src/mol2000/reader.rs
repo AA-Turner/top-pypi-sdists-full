@@ -62,7 +62,7 @@ fn parse_header(
     ))
 }
 
-fn parse_counts(lines: &mut NumberedLines<'_>) -> Result<(usize, usize), MolParseError> {
+pub(super) fn parse_counts(lines: &mut NumberedLines<'_>) -> Result<(usize, usize), MolParseError> {
     let (line_number, line) = next_required(lines)?;
     if !line.contains("V2000") {
         return Err(MolParseError::InvalidCountLine {
@@ -343,6 +343,8 @@ struct PropertyUpdates {
     charges: Vec<(AtomIdx, i8)>,
     isotopes: Vec<(AtomIdx, u16)>,
     r_groups: Vec<(AtomIdx, RGroupLabel)>,
+    charges_explicit: bool,
+    isotopes_explicit: bool,
 }
 
 fn property_pairs<'a>(
@@ -431,6 +433,26 @@ fn parse_isotope_properties(
     Ok(())
 }
 
+// Fixed-width M ISO pairs can touch when the mass occupies all four columns.
+// Keep accepting historical whitespace-separated records through the caller.
+fn fixed_isotope_fields(line: &str) -> Option<Vec<&str>> {
+    if !line.starts_with("M  ISO") {
+        return None;
+    }
+    let count = line.get(6..9)?.trim().parse::<usize>().ok()?;
+    let end = 9usize.checked_add(count.checked_mul(8)?)?;
+    if !line.get(end..)?.trim().is_empty() {
+        return None;
+    }
+    let mut fields = vec!["M", "ISO", line.get(6..9)?.trim()];
+    for i in 0..count {
+        let start = 9 + i * 8;
+        fields.push(line.get(start..start + 4)?.trim());
+        fields.push(line.get(start + 4..start + 8)?.trim());
+    }
+    Some(fields)
+}
+
 fn parse_rgroup_properties(
     fields: &[&str],
     line_number: usize,
@@ -462,10 +484,18 @@ fn parse_property_block(
         let fields: Vec<&str> = line.split_whitespace().collect();
         match fields.get(0..2) {
             Some(["M", "CHG"]) => {
-                parse_charge_properties(&fields, line_number, atom_count, &mut updates)?
+                parse_charge_properties(&fields, line_number, atom_count, &mut updates)?;
+                updates.charges_explicit = true;
             }
             Some(["M", "ISO"]) => {
-                parse_isotope_properties(&fields, line_number, atom_count, &mut updates)?
+                let fixed = fixed_isotope_fields(line);
+                parse_isotope_properties(
+                    fixed.as_deref().unwrap_or(&fields),
+                    line_number,
+                    atom_count,
+                    &mut updates,
+                )?;
+                updates.isotopes_explicit = true;
             }
             Some(["M", "RGP"]) => {
                 parse_rgroup_properties(&fields, line_number, atom_count, &mut updates)?
@@ -498,6 +528,21 @@ fn apply_atom_updates(
     updates: PropertyUpdates,
 ) {
     flag_aromatic_bond_atoms(mol);
+    // CTfile property records replace the entire corresponding atom-block
+    // channel, not just the listed atoms. Reset once, then apply all lines.
+    // Keep charge and isotope presence independent; absent channels retain
+    // their legacy atom-block values.
+    if updates.charges_explicit || updates.isotopes_explicit {
+        for index in 0..mol.atom_count() {
+            let atom = AtomIdx(index as u32);
+            if updates.charges_explicit {
+                mol.set_charge(atom, 0);
+            }
+            if updates.isotopes_explicit {
+                mol.set_isotope(atom, None);
+            }
+        }
+    }
     for (atom, charge) in updates.charges {
         mol.set_charge(atom, charge);
     }
@@ -920,4 +965,66 @@ pub fn parse_sdf_with_coords(
         .into_iter()
         .map(|r| (r.mol, r.metadata, r.coords))
         .collect())
+}
+
+#[cfg(test)]
+mod coverage_boundary_tests {
+    use super::*;
+
+    #[test]
+    fn malformed_property_records_fail_with_specific_diagnostics() {
+        let overflow = ["M", "CHG", "18446744073709551615"];
+        let error = property_pairs(&overflow, 7, "CHG")
+            .err()
+            .expect("overflowing property count must fail");
+        assert!(matches!(
+            error,
+            MolParseError::InvalidPropertyLine { line: 7, .. }
+        ));
+
+        let mut updates = PropertyUpdates::default();
+        for fields in [
+            vec!["M", "ISO", "1", "1", "0"],
+            vec!["M", "ISO", "1", "1", "not-a-mass"],
+        ] {
+            assert!(matches!(
+                parse_isotope_properties(&fields, 9, 1, &mut updates),
+                Err(MolParseError::InvalidPropertyLine { line: 9, .. })
+            ));
+        }
+        assert!(fixed_isotope_fields("M  CHG  1   1  -1").is_none());
+        assert!(fixed_isotope_fields("M  ISO  1   1  13 trailing").is_none());
+    }
+
+    #[test]
+    fn bond_parser_covers_unknown_orders_and_duplicate_bonds() {
+        let mut builder = MoleculeBuilder::new();
+        builder.add_atom(Atom::new(Element::C));
+        builder.add_atom(Atom::new(Element::N));
+
+        let (bond, unspecified) = parse_bond_line(&mut builder, "  1  2 10  0", 5, 0)
+            .expect("unknown V2000 bond types retain the historical single-bond fallback");
+        assert_eq!(builder.build().bond(bond).order, BondOrder::Single);
+        assert!(!unspecified);
+
+        let mut duplicate = MoleculeBuilder::new();
+        duplicate.add_atom(Atom::new(Element::C));
+        duplicate.add_atom(Atom::new(Element::N));
+        parse_bond_line(&mut duplicate, "  1  2  1  0", 5, 0).unwrap();
+        assert!(matches!(
+            parse_bond_line(&mut duplicate, "  1  2  1  0", 6, 1),
+            Err(MolParseError::InvalidBondLine { line: 6, .. })
+        ));
+    }
+
+    #[test]
+    fn sdf_reader_accepts_final_delimiter_without_newline_and_skips_empty_records() {
+        let empty = read_sdf_with_diagnostics("$$$$").unwrap();
+        assert!(empty.is_empty());
+
+        let mol = "ethane\n  chematic  2D\n\n  2  1  0  0  0  0            999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n    1.5000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0\nM  END\n$$$$";
+        let reports = read_sdf_with_diagnostics(mol).unwrap();
+        assert_eq!(reports.len(), 1);
+        assert_eq!(reports[0].mol.atom_count(), 2);
+    }
 }

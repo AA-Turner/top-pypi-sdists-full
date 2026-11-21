@@ -9,6 +9,12 @@ an existing ``<a>``, a raw-text element (``<script>``/``<style>``), or a caller'
 
 from __future__ import annotations
 
+__lazy_modules__ = [
+    "collections.abc",
+    "copy",
+    f"{__spec__.parent}._native",  # ty: ignore[missing-union-attribute]  # imported modules have a spec
+]
+
 import copy
 import functools
 from collections.abc import Mapping
@@ -19,51 +25,26 @@ from typing import TYPE_CHECKING, Final, TypeAlias, TypeVar, cast
 
 from ._native import (
     Element,
+    linkify_apply,
+    linkify_find,
+    linkify_fold,
+    linkify_has,
+    linkify_nofollow,
+    linkify_target_blank,
     parse_fragment,
-)
-from ._native import (
-    linkify_apply as _linkify_apply,
-)
-from ._native import (
-    linkify_find as _linkify_find,
-)
-from ._native import (
-    linkify_fold as _linkify_fold,
-)
-from ._native import (
-    linkify_has as _linkify_has,
-)
-from ._native import (
-    linkify_nofollow as _linkify_nofollow,
-)
-from ._native import (
-    linkify_target_blank as _linkify_target_blank,
-)
-from ._native import (
-    phone_config_compile as _phone_config_compile,
-)
-from ._native import (
-    phone_e164 as _phone_e164,
-)
-from ._native import (
-    phone_number_check as _phone_number_check,
-)
-from ._native import (
-    phone_number_format as _phone_number_format,
-)
-from ._native import (
-    phone_parse as _phone_parse,
-)
-from ._native import (
-    phone_regions as _phone_regions,
+    phone_config_compile,
+    phone_e164,
+    phone_number_check,
+    phone_number_format,
+    phone_parse,
+    phone_regions,
 )
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
     from typing import Self
 
-    from ._native import Node
-    from ._native import PhoneConfig as _PhoneConfig
+    from ._native import Node, PhoneConfig
 
 _NODE_T = TypeVar("_NODE_T", bound="Node")
 
@@ -208,7 +189,7 @@ class PhoneNumbers:
     grouping: PhoneGrouping
     types: frozenset[PhoneType] | None
     ignore_numbers_after: tuple[str, ...]
-    _config: _PhoneConfig = field(init=False, repr=False, compare=False)
+    _config: PhoneConfig = field(init=False, repr=False, compare=False)
 
     def __init__(  # ruff:ignore[too-many-arguments]  # one keyword per setting, the dataclass field list
         self,
@@ -273,7 +254,7 @@ class PhoneNumbers:
             if not require_valid:
                 msg = "types needs require_valid=True"
                 raise ValueError(msg)
-        object.__setattr__(self, "regions", _phone_regions(_ordered_strings(regions, "regions")))
+        object.__setattr__(self, "regions", phone_regions(_ordered_strings(regions, "regions")))
         object.__setattr__(self, "require_valid", require_valid)
         object.__setattr__(self, "require_separators", require_separators)
         object.__setattr__(self, "skip_card_numbers", skip_card_numbers)
@@ -284,7 +265,7 @@ class PhoneNumbers:
         object.__setattr__(
             self,
             "ignore_numbers_after",
-            _linkify_fold(_ordered_strings(ignore_numbers_after, "ignore_numbers_after"), "ignore_numbers_after", 3),
+            linkify_fold(_ordered_strings(ignore_numbers_after, "ignore_numbers_after"), "ignore_numbers_after", 3),
         )
         # compiled once here, where a mistake raises, and handed to every scanner and parse that takes the settings
         object.__setattr__(self, "_config", _compile_settings(self, PhoneNumber))
@@ -317,8 +298,8 @@ def _ordered_strings(values: Iterable[str], name: str) -> tuple[str, ...]:
     return items
 
 
-def _compile_settings(phones: PhoneNumbers, number_type: type[PhoneNumber], *, parsing: bool = False) -> _PhoneConfig:
-    return _phone_config_compile((
+def _compile_settings(phones: PhoneNumbers, number_type: type[PhoneNumber], *, parsing: bool = False) -> PhoneConfig:
+    return phone_config_compile((
         phones.regions,
         phones.require_valid,
         phones.require_separators,
@@ -383,7 +364,7 @@ class PhoneNumber:
         ):
             msg = "extension must be 1-20 ASCII digits"
             raise ValueError(msg)
-        _phone_number_check(self.country_code, self.national_number, self.region, _PHONE_TYPES.index(self.type))
+        phone_number_check(self.country_code, self.national_number, self.region, _PHONE_TYPES.index(self.type))
 
     @classmethod
     def parse(cls, text: str, *, regions: Iterable[str] = (), require_valid: bool = True) -> Self:
@@ -413,7 +394,7 @@ class PhoneNumber:
             msg = "text must be str"
             raise TypeError(msg)
         if (
-            number := _phone_parse(
+            number := phone_parse(
                 _parse_config(cls, _ordered_strings(regions, "regions"), require_valid=require_valid), text
             )
         ) is None:
@@ -438,7 +419,7 @@ class PhoneNumber:
     @property
     def e164(self) -> str | None:
         """The international number when it fits E.164's fifteen digits, else ``None``."""
-        return _phone_e164(self.country_code, self.national_number)
+        return phone_e164(self.country_code, self.national_number)
 
     def format(self, style: PhoneFormat = PhoneFormat.INTERNATIONAL) -> str:
         """
@@ -460,13 +441,11 @@ class PhoneNumber:
         if not isinstance(style, PhoneFormat):
             msg = "style must be a PhoneFormat"
             raise TypeError(msg)
-        return _phone_number_format(
-            self.country_code, self.national_number, self.extension, _PHONE_FORMATS.index(style)
-        )
+        return phone_number_format(self.country_code, self.national_number, self.extension, _PHONE_FORMATS.index(style))
 
 
 @functools.lru_cache(maxsize=32)
-def _parse_config(number_type: type[PhoneNumber], regions: tuple[str, ...], *, require_valid: bool) -> _PhoneConfig:
+def _parse_config(number_type: type[PhoneNumber], regions: tuple[str, ...], *, require_valid: bool) -> PhoneConfig:
     # keyed on the raw regions so a repeated parse call pays a cache lookup, not a settings object and its compile
     return _compile_settings(
         PhoneNumbers(
@@ -494,17 +473,7 @@ def nofollow(link: LinkCandidate) -> LinkCandidate:
     :param link: the link to adjust.
     :returns: the link, with ``nofollow`` added when it is a web link; never ``None``.
     """
-    return _linkify_nofollow(link)
-
-
-def target_blank(link: LinkCandidate) -> LinkCandidate:
-    """
-    Open a web link in a new tab, stripping a stale ``target`` from a non-web link so it cannot leak through.
-
-    :param link: the link to adjust.
-    :returns: the link, with ``target`` set on a web link or cleared on a non-web link; never ``None``.
-    """
-    return _linkify_target_blank(link)
+    return linkify_nofollow(link)
 
 
 #: The callbacks applied when the caller passes none: by default, only :func:`nofollow`.
@@ -543,12 +512,12 @@ class Linker:
         """Compile a configuration into the form the walk consumes."""
         config = options if options is not None else Linkify()
         self.callbacks = tuple(config.callbacks)
-        self.skip_tags = _linkify_fold(config.skip_tags, "skip_tags", 0) if config.skip_tags is not None else ()
+        self.skip_tags = linkify_fold(config.skip_tags, "skip_tags", 0) if config.skip_tags is not None else ()
         self.parse_email = config.parse_email
         self.process_existing = config.process_existing
-        self.extra_tlds = _linkify_fold(config.extra_tlds, "extra_tlds", 0) if config.extra_tlds else ()
+        self.extra_tlds = linkify_fold(config.extra_tlds, "extra_tlds", 0) if config.extra_tlds else ()
         self.url_schemes = (
-            _linkify_fold(config.schemes, "schemes", 0) if config.schemes is not None else _DEFAULT_URL_SCHEMES
+            linkify_fold(config.schemes, "schemes", 0) if config.schemes is not None else _DEFAULT_URL_SCHEMES
         )
         self.phones = config.phones
         self._phone_config = _compile_phones(config.phones)
@@ -593,7 +562,7 @@ class Linker:
         if isinstance(node, str):
             msg = "linkify_node takes a parsed node; pass a str to linkify instead"
             raise TypeError(msg)
-        _linkify_apply(
+        linkify_apply(
             node,
             self.callbacks,
             self.parse_email,
@@ -603,6 +572,8 @@ class Linker:
             self.skip_tags,
             LinkCandidate,
             self._phone_config,
+            nofollow,
+            target_blank,
         )
         return node
 
@@ -637,7 +608,7 @@ class Linkify:
     phones: PhoneNumbers | None = None
 
 
-def _compile_phones(phones: PhoneNumbers | None) -> _PhoneConfig | None:
+def _compile_phones(phones: PhoneNumbers | None) -> PhoneConfig | None:
     if phones is None:
         return None
     if not isinstance(phones, PhoneNumbers):
@@ -678,6 +649,16 @@ class LinkCandidate:
         self.attrs = attrs if attrs is not None else {}
         self.existing = existing
         self.phone = phone
+
+
+def target_blank(link: LinkCandidate) -> LinkCandidate:
+    """
+    Open a web link in a new tab, stripping a stale ``target`` from a non-web link so it cannot leak through.
+
+    :param link: the link to adjust.
+    :returns: the link, with ``target`` set on a web link or cleared on a non-web link; never ``None``.
+    """
+    return linkify_target_blank(link)
 
 
 def linkify_node(node: _NODE_T, options: Linkify | None = None) -> _NODE_T:
@@ -729,10 +710,10 @@ class LinkDetector:
         self.bare_domains = bare_domains
         self.phones = phones
         self._phone_config = _compile_phones(phones)
-        self._tlds = _linkify_fold(tlds, "tlds", 1)
-        self._registered = _linkify_fold(schemes, "schemes", 2)
-        self._schemes = self._registered if phones is None else _linkify_fold((*self._registered, "tel"), "schemes", 0)
-        self._url_schemes = _linkify_fold((*_DEFAULT_URL_SCHEMES, *self._registered), "schemes", 0)
+        self._tlds = linkify_fold(tlds, "tlds", 1)
+        self._registered = linkify_fold(schemes, "schemes", 2)
+        self._schemes = self._registered if phones is None else linkify_fold((*self._registered, "tel"), "schemes", 0)
+        self._url_schemes = linkify_fold((*_DEFAULT_URL_SCHEMES, *self._registered), "schemes", 0)
 
     def __reduce__(self) -> tuple[Callable[[], LinkDetector], tuple[()]]:
         # the compiled phone configuration is a native object, so a copy or a pickle rebuilds from the settings
@@ -756,7 +737,7 @@ class LinkDetector:
         """
         return [
             _span_from_match(text, span)
-            for span in _linkify_find(
+            for span in linkify_find(
                 text,
                 self.emails,
                 self.bare_domains,
@@ -775,7 +756,7 @@ class LinkDetector:
         :param text: the text to scan.
         :returns: whether the text contains at least one link.
         """
-        return _linkify_has(
+        return linkify_has(
             text, self.emails, self.bare_domains, self._tlds, self._schemes, self._url_schemes, self._phone_config
         )
 

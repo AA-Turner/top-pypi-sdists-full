@@ -271,7 +271,12 @@ class StepSpec:
     def describe(self) -> str:
         if self.kind == "sleep":
             return f"sleep {self.seconds} s"
-        what = self.name if self.name is not None else f"frame {self.frame_id}"
+        if self.name is not None:
+            what = self.name
+        elif self.frame_id is not None:
+            what = f"frame {self.frame_id}"
+        else:
+            what = "a raw frame"
         if self.kind == "wait":
             return f"wait for {what} from {self.device} (up to {self.seconds} s)"
         return f"send {what} to {self.device}"
@@ -589,9 +594,26 @@ def _attributes(value: Any, where: str) -> Dict[str, str]:
 
 
 def _codec(value: Any, base: Path, where: str) -> str:
+    """The codec *value* names, as hilspy.open() takes it: ``NAME`` or
+    ``NAME:ARGUMENT`` (``dbc:vehicle.dbc``, ``lidar:vlp16``), a relative
+    file argument made relative to *base*.
+
+    An empty codec, an empty name and ``NAME:`` without its argument are
+    refused here, naming *where*, rather than reaching hilspy.open() (#2241).
+    """
     codec = _text(value, where)
     name, sep, argument = codec.partition(":")
-    if sep and argument:
+    if not name.strip():
+        raise HilsConfigError(
+            f"{where}: expected a codec name (raw, nmea, dbc:FILE, ...), "
+            f"got {_shown(codec)}"
+        )
+    if sep and not argument.strip():
+        raise HilsConfigError(
+            f"{where}: expected an argument after the colon "
+            f"(dbc:vehicle.dbc, lidar:vlp16), got {_shown(codec)}"
+        )
+    if sep:
         return f"{name}:{_relative_file(argument, base)}"
     return codec
 
@@ -778,8 +800,13 @@ def _device(name: str, value: Any, base: Path, mode: str) -> DeviceSpec:
     where = f"devices.{name}"
     section = _mapping(value, where)
     _only(section, ("url", "codec", "options", "messages", "sensor", "inputs"), where)
-    if not section.get("url"):
-        raise HilsConfigError(f"{where}: a device has a url")
+    # Text, not blank: a number or false gave a message naming neither the
+    # key nor the value, and a blank url reached hilspy.open() (#2241).
+    if section.get("url") is None:
+        raise HilsConfigError(f"{where}.url: a device has a url")
+    url = _text(section["url"], f"{where}.url")
+    if not url.strip():
+        raise HilsConfigError(f"{where}.url: a device has a url, got {_shown(url)}")
     codec = _codec(_get(section, "codec", "raw"), base, f"{where}.codec")
     options = {
         _key_text(k, f"{where}.options"): _relative_file(v, base)
@@ -824,7 +851,7 @@ def _device(name: str, value: Any, base: Path, mode: str) -> DeviceSpec:
         )
     return DeviceSpec(
         name=name,
-        url=_text(section["url"], f"{where}.url"),
+        url=url,
         codec=codec,
         options=options,
         messages=messages,

@@ -491,20 +491,6 @@ def network_capture_query(driver, *, contract: dict) -> dict:
     selector, wait = _capture_contract(contract)
     kind, base = _provider()
     timeout = max(1, math.ceil(wait["timeout_ms"] / 1000))
-    if selector["flow_id"]:
-        # The recorded flow id is a fast path, not an identity: it was minted
-        # by the AUTHORING session's provider, and a replay's provider mints
-        # its own — so a miss is the expected case there, and the live
-        # method/url match below is what actually re-finds the flow (the web
-        # helper's semantics exactly). The contract guarantees the selector:
-        # method and url are validated non-empty above.
-        try:
-            return _fetch_flow(kind, base, selector["flow_id"], timeout)
-        except NetworkCaptureError as exc:
-            _log.info(
-                "[network_query] flow id %s did not resolve (%s); matching by "
-                "method/url instead", selector["flow_id"], exc)
-
     deadline = time.monotonic() + (wait["timeout_ms"] / 1000)
     while True:
         remaining = deadline - time.monotonic()
@@ -516,14 +502,13 @@ def network_capture_query(driver, *, contract: dict) -> dict:
             if flow["request"]["method"] == selector["method"]
             and flow["request"]["url"] == selector["url"]
         ]
-        if len(matches) > selector["occurrence"]:
-            return matches[selector["occurrence"]]
+        if matches:
+            return matches[-1]
         remaining = deadline - time.monotonic()
         if remaining > 0:
             time.sleep(min(wait["poll_interval_ms"] / 1000, remaining))
     raise NetworkCaptureTimeout(
-        "network capture did not observe occurrence "
-        f"{selector['occurrence']} of {selector['method']!r} {selector['url']!r}"
+        f"network capture did not observe {selector['method']!r} {selector['url']!r}"
     )
 
 

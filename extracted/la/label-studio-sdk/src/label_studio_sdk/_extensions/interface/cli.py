@@ -25,6 +25,9 @@ from .preview import (
     PreviewAssetCache,
     PreviewCacheError,
     ProtocolMismatchError,
+    ScenarioBundleError,
+    screen_uses_interface_components,
+    serve_scenario_editor_bundle,
 )
 from .preview.server import AuthHeaderProvider
 
@@ -33,7 +36,13 @@ _AUTH_ERRORS = (ApiError, httpx.HTTPError, ValueError)
 SIDECAR_SUFFIX = ".ls-interface.json"
 DEFAULT_BASE_URL = "https://app.humansignal.com"
 VALIDATOR_PACKAGE = "label_studio_sdk._extensions.interface.validator"
-VALIDATOR_ASSETS = ("package.json", "package-lock.json", "validate.mjs", "scenario-runner.mjs")
+VALIDATOR_ASSETS = (
+    "package.json",
+    "package-lock.json",
+    "interface-components-shim.mjs",
+    "validate.mjs",
+    "scenario-runner.mjs",
+)
 INTERFACE_FILE_CANDIDATES = ("Screen.jsx", "Interface.jsx", "interface.jsx", "index.jsx")
 TASK_FILE_CANDIDATES = ("task.json", "sample.json", "example-task.json", "example_task.json")
 SCENARIO_FILE_CANDIDATES = ("scenarios.js", "scenario.js")
@@ -78,6 +87,12 @@ def _resolve_base_url(ctx: typer.Context | None, explicit: str | None = None) ->
     return (
         explicit or ctx_obj.get("base_url") or os.getenv("LABEL_STUDIO_URL") or os.getenv("LS_URL") or DEFAULT_BASE_URL
     ).rstrip("/")
+
+
+def _explicit_base_url(ctx: typer.Context | None, explicit: str | None = None) -> str | None:
+    ctx_obj = _context_obj(ctx)
+    raw = explicit or ctx_obj.get("base_url") or os.getenv("LABEL_STUDIO_URL") or os.getenv("LS_URL")
+    return raw.rstrip("/") if isinstance(raw, str) and raw.strip() else None
 
 
 def _resolve_token(ctx: typer.Context | None, explicit: str | None = None) -> str | None:
@@ -244,6 +259,16 @@ def _load_task(task_path: Path | None) -> dict[str, Any] | None:
     return task
 
 
+def _load_scenarios(scenario_path: Path | None) -> str | None:
+    if scenario_path is None:
+        return None
+    try:
+        return scenario_path.read_text(encoding="utf-8").rstrip()
+    except (OSError, UnicodeDecodeError) as exc:
+        typer.echo(f"error: could not read scenarios file {scenario_path}: {exc}", err=True)
+        raise typer.Exit(code=2) from None
+
+
 def _resolve_bundle_file(
     bundle: Path,
     explicit: Path | None,
@@ -336,12 +361,58 @@ def _ensure_validator_ready(*, require_scenario: bool = False) -> Path:
         if result.returncode != 0:
             typer.echo(f"npm install failed:\n{result.stderr}", err=True)
             raise typer.Exit(code=2)
+    if require_scenario:
+        node_bin = shutil.which("node")
+        if node_bin is None:
+            typer.echo("error: `node` is required to run scenario validation.", err=True)
+            raise typer.Exit(code=2)
+        probe = subprocess.run(
+            [
+                node_bin,
+                "--input-type=module",
+                "-e",
+                "import fs from 'node:fs'; import { chromium } from 'playwright'; process.exit(fs.existsSync(chromium.executablePath()) ? 0 : 1);",
+            ],
+            cwd=cache_dir,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if probe.returncode != 0:
+            npx = shutil.which("npx")
+            if npx is None:
+                typer.echo("error: `npx` is required to install Playwright Chromium.", err=True)
+                raise typer.Exit(code=2)
+            typer.echo("installing Playwright Chromium for scenario validation (one-time)...", err=True)
+            pw_install = subprocess.run(
+                [npx, "playwright", "install", "chromium"],
+                cwd=cache_dir,
+                capture_output=True,
+                text=True,
+                timeout=300,
+            )
+            if pw_install.returncode != 0:
+                detail = "\n".join(
+                    part.strip() for part in (pw_install.stderr, pw_install.stdout) if part and part.strip()
+                )
+                typer.echo(f"playwright install chromium failed:\n{detail}", err=True)
+                raise typer.Exit(code=2)
     return cache_dir
 
 
-def _run_node_json(args: list[str], *, timeout: int, timeout_label: str) -> dict[str, Any]:
+def _run_node_json(
+    args: list[str],
+    *,
+    timeout: int,
+    timeout_label: str,
+    extra_env: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    env = None
+    if extra_env:
+        env = dict(os.environ)
+        env.update(extra_env)
     try:
-        result = subprocess.run(args, capture_output=True, text=True, timeout=timeout)
+        result = subprocess.run(args, capture_output=True, text=True, timeout=timeout, env=env)
     except subprocess.TimeoutExpired:
         typer.echo(f"error: {timeout_label} timed out after {timeout}s", err=True)
         raise typer.Exit(code=2) from None
@@ -372,16 +443,75 @@ def _run_validator(file: Path) -> dict[str, Any]:
     )
 
 
-def _run_scenarios(file: Path, scenario: Path) -> dict[str, Any]:
+def _has_cli_pinned_base_url(ctx: typer.Context | None, lse_url: str | None) -> bool:
+    if lse_url and lse_url.strip():
+        return True
+    cur = ctx
+    saw_base_url_param = False
+    while cur is not None:
+        get_source = getattr(cur, "get_parameter_source", None)
+        if callable(get_source):
+            for param_name in ("lse_url", "base_url"):
+                source = get_source(param_name)
+                if source is not None:
+                    if param_name == "base_url":
+                        saw_base_url_param = True
+                    if getattr(source, "name", None) == "COMMANDLINE":
+                        return True
+        cur = getattr(cur, "parent", None)
+    ctx_base = _context_obj(ctx).get("base_url")
+    return bool(not saw_base_url_param and isinstance(ctx_base, str) and ctx_base.strip())
+
+
+def _run_scenarios(
+    file: Path,
+    scenario: Path,
+    *,
+    ctx: typer.Context | None = None,
+    lse_url: str | None = None,
+    token: str | None = None,
+) -> dict[str, Any]:
     if scenario.suffix != ".js":
         typer.echo(f"error: --scenario expects a .js scenario module, got {scenario}", err=True)
         raise typer.Exit(code=2)
     cache_dir = _ensure_validator_ready(require_scenario=True)
-    return _run_node_json(
-        ["node", str(cache_dir / "scenario-runner.mjs"), str(file.resolve()), str(scenario.resolve())],
-        timeout=120,
-        timeout_label="scenario runner",
-    )
+    source = file.read_text(encoding="utf-8")
+    cmd = ["node", str(cache_dir / "scenario-runner.mjs"), str(file.resolve()), str(scenario.resolve())]
+
+    if not screen_uses_interface_components(source):
+        return _run_node_json(cmd, timeout=120, timeout_label="scenario runner")
+
+    pinned_cli_url = _has_cli_pinned_base_url(ctx, lse_url)
+    explicit_base = _explicit_base_url(ctx, lse_url)
+    resolved_token = _resolve_token(ctx, token)
+    auth_headers: dict[str, str] | None = None
+    if explicit_base and resolved_token:
+        try:
+            auth_headers = _auth_header_provider(resolved_token, explicit_base)()
+        except _AUTH_ERRORS:
+            auth_headers = None
+
+    try:
+        with serve_scenario_editor_bundle(
+            explicit_base_url=explicit_base,
+            auth_headers=auth_headers,
+            allow_cross_origin_cache_fallback=not pinned_cli_url,
+        ) as bundle_url:
+            return _run_node_json(
+                cmd,
+                timeout=120,
+                timeout_label="scenario runner",
+                extra_env={"LS_INTERFACE_EDITOR_BUNDLE_URL": bundle_url},
+            )
+    except ScenarioBundleError as exc:
+        return {
+            "ok": False,
+            "file": str(file.resolve()),
+            "scenarioFile": str(scenario.resolve()),
+            "errors": [{"stage": "scenario", "message": str(exc)}],
+            "warnings": [],
+            "scenarios": [],
+        }
 
 
 def _print_static_report(file: Path, report: dict[str, Any], *, overall_ok: bool) -> None:
@@ -555,7 +685,12 @@ def _surface_http_error(exc: httpx.HTTPStatusError) -> None:
     typer.echo(f"error: HTTP {exc.response.status_code} from {exc.request.url}\n{body}", err=True)
 
 
-def _prepare_source(file: Path, *, no_validate: bool) -> tuple[str, str, str, dict[str, Any]]:
+def _prepare_source(
+    file: Path,
+    *,
+    no_validate: bool,
+    scenarios: str | None = None,
+) -> tuple[str, str, str, dict[str, Any]]:
     report = _run_validator(file)
     if not no_validate and not report.get("ok"):
         typer.echo(
@@ -573,18 +708,27 @@ def _prepare_source(file: Path, *, no_validate: bool) -> tuple[str, str, str, di
         raise typer.Exit(code=1)
 
     source = file.read_text(encoding="utf-8").rstrip()
-    source_hash = _source_hash(source)
+    source_hash = _source_hash(source, scenarios)
     return source, compiled, source_hash, report
 
 
-def _new_version(source: str, compiled: str, report: dict[str, Any], *, publish: bool) -> dict[str, Any]:
+def _new_version(
+    source: str,
+    compiled: str,
+    report: dict[str, Any],
+    *,
+    publish: bool,
+    scenarios: str | None = None,
+) -> dict[str, Any]:
     metadata = report.get("metadata") or {}
-    version = {
+    version: dict[str, Any] = {
         "code": source,
         "compiled": compiled,
         "createdAt": datetime.now(timezone.utc).isoformat(),
         "op": "api_push",
     }
+    if scenarios is not None:
+        version["scenarios"] = scenarios
     if not publish:
         version["unpublished"] = True
     for report_key, version_key in (
@@ -602,8 +746,12 @@ def _append_version_payload(version: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in version.items() if key not in {"id", "createdAt", "createdBy"}}
 
 
-def _source_hash(source: str) -> str:
-    return hashlib.sha256(source.rstrip().encode("utf-8")).hexdigest()
+def _source_hash(source: str, scenarios: str | None = None) -> str:
+    normalized_source = source.rstrip()
+    normalized_scenarios = scenarios.rstrip() if scenarios else ""
+    if normalized_scenarios:
+        return hashlib.sha256(f"{normalized_source}\0{normalized_scenarios}".encode("utf-8")).hexdigest()
+    return hashlib.sha256(normalized_source.encode("utf-8")).hexdigest()
 
 
 def _version_id(version: dict[str, Any], index: int) -> int:
@@ -631,13 +779,30 @@ def _latest_version_id(versions: list[dict[str, Any]]) -> int | None:
     return _version_id(versions[-1], len(versions) - 1)
 
 
-def _latest_published_version_id_for_source(versions: list[dict[str, Any]], source_hash: str) -> int | None:
-    for index in range(len(versions) - 1, -1, -1):
+def _latest_published_version_id_for_source(
+    versions: list[dict[str, Any]],
+    source_hash: str,
+    *,
+    include_scenarios: bool = False,
+    fallback_scenarios: str | None = None,
+) -> int | None:
+    last_index = len(versions) - 1
+    for index in range(last_index, -1, -1):
         version = versions[index]
         if not _is_record(version) or version.get("unpublished"):
             continue
         code = version.get("code")
-        if isinstance(code, str) and _source_hash(code) == source_hash:
+        if not isinstance(code, str):
+            continue
+        version_scenarios: str | None = None
+        if include_scenarios:
+            raw_scenarios = (
+                version.get("scenarios")
+                if "scenarios" in version
+                else (fallback_scenarios if index == last_index else None)
+            )
+            version_scenarios = raw_scenarios if isinstance(raw_scenarios, str) else ""
+        if _source_hash(code, version_scenarios) == source_hash:
             return _version_id(version, index)
     return None
 
@@ -727,7 +892,9 @@ def _sync_interface(
 
     file = file.resolve()
     base = _resolve_base_url(ctx, lse_url)
-    source, compiled, source_hash, report = _prepare_source(file, no_validate=no_validate)
+    scenario_file = _resolve_bundle_file(file.parent, None, SCENARIO_FILE_CANDIDATES)
+    scenarios = _load_scenarios(scenario_file)
+    source, compiled, source_hash, report = _prepare_source(file, no_validate=no_validate, scenarios=scenarios)
     sidecar = _read_sidecar(file)
     sidecar_entry = sidecar.get(base) if isinstance(sidecar, dict) else None
 
@@ -781,7 +948,7 @@ def _sync_interface(
         )
 
     headers = _auth_headers(resolved_token, base_url=base)
-    new_version = _new_version(source, compiled, report, publish=publish)
+    new_version = _new_version(source, compiled, report, publish=publish, scenarios=scenarios)
     history_message, artifact = _build_history_entry(file, source, compiled, message)
     schema_payload = _interface_schema_payload(report)
     task_file = _resolve_bundle_file(file.parent, None, TASK_FILE_CANDIDATES)
@@ -795,11 +962,19 @@ def _sync_interface(
                 existing = existing_resp.json()
                 prev_versions = existing.get("versions") or []
                 if not force:
-                    existing_hash = _source_hash(existing.get("code") or "")
+                    existing_scenarios = (
+                        existing.get("scenarios")
+                        if scenarios is not None and isinstance(existing.get("scenarios"), str)
+                        else ("" if scenarios is not None else None)
+                    )
+                    existing_hash = _source_hash(existing.get("code") or "", existing_scenarios)
                     if existing_hash == source_hash:
                         if publish:
                             published_source_version = _latest_published_version_id_for_source(
-                                prev_versions, source_hash
+                                prev_versions,
+                                source_hash,
+                                include_scenarios=scenarios is not None,
+                                fallback_scenarios=existing_scenarios,
                             )
                             if published_source_version is not None:
                                 typer.echo(
@@ -834,6 +1009,8 @@ def _sync_interface(
                     "messages": [*(existing.get("messages") or []), history_message],
                     "artifacts": [*(existing.get("artifacts") or []), artifact],
                 }
+                if scenarios is not None:
+                    payload["scenarios"] = scenarios
                 if task_data is not None:
                     payload["data_sample"] = task_data
                 if title:
@@ -860,6 +1037,8 @@ def _sync_interface(
                     "artifacts": [artifact],
                     **schema_payload,
                 }
+                if scenarios is not None:
+                    payload["scenarios"] = scenarios
                 if task_data is not None:
                     payload["data_sample"] = task_data
                 if resolved_workspace_id is not None:
@@ -1048,8 +1227,10 @@ def preview(
     finally:
         cache.release_lease(snapshot.root)
 
+
 @app.command()
 def validate(
+    ctx: typer.Context,
     file: Path = typer.Argument(
         ...,
         exists=True,
@@ -1067,8 +1248,15 @@ def validate(
         help="Interaction scenario JS module.",
     ),
     as_json: bool = typer.Option(False, "--json", help="Print the raw JSON report."),
+    token: str | None = typer.Option(None, "--token", envvar="LABEL_STUDIO_API_KEY", help="Label Studio API token."),
+    lse_url: str | None = typer.Option(
+        None,
+        "--lse-url",
+        "--base-url",
+        help="Label Studio URL used to fetch editor-standalone assets when scenarios use InterfaceComponents (defaults to LABEL_STUDIO_URL).",
+    ),
 ) -> None:
-    """Validate an interface offline."""
+    """Validate an interface offline (and optionally execute Playwright scenarios)."""
     source_path = file
     scenario = _resolve_bundle_file(source_path, scenario, SCENARIO_FILE_CANDIDATES)
     file = _resolve_interface_file(source_path)
@@ -1076,7 +1264,7 @@ def validate(
     scenario_report = None
     if scenario is not None:
         if report.get("ok"):
-            scenario_report = _run_scenarios(file, scenario)
+            scenario_report = _run_scenarios(file, scenario, ctx=ctx, lse_url=lse_url, token=token)
         else:
             scenario_report = {
                 "ok": False,
@@ -1219,13 +1407,23 @@ def pull(
     if not _is_record(task_data):
         task_data = {}
 
+    scenarios: str | None = None
+    if selected_version is not None and isinstance(selected_version.get("scenarios"), str):
+        scenarios = selected_version["scenarios"]
+    elif isinstance(data.get("scenarios"), str):
+        scenarios = data["scenarios"]
+    has_scenarios = bool(scenarios and scenarios.strip())
+
     directory = directory.resolve()
     screen_path = directory / "Screen.jsx"
     task_path = directory / "task.json"
     params_path = directory / "params.json"
+    scenarios_path = directory / "scenarios.js"
     planned_files = [screen_path, task_path, _sidecar_path(screen_path)]
     if params_defaults:
         planned_files.append(params_path)
+    if has_scenarios:
+        planned_files.append(scenarios_path)
 
     existing = [path for path in planned_files if path.exists()]
     if existing and not force:
@@ -1239,8 +1437,10 @@ def pull(
     _write_bundle_file(task_path, _json_file_contents(task_data), force=force)
     if params_defaults:
         _write_bundle_file(params_path, _json_file_contents(params_defaults), force=force)
+    if has_scenarios and scenarios is not None:
+        _write_bundle_file(scenarios_path, scenarios.rstrip() + "\n", force=force)
 
-    source_hash = _source_hash(source)
+    source_hash = _source_hash(source, scenarios if has_scenarios else None)
     sidecar = {
         base: {
             "interface_id": interface_id,
@@ -1268,12 +1468,13 @@ def _create_project(
     params: Any,
 ) -> Any:
     from label_studio_sdk import LabelStudio
+    from label_studio_sdk.projects.client import OMIT
 
     client = LabelStudio(api_key=api_key, base_url=base_url)
     return client.projects.create(
         title=title,
         description=description,
-        workspace=workspace_id,
+        workspace=OMIT if workspace_id is None else workspace_id,
         is_draft=False,
         label_config="<View></View>",
         use_custom_interface=True,
@@ -1365,7 +1566,7 @@ def start(
         base_url=base,
         title=title,
         description=description,
-        workspace_id=workspace_id or sync_result.workspace_id,
+        workspace_id=workspace_id if workspace_id is not None else sync_result.workspace_id,
         interface_id=sync_result.interface_id,
         source_version=sync_result.source_version,
         params=project_params,
@@ -1462,6 +1663,85 @@ function parseResults(results) {
 })
 """
 
+SCREEN_COMPONENTS_TEMPLATE = """const labels = ["Positive", "Negative"];
+const REGION_ID = "sentiment-choice";
+
+function Screen({ task, regions, params, readOnly, hotkeys, addRegion, updateRegion }) {
+  // Read Interface Components by property; never destructure window.InterfaceComponents.
+  const ChoiceGroup = window.InterfaceComponents.ChoiceGroup;
+  const text = getField(task.data, params?.textField ?? "text") ?? "Add text in task.json";
+  const current = (regions || []).find((r) => r.id === REGION_ID);
+
+  // Every change goes through addRegion/updateRegion so the shell records undo/redo history.
+  const choose = (next) => {
+    if (readOnly) return;
+    const patch = { labels: next, _value: { choices: next } };
+    if (current) updateRegion(REGION_ID, patch);
+    else addRegion({ id: REGION_ID, type: "choices", _fromName: "sentiment", _toName: "text", ...patch });
+  };
+
+  return (
+    <div className="p-6 bg-neutral-background text-neutral-content">
+      <p>{String(text)}</p>
+      <ChoiceGroup
+        choices={labels.map((value) => ({ value }))}
+        value={current?.labels || []}
+        onChange={choose}
+        choice="single-radio"
+        layout="radio"
+        ariaLabel="Sentiment"
+        readOnly={readOnly}
+        hotkeys={hotkeys}
+      />
+    </div>
+  );
+}
+
+function getResults(regions) {
+  return (regions || [])
+    .filter((r) => r.type === "choices" && r.labels?.length)
+    .map((r) => ({
+      id: r.id,
+      from_name: "sentiment",
+      to_name: "text",
+      type: "choices",
+      value: { choices: r.labels },
+      origin: "manual",
+    }));
+}
+
+function parseResults(results) {
+  const regions = (results || [])
+    .filter((r) => r.type === "choices" && r.from_name === "sentiment")
+    .map((r) => ({ id: REGION_ID, type: "choices", labels: r.value?.choices || [] }));
+  return { regions, relations: [] };
+}
+
+({
+  default: Screen,
+  getResults,
+  parseResults,
+  paramsSchema: {
+    type: "object",
+    properties: {
+      textField: { type: "string", title: "Text field", default: "text" },
+    },
+  },
+  inputSchema: {
+    type: "object",
+    properties: {
+      text: { type: "dataField", dataType: "string", default: "text" },
+    },
+  },
+  outputSchema: {
+    type: "object",
+    properties: {
+      sentiment: { type: "string", enum: labels },
+    },
+  },
+})
+"""
+
 TASK_TEMPLATE = """{
   "text": "The interface CLI is ready to use."
 }
@@ -1498,26 +1778,75 @@ SCENARIO_TEMPLATE = """export default [
 ];
 """
 
+SCENARIO_COMPONENTS_TEMPLATE = SCENARIO_TEMPLATE.replace(
+    'await page.getByRole("button", { name: "Positive" }).click();',
+    'await page.getByRole("radio", { name: "Positive" }).click();',
+)
+
+AUTHORING_CAPABILITIES_PATH = "/api/interfaces/authoring-capabilities/"
+
+
+def _host_interfaces_components_enabled(
+    ctx: typer.Context | None,
+    *,
+    lse_url: str | None = None,
+    token: str | None = None,
+) -> bool:
+    """Return True only when an explicit target host reports ``interfaces_components`` enabled."""
+    base = _explicit_base_url(ctx, lse_url)
+    resolved_token = _resolve_token(ctx, token)
+    if not base or not resolved_token:
+        return False
+    try:
+        headers = _auth_header_provider(resolved_token, base)()
+        with httpx.Client(headers=headers, timeout=5.0, follow_redirects=False) as client:
+            resp = client.get(f"{base}{AUTHORING_CAPABILITIES_PATH}")
+        if resp.status_code != 200:
+            return False
+        payload = resp.json()
+    except (*_AUTH_ERRORS, OSError):
+        return False
+    capabilities = payload.get("capabilities") if _is_record(payload) else None
+    if not _is_record(capabilities):
+        return False
+    return bool(
+        capabilities.get("interfaces_components") is True or capabilities.get("interfacesComponentsEnabled") is True
+    )
+
 
 @app.command()
 def init(
+    ctx: typer.Context,
     directory: Path = typer.Argument(Path("."), file_okay=False, help="Directory to scaffold into."),
     force: bool = typer.Option(False, "--force", help="Overwrite existing scaffold files."),
+    token: str | None = typer.Option(None, "--token", envvar="LABEL_STUDIO_API_KEY", help="Label Studio API token."),
+    lse_url: str | None = typer.Option(
+        None,
+        "--lse-url",
+        "--base-url",
+        help="Base URL of the Label Studio instance (defaults to LABEL_STUDIO_URL).",
+    ),
 ) -> None:
     """Create starter interface files."""
     directory = directory.resolve()
     directory.mkdir(parents=True, exist_ok=True)
-    files = {
-        directory / "Screen.jsx": SCREEN_TEMPLATE,
-        directory / "task.json": TASK_TEMPLATE,
-        directory / "scenarios.js": SCENARIO_TEMPLATE,
-    }
-    existing = [path for path in files if path.exists()]
+    target_paths = (
+        directory / "Screen.jsx",
+        directory / "task.json",
+        directory / "scenarios.js",
+    )
+    existing = [path for path in target_paths if path.exists()]
     if existing and not force:
         names = ", ".join(path.name for path in existing)
         typer.echo(f"error: refusing to overwrite existing files: {names}. Use --force to overwrite.", err=True)
         raise typer.Exit(code=2)
 
+    use_components = _host_interfaces_components_enabled(ctx, lse_url=lse_url, token=token)
+    files = {
+        directory / "Screen.jsx": SCREEN_COMPONENTS_TEMPLATE if use_components else SCREEN_TEMPLATE,
+        directory / "task.json": TASK_TEMPLATE,
+        directory / "scenarios.js": SCENARIO_COMPONENTS_TEMPLATE if use_components else SCENARIO_TEMPLATE,
+    }
     for path, contents in files.items():
         path.write_text(contents, encoding="utf-8")
         typer.echo(f"wrote {path}")

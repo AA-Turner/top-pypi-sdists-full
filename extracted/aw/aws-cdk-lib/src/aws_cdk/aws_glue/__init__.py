@@ -1467,11 +1467,11 @@ glue.S3Table(self, "MyTable",
         comment="map<string,timestamp>"
     ), glue.Column(
         name="struct_column",
-        type=glue.Schema.struct([
+        type=glue.Schema.struct([glue.Column(
             name="nested_column",
             type=glue.Schema.DATE,
             comment="nested comment"
-        ]),
+        )]),
         comment="struct<nested_column:date COMMENT 'nested comment'>"
     )],
     # ...
@@ -2290,7 +2290,41 @@ class CfnCatalog(
             description="description",
             federated_catalog=glue.CfnCatalog.FederatedCatalogProperty(
                 connection_name="connectionName",
-                identifier="identifier"
+                connection_type="connectionType",
+                identifier="identifier",
+                sync_configuration=glue.CfnCatalog.SyncConfigurationProperty(
+                    role_arn="roleArn",
+        
+                    # the properties below are optional
+                    assets_sync_configuration=glue.CfnCatalog.AssetsSyncConfigurationProperty(
+                        status="status",
+        
+                        # the properties below are optional
+                        managed_crawler_details=glue.CfnCatalog.ManagedCrawlerDetailsProperty(
+                            crawler_arn="crawlerArn",
+                            error=glue.CfnCatalog.ErrorDetailProperty(
+                                error_code="errorCode",
+                                error_message="errorMessage"
+                            ),
+                            status="status"
+                        ),
+                        refresh_interval_minutes=123
+                    ),
+                    lineage_sync_configuration=glue.CfnCatalog.LineageSyncConfigurationProperty(
+                        status="status",
+        
+                        # the properties below are optional
+                        managed_crawler_details=glue.CfnCatalog.ManagedCrawlerDetailsProperty(
+                            crawler_arn="crawlerArn",
+                            error=glue.CfnCatalog.ErrorDetailProperty(
+                                error_code="errorCode",
+                                error_message="errorMessage"
+                            ),
+                            status="status"
+                        ),
+                        refresh_interval_minutes=123
+                    )
+                )
             ),
             overwrite_child_resource_permissions_with_default="overwriteChildResourcePermissionsWithDefault",
             parameters={
@@ -2463,6 +2497,142 @@ class CfnCatalog(
         :cloudformationAttribute: CreateTime
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrCreateTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrFederatedCatalogSyncConfigurationAssetsSyncConfigurationManagedCrawlerDetails")
+    def attr_federated_catalog_sync_configuration_assets_sync_configuration_managed_crawler_details(
+        self,
+    ) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The state of the crawler Glue manages on your behalf for a synchronization mode.
+
+        Returned by the service; Glue rejects it as input.
+
+        :cloudformationAttribute: FederatedCatalog.SyncConfiguration.AssetsSyncConfiguration.ManagedCrawlerDetails
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrFederatedCatalogSyncConfigurationAssetsSyncConfigurationManagedCrawlerDetails"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrFederatedCatalogSyncConfigurationAssetsSyncConfigurationManagedCrawlerDetailsCrawlerArn")
+    def attr_federated_catalog_sync_configuration_assets_sync_configuration_managed_crawler_details_crawler_arn(
+        self,
+    ) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the crawler.
+
+        :cloudformationAttribute: FederatedCatalog.SyncConfiguration.AssetsSyncConfiguration.ManagedCrawlerDetails.CrawlerArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrFederatedCatalogSyncConfigurationAssetsSyncConfigurationManagedCrawlerDetailsCrawlerArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrFederatedCatalogSyncConfigurationAssetsSyncConfigurationManagedCrawlerDetailsError")
+    def attr_federated_catalog_sync_configuration_assets_sync_configuration_managed_crawler_details_error(
+        self,
+    ) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''Details about an error.
+
+        :cloudformationAttribute: FederatedCatalog.SyncConfiguration.AssetsSyncConfiguration.ManagedCrawlerDetails.Error
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrFederatedCatalogSyncConfigurationAssetsSyncConfigurationManagedCrawlerDetailsError"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrFederatedCatalogSyncConfigurationAssetsSyncConfigurationManagedCrawlerDetailsErrorErrorCode")
+    def attr_federated_catalog_sync_configuration_assets_sync_configuration_managed_crawler_details_error_error_code(
+        self,
+    ) -> builtins.str:
+        '''The code associated with this error.
+
+        :cloudformationAttribute: FederatedCatalog.SyncConfiguration.AssetsSyncConfiguration.ManagedCrawlerDetails.Error.ErrorCode
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrFederatedCatalogSyncConfigurationAssetsSyncConfigurationManagedCrawlerDetailsErrorErrorCode"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrFederatedCatalogSyncConfigurationAssetsSyncConfigurationManagedCrawlerDetailsErrorErrorMessage")
+    def attr_federated_catalog_sync_configuration_assets_sync_configuration_managed_crawler_details_error_error_message(
+        self,
+    ) -> builtins.str:
+        '''A message describing the error.
+
+        :cloudformationAttribute: FederatedCatalog.SyncConfiguration.AssetsSyncConfiguration.ManagedCrawlerDetails.Error.ErrorMessage
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrFederatedCatalogSyncConfigurationAssetsSyncConfigurationManagedCrawlerDetailsErrorErrorMessage"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrFederatedCatalogSyncConfigurationAssetsSyncConfigurationManagedCrawlerDetailsStatus")
+    def attr_federated_catalog_sync_configuration_assets_sync_configuration_managed_crawler_details_status(
+        self,
+    ) -> builtins.str:
+        '''The provisioning state of the crawler.
+
+        :cloudformationAttribute: FederatedCatalog.SyncConfiguration.AssetsSyncConfiguration.ManagedCrawlerDetails.Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrFederatedCatalogSyncConfigurationAssetsSyncConfigurationManagedCrawlerDetailsStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrFederatedCatalogSyncConfigurationLineageSyncConfigurationManagedCrawlerDetails")
+    def attr_federated_catalog_sync_configuration_lineage_sync_configuration_managed_crawler_details(
+        self,
+    ) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The state of the crawler Glue manages on your behalf for a synchronization mode.
+
+        Returned by the service; Glue rejects it as input.
+
+        :cloudformationAttribute: FederatedCatalog.SyncConfiguration.LineageSyncConfiguration.ManagedCrawlerDetails
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrFederatedCatalogSyncConfigurationLineageSyncConfigurationManagedCrawlerDetails"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrFederatedCatalogSyncConfigurationLineageSyncConfigurationManagedCrawlerDetailsCrawlerArn")
+    def attr_federated_catalog_sync_configuration_lineage_sync_configuration_managed_crawler_details_crawler_arn(
+        self,
+    ) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the crawler.
+
+        :cloudformationAttribute: FederatedCatalog.SyncConfiguration.LineageSyncConfiguration.ManagedCrawlerDetails.CrawlerArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrFederatedCatalogSyncConfigurationLineageSyncConfigurationManagedCrawlerDetailsCrawlerArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrFederatedCatalogSyncConfigurationLineageSyncConfigurationManagedCrawlerDetailsError")
+    def attr_federated_catalog_sync_configuration_lineage_sync_configuration_managed_crawler_details_error(
+        self,
+    ) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''Details about an error.
+
+        :cloudformationAttribute: FederatedCatalog.SyncConfiguration.LineageSyncConfiguration.ManagedCrawlerDetails.Error
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrFederatedCatalogSyncConfigurationLineageSyncConfigurationManagedCrawlerDetailsError"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrFederatedCatalogSyncConfigurationLineageSyncConfigurationManagedCrawlerDetailsErrorErrorCode")
+    def attr_federated_catalog_sync_configuration_lineage_sync_configuration_managed_crawler_details_error_error_code(
+        self,
+    ) -> builtins.str:
+        '''The code associated with this error.
+
+        :cloudformationAttribute: FederatedCatalog.SyncConfiguration.LineageSyncConfiguration.ManagedCrawlerDetails.Error.ErrorCode
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrFederatedCatalogSyncConfigurationLineageSyncConfigurationManagedCrawlerDetailsErrorErrorCode"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrFederatedCatalogSyncConfigurationLineageSyncConfigurationManagedCrawlerDetailsErrorErrorMessage")
+    def attr_federated_catalog_sync_configuration_lineage_sync_configuration_managed_crawler_details_error_error_message(
+        self,
+    ) -> builtins.str:
+        '''A message describing the error.
+
+        :cloudformationAttribute: FederatedCatalog.SyncConfiguration.LineageSyncConfiguration.ManagedCrawlerDetails.Error.ErrorMessage
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrFederatedCatalogSyncConfigurationLineageSyncConfigurationManagedCrawlerDetailsErrorErrorMessage"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrFederatedCatalogSyncConfigurationLineageSyncConfigurationManagedCrawlerDetailsStatus")
+    def attr_federated_catalog_sync_configuration_lineage_sync_configuration_managed_crawler_details_status(
+        self,
+    ) -> builtins.str:
+        '''The provisioning state of the crawler.
+
+        :cloudformationAttribute: FederatedCatalog.SyncConfiguration.LineageSyncConfiguration.ManagedCrawlerDetails.Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrFederatedCatalogSyncConfigurationLineageSyncConfigurationManagedCrawlerDetailsStatus"))
 
     @builtins.property
     @jsii.member(jsii_name="attrResourceArn")
@@ -2687,6 +2857,113 @@ class CfnCatalog(
             type_hints = cached_type_hints(_typecheckingstub__1aee129aade4bae8d3a17027eaa2fe32e792bfe017f53562174644e635be92b1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "targetRedshiftCatalog", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnCatalog.AssetsSyncConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "status": "status",
+            "managed_crawler_details": "managedCrawlerDetails",
+            "refresh_interval_minutes": "refreshIntervalMinutes",
+        },
+    )
+    class AssetsSyncConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            status: builtins.str,
+            managed_crawler_details: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCatalog.ManagedCrawlerDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            refresh_interval_minutes: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Configuration for synchronizing assets from the external data source.
+
+            Omitting this property on an update leaves the stored configuration unchanged; set Status to DISABLED to stop synchronizing assets.
+
+            :param status: Whether asset synchronization is enabled.
+            :param managed_crawler_details: The state of the crawler Glue manages on your behalf for a synchronization mode. Returned by the service; Glue rejects it as input.
+            :param refresh_interval_minutes: How often the crawler synchronizes assets, in minutes. Glue enforces a service-side minimum that may be higher than the minimum accepted here.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-assetssyncconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                assets_sync_configuration_property = glue.CfnCatalog.AssetsSyncConfigurationProperty(
+                    status="status",
+                
+                    # the properties below are optional
+                    managed_crawler_details=glue.CfnCatalog.ManagedCrawlerDetailsProperty(
+                        crawler_arn="crawlerArn",
+                        error=glue.CfnCatalog.ErrorDetailProperty(
+                            error_code="errorCode",
+                            error_message="errorMessage"
+                        ),
+                        status="status"
+                    ),
+                    refresh_interval_minutes=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__e551a168c504db7dbe327a9be1b84fc060250ddc737e2984f511bb12de84d52e)
+                check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+                check_type(argname="argument managed_crawler_details", value=managed_crawler_details, expected_type=type_hints["managed_crawler_details"])
+                check_type(argname="argument refresh_interval_minutes", value=refresh_interval_minutes, expected_type=type_hints["refresh_interval_minutes"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "status": status,
+            }
+            if managed_crawler_details is not None:
+                self._values["managed_crawler_details"] = managed_crawler_details
+            if refresh_interval_minutes is not None:
+                self._values["refresh_interval_minutes"] = refresh_interval_minutes
+
+        @builtins.property
+        def status(self) -> builtins.str:
+            '''Whether asset synchronization is enabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-assetssyncconfiguration.html#cfn-glue-catalog-assetssyncconfiguration-status
+            '''
+            result = self._values.get("status")
+            assert result is not None, "Required property 'status' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def managed_crawler_details(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCatalog.ManagedCrawlerDetailsProperty"]]:
+            '''The state of the crawler Glue manages on your behalf for a synchronization mode.
+
+            Returned by the service; Glue rejects it as input.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-assetssyncconfiguration.html#cfn-glue-catalog-assetssyncconfiguration-managedcrawlerdetails
+            '''
+            result = self._values.get("managed_crawler_details")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCatalog.ManagedCrawlerDetailsProperty"]], result)
+
+        @builtins.property
+        def refresh_interval_minutes(self) -> typing.Optional[jsii.Number]:
+            '''How often the crawler synchronizes assets, in minutes.
+
+            Glue enforces a service-side minimum that may be higher than the minimum accepted here.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-assetssyncconfiguration.html#cfn-glue-catalog-assetssyncconfiguration-refreshintervalminutes
+            '''
+            result = self._values.get("refresh_interval_minutes")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AssetsSyncConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_glue.CfnCatalog.CatalogPropertiesProperty",
@@ -3005,21 +3282,100 @@ class CfnCatalog(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnCatalog.ErrorDetailProperty",
+        jsii_struct_bases=[],
+        name_mapping={"error_code": "errorCode", "error_message": "errorMessage"},
+    )
+    class ErrorDetailProperty:
+        def __init__(
+            self,
+            *,
+            error_code: typing.Optional[builtins.str] = None,
+            error_message: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Details about an error.
+
+            :param error_code: The code associated with this error.
+            :param error_message: A message describing the error.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-errordetail.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                error_detail_property = glue.CfnCatalog.ErrorDetailProperty(
+                    error_code="errorCode",
+                    error_message="errorMessage"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__946cf4c69142c9bba15b031d8000222821ddc9449c7f54f3fb3be2f623e66966)
+                check_type(argname="argument error_code", value=error_code, expected_type=type_hints["error_code"])
+                check_type(argname="argument error_message", value=error_message, expected_type=type_hints["error_message"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if error_code is not None:
+                self._values["error_code"] = error_code
+            if error_message is not None:
+                self._values["error_message"] = error_message
+
+        @builtins.property
+        def error_code(self) -> typing.Optional[builtins.str]:
+            '''The code associated with this error.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-errordetail.html#cfn-glue-catalog-errordetail-errorcode
+            '''
+            result = self._values.get("error_code")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def error_message(self) -> typing.Optional[builtins.str]:
+            '''A message describing the error.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-errordetail.html#cfn-glue-catalog-errordetail-errormessage
+            '''
+            result = self._values.get("error_message")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ErrorDetailProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_glue.CfnCatalog.FederatedCatalogProperty",
         jsii_struct_bases=[],
-        name_mapping={"connection_name": "connectionName", "identifier": "identifier"},
+        name_mapping={
+            "connection_name": "connectionName",
+            "connection_type": "connectionType",
+            "identifier": "identifier",
+            "sync_configuration": "syncConfiguration",
+        },
     )
     class FederatedCatalogProperty:
         def __init__(
             self,
             *,
             connection_name: typing.Optional[builtins.str] = None,
+            connection_type: typing.Optional[builtins.str] = None,
             identifier: typing.Optional[builtins.str] = None,
+            sync_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCatalog.SyncConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A FederatedCatalog structure that references an entity outside the Glue Data Catalog.
 
             :param connection_name: The name of the connection to an external data source.
+            :param connection_type: The type of connection used to access the federated catalog. Synchronization is only supported for certain connection types.
             :param identifier: A unique identifier for the federated catalog.
+            :param sync_configuration: Configuration for synchronizing a federated catalog with its external data source. Removing this property does not disable synchronization: Glue keeps the stored configuration for anything omitted from an update. To stop synchronizing, set the Status of each mode to DISABLED.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-federatedcatalog.html
             :exampleMetadata: fixture=_generated
@@ -3032,18 +3388,58 @@ class CfnCatalog(
                 
                 federated_catalog_property = glue.CfnCatalog.FederatedCatalogProperty(
                     connection_name="connectionName",
-                    identifier="identifier"
+                    connection_type="connectionType",
+                    identifier="identifier",
+                    sync_configuration=glue.CfnCatalog.SyncConfigurationProperty(
+                        role_arn="roleArn",
+                
+                        # the properties below are optional
+                        assets_sync_configuration=glue.CfnCatalog.AssetsSyncConfigurationProperty(
+                            status="status",
+                
+                            # the properties below are optional
+                            managed_crawler_details=glue.CfnCatalog.ManagedCrawlerDetailsProperty(
+                                crawler_arn="crawlerArn",
+                                error=glue.CfnCatalog.ErrorDetailProperty(
+                                    error_code="errorCode",
+                                    error_message="errorMessage"
+                                ),
+                                status="status"
+                            ),
+                            refresh_interval_minutes=123
+                        ),
+                        lineage_sync_configuration=glue.CfnCatalog.LineageSyncConfigurationProperty(
+                            status="status",
+                
+                            # the properties below are optional
+                            managed_crawler_details=glue.CfnCatalog.ManagedCrawlerDetailsProperty(
+                                crawler_arn="crawlerArn",
+                                error=glue.CfnCatalog.ErrorDetailProperty(
+                                    error_code="errorCode",
+                                    error_message="errorMessage"
+                                ),
+                                status="status"
+                            ),
+                            refresh_interval_minutes=123
+                        )
+                    )
                 )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__03baae6c06200e09ab4dc98e13d427826fc12865c1a956b5e5e2723ba0d5becb)
                 check_type(argname="argument connection_name", value=connection_name, expected_type=type_hints["connection_name"])
+                check_type(argname="argument connection_type", value=connection_type, expected_type=type_hints["connection_type"])
                 check_type(argname="argument identifier", value=identifier, expected_type=type_hints["identifier"])
+                check_type(argname="argument sync_configuration", value=sync_configuration, expected_type=type_hints["sync_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if connection_name is not None:
                 self._values["connection_name"] = connection_name
+            if connection_type is not None:
+                self._values["connection_type"] = connection_type
             if identifier is not None:
                 self._values["identifier"] = identifier
+            if sync_configuration is not None:
+                self._values["sync_configuration"] = sync_configuration
 
         @builtins.property
         def connection_name(self) -> typing.Optional[builtins.str]:
@@ -3055,6 +3451,17 @@ class CfnCatalog(
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
+        def connection_type(self) -> typing.Optional[builtins.str]:
+            '''The type of connection used to access the federated catalog.
+
+            Synchronization is only supported for certain connection types.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-federatedcatalog.html#cfn-glue-catalog-federatedcatalog-connectiontype
+            '''
+            result = self._values.get("connection_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
         def identifier(self) -> typing.Optional[builtins.str]:
             '''A unique identifier for the federated catalog.
 
@@ -3062,6 +3469,19 @@ class CfnCatalog(
             '''
             result = self._values.get("identifier")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def sync_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCatalog.SyncConfigurationProperty"]]:
+            '''Configuration for synchronizing a federated catalog with its external data source.
+
+            Removing this property does not disable synchronization: Glue keeps the stored configuration for anything omitted from an update. To stop synchronizing, set the Status of each mode to DISABLED.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-federatedcatalog.html#cfn-glue-catalog-federatedcatalog-syncconfiguration
+            '''
+            result = self._values.get("sync_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCatalog.SyncConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3071,6 +3491,209 @@ class CfnCatalog(
 
         def __repr__(self) -> str:
             return "FederatedCatalogProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnCatalog.LineageSyncConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "status": "status",
+            "managed_crawler_details": "managedCrawlerDetails",
+            "refresh_interval_minutes": "refreshIntervalMinutes",
+        },
+    )
+    class LineageSyncConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            status: builtins.str,
+            managed_crawler_details: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCatalog.ManagedCrawlerDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            refresh_interval_minutes: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Configuration for synchronizing lineage from the external data source.
+
+            Omitting this property on an update leaves the stored configuration unchanged; set Status to DISABLED to stop synchronizing lineage.
+
+            :param status: Whether lineage synchronization is enabled.
+            :param managed_crawler_details: The state of the crawler Glue manages on your behalf for a synchronization mode. Returned by the service; Glue rejects it as input.
+            :param refresh_interval_minutes: How often the crawler synchronizes lineage, in minutes. Glue enforces a service-side minimum that may be higher than the minimum accepted here.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-lineagesyncconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                lineage_sync_configuration_property = glue.CfnCatalog.LineageSyncConfigurationProperty(
+                    status="status",
+                
+                    # the properties below are optional
+                    managed_crawler_details=glue.CfnCatalog.ManagedCrawlerDetailsProperty(
+                        crawler_arn="crawlerArn",
+                        error=glue.CfnCatalog.ErrorDetailProperty(
+                            error_code="errorCode",
+                            error_message="errorMessage"
+                        ),
+                        status="status"
+                    ),
+                    refresh_interval_minutes=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__c671cf85442ea1573cefbdd890d080338ce554cd6761271a8c4e28774e3d134c)
+                check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+                check_type(argname="argument managed_crawler_details", value=managed_crawler_details, expected_type=type_hints["managed_crawler_details"])
+                check_type(argname="argument refresh_interval_minutes", value=refresh_interval_minutes, expected_type=type_hints["refresh_interval_minutes"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "status": status,
+            }
+            if managed_crawler_details is not None:
+                self._values["managed_crawler_details"] = managed_crawler_details
+            if refresh_interval_minutes is not None:
+                self._values["refresh_interval_minutes"] = refresh_interval_minutes
+
+        @builtins.property
+        def status(self) -> builtins.str:
+            '''Whether lineage synchronization is enabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-lineagesyncconfiguration.html#cfn-glue-catalog-lineagesyncconfiguration-status
+            '''
+            result = self._values.get("status")
+            assert result is not None, "Required property 'status' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def managed_crawler_details(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCatalog.ManagedCrawlerDetailsProperty"]]:
+            '''The state of the crawler Glue manages on your behalf for a synchronization mode.
+
+            Returned by the service; Glue rejects it as input.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-lineagesyncconfiguration.html#cfn-glue-catalog-lineagesyncconfiguration-managedcrawlerdetails
+            '''
+            result = self._values.get("managed_crawler_details")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCatalog.ManagedCrawlerDetailsProperty"]], result)
+
+        @builtins.property
+        def refresh_interval_minutes(self) -> typing.Optional[jsii.Number]:
+            '''How often the crawler synchronizes lineage, in minutes.
+
+            Glue enforces a service-side minimum that may be higher than the minimum accepted here.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-lineagesyncconfiguration.html#cfn-glue-catalog-lineagesyncconfiguration-refreshintervalminutes
+            '''
+            result = self._values.get("refresh_interval_minutes")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LineageSyncConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnCatalog.ManagedCrawlerDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "crawler_arn": "crawlerArn",
+            "error": "error",
+            "status": "status",
+        },
+    )
+    class ManagedCrawlerDetailsProperty:
+        def __init__(
+            self,
+            *,
+            crawler_arn: typing.Optional[builtins.str] = None,
+            error: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCatalog.ErrorDetailProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            status: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The state of the crawler Glue manages on your behalf for a synchronization mode.
+
+            Returned by the service; Glue rejects it as input.
+
+            :param crawler_arn: The Amazon Resource Name (ARN) of the crawler.
+            :param error: Details about an error.
+            :param status: The provisioning state of the crawler.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-managedcrawlerdetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                managed_crawler_details_property = glue.CfnCatalog.ManagedCrawlerDetailsProperty(
+                    crawler_arn="crawlerArn",
+                    error=glue.CfnCatalog.ErrorDetailProperty(
+                        error_code="errorCode",
+                        error_message="errorMessage"
+                    ),
+                    status="status"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__dfe2eb18181c8292ff38d92cde3548d220630faa19db4859af59880e7742a64b)
+                check_type(argname="argument crawler_arn", value=crawler_arn, expected_type=type_hints["crawler_arn"])
+                check_type(argname="argument error", value=error, expected_type=type_hints["error"])
+                check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if crawler_arn is not None:
+                self._values["crawler_arn"] = crawler_arn
+            if error is not None:
+                self._values["error"] = error
+            if status is not None:
+                self._values["status"] = status
+
+        @builtins.property
+        def crawler_arn(self) -> typing.Optional[builtins.str]:
+            '''The Amazon Resource Name (ARN) of the crawler.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-managedcrawlerdetails.html#cfn-glue-catalog-managedcrawlerdetails-crawlerarn
+            '''
+            result = self._values.get("crawler_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def error(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCatalog.ErrorDetailProperty"]]:
+            '''Details about an error.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-managedcrawlerdetails.html#cfn-glue-catalog-managedcrawlerdetails-error
+            '''
+            result = self._values.get("error")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCatalog.ErrorDetailProperty"]], result)
+
+        @builtins.property
+        def status(self) -> typing.Optional[builtins.str]:
+            '''The provisioning state of the crawler.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-managedcrawlerdetails.html#cfn-glue-catalog-managedcrawlerdetails-status
+            '''
+            result = self._values.get("status")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ManagedCrawlerDetailsProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -3145,6 +3768,134 @@ class CfnCatalog(
 
         def __repr__(self) -> str:
             return "PrincipalPermissionsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnCatalog.SyncConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "role_arn": "roleArn",
+            "assets_sync_configuration": "assetsSyncConfiguration",
+            "lineage_sync_configuration": "lineageSyncConfiguration",
+        },
+    )
+    class SyncConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            role_arn: builtins.str,
+            assets_sync_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCatalog.AssetsSyncConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            lineage_sync_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCatalog.LineageSyncConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Configuration for synchronizing a federated catalog with its external data source.
+
+            Removing this property does not disable synchronization: Glue keeps the stored configuration for anything omitted from an update. To stop synchronizing, set the Status of each mode to DISABLED.
+
+            :param role_arn: The IAM role, in the catalog owner's account, that the crawlers Glue manages on your behalf assume.
+            :param assets_sync_configuration: Configuration for synchronizing assets from the external data source. Omitting this property on an update leaves the stored configuration unchanged; set Status to DISABLED to stop synchronizing assets.
+            :param lineage_sync_configuration: Configuration for synchronizing lineage from the external data source. Omitting this property on an update leaves the stored configuration unchanged; set Status to DISABLED to stop synchronizing lineage.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-syncconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                sync_configuration_property = glue.CfnCatalog.SyncConfigurationProperty(
+                    role_arn="roleArn",
+                
+                    # the properties below are optional
+                    assets_sync_configuration=glue.CfnCatalog.AssetsSyncConfigurationProperty(
+                        status="status",
+                
+                        # the properties below are optional
+                        managed_crawler_details=glue.CfnCatalog.ManagedCrawlerDetailsProperty(
+                            crawler_arn="crawlerArn",
+                            error=glue.CfnCatalog.ErrorDetailProperty(
+                                error_code="errorCode",
+                                error_message="errorMessage"
+                            ),
+                            status="status"
+                        ),
+                        refresh_interval_minutes=123
+                    ),
+                    lineage_sync_configuration=glue.CfnCatalog.LineageSyncConfigurationProperty(
+                        status="status",
+                
+                        # the properties below are optional
+                        managed_crawler_details=glue.CfnCatalog.ManagedCrawlerDetailsProperty(
+                            crawler_arn="crawlerArn",
+                            error=glue.CfnCatalog.ErrorDetailProperty(
+                                error_code="errorCode",
+                                error_message="errorMessage"
+                            ),
+                            status="status"
+                        ),
+                        refresh_interval_minutes=123
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__8f3cfb88e28640ed83b0a8dae8d9205caae938c6a5d18d6b8abed410100c99e1)
+                check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+                check_type(argname="argument assets_sync_configuration", value=assets_sync_configuration, expected_type=type_hints["assets_sync_configuration"])
+                check_type(argname="argument lineage_sync_configuration", value=lineage_sync_configuration, expected_type=type_hints["lineage_sync_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "role_arn": role_arn,
+            }
+            if assets_sync_configuration is not None:
+                self._values["assets_sync_configuration"] = assets_sync_configuration
+            if lineage_sync_configuration is not None:
+                self._values["lineage_sync_configuration"] = lineage_sync_configuration
+
+        @builtins.property
+        def role_arn(self) -> builtins.str:
+            '''The IAM role, in the catalog owner's account, that the crawlers Glue manages on your behalf assume.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-syncconfiguration.html#cfn-glue-catalog-syncconfiguration-rolearn
+            '''
+            result = self._values.get("role_arn")
+            assert result is not None, "Required property 'role_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def assets_sync_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCatalog.AssetsSyncConfigurationProperty"]]:
+            '''Configuration for synchronizing assets from the external data source.
+
+            Omitting this property on an update leaves the stored configuration unchanged; set Status to DISABLED to stop synchronizing assets.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-syncconfiguration.html#cfn-glue-catalog-syncconfiguration-assetssyncconfiguration
+            '''
+            result = self._values.get("assets_sync_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCatalog.AssetsSyncConfigurationProperty"]], result)
+
+        @builtins.property
+        def lineage_sync_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCatalog.LineageSyncConfigurationProperty"]]:
+            '''Configuration for synchronizing lineage from the external data source.
+
+            Omitting this property on an update leaves the stored configuration unchanged; set Status to DISABLED to stop synchronizing lineage.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-syncconfiguration.html#cfn-glue-catalog-syncconfiguration-lineagesyncconfiguration
+            '''
+            result = self._values.get("lineage_sync_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCatalog.LineageSyncConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SyncConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -3293,7 +4044,41 @@ class CfnCatalogProps:
                 description="description",
                 federated_catalog=glue.CfnCatalog.FederatedCatalogProperty(
                     connection_name="connectionName",
-                    identifier="identifier"
+                    connection_type="connectionType",
+                    identifier="identifier",
+                    sync_configuration=glue.CfnCatalog.SyncConfigurationProperty(
+                        role_arn="roleArn",
+            
+                        # the properties below are optional
+                        assets_sync_configuration=glue.CfnCatalog.AssetsSyncConfigurationProperty(
+                            status="status",
+            
+                            # the properties below are optional
+                            managed_crawler_details=glue.CfnCatalog.ManagedCrawlerDetailsProperty(
+                                crawler_arn="crawlerArn",
+                                error=glue.CfnCatalog.ErrorDetailProperty(
+                                    error_code="errorCode",
+                                    error_message="errorMessage"
+                                ),
+                                status="status"
+                            ),
+                            refresh_interval_minutes=123
+                        ),
+                        lineage_sync_configuration=glue.CfnCatalog.LineageSyncConfigurationProperty(
+                            status="status",
+            
+                            # the properties below are optional
+                            managed_crawler_details=glue.CfnCatalog.ManagedCrawlerDetailsProperty(
+                                crawler_arn="crawlerArn",
+                                error=glue.CfnCatalog.ErrorDetailProperty(
+                                    error_code="errorCode",
+                                    error_message="errorMessage"
+                                ),
+                                status="status"
+                            ),
+                            refresh_interval_minutes=123
+                        )
+                    )
                 ),
                 overwrite_child_resource_permissions_with_default="overwriteChildResourcePermissionsWithDefault",
                 parameters={
@@ -31135,9 +31920,9 @@ class Code(metaclass=jsii.JSIIAbstractClass, jsii_type="aws-cdk-lib.aws_glue.Cod
         :param asset_hash: Specify a custom hash for this asset. If ``assetHashType`` is set it must be set to ``AssetHashType.CUSTOM``. For consistency, this custom hash will be SHA256 hashed and encoded as hex. The resulting hash will be the asset hash. NOTE: the hash is used in order to identify a specific revision of the asset, and used for optimizing and caching deployment activities related to this asset such as packaging, uploading to Amazon S3, etc. If you chose to customize the hash, you will need to make sure it is updated every time the asset changes, or otherwise it is possible that some deployments will not be invalidated. Default: - based on ``assetHashType``
         :param asset_hash_type: Specifies the type of hash to calculate for this asset. If ``assetHash`` is configured, this option must be ``undefined`` or ``AssetHashType.CUSTOM``. Default: - the default is ``AssetHashType.SOURCE``, but if ``assetHash`` is explicitly specified this value defaults to ``AssetHashType.CUSTOM``.
         :param bundling: Bundle the asset by executing a command in a Docker container or a custom bundling provider. The asset path will be mounted at ``/asset-input``. The Docker container is responsible for putting content at ``/asset-output``. The content at ``/asset-output`` will be zipped and used as the final asset. Default: - uploaded as-is to S3 if the asset is a regular file or a .zip file, archived into a .zip file and uploaded to S3 otherwise
-        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Has no effect on Assets bundled using the ``bundling`` property. Default: - nothing is excluded
-        :param follow_symlinks: A strategy for how to handle symlinks. Default: SymlinkFollowMode.NEVER
-        :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
+        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, this controls the files that will be included in the copy. Files matching the ``exclude`` patterns will not be included in the copy. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the value of ``exclude`` is only meaningful if the ``assetHashType`` is set to ``AssetHashType.SOURCE``, and ignored for other asset hash types. The ``exclude`` patterns will be used to determine which files contribute to the asset, and the bundling command is skipped if the source files have not changed since the last bundling operation. **NOTE:** The bundling operation still has access to all files in the source path, regardless of the ``exclude`` patterns. It is your responsibility to ensure the ``exclude`` pattern accurately matches the files the bundling operation will *actually* access and base its final output on. For ``OUTPUT`` or ``CUSTOM`` asset hash types, the ``exclude`` pattern is ignored. Default: - nothing is excluded
+        :param follow_symlinks: A strategy for how to handle symlinks. Symlinks may be copied, materialized or rejected. Note that if symlinks are copied they should be relative; absolute symlinks will lose their meaning if the cloud assembly is moved to another machine. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, symlinks are materialized or blocked with respect to the ``sourcePath`` directory as they are being copied. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the bundling command is fully in charge of producing a set of files in an output directory, and the ``AssetStaging`` construct will never affect symlink materialization. If the ``assetHashType`` is ``AssetHashType.SOURCE``, this flag affects what the source hash is based on, and the recommended value is one of ``SymlinkFollowMode.EXTERNAL`` or ``SymlinkFollowMode.BLOCK_EXTERNAL``. If the ``SymlinkFollowMode.BLOCK_EXTERNAL`` mode is used: - symlinks pointing outside the source tree will be blocked if using ``AssetHashType.SOURCE``. - symlinks pointing outside the bundle output will be blocked. Default: SymlinkFollowMode.EXTERNAL
+        :param ignore_mode: What syntax the ``exclude`` patterns are written in. Default: - IgnoreMode.GLOB for file assets, ``IgnoreMode.DOCKER`` for image assets (requires that the ``@aws-cdk/aws-ecr-assets:dockerIgnoreSupport`` feature flag is set, which is recommended)
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__862f9a8ab68b3424112911b77a6c08b8e4a3dd5e37aa43bf055bfb12849f2870)
@@ -40901,9 +41686,9 @@ class AssetCode(
         :param asset_hash: Specify a custom hash for this asset. If ``assetHashType`` is set it must be set to ``AssetHashType.CUSTOM``. For consistency, this custom hash will be SHA256 hashed and encoded as hex. The resulting hash will be the asset hash. NOTE: the hash is used in order to identify a specific revision of the asset, and used for optimizing and caching deployment activities related to this asset such as packaging, uploading to Amazon S3, etc. If you chose to customize the hash, you will need to make sure it is updated every time the asset changes, or otherwise it is possible that some deployments will not be invalidated. Default: - based on ``assetHashType``
         :param asset_hash_type: Specifies the type of hash to calculate for this asset. If ``assetHash`` is configured, this option must be ``undefined`` or ``AssetHashType.CUSTOM``. Default: - the default is ``AssetHashType.SOURCE``, but if ``assetHash`` is explicitly specified this value defaults to ``AssetHashType.CUSTOM``.
         :param bundling: Bundle the asset by executing a command in a Docker container or a custom bundling provider. The asset path will be mounted at ``/asset-input``. The Docker container is responsible for putting content at ``/asset-output``. The content at ``/asset-output`` will be zipped and used as the final asset. Default: - uploaded as-is to S3 if the asset is a regular file or a .zip file, archived into a .zip file and uploaded to S3 otherwise
-        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Has no effect on Assets bundled using the ``bundling`` property. Default: - nothing is excluded
-        :param follow_symlinks: A strategy for how to handle symlinks. Default: SymlinkFollowMode.NEVER
-        :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
+        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, this controls the files that will be included in the copy. Files matching the ``exclude`` patterns will not be included in the copy. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the value of ``exclude`` is only meaningful if the ``assetHashType`` is set to ``AssetHashType.SOURCE``, and ignored for other asset hash types. The ``exclude`` patterns will be used to determine which files contribute to the asset, and the bundling command is skipped if the source files have not changed since the last bundling operation. **NOTE:** The bundling operation still has access to all files in the source path, regardless of the ``exclude`` patterns. It is your responsibility to ensure the ``exclude`` pattern accurately matches the files the bundling operation will *actually* access and base its final output on. For ``OUTPUT`` or ``CUSTOM`` asset hash types, the ``exclude`` pattern is ignored. Default: - nothing is excluded
+        :param follow_symlinks: A strategy for how to handle symlinks. Symlinks may be copied, materialized or rejected. Note that if symlinks are copied they should be relative; absolute symlinks will lose their meaning if the cloud assembly is moved to another machine. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, symlinks are materialized or blocked with respect to the ``sourcePath`` directory as they are being copied. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the bundling command is fully in charge of producing a set of files in an output directory, and the ``AssetStaging`` construct will never affect symlink materialization. If the ``assetHashType`` is ``AssetHashType.SOURCE``, this flag affects what the source hash is based on, and the recommended value is one of ``SymlinkFollowMode.EXTERNAL`` or ``SymlinkFollowMode.BLOCK_EXTERNAL``. If the ``SymlinkFollowMode.BLOCK_EXTERNAL`` mode is used: - symlinks pointing outside the source tree will be blocked if using ``AssetHashType.SOURCE``. - symlinks pointing outside the bundle output will be blocked. Default: SymlinkFollowMode.EXTERNAL
+        :param ignore_mode: What syntax the ``exclude`` patterns are written in. Default: - IgnoreMode.GLOB for file assets, ``IgnoreMode.DOCKER`` for image assets (requires that the ``@aws-cdk/aws-ecr-assets:dockerIgnoreSupport`` feature flag is set, which is recommended)
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__65b38bae846f2699335f28c524fbad64d5d545180504f1379958622adf70ca73)
@@ -48154,6 +48939,15 @@ def _typecheckingstub__1aee129aade4bae8d3a17027eaa2fe32e792bfe017f53562174644e63
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__e551a168c504db7dbe327a9be1b84fc060250ddc737e2984f511bb12de84d52e(
+    *,
+    status: builtins.str,
+    managed_crawler_details: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCatalog.ManagedCrawlerDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    refresh_interval_minutes: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d531233ad58ced5460b464cc7ab8e253dc2303c1374f04f6a76f70745759bf2d(
     *,
     custom_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
@@ -48183,10 +48977,38 @@ def _typecheckingstub__04f27444eb3e319b74141e97b0a2b83583bf1c7e1ec771db4cbbda259
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__946cf4c69142c9bba15b031d8000222821ddc9449c7f54f3fb3be2f623e66966(
+    *,
+    error_code: typing.Optional[builtins.str] = None,
+    error_message: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__03baae6c06200e09ab4dc98e13d427826fc12865c1a956b5e5e2723ba0d5becb(
     *,
     connection_name: typing.Optional[builtins.str] = None,
+    connection_type: typing.Optional[builtins.str] = None,
     identifier: typing.Optional[builtins.str] = None,
+    sync_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCatalog.SyncConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c671cf85442ea1573cefbdd890d080338ce554cd6761271a8c4e28774e3d134c(
+    *,
+    status: builtins.str,
+    managed_crawler_details: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCatalog.ManagedCrawlerDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    refresh_interval_minutes: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dfe2eb18181c8292ff38d92cde3548d220630faa19db4859af59880e7742a64b(
+    *,
+    crawler_arn: typing.Optional[builtins.str] = None,
+    error: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCatalog.ErrorDetailProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    status: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -48195,6 +49017,15 @@ def _typecheckingstub__07c163ffde6b71f2fba479412a0d6fed281493ac7393fe113c63fe33d
     *,
     permissions: typing.Optional[typing.Sequence[builtins.str]] = None,
     principal: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCatalog.DataLakePrincipalProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8f3cfb88e28640ed83b0a8dae8d9205caae938c6a5d18d6b8abed410100c99e1(
+    *,
+    role_arn: builtins.str,
+    assets_sync_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCatalog.AssetsSyncConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    lineage_sync_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCatalog.LineageSyncConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

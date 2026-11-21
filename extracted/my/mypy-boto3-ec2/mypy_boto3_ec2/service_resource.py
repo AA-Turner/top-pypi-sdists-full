@@ -64,6 +64,7 @@ from .literals import (
     InstanceTypeType,
     KeyTypeType,
     MultipathResilienceStatusType,
+    NetworkFirewallConnectivityTypeType,
     NetworkInterfaceStatusType,
     NetworkInterfaceTypeType,
     PlacementGroupStateType,
@@ -204,6 +205,7 @@ from .type_defs import (
     GroupIdentifierTypeDef,
     HibernationOptionsTypeDef,
     IamInstanceProfileTypeDef,
+    IgwFirewallTypeDef,
     ImageAttributeTypeDef,
     ImageCreateTagsRequestTypeDef,
     ImageWatermarkTypeDef,
@@ -237,6 +239,7 @@ from .type_defs import (
     NetworkAclAssociationTypeDef,
     NetworkAclCreateTagsRequestTypeDef,
     NetworkAclEntryTypeDef,
+    NetworkFirewallAssociationTypeDef,
     NetworkInterfaceAssociationTypeDef,
     NetworkInterfaceAttachmentTypeDef,
     NetworkInterfaceCreateTagsRequestTypeDef,
@@ -3976,6 +3979,7 @@ class Route(ServiceResource):
     core_network_arn: str
     odb_network_arn: str
     ip_address: str
+    igw_firewall: IgwFirewallTypeDef
     meta: EC2ResourceMeta  # type: ignore[override]
 
     def get_available_subresources(self) -> Sequence[str]:
@@ -4401,6 +4405,7 @@ class Subnet(ServiceResource):
     private_dns_name_options_on_launch: PrivateDnsNameOptionsOnLaunchTypeDef
     block_public_access_states: BlockPublicAccessStatesTypeDef
     type: str
+    network_firewall_connectivity_type: NetworkFirewallConnectivityTypeType
     subnet_id: str
     state: SubnetStateType
     vpc_id: str
@@ -4686,6 +4691,7 @@ class Vpc(ServiceResource):
     encryption_control: VpcEncryptionControlTypeDef
     tags: list[TagTypeDef]
     block_public_access_states: BlockPublicAccessStatesTypeDef
+    network_firewall_associations: list[NetworkFirewallAssociationTypeDef]
     vpc_id: str
     state: VpcStateType
     cidr_block: str

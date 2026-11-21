@@ -939,4 +939,72 @@ mod tests {
             mmff94_charges_bci(&ethanol)
         );
     }
+
+    #[test]
+    fn typed_bci_covers_polarized_bond_families_with_charge_conservation() {
+        let cases = [
+            "C=C",
+            "C=N",
+            "CC(=O)NC",
+            "COC",
+            "CC(=O)OC",
+            "c1ccccc1O",
+            "c1ccccc1F",
+            "c1ccccc1Cl",
+            "c1ccccc1Br",
+            "c1ccccc1I",
+            "FC=CCl",
+            "CP(=O)(O)O",
+            "C[N+](=O)[O-]",
+            "CS(=O)(=O)C",
+            "c1ccncc1",
+            "c1cc[nH]c1",
+            "c1ccoc1",
+            "c1ccsc1",
+            "CS",
+        ];
+        for smiles in cases {
+            let molecule = parse(smiles).unwrap_or_else(|error| panic!("{smiles}: {error}"));
+            for model in [&molecule, &crate::add_hydrogens(&molecule)] {
+                let charges = mmff94_charges_typed(model);
+                assert_eq!(charges.len(), model.atom_count(), "{smiles}");
+                assert!(charges.iter().all(|charge| charge.is_finite()), "{smiles}");
+                let formal: f64 = model.atoms().map(|(_, atom)| atom.charge as f64).sum();
+                assert!((total_q(&charges) - formal).abs() < 1e-9, "{smiles}");
+            }
+        }
+    }
+
+    #[test]
+    fn typed_bci_table_covers_rare_parameter_families_and_direction() {
+        use MmffType::*;
+
+        let cases = [
+            (Hcarbon, Caromatic, BondOrder::Single, 0.020),
+            (Hamine, NarH, BondOrder::Single, 0.160),
+            (Hoxygen, Ohydroxyl, BondOrder::Single, 0.310),
+            (Csp3, Csp2, BondOrder::Single, 0.0),
+            (Csp3, Caromatic, BondOrder::Single, 0.008),
+            (Csp2, Caromatic, BondOrder::Single, 0.006),
+            (Csp3, Nsp2, BondOrder::Double, 0.190),
+            (Csp2, Oether, BondOrder::Single, 0.050),
+            (Csp2, Ocarbonyl, BondOrder::Double, 0.470),
+            (Csp2, Ssulfonyl, BondOrder::Single, 0.100),
+            (Namine, Ocarbonyl, BondOrder::Double, 0.350),
+            (Namine, Ocarbonyl, BondOrder::Single, 0.200),
+            (Ocarbonyl, Ssulfonyl, BondOrder::Double, 0.400),
+            (Ocarbonyl, Ssulfonyl, BondOrder::Single, 0.250),
+            (Ocarbonyl, P, BondOrder::Double, 0.400),
+            (Nar, Nar, BondOrder::Aromatic, 0.0),
+            (NarH, NarH, BondOrder::Aromatic, 0.0),
+        ];
+
+        for (left, right, order, expected) in cases {
+            assert_eq!(bci_typed(left, right, order), expected);
+            assert_eq!(bci_typed(right, left, order), -expected);
+        }
+
+        let isolated_hydrogen = parse("[H]").unwrap();
+        assert_eq!(h_type_for(&isolated_hydrogen, AtomIdx(0)), Hcarbon);
+    }
 }

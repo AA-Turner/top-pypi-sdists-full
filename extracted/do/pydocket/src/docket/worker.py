@@ -70,7 +70,7 @@ from .docket import (
     RedisMessageID,
     RedisReadGroupResponse,
 )
-from .execution import TaskFunction, compact_signature
+from .execution import TaskFunction, compact_signature, pickle_exception
 from .instrumentation import (
     QUEUE_DEPTH,
     REDIS_DISRUPTIONS,
@@ -839,8 +839,11 @@ class Worker:
                                 await process_completed_tasks()
                                 available_slots = self.concurrency - len(active_tasks)
                                 if available_slots <= 0:
-                                    await asyncio.sleep(
-                                        self.minimum_check_interval.total_seconds()
+                                    # Wake as soon as a task frees a slot.
+                                    await asyncio.wait(
+                                        active_tasks,
+                                        timeout=self.minimum_check_interval.total_seconds(),
+                                        return_when=asyncio.FIRST_COMPLETED,
                                     )
                                     continue
                                 sources = [get_new_deliveries]
@@ -1291,7 +1294,7 @@ class Worker:
                         # Store exception in result_storage (only when not retrying)
                         result_key = None
                         if self.docket.execution_ttl:
-                            pickled_exception = cloudpickle.dumps(e)  # type: ignore[arg-type]
+                            pickled_exception = pickle_exception(e)
                             # Base64-encode for JSON serialization
                             encoded_exception = base64.b64encode(
                                 pickled_exception

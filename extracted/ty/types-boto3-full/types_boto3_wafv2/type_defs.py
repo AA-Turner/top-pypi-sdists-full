@@ -30,10 +30,14 @@ from .literals import (
     BlockchainChainType,
     BodyParsingFallbackBehaviorType,
     ComparisonOperatorType,
+    ConfidenceType,
     ConnectedAccountChainType,
     CountryCodeType,
     CurrencyModeType,
     DataProtectionActionType,
+    EventFilterKeyType,
+    EventSortByType,
+    EventStatusType,
     FailureReasonType,
     FallbackBehaviorType,
     FieldToProtectTypeType,
@@ -82,6 +86,9 @@ __all__ = (
     "AWSManagedRulesACFPRuleSetOutputTypeDef",
     "AWSManagedRulesACFPRuleSetTypeDef",
     "AWSManagedRulesACFPRuleSetUnionTypeDef",
+    "AWSManagedRulesAISecurityRuleSetOutputTypeDef",
+    "AWSManagedRulesAISecurityRuleSetTypeDef",
+    "AWSManagedRulesAISecurityRuleSetUnionTypeDef",
     "AWSManagedRulesATPRuleSetOutputTypeDef",
     "AWSManagedRulesATPRuleSetTypeDef",
     "AWSManagedRulesATPRuleSetUnionTypeDef",
@@ -98,6 +105,9 @@ __all__ = (
     "AndStatementOutputTypeDef",
     "AndStatementTypeDef",
     "AndStatementUnionTypeDef",
+    "ApiPatternFilterTypeDef",
+    "ApiPatternTypeDef",
+    "ApiSecurityEventDetailTypeDef",
     "ApplicationAttributeOutputTypeDef",
     "ApplicationAttributeTypeDef",
     "ApplicationConfigOutputTypeDef",
@@ -110,6 +120,11 @@ __all__ = (
     "AssociationConfigOutputTypeDef",
     "AssociationConfigTypeDef",
     "AssociationConfigUnionTypeDef",
+    "BedrockGuardrailsOutputTypeDef",
+    "BedrockGuardrailsRequestAndResponseTypeDef",
+    "BedrockGuardrailsRequestOnlyTypeDef",
+    "BedrockGuardrailsTypeDef",
+    "BedrockGuardrailsUnionTypeDef",
     "BlobTypeDef",
     "BlockActionOutputTypeDef",
     "BlockActionTypeDef",
@@ -198,6 +213,14 @@ __all__ = (
     "DescribeManagedRuleGroupResponseTypeDef",
     "DisassociateWebACLRequestTypeDef",
     "EmailFieldTypeDef",
+    "EventActorChangeTypeDef",
+    "EventActorDetailSummaryTypeDef",
+    "EventActorDetailTypeDef",
+    "EventActorReferenceTypeDef",
+    "EventActorSummaryTypeDef",
+    "EventDetailSummaryTypeDef",
+    "EventFilterTypeDef",
+    "EventTimelineEntryTypeDef",
     "ExcludedRuleTypeDef",
     "FieldToMatchOutputTypeDef",
     "FieldToMatchTypeDef",
@@ -217,6 +240,10 @@ __all__ = (
     "GeoMatchStatementUnionTypeDef",
     "GetDecryptedAPIKeyRequestTypeDef",
     "GetDecryptedAPIKeyResponseTypeDef",
+    "GetEventActorRequestTypeDef",
+    "GetEventActorResponseTypeDef",
+    "GetEventRequestTypeDef",
+    "GetEventResponseTypeDef",
     "GetIPSetRequestTypeDef",
     "GetIPSetResponseTypeDef",
     "GetLoggingConfigurationRequestTypeDef",
@@ -279,6 +306,12 @@ __all__ = (
     "ListAvailableManagedRuleGroupVersionsResponseTypeDef",
     "ListAvailableManagedRuleGroupsRequestTypeDef",
     "ListAvailableManagedRuleGroupsResponseTypeDef",
+    "ListEventActorsRequestTypeDef",
+    "ListEventActorsResponseTypeDef",
+    "ListEventsByWebACLRequestTypeDef",
+    "ListEventsByWebACLResponseTypeDef",
+    "ListEventsRequestTypeDef",
+    "ListEventsResponseTypeDef",
     "ListIPSetsRequestTypeDef",
     "ListIPSetsResponseTypeDef",
     "ListLoggingConfigurationsRequestTypeDef",
@@ -378,6 +411,7 @@ __all__ = (
     "RegexPatternSetSummaryTypeDef",
     "RegexPatternSetTypeDef",
     "RegexTypeDef",
+    "RelatedEventTypeDef",
     "ReleaseSummaryTypeDef",
     "RequestBodyAssociatedResourceTypeConfigTypeDef",
     "RequestInspectionACFPOutputTypeDef",
@@ -494,6 +528,25 @@ class AndStatementTypeDef(TypedDict):
     Statements: Sequence[Mapping[str, Any]]
 
 
+class ApiPatternFilterTypeDef(TypedDict):
+    Method: NotRequired[str]
+    PathPattern: NotRequired[str]
+    Port: NotRequired[int]
+    Domains: NotRequired[Sequence[str]]
+
+
+class ApiPatternTypeDef(TypedDict):
+    Method: NotRequired[str]
+    PathPattern: NotRequired[str]
+    Port: NotRequired[int]
+    Domains: NotRequired[list[str]]
+
+
+class EventActorReferenceTypeDef(TypedDict):
+    EventActorId: NotRequired[str]
+    EventActorValue: NotRequired[str]
+
+
 class ApplicationAttributeOutputTypeDef(TypedDict):
     Name: NotRequired[str]
     Values: NotRequired[list[str]]
@@ -516,6 +569,14 @@ class AssociateWebACLRequestTypeDef(TypedDict):
 
 class RequestBodyAssociatedResourceTypeConfigTypeDef(TypedDict):
     DefaultSizeInspectionLimit: SizeInspectionLimitType
+
+
+class BedrockGuardrailsRequestAndResponseTypeDef(TypedDict):
+    RoleArn: str
+
+
+class BedrockGuardrailsRequestOnlyTypeDef(TypedDict):
+    RoleArn: str
 
 
 BlobTypeDef = Union[str, bytes, IO[Any], StreamingBody]
@@ -766,6 +827,43 @@ class EmailFieldTypeDef(TypedDict):
     Identifier: str
 
 
+class EventActorChangeTypeDef(TypedDict):
+    ChangeTime: NotRequired[datetime]
+    ClientIp: NotRequired[str]
+    TlsFingerprint: NotRequired[str]
+    Asn: NotRequired[str]
+    AsnOrganization: NotRequired[str]
+    Country: NotRequired[str]
+
+
+class EventActorDetailSummaryTypeDef(TypedDict):
+    EventActorId: str
+    ClientIp: NotRequired[str]
+    TlsFingerprint: NotRequired[str]
+    Asn: NotRequired[str]
+    AsnOrganization: NotRequired[str]
+    Country: NotRequired[str]
+    AuthFingerprint: NotRequired[str]
+    CreatedAt: NotRequired[datetime]
+
+
+class EventActorSummaryTypeDef(TypedDict):
+    EventActorId: str
+    ClientIp: NotRequired[str]
+    TlsFingerprint: NotRequired[str]
+    Asn: NotRequired[str]
+    AsnOrganization: NotRequired[str]
+    Country: NotRequired[str]
+    AuthFingerprint: NotRequired[str]
+    CreatedAt: NotRequired[datetime]
+    EventCount: NotRequired[int]
+
+
+class EventFilterTypeDef(TypedDict):
+    Name: EventFilterKeyType
+    Values: Sequence[str]
+
+
 class ExcludedRuleTypeDef(TypedDict):
     Name: str
 
@@ -808,6 +906,17 @@ class GenerateMobileSdkReleaseUrlRequestTypeDef(TypedDict):
 class GetDecryptedAPIKeyRequestTypeDef(TypedDict):
     Scope: ScopeType
     APIKey: str
+
+
+class GetEventActorRequestTypeDef(TypedDict):
+    Scope: ScopeType
+    EventActorId: str
+
+
+class GetEventRequestTypeDef(TypedDict):
+    Scope: ScopeType
+    EventId: str
+    WebAclArn: str
 
 
 class GetIPSetRequestTypeDef(TypedDict):
@@ -1215,6 +1324,22 @@ class UpdateIPSetRequestTypeDef(TypedDict):
 AndStatementUnionTypeDef = Union[AndStatementTypeDef, AndStatementOutputTypeDef]
 
 
+class EventTimelineEntryTypeDef(TypedDict):
+    ChangeTime: NotRequired[datetime]
+    Label: NotRequired[str]
+    Confidence: NotRequired[ConfidenceType]
+    ApiPatterns: NotRequired[list[ApiPatternTypeDef]]
+
+
+class RelatedEventTypeDef(TypedDict):
+    EventId: NotRequired[str]
+    StartTime: NotRequired[datetime]
+    Label: NotRequired[str]
+    Category: NotRequired[str]
+    Confidence: NotRequired[ConfidenceType]
+    ApiPatterns: NotRequired[list[ApiPatternTypeDef]]
+
+
 class ApplicationConfigOutputTypeDef(TypedDict):
     Attributes: NotRequired[list[ApplicationAttributeOutputTypeDef]]
 
@@ -1257,6 +1382,18 @@ class AssociationConfigTypeDef(TypedDict):
     ChallengeJavascriptSdkInjection: NotRequired[
         Mapping[AssociatedResourceTypeType, Mapping[str, Any]]
     ]
+
+
+class BedrockGuardrailsOutputTypeDef(TypedDict):
+    Disable: NotRequired[dict[str, Any]]
+    ProtectRequestOnly: NotRequired[BedrockGuardrailsRequestOnlyTypeDef]
+    ProtectRequestAndResponse: NotRequired[BedrockGuardrailsRequestAndResponseTypeDef]
+
+
+class BedrockGuardrailsTypeDef(TypedDict):
+    Disable: NotRequired[Mapping[str, Any]]
+    ProtectRequestOnly: NotRequired[BedrockGuardrailsRequestOnlyTypeDef]
+    ProtectRequestAndResponse: NotRequired[BedrockGuardrailsRequestAndResponseTypeDef]
 
 
 class RateLimitCookieOutputTypeDef(TypedDict):
@@ -1569,6 +1706,12 @@ class DescribeManagedProductsByVendorResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class ListEventActorsResponseTypeDef(TypedDict):
+    EventActors: list[EventActorSummaryTypeDef]
+    NextMarker: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class PathStatisticsTypeDef(TypedDict):
     Path: str
     RequestCount: int
@@ -1761,10 +1904,32 @@ class UpdateManagedRuleSetVersionExpiryDateRequestTypeDef(TypedDict):
     ExpiryTimestamp: TimestampTypeDef
 
 
+class ApiSecurityEventDetailTypeDef(TypedDict):
+    Label: NotRequired[str]
+    Category: NotRequired[str]
+    Confidence: NotRequired[ConfidenceType]
+    ApiPatterns: NotRequired[list[ApiPatternTypeDef]]
+    EventActors: NotRequired[list[EventActorReferenceTypeDef]]
+    Timeline: NotRequired[list[EventTimelineEntryTypeDef]]
+
+
+class EventActorDetailTypeDef(TypedDict):
+    Summary: EventActorDetailSummaryTypeDef
+    Events: NotRequired[list[RelatedEventTypeDef]]
+    Changes: NotRequired[list[EventActorChangeTypeDef]]
+
+
 ApplicationConfigUnionTypeDef = Union[ApplicationConfigTypeDef, ApplicationConfigOutputTypeDef]
 AsnMatchStatementUnionTypeDef = Union[AsnMatchStatementTypeDef, AsnMatchStatementOutputTypeDef]
 GeoMatchStatementUnionTypeDef = Union[GeoMatchStatementTypeDef, GeoMatchStatementOutputTypeDef]
 AssociationConfigUnionTypeDef = Union[AssociationConfigTypeDef, AssociationConfigOutputTypeDef]
+
+
+class AWSManagedRulesAISecurityRuleSetOutputTypeDef(TypedDict):
+    BedrockGuardrails: BedrockGuardrailsOutputTypeDef
+
+
+BedrockGuardrailsUnionTypeDef = Union[BedrockGuardrailsTypeDef, BedrockGuardrailsOutputTypeDef]
 RateLimitCookieUnionTypeDef = Union[RateLimitCookieTypeDef, RateLimitCookieOutputTypeDef]
 RateLimitHeaderUnionTypeDef = Union[RateLimitHeaderTypeDef, RateLimitHeaderOutputTypeDef]
 RateLimitQueryArgumentUnionTypeDef = Union[
@@ -1975,6 +2140,27 @@ class ResponseInspectionTypeDef(TypedDict):
 
 
 TimeWindowUnionTypeDef = Union[TimeWindowTypeDef, TimeWindowOutputTypeDef]
+
+
+class EventDetailSummaryTypeDef(TypedDict):
+    EventId: str
+    EventStatus: NotRequired[EventStatusType]
+    EventCategory: NotRequired[Literal["API_SECURITY"]]
+    StartTime: NotRequired[datetime]
+    LastUpdatedTime: NotRequired[datetime]
+    EndTime: NotRequired[datetime]
+    ResourceArn: NotRequired[str]
+    WebAclArn: NotRequired[str]
+    ApiSecurityEventDetail: NotRequired[ApiSecurityEventDetailTypeDef]
+
+
+class GetEventActorResponseTypeDef(TypedDict):
+    EventActor: EventActorDetailTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class AWSManagedRulesAISecurityRuleSetTypeDef(TypedDict):
+    BedrockGuardrails: BedrockGuardrailsUnionTypeDef
 
 
 class RateBasedStatementOutputTypeDef(TypedDict):
@@ -2193,6 +2379,39 @@ class GetTopPathStatisticsByTrafficRequestTypeDef(TypedDict):
     NextMarker: NotRequired[str]
 
 
+class ListEventActorsRequestTypeDef(TypedDict):
+    Scope: ScopeType
+    TimeWindow: TimeWindowUnionTypeDef
+    SortBy: NotRequired[Literal["EVENT_COUNT"]]
+    Limit: NotRequired[int]
+    NextMarker: NotRequired[str]
+
+
+class ListEventsByWebACLRequestTypeDef(TypedDict):
+    Scope: ScopeType
+    WebAclArn: str
+    TimeWindow: NotRequired[TimeWindowUnionTypeDef]
+    Filters: NotRequired[Sequence[EventFilterTypeDef]]
+    ApiPatternFilters: NotRequired[Sequence[ApiPatternFilterTypeDef]]
+    Limit: NotRequired[int]
+    NextMarker: NotRequired[str]
+    SortOrder: NotRequired[SortOrderType]
+    SortBy: NotRequired[EventSortByType]
+    Include: NotRequired[Sequence[Literal["TIMELINE"]]]
+
+
+class ListEventsRequestTypeDef(TypedDict):
+    Scope: ScopeType
+    TimeWindow: NotRequired[TimeWindowUnionTypeDef]
+    Filters: NotRequired[Sequence[EventFilterTypeDef]]
+    ApiPatternFilters: NotRequired[Sequence[ApiPatternFilterTypeDef]]
+    Limit: NotRequired[int]
+    NextMarker: NotRequired[str]
+    SortOrder: NotRequired[SortOrderType]
+    SortBy: NotRequired[EventSortByType]
+    Include: NotRequired[Sequence[Literal["TIMELINE"]]]
+
+
 class ListSettlementRecordsRequestTypeDef(TypedDict):
     TimeWindow: TimeWindowUnionTypeDef
     Scope: ScopeType
@@ -2204,6 +2423,26 @@ class ListSettlementRecordsRequestTypeDef(TypedDict):
     NextMarker: NotRequired[str]
 
 
+class GetEventResponseTypeDef(TypedDict):
+    Event: EventDetailSummaryTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ListEventsByWebACLResponseTypeDef(TypedDict):
+    Events: list[EventDetailSummaryTypeDef]
+    NextMarker: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ListEventsResponseTypeDef(TypedDict):
+    Events: list[EventDetailSummaryTypeDef]
+    NextMarker: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+AWSManagedRulesAISecurityRuleSetUnionTypeDef = Union[
+    AWSManagedRulesAISecurityRuleSetTypeDef, AWSManagedRulesAISecurityRuleSetOutputTypeDef
+]
 RateBasedStatementCustomKeyUnionTypeDef = Union[
     RateBasedStatementCustomKeyTypeDef, RateBasedStatementCustomKeyOutputTypeDef
 ]
@@ -2218,6 +2457,7 @@ class ManagedRuleGroupConfigOutputTypeDef(TypedDict):
     AWSManagedRulesATPRuleSet: NotRequired[AWSManagedRulesATPRuleSetOutputTypeDef]
     AWSManagedRulesACFPRuleSet: NotRequired[AWSManagedRulesACFPRuleSetOutputTypeDef]
     AWSManagedRulesAntiDDoSRuleSet: NotRequired[AWSManagedRulesAntiDDoSRuleSetOutputTypeDef]
+    AWSManagedRulesAISecurityRuleSet: NotRequired[AWSManagedRulesAISecurityRuleSetOutputTypeDef]
 
 
 ClientSideActionConfigUnionTypeDef = Union[
@@ -2480,6 +2720,7 @@ class ManagedRuleGroupConfigTypeDef(TypedDict):
     AWSManagedRulesATPRuleSet: NotRequired[AWSManagedRulesATPRuleSetUnionTypeDef]
     AWSManagedRulesACFPRuleSet: NotRequired[AWSManagedRulesACFPRuleSetUnionTypeDef]
     AWSManagedRulesAntiDDoSRuleSet: NotRequired[AWSManagedRulesAntiDDoSRuleSetUnionTypeDef]
+    AWSManagedRulesAISecurityRuleSet: NotRequired[AWSManagedRulesAISecurityRuleSetUnionTypeDef]
 
 
 class FirewallManagerRuleGroupTypeDef(TypedDict):

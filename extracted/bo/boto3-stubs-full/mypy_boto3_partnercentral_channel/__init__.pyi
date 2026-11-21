@@ -11,6 +11,7 @@ Usage::
     from boto3.session import Session
     from mypy_boto3_partnercentral_channel import (
         Client,
+        ListChannelContractsPaginator,
         ListChannelHandshakesPaginator,
         ListProgramManagementAccountsPaginator,
         ListRelationshipsPaginator,
@@ -20,6 +21,7 @@ Usage::
     session = Session()
     client: PartnerCentralChannelAPIClient = session.client("partnercentral-channel")
 
+    list_channel_contracts_paginator: ListChannelContractsPaginator = client.get_paginator("list_channel_contracts")
     list_channel_handshakes_paginator: ListChannelHandshakesPaginator = client.get_paginator("list_channel_handshakes")
     list_program_management_accounts_paginator: ListProgramManagementAccountsPaginator = client.get_paginator("list_program_management_accounts")
     list_relationships_paginator: ListRelationshipsPaginator = client.get_paginator("list_relationships")
@@ -28,6 +30,7 @@ Usage::
 
 from .client import PartnerCentralChannelAPIClient
 from .paginator import (
+    ListChannelContractsPaginator,
     ListChannelHandshakesPaginator,
     ListProgramManagementAccountsPaginator,
     ListRelationshipsPaginator,
@@ -37,6 +40,7 @@ Client = PartnerCentralChannelAPIClient
 
 __all__ = (
     "Client",
+    "ListChannelContractsPaginator",
     "ListChannelHandshakesPaginator",
     "ListProgramManagementAccountsPaginator",
     "ListRelationshipsPaginator",

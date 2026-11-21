@@ -70,12 +70,12 @@ from pymammotion.data.model.generate_geojson import (
     apply_device_mow_progress_geojson,
     apply_mowing_geojson,
 )
-from pymammotion.data.model.hash_list import PathType, SvgMessage
+from pymammotion.data.model.hash_list import SvgMessage
 from pymammotion.data.model.mowing_modes import RainProtectionMode
 from pymammotion.data.model.svg import chunk_svg_messages
 from pymammotion.device.auto_fetch import AutoFetchWatchers, _should_fetch_mow_path
 from pymammotion.device.ble_inventory import BleInventory
-from pymammotion.device.handle import DeviceHandle, DeviceRegistry, DeviceStateTimeoutError
+from pymammotion.device.handle import DeviceHandle, DeviceNotRegisteredError, DeviceRegistry, DeviceStateTimeoutError
 from pymammotion.device.inbound_router import InboundRouter
 from pymammotion.device.readiness import get_readiness_checker
 from pymammotion.device.remote_drive import HttpTokenSource
@@ -83,14 +83,13 @@ from pymammotion.device.state_reducer import apply_rtk_coordinate
 from pymammotion.http.model.http import CheckDeviceVersion, DeviceRecord, MQTTConnection, UnauthorizedExceptionError
 from pymammotion.http.model.rain_protection import WeatherServerSync
 from pymammotion.messaging.command_queue import Priority, execute_command
-from pymammotion.messaging.common_data_saga import CommonDataSaga
 from pymammotion.messaging.edge_saga import EdgeMappingSaga
 from pymammotion.messaging.map_saga import MapFetchSaga
 from pymammotion.messaging.mow_path_saga import MowPathSaga
 from pymammotion.messaging.plan_saga import PlanFetchSaga
 from pymammotion.messaging.spino_plan_saga import SpinoPlanFetchSaga
 from pymammotion.messaging.svg_saga import SvgSendSaga
-from pymammotion.proto import BatchConfigType, ResResult, RptAct, RptInfoType
+from pymammotion.proto import BatchConfigType, BatchSetRes, ResResult, RptAct, RptInfoType
 from pymammotion.transport.aliyun_mqtt import AliyunMQTTConfig, AliyunMQTTTransport
 from pymammotion.transport.base import (
     AuthError,
@@ -128,6 +127,8 @@ _BATCH_CONFIG_TIMEOUT = 5.0
 _BATCH_CONFIG_EXCHANGE = "batch_config"
 #: Per-attempt reply wait for a Smart Sleep exchange.
 _SMART_SLEEP_TIMEOUT = 5.0
+#: A large lawn's cover path is hundreds of frames, slower still over the cloud.
+_PLANNED_PATH_TIMEOUT = 180.0
 #: Both sleep switches are written and read on the same two fields.
 _SMART_SLEEP_EXCHANGE = "smart_sleep"
 
@@ -164,6 +165,11 @@ if TYPE_CHECKING:
     from pymammotion.transport.ble import BLETransport
 
 _logger = logging.getLogger(__name__)
+
+
+def _batch_set_succeeded(results: list[BatchSetRes], config_type: BatchConfigType) -> bool:
+    """Whether a ``batch_set_resp`` reports success for *config_type*."""
+    return any(result.type == config_type and result.res_result == ResResult.RES_SUCCESS for result in results)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -372,7 +378,7 @@ class MammotionClient(CloudAuthMixin):
             await handle.request_report_snapshot()
 
     async def request_reports(self, device_name: str, *, count: int = 1, timeout: int = 1000) -> None:
-        """Fire a one-shot count=count report, skipped if the BLE stream is already active.
+        """Fire a one-shot count=count report, skipped if one is queued or the BLE stream is already active.
 
         ``timeout`` is the device-side ``request_iot_sys`` report window in ms — a wire
         field, not an asyncio deadline.
@@ -392,7 +398,10 @@ class MammotionClient(CloudAuthMixin):
     async def ensure_fresh_state(
         self, device_name: str, *, max_age_s: float = 120.0, wait: bool = False, account_id: str | None = None
     ) -> None:
-        """Request a one-shot snapshot if the last inbound report is older than ``max_age_s`` seconds.
+        """Request a one-shot snapshot if the last telemetry report is older than ``max_age_s`` seconds.
+
+        Age is :attr:`DeviceHandle.report_data_age`: a command ack or map frame proves the
+        link is up, not that ``sys_status`` and the rest are current.
 
         Intended for use at the top of user-action handlers (start/dock/pause/cancel)
         to avoid acting on stale state after a long idle period.
@@ -409,7 +418,7 @@ class MammotionClient(CloudAuthMixin):
 
         """
         handle = self._device_registry.get_by_name(device_name, account_id)
-        if handle is None or handle.report_age <= max_age_s:
+        if handle is None or handle.report_data_age <= max_age_s:
             return
         if not wait:
             await handle.request_report_snapshot()
@@ -443,10 +452,7 @@ class MammotionClient(CloudAuthMixin):
             Exception: anything :meth:`refresh_status` raises.
 
         """
-        handle = self._device_registry.get_by_name(device_name, account_id)
-        if handle is None:
-            msg = f"Device '{device_name}' not registered"
-            raise KeyError(msg)
+        handle = self._registered_handle(device_name, account_id)
         return await handle.wait_for(
             predicate, timeout=timeout, refresh=partial(self.refresh_status, device_name, handle.account_id)
         )
@@ -470,10 +476,7 @@ class MammotionClient(CloudAuthMixin):
                 :meth:`send_command_with_args`).
 
         """
-        handle = self._device_registry.get_by_name(device_name, account_id)
-        if handle is None:
-            msg = f"Device '{device_name}' not registered"
-            raise KeyError(msg)
+        handle = self._registered_handle(device_name, account_id)
         handle.record_user_command()
         session = self._get_session_for_handle(handle)
 
@@ -1878,7 +1881,8 @@ class MammotionClient(CloudAuthMixin):
                 # populated ``device.map.area``.
                 await handle.emit_map_updated()
 
-            await handle.enqueue_saga(saga, on_complete=_on_map_complete)
+            dedup_key = "map_sync_incremental" if skip_area_names else "map_sync"
+            await handle.enqueue_saga(saga, on_complete=_on_map_complete, dedup_key=dedup_key)
         else:
             _logger.warning("start_map_sync: device '%s' not registered", device_name)
             return
@@ -1913,7 +1917,7 @@ class MammotionClient(CloudAuthMixin):
                 device.map.plans_fetched = True
                 device.map.plans_fetched_job_id = device.work.job_id
 
-        await handle.enqueue_saga(saga, on_complete=_on_plan_complete)
+        await handle.enqueue_saga(saga, on_complete=_on_plan_complete, dedup_key="plan_sync")
 
     async def start_spino_plan_sync(self, device_name: str) -> None:
         """Enqueue a :class:`SpinoPlanFetchSaga` to fetch all Spino cleaning plans.
@@ -1927,7 +1931,7 @@ class MammotionClient(CloudAuthMixin):
             _logger.warning("start_spino_plan_sync: device '%s' not registered", device_name)
             return
         saga = SpinoPlanFetchSaga(command_builder=handle.commands, send_command=handle.send_raw)
-        await handle.enqueue_saga(saga)
+        await handle.enqueue_saga(saga, dedup_key="spino_plan_sync")
 
     async def send_svg(
         self,
@@ -2003,21 +2007,68 @@ class MammotionClient(CloudAuthMixin):
             return False
         device = cast("MowerDevice", handle.snapshot.raw)
         path_hash = device.report_data.work.path_hash
-        if device.map.is_mow_path_current(path_hash):
+        if self._prune_stale_cover_path(device, path_hash):
             apply_device_mow_progress_geojson(device)
             return False
-        device.map.invalidate_stale_route(path_hash)
         if not _should_fetch_mow_path(device, handle, path_hash):
             return False
         _logger.debug("Device %s path_hash=%d — fetching cover path", device_name, path_hash)
         try:
-            current_work = GenerateRouteInformation.from_current_task_settings(device.work)
-            return await self.start_mow_path_saga(
-                device_name, zone_hashs=[], route_info=current_work, skip_planning=True
-            )
+            return await self._fetch_cover_path(device_name, device)
         except Exception:
             _logger.warning("MowPathSaga for %s failed to start", device_name, exc_info=True)
             return False
+
+    async def fetch_planned_mow_path(
+        self, device_name: str, *, timeout: float = _PLANNED_PATH_TIMEOUT, account_id: str | None = None
+    ) -> int:
+        """Collect the cover path of the route the device last planned, and wait for it.
+
+        The route is identified by its ``path_hash``: the plan reply's, or the report's
+        once an idle report has cleared the reply.  A path cached for any other route
+        is dropped first and cannot be returned for it.  Returns that hash once the
+        cached path is complete for it; 0 when the device has no route, the fetch is
+        gated off over MQTT, it failed, or it did not finish within *timeout*.
+
+        Raises:
+            KeyError: *device_name* is not registered.
+
+        """
+        handle = self._registered_handle(device_name, account_id)
+        device = cast("MowerDevice", handle.snapshot.raw)
+        if (path_hash := device.work.path_hash or device.report_data.work.path_hash) <= 1:
+            return 0
+        if self._prune_stale_cover_path(device, path_hash):
+            return path_hash
+        completed = asyncio.Event()
+        if not await self._fetch_cover_path(device_name, device, completed=completed):
+            return 0
+        try:
+            await asyncio.wait_for(completed.wait(), timeout)
+        except TimeoutError:
+            return 0
+        current = cast("MowerDevice", handle.snapshot.raw).map.is_mow_path_current(path_hash)
+        return path_hash if current else 0
+
+    @staticmethod
+    def _prune_stale_cover_path(device: MowerDevice, path_hash: int) -> bool:
+        """Drop a route cached for anything but *path_hash*; return True when the path left is complete for it.
+
+        Edits the live map in place, as the auto-fetch watcher and the saga completion hooks do.
+        Every snapshot since the last nav frame shares that map, so a copy-on-write apply would
+        deep-copy the whole map per call; the fetch that follows publishes through the reducer.
+        """
+        device.map.invalidate_stale_route(path_hash)
+        return device.map.is_mow_path_current(path_hash)
+
+    async def _fetch_cover_path(
+        self, device_name: str, device: MowerDevice, *, completed: asyncio.Event | None = None
+    ) -> bool:
+        """Enqueue the fetch-only MowPathSaga for the route ``device.work`` describes; True when enqueued."""
+        route = GenerateRouteInformation.from_current_task_settings(device.work)
+        return await self.start_mow_path_saga(
+            device_name, zone_hashs=[], route_info=route, skip_planning=True, completed=completed
+        )
 
     async def start_mow_path_saga(
         self,
@@ -2026,6 +2077,7 @@ class MammotionClient(CloudAuthMixin):
         route_info: GenerateRouteInformation | None = None,
         *,
         skip_planning: bool = False,
+        completed: asyncio.Event | None = None,
     ) -> bool:
         """Enqueue a MowPathSaga to plan a route and collect the cover path.
 
@@ -2036,6 +2088,8 @@ class MammotionClient(CloudAuthMixin):
             skip_planning: When True, skip the generate_route_information step.
                            Use this to fetch an already-computed path (e.g. when
                            the device started working externally).
+            completed:     Set once the saga has ended, however it ended; on
+                           success the route geojson is rebuilt first.
 
         Returns:
             True when the saga was enqueued; False for an unknown device or when
@@ -2069,7 +2123,9 @@ class MammotionClient(CloudAuthMixin):
                     apply_mowing_geojson(device.map, device.location.RTK)
                     apply_device_mow_progress_geojson(device)
 
-            await handle.enqueue_saga(saga, on_complete=_on_mow_path_complete)
+            # A fetch of the route already known repeats; a plan, or one a caller waits on, never does.
+            dedup_key = "mow_path_fetch" if skip_planning and completed is None else None
+            await handle.enqueue_saga(saga, on_complete=_on_mow_path_complete, done=completed, dedup_key=dedup_key)
             return True
         return False
 
@@ -2115,10 +2171,8 @@ class MammotionClient(CloudAuthMixin):
         previous line once a complete set has arrived.
 
         The saga is enqueued on the device's command queue, so it will not
-        interrupt other in-progress commands.  Callers should rate-limit
-        invocations to avoid flooding the device — the APK uses a 1-second
-        minimum gap between requests and calls this every ~10 seconds while
-        mowing is active.
+        interrupt other in-progress commands, and a request made while one is
+        still waiting to start is dropped.
 
         Args:
             device_name: Registered device name.
@@ -2129,13 +2183,7 @@ class MammotionClient(CloudAuthMixin):
             _logger.warning("get_dynamics_line: device '%s' not registered", device_name)
             return
 
-        saga = CommonDataSaga(
-            command_builder=handle.commands,
-            send_command=handle.send_raw,
-            action=8,
-            type=PathType.DYNAMICS_LINE,
-        )
-        await handle.enqueue_saga(saga)
+        await handle.fetch_dynamics_line()
 
     async def start_edge_mapping(
         self,
@@ -2209,14 +2257,18 @@ class MammotionClient(CloudAuthMixin):
         When *enabled* is True, BLE is reconnected and the account's cloud
         transports are re-attached.  The activity loop restarts automatically via
         ``update_availability`` once a transport reports CONNECTED.
-        When *enabled* is False, BLE is disconnected and cloud is detached from
+        When *enabled* is False, BLE is disconnected — usable or not, since a link in
+        cooldown or below the RSSI floor can still be up — and cloud is detached from
         this handle, which exits the activity loop automatically.
         """
         handle = self._device_registry.get_by_name(device_name)
         if handle is None:
             return
-        if (ble_transport := handle.get_transport(TransportType.BLE)) and ble_transport.is_usable:
-            await ble_transport.connect() if enabled else await ble_transport.disconnect()
+        if ble_transport := handle.get_transport(TransportType.BLE):
+            if not enabled:
+                await ble_transport.disconnect()
+            elif ble_transport.is_usable:
+                await ble_transport.connect()
 
         # Cloud transports are account-shared — detach this handle rather than
         # disconnecting them out from under the account's other devices.
@@ -2259,11 +2311,7 @@ class MammotionClient(CloudAuthMixin):
         if handle is None:
             _logger.error("wake_device: device '%s' not found", name)
             return False
-        # The handle's own account, not cloud_http's default session: waking with
-        # another account's bearer token is rejected by the cloud.
-        session = self._get_session_for_handle(handle)
-        http = session.mammotion_http if session is not None else None
-        if http is None:
+        if (http := self._http_for_handle(handle)) is None:
             _logger.warning("wake_device: no cloud session available for '%s'", name)
             return False
         response = await http.wake_up_device(handle.device_name)
@@ -2296,7 +2344,8 @@ class MammotionClient(CloudAuthMixin):
 
         A user command.  The ack carries a result code rather than the switches, so
         the value sent is applied once it arrives and both are then re-read; an
-        unanswered re-read keeps the value sent.
+        unanswered re-read keeps the value sent.  Two sends per toggle (write, re-read),
+        as the app does; callers must not add a read of their own.
 
         Raises:
             KeyError: *device_name* is not registered.
@@ -2317,12 +2366,7 @@ class MammotionClient(CloudAuthMixin):
                 account_id=account_id,
                 enabled=enabled,
             )
-            device = cast("MowingDevice", handle.snapshot.raw)
-            applied = dataclasses.replace(device.mower_state, **{switch: enabled})
-            snapshot, _ = handle.state_machine.apply(
-                dataclasses.replace(device, mower_state=applied), handle.availability
-            )
-            await handle.emit_state_changed(snapshot)
+            await self._apply_mower_state(handle, **{switch: enabled})
             try:
                 await self._query_smart_sleep(device_name, Priority.USER, account_id)
             except CommandTimeoutError:
@@ -2338,11 +2382,80 @@ class MammotionClient(CloudAuthMixin):
             account_id=account_id,
         )
 
+    async def read_child_safety(
+        self, device_name: str, *, priority: Priority = Priority.NORMAL, account_id: str | None = None
+    ) -> None:
+        """Read the child-safety switch into the device's state.
+
+        Raises:
+            KeyError: *device_name* is not registered.
+            ValueError: The mower is neither an X3 nor an X5; nothing is sent.
+            CommandTimeoutError: The device did not answer; the switch stays as it was.
+
+        """
+        handle = self._registered_handle(device_name, account_id)
+        async with handle.broker.exclusive(_BATCH_CONFIG_EXCHANGE):
+            await self._query_child_safety(device_name, priority, account_id)
+
+    async def set_child_safety(self, device_name: str, enabled: bool, *, account_id: str | None = None) -> None:
+        """Switch child safety, then re-read it; an unanswered re-read keeps the value sent.
+
+        A user command.  An X5 answers on the shared batch-config fields with a result
+        code only, so the value sent is applied once the mower reports success.  Two sends
+        per toggle (write, re-read), as the app does; callers must not add a read of their own.
+
+        Raises:
+            KeyError: *device_name* is not registered.
+            ValueError: The mower is neither an X3 nor an X5; nothing is sent.
+            CommandRejectedError: The device refused the write; nothing changed.
+            CommandTimeoutError: The device did not acknowledge the write.
+
+        """
+        handle = self._registered_handle(device_name, account_id)
+        x5 = DeviceType.is_x5_series(device_name)
+        async with handle.broker.exclusive(_BATCH_CONFIG_EXCHANGE):
+            reply = await self.send_command_and_wait(
+                device_name,
+                "set_child_safety",
+                "batch_set_resp" if x5 else "nav_sys_param_cmd",
+                send_timeout=_BATCH_CONFIG_TIMEOUT,
+                priority=Priority.USER,
+                account_id=account_id,
+                enabled=enabled,
+            )
+            if x5:
+                if not _batch_set_succeeded(reply.sys.batch_set_resp.res_data, BatchConfigType.CFG_TYPE_CHILD_PRO_CFG):
+                    msg = f"{device_name} refused child safety {enabled}: {reply.sys.batch_set_resp.res_data}"
+                    raise CommandRejectedError(msg)
+                await self._apply_mower_state(handle, child_safety=enabled)
+            try:
+                await self._query_child_safety(device_name, Priority.USER, account_id)
+            except CommandTimeoutError:
+                _logger.debug("set_child_safety: '%s' did not answer the re-read; keeping the value sent", device_name)
+
+    async def _query_child_safety(self, device_name: str, priority: Priority, account_id: str | None) -> None:
+        await self.send_command_and_wait(
+            device_name,
+            "read_child_safety",
+            "batch_query_resp" if DeviceType.is_x5_series(device_name) else "nav_sys_param_cmd",
+            send_timeout=_BATCH_CONFIG_TIMEOUT,
+            priority=priority,
+            account_id=account_id,
+        )
+
+    @staticmethod
+    async def _apply_mower_state(handle: DeviceHandle, **changes: Any) -> None:
+        """Apply values the device acknowledged without echoing, and publish the new state."""
+        device = cast("MowingDevice", handle.snapshot.raw)
+        applied = dataclasses.replace(device.mower_state, **changes)
+        snapshot, _ = handle.state_machine.apply(dataclasses.replace(device, mower_state=applied), handle.availability)
+        await handle.emit_state_changed(snapshot)
+
     def _registered_handle(self, device_name: str, account_id: str | None) -> DeviceHandle:
-        """Return the handle for *device_name*, raising ``KeyError`` when it is not registered."""
+        """Return the handle for *device_name*, raising ``DeviceNotRegisteredError`` when it is not registered."""
         if (handle := self._device_registry.get_by_name(device_name, account_id)) is None:
             msg = f"Device '{device_name}' not registered"
-            raise KeyError(msg)
+            raise DeviceNotRegisteredError(msg)
         return handle
 
     async def get_latest_work_report(self, device_name: str, account_id: str | None = None) -> WorkReportRecord | None:
@@ -2393,10 +2506,7 @@ class MammotionClient(CloudAuthMixin):
             CommandTimeoutError: The device did not answer; support is still unknown.
 
         """
-        handle = self._device_registry.get_by_name(device_name, account_id)
-        if handle is None:
-            msg = f"Device '{device_name}' not registered"
-            raise KeyError(msg)
+        handle = self._registered_handle(device_name, account_id)
         async with handle.broker.exclusive(_BATCH_CONFIG_EXCHANGE):
             await self.send_command_and_wait(
                 device_name,
@@ -2424,6 +2534,8 @@ class MammotionClient(CloudAuthMixin):
         is picked again.  The ack carries no values, so the ones sent are applied once it
         reports success.  The weather-server copy is best effort: a failure is logged and
         returned as ``FAILED``, never undoing the device, and a BLE-only device has none.
+        Two device sends (write, re-read) and one HTTP call per change; callers must not
+        add a read of their own.
 
         Raises:
             KeyError: *device_name* is not registered.
@@ -2434,10 +2546,7 @@ class MammotionClient(CloudAuthMixin):
             ReLoginRequiredError: The account's login is dead.
 
         """
-        handle = self._device_registry.get_by_name(device_name, account_id)
-        if handle is None:
-            msg = f"Device '{device_name}' not registered"
-            raise KeyError(msg)
+        handle = self._registered_handle(device_name, account_id)
         mode = RainProtectionMode(mode)
         if delay_hours is None:
             delay_hours = cast("MowingDevice", handle.snapshot.raw).mower_state.rain_protection.delay_hours
@@ -2452,19 +2561,11 @@ class MammotionClient(CloudAuthMixin):
                 mode=mode,
                 delay_hours=delay_hours,
             )
-        if not any(
-            result.type == BatchConfigType.CFG_TYPE_RAINPRO_CFG and result.res_result == ResResult.RES_SUCCESS
-            for result in reply.sys.batch_set_resp.res_data
-        ):
+        if not _batch_set_succeeded(reply.sys.batch_set_resp.res_data, BatchConfigType.CFG_TYPE_RAINPRO_CFG):
             msg = f"{device_name} refused rain protection {mode.name}: {reply.sys.batch_set_resp.res_data}"
             raise CommandRejectedError(msg)
-        device = cast("MowingDevice", handle.snapshot.raw)
-        applied = device.mower_state.rain_protection.with_mode(mode, delay_hours)
-        snapshot, _ = handle.state_machine.apply(
-            dataclasses.replace(device, mower_state=dataclasses.replace(device.mower_state, rain_protection=applied)),
-            handle.availability,
-        )
-        await handle.emit_state_changed(snapshot)
+        current = cast("MowingDevice", handle.snapshot.raw).mower_state.rain_protection
+        await self._apply_mower_state(handle, rain_protection=current.with_mode(mode, delay_hours))
         sync = await self._save_rain_protection_config(
             handle, mode, delay_hours if mode is RainProtectionMode.sensor else 0
         )
@@ -2518,18 +2619,28 @@ class MammotionClient(CloudAuthMixin):
             KeyError: *device_name* is not registered.
 
         """
-        if (handle := self.mower(device_name, account_id)) is None:
-            msg = f"Device '{device_name}' not registered"
-            raise KeyError(msg)
+        handle = self._registered_handle(device_name, account_id)
         return handle.ensure_remote_drive(
-            tokens=HttpTokenSource(partial(self._remote_drive_http, handle), handle.iot_id),
+            tokens=HttpTokenSource(partial(self._http_for_handle, handle), handle.iot_id),
             send=partial(self._send_remote_drive_frame, handle),
         )
 
-    def _remote_drive_http(self, handle: DeviceHandle) -> MammotionHTTP | None:
+    def _http_for_handle(self, handle: DeviceHandle) -> MammotionHTTP | None:
         # Looked up per call: the handle's account can change on re-key or re-login.
         session = self._get_session_for_handle(handle)
         return session.mammotion_http if session is not None else None
+
+    def http_for_device(self, device_name: str, account_id: str | None = None) -> MammotionHTTP | None:
+        """Return the HTTP session of the account that owns *device_name*; ``None`` for a BLE-only device.
+
+        Use this, not :attr:`cloud_http`, for any per-device call: ``cloud_http`` is the first
+        account's session, and the cloud rejects another account's bearer token.
+
+        Raises:
+            DeviceNotRegisteredError: *device_name* is not registered.
+
+        """
+        return self._http_for_handle(self._registered_handle(device_name, account_id))
 
     async def _send_remote_drive_frame(self, handle: DeviceHandle, payload: bytes, *, timeout: float) -> None:
         # The timeout bounds each attempt, never the refresh between them (see DriveSend).
@@ -2690,22 +2801,22 @@ class MammotionClient(CloudAuthMixin):
         channel and immediately quits.  The APK's only two ``vi_switch=0`` sends
         are terminal (``onDestroy``, the idle timeout), both after leaving the
         channel; its reconnect path re-runs this same flow with no leave.
+
+        The token is fetched with the device's own account session; ``None`` when the
+        device is not registered or has no cloud account.
         """
-        http = self.mammotion_http
-        if http is None:
+        handle = self._device_registry.get_by_name(device_name)
+        if handle is None or (http := self._http_for_handle(handle)) is None:
             return None
         subscription = await self._fetch_stream_subscription(
             http, iot_id, DeviceType.value_of_str(device_name).is_yu_ka(), all_cameras=all_cameras
         )
-
-        if handle := self._device_registry.get_by_name(device_name):
-            try:
-                new_fpv = handle.snapshot.raw.report_data.dev.fpv_info is not None  # type: ignore
-            except AttributeError:
-                new_fpv = False
-            if not new_fpv:
-                await self.send_command_with_args(device_name, "device_agora_join_channel_with_position", enter_state=1)
-
+        try:
+            new_fpv = handle.snapshot.raw.report_data.dev.fpv_info is not None  # type: ignore
+        except AttributeError:
+            new_fpv = False
+        if not new_fpv:
+            await self.send_command_with_args(device_name, "device_agora_join_channel_with_position", enter_state=1)
         return subscription
 
     async def refresh_stream_subscription(self, device_name: str, iot_id: str, *, all_cameras: bool = False) -> Any:
@@ -2798,10 +2909,7 @@ class MammotionClient(CloudAuthMixin):
                 absorbs it.
 
         """
-        handle = self._device_registry.get_by_name(name, account_id)
-        if handle is None:
-            msg = f"Device '{name}' not registered"
-            raise KeyError(msg)
+        handle = self._registered_handle(name, account_id)
         if _record_cmd:
             handle.record_user_command()
         commands = handle.commands
@@ -2902,10 +3010,7 @@ class MammotionClient(CloudAuthMixin):
                 the refusal is logged and dropped, and surfaces as ``CommandTimeoutError``.
 
         """
-        handle = self._device_registry.get_by_name(name, account_id)
-        if handle is None:
-            msg = f"Device '{name}' not registered"
-            raise KeyError(msg)
+        handle = self._registered_handle(name, account_id)
         handle.record_user_command()
         commands = handle.commands
         command_bytes: bytes = getattr(commands, key)(**kwargs)
@@ -2924,6 +3029,47 @@ class MammotionClient(CloudAuthMixin):
             send_fn=_send,
             expected_field=expected_field,
             send_timeout=send_timeout,
+        )
+
+    async def queue_command_and_wait(
+        self,
+        name: str,
+        key: str,
+        expected_field: str,
+        /,
+        *,
+        send_timeout: float = 5.0,
+        priority: Priority = Priority.BACKGROUND,
+        account_id: str | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        """:meth:`send_command_and_wait` run through the device's command queue.
+
+        For background reads: the exchange waits its turn behind a running or queued saga
+        instead of interleaving with it, where the saga's traffic could hold the same reply
+        field and raise ``ConcurrentRequestError``.  Like any queued send it is refused while
+        no transport is usable (``NoTransportAvailableError`` from ``active_transport()``).
+
+        Raises:
+            DeviceNotRegisteredError: *name* is not registered.
+            ValueError: *priority* is a direct level; use :meth:`send_command_and_wait`.
+            CommandDroppedError: it waited out the queue's TTL behind other work.
+            CommandTimeoutError: the device did not answer.
+
+        """
+        handle = self._registered_handle(name, account_id)
+        return await handle.queue.enqueue_and_wait(
+            partial(
+                self.send_command_and_wait,
+                name,
+                key,
+                expected_field,
+                send_timeout=send_timeout,
+                priority=priority,
+                account_id=handle.account_id,
+                **kwargs,
+            ),
+            priority,
         )
 
     def set_prefer_ble(self, device_id: str, *, prefer_ble: bool, account_id: str | None = None) -> None:

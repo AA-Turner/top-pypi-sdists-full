@@ -151,6 +151,7 @@ pub(crate) struct IdListImage {
     ef: Option<elias_fano::Ef>,
     iter_keys: OnceLock<Box<[[u8; 8]]>>,
     content_digest: OnceLock<String>,
+    retain_for_private_updates: bool,
     inline: Table,
     other: Table,
     blob_start: usize,
@@ -170,6 +171,7 @@ impl IdListImage {
             ef: Some(ef),
             iter_keys: OnceLock::new(),
             content_digest: OnceLock::new(),
+            retain_for_private_updates: false,
             inline: empty,
             other: empty,
             blob_start: end,
@@ -308,7 +310,7 @@ impl IdListImage {
         changes: impl ExactSizeIterator<Item = (&'a [u8; 8], bool)>,
     ) -> Option<Self> {
         let base = self.ef?;
-        if self.is_mapped() || self.inline.count != 0 || self.other.count != 0 {
+        if self.needs_private_copy() || self.inline.count != 0 || self.other.count != 0 {
             return None;
         }
         let layout = elias_fano::Ef::layout(count, 8).ok()?;
@@ -426,6 +428,7 @@ impl IdListImage {
         let view = Self {
             map,
             content_digest: OnceLock::new(),
+            retain_for_private_updates: false,
             ef,
             iter_keys: OnceLock::new(),
             inline,
@@ -515,6 +518,14 @@ impl IdListImage {
         let n = self.ef.map_or(0, |ef| ef.count);
         (self.inline.count + n, self.other.count)
     }
+    pub(super) fn retain_for_private_updates(&mut self) {
+        self.retain_for_private_updates = true;
+    }
+
+    pub(super) fn needs_private_copy(&self) -> bool {
+        self.is_mapped() && !self.retain_for_private_updates
+    }
+
     pub(super) fn is_mapped(&self) -> bool {
         matches!(self.map, ImageBytes::Mapped { .. })
     }

@@ -44,7 +44,7 @@ from phono3py.conductivity.utils import (
 )
 from phono3py.conductivity.velocity_solvers import GroupVelocitySolver
 from phono3py.other.isotope import Isotope
-from phono3py.phonon3.interaction import Interaction
+from phono3py.phonon3.interaction import Interaction, all_bands_exist
 from phono3py.phonon3.triplets import get_triplets_at_q
 
 # ------------------------------------------------------------------
@@ -114,9 +114,14 @@ def _compute_all_isotope(
     isotope_solver: IsotopeScatteringSolver,
     kappa_settings: KappaSettings,
     gamma_iso: NDArray[np.double],
+    grid_point_indices: Sequence[int] | NDArray[np.int64],
 ) -> None:
-    """Compute isotope scattering for all grid points (in-place)."""
-    for i_gp in range(len(kappa_settings.grid_points)):
+    """Compute isotope scattering at grid points (in-place).
+
+    ``grid_point_indices`` are indices in ``kappa_settings.grid_points``.
+
+    """
+    for i_gp in grid_point_indices:
         grid_point = int(kappa_settings.grid_points[i_gp])
         result = isotope_solver.compute(grid_point)
         gamma_iso[:, i_gp, :] = result[:, kappa_settings.band_indices]
@@ -156,7 +161,7 @@ class ConductivityCalculatorBase(abc.ABC):
 
     Subclasses may override:
     - ``_pre_run_check`` (default: no-op)
-    - ``_pre_main_loop`` (default: no-op)
+    - ``_pre_main_loop`` (default: boundary scattering)
     - ``_post_main_loop`` (default: no-op)
     - ``_show_log_at_grid_point`` (default: basic frequency/gv printout)
 
@@ -184,6 +189,9 @@ class ConductivityCalculatorBase(abc.ABC):
         self._sigma_cutoff_width = sigma_cutoff_width
         self._log_level = log_level
         self._grid_point_count = 0
+        # Indices in kappa_settings.grid_points where the main loop runs.
+        # None means all. Set by LBTECalculator.
+        self._grid_point_indices: NDArray[np.int64] | None = None
 
         # Isotope solver (optional).
         self._isotope_solver: IsotopeScatteringSolver | None = None
@@ -208,21 +216,34 @@ class ConductivityCalculatorBase(abc.ABC):
     # Public interface
     # ------------------------------------------------------------------
 
-    def run(
-        self,
-        on_grid_point: Callable[[int], None] | None = None,
-    ) -> None:
+    def run(self, on_grid_point: Callable[[int], None] | None = None) -> None:
         """Run all grid points and compute kappa.
+
+        This calls collect and then solve.
+
+        Parameters
+        ----------
+        on_grid_point : callable or None, optional
+            See collect.
+
+        """
+        self.collect(on_grid_point=on_grid_point)
+        self.solve()
+
+    def collect(self, on_grid_point: Callable[[int], None] | None = None) -> None:
+        """Run all grid points and collect the quantities for kappa.
 
         Pipeline:
         1. Pre-run check (subclass hook).
         2. Bulk heat capacity (vectorized, single call).
-        3. Velocity loop (per-GP).
+        3. Velocities (all grid points, single call).
         4. Pre-main-loop hook (subclass hook).
         5. Isotope loop (per-GP).
         6. Main loop -> _compute_at_grid_point (abstract).
         7. Post-main-loop hook (subclass hook).
-        8. Finalize (abstract).
+
+        For LBTE, the collision matrix then contains only the collisions
+        collected at the grid points.  The main diagonal is added in solve.
 
         Parameters
         ----------
@@ -230,12 +251,27 @@ class ConductivityCalculatorBase(abc.ABC):
             Called with the grid-point loop index after each grid point is
             processed.  Used for per-grid-point file writes.
 
-        """
-        self._pre_run_check()
+        Notes
+        -----
+        The callback is defined by ``_run_standard_rta`` in ``rta_init.py``
+        and ``_run_standard_lbte`` in ``lbte_init.py``, which call the
+        writers in ``output.py`` according to the write options.
 
+        """
+        self._run_before_main_loop()
+        self._grid_point_count = 0
+        self._iterate_grid_points(on_grid_point)
+        self._run_after_main_loop()
+
+    def solve(self) -> None:
+        """Compute kappa from the quantities collected by collect."""
+        self._finalize()
+
+    def _run_before_main_loop(self) -> None:
+        """Run the steps 1-5 of collect, before the main loop."""
+        self._pre_run_check()
         _prepare_isotope_phonons(self._pp, self._isotope_solver)
 
-        # (1) Bulk heat capacity.
         if self._log_level:
             print("Running heat capacity calculations...")
         self._cv, hcm = _compute_bulk_heat_capacities(
@@ -244,32 +280,21 @@ class ConductivityCalculatorBase(abc.ABC):
         if hcm is not None:
             self._heat_capacity_matrix = hcm
 
-        # (2) Velocity loop.
         if self._log_level:
             print("Running velocity calculations...")
         self._compute_all_velocities()
 
-        # (3) Pre-main-loop hook.
         self._pre_main_loop()
-
-        # (4) Isotope loop.
         self._compute_isotope_if_needed()
 
-        # (5) Main loop.
-        self._grid_point_count = 0
-        self._iterate_grid_points(on_grid_point)
-
+    def _run_after_main_loop(self) -> None:
+        """Run the step 7 of collect, after the main loop."""
         if self._log_level:
             print(
                 "=================== End of collection of collisions "
                 "==================="
             )
-
-        # (6) Post-main-loop hook.
         self._post_main_loop()
-
-        # (7) Finalize.
-        self._finalize()
 
     # ------------------------------------------------------------------
     # Properties -- kappa settings access
@@ -417,15 +442,20 @@ class ConductivityCalculatorBase(abc.ABC):
     # ------------------------------------------------------------------
 
     def _compute_all_velocities(self) -> None:
-        """Compute velocities for all grid points."""
-        for i_gp in range(len(self._kappa_settings.grid_points)):
-            grid_point = int(self._kappa_settings.grid_points[i_gp])
-            vel_result = self._velocity_solver.compute(grid_point)
-            self._gv[i_gp] = vel_result.group_velocities
-            if vel_result.gv_by_gv is not None and self._gv_by_gv is not None:
-                self._gv_by_gv[i_gp] = vel_result.gv_by_gv
-            if vel_result.vm_by_vm is not None and self._vm_by_vm is not None:
-                self._vm_by_vm[i_gp] = vel_result.vm_by_vm
+        """Compute velocities for all grid points at once."""
+        assert self._gv is not None
+        vel_result = self._velocity_solver.compute(self._kappa_settings.grid_points)
+        self._gv[:] = vel_result.group_velocities
+        if vel_result.gv_by_gv is not None and self._gv_by_gv is not None:
+            self._gv_by_gv[:] = vel_result.gv_by_gv
+        if vel_result.vm_by_vm is not None and self._vm_by_vm is not None:
+            # This array is large, so it is not copied.
+            if vel_result.vm_by_vm.shape != self._vm_by_vm.shape:
+                raise RuntimeError(
+                    f"Shape of vm_by_vm {vel_result.vm_by_vm.shape} is not "
+                    f"{self._vm_by_vm.shape}."
+                )
+            self._vm_by_vm = vel_result.vm_by_vm
 
     def _compute_isotope_if_needed(self) -> None:
         """Compute isotope scattering for all grid points if applicable."""
@@ -439,9 +469,19 @@ class ConductivityCalculatorBase(abc.ABC):
                     if sigma is None
                     else f"sigma={sigma}..."
                 )
+        assert self._gamma_iso is not None
         _compute_all_isotope(
-            self._isotope_solver, self._kappa_settings, self._gamma_iso
+            self._isotope_solver,
+            self._kappa_settings,
+            self._gamma_iso,
+            self._get_grid_point_indices(),
         )
+
+    def _get_grid_point_indices(self) -> NDArray[np.int64]:
+        """Return indices in kappa_settings.grid_points of the main loop."""
+        if self._grid_point_indices is None:
+            return np.arange(len(self._kappa_settings.grid_points), dtype="int64")
+        return self._grid_point_indices
 
     def _should_skip_isotope(self) -> bool:
         """Return True to skip isotope computation (overridden in RTA)."""
@@ -468,8 +508,12 @@ class ConductivityCalculatorBase(abc.ABC):
     def _pre_run_check(self) -> None:  # noqa: B027
         """Check preconditions before the pipeline starts."""
 
-    def _pre_main_loop(self) -> None:  # noqa: B027
-        """Run pre-main-loop computation (e.g. boundary scattering)."""
+    def _pre_main_loop(self) -> None:
+        """Compute boundary scattering from group velocities."""
+        if self._kappa_settings.boundary_mfp is not None:
+            self._gamma_boundary = compute_bulk_boundary_scattering(
+                self._gv, self._kappa_settings.boundary_mfp
+            )
 
     def _post_main_loop(self) -> None:  # noqa: B027
         """Run post-main-loop computation (e.g. counting ignored modes)."""
@@ -480,9 +524,10 @@ class ConductivityCalculatorBase(abc.ABC):
 
     def _iterate_grid_points(self, on_grid_point: Callable[[int], None] | None) -> None:
         """Default per-gp iteration; subclasses may override for batching."""
-        for i_gp in range(len(self._kappa_settings.grid_points)):
+        for count, i_gp in enumerate(self._get_grid_point_indices()):
+            i_gp = int(i_gp)
             self._compute_at_grid_point(i_gp)
-            self._grid_point_count = i_gp + 1
+            self._grid_point_count = count + 1
             if on_grid_point is not None:
                 on_grid_point(i_gp)
 
@@ -661,11 +706,10 @@ class RTACalculator(ConductivityCalculatorBase):
     def _pre_run_check(self) -> None:
         if self._kappa_settings.temperatures is None:
             raise RuntimeError("Set temperatures before calling run().")
-
-    def _pre_main_loop(self) -> None:
-        if self._kappa_settings.boundary_mfp is not None:
-            self._gamma_boundary = compute_bulk_boundary_scattering(
-                self._gv, self._kappa_settings.boundary_mfp
+        if self._scattering_solver.use_ave_pp and self._averaged_pp_interaction is None:
+            raise RuntimeError(
+                "Averaged ph-ph interaction is required with use_ave_pp=True. "
+                "It is read from kappa-m*.hdf5 computed with is_full_pp=True."
             )
 
     def _post_main_loop(self) -> None:
@@ -720,14 +764,26 @@ class RTACalculator(ConductivityCalculatorBase):
         )
 
     def _compute_at_grid_point(self, i_gp: int) -> None:
-        """Compute ph-ph scattering gamma at a single grid point."""
+        """Compute ph-ph scattering gamma at a single grid point.
+
+        Gamma read from file is recomputed with use_ave_pp=True, where the
+        averaged ph-ph interaction read with it is used.
+
+        """
         _show_log_header(
             i_gp, self._kappa_settings, self._isotope_solver, self._log_level
         )
 
-        if not self._read_gamma:
+        use_ave_pp = self._scattering_solver.use_ave_pp
+        if not self._read_gamma or use_ave_pp:
             grid_point = int(self._kappa_settings.grid_points[i_gp])
-            scat_result = self._scattering_solver.compute(grid_point)
+            given_ave_pp = None
+            if use_ave_pp:
+                assert self._averaged_pp_interaction is not None
+                given_ave_pp = self._averaged_pp_interaction[i_gp]
+            scat_result = self._scattering_solver.compute(
+                grid_point, averaged_pp_interaction=given_ave_pp
+            )
             self._store_scattering_result(
                 i_gp,
                 scat_result,
@@ -847,7 +903,8 @@ class RTACalculator(ConductivityCalculatorBase):
     ) -> None:
         gp = self._kappa_settings.grid_points[i_gp]
         frequencies = self._frequencies[gp][self._kappa_settings.band_indices]
-        pp = ave_pp if self._scattering_solver.is_full_pp else None
+        solver = self._scattering_solver
+        pp = ave_pp if (solver.is_full_pp or solver.use_ave_pp) else None
         gv_delta_q = getattr(self._velocity_solver, "gv_delta_q", None)
         if self._log_level > 2:
             point_ops, rot_cart = get_kappa_star_operations(
@@ -903,6 +960,11 @@ class LBTECalculator(ConductivityCalculatorBase):
     Stage 2 (global): LBTEKappaSolver.finalize() assembles the full
     collision matrix, symmetrizes, diagonalizes/inverts, and computes kappa.
 
+    When ``grid_point_indices`` is given, stage 1 runs only at those grid
+    points and stage 2 is skipped. This is used to compute collisions at
+    specified grid points and write them to files. Stage 2 is skipped also
+    when band indices do not select all bands in their order.
+
     """
 
     def __init__(
@@ -920,8 +982,16 @@ class LBTECalculator(ConductivityCalculatorBase):
         sigma_cutoff_width: float | None = None,
         log_level: int = 0,
         lang: Literal["C", "Python", "Rust"] = "Rust",
+        grid_point_indices: Sequence[int] | NDArray[np.int64] | None = None,
     ) -> None:
-        """Init method."""
+        """Init method.
+
+        grid_point_indices : array_like of int or None, optional
+            Indices in ``kappa_settings.grid_points`` where collisions are
+            computed. When given, kappa is not computed. Default None, which
+            means all grid points.
+
+        """
         self._collision_solver = collision_solver
         self._kappa_solver = kappa_solver
         self._is_full_pp = is_full_pp
@@ -937,6 +1007,8 @@ class LBTECalculator(ConductivityCalculatorBase):
             log_level=log_level,
             lang=lang,
         )
+        if grid_point_indices is not None:
+            self._grid_point_indices = np.array(grid_point_indices, dtype="int64")
 
         # Allocate arrays.
         self._allocate_values()
@@ -948,30 +1020,14 @@ class LBTECalculator(ConductivityCalculatorBase):
     def set_kappa_at_sigmas(self) -> None:
         """Finalize kappa from a pre-loaded collision matrix (read-from-file path).
 
-        Mirrors the run() pipeline but replaces the per-grid-point collision
-        computation with the gamma/collision_matrix loaded from file.  Group
-        velocities, heat capacities, isotope and boundary scattering are not
-        stored in the collision file and must be computed here.
+        This runs collect and solve, but the main loop only shows the log at
+        each grid point, because the gamma and collision matrix are loaded
+        from file.  Group velocities, heat capacities, isotope and boundary
+        scattering are not stored in the collision file and are computed
+        here.
 
         """
-        self._pre_run_check()
-        _prepare_isotope_phonons(self._pp, self._isotope_solver)
-
-        if self._log_level:
-            print("Running heat capacity calculations...")
-        self._cv, hcm = _compute_bulk_heat_capacities(
-            self._cv_solver, self._kappa_settings.grid_points
-        )
-        if hcm is not None:
-            self._heat_capacity_matrix = hcm
-
-        if self._log_level:
-            print("Running velocity calculations...")
-        self._compute_all_velocities()
-
-        self._pre_main_loop()
-        self._compute_isotope_if_needed()
-
+        self._run_before_main_loop()
         if self._log_level:
             for i_gp in range(len(self._kappa_settings.grid_points)):
                 _show_log_header(
@@ -981,16 +1037,8 @@ class LBTECalculator(ConductivityCalculatorBase):
                     self._log_level,
                 )
                 self._show_log(i_gp, self._gv[i_gp])
-            print(
-                "=================== End of collection of collisions "
-                "==================="
-            )
-
-        self._post_main_loop()
-        self._finalize()
-
-    def delete_gp_collision_and_pp(self) -> None:
-        """No-op: memory management compatibility method."""
+        self._run_after_main_loop()
+        self.solve()
 
     # ------------------------------------------------------------------
     # LBTE-specific properties
@@ -1027,8 +1075,13 @@ class LBTECalculator(ConductivityCalculatorBase):
 
     @property
     def kappa(self) -> NDArray[np.double]:
-        """Return LBTE thermal conductivity, shape (num_sigma, num_temp, 6)."""
-        return self._kappa_solver.solver.kappa
+        """Return LBTE thermal conductivity, shape (num_sigma, num_temp, 6).
+
+        This is the kappa of the kappa solver. For the inter-band variants,
+        it is the sum of the intra-band and inter-band contributions.
+
+        """
+        return self._kappa_solver.kappa
 
     @property
     def kappa_RTA(self) -> NDArray[np.double]:
@@ -1127,6 +1180,10 @@ class LBTECalculator(ConductivityCalculatorBase):
             self._show_log(i_gp, self._gv[i_gp])
 
     def _finalize(self) -> None:
+        # Collisions at a part of grid points or of bands do not form the
+        # collision matrix.
+        if self._grid_point_indices is not None or not all_bands_exist(self._pp):
+            return
         self._kappa_solver.finalize(self._build_grid_point_aggregates())
 
     # ------------------------------------------------------------------

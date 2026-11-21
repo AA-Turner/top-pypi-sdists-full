@@ -1225,6 +1225,7 @@ class ChalkClient:
         write_to: str | None = None,
         input_checks: Collection[Union[str, DataQualityCheck]] = (),
         output_checks: Collection[Union[str, DataQualityCheck]] = (),
+        namespace_filters: Mapping[str, Mapping[str, datetime | None]] | None = None,
     ) -> Dataset:
         """Compute feature values from the offline store or by running offline/online resolvers.
         See `Dataset` for more information.
@@ -1379,6 +1380,16 @@ class ChalkClient:
         write_to
             A storage URI (e.g. `s3://bucket/path`) to which the engine should write
             the query's output rows directly.
+        namespace_filters
+            A map from feature namespace to optional feature_time_min/feature_time_max bounds, e.g.
+            `namespace_filters={'user': {'feature_time_min': <datetime>, 'feature_time_max': <datetime>}}`.
+            Each entry causes observations from that namespace that fall outside the
+            time range to be excluded from the query.
+
+            The bounds are inclusive.
+            Each entry can specify just feature_time_min, or just feature_time_max, or both.
+
+            This filtering also applies to givens, because givens are considered observations.
         input_checks
             Data quality checks over the query's input -- its spine, however it was
             produced.

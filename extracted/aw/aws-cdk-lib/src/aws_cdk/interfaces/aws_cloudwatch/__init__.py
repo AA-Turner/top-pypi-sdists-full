@@ -1315,6 +1315,53 @@ class _ILogAlarmRefProxy(
 typing.cast(typing.Any, ILogAlarmRef).__jsii_proxy_class__ = lambda : _ILogAlarmRefProxy
 
 
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.IMetricDataQueryDefinitionRef"
+)
+class IMetricDataQueryDefinitionRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a MetricDataQueryDefinition.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="metricDataQueryDefinitionRef")
+    def metric_data_query_definition_ref(self) -> "MetricDataQueryDefinitionReference":
+        '''(experimental) A reference to a MetricDataQueryDefinition resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IMetricDataQueryDefinitionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a MetricDataQueryDefinition.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_cloudwatch.IMetricDataQueryDefinitionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="metricDataQueryDefinitionRef")
+    def metric_data_query_definition_ref(self) -> "MetricDataQueryDefinitionReference":
+        '''(experimental) A reference to a MetricDataQueryDefinition resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("MetricDataQueryDefinitionReference", jsii.get(self, "metricDataQueryDefinitionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IMetricDataQueryDefinitionRef).__jsii_proxy_class__ = lambda : _IMetricDataQueryDefinitionRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.IMetricStreamRef")
 class IMetricStreamRef(
     _constructs_77d1e7e8.IConstruct,
@@ -1755,6 +1802,55 @@ class LogAlarmReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.MetricDataQueryDefinitionReference",
+    jsii_struct_bases=[],
+    name_mapping={"metric_data_query_definition_arn": "metricDataQueryDefinitionArn"},
+)
+class MetricDataQueryDefinitionReference:
+    def __init__(self, *, metric_data_query_definition_arn: builtins.str) -> None:
+        '''A reference to a MetricDataQueryDefinition resource.
+
+        :param metric_data_query_definition_arn: The Arn of the MetricDataQueryDefinition resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_cloudwatch as interfaces_cloudwatch
+            
+            metric_data_query_definition_reference = interfaces_cloudwatch.MetricDataQueryDefinitionReference(
+                metric_data_query_definition_arn="metricDataQueryDefinitionArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b91a312327fc21c7560b736a323543d34b5bfb8da7ebabfff0a05fe13b079d3f)
+            check_type(argname="argument metric_data_query_definition_arn", value=metric_data_query_definition_arn, expected_type=type_hints["metric_data_query_definition_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "metric_data_query_definition_arn": metric_data_query_definition_arn,
+        }
+
+    @builtins.property
+    def metric_data_query_definition_arn(self) -> builtins.str:
+        '''The Arn of the MetricDataQueryDefinition resource.'''
+        result = self._values.get("metric_data_query_definition_arn")
+        assert result is not None, "Required property 'metric_data_query_definition_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MetricDataQueryDefinitionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.MetricStreamReference",
     jsii_struct_bases=[],
     name_mapping={
@@ -2136,6 +2232,7 @@ __all__ = [
     "IInsightRuleRef",
     "IIntegrationRef",
     "ILogAlarmRef",
+    "IMetricDataQueryDefinitionRef",
     "IMetricStreamRef",
     "IOTelEnrichmentRef",
     "IOmniDashboardRef",
@@ -2145,6 +2242,7 @@ __all__ = [
     "InsightRuleReference",
     "IntegrationReference",
     "LogAlarmReference",
+    "MetricDataQueryDefinitionReference",
     "MetricStreamReference",
     "OTelEnrichmentReference",
     "OmniDashboardReference",
@@ -2260,6 +2358,13 @@ def _typecheckingstub__28e9a8e96824ec45b3c3ea530f8f54c48a10639b7f1722f186ef9cc69
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b91a312327fc21c7560b736a323543d34b5bfb8da7ebabfff0a05fe13b079d3f(
+    *,
+    metric_data_query_definition_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__fd4b5eb67c7a5b2c989d807371acca126080a0b48d263d4d19312a05a27ad715(
     *,
     metric_stream_arn: builtins.str,
@@ -2306,5 +2411,5 @@ def _typecheckingstub__05ebab8b587ee4cf5b5a00c1b85685b2fcfa1e308f34bc1df1b2dece2
     """Type checking stubs"""
     pass
 
-for cls in [IAccessGrantRef, IAccessProfileRef, IAlarmMuteRuleRef, IAlarmRef, IAlertRef, IAnomalyDetectorRef, ICompositeAlarmRef, IDashboardRef, IDomainAccessGrantForOrganizationRef, IDomainForOrganizationRef, IDomainRef, IInsightRuleRef, IIntegrationRef, ILogAlarmRef, IMetricStreamRef, IOTelEnrichmentRef, IOmniDashboardRef, IResourceMetricsConfigurationRef, ISpaceRef, IViewRef]:
+for cls in [IAccessGrantRef, IAccessProfileRef, IAlarmMuteRuleRef, IAlarmRef, IAlertRef, IAnomalyDetectorRef, ICompositeAlarmRef, IDashboardRef, IDomainAccessGrantForOrganizationRef, IDomainForOrganizationRef, IDomainRef, IInsightRuleRef, IIntegrationRef, ILogAlarmRef, IMetricDataQueryDefinitionRef, IMetricStreamRef, IOTelEnrichmentRef, IOmniDashboardRef, IResourceMetricsConfigurationRef, ISpaceRef, IViewRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

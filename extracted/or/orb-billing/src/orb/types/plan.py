@@ -131,6 +131,9 @@ class BasePlan(BaseModel):
 
     name: Optional[str] = None
 
+    billing_entity_id: Optional[str] = None
+    """The id of the default billing entity of this plan."""
+
 
 class PlanPhase(BaseModel):
     id: str
@@ -205,6 +208,9 @@ class Plan(BaseModel):
     plan', overriding prices from the parent.
     """
 
+    billing_entity_id: Optional[str] = None
+    """The id of the default billing entity of this plan."""
+
     created_at: datetime
 
     currency: str
@@ -258,12 +264,14 @@ class Plan(BaseModel):
     name: str
 
     net_terms: Optional[int] = None
-    """Determines the difference between the invoice issue date and the due date.
-
-    A value of "0" here signifies that invoices are due on issue, whereas a value of
-    "30" means that the customer has a month to pay the invoice before its overdue.
-    Note that individual subscriptions or invoices may set a different net terms
-    configuration.
+    """
+    The number of days until invoices are due, counting the start date set by the
+    account's
+    [due date calculation method](/invoicing/payments#configuring-net-terms-and-collection-behavior)
+    as day 1. A value of "0" here signifies that invoices are due on issue, whereas
+    a value of "30" means that the customer has a month to pay the invoice before
+    its overdue. Note that individual subscriptions or invoices may set a different
+    net terms configuration.
     """
 
     plan_phases: Optional[List[PlanPhase]] = None

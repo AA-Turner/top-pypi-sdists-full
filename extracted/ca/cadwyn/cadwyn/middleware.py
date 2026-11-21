@@ -18,7 +18,7 @@ from typing_extensions import override
 
 from cadwyn._internal.context_vars import DEFAULT_API_VERSION_VAR
 from cadwyn.exceptions import CadwynError
-from cadwyn.structure.common import VersionType
+from cadwyn_core.structure.common import VersionType
 
 
 class VersionManager(Protocol):
@@ -148,7 +148,7 @@ def _generate_api_version_dependency(
         # TODO: What do I return?
         return next(iter(kwargs.values()))
 
-    api_version_dependency.__signature__ = inspect.Signature(  # ty: ignore[unresolved-attribute]
+    api_version_dependency.__signature__ = inspect.Signature(  # ty: ignore[missing-attribute]
         parameters=[
             inspect.Parameter(
                 api_version_pythonic_parameter_name,

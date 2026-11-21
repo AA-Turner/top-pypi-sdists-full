@@ -38,7 +38,6 @@ use crate::{
 };
 
 struct TestDataStore {
-    get_response: Mutex<Option<DataStoreResponse>>,
     supports_polling: bool,
     set_bytes_error: Option<&'static str>,
     calls: Mutex<Vec<(String, Option<String>)>>,
@@ -66,7 +65,6 @@ impl TestLogProvider {
 impl TestDataStore {
     fn new(supports_polling: bool) -> Self {
         Self {
-            get_response: Mutex::new(None),
             supports_polling,
             set_bytes_error: None,
             calls: Mutex::new(vec![]),
@@ -98,9 +96,7 @@ impl DataStoreTrait for TestDataStore {
             .lock()
             .push(("get".to_string(), Some(key.to_string())));
 
-        let mut lock = self.get_response.lock();
-        lock.take()
-            .ok_or(StatsigErr::DataStoreFailure("Failed to get".to_string()))
+        Err(StatsigErr::DataStoreFailure("Failed to get".to_string()))
     }
 
     async fn set(&self, key: &str, value: &str, time: Option<u64>) -> Result<(), StatsigErr> {

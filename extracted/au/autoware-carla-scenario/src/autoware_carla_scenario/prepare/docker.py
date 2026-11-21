@@ -37,6 +37,7 @@ __all__ = [
     "PULL_POLICIES",
     "DockerBackend",
     "DockerSettings",
+    "backend_log_name",
     "positive_seconds",
     "read_docker_settings",
     "setting_key",
@@ -233,6 +234,8 @@ def read_docker_settings(
             f"{setting_key(backend, 'gpus')} must be auto, all, none or what "
             f"docker run --gpus takes (device=N, a count), got {gpus_value!r}"
         )
+    # Stored stripped, so the GPU check and docker read the same text (#2263).
+    gpus_value = gpus_value.strip()
     if _gpu_request(gpus_value)[0] == _BAD_COUNT:
         raise ValueError(
             f"{setting_key(backend, 'gpus')} must be a count of 1 or more, "
@@ -277,6 +280,21 @@ def read_docker_settings(
         startup_timeout_s=startup,
         resources=Resources(gpu_memory_mb=gpu_memory, memory_mb=host_memory),
     )
+
+
+def backend_log_name(name: str) -> str:
+    """The file backend *name*'s container log is followed into.
+
+    ``backend_<name>.log``; in a SLURM array task,
+    ``backend_<name>-<array job id>_<task id>.log``, the task's own as its
+    ``<array job id>_<task id>.out`` is: every task of a batch starts its own
+    container and writes into the batch's directory (#2247).
+    """
+    job = os.environ.get("SLURM_ARRAY_JOB_ID", "")
+    task = os.environ.get("SLURM_ARRAY_TASK_ID", "")
+    if job and task:
+        return f"backend_{name}-{job}_{task}.log"
+    return f"backend_{name}.log"
 
 
 class DockerBackend:
@@ -456,7 +474,7 @@ class DockerBackend:
                 f"backend '{self.name}' runs in docker, which is not usable here: "
                 f"{error}"
             ) from None
-        if self._settings.gpus != "none" and "nvidia" not in runtimes:
+        if self._settings.gpus.strip() != _NONE and "nvidia" not in runtimes:
             logger.warning(
                 "docker on this host lists no nvidia runtime; backend '%s' may "
                 "not get its GPU",
@@ -532,7 +550,7 @@ class DockerBackend:
         # container and closes the log.
         try:
             log_dir.mkdir(parents=True, exist_ok=True)
-            self._log = (log_dir / f"backend_{self.name}.log").open("ab")
+            self._log = (log_dir / backend_log_name(self.name)).open("ab")
             self._follower = subprocess.Popen(
                 [self._settings.docker, "logs", "--follow", self._container],
                 stdout=self._log,
@@ -696,7 +714,8 @@ def _gpu_request(gpus: str) -> tuple[str, list[int]]:
     docker hands ``--gpus N`` the GPUs ``0`` to ``N-1``, and ``count=all``
     every one.  A count below 1 is :data:`_BAD_COUNT`; anything else (a
     UUID, other ``--gpus`` options) is :data:`_UNCHECKED`: the GPUs it
-    gives cannot be told here.
+    gives cannot be told here.  An index named twice (``device=0,0``) is one
+    GPU, listed once, so its memory is not booked twice (#2263).
     """
     text = gpus.strip()
     devices: list[int] = []
@@ -720,7 +739,9 @@ def _gpu_request(gpus: str) -> tuple[str, list[int]]:
             item = item.strip()
             if not (item != "" and item.isascii() and item.isdigit()):
                 return _UNCHECKED, []
-            devices.append(int(item))
+            index = int(item)
+            if index not in devices:
+                devices.append(index)
         if devices:
             return _DEVICES, devices
     return _UNCHECKED, []
@@ -738,11 +759,14 @@ def _unchecked_gpus(backend: str, gpus: str) -> str:
 
 
 def _gpu_args(gpus: str, placed: Optional[int]) -> list[str]:
-    if gpus == "none":
+    """``docker run``'s ``--gpus`` for a ``gpus`` setting, read as
+    :func:`_gpu_request` reads it: around its surrounding spaces (#2263)."""
+    text = gpus.strip()
+    if text == _NONE:
         return []
-    if gpus == "auto":
+    if text == _AUTO:
         return ["--gpus", "all" if placed is None else f"device={placed}"]
-    return ["--gpus", gpus]
+    return ["--gpus", text]
 
 
 def _free_port() -> int:

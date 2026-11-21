@@ -6,7 +6,9 @@
 #include <cmath>
 using Catch::Approx;
 
+#include "slang/ast/ASTVisitor.h"
 #include "slang/ast/ScriptSession.h"
+#include "slang/ast/expressions/CallExpression.h"
 #include "slang/ast/symbols/CompilationUnitSymbols.h"
 #include "slang/ast/symbols/ParameterSymbols.h"
 
@@ -153,6 +155,8 @@ endfunction
         auto diags = session.getDiagnostics();
         REQUIRE(diags.size() == 1);
         CHECK(diags[0].code == diag::ConstEvalNoIfItemsMatched);
+        CHECK(report(diags).find("no condition matched in unique if statement") !=
+              std::string::npos);
     }
 
     SECTION("Not unique if match") {
@@ -169,7 +173,86 @@ endfunction
         auto diags = session.getDiagnostics();
         REQUIRE(diags.size() == 1);
         CHECK(diags[0].code == diag::ConstEvalIfItemsNotUnique);
+        CHECK(report(diags).find("more than one condition matched") != std::string::npos);
     }
+}
+
+TEST_CASE("Eval if-else-if chains stop at the first match unless unique") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    function automatic int f(int n);
+        if (n <= 0) return 0;
+        else if (f(n - 1) >= 0) return n + f(n - 1);
+        else return -1;
+    endfunction
+
+    function automatic int k(bit pri);
+        int x = 0;
+        if (pri) begin
+            priority if ((x = x + 1) == 1) return x;
+            else if ((x = x * 10) == 5) return 5;
+        end
+        else begin
+            if ((x = x + 1) == 1) return x;
+            else if ((x = x * 10) == 5) return 5;
+        end
+        return -1;
+    endfunction
+
+    // The else binds to the inner if, which is a separate statement
+    // in the true arm and not part of the unique-if series.
+    function automatic int h(bit a, bit b, bit c);
+        int r = 7;
+        unique if (a) if (b) r = 1; else if (c) r = 2;
+        return r;
+    endfunction
+
+    function automatic int u(int a);
+        unique if (a == 1) return 1;
+        else if (a < 4) return 2;
+        return 0;
+    endfunction
+
+    function automatic int u0(int a);
+        unique0 if (a > 0) return 1;
+        else if (a > 1) return 2;
+        return 0;
+    endfunction
+
+    localparam int F = f(3);
+    localparam int K1 = k(0);
+    localparam int K2 = k(1);
+    localparam int H1 = h(1, 1, 1);
+    localparam int H2 = h(1, 0, 1);
+    localparam int H3 = h(1, 0, 0);
+    localparam int U1 = u(2);
+    localparam int U2 = u(1);
+    localparam int U3 = u0(5);
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 3);
+    CHECK(diags[0].code == diag::DanglingElse);
+    CHECK(diags[1].code == diag::ConstEvalIfItemsNotUnique);
+    CHECK(diags[2].code == diag::ConstEvalIfItemsNotUnique);
+    CHECK(report(diags).find("unique0 if") != std::string::npos);
+
+    auto getParam = [&](std::string_view name) {
+        return compilation.getRoot().lookupName<ParameterSymbol>(name).getValue().integer();
+    };
+    CHECK(getParam("m.F") == 6);
+    CHECK(getParam("m.K1") == 1);
+    CHECK(getParam("m.K2") == 1);
+    CHECK(getParam("m.H1") == 1);
+    CHECK(getParam("m.H2") == 2);
+    CHECK(getParam("m.H3") == 7);
+    CHECK(getParam("m.U1") == 2);
+    CHECK(getParam("m.U2") == 1);
+    CHECK(getParam("m.U3") == 1);
 }
 
 TEST_CASE("Eval for loop") {
@@ -245,6 +328,20 @@ TEST_CASE("Integer operators") {
     EVAL("5'bx01", "5'bxxx01"_si);
     EVAL("5'bz01", "5'bzzz01"_si);
     EVAL("68'bz0000", "68'hzzzzzzzzzzzzzzzzz0"_si);
+
+    // Unsized literals with an unknown high order bit extend to the expression size
+    EVAL("'hx3 | 64'h0", "64'hxxxxxxxxxxxxxxx3"_si);
+    EVAL("1 ? 'hz : 40'h0", "40'hzzzzzzzzzz"_si);
+    EVAL("1 ? 'h3 : 40'h0", "40'h3"_si);
+    EVAL("64'('hx3)", "64'hxxxxxxxxxxxxxxx3"_si);
+    EVAL("1 ? 'hx3 : 40'h0", "40'hxxxxxxxxx3"_si);
+    EVAL("'shx3 | 64'h0", "64'hxxxxxxxxxxxxxxx3"_si);
+    EVAL("'shx3 | 64'sh0", "64'shxxxxxxxxxxxxxxx3"_si);
+    EVAL("1 ? 'shz : 40'h0", "40'hzzzzzzzzzz"_si);
+    session.eval("logic [63:0] xlit = 'hx3;");
+    session.eval("bit [63:0] blit = 'hx3;");
+    EVAL("xlit", "64'hxxxxxxxxxxxxxxx3"_si);
+    EVAL("blit", "64'h3"_si);
 
     // Unbased unsized literals
     EVAL("1 << '1", 2);
@@ -344,6 +441,39 @@ TEST_CASE("Operator short circuiting") {
     session.eval("'x ? a++ : b++");
     EVAL("a", 3);
     EVAL("b", 7);
+
+#undef EVAL
+    NO_SESSION_ERRORS;
+}
+
+TEST_CASE("Conditional operator precedence vs implication and equivalence") {
+    // The conditional operator binds tighter than -> and <-> (IEEE 1800-2023 Table 11-2).
+    // Each expression below evaluates differently depending on how it's grouped.
+    ScriptSession session;
+    session.eval("int a = 1, b = 0, c = 1, d = 0;");
+
+#define EVAL(expr, result) CHECK(session.eval(expr).integer() == (result))
+
+    // (a ? b : c) -> d, not a ? b : (c -> d)
+    EVAL("a ? b : c -> d", 1);
+    EVAL("a ? b : c <-> d", 1);
+
+    // Nested conditionals are grouped first: (1 ? 1 : (0 ? 1 : 0)) -> 0
+    EVAL("1 ? 1 : 0 ? 1 : 0 -> 0", 0);
+
+    // The conditional can still appear as the right operand: 0 -> (0 ? 0 : 0)
+    EVAL("0 -> 0 ? 0 : 0", 1);
+
+    // The true branch is delimited by the colon: a ? (b -> c) : d
+    EVAL("a ? b -> c : d", 1);
+
+    // Logical-or binds tighter than the conditional: 1 ? 0 : (1 || 1)
+    EVAL("1 ? 0 : 1 || 1", 0);
+
+    // Short circuiting follows the grouping: (1 ? 1 : 0) -> b++ must evaluate b++,
+    // whereas 1 ? 1 : (0 -> b++) would not.
+    session.eval("1 ? 1 : 0 -> b++");
+    EVAL("b", 1);
 
 #undef EVAL
     NO_SESSION_ERRORS;
@@ -670,6 +800,39 @@ TEST_CASE("Queue read at the append index") {
     CHECK(diags[0].code == diag::ConstEvalDynamicArrayIndex);
 }
 
+TEST_CASE("Out of bounds part-select of two-state vector") {
+    ScriptSession session;
+    session.eval(R"(
+function automatic logic [3:0] f(int i);
+    bit [3:0] b = 4'b1010;
+    return b[i +: 4];
+endfunction
+)");
+    session.eval(R"(
+function automatic logic [3:0] g(int i);
+    logic [3:0] l = 4'b1010;
+    return l[i +: 4];
+endfunction
+)");
+    session.eval(R"(
+typedef bit [1:0][3:0] p_t;
+function automatic p_t h(int i);
+    p_t p = '{4'hA, 4'h5};
+    return p[i +: 2];
+endfunction
+)");
+
+    CHECK_THAT(session.eval("f(2)").integer(), exactlyEquals("4'b0010"_si));
+    CHECK_THAT(session.eval("f(-2)").integer(), exactlyEquals("4'b1000"_si));
+    CHECK_THAT(session.eval("g(2)").integer(), exactlyEquals("4'bxx10"_si));
+    CHECK_THAT(session.eval("h(1)").integer(), exactlyEquals("8'h0A"_si));
+
+    auto diags = session.getDiagnostics();
+    REQUIRE(diags.size() == 4);
+    for (auto& diag : diags)
+        CHECK(diag.code == diag::RangeOOB);
+}
+
 TEST_CASE("Associative array eval") {
     ScriptSession session;
     session.eval("integer arr[string] = '{\"Hello\":4, \"World\":8, default:-1};");
@@ -737,6 +900,35 @@ endfunction
     CHECK(session.eval("func(4, arr2)").integer() == 2);
 
     NO_SESSION_ERRORS;
+}
+
+TEST_CASE("Associative array default value is converted to the element type") {
+    ScriptSession session;
+    session.eval("byte a[int] = '{default: 8'd200};");
+    CHECK(session.eval("a[0]").integer() == -56);
+
+    session.eval("string w[int] = '{default: \"hello\"};");
+    CHECK(session.eval("w[3] == \"hello\"").integer() == 1);
+
+    session.eval("typedef struct { int a; int b; } s_t;");
+    session.eval("s_t s[string] = '{default: 5};");
+    CHECK(session.eval("s[\"x\"].a + s[\"y\"].b").integer() == 10);
+    NO_SESSION_ERRORS;
+
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    typedef struct { int a; byte b; } s_t;
+    s_t s[string];
+    int bad[int] = '{default: s["x"]};
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::BadAssignment);
 }
 
 TEST_CASE("Queue eval") {
@@ -854,6 +1046,22 @@ TEST_CASE("Unpacked struct eval") {
     CHECK(cv.elements()[0].integer() == 3);
     CHECK(cv.elements()[1].real() == 1.5);
 
+    NO_SESSION_ERRORS;
+}
+
+TEST_CASE("Packed union member reads convert to the member type") {
+    ScriptSession session;
+    session.eval("typedef union packed { int a; logic [31:0] b; } u_t;");
+    session.eval("u_t u = 32'hxxxx_ffff;");
+    session.eval("u_t v = 32'hffff_ffff;");
+
+    auto cv = session.eval("u.a");
+    CHECK(!cv.integer().hasUnknown());
+    CHECK(cv.integer() == SVInt(32, 0xffff, true));
+
+    CHECK(session.eval("v.a < 0").integer() == 1);
+    CHECK(session.eval("longint'(v.a)").integer() == -1);
+    CHECK(session.eval("u.b").integer().hasUnknown());
     NO_SESSION_ERRORS;
 }
 
@@ -1243,6 +1451,15 @@ TEST_CASE("Eval sformatf") {
     CHECK(sformatf("%8B", "bar[7:0]") == "11111111");
     CHECK(sformatf("%8b", "baz") == "00000001");
 
+    // Only spaces move to the right of a left-justified field. Leading zeros are always
+    // displayed in the other radices [21.2.1.2].
+    CHECK(sformatf("%-d", "8'd5") == "5  ");
+    CHECK(sformatf("%-6h", "8'h1") == "000001");
+    CHECK(sformatf("%-6o", "8'o7") == "000007");
+    CHECK(sformatf("%-6b", "3'b101") == "000101");
+    CHECK(sformatf("%-h", "8'h1") == "01");
+    CHECK(sformatf("%-b", "4'b1") == "0001");
+
     CHECK(sformatf("%D", "1'bx") == "x");
     CHECK(sformatf("%X", "14'bx01010") == "xxXa");
     CHECK(sformatf("%h %o", "12'b001xxx101x01, 12'b001xxx101x01") == "XXX 1x5X");
@@ -1262,6 +1479,8 @@ TEST_CASE("Eval sformatf") {
     CHECK(sformatf("%3s", "\"abc\"") == "abc");
     CHECK(sformatf("%3s", "\"abcdef\"") == "abcdef");
     CHECK(sformatf("%3s", "str") == "blah");
+    CHECK(sformatf("%-3s%%", "\"a\"") == "a  %");
+    CHECK(sformatf("%-3s", "\"abcdef\"") == "abcdef");
     CHECK(sformatf("%0h", "str") == "626c6168");
 
     CHECK(sformatf("%c", "48") == "0");
@@ -1294,6 +1513,9 @@ endfunction
     CHECK(sformatf("%v", "3'b1z0") == "St1 HiZ St0");
 
     CHECK(sformatf("%t", "12345") == "               12345");
+    CHECK(sformatf("%0t", "12345") == "12345");
+    CHECK(sformatf("%8t", "12345") == "   12345");
+    CHECK(sformatf("%-0t|", "12345") == "12345|");
 
     session.eval(R"(
 typedef enum {ON, OFF} switch_e;
@@ -1473,6 +1695,8 @@ endfunction
     CHECK(session.eval("foo(4)").integer() == 4);
     CHECK(session.eval("foo(9)").integer() == 4);
     CHECK(session.eval("foo(8)").integer() == 8);
+    CHECK(session.eval("foo(-1)").integer() == 0);
+    CHECK(session.eval("foo(-5)").integer() == 0);
     NO_SESSION_ERRORS;
 }
 
@@ -1499,6 +1723,7 @@ endfunction
     CHECK(session.eval("foo(1.4)").integer() == 1);
     CHECK(session.eval("foo(1.5)").integer() == 2);
     CHECK(session.eval("bar(1.5)").integer() == 2);
+    CHECK(session.eval("foo(-2.0)").integer() == 0);
     NO_SESSION_ERRORS;
 }
 
@@ -1602,6 +1827,45 @@ endfunction
 
     auto cv = session.eval("foo()");
     CHECK(cv.integer() == 1513);
+    NO_SESSION_ERRORS;
+}
+
+TEST_CASE("Eval foreach loop with skipped trailing dimensions") {
+    ScriptSession session;
+    session.eval(R"(
+function automatic int foo();
+    int arr [2][3][4];
+    int q [$][2];
+    int result = 0;
+
+    foreach (arr[i,]) begin
+        result += 1;
+    end
+
+    foreach (arr[i,j,]) begin
+        if (j == 1)
+            continue;
+        result += 10;
+    end
+
+    foreach (arr[,j,]) begin
+        result += 100;
+    end
+
+    q.push_back('{1, 2});
+    q.push_back('{3, 4});
+    q.push_back('{5, 6});
+    foreach (q[i,]) begin
+        result += q[i][1] * 1000;
+        if (i == 1)
+            break;
+    end
+
+    return result;
+endfunction
+)");
+
+    CHECK(session.eval("foo()").integer() == 6000 + 300 + 40 + 2);
     NO_SESSION_ERRORS;
 }
 
@@ -1760,6 +2024,18 @@ TEST_CASE("Eval string methods") {
 
     session.eval("asdf.bintoa(1234);");
     CHECK(session.eval("asdf").str() == "10011010010");
+
+    session.eval("asdf.itoa(-1);");
+    CHECK(session.eval("asdf").str() == "-1");
+
+    session.eval("asdf.hextoa(-1);");
+    CHECK(session.eval("asdf").str() == "ffffffff");
+
+    session.eval("asdf.octtoa(-8);");
+    CHECK(session.eval("asdf").str() == "37777777770");
+
+    session.eval("asdf.bintoa(-2);");
+    CHECK(session.eval("asdf").str() == "11111111111111111111111111111110");
 
     session.eval("asdf.realtoa(3.14159);");
     CHECK(session.eval("asdf").str() == "3.14159");
@@ -2086,6 +2362,93 @@ endfunction
     auto diags = session.getDiagnostics();
     REQUIRE(diags.size() == 1);
     CHECK(diags[0].code == diag::ConstEvalStaticSkipped);
+}
+
+TEST_CASE("Speculative eval doesn't fold calls to functions with static variables") {
+    auto tree = SyntaxTree::fromText(R"(
+module m(input logic clk, output logic q, output logic r, output logic s);
+  function automatic int next_slot();
+    static int slot = 5;
+    slot = slot + 1;
+    return slot;
+  endfunction
+
+  function automatic logic [3:0] next_slot4();
+    static logic [3:0] slot = 4'd0;
+    slot = slot + 1;
+    return slot;
+  endfunction
+
+  function automatic int no_init();
+    static int count;
+    count++;
+    return count;
+  endfunction
+
+  function automatic int wrapped();
+    return next_slot();
+  endfunction
+
+  logic [15:0] pattern = 16'hB278;
+  always_ff @(posedge clk) begin
+    q <= pattern[next_slot()];
+    r <= pattern[next_slot4()] && next_slot() != 0;
+    s <= pattern[wrapped() +: 2] == 2'b0 && no_init() == 1;
+  end
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+
+    int numCalls = 0;
+    compilation.getRoot().visit(makeVisitor([&](auto& v, const CallExpression& call) {
+        if (!call.isSystemCall()) {
+            numCalls++;
+            CHECK(call.getConstant() == nullptr);
+        }
+        v.visitDefault(call);
+    }));
+    CHECK(numCalls == 6);
+}
+
+TEST_CASE("Required constant contexts still eval functions with static variables") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+  function automatic int f();
+    static int j = 5;
+    j++;
+    return j;
+  endfunction
+
+  localparam int p = f();
+  logic [f():0] dim;
+  logic [7:0] rep = {f(){1'b1}};
+
+  if (f() == 1) begin : g1 end
+  case (f()) 1: begin : g2 end endcase
+  for (genvar i = 0; i < f(); i++) begin : g3 end
+
+  $info("%0d", f());
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    // The skipped-initializer warnings are all deduplicated to one location.
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 2);
+    CHECK(diags[0].code == diag::ConstEvalStaticSkipped);
+    CHECK(diags[1].code == diag::InfoTask);
+
+    auto& m = compilation.getRoot().lookupName<InstanceSymbol>("m").body;
+    CHECK(m.find<ParameterSymbol>("p").getValue().integer() == 1);
+    CHECK(m.find<VariableSymbol>("dim").getType().getBitWidth() == 2);
+    CHECK(m.find("g1"));
+    CHECK(m.find("g2"));
+    CHECK(m.find("g3"));
 }
 
 TEST_CASE("Complicated lvalue path") {
@@ -2662,6 +3025,25 @@ TEST_CASE("Array locator methods") {
     NO_SESSION_ERRORS;
 }
 
+TEST_CASE("Array locator index methods on fixed-size arrays") {
+    ScriptSession session;
+    session.eval("int a[3:0] = '{10, 20, 30, 10};");
+    session.eval("int b[5:8] = '{10, 20, 30, 10};");
+    session.eval("int c[-2:-1] = '{7, 7};");
+
+    CHECK(session.eval("a.find_index with (item == 10)").toString() == "[3,0]");
+    CHECK(session.eval("a.find_first_index with (item == 20)").toString() == "[2]");
+    CHECK(session.eval("a.find_last_index with (item == 10)").toString() == "[0]");
+    CHECK(session.eval("a.unique_index").toString() == "[3,2,1]");
+    CHECK(session.eval("b.find_index with (item == 10)").toString() == "[5,8]");
+    CHECK(session.eval("b.find_first_index with (item == 30)").toString() == "[7]");
+    CHECK(session.eval("b.find_last_index with (item == 10)").toString() == "[8]");
+    CHECK(session.eval("b.unique_index with (item / 20)").toString() == "[5,6]");
+    CHECK(session.eval("c.find_index with (item == 7)").toString() == "[-2,-1]");
+
+    NO_SESSION_ERRORS;
+}
+
 TEST_CASE("Queue unbounded expressions") {
     ScriptSession session;
     session.eval("int q[$] = {1, 2, 4};");
@@ -2805,6 +3187,24 @@ struct {
     auto diags = session.getDiagnostics();
     REQUIRE(diags.size() == 1);
     CHECK(diags[0].code == diag::ConstantConversion);
+}
+
+TEST_CASE("Replicated struct assignment pattern eval") {
+    ScriptSession session;
+    session.eval("struct { byte a; shortint b; int c; } s = '{3{-1}};");
+    CHECK(session.eval("s").toString() == "[-8'sd1,-16'sd1,-1]");
+    CHECK(session.eval("s.b").integer().getBitWidth() == 16);
+
+    session.eval("struct packed { logic [3:0] a; logic [7:0] b; } p = '{2{-1}};");
+    CHECK(session.eval("p").integer() == 4095);
+    CHECK(session.eval("p.b").integer() == 255);
+
+    session.eval("struct { int a; real b; int c; real d; } r = '{2{1, 2}};");
+    CHECK(session.eval("r.b").isReal());
+    CHECK(session.eval("r.d").real() == 2.0);
+    CHECK(session.eval("r.c").integer() == 1);
+
+    NO_SESSION_ERRORS;
 }
 
 TEST_CASE("foreach loop extended name eval") {
@@ -3150,6 +3550,31 @@ TEST_CASE("Eval conditional with matches") {
     auto diags = session.getDiagnostics();
     REQUIRE(diags.size() == 1);
     CHECK(diags[0].code == diag::ConstEvalNonConstVariable);
+}
+
+TEST_CASE("Pattern variables in conditional expressions in constant functions") {
+    auto tree = SyntaxTree::fromText(R"(
+module top;
+    typedef union tagged { int A; void B; } u_t;
+
+    function automatic int f(u_t u);
+        return u matches tagged A .v &&& v > 2 ? (u matches tagged A .w ? v + w : 1) : 2;
+    endfunction
+
+    localparam int X = f(tagged A 5);
+    localparam int Y = f(tagged A 1);
+    localparam int Z = f(tagged B);
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+
+    auto& root = compilation.getRoot();
+    CHECK(root.lookupName<ParameterSymbol>("top.X").getValue().integer() == 10);
+    CHECK(root.lookupName<ParameterSymbol>("top.Y").getValue().integer() == 2);
+    CHECK(root.lookupName<ParameterSymbol>("top.Z").getValue().integer() == 2);
 }
 
 TEST_CASE("Packed arrays of a named signed type are unsigned") {

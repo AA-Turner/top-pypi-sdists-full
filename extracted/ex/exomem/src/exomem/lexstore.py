@@ -410,6 +410,14 @@ _ELIGIBILITY_COLUMNS: tuple[str, ...] = (
     "speakers_json",
     "updated_day",
     "updated_json",
+    # When and where the original was captured, from a media sidecar: the day answers ordered and
+    # `$in` date filters like `updated_day`; the position is one REAL column per axis, NULL unless
+    # the page states a valid one. They hold every page's position, so a caller who may not see it is
+    # served a superset and the evaluator decides (`structured_filters.PositionGate`).
+    "capture_day",
+    "capture_date_json",
+    "capture_lat",
+    "capture_lon",
 )
 _EMPTY_ELIGIBILITY: tuple[None, ...] = (None,) * len(_ELIGIBILITY_COLUMNS)
 
@@ -426,6 +434,9 @@ _PAGE_AXIS_COLUMNS: dict[str, tuple[str | None, str]] = {
     "page.tags": (None, "tags_json"),
     "page.speakers": (None, "speakers_json"),
     "page.updated": ("updated_day", "updated_json"),
+    "page.capture_date": ("capture_day", "capture_date_json"),
+    "page.capture_lat": ("capture_lat", None),
+    "page.capture_lon": ("capture_lon", None),
 }
 #: The same, over `semantic_units`. The five governed scalar axes are
 #: single-valued by construction (the parser produces one string or None), so
@@ -519,7 +530,7 @@ def _day_members(value: object, *, present: bool) -> str | None:
     return "[]"
 
 
-def _eligibility_columns(page: object) -> tuple[str | None, ...]:
+def _eligibility_columns(page: object) -> tuple[str | float | None, ...]:
     """The eligibility row for one parsed page, in `_ELIGIBILITY_COLUMNS` order.
 
     Derived from `structured_filters.page_view` rather than from raw
@@ -532,7 +543,7 @@ def _eligibility_columns(page: object) -> tuple[str | None, ...]:
 
     view = structured_filters.page_view(page)
     recorded = view.get("updated")
-    row: list[str | None] = []
+    row: list[str | float | None] = []
     for axis, key in (
         ("page.type", "type"),
         ("page.status", "status"),
@@ -550,6 +561,12 @@ def _eligibility_columns(page: object) -> tuple[str | None, ...]:
         row.append(_canonical_members(axis, view.get(key), present=key in view, list_axis=True))
     row.append(_iso_day(recorded))
     row.append(_day_members(recorded, present="updated" in view))
+    captured = view.get("capture_date")
+    row.append(_iso_day(captured))
+    row.append(_day_members(captured, present="capture_date" in view))
+    # Already settled to a stated position by `page_view`; a page that states none stores NULL.
+    row.append(view.get("capture_lat"))
+    row.append(view.get("capture_lon"))
     return tuple(row)
 
 
@@ -863,6 +880,17 @@ def _eligibility_sql(
     return _axis_test_sql(expr, _PAGE_AXIS_COLUMNS[axis], "p")
 
 
+def _scope_term(eligibility: Any, scope_column: str) -> str:
+    """The `pages p` condition that keeps a query to one scope.
+
+    The scope flag holds the whole corpus, but with no statistics SQLite estimates an equality on its
+    index at ten rows and drives the scan from it. A plan that a capture index can drive then reads
+    every page of the scope. The unary plus keeps that term from choosing an index, so the capture
+    index, which holds only the pages that record the axis, is the one that drives it.
+    """
+    return f"{'+' if eligibility.reads_capture_index else ''}p.{scope_column} = 1"
+
+
 def _eligibility_predicate(
     eligibility: Any, scope_column: str, labels: SelectedAxisLabels | None = None
 ) -> tuple[str, list[object]]:
@@ -930,7 +958,10 @@ def _selected_axis_labels(vault_root: Path) -> SelectedAxisLabels:
 #: 17: `pages.payload_hash` and `pages.source_url` hold the exact-bytes identity and the canonical URL
 #: that `duplicates.derive_page_payload` derives for Sources and Evidence pages. A v16 catalogue is
 #: rebuilt from canonical pages, which also indexes every page written before the columns existed.
-SCHEMA_VERSION = 17
+#: 18: `pages.capture_day`, `capture_date_json`, `capture_lat` and `capture_lon` hold the capture date and
+#: position a media sidecar records, so a search filters on them from the index. A v17 catalogue is
+#: rebuilt from canonical pages, which also indexes every sidecar that already records them.
+SCHEMA_VERSION = 18
 
 #: FTS5 tokenizer for the pre-stemmed `fts` and `unit_fts` columns. Tokens arrive
 #: already NFKC-casefolded and stemmed; unicode61 must store each one verbatim:
@@ -1355,13 +1386,17 @@ class SemanticUnitLexicalHit:
     fingerprint: str | None
     source_order: int
     lexical_score: float | None
+    #: The parent page's stored `updated` date, or empty when the page declares none.
+    parent_updated: str = ""
 
 
+#: The `updated` the store keeps for a page that declares no date, so date order puts it last.
+UNDATED = "0000-00-00"
 #: Stored occurrence columns a served unit hit reads, in `_unit_hit` order.
 _OCCURRENCE_COLUMNS = (
     "u.unit_ref, u.parent_path, u.parent_ref, u.parent_generation, u.parent_source_hash, "
     "u.parser_version, u.form, u.category_raw, u.category_key, u.content, u.tags_json, "
-    "u.context, u.unit_source_hash, u.anchor, u.line, u.end_line, u.source_order"
+    "u.context, u.unit_source_hash, u.anchor, u.line, u.end_line, u.source_order, u.updated"
 )
 #: Occurrence rows interpreted per batch. Batches are transport: a row the
 #: selected interpretation rejects never counts toward a result or a cap.
@@ -1393,6 +1428,7 @@ def _unit_hit(row: tuple, unit: Any, score: float | None) -> SemanticUnitLexical
         fingerprint=unit.fingerprint,
         source_order=int(row[16]),
         lexical_score=float(score) if score is not None else None,
+        parent_updated="" if row[17] in (None, UNDATED) else str(row[17]),
     )
 
 
@@ -4506,6 +4542,187 @@ def search_eligible_parent_rows_result(
     return get_store(vault_root).search_eligible_parent_rows_result(eligibility, scope, freshness)
 
 
+class BrowseRow(NamedTuple):
+    """One page row as a browse reads it, before any view is decoded.
+
+    `own` and `via_parent` say whether the plan's columns hold for the row and for its in-scope
+    emitted parent. A row is a candidate when it is in scope and either holds: a child of a matching
+    parent is a candidate whatever its own columns say. With no plan `own` is always true.
+    """
+
+    path: str
+    updated: str
+    parent: str | None
+    in_scope: bool
+    has_view: bool
+    own: bool
+    via_parent: bool
+    has_children: bool = False
+
+
+def _browse_plan_sql(
+    vault_root: Path, eligibility: Any | None, col: str
+) -> tuple[str, str, list[object]]:
+    """`own` and `via_parent` as SQL over a `pages r` row, with the plan predicate's parameters.
+
+    The predicate is `_eligibility_predicate`'s, evaluated on a keyed lookup of the row (its
+    alias is `p`), so the same rendering serves the row, its parent and any outer alias. Its unit
+    arm reads `in_vault`: a unit row carries its page's scope flags, so for a page in scope it is
+    the scope's own predicate, and for an emitted parent outside the scope it holds as the exact
+    match does, which reads that parent's units whole.
+    """
+    if eligibility is None:
+        return "1", "0", []
+    labels = _selected_axis_labels(vault_root) if eligibility.has_unit_axis else None
+    predicate, params = _eligibility_predicate(eligibility, "in_vault", labels)
+    own = f"EXISTS (SELECT 1 FROM pages p WHERE p.path = r.path AND ({predicate}))"
+    via = (
+        "EXISTS (SELECT 1 FROM pages p WHERE p.path = r.emitted_parent_path "
+        f"AND p.{col} = 1 AND ({predicate}))"
+    )
+    return own, via, params
+
+
+def _browse_rows(rows: list[tuple]) -> list[BrowseRow]:
+    return [
+        BrowseRow(
+            str(path),
+            str(updated or "0000-00-00"),
+            None if parent is None else str(parent),
+            *map(bool, flags),
+        )
+        for path, updated, parent, *flags in rows
+    ]
+
+
+def _browse_scope_column(scope: str) -> str:
+    return "in_vault" if scope == "vault" else "in_kb"
+
+
+def browse_window_result(
+    vault_root: Path,
+    eligibility: Any | None,
+    *,
+    scope: str,
+    freshness: tuple | None,
+    after: tuple[str, str] | None,
+    size: int,
+) -> CatalogQueryResult[list[BrowseRow] | None]:
+    """The next `size` pages that a browse may report, newest first, from the browse index.
+
+    A page may be reported when it is in scope, or when it is the emitted parent of an in-scope
+    child. Each such page is listed at its own key and only when the plan's columns hold for it (a
+    superset of what the plan accepts). Which page a row is reported as is the caller's rule, read
+    at request time, so a row is listed whatever its stored parent: the stored rows may lag the
+    live access policy. The children of a listed parent come from `browse_children_result`.
+    `after` is the `(updated, path)` key of the last row of the previous window. The value is None
+    when the store has no browse index, so the caller takes the exhaustive route.
+    """
+    if not _catalog_usable():
+        return CatalogQueryResult(None, CatalogReadiness("unsupported", False, backend()))
+    col = _browse_scope_column(scope)
+
+    def query(conn: sqlite3.Connection) -> list[BrowseRow] | None:
+        # The pragma reads the index's own entry, not a table of the store.
+        if not conn.execute("SELECT 1 FROM pragma_index_info(?)", (BROWSE_INDEX,)).fetchone():
+            return None
+        own, via, plan_params = _browse_plan_sql(vault_root, eligibility, col)
+        params: list[object] = [*plan_params, *plan_params]
+        keyset = ""
+        if after is not None:
+            keyset = "AND (r.updated, r.path) < (?, ?) "
+            params.extend(after)
+        listed = ""
+        if eligibility is not None:
+            listed = f"AND {own} "
+            params.extend(plan_params)
+        params.append(size)
+        return _browse_rows(
+            conn.execute(
+                f"SELECT r.path, r.updated, r.emitted_parent_path, r.{col}, "
+                f"r.eligibility_view_json IS NOT NULL, {own}, {via}, "
+                f"EXISTS (SELECT 1 FROM pages c WHERE c.emitted_parent_path = r.path AND c.{col} = 1) "
+                f"FROM pages r WHERE r.in_vault = 1 {keyset}{listed}"
+                f"AND (r.{col} = 1 OR (r.eligibility_view_json IS NOT NULL AND EXISTS ("
+                f"SELECT 1 FROM pages c WHERE c.emitted_parent_path = r.path AND c.{col} = 1))) "
+                "ORDER BY r.updated DESC, r.path DESC LIMIT ?",
+                params,
+            ).fetchall()
+        )
+
+    return get_store(vault_root)._serve_from_ready_catalog_result(
+        scope,
+        freshness,
+        query,
+        "lexical browse window query failed (%s); browse declines",
+    )
+
+
+def browse_children_result(
+    vault_root: Path,
+    parents: set[str],
+    eligibility: Any | None,
+    *,
+    scope: str,
+    freshness: tuple | None,
+) -> CatalogQueryResult[list[BrowseRow]]:
+    """The in-scope rows that name any of `parents` as their emitted parent, through the parent index."""
+    if not _catalog_usable():
+        return CatalogQueryResult(None, CatalogReadiness("unsupported", False, backend()))
+    col = _browse_scope_column(scope)
+
+    def query(conn: sqlite3.Connection) -> list[BrowseRow]:
+        own, via, plan_params = _browse_plan_sql(vault_root, eligibility, col)
+        return _browse_rows(
+            conn.execute(
+                f"SELECT r.path, r.updated, r.emitted_parent_path, 1, "
+                f"r.eligibility_view_json IS NOT NULL, {own}, {via} FROM pages r "
+                f"WHERE r.{col} = 1 AND r.emitted_parent_path IN (SELECT value FROM json_each(?))",
+                [*plan_params, *plan_params, json.dumps(sorted(parents), ensure_ascii=False)],
+            ).fetchall()
+        )
+
+    return get_store(vault_root)._serve_from_ready_catalog_result(
+        scope,
+        freshness,
+        query,
+        "lexical browse children query failed (%s); browse declines",
+    )
+
+
+def browse_rows_result(
+    vault_root: Path,
+    paths: set[str],
+    eligibility: Any | None,
+    *,
+    scope: str,
+    freshness: tuple | None,
+) -> CatalogQueryResult[list[BrowseRow]]:
+    """The rows of these `paths`, by key. A path that is not a row of the vault has none."""
+    if not _catalog_usable():
+        return CatalogQueryResult(None, CatalogReadiness("unsupported", False, backend()))
+    col = _browse_scope_column(scope)
+
+    def query(conn: sqlite3.Connection) -> list[BrowseRow]:
+        own, via, plan_params = _browse_plan_sql(vault_root, eligibility, col)
+        return _browse_rows(
+            conn.execute(
+                f"SELECT r.path, r.updated, r.emitted_parent_path, r.{col}, "
+                f"r.eligibility_view_json IS NOT NULL, {own}, {via} FROM pages r "
+                # `+` keeps the planner on the key lookup: the vault flag would pick a scan of the index.
+                "WHERE +r.in_vault = 1 AND r.path IN (SELECT value FROM json_each(?))",
+                [*plan_params, *plan_params, json.dumps(sorted(paths), ensure_ascii=False)],
+            ).fetchall()
+        )
+
+    return get_store(vault_root)._serve_from_ready_catalog_result(
+        scope,
+        freshness,
+        query,
+        "lexical browse rows query failed (%s); browse declines",
+    )
+
+
 @dataclass(frozen=True)
 class EligibilityMetadata:
     view: dict[str, Any] | None
@@ -4648,7 +4865,7 @@ def _eligibility_metadata_query(
                 (json.dumps(sorted(result), ensure_ascii=False),),
             )
             for row, served in view.served(unit_rows):
-                path, verdict, check_by = row[1], row[17], row[18]
+                path, verdict, check_by = row[1], row[18], row[19]
                 unit = dict(
                     category=served.category,
                     category_key=row[8],
@@ -5242,6 +5459,18 @@ BUILD_STAMP_TABLES = ("meta",)
 KEY_ONLY_TABLES = ("unit_revisions",)
 
 
+#: The store's browse index. `browse_window_result` walks it newest first, so a browse reads the
+#: pages that its limit needs, not every page in scope. Only the store creates it
+#: (`vault_store.migrate.create_owner_schema`): a file-mode sidecar shares
+#: `create_catalogue_schema` and keeps its own indexes, and its browse takes the exhaustive route.
+BROWSE_INDEX = "pages_browse"
+
+
+def create_browse_index(conn: sqlite3.Connection) -> None:
+    """Create the store's browse index on ``conn``. It owns no transaction."""
+    conn.execute(f"CREATE INDEX IF NOT EXISTS {BROWSE_INDEX} ON pages(in_vault, updated, path)")
+
+
 def create_catalogue_schema(conn: sqlite3.Connection) -> None:
     """Create the catalogue's tables, indexes, triggers and full-text tables on ``conn``.
 
@@ -5250,8 +5479,26 @@ def create_catalogue_schema(conn: sqlite3.Connection) -> None:
     store's tables are the ones this module declares. It owns no transaction and stamps no schema version.
     """
     LexicalStore._create_catalog_tables(conn)
+    _add_later_page_columns(conn)
     LexicalStore._create_catalog_indexes(conn)
     LexicalStore._ensure_fts_schema(conn)
+
+
+def catalogue_schema_current(conn: sqlite3.Connection, *, raise_errors: bool = False) -> bool:
+    """Whether ``conn``'s catalogue carries this build's stamp and the page shape that goes with it.
+
+    The one rule that the lexical readers (`LexicalStore._schema_is_current`) and store mode's owner state
+    ask: a stamp over an older shape answers nothing, so it must not read as current. It emits no DDL.
+    """
+    try:
+        row = conn.execute("SELECT value FROM meta WHERE key = 'schema_version'").fetchone()
+    except sqlite3.OperationalError:
+        if raise_errors:
+            raise
+        return False  # no catalogue tables yet
+    if not (row and row[0] == str(SCHEMA_VERSION)):
+        return False
+    return LexicalStore._pages_has_current_columns(conn, raise_errors=raise_errors)
 
 
 def stamp_catalogue_schema(conn: sqlite3.Connection) -> None:
@@ -5325,7 +5572,7 @@ def page_rows(
         title_lower = page.title_norm if title else ""
         body_lower = page.body_norm
         stemmed = " ".join(bm25_module.tokenize((title or "") + " " + page.search_body))
-        updated = page.updated or "0000-00-00"
+        updated = page.updated or UNDATED
         # Scene-frame children carry the parent video they collapse into;
         # unparseable rows (page is None) stay NULL like ordinary pages.
         emitted_parent_path = page.emitted_parent
@@ -5336,7 +5583,7 @@ def page_rows(
     else:
         title = None
         title_lower = body_lower = stemmed = ""
-        updated = "0000-00-00"
+        updated = UNDATED
         emitted_parent_path = None
         # An unparseable page has no frontmatter to filter on. Every axis is
         # NULL, which is exactly "matches no positive constraint" — the same
@@ -5461,24 +5708,39 @@ def _insert_row(conn: sqlite3.Connection, table: str, columns: Mapping[str, Any]
     return cur.lastrowid
 
 
-#: The columns that schema 17 added to `pages`; a store that the released code created at schema 16 lacks them.
+#: The columns that schemas 17 and 18 added to `pages`; a store that the released code created before them
+#: lacks them.
 _SCHEMA_17_PAGE_COLUMNS = ("payload_hash", "source_url")
+#: The type of each column that schema 18 added: the capture day and its typed value are text, the position is real.
+_SCHEMA_18_COLUMN_TYPES = {"capture_day": "TEXT", "capture_date_json": "TEXT", "capture_lat": "REAL", "capture_lon": "REAL"}  # nosemgrep: ep-word-set -- the column names of this schema version, not a vocabulary
+_LATER_PAGE_COLUMNS = _SCHEMA_17_PAGE_COLUMNS + tuple(_SCHEMA_18_COLUMN_TYPES)
+
+
+def _add_later_page_columns(conn: sqlite3.Connection) -> None:
+    """Add the schema 17 and 18 columns to a `pages` table that lacks them: `CREATE TABLE IF NOT EXISTS` leaves it alone."""
+    present = {row[1] for row in conn.execute("PRAGMA table_info(pages)")}
+    for name in _SCHEMA_17_PAGE_COLUMNS:
+        if name not in present:
+            conn.execute(f"ALTER TABLE pages ADD COLUMN {name} TEXT")
+    for name, kind in _SCHEMA_18_COLUMN_TYPES.items():
+        if name not in present:
+            conn.execute(f"ALTER TABLE pages ADD COLUMN {name} {kind}")
 
 
 def _page_columns_of_table(conn: sqlite3.Connection, columns: Mapping[str, Any]) -> Mapping[str, Any]:
-    """`columns` without the schema 17 columns that this connection's `pages` table does not have yet.
+    """`columns` without the schema 17 and 18 columns that this connection's `pages` table does not have yet.
 
-    No door reads a store's own `pages` table (the duplicate index is the sidecar, which a schema 16 build
-    reads as not current and answers "unchecked"), so a page written without these values leaves nothing
-    to mislead. Any other missing column still fails the insert, because that is a store that is wrong.
+    A page written to an older store without these values misleads no door, because `catalogue_schema_current`
+    reads that store as not current until `create_catalogue_schema` adds the columns (`_add_later_page_columns`).
+    Any other missing column still fails the insert: that store is wrong.
     """
     present = {row[1] for row in conn.execute("PRAGMA table_info(pages)")}
-    if all(name in present for name in _SCHEMA_17_PAGE_COLUMNS):
+    if all(name in present for name in _LATER_PAGE_COLUMNS):
         return columns
     return {
         name: value
         for name, value in columns.items()
-        if name in present or name not in _SCHEMA_17_PAGE_COLUMNS
+        if name in present or name not in _LATER_PAGE_COLUMNS
     }
 
 
@@ -6623,17 +6885,7 @@ class LexicalStore:
         ever creating, altering, or dropping anything. A missing `meta`/`pages`
         table or a legacy `pages` shape reads as not-current — the caller then
         defers to the atomic rebuild rather than mutating the old shape here."""
-        try:
-            row = conn.execute(
-                "SELECT value FROM meta WHERE key = 'schema_version'"
-            ).fetchone()
-        except sqlite3.OperationalError:
-            if raise_errors:
-                raise
-            return False  # no `meta` table yet
-        if not (row and row[0] == str(SCHEMA_VERSION)):
-            return False
-        return self._pages_has_current_columns(conn, raise_errors=raise_errors)
+        return catalogue_schema_current(conn, raise_errors=raise_errors)
 
     @staticmethod
     def _create_catalog_tables(conn: sqlite3.Connection) -> None:
@@ -6681,6 +6933,10 @@ class LexicalStore:
             # any finer granularity; `updated_json` answers presence and `$in`.
             " updated_day TEXT,"
             " updated_json TEXT,"
+            " capture_day TEXT,"
+            " capture_date_json TEXT,"
+            " capture_lat REAL,"
+            " capture_lon REAL,"
             " eligibility_view_json TEXT,"
             " content_hash TEXT, structure_json TEXT, ranking_json TEXT,"
             # The duplicate-handling index: derived from the page's bytes, never authority.
@@ -6820,6 +7076,20 @@ class LexicalStore:
         conn.execute("CREATE INDEX IF NOT EXISTS pages_status ON pages(status, in_kb, in_vault)")
         conn.execute(
             "CREATE INDEX IF NOT EXISTS pages_updated_day ON pages(updated_day, in_kb, in_vault)"
+        )
+        # Only a media sidecar records a capture day or a position, so these partial indexes stay as
+        # small as the photos. A window then costs its matches, not the corpus.
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS pages_capture_day ON pages(capture_day, in_kb, in_vault) "
+            "WHERE capture_day IS NOT NULL"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS pages_capture_lat ON pages(capture_lat, in_kb, in_vault) "
+            "WHERE capture_lat IS NOT NULL"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS pages_capture_lon ON pages(capture_lon, in_kb, in_vault) "
+            "WHERE capture_lon IS NOT NULL"
         )
         conn.execute(
             "CREATE INDEX IF NOT EXISTS semantic_units_verdict "
@@ -12767,11 +13037,16 @@ class LexicalStore:
         term_budget: QueryTermBudget | None = None,
         retained_query_units: list | None = None,
         registry_scope: str | None = None,
+        parents_first: bool = False,
     ) -> CatalogQueryResult[list[SemanticUnitLexicalHit]]:
         """Ready-catalogue unit query, optionally ranking bounded material terms.
 
         `retained_query_units` receives the MATCH's selected units on the same
         read snapshot, for request-local allocation within the returned pool.
+        `parents_first` drives an unranked read from the parent index, for a
+        caller whose `allowed_parent_paths` are a few pages and whose categories
+        span the corpus; without statistics the planner reads every unit of the
+        categories first.
         """
         if not (categories or kinds or clauses or query_units):
             return CatalogQueryResult(
@@ -12809,7 +13084,7 @@ class LexicalStore:
                 released_parent_paths=released_parent_paths,
                 excluded_categories_by_parent=excluded_categories_by_parent,
                 registry_scope=registry_scope,
-                selected_units=view, statistics=statistics,
+                selected_units=view, statistics=statistics, parents_first=parents_first,
             )
 
         return self._serve_from_ready_catalog_result(
@@ -12840,6 +13115,7 @@ class LexicalStore:
         registry_scope: str | None = None,
         selected_units: _SelectedUnits | None = None,
         statistics: _AdmittedStatisticsEntry | None = None,
+        parents_first: bool = False,
     ) -> list[SemanticUnitLexicalHit]:
         """Units whose own selected meaning matches, ranked, then limited to `k`.
 
@@ -12952,8 +13228,9 @@ class LexicalStore:
                     [match, *params],
                 )
             else:
+                driver = " INDEXED BY semantic_units_parent" if parents_first and allowed_parent_paths is not None else ""
                 rows = conn.execute(
-                    f"SELECT {_OCCURRENCE_COLUMNS}, NULL AS lexical_score FROM semantic_units u "
+                    f"SELECT {_OCCURRENCE_COLUMNS}, NULL AS lexical_score FROM semantic_units u{driver} "
                     f"WHERE {where} ORDER BY u.updated DESC, u.parent_path DESC, u.source_order",
                     params,
                 )
@@ -12961,7 +13238,7 @@ class LexicalStore:
                 if len(hits) >= k:
                     break
                 if wanted(row, unit):
-                    hits.append(_unit_hit(row, unit, row[17]))
+                    hits.append(_unit_hit(row, unit, row[18]))
         view.require_complete()
         return hits
 
@@ -13086,7 +13363,7 @@ class LexicalStore:
         )
         rows = conn.execute(
             "WITH matched AS ("
-            f" SELECT p.path AS parent_path FROM pages p WHERE p.{col} = 1 AND (" + predicate + ")"
+            f" SELECT p.path AS parent_path FROM pages p WHERE {_scope_term(eligibility, col)} AND (" + predicate + ")"
             ") "
             "SELECT parent_path FROM matched "
             "UNION "
@@ -13144,7 +13421,7 @@ class LexicalStore:
         )
         rows = conn.execute(
             "WITH matched AS ("
-            f" SELECT p.path AS parent_path FROM pages p WHERE p.{col} = 1 AND (" + predicate + ")"
+            f" SELECT p.path AS parent_path FROM pages p WHERE {_scope_term(eligibility, col)} AND (" + predicate + ")"
             ") "
             f"SELECT p.path, p.updated, p.emitted_parent_path FROM pages p WHERE p.{col} = 1 "
             "AND (p.path IN (SELECT parent_path FROM matched)"

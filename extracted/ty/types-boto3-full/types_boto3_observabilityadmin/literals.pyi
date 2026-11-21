@@ -26,6 +26,7 @@ __all__ = (
     "AzureEventHubTierType",
     "AzureTelemetryTypeType",
     "CentralizationFailureReasonType",
+    "CentralizeWithDataProtectionType",
     "CloudWatchObservabilityAdminServiceServiceName",
     "ConnectorProviderType",
     "ContextGraphStatusType",
@@ -80,6 +81,7 @@ AzureTelemetryTypeType = Literal["FlowLogs", "Metrics", "ResourceLogs"]
 CentralizationFailureReasonType = Literal[
     "DESTINATION_ACCOUNT_NOT_IN_ORGANIZATION", "INTERNAL_SERVER_ERROR", "TRUSTED_ACCESS_NOT_ENABLED"
 ]
+CentralizeWithDataProtectionType = Literal["DISABLED", "ENABLED"]
 ConnectorProviderType = Literal["AZURE"]
 ContextGraphStatusType = Literal["Healthy", "Provisioning", "Unhealthy"]
 DeletionProtectionType = Literal["ENABLED"]
@@ -110,10 +112,13 @@ LogTypeType = Literal[
     "ALB_ACCESS_LOGS",
     "ALB_CONNECTION_LOGS",
     "ALB_HEALTH_CHECK_LOGS",
+    "ALERT_LOGS",
     "APPLICATION_LOGS",
     "CONNECTION_LOGS",
+    "FLOW_LOGS",
     "S3_SERVER_ACCESS_LOGS",
     "SECURITY_FINDING_LOGS",
+    "TLS_LOGS",
     "USAGE_LOGS",
 ]
 MskEnhancedMonitoringLevelType = Literal[
@@ -133,12 +138,14 @@ ResourceTypeType = Literal[
     "AWS::CloudFront::Distribution",
     "AWS::CloudTrail",
     "AWS::CloudWatch::OTelEnrichment",
+    "AWS::CloudWatchOmni",
     "AWS::EC2::Instance",
     "AWS::EC2::VPC",
     "AWS::EKS::Cluster",
     "AWS::ElasticLoadBalancingV2::LoadBalancer",
     "AWS::Lambda::Function",
     "AWS::MSK::Cluster",
+    "AWS::NetworkFirewall::Firewall",
     "AWS::Route53Resolver::ResolverEndpoint",
     "AWS::S3::Bucket",
     "AWS::SecurityHub::Hub",
@@ -183,6 +190,7 @@ ServiceName = Literal[
     "account-access-runtime",
     "acm",
     "acm-pca",
+    "agent-discovery",
     "agent-registry",
     "agent-registry-control",
     "aiops",
@@ -193,6 +201,7 @@ ServiceName = Literal[
     "apigateway",
     "apigatewaymanagementapi",
     "apigatewayv2",
+    "apiportal",
     "appconfig",
     "appconfigdata",
     "appfabric",
@@ -483,6 +492,7 @@ ServiceName = Literal[
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
+    "payments",
     "pca-connector-ad",
     "pca-connector-scep",
     "pcs",
@@ -538,6 +548,7 @@ ServiceName = Literal[
     "sagemaker-a2i-runtime",
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
+    "sagemaker-gateway-runtime",
     "sagemaker-geospatial",
     "sagemaker-inference-router-runtime",
     "sagemaker-metrics",

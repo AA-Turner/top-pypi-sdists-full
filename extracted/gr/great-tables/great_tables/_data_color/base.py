@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from bisect import bisect_right
-from collections.abc import Callable
 from decimal import Decimal
 from math import isinf, isnan
 from typing import TYPE_CHECKING, Any, Literal, TypeAlias
 
+from great_tables._gt_data import DataColorInfo
 from great_tables._locations import RowSelectExpr, resolve_cols_c, resolve_rows_i
 from great_tables._tab_create_modify import tab_style
 from great_tables._tbl_data import (
@@ -22,6 +22,8 @@ from great_tables.style import fill, text
 from .constants import ALL_PALETTES, COLOR_NAME_TO_HEX, DEFAULT_PALETTE
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from great_tables._types import GTSelf
 
 
@@ -54,7 +56,7 @@ def data_color(
     rows: RowSelectExpr = None,
     palette: str | list[str] | None = None,
     domain: list[str] | list[int] | list[float] | None = None,
-    midpoint: int | float | None = None,
+    midpoint: float | None = None,
     na_color: str | None = None,
     alpha: float | None = None,
     reverse: bool = False,
@@ -135,10 +137,10 @@ def data_color(
         A color-mapping function. The function should take a list of data values (from a single
         column, or from a single row with `direction="row"`) as input and return a list of colors of
         the same length. Each color may be a hexadecimal color value (e.g., `"#FF0000"`) or a color
-        name (e.g., `"red"`). All values are passed to the function, including missing values, so
-        the function must handle those itself. Any position where the function returns `None`
-        receives the `na_color=` color. If a function is supplied, then the `palette=`, `domain=`,
-        `reverse=`, `truncate=`, and `midpoint=` arguments are ignored. The `alpha=`,
+        name (e.g., `"red"`). All values are passed to the function, including missing values (as
+        `None`), so the function must handle those itself. Any position where the function returns
+        `None` receives the `na_color=` color. If a function is supplied, then the `palette=`,
+        `domain=`, `reverse=`, `truncate=`, and `midpoint=` arguments are ignored. The `alpha=`,
         `autocolor_text=`, and `contrast_algo=` arguments still apply to the returned colors. The
         [`col_numeric()`](`great_tables.col_numeric`), [`col_bin()`](`great_tables.col_bin`), and
         [`col_factor()`](`great_tables.col_factor`) helpers create ready-made color-mapping
@@ -262,9 +264,8 @@ def data_color(
     targeted row instead, receiving that row's values in the targeted columns
     - it must return a list of colors of the same length, where each color is a hexadecimal value
     (`"#RRGGBB"`, `"#RRGGBBAA"`, or the short `"#RGB"` form) or a CSS/X11 color name
-    - missing values are included in the list, so the function must handle them: with pandas they
-    usually arrive as `NaN` (or `None`/`pd.NA`, depending on the column type), and with Polars and
-    PyArrow they arrive as `None`; `pd.isna()` catches all of these
+    - missing values are included in the list as `None` (`NaN`, `NaT`, and `pd.NA` are converted),
+    so the function must handle them
     - returning `None` at any position gives that cell the `na_color=` color, which is the easiest
     way to deal with missing values
     - columns of any type can be colored (e.g., booleans or dates), since the numeric-or-string
@@ -339,16 +340,14 @@ def data_color(
     ```
 
     For complete control over how values map to colors, we can supply a function to `fn=`. The
-    function receives the list of values in a column (missing values included) and must return a
-    list of colors of the same length. Here, values in the `num` column are colored according to
-    whether they are below or above `100`. Returning `None` for the missing value means that it
-    gets the `na_color=` color:
+    function receives the list of values in a column (missing values included, as `None`) and must
+    return a list of colors of the same length. Here, values in the `num` column are colored
+    according to whether they are below or above `100`. Returning `None` for the missing value
+    means that it gets the `na_color=` color:
 
     ```{python}
-    import pandas as pd
-
     def above_below_100(vals):
-        return [None if pd.isna(x) else "lightblue" if x < 100 else "orange" for x in vals]
+        return [None if x is None else "lightblue" if x < 100 else "orange" for x in vals]
 
     GT(exibble).data_color(
         columns="num",
@@ -362,6 +361,8 @@ def data_color(
     the function assigns its own color to the missing value, `na_color=` isn't needed:
 
     ```{python}
+    import pandas as pd
+
     df = pd.DataFrame(
         {
             "region": ["North", "South", "East", "West", "Central"],
@@ -371,7 +372,7 @@ def data_color(
 
     def sign_colors(vals):
         return [
-            "#E0E0E0" if pd.isna(x) else "#1B9E77" if x > 0 else "#D95F02" if x < 0 else "#FFFFFF"
+            "#E0E0E0" if x is None else "#1B9E77" if x > 0 else "#D95F02" if x < 0 else "#FFFFFF"
             for x in vals
         ]
 
@@ -467,10 +468,7 @@ def data_color(
         raise ValueError(f'`direction=` must be either "column" or "row", not {direction!r}.')
 
     # If no color is provided to `na_color`, use a light gray color as a default
-    if na_color is None:
-        na_color = "#808080"
-    else:
-        na_color = _html_color(colors=[na_color], alpha=alpha)[0]
+    na_color = "#808080" if na_color is None else _html_color(colors=[na_color], alpha=alpha)[0]
 
     # Resolve the palette to a list of hexadecimal color values
     palette = _resolve_palette(palette=palette, reverse=reverse, alpha=alpha)
@@ -540,6 +538,20 @@ def data_color(
                 contrast_algo=contrast_algo,
             )
 
+    # Keep how the columns were colored where their colors depend on the rows colored, so that an
+    # interactive table can color them again from the rows it shows
+    if direction == "column" and domain is None and fn is None and columns_resolved and row_pos:
+        info = DataColorInfo(
+            columns=list(columns_resolved),
+            rows=row_pos,
+            palette=[color[:7] for color in palette],
+            alpha="" if alpha is None else _float_to_hex(float(alpha)),
+            midpoint=midpoint,
+            contrast_algo=contrast_algo if autocolor_text else None,
+            last=gt_obj._styles[-1],
+        )
+        gt_obj = gt_obj._replace(_data_colors=[*gt_obj._data_colors, info])
+
     return gt_obj
 
 
@@ -548,7 +560,7 @@ def _map_data_colors(
     data_table: DataFrameLike,
     palette: list[str],
     domain: list[str] | list[int] | list[float] | None,
-    midpoint: int | float | None,
+    midpoint: float | None,
     na_color: str,
     alpha: float | None,
     truncate: bool,
@@ -569,6 +581,8 @@ def _map_data_colors(
     # If a color-mapping function is provided, it determines the colors directly (bypassing
     # the palette, domain, and rescaling logic below)
     if fn is not None:
+        # `fn=` gets every backend's missing value as None
+        vals = [None if is_na(data_table, x) else x for x in vals]
         return _apply_color_fn(fn=fn, label=label, vals=vals, na_color=na_color, alpha=alpha)
 
     # Set a flag to indicate whether or not the domain should be calculated automatically
@@ -583,7 +597,7 @@ def _map_data_colors(
     # The methodology for domain calculation and rescaling depends on the values being:
     # (1) numeric (integers or floats), then the method should be 'numeric'
     # (2) strings, then the method should be 'factor'
-    if len(filtered_vals) and all(isinstance(x, (int, float)) for x in filtered_vals):
+    if filtered_vals and all(isinstance(x, (int, float)) for x in filtered_vals):
         if midpoint is not None:
             # Pin the midpoint to the center of the palette (an inferred domain is made
             # symmetric around the midpoint, a supplied one is scaled separately on each side)
@@ -1005,10 +1019,7 @@ def _srgb(x: int) -> float:
 
     x_frac = x / 255
 
-    if x_frac <= 0.03928:
-        x_frac = x_frac / 12.92
-    else:
-        x_frac = ((x_frac + 0.055) / 1.055) ** 2.4
+    x_frac = x_frac / 12.92 if x_frac <= 0.03928 else ((x_frac + 0.055) / 1.055) ** 2.4
 
     return x_frac
 

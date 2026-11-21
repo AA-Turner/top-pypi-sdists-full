@@ -7,9 +7,13 @@ const MAX_SINGLE_BOUND: u32 = 1000;
 /// accepted pattern far below the `regex` crate's default size limit (Unicode `\w`, about 770
 /// ranges, compiles to about 45 KB).
 const MAX_RANGE_BUDGET: u64 = 16_384;
+/// Branches an alternation expands into.
+const MAX_BRANCHES: usize = 8;
+/// ASCII members from which a class is wide: `.`, `\S` or a negated class.
+const WIDE_CLASS_MEMBERS: u32 = 32;
 
 /// An anchored sequence of ASCII character classes, each matched once, optionally or any number of
-/// times, decided without a regex engine for ASCII subjects.
+/// times, or a few alternatives of one, decided without a regex engine for ASCII subjects.
 #[derive(Debug, Clone)]
 pub struct Sequence {
     form: Form,
@@ -23,10 +27,21 @@ enum Form {
         min: usize,
         max: Option<usize>,
     },
-    /// One state bit per slot boundary; bit `n` (after the last slot) accepts.
+    /// Classes matched once each, then one class repeated between `min` and `max` times, up to the
+    /// end of input.
+    Headed {
+        /// Bit `b` of entry `i` set when ASCII byte `b` may be the `i`-th byte.
+        head: Box<[u128]>,
+        members: Box<[bool; 128]>,
+        min: usize,
+        max: Option<usize>,
+    },
+    /// One state bit per slot boundary. Branches sit side by side, each followed by its accepting
+    /// bit; no byte fills that bit, so a state never moves from one branch into the next.
     Parallel {
         /// The slots each byte can fill.
         table: Box<[u64; 128]>,
+        start: u64,
         star: u64,
         skippable: u64,
         longest_skip_run: u32,
@@ -46,65 +61,79 @@ struct Atom {
 
 impl Sequence {
     /// Compile a pattern already translated by [`crate::to_rust_regex`]. `None` when it is not an
-    /// anchored sequence of literals, classes and their repetitions within the size limits.
+    /// anchored sequence of literals, classes and their repetitions, or a few alternatives of one,
+    /// within the size limits.
     #[must_use]
     pub fn compile(translated: &str) -> Option<Sequence> {
-        // Skip parsing what is never a sequence: no leading `^`, alternations, quantified groups.
-        if !translated.starts_with('^')
-            || translated.contains('|')
+        // Skip parsing what is never a sequence: no leading `^` or group, or a group repeated
+        // without bound.
+        if !(translated.starts_with('^') || translated.starts_with('('))
             || translated
                 .as_bytes()
                 .windows(2)
-                .any(|pair| pair[0] == b')' && matches!(pair[1], b'?' | b'*' | b'+' | b'{'))
+                .any(|pair| pair[0] == b')' && matches!(pair[1], b'*' | b'+'))
         {
             return None;
         }
         let hir = regex_syntax::Parser::new().parse(translated).ok()?;
         let mut items = Vec::new();
         flatten(&hir, &mut items);
-        let (first, rest) = items.split_first()?;
-        if !matches!(first.kind(), HirKind::Look(Look::Start)) {
-            return None;
-        }
-        let (anchored_end, middle) = match rest.split_last() {
-            Some((last, middle)) if matches!(last.kind(), HirKind::Look(Look::End)) => {
-                (true, middle)
+        let mut budget = 0;
+        let mut anchored_end = None;
+        let mut branches = Vec::new();
+        for branch in expand(&items)? {
+            let (end, atoms) = branch_atoms(&branch, &mut budget)?;
+            // One state decides every branch, so they all end the same way.
+            if *anchored_end.get_or_insert(end) != end {
+                return None;
             }
-            _ => (false, rest),
-        };
-        let mut atoms = Vec::new();
-        for item in middle {
-            push_atoms(item, &mut atoms)?;
+            branches.push(atoms);
         }
-        let budget: u64 = atoms
-            .iter()
-            .map(|atom| {
-                let repetitions = atom.max.map_or(u64::from(atom.min) + 1, u64::from);
-                atom.ranges.saturating_mul(repetitions.max(1))
-            })
-            .fold(0, u64::saturating_add);
         if budget > MAX_RANGE_BUDGET {
             return None;
         }
-        if let [atom] = atoms.as_slice() {
-            if anchored_end
-                && atom.min <= MAX_SINGLE_BOUND
-                && atom.max.is_none_or(|max| max <= MAX_SINGLE_BOUND)
-            {
-                let mut members = Box::new([false; 128]);
-                for (byte, member) in members.iter_mut().enumerate() {
-                    *member = atom.class >> byte & 1 == 1;
+        // Across branches the engine's scan, or its check of a literal suffix, outpaces this one
+        // over the long subjects an unbounded wide class matches, when the match must reach their
+        // end. Without an end anchor, a match ends at the first accepting slot.
+        if anchored_end == Some(true)
+            && branches.len() > 1
+            && branches
+                .iter()
+                .flatten()
+                .any(|atom| atom.max.is_none() && atom.class.count_ones() >= WIDE_CLASS_MEMBERS)
+        {
+            return None;
+        }
+        let anchored_end = anchored_end?;
+        if let [atoms] = branches.as_slice() {
+            if let Some((atom, head)) = atoms.split_last() {
+                // A head pays off over a run of varying length; fixed lengths stay parallel.
+                if anchored_end
+                    && (head.is_empty() || atom.max != Some(atom.min))
+                    && head.iter().all(|step| step.min == 1 && step.max == Some(1))
+                    && atom.min <= MAX_SINGLE_BOUND
+                    && atom.max.is_none_or(|max| max <= MAX_SINGLE_BOUND)
+                {
+                    let mut members = Box::new([false; 128]);
+                    for (byte, member) in members.iter_mut().enumerate() {
+                        *member = atom.class >> byte & 1 == 1;
+                    }
+                    let (min, max) = (atom.min as usize, atom.max.map(|max| max as usize));
+                    let form = if head.is_empty() {
+                        Form::Single { members, min, max }
+                    } else {
+                        Form::Headed {
+                            head: head.iter().map(|step| step.class).collect(),
+                            members,
+                            min,
+                            max,
+                        }
+                    };
+                    return Some(Sequence { form });
                 }
-                return Some(Sequence {
-                    form: Form::Single {
-                        members,
-                        min: atom.min as usize,
-                        max: atom.max.map(|max| max as usize),
-                    },
-                });
             }
         }
-        parallel(&atoms, anchored_end).map(|form| Sequence { form })
+        parallel(&branches, anchored_end).map(|form| Sequence { form })
     }
 
     /// `None` when the answer needs the regex engine: a non-ASCII byte was reached before the
@@ -124,8 +153,15 @@ impl Sequence {
                 }
                 Some(max.is_none_or(|max| text.len() <= max))
             }
+            Form::Headed {
+                head,
+                members,
+                min,
+                max,
+            } => headed_match(head, members, *min, *max, text),
             Form::Parallel {
                 table,
+                start,
                 star,
                 skippable,
                 longest_skip_run,
@@ -138,7 +174,7 @@ impl Sequence {
                     }
                     state
                 };
-                let mut state = close(1);
+                let mut state = close(*start);
                 for &byte in text {
                     if !anchored_end && state & accept != 0 {
                         return Some(true);
@@ -152,6 +188,140 @@ impl Sequence {
                 Some(state & accept != 0)
             }
         }
+    }
+}
+
+// Out of line: keeps `Sequence::is_match` as small as its other forms need.
+#[inline(never)]
+fn headed_match(
+    head: &[u128],
+    members: &[bool; 128],
+    min: usize,
+    max: Option<usize>,
+    text: &[u8],
+) -> Option<bool> {
+    if text.len() < head.len() + min {
+        return Some(false);
+    }
+    let (start, rest) = text.split_at(head.len());
+    for (&class, &byte) in head.iter().zip(start) {
+        if byte >= 128 {
+            return None;
+        }
+        if class >> byte & 1 == 0 {
+            return Some(false);
+        }
+    }
+    for &byte in rest {
+        if !*members.get(byte as usize)? {
+            return Some(false);
+        }
+    }
+    Some(max.is_none_or(|max| rest.len() <= max))
+}
+
+// One branch: whether it is anchored at the end, and its literals, classes and repetitions.
+fn branch_atoms(items: &[&Hir], budget: &mut u64) -> Option<(bool, Vec<Atom>)> {
+    let (first, rest) = items.split_first()?;
+    if !matches!(first.kind(), HirKind::Look(Look::Start)) {
+        return None;
+    }
+    let (anchored_end, middle) = match rest.split_last() {
+        Some((last, middle)) if matches!(last.kind(), HirKind::Look(Look::End)) => (true, middle),
+        _ => (false, rest),
+    };
+    let mut atoms = Vec::new();
+    for item in middle {
+        push_atoms(item, &mut atoms)?;
+    }
+    *budget = atoms
+        .iter()
+        .map(|atom| {
+            let repetitions = atom.max.map_or(u64::from(atom.min) + 1, u64::from);
+            atom.ranges.saturating_mul(repetitions.max(1))
+        })
+        .fold(*budget, u64::saturating_add);
+    Some((anchored_end, atoms))
+}
+
+// Every way through the alternations and repeated groups among `items`, as a list of items
+// without any.
+fn expand<'h>(items: &[&'h Hir]) -> Option<Vec<Vec<&'h Hir>>> {
+    let mut branches = vec![Vec::new()];
+    for &item in items {
+        let tails = match item.kind() {
+            HirKind::Alternation(alternatives) => {
+                let mut tails = Vec::new();
+                for alternative in alternatives {
+                    tails.extend(expand(&flattened(alternative))?);
+                }
+                tails
+            }
+            HirKind::Repetition(repetition) if !is_atom(&repetition.sub) => {
+                let group = flattened(&repetition.sub);
+                match (repetition.min, repetition.max) {
+                    // A run of varying length inside marks long subjects, which the engine scans
+                    // faster.
+                    (0, Some(1)) if !group.iter().any(|item| varies(item)) => {
+                        let mut tails = expand(&group)?;
+                        tails.push(Vec::new());
+                        tails
+                    }
+                    (count, Some(max)) if count == max && count as usize <= MAX_SLOTS => {
+                        let repeated: Vec<&Hir> =
+                            (0..count).flat_map(|_| group.iter().copied()).collect();
+                        expand(&repeated)?
+                    }
+                    _ => return None,
+                }
+            }
+            _ => {
+                for branch in &mut branches {
+                    branch.push(item);
+                }
+                continue;
+            }
+        };
+        let mut next = Vec::new();
+        for tail in &tails {
+            for head in &branches {
+                if next.len() == MAX_BRANCHES {
+                    return None;
+                }
+                next.push(head.iter().chain(tail).copied().collect());
+            }
+        }
+        branches = next;
+    }
+    Some(branches)
+}
+
+fn flattened(hir: &Hir) -> Vec<&Hir> {
+    let mut items = Vec::new();
+    flatten(hir, &mut items);
+    items
+}
+
+// Whether `hir` repeats something a varying number of times.
+fn varies(hir: &Hir) -> bool {
+    match hir.kind() {
+        HirKind::Repetition(repetition) => {
+            repetition.max != Some(repetition.min) || varies(&repetition.sub)
+        }
+        HirKind::Capture(capture) => varies(&capture.sub),
+        HirKind::Concat(subs) | HirKind::Alternation(subs) => subs.iter().any(varies),
+        _ => false,
+    }
+}
+
+// What `push_atoms` repeats directly: a class or a single character.
+fn is_atom(hir: &Hir) -> bool {
+    match hir.kind() {
+        HirKind::Class(_) => true,
+        HirKind::Literal(literal) => {
+            std::str::from_utf8(&literal.0).is_ok_and(|text| text.chars().count() == 1)
+        }
+        _ => false,
     }
 }
 
@@ -186,7 +356,7 @@ fn push_atoms(hir: &Hir, atoms: &mut Vec<Atom>) -> Option<()> {
             });
         }
         HirKind::Repetition(repetition) => {
-            // `compile` declines quantified groups before parsing, so no capture wraps `sub`.
+            // `expand` resolves repeated groups, so `sub` is a class or a single character.
             let (class, ranges) = match repetition.sub.kind() {
                 HirKind::Class(class) => class_members(class)?,
                 HirKind::Literal(literal) => {
@@ -233,61 +403,93 @@ fn class_members(class: &Class) -> Option<(u128, u64)> {
     Some((members, class.ranges().len() as u64))
 }
 
-fn parallel(atoms: &[Atom], anchored_end: bool) -> Option<Form> {
-    let mut table = Box::new([0u64; 128]);
-    let (mut star, mut skippable) = (0u64, 0u64);
-    let (mut slots, mut run, mut longest_skip_run) = (0usize, 0u32, 0u32);
-    let mut push = |class: u128, repeat: Repeat| -> Option<()> {
-        if slots == MAX_SLOTS {
+// Slots laid out so far, in bit order.
+struct Layout {
+    table: Box<[u64; 128]>,
+    star: u64,
+    skippable: u64,
+    slots: usize,
+    run: u32,
+    longest_skip_run: u32,
+}
+
+impl Layout {
+    fn push(&mut self, class: u128, repeat: Repeat) -> Option<()> {
+        if self.slots == MAX_SLOTS {
             return None;
         }
-        let bit = 1u64 << slots;
-        for (byte, slot) in table.iter_mut().enumerate() {
+        let bit = 1u64 << self.slots;
+        for (byte, slot) in self.table.iter_mut().enumerate() {
             if class >> byte & 1 == 1 {
                 *slot |= bit;
             }
         }
         if matches!(repeat, Repeat::Once) {
-            run = 0;
+            self.run = 0;
         } else {
-            skippable |= bit;
-            run += 1;
-            longest_skip_run = longest_skip_run.max(run);
-            if run > MAX_SKIP_RUN {
+            self.skippable |= bit;
+            self.run += 1;
+            self.longest_skip_run = self.longest_skip_run.max(self.run);
+            if self.run > MAX_SKIP_RUN {
                 return None;
             }
         }
         if matches!(repeat, Repeat::Star) {
-            star |= bit;
+            self.star |= bit;
         }
-        slots += 1;
+        self.slots += 1;
         Some(())
+    }
+}
+
+fn parallel(branches: &[Vec<Atom>], anchored_end: bool) -> Option<Form> {
+    let mut layout = Layout {
+        table: Box::new([0u64; 128]),
+        star: 0,
+        skippable: 0,
+        slots: 0,
+        run: 0,
+        longest_skip_run: 0,
     };
-    for atom in atoms {
-        if atom.min as usize > MAX_SLOTS {
+    let (mut start, mut accept) = (0u64, 0u64);
+    for atoms in branches {
+        if layout.slots > MAX_SLOTS {
             return None;
         }
-        for _ in 0..atom.min {
-            push(atom.class, Repeat::Once)?;
-        }
-        match atom.max {
-            None => push(atom.class, Repeat::Star)?,
-            Some(max) => {
-                if (max - atom.min) as usize > MAX_SLOTS {
-                    return None;
-                }
-                for _ in atom.min..max {
-                    push(atom.class, Repeat::Optional)?;
+        start |= 1 << layout.slots;
+        layout.run = 0;
+        for atom in atoms {
+            if atom.min as usize > MAX_SLOTS {
+                return None;
+            }
+            for _ in 0..atom.min {
+                layout.push(atom.class, Repeat::Once)?;
+            }
+            match atom.max {
+                None => layout.push(atom.class, Repeat::Star)?,
+                Some(max) => {
+                    if (max - atom.min) as usize > MAX_SLOTS {
+                        return None;
+                    }
+                    for _ in atom.min..max {
+                        layout.push(atom.class, Repeat::Optional)?;
+                    }
                 }
             }
         }
+        if layout.slots > MAX_SLOTS {
+            return None;
+        }
+        accept |= 1 << layout.slots;
+        layout.slots += 1;
     }
     Some(Form::Parallel {
-        table,
-        star,
-        skippable,
-        longest_skip_run,
-        accept: 1 << slots,
+        table: layout.table,
+        start,
+        star: layout.star,
+        skippable: layout.skippable,
+        longest_skip_run: layout.longest_skip_run,
+        accept,
         anchored_end,
     })
 }
@@ -304,6 +506,9 @@ mod tests {
     use super::Sequence;
     use crate::to_rust_regex;
     use test_case::test_case;
+
+    const GUID_OR_VERSION: &str =
+        r"(^([0-9]+)\.([0-9]+)$)|(^\{[A-F0-9]{8}(-[A-F0-9]{4}){3}-[A-F0-9]{12}\}$)";
 
     fn compile(pattern: &str) -> Option<Sequence> {
         Sequence::compile(&to_rust_regex(pattern).expect("translates"))
@@ -348,6 +553,38 @@ mod tests {
     #[test_case(r"^[a-z]{1,100}$", &"a".repeat(101), Some(false); "single class long over max")]
     #[test_case(r"^[a-z]{1,1000}$", "a", Some(true); "single class at cap")]
     #[test_case(r"^\p{L}+[0-9]$", "ab1", Some(true); "wide class within the range budget")]
+    #[test_case(r"^[1-5](?:[0-9]{2}|XX)$", "200", Some(true); "alternation first branch")]
+    #[test_case(r"^[1-5](?:[0-9]{2}|XX)$", "4XX", Some(true); "alternation second branch")]
+    #[test_case(r"^[1-5](?:[0-9]{2}|XX)$", "6XX", Some(false); "alternation shared head fails")]
+    #[test_case(r"^[1-5](?:[0-9]{2}|XX)$", "20", Some(false); "alternation too short")]
+    #[test_case(r"^[1-5](?:[0-9]{2}|XX)$", "2XXX", Some(false); "alternation too long")]
+    #[test_case(r"^(?:ab|cde)f$", "cdef", Some(true); "alternation of different lengths")]
+    #[test_case(r"^(ab|cd)$", "cd", Some(true); "capturing alternation")]
+    #[test_case(r"^a(?:b(?:cc|dd)|ee)$", "abdd", Some(true); "nested alternation")]
+    #[test_case(r"^a(?:b(?:cc|dd)|ee)$", "aee", Some(true); "nested alternation outer branch")]
+    #[test_case(r"^a(?:b(?:cc|dd)|ee)$", "abee", Some(false); "nested alternation mixed")]
+    #[test_case(r"^(?:ab|cd)", "cdz", Some(true); "alternation with unanchored end")]
+    #[test_case(r"^(?:\d\d|xx)$", "\u{661}\u{661}", None; "undecided branch needs the engine")]
+    #[test_case(r"^(?:\d\d|xx)$", "xx", Some(true); "decided branch wins over undecided")]
+    #[test_case(r"^(?:a|bc)$", "abc", Some(false); "no state crosses into the next branch")]
+    #[test_case(r"^[a-z][a-z0-9-_]{1,63}$", "a1", Some(true); "head then long run")]
+    #[test_case(r"^[a-z][a-z0-9-_]{1,63}$", "a", Some(false); "head without the run")]
+    #[test_case(r"^[a-z][a-z0-9-_]{1,63}$", "1a", Some(false); "head class mismatch")]
+    #[test_case(r"^[a-z][a-z0-9-_]{1,63}$", &format!("a{}", "b".repeat(63)), Some(true); "long run at max")]
+    #[test_case(r"^[a-z][a-z0-9-_]{1,63}$", &format!("a{}", "b".repeat(64)), Some(false); "long run over max")]
+    #[test_case(r"^[a-z][0-9]+$", "\u{e9}1", None; "non-ascii head needs the engine")]
+    #[test_case(r"^ab[0-9]*$", "ab", Some(true); "literal head, empty run")]
+    #[test_case(r"^(ab){2}$", "abab", Some(true); "group repeated exactly")]
+    #[test_case(r"^(ab){2}$", "ab", Some(false); "group repeated too few times")]
+    #[test_case(r"^[Ee][Ss]2016(\.[Aa][Rr][Rr][Aa][Yy])?$", "ES2016.Array", Some(true); "optional group taken")]
+    #[test_case(r"^[Ee][Ss]2016(\.[Aa][Rr][Rr][Aa][Yy])?$", "es2016", Some(true); "optional group skipped")]
+    #[test_case(r"^[Ee][Ss]2016(\.[Aa][Rr][Rr][Aa][Yy])?$", "es2016.", Some(false); "optional group cut short")]
+    #[test_case(GUID_OR_VERSION, "4.27", Some(true); "leading group, first branch")]
+    #[test_case(GUID_OR_VERSION, "{0123ABCD-0123-4567-89AB-0123456789AB}", Some(true); "leading group, second branch")]
+    #[test_case(GUID_OR_VERSION, "{0123ABCD-0123-4567-0123456789AB}", Some(false); "leading group, repeat short")]
+    #[test_case(GUID_OR_VERSION, "4.", Some(false); "leading group, no branch")]
+    #[test_case(r"^(?:https?:|\?)[\w\W]*", "https://example.com", Some(true); "wide run after branches, open end")]
+    #[test_case(r"^(?:https?:|\?)[\w\W]*", "ftp://example.com", Some(false); "wide run after branches, no branch")]
     fn matches(pattern: &str, text: &str, expected: Option<bool>) {
         let sequence = compile(pattern).expect("compiles");
         assert_eq!(sequence.is_match(text.as_bytes()), expected);
@@ -355,11 +592,14 @@ mod tests {
 
     #[test_case(r"[a-z]+"; "unanchored start")]
     #[test_case(r"^a|b$"; "alternation")]
-    #[test_case(r"^(ab){2}$"; "quantified group")]
+    #[test_case(r"^(ab){2,}$"; "group repeated without bound")]
+    #[test_case(r"^(ab){1,3}$"; "group repeated a range of times")]
+    #[test_case(r"^.*\.(?:txt|trie)(?:\.gz)?$"; "wide unbounded class across branches")]
+    #[test_case(r"^\d{2}(?:\.\d+)?Z$"; "optional group of varying length")]
     #[test_case(r"^(?:\.[a-z]+)*$"; "quantified sequence group")]
     #[test_case(r"a^b"; "anchor in the middle")]
     #[test_case(r"^(a)+$"; "quantified group around one class")]
-    #[test_case(r"^[a-z][a-z0-9-_]{1,63}$"; "62 optional slots in a row")]
+    #[test_case(r"^[a-z]{1,63}x$"; "62 optional slots in a row")]
     #[test_case(r"^a{32}b{32}$"; "64 slots")]
     #[test_case(r"^*abc"; "quantified start anchor")]
     #[test_case(r"^a\b*c$"; "quantified assertion")]
@@ -369,6 +609,9 @@ mod tests {
     #[test_case(r"^[a-z]{1001,}$"; "single class open over cap")]
     #[test_case(r"^\bx$"; "word boundary")]
     #[test_case(r"^\p{L}{1,1000}$"; "wide class over the range budget")]
+    #[test_case(r"^(?:aa|bb)(?:cc|dd)(?:ee|ff)(?:gg|hh)$"; "sixteen branches")]
+    #[test_case(r"^ab|cd$"; "branch without the start anchor")]
+    #[test_case(r"^(?:ab$|cd)"; "branches ending differently")]
     fn declined(pattern: &str) {
         assert!(compile(pattern).is_none());
     }

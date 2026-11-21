@@ -108,6 +108,13 @@ _ACTIVATION_GATE_LOCK = threading.Lock()
 #: concurrently, never wait for (or are refused behind) a bulk batch.
 _INTERACTIVE_GATE: runtime_resources.ModelAdmissionGate | None = None
 _INTERACTIVE_GATE_LOCK = threading.Lock()
+#: The query-turn lane: a search query that waits for its turn, on a model that
+#: can encode concurrently, waits only for other such queries (`query_turn`).
+_QUERY_TURN_GATE: runtime_resources.ModelAdmissionGate | None = None
+_QUERY_TURN_GATE_LOCK = threading.Lock()
+_QUERY_TURN: ContextVar[runtime_resources.ModelAdmissionGate | None] = ContextVar(
+    "embedding_query_turn", default=None
+)
 #: Tokens of an activation turn that are read, the model's special tokens on
 #: top. A turn's head says what it is about, and the request path has no budget
 #: for reading a pasted page.
@@ -1081,8 +1088,11 @@ def _needs_character_cap(paragraph: str) -> bool:
     limit = MAX_UNSPACED_CHARS_PER_CHUNK
     if len(paragraph) <= limit:
         return False
-    if max(len(word) for word in paragraph.split()) > limit:
+    if max(map(len, paragraph.split()), default=0) > limit:
         return True
+    if not text_scripts.contains_scriptio_continua(paragraph):
+        # With no unspaced character both bounds below are false; skip the per-character scan.
+        return False
     token_chars = 0
     unspaced = 0
     for character in paragraph:
@@ -1365,12 +1375,17 @@ def _embed_texts(
     prefix = query_prefix if is_query else passage_prefix
     if prefix:
         texts = [prefix + t for t in texts]
+    execution = runtime_resources.model_execution
+    lane = _QUERY_TURN.get()
+    if lane is not None and getattr(model, "concurrent_encodes", False):
+        # Inside `query_turn` the query's turn is on its own lane, not the shared slot.
+        execution = lane.execution
     with BGE_GUARD.active():
         vectors = _encode_in_turns(
             model,
             texts,
             admission=runtime_resources.model_admission,
-            execution=runtime_resources.model_execution,
+            execution=execution,
             measurements=measurements,
         )
         _record_producer(model, model_name, vectors)
@@ -1498,6 +1513,36 @@ def _interactive_execution(model, bulk_execution):
             )
         gate = _INTERACTIVE_GATE
     return gate.execution(wait=False)
+
+
+@contextlib.contextmanager
+def query_turn(*, cancel_event: runtime_resources.StopSignal | None = None):
+    """The execution turn of one search query that waits for its turn.
+
+    The caller keeps its own model admission. A resident model that can encode
+    concurrently (an ONNX Runtime session) serves these queries on a lane of
+    their own: a query waits only for other queries, never for the passage
+    inferences that a capture or a drain runs one turn at a time on the shared
+    slot. Any other model takes the shared turn. A set `cancel_event` ends the
+    wait with `ModelBusyError`.
+    """
+    global _QUERY_TURN_GATE
+    if not getattr(_MODEL, "concurrent_encodes", False):
+        with runtime_resources.model_execution(cancel_event=cancel_event):
+            yield
+        return
+    with _QUERY_TURN_GATE_LOCK:
+        if _QUERY_TURN_GATE is None:
+            _QUERY_TURN_GATE = runtime_resources.ModelAdmissionGate(
+                runtime_resources.resolve_policy().model_admission
+            )
+        gate = _QUERY_TURN_GATE
+    with gate.execution(cancel_event=cancel_event):
+        marker = _QUERY_TURN.set(gate)
+        try:
+            yield
+        finally:
+            _QUERY_TURN.reset(marker)
 
 
 def embed_query_if_loaded(text: str, *, max_tokens: int | None = None) -> np.ndarray | None:
@@ -1961,7 +2006,7 @@ def reconstruct_publication(vault_root: Path, path: Path) -> EmbeddingPublicatio
             if page is None:
                 return None
             identity = index.identity or recall_space.current_identity(recall_space.current_dim())
-            prepared.check_page(page, vector_dim=0 if prepared.source_bytes <= 1024 else identity.dim)
+            prepared.check_page(page, vector_dim=0)  # This chunk pass encodes nothing.
             chunks = _chunks_for_page(vault_root, page, allow_encode=False)
             if chunks is None:
                 return None  # The existing segmenter needs inference: replay instead.
@@ -2297,7 +2342,7 @@ def _upsert_after_write_status(
         if preparation is not None:
             identity = getattr(index, "identity", None)
             width = identity.dim if identity else recall_space.current_dim()
-            preparation.check_page(page, vector_dim=0 if preparation.source_bytes <= 1024 else width)
+            preparation.check_page(page, vector_dim=0)  # The first chunk pass encodes nothing.
         try:
             chunks = _chunks_for_page(vault_root, page, allow_encode=False) if preparation is not None else None
             if chunks is None:
@@ -2537,7 +2582,7 @@ def parent_rows_from_source(
         raise ValueError("the page could not be parsed")
     identity = getattr(index, "identity", None)
     width = identity.dim if identity else recall_space.current_dim()
-    preparation.check_page(page, vector_dim=0 if preparation.source_bytes <= 1024 else width)
+    preparation.check_page(page, vector_dim=0)  # This chunk pass encodes nothing.
     chunks = _chunks_for_page(vault_root, page, allow_encode=False)
     if chunks is None:
         # Timed segmentation encodes while it chunks, so its reservation comes first.

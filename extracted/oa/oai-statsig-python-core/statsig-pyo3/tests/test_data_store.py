@@ -40,13 +40,6 @@ class MockDataStore(DataStore):
         self.content_set = None
         self.get_called_count = 0
         self.should_poll = False
-        self.initialize_fn = self.initialize
-        self.shutdown_fn = self.shutdown
-        self.get_fn = self.get
-        self.set_fn = self.set
-        self.support_polling_updates_for_fn = self.support_polling_updates_for
-        self.get_bytes_fn = None
-        self.set_bytes_fn = None
 
     def initialize(self):
         self.init_called = True
@@ -92,13 +85,9 @@ class MockBytesDataStore(DataStore):
         self.set_bytes_called_count = 0
         self.returned_no_update = False
         self.should_poll = False
-        self.initialize_fn = self.initialize
-        self.shutdown_fn = self.shutdown
-        self.get_fn = self.get
-        self.set_fn = self.set
+        # DataStore only auto-registers byte methods defined on the concrete class.
         self.get_bytes_fn = self.get_bytes
         self.set_bytes_fn = self.set_bytes
-        self.support_polling_updates_for_fn = self.support_polling_updates_for
 
     def initialize(self):
         self.init_called = True

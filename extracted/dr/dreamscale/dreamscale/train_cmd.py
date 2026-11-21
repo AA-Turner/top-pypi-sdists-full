@@ -339,18 +339,19 @@ def describe(run: dict) -> list[str]:
     preset = (run.get("contract") or {}).get("preset")
     quote = run.get("quote") or {}
     cost = run.get("cost") or {}
-    def hub(part: dict) -> str:
-        return (f"hf://{part.get('repo')}{'/' + part['path'] if part.get('path') else ''}"
-                f"@{part.get('revision') or 'main'}")
+    def where_part(part: dict) -> str:
+        if part.get("kind") == "huggingface":
+            return (f"hf://{part.get('repo')}{'/' + part['path'] if part.get('path') else ''}"
+                    f"@{part.get('revision') or 'main'}")
+        if part.get("kind") == "dataset":
+            return (f"{part.get('name')} v{part.get('version')}"
+                    + (" (deleted)" if part.get("deleted") else ""))
+        return f"uploaded ({part.get('upload_id')})"
 
     where = (
-        hub(source) if source.get("kind") == "huggingface"
-        else " + ".join(hub(part) for part in source.get("datasets") or [])
+        " + ".join(where_part(part) for part in source.get("datasets") or [])
         if source.get("kind") == "several"
-        else f"{source.get('name')} v{source.get('version')}"
-        + (" (deleted)" if source.get("deleted") else "")
-        if source.get("kind") == "dataset"
-        else f"uploaded ({source.get('upload_id')})"
+        else where_part(source)
     )
     settings = run.get("settings") or {}
     lines = [

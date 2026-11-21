@@ -15,6 +15,7 @@ from typing import BinaryIO, Iterable, Sequence
 from xml.etree import ElementTree as ET
 
 from ..opc.package import HwpxPackage
+from ..opc.security import _parse_xml_stdlib
 
 NS = {
     "hp": "http://www.hancom.co.kr/hwpml/2011/paragraph",
@@ -76,7 +77,7 @@ def _local_name(tag: str) -> str:
 def _iter_section_roots(source: str | Path | bytes | BinaryIO) -> Iterable[ET.Element]:
     package = HwpxPackage.open(source)
     for name in package.section_paths():
-        yield ET.fromstring(package.read(name))
+        yield _parse_xml_stdlib(package.read(name), part_name=name, parse_error=True)
 
 
 def collect_metrics(source: str | Path | bytes | BinaryIO) -> DocumentMetrics:
@@ -231,6 +232,8 @@ def compare_metrics(
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    from .archive_cli import _printable_stdout
+    _printable_stdout()
     parser = argparse.ArgumentParser(
         description="Reference-vs-output HWPX layout-drift proxy checker"
     )
@@ -241,6 +244,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--json", action="store_true", help="Print collected metrics as JSON")
     args = parser.parse_args(argv)
 
+    from .archive_cli import _input_file_problem
+
+    for path in (args.reference, args.output):
+        problem = _input_file_problem(path, tool="hwpx-page-guard")
+        if problem is not None:
+            print(f"ERROR: {problem}")
+            return 1
     try:
         reference = collect_metrics(args.reference)
         output = collect_metrics(args.output)

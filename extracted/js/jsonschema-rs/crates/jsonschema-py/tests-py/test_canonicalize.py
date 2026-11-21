@@ -15,8 +15,8 @@ from jsonschema_rs.canonical import (
 
 DRAFT202012 = "https://json-schema.org/draft/2020-12/schema"
 # `dependencies` is the one conditional applicator canonicalization does not split beside an
-# `unevaluated*`, so this stays raw. Each construct canonicalization learns needs a
-# still-unsupported stand-in here.
+# `unevaluated*`, so this stays raw. Swap in another unmodeled construct once canonicalization
+# models it.
 UNSUPPORTED = {"dependencies": {}, "unevaluatedProperties": False}
 
 
@@ -286,6 +286,72 @@ def test_object_view_violations():
     assert violation.schema.to_json_schema()["const"] == "filter"
 
 
+def test_object_view_size_window_and_additional_properties():
+    schema = {"type": "object", "minProperties": 1, "maxProperties": 3, "additionalProperties": {"type": "string"}}
+    match canonicalize(schema).view():
+        case canonical.ObjectView(
+            min_properties=min_properties, max_properties=max_properties, additional_properties=additional
+        ):
+            assert (min_properties, max_properties) == (1, 3)
+            assert additional.to_json_schema() == {"$schema": DRAFT202012, "type": "string"}
+        case other:
+            pytest.fail(f"unexpected view: {other!r}")
+
+
+def test_object_view_undeclared_value_fails():
+    schema = {
+        "type": "object",
+        "not": {
+            "properties": {"a": True},
+            "patternProperties": {"^b": True},
+            "additionalProperties": {"type": "string"},
+        },
+    }
+    match canonicalize(schema).view().violations:
+        case [canonical.UndeclaredValueFailsView(names=names, patterns=patterns, additional=additional)]:
+            assert names == ["a"]
+            assert patterns == ["^b"]
+            assert additional.to_json_schema() == {"$schema": DRAFT202012, "type": "string"}
+        case other:
+            pytest.fail(f"unexpected violations: {other!r}")
+
+
+def test_object_view_pattern_value_fails():
+    schema = {"type": "object", "not": {"patternProperties": {"^a": {"type": "string"}}}}
+    match canonicalize(schema).view().violations:
+        case [canonical.PatternValueFailsView(pattern=pattern, schema=inner)]:
+            assert pattern == "^a"
+            assert inner.to_json_schema() == {"$schema": DRAFT202012, "type": "string"}
+        case other:
+            pytest.fail(f"unexpected violations: {other!r}")
+
+
+@pytest.mark.parametrize(
+    "draft,expected",
+    [
+        (jsonschema_rs.Draft4, 4),
+        (jsonschema_rs.Draft6, 6),
+        (jsonschema_rs.Draft7, 7),
+        (jsonschema_rs.Draft201909, 19),
+        (jsonschema_rs.Draft202012, 20),
+    ],
+)
+def test_canonical_schema_draft(draft, expected):
+    assert canonicalize({"type": "string"}, draft=draft).draft == expected
+
+
+def test_canonical_schema_hashes_by_value():
+    string = canonicalize({"type": "string"})
+    assert {string, canonicalize({"type": "string"}), canonicalize({"type": "integer"})} == {
+        string,
+        canonicalize({"type": "integer"}),
+    }
+
+
+def test_canonical_schema_repr():
+    assert repr(canonicalize({"type": "string"})) == "<CanonicalSchema kind=multi_type draft=Draft202012>"
+
+
 def test_view_number_multiple_of():
     match canonicalize({"type": "number", "multipleOf": 0.5}).view():
         case canonical.NumberView(multiple_of=multiple_of):
@@ -340,7 +406,7 @@ def test_view_number_interval():
 
 def test_view_number_bound_off_the_float_grid():
     # Folding `multipleOf` into an exclusive bound lands a fraction past a number no float can hold
-    # apart from its neighbour, and rounding it there would admit the value the schema excludes.
+    # apart from its neighbour, and rounding it there would accept the value the schema rejects.
     schema = {"type": "number", "multipleOf": 0.1, "exclusiveMinimum": 10**20}
     match canonicalize(schema).view():
         case canonical.NumberView(minimum=minimum, exclusive_minimum=exclusive_minimum):
@@ -582,6 +648,16 @@ def test_large_pattern_with_raised_size_limit(options):
     assert canonical_schema.kind == CanonicalKind.STRING
 
 
+@pytest.mark.parametrize(
+    ("syntax", "expected"),
+    [("ecma262", {"const": "3"}), ("engine", {"enum": ["3", "٣"]})],
+)
+def test_pattern_syntax(syntax, expected):
+    schema = {"type": "string", "pattern": r"^\d+$", "enum": ["3", "٣", "x"]}
+    options = jsonschema_rs.RegexOptions(syntax=syntax)
+    assert canonicalize(schema, pattern_options=options).to_json_schema() == {"$schema": DRAFT202012, **expected}
+
+
 def test_pattern_options_rejects_other_types():
     with pytest.raises(TypeError):
         canonicalize(LARGE_PATTERN_SCHEMA, pattern_options=object())
@@ -653,7 +729,7 @@ def test_union(left, right, expected):
             Satisfiability.NO,
         ),
         # What a narrowed schema stopped accepting, which is the comparison workflow: the values
-        # `old` took and `new` turns away.
+        # `old` accepts and `new` rejects.
         (
             {"type": "string"},
             {"type": "string", "maxLength": 50},
@@ -886,7 +962,7 @@ def test_subtract_raises_unsupported_result():
         plain.subtract(hard)
 
 
-def test_subtracting_a_schema_from_itself_needs_no_complement():
+def test_subtracting_a_schema_from_itself_needs_no_negation():
     schema = {"type": "array", "contains": {"type": "string"}, "minContains": 2}
     # Negating this schema declines, so the self-difference must not go through a negation.
     with pytest.raises(canonical.UnsupportedResult):
@@ -1082,9 +1158,9 @@ def reason_data(reason):
         "a literal false",
         "a numeric window nothing falls in",
         "siblings empty beside a reference",
-        "an array element no schema admits",
+        "an array element no schema accepts",
         "a reference beside its own negation",
-        "a choice of references beside a type none of them admits",
+        "a choice of references beside a type none of them accepts",
     ],
 )
 def test_find_unsatisfiable_names_its_reason(schema, expected):

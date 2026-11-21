@@ -135,6 +135,14 @@ class SmartsQuery:
     def matches_many(self, molecules: Iterable[Mol], use_chirality: bool = False) -> list[bool]: ...
 
     def matches_batch(self, batch: MoleculeBatch, use_chirality: bool = False) -> list[bool]: ...
+    def match_indices_rdkit_parity_batch(
+        self,
+        batch: MoleculeBatch,
+        profile: str = "2026.03.6",
+        use_chirality: bool = False,
+    ) -> tuple[list[int], list[tuple[int, str]]]:
+        """Sorted hit indices and (index, reason) refusals."""
+        ...
 
     def find_matches(self, mol: Mol, use_chirality: bool = False) -> list[list[int]]: ...
 
@@ -153,6 +161,14 @@ class MoleculeBatch:
     def __len__(self) -> int: ...
 
     def hbd_counts(self) -> list[int]: ...
+    def rdkit_ecfp_config(
+        self,
+        radius: int = 2,
+        nbits: int = 2048,
+        include_chirality: bool = False,
+        count_simulation: bool = False,
+    ) -> list[bytes]: ...
+
 
 class MolecularForceField:
     """A prepared MMFF94 or UFF force field with mutable coordinates.
@@ -296,8 +312,10 @@ class Mol:
     def rdkit_smiles(self) -> str:
         """Canonical SMILES exactly as RDKit 2026.03.1 writes it
         (``Chem.MolToSmiles(Chem.MolFromSmiles(s))`` for a molecule read with
-        :func:`from_smiles`). Raises ``ValueError`` for unsupported inputs or
-        molecules RDKit's sanitization rejects; never returns a wrong string."""
+        :func:`from_smiles`). On a Cleanup result, retains the in-memory
+        non-tetrahedral tag of a fully disconnected metal. Raises
+        ``ValueError`` for unsupported inputs or molecules RDKit's
+        sanitization rejects; never returns a wrong string."""
         ...
 
     def rdkit_smiles_with(
@@ -355,7 +373,10 @@ class Mol:
     ) -> list[list[list[float]]]:
         """RDKit 2026.09.1's ``AllChem.EmbedMultipleConfs`` with ETKDGv3
         defaults on this explicit-hydrogen molecule. Failed attempts are
-        omitted; reusable setup is shared across conformers."""
+        omitted; reusable setup is shared across conformers. Seed zero uses
+        attempts 0, 2, 3, ... to fix RDKit #9738 while preserving the first
+        single-conformer result. Positive seeds retain their existing schedule.
+        Different seeds do not guarantee different shapes."""
         ...
 
     def rdkit_embed_multiple_confs_mmff(
@@ -414,9 +435,26 @@ class Mol:
     ) -> list[tuple[int, float, list[list[float]]]]:
         """Keep the lowest-energy candidate, then converged conformers from
         ETKDG/MMFF94 runs. The second uses the corrected gradient when
-        relevant; otherwise two additional runs use new seeds. Uses twice or
-        three times the candidate work, respectively, plus up to one or two
-        optional MMFF retries.
+        relevant; otherwise up to three additional runs use new seeds. The
+        fourth batch runs only when the third improves the best energy by
+        more than 0.01 kcal/mol. Uses up to four times the candidate work
+        and up to three optional MMFF retries.
+        """
+        ...
+
+    def etkdg_embed_multiple_confs_mmff_torsion_search(
+        self,
+        num_confs: int,
+        *,
+        random_seed: int = 42,
+        max_iterations: int = 0,
+        max_mmff_iters: int = 200,
+        candidate_confs: int | None = None,
+    ) -> list[tuple[int, float, list[list[float]]]]:
+        """Extend the quality ensemble with bounded, stereo-checked
+        rotatable-bond moves and MMFF94 minimizations. A larger
+        ``candidate_confs`` searches more ETKDG seeds while returning at most
+        ``num_confs`` optimized conformers.
         """
         ...
 
@@ -566,9 +604,35 @@ class Mol:
     ) -> dict[int, int]:
         """``GetMorganGenerator(radius).GetSparseCountFingerprint(m)`` elements."""
         ...
+    def rdkit_atom_pair_config_detail(
+        self,
+        *,
+        nbits: int = 2048,
+        min_distance: int = 1,
+        max_distance: int = 30,
+        include_chirality: bool = False,
+        count_simulation: bool = True,
+        count_bounds: Sequence[int] | None = None,
+    ) -> tuple[bytes, dict[int, int], dict[int, int]]:
+        """Return packed bits, folded counts and unhashed counts for 2D Atom Pair."""
+        ...
+
     def rdkit_atom_pair_sparse_counts(self) -> dict[int, int]:
         """``GetAtomPairGenerator().GetSparseCountFingerprint(m)`` elements."""
         ...
+    def rdkit_torsion_config_detail(
+        self,
+        *,
+        atom_count: int = 4,
+        nbits: int = 2048,
+        only_shortest_paths: bool = False,
+        include_chirality: bool = False,
+        count_simulation: bool = True,
+        count_bounds: Sequence[int] | None = None,
+    ) -> tuple[bytes, dict[int, int], dict[int, int]]:
+        """Return packed bits, folded counts and unhashed Topological Torsion counts."""
+        ...
+
     def rdkit_torsion_sparse_counts(self) -> dict[int, int]:
         """``GetTopologicalTorsionGenerator().GetSparseCountFingerprint(m)`` elements."""
         ...
@@ -663,6 +727,16 @@ class Mol:
     @property
     def formula(self) -> str:
         """Molecular formula in Hill notation (C first, H second, then alphabetical)."""
+        ...
+
+    @property
+    def formula_with_isotopes(self) -> str:
+        """Total isotope-separated formula including H and net charge.
+
+        C/H element families precede alphabetical symbols; within a family,
+        unspecified atoms precede numeric isotope labels. D/T use [2H]/[3H].
+        Isotope positions, atom maps, stereo and radical state are not encoded.
+        """
         ...
 
     @property
@@ -868,6 +942,19 @@ class Mol:
         Example::
 
             block = mol.to_mol_v3000(coords_2d, name="my_mol")
+        """
+        ...
+
+    def to_cjson(self, coords: list[list[float]] = []) -> str:
+        """Legacy lossy graph projection; prefer to_cjson_checked."""
+        ...
+
+    def to_cjson_checked(self, coords: list[list[float]] = []) -> str:
+        """Refuse unsupported in-memory graph properties and malformed XYZ.
+
+        Raises ValueError for stereo, explicit H counts, aromatic atom flags,
+        wildcards, maps, tags, CIP, zero isotope mass, and unsupported bonds.
+        Does not validate metadata or stereo discarded by a source reader.
         """
         ...
 
@@ -1349,6 +1436,26 @@ class Mol:
         """RDKit-compatible pattern fingerprint as a numpy bit vector."""
         ...
 
+    def rdkit_rdk_config_detail(
+        self,
+        *,
+        min_path: int = 1,
+        max_path: int = 7,
+        nbits: int = 2048,
+        bits_per_feature: int = 2,
+        use_hs: bool = True,
+        branched_paths: bool = True,
+        use_bond_order: bool = True,
+        from_atoms: Optional[Sequence[int]] = None,
+        ignore_atoms: Optional[Sequence[int]] = None,
+        atom_invariants: Optional[Sequence[int]] = None,
+        count_simulation: bool = False,
+        count_bounds: Optional[Sequence[int]] = None,
+        max_visits: int = 1000000,
+        max_paths: int = 100000,
+    ) -> tuple[bytes, dict[int, int], dict[int, int]]:
+        """Packed RDK bits, folded counts, and sparse counts."""
+        ...
     def rdkit_rdk_fp_numpy(
         self, ignore_atoms: Optional[Sequence[int]] = None
     ) -> ndarray:
@@ -1522,8 +1629,9 @@ class Mol:
     def cleanup(self) -> Mol:
         """Apply the supported RDKit Cleanup stages and return a new molecule.
 
-        Acid/base-priority reionization and some metal coordination patterns
-        remain outside this profile.
+        Proton transfers use the ordered acid/base catalog and check the
+        resulting acid before moving a proton. Metal disconnection covers
+        the supported ligand and coordination patterns.
         """
         ...
 
@@ -2278,14 +2386,14 @@ class Mol:
     def cip_stereo(self, mode: str = "legacy") -> list[dict]:
         """CIP stereochemistry assignments — list of ``{"atom_idx": int, "descriptor": str}`` dicts.
 
-        ``descriptor`` is ``"R"``, ``"S"``, ``"E"``, ``"Z"``, ``"r"`` or ``"s"``;
-        E/Z entries also carry ``"bond_idx"`` and ``"bond_atoms"``.
+        Double-bond descriptors are ``"E"``, ``"Z"``, ``"seqCis"`` or ``"seqTrans"``.
+        Entries for individual bonds carry ``"bond_idx"`` and ``"bond_atoms"``.
+        Odd cumulenes in accurate mode carry the full path as ``"cumulene_atoms"``.
         ``mode="accurate"`` uses the hierarchical-digraph engine; its labels
         that flip with the ring's Kekulé spelling carry ``"kekule_dependent":
-        True`` and those that follow RDKit's reading of the parsed SMILES
-        spelling (saturated ring lone-pair centres such as bridgehead amines)
-        carry ``"spelling_dependent": True``. Unresolved atoms are listed by
-        :meth:`cip_stereo_unresolved`.
+        True``. Saturated ring lone-pair centres use the recorded ligand order.
+        Call :meth:`rdkit_parsed` first to apply RDKit's reader conventions.
+        Unresolved atoms are listed by :meth:`cip_stereo_unresolved`.
         """
         ...
 
@@ -3314,7 +3422,9 @@ def from_cml_with_3d(cml_str: str | bytes) -> tuple[Mol, list[list[float]] | Non
     Returns source atom order; absent 3D coordinates return None. Requires
     unique nonempty atom IDs and refuses partial triplets/mixed presence.
     Limits: 16 MiB input, 100000 atoms plus native CML line/element/bond caps.
-    Metadata, namespaces/schema and coordinate stereo are not interpreted.
+    Resolves CML namespaces, excluding foreign subtrees and qualified metadata
+    attributes. Forward bond references are resolved by ID. XML schema, opaque
+    metadata and coordinate stereo are not interpreted; source is not retained.
     """
     ...
 
@@ -3345,6 +3455,8 @@ def from_cdxml(cdxml_str: str, *, infer_nondirectional_stereo: bool = False) -> 
     Opt in to infer tetrahedral stereo from non-directional Bold/Hash/Dash
     bonds. Defaults to False; ambiguous or degenerate drawings abstain.
     Only the first molecular fragment is returned.
+    Retains quadruple and directed dative bonds. Unsupported declared bond
+    orders raise ValueError rather than becoming single; absence defaults to 1.
 
     Raises:
         ValueError: on parse failure.
@@ -3383,6 +3495,16 @@ def from_mol_v3000(block: str | bytes) -> Mol:
         ValueError: on parse failure.
     """
     ...
+
+def from_mol_block_with_coords_3d(block: str | bytes) -> tuple[Mol, str, list[list[float]]]:
+    """Return V2000 (Mol, name, source-order xyz in angstroms).
+
+    Requires finite values in all three fixed-width fields. Keeps tiny/flat z
+    and signed zero independently of perception and headers. Graph/stereo
+    interpretation is unchanged. Bounded to 16 MiB; metadata loss is not audited.
+    """
+    ...
+
 
 def from_mol_v3000_with_coords_3d(block: str | bytes) -> tuple[Mol, str, list[list[float]]]:
     """Return Mol, name and source-order x/y/z in Angstrom, including tiny z.
@@ -3549,6 +3671,26 @@ def mol2_reference_rmsds_json(
 
 def parse_mol2_record_json(text: str) -> str:
     """Return source metadata and bounded graph interpretation as MOL2 record JSON."""
+    ...
+
+def roundtrip_cml_source(text: str | bytes) -> str:
+    """Retain exact bounded XML 1.0 CML source with opaque chemistry.
+
+    Requires one namespaced molecule root; rejects DTDs, nested molecules,
+    malformed XML, unsupported encodings and resource-limit violations.
+    """
+    ...
+
+def project_cjson_to_cml(text: str | bytes) -> str:
+    """Preserve the local CJSON graph/XYZ/name profile or raise ValueError.
+
+    Refuses opaque metadata/stereo, partial charges and conflicting names.
+    Does not verify chemical validity or geometry-derived stereo.
+    """
+    ...
+
+def project_cml_to_cjson(text: str | bytes) -> str:
+    """Checked graph/XYZ/name profile; refuse unrepresented CML payload."""
     ...
 
 def project_mol2_to_cjson(text: str | bytes) -> str:
@@ -3819,10 +3961,12 @@ def write_xyz_checked(elements: Iterable[str], positions_angstrom: Iterable[Iter
 def from_xyz(xyz_str: str) -> tuple[Mol, list[list[float]]]:
     """Parse an XYZ string and return ``(Mol, coords)``.
 
-    ``coords`` is a list of ``[x, y, z]`` lists (Å), one per heavy atom.
+    ``coords`` is a list of ``[x, y, z]`` lists (Å), one per listed atom (including H).
 
     Raises:
-        ValueError: on parse failure.
+        ValueError: on parse failure, nonfinite coordinates or a nonzero
+        decimal that rounds to binary64 zero. Literal signed zero and finite
+        subnormals remain valid.
 
     Example::
 
@@ -3838,10 +3982,16 @@ def from_extxyz(text: str) -> dict:
 
     Returns:
         dict: ``{"mol": Mol, "coords": list[list[float]],
-        "lattice": list[float] | None, "properties": dict, "info": dict}``.
+        "lattice": list[float] | None, "properties": dict, "info": dict,
+        "comment": str, "property_schema": dict[str, tuple[str, int]]}``.
+        Schema entries retain R/I/S/L kinds and widths, even with no atoms.
+        Info stays raw strings; comment is the original second line. Pass the
+        complete dict to ``to_extxyz(**result)`` to retain supported typed data.
 
     Raises:
-        ValueError: on malformed input.
+        ValueError: on malformed input, nonfinite numeric data or nonzero
+        coordinates/cell/R atom values that round to binary64 zero. Literal
+        signed zero and finite subnormals remain valid.
 
     Example::
 
@@ -3866,15 +4016,28 @@ def to_extxyz(
     lattice: Optional[list[float]] = None,
     properties: Optional[dict] = None,
     info: Optional[dict] = None,
+    *,
+    property_schema: Optional[dict[str, tuple[str, int]]] = None,
+    comment: str = "",
 ) -> str:
-    """Write a molecule + coordinates as an Extended XYZ (extxyz) frame.
+    """Write geometry with optional typed Extended XYZ atom columns.
 
-    ``properties`` is ``dict[str, list[list[float]]]`` (real-valued per-atom
-    columns only, e.g. ``{"forces": [[fx, fy, fz], ...]}``). ``info`` is
-    ``dict[str, str]`` of extra frame metadata (e.g. ``{"energy": "-76.4"}``).
+    ``property_schema`` maps each property name to (kind, positive width):
+    R = finite binary64, I = signed 64-bit int, S = checked single-token str,
+    L = bool. Its names must exactly match ``properties``. Omitting it keeps
+    the existing real-column API with widths inferred from nonempty rows.
+    Integers not exactly representable as R are refused; declare I instead.
+    Python bool is accepted only in L columns. Empty frames need an explicit
+    schema for extra properties, since their widths cannot be inferred.
+
+    ``to_extxyz(**from_extxyz(text))`` retains supported types, widths, values,
+    atom order, cell, raw info and plain XYZ comments. With structured fields,
+    the header is rebuilt and the comment is superseded. Spelling/spacing may
+    change. Bonds, formal charges, isotope identity and stereo are not projected.
 
     Raises:
-        ValueError: if `coords`' length doesn't match `mol`'s atom count.
+        ValueError: on invalid schemas, shapes, types, nonfinite values,
+        unsafe tokens/names, reserved aliases or duplicate semantic columns.
     """
     ...
 
@@ -3945,6 +4108,10 @@ def write_mmcif(
 ) -> str:
     """Write an mmCIF file from atom records (same dict shape as
     :func:`parse_mmcif`'s ``"atoms"``).
+
+    Retains finite binary64 coordinates, occupancy, B factors and cell
+    parameters without decimal rounding. Original spelling and uncertainty
+    suffixes are not retained. Existing identity-namespace limits still apply.
     """
     ...
 
@@ -4004,6 +4171,15 @@ def parse_orca_cartesian(text: str, *, max_input_bytes: int = 16_777_216, max_at
     Values are not rescaled; Angs/Bohrs or default Angstrom. Refuses conflicting
     unit declarations, %coords overrides, internal/external geometry and limits.
     Opaque extras are not interpreted; JSON output is limited to 16 MiB.
+    """
+    ...
+
+def write_orca_input_checked(input: dict[str, Any], *, max_output_bytes: int = 67_108_864) -> str:
+    """Write represented xyz ORCA fields with exact finite coordinate values.
+
+    Preserves unit keywords, charge/spin, freeze flags, extras and opaque blocks;
+    refuses unsupported units, defaults for missing required fields and any
+    represented metadata that would change on reparse. Not source/job validation.
     """
     ...
 
@@ -4161,6 +4337,14 @@ def shape_screen(query: Mol, smiles_list: list[str]) -> list[tuple[int, float]]:
     """
     ...
 
+def rdkit_usr_descriptors(coords: list[tuple[float, float, float]]) -> list[float]:
+    """Return RDKit-compatible 12-value USR moments for supplied coordinates.
+
+    Include explicit hydrogen coordinates when the reference conformer has
+    them. Raises ValueError for fewer than three atoms or nonfinite geometry.
+    """
+    ...
+
 def top_k_similar(query: str, smiles: list[str], k: int = 10) -> list[tuple[int, float]]:
     """Find the top-K ECFP4 matches for a query SMILES.
 
@@ -4202,6 +4386,16 @@ def maxmin_picks(smiles: list[str], n: int) -> list[int]:
 
         picks = chematic.maxmin_picks(smiles, 100)
         diverse_set = [smiles[i] for i in picks]
+    """
+    ...
+
+def normalize_reaction_cxsmiles(text: str | bytes, *, canonical: bool = True) -> str:
+    """Preserve enhanced atom-group membership through reaction ordering.
+
+    Supports a/&n/on groups with global reactant/agent/product atom indices.
+    Other CX fields, titles, invalid references and non-tetrahedral members
+    raise ValueError. Group numbers are reaction-wide and preserved. This is
+    not a unique enhanced-stereo reaction key; legacy writers are unchanged.
     """
     ...
 
@@ -4766,6 +4960,35 @@ def find_mcs_checked(
         mcs, timed_out = chematic.find_mcs_checked(mols, timeout_ms=500)
         if timed_out:
             print("warning: MCS may not be optimal")
+    """
+    ...
+
+def find_mcs_smarts_checked(
+    mols: list[Mol],
+    match_bonds: bool = True,
+    min_atoms: int = 1,
+    timeout_ms: Optional[int] = None,
+    ring_matches_ring_only: bool = False,
+    complete_rings_only: bool = False,
+    atom_compare: McsAtomComparison = "elements",
+    bond_compare: McsBondComparison = "order_or_aromatic",
+    maximize_bonds: bool = True,
+    max_search_nodes: Optional[int] = None,
+    *,
+    match_charge: bool = False,
+    match_isotope: bool = False,
+    bond_count_first: bool = False,
+    match_chiral_tag: bool = False,
+) -> tuple[Optional[str], bool]:
+    """Return the MCS SMARTS query and whether the deadline stopped the search.
+
+    Unlike :func:`find_mcs_checked`, this retains all observed atom and bond
+    alternatives under relaxed comparison. A resource limit raises
+    ``ChematicInputError``. Charge and isotope constraints are preserved when
+    requested. Set ``bond_count_first=True`` to maximize bonds first, then atoms.
+    Set ``match_chiral_tag=True`` to retain absolute tetrahedral orientation
+    with at least three common bonds and chirality presence on smaller frames.
+    Non-tetrahedral and relative stereo raise ``ValueError``.
     """
     ...
 
@@ -5574,6 +5797,8 @@ def convert_format(
     Coordinate, charge, name and comment overrides are refused on those paths.
     CJSON source retention validates the immutable local record profile;
     opaque fields are retained without interpreting their chemistry.
+    V2000/V3000 inputs supply source xyz for CJSON, PDB, XYZ and PDBQT output;
+    target precision/metadata limits apply. Explicit coords retains precedence.
     """
     ...
 
@@ -5724,6 +5949,30 @@ def write_gzmat(elements: Sequence[str], positions_angstrom: Sequence[Sequence[f
     ...
 
 
+def parse_tinker_xyz(text: Union[str, bytes]) -> dict[str, Any]:
+    """Read one Tinker XYZ frame with names, types, neighbors and optional cell."""
+    ...
+
+def write_tinker_xyz(record: dict[str, Any]) -> str:
+    """Write an edited Tinker record; refuse invalid or unknown fields."""
+    ...
+
+def parse_dlpoly_config(text: Union[str, bytes]) -> dict[str, Any]:
+    """Read CONFIG/REVCON retaining source-unit vectors, names, IDs and cell."""
+    ...
+
+def write_dlpoly_config(record: dict[str, Any]) -> str:
+    """Write an edited CONFIG record; refuse unknown or inconsistent data."""
+    ...
+
+def parse_molden(text: Union[str, bytes]) -> dict[str, Any]:
+    """Read the Molden geometry/vibration profile; refuse unsupported sections."""
+    ...
+
+def write_molden(record: dict[str, Any]) -> str:
+    """Write edited Molden geometry/vibration data with explicit source units."""
+    ...
+
 def parse_exyz(text: str, *, max_input_bytes: Optional[int] = None, max_atoms: Optional[int] = None, max_line_len: Optional[int] = None) -> dict[str, Any]:
     """Read ORCA-AICCM EXYZ with explicit virtual flags, lattice and offset."""
     ...
@@ -5739,6 +5988,66 @@ def parse_fhiaims(text: str, *, max_input_bytes: Optional[int] = None, max_atoms
 
 def write_fhiaims(elements: Sequence[str], coordinates: Sequence[Sequence[float]], *, coordinate_kinds: Optional[Sequence[str]] = None, lattice_angstrom: Optional[Sequence[Sequence[float]]] = None, constraints: Optional[Sequence[Sequence[bool]]] = None, initial_charges: Optional[Sequence[Optional[float]]] = None, initial_moments: Optional[Sequence[Optional[float]]] = None, lattice_constraints: Optional[Sequence[Sequence[bool]]] = None) -> str:
     """Write current explicit geometry without discarding fractional kinds or metadata."""
+    ...
+
+def parse_fract(text: str | bytes, *, max_input_bytes: Optional[int] = None, max_atoms: Optional[int] = None, max_line_len: Optional[int] = None) -> dict[str, Any]:
+    """Read title, cell and element/fractional tokens, retaining uncertainty digits."""
+    ...
+
+def write_fract(record: dict[str, Any], *, max_input_bytes: Optional[int] = None, max_atoms: Optional[int] = None, max_line_len: Optional[int] = None) -> str:
+    """Write current checked fields; numeric entries must be decimal strings."""
+    ...
+
+def parse_gpr(text: str | bytes, *, max_input_bytes: Optional[int] = None, max_atoms: Optional[int] = None, max_bonds: Optional[int] = None, max_line_len: Optional[int] = None) -> dict[str, Any]:
+    """Read gpr 100: consecutive atom IDs, bond codes, nm/partial-charge decimal strings."""
+    ...
+
+def write_gpr(record: dict[str, Any], *, max_input_bytes: Optional[int] = None, max_atoms: Optional[int] = None, max_bonds: Optional[int] = None, max_line_len: Optional[int] = None) -> str:
+    """Write current checked fields; absent partial charges remain absent."""
+    ...
+
+def parse_unixyz(text: str | bytes, *, max_input_bytes: Optional[int] = None, max_atoms: Optional[int] = None, max_line_len: Optional[int] = None) -> dict[str, Any]:
+    """Read one UniChem XYZ record: exact title, atomic numbers and coordinate decimal strings."""
+    ...
+
+def write_unixyz(record: dict[str, Any], *, max_input_bytes: Optional[int] = None, max_atoms: Optional[int] = None, max_line_len: Optional[int] = None) -> str:
+    """Write current validated fields in Angstrom; unknown fields refuse."""
+    ...
+
+def parse_viewmol(text: str | bytes, *, max_input_bytes: Optional[int] = None, max_atoms: Optional[int] = None, max_line_len: Optional[int] = None) -> dict[str, Any]:
+    """Read geometry with raw conversion factor, coordinate decimals and fixed axes."""
+    ...
+
+def write_viewmol(record: dict[str, Any], *, max_input_bytes: Optional[int] = None, max_atoms: Optional[int] = None, max_line_len: Optional[int] = None) -> str:
+    """Write current checked fields without rescaling or metadata inference."""
+    ...
+
+def viewmol_positions_angstrom(record: dict[str, Any], *, max_input_bytes: Optional[int] = None, max_atoms: Optional[int] = None, max_line_len: Optional[int] = None) -> list[list[float]]:
+    """Explicit binary64 projection; overflow and underflow to zero refuse."""
+    ...
+
+def parse_lpmd(text: str | bytes, *, max_input_bytes: Optional[int] = None, max_atoms: Optional[int] = None, max_line_len: Optional[int] = None, max_frames: Optional[int] = None) -> dict[str, Any]:
+    """Read all frames of bounded LPMD 2.0 L, retaining column and decimal tokens."""
+    ...
+
+def write_lpmd(record: dict[str, Any], *, max_input_bytes: Optional[int] = None, max_atoms: Optional[int] = None, max_line_len: Optional[int] = None, max_frames: Optional[int] = None) -> str:
+    """Write current validated fields; never replay stale source or omit frames."""
+    ...
+
+def lpmd_positions_angstrom(record: dict[str, Any], *, max_input_bytes: Optional[int] = None, max_atoms: Optional[int] = None, max_line_len: Optional[int] = None, max_frames: Optional[int] = None) -> list[list[list[float]]]:
+    """Explicit Cartesian positions grouped by frame, without wrapping or bonds."""
+    ...
+
+def parse_gromos96(text: str | bytes, *, length_unit: str = "unspecified", max_input_bytes: Optional[int] = None, max_atoms: Optional[int] = None, max_line_len: Optional[int] = None, max_frames: Optional[int] = None) -> dict[str, Any]:
+    """Read bounded GROMOS96 blocks, retaining source labels/comments/fields and external unit context."""
+    ...
+
+def write_gromos96(record: dict[str, Any], *, max_input_bytes: Optional[int] = None, max_atoms: Optional[int] = None, max_line_len: Optional[int] = None, max_frames: Optional[int] = None) -> str:
+    """Validate and write current blocks. Unit context is external to the unmarked text format."""
+    ...
+
+def gromos96_geometry_angstrom(record: dict[str, Any], *, max_input_bytes: Optional[int] = None, max_atoms: Optional[int] = None, max_line_len: Optional[int] = None, max_frames: Optional[int] = None) -> list[dict[str, Any]]:
+    """Project every frame's positions and BOX together, refusing unspecified units or overflow."""
     ...
 
 
@@ -5861,8 +6170,19 @@ def write_pdbqt_checked(mol: Mol, coords: Sequence[Sequence[float]], charges: Se
     """Rigid PDBQT with exact counts, finite values and checked field widths.
 
     Coordinates are in angstroms, partial charges in e, per graph atom including
-    explicit H. Raises ValueError for unrepresentable input. AutoDock types use
+    explicit H. Raises ValueError for isotope labels or unrepresentable input. AutoDock types use
     the existing heuristic; no charge calculation or ligand preparation.
+    """
+    ...
+
+
+def project_pdbqt_isotopes(mol: Mol, coords: Sequence[Sequence[float]], charges: Sequence[float], name: str = "LIG") -> dict:
+    """Explicit isotope omission: returns rigid pdbqt and isotopes_omitted.
+
+    Each loss has source_atom_index (zero based), pdbqt_serial (one based),
+    atomic_number and mass_number. Every explicit atom is retained. Coordinates
+    and supplied partial charges round to three decimals. The source Mol is
+    unchanged. This is not a lossless graph round trip or ligand preparation.
     """
     ...
 
@@ -6029,3 +6349,15 @@ def parse_gjf_document_json(
     converted and no bonds are inferred. JSON output is capped at 16 MiB.
     """
     ...
+
+# Classic formatted DL-POLY HISTORY; raw source units, all frames.
+def parse_dlpoly_history(text: str | bytes) -> dict[str, Any]: ...
+def write_dlpoly_history(record: dict[str, Any]) -> str: ...
+
+# Cartesian GEOMETRY blocks, not full NWChem calculation decks.
+def parse_nwchem_geometry(text: str | bytes) -> dict[str, Any]: ...
+def write_nwchem_geometry(record: dict[str, Any]) -> str: ...
+
+# Nonperiodic BIOGRF 200 records (no inferred element or formal charge).
+def parse_bgf(text: str | bytes) -> dict[str, Any]: ...
+def write_bgf(record: dict[str, Any]) -> str: ...

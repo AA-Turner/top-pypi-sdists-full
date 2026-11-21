@@ -1,16 +1,30 @@
 from __future__ import annotations
 
+import html
+import string
 from typing import Final
 
 import pytest
 
-from turbohtml import parse, parse_fragment
+from turbohtml import Element, parse, parse_fragment
 
 
 @pytest.mark.parametrize(
     ("html", "fallback", "expected"),
     [
         pytest.param('<base href="/sub/page">', "http://site.com/dir/", "http://site.com/sub/page", id="relative-base"),
+        pytest.param(
+            '<base href="sub/page.html">', "http://site.com/dir/", "http://site.com/dir/sub/page.html", id="dotted-name"
+        ),
+        pytest.param(
+            '<base href="/.well-known/x.y">',
+            "http://site.com/dir/",
+            "http://site.com/.well-known/x.y",
+            id="dot-led-name",
+        ),
+        pytest.param('<base href="a/../b">', "http://site.com/dir/", "http://site.com/dir/b", id="double-dot-segment"),
+        pytest.param('<base href="./a">', "http://site.com/dir/", "http://site.com/dir/a", id="dot-segment"),
+        pytest.param('<base href="//other.com/p">', "http://site.com/dir/", "http://other.com/p", id="authority"),
         pytest.param('<base href="http://abs.com/x">', "http://site.com/", "http://abs.com/x", id="absolute-base"),
         pytest.param('<base href="data:text/plain,x">', "http://site.com/", "http://site.com/", id="data-base"),
         pytest.param('<base href="JaVaScRiPt:alert(1)">', "http://site.com/", "http://site.com/", id="javascript-base"),
@@ -106,6 +120,12 @@ def test_base_url_empty_href_rejects_malformed_fallback(fallback: str) -> None:
         pytest.param("https://site.com/p#old", "https://site.com/p#old", id="fragment-kept"),
         pytest.param("https://h:99999/", "https://h:99999/", id="unparsable-kept-as-written"),
         pytest.param("", "", id="empty-kept"),
+        pytest.param("http://site.com/a/./b", "http://site.com/a/b", id="dot-segment-collapsed"),
+        pytest.param("http://site.com/a/../b", "http://site.com/b", id="double-dot-segment-collapsed"),
+        pytest.param("http://site.com/.well-known/a.b", "http://site.com/.well-known/a.b", id="dotted-segments-kept"),
+        pytest.param("http://site.com/.a/b", "http://site.com/.a/b", id="dot-led-short-segment-kept"),
+        pytest.param("http://a..org/x", "http://a..org/x", id="empty-host-label"),
+        pytest.param("http://xn--bcher-kva.org/p", "http://xn--bcher-kva.org/p", id="punycode-host-label"),
     ],
 )
 def test_base_url_normalizes_fallback_without_base_element(fallback: str, expected: str) -> None:
@@ -308,6 +328,29 @@ def test_base_url_resolves_simple_web_path(href: str, expected: str) -> None:
 def test_base_url_percent_encodes(href: str, fallback: str, expected: str) -> None:
     # the resolved base URL applies the WHATWG path/query/fragment percent-encode sets, so it is a valid URL string
     assert parse(f'<base href="{href}">').base_url(fallback) == expected
+
+
+_PERCENT_SAFE: Final[frozenset[str]] = frozenset(f"{string.ascii_letters}{string.digits}-._~:/?&=#%")
+
+
+@pytest.mark.parametrize(
+    "character", [pytest.param(character, id=f"{ord(character):#04x}") for character in sorted(_PERCENT_SAFE)]
+)
+def test_base_url_keeps_every_percent_safe_character(character: str) -> None:
+    assert parse(_base_with_href(f"/a{character}b")).base_url("http://site.com/") == f"http://site.com/a{character}b"
+
+
+def _base_with_href(href: str) -> str:
+    return f'<base href="{html.escape(href, quote=True)}">'
+
+
+@pytest.mark.parametrize("byte", [pytest.param(value, id=f"{value:#04x}") for value in range(256)])
+def test_base_url_encodes_every_byte_outside_the_percent_safe_set(byte: int) -> None:
+    # a non-ASCII character sends the URL to the encoder, which encodes it: the mixed URL is the bare one plus that
+    character = chr(byte)
+    bare = parse(_base_with_href(f"/a{character}b")).base_url("http://site.com/")
+    mixed = parse(_base_with_href(f"/a{character}b\u00e9")).base_url("http://site.com/")
+    assert mixed == f"{bare}%C3%A9"
 
 
 @pytest.mark.parametrize(
@@ -1308,7 +1351,7 @@ def test_meta_refresh_selection(html: str, expected: tuple[float, str] | None) -
     ],
 )
 def test_resolve_links_resolves_backslash_scheme_relative(base: str, reference: str, expected: str) -> None:
-    fragment: Final = parse_fragment(f'<a href="{reference}"></a>')
+    fragment: Final[Element] = parse_fragment(f'<a href="{reference}"></a>')
     fragment.resolve_links(base)
     assert fragment.serialize() == f'<div><a href="{expected}"></a></div>'
 
@@ -1322,6 +1365,6 @@ def test_resolve_links_resolves_backslash_scheme_relative(base: str, reference: 
     ],
 )
 def test_resolve_links_keeps_a_special_host_as_written(href: str, expected: str) -> None:
-    fragment: Final = parse_fragment(f'<a href="{href}"></a>')
+    fragment: Final[Element] = parse_fragment(f'<a href="{href}"></a>')
     fragment.resolve_links("https://example.com/dir/page.html")
     assert fragment.serialize() == f'<div><a href="{expected}"></a></div>'

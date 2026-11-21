@@ -81,6 +81,15 @@ class Rama(BaseModel):
         default=None, description="Acción externa: avisar a un destino externo de la empresa"
     )
 
+    # 0.6.57.10 — «Pasar al motivo…» (nuevo inicio, 2026-11-19): después de mandar `enviar` y aplicar `acciones`,
+    # el chat pasa a ese motivo y sigue con lo de él (su respuesta, su IA, sus seguimientos). Ej. MA Distribución:
+    # «consumidor final» → el motivo que manda la web. Con él, lo que la rama haría DESPUÉS (seguimientos, «Cuando
+    # responde», «Si responde») nunca correría: no se puede definir. api-chatty valida que el motivo exista, esté
+    # activo y no sea Consulta general ni el dueño de la precalificación. No se hereda del motivo.
+    pasar_a_motivo_id: Optional[StrObjectId] = Field(
+        default=None, description="Pasar el chat a este motivo cuando corre la rama. None = se queda en el motivo",
+    )
+
     @model_validator(mode="after")
     def validar(self) -> "Rama":
         if getattr(self.enviar, "tipo", None) == "precalificar":
@@ -88,6 +97,11 @@ class Rama(BaseModel):
         gestion = self.al_responder.gestion_ia if self.al_responder is not None else None
         if getattr(gestion, "tipo", None) == "precalificar":
             raise ValueError("Una rama no puede precalificar otra vez")
+        if self.pasar_a_motivo_id is not None and (
+            self.seguimientos is not None or self.al_responder is not None or self.si_responde is not None
+        ):
+            raise ValueError(
+                "La rama pasa a otro motivo: lo que sigue (seguimientos, «Cuando responde», «Si responde») es de ese motivo")
         if self.target_stage_id and not self.target_funnel_id:
             raise ValueError("Para elegir una etapa hace falta el funnel")
         a = self.acciones

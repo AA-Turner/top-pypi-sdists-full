@@ -1184,13 +1184,20 @@ async fn rejected_older_generation_preserves_members_cursor_and_delivery_proof()
 }
 
 #[test]
-fn offline_and_proxy_instances_skip_shared_storage_initialization() {
+fn offline_proxy_and_lazy_instances_skip_shared_storage_initialization() {
     use crate::networking::proxy_config::ProxyConfig;
-    for (offline, proxy) in [(true, false), (false, true), (false, false)] {
+    for (offline, proxy, lazy) in [
+        (true, false, None),
+        (false, true, None),
+        (false, false, None),
+        (false, false, Some(false)),
+        (false, false, Some(true)),
+    ] {
         let temp = tempfile::tempdir().unwrap();
         let shared = temp.path().join("shared");
         let options = StatsigOptions {
             enable_id_lists: Some(true),
+            lazy_load_id_lists: lazy,
             disable_network: Some(offline),
             shared_id_lists_dir: Some(shared.to_str().unwrap().to_owned()),
             proxy_config: proxy.then(|| ProxyConfig {
@@ -1203,7 +1210,11 @@ fn offline_and_proxy_instances_skip_shared_storage_initialization() {
             ..Default::default()
         };
         let _sdk = crate::Statsig::new("secret-shared-policy", Some(Arc::new(options)));
-        assert_eq!(shared.exists(), !offline && !proxy);
+        assert_eq!(
+            shared.exists(),
+            !offline && !proxy && lazy != Some(true),
+            "offline={offline}, proxy={proxy}, lazy={lazy:?}"
+        );
     }
 }
 

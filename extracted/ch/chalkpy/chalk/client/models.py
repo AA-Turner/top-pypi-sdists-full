@@ -7,7 +7,7 @@ import os
 import traceback
 import uuid
 from collections.abc import Mapping, Sequence
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum, IntEnum
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Literal, Optional, Tuple, TypeAlias, Union
 
@@ -1147,6 +1147,42 @@ class OfflineQueryDeadlineOptions(BaseModel):
 
 
 class CreateOfflineQueryJobRequest(BaseModel):
+    namespace_filters: Mapping[str, Mapping[str, datetime | str | None]] | None = None
+
+    @validator("namespace_filters")
+    def _validate_namespace_filters(
+        cls, value: Mapping[str, Mapping[str, datetime | str | None]] | None
+    ) -> Dict[str, Dict[str, str]] | None:
+        if value is None:
+            return value
+        if not value:
+            raise ValueError("namespace_filters must name at least one namespace")
+        normalized: Dict[str, Dict[str, str]] = {}
+        for namespace, bounds in value.items():
+            if not namespace or any(key not in ("feature_time_min", "feature_time_max") for key in bounds):
+                raise ValueError(
+                    "namespace_filters requires namespace names and feature_time_min/feature_time_max bounds"
+                )
+            timestamps: Dict[str, datetime] = {}
+            for key, bound in bounds.items():
+                if bound is None:
+                    continue
+                if isinstance(bound, str):
+                    bound = datetime.fromisoformat(bound.replace("Z", "+00:00"))
+                if bound.utcoffset() is None:
+                    raise ValueError("namespace_filters timestamps must include a timezone")
+                timestamps[key] = bound.astimezone(timezone.utc)
+            if not timestamps:
+                raise ValueError("namespace_filters requires at least one non-null bound")
+            if (
+                "feature_time_min" in timestamps
+                and "feature_time_max" in timestamps
+                and timestamps["feature_time_min"] > timestamps["feature_time_max"]
+            ):
+                raise ValueError("namespace_filters feature_time_min must be <= feature_time_max")
+            normalized[namespace] = {key: bound.isoformat() for key, bound in timestamps.items()}
+        return normalized
+
     output: List[str]
     """A list of output feature root fqns to query"""
 

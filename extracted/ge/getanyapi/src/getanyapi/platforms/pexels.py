@@ -167,7 +167,7 @@ class PexelsNamespace:
         several sizes, dimensions, alt text, the photographer's name and profile,
         and the photo's Pexels page.
 
-        Price: $0.00055 per request plus $0.0033 per result (maximum $0.0666).
+        Price: $0.0006 per request plus $0.0036 per result (maximum $0.0726).
 
         Example:
             res = client.pexels.search_photos(limit=2, query="coffee")
@@ -196,7 +196,7 @@ class AsyncPexelsNamespace:
         several sizes, dimensions, alt text, the photographer's name and profile,
         and the photo's Pexels page.
 
-        Price: $0.00055 per request plus $0.0033 per result (maximum $0.0666).
+        Price: $0.0006 per request plus $0.0036 per result (maximum $0.0726).
 
         Example:
             res = client.pexels.search_photos(limit=2, query="coffee")

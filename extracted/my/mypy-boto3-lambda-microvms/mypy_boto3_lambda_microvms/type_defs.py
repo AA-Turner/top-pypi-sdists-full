@@ -410,6 +410,7 @@ class GetMicrovmResponseTypeDef(TypedDict):
     startedAt: datetime
     terminatedAt: datetime
     stateReason: str
+    kmsKeyIdentifier: str
     ingressNetworkConnectors: list[str]
     egressNetworkConnectors: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -427,6 +428,7 @@ class RunMicrovmResponseTypeDef(TypedDict):
     startedAt: datetime
     terminatedAt: datetime
     stateReason: str
+    kmsKeyIdentifier: str
     ingressNetworkConnectors: list[str]
     egressNetworkConnectors: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -532,6 +534,7 @@ class CreateMicrovmImageResponseTypeDef(TypedDict):
     additionalOsCapabilities: list[Literal["ALL"]]
     hooks: HooksTypeDef
     environmentVariables: dict[str, str]
+    kmsKeyIdentifier: str
     tags: dict[str, str]
     updatedAt: datetime
     imageVersion: str
@@ -551,6 +554,7 @@ class GetMicrovmImageVersionOutputTypeDef(TypedDict):
     additionalOsCapabilities: list[Literal["ALL"]]
     hooks: HooksTypeDef
     environmentVariables: dict[str, str]
+    kmsKeyIdentifier: str
     imageArn: str
     imageVersion: str
     state: MicrovmImageVersionStateType
@@ -580,6 +584,7 @@ class MicrovmImageVersionSummaryTypeDef(TypedDict):
     additionalOsCapabilities: NotRequired[list[Literal["ALL"]]]
     hooks: NotRequired[HooksTypeDef]
     environmentVariables: NotRequired[dict[str, str]]
+    kmsKeyIdentifier: NotRequired[str]
     updatedAt: NotRequired[datetime]
     stateReason: NotRequired[str]
     tags: NotRequired[dict[str, str]]
@@ -604,6 +609,7 @@ class UpdateMicrovmImageResponseTypeDef(TypedDict):
     additionalOsCapabilities: list[Literal["ALL"]]
     hooks: HooksTypeDef
     environmentVariables: dict[str, str]
+    kmsKeyIdentifier: str
     updatedAt: datetime
     imageVersion: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -622,6 +628,7 @@ class UpdateMicrovmImageVersionResponseTypeDef(TypedDict):
     additionalOsCapabilities: list[Literal["ALL"]]
     hooks: HooksTypeDef
     environmentVariables: dict[str, str]
+    kmsKeyIdentifier: str
     imageArn: str
     imageVersion: str
     state: MicrovmImageVersionStateType
@@ -653,6 +660,7 @@ class CreateMicrovmImageRequestTypeDef(TypedDict):
     additionalOsCapabilities: NotRequired[Sequence[Literal["ALL"]]]
     hooks: NotRequired[HooksTypeDef]
     environmentVariables: NotRequired[Mapping[str, str]]
+    kmsKeyIdentifier: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
     clientToken: NotRequired[str]
 
@@ -665,6 +673,7 @@ class RunMicrovmRequestTypeDef(TypedDict):
     executionRoleArn: NotRequired[str]
     idlePolicy: NotRequired[IdlePolicyTypeDef]
     logging: NotRequired[LoggingUnionTypeDef]
+    kmsKeyIdentifier: NotRequired[str]
     runHookPayload: NotRequired[str]
     maximumDurationInSeconds: NotRequired[int]
     clientToken: NotRequired[str]
@@ -684,6 +693,7 @@ class UpdateMicrovmImageRequestTypeDef(TypedDict):
     additionalOsCapabilities: NotRequired[Sequence[Literal["ALL"]]]
     hooks: NotRequired[HooksTypeDef]
     environmentVariables: NotRequired[Mapping[str, str]]
+    kmsKeyIdentifier: NotRequired[str]
     clientToken: NotRequired[str]
 
 

@@ -24,6 +24,7 @@ from typing import IO, Any, Union
 from botocore.response import StreamingBody
 
 from .literals import (
+    AccessControlApplicationStatusType,
     ActionConnectorSearchFilterNameEnumType,
     ActionConnectorTypeType,
     AgentLifecycleType,
@@ -138,13 +139,16 @@ from .literals import (
     GeospatialLayerTypeType,
     GeospatialMapNavigationType,
     GeospatialSelectedPointStyleType,
+    GovernedActionType,
     HierarchyFilterMatchOperatorType,
     HistogramBinTypeType,
     HorizontalTextAlignmentType,
     IconType,
     IdentityTypeType,
+    IdpAuthorizingTypeType,
     ImageCustomActionTriggerType,
     ImageExtractionStatusType,
+    InboundConnectorStatusType,
     IncludeFolderMembersType,
     IncludeGeneratedAnswerType,
     IncludeQuickSightQIndexType,
@@ -156,7 +160,9 @@ from .literals import (
     InputColumnDataTypeType,
     JoinOperationTypeType,
     JoinTypeType,
+    KbDayOfWeekType,
     KbIngestionStatusType,
+    KbRefreshIntervalType,
     KnowledgeBaseSearchFilterNameType,
     KnowledgeBaseSearchOperatorType,
     KnowledgeBaseSortByFieldType,
@@ -201,7 +207,9 @@ from .literals import (
     PivotTableRowsLayoutType,
     PivotTableSubtotalLevelType,
     PluginVisualAxisNameType,
+    PolicyTypeType,
     PrimaryValueDisplayTypeType,
+    PrincipalTypeType,
     PropertyRoleType,
     PropertyUsageType,
     PurchaseModeType,
@@ -228,6 +236,7 @@ from .literals import (
     RoleType,
     RowLevelPermissionFormatVersionType,
     RowLevelPermissionPolicyType,
+    ScheduleStateType,
     SearchAppsFilterNameType,
     SearchFilterOperatorType,
     SectionPageBreakStatusType,
@@ -320,6 +329,8 @@ else:
 
 __all__ = (
     "APIKeyConnectionMetadataTypeDef",
+    "AccessControlApplicationSummaryTypeDef",
+    "AccessControlApplicationTypeDef",
     "AccessControlConfigurationTypeDef",
     "AccountCustomizationTypeDef",
     "AccountInfoTypeDef",
@@ -516,11 +527,19 @@ __all__ = (
     "BatchDeleteKnowledgeBaseRequestTypeDef",
     "BatchDeleteKnowledgeBaseResponseTypeDef",
     "BatchDeleteKnowledgeBaseSuccessTypeDef",
+    "BatchDeletePolicyAssignmentByPolicyRequestTypeDef",
+    "BatchDeletePolicyAssignmentByPolicyResponseTypeDef",
+    "BatchDeletePolicyAssignmentErrorTypeDef",
+    "BatchDeletePolicyAssignmentSuccessTypeDef",
     "BatchDeleteTopicReviewedAnswerRequestTypeDef",
     "BatchDeleteTopicReviewedAnswerResponseTypeDef",
     "BatchDescribeUserLimitsErrorTypeDef",
     "BatchDescribeUserLimitsRequestTypeDef",
     "BatchDescribeUserLimitsResponseTypeDef",
+    "BatchPutPolicyAssignmentByPolicyRequestTypeDef",
+    "BatchPutPolicyAssignmentByPolicyResponseTypeDef",
+    "BatchPutPolicyAssignmentErrorTypeDef",
+    "BatchPutPolicyAssignmentSuccessTypeDef",
     "BigQueryParametersTypeDef",
     "BinCountOptionsTypeDef",
     "BinWidthOptionsTypeDef",
@@ -588,6 +607,8 @@ __all__ = (
     "ClientCredentialsDetailsTypeDef",
     "ClientCredentialsGrantDetailsTypeDef",
     "ClientCredentialsGrantMetadataTypeDef",
+    "ClientSecretConfigurationDetailTypeDef",
+    "ClientSecretConfigurationTypeDef",
     "ClusterMarkerConfigurationTypeDef",
     "ClusterMarkerTypeDef",
     "CollectiveConstantEntryTypeDef",
@@ -660,6 +681,10 @@ __all__ = (
     "ControlTitleFontConfigurationTypeDef",
     "ControlTitleFormatTextTypeDef",
     "CoordinateTypeDef",
+    "CreateAccessControlApplicationRequestTypeDef",
+    "CreateAccessControlApplicationResponseTypeDef",
+    "CreateAccessControlApplicationSecretRequestTypeDef",
+    "CreateAccessControlApplicationSecretResponseTypeDef",
     "CreateAccountCustomizationRequestTypeDef",
     "CreateAccountCustomizationResponseTypeDef",
     "CreateAccountSubscriptionRequestTypeDef",
@@ -699,8 +724,12 @@ __all__ = (
     "CreateGroupResponseTypeDef",
     "CreateIAMPolicyAssignmentRequestTypeDef",
     "CreateIAMPolicyAssignmentResponseTypeDef",
+    "CreateInboundConnectorRequestTypeDef",
+    "CreateInboundConnectorResponseTypeDef",
     "CreateIngestionRequestTypeDef",
     "CreateIngestionResponseTypeDef",
+    "CreateKnowledgeBaseRefreshScheduleRequestTypeDef",
+    "CreateKnowledgeBaseRefreshScheduleResponseTypeDef",
     "CreateKnowledgeBaseRequestTypeDef",
     "CreateKnowledgeBaseResponseTypeDef",
     "CreateLimitsProfileRequestTypeDef",
@@ -929,6 +958,10 @@ __all__ = (
     "DefaultSliderControlOptionsTypeDef",
     "DefaultTextAreaControlOptionsTypeDef",
     "DefaultTextFieldControlOptionsTypeDef",
+    "DeleteAccessControlApplicationRequestTypeDef",
+    "DeleteAccessControlApplicationResponseTypeDef",
+    "DeleteAccessControlApplicationSecretRequestTypeDef",
+    "DeleteAccessControlApplicationSecretResponseTypeDef",
     "DeleteAccountCustomPermissionRequestTypeDef",
     "DeleteAccountCustomPermissionResponseTypeDef",
     "DeleteAccountCustomizationRequestTypeDef",
@@ -976,6 +1009,10 @@ __all__ = (
     "DeleteIAMPolicyAssignmentResponseTypeDef",
     "DeleteIdentityPropagationConfigRequestTypeDef",
     "DeleteIdentityPropagationConfigResponseTypeDef",
+    "DeleteInboundConnectorRequestTypeDef",
+    "DeleteInboundConnectorResponseTypeDef",
+    "DeleteKnowledgeBaseRefreshScheduleRequestTypeDef",
+    "DeleteKnowledgeBaseRefreshScheduleResponseTypeDef",
     "DeleteKnowledgeBaseRequestTypeDef",
     "DeleteKnowledgeBaseResponseTypeDef",
     "DeleteLimitsProfileRequestTypeDef",
@@ -984,6 +1021,7 @@ __all__ = (
     "DeleteNamespaceResponseTypeDef",
     "DeleteOAuthClientApplicationRequestTypeDef",
     "DeleteOAuthClientApplicationResponseTypeDef",
+    "DeletePolicyAssignmentRequestTypeDef",
     "DeleteRefreshScheduleRequestTypeDef",
     "DeleteRefreshScheduleResponseTypeDef",
     "DeleteRoleCustomPermissionRequestTypeDef",
@@ -1014,6 +1052,8 @@ __all__ = (
     "DeleteUserResponseTypeDef",
     "DeleteVPCConnectionRequestTypeDef",
     "DeleteVPCConnectionResponseTypeDef",
+    "DescribeAccessControlApplicationRequestTypeDef",
+    "DescribeAccessControlApplicationResponseTypeDef",
     "DescribeAccountCustomPermissionRequestTypeDef",
     "DescribeAccountCustomPermissionResponseTypeDef",
     "DescribeAccountCustomizationRequestTypeDef",
@@ -1098,6 +1138,8 @@ __all__ = (
     "DescribeGroupResponseTypeDef",
     "DescribeIAMPolicyAssignmentRequestTypeDef",
     "DescribeIAMPolicyAssignmentResponseTypeDef",
+    "DescribeInboundConnectorRequestTypeDef",
+    "DescribeInboundConnectorResponseTypeDef",
     "DescribeIngestionRequestTypeDef",
     "DescribeIngestionResponseTypeDef",
     "DescribeIpRestrictionRequestTypeDef",
@@ -1106,6 +1148,8 @@ __all__ = (
     "DescribeKeyRegistrationResponseTypeDef",
     "DescribeKnowledgeBasePermissionsRequestTypeDef",
     "DescribeKnowledgeBasePermissionsResponseTypeDef",
+    "DescribeKnowledgeBaseRefreshScheduleRequestTypeDef",
+    "DescribeKnowledgeBaseRefreshScheduleResponseTypeDef",
     "DescribeKnowledgeBaseRequestTypeDef",
     "DescribeKnowledgeBaseResponseTypeDef",
     "DescribeLimitsProfileRequestTypeDef",
@@ -1188,6 +1232,12 @@ __all__ = (
     "ExportHiddenFieldsOptionTypeDef",
     "ExportToCSVOptionTypeDef",
     "ExportWithHiddenFieldsOptionTypeDef",
+    "ExternalIdpConfidentialAuthCodeAuthorizingConfigInputTypeDef",
+    "ExternalIdpConfidentialAuthCodeAuthorizingConfigSummaryTypeDef",
+    "ExternalIdpConfidentialAuthCodeAuthorizingConfigTypeDef",
+    "ExternalIdpConfidentialAuthCodeAuthorizingConfigUpdateInputTypeDef",
+    "ExternalIdpConfidentialClientSecretTypeDef",
+    "ExternalIdpPublicAuthCodeAuthorizingConfigTypeDef",
     "FMKBParametersOutputTypeDef",
     "FMKBParametersTypeDef",
     "FMKBParametersUnionTypeDef",
@@ -1396,6 +1446,8 @@ __all__ = (
     "GetFlowPermissionsOutputTypeDef",
     "GetIdentityContextRequestTypeDef",
     "GetIdentityContextResponseTypeDef",
+    "GetPolicyAssignmentRequestTypeDef",
+    "GetPolicyAssignmentResponseTypeDef",
     "GetSessionEmbedUrlRequestTypeDef",
     "GetSessionEmbedUrlResponseTypeDef",
     "GlobalTableBorderOptionsTypeDef",
@@ -1454,8 +1506,18 @@ __all__ = (
     "IAMConnectionMetadataTypeDef",
     "IAMPolicyAssignmentSummaryTypeDef",
     "IAMPolicyAssignmentTypeDef",
+    "IdcTrustedTokenIssuerConfigTypeDef",
     "IdentifierTypeDef",
     "IdentityCenterConfigurationTypeDef",
+    "IdpAuthorizingConfigInputTypeDef",
+    "IdpAuthorizingConfigSummaryTypeDef",
+    "IdpAuthorizingConfigTypeDef",
+    "IdpAuthorizingConfigUpdateInputTypeDef",
+    "IdpAuthorizingConfigurationDetailInputTypeDef",
+    "IdpAuthorizingConfigurationDetailTypeDef",
+    "IdpAuthorizingConfigurationDetailUpdateInputTypeDef",
+    "IdpAuthorizingConfigurationSummaryDetailTypeDef",
+    "IdpClientSecretInputTypeDef",
     "ImageConfigurationTypeDef",
     "ImageCustomActionOperationOutputTypeDef",
     "ImageCustomActionOperationTypeDef",
@@ -1474,6 +1536,10 @@ __all__ = (
     "ImportTableOperationSourceOutputTypeDef",
     "ImportTableOperationSourceTypeDef",
     "ImportTableOperationTypeDef",
+    "InboundConnectorApplicationAssociationSummaryTypeDef",
+    "InboundConnectorConfigTypeDef",
+    "InboundConnectorSummaryTypeDef",
+    "InboundConnectorTypeDef",
     "IncrementalRefreshTypeDef",
     "IngestionTypeDef",
     "InlineCustomInstructionTypeDef",
@@ -1537,6 +1603,9 @@ __all__ = (
     "KnowledgeBaseConfigurationTypeDef",
     "KnowledgeBaseConfigurationUnionTypeDef",
     "KnowledgeBaseIngestionSummaryTypeDef",
+    "KnowledgeBaseRefreshFrequencyTypeDef",
+    "KnowledgeBaseRefreshScheduleSummaryTypeDef",
+    "KnowledgeBaseScheduleRefreshOnEntityTypeDef",
     "KnowledgeBaseSearchFilterTypeDef",
     "KnowledgeBaseSortByTypeDef",
     "KnowledgeBaseSummaryTypeDef",
@@ -1574,6 +1643,9 @@ __all__ = (
     "LinkSharingConfigurationOutputTypeDef",
     "LinkSharingConfigurationTypeDef",
     "LinkSharingConfigurationUnionTypeDef",
+    "ListAccessControlApplicationsRequestPaginateTypeDef",
+    "ListAccessControlApplicationsRequestTypeDef",
+    "ListAccessControlApplicationsResponseTypeDef",
     "ListActionConnectorsRequestPaginateTypeDef",
     "ListActionConnectorsRequestTypeDef",
     "ListActionConnectorsResponseTypeDef",
@@ -1644,9 +1716,18 @@ __all__ = (
     "ListIAMPolicyAssignmentsResponseTypeDef",
     "ListIdentityPropagationConfigsRequestTypeDef",
     "ListIdentityPropagationConfigsResponseTypeDef",
+    "ListInboundConnectorApplicationAssociationsRequestPaginateTypeDef",
+    "ListInboundConnectorApplicationAssociationsRequestTypeDef",
+    "ListInboundConnectorApplicationAssociationsResponseTypeDef",
+    "ListInboundConnectorsRequestPaginateTypeDef",
+    "ListInboundConnectorsRequestTypeDef",
+    "ListInboundConnectorsResponseTypeDef",
     "ListIngestionsRequestPaginateTypeDef",
     "ListIngestionsRequestTypeDef",
     "ListIngestionsResponseTypeDef",
+    "ListKnowledgeBaseRefreshSchedulesRequestPaginateTypeDef",
+    "ListKnowledgeBaseRefreshSchedulesRequestTypeDef",
+    "ListKnowledgeBaseRefreshSchedulesResponseTypeDef",
     "ListKnowledgeBasesRequestPaginateTypeDef",
     "ListKnowledgeBasesRequestTypeDef",
     "ListKnowledgeBasesResponseTypeDef",
@@ -1659,6 +1740,9 @@ __all__ = (
     "ListOAuthClientApplicationsRequestPaginateTypeDef",
     "ListOAuthClientApplicationsRequestTypeDef",
     "ListOAuthClientApplicationsResponseTypeDef",
+    "ListPrincipalsForPolicyRequestPaginateTypeDef",
+    "ListPrincipalsForPolicyRequestTypeDef",
+    "ListPrincipalsForPolicyResponseTypeDef",
     "ListRefreshSchedulesRequestTypeDef",
     "ListRefreshSchedulesResponseTypeDef",
     "ListRoleMembershipsRequestPaginateTypeDef",
@@ -1888,6 +1972,7 @@ __all__ = (
     "PluginVisualTableQuerySortOutputTypeDef",
     "PluginVisualTableQuerySortTypeDef",
     "PluginVisualTypeDef",
+    "PolicyPrincipalTypeDef",
     "PostgreSqlParametersTypeDef",
     "PredefinedHierarchyOutputTypeDef",
     "PredefinedHierarchyTypeDef",
@@ -1902,13 +1987,24 @@ __all__ = (
     "ProviderConfigOutputTypeDef",
     "ProviderConfigTypeDef",
     "ProviderConfigUnionTypeDef",
+    "PutAssignmentEntryTypeDef",
     "PutDataSetRefreshPropertiesRequestTypeDef",
     "PutDataSetRefreshPropertiesResponseTypeDef",
+    "PutPolicyAssignmentRequestTypeDef",
+    "PutPolicyAssignmentResponseTypeDef",
     "QAResultTypeDef",
     "QBusinessParametersTypeDef",
     "QDataKeyTypeDef",
     "QueryExecutionOptionsTypeDef",
     "QueueInfoTypeDef",
+    "QuickAuthenticationConfigCreateOutputTypeDef",
+    "QuickAuthenticationConfigInputTypeDef",
+    "QuickAuthenticationConfigTypeDef",
+    "QuickAuthenticationConfigurationDetailCreateOutputTypeDef",
+    "QuickAuthenticationConfigurationDetailInputTypeDef",
+    "QuickAuthenticationConfigurationDetailTypeDef",
+    "QuickManagedAuthCodeQuickAuthenticationConfigInputTypeDef",
+    "QuickManagedPublicAuthCodeQuickAuthenticationConfigTypeDef",
     "QuickSuiteActionsOptionTypeDef",
     "RadarChartAggregatedFieldWellsOutputTypeDef",
     "RadarChartAggregatedFieldWellsTypeDef",
@@ -2424,6 +2520,7 @@ __all__ = (
     "UniqueKeyOutputTypeDef",
     "UniqueKeyTypeDef",
     "UniqueValuesComputationTypeDef",
+    "UnmaterializedCalculatedColumnTypeDef",
     "UnpivotOperationOutputTypeDef",
     "UnpivotOperationTypeDef",
     "UntagColumnOperationOutputTypeDef",
@@ -2431,6 +2528,10 @@ __all__ = (
     "UntagColumnOperationUnionTypeDef",
     "UntagResourceRequestTypeDef",
     "UntagResourceResponseTypeDef",
+    "UpdateAccessControlApplicationRequestTypeDef",
+    "UpdateAccessControlApplicationResponseTypeDef",
+    "UpdateAccessControlApplicationSecretRequestTypeDef",
+    "UpdateAccessControlApplicationSecretResponseTypeDef",
     "UpdateAccountCustomPermissionRequestTypeDef",
     "UpdateAccountCustomPermissionResponseTypeDef",
     "UpdateAccountCustomizationRequestTypeDef",
@@ -2499,12 +2600,18 @@ __all__ = (
     "UpdateIAMPolicyAssignmentResponseTypeDef",
     "UpdateIdentityPropagationConfigRequestTypeDef",
     "UpdateIdentityPropagationConfigResponseTypeDef",
+    "UpdateInboundConnectorApplicationAssociationsRequestTypeDef",
+    "UpdateInboundConnectorApplicationAssociationsResponseTypeDef",
+    "UpdateInboundConnectorRequestTypeDef",
+    "UpdateInboundConnectorResponseTypeDef",
     "UpdateIpRestrictionRequestTypeDef",
     "UpdateIpRestrictionResponseTypeDef",
     "UpdateKeyRegistrationRequestTypeDef",
     "UpdateKeyRegistrationResponseTypeDef",
     "UpdateKnowledgeBasePermissionsRequestTypeDef",
     "UpdateKnowledgeBasePermissionsResponseTypeDef",
+    "UpdateKnowledgeBaseRefreshScheduleRequestTypeDef",
+    "UpdateKnowledgeBaseRefreshScheduleResponseTypeDef",
     "UpdateKnowledgeBaseRequestTypeDef",
     "UpdateKnowledgeBaseResponseTypeDef",
     "UpdateLimitsProfileRequestTypeDef",
@@ -3156,6 +3263,19 @@ class BatchDeleteKnowledgeBaseSuccessTypeDef(TypedDict):
     KnowledgeBaseId: str
     KnowledgeBaseArn: str
 
+class BatchDeletePolicyAssignmentByPolicyRequestTypeDef(TypedDict):
+    AccountId: str
+    PolicyArn: str
+    PrincipalArns: Sequence[str]
+
+class BatchDeletePolicyAssignmentErrorTypeDef(TypedDict):
+    PrincipalArn: str
+    ErrorCode: str
+    ErrorMessage: str
+
+class BatchDeletePolicyAssignmentSuccessTypeDef(TypedDict):
+    PrincipalArn: str
+
 class BatchDeleteTopicReviewedAnswerRequestTypeDef(TypedDict):
     AwsAccountId: str
     TopicId: str
@@ -3171,6 +3291,21 @@ class BatchDescribeUserLimitsErrorTypeDef(TypedDict):
 class UserLimitsEntryTypeDef(TypedDict):
     userName: str
     namespace: str
+
+class PutAssignmentEntryTypeDef(TypedDict):
+    PrincipalArn: str
+    ExistingPolicyArn: NotRequired[str]
+    Revision: NotRequired[int]
+
+class BatchPutPolicyAssignmentErrorTypeDef(TypedDict):
+    PrincipalArn: str
+    ErrorCode: str
+    ErrorMessage: str
+
+class BatchPutPolicyAssignmentSuccessTypeDef(TypedDict):
+    PrincipalArn: str
+    Revision: int
+    ReplacedPolicyArn: NotRequired[str]
 
 class BigQueryParametersTypeDef(TypedDict):
     ProjectId: str
@@ -3426,6 +3561,9 @@ class CapabilitiesTypeDef(TypedDict):
     CreateAndUpdateMCPAction: NotRequired[CapabilityStateType]
     ShareMCPAction: NotRequired[CapabilityStateType]
     UseMCPAction: NotRequired[CapabilityStateType]
+    LocalMCPAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateLocalMCPAction: NotRequired[CapabilityStateType]
+    UseLocalMCPAction: NotRequired[CapabilityStateType]
     OpenAPIAction: NotRequired[CapabilityStateType]
     CreateAndUpdateOpenAPIAction: NotRequired[CapabilityStateType]
     ShareOpenAPIAction: NotRequired[CapabilityStateType]
@@ -3859,6 +3997,9 @@ class ClientCredentialsGrantDetailsTypeDef(TypedDict):
     ClientSecret: str
     TokenEndpoint: str
 
+class IdpClientSecretInputTypeDef(TypedDict):
+    RegionalSecretManagerArns: Mapping[str, str]
+
 class SimpleClusterMarkerTypeDef(TypedDict):
     Color: NotRequired[str]
 
@@ -4014,6 +4155,17 @@ class RowLevelPermissionDataSetTypeDef(TypedDict):
     FormatVersion: NotRequired[RowLevelPermissionFormatVersionType]
     Status: NotRequired[StatusType]
 
+UnmaterializedCalculatedColumnTypeDef = TypedDict(
+    "UnmaterializedCalculatedColumnTypeDef",
+    {
+        "ColumnId": str,
+        "ColumnName": str,
+        "Expression": str,
+        "Type": NotRequired[ColumnDataTypeType],
+        "SubType": NotRequired[ColumnDataSubTypeType],
+    },
+)
+
 class CreateFolderMembershipRequestTypeDef(TypedDict):
     AwsAccountId: str
     FolderId: str
@@ -4053,6 +4205,9 @@ class CreateIAMPolicyAssignmentRequestTypeDef(TypedDict):
     Namespace: str
     PolicyArn: NotRequired[str]
     Identities: NotRequired[Mapping[str, Sequence[str]]]
+
+class InboundConnectorConfigTypeDef(TypedDict):
+    InboundConnectorType: Literal["QUICK_DESKTOP"]
 
 class CreateIngestionRequestTypeDef(TypedDict):
     DataSetId: str
@@ -4533,6 +4688,16 @@ class FilterSelectableValuesOutputTypeDef(TypedDict):
 class FilterSelectableValuesTypeDef(TypedDict):
     Values: NotRequired[Sequence[str]]
 
+class DeleteAccessControlApplicationRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    ApplicationId: NotRequired[str]
+    IdcApplicationArn: NotRequired[str]
+
+class DeleteAccessControlApplicationSecretRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    ApplicationId: str
+    ClientSecretId: str
+
 class DeleteAccountCustomPermissionRequestTypeDef(TypedDict):
     AwsAccountId: str
 
@@ -4634,6 +4799,15 @@ class DeleteIdentityPropagationConfigRequestTypeDef(TypedDict):
     AwsAccountId: str
     Service: ServiceTypeType
 
+class DeleteInboundConnectorRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    InboundConnectorId: str
+
+class DeleteKnowledgeBaseRefreshScheduleRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    KnowledgeBaseId: str
+    ScheduleId: str
+
 class DeleteKnowledgeBaseRequestTypeDef(TypedDict):
     AwsAccountId: str
     KnowledgeBaseId: str
@@ -4649,6 +4823,12 @@ class DeleteNamespaceRequestTypeDef(TypedDict):
 class DeleteOAuthClientApplicationRequestTypeDef(TypedDict):
     AwsAccountId: str
     OAuthClientApplicationId: str
+
+class DeletePolicyAssignmentRequestTypeDef(TypedDict):
+    AccountId: str
+    PolicyArn: str
+    PrincipalArn: str
+    Revision: NotRequired[int]
 
 class DeleteRefreshScheduleRequestTypeDef(TypedDict):
     DataSetId: str
@@ -4721,6 +4901,10 @@ class DeleteUserRequestTypeDef(TypedDict):
 class DeleteVPCConnectionRequestTypeDef(TypedDict):
     AwsAccountId: str
     VPCConnectionId: str
+
+class DescribeAccessControlApplicationRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    ApplicationId: str
 
 class DescribeAccountCustomPermissionRequestTypeDef(TypedDict):
     AwsAccountId: str
@@ -4934,6 +5118,10 @@ class IAMPolicyAssignmentTypeDef(TypedDict):
     Identities: NotRequired[dict[str, list[str]]]
     AssignmentStatus: NotRequired[AssignmentStatusType]
 
+class DescribeInboundConnectorRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    InboundConnectorId: str
+
 class DescribeIngestionRequestTypeDef(TypedDict):
     AwsAccountId: str
     DataSetId: str
@@ -4957,6 +5145,11 @@ class RegisteredCustomerManagedKeyTypeDef(TypedDict):
 class DescribeKnowledgeBasePermissionsRequestTypeDef(TypedDict):
     AwsAccountId: str
     KnowledgeBaseId: str
+
+class DescribeKnowledgeBaseRefreshScheduleRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    KnowledgeBaseId: str
+    ScheduleId: str
 
 class DescribeKnowledgeBaseRequestTypeDef(TypedDict):
     AwsAccountId: str
@@ -5152,6 +5345,25 @@ class ExcludePeriodConfigurationTypeDef(TypedDict):
     Amount: int
     Granularity: TimeGranularityType
     Status: NotRequired[WidgetStatusType]
+
+class ExternalIdpConfidentialAuthCodeAuthorizingConfigSummaryTypeDef(TypedDict):
+    ClientId: str
+    IssuerUrl: str
+
+class ExternalIdpConfidentialClientSecretTypeDef(TypedDict):
+    ClientSecretId: str
+    CreatedAt: datetime
+    RegionalSecretManagerArns: NotRequired[dict[str, str]]
+    UpdatedAt: NotRequired[datetime]
+    Description: NotRequired[str]
+
+class ExternalIdpConfidentialAuthCodeAuthorizingConfigUpdateInputTypeDef(TypedDict):
+    ClientId: str
+    IssuerUrl: str
+
+class ExternalIdpPublicAuthCodeAuthorizingConfigTypeDef(TypedDict):
+    ClientId: str
+    IssuerUrl: str
 
 class FMKBParametersTypeDef(TypedDict):
     KnowledgeBaseArn: str
@@ -5381,6 +5593,11 @@ class UserIdentifierTypeDef(TypedDict):
     Email: NotRequired[str]
     UserArn: NotRequired[str]
 
+class GetPolicyAssignmentRequestTypeDef(TypedDict):
+    AccountId: str
+    PolicyType: PolicyTypeType
+    PrincipalArn: str
+
 class GetSessionEmbedUrlRequestTypeDef(TypedDict):
     AwsAccountId: str
     EntryPoint: NotRequired[str]
@@ -5428,6 +5645,9 @@ class IAMPolicyAssignmentSummaryTypeDef(TypedDict):
     AssignmentName: NotRequired[str]
     AssignmentStatus: NotRequired[AssignmentStatusType]
 
+class IdcTrustedTokenIssuerConfigTypeDef(TypedDict):
+    IdcTrustedTokenIssuerArn: str
+
 class ImageSourceTypeDef(TypedDict):
     PublicUrl: NotRequired[str]
     S3Uri: NotRequired[str]
@@ -5437,6 +5657,10 @@ class ImageExtractionConfigurationTypeDef(TypedDict):
 
 class ImageMenuOptionTypeDef(TypedDict):
     AvailabilityStatus: NotRequired[DashboardBehaviorType]
+
+class InboundConnectorApplicationAssociationSummaryTypeDef(TypedDict):
+    AccessControlApplicationArn: str
+    CreatedTime: datetime
 
 class LookbackWindowTypeDef(TypedDict):
     ColumnName: str
@@ -5518,6 +5742,10 @@ class KnowledgeBaseIngestionSummaryTypeDef(TypedDict):
     StartTime: NotRequired[datetime]
     EndTime: NotRequired[datetime]
 
+class KnowledgeBaseScheduleRefreshOnEntityTypeDef(TypedDict):
+    DayOfWeek: NotRequired[KbDayOfWeekType]
+    DayOfMonth: NotRequired[str]
+
 KnowledgeBaseSearchFilterTypeDef = TypedDict(
     "KnowledgeBaseSearchFilterTypeDef",
     {
@@ -5560,6 +5788,12 @@ class MissingDataConfigurationTypeDef(TypedDict):
 class ResourcePermissionTypeDef(TypedDict):
     Principal: str
     Actions: Sequence[str]
+
+class ListAccessControlApplicationsRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    Namespace: NotRequired[str]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
 
 class ListActionConnectorsRequestTypeDef(TypedDict):
     AwsAccountId: str
@@ -5692,9 +5926,31 @@ class ListIdentityPropagationConfigsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
 
+class ListInboundConnectorApplicationAssociationsRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    InboundConnectorId: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+ListInboundConnectorsRequestTypeDef = TypedDict(
+    "ListInboundConnectorsRequestTypeDef",
+    {
+        "AwsAccountId": str,
+        "MaxResults": NotRequired[int],
+        "NextToken": NotRequired[str],
+        "Type": NotRequired[Sequence[Literal["QUICK_DESKTOP"]]],
+    },
+)
+
 class ListIngestionsRequestTypeDef(TypedDict):
     DataSetId: str
     AwsAccountId: str
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+class ListKnowledgeBaseRefreshSchedulesRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    KnowledgeBaseId: str
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
 
@@ -5718,6 +5974,19 @@ class ListOAuthClientApplicationsRequestTypeDef(TypedDict):
     AwsAccountId: str
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+
+class ListPrincipalsForPolicyRequestTypeDef(TypedDict):
+    AccountId: str
+    PolicyArn: str
+    PrincipalType: NotRequired[PrincipalTypeType]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+class PolicyPrincipalTypeDef(TypedDict):
+    PrincipalArn: str
+    PrincipalType: NotRequired[PrincipalTypeType]
+    UpdatedAt: NotRequired[datetime]
+    Revision: NotRequired[int]
 
 class ListRefreshSchedulesRequestTypeDef(TypedDict):
     AwsAccountId: str
@@ -6034,6 +6303,20 @@ class PredictQAResultsRequestTypeDef(TypedDict):
     IncludeQuickSightQIndex: NotRequired[IncludeQuickSightQIndexType]
     IncludeGeneratedAnswer: NotRequired[IncludeGeneratedAnswerType]
     MaxTopicsToConsider: NotRequired[int]
+
+class PutPolicyAssignmentRequestTypeDef(TypedDict):
+    AccountId: str
+    PolicyArn: str
+    PrincipalArn: str
+    ExistingPolicyArn: NotRequired[str]
+    Revision: NotRequired[int]
+
+class QuickManagedPublicAuthCodeQuickAuthenticationConfigTypeDef(TypedDict):
+    RedirectUris: list[str]
+    ClientId: str
+
+class QuickManagedAuthCodeQuickAuthenticationConfigInputTypeDef(TypedDict):
+    RedirectUris: Sequence[str]
 
 class RadarChartAreaStyleSettingsTypeDef(TypedDict):
     Visibility: NotRequired[VisibilityType]
@@ -6408,6 +6691,13 @@ class UntagResourceRequestTypeDef(TypedDict):
     ResourceArn: str
     TagKeys: Sequence[str]
 
+class UpdateAccessControlApplicationSecretRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    ApplicationId: str
+    ClientSecretId: str
+    UpdateRegionalSecretManagerArns: NotRequired[Mapping[str, str]]
+    RemoveRegionalSecretManagerArns: NotRequired[Sequence[str]]
+
 class UpdateAccountCustomPermissionRequestTypeDef(TypedDict):
     CustomPermissionsName: str
     AwsAccountId: str
@@ -6481,6 +6771,12 @@ class UpdateIdentityPropagationConfigRequestTypeDef(TypedDict):
     AwsAccountId: str
     Service: ServiceTypeType
     AuthorizedTargets: NotRequired[Sequence[str]]
+
+class UpdateInboundConnectorApplicationAssociationsRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    InboundConnectorId: str
+    AssociateAccessControlApplications: NotRequired[Sequence[str]]
+    DisassociateAccessControlApplications: NotRequired[Sequence[str]]
 
 class UpdateIpRestrictionRequestTypeDef(TypedDict):
     AwsAccountId: str
@@ -6807,7 +7103,7 @@ class ApprovalPolicyTypeDef(TypedDict):
     PolicyId: str
     PolicyArn: str
     Name: str
-    Actions: list[Literal["SHARE"]]
+    Actions: list[GovernedActionType]
     AssetTypes: list[AssetTypeType]
     ApplicableTo: ApplicableToOutputTypeDef
     ApprovalGroups: list[str]
@@ -7179,6 +7475,13 @@ class CancelIngestionResponseTypeDef(TypedDict):
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CreateAccessControlApplicationSecretResponseTypeDef(TypedDict):
+    Status: int
+    RequestId: str
+    ClientSecretId: str
+    CreatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class CreateAccountCustomizationResponseTypeDef(TypedDict):
     Arn: str
     AwsAccountId: str
@@ -7274,10 +7577,27 @@ class CreateIAMPolicyAssignmentResponseTypeDef(TypedDict):
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CreateInboundConnectorResponseTypeDef(TypedDict):
+    Status: int
+    RequestId: str
+    InboundConnectorId: str
+    Arn: str
+    TenantUrl: str
+    InboundConnectorStatus: InboundConnectorStatusType
+    CreatedTime: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class CreateIngestionResponseTypeDef(TypedDict):
     Arn: str
     IngestionId: str
     IngestionStatus: IngestionStatusType
+    RequestId: str
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateKnowledgeBaseRefreshScheduleResponseTypeDef(TypedDict):
+    ScheduleId: str
+    KnowledgeBaseArn: str
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -7379,6 +7699,17 @@ class CreateVPCConnectionResponseTypeDef(TypedDict):
     AvailabilityStatus: VPCConnectionAvailabilityStatusType
     RequestId: str
     Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteAccessControlApplicationResponseTypeDef(TypedDict):
+    Status: int
+    RequestId: str
+    ApplicationId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteAccessControlApplicationSecretResponseTypeDef(TypedDict):
+    Status: int
+    RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeleteAccountCustomPermissionResponseTypeDef(TypedDict):
@@ -7504,6 +7835,19 @@ class DeleteIAMPolicyAssignmentResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeleteIdentityPropagationConfigResponseTypeDef(TypedDict):
+    RequestId: str
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteInboundConnectorResponseTypeDef(TypedDict):
+    Status: int
+    RequestId: str
+    InboundConnectorId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteKnowledgeBaseRefreshScheduleResponseTypeDef(TypedDict):
+    ScheduleId: str
+    KnowledgeBaseArn: str
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -7774,6 +8118,13 @@ class GetIdentityContextResponseTypeDef(TypedDict):
     Context: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class GetPolicyAssignmentResponseTypeDef(TypedDict):
+    PolicyArn: str
+    PolicyName: str
+    UpdatedAt: datetime
+    Revision: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class GetSessionEmbedUrlResponseTypeDef(TypedDict):
     EmbedUrl: str
     Status: int
@@ -7852,6 +8203,12 @@ class PutDataSetRefreshPropertiesResponseTypeDef(TypedDict):
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
 
+class PutPolicyAssignmentResponseTypeDef(TypedDict):
+    PolicyArn: str
+    ReplacedPolicyArn: str
+    Revision: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class RestoreAnalysisResponseTypeDef(TypedDict):
     Status: int
     Arn: str
@@ -7920,6 +8277,23 @@ class TagResourceResponseTypeDef(TypedDict):
 class UntagResourceResponseTypeDef(TypedDict):
     RequestId: str
     Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateAccessControlApplicationResponseTypeDef(TypedDict):
+    Status: int
+    RequestId: str
+    ApplicationId: str
+    Arn: str
+    AccessControlApplicationStatus: AccessControlApplicationStatusType
+    LastUpdatedTime: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateAccessControlApplicationSecretResponseTypeDef(TypedDict):
+    Status: int
+    RequestId: str
+    ClientSecretId: str
+    UpdatedAt: datetime
+    RegionalSecretManagerArns: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateAccountCustomPermissionResponseTypeDef(TypedDict):
@@ -8078,8 +8452,29 @@ class UpdateIdentityPropagationConfigResponseTypeDef(TypedDict):
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
 
+class UpdateInboundConnectorApplicationAssociationsResponseTypeDef(TypedDict):
+    Status: int
+    RequestId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateInboundConnectorResponseTypeDef(TypedDict):
+    Status: int
+    RequestId: str
+    InboundConnectorId: str
+    Arn: str
+    InboundConnectorStatus: InboundConnectorStatusType
+    LastUpdatedTime: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class UpdateIpRestrictionResponseTypeDef(TypedDict):
     AwsAccountId: str
+    RequestId: str
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateKnowledgeBaseRefreshScheduleResponseTypeDef(TypedDict):
+    ScheduleId: str
+    KnowledgeBaseArn: str
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -8239,10 +8634,27 @@ class BatchDeleteKnowledgeBaseResponseTypeDef(TypedDict):
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
 
+class BatchDeletePolicyAssignmentByPolicyResponseTypeDef(TypedDict):
+    PolicyArn: str
+    Success: list[BatchDeletePolicyAssignmentSuccessTypeDef]
+    Errors: list[BatchDeletePolicyAssignmentErrorTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class BatchDescribeUserLimitsRequestTypeDef(TypedDict):
     accountId: str
     users: NotRequired[Sequence[UserLimitsEntryTypeDef]]
     resourceTypes: NotRequired[Sequence[ResourceTypeType]]
+
+class BatchPutPolicyAssignmentByPolicyRequestTypeDef(TypedDict):
+    AccountId: str
+    PolicyArn: str
+    Assignments: Sequence[PutAssignmentEntryTypeDef]
+
+class BatchPutPolicyAssignmentByPolicyResponseTypeDef(TypedDict):
+    PolicyArn: str
+    Success: list[BatchPutPolicyAssignmentSuccessTypeDef]
+    Errors: list[BatchPutPolicyAssignmentErrorTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class HistogramBinOptionsTypeDef(TypedDict):
     SelectedBinType: NotRequired[HistogramBinTypeType]
@@ -8309,6 +8721,14 @@ class CategoryFilterConfigurationTypeDef(TypedDict):
 
 class ClientCredentialsDetailsTypeDef(TypedDict):
     ClientCredentialsGrantDetails: NotRequired[ClientCredentialsGrantDetailsTypeDef]
+
+class ClientSecretConfigurationDetailTypeDef(TypedDict):
+    Idp: NotRequired[IdpClientSecretInputTypeDef]
+
+class ExternalIdpConfidentialAuthCodeAuthorizingConfigInputTypeDef(TypedDict):
+    ClientId: str
+    IssuerUrl: str
+    ClientSecret: IdpClientSecretInputTypeDef
 
 class ClusterMarkerTypeDef(TypedDict):
     SimpleClusterMarker: NotRequired[SimpleClusterMarkerTypeDef]
@@ -8494,6 +8914,44 @@ class UpdateGroupResponseTypeDef(TypedDict):
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateInboundConnectorRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    InboundConnectorId: str
+    Name: str
+    InboundConnectorConfiguration: InboundConnectorConfigTypeDef
+    Description: NotRequired[str]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
+class InboundConnectorSummaryTypeDef(TypedDict):
+    InboundConnectorId: str
+    Arn: str
+    Name: str
+    Status: InboundConnectorStatusType
+    CreatedTime: datetime
+    LastUpdatedTime: datetime
+    TenantUrl: str
+    InboundConnectorConfiguration: InboundConnectorConfigTypeDef
+    Description: NotRequired[str]
+
+class InboundConnectorTypeDef(TypedDict):
+    InboundConnectorId: str
+    Arn: str
+    Name: str
+    Status: InboundConnectorStatusType
+    TenantUrl: str
+    CreatedTime: datetime
+    LastUpdatedTime: datetime
+    InboundConnectorConfiguration: InboundConnectorConfigTypeDef
+    Description: NotRequired[str]
+
+class UpdateInboundConnectorRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    InboundConnectorId: str
+    Name: NotRequired[str]
+    Description: NotRequired[str]
+    InboundConnectorConfiguration: NotRequired[InboundConnectorConfigTypeDef]
+    InboundConnectorStatus: NotRequired[InboundConnectorStatusType]
 
 class CreateLimitsProfileRequestTypeDef(TypedDict):
     accountId: str
@@ -8976,6 +9434,11 @@ class DescribeFolderResolvedPermissionsRequestPaginateTypeDef(TypedDict):
     Namespace: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListAccessControlApplicationsRequestPaginateTypeDef(TypedDict):
+    AwsAccountId: str
+    Namespace: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListActionConnectorsRequestPaginateTypeDef(TypedDict):
     AwsAccountId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -9069,9 +9532,28 @@ class ListIAMPolicyAssignmentsRequestPaginateTypeDef(TypedDict):
     AssignmentStatus: NotRequired[AssignmentStatusType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListInboundConnectorApplicationAssociationsRequestPaginateTypeDef(TypedDict):
+    AwsAccountId: str
+    InboundConnectorId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+ListInboundConnectorsRequestPaginateTypeDef = TypedDict(
+    "ListInboundConnectorsRequestPaginateTypeDef",
+    {
+        "AwsAccountId": str,
+        "Type": NotRequired[Sequence[Literal["QUICK_DESKTOP"]]],
+        "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
+    },
+)
+
 class ListIngestionsRequestPaginateTypeDef(TypedDict):
     DataSetId: str
     AwsAccountId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListKnowledgeBaseRefreshSchedulesRequestPaginateTypeDef(TypedDict):
+    AwsAccountId: str
+    KnowledgeBaseId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListKnowledgeBasesRequestPaginateTypeDef(TypedDict):
@@ -9089,6 +9571,12 @@ class ListNamespacesRequestPaginateTypeDef(TypedDict):
 
 class ListOAuthClientApplicationsRequestPaginateTypeDef(TypedDict):
     AwsAccountId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListPrincipalsForPolicyRequestPaginateTypeDef(TypedDict):
+    AccountId: str
+    PolicyArn: str
+    PrincipalType: NotRequired[PrincipalTypeType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListRoleMembershipsRequestPaginateTypeDef(TypedDict):
@@ -9274,6 +9762,23 @@ class UserLimitsTypeDef(TypedDict):
     userName: str
     namespace: str
     effectiveLimits: list[EffectiveLimitTypeDef]
+
+class ExternalIdpConfidentialAuthCodeAuthorizingConfigTypeDef(TypedDict):
+    ClientId: str
+    IssuerUrl: str
+    ClientSecrets: NotRequired[list[ExternalIdpConfidentialClientSecretTypeDef]]
+
+class IdpAuthorizingConfigurationDetailUpdateInputTypeDef(TypedDict):
+    ExternalIdpPublicAuthCode: NotRequired[ExternalIdpPublicAuthCodeAuthorizingConfigTypeDef]
+    ExternalIdpConfidentialAuthCode: NotRequired[
+        ExternalIdpConfidentialAuthCodeAuthorizingConfigUpdateInputTypeDef
+    ]
+
+class IdpAuthorizingConfigurationSummaryDetailTypeDef(TypedDict):
+    ExternalIdpPublicAuthCode: NotRequired[ExternalIdpPublicAuthCodeAuthorizingConfigTypeDef]
+    ExternalIdpConfidentialAuthCode: NotRequired[
+        ExternalIdpConfidentialAuthCodeAuthorizingConfigSummaryTypeDef
+    ]
 
 FMKBParametersUnionTypeDef = Union[FMKBParametersTypeDef, FMKBParametersOutputTypeDef]
 
@@ -9535,6 +10040,13 @@ class ImageTypeDef(TypedDict):
 class ImageInteractionOptionsTypeDef(TypedDict):
     ImageMenuOption: NotRequired[ImageMenuOptionTypeDef]
 
+class ListInboundConnectorApplicationAssociationsResponseTypeDef(TypedDict):
+    Status: int
+    RequestId: str
+    ApplicationAssociations: list[InboundConnectorApplicationAssociationSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 class IncrementalRefreshTypeDef(TypedDict):
     LookbackWindow: LookbackWindowTypeDef
 
@@ -9591,6 +10103,10 @@ class KnowledgeBaseConfigurationOutputTypeDef(TypedDict):
 class KnowledgeBaseConfigurationTypeDef(TypedDict):
     templateConfiguration: NotRequired[KbTemplateConfigurationTypeDef]
 
+class KnowledgeBaseRefreshFrequencyTypeDef(TypedDict):
+    Interval: KbRefreshIntervalType
+    RefreshOnDay: NotRequired[KnowledgeBaseScheduleRefreshOnEntityTypeDef]
+
 class SearchKnowledgeBasesRequestPaginateTypeDef(TypedDict):
     AwsAccountId: str
     Filters: NotRequired[Sequence[KnowledgeBaseSearchFilterTypeDef]]
@@ -9627,6 +10143,11 @@ class ListFolderMembersResponseTypeDef(TypedDict):
     Status: int
     FolderMemberList: list[MemberIdArnPairTypeDef]
     RequestId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class ListPrincipalsForPolicyResponseTypeDef(TypedDict):
+    Principals: list[PolicyPrincipalTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -9850,6 +10371,21 @@ class PluginVisualOptionsOutputTypeDef(TypedDict):
 class PluginVisualOptionsTypeDef(TypedDict):
     VisualProperties: NotRequired[Sequence[PluginVisualPropertyTypeDef]]
 
+class QuickAuthenticationConfigurationDetailCreateOutputTypeDef(TypedDict):
+    QuickManagedPublicAuthCode: NotRequired[
+        QuickManagedPublicAuthCodeQuickAuthenticationConfigTypeDef
+    ]
+
+class QuickAuthenticationConfigurationDetailTypeDef(TypedDict):
+    QuickManagedPublicAuthCode: NotRequired[
+        QuickManagedPublicAuthCodeQuickAuthenticationConfigTypeDef
+    ]
+
+class QuickAuthenticationConfigurationDetailInputTypeDef(TypedDict):
+    QuickManagedPublicAuthCode: NotRequired[
+        QuickManagedAuthCodeQuickAuthenticationConfigInputTypeDef
+    ]
+
 class RadarChartSeriesSettingsTypeDef(TypedDict):
     AreaStyleSettings: NotRequired[RadarChartAreaStyleSettingsTypeDef]
 
@@ -9867,6 +10403,7 @@ class RedshiftParametersOutputTypeDef(TypedDict):
     Database: str
     Host: NotRequired[str]
     Port: NotRequired[int]
+    FederatedCatalog: NotRequired[str]
     ClusterId: NotRequired[str]
     IAMParameters: NotRequired[RedshiftIAMParametersOutputTypeDef]
     IdentityCenterConfiguration: NotRequired[IdentityCenterConfigurationTypeDef]
@@ -10216,7 +10753,7 @@ class UpdateApprovalPolicyResponseTypeDef(TypedDict):
 class CreateApprovalPolicyRequestTypeDef(TypedDict):
     PolicyId: str
     Name: str
-    Actions: Sequence[Literal["SHARE"]]
+    Actions: Sequence[GovernedActionType]
     AssetTypes: Sequence[AssetTypeType]
     ApplicableTo: ApplicableToUnionTypeDef
     ApprovalGroups: Sequence[str]
@@ -10226,7 +10763,7 @@ class UpdateApprovalPolicyRequestTypeDef(TypedDict):
     PolicyId: str
     Name: NotRequired[str]
     Description: NotRequired[str]
-    Actions: NotRequired[Sequence[Literal["SHARE"]]]
+    Actions: NotRequired[Sequence[GovernedActionType]]
     AssetTypes: NotRequired[Sequence[AssetTypeType]]
     ApplicableTo: NotRequired[ApplicableToUnionTypeDef]
     ApprovalGroups: NotRequired[Sequence[str]]
@@ -10392,6 +10929,16 @@ class ClientCredentialsGrantMetadataTypeDef(TypedDict):
     ClientCredentialsSource: NotRequired[Literal["PLAIN_CREDENTIALS"]]
     ClientCredentialsDetails: NotRequired[ClientCredentialsDetailsTypeDef]
 
+class ClientSecretConfigurationTypeDef(TypedDict):
+    ClientSecretSourceType: Literal["IDP_PROVIDED"]
+    ClientSecretConfigurationDetail: NotRequired[ClientSecretConfigurationDetailTypeDef]
+
+class IdpAuthorizingConfigurationDetailInputTypeDef(TypedDict):
+    ExternalIdpPublicAuthCode: NotRequired[ExternalIdpPublicAuthCodeAuthorizingConfigTypeDef]
+    ExternalIdpConfidentialAuthCode: NotRequired[
+        ExternalIdpConfidentialAuthCodeAuthorizingConfigInputTypeDef
+    ]
+
 class ClusterMarkerConfigurationTypeDef(TypedDict):
     ClusterMarker: NotRequired[ClusterMarkerTypeDef]
 
@@ -10484,6 +11031,19 @@ class SearchDataSetsResponseTypeDef(TypedDict):
     RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+class ListInboundConnectorsResponseTypeDef(TypedDict):
+    Status: int
+    RequestId: str
+    InboundConnectorSummaries: list[InboundConnectorSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class DescribeInboundConnectorResponseTypeDef(TypedDict):
+    Status: int
+    RequestId: str
+    InboundConnector: InboundConnectorTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeLimitsProfileResponseTypeDef(TypedDict):
     profile: LimitsProfileTypeDef
@@ -10766,6 +11326,26 @@ class BatchDescribeUserLimitsResponseTypeDef(TypedDict):
     userLimits: list[UserLimitsTypeDef]
     errors: list[BatchDescribeUserLimitsErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
+
+class IdpAuthorizingConfigurationDetailTypeDef(TypedDict):
+    ExternalIdpPublicAuthCode: NotRequired[ExternalIdpPublicAuthCodeAuthorizingConfigTypeDef]
+    ExternalIdpConfidentialAuthCode: NotRequired[
+        ExternalIdpConfidentialAuthCodeAuthorizingConfigTypeDef
+    ]
+
+class IdpAuthorizingConfigUpdateInputTypeDef(TypedDict):
+    IdpAuthorizingType: IdpAuthorizingTypeType
+    IdpAuthorizingConfigurationDetailInput: NotRequired[
+        IdpAuthorizingConfigurationDetailUpdateInputTypeDef
+    ]
+    IdcTrustedTokenIssuerConfiguration: NotRequired[IdcTrustedTokenIssuerConfigTypeDef]
+
+class IdpAuthorizingConfigSummaryTypeDef(TypedDict):
+    IdpAuthorizingType: IdpAuthorizingTypeType
+    IdpAuthorizingConfigurationSummaryDetail: NotRequired[
+        IdpAuthorizingConfigurationSummaryDetailTypeDef
+    ]
+    IdcTrustedTokenIssuerConfiguration: NotRequired[IdcTrustedTokenIssuerConfigTypeDef]
 
 class UpdateSpaceResourcesResponseTypeDef(TypedDict):
     spaceId: str
@@ -11064,6 +11644,29 @@ JoinOperationTypeDef = TypedDict(
 KnowledgeBaseConfigurationUnionTypeDef = Union[
     KnowledgeBaseConfigurationTypeDef, KnowledgeBaseConfigurationOutputTypeDef
 ]
+
+class CreateKnowledgeBaseRefreshScheduleRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    KnowledgeBaseId: str
+    ScheduleId: str
+    ScheduleFrequency: KnowledgeBaseRefreshFrequencyTypeDef
+    StartTime: NotRequired[TimestampTypeDef]
+    State: NotRequired[ScheduleStateType]
+
+class KnowledgeBaseRefreshScheduleSummaryTypeDef(TypedDict):
+    ScheduleId: str
+    ScheduleFrequency: KnowledgeBaseRefreshFrequencyTypeDef
+    StartTime: NotRequired[datetime]
+    State: NotRequired[ScheduleStateType]
+
+class UpdateKnowledgeBaseRefreshScheduleRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    KnowledgeBaseId: str
+    ScheduleId: str
+    ScheduleFrequency: NotRequired[KnowledgeBaseRefreshFrequencyTypeDef]
+    StartTime: NotRequired[TimestampTypeDef]
+    State: NotRequired[ScheduleStateType]
+
 LinkSharingConfigurationUnionTypeDef = Union[
     LinkSharingConfigurationTypeDef, LinkSharingConfigurationOutputTypeDef
 ]
@@ -11303,6 +11906,24 @@ class UpdateFlowPermissionsInputTypeDef(TypedDict):
     GrantPermissions: NotRequired[Sequence[PermissionUnionTypeDef]]
     RevokePermissions: NotRequired[Sequence[PermissionUnionTypeDef]]
 
+class QuickAuthenticationConfigCreateOutputTypeDef(TypedDict):
+    QuickAuthenticationType: Literal["QUICK_MANAGED_PUBLIC_AUTH_CODE"]
+    QuickAuthenticationConfigurationDetailCreateOutput: NotRequired[
+        QuickAuthenticationConfigurationDetailCreateOutputTypeDef
+    ]
+
+class QuickAuthenticationConfigTypeDef(TypedDict):
+    QuickAuthenticationType: Literal["QUICK_MANAGED_PUBLIC_AUTH_CODE"]
+    QuickAuthenticationConfigurationDetail: NotRequired[
+        QuickAuthenticationConfigurationDetailTypeDef
+    ]
+
+class QuickAuthenticationConfigInputTypeDef(TypedDict):
+    QuickAuthenticationType: Literal["QUICK_MANAGED_PUBLIC_AUTH_CODE"]
+    QuickAuthenticationConfigurationDetailInput: NotRequired[
+        QuickAuthenticationConfigurationDetailInputTypeDef
+    ]
+
 class TopicDateRangeFilterTypeDef(TypedDict):
     Inclusive: NotRequired[bool]
     Constant: NotRequired[TopicRangeFilterConstantTypeDef]
@@ -11332,6 +11953,7 @@ class RedshiftParametersTypeDef(TypedDict):
     Database: str
     Host: NotRequired[str]
     Port: NotRequired[int]
+    FederatedCatalog: NotRequired[str]
     ClusterId: NotRequired[str]
     IAMParameters: NotRequired[RedshiftIAMParametersUnionTypeDef]
     IdentityCenterConfiguration: NotRequired[IdentityCenterConfigurationTypeDef]
@@ -11752,6 +12374,19 @@ class AuthenticationMetadataTypeDef(TypedDict):
     NoneConnectionMetadata: NotRequired[NoneConnectionMetadataTypeDef]
     IamConnectionMetadata: NotRequired[IAMConnectionMetadataTypeDef]
 
+class CreateAccessControlApplicationSecretRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    ApplicationId: str
+    ClientSecretConfiguration: ClientSecretConfigurationTypeDef
+    Description: NotRequired[str]
+
+class IdpAuthorizingConfigInputTypeDef(TypedDict):
+    IdpAuthorizingType: IdpAuthorizingTypeType
+    IdpAuthorizingConfigurationDetailInput: NotRequired[
+        IdpAuthorizingConfigurationDetailInputTypeDef
+    ]
+    IdcTrustedTokenIssuerConfiguration: NotRequired[IdcTrustedTokenIssuerConfigTypeDef]
+
 class TopicIRFilterOptionTypeDef(TypedDict):
     FilterType: NotRequired[TopicIRFilterTypeType]
     FilterClass: NotRequired[FilterClassType]
@@ -11934,6 +12569,11 @@ class TopicColumnTypeDef(TypedDict):
     NonAdditive: NotRequired[bool]
 
 TopicIRMetricUnionTypeDef = Union[TopicIRMetricTypeDef, TopicIRMetricOutputTypeDef]
+
+class IdpAuthorizingConfigTypeDef(TypedDict):
+    IdpAuthorizingType: IdpAuthorizingTypeType
+    IdpAuthorizingConfigurationDetail: NotRequired[IdpAuthorizingConfigurationDetailTypeDef]
+    IdcTrustedTokenIssuerConfiguration: NotRequired[IdcTrustedTokenIssuerConfigTypeDef]
 
 class DescribeSpaceResponseTypeDef(TypedDict):
     spaceId: str
@@ -12149,6 +12789,21 @@ class UpdateKnowledgeBaseRequestTypeDef(TypedDict):
     IsEmailNotificationOptedForIngestionFailures: NotRequired[bool]
     AccessControlConfiguration: NotRequired[AccessControlConfigurationTypeDef]
 
+class DescribeKnowledgeBaseRefreshScheduleResponseTypeDef(TypedDict):
+    Schedule: KnowledgeBaseRefreshScheduleSummaryTypeDef
+    KnowledgeBaseArn: str
+    RequestId: str
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ListKnowledgeBaseRefreshSchedulesResponseTypeDef(TypedDict):
+    ScheduleSummaries: list[KnowledgeBaseRefreshScheduleSummaryTypeDef]
+    KnowledgeBaseArn: str
+    RequestId: str
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 class DescribeKnowledgeBaseResponseTypeDef(TypedDict):
     KnowledgeBase: KnowledgeBaseTypeDef
     RequestId: str
@@ -12198,6 +12853,41 @@ class ReferenceLineDynamicDataConfigurationTypeDef(TypedDict):
     Column: ColumnIdentifierTypeDef
     Calculation: NumericalAggregationFunctionTypeDef
     MeasureAggregationFunction: NotRequired[AggregationFunctionTypeDef]
+
+class CreateAccessControlApplicationResponseTypeDef(TypedDict):
+    Status: int
+    RequestId: str
+    ApplicationId: str
+    Arn: str
+    AccessControlApplicationStatus: AccessControlApplicationStatusType
+    CreatedTime: datetime
+    TenantUrl: str
+    IdcApplicationArn: str
+    QuickAuthenticationConfiguration: QuickAuthenticationConfigCreateOutputTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class AccessControlApplicationSummaryTypeDef(TypedDict):
+    ApplicationId: str
+    Arn: str
+    Name: str
+    Namespace: str
+    AuthenticationType: Literal["OIDC"]
+    Status: AccessControlApplicationStatusType
+    CreatedTime: datetime
+    LastUpdatedTime: datetime
+    TenantUrl: str
+    IdpAuthorizingConfiguration: NotRequired[IdpAuthorizingConfigSummaryTypeDef]
+    QuickAuthenticationConfiguration: NotRequired[QuickAuthenticationConfigTypeDef]
+    Description: NotRequired[str]
+
+class UpdateAccessControlApplicationRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    ApplicationId: str
+    Name: NotRequired[str]
+    Description: NotRequired[str]
+    IdpAuthorizingConfiguration: NotRequired[IdpAuthorizingConfigUpdateInputTypeDef]
+    QuickAuthenticationConfiguration: NotRequired[QuickAuthenticationConfigInputTypeDef]
+    Status: NotRequired[AccessControlApplicationStatusType]
 
 class TopicFilterOutputTypeDef(TypedDict):
     FilterName: str
@@ -12405,6 +13095,17 @@ class AuthConfigTypeDef(TypedDict):
     AuthenticationType: ConnectionAuthTypeType
     AuthenticationMetadata: AuthenticationMetadataTypeDef
 
+class CreateAccessControlApplicationRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    ApplicationId: str
+    Name: str
+    Namespace: str
+    AuthenticationType: Literal["OIDC"]
+    IdpAuthorizingConfiguration: IdpAuthorizingConfigInputTypeDef
+    QuickAuthenticationConfiguration: QuickAuthenticationConfigInputTypeDef
+    Description: NotRequired[str]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
 TopicIRFilterOptionUnionTypeDef = Union[
     TopicIRFilterOptionTypeDef, TopicIRFilterOptionOutputTypeDef
 ]
@@ -12458,6 +13159,21 @@ class DataSetStringFilterConditionTypeDef(TypedDict):
     ColumnName: NotRequired[str]
     ComparisonFilterCondition: NotRequired[DataSetStringComparisonFilterConditionTypeDef]
     ListFilterCondition: NotRequired[DataSetStringListFilterConditionUnionTypeDef]
+
+class AccessControlApplicationTypeDef(TypedDict):
+    ApplicationId: str
+    Arn: str
+    Name: str
+    Namespace: str
+    AuthenticationType: Literal["OIDC"]
+    Status: AccessControlApplicationStatusType
+    CreatedTime: datetime
+    LastUpdatedTime: datetime
+    TenantUrl: str
+    Description: NotRequired[str]
+    IdcApplicationArn: NotRequired[str]
+    IdpAuthorizingConfiguration: NotRequired[IdpAuthorizingConfigTypeDef]
+    QuickAuthenticationConfiguration: NotRequired[QuickAuthenticationConfigTypeDef]
 
 class TopicIRContributionAnalysisOutputTypeDef(TypedDict):
     Factors: NotRequired[list[ContributionAnalysisFactorTypeDef]]
@@ -12934,6 +13650,13 @@ class ReferenceLineDataConfigurationTypeDef(TypedDict):
     AxisBinding: NotRequired[AxisBindingType]
     SeriesType: NotRequired[ReferenceLineSeriesTypeType]
 
+class ListAccessControlApplicationsResponseTypeDef(TypedDict):
+    Status: int
+    RequestId: str
+    AccessControlApplications: list[AccessControlApplicationSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 class DatasetMetadataOutputTypeDef(TypedDict):
     DatasetArn: str
     DatasetName: NotRequired[str]
@@ -13170,6 +13893,12 @@ class LogicalTableOutputTypeDef(TypedDict):
 DataSetStringFilterConditionUnionTypeDef = Union[
     DataSetStringFilterConditionTypeDef, DataSetStringFilterConditionOutputTypeDef
 ]
+
+class DescribeAccessControlApplicationResponseTypeDef(TypedDict):
+    Status: int
+    RequestId: str
+    AccessControlApplication: AccessControlApplicationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class TopicIROutputTypeDef(TypedDict):
     Metrics: NotRequired[list[TopicIRMetricOutputTypeDef]]
@@ -14382,6 +15111,7 @@ class DataSetTypeDef(TypedDict):
     UseAs: NotRequired[Literal["RLS_RULES"]]
     DataPrepConfiguration: NotRequired[DataPrepConfigurationOutputTypeDef]
     SemanticModelConfiguration: NotRequired[SemanticModelConfigurationOutputTypeDef]
+    UnmaterializedCalculatedColumns: NotRequired[list[UnmaterializedCalculatedColumnTypeDef]]
 
 class TopicReviewedAnswerTypeDef(TypedDict):
     AnswerId: str
@@ -16518,6 +17248,7 @@ class CreateDataSetRequestTypeDef(TypedDict):
     UseAs: NotRequired[Literal["RLS_RULES"]]
     DataPrepConfiguration: NotRequired[DataPrepConfigurationUnionTypeDef]
     SemanticModelConfiguration: NotRequired[SemanticModelConfigurationUnionTypeDef]
+    UnmaterializedCalculatedColumns: NotRequired[Sequence[UnmaterializedCalculatedColumnTypeDef]]
 
 class UpdateDataSetRequestTypeDef(TypedDict):
     AwsAccountId: str
@@ -16536,6 +17267,7 @@ class UpdateDataSetRequestTypeDef(TypedDict):
     PerformanceConfiguration: NotRequired[PerformanceConfigurationUnionTypeDef]
     DataPrepConfiguration: NotRequired[DataPrepConfigurationUnionTypeDef]
     SemanticModelConfiguration: NotRequired[SemanticModelConfigurationUnionTypeDef]
+    UnmaterializedCalculatedColumns: NotRequired[Sequence[UnmaterializedCalculatedColumnTypeDef]]
 
 class CreateTopicReviewedAnswerTypeDef(TypedDict):
     AnswerId: str

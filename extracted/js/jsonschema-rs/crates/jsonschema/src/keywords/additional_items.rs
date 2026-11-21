@@ -1,11 +1,15 @@
 use crate::{
     compiler,
     error::ValidationError,
-    keywords::CompilationResult,
+    evaluation::{Annotations, ChildList},
+    keywords::{
+        helpers::{false_schema_unit, SchemaSite},
+        CompilationResult,
+    },
     node::SchemaNode,
     paths::{LazyLocation, Location, RefTracker},
     types::{JsonType, JsonTypeSet},
-    validator::{Validate, ValidationContext},
+    validator::{EvaluationResult, Validate, ValidationContext},
     Array, Json, LazyInstance, Node, SerdeJson,
 };
 use serde_json::{Map, Value};
@@ -73,21 +77,44 @@ impl<F: Json> Validate<F> for AdditionalItemsObjectValidator<F> {
                 .collect_errors(&item, &location.push(idx), tracker, ctx, errors);
         }
     }
+
+    // A unit per extra item, as schema-form `items` reports the items past `prefixItems`.
+    fn evaluate(
+        &self,
+        instance: &F::Node<'_>,
+        location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
+    ) -> EvaluationResult {
+        let Some(array) = instance.as_array() else {
+            return EvaluationResult::valid_empty();
+        };
+        let mut children = ChildList::default();
+        for (idx, item) in array.elements().enumerate().skip(self.items_count) {
+            let child = self
+                .node
+                .evaluate_instance_below(&item, &location.push(idx), tracker, ctx);
+            children.push(ctx.arena(), child);
+        }
+        let mut result = EvaluationResult::from_children(children);
+        result.annotate(Annotations::boolean(array.len() > self.items_count));
+        result
+    }
 }
 
 pub(crate) struct AdditionalItemsBooleanValidator {
     items_count: usize,
-    location: Location,
+    site: SchemaSite,
 }
 impl AdditionalItemsBooleanValidator {
     #[inline]
     pub(crate) fn compile<'a, F: Json>(
+        ctx: &compiler::Context<F>,
         items_count: usize,
-        location: Location,
     ) -> CompilationResult<'a, F> {
         Ok(Box::new(AdditionalItemsBooleanValidator {
             items_count,
-            location,
+            site: SchemaSite::new(ctx, ctx.location().clone()),
         }))
     }
 }
@@ -111,8 +138,8 @@ impl<F: Json> Validate<F> for AdditionalItemsBooleanValidator {
         if let Some(array) = instance.as_array() {
             if array.len() > self.items_count {
                 return Err(ValidationError::additional_items(
-                    self.location.clone(),
-                    crate::paths::capture_evaluation_path(tracker, &self.location),
+                    self.site.location.clone(),
+                    crate::paths::capture_evaluation_path(tracker, &self.site.location),
                     location.into(),
                     instance.lazy_value(),
                     self.items_count,
@@ -120,6 +147,27 @@ impl<F: Json> Validate<F> for AdditionalItemsBooleanValidator {
             }
         }
         Ok(())
+    }
+
+    // `false` fails each extra item, as `items: false` does past `prefixItems`.
+    fn evaluate(
+        &self,
+        instance: &F::Node<'_>,
+        location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
+    ) -> EvaluationResult {
+        let Some(array) = instance.as_array() else {
+            return EvaluationResult::valid_empty();
+        };
+        let mut children = ChildList::default();
+        for (idx, item) in array.elements().enumerate().skip(self.items_count) {
+            let node = false_schema_unit::<F>(ctx, &self.site, &item, &location.push(idx), tracker);
+            children.push(ctx.arena(), node);
+        }
+        let mut result = EvaluationResult::from_children(children);
+        result.annotate(Annotations::boolean(array.len() > self.items_count));
+        result
     }
 }
 
@@ -140,10 +188,9 @@ pub(crate) fn compile<'a, F: Json>(
                         schema,
                         items_count,
                     )),
-                    Value::Bool(false) => Some(AdditionalItemsBooleanValidator::compile(
-                        items_count,
-                        kctx.location().clone(),
-                    )),
+                    Value::Bool(false) => {
+                        Some(AdditionalItemsBooleanValidator::compile(&kctx, items_count))
+                    }
                     Value::Bool(true) => None,
                     // Anything else is not a schema; fail the build like `additionalProperties`.
                     _ => {
@@ -158,11 +205,8 @@ pub(crate) fn compile<'a, F: Json>(
                     }
                 }
             }
-            // `additionalItems` describes the elements past an array-form `items` tuple. Any other
-            // `items` value leaves no tail, so the keyword is ignored: a schema (object or boolean)
-            // covers every element — including `items: false`, where the tail is empty rather than
-            // forbidden — and an invalid `items` value is itself ignored. Non-arrays are not this
-            // keyword's business at all.
+            // Without an array-form `items` there is no tail, so the keyword is inert;
+            // `items: false` itself rejects every element.
             _ => None,
         }
     } else {
@@ -177,6 +221,54 @@ mod tests {
     use serde_json::{json, Value};
     use test_case::test_case;
 
+    // As 2020-12 reports `prefixItems` and `items`: a unit per item, `false` failing each extra
+    // one.
+    #[test_case(
+        &json!({"$schema": "http://json-schema.org/draft-07/schema#", "items": [{"type": "integer"}], "additionalItems": {"type": "string"}}),
+        &json!([1, "a", 3]),
+        &[
+            " @ FAIL",
+            "  /items @ ok ann=0",
+            "    /items/0 @/0 ok",
+            "      /items/0/type @/0 ok",
+            "  /additionalItems @ FAIL dropped=true",
+            "    /additionalItems @/1 ok",
+            "      /additionalItems/type @/1 ok",
+            "    /additionalItems @/2 FAIL",
+            "      /additionalItems/type @/2 FAIL err=type",
+        ] ; "schema"
+    )]
+    #[test_case(
+        &json!({"$schema": "http://json-schema.org/draft-07/schema#", "items": [{}], "additionalItems": false}),
+        &json!([1, 2, 3]),
+        &[
+            " @ FAIL",
+            "  /items @ ok ann=0",
+            "    /items/0 @/0 ok",
+            "  /additionalItems @ FAIL dropped=true",
+            "    /additionalItems @/1 FAIL err=falseSchema",
+            "    /additionalItems @/2 FAIL err=falseSchema",
+        ] ; "false"
+    )]
+    #[test_case(
+        &json!({"$schema": "https://json-schema.org/draft/2019-09/schema", "items": [{}, {}], "additionalItems": {"type": "string"}}),
+        &json!([1]),
+        &[
+            " @ ok",
+            "  /items @ ok ann=true",
+            "    /items/0 @/0 ok",
+            "  /additionalItems @ ok ann=false",
+        ] ; "every item covered"
+    )]
+    #[test_case(
+        &json!({"$schema": "https://json-schema.org/draft/2019-09/schema", "items": [{}], "additionalItems": false}),
+        &json!([]),
+        &[" @ ok", "  /items @ ok", "  /additionalItems @ ok ann=false"] ; "empty array"
+    )]
+    fn evaluate_units(schema: &Value, instance: &Value, expected: &[&str]) {
+        assert_eq!(tests_util::evaluation_outline(schema, instance), expected);
+    }
+
     fn validator_with(draft: Draft, schema: &Value) -> crate::Validator {
         // Draft 4's metaschema forbids boolean schemas, so meta-validation is off to let one
         // builder cover every draft.
@@ -189,7 +281,7 @@ mod tests {
 
     // A boolean `items` leaves no tuple tail, so `additionalItems` is ignored and only `items`
     // can reject. The keyword constrains array elements, so it must never touch a non-array.
-    // Dispatch is draft-agnostic: 2020-12 goes through the same `Bool` arm as older drafts.
+    // Every draft takes the same catch-all arm for a non-array `items`.
     #[test_case(Draft::Draft4, &json!({"additionalItems": false, "items": false}), &json!(null); "draft4 null")]
     #[test_case(Draft::Draft4, &json!({"additionalItems": false, "items": false}), &json!([]); "draft4 empty array")]
     #[test_case(Draft::Draft4, &json!({"additionalItems": false, "items": false}), &json!("a"); "draft4 string")]

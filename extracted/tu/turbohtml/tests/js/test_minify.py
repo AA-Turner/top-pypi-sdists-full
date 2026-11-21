@@ -106,7 +106,7 @@ def test_adjacency_guard(source: str, expected: str) -> None:
         # a non-integer numeric object takes dot access unambiguously; the parens are the printer's
         # existing conservative choice, matching a plain `.` after a number
         pytest.param('3.5["x"]', "(3.5).x", id="float-computed-to-dot"),
-        pytest.param('0x25["x"]', "(0x25).x", id="hex-computed-to-dot"),
+        pytest.param('0x25["x"]', "(37).x", id="hex-computed-to-dot"),
         # a non-numeric object keeps lowering to bare dot access
         pytest.param('a["b"]', "a.b", id="ident-computed-to-dot"),
         # a non-identifier key keeps the brackets
@@ -127,12 +127,12 @@ def test_minify_keeps_trailing_dot_after_numeric_member() -> None:
     [pytest.param(JSMinify(fold=False), id="mangle-only"), pytest.param(JSMinify(), id="mangle-and-fold")],
 )
 def test_dropped_function_leaves_no_binding_behind(options: JSMinify) -> None:
-    source: Final = "function f(){const x=073\nfunction f(g){x}[x,x]}"
+    source: Final[str] = "function f(){const x=073\nfunction f(g){x}[x,x]}"
     assert minify_js(source, options) == "function f(){[073,073]}"
 
 
 def test_dropped_function_in_inline_script_leaves_no_binding_behind() -> None:
-    markup: Final = "<script>function f(){const x=073\nfunction f(g){x}[x,x]}</script>"
+    markup: Final[str] = "<script>function f(){const x=073\nfunction f(g){x}[x,x]}</script>"
     assert clean.minify(markup, Minify(minify_js=JSMinify(fold=False))) == "<script>function f(){[073,073]}</script>"
 
 
@@ -153,8 +153,9 @@ def test_dropped_function_in_inline_script_leaves_no_binding_behind() -> None:
     ],
 )
 def test_string_line_continuation_lexes(body: str, value: str) -> None:
-    # the standalone literal keeps its lexeme, so lexing it proves the fix; concatenating "" folds by value
-    assert minify_js(f'x="{body}"') == f'x="{body}"'
+    # without folding the literal keeps its lexeme, so lexing it proves the fix; folding re-encodes it by value
+    assert minify_js(f'x="{body}"', JSMinify(fold=False)) == f'x="{body}"'
+    assert minify_js(f'x="{body}"') == f'x="{value}"'
     assert minify_js(f'x="{body}"+""') == f'x="{value}"'
 
 
@@ -285,7 +286,12 @@ def test_speculative_backtrack_does_not_leak_error(source: str, expected: str) -
         pytest.param("x = 100", "x=100", id="exponent-not-shorter"),
         pytest.param("x = 0", "x=0", id="zero-integer"),
         pytest.param(f"x = 1{'0' * 63}", "x=1e63", id="long-integer-exponent"),
-        pytest.param("x = 0xFF", "x=0xFF", id="hex-kept"),
+        # a radix literal turns decimal when that is shorter and exact, up to 2^53
+        pytest.param("x = 0xFF", "x=255", id="hex-to-decimal"),
+        pytest.param("x = 0x3E8", "x=1e3", id="hex-to-exponent"),
+        pytest.param("x = 0x1_0000", "x=65536", id="hex-separators-to-decimal"),
+        pytest.param("x = 0x1fffffffffffff", "x=0x1fffffffffffff", id="hex-kept-when-decimal-not-shorter"),
+        pytest.param("x = 0xFFFFFFFFFFFFFFFF", "x=0xFFFFFFFFFFFFFFFF", id="hex-kept-past-exact-range"),
         pytest.param("x = 007", "x=007", id="legacy-octal-kept"),
         pytest.param("x = 0.0", "x=0", id="zero-point-zero"),
         # a literal too long for the stack buffer takes the heap path; separators still go
@@ -331,11 +337,11 @@ def test_number_canonicalization(source: str, expected: str) -> None:
         pytest.param(";;", "", id="empty-statements"),
         pytest.param("a>b", "a>b", id="greater-than"),
         pytest.param("o={x}", "o={x}", id="unmangled-shorthand-kept"),
-        pytest.param("x=0o17", "x=0o17", id="octal-radix"),
-        pytest.param("x=0O17", "x=0O17", id="octal-radix-upper"),
-        pytest.param("x=0b101", "x=0b101", id="binary-radix"),
-        pytest.param("x=0B101", "x=0B101", id="binary-radix-upper"),
-        pytest.param("x=0XFF", "x=0XFF", id="hex-radix-upper"),
+        pytest.param("x=0o17", "x=15", id="octal-radix"),
+        pytest.param("x=0O17", "x=15", id="octal-radix-upper"),
+        pytest.param("x=0b101", "x=5", id="binary-radix"),
+        pytest.param("x=0B101", "x=5", id="binary-radix-upper"),
+        pytest.param("x=0XFF", "x=255", id="hex-radix-upper"),
         pytest.param("foo[0]", "foo[0]", id="three-char-computed-member"),
         pytest.param("leg[0]", "leg[0]", id="three-char-member-not-let"),
         pytest.param("lot[0]", "lot[0]", id="three-char-member-l-not-le"),
@@ -526,7 +532,7 @@ def test_minify_js_rejects_non_string() -> None:
 def test_inline_script_keeps_bang_comment() -> None:
     # the license header survives minification of an inline <script>, as it does for the standalone call
     out = _serialize_script("<script>/*! lib v1 */\nfunction plus(a,b){return a+b}</script>")
-    assert out == "<script>/*! lib v1 */function plus(b,a){return b+a}</script>"
+    assert out == "<script>/*! lib v1 */function plus(a,b){return a+b}</script>"
 
 
 def _serialize_script(html: str) -> str:
@@ -587,7 +593,7 @@ _CALLBACK_ORDER_MINIFIERS: Final[tuple[tuple[str, str | None, str], ...]] = (
 
 def _callback_order_expected(operation: str, case: int, shape: tuple[int, int]) -> dict[str, list[int] | list[None]]:
     count, repeat = shape
-    values: Final = [index % 10 if operation == "minify-js-propagation" else index for index in range(count)]
+    values: Final[list[int]] = [index % 10 if operation == "minify-js-propagation" else index for index in range(count)]
     if operation == "minify-js-var-initialization":
         if case == 2:
             return {"calls": [None] * count, "result": [None] * count}
@@ -625,8 +631,8 @@ _CALLBACK_ORDER_CASES: Final[list[pytest.ParameterSet]] = [
 def test_minifiers_preserve_callback_order(
     operation: str, case: int, module: str, expected: dict[str, list[int] | list[None]]
 ) -> None:
-    minify: Final = cast("Callable[[str], str]", pytest.importorskip(module).minify_js)
-    source: Final = cast("str", INPUTS[operation]()[case][1])
+    minify: Final[Callable[[str], str]] = cast("Callable[[str], str]", pytest.importorskip(module).minify_js)
+    source: Final[str] = cast("str", INPUTS[operation]()[case][1])
     assert (
         json.loads(
             subprocess.run(  # ruff: ignore[subprocess-without-shell-equals-true] - fixed corpus and CLI arguments
@@ -663,7 +669,9 @@ def test_minifiers_preserve_callback_order(
     ],
 )
 def test_minifiers_calmjs_rejects_const(operation: str, case: int) -> None:
-    minify: Final = cast("Callable[[str], str]", pytest.importorskip("bench.competitors.calmjs_parse").minify_js)
+    minify: Final[Callable[[str], str]] = cast(
+        "Callable[[str], str]", pytest.importorskip("bench.competitors.calmjs_parse").minify_js
+    )
     with pytest.raises(SyntaxError, match="Unexpected 'const'"):
         minify(cast("str", INPUTS[operation]()[case][1]))
 
@@ -677,8 +685,8 @@ def test_minifiers_calmjs_rejects_const(operation: str, case: int) -> None:
     ],
 )
 def test_integer_benchmark_preserves_values(case: int, count: int, scale: int, offset: int) -> None:
-    source: Final = cast("str", INPUTS["minify-js-integers"]()[case][1])
-    minified: Final = minify_js(source)
+    source: Final[str] = cast("str", INPUTS["minify-js-integers"]()[case][1])
+    minified: Final[str] = minify_js(source)
     assert [int(float(value)) for value in minified.removeprefix("x=[").removesuffix("]").split(",")] == [
         (index + 1) * scale + offset for index in range(count)
     ]
@@ -759,12 +767,13 @@ def _norm(dump: str) -> str:
 def _canon_num(lexeme: str) -> str:
     # Canonicalise a numeric lexeme exactly as the printer does, so the value-preserving
     # number minification (1.0 -> 1, 1000 -> 1e3) does not read as an AST difference.
-    digits = lexeme.replace("_", "")
+    digits = _radix_to_decimal(lexeme.replace("_", ""))
+    if digits[:2].lower() in {"0x", "0o", "0b"}:
+        return digits
     has_e = "e" in digits or "E" in digits
     dot = digits.find(".")
-    radix = len(digits) >= 2 and digits[0] == "0" and digits[1] in "xXoObB"
     legacy = dot < 0 and not has_e and len(digits) > 1 and digits[0] == "0" and digits[1].isdigit()
-    if radix or has_e or legacy:
+    if has_e or legacy:
         return digits
     if dot < 0:
         zeros = len(digits) - len(digits.rstrip("0"))
@@ -784,6 +793,14 @@ def _canon_num(lexeme: str) -> str:
     if fend > dot + 1:
         out += f".{digits[dot + 1 : fend]}"
     return out or "0"
+
+
+def _radix_to_decimal(digits: str) -> str:
+    # a radix literal up to 2^53 prints as its decimal digits when they are shorter
+    if digits[:2].lower() not in {"0x", "0o", "0b"}:
+        return digits
+    value = int(digits, 0)
+    return digits if value > 2**53 or len(str(value)) >= len(digits) else str(value)
 
 
 def _parse_sexpr(tokens: list[str], pos: int) -> tuple[_SExpr, int]:

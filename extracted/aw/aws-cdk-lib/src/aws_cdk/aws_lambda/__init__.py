@@ -282,12 +282,12 @@ To use `applicationLogLevelV2` and/or `systemLogLevelV2` you must set `loggingFo
 
 ### Log Group Creation Methods
 
-| Method | Description | Tag Propagation | Prop Injection | Aspects | Notes |
-|--------|-------------|-----------------|----------------|---------|-------|
-| **logRetention prop** | Legacy approach using Custom Resource | False | False | False | Does not support TPA |
-| **logGroup prop** | Explicitly supplied by user in CDK app | True | True | True | Full support for TPA |
-| **Lazy creation** | Lambda service creates logGroup on first invocation | False | False | False | Occurs when both logRetention and logGroup are undefined and USE_CDK_MANAGED_LAMBDA_LOGGROUP is false |
-| **USE_CDK_MANAGED_LAMBDA_LOGGROUP** | CDK Lambda function construct creates log group with default props | True | True | True | Feature flag must be enabled |
+| Method                              | Description                                                        | Tag Propagation | Prop Injection | Aspects | Notes                                                                                                 |
+| ----------------------------------- | ------------------------------------------------------------------ | --------------- | -------------- | ------- | ----------------------------------------------------------------------------------------------------- |
+| **logRetention prop**               | Legacy approach using Custom Resource                              | False           | False          | False   | Does not support TPA                                                                                  |
+| **logGroup prop**                   | Explicitly supplied by user in CDK app                             | True            | True           | True    | Full support for TPA                                                                                  |
+| **Lazy creation**                   | Lambda service creates logGroup on first invocation                | False           | False          | False   | Occurs when both logRetention and logGroup are undefined and USE_CDK_MANAGED_LAMBDA_LOGGROUP is false |
+| **USE_CDK_MANAGED_LAMBDA_LOGGROUP** | CDK Lambda function construct creates log group with default props | True            | True           | True    | Feature flag must be enabled                                                                          |
 
 *TPA: Tag propagation, Prop Injection, Aspects*
 
@@ -853,7 +853,7 @@ By default, permissions are granted to the capacity provider to manage instances
 
 ### Configuring Scaling Policies
 
-You can configure target tracking scaling policies to automatically scale your capacity provider based on CPU utilization:
+You can configure target tracking scaling policies to automatically scale your capacity provider based on CPU utilization, or on GPU utilization for GPU instance types (`TargetTrackingScalingPolicy.gpuUtilization()`, see [Lambda with Accelerator Configuration](#lambda-with-accelerator-configuration)):
 
 ```python
 import aws_cdk.aws_ec2 as ec2
@@ -973,19 +973,69 @@ Note that once you use a capacity provider in a function, it cannot be removed, 
 
 #### CapacityProviderFunctionOptions (addFunction method)
 
-| Name | Type | Required | Description |
-|------|------|----------|-------------|
-| perExecutionEnvironmentMaxConcurrency | number | No | Maximum concurrent invokes per execution environment. |
-| executionEnvironmentMemoryGiBPerVCpu | number | No | Memory per VCPU in GiB. |
-| publishToLatestPublished | boolean | No | Whether to automatically publish to $LATEST.PUBLISHED version. |
-| latestPublishedScalingConfig | LatestPublishedScalingConfig | No | Scaling configuration for $LATEST.PUBLISHED version. |
+| Name                                  | Type                         | Required | Description                                                    |
+| ------------------------------------- | ---------------------------- | -------- | -------------------------------------------------------------- |
+| perExecutionEnvironmentMaxConcurrency | number                       | No       | Maximum concurrent invokes per execution environment.          |
+| executionEnvironmentMemoryGiBPerVCpu  | number                       | No       | Memory per VCPU in GiB.                                        |
+| publishToLatestPublished              | boolean                      | No       | Whether to automatically publish to $LATEST.PUBLISHED version. |
+| latestPublishedScalingConfig          | LatestPublishedScalingConfig | No       | Scaling configuration for $LATEST.PUBLISHED version.           |
 
 #### LatestPublishedScalingConfig
 
-| Name | Type | Required | Description |
-|------|------|----------|-------------|
-| minExecutionEnvironments | number | No | Minimum execution environments for $LATEST.PUBLISHED version. |
-| maxExecutionEnvironments | number | No | Maximum execution environments for $LATEST.PUBLISHED version. |
+| Name                     | Type   | Required | Description                                                   |
+| ------------------------ | ------ | -------- | ------------------------------------------------------------- |
+| minExecutionEnvironments | number | No       | Minimum execution environments for $LATEST.PUBLISHED version. |
+| maxExecutionEnvironments | number | No       | Maximum execution environments for $LATEST.PUBLISHED version. |
+
+### Lambda with Accelerator Configuration
+
+Lambda functions using [Capacity Providers](#capacity-providers) can be configured with accelerator resources,
+such as GPUs. The `acceleratorConfig` property specifies the minimum amount of memory of each accelerator device
+exposed to the execution environment. Lambda might allocate more, depending on the accelerator instance types available.
+
+The capacity provider must allow GPU instance types on x86_64. It can scale on GPU utilization:
+
+```python
+import aws_cdk.aws_ec2 as ec2
+
+
+vpc = ec2.Vpc(self, "MyVpc")
+security_group = ec2.SecurityGroup(self, "SecurityGroup", vpc=vpc)
+
+gpu_capacity_provider = lambda_.CapacityProvider(self, "GpuCapacityProvider",
+    subnets=vpc.private_subnets,
+    security_groups=[security_group],
+    architectures=[lambda_.Architecture.X86_64],
+    instance_type_filter=lambda_.InstanceTypeFilter.allow([
+        ec2.InstanceType.of(ec2.InstanceClass.G6, ec2.InstanceSize.XLARGE)
+    ]),
+    scaling_options=lambda_.ScalingOptions.manual([
+        lambda_.TargetTrackingScalingPolicy.gpu_utilization(60)
+    ])
+)
+
+fn = lambda_.Function(self, "MyFunction",
+    runtime=lambda_.Runtime.FROM_IMAGE,
+    handler=lambda_.Handler.FROM_IMAGE,
+    code=lambda_.Code.from_asset_image(path.join(__dirname, "lambda-handler")),
+    memory_size=2048,
+    accelerator_config=lambda.AcceleratorConfig(
+        accelerator_memory_size=lambda_.AcceleratorMemorySize.GIB_24
+    )
+)
+
+gpu_capacity_provider.add_function(fn)
+```
+
+**Important considerations:**
+
+* **Requires Capacity Provider**: Accelerator configuration is only supported for functions using a capacity provider. Use `capacityProvider.addFunction(fn)` to attach the function.
+* **Valid accelerator memory sizes**: 3, 6, 12, 16, 24, 48 GiB.
+* **Minimum memory size**: `memorySize` must be at least 2048 MiB when `acceleratorConfig` is set.
+* **Image package type only**: Only container image functions (`Runtime.FROM_IMAGE`) are supported.
+* **x86_64 only**: ARM64 architecture is not supported for GPU functions.
+* **Ephemeral storage**: LMI functions with accelerator configuration can support up to 32 GiB ephemeral storage (vs 10 GiB for LMI function without the configuration).
+* **Updates cause interruption**: Changing `acceleratorConfig` on an existing function updates it in place with some interruption.
 
 ### Capacity Provider Versions
 
@@ -1025,10 +1075,10 @@ capacity_provider.add_function(fn,
 
 #### VersionOptions (Capacity Provider Related Fields)
 
-| Name | Type | Required | Description |
-|------|------|----------|-------------|
-| minExecutionEnvironments | number | No | Minimum execution environments to maintain for this version. |
-| maxExecutionEnvironments | number | No | Maximum execution environments allowed for this version. |
+| Name                     | Type   | Required | Description                                                  |
+| ------------------------ | ------ | -------- | ------------------------------------------------------------ |
+| minExecutionEnvironments | number | No       | Minimum execution environments to maintain for this version. |
+| maxExecutionEnvironments | number | No       | Maximum execution environments allowed for this version.     |
 
 ### Security and Encryption
 
@@ -1054,19 +1104,19 @@ capacity_provider = lambda_.CapacityProvider(self, "MyCapacityProvider",
 
 #### CapacityProviderProps
 
-| Name | Type | Required | Description |
-|------|------|----------|-------------|
-| capacityProviderName | string | No | Name of the capacity provider. Must be unique within the AWS account and region. |
-| securityGroups | ISecurityGroup[] | Yes | Security groups to associate with EC2 instances. Up to 5 allowed. |
-| subnets | ISubnet[] | Yes | Subnets where the capacity provider can launch EC2 instances. 1-16 subnets supported. |
-| operatorRole | IRole | No | IAM role for Lambda to manage the capacity provider. Uses AWS Managed Policy AWSLambdaManagedEC2ResourceOperator by default. |
-| architectures | Architecture[] | No | Instruction set architecture for compute instances. |
-| instanceTypeFilter | InstanceTypeFilter | No | Filter for allowed or excluded instance types. |
-| maxVCpuCount | number | No | Maximum number of EC2 instances for scaling. |
-| scalingOptions | ScalingOptions | No | Scaling configuration including policies. |
-| kmsKey | IKey | No | KMS key for encrypting capacity provider data. |
-| logGroup | ILogGroup | No | CloudWatch log group for capacity provider system logs. |
-| systemLogLevel | SystemLogLevel | No | Level of detail for capacity provider system logs (DEBUG, INFO, WARN). |
+| Name                 | Type               | Required | Description                                                                                                                  |
+| -------------------- | ------------------ | -------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| capacityProviderName | string             | No       | Name of the capacity provider. Must be unique within the AWS account and region.                                             |
+| securityGroups       | ISecurityGroup[]   | Yes      | Security groups to associate with EC2 instances. Up to 5 allowed.                                                            |
+| subnets              | ISubnet[]          | Yes      | Subnets where the capacity provider can launch EC2 instances. 1-16 subnets supported.                                        |
+| operatorRole         | IRole              | No       | IAM role for Lambda to manage the capacity provider. Uses AWS Managed Policy AWSLambdaManagedEC2ResourceOperator by default. |
+| architectures        | Architecture[]     | No       | Instruction set architecture for compute instances.                                                                          |
+| instanceTypeFilter   | InstanceTypeFilter | No       | Filter for allowed or excluded instance types.                                                                               |
+| maxVCpuCount         | number             | No       | Maximum number of EC2 instances for scaling.                                                                                 |
+| scalingOptions       | ScalingOptions     | No       | Scaling configuration including policies.                                                                                    |
+| kmsKey               | IKey               | No       | KMS key for encrypting capacity provider data.                                                                               |
+| logGroup             | ILogGroup          | No       | CloudWatch log group for capacity provider system logs.                                                                      |
+| systemLogLevel       | SystemLogLevel     | No       | Level of detail for capacity provider system logs (DEBUG, INFO, WARN).                                                       |
 
 ## Lambda Insights
 
@@ -1246,6 +1296,57 @@ fn.add_event_source(eventsources.DynamoEventSource(table,
     filters=[lambda_.FilterCriteria.filter({"event_name": lambda_.FilterRule.is_equal("INSERT")})]
 ))
 ```
+
+#### Defining event filter criteria
+
+Wrap each event pattern with `FilterCriteria.filter()`. It serializes the pattern
+into the `Pattern` string required by the event source mapping. Use `FilterRule`
+helpers to construct comparisons for the fields in that pattern:
+
+* Fields within one pattern are combined with AND.
+* `FilterRule.or()` matches any of the supplied string values for one field.
+* Separate entries in `filters` are combined with OR.
+
+For example, the following DynamoDB stream filter accepts an `INSERT` or `MODIFY`
+event only when the new item's `status` string begins with `approved`:
+
+```python
+import aws_cdk.aws_lambda_event_sources as eventsources
+import aws_cdk.aws_dynamodb as dynamodb
+
+# fn: lambda.Function
+# table: dynamodb.Table
+
+
+fn.add_event_source(eventsources.DynamoEventSource(table,
+    starting_position=lambda_.StartingPosition.LATEST,
+    filters=[lambda_.FilterCriteria.filter({
+        "event_name": lambda_.FilterRule.or("INSERT", "MODIFY"),
+        "dynamodb": {
+            "NewImage": {
+                "status": {"S": lambda_.FilterRule.begins_with("approved")}
+            }
+        }
+    })]
+))
+```
+
+This produces the following `FilterCriteria` property:
+
+```json
+{
+  "Filters": [{
+    "Pattern": "{\"eventName\":[\"INSERT\",\"MODIFY\"],\"dynamodb\":{\"NewImage\":{\"status\":{\"S\":[{\"prefix\":\"approved\"}]}}}}"
+  }]
+}
+```
+
+Use field names and data types that match the event source's record format.
+For DynamoDB, the example requires a stream view that includes the new image,
+such as `StreamViewType.NEW_IMAGE`. Other sources use different data fields,
+for example `body` for SQS and `data` for Kinesis. See
+[Lambda event filtering](https://docs.aws.amazon.com/lambda/latest/dg/invocation-eventfiltering.html)
+for comparison operators and event source behavior.
 
 By default, Lambda will encrypt Filter Criteria using AWS managed keys. But if you want to use a self managed KMS key to encrypt the filters, You can specify the self managed key using the `filterEncryption` property.
 
@@ -2039,17 +2140,43 @@ lambda_.Function(self, "Function",
 )
 ```
 
-Runtimes expose a `bundlingImage` property that points to the [AWS SAM](https://github.com/awslabs/aws-sam-cli) build image.
+Runtimes expose a `bundlingImage` property that points to an
+[AWS SAM build image](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-image-repositories.html).
+Unless a runtime is created with a custom bundling image, it references the image without a tag (`:latest`), so the
+image version used depends on what is
+published and what is cached locally, and can change independently of the AWS CDK version. If your build depends on
+specific tool versions, select an explicit image tag:
+
+```python
+from aws_cdk import BundlingOptions
+lambda_.Function(self, "JavaFunction",
+    code=lambda_.Code.from_asset(path.join(__dirname, "my-java-handler"),
+        bundling=BundlingOptions(
+            image=DockerImage.from_registry("public.ecr.aws/sam/build-java21:1.153"),  # example: the last image with Gradle 8.x
+            command=["bash", "-c", "gradle build && cp build/distributions/*.zip /asset-output/"]
+        )
+    ),
+    runtime=lambda_.Runtime.JAVA_21,
+    handler="com.example.Handler::handleRequest"
+)
+```
+
+SAM build image tags follow AWS SAM CLI releases. Choose a tag that contains the tools your build requires, and update
+the pinned image regularly to receive tool and security updates. Tags can be re-pushed, so if you need a fully
+reproducible build, pin the image by digest instead (`public.ecr.aws/sam/build-java21@sha256:<digest>`). The bundling
+image is part of the asset hash, so changing the pinned tag or digest updates the function code on the next deployment,
+even if your source code is unchanged.
 
 Use `cdk.DockerImage.fromRegistry(image)` to use an existing image or
-`cdk.DockerImage.fromBuild(path)` to build a specific image:
+`cdk.DockerImage.fromBuildV2(path)` to build a specific image. The image is only
+built when the asset is bundled:
 
 ```python
 from aws_cdk import BundlingOptions
 lambda_.Function(self, "Function",
     code=lambda_.Code.from_asset("/path/to/handler",
         bundling=BundlingOptions(
-            image=DockerImage.from_build("/path/to/dir/with/DockerFile",
+            image=DockerImage.from_build_v2("/path/to/dir/with/DockerFile",
                 build_args={
                     "ARG1": "value1"
                 }
@@ -2122,6 +2249,44 @@ lambda_.Function(self, "Lambda",
     code=lambda_.Code.from_asset(path.join(__dirname, "lambda-handler"))
 )
 ```
+
+## Customer-managed runtimes
+
+A customer-managed runtime is a Lambda runtime
+that you publish and version yourself from a container image, instead of using a Lambda-managed runtime such as `nodejs22.x`.
+The runtime is identified by its ARN, and a runtime *alias* (for example `stable`) selects which published version the
+function runs on. Moving the alias to a new version rolls every function on that alias that uses the default `AUTO` runtime
+management mode forward on its next cold start, with no function redeploy.
+
+To run a function on a customer-managed runtime, use the `custom` runtime and apply the
+[`FunctionRuntimeConfig` mixin](#functionruntimeconfig), which names the runtime and alias:
+
+```python
+lambda_.Function(self, "MyFunction",
+    runtime=lambda_.Runtime("custom", lambda_.RuntimeFamily.OTHER),
+    handler="index.handler",
+    code=lambda_.Code.from_asset(path.join(__dirname, "lambda-handler"))
+).with(lambda_.mixins.FunctionRuntimeConfig(
+    runtime_arn="arn:aws:lambda:us-east-1:123456789012:runtime/my-python-runtime",
+    runtime_alias="stable"
+))
+```
+
+**Considerations:**
+
+* `runtimeArn` and `runtimeAlias` are both required.
+* The function's runtime must be `custom`; the mixin reports any other runtime as an error at synthesis time. A runtime
+  that is only known at deployment, such as a `CfnParameter` value, isn't checked. A function that uses the `custom`
+  runtime without the mixin is rejected by the service at deployment.
+* The mixin cannot be used with a container image function (`Runtime.FROM_IMAGE`); the image supplies its own runtime.
+* Inline code (`Code.fromInline`) and SnapStart are not supported with the `custom` runtime. Use an asset, bucket, or
+  Docker-built asset for the code.
+* Layers are checked against `compatibleRuntimes` at synthesis time, as for any other runtime. A layer that lists
+  compatible runtimes must include a `custom` runtime built the same way as the function's, for example
+  `new lambda.Runtime('custom', lambda.RuntimeFamily.OTHER)`; runtimes are matched on name, family, and inline-code
+  support. Layers without `compatibleRuntimes`, and layers imported with `LayerVersion.fromLayerVersionArn`, are accepted.
+* Which runtime versions and architectures a runtime supports, and whether the calling account may use it, are validated
+  by the service at deployment time.
 
 ## Exclude Patterns for Assets
 
@@ -2736,6 +2901,45 @@ revisions, use the L1 constructs (`CfnWebFunction`, `CfnWebFunctionRevision` and
 
 Metrics are not modeled yet. The endpoint publishes them in the `AWS/Lambda/Web` namespace with
 the `FunctionName` and `EndpointName` dimensions; use `cloudwatch.Metric` to reference them.
+
+## Mixins
+
+Lambda provides [mixins](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib-readme.html#mixins) that can be applied to L1 and L2 constructs.
+
+### FunctionRuntimeConfig
+
+Runs a function on a [customer-managed runtime](#customer-managed-runtimes) by setting its `RuntimeConfig`. The function's
+runtime must be `custom`:
+
+```python
+# role: iam.IRole
+lambda_.Function(self, "MyFunction",
+    runtime=lambda_.Runtime("custom", lambda_.RuntimeFamily.OTHER),
+    handler="index.handler",
+    code=lambda_.Code.from_asset(path.join(__dirname, "lambda-handler"))
+).with(lambda_.mixins.FunctionRuntimeConfig(
+    runtime_arn="arn:aws:lambda:us-east-1:123456789012:runtime/my-python-runtime",
+    runtime_alias="stable"
+))
+lambda_.CfnFunction(self, "MyCfnFunction",
+    runtime="custom",
+    handler="index.handler",
+    code=lambda.CfnFunction.CodeProperty(s3_bucket="my-bucket", s3_key="function.zip"),
+    role=role.role_arn
+).with(lambda_.mixins.FunctionRuntimeConfig(
+    runtime_arn="arn:aws:lambda:us-east-1:123456789012:runtime/my-python-runtime",
+    runtime_alias="stable"
+))
+```
+
+Applying the mixin:
+
+* Sets `RuntimeConfig` on the function, replacing any existing `RuntimeConfig`.
+* Fails synthesis if the function's runtime is not `custom`, or if the function is a container image function. The check
+  runs at synthesis, so a runtime set after the mixin is applied is also checked. A runtime that is only known at
+  deployment isn't checked.
+* Applies to every function in the scope it is applied to, so apply it to the function rather than to a stack.
+* Leaves the runtime's versions, architectures, and account access to be validated by the service at deployment.
 '''
 from __future__ import annotations
 
@@ -2746,6 +2950,7 @@ import abc
 import builtins
 import datetime
 import enum
+import importlib as _importlib
 import typing
 
 import jsii
@@ -2835,6 +3040,198 @@ else:
     _aws_sqs_24ab9de4 = _LazyImport("aws_cdk.aws_sqs")
     _aws_sqs_5e3fc237 = _LazyImport("aws_cdk.interfaces.aws_sqs")
     _constructs_77d1e7e8 = _LazyImport("constructs")
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lambda.AcceleratorConfig",
+    jsii_struct_bases=[],
+    name_mapping={"accelerator_memory_size": "acceleratorMemorySize"},
+)
+class AcceleratorConfig:
+    def __init__(self, *, accelerator_memory_size: "AcceleratorMemorySize") -> None:
+        '''Accelerator configuration for Lambda Managed Instance (LMI) functions.
+
+        :param accelerator_memory_size: The minimum amount of memory of each accelerator device exposed to the execution environment. Lambda might allocate more, depending on the accelerator instance types available.
+
+        :exampleMetadata: infused
+
+        Example::
+
+            import aws_cdk.aws_ec2 as ec2
+            
+            
+            vpc = ec2.Vpc(self, "MyVpc")
+            security_group = ec2.SecurityGroup(self, "SecurityGroup", vpc=vpc)
+            
+            gpu_capacity_provider = lambda_.CapacityProvider(self, "GpuCapacityProvider",
+                subnets=vpc.private_subnets,
+                security_groups=[security_group],
+                architectures=[lambda_.Architecture.X86_64],
+                instance_type_filter=lambda_.InstanceTypeFilter.allow([
+                    ec2.InstanceType.of(ec2.InstanceClass.G6, ec2.InstanceSize.XLARGE)
+                ]),
+                scaling_options=lambda_.ScalingOptions.manual([
+                    lambda_.TargetTrackingScalingPolicy.gpu_utilization(60)
+                ])
+            )
+            
+            fn = lambda_.Function(self, "MyFunction",
+                runtime=lambda_.Runtime.FROM_IMAGE,
+                handler=lambda_.Handler.FROM_IMAGE,
+                code=lambda_.Code.from_asset_image(path.join(__dirname, "lambda-handler")),
+                memory_size=2048,
+                accelerator_config=lambda.AcceleratorConfig(
+                    accelerator_memory_size=lambda_.AcceleratorMemorySize.GIB_24
+                )
+            )
+            
+            gpu_capacity_provider.add_function(fn)
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__37fdc45dbc8cd10d82d61e19cd6853f0fa4f98996715f644868a4c53c237bcb6)
+            check_type(argname="argument accelerator_memory_size", value=accelerator_memory_size, expected_type=type_hints["accelerator_memory_size"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "accelerator_memory_size": accelerator_memory_size,
+        }
+
+    @builtins.property
+    def accelerator_memory_size(self) -> "AcceleratorMemorySize":
+        '''The minimum amount of memory of each accelerator device exposed to the execution environment.
+
+        Lambda might allocate more, depending on the accelerator instance types available.
+        '''
+        result = self._values.get("accelerator_memory_size")
+        assert result is not None, "Required property 'accelerator_memory_size' is missing"
+        return typing.cast("AcceleratorMemorySize", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AcceleratorConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class AcceleratorMemorySize(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_lambda.AcceleratorMemorySize",
+):
+    '''The minimum amount of memory, in gibibytes (GiB), of each accelerator device exposed to a Lambda Managed Instance (LMI) function's execution environment.
+
+    Lambda might allocate more, depending on the accelerator instance types available.
+
+    Use one of the predefined values (``AcceleratorMemorySize.GIB_24``, etc.). If the
+    service adds a size that is not yet listed here, use ``AcceleratorMemorySize.of()``
+    to supply it directly.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_ec2 as ec2
+        
+        
+        vpc = ec2.Vpc(self, "MyVpc")
+        security_group = ec2.SecurityGroup(self, "SecurityGroup", vpc=vpc)
+        
+        gpu_capacity_provider = lambda_.CapacityProvider(self, "GpuCapacityProvider",
+            subnets=vpc.private_subnets,
+            security_groups=[security_group],
+            architectures=[lambda_.Architecture.X86_64],
+            instance_type_filter=lambda_.InstanceTypeFilter.allow([
+                ec2.InstanceType.of(ec2.InstanceClass.G6, ec2.InstanceSize.XLARGE)
+            ]),
+            scaling_options=lambda_.ScalingOptions.manual([
+                lambda_.TargetTrackingScalingPolicy.gpu_utilization(60)
+            ])
+        )
+        
+        fn = lambda_.Function(self, "MyFunction",
+            runtime=lambda_.Runtime.FROM_IMAGE,
+            handler=lambda_.Handler.FROM_IMAGE,
+            code=lambda_.Code.from_asset_image(path.join(__dirname, "lambda-handler")),
+            memory_size=2048,
+            accelerator_config=lambda.AcceleratorConfig(
+                accelerator_memory_size=lambda_.AcceleratorMemorySize.GIB_24
+            )
+        )
+        
+        gpu_capacity_provider.add_function(fn)
+    '''
+
+    @jsii.member(jsii_name="of")
+    @builtins.classmethod
+    def of(cls, gibibytes: jsii.Number) -> "AcceleratorMemorySize":
+        '''An amount of accelerator memory expressed as a number of gibibytes (GiB).
+
+        Prefer the predefined constants; use this escape hatch only for a value the
+        service supports that is not yet represented as a constant. The specific set
+        of valid sizes is a service-side constraint enforced at deploy time, so this
+        method does not restrict the value to the predefined constants. It does reject
+        clearly-invalid input (a non-positive or non-integer number of GiB). The value
+        may be an unresolved token, in which case validation is skipped.
+
+        :param gibibytes: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a1b19cf5170aa37594cd30668f4a89fda828e2b34b3cb0dc8b11c5cfbd333fd6)
+            check_type(argname="argument gibibytes", value=gibibytes, expected_type=type_hints["gibibytes"])
+        return typing.cast("AcceleratorMemorySize", jsii.sinvoke(cls, "of", [gibibytes]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="GIB_12")
+    @builtins.classmethod
+    def GIB_12(cls) -> "AcceleratorMemorySize":
+        '''12 GiB of accelerator memory.'''
+        return typing.cast("AcceleratorMemorySize", jsii.sget(cls, "GIB_12"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="GIB_16")
+    @builtins.classmethod
+    def GIB_16(cls) -> "AcceleratorMemorySize":
+        '''16 GiB of accelerator memory.'''
+        return typing.cast("AcceleratorMemorySize", jsii.sget(cls, "GIB_16"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="GIB_24")
+    @builtins.classmethod
+    def GIB_24(cls) -> "AcceleratorMemorySize":
+        '''24 GiB of accelerator memory.'''
+        return typing.cast("AcceleratorMemorySize", jsii.sget(cls, "GIB_24"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="GIB_3")
+    @builtins.classmethod
+    def GIB_3(cls) -> "AcceleratorMemorySize":
+        '''3 GiB of accelerator memory.'''
+        return typing.cast("AcceleratorMemorySize", jsii.sget(cls, "GIB_3"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="GIB_48")
+    @builtins.classmethod
+    def GIB_48(cls) -> "AcceleratorMemorySize":
+        '''48 GiB of accelerator memory.'''
+        return typing.cast("AcceleratorMemorySize", jsii.sget(cls, "GIB_48"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="GIB_6")
+    @builtins.classmethod
+    def GIB_6(cls) -> "AcceleratorMemorySize":
+        '''6 GiB of accelerator memory.'''
+        return typing.cast("AcceleratorMemorySize", jsii.sget(cls, "GIB_6"))
+
+    @builtins.property
+    @jsii.member(jsii_name="gibibytes")
+    def gibibytes(self) -> jsii.Number:
+        '''The amount of accelerator memory in gibibytes (GiB).
+
+        May be an unresolved token when supplied via ``of()``.
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "gibibytes"))
 
 
 @jsii.data_type(
@@ -3832,10 +4229,10 @@ class AssetImageCodeProps(_aws_ecr_assets_c4622a7f.DockerImageAssetOptions):
     ) -> None:
         '''Properties to initialize a new AssetImage.
 
-        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Has no effect on Assets bundled using the ``bundling`` property. Default: - nothing is excluded
-        :param follow_symlinks: A strategy for how to handle symlinks. Default: SymlinkFollowMode.NEVER
-        :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
-        :param extra_hash: Extra information to encode into the fingerprint (e.g. build instructions and other inputs). Default: - hash is only based on source content
+        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, this controls the files that will be included in the copy. Files matching the ``exclude`` patterns will not be included in the copy. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the value of ``exclude`` is only meaningful if the ``assetHashType`` is set to ``AssetHashType.SOURCE``, and ignored for other asset hash types. The ``exclude`` patterns will be used to determine which files contribute to the asset, and the bundling command is skipped if the source files have not changed since the last bundling operation. **NOTE:** The bundling operation still has access to all files in the source path, regardless of the ``exclude`` patterns. It is your responsibility to ensure the ``exclude`` pattern accurately matches the files the bundling operation will *actually* access and base its final output on. For ``OUTPUT`` or ``CUSTOM`` asset hash types, the ``exclude`` pattern is ignored. Default: - nothing is excluded
+        :param follow_symlinks: A strategy for how to handle symlinks. Symlinks may be copied, materialized or rejected. Note that if symlinks are copied they should be relative; absolute symlinks will lose their meaning if the cloud assembly is moved to another machine. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, symlinks are materialized or blocked with respect to the ``sourcePath`` directory as they are being copied. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the bundling command is fully in charge of producing a set of files in an output directory, and the ``AssetStaging`` construct will never affect symlink materialization. If the ``assetHashType`` is ``AssetHashType.SOURCE``, this flag affects what the source hash is based on, and the recommended value is one of ``SymlinkFollowMode.EXTERNAL`` or ``SymlinkFollowMode.BLOCK_EXTERNAL``. If the ``SymlinkFollowMode.BLOCK_EXTERNAL`` mode is used: - symlinks pointing outside the source tree will be blocked if using ``AssetHashType.SOURCE``. - symlinks pointing outside the bundle output will be blocked. Default: SymlinkFollowMode.EXTERNAL
+        :param ignore_mode: What syntax the ``exclude`` patterns are written in. Default: - IgnoreMode.GLOB for file assets, ``IgnoreMode.DOCKER`` for image assets (requires that the ``@aws-cdk/aws-ecr-assets:dockerIgnoreSupport`` feature flag is set, which is recommended)
+        :param extra_hash: Extra information to encode into the fingerprint (e.g. build instructions and other inputs). Default: - hash is only based on the file fingerprint
         :param asset_name: Unique identifier of the docker image asset and its potential revisions. Required if using AppScopedStagingSynthesizer. Default: - no asset name
         :param build_args: Build args to pass to the ``docker build`` command. Since Docker build arguments are resolved before deployment, keys and values cannot refer to unresolved tokens (such as ``lambda.functionArn`` or ``queue.queueUrl``). Default: - no build args are passed
         :param build_contexts: Build contexts to pass to the ``docker build`` command. Build contexts can be used to specify additional directories or images to use during the build. Each entry specifies a named build context and its source (a directory path, a URL, or a docker image). Since Docker build contexts are resolved before deployment, keys and values cannot refer to unresolved tokens (such as ``lambda.functionArn`` or ``queue.queueUrl``). Default: - no additional build contexts
@@ -4001,10 +4398,33 @@ class AssetImageCodeProps(_aws_ecr_assets_c4622a7f.DockerImageAssetOptions):
 
     @builtins.property
     def exclude(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''File paths matching the patterns will be excluded.
+        '''File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior.
 
-        See ``ignoreMode`` to set the matching behavior.
-        Has no effect on Assets bundled using the ``bundling`` property.
+
+
+        Without bundling
+
+        When used without the ``bundling`` property, the asset is just a regular file
+        copy operation. In that case, this controls the files that will be included
+        in the copy. Files matching the ``exclude`` patterns will not be included in
+        the copy.
+
+
+        With bundling
+
+        When used with the ``bundling`` property, the asset is produced by a
+        bundling operation. In that case, the value of ``exclude`` is only meaningful
+        if the ``assetHashType`` is set to ``AssetHashType.SOURCE``, and ignored for
+        other asset hash types. The ``exclude`` patterns will be used to determine
+        which files contribute to the asset, and the bundling command is skipped
+        if the source files have not changed since the last bundling operation.
+
+        **NOTE:** The bundling operation still has access to all files in the source path,
+        regardless of the ``exclude`` patterns. It is your responsibility to ensure
+        the ``exclude`` pattern accurately matches the files the bundling operation
+        will *actually* access and base its final output on.
+
+        For ``OUTPUT`` or ``CUSTOM`` asset hash types, the ``exclude`` pattern is ignored.
 
         :default: - nothing is excluded
         '''
@@ -4015,16 +4435,44 @@ class AssetImageCodeProps(_aws_ecr_assets_c4622a7f.DockerImageAssetOptions):
     def follow_symlinks(self) -> typing.Optional["_aws_cdk_0cae9daa.SymlinkFollowMode"]:
         '''A strategy for how to handle symlinks.
 
-        :default: SymlinkFollowMode.NEVER
+        Symlinks may be copied, materialized or rejected. Note that if symlinks are
+        copied they should be relative; absolute symlinks will lose their
+        meaning if the cloud assembly is moved to another machine.
+
+
+        Without bundling
+
+        When used without the ``bundling`` property, the asset is just a regular file
+        copy operation. In that case, symlinks are materialized or blocked with respect
+        to the ``sourcePath`` directory as they are being copied.
+
+
+        With bundling
+
+        When used with the ``bundling`` property, the asset is produced by a
+        bundling operation. In that case, the bundling command is fully
+        in charge of producing a set of files in an output directory, and
+        the ``AssetStaging`` construct will never affect symlink materialization.
+
+        If the ``assetHashType`` is ``AssetHashType.SOURCE``, this flag affects what
+        the source hash is based on, and the recommended value is one of
+        ``SymlinkFollowMode.EXTERNAL`` or ``SymlinkFollowMode.BLOCK_EXTERNAL``.
+
+        If the ``SymlinkFollowMode.BLOCK_EXTERNAL`` mode is used:
+
+        - symlinks pointing outside the source tree will be blocked if using ``AssetHashType.SOURCE``.
+        - symlinks pointing outside the bundle output will be blocked.
+
+        :default: SymlinkFollowMode.EXTERNAL
         '''
         result = self._values.get("follow_symlinks")
         return typing.cast(typing.Optional["_aws_cdk_0cae9daa.SymlinkFollowMode"], result)
 
     @builtins.property
     def ignore_mode(self) -> typing.Optional["_aws_cdk_0cae9daa.IgnoreMode"]:
-        '''The ignore behavior to use for ``exclude`` patterns.
+        '''What syntax the ``exclude`` patterns are written in.
 
-        :default: IgnoreMode.GLOB
+        :default: - IgnoreMode.GLOB for file assets, ``IgnoreMode.DOCKER`` for image assets (requires that the ``@aws-cdk/aws-ecr-assets:dockerIgnoreSupport`` feature flag is set, which is recommended)
         '''
         result = self._values.get("ignore_mode")
         return typing.cast(typing.Optional["_aws_cdk_0cae9daa.IgnoreMode"], result)
@@ -4033,7 +4481,7 @@ class AssetImageCodeProps(_aws_ecr_assets_c4622a7f.DockerImageAssetOptions):
     def extra_hash(self) -> typing.Optional[builtins.str]:
         '''Extra information to encode into the fingerprint (e.g. build instructions and other inputs).
 
-        :default: - hash is only based on source content
+        :default: - hash is only based on the file fingerprint
         '''
         result = self._values.get("extra_hash")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4545,7 +4993,7 @@ class CapacityProviderFunctionOptions:
 
         :param execution_environment_memory_gib_per_v_cpu: Specifies the execution environment memory per VCPU, in GiB. Default: 2.0
         :param latest_published_scaling_config: The scaling options that are applied to the $LATEST.PUBLISHED version. Default: - No scaling limitations are applied to the $LATEST.PUBLISHED version.
-        :param per_execution_environment_max_concurrency: Specifies the maximum number of concurrent invokes a single execution environment can handle. Default: Maximum is set to 10
+        :param per_execution_environment_max_concurrency: Specifies the maximum number of concurrent invokes a single execution environment can handle. Default: - not set; the Lambda service applies its default
         :param publish_to_latest_published: A boolean determining whether or not to automatically publish to the $LATEST.PUBLISHED version. Default: - True
 
         :exampleMetadata: infused
@@ -4612,7 +5060,7 @@ class CapacityProviderFunctionOptions:
     def per_execution_environment_max_concurrency(self) -> typing.Optional[jsii.Number]:
         '''Specifies the maximum number of concurrent invokes a single execution environment can handle.
 
-        :default: Maximum is set to 10
+        :default: - not set; the Lambda service applies its default
         '''
         result = self._values.get("per_execution_environment_max_concurrency")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4693,7 +5141,6 @@ class CapacityProviderProps:
         Example::
 
             import aws_cdk.aws_ec2 as ec2
-            import aws_cdk.aws_logs as logs
             
             
             vpc = ec2.Vpc(self, "MyVpc")
@@ -4702,10 +5149,9 @@ class CapacityProviderProps:
             capacity_provider = lambda_.CapacityProvider(self, "MyCapacityProvider",
                 subnets=vpc.private_subnets,
                 security_groups=[security_group],
-                log_group=logs.LogGroup(self, "CpLogs",
-                    log_group_name="/aws/lambda/capacity-provider/my-cp"
-                ),
-                system_log_level=lambda_.SystemLogLevel.DEBUG
+                scaling_options=lambda_.ScalingOptions.manual([
+                    lambda_.TargetTrackingScalingPolicy.cpu_utilization(70)
+                ])
             )
         '''
         if __debug__:
@@ -10444,118 +10890,28 @@ class CfnFunction(
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-function.html
     :cloudformationResource: AWS::Lambda::Function
-    :exampleMetadata: fixture=_generated
+    :exampleMetadata: infused
 
     Example::
 
-        from aws_cdk import CfnTag
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_lambda as lambda_
-        
-        cfn_function = lambda_.CfnFunction(self, "MyCfnFunction",
-            code=lambda.CfnFunction.CodeProperty(
-                image_uri="imageUri",
-                s3_bucket="s3Bucket",
-                s3_key="s3Key",
-                s3_object_storage_mode="s3ObjectStorageMode",
-                s3_object_version="s3ObjectVersion",
-                source_kms_key_arn="sourceKmsKeyArn",
-                zip_file="zipFile"
-            ),
-            role="role",
-        
-            # the properties below are optional
-            architectures=["architectures"],
-            capacity_provider_config=lambda.CfnFunction.CapacityProviderConfigProperty(
-                lambda_managed_instances_capacity_provider_config=lambda.CfnFunction.LambdaManagedInstancesCapacityProviderConfigProperty(
-                    capacity_provider_arn="capacityProviderArn",
-        
-                    # the properties below are optional
-                    execution_environment_memory_gi_b_per_v_cpu=123,
-                    per_execution_environment_max_concurrency=123
-                )
-            ),
-            code_signing_config_arn="codeSigningConfigArn",
-            dead_letter_config=lambda.CfnFunction.DeadLetterConfigProperty(
-                target_arn="targetArn"
-            ),
-            description="description",
-            durable_config=lambda.CfnFunction.DurableConfigProperty(
-                execution_timeout=123,
-        
-                # the properties below are optional
-                kms_key_arn="kmsKeyArn",
-                retention_period_in_days=123
-            ),
-            environment=lambda.CfnFunction.EnvironmentProperty(
-                variables={
-                    "variables_key": "variables"
-                }
-            ),
-            ephemeral_storage=lambda.CfnFunction.EphemeralStorageProperty(
-                size=123
-            ),
-            file_system_configs=[lambda.CfnFunction.FileSystemConfigProperty(
-                arn="arn",
-                local_mount_path="localMountPath",
-        
-                # the properties below are optional
-                s3_files_config=lambda.CfnFunction.S3FilesConfigProperty(
-                    direct_s3_read="directS3Read"
-                )
-            )],
-            function_name="functionName",
-            function_scaling_config=lambda.CfnFunction.FunctionScalingConfigProperty(
-                max_execution_environments=123,
-                min_execution_environments=123
-            ),
-            handler="handler",
-            image_config=lambda.CfnFunction.ImageConfigProperty(
-                command=["command"],
-                entry_point=["entryPoint"],
-                working_directory="workingDirectory"
-            ),
-            kms_key_arn="kmsKeyArn",
-            layers=["layers"],
-            logging_config=lambda.CfnFunction.LoggingConfigProperty(
-                application_log_level="applicationLogLevel",
-                log_format="logFormat",
-                log_group="logGroup",
-                system_log_level="systemLogLevel"
-            ),
-            memory_size=123,
-            package_type="packageType",
-            publish_to_latest_published=False,
-            recursive_loop="recursiveLoop",
-            reserved_concurrent_executions=123,
-            runtime="runtime",
-            runtime_management_config=lambda.CfnFunction.RuntimeManagementConfigProperty(
-                update_runtime_on="updateRuntimeOn",
-        
-                # the properties below are optional
-                runtime_version_arn="runtimeVersionArn"
-            ),
-            snap_start=lambda.CfnFunction.SnapStartProperty(
-                apply_on="applyOn"
-            ),
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )],
-            tenancy_config=lambda.CfnFunction.TenancyConfigProperty(
-                tenant_isolation_mode="tenantIsolationMode"
-            ),
-            timeout=123,
-            tracing_config=lambda.CfnFunction.TracingConfigProperty(
-                mode="mode"
-            ),
-            vpc_config=lambda.CfnFunction.VpcConfigProperty(
-                ipv6_allowed_for_dual_stack=False,
-                security_group_ids=["securityGroupIds"],
-                subnet_ids=["subnetIds"]
-            )
-        )
+        # role: iam.IRole
+        lambda_.Function(self, "MyFunction",
+            runtime=lambda_.Runtime("custom", lambda_.RuntimeFamily.OTHER),
+            handler="index.handler",
+            code=lambda_.Code.from_asset(path.join(__dirname, "lambda-handler"))
+        ).with(lambda_.mixins.FunctionRuntimeConfig(
+            runtime_arn="arn:aws:lambda:us-east-1:123456789012:runtime/my-python-runtime",
+            runtime_alias="stable"
+        ))
+        lambda_.CfnFunction(self, "MyCfnFunction",
+            runtime="custom",
+            handler="index.handler",
+            code=lambda.CfnFunction.CodeProperty(s3_bucket="my-bucket", s3_key="function.zip"),
+            role=role.role_arn
+        ).with(lambda_.mixins.FunctionRuntimeConfig(
+            runtime_arn="arn:aws:lambda:us-east-1:123456789012:runtime/my-python-runtime",
+            runtime_alias="stable"
+        ))
     '''
 
     def __init__(
@@ -10565,6 +10921,7 @@ class CfnFunction(
         *,
         code: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunction.CodeProperty", typing.Dict[builtins.str, typing.Any]]],
         role: typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"],
+        accelerator_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunction.AcceleratorConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         architectures: typing.Optional[typing.Sequence[builtins.str]] = None,
         capacity_provider_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunction.CapacityProviderConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         code_signing_config_arn: typing.Optional[typing.Union[builtins.str, "_aws_lambda_aaab8031.ICodeSigningConfigRef"]] = None,
@@ -10587,6 +10944,7 @@ class CfnFunction(
         recursive_loop: typing.Optional[builtins.str] = None,
         reserved_concurrent_executions: typing.Optional[jsii.Number] = None,
         runtime: typing.Optional[builtins.str] = None,
+        runtime_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunction.RuntimeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         runtime_management_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunction.RuntimeManagementConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         snap_start: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunction.SnapStartProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -10601,6 +10959,7 @@ class CfnFunction(
         :param id: Construct identifier for this resource (unique in its scope).
         :param code: The code for the function. You can define your function code in multiple ways:. - For .zip deployment packages, you can specify the Amazon S3 location of the .zip file in the ``S3Bucket`` , ``S3Key`` , and ``S3ObjectVersion`` properties. - For .zip deployment packages, you can alternatively define the function code inline in the ``ZipFile`` property. This method works only for Node.js and Python functions. - For container images, specify the URI of your container image in the Amazon ECR registry in the ``ImageUri`` property.
         :param role: The Amazon Resource Name (ARN) of the function's execution role.
+        :param accelerator_config: 
         :param architectures: The instruction set architecture that the function supports. Enter a string array with one of the valid values (arm64 or x86_64). The default value is ``x86_64`` .
         :param capacity_provider_config: Configuration for the capacity provider that manages compute resources for Lambda functions.
         :param code_signing_config_arn: To enable code signing for this function, specify the ARN of a code-signing configuration. A code-signing configuration includes a set of signing profiles, which define the trusted publishers for this function.
@@ -10623,6 +10982,7 @@ class CfnFunction(
         :param recursive_loop: The status of your function's recursive loop detection configuration. When this value is set to ``Allow`` and Lambda detects your function being invoked as part of a recursive loop, it doesn't take any action. When this value is set to ``Terminate`` and Lambda detects your function being invoked as part of a recursive loop, it stops your function being invoked and notifies you.
         :param reserved_concurrent_executions: The number of simultaneous executions to reserve for the function.
         :param runtime: The identifier of the function's `runtime <https://docs.aws.amazon.com/lambda/latest/dg/lambda-runtimes.html>`_ . Runtime is required if the deployment package is a .zip file archive. Specifying a runtime results in an error if you're deploying a function using a container image. The following list includes deprecated runtimes. Lambda blocks creating new functions and updating existing functions shortly after each runtime is deprecated. For more information, see `Runtime use after deprecation <https://docs.aws.amazon.com/lambda/latest/dg/lambda-runtimes.html#runtime-deprecation-levels>`_ . For a list of all currently supported runtimes, see `Supported runtimes <https://docs.aws.amazon.com/lambda/latest/dg/lambda-runtimes.html#runtimes-supported>`_ .
+        :param runtime_config: 
         :param runtime_management_config: Sets the runtime management configuration for a function's version. For more information, see `Runtime updates <https://docs.aws.amazon.com/lambda/latest/dg/runtimes-update.html>`_ .
         :param snap_start: The function's `AWS Lambda SnapStart <https://docs.aws.amazon.com/lambda/latest/dg/snapstart.html>`_ setting.
         :param tags: A list of `tags <https://docs.aws.amazon.com/lambda/latest/dg/tagging.html>`_ to apply to the function. .. epigraph:: You must have the ``lambda:TagResource`` , ``lambda:UntagResource`` , and ``lambda:ListTags`` permissions for your `IAM principal <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_terms-and-concepts.html>`_ to manage the CloudFormation stack. If you don't have these permissions, there might be unexpected behavior with stack-level tags propagating to the resource during resource creation and update.
@@ -10638,6 +10998,7 @@ class CfnFunction(
         props = CfnFunctionProps(
             code=code,
             role=role,
+            accelerator_config=accelerator_config,
             architectures=architectures,
             capacity_provider_config=capacity_provider_config,
             code_signing_config_arn=code_signing_config_arn,
@@ -10660,6 +11021,7 @@ class CfnFunction(
             recursive_loop=recursive_loop,
             reserved_concurrent_executions=reserved_concurrent_executions,
             runtime=runtime,
+            runtime_config=runtime_config,
             runtime_management_config=runtime_management_config,
             snap_start=snap_start,
             tags=tags,
@@ -10861,6 +11223,23 @@ class CfnFunction(
             type_hints = cached_type_hints(_typecheckingstub__0087a2968c8a22b8dd1ff3bf410b2d9939dd4741222544ab3d1519ae865e7631)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "role", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="acceleratorConfig")
+    def accelerator_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.AcceleratorConfigProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.AcceleratorConfigProperty"]], jsii.get(self, "acceleratorConfig"))
+
+    @accelerator_config.setter
+    def accelerator_config(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.AcceleratorConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ad2bb97879fe1b20fddd2241c5750dc5e87527168303f6fbb5f0d24e55b1ec5d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "acceleratorConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="architectures")
@@ -11201,6 +11580,23 @@ class CfnFunction(
         jsii.set(self, "runtime", value)
 
     @builtins.property
+    @jsii.member(jsii_name="runtimeConfig")
+    def runtime_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.RuntimeConfigProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.RuntimeConfigProperty"]], jsii.get(self, "runtimeConfig"))
+
+    @runtime_config.setter
+    def runtime_config(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.RuntimeConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__05797633ae69b5be61ecb3579c036a751222831afb1c84010a0371a73e08dca8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "runtimeConfig", value)
+
+    @builtins.property
     @jsii.member(jsii_name="runtimeManagementConfig")
     def runtime_management_config(
         self,
@@ -11318,6 +11714,59 @@ class CfnFunction(
             type_hints = cached_type_hints(_typecheckingstub__033cfa97016c411e045aae5002e1ed6a505aefcc7ef38007d08100468c8903b9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vpcConfig", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lambda.CfnFunction.AcceleratorConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"accelerator_memory_size": "acceleratorMemorySize"},
+    )
+    class AcceleratorConfigProperty:
+        def __init__(self, *, accelerator_memory_size: jsii.Number) -> None:
+            '''
+            :param accelerator_memory_size: The minimum amount of memory (in GB) of each accelerator device exposed to the execution environment. Lambda might allocate more, depending on the accelerator instance types available. Valid values: 3, 6, 12, 16, 24, 48.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-function-acceleratorconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lambda as lambda_
+                
+                accelerator_config_property = lambda.CfnFunction.AcceleratorConfigProperty(
+                    accelerator_memory_size=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__445ad5b5a206e87b42052816e63236e3aff6271d4b439a2d1000439a66f16c81)
+                check_type(argname="argument accelerator_memory_size", value=accelerator_memory_size, expected_type=type_hints["accelerator_memory_size"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "accelerator_memory_size": accelerator_memory_size,
+            }
+
+        @builtins.property
+        def accelerator_memory_size(self) -> jsii.Number:
+            '''The minimum amount of memory (in GB) of each accelerator device exposed to the execution environment.
+
+            Lambda might allocate more, depending on the accelerator instance types available. Valid values: 3, 6, 12, 16, 24, 48.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-function-acceleratorconfig.html#cfn-lambda-function-acceleratorconfig-acceleratormemorysize
+            '''
+            result = self._values.get("accelerator_memory_size")
+            assert result is not None, "Required property 'accelerator_memory_size' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AcceleratorConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_lambda.CfnFunction.CapacityProviderConfigProperty",
@@ -12300,6 +12749,76 @@ class CfnFunction(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lambda.CfnFunction.RuntimeConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"runtime_alias": "runtimeAlias", "runtime_arn": "runtimeArn"},
+    )
+    class RuntimeConfigProperty:
+        def __init__(
+            self,
+            *,
+            runtime_alias: builtins.str,
+            runtime_arn: builtins.str,
+        ) -> None:
+            '''
+            :param runtime_alias: The name of the runtime alias that controls the function's runtime update cadence (for example, stable or latest).
+            :param runtime_arn: The Amazon Resource Name (ARN) of the runtime that the function uses.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-function-runtimeconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lambda as lambda_
+                
+                runtime_config_property = lambda.CfnFunction.RuntimeConfigProperty(
+                    runtime_alias="runtimeAlias",
+                    runtime_arn="runtimeArn"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__b00672edfa09e452828eb5af99e129f30790d9223dfabccad3a1da3a57a4a0e6)
+                check_type(argname="argument runtime_alias", value=runtime_alias, expected_type=type_hints["runtime_alias"])
+                check_type(argname="argument runtime_arn", value=runtime_arn, expected_type=type_hints["runtime_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "runtime_alias": runtime_alias,
+                "runtime_arn": runtime_arn,
+            }
+
+        @builtins.property
+        def runtime_alias(self) -> builtins.str:
+            '''The name of the runtime alias that controls the function's runtime update cadence (for example, stable or latest).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-function-runtimeconfig.html#cfn-lambda-function-runtimeconfig-runtimealias
+            '''
+            result = self._values.get("runtime_alias")
+            assert result is not None, "Required property 'runtime_alias' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def runtime_arn(self) -> builtins.str:
+            '''The Amazon Resource Name (ARN) of the runtime that the function uses.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-function-runtimeconfig.html#cfn-lambda-function-runtimeconfig-runtimearn
+            '''
+            result = self._values.get("runtime_arn")
+            assert result is not None, "Required property 'runtime_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RuntimeConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_lambda.CfnFunction.RuntimeManagementConfigProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -12785,6 +13304,7 @@ class CfnFunction(
     name_mapping={
         "code": "code",
         "role": "role",
+        "accelerator_config": "acceleratorConfig",
         "architectures": "architectures",
         "capacity_provider_config": "capacityProviderConfig",
         "code_signing_config_arn": "codeSigningConfigArn",
@@ -12807,6 +13327,7 @@ class CfnFunction(
         "recursive_loop": "recursiveLoop",
         "reserved_concurrent_executions": "reservedConcurrentExecutions",
         "runtime": "runtime",
+        "runtime_config": "runtimeConfig",
         "runtime_management_config": "runtimeManagementConfig",
         "snap_start": "snapStart",
         "tags": "tags",
@@ -12822,6 +13343,7 @@ class CfnFunctionProps:
         *,
         code: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunction.CodeProperty", typing.Dict[builtins.str, typing.Any]]],
         role: typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"],
+        accelerator_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunction.AcceleratorConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         architectures: typing.Optional[typing.Sequence[builtins.str]] = None,
         capacity_provider_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunction.CapacityProviderConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         code_signing_config_arn: typing.Optional[typing.Union[builtins.str, "_aws_lambda_aaab8031.ICodeSigningConfigRef"]] = None,
@@ -12844,6 +13366,7 @@ class CfnFunctionProps:
         recursive_loop: typing.Optional[builtins.str] = None,
         reserved_concurrent_executions: typing.Optional[jsii.Number] = None,
         runtime: typing.Optional[builtins.str] = None,
+        runtime_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunction.RuntimeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         runtime_management_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunction.RuntimeManagementConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         snap_start: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunction.SnapStartProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -12856,6 +13379,7 @@ class CfnFunctionProps:
 
         :param code: The code for the function. You can define your function code in multiple ways:. - For .zip deployment packages, you can specify the Amazon S3 location of the .zip file in the ``S3Bucket`` , ``S3Key`` , and ``S3ObjectVersion`` properties. - For .zip deployment packages, you can alternatively define the function code inline in the ``ZipFile`` property. This method works only for Node.js and Python functions. - For container images, specify the URI of your container image in the Amazon ECR registry in the ``ImageUri`` property.
         :param role: The Amazon Resource Name (ARN) of the function's execution role.
+        :param accelerator_config: 
         :param architectures: The instruction set architecture that the function supports. Enter a string array with one of the valid values (arm64 or x86_64). The default value is ``x86_64`` .
         :param capacity_provider_config: Configuration for the capacity provider that manages compute resources for Lambda functions.
         :param code_signing_config_arn: To enable code signing for this function, specify the ARN of a code-signing configuration. A code-signing configuration includes a set of signing profiles, which define the trusted publishers for this function.
@@ -12878,6 +13402,7 @@ class CfnFunctionProps:
         :param recursive_loop: The status of your function's recursive loop detection configuration. When this value is set to ``Allow`` and Lambda detects your function being invoked as part of a recursive loop, it doesn't take any action. When this value is set to ``Terminate`` and Lambda detects your function being invoked as part of a recursive loop, it stops your function being invoked and notifies you.
         :param reserved_concurrent_executions: The number of simultaneous executions to reserve for the function.
         :param runtime: The identifier of the function's `runtime <https://docs.aws.amazon.com/lambda/latest/dg/lambda-runtimes.html>`_ . Runtime is required if the deployment package is a .zip file archive. Specifying a runtime results in an error if you're deploying a function using a container image. The following list includes deprecated runtimes. Lambda blocks creating new functions and updating existing functions shortly after each runtime is deprecated. For more information, see `Runtime use after deprecation <https://docs.aws.amazon.com/lambda/latest/dg/lambda-runtimes.html#runtime-deprecation-levels>`_ . For a list of all currently supported runtimes, see `Supported runtimes <https://docs.aws.amazon.com/lambda/latest/dg/lambda-runtimes.html#runtimes-supported>`_ .
+        :param runtime_config: 
         :param runtime_management_config: Sets the runtime management configuration for a function's version. For more information, see `Runtime updates <https://docs.aws.amazon.com/lambda/latest/dg/runtimes-update.html>`_ .
         :param snap_start: The function's `AWS Lambda SnapStart <https://docs.aws.amazon.com/lambda/latest/dg/snapstart.html>`_ setting.
         :param tags: A list of `tags <https://docs.aws.amazon.com/lambda/latest/dg/tagging.html>`_ to apply to the function. .. epigraph:: You must have the ``lambda:TagResource`` , ``lambda:UntagResource`` , and ``lambda:ListTags`` permissions for your `IAM principal <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_terms-and-concepts.html>`_ to manage the CloudFormation stack. If you don't have these permissions, there might be unexpected behavior with stack-level tags propagating to the resource during resource creation and update.
@@ -12887,123 +13412,34 @@ class CfnFunctionProps:
         :param vpc_config: For network connectivity to AWS resources in a VPC, specify a list of security groups and subnets in the VPC. When you connect a function to a VPC, it can access resources and the internet only through that VPC. For more information, see `Configuring a Lambda function to access resources in a VPC <https://docs.aws.amazon.com/lambda/latest/dg/configuration-vpc.html>`_ .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-function.html
-        :exampleMetadata: fixture=_generated
+        :exampleMetadata: infused
 
         Example::
 
-            from aws_cdk import CfnTag
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_lambda as lambda_
-            
-            cfn_function_props = lambda.CfnFunctionProps(
-                code=lambda.CfnFunction.CodeProperty(
-                    image_uri="imageUri",
-                    s3_bucket="s3Bucket",
-                    s3_key="s3Key",
-                    s3_object_storage_mode="s3ObjectStorageMode",
-                    s3_object_version="s3ObjectVersion",
-                    source_kms_key_arn="sourceKmsKeyArn",
-                    zip_file="zipFile"
-                ),
-                role="role",
-            
-                # the properties below are optional
-                architectures=["architectures"],
-                capacity_provider_config=lambda.CfnFunction.CapacityProviderConfigProperty(
-                    lambda_managed_instances_capacity_provider_config=lambda.CfnFunction.LambdaManagedInstancesCapacityProviderConfigProperty(
-                        capacity_provider_arn="capacityProviderArn",
-            
-                        # the properties below are optional
-                        execution_environment_memory_gi_b_per_v_cpu=123,
-                        per_execution_environment_max_concurrency=123
-                    )
-                ),
-                code_signing_config_arn="codeSigningConfigArn",
-                dead_letter_config=lambda.CfnFunction.DeadLetterConfigProperty(
-                    target_arn="targetArn"
-                ),
-                description="description",
-                durable_config=lambda.CfnFunction.DurableConfigProperty(
-                    execution_timeout=123,
-            
-                    # the properties below are optional
-                    kms_key_arn="kmsKeyArn",
-                    retention_period_in_days=123
-                ),
-                environment=lambda.CfnFunction.EnvironmentProperty(
-                    variables={
-                        "variables_key": "variables"
-                    }
-                ),
-                ephemeral_storage=lambda.CfnFunction.EphemeralStorageProperty(
-                    size=123
-                ),
-                file_system_configs=[lambda.CfnFunction.FileSystemConfigProperty(
-                    arn="arn",
-                    local_mount_path="localMountPath",
-            
-                    # the properties below are optional
-                    s3_files_config=lambda.CfnFunction.S3FilesConfigProperty(
-                        direct_s3_read="directS3Read"
-                    )
-                )],
-                function_name="functionName",
-                function_scaling_config=lambda.CfnFunction.FunctionScalingConfigProperty(
-                    max_execution_environments=123,
-                    min_execution_environments=123
-                ),
-                handler="handler",
-                image_config=lambda.CfnFunction.ImageConfigProperty(
-                    command=["command"],
-                    entry_point=["entryPoint"],
-                    working_directory="workingDirectory"
-                ),
-                kms_key_arn="kmsKeyArn",
-                layers=["layers"],
-                logging_config=lambda.CfnFunction.LoggingConfigProperty(
-                    application_log_level="applicationLogLevel",
-                    log_format="logFormat",
-                    log_group="logGroup",
-                    system_log_level="systemLogLevel"
-                ),
-                memory_size=123,
-                package_type="packageType",
-                publish_to_latest_published=False,
-                recursive_loop="recursiveLoop",
-                reserved_concurrent_executions=123,
-                runtime="runtime",
-                runtime_management_config=lambda.CfnFunction.RuntimeManagementConfigProperty(
-                    update_runtime_on="updateRuntimeOn",
-            
-                    # the properties below are optional
-                    runtime_version_arn="runtimeVersionArn"
-                ),
-                snap_start=lambda.CfnFunction.SnapStartProperty(
-                    apply_on="applyOn"
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                tenancy_config=lambda.CfnFunction.TenancyConfigProperty(
-                    tenant_isolation_mode="tenantIsolationMode"
-                ),
-                timeout=123,
-                tracing_config=lambda.CfnFunction.TracingConfigProperty(
-                    mode="mode"
-                ),
-                vpc_config=lambda.CfnFunction.VpcConfigProperty(
-                    ipv6_allowed_for_dual_stack=False,
-                    security_group_ids=["securityGroupIds"],
-                    subnet_ids=["subnetIds"]
-                )
-            )
+            # role: iam.IRole
+            lambda_.Function(self, "MyFunction",
+                runtime=lambda_.Runtime("custom", lambda_.RuntimeFamily.OTHER),
+                handler="index.handler",
+                code=lambda_.Code.from_asset(path.join(__dirname, "lambda-handler"))
+            ).with(lambda_.mixins.FunctionRuntimeConfig(
+                runtime_arn="arn:aws:lambda:us-east-1:123456789012:runtime/my-python-runtime",
+                runtime_alias="stable"
+            ))
+            lambda_.CfnFunction(self, "MyCfnFunction",
+                runtime="custom",
+                handler="index.handler",
+                code=lambda.CfnFunction.CodeProperty(s3_bucket="my-bucket", s3_key="function.zip"),
+                role=role.role_arn
+            ).with(lambda_.mixins.FunctionRuntimeConfig(
+                runtime_arn="arn:aws:lambda:us-east-1:123456789012:runtime/my-python-runtime",
+                runtime_alias="stable"
+            ))
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__06b7f494e25475a49ebed0d7ed6d0fca9653b5fa5e00ded0cba4fc40aebc3532)
             check_type(argname="argument code", value=code, expected_type=type_hints["code"])
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
+            check_type(argname="argument accelerator_config", value=accelerator_config, expected_type=type_hints["accelerator_config"])
             check_type(argname="argument architectures", value=architectures, expected_type=type_hints["architectures"])
             check_type(argname="argument capacity_provider_config", value=capacity_provider_config, expected_type=type_hints["capacity_provider_config"])
             check_type(argname="argument code_signing_config_arn", value=code_signing_config_arn, expected_type=type_hints["code_signing_config_arn"])
@@ -13026,6 +13462,7 @@ class CfnFunctionProps:
             check_type(argname="argument recursive_loop", value=recursive_loop, expected_type=type_hints["recursive_loop"])
             check_type(argname="argument reserved_concurrent_executions", value=reserved_concurrent_executions, expected_type=type_hints["reserved_concurrent_executions"])
             check_type(argname="argument runtime", value=runtime, expected_type=type_hints["runtime"])
+            check_type(argname="argument runtime_config", value=runtime_config, expected_type=type_hints["runtime_config"])
             check_type(argname="argument runtime_management_config", value=runtime_management_config, expected_type=type_hints["runtime_management_config"])
             check_type(argname="argument snap_start", value=snap_start, expected_type=type_hints["snap_start"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -13037,6 +13474,8 @@ class CfnFunctionProps:
             "code": code,
             "role": role,
         }
+        if accelerator_config is not None:
+            self._values["accelerator_config"] = accelerator_config
         if architectures is not None:
             self._values["architectures"] = architectures
         if capacity_provider_config is not None:
@@ -13081,6 +13520,8 @@ class CfnFunctionProps:
             self._values["reserved_concurrent_executions"] = reserved_concurrent_executions
         if runtime is not None:
             self._values["runtime"] = runtime
+        if runtime_config is not None:
+            self._values["runtime_config"] = runtime_config
         if runtime_management_config is not None:
             self._values["runtime_management_config"] = runtime_management_config
         if snap_start is not None:
@@ -13121,6 +13562,16 @@ class CfnFunctionProps:
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
         return typing.cast(typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"], result)
+
+    @builtins.property
+    def accelerator_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.AcceleratorConfigProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-function.html#cfn-lambda-function-acceleratorconfig
+        '''
+        result = self._values.get("accelerator_config")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.AcceleratorConfigProperty"]], result)
 
     @builtins.property
     def architectures(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -13382,6 +13833,16 @@ class CfnFunctionProps:
         '''
         result = self._values.get("runtime")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def runtime_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.RuntimeConfigProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-function.html#cfn-lambda-function-runtimeconfig
+        '''
+        result = self._values.get("runtime_config")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.RuntimeConfigProperty"]], result)
 
     @builtins.property
     def runtime_management_config(
@@ -15848,7 +16309,12 @@ class CfnNetworkConnector(
                     associated_compute_resource_types=["associatedComputeResourceTypes"],
                     network_protocol="networkProtocol",
                     security_group_ids=["securityGroupIds"],
-                    subnet_ids=["subnetIds"]
+                    subnet_ids=["subnetIds"],
+        
+                    # the properties below are optional
+                    elastic_ip_configuration=lambda.CfnNetworkConnector.ElasticIpConfigurationProperty(
+                        type="type"
+                    )
                 )
             ),
         
@@ -16104,7 +16570,12 @@ class CfnNetworkConnector(
                         associated_compute_resource_types=["associatedComputeResourceTypes"],
                         network_protocol="networkProtocol",
                         security_group_ids=["securityGroupIds"],
-                        subnet_ids=["subnetIds"]
+                        subnet_ids=["subnetIds"],
+                
+                        # the properties below are optional
+                        elastic_ip_configuration=lambda.CfnNetworkConnector.ElasticIpConfigurationProperty(
+                            type="type"
+                        )
                     )
                 )
             '''
@@ -16141,6 +16612,62 @@ class CfnNetworkConnector(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lambda.CfnNetworkConnector.ElasticIpConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"type": "type"},
+    )
+    class ElasticIpConfigurationProperty:
+        def __init__(self, *, type: builtins.str) -> None:
+            '''Specifies whether Lambda assigns an Elastic IP address to each of the network connector's elastic network interfaces (ENIs).
+
+            If you don't specify an Elastic IP configuration, no Elastic IP address is assigned. When you update this configuration, the change applies to the ENIs of the new connector version.
+
+            :param type: The Elastic IP address type for the connector's ENIs. With None, Lambda doesn't assign an Elastic IP address. With ServiceManaged, Lambda allocates a service-managed Elastic IP address in your account for each ENI, associates it with that ENI, and releases it when it deletes the ENI. The connector's operator role must allow the ec2:AllocateAddress and ec2:AssociateAddress actions on Elastic IP addresses and on the connector's ENIs.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-networkconnector-elasticipconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lambda as lambda_
+                
+                elastic_ip_configuration_property = lambda.CfnNetworkConnector.ElasticIpConfigurationProperty(
+                    type="type"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__091b202ec9d8779fc5779dfec2f6b3607961a9a7a15ea82f6cba6de43cd940a7)
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "type": type,
+            }
+
+        @builtins.property
+        def type(self) -> builtins.str:
+            '''The Elastic IP address type for the connector's ENIs.
+
+            With None, Lambda doesn't assign an Elastic IP address. With ServiceManaged, Lambda allocates a service-managed Elastic IP address in your account for each ENI, associates it with that ENI, and releases it when it deletes the ENI. The connector's operator role must allow the ec2:AllocateAddress and ec2:AssociateAddress actions on Elastic IP addresses and on the connector's ENIs.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-networkconnector-elasticipconfiguration.html#cfn-lambda-networkconnector-elasticipconfiguration-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ElasticIpConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_lambda.CfnNetworkConnector.VpcEgressConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -16148,6 +16675,7 @@ class CfnNetworkConnector(
             "network_protocol": "networkProtocol",
             "security_group_ids": "securityGroupIds",
             "subnet_ids": "subnetIds",
+            "elastic_ip_configuration": "elasticIpConfiguration",
         },
     )
     class VpcEgressConfigurationProperty:
@@ -16158,6 +16686,7 @@ class CfnNetworkConnector(
             network_protocol: builtins.str,
             security_group_ids: typing.Sequence[builtins.str],
             subnet_ids: typing.Sequence[builtins.str],
+            elastic_ip_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnNetworkConnector.ElasticIpConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The VPC egress configuration for the network connector.
 
@@ -16167,6 +16696,7 @@ class CfnNetworkConnector(
             :param network_protocol: The network protocol for the connector. Specify IPv4 for IPv4-only networking, or DualStack for both IPv4 and IPv6.
             :param security_group_ids: The IDs of the VPC security groups to attach to the ENIs. All security groups must be in the same VPC as the subnets.
             :param subnet_ids: The IDs of the VPC subnets where Lambda provisions elastic network interfaces (ENIs). Specify 1 to 16 subnets. All subnets must be in the same VPC.
+            :param elastic_ip_configuration: Specifies whether Lambda assigns an Elastic IP address to each of the network connector's elastic network interfaces (ENIs). If you don't specify an Elastic IP configuration, no Elastic IP address is assigned. When you update this configuration, the change applies to the ENIs of the new connector version.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-networkconnector-vpcegressconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -16181,7 +16711,12 @@ class CfnNetworkConnector(
                     associated_compute_resource_types=["associatedComputeResourceTypes"],
                     network_protocol="networkProtocol",
                     security_group_ids=["securityGroupIds"],
-                    subnet_ids=["subnetIds"]
+                    subnet_ids=["subnetIds"],
+                
+                    # the properties below are optional
+                    elastic_ip_configuration=lambda.CfnNetworkConnector.ElasticIpConfigurationProperty(
+                        type="type"
+                    )
                 )
             '''
             if __debug__:
@@ -16190,12 +16725,15 @@ class CfnNetworkConnector(
                 check_type(argname="argument network_protocol", value=network_protocol, expected_type=type_hints["network_protocol"])
                 check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
                 check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
+                check_type(argname="argument elastic_ip_configuration", value=elastic_ip_configuration, expected_type=type_hints["elastic_ip_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "associated_compute_resource_types": associated_compute_resource_types,
                 "network_protocol": network_protocol,
                 "security_group_ids": security_group_ids,
                 "subnet_ids": subnet_ids,
             }
+            if elastic_ip_configuration is not None:
+                self._values["elastic_ip_configuration"] = elastic_ip_configuration
 
         @builtins.property
         def associated_compute_resource_types(self) -> typing.List[builtins.str]:
@@ -16244,6 +16782,19 @@ class CfnNetworkConnector(
             result = self._values.get("subnet_ids")
             assert result is not None, "Required property 'subnet_ids' is missing"
             return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def elastic_ip_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnNetworkConnector.ElasticIpConfigurationProperty"]]:
+            '''Specifies whether Lambda assigns an Elastic IP address to each of the network connector's elastic network interfaces (ENIs).
+
+            If you don't specify an Elastic IP configuration, no Elastic IP address is assigned. When you update this configuration, the change applies to the ENIs of the new connector version.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-networkconnector-vpcegressconfiguration.html#cfn-lambda-networkconnector-vpcegressconfiguration-elasticipconfiguration
+            '''
+            result = self._values.get("elastic_ip_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnNetworkConnector.ElasticIpConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -16299,7 +16850,12 @@ class CfnNetworkConnectorProps:
                         associated_compute_resource_types=["associatedComputeResourceTypes"],
                         network_protocol="networkProtocol",
                         security_group_ids=["securityGroupIds"],
-                        subnet_ids=["subnetIds"]
+                        subnet_ids=["subnetIds"],
+            
+                        # the properties below are optional
+                        elastic_ip_configuration=lambda.CfnNetworkConnector.ElasticIpConfigurationProperty(
+                            type="type"
+                        )
                     )
                 ),
             
@@ -17206,6 +17762,1663 @@ class CfnResourcePolicyProps:
 
     def __repr__(self) -> str:
         return "CfnResourcePolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_lambda_aaab8031.IRuntimeRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnRuntime(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_lambda.CfnRuntime",
+):
+    '''Resource Type definition for AWS::Lambda::Runtime.
+
+    A Lambda runtime backed by an OCI image, used by Lambda functions.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-runtime.html
+    :cloudformationResource: AWS::Lambda::Runtime
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_lambda as lambda_
+        
+        cfn_runtime = lambda_.CfnRuntime(self, "MyCfnRuntime",
+            name="name",
+        
+            # the properties below are optional
+            description="description",
+            license_info="licenseInfo",
+            release_lifecycle=lambda.CfnRuntime.ReleaseLifecycleProperty(
+                deprecation_date="deprecationDate",
+                function_create_block_date="functionCreateBlockDate",
+                function_update_block_date="functionUpdateBlockDate",
+                release_state="releaseState"
+            ),
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        license_info: typing.Optional[builtins.str] = None,
+        release_lifecycle: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuntime.ReleaseLifecycleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Lambda::Runtime``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param name: The name of the runtime.
+        :param description: A description of the runtime.
+        :param license_info: Licensing information for the runtime.
+        :param release_lifecycle: The publisher's lifecycle declaration for the runtime. Omitting it removes any stored declaration.
+        :param tags: A list of tags to apply to the runtime.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__806f2fe5ad522f5e23d5ff94f1c3d28c25578c2bdd6fb2bae9845337d86cbe66)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnRuntimeProps(
+            name=name,
+            description=description,
+            license_info=license_info,
+            release_lifecycle=release_lifecycle,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForRuntime")
+    @builtins.classmethod
+    def arn_for_runtime(
+        cls,
+        resource: "_aws_lambda_aaab8031.IRuntimeRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d2d623160e384b77a2a40ec2ce19418254aa4d37e9a4f9b2b8e8638c1647f4d7)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRuntime", [resource]))
+
+    @jsii.member(jsii_name="isCfnRuntime")
+    @builtins.classmethod
+    def is_cfn_runtime(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnRuntime.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0b7cbe6c30eb30c5a61a76c53fcc2a0ab4dde35cb877efdf280f60132cce7f3b)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRuntime", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ce75f93bdd90b84c6cb92f0080ff78cda50eccc2aea9b20df10181056558727b)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f501132cbfa5c32daf856267df167909e4d5a2eb99db7fa19cf8b03263c33e6f)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the runtime.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreated")
+    def attr_created(self) -> builtins.str:
+        '''The timestamp when the runtime was created.
+
+        :cloudformationAttribute: Created
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreated"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastModified")
+    def attr_last_modified(self) -> builtins.str:
+        '''The timestamp when the runtime was last modified.
+
+        :cloudformationAttribute: LastModified
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastModified"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrState")
+    def attr_state(self) -> builtins.str:
+        '''The lifecycle state of the runtime.
+
+        :cloudformationAttribute: State
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrState"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="runtimeRef")
+    def runtime_ref(self) -> "_aws_lambda_aaab8031.RuntimeReference":
+        '''A reference to a Runtime resource.'''
+        return typing.cast("_aws_lambda_aaab8031.RuntimeReference", jsii.get(self, "runtimeRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the runtime.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__16ae39dbca2da74c48d7cb8aa7b930afb90bda2af86d9f182e4a50fd64dd1a75)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the runtime.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__db97358321a10e04d9436f673b7e8f1b7858c9313f36f4f1a6bcad819387f86e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="licenseInfo")
+    def license_info(self) -> typing.Optional[builtins.str]:
+        '''Licensing information for the runtime.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "licenseInfo"))
+
+    @license_info.setter
+    def license_info(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4b14b115d1362c38581f873d5a7afc518785664c0bdbc93b5a38f47f25abf626)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "licenseInfo", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="releaseLifecycle")
+    def release_lifecycle(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuntime.ReleaseLifecycleProperty"]]:
+        '''The publisher's lifecycle declaration for the runtime.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuntime.ReleaseLifecycleProperty"]], jsii.get(self, "releaseLifecycle"))
+
+    @release_lifecycle.setter
+    def release_lifecycle(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuntime.ReleaseLifecycleProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__10c3307f67b13b931b9ef51602fb60f235fd1ce7d13860f3a9aa53f7104ef88c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "releaseLifecycle", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''A list of tags to apply to the runtime.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__de5a7a95fc943786a83a751e58207da162b25604f5e88865b7fab7e087ab48f4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lambda.CfnRuntime.ReleaseLifecycleProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "deprecation_date": "deprecationDate",
+            "function_create_block_date": "functionCreateBlockDate",
+            "function_update_block_date": "functionUpdateBlockDate",
+            "release_state": "releaseState",
+        },
+    )
+    class ReleaseLifecycleProperty:
+        def __init__(
+            self,
+            *,
+            deprecation_date: typing.Optional[builtins.str] = None,
+            function_create_block_date: typing.Optional[builtins.str] = None,
+            function_update_block_date: typing.Optional[builtins.str] = None,
+            release_state: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The publisher's lifecycle declaration for the runtime.
+
+            Omitting it removes any stored declaration.
+
+            :param deprecation_date: The date on which the runtime becomes deprecated. A UTC calendar date in yyyy-mm-dd format.
+            :param function_create_block_date: The date on which creating new functions on this runtime is blocked. A UTC calendar date in yyyy-mm-dd format.
+            :param function_update_block_date: The date on which updating existing functions on this runtime is blocked. A UTC calendar date in yyyy-mm-dd format.
+            :param release_state: The release state of the runtime. DEPRECATED requires a DeprecationDate on or before today (UTC); PREVIEW and GA require a later DeprecationDate, or none. Reads report DEPRECATED once DeprecationDate is reached.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-runtime-releaselifecycle.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lambda as lambda_
+                
+                release_lifecycle_property = lambda.CfnRuntime.ReleaseLifecycleProperty(
+                    deprecation_date="deprecationDate",
+                    function_create_block_date="functionCreateBlockDate",
+                    function_update_block_date="functionUpdateBlockDate",
+                    release_state="releaseState"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__4fb1bc22ea884cc529572dd5c0d7d6d720409a903ee3873d4c2741dc7e2b7974)
+                check_type(argname="argument deprecation_date", value=deprecation_date, expected_type=type_hints["deprecation_date"])
+                check_type(argname="argument function_create_block_date", value=function_create_block_date, expected_type=type_hints["function_create_block_date"])
+                check_type(argname="argument function_update_block_date", value=function_update_block_date, expected_type=type_hints["function_update_block_date"])
+                check_type(argname="argument release_state", value=release_state, expected_type=type_hints["release_state"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if deprecation_date is not None:
+                self._values["deprecation_date"] = deprecation_date
+            if function_create_block_date is not None:
+                self._values["function_create_block_date"] = function_create_block_date
+            if function_update_block_date is not None:
+                self._values["function_update_block_date"] = function_update_block_date
+            if release_state is not None:
+                self._values["release_state"] = release_state
+
+        @builtins.property
+        def deprecation_date(self) -> typing.Optional[builtins.str]:
+            '''The date on which the runtime becomes deprecated.
+
+            A UTC calendar date in yyyy-mm-dd format.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-runtime-releaselifecycle.html#cfn-lambda-runtime-releaselifecycle-deprecationdate
+            '''
+            result = self._values.get("deprecation_date")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def function_create_block_date(self) -> typing.Optional[builtins.str]:
+            '''The date on which creating new functions on this runtime is blocked.
+
+            A UTC calendar date in yyyy-mm-dd format.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-runtime-releaselifecycle.html#cfn-lambda-runtime-releaselifecycle-functioncreateblockdate
+            '''
+            result = self._values.get("function_create_block_date")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def function_update_block_date(self) -> typing.Optional[builtins.str]:
+            '''The date on which updating existing functions on this runtime is blocked.
+
+            A UTC calendar date in yyyy-mm-dd format.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-runtime-releaselifecycle.html#cfn-lambda-runtime-releaselifecycle-functionupdateblockdate
+            '''
+            result = self._values.get("function_update_block_date")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def release_state(self) -> typing.Optional[builtins.str]:
+            '''The release state of the runtime.
+
+            DEPRECATED requires a DeprecationDate on or before today (UTC); PREVIEW and GA require a later DeprecationDate, or none. Reads report DEPRECATED once DeprecationDate is reached.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-runtime-releaselifecycle.html#cfn-lambda-runtime-releaselifecycle-releasestate
+            '''
+            result = self._values.get("release_state")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ReleaseLifecycleProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_lambda_aaab8031.IRuntimeAliasRef)
+class CfnRuntimeAlias(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_lambda.CfnRuntimeAlias",
+):
+    '''Resource Type definition for AWS::Lambda::RuntimeAlias.
+
+    A mutable named pointer to a specific runtime version.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-runtimealias.html
+    :cloudformationResource: AWS::Lambda::RuntimeAlias
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_lambda as lambda_
+        
+        cfn_runtime_alias = lambda_.CfnRuntimeAlias(self, "MyCfnRuntimeAlias",
+            name="name",
+            runtime_name="runtimeName",
+            runtime_version="runtimeVersion",
+        
+            # the properties below are optional
+            description="description",
+            release_lifecycle=lambda.CfnRuntimeAlias.ReleaseLifecycleProperty(
+                deprecation_date="deprecationDate",
+                function_create_block_date="functionCreateBlockDate",
+                function_update_block_date="functionUpdateBlockDate",
+                release_state="releaseState"
+            )
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        name: builtins.str,
+        runtime_name: builtins.str,
+        runtime_version: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        release_lifecycle: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuntimeAlias.ReleaseLifecycleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Lambda::RuntimeAlias``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param name: The alias name.
+        :param runtime_name: The name of the parent runtime.
+        :param runtime_version: The runtime version this alias points to.
+        :param description: A description of the runtime alias.
+        :param release_lifecycle: The publisher's lifecycle declaration for the alias. Omitting it removes any stored declaration.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8aa719c0b33c9547bcd49f182429db314749f5d84b9f01f82ad5a26d002fb780)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnRuntimeAliasProps(
+            name=name,
+            runtime_name=runtime_name,
+            runtime_version=runtime_version,
+            description=description,
+            release_lifecycle=release_lifecycle,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForRuntimeAlias")
+    @builtins.classmethod
+    def arn_for_runtime_alias(
+        cls,
+        resource: "_aws_lambda_aaab8031.IRuntimeAliasRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c6fbf82cf35938ab5a787fa63c4318d7a66ff456beaa0f1c8605474b58445cf5)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRuntimeAlias", [resource]))
+
+    @jsii.member(jsii_name="isCfnRuntimeAlias")
+    @builtins.classmethod
+    def is_cfn_runtime_alias(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnRuntimeAlias.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f968cbe3a4eb111bdf9eb834210e2c151f37173d6e162165c42cf73568b7dbc8)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRuntimeAlias", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fb2f0244d6096b4e438bc693d2e73288cbe5c23ad0c7ccda8a1311199dafd8d9)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7c3884e5c0d776373066c05e50f9439ee954d62d613262bc2dc9631edc97183d)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the runtime alias.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCompatibility")
+    def attr_compatibility(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''Compatibility matrix for the runtime version the alias points to.
+
+        :cloudformationAttribute: Compatibility
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrCompatibility"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreated")
+    def attr_created(self) -> builtins.str:
+        '''The timestamp when the runtime alias was created.
+
+        :cloudformationAttribute: Created
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreated"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastModified")
+    def attr_last_modified(self) -> builtins.str:
+        '''The timestamp when the runtime alias was last modified.
+
+        :cloudformationAttribute: LastModified
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastModified"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRuntimeVersionArn")
+    def attr_runtime_version_arn(self) -> builtins.str:
+        '''The ARN of the runtime version this alias points to.
+
+        :cloudformationAttribute: RuntimeVersionArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRuntimeVersionArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrState")
+    def attr_state(self) -> builtins.str:
+        '''The lifecycle state of the runtime alias.
+
+        :cloudformationAttribute: State
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrState"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="runtimeAliasRef")
+    def runtime_alias_ref(self) -> "_aws_lambda_aaab8031.RuntimeAliasReference":
+        '''A reference to a RuntimeAlias resource.'''
+        return typing.cast("_aws_lambda_aaab8031.RuntimeAliasReference", jsii.get(self, "runtimeAliasRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The alias name.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8cb1c7f30990f65ff3121c4f448d11fb1d97361ed2e687becd7749ef93ec20a3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="runtimeName")
+    def runtime_name(self) -> builtins.str:
+        '''The name of the parent runtime.'''
+        return typing.cast(builtins.str, jsii.get(self, "runtimeName"))
+
+    @runtime_name.setter
+    def runtime_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fec9594195e3f2f65f2e78aa68e5fcaa8207f12fa77e8e0d4b28dd73fcdfe1de)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "runtimeName", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="runtimeVersion")
+    def runtime_version(self) -> builtins.str:
+        '''The runtime version this alias points to.'''
+        return typing.cast(builtins.str, jsii.get(self, "runtimeVersion"))
+
+    @runtime_version.setter
+    def runtime_version(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7ebcfd4a155da6941ff7e7ab4d04b89973726280b80e746e5f58072476ea75d7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "runtimeVersion", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the runtime alias.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__210d8d00ee8d204834fe693e0522b168168ddb4564316b336079d4effff0a606)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="releaseLifecycle")
+    def release_lifecycle(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuntimeAlias.ReleaseLifecycleProperty"]]:
+        '''The publisher's lifecycle declaration for the alias.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuntimeAlias.ReleaseLifecycleProperty"]], jsii.get(self, "releaseLifecycle"))
+
+    @release_lifecycle.setter
+    def release_lifecycle(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuntimeAlias.ReleaseLifecycleProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__08e0828dd5892ce06e415d9560715c7dc71774e3ae4e9124e2255b559a5a550e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "releaseLifecycle", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lambda.CfnRuntimeAlias.CompatibilityProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "architectures": "architectures",
+            "integration_models": "integrationModels",
+            "managed_instances": "managedInstances",
+        },
+    )
+    class CompatibilityProperty:
+        def __init__(
+            self,
+            *,
+            architectures: typing.Optional[typing.Sequence[builtins.str]] = None,
+            integration_models: typing.Optional[typing.Sequence[builtins.str]] = None,
+            managed_instances: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Compatibility matrix for the runtime version the alias points to.
+
+            :param architectures: 
+            :param integration_models: 
+            :param managed_instances: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-runtimealias-compatibility.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lambda as lambda_
+                
+                compatibility_property = lambda.CfnRuntimeAlias.CompatibilityProperty(
+                    architectures=["architectures"],
+                    integration_models=["integrationModels"],
+                    managed_instances="managedInstances"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__a7d7c52c4cb55b27a0cf733c886de8cb9169f6cc2232ec410301d862f6488b09)
+                check_type(argname="argument architectures", value=architectures, expected_type=type_hints["architectures"])
+                check_type(argname="argument integration_models", value=integration_models, expected_type=type_hints["integration_models"])
+                check_type(argname="argument managed_instances", value=managed_instances, expected_type=type_hints["managed_instances"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if architectures is not None:
+                self._values["architectures"] = architectures
+            if integration_models is not None:
+                self._values["integration_models"] = integration_models
+            if managed_instances is not None:
+                self._values["managed_instances"] = managed_instances
+
+        @builtins.property
+        def architectures(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-runtimealias-compatibility.html#cfn-lambda-runtimealias-compatibility-architectures
+            '''
+            result = self._values.get("architectures")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def integration_models(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-runtimealias-compatibility.html#cfn-lambda-runtimealias-compatibility-integrationmodels
+            '''
+            result = self._values.get("integration_models")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def managed_instances(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-runtimealias-compatibility.html#cfn-lambda-runtimealias-compatibility-managedinstances
+            '''
+            result = self._values.get("managed_instances")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CompatibilityProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lambda.CfnRuntimeAlias.ReleaseLifecycleProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "deprecation_date": "deprecationDate",
+            "function_create_block_date": "functionCreateBlockDate",
+            "function_update_block_date": "functionUpdateBlockDate",
+            "release_state": "releaseState",
+        },
+    )
+    class ReleaseLifecycleProperty:
+        def __init__(
+            self,
+            *,
+            deprecation_date: typing.Optional[builtins.str] = None,
+            function_create_block_date: typing.Optional[builtins.str] = None,
+            function_update_block_date: typing.Optional[builtins.str] = None,
+            release_state: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The publisher's lifecycle declaration for the alias.
+
+            Omitting it removes any stored declaration.
+
+            :param deprecation_date: The date on which the alias becomes deprecated. A UTC calendar date in yyyy-mm-dd format.
+            :param function_create_block_date: The date on which creating new functions on this alias is blocked. A UTC calendar date in yyyy-mm-dd format.
+            :param function_update_block_date: The date on which updating existing functions on this alias is blocked. A UTC calendar date in yyyy-mm-dd format.
+            :param release_state: The release state of the alias. DEPRECATED requires a DeprecationDate on or before today (UTC); PREVIEW and GA require a later DeprecationDate, or none. Reads report DEPRECATED once DeprecationDate is reached.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-runtimealias-releaselifecycle.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lambda as lambda_
+                
+                release_lifecycle_property = lambda.CfnRuntimeAlias.ReleaseLifecycleProperty(
+                    deprecation_date="deprecationDate",
+                    function_create_block_date="functionCreateBlockDate",
+                    function_update_block_date="functionUpdateBlockDate",
+                    release_state="releaseState"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__a9620594ab70133e15bde7135b10b0a588f70bdefaf8aa360077ad4ea75698e3)
+                check_type(argname="argument deprecation_date", value=deprecation_date, expected_type=type_hints["deprecation_date"])
+                check_type(argname="argument function_create_block_date", value=function_create_block_date, expected_type=type_hints["function_create_block_date"])
+                check_type(argname="argument function_update_block_date", value=function_update_block_date, expected_type=type_hints["function_update_block_date"])
+                check_type(argname="argument release_state", value=release_state, expected_type=type_hints["release_state"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if deprecation_date is not None:
+                self._values["deprecation_date"] = deprecation_date
+            if function_create_block_date is not None:
+                self._values["function_create_block_date"] = function_create_block_date
+            if function_update_block_date is not None:
+                self._values["function_update_block_date"] = function_update_block_date
+            if release_state is not None:
+                self._values["release_state"] = release_state
+
+        @builtins.property
+        def deprecation_date(self) -> typing.Optional[builtins.str]:
+            '''The date on which the alias becomes deprecated.
+
+            A UTC calendar date in yyyy-mm-dd format.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-runtimealias-releaselifecycle.html#cfn-lambda-runtimealias-releaselifecycle-deprecationdate
+            '''
+            result = self._values.get("deprecation_date")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def function_create_block_date(self) -> typing.Optional[builtins.str]:
+            '''The date on which creating new functions on this alias is blocked.
+
+            A UTC calendar date in yyyy-mm-dd format.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-runtimealias-releaselifecycle.html#cfn-lambda-runtimealias-releaselifecycle-functioncreateblockdate
+            '''
+            result = self._values.get("function_create_block_date")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def function_update_block_date(self) -> typing.Optional[builtins.str]:
+            '''The date on which updating existing functions on this alias is blocked.
+
+            A UTC calendar date in yyyy-mm-dd format.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-runtimealias-releaselifecycle.html#cfn-lambda-runtimealias-releaselifecycle-functionupdateblockdate
+            '''
+            result = self._values.get("function_update_block_date")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def release_state(self) -> typing.Optional[builtins.str]:
+            '''The release state of the alias.
+
+            DEPRECATED requires a DeprecationDate on or before today (UTC); PREVIEW and GA require a later DeprecationDate, or none. Reads report DEPRECATED once DeprecationDate is reached.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-runtimealias-releaselifecycle.html#cfn-lambda-runtimealias-releaselifecycle-releasestate
+            '''
+            result = self._values.get("release_state")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ReleaseLifecycleProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lambda.CfnRuntimeAliasProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "runtime_name": "runtimeName",
+        "runtime_version": "runtimeVersion",
+        "description": "description",
+        "release_lifecycle": "releaseLifecycle",
+    },
+)
+class CfnRuntimeAliasProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        runtime_name: builtins.str,
+        runtime_version: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        release_lifecycle: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuntimeAlias.ReleaseLifecycleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnRuntimeAlias``.
+
+        :param name: The alias name.
+        :param runtime_name: The name of the parent runtime.
+        :param runtime_version: The runtime version this alias points to.
+        :param description: A description of the runtime alias.
+        :param release_lifecycle: The publisher's lifecycle declaration for the alias. Omitting it removes any stored declaration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-runtimealias.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_lambda as lambda_
+            
+            cfn_runtime_alias_props = lambda.CfnRuntimeAliasProps(
+                name="name",
+                runtime_name="runtimeName",
+                runtime_version="runtimeVersion",
+            
+                # the properties below are optional
+                description="description",
+                release_lifecycle=lambda.CfnRuntimeAlias.ReleaseLifecycleProperty(
+                    deprecation_date="deprecationDate",
+                    function_create_block_date="functionCreateBlockDate",
+                    function_update_block_date="functionUpdateBlockDate",
+                    release_state="releaseState"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__cbe81e3e2c14d94d2a3b91cd54f11011896815b10d0fe3a659b4e78d235fcffa)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument runtime_name", value=runtime_name, expected_type=type_hints["runtime_name"])
+            check_type(argname="argument runtime_version", value=runtime_version, expected_type=type_hints["runtime_version"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument release_lifecycle", value=release_lifecycle, expected_type=type_hints["release_lifecycle"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "runtime_name": runtime_name,
+            "runtime_version": runtime_version,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if release_lifecycle is not None:
+            self._values["release_lifecycle"] = release_lifecycle
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The alias name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-runtimealias.html#cfn-lambda-runtimealias-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def runtime_name(self) -> builtins.str:
+        '''The name of the parent runtime.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-runtimealias.html#cfn-lambda-runtimealias-runtimename
+        '''
+        result = self._values.get("runtime_name")
+        assert result is not None, "Required property 'runtime_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def runtime_version(self) -> builtins.str:
+        '''The runtime version this alias points to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-runtimealias.html#cfn-lambda-runtimealias-runtimeversion
+        '''
+        result = self._values.get("runtime_version")
+        assert result is not None, "Required property 'runtime_version' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the runtime alias.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-runtimealias.html#cfn-lambda-runtimealias-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def release_lifecycle(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuntimeAlias.ReleaseLifecycleProperty"]]:
+        '''The publisher's lifecycle declaration for the alias.
+
+        Omitting it removes any stored declaration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-runtimealias.html#cfn-lambda-runtimealias-releaselifecycle
+        '''
+        result = self._values.get("release_lifecycle")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuntimeAlias.ReleaseLifecycleProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnRuntimeAliasProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lambda.CfnRuntimeProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "description": "description",
+        "license_info": "licenseInfo",
+        "release_lifecycle": "releaseLifecycle",
+        "tags": "tags",
+    },
+)
+class CfnRuntimeProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        license_info: typing.Optional[builtins.str] = None,
+        release_lifecycle: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRuntime.ReleaseLifecycleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnRuntime``.
+
+        :param name: The name of the runtime.
+        :param description: A description of the runtime.
+        :param license_info: Licensing information for the runtime.
+        :param release_lifecycle: The publisher's lifecycle declaration for the runtime. Omitting it removes any stored declaration.
+        :param tags: A list of tags to apply to the runtime.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-runtime.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_lambda as lambda_
+            
+            cfn_runtime_props = lambda.CfnRuntimeProps(
+                name="name",
+            
+                # the properties below are optional
+                description="description",
+                license_info="licenseInfo",
+                release_lifecycle=lambda.CfnRuntime.ReleaseLifecycleProperty(
+                    deprecation_date="deprecationDate",
+                    function_create_block_date="functionCreateBlockDate",
+                    function_update_block_date="functionUpdateBlockDate",
+                    release_state="releaseState"
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__293d2d5d17b101f7f4260f7aae6b137cf29064bb1a019d0fdad56017874c0196)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument license_info", value=license_info, expected_type=type_hints["license_info"])
+            check_type(argname="argument release_lifecycle", value=release_lifecycle, expected_type=type_hints["release_lifecycle"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if license_info is not None:
+            self._values["license_info"] = license_info
+        if release_lifecycle is not None:
+            self._values["release_lifecycle"] = release_lifecycle
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the runtime.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-runtime.html#cfn-lambda-runtime-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the runtime.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-runtime.html#cfn-lambda-runtime-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def license_info(self) -> typing.Optional[builtins.str]:
+        '''Licensing information for the runtime.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-runtime.html#cfn-lambda-runtime-licenseinfo
+        '''
+        result = self._values.get("license_info")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def release_lifecycle(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuntime.ReleaseLifecycleProperty"]]:
+        '''The publisher's lifecycle declaration for the runtime.
+
+        Omitting it removes any stored declaration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-runtime.html#cfn-lambda-runtime-releaselifecycle
+        '''
+        result = self._values.get("release_lifecycle")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRuntime.ReleaseLifecycleProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''A list of tags to apply to the runtime.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-runtime.html#cfn-lambda-runtime-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnRuntimeProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_lambda_aaab8031.IRuntimeVersionRef)
+class CfnRuntimeVersion(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_lambda.CfnRuntimeVersion",
+):
+    '''Resource Type definition for AWS::Lambda::RuntimeVersion.
+
+    An immutable, OCI-image-backed version of an AWS::Lambda::Runtime.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-runtimeversion.html
+    :cloudformationResource: AWS::Lambda::RuntimeVersion
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_lambda as lambda_
+        
+        cfn_runtime_version = lambda_.CfnRuntimeVersion(self, "MyCfnRuntimeVersion",
+            name="name",
+            runtime_name="runtimeName",
+        
+            # the properties below are optional
+            image_uri="imageUri",
+            release_notes="releaseNotes"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        name: builtins.str,
+        runtime_name: builtins.str,
+        image_uri: typing.Optional[builtins.str] = None,
+        release_notes: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::Lambda::RuntimeVersion``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param name: The version identifier (1-128 chars, alphanumeric plus _.-).
+        :param runtime_name: The name of the parent runtime.
+        :param image_uri: The URI of the OCI image to publish as this runtime version. Not returned in Read.
+        :param release_notes: Optional release notes for this runtime version. Updatable; removing it from the template clears the release notes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7dae749daedfbb7b8adb74869bf2cbcbcd3278231c4640431023bfcb479f4a8b)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnRuntimeVersionProps(
+            name=name,
+            runtime_name=runtime_name,
+            image_uri=image_uri,
+            release_notes=release_notes,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForRuntimeVersion")
+    @builtins.classmethod
+    def arn_for_runtime_version(
+        cls,
+        resource: "_aws_lambda_aaab8031.IRuntimeVersionRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__769d6df03f4b77c97722171d5cb76b68320ab1cfd10a37663c4465ff4eb9d537)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRuntimeVersion", [resource]))
+
+    @jsii.member(jsii_name="isCfnRuntimeVersion")
+    @builtins.classmethod
+    def is_cfn_runtime_version(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnRuntimeVersion.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__516204a6df68a5cfaa189ec35335581e32b0adc0773682aa530d92c8d0d8c71d)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRuntimeVersion", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bc01d4bd4fd78351621afa85a7471b1def90a50809e02584947b6b02253ea31a)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ba7a3e8df6682e6598ae7e35d4d573fbddb0d8feef953da1af8da33d602f1ff7)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the runtime version.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCompatibility")
+    def attr_compatibility(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''Compatibility matrix for the runtime version: supported integration models, architectures, and feature policies.
+
+        :cloudformationAttribute: Compatibility
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrCompatibility"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreated")
+    def attr_created(self) -> builtins.str:
+        '''The timestamp when the runtime version was created.
+
+        :cloudformationAttribute: Created
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreated"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastModified")
+    def attr_last_modified(self) -> builtins.str:
+        '''The timestamp when the runtime version was last modified.
+
+        :cloudformationAttribute: LastModified
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastModified"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrPlatforms")
+    def attr_platforms(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The OCI platforms resolved from the image manifest.
+
+        :cloudformationAttribute: Platforms
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrPlatforms"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrResolvedUri")
+    def attr_resolved_uri(self) -> builtins.str:
+        '''The fully resolved (digest-pinned) image URI for this runtime version.
+
+        :cloudformationAttribute: ResolvedUri
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrResolvedUri"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrState")
+    def attr_state(self) -> builtins.str:
+        '''The lifecycle state of the runtime version.
+
+        :cloudformationAttribute: State
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrState"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="runtimeVersionRef")
+    def runtime_version_ref(self) -> "_aws_lambda_aaab8031.RuntimeVersionReference":
+        '''A reference to a RuntimeVersion resource.'''
+        return typing.cast("_aws_lambda_aaab8031.RuntimeVersionReference", jsii.get(self, "runtimeVersionRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The version identifier (1-128 chars, alphanumeric plus _.-).'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a1519eeff255eadfaf91eb3ae9e72ac8b09ba6b2d30b3919947c2240dbd58d68)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="runtimeName")
+    def runtime_name(self) -> builtins.str:
+        '''The name of the parent runtime.'''
+        return typing.cast(builtins.str, jsii.get(self, "runtimeName"))
+
+    @runtime_name.setter
+    def runtime_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9fd1be4e1c7e3a0080f891106d6a18291f94e458692b8cc257e4aeeaa9d56579)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "runtimeName", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="imageUri")
+    def image_uri(self) -> typing.Optional[builtins.str]:
+        '''The URI of the OCI image to publish as this runtime version.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "imageUri"))
+
+    @image_uri.setter
+    def image_uri(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7d4ad23dbcc878a51814bfdc80783a30627f3175af883d637e59b1e8e9769d40)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "imageUri", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="releaseNotes")
+    def release_notes(self) -> typing.Optional[builtins.str]:
+        '''Optional release notes for this runtime version.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "releaseNotes"))
+
+    @release_notes.setter
+    def release_notes(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bfbb4566b3270303b762081167c2acae975004c12d2b2bcdb4885ecf404aaacf)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "releaseNotes", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lambda.CfnRuntimeVersion.CompatibilityProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "architectures": "architectures",
+            "integration_models": "integrationModels",
+            "managed_instances": "managedInstances",
+        },
+    )
+    class CompatibilityProperty:
+        def __init__(
+            self,
+            *,
+            architectures: typing.Optional[typing.Sequence[builtins.str]] = None,
+            integration_models: typing.Optional[typing.Sequence[builtins.str]] = None,
+            managed_instances: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Compatibility matrix for the runtime version: supported integration models, architectures, and feature policies.
+
+            :param architectures: Supported CPU architectures for the runtime version.
+            :param integration_models: Supported integration models for the runtime version.
+            :param managed_instances: Whether the runtime version supports managed instances.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-runtimeversion-compatibility.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lambda as lambda_
+                
+                compatibility_property = lambda.CfnRuntimeVersion.CompatibilityProperty(
+                    architectures=["architectures"],
+                    integration_models=["integrationModels"],
+                    managed_instances="managedInstances"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__2de8660bbff9423e4668826bc97141a56fa47b035d64e61d10dac3853e6b1789)
+                check_type(argname="argument architectures", value=architectures, expected_type=type_hints["architectures"])
+                check_type(argname="argument integration_models", value=integration_models, expected_type=type_hints["integration_models"])
+                check_type(argname="argument managed_instances", value=managed_instances, expected_type=type_hints["managed_instances"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if architectures is not None:
+                self._values["architectures"] = architectures
+            if integration_models is not None:
+                self._values["integration_models"] = integration_models
+            if managed_instances is not None:
+                self._values["managed_instances"] = managed_instances
+
+        @builtins.property
+        def architectures(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''Supported CPU architectures for the runtime version.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-runtimeversion-compatibility.html#cfn-lambda-runtimeversion-compatibility-architectures
+            '''
+            result = self._values.get("architectures")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def integration_models(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''Supported integration models for the runtime version.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-runtimeversion-compatibility.html#cfn-lambda-runtimeversion-compatibility-integrationmodels
+            '''
+            result = self._values.get("integration_models")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def managed_instances(self) -> typing.Optional[builtins.str]:
+            '''Whether the runtime version supports managed instances.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-runtimeversion-compatibility.html#cfn-lambda-runtimeversion-compatibility-managedinstances
+            '''
+            result = self._values.get("managed_instances")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CompatibilityProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lambda.CfnRuntimeVersion.PlatformProperty",
+        jsii_struct_bases=[],
+        name_mapping={"architecture": "architecture", "digest": "digest", "os": "os"},
+    )
+    class PlatformProperty:
+        def __init__(
+            self,
+            *,
+            architecture: builtins.str,
+            digest: builtins.str,
+            os: builtins.str,
+        ) -> None:
+            '''A resolved OCI image platform descriptor.
+
+            :param architecture: 
+            :param digest: 
+            :param os: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-runtimeversion-platform.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lambda as lambda_
+                
+                platform_property = lambda.CfnRuntimeVersion.PlatformProperty(
+                    architecture="architecture",
+                    digest="digest",
+                    os="os"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__b25fb484c5dcc12de84238078c2fe43982c0570070242d872b52da4496a481d5)
+                check_type(argname="argument architecture", value=architecture, expected_type=type_hints["architecture"])
+                check_type(argname="argument digest", value=digest, expected_type=type_hints["digest"])
+                check_type(argname="argument os", value=os, expected_type=type_hints["os"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "architecture": architecture,
+                "digest": digest,
+                "os": os,
+            }
+
+        @builtins.property
+        def architecture(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-runtimeversion-platform.html#cfn-lambda-runtimeversion-platform-architecture
+            '''
+            result = self._values.get("architecture")
+            assert result is not None, "Required property 'architecture' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def digest(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-runtimeversion-platform.html#cfn-lambda-runtimeversion-platform-digest
+            '''
+            result = self._values.get("digest")
+            assert result is not None, "Required property 'digest' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def os(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-runtimeversion-platform.html#cfn-lambda-runtimeversion-platform-os
+            '''
+            result = self._values.get("os")
+            assert result is not None, "Required property 'os' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PlatformProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lambda.CfnRuntimeVersionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "runtime_name": "runtimeName",
+        "image_uri": "imageUri",
+        "release_notes": "releaseNotes",
+    },
+)
+class CfnRuntimeVersionProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        runtime_name: builtins.str,
+        image_uri: typing.Optional[builtins.str] = None,
+        release_notes: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnRuntimeVersion``.
+
+        :param name: The version identifier (1-128 chars, alphanumeric plus _.-).
+        :param runtime_name: The name of the parent runtime.
+        :param image_uri: The URI of the OCI image to publish as this runtime version. Not returned in Read.
+        :param release_notes: Optional release notes for this runtime version. Updatable; removing it from the template clears the release notes.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-runtimeversion.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_lambda as lambda_
+            
+            cfn_runtime_version_props = lambda.CfnRuntimeVersionProps(
+                name="name",
+                runtime_name="runtimeName",
+            
+                # the properties below are optional
+                image_uri="imageUri",
+                release_notes="releaseNotes"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__136111ca6a65c46fd95dcd702fadf99d8d20e24088ccc7f7fa969832e31ae919)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument runtime_name", value=runtime_name, expected_type=type_hints["runtime_name"])
+            check_type(argname="argument image_uri", value=image_uri, expected_type=type_hints["image_uri"])
+            check_type(argname="argument release_notes", value=release_notes, expected_type=type_hints["release_notes"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "runtime_name": runtime_name,
+        }
+        if image_uri is not None:
+            self._values["image_uri"] = image_uri
+        if release_notes is not None:
+            self._values["release_notes"] = release_notes
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The version identifier (1-128 chars, alphanumeric plus _.-).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-runtimeversion.html#cfn-lambda-runtimeversion-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def runtime_name(self) -> builtins.str:
+        '''The name of the parent runtime.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-runtimeversion.html#cfn-lambda-runtimeversion-runtimename
+        '''
+        result = self._values.get("runtime_name")
+        assert result is not None, "Required property 'runtime_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def image_uri(self) -> typing.Optional[builtins.str]:
+        '''The URI of the OCI image to publish as this runtime version.
+
+        Not returned in Read.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-runtimeversion.html#cfn-lambda-runtimeversion-imageuri
+        '''
+        result = self._values.get("image_uri")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def release_notes(self) -> typing.Optional[builtins.str]:
+        '''Optional release notes for this runtime version.
+
+        Updatable; removing it from the template clears the release notes.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-runtimeversion.html#cfn-lambda-runtimeversion-releasenotes
+        '''
+        result = self._values.get("release_notes")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnRuntimeVersionProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -20689,19 +22902,22 @@ class Code(metaclass=jsii.JSIIAbstractClass, jsii_type="aws-cdk-lib.aws_lambda.C
 
     Example::
 
-        my_function_handler = lambda_.Function(self, "MyFunction",
-            code=lambda_.Code.from_asset("resource/myfunction"),
+        import aws_cdk.aws_signer as signer
+        
+        
+        signing_profile = signer.SigningProfile(self, "SigningProfile",
+            platform=signer.Platform.AWS_LAMBDA_SHA384_ECDSA
+        )
+        
+        code_signing_config = lambda_.CodeSigningConfig(self, "CodeSigningConfig",
+            signing_profiles=[signing_profile]
+        )
+        
+        lambda_.Function(self, "Function",
+            code_signing_config=code_signing_config,
             runtime=lambda_.Runtime.NODEJS_LATEST,
-            handler="index.handler"
-        )
-        
-        event_rule = cloudtrail.Trail.on_event(self, "MyCloudWatchEvent",
-            target=targets.LambdaFunction(my_function_handler)
-        )
-        
-        event_rule.add_event_pattern(
-            account=["123456789012"],
-            source=["aws.s3"]
+            handler="index.handler",
+            code=lambda_.Code.from_asset(path.join(__dirname, "lambda-handler"))
         )
     '''
 
@@ -20735,9 +22951,9 @@ class Code(metaclass=jsii.JSIIAbstractClass, jsii_type="aws-cdk-lib.aws_lambda.C
         :param asset_hash: Specify a custom hash for this asset. If ``assetHashType`` is set it must be set to ``AssetHashType.CUSTOM``. For consistency, this custom hash will be SHA256 hashed and encoded as hex. The resulting hash will be the asset hash. NOTE: the hash is used in order to identify a specific revision of the asset, and used for optimizing and caching deployment activities related to this asset such as packaging, uploading to Amazon S3, etc. If you chose to customize the hash, you will need to make sure it is updated every time the asset changes, or otherwise it is possible that some deployments will not be invalidated. Default: - based on ``assetHashType``
         :param asset_hash_type: Specifies the type of hash to calculate for this asset. If ``assetHash`` is configured, this option must be ``undefined`` or ``AssetHashType.CUSTOM``. Default: - the default is ``AssetHashType.SOURCE``, but if ``assetHash`` is explicitly specified this value defaults to ``AssetHashType.CUSTOM``.
         :param bundling: Bundle the asset by executing a command in a Docker container or a custom bundling provider. The asset path will be mounted at ``/asset-input``. The Docker container is responsible for putting content at ``/asset-output``. The content at ``/asset-output`` will be zipped and used as the final asset. Default: - uploaded as-is to S3 if the asset is a regular file or a .zip file, archived into a .zip file and uploaded to S3 otherwise
-        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Has no effect on Assets bundled using the ``bundling`` property. Default: - nothing is excluded
-        :param follow_symlinks: A strategy for how to handle symlinks. Default: SymlinkFollowMode.NEVER
-        :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
+        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, this controls the files that will be included in the copy. Files matching the ``exclude`` patterns will not be included in the copy. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the value of ``exclude`` is only meaningful if the ``assetHashType`` is set to ``AssetHashType.SOURCE``, and ignored for other asset hash types. The ``exclude`` patterns will be used to determine which files contribute to the asset, and the bundling command is skipped if the source files have not changed since the last bundling operation. **NOTE:** The bundling operation still has access to all files in the source path, regardless of the ``exclude`` patterns. It is your responsibility to ensure the ``exclude`` pattern accurately matches the files the bundling operation will *actually* access and base its final output on. For ``OUTPUT`` or ``CUSTOM`` asset hash types, the ``exclude`` pattern is ignored. Default: - nothing is excluded
+        :param follow_symlinks: A strategy for how to handle symlinks. Symlinks may be copied, materialized or rejected. Note that if symlinks are copied they should be relative; absolute symlinks will lose their meaning if the cloud assembly is moved to another machine. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, symlinks are materialized or blocked with respect to the ``sourcePath`` directory as they are being copied. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the bundling command is fully in charge of producing a set of files in an output directory, and the ``AssetStaging`` construct will never affect symlink materialization. If the ``assetHashType`` is ``AssetHashType.SOURCE``, this flag affects what the source hash is based on, and the recommended value is one of ``SymlinkFollowMode.EXTERNAL`` or ``SymlinkFollowMode.BLOCK_EXTERNAL``. If the ``SymlinkFollowMode.BLOCK_EXTERNAL`` mode is used: - symlinks pointing outside the source tree will be blocked if using ``AssetHashType.SOURCE``. - symlinks pointing outside the bundle output will be blocked. Default: SymlinkFollowMode.EXTERNAL
+        :param ignore_mode: What syntax the ``exclude`` patterns are written in. Default: - IgnoreMode.GLOB for file assets, ``IgnoreMode.DOCKER`` for image assets (requires that the ``@aws-cdk/aws-ecr-assets:dockerIgnoreSupport`` feature flag is set, which is recommended)
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f040a1ba6e87fe9c9a6496be4b8fbf73f2646b80291bfc4d04979d6efb7216bf)
@@ -20807,10 +23023,10 @@ class Code(metaclass=jsii.JSIIAbstractClass, jsii_type="aws-cdk-lib.aws_lambda.C
         :param outputs: Outputs to pass to the ``docker build`` command. Default: - no outputs are passed to the build command (default outputs are used)
         :param platform: Platform to build for. *Requires Docker Buildx*. Default: - no platform specified (the current machine architecture will be used)
         :param target: Docker target to build to. Default: - no target
-        :param extra_hash: Extra information to encode into the fingerprint (e.g. build instructions and other inputs). Default: - hash is only based on source content
-        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Has no effect on Assets bundled using the ``bundling`` property. Default: - nothing is excluded
-        :param follow_symlinks: A strategy for how to handle symlinks. Default: SymlinkFollowMode.NEVER
-        :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
+        :param extra_hash: Extra information to encode into the fingerprint (e.g. build instructions and other inputs). Default: - hash is only based on the file fingerprint
+        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, this controls the files that will be included in the copy. Files matching the ``exclude`` patterns will not be included in the copy. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the value of ``exclude`` is only meaningful if the ``assetHashType`` is set to ``AssetHashType.SOURCE``, and ignored for other asset hash types. The ``exclude`` patterns will be used to determine which files contribute to the asset, and the bundling command is skipped if the source files have not changed since the last bundling operation. **NOTE:** The bundling operation still has access to all files in the source path, regardless of the ``exclude`` patterns. It is your responsibility to ensure the ``exclude`` pattern accurately matches the files the bundling operation will *actually* access and base its final output on. For ``OUTPUT`` or ``CUSTOM`` asset hash types, the ``exclude`` pattern is ignored. Default: - nothing is excluded
+        :param follow_symlinks: A strategy for how to handle symlinks. Symlinks may be copied, materialized or rejected. Note that if symlinks are copied they should be relative; absolute symlinks will lose their meaning if the cloud assembly is moved to another machine. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, symlinks are materialized or blocked with respect to the ``sourcePath`` directory as they are being copied. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the bundling command is fully in charge of producing a set of files in an output directory, and the ``AssetStaging`` construct will never affect symlink materialization. If the ``assetHashType`` is ``AssetHashType.SOURCE``, this flag affects what the source hash is based on, and the recommended value is one of ``SymlinkFollowMode.EXTERNAL`` or ``SymlinkFollowMode.BLOCK_EXTERNAL``. If the ``SymlinkFollowMode.BLOCK_EXTERNAL`` mode is used: - symlinks pointing outside the source tree will be blocked if using ``AssetHashType.SOURCE``. - symlinks pointing outside the bundle output will be blocked. Default: SymlinkFollowMode.EXTERNAL
+        :param ignore_mode: What syntax the ``exclude`` patterns are written in. Default: - IgnoreMode.GLOB for file assets, ``IgnoreMode.DOCKER`` for image assets (requires that the ``@aws-cdk/aws-ecr-assets:dockerIgnoreSupport`` feature flag is set, which is recommended)
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__29667a5c639f33aff38b1cbeda0e1db7f1f0c3d3bdb2b53ad013906752e3793b)
@@ -20956,9 +23172,9 @@ class Code(metaclass=jsii.JSIIAbstractClass, jsii_type="aws-cdk-lib.aws_lambda.C
         :param asset_hash: Specify a custom hash for this asset. If ``assetHashType`` is set it must be set to ``AssetHashType.CUSTOM``. For consistency, this custom hash will be SHA256 hashed and encoded as hex. The resulting hash will be the asset hash. NOTE: the hash is used in order to identify a specific revision of the asset, and used for optimizing and caching deployment activities related to this asset such as packaging, uploading to Amazon S3, etc. If you chose to customize the hash, you will need to make sure it is updated every time the asset changes, or otherwise it is possible that some deployments will not be invalidated. Default: - based on ``assetHashType``
         :param asset_hash_type: Specifies the type of hash to calculate for this asset. If ``assetHash`` is configured, this option must be ``undefined`` or ``AssetHashType.CUSTOM``. Default: - the default is ``AssetHashType.SOURCE``, but if ``assetHash`` is explicitly specified this value defaults to ``AssetHashType.CUSTOM``.
         :param bundling: Bundle the asset by executing a command in a Docker container or a custom bundling provider. The asset path will be mounted at ``/asset-input``. The Docker container is responsible for putting content at ``/asset-output``. The content at ``/asset-output`` will be zipped and used as the final asset. Default: - uploaded as-is to S3 if the asset is a regular file or a .zip file, archived into a .zip file and uploaded to S3 otherwise
-        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Has no effect on Assets bundled using the ``bundling`` property. Default: - nothing is excluded
-        :param follow_symlinks: A strategy for how to handle symlinks. Default: SymlinkFollowMode.NEVER
-        :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
+        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, this controls the files that will be included in the copy. Files matching the ``exclude`` patterns will not be included in the copy. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the value of ``exclude`` is only meaningful if the ``assetHashType`` is set to ``AssetHashType.SOURCE``, and ignored for other asset hash types. The ``exclude`` patterns will be used to determine which files contribute to the asset, and the bundling command is skipped if the source files have not changed since the last bundling operation. **NOTE:** The bundling operation still has access to all files in the source path, regardless of the ``exclude`` patterns. It is your responsibility to ensure the ``exclude`` pattern accurately matches the files the bundling operation will *actually* access and base its final output on. For ``OUTPUT`` or ``CUSTOM`` asset hash types, the ``exclude`` pattern is ignored. Default: - nothing is excluded
+        :param follow_symlinks: A strategy for how to handle symlinks. Symlinks may be copied, materialized or rejected. Note that if symlinks are copied they should be relative; absolute symlinks will lose their meaning if the cloud assembly is moved to another machine. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, symlinks are materialized or blocked with respect to the ``sourcePath`` directory as they are being copied. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the bundling command is fully in charge of producing a set of files in an output directory, and the ``AssetStaging`` construct will never affect symlink materialization. If the ``assetHashType`` is ``AssetHashType.SOURCE``, this flag affects what the source hash is based on, and the recommended value is one of ``SymlinkFollowMode.EXTERNAL`` or ``SymlinkFollowMode.BLOCK_EXTERNAL``. If the ``SymlinkFollowMode.BLOCK_EXTERNAL`` mode is used: - symlinks pointing outside the source tree will be blocked if using ``AssetHashType.SOURCE``. - symlinks pointing outside the bundle output will be blocked. Default: SymlinkFollowMode.EXTERNAL
+        :param ignore_mode: What syntax the ``exclude`` patterns are written in. Default: - IgnoreMode.GLOB for file assets, ``IgnoreMode.DOCKER`` for image assets (requires that the ``@aws-cdk/aws-ecr-assets:dockerIgnoreSupport`` feature flag is set, which is recommended)
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f107aedaa96b9385600e34088d5cda9d8035f15776c846b0f0b4fbbe35d118df)
@@ -21530,9 +23746,9 @@ class CustomCommandOptions(_aws_s3_assets_2dba96fa.AssetOptions):
         :param asset_hash: Specify a custom hash for this asset. If ``assetHashType`` is set it must be set to ``AssetHashType.CUSTOM``. For consistency, this custom hash will be SHA256 hashed and encoded as hex. The resulting hash will be the asset hash. NOTE: the hash is used in order to identify a specific revision of the asset, and used for optimizing and caching deployment activities related to this asset such as packaging, uploading to Amazon S3, etc. If you chose to customize the hash, you will need to make sure it is updated every time the asset changes, or otherwise it is possible that some deployments will not be invalidated. Default: - based on ``assetHashType``
         :param asset_hash_type: Specifies the type of hash to calculate for this asset. If ``assetHash`` is configured, this option must be ``undefined`` or ``AssetHashType.CUSTOM``. Default: - the default is ``AssetHashType.SOURCE``, but if ``assetHash`` is explicitly specified this value defaults to ``AssetHashType.CUSTOM``.
         :param bundling: Bundle the asset by executing a command in a Docker container or a custom bundling provider. The asset path will be mounted at ``/asset-input``. The Docker container is responsible for putting content at ``/asset-output``. The content at ``/asset-output`` will be zipped and used as the final asset. Default: - uploaded as-is to S3 if the asset is a regular file or a .zip file, archived into a .zip file and uploaded to S3 otherwise
-        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Has no effect on Assets bundled using the ``bundling`` property. Default: - nothing is excluded
-        :param follow_symlinks: A strategy for how to handle symlinks. Default: SymlinkFollowMode.NEVER
-        :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
+        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, this controls the files that will be included in the copy. Files matching the ``exclude`` patterns will not be included in the copy. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the value of ``exclude`` is only meaningful if the ``assetHashType`` is set to ``AssetHashType.SOURCE``, and ignored for other asset hash types. The ``exclude`` patterns will be used to determine which files contribute to the asset, and the bundling command is skipped if the source files have not changed since the last bundling operation. **NOTE:** The bundling operation still has access to all files in the source path, regardless of the ``exclude`` patterns. It is your responsibility to ensure the ``exclude`` pattern accurately matches the files the bundling operation will *actually* access and base its final output on. For ``OUTPUT`` or ``CUSTOM`` asset hash types, the ``exclude`` pattern is ignored. Default: - nothing is excluded
+        :param follow_symlinks: A strategy for how to handle symlinks. Symlinks may be copied, materialized or rejected. Note that if symlinks are copied they should be relative; absolute symlinks will lose their meaning if the cloud assembly is moved to another machine. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, symlinks are materialized or blocked with respect to the ``sourcePath`` directory as they are being copied. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the bundling command is fully in charge of producing a set of files in an output directory, and the ``AssetStaging`` construct will never affect symlink materialization. If the ``assetHashType`` is ``AssetHashType.SOURCE``, this flag affects what the source hash is based on, and the recommended value is one of ``SymlinkFollowMode.EXTERNAL`` or ``SymlinkFollowMode.BLOCK_EXTERNAL``. If the ``SymlinkFollowMode.BLOCK_EXTERNAL`` mode is used: - symlinks pointing outside the source tree will be blocked if using ``AssetHashType.SOURCE``. - symlinks pointing outside the bundle output will be blocked. Default: SymlinkFollowMode.EXTERNAL
+        :param ignore_mode: What syntax the ``exclude`` patterns are written in. Default: - IgnoreMode.GLOB for file assets, ``IgnoreMode.DOCKER`` for image assets (requires that the ``@aws-cdk/aws-ecr-assets:dockerIgnoreSupport`` feature flag is set, which is recommended)
         :param deploy_time: Whether or not the asset needs to exist beyond deployment time; i.e. are copied over to a different location and not needed afterwards. Setting this property to true has an impact on the lifecycle of the asset, because we will assume that it is safe to delete after the CloudFormation deployment succeeds. For example, Lambda Function assets are copied over to Lambda during deployment. Therefore, it is not necessary to store the asset in S3, so we consider those deployTime assets. Default: false
         :param display_name: A display name for this asset. If supplied, the display name will be used in locations where the asset identifier is printed, like in the CLI progress information. If the same asset is added multiple times, the display name of the first occurrence is used. The default is the construct path of the Asset construct, with respect to the enclosing stack. If the asset is produced by a construct helper function (such as ``lambda.Code.fromAsset()``), this will look like ``MyFunction/Code``. We use the stack-relative construct path so that in the common case where you have multiple stacks with the same asset, we won't show something like ``/MyBetaStack/MyFunction/Code`` when you are actually deploying to production. Default: - Stack-relative construct path
         :param readers: A list of principals that should be able to read this asset from S3. You can use ``asset.grantRead(principal)`` to grant read permissions later. Default: - No principals that can read file asset.
@@ -21690,10 +23906,33 @@ class CustomCommandOptions(_aws_s3_assets_2dba96fa.AssetOptions):
 
     @builtins.property
     def exclude(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''File paths matching the patterns will be excluded.
+        '''File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior.
 
-        See ``ignoreMode`` to set the matching behavior.
-        Has no effect on Assets bundled using the ``bundling`` property.
+
+
+        Without bundling
+
+        When used without the ``bundling`` property, the asset is just a regular file
+        copy operation. In that case, this controls the files that will be included
+        in the copy. Files matching the ``exclude`` patterns will not be included in
+        the copy.
+
+
+        With bundling
+
+        When used with the ``bundling`` property, the asset is produced by a
+        bundling operation. In that case, the value of ``exclude`` is only meaningful
+        if the ``assetHashType`` is set to ``AssetHashType.SOURCE``, and ignored for
+        other asset hash types. The ``exclude`` patterns will be used to determine
+        which files contribute to the asset, and the bundling command is skipped
+        if the source files have not changed since the last bundling operation.
+
+        **NOTE:** The bundling operation still has access to all files in the source path,
+        regardless of the ``exclude`` patterns. It is your responsibility to ensure
+        the ``exclude`` pattern accurately matches the files the bundling operation
+        will *actually* access and base its final output on.
+
+        For ``OUTPUT`` or ``CUSTOM`` asset hash types, the ``exclude`` pattern is ignored.
 
         :default: - nothing is excluded
         '''
@@ -21704,16 +23943,44 @@ class CustomCommandOptions(_aws_s3_assets_2dba96fa.AssetOptions):
     def follow_symlinks(self) -> typing.Optional["_aws_cdk_0cae9daa.SymlinkFollowMode"]:
         '''A strategy for how to handle symlinks.
 
-        :default: SymlinkFollowMode.NEVER
+        Symlinks may be copied, materialized or rejected. Note that if symlinks are
+        copied they should be relative; absolute symlinks will lose their
+        meaning if the cloud assembly is moved to another machine.
+
+
+        Without bundling
+
+        When used without the ``bundling`` property, the asset is just a regular file
+        copy operation. In that case, symlinks are materialized or blocked with respect
+        to the ``sourcePath`` directory as they are being copied.
+
+
+        With bundling
+
+        When used with the ``bundling`` property, the asset is produced by a
+        bundling operation. In that case, the bundling command is fully
+        in charge of producing a set of files in an output directory, and
+        the ``AssetStaging`` construct will never affect symlink materialization.
+
+        If the ``assetHashType`` is ``AssetHashType.SOURCE``, this flag affects what
+        the source hash is based on, and the recommended value is one of
+        ``SymlinkFollowMode.EXTERNAL`` or ``SymlinkFollowMode.BLOCK_EXTERNAL``.
+
+        If the ``SymlinkFollowMode.BLOCK_EXTERNAL`` mode is used:
+
+        - symlinks pointing outside the source tree will be blocked if using ``AssetHashType.SOURCE``.
+        - symlinks pointing outside the bundle output will be blocked.
+
+        :default: SymlinkFollowMode.EXTERNAL
         '''
         result = self._values.get("follow_symlinks")
         return typing.cast(typing.Optional["_aws_cdk_0cae9daa.SymlinkFollowMode"], result)
 
     @builtins.property
     def ignore_mode(self) -> typing.Optional["_aws_cdk_0cae9daa.IgnoreMode"]:
-        '''The ignore behavior to use for ``exclude`` patterns.
+        '''What syntax the ``exclude`` patterns are written in.
 
-        :default: IgnoreMode.GLOB
+        :default: - IgnoreMode.GLOB for file assets, ``IgnoreMode.DOCKER`` for image assets (requires that the ``@aws-cdk/aws-ecr-assets:dockerIgnoreSupport`` feature flag is set, which is recommended)
         '''
         result = self._values.get("ignore_mode")
         return typing.cast(typing.Optional["_aws_cdk_0cae9daa.IgnoreMode"], result)
@@ -22468,10 +24735,10 @@ class DockerImageCode(
         :param outputs: Outputs to pass to the ``docker build`` command. Default: - no outputs are passed to the build command (default outputs are used)
         :param platform: Platform to build for. *Requires Docker Buildx*. Default: - no platform specified (the current machine architecture will be used)
         :param target: Docker target to build to. Default: - no target
-        :param extra_hash: Extra information to encode into the fingerprint (e.g. build instructions and other inputs). Default: - hash is only based on source content
-        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Has no effect on Assets bundled using the ``bundling`` property. Default: - nothing is excluded
-        :param follow_symlinks: A strategy for how to handle symlinks. Default: SymlinkFollowMode.NEVER
-        :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
+        :param extra_hash: Extra information to encode into the fingerprint (e.g. build instructions and other inputs). Default: - hash is only based on the file fingerprint
+        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, this controls the files that will be included in the copy. Files matching the ``exclude`` patterns will not be included in the copy. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the value of ``exclude`` is only meaningful if the ``assetHashType`` is set to ``AssetHashType.SOURCE``, and ignored for other asset hash types. The ``exclude`` patterns will be used to determine which files contribute to the asset, and the bundling command is skipped if the source files have not changed since the last bundling operation. **NOTE:** The bundling operation still has access to all files in the source path, regardless of the ``exclude`` patterns. It is your responsibility to ensure the ``exclude`` pattern accurately matches the files the bundling operation will *actually* access and base its final output on. For ``OUTPUT`` or ``CUSTOM`` asset hash types, the ``exclude`` pattern is ignored. Default: - nothing is excluded
+        :param follow_symlinks: A strategy for how to handle symlinks. Symlinks may be copied, materialized or rejected. Note that if symlinks are copied they should be relative; absolute symlinks will lose their meaning if the cloud assembly is moved to another machine. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, symlinks are materialized or blocked with respect to the ``sourcePath`` directory as they are being copied. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the bundling command is fully in charge of producing a set of files in an output directory, and the ``AssetStaging`` construct will never affect symlink materialization. If the ``assetHashType`` is ``AssetHashType.SOURCE``, this flag affects what the source hash is based on, and the recommended value is one of ``SymlinkFollowMode.EXTERNAL`` or ``SymlinkFollowMode.BLOCK_EXTERNAL``. If the ``SymlinkFollowMode.BLOCK_EXTERNAL`` mode is used: - symlinks pointing outside the source tree will be blocked if using ``AssetHashType.SOURCE``. - symlinks pointing outside the bundle output will be blocked. Default: SymlinkFollowMode.EXTERNAL
+        :param ignore_mode: What syntax the ``exclude`` patterns are written in. Default: - IgnoreMode.GLOB for file assets, ``IgnoreMode.DOCKER`` for image assets (requires that the ``@aws-cdk/aws-ecr-assets:dockerIgnoreSupport`` feature flag is set, which is recommended)
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5da1bfa983f51013181a622617f984d1361ab84bd63c101a85256915abb15b63)
@@ -23209,7 +25476,7 @@ class EventRecordFormat(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_lambda.EventRecordFormat",
 ):
-    '''The format target function should receive record in.
+    '''How Lambda passes schema-validated records to your function.
 
     :exampleMetadata: infused
 
@@ -23222,13 +25489,14 @@ class EventRecordFormat(
         # Your MSK cluster arn
         # cluster_arn: str
         
+        # The secret with the credentials for your schema registry
+        # secret: Secret
+        
         # my_function: lambda.Function
         
         
         # The Kafka topic you want to subscribe to
         topic = "some-cool-topic"
-        
-        secret = Secret(self, "Secret", secret_name="AmazonMSK_KafkaSecret")
         my_function.add_event_source(ManagedKafkaEventSource(
             cluster_arn=cluster_arn,
             topic=topic,
@@ -23252,7 +25520,7 @@ class EventRecordFormat(
     def of(cls, name: builtins.str) -> "EventRecordFormat":
         '''A custom event record format.
 
-        :param name: -
+        :param name: the name of the record format.
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__913b83169547e1e27e0d17d4e5a189f10545dca54ca45db7a5dc40a7d5cc2999)
@@ -23263,14 +25531,20 @@ class EventRecordFormat(
     @jsii.member(jsii_name="JSON")
     @builtins.classmethod
     def JSON(cls) -> "EventRecordFormat":
-        '''The target function will receive records as json objects.'''
+        '''Your function receives the validated parts of each record as JSON.
+
+        A good fit for languages such as Python and Node.js.
+        '''
         return typing.cast("EventRecordFormat", jsii.sget(cls, "JSON"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SOURCE")
     @builtins.classmethod
     def SOURCE(cls) -> "EventRecordFormat":
-        '''The target function will receive records in same format as the schema source.'''
+        '''Your function receives the validated parts of each record in their original format.
+
+        A good fit when you use Avro or Protobuf generated classes.
+        '''
         return typing.cast("EventRecordFormat", jsii.sget(cls, "SOURCE"))
 
     @builtins.property
@@ -23354,6 +25628,7 @@ class EventSourceMappingLogLevel(enum.Enum):
         "filters": "filters",
         "kafka_bootstrap_servers": "kafkaBootstrapServers",
         "kafka_consumer_group_id": "kafkaConsumerGroupId",
+        "kafka_consumption_mode": "kafkaConsumptionMode",
         "kafka_topic": "kafkaTopic",
         "log_level": "logLevel",
         "max_batching_window": "maxBatchingWindow",
@@ -23385,6 +25660,7 @@ class EventSourceMappingOptions:
         filters: typing.Optional[typing.Sequence[typing.Mapping[builtins.str, typing.Any]]] = None,
         kafka_bootstrap_servers: typing.Optional[typing.Sequence[builtins.str]] = None,
         kafka_consumer_group_id: typing.Optional[builtins.str] = None,
+        kafka_consumption_mode: typing.Optional["KafkaConsumptionMode"] = None,
         kafka_topic: typing.Optional[builtins.str] = None,
         log_level: typing.Optional["EventSourceMappingLogLevel"] = None,
         max_batching_window: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
@@ -23412,6 +25688,7 @@ class EventSourceMappingOptions:
         :param filters: Add filter criteria to Event Source. Default: - none
         :param kafka_bootstrap_servers: A list of host and port pairs that are the addresses of the Kafka brokers in a self managed "bootstrap" Kafka cluster that a Kafka client connects to initially to bootstrap itself. They are in the format ``abc.example.com:9096``. Default: - none
         :param kafka_consumer_group_id: The identifier for the Kafka consumer group to join. The consumer group ID must be unique among all your Kafka event sources. After creating a Kafka event source mapping with the consumer group ID specified, you cannot update this value. The value must have a length between 1 and 200 and full the pattern '[a-zA-Z0-9-/*:_+=.@-]*'. For more information, see `Customizable consumer group ID <https://docs.aws.amazon.com/lambda/latest/dg/with-msk.html#services-msk-consumer-group-id>`_. Default: - none
+        :param kafka_consumption_mode: How Lambda reads records from the Kafka topic. Only supported for self-managed Kafka event sources (``kafkaBootstrapServers``). **Queue mode requires Kafka 4.2.0 or later.** In queue mode, ``startingPosition``, ``startingPositionTimestamp`` and ``maxBatchingWindow`` are not supported, and ``retryAttempts`` must be between 0 and 10000 and defaults to 0 (and, as in stream mode, requires ``provisionedPollerConfig``). The consumption mode can't be changed after the event source mapping is created. Default: - Lambda reads the topic in stream mode (``KafkaConsumptionMode.STREAM``)
         :param kafka_topic: The name of the Kafka topic. Default: - no topic
         :param log_level: Configuration for logging verbosity from the event source mapping poller. This configuration controls the verbosity of the logs generated by the polling infrastructure that reads events from the event source. The logs provide insights into the internal operations of the event source mapping, including connection status, polling behavior, and error conditions. Default: - No logging
         :param max_batching_window: The maximum amount of time to gather records before invoking the function. Maximum of Duration.minutes(5) Default: Duration.seconds(0)
@@ -23422,7 +25699,7 @@ class EventSourceMappingOptions:
         :param parallelization_factor: The number of batches to process from each shard concurrently. Valid Range: - Minimum value of 1 - Maximum value of 10 Default: 1
         :param provisioned_poller_config: Configuration for provisioned pollers that read from the event source. When specified, allows control over the minimum and maximum number of pollers that can be provisioned to process events from the source. Default: - no provisioned pollers
         :param report_batch_item_failures: Allow functions to return partially successful responses for a batch of records. Default: false
-        :param retry_attempts: The maximum number of times to retry when the function returns an error. Set to ``undefined`` if you want lambda to keep retrying infinitely or until the record expires. Valid Range: - Minimum value of 0 - Maximum value of 10000 Default: - infinite or until the record expires.
+        :param retry_attempts: The maximum number of times to retry when the function returns an error. Set to ``undefined`` if you want lambda to keep retrying infinitely or until the record expires. Valid Range: - Minimum value of 0 - Maximum value of 10000 Default: - infinite or until the record expires; 0 when ``kafkaConsumptionMode`` is ``KafkaConsumptionMode.QUEUE``
         :param schema_registry_config: Specific configuration settings for a Kafka schema registry. Default: - none
         :param source_access_configurations: Specific settings like the authentication protocol or the VPC components to secure access to your event source. Default: - none
         :param starting_position: The position in the DynamoDB, Kinesis or MSK stream where AWS Lambda should start reading. Default: - no starting position
@@ -23442,6 +25719,7 @@ class EventSourceMappingOptions:
             
             # event_source_dlq: lambda.IEventSourceDlq
             # filters: Any
+            # kafka_consumption_mode: lambda.KafkaConsumptionMode
             # key: kms.Key
             # schema_registry: lambda.ISchemaRegistry
             # source_access_configuration_type: lambda.SourceAccessConfigurationType
@@ -23457,6 +25735,7 @@ class EventSourceMappingOptions:
                 }],
                 kafka_bootstrap_servers=["kafkaBootstrapServers"],
                 kafka_consumer_group_id="kafkaConsumerGroupId",
+                kafka_consumption_mode=kafka_consumption_mode,
                 kafka_topic="kafkaTopic",
                 log_level=lambda_.EventSourceMappingLogLevel.INFO,
                 max_batching_window=cdk.Duration.minutes(30),
@@ -23499,6 +25778,7 @@ class EventSourceMappingOptions:
             check_type(argname="argument filters", value=filters, expected_type=type_hints["filters"])
             check_type(argname="argument kafka_bootstrap_servers", value=kafka_bootstrap_servers, expected_type=type_hints["kafka_bootstrap_servers"])
             check_type(argname="argument kafka_consumer_group_id", value=kafka_consumer_group_id, expected_type=type_hints["kafka_consumer_group_id"])
+            check_type(argname="argument kafka_consumption_mode", value=kafka_consumption_mode, expected_type=type_hints["kafka_consumption_mode"])
             check_type(argname="argument kafka_topic", value=kafka_topic, expected_type=type_hints["kafka_topic"])
             check_type(argname="argument log_level", value=log_level, expected_type=type_hints["log_level"])
             check_type(argname="argument max_batching_window", value=max_batching_window, expected_type=type_hints["max_batching_window"])
@@ -23533,6 +25813,8 @@ class EventSourceMappingOptions:
             self._values["kafka_bootstrap_servers"] = kafka_bootstrap_servers
         if kafka_consumer_group_id is not None:
             self._values["kafka_consumer_group_id"] = kafka_consumer_group_id
+        if kafka_consumption_mode is not None:
+            self._values["kafka_consumption_mode"] = kafka_consumption_mode
         if kafka_topic is not None:
             self._values["kafka_topic"] = kafka_topic
         if log_level is not None:
@@ -23664,6 +25946,23 @@ class EventSourceMappingOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def kafka_consumption_mode(self) -> typing.Optional["KafkaConsumptionMode"]:
+        '''How Lambda reads records from the Kafka topic.
+
+        Only supported for self-managed Kafka event sources (``kafkaBootstrapServers``).
+        **Queue mode requires Kafka 4.2.0 or later.** In queue mode, ``startingPosition``,
+        ``startingPositionTimestamp`` and ``maxBatchingWindow`` are not supported, and ``retryAttempts`` must be between 0 and 10000
+        and defaults to 0 (and, as in stream mode, requires ``provisionedPollerConfig``).
+        The consumption mode can't be changed after the event source mapping is created.
+
+        :default: - Lambda reads the topic in stream mode (``KafkaConsumptionMode.STREAM``)
+
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-eventsourcemapping-selfmanagedkafkaeventsourceconfig.html
+        '''
+        result = self._values.get("kafka_consumption_mode")
+        return typing.cast(typing.Optional["KafkaConsumptionMode"], result)
+
+    @builtins.property
     def kafka_topic(self) -> typing.Optional[builtins.str]:
         '''The name of the Kafka topic.
 
@@ -23792,7 +26091,7 @@ class EventSourceMappingOptions:
         - Minimum value of 0
         - Maximum value of 10000
 
-        :default: - infinite or until the record expires.
+        :default: - infinite or until the record expires; 0 when ``kafkaConsumptionMode`` is ``KafkaConsumptionMode.QUEUE``
         '''
         result = self._values.get("retry_attempts")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -23889,6 +26188,7 @@ class EventSourceMappingOptions:
         "filters": "filters",
         "kafka_bootstrap_servers": "kafkaBootstrapServers",
         "kafka_consumer_group_id": "kafkaConsumerGroupId",
+        "kafka_consumption_mode": "kafkaConsumptionMode",
         "kafka_topic": "kafkaTopic",
         "log_level": "logLevel",
         "max_batching_window": "maxBatchingWindow",
@@ -23921,6 +26221,7 @@ class EventSourceMappingProps(EventSourceMappingOptions):
         filters: typing.Optional[typing.Sequence[typing.Mapping[builtins.str, typing.Any]]] = None,
         kafka_bootstrap_servers: typing.Optional[typing.Sequence[builtins.str]] = None,
         kafka_consumer_group_id: typing.Optional[builtins.str] = None,
+        kafka_consumption_mode: typing.Optional["KafkaConsumptionMode"] = None,
         kafka_topic: typing.Optional[builtins.str] = None,
         log_level: typing.Optional["EventSourceMappingLogLevel"] = None,
         max_batching_window: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
@@ -23950,6 +26251,7 @@ class EventSourceMappingProps(EventSourceMappingOptions):
         :param filters: Add filter criteria to Event Source. Default: - none
         :param kafka_bootstrap_servers: A list of host and port pairs that are the addresses of the Kafka brokers in a self managed "bootstrap" Kafka cluster that a Kafka client connects to initially to bootstrap itself. They are in the format ``abc.example.com:9096``. Default: - none
         :param kafka_consumer_group_id: The identifier for the Kafka consumer group to join. The consumer group ID must be unique among all your Kafka event sources. After creating a Kafka event source mapping with the consumer group ID specified, you cannot update this value. The value must have a length between 1 and 200 and full the pattern '[a-zA-Z0-9-/*:_+=.@-]*'. For more information, see `Customizable consumer group ID <https://docs.aws.amazon.com/lambda/latest/dg/with-msk.html#services-msk-consumer-group-id>`_. Default: - none
+        :param kafka_consumption_mode: How Lambda reads records from the Kafka topic. Only supported for self-managed Kafka event sources (``kafkaBootstrapServers``). **Queue mode requires Kafka 4.2.0 or later.** In queue mode, ``startingPosition``, ``startingPositionTimestamp`` and ``maxBatchingWindow`` are not supported, and ``retryAttempts`` must be between 0 and 10000 and defaults to 0 (and, as in stream mode, requires ``provisionedPollerConfig``). The consumption mode can't be changed after the event source mapping is created. Default: - Lambda reads the topic in stream mode (``KafkaConsumptionMode.STREAM``)
         :param kafka_topic: The name of the Kafka topic. Default: - no topic
         :param log_level: Configuration for logging verbosity from the event source mapping poller. This configuration controls the verbosity of the logs generated by the polling infrastructure that reads events from the event source. The logs provide insights into the internal operations of the event source mapping, including connection status, polling behavior, and error conditions. Default: - No logging
         :param max_batching_window: The maximum amount of time to gather records before invoking the function. Maximum of Duration.minutes(5) Default: Duration.seconds(0)
@@ -23960,7 +26262,7 @@ class EventSourceMappingProps(EventSourceMappingOptions):
         :param parallelization_factor: The number of batches to process from each shard concurrently. Valid Range: - Minimum value of 1 - Maximum value of 10 Default: 1
         :param provisioned_poller_config: Configuration for provisioned pollers that read from the event source. When specified, allows control over the minimum and maximum number of pollers that can be provisioned to process events from the source. Default: - no provisioned pollers
         :param report_batch_item_failures: Allow functions to return partially successful responses for a batch of records. Default: false
-        :param retry_attempts: The maximum number of times to retry when the function returns an error. Set to ``undefined`` if you want lambda to keep retrying infinitely or until the record expires. Valid Range: - Minimum value of 0 - Maximum value of 10000 Default: - infinite or until the record expires.
+        :param retry_attempts: The maximum number of times to retry when the function returns an error. Set to ``undefined`` if you want lambda to keep retrying infinitely or until the record expires. Valid Range: - Minimum value of 0 - Maximum value of 10000 Default: - infinite or until the record expires; 0 when ``kafkaConsumptionMode`` is ``KafkaConsumptionMode.QUEUE``
         :param schema_registry_config: Specific configuration settings for a Kafka schema registry. Default: - none
         :param source_access_configurations: Specific settings like the authentication protocol or the VPC components to secure access to your event source. Default: - none
         :param starting_position: The position in the DynamoDB, Kinesis or MSK stream where AWS Lambda should start reading. Default: - no starting position
@@ -23982,6 +26284,7 @@ class EventSourceMappingProps(EventSourceMappingOptions):
             # event_source_dlq: lambda.IEventSourceDlq
             # filters: Any
             # function_: lambda.Function
+            # kafka_consumption_mode: lambda.KafkaConsumptionMode
             # key: kms.Key
             # schema_registry: lambda.ISchemaRegistry
             # source_access_configuration_type: lambda.SourceAccessConfigurationType
@@ -24000,6 +26303,7 @@ class EventSourceMappingProps(EventSourceMappingOptions):
                 }],
                 kafka_bootstrap_servers=["kafkaBootstrapServers"],
                 kafka_consumer_group_id="kafkaConsumerGroupId",
+                kafka_consumption_mode=kafka_consumption_mode,
                 kafka_topic="kafkaTopic",
                 log_level=lambda_.EventSourceMappingLogLevel.INFO,
                 max_batching_window=cdk.Duration.minutes(30),
@@ -24042,6 +26346,7 @@ class EventSourceMappingProps(EventSourceMappingOptions):
             check_type(argname="argument filters", value=filters, expected_type=type_hints["filters"])
             check_type(argname="argument kafka_bootstrap_servers", value=kafka_bootstrap_servers, expected_type=type_hints["kafka_bootstrap_servers"])
             check_type(argname="argument kafka_consumer_group_id", value=kafka_consumer_group_id, expected_type=type_hints["kafka_consumer_group_id"])
+            check_type(argname="argument kafka_consumption_mode", value=kafka_consumption_mode, expected_type=type_hints["kafka_consumption_mode"])
             check_type(argname="argument kafka_topic", value=kafka_topic, expected_type=type_hints["kafka_topic"])
             check_type(argname="argument log_level", value=log_level, expected_type=type_hints["log_level"])
             check_type(argname="argument max_batching_window", value=max_batching_window, expected_type=type_hints["max_batching_window"])
@@ -24079,6 +26384,8 @@ class EventSourceMappingProps(EventSourceMappingOptions):
             self._values["kafka_bootstrap_servers"] = kafka_bootstrap_servers
         if kafka_consumer_group_id is not None:
             self._values["kafka_consumer_group_id"] = kafka_consumer_group_id
+        if kafka_consumption_mode is not None:
+            self._values["kafka_consumption_mode"] = kafka_consumption_mode
         if kafka_topic is not None:
             self._values["kafka_topic"] = kafka_topic
         if log_level is not None:
@@ -24210,6 +26517,23 @@ class EventSourceMappingProps(EventSourceMappingOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def kafka_consumption_mode(self) -> typing.Optional["KafkaConsumptionMode"]:
+        '''How Lambda reads records from the Kafka topic.
+
+        Only supported for self-managed Kafka event sources (``kafkaBootstrapServers``).
+        **Queue mode requires Kafka 4.2.0 or later.** In queue mode, ``startingPosition``,
+        ``startingPositionTimestamp`` and ``maxBatchingWindow`` are not supported, and ``retryAttempts`` must be between 0 and 10000
+        and defaults to 0 (and, as in stream mode, requires ``provisionedPollerConfig``).
+        The consumption mode can't be changed after the event source mapping is created.
+
+        :default: - Lambda reads the topic in stream mode (``KafkaConsumptionMode.STREAM``)
+
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-eventsourcemapping-selfmanagedkafkaeventsourceconfig.html
+        '''
+        result = self._values.get("kafka_consumption_mode")
+        return typing.cast(typing.Optional["KafkaConsumptionMode"], result)
+
+    @builtins.property
     def kafka_topic(self) -> typing.Optional[builtins.str]:
         '''The name of the Kafka topic.
 
@@ -24338,7 +26662,7 @@ class EventSourceMappingProps(EventSourceMappingOptions):
         - Minimum value of 0
         - Maximum value of 10000
 
-        :default: - infinite or until the record expires.
+        :default: - infinite or until the record expires; 0 when ``kafkaConsumptionMode`` is ``KafkaConsumptionMode.QUEUE``
         '''
         result = self._values.get("retry_attempts")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -24690,25 +27014,23 @@ class FilterCriteria(
 
     Example::
 
+        import aws_cdk.aws_lambda_event_sources as eventsources
         import aws_cdk.aws_dynamodb as dynamodb
-        from aws_cdk.aws_lambda_event_sources import DynamoEventSource
-        
-        # table: dynamodb.Table
         
         # fn: lambda.Function
+        # table: dynamodb.Table
         
-        fn.add_event_source(DynamoEventSource(table,
+        
+        fn.add_event_source(eventsources.DynamoEventSource(table,
             starting_position=lambda_.StartingPosition.LATEST,
-            filters=[
-                lambda_.FilterCriteria.filter({
-                    "event_name": lambda_.FilterRule.is_equal("INSERT"),
-                    "dynamodb": {
-                        "NewImage": {
-                            "id": {"BOOL": lambda_.FilterRule.is_equal(True)}
-                        }
+            filters=[lambda_.FilterCriteria.filter({
+                "event_name": lambda_.FilterRule.or("INSERT", "MODIFY"),
+                "dynamodb": {
+                    "NewImage": {
+                        "status": {"S": lambda_.FilterRule.begins_with("approved")}
                     }
-                })
-            ]
+                }
+            })]
         ))
     '''
 
@@ -24741,25 +27063,23 @@ class FilterRule(
 
     Example::
 
+        import aws_cdk.aws_lambda_event_sources as eventsources
         import aws_cdk.aws_dynamodb as dynamodb
-        from aws_cdk.aws_lambda_event_sources import DynamoEventSource
-        
-        # table: dynamodb.Table
         
         # fn: lambda.Function
+        # table: dynamodb.Table
         
-        fn.add_event_source(DynamoEventSource(table,
+        
+        fn.add_event_source(eventsources.DynamoEventSource(table,
             starting_position=lambda_.StartingPosition.LATEST,
-            filters=[
-                lambda_.FilterCriteria.filter({
-                    "event_name": lambda_.FilterRule.is_equal("INSERT"),
-                    "dynamodb": {
-                        "NewImage": {
-                            "id": {"BOOL": lambda_.FilterRule.is_equal(True)}
-                        }
+            filters=[lambda_.FilterCriteria.filter({
+                "event_name": lambda_.FilterRule.or("INSERT", "MODIFY"),
+                "dynamodb": {
+                    "NewImage": {
+                        "status": {"S": lambda_.FilterRule.begins_with("approved")}
                     }
-                })
-            ]
+                }
+            })]
         ))
     '''
 
@@ -25046,6 +27366,7 @@ class FunctionAttributes:
         "on_failure": "onFailure",
         "on_success": "onSuccess",
         "retry_attempts": "retryAttempts",
+        "accelerator_config": "acceleratorConfig",
         "adot_instrumentation": "adotInstrumentation",
         "allow_all_ipv6_outbound": "allowAllIpv6Outbound",
         "allow_all_outbound": "allowAllOutbound",
@@ -25104,6 +27425,7 @@ class FunctionOptions(EventInvokeConfigOptions):
         on_failure: typing.Optional["IDestination"] = None,
         on_success: typing.Optional["IDestination"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
+        accelerator_config: typing.Optional[typing.Union["AcceleratorConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         adot_instrumentation: typing.Optional[typing.Union["AdotInstrumentationConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         allow_all_ipv6_outbound: typing.Optional[builtins.bool] = None,
         allow_all_outbound: typing.Optional[builtins.bool] = None,
@@ -25159,6 +27481,7 @@ class FunctionOptions(EventInvokeConfigOptions):
         :param on_failure: The destination for failed invocations. Default: - no destination
         :param on_success: The destination for successful invocations. Default: - no destination
         :param retry_attempts: The maximum number of times to retry when the function returns an error. Minimum: 0 Maximum: 2 Default: 2
+        :param accelerator_config: Accelerator configuration for the function. Configures the accelerator resource settings for the execution environment, including the amount of accelerator memory to allocate. The function must be attached to a capacity provider (``capacityProvider.addFunction(fn)``), use a container image (``Runtime.FROM_IMAGE``) on x86_64, and set ``memorySize`` to at least 2048 MiB. When set, ``ephemeralStorageSize`` may be up to 32 GiB. Default: - No accelerator configuration
         :param adot_instrumentation: Specify the configuration of AWS Distro for OpenTelemetry (ADOT) instrumentation. Default: - No ADOT instrumentation
         :param allow_all_ipv6_outbound: Whether to allow the Lambda to send all ipv6 network traffic. If set to true, there will only be a single egress rule which allows all outbound ipv6 traffic. If set to false, you must individually add traffic rules to allow the Lambda to connect to network targets using ipv6. Do not specify this property if the ``securityGroups`` or ``securityGroup`` property is set. Instead, configure ``allowAllIpv6Outbound`` directly on the security group. Default: false
         :param allow_all_outbound: Whether to allow the Lambda to send all network traffic (except ipv6). If set to false, you must individually add traffic rules to allow the Lambda to connect to network targets. Do not specify this property if the ``securityGroups`` or ``securityGroup`` property is set. Instead, configure ``allowAllOutbound`` directly on the security group. Default: true
@@ -25226,6 +27549,7 @@ class FunctionOptions(EventInvokeConfigOptions):
             from aws_cdk.interfaces import aws_lambda as interfaces_lambda
             from aws_cdk.interfaces import aws_logs as interfaces_logs
             
+            # accelerator_memory_size: lambda.AcceleratorMemorySize
             # adot_layer_version: lambda.AdotLayerVersion
             # architecture: lambda.Architecture
             # code_signing_config_ref: interfaces_lambda.ICodeSigningConfigRef
@@ -25252,6 +27576,9 @@ class FunctionOptions(EventInvokeConfigOptions):
             # vpc: ec2.Vpc
             
             function_options = lambda.FunctionOptions(
+                accelerator_config=lambda.AcceleratorConfig(
+                    accelerator_memory_size=accelerator_memory_size
+                ),
                 adot_instrumentation=lambda.AdotInstrumentationConfig(
                     exec_wrapper=lambda_.AdotLambdaExecWrapper.REGULAR_HANDLER,
                     layer_version=adot_layer_version
@@ -25337,6 +27664,8 @@ class FunctionOptions(EventInvokeConfigOptions):
                 )
             )
         '''
+        if isinstance(accelerator_config, dict):
+            accelerator_config = AcceleratorConfig(**accelerator_config)
         if isinstance(adot_instrumentation, dict):
             adot_instrumentation = AdotInstrumentationConfig(**adot_instrumentation)
         if isinstance(current_version_options, dict):
@@ -25353,6 +27682,7 @@ class FunctionOptions(EventInvokeConfigOptions):
             check_type(argname="argument on_failure", value=on_failure, expected_type=type_hints["on_failure"])
             check_type(argname="argument on_success", value=on_success, expected_type=type_hints["on_success"])
             check_type(argname="argument retry_attempts", value=retry_attempts, expected_type=type_hints["retry_attempts"])
+            check_type(argname="argument accelerator_config", value=accelerator_config, expected_type=type_hints["accelerator_config"])
             check_type(argname="argument adot_instrumentation", value=adot_instrumentation, expected_type=type_hints["adot_instrumentation"])
             check_type(argname="argument allow_all_ipv6_outbound", value=allow_all_ipv6_outbound, expected_type=type_hints["allow_all_ipv6_outbound"])
             check_type(argname="argument allow_all_outbound", value=allow_all_outbound, expected_type=type_hints["allow_all_outbound"])
@@ -25410,6 +27740,8 @@ class FunctionOptions(EventInvokeConfigOptions):
             self._values["on_success"] = on_success
         if retry_attempts is not None:
             self._values["retry_attempts"] = retry_attempts
+        if accelerator_config is not None:
+            self._values["accelerator_config"] = accelerator_config
         if adot_instrumentation is not None:
             self._values["adot_instrumentation"] = adot_instrumentation
         if allow_all_ipv6_outbound is not None:
@@ -25548,6 +27880,23 @@ class FunctionOptions(EventInvokeConfigOptions):
         '''
         result = self._values.get("retry_attempts")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def accelerator_config(self) -> typing.Optional["AcceleratorConfig"]:
+        '''Accelerator configuration for the function.
+
+        Configures the accelerator resource settings for the execution environment, including
+        the amount of accelerator memory to allocate. The function must be attached to a
+        capacity provider (``capacityProvider.addFunction(fn)``), use a container image
+        (``Runtime.FROM_IMAGE``) on x86_64, and set ``memorySize`` to at least 2048 MiB.
+        When set, ``ephemeralStorageSize`` may be up to 32 GiB.
+
+        :default: - No accelerator configuration
+
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-lambda-function-acceleratorconfig.html
+        '''
+        result = self._values.get("accelerator_config")
+        return typing.cast(typing.Optional["AcceleratorConfig"], result)
 
     @builtins.property
     def adot_instrumentation(self) -> typing.Optional["AdotInstrumentationConfig"]:
@@ -26169,6 +28518,7 @@ class FunctionOptions(EventInvokeConfigOptions):
         "on_failure": "onFailure",
         "on_success": "onSuccess",
         "retry_attempts": "retryAttempts",
+        "accelerator_config": "acceleratorConfig",
         "adot_instrumentation": "adotInstrumentation",
         "allow_all_ipv6_outbound": "allowAllIpv6Outbound",
         "allow_all_outbound": "allowAllOutbound",
@@ -26230,6 +28580,7 @@ class FunctionProps(FunctionOptions):
         on_failure: typing.Optional["IDestination"] = None,
         on_success: typing.Optional["IDestination"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
+        accelerator_config: typing.Optional[typing.Union["AcceleratorConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         adot_instrumentation: typing.Optional[typing.Union["AdotInstrumentationConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         allow_all_ipv6_outbound: typing.Optional[builtins.bool] = None,
         allow_all_outbound: typing.Optional[builtins.bool] = None,
@@ -26287,6 +28638,7 @@ class FunctionProps(FunctionOptions):
         :param on_failure: The destination for failed invocations. Default: - no destination
         :param on_success: The destination for successful invocations. Default: - no destination
         :param retry_attempts: The maximum number of times to retry when the function returns an error. Minimum: 0 Maximum: 2 Default: 2
+        :param accelerator_config: Accelerator configuration for the function. Configures the accelerator resource settings for the execution environment, including the amount of accelerator memory to allocate. The function must be attached to a capacity provider (``capacityProvider.addFunction(fn)``), use a container image (``Runtime.FROM_IMAGE``) on x86_64, and set ``memorySize`` to at least 2048 MiB. When set, ``ephemeralStorageSize`` may be up to 32 GiB. Default: - No accelerator configuration
         :param adot_instrumentation: Specify the configuration of AWS Distro for OpenTelemetry (ADOT) instrumentation. Default: - No ADOT instrumentation
         :param allow_all_ipv6_outbound: Whether to allow the Lambda to send all ipv6 network traffic. If set to true, there will only be a single egress rule which allows all outbound ipv6 traffic. If set to false, you must individually add traffic rules to allow the Lambda to connect to network targets using ipv6. Do not specify this property if the ``securityGroups`` or ``securityGroup`` property is set. Instead, configure ``allowAllIpv6Outbound`` directly on the security group. Default: false
         :param allow_all_outbound: Whether to allow the Lambda to send all network traffic (except ipv6). If set to false, you must individually add traffic rules to allow the Lambda to connect to network targets. Do not specify this property if the ``securityGroups`` or ``securityGroup`` property is set. Instead, configure ``allowAllOutbound`` directly on the security group. Default: true
@@ -26364,6 +28716,8 @@ class FunctionProps(FunctionOptions):
             
             imported_from_cfn.grant_profile_usage(lambda_function)
         '''
+        if isinstance(accelerator_config, dict):
+            accelerator_config = AcceleratorConfig(**accelerator_config)
         if isinstance(adot_instrumentation, dict):
             adot_instrumentation = AdotInstrumentationConfig(**adot_instrumentation)
         if isinstance(current_version_options, dict):
@@ -26380,6 +28734,7 @@ class FunctionProps(FunctionOptions):
             check_type(argname="argument on_failure", value=on_failure, expected_type=type_hints["on_failure"])
             check_type(argname="argument on_success", value=on_success, expected_type=type_hints["on_success"])
             check_type(argname="argument retry_attempts", value=retry_attempts, expected_type=type_hints["retry_attempts"])
+            check_type(argname="argument accelerator_config", value=accelerator_config, expected_type=type_hints["accelerator_config"])
             check_type(argname="argument adot_instrumentation", value=adot_instrumentation, expected_type=type_hints["adot_instrumentation"])
             check_type(argname="argument allow_all_ipv6_outbound", value=allow_all_ipv6_outbound, expected_type=type_hints["allow_all_ipv6_outbound"])
             check_type(argname="argument allow_all_outbound", value=allow_all_outbound, expected_type=type_hints["allow_all_outbound"])
@@ -26444,6 +28799,8 @@ class FunctionProps(FunctionOptions):
             self._values["on_success"] = on_success
         if retry_attempts is not None:
             self._values["retry_attempts"] = retry_attempts
+        if accelerator_config is not None:
+            self._values["accelerator_config"] = accelerator_config
         if adot_instrumentation is not None:
             self._values["adot_instrumentation"] = adot_instrumentation
         if allow_all_ipv6_outbound is not None:
@@ -26582,6 +28939,23 @@ class FunctionProps(FunctionOptions):
         '''
         result = self._values.get("retry_attempts")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def accelerator_config(self) -> typing.Optional["AcceleratorConfig"]:
+        '''Accelerator configuration for the function.
+
+        Configures the accelerator resource settings for the execution environment, including
+        the amount of accelerator memory to allocate. The function must be attached to a
+        capacity provider (``capacityProvider.addFunction(fn)``), use a container image
+        (``Runtime.FROM_IMAGE``) on x86_64, and set ``memorySize`` to at least 2048 MiB.
+        When set, ``ephemeralStorageSize`` may be up to 32 GiB.
+
+        :default: - No accelerator configuration
+
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-lambda-function-acceleratorconfig.html
+        '''
+        result = self._values.get("accelerator_config")
+        return typing.cast(typing.Optional["AcceleratorConfig"], result)
 
     @builtins.property
     def adot_instrumentation(self) -> typing.Optional["AdotInstrumentationConfig"]:
@@ -27666,7 +30040,42 @@ class FunctionVersionUpgrade(
 
 
 class Handler(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_lambda.Handler"):
-    '''Lambda function handler.'''
+    '''Lambda function handler.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_ec2 as ec2
+        
+        
+        vpc = ec2.Vpc(self, "MyVpc")
+        security_group = ec2.SecurityGroup(self, "SecurityGroup", vpc=vpc)
+        
+        gpu_capacity_provider = lambda_.CapacityProvider(self, "GpuCapacityProvider",
+            subnets=vpc.private_subnets,
+            security_groups=[security_group],
+            architectures=[lambda_.Architecture.X86_64],
+            instance_type_filter=lambda_.InstanceTypeFilter.allow([
+                ec2.InstanceType.of(ec2.InstanceClass.G6, ec2.InstanceSize.XLARGE)
+            ]),
+            scaling_options=lambda_.ScalingOptions.manual([
+                lambda_.TargetTrackingScalingPolicy.gpu_utilization(60)
+            ])
+        )
+        
+        fn = lambda_.Function(self, "MyFunction",
+            runtime=lambda_.Runtime.FROM_IMAGE,
+            handler=lambda_.Handler.FROM_IMAGE,
+            code=lambda_.Code.from_asset_image(path.join(__dirname, "lambda-handler")),
+            memory_size=2048,
+            accelerator_config=lambda.AcceleratorConfig(
+                accelerator_memory_size=lambda_.AcceleratorMemorySize.GIB_24
+            )
+        )
+        
+        gpu_capacity_provider.add_function(fn)
+    '''
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FROM_IMAGE")
@@ -28109,6 +30518,7 @@ class IFunction(
         filters: typing.Optional[typing.Sequence[typing.Mapping[builtins.str, typing.Any]]] = None,
         kafka_bootstrap_servers: typing.Optional[typing.Sequence[builtins.str]] = None,
         kafka_consumer_group_id: typing.Optional[builtins.str] = None,
+        kafka_consumption_mode: typing.Optional["KafkaConsumptionMode"] = None,
         kafka_topic: typing.Optional[builtins.str] = None,
         log_level: typing.Optional["EventSourceMappingLogLevel"] = None,
         max_batching_window: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
@@ -28138,6 +30548,7 @@ class IFunction(
         :param filters: Add filter criteria to Event Source. Default: - none
         :param kafka_bootstrap_servers: A list of host and port pairs that are the addresses of the Kafka brokers in a self managed "bootstrap" Kafka cluster that a Kafka client connects to initially to bootstrap itself. They are in the format ``abc.example.com:9096``. Default: - none
         :param kafka_consumer_group_id: The identifier for the Kafka consumer group to join. The consumer group ID must be unique among all your Kafka event sources. After creating a Kafka event source mapping with the consumer group ID specified, you cannot update this value. The value must have a length between 1 and 200 and full the pattern '[a-zA-Z0-9-/*:_+=.@-]*'. For more information, see `Customizable consumer group ID <https://docs.aws.amazon.com/lambda/latest/dg/with-msk.html#services-msk-consumer-group-id>`_. Default: - none
+        :param kafka_consumption_mode: How Lambda reads records from the Kafka topic. Only supported for self-managed Kafka event sources (``kafkaBootstrapServers``). **Queue mode requires Kafka 4.2.0 or later.** In queue mode, ``startingPosition``, ``startingPositionTimestamp`` and ``maxBatchingWindow`` are not supported, and ``retryAttempts`` must be between 0 and 10000 and defaults to 0 (and, as in stream mode, requires ``provisionedPollerConfig``). The consumption mode can't be changed after the event source mapping is created. Default: - Lambda reads the topic in stream mode (``KafkaConsumptionMode.STREAM``)
         :param kafka_topic: The name of the Kafka topic. Default: - no topic
         :param log_level: Configuration for logging verbosity from the event source mapping poller. This configuration controls the verbosity of the logs generated by the polling infrastructure that reads events from the event source. The logs provide insights into the internal operations of the event source mapping, including connection status, polling behavior, and error conditions. Default: - No logging
         :param max_batching_window: The maximum amount of time to gather records before invoking the function. Maximum of Duration.minutes(5) Default: Duration.seconds(0)
@@ -28148,7 +30559,7 @@ class IFunction(
         :param parallelization_factor: The number of batches to process from each shard concurrently. Valid Range: - Minimum value of 1 - Maximum value of 10 Default: 1
         :param provisioned_poller_config: Configuration for provisioned pollers that read from the event source. When specified, allows control over the minimum and maximum number of pollers that can be provisioned to process events from the source. Default: - no provisioned pollers
         :param report_batch_item_failures: Allow functions to return partially successful responses for a batch of records. Default: false
-        :param retry_attempts: The maximum number of times to retry when the function returns an error. Set to ``undefined`` if you want lambda to keep retrying infinitely or until the record expires. Valid Range: - Minimum value of 0 - Maximum value of 10000 Default: - infinite or until the record expires.
+        :param retry_attempts: The maximum number of times to retry when the function returns an error. Set to ``undefined`` if you want lambda to keep retrying infinitely or until the record expires. Valid Range: - Minimum value of 0 - Maximum value of 10000 Default: - infinite or until the record expires; 0 when ``kafkaConsumptionMode`` is ``KafkaConsumptionMode.QUEUE``
         :param schema_registry_config: Specific configuration settings for a Kafka schema registry. Default: - none
         :param source_access_configurations: Specific settings like the authentication protocol or the VPC components to secure access to your event source. Default: - none
         :param starting_position: The position in the DynamoDB, Kinesis or MSK stream where AWS Lambda should start reading. Default: - no starting position
@@ -28593,6 +31004,7 @@ class _IFunctionProxy(
         filters: typing.Optional[typing.Sequence[typing.Mapping[builtins.str, typing.Any]]] = None,
         kafka_bootstrap_servers: typing.Optional[typing.Sequence[builtins.str]] = None,
         kafka_consumer_group_id: typing.Optional[builtins.str] = None,
+        kafka_consumption_mode: typing.Optional["KafkaConsumptionMode"] = None,
         kafka_topic: typing.Optional[builtins.str] = None,
         log_level: typing.Optional["EventSourceMappingLogLevel"] = None,
         max_batching_window: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
@@ -28622,6 +31034,7 @@ class _IFunctionProxy(
         :param filters: Add filter criteria to Event Source. Default: - none
         :param kafka_bootstrap_servers: A list of host and port pairs that are the addresses of the Kafka brokers in a self managed "bootstrap" Kafka cluster that a Kafka client connects to initially to bootstrap itself. They are in the format ``abc.example.com:9096``. Default: - none
         :param kafka_consumer_group_id: The identifier for the Kafka consumer group to join. The consumer group ID must be unique among all your Kafka event sources. After creating a Kafka event source mapping with the consumer group ID specified, you cannot update this value. The value must have a length between 1 and 200 and full the pattern '[a-zA-Z0-9-/*:_+=.@-]*'. For more information, see `Customizable consumer group ID <https://docs.aws.amazon.com/lambda/latest/dg/with-msk.html#services-msk-consumer-group-id>`_. Default: - none
+        :param kafka_consumption_mode: How Lambda reads records from the Kafka topic. Only supported for self-managed Kafka event sources (``kafkaBootstrapServers``). **Queue mode requires Kafka 4.2.0 or later.** In queue mode, ``startingPosition``, ``startingPositionTimestamp`` and ``maxBatchingWindow`` are not supported, and ``retryAttempts`` must be between 0 and 10000 and defaults to 0 (and, as in stream mode, requires ``provisionedPollerConfig``). The consumption mode can't be changed after the event source mapping is created. Default: - Lambda reads the topic in stream mode (``KafkaConsumptionMode.STREAM``)
         :param kafka_topic: The name of the Kafka topic. Default: - no topic
         :param log_level: Configuration for logging verbosity from the event source mapping poller. This configuration controls the verbosity of the logs generated by the polling infrastructure that reads events from the event source. The logs provide insights into the internal operations of the event source mapping, including connection status, polling behavior, and error conditions. Default: - No logging
         :param max_batching_window: The maximum amount of time to gather records before invoking the function. Maximum of Duration.minutes(5) Default: Duration.seconds(0)
@@ -28632,7 +31045,7 @@ class _IFunctionProxy(
         :param parallelization_factor: The number of batches to process from each shard concurrently. Valid Range: - Minimum value of 1 - Maximum value of 10 Default: 1
         :param provisioned_poller_config: Configuration for provisioned pollers that read from the event source. When specified, allows control over the minimum and maximum number of pollers that can be provisioned to process events from the source. Default: - no provisioned pollers
         :param report_batch_item_failures: Allow functions to return partially successful responses for a batch of records. Default: false
-        :param retry_attempts: The maximum number of times to retry when the function returns an error. Set to ``undefined`` if you want lambda to keep retrying infinitely or until the record expires. Valid Range: - Minimum value of 0 - Maximum value of 10000 Default: - infinite or until the record expires.
+        :param retry_attempts: The maximum number of times to retry when the function returns an error. Set to ``undefined`` if you want lambda to keep retrying infinitely or until the record expires. Valid Range: - Minimum value of 0 - Maximum value of 10000 Default: - infinite or until the record expires; 0 when ``kafkaConsumptionMode`` is ``KafkaConsumptionMode.QUEUE``
         :param schema_registry_config: Specific configuration settings for a Kafka schema registry. Default: - none
         :param source_access_configurations: Specific settings like the authentication protocol or the VPC components to secure access to your event source. Default: - none
         :param starting_position: The position in the DynamoDB, Kinesis or MSK stream where AWS Lambda should start reading. Default: - no starting position
@@ -28652,6 +31065,7 @@ class _IFunctionProxy(
             filters=filters,
             kafka_bootstrap_servers=kafka_bootstrap_servers,
             kafka_consumer_group_id=kafka_consumer_group_id,
+            kafka_consumption_mode=kafka_consumption_mode,
             kafka_topic=kafka_topic,
             log_level=log_level,
             max_batching_window=max_batching_window,
@@ -30103,6 +32517,73 @@ class InvokeMode(enum.Enum):
     '''
 
 
+class KafkaConsumptionMode(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_lambda.KafkaConsumptionMode",
+):
+    '''How Lambda reads records from a Kafka topic.
+
+    :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-eventsourcemapping-selfmanagedkafkaeventsourceconfig.html
+    :exampleMetadata: infused
+
+    Example::
+
+        from aws_cdk.aws_secretsmanager import Secret
+        from aws_cdk.aws_lambda_event_sources import SelfManagedKafkaEventSource
+        
+        # my_function: lambda.Function
+        # secret: Secret
+        
+        
+        my_function.add_event_source(SelfManagedKafkaEventSource(
+            bootstrap_servers=["kafka-broker-1:9092", "kafka-broker-2:9092"],
+            topic="orders",
+            secret=secret,
+            consumer_group_id="orders-queue",
+            consumption_mode=lambda_.KafkaConsumptionMode.QUEUE
+        ))
+    '''
+
+    @jsii.member(jsii_name="of")
+    @builtins.classmethod
+    def of(cls, mode: builtins.str) -> "KafkaConsumptionMode":
+        '''A consumption mode that this library doesn't model.
+
+        :param mode: The value of the ``ConsumptionMode`` property.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e17529d23420af2ddbbc50e5696f14f3d0e2dd026ab2953e273e106432e0b4de)
+            check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
+        return typing.cast("KafkaConsumptionMode", jsii.sinvoke(cls, "of", [mode]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="QUEUE")
+    @builtins.classmethod
+    def QUEUE(cls) -> "KafkaConsumptionMode":
+        '''Read the topic as a Kafka share group.
+
+        Records in a partition can be processed in parallel,
+        without ordering. Requires Kafka 4.2.0 or later.
+        '''
+        return typing.cast("KafkaConsumptionMode", jsii.sget(cls, "QUEUE"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="STREAM")
+    @builtins.classmethod
+    def STREAM(cls) -> "KafkaConsumptionMode":
+        '''Read the topic as a Kafka consumer group.
+
+        Records in a partition are processed in order.
+        '''
+        return typing.cast("KafkaConsumptionMode", jsii.sget(cls, "STREAM"))
+
+    @builtins.property
+    @jsii.member(jsii_name="mode")
+    def mode(self) -> builtins.str:
+        '''The value of the ``ConsumptionMode`` property.'''
+        return typing.cast(builtins.str, jsii.get(self, "mode"))
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_lambda.KafkaSchemaRegistryAccessConfig",
     jsii_struct_bases=[],
@@ -30183,6 +32664,9 @@ class KafkaSchemaRegistryAccessConfigType(
 ):
     '''The type of authentication protocol for your schema registry.
 
+    Used with Confluent schema registries. For an AWS Glue schema registry, Lambda uses the
+    function's execution role instead.
+
     :exampleMetadata: infused
 
     Example::
@@ -30194,13 +32678,14 @@ class KafkaSchemaRegistryAccessConfigType(
         # Your MSK cluster arn
         # cluster_arn: str
         
+        # The secret with the credentials for your schema registry
+        # secret: Secret
+        
         # my_function: lambda.Function
         
         
         # The Kafka topic you want to subscribe to
         topic = "some-cool-topic"
-        
-        secret = Secret(self, "Secret", secret_name="AmazonMSK_KafkaSecret")
         my_function.add_event_source(ManagedKafkaEventSource(
             cluster_arn=cluster_arn,
             topic=topic,
@@ -30441,13 +32926,14 @@ class KafkaSchemaValidationAttribute(
         # Your MSK cluster arn
         # cluster_arn: str
         
+        # The secret with the credentials for your schema registry
+        # secret: Secret
+        
         # my_function: lambda.Function
         
         
         # The Kafka topic you want to subscribe to
         topic = "some-cool-topic"
-        
-        secret = Secret(self, "Secret", secret_name="AmazonMSK_KafkaSecret")
         my_function.add_event_source(ManagedKafkaEventSource(
             cluster_arn=cluster_arn,
             topic=topic,
@@ -30482,14 +32968,14 @@ class KafkaSchemaValidationAttribute(
     @jsii.member(jsii_name="KEY")
     @builtins.classmethod
     def KEY(cls) -> "KafkaSchemaValidationAttribute":
-        '''De-serialize the key field of the parload to target function.'''
+        '''Validate the key of each record.'''
         return typing.cast("KafkaSchemaValidationAttribute", jsii.sget(cls, "KEY"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VALUE")
     @builtins.classmethod
     def VALUE(cls) -> "KafkaSchemaValidationAttribute":
-        '''De-serialize the value field of the parload to target function.'''
+        '''Validate the value of each record.'''
         return typing.cast("KafkaSchemaValidationAttribute", jsii.sget(cls, "VALUE"))
 
     @builtins.property
@@ -33801,7 +36287,23 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_lambda.Runtime
     @builtins.property
     @jsii.member(jsii_name="bundlingImage")
     def bundling_image(self) -> "_aws_cdk_0cae9daa.DockerImage":
-        '''The bundling Docker image for this runtime.'''
+        '''The bundling Docker image for this runtime.
+
+        Unless the runtime was created with the ``bundlingDockerImage`` prop of
+        ``LambdaRuntimeProps``, this is an
+        untagged AWS SAM build image. Its contents can change independently of the
+        AWS CDK version. To pin a specific image version when bundling with
+        ``Code.fromAsset()``, pass ``DockerImage.fromRegistry('<image>:<tag>')`` as
+        ``bundling.image``. Constructs that build their own bundling image on top of
+        this runtime's image (for example ``NodejsFunction``) do not run it directly;
+        when bundling runs in Docker (for example with ``forceDockerBundling: true``),
+        pin the base image for them by creating a runtime with a pinned image, e.g.
+        ``new Runtime('nodejs20.x', RuntimeFamily.NODEJS, { supportsInlineCode: true, bundlingDockerImage: 'public.ecr.aws/sam/build-nodejs20.x:<tag>' })``. Copy
+        any other props the predefined runtime sets, such as ``supportsSnapStart``,
+        so that the custom runtime stays equivalent to it.
+
+        :see: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-image-repositories.html
+        '''
         return typing.cast("_aws_cdk_0cae9daa.DockerImage", jsii.get(self, "bundlingImage"))
 
     @builtins.property
@@ -33843,6 +36345,21 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_lambda.Runtime
 
 @jsii.enum(jsii_type="aws-cdk-lib.aws_lambda.RuntimeFamily")
 class RuntimeFamily(enum.Enum):
+    '''
+    :exampleMetadata: infused
+
+    Example::
+
+        lambda_.Function(self, "MyFunction",
+            runtime=lambda_.Runtime("custom", lambda_.RuntimeFamily.OTHER),
+            handler="index.handler",
+            code=lambda_.Code.from_asset(path.join(__dirname, "lambda-handler"))
+        ).with(lambda_.mixins.FunctionRuntimeConfig(
+            runtime_arn="arn:aws:lambda:us-east-1:123456789012:runtime/my-python-runtime",
+            runtime_alias="stable"
+        ))
+    '''
+
     NODEJS = "NODEJS"
     JAVA = "JAVA"
     PYTHON = "PYTHON"
@@ -34411,6 +36928,7 @@ class SchemaRegistryProps:
         "on_failure": "onFailure",
         "on_success": "onSuccess",
         "retry_attempts": "retryAttempts",
+        "accelerator_config": "acceleratorConfig",
         "adot_instrumentation": "adotInstrumentation",
         "allow_all_ipv6_outbound": "allowAllIpv6Outbound",
         "allow_all_outbound": "allowAllOutbound",
@@ -34474,6 +36992,7 @@ class SingletonFunctionProps(FunctionProps):
         on_failure: typing.Optional["IDestination"] = None,
         on_success: typing.Optional["IDestination"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
+        accelerator_config: typing.Optional[typing.Union["AcceleratorConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         adot_instrumentation: typing.Optional[typing.Union["AdotInstrumentationConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         allow_all_ipv6_outbound: typing.Optional[builtins.bool] = None,
         allow_all_outbound: typing.Optional[builtins.bool] = None,
@@ -34534,6 +37053,7 @@ class SingletonFunctionProps(FunctionProps):
         :param on_failure: The destination for failed invocations. Default: - no destination
         :param on_success: The destination for successful invocations. Default: - no destination
         :param retry_attempts: The maximum number of times to retry when the function returns an error. Minimum: 0 Maximum: 2 Default: 2
+        :param accelerator_config: Accelerator configuration for the function. Configures the accelerator resource settings for the execution environment, including the amount of accelerator memory to allocate. The function must be attached to a capacity provider (``capacityProvider.addFunction(fn)``), use a container image (``Runtime.FROM_IMAGE``) on x86_64, and set ``memorySize`` to at least 2048 MiB. When set, ``ephemeralStorageSize`` may be up to 32 GiB. Default: - No accelerator configuration
         :param adot_instrumentation: Specify the configuration of AWS Distro for OpenTelemetry (ADOT) instrumentation. Default: - No ADOT instrumentation
         :param allow_all_ipv6_outbound: Whether to allow the Lambda to send all ipv6 network traffic. If set to true, there will only be a single egress rule which allows all outbound ipv6 traffic. If set to false, you must individually add traffic rules to allow the Lambda to connect to network targets using ipv6. Do not specify this property if the ``securityGroups`` or ``securityGroup`` property is set. Instead, configure ``allowAllIpv6Outbound`` directly on the security group. Default: false
         :param allow_all_outbound: Whether to allow the Lambda to send all network traffic (except ipv6). If set to false, you must individually add traffic rules to allow the Lambda to connect to network targets. Do not specify this property if the ``securityGroups`` or ``securityGroup`` property is set. Instead, configure ``allowAllOutbound`` directly on the security group. Default: true
@@ -34598,6 +37118,8 @@ class SingletonFunctionProps(FunctionProps):
                 service_token=fn.function_arn
             )
         '''
+        if isinstance(accelerator_config, dict):
+            accelerator_config = AcceleratorConfig(**accelerator_config)
         if isinstance(adot_instrumentation, dict):
             adot_instrumentation = AdotInstrumentationConfig(**adot_instrumentation)
         if isinstance(current_version_options, dict):
@@ -34614,6 +37136,7 @@ class SingletonFunctionProps(FunctionProps):
             check_type(argname="argument on_failure", value=on_failure, expected_type=type_hints["on_failure"])
             check_type(argname="argument on_success", value=on_success, expected_type=type_hints["on_success"])
             check_type(argname="argument retry_attempts", value=retry_attempts, expected_type=type_hints["retry_attempts"])
+            check_type(argname="argument accelerator_config", value=accelerator_config, expected_type=type_hints["accelerator_config"])
             check_type(argname="argument adot_instrumentation", value=adot_instrumentation, expected_type=type_hints["adot_instrumentation"])
             check_type(argname="argument allow_all_ipv6_outbound", value=allow_all_ipv6_outbound, expected_type=type_hints["allow_all_ipv6_outbound"])
             check_type(argname="argument allow_all_outbound", value=allow_all_outbound, expected_type=type_hints["allow_all_outbound"])
@@ -34681,6 +37204,8 @@ class SingletonFunctionProps(FunctionProps):
             self._values["on_success"] = on_success
         if retry_attempts is not None:
             self._values["retry_attempts"] = retry_attempts
+        if accelerator_config is not None:
+            self._values["accelerator_config"] = accelerator_config
         if adot_instrumentation is not None:
             self._values["adot_instrumentation"] = adot_instrumentation
         if allow_all_ipv6_outbound is not None:
@@ -34821,6 +37346,23 @@ class SingletonFunctionProps(FunctionProps):
         '''
         result = self._values.get("retry_attempts")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def accelerator_config(self) -> typing.Optional["AcceleratorConfig"]:
+        '''Accelerator configuration for the function.
+
+        Configures the accelerator resource settings for the execution environment, including
+        the amount of accelerator memory to allocate. The function must be attached to a
+        capacity provider (``capacityProvider.addFunction(fn)``), use a container image
+        (``Runtime.FROM_IMAGE``) on x86_64, and set ``memorySize`` to at least 2048 MiB.
+        When set, ``ephemeralStorageSize`` may be up to 32 GiB.
+
+        :default: - No accelerator configuration
+
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-lambda-function-acceleratorconfig.html
+        '''
+        result = self._values.get("accelerator_config")
+        return typing.cast(typing.Optional["AcceleratorConfig"], result)
 
     @builtins.property
     def adot_instrumentation(self) -> typing.Optional["AdotInstrumentationConfig"]:
@@ -35826,12 +38368,27 @@ class TargetTrackingScalingPolicy(
     ) -> "TargetTrackingScalingPolicy":
         '''Creates a target tracking scaling policy for CPU utilization.
 
-        :param target_cpu_utilization: The target value for CPU utilization. The capacity provider will scale resources to maintain this target value.
+        :param target_cpu_utilization: The target CPU utilization as a percentage, e.g. ``50`` for 50%. The capacity provider will scale resources to maintain this target value.
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3e2646e1258f4f26c8154b755fb05a0dd854a4b96cba5838c1973e1fd3d598f4)
             check_type(argname="argument target_cpu_utilization", value=target_cpu_utilization, expected_type=type_hints["target_cpu_utilization"])
         return typing.cast("TargetTrackingScalingPolicy", jsii.sinvoke(cls, "cpuUtilization", [target_cpu_utilization]))
+
+    @jsii.member(jsii_name="gpuUtilization")
+    @builtins.classmethod
+    def gpu_utilization(
+        cls,
+        target_gpu_utilization: jsii.Number,
+    ) -> "TargetTrackingScalingPolicy":
+        '''Creates a target tracking scaling policy for GPU utilization.
+
+        :param target_gpu_utilization: The target GPU utilization as a percentage, e.g. ``50`` for 50%. The capacity provider will scale resources to maintain this target value.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__36829628b8bfc468bd738f645f55a1e083d41eacea874555c589ff2e5a82fa73)
+            check_type(argname="argument target_gpu_utilization", value=target_gpu_utilization, expected_type=type_hints["target_gpu_utilization"])
+        return typing.cast("TargetTrackingScalingPolicy", jsii.sinvoke(cls, "gpuUtilization", [target_gpu_utilization]))
 
     @builtins.property
     @jsii.member(jsii_name="metricType")
@@ -36836,9 +39393,9 @@ class WebFunctionAssetOptions(_aws_s3_assets_2dba96fa.AssetOptions):
         :param asset_hash: Specify a custom hash for this asset. If ``assetHashType`` is set it must be set to ``AssetHashType.CUSTOM``. For consistency, this custom hash will be SHA256 hashed and encoded as hex. The resulting hash will be the asset hash. NOTE: the hash is used in order to identify a specific revision of the asset, and used for optimizing and caching deployment activities related to this asset such as packaging, uploading to Amazon S3, etc. If you chose to customize the hash, you will need to make sure it is updated every time the asset changes, or otherwise it is possible that some deployments will not be invalidated. Default: - based on ``assetHashType``
         :param asset_hash_type: Specifies the type of hash to calculate for this asset. If ``assetHash`` is configured, this option must be ``undefined`` or ``AssetHashType.CUSTOM``. Default: - the default is ``AssetHashType.SOURCE``, but if ``assetHash`` is explicitly specified this value defaults to ``AssetHashType.CUSTOM``.
         :param bundling: Bundle the asset by executing a command in a Docker container or a custom bundling provider. The asset path will be mounted at ``/asset-input``. The Docker container is responsible for putting content at ``/asset-output``. The content at ``/asset-output`` will be zipped and used as the final asset. Default: - uploaded as-is to S3 if the asset is a regular file or a .zip file, archived into a .zip file and uploaded to S3 otherwise
-        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Has no effect on Assets bundled using the ``bundling`` property. Default: - nothing is excluded
-        :param follow_symlinks: A strategy for how to handle symlinks. Default: SymlinkFollowMode.NEVER
-        :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
+        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, this controls the files that will be included in the copy. Files matching the ``exclude`` patterns will not be included in the copy. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the value of ``exclude`` is only meaningful if the ``assetHashType`` is set to ``AssetHashType.SOURCE``, and ignored for other asset hash types. The ``exclude`` patterns will be used to determine which files contribute to the asset, and the bundling command is skipped if the source files have not changed since the last bundling operation. **NOTE:** The bundling operation still has access to all files in the source path, regardless of the ``exclude`` patterns. It is your responsibility to ensure the ``exclude`` pattern accurately matches the files the bundling operation will *actually* access and base its final output on. For ``OUTPUT`` or ``CUSTOM`` asset hash types, the ``exclude`` pattern is ignored. Default: - nothing is excluded
+        :param follow_symlinks: A strategy for how to handle symlinks. Symlinks may be copied, materialized or rejected. Note that if symlinks are copied they should be relative; absolute symlinks will lose their meaning if the cloud assembly is moved to another machine. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, symlinks are materialized or blocked with respect to the ``sourcePath`` directory as they are being copied. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the bundling command is fully in charge of producing a set of files in an output directory, and the ``AssetStaging`` construct will never affect symlink materialization. If the ``assetHashType`` is ``AssetHashType.SOURCE``, this flag affects what the source hash is based on, and the recommended value is one of ``SymlinkFollowMode.EXTERNAL`` or ``SymlinkFollowMode.BLOCK_EXTERNAL``. If the ``SymlinkFollowMode.BLOCK_EXTERNAL`` mode is used: - symlinks pointing outside the source tree will be blocked if using ``AssetHashType.SOURCE``. - symlinks pointing outside the bundle output will be blocked. Default: SymlinkFollowMode.EXTERNAL
+        :param ignore_mode: What syntax the ``exclude`` patterns are written in. Default: - IgnoreMode.GLOB for file assets, ``IgnoreMode.DOCKER`` for image assets (requires that the ``@aws-cdk/aws-ecr-assets:dockerIgnoreSupport`` feature flag is set, which is recommended)
         :param deploy_time: Whether or not the asset needs to exist beyond deployment time; i.e. are copied over to a different location and not needed afterwards. Setting this property to true has an impact on the lifecycle of the asset, because we will assume that it is safe to delete after the CloudFormation deployment succeeds. For example, Lambda Function assets are copied over to Lambda during deployment. Therefore, it is not necessary to store the asset in S3, so we consider those deployTime assets. Default: false
         :param display_name: A display name for this asset. If supplied, the display name will be used in locations where the asset identifier is printed, like in the CLI progress information. If the same asset is added multiple times, the display name of the first occurrence is used. The default is the construct path of the Asset construct, with respect to the enclosing stack. If the asset is produced by a construct helper function (such as ``lambda.Code.fromAsset()``), this will look like ``MyFunction/Code``. We use the stack-relative construct path so that in the common case where you have multiple stacks with the same asset, we won't show something like ``/MyBetaStack/MyFunction/Code`` when you are actually deploying to production. Default: - Stack-relative construct path
         :param readers: A list of principals that should be able to read this asset from S3. You can use ``asset.grantRead(principal)`` to grant read permissions later. Default: - No principals that can read file asset.
@@ -37016,10 +39573,33 @@ class WebFunctionAssetOptions(_aws_s3_assets_2dba96fa.AssetOptions):
 
     @builtins.property
     def exclude(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''File paths matching the patterns will be excluded.
+        '''File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior.
 
-        See ``ignoreMode`` to set the matching behavior.
-        Has no effect on Assets bundled using the ``bundling`` property.
+
+
+        Without bundling
+
+        When used without the ``bundling`` property, the asset is just a regular file
+        copy operation. In that case, this controls the files that will be included
+        in the copy. Files matching the ``exclude`` patterns will not be included in
+        the copy.
+
+
+        With bundling
+
+        When used with the ``bundling`` property, the asset is produced by a
+        bundling operation. In that case, the value of ``exclude`` is only meaningful
+        if the ``assetHashType`` is set to ``AssetHashType.SOURCE``, and ignored for
+        other asset hash types. The ``exclude`` patterns will be used to determine
+        which files contribute to the asset, and the bundling command is skipped
+        if the source files have not changed since the last bundling operation.
+
+        **NOTE:** The bundling operation still has access to all files in the source path,
+        regardless of the ``exclude`` patterns. It is your responsibility to ensure
+        the ``exclude`` pattern accurately matches the files the bundling operation
+        will *actually* access and base its final output on.
+
+        For ``OUTPUT`` or ``CUSTOM`` asset hash types, the ``exclude`` pattern is ignored.
 
         :default: - nothing is excluded
         '''
@@ -37030,16 +39610,44 @@ class WebFunctionAssetOptions(_aws_s3_assets_2dba96fa.AssetOptions):
     def follow_symlinks(self) -> typing.Optional["_aws_cdk_0cae9daa.SymlinkFollowMode"]:
         '''A strategy for how to handle symlinks.
 
-        :default: SymlinkFollowMode.NEVER
+        Symlinks may be copied, materialized or rejected. Note that if symlinks are
+        copied they should be relative; absolute symlinks will lose their
+        meaning if the cloud assembly is moved to another machine.
+
+
+        Without bundling
+
+        When used without the ``bundling`` property, the asset is just a regular file
+        copy operation. In that case, symlinks are materialized or blocked with respect
+        to the ``sourcePath`` directory as they are being copied.
+
+
+        With bundling
+
+        When used with the ``bundling`` property, the asset is produced by a
+        bundling operation. In that case, the bundling command is fully
+        in charge of producing a set of files in an output directory, and
+        the ``AssetStaging`` construct will never affect symlink materialization.
+
+        If the ``assetHashType`` is ``AssetHashType.SOURCE``, this flag affects what
+        the source hash is based on, and the recommended value is one of
+        ``SymlinkFollowMode.EXTERNAL`` or ``SymlinkFollowMode.BLOCK_EXTERNAL``.
+
+        If the ``SymlinkFollowMode.BLOCK_EXTERNAL`` mode is used:
+
+        - symlinks pointing outside the source tree will be blocked if using ``AssetHashType.SOURCE``.
+        - symlinks pointing outside the bundle output will be blocked.
+
+        :default: SymlinkFollowMode.EXTERNAL
         '''
         result = self._values.get("follow_symlinks")
         return typing.cast(typing.Optional["_aws_cdk_0cae9daa.SymlinkFollowMode"], result)
 
     @builtins.property
     def ignore_mode(self) -> typing.Optional["_aws_cdk_0cae9daa.IgnoreMode"]:
-        '''The ignore behavior to use for ``exclude`` patterns.
+        '''What syntax the ``exclude`` patterns are written in.
 
-        :default: IgnoreMode.GLOB
+        :default: - IgnoreMode.GLOB for file assets, ``IgnoreMode.DOCKER`` for image assets (requires that the ``@aws-cdk/aws-ecr-assets:dockerIgnoreSupport`` feature flag is set, which is recommended)
         '''
         result = self._values.get("ignore_mode")
         return typing.cast(typing.Optional["_aws_cdk_0cae9daa.IgnoreMode"], result)
@@ -37476,9 +40084,9 @@ class WebFunctionCode(
         :param asset_hash: Specify a custom hash for this asset. If ``assetHashType`` is set it must be set to ``AssetHashType.CUSTOM``. For consistency, this custom hash will be SHA256 hashed and encoded as hex. The resulting hash will be the asset hash. NOTE: the hash is used in order to identify a specific revision of the asset, and used for optimizing and caching deployment activities related to this asset such as packaging, uploading to Amazon S3, etc. If you chose to customize the hash, you will need to make sure it is updated every time the asset changes, or otherwise it is possible that some deployments will not be invalidated. Default: - based on ``assetHashType``
         :param asset_hash_type: Specifies the type of hash to calculate for this asset. If ``assetHash`` is configured, this option must be ``undefined`` or ``AssetHashType.CUSTOM``. Default: - the default is ``AssetHashType.SOURCE``, but if ``assetHash`` is explicitly specified this value defaults to ``AssetHashType.CUSTOM``.
         :param bundling: Bundle the asset by executing a command in a Docker container or a custom bundling provider. The asset path will be mounted at ``/asset-input``. The Docker container is responsible for putting content at ``/asset-output``. The content at ``/asset-output`` will be zipped and used as the final asset. Default: - uploaded as-is to S3 if the asset is a regular file or a .zip file, archived into a .zip file and uploaded to S3 otherwise
-        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Has no effect on Assets bundled using the ``bundling`` property. Default: - nothing is excluded
-        :param follow_symlinks: A strategy for how to handle symlinks. Default: SymlinkFollowMode.NEVER
-        :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
+        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, this controls the files that will be included in the copy. Files matching the ``exclude`` patterns will not be included in the copy. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the value of ``exclude`` is only meaningful if the ``assetHashType`` is set to ``AssetHashType.SOURCE``, and ignored for other asset hash types. The ``exclude`` patterns will be used to determine which files contribute to the asset, and the bundling command is skipped if the source files have not changed since the last bundling operation. **NOTE:** The bundling operation still has access to all files in the source path, regardless of the ``exclude`` patterns. It is your responsibility to ensure the ``exclude`` pattern accurately matches the files the bundling operation will *actually* access and base its final output on. For ``OUTPUT`` or ``CUSTOM`` asset hash types, the ``exclude`` pattern is ignored. Default: - nothing is excluded
+        :param follow_symlinks: A strategy for how to handle symlinks. Symlinks may be copied, materialized or rejected. Note that if symlinks are copied they should be relative; absolute symlinks will lose their meaning if the cloud assembly is moved to another machine. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, symlinks are materialized or blocked with respect to the ``sourcePath`` directory as they are being copied. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the bundling command is fully in charge of producing a set of files in an output directory, and the ``AssetStaging`` construct will never affect symlink materialization. If the ``assetHashType`` is ``AssetHashType.SOURCE``, this flag affects what the source hash is based on, and the recommended value is one of ``SymlinkFollowMode.EXTERNAL`` or ``SymlinkFollowMode.BLOCK_EXTERNAL``. If the ``SymlinkFollowMode.BLOCK_EXTERNAL`` mode is used: - symlinks pointing outside the source tree will be blocked if using ``AssetHashType.SOURCE``. - symlinks pointing outside the bundle output will be blocked. Default: SymlinkFollowMode.EXTERNAL
+        :param ignore_mode: What syntax the ``exclude`` patterns are written in. Default: - IgnoreMode.GLOB for file assets, ``IgnoreMode.DOCKER`` for image assets (requires that the ``@aws-cdk/aws-ecr-assets:dockerIgnoreSupport`` feature flag is set, which is recommended)
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__adc0f4cb61cc3aac7aec0791c6a2b536a21c29e940650db0379b52e4b0712274)
@@ -37549,9 +40157,9 @@ class WebFunctionCode(
         :param asset_hash: Specify a custom hash for this asset. If ``assetHashType`` is set it must be set to ``AssetHashType.CUSTOM``. For consistency, this custom hash will be SHA256 hashed and encoded as hex. The resulting hash will be the asset hash. NOTE: the hash is used in order to identify a specific revision of the asset, and used for optimizing and caching deployment activities related to this asset such as packaging, uploading to Amazon S3, etc. If you chose to customize the hash, you will need to make sure it is updated every time the asset changes, or otherwise it is possible that some deployments will not be invalidated. Default: - based on ``assetHashType``
         :param asset_hash_type: Specifies the type of hash to calculate for this asset. If ``assetHash`` is configured, this option must be ``undefined`` or ``AssetHashType.CUSTOM``. Default: - the default is ``AssetHashType.SOURCE``, but if ``assetHash`` is explicitly specified this value defaults to ``AssetHashType.CUSTOM``.
         :param bundling: Bundle the asset by executing a command in a Docker container or a custom bundling provider. The asset path will be mounted at ``/asset-input``. The Docker container is responsible for putting content at ``/asset-output``. The content at ``/asset-output`` will be zipped and used as the final asset. Default: - uploaded as-is to S3 if the asset is a regular file or a .zip file, archived into a .zip file and uploaded to S3 otherwise
-        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Has no effect on Assets bundled using the ``bundling`` property. Default: - nothing is excluded
-        :param follow_symlinks: A strategy for how to handle symlinks. Default: SymlinkFollowMode.NEVER
-        :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
+        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, this controls the files that will be included in the copy. Files matching the ``exclude`` patterns will not be included in the copy. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the value of ``exclude`` is only meaningful if the ``assetHashType`` is set to ``AssetHashType.SOURCE``, and ignored for other asset hash types. The ``exclude`` patterns will be used to determine which files contribute to the asset, and the bundling command is skipped if the source files have not changed since the last bundling operation. **NOTE:** The bundling operation still has access to all files in the source path, regardless of the ``exclude`` patterns. It is your responsibility to ensure the ``exclude`` pattern accurately matches the files the bundling operation will *actually* access and base its final output on. For ``OUTPUT`` or ``CUSTOM`` asset hash types, the ``exclude`` pattern is ignored. Default: - nothing is excluded
+        :param follow_symlinks: A strategy for how to handle symlinks. Symlinks may be copied, materialized or rejected. Note that if symlinks are copied they should be relative; absolute symlinks will lose their meaning if the cloud assembly is moved to another machine. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, symlinks are materialized or blocked with respect to the ``sourcePath`` directory as they are being copied. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the bundling command is fully in charge of producing a set of files in an output directory, and the ``AssetStaging`` construct will never affect symlink materialization. If the ``assetHashType`` is ``AssetHashType.SOURCE``, this flag affects what the source hash is based on, and the recommended value is one of ``SymlinkFollowMode.EXTERNAL`` or ``SymlinkFollowMode.BLOCK_EXTERNAL``. If the ``SymlinkFollowMode.BLOCK_EXTERNAL`` mode is used: - symlinks pointing outside the source tree will be blocked if using ``AssetHashType.SOURCE``. - symlinks pointing outside the bundle output will be blocked. Default: SymlinkFollowMode.EXTERNAL
+        :param ignore_mode: What syntax the ``exclude`` patterns are written in. Default: - IgnoreMode.GLOB for file assets, ``IgnoreMode.DOCKER`` for image assets (requires that the ``@aws-cdk/aws-ecr-assets:dockerIgnoreSupport`` feature flag is set, which is recommended)
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a113058d45115c2aa73a6c7f8dd8f2bc893857534300553cf000b3106b6fc340)
@@ -38925,9 +41533,9 @@ class WebFunctionManagedBucketAssetOptions(WebFunctionAssetOptions):
         :param asset_hash: Specify a custom hash for this asset. If ``assetHashType`` is set it must be set to ``AssetHashType.CUSTOM``. For consistency, this custom hash will be SHA256 hashed and encoded as hex. The resulting hash will be the asset hash. NOTE: the hash is used in order to identify a specific revision of the asset, and used for optimizing and caching deployment activities related to this asset such as packaging, uploading to Amazon S3, etc. If you chose to customize the hash, you will need to make sure it is updated every time the asset changes, or otherwise it is possible that some deployments will not be invalidated. Default: - based on ``assetHashType``
         :param asset_hash_type: Specifies the type of hash to calculate for this asset. If ``assetHash`` is configured, this option must be ``undefined`` or ``AssetHashType.CUSTOM``. Default: - the default is ``AssetHashType.SOURCE``, but if ``assetHash`` is explicitly specified this value defaults to ``AssetHashType.CUSTOM``.
         :param bundling: Bundle the asset by executing a command in a Docker container or a custom bundling provider. The asset path will be mounted at ``/asset-input``. The Docker container is responsible for putting content at ``/asset-output``. The content at ``/asset-output`` will be zipped and used as the final asset. Default: - uploaded as-is to S3 if the asset is a regular file or a .zip file, archived into a .zip file and uploaded to S3 otherwise
-        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Has no effect on Assets bundled using the ``bundling`` property. Default: - nothing is excluded
-        :param follow_symlinks: A strategy for how to handle symlinks. Default: SymlinkFollowMode.NEVER
-        :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
+        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, this controls the files that will be included in the copy. Files matching the ``exclude`` patterns will not be included in the copy. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the value of ``exclude`` is only meaningful if the ``assetHashType`` is set to ``AssetHashType.SOURCE``, and ignored for other asset hash types. The ``exclude`` patterns will be used to determine which files contribute to the asset, and the bundling command is skipped if the source files have not changed since the last bundling operation. **NOTE:** The bundling operation still has access to all files in the source path, regardless of the ``exclude`` patterns. It is your responsibility to ensure the ``exclude`` pattern accurately matches the files the bundling operation will *actually* access and base its final output on. For ``OUTPUT`` or ``CUSTOM`` asset hash types, the ``exclude`` pattern is ignored. Default: - nothing is excluded
+        :param follow_symlinks: A strategy for how to handle symlinks. Symlinks may be copied, materialized or rejected. Note that if symlinks are copied they should be relative; absolute symlinks will lose their meaning if the cloud assembly is moved to another machine. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, symlinks are materialized or blocked with respect to the ``sourcePath`` directory as they are being copied. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the bundling command is fully in charge of producing a set of files in an output directory, and the ``AssetStaging`` construct will never affect symlink materialization. If the ``assetHashType`` is ``AssetHashType.SOURCE``, this flag affects what the source hash is based on, and the recommended value is one of ``SymlinkFollowMode.EXTERNAL`` or ``SymlinkFollowMode.BLOCK_EXTERNAL``. If the ``SymlinkFollowMode.BLOCK_EXTERNAL`` mode is used: - symlinks pointing outside the source tree will be blocked if using ``AssetHashType.SOURCE``. - symlinks pointing outside the bundle output will be blocked. Default: SymlinkFollowMode.EXTERNAL
+        :param ignore_mode: What syntax the ``exclude`` patterns are written in. Default: - IgnoreMode.GLOB for file assets, ``IgnoreMode.DOCKER`` for image assets (requires that the ``@aws-cdk/aws-ecr-assets:dockerIgnoreSupport`` feature flag is set, which is recommended)
         :param deploy_time: Whether or not the asset needs to exist beyond deployment time; i.e. are copied over to a different location and not needed afterwards. Setting this property to true has an impact on the lifecycle of the asset, because we will assume that it is safe to delete after the CloudFormation deployment succeeds. For example, Lambda Function assets are copied over to Lambda during deployment. Therefore, it is not necessary to store the asset in S3, so we consider those deployTime assets. Default: false
         :param display_name: A display name for this asset. If supplied, the display name will be used in locations where the asset identifier is printed, like in the CLI progress information. If the same asset is added multiple times, the display name of the first occurrence is used. The default is the construct path of the Asset construct, with respect to the enclosing stack. If the asset is produced by a construct helper function (such as ``lambda.Code.fromAsset()``), this will look like ``MyFunction/Code``. We use the stack-relative construct path so that in the common case where you have multiple stacks with the same asset, we won't show something like ``/MyBetaStack/MyFunction/Code`` when you are actually deploying to production. Default: - Stack-relative construct path
         :param readers: A list of principals that should be able to read this asset from S3. You can use ``asset.grantRead(principal)`` to grant read permissions later. Default: - No principals that can read file asset.
@@ -39045,10 +41653,33 @@ class WebFunctionManagedBucketAssetOptions(WebFunctionAssetOptions):
 
     @builtins.property
     def exclude(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''File paths matching the patterns will be excluded.
+        '''File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior.
 
-        See ``ignoreMode`` to set the matching behavior.
-        Has no effect on Assets bundled using the ``bundling`` property.
+
+
+        Without bundling
+
+        When used without the ``bundling`` property, the asset is just a regular file
+        copy operation. In that case, this controls the files that will be included
+        in the copy. Files matching the ``exclude`` patterns will not be included in
+        the copy.
+
+
+        With bundling
+
+        When used with the ``bundling`` property, the asset is produced by a
+        bundling operation. In that case, the value of ``exclude`` is only meaningful
+        if the ``assetHashType`` is set to ``AssetHashType.SOURCE``, and ignored for
+        other asset hash types. The ``exclude`` patterns will be used to determine
+        which files contribute to the asset, and the bundling command is skipped
+        if the source files have not changed since the last bundling operation.
+
+        **NOTE:** The bundling operation still has access to all files in the source path,
+        regardless of the ``exclude`` patterns. It is your responsibility to ensure
+        the ``exclude`` pattern accurately matches the files the bundling operation
+        will *actually* access and base its final output on.
+
+        For ``OUTPUT`` or ``CUSTOM`` asset hash types, the ``exclude`` pattern is ignored.
 
         :default: - nothing is excluded
         '''
@@ -39059,16 +41690,44 @@ class WebFunctionManagedBucketAssetOptions(WebFunctionAssetOptions):
     def follow_symlinks(self) -> typing.Optional["_aws_cdk_0cae9daa.SymlinkFollowMode"]:
         '''A strategy for how to handle symlinks.
 
-        :default: SymlinkFollowMode.NEVER
+        Symlinks may be copied, materialized or rejected. Note that if symlinks are
+        copied they should be relative; absolute symlinks will lose their
+        meaning if the cloud assembly is moved to another machine.
+
+
+        Without bundling
+
+        When used without the ``bundling`` property, the asset is just a regular file
+        copy operation. In that case, symlinks are materialized or blocked with respect
+        to the ``sourcePath`` directory as they are being copied.
+
+
+        With bundling
+
+        When used with the ``bundling`` property, the asset is produced by a
+        bundling operation. In that case, the bundling command is fully
+        in charge of producing a set of files in an output directory, and
+        the ``AssetStaging`` construct will never affect symlink materialization.
+
+        If the ``assetHashType`` is ``AssetHashType.SOURCE``, this flag affects what
+        the source hash is based on, and the recommended value is one of
+        ``SymlinkFollowMode.EXTERNAL`` or ``SymlinkFollowMode.BLOCK_EXTERNAL``.
+
+        If the ``SymlinkFollowMode.BLOCK_EXTERNAL`` mode is used:
+
+        - symlinks pointing outside the source tree will be blocked if using ``AssetHashType.SOURCE``.
+        - symlinks pointing outside the bundle output will be blocked.
+
+        :default: SymlinkFollowMode.EXTERNAL
         '''
         result = self._values.get("follow_symlinks")
         return typing.cast(typing.Optional["_aws_cdk_0cae9daa.SymlinkFollowMode"], result)
 
     @builtins.property
     def ignore_mode(self) -> typing.Optional["_aws_cdk_0cae9daa.IgnoreMode"]:
-        '''The ignore behavior to use for ``exclude`` patterns.
+        '''What syntax the ``exclude`` patterns are written in.
 
-        :default: IgnoreMode.GLOB
+        :default: - IgnoreMode.GLOB for file assets, ``IgnoreMode.DOCKER`` for image assets (requires that the ``@aws-cdk/aws-ecr-assets:dockerIgnoreSupport`` feature flag is set, which is recommended)
         '''
         result = self._values.get("ignore_mode")
         return typing.cast(typing.Optional["_aws_cdk_0cae9daa.IgnoreMode"], result)
@@ -39554,9 +42213,9 @@ class WebFunctionProvidedBucketAssetOptions(WebFunctionAssetOptions):
         :param asset_hash: Specify a custom hash for this asset. If ``assetHashType`` is set it must be set to ``AssetHashType.CUSTOM``. For consistency, this custom hash will be SHA256 hashed and encoded as hex. The resulting hash will be the asset hash. NOTE: the hash is used in order to identify a specific revision of the asset, and used for optimizing and caching deployment activities related to this asset such as packaging, uploading to Amazon S3, etc. If you chose to customize the hash, you will need to make sure it is updated every time the asset changes, or otherwise it is possible that some deployments will not be invalidated. Default: - based on ``assetHashType``
         :param asset_hash_type: Specifies the type of hash to calculate for this asset. If ``assetHash`` is configured, this option must be ``undefined`` or ``AssetHashType.CUSTOM``. Default: - the default is ``AssetHashType.SOURCE``, but if ``assetHash`` is explicitly specified this value defaults to ``AssetHashType.CUSTOM``.
         :param bundling: Bundle the asset by executing a command in a Docker container or a custom bundling provider. The asset path will be mounted at ``/asset-input``. The Docker container is responsible for putting content at ``/asset-output``. The content at ``/asset-output`` will be zipped and used as the final asset. Default: - uploaded as-is to S3 if the asset is a regular file or a .zip file, archived into a .zip file and uploaded to S3 otherwise
-        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Has no effect on Assets bundled using the ``bundling`` property. Default: - nothing is excluded
-        :param follow_symlinks: A strategy for how to handle symlinks. Default: SymlinkFollowMode.NEVER
-        :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
+        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, this controls the files that will be included in the copy. Files matching the ``exclude`` patterns will not be included in the copy. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the value of ``exclude`` is only meaningful if the ``assetHashType`` is set to ``AssetHashType.SOURCE``, and ignored for other asset hash types. The ``exclude`` patterns will be used to determine which files contribute to the asset, and the bundling command is skipped if the source files have not changed since the last bundling operation. **NOTE:** The bundling operation still has access to all files in the source path, regardless of the ``exclude`` patterns. It is your responsibility to ensure the ``exclude`` pattern accurately matches the files the bundling operation will *actually* access and base its final output on. For ``OUTPUT`` or ``CUSTOM`` asset hash types, the ``exclude`` pattern is ignored. Default: - nothing is excluded
+        :param follow_symlinks: A strategy for how to handle symlinks. Symlinks may be copied, materialized or rejected. Note that if symlinks are copied they should be relative; absolute symlinks will lose their meaning if the cloud assembly is moved to another machine. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, symlinks are materialized or blocked with respect to the ``sourcePath`` directory as they are being copied. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the bundling command is fully in charge of producing a set of files in an output directory, and the ``AssetStaging`` construct will never affect symlink materialization. If the ``assetHashType`` is ``AssetHashType.SOURCE``, this flag affects what the source hash is based on, and the recommended value is one of ``SymlinkFollowMode.EXTERNAL`` or ``SymlinkFollowMode.BLOCK_EXTERNAL``. If the ``SymlinkFollowMode.BLOCK_EXTERNAL`` mode is used: - symlinks pointing outside the source tree will be blocked if using ``AssetHashType.SOURCE``. - symlinks pointing outside the bundle output will be blocked. Default: SymlinkFollowMode.EXTERNAL
+        :param ignore_mode: What syntax the ``exclude`` patterns are written in. Default: - IgnoreMode.GLOB for file assets, ``IgnoreMode.DOCKER`` for image assets (requires that the ``@aws-cdk/aws-ecr-assets:dockerIgnoreSupport`` feature flag is set, which is recommended)
         :param deploy_time: Whether or not the asset needs to exist beyond deployment time; i.e. are copied over to a different location and not needed afterwards. Setting this property to true has an impact on the lifecycle of the asset, because we will assume that it is safe to delete after the CloudFormation deployment succeeds. For example, Lambda Function assets are copied over to Lambda during deployment. Therefore, it is not necessary to store the asset in S3, so we consider those deployTime assets. Default: false
         :param display_name: A display name for this asset. If supplied, the display name will be used in locations where the asset identifier is printed, like in the CLI progress information. If the same asset is added multiple times, the display name of the first occurrence is used. The default is the construct path of the Asset construct, with respect to the enclosing stack. If the asset is produced by a construct helper function (such as ``lambda.Code.fromAsset()``), this will look like ``MyFunction/Code``. We use the stack-relative construct path so that in the common case where you have multiple stacks with the same asset, we won't show something like ``/MyBetaStack/MyFunction/Code`` when you are actually deploying to production. Default: - Stack-relative construct path
         :param readers: A list of principals that should be able to read this asset from S3. You can use ``asset.grantRead(principal)`` to grant read permissions later. Default: - No principals that can read file asset.
@@ -39679,10 +42338,33 @@ class WebFunctionProvidedBucketAssetOptions(WebFunctionAssetOptions):
 
     @builtins.property
     def exclude(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''File paths matching the patterns will be excluded.
+        '''File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior.
 
-        See ``ignoreMode`` to set the matching behavior.
-        Has no effect on Assets bundled using the ``bundling`` property.
+
+
+        Without bundling
+
+        When used without the ``bundling`` property, the asset is just a regular file
+        copy operation. In that case, this controls the files that will be included
+        in the copy. Files matching the ``exclude`` patterns will not be included in
+        the copy.
+
+
+        With bundling
+
+        When used with the ``bundling`` property, the asset is produced by a
+        bundling operation. In that case, the value of ``exclude`` is only meaningful
+        if the ``assetHashType`` is set to ``AssetHashType.SOURCE``, and ignored for
+        other asset hash types. The ``exclude`` patterns will be used to determine
+        which files contribute to the asset, and the bundling command is skipped
+        if the source files have not changed since the last bundling operation.
+
+        **NOTE:** The bundling operation still has access to all files in the source path,
+        regardless of the ``exclude`` patterns. It is your responsibility to ensure
+        the ``exclude`` pattern accurately matches the files the bundling operation
+        will *actually* access and base its final output on.
+
+        For ``OUTPUT`` or ``CUSTOM`` asset hash types, the ``exclude`` pattern is ignored.
 
         :default: - nothing is excluded
         '''
@@ -39693,16 +42375,44 @@ class WebFunctionProvidedBucketAssetOptions(WebFunctionAssetOptions):
     def follow_symlinks(self) -> typing.Optional["_aws_cdk_0cae9daa.SymlinkFollowMode"]:
         '''A strategy for how to handle symlinks.
 
-        :default: SymlinkFollowMode.NEVER
+        Symlinks may be copied, materialized or rejected. Note that if symlinks are
+        copied they should be relative; absolute symlinks will lose their
+        meaning if the cloud assembly is moved to another machine.
+
+
+        Without bundling
+
+        When used without the ``bundling`` property, the asset is just a regular file
+        copy operation. In that case, symlinks are materialized or blocked with respect
+        to the ``sourcePath`` directory as they are being copied.
+
+
+        With bundling
+
+        When used with the ``bundling`` property, the asset is produced by a
+        bundling operation. In that case, the bundling command is fully
+        in charge of producing a set of files in an output directory, and
+        the ``AssetStaging`` construct will never affect symlink materialization.
+
+        If the ``assetHashType`` is ``AssetHashType.SOURCE``, this flag affects what
+        the source hash is based on, and the recommended value is one of
+        ``SymlinkFollowMode.EXTERNAL`` or ``SymlinkFollowMode.BLOCK_EXTERNAL``.
+
+        If the ``SymlinkFollowMode.BLOCK_EXTERNAL`` mode is used:
+
+        - symlinks pointing outside the source tree will be blocked if using ``AssetHashType.SOURCE``.
+        - symlinks pointing outside the bundle output will be blocked.
+
+        :default: SymlinkFollowMode.EXTERNAL
         '''
         result = self._values.get("follow_symlinks")
         return typing.cast(typing.Optional["_aws_cdk_0cae9daa.SymlinkFollowMode"], result)
 
     @builtins.property
     def ignore_mode(self) -> typing.Optional["_aws_cdk_0cae9daa.IgnoreMode"]:
-        '''The ignore behavior to use for ``exclude`` patterns.
+        '''What syntax the ``exclude`` patterns are written in.
 
-        :default: IgnoreMode.GLOB
+        :default: - IgnoreMode.GLOB for file assets, ``IgnoreMode.DOCKER`` for image assets (requires that the ``@aws-cdk/aws-ecr-assets:dockerIgnoreSupport`` feature flag is set, which is recommended)
         '''
         result = self._values.get("ignore_mode")
         return typing.cast(typing.Optional["_aws_cdk_0cae9daa.IgnoreMode"], result)
@@ -40442,9 +43152,9 @@ class AssetCode(
         :param asset_hash: Specify a custom hash for this asset. If ``assetHashType`` is set it must be set to ``AssetHashType.CUSTOM``. For consistency, this custom hash will be SHA256 hashed and encoded as hex. The resulting hash will be the asset hash. NOTE: the hash is used in order to identify a specific revision of the asset, and used for optimizing and caching deployment activities related to this asset such as packaging, uploading to Amazon S3, etc. If you chose to customize the hash, you will need to make sure it is updated every time the asset changes, or otherwise it is possible that some deployments will not be invalidated. Default: - based on ``assetHashType``
         :param asset_hash_type: Specifies the type of hash to calculate for this asset. If ``assetHash`` is configured, this option must be ``undefined`` or ``AssetHashType.CUSTOM``. Default: - the default is ``AssetHashType.SOURCE``, but if ``assetHash`` is explicitly specified this value defaults to ``AssetHashType.CUSTOM``.
         :param bundling: Bundle the asset by executing a command in a Docker container or a custom bundling provider. The asset path will be mounted at ``/asset-input``. The Docker container is responsible for putting content at ``/asset-output``. The content at ``/asset-output`` will be zipped and used as the final asset. Default: - uploaded as-is to S3 if the asset is a regular file or a .zip file, archived into a .zip file and uploaded to S3 otherwise
-        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Has no effect on Assets bundled using the ``bundling`` property. Default: - nothing is excluded
-        :param follow_symlinks: A strategy for how to handle symlinks. Default: SymlinkFollowMode.NEVER
-        :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
+        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, this controls the files that will be included in the copy. Files matching the ``exclude`` patterns will not be included in the copy. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the value of ``exclude`` is only meaningful if the ``assetHashType`` is set to ``AssetHashType.SOURCE``, and ignored for other asset hash types. The ``exclude`` patterns will be used to determine which files contribute to the asset, and the bundling command is skipped if the source files have not changed since the last bundling operation. **NOTE:** The bundling operation still has access to all files in the source path, regardless of the ``exclude`` patterns. It is your responsibility to ensure the ``exclude`` pattern accurately matches the files the bundling operation will *actually* access and base its final output on. For ``OUTPUT`` or ``CUSTOM`` asset hash types, the ``exclude`` pattern is ignored. Default: - nothing is excluded
+        :param follow_symlinks: A strategy for how to handle symlinks. Symlinks may be copied, materialized or rejected. Note that if symlinks are copied they should be relative; absolute symlinks will lose their meaning if the cloud assembly is moved to another machine. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, symlinks are materialized or blocked with respect to the ``sourcePath`` directory as they are being copied. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the bundling command is fully in charge of producing a set of files in an output directory, and the ``AssetStaging`` construct will never affect symlink materialization. If the ``assetHashType`` is ``AssetHashType.SOURCE``, this flag affects what the source hash is based on, and the recommended value is one of ``SymlinkFollowMode.EXTERNAL`` or ``SymlinkFollowMode.BLOCK_EXTERNAL``. If the ``SymlinkFollowMode.BLOCK_EXTERNAL`` mode is used: - symlinks pointing outside the source tree will be blocked if using ``AssetHashType.SOURCE``. - symlinks pointing outside the bundle output will be blocked. Default: SymlinkFollowMode.EXTERNAL
+        :param ignore_mode: What syntax the ``exclude`` patterns are written in. Default: - IgnoreMode.GLOB for file assets, ``IgnoreMode.DOCKER`` for image assets (requires that the ``@aws-cdk/aws-ecr-assets:dockerIgnoreSupport`` feature flag is set, which is recommended)
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2f05314dba16cc49614c6f64783d2cd85683aeb754a1d8b045caf7c7fd8951f2)
@@ -40635,10 +43345,10 @@ class AssetImageCode(
         :param outputs: Outputs to pass to the ``docker build`` command. Default: - no outputs are passed to the build command (default outputs are used)
         :param platform: Platform to build for. *Requires Docker Buildx*. Default: - no platform specified (the current machine architecture will be used)
         :param target: Docker target to build to. Default: - no target
-        :param extra_hash: Extra information to encode into the fingerprint (e.g. build instructions and other inputs). Default: - hash is only based on source content
-        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Has no effect on Assets bundled using the ``bundling`` property. Default: - nothing is excluded
-        :param follow_symlinks: A strategy for how to handle symlinks. Default: SymlinkFollowMode.NEVER
-        :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
+        :param extra_hash: Extra information to encode into the fingerprint (e.g. build instructions and other inputs). Default: - hash is only based on the file fingerprint
+        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, this controls the files that will be included in the copy. Files matching the ``exclude`` patterns will not be included in the copy. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the value of ``exclude`` is only meaningful if the ``assetHashType`` is set to ``AssetHashType.SOURCE``, and ignored for other asset hash types. The ``exclude`` patterns will be used to determine which files contribute to the asset, and the bundling command is skipped if the source files have not changed since the last bundling operation. **NOTE:** The bundling operation still has access to all files in the source path, regardless of the ``exclude`` patterns. It is your responsibility to ensure the ``exclude`` pattern accurately matches the files the bundling operation will *actually* access and base its final output on. For ``OUTPUT`` or ``CUSTOM`` asset hash types, the ``exclude`` pattern is ignored. Default: - nothing is excluded
+        :param follow_symlinks: A strategy for how to handle symlinks. Symlinks may be copied, materialized or rejected. Note that if symlinks are copied they should be relative; absolute symlinks will lose their meaning if the cloud assembly is moved to another machine. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, symlinks are materialized or blocked with respect to the ``sourcePath`` directory as they are being copied. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the bundling command is fully in charge of producing a set of files in an output directory, and the ``AssetStaging`` construct will never affect symlink materialization. If the ``assetHashType`` is ``AssetHashType.SOURCE``, this flag affects what the source hash is based on, and the recommended value is one of ``SymlinkFollowMode.EXTERNAL`` or ``SymlinkFollowMode.BLOCK_EXTERNAL``. If the ``SymlinkFollowMode.BLOCK_EXTERNAL`` mode is used: - symlinks pointing outside the source tree will be blocked if using ``AssetHashType.SOURCE``. - symlinks pointing outside the bundle output will be blocked. Default: SymlinkFollowMode.EXTERNAL
+        :param ignore_mode: What syntax the ``exclude`` patterns are written in. Default: - IgnoreMode.GLOB for file assets, ``IgnoreMode.DOCKER`` for image assets (requires that the ``@aws-cdk/aws-ecr-assets:dockerIgnoreSupport`` feature flag is set, which is recommended)
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f392d9975bf498bea251d43db219ae1f5fe780a3bf9fff81576e4b6f90e83d28)
@@ -40723,7 +43433,6 @@ class CapacityProvider(
     Example::
 
         import aws_cdk.aws_ec2 as ec2
-        import aws_cdk.aws_logs as logs
         
         
         vpc = ec2.Vpc(self, "MyVpc")
@@ -40732,10 +43441,9 @@ class CapacityProvider(
         capacity_provider = lambda_.CapacityProvider(self, "MyCapacityProvider",
             subnets=vpc.private_subnets,
             security_groups=[security_group],
-            log_group=logs.LogGroup(self, "CpLogs",
-                log_group_name="/aws/lambda/capacity-provider/my-cp"
-            ),
-            system_log_level=lambda_.SystemLogLevel.DEBUG
+            scaling_options=lambda_.ScalingOptions.manual([
+                lambda_.TargetTrackingScalingPolicy.cpu_utilization(70)
+            ])
         )
     '''
 
@@ -40875,7 +43583,7 @@ class CapacityProvider(
         :param func: The Lambda function to configure.
         :param execution_environment_memory_gib_per_v_cpu: Specifies the execution environment memory per VCPU, in GiB. Default: 2.0
         :param latest_published_scaling_config: The scaling options that are applied to the $LATEST.PUBLISHED version. Default: - No scaling limitations are applied to the $LATEST.PUBLISHED version.
-        :param per_execution_environment_max_concurrency: Specifies the maximum number of concurrent invokes a single execution environment can handle. Default: Maximum is set to 10
+        :param per_execution_environment_max_concurrency: Specifies the maximum number of concurrent invokes a single execution environment can handle. Default: - not set; the Lambda service applies its default
         :param publish_to_latest_published: A boolean determining whether or not to automatically publish to the $LATEST.PUBLISHED version. Default: - True
         '''
         if __debug__:
@@ -41246,6 +43954,7 @@ class CodeSigningConfig(
         "on_failure": "onFailure",
         "on_success": "onSuccess",
         "retry_attempts": "retryAttempts",
+        "accelerator_config": "acceleratorConfig",
         "adot_instrumentation": "adotInstrumentation",
         "allow_all_ipv6_outbound": "allowAllIpv6Outbound",
         "allow_all_outbound": "allowAllOutbound",
@@ -41305,6 +44014,7 @@ class DockerImageFunctionProps(FunctionOptions):
         on_failure: typing.Optional["IDestination"] = None,
         on_success: typing.Optional["IDestination"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
+        accelerator_config: typing.Optional[typing.Union["AcceleratorConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         adot_instrumentation: typing.Optional[typing.Union["AdotInstrumentationConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         allow_all_ipv6_outbound: typing.Optional[builtins.bool] = None,
         allow_all_outbound: typing.Optional[builtins.bool] = None,
@@ -41361,6 +44071,7 @@ class DockerImageFunctionProps(FunctionOptions):
         :param on_failure: The destination for failed invocations. Default: - no destination
         :param on_success: The destination for successful invocations. Default: - no destination
         :param retry_attempts: The maximum number of times to retry when the function returns an error. Minimum: 0 Maximum: 2 Default: 2
+        :param accelerator_config: Accelerator configuration for the function. Configures the accelerator resource settings for the execution environment, including the amount of accelerator memory to allocate. The function must be attached to a capacity provider (``capacityProvider.addFunction(fn)``), use a container image (``Runtime.FROM_IMAGE``) on x86_64, and set ``memorySize`` to at least 2048 MiB. When set, ``ephemeralStorageSize`` may be up to 32 GiB. Default: - No accelerator configuration
         :param adot_instrumentation: Specify the configuration of AWS Distro for OpenTelemetry (ADOT) instrumentation. Default: - No ADOT instrumentation
         :param allow_all_ipv6_outbound: Whether to allow the Lambda to send all ipv6 network traffic. If set to true, there will only be a single egress rule which allows all outbound ipv6 traffic. If set to false, you must individually add traffic rules to allow the Lambda to connect to network targets using ipv6. Do not specify this property if the ``securityGroups`` or ``securityGroup`` property is set. Instead, configure ``allowAllIpv6Outbound`` directly on the security group. Default: false
         :param allow_all_outbound: Whether to allow the Lambda to send all network traffic (except ipv6). If set to false, you must individually add traffic rules to allow the Lambda to connect to network targets. Do not specify this property if the ``securityGroups`` or ``securityGroup`` property is set. Instead, configure ``allowAllOutbound`` directly on the security group. Default: true
@@ -41420,6 +44131,8 @@ class DockerImageFunctionProps(FunctionOptions):
                 architecture=lambda_.Architecture.ARM_64
             )
         '''
+        if isinstance(accelerator_config, dict):
+            accelerator_config = AcceleratorConfig(**accelerator_config)
         if isinstance(adot_instrumentation, dict):
             adot_instrumentation = AdotInstrumentationConfig(**adot_instrumentation)
         if isinstance(current_version_options, dict):
@@ -41436,6 +44149,7 @@ class DockerImageFunctionProps(FunctionOptions):
             check_type(argname="argument on_failure", value=on_failure, expected_type=type_hints["on_failure"])
             check_type(argname="argument on_success", value=on_success, expected_type=type_hints["on_success"])
             check_type(argname="argument retry_attempts", value=retry_attempts, expected_type=type_hints["retry_attempts"])
+            check_type(argname="argument accelerator_config", value=accelerator_config, expected_type=type_hints["accelerator_config"])
             check_type(argname="argument adot_instrumentation", value=adot_instrumentation, expected_type=type_hints["adot_instrumentation"])
             check_type(argname="argument allow_all_ipv6_outbound", value=allow_all_ipv6_outbound, expected_type=type_hints["allow_all_ipv6_outbound"])
             check_type(argname="argument allow_all_outbound", value=allow_all_outbound, expected_type=type_hints["allow_all_outbound"])
@@ -41496,6 +44210,8 @@ class DockerImageFunctionProps(FunctionOptions):
             self._values["on_success"] = on_success
         if retry_attempts is not None:
             self._values["retry_attempts"] = retry_attempts
+        if accelerator_config is not None:
+            self._values["accelerator_config"] = accelerator_config
         if adot_instrumentation is not None:
             self._values["adot_instrumentation"] = adot_instrumentation
         if allow_all_ipv6_outbound is not None:
@@ -41634,6 +44350,23 @@ class DockerImageFunctionProps(FunctionOptions):
         '''
         result = self._values.get("retry_attempts")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def accelerator_config(self) -> typing.Optional["AcceleratorConfig"]:
+        '''Accelerator configuration for the function.
+
+        Configures the accelerator resource settings for the execution environment, including
+        the amount of accelerator memory to allocate. The function must be attached to a
+        capacity provider (``capacityProvider.addFunction(fn)``), use a container image
+        (``Runtime.FROM_IMAGE``) on x86_64, and set ``memorySize`` to at least 2048 MiB.
+        When set, ``ephemeralStorageSize`` may be up to 32 GiB.
+
+        :default: - No accelerator configuration
+
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-lambda-function-acceleratorconfig.html
+        '''
+        result = self._values.get("accelerator_config")
+        return typing.cast(typing.Optional["AcceleratorConfig"], result)
 
     @builtins.property
     def adot_instrumentation(self) -> typing.Optional["AdotInstrumentationConfig"]:
@@ -42295,6 +45028,7 @@ class EventSourceMapping(
         # event_source_dlq: lambda.IEventSourceDlq
         # filters: Any
         # function_: lambda.Function
+        # kafka_consumption_mode: lambda.KafkaConsumptionMode
         # key: kms.Key
         # schema_registry: lambda.ISchemaRegistry
         # source_access_configuration_type: lambda.SourceAccessConfigurationType
@@ -42313,6 +45047,7 @@ class EventSourceMapping(
             }],
             kafka_bootstrap_servers=["kafkaBootstrapServers"],
             kafka_consumer_group_id="kafkaConsumerGroupId",
+            kafka_consumption_mode=kafka_consumption_mode,
             kafka_topic="kafkaTopic",
             log_level=lambda_.EventSourceMappingLogLevel.INFO,
             max_batching_window=cdk.Duration.minutes(30),
@@ -42356,6 +45091,7 @@ class EventSourceMapping(
         filters: typing.Optional[typing.Sequence[typing.Mapping[builtins.str, typing.Any]]] = None,
         kafka_bootstrap_servers: typing.Optional[typing.Sequence[builtins.str]] = None,
         kafka_consumer_group_id: typing.Optional[builtins.str] = None,
+        kafka_consumption_mode: typing.Optional["KafkaConsumptionMode"] = None,
         kafka_topic: typing.Optional[builtins.str] = None,
         log_level: typing.Optional["EventSourceMappingLogLevel"] = None,
         max_batching_window: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
@@ -42386,6 +45122,7 @@ class EventSourceMapping(
         :param filters: Add filter criteria to Event Source. Default: - none
         :param kafka_bootstrap_servers: A list of host and port pairs that are the addresses of the Kafka brokers in a self managed "bootstrap" Kafka cluster that a Kafka client connects to initially to bootstrap itself. They are in the format ``abc.example.com:9096``. Default: - none
         :param kafka_consumer_group_id: The identifier for the Kafka consumer group to join. The consumer group ID must be unique among all your Kafka event sources. After creating a Kafka event source mapping with the consumer group ID specified, you cannot update this value. The value must have a length between 1 and 200 and full the pattern '[a-zA-Z0-9-/*:_+=.@-]*'. For more information, see `Customizable consumer group ID <https://docs.aws.amazon.com/lambda/latest/dg/with-msk.html#services-msk-consumer-group-id>`_. Default: - none
+        :param kafka_consumption_mode: How Lambda reads records from the Kafka topic. Only supported for self-managed Kafka event sources (``kafkaBootstrapServers``). **Queue mode requires Kafka 4.2.0 or later.** In queue mode, ``startingPosition``, ``startingPositionTimestamp`` and ``maxBatchingWindow`` are not supported, and ``retryAttempts`` must be between 0 and 10000 and defaults to 0 (and, as in stream mode, requires ``provisionedPollerConfig``). The consumption mode can't be changed after the event source mapping is created. Default: - Lambda reads the topic in stream mode (``KafkaConsumptionMode.STREAM``)
         :param kafka_topic: The name of the Kafka topic. Default: - no topic
         :param log_level: Configuration for logging verbosity from the event source mapping poller. This configuration controls the verbosity of the logs generated by the polling infrastructure that reads events from the event source. The logs provide insights into the internal operations of the event source mapping, including connection status, polling behavior, and error conditions. Default: - No logging
         :param max_batching_window: The maximum amount of time to gather records before invoking the function. Maximum of Duration.minutes(5) Default: Duration.seconds(0)
@@ -42396,7 +45133,7 @@ class EventSourceMapping(
         :param parallelization_factor: The number of batches to process from each shard concurrently. Valid Range: - Minimum value of 1 - Maximum value of 10 Default: 1
         :param provisioned_poller_config: Configuration for provisioned pollers that read from the event source. When specified, allows control over the minimum and maximum number of pollers that can be provisioned to process events from the source. Default: - no provisioned pollers
         :param report_batch_item_failures: Allow functions to return partially successful responses for a batch of records. Default: false
-        :param retry_attempts: The maximum number of times to retry when the function returns an error. Set to ``undefined`` if you want lambda to keep retrying infinitely or until the record expires. Valid Range: - Minimum value of 0 - Maximum value of 10000 Default: - infinite or until the record expires.
+        :param retry_attempts: The maximum number of times to retry when the function returns an error. Set to ``undefined`` if you want lambda to keep retrying infinitely or until the record expires. Valid Range: - Minimum value of 0 - Maximum value of 10000 Default: - infinite or until the record expires; 0 when ``kafkaConsumptionMode`` is ``KafkaConsumptionMode.QUEUE``
         :param schema_registry_config: Specific configuration settings for a Kafka schema registry. Default: - none
         :param source_access_configurations: Specific settings like the authentication protocol or the VPC components to secure access to your event source. Default: - none
         :param starting_position: The position in the DynamoDB, Kinesis or MSK stream where AWS Lambda should start reading. Default: - no starting position
@@ -42418,6 +45155,7 @@ class EventSourceMapping(
             filters=filters,
             kafka_bootstrap_servers=kafka_bootstrap_servers,
             kafka_consumer_group_id=kafka_consumer_group_id,
+            kafka_consumption_mode=kafka_consumption_mode,
             kafka_topic=kafka_topic,
             log_level=log_level,
             max_batching_window=max_batching_window,
@@ -42556,6 +45294,7 @@ class FunctionBase(
         filters: typing.Optional[typing.Sequence[typing.Mapping[builtins.str, typing.Any]]] = None,
         kafka_bootstrap_servers: typing.Optional[typing.Sequence[builtins.str]] = None,
         kafka_consumer_group_id: typing.Optional[builtins.str] = None,
+        kafka_consumption_mode: typing.Optional["KafkaConsumptionMode"] = None,
         kafka_topic: typing.Optional[builtins.str] = None,
         log_level: typing.Optional["EventSourceMappingLogLevel"] = None,
         max_batching_window: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
@@ -42585,6 +45324,7 @@ class FunctionBase(
         :param filters: Add filter criteria to Event Source. Default: - none
         :param kafka_bootstrap_servers: A list of host and port pairs that are the addresses of the Kafka brokers in a self managed "bootstrap" Kafka cluster that a Kafka client connects to initially to bootstrap itself. They are in the format ``abc.example.com:9096``. Default: - none
         :param kafka_consumer_group_id: The identifier for the Kafka consumer group to join. The consumer group ID must be unique among all your Kafka event sources. After creating a Kafka event source mapping with the consumer group ID specified, you cannot update this value. The value must have a length between 1 and 200 and full the pattern '[a-zA-Z0-9-/*:_+=.@-]*'. For more information, see `Customizable consumer group ID <https://docs.aws.amazon.com/lambda/latest/dg/with-msk.html#services-msk-consumer-group-id>`_. Default: - none
+        :param kafka_consumption_mode: How Lambda reads records from the Kafka topic. Only supported for self-managed Kafka event sources (``kafkaBootstrapServers``). **Queue mode requires Kafka 4.2.0 or later.** In queue mode, ``startingPosition``, ``startingPositionTimestamp`` and ``maxBatchingWindow`` are not supported, and ``retryAttempts`` must be between 0 and 10000 and defaults to 0 (and, as in stream mode, requires ``provisionedPollerConfig``). The consumption mode can't be changed after the event source mapping is created. Default: - Lambda reads the topic in stream mode (``KafkaConsumptionMode.STREAM``)
         :param kafka_topic: The name of the Kafka topic. Default: - no topic
         :param log_level: Configuration for logging verbosity from the event source mapping poller. This configuration controls the verbosity of the logs generated by the polling infrastructure that reads events from the event source. The logs provide insights into the internal operations of the event source mapping, including connection status, polling behavior, and error conditions. Default: - No logging
         :param max_batching_window: The maximum amount of time to gather records before invoking the function. Maximum of Duration.minutes(5) Default: Duration.seconds(0)
@@ -42595,7 +45335,7 @@ class FunctionBase(
         :param parallelization_factor: The number of batches to process from each shard concurrently. Valid Range: - Minimum value of 1 - Maximum value of 10 Default: 1
         :param provisioned_poller_config: Configuration for provisioned pollers that read from the event source. When specified, allows control over the minimum and maximum number of pollers that can be provisioned to process events from the source. Default: - no provisioned pollers
         :param report_batch_item_failures: Allow functions to return partially successful responses for a batch of records. Default: false
-        :param retry_attempts: The maximum number of times to retry when the function returns an error. Set to ``undefined`` if you want lambda to keep retrying infinitely or until the record expires. Valid Range: - Minimum value of 0 - Maximum value of 10000 Default: - infinite or until the record expires.
+        :param retry_attempts: The maximum number of times to retry when the function returns an error. Set to ``undefined`` if you want lambda to keep retrying infinitely or until the record expires. Valid Range: - Minimum value of 0 - Maximum value of 10000 Default: - infinite or until the record expires; 0 when ``kafkaConsumptionMode`` is ``KafkaConsumptionMode.QUEUE``
         :param schema_registry_config: Specific configuration settings for a Kafka schema registry. Default: - none
         :param source_access_configurations: Specific settings like the authentication protocol or the VPC components to secure access to your event source. Default: - none
         :param starting_position: The position in the DynamoDB, Kinesis or MSK stream where AWS Lambda should start reading. Default: - no starting position
@@ -42615,6 +45355,7 @@ class FunctionBase(
             filters=filters,
             kafka_bootstrap_servers=kafka_bootstrap_servers,
             kafka_consumer_group_id=kafka_consumer_group_id,
+            kafka_consumption_mode=kafka_consumption_mode,
             kafka_topic=kafka_topic,
             log_level=log_level,
             max_batching_window=max_batching_window,
@@ -43635,6 +46376,7 @@ class SingletonFunction(
         code: "Code",
         handler: builtins.str,
         runtime: "Runtime",
+        accelerator_config: typing.Optional[typing.Union["AcceleratorConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         adot_instrumentation: typing.Optional[typing.Union["AdotInstrumentationConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         allow_all_ipv6_outbound: typing.Optional[builtins.bool] = None,
         allow_all_outbound: typing.Optional[builtins.bool] = None,
@@ -43696,6 +46438,7 @@ class SingletonFunction(
         :param code: The source code of your Lambda function. You can point to a file in an Amazon Simple Storage Service (Amazon S3) bucket or specify your source code as inline text.
         :param handler: The name of the method within your code that Lambda calls to execute your function. The format includes the file name. It can also include namespaces and other qualifiers, depending on the runtime. For more information, see https://docs.aws.amazon.com/lambda/latest/dg/foundation-progmodel.html. Use ``Handler.FROM_IMAGE`` when defining a function from a Docker image. NOTE: If you specify your source code as inline text by specifying the ZipFile property within the Code property, specify index.function_name as the handler.
         :param runtime: The runtime environment for the Lambda function that you are uploading. For valid values, see the Runtime property in the AWS Lambda Developer Guide. Use ``Runtime.FROM_IMAGE`` when defining a function from a Docker image.
+        :param accelerator_config: Accelerator configuration for the function. Configures the accelerator resource settings for the execution environment, including the amount of accelerator memory to allocate. The function must be attached to a capacity provider (``capacityProvider.addFunction(fn)``), use a container image (``Runtime.FROM_IMAGE``) on x86_64, and set ``memorySize`` to at least 2048 MiB. When set, ``ephemeralStorageSize`` may be up to 32 GiB. Default: - No accelerator configuration
         :param adot_instrumentation: Specify the configuration of AWS Distro for OpenTelemetry (ADOT) instrumentation. Default: - No ADOT instrumentation
         :param allow_all_ipv6_outbound: Whether to allow the Lambda to send all ipv6 network traffic. If set to true, there will only be a single egress rule which allows all outbound ipv6 traffic. If set to false, you must individually add traffic rules to allow the Lambda to connect to network targets using ipv6. Do not specify this property if the ``securityGroups`` or ``securityGroup`` property is set. Instead, configure ``allowAllIpv6Outbound`` directly on the security group. Default: false
         :param allow_all_outbound: Whether to allow the Lambda to send all network traffic (except ipv6). If set to false, you must individually add traffic rules to allow the Lambda to connect to network targets. Do not specify this property if the ``securityGroups`` or ``securityGroup`` property is set. Instead, configure ``allowAllOutbound`` directly on the security group. Default: true
@@ -43759,6 +46502,7 @@ class SingletonFunction(
             code=code,
             handler=handler,
             runtime=runtime,
+            accelerator_config=accelerator_config,
             adot_instrumentation=adot_instrumentation,
             allow_all_ipv6_outbound=allow_all_ipv6_outbound,
             allow_all_outbound=allow_all_outbound,
@@ -45209,6 +47953,7 @@ class Function(
         code: "Code",
         handler: builtins.str,
         runtime: "Runtime",
+        accelerator_config: typing.Optional[typing.Union["AcceleratorConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         adot_instrumentation: typing.Optional[typing.Union["AdotInstrumentationConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         allow_all_ipv6_outbound: typing.Optional[builtins.bool] = None,
         allow_all_outbound: typing.Optional[builtins.bool] = None,
@@ -45268,6 +48013,7 @@ class Function(
         :param code: The source code of your Lambda function. You can point to a file in an Amazon Simple Storage Service (Amazon S3) bucket or specify your source code as inline text.
         :param handler: The name of the method within your code that Lambda calls to execute your function. The format includes the file name. It can also include namespaces and other qualifiers, depending on the runtime. For more information, see https://docs.aws.amazon.com/lambda/latest/dg/foundation-progmodel.html. Use ``Handler.FROM_IMAGE`` when defining a function from a Docker image. NOTE: If you specify your source code as inline text by specifying the ZipFile property within the Code property, specify index.function_name as the handler.
         :param runtime: The runtime environment for the Lambda function that you are uploading. For valid values, see the Runtime property in the AWS Lambda Developer Guide. Use ``Runtime.FROM_IMAGE`` when defining a function from a Docker image.
+        :param accelerator_config: Accelerator configuration for the function. Configures the accelerator resource settings for the execution environment, including the amount of accelerator memory to allocate. The function must be attached to a capacity provider (``capacityProvider.addFunction(fn)``), use a container image (``Runtime.FROM_IMAGE``) on x86_64, and set ``memorySize`` to at least 2048 MiB. When set, ``ephemeralStorageSize`` may be up to 32 GiB. Default: - No accelerator configuration
         :param adot_instrumentation: Specify the configuration of AWS Distro for OpenTelemetry (ADOT) instrumentation. Default: - No ADOT instrumentation
         :param allow_all_ipv6_outbound: Whether to allow the Lambda to send all ipv6 network traffic. If set to true, there will only be a single egress rule which allows all outbound ipv6 traffic. If set to false, you must individually add traffic rules to allow the Lambda to connect to network targets using ipv6. Do not specify this property if the ``securityGroups`` or ``securityGroup`` property is set. Instead, configure ``allowAllIpv6Outbound`` directly on the security group. Default: false
         :param allow_all_outbound: Whether to allow the Lambda to send all network traffic (except ipv6). If set to false, you must individually add traffic rules to allow the Lambda to connect to network targets. Do not specify this property if the ``securityGroups`` or ``securityGroup`` property is set. Instead, configure ``allowAllOutbound`` directly on the security group. Default: true
@@ -45329,6 +48075,7 @@ class Function(
             code=code,
             handler=handler,
             runtime=runtime,
+            accelerator_config=accelerator_config,
             adot_instrumentation=adot_instrumentation,
             allow_all_ipv6_outbound=allow_all_ipv6_outbound,
             allow_all_outbound=allow_all_outbound,
@@ -46117,6 +48864,7 @@ class DockerImageFunction(
         id: builtins.str,
         *,
         code: "DockerImageCode",
+        accelerator_config: typing.Optional[typing.Union["AcceleratorConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         adot_instrumentation: typing.Optional[typing.Union["AdotInstrumentationConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         allow_all_ipv6_outbound: typing.Optional[builtins.bool] = None,
         allow_all_outbound: typing.Optional[builtins.bool] = None,
@@ -46174,6 +48922,7 @@ class DockerImageFunction(
         :param scope: -
         :param id: -
         :param code: The source code of your Lambda function. You can point to a file in an Amazon Simple Storage Service (Amazon S3) bucket or specify your source code as inline text.
+        :param accelerator_config: Accelerator configuration for the function. Configures the accelerator resource settings for the execution environment, including the amount of accelerator memory to allocate. The function must be attached to a capacity provider (``capacityProvider.addFunction(fn)``), use a container image (``Runtime.FROM_IMAGE``) on x86_64, and set ``memorySize`` to at least 2048 MiB. When set, ``ephemeralStorageSize`` may be up to 32 GiB. Default: - No accelerator configuration
         :param adot_instrumentation: Specify the configuration of AWS Distro for OpenTelemetry (ADOT) instrumentation. Default: - No ADOT instrumentation
         :param allow_all_ipv6_outbound: Whether to allow the Lambda to send all ipv6 network traffic. If set to true, there will only be a single egress rule which allows all outbound ipv6 traffic. If set to false, you must individually add traffic rules to allow the Lambda to connect to network targets using ipv6. Do not specify this property if the ``securityGroups`` or ``securityGroup`` property is set. Instead, configure ``allowAllIpv6Outbound`` directly on the security group. Default: false
         :param allow_all_outbound: Whether to allow the Lambda to send all network traffic (except ipv6). If set to false, you must individually add traffic rules to allow the Lambda to connect to network targets. Do not specify this property if the ``securityGroups`` or ``securityGroup`` property is set. Instead, configure ``allowAllOutbound`` directly on the security group. Default: true
@@ -46233,6 +48982,7 @@ class DockerImageFunction(
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = DockerImageFunctionProps(
             code=code,
+            accelerator_config=accelerator_config,
             adot_instrumentation=adot_instrumentation,
             allow_all_ipv6_outbound=allow_all_ipv6_outbound,
             allow_all_outbound=allow_all_outbound,
@@ -46298,6 +49048,8 @@ class DockerImageFunction(
 
 
 __all__ = [
+    "AcceleratorConfig",
+    "AcceleratorMemorySize",
     "AdotInstrumentationConfig",
     "AdotLambdaExecWrapper",
     "AdotLambdaLayerGenericVersion",
@@ -46347,6 +49099,12 @@ __all__ = [
     "CfnPermissionProps",
     "CfnResourcePolicy",
     "CfnResourcePolicyProps",
+    "CfnRuntime",
+    "CfnRuntimeAlias",
+    "CfnRuntimeAliasProps",
+    "CfnRuntimeProps",
+    "CfnRuntimeVersion",
+    "CfnRuntimeVersionProps",
     "CfnUrl",
     "CfnUrlProps",
     "CfnVersion",
@@ -46420,6 +49178,7 @@ __all__ = [
     "InlineCode",
     "InstanceTypeFilter",
     "InvokeMode",
+    "KafkaConsumptionMode",
     "KafkaSchemaRegistryAccessConfig",
     "KafkaSchemaRegistryAccessConfigType",
     "KafkaSchemaRegistryConfig",
@@ -46505,9 +49264,47 @@ __all__ = [
     "WebFunctionRuntime",
     "WebFunctionS3Location",
     "WebFunctionTraffic",
+    "mixins",
 ]
 
+# Type-checking-only imports for static analyzers (pyright/mypy).
+# At runtime TYPE_CHECKING is False, preserving lazy loading.
+if typing.TYPE_CHECKING:
+    pass
+    from . import mixins as mixins
+
 publication.publish()
+
+_SUBMODULES = {
+    "mixins",
+}
+
+def __getattr__(name: str) -> object:
+    if name in _SUBMODULES:
+        mod = _importlib.import_module(f".{name}", __name__)
+        globals()[name] = mod
+        return mod
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+def __dir__() -> "list[str]":
+    return [*__all__, *_SUBMODULES]
+
+import sys as _sys
+setattr(_sys.modules[__name__], "__getattr__", __getattr__)
+setattr(_sys.modules[__name__], "__dir__", __dir__)
+
+def _typecheckingstub__37fdc45dbc8cd10d82d61e19cd6853f0fa4f98996715f644868a4c53c237bcb6(
+    *,
+    accelerator_memory_size: AcceleratorMemorySize,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a1b19cf5170aa37594cd30668f4a89fda828e2b34b3cb0dc8b11c5cfbd333fd6(
+    gibibytes: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__2183d370fe0d0be64cb9e536b8e1ba5875c1db63d7705d98b3989f17d82d3bff(
     *,
@@ -47552,6 +50349,7 @@ def _typecheckingstub__d971f3872acf20816e6da364ff9e6bec83fe2e68bbb9a7debc845b400
     *,
     code: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunction.CodeProperty, typing.Dict[builtins.str, typing.Any]]],
     role: typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef],
+    accelerator_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunction.AcceleratorConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     architectures: typing.Optional[typing.Sequence[builtins.str]] = None,
     capacity_provider_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunction.CapacityProviderConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     code_signing_config_arn: typing.Optional[typing.Union[builtins.str, _aws_lambda_aaab8031.ICodeSigningConfigRef]] = None,
@@ -47574,6 +50372,7 @@ def _typecheckingstub__d971f3872acf20816e6da364ff9e6bec83fe2e68bbb9a7debc845b400
     recursive_loop: typing.Optional[builtins.str] = None,
     reserved_concurrent_executions: typing.Optional[jsii.Number] = None,
     runtime: typing.Optional[builtins.str] = None,
+    runtime_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunction.RuntimeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     runtime_management_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunction.RuntimeManagementConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     snap_start: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunction.SnapStartProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -47633,6 +50432,12 @@ def _typecheckingstub__58971d313bbb31e4a176049232e48d257e2707fa93bae32f75eda0c63
 
 def _typecheckingstub__0087a2968c8a22b8dd1ff3bf410b2d9939dd4741222544ab3d1519ae865e7631(
     value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ad2bb97879fe1b20fddd2241c5750dc5e87527168303f6fbb5f0d24e55b1ec5d(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFunction.AcceleratorConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -47769,6 +50574,12 @@ def _typecheckingstub__b21ecd1fe965145c47a3a79e27c6cd009ded1d8446934f7912383ff1e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__05797633ae69b5be61ecb3579c036a751222831afb1c84010a0371a73e08dca8(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFunction.RuntimeConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__0eb811f391544dcb8176a15cfd354317bce582d6de91f3a92abe633f8871c3f5(
     value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFunction.RuntimeManagementConfigProperty]],
 ) -> None:
@@ -47807,6 +50618,13 @@ def _typecheckingstub__2e2ae2e6d2b74fc490159641853a6b239db977126bd780dc9b5d3931c
 
 def _typecheckingstub__033cfa97016c411e045aae5002e1ed6a505aefcc7ef38007d08100468c8903b9(
     value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFunction.VpcConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__445ad5b5a206e87b42052816e63236e3aff6271d4b439a2d1000439a66f16c81(
+    *,
+    accelerator_memory_size: jsii.Number,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -47906,6 +50724,14 @@ def _typecheckingstub__e08ade62ca6578ed0ba00e3acd7b2efb522123c93a764991846c882e7
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b00672edfa09e452828eb5af99e129f30790d9223dfabccad3a1da3a57a4a0e6(
+    *,
+    runtime_alias: builtins.str,
+    runtime_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__30a323208760254dc626db9a6b7cd7d96fe15c4516882e470f8d0fcbc382ba92(
     *,
     update_runtime_on: builtins.str,
@@ -47963,6 +50789,7 @@ def _typecheckingstub__06b7f494e25475a49ebed0d7ed6d0fca9653b5fa5e00ded0cba4fc40a
     *,
     code: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunction.CodeProperty, typing.Dict[builtins.str, typing.Any]]],
     role: typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef],
+    accelerator_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunction.AcceleratorConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     architectures: typing.Optional[typing.Sequence[builtins.str]] = None,
     capacity_provider_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunction.CapacityProviderConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     code_signing_config_arn: typing.Optional[typing.Union[builtins.str, _aws_lambda_aaab8031.ICodeSigningConfigRef]] = None,
@@ -47985,6 +50812,7 @@ def _typecheckingstub__06b7f494e25475a49ebed0d7ed6d0fca9653b5fa5e00ded0cba4fc40a
     recursive_loop: typing.Optional[builtins.str] = None,
     reserved_concurrent_executions: typing.Optional[jsii.Number] = None,
     runtime: typing.Optional[builtins.str] = None,
+    runtime_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunction.RuntimeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     runtime_management_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunction.RuntimeManagementConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     snap_start: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunction.SnapStartProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -48453,12 +51281,20 @@ def _typecheckingstub__1a4ab03b7d01c2d07c49b6b445a7655f06fda1ecc5e3e79d6d2c916b1
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__091b202ec9d8779fc5779dfec2f6b3607961a9a7a15ea82f6cba6de43cd940a7(
+    *,
+    type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__3fc56694727efe6f010831a4021c9e2946b305d97a58cfe4a799743dc5c08428(
     *,
     associated_compute_resource_types: typing.Sequence[builtins.str],
     network_protocol: builtins.str,
     security_group_ids: typing.Sequence[builtins.str],
     subnet_ids: typing.Sequence[builtins.str],
+    elastic_ip_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnNetworkConnector.ElasticIpConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -48630,6 +51466,279 @@ def _typecheckingstub__9bb1280bae21ab11982d71cbc771eaa1e21fc26fe2f3acd57eaaab0ea
     *,
     policy_document: typing.Any,
     resource_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__806f2fe5ad522f5e23d5ff94f1c3d28c25578c2bdd6fb2bae9845337d86cbe66(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    license_info: typing.Optional[builtins.str] = None,
+    release_lifecycle: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuntime.ReleaseLifecycleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d2d623160e384b77a2a40ec2ce19418254aa4d37e9a4f9b2b8e8638c1647f4d7(
+    resource: _aws_lambda_aaab8031.IRuntimeRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0b7cbe6c30eb30c5a61a76c53fcc2a0ab4dde35cb877efdf280f60132cce7f3b(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ce75f93bdd90b84c6cb92f0080ff78cda50eccc2aea9b20df10181056558727b(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f501132cbfa5c32daf856267df167909e4d5a2eb99db7fa19cf8b03263c33e6f(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__16ae39dbca2da74c48d7cb8aa7b930afb90bda2af86d9f182e4a50fd64dd1a75(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__db97358321a10e04d9436f673b7e8f1b7858c9313f36f4f1a6bcad819387f86e(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4b14b115d1362c38581f873d5a7afc518785664c0bdbc93b5a38f47f25abf626(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__10c3307f67b13b931b9ef51602fb60f235fd1ce7d13860f3a9aa53f7104ef88c(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRuntime.ReleaseLifecycleProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__de5a7a95fc943786a83a751e58207da162b25604f5e88865b7fab7e087ab48f4(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4fb1bc22ea884cc529572dd5c0d7d6d720409a903ee3873d4c2741dc7e2b7974(
+    *,
+    deprecation_date: typing.Optional[builtins.str] = None,
+    function_create_block_date: typing.Optional[builtins.str] = None,
+    function_update_block_date: typing.Optional[builtins.str] = None,
+    release_state: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8aa719c0b33c9547bcd49f182429db314749f5d84b9f01f82ad5a26d002fb780(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    name: builtins.str,
+    runtime_name: builtins.str,
+    runtime_version: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    release_lifecycle: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuntimeAlias.ReleaseLifecycleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c6fbf82cf35938ab5a787fa63c4318d7a66ff456beaa0f1c8605474b58445cf5(
+    resource: _aws_lambda_aaab8031.IRuntimeAliasRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f968cbe3a4eb111bdf9eb834210e2c151f37173d6e162165c42cf73568b7dbc8(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fb2f0244d6096b4e438bc693d2e73288cbe5c23ad0c7ccda8a1311199dafd8d9(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7c3884e5c0d776373066c05e50f9439ee954d62d613262bc2dc9631edc97183d(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8cb1c7f30990f65ff3121c4f448d11fb1d97361ed2e687becd7749ef93ec20a3(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fec9594195e3f2f65f2e78aa68e5fcaa8207f12fa77e8e0d4b28dd73fcdfe1de(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7ebcfd4a155da6941ff7e7ab4d04b89973726280b80e746e5f58072476ea75d7(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__210d8d00ee8d204834fe693e0522b168168ddb4564316b336079d4effff0a606(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__08e0828dd5892ce06e415d9560715c7dc71774e3ae4e9124e2255b559a5a550e(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRuntimeAlias.ReleaseLifecycleProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a7d7c52c4cb55b27a0cf733c886de8cb9169f6cc2232ec410301d862f6488b09(
+    *,
+    architectures: typing.Optional[typing.Sequence[builtins.str]] = None,
+    integration_models: typing.Optional[typing.Sequence[builtins.str]] = None,
+    managed_instances: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a9620594ab70133e15bde7135b10b0a588f70bdefaf8aa360077ad4ea75698e3(
+    *,
+    deprecation_date: typing.Optional[builtins.str] = None,
+    function_create_block_date: typing.Optional[builtins.str] = None,
+    function_update_block_date: typing.Optional[builtins.str] = None,
+    release_state: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cbe81e3e2c14d94d2a3b91cd54f11011896815b10d0fe3a659b4e78d235fcffa(
+    *,
+    name: builtins.str,
+    runtime_name: builtins.str,
+    runtime_version: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    release_lifecycle: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuntimeAlias.ReleaseLifecycleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__293d2d5d17b101f7f4260f7aae6b137cf29064bb1a019d0fdad56017874c0196(
+    *,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    license_info: typing.Optional[builtins.str] = None,
+    release_lifecycle: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRuntime.ReleaseLifecycleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7dae749daedfbb7b8adb74869bf2cbcbcd3278231c4640431023bfcb479f4a8b(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    name: builtins.str,
+    runtime_name: builtins.str,
+    image_uri: typing.Optional[builtins.str] = None,
+    release_notes: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__769d6df03f4b77c97722171d5cb76b68320ab1cfd10a37663c4465ff4eb9d537(
+    resource: _aws_lambda_aaab8031.IRuntimeVersionRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__516204a6df68a5cfaa189ec35335581e32b0adc0773682aa530d92c8d0d8c71d(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bc01d4bd4fd78351621afa85a7471b1def90a50809e02584947b6b02253ea31a(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ba7a3e8df6682e6598ae7e35d4d573fbddb0d8feef953da1af8da33d602f1ff7(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a1519eeff255eadfaf91eb3ae9e72ac8b09ba6b2d30b3919947c2240dbd58d68(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9fd1be4e1c7e3a0080f891106d6a18291f94e458692b8cc257e4aeeaa9d56579(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7d4ad23dbcc878a51814bfdc80783a30627f3175af883d637e59b1e8e9769d40(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bfbb4566b3270303b762081167c2acae975004c12d2b2bcdb4885ecf404aaacf(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2de8660bbff9423e4668826bc97141a56fa47b035d64e61d10dac3853e6b1789(
+    *,
+    architectures: typing.Optional[typing.Sequence[builtins.str]] = None,
+    integration_models: typing.Optional[typing.Sequence[builtins.str]] = None,
+    managed_instances: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b25fb484c5dcc12de84238078c2fe43982c0570070242d872b52da4496a481d5(
+    *,
+    architecture: builtins.str,
+    digest: builtins.str,
+    os: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__136111ca6a65c46fd95dcd702fadf99d8d20e24088ccc7f7fa969832e31ae919(
+    *,
+    name: builtins.str,
+    runtime_name: builtins.str,
+    image_uri: typing.Optional[builtins.str] = None,
+    release_notes: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -49517,6 +52626,7 @@ def _typecheckingstub__7442d2bd60e56a826eab54e95fa6a6ebc8961285a26558c7189840a12
     filters: typing.Optional[typing.Sequence[typing.Mapping[builtins.str, typing.Any]]] = None,
     kafka_bootstrap_servers: typing.Optional[typing.Sequence[builtins.str]] = None,
     kafka_consumer_group_id: typing.Optional[builtins.str] = None,
+    kafka_consumption_mode: typing.Optional[KafkaConsumptionMode] = None,
     kafka_topic: typing.Optional[builtins.str] = None,
     log_level: typing.Optional[EventSourceMappingLogLevel] = None,
     max_batching_window: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
@@ -49548,6 +52658,7 @@ def _typecheckingstub__e74d0bc5516fc715f7302bdf199df23dddf769e98771f0bac2ff026a4
     filters: typing.Optional[typing.Sequence[typing.Mapping[builtins.str, typing.Any]]] = None,
     kafka_bootstrap_servers: typing.Optional[typing.Sequence[builtins.str]] = None,
     kafka_consumer_group_id: typing.Optional[builtins.str] = None,
+    kafka_consumption_mode: typing.Optional[KafkaConsumptionMode] = None,
     kafka_topic: typing.Optional[builtins.str] = None,
     log_level: typing.Optional[EventSourceMappingLogLevel] = None,
     max_batching_window: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
@@ -49653,6 +52764,7 @@ def _typecheckingstub__59918bb957d892739733c7a5849db990615fe5329709ad7ba703e0ee4
     on_failure: typing.Optional[IDestination] = None,
     on_success: typing.Optional[IDestination] = None,
     retry_attempts: typing.Optional[jsii.Number] = None,
+    accelerator_config: typing.Optional[typing.Union[AcceleratorConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     adot_instrumentation: typing.Optional[typing.Union[AdotInstrumentationConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     allow_all_ipv6_outbound: typing.Optional[builtins.bool] = None,
     allow_all_outbound: typing.Optional[builtins.bool] = None,
@@ -49711,6 +52823,7 @@ def _typecheckingstub__94e70d11aa3c53737d418dbb9983973dfc06dbdef5c8cc30613cc3c6d
     on_failure: typing.Optional[IDestination] = None,
     on_success: typing.Optional[IDestination] = None,
     retry_attempts: typing.Optional[jsii.Number] = None,
+    accelerator_config: typing.Optional[typing.Union[AcceleratorConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     adot_instrumentation: typing.Optional[typing.Union[AdotInstrumentationConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     allow_all_ipv6_outbound: typing.Optional[builtins.bool] = None,
     allow_all_outbound: typing.Optional[builtins.bool] = None,
@@ -49849,6 +52962,7 @@ def _typecheckingstub__726375d512fd3c0da30be8d20d1c4016974ba77359e6bac8eb3569126
     filters: typing.Optional[typing.Sequence[typing.Mapping[builtins.str, typing.Any]]] = None,
     kafka_bootstrap_servers: typing.Optional[typing.Sequence[builtins.str]] = None,
     kafka_consumer_group_id: typing.Optional[builtins.str] = None,
+    kafka_consumption_mode: typing.Optional[KafkaConsumptionMode] = None,
     kafka_topic: typing.Optional[builtins.str] = None,
     log_level: typing.Optional[EventSourceMappingLogLevel] = None,
     max_batching_window: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
@@ -50017,6 +53131,12 @@ def _typecheckingstub__d31d88d8bf73e69b3c63857d84961130efa20940b8d2f8e313ce05a3e
 
 def _typecheckingstub__9488a49062709f5874c5766cbe7ff91a81f2c6cafd4ce4cd560f3ea36109a4e6(
     instance_types: typing.Sequence[_aws_ec2_09840e12.InstanceType],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e17529d23420af2ddbbc50e5696f14f3d0e2dd026ab2953e273e106432e0b4de(
+    mode: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -50429,6 +53549,7 @@ def _typecheckingstub__68a03ec9f866a29c77aabcf8328c63a49511790fa9714874f255b3292
     on_failure: typing.Optional[IDestination] = None,
     on_success: typing.Optional[IDestination] = None,
     retry_attempts: typing.Optional[jsii.Number] = None,
+    accelerator_config: typing.Optional[typing.Union[AcceleratorConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     adot_instrumentation: typing.Optional[typing.Union[AdotInstrumentationConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     allow_all_ipv6_outbound: typing.Optional[builtins.bool] = None,
     allow_all_outbound: typing.Optional[builtins.bool] = None,
@@ -50502,6 +53623,12 @@ def _typecheckingstub__7d36f0cc329a26624261dbdd6abf45bf17eba23520a5a3a92f7c390bd
 
 def _typecheckingstub__3e2646e1258f4f26c8154b755fb05a0dd854a4b96cba5838c1973e1fd3d598f4(
     target_cpu_utilization: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__36829628b8bfc468bd738f645f55a1e083d41eacea874555c589ff2e5a82fa73(
+    target_gpu_utilization: jsii.Number,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -51073,6 +54200,7 @@ def _typecheckingstub__04dd97f4b18c00e7ee0981f2428664401ae0b75dbda6102ea3ef53d08
     on_failure: typing.Optional[IDestination] = None,
     on_success: typing.Optional[IDestination] = None,
     retry_attempts: typing.Optional[jsii.Number] = None,
+    accelerator_config: typing.Optional[typing.Union[AcceleratorConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     adot_instrumentation: typing.Optional[typing.Union[AdotInstrumentationConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     allow_all_ipv6_outbound: typing.Optional[builtins.bool] = None,
     allow_all_outbound: typing.Optional[builtins.bool] = None,
@@ -51139,6 +54267,7 @@ def _typecheckingstub__b0460bc5250777612d2b42ec799737ce019fcdc03fe86c6540ab2ecec
     filters: typing.Optional[typing.Sequence[typing.Mapping[builtins.str, typing.Any]]] = None,
     kafka_bootstrap_servers: typing.Optional[typing.Sequence[builtins.str]] = None,
     kafka_consumer_group_id: typing.Optional[builtins.str] = None,
+    kafka_consumption_mode: typing.Optional[KafkaConsumptionMode] = None,
     kafka_topic: typing.Optional[builtins.str] = None,
     log_level: typing.Optional[EventSourceMappingLogLevel] = None,
     max_batching_window: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
@@ -51197,6 +54326,7 @@ def _typecheckingstub__bfc312bd9bc4e64c5ae8419715155a56676bb9fe40870f57ffa4f3030
     filters: typing.Optional[typing.Sequence[typing.Mapping[builtins.str, typing.Any]]] = None,
     kafka_bootstrap_servers: typing.Optional[typing.Sequence[builtins.str]] = None,
     kafka_consumer_group_id: typing.Optional[builtins.str] = None,
+    kafka_consumption_mode: typing.Optional[KafkaConsumptionMode] = None,
     kafka_topic: typing.Optional[builtins.str] = None,
     log_level: typing.Optional[EventSourceMappingLogLevel] = None,
     max_batching_window: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
@@ -51349,6 +54479,7 @@ def _typecheckingstub__e7b766bff13bb7266787cec9bebb600187e19c1672e530bb9cfa31649
     code: Code,
     handler: builtins.str,
     runtime: Runtime,
+    accelerator_config: typing.Optional[typing.Union[AcceleratorConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     adot_instrumentation: typing.Optional[typing.Union[AdotInstrumentationConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     allow_all_ipv6_outbound: typing.Optional[builtins.bool] = None,
     allow_all_outbound: typing.Optional[builtins.bool] = None,
@@ -51683,6 +54814,7 @@ def _typecheckingstub__724895b6b59aaf2b678ef25f2beca19fb114fc04ff6b37edef28e12b3
     code: Code,
     handler: builtins.str,
     runtime: Runtime,
+    accelerator_config: typing.Optional[typing.Union[AcceleratorConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     adot_instrumentation: typing.Optional[typing.Union[AdotInstrumentationConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     allow_all_ipv6_outbound: typing.Optional[builtins.bool] = None,
     allow_all_outbound: typing.Optional[builtins.bool] = None,
@@ -51836,6 +54968,7 @@ def _typecheckingstub__368a49fe1f866c7ea7986c57b6f8488d0fddea8f62bf05ec1ed7eb09b
     id: builtins.str,
     *,
     code: DockerImageCode,
+    accelerator_config: typing.Optional[typing.Union[AcceleratorConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     adot_instrumentation: typing.Optional[typing.Union[AdotInstrumentationConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     allow_all_ipv6_outbound: typing.Optional[builtins.bool] = None,
     allow_all_outbound: typing.Optional[builtins.bool] = None,

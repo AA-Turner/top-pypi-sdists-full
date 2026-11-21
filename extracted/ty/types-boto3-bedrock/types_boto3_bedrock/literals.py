@@ -45,6 +45,10 @@ __all__ = (
     "CustomModelDeploymentUpdateStatusType",
     "CustomizationTypeType",
     "DataRetentionModeType",
+    "DataRetentionStorageDestinationType",
+    "DataRetentionStorageModelProviderType",
+    "DataRetentionStorageResourceStatusType",
+    "DataRetentionStorageScopeType",
     "EntitlementAvailabilityType",
     "EvaluationJobStatusType",
     "EvaluationJobTypeType",
@@ -90,8 +94,10 @@ __all__ = (
     "ListModelCustomizationJobsPaginatorName",
     "ListModelImportJobsPaginatorName",
     "ListModelInvocationJobsPaginatorName",
+    "ListProjectsPaginatorName",
     "ListPromptRoutersPaginatorName",
     "ListProvisionedModelThroughputsPaginatorName",
+    "ListTrustedAccessProgramsPaginatorName",
     "ModelCopyJobStatusType",
     "ModelCustomizationJobStatusType",
     "ModelCustomizationType",
@@ -103,6 +109,7 @@ __all__ = (
     "OfferTypeType",
     "PaginatorName",
     "PerformanceConfigLatencyType",
+    "ProjectStatusType",
     "PromptRouterStatusType",
     "PromptRouterTypeType",
     "ProvisionedModelStatusType",
@@ -122,6 +129,9 @@ __all__ = (
     "SortModelsByType",
     "SortOrderType",
     "StatusType",
+    "TrustedAccessProgramOptInType",
+    "TrustedAccessProgramScopeType",
+    "TrustedAccessProgramStatusType",
     "VectorSearchRerankingConfigurationTypeType",
 )
 
@@ -187,6 +197,10 @@ CustomizationTypeType = Literal[
     "CONTINUED_PRE_TRAINING", "DISTILLATION", "FINE_TUNING", "IMPORTED", "REINFORCEMENT_FINE_TUNING"
 ]
 DataRetentionModeType = Literal["aws_review", "default", "inherit", "none", "provider_data_share"]
+DataRetentionStorageDestinationType = Literal["amazon_managed", "customer_managed"]
+DataRetentionStorageModelProviderType = Literal["anthropic", "openai"]
+DataRetentionStorageResourceStatusType = Literal["access_denied", "active", "pending"]
+DataRetentionStorageScopeType = Literal["account", "organization", "project"]
 EntitlementAvailabilityType = Literal["AVAILABLE", "NOT_AVAILABLE"]
 EvaluationJobStatusType = Literal[
     "Completed", "Deleting", "Failed", "InProgress", "Stopped", "Stopping"
@@ -278,8 +292,10 @@ ListModelCopyJobsPaginatorName = Literal["list_model_copy_jobs"]
 ListModelCustomizationJobsPaginatorName = Literal["list_model_customization_jobs"]
 ListModelImportJobsPaginatorName = Literal["list_model_import_jobs"]
 ListModelInvocationJobsPaginatorName = Literal["list_model_invocation_jobs"]
+ListProjectsPaginatorName = Literal["list_projects"]
 ListPromptRoutersPaginatorName = Literal["list_prompt_routers"]
 ListProvisionedModelThroughputsPaginatorName = Literal["list_provisioned_model_throughputs"]
+ListTrustedAccessProgramsPaginatorName = Literal["list_trusted_access_programs"]
 ModelCopyJobStatusType = Literal["Completed", "Failed", "InProgress"]
 ModelCustomizationJobStatusType = Literal[
     "Completed", "Failed", "InProgress", "Stopped", "Stopping"
@@ -303,6 +319,7 @@ ModelModalityType = Literal["EMBEDDING", "IMAGE", "TEXT"]
 ModelStatusType = Literal["Active", "Creating", "Failed"]
 OfferTypeType = Literal["ALL", "PUBLIC"]
 PerformanceConfigLatencyType = Literal["optimized", "standard"]
+ProjectStatusType = Literal["active", "archived"]
 PromptRouterStatusType = Literal["AVAILABLE"]
 PromptRouterTypeType = Literal["custom", "default"]
 ProvisionedModelStatusType = Literal["Creating", "Failed", "InService", "Updating"]
@@ -319,15 +336,22 @@ SortJobsByType = Literal["CreationTime"]
 SortModelsByType = Literal["CreationTime"]
 SortOrderType = Literal["Ascending", "Descending"]
 StatusType = Literal["INCOMPATIBLE_ENDPOINT", "REGISTERED"]
+TrustedAccessProgramOptInType = Literal["disabled", "enabled", "inherit"]
+TrustedAccessProgramScopeType = Literal["account", "organization", "program_default", "project"]
+TrustedAccessProgramStatusType = Literal[
+    "disabled", "eligible", "enabled", "requestable", "revoked"
+]
 VectorSearchRerankingConfigurationTypeType = Literal["BEDROCK_RERANKING_MODEL"]
 BedrockServiceName = Literal["bedrock"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",
     "account-access-runtime",
     "acm",
     "acm-pca",
+    "agent-discovery",
     "agent-registry",
     "agent-registry-control",
     "aiops",
@@ -338,6 +362,7 @@ ServiceName = Literal[
     "apigateway",
     "apigatewaymanagementapi",
     "apigatewayv2",
+    "apiportal",
     "appconfig",
     "appconfigdata",
     "appfabric",
@@ -430,6 +455,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -614,6 +640,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -621,10 +648,12 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-marketing",
     "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
+    "payments",
     "pca-connector-ad",
     "pca-connector-scep",
     "pcs",
@@ -680,7 +709,9 @@ ServiceName = Literal[
     "sagemaker-a2i-runtime",
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
+    "sagemaker-gateway-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
@@ -779,8 +810,10 @@ PaginatorName = Literal[
     "list_model_customization_jobs",
     "list_model_import_jobs",
     "list_model_invocation_jobs",
+    "list_projects",
     "list_prompt_routers",
     "list_provisioned_model_throughputs",
+    "list_trusted_access_programs",
 ]
 RegionName = Literal[
     "af-south-1",

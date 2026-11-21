@@ -34,6 +34,7 @@ from .literals import (
     IsraelCustomerTypeType,
     IsraelDealerTypeType,
     MalaysiaServiceTaxCodeType,
+    NorwayTaxRegistrationNumberTypeType,
     PersonTypeType,
     PolandTaxRegistrationNumberTypeType,
     RegistrationTypeType,
@@ -42,6 +43,7 @@ from .literals import (
     TaxRegistrationNumberTypeType,
     TaxRegistrationStatusType,
     TaxRegistrationTypeType,
+    UaeTaxRegistrationNumberTypeType,
     UkraineTrnTypeType,
     UzbekistanTaxRegistrationNumberTypeType,
 )
@@ -108,6 +110,8 @@ __all__ = (
     "MalaysiaAdditionalInfoUnionTypeDef",
     "MexicoAdditionalInfoTypeDef",
     "MonacoAdditionalInfoTypeDef",
+    "NewZealandAdditionalInfoTypeDef",
+    "NorwayAdditionalInfoTypeDef",
     "PaginatorConfigTypeDef",
     "PhilippinesAdditionalInfoTypeDef",
     "PolandAdditionalInfoTypeDef",
@@ -139,6 +143,7 @@ __all__ = (
     "TaxRegistrationWithJurisdictionTypeDef",
     "TurkeyAdditionalInfoTypeDef",
     "UkraineAdditionalInfoTypeDef",
+    "UnitedArabEmiratesAdditionalInfoTypeDef",
     "UzbekistanAdditionalInfoTypeDef",
     "VerificationDetailsTypeDef",
     "VietnamAdditionalInfoTypeDef",
@@ -224,6 +229,13 @@ class MexicoAdditionalInfoTypeDef(TypedDict):
 class MonacoAdditionalInfoTypeDef(TypedDict):
     businessNumber: str
 
+class NewZealandAdditionalInfoTypeDef(TypedDict):
+    peppolId: NotRequired[str]
+
+class NorwayAdditionalInfoTypeDef(TypedDict):
+    taxRegistrationNumberType: NotRequired[NorwayTaxRegistrationNumberTypeType]
+    peppolId: NotRequired[str]
+
 class PhilippinesAdditionalInfoTypeDef(TypedDict):
     isVatRegistered: NotRequired[bool]
 
@@ -255,6 +267,12 @@ class TurkeyAdditionalInfoTypeDef(TypedDict):
 class UkraineAdditionalInfoTypeDef(TypedDict):
     ukraineTrnType: UkraineTrnTypeType
 
+class UnitedArabEmiratesAdditionalInfoTypeDef(TypedDict):
+    taxRegistrationNumberType: NotRequired[UaeTaxRegistrationNumberTypeType]
+    peppolId: NotRequired[str]
+    tradeLicenseNumber: NotRequired[str]
+    emiratesId: NotRequired[str]
+
 class UzbekistanAdditionalInfoTypeDef(TypedDict):
     taxRegistrationNumberType: NotRequired[UzbekistanTaxRegistrationNumberTypeType]
     vatRegistrationNumber: NotRequired[str]
@@ -264,6 +282,7 @@ class VietnamAdditionalInfoTypeDef(TypedDict):
     electronicTransactionCodeNumber: NotRequired[str]
     paymentVoucherNumber: NotRequired[str]
     paymentVoucherNumberDate: NotRequired[str]
+    vatCreditMethod: NotRequired[bool]
 
 class BrazilAdditionalInfoTypeDef(TypedDict):
     ccmCode: NotRequired[str]
@@ -412,6 +431,9 @@ class AdditionalInfoResponseTypeDef(TypedDict):
     germanyAdditionalInfo: NotRequired[GermanyAdditionalInfoTypeDef]
     mexicoAdditionalInfo: NotRequired[MexicoAdditionalInfoTypeDef]
     colombiaAdditionalInfo: NotRequired[ColombiaAdditionalInfoTypeDef]
+    unitedArabEmiratesAdditionalInfo: NotRequired[UnitedArabEmiratesAdditionalInfoTypeDef]
+    norwayAdditionalInfo: NotRequired[NorwayAdditionalInfoTypeDef]
+    newZealandAdditionalInfo: NotRequired[NewZealandAdditionalInfoTypeDef]
 
 class TaxExemptionTypeTypeDef(TypedDict):
     displayName: NotRequired[str]
@@ -555,6 +577,9 @@ class AdditionalInfoRequestTypeDef(TypedDict):
     monacoAdditionalInfo: NotRequired[MonacoAdditionalInfoTypeDef]
     germanyAdditionalInfo: NotRequired[GermanyAdditionalInfoTypeDef]
     mexicoAdditionalInfo: NotRequired[MexicoAdditionalInfoTypeDef]
+    unitedArabEmiratesAdditionalInfo: NotRequired[UnitedArabEmiratesAdditionalInfoTypeDef]
+    norwayAdditionalInfo: NotRequired[NorwayAdditionalInfoTypeDef]
+    newZealandAdditionalInfo: NotRequired[NewZealandAdditionalInfoTypeDef]
 
 class GetTaxRegistrationResponseTypeDef(TypedDict):
     taxRegistration: TaxRegistrationTypeDef

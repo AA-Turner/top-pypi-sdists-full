@@ -731,14 +731,6 @@ class CfnAcceptedPortfolioShare(
         return typing.cast("_aws_servicecatalog_848f4bab.AcceptedPortfolioShareReference", jsii.get(self, "acceptedPortfolioShareRef"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -7498,9 +7490,9 @@ class CloudFormationTemplate(
         :param asset_hash: Specify a custom hash for this asset. If ``assetHashType`` is set it must be set to ``AssetHashType.CUSTOM``. For consistency, this custom hash will be SHA256 hashed and encoded as hex. The resulting hash will be the asset hash. NOTE: the hash is used in order to identify a specific revision of the asset, and used for optimizing and caching deployment activities related to this asset such as packaging, uploading to Amazon S3, etc. If you chose to customize the hash, you will need to make sure it is updated every time the asset changes, or otherwise it is possible that some deployments will not be invalidated. Default: - based on ``assetHashType``
         :param asset_hash_type: Specifies the type of hash to calculate for this asset. If ``assetHash`` is configured, this option must be ``undefined`` or ``AssetHashType.CUSTOM``. Default: - the default is ``AssetHashType.SOURCE``, but if ``assetHash`` is explicitly specified this value defaults to ``AssetHashType.CUSTOM``.
         :param bundling: Bundle the asset by executing a command in a Docker container or a custom bundling provider. The asset path will be mounted at ``/asset-input``. The Docker container is responsible for putting content at ``/asset-output``. The content at ``/asset-output`` will be zipped and used as the final asset. Default: - uploaded as-is to S3 if the asset is a regular file or a .zip file, archived into a .zip file and uploaded to S3 otherwise
-        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Has no effect on Assets bundled using the ``bundling`` property. Default: - nothing is excluded
-        :param follow_symlinks: A strategy for how to handle symlinks. Default: SymlinkFollowMode.NEVER
-        :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
+        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, this controls the files that will be included in the copy. Files matching the ``exclude`` patterns will not be included in the copy. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the value of ``exclude`` is only meaningful if the ``assetHashType`` is set to ``AssetHashType.SOURCE``, and ignored for other asset hash types. The ``exclude`` patterns will be used to determine which files contribute to the asset, and the bundling command is skipped if the source files have not changed since the last bundling operation. **NOTE:** The bundling operation still has access to all files in the source path, regardless of the ``exclude`` patterns. It is your responsibility to ensure the ``exclude`` pattern accurately matches the files the bundling operation will *actually* access and base its final output on. For ``OUTPUT`` or ``CUSTOM`` asset hash types, the ``exclude`` pattern is ignored. Default: - nothing is excluded
+        :param follow_symlinks: A strategy for how to handle symlinks. Symlinks may be copied, materialized or rejected. Note that if symlinks are copied they should be relative; absolute symlinks will lose their meaning if the cloud assembly is moved to another machine. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, symlinks are materialized or blocked with respect to the ``sourcePath`` directory as they are being copied. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the bundling command is fully in charge of producing a set of files in an output directory, and the ``AssetStaging`` construct will never affect symlink materialization. If the ``assetHashType`` is ``AssetHashType.SOURCE``, this flag affects what the source hash is based on, and the recommended value is one of ``SymlinkFollowMode.EXTERNAL`` or ``SymlinkFollowMode.BLOCK_EXTERNAL``. If the ``SymlinkFollowMode.BLOCK_EXTERNAL`` mode is used: - symlinks pointing outside the source tree will be blocked if using ``AssetHashType.SOURCE``. - symlinks pointing outside the bundle output will be blocked. Default: SymlinkFollowMode.EXTERNAL
+        :param ignore_mode: What syntax the ``exclude`` patterns are written in. Default: - IgnoreMode.GLOB for file assets, ``IgnoreMode.DOCKER`` for image assets (requires that the ``@aws-cdk/aws-ecr-assets:dockerIgnoreSupport`` feature flag is set, which is recommended)
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8e0d542f4ba87cd0da3d994035ba4c030fc0e065bd6d2e49190b0063a06da6e8)

@@ -17,7 +17,7 @@ use crate::keywords::Keyword;
 pub enum LocationSegment<'a> {
     /// Property name within a JSON object.
     Property(Cow<'a, str>),
-    /// JSON Schema keyword.
+    /// Index within a JSON array.
     Index(usize),
 }
 
@@ -85,9 +85,6 @@ fn get_cached_index_paths() -> &'static [Location; 16] {
 
 impl<'a> From<&'a LazyLocation<'_, '_>> for Location {
     fn from(value: &'a LazyLocation<'_, '_>) -> Self {
-        const STACK_CAPACITY: usize = 16;
-
-        // Fast path: empty location
         if value.parent().is_none() {
             return Location::new();
         }
@@ -100,7 +97,6 @@ impl<'a> From<&'a LazyLocation<'_, '_>> for Location {
                     if *idx < 16 {
                         return get_cached_index_paths()[*idx].clone();
                     }
-                    // Single index > 15: compute directly
                     let mut idx_buffer = itoa::Buffer::new();
                     let idx = idx_buffer.format(*idx);
                     return build_location(1 + idx.len(), |buffer| {
@@ -128,75 +124,67 @@ impl<'a> From<&'a LazyLocation<'_, '_>> for Location {
         }
 
         build_location(string_capacity, |buffer| {
-            if capacity <= STACK_CAPACITY {
-                // Stack-allocated storage with references - no cloning needed
-                let mut stack_segments: [Option<&JsonPointerSegment<'_>>; STACK_CAPACITY] =
-                    [None; STACK_CAPACITY];
-                let mut idx = 0;
-                head = value;
-
-                if head.parent().is_some() {
-                    stack_segments[idx] = Some(head.segment());
-                    idx += 1;
-                }
-
-                while let Some(next) = head.parent() {
-                    head = next;
-                    if head.parent().is_some() {
-                        stack_segments[idx] = Some(head.segment());
-                        idx += 1;
-                    }
-                }
-
-                // Format in reverse order
-                for segment in stack_segments[..idx].iter().rev().flatten() {
-                    buffer.push('/');
-                    match segment {
-                        JsonPointerSegment::Key(property) => {
-                            write_escaped_str(buffer, property);
-                        }
-                        JsonPointerSegment::Index(idx) => {
-                            write_index(buffer, *idx);
-                        }
-                    }
-                }
-            } else {
-                // Heap-allocated fallback for deep paths (>16 segments)
-                let mut segments: Vec<&JsonPointerSegment<'_>> = Vec::with_capacity(capacity);
-                head = value;
-
-                if head.parent().is_some() {
-                    segments.push(head.segment());
-                }
-
-                while let Some(next) = head.parent() {
-                    head = next;
-                    if head.parent().is_some() {
-                        segments.push(head.segment());
-                    }
-                }
-
-                for segment in segments.iter().rev() {
-                    buffer.push('/');
-                    match segment {
-                        JsonPointerSegment::Key(property) => {
-                            write_escaped_str(buffer, property);
-                        }
-                        JsonPointerSegment::Index(idx) => {
-                            write_index(buffer, *idx);
-                        }
-                    }
-                }
-            }
+            write_segments(value, capacity, buffer);
         })
+    }
+}
+
+/// Writes `location`'s JSON Pointer to `buffer`.
+#[cfg(feature = "macros")]
+pub(crate) fn write_location(location: &LazyLocation<'_, '_>, buffer: &mut String) {
+    let mut segments = 0;
+    let mut head = location;
+    while let Some(next) = head.parent() {
+        segments += 1;
+        head = next;
+    }
+    write_segments(location, segments, buffer);
+}
+
+/// Writes the `segments` segments of `value`, outermost first.
+fn write_segments(value: &LazyLocation<'_, '_>, segments: usize, buffer: &mut String) {
+    const STACK_CAPACITY: usize = 16;
+    let write = |buffer: &mut String, segment: &JsonPointerSegment<'_>| {
+        buffer.push('/');
+        match segment {
+            JsonPointerSegment::Key(property) => write_escaped_str(buffer, property),
+            JsonPointerSegment::Index(idx) => write_index(buffer, *idx),
+        }
+    };
+    if segments <= STACK_CAPACITY {
+        // Stack-allocated storage with references - no cloning needed
+        let mut stack_segments: [Option<&JsonPointerSegment<'_>>; STACK_CAPACITY] =
+            [None; STACK_CAPACITY];
+        let mut idx = 0;
+        let mut head = value;
+        while let Some(next) = head.parent() {
+            stack_segments[idx] = Some(head.segment());
+            idx += 1;
+            head = next;
+        }
+        for segment in stack_segments[..idx].iter().rev().flatten() {
+            write(buffer, segment);
+        }
+    } else {
+        // Heap-allocated fallback for deep paths
+        let mut stored: Vec<&JsonPointerSegment<'_>> = Vec::with_capacity(segments);
+        let mut head = value;
+        while let Some(next) = head.parent() {
+            stored.push(head.segment());
+            head = next;
+        }
+        for segment in stored.iter().rev() {
+            write(buffer, segment);
+        }
     }
 }
 
 /// Tracks `$ref` traversals during validation for evaluation path computation.
 ///
 /// This is a stack-allocated linked list that gets pushed when crossing `$ref` boundaries.
-/// Each entry stores the **suffix** of the `$ref` location (path relative to its resource base),
-/// which is precomputed at compile time.
+/// Each entry stores the location of the `$ref` keyword. Its **suffix**, the part below the target
+/// its parent entered (the root at the top), depends on the route, as one subschema can be applied
+/// inline and as a `$ref` target.
 ///
 /// Use `Option<&RefTracker>` throughout the validation code:
 /// - `None` means no `$ref` has been traversed yet
@@ -219,8 +207,8 @@ impl<'a> From<&'a LazyLocation<'_, '_>> for Location {
 ///
 /// At the "type" validator:
 ///   tracker.prefix() = /properties/user/$ref
-///   validator.suffix = /type
-///   tracker  = /properties/user/$ref/type
+///   keyword suffix   = /type
+///   evaluation path  = /properties/user/$ref/type
 /// ```
 ///
 /// # Example: Nested $refs
@@ -245,17 +233,18 @@ impl<'a> From<&'a LazyLocation<'_, '_>> for Location {
 ///
 /// At the "type" validator:
 ///   tracker has two entries:
-///     1. suffix = /properties/order/$ref (from root resource)
-///     2. suffix = /properties/item/$ref  (from $defs/Order resource)
+///     1. location = /properties/order/$ref, suffix = /properties/order/$ref (from the root)
+///     2. location = /$defs/Order/properties/item/$ref, suffix = /properties/item/$ref
+///        (from /$defs/Order)
 ///   tracker.prefix() = /properties/order/$ref/properties/item/$ref
-///   validator.suffix = /type
-///   tracker  = /properties/order/$ref/properties/item/$ref/type
+///   keyword suffix   = /type
+///   evaluation path  = /properties/order/$ref/properties/item/$ref/type
 /// ```
 #[derive(Debug)]
 pub(crate) struct RefTracker<'a> {
-    /// Path of the `$ref` keyword relative to its resource base.
-    /// E.g., `/properties/user/$ref` (not the full canonical path).
-    suffix: &'a Location,
+    /// Location of the `$ref` keyword, below the `target_base` of its parent.
+    /// E.g., `/$defs/Order/properties/item/$ref`.
+    location: &'a Location,
     /// The resource base of the `$ref` target.
     /// Used to compute validator suffixes at runtime.
     /// E.g., `/$defs/Person` when `$ref` points to `#/$defs/Person`.
@@ -270,22 +259,15 @@ pub(crate) struct RefTracker<'a> {
 
 impl<'a> RefTracker<'a> {
     /// Create a new tracker for a `$ref` traversal.
-    ///
-    /// # Arguments
-    /// - `suffix`: The `$ref` keyword's path relative to its resource base
-    ///   (precomputed at compile time via `ctx.suffix()`)
-    /// - `target_base`: The resource base of the `$ref` target
-    ///   (e.g., `/$defs/Person` when `$ref` points to `#/$defs/Person`)
-    /// - `parent`: The parent tracker, or `None` if this is the first `$ref`
     #[inline]
     #[must_use]
     pub(crate) fn new(
-        suffix: &'a Location,
+        location: &'a Location,
         target_base: &'a Location,
         parent: Option<&'a RefTracker<'a>>,
     ) -> Self {
         RefTracker {
-            suffix,
+            location,
             target_base,
             parent,
             cached_prefix: std::sync::OnceLock::new(),
@@ -335,9 +317,19 @@ impl<'a> RefTracker<'a> {
         self.parent
     }
 
+    /// Location of the `$ref` keyword, which with the parent's prefix identifies this prefix.
     #[inline]
-    pub(crate) fn suffix(&self) -> &Location {
-        self.suffix
+    pub(crate) fn location(&self) -> &Location {
+        self.location
+    }
+
+    /// The `$ref` keyword's location below the target its parent entered.
+    fn suffix(&self) -> &str {
+        let base = self.parent.map_or("", |parent| parent.target_base.as_str());
+        self.location
+            .as_str()
+            .strip_prefix(base)
+            .expect("A `$ref` keyword lies below the target its parent entered")
     }
 
     #[inline]
@@ -358,9 +350,9 @@ impl<'a> RefTracker<'a> {
     // a prefix per level would hold memory quadratic in the `$ref` chain depth.
     fn compute_prefix(&self) -> Location {
         let Some(parent) = self.parent else {
-            return self.suffix.clone();
+            return self.location.clone();
         };
-        let mut suffixes = vec![self.suffix.as_str()];
+        let mut suffixes = vec![self.suffix()];
         let mut base = "";
         let mut ancestor = Some(parent);
         while let Some(tracker) = ancestor {
@@ -368,7 +360,7 @@ impl<'a> RefTracker<'a> {
                 base = prefix.as_str();
                 break;
             }
-            suffixes.push(tracker.suffix.as_str());
+            suffixes.push(tracker.suffix());
             ancestor = tracker.parent;
         }
         let capacity = base.len() + suffixes.iter().map(|suffix| suffix.len()).sum::<usize>();
@@ -420,82 +412,11 @@ pub(crate) fn capture_evaluation_path(
 
 /// Lazily-computed evaluation path stored in validation errors.
 ///
-/// # Why lazy?
-///
-/// Validators like `anyOf` collect errors from all branches but discard them
-/// if any branch succeeds. Eagerly computing evaluation paths for discarded
-/// errors wastes CPU cycles. We defer the string join until the error is
-/// actually displayed.
-///
-/// # Example 1: No $ref traversal
-///
-/// ```text
-/// Schema: { "properties": { "name": { "type": "string" } } }
-/// Instance: { "name": 123 }
-///
-/// schema_path = tracker = /properties/name/type
-///
-/// We store: SameAsSchemaPath (zero extra allocation)
-/// ```
-///
-/// # Example 2: Single $ref
-///
-/// ```text
-/// Schema:
-/// {
-///   "properties": {
-///     "user": { "$ref": "#/$defs/Person" }
-///   },
-///   "$defs": {
-///     "Person": { "type": "object" }
-///   }
-/// }
-/// Instance: { "user": "not-an-object" }
-///
-/// schema_path     = /$defs/Person/type  (canonical location, no $ref)
-/// tracker = /properties/user/$ref/type (actual traversal path)
-///
-/// We store:
-///   - prefix: /properties/user/$ref  (from RefTracker)
-///   - suffix: /type                  (precomputed at compile time)
-///
-/// On access: tracker = prefix + suffix
-/// ```
-///
-/// # Example 3: Nested $refs
-///
-/// ```text
-/// Schema:
-/// {
-///   "properties": {
-///     "order": { "$ref": "#/$defs/Order" }
-///   },
-///   "$defs": {
-///     "Order": {
-///       "properties": {
-///         "item": { "$ref": "#/$defs/Item" }
-///       }
-///     },
-///     "Item": {
-///       "properties": {
-///         "price": { "type": "number" }
-///       }
-///     }
-///   }
-/// }
-/// Instance: { "order": { "item": { "price": "free" } } }
-///
-/// schema_path     = /$defs/Item/properties/price/type
-/// tracker = /properties/order/$ref/properties/item/$ref/properties/price/type
-///
-/// We store:
-///   - prefix: /properties/order/$ref/properties/item/$ref  (from RefTracker chain)
-///   - suffix: /properties/price/type                       (computed at error creation)
-/// ```
+/// Validators like `anyOf` discard the branch errors they collect once a branch succeeds, so the
+/// string join waits until `ValidationError::evaluation_path` or `into_parts` reads the path.
 #[derive(Debug)]
 pub(crate) enum LazyEvaluationPath {
-    /// No `$ref` traversal - `tracker` equals `schema_path`.
-    /// Zero extra storage; we reference `ValidationError::schema_path` directly.
+    /// No `$ref` traversal: the evaluation path is `schema_path`, so nothing extra is stored.
     SameAsSchemaPath,
 
     /// Already computed evaluation path (e.g., from `into_owned`).
@@ -651,11 +572,25 @@ impl Location {
     /// Returns a cached instance to avoid allocation.
     #[must_use]
     pub fn new() -> Self {
-        EMPTY_LOCATION.get_or_init(|| Self(Arc::from(""))).clone()
+        Self::empty().clone()
+    }
+
+    /// The cached empty `Location`, borrowed.
+    pub(crate) fn empty() -> &'static Location {
+        EMPTY_LOCATION.get_or_init(|| Self(Arc::from("")))
     }
 
     pub(crate) fn from_escaped(escaped: &str) -> Self {
         Self(Arc::from(escaped))
+    }
+
+    /// `escaped` followed by the already escaped `suffix`.
+    #[cfg(feature = "macros")]
+    pub(crate) fn concat(escaped: &str, suffix: &str) -> Self {
+        build_location(escaped.len() + suffix.len(), |buffer| {
+            buffer.push_str(escaped);
+            buffer.push_str(suffix);
+        })
     }
 
     /// Append a raw JSON pointer suffix (already escaped).
@@ -721,7 +656,6 @@ impl Location {
         Arc::as_ptr(&self.0).cast::<u8>() as usize
     }
 
-    /// Get a clone of the inner `Arc<str>` representing the location.
     #[must_use]
     pub(crate) fn as_arc(&self) -> Arc<str> {
         Arc::clone(&self.0)
@@ -805,6 +739,18 @@ mod tests {
     use super::*;
     use serde_json::json;
     use test_case::test_case;
+
+    #[test]
+    fn error_location_renders_and_serializes() {
+        let schema = json!({"properties": {"a": {"items": {"type": "string"}}}});
+        let validator = crate::validator_for(&schema).expect("schema compiles");
+        let instance = json!({"a": ["x", 1]});
+        let error = validator.validate(&instance).expect_err("invalid");
+        let path = error.instance_path();
+        let rendered: Vec<String> = path.iter().map(|segment| segment.to_string()).collect();
+        assert_eq!(rendered, ["a", "1"]);
+        assert_eq!(serde_json::to_value(path).expect("a string"), json!("/a/1"));
+    }
 
     #[test]
     fn test_location_default() {

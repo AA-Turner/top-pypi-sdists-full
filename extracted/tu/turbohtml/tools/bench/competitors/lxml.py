@@ -12,6 +12,7 @@ import lxml.etree as lxml_etree
 from lxml import html as lxml_html
 from lxml.builder import E
 
+from bench.link_attributes import element_links
 from bench.timing import Mutating
 from bench.tree_text import PRESERVE_TAGS, SPACE_RUN
 
@@ -30,8 +31,8 @@ _LINKS_BASE: Final[str] = "https://example.com/base/"
 
 
 def parse(text: str) -> None:
-    # Parse a whole document with lxml's libxml2-backed HTML parser.
-    lxml_html.document_fromstring(text)
+    # huge_tree lifts libxml2's nesting limit; without it the default parser drops the rest of a deeply nested page.
+    lxml_html.document_fromstring(text, parser=lxml_html.HTMLParser(huge_tree=True))
 
 
 def _parse_encoded(case: tuple[str, bytes]) -> None:
@@ -40,7 +41,7 @@ def _parse_encoded(case: tuple[str, bytes]) -> None:
 
 def stream(text: str) -> None:
     # Include parser setup and closing in the 4,096-character feed workload.
-    parser: Final = lxml_etree.HTMLParser()
+    parser: Final[lxml_etree.HTMLParser[lxml_etree._Element]] = lxml_etree.HTMLParser()
     for start in range(0, len(text), 4096):
         parser.feed(text[start : start + 4096])
     parser.close()
@@ -62,7 +63,7 @@ _VALIDATORS: Final[dict[str, lxml_etree.XMLSchema]] = {}
 def validate(case: tuple[str, str]) -> None:
     # Validate a parsed XML document against an XSD schema with lxml's etree.XMLSchema (compiled once).
     schema, document = case
-    etree: Final = lxml_etree
+    etree = lxml_etree
     validator = _VALIDATORS.get(schema)
     if validator is None:
         validator = _VALIDATORS[schema] = etree.XMLSchema(etree.fromstring(schema.encode()))
@@ -152,6 +153,11 @@ def _select_relative(case: tuple[str, str, int]) -> None:
         document.cssselect(selector)
 
 
+def _select_scaling(case: tuple[str, str]) -> None:
+    selector, text = case
+    _parsed(text).cssselect(selector)
+
+
 def text_content(text: str) -> None:
     # Collect the document's visible text with lxml's text_content method.
     _parsed(text).text_content()
@@ -174,7 +180,7 @@ def canonicalize(text: str) -> None:
 
 def canonicalize_deep(case: tuple[str, int]) -> None:
     text, repeats = case
-    tree: Final = _parsed(text)
+    tree: Final[HtmlElement] = _parsed(text)
     for _ in range(repeats):
         lxml_etree.tostring(tree, method="c14n")
 
@@ -249,10 +255,19 @@ def navigate(text: str) -> None:
         pass
 
 
+def link_urls(text: str) -> list[str]:
+    # Collect every link-bearing attribute and <style> url() with lxml, the set turbohtml's links() reads.
+    return [
+        link
+        for element in _parsed(text).iter(lxml_etree.Element)
+        for link in element_links(
+            str(element.tag), element.attrib.items(), element.text if element.tag == "style" else None
+        )
+    ]
+
+
 def links_extract(text: str) -> None:
-    # Collect every link with lxml's iterlinks().
-    for _link in _parsed(text).iterlinks():
-        pass
+    _ = link_urls(text)
 
 
 def links_absolutize(tree: HtmlElement) -> None:
@@ -415,35 +430,36 @@ def transform_compile(case: tuple[str, str]) -> None:
 @functools.cache
 def _xslt_compiled(sheet: str, source: str):  # ruff:ignore[missing-return-type-private-function]  # lxml has no types
     # Keep construction and source parsing outside application timing.
-    document: Final = lxml_etree.fromstring(sheet.encode())
+    document: Final[lxml_etree._Element] = lxml_etree.fromstring(sheet.encode())
     if any(
         "current()" in number.get(attribute, "")
         for number in document.iter("{http://www.w3.org/1999/XSL/Transform}number")
         for attribute in ("count", "from")
     ):
         # XSLT 1.0 section 12.4 forbids current() in patterns; libxslt gives this fixture different semantics.
-        unsupported: Final = "XSLT 1.0 forbids current() in patterns; libxslt numbering differs from turbohtml"
+        unsupported: Final[str] = "XSLT 1.0 forbids current() in patterns; libxslt numbering differs from turbohtml"
         raise NotImplementedError(unsupported)
     return lxml_etree.XSLT(document), lxml_etree.fromstring(source.encode())
 
 
-def transform(case: tuple[str, str]) -> lxml_etree._XSLTResultTree:
-    # Apply a compiled XSLT 1.0 stylesheet to a parsed source with lxml's libxslt engine.
+def transform(case: tuple[str, str]) -> str:
+    # Apply a compiled XSLT 1.0 stylesheet to a parsed source with lxml's libxslt engine. libxslt returns a lazy result
+    # tree, so serialize it as turbohtml's transform does: each side then times the same output work.
     sheet, source = case
     compiled, document = _xslt_compiled(sheet, source)
-    return compiled(document)
+    return str(compiled(document))
 
 
-def _transform_compile_run(case: tuple[str, str]) -> lxml_etree._XSLTResultTree:
+def _transform_compile_run(case: tuple[str, str]) -> str:
     sheet, source = case
-    return lxml_etree.XSLT(_xslt_sheet(sheet))(_xslt_sheet(source))
+    return str(lxml_etree.XSLT(_xslt_sheet(sheet))(_xslt_sheet(source)))
 
 
 def transform_reuse(case: tuple[str, str]) -> None:
     sheet, source = case
     compiled, document = _xslt_compiled(sheet, source)
     for _ in range(10):
-        compiled(document)
+        str(compiled(document))
 
 
 class _Counter:
@@ -473,7 +489,7 @@ def htmlparser(text: str) -> None:
 
 
 def _serialize_inner(text: str) -> str:
-    body: Final = _body(text)
+    body: Final[HtmlElement] = _body(text)
     return escape(body.text or "", quote=False) + "".join(
         lxml_html.tostring(child, encoding="unicode") for child in body
     )
@@ -489,7 +505,7 @@ def _encode_inner(text: str) -> bytes:
 
 
 def _serialize_inner_indent(text: str) -> str:
-    body: Final = _body(text)
+    body: Final[HtmlElement] = _body(text)
     return escape(body.text or "", quote=False) + "".join(
         lxml_html.tostring(child, encoding="unicode", pretty_print=True) for child in body
     )
@@ -559,7 +575,7 @@ OPERATIONS: Final[dict[str, tuple[Timed, str]]] = {
     "emit": (emit, "lxml"),
     "find": (find, "lxml"),
     "select": (select, "lxml"),
-    "select-nth": (_select_relative, "lxml"),
+    "select-nth": (_select_scaling, "lxml"),
     "select-relative": (_select_relative, "lxml"),
     "select-has": (select_has, "lxml"),
     "text-content": (text_content, "lxml"),

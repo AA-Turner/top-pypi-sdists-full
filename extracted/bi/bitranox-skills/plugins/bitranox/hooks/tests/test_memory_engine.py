@@ -190,27 +190,27 @@ def test_ensure_level_control_a_writable_exclude_file_warns_nothing(tmp_path, ca
     assert "warning" not in capsys.readouterr().err
 
 
-# ---- _body_description reads the frame, never the prose ----------------------------------------
+# ---- body_description reads the frame, never the prose ----------------------------------------
 
 def test_body_description_ignores_a_description_line_in_unframed_prose():
     """A body with no frontmatter has no description; its prose saying `description: x` is the
     author's text, which adopting a dangling body then made the always-loaded hook."""
-    assert E._body_description("Some prose.\ndescription: not a hook\n") == ""
+    assert E.body_description("Some prose.\ndescription: not a hook\n") == ""
 
 
 def test_body_description_ignores_a_horizontal_rule_body():
-    assert E._body_description("---\nprose\ndescription: nope\n---\nmore\n") == ""
+    assert E.body_description("---\nprose\ndescription: nope\n---\nmore\n") == ""
 
 
 def test_body_description_reads_inside_the_frame_not_a_later_prose_line():
     framed = ("---\nname: s\nmetadata:\n  type: project\n---\n\n"
               "description: a prose line below the frame\n")
-    assert E._body_description(framed) == ""
+    assert E.body_description(framed) == ""
 
 
 def test_body_description_control_a_framed_body_reads_its_own():
     framed = "---\nname: s\ndescription: real hook\nmetadata:\n  type: project\n---\n\nbody\n"
-    assert E._body_description(framed) == "real hook"
+    assert E.body_description(framed) == "real hook"
 
 
 # ---- CLI ---------------------------------------------------------------------------------------
@@ -593,6 +593,7 @@ def test_move_multi_slug_still_refuses_a_citer_outside_the_set(tmp_path):
     E.add_or_update_entry(mid, "Outsider", "also builds on [[fact-a]]", body="C", scope_default="m")
     rep = E.move_entry(anchor, proj, [a, b])
     assert rep.moved is False and "dangle" in (rep.refused or "")
+    assert rep.refused is not None
     assert "outsider" in rep.refused                    # the blocking citer is named
     assert _slugs_at(anchor) == {a, b} and _slugs_at(proj) == set()      # nothing moved
     rep2 = E.move_entry(anchor, proj, [a, b], force=True)  # --force still overrides, with a warning
@@ -648,6 +649,7 @@ def test_move_multi_slug_legacy_member_refuses_and_names_it(tmp_path):
         encoding="utf-8")
     rep = E.move_entry(mid, proj, ["fresh", "old-fact"])
     assert rep.moved is False and "migrate" in (rep.refused or "").lower()
+    assert rep.refused is not None
     assert "old-fact" in rep.refused and _slugs_at(proj) == set()
 
 
@@ -772,6 +774,7 @@ def test_ensure_all_trees_refuses_stray_top_bootstrap(two_trees):
     rep = E.ensure_all_trees(roots=[str(two_trees.root)], apply=True)
     by_top = {t.top: t for t in rep.trees}
     stray = by_top[str(two_trees.root)]
+    assert stray.why is not None
     assert stray.status is E.TreeStatus.AMBIGUOUS and "merge" in stray.why
     assert stray.created == []
     assert not (two_trees.root / "CLAUDE.local.md").exists()   # nothing scaffolded at the stray top
@@ -1145,14 +1148,14 @@ def test_an_UPDATE_may_still_omit_the_body(proj):
     slug = E.add_or_update_entry(proj, "Real", "When x, do y.", body="a real body")
     again = E.add_or_update_entry(proj, "Real", "When x, do z.", body="")
     assert again == slug
-    body = us.body_path(Path(E._anchor(proj)), slug).read_text(encoding="utf-8")
+    body = us.body_path(Path(E.anchor_dir(proj)), slug).read_text(encoding="utf-8")
     assert "a real body" in body
 
 
 def test_a_new_fact_with_a_real_body_still_works(proj):
     """Must-not-break: the refusal is for EMPTY only."""
     slug = E.add_or_update_entry(proj, "Fine", "When x, do y.", body="something worth reading")
-    assert us.body_path(Path(E._anchor(proj)), slug).is_file()
+    assert us.body_path(Path(E.anchor_dir(proj)), slug).is_file()
 
 
 def test_move_refusal_names_the_field_that_actually_differs(tmp_path):

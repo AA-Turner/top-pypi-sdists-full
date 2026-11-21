@@ -952,8 +952,9 @@ def _launcher_bridge_parameters(settings: dict[str, Any]) -> dict[str, Any]:
 
     Raises:
         ValueError: naming the key, for a value that is no mapping, or a
-            parameter the node would refuse as it starts (a fraction for an
-            integer one, :func:`~autoware_carla_scenario.autoware_stack.bridge_node.bridge_ros_args`).
+            parameter the node would refuse or misbehave with as it starts (a
+            fraction for an integer one, a string for a number, a timeout that
+            is not positive, :func:`~autoware_carla_scenario.autoware_stack.bridge_node.bridge_ros_args`).
     """
     from autoware_carla_scenario.autoware_stack.bridge_node import (  # noqa: PLC0415
         bridge_ros_args,
@@ -2206,11 +2207,29 @@ def _compose_config(scenario_name: str, overrides: list[str]) -> DictConfig:
 
 
 def _has_sweep(cfg: DictConfig) -> bool:
-    """Whether *cfg* is a logical scenario: one with a sweep to expand."""
+    """Whether *cfg* is a logical scenario: one with a sweep to expand.
+
+    Raises:
+        ValueError: If its ``sweep`` is neither null nor a mapping
+            (:func:`~autoware_carla_scenario.sweeper.expand.check_sweep_shape`),
+            which :func:`check_batch_configs` refuses before anything runs
+            (#2279).
+    """
+    from ..sweeper.expand import check_sweep_shape  # noqa: PLC0415 -- loads Lanelet2
+
     sweep = OmegaConf.select(cfg, "sweep")
-    return sweep is not None and any(
-        OmegaConf.select(sweep, key) for key in ("constraints", "route", "odd_sample")
-    )
+    # Its shape only: an interpolation inside it, which only expanding the
+    # sweep reads, is left unresolved, as a run that does not expand it
+    # always left it.
+    check_sweep_shape(sweep)
+    if sweep is None:
+        return False
+    if isinstance(sweep, DictConfig):
+        return any(
+            OmegaConf.select(sweep, key)
+            for key in ("constraints", "route", "odd_sample")
+        )
+    return any(sweep.get(key) for key in ("constraints", "route", "odd_sample"))
 
 
 def _expand_batch(
@@ -2461,6 +2480,9 @@ def _batch_queue(
         t4scene=build_t4scene_exporter(first_cfg),
         backends=build_backend_pool(first_cfg),
         map_pack=build_map_pack(first_cfg, map_paths),
+        # The tasks of a SLURM batch write into one directory, each counting
+        # its stacks from 0: a case's stem tells their logs apart (#2247).
+        stack_logs_by_stem=True,
     )
 
 
@@ -2747,7 +2769,8 @@ def check_batch_configs(
     The ``rerun``, ``t4``, ``driver`` and ``t4scene`` settings, as the batch
     reads them (:func:`_check_batch_writer_settings`); each case's timeout,
     ``typecheck`` mode (:func:`~autoware_carla_scenario.typecheck.mode.typecheck_mode`),
-    ``ego.entity`` (:func:`ego_entity_name`), seeds (``seed``, ``sweep.odd_sample.seed`` and ``.count``),
+    ``ego.entity`` (:func:`ego_entity_name`), seeds (``seed``, ``sweep.odd_sample.seed`` and ``.count``)
+    and the shape of ``sweep`` (a mapping or null),
     ``background_traffic`` (:func:`background_traffic_settings`),
     ``environment`` (:func:`environment_settings`) and the form of its
     ``rules`` (:func:`_check_weather_rules`), ``driver`` settings of an
@@ -3002,17 +3025,6 @@ def run_batch(
         sys.exit(1)
     configs = [_compose_config(name, case) for name, case in cases]
 
-    if not expand:
-        swept = [name for name, cfg in zip(labels, configs) if _has_sweep(cfg)]
-        if swept:
-            logger.warning(
-                "%s ha%s a sweep (sweep.constraints, sweep.route or "
-                "sweep.odd_sample) that a batch runs once, as configured; add "
-                "--multirun to run every case of it",
-                ", ".join(swept),
-                "s" if len(swept) == 1 else "ve",
-            )
-
     # Every value a case reads of its config before it starts -- that the
     # cases share a map, the queue is built on the first case's (#1241); that
     # each is on the map its document names; the ground-projection ray, a ray
@@ -3024,6 +3036,19 @@ def run_batch(
     # Raised, as RunConfigError: the CLI reports it as an ``Error:`` line,
     # headed by the case's name, and HYDRA_FULL_ERROR=1 raises it (_dispatch).
     check_batch_configs(configs, labels, documents=documents)
+
+    if not expand:
+        # After the configs are checked: a sweep that is not a mapping is
+        # refused there, naming its case (#2279).
+        swept = [name for name, cfg in zip(labels, configs) if _has_sweep(cfg)]
+        if swept:
+            logger.warning(
+                "%s ha%s a sweep (sweep.constraints, sweep.route or "
+                "sweep.odd_sample) that a batch runs once, as configured; add "
+                "--multirun to run every case of it",
+                ", ".join(swept),
+                "s" if len(swept) == 1 else "ve",
+            )
 
     # One launcher for the whole batch: the queue prepares it (and puts its
     # logs in the batch's output directory) and every ego starts its stacks
@@ -3308,10 +3333,13 @@ def _check_seeds(cfg: DictConfig) -> None:
     ``visibility`` unless each is true or false, naming the key, as expanding
     the sweep and building the scenario would refuse them.
 
+    And the sweep itself, unless it is null or a mapping (:func:`_has_sweep`).
+
     Raises:
         ValueError: naming the key of the value refused.
     """
     config_seed(cfg)
+    _has_sweep(cfg)  # before its odd_sample is looked up in it
     odd_sample = OmegaConf.select(cfg, "sweep.odd_sample")
     if isinstance(odd_sample, DictConfig):
         check_sample_settings(odd_sample)
@@ -3631,7 +3659,8 @@ def add_environment(cfg: DictConfig, scenario: BaseScenario) -> None:
     runs, and each runs under its own rules, not the last case's (#1936).
 
     Raises:
-        ValueError: An ``environment.<key>`` is not a number, or is one
+        ValueError: An ``environment.<key>`` is no setting
+            (:func:`environment_settings`), is not a number, or is one
             :class:`~autoware_carla_scenario.EnvironmentAction` refuses (not
             finite, or outside the range its argument takes); the message
             names the key.
@@ -3676,8 +3705,14 @@ def environment_settings(cfg: DictConfig) -> dict[str, Any]:
     ``night``, ``dawn``; ``clear``, ``partly_cloudy``, ``overcast``).
 
     Raises:
-        ValueError: naming the key, as :func:`add_environment` documents.
+        ValueError: naming the key, as :func:`add_environment` documents,
+            and for a key that is none of these (``environment.rain``), which
+            ``EnvironmentAction(**settings)`` would refuse only with a
+            ``TypeError`` once the scenario was built (#2265).
     """
+    import inspect  # noqa: PLC0415
+
+    from autoware_carla_scenario import EnvironmentAction  # noqa: PLC0415
     from autoware_carla_scenario.actions.environment import (  # noqa: PLC0415
         _refusal,
     )
@@ -3692,8 +3727,20 @@ def environment_settings(cfg: DictConfig) -> dict[str, Any]:
     env_cfg = cfg.get("environment")
     raw = {} if env_cfg is None else _to_dict(env_cfg)
     raw.pop("rules", None)
+    # What the action takes, but its own (when and how it runs), and what
+    # the weather rules read before it (add_environment).
+    known = {
+        name
+        for name in inspect.signature(EnvironmentAction.__init__).parameters
+        if name not in ("self", "condition", "timing", "label", "once")
+    } | {"time_of_day", "visibility_quantile"}
     settings: dict[str, Any] = {}
     for key, value in raw.items():
+        if key not in known:
+            raise ValueError(
+                f"environment.{key} is no environment setting, got {value!r}: "
+                f"the settings are rules, {', '.join(sorted(known))}"
+            )
         if value is None:
             continue
         if key in label_settings:
@@ -3745,8 +3792,12 @@ def _rules_locations(spec: Any) -> Any:
     from hydra.utils import to_absolute_path  # noqa: PLC0415
 
     def where(location: Any) -> Any:
-        if not isinstance(location, str) or location.startswith(
-            ("https://", "http://")
+        # A blank one as it is too, for check_weather_rules to refuse
+        # (to_absolute_path would make it the run's directory).
+        if (
+            not isinstance(location, str)
+            or not location.strip()
+            or location.startswith(("https://", "http://"))
         ):
             return location
         return to_absolute_path(location)

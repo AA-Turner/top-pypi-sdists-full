@@ -253,8 +253,12 @@ def _aggregates_rows(cte: Any) -> bool:
         return False
     rolled = {c.address for c in cte.rollup_concepts}
     return any(
-        c.derivation == Derivation.AGGREGATE
-        and (c.address in rolled or not cte.source_map.get(c.address))
+        (
+            c.derivation == Derivation.AGGREGATE
+            and (c.address in rolled or not cte.source_map.get(c.address))
+        )
+        # a value over a partial this CTE re-sums (`count(id) - max(h)`)
+        or any(a.address in rolled for a in c.concept_arguments)
         for c in cte.output_columns
     )
 
@@ -332,6 +336,21 @@ def _aggregate_over_collapsed_filter(
     if not isinstance(cte, CTE):
         return False
     return any(cte.filter_collapses_to_grain(x) for x in agg.function.concept_arguments)
+
+
+def _aggregate_over_rollup(cte: "CTE | UnionCTE", agg: BuildAggregateWrapper) -> bool:
+    """True when an argument is a partial this CTE re-aggregates to a grain
+    within its own (`sum(max(h) by city)` grouped by city): the re-aggregate
+    is the argument's one value per group, so the outer aggregate is that
+    value's single-row formula, not an aggregate nested around it."""
+    rolled = {r.address: r for r in cte.rollup_concepts}
+    grain = set(cte.grain.components)
+    return any(
+        (r := rolled.get(x.address)) is not None
+        and r.grain is not None
+        and set(r.grain.components) <= grain
+        for x in agg.function.concept_arguments
+    )
 
 
 def _own_aggregate_definition(cte: "CTE | UnionCTE", c: BuildConcept) -> BuildConcept:
@@ -1847,9 +1866,11 @@ class BaseDialect:
                 ]
                 operator = _aggregate_operator(cte, c)
                 if cte.group_to_grain:
-                    if _aggregate_over_collapsed_filter(
-                        cte, c.lineage
-                    ) or _aggregates_a_constant(c.lineage.function):
+                    if (
+                        _aggregate_over_collapsed_filter(cte, c.lineage)
+                        or _aggregate_over_rollup(cte, c.lineage)
+                        or _aggregates_a_constant(c.lineage.function)
+                    ):
                         rval = self.FUNCTION_GRAIN_MATCH_MAP[operator](bare, [])
                     else:
                         rval = self.FUNCTION_MAP[operator](args, [])

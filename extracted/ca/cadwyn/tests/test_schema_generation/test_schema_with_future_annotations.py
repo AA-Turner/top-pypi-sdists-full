@@ -10,7 +10,7 @@ from pydantic import BaseModel, WithJsonSchema
 from pydantic.warnings import PydanticDeprecatedSince211
 
 from cadwyn.exceptions import InvalidGenerationInstructionError
-from cadwyn.structure.schemas import schema
+from cadwyn_core.structure.schemas import schema
 from tests.conftest import CreateRuntimeSchemas, assert_models_are_equal, version_change
 
 Foo: TypeAlias = int
@@ -87,7 +87,7 @@ class ParentWithFooAsQuotedClassVar(BaseModel):
 
 
 class ChildThatDeclaresFooHiddenByQuotedClassVar(ParentWithFooAsQuotedClassVar):
-    foo: str  # ty: ignore[invalid-attribute-override]
+    foo: str  # ty: ignore[incompatible-attribute-override]
 
 
 class ParentWithFooAsAliasedClassVar(BaseModel):
@@ -95,7 +95,7 @@ class ParentWithFooAsAliasedClassVar(BaseModel):
 
 
 class ChildThatDeclaresFooHiddenByAliasedClassVar(ParentWithFooAsAliasedClassVar):
-    foo: str  # ty: ignore[invalid-attribute-override]
+    foo: str  # ty: ignore[incompatible-attribute-override]
 
 
 # Pydantic warns that it will treat such a name as a field in V3, and that the child's field shadows the class var

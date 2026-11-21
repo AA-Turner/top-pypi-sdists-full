@@ -365,6 +365,57 @@ class _IUserPoolClientRefProxy(
 typing.cast(typing.Any, IUserPoolClientRef).__jsii_proxy_class__ = lambda : _IUserPoolClientRefProxy
 
 
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_cognito.IUserPoolClientSessionConfigurationAttachmentRef"
+)
+class IUserPoolClientSessionConfigurationAttachmentRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a UserPoolClientSessionConfigurationAttachment.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="userPoolClientSessionConfigurationAttachmentRef")
+    def user_pool_client_session_configuration_attachment_ref(
+        self,
+    ) -> "UserPoolClientSessionConfigurationAttachmentReference":
+        '''(experimental) A reference to a UserPoolClientSessionConfigurationAttachment resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IUserPoolClientSessionConfigurationAttachmentRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a UserPoolClientSessionConfigurationAttachment.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_cognito.IUserPoolClientSessionConfigurationAttachmentRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="userPoolClientSessionConfigurationAttachmentRef")
+    def user_pool_client_session_configuration_attachment_ref(
+        self,
+    ) -> "UserPoolClientSessionConfigurationAttachmentReference":
+        '''(experimental) A reference to a UserPoolClientSessionConfigurationAttachment resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("UserPoolClientSessionConfigurationAttachmentReference", jsii.get(self, "userPoolClientSessionConfigurationAttachmentRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IUserPoolClientSessionConfigurationAttachmentRef).__jsii_proxy_class__ = lambda : _IUserPoolClientSessionConfigurationAttachmentRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cognito.IUserPoolDomainRef")
 class IUserPoolDomainRef(
     _constructs_77d1e7e8.IConstruct,
@@ -739,6 +790,57 @@ class _IUserPoolRiskConfigurationAttachmentRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IUserPoolRiskConfigurationAttachmentRef).__jsii_proxy_class__ = lambda : _IUserPoolRiskConfigurationAttachmentRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_cognito.IUserPoolSessionConfigurationAttachmentRef"
+)
+class IUserPoolSessionConfigurationAttachmentRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a UserPoolSessionConfigurationAttachment.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="userPoolSessionConfigurationAttachmentRef")
+    def user_pool_session_configuration_attachment_ref(
+        self,
+    ) -> "UserPoolSessionConfigurationAttachmentReference":
+        '''(experimental) A reference to a UserPoolSessionConfigurationAttachment resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IUserPoolSessionConfigurationAttachmentRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a UserPoolSessionConfigurationAttachment.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_cognito.IUserPoolSessionConfigurationAttachmentRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="userPoolSessionConfigurationAttachmentRef")
+    def user_pool_session_configuration_attachment_ref(
+        self,
+    ) -> "UserPoolSessionConfigurationAttachmentReference":
+        '''(experimental) A reference to a UserPoolSessionConfigurationAttachment resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("UserPoolSessionConfigurationAttachmentReference", jsii.get(self, "userPoolSessionConfigurationAttachmentRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IUserPoolSessionConfigurationAttachmentRef).__jsii_proxy_class__ = lambda : _IUserPoolSessionConfigurationAttachmentRefProxy
 
 
 @jsii.interface(
@@ -1292,6 +1394,66 @@ class UserPoolClientReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_cognito.UserPoolClientSessionConfigurationAttachmentReference",
+    jsii_struct_bases=[],
+    name_mapping={"client_id": "clientId", "user_pool_id": "userPoolId"},
+)
+class UserPoolClientSessionConfigurationAttachmentReference:
+    def __init__(self, *, client_id: builtins.str, user_pool_id: builtins.str) -> None:
+        '''A reference to a UserPoolClientSessionConfigurationAttachment resource.
+
+        :param client_id: The ClientId of the UserPoolClientSessionConfigurationAttachment resource.
+        :param user_pool_id: The UserPoolId of the UserPoolClientSessionConfigurationAttachment resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_cognito as interfaces_cognito
+            
+            user_pool_client_session_configuration_attachment_reference = interfaces_cognito.UserPoolClientSessionConfigurationAttachmentReference(
+                client_id="clientId",
+                user_pool_id="userPoolId"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e3eefd2429d09791f498553243b69a60160189f5e1ecd78a55eac2289a8acfce)
+            check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+            check_type(argname="argument user_pool_id", value=user_pool_id, expected_type=type_hints["user_pool_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "client_id": client_id,
+            "user_pool_id": user_pool_id,
+        }
+
+    @builtins.property
+    def client_id(self) -> builtins.str:
+        '''The ClientId of the UserPoolClientSessionConfigurationAttachment resource.'''
+        result = self._values.get("client_id")
+        assert result is not None, "Required property 'client_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def user_pool_id(self) -> builtins.str:
+        '''The UserPoolId of the UserPoolClientSessionConfigurationAttachment resource.'''
+        result = self._values.get("user_pool_id")
+        assert result is not None, "Required property 'user_pool_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "UserPoolClientSessionConfigurationAttachmentReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_cognito.UserPoolDomainReference",
     jsii_struct_bases=[],
     name_mapping={"domain": "domain", "user_pool_id": "userPoolId"},
@@ -1776,6 +1938,55 @@ class UserPoolRiskConfigurationAttachmentReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_cognito.UserPoolSessionConfigurationAttachmentReference",
+    jsii_struct_bases=[],
+    name_mapping={"user_pool_id": "userPoolId"},
+)
+class UserPoolSessionConfigurationAttachmentReference:
+    def __init__(self, *, user_pool_id: builtins.str) -> None:
+        '''A reference to a UserPoolSessionConfigurationAttachment resource.
+
+        :param user_pool_id: The UserPoolId of the UserPoolSessionConfigurationAttachment resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_cognito as interfaces_cognito
+            
+            user_pool_session_configuration_attachment_reference = interfaces_cognito.UserPoolSessionConfigurationAttachmentReference(
+                user_pool_id="userPoolId"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__62f12a2fb5d59e50dd0dc06971087f60fb85b6c7f638d94139450401ed2e2fbd)
+            check_type(argname="argument user_pool_id", value=user_pool_id, expected_type=type_hints["user_pool_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "user_pool_id": user_pool_id,
+        }
+
+    @builtins.property
+    def user_pool_id(self) -> builtins.str:
+        '''The UserPoolId of the UserPoolSessionConfigurationAttachment resource.'''
+        result = self._values.get("user_pool_id")
+        assert result is not None, "Required property 'user_pool_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "UserPoolSessionConfigurationAttachmentReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_cognito.UserPoolUICustomizationAttachmentReference",
     jsii_struct_bases=[],
     name_mapping={"client_id": "clientId", "user_pool_id": "userPoolId"},
@@ -1984,6 +2195,7 @@ __all__ = [
     "IManagedLoginBrandingRef",
     "ITermsRef",
     "IUserPoolClientRef",
+    "IUserPoolClientSessionConfigurationAttachmentRef",
     "IUserPoolDomainRef",
     "IUserPoolGroupRef",
     "IUserPoolIdentityProviderRef",
@@ -1992,6 +2204,7 @@ __all__ = [
     "IUserPoolReplicaRef",
     "IUserPoolResourceServerRef",
     "IUserPoolRiskConfigurationAttachmentRef",
+    "IUserPoolSessionConfigurationAttachmentRef",
     "IUserPoolUICustomizationAttachmentRef",
     "IUserPoolUserRef",
     "IUserPoolUserToGroupAttachmentRef",
@@ -2002,6 +2215,7 @@ __all__ = [
     "ManagedLoginBrandingReference",
     "TermsReference",
     "UserPoolClientReference",
+    "UserPoolClientSessionConfigurationAttachmentReference",
     "UserPoolDomainReference",
     "UserPoolGroupReference",
     "UserPoolIdentityProviderReference",
@@ -2010,6 +2224,7 @@ __all__ = [
     "UserPoolReplicaReference",
     "UserPoolResourceServerReference",
     "UserPoolRiskConfigurationAttachmentReference",
+    "UserPoolSessionConfigurationAttachmentReference",
     "UserPoolUICustomizationAttachmentReference",
     "UserPoolUserReference",
     "UserPoolUserToGroupAttachmentReference",
@@ -2063,6 +2278,14 @@ def _typecheckingstub__e6ddddddef6f9c7269efe22a766f1ea54ea3dc4aaa13214f7e0825ea9
     pass
 
 def _typecheckingstub__a613d0899cb76353a656d3984ed3afd3693b73b15de1734d391036c385914ab5(
+    *,
+    client_id: builtins.str,
+    user_pool_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e3eefd2429d09791f498553243b69a60160189f5e1ecd78a55eac2289a8acfce(
     *,
     client_id: builtins.str,
     user_pool_id: builtins.str,
@@ -2133,6 +2356,13 @@ def _typecheckingstub__e89abfe80fc6ed500e877a7f0b753fff7e2ea69d20ea8301b0f5c95cc
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__62f12a2fb5d59e50dd0dc06971087f60fb85b6c7f638d94139450401ed2e2fbd(
+    *,
+    user_pool_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__9a0dc8ff8cccc49fdaec27f43141b983d0bbe2d7580800e65676265f6e19fbb6(
     *,
     client_id: builtins.str,
@@ -2158,5 +2388,5 @@ def _typecheckingstub__de98a26267d52b4593101085779f879caf7df79b9360db02490d48363
     """Type checking stubs"""
     pass
 
-for cls in [IIdentityPoolPrincipalTagRef, IIdentityPoolRef, IIdentityPoolRoleAttachmentRef, ILogDeliveryConfigurationRef, IManagedLoginBrandingRef, ITermsRef, IUserPoolClientRef, IUserPoolDomainRef, IUserPoolGroupRef, IUserPoolIdentityProviderRef, IUserPoolRef, IUserPoolRegionalConfigurationAttachmentRef, IUserPoolReplicaRef, IUserPoolResourceServerRef, IUserPoolRiskConfigurationAttachmentRef, IUserPoolUICustomizationAttachmentRef, IUserPoolUserRef, IUserPoolUserToGroupAttachmentRef]:
+for cls in [IIdentityPoolPrincipalTagRef, IIdentityPoolRef, IIdentityPoolRoleAttachmentRef, ILogDeliveryConfigurationRef, IManagedLoginBrandingRef, ITermsRef, IUserPoolClientRef, IUserPoolClientSessionConfigurationAttachmentRef, IUserPoolDomainRef, IUserPoolGroupRef, IUserPoolIdentityProviderRef, IUserPoolRef, IUserPoolRegionalConfigurationAttachmentRef, IUserPoolReplicaRef, IUserPoolResourceServerRef, IUserPoolRiskConfigurationAttachmentRef, IUserPoolSessionConfigurationAttachmentRef, IUserPoolUICustomizationAttachmentRef, IUserPoolUserRef, IUserPoolUserToGroupAttachmentRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

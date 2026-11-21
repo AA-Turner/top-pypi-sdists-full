@@ -1,76 +1,41 @@
-use std::sync::Arc;
-
-use async_trait::async_trait;
-use parking_lot::Mutex;
-
 use crate::{
-    OpsStatsEventObserver, StatsigErr, StatsigRuntime,
+    StatsigErr,
     interned_string::InternedString,
     networking::ResponseData,
-    observability::{
-        ErrorBoundaryEvent,
-        ops_stats::{OpsStatsEvent, OpsStatsForInstance},
-    },
+    observability::ops_stats::{OpsStatsEvent, OpsStatsForInstance},
     specs_response::{proto_specs::deserialize_protobuf, spec_types::SpecsResponseFull},
 };
-
-lazy_static::lazy_static! {
-    static ref OPS_STATS: OpsStatsForInstance = OpsStatsForInstance::new();
-}
 
 // Generated from cli/src/commands/make-test-proto.ts
 // run `tore make-test-proto` to generate the unknown_enum.pb.br file
 const UNKNOWN_ENUM_PROTO_BYTES: &[u8] = include_bytes!("../../../tests/data/unknown_enum.pb.br");
 
-struct TestErrorObserver {
-    received_events: Mutex<Vec<ErrorBoundaryEvent>>,
-}
-
-impl TestErrorObserver {
-    fn new() -> Self {
-        Self {
-            received_events: Mutex::new(Vec::new()),
-        }
-    }
-}
-
-#[async_trait]
-impl OpsStatsEventObserver for TestErrorObserver {
-    async fn handle_event(&self, event: OpsStatsEvent) {
-        if let OpsStatsEvent::SDKError(error) = event {
-            self.received_events.lock().push(error);
-        }
-    }
-}
-
-#[tokio::test]
-async fn test_it_can_parse_response_with_unknown_fields() {
-    let result = get_deserialized_spec_result();
+#[test]
+fn test_it_can_parse_response_with_unknown_fields() {
+    let result = get_deserialized_spec_result(&OpsStatsForInstance::new());
     assert!(result.is_ok());
 }
 
-#[tokio::test]
-async fn test_logging_error_to_statsig_and_console() {
-    let runtime = StatsigRuntime::get_runtime();
-    let _ = runtime
-        .spawn("keep_alive", |_| async { /* noop */ })
-        .unwrap();
+#[test]
+fn test_unknown_enum_reports_parse_error() {
+    let ops_stats = OpsStatsForInstance::new();
+    let mut events = ops_stats.subscribe_for_test();
 
-    let observer = Arc::new(TestErrorObserver::new());
-    let weak_observer = Arc::downgrade(&observer);
-    OPS_STATS.subscribe(runtime.clone(), weak_observer);
+    get_deserialized_spec_result(&ops_stats).expect("unknown enum should not abort parsing");
 
-    let _ = get_deserialized_spec_result();
-
-    runtime.await_tasks_with_tag("keep_alive").await;
-
-    let received_events = observer.received_events.lock().clone();
-    assert_eq!(received_events[0].exception, "ProtobufParseError");
+    let error = std::iter::from_fn(|| events.try_recv().ok())
+        .find_map(|event| match event {
+            OpsStatsEvent::SDKError(error) => Some(error),
+            _ => None,
+        })
+        .expect("unknown enum should emit an SDK error");
+    assert_eq!(error.exception, "ProtobufParseError");
 }
 
 #[test]
 fn test_it_parsed_the_gate_without_unexpected_field() {
-    let result = get_deserialized_spec_result().expect("Failed to deserialize specs");
+    let result = get_deserialized_spec_result(&OpsStatsForInstance::new())
+        .expect("Failed to deserialize specs");
 
     let supported_gate = result
         .feature_gates
@@ -93,7 +58,8 @@ fn test_it_parsed_the_gate_without_unexpected_field() {
 
 #[test]
 fn test_it_ignored_the_gate_with_unexpected_field() {
-    let result = get_deserialized_spec_result().expect("Failed to deserialize specs");
+    let result = get_deserialized_spec_result(&OpsStatsForInstance::new())
+        .expect("Failed to deserialize specs");
 
     let count = result.feature_gates.len();
     assert_eq!(count, 1);
@@ -101,7 +67,8 @@ fn test_it_ignored_the_gate_with_unexpected_field() {
 
 #[test]
 fn test_it_extracted_known_top_level_fields() {
-    let result = get_deserialized_spec_result().expect("Failed to deserialize specs");
+    let result = get_deserialized_spec_result(&OpsStatsForInstance::new())
+        .expect("Failed to deserialize specs");
 
     assert_eq!(result.company_id, Some("test_company_id".to_string()));
     assert_eq!(
@@ -111,12 +78,14 @@ fn test_it_extracted_known_top_level_fields() {
     assert_eq!(result.checksum, Some("test_checksum".to_string()));
 }
 
-fn get_deserialized_spec_result() -> Result<SpecsResponseFull, StatsigErr> {
+fn get_deserialized_spec_result(
+    ops_stats: &OpsStatsForInstance,
+) -> Result<SpecsResponseFull, StatsigErr> {
     let left = SpecsResponseFull::default();
     let mut right = SpecsResponseFull::default();
 
     let mut data = ResponseData::from_bytes(UNKNOWN_ENUM_PROTO_BYTES.to_vec());
 
-    deserialize_protobuf(&OPS_STATS, &left, &mut right, &mut data)?;
+    deserialize_protobuf(ops_stats, &left, &mut right, &mut data)?;
     Ok(right)
 }

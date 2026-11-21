@@ -91,6 +91,7 @@ try:
 except Exception:
     pass
 if __name__ in {"__main__", "__mp_main__"}:
+    const.use_internet_for_location_check = True
     import panchangam_tab  # noqa: F401  (registers the / page on import)
     import calendar_tab  # noqa: F401  (registers the /calendar page on import)
     import kundali_chart  # noqa: F401  (registers the /kundali page on import)
@@ -120,6 +121,8 @@ if __name__ in {"__main__", "__mp_main__"}:
     import vratha_tab # noqa: F401 (registers the /vratha page on import)
     import about_tab  # noqa: F401  (registers the /about page on import)
     _secret = _get_storage_secret()
-    ui.run(host='0.0.0.0', port=int(os.environ.get('PORT', '8080')), title=const._APP_NAME_VERSION,
+    from components import WEB_APP_VERSION, res_str
+    ui.run(host='0.0.0.0', port=int(os.environ.get('PORT', '8080')),
+           title=res_str('app_version_name_str', const._APP_NAME) + ' V' + WEB_APP_VERSION,
            reload=False, show=False,
            storage_secret=_secret)

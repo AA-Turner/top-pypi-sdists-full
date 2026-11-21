@@ -16,11 +16,11 @@ static TH_NOINLINE int jm_grow_nodes(jm_program *prog) {
     size_t cap;
     size_t bytes;
     jm_node *grown;
-    /* GCOVR_EXCL_BR_START: a failed program never grows again, and a size overflow or a failed realloc is an
-       allocation failure */
+    /* GCOVR_EXCL_BR_START: a failed program never grows again, and a size overflow, a capacity past INT32_MAX, or a
+       failed realloc is an allocation failure */
     if (!prog->failed &&
         th_grow_cap((size_t)prog->node_cap + 1, (size_t)prog->node_cap, 64, sizeof(jm_node), &cap, &bytes) &&
-        (grown = jm_realloc(prog->nodes, bytes)) != NULL) {
+        cap <= INT32_MAX && (grown = jm_realloc(prog->nodes, bytes)) != NULL) {
         /* GCOVR_EXCL_BR_STOP */
         prog->nodes = grown;
         prog->node_cap = (int32_t)cap;
@@ -35,15 +35,27 @@ static TH_NOINLINE int jm_grow_nodes(jm_program *prog) {
     /* GCOVR_EXCL_STOP */
 }
 
-jm_program *jm_program_new(void) {
+jm_program *jm_program_new(Py_ssize_t source_len) {
     jm_program *prog = jm_calloc(1, sizeof(jm_program));
     if (prog == NULL) { /* GCOVR_EXCL_BR_LINE: allocation-failure path */
         return NULL;    /* GCOVR_EXCL_LINE */
     }
-    if (!jm_grow_nodes(prog)) { /* GCOVR_EXCL_BR_LINE: allocation-failure path */
-        jm_free(prog);          /* GCOVR_EXCL_LINE */
-        return NULL;            /* GCOVR_EXCL_LINE */
+    /* node indexes are int32_t, and the arena's byte size must fit in size_t: past either, the arena grows on demand */
+    /* GCOVR_EXCL_BR_START: the arm not taken depends on the word size */
+    size_t max_nodes = SIZE_MAX / sizeof(jm_node) < (size_t)INT32_MAX ? SIZE_MAX / sizeof(jm_node) : (size_t)INT32_MAX;
+    /* GCOVR_EXCL_BR_STOP */
+    size_t guess = source_len / 4 < 64 ? 64 : (size_t)(source_len / 4);
+    /* GCOVR_EXCL_START: a source of 4 * max_nodes code points, over 8 GiB on a 64-bit build */
+    if (guess > max_nodes) {
+        guess = max_nodes;
     }
+    /* GCOVR_EXCL_STOP */
+    prog->nodes = jm_malloc(guess * sizeof(jm_node));
+    if (prog->nodes == NULL) { /* GCOVR_EXCL_BR_LINE: allocation-failure path */
+        jm_free(prog);         /* GCOVR_EXCL_LINE */
+        return NULL;           /* GCOVR_EXCL_LINE */
+    }
+    prog->node_cap = (int32_t)guess;
     return prog;
 }
 
@@ -77,9 +89,9 @@ int32_t jm_scope_new(jm_program *prog, int32_t parent, uint8_t kind) {
         size_t bytes;
         int grew =
             th_grow_cap((size_t)prog->scope_cap + 1, (size_t)prog->scope_cap, 16, sizeof(jm_scope), &cap, &bytes);
-        if (!grew) {          /* GCOVR_EXCL_BR_LINE: size overflow needs a length no allocation could hold */
-            prog->failed = 1; /* GCOVR_EXCL_LINE */
-            return -1;        /* GCOVR_EXCL_LINE */
+        if (!grew || cap > INT32_MAX) { /* GCOVR_EXCL_BR_LINE: needs over two billion scopes */
+            prog->failed = 1;           /* GCOVR_EXCL_LINE */
+            return -1;                  /* GCOVR_EXCL_LINE */
         }
         jm_scope *grown = jm_realloc(prog->scopes, bytes);
         if (grown == NULL) {  /* GCOVR_EXCL_BR_LINE: allocation-failure path */
@@ -101,6 +113,7 @@ int32_t jm_scope_new(jm_program *prog, int32_t parent, uint8_t kind) {
     scope->sunk = 0;
     scope->grown = 0;
     scope->args_reads = 0;
+    scope->node = -1;
     if (parent >= 0) {
         scope->next_sibling = prog->scopes[parent].first_child;
         prog->scopes[parent].first_child = index;
@@ -113,9 +126,9 @@ int32_t jm_sym_new(jm_program *prog, const Py_UCS4 *name, Py_ssize_t name_len, i
         size_t cap;
         size_t bytes;
         int grew = th_grow_cap((size_t)prog->sym_cap + 1, (size_t)prog->sym_cap, 32, sizeof(jm_sym), &cap, &bytes);
-        if (!grew) {          /* GCOVR_EXCL_BR_LINE: size overflow needs a length no allocation could hold */
-            prog->failed = 1; /* GCOVR_EXCL_LINE */
-            return -1;        /* GCOVR_EXCL_LINE */
+        if (!grew || cap > INT32_MAX) { /* GCOVR_EXCL_BR_LINE: needs over two billion symbols */
+            prog->failed = 1;           /* GCOVR_EXCL_LINE */
+            return -1;                  /* GCOVR_EXCL_LINE */
         }
         jm_sym *grown = jm_realloc(prog->syms, bytes);
         if (grown == NULL) {  /* GCOVR_EXCL_BR_LINE: allocation-failure path */
@@ -133,6 +146,7 @@ int32_t jm_sym_new(jm_program *prog, const Py_UCS4 *name, Py_ssize_t name_len, i
     sym->scope_next = prog->scopes[scope].first_sym;
     prog->scopes[scope].first_sym = index;
     sym->decl = decl;
+    sym->early = 0;
     sym->pinned = 0;
     sym->uses = 0;
     sym->slot = -1;
@@ -156,9 +170,9 @@ const Py_UCS4 *jm_program_own(jm_program *prog, const Py_UCS4 *buf, Py_ssize_t l
         size_t bytes;
         int grew =
             th_grow_cap((size_t)prog->owned_cap + 1, (size_t)prog->owned_cap, 16, sizeof(Py_UCS4 *), &cap, &bytes);
-        if (!grew) {          /* GCOVR_EXCL_BR_LINE: size overflow needs a length no allocation could hold */
-            prog->failed = 1; /* GCOVR_EXCL_LINE */
-            return NULL;      /* GCOVR_EXCL_LINE */
+        if (!grew || cap > INT32_MAX) { /* GCOVR_EXCL_BR_LINE: needs over two billion owned strings */
+            prog->failed = 1;           /* GCOVR_EXCL_LINE */
+            return NULL;                /* GCOVR_EXCL_LINE */
         }
         Py_UCS4 **grown = jm_realloc(prog->owned, bytes);
         if (grown == NULL) {  /* GCOVR_EXCL_BR_LINE: allocation-failure path */
@@ -168,7 +182,9 @@ const Py_UCS4 *jm_program_own(jm_program *prog, const Py_UCS4 *buf, Py_ssize_t l
         prog->owned = grown;
         prog->owned_cap = (int32_t)cap;
     }
-    Py_UCS4 *copy = jm_malloc((size_t)len * sizeof(Py_UCS4));
+    /* GCOVR_EXCL_START: needs a 32-bit build and a name of over a billion code points */
+    Py_UCS4 *copy = ((size_t)len > SIZE_MAX / sizeof(Py_UCS4)) ? NULL : jm_malloc((size_t)len * sizeof(Py_UCS4));
+    /* GCOVR_EXCL_STOP */
     if (copy == NULL) {   /* GCOVR_EXCL_BR_LINE: allocation-failure path */
         prog->failed = 1; /* GCOVR_EXCL_LINE */
         return NULL;      /* GCOVR_EXCL_LINE */
@@ -225,7 +241,10 @@ const Py_UCS4 *jm_ident_value(jm_program *prog, const Py_UCS4 *src, Py_ssize_t l
         *out_len = len;
         return src;
     }
-    Py_UCS4 *buf = jm_malloc((size_t)len * sizeof(Py_UCS4)); /* decoding only ever shortens */
+    /* decoding only ever shortens, so len bounds the buffer; GCOVR_EXCL_START: needs a 32-bit build and a name past
+       a billion code points */
+    Py_UCS4 *buf = ((size_t)len > SIZE_MAX / sizeof(Py_UCS4)) ? NULL : jm_malloc((size_t)len * sizeof(Py_UCS4));
+    /* GCOVR_EXCL_STOP */
     if (buf == NULL) {    /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
         prog->failed = 1; /* GCOVR_EXCL_LINE: the escaped spelling would resolve as another name */
         *out_len = len;   /* GCOVR_EXCL_LINE */
@@ -342,7 +361,11 @@ Py_ssize_t jm_str_encode(const Py_UCS4 *value, Py_ssize_t len, Py_UCS4 quote, Py
     Py_ssize_t write = 0;
     for (Py_ssize_t read = 0; read < len; read++) {
         Py_UCS4 ch = value[read];
-        if (ch == quote || ch == '\\') {
+        Py_UCS4 next = read + 1 < len ? value[read + 1] : 0;
+        if (ch >= 0xD800 && ch <= 0xDBFF && next >= 0xDC00 && next <= 0xDFFF) {
+            out[write++] = 0x10000 + ((ch - 0xD800) << 10) + (next - 0xDC00); /* a pair is one code point in UTF-8 */
+            read++;
+        } else if (ch == quote || ch == '\\') {
             out[write++] = '\\';
             out[write++] = ch;
         } else if (ch == 0x0A) {
@@ -370,9 +393,19 @@ Py_ssize_t jm_str_encode(const Py_UCS4 *value, Py_ssize_t len, Py_UCS4 quote, Py
             out[write++] = '0';
             out[write++] = '2';
             out[write++] = ch == 0x2028 ? '8' : '9';
-        } else if (ch < 0x20) { /* any other control takes a fixed-length \xHH: it cannot absorb a digit */
+        } else if (ch == 0 && (next < '0' || next > '9')) { /* \0 before a digit would read as a legacy octal */
             out[write++] = '\\';
-            out[write++] = 'x';
+            out[write++] = '0';
+        } else if (ch < 0x20 || (ch >= 0xD800 && ch <= 0xDFFF)) {
+            /* any other control, and a lone surrogate, which UTF-8 cannot carry, takes a fixed-length escape that
+               cannot absorb a digit */
+            int wide = ch > 0xFF;
+            out[write++] = '\\';
+            out[write++] = wide ? 'u' : 'x';
+            if (wide) {
+                out[write++] = (Py_UCS4)(unsigned char)hex[(ch >> 12) & 0xF];
+                out[write++] = (Py_UCS4)(unsigned char)hex[(ch >> 8) & 0xF];
+            }
             out[write++] = (Py_UCS4)(unsigned char)hex[(ch >> 4) & 0xF];
             out[write++] = (Py_UCS4)(unsigned char)hex[ch & 0xF];
         } else if (ch == '<' && (starts_with_ascii_ci(value + read, len - read, "</script") ||
@@ -405,6 +438,7 @@ void jm_program_free(jm_program *prog) {
     jm_free(prog->nodes);
     jm_free(prog->syms);
     jm_free(prog->scopes);
+    jm_free(prog->fold_marks);
     jm_free(prog);
 }
 

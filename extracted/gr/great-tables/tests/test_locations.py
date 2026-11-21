@@ -1,6 +1,8 @@
 import pandas as pd
 import polars as pl
 import polars.selectors as cs
+import pyarrow as pa
+import pyarrow.compute as pc
 import pytest
 from great_tables import GT, stub
 from great_tables._gt_data import Spanners
@@ -22,6 +24,7 @@ from great_tables._locations import (
     set_style,
 )
 from great_tables._styles import CellStyleText, FromColumn
+from tests.utils import DataFrameConstructor, by_backend
 
 
 def test_resolve_vector_i():
@@ -35,8 +38,8 @@ def test_resolve_vector_i_raises():
     assert "Selecting entries currently requires a list of strings." in exc_info.value.args[0]
 
 
-def test_resolve_cols_i_gt_data():
-    gt = GT(pd.DataFrame(columns=["a", "b", "x"]))
+def test_resolve_cols_i_gt_data(frame_constructor: DataFrameConstructor):
+    gt = GT(frame_constructor({"a": [], "b": [], "x": []}))
     assert resolve_cols_i(gt, ["x", "a"]) == [("x", 2), ("a", 0)]
 
 
@@ -45,13 +48,13 @@ def test_resolve_cols_i_polars_in_list():
     assert resolve_cols_i(gt, [pl.col("x"), "a"]) == [("x", 2), ("a", 0)]
 
 
-def test_resolve_cols_i_strings():
-    df = pd.DataFrame(columns=["a", "b", "x"])
+def test_resolve_cols_i_strings(frame_constructor: DataFrameConstructor):
+    df = frame_constructor({"a": [], "b": [], "x": []})
     assert resolve_cols_i(df, ["x", "a"]) == [("x", 2), ("a", 0)]
 
 
-def test_resolve_cols_i_ints():
-    df = pd.DataFrame(columns=["a", "b", "x"])
+def test_resolve_cols_i_ints(frame_constructor: DataFrameConstructor):
+    df = frame_constructor({"a": [], "b": [], "x": []})
     assert resolve_cols_i(df, [-1, 0]) == [("x", 2), ("a", 0)]
 
 
@@ -60,8 +63,8 @@ def test_resolve_cols_i_raises():
     assert resolve_cols_i(df, [-1, 0]) == [("x", 2), ("a", 0)]
 
 
-def test_resolve_rows_i_gt_data():
-    gt = GT(pd.DataFrame({"x": ["a", "b", "c"]}), rowname_col="x")
+def test_resolve_rows_i_gt_data(frame_constructor: DataFrameConstructor):
+    gt = GT(frame_constructor({"x": ["a", "b", "c"]}), rowname_col="x")
     assert resolve_rows_i(gt, ["b", "a"]) == [("a", 0), ("b", 1)]
 
 
@@ -88,20 +91,107 @@ def test_resolve_rows_i_ints():
     assert resolve_rows_i(["a", "x", "a", "b"], [0, -1]) == [("a", 0), ("b", 3)]
 
 
+def test_resolve_rows_i_bools_are_a_mask():
+    # (Not the positions 0 and 1)
+    assert resolve_rows_i(["a", "x", "a", "b"], [False, True, True, False]) == [("x", 1), ("a", 2)]
+    assert resolve_rows_i(["a", "x"], [False, False]) == []
+
+
+@pytest.mark.parametrize(
+    "rows, message",
+    [
+        ([True, False], "each of the table's 4 rows, not 2"),
+        ([True, False, True, False, True], "each of the table's 4 rows, not 5"),
+        ([True, 2, False, False], "but not both"),
+        (["x", True, False, False], "but not both"),
+    ],
+)
+def test_resolve_rows_i_bools_raises(rows: list, message: str):
+    with pytest.raises(ValueError, match=message):
+        resolve_rows_i(["a", "x", "a", "b"], rows)
+
+
+def test_tab_style_rows_mask(frame_constructor: DataFrameConstructor):
+    from great_tables import loc, style
+
+    gt = GT(frame_constructor({"x": [1, 2, 3]})).tab_style(
+        style.fill("red"), loc.body(rows=[False, True, True])
+    )
+    assert [info.rownum for info in gt._styles] == [1, 2]
+
+
 def test_resolve_rows_i_polars_expr():
     gt = GT(pl.DataFrame({"x": ["a", "b", "c"]}), rowname_col="x")
     assert resolve_rows_i(gt, pl.col("x").is_in(["a", "b"])) == [("a", 0), ("b", 1)]
 
 
-def test_resolve_rows_i_func_expr():
-    gt = GT(pd.DataFrame({"x": ["a", "b", "c"]}), rowname_col="x")
-    assert resolve_rows_i(gt, lambda D: D["x"].isin(["a", "b"])) == [("a", 0), ("b", 1)]
+def test_resolve_rows_i_func_expr(frame_constructor: DataFrameConstructor):
+    df = frame_constructor({"x": ["a", "b", "c"]})
+    rows = by_backend(
+        df,
+        pandas=lambda D: D["x"].isin(["a", "b"]),
+        polars=lambda D: D["x"].is_in(["a", "b"]),
+        pyarrow=lambda D: pc.is_in(D["x"], value_set=pa.array(["a", "b"])),
+    )
+    assert resolve_rows_i(GT(df, rowname_col="x"), rows) == [("a", 0), ("b", 1)]
 
 
-def test_resolve_rows_i_func_expr_return_non_bool_pd_series():
+def test_resolve_rows_i_func_expr_polars_returning_expr():
+    gt = GT(pl.DataFrame({"x": ["a", "b", "c"]}), rowname_col="x")
+    assert resolve_rows_i(gt, lambda D: pl.col("x").is_in(["a", "b"])) == [("a", 0), ("b", 1)]
+
+
+@pytest.mark.parametrize("missing", [None, float("nan"), pd.NA], ids=["none", "nan", "pd-na"])
+def test_resolve_rows_i_func_expr_pandas_object_mask_with_missing(missing: object):
     gt = GT(pd.DataFrame({"x": ["a", "b", "c"]}), rowname_col="x")
+    mask = pd.Series([True, missing, False], dtype=object)
+    assert resolve_rows_i(gt, lambda D: mask) == [("a", 0)]
+
+
+def test_tab_style_rows_native_selector(frame_constructor: DataFrameConstructor):
+    from great_tables import loc, style
+
+    df = frame_constructor({"x": [1.5, 2.5, 3.5]})
+
+    if isinstance(df, pd.DataFrame):
+
+        def rows(df):
+            return df["x"] > 2
+
+    if isinstance(df, pl.DataFrame):
+        rows = pl.col("x") > 2
+
+    if isinstance(df, pa.Table):
+
+        def rows(tbl):
+            # a ChunkedArray, since Table columns are chunked
+            return pa.compute.greater(tbl["x"], 2)
+
+    gt = GT(df).tab_style(style.fill("red"), loc.body(columns="x", rows=rows))
+    assert [x.rownum for x in gt._styles] == [1, 2]
+    assert gt.as_raw_html().count("background-color: red;") == 2
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        pytest.param([4, 5, 6], id="ints"),
+        pytest.param([4, None, 6], id="ints-with-null"),
+        pytest.param([1.5, float("nan"), 3.5], id="floats-with-nan"),
+    ],
+)
+def test_resolve_rows_i_func_expr_return_non_bool_series(
+    frame_constructor: DataFrameConstructor, values: list[float | None]
+):
+    df = frame_constructor({"x": ["a", "b", "c"]})
+    rows = by_backend(
+        df,
+        pandas=lambda D: pd.Series(values),
+        polars=lambda D: pl.Series(values),
+        pyarrow=lambda D: pa.array(values),
+    )
     with pytest.raises(ValueError) as exc_info:
-        resolve_rows_i(gt, lambda D: pd.Series([4, 5, 6]))
+        resolve_rows_i(GT(df, rowname_col="x"), rows)
 
     assert (
         "If you select rows using a callable, it must take a DataFrame, "
@@ -126,8 +216,8 @@ def test_resolve_rows_i_raises(bad_expr):
 # Resolve Loc tests --------------------------------------------------------------------------------
 
 
-def test_resolve_loc_body():
-    gt = GT(pd.DataFrame({"x": [1, 2], "y": [3, 4]}))
+def test_resolve_loc_body(frame_constructor: DataFrameConstructor):
+    gt = GT(frame_constructor({"x": [1, 2], "y": [3, 4]}))
 
     cells = resolve(LocBody(["x"], [-1]), gt)
 
@@ -191,16 +281,22 @@ def test_resolve_loc_spanner_label_error_missing():
         (["a", "c"], {"a", "c"}),
         ([0, 1], {"a"}),
         (None, {"a", "b", "c"}),
-        (pl.col("group") == "b", {"b"}),
     ],
 )
-def test_resolve_loc_row_groups(rows, res):
-    df = pl.DataFrame({"group": ["a", "a", "b", "c"]})
+def test_resolve_loc_row_groups(frame_constructor: DataFrameConstructor, rows, res):
+    df = frame_constructor({"group": ["a", "a", "b", "c"]})
     loc = LocRowGroups(rows=rows)
     new_loc = resolve(loc, GT(df, groupname_col="group"))
 
     assert isinstance(new_loc, set)
     assert new_loc == res
+
+
+def test_resolve_loc_row_groups_polars_expr():
+    df = pl.DataFrame({"group": ["a", "a", "b", "c"]})
+    loc = LocRowGroups(rows=pl.col("group") == "b")
+
+    assert resolve(loc, GT(df, groupname_col="group")) == {"b"}
 
 
 @pytest.mark.parametrize(
@@ -211,11 +307,10 @@ def test_resolve_loc_row_groups(rows, res):
         ("b", {2}),
         (["a", "c"], {0, 1, 3}),
         ([0, 1], {0, 1}),
-        (pl.col("row") == "a", {0, 1}),
     ],
 )
-def test_resolve_loc_stub(rows, res):
-    df = pl.DataFrame({"row": ["a", "a", "b", "c"]})
+def test_resolve_loc_stub(frame_constructor: DataFrameConstructor, rows, res):
+    df = frame_constructor({"row": ["a", "a", "b", "c"]})
     loc = LocStub(rows=rows)
     new_loc = resolve(loc, GT(df, rowname_col="row"))
 
@@ -223,20 +318,32 @@ def test_resolve_loc_stub(rows, res):
     assert new_loc == res
 
 
+def test_resolve_loc_stub_polars_expr():
+    df = pl.DataFrame({"row": ["a", "a", "b", "c"]})
+    loc = LocStub(rows=pl.col("row") == "a")
+
+    assert resolve(loc, GT(df, rowname_col="row")) == {0, 1}
+
+
 @pytest.mark.parametrize(
     "cols, res",
     [
         (["b"], [("b", 1)]),
         ([0, 2], [("a", 0), ("c", 2)]),
-        (cs.by_name("a"), [("a", 0)]),
     ],
 )
-def test_resolve_loc_column_labels(cols, res):
-    df = pl.DataFrame({"a": [0], "b": [1], "c": [2]})
+def test_resolve_loc_column_labels(frame_constructor: DataFrameConstructor, cols, res):
+    df = frame_constructor({"a": [0], "b": [1], "c": [2]})
     loc = LocColumnLabels(columns=cols)
 
     selected = resolve(loc, GT(df))
     assert selected == res
+
+
+def test_resolve_loc_column_labels_polars_selector():
+    df = pl.DataFrame({"a": [0], "b": [1], "c": [2]})
+
+    assert resolve(LocColumnLabels(columns=cs.by_name("a")), GT(df)) == [("a", 0)]
 
 
 @pytest.mark.parametrize(
@@ -256,26 +363,11 @@ def test_resolve_loc_spanner_labels(ids, res):
     assert new_loc.ids == res
 
 
-@pytest.mark.parametrize(
-    "expr",
-    [
-        FromColumn("color"),
-        pl.col("color"),
-        pl.col("color").str.to_uppercase().str.to_lowercase(),
-    ],
-)
-def test_set_style_loc_body_from_column(expr):
-    df = pd.DataFrame({"x": [1, 2], "color": ["red", "blue"]})
-
-    if isinstance(expr, pl.Expr):
-        gt_df = GT(pl.DataFrame(df))
-    else:
-        gt_df = GT(df)
-
+def _assert_body_color_from_column(gt: GT, color: FromColumn | pl.Expr) -> None:
     loc = LocBody(["x"], [1])
-    style = CellStyleText(color=expr)
+    style = CellStyleText(color=color)
 
-    new_gt = set_style(loc, gt_df, [style])
+    new_gt = set_style(loc, gt, [style])
 
     # 1 style info added
     assert len(new_gt._styles) == 1
@@ -285,6 +377,19 @@ def test_set_style_loc_body_from_column(expr):
     assert len(cell_info.styles) == 1
     assert isinstance(cell_info.styles[0], CellStyleText)
     assert cell_info.styles[0].color == "blue"
+
+
+def test_set_style_loc_body_from_column(frame_constructor: DataFrameConstructor):
+    df = frame_constructor({"x": [1, 2], "color": ["red", "blue"]})
+    _assert_body_color_from_column(GT(df), FromColumn("color"))
+
+
+@pytest.mark.parametrize(
+    "expr", [pl.col("color"), pl.col("color").str.to_uppercase().str.to_lowercase()]
+)
+def test_set_style_loc_body_from_polars_expr(expr: pl.Expr):
+    df = pl.DataFrame({"x": [1, 2], "color": ["red", "blue"]})
+    _assert_body_color_from_column(GT(df), expr)
 
 
 def test_set_style_loc_title_from_column_error(snapshot):
@@ -408,10 +513,8 @@ def test_resolve_cols_i_null_means_nothing():
 # Stub and row group columns in column selections ----------------------------------------------
 
 
-def _stub_gt():
-    from great_tables import GT
-
-    df = pl.DataFrame(
+def _stub_gt(constructor: DataFrameConstructor = pl.DataFrame) -> GT:
+    df = constructor(
         {
             "a": ["A", "A", "B"],
             "b": ["x", "y", "z"],
@@ -485,10 +588,14 @@ def test_resolve_cols_i_excludes_stub_and_group_by_default():
     assert resolve_cols_i(built, ["a", "g", "n1"], excl_group=False) == [("g", 2), ("n1", 3)]
 
 
-def test_fmt_can_target_stub_columns():
+def test_fmt_can_target_stub_columns(frame_constructor: DataFrameConstructor):
     from great_tables.gt import _get_column_of_values
 
-    gt = _stub_gt().fmt(lambda x: x.upper(), columns=stub(1)).fmt(lambda x: f"<{x}>", columns="a")
+    gt = (
+        _stub_gt(frame_constructor)
+        .fmt(lambda x: x.upper(), columns=stub(1))
+        .fmt(lambda x: f"<{x}>", columns="a")
+    )
     assert _get_column_of_values(gt, column_name="b", context="html") == ["X", "Y", "Z"]
     assert _get_column_of_values(gt, column_name="a", context="html") == ["<A>", "<A>", "<B>"]
 
@@ -521,20 +628,22 @@ def test_cols_hide_and_unhide_stub_column():
 
 
 @pytest.mark.parametrize("rows,x_out", [("A", [0, 1]), ("y", [1]), (["B", "x"], [0, 2])])
-def test_loc_stub_row_names_match_any_stub_column(rows, x_out: list[int]):
+def test_loc_stub_row_names_match_any_stub_column(
+    frame_constructor: DataFrameConstructor, rows, x_out: list[int]
+):
     # Without `columns=`, row names are matched against every stub column (as in R gt)
     from great_tables import loc, style
 
-    gt = _stub_gt().tab_style(style.fill("red"), loc.stub(rows=rows))
+    gt = _stub_gt(frame_constructor).tab_style(style.fill("red"), loc.stub(rows=rows))
     assert sorted({x.rownum for x in gt._styles}) == x_out
 
 
-def test_tab_style_body_match_in_stub_column():
+def test_tab_style_body_match_in_stub_column(frame_constructor: DataFrameConstructor):
     # A match in a stub column styles the stub (with `extents="stub"`), never a body cell for
     # the stub column
     from great_tables import style
 
-    gt = _stub_gt().tab_style_body(
+    gt = _stub_gt(frame_constructor).tab_style_body(
         style=style.fill("red"),
         columns=["b", "n1"],
         values=["y"],
@@ -545,16 +654,16 @@ def test_tab_style_body_match_in_stub_column():
     assert cells == [("LocBody", "n1", 1), ("LocStub", None, 1)]
 
 
-def test_default_columns_exclude_stub_and_group():
+def test_default_columns_exclude_stub_and_group(frame_constructor: DataFrameConstructor):
     # With no `columns=`, methods that can target the stub still only select the body columns
     # (e.g., `fmt_integer()` mustn't try to format a string stub or group column)
     from great_tables.gt import _get_column_of_values
 
-    gt = _stub_gt().fmt_integer()
+    gt = _stub_gt(frame_constructor).fmt_integer()
     assert _get_column_of_values(gt, column_name="n1", context="html") == ["2", "2", "4"]
     assert _get_column_of_values(gt, column_name="a", context="html") == ["A", "A", "B"]
 
-    built = _stub_gt()._build_data("html")
+    built = _stub_gt(frame_constructor)._build_data("html")
     expected = [("n1", 3), ("n2", 4)]
     assert resolve_cols_i(built, None, excl_stub=False, excl_group=False) == expected
 

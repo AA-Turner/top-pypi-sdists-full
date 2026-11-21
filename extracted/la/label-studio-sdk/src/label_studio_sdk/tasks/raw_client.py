@@ -19,6 +19,8 @@ from ..errors.unauthorized_error import UnauthorizedError
 from ..types.lse_task import LseTask
 from ..types.paginated_role_based_task_list import PaginatedRoleBasedTaskList
 from ..types.role_based_task import RoleBasedTask
+from ..types.task_data_column_result import TaskDataColumnResult
+from ..types.task_data_column_value_type_enum import TaskDataColumnValueTypeEnum
 from ..types.task_event import TaskEvent
 from .types.list_tasks_request_fields import ListTasksRequestFields
 from pydantic import ValidationError
@@ -57,6 +59,109 @@ class RawTasksClient:
         try:
             if 200 <= _response.status_code < 300:
                 return HttpResponse(response=_response, data=None)
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def set_data_column(
+        self,
+        id: int,
+        *,
+        column_name: str,
+        values: typing.Dict[str, typing.Any],
+        value_type: typing.Optional[TaskDataColumnValueTypeEnum] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[TaskDataColumnResult]:
+        """
+        Set one `task.data` key to a different value for each listed task of the project, in one synchronous request. Only that key of the listed tasks is written: other keys and other tasks are not touched, and a new column is created on the listed tasks only (the "Add or Update Columns" Data Manager action, in contrast, writes `null` into every other task when it adds a column). The column then appears in the Data Manager. All values are validated first; if any is invalid, nothing is written. The response lists the tasks that were updated and the requested IDs that are not tasks of this project. Requires the same permission and feature flag as the "Add or Update Columns" action. Values are not checked against the labeling configuration or a custom interface input schema. If an "Add or Update Columns" action that adds the same column is still running in the background, it can overwrite the values with `null`.
+
+        Parameters
+        ----------
+        id : int
+            A unique integer value identifying this project.
+
+        column_name : str
+            Data column to set: the key in `task.data`, used exactly as sent. If no task of the project has it yet, it is created on the listed tasks only. A new column name cannot contain whitespace, quotation marks, brackets, semicolons, hashes, control characters, or SQL comments.
+
+        values : typing.Dict[str, typing.Any]
+            Map of task ID to the value for that task, for example `{"101": "Missing box", "102": "OK"}`. At most `TASK_DATA_COLUMN_MAX_TASKS` tasks per request (1000 by default).
+
+        value_type : typing.Optional[TaskDataColumnValueTypeEnum]
+            How the values are stored: `String` keeps the text exactly as sent; `Number` stores a number.
+
+            * `String` - String
+            * `Number` - Number
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[TaskDataColumnResult]
+            Values set
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/projects/{encode_path_param(id)}/tasks/data-column/",
+            method="POST",
+            json={
+                "column_name": column_name,
+                "value_type": value_type,
+                "values": values,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    TaskDataColumnResult,
+                    construct_type(
+                        type_=TaskDataColumnResult,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        construct_type(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        construct_type(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        construct_type(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -235,6 +340,7 @@ class RawTasksClient:
         comment_authors: typing.Optional[typing.Sequence[int]] = OMIT,
         comment_count: typing.Optional[int] = OMIT,
         file_upload: typing.Optional[int] = OMIT,
+        import_id: typing.Optional[int] = OMIT,
         inner_id: typing.Optional[int] = OMIT,
         is_labeled: typing.Optional[bool] = OMIT,
         last_comment_updated_at: typing.Optional[dt.datetime] = OMIT,
@@ -269,6 +375,9 @@ class RawTasksClient:
 
         file_upload : typing.Optional[int]
             Uploaded file used as data source for this task
+
+        import_id : typing.Optional[int]
+            Original task ID that was at the import step (the "id" of the task in the imported data, or the source task when tasks are copied between projects), or NULL if there was none. It points one step back, so for a copy of a copy it is the ID of the intermediate copy, not of the first task
 
         inner_id : typing.Optional[int]
             Internal task ID in the project, starts with 1
@@ -318,6 +427,7 @@ class RawTasksClient:
                 "comment_count": comment_count,
                 "data": data,
                 "file_upload": file_upload,
+                "import_id": import_id,
                 "inner_id": inner_id,
                 "is_labeled": is_labeled,
                 "last_comment_updated_at": last_comment_updated_at,
@@ -440,6 +550,7 @@ class RawTasksClient:
         data: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         draft_exists: typing.Optional[bool] = OMIT,
         ground_truth: typing.Optional[bool] = OMIT,
+        import_id: typing.Optional[int] = OMIT,
         inner_id: typing.Optional[int] = OMIT,
         is_labeled: typing.Optional[bool] = OMIT,
         last_comment_updated_at: typing.Optional[dt.datetime] = OMIT,
@@ -483,6 +594,9 @@ class RawTasksClient:
         draft_exists : typing.Optional[bool]
 
         ground_truth : typing.Optional[bool]
+
+        import_id : typing.Optional[int]
+            Original task ID that was at the import step (the "id" of the task in the imported data, or the source task when tasks are copied between projects), or NULL if there was none. It points one step back, so for a copy of a copy it is the ID of the intermediate copy, not of the first task
 
         inner_id : typing.Optional[int]
 
@@ -541,6 +655,7 @@ class RawTasksClient:
                 "data": data,
                 "draft_exists": draft_exists,
                 "ground_truth": ground_truth,
+                "import_id": import_id,
                 "inner_id": inner_id,
                 "is_labeled": is_labeled,
                 "last_comment_updated_at": last_comment_updated_at,
@@ -801,6 +916,109 @@ class AsyncRawTasksClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
+    async def set_data_column(
+        self,
+        id: int,
+        *,
+        column_name: str,
+        values: typing.Dict[str, typing.Any],
+        value_type: typing.Optional[TaskDataColumnValueTypeEnum] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[TaskDataColumnResult]:
+        """
+        Set one `task.data` key to a different value for each listed task of the project, in one synchronous request. Only that key of the listed tasks is written: other keys and other tasks are not touched, and a new column is created on the listed tasks only (the "Add or Update Columns" Data Manager action, in contrast, writes `null` into every other task when it adds a column). The column then appears in the Data Manager. All values are validated first; if any is invalid, nothing is written. The response lists the tasks that were updated and the requested IDs that are not tasks of this project. Requires the same permission and feature flag as the "Add or Update Columns" action. Values are not checked against the labeling configuration or a custom interface input schema. If an "Add or Update Columns" action that adds the same column is still running in the background, it can overwrite the values with `null`.
+
+        Parameters
+        ----------
+        id : int
+            A unique integer value identifying this project.
+
+        column_name : str
+            Data column to set: the key in `task.data`, used exactly as sent. If no task of the project has it yet, it is created on the listed tasks only. A new column name cannot contain whitespace, quotation marks, brackets, semicolons, hashes, control characters, or SQL comments.
+
+        values : typing.Dict[str, typing.Any]
+            Map of task ID to the value for that task, for example `{"101": "Missing box", "102": "OK"}`. At most `TASK_DATA_COLUMN_MAX_TASKS` tasks per request (1000 by default).
+
+        value_type : typing.Optional[TaskDataColumnValueTypeEnum]
+            How the values are stored: `String` keeps the text exactly as sent; `Number` stores a number.
+
+            * `String` - String
+            * `Number` - Number
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[TaskDataColumnResult]
+            Values set
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/projects/{encode_path_param(id)}/tasks/data-column/",
+            method="POST",
+            json={
+                "column_name": column_name,
+                "value_type": value_type,
+                "values": values,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    TaskDataColumnResult,
+                    construct_type(
+                        type_=TaskDataColumnResult,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        construct_type(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        construct_type(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        construct_type(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
     async def list(
         self,
         *,
@@ -973,6 +1191,7 @@ class AsyncRawTasksClient:
         comment_authors: typing.Optional[typing.Sequence[int]] = OMIT,
         comment_count: typing.Optional[int] = OMIT,
         file_upload: typing.Optional[int] = OMIT,
+        import_id: typing.Optional[int] = OMIT,
         inner_id: typing.Optional[int] = OMIT,
         is_labeled: typing.Optional[bool] = OMIT,
         last_comment_updated_at: typing.Optional[dt.datetime] = OMIT,
@@ -1007,6 +1226,9 @@ class AsyncRawTasksClient:
 
         file_upload : typing.Optional[int]
             Uploaded file used as data source for this task
+
+        import_id : typing.Optional[int]
+            Original task ID that was at the import step (the "id" of the task in the imported data, or the source task when tasks are copied between projects), or NULL if there was none. It points one step back, so for a copy of a copy it is the ID of the intermediate copy, not of the first task
 
         inner_id : typing.Optional[int]
             Internal task ID in the project, starts with 1
@@ -1056,6 +1278,7 @@ class AsyncRawTasksClient:
                 "comment_count": comment_count,
                 "data": data,
                 "file_upload": file_upload,
+                "import_id": import_id,
                 "inner_id": inner_id,
                 "is_labeled": is_labeled,
                 "last_comment_updated_at": last_comment_updated_at,
@@ -1182,6 +1405,7 @@ class AsyncRawTasksClient:
         data: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         draft_exists: typing.Optional[bool] = OMIT,
         ground_truth: typing.Optional[bool] = OMIT,
+        import_id: typing.Optional[int] = OMIT,
         inner_id: typing.Optional[int] = OMIT,
         is_labeled: typing.Optional[bool] = OMIT,
         last_comment_updated_at: typing.Optional[dt.datetime] = OMIT,
@@ -1225,6 +1449,9 @@ class AsyncRawTasksClient:
         draft_exists : typing.Optional[bool]
 
         ground_truth : typing.Optional[bool]
+
+        import_id : typing.Optional[int]
+            Original task ID that was at the import step (the "id" of the task in the imported data, or the source task when tasks are copied between projects), or NULL if there was none. It points one step back, so for a copy of a copy it is the ID of the intermediate copy, not of the first task
 
         inner_id : typing.Optional[int]
 
@@ -1283,6 +1510,7 @@ class AsyncRawTasksClient:
                 "data": data,
                 "draft_exists": draft_exists,
                 "ground_truth": ground_truth,
+                "import_id": import_id,
                 "inner_id": inner_id,
                 "is_labeled": is_labeled,
                 "last_comment_updated_at": last_comment_updated_at,

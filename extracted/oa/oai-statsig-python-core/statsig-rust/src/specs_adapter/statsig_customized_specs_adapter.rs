@@ -5,6 +5,7 @@ use super::remote_config_value_hydrator::init_failures;
 use super::statsig_data_store_specs_adapter::StatsigDataStoreSpecsAdapter;
 use super::{SpecAdapterConfig, SpecsAdapterType};
 use crate::data_store_interface::DataStoreTrait;
+use crate::networking::NetworkClient;
 use crate::spec_store::SpecStore;
 use crate::{SpecsAdapter, SpecsUpdateListener, StatsigOptions, log_i, log_w};
 use crate::{StatsigErr, StatsigRuntime};
@@ -24,6 +25,10 @@ pub struct StatsigCustomizedSpecsAdapter {
 }
 
 impl StatsigCustomizedSpecsAdapter {
+    pub(crate) fn http_network(&self) -> Option<Arc<NetworkClient>> {
+        self.http_adapters.first().map(|adapter| adapter.network())
+    }
+
     pub(crate) fn initialize_spec_store(&self, store: Arc<SpecStore>) {
         self.initialize(store.clone());
         for adapter in &self.http_adapters {

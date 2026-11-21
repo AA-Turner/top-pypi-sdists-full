@@ -49,34 +49,18 @@
 //! `AROMATIC` and sets `atom->getIsAromatic()`, regardless of whether the input
 //! SMILES used Kekulé or lowercase-aromatic notation. chematic's SMILES parser
 //! instead preserves a Kekulized input's literal bond orders verbatim (round-trip
-//! fidelity). Reusing the exact fix already proven for `rdkit_pattern_fp` (see
-//! that module's own doc comment): if a molecule has *any* literal
-//! `BondOrder::Aromatic` bond, every bond's own literal order/every atom's own
-//! literal `aromatic` flag is trusted as-is; only when a molecule has *zero*
-//! literal aromatic bonds anywhere does this fall back to re-perceiving
-//! aromaticity via [`chematic_perception::aromaticity::assign_aromaticity_ex`].
-//! Re-perceiving unconditionally regressed a Kekulé-written, genuinely
-//! non-aromatic ring that coexisted with a lowercase-aromatic ring elsewhere in
-//! the same molecule; this hybrid rule avoids that without losing the fix for
-//! molecules parsed entirely from Kekulé notation.
+//! fidelity). Ring double bonds trigger the RDKit-compatible aromaticity
+//! view before paths are hashed, including Kekulé-written rings adjacent to
+//! explicitly aromatic fragments. Other inputs retain the literal graph or
+//! use the existing fallback perception for wholly Kekulé notation.
 //!
 //! # Verified
 //!
-//! Bit-exact (identical on-bit sets, not just popcount) against a live RDKit
-//! oracle (`Chem.RDKFingerprint(mol, minPath=1, maxPath=7, fpSize=2048)`):
-//! 100% on the full `descriptor_census_corpus.smi` (5000/5000) and
-//! `chembl_accuracy_corpus_4999.smi` (5000/5000), 99.44% on
-//! `nci_first_5k_smiles_only.smi` (4963/4991). Every one of the 28 NCI
-//! mismatches is a fused polyheteroaromatic dye (xanthene/anthraquinone with
-//! halogen substituents, phenothiazine/phenoxazinium, purine/xanthine-fused
-//! rings), an exotic charged aromatic heterocycle (pyrylium/thiopyrylium-like
-//! N+/O+/S+ ring atoms), or a metal-coordination complex (ferrocene-like
-//! sandwich structures, ring-N-to-metal dative bonding) where chematic's own
-//! `chematic-perception` Hückel aromaticity model does not (yet) recognize the
-//! same aromatic system RDKit's does — the same pre-existing, out-of-scope
-//! dependency gap already documented for `rdkit_torsion_fp`/`rdkit_atom_pair_fp`
-//! (hypervalent-atom hybridization) and `rdkit_pattern_fp` (their own NCI
-//! residuals), not a defect introduced by this port.
+//! Identical on-bit sets against local RDKit 2025.09.3 with default
+//! 2048-bit options: descriptor census 5000/5000, ChEMBL fixture 5000/5000,
+//! NCI fixture 4991/4991 molecules parsed by both (eight RDKit parse
+//! failures), and special-chemistry stress fixture 4072/4072. These fixed
+//! corpora do not establish parity on arbitrary molecules or other versions.
 
 use crate::bitvec::BitVec2048;
 use chematic_core::{AtomIdx, BondIdx, BondOrder, Molecule};
@@ -87,6 +71,9 @@ use chematic_perception::aromaticity::{
 use rustc_hash::{FxHashMap, FxHashSet};
 #[cfg(test)]
 use std::collections::BTreeMap;
+
+mod config;
+pub use config::{RdkitRdkConfig, RdkitRdkConfigError, RdkitRdkConfigResult, rdkit_rdk_config};
 
 const FP_SIZE: u32 = 2048;
 const MIN_PATH: usize = 1;
@@ -465,10 +452,9 @@ pub fn rdkit_rdk_fp_ignoring_atoms(
 }
 
 fn rdkit_rdk_fp_impl_ignoring_atoms(mol: &Molecule, ignored_atoms: &[AtomIdx]) -> BitVec2048 {
-    // Where chematic's own aromaticity may disagree with RDKit's, read the
-    // RDKit-corrected parity view (aromatic flags and bond orders as RDKit
-    // sanitizes them) instead of re-perceiving.
-    if chematic_perception::rdkit_model_may_disagree(mol)
+    // Ring paths are hashed after RDKit's aromaticity pass, including a
+    // Kekule-written ring attached to an already aromatic fragment.
+    if crate::rdkit_fp_needs_aromatic_view(mol)
         && let Ok(view) = chematic_perception::apply_aromaticity_rdkit_parity_shared(mol).as_ref()
     {
         return rdkit_rdk_fp_input(&crate::rdkit_fp_view(view), true, ignored_atoms);
@@ -513,7 +499,8 @@ fn rdkit_rdk_fp_input(mol: &Molecule, trust_view: bool, ignored_atoms: &[AtomIdx
     // observable in the bit vector.
     let mut walker = SubgraphWalker::new(mol, ignored_atoms);
     walker.for_each(MIN_PATH, MAX_PATH, |path, degree, n_atoms| {
-        let seed = path_seed_small(path, &ends, &invariants, &bond_types, degree, n_atoms);
+        let seed =
+            path_seed_small::<MAX_PATH>(path, &ends, &invariants, &bond_types, degree, n_atoms);
         fp.set((seed % FP_SIZE) as usize);
         if NUM_BITS_PER_FEATURE > 1 {
             let mut mt = RdkitWeakMt19937::seeded(seed);
@@ -531,7 +518,7 @@ fn rdkit_rdk_fp_input(mol: &Molecule, trust_view: bool, ignored_atoms: &[AtomIdx
 /// [`path_bond_hashes`] + [`path_seed`] for one subgraph of at most
 /// `MAX_PATH` bonds, on stack buffers. `degree[a]` is atom `a`'s degree
 /// within the path and `n_atoms` the number of atoms the path touches.
-fn path_seed_small(
+fn path_seed_small<const CAPACITY: usize>(
     path: &[u32],
     ends: &[(u32, u32)],
     invariants: &[u32],
@@ -539,9 +526,9 @@ fn path_seed_small(
     degree: &[u32],
     n_atoms: u32,
 ) -> u32 {
-    debug_assert!(!path.is_empty() && path.len() <= MAX_PATH);
+    debug_assert!(!path.is_empty() && path.len() <= CAPACITY);
     let len = path.len();
-    let mut hashes = [0u32; MAX_PATH];
+    let mut hashes = [0u32; CAPACITY];
     for (i, &b) in path.iter().enumerate() {
         let (a1, a2) = ends[b as usize];
         let mut a1_hash = invariants[a1 as usize];
@@ -596,18 +583,6 @@ struct SubgraphWalker {
 impl SubgraphWalker {
     fn new(mol: &Molecule, ignored_atoms: &[AtomIdx]) -> Self {
         let n_bonds = mol.bond_count();
-        // Same lists as `build_bond_adjacency`, indexed by bond.
-        let mut nbrs: Vec<Vec<u32>> = vec![Vec::new(); n_bonds];
-        for (aidx, _) in mol.atoms() {
-            let incident = mol.neighbor_slice(aidx);
-            for &(_, b1) in incident {
-                for &(_, b2) in incident {
-                    if b1 != b2 {
-                        nbrs[b1.0 as usize].push(b2.0);
-                    }
-                }
-            }
-        }
         let mut forbidden = vec![false; n_bonds];
         if !ignored_atoms.is_empty() {
             let mut ignored = vec![false; mol.atom_count()];
@@ -620,13 +595,30 @@ impl SubgraphWalker {
                 }
             }
         }
+        Self::with_mask(mol, forbidden, MAX_PATH)
+    }
+
+    fn with_mask(mol: &Molecule, forbidden: Vec<bool>, max_len: usize) -> Self {
+        let n_bonds = mol.bond_count();
+        // Same lists as `build_bond_adjacency`, indexed by bond.
+        let mut nbrs: Vec<Vec<u32>> = vec![Vec::new(); n_bonds];
+        for (aidx, _) in mol.atoms() {
+            let incident = mol.neighbor_slice(aidx);
+            for &(_, b1) in incident {
+                for &(_, b2) in incident {
+                    if b1 != b2 && !forbidden[b2.0 as usize] {
+                        nbrs[b1.0 as usize].push(b2.0);
+                    }
+                }
+            }
+        }
         Self {
             nbrs,
             ends: mol.bonds().map(|(_, b)| (b.atom1.0, b.atom2.0)).collect(),
             forbidden,
             undo: Vec::new(),
-            stacks: vec![Vec::new(); MAX_PATH + 2],
-            path: Vec::with_capacity(MAX_PATH + 1),
+            stacks: vec![Vec::new(); max_len],
+            path: Vec::with_capacity(max_len),
             degree: vec![0; mol.atom_count()],
             n_atoms: 0,
         }
@@ -662,9 +654,27 @@ impl SubgraphWalker {
         max_len: usize,
         mut visit: impl FnMut(&[u32], &[u32], u32),
     ) {
+        let _: Result<(), core::convert::Infallible> =
+            self.try_for_each(None, min_len, max_len, |path, degree, count| {
+                visit(path, degree, count);
+                Ok(())
+            });
+    }
+
+    fn try_for_each<E>(
+        &mut self,
+        root_atom: Option<AtomIdx>,
+        min_len: usize,
+        max_len: usize,
+        mut visit: impl FnMut(&[u32], &[u32], u32) -> Result<(), E>,
+    ) -> Result<(), E> {
         let n_bonds = self.nbrs.len();
         for root in 0..n_bonds as u32 {
             if self.forbidden[root as usize] {
+                continue;
+            }
+            let (a, b) = self.ends[root as usize];
+            if root_atom.is_some_and(|atom| atom.0 != a && atom.0 != b) {
                 continue;
             }
             // Roots stay forbidden for every later root (as in the original).
@@ -674,26 +684,27 @@ impl SubgraphWalker {
             stack.clear();
             stack.extend_from_slice(&self.nbrs[root as usize]);
             self.stacks[0] = stack;
-            self.walk(0, min_len, max_len, &mut visit);
+            self.walk(0, min_len, max_len, &mut visit)?;
             self.pop_bond();
         }
+        Ok(())
     }
 
     /// One `recurse_walk_range` frame; `self.stacks[depth]` holds its
     /// candidate stack and `self.path` its subgraph.
-    fn walk(
+    fn walk<E>(
         &mut self,
         depth: usize,
         min_len: usize,
         max_len: usize,
-        visit: &mut impl FnMut(&[u32], &[u32], u32),
-    ) {
+        visit: &mut impl FnMut(&[u32], &[u32], u32) -> Result<(), E>,
+    ) -> Result<(), E> {
         let nsize = self.path.len();
         if nsize >= min_len && nsize <= max_len {
-            visit(&self.path, &self.degree, self.n_atoms);
+            visit(&self.path, &self.degree, self.n_atoms)?;
         }
         if nsize >= max_len {
-            return;
+            return Ok(());
         }
         let undo_mark = self.undo.len();
         while let Some(next) = self.stacks[depth].pop() {
@@ -714,7 +725,7 @@ impl SubgraphWalker {
             }
             self.stacks[depth + 1] = child;
             self.push_bond(next);
-            self.walk(depth + 1, min_len, max_len, visit);
+            self.walk(depth + 1, min_len, max_len, visit)?;
             self.pop_bond();
         }
         // Forbidden marks set by this frame were local to it (the original
@@ -723,6 +734,7 @@ impl SubgraphWalker {
             self.forbidden[b as usize] = false;
         }
         self.undo.truncate(undo_mark);
+        Ok(())
     }
 }
 
@@ -893,6 +905,22 @@ mod tests {
         for &(smiles, expected) in cases {
             let fp = rdkit_rdk_fp(&mol(smiles));
             assert_eq!(fp.popcount(), expected, "popcount mismatch for {smiles:?}");
+        }
+    }
+
+    #[test]
+    fn kekule_fused_rings_match_rdkit_2025_09_3_rdk_oracle() {
+        for (smiles, expected_popcount, expected_digest) in [
+            ("c1ccc2c(c1)C=Cc1ccccc1-2", 54, 0x6dc6714b5e3d32e9),
+            ("C1=Cc2ccccc2N1", 145, 0xcff1866fbde5c63e),
+        ] {
+            let fp = rdkit_rdk_fp(&mol(smiles));
+            assert_eq!(fp.popcount(), expected_popcount, "{smiles}");
+            assert_eq!(
+                crate::fingerprint_test_digest(&fp),
+                expected_digest,
+                "{smiles}"
+            );
         }
     }
 }

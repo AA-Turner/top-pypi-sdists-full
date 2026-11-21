@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: open-terminal
-Version: 0.17.20
+Version: 0.17.21
 Summary: A remote computer API.
 Author-email: Timothy Jaeryang Baek <tim@openwebui.com>
 License-Expression: MIT
@@ -86,6 +86,9 @@ pip install open-terminal
 open-terminal run --host 0.0.0.0 --port 8000
 ```
 
+The [Open Machine alias package](packages/open-machine) provides the same CLI as
+`open-machine` and depends on `open-terminal`.
+
 Linux defaults to a separate XFCE desktop. Select GNOME explicitly with `--desktop-environment gnome`. See [desktop setup](docs/configuration.md#desktop) for required packages. Keep your existing display manager if prompted during installation. Docker `latest` includes XFCE and its dependencies. Sharing your actual logged-in desktop requires `--desktop-mode host`.
 
 If no API key is configured, one is generated and printed at startup. For Docker, find it with `docker logs open-terminal`.
@@ -108,6 +111,16 @@ API-key authentication still applies. `--port 8000` adds a TCP listener;
 it binds to `127.0.0.1` unless `--host 0.0.0.0` is explicitly supplied.
 Use port `0` to select an available port. The bind address and port are logged at startup.
 With `--ipc`, `--host` requires an explicit `--port`; `--cftunnel` is not supported.
+
+To reach an IPC server on another machine over SSH, forward to the socket. If that machine's SSH server
+blocks socket forwarding (`AllowStreamLocalForwarding no`), run `open-terminal bridge` over SSH instead.
+It relays its stdin and stdout to the socket, so the client speaks HTTP over the SSH session:
+
+```bash
+ssh user@host open-terminal bridge /path/to/private-directory/api.sock
+```
+
+`bridge` supports Unix sockets only.
 
 ## Connect to Open WebUI
 

@@ -4,6 +4,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 if TYPE_CHECKING:
+    from ..models.list_recent_runs_response_200_hidden_items_item import ListRecentRunsResponse200HiddenItemsItem
     from ..models.list_recent_runs_response_200_items_item import ListRecentRunsResponse200ItemsItem
 
 
@@ -21,6 +22,8 @@ class ListRecentRunsResponse200:
         failing_items (int):
         running_items (int):
         items (List['ListRecentRunsResponse200ItemsItem']):
+        hidden_items (List['ListRecentRunsResponse200HiddenItemsItem']): the items the caller hid, within the folder,
+            whether or not they ran in the window; their runs are left out of items and of every count
     """
 
     window_hours: int
@@ -30,6 +33,7 @@ class ListRecentRunsResponse200:
     failing_items: int
     running_items: int
     items: List["ListRecentRunsResponse200ItemsItem"]
+    hidden_items: List["ListRecentRunsResponse200HiddenItemsItem"]
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -45,6 +49,12 @@ class ListRecentRunsResponse200:
 
             items.append(items_item)
 
+        hidden_items = []
+        for hidden_items_item_data in self.hidden_items:
+            hidden_items_item = hidden_items_item_data.to_dict()
+
+            hidden_items.append(hidden_items_item)
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -56,6 +66,7 @@ class ListRecentRunsResponse200:
                 "failing_items": failing_items,
                 "running_items": running_items,
                 "items": items,
+                "hidden_items": hidden_items,
             }
         )
 
@@ -63,6 +74,7 @@ class ListRecentRunsResponse200:
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+        from ..models.list_recent_runs_response_200_hidden_items_item import ListRecentRunsResponse200HiddenItemsItem
         from ..models.list_recent_runs_response_200_items_item import ListRecentRunsResponse200ItemsItem
 
         d = src_dict.copy()
@@ -85,6 +97,13 @@ class ListRecentRunsResponse200:
 
             items.append(items_item)
 
+        hidden_items = []
+        _hidden_items = d.pop("hidden_items")
+        for hidden_items_item_data in _hidden_items:
+            hidden_items_item = ListRecentRunsResponse200HiddenItemsItem.from_dict(hidden_items_item_data)
+
+            hidden_items.append(hidden_items_item)
+
         list_recent_runs_response_200 = cls(
             window_hours=window_hours,
             capped=capped,
@@ -93,6 +112,7 @@ class ListRecentRunsResponse200:
             failing_items=failing_items,
             running_items=running_items,
             items=items,
+            hidden_items=hidden_items,
         )
 
         list_recent_runs_response_200.additional_properties = d

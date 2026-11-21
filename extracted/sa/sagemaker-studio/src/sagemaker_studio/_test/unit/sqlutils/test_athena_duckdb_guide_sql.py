@@ -16,7 +16,7 @@ from sagemaker_studio.utils.athena_v4 import (
 )
 
 QID = "11111111-2222-3333-4444-555555555555"
-DUCKDB = "Athena DuckDB"
+DUCKDB = "DuckDB"
 
 # The guide's tutorial, one statement per query, as the guide runs them.
 TUTORIAL = [

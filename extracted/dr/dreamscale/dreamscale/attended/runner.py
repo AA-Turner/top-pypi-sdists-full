@@ -255,6 +255,9 @@ class AttendedTaskRunner:
             )
         )
         self.mode = task_mode(model, mode, self.strategy)
+        # "auto" before a session follows the preview; the session's own default replaces it
+        # (isaac-0.5-yam runs sync), as policy.run() resolves it.
+        self._session_mode = mode == "auto" and follows_session_contract(model)
         resolve_action_smoothing(self.strategy, contract)
         if trace_images and trace_dir is None:
             raise ValueError("trace_images requires trace_dir")
@@ -643,6 +646,14 @@ class AttendedTaskRunner:
             on_progress=on_progress,
         )
         contract = getattr(policy, "runtime_contract", None)
+        own = getattr(contract, "default_mode", None)
+        if self._session_mode and own in ("async", "sync") and own != self.mode:
+            try:
+                validate_mode(own, self.strategy)
+            except ValueError:
+                pass  # a smoothing option asked for keeps the mode it was checked against
+            else:
+                self.mode = own
         # An end-effector adapter turns the session's actions into the rig's joints and holds
         # them: its execution contract, not the session's, governs the run.
         converted = self.end_effector_adapter is not None

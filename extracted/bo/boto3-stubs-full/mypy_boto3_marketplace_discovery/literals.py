@@ -24,18 +24,22 @@ else:
 
 __all__ = (
     "BillingPeriodTypeType",
+    "CaseStudyResourceTypeType",
     "DeployedOnAwsStatusType",
     "DimensionLabelTypeType",
     "FulfillmentOptionTypeType",
     "GetOfferTermsPaginatorName",
     "LegalDocumentTypeType",
     "ListFulfillmentOptionsPaginatorName",
+    "ListListingAttributesPaginatorName",
     "ListPurchaseOptionsPaginatorName",
+    "ListingAttributeTypeType",
     "ListingBadgeTypeType",
     "MarketplaceDiscoveryServiceName",
     "PaginatorName",
     "PricingModelTypeType",
     "PricingUnitTypeType",
+    "PurchaseIndicatorTypeType",
     "PurchaseOptionBadgeTypeType",
     "PurchaseOptionFilterTypeType",
     "PurchaseOptionTypeType",
@@ -55,11 +59,16 @@ __all__ = (
     "SellerEngagementContentTypeType",
     "SellerEngagementTypeType",
     "ServiceName",
+    "SpecializationTypeType",
     "TermTypeType",
+    "TrustCenterControlDomainType",
+    "TrustCenterDocumentAccessTypeType",
+    "TrustCenterProviderType",
 )
 
 
 BillingPeriodTypeType = Literal["Monthly"]
+CaseStudyResourceTypeType = Literal["CASE_STUDY_WEBSITE"]
 DeployedOnAwsStatusType = Literal["DEPLOYED", "NOT_APPLICABLE", "NOT_DEPLOYED"]
 DimensionLabelTypeType = Literal["Region", "SagemakerOption"]
 FulfillmentOptionTypeType = Literal[
@@ -81,12 +90,26 @@ LegalDocumentTypeType = Literal[
     "CustomDsa", "CustomEula", "EnterpriseEula", "StandardDsa", "StandardEula"
 ]
 ListFulfillmentOptionsPaginatorName = Literal["list_fulfillment_options"]
+ListListingAttributesPaginatorName = Literal["list_listing_attributes"]
 ListPurchaseOptionsPaginatorName = Literal["list_purchase_options"]
+ListingAttributeTypeType = Literal[
+    "CASE_STUDY",
+    "SPECIALIZATION_DETAIL",
+    "TRUST_CENTER_CERTIFICATION",
+    "TRUST_CENTER_CONTROL",
+    "TRUST_CENTER_DOCUMENT",
+    "TRUST_CENTER_FAQ",
+    "TRUST_CENTER_SOURCE",
+    "TRUST_CENTER_UPDATE",
+]
 ListingBadgeTypeType = Literal[
     "AWS_FREE_TIER", "DEPLOYED_ON_AWS", "FREE_TRIAL", "MULTI_PRODUCT", "QUICK_LAUNCH"
 ]
 PricingModelTypeType = Literal["BYOL", "CONTRACT", "FREE", "USAGE"]
 PricingUnitTypeType = Literal["BANDWIDTH", "DATA", "HOSTS", "REQUESTS", "TIERS", "UNITS", "USERS"]
+PurchaseIndicatorTypeType = Literal[
+    "AVAILABLE_FOR_USE_WITHOUT_SUBSCRIPTION", "NOT_AVAILABLE_FOR_SUBSCRIPTION"
+]
 PurchaseOptionBadgeTypeType = Literal[
     "AUTO_RENEW", "FUTURE_DATED", "PRIVATE_PRICING", "REPLACEMENT_OFFER"
 ]
@@ -106,16 +129,22 @@ SaasQuickLaunchStatusType = Literal["DISABLED", "ENABLED"]
 SearchFacetTypeType = Literal[
     "AVERAGE_CUSTOMER_RATING",
     "CATEGORY",
+    "CERTIFICATES",
     "DEPLOYED_ON_AWS",
     "FULFILLMENT_OPTION_TYPE",
     "NUMBER_OF_PRODUCTS",
     "PRICING_MODEL",
     "PRICING_UNIT",
     "PUBLISHER",
+    "SELLER_ENGAGEMENT",
+    "SPECIALIZATION",
+    "SPECIALIZATION_CATEGORY",
+    "TRUST_CENTER",
 ]
 SearchFacetsPaginatorName = Literal["search_facets"]
 SearchFilterTypeType = Literal[
     "CATEGORY",
+    "CERTIFICATES",
     "DEPLOYED_ON_AWS",
     "FULFILLMENT_OPTION_TYPE",
     "MAX_AVERAGE_CUSTOMER_RATING",
@@ -123,14 +152,26 @@ SearchFilterTypeType = Literal[
     "NUMBER_OF_PRODUCTS",
     "PRICING_MODEL",
     "PRICING_UNIT",
+    "PRODUCT_ID",
     "PUBLISHER",
+    "SELLER_ENGAGEMENT",
+    "SPECIALIZATION",
+    "SPECIALIZATION_CATEGORY",
+    "TRUST_CENTER",
 ]
 SearchListingsPaginatorName = Literal["search_listings"]
 SearchListingsSortByType = Literal["AVERAGE_CUSTOMER_RATING", "RELEVANCE"]
 SearchListingsSortOrderType = Literal["ASCENDING", "DESCENDING"]
 SelectorTypeType = Literal["Duration"]
 SellerEngagementContentTypeType = Literal["LINK"]
-SellerEngagementTypeType = Literal["REQUEST_FOR_DEMO", "REQUEST_FOR_PRIVATE_OFFER"]
+SellerEngagementTypeType = Literal[
+    "BUY_NOW",
+    "EXPRESS_PRIVATE_OFFER",
+    "REQUEST_FOR_DEMO",
+    "REQUEST_FOR_PRIVATE_OFFER",
+    "TRY_FOR_FREE",
+]
+SpecializationTypeType = Literal["INDUSTRY", "SERVICES", "USE_CASE"]
 TermTypeType = Literal[
     "ByolPricingTerm",
     "ConfigurableUpfrontPricingTerm",
@@ -146,6 +187,9 @@ TermTypeType = Literal[
     "ValidityTerm",
     "VariablePaymentTerm",
 ]
+TrustCenterControlDomainType = Literal["AI_GOVERNANCE", "RESILIENCE", "SECURITY"]
+TrustCenterDocumentAccessTypeType = Literal["DOWNLOAD", "REQUEST_ACCESS", "VIEW"]
+TrustCenterProviderType = Literal["DRATA", "OTHER", "VANTA"]
 MarketplaceDiscoveryServiceName = Literal["marketplace-discovery"]
 ServiceName = Literal[
     "abuse-signal",
@@ -155,6 +199,7 @@ ServiceName = Literal[
     "account-access-runtime",
     "acm",
     "acm-pca",
+    "agent-discovery",
     "agent-registry",
     "agent-registry-control",
     "aiops",
@@ -165,6 +210,7 @@ ServiceName = Literal[
     "apigateway",
     "apigatewaymanagementapi",
     "apigatewayv2",
+    "apiportal",
     "appconfig",
     "appconfigdata",
     "appfabric",
@@ -455,6 +501,7 @@ ServiceName = Literal[
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
+    "payments",
     "pca-connector-ad",
     "pca-connector-scep",
     "pcs",
@@ -510,6 +557,7 @@ ServiceName = Literal[
     "sagemaker-a2i-runtime",
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
+    "sagemaker-gateway-runtime",
     "sagemaker-geospatial",
     "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
@@ -595,6 +643,7 @@ ResourceServiceName = Literal[
 PaginatorName = Literal[
     "get_offer_terms",
     "list_fulfillment_options",
+    "list_listing_attributes",
     "list_purchase_options",
     "search_facets",
     "search_listings",

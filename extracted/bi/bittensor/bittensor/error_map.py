@@ -255,6 +255,7 @@ NAME_TO_CODE: dict[str, ErrorCode] = {
     "NotGammaDepositSpender": _C.NOT_AUTHORIZED,
     "InsufficientGammaBalance": _C.INSUFFICIENT_BALANCE,
     "GammaDepositDailySpendCapExceeded": _C.LIMIT_EXCEEDED,
+    "ServiceDoesNotExist": _C.NOT_FOUND,
     # Pending announcement blocks nearly all signed calls until the swap is
     # executed or the announcement is cleared (guards/check_coldkey_swap.rs).
     # Bucketed as disabled (feature/path blocked), not already_exists.
@@ -286,6 +287,11 @@ NAME_TO_CODE: dict[str, ErrorCode] = {
     "ValidatorEmissionTooLowToPreserveRoot": _C.POLICY_VIOLATION,
     "MinerEmissionBelowMinimum": _C.POLICY_VIOLATION,
     "EmissionWeightsNotSettableOnRoot": _C.INVALID_ARGUMENT,
+    "EmissionSlotsNotAscending": _C.INVALID_ARGUMENT,
+    "GammaEmissionAboveMaximum": _C.POLICY_VIOLATION,
+    "GammaEmissionTargetNotWhitelisted": _C.POLICY_VIOLATION,
+    "TooManyGammaShares": _C.LIMIT_EXCEEDED,
+    "GammaEmissionNotSettableOnLeasedSubnet": _C.POLICY_VIOLATION,
     "UnlockAmountTooHigh": _C.INSUFFICIENT_BALANCE,
     "TempoOutOfBounds": _C.INVALID_ARGUMENT,
     "ActivityCutoffFactorMilliOutOfBounds": _C.INVALID_ARGUMENT,
@@ -663,8 +669,9 @@ DISPATCH_ERRORS: dict[str, tuple[ErrorCode, str]] = {
     ),
     "StakeAmountTooLow": (
         _C.LIMIT_EXCEEDED,
-        "The stake amount is below the chain minimum, or the hotkey's stake weight is "
-        "below the floor required to set/commit weights. Check `btcli stake list`.",
+        "The stake amount is below the chain minimum, the hotkey's stake weight is "
+        "below the floor required to set/commit weights, or a gamma spend is below 0.1 gamma "
+        "without emptying the deposit. Check `btcli stake list`.",
     ),
     "RateLimitExceeded": (
         _C.RATE_LIMITED,

@@ -102,11 +102,15 @@ import lanelet2.geometry
 
 from .constants import BUMPER_PROBE_ROLE_NAME, EGO_ROLE_NAME
 from .coordinate.map_manager import MapManager
-from .coordinate.transform import _STACKED_HEIGHT_TOLERANCE, _project_with_height
+from .coordinate.transform import (
+    _STACKED_HEIGHT_TOLERANCE,
+    _project_with_height,
+    lanelets_beside,
+)
 from .entity_role import find_actor_in_world
 from .kinematics.walker_motion import WalkerVelocities, simulated_seconds
 from .metrics import is_metric
-from .utils.clearance import _vertical_span, on_another_level
+from .utils.clearance import actor_vertical_span, on_another_level
 from .utils.stop_line import regulatory_element_stop_lines
 
 if TYPE_CHECKING:
@@ -393,7 +397,7 @@ def _pedestrians_around(
     falling away is around
     (:func:`~autoware_carla_scenario.utils.clearance.on_another_level`)."""
     transform = ego.get_transform()
-    ego_span = _vertical_span(ego, transform)
+    ego_span = actor_vertical_span(ego, transform)
     found: list[_Around] = []
     for actor in actors:
         if actor.id == ego.id or not actor.type_id.startswith("walker."):
@@ -403,7 +407,7 @@ def _pedestrians_around(
         velocity = _WALKERS.walker(actor, elapsed, location)
         ahead, lateral = in_ego_frame(transform, location)
         if on_another_level(
-            ego_span, _vertical_span(actor, placed), math.hypot(ahead, lateral)
+            ego_span, actor_vertical_span(actor, placed), math.hypot(ahead, lateral)
         ):
             continue
         found.append(
@@ -967,28 +971,6 @@ def _overlapping(lanelet_id: int) -> list[int]:
     return rivals
 
 
-def _beside(lanelet_id: int) -> list[int]:
-    """The lanelets beside *lanelet_id*, either side, a lane change allowed
-    across the line between or not (the routing graph's neighbours)."""
-    mm = MapManager.get_instance()
-    graph = mm.routing_graph
-    lanelet = mm.lanelet_map.laneletLayer[lanelet_id]
-    found: list[int] = []
-    left = graph.left(lanelet)
-    if left is not None:
-        found.append(int(left.id))
-    right = graph.right(lanelet)
-    if right is not None:
-        found.append(int(right.id))
-    adjacent_left = graph.adjacentLeft(lanelet)
-    if adjacent_left is not None:
-        found.append(int(adjacent_left.id))
-    adjacent_right = graph.adjacentRight(lanelet)
-    if adjacent_right is not None:
-        found.append(int(adjacent_right.id))
-    return found
-
-
 class _LaneFrame:
     """The ego's lane: its lanelet, those following and the one before it,
     each with the ``s`` it starts at; and the lanelets beside them."""
@@ -1091,7 +1073,7 @@ class _LaneFrame:
             back = previous_id
         self.beside = {}
         for lanelet_id in list(self.start):
-            for other in _beside(lanelet_id):
+            for other in lanelets_beside(lanelet_id):
                 if other not in self.start and other not in self.beside:
                     self.beside[other] = lanelet_id
         self.rivals = _overlapping(ego_lanelet)
@@ -1402,7 +1384,7 @@ def _vehicle_ahead(world: "carla.World") -> Optional[_Lead]:
             ego = _moving(ego_actor)
             ego_placed = ego_actor.get_transform()
             ego_z = float(ego_placed.location.z)
-            ego_span = _vertical_span(ego_actor, ego_placed)
+            ego_span = actor_vertical_span(ego_actor, ego_placed)
             reach = AHEAD_RANGE_M + 2 * _REACH_MARGIN_M
             others: list[_Vehicle] = []
             for actor in actors:
@@ -1422,7 +1404,7 @@ def _vehicle_ahead(world: "carla.World") -> Optional[_Lead]:
                     ego_z,
                     ego_span,
                     float(location.z),
-                    _vertical_span(actor, placed),
+                    actor_vertical_span(actor, placed),
                     planar,
                 ):
                     continue

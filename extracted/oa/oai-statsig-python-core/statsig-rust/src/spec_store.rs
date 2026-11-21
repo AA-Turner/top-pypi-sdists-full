@@ -4,8 +4,10 @@ use blob_repair::effective_conditions;
 use blob_repair::{BlobRepair, restore_full_configs, restore_pending_configs};
 pub(crate) use blob_repair::{ConditionMap, RetainedConditions, resolve_condition};
 
-use crate::id_lists_adapter::IdListUpdateBase;
 use crate::id_lists_adapter::id_list_load_timing::{self, Phase};
+use crate::id_lists_adapter::{
+    IdListUpdateBase, IdListUpdateBatch, PreparedIdListUpdate, UpdateMode,
+};
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use chrono::Utc;
@@ -1918,12 +1920,9 @@ impl SpecStore {
             }
         }
 
-        if let Some(sdk_configs) = &dcs.sdk_configs {
-            global_configs.set_sdk_configs(sdk_configs.clone());
-        } else if !is_delta {
-            // SDK configs are not normally deleted, but omission from a full
-            // snapshot must still revoke any previously enabled rollout boost.
-            global_configs.set_sdk_configs(HashMap::new());
+        if !is_delta || dcs.sdk_configs.is_some() {
+            global_configs
+                .apply_sdk_configs(dcs.sdk_configs.clone().unwrap_or_default(), !is_delta);
         }
 
         if let Some(sdk_flags) = &dcs.sdk_flags {
@@ -2654,9 +2653,33 @@ impl SpecStore {
             .min(successful_downloads) as usize
     }
 
+    pub(crate) fn publish_prepared_id_lists(
+        &self,
+        batch: IdListUpdateBatch,
+        eager_downloads: Option<u64>,
+    ) -> Result<(), StatsigErr> {
+        let concurrency = eager_downloads.map_or(1, |n| self.eager_id_list_workers(n));
+        if batch.expected.is_none() && batch.mode != IdListPublicationMode::Merge {
+            return self.apply_id_list_updates(
+                batch.updates,
+                batch.propagation,
+                batch.mode,
+                concurrency,
+            );
+        }
+        let _output_scope = self.output_policy.enter();
+        self.stage_id_list_updates(
+            batch.updates,
+            batch.expected,
+            batch.propagation,
+            batch.mode,
+            concurrency,
+        )
+    }
+
     fn apply_id_list_updates(
         &self,
-        updates: HashMap<String, IdListUpdate>,
+        updates: HashMap<String, impl Into<PreparedIdListUpdate> + Send>,
         propagation: HashMap<String, IdListPropagationUpdate>,
         mode: IdListPublicationMode,
         concurrency: usize,
@@ -2684,12 +2707,7 @@ impl SpecStore {
         let base = Arc::clone(&self.data.load().id_lists);
         let base_is_current = match (expected, base.get(name)) {
             (None, None) => true,
-            (Some(old), Some(current)) => {
-                old.metadata.file_id == current.metadata.file_id
-                    && old.metadata.creation_time == current.metadata.creation_time
-                    && old.metadata.size == current.metadata.size
-                    && Arc::ptr_eq(&old.ids, &current.ids)
-            }
+            (Some(old), Some(current)) => old.same_membership(current),
             _ => false,
         };
         if !base_is_current {
@@ -2712,7 +2730,7 @@ impl SpecStore {
 
     fn stage_id_list_updates(
         &self,
-        updates: HashMap<String, IdListUpdate>,
+        updates: HashMap<String, impl Into<PreparedIdListUpdate> + Send>,
         bases: Option<HashMap<String, IdListUpdateBase>>,
         propagation: HashMap<String, IdListPropagationUpdate>,
         mode: IdListPublicationMode,
@@ -2761,7 +2779,7 @@ impl SpecStore {
     fn updated_id_lists(
         &self,
         base: &Arc<HashMap<String, IdList>>,
-        updates: HashMap<String, IdListUpdate>,
+        updates: HashMap<String, impl Into<PreparedIdListUpdate> + Send>,
         mode: IdListPublicationMode,
         concurrency: usize,
         mut bases: Option<HashMap<String, IdListUpdateBase>>,
@@ -2777,18 +2795,17 @@ impl SpecStore {
         };
         let updates = updates.into_iter().map(|(name, update)| {
             let image = bases.as_mut().and_then(|bases| bases.remove(&name)?.list);
-            (name, update, image)
+            (name, update.into(), image)
         });
-        let build = |(name, update, image): (String, IdListUpdate, Option<IdList>)| {
+        let build = |(name, update, image): (String, PreparedIdListUpdate, Option<Box<IdList>>)| {
             #[cfg(test)]
             if let Some(hook) = &self.before_id_list_build {
                 hook();
             }
             let previous = base.get(&name);
-            let list = self.updated_id_list(previous, image, update);
-            let changed = previous.is_none_or(|old| {
-                old.metadata.size != list.metadata.size || !Arc::ptr_eq(&old.ids, &list.ids)
-            });
+            let list =
+                self.updated_id_list(IdList::select_base(previous, image.as_deref()), update);
+            let changed = previous.is_none_or(|old| !old.same_membership(&list));
             (name, list, changed)
         };
         let install = |(name, list, list_changed)| {
@@ -2836,12 +2853,9 @@ impl SpecStore {
     pub(crate) fn updated_id_list(
         &self,
         previous: Option<&IdList>,
-        snapshot: Option<IdList>,
-        update: IdListUpdate,
+        update: PreparedIdListUpdate,
     ) -> IdList {
-        let mut list = IdList::from_update_base(previous, snapshot, &update.new_metadata);
-        list.apply_update_with_encoding(self.id_list_encoding, update);
-        list
+        IdList::build(previous, update, UpdateMode::Private(self.id_list_encoding))
     }
 
     fn id_list_lock_timeout() -> StatsigErr {

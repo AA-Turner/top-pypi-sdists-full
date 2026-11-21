@@ -15,9 +15,14 @@ delegate to the same engine, which always applies the HTML rules (element and at
 
 from __future__ import annotations
 
+__lazy_modules__ = [
+    f"{__spec__.parent}",  # ty: ignore[missing-union-attribute]  # imported modules have a spec
+    f"{__spec__.parent}._html",  # ty: ignore[missing-union-attribute]  # imported modules have a spec
+]
+
 from . import SelectorSyntaxError
-from ._html import css_specificity as _css_specificity
-from ._html import css_to_xpath as _css_to_xpath
+from ._html import css_specificity as native_css_specificity
+from ._html import css_to_xpath as native_css_to_xpath
 
 
 class SelectorError(Exception):
@@ -38,7 +43,7 @@ def css_specificity(selector: str) -> list[tuple[int, int, int]]:
     :raises SelectorSyntaxError: the selector does not parse.
     :returns: one ``(a, b, c)`` triple per selector in the list, in source order.
     """
-    return _css_specificity(selector)
+    return native_css_specificity(selector)
 
 
 class GenericTranslator:
@@ -83,7 +88,7 @@ def css_to_xpath(selector: str, *, prefix: str = "descendant-or-self::") -> str:
     :returns: the XPath 1.0 expression.
     """
     try:
-        return _css_to_xpath(selector, prefix)
+        return native_css_to_xpath(selector, prefix)
     except NotImplementedError as error:
         raise ExpressionError(str(error)) from None
 

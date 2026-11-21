@@ -1,5 +1,25 @@
 use crate::{DynamicValue, dyn_value, user::user_value::UserValue};
 
+pub(crate) const USER_ID_TYPE: &str = "userID";
+const LOWERCASE_USER_ID_TYPE: &str = "userid";
+
+pub(crate) fn is_user_id_type(id_type: &str) -> bool {
+    id_type.eq_ignore_ascii_case(LOWERCASE_USER_ID_TYPE)
+}
+
+pub(super) fn resolve_unit_id<'a, T>(
+    id_type: &str,
+    lowercased_id_type: &str,
+    primary: Option<&'a T>,
+    custom: impl Fn(&str) -> Option<&'a T>,
+) -> Option<&'a T> {
+    if lowercased_id_type == LOWERCASE_USER_ID_TYPE {
+        primary
+    } else {
+        custom(id_type).or_else(|| custom(lowercased_id_type))
+    }
+}
+
 pub enum UnitID {
     String(String),
     Float(f64),

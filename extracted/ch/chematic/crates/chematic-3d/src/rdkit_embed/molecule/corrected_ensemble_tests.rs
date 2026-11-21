@@ -3,6 +3,39 @@ use crate::stereo_constraints::verify_stereo;
 use chematic_core::{Coords3D, Point3};
 
 #[test]
+fn zero_seed_quality_profile_searches_new_batches() {
+    let molecule = chematic_chem::add_hydrogens(&chematic_smiles::parse("CCCCCCO").unwrap());
+    let options = RdkitEmbedOptions {
+        random_seed: 0,
+        ..Default::default()
+    };
+    let prepared = prepare_fragments(&molecule, &options).unwrap();
+    assert!(!corrected_torsion_gradient_can_differ(&prepared));
+    let mut batches = Vec::new();
+    for offset in [0, 3, 6] {
+        let coords = embed_prepared_multiple_confs(&prepared, 3, offset, &options, false).unwrap();
+        batches.push(optimize_mmff_molecule(&molecule, coords, 0).unwrap());
+    }
+    assert_ne!(batches[0][0].coords, batches[1][0].coords);
+    assert_ne!(batches[1][0].coords, batches[2][0].coords);
+    let best_energy = batches
+        .iter()
+        .flatten()
+        .map(|c| c.energy)
+        .min_by(f64::total_cmp)
+        .unwrap();
+    let selected =
+        etkdg_embed_multiple_confs_mmff_best_gradient(&molecule, 3, &options, 0).unwrap();
+    assert_eq!(selected.len(), 3);
+    assert_eq!(selected[0].energy, best_energy);
+    assert!(
+        selected
+            .iter()
+            .all(|chosen| batches.iter().flatten().any(|c| chosen.coords == c.coords))
+    );
+}
+
+#[test]
 fn quality_profile_uses_new_seeds_when_gradients_match() {
     let molecule = chematic_chem::add_hydrogens(
         &chematic_smiles::parse("CC(C)Cc1ccc(cc1)C(C)C(=O)O").unwrap(),
@@ -16,6 +49,8 @@ fn quality_profile_uses_new_seeds_when_gradients_match() {
     let next = optimize_mmff_molecule(&molecule, next_coords, 200).unwrap();
     let third_coords = embed_prepared_multiple_confs(&prepared, 4, 8, &options, false).unwrap();
     let third = optimize_mmff_molecule(&molecule, third_coords, 200).unwrap();
+    let fourth_coords = embed_prepared_multiple_confs(&prepared, 4, 12, &options, false).unwrap();
+    let fourth = optimize_mmff_molecule(&molecule, fourth_coords, 200).unwrap();
     assert_eq!(first.len(), 4);
     assert_eq!(next.len(), 4);
     assert_eq!(third.len(), 4);
@@ -32,17 +67,100 @@ fn quality_profile_uses_new_seeds_when_gradients_match() {
             .unwrap()
     };
     assert_eq!(selected.len(), 4);
-    assert_eq!(
-        best(&selected),
-        best(&first).min(best(&next)).min(best(&third))
-    );
+    assert!(best(&selected) <= best(&first).min(best(&next)).min(best(&third)));
     assert!(selected.iter().all(|chosen| {
         first
             .iter()
             .chain(&next)
             .chain(&third)
+            .chain(&fourth)
             .any(|original| chosen.coords == original.coords)
     }));
+}
+
+#[test]
+fn torsion_search_recovers_lower_converged_minimum() {
+    let molecule = chematic_chem::add_hydrogens(
+        &chematic_smiles::parse("COc1cc2nc(N3CCN(S(=O)(=O)c4cccs4)CC3)nc(N)c2cc1OC").unwrap(),
+    );
+    let options = RdkitEmbedOptions::default();
+    let baseline =
+        etkdg_embed_multiple_confs_mmff_best_gradient(&molecule, 20, &options, 200).unwrap();
+    let improved =
+        etkdg_embed_multiple_confs_mmff_torsion_search(&molecule, 20, &options, 200).unwrap();
+    let best_converged = |rows: &[RdkitMmffConformer]| {
+        rows.iter()
+            .filter(|row| row.status == 0)
+            .map(|row| row.energy)
+            .min_by(f64::total_cmp)
+            .unwrap()
+    };
+    assert_eq!(baseline.len(), improved.len());
+    let before = best_converged(&baseline);
+    let after = best_converged(&improved);
+    assert!(
+        after <= before + 1e-6,
+        "torsion search: {before} -> {after}"
+    );
+    // ETKDG and BFGS can enter different basins across targets. The measured
+    // macOS arm64 regression has a large margin; the portable contract is
+    // finite, converged, stereo-checked non-regression.
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    assert!(after < before - 1.2, "torsion search: {before} -> {after}");
+}
+
+#[test]
+fn torsion_search_pool_preserves_output_count_and_legacy_result() {
+    let molecule = chematic_chem::add_hydrogens(&chematic_smiles::parse("CCCO").unwrap());
+    let options = RdkitEmbedOptions::default();
+    let legacy =
+        etkdg_embed_multiple_confs_mmff_torsion_search(&molecule, 4, &options, 200).unwrap();
+    let same =
+        etkdg_embed_multiple_confs_mmff_torsion_search_with_pool(&molecule, 4, 4, &options, 200)
+            .unwrap();
+    assert_eq!(
+        legacy
+            .iter()
+            .map(|row| (row.status, row.energy))
+            .collect::<Vec<_>>(),
+        same.iter()
+            .map(|row| (row.status, row.energy))
+            .collect::<Vec<_>>()
+    );
+    let pooled =
+        etkdg_embed_multiple_confs_mmff_torsion_search_with_pool(&molecule, 4, 8, &options, 200)
+            .unwrap();
+    assert_eq!(pooled.len(), 4);
+    assert!(
+        pooled
+            .iter()
+            .any(|row| row.status == 0 && row.energy.is_finite())
+    );
+    assert!(
+        etkdg_embed_multiple_confs_mmff_torsion_search_with_pool(&molecule, 4, 3, &options, 200,)
+            .is_err()
+    );
+}
+
+#[test]
+fn quality_profile_extends_search_after_third_batch_improves() {
+    let molecule = chematic_chem::add_hydrogens(
+        &chematic_smiles::parse(
+            "c1ccc2c(c1)c1cc[n+]2Cc2ccc(cc2)-c2ccc(cc2)C[n+]2ccc(c3ccccc32)NCCCCCCCCCCN1",
+        )
+        .unwrap(),
+    );
+    let options = RdkitEmbedOptions::default();
+    let prepared = prepare_fragments(&molecule, &options).unwrap();
+    assert!(!corrected_torsion_gradient_can_differ(&prepared));
+
+    let first_three = rdkit_embed_multiple_confs_mmff(&molecule, 24, &options, 1000).unwrap();
+    let before = lowest_finite_energy(&first_three).unwrap();
+    let selected =
+        etkdg_embed_multiple_confs_mmff_best_gradient(&molecule, 8, &options, 1000).unwrap();
+    let after = lowest_finite_energy(&selected).unwrap();
+    assert!(selected.iter().all(|candidate| candidate.status == 0));
+    assert!(after < before - 0.5, "fourth batch: {before} -> {after}");
 }
 
 #[test]

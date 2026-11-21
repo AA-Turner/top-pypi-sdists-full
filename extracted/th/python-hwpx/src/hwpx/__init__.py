@@ -6,8 +6,10 @@
 
 - **stable** — ``__all__``에 있는 이름. 계약이 굳었고 major 경계에서만 깨질 수 있음.
 - **experimental** — 계약이 유동적. ``from hwpx.experimental import ...``로 쓰세요.
-  최상위 재내보내기는 하위 호환을 위해 유지하되 접근 시 ``DeprecationWarning``이 나며
-  다음 major에서 제거될 예정입니다.
+  4.0~6.x의 최상위 재내보내기(경고와 함께)는 7.0에서 없어졌습니다 — ``from hwpx import
+  <실험 기능>``은 ``hwpx.experimental``을 알려 주는 ``MovedToExperimental``(ImportError)을 냅니다.
+  수식 변환(``latex_to_eqedit`` 등)은 7.0에서 ``hwpx.equation``의 stable 이름이 되었고, 최상위
+  접근은 ``hwpx.equation``을 알려 주는 ``MovedToSubmodule``(ImportError)을 냅니다.
 - **deprecated** — 대체 경로로 이전하세요. 접근 시 ``DeprecationWarning``이 납니다.
 """
 
@@ -26,36 +28,24 @@ def _resolve_version() -> str:
         return "0+unknown"
 
 
-# --- experimental / deprecated 최상위 표면 (지연 접근, 접근 시 경고) ---------------
+# --- experimental / deprecated 최상위 표면 ----------------------------------------
 #
 # stable 이름은 경고 없이 해석됩니다. 대부분 아래에서 eager import 되고, ``hwpx.tools``의
-# 이름은 ``_TOOLS_STABLE_EXPORTS``가 지연 해석합니다. 여기 등록된 이름만 지연 해석되어
-# 경고를 냅니다. 4.0.0에서 제거되는 이름은 0개 — 모두 계속 import 가능합니다.
+# 이름은 ``_TOOLS_STABLE_EXPORTS``가 지연 해석합니다.
+#
+# ``_EXPERIMENTAL_EXPORTS``는 4.0~6.x가 최상위에서 경고와 함께 재내보내던 실험 기능
+# 가운데 엔진에 남아 지금도 실험 기능인 11개다. 7.0은 예고대로 그 재내보내기를 지웠다.
+# 표는 남아 오류 메시지 하나를 만든다 — ``from hwpx import estimate_pages``가
+# ``hwpx.experimental``을 알려 준다(``MovedToExperimental``). 구현 모듈 경로는 그대로다.
+# 수식 변환 3개는 7.0에서 ``hwpx.equation``의 stable 이름이 되어 ``_EQUATION_EXPORTS``로
+# 갔고(D26), 나머지 12개(ingest 7개, 미리보기 5개)는 7.0에서 python-hwpx-automation으로 옮겨
+# ``_MOVED_TO_COMPANION``에 있다.
 
 _EXPERIMENTAL_EXPORTS = {
-    # 문서 ingestion 프레임워크(임의 포맷 -> HWPX). 계약 유동.
-    "ConversionAttempt": "hwpx.ingest",
-    "DocumentConverter": "hwpx.ingest",
-    "DocumentIngestError": "hwpx.ingest",
-    "DocumentIngestResult": "hwpx.ingest",
-    "DocumentIngestor": "hwpx.ingest",
-    "DocumentSourceInfo": "hwpx.ingest",
-    "UnsupportedDocumentFormat": "hwpx.ingest",
-    # 레이아웃 프리뷰(한컴 없는 정직 근사). 계약 유동.
-    "LayoutPreview": "hwpx.tools.layout_preview",
-    "PreviewPage": "hwpx.tools.layout_preview",
-    "render_layout_preview": "hwpx.tools.layout_preview",
     # 쪽 수 추정(한/글 없이, 줄마다 쪽·단·세로 위치). 계약 유동.
     "EstimatedLine": "hwpx.layout.pages",
     "PageEstimate": "hwpx.layout.pages",
     "estimate_pages": "hwpx.layout.pages",
-    # 문서 프리뷰 뷰어(3.8.0 신규). 계약 유동.
-    "DocumentViewer": "hwpx.tools.document_viewer",
-    "render_document_viewer": "hwpx.tools.document_viewer",
-    # 수식 저작(5.2.0 신규, LaTeX -> EqEdit). 계약 유동.
-    "UnsupportedLatexError": "hwpx.equation.authoring",
-    "estimate_equation_size": "hwpx.equation.authoring",
-    "latex_to_eqedit": "hwpx.equation.authoring",
     # 편집 계획 실행기(5.6.0 신규, 선언적 다단 편집 -> 원자 실행). 계약 유동.
     "EditPlan": "hwpx.plan",
     "PlanReport": "hwpx.plan",
@@ -68,6 +58,15 @@ _EXPERIMENTAL_EXPORTS = {
     "describe_capabilities": "hwpx.capabilities",
     "contract_document": "hwpx.capabilities",
     "contract_json_schema": "hwpx.capabilities",
+}
+
+# 4.0~6.x가 최상위에서 실험 기능으로 재내보내던 수식 변환(5.2.0 신규, LaTeX -> EqEdit).
+# 7.0에서 ``hwpx.equation``의 stable 이름이 되었고 최상위에는 넣지 않는다(D26). 최상위
+# 접근은 ``hwpx.equation``을 알려 준다(``MovedToSubmodule``).
+_EQUATION_EXPORTS: dict[str, str] = {
+    "UnsupportedLatexError": "hwpx.equation",
+    "estimate_equation_size": "hwpx.equation",
+    "latex_to_eqedit": "hwpx.equation",
 }
 
 # Emptied in 5.0. The 4.x notice on these names said they would go in the next
@@ -86,9 +85,17 @@ _FORMFIT_REPLACEMENT = (
 
 def _experimental_message(name: str) -> str:
     return (
-        f"'hwpx.{name}'는 실험적(experimental) 표면입니다. 계약이 유동적이므로 "
-        f"'from hwpx.experimental import {name}'로 import하세요. 최상위 재내보내기는 "
-        f"다음 major에서 제거될 예정입니다."
+        f"'hwpx.{name}'는 실험적(experimental) 표면이라 python-hwpx 7.0에서 최상위 "
+        f"재내보내기가 없어졌습니다(4.0부터 예고). 이렇게 가져오세요:\n"
+        f"    from hwpx.experimental import {name}"
+    )
+
+
+def _submodule_message(name: str, module: str) -> str:
+    return (
+        f"'hwpx.{name}'는 python-hwpx 7.0에서 {module}의 stable 이름이 되었고 최상위 "
+        f"재내보내기는 없습니다(4.0~6.x는 실험 기능으로 내보냈습니다). 이렇게 가져오세요:\n"
+        f"    from {module} import {name}"
     )
 
 
@@ -99,14 +106,15 @@ def _deprecated_message(name: str) -> str:
     )
 
 
-# --- 5.0에서 이동한 이름 -------------------------------------------------
+# --- 5.0·7.0에서 이동한 이름 ---------------------------------------------
 #
-# 응용 워크플로는 companion 패키지가 소유한다. 여기 남는 것은 **표뿐**이다 —
-# 그 패키지를 import하지 않는다. 설치돼 있는지에 따라 core의 동작이 달라지면
-# 의존 방향이 뒤집히고, 그건 5.0이 없애려던 바로 그 결합이다.
+# 응용 워크플로(5.0)와 변환·짐작 기능(7.0)은 companion 패키지(python-hwpx-automation)가
+# 소유한다. 여기 남는 것은 **표뿐**이다 — 그 패키지를 import하지 않는다. 설치돼 있는지에
+# 따라 core의 동작이 달라지면 의존 방향이 뒤집히고, 그건 5.0이 없애려던 바로 그 결합이다.
 #
 # 표가 하는 일은 오류 메시지 하나다. 기본 Python 오류는 이름이 사라졌다는 것만
-# 알려주고 어디로 갔는지는 말해주지 않는다.
+# 알려주고 어디로 갔는지는 말해주지 않는다. 항목마다 옮겨 간 릴리스(``moved_in``)가 있어
+# 문구와 안내 문서(migration-5.0.md / migration-7.0.md)가 그에 맞춰진다.
 _SurfaceKind = Literal["symbol", "module", "renamed", "retired"]
 
 
@@ -118,6 +126,8 @@ class _CompanionSurface:
     target_module: str | None = None
     target_name: str | None = None
     replacement: str | None = None
+    #: The release that moved the name (``"5.0"`` or ``"7.0"``).
+    moved_in: str = "5.0"
 
     def import_statement(self, legacy_name: str) -> str | None:
         if self.kind == "retired":
@@ -133,12 +143,18 @@ class _CompanionSurface:
         return f"from {self.target_module} import {target_name}{alias}"
 
 
-def _symbol(target_module: str, target_name: str | None = None) -> _CompanionSurface:
-    return _CompanionSurface("symbol", target_module, target_name)
+def _symbol(
+    target_module: str, target_name: str | None = None, *, moved_in: str = "5.0"
+) -> _CompanionSurface:
+    return _CompanionSurface("symbol", target_module, target_name, moved_in=moved_in)
 
 
-def _module(target_module: str) -> _CompanionSurface:
-    return _CompanionSurface("module", target_module)
+def _module(target_module: str, *, moved_in: str = "5.0") -> _CompanionSurface:
+    return _CompanionSurface("module", target_module, moved_in=moved_in)
+
+
+def _moved_in_7_0(target_module: str, *names: str) -> dict[str, _CompanionSurface]:
+    return {name: _symbol(target_module, moved_in="7.0") for name in names}
 
 
 def _renamed(
@@ -241,6 +257,40 @@ _MOVED_TO_COMPANION: dict[str, _CompanionSurface] = {
     ),
     "validate_document_plan": _symbol("hwpx_automation.office.authoring"),
     "visual": _renamed("hwpx_automation.office.rendering"),
+    # -- 7.0: 변환·짐작 기능 (엔진은 파일에 적힌 대로 읽고 쓴다) -------------
+    "ingest": _module("hwpx_automation.ingest", moved_in="7.0"),
+    "integrations": _module("hwpx_automation.integrations", moved_in="7.0"),
+    **_moved_in_7_0(
+        "hwpx_automation.ingest",
+        "HwpxMarkdownConverter",
+        "ConversionAttempt",
+        "DocumentConverter",
+        "DocumentIngestError",
+        "DocumentIngestResult",
+        "DocumentIngestor",
+        "DocumentSourceInfo",
+        "UnsupportedDocumentFormat",
+    ),
+    **_moved_in_7_0(
+        "hwpx_automation.mail_merge",
+        "MAIL_MERGE_REPORT_VERSION",
+        "inspect_mail_merge_placeholders",
+        "load_mail_merge_rows",
+        "merge_template_rows",
+    ),
+    **_moved_in_7_0(
+        "hwpx_automation.office.compliance",
+        "REFERENCE_CONSISTENCY_REPORT_VERSION",
+        "inspect_reference_consistency",
+    ),
+    **_moved_in_7_0(
+        "hwpx_automation.preview",
+        "DocumentViewer",
+        "LayoutPreview",
+        "PreviewPage",
+        "render_document_viewer",
+        "render_layout_preview",
+    ),
 }
 
 _RETIRED_SURFACES: dict[str, _CompanionSurface] = {
@@ -286,6 +336,19 @@ class MovedToCompanion(ImportError):
     """
 
 
+class MovedToSubmodule(ImportError):
+    """최상위에서 빠진 이름에 접근했다(7.0). 메시지가 가리키는 하위 모듈에 있다
+    (수식 변환은 ``hwpx.equation``).
+
+    :class:`MovedToCompanion`과 같은 까닭으로 ImportError다 — ``from hwpx import X``가
+    메시지를 그대로 사용자에게 보여 준다.
+    """
+
+
+class MovedToExperimental(MovedToSubmodule):
+    """최상위에서 빠진 실험 기능에 접근했다(7.0). ``hwpx.experimental``에 있다."""
+
+
 class RetiredSurface(ImportError):
     """A removed compatibility surface whose replacement is not another import."""
 
@@ -294,7 +357,9 @@ def __getattr__(name: str) -> object:
     """Resolve dynamic module attributes.
 
     ``__version__``과 ``hwpx.tools``의 stable 이름은 경고 없이 지연 해석하고,
-    experimental/deprecated 이름은 해석 시 ``DeprecationWarning``을 냅니다.
+    deprecated 이름은 해석 시 ``DeprecationWarning``을 냅니다. 7.0에서 최상위에서 빠진
+    실험 기능은 ``hwpx.experimental``을 알려 주는 ``MovedToExperimental``을, 수식 변환은
+    ``hwpx.equation``을 알려 주는 ``MovedToSubmodule``을 냅니다.
     """
 
     if name == "__version__":
@@ -306,8 +371,11 @@ def __getattr__(name: str) -> object:
             raise AttributeError(
                 "hwpx lazy-export targets must remain inside the 'hwpx' package"
             )
-        warnings.warn(_experimental_message(name), DeprecationWarning, stacklevel=2)
-        return getattr(importlib.import_module(module_name), name)
+        raise MovedToExperimental(_experimental_message(name))
+
+    module_name = _EQUATION_EXPORTS.get(name)
+    if module_name is not None:
+        raise MovedToSubmodule(_submodule_message(name, module_name))
 
     module_name = _DEPRECATED_EXPORTS.get(name)
     if module_name is not None:
@@ -333,9 +401,13 @@ def __getattr__(name: str) -> object:
     if moved is not None:
         statement = moved.import_statement(name)
         assert statement is not None
+        if moved.moved_in != "5.0":
+            raise MovedToCompanion(
+                _moved_modules.moved_name_message(f"hwpx.{name}", statement)
+            )
         raise MovedToCompanion(
             f"{name}은(는) python-hwpx 5.0에서 companion 패키지로 이동했습니다.\n"
-            f"    pip install python-hwpx-automation\n"
+            '    pip install -U "python-hwpx-automation>=8"\n'
             f"    {statement}\n"
             f'4.x를 계속 쓰려면: pip install "python-hwpx<5"\n'
             f"전체 대체표: docs/migration-5.0.md"
@@ -358,7 +430,6 @@ def __dir__() -> list[str]:
         set(globals())
         | set(__all__)
         | {"tools"}
-        | set(_EXPERIMENTAL_EXPORTS)
         | set(_DEPRECATED_EXPORTS)
     )
 
@@ -371,8 +442,8 @@ def __dir__() -> list[str]:
 # ``from hwpx import *``에는 그대로 있습니다.
 
 #: ``hwpx.tools``의 하위 모듈이 정의하고 ``hwpx.tools``가 다시 내보내는 stable 이름(텍스트 추출·개체
-#: 찾기·문서 비교·메일 머지·패키지 검증). 정적 import로 해석하므로 동적 import 지점은
-#: 늘지 않는다.
+#: 찾기·문서 비교·패키지 검증). 정적 import로 해석하므로 동적 import 지점은 늘지 않는다.
+#: 메일 머지와 참조 일관성 검사는 7.0에서 python-hwpx-automation으로 옮겼다.
 _TOOLS_STABLE_EXPORTS = frozenset(
     {
         "DEFAULT_NAMESPACES",
@@ -382,14 +453,8 @@ _TOOLS_STABLE_EXPORTS = frozenset(
         "FoundElement",
         "ObjectFinder",
         "DOC_DIFF_REPORT_VERSION",
-        "REFERENCE_CONSISTENCY_REPORT_VERSION",
         "diff_paragraphs",
         "doc_diff",
-        "inspect_reference_consistency",
-        "MAIL_MERGE_REPORT_VERSION",
-        "inspect_mail_merge_placeholders",
-        "load_mail_merge_rows",
-        "merge_template_rows",
         "EditorOpenSafetyReport",
         "PackageValidationReport",
         "validate_editor_open_safety",
@@ -401,16 +466,8 @@ _TOOLS_STABLE_EXPORTS = frozenset(
 if TYPE_CHECKING:  # type checkers see the real objects; at runtime they load lazily
     from .tools.doc_diff import (
         DOC_DIFF_REPORT_VERSION,
-        REFERENCE_CONSISTENCY_REPORT_VERSION,
         diff_paragraphs,
         doc_diff,
-        inspect_reference_consistency,
-    )
-    from .tools.mail_merge import (
-        MAIL_MERGE_REPORT_VERSION,
-        inspect_mail_merge_placeholders,
-        load_mail_merge_rows,
-        merge_template_rows,
     )
     from .tools.object_finder import FoundElement, ObjectFinder
     from .tools.package_validator import (
@@ -436,7 +493,6 @@ _moved_modules.install(_MOVED_TO_COMPANION)
 
 # --- stable 최상위 표면 (eager import) ------------------------------------------
 # ``hwpx.tools``의 stable 이름은 위 ``_TOOLS_STABLE_EXPORTS``가 지연 해석한다.
-from .ingest import HwpxMarkdownConverter
 from .errors import Hwp5ConversionWarning, Hwp5Error, HwpxError
 from .mutation_report import (
     MutationReport,
@@ -458,15 +514,9 @@ from .quality import (
 )
 
 __all__ = [
-    "inspect_reference_consistency",
     "doc_diff",
     "diff_paragraphs",
-    "REFERENCE_CONSISTENCY_REPORT_VERSION",
     "DOC_DIFF_REPORT_VERSION",
-    "merge_template_rows",
-    "load_mail_merge_rows",
-    "inspect_mail_merge_placeholders",
-    "MAIL_MERGE_REPORT_VERSION",
     "QualityPolicy",
     "SavePipeline",
     "VisualCompleteReport",
@@ -487,7 +537,6 @@ __all__ = [
     "SectionInfo",
     "TextExtractor",
     "FoundElement",
-    "HwpxMarkdownConverter",
     "ObjectFinder",
     "HwpxDocument",
     "HwpxPackage",

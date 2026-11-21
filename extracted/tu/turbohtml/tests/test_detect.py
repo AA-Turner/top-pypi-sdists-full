@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import hashlib
+import random
 import string
 from itertools import islice, product
-from typing import Final, cast
+from typing import TYPE_CHECKING, Final, cast
 
 import pytest
 from bench.operations import INPUTS
@@ -18,6 +20,9 @@ from turbohtml.detect import (
     detect_all,
     detect_language,
 )
+
+if TYPE_CHECKING:
+    from types import ModuleType
 
 _RUSSIAN_1251: Final[bytes] = "Программирование помогает понять структуру вычислительных систем сегодня здесь.".encode(
     "cp1251"
@@ -79,7 +84,7 @@ def test_byte_order_mark_reports_its_label_and_flag(raw: bytes, encoding: str) -
 
 def test_utf_8_sig_is_the_only_bom_label_that_differs_from_parse() -> None:
     # the standalone detector spells a UTF-8 mark UTF-8-SIG so a caller can strip it; parse() keeps the spec's UTF-8
-    raw: Final = b"\xef\xbb\xbfhello"
+    raw: Final[bytes] = b"\xef\xbb\xbfhello"
     assert (detect(raw).encoding, parse(raw, detect_encoding=True).encoding) == ("UTF-8-SIG", "UTF-8")
 
 
@@ -410,7 +415,9 @@ def test_a_long_passage_stays_confident() -> None:
 )
 @pytest.mark.parametrize("step", [pytest.param(1, id="forward"), pytest.param(-1, id="reverse")])
 def test_language_trigram_ties_ignore_word_order(word_count: int, expected: LanguageMatch, *, step: int) -> None:
-    words: Final = tuple("".join(word) for word in islice(product(string.ascii_lowercase, repeat=3), word_count))
+    words: Final[tuple[str, ...]] = tuple(
+        "".join(word) for word in islice(product(string.ascii_lowercase, repeat=3), word_count)
+    )
     assert detect_language("  ".join(words[::step])) == expected
 
 
@@ -499,7 +506,7 @@ def test_prescan_dispatch_edges(payload: bytes) -> None:
     ],
 )
 def test_feed_reports_whether_a_mark_settled_the_stream(chunks: list[bytes], *, settled: bool) -> None:
-    detector: Final = EncodingDetector()
+    detector: Final[EncodingDetector] = EncodingDetector()
     for chunk in chunks:
         detector.feed(chunk)
     assert detector.done is settled
@@ -571,7 +578,7 @@ def test_a_byte_order_mark_codec_delegates_to_cpython(data: bytes, text: str) ->
 
 def test_a_mark_stripping_codec_reproduces_the_parser_text_on_malformed_bytes() -> None:
     # utf-8-sig drops the mark, so its decode equals the parser's text byte for byte, replacement char and all
-    data: Final = b"\xef\xbb\xbfhi\xc3"
+    data: Final[bytes] = b"\xef\xbb\xbfhi\xc3"
     assert (codec := detect(data).codec) is not None
     assert data.decode(codec) == parse(data).text == "hi\ufffd"
 
@@ -615,6 +622,15 @@ def test_chunked_feeds_equal_a_one_shot_detect() -> None:
     assert detector.done
 
 
+def test_a_chunk_opening_on_an_ascii_run_equals_a_one_shot_detect() -> None:
+    # only a later chunk reaches the candidates starting on ASCII; a one-shot detect starts them at the first non-ASCII
+    run: Final[bytes] = b" plain words between two russian sentences, long enough to skip over "
+    detector: Final[EncodingDetector] = EncodingDetector()
+    detector.feed(_DETECTOR_RUSSIAN)
+    detector.feed(run + _DETECTOR_RUSSIAN)
+    assert detector.close() == detect(_DETECTOR_RUSSIAN + run + _DETECTOR_RUSSIAN)
+
+
 def test_disqualified_hebrew_candidate_matches_chunked_detection() -> None:
     detector = EncodingDetector()
     data = b"\xfa\xfaodbo\xdfd%{ m\xfa\xfa:\xfa"
@@ -635,7 +651,7 @@ def test_disqualified_hebrew_candidate_matches_chunked_detection() -> None:
 )
 def test_close_scores_the_end_of_stream(chunk: bytes, confidence: float) -> None:
     # close() feeds an empty final chunk, which the scanners hand to memchr and memcpy
-    detector: Final = EncodingDetector()
+    detector: Final[EncodingDetector] = EncodingDetector()
     detector.feed(chunk)
     assert detector.close() == EncodingMatch(
         encoding="windows-1252", confidence=confidence, language=None, codec="whatwg-windows-1252"
@@ -653,6 +669,13 @@ def test_close_scores_the_end_of_stream(chunk: bytes, confidence: float) -> None
             id="disqualified-logical-hebrew",
         ),
         pytest.param(
+            b"\xdf\xab!\xdf",
+            EncodingMatch(
+                encoding="windows-1251", confidence=0.22925234630391225, language="Russian", codec="whatwg-windows-1251"
+            ),
+            id="disqualified-logical-hebrew-past-punctuation-and-unmapped-bytes",
+        ),
+        pytest.param(
             b" ",
             EncodingMatch(
                 encoding="windows-1255", confidence=0.2454175152749491, language="Hebrew", codec="whatwg-windows-1255"
@@ -662,7 +685,7 @@ def test_close_scores_the_end_of_stream(chunk: bytes, confidence: float) -> None
     ],
 )
 def test_streamed_hebrew_keeps_its_punctuation_tiebreak(prefix: bytes, expected: EncodingMatch) -> None:
-    detector: Final = EncodingDetector()
+    detector: Final[EncodingDetector] = EncodingDetector()
     detector.feed(prefix)
     detector.feed((f"{'שלום! ' * 16}!שלום").encode("iso-8859-8"))
     assert detector.close() == expected
@@ -688,7 +711,7 @@ def test_a_bom_split_across_feeds_still_finishes_early() -> None:
 
 def test_00_00_fe_ff_is_not_a_mark_so_the_stream_keeps_reading() -> None:
     # the UTF-32BE byte pattern is no WHATWG mark; the stream must content-sniff it, not finish early on a BOM
-    detector: Final = EncodingDetector()
+    detector: Final[EncodingDetector] = EncodingDetector()
     detector.feed(b"\x00\x00\xfe\xff")
     assert not detector.done
     assert not detector.close().bom
@@ -705,7 +728,7 @@ def test_00_00_fe_ff_is_not_a_mark_so_the_stream_keeps_reading() -> None:
 )
 def test_a_resolved_mark_finishes_early(chunk: bytes, encoding: str) -> None:
     # a mark that a single chunk resolves finishes the stream at once
-    detector: Final = EncodingDetector()
+    detector: Final[EncodingDetector] = EncodingDetector()
     detector.feed(chunk)
     assert detector.done
     assert detector.close() == EncodingMatch(
@@ -772,6 +795,33 @@ def test_chunk_boundaries_never_change_the_answer(raw: bytes, size: int) -> None
     assert detector.close() == detect(raw)
 
 
+# Settled answers (a byte-order mark, a <meta> declaration, pure ASCII, structural UTF-8) skip the candidates, and the
+# detector shares one match per settled answer under the default options. Streams of each must answer what one-shot
+# detect does under every option set, at a chunk size that splits the mark and one that feeds everything at once.
+_SETTLED_STREAMS: Final[tuple[bytes, ...]] = (
+    b"\xef\xbb\xbf<p>hi</p>",
+    b"\xff\xfe<\x00p\x00>\x00",
+    b'<meta charset="iso-8859-2"><p>x</p>',
+    b"<p>plain ascii</p>",
+    "<p>café 日本</p>".encode(),
+)
+_SETTLED_OPTIONS: Final[tuple[Detection, ...]] = (
+    Detection(),
+    Detection(threshold=0.9),
+    Detection(excluded=frozenset({"UTF-8-SIG"})),
+)
+
+
+@pytest.mark.parametrize("raw", _SETTLED_STREAMS)
+@pytest.mark.parametrize("options", _SETTLED_OPTIONS)
+@pytest.mark.parametrize("size", [pytest.param(size, id=f"chunk-{size}") for size in (2, 4096)])
+def test_settled_streams_answer_what_one_shot_does(raw: bytes, options: Detection, size: int) -> None:
+    detector = EncodingDetector(options)
+    for start in range(0, len(raw), size):
+        detector.feed(raw[start : start + size])
+    assert detector.close() == detect(raw, options)
+
+
 def test_a_long_stream_still_answers_what_one_shot_does() -> None:
     # the candidates carry state, not bytes, so 4096 feeds cost what one does and answer the same
     chunk = "Съешь же ещё этих мягких".encode("windows-1251")
@@ -779,6 +829,30 @@ def test_a_long_stream_still_answers_what_one_shot_does() -> None:
     for _ in range(4096):
         detector.feed(chunk)
     assert detector.close() == detect(chunk * 4096)
+
+
+@pytest.mark.parametrize("size", [pytest.param(size, id=f"chunk-{size}") for size in (16, 5000)])
+def test_gathered_ascii_chunks_answer_what_one_shot_does(size: int) -> None:
+    # ASCII chunks after the first non-ASCII byte wait in a buffer, flushed when it fills or a non-ASCII chunk comes
+    raw: Final[bytes] = _DETECTOR_RUSSIAN + b" plain ascii words" * 300 + _DETECTOR_RUSSIAN
+    detector: Final[EncodingDetector] = EncodingDetector()
+    for start in range(0, len(raw), size):
+        detector.feed(raw[start : start + size])
+    assert detector.close() == detect(raw)
+
+
+def test_reset_before_close_starts_a_fresh_stream() -> None:
+    detector: Final[EncodingDetector] = EncodingDetector()
+    detector.feed(b"\xef\xbb\xbf")
+    detector.reset()
+    detector.feed(_DETECTOR_RUSSIAN)
+    assert detector.close() == detect(_DETECTOR_RUSSIAN)
+
+
+def test_the_detector_takes_its_chunk_by_keyword() -> None:
+    detector: Final[EncodingDetector] = EncodingDetector()
+    detector.feed(data=_DETECTOR_RUSSIAN)
+    assert detector.close() == detect(_DETECTOR_RUSSIAN)
 
 
 @pytest.mark.parametrize(
@@ -1072,8 +1146,8 @@ def test_language_detection_of_repeated_prose(repeats: int) -> None:
     ],
 )
 def test_detect_first_record_matches_ranked_and_streamed(data: bytes, options: Detection) -> None:
-    expected: Final = detect_all(data, options)[0]
-    detector: Final = EncodingDetector(options)
+    expected: Final[EncodingMatch] = detect_all(data, options)[0]
+    detector: Final[EncodingDetector] = EncodingDetector(options)
     detector.feed(data[:3])
     detector.feed(data[3:])
     assert detect(data, options) == detector.close() == expected
@@ -1095,8 +1169,8 @@ _MISDECODED_XFAIL: Final[pytest.MarkDecorator] = pytest.mark.xfail(
     [pytest.param(case, expected, id=f"turbohtml-detect-{label}") for case, expected, label in _ENCODING_RESULTS],
 )
 def test_encoding_result_turbohtml_detect_preserves_decoded_text(case: int, expected: str) -> None:
-    library: Final = pytest.importorskip("turbohtml.detect")
-    data: Final = cast("tuple[int, bytes]", INPUTS["encoding-result"]()[case][1])[1]
+    library: Final[ModuleType] = pytest.importorskip("turbohtml.detect")
+    data: Final[bytes] = cast("tuple[int, bytes]", INPUTS["encoding-result"]()[case][1])[1]
     assert data.decode(library.detect(data).codec).removeprefix("﻿") == expected
 
 
@@ -1106,11 +1180,13 @@ def test_encoding_result_turbohtml_detect_preserves_decoded_text(case: int, expe
     [pytest.param(case, expected, id=f"turbohtml-stream-{label}") for case, expected, label in _ENCODING_RESULTS],
 )
 def test_encoding_result_turbohtml_stream_preserves_decoded_text(case: int, expected: str) -> None:
-    library: Final = pytest.importorskip("turbohtml.detect")
-    data: Final = cast("tuple[int, bytes]", INPUTS["encoding-result"]()[case][1])[1]
-    detector: Final = library.EncodingDetector()
+    library: Final[ModuleType] = pytest.importorskip("turbohtml.detect")
+    data: Final[bytes] = cast("tuple[int, bytes]", INPUTS["encoding-result"]()[case][1])[1]
+    detector: Final[EncodingDetector] = library.EncodingDetector()
     detector.feed(data)
-    assert data.decode(detector.close().codec).removeprefix("﻿") == expected
+    codec = detector.close().codec
+    assert codec is not None
+    assert data.decode(codec).removeprefix("﻿") == expected
 
 
 @pytest.mark.oracle
@@ -1129,8 +1205,8 @@ def test_encoding_result_turbohtml_stream_preserves_decoded_text(case: int, expe
     ],
 )
 def test_encoding_result_chardet_detect_preserves_decoded_text(module: str, case: int, expected: str) -> None:
-    library: Final = pytest.importorskip(module)
-    data: Final = cast("tuple[int, bytes]", INPUTS["encoding-result"]()[case][1])[1]
+    library: Final[ModuleType] = pytest.importorskip(module)
+    data: Final[bytes] = cast("tuple[int, bytes]", INPUTS["encoding-result"]()[case][1])[1]
     assert data.decode(library.detect(data)["encoding"]).removeprefix("﻿") == expected
 
 
@@ -1150,9 +1226,9 @@ def test_encoding_result_chardet_detect_preserves_decoded_text(module: str, case
     ],
 )
 def test_encoding_result_chardet_stream_preserves_decoded_text(module: str, case: int, expected: str) -> None:
-    library: Final = pytest.importorskip(module)
-    data: Final = cast("tuple[int, bytes]", INPUTS["encoding-result"]()[case][1])[1]
-    detector: Final = library.UniversalDetector()
+    library: Final[ModuleType] = pytest.importorskip(module)
+    data: Final[bytes] = cast("tuple[int, bytes]", INPUTS["encoding-result"]()[case][1])[1]
+    detector = library.UniversalDetector()
     detector.feed(data)
     detector.close()
     assert data.decode(detector.result["encoding"]).removeprefix("﻿") == expected
@@ -1167,9 +1243,9 @@ def test_encoding_result_chardet_stream_preserves_decoded_text(module: str, case
     ],
 )
 def test_encoding_result_charset_normalizer_preserves_decoded_text(case: int, expected: str) -> None:
-    library: Final = pytest.importorskip("charset_normalizer")
-    data: Final = cast("tuple[int, bytes]", INPUTS["encoding-result"]()[case][1])[1]
-    match: Final = library.from_bytes(data).best()
+    library: Final[ModuleType] = pytest.importorskip("charset_normalizer")
+    data: Final[bytes] = cast("tuple[int, bytes]", INPUTS["encoding-result"]()[case][1])[1]
+    match = library.from_bytes(data).best()
     assert match is not None
     assert data.decode(match.encoding).removeprefix("﻿") == expected
 
@@ -1180,9 +1256,9 @@ def test_encoding_result_charset_normalizer_preserves_decoded_text(case: int, ex
     [pytest.param(case, expected, id=f"bs4-{label}") for case, expected, label in _ENCODING_RESULTS],
 )
 def test_encoding_result_bs4_preserves_decoded_text(case: int, expected: str) -> None:
-    library: Final = pytest.importorskip("bs4")
-    data: Final = cast("tuple[int, bytes]", INPUTS["encoding-result"]()[case][1])[1]
-    encoding: Final = library.UnicodeDammit(data).original_encoding
+    library: Final[ModuleType] = pytest.importorskip("bs4")
+    data: Final[bytes] = cast("tuple[int, bytes]", INPUTS["encoding-result"]()[case][1])[1]
+    encoding: Final[str | None] = library.UnicodeDammit(data).original_encoding
     assert encoding is not None
     assert data.decode(encoding).removeprefix("﻿") == expected
 
@@ -1193,8 +1269,275 @@ def test_encoding_result_bs4_preserves_decoded_text(case: int, expected: str) ->
     [pytest.param(case, expected, id=f"resiliparse-{label}") for case, expected, label in _ENCODING_RESULTS],
 )
 def test_encoding_result_resiliparse_preserves_decoded_text(case: int, expected: str) -> None:
-    library: Final = pytest.importorskip("resiliparse.parse.encoding")
-    data: Final = cast("tuple[int, bytes]", INPUTS["encoding-result"]()[case][1])[1]
-    encoding: Final = library.detect_encoding(data)
+    library: Final[ModuleType] = pytest.importorskip("resiliparse.parse.encoding")
+    data: Final[bytes] = cast("tuple[int, bytes]", INPUTS["encoding-result"]()[case][1])[1]
+    encoding: Final[str] = library.detect_encoding(data)
     assert encoding is not None
     assert data.decode(encoding).removeprefix("﻿") == expected
+
+
+# chardetng drops an unmapped Big5 pair's ASCII trail: it neither scores the letter nor reads it again. Rewinding onto
+# the trail charged the letter the Latin-adjacency penalty, which can decide the answer.
+_BIG5_TEXT: Final[bytes] = "繁體中文測試這是一個很長的句".encode("big5")
+_BIG5_UNMAPPED_PAIR: Final[tuple[bytes, ...]] = tuple(
+    b"\xc0\xe0" * 4 + _BIG5_TEXT + bytes([lead, trail]) + _BIG5_TEXT for lead in range(0x81, 0x87) for trail in b"Aa"
+)
+_BIG5_CHUNK_SIZES: Final[tuple[int, ...]] = (1, 2, 3, 16)
+
+
+@pytest.mark.parametrize(
+    "raw", [pytest.param(raw, id=f"pair-{index}") for index, raw in enumerate(_BIG5_UNMAPPED_PAIR)]
+)
+def test_unmapped_big5_pair_with_ascii_trail_keeps_big5(raw: bytes) -> None:
+    assert detect(raw).encoding == "Big5"
+
+
+@pytest.mark.parametrize("size", [pytest.param(size, id=f"chunk-{size}") for size in _BIG5_CHUNK_SIZES])
+@pytest.mark.parametrize(
+    "raw", [pytest.param(raw, id=f"pair-{index}") for index, raw in enumerate(_BIG5_UNMAPPED_PAIR)]
+)
+def test_unmapped_big5_pair_with_ascii_trail_keeps_big5_streamed(raw: bytes, size: int) -> None:
+    detector = EncodingDetector()
+    for start in range(0, len(raw), size):
+        detector.feed(raw[start : start + size])
+    assert detector.close().encoding == "Big5"
+
+
+# a letter right before the pair takes chardetng's Latin-adjacency penalty on top of the pair's own
+_BIG5_LETTER_BEFORE_PAIR: Final[tuple[bytes, ...]] = tuple(
+    b"x" + bytes([lead, trail]) + _BIG5_TEXT for lead in range(0x81, 0x87) for trail in b"Aa"
+)
+
+
+@pytest.mark.parametrize(
+    "raw", [pytest.param(raw, id=f"letter-{index}") for index, raw in enumerate(_BIG5_LETTER_BEFORE_PAIR)]
+)
+def test_letter_before_unmapped_big5_pair_is_windows_1252(raw: bytes) -> None:
+    assert detect(raw).encoding == "windows-1252"
+
+
+@pytest.mark.parametrize("size", [pytest.param(size, id=f"chunk-{size}") for size in _BIG5_CHUNK_SIZES])
+@pytest.mark.parametrize(
+    "raw", [pytest.param(raw, id=f"letter-{index}") for index, raw in enumerate(_BIG5_LETTER_BEFORE_PAIR)]
+)
+def test_letter_before_unmapped_big5_pair_is_windows_1252_streamed(raw: bytes, size: int) -> None:
+    detector = EncodingDetector()
+    for start in range(0, len(raw), size):
+        detector.feed(raw[start : start + size])
+    assert detector.close().encoding == "windows-1252"
+
+
+# chardetng's GBK candidate survives a lead, a digit pair and a 0xFF. The decoder pushes the digit pair back with the
+# 0xFF, chardetng takes the single-byte-extension penalty and resets its decoder, so the pushed-back bytes are never
+# read again. Reading them again killed the candidate, and under a .cn label IBM866 won instead.
+_CHARDETNG_GBK: Final[tuple[bytes, ...]] = (b"\xe26\x90\xff0\xa3\x89", b"yr69\xe26\x90\xff0\xa3\x89")
+# a lead followed directly by 0xFF is a two-byte error chardetng scores as death, so the candidate stays out
+_LEAD_BEFORE_FF: Final[bytes] = bytes.fromhex("90ffd836a0328037")
+_GBK_CHUNK_SIZES: Final[tuple[int, ...]] = (1, 2, 3, 16)
+_CN: Final[Detection] = Detection(tld="cn")
+
+
+@pytest.mark.parametrize("raw", [pytest.param(raw, id=f"gbk-{index}") for index, raw in enumerate(_CHARDETNG_GBK)])
+def test_pushed_back_digits_after_a_lead_keep_gbk(raw: bytes) -> None:
+    assert detect(raw, _CN).encoding == "GBK"
+
+
+@pytest.mark.parametrize("size", [pytest.param(size, id=f"chunk-{size}") for size in _GBK_CHUNK_SIZES])
+@pytest.mark.parametrize("raw", [pytest.param(raw, id=f"gbk-{index}") for index, raw in enumerate(_CHARDETNG_GBK)])
+def test_pushed_back_digits_after_a_lead_keep_gbk_streamed(raw: bytes, size: int) -> None:
+    detector = EncodingDetector(_CN)
+    for start in range(0, len(raw), size):
+        detector.feed(raw[start : start + size])
+    assert detector.close().encoding == "GBK"
+
+
+@pytest.mark.parametrize("size", [pytest.param(size, id=f"chunk-{size}") for size in _GBK_CHUNK_SIZES])
+def test_lead_before_ff_is_windows_1256_streamed(size: int) -> None:
+    detector = EncodingDetector(_CN)
+    for start in range(0, len(_LEAD_BEFORE_FF), size):
+        detector.feed(_LEAD_BEFORE_FF[start : start + size])
+    assert detector.close().encoding == "windows-1256"
+
+
+def test_lead_before_ff_is_windows_1256() -> None:
+    assert detect(_LEAD_BEFORE_FF, _CN).encoding == "windows-1256"
+
+
+_GBK_U: Final[bytes] = "中华人民共和国的首都是北京市这里有很多历史文化遗产".encode("gbk")
+_GBK_T: Final[bytes] = "中华人民共和国的首都是北京市这里有".encode("gbk")
+# a four-byte prefix whose fourth byte is 0xFF, or ASCII after a 0xA0 or 0xFE lead, is pushed back by the decoder,
+# and chardetng's first single-byte-extension rule resets its decoder there as the 0xFF rule does
+_PUSHED_BACK_FOURTH_BYTE: Final[tuple[bytes, ...]] = (
+    _GBK_U * 2 + b"\x81\x36\xfe\xff" + _GBK_U,
+    b"\xc0\xe0" * 4 + _GBK_T + b"\x81\x36\xa0\x20" + _GBK_T,
+)
+
+
+@pytest.mark.parametrize(
+    "raw", [pytest.param(raw, id=f"fourth-{index}") for index, raw in enumerate(_PUSHED_BACK_FOURTH_BYTE)]
+)
+def test_pushed_back_fourth_byte_keeps_gbk(raw: bytes) -> None:
+    assert detect(raw).encoding == "GBK"
+
+
+@pytest.mark.parametrize("size", [pytest.param(size, id=f"chunk-{size}") for size in _GBK_CHUNK_SIZES])
+@pytest.mark.parametrize(
+    "raw", [pytest.param(raw, id=f"fourth-{index}") for index, raw in enumerate(_PUSHED_BACK_FOURTH_BYTE)]
+)
+def test_pushed_back_fourth_byte_keeps_gbk_streamed(raw: bytes, size: int) -> None:
+    detector = EncodingDetector()
+    for start in range(0, len(raw), size):
+        detector.feed(raw[start : start + size])
+    assert detector.close().encoding == "GBK"
+
+
+# Each input is an ASCII run followed by a non-ASCII byte, a shape chardetng's feed starts two bytes before. Upstream
+# scored the run too and picked another single-byte encoding; chardetng answers windows-1252 for all of them, as the
+# tests/conformance detector oracle confirms.
+_CHARDETNG_WINDOWS_1252: Final[tuple[bytes, ...]] = (
+    b"a1111\xaa ",
+    b"N.x\xaa.\xa9",
+    b"zz11\xba \xa9",
+    b"N.x\xba  \xaa",
+    b"a11\xaa \xc9\xba",
+    b"n.1\xaa \xe9\xa9",
+    b"a11\xba \xc9\xaa.",
+)
+_CHUNK_SIZES: Final[tuple[int, ...]] = (1, 2, 3, 5, 7, 16)
+
+
+@pytest.mark.parametrize(
+    "raw", [pytest.param(raw, id=f"case-{index}") for index, raw in enumerate(_CHARDETNG_WINDOWS_1252)]
+)
+def test_ascii_prefix_one_shot_matches_chardetng(raw: bytes) -> None:
+    assert detect(raw).encoding == "windows-1252"
+
+
+@pytest.mark.parametrize("size", [pytest.param(size, id=f"chunk-{size}") for size in _CHUNK_SIZES])
+@pytest.mark.parametrize(
+    "raw", [pytest.param(raw, id=f"case-{index}") for index, raw in enumerate(_CHARDETNG_WINDOWS_1252)]
+)
+def test_ascii_prefix_streamed_matches_chardetng(raw: bytes, size: int) -> None:
+    detector = EncodingDetector()
+    for start in range(0, len(raw), size):
+        detector.feed(raw[start : start + size])
+    assert detector.close().encoding == "windows-1252"
+
+
+# ASCII runs of every length between multi-byte and single-byte text, so each candidate kind skips runs in the
+# middle of a sequence it is scoring. The digests pin the answers upstream/main gives for these bytes, one-shot and
+# streamed at several chunk sizes; a skip that drops or misreads a run changes a digest.
+_RUN_SEED: Final[int] = 20261118
+_RUN_CASES: Final[int] = 300
+_RUN_TEXTS: Final[tuple[tuple[str, str], ...]] = (
+    ("日本語のテキストをここに書きます。今日は", "shift_jis"),
+    ("日本語のテキストｱｲｳﾞﾟ。今日は", "shift_jis"),
+    ("日本語のテキストをここに書きます。今日は", "euc_jp"),
+    ("中文测试文本，你好世界（重要）", "gbk"),  # ruff:ignore[ambiguous-unicode-character-string]  # non-Latin sample text is the input under test
+    ("中文测试文本，你好世界。鿿", "gb18030"),  # ruff:ignore[ambiguous-unicode-character-string]  # non-Latin sample text is the input under test
+    ("繁體中文測試，你好世界。今天天氣很好", "big5"),  # ruff:ignore[ambiguous-unicode-character-string]  # non-Latin sample text is the input under test
+    ("한국어 텍스트입니다. 안녕하세요 세계", "euc_kr"),
+    ("漢字漢字漢字漢字", "euc_kr"),
+    ("Привет мир, как дела? Программирование Ёж", "cp1251"),
+    ("Привет мир, как дела? Программирование", "koi8_r"),
+    ("Γειά σου κόσμε, τι κάνεις; Καλημέρα", "cp1253"),  # ruff:ignore[ambiguous-unicode-character-string]  # non-Latin sample text is the input under test
+    ("שלום עולם, מה שלומך? בסדר גמור", "cp1255"),
+    ("مرحبا بالعالم، كيف حالك؟ الحمد لله", "cp1256"),
+    ("Merhaba dünya, nasılsın? Çok güzel değil mi", "cp1254"),  # ruff:ignore[ambiguous-unicode-character-string]  # non-Latin sample text is the input under test
+    ("Příliš žluťoučký kůň, dobrý den. Ahoj světe", "cp1250"),
+    ("Précédemment, la créativité française déjà", "cp1252"),
+    ("สวัสดีครับ ยินดีต้อนรับ วันนี้", "cp874"),
+    ("Sveiki pasaulis, kā tev klājas? Ačiū labai", "cp1257"),
+)
+_RUN_WORDS: Final[tuple[bytes, ...]] = (
+    b"the",
+    b"ABC",
+    b" ",
+    b"  ",
+    b"x",
+    b"1234",
+    b"I V X",
+    b"Ma",
+    b"N.",
+    b"n.",
+    b"No",
+    b"<p>",
+    b"&amp;",
+    b"ok.",
+    b"Hi!",
+    b"a",
+    b"Z9",
+)
+_RUN_RANKING_DIGEST: Final[str] = "b235bb978fb8ad8dcd87b0316e9d2adfec02fd69085c2a97052afa8cd0048a70"
+_RUN_STREAM_DIGEST: Final[str] = "0fd1e8738c485d9ace1b264f7e600288caf456baf474a6b080b04c3155960cd8"
+
+
+def test_ascii_runs_keep_the_ranking() -> None:
+    ranked = [[(m.encoding, m.confidence, m.language, m.bom) for m in detect_all(raw)] for raw in _run_corpus()]
+    assert _digest(repr(ranked)) == _RUN_RANKING_DIGEST
+
+
+def _run_corpus() -> list[bytes]:
+    rng = random.Random(_RUN_SEED)  # ruff:ignore[suspicious-non-cryptographic-random-usage]  # a corpus seed, not a security decision
+    return [
+        b"".join(_run_ascii(rng) if rng.random() < 0.55 else _run_text(rng) for _ in range(rng.randrange(1, 7)))
+        for _ in range(_RUN_CASES)
+    ]
+
+
+def _run_ascii(rng: random.Random) -> bytes:
+    if rng.random() < 0.5:
+        return b"".join(rng.choice(_RUN_WORDS) for _ in range(rng.randrange(1, 6)))
+    return bytes(rng.randrange(0x20, 0x7F) for _ in range(rng.randrange(1, 24)))
+
+
+def _run_text(rng: random.Random) -> bytes:
+    text, codec = rng.choice(_RUN_TEXTS)
+    return text[rng.randrange(len(text)) :].encode(codec)
+
+
+def _digest(text: str) -> str:
+    return hashlib.sha256(text.encode()).hexdigest()
+
+
+@pytest.mark.parametrize("size", [pytest.param(size, id=f"chunk-{size}") for size in (1, 3, 16, 4096)])
+def test_ascii_runs_keep_the_streamed_answer(size: int) -> None:
+    answers: list[tuple[str | None, float, str | None, bool]] = []
+    for raw in _run_corpus():
+        detector = EncodingDetector()
+        for start in range(0, len(raw), size):
+            detector.feed(raw[start : start + size])
+        match = detector.close()
+        answers.append((match.encoding, match.confidence, match.language, match.bom))
+    assert _digest(repr(answers)) == _RUN_STREAM_DIGEST
+
+
+# One byte per feed rarely reaches the in-feed ASCII skip (only held-over gb18030 bytes can form a run), so
+# byte-at-a-time streaming is the reference each run is checked against. Each input lands an ASCII run right after
+# a candidate's pending state: an unfinished lead, a held gb18030 pair, a pending Big5 combining mark, a pending GBK
+# scalar, or a word the space closes.
+_RUN_EDGES: Final[tuple[bytes, ...]] = (
+    b"\x81a hello world",
+    b"\x81\x30abc def",
+    "中文 hello world 测试".encode("gbk"),
+    b"\xb0\x40abc def",
+    "繁體 hello world 字".encode("big5"),
+    b"\x88\x62abc def",
+    "漢字 ab cd 漢字".encode("euc_kr"),
+    "日本語 hello world 日本".encode("shift_jis"),
+    "日本語 hello world 日本".encode("euc_jp"),
+    "Привет abcdefghijk мир".encode("cp1251"),
+    "مرحبا hello world مرحبا".encode("cp1256"),
+    "שלום hello world שלום".encode("cp1255"),
+    "Příliš abcdefgh žluťoučký".encode("cp1250"),
+    b"1\xaa abc def ",
+    b"caf\xe9 abcdefghijklmnop",
+)
+
+
+@pytest.mark.parametrize("raw", [pytest.param(raw, id=f"edge-{index}") for index, raw in enumerate(_RUN_EDGES)])
+def test_ascii_runs_match_byte_at_a_time_detection(raw: bytes) -> None:
+    detector = EncodingDetector()
+    for index in range(len(raw)):
+        detector.feed(raw[index : index + 1])
+    assert detect(raw) == detector.close()

@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import TYPE_CHECKING, Callable, Iterable, Mapping, Sequence
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Sequence
 import xml.etree.ElementTree as ET
 
 from lxml import etree as LET  # type: ignore[reportAttributeAccessIssue]  # lxml has no complete bundled typing
@@ -12,13 +12,15 @@ from lxml import etree as LET  # type: ignore[reportAttributeAccessIssue]  # lxm
 from .paragraph_heading import paragraph_heading, set_paragraph_heading
 from ._document_primitives import (
     T,
+    attributes_in_order,
+    place_new_attributes,
+    set_id_first,
     _FONT_FACE_LANG_TO_REF,
     _HC_NS,
     _HH,
     _HP,
     _allocate_font_id,
     _append_child,
-    _append_fill_brush,
     _attach_new_child,
     _apply_optional_attrs,
     _bool_str,
@@ -27,16 +29,19 @@ from ._document_primitives import (
     _build_font_element,
     _create_basic_border_fill_element,
     _create_border_fill_element,
+    _definition_id_keys,
     _element_local_name,
+    _lookup_keys,
     _ensure_memo_shape,
     _ensure_tab_definition_element,
+    _normalize_tab_stops,
     _find_matching_para_pr,
     _find_font_id,
-    _find_shading_border_fill_id,
     _fontface_insert_index,
     _get_bool_attr,
     _get_int_attr,
     _normalize_border_side_names,
+    _normalize_border_sides,
     _normalize_border_type,
     _normalize_color,
     _normalize_font_langs,
@@ -58,13 +63,18 @@ from .header import (
     TrackChange,
     TrackChangeAuthor,
     memo_shape_from_attributes,
+    parse_bullet,
     parse_bullets,
     parse_border_fills,
     parse_header_element,
     parse_paragraph_properties,
     parse_paragraph_property,
+    parse_style,
     parse_styles,
+    parse_tab_definition,
     parse_tab_definitions,
+    parse_track_change,
+    parse_track_change_author,
     parse_track_change_authors,
     parse_track_change_config,
     parse_track_changes,
@@ -76,7 +86,61 @@ from .numbering import DocumentNumbering
 from .utils import normalize_line_width, parse_int
 
 if TYPE_CHECKING:
+    from ..objects.results import BorderFillInfo
     from .document_parts import HwpxOxmlDocument
+
+
+#: ``hh:refList`` children in the order the OWPML schema (``owpml-header.xsd``) and
+#: Hancom's saves have them.
+_REF_LIST_ORDER = (
+    "fontfaces", "borderFills", "charProperties", "tabProperties", "numberings", "bullets",
+    "paraProperties", "styles", "memoProperties", "trackChanges", "trackChangeAuthors",
+)
+
+
+def _insert_in_ref_list_order(ref_list: Any, element: Any, tag: str) -> None:
+    """Put a new ``refList`` child *element* (local name *tag*) where the schema orders it:
+    before the first child that comes after it. A name outside the order goes last."""
+
+    if tag in _REF_LIST_ORDER:
+        rank = _REF_LIST_ORDER.index(tag)
+        for index, child in enumerate(ref_list):
+            name = tag_local_name(child.tag) if isinstance(child.tag, str) else ""
+            if name in _REF_LIST_ORDER and _REF_LIST_ORDER.index(name) > rank:
+                ref_list.insert(index, element)
+                return
+    ref_list.append(element)
+
+
+
+def _put_style_attributes_in_order(element: Any, before: "list[str] | None") -> None:
+    """A new ``hh:style`` (*before* ``None``) in Hancom's attribute order; for a style already there, only the
+    attributes added since *before* go to their place, the others staying as they are."""
+
+    if before is None:
+        attributes_in_order(element, _STYLE_ATTRIBUTE_ORDER)
+    else:
+        place_new_attributes(element, before, _STYLE_ATTRIBUTE_ORDER)
+
+
+#: Hancom's attribute order of hh:style (all of tests/fixtures/hancom_saved).
+_STYLE_ATTRIBUTE_ORDER = ("id", "type", "name", "engName", "paraPrIDRef", "charPrIDRef", "nextStyleIDRef", "langID",
+                          "lockForm")
+
+#: The bits of ``hh:trackchageConfig@flags`` that choose what Hancom draws of a tracked change, and
+#: the value Hancom writes itself (a new document, and a Hancom-saved document with changes:
+#: hwpxlib ``reader_writer__ChangeTrack``). Rendered with Hangul 12.30.0 for macOS, one tracked
+#: replacement per value: the change marks (red, struck out, a bar in the margin) for 40, 56, 57 and
+#: for no element; the final text without marks for 0, 1, 4, 8, 16, 24 and 60; the original text for
+#: 2; the final text with only the insertion marked for 32 and 48. What bit 0 means was not found.
+_TRACK_VIEW_BITS = 0b111110
+_TRACK_FLAGS_SHOWING_MARKS = 0b111000
+
+
+def _track_change_marks_shown(flags: int | None) -> bool:
+    """True when Hancom draws tracked changes with their marks for *flags* (``None``: no element)."""
+
+    return flags is None or (flags & 0b101000 == 0b101000 and not flags & 0b000110)
 
 
 class HwpxOxmlHeader:
@@ -89,7 +153,9 @@ class HwpxOxmlHeader:
         self._document = document
         # parsed lookups (paragraph shapes, styles, tab definitions, border fills ...), see _parsed()
         self._lookup_cache: dict[tuple[object, ET.Element], tuple[bytes, object]] = {}
-        self._para_pr_index: tuple[object, dict[str, ET.Element]] | None = None
+        # kind -> (the refList list, id -> definition by every key, id -> definition as written),
+        # see _definition_element()
+        self._definition_index: dict[str, tuple[ET.Element, dict[str, ET.Element], dict[str, ET.Element]]] = {}
 
     @property
     def element(self) -> ET.Element:
@@ -140,7 +206,7 @@ class HwpxOxmlHeader:
         element = ref_list.find(f"{_HH}{tag}")
         if element is None and create:
             element = ref_list.makeelement(f"{_HH}{tag}", {"itemCnt": "0"})
-            ref_list.append(element)
+            _insert_in_ref_list_order(ref_list, element, tag)
             self.mark_dirty()
         return element
 
@@ -296,7 +362,7 @@ class HwpxOxmlHeader:
             modifier(new_char_pr)
 
         char_id = self._allocate_char_property_id(char_props, preferred_id=preferred_id)
-        new_char_pr.set("id", char_id)
+        set_id_first(new_char_pr, char_id)  # Hancom writes a definition's id first
         char_props.append(new_char_pr)
         _update_item_count(char_props, "charPr")
         self.mark_dirty()
@@ -452,7 +518,7 @@ class HwpxOxmlHeader:
         para_pr.attrib.pop("id", None)
         set_paragraph_heading(para_pr, {"type": heading_type, "idRef": str(id_ref), "level": str(level)})
         para_pr_id = self._allocate_ref_id(para_properties, f"{_HH}paraPr")
-        para_pr.set("id", para_pr_id)
+        set_id_first(para_pr, para_pr_id)  # Hancom writes a definition's id first
         para_properties.append(para_pr)
         self._update_item_count(para_properties, f"{_HH}paraPr")
         self.mark_dirty()
@@ -466,13 +532,6 @@ class HwpxOxmlHeader:
         para_properties = self._para_properties_element(create=True)
         if para_properties is None:  # pragma: no cover - defensive branch
             raise RuntimeError("failed to create <paraProperties> element")
-
-        for para_pr in para_properties.findall(f"{_HH}paraPr"):
-            align_element = para_pr.find(f"{_HH}align")
-            if align_element is not None and align_element.get("horizontal") == horizontal:
-                para_pr_id = para_pr.get("id")
-                if para_pr_id:
-                    return para_pr_id
 
         base = para_properties.find(f"{_HH}paraPr")
         para_pr = deepcopy(base) if base is not None else para_properties.makeelement(f"{_HH}paraPr", {})
@@ -488,12 +547,32 @@ class HwpxOxmlHeader:
             align_element.set("horizontal", horizontal)
             if align_element.get("vertical") is None:
                 align_element.set("vertical", "BASELINE")
+
+        # Reuse a shape only when it is the base shape with this alignment and
+        # nothing else. Any shape that happens to be aligned this way may also
+        # carry a border, spacing or list numbering of the paragraph it was
+        # made for.
+        wanted = self._para_pr_signature(para_pr)
+        for existing in para_properties.findall(f"{_HH}paraPr"):
+            existing_id = existing.get("id")
+            if existing_id and self._para_pr_signature(existing) == wanted:
+                return existing_id
+
         para_pr_id = self._allocate_ref_id(para_properties, f"{_HH}paraPr")
-        para_pr.set("id", para_pr_id)
+        set_id_first(para_pr, para_pr_id)  # Hancom writes a definition's id first
         para_properties.append(para_pr)
         self._update_item_count(para_properties, f"{_HH}paraPr")
         self.mark_dirty()
         return para_pr_id
+
+    @staticmethod
+    def _para_pr_signature(para_pr: ET.Element) -> bytes:
+        """What a paragraph shape says, whatever its id."""
+
+        clone = deepcopy(para_pr)
+        clone.attrib.pop("id", None)
+        clone.tail = None
+        return LET.tostring(clone, method="c14n")
 
     @staticmethod
     def _normalize_paragraph_alignment(align: str) -> str:
@@ -678,10 +757,22 @@ class HwpxOxmlHeader:
         margins: Mapping[str, int] | None = None,
         heading: Mapping[str, str | int] | None = None,
         border: Mapping[str, str | int] | None = None,
-        break_setting: Mapping[str, bool] | None = None,
+        break_setting: Mapping[str, bool | str] | None = None,
         tab_pr_id_ref: str | None = None,
+        line_spacing: object = None,
+        condense: int | None = None,
     ) -> str:
-        """Return a new paragraph property id with requested formatting changes."""
+        """Return a new paragraph property id with requested formatting changes.
+
+        *line_spacing* (a ``LineSpacing`` or a percentage) and *condense* (공백 최소값 %)
+        are written as Hancom writes them (``formatting.apply_line_spacing``);
+        *break_setting* also takes ``break_latin_word``/``break_non_latin_word``
+        (``KEEP_WORD``/``BREAK_WORD``/``HYPHENATION``) and ``line_wrap``.
+        """
+
+        from . import formatting
+
+        extras = formatting.paragraph_extras(line_spacing, condense)
 
         para_properties = self._para_properties_element(create=True)
         if para_properties is None:  # pragma: no cover - defensive branch
@@ -716,7 +807,8 @@ class HwpxOxmlHeader:
             self._apply_paragraph_line_spacing(para_pr, line_spacing_percent)
 
         if break_setting is not None:
-            self._apply_paragraph_break_setting(para_pr, break_setting)
+            self._apply_paragraph_break_setting(para_pr, break_setting)  # type: ignore[arg-type]  # str keys skipped there
+        extras(self, para_pr, break_setting or {})
         if border is not None:
             self._apply_paragraph_border(para_pr, border)
         if tab_pr_id_ref is not None:
@@ -737,7 +829,7 @@ class HwpxOxmlHeader:
             return reusable_id
 
         para_pr_id = self._allocate_ref_id(para_properties, f"{_HH}paraPr")
-        para_pr.set("id", para_pr_id)
+        set_id_first(para_pr, para_pr_id)  # Hancom writes a definition's id first
         para_properties.append(para_pr)
         self._update_item_count(para_properties, f"{_HH}paraPr")
         self.mark_dirty()
@@ -754,6 +846,9 @@ class HwpxOxmlHeader:
         선례). Order is part of the dedupe key — see :func:`_normalize_tab_stops`.
         """
 
+        # Read and checked once, before a header without the list gains an empty one; the result is
+        # what is written (the stops are not read a second time: an iterator, a mapping reused).
+        stops = _normalize_tab_stops(tab_stops)
         element = self._tab_properties_element(create=True)
         if element is None:  # pragma: no cover - defensive branch
             from ..errors import HwpxStateError
@@ -765,7 +860,8 @@ class HwpxOxmlHeader:
 
         tab_id, created = _ensure_tab_definition_element(
             element,
-            tab_stops=tab_stops,
+            tab_stops=None,
+            normalized_stops=stops,
             auto_tab_left=auto_tab_left,
             auto_tab_right=auto_tab_right,
         )
@@ -795,7 +891,7 @@ class HwpxOxmlHeader:
         element = ref_list.find(f"{_HH}styles")
         if element is None and create:
             element = ref_list.makeelement(f"{_HH}styles", {"itemCnt": "0"})
-            ref_list.append(element)
+            _insert_in_ref_list_order(ref_list, element, "styles")
             self.mark_dirty()
         return element
 
@@ -812,7 +908,7 @@ class HwpxOxmlHeader:
         element = ref_list.find(f"{_HH}trackChanges")
         if element is None:
             element = ref_list.makeelement(f"{_HH}trackChanges", {"itemCnt": "0"})
-            ref_list.append(element)
+            _insert_in_ref_list_order(ref_list, element, "trackChanges")
             self.mark_dirty()
         return element
 
@@ -829,7 +925,7 @@ class HwpxOxmlHeader:
         element = ref_list.find(f"{_HH}trackChangeAuthors")
         if element is None:
             element = ref_list.makeelement(f"{_HH}trackChangeAuthors", {"itemCnt": "0"})
-            ref_list.append(element)
+            _insert_in_ref_list_order(ref_list, element, "trackChangeAuthors")
             self.mark_dirty()
         return element
 
@@ -857,12 +953,16 @@ class HwpxOxmlHeader:
         *,
         author_name: str = "AI Agent",
         date: str | None = None,
+        minimum_id: int = 0,
+        show: bool = True,
     ) -> int:
         model = self.to_model()
         change_id = model.add_track_change(
             change_type,
             author_name=author_name,
             date=date,
+            minimum_id=minimum_id,
+            ids=self._document._id_source if self._document is not None else None,
         )
         if model.ref_list is None or model.ref_list.track_changes is None:
             raise RuntimeError("failed to create tracked-change metadata")
@@ -899,13 +999,19 @@ class HwpxOxmlHeader:
                     )
                 authors_element.set("itemCnt", str(authors.item_cnt or 0))
 
-        config_element = self._track_change_config_element(create=True)
-        if config_element is None:  # pragma: no cover - defensive branch
-            raise RuntimeError("failed to create <trackchageConfig> element")
-        flags = 1
-        if model.track_change_config is not None and model.track_change_config.flags is not None:
-            flags = model.track_change_config.flags
-        config_element.set("flags", str(flags | 1))
+        # The change is to be seen: a document whose ``hh:trackchageConfig@flags`` hides the marks is
+        # set to show them (see :func:`_track_change_marks_shown`); one that shows them, or has no such
+        # element, is left as it is. Up to 7.0 development bit 0 was set here "for display". It is not
+        # what shows a change, and with it Hancom crashed opening a document that also had a table of
+        # contents to make again (``dirty="1"``, as ``add_table_of_contents`` writes one).
+        config_element = self._track_change_config_element() if show else None  # not for changes carried in
+        if config_element is not None:
+            try:
+                flags = int(config_element.get("flags", ""))
+            except ValueError:
+                flags = 0  # no flags, or not a number: read as 0, which hides the marks
+            if not _track_change_marks_shown(flags):
+                config_element.set("flags", str(_TRACK_FLAGS_SHOWING_MARKS | (flags & ~_TRACK_VIEW_BITS)))
         self.mark_dirty()
         return change_id
 
@@ -956,6 +1062,7 @@ class HwpxOxmlHeader:
         fill_gradient: Mapping[str, object] | None = None,
         active_borders: Iterable[str] | None = None,
         border_type: str = "SOLID",
+        sides: "Mapping[str, Mapping[str, Any] | None] | None" = None,
     ) -> str:
         element = self._border_fills_element(create=True)
         if element is None:  # pragma: no cover - defensive branch
@@ -967,6 +1074,11 @@ class HwpxOxmlHeader:
         normalized_border_width = normalize_line_width(border_width or "0.12 mm")
         normalized_active_borders = _normalize_border_side_names(active_borders)
         normalized_fill_color = _normalize_color(fill_color)
+        side_lines = _normalize_border_sides(
+            sides, border_color=normalized_border_color, border_width=normalized_border_width,
+            border_type=normalized_border_type, allowed_types=self._BORDER_LINE_TYPES,
+            type_aliases=self._BORDER_LINE_TYPE_ALIASES,
+        )
 
         for border_fill in element.findall(f"{_HH}borderFill"):
             if _border_fill_matches(
@@ -976,7 +1088,7 @@ class HwpxOxmlHeader:
                 fill_color=normalized_fill_color,
                 fill_image=fill_image, fill_gradient=fill_gradient,
                 active_borders=normalized_active_borders,
-                border_type=normalized_border_type,
+                border_type=normalized_border_type, side_lines=side_lines,
             ):
                 border_id = border_fill.get("id")
                 if border_id:
@@ -990,7 +1102,7 @@ class HwpxOxmlHeader:
             fill_color=normalized_fill_color,
             fill_image=fill_image, fill_gradient=fill_gradient,
             active_borders=normalized_active_borders,
-            border_type=normalized_border_type,
+            border_type=normalized_border_type, side_lines=side_lines,
         )
         _attach_new_child(element, new_border_fill)
         _update_item_count(element, "borderFill")
@@ -1042,6 +1154,7 @@ class HwpxOxmlHeader:
                 break
 
         changed = False
+        created = False
         if element is None:
             new_id = self._allocate_style_id(styles)
             new_style = ET.Element(
@@ -1052,11 +1165,12 @@ class HwpxOxmlHeader:
                 new_style = LET.fromstring(ET.tostring(new_style, encoding="utf-8"))
             styles.append(new_style)
             element = new_style
-            changed = True
+            changed = created = True
         elif style_type is not None and element.get("type") != style_type:
             element.set("type", style_type)
             changed = True
 
+        before_keys = list(element.attrib.keys())
         if _apply_optional_attrs(
             element,
             (
@@ -1071,6 +1185,7 @@ class HwpxOxmlHeader:
         if lock_form is not None and _get_bool_attr(element, "lockForm", False) != lock_form:
             element.set("lockForm", _bool_str(lock_form))
             changed = True
+        _put_style_attributes_in_order(element, None if created else before_keys)
 
         if changed:
             _update_item_count(styles, "style")
@@ -1185,45 +1300,54 @@ class HwpxOxmlHeader:
         fill_gradient: Mapping[str, object] | None = None,
         base_border_fill_id: str | int | None = None,
     ) -> str:
-        element = self._border_fills_element(create=True)
-        if element is None:  # pragma: no cover - defensive branch
-            raise RuntimeError("failed to create <borderFills> element")
-        has_alt_fill = fill_image is not None or fill_gradient is not None
-        face_color = "none" if has_alt_fill else (_normalize_color(color) or "none")
+        """The id of a border fill that is *base_border_fill_id* (the basic solid one when it is
+        not given or not in the header) with the fill changed: the solid *color* (``None`` takes
+        the face away), else the picture *fill_image*, else the gradation *fill_gradient*. Its
+        lines and diagonals stay; an identical border fill is reused. The fill follows the one
+        rule every border-fill derivation uses (:func:`hwpx.oxml.formatting.set_border_fill_color`)."""
 
-        matched = _find_shading_border_fill_id(
-            element, face_color=face_color, fill_image=fill_image, fill_gradient=fill_gradient,
+        from .formatting import (
+            derive_definition, find_definition, set_border_fill_color, set_border_fill_gradient,
+            set_border_fill_image,
         )
-        if matched:
-            return matched
 
-        base_element: ET.Element | None = None
-        if base_border_fill_id is not None:
-            base_element = element.find(f"{_HH}borderFill[@id='{base_border_fill_id}']")
-        if base_element is None:
-            existing_basic = self.find_basic_border_fill_id()
-            if existing_basic is not None:
-                base_element = element.find(f"{_HH}borderFill[@id='{existing_basic}']")
-        new_id = self._allocate_border_fill_id(element)
-        if base_element is None:
-            new_border_fill = _create_basic_border_fill_element(new_id)
-        else:
-            new_border_fill = deepcopy(base_element)
-            new_border_fill.set("id", new_id)
-            for child in list(new_border_fill):
-                if _element_local_name(child) == "fillBrush":
-                    new_border_fill.remove(child)
+        base = base_border_fill_id
+        if base is None or find_definition(self, "borderFill", base) is None:
+            base = self.ensure_basic_border_fill()
 
-        _append_fill_brush(
-            new_border_fill, fill_color=face_color, fill_image=fill_image, fill_gradient=fill_gradient,
-        )
-        _attach_new_child(element, new_border_fill)
-        _update_item_count(element, "borderFill")
-        self.mark_dirty()
-        return new_id
+        def modify(border_fill: ET.Element) -> None:
+            if fill_image is not None:
+                set_border_fill_image(border_fill, fill_image)
+            elif fill_gradient is not None:
+                set_border_fill_gradient(border_fill, fill_gradient)
+            else:
+                set_border_fill_color(border_fill, _normalize_color(color))
+
+        return derive_definition(self, "borderFill", base, modify)
 
     @property
-    def border_fills(self) -> dict[str, GenericElement]:
+    def border_fills(self) -> "dict[str, BorderFillInfo]":
+        """Every ``hh:borderFill``, by id (as written and as a plain number), as the
+        :class:`~hwpx.objects.BorderFillInfo` :meth:`border_fill` reads."""
+
+        from .header_fonts import border_fill_info
+
+        return {key: info for key in self._border_fill_elements()
+                if (info := border_fill_info(self, key)) is not None}
+
+    def border_fill(self, border_fill_id_ref: int | str | None) -> "BorderFillInfo | None":
+        """One ``hh:borderFill`` read as a value (:class:`~hwpx.objects.BorderFillInfo`: its four sides,
+        diagonal and solid fill), ``doc.styles.border_fill``'s; ``None`` for an unknown id. The XML itself:
+        ``header.element``."""
+
+        from .header_fonts import border_fill_info
+
+        return border_fill_info(self, border_fill_id_ref)
+
+    def _border_fill_elements(self) -> dict[str, GenericElement]:
+        """Every ``hh:borderFill`` parsed as a :class:`GenericElement`, by id (as written and as a plain
+        number)."""
+
         element = self._border_fills_element()
         if element is None:
             return {}
@@ -1245,9 +1369,6 @@ class HwpxOxmlHeader:
                 if key not in mapping:
                     mapping[key] = border_fill
         return mapping
-
-    def border_fill(self, border_fill_id_ref: int | str | None) -> GenericElement | None:
-        return self._lookup_by_id(self.border_fills, border_fill_id_ref)
 
     @staticmethod
     def _convert_to_lxml(element: ET.Element) -> LET._Element:
@@ -1276,6 +1397,71 @@ class HwpxOxmlHeader:
             self._lookup_cache.clear()
         self._lookup_cache[key] = (stamp, value)
         return value
+
+    def _definition_element(
+        self, container: ET.Element, kind: str, key: str, *, exact: bool = False
+    ) -> ET.Element | None:
+        """The first ``<kind>`` child of the ``hh:refList`` list *container* found under *key*: by
+        its ``id`` as written when *exact*, else as written or as a plain number (the keys the
+        definition dicts give it, :func:`_definition_id_keys`). ``None`` when none is.
+
+        The id -> element index is kept between lookups and checked, not trusted: the answer must
+        still be a ``<kind>`` child of *container* under *key*, and a key the index lacks (or an
+        answer that fails the check) reads the ids again. So a lookup costs the same however many
+        definitions the list has, and an edit made through ``.element`` (a definition added,
+        removed, moved out or given another id) is seen. Not seen: a second definition given an
+        id another already has (two under one id, which Hangul does not write) while the first
+        stays as it was.
+        """
+
+        if not isinstance(container, LET._Element):  # a plain ElementTree header: no parent links
+            return next((child for child in container if _element_local_name(child) == kind and (
+                child.get("id") == key if exact else key in _definition_id_keys(child.get("id")))), None)
+        kept = self._definition_index.get(kind)
+        if kept is not None and kept[0] is container:
+            found: Any = (kept[2] if exact else kept[1]).get(key)
+            if (
+                found is not None
+                and found.getparent() is container
+                and _element_local_name(found) == kind
+                and (found.get("id") == key if exact else key in _definition_id_keys(found.get("id")))
+            ):
+                return found
+        by_key: dict[str, ET.Element] = {}
+        by_id: dict[str, ET.Element] = {}
+        for child in container:
+            if _element_local_name(child) != kind:
+                continue
+            raw = child.get("id")
+            if raw is not None:
+                by_id.setdefault(raw, child)
+            for name in _definition_id_keys(raw):
+                by_key.setdefault(name, child)
+        # Holding *container* keeps its lxml proxy alive, so the ``is`` check above stays meaningful.
+        self._definition_index[kind] = (container, by_key, by_id)
+        return (by_id if exact else by_key).get(key)
+
+    def _definition_value(
+        self, container: ET.Element | None, kind: str, key: str, parse: Callable[[LET._Element], T]
+    ) -> T | None:
+        """The definition *key* names in *container* (:meth:`_definition_element`), parsed alone and
+        kept while its XML is the same (:meth:`_parsed`) -- the value the list's ``as_dict()``
+        gives under *key*, without reading the others."""
+
+        found = None if container is None else self._definition_element(container, kind, key)
+        return None if found is None else self._parsed(found, parse)
+
+    def _definition_by_id(
+        self, container: ET.Element | None, kind: str, identifier: int | str | None,
+        parse: Callable[[LET._Element], T],
+    ) -> T | None:
+        """:meth:`_lookup_by_id` over this list's ``as_dict()``, looking up only the one asked for."""
+
+        for key in _lookup_keys(identifier):
+            found = self._definition_value(container, kind, key, parse)
+            if found is not None:
+                return found
+        return None
 
     @staticmethod
     def _lookup_by_id(mapping: dict[str, T], identifier: int | str | None) -> T | None:
@@ -1396,20 +1582,26 @@ class HwpxOxmlHeader:
         self,
         *,
         width: int = 15591,
-        line_width: int | str = 1,
+        line_width_mm: float = 0.12,
         line_type: str = "SOLID",
         line_color: str = "#000000",
         fill_color: str = "#CCFF99",
         active_color: str = "#FFFF99",
         memo_type: str = "NOMAL",
     ) -> str:
-        element = self._memo_properties_element(create=True)
-        if element is None:  # pragma: no cover - defensive branch
-            raise RuntimeError("failed to create <memoProperties> element")
-        spec = _normalize_memo_shape_spec(
+        """The id of a ``hh:memoPr`` with these values (made when none matches). *line_width_mm* is one of
+        Hancom's line widths in mm, written as its index (``lineWidth``, :func:`~hwpx.oxml.header.memo_line_width_index`)."""
+
+        from .header import memo_line_width_index
+
+        line_width = memo_line_width_index(line_width_mm)  # checked before the header changes
+        spec = _normalize_memo_shape_spec(  # so are the colours: a refused call leaves no memoProperties
             width=width, line_width=line_width, line_type=line_type, line_color=line_color,
             fill_color=fill_color, active_color=active_color, memo_type=memo_type,
         )
+        element = self._memo_properties_element(create=True)
+        if element is None:  # pragma: no cover - defensive branch
+            raise RuntimeError("failed to create <memoProperties> element")
         shape_id, new_memo_pr = _ensure_memo_shape(element, spec)
         if new_memo_pr is None:
             return shape_id
@@ -1428,7 +1620,7 @@ class HwpxOxmlHeader:
         return bullet_list.as_dict()
 
     def bullet(self, bullet_id_ref: int | str | None) -> Bullet | None:
-        return self._lookup_by_id(self.bullets, bullet_id_ref)
+        return self._definition_by_id(self._bullets_element(), "bullet", bullet_id_ref, parse_bullet)
 
     @property
     def paragraph_properties(self) -> dict[str, ParagraphProperty]:
@@ -1444,23 +1636,9 @@ class HwpxOxmlHeader:
     ) -> ParagraphProperty | None:
         # Parse only the hh:paraPr asked for, under the keys paragraph_properties gives it; parsing
         # them all on each lookup cost most of a second in a header of many paragraph shapes.
-        parent = self._para_properties_element()
-        children = [] if parent is None else list(parent)
-        # The id -> element index is kept while the list has the same children with the same ids.
-        stamp = (children, [(child.tag, child.get("id")) for child in children])
-        kept = self._para_pr_index
-        if kept is not None and kept[0] == stamp:
-            elements = kept[1]
-        else:
-            elements = {}
-            for child in children:
-                raw = child.get("id") if _element_local_name(child) == "paraPr" else None
-                for key in (raw, str(int(raw)) if raw and raw.strip().lstrip("+-").isdigit() else None):
-                    if key and key not in elements:
-                        elements[key] = child
-            self._para_pr_index = (stamp, elements)
-        found = self._lookup_by_id(elements, para_pr_id_ref)
-        return None if found is None else self._parsed(found, parse_paragraph_property)
+        return self._definition_by_id(
+            self._para_properties_element(), "paraPr", para_pr_id_ref, parse_paragraph_property
+        )
 
     @property
     def tab_properties(self) -> dict[str, TabDefinition]:
@@ -1470,7 +1648,7 @@ class HwpxOxmlHeader:
         return self._parsed(element, parse_tab_definitions).as_dict()
 
     def tab_property(self, tab_pr_id_ref: int | str | None) -> TabDefinition | None:
-        return self._lookup_by_id(self.tab_properties, tab_pr_id_ref)
+        return self._definition_by_id(self._tab_properties_element(), "tabPr", tab_pr_id_ref, parse_tab_definition)
 
     @property
     def styles(self) -> dict[str, Style]:
@@ -1482,7 +1660,7 @@ class HwpxOxmlHeader:
         return style_list.as_dict()
 
     def style(self, style_id_ref: int | str | None) -> Style | None:
-        return self._lookup_by_id(self.styles, style_id_ref)
+        return self._definition_by_id(self._styles_element(), "style", style_id_ref, parse_style)
 
     @property
     def track_changes(self) -> dict[str, TrackChange]:
@@ -1494,7 +1672,7 @@ class HwpxOxmlHeader:
         return change_list.as_dict()
 
     def track_change(self, change_id_ref: int | str | None) -> TrackChange | None:
-        return self._lookup_by_id(self.track_changes, change_id_ref)
+        return self._definition_by_id(self._track_changes_element(), "trackChange", change_id_ref, parse_track_change)
 
     @property
     def track_change_authors(self) -> dict[str, TrackChangeAuthor]:
@@ -1508,7 +1686,9 @@ class HwpxOxmlHeader:
     def track_change_author(
         self, author_id_ref: int | str | None
     ) -> TrackChangeAuthor | None:
-        return self._lookup_by_id(self.track_change_authors, author_id_ref)
+        return self._definition_by_id(
+            self._track_change_authors_element(), "trackChangeAuthor", author_id_ref, parse_track_change_author
+        )
 
     @property
     def dirty(self) -> bool:
@@ -1517,7 +1697,6 @@ class HwpxOxmlHeader:
     def mark_dirty(self) -> None:
         self._dirty = True
         self._lookup_cache.clear()
-        self._para_pr_index = None
 
     def reset_dirty(self) -> None:
         self._dirty = False

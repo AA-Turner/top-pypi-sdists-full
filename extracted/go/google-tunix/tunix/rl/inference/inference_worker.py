@@ -56,8 +56,11 @@ class InferenceWorker:
       pad_id: int,
       eos_id: int,
       temperature: float = 1.0,
+      segment_ids: jax.Array | None = None,
+      segment_positions: jax.Array | None = None,
+      token_mask: jax.Array | None = None,
   ) -> jax.Array:
-    graphdef, state = self._model_states.get("reference")
+    graphdef, state = self._model_states.get("reference")  # pyrefly: ignore[not-iterable]
     if graphdef is None:
       raise ValueError("Reference model is not available.")
     return common.compute_per_token_logps(
@@ -68,8 +71,10 @@ class InferenceWorker:
         pad_id=pad_id,
         eos_id=eos_id,
         stop_gradient=True,
-        return_logits=False,
         temperature=temperature,
+        segment_ids=segment_ids,
+        segment_positions=segment_positions,
+        token_mask=token_mask,
     )
 
   def get_values(
@@ -79,7 +84,7 @@ class InferenceWorker:
       pad_id: int,
       eos_id: int,
   ) -> jax.Array:
-    graphdef, state = self._model_states.get("critic")
+    graphdef, state = self._model_states.get("critic")  # pyrefly: ignore[not-iterable]
     critic_model = nnx.merge(graphdef, state)
     if critic_model is None:
       raise ValueError("Critic model is not available.")

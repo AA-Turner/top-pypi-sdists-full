@@ -29,6 +29,7 @@ from botocore.exceptions import ClientError as BotocoreClientError
 from .paginator import (
     DescribeFolderPermissionsPaginator,
     DescribeFolderResolvedPermissionsPaginator,
+    ListAccessControlApplicationsPaginator,
     ListActionConnectorsPaginator,
     ListAnalysesPaginator,
     ListApprovalPoliciesPaginator,
@@ -50,11 +51,15 @@ from .paginator import (
     ListGroupsPaginator,
     ListIAMPolicyAssignmentsForUserPaginator,
     ListIAMPolicyAssignmentsPaginator,
+    ListInboundConnectorApplicationAssociationsPaginator,
+    ListInboundConnectorsPaginator,
     ListIngestionsPaginator,
+    ListKnowledgeBaseRefreshSchedulesPaginator,
     ListKnowledgeBasesPaginator,
     ListLimitsProfilesPaginator,
     ListNamespacesPaginator,
     ListOAuthClientApplicationsPaginator,
+    ListPrincipalsForPolicyPaginator,
     ListRoleMembershipsPaginator,
     ListTemplateAliasesPaginator,
     ListTemplatesPaginator,
@@ -82,12 +87,20 @@ from .type_defs import (
     BatchCreateTopicReviewedAnswerResponseTypeDef,
     BatchDeleteKnowledgeBaseRequestTypeDef,
     BatchDeleteKnowledgeBaseResponseTypeDef,
+    BatchDeletePolicyAssignmentByPolicyRequestTypeDef,
+    BatchDeletePolicyAssignmentByPolicyResponseTypeDef,
     BatchDeleteTopicReviewedAnswerRequestTypeDef,
     BatchDeleteTopicReviewedAnswerResponseTypeDef,
     BatchDescribeUserLimitsRequestTypeDef,
     BatchDescribeUserLimitsResponseTypeDef,
+    BatchPutPolicyAssignmentByPolicyRequestTypeDef,
+    BatchPutPolicyAssignmentByPolicyResponseTypeDef,
     CancelIngestionRequestTypeDef,
     CancelIngestionResponseTypeDef,
+    CreateAccessControlApplicationRequestTypeDef,
+    CreateAccessControlApplicationResponseTypeDef,
+    CreateAccessControlApplicationSecretRequestTypeDef,
+    CreateAccessControlApplicationSecretResponseTypeDef,
     CreateAccountCustomizationRequestTypeDef,
     CreateAccountCustomizationResponseTypeDef,
     CreateAccountSubscriptionRequestTypeDef,
@@ -124,8 +137,12 @@ from .type_defs import (
     CreateGroupResponseTypeDef,
     CreateIAMPolicyAssignmentRequestTypeDef,
     CreateIAMPolicyAssignmentResponseTypeDef,
+    CreateInboundConnectorRequestTypeDef,
+    CreateInboundConnectorResponseTypeDef,
     CreateIngestionRequestTypeDef,
     CreateIngestionResponseTypeDef,
+    CreateKnowledgeBaseRefreshScheduleRequestTypeDef,
+    CreateKnowledgeBaseRefreshScheduleResponseTypeDef,
     CreateKnowledgeBaseRequestTypeDef,
     CreateKnowledgeBaseResponseTypeDef,
     CreateLimitsProfileRequestTypeDef,
@@ -156,6 +173,10 @@ from .type_defs import (
     CreateTopicV2ResponseTypeDef,
     CreateVPCConnectionRequestTypeDef,
     CreateVPCConnectionResponseTypeDef,
+    DeleteAccessControlApplicationRequestTypeDef,
+    DeleteAccessControlApplicationResponseTypeDef,
+    DeleteAccessControlApplicationSecretRequestTypeDef,
+    DeleteAccessControlApplicationSecretResponseTypeDef,
     DeleteAccountCustomizationRequestTypeDef,
     DeleteAccountCustomizationResponseTypeDef,
     DeleteAccountCustomPermissionRequestTypeDef,
@@ -203,6 +224,10 @@ from .type_defs import (
     DeleteIAMPolicyAssignmentResponseTypeDef,
     DeleteIdentityPropagationConfigRequestTypeDef,
     DeleteIdentityPropagationConfigResponseTypeDef,
+    DeleteInboundConnectorRequestTypeDef,
+    DeleteInboundConnectorResponseTypeDef,
+    DeleteKnowledgeBaseRefreshScheduleRequestTypeDef,
+    DeleteKnowledgeBaseRefreshScheduleResponseTypeDef,
     DeleteKnowledgeBaseRequestTypeDef,
     DeleteKnowledgeBaseResponseTypeDef,
     DeleteLimitsProfileRequestTypeDef,
@@ -211,6 +236,7 @@ from .type_defs import (
     DeleteNamespaceResponseTypeDef,
     DeleteOAuthClientApplicationRequestTypeDef,
     DeleteOAuthClientApplicationResponseTypeDef,
+    DeletePolicyAssignmentRequestTypeDef,
     DeleteRefreshScheduleRequestTypeDef,
     DeleteRefreshScheduleResponseTypeDef,
     DeleteRoleCustomPermissionRequestTypeDef,
@@ -241,6 +267,8 @@ from .type_defs import (
     DeleteUserResponseTypeDef,
     DeleteVPCConnectionRequestTypeDef,
     DeleteVPCConnectionResponseTypeDef,
+    DescribeAccessControlApplicationRequestTypeDef,
+    DescribeAccessControlApplicationResponseTypeDef,
     DescribeAccountCustomizationRequestTypeDef,
     DescribeAccountCustomizationResponseTypeDef,
     DescribeAccountCustomPermissionRequestTypeDef,
@@ -323,6 +351,8 @@ from .type_defs import (
     DescribeGroupResponseTypeDef,
     DescribeIAMPolicyAssignmentRequestTypeDef,
     DescribeIAMPolicyAssignmentResponseTypeDef,
+    DescribeInboundConnectorRequestTypeDef,
+    DescribeInboundConnectorResponseTypeDef,
     DescribeIngestionRequestTypeDef,
     DescribeIngestionResponseTypeDef,
     DescribeIpRestrictionRequestTypeDef,
@@ -331,6 +361,8 @@ from .type_defs import (
     DescribeKeyRegistrationResponseTypeDef,
     DescribeKnowledgeBasePermissionsRequestTypeDef,
     DescribeKnowledgeBasePermissionsResponseTypeDef,
+    DescribeKnowledgeBaseRefreshScheduleRequestTypeDef,
+    DescribeKnowledgeBaseRefreshScheduleResponseTypeDef,
     DescribeKnowledgeBaseRequestTypeDef,
     DescribeKnowledgeBaseResponseTypeDef,
     DescribeLimitsProfileRequestTypeDef,
@@ -399,8 +431,12 @@ from .type_defs import (
     GetFlowPermissionsOutputTypeDef,
     GetIdentityContextRequestTypeDef,
     GetIdentityContextResponseTypeDef,
+    GetPolicyAssignmentRequestTypeDef,
+    GetPolicyAssignmentResponseTypeDef,
     GetSessionEmbedUrlRequestTypeDef,
     GetSessionEmbedUrlResponseTypeDef,
+    ListAccessControlApplicationsRequestTypeDef,
+    ListAccessControlApplicationsResponseTypeDef,
     ListActionConnectorsRequestTypeDef,
     ListActionConnectorsResponseTypeDef,
     ListAgentsRequestTypeDef,
@@ -447,8 +483,14 @@ from .type_defs import (
     ListIAMPolicyAssignmentsResponseTypeDef,
     ListIdentityPropagationConfigsRequestTypeDef,
     ListIdentityPropagationConfigsResponseTypeDef,
+    ListInboundConnectorApplicationAssociationsRequestTypeDef,
+    ListInboundConnectorApplicationAssociationsResponseTypeDef,
+    ListInboundConnectorsRequestTypeDef,
+    ListInboundConnectorsResponseTypeDef,
     ListIngestionsRequestTypeDef,
     ListIngestionsResponseTypeDef,
+    ListKnowledgeBaseRefreshSchedulesRequestTypeDef,
+    ListKnowledgeBaseRefreshSchedulesResponseTypeDef,
     ListKnowledgeBasesRequestTypeDef,
     ListKnowledgeBasesResponseTypeDef,
     ListLimitsProfilesRequestTypeDef,
@@ -457,6 +499,8 @@ from .type_defs import (
     ListNamespacesResponseTypeDef,
     ListOAuthClientApplicationsRequestTypeDef,
     ListOAuthClientApplicationsResponseTypeDef,
+    ListPrincipalsForPolicyRequestTypeDef,
+    ListPrincipalsForPolicyResponseTypeDef,
     ListRefreshSchedulesRequestTypeDef,
     ListRefreshSchedulesResponseTypeDef,
     ListRoleMembershipsRequestTypeDef,
@@ -501,6 +545,8 @@ from .type_defs import (
     PredictQAResultsResponseTypeDef,
     PutDataSetRefreshPropertiesRequestTypeDef,
     PutDataSetRefreshPropertiesResponseTypeDef,
+    PutPolicyAssignmentRequestTypeDef,
+    PutPolicyAssignmentResponseTypeDef,
     RegisterUserRequestTypeDef,
     RegisterUserResponseTypeDef,
     RestoreAnalysisRequestTypeDef,
@@ -547,6 +593,10 @@ from .type_defs import (
     TagResourceResponseTypeDef,
     UntagResourceRequestTypeDef,
     UntagResourceResponseTypeDef,
+    UpdateAccessControlApplicationRequestTypeDef,
+    UpdateAccessControlApplicationResponseTypeDef,
+    UpdateAccessControlApplicationSecretRequestTypeDef,
+    UpdateAccessControlApplicationSecretResponseTypeDef,
     UpdateAccountCustomizationRequestTypeDef,
     UpdateAccountCustomizationResponseTypeDef,
     UpdateAccountCustomPermissionRequestTypeDef,
@@ -615,12 +665,18 @@ from .type_defs import (
     UpdateIAMPolicyAssignmentResponseTypeDef,
     UpdateIdentityPropagationConfigRequestTypeDef,
     UpdateIdentityPropagationConfigResponseTypeDef,
+    UpdateInboundConnectorApplicationAssociationsRequestTypeDef,
+    UpdateInboundConnectorApplicationAssociationsResponseTypeDef,
+    UpdateInboundConnectorRequestTypeDef,
+    UpdateInboundConnectorResponseTypeDef,
     UpdateIpRestrictionRequestTypeDef,
     UpdateIpRestrictionResponseTypeDef,
     UpdateKeyRegistrationRequestTypeDef,
     UpdateKeyRegistrationResponseTypeDef,
     UpdateKnowledgeBasePermissionsRequestTypeDef,
     UpdateKnowledgeBasePermissionsResponseTypeDef,
+    UpdateKnowledgeBaseRefreshScheduleRequestTypeDef,
+    UpdateKnowledgeBaseRefreshScheduleResponseTypeDef,
     UpdateKnowledgeBaseRequestTypeDef,
     UpdateKnowledgeBaseResponseTypeDef,
     UpdateLimitsProfileRequestTypeDef,
@@ -715,6 +771,7 @@ class Exceptions(BaseClientExceptions):
     ThrottlingException: type[BotocoreClientError]
     UnsupportedPricingPlanException: type[BotocoreClientError]
     UnsupportedUserEditionException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class QuickSightClient(BaseClient):
@@ -772,6 +829,17 @@ class QuickSightClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#batch_delete_knowledge_base)
         """
 
+    def batch_delete_policy_assignment_by_policy(
+        self, **kwargs: Unpack[BatchDeletePolicyAssignmentByPolicyRequestTypeDef]
+    ) -> BatchDeletePolicyAssignmentByPolicyResponseTypeDef:
+        """
+        Removes a governance policy from multiple Amazon Quick Sight principals in a
+        single request.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/batch_delete_policy_assignment_by_policy.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#batch_delete_policy_assignment_by_policy)
+        """
+
     def batch_delete_topic_reviewed_answer(
         self, **kwargs: Unpack[BatchDeleteTopicReviewedAnswerRequestTypeDef]
     ) -> BatchDeleteTopicReviewedAnswerResponseTypeDef:
@@ -794,6 +862,17 @@ class QuickSightClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#batch_describe_user_limits)
         """
 
+    def batch_put_policy_assignment_by_policy(
+        self, **kwargs: Unpack[BatchPutPolicyAssignmentByPolicyRequestTypeDef]
+    ) -> BatchPutPolicyAssignmentByPolicyResponseTypeDef:
+        """
+        Assigns a governance policy to multiple Amazon Quick Sight principals in a
+        single request.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/batch_put_policy_assignment_by_policy.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#batch_put_policy_assignment_by_policy)
+        """
+
     def cancel_ingestion(
         self, **kwargs: Unpack[CancelIngestionRequestTypeDef]
     ) -> CancelIngestionResponseTypeDef:
@@ -802,6 +881,26 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/cancel_ingestion.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#cancel_ingestion)
+        """
+
+    def create_access_control_application(
+        self, **kwargs: Unpack[CreateAccessControlApplicationRequestTypeDef]
+    ) -> CreateAccessControlApplicationResponseTypeDef:
+        """
+        Creates an access control application in an Amazon Quick Sight account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/create_access_control_application.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#create_access_control_application)
+        """
+
+    def create_access_control_application_secret(
+        self, **kwargs: Unpack[CreateAccessControlApplicationSecretRequestTypeDef]
+    ) -> CreateAccessControlApplicationSecretResponseTypeDef:
+        """
+        Creates a client secret for an access control application.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/create_access_control_application_secret.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#create_access_control_application_secret)
         """
 
     def create_account_customization(
@@ -986,6 +1085,16 @@ class QuickSightClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#create_iam_policy_assignment)
         """
 
+    def create_inbound_connector(
+        self, **kwargs: Unpack[CreateInboundConnectorRequestTypeDef]
+    ) -> CreateInboundConnectorResponseTypeDef:
+        """
+        Creates an inbound connector in a Quick Sight account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/create_inbound_connector.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#create_inbound_connector)
+        """
+
     def create_ingestion(
         self, **kwargs: Unpack[CreateIngestionRequestTypeDef]
     ) -> CreateIngestionResponseTypeDef:
@@ -1004,6 +1113,17 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/create_knowledge_base.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#create_knowledge_base)
+        """
+
+    def create_knowledge_base_refresh_schedule(
+        self, **kwargs: Unpack[CreateKnowledgeBaseRefreshScheduleRequestTypeDef]
+    ) -> CreateKnowledgeBaseRefreshScheduleResponseTypeDef:
+        """
+        Creates a schedule that periodically refreshes an Amazon Quick Sight knowledge
+        base at the frequency that you specify.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/create_knowledge_base_refresh_schedule.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#create_knowledge_base_refresh_schedule)
         """
 
     def create_limits_profile(
@@ -1148,6 +1268,26 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/create_vpc_connection.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#create_vpc_connection)
+        """
+
+    def delete_access_control_application(
+        self, **kwargs: Unpack[DeleteAccessControlApplicationRequestTypeDef]
+    ) -> DeleteAccessControlApplicationResponseTypeDef:
+        """
+        Deletes an access control application.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/delete_access_control_application.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#delete_access_control_application)
+        """
+
+    def delete_access_control_application_secret(
+        self, **kwargs: Unpack[DeleteAccessControlApplicationSecretRequestTypeDef]
+    ) -> DeleteAccessControlApplicationSecretResponseTypeDef:
+        """
+        Deletes a client secret from an access control application.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/delete_access_control_application_secret.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#delete_access_control_application_secret)
         """
 
     def delete_account_custom_permission(
@@ -1389,6 +1529,16 @@ class QuickSightClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#delete_identity_propagation_config)
         """
 
+    def delete_inbound_connector(
+        self, **kwargs: Unpack[DeleteInboundConnectorRequestTypeDef]
+    ) -> DeleteInboundConnectorResponseTypeDef:
+        """
+        Deletes an inbound connector.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/delete_inbound_connector.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#delete_inbound_connector)
+        """
+
     def delete_knowledge_base(
         self, **kwargs: Unpack[DeleteKnowledgeBaseRequestTypeDef]
     ) -> DeleteKnowledgeBaseResponseTypeDef:
@@ -1397,6 +1547,16 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/delete_knowledge_base.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#delete_knowledge_base)
+        """
+
+    def delete_knowledge_base_refresh_schedule(
+        self, **kwargs: Unpack[DeleteKnowledgeBaseRefreshScheduleRequestTypeDef]
+    ) -> DeleteKnowledgeBaseRefreshScheduleResponseTypeDef:
+        """
+        Deletes the refresh schedule for an Amazon Quick Sight knowledge base.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/delete_knowledge_base_refresh_schedule.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#delete_knowledge_base_refresh_schedule)
         """
 
     def delete_limits_profile(
@@ -1428,6 +1588,16 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/delete_o_auth_client_application.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#delete_o_auth_client_application)
+        """
+
+    def delete_policy_assignment(
+        self, **kwargs: Unpack[DeletePolicyAssignmentRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Removes a governance policy from an Amazon Quick Sight principal.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/delete_policy_assignment.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#delete_policy_assignment)
         """
 
     def delete_refresh_schedule(
@@ -1577,6 +1747,16 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/delete_vpc_connection.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#delete_vpc_connection)
+        """
+
+    def describe_access_control_application(
+        self, **kwargs: Unpack[DescribeAccessControlApplicationRequestTypeDef]
+    ) -> DescribeAccessControlApplicationResponseTypeDef:
+        """
+        Describes an access control application.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_access_control_application.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#describe_access_control_application)
         """
 
     def describe_account_custom_permission(
@@ -2001,6 +2181,16 @@ class QuickSightClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#describe_iam_policy_assignment)
         """
 
+    def describe_inbound_connector(
+        self, **kwargs: Unpack[DescribeInboundConnectorRequestTypeDef]
+    ) -> DescribeInboundConnectorResponseTypeDef:
+        """
+        Describes an inbound connector.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_inbound_connector.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#describe_inbound_connector)
+        """
+
     def describe_ingestion(
         self, **kwargs: Unpack[DescribeIngestionRequestTypeDef]
     ) -> DescribeIngestionResponseTypeDef:
@@ -2049,6 +2239,17 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_knowledge_base_permissions.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#describe_knowledge_base_permissions)
+        """
+
+    def describe_knowledge_base_refresh_schedule(
+        self, **kwargs: Unpack[DescribeKnowledgeBaseRefreshScheduleRequestTypeDef]
+    ) -> DescribeKnowledgeBaseRefreshScheduleResponseTypeDef:
+        """
+        Describes the refresh schedule for an Amazon Quick Sight knowledge base,
+        including the schedule's frequency, start time, and state.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_knowledge_base_refresh_schedule.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#describe_knowledge_base_refresh_schedule)
         """
 
     def describe_limits_profile(
@@ -2315,8 +2516,8 @@ class QuickSightClient(BaseClient):
         self, **kwargs: Unpack[GenerateEmbedUrlForAnonymousUserRequestTypeDef]
     ) -> GenerateEmbedUrlForAnonymousUserResponseTypeDef:
         """
-        Generates an embed URL that you can use to embed an Amazon Quick dashboard or
-        visual in your website, without having to register any reader users.
+        Generates an embed URL that you can use to embed an Quick dashboard or visual
+        in your website, without having to register any reader users.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/generate_embed_url_for_anonymous_user.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#generate_embed_url_for_anonymous_user)
@@ -2326,8 +2527,8 @@ class QuickSightClient(BaseClient):
         self, **kwargs: Unpack[GenerateEmbedUrlForRegisteredUserRequestTypeDef]
     ) -> GenerateEmbedUrlForRegisteredUserResponseTypeDef:
         """
-        Generates an embed URL that you can use to embed an Amazon Quick experience in
-        your website.
+        Generates an embed URL that you can use to embed an Quick experience in your
+        website.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/generate_embed_url_for_registered_user.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#generate_embed_url_for_registered_user)
@@ -2389,6 +2590,17 @@ class QuickSightClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#get_identity_context)
         """
 
+    def get_policy_assignment(
+        self, **kwargs: Unpack[GetPolicyAssignmentRequestTypeDef]
+    ) -> GetPolicyAssignmentResponseTypeDef:
+        """
+        Describes the policy of the specified type that an Amazon Quick Sight principal
+        has.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/get_policy_assignment.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#get_policy_assignment)
+        """
+
     def get_session_embed_url(
         self, **kwargs: Unpack[GetSessionEmbedUrlRequestTypeDef]
     ) -> GetSessionEmbedUrlResponseTypeDef:
@@ -2398,6 +2610,17 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/get_session_embed_url.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#get_session_embed_url)
+        """
+
+    def list_access_control_applications(
+        self, **kwargs: Unpack[ListAccessControlApplicationsRequestTypeDef]
+    ) -> ListAccessControlApplicationsResponseTypeDef:
+        """
+        Lists the access control applications in a Quick Sight account in the current
+        Amazon Web Services Region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/list_access_control_applications.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#list_access_control_applications)
         """
 
     def list_action_connectors(
@@ -2628,6 +2851,27 @@ class QuickSightClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#list_identity_propagation_configs)
         """
 
+    def list_inbound_connector_application_associations(
+        self, **kwargs: Unpack[ListInboundConnectorApplicationAssociationsRequestTypeDef]
+    ) -> ListInboundConnectorApplicationAssociationsResponseTypeDef:
+        """
+        Lists the access control applications that are associated with an inbound
+        connector.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/list_inbound_connector_application_associations.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#list_inbound_connector_application_associations)
+        """
+
+    def list_inbound_connectors(
+        self, **kwargs: Unpack[ListInboundConnectorsRequestTypeDef]
+    ) -> ListInboundConnectorsResponseTypeDef:
+        """
+        Lists the inbound connectors in a Quick Sight account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/list_inbound_connectors.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#list_inbound_connectors)
+        """
+
     def list_ingestions(
         self, **kwargs: Unpack[ListIngestionsRequestTypeDef]
     ) -> ListIngestionsResponseTypeDef:
@@ -2636,6 +2880,16 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/list_ingestions.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#list_ingestions)
+        """
+
+    def list_knowledge_base_refresh_schedules(
+        self, **kwargs: Unpack[ListKnowledgeBaseRefreshSchedulesRequestTypeDef]
+    ) -> ListKnowledgeBaseRefreshSchedulesResponseTypeDef:
+        """
+        Lists the refresh schedules for an Amazon Quick Sight knowledge base.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/list_knowledge_base_refresh_schedules.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#list_knowledge_base_refresh_schedules)
         """
 
     def list_knowledge_bases(
@@ -2677,6 +2931,16 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/list_o_auth_client_applications.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#list_o_auth_client_applications)
+        """
+
+    def list_principals_for_policy(
+        self, **kwargs: Unpack[ListPrincipalsForPolicyRequestTypeDef]
+    ) -> ListPrincipalsForPolicyResponseTypeDef:
+        """
+        Lists the Amazon Quick Sight principals that have a governance policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/list_principals_for_policy.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#list_principals_for_policy)
         """
 
     def list_refresh_schedules(
@@ -2893,6 +3157,16 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/put_data_set_refresh_properties.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#put_data_set_refresh_properties)
+        """
+
+    def put_policy_assignment(
+        self, **kwargs: Unpack[PutPolicyAssignmentRequestTypeDef]
+    ) -> PutPolicyAssignmentResponseTypeDef:
+        """
+        Assigns a governance policy to an Amazon Quick Sight principal.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/put_policy_assignment.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#put_policy_assignment)
         """
 
     def register_user(
@@ -3126,6 +3400,27 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/untag_resource.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#untag_resource)
+        """
+
+    def update_access_control_application(
+        self, **kwargs: Unpack[UpdateAccessControlApplicationRequestTypeDef]
+    ) -> UpdateAccessControlApplicationResponseTypeDef:
+        """
+        Updates an access control application.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_access_control_application.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#update_access_control_application)
+        """
+
+    def update_access_control_application_secret(
+        self, **kwargs: Unpack[UpdateAccessControlApplicationSecretRequestTypeDef]
+    ) -> UpdateAccessControlApplicationSecretResponseTypeDef:
+        """
+        Updates the Amazon Web Services Secrets Manager secret ARNs of an IdP-provided
+        client secret.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_access_control_application_secret.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#update_access_control_application_secret)
         """
 
     def update_account_custom_permission(
@@ -3469,6 +3764,27 @@ class QuickSightClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#update_identity_propagation_config)
         """
 
+    def update_inbound_connector(
+        self, **kwargs: Unpack[UpdateInboundConnectorRequestTypeDef]
+    ) -> UpdateInboundConnectorResponseTypeDef:
+        """
+        Updates an inbound connector.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_inbound_connector.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#update_inbound_connector)
+        """
+
+    def update_inbound_connector_application_associations(
+        self, **kwargs: Unpack[UpdateInboundConnectorApplicationAssociationsRequestTypeDef]
+    ) -> UpdateInboundConnectorApplicationAssociationsResponseTypeDef:
+        """
+        Associates access control applications with an inbound connector, disassociates
+        them from it, or both.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_inbound_connector_application_associations.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#update_inbound_connector_application_associations)
+        """
+
     def update_ip_restriction(
         self, **kwargs: Unpack[UpdateIpRestrictionRequestTypeDef]
     ) -> UpdateIpRestrictionResponseTypeDef:
@@ -3507,6 +3823,16 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_knowledge_base_permissions.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#update_knowledge_base_permissions)
+        """
+
+    def update_knowledge_base_refresh_schedule(
+        self, **kwargs: Unpack[UpdateKnowledgeBaseRefreshScheduleRequestTypeDef]
+    ) -> UpdateKnowledgeBaseRefreshScheduleResponseTypeDef:
+        """
+        Updates the refresh schedule for an Amazon Quick Sight knowledge base.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_knowledge_base_refresh_schedule.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#update_knowledge_base_refresh_schedule)
         """
 
     def update_limits_profile(
@@ -3815,6 +4141,17 @@ class QuickSightClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_access_control_applications"]
+    ) -> ListAccessControlApplicationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_action_connectors"]
     ) -> ListActionConnectorsPaginator:
         """
@@ -4046,8 +4383,41 @@ class QuickSightClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_inbound_connector_application_associations"]
+    ) -> ListInboundConnectorApplicationAssociationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_inbound_connectors"]
+    ) -> ListInboundConnectorsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_ingestions"]
     ) -> ListIngestionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_knowledge_base_refresh_schedules"]
+    ) -> ListKnowledgeBaseRefreshSchedulesPaginator:
         """
         Create a paginator for an operation.
 
@@ -4092,6 +4462,17 @@ class QuickSightClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_o_auth_client_applications"]
     ) -> ListOAuthClientApplicationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_principals_for_policy"]
+    ) -> ListPrincipalsForPolicyPaginator:
         """
         Create a paginator for an operation.
 

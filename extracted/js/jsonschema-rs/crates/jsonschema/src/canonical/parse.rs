@@ -20,6 +20,7 @@ use crate::{
         negate, rename, CanonicalizationError, DefinitionMap, CANONICAL_REFERENCE_PREFIX,
         ROOT_DEFINITION_KEY,
     },
+    options::PatternSyntax,
     JsonType, JsonTypeSet,
 };
 
@@ -41,7 +42,7 @@ pub(crate) struct ParseOutput {
     pub(crate) parsed_nodes: AHashMap<*const Value, ParsedNode>,
     /// The same for each definition body, kept whether or not the final IR still reads it.
     pub(crate) parsed_definitions: AHashMap<Arc<str>, ParsedBody>,
-    /// The sides of the nodes drill may look into, `base` first. Filled only when recording.
+    /// The sides of the nodes `drill` may look into, `base` first. Filled only when recording.
     pub(crate) kept_parts: AHashMap<usize, Vec<(PartKind, Schema)>>,
     /// The target each definition key was generated for. Filled only when recording.
     pub(crate) sources: AHashMap<Arc<str>, usize>,
@@ -231,7 +232,7 @@ pub(crate) fn parse<'a>(
 
 /// [`parse`] also noting what each document node parsed to, which only
 /// [`PreparedDocument::unsatisfiable`](crate::canonical::PreparedDocument::unsatisfiable)
-/// reads. Recording allocates two maps per parse, so every other caller skips it.
+/// reads. Recording allocates per-node maps, so every other caller skips it.
 pub(crate) fn parse_tracking_nodes<'a>(
     value: &'a Value,
     ctx: &CanonicalizationContext,
@@ -425,7 +426,7 @@ pub(crate) struct Assumptions {
     /// Resolved as `false`.
     pub(crate) empty: AHashSet<Arc<str>>,
     /// Resolved as `true`.
-    pub(crate) admits_all: AHashSet<Arc<str>>,
+    pub(crate) accepts_all: AHashSet<Arc<str>>,
     /// Bodies a finished round produced, for the decisions a target still being parsed cannot
     /// answer. A body only ever narrows between rounds, so a decision this map settles stays
     /// settled the same way.
@@ -434,7 +435,8 @@ pub(crate) struct Assumptions {
 
 /// [`parse`] under `assumptions`.
 ///
-/// One parse applies a whole round's hypothesis, so every body comes back canonicalized under it.
+/// One parse applies a whole fixpoint round's `assumptions`, so every body comes back canonicalized
+/// under them.
 pub(crate) fn parse_with<'a>(
     value: &'a Value,
     ctx: &CanonicalizationContext,
@@ -452,7 +454,7 @@ pub(crate) fn parse_with<'a>(
     )
 }
 
-/// [`parse_with`] keeping every body, including those the hypothesis made unreachable.
+/// [`parse_with`] keeping every body, including those the `assumptions` made unreachable.
 ///
 /// Folding every reference to a key is what makes it unreachable, and the fixpoint reads that body
 /// to decide whether the assumption held - so pruning here would delete the evidence.
@@ -480,7 +482,7 @@ enum Recording {
     Skip,
 }
 
-/// Whether to drop the definitions the emitted IR no longer references.
+/// Whether to drop the definitions the emitted IR does not reference.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Pruning {
     Prune,
@@ -513,7 +515,7 @@ fn parse_capturing<'a>(
     recording: Recording,
     seed: Option<&Seed>,
 ) -> Result<CapturedParse, CanonicalizationError> {
-    // A body that came out `false` denotes the empty set, so every reference to it folds as well -
+    // A body that came out `false` accepts nothing, so every reference to it folds as well -
     // but `resolve_reference` can only fold a target whose body already finished parsing, which
     // makes that dependent on the order definitions were registered in. Re-parsing with the folded
     // keys added, until none are new, settles it: the result no longer depends on the order.
@@ -547,7 +549,8 @@ fn parse_capturing<'a>(
             // A choice between pointers reads the bodies they name, and one still being parsed has
             // none to read - which would make the form depend on the order the targets registered
             // in. One re-parse with this round's bodies known settles every such choice: what the
-            // choice reads off a body is which types it admits, and folding one cannot change that.
+            // choice reads off a body is which types it accepts, and folding one cannot change
+            // that.
             let settles = !reparsed_for_bodies
                 && parsed
                     .pending_choices
@@ -594,9 +597,9 @@ fn parse_once<'a>(
         };
     }
     let parsed = parse_schema_in_scope(value, ctx, true, resolver, &mut state)?;
-    // An in-between object intersection the IR cannot express may have produced nodes already, so discard
-    // the whole document rather than just that pairing site. An `allOf` outgrowing what the run
-    // may write out leaves the same partial nodes behind.
+    // An intermediate intersection the IR cannot express exactly may have produced nodes, so
+    // discard the whole document rather than just that pairing site. An `allOf` outgrowing what the
+    // run may write out leaves the same partial nodes behind.
     if ctx.saw_inexact_intersection() || ctx.outgrew_distribution() {
         return Ok(DocumentParse {
             output: None,
@@ -661,20 +664,19 @@ struct ParseState<'a, 'b> {
     recording: Recording,
     /// The reason the node being parsed came out empty, taken by `note_parsed_node`.
     pending_reason: Option<RecordedReason>,
-    /// Set by a caller about to parse a node drill may look into; taken on entry.
+    /// Set by a caller about to parse a node `drill` may look into; taken on entry.
     keep_next_parts: bool,
-    /// The parts of the nodes drill may look into, `base` first.
+    /// The parts of the nodes `drill` may look into, `base` first.
     kept_parts: AHashMap<usize, Vec<(PartKind, Schema)>>,
     /// Nodes whose form holds a reference, with that form.
     unsettled: Vec<(usize, Schema)>,
+    /// The `unevaluated*` nodes whose rewrite is being parsed, outermost first; the outermost is
+    /// not kept.
+    rewriting: Vec<Option<Map<String, Value>>>,
 }
 
-/// Flags set anywhere in the document and read after the whole parse.
-///
-/// Independent observations rather than a state machine, so the usual "replace bools with an enum"
-/// advice does not apply - any combination of them is reachable.
+/// Facts set anywhere in the document and read after the whole parse.
 #[derive(Default)]
-#[allow(clippy::struct_excessive_bools)]
 struct DocumentFacts {
     /// `reference_to_definition` is the only producer of `Reference`, so this gates the emptiness
     /// pass.
@@ -741,6 +743,7 @@ impl<'a, 'b> ParseState<'a, 'b> {
             keep_next_parts: false,
             kept_parts: AHashMap::default(),
             unsettled: Vec::new(),
+            rewriting: Vec::new(),
         }
     }
 
@@ -750,8 +753,8 @@ impl<'a, 'b> ParseState<'a, 'b> {
     }
 
     /// Whether `key` is being resolved as `true` for this parse.
-    fn assumes_admits_all(&self, key: &str) -> bool {
-        self.assumptions.admits_all.contains(key)
+    fn assumes_accepts_all(&self, key: &str) -> bool {
+        self.assumptions.accepts_all.contains(key)
     }
 
     /// Remember what `value` parsed to, when that decides whether it is unsatisfiable.
@@ -884,7 +887,7 @@ impl<'a, 'b> ParseState<'a, 'b> {
     }
 }
 
-/// What drill reads: the parts kept for the nodes it may look into, and the target each
+/// What `drill` reads: the parts kept for the nodes it may look into, and the target each
 /// definition key names.
 pub(crate) struct Kept<'k> {
     pub(crate) parts: &'k AHashMap<usize, Vec<(PartKind, Schema)>>,
@@ -898,7 +901,7 @@ fn parse_schema<'a>(
     resolver: &Resolver<'a>,
     state: &mut ParseState<'a, '_>,
 ) -> Result<Option<Schema>, CanonicalizationError> {
-    let resolver = resolver.in_subresource(ctx.draft().create_resource_ref(value))?;
+    let resolver = resolver.descend_into(ctx.draft().create_resource_ref(value))?;
     let parsed = parse_schema_in_scope(value, ctx, is_root, &resolver, state)?;
     if parsed.is_none() {
         ctx.note_declined(std::ptr::from_ref(value) as usize);
@@ -909,7 +912,7 @@ fn parse_schema<'a>(
 
 /// The dynamic-scope facts a target's parse can observe, derived from its resolver: for each
 /// dynamic-anchor name, the outermost scope resource overriding its lexical resolution, and under
-/// 2019-09 the resource the contiguous `$recursiveAnchor` chain lands on. Equal digests resolve
+/// 2019-09 the outermost scope resource with `$recursiveAnchor: true`. Equal digests resolve
 /// every dynamic reference in the target identically, so the digest disambiguates definition keys.
 /// Sorted by name; the value set per name is finite, so recursion revisits a key and
 /// [`ParseState::in_progress`] closes the cycle.
@@ -928,7 +931,7 @@ fn dynamic_scope_digest(
     draft: Draft,
 ) -> Result<DynamicEnv, CanonicalizationError> {
     if matches!(draft, Draft::Draft201909) {
-        return recursive_chain_digest(resolver);
+        return recursive_anchor_digest(resolver);
     }
     dynamic_anchor_digest(resolver)
 }
@@ -974,17 +977,14 @@ fn resource_dynamic_anchor_names(contents: &Value, draft: Draft, names: &mut Vec
     }
 }
 
-/// The resource a `$recursiveRef` walk lands on: the outermost entry of the contiguous
-/// `$recursiveAnchor: true` chain at the inner end of the scope, mirroring
-/// [`Resolver::lookup_recursive_ref`].
-fn recursive_chain_digest(resolver: &Resolver<'_>) -> Result<DynamicEnv, CanonicalizationError> {
+/// The resource a `$recursiveRef` walk lands on: the outermost scope resource with
+/// `$recursiveAnchor: true`, mirroring [`Resolver::lookup_recursive_ref`].
+fn recursive_anchor_digest(resolver: &Resolver<'_>) -> Result<DynamicEnv, CanonicalizationError> {
     let mut landing: Option<Arc<str>> = None;
     for uri in &resolver.dynamic_scope() {
         let (contents, _, _) = resolver.lookup(uri.as_str())?.into_inner();
         if resource_root_has_recursive_anchor(contents) {
             landing = Some(Arc::from(uri.as_str()));
-        } else {
-            break;
         }
     }
     match landing {
@@ -1084,12 +1084,23 @@ fn parse_schema_in_scope<'a>(
 
     // Runs before the `$ref` split below, which would hide a `$ref` from the applicator check.
     if has_unevaluated(map, ctx.draft()) {
+        // A rewrite copies referenced bodies in place, so a node reaching itself through a
+        // reference is inside its own rewrite and would be rewritten without end.
+        if state.rewriting.iter().flatten().any(|outer| outer == map) {
+            return Ok(None);
+        }
         let Some(degraded) = degrade_unevaluated(map, ctx.draft(), ctx, resolver)? else {
             return Ok(None);
         };
         state.keep_next_parts = keep;
+        // Only a node inside another rewrite is kept: the outermost one is seen again one level
+        // down, and most documents nest no rewrites.
+        let nested = !state.rewriting.is_empty();
+        state.rewriting.push(nested.then(|| map.clone()));
         let parsed =
-            ctx.over_rewritten(|| parse_schema_in_scope(&degraded, ctx, is_root, resolver, state))?;
+            ctx.over_rewritten(|| parse_schema_in_scope(&degraded, ctx, is_root, resolver, state));
+        state.rewriting.pop();
+        let parsed = parsed?;
         if recording {
             state.move_recorded(address(&degraded), address(value));
         }
@@ -1118,10 +1129,7 @@ fn parse_schema_in_scope<'a>(
                 state.dynamic_scope.tracked(),
                 "a dynamic reference is only resolved with the dynamic scope tracked"
             );
-            // [`Resolver::lookup`] implements the dynamic rule already: a fragment naming a
-            // `$dynamicAnchor` resolves against the outermost resource in scope declaring it, one
-            // that does not resolves as `$ref`.
-            let Some(schema) = resolve_reference(reference, ctx, resolver, state)? else {
+            let Some(schema) = resolve_dynamic_reference(reference, ctx, resolver, state)? else {
                 return Ok(None);
             };
             references.push(schema);
@@ -1238,7 +1246,7 @@ fn parse_schema_in_scope<'a>(
                     return Ok(None);
                 }
             }
-            // A dynamic anchor names a resource for a later `$dynamicRef`; it admits every value.
+            // A dynamic anchor names a resource for a later `$dynamicRef`; it accepts every value.
             // Matched against its declared value shape, so a mistyped one still keeps the doc raw.
             // A string `$recursiveRef` only reaches this loop under a draft whose validator never
             // compiles it (2019-09 consumes it as a reference above), so it asserts nothing.
@@ -1437,8 +1445,8 @@ fn parse_schema_in_scope<'a>(
                     None => return Ok(None),
                 }
             }
-            // A schema admitting everything says nothing about a key, so `true`/`{}` leaves no
-            // trace; one admitting nothing forbids the unmatched keys, which the key constraint
+            // A schema accepting everything says nothing about a key, so `true`/`{}` leaves no
+            // trace; one accepting nothing forbids the unmatched keys, which the key constraint
             // carries; anything in between exempts the named keys and constrains the rest.
             ("additionalProperties", value @ (Value::Object(_) | Value::Bool(_)))
                 if ctx.draft().is_known_keyword("additionalProperties") =>
@@ -1497,19 +1505,16 @@ fn parse_schema_in_scope<'a>(
             // facets cannot express - each alone checks the string it sits beside directly, so the
             // guard only fires when both keywords share this schema object.
             ("contentMediaType", Value::String(name))
-                if matches!(ctx.draft(), Draft::Draft6 | Draft::Draft7)
-                    && !map.contains_key("contentEncoding") =>
+                if ctx.draft() == Draft::Draft7 && !map.contains_key("contentEncoding") =>
             {
                 content_media_types.push(Arc::from(name.as_str()));
             }
             ("contentEncoding", Value::String(name))
-                if matches!(ctx.draft(), Draft::Draft6 | Draft::Draft7)
-                    && !map.contains_key("contentMediaType") =>
+                if ctx.draft() == Draft::Draft7 && !map.contains_key("contentMediaType") =>
             {
                 content_encodings.push(Arc::from(name.as_str()));
             }
-            // Only a positive divisor written as an exact rational is modeled; without
-            // one the validator's own division is what decides membership.
+            // A divisor with no `f64` form, which the validator drops, keeps the document raw.
             ("multipleOf", Value::Number(number)) if ctx.draft().is_known_keyword("multipleOf") => {
                 match BoundRational::new(number) {
                     Some(step) => multiple_of = Divisors::one(step),
@@ -1784,8 +1789,8 @@ fn parse_schema_in_scope<'a>(
         min_properties = None;
     }
     // A pattern matching finitely many keys names them outright, so its schema moves onto them and
-    // the pattern goes. What is left decides whether this document meets the `additionalProperties`
-    // pairing at all - `additionalProperties` already knows to skip a named key.
+    // the pattern goes. Only the patterns left pair with `additionalProperties`, which already
+    // skips a named key.
     fold_finite_key_patterns(&mut pattern_properties, &mut properties, ctx);
     // `additionalProperties: false` forbids every key the property map does not name and no
     // pattern matches, which a key constraint states: the named keys and the patterns' keys,
@@ -1865,7 +1870,7 @@ fn parse_schema_in_scope<'a>(
             not_multiple_of: ExcludedDivisors::default(),
             excludes_integers: false,
         };
-        // The integers the interval admits must be representable: the interval may still be
+        // The integers in the interval must be representable: the interval may still be
         // intersected with `integer` through an `allOf`, and there it is the only form left to
         // express.
         let Some(bounds) = algebra::integer_bounds_within(&leaf) else {
@@ -1891,7 +1896,7 @@ fn parse_schema_in_scope<'a>(
     // `then`/`else` apply only beside a sibling `if`; either alone is an annotation with no effect.
     match (if_schema, then_schema, else_schema) {
         (None, _, _) | (Some(_), None, None) => {}
-        // ¬if ∨ then: a value the condition rejects needs nothing further.
+        // `not: if` or `then`: a value the condition rejects needs nothing further.
         (Some(condition), Some(then), None) => {
             match negate::negate_in_place(&condition, &state.definitions, ctx) {
                 Some(negation) => parts.push((
@@ -1901,7 +1906,7 @@ fn parse_schema_in_scope<'a>(
                 None => return Ok(None),
             }
         }
-        // if ∨ else: a value the condition admits needs nothing further, so the negation is
+        // `if` or `else`: a value the condition accepts needs nothing further, so the negation is
         // never needed - unlike every other arm here, this one cannot force the document raw.
         (Some(condition), None, Some(else_branch)) => {
             parts.push((
@@ -1909,7 +1914,7 @@ fn parse_schema_in_scope<'a>(
                 algebra::union(vec![condition, else_branch], ctx),
             ));
         }
-        // (if ∧ then) ∨ (¬if ∧ else)
+        // `if` and `then`, or `not: if` and `else`
         (Some(condition), Some(then), Some(else_branch)) => {
             match negate::negate_in_place(&condition, &state.definitions, ctx) {
                 Some(negation) => {
@@ -1925,7 +1930,7 @@ fn parse_schema_in_scope<'a>(
         }
     }
 
-    let base = match (type_set, admitted_values(enum_values, const_value)) {
+    let base = match (type_set, accepted_values(enum_values, const_value)) {
         (None, None) => Schema::truthy(),
         (Some(set), None) => type_set_schema(set),
         (None, Some(values)) => canonicalize_value_set(values),
@@ -1978,7 +1983,7 @@ fn fold_recorded(
 }
 
 /// Why no value satisfies every one of `sides` together, on the node `map` at `node`: the first
-/// side admitting nothing by itself, else the first pair with nothing in common, else all of them.
+/// side accepting nothing by itself, else the first pair with nothing in common, else all of them.
 pub(crate) fn attribute(
     node: usize,
     map: &Map<String, Value>,
@@ -2040,8 +2045,8 @@ fn collides(left: &Schema, right: &Schema, ctx: &CanonicalizationContext) -> boo
     })
 }
 
-/// One side of a colliding pair: what it admits, how it is named, and the parts inside it when
-/// drill may look.
+/// One side of a colliding pair: what it accepts, how it is named, and the parts inside it when
+/// `drill` may look.
 struct Operand<'p> {
     schema: &'p Schema,
     cause: RecordedCause,
@@ -2049,8 +2054,8 @@ struct Operand<'p> {
 }
 
 impl Operand<'_> {
-    /// The parts drill probes, each named by its family inside the side; a branch inside a side
-    /// stays the side, since drill goes one level down.
+    /// The parts `drill` probes, each named by its family inside the side; a branch inside a side
+    /// stays the side, since `drill` goes one level down.
     fn expanded(&self) -> Vec<(&Schema, RecordedCause)> {
         let Some((node, parts)) = self.parts else {
             return vec![(self.schema, self.cause.clone())];
@@ -2092,7 +2097,7 @@ fn drill(
     None
 }
 
-/// The parts inside a side drill may look into: a whole branch's own, or the target's where the
+/// The parts inside a side `drill` may look into: a whole branch's own, or the target's where the
 /// branch or the side is a bare reference.
 fn kept_parts_for<'k>(
     cause: &RecordedCause,
@@ -2132,7 +2137,7 @@ fn fold_finite_key_patterns(
     ctx: &CanonicalizationContext,
 ) {
     pattern_properties.retain(|pattern, schema| {
-        let Some(keys) = finite_pattern_keys(pattern) else {
+        let Some(keys) = finite_pattern_keys(pattern, ctx) else {
             return true;
         };
         for key in keys {
@@ -2148,7 +2153,11 @@ fn fold_finite_key_patterns(
 
 /// The keys a pattern matches when it matches finitely many; `^` and `$` anchor the whole string,
 /// so an exact or alternation pattern names its keys outright.
-fn finite_pattern_keys(pattern: &str) -> Option<Vec<Arc<str>>> {
+fn finite_pattern_keys(pattern: &str, ctx: &CanonicalizationContext) -> Option<Vec<Arc<str>>> {
+    // The analysis reads the pattern as ECMA 262.
+    if ctx.pattern_options().syntax() == PatternSyntax::Engine {
+        return None;
+    }
     match jsonschema_regex::analyze_pattern(pattern)? {
         jsonschema_regex::PatternAnalysis::Exact(key) => Some(vec![Arc::from(key.as_ref())]),
         jsonschema_regex::PatternAnalysis::Alternation(keys) => {
@@ -3218,7 +3227,7 @@ fn item_cover_in_scope(
         return Ok(None);
     }
     // `contains` marks the indexes it matches, which no prefix length expresses.
-    if map.contains_key("contains") {
+    if contains_evaluates_items(draft) && map.contains_key("contains") {
         return Ok(None);
     }
     // Same reasoning as the property-cover twin's `unevaluatedProperties` branch.
@@ -3392,6 +3401,12 @@ fn sibling_item_cover(
     Ok(Some(cover))
 }
 
+/// Whether `contains` annotates the items it matches, which `unevaluatedItems` then skips. Before
+/// 2020-12 it annotates none. A document of an unknown dialect stays raw and is never parsed.
+fn contains_evaluates_items(draft: Draft) -> bool {
+    draft == Draft::Draft202012
+}
+
 /// Whether this object asserts an `unevaluated*` keyword. Both enter the vocabulary in the same
 /// draft, so one `is_known_keyword` answer covers the pair.
 fn has_unevaluated(map: &Map<String, Value>, draft: Draft) -> bool {
@@ -3484,7 +3499,10 @@ fn degrade_plain(
         // e.g.  {"contains": {"type": "integer"}, "unevaluatedItems": {"type": "string"}}
         //       =>  {"contains": {"type": "integer"},
         //            "items": {"anyOf": [{"type": "integer"}, {"type": "string"}]}}
-        let value = match map.get("contains") {
+        let value = match map
+            .get("contains")
+            .filter(|_| contains_evaluates_items(draft))
+        {
             Some(contains @ (Value::Object(_) | Value::Bool(_))) => {
                 let mut tail = Map::new();
                 tail.insert(
@@ -3567,8 +3585,9 @@ fn combine_references(references: Vec<Schema>, ctx: &CanonicalizationContext) ->
 
 /// A `$recursiveRef`, the 2019-09 keyword.
 ///
-/// [`Resolver::lookup_recursive_ref`] follows the scope while each resource carries
-/// `$recursiveAnchor: true`. Absent or `false`, it behaves as `$ref: "#"`.
+/// [`Resolver::lookup_recursive_ref`] lands on the outermost scope resource with
+/// `$recursiveAnchor: true` when the resource holding it has one. Absent or `false` there, it
+/// behaves as `$ref: "#"`.
 fn resolve_recursive_reference<'a>(
     ctx: &CanonicalizationContext,
     resolver: &Resolver<'a>,
@@ -3589,6 +3608,20 @@ fn resolve_reference<'a>(
     let base_uri = resolver.base_uri();
     let location = resolver.resolve_uri(&base_uri.borrow(), reference)?;
     let resolved = resolver.lookup(reference)?;
+    reference_to_definition(reference, location.as_str(), resolved, ctx, state)
+}
+
+/// A `$dynamicRef`: a fragment naming a `$dynamicAnchor` resolves against the outermost resource
+/// in scope declaring it, any other reference as `$ref`.
+fn resolve_dynamic_reference<'a>(
+    reference: &str,
+    ctx: &CanonicalizationContext,
+    resolver: &Resolver<'a>,
+    state: &mut ParseState<'a, '_>,
+) -> Result<Option<Schema>, CanonicalizationError> {
+    let base_uri = resolver.base_uri();
+    let location = resolver.resolve_uri(&base_uri.borrow(), reference)?;
+    let resolved = resolver.lookup_dynamic_ref(reference)?;
     reference_to_definition(reference, location.as_str(), resolved, ctx, state)
 }
 
@@ -3622,7 +3655,7 @@ fn reference_to_definition<'a>(
         if state.assumes_empty(ROOT_DEFINITION_KEY) {
             return Ok(Some(Schema::falsy()));
         }
-        if state.assumes_admits_all(ROOT_DEFINITION_KEY) {
+        if state.assumes_accepts_all(ROOT_DEFINITION_KEY) {
             return Ok(Some(Schema::truthy()));
         }
         return Ok(Some(Schema::new(SchemaKind::Reference(Arc::from(
@@ -3647,7 +3680,7 @@ fn reference_to_definition<'a>(
     if state.assumes_empty(&key) {
         return Ok(Some(Schema::falsy()));
     }
-    if state.assumes_admits_all(&key) {
+    if state.assumes_accepts_all(&key) {
         return Ok(Some(Schema::truthy()));
     }
     // Folding an empty target lets the surrounding leaf normalization see the contradiction:
@@ -3870,7 +3903,7 @@ fn required_dependency(key: &str, names: &[Value], ctx: &CanonicalizationContext
     dependency_schema(key, object_with_required(required, ctx), ctx)
 }
 
-/// The schema-form dependency on `key`: holding it demands the whole value meet `schema`.
+/// The schema-form dependency on `key`: holding it demands the whole value satisfy `schema`.
 fn schema_dependency(key: &str, schema: Schema, ctx: &CanonicalizationContext) -> Schema {
     dependency_schema(key, schema, ctx)
 }
@@ -3894,7 +3927,7 @@ fn dependency_schema(key: &str, consequent: Schema, ctx: &CanonicalizationContex
     algebra::union(vec![vacuous, absent, consequent], ctx)
 }
 
-/// An object leaf demanding exactly the sorted `required` keys and nothing else.
+/// An object leaf whose only constraint is the sorted `required` keys.
 fn object_with_required(required: Vec<Arc<str>>, ctx: &CanonicalizationContext) -> Schema {
     algebra::object_leaf(
         ObjectLeaf {
@@ -3910,8 +3943,8 @@ fn object_with_required(required: Vec<Arc<str>>, ctx: &CanonicalizationContext) 
     )
 }
 
-/// The finite value set admitted by `const` and `enum` together: the values both admit.
-fn admitted_values(
+/// The finite value set `const` and `enum` accept together: the values both accept.
+fn accepted_values(
     enum_values: Option<&Vec<Value>>,
     const_value: Option<&Value>,
 ) -> Option<Vec<CanonicalJson>> {
@@ -3930,7 +3963,7 @@ fn admitted_values(
     values
 }
 
-/// Intersect admitted values with a `type` set: drop values outside it, then pack the rest.
+/// Intersect accepted values with a `type` set: drop values outside it, then pack the rest.
 pub(crate) fn restrict_values_to_types(
     values: Vec<CanonicalJson>,
     set: JsonTypeSet,
@@ -3945,7 +3978,7 @@ pub(crate) fn restrict_values_to_types(
         return canonicalize_value_set(filtered);
     }
     // Draft 4 cannot tell `1` from `1.0` by value equality, so integer members keep the integer type
-    // guard; members of other types (which the set also admits) do not.
+    // guard; members of other types (which the set also accepts) do not.
     let (integers, others): (Vec<_>, Vec<_>) = filtered
         .into_iter()
         .partition(|value| value.json_type() == JsonType::Integer);
@@ -3995,7 +4028,7 @@ fn parse_type_set(value: &Value) -> Option<JsonTypeSet> {
     }
 }
 
-/// Keep whichever end admits fewer values.
+/// Keep whichever end includes fewer values.
 fn tighter_real(
     current: Option<BoundNumber>,
     limit: &Number,

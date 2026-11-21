@@ -7,6 +7,7 @@ use std::sync::{Arc, Weak};
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 
+use super::membership_client::MembershipRevision;
 use super::shared_id_list_delta::{MappedDelta, write_delta};
 use super::shared_id_list_format::{IdListImage, digest, hex, invalid, write_list_with_format};
 use super::{IdList, IdListIds, IdListMetadata, IdListPropagationUpdate};
@@ -23,13 +24,14 @@ pub(crate) struct SharedIdListStore {
     directory: PathBuf,
     namespace: [u8; 32],
     elias_fano: bool,
+    initial_base: bool,
     cache: Mutex<HashMap<String, CachedList>>,
 }
 
 pub(super) enum ManifestRead {
     Missing,
     Unchanged,
-    Changed(same_file::Handle, SharedIdListCatalog),
+    Changed(same_file::Handle, Box<SharedIdListCatalog>),
 }
 
 struct CachedList {
@@ -58,6 +60,8 @@ pub(crate) struct SharedIdListCatalog {
     pub(crate) lists: HashMap<String, IdList>,
     pub(crate) propagation: HashMap<String, IdListPropagationUpdate>,
     pub(crate) generation: String,
+    /// Revisions from the manifest observed by the writer, committed with this catalog.
+    pub(super) observed_membership_revisions: HashMap<String, MembershipRevision>,
     pub(super) content_digest: [u8; 32],
     pub(super) status: RefreshStatus,
 }
@@ -70,6 +74,12 @@ struct Manifest {
     #[serde(flatten)]
     status: RefreshStatus,
     lists: BTreeMap<String, ManifestList>,
+    #[serde(
+        alias = "primary_membership_revisions",
+        default,
+        skip_serializing_if = "HashMap::is_empty"
+    )]
+    observed_membership_revisions: HashMap<String, MembershipRevision>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -105,8 +115,37 @@ impl SharedIdListStore {
             directory,
             namespace,
             elias_fano,
+            initial_base: false,
             cache: Mutex::new(HashMap::new()),
         })
+    }
+
+    pub(super) fn for_initial_base(
+        root: &Path,
+        source: &str,
+        name: &str,
+        encoding: super::IdListEncoding,
+    ) -> io::Result<Self> {
+        let mut store = Self::new(
+            root,
+            source,
+            name,
+            encoding == super::IdListEncoding::EliasFano,
+        )?;
+        store.initial_base = true;
+        Ok(store)
+    }
+
+    // Bind the generation and raw byte offset to the image to detect cursor corruption.
+    fn image_namespace(&self, metadata: &IdListMetadata) -> io::Result<[u8; 32]> {
+        if !self.initial_base {
+            return Ok(self.namespace);
+        }
+        let revision = metadata
+            .file_version()
+            .membership_revision()
+            .ok_or_else(|| invalid("missing initial base revision"))?;
+        Ok(digest(&[self.namespace, revision].concat()))
     }
 
     #[cfg(test)]
@@ -137,9 +176,27 @@ impl SharedIdListStore {
 
     fn load_with_hook(&self, hook: impl FnMut()) -> io::Result<Option<SharedIdListCatalog>> {
         match self.load_if_changed(None, hook)? {
-            ManifestRead::Changed(_, catalog) => Ok(Some(catalog)),
+            ManifestRead::Changed(_, catalog) => Ok(Some(*catalog)),
             ManifestRead::Missing => Ok(None),
             ManifestRead::Unchanged => unreachable!("unconditional catalog read"),
+        }
+    }
+
+    pub(super) fn load_initial_base(
+        &self,
+        name: &str,
+        accept: impl Fn(&IdListMetadata) -> bool,
+    ) -> io::Result<Option<IdList>> {
+        let selected = self.load_selected(None, |manifest| {
+            manifest
+                .lists
+                .get(name)
+                .is_some_and(|entry| accept(&entry.metadata))
+        })?;
+        match selected {
+            ManifestRead::Changed(_, mut catalog) => Ok(catalog.lists.remove(name)),
+            ManifestRead::Missing => Ok(None),
+            ManifestRead::Unchanged => unreachable!("unconditional base read"),
         }
     }
 
@@ -147,6 +204,17 @@ impl SharedIdListStore {
         &self,
         installed: Option<&same_file::Handle>,
         mut after_manifest: impl FnMut(),
+    ) -> io::Result<ManifestRead> {
+        self.load_selected(installed, |_| {
+            after_manifest();
+            true
+        })
+    }
+
+    fn load_selected(
+        &self,
+        installed: Option<&same_file::Handle>,
+        mut accept: impl FnMut(&Manifest) -> bool,
     ) -> io::Result<ManifestRead> {
         let mut last_missing = None;
         for _ in 0..3 {
@@ -158,11 +226,13 @@ impl SharedIdListStore {
                 return Ok(ManifestRead::Unchanged);
             }
             let manifest = self.parse_manifest(handle.as_file())?;
-            after_manifest();
+            if !accept(&manifest) {
+                return Ok(ManifestRead::Missing);
+            }
             match self.map_catalog(&manifest) {
                 Ok(catalog) => {
                     self.remember(&manifest, &catalog, None);
-                    return Ok(ManifestRead::Changed(handle, catalog));
+                    return Ok(ManifestRead::Changed(handle, Box::new(catalog)));
                 }
                 // A publisher may have committed a new catalog and unlinked old
                 // files after this reader read the old manifest. Retry current.
@@ -181,6 +251,7 @@ impl SharedIdListStore {
         lease: &SharedIdListLease,
         lists: &HashMap<String, IdList>,
         propagation: &HashMap<String, IdListPropagationUpdate>,
+        observed_membership_revisions: &HashMap<String, MembershipRevision>,
         incomplete: Option<RefreshStatus>,
         clock: impl FnOnce() -> u64,
     ) -> io::Result<SharedIdListCatalog> {
@@ -209,6 +280,10 @@ impl SharedIdListStore {
             });
             let (data_file, delta_file) = match reusable {
                 Some(files) => files,
+                None if self.initial_base => (
+                    self.write_data_in(&self.image_namespace(&list.metadata)?, name, &list.ids)?,
+                    None,
+                ),
                 None => self.write_images(name, &list.ids)?,
             };
             entries.insert(
@@ -228,6 +303,7 @@ impl SharedIdListStore {
             generation: uuid::Uuid::new_v4().to_string(),
             status: RefreshStatus::default(),
             lists: entries,
+            observed_membership_revisions: observed_membership_revisions.clone(),
         };
         // Map and check every referenced image before commit, including files
         // reused from an earlier interrupted publication.
@@ -271,7 +347,9 @@ impl SharedIdListStore {
         propagation: &HashMap<String, IdListPropagationUpdate>,
         successful_refresh_ms: u64,
     ) -> io::Result<SharedIdListCatalog> {
-        self.publish_with_clock(lease, lists, propagation, None, || successful_refresh_ms)
+        self.publish_with_clock(lease, lists, propagation, &HashMap::new(), None, || {
+            successful_refresh_ms
+        })
     }
 
     /// Run after taking the leader lease to remove files left by an interrupted
@@ -309,7 +387,8 @@ impl SharedIdListStore {
             return Err(invalid("unsupported shared ID-list manifest or namespace"));
         }
         for (name, entry) in &manifest.lists {
-            if name != &entry.metadata.name
+            if (self.initial_base && (manifest.lists.len() != 1 || entry.delta_file.is_some()))
+                || name != &entry.metadata.name
                 || !valid_data_file(&entry.data_file)
                 || entry
                     .delta_file
@@ -349,7 +428,14 @@ impl SharedIdListStore {
                         Some(base) => base,
                         None => {
                             let path = self.directory.join(&entry.data_file);
-                            let view = IdListImage::open(&path, &self.namespace, name)?;
+                            let mut view = IdListImage::open(
+                                &path,
+                                &self.image_namespace(&entry.metadata)?,
+                                name,
+                            )?;
+                            if self.initial_base {
+                                view.retain_for_private_updates();
+                            }
                             if entry.data_file != format!("list-{}.ids", view.content_digest()) {
                                 return Err(invalid("shared ID-list content digest mismatch"));
                             }
@@ -388,6 +474,7 @@ impl SharedIdListStore {
             lists,
             propagation,
             generation: manifest.generation.clone(),
+            observed_membership_revisions: manifest.observed_membership_revisions.clone(),
             // Local installs depend on images, cursors and delivery proof.
             // Freshness and the publication UUID can advance independently.
             content_digest: digest(&serde_json::to_vec(&manifest.lists)?),
@@ -442,18 +529,34 @@ impl SharedIdListStore {
     }
 
     fn write_data(&self, name: &str, ids: &IdListIds) -> io::Result<String> {
+        self.write_data_in(&self.namespace, name, ids)
+    }
+
+    fn write_data_in(
+        &self,
+        namespace: &[u8; 32],
+        name: &str,
+        ids: &IdListIds,
+    ) -> io::Result<String> {
         let mut temporary = tempfile::Builder::new()
             .prefix(TEMP_PREFIX)
             .tempfile_in(&self.directory)?;
         let content_digest = write_list_with_format(
             temporary.as_file_mut(),
-            &self.namespace,
+            namespace,
             name,
             ids,
             self.elias_fano,
         )?;
         temporary.as_file().sync_all()?;
         let filename = format!("list-{content_digest}.ids");
+        if self.initial_base {
+            // Under the lease, rename to repair corrupt files while preserving live mappings.
+            temporary
+                .persist(self.directory.join(&filename))
+                .map_err(|e| e.error)?;
+            return Ok(filename);
+        }
         match temporary.persist_noclobber(self.directory.join(&filename)) {
             Ok(_) => {}
             Err(error) if error.error.kind() == io::ErrorKind::AlreadyExists => {}

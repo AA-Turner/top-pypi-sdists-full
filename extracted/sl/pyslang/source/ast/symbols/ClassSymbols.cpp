@@ -775,7 +775,11 @@ void ClassType::handleImplements(const ImplementsClauseSyntax& implementsClause,
                         }
 
                         if (origExisting != origNew) {
+                            // Enum values have their enum type as a parent;
+                            // we want the class that declared them.
                             auto parent = existing.getParentScope();
+                            while (parent && parent->asSymbol().kind == SymbolKind::EnumType)
+                                parent = parent->asSymbol().getParentScope();
                             SLANG_ASSERT(parent);
 
                             auto& diag = context.addDiag(diag::IfaceNameConflict,
@@ -1206,7 +1210,9 @@ bool ClassSpecializationKey::operator==(const ClassSpecializationKey& other) con
         const Type* l = *lit;
         const Type* r = *rit;
         if (l && r) {
-            if (!l->isMatching(*r))
+            // A type declared in the default value of a type parameter (like an
+            // inline enum or struct) is created anew in each specialization.
+            if (!l->isMatchingAcrossElaborations(*r))
                 return false;
         }
         else {
@@ -1228,7 +1234,7 @@ ConstraintBlockSymbol::ConstraintBlockSymbol(Compilation& c, std::string_view na
 static void addSpecifierFlags(const SyntaxList<ClassSpecifierSyntax>& specifiers,
                               bitmask<ConstraintBlockFlags>& flags) {
     for (auto specifier : specifiers) {
-        if (!specifier->keyword.isMissing()) {
+        if (specifier->keyword && !specifier->keyword.isMissing()) {
             switch (specifier->keyword.kind) {
                 case TokenKind::InitialKeyword:
                     flags |= ConstraintBlockFlags::Initial;

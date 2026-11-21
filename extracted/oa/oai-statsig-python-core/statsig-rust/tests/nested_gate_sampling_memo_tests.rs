@@ -357,13 +357,13 @@ fn cached_pass_and_fail_gate_conditions_preserve_boolean_and_exposures() {
             data["feature_gates"]["numeric"]["rules"][0]["returnValue"] = json!(value);
             data["condition_map"]["pass_numeric"] = condition(kind, json!("numeric"));
             with_context(data, |ctx| {
-                evaluate(ctx, "probe");
+                evaluate(ctx, "parent");
                 let cold = snapshot(ctx);
                 assert_eq!(cold["value"], json!(value ^ (kind == "fail_gate")));
                 assert_eq!(cold["exposures"][0]["gateValue"], json!(value.to_string()));
                 ctx.reset_result();
                 evaluate(ctx, "segment:none");
-                evaluate(ctx, "probe");
+                evaluate(ctx, "parent");
                 assert_eq!(snapshot(ctx), cold, "{kind}/{value}");
             });
         }

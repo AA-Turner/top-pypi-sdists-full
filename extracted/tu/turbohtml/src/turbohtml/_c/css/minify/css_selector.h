@@ -158,6 +158,11 @@ static void css_minify_selector(token_vec *vec, Py_ssize_t start, Py_ssize_t end
             comment_gap = 1;
             continue;
         }
+        /* the caller skips leading whitespace and comments, so pending_ws and comment_gap are only set after a token
+           has been emitted: out is non-empty whenever either is pending, unless a failed growth dropped that token */
+        if (*out->oom) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            return;      /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
         if (token->kind == CSS_DELIM && token->delim == '[') {
             attr_depth++;
         }
@@ -190,11 +195,6 @@ static void css_minify_selector(token_vec *vec, Py_ssize_t start, Py_ssize_t end
             cbuf_putc(out, token->delim);
             pending_ws = 0;
             continue;
-        }
-        /* the caller skips leading whitespace and comments, so pending_ws and comment_gap are only set after a token
-           has been emitted: out is non-empty whenever either is pending, unless a failed growth dropped that token */
-        if (*out->oom) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-            return;      /* GCOVR_EXCL_LINE: allocation-failure path */
         }
         if (pending_ws) {
             css_char last = out->data[out->len - 1];
@@ -334,8 +334,8 @@ CSS_NOINLINE static int css_value_substitutes(const token_vec *vec, Py_ssize_t s
    bad url drops the declaration. A `\` before a newline is a delimiter: a custom property's value and a value that
    calls a substitution function keep it, written as it stands with its newline, and any other declaration is dropped
    as a browser drops it. */
-static int css_make_declaration(css_buf *pool, token_vec *vec, Py_ssize_t start, Py_ssize_t end, comp_vec *scratch,
-                                css_decl *decl, int preserve_name) {
+static CSS_FORCEINLINE int css_make_declaration(css_buf *pool, token_vec *vec, Py_ssize_t start, Py_ssize_t end,
+                                                comp_vec *scratch, css_decl *decl, int preserve_name) {
     int backslash = 0;
     if (vec->bad && css_holds_bad(vec, start, end)) {
         if (css_holds_cut(vec, start, end)) {
@@ -761,6 +761,12 @@ static void css_dedup(css_buf *pool, decl_vec *decls) {
     dedup_entry stack_table[CSS_DEDUP_STACK];
     dedup_entry *table = stack_table;
     if (cap > CSS_DEDUP_STACK) {
+        /* GCOVR_EXCL_START: needs a 32-bit build and a rule of over 100 million declarations */
+        if ((size_t)cap > SIZE_MAX / sizeof(dedup_entry)) {
+            *pool->oom = 1;
+            return;
+        }
+        /* GCOVR_EXCL_STOP */
         table = css_malloc((size_t)cap * sizeof(dedup_entry));
         if (table == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
             *pool->oom = 1;  /* GCOVR_EXCL_LINE: allocation-failure path */

@@ -37,7 +37,13 @@ from helpers import AppriseURLTester
 import pytest
 import requests
 
-from apprise import Apprise, AppriseConfig, NotifyFormat, NotifyType
+from apprise import (
+    Apprise,
+    AppriseAsset,
+    AppriseConfig,
+    NotifyFormat,
+    NotifyType,
+)
 from apprise.exception import AppriseImproperlyConfigured
 from apprise.plugins.workflows import NotifyWorkflows
 
@@ -161,8 +167,8 @@ apprise_url_tests = (
     # Support native URLs
     (
         (
-            "https://server.azure.com:443/workflows/643e69f83c8944/"
-            "triggers/manual/paths/invoke?"
+            "https://prod-15.uksouth.logic.azure.com:443/workflows/"
+            "643e69f83c8944/triggers/manual/paths/invoke?"
             "api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&"
             "sv=1.0&sig=KODuebWbDGYFr0z0eu"
         ),
@@ -170,12 +176,38 @@ apprise_url_tests = (
             # All tokens provided - we're good
             "instance": NotifyWorkflows,
             # Our expected url(privacy=True) startswith() response
-            "privacy_url": "workflow://server.azure.com:443/6...4/K...u/",
+            "privacy_url": (
+                "workflow://prod-15.uksouth.logic.azure.com:443/6...4/K...u/"
+            ),
         },
     ),
     (
         (
-            "https://server.azure.com:443/"
+            # US Government cloud
+            "https://prod-01.usgovvirginia.logic.azure.us:443/workflows/"
+            "643e69f83c8944/triggers/manual/paths/invoke?"
+            "api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&"
+            "sv=1.0&sig=KODuebWbDGYFr0z0eu"
+        ),
+        {
+            "instance": NotifyWorkflows,
+        },
+    ),
+    (
+        (
+            # A host Microsoft does not own is never treated as Workflows
+            "https://server.example.com:443/workflows/643e69f83c8944/"
+            "triggers/manual/paths/invoke?"
+            "api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&"
+            "sv=1.0&sig=KODuebWbDGYFr0z0eu"
+        ),
+        {
+            "instance": None,
+        },
+    ),
+    (
+        (
+            "https://default.environment.api.powerplatform.com:443/"
             "powerautomate/automations/direct/"
             "workflows/643e69f83c8944/"
             "triggers/manual/paths/invoke?"
@@ -469,6 +501,140 @@ def test_plugin_workflows_templating_basic_success(
     assert blocks["color"] == "#3AA3E3"
     assert blocks["title"] == "title"
     assert blocks["body"] == "body"
+
+
+@pytest.mark.parametrize("encoding", ["utf-8", "utf-8-sig"])
+def test_plugin_workflows_templating_utf8(
+    request_mock, workflows_url, encoding, tmpdir
+):
+    """
+    NotifyWorkflows() Templating - UTF-8 template under any locale.
+    """
+
+    template = tmpdir.join("simple.json")
+    template.write_binary(
+        cleandoc("""
+    {
+      "type": "message",
+      "attachments": [{
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema":
+            "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "id": "body",
+              "text": "Łukasz ✨ {{app_body}}"
+            }
+          ]
+        }
+      }]
+    }
+    """).encode(encoding)
+    )
+
+    obj = Apprise.instantiate(
+        "{url}/?template={template}".format(
+            url=workflows_url,
+            template=str(template),
+        )
+    )
+
+    assert isinstance(obj, NotifyWorkflows)
+    assert (
+        bool(
+            obj.notify(body="body", title="title", notify_type=NotifyType.INFO)
+        )
+        is True
+    )
+
+    posted_json = json.loads(request_mock.call_args_list[0][1]["data"])
+    content = posted_json["attachments"][0]["content"]
+    blocks = {b["id"]: b["text"] for b in content["body"] if "id" in b}
+    assert blocks["body"] == "Łukasz ✨ body"
+
+
+@pytest.mark.parametrize("encoding", ["utf-8", "not-a-codec"])
+def test_plugin_workflows_templating_not_utf8(
+    request_mock, workflows_url, encoding, tmpdir
+):
+    """
+    NotifyWorkflows() Templating - template that cannot be decoded.
+    """
+
+    # Latin-1 bytes are not valid UTF-8, and an unknown codec
+    # cannot read anything at all
+    template = tmpdir.join("simple.json")
+    template.write_binary(
+        '{"type": "message", "text": "café {{app_body}}"}'.encode("latin-1")
+    )
+
+    obj = Apprise.instantiate(
+        "{url}/?template={template}".format(
+            url=workflows_url,
+            template=str(template),
+        ),
+        asset=AppriseAsset(encoding=encoding),
+    )
+    assert isinstance(obj, NotifyWorkflows)
+    assert bool(obj.notify(body="body", title="title")) is False
+
+    # Nothing was sent
+    assert request_mock.call_count == 0
+
+
+def test_plugin_workflows_templating_asset_encoding(
+    request_mock, workflows_url, tmpdir
+):
+    """
+    NotifyWorkflows() Templating - template in the asset encoding.
+    """
+
+    # A Korean template saved in a legacy Windows code page
+    template = tmpdir.join("simple.json")
+    template.write_binary(
+        cleandoc("""
+    {
+      "type": "message",
+      "attachments": [{
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema":
+            "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "id": "body",
+              "text": "안녕하세요 {{app_body}}"
+            }
+          ]
+        }
+      }]
+    }
+    """).encode("cp949")
+    )
+
+    obj = Apprise.instantiate(
+        "{url}/?template={template}".format(
+            url=workflows_url,
+            template=str(template),
+        ),
+        asset=AppriseAsset(encoding="cp949"),
+    )
+    assert isinstance(obj, NotifyWorkflows)
+    assert bool(obj.notify(body="body", title="title")) is True
+
+    posted_json = json.loads(request_mock.call_args_list[0][1]["data"])
+    content = posted_json["attachments"][0]["content"]
+    blocks = {b["id"]: b["text"] for b in content["body"] if "id" in b}
+    assert blocks["body"] == "안녕하세요 body"
 
 
 def test_plugin_workflows_templating_invalid_json(
@@ -1189,3 +1355,30 @@ def test_plugin_workflows_mention_entities(mock_post):
     entity = payload["attachments"][0]["content"]["msteams"]["entities"][0]
     assert entity["text"] == "<at>  padded@example.com  </at>"
     assert entity["mentioned"]["id"] == "padded@example.com"
+
+
+@pytest.mark.parametrize(
+    "host",
+    (
+        "prod-15.uksouth.logic.azure.com",
+        "prod-01.usgovvirginia.logic.azure.us",
+        "prod-01.chinaeast2.logic.azure.cn",
+        "default1a2b.c3.environment.api.powerplatform.com",
+        "default1a2b.c3.environment.api.gov.powerplatform.microsoft.us",
+        "default1a2b.c3.environment.api.high.powerplatform.microsoft.us",
+        "default1a2b.c3.environment.api.appsplatform.us",
+        "default1a2b.c3.environment.api.powerplatform.partner"
+        ".microsoftonline.cn",
+    ),
+)
+def test_plugin_workflows_native_hosts(host):
+    """NotifyWorkflows() accepts native URLs from every Microsoft cloud."""
+
+    results = NotifyWorkflows.parse_native_url(
+        f"https://{host}:443/workflows/643e69f83c8944/"
+        "triggers/manual/paths/invoke?"
+        "api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&"
+        "sv=1.0&sig=KODuebWbDGYFr0z0eu"
+    )
+    assert results is not None
+    assert results["host"] == host

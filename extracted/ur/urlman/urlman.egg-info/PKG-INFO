@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: urlman
-Version: 2.0.3
+Version: 2.0.4
 Summary: Django URL pattern helpers
 Author-email: Andrew Godwin <andrew@aeracode.org>
 License:                                 Apache License

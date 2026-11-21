@@ -22,7 +22,9 @@
 #include "cpp_types.hxx"
 #include "deprecated_tracing.hxx"
 #include "exceptions.hxx"
+#include "pycbc_dict_keys.hxx"
 #include "pytocbpp_defs.hxx"
+#include "pytype_utils.hxx"
 #include <chrono>
 #include <core/cluster_credentials.hxx>
 #include <core/cluster_options.hxx>
@@ -181,7 +183,7 @@ extract_legacy_span_field(PyObject* dict,
   }
 }
 
-// Shared convention for every add_* helper below (add_field, add_bool_field,
+// Shared convention for the add_* helpers below (add_field, add_bool_field,
 // add_string_field_if_not_empty): return 0 on success, -1 on failure, self-reported via
 // PyErr_WriteUnraisable (matches logger.hxx) since most callers (generated code) never check
 // the return value.
@@ -241,6 +243,57 @@ add_field(PyObject* dict, const char* key, PyObject* value)
   return rv;
 }
 
+// value is a new reference; always consumed (DECREF'd) on both success and failure.
+inline int
+add_field(PyObject* dict, PyObject* interned_key, PyObject* value)
+{
+  if (value == nullptr) {
+    PyErr_WriteUnraisable(dict);
+    CB_LOG_WARNING("PYCBC: An interned-key field value was null when adding to result dict.");
+    return -1;
+  }
+  int rv = PyDict_SetItem(dict, interned_key, value);
+  Py_DECREF(value);
+  if (rv < 0) {
+    PyErr_WriteUnraisable(dict);
+    CB_LOG_WARNING("PYCBC: Failed to set an interned-key field on result dict.");
+  }
+  return rv;
+}
+
+// For keys only known at runtime (e.g. span tag names); skips the intern lookup that
+// PyDict_SetItemString does.
+template<typename T>
+inline int
+add_field(PyObject* dict, const std::string& key, const T& value)
+{
+  PyObject* pyObj_key =
+    PyUnicode_FromStringAndSize(key.data(), static_cast<Py_ssize_t>(key.size()));
+  if (pyObj_key == nullptr) {
+    PyErr_WriteUnraisable(dict);
+    CB_LOG_WARNING("PYCBC: Failed to convert key '{}' for result dict.", key);
+    return -1;
+  }
+  int rv = add_field(dict, pyObj_key, value);
+  Py_DECREF(pyObj_key);
+  return rv;
+}
+
+// The one add_* helper that does not follow the convention above: it leaves the exception set
+// so that callers returning null can propagate it.
+template<typename T>
+inline int
+add_field_or_fail(PyObject* dict, const char* key, const T& value)
+{
+  PyObject* pyObj = cbpp_to_py(value);
+  if (pyObj == nullptr) {
+    return -1;
+  }
+  int rv = PyDict_SetItemString(dict, key, pyObj);
+  Py_DECREF(pyObj);
+  return rv;
+}
+
 inline int
 add_bool_field(PyObject* dict, const char* key, bool value)
 {
@@ -269,6 +322,39 @@ add_string_field_if_not_empty(PyObject* dict, const char* key, const std::string
   if (rv < 0) {
     PyErr_WriteUnraisable(dict);
     CB_LOG_WARNING("PYCBC: Failed to set string field '{}' on result dict.", key);
+  }
+  return rv;
+}
+
+inline int
+add_bool_field(PyObject* dict, PyObject* interned_key, bool value)
+{
+  int rv = PyDict_SetItem(dict, interned_key, value ? Py_True : Py_False);
+  if (rv < 0) {
+    PyErr_WriteUnraisable(dict);
+    CB_LOG_WARNING("PYCBC: Failed to set an interned-key bool field on result dict.");
+  }
+  return rv;
+}
+
+inline int
+add_string_field_if_not_empty(PyObject* dict, PyObject* interned_key, const std::string& value)
+{
+  if (value.empty()) {
+    return 0;
+  }
+  PyObject* pyObj =
+    PyUnicode_FromStringAndSize(value.data(), static_cast<Py_ssize_t>(value.size()));
+  if (pyObj == nullptr) {
+    PyErr_WriteUnraisable(dict);
+    CB_LOG_WARNING("PYCBC: Failed to convert an interned-key string field for result dict.");
+    return -1;
+  }
+  int rv = PyDict_SetItem(dict, interned_key, pyObj);
+  Py_DECREF(pyObj);
+  if (rv < 0) {
+    PyErr_WriteUnraisable(dict);
+    CB_LOG_WARNING("PYCBC: Failed to set an interned-key string field on result dict.");
   }
   return rv;
 }
@@ -347,6 +433,7 @@ update_cluster_options_from_py(couchbase::core::cluster_options& options,
     pyObj_options, "user_agent_extra", options.user_agent_extra);
   extract_field<std::size_t>(pyObj_options, "max_http_connections", options.max_http_connections);
   extract_bool_field(pyObj_options, "dump_configuration", options.dump_configuration);
+  extract_bool_field(pyObj_options, "log_redaction", options.log_redaction);
 
   // Preferred server group (Python key "preferred_server_group" -> C++ field "server_group")
   {
@@ -367,6 +454,17 @@ update_cluster_options_from_py(couchbase::core::cluster_options& options,
     pyObj_options, "app_telemetry_ping_interval", options.app_telemetry_ping_interval);
   extract_field<std::chrono::milliseconds>(
     pyObj_options, "app_telemetry_ping_timeout", options.app_telemetry_ping_timeout);
+
+  // Orphan reporting options (nested dict, emit interval in milliseconds)
+  PyObject* pyObj_orphan_opts = PyDict_GetItemString(pyObj_options, "orphan_reporting_options");
+  if (pyObj_orphan_opts && PyDict_Check(pyObj_orphan_opts)) {
+    extract_bool_field(
+      pyObj_orphan_opts, "enable_orphan_reporting", options.enable_orphan_reporting);
+    extract_field<std::size_t>(
+      pyObj_orphan_opts, "orphan_sample_size", options.orphan_options.sample_size);
+    extract_field<std::chrono::milliseconds>(
+      pyObj_orphan_opts, "orphan_emit_interval", options.orphan_options.emit_interval);
+  }
 
   // Timeout options (nested dict with durations in microseconds)
   PyObject* pyObj_timeout_opts = PyDict_GetItemString(pyObj_options, "timeout_options");
@@ -456,6 +554,18 @@ cluster_options_to_py(const couchbase::core::cluster_options& opts,
   PyDict_SetItemString(dict, "timeout_options", timeout_dict);
   Py_DECREF(timeout_dict);
 
+  PyObject* orphan_dict = PyDict_New();
+  if (orphan_dict == nullptr) {
+    Py_DECREF(dict);
+    return nullptr;
+  }
+  add_bool_field(orphan_dict, "enable_orphan_reporting", opts.enable_orphan_reporting);
+  add_field<std::size_t>(orphan_dict, "orphan_sample_size", opts.orphan_options.sample_size);
+  add_field<std::chrono::milliseconds>(
+    orphan_dict, "orphan_emit_interval", opts.orphan_options.emit_interval);
+  PyDict_SetItemString(dict, "orphan_reporting_options", orphan_dict);
+  Py_DECREF(orphan_dict);
+
   // DNS configuration
   add_bool_field(dict, "enable_dns_srv", opts.enable_dns_srv);
   add_field(dict, "dns_nameserver", opts.dns_config.nameserver());
@@ -485,6 +595,7 @@ cluster_options_to_py(const couchbase::core::cluster_options& opts,
   add_bool_field(dict, "enable_clustermap_notification", opts.enable_clustermap_notification);
   add_bool_field(dict, "allow_enterprise_analytics", opts.allow_enterprise_analytics);
   add_bool_field(dict, "dump_configuration", opts.dump_configuration);
+  add_bool_field(dict, "log_redaction", opts.log_redaction);
   add_bool_field(dict, "enable_app_telemetry", opts.enable_app_telemetry);
 
   // Other
@@ -522,8 +633,6 @@ get_default_timeouts()
   }
   add_field<std::chrono::milliseconds>(
     result, "bootstrap_timeout", couchbase::core::timeout_defaults::bootstrap_timeout);
-  add_field<std::chrono::milliseconds>(
-    result, "dispatch_timeout", couchbase::core::timeout_defaults::dispatch_timeout);
   add_field<std::chrono::milliseconds>(
     result, "resolve_timeout", couchbase::core::timeout_defaults::resolve_timeout);
   add_field<std::chrono::milliseconds>(

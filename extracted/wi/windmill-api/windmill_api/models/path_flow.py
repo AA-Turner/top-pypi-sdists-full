@@ -1,9 +1,10 @@
-from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar
+from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..models.path_flow_type import PathFlowType
+from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.path_flow_input_transforms import PathFlowInputTransforms
@@ -21,11 +22,14 @@ class PathFlow:
             expressions). These become the subflow's input arguments
         path (str): Path to the flow in the workspace (e.g., 'f/flows/process_user')
         type (PathFlowType):
+        tag_override (Union[Unset, str]): Override the subflow's worker group tag. Its steps run on this tag unless the
+            subflow sets preserve_step_tags
     """
 
     input_transforms: "PathFlowInputTransforms"
     path: str
     type: PathFlowType
+    tag_override: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -33,6 +37,8 @@ class PathFlow:
 
         path = self.path
         type = self.type.value
+
+        tag_override = self.tag_override
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -43,6 +49,8 @@ class PathFlow:
                 "type": type,
             }
         )
+        if tag_override is not UNSET:
+            field_dict["tag_override"] = tag_override
 
         return field_dict
 
@@ -57,10 +65,13 @@ class PathFlow:
 
         type = PathFlowType(d.pop("type"))
 
+        tag_override = d.pop("tag_override", UNSET)
+
         path_flow = cls(
             input_transforms=input_transforms,
             path=path,
             type=type,
+            tag_override=tag_override,
         )
 
         path_flow.additional_properties = d

@@ -38,24 +38,94 @@ import inspect
 import operator
 import itertools
 import functools
+import copy
 from contextlib import _GeneratorContextManager
-from inspect import getfullargspec, iscoroutinefunction, isgeneratorfunction
-from typing import Any, Dict, List, Optional
+from collections import namedtuple
+from inspect import Parameter, iscoroutinefunction, isgeneratorfunction
+from typing import Any, Callable, Dict, List, Optional
 try:
     import annotationlib  # in Python 3.14+
 
-    def inspect_sig(func):
+    def inspect_sig(func, *, follow_wrapped=True):
         return inspect.signature(
-            func, annotation_format=annotationlib.Format.FORWARDREF)
+            func, follow_wrapped=follow_wrapped,
+            annotation_format=annotationlib.Format.FORWARDREF)
 
 except ImportError:
     inspect_sig = inspect.signature
 
-__version__ = '5.3.1'
+__version__ = '5.3.2'
 
 DEF = re.compile(r'\s*def\s*([_\w][_\w\d]*)\s*\(')
 POS = inspect.Parameter.POSITIONAL_OR_KEYWORD
 EMPTY = inspect.Parameter.empty
+FullArgSpec = namedtuple('FullArgSpec', [
+    'args', 'varargs', 'varkw', 'defaults',
+    'kwonlyargs', 'kwonlydefaults', 'annotations'
+])
+
+
+def getfullargspec(func):
+    """
+    A pure re-implementation of inspect.getfullargspec(func)
+    built entirely on top of the modern inspect.signature API.
+    This is needed to work around a python 3.14 forward references bug.
+    """
+    # like inspect.getfullargspec, do not follow the __wrapped__ chain
+    return _fullargspec(inspect_sig(func, follow_wrapped=False))
+
+
+def _fullargspec(sig):
+    """
+    Convert an inspect.Signature object into a FullArgSpec
+    """
+    args = []
+    varargs = None
+    varkw = None
+    defaults_list = []
+    kwonlyargs = []
+    kwonlydefaults = {}
+    annotations = {}
+
+    # Process return annotation if it exists
+    if sig.return_annotation is not inspect.Signature.empty:
+        annotations['return'] = sig.return_annotation
+
+    for name, param in sig.parameters.items():
+        # Collect annotations for any parameter that defines one
+        if param.annotation is not Parameter.empty:
+            annotations[name] = param.annotation
+
+        # Segment parameters by their operational "kind"
+        if param.kind in (Parameter.POSITIONAL_ONLY,
+                          Parameter.POSITIONAL_OR_KEYWORD):
+            args.append(name)
+            # Track defaults for standard positional arguments
+            if param.default is not Parameter.empty:
+                defaults_list.append(param.default)
+            else:
+                # Legacy behavior quirk: if a non-default argument follows a
+                # defaulted positional-only argument, the previous defaults
+                # are wiped
+                defaults_list.clear()
+
+        elif param.kind == Parameter.VAR_POSITIONAL:
+            varargs = name
+
+        elif param.kind == Parameter.KEYWORD_ONLY:
+            kwonlyargs.append(name)
+            if param.default is not Parameter.empty:
+                kwonlydefaults[name] = param.default
+
+        elif param.kind == Parameter.VAR_KEYWORD:
+            varkw = name
+
+    # Format output fields to match precise spec specifications
+    defaults = tuple(defaults_list) if defaults_list else None
+    kwonlydefaults = kwonlydefaults if kwonlydefaults else None
+
+    return FullArgSpec(args, varargs, varkw, defaults, kwonlyargs,
+                       kwonlydefaults, annotations)
 
 
 # this is not used anymore in the core, but kept for backward compatibility
@@ -86,8 +156,13 @@ class FunctionMaker:
             self.doc = func.__doc__
             self.module = func.__module__
             if inspect.isroutine(func) or isinstance(func, functools.partial):
-                argspec = getfullargspec(func)
-                self.annotations = getattr(func, '__annotations__', {})
+                sig = inspect_sig(func, follow_wrapped=False)
+                argspec = _fullargspec(sig)
+                # in Python 3.14+ copy the deferred annotations without
+                # evaluating them, since they can refer to undefined names
+                self._annotate = getattr(func, '__annotate__', None)
+                if self._annotate is None:
+                    self.annotations = getattr(func, '__annotations__', {})
                 for a in ('args', 'varargs', 'varkw', 'defaults', 'kwonlyargs',
                           'kwonlydefaults'):
                     setattr(self, a, getattr(argspec, a))
@@ -95,6 +170,11 @@ class FunctionMaker:
                     setattr(self, 'arg%d' % i, arg)
                 allargs = list(self.args)
                 allshortargs = list(self.args)
+                posonly_count = sum(
+                    p.kind == Parameter.POSITIONAL_ONLY
+                    for p in sig.parameters.values())
+                if posonly_count:
+                    allargs.insert(posonly_count, '/')
                 if self.varargs:
                     allargs.append('*' + self.varargs)
                     allshortargs.append('*' + self.varargs)
@@ -137,6 +217,8 @@ class FunctionMaker:
         func.__defaults__ = self.defaults
         func.__kwdefaults__ = self.kwonlydefaults or None
         func.__annotations__ = getattr(self, 'annotations', None)
+        if getattr(self, '_annotate', None) is not None:
+            func.__annotate__ = self._annotate
         try:
             frame = sys._getframe(3)
         except AttributeError:  # for IronPython and similar implementations
@@ -191,22 +273,28 @@ class FunctionMaker:
         attribute __source__ is added to the result. The attributes attrs
         are added, if any.
         """
-        if isinstance(obj, str):  # "name(signature)"
+        if isinstance(obj, str):  # "name(signature)" or "name(signature) -> ret"
             name, rest = obj.strip().split('(', 1)
-            signature = rest[:-1]  # strip a right parens
+            # split the argument list from an optional return annotation;
+            # the argument list ends at the last right parens
+            signature, _, return_annotation = rest.rpartition(')')
             func = None
         else:  # a function
             name = None
             signature = None
+            return_annotation = ''
             func = obj
         self = cls(func, name, signature, defaults, doc, module)
+        self.return_annotation = return_annotation  # e.g. " -> int"
         ibody = '\n'.join('    ' + line for line in body.splitlines())
         caller = evaldict.get('_call_')  # when called from `decorate`
         if caller and iscoroutinefunction(caller):
-            body = ('async def %(name)s(%(signature)s):\n' + ibody)
+            body = ('async def %(name)s(%(signature)s)'
+                    '%(return_annotation)s:\n' + ibody)
             body = re.sub(r'\breturn\b', 'return await', body)
         else:
-            body = 'def %(name)s(%(signature)s):\n' + ibody
+            body = ('def %(name)s(%(signature)s)'
+                    '%(return_annotation)s:\n' + ibody)
         return self.make(body, evaldict, addsource, **attrs)
 
 
@@ -229,25 +317,30 @@ def decorate(func, caller, extras=(), kwsyntax=False):
     """
     sig = inspect_sig(func)
     if isinstance(func, functools.partial):
+        func = copy.copy(func)
+        func.__dict__ = func.__dict__.copy()
         func = functools.update_wrapper(func, func.func)
+    fun: Callable[..., Any]
     if iscoroutinefunction(caller):
-        async def fun(*args, **kw):
+        async def async_fun(*args, **kw):
             if not kwsyntax:
                 args, kw = fix(args, kw, sig)
             return await caller(func, *(extras + args), **kw)
+        fun = async_fun
     elif isgeneratorfunction(caller):
-        def fun(*args, **kw):
+        def generator_fun(*args, **kw):
             if not kwsyntax:
                 args, kw = fix(args, kw, sig)
-            yield from caller(func, *(extras + args), **kw)
+            return (yield from caller(func, *(extras + args), **kw))
+        fun = generator_fun
     else:
-        def fun(*args, **kw):
+        def sync_fun(*args, **kw):
             if not kwsyntax:
                 args, kw = fix(args, kw, sig)
             return caller(func, *(extras + args), **kw)
+        fun = sync_fun
 
     fun.__doc__ = func.__doc__
-    fun.__wrapped__ = func
     fun.__signature__ = sig
     fun.__qualname__ = func.__qualname__
     # builtin functions like defaultdict.__setitem__ lack many attributes
@@ -261,7 +354,7 @@ def decorate(func, caller, extras=(), kwsyntax=False):
         pass
     try:
         fun.__annotations__ = func.__annotations__
-    except AttributeError:
+    except (AttributeError, NameError):
         pass
     try:
         fun.__module__ = func.__module__
@@ -275,6 +368,7 @@ def decorate(func, caller, extras=(), kwsyntax=False):
         fun.__dict__.update(func.__dict__)
     except AttributeError:
         pass
+    fun.__wrapped__ = func
     return fun
 
 
@@ -316,10 +410,10 @@ def decorator(caller, _func=None, kwsyntax=False):
     dec.__signature__ = sig.replace(parameters=dec_params)
     dec.__name__ = caller.__name__
     dec.__doc__ = caller.__doc__
-    dec.__wrapped__ = caller
     dec.__qualname__ = caller.__qualname__
     dec.__kwdefaults__ = getattr(caller, '__kwdefaults__', None)
     dec.__dict__.update(caller.__dict__)
+    dec.__wrapped__ = caller
     return dec
 
 
@@ -364,6 +458,34 @@ def append(a, vancestors):
         vancestors.append(a)
 
 
+def _virtual_mro(t, va):
+    """
+    Return the MRO that a class with bases ``(t, va)`` would have, without
+    the class itself. The C3 linearization is computed directly, since
+    creating such a class is impossible when ``t`` is final (like ``range``,
+    ``memoryview`` or ``bool``) or its metaclass conflicts with the one
+    of ``va`` (like for enums), and it would have side effects if ``t``
+    defines ``__init_subclass__``.
+    """
+    seqs = [list(t.__mro__), list(va.__mro__), [t, va]]
+    mro = []
+    while True:
+        seqs = [seq for seq in seqs if seq]
+        if not seqs:
+            return mro
+        for seq in seqs:  # look for a head not in the tail of any sequence
+            head = seq[0]
+            if not any(head in s[1:] for s in seqs):
+                break
+        else:
+            raise RuntimeError('Inconsistent MRO for {} with virtual '
+                               'ancestor {}'.format(t, va))
+        mro.append(head)
+        for seq in seqs:
+            if seq[0] is head:
+                del seq[0]
+
+
 # inspired from simplegeneric by P.J. Eby and functools.singledispatch
 def dispatch_on(*dispatch_args):
     """
@@ -397,7 +519,7 @@ def dispatch_on(*dispatch_args):
             ras = [[] for _ in range(len(dispatch_args))]
             for types_ in typemap:
                 for t, type_, ra in zip(types, types_, ras):
-                    if issubclass(t, type_) and type_ not in t.mro():
+                    if issubclass(t, type_) and type_ not in t.__mro__:
                         append(type_, ra)
             return [set(ra) for ra in ras]
 
@@ -414,10 +536,11 @@ def dispatch_on(*dispatch_args):
                         'Ambiguous dispatch for {}: {}'.format(t, vas))
                 elif n_vas == 1:
                     va, = vas
-                    mro = type('t', (t, va), {}).mro()[1:]
+                    mro = _virtual_mro(t, va)
                 else:
-                    mro = t.mro()
-                lists.append(mro[:-1])  # discard t and object
+                    # not t.mro(), which is unbound when t is a metaclass
+                    mro = list(t.__mro__)
+                lists.append(mro[:-1])  # discard object
             return lists
 
         def register(*types):
@@ -451,7 +574,7 @@ def dispatch_on(*dispatch_args):
             else:
                 return f(*args, **kw)
             combinations = itertools.product(*ancestors(*types))
-            next(combinations)  # the first one has been already tried
+            next(combinations, None)  # the first one has been already tried
             for types_ in combinations:
                 f = typemap.get(types_)
                 if f is not None:

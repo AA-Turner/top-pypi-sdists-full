@@ -1,0 +1,1 @@
+import{t as e}from"./WidgetLegacy-DtabQLGd.js";export{e as default};

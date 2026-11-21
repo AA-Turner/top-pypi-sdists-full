@@ -1,20 +1,17 @@
+import hashlib
 import os
 import os.path as pt
-import re
 import platform
-import sys
-import urllib.request
-import tarfile
+import re
 import shutil
-import sysconfig
 import subprocess
-import hashlib
+import sys
+import tarfile
+import urllib.request
+import warnings
 
-from setuptools import setup
-from setuptools import find_packages
-from setuptools import Extension
+from setuptools import Extension, find_packages, setup
 from setuptools.command.build_ext import build_ext
-
 
 # fall back to system cmake if cmake package is not installed
 try:
@@ -37,18 +34,17 @@ except ImportError:
 class NumpyImport:
     def __repr__(self):
         import numpy as np
-
         return np.get_include()
 
     __fspath__ = __repr__
 
 
 PACKAGE_DIR = pt.abspath(pt.dirname(__file__))
+LIBS_DIR = pt.join(PACKAGE_DIR, 'lib')
 OS = platform.system().lower()
 NPY_API_VERSION = 'NPY_1_19_API_VERSION'
 # build output dir is machine-specific
 BUILD_DIR = 'build_' + '_'.join(platform.architecture())
-IS64BIT = sys.maxsize > 2**32
 ARCH = platform.machine()
 if OS == 'darwin':
     # From pybind cmake example:
@@ -58,16 +54,19 @@ if OS == 'darwin':
     # if archflags is given we build in specific subdir
     if ARCHFLAGS:
         BUILD_DIR = 'build_' + '_'.join(ARCHFLAGS)
-
-JPEG_VERSION = '3.1.2'
-JPEG_SOURCE = 'libjpeg-turbo-%s.tar.gz' % JPEG_VERSION
-JPEG_URL = 'https://github.com/libjpeg-turbo/libjpeg-turbo/archive/%s.tar.gz' % JPEG_VERSION
-
+JPEG_VERSION = os.environ.get('SIMPLEJPEG_JPEG_VERSION', '3.2.1')
+JPEG_ARCHIVE = f'libjpeg-turbo-{JPEG_VERSION}.tar.gz'
+JPEG_URL = f'https://github.com/libjpeg-turbo/libjpeg-turbo/releases/download/{JPEG_VERSION}/libjpeg-turbo-{JPEG_VERSION}.tar.gz'
+JPEG_HASH = os.environ.get('SIMPLEJPEG_JPEG_HASH', 'c27ad72a68da151177929aa969ae773a2da5ac2af9ce946079314fdac8cece7f')
 SKIP_BUILD_NAME = 'skip_build'
+DYNAMIC_LINKING = bool(os.environ.get("SIMPLEJPEG_DYNAMIC_LINKING", ""))
+# sanitizer builds keep the extension binary unstripped so native leak
+# reports name our frames; set by the CI asan suite
+SANITIZE = bool(os.environ.get('SIMPLEJPEG_SANITIZE', ''))
 
 
 def verify_file(path, reference_digest, read_size=128*1024):
-    h = hashlib.sha3_256()
+    h = hashlib.sha256()
     with open(path, 'rb') as fp:
         while True:
             data = fp.read(read_size)
@@ -78,13 +77,13 @@ def verify_file(path, reference_digest, read_size=128*1024):
     if reference_digest != digest:
         raise RuntimeError(
             f'Verification of {path} failed, '
-            f'expected sha3_256 hash {reference_digest}, '
+            f'expected sha256 hash {reference_digest}, '
             f'got {digest}'
         )
 
 
 def untar_url(url, filename, reference_digest):
-    path = filename.rstrip('.tar.gz')
+    path, _ = filename.rsplit('.tar.gz', maxsplit=1)
     if not pt.exists(filename):
         os.makedirs(pt.dirname(filename), exist_ok=True)
         print('downloading', url)
@@ -100,15 +99,11 @@ def untar_url(url, filename, reference_digest):
 
 
 # download sources
-JPEG_DIR = untar_url(
+JPEG_DIR = PACKAGE_DIR if DYNAMIC_LINKING else untar_url(
     JPEG_URL,
-    pt.join(PACKAGE_DIR, 'lib', JPEG_SOURCE),
-    '02bc433d5c80ba13541b527d2860f354111cb749dbfd24efca3bf082f2c73e19',
+    pt.join(LIBS_DIR, JPEG_ARCHIVE),
+    JPEG_HASH,
 )
-
-
-def cvar(name):
-    return sysconfig.get_config_var(name)
 
 
 def make_type():
@@ -117,7 +112,8 @@ def make_type():
     elif OS == 'windows':
         return 'NMake Makefiles'
     else:
-        raise RuntimeError('Platform not supported: %s, %s' % (OS, ARCH))
+        warnings.warn(f'Platform ({OS}, {ARCH}) not supported, using default cmake generator')
+        return ''
 
 
 def touch(path):
@@ -125,10 +121,38 @@ def touch(path):
         pass
 
 
+# -Wl,--strip-all,--exclude-libs,ALL,--gc-sections: remove all symbols,
+# do not export symbols, remove unused sections. Sanitizer builds
+# (SIMPLEJPEG_SANITIZE) leave --strip-all out so native leak reports
+# keep naming our frames.
+PRUNE_LINK_ARGS = f"-Wl,{'--strip-all,' if not SANITIZE else ''}--exclude-libs,ALL,--gc-sections"
+
+# per-platform options, shared by both build legs: the vendored
+# libjpeg-turbo cmake build uses them as CFLAGS / LDFLAGS prefixes, the
+# extension build splits them into extra_compile_args /
+# extra_link_args
+COMPILE_ARGS = {
+    # -flto enables LTO; like CPython --enable-optimizations builds,
+    # internal calls skip interposition, only PyInit stays exported
+    'linux': '-flto -fno-semantic-interposition -fvisibility=hidden',
+    'darwin': '-flto -fvisibility=hidden',  # PyMODINIT_FUNC stays exported
+    'windows': '/GL',  # whole program optimization
+}
+LINK_ARGS = {
+    'linux': f'-flto {PRUNE_LINK_ARGS}',  # link-time LTO
+    'darwin': '-flto -Wl,-dead_strip',
+    'windows': '/LTCG',
+}
+
+
 class cmake_build_ext(build_ext):
     def run(self):
         skip_path = pt.join(_libdir(), SKIP_BUILD_NAME)
-        if not pt.exists(skip_path) or os.getenv('FORCE_BUILD'):
+        if DYNAMIC_LINKING:
+            print('Dynamic linking, skip building libjpeg-turbo')
+        elif not pt.exists(skip_path) or os.getenv('FORCE_BUILD'):
+            if shutil.which('nasm') is None and shutil.which('yasm') is None:
+                warnings.warn('neither nasm or yasm assembler found, libjpeg-turbo build may fail')
             self.build_cmake_dependencies()
             touch(skip_path)
         else:
@@ -138,23 +162,11 @@ class cmake_build_ext(build_ext):
 
     def build_cmake_dependencies(self):
         flags = []
-        if OS == 'darwin':
-            if ARCHFLAGS:
-                flags.append("-DCMAKE_OSX_ARCHITECTURES=" + ";".join(ARCHFLAGS))
+        if OS == 'darwin' and ARCHFLAGS:
+            flags.append("-DCMAKE_OSX_ARCHITECTURES=" + ";".join(ARCHFLAGS))
 
-        cflags = os.getenv('CFLAGS', '')
-        ldflags = os.getenv('LDFLAGS', '')
-        if OS == 'linux':
-            # enable LTO
-            cflags = '-flto ' + cflags
-            # same as extension
-            ldflags = (
-                '-flto '
-                '-Wl,'  # following are linker options
-                '--strip-all,'  # Remove all symbols
-                '--exclude-libs,ALL,'  # Do not export symbols
-                '--gc-sections '  # Remove unused sections'
-            ) + ldflags
+        cflags = COMPILE_ARGS.get(OS, '') + ' ' + os.getenv('CFLAGS', '')
+        ldflags = LINK_ARGS.get(OS, '') + ' ' + os.getenv('LDFLAGS', '')
         env = {
             # custom CFLAGS - depends on platform
             'CFLAGS': cflags,
@@ -179,7 +191,8 @@ class cmake_build_ext(build_ext):
         env = dict(os.environ, **(env or {}))
         subprocess.check_call([
             CMAKE_PATH,
-            '-G' + make_type(), '-Wno-dev',
+            *(['-G' + make_type()] if make_type() else []),
+            '-Wno-dev',
             '-DCMAKE_BUILD_TYPE=' + config,
             *options,
             pt.join(path)
@@ -201,20 +214,30 @@ def _staticlib():
     elif OS == 'windows':
         return 'turbojpeg-static.lib'
     else:
-        raise RuntimeError('Platform not supported: %s, %s' % (OS, ARCH))
+        warnings.warn(f'Platform ({OS}, {ARCH}) not supported, defaulting to link libturbojpeg.a')
+        return 'libturbojpeg.a'
 
 
 def make_jpeg_module():
     include_dirs = [
         NumpyImport(),
-        pt.join(JPEG_DIR, 'src'),
         pt.join(PACKAGE_DIR, 'simplejpeg'),
     ]
-    static_libs = [pt.join(_libdir(), _staticlib())]
+    dynamic_libs = []
+    static_libs = []
+    if DYNAMIC_LINKING:
+        dynamic_libs.append('turbojpeg')
+    else:
+        static_libs.append(pt.join(_libdir(), _staticlib()))
+        include_dirs.extend([
+            pt.join(JPEG_DIR, 'src'),
+            # libjpeg-turbo code used to reside at the toplevel of the tree
+            pt.join(JPEG_DIR),
+        ])
     cython_files = [pt.join('simplejpeg', '_jpeg.pyx')]
     for cython_file in cython_files:
         if pt.exists(cython_file):
-            cythonize(cython_file)
+            cythonize(cython_file, force=True)
     sources = [
         pt.join('simplejpeg', '_jpeg.c'),
         pt.join('simplejpeg', '_color.c')
@@ -225,21 +248,14 @@ def make_jpeg_module():
         ('NPY_NO_DEPRECATED_API', NPY_API_VERSION),
         ('NPY_TARGET_VERSION', NPY_API_VERSION),
     ]
-    if OS == 'linux':
-        extra_link_args.extend([
-            '-Wl,'  # following are linker options
-            '--strip-all,'  # Remove all symbols
-            '--exclude-libs,ALL,'  # Do not export symbols
-            '--gc-sections'  # Remove unused sections
-        ])
-        extra_compile_args.extend([
-            '-flto',  # enable LTO
-        ])
+    extra_link_args.extend(LINK_ARGS.get(OS, '').split())
+    extra_compile_args.extend(COMPILE_ARGS.get(OS, '').split())
     return Extension(
         'simplejpeg._jpeg',
         sources,
         language='C',
         include_dirs=include_dirs,
+        libraries=dynamic_libs,
         extra_objects=static_libs,
         extra_link_args=extra_link_args,
         extra_compile_args=extra_compile_args,
@@ -261,7 +277,7 @@ def read(*names):
 def find_version(*file_paths):
     version_file = read(*file_paths)
     version_match = re.search(r'^__version__ = [\'"]([^\'"]*)[\'"]',
-                              version_file, re.M)
+                              version_file, re.MULTILINE)
     if version_match:
         return version_match.group(1)
     raise RuntimeError('Unable to find version string.')
@@ -323,11 +339,14 @@ class ConcatFiles:
         self.original_output = None
 
 
-LICENSE_FILES = [
-    'LICENSE',
-    pt.join(JPEG_DIR, 'LICENSE.md'),
-    pt.join(JPEG_DIR, 'README.ijg')
-]
+LICENSE_FILES = ['LICENSE']
+if not DYNAMIC_LINKING:
+        LICENSE_FILES.extend([
+        pt.join(JPEG_DIR, 'LICENSE.md'),
+        pt.join(JPEG_DIR, 'README.ijg')
+    ])
+
+
 with ConcatFiles(*LICENSE_FILES):
     setup(
         name='simplejpeg',

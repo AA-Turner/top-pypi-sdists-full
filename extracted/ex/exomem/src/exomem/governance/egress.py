@@ -52,6 +52,7 @@ from .. import (
     access,
     activation_result,
     call_spans,
+    capture_metadata,
     find_corpus,
     memory_refs,
     originals,
@@ -158,6 +159,8 @@ class DisclosureCollector:
     credential_redactions: int = 0
     credential_principal: str | None = None
     credential_purpose: str | None = None
+    #: A collector that nothing emits (`disclosure_boundary(sink=True)`): a decision made inside it records no outcome.
+    sink: bool = False
 
 
 def _published_paths(entries: Any, field_name: str) -> set[str] | None:
@@ -276,11 +279,15 @@ _DISCLOSURE_BOUNDARY_OWNERS: ContextVar[tuple[bool, ...]] = ContextVar(
 
 
 @contextmanager
-def disclosure_boundary(vault_root: Path, command_name: str, *, join_existing: bool = False):
+def disclosure_boundary(
+    vault_root: Path, command_name: str, *, join_existing: bool = False, sink: bool = False,
+):
     """Collect one command's decisions and emit only on its success.
 
     Nested commands own separate receipts unless their caller explicitly opts
-    into the active command's same-vault collector.
+    into the active command's same-vault collector. A `sink` boundary is one
+    whose collector no caller emits: it only keeps its decisions out of the
+    enclosing command's receipt, so it records none and hashes no page.
     """
     existing = _collector()
     root = Path(vault_root)
@@ -290,7 +297,7 @@ def disclosure_boundary(vault_root: Path, command_name: str, *, join_existing: b
     collector = (
         existing
         if not owns_collector
-        else DisclosureCollector(root, uuid.uuid4().hex, command_name)
+        else DisclosureCollector(root, uuid.uuid4().hex, command_name, sink=sink)
     )
     token = _DISCLOSURE_COLLECTOR.set(collector) if owns_collector else None
     owners = _DISCLOSURE_BOUNDARY_OWNERS.set((*_DISCLOSURE_BOUNDARY_OWNERS.get(), owns_collector))
@@ -479,7 +486,8 @@ def _outcome_for_decision(
     if (decision is not None and _file_policy_empty(vault_root, policy)
             and not raw_protection.marked(rel_path)):
         return
-    if collector is None or not _claim_path_outcome(
+    # Nothing emits a sink's outcomes, so claiming a path in it would only hash the page for nobody.
+    if collector is None or collector.sink or not _claim_path_outcome(
         collector, rel_path, outcome, decision.level if decision is not None else None,
     ):
         return
@@ -2305,9 +2313,13 @@ def _stored_admission_many(
     root: Path, paths: list[str], publish: bool, *, policy: Policy, who: RequestPrincipal,
     identity: Callable[[], object], scalar: Callable[[str, bool], tuple[bool, bool]],
     purpose: str | None = None, tombstones: frozenset[str] = frozenset(), content_only: bool = False,
-    record_outcomes: bool = False,
+    record_outcomes: bool = False, within_request: Callable[[], object] | None = None,
 ) -> dict[str, tuple[bool, bool]]:
-    """Decide each ordinary scope class once; unknown facts and caller views remain scalar."""
+    """Decide each ordinary scope class once; unknown facts and caller views remain scalar.
+
+    `within_request` names the classes of a caller that `identity` cannot publish for (a bound writer, an
+    empty policy). Its classes live in this request's memo alone and its verdicts are never published.
+    """
     from ..vault_store import read as store_read
     from . import page_admission
 
@@ -2315,6 +2327,10 @@ def _stored_admission_many(
     if memo is None:
         return {path: scalar(path, publish) for path in paths}
     named = identity()
+    if named is None and within_request is not None:
+        named, publish = within_request(), False
+    collector = _collector()
+    recording = record_outcomes and collector is not None and not collector.sink
     scope_sets = {} if named is None else page_admission.scopes_many(root, paths, policy)
     classes = memo.setdefault(("scope-admission", named, content_only), {})
     denied = connector_boundary.admission_identity(root, who, policy)[0] if scope_sets else frozenset()
@@ -2338,7 +2354,7 @@ def _stored_admission_many(
         permitted, decision = classes[scopes]
         tombstoned = not content_only and lifecycle.is_tombstoned_in(tombstones, path)
         allowed = permitted and not tombstoned
-        if record_outcomes and not tombstoned and decision is not None and _collector() is not None:
+        if record_outcomes and not tombstoned and decision is not None and recording:
             content_hash, size = page_admission.evidence(root, path)
             _outcome_for_decision(
                 root, path, decision=_resolve_l4_bridge(root, decision, policy=policy, audience=who.audience_id),
@@ -3025,6 +3041,34 @@ def _hit_path(hit: Any) -> str:
     return str(getattr(hit, "path", None) or getattr(hit, "parent_path", "") or "")
 
 
+def _borrowed_of(hit: Any) -> dict[str, str | None]:
+    """The pages other than its own that a hit's producer named as supplying its content, with their pins."""
+    return hit.borrowed_pages() if isinstance(hit, Hit) else {}
+
+
+def _withhold_borrowed(
+    hits: Sequence[Any], releasable: Callable[[str, str | None], bool]
+) -> frozenset[str]:
+    """Clear from each hit what a page that `releasable` refuses lent it, and name those pages.
+
+    A hit's own decision covers its own page only; a frame or a part that supplied its excerpt is a
+    page of its own, and the policy may withhold it from this caller. The hit stays where it ranks
+    and keeps what it has of its own. One verdict per page and pin, however many hits borrowed from it.
+    """
+    verdicts: dict[tuple[str, str | None], bool] = {}
+    refused: set[str] = set()
+    for hit in hits:
+        pages = _borrowed_of(hit)
+        for path, pin in pages.items():
+            if (path, pin) not in verdicts:
+                verdicts[path, pin] = releasable(path, pin)
+        lost = [path for path, pin in pages.items() if not verdicts[path, pin]]
+        if lost:
+            hit.drop_borrowed(lost)
+            refused.update(lost)
+    return frozenset(refused)
+
+
 def annotate_hits(
     vault_root: Path,
     hits: list[Any],
@@ -3048,26 +3092,26 @@ def annotate_hits(
     # every tombstone and event file, and the plane does not move during one pass.
     tombstones = lifecycle.tombstoned_paths(vault_root)
 
-    tombstoned = frozenset(
-        path
-        for hit in hits
-        if (path := _hit_path(hit)) and (
-            lifecycle.is_tombstoned_in(tombstones, path)
-            or not content_permits(vault_root, path, who)
-        )
-    )
+    def floored(path: str) -> bool:
+        return lifecycle.is_tombstoned_in(tombstones, path) or not content_permits(vault_root, path, who)
+
+    tombstoned = frozenset(path for hit in hits if (path := _hit_path(hit)) and floored(path))
     if tombstoned:
         hits = [hit for hit in hits if _hit_path(hit) not in tombstoned]
     # The pool is decided below and again by the terminal filter: the store decides its pages together.
-    announce(path for hit in hits if (path := _hit_path(hit)))
+    # The pages that hits borrowed from are named with them, so one store request decides both.
+    announce(path for hit in hits for path in (_hit_path(hit), *_borrowed_of(hit)) if path)
 
     # (1) Open fast path — no governance configured. The pool can still hold
     #     more than `limit` (a restricted caller, a tombstone): cut it here.
     if _file_policy_empty(vault_root, policy):
+        released = hits[:effective_limit]
+        # No rule withholds a page here, so only a floor or a tombstone can refuse one.
+        lost = _withhold_borrowed(released, lambda path, _pin: not floored(path))
         return AnnotatedHits(
-            hits=hits[:effective_limit],
-            withheld_paths=tombstoned,
-            active=bool(tombstoned),
+            hits=released,
+            withheld_paths=tombstoned | lost,
+            active=bool(tombstoned or lost),
             fingerprint=policy.fingerprint,
         )
 
@@ -3096,12 +3140,9 @@ def annotate_hits(
     pending_notices: list[tuple[str, Decision, dict[str, Any]]] = []
     withheld: set[str] = set()
 
-    for hit in hits:
-        rel_path = _hit_path(hit)
-        if not rel_path:
-            permitted.append(hit)
-            continue
-        decision = _decide_path(
+    def decide(rel_path: str, expected_content_hash: str | None) -> Decision | None:
+        # One decision for a hit and for a page that a hit borrowed from.
+        return _decide_path(
             vault_root,
             rel_path,
             policy=policy,
@@ -3110,9 +3151,16 @@ def annotate_hits(
             grants_hash=grants_hash,
             authorization_session=who.authorization_session_id,
             authorization_context=who.verified_authorization_session,
-            expected_content_hash=getattr(hit, "snapshot_hash", None),
+            expected_content_hash=expected_content_hash,
             tombstones=tombstones,
         )
+
+    for hit in hits:
+        rel_path = _hit_path(hit)
+        if not rel_path:
+            permitted.append(hit)
+            continue
+        decision = decide(rel_path, getattr(hit, "snapshot_hash", None))
         if decision is None:
             # The page vanished or would not parse: it cannot be shown to
             # have been permitted, so it is withheld rather than released.
@@ -3147,6 +3195,13 @@ def annotate_hits(
     frozen_withheld = frozenset(withheld)
     permitted = [h for h in permitted if not _seeded_only_by_withheld(h, frozen_withheld)]
     released = permitted[:effective_limit]
+
+    def releasable(path: str, pin: str | None) -> bool:
+        decision = decide(path, pin)
+        # A page released only with some identities stripped cannot lend its text: a borrowed excerpt is not stripped.
+        return decision is not None and decision.level >= RELEASE_FLOOR and not decision.release_strip
+
+    refused_sources = _withhold_borrowed(released, releasable)
     # D4: notices occupy a slot only once the over-fetch pool is exhausted —
     # until then the withheld slot is backfilled by the next permitted
     # candidate, so the count does not reveal that anything was withheld.
@@ -3206,7 +3261,7 @@ def annotate_hits(
     return AnnotatedHits(
         hits=released,
         notices=notices,
-        withheld_paths=frozen_withheld,
+        withheld_paths=frozen_withheld | refused_sources,
         active=True,
         blocked=False,
         fingerprint=policy.fingerprint,
@@ -3597,16 +3652,39 @@ def quick_page_visible(
     return decision.level >= RELEASE_FLOOR
 
 
+def _bound_operation_decides_as(root: Path, policy: Policy, who: RequestPrincipal, purpose: str | None) -> bool:
+    """Whether the bound writer's operation is this caller's, under this policy.
+
+    `_decide_path` under a bound writer refuses another principal or purpose and withholds under another
+    policy, whatever the page. A set decided by class would skip that check, so such a set stays per page.
+    """
+    writer = bound_writer(root)
+    if writer is None:
+        return True
+    operation = writer._operation
+    return (operation is not None and operation.who == who and operation.purpose == purpose
+            and operation.policy.fingerprint == policy.fingerprint)
+
+
 def _release_admission_identity(
     root: Path, policy: Policy, who: RequestPrincipal, purpose: str | None,
-    grants_hash: str, tombstones: frozenset[str],
+    grants_hash: str, tombstones: frozenset[str], *, within_request: bool = False,
 ) -> tuple | None:
-    """Name every non-page dependency of a publishable release verdict."""
+    """Name every non-page dependency of a publishable release verdict.
+
+    `within_request` names the classes of one set that a request decides for itself and publishes nowhere,
+    so a bound writer and an empty policy, whose live collection state a publication cannot name, may have
+    them: a page that the class route serves is not collection-relevant (`page_admission.simple_page`).
+    """
     # Sessions read time; writers and empty policies can read live collection ownership.
-    if (policy.empty or policy.blocked or not who.resolved
+    if (policy.blocked or not who.resolved
             or who.authorization_session_id is not None
-            or who.verified_authorization_session is not None
-            or bound_writer(root) is not None):
+            or who.verified_authorization_session is not None):
+        return None
+    if within_request:
+        if not _bound_operation_decides_as(root, policy, who, purpose):
+            return None
+    elif policy.empty or bound_writer(root) is not None:
         return None
     try:
         boundary = connector_boundary.admission_identity(root, who)
@@ -3976,6 +4054,39 @@ def classify_units(
     return [_unit_verdict(unit, ctx)[1] for unit in units]
 
 
+def page_text_bounds(
+    vault_root: Path,
+    paths: Iterable[str],
+    *,
+    principal: RequestPrincipal | None = None,
+    purpose: str | None = None,
+) -> dict[str, int | None]:
+    """The most of each page's text the caller may be served (`page_text_bound`), by path.
+
+    Each page is decided on the terms `classify_units` decides a unit's page, and, as there, only a refusal is
+    receipted: a page is released only when the served packet names it.
+    """
+    root = Path(vault_root)
+    policy, _release_gate_active = gate_state(root)
+    who = principal if principal is not None else effective_principal()
+    wanted = sorted(set(paths))
+    if policy.blocked or (not policy.empty and not who.resolved):
+        return dict.fromkeys(wanted, page_text_bound(LEVEL_NONE))
+    if _file_policy_empty(root, policy):
+        return dict.fromkeys(wanted, page_text_bound(LEVEL_FULL))
+    ctx = _PacketRelease(
+        vault_root=root, policy=policy, who=who, record="withheld", policy_decides=True,
+        tombstoned=set(), withheld=set(), prose_resolved={},
+        declared_purpose=_declared_purpose(root, who, purpose), grants_hash=_grants_hash(policy),
+    )
+    for rel_path in wanted:
+        ctx.decide(rel_path)
+    return {
+        rel_path: page_text_bound(None if ctx.decisions[rel_path] is None else ctx.decisions[rel_path].level)
+        for rel_path in wanted
+    }
+
+
 def guard_working_set(
     vault_root: Path,
     packet: dict[str, Any],
@@ -4066,6 +4177,10 @@ def guard_working_set(
                 from .. import domain_profiles
 
                 guarded["domain_profiles"] = domain_profiles.guard_block(vault_root, caller, guarded["domain_profiles"])
+            if "positions" in guarded:
+                from .. import positions
+
+                guarded["positions"] = positions.guard_block(vault_root, caller, guarded["positions"])
             guarded["budget"]["used_chars"] = context_views.packet_chars(
                 map_block, slice_block, guarded.get("task_context"), guarded.get("next_action"),
             )
@@ -5324,7 +5439,19 @@ def _iter_path_strings(value: Any) -> Iterable[str]:
             yield from _iter_path_strings(item)
 
 
-def _excerpt_of(body: str, limit: int = 600) -> str:
+#: Characters of page text an excerpt-level (L5) read returns; `read_page` cuts a longer body to them.
+PAGE_EXCERPT_MAX = 600
+
+
+def page_text_bound(level: int | None) -> int | None:
+    """The most of a page's text a reader at `level` is served: all of it (`None`) at full release, an excerpt of
+    `PAGE_EXCERPT_MAX` characters at the excerpt level, and none below it or when the level is undecided."""
+    if level == LEVEL_FULL:
+        return None
+    return PAGE_EXCERPT_MAX if level == LEVEL_EXCERPT else 0
+
+
+def _excerpt_of(body: str, limit: int = PAGE_EXCERPT_MAX) -> str:
     """The L5 rendering of a body: a bounded, whole-word excerpt."""
     text = " ".join(body.split())
     if len(text) <= limit:
@@ -5559,8 +5686,11 @@ def annotate_page(
     path — an item released below notice must be indistinguishable from one
     that never existed. Raw text is assembled only after an L6 decision and
     only when the terminal secret parser accepts the exact snapshot.
+
+    A media sidecar's recorded position is withheld here, after the release decision has validated
+    the page, from every caller who may not download the original it describes.
     """
-    return _annotate_page(
+    released = _annotate_page(
         vault_root,
         page,
         principal=principal,
@@ -5569,6 +5699,9 @@ def annotate_page(
         stable_ref=stable_ref,
         include_raw=include_raw,
     )
+    if released is None:
+        return None
+    return withhold_position(vault_root, released, principal=principal, purpose=purpose)
 
 
 def page_withheld_entirely(
@@ -5842,7 +5975,8 @@ def _annotate_page(
         return ref_decision is None or ref_decision.level < RELEASE_FLOOR
 
     withheld = frozenset(rel for rel in referenced if rel != rel_path and _below_floor(rel))
-    if level == LEVEL_EXCERPT:
+    bound = page_text_bound(level)
+    if bound is not None:
         body = parsed.body if snapshot_content is not None else str(page.get("body") or "")
         from .. import provenance
 
@@ -5855,7 +5989,7 @@ def _annotate_page(
             principal=who,
             purpose=declared_purpose,
         )
-        shown = _excerpt_of(body)
+        shown = _excerpt_of(body, bound)
         excerpt = {
             "path": rel_path,
             "body": shown,
@@ -6259,6 +6393,10 @@ def _postfilter(
                 vault_root, cleaned, session=(request_kwargs or {}).get("session"),
                 purpose=(request_kwargs or {}).get("purpose"),
             )
+        if "positions" in cleaned:
+            # Every other field is in place, so the block can end the response: real-model replays used the
+            # positions when they were read last and mostly passed over them mid-packet.
+            cleaned["positions"] = cleaned.pop("positions")
         if "map" in cleaned and isinstance(cleaned.get("budget"), dict):
             cleaned["budget"]["serialized_chars"] = context_views.serialized_chars(cleaned)
     if material_projection is not None and isinstance(cleaned, dict):
@@ -6659,6 +6797,7 @@ _SELECTOR_ADAPTERS: dict[tuple[str, str], dict[str, str]] = {
         "status": "structure",
         "retry": "mutation",
         "reprocess": "mutation",
+        "replicate": "mutation",
     },
     ("observe_memory", "operation"): {
         "add": "mutation",
@@ -6671,6 +6810,7 @@ _SELECTOR_ADAPTERS: dict[tuple[str, str], dict[str, str]] = {
         "fix": "dry-run-default",
         "reconcile": "dry-run-opt-in",
         "backfill-ids": "dry-run-default",
+        "capture-metadata": "dry-run-default",
         "convert-originals": "dry-run-default",
         "maintenance-job": "structure",
         "maintenance-job-cancel": "mutation",
@@ -7119,6 +7259,7 @@ def release_level_for(
     purpose: str | None = None,
     receipt_decision: str | None = None,
     artifact_copy: reserved_paths.GenericFileCopy | None = None,
+    record: bool = True,
 ) -> int | None:
     """The disclosure ceiling for one item, or `None` when it cannot be decided.
 
@@ -7127,6 +7268,9 @@ def release_level_for(
     principal -> `DISCLOSURE_MIN`, otherwise decide. `None` means the item
     could not be read or parsed, which callers must treat as "not permitted"
     rather than "no rule applies".
+
+    `record=False` decides without leaving a release receipt, for a caller that only asks what it
+    may show and hands nothing from the item itself to anyone.
     """
     vault_root = Path(vault_root)
     if lifecycle.is_tombstoned(vault_root, rel_path):
@@ -7146,7 +7290,8 @@ def release_level_for(
         return DISCLOSURE_MAX
     declared_purpose = _declared_purpose(vault_root, who, purpose)
     if policy.blocked or not who.resolved:
-        _record_blocked_outcome(who.audience_id)
+        if record:
+            _record_blocked_outcome(who.audience_id)
         return DISCLOSURE_MIN
     decision = _decide_path(
         vault_root,
@@ -7160,6 +7305,8 @@ def release_level_for(
         artifact_copy=artifact_copy,
     )
     level = None if decision is None else decision.level
+    if not record:
+        return level
     _outcome_for_decision(
         vault_root,
         rel_path,
@@ -7899,6 +8046,11 @@ def release_walk_filter(
             vault_root, policy, who, declared_purpose, grants_hash, tombstones,
         )
 
+    def request_identity() -> tuple | None:
+        return _release_admission_identity(
+            vault_root, policy, who, declared_purpose, grants_hash, tombstones, within_request=True,
+        )
+
     def judge_many(paths: list[str], publish: bool) -> dict[str, tuple[bool, bool]]:
         if not paths:
             return {}
@@ -7906,6 +8058,7 @@ def release_walk_filter(
             return _stored_admission_many(
                 vault_root, paths, publish, policy=policy, who=who, purpose=declared_purpose,
                 tombstones=tombstones, identity=identity, scalar=judge, record_outcomes=True,
+                within_request=request_identity,
             )
 
     keep = AdmittedPredicate(Admission(identity, judge, judge_many))
@@ -8305,16 +8458,17 @@ def page_filter_over(
     # A non-page reference is kept whatever the page verdicts say, so the
     # catalogue publishes only the pages `decide` hands on to the release verdict.
     def decide_many(paths: list[str], publish: bool) -> dict[str, tuple[bool, bool]]:
-        if store_read.request_memo(root) is None:
-            if not paths:
-                return {}
-            with release_decision_context(root):
+        if not paths:
+            return {}
+        # The context first: under a bound writer it is what opens the request that the set route reads.
+        with release_decision_context(root):
+            if store_read.request_memo(root) is None:
                 return {path: decide(path, publish) for path in paths}
-        held_page = store_read.held_lookup(root, paths)
-        ordinary = [path for path in paths if path not in held and held_page(path)]
-        answers = offered.decide_many(ordinary, publish)
-        answers.update({path: decide(path, publish) for path in paths if path not in answers})
-        return answers
+            held_page = store_read.held_lookup(root, paths)
+            ordinary = [path for path in paths if path not in held and held_page(path)]
+            answers = offered.decide_many(ordinary, publish)
+            answers.update({path: decide(path, publish) for path in paths if path not in answers})
+            return answers
 
     return AdmittedPredicate(Admission(offered.identity, decide, decide_many))
 
@@ -8523,6 +8677,93 @@ def release_allows_download(
         purpose=purpose,
         artifact_copy=artifact_copy,
     )
+
+
+def original_download_filter(
+    vault_root: Path,
+    *,
+    principal: RequestPrincipal | None = None,
+    purpose: str | None = None,
+) -> Callable[[str | None], bool] | None:
+    """`allowed(original)` for a caller from whom a recorded position may be withheld, else `None`.
+
+    A media sidecar records where its original was captured. That position is as sensitive as the
+    original, so it reaches a caller only when `release_allows_download` would hand that caller the
+    original. `None` means the caller is unrestricted (the owner), so nothing is decided per page.
+
+    This is the same decision as `release_allows_download`, taken quietly: it asks what the caller may
+    see, hands over no bytes, so it leaves no download receipt and hashes nothing. An original that a
+    page does not name (`None`) licenses no position, so the position stays withheld. Each original is
+    decided once per filter; build one per request, because the plane does not move while one runs.
+    """
+    vault_root = Path(vault_root)
+    who = file_mode_restricted_caller(vault_root, principal)
+    if who is None:
+        return None
+    decided: dict[str, bool] = {}
+
+    def allowed(original: str | None) -> bool:
+        if original is None:
+            return False
+        verdict = decided.get(original)
+        if verdict is None:
+            level = (
+                release_level_for(vault_root, original, principal=who, purpose=purpose, record=False)
+                if content_permits(vault_root, original, who)
+                else None
+            )
+            verdict = decided[original] = level is not None and level >= LEVEL_FULL
+        return verdict
+
+    return allowed
+
+
+def withhold_position(
+    vault_root: Path,
+    page: dict[str, Any],
+    *,
+    principal: RequestPrincipal | None = None,
+    purpose: str | None = None,
+) -> dict[str, Any]:
+    """`page` as a caller who may not download its original reads it: with no recorded position.
+
+    The position is dropped from the frontmatter and from the raw text, after the page's own release
+    decision has validated them, so every surface that renders a released page shows the same page. A raw
+    text that cannot be shown without its position, because its frontmatter does not parse or spells the
+    field in a way the removal misses, is withheld whole: this control fails closed.
+    """
+    from .. import preserve
+
+    frontmatter = page.get("frontmatter")
+    raw = page.get("content")
+    fields = frontmatter if isinstance(frontmatter, dict) else (
+        vault.parse_frontmatter(raw)[0] if isinstance(raw, str) else {}
+    )
+    if not capture_metadata.carries_position(fields) and not (isinstance(raw, str) and preserve.states_position(raw)):
+        return page
+    allowed = original_download_filter(vault_root, principal=principal, purpose=purpose)
+    if allowed is None or allowed(originals.bound_path(fields)):
+        return page
+    out = dict(page)
+    if isinstance(frontmatter, Mapping):
+        out["frontmatter"] = capture_metadata.without_position(frontmatter)
+    if isinstance(raw, str):
+        shown = preserve.without_position_fields(raw)
+        if shown is None:
+            del out["content"]
+        else:
+            out["content"] = shown
+    return out
+
+
+def released_frontmatter_matches(released: Mapping[str, Any], frontmatter: Mapping[str, Any]) -> bool:
+    """Whether `released` shows `frontmatter` whole, bar a position `withhold_position` drops.
+
+    A release-integrity check compares what a caller was shown with what is stored. A position a
+    caller may not see is withheld on purpose, so its absence is no sign that the release changed.
+    """
+    shown = released.get("frontmatter")
+    return shown == frontmatter or shown == capture_metadata.without_position(frontmatter)
 
 
 def release_allows_frames(

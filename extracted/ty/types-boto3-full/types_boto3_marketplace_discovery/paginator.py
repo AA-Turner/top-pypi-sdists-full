@@ -14,6 +14,7 @@ Usage::
     from types_boto3_marketplace_discovery.paginator import (
         GetOfferTermsPaginator,
         ListFulfillmentOptionsPaginator,
+        ListListingAttributesPaginator,
         ListPurchaseOptionsPaginator,
         SearchFacetsPaginator,
         SearchListingsPaginator,
@@ -24,6 +25,7 @@ Usage::
 
     get_offer_terms_paginator: GetOfferTermsPaginator = client.get_paginator("get_offer_terms")
     list_fulfillment_options_paginator: ListFulfillmentOptionsPaginator = client.get_paginator("list_fulfillment_options")
+    list_listing_attributes_paginator: ListListingAttributesPaginator = client.get_paginator("list_listing_attributes")
     list_purchase_options_paginator: ListPurchaseOptionsPaginator = client.get_paginator("list_purchase_options")
     search_facets_paginator: SearchFacetsPaginator = client.get_paginator("search_facets")
     search_listings_paginator: SearchListingsPaginator = client.get_paginator("search_listings")
@@ -42,6 +44,8 @@ from .type_defs import (
     GetOfferTermsOutputTypeDef,
     ListFulfillmentOptionsInputPaginateTypeDef,
     ListFulfillmentOptionsOutputTypeDef,
+    ListListingAttributesInputPaginateTypeDef,
+    ListListingAttributesOutputTypeDef,
     ListPurchaseOptionsInputPaginateTypeDef,
     ListPurchaseOptionsOutputTypeDef,
     SearchFacetsInputPaginateTypeDef,
@@ -59,6 +63,7 @@ else:
 __all__ = (
     "GetOfferTermsPaginator",
     "ListFulfillmentOptionsPaginator",
+    "ListListingAttributesPaginator",
     "ListPurchaseOptionsPaginator",
     "SearchFacetsPaginator",
     "SearchListingsPaginator",
@@ -104,6 +109,27 @@ class ListFulfillmentOptionsPaginator(_ListFulfillmentOptionsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-discovery/paginator/ListFulfillmentOptions.html#MarketplaceDiscovery.Paginator.ListFulfillmentOptions.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_marketplace_discovery/paginators/#listfulfillmentoptionspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListListingAttributesPaginatorBase = Paginator[ListListingAttributesOutputTypeDef]
+else:
+    _ListListingAttributesPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListListingAttributesPaginator(_ListListingAttributesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-discovery/paginator/ListListingAttributes.html#MarketplaceDiscovery.Paginator.ListListingAttributes)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_marketplace_discovery/paginators/#listlistingattributespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListListingAttributesInputPaginateTypeDef]
+    ) -> PageIterator[ListListingAttributesOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-discovery/paginator/ListListingAttributes.html#MarketplaceDiscovery.Paginator.ListListingAttributes.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_marketplace_discovery/paginators/#listlistingattributespaginator)
         """
 
 

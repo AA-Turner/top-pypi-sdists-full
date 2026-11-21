@@ -226,6 +226,10 @@ CATCHUP_MAX_ROUNDS = 8
 # that read; the wait starts short, so a transient failure (a busy lock) costs
 # seconds of dense recall, and doubles with each consecutive failure up to 64x.
 MATRIX_LOAD_RETRY_SECONDS = 5.0
+# Rows the background load copies between two yields to a request in flight. Measured
+# at 3.5 ms (dim 384) to 8.6 ms (dim 768), well inside a progress turn
+# (`foreground_priority.MAX_BULK_WORK_SECONDS`), so a request waits one short copy.
+MATRIX_LOAD_YIELD_ROWS = 512
 
 # --------------------------------------------------------------- generation meta
 #
@@ -945,23 +949,35 @@ def _top_admitted(
     return [(metadata[row][0], metadata[row][1], float(scores[row])) for row in picked]
 
 
-def read_published_identity(vault_root: Path) -> recall_space.SpaceIdentity | None:
-    """Read only the serving space record; never initialize or migrate a sidecar."""
+class RecallSpaceUnread(Exception):
+    """This read could not decide which recall space is published; one may be."""
+
+
+def read_published_identity(vault_root: Path, *, wait_seconds: float = 0.0) -> recall_space.SpaceIdentity | None:
+    """Read only the serving space record; never initialize or migrate a sidecar.
+
+    None means no space is published. Raises RecallSpaceUnread when the store stays busy
+    for `wait_seconds` or the read fails, so a caller never reports a busy store as empty.
+    """
     try:
         path = index_paths.sidecar_path(vault_root, nonblocking=True)
         with reserved_paths._subsystem_authority_scope("embedding_index"), reserved_paths._identity_coordination_scope(
-            vault_root, descriptor_ids=("embeddings-store",), identity_may_change=False, deadline=time.monotonic(),
+            vault_root, descriptor_ids=("embeddings-store",), identity_may_change=False,
+            deadline=time.monotonic() + wait_seconds,
         ), reserved_paths._sqlite_owner_target_scope(vault_root, path, "embeddings-store", create=False) as retained:
             with contextlib.closing(_sqlite_connect_owned(
                 f"{retained.as_uri()}?mode=ro", uri=True, timeout=0.0
             )) as conn:
                 conn.execute("BEGIN")
                 identity = recall_space.read_identity(conn, tables=_VECTOR_TABLES)
-            if identity is None or identity.dim <= 0:
-                return None
-            return identity if index_paths.sidecar_path(vault_root, nonblocking=True) == path else None
-    except (OSError, sqlite3.DatabaseError, ValueError, RuntimeError, OpError):
+            moved = index_paths.sidecar_path(vault_root, nonblocking=True) != path
+    except FileNotFoundError:
         return None
+    except (OSError, sqlite3.DatabaseError, ValueError, RuntimeError, OpError) as error:
+        raise RecallSpaceUnread(type(error).__name__) from error
+    if moved:
+        raise RecallSpaceUnread("the serving sidecar changed during the read")
+    return identity if identity is not None and identity.dim > 0 else None
 
 
 class EmbeddingIndex:
@@ -2117,7 +2133,9 @@ class EmbeddingIndex:
             loading = self._matrix_loading()
             if loading is not None and may_wait:
                 # Wait off the lock for the load already running, never a second one.
-                loading.join()
+                # The load yields to requests, and this one must not count as one.
+                with foreground_priority.awaiting_bulk():
+                    loading.join()
             with self._lock:
                 served = self._serve_or_catch_up_locked(policy_identity)
                 if served is not None:
@@ -2441,6 +2459,7 @@ class EmbeddingIndex:
         _ = self.identity  # Observe the initial space before capturing the invalidation witness.
         witness = self._matrix_invalidation
         started = time.perf_counter()
+        waited = 0.0  # seconds the load paused for requests; what the log reports beside its duration
         try:
             policy_identity = recall_policy.recall_policy_identity(self.vault_root)
             # A resident matrix within the catch-up bound needs only its changed
@@ -2478,7 +2497,11 @@ class EmbeddingIndex:
             if self._matrix_invalidation is not witness:
                 return
             before = self._cache
-            loaded = self._load_all_rows(admit_passage=True) if passage else self._load_all_rows()
+            # Off `self._lock`: the read yields to a request in flight, which waits on no lock this holds.
+            with foreground_priority.bulk():
+                waited_before = foreground_priority.pass_waited()
+                loaded = self._load_all_rows(admit_passage=True) if passage else self._load_all_rows()
+                waited = foreground_priority.pass_waited() - waited_before
             with self._lock:
                 if self._matrix_invalidation is not witness:
                     return
@@ -2528,11 +2551,12 @@ class EmbeddingIndex:
         self._matrix_load_failed_at = None
         self._matrix_load_failures = 0
         log.info(
-            "embedding matrix background load: reason=%s rows=%d gen=%d in %.0f ms",
+            "embedding matrix background load: reason=%s rows=%d gen=%d in %.0f ms, of which %.0f ms waiting for requests",
             reason,
             len(served.metadata),
             served.generation,
             (time.perf_counter() - started) * 1000.0,
+            waited * 1000.0,
         )
 
     def unload_cache(self) -> bool:
@@ -2745,7 +2769,11 @@ class EmbeddingIndex:
                             reservation.retain(matrix)
                         metadata: list[tuple[str, int]] = []
                     fields = {"expected_rows": count, "width_sum": width}
-                    with call_spans.span("embeddings.matrix_load.rows", fields):
+                    # Never while this thread holds `_lock`: a reader waits on it. The read snapshot is not
+                    # a lock, so a bulk pass may pause on it.
+                    may_yield = not self._lock._is_owned()
+                    # The span counts the pauses for a request as work; `waited_ms` takes them apart.
+                    with call_spans.span("embeddings.matrix_load.rows", fields), foreground_priority.recording_waits(fields):
                         try:
                             cursor = conn.execute(
                                 "SELECT file_path, chunk_idx, vector FROM chunks ORDER BY file_path, chunk_idx"
@@ -2758,6 +2786,8 @@ class EmbeddingIndex:
                                 matrix[len(metadata)] = np.frombuffer(blob, dtype=np.float32)
                                 del blob  # Release this vector before the next cursor fetch.
                                 metadata.append((sys.intern(fp), idx))
+                                if may_yield and not len(metadata) % MATRIX_LOAD_YIELD_ROWS:
+                                    foreground_priority.yield_in_bulk()
                             if len(metadata) != count:
                                 raise ValueError("embedding row count differs from snapshot")
                         finally:

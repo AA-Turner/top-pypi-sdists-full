@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: boto3-stubs
-Version: 1.44.7
-Summary: Type annotations for boto3 1.44.7 generated with mypy-boto3-builder 8.12.0
+Version: 1.44.9
+Summary: Type annotations for boto3 1.44.9 generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -34,7 +34,7 @@ Requires-Dist: typing-extensions>=4.1.0; python_version < "3.12"
 Provides-Extra: full
 Requires-Dist: boto3-stubs-full<1.45.0,>=1.44.0; extra == "full"
 Provides-Extra: boto3
-Requires-Dist: boto3==1.44.7; extra == "boto3"
+Requires-Dist: boto3==1.44.9; extra == "boto3"
 Provides-Extra: all
 Requires-Dist: mypy-boto3-abuse-signal<1.45.0,>=1.44.0; extra == "all"
 Requires-Dist: mypy-boto3-accessanalyzer<1.45.0,>=1.44.0; extra == "all"
@@ -43,6 +43,7 @@ Requires-Dist: mypy-boto3-account-access<1.45.0,>=1.44.0; extra == "all"
 Requires-Dist: mypy-boto3-account-access-runtime<1.45.0,>=1.44.0; extra == "all"
 Requires-Dist: mypy-boto3-acm<1.45.0,>=1.44.0; extra == "all"
 Requires-Dist: mypy-boto3-acm-pca<1.45.0,>=1.44.0; extra == "all"
+Requires-Dist: mypy-boto3-agent-discovery<1.45.0,>=1.44.0; extra == "all"
 Requires-Dist: mypy-boto3-agent-registry<1.45.0,>=1.44.0; extra == "all"
 Requires-Dist: mypy-boto3-agent-registry-control<1.45.0,>=1.44.0; extra == "all"
 Requires-Dist: mypy-boto3-aiops<1.45.0,>=1.44.0; extra == "all"
@@ -53,6 +54,7 @@ Requires-Dist: mypy-boto3-amplifyuibuilder<1.45.0,>=1.44.0; extra == "all"
 Requires-Dist: mypy-boto3-apigateway<1.45.0,>=1.44.0; extra == "all"
 Requires-Dist: mypy-boto3-apigatewaymanagementapi<1.45.0,>=1.44.0; extra == "all"
 Requires-Dist: mypy-boto3-apigatewayv2<1.45.0,>=1.44.0; extra == "all"
+Requires-Dist: mypy-boto3-apiportal<1.45.0,>=1.44.0; extra == "all"
 Requires-Dist: mypy-boto3-appconfig<1.45.0,>=1.44.0; extra == "all"
 Requires-Dist: mypy-boto3-appconfigdata<1.45.0,>=1.44.0; extra == "all"
 Requires-Dist: mypy-boto3-appfabric<1.45.0,>=1.44.0; extra == "all"
@@ -343,6 +345,7 @@ Requires-Dist: mypy-boto3-partnercentral-revenue-measurement<1.45.0,>=1.44.0; ex
 Requires-Dist: mypy-boto3-partnercentral-selling<1.45.0,>=1.44.0; extra == "all"
 Requires-Dist: mypy-boto3-payment-cryptography<1.45.0,>=1.44.0; extra == "all"
 Requires-Dist: mypy-boto3-payment-cryptography-data<1.45.0,>=1.44.0; extra == "all"
+Requires-Dist: mypy-boto3-payments<1.45.0,>=1.44.0; extra == "all"
 Requires-Dist: mypy-boto3-pca-connector-ad<1.45.0,>=1.44.0; extra == "all"
 Requires-Dist: mypy-boto3-pca-connector-scep<1.45.0,>=1.44.0; extra == "all"
 Requires-Dist: mypy-boto3-pcs<1.45.0,>=1.44.0; extra == "all"
@@ -398,6 +401,7 @@ Requires-Dist: mypy-boto3-sagemaker<1.45.0,>=1.44.0; extra == "all"
 Requires-Dist: mypy-boto3-sagemaker-a2i-runtime<1.45.0,>=1.44.0; extra == "all"
 Requires-Dist: mypy-boto3-sagemaker-edge<1.45.0,>=1.44.0; extra == "all"
 Requires-Dist: mypy-boto3-sagemaker-featurestore-runtime<1.45.0,>=1.44.0; extra == "all"
+Requires-Dist: mypy-boto3-sagemaker-gateway-runtime<1.45.0,>=1.44.0; extra == "all"
 Requires-Dist: mypy-boto3-sagemaker-geospatial<1.45.0,>=1.44.0; extra == "all"
 Requires-Dist: mypy-boto3-sagemaker-inference-router-runtime<1.45.0,>=1.44.0; extra == "all"
 Requires-Dist: mypy-boto3-sagemaker-metrics<1.45.0,>=1.44.0; extra == "all"
@@ -498,6 +502,8 @@ Provides-Extra: acm
 Requires-Dist: mypy-boto3-acm<1.45.0,>=1.44.0; extra == "acm"
 Provides-Extra: acm-pca
 Requires-Dist: mypy-boto3-acm-pca<1.45.0,>=1.44.0; extra == "acm-pca"
+Provides-Extra: agent-discovery
+Requires-Dist: mypy-boto3-agent-discovery<1.45.0,>=1.44.0; extra == "agent-discovery"
 Provides-Extra: agent-registry
 Requires-Dist: mypy-boto3-agent-registry<1.45.0,>=1.44.0; extra == "agent-registry"
 Provides-Extra: agent-registry-control
@@ -518,6 +524,8 @@ Provides-Extra: apigatewaymanagementapi
 Requires-Dist: mypy-boto3-apigatewaymanagementapi<1.45.0,>=1.44.0; extra == "apigatewaymanagementapi"
 Provides-Extra: apigatewayv2
 Requires-Dist: mypy-boto3-apigatewayv2<1.45.0,>=1.44.0; extra == "apigatewayv2"
+Provides-Extra: apiportal
+Requires-Dist: mypy-boto3-apiportal<1.45.0,>=1.44.0; extra == "apiportal"
 Provides-Extra: appconfig
 Requires-Dist: mypy-boto3-appconfig<1.45.0,>=1.44.0; extra == "appconfig"
 Provides-Extra: appconfigdata
@@ -1098,6 +1106,8 @@ Provides-Extra: payment-cryptography
 Requires-Dist: mypy-boto3-payment-cryptography<1.45.0,>=1.44.0; extra == "payment-cryptography"
 Provides-Extra: payment-cryptography-data
 Requires-Dist: mypy-boto3-payment-cryptography-data<1.45.0,>=1.44.0; extra == "payment-cryptography-data"
+Provides-Extra: payments
+Requires-Dist: mypy-boto3-payments<1.45.0,>=1.44.0; extra == "payments"
 Provides-Extra: pca-connector-ad
 Requires-Dist: mypy-boto3-pca-connector-ad<1.45.0,>=1.44.0; extra == "pca-connector-ad"
 Provides-Extra: pca-connector-scep
@@ -1208,6 +1218,8 @@ Provides-Extra: sagemaker-edge
 Requires-Dist: mypy-boto3-sagemaker-edge<1.45.0,>=1.44.0; extra == "sagemaker-edge"
 Provides-Extra: sagemaker-featurestore-runtime
 Requires-Dist: mypy-boto3-sagemaker-featurestore-runtime<1.45.0,>=1.44.0; extra == "sagemaker-featurestore-runtime"
+Provides-Extra: sagemaker-gateway-runtime
+Requires-Dist: mypy-boto3-sagemaker-gateway-runtime<1.45.0,>=1.44.0; extra == "sagemaker-gateway-runtime"
 Provides-Extra: sagemaker-geospatial
 Requires-Dist: mypy-boto3-sagemaker-geospatial<1.45.0,>=1.44.0; extra == "sagemaker-geospatial"
 Provides-Extra: sagemaker-inference-router-runtime
@@ -1377,7 +1389,7 @@ Dynamic: license-file
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 1.44.7](https://pypi.org/project/boto3/) compatible
+Type annotations for [boto3 1.44.9](https://pypi.org/project/boto3/) compatible
 with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -1436,7 +1448,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.44.7' mypy-boto3-builder`
+   `uvx --with 'boto3==1.44.9' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Select services you use in the current project.
 4. Use provided commands to install generated packages.
@@ -1788,9 +1800,9 @@ repository.
 
 ## Submodules
 
-- `boto3-stubs[full]` - Type annotations for all 440 services in one package
+- `boto3-stubs[full]` - Type annotations for all 444 services in one package
   (recommended).
-- `boto3-stubs[all]` - Type annotations for all 440 services in separate
+- `boto3-stubs[all]` - Type annotations for all 444 services in separate
   packages.
 - `boto3-stubs[essential]` - Type annotations for
   [CloudFormation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudformation/),
@@ -1821,6 +1833,9 @@ repository.
 - `boto3-stubs[acm-pca]` - Type annotations for
   [ACMPCA](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm_pca/)
   service.
+- `boto3-stubs[agent-discovery]` - Type annotations for
+  [AgentDiscovery](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_agent_discovery/)
+  service.
 - `boto3-stubs[agent-registry]` - Type annotations for
   [AgentRegistry](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_agent_registry/)
   service.
@@ -1850,6 +1865,9 @@ repository.
   service.
 - `boto3-stubs[apigatewayv2]` - Type annotations for
   [ApiGatewayV2](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_apigatewayv2/)
+  service.
+- `boto3-stubs[apiportal]` - Type annotations for
+  [APIPortal](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_apiportal/)
   service.
 - `boto3-stubs[appconfig]` - Type annotations for
   [AppConfig](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_appconfig/)
@@ -2697,6 +2715,9 @@ repository.
 - `boto3-stubs[payment-cryptography-data]` - Type annotations for
   [PaymentCryptographyDataPlane](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_payment_cryptography_data/)
   service.
+- `boto3-stubs[payments]` - Type annotations for
+  [Payments](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_payments/)
+  service.
 - `boto3-stubs[pca-connector-ad]` - Type annotations for
   [PcaConnectorAd](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pca_connector_ad/)
   service.
@@ -2857,6 +2878,9 @@ repository.
   service.
 - `boto3-stubs[sagemaker-featurestore-runtime]` - Type annotations for
   [SageMakerFeatureStoreRuntime](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker_featurestore_runtime/)
+  service.
+- `boto3-stubs[sagemaker-gateway-runtime]` - Type annotations for
+  [SageMakerGatewayRuntime](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker_gateway_runtime/)
   service.
 - `boto3-stubs[sagemaker-geospatial]` - Type annotations for
   [SageMakergeospatialcapabilities](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker_geospatial/)

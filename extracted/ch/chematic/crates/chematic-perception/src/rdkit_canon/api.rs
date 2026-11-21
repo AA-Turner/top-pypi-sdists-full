@@ -130,8 +130,8 @@ pub(crate) fn rank_with_rings(
 ) -> Vec<u32> {
     let inp = build_input(mol, rings, ez);
     let mut ranker = Ranker::new(&inp);
-    for i in 0..inp.anum.len() {
-        ranker.atoms[i].total_hs = u32::from(implicit_hcount(mol, AtomIdx(i as u32)));
+    for (i, atom) in ranker.atoms.iter_mut().enumerate() {
+        atom.total_hs = u32::from(implicit_hcount(mol, AtomIdx(i as u32)));
     }
     ranker.rank()
 }
@@ -602,15 +602,17 @@ impl<'a> KekulizeWorker<'a> {
             };
             self.done.push(current);
             self.is_done[current] = true;
-            if !self.candidates[current] {
-                continue;
-            }
+            // RDKit queues every unvisited neighbour, including when this
+            // atom already spent its double-bond candidacy. Skipping that
+            // walk changes the Kekule matching in fused cages.
             let mut options = self.options_for(current);
-            if let Some(candidate) = options.pop_front() {
-                self.select_candidate(current, candidate, options);
-            } else if self.requires_match(current) && !self.backtrack() {
-                self.reset_local_bonds();
-                return false;
+            if self.candidates[current] {
+                if let Some(candidate) = options.pop_front() {
+                    self.select_candidate(current, candidate, options);
+                } else if self.requires_match(current) && !self.backtrack() {
+                    self.reset_local_bonds();
+                    return false;
+                }
             }
         }
         true

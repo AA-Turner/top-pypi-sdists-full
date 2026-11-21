@@ -10614,6 +10614,320 @@ class CfnUserPoolClientProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cognito_aa210b15.IUserPoolClientSessionConfigurationAttachmentRef)
+class CfnUserPoolClientSessionConfigurationAttachment(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_cognito.CfnUserPoolClientSessionConfigurationAttachment",
+):
+    '''Resource Type definition for AWS::Cognito::UserPoolClientSessionConfigurationAttachment.
+
+    Manages the session configuration of a user pool app client. The settings take effect only while the user pool has UserSessionTracking ENABLED, so declaring DependsOn the AWS::Cognito::UserPoolSessionConfigurationAttachment is recommended. The service default (SSOSession MaxValidityMinutes 60) cannot be declared; remove the resource to return the app client to the default.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolclientsessionconfigurationattachment.html
+    :cloudformationResource: AWS::Cognito::UserPoolClientSessionConfigurationAttachment
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_cognito as cognito
+        
+        cfn_user_pool_client_session_configuration_attachment = cognito.CfnUserPoolClientSessionConfigurationAttachment(self, "MyCfnUserPoolClientSessionConfigurationAttachment",
+            client_id="clientId",
+            sso_session=cognito.CfnUserPoolClientSessionConfigurationAttachment.SSOSessionProperty(
+                max_validity_minutes=123
+            ),
+            user_pool_id="userPoolId"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        client_id: builtins.str,
+        sso_session: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolClientSessionConfigurationAttachment.SSOSessionProperty", typing.Dict[builtins.str, typing.Any]]],
+        user_pool_id: builtins.str,
+    ) -> None:
+        '''Create a new ``AWS::Cognito::UserPoolClientSessionConfigurationAttachment``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param client_id: The ID of the app client.
+        :param sso_session: Managed login single sign-on session settings for the app client.
+        :param user_pool_id: The ID of the user pool.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a7bfda66c76d63df109b00542d4c82db6da5c138ad492845b26aed158a86106b)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnUserPoolClientSessionConfigurationAttachmentProps(
+            client_id=client_id, sso_session=sso_session, user_pool_id=user_pool_id
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnUserPoolClientSessionConfigurationAttachment")
+    @builtins.classmethod
+    def is_cfn_user_pool_client_session_configuration_attachment(
+        cls,
+        x: typing.Any,
+    ) -> builtins.bool:
+        '''Checks whether the given object is a CfnUserPoolClientSessionConfigurationAttachment.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fed8de47d2ca8f670abf1fe1d944bd9fef627cae88effa6ba617ab607da77dea)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnUserPoolClientSessionConfigurationAttachment", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__43104a2bda70d4efbb9e7fb4320639d6c1fdcb45997286d6383cd1d62b860cac)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__04f6f095976d6984f7f923d6866ef55107e70bcd33e45257f24716388f2e4d20)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="userPoolClientSessionConfigurationAttachmentRef")
+    def user_pool_client_session_configuration_attachment_ref(
+        self,
+    ) -> "_aws_cognito_aa210b15.UserPoolClientSessionConfigurationAttachmentReference":
+        '''A reference to a UserPoolClientSessionConfigurationAttachment resource.'''
+        return typing.cast("_aws_cognito_aa210b15.UserPoolClientSessionConfigurationAttachmentReference", jsii.get(self, "userPoolClientSessionConfigurationAttachmentRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="clientId")
+    def client_id(self) -> builtins.str:
+        '''The ID of the app client.'''
+        return typing.cast(builtins.str, jsii.get(self, "clientId"))
+
+    @client_id.setter
+    def client_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__be2a59240587a8628f8ff3c70faba02cee02d4fecc8222aa1a1b47e12ac89413)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "clientId", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="ssoSession")
+    def sso_session(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolClientSessionConfigurationAttachment.SSOSessionProperty"]:
+        '''Managed login single sign-on session settings for the app client.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolClientSessionConfigurationAttachment.SSOSessionProperty"], jsii.get(self, "ssoSession"))
+
+    @sso_session.setter
+    def sso_session(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolClientSessionConfigurationAttachment.SSOSessionProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0b354354b62d77932caeb71d26bf79a3bf26d00d8f3a4e384c311c12db5744b0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "ssoSession", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="userPoolId")
+    def user_pool_id(self) -> builtins.str:
+        '''The ID of the user pool.'''
+        return typing.cast(builtins.str, jsii.get(self, "userPoolId"))
+
+    @user_pool_id.setter
+    def user_pool_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__49cbcb1610ab8de61ea721aa8505e6024611a3ade9e569ad17c60d088c705104)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "userPoolId", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cognito.CfnUserPoolClientSessionConfigurationAttachment.SSOSessionProperty",
+        jsii_struct_bases=[],
+        name_mapping={"max_validity_minutes": "maxValidityMinutes"},
+    )
+    class SSOSessionProperty:
+        def __init__(self, *, max_validity_minutes: jsii.Number) -> None:
+            '''Managed login single sign-on session settings for the app client.
+
+            :param max_validity_minutes: The maximum time in minutes since the last authentication during which this app client can reuse an existing managed login SSO session without asking the user to sign in again. 0 means the app client always asks the user to sign in.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolclientsessionconfigurationattachment-ssosession.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cognito as cognito
+                
+                s_so_session_property = cognito.CfnUserPoolClientSessionConfigurationAttachment.SSOSessionProperty(
+                    max_validity_minutes=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__58ac9331fc743f57ecb33a4f053aa969176d83b95fbca354b960544ebb61ef33)
+                check_type(argname="argument max_validity_minutes", value=max_validity_minutes, expected_type=type_hints["max_validity_minutes"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "max_validity_minutes": max_validity_minutes,
+            }
+
+        @builtins.property
+        def max_validity_minutes(self) -> jsii.Number:
+            '''The maximum time in minutes since the last authentication during which this app client can reuse an existing managed login SSO session without asking the user to sign in again.
+
+            0 means the app client always asks the user to sign in.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolclientsessionconfigurationattachment-ssosession.html#cfn-cognito-userpoolclientsessionconfigurationattachment-ssosession-maxvalidityminutes
+            '''
+            result = self._values.get("max_validity_minutes")
+            assert result is not None, "Required property 'max_validity_minutes' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SSOSessionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cognito.CfnUserPoolClientSessionConfigurationAttachmentProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "client_id": "clientId",
+        "sso_session": "ssoSession",
+        "user_pool_id": "userPoolId",
+    },
+)
+class CfnUserPoolClientSessionConfigurationAttachmentProps:
+    def __init__(
+        self,
+        *,
+        client_id: builtins.str,
+        sso_session: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolClientSessionConfigurationAttachment.SSOSessionProperty", typing.Dict[builtins.str, typing.Any]]],
+        user_pool_id: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnUserPoolClientSessionConfigurationAttachment``.
+
+        :param client_id: The ID of the app client.
+        :param sso_session: Managed login single sign-on session settings for the app client.
+        :param user_pool_id: The ID of the user pool.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolclientsessionconfigurationattachment.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cognito as cognito
+            
+            cfn_user_pool_client_session_configuration_attachment_props = cognito.CfnUserPoolClientSessionConfigurationAttachmentProps(
+                client_id="clientId",
+                sso_session=cognito.CfnUserPoolClientSessionConfigurationAttachment.SSOSessionProperty(
+                    max_validity_minutes=123
+                ),
+                user_pool_id="userPoolId"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__51f307f618522724a91db70c972c5cb37ec71a76d9a72691cdc7020337de3e8e)
+            check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+            check_type(argname="argument sso_session", value=sso_session, expected_type=type_hints["sso_session"])
+            check_type(argname="argument user_pool_id", value=user_pool_id, expected_type=type_hints["user_pool_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "client_id": client_id,
+            "sso_session": sso_session,
+            "user_pool_id": user_pool_id,
+        }
+
+    @builtins.property
+    def client_id(self) -> builtins.str:
+        '''The ID of the app client.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolclientsessionconfigurationattachment.html#cfn-cognito-userpoolclientsessionconfigurationattachment-clientid
+        '''
+        result = self._values.get("client_id")
+        assert result is not None, "Required property 'client_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def sso_session(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolClientSessionConfigurationAttachment.SSOSessionProperty"]:
+        '''Managed login single sign-on session settings for the app client.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolclientsessionconfigurationattachment.html#cfn-cognito-userpoolclientsessionconfigurationattachment-ssosession
+        '''
+        result = self._values.get("sso_session")
+        assert result is not None, "Required property 'sso_session' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolClientSessionConfigurationAttachment.SSOSessionProperty"], result)
+
+    @builtins.property
+    def user_pool_id(self) -> builtins.str:
+        '''The ID of the user pool.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolclientsessionconfigurationattachment.html#cfn-cognito-userpoolclientsessionconfigurationattachment-userpoolid
+        '''
+        result = self._values.get("user_pool_id")
+        assert result is not None, "Required property 'user_pool_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnUserPoolClientSessionConfigurationAttachmentProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cognito_aa210b15.IUserPoolDomainRef)
 class CfnUserPoolDomain(
     _aws_cdk_0cae9daa.CfnResource,
@@ -15953,6 +16267,324 @@ class CfnUserPoolRiskConfigurationAttachmentProps:
 
     def __repr__(self) -> str:
         return "CfnUserPoolRiskConfigurationAttachmentProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cognito_aa210b15.IUserPoolSessionConfigurationAttachmentRef)
+class CfnUserPoolSessionConfigurationAttachment(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_cognito.CfnUserPoolSessionConfigurationAttachment",
+):
+    '''Resource Type definition for AWS::Cognito::UserPoolSessionConfigurationAttachment.
+
+    Manages the session configuration of a user pool: whether user session tracking is enabled and the maximum number of concurrent token sessions per user. The service default (UserSessionTracking DISABLED with TokenSession MaxPerUser 20) cannot be declared; remove the resource to return the user pool to the default.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolsessionconfigurationattachment.html
+    :cloudformationResource: AWS::Cognito::UserPoolSessionConfigurationAttachment
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_cognito as cognito
+        
+        cfn_user_pool_session_configuration_attachment = cognito.CfnUserPoolSessionConfigurationAttachment(self, "MyCfnUserPoolSessionConfigurationAttachment",
+            token_session=cognito.CfnUserPoolSessionConfigurationAttachment.TokenSessionProperty(
+                max_per_user=123
+            ),
+            user_pool_id="userPoolId",
+            user_session_tracking="userSessionTracking"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        token_session: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolSessionConfigurationAttachment.TokenSessionProperty", typing.Dict[builtins.str, typing.Any]]],
+        user_pool_id: builtins.str,
+        user_session_tracking: builtins.str,
+    ) -> None:
+        '''Create a new ``AWS::Cognito::UserPoolSessionConfigurationAttachment``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param token_session: Token session settings that apply to every app client in the user pool.
+        :param user_pool_id: The ID of the user pool.
+        :param user_session_tracking: Whether server-side user session tracking is enabled for the user pool. Requires the ESSENTIALS or PLUS feature plan.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__41249be8fc392f0cab9fe6539a6be071eb8bb3bc5808fda9c84834ecd15b5070)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnUserPoolSessionConfigurationAttachmentProps(
+            token_session=token_session,
+            user_pool_id=user_pool_id,
+            user_session_tracking=user_session_tracking,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnUserPoolSessionConfigurationAttachment")
+    @builtins.classmethod
+    def is_cfn_user_pool_session_configuration_attachment(
+        cls,
+        x: typing.Any,
+    ) -> builtins.bool:
+        '''Checks whether the given object is a CfnUserPoolSessionConfigurationAttachment.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d7a603ba6487c60e80f754edb1119746bffa995accdfed95fa09ec4a559a64d2)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnUserPoolSessionConfigurationAttachment", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d8fbf7ee0b28562f03425a9276f132457e673e40090c3d9da37498700f1c3a1a)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__945642957b8325f07e0b0b6cad6cd9894456a489c798958765e25aa2c17248ce)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="userPoolSessionConfigurationAttachmentRef")
+    def user_pool_session_configuration_attachment_ref(
+        self,
+    ) -> "_aws_cognito_aa210b15.UserPoolSessionConfigurationAttachmentReference":
+        '''A reference to a UserPoolSessionConfigurationAttachment resource.'''
+        return typing.cast("_aws_cognito_aa210b15.UserPoolSessionConfigurationAttachmentReference", jsii.get(self, "userPoolSessionConfigurationAttachmentRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tokenSession")
+    def token_session(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolSessionConfigurationAttachment.TokenSessionProperty"]:
+        '''Token session settings that apply to every app client in the user pool.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolSessionConfigurationAttachment.TokenSessionProperty"], jsii.get(self, "tokenSession"))
+
+    @token_session.setter
+    def token_session(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolSessionConfigurationAttachment.TokenSessionProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__34c681a7713255f76208ae4203e0be9f1d7351df5c5ef1397d2f866f843a771e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tokenSession", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="userPoolId")
+    def user_pool_id(self) -> builtins.str:
+        '''The ID of the user pool.'''
+        return typing.cast(builtins.str, jsii.get(self, "userPoolId"))
+
+    @user_pool_id.setter
+    def user_pool_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e2fdc8840d92bfce035d6be7cdf98937acf69ef4f07e612bad216d30e8526837)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "userPoolId", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="userSessionTracking")
+    def user_session_tracking(self) -> builtins.str:
+        '''Whether server-side user session tracking is enabled for the user pool.'''
+        return typing.cast(builtins.str, jsii.get(self, "userSessionTracking"))
+
+    @user_session_tracking.setter
+    def user_session_tracking(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__21b37b15e319c58fa3a13504f084070dcebc86b8ae2bfaec610bae7477dfedd9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "userSessionTracking", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cognito.CfnUserPoolSessionConfigurationAttachment.TokenSessionProperty",
+        jsii_struct_bases=[],
+        name_mapping={"max_per_user": "maxPerUser"},
+    )
+    class TokenSessionProperty:
+        def __init__(self, *, max_per_user: jsii.Number) -> None:
+            '''Token session settings that apply to every app client in the user pool.
+
+            :param max_per_user: The maximum number of concurrent token sessions per user across all app clients. When a new session would exceed this number, the least recently used session ends.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolsessionconfigurationattachment-tokensession.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cognito as cognito
+                
+                token_session_property = cognito.CfnUserPoolSessionConfigurationAttachment.TokenSessionProperty(
+                    max_per_user=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__a53926f3fb59c0e99658892141d878f42ac4c3ab916593ef0af752f811b16cb5)
+                check_type(argname="argument max_per_user", value=max_per_user, expected_type=type_hints["max_per_user"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "max_per_user": max_per_user,
+            }
+
+        @builtins.property
+        def max_per_user(self) -> jsii.Number:
+            '''The maximum number of concurrent token sessions per user across all app clients.
+
+            When a new session would exceed this number, the least recently used session ends.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolsessionconfigurationattachment-tokensession.html#cfn-cognito-userpoolsessionconfigurationattachment-tokensession-maxperuser
+            '''
+            result = self._values.get("max_per_user")
+            assert result is not None, "Required property 'max_per_user' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TokenSessionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cognito.CfnUserPoolSessionConfigurationAttachmentProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "token_session": "tokenSession",
+        "user_pool_id": "userPoolId",
+        "user_session_tracking": "userSessionTracking",
+    },
+)
+class CfnUserPoolSessionConfigurationAttachmentProps:
+    def __init__(
+        self,
+        *,
+        token_session: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolSessionConfigurationAttachment.TokenSessionProperty", typing.Dict[builtins.str, typing.Any]]],
+        user_pool_id: builtins.str,
+        user_session_tracking: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnUserPoolSessionConfigurationAttachment``.
+
+        :param token_session: Token session settings that apply to every app client in the user pool.
+        :param user_pool_id: The ID of the user pool.
+        :param user_session_tracking: Whether server-side user session tracking is enabled for the user pool. Requires the ESSENTIALS or PLUS feature plan.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolsessionconfigurationattachment.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cognito as cognito
+            
+            cfn_user_pool_session_configuration_attachment_props = cognito.CfnUserPoolSessionConfigurationAttachmentProps(
+                token_session=cognito.CfnUserPoolSessionConfigurationAttachment.TokenSessionProperty(
+                    max_per_user=123
+                ),
+                user_pool_id="userPoolId",
+                user_session_tracking="userSessionTracking"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__53e37d92e888bb23a0698dd67169bc632c47a8ec744cf1e19f83e7da4fc92d5d)
+            check_type(argname="argument token_session", value=token_session, expected_type=type_hints["token_session"])
+            check_type(argname="argument user_pool_id", value=user_pool_id, expected_type=type_hints["user_pool_id"])
+            check_type(argname="argument user_session_tracking", value=user_session_tracking, expected_type=type_hints["user_session_tracking"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "token_session": token_session,
+            "user_pool_id": user_pool_id,
+            "user_session_tracking": user_session_tracking,
+        }
+
+    @builtins.property
+    def token_session(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolSessionConfigurationAttachment.TokenSessionProperty"]:
+        '''Token session settings that apply to every app client in the user pool.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolsessionconfigurationattachment.html#cfn-cognito-userpoolsessionconfigurationattachment-tokensession
+        '''
+        result = self._values.get("token_session")
+        assert result is not None, "Required property 'token_session' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolSessionConfigurationAttachment.TokenSessionProperty"], result)
+
+    @builtins.property
+    def user_pool_id(self) -> builtins.str:
+        '''The ID of the user pool.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolsessionconfigurationattachment.html#cfn-cognito-userpoolsessionconfigurationattachment-userpoolid
+        '''
+        result = self._values.get("user_pool_id")
+        assert result is not None, "Required property 'user_pool_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def user_session_tracking(self) -> builtins.str:
+        '''Whether server-side user session tracking is enabled for the user pool.
+
+        Requires the ESSENTIALS or PLUS feature plan.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolsessionconfigurationattachment.html#cfn-cognito-userpoolsessionconfigurationattachment-usersessiontracking
+        '''
+        result = self._values.get("user_session_tracking")
+        assert result is not None, "Required property 'user_session_tracking' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnUserPoolSessionConfigurationAttachmentProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -27382,6 +28014,8 @@ __all__ = [
     "CfnUserPool",
     "CfnUserPoolClient",
     "CfnUserPoolClientProps",
+    "CfnUserPoolClientSessionConfigurationAttachment",
+    "CfnUserPoolClientSessionConfigurationAttachmentProps",
     "CfnUserPoolDomain",
     "CfnUserPoolDomainProps",
     "CfnUserPoolGroup",
@@ -27397,6 +28031,8 @@ __all__ = [
     "CfnUserPoolResourceServerProps",
     "CfnUserPoolRiskConfigurationAttachment",
     "CfnUserPoolRiskConfigurationAttachmentProps",
+    "CfnUserPoolSessionConfigurationAttachment",
+    "CfnUserPoolSessionConfigurationAttachmentProps",
     "CfnUserPoolUICustomizationAttachment",
     "CfnUserPoolUICustomizationAttachmentProps",
     "CfnUserPoolUser",
@@ -28887,6 +29523,69 @@ def _typecheckingstub__073ea5893b9cfc70c0362e57cd0c1b5397e1c6374434fc1d5c261da79
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__a7bfda66c76d63df109b00542d4c82db6da5c138ad492845b26aed158a86106b(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    client_id: builtins.str,
+    sso_session: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolClientSessionConfigurationAttachment.SSOSessionProperty, typing.Dict[builtins.str, typing.Any]]],
+    user_pool_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fed8de47d2ca8f670abf1fe1d944bd9fef627cae88effa6ba617ab607da77dea(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__43104a2bda70d4efbb9e7fb4320639d6c1fdcb45997286d6383cd1d62b860cac(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__04f6f095976d6984f7f923d6866ef55107e70bcd33e45257f24716388f2e4d20(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__be2a59240587a8628f8ff3c70faba02cee02d4fecc8222aa1a1b47e12ac89413(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0b354354b62d77932caeb71d26bf79a3bf26d00d8f3a4e384c311c12db5744b0(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnUserPoolClientSessionConfigurationAttachment.SSOSessionProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__49cbcb1610ab8de61ea721aa8505e6024611a3ade9e569ad17c60d088c705104(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__58ac9331fc743f57ecb33a4f053aa969176d83b95fbca354b960544ebb61ef33(
+    *,
+    max_validity_minutes: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__51f307f618522724a91db70c972c5cb37ec71a76d9a72691cdc7020337de3e8e(
+    *,
+    client_id: builtins.str,
+    sso_session: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolClientSessionConfigurationAttachment.SSOSessionProperty, typing.Dict[builtins.str, typing.Any]]],
+    user_pool_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__6e0b36c4d155cfdfa9801e3f221c4fe6c5403bf24a64d17bd90fb5386301d675(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -29604,6 +30303,69 @@ def _typecheckingstub__aae4da006a28eede974ab417d5b2bc68196cfdf7df68bb0ddfc79b19b
     account_takeover_risk_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolRiskConfigurationAttachment.AccountTakeoverRiskConfigurationTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     compromised_credentials_risk_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolRiskConfigurationAttachment.CompromisedCredentialsRiskConfigurationTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     risk_exception_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolRiskConfigurationAttachment.RiskExceptionConfigurationTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__41249be8fc392f0cab9fe6539a6be071eb8bb3bc5808fda9c84834ecd15b5070(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    token_session: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolSessionConfigurationAttachment.TokenSessionProperty, typing.Dict[builtins.str, typing.Any]]],
+    user_pool_id: builtins.str,
+    user_session_tracking: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d7a603ba6487c60e80f754edb1119746bffa995accdfed95fa09ec4a559a64d2(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d8fbf7ee0b28562f03425a9276f132457e673e40090c3d9da37498700f1c3a1a(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__945642957b8325f07e0b0b6cad6cd9894456a489c798958765e25aa2c17248ce(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__34c681a7713255f76208ae4203e0be9f1d7351df5c5ef1397d2f866f843a771e(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnUserPoolSessionConfigurationAttachment.TokenSessionProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e2fdc8840d92bfce035d6be7cdf98937acf69ef4f07e612bad216d30e8526837(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__21b37b15e319c58fa3a13504f084070dcebc86b8ae2bfaec610bae7477dfedd9(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a53926f3fb59c0e99658892141d878f42ac4c3ab916593ef0af752f811b16cb5(
+    *,
+    max_per_user: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__53e37d92e888bb23a0698dd67169bc632c47a8ec744cf1e19f83e7da4fc92d5d(
+    *,
+    token_session: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolSessionConfigurationAttachment.TokenSessionProperty, typing.Dict[builtins.str, typing.Any]]],
+    user_pool_id: builtins.str,
+    user_session_tracking: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

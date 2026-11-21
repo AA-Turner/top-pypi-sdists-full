@@ -3650,7 +3650,7 @@ class TiktokNamespace:
         each labelled with where it came from. Returns the creator's profile stats
         and linked social accounts alongside.
 
-        Price: $0.00088 per request plus $0 per result (maximum $0.00088).
+        Price: $0.00096 per request plus $0 per result (maximum $0.00096).
 
         Example:
             res = client.tiktok.profile_contact(handle="gordonramsayofficial")
@@ -3779,7 +3779,7 @@ class TiktokNamespace:
         List a TikTok creator's recent videos (views, likes, comments) by handle
         with cursor pagination.
 
-        Price: $0.0006 per request.
+        Price: $0.0004 per request.
 
         Example:
             res = client.tiktok.profile_videos(handle="zachking")
@@ -4781,7 +4781,7 @@ class AsyncTiktokNamespace:
         each labelled with where it came from. Returns the creator's profile stats
         and linked social accounts alongside.
 
-        Price: $0.00088 per request plus $0 per result (maximum $0.00088).
+        Price: $0.00096 per request plus $0 per result (maximum $0.00096).
 
         Example:
             res = client.tiktok.profile_contact(handle="gordonramsayofficial")
@@ -4910,7 +4910,7 @@ class AsyncTiktokNamespace:
         List a TikTok creator's recent videos (views, likes, comments) by handle
         with cursor pagination.
 
-        Price: $0.0006 per request.
+        Price: $0.0004 per request.
 
         Example:
             res = client.tiktok.profile_videos(handle="zachking")

@@ -147,6 +147,12 @@ dashboard.add_widgets(cloudwatch.GraphWidget(
 ))
 ```
 
+The array form of `MAX`, `MIN`, `AVG` and `SUM` (for example `MAX([m1, m2])`)
+only accepts time series. CloudWatch rejects an array that mixes a metric with a
+scalar number, so an alarm using it fails to deploy.
+See [Metric math syntax and functions](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/using-metric-math.html#metric-math-syntax-functions-list)
+for the arguments each function accepts.
+
 ### Metric ID Usage in Math Expressions
 
 When metrics have custom IDs, you can reference them directly in math expressions.
@@ -15399,6 +15405,359 @@ class CfnLogAlarmProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cloudwatch_70717108.IMetricDataQueryDefinitionRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnMetricDataQueryDefinition(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_cloudwatch.CfnMetricDataQueryDefinition",
+):
+    '''Resource Type definition for AWS::CloudWatch::MetricDataQueryDefinition.
+
+    A saved CloudWatch metric data query (PromQL, SQL, or Metric Math) with a path that is unique in the account and Region.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-metricdataquerydefinition.html
+    :cloudformationResource: AWS::CloudWatch::MetricDataQueryDefinition
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_cloudwatch as cloudwatch
+        
+        cfn_metric_data_query_definition = cloudwatch.CfnMetricDataQueryDefinition(self, "MyCfnMetricDataQueryDefinition",
+            expression="expression",
+            path="path",
+            type="type",
+        
+            # the properties below are optional
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        expression: builtins.str,
+        path: builtins.str,
+        type: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::CloudWatch::MetricDataQueryDefinition``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param expression: The metric query. It is stored as-is and is not validated.
+        :param path: The name of the metric data query definition. Use '/' to organize definitions into folders. Must be unique in the account and Region. Changing it renames the definition in place.
+        :param type: The query language of Expression.
+        :param tags: An array of key-value pairs to apply to the metric data query definition.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9ebabb56f92e8b14ed5ffc08e01fa373e4846393f24372b9716598f504ad6887)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnMetricDataQueryDefinitionProps(
+            expression=expression, path=path, type=type, tags=tags
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForMetricDataQueryDefinition")
+    @builtins.classmethod
+    def arn_for_metric_data_query_definition(
+        cls,
+        resource: "_aws_cloudwatch_70717108.IMetricDataQueryDefinitionRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fc3200a2a2a075b435c70cee0d11e5600f45ff72f806426d032478f32d24b23b)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForMetricDataQueryDefinition", [resource]))
+
+    @jsii.member(jsii_name="isCfnMetricDataQueryDefinition")
+    @builtins.classmethod
+    def is_cfn_metric_data_query_definition(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnMetricDataQueryDefinition.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__60cf9965a2fad3cdcdecbe8ba77880de6a0e22fe8de280f79b30d5045ba18eb5)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnMetricDataQueryDefinition", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__94f506e3340b0cca7d562e642ea5abf2a7c7b245c952d15923830e65336c3b23)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__439bf4810b825620241433a0f92d6268f02df4ed3913fa9b76155e1e2dc1594d)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the metric data query definition.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The timestamp when the metric data query definition was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The ID of the metric data query definition, generated by the service.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''The timestamp when the metric data query definition was last updated.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="metricDataQueryDefinitionRef")
+    def metric_data_query_definition_ref(
+        self,
+    ) -> "_aws_cloudwatch_70717108.MetricDataQueryDefinitionReference":
+        '''A reference to a MetricDataQueryDefinition resource.'''
+        return typing.cast("_aws_cloudwatch_70717108.MetricDataQueryDefinitionReference", jsii.get(self, "metricDataQueryDefinitionRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="expression")
+    def expression(self) -> builtins.str:
+        '''The metric query.'''
+        return typing.cast(builtins.str, jsii.get(self, "expression"))
+
+    @expression.setter
+    def expression(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9868d98e2c345128d226766726be04738b4d73f2c344451ee4da3c95c226c125)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "expression", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="path")
+    def path(self) -> builtins.str:
+        '''The name of the metric data query definition.'''
+        return typing.cast(builtins.str, jsii.get(self, "path"))
+
+    @path.setter
+    def path(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__045557f188bb4ac5a5f34decb8246ce187793e2e1fe17be9fc293309c96d26f2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "path", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="type")
+    def type(self) -> builtins.str:
+        '''The query language of Expression.'''
+        return typing.cast(builtins.str, jsii.get(self, "type"))
+
+    @type.setter
+    def type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__69c72c66ea5172e1b94ffa93027baaa75367cc7563f92187901d89da61cef0bc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "type", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to the metric data query definition.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f579ea5630bf78b2b37bcf89ece5e4f20e723680929cae9c5ea8057215b543cb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value)
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudwatch.CfnMetricDataQueryDefinitionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "expression": "expression",
+        "path": "path",
+        "type": "type",
+        "tags": "tags",
+    },
+)
+class CfnMetricDataQueryDefinitionProps:
+    def __init__(
+        self,
+        *,
+        expression: builtins.str,
+        path: builtins.str,
+        type: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnMetricDataQueryDefinition``.
+
+        :param expression: The metric query. It is stored as-is and is not validated.
+        :param path: The name of the metric data query definition. Use '/' to organize definitions into folders. Must be unique in the account and Region. Changing it renames the definition in place.
+        :param type: The query language of Expression.
+        :param tags: An array of key-value pairs to apply to the metric data query definition.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-metricdataquerydefinition.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudwatch as cloudwatch
+            
+            cfn_metric_data_query_definition_props = cloudwatch.CfnMetricDataQueryDefinitionProps(
+                expression="expression",
+                path="path",
+                type="type",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__906420173be117d4d902f4fb80941cc88bf895f0687607f62ac80ae206bc4bd3)
+            check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
+            check_type(argname="argument path", value=path, expected_type=type_hints["path"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "expression": expression,
+            "path": path,
+            "type": type,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def expression(self) -> builtins.str:
+        '''The metric query.
+
+        It is stored as-is and is not validated.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-metricdataquerydefinition.html#cfn-cloudwatch-metricdataquerydefinition-expression
+        '''
+        result = self._values.get("expression")
+        assert result is not None, "Required property 'expression' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def path(self) -> builtins.str:
+        '''The name of the metric data query definition.
+
+        Use '/' to organize definitions into folders. Must be unique in the account and Region. Changing it renames the definition in place.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-metricdataquerydefinition.html#cfn-cloudwatch-metricdataquerydefinition-path
+        '''
+        result = self._values.get("path")
+        assert result is not None, "Required property 'path' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def type(self) -> builtins.str:
+        '''The query language of Expression.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-metricdataquerydefinition.html#cfn-cloudwatch-metricdataquerydefinition-type
+        '''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to the metric data query definition.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-metricdataquerydefinition.html#cfn-cloudwatch-metricdataquerydefinition-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnMetricDataQueryDefinitionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cloudwatch_70717108.IMetricStreamRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnMetricStream(
     _aws_cdk_0cae9daa.CfnResource,
@@ -21314,23 +21673,19 @@ class Metric(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_cloudwatch.Metr
 
     Example::
 
-        # serverless_cache: elasticache.ServerlessCache
+        # instance: rds.IDatabaseInstance
         
         
-        # The 5 minutes average of the total number of successful read-only key lookups in the cache.
-        cache_hits = serverless_cache.metric_cache_hit_count()
+        metrics = rds.DatabaseInstanceMetrics.from_database_instance(instance)
         
-        # The 5 minutes average of the total number of bytes used by the data stored in the cache.
-        bytes_used_for_cache = serverless_cache.metric_data_stored()
+        # How far a read replica lags behind its source (average over 5 minutes)
+        replica_lag = metrics.replica_lag()
         
-        # The 5 minutes average of the total number of ElastiCacheProcessingUnits (ECPUs) consumed by the requests executed on the cache.
-        elasti_cache_processing_units = serverless_cache.metric_processing_units_consumed()
+        # The average amount of time taken per disk I/O read operation (average over 1 minute)
+        read_latency = metrics.read_latency(period=Duration.seconds(60))
         
-        # Create an alarm for ECPUs.
-        elasti_cache_processing_units.create_alarm(self, "ElastiCacheProcessingUnitsAlarm",
-            threshold=50,
-            evaluation_periods=1
-        )
+        # Any other metric, such as an engine-specific one
+        bin_log_disk_usage = metrics.metric("BinLogDiskUsage", statistic="Maximum")
     '''
 
     def __init__(
@@ -29316,6 +29671,8 @@ __all__ = [
     "CfnIntegrationProps",
     "CfnLogAlarm",
     "CfnLogAlarmProps",
+    "CfnMetricDataQueryDefinition",
+    "CfnMetricDataQueryDefinitionProps",
     "CfnMetricStream",
     "CfnMetricStreamProps",
     "CfnOTelEnrichment",
@@ -31516,6 +31873,76 @@ def _typecheckingstub__e3dd0c09c40300084ab958ab27e45b173c7de0c8e06e81fd1f5726ba5
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     treat_missing_data: typing.Optional[builtins.str] = None,
     warm_up_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLogAlarm.WarmUpConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9ebabb56f92e8b14ed5ffc08e01fa373e4846393f24372b9716598f504ad6887(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    expression: builtins.str,
+    path: builtins.str,
+    type: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fc3200a2a2a075b435c70cee0d11e5600f45ff72f806426d032478f32d24b23b(
+    resource: _aws_cloudwatch_70717108.IMetricDataQueryDefinitionRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__60cf9965a2fad3cdcdecbe8ba77880de6a0e22fe8de280f79b30d5045ba18eb5(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__94f506e3340b0cca7d562e642ea5abf2a7c7b245c952d15923830e65336c3b23(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__439bf4810b825620241433a0f92d6268f02df4ed3913fa9b76155e1e2dc1594d(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9868d98e2c345128d226766726be04738b4d73f2c344451ee4da3c95c226c125(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__045557f188bb4ac5a5f34decb8246ce187793e2e1fe17be9fc293309c96d26f2(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__69c72c66ea5172e1b94ffa93027baaa75367cc7563f92187901d89da61cef0bc(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f579ea5630bf78b2b37bcf89ece5e4f20e723680929cae9c5ea8057215b543cb(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__906420173be117d4d902f4fb80941cc88bf895f0687607f62ac80ae206bc4bd3(
+    *,
+    expression: builtins.str,
+    path: builtins.str,
+    type: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

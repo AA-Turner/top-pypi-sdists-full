@@ -33,11 +33,13 @@ __all__ = (
     "DecryptionActionType",
     "EnabledAnalysisTypeType",
     "EncryptionTypeType",
+    "EnforcementModeType",
     "FirewallPolicyActiveWaiterName",
     "FirewallPolicyErrorCodeType",
     "FirewallRuleActionType",
     "FirewallRuleProtocolType",
     "FirewallStatusValueType",
+    "FirewallTypeType",
     "FlowOperationStatusType",
     "FlowOperationTypeType",
     "GeneratedRulesTypeType",
@@ -99,7 +101,9 @@ __all__ = (
 )
 
 ActionScopeType = Literal["FLOW", "HOOK", "PACKET", "TX"]
-AttachmentStatusType = Literal["CREATING", "DELETING", "ERROR", "FAILED", "READY", "SCALING"]
+AttachmentStatusType = Literal[
+    "CREATING", "DELETING", "ERROR", "FAILED", "READY", "SCALING", "STANDBY"
+]
 ConfigurationSyncStateType = Literal["CAPACITY_CONSTRAINED", "IN_SYNC", "PENDING"]
 ContainerAssociationStatusType = Literal["ACTIVE", "CREATING", "DELETING", "UPDATING"]
 ContainerMonitoringTypeType = Literal["ECS", "EKS"]
@@ -111,6 +115,7 @@ DNSExpiryExceptionPolicyType = Literal["CONTINUE", "DROP", "REJECT"]
 DecryptionActionType = Literal["BYPASS", "DECRYPT"]
 EnabledAnalysisTypeType = Literal["HTTP_HOST", "TLS_SNI"]
 EncryptionTypeType = Literal["AWS_OWNED_KMS_KEY", "CUSTOMER_KMS"]
+EnforcementModeType = Literal["POLICY_CONTROLLED"]
 FirewallPolicyActiveWaiterName = Literal["firewall_policy_active"]
 FirewallPolicyErrorCodeType = Literal[
     "DNS_FIREWALL_RULE_GROUP_UNAVAILABLE", "ROUTE53_RESOLVED_IP_VALIDATION_MISSING"
@@ -158,7 +163,8 @@ FirewallRuleProtocolType = Literal[
     "UDP",
     "WEBSOCKET",
 ]
-FirewallStatusValueType = Literal["DELETING", "FAILED", "PROVISIONING", "READY"]
+FirewallStatusValueType = Literal["DELETING", "FAILED", "PROVISIONING", "READY", "STANDBY"]
+FirewallTypeType = Literal["FIREWALL", "IGW_FIREWALL"]
 FlowOperationStatusType = Literal["COMPLETED", "COMPLETED_WITH_ERRORS", "FAILED", "IN_PROGRESS"]
 FlowOperationTypeType = Literal["FLOW_CAPTURE", "FLOW_FLUSH"]
 GeneratedRulesTypeType = Literal["ALERTLIST", "ALLOWLIST", "DENYLIST", "REJECTLIST"]
@@ -462,6 +468,7 @@ ServiceName = Literal[
     "account-access-runtime",
     "acm",
     "acm-pca",
+    "agent-discovery",
     "agent-registry",
     "agent-registry-control",
     "aiops",
@@ -472,6 +479,7 @@ ServiceName = Literal[
     "apigateway",
     "apigatewaymanagementapi",
     "apigatewayv2",
+    "apiportal",
     "appconfig",
     "appconfigdata",
     "appfabric",
@@ -762,6 +770,7 @@ ServiceName = Literal[
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
+    "payments",
     "pca-connector-ad",
     "pca-connector-scep",
     "pcs",
@@ -817,6 +826,7 @@ ServiceName = Literal[
     "sagemaker-a2i-runtime",
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
+    "sagemaker-gateway-runtime",
     "sagemaker-geospatial",
     "sagemaker-inference-router-runtime",
     "sagemaker-metrics",

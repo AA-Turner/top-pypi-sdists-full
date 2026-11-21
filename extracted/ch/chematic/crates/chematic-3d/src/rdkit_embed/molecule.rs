@@ -5,7 +5,12 @@ use chematic_core::Molecule;
 use chematic_smiles::RdkitMolView;
 
 mod quality_retry;
-use quality_retry::refine_unfinished_quality_minimum;
+use quality_retry::{refine_unfinished_quality_minimum, stereo_safe_retry};
+mod torsion_search;
+use torsion_search::refine_best_with_torsion_moves;
+#[path = "molecule/ensemble_seed.rs"]
+mod ensemble_seed;
+use ensemble_seed::conformer_seed;
 
 #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
 use rayon::prelude::*;
@@ -344,7 +349,11 @@ pub fn rdkit_embed_initial_molecule(
 /// Bounds, ring information, and experimental torsion preferences are built
 /// once and reused across conformers. Failed conformer attempts are omitted,
 /// matching RDKit's returned conformer-id list; input and setup failures remain
-/// typed errors.
+/// typed errors. Positive seeds retain RDKit's multiplicative schedule.
+/// For seed zero, attempts use `0, 2, 3, ...` to avoid RDKit #9738's repeated
+/// zero seeds (zero and one also alias in the RNG). The first conformer still
+/// matches single-conformer embedding; later zero-seed results intentionally
+/// differ from RDKit 2026.09.1. Distinct seeds do not guarantee distinct shapes.
 pub fn rdkit_embed_multiple_confs(
     mh: &Molecule,
     num_confs: usize,
@@ -395,6 +404,9 @@ fn embed_prepared_multiple_confs(
     let end_index = start_index.checked_add(num_confs).ok_or_else(|| {
         RdkitEmbedError::Unsupported("numConfs exceeds the reproducible seed range".into())
     })?;
+    if num_confs > 0 {
+        conformer_seed(o.random_seed, end_index - 1)?;
+    }
     #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
     let attempts: Vec<_> = (start_index..end_index)
         .into_par_iter()
@@ -463,11 +475,12 @@ pub fn etkdg_embed_multiple_confs_mmff_corrected(
 /// unfinished ones, ordered by energy. At most `num_confs` conformers are
 /// returned. The lowest finite-energy unfinished candidate gets an additional
 /// MMFF pass of at most twice `max_iters` steps after the first two ensembles,
-/// and again after the third ensemble when gradients match. Only a converged,
-/// non-higher-energy and stereo-safe retry is retained.
+/// and again after the third and optional fourth ensembles when gradients
+/// match. Only a converged, non-higher-energy and stereo-safe retry is retained.
 /// The profile spends roughly twice the embedding and MMFF work of the
-/// compatibility API when gradient modes differ, or three times when they do
-/// not, plus up to one or two optional retries respectively.
+/// compatibility API when gradient modes differ. Otherwise it runs three
+/// seed batches and a fourth only when the third improves the best energy by
+/// more than 0.01 kcal/mol. Up to three optional MMFF retries follow.
 pub fn etkdg_embed_multiple_confs_mmff_best_gradient(
     mh: &Molecule,
     num_confs: usize,
@@ -487,12 +500,10 @@ pub fn etkdg_embed_multiple_confs_mmff_best_gradient(
     let compatibility = optimize_mmff_molecule(mh, compatibility, max_iters)?;
     let gradient_differs = corrected_torsion_gradient_can_differ(&prepared);
     if !gradient_differs
-        && (o.random_seed == 0
-            || num_confs
-                .checked_mul(2)
-                .and_then(|count| i32::try_from(count).ok())
-                .and_then(|count| o.random_seed.checked_mul(count))
-                .is_none())
+        && num_confs
+            .checked_mul(2)
+            .and_then(|count| conformer_seed(o.random_seed, count - 1).ok())
+            .is_none()
     {
         return Ok(refine_unfinished_quality_minimum(
             mh,
@@ -537,24 +548,113 @@ pub fn etkdg_embed_multiple_confs_mmff_best_gradient(
     if gradient_differs
         || num_confs
             .checked_mul(3)
-            .and_then(|count| i32::try_from(count).ok())
-            .and_then(|count| o.random_seed.checked_mul(count))
+            .and_then(|count| conformer_seed(o.random_seed, count - 1).ok())
             .is_none()
     {
         return Ok(selected);
     }
+    let before_third = lowest_finite_energy(&selected);
     let third = match embed_prepared_multiple_confs(&prepared, num_confs, num_confs * 2, o, false) {
         Ok(coords) => optimize_mmff_molecule(mh, coords, max_iters),
         Err(_) => return Ok(selected),
     };
     match third {
-        Ok(third) => Ok(refine_unfinished_quality_minimum(
-            mh,
-            select_quality_candidates(selected, third, num_confs),
-            max_iters,
-        )),
+        Ok(third) => {
+            let selected = refine_unfinished_quality_minimum(
+                mh,
+                select_quality_candidates(selected, third, num_confs),
+                max_iters,
+            );
+            let improved = before_third
+                .zip(lowest_finite_energy(&selected))
+                .is_some_and(|(before, after)| after < before - 0.01);
+            let fourth_seed_fits = num_confs
+                .checked_mul(4)
+                .and_then(|count| i32::try_from(count).ok())
+                .and_then(|count| o.random_seed.checked_mul(count))
+                .is_some();
+            if !improved || !fourth_seed_fits {
+                return Ok(selected);
+            }
+            let fourth = match embed_prepared_multiple_confs(
+                &prepared,
+                num_confs,
+                num_confs * 3,
+                o,
+                false,
+            ) {
+                Ok(coords) => optimize_mmff_molecule(mh, coords, max_iters),
+                Err(_) => return Ok(selected),
+            };
+            match fourth {
+                Ok(fourth) => Ok(refine_unfinished_quality_minimum(
+                    mh,
+                    select_quality_candidates(selected, fourth, num_confs),
+                    max_iters,
+                )),
+                Err(_) => Ok(selected),
+            }
+        }
         Err(_) => Ok(selected),
     }
+}
+
+/// Accuracy-oriented follow-up to the quality profile. For the lowest
+/// converged MMFF94 conformer, rotate each of at most twelve strict,
+/// acyclic rotatable bonds by ±120 degrees and minimize the resulting
+/// coordinates for at most `max_iters` steps. If the first pass improves the
+/// minimum, repeat once from the improved geometry so that two torsion moves
+/// can be combined. Only a finite, converged, lower-energy and stereo-safe
+/// result may replace an ensemble member. This adds up to 48 MMFF
+/// minimizations and leaves the compatibility and existing quality profiles
+/// unchanged.
+pub fn etkdg_embed_multiple_confs_mmff_torsion_search(
+    mh: &Molecule,
+    num_confs: usize,
+    o: &RdkitEmbedOptions,
+    max_iters: u32,
+) -> Result<Vec<RdkitMmffConformer>, RdkitEmbedMmffError> {
+    let candidates = etkdg_embed_multiple_confs_mmff_best_gradient(mh, num_confs, o, max_iters)?;
+    Ok(refine_best_with_torsion_moves(mh, candidates, max_iters))
+}
+
+/// Search a larger ETKDG/MMFF94 candidate pool while returning at most
+/// `num_confs` conformers. The candidate count controls the seed batches in
+/// the quality profile; the returned ensemble is ranked by finite energy and
+/// convergence. This is an explicit accuracy-versus-work choice: increasing
+/// `candidate_confs` can lower the minimum but costs more embedding and MMFF
+/// optimizations. The result matches [`etkdg_embed_multiple_confs_mmff_torsion_search`]
+/// when both counts are equal.
+pub fn etkdg_embed_multiple_confs_mmff_torsion_search_with_pool(
+    mh: &Molecule,
+    num_confs: usize,
+    candidate_confs: usize,
+    o: &RdkitEmbedOptions,
+    max_iters: u32,
+) -> Result<Vec<RdkitMmffConformer>, RdkitEmbedMmffError> {
+    if candidate_confs < num_confs {
+        return Err(RdkitEmbedError::Unsupported(
+            "candidate_confs must be at least num_confs".into(),
+        )
+        .into());
+    }
+    if num_confs == 0 {
+        return Ok(Vec::new());
+    }
+    let candidates =
+        etkdg_embed_multiple_confs_mmff_torsion_search(mh, candidate_confs, o, max_iters)?;
+    if candidate_confs == num_confs {
+        return Ok(candidates);
+    }
+    Ok(select_quality_candidates(candidates, Vec::new(), num_confs))
+}
+
+fn lowest_finite_energy(candidates: &[RdkitMmffConformer]) -> Option<f64> {
+    candidates
+        .iter()
+        .map(|candidate| candidate.energy)
+        .filter(|energy| energy.is_finite())
+        .min_by(f64::total_cmp)
 }
 
 fn select_quality_candidates(
@@ -645,8 +745,9 @@ pub fn rdkit_embed_multiple_confs_mmff_diagnostics(
 /// most `retry_candidates` finite, non-converged conformers are ordered by
 /// `(energy, candidate index)` and continued from their current coordinates
 /// for `retry_max_iters` more iterations. A retry is retained only when its
-/// energy is finite and no higher than the initial result, so refinement
-/// cannot make the returned ensemble worse. Candidate order remains stable.
+/// energy is finite and no higher than the initial result, and every declared
+/// stereochemical constraint remains evaluable and satisfied. Candidate order
+/// remains stable.
 pub fn rdkit_embed_multiple_confs_mmff_adaptive(
     mh: &Molecule,
     num_confs: usize,
@@ -671,7 +772,7 @@ pub fn rdkit_embed_multiple_confs_mmff_adaptive(
 ///
 /// This quality-oriented rescue avoids paying the additional MMFF94 budget
 /// for molecules that already have at least one converged candidate. The
-/// retry ordering and replacement rules are otherwise identical to
+/// retry ordering and stereo-safe replacement rules are otherwise identical to
 /// [`rdkit_embed_multiple_confs_mmff_adaptive`].
 pub fn rdkit_embed_multiple_confs_mmff_rescue(
     mh: &Molecule,
@@ -699,7 +800,7 @@ pub fn rdkit_embed_multiple_confs_mmff_rescue(
 /// BFGS gradient test to avoid spending extra work on candidates that are
 /// already close to a stationary point. Candidate ranking remains
 /// `(energy, candidate index)`, and a retry is retained only if its energy is
-/// finite and no higher than the initial result.
+/// finite and no higher than the initial result and declared stereo remains valid.
 #[allow(clippy::too_many_arguments)]
 pub fn rdkit_embed_multiple_confs_mmff_gradient_rescue(
     mh: &Molecule,
@@ -785,7 +886,10 @@ pub fn rdkit_embed_multiple_confs_mmff_gradient_rescue(
         .collect();
 
     for (index, retry) in retries {
-        if retry.energy.is_finite() && retry.energy <= detailed[index].conformer.energy {
+        if retry.energy.is_finite()
+            && retry.energy <= detailed[index].conformer.energy
+            && stereo_safe_retry(mh, &retry.coords)
+        {
             detailed[index].conformer = retry;
         }
     }
@@ -857,7 +961,10 @@ fn rdkit_embed_multiple_confs_mmff_retry_policy(
         .collect();
 
     for (index, retry) in retries {
-        if retry.energy.is_finite() && retry.energy <= optimized[index].energy {
+        if retry.energy.is_finite()
+            && retry.energy <= optimized[index].energy
+            && stereo_safe_retry(mh, &retry.coords)
+        {
             optimized[index] = retry;
         }
     }
@@ -924,12 +1031,7 @@ fn embed_conformer_attempt(
     index: usize,
     corrected_torsion_gradient: bool,
 ) -> Result<Option<Vec<[f64; 3]>>, RdkitEmbedError> {
-    let multiplier = i32::try_from(index + 1).map_err(|_| {
-        RdkitEmbedError::Unsupported("numConfs exceeds the reproducible seed range".into())
-    })?;
-    let seed = o.random_seed.checked_mul(multiplier).ok_or_else(|| {
-        RdkitEmbedError::Unsupported("conformer seed overflows a signed 32-bit integer".into())
-    })?;
+    let seed = conformer_seed(o.random_seed, index)?;
     match embed_prepared_fragments_with(prepared, o, seed, false, corrected_torsion_gradient) {
         Ok(coords) => Ok(Some(coords)),
         Err(RdkitEmbedError::Failed) => Ok(None),
@@ -1216,137 +1318,5 @@ pub fn rdkit_bounds_matrix_with_constraints(
 mod corrected_ensemble_tests;
 
 #[cfg(test)]
-mod input_diagnostic_boundary_tests {
-    use super::*;
-
-    #[test]
-    fn embedding_rejects_empty_graphs_and_unsupported_modes_with_context() {
-        let empty = chematic_core::MoleculeBuilder::new().build();
-        let error = rdkit_embed_molecule(&empty, &RdkitEmbedOptions::default()).unwrap_err();
-        assert_eq!(
-            error,
-            RdkitEmbedError::RdkitException("molecule has no atoms".into())
-        );
-        assert!(error.to_string().contains("molecule has no atoms"));
-        let molecule = chematic_chem::add_hydrogens(&chematic_smiles::parse("CCO").unwrap());
-        let options = RdkitEmbedOptions {
-            use_basic_knowledge: false,
-            ..RdkitEmbedOptions::default()
-        };
-        let error = rdkit_embed_molecule(&molecule, &options).unwrap_err();
-        assert!(matches!(error, RdkitEmbedError::Unsupported(_)));
-        assert!(
-            error
-                .to_string()
-                .contains("plain ETDG (no basic knowledge)")
-        );
-        assert_eq!(molecule.atom_count(), 9);
-    }
-
-    #[test]
-    fn embedding_error_variants_keep_actionable_context() {
-        assert_eq!(
-            RdkitEmbedError::Failed.to_string(),
-            "RDKit embedding failed (EmbedMolecule returns -1)"
-        );
-        assert_eq!(
-            RdkitEmbedError::from(BoundsInvariant("bad bounds")).to_string(),
-            "RDKit embedding: RDKit raises: bad bounds"
-        );
-        assert!(
-            RdkitEmbedError::from(EmbedError::BadDirection)
-                .to_string()
-                .contains("BadDirection")
-        );
-        assert!(
-            RdkitEmbedError::from(InternalCoordinateConstraintError::TriangleSmoothingFailed)
-                .to_string()
-                .contains("invalid internal-coordinate constraint")
-        );
-        assert_eq!(
-            RdkitEmbedMmffError::ForceField("missing parameters".into()).to_string(),
-            "RDKit-compatible MMFF94: missing parameters"
-        );
-        assert_eq!(
-            RdkitEmbedMmffError::from(RdkitEmbedError::Failed).to_string(),
-            RdkitEmbedError::Failed.to_string()
-        );
-    }
-
-    #[test]
-    fn ensemble_boundaries_do_not_construct_unrequested_conformers() {
-        let molecule = chematic_chem::add_hydrogens(&chematic_smiles::parse("CCO").unwrap());
-        let options = RdkitEmbedOptions::default();
-        assert!(
-            rdkit_embed_multiple_confs(&molecule, 0, &options)
-                .unwrap()
-                .is_empty()
-        );
-        assert!(
-            rdkit_embed_multiple_confs_mmff(&molecule, 0, &options, 50)
-                .unwrap()
-                .is_empty()
-        );
-        assert!(
-            rdkit_embed_multiple_confs_mmff_diagnostics(&molecule, 0, &options, 50)
-                .unwrap()
-                .is_empty()
-        );
-        assert!(
-            rdkit_embed_multiple_confs_mmff_adaptive(&molecule, 0, &options, 5, 5, 1)
-                .unwrap()
-                .is_empty()
-        );
-        assert!(
-            rdkit_embed_multiple_confs_mmff_rescue(&molecule, 0, &options, 5, 5, 1)
-                .unwrap()
-                .is_empty()
-        );
-        let error = rdkit_embed_multiple_confs_mmff_gradient_rescue(
-            &molecule,
-            0,
-            &options,
-            5,
-            5,
-            1,
-            f64::NAN,
-        )
-        .unwrap_err();
-        assert!(error.to_string().contains("finite and non-negative"));
-        let error =
-            rdkit_embed_multiple_confs_mmff_gradient_rescue(&molecule, 0, &options, 5, 5, 1, -0.1);
-        assert!(error.unwrap_err().to_string().contains("non-negative"));
-
-        let negative_seed = RdkitEmbedOptions {
-            random_seed: -1,
-            ..options.clone()
-        };
-        assert!(
-            rdkit_embed_molecule(&molecule, &negative_seed)
-                .unwrap_err()
-                .to_string()
-                .contains("randomSeed")
-        );
-    }
-
-    #[test]
-    fn plain_distance_geometry_and_stereo_discovery_are_explicit() {
-        let molecule =
-            chematic_chem::add_hydrogens(&chematic_smiles::parse("C[C@H](F)Cl.C=C=C").unwrap());
-        let view = chematic_smiles::rdkit_mol_view(&molecule).unwrap();
-        let (chiral, tetrahedral) = find_chiral_sets(&view);
-        assert!(!chiral.is_empty());
-        assert!(tetrahedral.is_empty());
-        let (ends, stereo) = find_double_bonds(&view);
-        assert!(!ends.is_empty());
-        assert!(stereo.is_empty());
-
-        let plain = RdkitEmbedOptions {
-            use_exp_torsion_angle_prefs: false,
-            use_basic_knowledge: false,
-            ..RdkitEmbedOptions::default()
-        };
-        let methane = chematic_chem::add_hydrogens(&chematic_smiles::parse("C").unwrap());
-        assert_eq!(rdkit_embed_molecule(&methane, &plain).unwrap().len(), 5);
-    }
-}
+#[path = "molecule/input_diagnostic_boundary_tests.rs"]
+mod input_diagnostic_boundary_tests;

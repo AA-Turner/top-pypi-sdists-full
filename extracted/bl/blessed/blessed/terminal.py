@@ -330,8 +330,7 @@ class Terminal():
         self._ambiguous_width_probed: bool = False
 
         #: Normalized terminal software name for python wcwidth correction tables.
-        #: ``True`` when unknown, so wcwidth reads ``TERM_PROGRAM`` and ``TERM`` itself.
-        self.term_program: Union[bool, str] = True
+        self.term_program: str = ''
         self._term_program_probed: bool = False
         self.detect_term_program()
 
@@ -1135,10 +1134,8 @@ class Terminal():
         # >  u7   cursor position request (equiv. to VT100/ANSI/ECMA-48 DSR 6)
         # >  u6   cursor position report (equiv. to ANSI/ECMA-48 CPR)
 
-        match = self._query_response(
-            self.u7 or '\x1b[6n', self.caps['cursor_report'].re_compiled, timeout)
-
-        if match:
+        if (match := self._query_response(
+                self.u7 or '\x1b[6n', self.caps['cursor_report'].re_compiled, timeout)):
             # return matching sequence response, the cursor location.
             #
             # CPR always reports 1-based coordinates (row 1, column 1).  All terminals published by
@@ -1186,8 +1183,8 @@ class Terminal():
         """
         if bits not in (8, 16):
             raise ValueError(f"bits must be 8 or 16, got {bits}")
-        match = self._query_with_boundary('\x1b]10;?\x07', RE_GET_FGCOLOR_RESPONSE, timeout)
-        if not match:
+        if not (match := self._query_with_boundary(
+                '\x1b]10;?\x07', RE_GET_FGCOLOR_RESPONSE, timeout)):
             return (-1, -1, -1)
         return tuple(xparse_color(val, bits=bits) for val in match.groups())
 
@@ -1226,8 +1223,8 @@ class Terminal():
         """
         if bits not in (8, 16):
             raise ValueError(f"bits must be 8 or 16, got {bits}")
-        match = self._query_with_boundary('\x1b]11;?\x07', RE_GET_BGCOLOR_RESPONSE, timeout)
-        if not match:
+        if not (match := self._query_with_boundary(
+                '\x1b]11;?\x07', RE_GET_BGCOLOR_RESPONSE, timeout)):
             return (-1, -1, -1)
         return tuple(xparse_color(val, bits=bits) for val in match.groups())
 
@@ -1319,12 +1316,10 @@ class Terminal():
         if self._device_attributes_cache is not None and not force:
             return self._device_attributes_cache
 
-        match = self._query_with_boundary(
-            self.u9 or '\x1b[c',
-            (DeviceAttribute.RE_RESPONSE, DeviceAttribute.RE_RESPONSE_CTERM),
-            timeout)
-
-        if match is None:
+        if (match := self._query_with_boundary(
+                self.u9 or '\x1b[c',
+                (DeviceAttribute.RE_RESPONSE, DeviceAttribute.RE_RESPONSE_CTERM),
+                timeout)) is None:
             self._device_attributes_first_query_failed = True
             return None
 
@@ -1377,9 +1372,8 @@ class Terminal():
         # Build and send query sequence and expected response pattern
         query = '\x1b[>q'
 
-        match = self._query_with_boundary(query, _RE_GET_SOFTWARE_VERSION_RESPONSE, timeout)
-
-        if match is not None:
+        if (match := self._query_with_boundary(
+                query, _RE_GET_SOFTWARE_VERSION_RESPONSE, timeout)) is not None:
             # parse, cache, and return the XTVERSION response
             self._software_version_cache = SoftwareVersion.from_match(match)
             return self._software_version_cache
@@ -1500,55 +1494,60 @@ class Terminal():
     def detect_term_program(
             self,
             timeout: float = TERMINAL_QUERY_TIMEOUT_SECONDS,
-            force: bool = False) -> Union[bool, str]:
+            force: bool = False) -> str:
         r"""
         Detect the terminal software name applied to python wcwidth correction tables.
 
         :arg float timeout: Timeout in seconds to await an XTVERSION response.
         :arg bool force: Detect again, bypassing the cache.
-        :rtype: bool or str
-        :returns: Normalized terminal name, or ``True`` when unknown, so wcwidth reads the
-            ``TERM_PROGRAM`` and ``TERM`` environment values itself.
+        :rtype: str
+        :returns: Terminal name, wcwidth alias, or an empty string when unknown.
 
-        A non-empty ``TERM_PROGRAM`` environment value takes precedence, and a ``TERM`` that
-        names its terminal is left to wcwidth's own environment lookup, neither makes an
-        inquiry.  An XTVERSION query is made otherwise, identifying terminals that report an
-        uninformative ``TERM=xterm``, such as 'mlterm' and 'putty'.
+        A non-empty ``TERM_PROGRAM`` environment value or a unique ``TERM`` that matches wcwidth
+        other than 'xterm' returns that value. Otherwise, an in-band XTVERSION query is made and its
+        software name is returned if responded.
 
-        The result is cached, assigned to :attr:`term_program`, and returned, and used
-        automatically by subsequent alignment methods, :meth:`length`, :meth:`wrap`,
-        :meth:`ljust`, :meth:`rjust`, and :meth:`center`.
+        The result is cached, assigned to :attr:`term_program`, and used automatically by width or
+        alignment methods, :meth:`length`, :meth:`wrap`, :meth:`ljust`, :meth:`rjust`, and
+        :meth:`center`.
 
-        When :attr:`is_a_tty` is False, no sequences are transmitted or response awaited, and
-        the current value is returned without inquiry, and without caching, so that a terminal
-        attached after initialization, such as a remote stream, may be inquired by a later call.
+        When :attr:`is_a_tty` or :attr:`does_styling` is False, or no keyboard is available,
+        XTVERSION inquiries are not made and timeout does not apply, and the result is not cached.
         """
         if not force and self._term_program_probed:
             return self.term_program
 
+        # TERM_PROGRAM is highest precedence even though it is sometimes wrong, for example when
+        # launching a terminal without TERM_PROGRAM from another term where TERM_PROGRAM is defined.
+        # Environment variables are given highest precedence, for determinism like automatic tests.
         version = self._software_version_from_env()
         if version is not None:
             self.term_program = version.name
             self._term_program_probed = True
             return self.term_program
 
+        # TERM is then checked for "uniqueness", many modern terminal emulators also publish their
+        # own terminfo files. Note that a TERM equal to 'xterm' is not authoritative here, only a
+        # subsequent XTVERSION query can distinguish a true 'xterm' from its impostors, like mlterm
+        # or putty, which use TERM=xterm.
         term = os.environ.get('TERM', '').strip().lower()
+        if term in list_term_programs():
+            self.term_program = term
+            if term != 'xterm':
+                self._term_program_probed = True
+                return self.term_program
 
-        # TERM=xterm identification is non-authoritative for terminal identification. subsequent
-        # XTVERSION query can identify 'xterm' or its imposters, 'mlterm' and 'putty'.
-        if term != 'xterm' and term in list_term_programs():
-            self.term_program = True
-            self._term_program_probed = True
-            return self.term_program
-
+        # XTVERSION: when the terminal is interactive, query using an in-band protocol,
+        # this is the most authoritative and trusted source where the terminal self-identifies. This
+        # library does not attempt ENQ identification, known only to identify PuTTY, Extraterm, and
+        # rxvt.
         if not self.is_a_tty or not self.does_styling or self._keyboard_fd is None:
             return self.term_program
 
         version = self.get_software_version(timeout=timeout)
         if version is not None and version.name:
             self.term_program = version.name
-        else:
-            self.term_program = True
+
         self._term_program_probed = True
         return self.term_program
 
@@ -1637,10 +1636,8 @@ class Terminal():
         query = f'\x1b[?{int(mode):d}$p'
         response_pattern = re.compile(f'\x1b\\[\\?{int(mode):d};([0-4])\\$y')
 
-        match = self._query_with_boundary(query, response_pattern, timeout)
-
         # invalid or no response (timeout or not a TTY)
-        if match is None:
+        if (match := self._query_with_boundary(query, response_pattern, timeout)) is None:
             # If not a TTY, _query_response() returned None immediately
             if not self.is_a_tty:
                 return DecModeResponse(mode, DecModeResponse.NOT_QUERIED)
@@ -2279,11 +2276,10 @@ class Terminal():
         if self._iterm2_capabilities_cache is not None and not force:
             return self._iterm2_capabilities_cache
 
-        match = self._query_with_boundary(
-            '\x1b]1337;Capabilities\x07',
-            _RE_ITERM2_CAPABILITIES_RESPONSE,
-            timeout)
-        if match:
+        if (match := self._query_with_boundary(
+                '\x1b]1337;Capabilities\x07',
+                _RE_ITERM2_CAPABILITIES_RESPONSE,
+                timeout)):
             features = ITerm2Capabilities.parse_feature_string(
                 match.group(1))
             result = ITerm2Capabilities(
@@ -2440,9 +2436,8 @@ class Terminal():
             supported, shape = self._kitty_pointer_shapes_result
             return shape if supported else None
 
-        match = self._query_with_boundary(
-            '\x1b]22;?__current__\x1b\\', _RE_KITTY_POINTER, timeout)
-        if match:
+        if (match := self._query_with_boundary(
+                '\x1b]22;?__current__\x1b\\', _RE_KITTY_POINTER, timeout)):
             shape = match.group(1)
             self._kitty_pointer_shapes_result = (True, shape)
             return shape
@@ -2527,9 +2522,8 @@ class Terminal():
         :rtype: str or None
         :returns: The clipboard text, or ``None`` if denied or timeout is reached.
         """
-        match = self._query_response(
-            f'\x1b]52;{selection};?\x07', _RE_OSC52_RESPONSE.pattern, timeout)
-        if match is None:
+        if (match := self._query_response(
+                f'\x1b]52;{selection};?\x07', _RE_OSC52_RESPONSE.pattern, timeout)) is None:
             return None
         b64_data = match.group(1)
         if not b64_data:
@@ -2563,9 +2557,8 @@ class Terminal():
         if self._color_scheme_supported is False and not force:
             return None
 
-        match = self._query_with_boundary(
-            '\x1b[?996n', _RE_COLOR_SCHEME_MODE_RESPONSE, timeout)
-        if match:
+        if (match := self._query_with_boundary(
+                '\x1b[?996n', _RE_COLOR_SCHEME_MODE_RESPONSE, timeout)):
             self._color_scheme_supported = True
             ps = match.group(1)
             return 'dark' if ps == '1' else 'light'
@@ -2642,8 +2635,8 @@ class Terminal():
             return None
 
         query = f'\x1bP$q{setting_id}\x1b\\'
-        match = self._query_with_boundary(query, _RE_DECRQSS_RESPONSE, timeout)
-        if match is not None and match.group(1) == '1':
+        if (match := self._query_with_boundary(
+                query, _RE_DECRQSS_RESPONSE, timeout)) is not None and match.group(1) == '1':
             pt = match.group(2)
             if pt.endswith(setting_id):
                 return pt[:-len(setting_id)]
@@ -3125,9 +3118,7 @@ class Terminal():
         # Query XTWINOPS 14t for window size: ESC[14t
         # Response: ESC[4;<height>;<width>t - return (height, width)
         query = '\x1b[14t'
-        match = self._query_with_boundary(query, _RE_XTWINOPS_14_RESPONSE, timeout)
-
-        if match is None:
+        if (match := self._query_with_boundary(query, _RE_XTWINOPS_14_RESPONSE, timeout)) is None:
             return -1, -1
 
         # Response is height, width - return as-is
@@ -3137,9 +3128,7 @@ class Terminal():
         # Query XTWINOPS 16t for cell size: ESC[16t
         # Response: ESC[6;<height>;<width>t - return (height, width)
         query = '\x1b[16t'
-        match = self._query_with_boundary(query, _RE_XTWINOPS_16_RESPONSE, timeout)
-
-        if match is None:
+        if (match := self._query_with_boundary(query, _RE_XTWINOPS_16_RESPONSE, timeout)) is None:
             return -1, -1
 
         # Response is height, width - return as-is
@@ -3149,9 +3138,8 @@ class Terminal():
         # Query XTSMGRAPHICS for sixel geometry: ESC[?2;1;0S
         # Response: ESC[?2;0;<width>;<height>S - return (height, width)
         query = '\x1b[?2;1;0S'
-        match = self._query_with_boundary(query, _RE_XTSMGRAPHICS_RESPONSE, timeout)
-
-        if match is None:
+        if (match := self._query_with_boundary(
+                query, _RE_XTSMGRAPHICS_RESPONSE, timeout)) is None:
             return -1, -1
 
         # Response is width, height - swap to return height, width
@@ -3168,9 +3156,8 @@ class Terminal():
         # Query XTSMGRAPHICS for color registers: ESC[?1;1;0S
         # Response: ESC[?1;0;<colors>S
         query = '\x1b[?1;1;0S'
-        match = self._query_with_boundary(query, _RE_XTSMGRAPHICS_COLORS_RESPONSE, timeout)
-
-        if match is None:
+        if (match := self._query_with_boundary(
+                query, _RE_XTSMGRAPHICS_COLORS_RESPONSE, timeout)) is None:
             return -1
 
         return int(match.group(1))
@@ -3212,11 +3199,9 @@ class Terminal():
             return None
 
         response_pattern = re.compile(r'\x1b\[\?([0-9]*)u')
-        match = self._query_with_boundary(
-            '\x1b[?u', response_pattern, timeout,
-            requires_styling=False)
-
-        if match is None:
+        if (match := self._query_with_boundary(
+                '\x1b[?u', response_pattern, timeout,
+                requires_styling=False)) is None:
             if self.is_a_tty:
                 self._kitty_kb_first_query_failed = True
             return None
@@ -3881,7 +3866,7 @@ class Terminal():
             width = self.width
         return wcwidth_ljust(text, width.__index__(), fillchar,
                              ambiguous_width=self.ambiguous_width,
-                             term_program=self.term_program)
+                             term_program=(self.term_program or True))
 
     def rjust(self, text: str, width: Optional[SupportsIndex] = None, fillchar: str = ' ') -> str:
         """
@@ -3898,7 +3883,7 @@ class Terminal():
             width = self.width
         return wcwidth_rjust(text, width.__index__(), fillchar,
                              ambiguous_width=self.ambiguous_width,
-                             term_program=self.term_program)
+                             term_program=(self.term_program or True))
 
     def center(self, text: str, width: Optional[SupportsIndex] = None, fillchar: str = ' ') -> str:
         """
@@ -3915,7 +3900,7 @@ class Terminal():
             width = self.width
         return wcwidth_center(text, width.__index__(), fillchar,
                               ambiguous_width=self.ambiguous_width,
-                              term_program=self.term_program)
+                              term_program=(self.term_program or True))
 
     def text_sized(
         self,
@@ -4013,8 +3998,8 @@ class Terminal():
         Return a window of ``text`` spanning display columns ``start`` to ``end``.
 
         Terminal sequences are retained, wide characters split at a boundary are
-        replaced by ``fillchar``, and horizontal cursor movement is expanded by
-        :meth:`Sequence.padd`.  The detected :attr:`ambiguous_width` and
+        replaced by ``fillchar``, and horizontal cursor movement is interpreted by
+        :func:`wcwidth.clip`. The detected :attr:`ambiguous_width` and
         :attr:`term_program` are applied.
 
         :arg str text: Text to clip, may contain terminal sequences
@@ -4074,7 +4059,7 @@ class Terminal():
             *0*.
         """
         return wcwidth_width(text, ambiguous_width=self.ambiguous_width,
-                             term_program=self.term_program)
+                             term_program=(self.term_program or True))
 
     def strip(self, text: str, chars: Optional[str] = None) -> str:
         r"""
@@ -4179,7 +4164,7 @@ class Terminal():
                 f"invalid width {width!r}({type(width)!r}) (must be integer > 0)"
             )
         kwargs.setdefault('ambiguous_width', self.ambiguous_width)
-        kwargs.setdefault('term_program', self.term_program)
+        kwargs.setdefault('term_program', self.term_program or True)
         preserve_whitespace = not kwargs.get('drop_whitespace', True)
         lines: List[str] = []
         for line in text.splitlines():

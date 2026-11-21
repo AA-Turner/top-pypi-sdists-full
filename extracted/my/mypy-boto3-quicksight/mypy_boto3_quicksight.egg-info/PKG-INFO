@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-quicksight
-Version: 1.44.0
-Summary: Type annotations for boto3 QuickSight 1.44.0 service generated with mypy-boto3-builder 8.12.0
+Version: 1.44.9
+Summary: Type annotations for boto3 QuickSight 1.44.9 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -42,7 +42,7 @@ Dynamic: license-file
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 QuickSight 1.44.0](https://pypi.org/project/boto3/)
+Type annotations for [boto3 QuickSight 1.44.9](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -104,7 +104,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.44.0' mypy-boto3-builder`
+   `uvx --with 'boto3==1.44.9' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `QuickSight` service.
 4. Use provided commands to install generated packages.
@@ -340,6 +340,7 @@ from mypy_boto3_quicksight import QuickSightClient
 from mypy_boto3_quicksight.paginator import (
     DescribeFolderPermissionsPaginator,
     DescribeFolderResolvedPermissionsPaginator,
+    ListAccessControlApplicationsPaginator,
     ListActionConnectorsPaginator,
     ListAnalysesPaginator,
     ListApprovalPoliciesPaginator,
@@ -361,11 +362,15 @@ from mypy_boto3_quicksight.paginator import (
     ListGroupsPaginator,
     ListIAMPolicyAssignmentsForUserPaginator,
     ListIAMPolicyAssignmentsPaginator,
+    ListInboundConnectorApplicationAssociationsPaginator,
+    ListInboundConnectorsPaginator,
     ListIngestionsPaginator,
+    ListKnowledgeBaseRefreshSchedulesPaginator,
     ListKnowledgeBasesPaginator,
     ListLimitsProfilesPaginator,
     ListNamespacesPaginator,
     ListOAuthClientApplicationsPaginator,
+    ListPrincipalsForPolicyPaginator,
     ListRoleMembershipsPaginator,
     ListTemplateAliasesPaginator,
     ListTemplateVersionsPaginator,
@@ -398,6 +403,9 @@ describe_folder_permissions_paginator: DescribeFolderPermissionsPaginator = clie
 )
 describe_folder_resolved_permissions_paginator: DescribeFolderResolvedPermissionsPaginator = (
     client.get_paginator("describe_folder_resolved_permissions")
+)
+list_access_control_applications_paginator: ListAccessControlApplicationsPaginator = (
+    client.get_paginator("list_access_control_applications")
 )
 list_action_connectors_paginator: ListActionConnectorsPaginator = client.get_paginator(
     "list_action_connectors"
@@ -442,7 +450,16 @@ list_iam_policy_assignments_for_user_paginator: ListIAMPolicyAssignmentsForUserP
 list_iam_policy_assignments_paginator: ListIAMPolicyAssignmentsPaginator = client.get_paginator(
     "list_iam_policy_assignments"
 )
+list_inbound_connector_application_associations_paginator: ListInboundConnectorApplicationAssociationsPaginator = client.get_paginator(
+    "list_inbound_connector_application_associations"
+)
+list_inbound_connectors_paginator: ListInboundConnectorsPaginator = client.get_paginator(
+    "list_inbound_connectors"
+)
 list_ingestions_paginator: ListIngestionsPaginator = client.get_paginator("list_ingestions")
+list_knowledge_base_refresh_schedules_paginator: ListKnowledgeBaseRefreshSchedulesPaginator = (
+    client.get_paginator("list_knowledge_base_refresh_schedules")
+)
 list_knowledge_bases_paginator: ListKnowledgeBasesPaginator = client.get_paginator(
     "list_knowledge_bases"
 )
@@ -452,6 +469,9 @@ list_limits_profiles_paginator: ListLimitsProfilesPaginator = client.get_paginat
 list_namespaces_paginator: ListNamespacesPaginator = client.get_paginator("list_namespaces")
 list_o_auth_client_applications_paginator: ListOAuthClientApplicationsPaginator = (
     client.get_paginator("list_o_auth_client_applications")
+)
+list_principals_for_policy_paginator: ListPrincipalsForPolicyPaginator = client.get_paginator(
+    "list_principals_for_policy"
 )
 list_role_memberships_paginator: ListRoleMembershipsPaginator = client.get_paginator(
     "list_role_memberships"
@@ -501,10 +521,10 @@ Full list of `QuickSight` Literals can be found in
 [docs](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/literals/).
 
 ```python
-from mypy_boto3_quicksight.literals import ActionConnectorErrorTypeType
+from mypy_boto3_quicksight.literals import AccessControlApplicationAuthenticationTypeType
 
 
-def check_value(value: ActionConnectorErrorTypeType) -> bool: ...
+def check_value(value: AccessControlApplicationAuthenticationTypeType) -> bool: ...
 ```
 
 <a id="type-definitions"></a>

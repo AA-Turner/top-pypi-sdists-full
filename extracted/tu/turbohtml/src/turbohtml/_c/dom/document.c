@@ -5,12 +5,10 @@
 #include "dom/nodes.h"
 
 #include <stdbool.h>
-#if defined(__SSE2__) || defined(_M_X64)
-#include <emmintrin.h>
-#endif
 
 #include "encoding/encoding.h"
 #include "encoding/decode.h"
+#include "encoding/encode.h"
 #include "encoding/detect.h"
 #include "encoding/language.h"
 #include "url/url.h"
@@ -194,11 +192,28 @@ static int url_web_special_base(PyObject *base) {
 /* Encode the resolved URL's path, query, fragment, and userinfo brackets, preserving the raw host. */
 static PyObject *url_percent_encode_slow(PyObject *url, int check_encoded_dot);
 
+static const unsigned char URL_PERCENT_SAFE[256] = {
+    ['a'] = 1, ['b'] = 1, ['c'] = 1, ['d'] = 1, ['e'] = 1, ['f'] = 1, ['g'] = 1, ['h'] = 1, ['i'] = 1, ['j'] = 1,
+    ['k'] = 1, ['l'] = 1, ['m'] = 1, ['n'] = 1, ['o'] = 1, ['p'] = 1, ['q'] = 1, ['r'] = 1, ['s'] = 1, ['t'] = 1,
+    ['u'] = 1, ['v'] = 1, ['w'] = 1, ['x'] = 1, ['y'] = 1, ['z'] = 1, ['A'] = 1, ['B'] = 1, ['C'] = 1, ['D'] = 1,
+    ['E'] = 1, ['F'] = 1, ['G'] = 1, ['H'] = 1, ['I'] = 1, ['J'] = 1, ['K'] = 1, ['L'] = 1, ['M'] = 1, ['N'] = 1,
+    ['O'] = 1, ['P'] = 1, ['Q'] = 1, ['R'] = 1, ['S'] = 1, ['T'] = 1, ['U'] = 1, ['V'] = 1, ['W'] = 1, ['X'] = 1,
+    ['Y'] = 1, ['Z'] = 1, ['0'] = 1, ['1'] = 1, ['2'] = 1, ['3'] = 1, ['4'] = 1, ['5'] = 1, ['6'] = 1, ['7'] = 1,
+    ['8'] = 1, ['9'] = 1, ['-'] = 1, ['.'] = 1, ['_'] = 1, ['~'] = 1, [':'] = 1, ['/'] = 1, ['?'] = 1, ['&'] = 1,
+    ['='] = 1, ['#'] = 1, ['%'] = 1,
+};
+
 static PyObject *url_percent_encode(PyObject *url, int check_encoded_dot) {
-    static const char ASCII_SAFE[] = TH_URL_ALPHA "0123456789-._~:/?&=#%";
-    if (check_encoded_dot == 0 && PyUnicode_IS_ASCII(url) &&
-        (Py_ssize_t)strspn((const char *)PyUnicode_1BYTE_DATA(url), ASCII_SAFE) == PyUnicode_GET_LENGTH(url)) {
-        return Py_NewRef(url);
+    if (check_encoded_dot == 0 && PyUnicode_IS_ASCII(url)) {
+        const Py_UCS1 *bytes = PyUnicode_1BYTE_DATA(url);
+        Py_ssize_t length = PyUnicode_GET_LENGTH(url);
+        Py_ssize_t index = 0;
+        while (index < length && URL_PERCENT_SAFE[bytes[index]]) {
+            index++;
+        }
+        if (index == length) {
+            return Py_NewRef(url);
+        }
     }
     return url_percent_encode_slow(url, check_encoded_dot);
 }
@@ -254,6 +269,7 @@ static PyObject *url_percent_encode_slow(PyObject *url, int check_encoded_dot) {
     char *out = PyMem_Malloc((size_t)len * 3 + 1); /* every byte encodes to at most "%HH" */
     if (out == NULL) {     /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
         Py_DECREF(scalar); /* GCOVR_EXCL_LINE: allocation-failure path */
+        PyErr_NoMemory();  /* GCOVR_EXCL_LINE: allocation-failure path */
         return NULL;       /* GCOVR_EXCL_LINE: allocation-failure path */
     }
     Py_ssize_t userinfo_end = -1;
@@ -800,6 +816,24 @@ static int url_simple_path_byte(unsigned char ch) {
     return (unsigned)((ch | 0x20) - 'a') < 26 || (unsigned)(ch - '0') < 10 || ch == '-' || ch == '_';
 }
 
+/* Whether bytes[start:end] is a path the URL parser keeps as written: plain segment bytes and dots between slashes,
+   with no segment that is "." or "..", which the parser would collapse. */
+static int url_simple_path(const char *bytes, Py_ssize_t start, Py_ssize_t end) {
+    Py_ssize_t segment = start;
+    for (Py_ssize_t index = start; index <= end; index++) {
+        if (index == end || bytes[index] == '/') {
+            Py_ssize_t length = index - segment;
+            if (length > 0 && length < 3 && bytes[segment] == '.' && bytes[index - 1] == '.') {
+                return 0;
+            }
+            segment = index + 1;
+        } else if (bytes[index] != '.' && !url_simple_path_byte((unsigned char)bytes[index])) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
 static PyObject *url_resolve_simple_web(PyObject *base, PyObject *target) {
     if (!PyUnicode_IS_ASCII(base) || !PyUnicode_IS_ASCII(target) || PyUnicode_GET_LENGTH(target) == 0) {
         return NULL;
@@ -810,24 +844,19 @@ static PyObject *url_resolve_simple_web(PyObject *base, PyObject *target) {
     }
     const char *base_bytes = (const char *)PyUnicode_1BYTE_DATA(base);
     Py_ssize_t base_len = PyUnicode_GET_LENGTH(base);
-    Py_ssize_t last_slash = authority_end;
-    for (Py_ssize_t index = authority_end + 1; index < base_len; index++) {
-        unsigned char ch = (unsigned char)base_bytes[index];
-        if (ch != '/' && !url_simple_path_byte(ch)) {
-            return NULL;
-        }
-        if (ch == '/') {
-            last_slash = index;
-        }
+    if (!url_simple_path(base_bytes, authority_end + 1, base_len)) {
+        return NULL;
+    }
+    Py_ssize_t last_slash = base_len - 1;
+    while (base_bytes[last_slash] != '/') {
+        last_slash--;
     }
     const char *target_bytes = (const char *)PyUnicode_1BYTE_DATA(target);
     Py_ssize_t target_len = PyUnicode_GET_LENGTH(target);
     int rooted = target_bytes[0] == '/';
-    for (Py_ssize_t index = rooted; index < target_len; index++) {
-        unsigned char ch = (unsigned char)target_bytes[index];
-        if (!url_simple_path_byte(ch)) {
-            return NULL;
-        }
+    /* a leading "//" starts an authority */
+    if ((rooted && target_len > 1 && target_bytes[1] == '/') || !url_simple_path(target_bytes, rooted, target_len)) {
+        return NULL;
     }
     Py_ssize_t prefix_len = rooted ? authority_end : last_slash + 1;
     PyObject *result = PyUnicode_New(prefix_len + target_len, 127);
@@ -1279,9 +1308,35 @@ PyObject *th_url_base_resolve(PyObject *href, PyObject *fallback) {
     return result;
 }
 
+/* Whether the URL parser would hand `url` back unchanged: a lower-case web scheme and host
+   th_url_document_web_authority accepts, every host label non-empty and none of them Punycode the parser would decode,
+   and a path of plain segment bytes. A caller's own base URL is usually like this, and skipping the parse halves
+   base_url(). */
+static int url_already_canonical_web(PyObject *url) {
+    Py_ssize_t authority_end = th_url_document_web_authority(url);
+    if (authority_end < 0) {
+        return 0;
+    }
+    const char *bytes = (const char *)PyUnicode_1BYTE_DATA(url);
+    Py_ssize_t length = PyUnicode_GET_LENGTH(url);
+    Py_ssize_t label = (Py_ssize_t)((const char *)memchr(bytes, ':', (size_t)authority_end) - bytes) + 3;
+    for (Py_ssize_t index = label; index <= authority_end; index++) {
+        if (index == authority_end || bytes[index] == '.') {
+            if (index == label || (index - label >= 4 && memcmp(bytes + label, "xn--", 4) == 0)) {
+                return 0;
+            }
+            label = index + 1;
+        }
+    }
+    return url_simple_path(bytes, authority_end + 1, length);
+}
+
 /* The URL standard's parse of an absolute base, with no HTML base policy applied: NULL with a ValueError when the base
    does not parse, which a special scheme without a host does not. */
 PyObject *th_url_base_parse(PyObject *href) {
+    if (url_already_canonical_web(href)) {
+        return Py_NewRef(href);
+    }
     PyObject *input = th_url_parser_input(href);
     if (input == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
         return NULL;     /* GCOVR_EXCL_LINE: allocation-failure path */
@@ -1627,13 +1682,22 @@ static void handle_dealloc(PyObject *self) {
     PyTypeObject *type = Py_TYPE(self);
     HandleObject *handle = (HandleObject *)self;
     handle_clear_caches(handle);
-    PyMem_Free(handle->index_offsets);
-    PyMem_Free(handle->index_nodes);
-    PyMem_Free(handle->hash_overrides);
+    /* most handles never build these, so the allocator is called only for what is there */
+    if (handle->index_offsets != NULL) {
+        PyMem_Free(handle->index_offsets);
+    }
+    if (handle->index_nodes != NULL) {
+        PyMem_Free(handle->index_nodes);
+    }
+    if (handle->hash_overrides != NULL) {
+        PyMem_Free(handle->hash_overrides);
+    }
     if (handle->bindings != handle->inline_bindings) {
         PyMem_Free(handle->bindings);
     }
-    PyMem_Free(handle->binding_overflow);
+    if (handle->binding_overflow != NULL) {
+        PyMem_Free(handle->binding_overflow);
+    }
     path_id_map_free(handle->path_ids);
     path_positions_free(handle->path_positions);
     path_positions_free(handle->path_child_positions);
@@ -1825,7 +1889,7 @@ static PyObject *parse_bytes(module_state *state, PyObject *markup, const char *
             /* opt-in content-based detection, strictly after the spec sniffing steps. parse() takes
                bytes, never the URL they came from, so no TLD is available to hint with. */
             th_detect_scores scores;
-            entry = th_encoding_detect(bytes, len, TH_TLD_GENERIC, &scores);
+            entry = th_encoding_detect(bytes, len, TH_TLD_GENERIC, 1, &scores);
             if (PyErr_Occurred()) {      /* GCOVR_EXCL_BR_LINE: detection allocation failure */
                 PyBuffer_Release(&view); /* GCOVR_EXCL_LINE: allocation-failure path */
                 return NULL;             /* GCOVR_EXCL_LINE: allocation-failure path */
@@ -1947,6 +2011,44 @@ static PyObject *detect_result(const char *winner, int certain, const th_detect_
         PyList_SET_ITEM(ranked, index, pair);
     }
     return Py_BuildValue("(zONO)", winner, certain ? Py_True : Py_False, ranked, bom ? Py_True : Py_False);
+}
+
+/* The answer for a settled detection -- a certain one, or one with no winner -- under the default options. Such an
+   answer carries no candidate scores, so (winner, certain, bom) fixes it, and winner is always one of the static
+   label strings, so its address stands in for it. `cache` maps that key to the shim's match object and `settle`
+   builds a missing one; the result is the match, or NULL with *handled 0 when the detection is not settled. */
+static PyObject *detect_settled(const char *winner, int certain, int bom, PyObject *cache, PyObject *settle,
+                                int *handled) {
+    *handled = cache != Py_None && (certain || winner == NULL);
+    if (!*handled) {
+        return NULL;
+    }
+    PyObject *key = PyLong_FromUnsignedLongLong(((unsigned long long)(uintptr_t)winner << 2) |
+                                                ((unsigned long long)certain << 1) | (unsigned long long)bom);
+    if (key == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        return NULL;   /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    PyObject *match = PyDict_GetItemWithError(cache, key);
+    if (match != NULL) {
+        Py_DECREF(key);
+        return Py_NewRef(match);
+    }
+    /* GCOVR_EXCL_BR_START: the key is an int, whose lookup cannot raise */
+    if (PyErr_Occurred()) {
+        Py_DECREF(key); /* GCOVR_EXCL_LINE */
+        return NULL;    /* GCOVR_EXCL_LINE */
+    }
+    /* GCOVR_EXCL_BR_STOP */
+    match = PyObject_CallFunction(settle, "zOO", winner, certain ? Py_True : Py_False, bom ? Py_True : Py_False);
+    /* GCOVR_EXCL_BR_START: storing under an int key fails only on allocation failure */
+    if (match == NULL || PyDict_SetItem(cache, key, match) < 0) {
+        Py_DECREF(key);
+        Py_XDECREF(match);
+        return NULL;
+    }
+    /* GCOVR_EXCL_BR_STOP */
+    Py_DECREF(key);
+    return match;
 }
 
 /* One shaped candidate: a canonical encoding name and its share of the positive score total. */
@@ -2216,11 +2318,23 @@ static th_tld tld_argument(const char *label) {
     return label == NULL ? TH_TLD_GENERIC : th_tld_classify(label, (Py_ssize_t)strlen(label));
 }
 
-PyObject *turbohtml_detect_encoding(PyObject *module, PyObject *args) {
+PyObject *turbohtml_detect_encoding(PyObject *module, PyObject *const *args, Py_ssize_t nargs) {
     (void)module;
+    /* fast-call by hand: detect() runs once per document, often on a few bytes, where tuple parsing is a visible share
+     */
+    if (nargs != 2 && nargs != 4) {
+        PyErr_Format(PyExc_TypeError, "_detect() takes 2 or 4 arguments (%zd given)", nargs);
+        return NULL;
+    }
+    PyObject *data = args[0];
     const char *label = NULL;
-    PyObject *data;
-    if (!PyArg_ParseTuple(args, "Oz:_detect", &data, &label)) {
+    if (args[1] != Py_None && (label = PyUnicode_AsUTF8(args[1])) == NULL) {
+        return NULL;
+    }
+    PyObject *cache = nargs == 4 ? args[2] : Py_None;
+    PyObject *settle = nargs == 4 ? args[3] : Py_None;
+    if (cache != Py_None && !PyDict_Check(cache)) {
+        PyErr_SetString(PyExc_TypeError, "_detect() cache must be a dict");
         return NULL;
     }
     Py_buffer view;
@@ -2237,7 +2351,7 @@ PyObject *turbohtml_detect_encoding(PyObject *module, PyObject *args) {
     const char *winner = detect_declared(bytes, len, &certain, &bom);
     th_detect_scores scores = {.count = 0, .structural = 0};
     if (winner == NULL) {
-        const th_encoding_entry *entry = th_encoding_detect(bytes, len, tld_argument(label), &scores);
+        const th_encoding_entry *entry = th_encoding_detect(bytes, len, tld_argument(label), cache != Py_None, &scores);
         if (PyErr_Occurred()) {      /* GCOVR_EXCL_BR_LINE: detection allocation failure */
             PyBuffer_Release(&view); /* GCOVR_EXCL_LINE: allocation-failure path */
             return NULL;             /* GCOVR_EXCL_LINE: allocation-failure path */
@@ -2246,132 +2360,287 @@ PyObject *turbohtml_detect_encoding(PyObject *module, PyObject *args) {
         winner = entry == NULL ? NULL : entry->canonical;
     }
     PyBuffer_Release(&view);
-    return detect_result(winner, certain, &scores, bom);
+    int handled;
+    PyObject *settled = detect_settled(winner, certain, bom, cache, settle, &handled);
+    return handled ? settled : detect_result(winner, certain, &scores, bom);
 }
 
-/* The streaming detector behind turbohtml.detect.EncodingDetector. It holds one
-   th_detect_stream, whose candidates carry their own state between feeds, plus the leading
-   bytes the byte-order-mark check and the <meta> prescan need -- the spec bounds that window
-   at 1024 bytes, so the object's memory does not grow with the stream. */
+/* The leading bytes the byte-order-mark check and the <meta> prescan read; the spec bounds the prescan at 1024. */
+#define TH_DETECT_PREFIX_LIMIT 1024
+/* The most ASCII bytes a stream gathers before scoring them. */
+#define TH_DETECT_PENDING_LIMIT 4096
+/* The chunks a stream gathers: shorter ones, whose fixed per-feed cost outweighs the scan for an event byte. */
+#define TH_DETECT_GATHER_BELOW 256
+
+/* Append bytes to a growable buffer, doubling from 64; -1 with MemoryError set on allocation failure. */
+static int detect_buffer_append(unsigned char **buffer, Py_ssize_t *length, Py_ssize_t *capacity,
+                                const unsigned char *bytes, Py_ssize_t count) {
+    if (*length + count > *capacity) {
+        Py_ssize_t grown_capacity = *capacity == 0 ? 64 : *capacity;
+        while (grown_capacity < *length + count) {
+            grown_capacity *= 2;
+        }
+        unsigned char *grown = PyMem_Realloc(*buffer, (size_t)grown_capacity);
+        if (grown == NULL) {  /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            PyErr_NoMemory(); /* GCOVR_EXCL_LINE: allocation-failure path */
+            return -1;        /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
+        *buffer = grown;
+        *capacity = grown_capacity;
+    }
+    memcpy(*buffer + *length, bytes, (size_t)count);
+    *length += count;
+    return 0;
+}
+
+/* The streaming detector turbohtml.detect.EncodingDetector subclasses. It holds one th_detect_stream, whose
+   candidates carry their own state between feeds, the leading bytes the byte-order-mark check and the <meta> prescan
+   need, which the spec bounds at 1024, and at most TH_DETECT_PENDING_LIMIT bytes of ASCII chunks, so its memory does
+   not grow with the stream. Construction, feed, reset and the accessors run here, so a short stream costs one Python
+   frame, for close, rather than one per call. The Detection it was built with and the match close computed are
+   frozen records with no path back to the detector, so the type stays out of the cycle collector. */
 typedef struct {
     PyObject_HEAD th_detect_stream stream;
-    unsigned char prefix[1024];
+    unsigned char *prefix; /* grown as bytes arrive, so a short stream keeps a small object and a small buffer */
     Py_ssize_t prefix_len;
+    Py_ssize_t prefix_capacity;
+    /* short ASCII chunks gathered, once the candidates run, before they read them: every candidate pays a fixed cost
+       per feed, so a reader handing over the ASCII body of a page 16 bytes at a time costs about what one feed does. A
+       chunk holding a non-ASCII or escape byte still reaches the candidates on its own, so a multi-byte sequence or
+       an ISO-2022-JP escape split across feeds still crosses the boundary it arrived with. */
+    unsigned char *pending;
+    Py_ssize_t pending_len;
+    Py_ssize_t pending_capacity;
+    PyObject *options; /* the Detection, or None for the defaults */
+    PyObject *result;  /* the match close computed, NULL while the stream is open */
     th_tld tld;
     int closed;
-    int fed; /* whether any bytes arrived: an unfed stream has no answer */
+    int settled; /* a leading byte-order mark decided the stream, so later bytes are ignored */
+    int fed;     /* whether any bytes arrived: an unfed stream has no answer */
 } DetectStreamObject;
+
+static void detect_stream_restart(DetectStreamObject *self) {
+    th_detect_stream_init(&self->stream);
+    self->prefix_len = 0;
+    self->pending_len = 0;
+    self->closed = 0;
+    self->settled = 0;
+    self->fed = 0;
+}
 
 static PyObject *detect_stream_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
     static char *keywords[] = {"", NULL};
-    const char *label = NULL;
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "z:_DetectStream", keywords, &label)) {
+    PyObject *options = Py_None;
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|O:EncodingDetector", keywords, &options)) {
         return NULL;
+    }
+    th_tld tld = TH_TLD_GENERIC;
+    if (options != Py_None) {
+        PyObject *label = PyObject_GetAttrString(options, "tld");
+        if (label == NULL) {
+            return NULL;
+        }
+        const char *text = label == Py_None ? NULL : PyUnicode_AsUTF8(label);
+        if (text == NULL && label != Py_None) {
+            Py_DECREF(label);
+            return NULL;
+        }
+        tld = tld_argument(text);
+        Py_DECREF(label);
     }
     DetectStreamObject *self = (DetectStreamObject *)type->tp_alloc(type, 0);
     if (self == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
         return NULL;    /* GCOVR_EXCL_LINE: allocation-failure path */
     }
-    th_detect_stream_init(&self->stream);
-    self->prefix_len = 0;
-    self->tld = tld_argument(label);
-    self->closed = 0;
-    self->fed = 0;
+    detect_stream_restart(self);
+    self->prefix = NULL;
+    self->prefix_capacity = 0;
+    self->pending = NULL;
+    self->pending_capacity = 0;
+    self->options = Py_NewRef(options);
+    self->result = NULL;
+    self->tld = tld;
     return (PyObject *)self;
 }
 
 static void detect_stream_dealloc(PyObject *self) {
+    DetectStreamObject *detector = (DetectStreamObject *)self;
+    th_detect_stream_clear(&detector->stream);
+    PyMem_Free(detector->prefix);
+    PyMem_Free(detector->pending);
+    Py_DECREF(detector->options);
+    Py_XDECREF(detector->result);
     PyTypeObject *type = Py_TYPE(self);
     type->tp_free(self);
     Py_DECREF(type);
 }
 
-static PyObject *detect_stream_feed(PyObject *self, PyObject *arg) {
+static PyObject *detect_stream_feed(PyObject *self, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames) {
+    /* parsed by hand: a reader calls feed per chunk, and data may come by keyword as in chardet's feed */
+    Py_ssize_t given = nargs + (kwnames == NULL ? 0 : PyTuple_GET_SIZE(kwnames));
+    if (given != 1 ||
+        (kwnames != NULL && PyUnicode_CompareWithASCIIString(PyTuple_GET_ITEM(kwnames, 0), "data") != 0)) {
+        PyErr_SetString(PyExc_TypeError, "feed() takes exactly one argument, data");
+        return NULL;
+    }
     DetectStreamObject *detector = (DetectStreamObject *)self;
-    if (detector->closed) {
-        PyErr_SetString(PyExc_ValueError, "the detector is closed");
-        return NULL;
-    }
     Py_buffer view;
-    if (PyObject_GetBuffer(arg, &view, PyBUF_SIMPLE) < 0) {
+    if (PyObject_GetBuffer(args[0], &view, PyBUF_SIMPLE) < 0) {
         return NULL;
     }
-    if (view.len == 0) {
+    if (view.len == 0 || detector->closed || detector->settled) {
         PyBuffer_Release(&view);
-        Py_RETURN_FALSE; /* an empty chunk changes nothing */
+        Py_RETURN_NONE; /* an empty chunk changes nothing, and a decided stream ignores what follows */
     }
     detector->fed = 1;
-    Py_ssize_t room = (Py_ssize_t)sizeof(detector->prefix) - detector->prefix_len;
+    Py_ssize_t room = TH_DETECT_PREFIX_LIMIT - detector->prefix_len;
     Py_ssize_t take = view.len < room ? view.len : room;
-    memcpy(detector->prefix + detector->prefix_len, view.buf, (size_t)take);
-    detector->prefix_len += take;
-    th_detect_stream_feed(&detector->stream, view.buf, view.len, 0);
-    PyBuffer_Release(&view);
-    if (PyErr_Occurred()) { /* GCOVR_EXCL_BR_LINE: detection allocation failure */
-        return NULL;        /* GCOVR_EXCL_LINE: allocation-failure path */
+    /* GCOVR_EXCL_BR_START: allocation failure cannot be forced from a test */
+    if (detect_buffer_append(&detector->prefix, &detector->prefix_len, &detector->prefix_capacity, view.buf, take) <
+        0) {
+        PyBuffer_Release(&view); /* GCOVR_EXCL_LINE: allocation-failure path */
+        return NULL;             /* GCOVR_EXCL_LINE: allocation-failure path */
     }
-    /* a byte-order mark settles the stream whatever follows */
-    return PyBool_FromLong(th_detect_bom(detector->prefix, detector->prefix_len) != NULL);
+    /* GCOVR_EXCL_BR_STOP */
+    if (th_detect_bom(detector->prefix, detector->prefix_len) != NULL) {
+        PyBuffer_Release(&view);
+        detector->settled = 1; /* a byte-order mark settles the stream whatever follows */
+        Py_RETURN_NONE;
+    }
+    int status = 0;
+    if (view.len < TH_DETECT_GATHER_BELOW && detector->stream.started &&
+        detector->pending_len + view.len <= TH_DETECT_PENDING_LIMIT &&
+        th_detect_first_event(view.buf, view.len) == view.len) {
+        status = detect_buffer_append(&detector->pending, &detector->pending_len, &detector->pending_capacity, view.buf,
+                                      view.len);
+    } else {
+        if (detector->pending_len > 0) {
+            th_detect_stream_feed(&detector->stream, detector->pending, detector->pending_len, 0);
+            detector->pending_len = 0;
+        }
+        th_detect_stream_feed(&detector->stream, view.buf, view.len, 0);
+    }
+    PyBuffer_Release(&view);
+    if (status < 0 || PyErr_Occurred()) { /* GCOVR_EXCL_BR_LINE: detection allocation failure */
+        return NULL;                      /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    Py_RETURN_NONE;
 }
 
-static PyObject *detect_stream_close(PyObject *self, PyObject *Py_UNUSED(ignored)) {
-    DetectStreamObject *detector = (DetectStreamObject *)self;
-    if (detector->closed) {
-        PyErr_SetString(PyExc_ValueError, "the detector is closed");
-        return NULL;
-    }
-    detector->closed = 1;
+/* The stream's answer before ranking: a settled match from the cache when the defaults apply, otherwise the raw
+   (encoding, certain, ranked, bom) row, or None when no bytes were fed. */
+static PyObject *detect_stream_answer(DetectStreamObject *detector, PyObject *cache, PyObject *settle, int *handled) {
+    *handled = 0;
     if (!detector->fed) {
         Py_RETURN_NONE; /* no bytes were ever seen: the ranker answers with the no-match row */
-    }
-    /* the scanners pass the chunk to memchr and memcpy, which take no NULL pointer even at length 0 */
-    th_detect_stream_feed(&detector->stream, (const unsigned char *)"", 0, 1);
-    if (PyErr_Occurred()) { /* GCOVR_EXCL_BR_LINE: detection allocation failure */
-        return NULL;        /* GCOVR_EXCL_LINE: allocation-failure path */
     }
     int certain, bom;
     const char *winner = detect_declared(detector->prefix, detector->prefix_len, &certain, &bom);
     th_detect_scores scores = {.count = 0, .structural = 0};
     if (winner == NULL) {
+        /* the scanners pass the chunk to memchr and memcpy, which take no NULL pointer even at length 0 */
+        th_detect_stream_feed(&detector->stream,
+                              detector->pending_len > 0 ? detector->pending : (const unsigned char *)"",
+                              detector->pending_len, 1);
+        if (PyErr_Occurred()) { /* GCOVR_EXCL_BR_LINE: detection allocation failure */
+            return NULL;        /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
         const th_encoding_entry *entry = th_detect_stream_finish(&detector->stream, detector->tld, &scores);
         certain = scores.structural;
         winner = entry == NULL ? NULL : entry->canonical;
     }
-    return detect_result(winner, certain, &scores, bom);
+    PyObject *settled =
+        detect_settled(winner, certain, bom, detector->options == Py_None ? cache : Py_None, settle, handled);
+    return *handled ? settled : detect_result(winner, certain, &scores, bom);
 }
 
-PyDoc_STRVAR(detect_stream_doc, "_DetectStream(tld, /)\n--\n\n"
-                                "Score a byte stream chunk by chunk.\n\n"
-                                ":param tld: the rightmost DNS label of the host, lower-case ASCII, or None.");
+static PyObject *detect_stream_close(PyObject *self, PyObject *const *args, Py_ssize_t nargs) {
+    if (nargs != 3) {
+        PyErr_Format(PyExc_TypeError, "_close() takes 3 arguments (%zd given)", nargs);
+        return NULL;
+    }
+    if (!PyDict_Check(args[0])) {
+        PyErr_SetString(PyExc_TypeError, "_close() cache must be a dict");
+        return NULL;
+    }
+    DetectStreamObject *detector = (DetectStreamObject *)self;
+    if (detector->result != NULL) {
+        return Py_NewRef(detector->result);
+    }
+    int handled;
+    PyObject *answer = detect_stream_answer(detector, args[0], args[1], &handled);
+    detector->closed = 1;
+    if (answer == NULL || handled) {
+        detector->result = Py_XNewRef(answer);
+        return answer;
+    }
+    PyObject *match = PyObject_CallFunctionObjArgs(args[2], answer, detector->options, NULL);
+    Py_DECREF(answer);
+    detector->result = Py_XNewRef(match);
+    return match;
+}
 
-PyDoc_STRVAR(detect_stream_feed_doc, "feed(data, /)\n--\n\n"
-                                     "Score the next chunk of the stream and report whether a leading byte-order\n"
-                                     "mark has settled it.\n\n"
-                                     ":param data: the next bytes.");
+static PyObject *detect_stream_reset(PyObject *self, PyObject *Py_UNUSED(ignored)) {
+    DetectStreamObject *detector = (DetectStreamObject *)self;
+    th_detect_stream_clear(&detector->stream);
+    detect_stream_restart(detector);
+    Py_CLEAR(detector->result);
+    Py_RETURN_NONE;
+}
 
-PyDoc_STRVAR(detect_stream_close_doc, "close()\n--\n\n"
-                                      "End the stream and return (encoding, certain, ranked, bom), or None when\n"
-                                      "no bytes were ever fed.\n\n"
-                                      ":raises ValueError: if the detector is already closed.");
+static PyObject *detect_stream_get_done(PyObject *self, void *Py_UNUSED(closure)) {
+    DetectStreamObject *detector = (DetectStreamObject *)self;
+    return PyBool_FromLong(detector->closed || detector->settled);
+}
+
+static PyObject *detect_stream_get_result(PyObject *self, void *Py_UNUSED(closure)) {
+    PyObject *result = ((DetectStreamObject *)self)->result;
+    return Py_NewRef(result == NULL ? Py_None : result);
+}
+
+PyDoc_STRVAR(detect_stream_doc, "_DetectStream(options=None, /)\n--\n\n"
+                                "The C half of EncodingDetector: scores a byte stream chunk by chunk.");
+
+PyDoc_STRVAR(detect_stream_feed_doc, "feed(data)\n--\n\n"
+                                     "Detect over one chunk of the stream; ignored once :attr:`done`.\n\n"
+                                     ":param data: the next bytes of the stream.");
+
+PyDoc_STRVAR(detect_stream_close_doc,
+             "_close(cache, settle, match, /)\n--\n\n"
+             "End the stream and return its match, computed once. With the default options a settled answer comes\n"
+             "back as settle(encoding, certain, bom), kept in cache; any other answer is match(raw, options).");
+
+PyDoc_STRVAR(detect_stream_reset_doc, "reset()\n--\n\n"
+                                      "Forget the stream and the result so the instance can start over.");
+
+PyDoc_STRVAR(detect_stream_done_doc,
+             "Whether the result can no longer change: a leading byte-order mark was seen, or :meth:`close` ran.");
+
+PyDoc_STRVAR(detect_stream_result_doc, "The match :meth:`close` computed, or ``None`` while the stream is still open.");
 
 static PyMethodDef detect_stream_methods[] = {
-    {"feed", detect_stream_feed, METH_O, detect_stream_feed_doc},
-    {"close", detect_stream_close, METH_NOARGS, detect_stream_close_doc},
+    {"feed", (PyCFunction)(void (*)(void))detect_stream_feed, METH_FASTCALL | METH_KEYWORDS, detect_stream_feed_doc},
+    {"_close", (PyCFunction)(void (*)(void))detect_stream_close, METH_FASTCALL, detect_stream_close_doc},
+    {"reset", detect_stream_reset, METH_NOARGS, detect_stream_reset_doc},
     {NULL, NULL, 0, NULL},
 };
 
+static PyGetSetDef detect_stream_getset[] = {
+    {"done", detect_stream_get_done, NULL, detect_stream_done_doc, NULL},
+    {"result", detect_stream_get_result, NULL, detect_stream_result_doc, NULL},
+    {NULL, NULL, NULL, NULL, NULL},
+};
+
 static PyType_Slot detect_stream_slots[] = {
-    {Py_tp_doc, (void *)detect_stream_doc},
-    {Py_tp_new, detect_stream_new},
-    {Py_tp_dealloc, detect_stream_dealloc},
-    {Py_tp_methods, detect_stream_methods},
-    {0, NULL},
+    {Py_tp_doc, (void *)detect_stream_doc}, {Py_tp_new, detect_stream_new},
+    {Py_tp_dealloc, detect_stream_dealloc}, {Py_tp_methods, detect_stream_methods},
+    {Py_tp_getset, detect_stream_getset},   {0, NULL},
 };
 
 PyType_Spec detect_stream_spec = {
     .name = "turbohtml._html._DetectStream",
     .basicsize = sizeof(DetectStreamObject),
-    .flags = Py_TPFLAGS_DEFAULT,
+    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
     .slots = detect_stream_slots,
 };
 
@@ -2554,140 +2823,6 @@ const char *meta_charset_label(const char *encoding) {
         return "utf-8"; /* serialize() declares this spelling, so encode() and serialize() agree */
     }
     return entry->canonical;
-}
-
-/* Whether any byte lies between lo and hi inclusive. A byte at offset d = byte - lo (mod 256) is in range exactly when
-   d saturating-minus (hi - lo) is zero, so the vector loop keeps the least such value per lane and tests once at the
-   end. The scalar loop covers the tail and every other target. */
-static TH_NOINLINE int bytes_within(const unsigned char *data, Py_ssize_t len, unsigned char lo, unsigned char hi) {
-    Py_ssize_t index = 0;
-#if defined(__SSE2__) || defined(_M_X64)
-    __m128i offset = _mm_set1_epi8((char)lo);
-    __m128i span = _mm_set1_epi8((char)(hi - lo));
-    __m128i least = _mm_set1_epi8((char)0xFF);
-    for (; index + 64 <= len; index += 64) {
-        for (Py_ssize_t lane = 0; lane < 64; lane += 16) {
-            __m128i block = _mm_loadu_si128((const __m128i *)(data + index + lane));
-            least = _mm_min_epu8(least, _mm_subs_epu8(_mm_sub_epi8(block, offset), span));
-        }
-    }
-    if (_mm_movemask_epi8(_mm_cmpeq_epi8(least, _mm_setzero_si128())) != 0) {
-        return 1;
-    }
-#endif
-    for (; index < len; index++) {
-        if (data[index] >= lo && data[index] <= hi) {
-            return 1;
-        }
-    }
-    return 0;
-}
-
-/* The byte range a single-byte codec writes differently under the label entry: -1 when no byte disagrees (the codec
-   and the label decode every byte alike), -2 when the codec is not single-byte, otherwise lo << 8 | hi, the least and
-   greatest disagreeing byte. A byte the codec cannot decode (U+FFFD under replace) is never one it writes. Cached by
-   codec name, since the codec's table is fixed for a name; -3 with an exception set on failure. */
-static long single_byte_disagreement(const char *encoding, const th_encoding_entry *entry) {
-    static PyObject *cache = NULL;
-    if (cache == NULL) {
-        cache = PyDict_New();
-        if (cache == NULL) { /* GCOVR_EXCL_BR_LINE: dict allocation cannot be forced from a test */
-            return -3;       /* GCOVR_EXCL_LINE */
-        }
-    }
-    PyObject *key = PyUnicode_FromString(encoding);
-    if (key == NULL) { /* GCOVR_EXCL_BR_LINE: name allocation cannot be forced from a test */
-        return -3;     /* GCOVR_EXCL_LINE */
-    }
-    PyObject *cached = PyDict_GetItemWithError(cache, key);
-    if (cached != NULL) {
-        Py_DECREF(key);
-        return PyLong_AsLong(cached);
-    }
-    unsigned char every[256];
-    for (size_t index = 0; index < sizeof(every); index++) {
-        every[index] = (unsigned char)index;
-    }
-    PyObject *codec = PyUnicode_Decode((const char *)every, sizeof(every), encoding, "replace");
-    if (codec == NULL) { /* GCOVR_EXCL_BR_LINE: the codec decodes every byte with replace */
-        Py_DECREF(key);  /* GCOVR_EXCL_LINE */
-        return -3;       /* GCOVR_EXCL_LINE */
-    }
-    long packed = -1;
-    /* GCOVR_EXCL_START: a single-byte label's codec always decodes every byte, so no test can reach this */
-    if (PyUnicode_GET_LENGTH(codec) != (Py_ssize_t)sizeof(every)) {
-        packed = -2;
-    } else {
-        /* GCOVR_EXCL_STOP */
-        const uint16_t *table = th_sb_index[entry->single];
-        unsigned lo = 256;
-        unsigned hi = 0;
-        for (unsigned index = 0; index < 256; index++) {
-            Py_UCS4 point = PyUnicode_READ_CHAR(codec, (Py_ssize_t)index);
-            if (point != 0xFFFD && table[index] != point) {
-                if (lo > hi) {
-                    lo = index;
-                }
-                hi = index;
-            }
-        }
-        if (lo <= hi) {
-            packed = (long)(lo << 8 | hi);
-        }
-    }
-    Py_DECREF(codec);
-    PyObject *value = PyLong_FromLong(packed);
-    int stored = value == NULL ? -1 : PyDict_SetItem(cache, key, value); /* GCOVR_EXCL_BR_LINE: allocation only */
-    Py_XDECREF(value);
-    Py_DECREF(key);
-    if (stored < 0) { /* GCOVR_EXCL_BR_LINE: the cache insert fails only on allocation */
-        return -3;    /* GCOVR_EXCL_LINE */
-    }
-    return packed;
-}
-
-/* Whether the bytes of a single-byte encoding read back under the single-byte label entry without a difference: 1 when
-   no byte the codec can write decodes differently under the label (so every written character reads back as written),
-   0 when some byte in the output may, -1 with an exception set. The codec's own decoding of each byte is the one a
-   charmap codec's encoder inverts, so a byte the codec writes for a character decodes to that character under it. */
-static int single_byte_bytes_agree(const char *encoding, const th_encoding_entry *entry, const unsigned char *data,
-                                   Py_ssize_t len) {
-    long packed = single_byte_disagreement(encoding, entry);
-    if (packed == -3) { /* GCOVR_EXCL_BR_LINE: the codec or the cache fails only on allocation */
-        return -1;      /* GCOVR_EXCL_LINE */
-    }
-    /* GCOVR_EXCL_START: single_byte_disagreement reports -2 only for a codec that is not single-byte */
-    if (packed == -2) {
-        return 0;
-    }
-    /* GCOVR_EXCL_STOP */
-    if (packed == -1) {
-        return 1;
-    }
-    unsigned lo = (unsigned)(packed >> 8);
-    unsigned hi = (unsigned)(packed & 0xFF);
-    return !bytes_within(data, len, (unsigned char)lo, (unsigned char)hi);
-}
-
-/* Whether the encoded bytes read back as the same text when a reader decodes them with the label charset that
-   meta_charset declared (WHATWG decoder). 1 or 0, or -1 with an exception set. */
-int declaration_reads_back(PyObject *text, PyObject *bytes, const char *encoding, const char *charset) {
-    const th_encoding_entry *entry = th_encoding_lookup(charset, (Py_ssize_t)strlen(charset));
-    const unsigned char *data = (const unsigned char *)PyBytes_AS_STRING(bytes);
-    Py_ssize_t len = PyBytes_GET_SIZE(bytes);
-    if (entry->kind == TH_DEC_SINGLE_BYTE) {
-        int agree = single_byte_bytes_agree(encoding, entry, data, len);
-        if (agree != 0) {
-            return agree;
-        }
-    }
-    PyObject *read = th_decode(entry, data, len);
-    if (read == NULL) { /* GCOVR_EXCL_BR_LINE: the decoder fails only on allocation */
-        return -1;      /* GCOVR_EXCL_LINE: allocation-failure path */
-    }
-    int same = PyObject_RichCompareBool(read, text, Py_EQ);
-    Py_DECREF(read);
-    return same;
 }
 
 PyObject *turbohtml_parse(PyObject *module, PyObject *args, PyObject *kwargs) {
@@ -3172,27 +3307,6 @@ static PyType_Spec stream_spec = {
     .slots = stream_slots,
 };
 
-/* This node's children as a fresh list of wrappers, so pickling an element
-   recurses into each child. */
-static PyObject *node_children_list(PyObject *self) {
-    NodeObject *node = (NodeObject *)self;
-    module_state *state = state_of(self);
-    PyObject *list = PyList_New(0);
-    if (list == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-        return NULL;    /* GCOVR_EXCL_LINE: allocation-failure path */
-    }
-    for (th_node *child = node->node->first_child; child != NULL; child = child->next_sibling) {
-        PyObject *wrapped = node_wrap(state, node->handle, child);
-        if (wrapped == NULL || PyList_Append(list, wrapped) < 0) { /* GCOVR_EXCL_BR_LINE: alloc cannot be forced */
-            Py_XDECREF(wrapped);                                   /* GCOVR_EXCL_LINE: allocation-failure path */
-            Py_DECREF(list);                                       /* GCOVR_EXCL_LINE: allocation-failure path */
-            return NULL;                                           /* GCOVR_EXCL_LINE: allocation-failure path */
-        }
-        Py_DECREF(wrapped);
-    }
-    return list;
-}
-
 /* The pickle payload for this node: the leaf data, the element tag and attribute
    dict, the doctype identifiers, the document's quirks mode, None for a fragment, or
    (host, mode) for a shadow root. A document or fragment carries its children like an
@@ -3238,25 +3352,94 @@ static PyObject *node_pickle_data(PyObject *self, th_node *node) {
     Py_RETURN_NONE; /* GCOVR_EXCL_LINE: unreachable, the switch is exhaustive */
 }
 
+/* The live wrapper of a node below the one being pickled, or NULL. The pickler memoizes wrappers, so writing a live one
+   in place of its record keeps it the same object as the node inside its unpickled parent when one pickle holds both,
+   as pickling each child through its own wrapper did. A free-threaded build gives each lookup its own wrapper, so no
+   wrapper is shared there. */
+static PyObject *node_pickle_shared(PyObject *handle, th_node *node) {
+#ifdef Py_GIL_DISABLED
+    (void)handle;
+    (void)node;
+    return NULL;
+#else
+    return (PyObject *)node_binding((HandleObject *)handle, node);
+#endif
+}
+
+/* Append the record of one node to records: its live wrapper if it has one, else its (kind, data, child count) triple
+   with its children pushed onto pending last first, so popping pending walks the subtree in preorder. Returns 0, or -1
+   with an exception on allocation failure. */
+static int node_pickle_record(PyObject *self, th_node *node, PyObject *records, th_node ***pending, Py_ssize_t *size,
+                              Py_ssize_t *capacity) {
+    PyObject *handle = ((NodeObject *)self)->handle;
+    PyObject *shared = node == ((NodeObject *)self)->node ? NULL : node_pickle_shared(handle, node);
+    if (shared != NULL) {
+        return PyList_Append(records, shared);
+    }
+    PyObject *wrapper = node_wrap(state_of(self), handle, node);
+    if (wrapper == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        return -1;         /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    Py_ssize_t count = 0;
+    if (node->type == TH_NODE_ELEMENT || node->type == TH_NODE_DOCUMENT || node->type == TH_NODE_CONTENT) {
+        for (th_node *child = node->first_child; child != NULL; child = child->next_sibling) {
+            count++;
+        }
+    }
+    PyObject *record = Py_BuildValue("(iNn)", (int)node->type, node_pickle_data(wrapper, node), count);
+    Py_DECREF(wrapper);
+    int failed = record == NULL || PyList_Append(records, record) < 0; /* GCOVR_EXCL_BR_LINE: OOM only */
+    Py_XDECREF(record);
+    if (failed) {  /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        return -1; /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    if (*size + count > *capacity) {
+        Py_ssize_t grown = (*size + count) * 2;
+        th_node **larger = PyMem_Realloc(*pending, (size_t)grown * sizeof(th_node *));
+        if (larger == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            PyErr_NoMemory(); /* GCOVR_EXCL_LINE: allocation-failure path */
+            return -1;        /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
+        *pending = larger;
+        *capacity = grown;
+    }
+    Py_ssize_t slot = *size + count;
+    for (th_node *child = count > 0 ? node->first_child : NULL; child != NULL; child = child->next_sibling) {
+        (*pending)[--slot] = child;
+    }
+    *size += count;
+    return 0;
+}
+
+/* Pickle a node as one flat preorder list of records, rebuilt by _reconstruct_tree. Nesting each child's reduce inside
+   its parent's made the pickler recurse three times per tree level, which overflowed a small thread stack at a few
+   hundred levels and raised RecursionError on Python 3.11 below the depth cap. */
 TH_NODE_API(, PyObject *, node_reduce, (PyObject * self, PyObject *ignored), (self, ignored),
             (PyObject * self, PyObject *Py_UNUSED(ignored)), (NodeObject *)self, NULL) {
-    th_node *node = ((NodeObject *)self)->node;
-    PyObject *reconstruct = PyObject_GetAttrString(PyType_GetModule(Py_TYPE(self)), "_reconstruct");
-    if (reconstruct == NULL) { /* GCOVR_EXCL_BR_LINE: the module always carries _reconstruct */
+    PyObject *reconstruct = PyObject_GetAttrString(PyType_GetModule(Py_TYPE(self)), "_reconstruct_tree");
+    if (reconstruct == NULL) { /* GCOVR_EXCL_BR_LINE: the module always carries _reconstruct_tree */
         return NULL;           /* GCOVR_EXCL_LINE: unreachable */
     }
-    PyObject *data = node_pickle_data(self, node);
-    int has_children = node->type == TH_NODE_ELEMENT || node->type == TH_NODE_DOCUMENT || node->type == TH_NODE_CONTENT;
-    PyObject *children = has_children ? node_children_list(self) : PyList_New(0);
-    if (data == NULL || children == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-        Py_XDECREF(data);                   /* GCOVR_EXCL_LINE: allocation-failure path */
-        Py_XDECREF(children);               /* GCOVR_EXCL_LINE: allocation-failure path */
-        Py_DECREF(reconstruct);             /* GCOVR_EXCL_LINE: allocation-failure path */
-        return NULL;                        /* GCOVR_EXCL_LINE: allocation-failure path */
+    PyObject *records = PyList_New(0);
+    Py_ssize_t size = 1;
+    Py_ssize_t capacity = 16;
+    th_node **pending = PyMem_Malloc((size_t)capacity * sizeof(th_node *));
+    int failed = records == NULL || pending == NULL; /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced */
+    if (!failed) {                                   /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced */
+        pending[0] = ((NodeObject *)self)->node;
+    }
+    while (!failed && size > 0) { /* GCOVR_EXCL_BR_LINE: it fails only on OOM */
+        th_node *node = pending[--size];
+        failed = node_pickle_record(self, node, records, &pending, &size, &capacity) < 0;
+    }
+    PyMem_Free(pending);
+    if (failed) {               /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        Py_XDECREF(records);    /* GCOVR_EXCL_LINE: allocation-failure path */
+        Py_DECREF(reconstruct); /* GCOVR_EXCL_LINE: allocation-failure path */
+        return NULL;            /* GCOVR_EXCL_LINE: allocation-failure path */
     }
     /* the xml flag rebuilds a document, fragment, or element under XML naming rules */
-    PyObject *result =
-        Py_BuildValue("(O(iNNi))", reconstruct, (int)node->type, data, children, th_tree_is_xml(tree_of(self)));
+    PyObject *result = Py_BuildValue("(O(Ni))", reconstruct, records, th_tree_is_xml(tree_of(self)));
     Py_DECREF(reconstruct);
     return result;
 }
@@ -3399,15 +3582,8 @@ static int join_largest_child(module_state *state, PyObject *children, PyObject 
     return 0;
 }
 
-PyObject *turbohtml_reconstruct(PyObject *module, PyObject *args) {
-    int kind;
-    PyObject *data;
-    PyObject *children;
-    int xml = 0; /* set for a node pickled from a parse_xml tree */
-    if (!PyArg_ParseTuple(args, "iOO|i", &kind, &data, &children, &xml)) {
-        return NULL;
-    }
-    module_state *state = PyModule_GetState(module);
+/* One node rebuilt from its pickled (kind, data), still without its children. */
+static PyObject *reconstruct_node(PyObject *module, module_state *state, int kind, PyObject *data, int xml) {
     PyObject *node;
     switch (kind) {
     case TH_NODE_TEXT:
@@ -3450,9 +3626,11 @@ PyObject *turbohtml_reconstruct(PyObject *module, PyObject *args) {
         node = reconstruct_root(module, state, kind, data, xml);
         break;
     }
-    if (node == NULL) {
-        return NULL;
-    }
+    return node;
+}
+
+/* Link the rebuilt children into node, stealing the reference to node. Returns node, or NULL with an exception. */
+static PyObject *reconstruct_attach(module_state *state, PyObject *node, PyObject *children) {
     if (join_largest_child(state, children, &node) < 0) { /* GCOVR_EXCL_BR_LINE: OOM only */
         Py_DECREF(node);                                  /* GCOVR_EXCL_LINE: allocation-failure path */
         return NULL;                                      /* GCOVR_EXCL_LINE: allocation-failure path */
@@ -3470,6 +3648,105 @@ PyObject *turbohtml_reconstruct(PyObject *module, PyObject *args) {
         th_node_append_child(parent, child);
     }
     return node;
+}
+
+PyObject *turbohtml_reconstruct(PyObject *module, PyObject *args) {
+    int kind;
+    PyObject *data;
+    PyObject *children;
+    int xml = 0; /* set for a node pickled from a parse_xml tree */
+    if (!PyArg_ParseTuple(args, "iOO!|i", &kind, &data, &PyList_Type, &children, &xml)) {
+        return NULL;
+    }
+    module_state *state = PyModule_GetState(module);
+    PyObject *node = reconstruct_node(module, state, kind, data, xml);
+    return node == NULL ? NULL : reconstruct_attach(state, node, children);
+}
+
+typedef struct {
+    PyObject *node;
+    PyObject *children;
+    Py_ssize_t missing; /* children still to rebuild */
+} reconstruct_frame;
+
+/* Rebuild a subtree from node_reduce's preorder (kind, data, child count) records with an explicit stack of the open
+   ancestors, so a deep tree costs heap rather than C stack. A node is linked to its children once the last of them is
+   rebuilt, bottom-up, as nested _reconstruct calls did. */
+PyObject *turbohtml_reconstruct_tree(PyObject *module, PyObject *args) {
+    PyObject *records;
+    int xml;
+    if (!PyArg_ParseTuple(args, "O!i", &PyList_Type, &records, &xml)) {
+        return NULL;
+    }
+    module_state *state = PyModule_GetState(module);
+    Py_ssize_t total = PyList_GET_SIZE(records);
+    reconstruct_frame *frames = PyMem_Malloc((size_t)(total > 0 ? total : 1) * sizeof(reconstruct_frame));
+    PyObject *leaf_children = PyList_New(0);
+    if (frames == NULL || leaf_children == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced */
+        PyMem_Free(frames);                        /* GCOVR_EXCL_LINE: allocation-failure path */
+        Py_XDECREF(leaf_children);                 /* GCOVR_EXCL_LINE: allocation-failure path */
+        return PyErr_NoMemory();                   /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    Py_ssize_t open = 0;
+    PyObject *root = NULL;
+    Py_ssize_t index = 0;
+    for (; index < total && root == NULL; index++) {
+        int kind;
+        PyObject *data;
+        Py_ssize_t count = 0;
+        PyObject *record = PyList_GET_ITEM(records, index);
+        PyObject *node = NULL;
+        if (PyObject_TypeCheck(record, (PyTypeObject *)state->node_type)) {
+            node =
+                Py_NewRef(record); /* a node the pickle shares with another object, already rebuilt with its subtree */
+        } else if (!PyArg_Parse(record, "(iOn)", &kind, &data, &count)) {
+            break;
+        } else if (count < 0) {
+            PyErr_SetString(PyExc_ValueError, "negative child count");
+            break;
+        } else {
+            node = reconstruct_node(module, state, kind, data, xml);
+        }
+        if (node == NULL) {
+            break;
+        }
+        if (count > 0) {
+            PyObject *children = PyList_New(0);
+            if (children == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+                Py_DECREF(node);    /* GCOVR_EXCL_LINE: allocation-failure path */
+                break;              /* GCOVR_EXCL_LINE: allocation-failure path */
+            }
+            frames[open++] = (reconstruct_frame){node, children, count};
+            continue;
+        }
+        PyObject *done = reconstruct_attach(state, node, leaf_children);
+        while (done != NULL && open > 0) {
+            reconstruct_frame *top = &frames[open - 1];
+            int appended = PyList_Append(top->children, done) == 0;
+            Py_SETREF(done, NULL);
+            if (!appended || --top->missing > 0) { /* GCOVR_EXCL_BR_LINE: the append fails only on OOM */
+                break;
+            }
+            open--;
+            done = reconstruct_attach(state, top->node, top->children);
+            Py_DECREF(top->children);
+        }
+        if (done == NULL && PyErr_Occurred()) {
+            break;
+        }
+        root = open == 0 ? done : NULL;
+    }
+    if (!PyErr_Occurred() && (root == NULL || index != total)) {
+        PyErr_SetString(PyExc_ValueError, "pickled records do not form one tree");
+        Py_CLEAR(root);
+    }
+    for (Py_ssize_t level = 0; level < open; level++) {
+        Py_DECREF(frames[level].node);
+        Py_DECREF(frames[level].children);
+    }
+    PyMem_Free(frames);
+    Py_DECREF(leaf_children);
+    return root;
 }
 
 /* Build one public enum named qualname with count members, register it on the
@@ -3621,6 +3898,19 @@ static PyObject *register_subtype(PyObject *module, PyType_Spec *spec, PyObject 
     return type;
 }
 
+static int cache_mapping_abc(module_state *state) {
+    PyObject *abc = PyImport_ImportModule("collections.abc");
+    if (abc == NULL) { /* GCOVR_EXCL_BR_LINE: collections.abc always imports */
+        return -1;     /* GCOVR_EXCL_LINE */
+    }
+    state->mapping_abc = PyObject_GetAttrString(abc, "Mapping");
+    Py_DECREF(abc);
+    if (state->mapping_abc == NULL) { /* GCOVR_EXCL_BR_LINE: collections.abc always provides Mapping */
+        return -1;                    /* GCOVR_EXCL_LINE */
+    }
+    return 0;
+}
+
 /* Register type as a collections.abc.MutableMapping: the attrs view implements the whole interface, so
    isinstance(element.attrs, MutableMapping) holds. collections.abc always imports and provides the class, so the
    failure paths are unreachable. */
@@ -3656,6 +3946,9 @@ int tree_register(PyObject *module, module_state *state) {
     }
     if (cache_pattern_type(state) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced */
         return -1;                       /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    if (cache_mapping_abc(state) < 0) { /* GCOVR_EXCL_BR_LINE: collections.abc always imports */
+        return -1;                      /* GCOVR_EXCL_LINE: import-failure path */
     }
     state->minify_type = PyType_FromModuleAndSpec(module, &minify_spec, NULL);
     /* allocation failure cannot be forced from a test */
@@ -3740,6 +4033,21 @@ int tree_register(PyObject *module, module_state *state) {
         /* allocation failure cannot be forced from a test */
         state->document_type == NULL || state->shadow_root_type == NULL) { /* GCOVR_EXCL_BR_LINE */
         return -1; /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+#ifndef PYPY_VERSION
+    ((PyTypeObject *)state->element_type)->tp_vectorcall = element_vectorcall;
+#endif
+    state->tag_maker_type = PyType_FromModuleAndSpec(module, &tag_maker_spec, NULL);
+    /* allocation failure cannot be forced from a test */
+    if (state->tag_maker_type == NULL ||                                        /* GCOVR_EXCL_BR_LINE */
+        PyModule_AddObjectRef(module, "TagMaker", state->tag_maker_type) < 0) { /* GCOVR_EXCL_BR_LINE */
+        return -1;                                                              /* GCOVR_EXCL_LINE: alloc-fail */
+    }
+    state->tag_factory_type = PyType_FromModuleAndSpec(module, &tag_factory_spec, NULL);
+    /* allocation failure cannot be forced from a test */
+    if (state->tag_factory_type == NULL ||                                          /* GCOVR_EXCL_BR_LINE */
+        PyModule_AddObjectRef(module, "TagFactory", state->tag_factory_type) < 0) { /* GCOVR_EXCL_BR_LINE */
+        return -1;                                                                  /* GCOVR_EXCL_LINE: alloc-fail */
     }
     state->parser_type = PyType_FromModuleAndSpec(module, &stream_spec, NULL);
     /* allocation failure cannot be forced from a test */

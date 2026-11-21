@@ -1,5 +1,5 @@
 //! CML text readers exposed to Python.
-use super::serialized_input::serialized_text;
+use super::serialized_input::owned_serialized_text;
 use crate::Mol;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -7,20 +7,33 @@ use std::sync::Arc;
 
 type CmlWith3d = (Mol, Option<Vec<Vec<f64>>>);
 
+/// Retain a bounded XML 1.0 document with one CML-namespace molecule root.
+/// Returns exact UTF-8 source; unknown content/stereo are retained opaquely,
+/// not chemically interpreted. Rejects nested molecules, DTDs and invalid XML.
+#[pyfunction]
+pub(super) fn roundtrip_cml_source(
+    #[pyo3(from_py_with = owned_serialized_text)] text: String,
+) -> PyResult<String> {
+    chematic_mol::roundtrip_cml_source(&text)
+        .map_err(|error| PyValueError::new_err(error.to_string()))
+}
+
 /// Parse one CML molecule and return ``(Mol, coords_or_none)`` in source order.
 /// Cartesian Angstrom coordinates must be complete and finite on every atom,
 /// or absent on all atoms. No geometry is generated. Requires unique atom IDs.
-/// The lightweight XML profile does not interpret metadata or coordinate stereo.
+/// Resolves CML namespace prefixes and excludes foreign subtrees/attributes.
+/// Graph references may precede atoms. XML metadata/schema and coordinate stereo
+/// are not interpreted; this projection does not retain opaque source fields.
 #[pyfunction]
 pub(super) fn from_cml_with_3d(
-    #[pyo3(from_py_with = serialized_text)] cml_str: &str,
+    #[pyo3(from_py_with = owned_serialized_text)] cml_str: String,
 ) -> PyResult<CmlWith3d> {
     let limits = chematic_mol::CmlParseLimits {
         max_input_bytes: 16 * 1024 * 1024,
         max_atoms: 100_000,
         ..Default::default()
     };
-    chematic_mol::parse_cml_with_3d_with_limits(cml_str, &limits)
+    chematic_mol::parse_cml_with_3d_with_limits(&cml_str, &limits)
         .map(|(mol, coords)| {
             (
                 Mol {
@@ -43,8 +56,10 @@ pub(super) fn from_cml_with_3d(
 ///
 /// Accepts ``str`` or UTF-8 ``bytes``; malformed UTF-8 raises ``UnicodeDecodeError``.
 #[pyfunction]
-pub(super) fn from_cml(#[pyo3(from_py_with = serialized_text)] cml_str: &str) -> PyResult<Mol> {
-    chematic_mol::parse_cml(cml_str)
+pub(super) fn from_cml(
+    #[pyo3(from_py_with = owned_serialized_text)] cml_str: String,
+) -> PyResult<Mol> {
+    chematic_mol::parse_cml(&cml_str)
         .map(|(mol, _coords)| Mol {
             num_rings_cache: Default::default(),
             inner: Arc::new(mol),
@@ -61,9 +76,9 @@ pub(super) fn from_cml(#[pyo3(from_py_with = serialized_text)] cml_str: &str) ->
 /// Accepts ``str`` or UTF-8 ``bytes``; malformed UTF-8 raises ``UnicodeDecodeError``.
 #[pyfunction]
 pub(super) fn from_cml_strict(
-    #[pyo3(from_py_with = serialized_text)] cml_str: &str,
+    #[pyo3(from_py_with = owned_serialized_text)] cml_str: String,
 ) -> PyResult<Mol> {
-    chematic_mol::parse_cml_strict(cml_str)
+    chematic_mol::parse_cml_strict(&cml_str)
         .map(|(mol, _coords)| Mol {
             num_rings_cache: Default::default(),
             inner: Arc::new(mol),

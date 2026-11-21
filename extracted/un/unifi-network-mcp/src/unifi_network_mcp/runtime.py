@@ -26,8 +26,9 @@ from typing import Any
 from mcp.server.transport_security import TransportSecuritySettings
 
 from unifi_core.auth import UniFiAuth
+from unifi_core.operation_gate import GateKey, GateSettings, OperationGate, gate_registry
 from unifi_core.tls import server_ssl_setting
-from unifi_mcp_shared.bootstrap import resolve_env
+from unifi_mcp_shared.bootstrap import credential_cut_hint, resolve_env
 from unifi_mcp_shared.metadata import PROJECT_WEBSITE_URL, configure_mcp_server_metadata
 from unifi_mcp_shared.response_policy import resolve_mcp_content_mode, should_redact_response_sensitive_fields
 from unifi_mcp_shared.server import UniFiMCPServer, resolve_allowed_hosts
@@ -37,6 +38,7 @@ from unifi_mcp_shared.support_bundle import (
     configured_transports,
     fixed_manifest_reader,
 )
+from unifi_mcp_shared.tool_gate import gate_settings_from_env
 from unifi_network_mcp.bootstrap import UNIFI_TOOL_REGISTRATION_MODE, load_config, logger
 from unifi_network_mcp.support import NetworkSupportBundleAdapter
 
@@ -83,7 +85,7 @@ def get_config():
 def get_auth() -> UniFiAuth:
     """Create and cache the dual-auth instance."""
     settings = get_config().unifi
-    api_key = getattr(settings, "api_key", None) or os.environ.get("UNIFI_API_KEY")
+    api_key = getattr(settings, "api_key", None)
     return UniFiAuth(api_key=api_key if api_key else None)
 
 
@@ -180,6 +182,7 @@ def get_connection_manager() -> ConnectionManager:
         ssl_fingerprint=fingerprint,
         tls_env_prefix="NETWORK",
         auth=get_auth(),
+        auth_failure_hint=credential_cut_hint("NETWORK"),
     )
 
 
@@ -320,11 +323,30 @@ def get_tool_registry() -> dict[str, Any]:
 
 
 @lru_cache
+def get_gate_settings() -> GateSettings:
+    """Operation-gate limits from UNIFI_NETWORK_* or the shared UNIFI_*; a bad value refuses startup."""
+    return gate_settings_from_env("NETWORK", logger=logger)
+
+
+def get_operation_gate() -> OperationGate | None:
+    """This server's controller operation gate; ``None`` while no host is configured (setup mode).
+
+    Keyed by the configured host and port plus the product, so it outlives any
+    connection manager and is shared by every tool call in this process.
+    """
+    cm = get_connection_manager()
+    if not cm.host:
+        return None
+    return gate_registry().get(GateKey.for_host(cm.host, cm.port, "network"), get_gate_settings())
+
+
+@lru_cache
 def get_support_bundle_adapter() -> NetworkSupportBundleAdapter:
     """Create the Network adapter over existing safe runtime singletons."""
     return NetworkSupportBundleAdapter(
         get_connection_manager(),
         integration_api_key_configured=get_auth().has_api_key,
+        operation_gate=get_operation_gate,
     )
 
 
@@ -381,6 +403,8 @@ nat_manager = get_nat_manager()
 traffic_flow_manager = get_traffic_flow_manager()
 traffic_route_manager = get_traffic_route_manager()
 tool_registry = get_tool_registry()
+# Read now, so a bad gate setting refuses startup instead of the first tool call.
+gate_settings = get_gate_settings()
 support_bundle_adapter = get_support_bundle_adapter()
 support_bundle_service = get_support_bundle_service()
 

@@ -1066,6 +1066,7 @@ namespace sogen
     {
         ++this->ended_waits;
         this->pending_status = status;
+        this->user_apc_ended_wait = false;
         this->message_wait_return_register.reset();
         this->await_time = {};
         this->await_objects = {};
@@ -1086,6 +1087,17 @@ namespace sogen
         }
 
         this->waiting_for_alert = false;
+    }
+
+    void emulator_thread::end_wait_with_alert()
+    {
+        // KeRemoveQueueEx ends the wait with one entry, the alert's status, whose count NtRemoveIoCompletionEx stores under
+        // try: a count it cannot store ends the call with the store's fault instead.
+        const auto& wait = this->await_io_completion;
+        const auto stored = wait && wait->type == io_completion_wait_type::remove_multiple && !wait->worker_factory
+                                ? io_completion_wait::write_status_entry_count(*this->memory_ptr, this, wait->entries_removed_ptr)
+                                : STATUS_SUCCESS;
+        this->mark_as_ready(stored == STATUS_SUCCESS ? STATUS_ALERTED : stored);
     }
 
     user_timer* emulator_thread::find_user_timer(const hwnd hwnd, const uint64_t timer_id)
@@ -1584,6 +1596,16 @@ namespace sogen
             return wait->result.has_value() || !this->pending_sent_messages.empty();
         }
 
+        // An alertable wait takes a pending user-mode alert before it looks at anything else, a queued user APC included: one
+        // that starts with the alert pending, or that starts over once its thread resumes from a suspension
+        // (KeWaitForSingleObject, KeRemoveQueueEx; 19041 on the host). A user APC queued during the wait ended it first.
+        if (this->user_alerted && !this->user_apc_ended_wait && this->is_in_alertable_wait())
+        {
+            this->user_alerted = false;
+            this->end_wait_with_alert();
+            return true;
+        }
+
         auto& process = win_emu.process;
         auto& clock = win_emu.clock();
 
@@ -1858,10 +1880,7 @@ namespace sogen
 
                 if (this->teb64)
                 {
-                    this->teb64->access([&](TEB64& teb) {
-                        teb.Win32ClientInfo.arr[8] = active_handle;
-                        teb.Win32ClientInfo.arr[9] = active_window_ptr;
-                    });
+                    set_cached_window(*this->teb64, active_handle, active_window_ptr);
                 }
 
                 this->mark_as_ready(m->message != WM_QUIT ? TRUE : FALSE);
@@ -1872,6 +1891,49 @@ namespace sogen
         }
 
         return true;
+    }
+
+    bool emulator_thread::is_parked(const std::chrono::steady_clock::time_point now, const process_context& process) const
+    {
+        constexpr auto infinite = std::chrono::steady_clock::time_point::min();
+        const auto is_due = [&](const std::optional<std::chrono::steady_clock::time_point>& due_time) {
+            return due_time.has_value() && *due_time != infinite && *due_time < now;
+        };
+
+        // switch_to_thread runs a thread with an APC to deliver or a message hook to call, whatever it waits for.
+        if (this->message_wait_return_register.has_value() || this->has_pending_alertable_apc())
+        {
+            return false;
+        }
+
+        // The waits in the order is_thread_ready checks them.
+        if (this->waiting_for_alert)
+        {
+            return !this->alerted && !is_due(this->await_time);
+        }
+
+        if (this->await_msg_mask.has_value() || !this->await_objects.empty() || this->await_file_io.has_value())
+        {
+            return false;
+        }
+
+        if (this->await_time.has_value())
+        {
+            return !is_due(this->await_time);
+        }
+
+        if (this->await_host_condition || this->awaits_restored_host_condition || this->await_debug_event.has_value() ||
+            !this->await_io_completion.has_value())
+        {
+            return false;
+        }
+
+        // The port as the last check found it: closing any port since has moved its store's generation.
+        const auto& wait = *this->await_io_completion;
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-static-cast-downcast)
+        const auto* completion = static_cast<const io_completion*>(wait.io_completion_object);
+        return completion && wait.io_completion_generation == process.io_completions.generation() && completion->queue.empty() &&
+               !is_due(wait.timeout);
     }
 
     void emulator_thread::setup_if_necessary(cpu_interface& emu, const process_context& context)

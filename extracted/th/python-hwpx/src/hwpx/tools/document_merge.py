@@ -47,14 +47,16 @@ version would. Call it on *target* after :func:`append_document`/
 from __future__ import annotations
 
 import copy as _copy
+import itertools
 from pathlib import Path
 from typing import Any
 
-from .._document.media import _bin_data_stem, add_image
+from .._document.media import _find_binary_item, add_image
 from ..document import HwpxDocument
 from ..errors import HwpxValueError
 from ..oxml.field_marks import field_type_id
 from ..oxml._document_primitives import (
+    IdSource,
     _FONT_FACE_LANG_TO_REF,
     _FONT_REF_ATTRIBUTES,
     _HH,
@@ -77,8 +79,11 @@ _FONT_REF_TO_FACE_LANG = {attr: lang for lang, attr in _FONT_FACE_LANG_TO_REF.it
 #: risk a silent wrong remap -- see the contract doc's "보류" section for the
 #: evidence behind each. Checked on the *source* content being copied, before
 #: any mutation happens (fail before touching anything, not partway through).
-_REJECTED_LOCAL_TAGS = (f"{_HP}connectLine",)
-_REJECTED_ATTRS = ("linkListIDRef", "linkListNextIDRef", "chartIDRef")
+#: Connectors and charts are carried since objlim: a chart part takes the first ``Chart/chartN.xml`` the target
+#: does not use (Hancom 2024's 문서 끼워 넣기, evidence merge2), a connector stays attached to the shapes it joined,
+#: which come along with their new instance ids (see :func:`_carry_connectors_and_charts`).
+_REJECTED_LOCAL_TAGS: tuple[str, ...] = ()
+_REJECTED_ATTRS = ("linkListIDRef", "linkListNextIDRef")
 #: Sentinel values for a rejected attribute that mean "not actually used,"
 #: safe to pass through rather than reject. Found by team-lead's
 #: independent verification (not assumed in advance): a census of the
@@ -421,7 +426,13 @@ def _remap_tab_properties(
 
 
 def _remap_memo_properties(source_header: Any, target_header: Any, paragraphs: list[Any]) -> dict[str, str]:
-    used = _used_ids(paragraphs, "memoShapeIDRef")
+    used = set(_used_ids(paragraphs, "memoShapeIDRef"))
+    # A memo kept in its MEMO field names its shape in the field's MemoShapeIDRef parameter
+    # (element text, not an attribute); 65535 is "no shape" and names none.
+    for paragraph in paragraphs:
+        for param in paragraph.iter(f"{_HP}stringParam"):
+            if param.get("name") == "MemoShapeIDRef" and param.text and param.text != "65535":
+                used.add(param.text)
     if not used:
         return {}
     source_container = source_header._memo_properties_element()
@@ -451,14 +462,17 @@ _HEADING_TYPE_TO_CONTAINER_TAG = {"NUMBER": "numbering", "OUTLINE": "numbering",
 
 
 def _remap_headings(
-    source_header: Any, target_header: Any, para_pr_clones: list[Any]
+    source_header: Any, target_header: Any, para_pr_clones: list[Any],
+    known: dict[str, dict[str, str]] | None = None,
 ) -> dict[str, dict[str, str]]:
     """Returns {"numbering": {old: new}, "bullet": {old: new}}.
 
     Scans *para_pr_clones* (the already-copied paraPr items, from
     :func:`_remap_para_properties` -- not the body paragraphs) for nested
     ``hh:heading`` children, since that is where the reference actually
-    lives.
+    lives. A source definition *known* already maps to (an earlier copy from the same
+    document brought it) is mapped there again instead of copied anew: Hancom counts a
+    numbering per definition, so paragraphs copied one by one keep counting on as one list.
     """
 
     by_space: dict[str, set[str]] = {"numbering": set(), "bullet": set()}
@@ -481,6 +495,10 @@ def _remap_headings(
         if source_container is None:
             continue
         for old_id in sorted(used):
+            earlier = (known or {}).get(space, {}).get(old_id)
+            if earlier is not None and any(c.get("id") == earlier for c in target_container.findall(f"{_HH}{space}")):
+                result[space][old_id] = earlier
+                continue
             item = next(
                 (c for c in source_container.findall(f"{_HH}{space}") if c.get("id") == old_id), None
             )
@@ -590,39 +608,236 @@ def _remap_binary_items(
     """
 
     used = _used_ids(paragraphs, "binaryItemIDRef")
-    if not used:
-        return {}
-    source_container = source_header._bin_data_list_element()
-    if source_container is None:
-        return {}
     remap: dict[str, str] = {}
-    for old_stem in sorted(used):
-        item = next(
-            (
-                c for c in source_container.findall(f"{_HH}binItem")
-                if _bin_data_stem(c.get("BinData")) == old_stem
-            ),
-            None,
+    for old_id in sorted(used):
+        raw, fmt = _binary_item_data(source_doc, old_id)
+        listed = next((item for item in source_doc._package._manifest_items() if item.get("id") == old_id), None)
+        media_type = (listed.get("media-type") or "") if listed is not None else ""
+        if not media_type or media_type.startswith("image/"):
+            remap[old_id] = str(add_image(target_doc, raw, fmt))
+            continue
+        # Not a picture (an OLE object, as a chart keeps one): written as the source lists it -- its
+        # media type and ``isEmbeded`` -- not as an embedded image.
+        assert listed is not None
+        listed_there = target_doc._package._manifest_items()
+        taken = {item.get("id") for item in listed_there}
+        stored = {str(item.get("href") or "") for item in listed_there} | set(target_doc._package.part_names())
+        new_id = next(
+            name for name in (f"BIN{number:04d}" for number in itertools.count(1))
+            if name not in taken and f"BinData/{name}.{fmt}" not in stored
         )
-        if item is None:
-            continue
-        bin_data_name = item.get("BinData")
-        fmt = (item.get("Format") or "").lower().lstrip(".")
-        if not bin_data_name:
-            continue
-        # BinData files live at a fixed conventional path (BinData/<name>,
-        # package-root not Contents/-relative -- confirmed against
-        # add_image's own writer, _document/media.py's add_image).
-        part_path = f"BinData/{bin_data_name}"
-        try:
-            raw = source_doc.package.read(part_path)
-        except KeyError:
-            continue
-        if not fmt:
-            fmt = Path(bin_data_name).suffix.lstrip(".") or "png"
-        new_item = add_image(target_doc, raw, fmt)
-        remap[old_stem] = str(new_item)
+        path = f"BinData/{new_id}.{fmt}"
+        target_doc._package.write(path, raw)
+        target_doc._package.add_manifest_item(
+            new_id, path, media_type,
+            extra_attrs={name: value for name, value in listed.attrib.items() if name not in ("id", "href", "media-type")},
+        )
+        remap[old_id] = new_id
     return remap
+
+
+def _binary_item_data(source_doc: HwpxDocument, item_id: str) -> tuple[bytes, str]:
+    """The data and format of the binary item *item_id* names in *source_doc*: listed in the header
+    (``hh:binItem``) or, as Hancom saves a picture, in the package manifest alone. An item that cannot
+    be read is refused (:func:`_reject_what_cannot_be_carried` does so before the target is touched):
+    left in the copy under its old id, the reference named whatever item of that id the receiving
+    document has -- another picture -- or nothing."""
+
+    found = _find_binary_item(source_doc, item_id)
+    path = found.bin_data_path if found is not None else None
+    try:
+        raw = source_doc.package.read(path) if path else None
+    except KeyError:
+        raw = None
+    if not raw or path is None:
+        raise HwpxValueError(
+            f"the source document has no data for the binary item {item_id!r} its content points at",
+            code="document-merge-unsupported-reference",
+            context={"attribute": "binaryItemIDRef", "value": item_id},
+            suggestion="Repair or remove the picture in the source document before copying from it.",
+        )
+    return raw, (Path(path).suffix.lstrip(".") or "png").lower()
+
+
+_TRACK_MARKS = tuple(f"{_HP}{name}" for name in ("insertBegin", "insertEnd", "deleteBegin", "deleteEnd"))
+
+
+def _tracked_change_ids(paragraphs: list[Any]) -> list[str]:
+    """The change ids the tracked-change marks in *paragraphs* carry, in document order."""
+
+    seen: dict[str, None] = {}
+    for paragraph in paragraphs:
+        for node in paragraph.iter(*_TRACK_MARKS):
+            if node.get("TcId"):
+                seen.setdefault(str(node.get("TcId")))
+    return list(seen)
+
+
+def _reject_what_cannot_be_carried(source: HwpxDocument, paragraphs: list[Any], target: HwpxDocument) -> None:
+    """Refuse, before the receiving document is touched, content whose references cannot follow it:
+    a picture the source has no data for, tracked changes without a definition in the source's
+    header or of a kind that is not written (a character or paragraph shape change), and tracked
+    changes whose author would be given a number the receiving document's changes already carry."""
+
+    for item_id in sorted(_used_ids(paragraphs, "binaryItemIDRef")):
+        _binary_item_data(source, item_id)
+    definitions = source.oxml.track_changes
+    if any(not node.get("TcId") for paragraph in paragraphs for node in paragraph.iter(*_TRACK_MARKS)):
+        raise HwpxValueError(
+            "a tracked-change mark in the copied content names no change",
+            code="document-merge-unsupported-reference",
+            context={"attribute": "TcId", "value": None},
+            suggestion="Accept or reject that change in the source document first.",
+        )
+    for change_id in _tracked_change_ids(paragraphs):
+        entry = definitions.get(change_id)
+        if entry is None or str(getattr(entry, "change_type", None) or "").lower() not in ("insert", "delete"):
+            raise HwpxValueError(
+                f"the tracked change {change_id!r} in the copied content cannot be carried across",
+                code="document-merge-unsupported-reference",
+                context={"attribute": "TcId", "value": change_id},
+                suggestion="Accept or reject that change in the source document first.",
+            )
+    _reject_an_author_number_already_carried(source, target, _tracked_change_ids(paragraphs))
+    for attribute in ("charTcId", "paraTcId"):
+        if _used_ids(paragraphs, attribute):
+            raise HwpxValueError(
+                f"document insert does not support {attribute!r} yet",
+                code="document-merge-unsupported-reference",
+                context={"attribute": attribute},
+                suggestion="Accept or reject the shape changes in the source document first.",
+            )
+
+
+def _reject_an_author_number_already_carried(source: HwpxDocument, target: HwpxDocument, change_ids: list[str]) -> None:
+    """Refuse changes whose author is new to *target* when the number that author would get is one
+    its changes already carry without an author of that number.
+
+    A document Hancom saved numbers its only author 0 and writes ``authorID="1"`` on that author's
+    changes (``reader_writer__ChangeTrack``), and one that has been through an .hwp save carries numbers
+    of its own. The next author added is given the number after the last author's; where changes carry
+    that number already, they would read as the new author's from then on, and rejecting the new
+    author's changes would reject theirs. Numbers a document already carries are not rewritten here
+    (they only stay right across an .hwp save if left alone), so the content is not carried in."""
+
+    from .._document.tracked import _resolved_author_name
+
+    if not change_ids:
+        return
+    authors = target.oxml.track_change_authors
+    known = {str(getattr(author, "name", "") or "") for author in authors.values()}
+    definitions = source.oxml.track_changes
+    joining = {
+        name for name in (
+            _resolved_author_name(source, definitions[change_id].author_id) or "AI Agent"
+            for change_id in change_ids if change_id in definitions
+        ) if name not in known
+    }
+    if not joining:
+        return
+    numbers = [int(key) for key in authors if str(key).isdigit()]
+    first = max(numbers) + 1 if numbers else 1  # as the header numbers a new author
+    carried = {
+        int(change.author_id)
+        for change in target.oxml.track_changes.values()
+        if isinstance(change.author_id, int) and str(change.author_id) not in {str(key) for key in authors}
+    }
+    taken = sorted(carried & set(range(first, first + len(joining))))
+    if taken:
+        raise HwpxValueError(
+            "the receiving document's tracked changes carry an author number "
+            f"({taken[0]}) the incoming author would be given",
+            code="document-merge-unsupported-reference",
+            context={"attribute": "authorID", "value": taken[0]},
+            suggestion="Accept or reject the tracked changes in one of the two documents first.",
+        )
+
+
+def _carry_tracked_changes(source: HwpxDocument, target: HwpxDocument, copies: list[Any]) -> int:
+    """Give the tracked changes in *copies* definitions in *target*: each change the marks name is added
+    to the receiving header under a new id, with its kind, author and date, and the marks follow it
+    (``TcId``) with mark numbers of the receiving document (``Id``). Kept under the source's numbers, a
+    mark named whatever change of that number the receiving document has -- so rejecting one's own
+    change removed the text of somebody else's -- or none."""
+
+    from .._document.tracked import _resolved_author_name
+
+    change_ids = _tracked_change_ids(copies)
+    if not change_ids:
+        return 0
+    definitions = source.oxml.track_changes
+    renewed: dict[str, str] = {}
+    for change_id in change_ids:
+        entry = definitions[change_id]
+        renewed[change_id] = str(
+            target._root.add_track_change(
+                str(entry.change_type),  # checked before the merge began: defined, and Insert or Delete
+                author_name=_resolved_author_name(source, entry.author_id) or "AI Agent",
+                date=entry.date,
+                show=False,  # the receiving document keeps showing or hiding changes as it did
+            )
+        )
+    next_mark = target._root.next_track_change_mark_id()
+    marks: dict[tuple[str, str], str] = {}
+    for copy in copies:
+        for node in copy.iter(*_TRACK_MARKS):
+            old_change = node.get("TcId")
+            if old_change not in renewed:
+                continue
+            key = (str(old_change), node.get("Id") or "")
+            if key not in marks:
+                marks[key] = str(next_mark)
+                next_mark += 1
+            node.set("TcId", renewed[str(old_change)])
+            if node.get("Id") is not None:
+                node.set("Id", marks[key])
+    return len(renewed)
+
+
+def _follow_clones(copies: list[Any], clones: list[Any]) -> None:
+    """Re-point the connectors in *clones* (the section's own copies of *copies*, made by
+    ``insert_paragraphs`` with fresh instance ids) at the shapes' new ids there."""
+
+    renewed: dict[str, str] = {}
+    for copy, clone in zip(copies, clones):
+        for before, after in zip(copy.iter(), clone.iter()):
+            old = before.get("instid")
+            if old not in (None, "", "0"):
+                renewed[str(old)] = str(after.get("instid"))
+    _reattach_connectors(clones, renewed)
+
+
+def _reattach_connectors(paragraphs: list[Any], renewed: dict[str, str]) -> None:
+    """Point every connector end in the copied *paragraphs* at the new instance id of the shape it joined
+    (*renewed*: old id to new). Hancom 2024's own 문서 끼워 넣기 let the ends go (``subjectIDRef="0"``, objlim
+    merge) and then drew no connector at all (its page image shows the two shapes without it); a connector
+    attached to shapes is the form Hancom keeps when it saves a document (keepsrc), so the copy stays attached.
+    An end whose shape did not come along lets go."""
+
+    for paragraph in paragraphs:
+        for node in paragraph.iter(f"{_HP}startPt", f"{_HP}endPt"):
+            subject = node.get("subjectIDRef")
+            if subject not in (None, "", "0"):
+                node.set("subjectIDRef", renewed.get(subject, "0"))
+
+
+def _carry_connectors_and_charts(source: HwpxDocument, target: HwpxDocument, paragraphs: list[Any]) -> None:
+    """Carry the charts in the copied *paragraphs* as Hancom 2024's 문서 끼워 넣기 does (objlim evidence merge2):
+    each chart's part is written to the first ``Chart/chartN.xml`` the target does not use, the chart pointing
+    at it. (Connectors follow their shapes: :func:`_reattach_connectors`.)"""
+
+    for paragraph in paragraphs:
+        for node in paragraph.iter():
+            chart = node.get("chartIDRef")
+            if not chart or not source._package.has_part(chart):
+                continue
+            used = {name for name in target._package.part_names() if name.startswith("Chart/")}
+            number = 1
+            while f"Chart/chart{number}.xml" in used:
+                number += 1
+            name = f"Chart/chart{number}.xml"
+            target._package.write(name, source._package.read(chart))
+            node.set("chartIDRef", name)
 
 
 def _deep_copy_element(element: Any) -> Any:
@@ -637,7 +852,28 @@ def _deep_copy_element(element: Any) -> Any:
 # ================================================================================
 
 
-def _refresh_field_and_bookmark_ids(paragraphs: list[Any], existing_bookmark_names: set[str]) -> None:
+
+def _pair_field_end(node: Any, begin_map: dict[str, tuple[str, str | None]],
+                    begin_fieldid_map: dict[str, str]) -> bool:
+    """Point the copied ``hp:fieldEnd`` *node* at the new id of the begin it names; False when no begin
+    of that id has been seen (its ``fieldid`` alone follows then, when one is known)."""
+
+    paired = begin_map.get(node.get("beginIDRef") or "")
+    old_end_fieldid = node.get("fieldid")
+    if paired is None:
+        if old_end_fieldid and old_end_fieldid in begin_fieldid_map:
+            node.set("fieldid", begin_fieldid_map[old_end_fieldid])
+        return False
+    new_id, new_fieldid = paired
+    node.set("beginIDRef", new_id)
+    if old_end_fieldid and new_fieldid is not None:
+        node.set("fieldid", new_fieldid)
+    return True
+
+
+def _refresh_field_and_bookmark_ids(
+    paragraphs: list[Any], existing_bookmark_names: set[str], *, ids: "IdSource | None"
+) -> None:
     """Refresh document-local ids that ``_refresh_copied_paragraph_subtree_ids``
     deliberately leaves alone (see its own docstring): field begin/end
     pairing and bookmark names. Applies uniformly to every fieldBegin type,
@@ -662,6 +898,7 @@ def _refresh_field_and_bookmark_ids(paragraphs: list[Any], existing_bookmark_nam
     # fieldid would hand one field's value to another field's end.
     begin_map: dict[str, tuple[str, str | None]] = {}
     begin_fieldid_map: dict[str, str] = {}
+    early_ends: list[Any] = []
     for paragraph in paragraphs:
         # hp:fieldBegin/fieldEnd -- id/fieldid must both get fresh values,
         # and fieldEnd's beginIDRef/fieldid must follow its OWN fieldBegin's
@@ -683,30 +920,26 @@ def _refresh_field_and_bookmark_ids(paragraphs: list[Any], existing_bookmark_nam
         for node in paragraph.iter():
             if _local_name(node.tag) == "fieldBegin":
                 old_id = node.get("id")
-                new_id = _object_id()
+                new_id = _object_id(ids)
                 node.set("id", new_id)
                 new_fieldid = None
                 old_fieldid = node.get("fieldid")
                 if old_fieldid:
                     # Hancom's fieldid is the field type's control id, the same for
                     # every field of the type; a type without one gets a new id.
-                    new_fieldid = field_type_id(node.get("type"))
+                    new_fieldid = field_type_id(node.get("type"), ids=ids)
                     begin_fieldid_map.setdefault(old_fieldid, new_fieldid)
                     node.set("fieldid", new_fieldid)
                 if old_id:
                     begin_map[old_id] = (new_id, new_fieldid)
-    for paragraph in paragraphs:
-        for node in paragraph.iter():
-            if _local_name(node.tag) == "fieldEnd":
-                paired = begin_map.get(node.get("beginIDRef") or "")
-                old_end_fieldid = node.get("fieldid")
-                if paired is not None:
-                    new_id, new_fieldid = paired
-                    node.set("beginIDRef", new_id)
-                    if old_end_fieldid and new_fieldid is not None:
-                        node.set("fieldid", new_fieldid)
-                elif old_end_fieldid and old_end_fieldid in begin_fieldid_map:
-                    node.set("fieldid", begin_fieldid_map[old_end_fieldid])
+            elif _local_name(node.tag) == "fieldEnd":
+                # In document order, with the begins: an end follows the begin before it. A source that
+                # uses one id for two fields in a row (Hancom saves such files) had both ends pointed at
+                # the second begin, since the ends were mapped after every begin had been.
+                if not _pair_field_end(node, begin_map, begin_fieldid_map):
+                    early_ends.append(node)
+    for node in early_ends:  # an end in front of its begin: the begin is known now
+        _pair_field_end(node, begin_map, begin_fieldid_map)
 
     for paragraph in paragraphs:
         # hp:bookmark name -- not an id, a user-chosen string. Target
@@ -940,7 +1173,7 @@ def _find_memo_field_ids(paragraphs: list[Any]) -> set[str]:
 
 
 def _copy_referenced_memos(
-    source: HwpxDocument, source_paragraphs: list[Any]
+    source: HwpxDocument, source_paragraphs: list[Any], *, ids: "IdSource | None"
 ) -> tuple[dict[str, str], list[Any]]:
     """Find every hp:memo the MEMO fields in *source_paragraphs* reference,
     clone them, and give each clone a fresh memo id plus fresh ids for its
@@ -977,12 +1210,15 @@ def _copy_referenced_memos(
     for old_id in sorted(needed_ids):
         memo = source_memos.get(old_id)
         if memo is None:
+            # A memo kept only in its MEMO field (Hancom's form, and python-hwpx's since 7.0) travels
+            # with the copied field; it takes a new id like a memo-group memo does.
+            memo_id_map[old_id] = _memo_id(ids)
             continue
         clone = _deep_copy_element(memo)
-        new_id = _memo_id()
+        new_id = _memo_id(ids)
         clone.set("id", new_id)
         memo_id_map[old_id] = new_id
-        _refresh_copied_paragraph_subtree_ids(clone)
+        _refresh_copied_paragraph_subtree_ids(clone, ids=ids)
         clones.append(clone)
     return memo_id_map, clones
 
@@ -1035,12 +1271,172 @@ def _insert_memos_into_target_section(target_section: Any, memo_clones: list[Any
     _merge_paragraphs's own docstring comment on that).
     """
 
+    # 7.0: Hancom keeps a memo only in its MEMO field (the field's hp:subList) and writes no
+    # hp:memogroup, so each memo clone goes into the copied field that names it (already in
+    # *target_section*), not into a memo group. A clone no copied field names is not written.
     if not memo_clones:
         return
-    memogroup = target_section._memo_group_element(create=True)
+    from ..oxml.memo import _fill_field_from_entry, memo_field_id, memo_fields_in
+
+    fields = {memo_field_id(field): field for field in memo_fields_in(target_section.element)}
     for clone in memo_clones:
-        memogroup.append(clone)
+        field = fields.get(clone.get("id"))
+        if field is not None:
+            _fill_field_from_entry(field, clone)
     target_section.mark_dirty()
+
+
+#: The header lists a copy reuses equal definitions from, in the order they are folded: fonts, border fills
+#: and tab definitions first, since the character and paragraph shapes refer to them, and those before the
+#: styles, which refer to them.
+_REUSED_DEFINITIONS = (
+    ("borderFills", "borderFill", "borderFillIDRef"),
+    ("tabProperties", "tabPr", "tabPrIDRef"),
+    ("charProperties", "charPr", "charPrIDRef"),
+    ("paraProperties", "paraPr", "paraPrIDRef"),
+    ("styles", "style", "styleIDRef"),
+)
+
+
+def _definition_list(header: Any, list_name: str) -> Any:
+    root = header.element
+    return next((node for node in root.iter() if isinstance(node.tag, str)
+                 and _local_name(node.tag) == list_name), None)
+
+
+def _children_named(holder: Any, name: str) -> list[Any]:
+    return [node for node in holder if isinstance(node.tag, str) and _local_name(node.tag) == name]
+
+
+def _definition_ids(header: Any) -> dict[str, set[str]]:
+    """The ids each reused list of *header* holds now (fonts per language), before a copy adds to it."""
+
+    ids: dict[str, set[str]] = {}
+    for list_name, item_name, _ref in _REUSED_DEFINITIONS:
+        holder = _definition_list(header, list_name)
+        ids[item_name] = {str(node.get("id")) for node in _children_named(holder, item_name)} \
+            if holder is not None else set()
+    faces = _definition_list(header, "fontfaces")
+    for face in _children_named(faces, "fontface") if faces is not None else ():
+        ids["font:" + str(face.get("lang"))] = {str(node.get("id")) for node in _children_named(face, "font")}
+    return ids
+
+
+#: How definitions name each other: the attribute -> the ids it may hold, each read as the first id of the
+#: header's definitions that are the same but for their ids (``"font:<LANG>"`` for an ``hh:fontRef``'s fonts).
+_Aliases = dict[str, dict[str, str]]
+
+
+def _definition_key(element: Any, aliases: "_Aliases | None" = None) -> bytes:
+    """*element* as canonical XML without its ``id`` (a style's ``nextStyleIDRef`` to itself read as such):
+    two definitions with the same key mean the same.
+
+    With *aliases*, each reference to another definition is read as the first of the definitions equal to
+    it: a header holding two equal fonts (Hancom writes 함초롬바탕 twice in the HANJA face of many documents,
+    ids 0 and 6) has one character shape naming font 0 and another naming font 6 that mean the same."""
+
+    from lxml import etree  # type: ignore[reportMissingImports]  # lxml has no complete bundled typing, as everywhere in hwpx
+
+    clone = etree.fromstring(etree.tostring(element))
+    own = clone.attrib.pop("id", None)
+    if own is not None and clone.get("nextStyleIDRef") == own:
+        clone.set("nextStyleIDRef", "itself")
+    clone.tail = None
+    if aliases:
+        for node in clone.iter():
+            if not isinstance(node.tag, str):
+                continue
+            fonts = _local_name(node.tag) == "fontRef"
+            for name, value in list(node.attrib.items()):
+                table = aliases.get("font:" + _FONT_REF_TO_FACE_LANG.get(name, "")) if fonts else aliases.get(name)
+                if table and value in table:
+                    node.set(name, table[value])
+    return etree.tostring(clone, method="c14n")
+
+
+def _equal_classes(items: list[Any], aliases: "_Aliases | None") -> dict[str, str]:
+    """Each item's id -> the id of the first item the same as it (but for ids)."""
+
+    first: dict[bytes, str] = {}
+    classes: dict[str, str] = {}
+    for node in items:
+        own = str(node.get("id"))
+        classes[own] = first.setdefault(_definition_key(node, aliases), own)
+    return classes
+
+
+def _fold(holder: Any, items: list[Any], before: set[str], aliases: "_Aliases | None" = None) -> dict[str, str]:
+    """Fold the items of *holder* not in *before* into earlier equal ones, number the rest on from *before*;
+    the id changes (old -> new). *aliases*: as :func:`_definition_key` reads references."""
+
+    known: dict[bytes, str] = {}
+    for node in items:
+        if str(node.get("id")) in before:
+            known.setdefault(_definition_key(node, aliases), str(node.get("id")))
+    numbers = [int(i) for i in before if i.lstrip("-").isdigit()]
+    next_id = max(numbers) + 1 if numbers else 0
+    mapping: dict[str, str] = {}
+    for node in items:
+        old = str(node.get("id"))
+        if old in before:
+            continue
+        key = _definition_key(node, aliases)
+        same = known.get(key)
+        if same is not None:
+            mapping[old] = same
+            holder.remove(node)
+            continue
+        known[key] = str(next_id)
+        if old != str(next_id):
+            mapping[old] = str(next_id)
+            node.set("id", str(next_id))
+        next_id += 1
+    return mapping
+
+
+def _reuse_equal_definitions(header: Any, before: dict[str, set[str]], scope: list[Any]) -> None:
+    """Fold each definition this copy added to *header* (an id not in *before*) into one the header already
+    had that is the same but for its id, pointing the references in *scope* (the copied paragraphs, memos
+    and the definitions copied with them) at it; the definitions left are numbered on from the ones before,
+    so the ids stay without gaps."""
+
+    aliases: _Aliases = {}
+    faces = _definition_list(header, "fontfaces")
+    for face in _children_named(faces, "fontface") if faces is not None else ():
+        lang = str(face.get("lang"))
+        mapping = _fold(face, _children_named(face, "font"), before.get("font:" + lang, set()))
+        aliases["font:" + lang] = _equal_classes(_children_named(face, "font"), None)
+        if not mapping:
+            continue
+        attributes = [attr for attr, face_lang in _FONT_REF_TO_FACE_LANG.items() if face_lang == lang]
+        for root in scope:
+            for node in root.iter(f"{_HH}fontRef"):
+                for attr in attributes:
+                    if node.get(attr) in mapping:
+                        node.set(attr, mapping[str(node.get(attr))])
+        if face.get("fontCnt") is not None:
+            face.set("fontCnt", str(len(_children_named(face, "font"))))
+    for list_name, item_name, ref in _REUSED_DEFINITIONS:
+        holder = _definition_list(header, list_name)
+        if holder is None:
+            continue
+        mapping = _fold(holder, _children_named(holder, item_name), before[item_name], aliases)
+        refs = (ref, "nextStyleIDRef", "charStyleIDRef") if item_name == "style" else (ref,)
+        classes = _equal_classes(_children_named(holder, item_name), aliases)
+        for name in refs:
+            aliases[name] = classes
+        if not mapping:
+            continue
+        for root in scope:
+            for node in root.iter():
+                if not isinstance(node.tag, str):
+                    continue
+                for name in refs:
+                    value = node.get(name)
+                    if value is not None and value in mapping:
+                        node.set(name, mapping[value])
+        if holder.get("itemCnt") is not None:
+            holder.set("itemCnt", str(len(_children_named(holder, item_name))))
 
 
 def _merge_paragraphs(
@@ -1048,15 +1444,20 @@ def _merge_paragraphs(
     source: HwpxDocument,
     *,
     source_section_index: int | None,
+    paragraphs: list[Any] | None = None,
+    known_headings: dict[str, dict[str, str]] | None = None,
 ) -> tuple[list[Any], list[Any], dict[str, Any]]:
-    """Deep-copy source paragraphs, remap every reference, return
-    (paragraph elements, memo clones, report)."""
+    """Deep-copy source paragraphs (*paragraphs*, elements of *source*, or else those of its sections),
+    remap every reference, return (paragraph elements, memo clones, report)."""
 
-    source_sections = (
-        [source.sections[source_section_index]] if source_section_index is not None
-        else list(source.sections)
-    )
-    source_paragraphs = [p.element for section in source_sections for p in section.paragraphs]
+    if paragraphs is not None:
+        source_paragraphs = list(paragraphs)
+    else:
+        source_sections = (
+            [source.sections[source_section_index]] if source_section_index is not None
+            else list(source.sections)
+        )
+        source_paragraphs = [p.element for section in source_sections for p in section.paragraphs]
     if not source_paragraphs:
         return [], [], {"paragraphsInserted": 0}
 
@@ -1067,7 +1468,13 @@ def _merge_paragraphs(
     # identical either way (deep-copying hasn't happened yet at this
     # point), and _copy_referenced_memos needs *source* itself (not just
     # source_paragraphs) to search its sections' hp:memogroup elements.
-    memo_id_map, memo_clones = _copy_referenced_memos(source, source_paragraphs)
+    # Checked on copies that draw no id from the receiving document: a refusal leaves it as it was,
+    # the ids it will hand out next (with a seed) among that.
+    _reject_what_cannot_be_carried(
+        source, [*source_paragraphs, *_copy_referenced_memos(source, source_paragraphs, ids=None)[1]], target
+    )
+    ids = target._root._id_source  # new ids are the receiving document's
+    memo_id_map, memo_clones = _copy_referenced_memos(source, source_paragraphs, ids=ids)
 
     copies = [_deep_copy_element(p) for p in source_paragraphs]
     # A copied paragraph is never the destination section's first paragraph
@@ -1093,10 +1500,11 @@ def _merge_paragraphs(
     # effect, masking the bug) but silently corrupted the saved document
     # (dangling *IDRef, invisible until reopened and checked) whenever it
     # did not. This single call is the fix -- do it unconditionally, up
-    # front, since v1's own no-dedup policy means essentially every
+    # front, since a merge may add definitions (those not already there) and essentially every
     # non-empty merge touches the header (even a bare styleIDRef="0"
     # reference copies that default style under a fresh id).
     target_header.mark_dirty()
+    before_merge = _definition_ids(target_header)
 
     # memo_clones fold into the SAME axis-1 scanning/application passes as
     # the body paragraph copies -- a memo's own paraList/hp:p carries
@@ -1141,9 +1549,16 @@ def _merge_paragraphs(
     )
     memo_shape = _remap_memo_properties(source_header, target_header, remap_scope)
     binary_item = _remap_binary_items(source, target, source_header, target_header, remap_scope)
+    _carry_tracked_changes(source, target, copies)
+    _carry_connectors_and_charts(source, target, remap_scope)
+    instance_ids = [(node, node.get("instid")) for copy in copies for node in copy.iter()
+                    if node.get("instid") not in (None, "", "0")]
     # hh:heading (numbering/bullet's own polymorphic idRef) lives inside the
     # just-copied paraPr items, not the body paragraphs -- scan those.
-    headings = _remap_headings(source_header, target_header, para_pr_clones)
+    headings = _remap_headings(source_header, target_header, para_pr_clones, known_headings)
+    if known_headings is not None:
+        for space, mapping in headings.items():
+            known_headings.setdefault(space, {}).update(mapping)
     # hh:fontRef (7 lang-scoped font ids) lives inside the just-copied
     # charPr items, not the body paragraphs -- scan those.
     fonts = _remap_fonts(source_header, target_header, char_pr_clones)
@@ -1172,6 +1587,11 @@ def _merge_paragraphs(
     # and only ever touches a charPr's own fontRef child -- applied
     # separately, only to the charPr clones.
     _apply_font_remap(char_pr_clones, fonts)
+    # A definition copied over that the target already has, the same in every respect but its id, is not
+    # kept twice: the copy uses the target's (what hwpx-school's run transplant did; a later copy of
+    # another paragraph does the same).
+    _reuse_equal_definitions(target_header, before_merge,
+                             copies + memo_clones + para_pr_clones + char_pr_clones + style_clones)
 
     # HwpxOxmlDocument.char_properties is a lazily-built, explicitly-cached
     # dict (unlike every other header table this module touches, which is
@@ -1189,13 +1609,14 @@ def _merge_paragraphs(
             owning_document.invalidate_char_property_cache()
 
     for copy in copies:
-        _refresh_copied_paragraph_subtree_ids(copy)
+        _refresh_copied_paragraph_subtree_ids(copy, ids=ids)
+    _reattach_connectors(copies, {old: str(node.get("instid")) for node, old in instance_ids})
     # memo_clones already had _refresh_copied_paragraph_subtree_ids applied
     # to each individually inside _copy_referenced_memos (needed there, to
     # give each clone a fresh memo id + fresh nested paraList paragraph ids
     # before axis-1 scanning reads them) -- not repeated here.
     bookmark_names = _existing_bookmark_names(target)
-    _refresh_field_and_bookmark_ids(copies, bookmark_names)
+    _refresh_field_and_bookmark_ids(copies, bookmark_names, ids=ids)
     # The field's OWN "ID"/"MemoShapeIDRef" hp:stringParam text values --
     # not attributes, so _apply_remaps never touches them -- get their own
     # pass, using the id map _copy_referenced_memos already built plus the
@@ -1205,7 +1626,8 @@ def _merge_paragraphs(
     report = {
         "paragraphsInserted": len(copies),
         "sectionPropertiesStripped": stripped_section_properties,
-        "memosCopied": len(memo_clones),
+        # every memo the copied paragraphs anchor: in a memo group (6.x documents) or in its field
+        "memosCopied": len(memo_id_map),
         "remapped": {
             "charPr": len(char_pr),
             "paraPr": len(para_pr),
@@ -1311,7 +1733,8 @@ def append_document(
         target_section = target.sections[target_section_index]
         if copies:
             index = len(target_section.paragraphs)
-            target_section.insert_paragraphs(index, copies)
+            inserted = target_section.insert_paragraphs(index, copies)
+            _follow_clones(copies, [paragraph.element for paragraph in inserted])
         _insert_memos_into_target_section(target_section, memo_clones)
         report["position"] = "end"
         report["targetSectionIndex"] = target_section_index
@@ -1319,6 +1742,100 @@ def append_document(
     finally:
         if opened_here:
             source_doc.close()
+
+
+def _facade_of(root: Any) -> HwpxDocument | None:
+    """A document view over the ``HwpxOxmlDocument`` *root* and the package it was read from."""
+
+    package = getattr(getattr(root, "_manifest_source", None), "__self__", None)
+    return None if package is None else HwpxDocument(package, root)
+
+
+def copy_paragraph(source: Any, anchor: Any, *, before: bool = False) -> Any:
+    """``paragraph.copy_to(anchor, before=)``: put a copy of the paragraph object *source* right after
+    (*before*: before) the paragraph object *anchor* and return it.
+
+    *anchor* may belong to another document. The copy is made as :func:`insert_document` copies a
+    paragraph: the definitions its text and objects name (character and paragraph shapes, styles,
+    borders and fills, tabs, numberings and bullets, fonts, memo shapes) become new definitions of
+    *anchor*'s document, pictures bring their images and charts their parts, fields, bookmarks, objects
+    and paragraphs get fresh ids, a memo anchored in it comes along in its field, and section settings
+    stay behind. What :func:`insert_document` refuses is refused the same way
+    (``document-merge-unsupported-reference``). In the same document the copy is the one
+    ``paragraph.insert_after()`` makes. No line layout cache comes along. The document's footnotes and
+    endnotes are numbered again in document order, as ``note.copy_to`` numbers them.
+    """
+
+    from ..oxml._document_primitives import _clone_paragraph_element
+    from ..oxml._paragraph_text_edit import (
+        insert_paragraph_copy,
+        renumber_copied_fields,
+        resolve_paragraph_in,
+        section_setting_runs,
+    )
+    from ..oxml.memo import renew_copied_memos
+    from ..oxml.note_authoring import renumber_notes_holding
+    from ..oxml.paragraph import HwpxOxmlParagraph
+
+    if not isinstance(before, bool):
+        raise HwpxValueError(f"before must be True or False; got {before!r}", code="paragraph-invalid-type",
+                             suggestion="Pass before=True to put the copy in front of the paragraph.")
+    source = resolve_paragraph_in(source, source, caller="copy_to")
+    if not isinstance(anchor, HwpxOxmlParagraph):
+        from ..errors import HwpxTypeError
+
+        raise HwpxTypeError(
+            f"paragraph must be a paragraph object; got {type(anchor).__name__}",
+            code="paragraph-invalid-type",
+            context={"caller": "copy_to", "type": type(anchor).__name__},
+            suggestion="Pass the paragraph to copy next to, e.g. other_doc.paragraphs[i] or cell.paragraphs[i].",
+        )
+    anchor = resolve_paragraph_in(anchor, anchor, caller="copy_to")
+    source_root, target_root = source.section.document, anchor.section.document
+    if source_root is target_root:
+        copy = _clone_paragraph_element(source.element, ids=anchor.section._ids)
+        renumber_copied_fields(copy, ids=anchor.section._ids)
+        for run, settings in section_setting_runs(copy):
+            for child in settings:
+                run.remove(child)
+            if len(run) == 0:
+                copy.remove(run)
+        insert_paragraph_copy(copy, anchor, before=before)
+        sections = list(target_root.sections) if target_root is not None else [anchor.section]
+        renew_copied_memos(copy, sections, anchor.section)
+        from ..oxml.shape_position import unique_object_ids
+
+        unique_object_ids(anchor.section, (copy,))
+        renumber_notes_holding(anchor.section, (copy,))
+        return HwpxOxmlParagraph(copy, anchor.section)
+    source_doc, target_doc = _facade_of(source_root), _facade_of(target_root)
+    if source_doc is None or target_doc is None:
+        raise HwpxValueError(
+            "copying a paragraph into another document needs both documents opened or created as documents",
+            code="paragraph-not-in-document",
+            suggestion="Open both with HwpxDocument.open(...) or make them with HwpxDocument.new().",
+        )
+    # Paragraphs copied one by one from one document keep one numbering: a later copy maps the
+    # source's numbering and bullet definitions to the ones an earlier copy brought.
+    import weakref
+
+    holder: Any = target_root
+    registry = getattr(holder, "_copied_headings", None)
+    if registry is None:
+        registry = weakref.WeakKeyDictionary()
+        holder._copied_headings = registry
+    known: dict[str, dict[str, str]] = registry.setdefault(source_root, {})
+    copies, memo_clones, _report = _merge_paragraphs(
+        target_doc, source_doc, source_section_index=None, paragraphs=[source.element], known_headings=known
+    )
+    copy = copies[0]
+    insert_paragraph_copy(copy, anchor, before=before)
+    _insert_memos_into_target_section(anchor.section, memo_clones)
+    from ..oxml.shape_position import unique_object_ids
+
+    unique_object_ids(anchor.section, (copy,))
+    renumber_notes_holding(anchor.section, (copy,))
+    return HwpxOxmlParagraph(copy, anchor.section)
 
 
 def insert_document(
@@ -1355,9 +1872,8 @@ def insert_document(
         opened_here = True
         source_doc = HwpxDocument.open(source)
     try:
-        copies, memo_clones, report = _merge_paragraphs(
-            target, source_doc, source_section_index=source_section_index,
-        )
+        # Where it goes, first: a place that is not there was refused after the source's styles and
+        # images had been merged into the target, which then saved another document's image.
         target_section = target.sections[target_section_index]
         total = len(target_section.paragraphs)
         if not -1 <= after_paragraph_index < total:
@@ -1368,11 +1884,19 @@ def insert_document(
                 context={"afterParagraphIndex": after_paragraph_index, "paragraphCount": total},
                 suggestion="Use -1 to insert before the first paragraph, or 0..N-1.",
             )
-        if copies:
-            target_section.insert_paragraphs(after_paragraph_index + 1, copies)
-        relocated = after_paragraph_index == -1 and bool(copies) and _move_section_setup_to_first_paragraph(
-            target_section
+        copies, memo_clones, report = _merge_paragraphs(
+            target, source_doc, source_section_index=source_section_index,
         )
+        moved_by_insert = False
+        if copies:
+            had_settings = after_paragraph_index == -1 and (
+                target_section.paragraphs[0].element.find(f"{_HP}run/{_HP}secPr") is not None)
+            inserted = target_section.insert_paragraphs(after_paragraph_index + 1, copies)
+            _follow_clones(copies, [paragraph.element for paragraph in inserted])
+            # insert_paragraphs at index 0 moves the section settings to the first copy itself.
+            moved_by_insert = had_settings and inserted[0].element.find(f"{_HP}run/{_HP}secPr") is not None
+        relocated = after_paragraph_index == -1 and bool(copies) and (
+            _move_section_setup_to_first_paragraph(target_section) or moved_by_insert)
         if relocated:
             target_section.mark_dirty()
         _insert_memos_into_target_section(target_section, memo_clones)

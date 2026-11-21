@@ -357,8 +357,12 @@ def predict_marriage_windows_from_jd_place(jd, place, start_year=None, end_year=
         rasi_planet_positions, chart_1d_rasi, p_to_h_rasi,
         navamsa_planet_positions, chart_1d_d9, p_to_h_d9
     )
+    yb, mb, db,fhb = utils.jd_to_gregorian(jd)
+    dob = drik.Date(yb,mb,db); tob = (fhb,0,0)
 
-    _, vdb_info = vimsottari.get_dhasa_antardhasa(jd, place, divisional_chart_factor=divisional_chart_factor)
+    _, vdb_info = vimsottari.get_dhasa_antardhasa(dob,tob, place,
+                                                  divisional_chart_factor=divisional_chart_factor,
+                                                  dhasa_level_index=const.MAHA_DHASA_DEPTH.ANTARA)
     segments = _expand_to_md_ad_segments(vdb_info)
 
     candidates = []
@@ -513,7 +517,11 @@ def _collect_marriage_primitives(jd, place, pp_rasi, chart_1d_rasi, p_to_h_rasi,
 
 
 def _get_vimsottari_md_ad_pd(jd, place, divisional_chart_factor=1):
-    _, vdb_info = vimsottari.get_dhasa_antardhasa(jd, place, divisional_chart_factor=divisional_chart_factor)
+    yb, mb, db,fhb = utils.jd_to_gregorian(jd)
+    dob = drik.Date(yb,mb,db); tob = (fhb,0,0)
+    _, vdb_info = vimsottari.get_dhasa_antardhasa(dob,tob, place,
+                                                  divisional_chart_factor=divisional_chart_factor,
+                                                  dhasa_level_index=const.MAHA_DHASA_DEPTH.ANTARA)
     segments = _expand_to_md_ad_segments(vdb_info)
     return segments
 
@@ -523,10 +531,7 @@ def _expand_to_md_ad_segments(vdb_info):
     if not vdb_info:
         return segs
     starts = []
-    for row in vdb_info:
-        md, ad, s = row
-        s = s.split()[0].strip()
-        y, m, d = map(int, s.split('-'))
+    for (md,ad),(y,m,d,fh),durn in vdb_info:
         starts.append((md, ad, datetime(y, m, d)))
 
     for i, (md, ad, start_dt) in enumerate(starts):
@@ -701,7 +706,7 @@ def _get_varshaphala_marriage_triggers(jd, place, year, derived):
 
     night_time_birth = derived.get('night_time_birth', False)
 
-    vs_ret = vivaha_saham(annual_pp, night_time_birth=night_time_birth)
+    vs_ret = vivaha_saham(jd,place)
     vs_sign, vs_abs_long = _parse_vivaha_saham_return(vs_ret)
     ven_abs_long = _get_planet_abs_long_from_positions(annual_pp, const.VENUS_ID)
 
@@ -710,7 +715,10 @@ def _get_varshaphala_marriage_triggers(jd, place, year, derived):
     muntha_lord = house.house_owner_from_planet_positions(annual_pp, muntha_sign)
 
     jd_vf_local = _gregorian_to_jd(vf_y_m_d[0], vf_y_m_d[1], vf_y_m_d[2], vf_hours)
-    patyayini_raw = patyayini.get_dhasa_antardhasa(jd_vf_local, place, divisional_chart_factor=1, chart_method=1)
+    yb, mb, db,fhb = utils.jd_to_gregorian(jd)
+    dob = drik.Date(yb,mb,db); tob = (fhb,0,0)
+    patyayini_raw = patyayini.get_dhasa_antardhasa(dob,tob, place,divisional_chart_factor=1,chart_method=1,
+                                                  dhasa_level_index=const.MAHA_DHASA_DEPTH.ANTARA)
     patyayini_schedule = _expand_patyayini_schedule(patyayini_raw)
 
     tajaka = {
@@ -1049,7 +1057,8 @@ def _score_kalachakra_support(jd, place, year, derived):
             divisional_chart_factor=1,
             dhasa_starting_planet=1,
             include_antardhasa=True,
-            star_position_from_moon=1
+            star_position_from_moon=1,
+            dhasa_level_index=const.MAHA_DHASA_DEPTH.ANTARA,
         )
     except Exception:
         return 0
@@ -1224,9 +1233,9 @@ def probe_saturn_landing_near_jup_7L(jd_birth, place, year, month, tol=2.0, pair
 
 if __name__ == "__main__":
     utils.set_language('en')
-    # dob = (1996,12,7); tob = (10,34,0); place = drik.Place('Chennai',13.0878,80.2785,5.5)
-    dob = (1964,11,16); tob = (4,30,0); place = drik.Place('Karamadai',11.18,76.57,5.5)
-    dob = (1973,7,26); tob = (21,41,0); place = drik.Place('UNK',16+13/60,80+28/60,5.5)
+    dob = (1996,12,7); tob = (10,34,0); place = drik.Place('Chennai',13.0878,80.2785,5.5)
+    #dob = (1964,11,16); tob = (4,30,0); place = drik.Place('Karamadai',11.18,76.57,5.5)
+    #dob = (1973,7,26); tob = (21,41,0); place = drik.Place('UNK',16+13/60,80+28/60,5.5)
     # dob = (1969,6,22); tob = (21,41,0); place = drik.Place('Trichy',10.49,78.41,5.5)
     jd = utils.julian_day_number(dob, tob)
     # Probes

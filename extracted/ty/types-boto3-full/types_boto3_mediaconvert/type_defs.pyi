@@ -66,12 +66,15 @@ from .literals import (
     AudioTypeControlType,
     Av1AdaptiveQuantizationType,
     Av1BitDepthType,
+    Av1FastDecodeType,
     Av1FilmGrainSynthesisType,
     Av1FramerateControlType,
     Av1FramerateConversionAlgorithmType,
+    Av1GopSizeUnitsType,
     Av1RateControlModeType,
     Av1SceneChangeDetectType,
     Av1SpatialAdaptiveQuantizationType,
+    Av1TemporalAdaptiveQuantizationType,
     AvcIntraClassType,
     AvcIntraFramerateControlType,
     AvcIntraFramerateConversionAlgorithmType,
@@ -162,6 +165,7 @@ from .literals import (
     DolbyVisionPresenceType,
     DolbyVisionProfileType,
     DropFrameTimecodeType,
+    DtsxCodingModeType,
     DvbddsHandlingType,
     DvbSubSubtitleFallbackFontType,
     DvbSubtitleAlignmentType,
@@ -174,6 +178,7 @@ from .literals import (
     DvbSubtitleTeletextSpacingType,
     DvbSubtitlingTypeType,
     DynamicAudioSelectorTypeType,
+    DynamicMultiviewSettingsEnabledType,
     Eac3AtmosCodingModeType,
     Eac3AtmosDialogueIntelligenceType,
     Eac3AtmosDownmixControlType,
@@ -602,6 +607,8 @@ __all__ = (
     "DolbyVisionLevel6MetadataTypeDef",
     "DolbyVisionMetadataTypeDef",
     "DolbyVisionTypeDef",
+    "DtscSettingsTypeDef",
+    "DtsxSettingsTypeDef",
     "DurationControlTypeDef",
     "DvbNitSettingsTypeDef",
     "DvbSdtSettingsTypeDef",
@@ -609,6 +616,8 @@ __all__ = (
     "DvbSubSourceSettingsTypeDef",
     "DvbTdtSettingsTypeDef",
     "DynamicAudioSelectorTypeDef",
+    "DynamicMultiviewSettingsOutputTypeDef",
+    "DynamicMultiviewSettingsTypeDef",
     "Eac3AtmosSettingsTypeDef",
     "Eac3SettingsTypeDef",
     "ElementalInferenceConfigurationTypeDef",
@@ -932,6 +941,15 @@ class AudioChannelTaggingSettingsOutputTypeDef(TypedDict):
 class AudioChannelTaggingSettingsTypeDef(TypedDict):
     ChannelTag: NotRequired[AudioChannelTagType]
     ChannelTags: NotRequired[Sequence[AudioChannelTagType]]
+
+class DtscSettingsTypeDef(TypedDict):
+    Bitrate: NotRequired[int]
+    SampleRate: NotRequired[int]
+
+class DtsxSettingsTypeDef(TypedDict):
+    Bitrate: NotRequired[int]
+    CodingMode: NotRequired[DtsxCodingModeType]
+    SampleRate: NotRequired[int]
 
 class Eac3AtmosSettingsTypeDef(TypedDict):
     Bitrate: NotRequired[int]
@@ -1481,6 +1499,12 @@ class DynamicAudioSelectorTypeDef(TypedDict):
     Offset: NotRequired[int]
     SelectorType: NotRequired[DynamicAudioSelectorTypeType]
 
+class RectangleTypeDef(TypedDict):
+    Height: NotRequired[int]
+    Width: NotRequired[int]
+    X: NotRequired[int]
+    Y: NotRequired[int]
+
 class ElementalInferenceFeedTypeDef(TypedDict):
     Arn: NotRequired[str]
     FeedManagementState: NotRequired[ElementalInferenceFeedManagementStateType]
@@ -1641,12 +1665,6 @@ class InputVideoGeneratorTypeDef(TypedDict):
     ImageInput: NotRequired[str]
     SampleRate: NotRequired[int]
     Width: NotRequired[int]
-
-class RectangleTypeDef(TypedDict):
-    Height: NotRequired[int]
-    Width: NotRequired[int]
-    X: NotRequired[int]
-    Y: NotRequired[int]
 
 class JobEngineVersionTypeDef(TypedDict):
     ExpirationDate: NotRequired[datetime]
@@ -2084,6 +2102,8 @@ class AudioCodecSettingsTypeDef(TypedDict):
     Ac4Settings: NotRequired[Ac4SettingsTypeDef]
     AiffSettings: NotRequired[AiffSettingsTypeDef]
     Codec: NotRequired[AudioCodecType]
+    DtscSettings: NotRequired[DtscSettingsTypeDef]
+    DtsxSettings: NotRequired[DtsxSettingsTypeDef]
     Eac3AtmosSettings: NotRequired[Eac3AtmosSettingsTypeDef]
     Eac3Settings: NotRequired[Eac3SettingsTypeDef]
     FlacSettings: NotRequired[FlacSettingsTypeDef]
@@ -2128,12 +2148,14 @@ class Av1SettingsOutputTypeDef(TypedDict):
     AdaptiveQuantization: NotRequired[Av1AdaptiveQuantizationType]
     BitDepth: NotRequired[Av1BitDepthType]
     Bitrate: NotRequired[int]
+    FastDecode: NotRequired[Av1FastDecodeType]
     FilmGrainSynthesis: NotRequired[Av1FilmGrainSynthesisType]
     FramerateControl: NotRequired[Av1FramerateControlType]
     FramerateConversionAlgorithm: NotRequired[Av1FramerateConversionAlgorithmType]
     FramerateDenominator: NotRequired[int]
     FramerateNumerator: NotRequired[int]
     GopSize: NotRequired[float]
+    GopSizeUnits: NotRequired[Av1GopSizeUnitsType]
     MaxBitrate: NotRequired[int]
     NumberBFramesBetweenReferenceFrames: NotRequired[int]
     PerFrameMetrics: NotRequired[list[FrameMetricTypeType]]
@@ -2144,17 +2166,20 @@ class Av1SettingsOutputTypeDef(TypedDict):
     SlidingWindowMs: NotRequired[int]
     SlidingWindowPeakBitrate: NotRequired[int]
     SpatialAdaptiveQuantization: NotRequired[Av1SpatialAdaptiveQuantizationType]
+    TemporalAdaptiveQuantization: NotRequired[Av1TemporalAdaptiveQuantizationType]
 
 class Av1SettingsTypeDef(TypedDict):
     AdaptiveQuantization: NotRequired[Av1AdaptiveQuantizationType]
     BitDepth: NotRequired[Av1BitDepthType]
     Bitrate: NotRequired[int]
+    FastDecode: NotRequired[Av1FastDecodeType]
     FilmGrainSynthesis: NotRequired[Av1FilmGrainSynthesisType]
     FramerateControl: NotRequired[Av1FramerateControlType]
     FramerateConversionAlgorithm: NotRequired[Av1FramerateConversionAlgorithmType]
     FramerateDenominator: NotRequired[int]
     FramerateNumerator: NotRequired[int]
     GopSize: NotRequired[float]
+    GopSizeUnits: NotRequired[Av1GopSizeUnitsType]
     MaxBitrate: NotRequired[int]
     NumberBFramesBetweenReferenceFrames: NotRequired[int]
     PerFrameMetrics: NotRequired[Sequence[FrameMetricTypeType]]
@@ -2165,6 +2190,7 @@ class Av1SettingsTypeDef(TypedDict):
     SlidingWindowMs: NotRequired[int]
     SlidingWindowPeakBitrate: NotRequired[int]
     SpatialAdaptiveQuantization: NotRequired[Av1SpatialAdaptiveQuantizationType]
+    TemporalAdaptiveQuantization: NotRequired[Av1TemporalAdaptiveQuantizationType]
 
 class AvcIntraSettingsOutputTypeDef(TypedDict):
     AvcIntraClass: NotRequired[AvcIntraClassType]
@@ -2369,6 +2395,14 @@ DolbyVisionTypeDef = TypedDict(
         "Profile": NotRequired[DolbyVisionProfileType],
     },
 )
+
+class DynamicMultiviewSettingsOutputTypeDef(TypedDict):
+    Enabled: NotRequired[DynamicMultiviewSettingsEnabledType]
+    Regions: NotRequired[list[RectangleTypeDef]]
+
+class DynamicMultiviewSettingsTypeDef(TypedDict):
+    Enabled: NotRequired[DynamicMultiviewSettingsEnabledType]
+    Regions: NotRequired[Sequence[RectangleTypeDef]]
 
 class ElementalInferenceConfigurationTypeDef(TypedDict):
     Features: NotRequired[list[ElementalInferenceFeatureType]]
@@ -3424,6 +3458,7 @@ class VideoDescriptionOutputTypeDef(TypedDict):
     ColorMetadata: NotRequired[ColorMetadataType]
     Crop: NotRequired[RectangleTypeDef]
     DropFrameTimecode: NotRequired[DropFrameTimecodeType]
+    DynamicMultiviewSettings: NotRequired[DynamicMultiviewSettingsOutputTypeDef]
     FixedAfd: NotRequired[int]
     Height: NotRequired[int]
     Position: NotRequired[RectangleTypeDef]
@@ -3443,6 +3478,7 @@ class VideoDescriptionTypeDef(TypedDict):
     ColorMetadata: NotRequired[ColorMetadataType]
     Crop: NotRequired[RectangleTypeDef]
     DropFrameTimecode: NotRequired[DropFrameTimecodeType]
+    DynamicMultiviewSettings: NotRequired[DynamicMultiviewSettingsTypeDef]
     FixedAfd: NotRequired[int]
     Height: NotRequired[int]
     Position: NotRequired[RectangleTypeDef]

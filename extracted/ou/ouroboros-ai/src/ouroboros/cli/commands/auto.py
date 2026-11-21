@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 from dataclasses import asdict, replace
+from datetime import UTC
 import json
 import os
 from pathlib import Path
@@ -25,6 +26,7 @@ from ouroboros.auto.adapters import (
     save_seed,
 )
 from ouroboros.auto.domain_profile import DEFAULT_REGISTRY
+from ouroboros.auto.expectations import build_expectations_researcher
 from ouroboros.auto.handoff_contract import RUN_HANDOFF_STARTED_STATUS
 from ouroboros.auto.intent_guard import diagnose_auto_pipeline_state
 from ouroboros.auto.interview_driver import AutoInterviewDriver
@@ -189,7 +191,8 @@ def auto_command(
                 "mode the in-process job dies with the CLI, so detached execution does "
                 "NOT survive process exit unless a persistent owner (e.g. a running "
                 "'ouroboros mcp serve') holds it. Default off: auto waits for the run "
-                "job to reach a terminal state and reports the verdict."
+                "job to reach a terminal state, reports the verdict, and follows the "
+                "evaluation and Ralph jobs the run chains."
             ),
         ),
     ] = False,
@@ -334,7 +337,9 @@ def auto_command(
     By default the command waits for the execute run-handoff job to reach a
     terminal state and reports the run verdict, because in direct CLI mode the
     in-process job manager dies with the process and would otherwise cancel the
-    run on exit. Pass ``--no-wait`` to restore fire-and-forget behaviour.
+    run on exit. It then follows the formal evaluation the run enqueues, and the
+    Ralph loop a rejected evaluation chains, which would die with the process
+    too. Pass ``--no-wait`` to restore fire-and-forget behaviour.
     """
     if complete_product:
         print_warning(
@@ -647,9 +652,10 @@ async def _run_auto(
     watchdog_event_store = EventStore()
     await watchdog_event_store.initialize()
     # AI answer refiner: upgrades generic deterministic auto-answers to concrete,
-    # goal-specific ones so interview ambiguity actually converges. Best-effort —
-    # any construction failure leaves the deterministic answerer untouched.
-    answer_refiner = build_answer_refiner()
+    # goal-specific ones so interview ambiguity actually converges; its scope rule
+    # follows the workspace. Best-effort — any construction failure leaves the
+    # deterministic answerer untouched.
+    answer_refiner = build_answer_refiner(state.cwd)
     driver = AutoInterviewDriver(
         HandlerInterviewBackend(interview, cwd=state.cwd),
         store=store,
@@ -694,6 +700,10 @@ async def _run_auto(
         reconcile_source=reconcile_source,
         progress_callback=progress_callback,
         watchdog=watchdog,
+        # What a typical current product of the kind includes (new projects only).
+        expectations_researcher=build_expectations_researcher(
+            runtime_plan.interview.runtime_backend, runtime_plan.interview.opencode_mode
+        ),
     )
     result: AutoPipelineResult | None = None
     try:
@@ -723,6 +733,14 @@ async def _run_auto(
                 # reconciles the run instead of returning stale complete.
                 state=state,
                 store=store,
+            )
+            await _follow_run_successors(
+                result,
+                job_manager=getattr(start_execute, "_job_manager", None),
+                start_evaluate_handler=getattr(start_execute, "start_evaluate_handler", None),
+                quiet=progress_callback is None if quiet is None else quiet,
+                deadline_at=state.deadline_at,
+                fallback_timeout_seconds=float(state.pipeline_timeout_seconds),
             )
     finally:
         release_auto_worktree(
@@ -964,6 +982,15 @@ def _is_external_ralph_plugin_completion(result: AutoPipelineResult) -> bool:
 # long a fully-idle poll blocks before we re-check the snapshot.
 _RUN_HANDOFF_WAIT_POLL_SECONDS = 5
 
+# After ``execution.terminal`` the run job still projects the run and enqueues
+# the formal evaluation that a rejected verdict turns into Ralph. A runtime
+# child can keep a finished job open (#1593), so the durable terminal wins,
+# but only after this window: returning at once let the CLI exit and kill the
+# in-process evaluation before it started. The window runs from the terminal or
+# from the latest stage the run job's completion pass announced, past the most
+# that stage can take.
+_POST_RUN_GRACE_SECONDS = 300.0
+
 
 async def _cancel_run_handoff_job(job_manager: JobManager, job_id: str) -> None:
     """Best-effort cancel of the in-process run job (Ctrl-C / teardown path)."""
@@ -975,6 +1002,29 @@ async def _cancel_run_handoff_job(job_manager: JobManager, job_id: str) -> None:
 
 
 _FAILED_RUN_META_STATUSES = frozenset({"failed", "cancelled", "interrupted"})
+
+
+async def _post_run_grace_ends(
+    result: AutoPipelineResult, event_store: EventStore, terminal_seen_at: float
+) -> float:
+    """Wall-clock time after which the durable terminal wins over the open run job."""
+    from ouroboros.orchestrator.completion_pass import STAGE_EVENT
+
+    ends = terminal_seen_at + _POST_RUN_GRACE_SECONDS
+    if not result.execution_id:
+        return ends
+    stages = await event_store.query_events(
+        aggregate_id=result.execution_id, event_type=STAGE_EVENT, limit=1
+    )
+    if stages:
+        bound = stages[0].data.get("bound_seconds")
+        bound_seconds = float(bound) if isinstance(bound, int | float) else 0.0
+        announced = stages[0].timestamp
+        if announced.tzinfo is None:  # SQLite returns naive UTC
+            announced = announced.replace(tzinfo=UTC)
+        announced_at = announced.timestamp()
+        ends = max(ends, announced_at + bound_seconds + _POST_RUN_GRACE_SECONDS)
+    return ends
 
 
 async def _linked_execution_completed_result(
@@ -1314,11 +1364,19 @@ async def _await_run_handoff_terminal(
     wait_handler = JobWaitHandler(job_manager=job_manager, event_store=event_store)
     cursor = 0
     last_line = ""
+    terminal_seen_at: float | None = None
     try:
         while not snapshot.is_terminal:
             linked_completed = await _linked_execution_completed_result(result, event_store)
             if linked_completed is not None:
-                return _persist_resumable_run_verdict(linked_completed, state, store)
+                # The job still owes its post-run work (the completion pass,
+                # the run receipt and the evaluation it enqueues); trust the
+                # durable terminal over the open job only once that work had
+                # its window.
+                terminal_seen_at = terminal_seen_at or time.time()
+                grace_ends = await _post_run_grace_ends(result, event_store, terminal_seen_at)
+                if time.time() >= grace_ends:
+                    return _persist_resumable_run_verdict(linked_completed, state, store)
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 linked_completed = await _linked_execution_completed_result(result, event_store)
@@ -1396,6 +1454,75 @@ async def _await_run_handoff_terminal(
             console.print(receipt.value.text_content)
     reconciled = _reconcile_run_handoff_result(result, snapshot)
     return _persist_resumable_run_verdict(reconciled, state, store)
+
+
+async def _follow_run_successors(
+    result: AutoPipelineResult,
+    *,
+    job_manager: JobManager | None,
+    start_evaluate_handler: object | None,
+    quiet: bool,
+    deadline_at: float | None,
+    fallback_timeout_seconds: float = DEFAULT_PIPELINE_TIMEOUT_SECONDS,
+) -> None:
+    """Follow the evaluation a finished run job enqueued, and the Ralph it chains.
+
+    The run job owns run -> evaluate -> ralph, but in direct CLI mode those jobs
+    live in this process and stop when it exits, so the command waits for them
+    the way ``ouroboros run`` does (``run_successors._follow_chain``), within
+    what is left of the pipeline deadline. Following never cancels a job and
+    never changes the run verdict.
+    """
+    if result.status != "complete" or not result.job_id or job_manager is None:
+        return
+    try:
+        snapshot = await job_manager.get_snapshot(result.job_id)
+    except ValueError:
+        return
+    evaluate_job_id = (snapshot.result_meta or {}).get("chained_evaluate_job_id")
+    if not snapshot.is_terminal or not isinstance(evaluate_job_id, str) or not evaluate_job_id:
+        return
+    from ouroboros.cli.commands import run_successors
+
+    deadline = (
+        deadline_at
+        if deadline_at is not None
+        else time.monotonic() + max(0.0, fallback_timeout_seconds)
+    )
+    session_id = result.run_session_id
+    retry = f"ooo evaluate {session_id}" if session_id else "ooo evaluate <session_id>"
+    was_quiet = console.quiet
+    console.quiet = was_quiet or quiet
+    # Its own task: the shared follower absorbs cancellation (it stops
+    # following and prints where the jobs went), so the deadline is decided
+    # here, from whether the follower finished in time.
+    follower = asyncio.ensure_future(
+        run_successors._follow_chain(  # noqa: SLF001 - the shared CLI follower
+            evaluate_job_id,
+            job_manager=getattr(start_evaluate_handler, "_job_manager", None),
+            event_store=getattr(start_evaluate_handler, "_event_store", None),
+            retry=retry,
+            ralph_may_follow=True,
+        )
+    )
+    try:
+        done, _pending = await asyncio.wait(
+            {follower}, timeout=max(0.0, deadline - time.monotonic())
+        )
+        if follower not in done:
+            follower.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await follower
+            print_warning(
+                f"Stopped following evaluation job {evaluate_job_id} at the pipeline deadline. "
+                f"Evaluate again with: {retry}"
+            )
+        else:
+            await follower
+    finally:
+        if not follower.done():
+            follower.cancel()
+        console.quiet = was_quiet
 
 
 def _print_detached_guidance(result: AutoPipelineResult) -> None:

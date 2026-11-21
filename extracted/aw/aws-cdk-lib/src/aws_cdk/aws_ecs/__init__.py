@@ -2012,7 +2012,7 @@ cluster = ecs.Cluster(self, "EcsCluster",
 )
 cluster.add_asg_capacity_provider(capacity_provider)
 
-cluster.add_default_capacity_provider_strategy([capacity_provider="FARGATE", base=10, weight=50, capacity_provider="FARGATE_SPOT", weight=50
+cluster.add_default_capacity_provider_strategy([ecs.CapacityProviderStrategy(capacity_provider="FARGATE", base=10, weight=50), ecs.CapacityProviderStrategy(capacity_provider="FARGATE_SPOT", weight=50)
 ])
 ```
 
@@ -2025,7 +2025,7 @@ cluster = ecs.Cluster(self, "EcsCluster",
 )
 cluster.add_asg_capacity_provider(capacity_provider)
 
-cluster.add_default_capacity_provider_strategy([capacity_provider=capacity_provider.capacity_provider_name
+cluster.add_default_capacity_provider_strategy([ecs.CapacityProviderStrategy(capacity_provider=capacity_provider.capacity_provider_name)
 ])
 ```
 
@@ -2657,7 +2657,7 @@ ECS provides [mixins](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib-re
 Applies one or more cluster settings to an ECS cluster. If a setting with the same name already exists, its value is replaced:
 
 ```python
-ecs.CfnCluster(self, "Cluster").with(ecs.mixins.ClusterSettings([name="containerInsights", value="enhanced"]))
+ecs.CfnCluster(self, "Cluster").with(ecs.mixins.ClusterSettings([ecs.CfnCluster.ClusterSettingsProperty(name="containerInsights", value="enhanced")]))
 ```
 '''
 from __future__ import annotations
@@ -4776,10 +4776,10 @@ class AssetImageProps(_aws_ecr_assets_c4622a7f.DockerImageAssetOptions):
     ) -> None:
         '''The properties for building an AssetImage.
 
-        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Has no effect on Assets bundled using the ``bundling`` property. Default: - nothing is excluded
-        :param follow_symlinks: A strategy for how to handle symlinks. Default: SymlinkFollowMode.NEVER
-        :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
-        :param extra_hash: Extra information to encode into the fingerprint (e.g. build instructions and other inputs). Default: - hash is only based on source content
+        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, this controls the files that will be included in the copy. Files matching the ``exclude`` patterns will not be included in the copy. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the value of ``exclude`` is only meaningful if the ``assetHashType`` is set to ``AssetHashType.SOURCE``, and ignored for other asset hash types. The ``exclude`` patterns will be used to determine which files contribute to the asset, and the bundling command is skipped if the source files have not changed since the last bundling operation. **NOTE:** The bundling operation still has access to all files in the source path, regardless of the ``exclude`` patterns. It is your responsibility to ensure the ``exclude`` pattern accurately matches the files the bundling operation will *actually* access and base its final output on. For ``OUTPUT`` or ``CUSTOM`` asset hash types, the ``exclude`` pattern is ignored. Default: - nothing is excluded
+        :param follow_symlinks: A strategy for how to handle symlinks. Symlinks may be copied, materialized or rejected. Note that if symlinks are copied they should be relative; absolute symlinks will lose their meaning if the cloud assembly is moved to another machine. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, symlinks are materialized or blocked with respect to the ``sourcePath`` directory as they are being copied. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the bundling command is fully in charge of producing a set of files in an output directory, and the ``AssetStaging`` construct will never affect symlink materialization. If the ``assetHashType`` is ``AssetHashType.SOURCE``, this flag affects what the source hash is based on, and the recommended value is one of ``SymlinkFollowMode.EXTERNAL`` or ``SymlinkFollowMode.BLOCK_EXTERNAL``. If the ``SymlinkFollowMode.BLOCK_EXTERNAL`` mode is used: - symlinks pointing outside the source tree will be blocked if using ``AssetHashType.SOURCE``. - symlinks pointing outside the bundle output will be blocked. Default: SymlinkFollowMode.EXTERNAL
+        :param ignore_mode: What syntax the ``exclude`` patterns are written in. Default: - IgnoreMode.GLOB for file assets, ``IgnoreMode.DOCKER`` for image assets (requires that the ``@aws-cdk/aws-ecr-assets:dockerIgnoreSupport`` feature flag is set, which is recommended)
+        :param extra_hash: Extra information to encode into the fingerprint (e.g. build instructions and other inputs). Default: - hash is only based on the file fingerprint
         :param asset_name: Unique identifier of the docker image asset and its potential revisions. Required if using AppScopedStagingSynthesizer. Default: - no asset name
         :param build_args: Build args to pass to the ``docker build`` command. Since Docker build arguments are resolved before deployment, keys and values cannot refer to unresolved tokens (such as ``lambda.functionArn`` or ``queue.queueUrl``). Default: - no build args are passed
         :param build_contexts: Build contexts to pass to the ``docker build`` command. Build contexts can be used to specify additional directories or images to use during the build. Each entry specifies a named build context and its source (a directory path, a URL, or a docker image). Since Docker build contexts are resolved before deployment, keys and values cannot refer to unresolved tokens (such as ``lambda.functionArn`` or ``queue.queueUrl``). Default: - no additional build contexts
@@ -4930,10 +4930,33 @@ class AssetImageProps(_aws_ecr_assets_c4622a7f.DockerImageAssetOptions):
 
     @builtins.property
     def exclude(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''File paths matching the patterns will be excluded.
+        '''File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior.
 
-        See ``ignoreMode`` to set the matching behavior.
-        Has no effect on Assets bundled using the ``bundling`` property.
+
+
+        Without bundling
+
+        When used without the ``bundling`` property, the asset is just a regular file
+        copy operation. In that case, this controls the files that will be included
+        in the copy. Files matching the ``exclude`` patterns will not be included in
+        the copy.
+
+
+        With bundling
+
+        When used with the ``bundling`` property, the asset is produced by a
+        bundling operation. In that case, the value of ``exclude`` is only meaningful
+        if the ``assetHashType`` is set to ``AssetHashType.SOURCE``, and ignored for
+        other asset hash types. The ``exclude`` patterns will be used to determine
+        which files contribute to the asset, and the bundling command is skipped
+        if the source files have not changed since the last bundling operation.
+
+        **NOTE:** The bundling operation still has access to all files in the source path,
+        regardless of the ``exclude`` patterns. It is your responsibility to ensure
+        the ``exclude`` pattern accurately matches the files the bundling operation
+        will *actually* access and base its final output on.
+
+        For ``OUTPUT`` or ``CUSTOM`` asset hash types, the ``exclude`` pattern is ignored.
 
         :default: - nothing is excluded
         '''
@@ -4944,16 +4967,44 @@ class AssetImageProps(_aws_ecr_assets_c4622a7f.DockerImageAssetOptions):
     def follow_symlinks(self) -> typing.Optional["_aws_cdk_0cae9daa.SymlinkFollowMode"]:
         '''A strategy for how to handle symlinks.
 
-        :default: SymlinkFollowMode.NEVER
+        Symlinks may be copied, materialized or rejected. Note that if symlinks are
+        copied they should be relative; absolute symlinks will lose their
+        meaning if the cloud assembly is moved to another machine.
+
+
+        Without bundling
+
+        When used without the ``bundling`` property, the asset is just a regular file
+        copy operation. In that case, symlinks are materialized or blocked with respect
+        to the ``sourcePath`` directory as they are being copied.
+
+
+        With bundling
+
+        When used with the ``bundling`` property, the asset is produced by a
+        bundling operation. In that case, the bundling command is fully
+        in charge of producing a set of files in an output directory, and
+        the ``AssetStaging`` construct will never affect symlink materialization.
+
+        If the ``assetHashType`` is ``AssetHashType.SOURCE``, this flag affects what
+        the source hash is based on, and the recommended value is one of
+        ``SymlinkFollowMode.EXTERNAL`` or ``SymlinkFollowMode.BLOCK_EXTERNAL``.
+
+        If the ``SymlinkFollowMode.BLOCK_EXTERNAL`` mode is used:
+
+        - symlinks pointing outside the source tree will be blocked if using ``AssetHashType.SOURCE``.
+        - symlinks pointing outside the bundle output will be blocked.
+
+        :default: SymlinkFollowMode.EXTERNAL
         '''
         result = self._values.get("follow_symlinks")
         return typing.cast(typing.Optional["_aws_cdk_0cae9daa.SymlinkFollowMode"], result)
 
     @builtins.property
     def ignore_mode(self) -> typing.Optional["_aws_cdk_0cae9daa.IgnoreMode"]:
-        '''The ignore behavior to use for ``exclude`` patterns.
+        '''What syntax the ``exclude`` patterns are written in.
 
-        :default: IgnoreMode.GLOB
+        :default: - IgnoreMode.GLOB for file assets, ``IgnoreMode.DOCKER`` for image assets (requires that the ``@aws-cdk/aws-ecr-assets:dockerIgnoreSupport`` feature flag is set, which is recommended)
         '''
         result = self._values.get("ignore_mode")
         return typing.cast(typing.Optional["_aws_cdk_0cae9daa.IgnoreMode"], result)
@@ -4962,7 +5013,7 @@ class AssetImageProps(_aws_ecr_assets_c4622a7f.DockerImageAssetOptions):
     def extra_hash(self) -> typing.Optional[builtins.str]:
         '''Extra information to encode into the fingerprint (e.g. build instructions and other inputs).
 
-        :default: - hash is only based on source content
+        :default: - hash is only based on the file fingerprint
         '''
         result = self._values.get("extra_hash")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -10419,7 +10470,7 @@ class CfnCluster(
 
     Example::
 
-        ecs.CfnCluster(self, "Cluster").with(ecs.mixins.ClusterSettings([name="containerInsights", value="enhanced"]))
+        ecs.CfnCluster(self, "Cluster").with(ecs.mixins.ClusterSettings([ecs.CfnCluster.ClusterSettingsProperty(name="containerInsights", value="enhanced")]))
     '''
 
     def __init__(
@@ -22326,6 +22377,59 @@ class CfnService(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnService.GatewayConnectorDeregistrationDelayProperty",
+        jsii_struct_bases=[],
+        name_mapping={"timeout_seconds": "timeoutSeconds"},
+    )
+    class GatewayConnectorDeregistrationDelayProperty:
+        def __init__(
+            self,
+            *,
+            timeout_seconds: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param timeout_seconds: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-gatewayconnectorderegistrationdelay.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                gateway_connector_deregistration_delay_property = ecs.CfnService.GatewayConnectorDeregistrationDelayProperty(
+                    timeout_seconds=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__ea7ede90f603e09269bb3018497fe90c69359f7adbf844386778baaf0f32a9ed)
+                check_type(argname="argument timeout_seconds", value=timeout_seconds, expected_type=type_hints["timeout_seconds"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if timeout_seconds is not None:
+                self._values["timeout_seconds"] = timeout_seconds
+
+        @builtins.property
+        def timeout_seconds(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-gatewayconnectorderegistrationdelay.html#cfn-ecs-service-gatewayconnectorderegistrationdelay-timeoutseconds
+            '''
+            result = self._values.get("timeout_seconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GatewayConnectorDeregistrationDelayProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_ecs.CfnService.GatewayConnectorFiltersProperty",
         jsii_struct_bases=[],
         name_mapping={"access_types": "accessTypes"},
@@ -22615,6 +22719,7 @@ class CfnService(
         jsii_struct_bases=[],
         name_mapping={
             "port_name": "portName",
+            "deregistration_delay": "deregistrationDelay",
             "filters": "filters",
             "health_check": "healthCheck",
         },
@@ -22624,11 +22729,13 @@ class CfnService(
             self,
             *,
             port_name: builtins.str,
+            deregistration_delay: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.GatewayConnectorDeregistrationDelayProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             filters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.GatewayConnectorFiltersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             health_check: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.GatewayConnectorHealthCheckProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param port_name: 
+            :param deregistration_delay: 
             :param filters: 
             :param health_check: 
 
@@ -22645,6 +22752,9 @@ class CfnService(
                     port_name="portName",
                 
                     # the properties below are optional
+                    deregistration_delay=ecs.CfnService.GatewayConnectorDeregistrationDelayProperty(
+                        timeout_seconds=123
+                    ),
                     filters=ecs.CfnService.GatewayConnectorFiltersProperty(
                         access_types=["accessTypes"]
                     ),
@@ -22666,11 +22776,14 @@ class CfnService(
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__ea2110af72c25ecdbf3012286df45a1018491b7c2d7af26bd7924b7e73f8d5ac)
                 check_type(argname="argument port_name", value=port_name, expected_type=type_hints["port_name"])
+                check_type(argname="argument deregistration_delay", value=deregistration_delay, expected_type=type_hints["deregistration_delay"])
                 check_type(argname="argument filters", value=filters, expected_type=type_hints["filters"])
                 check_type(argname="argument health_check", value=health_check, expected_type=type_hints["health_check"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "port_name": port_name,
             }
+            if deregistration_delay is not None:
+                self._values["deregistration_delay"] = deregistration_delay
             if filters is not None:
                 self._values["filters"] = filters
             if health_check is not None:
@@ -22684,6 +22797,16 @@ class CfnService(
             result = self._values.get("port_name")
             assert result is not None, "Required property 'port_name' is missing"
             return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def deregistration_delay(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.GatewayConnectorDeregistrationDelayProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-gatewayconnector.html#cfn-ecs-service-gatewayconnector-deregistrationdelay
+            '''
+            result = self._values.get("deregistration_delay")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.GatewayConnectorDeregistrationDelayProperty"]], result)
 
         @builtins.property
         def filters(
@@ -25786,6 +25909,9 @@ class CfnServiceProps:
                     port_name="portName",
             
                     # the properties below are optional
+                    deregistration_delay=ecs.CfnService.GatewayConnectorDeregistrationDelayProperty(
+                        timeout_seconds=123
+                    ),
                     filters=ecs.CfnService.GatewayConnectorFiltersProperty(
                         access_types=["accessTypes"]
                     ),
@@ -26688,6 +26814,12 @@ class CfnTaskDefinition(
                 value="value"
             )],
             task_role_arn="taskRoleArn",
+            trusted_execution_configuration=ecs.CfnTaskDefinition.TrustedExecutionConfigurationProperty(
+                isolation_mode="isolationMode",
+        
+                # the properties below are optional
+                attestation_policy="attestationPolicy"
+            ),
             volumes=[ecs.CfnTaskDefinition.VolumeProperty(
                 configured_at_launch=False,
                 docker_volume_configuration=ecs.CfnTaskDefinition.DockerVolumeConfigurationProperty(
@@ -26761,6 +26893,7 @@ class CfnTaskDefinition(
         runtime_platform: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTaskDefinition.RuntimePlatformProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         task_role_arn: typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]] = None,
+        trusted_execution_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTaskDefinition.TrustedExecutionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         volumes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTaskDefinition.VolumeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Create a new ``AWS::ECS::TaskDefinition``.
@@ -26784,6 +26917,7 @@ class CfnTaskDefinition(
         :param runtime_platform: The operating system that your tasks definitions run on.
         :param tags: The metadata that you apply to the task definition to help you categorize and organize them. Each tag consists of a key and an optional value. You define both of them. The following basic restrictions apply to tags: - Maximum number of tags per resource - 50 - For each resource, each tag key must be unique, and each tag key can have only one value. - Maximum key length - 128 Unicode characters in UTF-8 - Maximum value length - 256 Unicode characters in UTF-8 - If your tagging schema is used across multiple services and resources, remember that other services may have restrictions on allowed characters. Generally allowed characters are: letters, numbers, and spaces representable in UTF-8, and the following characters: + - = . _ : /
         :param task_role_arn: The short name or full Amazon Resource Name (ARN) of the AWS Identity and Access Management role that grants containers in the task permission to call AWS APIs on your behalf. For more information, see `Amazon ECS Task Role <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-iam-roles.html>`_ in the *Amazon Elastic Container Service Developer Guide* . IAM roles for tasks on Windows require that the ``-EnableTaskIAMRole`` option is set when you launch the Amazon ECS-optimized Windows AMI. Your containers must also run some configuration code to use the feature. For more information, see `Windows IAM roles for tasks <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/windows_task_IAM_roles.html>`_ in the *Amazon Elastic Container Service Developer Guide* . .. epigraph:: String validation is done on the ECS side. If an invalid string value is given for ``TaskRoleArn`` , it may cause the Cloudformation job to hang.
+        :param trusted_execution_configuration: 
         :param volumes: The list of data volume definitions for the task. For more information, see `Using data volumes in tasks <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/using_data_volumes.html>`_ in the *Amazon Elastic Container Service Developer Guide* . .. epigraph:: The ``host`` and ``sourcePath`` parameters aren't supported for tasks run on AWS Fargate .
         '''
         if __debug__:
@@ -26808,6 +26942,7 @@ class CfnTaskDefinition(
             runtime_platform=runtime_platform,
             tags=tags,
             task_role_arn=task_role_arn,
+            trusted_execution_configuration=trusted_execution_configuration,
             volumes=volumes,
         )
 
@@ -27166,6 +27301,23 @@ class CfnTaskDefinition(
             type_hints = cached_type_hints(_typecheckingstub__1e690d52997a10244860f4acf1ba169c925dd19894fbdbda0d6faee5c979cd4c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "taskRoleArn", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="trustedExecutionConfiguration")
+    def trusted_execution_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTaskDefinition.TrustedExecutionConfigurationProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTaskDefinition.TrustedExecutionConfigurationProperty"]], jsii.get(self, "trustedExecutionConfiguration"))
+
+    @trusted_execution_configuration.setter
+    def trusted_execution_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTaskDefinition.TrustedExecutionConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c598483183e16ccc88372ff6610f6a976676a0aa43c7beba5a13084436efafcf)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "trustedExecutionConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="volumes")
@@ -31528,6 +31680,85 @@ class CfnTaskDefinition(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnTaskDefinition.TrustedExecutionConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "isolation_mode": "isolationMode",
+            "attestation_policy": "attestationPolicy",
+        },
+    )
+    class TrustedExecutionConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            isolation_mode: builtins.str,
+            attestation_policy: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param isolation_mode: The isolation mode for the task. SHARED uses standard shared placement. ISOLATED_SANDBOX runs the task in its own isolated sandbox on a shared instance with hypervisor-level isolation. CONFIDENTIAL_SANDBOX runs the task in an isolated sandbox and supports an attestation policy to verify the workload before it runs.
+            :param attestation_policy: A base64-encoded attestation policy that verifies the workload before the task runs. Only valid when IsolationMode is CONFIDENTIAL_SANDBOX.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-trustedexecutionconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                trusted_execution_configuration_property = ecs.CfnTaskDefinition.TrustedExecutionConfigurationProperty(
+                    isolation_mode="isolationMode",
+                
+                    # the properties below are optional
+                    attestation_policy="attestationPolicy"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__e07927bb8e2ddb33d64af7d934c943c31f0b8495f334a23903107fd8d5fb3b08)
+                check_type(argname="argument isolation_mode", value=isolation_mode, expected_type=type_hints["isolation_mode"])
+                check_type(argname="argument attestation_policy", value=attestation_policy, expected_type=type_hints["attestation_policy"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "isolation_mode": isolation_mode,
+            }
+            if attestation_policy is not None:
+                self._values["attestation_policy"] = attestation_policy
+
+        @builtins.property
+        def isolation_mode(self) -> builtins.str:
+            '''The isolation mode for the task.
+
+            SHARED uses standard shared placement. ISOLATED_SANDBOX runs the task in its own isolated sandbox on a shared instance with hypervisor-level isolation. CONFIDENTIAL_SANDBOX runs the task in an isolated sandbox and supports an attestation policy to verify the workload before it runs.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-trustedexecutionconfiguration.html#cfn-ecs-taskdefinition-trustedexecutionconfiguration-isolationmode
+            '''
+            result = self._values.get("isolation_mode")
+            assert result is not None, "Required property 'isolation_mode' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def attestation_policy(self) -> typing.Optional[builtins.str]:
+            '''A base64-encoded attestation policy that verifies the workload before the task runs.
+
+            Only valid when IsolationMode is CONFIDENTIAL_SANDBOX.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-trustedexecutionconfiguration.html#cfn-ecs-taskdefinition-trustedexecutionconfiguration-attestationpolicy
+            '''
+            result = self._values.get("attestation_policy")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TrustedExecutionConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_ecs.CfnTaskDefinition.UlimitProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -31949,6 +32180,7 @@ class CfnTaskDefinition(
         "runtime_platform": "runtimePlatform",
         "tags": "tags",
         "task_role_arn": "taskRoleArn",
+        "trusted_execution_configuration": "trustedExecutionConfiguration",
         "volumes": "volumes",
     },
 )
@@ -31973,6 +32205,7 @@ class CfnTaskDefinitionProps:
         runtime_platform: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTaskDefinition.RuntimePlatformProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         task_role_arn: typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]] = None,
+        trusted_execution_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTaskDefinition.TrustedExecutionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         volumes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTaskDefinition.VolumeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnTaskDefinition``.
@@ -31994,6 +32227,7 @@ class CfnTaskDefinitionProps:
         :param runtime_platform: The operating system that your tasks definitions run on.
         :param tags: The metadata that you apply to the task definition to help you categorize and organize them. Each tag consists of a key and an optional value. You define both of them. The following basic restrictions apply to tags: - Maximum number of tags per resource - 50 - For each resource, each tag key must be unique, and each tag key can have only one value. - Maximum key length - 128 Unicode characters in UTF-8 - Maximum value length - 256 Unicode characters in UTF-8 - If your tagging schema is used across multiple services and resources, remember that other services may have restrictions on allowed characters. Generally allowed characters are: letters, numbers, and spaces representable in UTF-8, and the following characters: + - = . _ : /
         :param task_role_arn: The short name or full Amazon Resource Name (ARN) of the AWS Identity and Access Management role that grants containers in the task permission to call AWS APIs on your behalf. For more information, see `Amazon ECS Task Role <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-iam-roles.html>`_ in the *Amazon Elastic Container Service Developer Guide* . IAM roles for tasks on Windows require that the ``-EnableTaskIAMRole`` option is set when you launch the Amazon ECS-optimized Windows AMI. Your containers must also run some configuration code to use the feature. For more information, see `Windows IAM roles for tasks <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/windows_task_IAM_roles.html>`_ in the *Amazon Elastic Container Service Developer Guide* . .. epigraph:: String validation is done on the ECS side. If an invalid string value is given for ``TaskRoleArn`` , it may cause the Cloudformation job to hang.
+        :param trusted_execution_configuration: 
         :param volumes: The list of data volume definitions for the task. For more information, see `Using data volumes in tasks <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/using_data_volumes.html>`_ in the *Amazon Elastic Container Service Developer Guide* . .. epigraph:: The ``host`` and ``sourcePath`` parameters aren't supported for tasks run on AWS Fargate .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
@@ -32194,6 +32428,12 @@ class CfnTaskDefinitionProps:
                     value="value"
                 )],
                 task_role_arn="taskRoleArn",
+                trusted_execution_configuration=ecs.CfnTaskDefinition.TrustedExecutionConfigurationProperty(
+                    isolation_mode="isolationMode",
+            
+                    # the properties below are optional
+                    attestation_policy="attestationPolicy"
+                ),
                 volumes=[ecs.CfnTaskDefinition.VolumeProperty(
                     configured_at_launch=False,
                     docker_volume_configuration=ecs.CfnTaskDefinition.DockerVolumeConfigurationProperty(
@@ -32263,6 +32503,7 @@ class CfnTaskDefinitionProps:
             check_type(argname="argument runtime_platform", value=runtime_platform, expected_type=type_hints["runtime_platform"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument task_role_arn", value=task_role_arn, expected_type=type_hints["task_role_arn"])
+            check_type(argname="argument trusted_execution_configuration", value=trusted_execution_configuration, expected_type=type_hints["trusted_execution_configuration"])
             check_type(argname="argument volumes", value=volumes, expected_type=type_hints["volumes"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if container_definitions is not None:
@@ -32299,6 +32540,8 @@ class CfnTaskDefinitionProps:
             self._values["tags"] = tags
         if task_role_arn is not None:
             self._values["task_role_arn"] = task_role_arn
+        if trusted_execution_configuration is not None:
+            self._values["trusted_execution_configuration"] = trusted_execution_configuration
         if volumes is not None:
             self._values["volumes"] = volumes
 
@@ -32580,6 +32823,16 @@ class CfnTaskDefinitionProps:
         '''
         result = self._values.get("task_role_arn")
         return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]], result)
+
+    @builtins.property
+    def trusted_execution_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTaskDefinition.TrustedExecutionConfigurationProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html#cfn-ecs-taskdefinition-trustedexecutionconfiguration
+        '''
+        result = self._values.get("trusted_execution_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTaskDefinition.TrustedExecutionConfigurationProperty"]], result)
 
     @builtins.property
     def volumes(
@@ -34927,7 +35180,7 @@ class Compatibility(enum.Enum):
             task_definition=task_definition,
             launch_target=tasks.EcsFargateLaunchTarget(
                 platform_version=ecs.FargatePlatformVersion.VERSION1_4,
-                capacity_provider_options=tasks.CapacityProviderOptions.custom([capacity_provider="FARGATE_SPOT", weight=2, base=1, capacity_provider="FARGATE", weight=1
+                capacity_provider_options=tasks.CapacityProviderOptions.custom([ecs.CapacityProviderStrategy(capacity_provider="FARGATE_SPOT", weight=2, base=1), ecs.CapacityProviderStrategy(capacity_provider="FARGATE", weight=1)
                 ])
             )
         )
@@ -37218,10 +37471,10 @@ class ContainerImage(
         :param outputs: Outputs to pass to the ``docker build`` command. Default: - no outputs are passed to the build command (default outputs are used)
         :param platform: Platform to build for. *Requires Docker Buildx*. Default: - no platform specified (the current machine architecture will be used)
         :param target: Docker target to build to. Default: - no target
-        :param extra_hash: Extra information to encode into the fingerprint (e.g. build instructions and other inputs). Default: - hash is only based on source content
-        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Has no effect on Assets bundled using the ``bundling`` property. Default: - nothing is excluded
-        :param follow_symlinks: A strategy for how to handle symlinks. Default: SymlinkFollowMode.NEVER
-        :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
+        :param extra_hash: Extra information to encode into the fingerprint (e.g. build instructions and other inputs). Default: - hash is only based on the file fingerprint
+        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, this controls the files that will be included in the copy. Files matching the ``exclude`` patterns will not be included in the copy. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the value of ``exclude`` is only meaningful if the ``assetHashType`` is set to ``AssetHashType.SOURCE``, and ignored for other asset hash types. The ``exclude`` patterns will be used to determine which files contribute to the asset, and the bundling command is skipped if the source files have not changed since the last bundling operation. **NOTE:** The bundling operation still has access to all files in the source path, regardless of the ``exclude`` patterns. It is your responsibility to ensure the ``exclude`` pattern accurately matches the files the bundling operation will *actually* access and base its final output on. For ``OUTPUT`` or ``CUSTOM`` asset hash types, the ``exclude`` pattern is ignored. Default: - nothing is excluded
+        :param follow_symlinks: A strategy for how to handle symlinks. Symlinks may be copied, materialized or rejected. Note that if symlinks are copied they should be relative; absolute symlinks will lose their meaning if the cloud assembly is moved to another machine. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, symlinks are materialized or blocked with respect to the ``sourcePath`` directory as they are being copied. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the bundling command is fully in charge of producing a set of files in an output directory, and the ``AssetStaging`` construct will never affect symlink materialization. If the ``assetHashType`` is ``AssetHashType.SOURCE``, this flag affects what the source hash is based on, and the recommended value is one of ``SymlinkFollowMode.EXTERNAL`` or ``SymlinkFollowMode.BLOCK_EXTERNAL``. If the ``SymlinkFollowMode.BLOCK_EXTERNAL`` mode is used: - symlinks pointing outside the source tree will be blocked if using ``AssetHashType.SOURCE``. - symlinks pointing outside the bundle output will be blocked. Default: SymlinkFollowMode.EXTERNAL
+        :param ignore_mode: What syntax the ``exclude`` patterns are written in. Default: - IgnoreMode.GLOB for file assets, ``IgnoreMode.DOCKER`` for image assets (requires that the ``@aws-cdk/aws-ecr-assets:dockerIgnoreSupport`` feature flag is set, which is recommended)
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a3b74ad5b0ef573de8f4998ac2c10294ecc205320b367ba59d13b865fe84792d)
@@ -40631,9 +40884,9 @@ class EnvironmentFile(
         :param asset_hash: Specify a custom hash for this asset. If ``assetHashType`` is set it must be set to ``AssetHashType.CUSTOM``. For consistency, this custom hash will be SHA256 hashed and encoded as hex. The resulting hash will be the asset hash. NOTE: the hash is used in order to identify a specific revision of the asset, and used for optimizing and caching deployment activities related to this asset such as packaging, uploading to Amazon S3, etc. If you chose to customize the hash, you will need to make sure it is updated every time the asset changes, or otherwise it is possible that some deployments will not be invalidated. Default: - based on ``assetHashType``
         :param asset_hash_type: Specifies the type of hash to calculate for this asset. If ``assetHash`` is configured, this option must be ``undefined`` or ``AssetHashType.CUSTOM``. Default: - the default is ``AssetHashType.SOURCE``, but if ``assetHash`` is explicitly specified this value defaults to ``AssetHashType.CUSTOM``.
         :param bundling: Bundle the asset by executing a command in a Docker container or a custom bundling provider. The asset path will be mounted at ``/asset-input``. The Docker container is responsible for putting content at ``/asset-output``. The content at ``/asset-output`` will be zipped and used as the final asset. Default: - uploaded as-is to S3 if the asset is a regular file or a .zip file, archived into a .zip file and uploaded to S3 otherwise
-        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Has no effect on Assets bundled using the ``bundling`` property. Default: - nothing is excluded
-        :param follow_symlinks: A strategy for how to handle symlinks. Default: SymlinkFollowMode.NEVER
-        :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
+        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, this controls the files that will be included in the copy. Files matching the ``exclude`` patterns will not be included in the copy. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the value of ``exclude`` is only meaningful if the ``assetHashType`` is set to ``AssetHashType.SOURCE``, and ignored for other asset hash types. The ``exclude`` patterns will be used to determine which files contribute to the asset, and the bundling command is skipped if the source files have not changed since the last bundling operation. **NOTE:** The bundling operation still has access to all files in the source path, regardless of the ``exclude`` patterns. It is your responsibility to ensure the ``exclude`` pattern accurately matches the files the bundling operation will *actually* access and base its final output on. For ``OUTPUT`` or ``CUSTOM`` asset hash types, the ``exclude`` pattern is ignored. Default: - nothing is excluded
+        :param follow_symlinks: A strategy for how to handle symlinks. Symlinks may be copied, materialized or rejected. Note that if symlinks are copied they should be relative; absolute symlinks will lose their meaning if the cloud assembly is moved to another machine. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, symlinks are materialized or blocked with respect to the ``sourcePath`` directory as they are being copied. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the bundling command is fully in charge of producing a set of files in an output directory, and the ``AssetStaging`` construct will never affect symlink materialization. If the ``assetHashType`` is ``AssetHashType.SOURCE``, this flag affects what the source hash is based on, and the recommended value is one of ``SymlinkFollowMode.EXTERNAL`` or ``SymlinkFollowMode.BLOCK_EXTERNAL``. If the ``SymlinkFollowMode.BLOCK_EXTERNAL`` mode is used: - symlinks pointing outside the source tree will be blocked if using ``AssetHashType.SOURCE``. - symlinks pointing outside the bundle output will be blocked. Default: SymlinkFollowMode.EXTERNAL
+        :param ignore_mode: What syntax the ``exclude`` patterns are written in. Default: - IgnoreMode.GLOB for file assets, ``IgnoreMode.DOCKER`` for image assets (requires that the ``@aws-cdk/aws-ecr-assets:dockerIgnoreSupport`` feature flag is set, which is recommended)
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__984c009064fe3ececa2babfa7da070310c1a07aad5d8719d7817aacaf36d8053)
@@ -54650,7 +54903,7 @@ class TaskDefinitionProps(CommonTaskDefinitionProps):
                 task_definition=task_definition,
                 launch_target=tasks.EcsFargateLaunchTarget(
                     platform_version=ecs.FargatePlatformVersion.VERSION1_4,
-                    capacity_provider_options=tasks.CapacityProviderOptions.custom([capacity_provider="FARGATE_SPOT", weight=2, base=1, capacity_provider="FARGATE", weight=1
+                    capacity_provider_options=tasks.CapacityProviderOptions.custom([ecs.CapacityProviderStrategy(capacity_provider="FARGATE_SPOT", weight=2, base=1), ecs.CapacityProviderStrategy(capacity_provider="FARGATE", weight=1)
                     ])
                 )
             )
@@ -56025,9 +56278,9 @@ class AssetEnvironmentFile(
         :param asset_hash: Specify a custom hash for this asset. If ``assetHashType`` is set it must be set to ``AssetHashType.CUSTOM``. For consistency, this custom hash will be SHA256 hashed and encoded as hex. The resulting hash will be the asset hash. NOTE: the hash is used in order to identify a specific revision of the asset, and used for optimizing and caching deployment activities related to this asset such as packaging, uploading to Amazon S3, etc. If you chose to customize the hash, you will need to make sure it is updated every time the asset changes, or otherwise it is possible that some deployments will not be invalidated. Default: - based on ``assetHashType``
         :param asset_hash_type: Specifies the type of hash to calculate for this asset. If ``assetHash`` is configured, this option must be ``undefined`` or ``AssetHashType.CUSTOM``. Default: - the default is ``AssetHashType.SOURCE``, but if ``assetHash`` is explicitly specified this value defaults to ``AssetHashType.CUSTOM``.
         :param bundling: Bundle the asset by executing a command in a Docker container or a custom bundling provider. The asset path will be mounted at ``/asset-input``. The Docker container is responsible for putting content at ``/asset-output``. The content at ``/asset-output`` will be zipped and used as the final asset. Default: - uploaded as-is to S3 if the asset is a regular file or a .zip file, archived into a .zip file and uploaded to S3 otherwise
-        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Has no effect on Assets bundled using the ``bundling`` property. Default: - nothing is excluded
-        :param follow_symlinks: A strategy for how to handle symlinks. Default: SymlinkFollowMode.NEVER
-        :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
+        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, this controls the files that will be included in the copy. Files matching the ``exclude`` patterns will not be included in the copy. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the value of ``exclude`` is only meaningful if the ``assetHashType`` is set to ``AssetHashType.SOURCE``, and ignored for other asset hash types. The ``exclude`` patterns will be used to determine which files contribute to the asset, and the bundling command is skipped if the source files have not changed since the last bundling operation. **NOTE:** The bundling operation still has access to all files in the source path, regardless of the ``exclude`` patterns. It is your responsibility to ensure the ``exclude`` pattern accurately matches the files the bundling operation will *actually* access and base its final output on. For ``OUTPUT`` or ``CUSTOM`` asset hash types, the ``exclude`` pattern is ignored. Default: - nothing is excluded
+        :param follow_symlinks: A strategy for how to handle symlinks. Symlinks may be copied, materialized or rejected. Note that if symlinks are copied they should be relative; absolute symlinks will lose their meaning if the cloud assembly is moved to another machine. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, symlinks are materialized or blocked with respect to the ``sourcePath`` directory as they are being copied. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the bundling command is fully in charge of producing a set of files in an output directory, and the ``AssetStaging`` construct will never affect symlink materialization. If the ``assetHashType`` is ``AssetHashType.SOURCE``, this flag affects what the source hash is based on, and the recommended value is one of ``SymlinkFollowMode.EXTERNAL`` or ``SymlinkFollowMode.BLOCK_EXTERNAL``. If the ``SymlinkFollowMode.BLOCK_EXTERNAL`` mode is used: - symlinks pointing outside the source tree will be blocked if using ``AssetHashType.SOURCE``. - symlinks pointing outside the bundle output will be blocked. Default: SymlinkFollowMode.EXTERNAL
+        :param ignore_mode: What syntax the ``exclude`` patterns are written in. Default: - IgnoreMode.GLOB for file assets, ``IgnoreMode.DOCKER`` for image assets (requires that the ``@aws-cdk/aws-ecr-assets:dockerIgnoreSupport`` feature flag is set, which is recommended)
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0c2450ee3cfe92be6dcc8ab1f8c7f9bc88382905f44289ab29eb782fbb4219d2)
@@ -56182,10 +56435,10 @@ class AssetImage(
         :param outputs: Outputs to pass to the ``docker build`` command. Default: - no outputs are passed to the build command (default outputs are used)
         :param platform: Platform to build for. *Requires Docker Buildx*. Default: - no platform specified (the current machine architecture will be used)
         :param target: Docker target to build to. Default: - no target
-        :param extra_hash: Extra information to encode into the fingerprint (e.g. build instructions and other inputs). Default: - hash is only based on source content
-        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Has no effect on Assets bundled using the ``bundling`` property. Default: - nothing is excluded
-        :param follow_symlinks: A strategy for how to handle symlinks. Default: SymlinkFollowMode.NEVER
-        :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
+        :param extra_hash: Extra information to encode into the fingerprint (e.g. build instructions and other inputs). Default: - hash is only based on the file fingerprint
+        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, this controls the files that will be included in the copy. Files matching the ``exclude`` patterns will not be included in the copy. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the value of ``exclude`` is only meaningful if the ``assetHashType`` is set to ``AssetHashType.SOURCE``, and ignored for other asset hash types. The ``exclude`` patterns will be used to determine which files contribute to the asset, and the bundling command is skipped if the source files have not changed since the last bundling operation. **NOTE:** The bundling operation still has access to all files in the source path, regardless of the ``exclude`` patterns. It is your responsibility to ensure the ``exclude`` pattern accurately matches the files the bundling operation will *actually* access and base its final output on. For ``OUTPUT`` or ``CUSTOM`` asset hash types, the ``exclude`` pattern is ignored. Default: - nothing is excluded
+        :param follow_symlinks: A strategy for how to handle symlinks. Symlinks may be copied, materialized or rejected. Note that if symlinks are copied they should be relative; absolute symlinks will lose their meaning if the cloud assembly is moved to another machine. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, symlinks are materialized or blocked with respect to the ``sourcePath`` directory as they are being copied. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the bundling command is fully in charge of producing a set of files in an output directory, and the ``AssetStaging`` construct will never affect symlink materialization. If the ``assetHashType`` is ``AssetHashType.SOURCE``, this flag affects what the source hash is based on, and the recommended value is one of ``SymlinkFollowMode.EXTERNAL`` or ``SymlinkFollowMode.BLOCK_EXTERNAL``. If the ``SymlinkFollowMode.BLOCK_EXTERNAL`` mode is used: - symlinks pointing outside the source tree will be blocked if using ``AssetHashType.SOURCE``. - symlinks pointing outside the bundle output will be blocked. Default: SymlinkFollowMode.EXTERNAL
+        :param ignore_mode: What syntax the ``exclude`` patterns are written in. Default: - IgnoreMode.GLOB for file assets, ``IgnoreMode.DOCKER`` for image assets (requires that the ``@aws-cdk/aws-ecr-assets:dockerIgnoreSupport`` feature flag is set, which is recommended)
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4d3698baaf6e6b1c9fc983c7a139e8426df4d121c2e7cd948722f79422a1b941)
@@ -62609,6 +62862,13 @@ def _typecheckingstub__61f79b8cfbfd89da452531f374d2c8ed25d98693945205dbbe670de81
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ea7ede90f603e09269bb3018497fe90c69359f7adbf844386778baaf0f32a9ed(
+    *,
+    timeout_seconds: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__8b6fe6bab0a7348e6261ea610775390b4501a29876d62a8b9946aebf2b904ca4(
     *,
     access_types: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -62641,6 +62901,7 @@ def _typecheckingstub__d52e9f7de3845d7a57ea89cc61068bc8a952ae221c82e86bb5305faed
 def _typecheckingstub__ea2110af72c25ecdbf3012286df45a1018491b7c2d7af26bd7924b7e73f8d5ac(
     *,
     port_name: builtins.str,
+    deregistration_delay: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.GatewayConnectorDeregistrationDelayProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     filters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.GatewayConnectorFiltersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     health_check: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.GatewayConnectorHealthCheckProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -62940,6 +63201,7 @@ def _typecheckingstub__a77e92d9ff0a9ac5b9f5909726a2e91dafa1fae662c3fdef09e5f9c3f
     runtime_platform: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTaskDefinition.RuntimePlatformProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     task_role_arn: typing.Optional[typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef]] = None,
+    trusted_execution_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTaskDefinition.TrustedExecutionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     volumes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTaskDefinition.VolumeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -63067,6 +63329,12 @@ def _typecheckingstub__aec7fba4898ccb6baefda50111e191041c57b3a440a1e707fef156420
 
 def _typecheckingstub__1e690d52997a10244860f4acf1ba169c925dd19894fbdbda0d6faee5c979cd4c(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c598483183e16ccc88372ff6610f6a976676a0aa43c7beba5a13084436efafcf(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTaskDefinition.TrustedExecutionConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -63405,6 +63673,14 @@ def _typecheckingstub__3fb1a407faa8f21c50c1ffcc36460e9539fd4a2ef2a3ef159f6d20b80
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__e07927bb8e2ddb33d64af7d934c943c31f0b8495f334a23903107fd8d5fb3b08(
+    *,
+    isolation_mode: builtins.str,
+    attestation_policy: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__0adfefae3543396f8f72f2d545bf100dabd5bca10ce84fb035deeec38c16a8b1(
     *,
     hard_limit: jsii.Number,
@@ -63454,6 +63730,7 @@ def _typecheckingstub__aa26bba98a26acc68000a13cd676c1f16ef698b1af77ac4e6fb710c7f
     runtime_platform: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTaskDefinition.RuntimePlatformProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     task_role_arn: typing.Optional[typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef]] = None,
+    trusted_execution_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTaskDefinition.TrustedExecutionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     volumes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTaskDefinition.VolumeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""

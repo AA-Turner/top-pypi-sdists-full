@@ -31,12 +31,12 @@ read=none 해소만 목표한 의도적 스코프 축소). 이 모듈이 그 쓰
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING, Sequence
+from typing import TYPE_CHECKING, Any, Sequence, cast
 
 from lxml import etree as _etree  # type: ignore[reportAttributeAccessIssue]  # lxml has no complete bundled typing
 
 from ._document_primitives import (
-    _DEFAULT_PARAGRAPH_ATTRS,
+    paragraph_attributes,
     _HP,
     _append_child,
     _default_sublist_attributes,
@@ -46,6 +46,8 @@ from .simple_parts import HwpxOxmlMasterPage
 
 if TYPE_CHECKING:
     from .document_parts import HwpxOxmlDocument
+    from .header import Style
+    from .paragraph import HwpxOxmlParagraph
     from .section import HwpxOxmlSection
 
 __all__ = ["add_master_page", "refuse_pages_taken", "remove_master_page"]
@@ -206,7 +208,7 @@ def add_master_page(
     sub_list = _append_child(root, f"{_HP}subList", sub_list_attrs)
     for line in body_lines:
         para = _append_child(
-            sub_list, f"{_HP}p", {"id": _paragraph_id(), **_DEFAULT_PARAGRAPH_ATTRS}
+            sub_list, f"{_HP}p", paragraph_attributes(_paragraph_id(document._id_source))
         )
         run = _append_child(para, f"{_HP}run", {"charPrIDRef": "0"})
         text_el = _append_child(run, f"{_HP}t", {})
@@ -226,6 +228,8 @@ def add_master_page(
     document._manifest_dirty = True
 
     new_master_page = HwpxOxmlMasterPage(part_name, root, document)
+    # The save refuses a master page made here that no section is linked to by then (Hancom drops it).
+    new_master_page._created_in_session = True  # type: ignore[attr-defined]
     new_master_page.mark_dirty()
     document._master_pages.append(new_master_page)
 
@@ -257,7 +261,7 @@ def remove_master_page(document: "HwpxOxmlDocument", id_ref: str) -> str:
             f"no master page with id {id_ref!r}",
             code="master-page-not-found",
             context={"requested": id_ref, "available": [page.part_name for page in document._master_pages]},
-            suggestion="Pass an id returned by doc.parts.add_master_page.",
+            suggestion="Pass a master page or its id (doc.parts.master_pages; doc.parts.add_master_page returns one).",
         )
     users = [
         index
@@ -275,3 +279,74 @@ def remove_master_page(document: "HwpxOxmlDocument", id_ref: str) -> str:
     document._manifest_dirty = True
     document._master_pages.remove(master_page)
     return part_name
+
+
+def _master_page_sublist(master_page: HwpxOxmlMasterPage, *, create: bool = False) -> "_etree._Element | None":
+    sub_list = master_page.element.find(f"{_HP}subList")
+    if sub_list is None and create:
+        sub_list = _append_child(master_page.element, f"{_HP}subList", dict(_default_sublist_attributes()))
+        master_page.mark_dirty()
+    return sub_list
+
+
+def master_page_paragraphs(master_page: HwpxOxmlMasterPage) -> "tuple[HwpxOxmlParagraph, ...]":
+    """The paragraphs of a master page's ``hp:subList``, as paragraph objects.
+
+    A master page part gives a paragraph what it needs from a section (``mark_dirty``,
+    ``document``), so an edit through these objects marks the part to be saved.
+    """
+
+    from .paragraph import HwpxOxmlParagraph
+
+    sub_list = _master_page_sublist(master_page)
+    if sub_list is None:
+        return ()
+    part = cast(Any, master_page)
+    return tuple(HwpxOxmlParagraph(element, part) for element in sub_list.findall(f"{_HP}p"))
+
+
+def clear_master_page_layout_cache(master_page: HwpxOxmlMasterPage) -> int:
+    """Remove the line layout caches (``hp:linesegarray``) of a master page's paragraphs."""
+
+    removed = 0
+    for paragraph in master_page.element.iter(f"{_HP}p"):
+        for child in [c for c in paragraph if str(c.tag).endswith("}linesegarray")]:
+            paragraph.remove(child)
+            removed += 1
+    if removed:
+        master_page.mark_dirty()
+    return removed
+
+
+def add_master_page_paragraph(
+    master_page: HwpxOxmlMasterPage,
+    text: str = "",
+    *,
+    style: "int | str | Style | None" = None,
+    para_pr_id_ref: str | int | None = None,
+    char_pr_id_ref: str | int | None = None,
+) -> "HwpxOxmlParagraph":
+    """Append a paragraph with *text* to a master page and return it (``MasterPage.add_paragraph``)."""
+
+    from .paragraph import HwpxOxmlParagraph
+    from .section import style_shape_refs
+
+    style_id_ref, para_pr_id_ref, char_pr_id_ref = style_shape_refs(
+        master_page.document, style, para_pr_id_ref, char_pr_id_ref
+    )
+    sub_list = _master_page_sublist(master_page, create=True)
+    assert sub_list is not None
+    owner = master_page.document
+    attributes = paragraph_attributes(_paragraph_id(owner._id_source if owner is not None else None))
+    if para_pr_id_ref is not None:
+        attributes["paraPrIDRef"] = str(para_pr_id_ref)
+    if style_id_ref is not None:
+        attributes["styleIDRef"] = str(style_id_ref)
+    element = _append_child(sub_list, f"{_HP}p", attributes)
+    run = _append_child(element, f"{_HP}run", {"charPrIDRef": str(char_pr_id_ref if char_pr_id_ref is not None else "0")})
+    _append_child(run, f"{_HP}t", {})
+    paragraph = HwpxOxmlParagraph(element, cast(Any, master_page))
+    if text:
+        paragraph.text = text
+    master_page.mark_dirty()
+    return paragraph

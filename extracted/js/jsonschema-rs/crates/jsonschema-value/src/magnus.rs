@@ -265,9 +265,6 @@ impl Drop for PendingErrorScope {
 pub fn probe_root(node: RbNode<'_>) {
     match value_kind(node.value) {
         Kind::Str => drop(str_ref(node.value)),
-        Kind::Hash => {
-            unsafe { rb_hash_foreach(node.value, Some(probe_key), 0) };
-        }
         // Records when the float is not finite; deeper ones surface where a keyword reads them.
         Kind::Float => {
             let _ = float_of(node.value);
@@ -343,10 +340,6 @@ fn text_of<'a>(value: VALUE) -> Option<&'a str> {
         Kind::Symbol => symbol_str(value),
         _ => None,
     }
-}
-
-fn key_is_usable(value: VALUE) -> bool {
-    matches!(value_kind(value), Kind::Str | Kind::Symbol)
 }
 
 // A non-finite float has no JSON form, matching what the eager conversion rejects.
@@ -583,6 +576,9 @@ struct MembersCache {
     // Held by the GC, so compaction updates the members in place instead of invalidating them.
     entries: VALUE,
     busy: bool,
+    // The object walked last without the cache. Filling the cache costs more than a stack snapshot,
+    // so only a repeat walk fills it; a stale identity only decides whether to fill.
+    seen: VALUE,
 }
 
 thread_local! {
@@ -629,8 +625,10 @@ impl Members {
             Members::Inline { pairs, .. } => return pairs[index],
             Members::Owned { entries, .. } | Members::Shared { entries, .. } => *entries,
         };
-        let base = (index * 2) as c_long;
-        unsafe { (rb_ary_entry(entries, base), rb_ary_entry(entries, base + 1)) }
+        // In bounds: the array was created at its full length and never resized.
+        debug_assert!(index * 2 + 1 < unsafe { rb_sys::RARRAY_LEN(entries) } as usize);
+        let pairs = unsafe { rb_sys::RARRAY_CONST_PTR(entries) };
+        unsafe { (*pairs.add(index * 2), *pairs.add(index * 2 + 1)) }
     }
 
     fn iter(&self) -> impl Iterator<Item = (VALUE, VALUE)> + '_ {
@@ -657,21 +655,16 @@ unsafe extern "C" fn collect(key: VALUE, value: VALUE, arg: VALUE) -> std::os::r
     match members {
         Members::Inline { pairs, .. } => pairs[collector.index] = (key, value),
         Members::Owned { entries, .. } | Members::Shared { entries, .. } => unsafe {
-            rb_ary_store(*entries, (collector.index * 2) as c_long, key);
-            rb_ary_store(*entries, (collector.index * 2 + 1) as c_long, value);
+            let base = (collector.index * 2) as isize;
+            // Within the length the GC traces, so compaction updates every stored member.
+            debug_assert!(base + 1 < rb_sys::RARRAY_LEN(*entries) as isize);
+            let slots = rb_sys::RARRAY_CONST_PTR(*entries).cast_mut();
+            *slots.offset(base) = key;
+            *slots.offset(base + 1) = value;
         },
     }
     collector.index += 1;
     0
-}
-
-// Stops at the first key that cannot name a property; reads tags only, so it never allocates.
-unsafe extern "C" fn probe_key(key: VALUE, _value: VALUE, _arg: VALUE) -> std::os::raw::c_int {
-    if key_is_usable(key) {
-        return 0;
-    }
-    record_unusable_key(key);
-    1
 }
 
 // Keyed lookup first; a symbol and a string spelling the same name denote one property, so a miss
@@ -689,10 +682,23 @@ fn member_named(hash: VALUE, key: VALUE) -> Option<VALUE> {
         .map(|(_, value)| value)
 }
 
+// An array with room for `pairs` members at its full length, so members are written in place
+// rather than appended. Exempt from write barriers: the GC rescans it at every collection, so the
+// members are stored without one.
+fn snapshot_array(pairs: usize) -> VALUE {
+    let slots = (pairs * 2) as c_long;
+    let entries = unsafe { rb_ary_new_capa(slots) };
+    unsafe { rb_ary_store(entries, slots - 1, special_consts::Qnil as VALUE) };
+    unsafe { rb_sys::rb_gc_writebarrier_unprotect(entries) };
+    entries
+}
+
 fn hash_len(value: VALUE) -> usize {
     fixnum_of(unsafe { rb_hash_size(value) }).max(0) as usize
 }
 
+#[allow(clippy::inline_always)]
+#[inline(always)]
 fn raw_members(value: VALUE) -> Members {
     let len = hash_len(value);
     if let Some(members) = cached_members(value, len) {
@@ -700,7 +706,7 @@ fn raw_members(value: VALUE) -> Members {
     }
     let mut members = if len > INLINE_MEMBERS {
         Members::Owned {
-            entries: unsafe { rb_ary_new_capa((len * 2) as c_long) },
+            entries: snapshot_array(len),
             len,
         }
     } else {
@@ -740,11 +746,10 @@ fn cached_members(value: VALUE, len: usize) -> Option<Members> {
     if len == 0 || len > INLINE_MEMBERS {
         return None;
     }
-    let gc_count = unsafe { rb_gc_count() } as usize;
     MEMBERS_CACHE.with(|cache| {
         let mut cache = cache.borrow_mut();
         let cache = cache.get_or_insert_with(|| {
-            let entries = unsafe { rb_ary_new_capa((INLINE_MEMBERS * 2) as c_long) };
+            let entries = snapshot_array(INLINE_MEMBERS);
             unsafe { rb_gc_register_mark_object(entries) };
             MembersCache {
                 hash: special_consts::Qnil as VALUE,
@@ -752,11 +757,17 @@ fn cached_members(value: VALUE, len: usize) -> Option<Members> {
                 len: 0,
                 entries,
                 busy: false,
+                seen: special_consts::Qnil as VALUE,
             }
         });
         if cache.busy {
             return None;
         }
+        if cache.hash != value && cache.seen != value {
+            cache.seen = value;
+            return None;
+        }
+        let gc_count = unsafe { rb_gc_count() } as usize;
         if cache.hash != value || cache.gc_count != gc_count || cache.len != len {
             // Written straight into the cache; staging first would walk every member twice.
             let mut target = Members::Owned {
@@ -1013,6 +1024,8 @@ impl<'a> Object<'a, Magnus> for RbHash<'a> {
         (!is_undef(found)).then(|| RbNode::new(found))
     }
 
+    #[allow(clippy::inline_always)]
+    #[inline(always)]
     fn members(&self) -> RbMembers<'a> {
         let entries = raw_members(self.value);
         RbMembers {
@@ -1303,7 +1316,6 @@ mod tests {
         is_number_matches_as_number(&ruby);
         string_length_counts_code_points(&ruby);
         invalid_utf8_is_recorded(&ruby);
-        unusable_key_is_recorded(&ruby);
         unsupported_type_is_recorded(&ruby);
         cyclic_hash_to_value_reports_depth(&ruby);
         cyclic_array_to_value_reports_depth(&ruby);
@@ -1849,16 +1861,6 @@ mod tests {
 
         assert!(node.as_string().is_none());
         assert_eq!(pending().as_deref(), Some("String is not valid UTF-8"));
-    }
-
-    fn unusable_key_is_recorded(ruby: &Ruby) {
-        let node = RbNode::new(eval(ruby, "{ 1 => 2 }"));
-
-        probe_root(node);
-        assert_eq!(
-            pending().as_deref(),
-            Some("Hash keys must be strings or symbols. Got 'Integer'")
-        );
     }
 
     fn unsupported_type_is_recorded(ruby: &Ruby) {

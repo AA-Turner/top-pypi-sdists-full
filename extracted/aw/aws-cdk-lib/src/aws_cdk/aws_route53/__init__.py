@@ -2683,6 +2683,482 @@ class CfnHealthCheckProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_route53_af70581a.IHealthCheckSourceRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnHealthCheckSource(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_route53.CfnHealthCheckSource",
+):
+    '''Resource Type definition for AWS::Route53::HealthCheckSource.
+
+    The customer VPC, subnets and
+    security groups from which Route 53 probes private endpoints (PEHC). Immutable after creation
+    (no Update API).
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-healthchecksource.html
+    :cloudformationResource: AWS::Route53::HealthCheckSource
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_route53 as route53
+        
+        cfn_health_check_source = route53.CfnHealthCheckSource(self, "MyCfnHealthCheckSource",
+            health_check_source_config=route53.CfnHealthCheckSource.HealthCheckSourceConfigProperty(
+                subnet_configuration_list=[route53.CfnHealthCheckSource.SubnetConfigurationProperty(
+                    availability_zone_id="availabilityZoneId",
+                    security_group_id_list=["securityGroupIdList"],
+                    subnet_id="subnetId"
+                )],
+                vpc_id="vpcId"
+            ),
+        
+            # the properties below are optional
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        health_check_source_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnHealthCheckSource.HealthCheckSourceConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Route53::HealthCheckSource``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param health_check_source_config:  You can't change these values after you create the source.
+        :param tags: An array of key-value pairs to apply to this resource.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d979aa76818371fd7528959a4d5c1f85378697e0988e9ab03011445d53553838)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnHealthCheckSourceProps(
+            health_check_source_config=health_check_source_config, tags=tags
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForHealthCheckSource")
+    @builtins.classmethod
+    def arn_for_health_check_source(
+        cls,
+        resource: "_aws_route53_af70581a.IHealthCheckSourceRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bf3a416124a9314891eebad83bc70660ac889167be6e8d294e5fa1db80ab2ac8)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForHealthCheckSource", [resource]))
+
+    @jsii.member(jsii_name="isCfnHealthCheckSource")
+    @builtins.classmethod
+    def is_cfn_health_check_source(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnHealthCheckSource.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__06d2d37501af3dec600de448495908df29c602fcfe120002e0f2b211ca3d04f3)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnHealthCheckSource", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3b8d10a34bab11776515b5c803a3ab6f32f5b93311fa87e3d34c37e3ce0e64db)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__54ec2018f80b2bcdf2a7da39b4b931f0c3ccf861d8d9e301191ad08c1e81f283)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the resource.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrHealthCheckSourceId")
+    def attr_health_check_source_id(self) -> builtins.str:
+        '''
+        Route 53 assigns this ID when it creates the source.
+
+        :cloudformationAttribute: HealthCheckSourceId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrHealthCheckSourceId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrHealthCheckSourceStatus")
+    def attr_health_check_source_status(self) -> builtins.str:
+        '''
+        The health check source status can have one of the following values:
+
+        :cloudformationAttribute: HealthCheckSourceStatus
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrHealthCheckSourceStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="healthCheckSourceRef")
+    def health_check_source_ref(
+        self,
+    ) -> "_aws_route53_af70581a.HealthCheckSourceReference":
+        '''A reference to a HealthCheckSource resource.'''
+        return typing.cast("_aws_route53_af70581a.HealthCheckSourceReference", jsii.get(self, "healthCheckSourceRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="healthCheckSourceConfig")
+    def health_check_source_config(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHealthCheckSource.HealthCheckSourceConfigProperty"]:
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHealthCheckSource.HealthCheckSourceConfigProperty"], jsii.get(self, "healthCheckSourceConfig"))
+
+    @health_check_source_config.setter
+    def health_check_source_config(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHealthCheckSource.HealthCheckSourceConfigProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ab69e19a8879c569c801ae49e8e82b0ad67f83981274a34f1a738974e78e31ff)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "healthCheckSourceConfig", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f303441be47c9cafdfc66af851fdd6cf3ace59f387444177af6903c454cee2b9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_route53.CfnHealthCheckSource.HealthCheckSourceConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "subnet_configuration_list": "subnetConfigurationList",
+            "vpc_id": "vpcId",
+        },
+    )
+    class HealthCheckSourceConfigProperty:
+        def __init__(
+            self,
+            *,
+            subnet_configuration_list: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnHealthCheckSource.SubnetConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            vpc_id: builtins.str,
+        ) -> None:
+            '''
+            You can't change these values after you create the source.
+
+            :param subnet_configuration_list:  Each element must be in a different Availability Zone. Most Regions require three elements. Regions that have only two such Availability Zones, such as US West (N. California), require two elements. Route 53 creates network interfaces in each subnet and sends health check requests from all of them.
+            :param vpc_id:  All subnets in SubnetConfigurationList must belong to this VPC.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53-healthchecksource-healthchecksourceconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_route53 as route53
+                
+                health_check_source_config_property = route53.CfnHealthCheckSource.HealthCheckSourceConfigProperty(
+                    subnet_configuration_list=[route53.CfnHealthCheckSource.SubnetConfigurationProperty(
+                        availability_zone_id="availabilityZoneId",
+                        security_group_id_list=["securityGroupIdList"],
+                        subnet_id="subnetId"
+                    )],
+                    vpc_id="vpcId"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__b32982e1a07ba4c17b8c8cf0f2b0d0febf7aa74b06348c5cb212b229e734dc88)
+                check_type(argname="argument subnet_configuration_list", value=subnet_configuration_list, expected_type=type_hints["subnet_configuration_list"])
+                check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "subnet_configuration_list": subnet_configuration_list,
+                "vpc_id": vpc_id,
+            }
+
+        @builtins.property
+        def subnet_configuration_list(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHealthCheckSource.SubnetConfigurationProperty"]]]:
+            '''
+            Each element must be in a different Availability Zone. Most Regions require three elements. Regions that have only two such Availability Zones, such as US West (N. California), require two elements. Route 53 creates network interfaces in each subnet and sends health check requests from all of them.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53-healthchecksource-healthchecksourceconfig.html#cfn-route53-healthchecksource-healthchecksourceconfig-subnetconfigurationlist
+            '''
+            result = self._values.get("subnet_configuration_list")
+            assert result is not None, "Required property 'subnet_configuration_list' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHealthCheckSource.SubnetConfigurationProperty"]]], result)
+
+        @builtins.property
+        def vpc_id(self) -> builtins.str:
+            '''
+            All subnets in SubnetConfigurationList must belong to this VPC.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53-healthchecksource-healthchecksourceconfig.html#cfn-route53-healthchecksource-healthchecksourceconfig-vpcid
+            '''
+            result = self._values.get("vpc_id")
+            assert result is not None, "Required property 'vpc_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "HealthCheckSourceConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_route53.CfnHealthCheckSource.SubnetConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "availability_zone_id": "availabilityZoneId",
+            "security_group_id_list": "securityGroupIdList",
+            "subnet_id": "subnetId",
+        },
+    )
+    class SubnetConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            availability_zone_id: builtins.str,
+            security_group_id_list: typing.Sequence[builtins.str],
+            subnet_id: builtins.str,
+        ) -> None:
+            '''
+            :param availability_zone_id:  Specify the Availability Zone ID, not the Availability Zone name. Each subnet in a health check source must be in a different Availability Zone.
+            :param security_group_id_list:  The security groups must allow outbound traffic to the endpoints that the health checks monitor.
+            :param subnet_id:  The subnet must have free IP addresses for the network interfaces that Route 53 creates.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53-healthchecksource-subnetconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_route53 as route53
+                
+                subnet_configuration_property = route53.CfnHealthCheckSource.SubnetConfigurationProperty(
+                    availability_zone_id="availabilityZoneId",
+                    security_group_id_list=["securityGroupIdList"],
+                    subnet_id="subnetId"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__3632d7824b1e40f497db61a8f667c824bffd842b2d911a72b04583922b864682)
+                check_type(argname="argument availability_zone_id", value=availability_zone_id, expected_type=type_hints["availability_zone_id"])
+                check_type(argname="argument security_group_id_list", value=security_group_id_list, expected_type=type_hints["security_group_id_list"])
+                check_type(argname="argument subnet_id", value=subnet_id, expected_type=type_hints["subnet_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "availability_zone_id": availability_zone_id,
+                "security_group_id_list": security_group_id_list,
+                "subnet_id": subnet_id,
+            }
+
+        @builtins.property
+        def availability_zone_id(self) -> builtins.str:
+            '''
+            Specify the Availability Zone ID, not the Availability Zone name. Each subnet in a health check source must be in a different Availability Zone.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53-healthchecksource-subnetconfiguration.html#cfn-route53-healthchecksource-subnetconfiguration-availabilityzoneid
+            '''
+            result = self._values.get("availability_zone_id")
+            assert result is not None, "Required property 'availability_zone_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def security_group_id_list(self) -> typing.List[builtins.str]:
+            '''
+            The security groups must allow outbound traffic to the endpoints that the health checks monitor.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53-healthchecksource-subnetconfiguration.html#cfn-route53-healthchecksource-subnetconfiguration-securitygroupidlist
+            '''
+            result = self._values.get("security_group_id_list")
+            assert result is not None, "Required property 'security_group_id_list' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def subnet_id(self) -> builtins.str:
+            '''
+            The subnet must have free IP addresses for the network interfaces that Route 53 creates.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53-healthchecksource-subnetconfiguration.html#cfn-route53-healthchecksource-subnetconfiguration-subnetid
+            '''
+            result = self._values.get("subnet_id")
+            assert result is not None, "Required property 'subnet_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SubnetConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_route53.CfnHealthCheckSourceProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "health_check_source_config": "healthCheckSourceConfig",
+        "tags": "tags",
+    },
+)
+class CfnHealthCheckSourceProps:
+    def __init__(
+        self,
+        *,
+        health_check_source_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnHealthCheckSource.HealthCheckSourceConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnHealthCheckSource``.
+
+        :param health_check_source_config:  You can't change these values after you create the source.
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-healthchecksource.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_route53 as route53
+            
+            cfn_health_check_source_props = route53.CfnHealthCheckSourceProps(
+                health_check_source_config=route53.CfnHealthCheckSource.HealthCheckSourceConfigProperty(
+                    subnet_configuration_list=[route53.CfnHealthCheckSource.SubnetConfigurationProperty(
+                        availability_zone_id="availabilityZoneId",
+                        security_group_id_list=["securityGroupIdList"],
+                        subnet_id="subnetId"
+                    )],
+                    vpc_id="vpcId"
+                ),
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a2464c91b61b7903fd60ad81517e3794925adc5b54a16ec7eed3056cd1f4ffd0)
+            check_type(argname="argument health_check_source_config", value=health_check_source_config, expected_type=type_hints["health_check_source_config"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "health_check_source_config": health_check_source_config,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def health_check_source_config(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHealthCheckSource.HealthCheckSourceConfigProperty"]:
+        '''
+        You can't change these values after you create the source.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-healthchecksource.html#cfn-route53-healthchecksource-healthchecksourceconfig
+        '''
+        result = self._values.get("health_check_source_config")
+        assert result is not None, "Required property 'health_check_source_config' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnHealthCheckSource.HealthCheckSourceConfigProperty"], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-healthchecksource.html#cfn-route53-healthchecksource-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnHealthCheckSourceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_route53_af70581a.IHostedZoneRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnHostedZone(
     _aws_cdk_0cae9daa.CfnResource,
@@ -6890,6 +7366,283 @@ class CfnRecordSetProps:
 
     def __repr__(self) -> str:
         return "CfnRecordSetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_route53_af70581a.IRecordSetProtectionRef)
+class CfnRecordSetProtection(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_route53.CfnRecordSetProtection",
+):
+    '''Resource Type definition for AWS::Route53::RecordSetProtection.
+
+    Protects a record set (all record sets with the given name and type) in a hosted zone against changes until the protection is deleted. The protection must DependsOn (or reference with Ref) the AWS::Route53::RecordSet it protects. Adding or removing a protection and changing that record set must be two separate stack updates: a removal is applied in the cleanup phase after updates, and an addition in the same update blocks the record set's rollback. To recover a rollback blocked this way (UPDATE_ROLLBACK_FAILED), delete the protection, then run ContinueUpdateRollback. While a protection exists, creating any record set with its name and type, including one with a new SetIdentifier, is refused. Changing Comment replaces the protection by deleting it first, so the record set is unprotected for the duration of the replacement. While a protection exists, including one kept by DeletionPolicy Retain or created outside the stack, deleting its AWS::Route53::RecordSet fails with ResourceConflict; delete the protection first. When a create is retried after its outcome was lost, an existing protection with the same Comment is taken as the one it created; without a Comment, an existing protection that has no comment is adopted.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-recordsetprotection.html
+    :cloudformationResource: AWS::Route53::RecordSetProtection
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_route53 as route53
+        
+        cfn_record_set_protection = route53.CfnRecordSetProtection(self, "MyCfnRecordSetProtection",
+            hosted_zone_id="hostedZoneId",
+            record_name="recordName",
+            record_type="recordType",
+        
+            # the properties below are optional
+            comment="comment"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        hosted_zone_id: builtins.str,
+        record_name: builtins.str,
+        record_type: builtins.str,
+        comment: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::Route53::RecordSetProtection``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param hosted_zone_id: 
+        :param record_name: 
+        :param record_type: 
+        :param comment: 
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d7019ca1a6e2320c123f8f90aad33ec3046749280b7235c58df84073d4412e8d)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnRecordSetProtectionProps(
+            hosted_zone_id=hosted_zone_id,
+            record_name=record_name,
+            record_type=record_type,
+            comment=comment,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnRecordSetProtection")
+    @builtins.classmethod
+    def is_cfn_record_set_protection(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnRecordSetProtection.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__66ea8e731219527c6b466ebd7aa405abcbf077bf228956f401f96d9ab7998b1b)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRecordSetProtection", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2ff694d8628169c6f70c11f5a61b91a530b6794c5eaa7533b407e5efee23a0c2)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__332979759f21db3f7a84d1e688fefdca3d443ffb546e41d5ff5c5b4ecdd21c62)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="recordSetProtectionRef")
+    def record_set_protection_ref(
+        self,
+    ) -> "_aws_route53_af70581a.RecordSetProtectionReference":
+        '''A reference to a RecordSetProtection resource.'''
+        return typing.cast("_aws_route53_af70581a.RecordSetProtectionReference", jsii.get(self, "recordSetProtectionRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="hostedZoneId")
+    def hosted_zone_id(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "hostedZoneId"))
+
+    @hosted_zone_id.setter
+    def hosted_zone_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__57730afdd797479d0019ecf05e22f9d352d7c2d6990c9d20b884c78b4b56536b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "hostedZoneId", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="recordName")
+    def record_name(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "recordName"))
+
+    @record_name.setter
+    def record_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1acc83799adc669f6d4d2de2f0b64787d348e07847fae096a0663f2c422e60fd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "recordName", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="recordType")
+    def record_type(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "recordType"))
+
+    @record_type.setter
+    def record_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__562c5de9e0b8ff36e771fe828b94a1285bba10d6fce5cd2e397c0531fbfe43b7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "recordType", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="comment")
+    def comment(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "comment"))
+
+    @comment.setter
+    def comment(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e5524eb983c185a52de1b3e327c27b10cd95147c9b65a4c79d1d7ad6709f2d16)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "comment", value)
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_route53.CfnRecordSetProtectionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "hosted_zone_id": "hostedZoneId",
+        "record_name": "recordName",
+        "record_type": "recordType",
+        "comment": "comment",
+    },
+)
+class CfnRecordSetProtectionProps:
+    def __init__(
+        self,
+        *,
+        hosted_zone_id: builtins.str,
+        record_name: builtins.str,
+        record_type: builtins.str,
+        comment: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnRecordSetProtection``.
+
+        :param hosted_zone_id: 
+        :param record_name: 
+        :param record_type: 
+        :param comment: 
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-recordsetprotection.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_route53 as route53
+            
+            cfn_record_set_protection_props = route53.CfnRecordSetProtectionProps(
+                hosted_zone_id="hostedZoneId",
+                record_name="recordName",
+                record_type="recordType",
+            
+                # the properties below are optional
+                comment="comment"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__cf9d823aef7177aeeaba5c520e2c1db3e12cf0426d331fd7c0e9c4ddcacdbf89)
+            check_type(argname="argument hosted_zone_id", value=hosted_zone_id, expected_type=type_hints["hosted_zone_id"])
+            check_type(argname="argument record_name", value=record_name, expected_type=type_hints["record_name"])
+            check_type(argname="argument record_type", value=record_type, expected_type=type_hints["record_type"])
+            check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "hosted_zone_id": hosted_zone_id,
+            "record_name": record_name,
+            "record_type": record_type,
+        }
+        if comment is not None:
+            self._values["comment"] = comment
+
+    @builtins.property
+    def hosted_zone_id(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-recordsetprotection.html#cfn-route53-recordsetprotection-hostedzoneid
+        '''
+        result = self._values.get("hosted_zone_id")
+        assert result is not None, "Required property 'hosted_zone_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def record_name(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-recordsetprotection.html#cfn-route53-recordsetprotection-recordname
+        '''
+        result = self._values.get("record_name")
+        assert result is not None, "Required property 'record_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def record_type(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-recordsetprotection.html#cfn-route53-recordsetprotection-recordtype
+        '''
+        result = self._values.get("record_type")
+        assert result is not None, "Required property 'record_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def comment(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-recordsetprotection.html#cfn-route53-recordsetprotection-comment
+        '''
+        result = self._values.get("comment")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnRecordSetProtectionProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -18818,6 +19571,8 @@ __all__ = [
     "CfnDelegationSetProps",
     "CfnHealthCheck",
     "CfnHealthCheckProps",
+    "CfnHealthCheckSource",
+    "CfnHealthCheckSourceProps",
     "CfnHostedZone",
     "CfnHostedZoneProps",
     "CfnKeySigningKey",
@@ -18828,6 +19583,8 @@ __all__ = [
     "CfnRecordSetGroup",
     "CfnRecordSetGroupProps",
     "CfnRecordSetProps",
+    "CfnRecordSetProtection",
+    "CfnRecordSetProtectionProps",
     "CfnTrafficPolicy",
     "CfnTrafficPolicyInstance",
     "CfnTrafficPolicyInstanceProps",
@@ -19159,6 +19916,77 @@ def _typecheckingstub__dcc59bb963f4ce3a4eb461ecda6f194c9faa6eea0ca5960c91dfd950e
     *,
     health_check_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnHealthCheck.HealthCheckConfigProperty, typing.Dict[builtins.str, typing.Any]]],
     health_check_tags: typing.Optional[typing.Sequence[typing.Union[CfnHealthCheck.HealthCheckTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d979aa76818371fd7528959a4d5c1f85378697e0988e9ab03011445d53553838(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    health_check_source_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnHealthCheckSource.HealthCheckSourceConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bf3a416124a9314891eebad83bc70660ac889167be6e8d294e5fa1db80ab2ac8(
+    resource: _aws_route53_af70581a.IHealthCheckSourceRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__06d2d37501af3dec600de448495908df29c602fcfe120002e0f2b211ca3d04f3(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3b8d10a34bab11776515b5c803a3ab6f32f5b93311fa87e3d34c37e3ce0e64db(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__54ec2018f80b2bcdf2a7da39b4b931f0c3ccf861d8d9e301191ad08c1e81f283(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ab69e19a8879c569c801ae49e8e82b0ad67f83981274a34f1a738974e78e31ff(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnHealthCheckSource.HealthCheckSourceConfigProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f303441be47c9cafdfc66af851fdd6cf3ace59f387444177af6903c454cee2b9(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b32982e1a07ba4c17b8c8cf0f2b0d0febf7aa74b06348c5cb212b229e734dc88(
+    *,
+    subnet_configuration_list: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnHealthCheckSource.SubnetConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    vpc_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3632d7824b1e40f497db61a8f667c824bffd842b2d911a72b04583922b864682(
+    *,
+    availability_zone_id: builtins.str,
+    security_group_id_list: typing.Sequence[builtins.str],
+    subnet_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a2464c91b61b7903fd60ad81517e3794925adc5b54a16ec7eed3056cd1f4ffd0(
+    *,
+    health_check_source_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnHealthCheckSource.HealthCheckSourceConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19724,6 +20552,70 @@ def _typecheckingstub__07806684fd0bcb683322d42ae67181582216fa4e1371a7133012bf489
     set_identifier: typing.Optional[builtins.str] = None,
     ttl: typing.Optional[builtins.str] = None,
     weight: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d7019ca1a6e2320c123f8f90aad33ec3046749280b7235c58df84073d4412e8d(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    hosted_zone_id: builtins.str,
+    record_name: builtins.str,
+    record_type: builtins.str,
+    comment: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__66ea8e731219527c6b466ebd7aa405abcbf077bf228956f401f96d9ab7998b1b(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2ff694d8628169c6f70c11f5a61b91a530b6794c5eaa7533b407e5efee23a0c2(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__332979759f21db3f7a84d1e688fefdca3d443ffb546e41d5ff5c5b4ecdd21c62(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__57730afdd797479d0019ecf05e22f9d352d7c2d6990c9d20b884c78b4b56536b(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1acc83799adc669f6d4d2de2f0b64787d348e07847fae096a0663f2c422e60fd(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__562c5de9e0b8ff36e771fe828b94a1285bba10d6fce5cd2e397c0531fbfe43b7(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e5524eb983c185a52de1b3e327c27b10cd95147c9b65a4c79d1d7ad6709f2d16(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cf9d823aef7177aeeaba5c520e2c1db3e12cf0426d331fd7c0e9c4ddcacdbf89(
+    *,
+    hosted_zone_id: builtins.str,
+    record_name: builtins.str,
+    record_type: builtins.str,
+    comment: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -34,43 +34,29 @@ floor and language constraints.
 
 from __future__ import annotations
 
+# the native module stays eager: EncodingDetector subclasses its stream type at import
+__lazy_modules__ = ["itertools"]
+
 import codecs
 import string
 from dataclasses import dataclass
 from functools import cache
 from itertools import starmap
-from types import MappingProxyType
 from typing import Final, Literal
 
 from ._html import (
-    DetectStream as _DetectStream,
+    DetectStream,
+    codec_label,
+    detect_rank,
+    is_normalized,
+    normalize,
 )
-from ._html import (
-    codec_label as _codec_label,
-)
-from ._html import (
-    decode as _decode,
-)
-from ._html import (
-    detect as _detect,
-)
-from ._html import (
-    detect_language as _detect_language,
-)
-from ._html import (
-    detect_rank as _detect_rank,
-)
-from ._html import (
-    is_normalized as _is_normalized,
-)
-from ._html import (
-    normalize as _normalize,
-)
+from ._html import decode as native_decode
+from ._html import detect as native_detect
+from ._html import detect_language as native_detect_language
 
 #: The Unicode normalization forms :func:`normalize` and :func:`is_normalized` accept.
 NormalizationForm = Literal["NFC", "NFD", "NFKC", "NFKD"]
-
-_FORMS: Final[MappingProxyType[str, int]] = MappingProxyType({"NFC": 0, "NFD": 1, "NFKC": 2, "NFKD": 3})
 
 
 def _refuse_encode(text: str, errors: str = "strict", /) -> tuple[bytes, int]:  # ruff:ignore[unused-function-argument]  # the codec API passes errors; the refusal ignores it
@@ -86,7 +72,7 @@ def _search(name: str) -> codecs.CodecInfo | None:
     # subset of the spec's, ``koi8-u`` reaches KOI8-U where the spec means KOI8-RU, and ``x-mac-cyrillic`` reaches no
     # codec at all. Which label a name resolves to is decided in C, which knows every spec alias and the byte-order-mark
     # names that delegate to CPython's own decoders.
-    if (found := _codec_label(name)) is None:
+    if (found := codec_label(name)) is None:
         return None
     delegate, label = found
 
@@ -94,7 +80,7 @@ def _search(name: str) -> codecs.CodecInfo | None:
         if delegate:
             # "replace" turns malformed bytes into U+FFFD as turbohtml.parse does, where the strict codec would raise
             return codecs.lookup(label).decode(data, "replace")
-        return _decode(data, label), len(data)
+        return native_decode(data, label), len(data)
 
     # CodecInfo's decoder is typed against _typeshed.ReadableBuffer, which Sphinx cannot import when it walks the
     # annotations at doc-build time; bytes is what the codecs machinery ever passes a decode function.
@@ -163,6 +149,9 @@ class Detection:
 _DEFAULT: Final[Detection] = Detection()
 
 
+_SETTLED: Final[dict[int, EncodingMatch]] = {}
+
+
 def detect(data: bytes, options: Detection | None = None, /) -> EncodingMatch:
     """
     Detect the character encoding of a byte string, the ``chardet.detect`` / ``cchardet.detect`` successor.
@@ -174,8 +163,51 @@ def detect(data: bytes, options: Detection | None = None, /) -> EncodingMatch:
         caller can strip it.
     :raises TypeError: when ``data`` is not a bytes-like object.
     """
-    active: Final = options or _DEFAULT
-    return EncodingMatch(*_rank(_detect(data, active.tld), active)[0])
+    if options is None or options is _DEFAULT:
+        # a settled answer comes back as the match the C detector keeps for it, the common case for short inputs
+        result: Final[EncodingMatch | tuple[str | None, bool, list[tuple[str, int]], bool] | None] = native_detect(
+            data, None, _SETTLED, _settled
+        )
+        return result if isinstance(result, EncodingMatch) else _match(result, _DEFAULT)
+    return _match(native_detect(data, options.tld), options)
+
+
+def _settled(winner: str | None, certain: bool, bom: bool) -> EncodingMatch:  # ruff: ignore[boolean-type-hint-positional-argument]  # the C detector calls it
+    # a settled answer has no candidate scores, so its match is fixed by three values; the C detector keeps the match
+    # in _SETTLED, a few hundred entries at most, and only for the default options, so no caller object is held
+    return EncodingMatch(*_rank((winner, certain, [], bom), _DEFAULT)[0])
+
+
+def _rank(
+    result: tuple[str | None, bool, list[tuple[str, int]], bool] | None, options: Detection
+) -> list[tuple[str | None, float, str | None, bool, str | None]]:
+    return detect_rank(result, options.allowed, options.excluded, options.language, options.threshold, _languages())
+
+
+@cache
+def _languages() -> dict[str, str]:
+    # Built once: every detection hands this table to the C ranker, so a per-call literal would allocate on each one.
+    return {
+        "big5": "Chinese",
+        "euc-jp": "Japanese",
+        "euc-kr": "Korean",
+        "gbk": "Chinese",
+        "ibm866": "Russian",
+        "iso-2022-jp": "Japanese",
+        "iso-8859-5": "Russian",
+        "iso-8859-6": "Arabic",
+        "iso-8859-7": "Greek",
+        "iso-8859-8": "Hebrew",
+        "koi8-u": "Russian",
+        "shift_jis": "Japanese",
+        "windows-1251": "Russian",
+        "windows-1253": "Greek",
+        "windows-1254": "Turkish",
+        "windows-1255": "Hebrew",
+        "windows-1256": "Arabic",
+        "windows-1258": "Vietnamese",
+        "windows-874": "Thai",
+    }
 
 
 @dataclass(frozen=True, slots=True)
@@ -218,36 +250,10 @@ class EncodingMatch:
     codec: str | None = None
 
 
-def _rank(
-    result: tuple[str | None, bool, list[tuple[str, int]], bool] | None, options: Detection
-) -> list[tuple[str | None, float, str | None, bool, str | None]]:
-    return _detect_rank(result, options.allowed, options.excluded, options.language, options.threshold, _languages())
-
-
-@cache
-def _languages() -> dict[str, str]:
-    # Built once: every detection hands this table to the C ranker, so a per-call literal would allocate on each one.
-    return {
-        "big5": "Chinese",
-        "euc-jp": "Japanese",
-        "euc-kr": "Korean",
-        "gbk": "Chinese",
-        "ibm866": "Russian",
-        "iso-2022-jp": "Japanese",
-        "iso-8859-5": "Russian",
-        "iso-8859-6": "Arabic",
-        "iso-8859-7": "Greek",
-        "iso-8859-8": "Hebrew",
-        "koi8-u": "Russian",
-        "shift_jis": "Japanese",
-        "windows-1251": "Russian",
-        "windows-1253": "Greek",
-        "windows-1254": "Turkish",
-        "windows-1255": "Hebrew",
-        "windows-1256": "Arabic",
-        "windows-1258": "Vietnamese",
-        "windows-874": "Thai",
-    }
+def _match(
+    result: tuple[str | None, bool, list[tuple[str, int]], bool] | None, options: Detection | None
+) -> EncodingMatch:
+    return EncodingMatch(*_rank(result, options or _DEFAULT)[0])
 
 
 def detect_all(data: bytes, options: Detection | None = None, /) -> list[EncodingMatch]:
@@ -262,10 +268,10 @@ def detect_all(data: bytes, options: Detection | None = None, /) -> list[Encodin
     :raises TypeError: when ``data`` is not a bytes-like object.
     """
     active = options or _DEFAULT
-    return list(starmap(EncodingMatch, _rank(_detect(data, active.tld), active)))
+    return list(starmap(EncodingMatch, _rank(native_detect(data, active.tld), active)))
 
 
-class EncodingDetector:
+class EncodingDetector(DetectStream):
     """
     Incremental detection over a byte stream, mirroring chardet's ``UniversalDetector``.
 
@@ -274,37 +280,16 @@ class EncodingDetector:
     so a reader loop can stop early.
 
     Every candidate carries its own state across feeds, so the detector holds a fixed amount of memory whatever the
-    stream's length; the one buffer it keeps is the leading 1024 bytes the byte-order-mark check and the ``<meta>``
-    prescan read, which the spec bounds. The result equals :func:`detect` of the concatenated bytes, whatever the chunk
-    boundaries. An instance is not thread-safe; use one per stream.
+    stream's length; it keeps the leading 1024 bytes the byte-order-mark check and the ``<meta>`` prescan read, which
+    the spec bounds, and gathers up to 4096 bytes of ASCII chunks before scoring them. The result equals
+    :func:`detect` of the concatenated bytes, whatever the chunk boundaries. An instance is not thread-safe; use one
+    per stream.
 
     :param options: the detection options; defaults to :class:`Detection` (always answer, no constraints).
     """
 
-    done: bool
-    """Whether the result can no longer change: a leading byte-order mark was seen, or :meth:`close` ran."""
-
-    def __init__(self, options: Detection | None = None, /) -> None:
-        """Start an empty stream with the given options."""
-        self._options = options or _DEFAULT
-        self._stream = _DetectStream(self._options.tld)
-        self._result: EncodingMatch | None = None
-        self.done = False
-
-    @property
-    def result(self) -> EncodingMatch | None:
-        """The match :meth:`close` computed, or ``None`` while the stream is still open."""
-        return self._result
-
-    def feed(self, data: bytes) -> None:
-        """
-        Detect over one chunk of the stream; ignored once :attr:`done`.
-
-        :param data: the next bytes of the stream.
-        """
-        if self.done:
-            return
-        self.done = self._stream.feed(data)
+    # no instance dict, so construction, feed and the accessors run in C without a Python frame
+    __slots__ = ()
 
     def close(self) -> EncodingMatch:
         """
@@ -312,16 +297,7 @@ class EncodingDetector:
 
         :returns: the detector's answer.
         """
-        if self._result is None:
-            self._result = EncodingMatch(*_rank(self._stream.close(), self._options)[0])
-            self.done = True
-        return self._result
-
-    def reset(self) -> None:
-        """Forget the stream and the result so the instance can start over."""
-        self._stream = _DetectStream(self._options.tld)
-        self._result = None
-        self.done = False
+        return self._close(_SETTLED, _settled, _match)
 
 
 @dataclass(frozen=True, slots=True)
@@ -369,7 +345,7 @@ def detect_language(text: str, options: LanguageDetection | None = None, /) -> L
     :raises TypeError: when ``text`` is not a ``str``.
     """
     settings = options or _DEFAULT_LANGUAGE
-    return LanguageMatch(*_detect_language(text, settings.allowed, settings.excluded, settings.threshold))
+    return LanguageMatch(*native_detect_language(text, settings.allowed, settings.excluded, settings.threshold))
 
 
 @dataclass(frozen=True, slots=True)
@@ -399,52 +375,6 @@ class LanguageMatch:
     confidence: float
     script: str | None
     name: str | None = None
-
-
-def normalize(form: NormalizationForm, text: str, /) -> str:
-    """
-    Return *text* in a Unicode normalization form (UAX #15), the C successor to :func:`unicodedata.normalize`.
-
-    The four forms pair a decomposition depth with whether the result is recomposed: ``NFD`` fully decomposes and
-    canonically orders combining marks, ``NFC`` decomposes then recomposes, and the ``NFK*`` forms decompose
-    compatibility equivalents too (folding ligatures, superscripts, and width variants onto their plain characters).
-    ``NFC`` is what you want to compare or store user text so ``"é"`` written as a base plus a combining accent equals
-    ``"é"`` written as one code point; ``NFKC`` additionally flattens presentation variants. A quick check returns
-    already-normalized text (the common case) without allocating.
-
-    :param form: the normalization form, one of ``"NFC"``, ``"NFD"``, ``"NFKC"``, ``"NFKD"``.
-    :param text: the string to normalize.
-    :returns: the normalized string, the same object when it was already normalized.
-    :raises ValueError: when *form* is not one of the four names.
-    :raises TypeError: when *text* is not a ``str``.
-    """
-    try:
-        code = _FORMS[form]
-    except KeyError:
-        msg = f"invalid normalization form {form!r}"
-        raise ValueError(msg) from None
-    return _normalize(code, text)
-
-
-def is_normalized(form: NormalizationForm, text: str, /) -> bool:
-    """
-    Return whether *text* is already in a Unicode normalization form, the :func:`unicodedata.is_normalized` peer.
-
-    This decides the same question as ``normalize(form, text) == text`` but the quick check settles almost every string
-    in a single scan, without building the normalized copy.
-
-    :param form: the normalization form, one of ``"NFC"``, ``"NFD"``, ``"NFKC"``, ``"NFKD"``.
-    :param text: the string to test.
-    :returns: ``True`` when *text* is unchanged by :func:`normalize` for *form*.
-    :raises ValueError: when *form* is not one of the four names.
-    :raises TypeError: when *text* is not a ``str``.
-    """
-    try:
-        code = _FORMS[form]
-    except KeyError:
-        msg = f"invalid normalization form {form!r}"
-        raise ValueError(msg) from None
-    return _is_normalized(code, text)
 
 
 __all__ = [

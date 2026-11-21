@@ -37,6 +37,7 @@ from .literals import (
     FirewallRuleActionType,
     FirewallRuleProtocolType,
     FirewallStatusValueType,
+    FirewallTypeType,
     FlowOperationStatusType,
     FlowOperationTypeType,
     GeneratedRulesTypeType,
@@ -88,6 +89,7 @@ __all__ = (
     "AcceptNetworkFirewallTransitGatewayAttachmentResponseTypeDef",
     "ActionDefinitionOutputTypeDef",
     "ActionDefinitionTypeDef",
+    "AddressTranslationsTypeDef",
     "AddressTypeDef",
     "AnalysisReportTypeDef",
     "AnalysisResultTypeDef",
@@ -226,6 +228,7 @@ __all__ = (
     "IPSetOutputTypeDef",
     "IPSetReferenceTypeDef",
     "IPSetTypeDef",
+    "IgwFirewallConfigurationTypeDef",
     "IpsRuleGroupEntryOutputTypeDef",
     "IpsRuleGroupEntryTypeDef",
     "IpsRuleGroupOutputTypeDef",
@@ -424,6 +427,11 @@ class ResponseMetadataTypeDef(TypedDict):
     HostId: NotRequired[str]
 
 
+class AddressTranslationsTypeDef(TypedDict):
+    PublicIPv6Addresses: NotRequired[list[str]]
+    PublicIPv4Addresses: NotRequired[list[str]]
+
+
 class AddressTypeDef(TypedDict):
     AddressDefinition: str
 
@@ -458,6 +466,7 @@ class AssociateFirewallPolicyRequestTypeDef(TypedDict):
     UpdateToken: NotRequired[str]
     FirewallArn: NotRequired[str]
     FirewallName: NotRequired[str]
+    FirewallType: NotRequired[FirewallTypeType]
 
 
 class SubnetMappingTypeDef(TypedDict):
@@ -525,6 +534,10 @@ EncryptionConfigurationTypeDef = TypedDict(
 )
 
 
+class IgwFirewallConfigurationTypeDef(TypedDict):
+    EnforcementMode: Literal["POLICY_CONTROLLED"]
+
+
 class SourceMetadataTypeDef(TypedDict):
     SourceArn: NotRequired[str]
     SourceUpdateToken: NotRequired[str]
@@ -548,6 +561,7 @@ class DeleteFirewallPolicyV2RequestTypeDef(TypedDict):
 class DeleteFirewallRequestTypeDef(TypedDict):
     FirewallName: NotRequired[str]
     FirewallArn: NotRequired[str]
+    FirewallType: NotRequired[FirewallTypeType]
     DeleteAssociatedNatGateways: NotRequired[bool]
 
 
@@ -612,6 +626,7 @@ class DescribeFirewallPolicyV2RequestTypeDef(TypedDict):
 class DescribeFirewallRequestTypeDef(TypedDict):
     FirewallName: NotRequired[str]
     FirewallArn: NotRequired[str]
+    FirewallType: NotRequired[FirewallTypeType]
 
 
 class DescribeFlowOperationRequestTypeDef(TypedDict):
@@ -626,6 +641,7 @@ class DescribeFlowOperationRequestTypeDef(TypedDict):
 class DescribeLoggingConfigurationRequestTypeDef(TypedDict):
     FirewallArn: NotRequired[str]
     FirewallName: NotRequired[str]
+    FirewallType: NotRequired[FirewallTypeType]
 
 
 class DescribeProxyRequestTypeDef(TypedDict):
@@ -868,6 +884,7 @@ class ListFirewallsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     VpcIds: NotRequired[Sequence[str]]
     MaxResults: NotRequired[int]
+    FirewallType: NotRequired[FirewallTypeType]
 
 
 class ListFlowOperationResultsRequestTypeDef(TypedDict):
@@ -1059,6 +1076,7 @@ class UpdateFirewallAnalysisSettingsRequestTypeDef(TypedDict):
     FirewallArn: NotRequired[str]
     FirewallName: NotRequired[str]
     UpdateToken: NotRequired[str]
+    FirewallType: NotRequired[FirewallTypeType]
 
 
 class UpdateFirewallDeleteProtectionRequestTypeDef(TypedDict):
@@ -1066,6 +1084,7 @@ class UpdateFirewallDeleteProtectionRequestTypeDef(TypedDict):
     UpdateToken: NotRequired[str]
     FirewallArn: NotRequired[str]
     FirewallName: NotRequired[str]
+    FirewallType: NotRequired[FirewallTypeType]
 
 
 class UpdateFirewallDescriptionRequestTypeDef(TypedDict):
@@ -1073,6 +1092,7 @@ class UpdateFirewallDescriptionRequestTypeDef(TypedDict):
     FirewallArn: NotRequired[str]
     FirewallName: NotRequired[str]
     Description: NotRequired[str]
+    FirewallType: NotRequired[FirewallTypeType]
 
 
 class UpdateFirewallPolicyChangeProtectionRequestTypeDef(TypedDict):
@@ -1080,6 +1100,7 @@ class UpdateFirewallPolicyChangeProtectionRequestTypeDef(TypedDict):
     UpdateToken: NotRequired[str]
     FirewallArn: NotRequired[str]
     FirewallName: NotRequired[str]
+    FirewallType: NotRequired[FirewallTypeType]
 
 
 class UpdateSubnetChangeProtectionRequestTypeDef(TypedDict):
@@ -1276,6 +1297,7 @@ class AssociateAvailabilityZonesRequestTypeDef(TypedDict):
     UpdateToken: NotRequired[str]
     FirewallArn: NotRequired[str]
     FirewallName: NotRequired[str]
+    FirewallType: NotRequired[FirewallTypeType]
 
 
 class AssociateAvailabilityZonesResponseTypeDef(TypedDict):
@@ -1291,6 +1313,7 @@ class DisassociateAvailabilityZonesRequestTypeDef(TypedDict):
     UpdateToken: NotRequired[str]
     FirewallArn: NotRequired[str]
     FirewallName: NotRequired[str]
+    FirewallType: NotRequired[FirewallTypeType]
 
 
 class DisassociateAvailabilityZonesResponseTypeDef(TypedDict):
@@ -1406,6 +1429,7 @@ class UpdateFirewallEncryptionConfigurationRequestTypeDef(TypedDict):
     FirewallArn: NotRequired[str]
     FirewallName: NotRequired[str]
     EncryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
+    FirewallType: NotRequired[FirewallTypeType]
 
 
 class UpdateFirewallEncryptionConfigurationResponseTypeDef(TypedDict):
@@ -1618,6 +1642,7 @@ class ListFirewallPoliciesV2RequestPaginateTypeDef(TypedDict):
 
 class ListFirewallsRequestPaginateTypeDef(TypedDict):
     VpcIds: NotRequired[Sequence[str]]
+    FirewallType: NotRequired[FirewallTypeType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -1781,6 +1806,7 @@ NatGatewayCreateMappingUnionTypeDef = Union[
 class SyncStateTypeDef(TypedDict):
     Attachment: NotRequired[AttachmentTypeDef]
     Config: NotRequired[dict[str, PerObjectStatusTypeDef]]
+    AddressTranslations: NotRequired[AddressTranslationsTypeDef]
     NatGatewayAttachments: NotRequired[list[NatGatewayAttachmentTypeDef]]
 
 
@@ -1963,6 +1989,7 @@ class FirewallTypeDef(TypedDict):
     TransitGatewayOwnerAccountId: NotRequired[str]
     AvailabilityZoneMappings: NotRequired[list[AvailabilityZoneMappingTypeDef]]
     AvailabilityZoneChangeProtection: NotRequired[bool]
+    IgwFirewallConfiguration: NotRequired[IgwFirewallConfigurationTypeDef]
     NatGatewayCreateMappings: NotRequired[list[NatGatewayCreateMappingOutputTypeDef]]
     ProxySettings: NotRequired[ProxySettingsOutputTypeDef]
     VpcEndpoint: NotRequired[VpcEndpointOutputTypeDef]
@@ -2250,6 +2277,7 @@ class CreateFirewallRequestTypeDef(TypedDict):
     TransitGatewayId: NotRequired[str]
     AvailabilityZoneMappings: NotRequired[Sequence[AvailabilityZoneMappingTypeDef]]
     AvailabilityZoneChangeProtection: NotRequired[bool]
+    IgwFirewallConfiguration: NotRequired[IgwFirewallConfigurationTypeDef]
     NatGatewayCreateMappings: NotRequired[Sequence[NatGatewayCreateMappingUnionTypeDef]]
     ProxySettings: NotRequired[ProxySettingsUnionTypeDef]
     VpcEndpoint: NotRequired[VpcEndpointUnionTypeDef]
@@ -2288,6 +2316,7 @@ class FirewallRuleGroupTypeDef(TypedDict):
 class UpdateLoggingConfigurationRequestTypeDef(TypedDict):
     FirewallArn: NotRequired[str]
     FirewallName: NotRequired[str]
+    FirewallType: NotRequired[FirewallTypeType]
     LoggingConfiguration: NotRequired[LoggingConfigurationUnionTypeDef]
     EnableMonitoringDashboard: NotRequired[bool]
 

@@ -80,7 +80,7 @@ fn referencing_error_type(py: Python<'_>) -> PyResult<Bound<'_, PyType>> {
     Ok(exception_class.cast_into::<PyType>()?)
 }
 
-/// Whether `text` is the number `value` writes back to, i.e. a Python float carries the literal.
+/// Whether the float `value` is the same number as the JSON literal `text`.
 fn float_spells(value: f64, text: &str) -> bool {
     // Two written forms of one value share a canonical form, so this compares values, not text: `1e20`
     // and `100000000000000000000` agree, while `100000000000000000000.1` differs from both.
@@ -94,7 +94,8 @@ fn float_spells(value: f64, text: &str) -> bool {
         || (value.fract() == 0.0 && same_value(&format!("{value:.1}")))
 }
 
-/// Convert a serde_json::Value to a Python object, properly handling arbitrary precision numbers
+/// Convert a serde_json::Value to a Python object. Integers stay exact; a literal no float holds
+/// becomes `Decimal`.
 pub(crate) fn value_to_python(py: Python<'_>, value: &serde_json::Value) -> PyResult<Py<PyAny>> {
     match value {
         serde_json::Value::Null => Ok(py.None()),
@@ -120,7 +121,7 @@ pub(crate) fn value_to_python(py: Python<'_>, value: &serde_json::Value) -> PyRe
                         // observe the exact literal from JSON instead of ValueError/inf when numbers
                         // exceed binary64 limits, or a rounded neighbour when they exceed its
                         // precision. A canonical bound can sit a fraction away from a round number,
-                        // and rounding it there would admit values the schema excludes.
+                        // and rounding it there would accept values the schema rejects.
                         let decimal_type =
                             unsafe { PyType::from_borrowed_type_ptr(py, types::DECIMAL_TYPE) };
                         decimal_type.call1((s,)).map(|obj| obj.into_any().unbind())
@@ -223,17 +224,17 @@ impl PyEvaluation {
         self.inner.is_valid()
     }
 
-    /// Return the flag output representation as a Python object.
+    /// Return the flag output as a dict.
     fn flag(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         Ok(output::flag(py, self.inner.is_valid())?.into_any().unbind())
     }
 
-    /// Return the list output representation as a Python object.
+    /// Return the list output as a dict.
     fn list(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         Ok(output::list(py, self.inner.root())?.into_any().unbind())
     }
 
-    /// Return the hierarchical output representation as a Python object.
+    /// Return the hierarchical output as a dict.
     fn hierarchical(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         Ok(output::hierarchical(py, self.inner.root())?
             .into_any()
@@ -318,7 +319,6 @@ enum ValidationErrorKind {
     AdditionalProperties { unexpected: Py<PyList> },
     AnyOf { context: Py<PyList> },
     BacktrackLimitExceeded { error: String },
-    RegexEngineFailure { message: String },
     Constant { expected_value: Py<PyAny> },
     Contains {},
     ContentEncoding { content_encoding: String },
@@ -330,10 +330,12 @@ enum ValidationErrorKind {
     FalseSchema {},
     Format { format: String },
     FromUtf8 { error: String },
+    MaxContains { limit: u64 },
     MaxItems { limit: u64 },
     Maximum { limit: Py<PyAny> },
     MaxLength { limit: u64 },
     MaxProperties { limit: u64 },
+    MinContains { limit: u64 },
     MinItems { limit: u64 },
     Minimum { limit: Py<PyAny> },
     MinLength { limit: u64 },
@@ -377,9 +379,6 @@ impl ValidationErrorKind {
                 ValidationErrorKind::BacktrackLimitExceeded {
                     error: error.to_string(),
                 }
-            }
-            jsonschema::error::ValidationErrorKind::RegexEngineFailure { message } => {
-                ValidationErrorKind::RegexEngineFailure { message }
             }
             jsonschema::error::ValidationErrorKind::Constant { expected_value } => {
                 ValidationErrorKind::Constant {
@@ -436,6 +435,12 @@ impl ValidationErrorKind {
             }
             jsonschema::error::ValidationErrorKind::MinItems { limit } => {
                 ValidationErrorKind::MinItems { limit }
+            }
+            jsonschema::error::ValidationErrorKind::MinContains { limit } => {
+                ValidationErrorKind::MinContains { limit }
+            }
+            jsonschema::error::ValidationErrorKind::MaxContains { limit } => {
+                ValidationErrorKind::MaxContains { limit }
             }
             jsonschema::error::ValidationErrorKind::Minimum { limit } => {
                 ValidationErrorKind::Minimum {
@@ -522,15 +527,14 @@ impl ValidationErrorKind {
 
 #[pymethods]
 impl ValidationErrorKind {
+    /// The keyword that failed, or ``"falseSchema"`` for a ``false`` schema.
     #[getter]
     fn name(&self) -> &str {
         match self {
             Self::AdditionalItems { .. } => "additionalItems",
             Self::AdditionalProperties { .. } => "additionalProperties",
             Self::AnyOf { .. } => "anyOf",
-            Self::BacktrackLimitExceeded { .. }
-            | Self::RegexEngineFailure { .. }
-            | Self::Pattern { .. } => "pattern",
+            Self::BacktrackLimitExceeded { .. } | Self::Pattern { .. } => "pattern",
             Self::Constant { .. } => "const",
             Self::Contains { .. } => "contains",
             Self::ContentEncoding { .. } | Self::FromUtf8 { .. } => "contentEncoding",
@@ -541,10 +545,12 @@ impl ValidationErrorKind {
             Self::ExclusiveMinimum { .. } => "exclusiveMinimum",
             Self::FalseSchema { .. } => "falseSchema",
             Self::Format { .. } => "format",
+            Self::MaxContains { .. } => "maxContains",
             Self::MaxItems { .. } => "maxItems",
             Self::Maximum { .. } => "maximum",
             Self::MaxLength { .. } => "maxLength",
             Self::MaxProperties { .. } => "maxProperties",
+            Self::MinContains { .. } => "minContains",
             Self::MinItems { .. } => "minItems",
             Self::Minimum { .. } => "minimum",
             Self::MinLength { .. } => "minLength",
@@ -575,9 +581,6 @@ impl ValidationErrorKind {
             Self::BacktrackLimitExceeded { error } | Self::FromUtf8 { error } => {
                 error.into_pyobject(py).unwrap().into_any().unbind()
             }
-            Self::RegexEngineFailure { message } => {
-                message.into_pyobject(py).unwrap().into_any().unbind()
-            }
             Self::Constant { expected_value } => expected_value.clone_ref(py),
             Self::Contains {} | Self::FalseSchema {} | Self::UniqueItems {} => py.None(),
             Self::ContentEncoding { content_encoding } => content_encoding
@@ -597,9 +600,11 @@ impl ValidationErrorKind {
             | Self::Maximum { limit }
             | Self::Minimum { limit } => limit.clone_ref(py),
             Self::Format { format } => format.into_pyobject(py).unwrap().into_any().unbind(),
-            Self::MaxItems { limit }
+            Self::MaxContains { limit }
+            | Self::MaxItems { limit }
             | Self::MaxLength { limit }
             | Self::MaxProperties { limit }
+            | Self::MinContains { limit }
             | Self::MinItems { limit }
             | Self::MinLength { limit }
             | Self::MinProperties { limit } => limit.into_pyobject(py).unwrap().into_any().unbind(),
@@ -627,7 +632,6 @@ impl ValidationErrorKind {
             Self::BacktrackLimitExceeded { error } | Self::FromUtf8 { error } => {
                 dict.set_item("error", error)?;
             }
-            Self::RegexEngineFailure { message } => dict.set_item("message", message)?,
             Self::Constant { expected_value } => dict.set_item("expected_value", expected_value)?,
             Self::Contains {} | Self::FalseSchema {} | Self::UniqueItems {} => {}
             Self::ContentEncoding { content_encoding } => {
@@ -646,9 +650,11 @@ impl ValidationErrorKind {
             | Self::Maximum { limit }
             | Self::Minimum { limit } => dict.set_item("limit", limit)?,
             Self::Format { format } => dict.set_item("format", format)?,
-            Self::MaxItems { limit }
+            Self::MaxContains { limit }
+            | Self::MaxItems { limit }
             | Self::MaxLength { limit }
             | Self::MaxProperties { limit }
+            | Self::MinContains { limit }
             | Self::MinItems { limit }
             | Self::MinLength { limit }
             | Self::MinProperties { limit } => dict.set_item("limit", limit)?,
@@ -758,7 +764,7 @@ fn location_to_list(py: Python<'_>, location: &Location) -> PyResult<Py<PyList>>
 }
 
 // The object at `location` under `root`, when it and everything in it are plain JSON types, which
-// convert to and from JSON unchanged. Other values keep their JSON form.
+// convert to and from JSON unchanged; `None` otherwise, and the caller converts the JSON value.
 fn plain_instance_at<'py>(
     root: &Bound<'py, PyAny>,
     location: &Location,
@@ -1066,7 +1072,7 @@ fn make_options<'a>(
                             *last.borrow_mut() = Some(e);
                         });
                         std::panic::set_hook(Box::new(|_| {}));
-                        // Should be caught
+                        // Caught by `handle_format_checked_panic`, which re-raises the stored error
                         panic!("Format checker failed")
                     }
                 });
@@ -1216,9 +1222,9 @@ fn make_options<'a>(
     Ok(options)
 }
 
-// Errors the representation recorded out of band, since validation cannot return them. A recorded
-// error outranks whatever `run` produced: building a validation error can itself hit an unreadable
-// part of the instance, and that error is the accurate one.
+// Errors the `Pyo3` representation recorded while reading the instance, since validation cannot
+// return them. A recorded error outranks whatever `run` produced: building a validation error can
+// itself hit an unreadable part of the instance, and that error is the accurate one.
 fn surface_pending_errors<T>(
     instance: &Bound<'_, PyAny>,
     holding: bool,
@@ -1288,7 +1294,7 @@ fn to_error_message(
     mut message: String,
     mask: Option<&str>,
 ) -> String {
-    // It roughly doubles
+    // The verbose message roughly doubles the short one
     message.reserve(message.len());
     message.push('\n');
     message.push('\n');
@@ -1353,13 +1359,12 @@ impl Write for StringWriter<'_> {
 
 /// is_valid(schema, instance, draft=None, formats=None, validate_formats=None, ignore_unknown_formats=True, retriever=None, registry=None, mask=None, base_uri=None, pattern_options=None, email_options=None, http_options=None, keywords=None, vocabularies=None, offline=None)
 ///
-/// A shortcut for validating the input instance against the schema.
+/// Return whether `instance` is valid under `schema`. Stops at the first error.
 ///
 ///     >>> is_valid({"minimum": 5}, 3)
 ///     False
 ///
-/// If your workflow implies validating against the same schema, consider using `validator_for(...).is_valid`
-/// instead.
+/// To validate many instances against one schema, use `validator_for(schema).is_valid`.
 #[pyfunction]
 #[pyo3(signature = (schema, instance, draft=None, formats=None, validate_formats=None, ignore_unknown_formats=true, retriever=None, registry=None, mask=None, base_uri=None, pattern_options=None, email_options=None, http_options=None, keywords=None, vocabularies=None, offline=None))]
 #[allow(clippy::needless_pass_by_value)]
@@ -1411,15 +1416,13 @@ fn is_valid(
 
 /// validate(schema, instance, draft=None, formats=None, validate_formats=None, ignore_unknown_formats=True, retriever=None, registry=None, mask=None, base_uri=None, pattern_options=None, email_options=None, http_options=None, keywords=None, vocabularies=None, offline=None)
 ///
-/// Validate the input instance and raise `ValidationError` in the error case
+/// Raise `ValidationError` for the first error of `instance` under `schema`.
 ///
 ///     >>> validate({"minimum": 5}, 3)
 ///     ...
 ///     ValidationError: 3 is less than the minimum of 5
 ///
-/// If the input instance is invalid, only the first occurred error is raised.
-/// If your workflow implies validating against the same schema, consider using `validator_for(...).validate`
-/// instead.
+/// To validate many instances against one schema, use `validator_for(schema).validate`.
 #[pyfunction]
 #[pyo3(signature = (schema, instance, draft=None, formats=None, validate_formats=None, ignore_unknown_formats=true, retriever=None, registry=None, mask=None, base_uri=None, pattern_options=None, email_options=None, http_options=None, keywords=None, vocabularies=None, offline=None))]
 #[allow(clippy::needless_pass_by_value)]
@@ -1472,14 +1475,12 @@ fn validate(
 
 /// iter_errors(schema, instance, draft=None, formats=None, validate_formats=None, ignore_unknown_formats=True, retriever=None, registry=None, mask=None, base_uri=None, pattern_options=None, email_options=None, http_options=None, keywords=None, vocabularies=None, offline=None)
 ///
-/// Iterate the validation errors of the input instance
+/// Iterate over every `ValidationError` of `instance` under `schema`.
 ///
-///     >>> next(iter_errors({"minimum": 5}, 3))
-///     ...
-///     ValidationError: 3 is less than the minimum of 5
+///     >>> print(next(iter_errors({"minimum": 5}, 3)).message)
+///     3 is less than the minimum of 5
 ///
-/// If your workflow implies validating against the same schema, consider using `validator_for().iter_errors`
-/// instead.
+/// To validate many instances against one schema, use `validator_for(schema).iter_errors`.
 #[pyfunction]
 #[pyo3(signature = (schema, instance, draft=None, formats=None, validate_formats=None, ignore_unknown_formats=true, retriever=None, registry=None, mask=None, base_uri=None, pattern_options=None, email_options=None, http_options=None, keywords=None, vocabularies=None, offline=None))]
 #[allow(clippy::needless_pass_by_value)]
@@ -1530,72 +1531,15 @@ fn iter_errors(
     }
 }
 
-/// evaluate(schema, instance, draft=None, formats=None, validate_formats=None, ignore_unknown_formats=True, retriever=None, registry=None, base_uri=None, pattern_options=None, email_options=None, http_options=None)
+/// evaluate(schema, instance, draft=None, formats=None, validate_formats=None, ignore_unknown_formats=True, retriever=None, registry=None, base_uri=None, pattern_options=None, email_options=None, http_options=None, keywords=None, vocabularies=None, offline=None)
 ///
-/// Evaluate an instance against a schema and return structured output formats.
+/// Evaluate `instance` against `schema` and return an `Evaluation` holding the output formats.
 ///
-/// ```text
-///     >>> schema = {"type": "array", "prefixItems": [{"type": "string"}], "items": {"type": "integer"}}
-///     >>> evaluation = evaluate(schema, ["hello", "oops"])
-///     >>> evaluation.list()
-///     {
-///         'valid': False,
-///         'details': [
-///             {
-///                 'evaluationPath': '',
-///                 'instanceLocation': '',
-///                 'schemaLocation': '',
-///                 'valid': False
-///             },
-///             {
-///                 'valid': False,
-///                 'evaluationPath': '/0',
-///                 'instanceLocation': '',
-///                 'schemaLocation': '/items',
-///                 'droppedAnnotations': True
-///             },
-///             {
-///                 'valid': False,
-///                 'evaluationPath': '/0/0',
-///                 'instanceLocation': '/1',
-///                 'schemaLocation': '/items'
-///             },
-///             {
-///                 'valid': False,
-///                 'evaluationPath': '/0/0/0',
-///                 'instanceLocation': '/1',
-///                 'schemaLocation': '/items/type',
-///                 'errors': {'type': '"oops" is not of type "integer"'}
-///             },
-///             {
-///                 'valid': True,
-///                 'evaluationPath': '/1',
-///                 'instanceLocation': '',
-///                 'schemaLocation': '/prefixItems',
-///                 'annotations': 0
-///             },
-///             {
-///                 'valid': True,
-///                 'evaluationPath': '/1/0',
-///                 'instanceLocation': '/0',
-///                 'schemaLocation': '/prefixItems/0'
-///             },
-///             {
-///                 'valid': True,
-///                 'evaluationPath': '/1/0/0',
-///                 'instanceLocation': '/0',
-///                 'schemaLocation': '/prefixItems/0/type'
-///             },
-///             {
-///                 'valid': True,
-///                 'evaluationPath': '/2',
-///                 'instanceLocation': '',
-///                 'schemaLocation': '/type'
-///             }
-///         ]
-///     }
-/// ```
-///
+///     >>> evaluation = evaluate({"type": "integer"}, "oops")
+///     >>> evaluation.flag()["valid"]
+///     False
+///     >>> print(evaluation.errors()[0]["error"])
+///     "oops" is not of type "integer"
 #[pyfunction]
 #[pyo3(signature = (schema, instance, draft=None, formats=None, validate_formats=None, ignore_unknown_formats=true, retriever=None, registry=None, base_uri=None, pattern_options=None, email_options=None, http_options=None, keywords=None, vocabularies=None, offline=None))]
 #[allow(clippy::needless_pass_by_value)]
@@ -1667,6 +1611,8 @@ struct Validator {
     holding: bool,
 }
 
+/// Compiled validators keyed by URI-fragment JSON pointer (e.g. ``"#/$defs/User"``), from
+/// :func:`validator_map_for`.
 #[pyclass(module = "jsonschema_rs")]
 struct ValidatorMap {
     inner: jsonschema::ValidatorMap<Pyo3>,
@@ -1693,7 +1639,7 @@ impl ValidatorMap {
 impl ValidatorMap {
     /// get(pointer)
     ///
-    /// Return the validator for the given URI-fragment JSON pointer, or ``None`` if not found.
+    /// Return the validator for ``pointer``, or ``None`` if not found.
     ///
     ///     >>> m = validator_map_for({"$defs": {"T": {"type": "string"}}})
     ///     >>> v = m.get("#/$defs/T")
@@ -1730,7 +1676,8 @@ impl ValidatorMap {
 
 /// validator_for(schema, formats=None, validate_formats=None, ignore_unknown_formats=True, retriever=None, registry=None, mask=None, base_uri=None, pattern_options=None, email_options=None, http_options=None, keywords=None, vocabularies=None, offline=None)
 ///
-/// Create a validator for the input schema with automatic draft detection and default options.
+/// Create a validator for `schema`, an instance of the draft class its `$schema` names (Draft
+/// 2020-12 without one).
 ///
 ///     >>> validator = validator_for({"minimum": 5})
 ///     >>> validator.is_valid(3)
@@ -1778,7 +1725,8 @@ fn validator_for<'py>(
 
 /// validator_map_for(schema, formats=None, validate_formats=None, ignore_unknown_formats=True, retriever=None, registry=None, mask=None, base_uri=None, pattern_options=None, email_options=None, http_options=None, keywords=None, vocabularies=None, offline=None)
 ///
-/// Compile all subschemas in ``schema`` into a map keyed by URI-fragment JSON pointer.
+/// Compile all subschemas in ``schema`` into a map keyed by URI-fragment JSON pointer. The root
+/// schema is under ``"#"``.
 ///
 ///     >>> schema = {"$defs": {"User": {"type": "object"}}}
 ///     >>> m = validator_map_for(schema)
@@ -1839,6 +1787,9 @@ fn validator_map_for(
 /// draft-appropriate container (`definitions` for Draft 4/6/7, `$defs` for
 /// Draft 2019-09/2020-12). Original `$ref` values are preserved unchanged.
 ///
+/// :raises ReferencingError: if a referenced document cannot be retrieved.
+/// :raises ValueError: for any other `$ref` that cannot be resolved.
+///
 ///     >>> bundled = bundle({"$ref": "https://example.com/thing.json"}, registry=my_registry)
 ///
 #[pyfunction]
@@ -1878,7 +1829,8 @@ fn bundle(
 /// :param offline: Refuse to fetch anything outside ``registry``.
 /// :param draft: Optional draft version (e.g. ``jsonschema_rs.Draft202012``).
 /// :param base_uri: Optional base URI for the root schema.
-/// :raises ReferencingError: if any `$ref` cannot be resolved.
+/// :raises ReferencingError: if a referenced document cannot be retrieved.
+/// :raises ValueError: for any other `$ref` that cannot be resolved.
 ///
 ///     >>> result = dereference({"$defs": {"t": {"type": "string"}}, "properties": {"x": {"$ref": "#/$defs/t"}}})
 ///
@@ -2071,31 +2023,28 @@ impl Validator {
     }
     /// is_valid(instance)
     ///
-    /// Perform fast validation against the schema.
+    /// Return whether `instance` is valid. Stops at the first error.
     ///
     ///     >>> validator = validator_for({"minimum": 5})
     ///     >>> validator.is_valid(3)
     ///     False
-    ///
-    /// The output is a boolean value, that indicates whether the instance is valid or not.
     fn is_valid(&self, instance: &Bound<'_, PyAny>) -> PyResult<bool> {
-        surface_pending_errors(instance, self.holding, || {
+        // The panic is mapped after the call, so the call itself carries no `PyResult`.
+        inspect(instance.as_borrowed(), self.holding, || {
             panic::catch_unwind(AssertUnwindSafe(|| {
-                Ok(self.validator.is_valid(instance.as_borrowed()))
+                self.validator.is_valid(instance.as_borrowed())
             }))
-            .map_err(handle_format_checked_panic)?
-        })
+        })?
+        .map_err(handle_format_checked_panic)
     }
     /// validate(instance)
     ///
-    /// Validate the input instance and raise `ValidationError` in the error case
+    /// Raise `ValidationError` for the first error of `instance`.
     ///
     ///     >>> validator = validator_for({"minimum": 5})
     ///     >>> validator.validate(3)
     ///     ...
     ///     ValidationError: 3 is less than the minimum of 5
-    ///
-    /// If the input instance is invalid, only the first occurred error is raised.
     fn validate(&self, py: Python<'_>, instance: &Bound<'_, PyAny>) -> PyResult<()> {
         raise_on_error(
             py,
@@ -2107,12 +2056,11 @@ impl Validator {
     }
     /// iter_errors(instance)
     ///
-    /// Iterate the validation errors of the input instance
+    /// Iterate over every `ValidationError` of `instance`.
     ///
     ///     >>> validator = validator_for({"minimum": 5})
-    ///     >>> next(validator.iter_errors(3))
-    ///     ...
-    ///     ValidationError: 3 is less than the minimum of 5
+    ///     >>> print(next(validator.iter_errors(3)).message)
+    ///     3 is less than the minimum of 5
     fn iter_errors(
         &self,
         py: Python<'_>,
@@ -2128,43 +2076,11 @@ impl Validator {
     }
     /// evaluate(instance)
     ///
-    /// Evaluate the instance and return structured JSON Schema outputs.
+    /// Evaluate `instance` and return an `Evaluation` holding the output formats.
     ///
-    /// ```text
-    ///     >>> validator = validator_for({"prefixItems": [{"type": "string"}], "items": {"type": "integer"}})
-    ///     >>> validator.evaluate(["hello", "oops"]).list()
-    ///     {
-    ///         'valid': False,
-    ///         'details': [
-    ///             {
-    ///                 'evaluationPath': '',
-    ///                 'instanceLocation': '',
-    ///                 'schemaLocation': '',
-    ///                 'valid': False
-    ///             },
-    ///             {
-    ///                 'valid': False,
-    ///                 'evaluationPath': '/0',
-    ///                 'instanceLocation': '',
-    ///                 'schemaLocation': '/items',
-    ///                 'droppedAnnotations': True
-    ///             },
-    ///             {
-    ///                 'valid': False,
-    ///                 'evaluationPath': '/0/0',
-    ///                 'instanceLocation': '/1',
-    ///                 'schemaLocation': '/items'
-    ///             },
-    ///             {
-    ///                 'valid': False,
-    ///                 'evaluationPath': '/0/0/0',
-    ///                 'instanceLocation': '/1',
-    ///                 'schemaLocation': '/items/type',
-    ///                 'errors': {'type': '"oops" is not of type "integer"'}
-    ///             }
-    ///         ]
-    ///     }
-    /// ```
+    ///     >>> validator = validator_for({"type": "integer"})
+    ///     >>> validator.evaluate("oops").flag()["valid"]
+    ///     False
     fn evaluate(&self, instance: &Bound<'_, PyAny>) -> PyResult<PyEvaluation> {
         surface_pending_errors(instance, self.holding, || {
             let _scope = KeywordCauseScope::enter();
@@ -2468,8 +2384,9 @@ mod meta {
     use jsonschema::json::Pyo3;
     use pyo3::prelude::*;
 
-    // The bundled meta-schemas are compiled in and read the Python object in place. `None` sends a
-    // `$schema` outside them through its chain, and every schema on wasm, where they are not built.
+    // The bundled meta-schemas are compiled in and read the Python object in place. `None` for a
+    // `$schema` outside them, and for every schema on wasm, where they are not built; the caller
+    // then uses `meta::is_valid_for` or `meta::validate_for`.
     #[cfg(not(target_family = "wasm"))]
     fn compiled_is_valid(schema: &Bound<'_, PyAny>) -> Option<PyResult<bool>> {
         match jsonschema::meta::pyo3::draft_of(schema.as_borrowed()) {
@@ -2575,7 +2492,7 @@ mod meta {
     ///     >>> jsonschema_rs.meta.validate({"$schema": "http://custom.example.com/schema", "type": "object"})
     ///     Traceback (most recent call last):
     ///         ...
-    ///     jsonschema_rs.ReferencingError: Unknown meta-schema: http://custom.example.com/schema
+    ///     jsonschema_rs.ReferencingError: Unknown meta-schema: 'http://custom.example.com/schema'. Custom meta-schemas must be registered in the registry before use
     ///
     /// For custom meta-schemas, provide a registry:
     ///
@@ -2625,8 +2542,8 @@ mod meta {
 /// JSON Schema validation for Python written in Rust.
 #[pymodule]
 fn jsonschema_rs(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
-    // To provide proper signatures for PyCharm, all the functions have their signatures as the
-    // first line in docstrings. The idea is taken from NumPy.
+    // PyCharm reads a signature from a docstring's first line, so module-level functions start
+    // with one.
     types::init(py);
     module.add_wrapped(wrap_pyfunction!(is_valid))?;
     module.add_wrapped(wrap_pyfunction!(validate))?;

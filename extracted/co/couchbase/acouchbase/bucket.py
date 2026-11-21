@@ -1,4 +1,4 @@
-#  Copyright 2016-2022. Couchbase, Inc.
+#  Copyright 2016-2026. Couchbase, Inc.
 #  All Rights Reserved.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License")
@@ -15,21 +15,26 @@
 
 from __future__ import annotations
 
-from typing import (TYPE_CHECKING,
-                    Any,
-                    Dict)
+__all__ = [
+    'AsyncBucket',
+    'Bucket',
+]
+
+from typing import TYPE_CHECKING
 
 from acouchbase.collection import Collection
-from acouchbase.logic.bucket_impl import AsyncBucketImpl
 from acouchbase.management.collections import CollectionManager
 from acouchbase.management.views import ViewIndexManager
+from acouchbase.result import AsyncViewResult
 from acouchbase.scope import Scope
-from couchbase.logic.observability import ObservableRequestHandler
-from couchbase.logic.operation_types import StreamingOperationType
-from couchbase.result import PingResult, ViewResult
+from couchbase.result import PingResult
 
 if TYPE_CHECKING:
+    from typing_extensions import Unpack
+
     from acouchbase.cluster import AsyncCluster
+    from couchbase.common._interfaces._bucket import AsyncBucketInterface
+    from couchbase.common.options import PingOptionsKwargs, ViewOptionsKwargs
     from couchbase.options import PingOptions, ViewOptions
 
 
@@ -49,10 +54,11 @@ class AsyncBucket:
     """
 
     def __init__(self, cluster: AsyncCluster, bucket_name: str) -> None:
-        self._impl = AsyncBucketImpl(bucket_name, cluster)
+        self._impl: AsyncBucketInterface = cluster._impl.bucket(bucket_name)
 
     @property
     def name(self) -> str:
+        """The name of this bucket."""
         return self._impl.bucket_name
 
     async def on_connect(self) -> None:
@@ -106,25 +112,24 @@ class AsyncBucket:
             collection_name (str): Name of the collection to reference.
 
         Returns:
-            :class:`~acouchbase.collection.Collection`: A :class:`~acouchbase.collection.Collection` instance of the specified collection.
+            :class:`~acouchbase.collection.Collection`: A :class:`~acouchbase.collection.Collection` instance of the
+            specified collection.
 
-        """  # noqa: E501
+        """
         scope = self.default_scope()
         return scope.collection(collection_name)
 
-    def default_collection(self):
+    def default_collection(self) -> Collection:
         """Creates a :class:`~acouchbase.collection.Collection` instance of the default collection.
 
         Returns:
-            :class:`~acouchbase.collection.Collection`: A :class:`~acouchbase.collection.Collection` instance of the default collection.
-        """  # noqa: E501
+            :class:`~acouchbase.collection.Collection`: A :class:`~acouchbase.collection.Collection` instance of the
+            default collection.
+        """
         scope = self.default_scope()
         return scope.collection(Collection.default_name())
 
-    async def ping(self,
-                   *opts,  # type: PingOptions
-                   **kwargs  # type: Dict[str, Any]
-                   ) -> PingResult:
+    async def ping(self, opts: PingOptions | None = None, **kwargs: Unpack[PingOptionsKwargs]) -> PingResult:
         """Performs a ping operation against the bucket.
 
         The ping operation pings the services which are specified
@@ -133,21 +138,21 @@ class AsyncBucket:
 
         Args:
             opts (:class:`~couchbase.options.PingOptions`): Optional parameters for this operation.
+            **kwargs: keyword arguments that can be used in place or to
+                override provided :class:`~couchbase.options.PingOptions`
 
         Returns:
             Awaitable[:class:`~couchbase.result.PingResult`]: A report which describes the outcome of the ping
             operations which were performed.
 
         """
-        req = self._impl.request_builder.build_ping_request(*opts, **kwargs)
-        return await self._impl.ping(req)
+        return await self._impl.ping(opts, **kwargs)
 
     def view_query(self,
-                   design_doc,      # type: str
-                   view_name,       # type: str
-                   *view_options,   # type: ViewOptions
-                   **kwargs         # type: Dict[str, Any]
-                   ) -> ViewResult:
+                   design_doc: str,
+                   view_name: str,
+                   view_options: ViewOptions | None = None,
+                   **kwargs: Unpack[ViewOptionsKwargs]) -> AsyncViewResult:
         """Executes a View query against the bucket.
 
         .. deprecated:: 4.6.0
@@ -159,26 +164,26 @@ class AsyncBucket:
         .. note::
 
             The query is executed lazily in that it is executed once iteration over the
-            :class:`~.result.ViewResult` begins.
+            :class:`~.result.AsyncViewResult` begins.
 
         .. seealso::
-            * :class:`~.management.ViewIndexManager`: for how to manage query indexes
+            * :class:`~acouchbase.management.views.ViewIndexManager`: for how to manage design documents
 
         Args:
             design_doc (str): The name of the design document containing the view to execute.
             view_name (str): The name of the view to execute.
             view_options (:class:`~.options.ViewOptions`): Optional parameters for the view query operation.
-            **kwargs (Dict[str, Any]): keyword arguments that can be used in place or to
+            **kwargs: keyword arguments that can be used in place or to
                 override provided :class:`~.options.ViewOptions`
 
         Returns:
-            :class:`~.result.ViewResult`: An instance of a :class:`~.result.ViewResult` which
+            :class:`~.result.AsyncViewResult`: An instance of a :class:`~.result.AsyncViewResult` which
             provides access to iterate over the query results and access metadata about the query.
 
         Examples:
             Simple view query::
 
-                from couchbase.management.views import DesignDocumentNamespace
+                from acouchbase.management.views import DesignDocumentNamespace
 
                 # ... other code ...
 
@@ -191,29 +196,19 @@ class AsyncBucket:
                     print(f'Found row: {row}')
 
         """
-        op_type = StreamingOperationType.ViewQuery
-        obs_handler = ObservableRequestHandler(op_type, self._impl.observability_instruments)
-        req = self._impl.request_builder.build_view_query_request(design_doc,
-                                                                  view_name,
-                                                                  obs_handler,
-                                                                  *view_options,
-                                                                  **kwargs)
-        return self._impl.view_query(req)
+        return self._impl.view_query(design_doc, view_name, view_options, **kwargs)
 
     def collections(self) -> CollectionManager:
-        """
-        Get a :class:`~acouchbase.management.collections.CollectionManager` which can be used to manage the scopes and collections
-        of this bucket.
+        """Get a manager for the scopes and collections of this bucket.
 
         Returns:
-            :class:`~acouchbase.management.collections.CollectionManager`: A :class:`~couchbase.management.collections.CollectionManager` instance.
-        """  # noqa: E501
-        return CollectionManager(self._impl._client_adapter, self.name, self._impl.observability_instruments)
+            :class:`~acouchbase.management.collections.CollectionManager`: A
+            :class:`~couchbase.management.collections.CollectionManager` instance.
+        """
+        return CollectionManager(self._impl.collection_mgmt())
 
     def view_indexes(self) -> ViewIndexManager:
-        """
-        Get a :class:`~acouchbase.management.views.ViewIndexManager` which can be used to manage the view design documents
-        and views of this bucket.
+        """Get a manager for the view design documents and views of this bucket.
 
         .. deprecated:: 4.6.0
 
@@ -222,9 +217,10 @@ class AsyncBucket:
             Index Service (GSI) and the Query Service (SQL++).
 
         Returns:
-            :class:`~acouchbase.management.views.ViewIndexManager`: A :class:`~couchbase.management.views.ViewIndexManager` instance.
-        """  # noqa: E501
-        return ViewIndexManager(self._impl._client_adapter, self.name, self._impl.observability_instruments)
+            :class:`~acouchbase.management.views.ViewIndexManager`: A
+            :class:`~couchbase.management.views.ViewIndexManager` instance.
+        """
+        return ViewIndexManager(self._impl.view_index_mgmt())
 
 
 Bucket = AsyncBucket

@@ -22,6 +22,7 @@ from bench._beautifulsoup import (  # simplint: ignore[private-import-path]  # s
     serialize_inner_indent,
     socialcard,
 )
+from bench.link_attributes import element_links
 from bench.timing import Mutating
 
 if TYPE_CHECKING:
@@ -108,7 +109,7 @@ def _find_attr_presence(case: tuple[str, bool]) -> None:
 
 def _select_default(case: tuple[str, str, int]) -> None:
     if case[0] == ":default" and "<button>" in case[1]:
-        unsupported: Final = "SoupSieve requires explicit type=submit for default buttons"
+        unsupported: Final[str] = "SoupSieve requires explicit type=submit for default buttons"
         raise NotImplementedError(unsupported)
     _select_relative(case)
 
@@ -118,6 +119,11 @@ def _select_relative(case: tuple[str, str, int]) -> None:
     document = parsed("html.parser", text)
     for _ in range(repeats):
         document.select(selector)
+
+
+def _select_scaling(case: tuple[str, str]) -> None:
+    selector, text = case
+    parsed("html.parser", text).select(selector)
 
 
 def text_content(text: str) -> None:
@@ -219,9 +225,17 @@ def match(text: str) -> None:
         anchor.css.match("div a[href]")
 
 
+def link_urls(text: str) -> list[str]:
+    # Collect every link-bearing attribute and <style> url() with BeautifulSoup, the set turbohtml's links() reads.
+    return [
+        link
+        for tag in parsed("html.parser", text).find_all(name=True)
+        for link in element_links(tag.name, tag.attrs.items(), tag.get_text() if tag.name == "style" else None)
+    ]
+
+
 def links_extract(text: str) -> None:
-    # Collect every anchor's href with BeautifulSoup, the shape a scraper reads links in.
-    _ = [anchor.get("href") for anchor in parsed("html.parser", text).find_all("a")]
+    _ = link_urls(text)
 
 
 def links_rewrite(text: str) -> None:
@@ -281,10 +295,10 @@ def _node_equals(case: tuple[int, str, int]) -> bool:
 @functools.cache
 def _equality_pair(count: int, variant: str) -> tuple[Tag, Tag]:
     if variant == "duplicates":
-        message: Final = "constructor does not normalize case variants to duplicate attribute names"
+        message: Final[str] = "constructor does not normalize case variants to duplicate attribute names"
         raise ValueError(message)
-    left: Final = BeautifulSoup("", "html.parser").new_tag("div")
-    right: Final = BeautifulSoup("", "html.parser").new_tag("div")
+    left: Final[Tag] = BeautifulSoup("", "html.parser").new_tag("div")
+    right: Final[Tag] = BeautifulSoup("", "html.parser").new_tag("div")
     fill_equality_pair(left.attrs, right.attrs, count, variant)
     return left, right
 
@@ -325,7 +339,7 @@ OPERATIONS: Final[dict[str, tuple[Timed, str]]] = {
     "emit": (emit, "BeautifulSoup (html.parser)"),
     "find": (functools.partial(find, "html.parser"), "BeautifulSoup (html.parser)"),
     "select": (select, "BeautifulSoup (html.parser)"),
-    "select-nth": (_select_relative, "BeautifulSoup (html.parser)"),
+    "select-nth": (_select_scaling, "BeautifulSoup (html.parser)"),
     "select-relative": (_select_relative, "BeautifulSoup (html.parser)"),
     "select-default": (_select_default, "BeautifulSoup (html.parser)"),
     "select-has": (select_has, "BeautifulSoup (html.parser)"),

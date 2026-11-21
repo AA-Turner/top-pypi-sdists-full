@@ -1,7 +1,9 @@
+import logging
 import os
 from pathlib import Path
 
 import pandas as pd
+import pytest
 from pandas.testing import assert_frame_equal
 
 import camelot
@@ -13,6 +15,16 @@ from camelot.io import PDFHandler
 from .conftest import skip_on_windows
 from .conftest import skip_pdftopng
 from .data import *
+
+
+def _processing_page_messages(caplog):
+    return [
+        record.getMessage()
+        for record in caplog.records
+        if record.name == "camelot"
+        and record.levelno == logging.INFO
+        and record.getMessage().startswith("Processing page ")
+    ]
 
 
 @skip_on_windows
@@ -223,6 +235,48 @@ def test_pages_ghostscript_custom_backend():
     assert repr(tables[0].cells[0][0]) == "<Cell x1=120 y1=218 x2=165 y2=234>"
 
 
+def test_read_pdf_logs_processing_progress_per_page(testdir, caplog):
+    filename = os.path.join(testdir, "hybrid_multipage.pdf")
+    caplog.set_level(logging.INFO, logger="camelot")
+
+    camelot.read_pdf(filename, pages="1-2")
+
+    assert _processing_page_messages(caplog) == [
+        "Processing page 1",
+        "Processing page 2",
+    ]
+
+
+def test_read_pdf_suppresses_processing_progress(testdir, caplog):
+    filename = os.path.join(testdir, "hybrid_multipage.pdf")
+    caplog.set_level(logging.INFO, logger="camelot")
+
+    camelot.read_pdf(filename, pages="1-2", suppress_stdout=True)
+
+    assert _processing_page_messages(caplog) == []
+
+
+def test_read_pdf_logs_processing_progress_for_page_subset(testdir, caplog):
+    filename = os.path.join(testdir, "vertical_header.pdf")
+    caplog.set_level(logging.INFO, logger="camelot")
+
+    camelot.read_pdf(filename, pages="1,3", flavor="stream")
+
+    assert _processing_page_messages(caplog) == [
+        "Processing page 1",
+        "Processing page 3",
+    ]
+
+
+def test_read_pdf_logs_processing_progress_for_single_page(testdir, caplog):
+    filename = os.path.join(testdir, "foo.pdf")
+    caplog.set_level(logging.INFO, logger="camelot")
+
+    camelot.read_pdf(filename)
+
+    assert _processing_page_messages(caplog) == ["Processing page 1"]
+
+
 def test_table_order():
     def _make_table(page, order):
         t = Table([], [])
@@ -271,6 +325,49 @@ def test_handler_pages_generator(testdir):
     )
 
     assert handler._get_pages("all") == [1]
+
+
+@pytest.mark.parametrize(
+    "pages",
+    [
+        pytest.param("0", id="page-zero"),
+        pytest.param("0-2", id="range-from-zero"),
+        pytest.param("4", id="past-the-end"),
+        pytest.param("2-5", id="range-past-the-end"),
+    ],
+)
+def test_expand_pages_spec_rejects_out_of_range_pages(pages):
+    with pytest.raises(ValueError, match="out of range"):
+        PDFHandler._expand_pages_spec(pages, 3)
+
+
+@pytest.mark.parametrize(
+    "pages",
+    [
+        pytest.param("3-1", id="reversed-range"),
+        pytest.param("1,3-2", id="reversed-range-in-a-list"),
+    ],
+)
+def test_expand_pages_spec_rejects_reversed_ranges(pages):
+    with pytest.raises(ValueError, match="ends before it starts"):
+        PDFHandler._expand_pages_spec(pages, 3)
+
+
+def test_expand_pages_spec_rejects_a_range_from_past_the_end():
+    # "5-end" of a 3-page PDF is reversed too, but its first page is the error.
+    with pytest.raises(ValueError, match="Page 5 is out of range"):
+        PDFHandler._expand_pages_spec("5-end", 3)
+
+
+def test_expand_pages_spec_strips_spaces_around_end():
+    assert PDFHandler._expand_pages_spec("2 - end", 3) == [2, 3]
+
+
+def test_read_pdf_rejects_page_zero(testdir):
+    # Page 0 used to become index -1 and return the last page's tables.
+    filename = os.path.join(testdir, "foo.pdf")
+    with pytest.raises(ValueError, match="Page 0 is out of range"):
+        camelot.read_pdf(filename, pages="0")
 
 
 def test_handler_with_pathlib(testdir):
@@ -424,9 +521,9 @@ def test_overlapping_text_preserves_adjacent_cell(testdir):
     ackermann_rows = df[ackermann_mask]
     assert len(ackermann_rows) >= 1, "fixture changed: no Ackermann rows found"
 
-    for idx, row in ackermann_rows.iterrows():
-        row_text = " ".join(row.astype(str).tolist())
-        assert vers_nr_re.search(row_text), (
-            f"row {idx} ({row_text[:60]!r}…) is missing its Vers.-Nummer — "
-            "text_in_bbox content-aware dedup regressed."
-        )
+    row_texts = ackermann_rows.astype(str).agg(" ".join, axis=1)
+    missing = row_texts[~row_texts.str.contains(vers_nr_re)]
+    assert missing.empty, (
+        f"rows {list(missing.index)} are missing their Vers.-Nummer — "
+        "text_in_bbox content-aware dedup regressed."
+    )

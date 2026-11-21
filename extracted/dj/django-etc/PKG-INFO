@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: django-etc
-Version: 1.5.0
+Version: 1.6.0
 Summary: Tiny stuff for Django that won't fit into separate apps.
 Project-URL: Homepage, https://github.com/idlesign/django-etc
 Project-URL: Documentation, https://django-etc.readthedocs.io/
@@ -82,6 +82,7 @@ Description-Content-Type: text/markdown
     * **include_** allows a template name to include template variables. Allows fallback template if the target is not found.
     * **from** is a filter returning a value for a given key from a given container (e.g. a dict).
     * **split** is a filter splitting a string into a list using the given separator.
+    * **staticv** returns a static file URL appended with a version to invalidate client caches.
 
 ## Documentation
 

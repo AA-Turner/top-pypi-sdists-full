@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: airflow-exporter
-Version: 2.1.0
+Version: 2.2.0
 Summary: Airflow plugin to export dag and task based metrics to Prometheus.
 Project-URL: Homepage, https://github.com/epoch8/airflow-exporter
 Author: Andrey Tatarinov <a@tatarinov.co>

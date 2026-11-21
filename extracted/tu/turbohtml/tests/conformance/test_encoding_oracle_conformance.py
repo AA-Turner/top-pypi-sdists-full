@@ -83,42 +83,6 @@ _SAMPLES: Final[MappingProxyType[str, str]] = MappingProxyType({
     "utf-8": "日本語のテキストです",
 })
 
-# The legacy multi-byte encodings, whose one- and two-byte sequences are swept exhaustively.
-_MULTI_BYTE: Final[tuple[str, ...]] = ("big5", "euc-kr", "shift_jis", "euc-jp", "gbk", "gb18030")
-
-# Every legacy single-byte encoding, plus the two the spec defines without an index.
-_SINGLE_BYTE: Final[tuple[str, ...]] = (
-    "ibm866",
-    "iso-8859-2",
-    "iso-8859-3",
-    "iso-8859-4",
-    "iso-8859-5",
-    "iso-8859-6",
-    "iso-8859-7",
-    "iso-8859-8",
-    "iso-8859-8-i",
-    "iso-8859-10",
-    "iso-8859-13",
-    "iso-8859-14",
-    "iso-8859-15",
-    "iso-8859-16",
-    "koi8-r",
-    "koi8-u",
-    "macintosh",
-    "windows-874",
-    "windows-1250",
-    "windows-1251",
-    "windows-1252",
-    "windows-1253",
-    "windows-1254",
-    "windows-1255",
-    "windows-1256",
-    "windows-1257",
-    "windows-1258",
-    "x-mac-cyrillic",
-    "x-user-defined",
-)
-
 
 @pytest.fixture(scope="session")
 def decoder_oracle() -> Path:
@@ -153,10 +117,44 @@ def test_every_decoder_agrees_with_encoding_rs(decoder_oracle: Path) -> None:
 
 def _decode_cases() -> Iterator[tuple[str, bytes]]:
     rng = random.Random(20260709)  # ruff:ignore[suspicious-non-cryptographic-random-usage]  # a corpus seed, not a security decision
-    for label in (*_SINGLE_BYTE, *_MULTI_BYTE):
+    # The legacy multi-byte encodings, whose one- and two-byte sequences are swept exhaustively.
+    multi_byte: tuple[str, ...] = ("big5", "euc-kr", "shift_jis", "euc-jp", "gbk", "gb18030")
+    # Every legacy single-byte encoding, plus the two the spec defines without an index.
+    single_byte: tuple[str, ...] = (
+        "ibm866",
+        "iso-8859-2",
+        "iso-8859-3",
+        "iso-8859-4",
+        "iso-8859-5",
+        "iso-8859-6",
+        "iso-8859-7",
+        "iso-8859-8",
+        "iso-8859-8-i",
+        "iso-8859-10",
+        "iso-8859-13",
+        "iso-8859-14",
+        "iso-8859-15",
+        "iso-8859-16",
+        "koi8-r",
+        "koi8-u",
+        "macintosh",
+        "windows-874",
+        "windows-1250",
+        "windows-1251",
+        "windows-1252",
+        "windows-1253",
+        "windows-1254",
+        "windows-1255",
+        "windows-1256",
+        "windows-1257",
+        "windows-1258",
+        "x-mac-cyrillic",
+        "x-user-defined",
+    )
+    for label in (*single_byte, *multi_byte):
         for first in range(256):
             yield label, bytes([first])
-    for label in _MULTI_BYTE:
+    for label in multi_byte:
         for first in range(256):
             for second in range(256):
                 yield label, bytes([first, second])
@@ -215,6 +213,66 @@ def _detect_cases() -> Iterator[bytes]:
         yield bytes(rng.randrange(0x80, 0x100) for _ in range(rng.randrange(2, 25)))
     for _ in range(10000):
         yield bytes(rng.randrange(256) for _ in range(rng.randrange(2, 40)))
+
+
+# An ASCII run ahead of the first non-ASCII byte is the shape chardetng's feed starts two bytes before. The content
+# sweep above reaches it rarely, so this corpus is built for it, one-shot and streamed.
+_ASCII_PREFIX_CASES: Final[int] = 20000
+_ASCII_PREFIX_SEED: Final[int] = 20260710
+_ASCII_PREFIX_ALPHABET: Final[bytes] = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 .,:;?!\x1b"
+_ASCII_PREFIX_LEADS: Final[tuple[int, ...]] = (
+    0x80,
+    0x81,
+    0x8E,
+    0x9F,
+    0xA0,
+    0xA9,
+    0xAA,
+    0xB0,
+    0xBA,
+    0xC9,
+    0xE9,
+    0xEA,
+    0xFD,
+    0xFF,
+)
+
+
+def test_ascii_prefix_agrees_with_chardetng(detector_oracle: Path) -> None:
+    cases = _ascii_prefix_cases()
+    assert len(cases) == _ASCII_PREFIX_CASES
+    expected = _run(detector_oracle, "".join(f"{raw.hex()}\n" for raw in cases), len(cases))
+    divergent = [
+        (raw.hex(), got, want)
+        for raw, want in zip(cases, expected, strict=True)
+        if ((got := detect(raw).encoding) or "").casefold() != want.casefold()
+    ]
+    assert not divergent, f"{len(divergent)} of {len(cases)} ASCII-prefixed inputs detect differently: {divergent[:3]}"
+
+
+def _ascii_prefix_cases() -> list[bytes]:
+    rng = random.Random(_ASCII_PREFIX_SEED)  # ruff:ignore[suspicious-non-cryptographic-random-usage]  # a corpus seed, not a security decision
+    cases: list[bytes] = []
+    for _ in range(_ASCII_PREFIX_CASES):
+        run = bytes(rng.choice(_ASCII_PREFIX_ALPHABET) for _ in range(rng.randrange(1, 12)))
+        tail = bytes([rng.choice(_ASCII_PREFIX_LEADS)] + [rng.randrange(256) for _ in range(rng.randrange(0, 6))])
+        cases.append(run + tail)
+    return cases
+
+
+def test_ascii_prefix_streamed_agrees_with_chardetng(detector_oracle: Path) -> None:
+    cases = _ascii_prefix_cases()
+    expected = _run(detector_oracle, "".join(f"{raw.hex()}\n" for raw in cases), len(cases))
+    divergent = []
+    for raw, want in zip(cases, expected, strict=True):
+        for size in (1, 3, 7):
+            detector = EncodingDetector()
+            for start in range(0, len(raw), size):
+                detector.feed(raw[start : start + size])
+            got = detector.close().encoding or ""
+            if got.casefold() != want.casefold():
+                divergent.append((raw.hex(), size, got, want))
+    assert not divergent, f"{len(divergent)} streamed ASCII-prefixed inputs detect differently: {divergent[:3]}"
 
 
 def test_the_tld_hint_agrees_with_chardetng(detector_oracle: Path) -> None:

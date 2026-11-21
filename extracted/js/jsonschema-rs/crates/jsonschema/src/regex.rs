@@ -1,9 +1,14 @@
-use std::sync::{Arc, OnceLock};
+use std::{
+    convert::Infallible,
+    sync::{Arc, OnceLock},
+};
+
+use crate::options::{PatternEngineOptions, PatternSyntax};
 
 pub(crate) trait RegexEngine: Sized + Send + Sync {
     type Error: RegexError;
-    /// Whether callers keep the match out of line. An inlined sequence match costs the callers'
-    /// non-string exits their prologue-free path.
+    /// Whether callers call the match out of line: inlined, a sequence match makes callers set up
+    /// a stack frame even when they return early on a non-string.
     const MATCH_OUT_OF_LINE: bool = false;
     fn is_match(&self, text: &str) -> Result<bool, Self::Error>;
     /// The compiled pattern its errors name, for engines that can fail.
@@ -12,45 +17,36 @@ pub(crate) trait RegexEngine: Sized + Send + Sync {
     }
 }
 
-/// Reason a regex match failed, distinguishing real engine errors from recovered panics.
-#[derive(Debug)]
-pub(crate) enum RegexFailureReason {
-    /// Real `fancy-regex` runtime error (e.g., the configured backtrack limit was hit).
-    FancyRegex(fancy_regex::Error),
-    /// Engine panicked during matching and was recovered via `catch_unwind`.
-    Panicked,
-}
-
 pub(crate) trait RegexError {
     /// The compiled pattern that failed.
     fn pattern(&self) -> &str;
-    fn into_failure_reason(self) -> RegexFailureReason;
+    fn into_engine_error(self) -> fancy_regex::Error;
 }
 
-/// Failure mode for the `fancy-regex` backend: either a real engine error or a recovered panic.
+/// A `fancy-regex` runtime error, such as the configured backtrack limit being hit.
 #[derive(Debug)]
-pub(crate) enum FancyRegexError {
-    Engine {
-        error: fancy_regex::Error,
-        pattern: Box<str>,
-    },
-    Panicked {
-        pattern: Box<str>,
-    },
+pub(crate) struct FancyRegexError {
+    pub(crate) error: fancy_regex::Error,
+    pub(crate) pattern: Box<str>,
 }
 
 impl RegexError for FancyRegexError {
     fn pattern(&self) -> &str {
-        match self {
-            Self::Engine { pattern, .. } | Self::Panicked { pattern } => pattern,
-        }
+        &self.pattern
     }
 
-    fn into_failure_reason(self) -> RegexFailureReason {
-        match self {
-            Self::Engine { error, .. } => RegexFailureReason::FancyRegex(error),
-            Self::Panicked { .. } => RegexFailureReason::Panicked,
-        }
+    fn into_engine_error(self) -> fancy_regex::Error {
+        self.error
+    }
+}
+
+impl RegexError for Infallible {
+    fn pattern(&self) -> &str {
+        match *self {}
+    }
+
+    fn into_engine_error(self) -> fancy_regex::Error {
+        match self {}
     }
 }
 
@@ -62,53 +58,22 @@ impl RegexEngine for fancy_regex::Regex {
     }
 
     fn is_match(&self, text: &str) -> Result<bool, Self::Error> {
-        // `regex-automata` 0.4 panics on some patterns (https://github.com/rust-lang/regex/issues/1344); catch to surface a regular error instead of aborting the host process.
-        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            fancy_regex::Regex::is_match(self, text)
-        })) {
-            Ok(Ok(matched)) => Ok(matched),
-            Ok(Err(error)) => Err(FancyRegexError::Engine {
-                error,
-                pattern: self.as_str().into(),
-            }),
-            Err(_) => Err(FancyRegexError::Panicked {
-                pattern: self.as_str().into(),
-            }),
-        }
-    }
-}
-
-/// Marker error for `regex::Regex::is_match` panics. The underlying `is_match` is otherwise infallible.
-#[derive(Debug)]
-pub(crate) struct RegexBackendPanic {
-    pattern: Box<str>,
-}
-
-impl RegexError for RegexBackendPanic {
-    fn pattern(&self) -> &str {
-        &self.pattern
-    }
-
-    fn into_failure_reason(self) -> RegexFailureReason {
-        RegexFailureReason::Panicked
+        fancy_regex::Regex::is_match(self, text).map_err(|error| FancyRegexError {
+            error,
+            pattern: self.as_str().into(),
+        })
     }
 }
 
 impl RegexEngine for regex::Regex {
-    type Error = RegexBackendPanic;
+    type Error = Infallible;
 
     fn pattern(&self) -> Option<&str> {
         Some(self.as_str())
     }
 
     fn is_match(&self, text: &str) -> Result<bool, Self::Error> {
-        // Same panic as fancy-regex (https://github.com/rust-lang/regex/issues/1344); see that impl for context.
-        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            regex::Regex::is_match(self, text)
-        }))
-        .map_err(|_| RegexBackendPanic {
-            pattern: self.as_str().into(),
-        })
+        Ok(regex::Regex::is_match(self, text))
     }
 }
 
@@ -175,14 +140,6 @@ impl<R: RegexEngine> RegexEngine for SequenceMatcher<R> {
     }
 }
 
-impl From<RegexBackendPanic> for FancyRegexError {
-    fn from(panic: RegexBackendPanic) -> Self {
-        Self::Panicked {
-            pattern: panic.pattern,
-        }
-    }
-}
-
 /// A `regex::Regex` built on its first match. Only for patterns `Sequence::compile` accepts, whose
 /// size budget keeps them far below the engine's default size limit.
 #[derive(Debug)]
@@ -201,7 +158,7 @@ impl LazyRegex {
 }
 
 impl RegexEngine for LazyRegex {
-    type Error = RegexBackendPanic;
+    type Error = Infallible;
 
     fn pattern(&self) -> Option<&str> {
         Some(&self.translated)
@@ -225,7 +182,7 @@ pub(crate) enum Part {
 pub(crate) struct AllMatch(pub(crate) Box<[Part]>);
 
 impl RegexEngine for AllMatch {
-    type Error = RegexBackendPanic;
+    type Error = Infallible;
 
     #[inline]
     fn is_match(&self, text: &str) -> Result<bool, Self::Error> {
@@ -242,21 +199,7 @@ impl RegexEngine for AllMatch {
     }
 }
 
-/// Uninhabited error type for literal matchers — matching never fails.
-#[derive(Debug)]
-pub(crate) enum LiteralMatchError {}
-
-impl RegexError for LiteralMatchError {
-    fn pattern(&self) -> &str {
-        match *self {}
-    }
-
-    fn into_failure_reason(self) -> RegexFailureReason {
-        match self {}
-    }
-}
-
-/// [`RegexEngine`] for literal patterns — either `starts_with` (prefix) or `==` (exact).
+/// [`RegexEngine`] for the patterns [`PatternOptimization`] covers.
 #[derive(Clone)]
 pub(crate) enum LiteralMatcher {
     Prefix {
@@ -274,7 +217,7 @@ pub(crate) enum LiteralMatcher {
 }
 
 impl RegexEngine for LiteralMatcher {
-    type Error = LiteralMatchError;
+    type Error = Infallible;
 
     #[allow(clippy::inline_always)]
     #[inline(always)]
@@ -328,8 +271,12 @@ use jsonschema_regex::{RepeatedClass, Search};
 fn compile<R>(
     pattern: &str,
     translated: &str,
+    syntax: PatternSyntax,
     build: impl FnOnce(&str) -> Result<R, ()>,
 ) -> Result<Compiled<R>, ()> {
+    if syntax == PatternSyntax::Engine {
+        return build(translated).map(Compiled::Engine);
+    }
     match jsonschema_regex::search_form(pattern, translated) {
         Some(Search::RepeatedClass(class)) => Ok(Compiled::RepeatedClass(class)),
         Some(Search::Collapsed(collapsed)) => build(&collapsed).map(Compiled::Engine),
@@ -345,8 +292,9 @@ pub(crate) fn build_fancy_regex(
     backtrack_limit: Option<usize>,
     size_limit: Option<usize>,
     dfa_size_limit: Option<usize>,
+    syntax: PatternSyntax,
 ) -> Result<Compiled<fancy_regex::Regex>, ()> {
-    compile(pattern, translated, |translated| {
+    compile(pattern, translated, syntax, |translated| {
         let mut builder = fancy_regex::RegexBuilder::new(translated);
         if let Some(limit) = backtrack_limit {
             builder.backtrack_limit(limit);
@@ -368,8 +316,9 @@ pub(crate) fn build_standard_regex(
     translated: &str,
     size_limit: Option<usize>,
     dfa_size_limit: Option<usize>,
+    syntax: PatternSyntax,
 ) -> Result<Compiled<regex::Regex>, ()> {
-    compile(pattern, translated, |translated| {
+    compile(pattern, translated, syntax, |translated| {
         let mut builder = regex::RegexBuilder::new(translated);
         if let Some(limit) = size_limit {
             builder.size_limit(limit);
@@ -379,6 +328,38 @@ pub(crate) fn build_standard_regex(
         }
         builder.build().map_err(|_| ())
     })
+}
+
+/// Whether the engine builds `pattern` as written.
+pub(crate) fn engine_accepts(options: PatternEngineOptions, pattern: &str) -> bool {
+    match options {
+        PatternEngineOptions::FancyRegex {
+            backtrack_limit,
+            size_limit,
+            dfa_size_limit,
+            ..
+        } => build_fancy_regex(
+            pattern,
+            pattern,
+            backtrack_limit,
+            size_limit,
+            dfa_size_limit,
+            PatternSyntax::Engine,
+        )
+        .is_ok(),
+        PatternEngineOptions::Regex {
+            size_limit,
+            dfa_size_limit,
+            ..
+        } => build_standard_regex(
+            pattern,
+            pattern,
+            size_limit,
+            dfa_size_limit,
+            PatternSyntax::Engine,
+        )
+        .is_ok(),
+    }
 }
 
 /// Analyze a pattern and return a [`PatternOptimization`] if one applies, or `None` if a full

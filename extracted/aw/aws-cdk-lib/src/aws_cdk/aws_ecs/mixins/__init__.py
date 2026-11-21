@@ -53,7 +53,7 @@ class ClusterSettings(
 
     Example::
 
-        ecs.CfnCluster(self, "Cluster").with(ecs.mixins.ClusterSettings([name="containerInsights", value="enhanced"]))
+        ecs.CfnCluster(self, "Cluster").with(ecs.mixins.ClusterSettings([ecs.CfnCluster.ClusterSettingsProperty(name="containerInsights", value="enhanced")]))
     '''
 
     def __init__(

@@ -16,6 +16,7 @@ Usage::
         ListAutonomousDatabaseCharacterSetsPaginator,
         ListAutonomousDatabaseClonesPaginator,
         ListAutonomousDatabasePeersPaginator,
+        ListAutonomousDatabaseRefreshableClonesPaginator,
         ListAutonomousDatabaseVersionsPaginator,
         ListAutonomousDatabasesPaginator,
         ListAutonomousVirtualMachinesPaginator,
@@ -42,6 +43,7 @@ Usage::
     list_autonomous_database_character_sets_paginator: ListAutonomousDatabaseCharacterSetsPaginator = client.get_paginator("list_autonomous_database_character_sets")
     list_autonomous_database_clones_paginator: ListAutonomousDatabaseClonesPaginator = client.get_paginator("list_autonomous_database_clones")
     list_autonomous_database_peers_paginator: ListAutonomousDatabasePeersPaginator = client.get_paginator("list_autonomous_database_peers")
+    list_autonomous_database_refreshable_clones_paginator: ListAutonomousDatabaseRefreshableClonesPaginator = client.get_paginator("list_autonomous_database_refreshable_clones")
     list_autonomous_database_versions_paginator: ListAutonomousDatabaseVersionsPaginator = client.get_paginator("list_autonomous_database_versions")
     list_autonomous_databases_paginator: ListAutonomousDatabasesPaginator = client.get_paginator("list_autonomous_databases")
     list_autonomous_virtual_machines_paginator: ListAutonomousVirtualMachinesPaginator = client.get_paginator("list_autonomous_virtual_machines")
@@ -78,6 +80,8 @@ from .type_defs import (
     ListAutonomousDatabaseClonesOutputTypeDef,
     ListAutonomousDatabasePeersInputPaginateTypeDef,
     ListAutonomousDatabasePeersOutputTypeDef,
+    ListAutonomousDatabaseRefreshableClonesInputPaginateTypeDef,
+    ListAutonomousDatabaseRefreshableClonesOutputTypeDef,
     ListAutonomousDatabasesInputPaginateTypeDef,
     ListAutonomousDatabasesOutputTypeDef,
     ListAutonomousDatabaseVersionsInputPaginateTypeDef,
@@ -124,6 +128,7 @@ __all__ = (
     "ListAutonomousDatabaseCharacterSetsPaginator",
     "ListAutonomousDatabaseClonesPaginator",
     "ListAutonomousDatabasePeersPaginator",
+    "ListAutonomousDatabaseRefreshableClonesPaginator",
     "ListAutonomousDatabaseVersionsPaginator",
     "ListAutonomousDatabasesPaginator",
     "ListAutonomousVirtualMachinesPaginator",
@@ -221,6 +226,28 @@ class ListAutonomousDatabasePeersPaginator(_ListAutonomousDatabasePeersPaginator
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/paginator/ListAutonomousDatabasePeers.html#Odb.Paginator.ListAutonomousDatabasePeers.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/paginators/#listautonomousdatabasepeerspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListAutonomousDatabaseRefreshableClonesPaginatorBase = Paginator[
+        ListAutonomousDatabaseRefreshableClonesOutputTypeDef
+    ]
+else:
+    _ListAutonomousDatabaseRefreshableClonesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListAutonomousDatabaseRefreshableClonesPaginator(
+    _ListAutonomousDatabaseRefreshableClonesPaginatorBase
+):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/paginator/ListAutonomousDatabaseRefreshableClones.html#Odb.Paginator.ListAutonomousDatabaseRefreshableClones)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/paginators/#listautonomousdatabaserefreshableclonespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListAutonomousDatabaseRefreshableClonesInputPaginateTypeDef]
+    ) -> PageIterator[ListAutonomousDatabaseRefreshableClonesOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/paginator/ListAutonomousDatabaseRefreshableClones.html#Odb.Paginator.ListAutonomousDatabaseRefreshableClones.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/paginators/#listautonomousdatabaserefreshableclonespaginator)
         """
 
 if TYPE_CHECKING:

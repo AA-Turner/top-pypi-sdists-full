@@ -30,6 +30,16 @@ from testmu_appium._v4._vars import set_var, var
 
 _log = logging.getLogger("testmu_appium")
 
+#: The HTTP timeout never drops below the old fixed value.
+_HTTP_TIMEOUT_FLOOR_S = 120
+#: Lets automind's statement-timeout error arrive before the HTTP timeout fires.
+_HTTP_TIMEOUT_BUFFER_S = 10
+
+
+def _http_timeout_s(timeout_ms: int) -> float:
+    """HTTP timeout for /db-query: the query timeout (ms) plus a buffer, never below 120s."""
+    return max(_HTTP_TIMEOUT_FLOOR_S, timeout_ms / 1000.0 + _HTTP_TIMEOUT_BUFFER_S)
+
 
 def _resolve_automind_url() -> str:
     """The configured automind host, else the env-driven default. Read live (not
@@ -114,11 +124,12 @@ def execute_db(
 
     host = automind_url or _resolve_automind_url()
     url = f"{host}/db-query"
+    timeout_ms = 10000 if timeout is None else int(timeout)
 
     payload = {
         "payload": {
             "id": _resolve_text(db_id) if db_id else "",
-            "timeout": 10000 if timeout is None else int(timeout),
+            "timeout": timeout_ms,
             "db_name": _resolve_text(db_name) if db_name else "",
             "tunnel_id": tunnel_id or os.getenv("LT_PROXY_TUNNEL_ID", ""),
         },
@@ -136,6 +147,7 @@ def execute_db(
             "Authorization": f"Basic {credential}",
         },
         json_data=payload,
+        timeout=_http_timeout_s(timeout_ms),
     )
     if response.status_code != 200:
         raise RuntimeError(

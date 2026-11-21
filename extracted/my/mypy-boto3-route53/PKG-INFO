@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-route53
-Version: 1.44.7
-Summary: Type annotations for boto3 Route53 1.44.7 service generated with mypy-boto3-builder 8.12.0
+Version: 1.44.8
+Summary: Type annotations for boto3 Route53 1.44.8 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -42,7 +42,7 @@ Dynamic: license-file
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 Route53 1.44.7](https://pypi.org/project/boto3/)
+Type annotations for [boto3 Route53 1.44.8](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -105,7 +105,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.44.7' mypy-boto3-builder`
+   `uvx --with 'boto3==1.44.8' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `Route53` service.
 4. Use provided commands to install generated packages.
@@ -345,8 +345,10 @@ from mypy_boto3_route53.paginator import (
     ListHealthCheckSourcesPaginator,
     ListHealthChecksBySourcePaginator,
     ListHealthChecksPaginator,
+    ListHostedZoneChangeBatchesPaginator,
     ListHostedZonesPaginator,
     ListQueryLoggingConfigsPaginator,
+    ListResourceRecordSetChangesPaginator,
     ListResourceRecordSetProtectionsPaginator,
     ListResourceRecordSetsPaginator,
     ListVPCAssociationAuthorizationsPaginator,
@@ -370,9 +372,15 @@ list_health_checks_by_source_paginator: ListHealthChecksBySourcePaginator = clie
     "list_health_checks_by_source"
 )
 list_health_checks_paginator: ListHealthChecksPaginator = client.get_paginator("list_health_checks")
+list_hosted_zone_change_batches_paginator: ListHostedZoneChangeBatchesPaginator = (
+    client.get_paginator("list_hosted_zone_change_batches")
+)
 list_hosted_zones_paginator: ListHostedZonesPaginator = client.get_paginator("list_hosted_zones")
 list_query_logging_configs_paginator: ListQueryLoggingConfigsPaginator = client.get_paginator(
     "list_query_logging_configs"
+)
+list_resource_record_set_changes_paginator: ListResourceRecordSetChangesPaginator = (
+    client.get_paginator("list_resource_record_set_changes")
 )
 list_resource_record_set_protections_paginator: ListResourceRecordSetProtectionsPaginator = (
     client.get_paginator("list_resource_record_set_protections")
@@ -427,10 +435,10 @@ Full list of `Route53` Literals can be found in
 [docs](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53/literals/).
 
 ```python
-from mypy_boto3_route53.literals import AcceleratedRecoveryStatusType
+from mypy_boto3_route53.literals import AZAffinityLocationTypeType
 
 
-def check_value(value: AcceleratedRecoveryStatusType) -> bool: ...
+def check_value(value: AZAffinityLocationTypeType) -> bool: ...
 ```
 
 <a id="type-definitions"></a>
@@ -445,12 +453,12 @@ Full list of `Route53` TypeDefs can be found in
 
 ```python
 # TypedDict usage example
-from mypy_boto3_route53.type_defs import AccountLimitTypeDef
+from mypy_boto3_route53.type_defs import AZAffinityTypeDef
 
 
-def get_value() -> AccountLimitTypeDef:
+def get_value() -> AZAffinityTypeDef:
     return {
-        "Type": ...,
+        "LocationType": ...,
     }
 ```
 

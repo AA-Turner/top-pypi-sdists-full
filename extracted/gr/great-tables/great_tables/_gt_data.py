@@ -9,18 +9,16 @@ from typing import TYPE_CHECKING, Any, Literal, Protocol, TypeAlias, TypeVar, ov
 
 from typing_extensions import Self
 
-from ._cols_merge import ColMergeInfo, ColMerges  # noqa: F401 (re-exported)
+from ._cols_merge import ColMergeInfo  # noqa: F401 (re-exported)
 from ._helpers import GoogleFontImports
 
 # TODO: move this class somewhere else (even gt_data could work)
-from ._styles import CellStyle
 from ._tbl_data import (
     Agnostic,
     DataFrameLike,
     TblData,
     _get_cell,
-    _get_column_dtype,
-    _set_cell,
+    _set_cells,
     copy_data,
     create_empty_frame,
     get_column_names,
@@ -31,16 +29,17 @@ from ._tbl_data import (
 )
 from ._tbl_data_align import (
     ALIGNMENT_MAP,
-    PANDAS_ARROW_STRING_DTYPES,
     classify_dtype_for_alignment,
     is_number_like_column,
 )
-from ._text import BaseText
 from ._utils import OrderedSet
 
 if TYPE_CHECKING:
+    from ._cols_merge import ColMerges
     from ._helpers import UnitStr
     from ._locations import Loc
+    from ._styles import CellStyle
+    from ._text import BaseText
 
 T = TypeVar("T")
 
@@ -128,6 +127,7 @@ class GTData:
     _transforms: list  # list[TextTransformInfo]
     _options: Options
     _google_font_imports: GoogleFontImports = field(default_factory=GoogleFontImports)
+    _data_colors: list = field(default_factory=list)  # list[DataColorInfo]
     _has_built: bool = False
 
     def _replace(self, **kwargs: Any) -> Self:
@@ -179,6 +179,7 @@ class GTData:
             _transforms=[],
             _options=options,
             _google_font_imports=GoogleFontImports(),
+            _data_colors=[],
         )
 
 
@@ -235,25 +236,24 @@ class Body:
 
         formatted_cells: set[tuple[str, int]] = set()
 
+        # The formatted values of each column (a later formatter replaces an earlier one's value),
+        # which are set one column at a time since setting single cells is slow
+        new_values: dict[str, dict[int, Any]] = {}
+
         for fmt in formats:
             eval_func = getattr(fmt.func, context, fmt.func.default)
             if eval_func is None:  # pragma: no cover
-                raise Exception("Internal Error")
+                raise RuntimeError("Internal Error")
             for col, row in fmt.cells.resolve():
                 result = eval_func(_get_cell(data_tbl, row, col))
                 if isinstance(result, FormatterSkipElement):
                     continue
 
                 formatted_cells.add((col, row))
+                new_values.setdefault(col, {})[row] = result
 
-                # TODO: I think that this is very inefficient with polars, so
-                # we could either accumulate results and set them per column, or
-                # could always use a pandas DataFrame inside Body?
-                new_body = _set_cell(self.body, row, col, result)
-                if new_body is not None:
-                    # Some backends do not support inplace operations, but return a new dataframe
-                    # TODO: Consolidate the behaviour of _set_cell
-                    self.body = new_body
+        for col, values in new_values.items():
+            self.body = _set_cells(self.body, col, values)
 
         return formatted_cells
 
@@ -441,24 +441,16 @@ class Boxhead(_Sequence[ColInfo]):
         ):
             raise ValueError("Column names must match between data and Boxhead")
 
-        # Classify each column and map to alignment
-        align: list[str] = []
+        alignments: list[ColumnAlignment] = []
         for col in get_column_names(data):
             classification = classify_dtype_for_alignment(data, col)
+            if classification == "string" and is_number_like_column(data, col):
+                classification = "numeric"
+            alignments.append(ALIGNMENT_MAP[classification])
 
-            # Special case: string columns with number-like content -> right-align
-            # This handles "object" (pandas 2.x), "str" (pandas 3.x) and pyarrow-backed dtypes
-            if classification == "string":
-                dtype = str(_get_column_dtype(data, col)).lower()
-                checks_number_like = dtype in {"object", "str", *PANDAS_ARROW_STRING_DTYPES}
-                if checks_number_like and is_number_like_column(data, col):
-                    classification = "numeric"
-
-            align.append(ALIGNMENT_MAP[classification])
-
-        # Set the alignment for each column in the boxhead
         new_cols: list[ColInfo] = [
-            replace(col_info, column_align=alignment) for col_info, alignment in zip(self._d, align)
+            replace(col_info, column_align=alignment)
+            for col_info, alignment in zip(self._d, alignments)
         ]
 
         return self.__class__(new_cols)
@@ -656,10 +648,13 @@ class Stub:
         rowname_cols = _normalize_rowname_col(rowname_col, get_column_names(data))
         primary_rowname_col = rowname_cols[-1] if rowname_cols else None
 
-        if groupname_col is not None:
-            group_id = to_list(data[groupname_col])
-        else:
-            group_id = [None] * n_rows(data)
+        group_rows = GroupRows(data, group_key=groupname_col)
+
+        # Read each row's group id from the splits, so both agree on the missing key
+        group_id = [None] * n_rows(data)
+        for group in group_rows:
+            for ii in group.indices:
+                group_id[ii] = group.group_id
 
         if primary_rowname_col is not None:
             row_names = to_list(data[primary_rowname_col])
@@ -674,7 +669,7 @@ class Stub:
         group_names = OrderedSet(
             row.group_id for row in row_info if row.group_id is not None
         ).as_list()
-        group_rows = GroupRows(data, group_key=groupname_col).reorder(group_names)
+        group_rows = group_rows.reorder(group_names)
 
         return cls(row_info, group_rows)
 
@@ -755,6 +750,10 @@ class Stub:
             # the original data value.
             if is_na(tbl_data, cell_content):
                 cell_content = _get_cell(tbl_data, first_index, rowgroup_var.var)
+                # A missing group key has no value in the data either; leave the label
+                # unset so the heading renders empty, as it does for polars and pyarrow
+                if is_na(tbl_data, cell_content):
+                    cell_content = None
 
             new_group_rows.append(group_row.with_group_label(cell_content))
 
@@ -762,6 +761,11 @@ class Stub:
 
     def group_indices_map(self) -> list[tuple[int, GroupRowInfo | None]]:
         return self.group_rows.indices_map(len(self.rows))
+
+    def row_number(self, index: int) -> int:
+        """The number of a data row, by its index, in its stub cell's id (its place in the data,
+        from 1)."""
+        return index + 1
 
     def __iter__(self):
         return iter(self.rows)
@@ -817,10 +821,7 @@ class Stub:
         if n_stub_cols == 0:
             # If summary rows are present, we will use the `rowname` column
             # for the summary row labels
-            if has_summary_rows:
-                stub_layout = ["rowname"]
-            else:
-                stub_layout = []
+            stub_layout = ["rowname"] if has_summary_rows else []
 
         else:
             stub_layout = [
@@ -977,7 +978,7 @@ class Spanners(_Sequence[SpannerInfo]):
         return max(overlapping_levels, default=-1) + 1
 
     def append_entry(self, span: SpannerInfo) -> Self:
-        return self.__class__(self._d + [span])
+        return self.__class__([*self._d, span])
 
     def remove_column(self, column: str) -> Self:
         return self.__class__([span.drop_var(column) for span in self])
@@ -1122,6 +1123,30 @@ class TextTransformInfo:
     per_column: bool = False
 
 
+# Data Colors ----
+
+
+@dataclass(frozen=True)
+class DataColorInfo:
+    """A `data_color()` call whose colors depend on the values colored.
+
+    Its colors are made from the values of the rows it colored in each of its columns (a domain
+    inferred from them, with no `fn=`, down each column), so an interactive table can make them
+    again from the rows a reader's search and filters keep. Static tables don't use it.
+    """
+
+    columns: list[str]
+    rows: list[int]
+    # (The palette's colors, as #RRGGBB; the alpha appended to each color made, as hex (or "");
+    # the palette's midpoint, if any; and the contrast algorithm for the text, if it's colored)
+    palette: list[str]
+    alpha: str
+    midpoint: int | float | None
+    contrast_algo: Literal["apca", "wcag"] | None
+    # (The last of the styles it added to `_styles`, after which a style of the same cell wins)
+    last: StyleInfo
+
+
 # Column Merge ----
 # ColMergeInfo and ColMerges are defined in _cols_merge.py but re-exported here
 
@@ -1145,10 +1170,14 @@ class SummaryRowInfo:
     values_latex: dict[str, str] | None = None
 
 
+# "no group given" (grand summary rows); None is a valid group key
+_NO_GROUP: Any = object()
+
+
 # TODO: refactor into a collection/dataclass wrapping the list part
 #       put most of the methods for filtering, adding, replacing there.
 #       Make immutable to avoid potential bugs.
-class SummaryRows(Mapping[str, list[SummaryRowInfo]]):
+class SummaryRows(Mapping[Any, list[SummaryRowInfo]]):
     """A sequence of summary rows
 
     The following structures should always be true about summary rows:
@@ -1159,7 +1188,7 @@ class SummaryRows(Mapping[str, list[SummaryRowInfo]]):
             then replace all cells (in values) that are numeric in the new version
     """
 
-    _d: dict[str, list[SummaryRowInfo]]
+    _d: dict[Any, list[SummaryRowInfo]]
     _is_grand_summary: bool
 
     LIST_CLS = list
@@ -1167,7 +1196,7 @@ class SummaryRows(Mapping[str, list[SummaryRowInfo]]):
 
     def __init__(
         self,
-        entries: dict[str, list[SummaryRowInfo]] | None = None,
+        entries: dict[Any, list[SummaryRowInfo]] | None = None,
         _is_grand_summary: bool = False,
     ):
         if entries is None:
@@ -1180,41 +1209,36 @@ class SummaryRows(Mapping[str, list[SummaryRowInfo]]):
         """Return True if there are any summary rows, False otherwise."""
         return len(self._d) > 0
 
-    def __getitem__(self, key: str | None) -> list[SummaryRowInfo]:
+    def __getitem__(self, key: Any) -> list[SummaryRowInfo]:
         if self._is_grand_summary:
             key = SummaryRows.GRAND_SUMMARY_KEY
-
-        if not key:
-            raise KeyError("Summary row group key must not be None for group summary rows.")
 
         if key not in self._d:
             raise KeyError(f"Group '{key}' not found in summary rows.")
 
         return self.LIST_CLS(self._d[key])
 
-    def define(self, **kwargs: list[SummaryRowInfo]) -> Self:
+    def define(self, groups: Mapping[Any, list[SummaryRowInfo]]) -> Self:
         """Define multiple summary row groups at once, replacing any existing groups."""
 
-        new_d = dict(self._d)
-        for group_id, summary_rows in kwargs.items():
-            new_d[group_id] = summary_rows
+        new_d = {**self._d, **groups}
 
         return self.__class__(new_d, _is_grand_summary=self._is_grand_summary)
 
-    def add_summary_row(self, summary_row: SummaryRowInfo, group_id: str | None = None) -> Self:
+    def add_summary_row(self, summary_row: SummaryRowInfo, group_id: Any = _NO_GROUP) -> Self:
         """Add a summary row following the merging rules in the class docstring."""
 
-        # TODO: group_id can be None for grand summary configuration, but can't be none
-        # for regular summary configuration (a bit double barrelled).
-        if self._is_grand_summary and group_id is None:
+        # Grand summary rows pass no group; group summary rows pass the group's key, which can
+        # be any value in the group column, including None, "" or 0.
+        if self._is_grand_summary and group_id is _NO_GROUP:
             group_id = SummaryRows.GRAND_SUMMARY_KEY
-        elif group_id is None:  # pragma: no cover
+        elif group_id is _NO_GROUP:  # pragma: no cover
             raise TypeError("group_id must be provided for group summary rows.")
 
         existing_group = self.get(group_id)
 
         if not existing_group:
-            return self.define(**{group_id: [summary_row]})
+            return self.define({group_id: [summary_row]})
 
         else:
             existing_index = next(
@@ -1258,10 +1282,10 @@ class SummaryRows(Mapping[str, list[SummaryRowInfo]]):
 
                 new_rows[existing_index] = merged_row
 
-        return self.define(**{group_id: new_rows})
+        return self.define({group_id: new_rows})
 
     def get_summary_rows(
-        self, group_id: str | None = None, side: str | None = None
+        self, group_id: Any = _NO_GROUP, side: str | None = None
     ) -> list[SummaryRowInfo]:
         """Get list of summary rows for that group. If side is None, do not filter by side.
         Sorts result with 'top' side first, then 'bottom'."""
@@ -1270,7 +1294,7 @@ class SummaryRows(Mapping[str, list[SummaryRowInfo]]):
 
         if self._is_grand_summary:
             group_id = SummaryRows.GRAND_SUMMARY_KEY
-        elif group_id is None:  # pragma: no cover
+        elif group_id is _NO_GROUP:  # pragma: no cover
             raise TypeError("group_id must be provided for group summary rows.")
 
         summary_row_group = self.get(group_id)
@@ -1602,7 +1626,7 @@ class Options:
     ihtml_page_size_default: OptionsInfo = OptionsInfo(False, "ihtml", "value", 10)
     ihtml_page_size_values: OptionsInfo = OptionsInfo(False, "ihtml", "values", [10, 25, 50, 100])
     ihtml_pagination_type: OptionsInfo = OptionsInfo(False, "ihtml", "value", "numbers")
-    ihtml_height: OptionsInfo = OptionsInfo(False, "ihtml", "value", "auto")
+    ihtml_height: OptionsInfo = OptionsInfo(False, "ihtml", "px", "auto")
     ihtml_selection_mode: OptionsInfo = OptionsInfo(False, "ihtml", "value", None)
 
     def __getitem__(self, k: str) -> Any:

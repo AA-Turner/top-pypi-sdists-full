@@ -1655,6 +1655,7 @@ struct xp_caches {
     xp_lang_memo *langs;
     walk_map walks;
     xp_index *index;
+    int counted_descendants;
 };
 
 static xp_caches *caches_get(xp_caches **caches) {
@@ -4236,7 +4237,8 @@ typedef struct {
     int predicated;  /* the predicates ahead of stop judge each node */
     int judges_rest; /* the rest of the path judges each node, unless stop takes the nearest node that passes the rest
                       */
-    int32_t stop;    /* the trailing predicate [1] that takes the nearest passing node, or -1 */
+    int32_t stop;    /* the first positional predicate, which selects one node of the passing ones, or -1 */
+    int32_t tail;    /* the predicates after stop, which judge the node it selects, or -1 */
     enum xp_axis axis;
     int owned; /* the context is an attribute or namespace node, and the walk starts at its owner element */
 } walk_plan;
@@ -4291,6 +4293,17 @@ static int walk_predicates_hold(const walk_plan *plan, struct th_node *node) {
     xp_nodeset one = {.items = &item, .len = 1};
     int rc = apply_predicates(plan->prog, plan->step->first, plan->stop, plan->ctx, &one,
                               XP_HELD_DEPTH + XP_PREDICATE_DEPTH);
+    return rc < 0 ? rc : (int)one.len;
+}
+
+/* Whether the predicates after the selecting one hold for the node it selected. They judge that node alone, where
+   position() is 1 and last() is 1, as they would for the step's own single selection. */
+static int walk_tail_holds(const walk_plan *plan, xp_item item) {
+    if (plan->tail < 0) {
+        return 1;
+    }
+    xp_nodeset one = {.items = &item, .len = 1};
+    int rc = apply_predicates(plan->prog, plan->tail, -1, plan->ctx, &one, XP_HELD_DEPTH + XP_PREDICATE_DEPTH);
     return rc < 0 ? rc : (int)one.len;
 }
 
@@ -4629,33 +4642,30 @@ static int position_selection(const xp_program *prog, int32_t index, Py_ssize_t 
     return selection_operand(prog, index, target);
 }
 
-/* How a step's positional predicates resolve, in one pass: 0 when none reads the position, 1 when the trailing one
+/* How a step's positional predicates resolve, in one pass: 0 when none reads the position, 1 when the first one
    selects the nearest node ([1]), 2 when it selects the target-th node or the last one, and -1 when the walks cannot
-   answer. Every predicate ahead of the positional one reads nothing but the node, so a walk judges each node with
-   them and takes the nodes that pass in proximity order. */
+   answer. Every predicate ahead of the selecting one reads nothing but the node, so a walk judges each node with them
+   and takes the nodes that pass in proximity order. The predicates after it judge the one node it selects. */
 static int walk_trailing(const xp_program *prog, const xn *step, Py_ssize_t *target) {
-    int kind = 0;
-    for (int32_t pred = step->first; pred >= 0; pred = prog->nodes[pred].next) {
-        if (!prog->nodes[pred].positional) {
-            continue;
-        }
-        if (prog->nodes[pred].next >= 0 || !position_selection(prog, prog->nodes[pred].first, target)) {
-            return -1;
-        }
-        kind = *target == 1 ? 1 : 2;
-    }
-    return kind;
-}
-
-/* The trailing positional predicate of a step, or -1 when it has none. */
-static int32_t walk_nearest_pred(const xp_program *prog, const xn *step) {
-    int32_t nearest = -1;
     for (int32_t pred = step->first; pred >= 0; pred = prog->nodes[pred].next) {
         if (prog->nodes[pred].positional) {
-            nearest = pred;
+            if (!position_selection(prog, prog->nodes[pred].first, target)) {
+                return -1;
+            }
+            return *target == 1 ? 1 : 2;
         }
     }
-    return nearest;
+    return 0;
+}
+
+/* The first positional predicate of a step, the one that selects, or -1 when it has none. */
+static int32_t walk_selector(const xp_program *prog, const xn *step) {
+    for (int32_t pred = step->first; pred >= 0; pred = prog->nodes[pred].next) {
+        if (prog->nodes[pred].positional) {
+            return pred;
+        }
+    }
+    return -1;
 }
 
 /* Whether path can be answered from the walk memo or the positional index: it starts from one node, and no Python
@@ -4671,8 +4681,9 @@ static int walk_gate(const xp_program *prog, int32_t path_idx, const xp_ctx *ctx
 #define XP_ROUTE_INDEX 2
 
 /* How a path that is asked only whether it selects a node, or how many nodes it selects, is answered: by the walk memo
-   (XP_ROUTE_WALK, a relative or absolute path whose walked step has no positional predicate or only [1]), by the
-   positional index (XP_ROUTE_INDEX, the walked steps with a position, and the descendant axes), or by the plain walk.
+   (XP_ROUTE_WALK, a relative or absolute path whose walked step has no positional predicate or selects the nearest
+   node with [1]), by the positional index (XP_ROUTE_INDEX, the walked steps with a position, and the descendant axes),
+   or by the plain walk.
    Decided here once, so an ordinary path pays for one gate and one axis test. target receives the position the index
    selects, or XP_POSITION_ANY. Python code could move nodes mid-evaluation, so walk_gate turns both routes off then. */
 static int path_route(const xp_program *prog, int32_t path_idx, const xp_ctx *ctx, Py_ssize_t *target) {
@@ -4726,7 +4737,8 @@ static int walk_begin(const xp_program *prog, int32_t path_idx, xp_ctx *ctx, wal
     plan->walks = &caches->walks;
     plan->base = (uint32_t)root->first << 3;
     plan->rest = step->next;
-    plan->stop = walk_nearest_pred(prog, step);
+    plan->stop = walk_selector(prog, step);
+    plan->tail = plan->stop >= 0 ? prog->nodes[plan->stop].next : -1;
     plan->predicated = step->first >= 0 && step->first != plan->stop;
     plan->judges_rest = plan->rest >= 0 && plan->stop < 0;
     plan->owned = ctx->attr != -1 && !root->absolute;
@@ -5195,6 +5207,10 @@ static int index_exists(const xp_program *prog, int32_t path_idx, xp_ctx *ctx, P
     if (rc < 0 || picked.node == NULL) {
         return rc;
     }
+    int holds = walk_tail_holds(&plan, picked);
+    if (holds <= 0) {
+        return holds;
+    }
     if (plan.rest < 0) {
         if (ns_push(out, picked.node, picked.attr) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
             return -1;                                    /* GCOVR_EXCL_LINE */
@@ -5218,6 +5234,10 @@ static int walk_exists(const xp_program *prog, int32_t path_idx, xp_ctx *ctx, xp
     if (rc < 0 || nearest == NULL) {
         return rc;
     }
+    int holds = walk_tail_holds(&plan, (xp_item){nearest, -1});
+    if (holds <= 0) {
+        return holds;
+    }
     if (plan.rest < 0) {
         if (ns_push(out, nearest, -1) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
             return -1;                       /* GCOVR_EXCL_LINE */
@@ -5227,12 +5247,51 @@ static int walk_exists(const xp_program *prog, int32_t path_idx, xp_ctx *ctx, xp
     return walk_rest_run(&plan, nearest, out);
 }
 
+/* The count of a descendant step without a position, walked over the subtree once instead of read from the index: an
+   evaluation that counts once, such as count(//a), would otherwise number the whole tree to read one span of it. The
+   first such count of an evaluation walks; a later one, a predicate's count from the next context, builds the index
+   and reads every span after from it. 0 leaves the count to the index. */
+static int count_descendants_once(const xp_program *prog, int32_t path_idx, xp_ctx *ctx, Py_ssize_t *count) {
+    xp_caches *caches = caches_get(ctx->caches);
+    if (caches == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+        PyErr_NoMemory(); /* GCOVR_EXCL_LINE */
+        return -1;        /* GCOVR_EXCL_LINE */
+    }
+    if (caches->counted_descendants || ctx->attr != -1) {
+        return 0;
+    }
+    caches->counted_descendants = 1;
+    walk_plan plan;
+    struct th_node *start = NULL;
+    int rc = walk_begin(prog, path_idx, ctx, &plan, &start);
+    if (rc < 0) {
+        return rc;
+    }
+    Py_ssize_t total = 0;
+    for (struct th_node *node = plan.axis == AX_DESCENDANT ? subtree_next(start, start) : start; node != NULL;
+         node = subtree_next(node, start)) {
+        int good = walk_good(&plan, node);
+        if (good < 0) {
+            return good;
+        }
+        total += good;
+    }
+    *count = total;
+    return 1;
+}
+
 int xp_count_walk(const xp_program *prog, int32_t path_idx, xp_ctx *ctx, Py_ssize_t *count) {
     if (prog->nodes[path_idx].first < 0 || prog->nodes[prog->nodes[path_idx].first].next >= 0) {
         return 0;
     }
     Py_ssize_t target = 0;
     int route = path_route(prog, path_idx, ctx, &target);
+    if (route == XP_ROUTE_INDEX && target == XP_POSITION_ANY) {
+        int counted = count_descendants_once(prog, path_idx, ctx, count);
+        if (counted != 0) {
+            return counted;
+        }
+    }
     if (route == XP_ROUTE_INDEX) {
         walk_plan selected;
         xp_item picked;
@@ -5241,7 +5300,11 @@ int xp_count_walk(const xp_program *prog, int32_t path_idx, xp_ctx *ctx, Py_ssiz
         if (index_rc < 0) {
             return index_rc;
         }
-        *count = target == XP_POSITION_ANY ? total : picked.node != NULL;
+        int holds = picked.node != NULL ? walk_tail_holds(&selected, picked) : 0;
+        if (holds < 0) {
+            return holds;
+        }
+        *count = target == XP_POSITION_ANY ? total : holds;
         return 1;
     }
     if (route != XP_ROUTE_WALK) {
@@ -5258,8 +5321,12 @@ int xp_count_walk(const xp_program *prog, int32_t path_idx, xp_ctx *ctx, Py_ssiz
     if (rc < 0) {
         return rc;
     }
-    if (plan.stop >= 0 && *count > 1) {
-        *count = 1;
+    if (plan.stop >= 0 && *count > 0) {
+        int holds = walk_tail_holds(&plan, (xp_item){nearest, -1});
+        if (holds < 0) {
+            return holds;
+        }
+        *count = holds;
     }
     return 1;
 }
@@ -5371,7 +5438,7 @@ static int compare(struct th_tree *tree, int op, xp_result *first, xp_result *se
         if (op == XN_NE && left->len > 0 && right->len > 0) {
             return compare_unequal_sets(tree, left, right, result);
         }
-        if (op != XN_EQ && op != XN_NE && left->len >= 16 && right->len >= 16) {
+        if (op != XN_EQ && op != XN_NE && left->len > 0 && right->len > 0) {
             return compare_ordered_sets(tree, op, left, right, result);
         }
         for (Py_ssize_t index = 0; index < left->len && !*result; index++) {
@@ -5494,54 +5561,60 @@ static int compare_unequal_sets(struct th_tree *tree, const xp_nodeset *left, co
 }
 
 static int comparison_number(struct th_tree *tree, xp_item item, double *number);
-static int comparison_extreme(struct th_tree *tree, const xp_nodeset *nodes, int minimum, double *value);
+static int comparison_fold(double *value, double number, int minimum);
 
-static int compare_ordered_sets(struct th_tree *tree, int op, const xp_nodeset *left, const xp_nodeset *right,
-                                int *result) {
-    xp_result first = {.kind = XP_NUMBER};
-    xp_result second = {.kind = XP_NUMBER};
-    const int first_rc = comparison_number(tree, left->items[0], &first.number);
-    const int second_rc = comparison_number(tree, right->items[0], &second.number);
-    if (first_rc < 0 || second_rc < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
-        return -1;                       /* GCOVR_EXCL_LINE: allocation failure */
-    }
-    *result = cmp_scalar(tree, op, &first, &second);
-    if (*result) {
-        return 0;
-    }
+static TH_NOINLINE int compare_ordered_sets(struct th_tree *tree, int op, const xp_nodeset *left,
+                                            const xp_nodeset *right, int *result) {
     const int less = op == XN_LT || op == XN_LE;
-    const int left_rc = comparison_extreme(tree, left, less, &first.number);
-    const int right_rc = comparison_extreme(tree, right, !less, &second.number);
-    if (left_rc < 0 || right_rc < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
-        return -1;                     /* GCOVR_EXCL_LINE: allocation failure */
+    xp_result first = {.kind = XP_NUMBER, .number = NAN};
+    xp_result second = {.kind = XP_NUMBER, .number = NAN};
+    for (Py_ssize_t index = 0; index < left->len || index < right->len; index++) {
+        if (index < left->len) {
+            double number;
+            if (comparison_number(tree, left->items[index], &number) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+                return -1;                                                  /* GCOVR_EXCL_LINE: allocation failure */
+            }
+            if (comparison_fold(&first.number, number, less) && cmp_scalar(tree, op, &first, &second)) {
+                *result = 1;
+                return 0;
+            }
+        }
+        if (index < right->len) {
+            double number;
+            const int right_rc = comparison_number(tree, right->items[index], &number);
+            if (right_rc < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+                return -1;      /* GCOVR_EXCL_LINE: allocation failure */
+            }
+            if (comparison_fold(&second.number, number, !less) && cmp_scalar(tree, op, &first, &second)) {
+                *result = 1;
+                return 0;
+            }
+        }
     }
-    *result = cmp_scalar(tree, op, &first, &second);
+    *result = 0;
     return 0;
 }
 
 static int comparison_number(struct th_tree *tree, xp_item item, double *number) {
-    xp_result text;
-    if (item_as_string(tree, item, &text) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
-        return -1;                               /* GCOVR_EXCL_LINE: allocation failure */
+    Py_ssize_t len;
+    Py_UCS4 *text = item_string(tree, item, &len);
+    if (text == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+        return -1;      /* GCOVR_EXCL_LINE: allocation failure */
     }
-    *number = to_number(tree, &text);
-    xp_result_free(&text);
+    *number = parse_number(text, len);
+    PyMem_Free(text);
     return 0;
 }
 
-/* A matching pair exists iff the corresponding extrema compare true; NaNs cannot supply a match. */
-static int comparison_extreme(struct th_tree *tree, const xp_nodeset *nodes, int minimum, double *value) {
-    for (Py_ssize_t index = 1; index < nodes->len; index++) {
-        double number;
-        if (comparison_number(tree, nodes->items[index], &number) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
-            return -1;                                                   /* GCOVR_EXCL_LINE: allocation failure */
-        }
-        const int missing = isnan(*value); /* GCOVR_EXCL_BR_LINE: dead type-dispatch arm of the isnan macro */
-        if (missing || (minimum ? number < *value : number > *value)) {
-            *value = number;
-        }
+/* Fold number into the running extreme of one side: its minimum when minimum is set, else its maximum. A NaN extreme
+   (no number yet) takes the next number, and a NaN number never displaces one. Returns 1 when the extreme moved. */
+static int comparison_fold(double *value, double number, int minimum) {
+    const int missing = isnan(*value); /* GCOVR_EXCL_BR_LINE: dead type-dispatch arm of the isnan macro */
+    if (!missing && !(minimum ? number < *value : number > *value)) {
+        return 0;
     }
-    return 0;
+    *value = number;
+    return 1;
 }
 
 /* Where target's item at left falls against source's item at right, as item_order answers, from ranks once the walks
@@ -5962,12 +6035,12 @@ static TH_NOINLINE void xp_caches_free(xp_caches *caches) {
     PyMem_Free(caches);
 }
 
-/* xp_eval_at and xp_eval_condition_at: one top-level evaluation, with exists set when the caller only converts the
-   value to a boolean. */
+/* xp_eval_at, xp_eval_condition_at and xp_eval_object: one top-level evaluation, with exists set when the caller only
+   converts the value to a boolean, and want_object when it turns the value into a Python object. */
 static int eval_at(const xp_program *prog, struct th_tree *tree, const xp_item *context, struct th_node *known_root,
                    Py_ssize_t pos, Py_ssize_t size, const xp_bindings *vars, const xp_namespaces *namespaces,
                    xp_extension_fn extension, void *extension_ctx, xp_lang_memo **langs, xp_id_cache *ids,
-                   xp_result *out, const char **feature, int exists) {
+                   xp_result *out, const char **feature, int exists, int want_object) {
     if (namespaces == NULL && prog->bound.len > 0) {
         namespaces = &prog->bound;
     }
@@ -5975,7 +6048,7 @@ static int eval_at(const xp_program *prog, struct th_tree *tree, const xp_item *
 #ifdef TH_OPERATION_LIMIT
     size_t operations = 0;
 #endif
-    xp_root root = {known_root, 0, known_root != NULL, ids, {NULL, NULL}};
+    xp_root root = {known_root, 0, known_root != NULL, ids, {NULL, NULL}, want_object};
     xp_ctx ctx = {
         tree,        context->node, context->attr, pos,  size, feature, vars, namespaces, extension, extension_ctx,
         0,           &caches,       NULL,          NULL, NULL, NULL,    0,    &root,      langs,
@@ -5998,7 +6071,7 @@ int xp_eval_at(const xp_program *prog, struct th_tree *tree, const xp_item *cont
                xp_extension_fn extension, void *extension_ctx, xp_lang_memo **langs, xp_id_cache *ids, xp_result *out,
                const char **feature) {
     return eval_at(prog, tree, context, known_root, pos, size, vars, namespaces, extension, extension_ctx, langs, ids,
-                   out, feature, 0);
+                   out, feature, 0, 0);
 }
 
 int xp_eval_condition_at(const xp_program *prog, struct th_tree *tree, const xp_item *context,
@@ -6006,7 +6079,7 @@ int xp_eval_condition_at(const xp_program *prog, struct th_tree *tree, const xp_
                          const xp_namespaces *namespaces, xp_extension_fn extension, void *extension_ctx,
                          xp_lang_memo **langs, xp_id_cache *ids, xp_result *out, const char **feature) {
     return eval_at(prog, tree, context, known_root, pos, size, vars, namespaces, extension, extension_ctx, langs, ids,
-                   out, feature, 1);
+                   out, feature, 1, 0);
 }
 
 int xp_eval_pattern_at(const xp_program *prog, struct th_tree *tree, struct th_node *context, xp_extension_fn extension,
@@ -6320,7 +6393,7 @@ int xp_pattern_walk_start(const xp_program *prog, struct th_tree *tree, struct t
     walk->tree = tree;
     walk->name_test = name_test;
     walk->name_test_ctx = name_test_ctx;
-    walk->root = (xp_root){root, 0, 1, NULL, {NULL, NULL}};
+    walk->root = (xp_root){root, 0, 1, NULL, {NULL, NULL}, 0};
     walk->count = count;
     xp_ctx ctx = walk_context(walk, (xp_item){root, -1}, NULL, NULL, feature);
     int32_t level = 1;
@@ -6344,11 +6417,10 @@ int xp_pattern_match(xp_pattern_walk *walk, xp_item item, xp_extension_fn extens
     return walk_member(walk->prog, walk, &ctx, walk->count, item);
 }
 
-int xp_eval(const xp_program *prog, struct th_tree *tree, struct th_node *context, const xp_bindings *vars,
-            const xp_namespaces *namespaces, xp_extension_fn extension, void *extension_ctx, xp_result *out,
-            const char **feature) {
-    return xp_eval_at(prog, tree, &(xp_item){context, -1}, NULL, 1, 1, vars, namespaces, extension, extension_ctx, NULL,
-                      NULL, out, feature);
+int xp_eval_object(const xp_program *prog, struct th_tree *tree, struct th_node *context, const xp_bindings *vars,
+                   const xp_namespaces *namespaces, xp_result *out, const char **feature) {
+    return eval_at(prog, tree, &(xp_item){context, -1}, NULL, 1, 1, vars, namespaces, NULL, NULL, NULL, NULL, out,
+                   feature, 0, 1);
 }
 
 int xp_eval_snapshot(const xp_program *prog, struct th_tree *tree, struct th_node *context, const xp_bindings *vars,

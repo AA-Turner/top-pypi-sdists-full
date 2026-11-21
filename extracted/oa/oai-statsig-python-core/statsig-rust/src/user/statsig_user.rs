@@ -1,16 +1,20 @@
 use crate::evaluation::dynamic_value::DynamicValue;
+use crate::statsig::remote_id_lists::SharedMembershipCache;
 use crate::statsig_metadata;
 use crate::{dyn_value, evaluation::dynamic_string::DynamicString};
+use std::sync::OnceLock;
 use std::{collections::HashMap, sync::Arc};
 
 use super::{
     into_optional::IntoOptional,
-    unit_id::UnitID,
+    unit_id::{UnitID, resolve_unit_id},
     user_data::{UserData, UserDataMap},
+    user_value::UserValueRef,
 };
 
 #[derive(Clone)]
 pub struct StatsigUser {
+    pub(crate) memberships: OnceLock<SharedMembershipCache>,
     pub data: Arc<UserData>,
 
     pub(crate) sdk_version: &'static str,
@@ -46,6 +50,7 @@ impl StatsigUser {
     pub fn new(inner: UserData) -> Self {
         Self {
             data: Arc::new(inner),
+            memberships: OnceLock::new(),
             sdk_version: statsig_metadata::SDK_VERSION,
         }
     }
@@ -111,18 +116,18 @@ impl StatsigUser {
     // ---------------------------------------- [User ID]
 
     pub fn get_user_id(&self) -> Option<&str> {
-        self.data
-            .user_id
-            .as_ref()?
-            .string_value
-            .as_ref()
-            .map(|s| s.value.as_str())
+        UserValueRef::from(self.data.user_id.as_ref()?).string_value()
     }
 
     pub fn set_user_id(&mut self, user_id: impl Into<UnitID>) {
-        let unit_id = user_id.into();
-        let mut_data = Arc::make_mut(&mut self.data);
-        mut_data.user_id = Some(unit_id.into());
+        let id = DynamicValue::from(user_id.into());
+        if self.memberships.get().is_some()
+            && self.get_user_id().unwrap_or_default()
+                != UserValueRef::from(&id).string_value().unwrap_or_default()
+        {
+            self.memberships.take();
+        }
+        Arc::make_mut(&mut self.data).user_id = Some(id);
     }
 
     // ---------------------------------------- [Custom IDs]
@@ -149,8 +154,10 @@ impl StatsigUser {
             .map(|(k, v)| (k.into(), v.into().into()))
             .collect();
 
-        let mut_data = Arc::make_mut(&mut self.data);
-        mut_data.custom_ids = Some(custom_ids);
+        if self.memberships.get().is_some() && self.data.custom_ids.as_ref() != Some(&custom_ids) {
+            self.memberships.take();
+        }
+        Arc::make_mut(&mut self.data).custom_ids = Some(custom_ids);
     }
 
     // ---------------------------------------- [Unit ID]
@@ -164,17 +171,12 @@ impl StatsigUser {
         id_type: &str,
         lowercased_id_type: &str,
     ) -> Option<&DynamicValue> {
-        if lowercased_id_type == "userid" {
-            return self.data.user_id.as_ref();
-        }
-
-        let custom_ids = self.data.custom_ids.as_ref()?;
-
-        if let Some(custom_id) = custom_ids.get(id_type) {
-            return Some(custom_id);
-        }
-
-        custom_ids.get(lowercased_id_type)
+        resolve_unit_id(
+            id_type,
+            lowercased_id_type,
+            self.data.user_id.as_ref(),
+            |key| self.data.custom_ids.as_ref()?.get(key),
+        )
     }
 
     // ---------------------------------------- [ Statsig Environment ]

@@ -32,10 +32,10 @@ from typing_extensions import override
 
 from cadwyn.applications import Cadwyn
 from cadwyn.route_generation import VersionedAPIRouter
-from cadwyn.structure.data import RequestInfo, convert_request_to_next_version_for
-from cadwyn.structure.enums import enum
-from cadwyn.structure.schemas import schema
-from cadwyn.structure.versions import Version, VersionBundle, VersionChange
+from cadwyn_core.structure.data import RequestInfo, convert_request_to_next_version_for
+from cadwyn_core.structure.enums import enum
+from cadwyn_core.structure.schemas import schema
+from cadwyn_core.structure.versions import Version, VersionBundle, VersionChange
 from tests._data import postponed_annotations_dependencies as other_module
 from tests.conftest import version_change
 
@@ -602,7 +602,7 @@ class ParentWithClassVar(BaseModel):
 with pytest.warns(UserWarning, match='Field name "value" .* shadows an attribute in parent'):
 
     class ChildRedeclaringClassVarAsField(ParentWithClassVar):
-        value: Annotated[str, Field(min_length=2)] = Field()  # ty: ignore[invalid-attribute-override]
+        value: Annotated[str, Field(min_length=2)] = Field()  # ty: ignore[incompatible-attribute-override]
 
 
 @pytest.mark.filterwarnings('ignore:Field name "value" .* shadows an attribute in parent:UserWarning')
@@ -1372,7 +1372,7 @@ def test__router_generation__function_like_dependency__should_resolve_annotation
 
 
 def get_limit_with_type_checking_only_return(limit: int) -> Decimal:
-    return limit  # ty: ignore[invalid-return-type]  # The annotation is only for type checkers.
+    return limit  # ty: ignore[invalid-explicit-return]  # The annotation is only for type checkers.
 
 
 def get_limit_with_type_checking_only_parameter(limit: int, price: Decimal | None = None) -> int:
@@ -1381,7 +1381,7 @@ def get_limit_with_type_checking_only_parameter(limit: int, price: Decimal | Non
 
 class LimitGetterWithTypeCheckingOnlyReturn:
     def __call__(self, limit: int) -> Decimal:
-        return limit  # ty: ignore[invalid-return-type]  # The annotation is only for type checkers.
+        return limit  # ty: ignore[invalid-explicit-return]  # The annotation is only for type checkers.
 
 
 limit_getter_with_type_checking_only_return = LimitGetterWithTypeCheckingOnlyReturn()

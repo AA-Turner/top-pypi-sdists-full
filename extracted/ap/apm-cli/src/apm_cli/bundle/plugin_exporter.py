@@ -16,9 +16,17 @@ from pathlib import Path, PurePosixPath, PureWindowsPath
 
 import yaml
 
+from apm_cli.core.scope import manifest_file
+
+from ..core.remediation import (
+    PACK_DEPENDENCY_UNATTESTED,
+    PACK_INSTALLED_FILES_MISSING,
+    PACK_SKILL_SUBSET_MISSING,
+)
 from ..deps.lockfile import (
     LockedDependency,
     LockFile,
+    installed_apm_version,
     resolve_lockfile_path_for_read,
 )
 from ..models.apm_package import APMPackage, DependencyReference
@@ -34,6 +42,7 @@ from ..utils.console import _rich_warning
 from ..utils.path_security import PathTraversalError, ensure_path_within, safe_rmtree
 from ..utils.paths import portable_relpath
 from .attest import verify_attested_file
+from .credential_files import refuse_credential_files
 from .packer import PackResult
 from .plugin_layout import PLUGIN_ROOT_DIRS, find_plugin_root_sources
 
@@ -427,11 +436,11 @@ def _collect_hooks_from_root(
     return hooks
 
 
-def _collect_mcp(package_root: Path) -> dict:
+def _collect_mcp(package_root: Path, *, exclude_apm_managed: bool = True) -> dict:
     """Return ``mcpServers`` dict from ``.mcp.json``."""
     from ..core.plugin_manifest import collect_mcp_servers
 
-    return collect_mcp_servers(package_root)
+    return collect_mcp_servers(package_root, exclude_apm_managed=exclude_apm_managed)
 
 
 # ---------------------------------------------------------------------------
@@ -841,8 +850,7 @@ def _collect_deployed_components(
         suffix = f"\n  ... and {remaining} more" if remaining else ""
         raise ValueError(
             f"Cannot pack dependency {dep.repo_url}: installed files recorded "
-            "in apm.lock.yaml are missing on disk. Run 'apm install' to "
-            "restore them, then pack again:\n"
+            f"in apm.lock.yaml are missing on disk. {PACK_INSTALLED_FILES_MISSING.sentence()}\n"
             + "\n".join(f"  - {path}" for path in shown_missing)
             + suffix
         )
@@ -881,7 +889,8 @@ def _cache_would_contribute_hooks_or_mcp(install_path: Path) -> bool:
     """
     if not install_path.is_dir():
         return False
-    if _collect_mcp(install_path):
+    # A dependency's own .mcp.json is authored by that package, not rendered by APM.
+    if _collect_mcp(install_path, exclude_apm_managed=False):
         return True
     if _collect_hooks_from_apm(install_path / ".apm"):
         return True
@@ -891,6 +900,55 @@ def _cache_would_contribute_hooks_or_mcp(install_path: Path) -> bool:
 # ---------------------------------------------------------------------------
 # Main exporter
 # ---------------------------------------------------------------------------
+
+
+def _collect_lsp_servers(
+    project_root: Path, package: APMPackage, lockfile: LockFile | None
+) -> tuple[dict[str, dict], list[str]]:
+    """Return the ``.lsp.json`` servers a Claude plugin bundle carries (RA-034).
+
+    Sources, later wins on a name collision (the root package's authored file
+    last, as for ``.mcp.json``): servers the lockfile records, declared
+    ``dependencies.lsp``, then a root ``.lsp.json``. Every entry is validated
+    by ``LSPDependency`` (``command`` and ``extensionToLanguage``), the schema
+    plugin admission applies when the bundle is installed. The second value
+    names each server with no complete config, so none is dropped silently.
+    """
+    from ..deps.plugin_parser import lsp_servers_to_apm_deps
+    from ..models.dependency.lsp import LSPDependency
+
+    servers: dict[str, dict] = {}
+    names: set[str] = set()
+
+    def _admit(config: dict) -> None:
+        try:
+            dep = LSPDependency.from_dict(config)
+        except (ValueError, TypeError):
+            return
+        servers[dep.name] = dep.to_lsp_json_entry()
+
+    if lockfile is not None:
+        names.update(lockfile.lsp_servers or ())
+        for name, config in sorted((lockfile.lsp_configs or {}).items()):
+            names.add(name)
+            if isinstance(config, dict):
+                _admit({**config, "name": name})
+    for dep in package.get_lsp_dependencies():
+        names.add(dep.name)
+        if dep.command is not None and dep.extension_to_language is not None:
+            _admit(dep.to_dict())
+    lsp_json = project_root / ".lsp.json"
+    if lsp_json.is_file() and not lsp_json.is_symlink():
+        try:
+            data = json.loads(lsp_json.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            data = None
+        authored = data.get("lspServers", data) if isinstance(data, dict) else None
+        if isinstance(authored, dict):
+            names.update(str(name) for name in authored)
+            for config in lsp_servers_to_apm_deps(authored, project_root, warn_on_invalid=False):
+                _admit(config)
+    return dict(sorted(servers.items())), sorted(names - servers.keys())
 
 
 def export_plugin_bundle(
@@ -926,7 +984,7 @@ def export_plugin_bundle(
     lockfile = LockFile.read(lockfile_path)
 
     # 2. Read apm.yml
-    apm_yml_path = project_root / "apm.yml"
+    apm_yml_path = manifest_file(project_root)
     package = APMPackage.from_apm_yml(apm_yml_path)
     pkg_name = package.name
     pkg_version = package.version or "0.0.0"
@@ -935,7 +993,7 @@ def export_plugin_bundle(
     for dep_ref in package.get_apm_dependencies():
         if dep_ref.is_local:
             raise ValueError(
-                f"Cannot pack — apm.yml contains local path dependency: "
+                f"Cannot pack -- apm.yml contains local path dependency: "
                 f"{dep_ref.local_path}\n"
                 f"Local dependencies are for development only. Replace them with "
                 f"remote references (e.g., 'owner/repo') before packing."
@@ -999,8 +1057,8 @@ def export_plugin_bundle(
                     raise ValueError(
                         f"Cannot pack dependency {dep.repo_url}: the skills "
                         f"recorded in apm.lock.yaml (skill_subset: {declared_skills}) "
-                        "were not found among its installed files. Run 'apm install' "
-                        "to re-deploy the expected skills, then pack again."
+                        "were not found among its installed files. "
+                        f"{PACK_SKILL_SUBSET_MISSING.sentence()}"
                     )
             elif _cache_would_contribute_primitives(install_path, dep):
                 # Unattested primitives sit in the cache but the lockfile
@@ -1010,8 +1068,7 @@ def export_plugin_bundle(
                     f"Cannot pack dependency {dep.repo_url}: the lockfile records "
                     "no deployed files for it, but installed content that cannot "
                     "be verified exists in the apm_modules cache (a stale or "
-                    "partial install). Run 'apm install' to record provenance in "
-                    "apm.lock.yaml, then pack again."
+                    f"partial install). {PACK_DEPENDENCY_UNATTESTED.sentence()}"
                 )
             else:
                 # No attested content and nothing packable in the cache: the
@@ -1089,6 +1146,7 @@ def export_plugin_bundle(
             "plugin.json",
             "hooks.json",
             ".mcp.json",
+            ".lsp.json",
             "apm.lock.yaml",
             PLUGIN_ECOSYSTEM_PATHS["claude"],
         },
@@ -1101,6 +1159,20 @@ def export_plugin_bundle(
     root_mcp = _collect_mcp(project_root)
     _deep_merge(merged_mcp, root_mcp, overwrite=True)
 
+    # 6b. LSP -- Claude plugins carry LSP servers in a root .lsp.json; name
+    #     each server without a complete config instead of dropping it (I8).
+    merged_lsp, unpacked_lsp = _collect_lsp_servers(project_root, package, lockfile)
+    if unpacked_lsp:
+        message = (
+            "LSP servers without a complete config (command and extensionToLanguage) "
+            f"are not packed: {', '.join(unpacked_lsp)}. Add both fields to each one in "
+            "apm.yml dependencies.lsp or .lsp.json, then pack again."
+        )
+        if logger:
+            logger.warning(message)
+        else:
+            _rich_warning(message, symbol="warning")
+
     # 7. Emit collision warnings
     for msg in collisions:
         if logger:
@@ -1109,6 +1181,7 @@ def export_plugin_bundle(
             _rich_warning(msg)
 
     # 8. Build output file list (sorted for determinism)
+    refuse_credential_files(file_map)
     output_files = sorted(file_map.keys())
 
     # Add generated files to the list
@@ -1119,6 +1192,8 @@ def export_plugin_bundle(
     output_files.extend(hook_resources.generated)
     if merged_mcp:
         output_files.append(".mcp.json")
+    if merged_lsp:
+        output_files.append(".lsp.json")
     output_files.append("plugin.json")
 
     # 9. Dry run -- return file list without writing
@@ -1155,6 +1230,10 @@ def export_plugin_bundle(
             json.dumps({"mcpServers": merged_mcp}, indent=2, sort_keys=True),
         )
 
+    # 13b. Write merged .lsp.json (flat server map, Claude plugin layout)
+    if merged_lsp:
+        write_text_lf(bundle_dir / ".lsp.json", json.dumps(merged_lsp, indent=2, sort_keys=True))
+
     # 14. Write plugin.json with updated component paths
     plugin_json = _update_plugin_json_paths(plugin_json, output_files, logger=logger)
     write_text_lf(bundle_dir / "plugin.json", json.dumps(plugin_json, indent=2, sort_keys=False))
@@ -1168,31 +1247,35 @@ def export_plugin_bundle(
     # Walk the bundle and hash every file (excluding the lockfile itself,
     # which we are about to write) so install-time integrity verification can
     # detect tampering without needing the original deployed_files map.
-    if lockfile is not None:
-        from .lockfile_enrichment import enrich_lockfile_for_pack
+    # A project without apm.lock.yaml (e.g. ``dependencies: {}`` with only
+    # local primitives) still gets an integrity manifest: synthesize an empty
+    # lockfile so ``pack.bundle_files`` is always recorded (issue #3846).
+    if lockfile is None:
+        lockfile = LockFile(apm_version=installed_apm_version())
+    from .lockfile_enrichment import enrich_lockfile_for_pack
 
-        bundle_files: dict[str, str] = {}
-        for fp in bundle_dir.rglob("*"):
-            if not fp.is_file() or fp.is_symlink():
-                continue
-            rel = fp.relative_to(bundle_dir).as_posix()
-            if rel == "apm.lock.yaml":
-                continue
-            bundle_files[rel] = hashlib.sha256(fp.read_bytes()).hexdigest()
-        # Issue #1207 D1: do NOT silently substitute ``"copilot"`` when
-        # ``target`` is missing.  Bundles are target-agnostic at install
-        # time; ``pack.target`` is recorded as informational metadata only.
-        # Falling back to ``"all"`` preserves the lockfile-filter shape
-        # (which uses target prefixes to narrow each dep's deployed_files
-        # list to the union of supported targets) without locking the
-        # bundle to a single client.
-        enriched_yaml = enrich_lockfile_for_pack(
-            lockfile,
-            "plugin",
-            target or "all",
-            bundle_files=bundle_files,
-        )
-        write_text_lf(bundle_dir / "apm.lock.yaml", enriched_yaml)
+    bundle_files: dict[str, str] = {}
+    for fp in bundle_dir.rglob("*"):
+        if not fp.is_file() or fp.is_symlink():
+            continue
+        rel = fp.relative_to(bundle_dir).as_posix()
+        if rel == "apm.lock.yaml":
+            continue
+        bundle_files[rel] = hashlib.sha256(fp.read_bytes()).hexdigest()
+    # Issue #1207 D1: do NOT silently substitute ``"copilot"`` when
+    # ``target`` is missing.  Bundles are target-agnostic at install
+    # time; ``pack.target`` is recorded as informational metadata only.
+    # Falling back to ``"all"`` preserves the lockfile-filter shape
+    # (which uses target prefixes to narrow each dep's deployed_files
+    # list to the union of supported targets) without locking the
+    # bundle to a single client.
+    enriched_yaml = enrich_lockfile_for_pack(
+        lockfile,
+        "plugin",
+        target or "all",
+        bundle_files=bundle_files,
+    )
+    write_text_lf(bundle_dir / "apm.lock.yaml", enriched_yaml)
 
     result = PackResult(bundle_path=bundle_dir, files=output_files)
 
@@ -1233,7 +1316,7 @@ def _merge_file_map(
         if output_rel in file_map:
             existing_owner = file_map[output_rel][1]
             collisions.append(
-                f"{output_rel} — collision between '{existing_owner}' and "
+                f"{output_rel} -- collision between '{existing_owner}' and "
                 f"'{owner}' ({'last writer wins' if force else 'first writer wins'})"
             )
             if force:

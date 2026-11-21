@@ -27,6 +27,7 @@ from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
+    ListChannelContractsPaginator,
     ListChannelHandshakesPaginator,
     ListProgramManagementAccountsPaginator,
     ListRelationshipsPaginator,
@@ -34,8 +35,12 @@ from .paginator import (
 from .type_defs import (
     AcceptChannelHandshakeRequestTypeDef,
     AcceptChannelHandshakeResponseTypeDef,
+    CancelChannelContractRequestTypeDef,
+    CancelChannelContractResponseTypeDef,
     CancelChannelHandshakeRequestTypeDef,
     CancelChannelHandshakeResponseTypeDef,
+    CreateChannelContractRequestTypeDef,
+    CreateChannelContractResponseTypeDef,
     CreateChannelHandshakeRequestTypeDef,
     CreateChannelHandshakeResponseTypeDef,
     CreateProgramManagementAccountRequestTypeDef,
@@ -44,8 +49,12 @@ from .type_defs import (
     CreateRelationshipResponseTypeDef,
     DeleteProgramManagementAccountRequestTypeDef,
     DeleteRelationshipRequestTypeDef,
+    GetChannelContractRequestTypeDef,
+    GetChannelContractResponseTypeDef,
     GetRelationshipRequestTypeDef,
     GetRelationshipResponseTypeDef,
+    ListChannelContractsRequestTypeDef,
+    ListChannelContractsResponseTypeDef,
     ListChannelHandshakesRequestTypeDef,
     ListChannelHandshakesResponseTypeDef,
     ListProgramManagementAccountsRequestTypeDef,
@@ -129,6 +138,16 @@ class PartnerCentralChannelAPIClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_channel/client/#accept_channel_handshake)
         """
 
+    def cancel_channel_contract(
+        self, **kwargs: Unpack[CancelChannelContractRequestTypeDef]
+    ) -> CancelChannelContractResponseTypeDef:
+        """
+        Cancels a pending channel contract created within the last 30 days.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-channel/client/cancel_channel_contract.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_channel/client/#cancel_channel_contract)
+        """
+
     def cancel_channel_handshake(
         self, **kwargs: Unpack[CancelChannelHandshakeRequestTypeDef]
     ) -> CancelChannelHandshakeResponseTypeDef:
@@ -137,6 +156,16 @@ class PartnerCentralChannelAPIClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-channel/client/cancel_channel_handshake.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_channel/client/#cancel_channel_handshake)
+        """
+
+    def create_channel_contract(
+        self, **kwargs: Unpack[CreateChannelContractRequestTypeDef]
+    ) -> CreateChannelContractResponseTypeDef:
+        """
+        Creates a new channel contract and sends it to the signatory for signature.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-channel/client/create_channel_contract.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_channel/client/#create_channel_contract)
         """
 
     def create_channel_handshake(
@@ -190,6 +219,16 @@ class PartnerCentralChannelAPIClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_channel/client/#delete_relationship)
         """
 
+    def get_channel_contract(
+        self, **kwargs: Unpack[GetChannelContractRequestTypeDef]
+    ) -> GetChannelContractResponseTypeDef:
+        """
+        Retrieves details of a specific channel contract.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-channel/client/get_channel_contract.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_channel/client/#get_channel_contract)
+        """
+
     def get_relationship(
         self, **kwargs: Unpack[GetRelationshipRequestTypeDef]
     ) -> GetRelationshipResponseTypeDef:
@@ -198,6 +237,16 @@ class PartnerCentralChannelAPIClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-channel/client/get_relationship.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_channel/client/#get_relationship)
+        """
+
+    def list_channel_contracts(
+        self, **kwargs: Unpack[ListChannelContractsRequestTypeDef]
+    ) -> ListChannelContractsResponseTypeDef:
+        """
+        Lists channel contracts based on specified criteria.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-channel/client/list_channel_contracts.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_channel/client/#list_channel_contracts)
         """
 
     def list_channel_handshakes(
@@ -284,6 +333,17 @@ class PartnerCentralChannelAPIClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-channel/client/update_relationship.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_channel/client/#update_relationship)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_channel_contracts"]
+    ) -> ListChannelContractsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-channel/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_channel/client/#get_paginator)
         """
 
     @overload  # type: ignore[override]

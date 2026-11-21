@@ -1484,6 +1484,21 @@ class CfnCloudConnector(
                         )]
                     ),
                     tenant_display_name="tenantDisplayName"
+                ),
+                gcp_configuration=ssm.CfnCloudConnector.GcpConfigurationProperty(
+                    service_account_email="serviceAccountEmail",
+                    workload_identity_pool_provider="workloadIdentityPoolProvider",
+        
+                    # the properties below are optional
+                    organization_id="organizationId",
+                    targets=ssm.CfnCloudConnector.GcpConfigurationTargetsProperty(
+                        projects=[ssm.CfnCloudConnector.GcpProjectProperty(
+                            project_id="projectId",
+        
+                            # the properties below are optional
+                            project_display_name="projectDisplayName"
+                        )]
+                    )
                 )
             ),
             display_name="displayName",
@@ -1515,7 +1530,7 @@ class CfnCloudConnector(
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param config_connector_arn: The ARN of the AWS Config connector.
-        :param configuration: The configuration for the cloud connector. Currently supports Azure.
+        :param configuration: The configuration for the cloud connector. Exactly one of AzureConfiguration or GcpConfiguration.
         :param display_name: The display name of the cloud connector.
         :param role_arn: The IAM role ARN used by the cloud connector.
         :param description: The description of the cloud connector.
@@ -1950,19 +1965,24 @@ class CfnCloudConnector(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_ssm.CfnCloudConnector.CloudConnectorConfigurationProperty",
         jsii_struct_bases=[],
-        name_mapping={"azure_configuration": "azureConfiguration"},
+        name_mapping={
+            "azure_configuration": "azureConfiguration",
+            "gcp_configuration": "gcpConfiguration",
+        },
     )
     class CloudConnectorConfigurationProperty:
         def __init__(
             self,
             *,
-            azure_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCloudConnector.AzureConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            azure_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCloudConnector.AzureConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            gcp_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCloudConnector.GcpConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The configuration for the cloud connector.
 
-            Currently supports Azure.
+            Exactly one of AzureConfiguration or GcpConfiguration.
 
             :param azure_configuration: Configuration for connecting to Azure.
+            :param gcp_configuration: Configuration for connecting to Google Cloud.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-cloudconnector-cloudconnectorconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -1989,27 +2009,55 @@ class CfnCloudConnector(
                             )]
                         ),
                         tenant_display_name="tenantDisplayName"
+                    ),
+                    gcp_configuration=ssm.CfnCloudConnector.GcpConfigurationProperty(
+                        service_account_email="serviceAccountEmail",
+                        workload_identity_pool_provider="workloadIdentityPoolProvider",
+                
+                        # the properties below are optional
+                        organization_id="organizationId",
+                        targets=ssm.CfnCloudConnector.GcpConfigurationTargetsProperty(
+                            projects=[ssm.CfnCloudConnector.GcpProjectProperty(
+                                project_id="projectId",
+                
+                                # the properties below are optional
+                                project_display_name="projectDisplayName"
+                            )]
+                        )
                     )
                 )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__b752004e45e379f5c768656dd31ef409cdea6d750ac0a10905171bad6c2c976b)
                 check_type(argname="argument azure_configuration", value=azure_configuration, expected_type=type_hints["azure_configuration"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "azure_configuration": azure_configuration,
-            }
+                check_type(argname="argument gcp_configuration", value=gcp_configuration, expected_type=type_hints["gcp_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if azure_configuration is not None:
+                self._values["azure_configuration"] = azure_configuration
+            if gcp_configuration is not None:
+                self._values["gcp_configuration"] = gcp_configuration
 
         @builtins.property
         def azure_configuration(
             self,
-        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudConnector.AzureConfigurationProperty"]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudConnector.AzureConfigurationProperty"]]:
             '''Configuration for connecting to Azure.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-cloudconnector-cloudconnectorconfiguration.html#cfn-ssm-cloudconnector-cloudconnectorconfiguration-azureconfiguration
             '''
             result = self._values.get("azure_configuration")
-            assert result is not None, "Required property 'azure_configuration' is missing"
-            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudConnector.AzureConfigurationProperty"], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudConnector.AzureConfigurationProperty"]], result)
+
+        @builtins.property
+        def gcp_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudConnector.GcpConfigurationProperty"]]:
+            '''Configuration for connecting to Google Cloud.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-cloudconnector-cloudconnectorconfiguration.html#cfn-ssm-cloudconnector-cloudconnectorconfiguration-gcpconfiguration
+            '''
+            result = self._values.get("gcp_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudConnector.GcpConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2087,6 +2135,270 @@ class CfnCloudConnector(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ssm.CfnCloudConnector.GcpConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "service_account_email": "serviceAccountEmail",
+            "workload_identity_pool_provider": "workloadIdentityPoolProvider",
+            "organization_id": "organizationId",
+            "targets": "targets",
+        },
+    )
+    class GcpConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            service_account_email: builtins.str,
+            workload_identity_pool_provider: builtins.str,
+            organization_id: typing.Optional[builtins.str] = None,
+            targets: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCloudConnector.GcpConfigurationTargetsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Configuration for connecting to Google Cloud.
+
+            :param service_account_email: The GCP service account the connector impersonates. Its project is the connector's management project. Cannot be changed after creation.
+            :param workload_identity_pool_provider: The resource name of the workload identity pool provider that trusts the connector's IAM role.
+            :param organization_id: The GCP organization ID. Required when Targets is omitted, which targets the entire organization. Cannot be changed after creation.
+            :param targets: The targets for the cloud connector. If omitted, the entire organization is targeted.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-cloudconnector-gcpconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ssm as ssm
+                
+                gcp_configuration_property = ssm.CfnCloudConnector.GcpConfigurationProperty(
+                    service_account_email="serviceAccountEmail",
+                    workload_identity_pool_provider="workloadIdentityPoolProvider",
+                
+                    # the properties below are optional
+                    organization_id="organizationId",
+                    targets=ssm.CfnCloudConnector.GcpConfigurationTargetsProperty(
+                        projects=[ssm.CfnCloudConnector.GcpProjectProperty(
+                            project_id="projectId",
+                
+                            # the properties below are optional
+                            project_display_name="projectDisplayName"
+                        )]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__1aa568d7b51f7c8b970659477a34b0c1646de57d430808092a9e9f1922c81d27)
+                check_type(argname="argument service_account_email", value=service_account_email, expected_type=type_hints["service_account_email"])
+                check_type(argname="argument workload_identity_pool_provider", value=workload_identity_pool_provider, expected_type=type_hints["workload_identity_pool_provider"])
+                check_type(argname="argument organization_id", value=organization_id, expected_type=type_hints["organization_id"])
+                check_type(argname="argument targets", value=targets, expected_type=type_hints["targets"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "service_account_email": service_account_email,
+                "workload_identity_pool_provider": workload_identity_pool_provider,
+            }
+            if organization_id is not None:
+                self._values["organization_id"] = organization_id
+            if targets is not None:
+                self._values["targets"] = targets
+
+        @builtins.property
+        def service_account_email(self) -> builtins.str:
+            '''The GCP service account the connector impersonates.
+
+            Its project is the connector's management project. Cannot be changed after creation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-cloudconnector-gcpconfiguration.html#cfn-ssm-cloudconnector-gcpconfiguration-serviceaccountemail
+            '''
+            result = self._values.get("service_account_email")
+            assert result is not None, "Required property 'service_account_email' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def workload_identity_pool_provider(self) -> builtins.str:
+            '''The resource name of the workload identity pool provider that trusts the connector's IAM role.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-cloudconnector-gcpconfiguration.html#cfn-ssm-cloudconnector-gcpconfiguration-workloadidentitypoolprovider
+            '''
+            result = self._values.get("workload_identity_pool_provider")
+            assert result is not None, "Required property 'workload_identity_pool_provider' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def organization_id(self) -> typing.Optional[builtins.str]:
+            '''The GCP organization ID.
+
+            Required when Targets is omitted, which targets the entire organization. Cannot be changed after creation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-cloudconnector-gcpconfiguration.html#cfn-ssm-cloudconnector-gcpconfiguration-organizationid
+            '''
+            result = self._values.get("organization_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def targets(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudConnector.GcpConfigurationTargetsProperty"]]:
+            '''The targets for the cloud connector.
+
+            If omitted, the entire organization is targeted.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-cloudconnector-gcpconfiguration.html#cfn-ssm-cloudconnector-gcpconfiguration-targets
+            '''
+            result = self._values.get("targets")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudConnector.GcpConfigurationTargetsProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GcpConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ssm.CfnCloudConnector.GcpConfigurationTargetsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"projects": "projects"},
+    )
+    class GcpConfigurationTargetsProperty:
+        def __init__(
+            self,
+            *,
+            projects: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCloudConnector.GcpProjectProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        ) -> None:
+            '''The targets for the cloud connector.
+
+            If omitted, the entire organization is targeted.
+
+            :param projects: List of GCP projects.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-cloudconnector-gcpconfigurationtargets.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ssm as ssm
+                
+                gcp_configuration_targets_property = ssm.CfnCloudConnector.GcpConfigurationTargetsProperty(
+                    projects=[ssm.CfnCloudConnector.GcpProjectProperty(
+                        project_id="projectId",
+                
+                        # the properties below are optional
+                        project_display_name="projectDisplayName"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__a140b51bbea43f6dbed7a37b5898f3c023b89ac6bc754963363257f28f1b19c9)
+                check_type(argname="argument projects", value=projects, expected_type=type_hints["projects"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "projects": projects,
+            }
+
+        @builtins.property
+        def projects(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudConnector.GcpProjectProperty"]]]:
+            '''List of GCP projects.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-cloudconnector-gcpconfigurationtargets.html#cfn-ssm-cloudconnector-gcpconfigurationtargets-projects
+            '''
+            result = self._values.get("projects")
+            assert result is not None, "Required property 'projects' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudConnector.GcpProjectProperty"]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GcpConfigurationTargetsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ssm.CfnCloudConnector.GcpProjectProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "project_id": "projectId",
+            "project_display_name": "projectDisplayName",
+        },
+    )
+    class GcpProjectProperty:
+        def __init__(
+            self,
+            *,
+            project_id: builtins.str,
+            project_display_name: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''A GCP project with its ID and optional display name.
+
+            :param project_id: The GCP project ID.
+            :param project_display_name: The display name of the GCP project.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-cloudconnector-gcpproject.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ssm as ssm
+                
+                gcp_project_property = ssm.CfnCloudConnector.GcpProjectProperty(
+                    project_id="projectId",
+                
+                    # the properties below are optional
+                    project_display_name="projectDisplayName"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__dc2d56fb348186f1a2f67e50c85fcf4bfac5704ccfbadd7943eb7bc2614c255e)
+                check_type(argname="argument project_id", value=project_id, expected_type=type_hints["project_id"])
+                check_type(argname="argument project_display_name", value=project_display_name, expected_type=type_hints["project_display_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "project_id": project_id,
+            }
+            if project_display_name is not None:
+                self._values["project_display_name"] = project_display_name
+
+        @builtins.property
+        def project_id(self) -> builtins.str:
+            '''The GCP project ID.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-cloudconnector-gcpproject.html#cfn-ssm-cloudconnector-gcpproject-projectid
+            '''
+            result = self._values.get("project_id")
+            assert result is not None, "Required property 'project_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def project_display_name(self) -> typing.Optional[builtins.str]:
+            '''The display name of the GCP project.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-cloudconnector-gcpproject.html#cfn-ssm-cloudconnector-gcpproject-projectdisplayname
+            '''
+            result = self._values.get("project_display_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GcpProjectProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_ssm.CfnCloudConnectorProps",
@@ -2114,7 +2426,7 @@ class CfnCloudConnectorProps:
         '''Properties for defining a ``CfnCloudConnector``.
 
         :param config_connector_arn: The ARN of the AWS Config connector.
-        :param configuration: The configuration for the cloud connector. Currently supports Azure.
+        :param configuration: The configuration for the cloud connector. Exactly one of AzureConfiguration or GcpConfiguration.
         :param display_name: The display name of the cloud connector.
         :param role_arn: The IAM role ARN used by the cloud connector.
         :param description: The description of the cloud connector.
@@ -2148,6 +2460,21 @@ class CfnCloudConnectorProps:
                             )]
                         ),
                         tenant_display_name="tenantDisplayName"
+                    ),
+                    gcp_configuration=ssm.CfnCloudConnector.GcpConfigurationProperty(
+                        service_account_email="serviceAccountEmail",
+                        workload_identity_pool_provider="workloadIdentityPoolProvider",
+            
+                        # the properties below are optional
+                        organization_id="organizationId",
+                        targets=ssm.CfnCloudConnector.GcpConfigurationTargetsProperty(
+                            projects=[ssm.CfnCloudConnector.GcpProjectProperty(
+                                project_id="projectId",
+            
+                                # the properties below are optional
+                                project_display_name="projectDisplayName"
+                            )]
+                        )
                     )
                 ),
                 display_name="displayName",
@@ -2196,7 +2523,7 @@ class CfnCloudConnectorProps:
     ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCloudConnector.CloudConnectorConfigurationProperty"]:
         '''The configuration for the cloud connector.
 
-        Currently supports Azure.
+        Exactly one of AzureConfiguration or GcpConfiguration.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-cloudconnector.html#cfn-ssm-cloudconnector-configuration
         '''
@@ -2250,6 +2577,306 @@ class CfnCloudConnectorProps:
 
     def __repr__(self) -> str:
         return "CfnCloudConnectorProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ssm_dd9d8611.IDefaultHostManagementConfigurationRef)
+class CfnDefaultHostManagementConfiguration(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_ssm.CfnDefaultHostManagementConfiguration",
+):
+    '''Resource Type definition for AWS::SSM::DefaultHostManagementConfiguration.
+
+    Enables or disables Default Host Management Configuration (DHMC) for an AWS account and Region by managing the '/ssm/managed-instance/default-ec2-instance-management-role' service setting. This is a singleton resource - there is at most one DHMC configuration per account/Region.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-defaulthostmanagementconfiguration.html
+    :cloudformationResource: AWS::SSM::DefaultHostManagementConfiguration
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_ssm as ssm
+        
+        cfn_default_host_management_configuration = ssm.CfnDefaultHostManagementConfiguration(self, "MyCfnDefaultHostManagementConfiguration",
+            permission_model="permissionModel",
+        
+            # the properties below are optional
+            customer_managed_role_arn="customerManagedRoleArn"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        permission_model: builtins.str,
+        customer_managed_role_arn: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::SSM::DefaultHostManagementConfiguration``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param permission_model: The permission model used to enable DHMC. SERVICE_MANAGED lets SSM create and manage the DHMC IAM role on your behalf. SELF_MANAGED registers an IAM role that you provide.
+        :param customer_managed_role_arn: The ARN of the customer-provided IAM role to register for DHMC. Required when PermissionModel is SELF_MANAGED and must not be set when PermissionModel is SERVICE_MANAGED.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3673202744196e7490177440fddb1fcdb2c6c4a21acd482e8439750f59f36150)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnDefaultHostManagementConfigurationProps(
+            permission_model=permission_model,
+            customer_managed_role_arn=customer_managed_role_arn,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForDefaultHostManagementConfiguration")
+    @builtins.classmethod
+    def arn_for_default_host_management_configuration(
+        cls,
+        resource: "_aws_ssm_dd9d8611.IDefaultHostManagementConfigurationRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e3e5e275c2eab2f317b21b8d032eccaacc54ea6c8642e312092d20f6a868d2b9)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDefaultHostManagementConfiguration", [resource]))
+
+    @jsii.member(jsii_name="isCfnDefaultHostManagementConfiguration")
+    @builtins.classmethod
+    def is_cfn_default_host_management_configuration(
+        cls,
+        x: typing.Any,
+    ) -> builtins.bool:
+        '''Checks whether the given object is a CfnDefaultHostManagementConfiguration.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__074ff2979abaa9d0d2d7e135d91e8e15c321e4201b61b4febb4ae6933edf55da)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDefaultHostManagementConfiguration", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0902f2db3b7cf3a912df13dda5181a239db1590a1ab9f491a0d4b12fc0eb754d)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__407d208693f1eccba268915147f79b68d4be49adee7a170ab366e53e8fa50dcb)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastModifiedDate")
+    def attr_last_modified_date(self) -> builtins.str:
+        '''The date the DHMC service setting was last modified.
+
+        :cloudformationAttribute: LastModifiedDate
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedDate"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastModifiedUser")
+    def attr_last_modified_user(self) -> builtins.str:
+        '''The principal that last modified the DHMC service setting.
+
+        :cloudformationAttribute: LastModifiedUser
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedUser"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRoleArn")
+    def attr_role_arn(self) -> builtins.str:
+        '''The ARN of the IAM role currently configured for DHMC.
+
+        For SERVICE_MANAGED this is the SSM-created role in the IAM reserved path; for SELF_MANAGED this echoes the registered CustomerManagedRoleArn.
+
+        :cloudformationAttribute: RoleArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRoleArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSettingArn")
+    def attr_setting_arn(self) -> builtins.str:
+        '''The ARN of the DHMC service setting.
+
+        :cloudformationAttribute: SettingArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSettingArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSettingId")
+    def attr_setting_id(self) -> builtins.str:
+        '''The ID of the DHMC service setting.
+
+        This is a fixed value that uniquely identifies the DHMC configuration for the account and Region.
+
+        :cloudformationAttribute: SettingId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSettingId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The status of the DHMC service setting.
+
+        'Default' indicates DHMC is not configured; 'Customized' indicates a role is configured.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="defaultHostManagementConfigurationRef")
+    def default_host_management_configuration_ref(
+        self,
+    ) -> "_aws_ssm_dd9d8611.DefaultHostManagementConfigurationReference":
+        '''A reference to a DefaultHostManagementConfiguration resource.'''
+        return typing.cast("_aws_ssm_dd9d8611.DefaultHostManagementConfigurationReference", jsii.get(self, "defaultHostManagementConfigurationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="permissionModel")
+    def permission_model(self) -> builtins.str:
+        '''The permission model used to enable DHMC.'''
+        return typing.cast(builtins.str, jsii.get(self, "permissionModel"))
+
+    @permission_model.setter
+    def permission_model(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b624a649188bce8070ca87cb7b8007f6216ff90213bc19348c451044d09b37ff)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "permissionModel", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="customerManagedRoleArn")
+    def customer_managed_role_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the customer-provided IAM role to register for DHMC.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "customerManagedRoleArn"))
+
+    @customer_managed_role_arn.setter
+    def customer_managed_role_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0be0e5550f56baaf0cf05bc07436e7dc0be28dd00e449a21213b3ee30bfbb923)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "customerManagedRoleArn", value)
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ssm.CfnDefaultHostManagementConfigurationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "permission_model": "permissionModel",
+        "customer_managed_role_arn": "customerManagedRoleArn",
+    },
+)
+class CfnDefaultHostManagementConfigurationProps:
+    def __init__(
+        self,
+        *,
+        permission_model: builtins.str,
+        customer_managed_role_arn: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDefaultHostManagementConfiguration``.
+
+        :param permission_model: The permission model used to enable DHMC. SERVICE_MANAGED lets SSM create and manage the DHMC IAM role on your behalf. SELF_MANAGED registers an IAM role that you provide.
+        :param customer_managed_role_arn: The ARN of the customer-provided IAM role to register for DHMC. Required when PermissionModel is SELF_MANAGED and must not be set when PermissionModel is SERVICE_MANAGED.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-defaulthostmanagementconfiguration.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ssm as ssm
+            
+            cfn_default_host_management_configuration_props = ssm.CfnDefaultHostManagementConfigurationProps(
+                permission_model="permissionModel",
+            
+                # the properties below are optional
+                customer_managed_role_arn="customerManagedRoleArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a50f5b460627aef477a3f5659c029a51672d6935cc3fec28c33e450791d12f41)
+            check_type(argname="argument permission_model", value=permission_model, expected_type=type_hints["permission_model"])
+            check_type(argname="argument customer_managed_role_arn", value=customer_managed_role_arn, expected_type=type_hints["customer_managed_role_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "permission_model": permission_model,
+        }
+        if customer_managed_role_arn is not None:
+            self._values["customer_managed_role_arn"] = customer_managed_role_arn
+
+    @builtins.property
+    def permission_model(self) -> builtins.str:
+        '''The permission model used to enable DHMC.
+
+        SERVICE_MANAGED lets SSM create and manage the DHMC IAM role on your behalf. SELF_MANAGED registers an IAM role that you provide.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-defaulthostmanagementconfiguration.html#cfn-ssm-defaulthostmanagementconfiguration-permissionmodel
+        '''
+        result = self._values.get("permission_model")
+        assert result is not None, "Required property 'permission_model' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def customer_managed_role_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the customer-provided IAM role to register for DHMC.
+
+        Required when PermissionModel is SELF_MANAGED and must not be set when PermissionModel is SERVICE_MANAGED.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-defaulthostmanagementconfiguration.html#cfn-ssm-defaulthostmanagementconfiguration-customermanagedrolearn
+        '''
+        result = self._values.get("customer_managed_role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDefaultHostManagementConfigurationProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -11670,6 +12297,8 @@ __all__ = [
     "CfnAssociationProps",
     "CfnCloudConnector",
     "CfnCloudConnectorProps",
+    "CfnDefaultHostManagementConfiguration",
+    "CfnDefaultHostManagementConfigurationProps",
     "CfnDocument",
     "CfnDocumentProps",
     "CfnMaintenanceWindow",
@@ -12028,7 +12657,8 @@ def _typecheckingstub__ab1da5d76caa1a3d636cd4164aea1a490e828e57085ee7812968d9bd8
 
 def _typecheckingstub__b752004e45e379f5c768656dd31ef409cdea6d750ac0a10905171bad6c2c976b(
     *,
-    azure_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCloudConnector.AzureConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    azure_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCloudConnector.AzureConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    gcp_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCloudConnector.GcpConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12036,6 +12666,31 @@ def _typecheckingstub__b752004e45e379f5c768656dd31ef409cdea6d750ac0a10905171bad6
 def _typecheckingstub__5f7e178b1a40ac1d04b792fa03fcd99684b9f8160151d1cf73887a74a6891e80(
     *,
     subscriptions: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCloudConnector.AzureSubscriptionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1aa568d7b51f7c8b970659477a34b0c1646de57d430808092a9e9f1922c81d27(
+    *,
+    service_account_email: builtins.str,
+    workload_identity_pool_provider: builtins.str,
+    organization_id: typing.Optional[builtins.str] = None,
+    targets: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCloudConnector.GcpConfigurationTargetsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a140b51bbea43f6dbed7a37b5898f3c023b89ac6bc754963363257f28f1b19c9(
+    *,
+    projects: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCloudConnector.GcpProjectProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dc2d56fb348186f1a2f67e50c85fcf4bfac5704ccfbadd7943eb7bc2614c255e(
+    *,
+    project_id: builtins.str,
+    project_display_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12048,6 +12703,60 @@ def _typecheckingstub__66699d1e907d30e169f33112b7ef87cd46156a48c922a3affff159812
     role_arn: builtins.str,
     description: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3673202744196e7490177440fddb1fcdb2c6c4a21acd482e8439750f59f36150(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    permission_model: builtins.str,
+    customer_managed_role_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e3e5e275c2eab2f317b21b8d032eccaacc54ea6c8642e312092d20f6a868d2b9(
+    resource: _aws_ssm_dd9d8611.IDefaultHostManagementConfigurationRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__074ff2979abaa9d0d2d7e135d91e8e15c321e4201b61b4febb4ae6933edf55da(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0902f2db3b7cf3a912df13dda5181a239db1590a1ab9f491a0d4b12fc0eb754d(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__407d208693f1eccba268915147f79b68d4be49adee7a170ab366e53e8fa50dcb(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b624a649188bce8070ca87cb7b8007f6216ff90213bc19348c451044d09b37ff(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0be0e5550f56baaf0cf05bc07436e7dc0be28dd00e449a21213b3ee30bfbb923(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a50f5b460627aef477a3f5659c029a51672d6935cc3fec28c33e450791d12f41(
+    *,
+    permission_model: builtins.str,
+    customer_managed_role_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

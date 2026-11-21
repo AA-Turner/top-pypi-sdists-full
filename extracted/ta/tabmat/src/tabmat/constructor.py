@@ -69,12 +69,13 @@ def from_df(
         unregularized model. If False, all categories are included.
     cat_missing_method: str {'fail'|'zero'|'convert'}, default 'fail'
         How to handle missing values in categorical columns:
+
         - if 'fail', raise an error if there are missing values.
         - if 'zero', missing values will represent all-zero indicator columns.
         - if 'convert', missing values will be converted to the '(MISSING)' category.
     cat_missing_name: str, default '(MISSING)'
         Name of the category to which missing values will be converted if
-        ``cat_missing_method='convert'``.
+        `cat_missing_method='convert'`.
 
     Returns
     -------
@@ -88,7 +89,9 @@ def from_df(
     dense_tmidx = []  # index in the new SplitMatrix
     sparse_dfidx = []  # column index in the original DataFrame
     sparse_tmidx = []  # index in the new SplitMatrix
+    pandas_sparse_dfidx = set()  # zero-fill pandas SparseDtype columns
     ignored_cols = []
+    nonzero_fill_cols: list[tuple[str, object]] = []
 
     mxcolidx = 0
 
@@ -106,9 +109,19 @@ def from_df(
 
         # deal with Pandas sparse dtype (not supported by narwhals)
         if pd is not None:
-            if isinstance(nw.to_native(coldata).dtype, pd.SparseDtype):
-                sparse_dfidx.append(dfcolidx)
-                sparse_tmidx.append(mxcolidx)
+            native_dtype = nw.to_native(coldata).dtype
+            if isinstance(native_dtype, pd.SparseDtype):
+                fill = native_dtype.fill_value
+                if np.isscalar(fill) and not pd.isna(fill) and fill == 0:
+                    pandas_sparse_dfidx.add(dfcolidx)
+                    sparse_dfidx.append(dfcolidx)
+                    sparse_tmidx.append(mxcolidx)
+                else:
+                    # SparseMatrix only represents zero fill. A sparse array with
+                    # any other fill value is logically dense, so store it that way.
+                    nonzero_fill_cols.append((colname, fill))
+                    dense_dfidx.append(dfcolidx)
+                    dense_tmidx.append(mxcolidx)
                 mxcolidx += 1
                 continue
 
@@ -180,6 +193,15 @@ def from_df(
         warnings.warn(
             f"Columns {ignored_cols} were ignored. Make sure they have a valid dtype."
         )
+    if len(nonzero_fill_cols) > 0:
+        listed = ", ".join(
+            f"{colname!r} (fill_value={fill!r})" for colname, fill in nonzero_fill_cols
+        )
+        warnings.warn(
+            f"Columns {listed} have a sparse dtype with a fill value other than 0."
+            " tabmat only supports a fill value of 0 for sparse storage, so these"
+            " columns are stored as dense. Use fill_value=0 to keep them sparse."
+        )
     if dense_dfidx:
         matrices.append(
             DenseMatrix(
@@ -191,9 +213,38 @@ def from_df(
         indices.append(np.asarray(dense_tmidx))
         is_cat.append(False)
     if sparse_dfidx:
+        # Assemble the CSC column by column. Going through
+        # `sps.coo_matrix(df[:, sparse_dfidx])` would materialize the whole block
+        # densely first, which for pandas sparse columns is O(n * k) work and memory
+        # on data that is O(nnz).
+        data_parts: list[np.ndarray] = []
+        index_parts: list[np.ndarray] = []
+        indptr = [0]
+        for dfcolidx in sparse_dfidx:
+            if dfcolidx in pandas_sparse_dfidx:
+                sparse_array = nw.to_native(df[:, dfcolidx]).array
+                col_indices = sparse_array.sp_index.to_int_index().indices
+                col_values = sparse_array.sp_values
+            else:
+                col = df[:, [dfcolidx]].to_numpy()[:, 0]
+                col_indices = np.flatnonzero(col)
+                col_values = col[col_indices]
+            index_parts.append(np.asarray(col_indices))
+            data_parts.append(np.asarray(col_values))
+            indptr.append(indptr[-1] + len(col_indices))
+        sparse_block = sps.csc_matrix(
+            (
+                np.concatenate(data_parts).astype(dtype, copy=False),
+                np.concatenate(index_parts),
+                np.asarray(indptr),
+            ),
+            shape=(df.shape[0], len(sparse_dfidx)),
+        )
+        # pandas sparse arrays may hold explicitly stored zeros
+        sparse_block.eliminate_zeros()
         matrices.append(
             SparseMatrix(
-                sps.coo_matrix(df[:, sparse_dfidx], dtype=dtype),
+                sparse_block,
                 dtype=dtype,
                 column_names=np.asarray(df.columns)[sparse_dfidx],
                 term_names=np.asarray(df.columns)[sparse_dfidx],
@@ -257,12 +308,13 @@ def from_pandas(
         unregularized model. If False, all categories are included.
     cat_missing_method: str {'fail'|'zero'|'convert'}, default 'fail'
         How to handle missing values in categorical columns:
+
         - if 'fail', raise an error if there are missing values.
         - if 'zero', missing values will represent all-zero indicator columns.
         - if 'convert', missing values will be converted to the '(MISSING)' category.
     cat_missing_name: str, default '(MISSING)'
         Name of the category to which missing values will be converted if
-        ``cat_missing_method='convert'``.
+        `cat_missing_method='convert'`.
 
     Returns
     -------
@@ -295,9 +347,9 @@ def _reindex_cat(indices: list[np.ndarray], is_cat: list[bool], mxcolidx: int):
 
 def from_csc(mat: sps.csc_matrix, threshold=0.1, column_names=None, term_names=None):
     """
-    Convert a CSC-format sparse matrix into a ``SplitMatrix``.
+    Convert a CSC-format sparse matrix into a `SplitMatrix`.
 
-    The ``threshold`` parameter specifies the density below which a column is
+    The `threshold` parameter specifies the density below which a column is
     treated as sparse.
     """
     dense, sparse, dense_idx, sparse_idx = _split_sparse_and_dense_parts(mat, threshold)
@@ -345,20 +397,21 @@ def from_formula(
         The separator between the names of interacted variables.
     categorical_format: str, default "{name}[T.{category}]"
         The format string used to generate the names of categorical variables.
-        Has to include the placeholders ``{name}`` and ``{category}``.
+        Has to include the placeholders `{name}` and `{category}`.
     cat_missing_method: str {'fail'|'zero'|'convert'}, default 'fail'
         How to handle missing values in categorical columns:
+
         - if 'fail', raise an error if there are missing values.
         - if 'zero', missing values will represent all-zero indicator columns.
         - if 'convert', missing values will be converted to the '(MISSING)' category.
     cat_missing_name: str, default '(MISSING)'
         Name of the category to which missing values will be converted if
-        ``cat_missing_method='convert'``.
+        `cat_missing_method='convert'`.
     intercept_name: str, default "Intercept"
         The name of the intercept column.
     include_intercept: bool, default False
         Whether to include an intercept term if the formula does not
-        include (``+ 1``) or exclude (``+ 0`` or ``- 1``) it explicitly.
+        include (`+ 1`) or exclude (`+ 0` or `- 1`) it explicitly.
     add_column_for_intercept: bool, default = True
         Whether to add a column of ones for the intercept, or just
         have a term without a corresponding column. For advanced use only.
@@ -367,7 +420,7 @@ def from_formula(
         e.g., custom transforms. If an integer, the context is taken from
         the stack frame of the caller at the given depth. Otherwise, a
         mapping from variable names to values is expected. By default,
-        no context is added. Set ``context=0`` to make the calling scope
+        no context is added. Set `context=0` to make the calling scope
         available.
     """
     if isinstance(context, int):

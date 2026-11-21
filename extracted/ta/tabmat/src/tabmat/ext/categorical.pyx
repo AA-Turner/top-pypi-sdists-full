@@ -15,19 +15,19 @@ ctypedef fused win_numeric:
     numeric
     long long
 
-cdef extern from "cat_split_helpers.cpp":
-    void _transpose_matvec_all_rows_fast[Int, F](Int, const int*, F*, F*, Int)
-    void _transpose_matvec_all_rows_complex[Int, F](Int, const int*, F*, F*, Int, bool)
+cdef extern from "cat_split_helpers.hpp":
+    void _transpose_matvec_all_rows_fast[Int, F](Int, const int*, const F*, F*, Int)
+    void _transpose_matvec_all_rows_complex[Int, F](Int, const int*, const F*, F*, Int, bool)
 
 
 def transpose_matvec_fast(
     const int[:] indices,
-    floating[:] other,
+    const floating[::1] other,
     int n_cols,
     dtype,
     rows,
     cols,
-    floating[:] out
+    floating[::1] out
 ):
     cdef int row, row_idx, n_keep_rows, col
     cdef int n_rows = len(indices)
@@ -69,12 +69,12 @@ def transpose_matvec_fast(
 
 def transpose_matvec_complex(
     const int[:] indices,
-    floating[:] other,
+    const floating[::1] other,
     int n_cols,
     dtype,
     rows,
     cols,
-    floating[:] out,
+    floating[::1] out,
     bint drop_first
 ):
     cdef int row, row_idx, n_keep_rows, col_idx
@@ -127,7 +127,7 @@ def get_col_included(int[:] cols, int n_cols):
 
 def matvec_fast(
     const int[:] indices,
-    floating[:] other,
+    const floating[:] other,
     int n_rows,
     int[:] cols,
     int n_cols,
@@ -153,7 +153,7 @@ def matvec_fast(
 
 def matvec_complex(
     const int[:] indices, 
-    floating[:] other, 
+    const floating[:] other, 
     int n_rows, 
     int[:] cols,
     int n_cols, 
@@ -182,7 +182,7 @@ def matvec_complex(
 
 def sandwich_categorical_fast(
     const int[:] indices,
-    floating[:] d,
+    const floating[:] d,
     int[:] rows,
     dtype,
     int n_cols
@@ -200,7 +200,7 @@ def sandwich_categorical_fast(
 
 def sandwich_categorical_complex(
     const int[:] indices,
-    floating[:] d,
+    const floating[:] d,
     int[:] rows,
     dtype,
     int n_cols,

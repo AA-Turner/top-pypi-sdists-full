@@ -15,7 +15,7 @@ The package is deliberately layered and pure (no XML side effects):
 * :mod:`~hwpx.form_fit.engine`  — :class:`FitEngine`, the keep→wrap→shrink ladder.
 * :mod:`~hwpx.form_fit.report`  — :class:`FitResult` and the ``FormReport`` adapter.
 
-Callers (``set_cell_text(fit=...)``, ``fill_form_field(fit_policy=...)``) apply the
+Callers (``set_cell_text(fit=...)``, ``doc.fields.fill(fit=...)``) apply the
 returned :class:`FitResult` and fold it into the one ``VisualCompleteReport``.
 """
 from __future__ import annotations
@@ -26,11 +26,14 @@ from .measure import (
     Measurement,
     SlotMetrics,
     TextStyle,
+    char_advance,
     estimate_lines,
     estimate_text_width,
     hancom_line_starts,
+    indented_widths,
     measure,
     resolve_slot_metrics,
+    text_style_from_refs,
 )
 from .policy import FitMode, FitPolicy, OverflowAction
 from .report import FIELD_OVERFLOW, FitResult, to_form_report
@@ -47,9 +50,12 @@ __all__ = [
     "TextStyle",
     "Measurement",
     "measure",
+    "char_advance",
     "estimate_text_width",
     "estimate_lines",
     "hancom_line_starts",
+    "indented_widths",
+    "text_style_from_refs",
     "resolve_slot_metrics",
     "DEFAULT_SAFETY",
 ]

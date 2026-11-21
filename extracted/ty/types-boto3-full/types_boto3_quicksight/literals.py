@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_boto3_quicksight.literals import ActionConnectorErrorTypeType
+    from types_boto3_quicksight.literals import AccessControlApplicationAuthenticationTypeType
 
-    data: ActionConnectorErrorTypeType = "INTERNAL_FAILURE"
+    data: AccessControlApplicationAuthenticationTypeType = "OIDC"
     ```
 """
 
@@ -23,6 +23,8 @@ else:
 
 
 __all__ = (
+    "AccessControlApplicationAuthenticationTypeType",
+    "AccessControlApplicationStatusType",
     "ActionConnectorErrorTypeType",
     "ActionConnectorSearchFilterNameEnumType",
     "ActionConnectorTypeType",
@@ -76,6 +78,7 @@ __all__ = (
     "CategoryFilterSelectAllOptionsType",
     "CategoryFilterTypeType",
     "ClientCredentialsSourceType",
+    "ClientSecretSourceTypeType",
     "ColorFillTypeType",
     "ColumnDataRoleType",
     "ColumnDataSubTypeType",
@@ -166,8 +169,11 @@ __all__ = (
     "IconType",
     "IdentityStoreType",
     "IdentityTypeType",
+    "IdpAuthorizingTypeType",
     "ImageCustomActionTriggerType",
     "ImageExtractionStatusType",
+    "InboundConnectorStatusType",
+    "InboundConnectorTypeType",
     "IncludeFolderMembersType",
     "IncludeGeneratedAnswerType",
     "IncludeQuickSightQIndexType",
@@ -181,7 +187,9 @@ __all__ = (
     "JoinTypeType",
     "KPISparklineTypeType",
     "KPIVisualStandardLayoutTypeType",
+    "KbDayOfWeekType",
     "KbIngestionStatusType",
+    "KbRefreshIntervalType",
     "KnowledgeBaseSearchFilterNameType",
     "KnowledgeBaseSearchOperatorType",
     "KnowledgeBaseSortByFieldType",
@@ -194,6 +202,7 @@ __all__ = (
     "LineChartMarkerShapeType",
     "LineChartTypeType",
     "LineInterpolationType",
+    "ListAccessControlApplicationsPaginatorName",
     "ListActionConnectorsPaginatorName",
     "ListAnalysesPaginatorName",
     "ListApprovalPoliciesPaginatorName",
@@ -215,11 +224,15 @@ __all__ = (
     "ListGroupsPaginatorName",
     "ListIAMPolicyAssignmentsForUserPaginatorName",
     "ListIAMPolicyAssignmentsPaginatorName",
+    "ListInboundConnectorApplicationAssociationsPaginatorName",
+    "ListInboundConnectorsPaginatorName",
     "ListIngestionsPaginatorName",
+    "ListKnowledgeBaseRefreshSchedulesPaginatorName",
     "ListKnowledgeBasesPaginatorName",
     "ListLimitsProfilesPaginatorName",
     "ListNamespacesPaginatorName",
     "ListOAuthClientApplicationsPaginatorName",
+    "ListPrincipalsForPolicyPaginatorName",
     "ListRoleMembershipsPaginatorName",
     "ListTemplateAliasesPaginatorName",
     "ListTemplateVersionsPaginatorName",
@@ -262,7 +275,9 @@ __all__ = (
     "PivotTableRowsLayoutType",
     "PivotTableSubtotalLevelType",
     "PluginVisualAxisNameType",
+    "PolicyTypeType",
     "PrimaryValueDisplayTypeType",
+    "PrincipalTypeType",
     "PropertyRoleType",
     "PropertyUsageType",
     "PurchaseModeType",
@@ -271,6 +286,7 @@ __all__ = (
     "QDataKeyTypeType",
     "QSearchStatusType",
     "QueryExecutionModeType",
+    "QuickAuthenticationTypeType",
     "QuickSightServiceName",
     "RadarChartAxesRangeScaleType",
     "RadarChartShapeType",
@@ -292,6 +308,7 @@ __all__ = (
     "RoleType",
     "RowLevelPermissionFormatVersionType",
     "RowLevelPermissionPolicyType",
+    "ScheduleStateType",
     "SearchActionConnectorsPaginatorName",
     "SearchAnalysesPaginatorName",
     "SearchAppsFilterNameType",
@@ -400,6 +417,8 @@ __all__ = (
 )
 
 
+AccessControlApplicationAuthenticationTypeType = Literal["OIDC"]
+AccessControlApplicationStatusType = Literal["DISABLED", "ENABLED"]
 ActionConnectorErrorTypeType = Literal["INTERNAL_FAILURE"]
 ActionConnectorSearchFilterNameEnumType = Literal[
     "ACTION_CONNECTOR_NAME",
@@ -542,7 +561,7 @@ AssetBundleImportJobStatusType = Literal[
     "QUEUED_FOR_IMMEDIATE_EXECUTION",
     "SUCCESSFUL",
 ]
-AssetTypeType = Literal["AGENT", "KNOWLEDGE_BASE", "SPACE"]
+AssetTypeType = Literal["AGENT", "FLOW", "KNOWLEDGE_BASE", "SPACE"]
 AssignmentStatusType = Literal["DISABLED", "DRAFT", "ENABLED"]
 AudioExtractionStatusType = Literal["DISABLED", "ENABLED"]
 AuthTypeType = Literal["SERVICE_ACCOUNT", "THREE_LEGGED_OAUTH", "TWO_LEGGED_OAUTH"]
@@ -584,6 +603,7 @@ CategoryFilterMatchOperatorType = Literal[
 CategoryFilterSelectAllOptionsType = Literal["FILTER_ALL_VALUES"]
 CategoryFilterTypeType = Literal["CUSTOM_FILTER", "CUSTOM_FILTER_LIST", "FILTER_LIST"]
 ClientCredentialsSourceType = Literal["PLAIN_CREDENTIALS"]
+ClientSecretSourceTypeType = Literal["IDP_PROVIDED"]
 ColorFillTypeType = Literal["DISCRETE", "GRADIENT"]
 ColumnDataRoleType = Literal["DIMENSION", "MEASURE"]
 ColumnDataSubTypeType = Literal["FIXED", "FLOAT"]
@@ -855,7 +875,7 @@ GeospatialColorStateType = Literal["DISABLED", "ENABLED"]
 GeospatialLayerTypeType = Literal["LINE", "POINT", "POLYGON"]
 GeospatialMapNavigationType = Literal["DISABLED", "ENABLED"]
 GeospatialSelectedPointStyleType = Literal["CLUSTER", "HEATMAP", "POINT"]
-GovernedActionType = Literal["SHARE"]
+GovernedActionType = Literal["PUBLISH", "SHARE"]
 GroupFilterAttributeType = Literal["GROUP_NAME"]
 GroupFilterOperatorType = Literal["StartsWith"]
 HierarchyFilterMatchOperatorType = Literal["EXCLUDE", "INCLUDE"]
@@ -891,8 +911,16 @@ IconType = Literal[
 ]
 IdentityStoreType = Literal["QUICKSIGHT"]
 IdentityTypeType = Literal["IAM", "IAM_IDENTITY_CENTER", "QUICKSIGHT"]
+IdpAuthorizingTypeType = Literal[
+    "EXTERNAL_IDP_CONFIDENTIAL_AUTH_CODE",
+    "EXTERNAL_IDP_PUBLIC_AUTH_CODE",
+    "IDC_AUTH_CODE",
+    "QUICK_MANAGED_AUTH_CODE",
+]
 ImageCustomActionTriggerType = Literal["CLICK", "MENU"]
 ImageExtractionStatusType = Literal["DISABLED", "ENABLED"]
+InboundConnectorStatusType = Literal["DISABLED", "ENABLED"]
+InboundConnectorTypeType = Literal["QUICK_DESKTOP"]
 IncludeFolderMembersType = Literal["NONE", "ONE_LEVEL", "RECURSE"]
 IncludeGeneratedAnswerType = Literal["EXCLUDE", "INCLUDE"]
 IncludeQuickSightQIndexType = Literal["EXCLUDE", "INCLUDE"]
@@ -958,9 +986,13 @@ JoinOperationTypeType = Literal["INNER", "LEFT", "OUTER", "RIGHT"]
 JoinTypeType = Literal["INNER", "LEFT", "OUTER", "RIGHT"]
 KPISparklineTypeType = Literal["AREA", "LINE"]
 KPIVisualStandardLayoutTypeType = Literal["CLASSIC", "VERTICAL"]
+KbDayOfWeekType = Literal[
+    "FRIDAY", "MONDAY", "SATURDAY", "SUNDAY", "THURSDAY", "TUESDAY", "WEDNESDAY"
+]
 KbIngestionStatusType = Literal[
     "CANCELLED", "CANCELLING", "COMPLETED", "FAILED", "INCOMPLETE", "QUEUED", "RUNNING", "TIMEOUT"
 ]
+KbRefreshIntervalType = Literal["DAILY", "HOURLY", "MONTHLY", "WEEKLY"]
 KnowledgeBaseSearchFilterNameType = Literal[
     "DATASOURCE_ARN",
     "DIRECT_QUICKSIGHT_OWNER",
@@ -986,6 +1018,7 @@ LineChartLineStyleType = Literal["DASHED", "DOTTED", "SOLID"]
 LineChartMarkerShapeType = Literal["CIRCLE", "DIAMOND", "ROUNDED_SQUARE", "SQUARE", "TRIANGLE"]
 LineChartTypeType = Literal["AREA", "LINE", "STACKED_AREA"]
 LineInterpolationType = Literal["LINEAR", "SMOOTH", "STEPPED"]
+ListAccessControlApplicationsPaginatorName = Literal["list_access_control_applications"]
 ListActionConnectorsPaginatorName = Literal["list_action_connectors"]
 ListAnalysesPaginatorName = Literal["list_analyses"]
 ListApprovalPoliciesPaginatorName = Literal["list_approval_policies"]
@@ -1007,11 +1040,17 @@ ListGroupMembershipsPaginatorName = Literal["list_group_memberships"]
 ListGroupsPaginatorName = Literal["list_groups"]
 ListIAMPolicyAssignmentsForUserPaginatorName = Literal["list_iam_policy_assignments_for_user"]
 ListIAMPolicyAssignmentsPaginatorName = Literal["list_iam_policy_assignments"]
+ListInboundConnectorApplicationAssociationsPaginatorName = Literal[
+    "list_inbound_connector_application_associations"
+]
+ListInboundConnectorsPaginatorName = Literal["list_inbound_connectors"]
 ListIngestionsPaginatorName = Literal["list_ingestions"]
+ListKnowledgeBaseRefreshSchedulesPaginatorName = Literal["list_knowledge_base_refresh_schedules"]
 ListKnowledgeBasesPaginatorName = Literal["list_knowledge_bases"]
 ListLimitsProfilesPaginatorName = Literal["list_limits_profiles"]
 ListNamespacesPaginatorName = Literal["list_namespaces"]
 ListOAuthClientApplicationsPaginatorName = Literal["list_o_auth_client_applications"]
+ListPrincipalsForPolicyPaginatorName = Literal["list_principals_for_policy"]
 ListRoleMembershipsPaginatorName = Literal["list_role_memberships"]
 ListTemplateAliasesPaginatorName = Literal["list_template_aliases"]
 ListTemplateVersionsPaginatorName = Literal["list_template_versions"]
@@ -1119,7 +1158,9 @@ PivotTableMetricPlacementType = Literal["COLUMN", "ROW"]
 PivotTableRowsLayoutType = Literal["HIERARCHY", "TABULAR"]
 PivotTableSubtotalLevelType = Literal["ALL", "CUSTOM", "LAST"]
 PluginVisualAxisNameType = Literal["GROUP_BY", "VALUE"]
+PolicyTypeType = Literal["CUSTOM_PERMISSIONS", "LIMITS_PROFILE"]
 PrimaryValueDisplayTypeType = Literal["ACTUAL", "COMPARISON", "HIDDEN"]
+PrincipalTypeType = Literal["ACCOUNT", "GROUP", "USER"]
 PropertyRoleType = Literal["ID", "PRIMARY"]
 PropertyUsageType = Literal["DIMENSION", "INHERIT", "MEASURE"]
 PurchaseModeType = Literal["AUTO_PURCHASE", "MANUAL"]
@@ -1128,6 +1169,7 @@ QBusinessInsightsStatusType = Literal["DISABLED", "ENABLED"]
 QDataKeyTypeType = Literal["AWS_OWNED", "CMK"]
 QSearchStatusType = Literal["DISABLED", "ENABLED"]
 QueryExecutionModeType = Literal["AUTO", "MANUAL"]
+QuickAuthenticationTypeType = Literal["QUICK_MANAGED_PUBLIC_AUTH_CODE"]
 RadarChartAxesRangeScaleType = Literal["AUTO", "INDEPENDENT", "SHARED"]
 RadarChartShapeType = Literal["CIRCLE", "POLYGON"]
 ReferenceLineLabelHorizontalPositionType = Literal["CENTER", "LEFT", "RIGHT"]
@@ -1162,6 +1204,7 @@ ReviewedAnswerErrorCodeType = Literal[
 RoleType = Literal["ADMIN", "ADMIN_PRO", "AUTHOR", "AUTHOR_PRO", "READER", "READER_PRO"]
 RowLevelPermissionFormatVersionType = Literal["VERSION_1", "VERSION_2"]
 RowLevelPermissionPolicyType = Literal["DENY_ACCESS", "GRANT_ACCESS"]
+ScheduleStateType = Literal["DISABLED", "ENABLED"]
 SearchActionConnectorsPaginatorName = Literal["search_action_connectors"]
 SearchAnalysesPaginatorName = Literal["search_analyses"]
 SearchAppsFilterNameType = Literal[
@@ -1366,6 +1409,7 @@ ServiceName = Literal[
     "account-access-runtime",
     "acm",
     "acm-pca",
+    "agent-discovery",
     "agent-registry",
     "agent-registry-control",
     "aiops",
@@ -1376,6 +1420,7 @@ ServiceName = Literal[
     "apigateway",
     "apigatewaymanagementapi",
     "apigatewayv2",
+    "apiportal",
     "appconfig",
     "appconfigdata",
     "appfabric",
@@ -1666,6 +1711,7 @@ ServiceName = Literal[
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
+    "payments",
     "pca-connector-ad",
     "pca-connector-scep",
     "pcs",
@@ -1721,6 +1767,7 @@ ServiceName = Literal[
     "sagemaker-a2i-runtime",
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
+    "sagemaker-gateway-runtime",
     "sagemaker-geospatial",
     "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
@@ -1806,6 +1853,7 @@ ResourceServiceName = Literal[
 PaginatorName = Literal[
     "describe_folder_permissions",
     "describe_folder_resolved_permissions",
+    "list_access_control_applications",
     "list_action_connectors",
     "list_analyses",
     "list_approval_policies",
@@ -1827,11 +1875,15 @@ PaginatorName = Literal[
     "list_groups",
     "list_iam_policy_assignments",
     "list_iam_policy_assignments_for_user",
+    "list_inbound_connector_application_associations",
+    "list_inbound_connectors",
     "list_ingestions",
+    "list_knowledge_base_refresh_schedules",
     "list_knowledge_bases",
     "list_limits_profiles",
     "list_namespaces",
     "list_o_auth_client_applications",
+    "list_principals_for_policy",
     "list_role_memberships",
     "list_template_aliases",
     "list_template_versions",

@@ -1,3 +1,5 @@
+import pytest
+
 import jsonschema_rs
 
 
@@ -302,3 +304,52 @@ def test_validator_evaluate_annotations_and_errors():
             },
         ],
     }
+
+
+@pytest.mark.parametrize("instance,valid", [("a", True), (1, False)])
+def test_evaluation_reports_validity(instance, valid):
+    evaluation = jsonschema_rs.evaluate({"type": "string"}, instance)
+    assert evaluation.valid is valid
+    assert repr(evaluation) == f"<Evaluation valid={str(valid).lower()}>"
+
+
+def test_evaluate_lists_every_message_of_one_keyword():
+    evaluation = jsonschema_rs.evaluate({"required": ["a", "b"]}, {})
+    assert evaluation.list() == {
+        "valid": False,
+        "details": [
+            {"valid": False, "evaluationPath": "", "schemaLocation": "", "instanceLocation": ""},
+            {
+                "valid": False,
+                "evaluationPath": "/required",
+                "schemaLocation": "/required",
+                "instanceLocation": "",
+                "errors": {"required": ['"a" is a required property', '"b" is a required property']},
+            },
+        ],
+    }
+
+
+IDENTIFIED = {"$id": "https://example.com/s", "type": "string", "title": "T"}
+
+
+def test_errors_carry_the_absolute_keyword_location():
+    assert jsonschema_rs.evaluate(IDENTIFIED, 1).errors() == [
+        {
+            "schemaLocation": "https://example.com/s#/type",
+            "absoluteKeywordLocation": "https://example.com/s#/type",
+            "instanceLocation": "",
+            "error": '1 is not of type "string"',
+        }
+    ]
+
+
+def test_annotations_carry_the_absolute_keyword_location():
+    assert jsonschema_rs.evaluate(IDENTIFIED, "a").annotations() == [
+        {
+            "schemaLocation": "https://example.com/s#",
+            "absoluteKeywordLocation": "https://example.com/s#",
+            "instanceLocation": "",
+            "annotations": {"title": "T"},
+        }
+    ]

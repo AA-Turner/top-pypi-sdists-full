@@ -278,7 +278,11 @@ static int sel_substr_overlaps(const Py_UCS4 *want, Py_ssize_t want_len, int ci)
     if (want_len <= 64) {
         return 0;
     }
-    Py_ssize_t *prefix = PyMem_Malloc((size_t)want_len * sizeof(*prefix));
+    /* GCOVR_EXCL_START: needs a 32-bit build and a selector string of over a billion code points */
+    Py_ssize_t *prefix = TH_UNLIKELY((size_t)want_len > SIZE_MAX / sizeof(Py_ssize_t))
+                             ? NULL
+                             : PyMem_Malloc((size_t)want_len * sizeof(*prefix));
+    /* GCOVR_EXCL_STOP */
     if (prefix == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
         return 1;         /* GCOVR_EXCL_LINE: retain the bounded matcher when classification runs out of memory */
     }
@@ -831,8 +835,8 @@ static int sel_grow(void **buffer, int *capacity, size_t elem_size) {
     size_t cap;
     size_t bytes;
     int grew = th_grow_cap((size_t)*capacity + 1, (size_t)*capacity, 8, elem_size, &cap, &bytes);
-    if (!grew) {   /* GCOVR_EXCL_BR_LINE: size overflow needs a length no allocation could hold */
-        return -1; /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
+    if (!grew || cap > INT_MAX) { /* GCOVR_EXCL_BR_LINE: needs a parse buffer of over a billion elements */
+        return -1;                /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
     }
     void *bigger = PyMem_Realloc(*buffer, bytes);
     if (bigger == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
@@ -1853,7 +1857,11 @@ static int contains_ws_token(const Py_UCS4 *value, Py_ssize_t value_len, const P
 
 static int sel_substr_kmp(const Py_UCS4 *value, Py_ssize_t value_len, const Py_UCS4 *want, Py_ssize_t want_len,
                           Py_ssize_t offset, int ci) {
-    Py_ssize_t *prefix = PyMem_Malloc((size_t)want_len * sizeof(*prefix));
+    /* GCOVR_EXCL_START: needs a 32-bit build and a selector string of over a billion code points */
+    Py_ssize_t *prefix = TH_UNLIKELY((size_t)want_len > SIZE_MAX / sizeof(Py_ssize_t))
+                             ? NULL
+                             : PyMem_Malloc((size_t)want_len * sizeof(*prefix));
+    /* GCOVR_EXCL_STOP */
     if (prefix == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
         return -1;        /* GCOVR_EXCL_LINE: the caller retains the allocation-free scan */
     }
@@ -2064,7 +2072,11 @@ static Py_ssize_t sel_position_index(th_node_map *map, const th_node *node, int 
          sibling = from_end ? sibling->prev_sibling : sibling->next_sibling) {
         count += sibling->type == TH_NODE_ELEMENT;
     }
-    sel_position_item *items = PyMem_Malloc(count * sizeof(sel_position_item));
+    /* GCOVR_EXCL_START: needs a 32-bit build and over a billion siblings; the caller keeps its direct walk */
+    sel_position_item *items = TH_UNLIKELY(count > SIZE_MAX / sizeof(sel_position_item))
+                                   ? NULL
+                                   : PyMem_Malloc(count * sizeof(sel_position_item));
+    /* GCOVR_EXCL_STOP */
     /* GCOVR_EXCL_START: allocation failure cannot be forced from a test */
     if (items == NULL || th_node_map_reserve(map, map->count + count) < 0) {
         PyMem_Free(items);
@@ -2945,6 +2957,37 @@ static int sel_match_pseudo(th_node *node, const sel_simple *simple, const sel_c
     }
 }
 
+/* Out of line, so the :has() loop that LTO inlines sel_match_simple into keeps its register allocation
+   when unrelated code changes size. */
+static TH_NOINLINE int sel_match_attr_arm(th_node *node, const sel_simple *simple, const sel_ctx *ctx) {
+    if (simple->kind == '.') {
+        const th_node_attr *attr = sel_find_attr(node, TH_ATTR_CLASS);
+        if (attr == NULL || attr->value == NULL) {
+            return 0;
+        }
+        if (attr->value_len >= SEL_VALUE_MEMO_MIN) {
+            return sel_match_long_value(node, simple, attr->value, attr->value_len, ctx->quirks, ctx);
+        }
+        return contains_ws_token(attr->value, attr->value_len, simple->name, simple->name_len, ctx->quirks);
+    }
+    if (simple->attr_atom == UINT32_MAX) {
+        return 0; /* no element in the tree carries this name */
+    }
+    const th_node_attr *attr = sel_find_attr(node, simple->attr_atom);
+    if (attr == NULL) {
+        return 0;
+    }
+    const Py_UCS4 *value = attr->value != NULL ? attr->value : simple->value;
+    Py_ssize_t value_len = attr->value != NULL ? attr->value_len : 0;
+    /* the HTML case-insensitive set applies only to HTML-namespace elements */
+    int ci = simple->ci || (simple->ci_default && node->ns == TH_NS_HTML);
+    /* the other operators compare at most the selector's own value */
+    if (value_len >= SEL_VALUE_MEMO_MIN && (simple->op == OP_INCLUDE || simple->op == OP_SUBSTR)) {
+        return sel_match_long_value(node, simple, value, value_len, ci, ctx);
+    }
+    return sel_match_attr_op(simple, value, value_len, ci);
+}
+
 int sel_match_simple(th_node *node, const sel_simple *simple, const sel_ctx *ctx) {
     switch (simple->kind) {
     case '*':
@@ -2969,34 +3012,9 @@ int sel_match_simple(th_node *node, const sel_simple *simple, const sel_ctx *ctx
         return attr != NULL && attr->value != NULL &&
                sel_eq(attr->value, attr->value_len, simple->name, simple->name_len, ctx->quirks);
     }
-    case '.': {
-        const th_node_attr *attr = sel_find_attr(node, TH_ATTR_CLASS);
-        if (attr == NULL || attr->value == NULL) {
-            return 0;
-        }
-        if (attr->value_len >= SEL_VALUE_MEMO_MIN) {
-            return sel_match_long_value(node, simple, attr->value, attr->value_len, ctx->quirks, ctx);
-        }
-        return contains_ws_token(attr->value, attr->value_len, simple->name, simple->name_len, ctx->quirks);
-    }
-    default: { /* '[' */
-        if (simple->attr_atom == UINT32_MAX) {
-            return 0; /* no element in the tree carries this name */
-        }
-        const th_node_attr *attr = sel_find_attr(node, simple->attr_atom);
-        if (attr == NULL) {
-            return 0;
-        }
-        const Py_UCS4 *value = attr->value != NULL ? attr->value : simple->value;
-        Py_ssize_t value_len = attr->value != NULL ? attr->value_len : 0;
-        /* the HTML case-insensitive set applies only to HTML-namespace elements */
-        int ci = simple->ci || (simple->ci_default && node->ns == TH_NS_HTML);
-        /* the other operators compare at most the selector's own value */
-        if (value_len >= SEL_VALUE_MEMO_MIN && (simple->op == OP_INCLUDE || simple->op == OP_SUBSTR)) {
-            return sel_match_long_value(node, simple, value, value_len, ci, ctx);
-        }
-        return sel_match_attr_op(simple, value, value_len, ci);
-    }
+    case '.':
+    default:
+        return sel_match_attr_arm(node, simple, ctx);
     }
 }
 
@@ -3858,6 +3876,12 @@ static int sel_deep_get(sel_deep_memo *memo, const void *key, const th_node *nod
 static int sel_deep_page(sel_deep_memo *memo, sel_deep_key *slot, size_t block) {
     const size_t length = block < slot->pages_len ? slot->pages_len : block + 1;
     const size_t grown = length - slot->pages_len;
+    /* GCOVR_EXCL_START: needs a 32-bit build and a node sequence past SIZE_MAX bytes of page table */
+    if (length > (SIZE_MAX - SEL_DEEP_PAGE_BYTES) / sizeof(unsigned char *)) {
+        sel_deep_fail(memo);
+        return 0;
+    }
+    /* GCOVR_EXCL_STOP */
     if (!sel_deep_reserve(memo, grown * sizeof(unsigned char *) + SEL_DEEP_PAGE_BYTES)) {
         sel_deep_fail(memo);
         return 0;
@@ -3919,7 +3943,7 @@ static size_t sel_deep_run_home(const void *key, const th_node *parent, size_t m
 static int sel_deep_run_grow(sel_deep_memo *table) {
     const size_t capacity = table->runs == NULL ? 16 : (table->runs_mask + 1) * 2;
     sel_deep_run *runs =
-        capacity * sizeof(sel_deep_run) <= table->limit ? PyMem_Calloc(capacity, sizeof(sel_deep_run)) : NULL;
+        capacity <= table->limit / sizeof(sel_deep_run) ? PyMem_Calloc(capacity, sizeof(sel_deep_run)) : NULL;
     if (runs == NULL) {
         PyMem_Free(table->runs);
         table->runs = NULL;
@@ -4922,14 +4946,20 @@ static void sel_sweep_push(sel_sweep *sweep, int start, const sel_span *span) {
         return;
     }
     if (sweep->used == sweep->cap) {
-        const int cap = sweep->cap == 0 ? SEL_SWEEP_SPANS : 2 * sweep->cap;
-        sel_span *pool = PyMem_Realloc(sweep->pool, (size_t)cap * sizeof(sel_span));
+        const size_t cap = sweep->cap == 0 ? SEL_SWEEP_SPANS : 2 * (size_t)sweep->cap;
+        /* GCOVR_EXCL_START: needs a 32-bit build and over 134 million spans in one sweep */
+        if (cap > INT_MAX || cap > SIZE_MAX / sizeof(sel_span)) {
+            sweep->failed = 1;
+            return;
+        }
+        /* GCOVR_EXCL_STOP */
+        sel_span *pool = PyMem_Realloc(sweep->pool, cap * sizeof(sel_span));
         if (pool == NULL) {    /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
             sweep->failed = 1; /* GCOVR_EXCL_LINE: allocation failure */
             return;            /* GCOVR_EXCL_LINE: allocation failure */
         }
         sweep->pool = pool;
-        sweep->cap = cap;
+        sweep->cap = (int)cap;
     }
     sweep->pool[sweep->used++] = *span;
 }
@@ -5072,14 +5102,20 @@ static void sel_sweep_negate(sel_sweep *sweep, int start) {
 
 static void sel_sweep_mark(sel_sweep *sweep, int mark) {
     if (sweep->mark_count == sweep->mark_cap) {
-        const int cap = sweep->mark_cap == 0 ? 64 : 2 * sweep->mark_cap;
-        int *marks = PyMem_Realloc(sweep->marks, (size_t)cap * sizeof(int));
+        const size_t cap = sweep->mark_cap == 0 ? 64 : 2 * (size_t)sweep->mark_cap;
+        /* GCOVR_EXCL_START: needs a 32-bit build and over 536 million marks in one sweep */
+        if (cap > INT_MAX || cap > SIZE_MAX / sizeof(int)) {
+            sweep->failed = 1;
+            return;
+        }
+        /* GCOVR_EXCL_STOP */
+        int *marks = PyMem_Realloc(sweep->marks, cap * sizeof(int));
         if (marks == NULL) {   /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
             sweep->failed = 1; /* GCOVR_EXCL_LINE: allocation failure */
             return;            /* GCOVR_EXCL_LINE: allocation failure */
         }
         sweep->marks = marks;
-        sweep->mark_cap = cap;
+        sweep->mark_cap = (int)cap;
     }
     sweep->marks[sweep->mark_count++] = mark;
 }
@@ -5087,7 +5123,12 @@ static void sel_sweep_mark(sel_sweep *sweep, int mark) {
 /* Plans a chain of complex up to compound to: scope is the compound pinned to the anchor (-1 for none), or
    SEL_SWEEP_NOT_SCOPE. */
 static void sel_sweep_plan_chain(sel_sweep *sweep, const sel_complex *complex, int scope, int to, int any_last) {
-    sel_sweep_chain *chains = PyMem_Realloc(sweep->chains, (size_t)(sweep->chain_count + 1) * sizeof(sel_sweep_chain));
+    /* GCOVR_EXCL_START: needs a 32-bit build and over 107 million chains in one sweep */
+    sel_sweep_chain *chains =
+        TH_UNLIKELY((size_t)sweep->chain_count + 1 > SIZE_MAX / sizeof(sel_sweep_chain))
+            ? NULL
+            : PyMem_Realloc(sweep->chains, (size_t)(sweep->chain_count + 1) * sizeof(sel_sweep_chain));
+    /* GCOVR_EXCL_STOP */
     if (chains == NULL) {  /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
         sweep->failed = 1; /* GCOVR_EXCL_LINE: allocation failure */
         return;            /* GCOVR_EXCL_LINE: allocation failure */
@@ -5439,7 +5480,11 @@ static int sel_sweep_run(sel_sweep *sweep, th_node *anchor, const sel_complex *r
     for (th_node *child = sel_first_element_child(parent); child != NULL; child = sel_next_element_sibling(child)) {
         sweep->n++;
     }
-    sweep->nodes = PyMem_Malloc(((size_t)sweep->n + 1) * sizeof(th_node *));
+    /* GCOVR_EXCL_START: needs a 32-bit build and a parent with over 536 million element children */
+    sweep->nodes = TH_UNLIKELY((size_t)sweep->n + 1 > SIZE_MAX / sizeof(th_node *))
+                       ? NULL
+                       : PyMem_Malloc(((size_t)sweep->n + 1) * sizeof(th_node *));
+    /* GCOVR_EXCL_STOP */
     if (sweep->nodes == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
         return -1;              /* GCOVR_EXCL_LINE: allocation failure */
     }

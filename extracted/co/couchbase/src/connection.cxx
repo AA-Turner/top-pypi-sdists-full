@@ -23,7 +23,9 @@
 #include <core/range_scan_orchestrator.hxx>
 #include <core/timeout_defaults.hxx>
 #include <core/utils/connection_string.hxx>
+#include <optional>
 #include <stdexcept>
+#include <tuple>
 
 namespace pycbc
 {
@@ -118,6 +120,10 @@ Connection::handle_connection_operation_callback(std::error_code ec,
       }
     } else if (pyObj_errback != nullptr) {
       PyObject* ret = PyObject_CallFunctionObjArgs(pyObj_errback, result, nullptr);
+      if (ret == nullptr) {
+        // errback raised; nothing else observes this IO thread's exception state.
+        PyErr_WriteUnraisable(pyObj_errback);
+      }
       Py_XDECREF(ret);
       Py_XDECREF(result);
     } else if (barrier) {
@@ -132,11 +138,14 @@ Connection::handle_connection_operation_callback(std::error_code ec,
       connected_ = false;
     }
 
-    Py_INCREF(Py_None);
-    result = Py_None;
+    result = Py_NewRef(Py_None);
 
     if (pyObj_callback != nullptr) {
       PyObject* ret = PyObject_CallFunctionObjArgs(pyObj_callback, result, nullptr);
+      if (ret == nullptr) {
+        // callback raised; nothing else observes this IO thread's exception state.
+        PyErr_WriteUnraisable(pyObj_callback);
+      }
       Py_XDECREF(ret);
       Py_XDECREF(result);
     } else if (barrier) {
@@ -182,8 +191,8 @@ Connection::connect(PyObject* kwargs)
     update_cluster_options_from_py(connstr.options, pyObj_options, pyObj_auth);
     couchbase::core::origin origin(creds, connstr);
 
-    Py_BEGIN_ALLOW_THREADS
     {
+      gil_release_guard no_gil;
       cluster_.open(
         origin,
         [callback = pyObj_callback, errback = pyObj_errback, barrier, this](std::error_code ec) {
@@ -191,14 +200,14 @@ Connection::connect(PyObject* kwargs)
             ec, "connect", callback, errback, barrier, connection_state_action::set_connected);
         });
     }
-    Py_END_ALLOW_THREADS
 
-      if (barrier)
-    {
+    if (barrier) {
       PyObject* result = nullptr;
-      Py_BEGIN_ALLOW_THREADS result = fut.get();
-      Py_END_ALLOW_THREADS if (result == nullptr)
       {
+        gil_release_guard no_gil;
+        result = fut.get();
+      }
+      if (result == nullptr) {
         // The IO thread's result construction failed; that failure was already
         // reported via PyErr_WriteUnraisable there, so nothing is pending on this
         // thread.
@@ -236,8 +245,8 @@ Connection::close(PyObject* kwargs)
   }
 
   try {
-    Py_BEGIN_ALLOW_THREADS
     {
+      gil_release_guard no_gil;
       cluster_.close([callback = pyObj_callback, errback = pyObj_errback, barrier, this]() {
         handle_connection_operation_callback(std::error_code{},
                                              "close",
@@ -247,14 +256,14 @@ Connection::close(PyObject* kwargs)
                                              connection_state_action::set_disconnected);
       });
     }
-    Py_END_ALLOW_THREADS
 
-      if (barrier)
-    {
+    if (barrier) {
       PyObject* result = nullptr;
-      Py_BEGIN_ALLOW_THREADS result = fut.get();
-      Py_END_ALLOW_THREADS if (result == nullptr)
       {
+        gil_release_guard no_gil;
+        result = fut.get();
+      }
+      if (result == nullptr) {
         // The IO thread's result construction failed; that failure was already
         // reported via PyErr_WriteUnraisable there, so nothing is pending on this
         // thread.
@@ -298,22 +307,22 @@ Connection::open_bucket(PyObject* kwargs)
       throw std::invalid_argument("bucket_name must be a valid UTF-8 string");
     }
 
-    Py_BEGIN_ALLOW_THREADS
     {
+      gil_release_guard no_gil;
       cluster_.open_bucket(
         bucket_name,
         [callback = pyObj_callback, errback = pyObj_errback, barrier, this](std::error_code ec) {
           handle_connection_operation_callback(ec, "open_bucket", callback, errback, barrier);
         });
     }
-    Py_END_ALLOW_THREADS
 
-      if (barrier)
-    {
+    if (barrier) {
       PyObject* result = nullptr;
-      Py_BEGIN_ALLOW_THREADS result = fut.get();
-      Py_END_ALLOW_THREADS if (result == nullptr)
       {
+        gil_release_guard no_gil;
+        result = fut.get();
+      }
+      if (result == nullptr) {
         // The IO thread's result construction failed; that failure was already
         // reported via PyErr_WriteUnraisable there, so nothing is pending on this
         // thread.
@@ -357,22 +366,22 @@ Connection::close_bucket(PyObject* kwargs)
       throw std::invalid_argument("bucket_name must be a valid UTF-8 string");
     }
 
-    Py_BEGIN_ALLOW_THREADS
     {
+      gil_release_guard no_gil;
       cluster_.close_bucket(
         bucket_name,
         [callback = pyObj_callback, errback = pyObj_errback, barrier, this](std::error_code ec) {
           handle_connection_operation_callback(ec, "close_bucket", callback, errback, barrier);
         });
     }
-    Py_END_ALLOW_THREADS
 
-      if (barrier)
-    {
+    if (barrier) {
       PyObject* result = nullptr;
-      Py_BEGIN_ALLOW_THREADS result = fut.get();
-      Py_END_ALLOW_THREADS if (result == nullptr)
       {
+        gil_release_guard no_gil;
+        result = fut.get();
+      }
+      if (result == nullptr) {
         // The IO thread's result construction failed; that failure was already
         // reported via PyErr_WriteUnraisable there, so nothing is pending on this
         // thread.
@@ -450,8 +459,8 @@ Connection::diagnostics(PyObject* kwargs)
   }
 
   try {
-    Py_BEGIN_ALLOW_THREADS
     {
+      gil_release_guard no_gil;
       cluster_.diagnostics(report_id,
                            [pyObj_callback, pyObj_errback, barrier, this](
                              couchbase::core::diag::diagnostics_result resp) {
@@ -459,14 +468,14 @@ Connection::diagnostics(PyObject* kwargs)
                                resp, pyObj_callback, pyObj_errback, barrier);
                            });
     }
-    Py_END_ALLOW_THREADS
 
-      if (barrier)
-    {
+    if (barrier) {
       PyObject* result = nullptr;
-      Py_BEGIN_ALLOW_THREADS result = fut.get();
-      Py_END_ALLOW_THREADS if (result == nullptr)
       {
+        gil_release_guard no_gil;
+        result = fut.get();
+      }
+      if (result == nullptr) {
         // The IO thread's result construction failed; that failure was already
         // reported via PyErr_WriteUnraisable there, so nothing is pending on this
         // thread.
@@ -513,8 +522,8 @@ Connection::ping(PyObject* kwargs)
   }
 
   try {
-    Py_BEGIN_ALLOW_THREADS
     {
+      gil_release_guard no_gil;
       cluster_.ping(
         report_id,
         bucket_name,
@@ -524,14 +533,14 @@ Connection::ping(PyObject* kwargs)
           handle_cluster_operation_callback(resp, pyObj_callback, pyObj_errback, barrier);
         });
     }
-    Py_END_ALLOW_THREADS
 
-      if (barrier)
-    {
+    if (barrier) {
       PyObject* result = nullptr;
-      Py_BEGIN_ALLOW_THREADS result = fut.get();
-      Py_END_ALLOW_THREADS if (result == nullptr)
       {
+        gil_release_guard no_gil;
+        result = fut.get();
+      }
+      if (result == nullptr) {
         // The IO thread's result construction failed; that failure was already
         // reported via PyErr_WriteUnraisable there, so nothing is pending on this
         // thread.
@@ -578,14 +587,8 @@ Connection::handle_range_scan_op(PyObject* kwargs)
     }
 
     PyObject* pyObj_scan_type = PyDict_GetItemString(kwargs, "scan_type");
-    if (!pyObj_scan_type) {
-      return raise_invalid_argument("scan_type is required", __FILE__, __LINE__);
-    }
-    int py_scan_type = PyLong_AsLong(pyObj_scan_type);
-
-    PyObject* pyObj_scan_config = PyDict_GetItemString(kwargs, "scan_config");
-    if (!pyObj_scan_config || !PyDict_Check(pyObj_scan_config)) {
-      return raise_invalid_argument("scan_config must be a dictionary", __FILE__, __LINE__);
+    if (!pyObj_scan_type || !PyDict_Check(pyObj_scan_type)) {
+      return raise_invalid_argument("scan_type must be a dictionary", __FILE__, __LINE__);
     }
 
     PyObject* pyObj_orchestrator_opts = PyDict_GetItemString(kwargs, "orchestrator_options");
@@ -594,14 +597,33 @@ Connection::handle_range_scan_op(PyObject* kwargs)
         "orchestrator_options must be a dictionary", __FILE__, __LINE__);
     }
 
+    auto orchestrator_options =
+      py_to_cbpp<couchbase::core::range_scan_orchestrator_options>(pyObj_orchestrator_opts);
+
+    // The generated converter dispatches on the tag the request builder writes into the dict.
+    auto scan_type = py_to_cbpp<std::variant<std::monostate,
+                                             couchbase::core::range_scan,
+                                             couchbase::core::prefix_scan,
+                                             couchbase::core::sampling_scan>>(pyObj_scan_type);
+    if (PyErr_Occurred() != nullptr) {
+      return nullptr;
+    }
+
+    // Starting a scan waits on the server twice, for the bucket configuration and for the scan
+    // itself, so both waits release the GIL.
     auto barrier = std::make_shared<std::promise<
       std::pair<std::error_code, std::shared_ptr<couchbase::core::topology::configuration>>>>();
     auto f = barrier->get_future();
-    cluster_.with_bucket_configuration(bucket_name,
-                                       [barrier](std::error_code ec, auto config) mutable {
-                                         barrier->set_value({ ec, std::move(config) });
-                                       });
-    auto [ec, bucket_config] = f.get();
+    std::error_code ec;
+    std::shared_ptr<couchbase::core::topology::configuration> bucket_config;
+    {
+      gil_release_guard no_gil;
+      cluster_.with_bucket_configuration(bucket_name,
+                                         [barrier](std::error_code err, auto config) mutable {
+                                           barrier->set_value({ err, std::move(config) });
+                                         });
+      std::tie(ec, bucket_config) = f.get();
+    }
 
     if (ec) {
       return build_exception(
@@ -616,51 +638,36 @@ Connection::handle_range_scan_op(PyObject* kwargs)
         "Cannot perform kv range scan operation.  Unable to get vbucket map.", __FILE__, __LINE__);
     }
 
-    auto agent_group =
-      couchbase::core::agent_group(*io_, couchbase::core::agent_group_config{ { cluster_ } });
-    agent_group.open_bucket(bucket_name);
-    auto agent = agent_group.get_agent(bucket_name);
+    bool has_agent = false;
+    std::optional<couchbase::core::scan_result> scan_result;
+    {
+      gil_release_guard no_gil;
+      auto agent_group =
+        couchbase::core::agent_group(*io_, couchbase::core::agent_group_config{ { cluster_ } });
+      agent_group.open_bucket(bucket_name);
+      auto agent = agent_group.get_agent(bucket_name);
+      if (agent.has_value()) {
+        has_agent = true;
+        auto orchestrator = couchbase::core::range_scan_orchestrator(*io_,
+                                                                     agent.value(),
+                                                                     bucket_config->vbmap.value(),
+                                                                     scope_name,
+                                                                     collection_name,
+                                                                     scan_type,
+                                                                     orchestrator_options);
+        auto started = orchestrator.scan();
+        if (started.has_value()) {
+          scan_result.emplace(std::move(started.value()));
+        }
+      }
+    }
 
-    if (!agent.has_value()) {
+    if (!has_agent) {
       return raise_unsuccessful_operation(
         "Cannot perform kv range scan operation.  Unable to get operation agent.",
         __FILE__,
         __LINE__);
     }
-
-    auto orchestrator_options =
-      py_to_cbpp<couchbase::core::range_scan_orchestrator_options>(pyObj_orchestrator_opts);
-
-    std::variant<std::monostate,
-                 couchbase::core::range_scan,
-                 couchbase::core::prefix_scan,
-                 couchbase::core::sampling_scan>
-      scan_type{};
-    switch (py_scan_type) {
-      case 1: {
-        scan_type = py_to_cbpp<couchbase::core::range_scan>(pyObj_scan_config);
-        break;
-      }
-      case 2: {
-        scan_type = py_to_cbpp<couchbase::core::prefix_scan>(pyObj_scan_config);
-        break;
-      }
-      case 3: {
-        scan_type = py_to_cbpp<couchbase::core::sampling_scan>(pyObj_scan_config);
-        break;
-      }
-      default:
-        return raise_invalid_argument("scan_type must be 1, 2, or 3", __FILE__, __LINE__);
-    }
-
-    auto orchestrator = couchbase::core::range_scan_orchestrator(*io_,
-                                                                 agent.value(),
-                                                                 bucket_config->vbmap.value(),
-                                                                 scope_name,
-                                                                 collection_name,
-                                                                 scan_type,
-                                                                 orchestrator_options);
-    auto scan_result = orchestrator.scan();
     if (!scan_result.has_value()) {
       return raise_unsuccessful_operation(
         "Cannot perform kv scan operation.  Unable to start scan operation.", __FILE__, __LINE__);

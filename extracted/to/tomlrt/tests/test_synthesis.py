@@ -1,0 +1,1694 @@
+"""Python-to-TOML synthesis through construction and assignment.
+
+Covers value conversion, shape selection, ordering, validation, and grafting.
+"""
+
+from __future__ import annotations
+
+import math
+import sys
+from collections.abc import Mapping
+from copy import copy
+from datetime import UTC, date, datetime, time, timedelta, timezone
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+import pytest
+
+import tomlrt
+from _helpers import deep_equal, dumps_by_assignment, reparses, td
+from tomlrt import AoT, Array, Document, Table, TOMLError
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+if sys.version_info >= (3, 12):
+    from typing import override
+else:
+    from typing_extensions import override
+
+CORPUS = Path(__file__).resolve().parent.parent / "vendor" / "toml-test" / "tests"
+
+
+SHAPES: dict[str, dict[str, Any]] = {
+    "empty": {},
+    "scalars": {"s": "x", "i": 1, "f": 1.5, "b": True},
+    "dates": {
+        "d": date(2020, 1, 2),
+        "t": time(3, 4, 5),
+        "dt": datetime(2020, 1, 2, 3, 4, tzinfo=UTC),
+    },
+    "special floats": {"inf": math.inf, "ninf": -math.inf},
+    "section": {"a": {"x": 1}},
+    "section after key": {"k": 1, "a": {"x": 1}},
+    "key after section": {"a": {"x": 1}, "k": 1},
+    "nested sections": {"a": {"b": {"c": {"d": 1}}}},
+    "header-less parent": {"tool": {"cov": {"x": 1}}},
+    "empty section": {"a": {}},
+    "empty section then key": {"a": {}, "z": 1},
+    "empty nested": {"a": {"b": {}, "c": 1}},
+    "aot": {"items": [{"k": 1}, {"k": 2}]},
+    "aot then key": {"a": [{"k": 1}], "z": 2},
+    "aot in aot": {"a": [{"b": [{"c": 1}]}]},
+    "section in aot": {"a": [{"b": {"c": 1}}]},
+    "aot of empty": {"a": [{}]},
+    "inline array": {"a": [1, 2, 3]},
+    "empty array": {"a": []},
+    "nested arrays": {"a": [[1, 2], [3]]},
+    "inline table in array": {"a": [1, {"x": 2}]},
+    "array of inline tables in array": {"a": [[{"x": 1}]]},
+    "quoted keys": {"a b": 1, "c.d": {"e": 1}},
+    "unicode key": {"\u043a\u043b\u044e\u0447": 1},
+    "empty key": {"": 1},
+    "string escapes": {"a": 'q"\\\n\t'},
+}
+
+
+@pytest.mark.parametrize("shape", list(SHAPES))
+def test_synthesis_round_trips_and_matches_assignment(shape: str) -> None:
+    data = SHAPES[shape]
+    out = tomlrt.dumps(tomlrt.Document(data))
+    assert out == tomlrt.dumps(data) == dumps_by_assignment(data)
+    assert deep_equal(tomlrt.loads(out).to_dict(), data)
+
+
+def test_corpus_round_trips_and_is_a_fixed_point() -> None:
+    """Every valid toml-test document, rebuilt from its own data."""
+    files = sorted((CORPUS / "valid").rglob("*.toml"))
+    if not files:
+        pytest.skip("toml-test corpus is not vendored")
+    checked = 0
+    for path in files:
+        try:
+            text = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+        data = tomlrt.loads(text).to_dict()
+        out = tomlrt.dumps(tomlrt.Document(data))
+        reloaded = tomlrt.loads(out).to_dict()
+        assert deep_equal(reloaded, data), path.name
+        assert tomlrt.dumps(tomlrt.Document(reloaded)) == out, path.name
+        checked += 1
+    assert checked > 100
+
+
+# ---------------------------------------------------------------------------
+# Layout the synthesiser has to get right on its own
+# ---------------------------------------------------------------------------
+
+
+def test_section_with_only_subsections_gets_no_header() -> None:
+    doc = tomlrt.Document({"tool": {"a": {"x": 1}, "b": {"y": 2}}})
+    assert tomlrt.dumps(doc) == td("""
+        [tool.a]
+        x = 1
+
+        [tool.b]
+        y = 2
+        """)
+
+
+def test_keys_precede_subsections_whatever_the_mapping_order() -> None:
+    doc = tomlrt.Document({"s": {"x": 1}, "k": 2, "t": {"y": 3}})
+    assert tomlrt.dumps(doc) == td("""
+        k = 2
+
+        [s]
+        x = 1
+
+        [t]
+        y = 3
+        """)
+
+
+def test_nested_aot_entries_keep_their_owners() -> None:
+    doc = tomlrt.Document({"a": [{"k": 1, "b": [{"c": 2}]}, {"k": 3}]})
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [[a]]
+        k = 1
+
+        [[a.b]]
+        c = 2
+
+        [[a]]
+        k = 3
+        """)
+    assert tomlrt.loads(out).to_dict() == doc.to_dict()
+
+
+# ---------------------------------------------------------------------------
+# Views contribute their contents and their shape, and nothing else
+# ---------------------------------------------------------------------------
+
+
+def test_section_view_is_copied_and_keeps_its_shape() -> None:
+    section = Table.section({"x": 1})
+    doc = tomlrt.Document({"s": section, "k": 1})
+    section["y"] = 2
+    assert doc["s"] is not section
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        k = 1
+
+        [s]
+        x = 1
+        """)
+    assert reparses(out) == {"k": 1, "s": {"x": 1}}
+
+
+def test_inline_view_nested_in_plain_data_stays_inline() -> None:
+    inline = Table.inline({"x": 1})
+    doc = tomlrt.Document({"outer": {"deep": {"i": inline}}})
+    inline["y"] = 2
+    assert tomlrt.dumps(doc) == td("""
+        [outer.deep]
+        i = { x = 1 }
+        """)
+
+
+def test_array_view_of_tables_stays_an_inline_array() -> None:
+    doc = tomlrt.Document({"a": Array([{"x": 1}]), "b": [{"y": 2}]})
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        a = [{ x = 1 }]
+
+        [[b]]
+        y = 2
+        """)
+    assert tomlrt.loads(out).to_dict() == {"a": [{"x": 1}], "b": [{"y": 2}]}
+
+
+def test_inline_table_in_a_list_keeps_the_list_inline() -> None:
+    """An explicit inline table is a value, so its list is an array."""
+    doc = tomlrt.Document({"a": [Table.inline({"x": 1}), {"y": 2}]})
+    assert tomlrt.dumps(doc) == "a = [{ x = 1 }, { y = 2 }]\n"
+
+
+def test_aot_view_is_copied() -> None:
+    aot = AoT([{"k": 1}])
+    doc = tomlrt.Document({"e": aot})
+    aot.append({"k": 2})
+    assert doc["e"] is not aot
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [[e]]
+        k = 1
+        """)
+    assert reparses(out) == {"e": [{"k": 1}]}
+
+
+def test_attached_view_keeps_its_comments_and_spacing() -> None:
+    """A view holding source layout is cloned, not rebuilt from its data."""
+    src = tomlrt.loads(
+        td("""
+        [a]
+        # keep me
+        x = 1  # trailing
+        y = 'literal'
+        """)
+    )
+    doc = tomlrt.Document({"k": 1, "b": src.table("a")})
+    assert tomlrt.dumps(doc) == td("""
+        k = 1
+
+        [b]
+        # keep me
+        x = 1  # trailing
+        y = 'literal'
+        """)
+
+
+# ---------------------------------------------------------------------------
+# Rejected input
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("data", "exc", "match"),
+    [
+        ({"a": object()}, TypeError, "cannot convert object"),
+        ({"a": (1, 2)}, TypeError, "cannot assign tuple"),
+        ({"a": b"x"}, TypeError, "cannot assign bytes"),
+        ({"a": None}, TypeError, "cannot convert NoneType"),
+        ({1: "x"}, TypeError, "TOML keys must be str"),
+        ({"a": {2: "x"}}, TypeError, "TOML keys must be str"),
+        ({"a": {"b": object()}}, TypeError, "cannot convert object"),
+        ({"a": [object()]}, TypeError, "cannot convert object"),
+        ({"a": [{"b": object()}]}, TypeError, "cannot convert object"),
+        ({"a": time(1, 2, tzinfo=UTC)}, ValueError, "cannot represent"),
+    ],
+)
+def test_document_and_dumps_report_the_same_invalid_input(
+    data: dict[Any, Any], exc: type[Exception], match: str
+) -> None:
+    with pytest.raises(exc, match=match) as from_document:
+        tomlrt.Document(data)
+    with pytest.raises(exc) as from_dumps:
+        tomlrt.dumps(data)
+    assert str(from_dumps.value) == str(from_document.value)
+    assert type(from_dumps.value) is type(from_document.value)
+
+
+def test_first_bad_value_is_reported_whichever_kind_it_is() -> None:
+    """A bad value under a subsection precedes a later bad direct key.
+
+    The synthesiser writes keys before subsections, but it checks in the
+    mapping's own order, so the report does not depend on where a value
+    ends up in the document.
+    """
+    data = {"a": {"inner": object()}, "z": time(1, 2, tzinfo=UTC)}
+    with pytest.raises(TypeError, match="cannot convert object"):
+        tomlrt.Document(data)
+
+
+def test_mapping_keys_are_validated_before_values() -> None:
+    data = {"a": [0, {"ok": object(), 1: 2}]}
+    with pytest.raises(TypeError, match="TOML keys must be str"):
+        tomlrt.Document(data)
+
+
+# ---------------------------------------------------------------------------
+# A synthesised document is an ordinary one
+# ---------------------------------------------------------------------------
+
+
+def test_synthesised_document_is_mutable() -> None:
+    doc = tomlrt.Document({"a": {"x": 1}, "items": [{"k": 1}]})
+    doc["z"] = 2
+    doc.table("a")["y"] = 3
+    doc.aot("items").append({"k": 2})
+    del doc.table("a")["x"]
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        z = 2
+
+        [a]
+        y = 3
+
+        [[items]]
+        k = 1
+
+        [[items]]
+        k = 2
+        """)
+    assert tomlrt.loads(out).to_dict() == doc.to_dict()
+
+
+def test_synthesised_document_sorts_and_reparses() -> None:
+    doc = tomlrt.Document({"b": 2, "a": 1, "s": {"y": 2, "x": 1}})
+    doc.sort()
+    doc.table("s").sort()
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        a = 1
+        b = 2
+
+        [s]
+        x = 1
+        y = 2
+        """)
+    assert tomlrt.loads(out).to_dict() == doc.to_dict()
+
+
+# ---------------------------------------------------------------------------
+# `dumps` renders the run without building the views over it
+# ---------------------------------------------------------------------------
+
+
+def test_dumps_of_a_graft_matches_the_document_it_would_have_built() -> None:
+    """Including the one value whose slots are cloned rather than made."""
+
+    def data() -> dict[str, Any]:
+        src = tomlrt.loads(
+            td("""
+            # above a
+            [a]
+            x = 1  # eol
+
+            [a.sub]
+            y = 2
+            """)
+        )
+        return {"first": 1, "g": src.table("a"), "last": 2}
+
+    assert tomlrt.dumps(data()) == tomlrt.Document(data()).render()
+
+
+def test_dumps_rejects_a_non_mapping() -> None:
+    """``None`` used to render as an empty document, silently.
+
+    `dumps` reached it through ``Document(None)``, whose argument is
+    optional because a document can be built empty. Nothing else it is
+    handed gets that reading, and its own signature does not offer it.
+    """
+    not_a_mapping: Any = None
+    with pytest.raises(TypeError, match="must be a Mapping"):
+        tomlrt.dumps(not_a_mapping)
+
+
+def test_dumps_of_an_attached_table_keeps_its_layout() -> None:
+    """A table's comments and spacing come from cloned slots, not its mapping."""
+    src = tomlrt.loads(
+        td("""
+        # above a
+        [a]
+        x = 1  # eol
+
+        [a.sub]
+        y = 2
+        """)
+    )
+    assert tomlrt.dumps(src.table("a")) == td("""
+        # above a
+
+        x = 1  # eol
+
+        [sub]
+        y = 2
+        """)
+
+
+def test_array_of_tables_inside_an_inline_value_is_rejected() -> None:
+    with pytest.raises(TOMLError, match="array-of-tables inside an inline table"):
+        tomlrt.Document({"a": [AoT([{"k": 1}])]})
+
+
+def test_section_table_inside_an_inline_value_is_rejected() -> None:
+    with pytest.raises(TOMLError, match="section-style table inside an inline"):
+        tomlrt.Document({"a": [1, Table.section({"x": 1})]})
+    with pytest.raises(TOMLError, match="section-style table inside an inline"):
+        tomlrt.Document({"a": Table.inline({"b": Table.section({"x": 1})})})
+
+
+def test_attached_view_inside_an_aot_entry_keeps_its_layout() -> None:
+    src = tomlrt.loads(
+        td("""
+        [a]
+        # keep me
+        x = 1
+        """)
+    )
+    doc = tomlrt.Document({"items": [{"k": 1, "sub": src.table("a")}, {"k": 2}]})
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [[items]]
+        k = 1
+
+        [items.sub]
+        # keep me
+        x = 1
+
+        [[items]]
+        k = 2
+        """)
+    assert tomlrt.loads(out).to_dict() == doc.to_dict()
+
+
+# ---------------------------------------------------------------------------
+# Empty containers keep their keys
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("value", "rendered"),
+    [
+        (AoT([]), "a = []\n"),
+        (Array([]), "a = []\n"),
+        ([], "a = []\n"),
+        (Table.inline({}), "a = {}\n"),
+        ({}, "[a]\n"),
+        (Table.section({}), "[a]\n"),
+    ],
+)
+def test_empty_containers_keep_their_key(value: object, rendered: str) -> None:
+    doc = tomlrt.Document({"a": value})
+    out = tomlrt.dumps(doc)
+    assert out == rendered
+    assert tomlrt.loads(out).to_dict() == {"a": value}
+
+
+def test_empty_aot_inside_a_section_stays_in_the_body() -> None:
+    doc = tomlrt.Document({"s": {"a": AoT([]), "sub": {"x": 1}}})
+    assert tomlrt.dumps(doc) == td("""
+        [s]
+        a = []
+
+        [s.sub]
+        x = 1
+        """)
+
+
+# ---------------------------------------------------------------------------
+# A value holding source layout keeps its place as well as its layout
+# ---------------------------------------------------------------------------
+
+
+def test_cloned_section_keeps_the_mapping_order() -> None:
+    src = tomlrt.loads(
+        td("""
+        [g]
+        # lead
+        q = 1
+        """)
+    )
+    doc = tomlrt.Document({"g": src.table("g"), "plain": {"x": 1}})
+    assert list(doc) == ["g", "plain"]
+    assert tomlrt.dumps(doc) == td("""
+        [g]
+        # lead
+        q = 1
+
+        [plain]
+        x = 1
+        """)
+
+
+def test_cloned_array_keeps_its_place_among_keys() -> None:
+    src = tomlrt.loads("arr = [ 1,  2 ]\n")
+    doc = tomlrt.Document({"k": 1, "g": src.array("arr"), "h": 2})
+    assert list(doc) == ["k", "g", "h"]
+    assert tomlrt.dumps(doc) == td("""
+        k = 1
+        g = [ 1,  2 ]
+        h = 2
+        """)
+
+
+def test_list_of_attached_tables_becomes_an_aot() -> None:
+    src = tomlrt.loads(
+        td("""
+        [sec]
+        x = 1
+        """)
+    )
+    doc = tomlrt.Document({"xs": [src.table("sec")]})
+    assert tomlrt.dumps(doc) == td("""
+        [[xs]]
+        x = 1
+        """)
+
+
+def test_children_of_a_passed_table_take_document_shape() -> None:
+    """A detached table holds plain data; its children get section shape.
+
+    ``Document(mapping)`` turns nested mappings into ``[section]``
+    blocks, and that rule reaches inside a `Table` handed to it -- the
+    table itself chose only its own shape.
+    """
+    doc = tomlrt.Document({"t": Table.section({"k": {"a": 1}})})
+    assert tomlrt.dumps(doc) == td("""
+        [t.k]
+        a = 1
+        """)
+    inline = tomlrt.Document({"t": Table.section({"k": Table.inline({"a": 1})})})
+    assert tomlrt.dumps(inline) == td("""
+        [t]
+        k = { a = 1 }
+        """)
+
+
+def test_attached_empty_aot_needs_no_cloning() -> None:
+    """With no entries there are no headers, so there is nothing to clone."""
+    src = tomlrt.loads("k = 1\n")
+    src["a"] = AoT([])
+    doc = tomlrt.Document({"k": 1, "a": src.aot("a")})
+    assert tomlrt.dumps(doc) == td("""
+        k = 1
+        a = []
+        """)
+
+
+def test_key_order_follows_the_mapping_with_and_without_a_graft() -> None:
+    src = tomlrt.loads(
+        td("""
+        [g]
+        q = 1
+        """)
+    )
+    plain: dict[str, Any] = {"sub": {"y": 2}, "k": 1}
+    assert list(tomlrt.Document(plain)) == ["sub", "k"]
+    assert list(tomlrt.Document({**plain, "g": src.table("g")})) == ["sub", "k", "g"]
+    assert list(tomlrt.Document({"s": {"inner": {"z": 1}, "j": 2}})["s"]) == [
+        "inner",
+        "j",
+    ]
+
+
+@pytest.mark.parametrize("shape", ["document", "section"])
+def test_cloned_aot_entry_keeps_mapping_order_without_reformatting(shape: str) -> None:
+    data: dict[str, Any] = {"sub": {"x": 1}, "v": 2}
+    source = tomlrt.Document(data if shape == "document" else {"holder": data})
+    entry = source if shape == "document" else source.table("holder")
+    before = tomlrt.dumps(source)
+    doc = tomlrt.Document({"rows": [entry]})
+    assert list(doc.aot("rows")[0]) == ["sub", "v"]
+    expected = td("""
+        [[rows]]
+        v = 2
+
+        [rows.sub]
+        x = 1
+        """)
+    assert tomlrt.dumps(doc) == expected
+    assert tomlrt.loads(expected).to_dict() == doc.to_dict()
+    assert list(entry) == ["sub", "v"]
+    assert tomlrt.dumps(source) == before
+
+
+class _RepeatingMapping(Mapping[str, Any]):
+    def __init__(self, pairs: list[tuple[str, Any]]) -> None:
+        self._pairs = pairs
+
+    @override
+    def __iter__(self) -> Iterator[str]:
+        return (key for key, _ in self._pairs)
+
+    @override
+    def __len__(self) -> int:
+        return len(self._pairs)
+
+    @override
+    def __getitem__(self, key: str) -> Any:
+        return dict(self._pairs)[key]
+
+    @override
+    def items(self) -> Any:
+        return iter(self._pairs)
+
+
+def test_mapping_that_repeats_a_key_takes_the_last_value() -> None:
+    """A `Mapping` may hand out the same key twice; a document may not."""
+    out = tomlrt.dumps(_RepeatingMapping([("a", 1), ("a", 2), ("b", 3)]))
+    assert out == td("""
+        a = 2
+        b = 3
+        """)
+    assert tomlrt.loads(out).to_dict() == {"a": 2, "b": 3}
+
+
+def test_cloned_section_keeps_the_comments_above_its_header() -> None:
+    src = tomlrt.loads(
+        td("""
+        # note: this section matters
+        [sec]
+        x = 1
+        """)
+    )
+    assert tomlrt.dumps(tomlrt.Document({"sec": src.table("sec")})) == td("""
+        # note: this section matters
+        [sec]
+        x = 1
+        """)
+    # and after a key, where the destination supplies the blank line
+    assert tomlrt.dumps(tomlrt.Document({"z": 1, "sec": src.table("sec")})) == td("""
+        z = 1
+
+        # note: this section matters
+        [sec]
+        x = 1
+        """)
+
+
+def test_cloned_section_keeps_comments_when_its_header_is_not_first() -> None:
+    """The install takes the leading of the block's *first* slot.
+
+    A forward-declared subtable comes before its parent's header, and a
+    super-table declared last comes after it; either way the comments
+    that travel are the first slot's.
+    """
+    forward = tomlrt.loads(
+        td("""
+        # about a.b
+        [a.b]
+        x = 1
+        [a]
+        y = 2
+        """)
+    )
+    assert tomlrt.dumps(tomlrt.Document({"a": forward.table("a")})) == td("""
+        # about a.b
+        [a.b]
+        x = 1
+        [a]
+        y = 2
+        """)
+
+    last = tomlrt.loads(
+        td("""
+        [a.b]
+        x = 1
+        # about a
+        [a]
+        y = 2
+        """)
+    )
+    assert tomlrt.dumps(tomlrt.Document({"a": last.table("a")})) == td("""
+        [a.b]
+        x = 1
+        # about a
+        [a]
+        y = 2
+        """)
+
+
+def test_cloned_dotted_section_keeps_its_own_key_comments() -> None:
+    """Dotted keys install as body, each keeping the comment above it."""
+    src = tomlrt.loads(
+        td("""
+        # makes fruit a table
+        fruit.apple.smooth = true
+
+        # adds to it
+        fruit.orange = 2
+        """)
+    )
+    out = tomlrt.dumps(tomlrt.Document({"fruit": src.table("fruit")}))
+    assert "# makes fruit a table" in out
+    assert "# adds to it" in out
+    assert out.count("# makes fruit a table") == 1
+    assert tomlrt.loads(out).to_dict() == {"fruit": src["fruit"].to_dict()}
+
+
+def test_cloned_aot_keeps_the_comments_above_its_first_header() -> None:
+    src = tomlrt.loads(
+        td("""
+        # lead beta
+        [[b]]
+        k = 1
+
+        [[b]]
+        k = 2
+        """)
+    )
+    assert tomlrt.dumps(tomlrt.Document({"b": src.aot("b")})) == td("""
+        # lead beta
+        [[b]]
+        k = 1
+
+        [[b]]
+        k = 2
+        """)
+
+
+@pytest.mark.parametrize("standalone_aot", [False, True])
+def test_constructor_preserves_annotated_entry_factories(
+    *, standalone_aot: bool
+) -> None:
+    source = Table.section({"x": 1})
+    source.comments["x"] = "value"
+    source.header_comment = "entry"
+    source.header_leading_block = ("older", None, "heading")
+    rows = AoT([source, {"x": 2}]) if standalone_aot else [source, {"x": 2}]
+    data = {"rows": rows}
+    doc = tomlrt.Document(data)
+    expected = td("""
+        # older
+
+        # heading
+        [[rows]] # entry
+        x = 1 # value
+
+        [[rows]]
+        x = 2
+        """)
+    assert tomlrt.dumps(doc) == expected
+    assert tomlrt.dumps(data) == expected
+    doc.aot("rows")[0]["x"] = 3
+    assert tomlrt.dumps(doc) == td("""
+        # older
+
+        # heading
+        [[rows]] # entry
+        x = 3 # value
+
+        [[rows]]
+        x = 2
+        """)
+    assert tomlrt.dumps(data) == expected
+    original = tomlrt.Document()
+    original["source"] = source
+    source["x"] = 4
+    assert tomlrt.dumps(original) == td("""
+        # older
+
+        # heading
+        [source] # entry
+        x = 4 # value
+        """)
+
+
+@pytest.mark.parametrize(
+    ("newline", "standalone_aot"),
+    [("\r\n", False), ("\n", True)],
+    ids=["plain-list-crlf", "aot-lf"],
+)
+def test_constructor_entry_layout_normalizes_forward_declarations(
+    newline: str, *, standalone_aot: bool
+) -> None:
+    text = (
+        td("""
+        [source.child] # child
+        x = 0x01
+        [source] # entry
+        z = 0x02 # root
+        [[source.nested]] # nested
+        id = 0x03
+        """)
+        .replace("\n", newline)
+        .removesuffix(newline)
+    )
+    source = tomlrt.loads(text)
+    entry = source.table("source")
+    rows = AoT([entry, {"z": 4}]) if standalone_aot else [entry, {"z": 4}]
+    doc = tomlrt.Document({"prefix": 0, "rows": rows})
+    assert tomlrt.dumps(doc) == td("""
+        prefix = 0
+
+        [[rows]] # entry
+        z = 0x02 # root
+        [rows.child] # child
+        x = 0x01
+        [[rows.nested]] # nested
+        id = 0x03
+
+        [[rows]]
+        z = 4
+        """)
+    doc.aot("rows")[0].table("child")["x"] = 5
+    doc.aot("rows")[0].aot("nested")[0]["id"] = 6
+    assert tomlrt.dumps(doc) == td("""
+        prefix = 0
+
+        [[rows]] # entry
+        z = 0x02 # root
+        [rows.child] # child
+        x = 5
+        [[rows.nested]] # nested
+        id = 6
+
+        [[rows]]
+        z = 4
+        """)
+    assert tomlrt.loads(tomlrt.dumps(doc)).to_dict() == doc.to_dict()
+    assert tomlrt.dumps(source) == text
+
+
+@pytest.mark.parametrize("shape", ["document", "implicit", "section", "aot-entry"])
+def test_constructor_clones_each_structural_entry_shape(shape: str) -> None:
+    if shape == "document":
+        text = td("""
+            x=0x01 # value
+            [sub]
+            y = 2
+            """)
+    elif shape == "implicit":
+        text = td("""
+            group.x=0x01 # value
+            [group.sub]
+            y = 2
+            """)
+    else:
+        header = "[[group]]" if shape == "aot-entry" else "[group]"
+        text = td(f"""
+            {header} # entry
+            x=0x01 # value
+            [group.sub]
+            y = 2
+            """)
+    source = tomlrt.loads(text)
+    entry: tomlrt.Table | tomlrt.Document
+    if shape == "document":
+        entry = source
+    elif shape == "aot-entry":
+        entry = source.aot("group")[0]
+    else:
+        entry = source.table("group")
+    doc = tomlrt.Document({"rows": [entry]})
+    eol = " # entry" if shape in {"section", "aot-entry"} else ""
+    expected = td(f"""
+        [[rows]]{eol}
+        x=0x01 # value
+        [rows.sub]
+        y = 2
+        """)
+    assert tomlrt.dumps(doc) == expected
+    assert tomlrt.loads(expected).to_dict() == doc.to_dict()
+    assert tomlrt.dumps(source) == text
+
+
+def test_repeating_mapping_inside_an_inline_value_takes_the_last_value() -> None:
+    mapping = _RepeatingMapping([("a", 1), ("b", 3), ("a", 2)])
+    constructed = tomlrt.Document({"k": [mapping, 1]})
+    assigned = tomlrt.Document()
+    assigned["k"] = [mapping, 1]
+    expected = "k = [{ a = 2, b = 3 }, 1]\n"
+    assert tomlrt.dumps(constructed) == expected
+    assert tomlrt.dumps(assigned) == expected
+    assert tomlrt.loads(expected).to_dict() == assigned.to_dict()
+
+
+def test_array_inputs_ignore_shadowed_mapping_values() -> None:
+    discarded = Table.inline({"v": 1})
+    mapping = _RepeatingMapping([("x", discarded), ("x", object()), ("x", 2)])
+    array = Array([mapping])
+    doc = tomlrt.Document()
+    doc["a"] = array
+    array.append(mapping)
+    expected = "a = [{ x = 2 }, { x = 2 }]\n"
+    assert tomlrt.dumps(doc) == expected
+    assert tomlrt.loads(expected).to_dict() == doc.to_dict()
+    doc["unused"] = discarded
+    assert doc.table("unused") is discarded
+    discarded["v"] = 3
+    assert tomlrt.dumps(doc) == td("""
+        a = [{ x = 2 }, { x = 2 }]
+        unused = { v = 3 }
+        """)
+
+
+def test_repeated_mapping_invalid_winner_rejects_before_attachment() -> None:
+    doc = tomlrt.loads("a = [1]\n")
+    child = Table.inline({"x": 1})
+    invalid = _RepeatingMapping([("x", 2), ("x", object())])
+    with pytest.raises(TypeError, match="cannot convert object"):
+        doc.array("a").extend([child, invalid])
+    assert tomlrt.dumps(doc) == "a = [1]\n"
+    doc["child"] = child
+    assert doc.table("child") is child
+    child["x"] = 3
+    assert tomlrt.dumps(doc) == td("""
+        a = [1]
+        child = { x = 3 }
+        """)
+
+
+def test_aot_capture_ignores_shadowed_mapping_values() -> None:
+    mapping = _RepeatingMapping([("x", object()), ("x", 2)])
+    doc = tomlrt.loads("[[rows]]\ny = 0\n")
+    rows = doc.aot("rows")
+    rows[0] = {"nested": mapping}
+    rows.append(mapping)
+    expected = td("""
+        [[rows]]
+        nested = { x = 2 }
+
+        [[rows]]
+        x = 2
+        """)
+    assert tomlrt.dumps(doc) == expected
+    assert tomlrt.loads(expected).to_dict() == doc.to_dict()
+
+
+def test_factory_copy_ignores_shadowed_mapping_values() -> None:
+    mapping = _RepeatingMapping([("x", object()), ("x", 2)])
+    source = Table.section({"nested": mapping})
+    cloned = copy(source)
+    doc = tomlrt.Document()
+    doc["copy"] = cloned
+    expected = td("""
+        [copy]
+        nested = { x = 2 }
+        """)
+    assert tomlrt.dumps(doc) == expected
+    assert tomlrt.loads(expected).to_dict() == doc.to_dict()
+    assert source.to_dict() == {"nested": {"x": 2}}
+
+
+def test_dict_subclass_repeating_items_are_normalized() -> None:
+    class Repeats(dict[str, Any]):
+        @override
+        def items(self) -> Any:
+            return iter([("x", 1), ("x", 2)])
+
+    mapping = Repeats()
+    constructed = tomlrt.Document({"k": [mapping, 1]})
+    assigned = tomlrt.Document()
+    assigned["k"] = [mapping, 1]
+    expected = "k = [{ x = 2 }, 1]\n"
+    assert tomlrt.dumps(constructed) == expected
+    assert tomlrt.dumps(assigned) == expected
+    assert tomlrt.loads(expected).to_dict() == assigned.to_dict()
+
+
+class _RepeatingTable(Table):
+    @override
+    def items(self) -> Any:
+        return iter([("x", object()), ("x", 2)])
+
+
+def test_repeating_inline_factory_normalizes_before_copy_and_attachment() -> None:
+    source = _RepeatingTable.inline()
+    cloned = copy(source)
+    doc = tomlrt.Document()
+    doc["original"] = source
+    doc["cloned"] = cloned
+    assert doc.table("original") is source
+    expected = td("""
+        original = { x = 2 }
+        cloned = { x = 2 }
+        """)
+    assert tomlrt.dumps(doc) == expected
+    assert tomlrt.loads(expected).to_dict() == doc.to_dict()
+
+
+def test_repeating_section_factory_normalizes_before_copy_and_attachment() -> None:
+    source = _RepeatingTable.section()
+    cloned = copy(source)
+    doc = tomlrt.Document()
+    doc["original"] = source
+    doc["cloned"] = cloned
+    assert doc.table("original") is source
+    expected = td("""
+        [original]
+        x = 2
+
+        [cloned]
+        x = 2
+        """)
+    assert tomlrt.dumps(doc) == expected
+    assert tomlrt.loads(expected).to_dict() == doc.to_dict()
+
+
+def test_nested_aot_capture_normalizes_factory_inputs() -> None:
+    invalid: Any = object()
+    inline = _RepeatingTable.inline({"x": invalid})
+    section = _RepeatingTable.section({"x": invalid})
+    doc = tomlrt.loads("[[rows]]\ny = 0\n")
+    doc.aot("rows")[0] = {"inline": inline, "section": section}
+    entry = doc.aot("rows")[0]
+    assert entry.table("inline") is inline
+    assert entry.table("section") is section
+    expected = td("""
+        [[rows]]
+        inline = { x = 2 }
+
+        [rows.section]
+        x = 2
+        """)
+    assert tomlrt.dumps(doc) == expected
+    assert tomlrt.loads(expected).to_dict() == doc.to_dict()
+
+
+def test_factory_export_does_not_visit_discarded_mapping_values() -> None:
+    discarded: dict[str, object] = {}
+    discarded["self"] = discarded
+
+    class Repeats(Table):
+        @override
+        def items(self) -> Any:
+            return iter([("x", discarded), ("x", 2)])
+
+    source = Repeats.section()
+    assert source.to_dict() == {"x": 2}
+    assert tomlrt.dumps(source) == "x = 2\n"
+
+
+def test_instance_items_override_is_normalized() -> None:
+    class CustomDict(dict[str, int]):
+        pass
+
+    mapping: Any = CustomDict()
+    mapping.items = lambda: iter([("x", 1), ("x", 2)])
+    constructed = tomlrt.Document({"k": [mapping, 1]})
+    assigned = tomlrt.Document()
+    assigned["k"] = [mapping, 1]
+    expected = "k = [{ x = 2 }, 1]\n"
+    assert tomlrt.dumps(constructed) == expected
+    assert tomlrt.dumps(assigned) == expected
+    assert tomlrt.loads(expected).to_dict() == assigned.to_dict()
+
+
+def test_grafts_without_a_header_of_their_own() -> None:
+    """A `Document` installs under a header synthesised for its key.
+
+    An implicit section spelled by dotted keys installs as body.
+    """
+    src = tomlrt.loads("q = 1\n")
+    assert tomlrt.dumps(tomlrt.Document({"d": src})) == td("""
+        [d]
+        q = 1
+        """)
+    implicit = tomlrt.loads("a.b.x = 1\n")
+    assert tomlrt.dumps(tomlrt.Document({"g": implicit.table("a")})) == "g.b.x = 1\n"
+
+
+def test_graft_materialises_the_section_holding_it() -> None:
+    """A graft is content, so its enclosing section still needs a header."""
+    dotted = tomlrt.loads("fruit.apple = 1\n")
+    assert tomlrt.dumps(
+        tomlrt.Document({"outer": {"fruit": dotted.table("fruit")}})
+    ) == td("""
+        [outer]
+        fruit.apple = 1
+        """)
+    sub = tomlrt.loads("x = 1\n")
+    assert tomlrt.dumps(tomlrt.Document({"o1": {"o2": {"a": sub}}})) == td("""
+        [o1.o2.a]
+        x = 1
+        """)
+
+
+def test_document_graft_keeps_its_place_and_its_comments_once() -> None:
+    """A `Document` is always a header block, and carries no comments of its own."""
+    doc = tomlrt.Document({"o": tomlrt.loads("x = 1\n"), "s": {"q": 1}})
+    assert list(doc) == ["o", "s"]
+    assert tomlrt.dumps(doc) == td("""
+        [o]
+        x = 1
+
+        [s]
+        q = 1
+        """)
+    headed = tomlrt.Document({"o": tomlrt.loads("# note\n[a]\nx = 1\n")})
+    out = tomlrt.dumps(headed)
+    assert out.count("# note") == 1
+    assert out == td("""
+        [o]
+        # note
+        [o.a]
+        x = 1
+        """)
+
+
+def test_dotted_graft_keeps_its_place_among_plain_keys() -> None:
+    """A graft is written where the mapping puts it, like any other key."""
+    src = tomlrt.loads("[h]\n# above\na.c = 1\na.d = 2\n")
+    doc = tomlrt.Document({"first": 1, "g": src.table("h").table("a"), "last": 2})
+    assert list(doc) == ["first", "g", "last"]
+    assert tomlrt.dumps(doc) == td("""
+        first = 1
+        # above
+        g.c = 1
+        g.d = 2
+        last = 2
+        """)
+
+
+def test_implicit_graft_splits_its_body_from_its_subsections() -> None:
+    """A header-less section spells itself in both regions of its host.
+
+    Its own keys are dotted lines of the body; its sub-sections are
+    blocks below it, after whatever else the body holds.
+    """
+    src = tomlrt.loads("# top\na.x = 1\n\n# sub\n[a.sub]\ny = 2\n")
+    doc = tomlrt.Document({"g": src.table("a"), "last": 2})
+    assert tomlrt.dumps(doc) == td("""
+        # top
+        g.x = 1
+        last = 2
+
+        # sub
+        [g.sub]
+        y = 2
+        """)
+
+
+def test_graft_at_the_tail_keeps_a_source_that_ends_without_a_newline() -> None:
+    """Only a slot written after it needs a terminator adding."""
+
+    def source() -> Table:
+        return tomlrt.loads("[a]\nx = 1").table("a")
+
+    assert tomlrt.dumps(tomlrt.Document({"g": source()})) == "[g]\nx = 1"
+    assert tomlrt.dumps(tomlrt.Document({"g": source(), "z": {"q": 2}})) == td("""
+        [g]
+        x = 1
+
+        [z]
+        q = 2
+        """)
+
+
+@pytest.mark.parametrize(
+    ("py_value", "expected_quoted"),
+    [
+        ("plain", '"plain"'),
+        ("back\\slash", '"back\\\\slash"'),
+        ('with"quote', '"with\\"quote"'),
+        ("line\nbreak", '"line\\nbreak"'),
+        ("carriage\rreturn", '"carriage\\rreturn"'),
+        ("tab\there", '"tab\\there"'),
+        ("bell\bback", '"bell\\bback"'),
+        ("form\ffeed", '"form\\ffeed"'),
+        ("ctrl\x01char", '"ctrl\\u0001char"'),
+        ("del\x7fchar", '"del\\u007Fchar"'),
+    ],
+)
+def test_string_escape_emits_canonical_form(
+    py_value: str, expected_quoted: str
+) -> None:
+    doc = tomlrt.loads("x = 0\n")
+    doc["x"] = py_value
+    out = tomlrt.dumps(doc)
+    assert out == f"x = {expected_quoted}\n"
+    # And it round-trips back to the same Python value.
+    assert tomlrt.loads(out)["x"] == py_value
+
+
+def test_assign_bool_renders_as_toml_bool() -> None:
+    doc = tomlrt.loads("x = 0\n")
+    doc["x"] = True
+    doc["y"] = False
+    out = tomlrt.dumps(doc)
+    assert out == "x = true\ny = false\n"
+    re = tomlrt.loads(out)
+    assert re["x"] is True
+    assert re["y"] is False
+
+
+def test_assign_int_renders_decimal() -> None:
+    doc = tomlrt.loads("x = 0\n")
+    doc["x"] = -123
+    assert tomlrt.dumps(doc) == "x = -123\n"
+
+
+def test_assign_float_basic_gets_dot_zero_when_missing() -> None:
+    doc = tomlrt.loads("x = 0\n")
+    doc["x"] = 3.0
+    out = tomlrt.dumps(doc)
+    # repr(3.0) is "3.0" already, but values like 1e10 round-trip via repr
+    # which emits no dot; the helper appends one.
+    assert out == "x = 3.0\n"
+    assert tomlrt.loads(out)["x"] == 3.0
+
+
+def test_assign_float_scientific_no_dot_added() -> None:
+    doc = tomlrt.loads("x = 0\n")
+    doc["x"] = 1e20
+    out = tomlrt.dumps(doc)
+    assert out == "x = 1e+20\n"
+    re = tomlrt.loads(out)
+    assert re["x"] == 1e20
+
+
+def test_assign_float_inf_and_nan() -> None:
+    doc = tomlrt.loads("x = 0\n")
+    doc["x"] = math.inf
+    doc["y"] = -math.inf
+    doc["z"] = math.nan
+    out = tomlrt.dumps(doc)
+    assert out == "x = inf\ny = -inf\nz = nan\n"
+    re = tomlrt.loads(out)
+    assert re["x"] == math.inf
+    assert re["y"] == -math.inf
+    assert math.isnan(re["z"])
+
+
+def test_assign_local_date() -> None:
+    doc = tomlrt.loads("x = 0\n")
+    doc["x"] = date(2024, 7, 4)
+    out = tomlrt.dumps(doc)
+    assert out == "x = 2024-07-04\n"
+    assert tomlrt.loads(out)["x"] == date(2024, 7, 4)
+
+
+def test_assign_local_time() -> None:
+    doc = tomlrt.loads("x = 0\n")
+    doc["x"] = time(13, 30, 45)
+    out = tomlrt.dumps(doc)
+    assert out == "x = 13:30:45\n"
+    assert tomlrt.loads(out)["x"] == time(13, 30, 45)
+
+
+def test_assign_local_datetime() -> None:
+    doc = tomlrt.loads("x = 0\n")
+    doc["x"] = datetime(2024, 7, 4, 12, 0, 0)  # noqa: DTZ001
+    out = tomlrt.dumps(doc)
+    assert out == "x = 2024-07-04T12:00:00\n"
+    assert tomlrt.loads(out)["x"] == datetime(2024, 7, 4, 12, 0, 0)  # noqa: DTZ001
+
+
+def test_assign_offset_datetime() -> None:
+    doc = tomlrt.loads("x = 0\n")
+    tz = timezone(timedelta(hours=2))
+    doc["x"] = datetime(2024, 7, 4, 12, 0, 0, tzinfo=tz)
+    out = tomlrt.dumps(doc)
+    assert out == "x = 2024-07-04T12:00:00+02:00\n"
+    re_value = tomlrt.loads(out)["x"]
+    assert isinstance(re_value, datetime)
+    assert re_value == datetime(2024, 7, 4, 12, 0, 0, tzinfo=tz)
+
+
+def test_assign_datetime_utc_offset() -> None:
+    doc = tomlrt.loads("x = 0\n")
+    doc["x"] = datetime(2024, 7, 4, 12, 0, 0, tzinfo=UTC)
+    out = tomlrt.dumps(doc)
+    assert out == "x = 2024-07-04T12:00:00+00:00\n"
+    re_value = tomlrt.loads(out)["x"]
+    assert isinstance(re_value, datetime)
+    assert re_value == datetime(2024, 7, 4, 12, 0, 0, tzinfo=UTC)
+
+
+def test_assign_datetime_seconds_offset_rejected() -> None:
+    doc = tomlrt.loads("x = 0\n")
+    tz = timezone(timedelta(hours=1, minutes=2, seconds=3))
+    dt = datetime(2020, 1, 1, 10, 0, 0, tzinfo=tz)
+    with pytest.raises(ValueError, match="whole number of minutes"):
+        doc["x"] = dt
+
+
+def test_assign_local_time_with_tzinfo_rejected() -> None:
+    doc = tomlrt.loads("x = 0\n")
+    t = time(10, 0, 0, tzinfo=timezone(timedelta(hours=2)))
+    with pytest.raises(ValueError, match="local time cannot carry a timezone"):
+        doc["x"] = t
+
+
+def test_assign_plain_list_becomes_inline_array() -> None:
+    doc = tomlrt.loads("x = 0\n")
+    doc["x"] = [1, 2, 3]
+    out = tomlrt.dumps(doc)
+    assert out == "x = [1, 2, 3]\n"
+    re = tomlrt.loads(out)
+    assert list(re.array("x")) == [1, 2, 3]
+
+
+def test_assign_plain_dict_becomes_inline_table() -> None:
+    doc = tomlrt.loads("x = 0\n")
+    doc["x"] = {"a": 1, "b": "two"}
+    out = tomlrt.dumps(doc)
+    assert out == 'x = { a = 1, b = "two" }\n'
+    re = tomlrt.loads(out)
+    tbl = re.table("x")
+    assert tbl["a"] == 1
+    assert tbl["b"] == "two"
+
+
+def test_assign_tuple_rejected() -> None:
+    doc = tomlrt.loads("x = 0\n")
+    with pytest.raises(TypeError, match="tuple"):
+        doc["x"] = (1, 2, 3)
+
+
+def test_assign_mappingproxy_becomes_inline_table() -> None:
+    from types import MappingProxyType  # noqa: PLC0415
+
+    doc = tomlrt.loads("x = 0\n")
+    doc["x"] = MappingProxyType({"a": 1, "b": 2})
+    out = tomlrt.dumps(doc)
+    assert out == "x = { a = 1, b = 2 }\n"
+    re = tomlrt.loads(out)
+    tbl = re.table("x")
+    assert tbl["a"] == 1
+    assert tbl["b"] == 2
+
+
+def test_assign_bytes_rejected() -> None:
+    doc = tomlrt.loads("x = 0\n")
+    with pytest.raises(TypeError, match="bytes"):
+        doc["x"] = b"hi"
+
+
+def test_assign_nested_dict_in_list() -> None:
+    doc = tomlrt.loads("x = 0\n")
+    doc["x"] = [{"a": 1}, {"a": 2}]
+    out = tomlrt.dumps(doc)
+    assert out == "x = [{ a = 1 }, { a = 2 }]\n"
+    re = tomlrt.loads(out)
+    arr = re.array("x")
+    assert arr.table(0)["a"] == 1
+    assert arr.table(1)["a"] == 2
+
+
+def test_assign_unsupported_type_raises() -> None:
+    doc = tomlrt.loads("x = 0\n")
+    with pytest.raises(TypeError, match="cannot convert"):
+        doc["x"] = object()
+
+
+def test_assign_inline_table_with_unsupported_value_raises() -> None:
+    """Synthesis recurses into mappings; the inner value gets the same check."""
+    doc = tomlrt.loads("x = 0\n")
+    with pytest.raises(TypeError, match="cannot convert"):
+        doc["x"] = {"a": object()}
+
+
+def test_assign_inline_array_with_unsupported_value_raises() -> None:
+    doc = tomlrt.loads("x = 0\n")
+    with pytest.raises(TypeError, match="cannot convert"):
+        doc["x"] = [object()]
+
+
+def test_assign_inline_table_with_non_str_key_raises() -> None:
+    doc = tomlrt.loads("x = 0\n")
+    with pytest.raises(TypeError, match="must be str"):
+        doc["x"] = {1: "v"}
+
+
+def test_assign_inline_table_containing_aot_value_rejected() -> None:
+    """An ``AoT`` cannot live as the value of an inline-table entry."""
+    src = tomlrt.loads(
+        td("""
+            [[products]]
+            name = 'a'
+            """),
+    )
+    dest = tomlrt.loads("dest = 0\n")
+    aot = src.aot("products")
+    with pytest.raises(TOMLError, match="array-of-tables"):
+        dest["dest"] = {"items": aot}
+
+
+def test_assign_inline_table_containing_section_container_rejected() -> None:
+    """A section ``Table`` cannot live as the value of an inline-table entry."""
+    src = tomlrt.loads(
+        td("""
+            [sub]
+            x = 1
+            """),
+    )
+    dest = tomlrt.loads("dest = 0\n")
+    section = src.table("sub")
+    with pytest.raises(TOMLError, match="section-style table"):
+        dest["dest"] = {"nested": section}
+
+
+def test_detached_inline_rejects_section_value_eagerly() -> None:
+    """A detached ``Table.inline()`` used to silently accept a
+    section-typed value, with the error deferred to attach time. The
+    check is now eager: it fires at the actual point of mistake.
+    """
+    sub = Table.section({"y": 1})
+    parent = Table.inline()
+    with pytest.raises(TOMLError, match="section-style table"):
+        parent["x"] = sub
+
+
+def test_detached_inline_rejects_aot_value_eagerly() -> None:
+    """Sibling of the section case: detached inline rejects AoT eagerly."""
+    aot = tomlrt.AoT([{"name": "a"}])
+    parent = Table.inline()
+    with pytest.raises(TOMLError, match="array-of-tables"):
+        parent["x"] = aot
+
+
+def test_assign_aot_over_scalar() -> None:
+    src = tomlrt.loads(
+        td("""
+            [[products]]
+            name = 'a'
+            [[products]]
+            name = 'b'
+            """),
+    )
+    dest = tomlrt.loads("dest = 0\n")
+    dest["dest"] = src.aot("products")
+    out = tomlrt.dumps(dest)
+    assert out == td("""
+        [[dest]]
+        name = 'a'
+        [[dest]]
+        name = 'b'
+        """)
+    assert tomlrt.loads(out) == {
+        "dest": [{"name": "a"}, {"name": "b"}],
+    }
+
+
+def test_document_factory_returns_empty_document() -> None:
+    doc = Document()
+    assert isinstance(doc, tomlrt.Document)
+    assert len(doc) == 0
+    assert tomlrt.dumps(doc) == ""
+
+
+def test_document_factory_is_independent_of_other_calls() -> None:
+    a = Document()
+    b = Document()
+    a["x"] = 1
+    assert "x" not in b
+    assert tomlrt.dumps(b) == ""
+
+
+def test_document_factory_supports_full_build_and_dump() -> None:
+    doc = Document()
+    doc["title"] = "demo"
+    doc["server"] = Table.section({"port": 8080})
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        title = "demo"
+
+        [server]
+        port = 8080
+        """)
+    parsed = tomlrt.loads(out)
+    assert parsed["title"] == "demo"
+    server = parsed.table("server")
+    assert server["port"] == 8080
+
+
+def test_document_factory_with_data_uses_sections_for_nested_mappings() -> None:
+    doc = Document({"server": {"port": 8080, "host": "localhost"}})
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [server]
+        port = 8080
+        host = "localhost"
+        """)
+    assert tomlrt.loads(out) == {"server": {"port": 8080, "host": "localhost"}}
+
+
+def test_document_factory_with_data_uses_aot_for_list_of_mappings() -> None:
+    doc = Document(
+        {"package": [{"name": "foo"}, {"name": "bar"}]},
+    )
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [[package]]
+        name = "foo"
+
+        [[package]]
+        name = "bar"
+        """)
+    assert tomlrt.loads(out) == {"package": [{"name": "foo"}, {"name": "bar"}]}
+
+
+def test_document_factory_with_data_keeps_leaf_arrays_inline() -> None:
+    doc = Document({"xs": [1, 2, 3]})
+    out = tomlrt.dumps(doc)
+    assert out == "xs = [1, 2, 3]\n"
+    assert tomlrt.loads(out) == {"xs": [1, 2, 3]}
+
+
+def test_document_factory_with_data_recurses_deeply() -> None:
+    data = {
+        "tool": {
+            "poetry": {
+                "name": "demo",
+                "dependencies": {"requests": "^2.0"},
+            },
+        },
+    }
+    doc = Document(data)
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [tool.poetry]
+        name = "demo"
+
+        [tool.poetry.dependencies]
+        requests = "^2.0"
+        """)
+    assert tomlrt.loads(out) == data
+
+
+def test_document_factory_with_data_aot_with_nested_table() -> None:
+    data = {
+        "package": [
+            {"name": "foo", "version": "1.0", "dep": {"x": 1}},
+            {"name": "bar", "version": "2.0"},
+        ],
+    }
+    doc = Document(data)
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [[package]]
+        name = "foo"
+        version = "1.0"
+
+        [package.dep]
+        x = 1
+
+        [[package]]
+        name = "bar"
+        version = "2.0"
+        """)
+    assert tomlrt.loads(out) == data
+
+
+def test_document_factory_with_data_does_not_share_mutable_state() -> None:
+    data: dict[str, object] = {"server": {"port": 8080}}
+    doc = Document(data)
+    server_dict = data["server"]
+    assert isinstance(server_dict, dict)
+    server_dict["port"] = 9999  # mutate the source after construction
+    server = doc.table("server")
+    assert server["port"] == 8080
+
+
+def test_document_factory_with_data_passes_aot_through() -> None:
+    """An existing ``AoT`` value passes straight through the init coercion."""
+    src = tomlrt.loads(
+        td("""
+            [[products]]
+            name = 'a'
+            [[products]]
+            name = 'b'
+            """),
+    )
+    out = Document({"products": src.aot("products")})
+    assert tomlrt.dumps(out) == td("""
+        [[products]]
+        name = 'a'
+        [[products]]
+        name = 'b'
+        """)
+
+
+def test_document_factory_with_data_passes_container_through() -> None:
+    """An existing section ``Table`` value passes straight through init."""
+    src = tomlrt.loads(
+        td("""
+            [sub]
+            x = 1
+            """),
+    )
+    out = Document({"sub": src.table("sub")})
+    assert tomlrt.dumps(out) == td("""
+        [sub]
+        x = 1
+        """)
+
+
+def test_document_factory_detached_array_is_copied() -> None:
+    arr = Array([1, 2, 3])
+    doc = Document({"xs": arr})
+    assert doc["xs"] is not arr
+    arr.append(4)  # constructing copied it, so this is invisible
+    out = tomlrt.dumps(doc)
+    assert out == "xs = [1, 2, 3]\n"
+    assert reparses(out) == {"xs": [1, 2, 3]}
+
+
+def test_document_factory_detached_inline_table_is_copied() -> None:
+    obj = Table.inline({"x": 1})
+    doc = Document({"obj": obj})
+    assert doc["obj"] is not obj
+    obj["y"] = 2
+    out = tomlrt.dumps(doc)
+    assert out == "obj = { x = 1 }\n"
+    assert reparses(out) == {"obj": {"x": 1}}
+
+
+def test_document_factory_view_from_another_document_is_deep_cloned() -> None:
+    src = tomlrt.loads("v = [1, 2, 3]\n")
+    view = src.array("v")
+    doc = Document({"xs": view})
+    assert doc["xs"] is not view
+    view.append(99)  # source view is detached from doc, so this is invisible
+    out = tomlrt.dumps(doc)
+    assert out == "xs = [1, 2, 3]\n"
+    assert reparses(out) == {"xs": [1, 2, 3]}
+
+
+def test_document_construction_keeps_empty_aot_kind() -> None:
+    doc = Document({"pending": AoT(), "plain": []})
+    assert doc.array("plain") == []
+    assert tomlrt.dumps(doc) == "pending = []\nplain = []\n"
+    doc.aot("pending").add({"id": 1})
+    expected = td("""
+        plain = []
+
+        [[pending]]
+        id = 1
+        """)
+    assert tomlrt.dumps(doc) == expected
+    assert reparses(expected) == doc.to_dict()
+
+
+def test_dumps_a_popped_subtree_leaves_it_intact() -> None:
+    """Rendering a mapping must not consume it.
+
+    A popped subtree's slots live in a private document, and installing
+    from one of those is a move — right when a caller assigns a value
+    somewhere, wrong when the value is only being read to build a new
+    document from. Nested trivia survives, exactly as it does when the
+    same subtree is still attached.
+    """
+    doc = tomlrt.loads(
+        td("""
+        [root]
+        x = 1
+
+        [root.sub]
+        # lead
+        y = 2  # eol
+        """)
+    )
+    orphan = doc.pop("root")
+
+    rendered = tomlrt.dumps(orphan)
+    assert rendered == td("""
+        x = 1
+
+        [sub]
+        # lead
+        y = 2  # eol
+        """)
+    assert orphan.to_dict() == {"x": 1, "sub": {"y": 2}}
+    # Still renderable, and still the same: the first dump consumed nothing.
+    assert tomlrt.dumps(orphan) == rendered
+
+
+def test_dumps_a_popped_subtree_holding_an_array_of_tables() -> None:
+    """The same, for the shape that used to raise instead.
+
+    Installing an AoT unbinds it from the document it came from, which
+    while iterating that document's own items ended the iteration.
+    """
+    doc = tomlrt.loads(
+        td("""
+        [[root.t]]
+        x = 1
+
+        [[root.t]]
+        x = 2
+        """)
+    )
+    orphan = doc.pop("root")
+
+    assert tomlrt.dumps(orphan) == td("""
+        [[t]]
+        x = 1
+
+        [[t]]
+        x = 2
+        """)
+    assert orphan.to_dict() == {"t": [{"x": 1}, {"x": 2}]}
+
+
+def test_dumps_a_popped_subtree_wrapped_in_plain_mappings() -> None:
+    """A source one level down is still the caller's.
+
+    The plain mappings around it are rebuilt on the way in, but the view
+    inside them is installed as it is — so it has to be recognised
+    through them, not just at the top level.
+    """
+    doc = tomlrt.loads(
+        td("""
+        [root]
+        x = 1
+
+        [root.sub]
+        # lead
+        y = 2  # eol
+        """)
+    )
+    orphan = doc.pop("root")
+
+    assert tomlrt.dumps({"a": {"b": orphan["sub"]}}) == td("""
+        [a.b]
+        # lead
+        y = 2  # eol
+        """)
+    assert orphan.to_dict() == {"x": 1, "sub": {"y": 2}}

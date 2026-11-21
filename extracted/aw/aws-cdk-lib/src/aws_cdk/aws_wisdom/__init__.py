@@ -6944,6 +6944,12 @@ class CfnAIPrompt(
             # the properties below are optional
             assistant_id="assistantId",
             description="description",
+            inference_configuration=wisdom.CfnAIPrompt.AIPromptInferenceConfigurationProperty(
+                max_tokens_to_sample=123,
+                temperature=123,
+                top_k=123,
+                top_p=123
+            ),
             name="name",
             tags={
                 "tags_key": "tags"
@@ -6963,6 +6969,7 @@ class CfnAIPrompt(
         type: builtins.str,
         assistant_id: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
+        inference_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAIPrompt.AIPromptInferenceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
@@ -6977,6 +6984,7 @@ class CfnAIPrompt(
         :param type: The type of this AI Prompt.
         :param assistant_id: The identifier of the Amazon Q in Connect assistant. Can be either the ID or the ARN. URLs cannot contain the ARN.
         :param description: The description of the AI Prompt.
+        :param inference_configuration: 
         :param name: The name of the AI Prompt.
         :param tags: The tags used to organize, track, or control access for this resource.
         '''
@@ -6992,6 +7000,7 @@ class CfnAIPrompt(
             type=type,
             assistant_id=assistant_id,
             description=description,
+            inference_configuration=inference_configuration,
             name=name,
             tags=tags,
         )
@@ -7212,6 +7221,23 @@ class CfnAIPrompt(
         jsii.set(self, "description", value)
 
     @builtins.property
+    @jsii.member(jsii_name="inferenceConfiguration")
+    def inference_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAIPrompt.AIPromptInferenceConfigurationProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAIPrompt.AIPromptInferenceConfigurationProperty"]], jsii.get(self, "inferenceConfiguration"))
+
+    @inference_configuration.setter
+    def inference_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAIPrompt.AIPromptInferenceConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__24dc756d0746ad68cad8d15144f7de1000ace63fa0007211b991efc270edf7f9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "inferenceConfiguration", value)
+
+    @builtins.property
     @jsii.member(jsii_name="name")
     def name(self) -> typing.Optional[builtins.str]:
         '''The name of the AI Prompt.'''
@@ -7239,6 +7265,106 @@ class CfnAIPrompt(
             type_hints = cached_type_hints(_typecheckingstub__ebc135e5b323c7d3a33dd614d94d6bb8425982f46dc4aafee23df90fac59a460)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_wisdom.CfnAIPrompt.AIPromptInferenceConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "max_tokens_to_sample": "maxTokensToSample",
+            "temperature": "temperature",
+            "top_k": "topK",
+            "top_p": "topP",
+        },
+    )
+    class AIPromptInferenceConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            max_tokens_to_sample: typing.Optional[jsii.Number] = None,
+            temperature: typing.Optional[jsii.Number] = None,
+            top_k: typing.Optional[jsii.Number] = None,
+            top_p: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param max_tokens_to_sample: 
+            :param temperature: 
+            :param top_k: 
+            :param top_p: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wisdom-aiprompt-aipromptinferenceconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_wisdom as wisdom
+                
+                a_i_prompt_inference_configuration_property = wisdom.CfnAIPrompt.AIPromptInferenceConfigurationProperty(
+                    max_tokens_to_sample=123,
+                    temperature=123,
+                    top_k=123,
+                    top_p=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__eeef3a5b5e663035d5aa32daab18436da1072fa2ef5ebdf7f66e75ccb7f671d1)
+                check_type(argname="argument max_tokens_to_sample", value=max_tokens_to_sample, expected_type=type_hints["max_tokens_to_sample"])
+                check_type(argname="argument temperature", value=temperature, expected_type=type_hints["temperature"])
+                check_type(argname="argument top_k", value=top_k, expected_type=type_hints["top_k"])
+                check_type(argname="argument top_p", value=top_p, expected_type=type_hints["top_p"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if max_tokens_to_sample is not None:
+                self._values["max_tokens_to_sample"] = max_tokens_to_sample
+            if temperature is not None:
+                self._values["temperature"] = temperature
+            if top_k is not None:
+                self._values["top_k"] = top_k
+            if top_p is not None:
+                self._values["top_p"] = top_p
+
+        @builtins.property
+        def max_tokens_to_sample(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wisdom-aiprompt-aipromptinferenceconfiguration.html#cfn-wisdom-aiprompt-aipromptinferenceconfiguration-maxtokenstosample
+            '''
+            result = self._values.get("max_tokens_to_sample")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def temperature(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wisdom-aiprompt-aipromptinferenceconfiguration.html#cfn-wisdom-aiprompt-aipromptinferenceconfiguration-temperature
+            '''
+            result = self._values.get("temperature")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def top_k(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wisdom-aiprompt-aipromptinferenceconfiguration.html#cfn-wisdom-aiprompt-aipromptinferenceconfiguration-topk
+            '''
+            result = self._values.get("top_k")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def top_p(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wisdom-aiprompt-aipromptinferenceconfiguration.html#cfn-wisdom-aiprompt-aipromptinferenceconfiguration-topp
+            '''
+            result = self._values.get("top_p")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AIPromptInferenceConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_wisdom.CfnAIPrompt.AIPromptTemplateConfigurationProperty",
@@ -7366,6 +7492,7 @@ class CfnAIPrompt(
         "type": "type",
         "assistant_id": "assistantId",
         "description": "description",
+        "inference_configuration": "inferenceConfiguration",
         "name": "name",
         "tags": "tags",
     },
@@ -7381,6 +7508,7 @@ class CfnAIPromptProps:
         type: builtins.str,
         assistant_id: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
+        inference_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAIPrompt.AIPromptInferenceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
@@ -7393,6 +7521,7 @@ class CfnAIPromptProps:
         :param type: The type of this AI Prompt.
         :param assistant_id: The identifier of the Amazon Q in Connect assistant. Can be either the ID or the ARN. URLs cannot contain the ARN.
         :param description: The description of the AI Prompt.
+        :param inference_configuration: 
         :param name: The name of the AI Prompt.
         :param tags: The tags used to organize, track, or control access for this resource.
 
@@ -7419,6 +7548,12 @@ class CfnAIPromptProps:
                 # the properties below are optional
                 assistant_id="assistantId",
                 description="description",
+                inference_configuration=wisdom.CfnAIPrompt.AIPromptInferenceConfigurationProperty(
+                    max_tokens_to_sample=123,
+                    temperature=123,
+                    top_k=123,
+                    top_p=123
+                ),
                 name="name",
                 tags={
                     "tags_key": "tags"
@@ -7434,6 +7569,7 @@ class CfnAIPromptProps:
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument assistant_id", value=assistant_id, expected_type=type_hints["assistant_id"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument inference_configuration", value=inference_configuration, expected_type=type_hints["inference_configuration"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -7447,6 +7583,8 @@ class CfnAIPromptProps:
             self._values["assistant_id"] = assistant_id
         if description is not None:
             self._values["description"] = description
+        if inference_configuration is not None:
+            self._values["inference_configuration"] = inference_configuration
         if name is not None:
             self._values["name"] = name
         if tags is not None:
@@ -7541,6 +7679,16 @@ class CfnAIPromptProps:
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def inference_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAIPrompt.AIPromptInferenceConfigurationProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiprompt.html#cfn-wisdom-aiprompt-inferenceconfiguration
+        '''
+        result = self._values.get("inference_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAIPrompt.AIPromptInferenceConfigurationProperty"]], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -16624,6 +16772,7 @@ def _typecheckingstub__48a265f7ec519ced4028dd8e69d5a1fe8ef89d36b11d693c968f74c8b
     type: builtins.str,
     assistant_id: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
+    inference_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAIPrompt.AIPromptInferenceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
@@ -16696,6 +16845,12 @@ def _typecheckingstub__4aab971aeb8e18c48f506a9f2350fb427745d11ff1d792a38763843c7
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__24dc756d0746ad68cad8d15144f7de1000ace63fa0007211b991efc270edf7f9(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAIPrompt.AIPromptInferenceConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__8c8237463d9724c409122f49c9b69b5a1e0f429714ecc37326da2fb2d24ac916(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -16704,6 +16859,16 @@ def _typecheckingstub__8c8237463d9724c409122f49c9b69b5a1e0f429714ecc37326da2fb2d
 
 def _typecheckingstub__ebc135e5b323c7d3a33dd614d94d6bb8425982f46dc4aafee23df90fac59a460(
     value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__eeef3a5b5e663035d5aa32daab18436da1072fa2ef5ebdf7f66e75ccb7f671d1(
+    *,
+    max_tokens_to_sample: typing.Optional[jsii.Number] = None,
+    temperature: typing.Optional[jsii.Number] = None,
+    top_k: typing.Optional[jsii.Number] = None,
+    top_p: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16731,6 +16896,7 @@ def _typecheckingstub__3a55de2153828f44950073a28af3416601dc1f09105d3fa9d8f1ec243
     type: builtins.str,
     assistant_id: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
+    inference_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAIPrompt.AIPromptInferenceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:

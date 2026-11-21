@@ -24,6 +24,7 @@ else:
 __all__ = (
     "AgentRegistryServiceName",
     "BatchGetDiscoverableRegistryRecordErrorCodeType",
+    "BotCategoryType",
     "ListDiscoverableRegistryRecordsPaginatorName",
     "PaginatorName",
     "RecordTypeType",
@@ -38,8 +39,28 @@ __all__ = (
 BatchGetDiscoverableRegistryRecordErrorCodeType = Literal[
     "ACCESS_DENIED", "INTERNAL_ERROR", "RESOURCE_NOT_FOUND"
 ]
+BotCategoryType = Literal[
+    "advertising",
+    "ai_assistant",
+    "ai_content_optimization",
+    "ai_search",
+    "ai_training",
+    "archiver",
+    "content_fetcher",
+    "email_client",
+    "http_library",
+    "link_checker",
+    "miscellaneous",
+    "monitoring",
+    "page_preview",
+    "scraping_framework",
+    "search_engine",
+    "security",
+    "seo",
+    "social_media",
+]
 ListDiscoverableRegistryRecordsPaginatorName = Literal["list_discoverable_registry_records"]
-RecordTypeType = Literal["AGENT", "CUSTOM", "GATEWAY", "MCP", "SKILL"]
+RecordTypeType = Literal["AGENT", "CUSTOM", "GATEWAY", "MCP", "SKILL", "WEB_BOT"]
 RegistryRecordFilterNameType = Literal["descriptorType", "recordType"]
 RegistryRecordStatusType = Literal[
     "APPROVED",
@@ -65,6 +86,7 @@ ServiceName = Literal[
     "account-access-runtime",
     "acm",
     "acm-pca",
+    "agent-discovery",
     "agent-registry",
     "agent-registry-control",
     "aiops",
@@ -75,6 +97,7 @@ ServiceName = Literal[
     "apigateway",
     "apigatewaymanagementapi",
     "apigatewayv2",
+    "apiportal",
     "appconfig",
     "appconfigdata",
     "appfabric",
@@ -365,6 +388,7 @@ ServiceName = Literal[
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
+    "payments",
     "pca-connector-ad",
     "pca-connector-scep",
     "pcs",
@@ -420,6 +444,7 @@ ServiceName = Literal[
     "sagemaker-a2i-runtime",
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
+    "sagemaker-gateway-runtime",
     "sagemaker-geospatial",
     "sagemaker-inference-router-runtime",
     "sagemaker-metrics",

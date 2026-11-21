@@ -1,23 +1,20 @@
-use std::{fs, path::Path};
+use std::fs;
 
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
 use serde_json::Value;
-use testsuite_internal::Case;
 
-use crate::{files, loader};
+use crate::loader;
 
 /// One validator per suite case for the given backend, and the table entry that finds it by id.
 pub(crate) fn generate(
     backend: &Ident,
     suite_path: &str,
     drafts: &[String],
-    remote_resources: &[(String, String)],
 ) -> Result<TokenStream, Box<dyn std::error::Error>> {
     let mut definitions = Vec::new();
     let mut entries = Vec::new();
     for draft in drafts {
-        let root = Path::new(suite_path).join("tests").join(draft);
         let draft_variant = match draft.as_str() {
             "draft4" => format_ident!("Draft4"),
             "draft6" => format_ident!("Draft6"),
@@ -25,32 +22,76 @@ pub(crate) fn generate(
             "draft2019-09" => format_ident!("Draft201909"),
             _ => format_ident!("Draft202012"),
         };
-        for path in files::json_files(&root)? {
-            let relative = path
-                .strip_prefix(&root)?
-                .to_str()
-                .ok_or("Invalid filename")?
-                .replace('\\', "/");
-            let contents = fs::read_to_string(&path)?;
-            let cases: Vec<Case> =
-                serde_json::from_str(&loader::sanitize_lone_surrogates(&contents))?;
-            let validate_formats = if relative.starts_with("optional/") {
-                quote! { , validate_formats = true }
-            } else {
-                quote! {}
-            };
-            for (index, case) in cases.iter().enumerate() {
+        for file in loader::load_files(suite_path, draft)? {
+            let relative = &file.relative;
+            for case in &file.cases {
+                let index = case.index;
                 let schema = serde_json::to_string(&case.schema)?;
-                let resources = if schema.contains("localhost:1234") {
-                    let resources = remote_resources
-                        .iter()
-                        .map(|(uri, contents)| quote! { #uri => { schema = #contents } });
-                    quote! { , resources = { #(#resources),* } }
-                } else {
+                let resources = if case.external_schemas.is_empty() {
                     quote! {}
+                } else {
+                    let resources = case
+                        .external_schemas
+                        .iter()
+                        .map(|(uri, schema)| {
+                            let contents = serde_json::to_string(schema)?;
+                            Ok(quote! { #uri => { schema = #contents } })
+                        })
+                        .collect::<Result<Vec<_>, serde_json::Error>>()?;
+                    quote! { , resources = { #(#resources),* } }
+                };
+                let (validate_formats, runtime_formats) = match loader::validate_formats(case) {
+                    Some(value) => (
+                        quote! { , validate_formats = #value },
+                        quote! { .should_validate_formats(#value) },
+                    ),
+                    None => (quote! {}, quote! {}),
                 };
                 let ident = format_ident!("Validator{}", definitions.len());
                 let id = format!("{draft}|{relative}|{index}");
+                // The runtime gets the documents the generated validator was given, not the network.
+                let externals = case
+                    .external_schemas
+                    .iter()
+                    .map(|(uri, schema)| {
+                        let contents = serde_json::to_string(schema)?;
+                        Ok(quote! {
+                            (#uri, serde_json::from_str(#contents).expect("suite resource is JSON"))
+                        })
+                    })
+                    .collect::<Result<Vec<_>, serde_json::Error>>()?;
+                let evaluate = quote! {
+                    |instance| {
+                        static RUNTIME: std::sync::LazyLock<
+                            jsonschema::Validator<jsonschema::json::#backend>,
+                        > = std::sync::LazyLock::new(|| {
+                            let externals: Vec<(&str, serde_json::Value)> = vec![#(#externals),*];
+                            let mut registry =
+                                jsonschema::Registry::new().draft(jsonschema::Draft::#draft_variant);
+                            for (uri, contents) in &externals {
+                                // Like a retrieved document, each is in the draft its own `$schema` names.
+                                let resource = jsonschema::Draft::#draft_variant
+                                    .detect(contents)
+                                    .create_resource(contents.clone());
+                                registry = registry
+                                    .add(*uri, resource)
+                                    .expect("suite resource is accepted");
+                            }
+                            let registry = registry.prepare().expect("suite resources resolve");
+                            jsonschema::options_for::<jsonschema::json::#backend>()
+                                .with_draft(jsonschema::Draft::#draft_variant)
+                                .with_registry(&registry)
+                                #runtime_formats
+                                .build(&serde_json::from_str(#schema).expect("suite schema is JSON"))
+                                .expect("suite schema compiles")
+                        });
+                        let generated = #ident::evaluate(instance)?;
+                        let runtime = runtime_evaluate(&RUNTIME, instance)?;
+                        Ok(Some(
+                            serde_json::json!([outputs(&generated), outputs(&runtime)]).to_string(),
+                        ))
+                    }
+                };
                 definitions.push(quote! {
                     #[jsonschema::validator(
                         schema = #schema,
@@ -61,7 +102,7 @@ pub(crate) fn generate(
                     )]
                     struct #ident;
                 });
-                entries.push(entry(&ident, &id));
+                entries.push(entry(&ident, &id, &evaluate));
             }
         }
     }
@@ -104,7 +145,7 @@ pub(crate) fn generate_schemas(
             #[jsonschema::validator(schema = #schema, backend = #backend, keywords = { #(#keywords),* })]
             struct #ident;
         });
-        entries.push(entry(&ident, &schema));
+        entries.push(entry(&ident, &schema, &quote! { |_| Ok(None) }));
     }
     Ok(quote! {
         // Rebuilds when the schema list changes.
@@ -133,7 +174,7 @@ fn sorted(value: &Value) -> Value {
     }
 }
 
-fn entry(ident: &Ident, id: &str) -> TokenStream {
+fn entry(ident: &Ident, id: &str, evaluate: &TokenStream) -> TokenStream {
     quote! {
         SuiteEntry {
             id: #id,
@@ -144,6 +185,7 @@ fn entry(ident: &Ident, id: &str) -> TokenStream {
             iter_errors: |instance| {
                 Ok(#ident::iter_errors(instance)?.map(|error| error.to_string()).collect())
             },
+            evaluate: #evaluate,
         }
     }
 }

@@ -39,7 +39,7 @@ def inspect_redline_structure(
 
     if document is not None:
         try:
-            changes = document.tracking.changes
+            changes = document.oxml.track_changes  # the header's trackChanges entries (id -> TrackChange)
             changes_by_id = {
                 int(change.id): change
                 for change in changes.values()
@@ -194,11 +194,21 @@ def _marks_are_linked(
 
 
 def _track_change_display_enabled(document: HwpxDocument) -> bool:
-    for header in document.parts.headers:
+    """True when Hancom draws the document's tracked changes with their marks, by the flags of its
+    ``hh:trackchageConfig`` as rendered (``hwpx.oxml.header_part._track_change_marks_shown``): 56,
+    what Hancom writes, 40 and 57, and a document with no such element. Up to 7.0 development this
+    looked at bit 0, which is not what shows the marks (a document with flags 5 draws none)."""
+
+    from ..oxml.header_part import _track_change_marks_shown
+
+    headers = list(document.parts.headers)
+    if not headers:
+        return False
+    for header in headers:
         config = header.to_model().track_change_config
-        if config is not None and config.flags is not None and config.flags & 1:
-            return True
-    return False
+        if not _track_change_marks_shown(None if config is None else config.flags or 0):
+            return False
+    return True
 
 
 def _visual_signal_warnings(report: Any) -> list[str]:

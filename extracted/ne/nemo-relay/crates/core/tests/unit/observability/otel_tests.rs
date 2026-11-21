@@ -4471,6 +4471,215 @@ fn gen_ai_projection_emits_normalized_response_attributes() {
 }
 
 #[test]
+fn gen_ai_projection_includes_gemini_thinking_tokens_in_output_tokens() {
+    let event = make_scope_event_with_profile(
+        ScopeCategory::End,
+        Uuid::now_v7(),
+        None,
+        "chat",
+        ScopeType::Llm,
+        None,
+        Some(
+            CategoryProfile::builder()
+                .annotated_response(Arc::new(AnnotatedLlmResponse {
+                    usage: Some(Usage {
+                        prompt_tokens: Some(10),
+                        completion_tokens: Some(5),
+                        total_tokens: Some(35),
+                        cache_read_tokens: None,
+                        cache_write_tokens: None,
+                        cache_write_1h_tokens: None,
+                        uncached_input_tokens: None,
+                        cost: None,
+                    }),
+                    api_specific: Some(ApiSpecificResponse::GeminiGenerateContent {
+                        thoughts_tokens: Some(20),
+                        tool_use_prompt_tokens: None,
+                        safety_ratings: None,
+                        grounding_metadata: None,
+                        citation_metadata: None,
+                        extra: serde_json::Map::new(),
+                    }),
+                    ..empty_annotated_response()
+                }))
+                .build(),
+        ),
+    );
+
+    let attributes = attr_map(&crate::observability::otel_genai::end_attributes(&event));
+    assert_eq!(
+        attributes.get("gen_ai.usage.input_tokens"),
+        Some(&"10".to_string())
+    );
+    assert_eq!(
+        attributes.get("gen_ai.usage.reasoning.output_tokens"),
+        Some(&"20".to_string())
+    );
+    assert_eq!(
+        attributes.get("gen_ai.usage.output_tokens"),
+        Some(&"25".to_string())
+    );
+}
+
+#[test]
+fn gen_ai_projection_adds_canonical_reasoning_tokens_only_to_gemini_output_tokens() {
+    for (api_specific, expected_output) in [
+        (json!({"api": "gemini_generate_content"}), "25"),
+        (json!({"api": "openai_responses"}), "5"),
+    ] {
+        let response: AnnotatedLlmResponse = serde_json::from_value(json!({
+            "usage": {"completion_tokens": 5},
+            "api_specific": api_specific
+        }))
+        .unwrap();
+        let event = make_scope_event_with_profile(
+            ScopeCategory::End,
+            Uuid::now_v7(),
+            None,
+            "chat",
+            ScopeType::Llm,
+            Some(json!({"gen_ai.usage.reasoning.output_tokens": 20})),
+            Some(
+                CategoryProfile::builder()
+                    .annotated_response(Arc::new(response))
+                    .build(),
+            ),
+        );
+        let attributes = attr_map(&crate::observability::otel_genai::end_attributes(&event));
+        assert_eq!(attributes["gen_ai.usage.reasoning.output_tokens"], "20");
+        assert_eq!(attributes["gen_ai.usage.output_tokens"], expected_output);
+    }
+}
+
+#[test]
+fn gen_ai_projection_prefers_canonical_reasoning_tokens_over_gemini_thoughts() {
+    let response: AnnotatedLlmResponse = serde_json::from_value(json!({
+        "usage": {"completion_tokens": 5},
+        "api_specific": {"api": "gemini_generate_content", "thoughts_tokens": 20}
+    }))
+    .unwrap();
+    let event = make_scope_event_with_profile(
+        ScopeCategory::End,
+        Uuid::now_v7(),
+        None,
+        "chat",
+        ScopeType::Llm,
+        Some(json!({"gen_ai.usage.reasoning.output_tokens": 7})),
+        Some(
+            CategoryProfile::builder()
+                .annotated_response(Arc::new(response))
+                .build(),
+        ),
+    );
+    let attributes = attr_map(&crate::observability::otel_genai::end_attributes(&event));
+    assert_eq!(attributes["gen_ai.usage.reasoning.output_tokens"], "7");
+    assert_eq!(attributes["gen_ai.usage.output_tokens"], "12");
+}
+
+#[test]
+fn gen_ai_projection_adds_only_gemini_thinking_tokens_to_output_tokens() {
+    for (response, expected_output, expected_reasoning) in [
+        (
+            json!({
+                "usage": {"completion_tokens": 5},
+                "api_specific": {"api": "gemini_generate_content"}
+            }),
+            Some("5"),
+            None,
+        ),
+        (
+            json!({
+                "usage": {"completion_tokens": 5},
+                "api_specific": {"api": "gemini_generate_content", "thoughts_tokens": 0}
+            }),
+            Some("5"),
+            Some("0"),
+        ),
+        (
+            json!({
+                "usage": {"total_tokens": 20},
+                "api_specific": {"api": "gemini_generate_content", "thoughts_tokens": 20}
+            }),
+            Some("20"),
+            Some("20"),
+        ),
+        (
+            json!({
+                "api_specific": {"api": "gemini_generate_content", "thoughts_tokens": 20}
+            }),
+            Some("20"),
+            Some("20"),
+        ),
+        (
+            json!({
+                "usage": {"completion_tokens": u64::MAX},
+                "api_specific": {"api": "gemini_generate_content", "thoughts_tokens": 1}
+            }),
+            None,
+            Some("1"),
+        ),
+        (
+            json!({
+                "usage": {"completion_tokens": i64::MAX},
+                "api_specific": {"api": "gemini_generate_content", "thoughts_tokens": 1}
+            }),
+            None,
+            Some("1"),
+        ),
+        (
+            json!({
+                "usage": {"completion_tokens": 1},
+                "api_specific": {
+                    "api": "gemini_generate_content",
+                    "thoughts_tokens": i64::MAX as u64 + 1
+                }
+            }),
+            None,
+            None,
+        ),
+        (
+            json!({
+                "usage": {"completion_tokens": 30},
+                "api_specific": {
+                    "api": "openai_responses",
+                    "output_tokens_details": {"reasoning_tokens": 20}
+                }
+            }),
+            Some("30"),
+            Some("20"),
+        ),
+    ] {
+        let response: AnnotatedLlmResponse = serde_json::from_value(response).unwrap();
+        let event = make_scope_event_with_profile(
+            ScopeCategory::End,
+            Uuid::now_v7(),
+            None,
+            "chat",
+            ScopeType::Llm,
+            None,
+            Some(
+                CategoryProfile::builder()
+                    .annotated_response(Arc::new(response))
+                    .build(),
+            ),
+        );
+        let attributes = attr_map(&crate::observability::otel_genai::end_attributes(&event));
+        assert_eq!(
+            attributes
+                .get("gen_ai.usage.output_tokens")
+                .map(String::as_str),
+            expected_output
+        );
+        assert_eq!(
+            attributes
+                .get("gen_ai.usage.reasoning.output_tokens")
+                .map(String::as_str),
+            expected_reasoning
+        );
+    }
+}
+
+#[test]
 fn gen_ai_projection_includes_anthropic_cache_tokens_in_input_total() {
     let event = make_end_event(
         Uuid::now_v7(),
@@ -8084,4 +8293,63 @@ fn gen_ai_projection_reads_cache_tokens_by_the_declared_api_shape() {
             Some(&input_tokens.to_string())
         );
     }
+}
+
+#[test]
+fn gen_ai_custom_call_messages_preserve_wrapper_ids_and_free_form_input() {
+    use crate::codec::openai_responses::OpenAIResponsesCodec;
+    use crate::codec::traits::{LlmCodec, LlmResponseCodec};
+    let input = r#"{"literal":"free form, not parsed arguments"}"#;
+    let call = json!({"type": "custom_tool_call", "id": "ctc-item", "call_id": "call-wrapper", "name": "exec", "input": input});
+    let raw = crate::api::llm::LlmRequest {
+        headers: serde_json::Map::new(),
+        content: json!({"input": [call.clone(), {"type": "custom_tool_call_output", "call_id": "call-wrapper", "output": "done"}]}),
+    };
+    for annotated in [false, true] {
+        let request = OpenAIResponsesCodec.decode(&raw).unwrap();
+        let start = make_scope_event_with_profile(
+            ScopeCategory::Start,
+            Uuid::now_v7(),
+            None,
+            "openai.responses",
+            ScopeType::Llm,
+            Some(serde_json::to_value(&raw).unwrap()),
+            Some(
+                CategoryProfile::builder()
+                    .annotated_request_opt(annotated.then(|| Arc::new(request)))
+                    .build(),
+            ),
+        );
+        let attrs = attr_map(&crate::observability::otel_genai::start_attributes(&start));
+        let messages: Json = serde_json::from_str(&attrs["gen_ai.input.messages"]).unwrap();
+        assert_eq!(
+            messages,
+            json!([
+                {"role": "assistant", "parts": [{"type": "tool_call", "id": "call-wrapper", "name": "exec", "arguments": input}]},
+                {"role": "tool", "parts": [{"type": "tool_call_response", "id": "call-wrapper", "response": "done"}]}
+            ])
+        );
+    }
+    let response = OpenAIResponsesCodec
+        .decode_response(&json!({"status": "completed", "output": [call]}))
+        .unwrap();
+    let end = make_scope_event_with_profile(
+        ScopeCategory::End,
+        Uuid::now_v7(),
+        None,
+        "openai.responses",
+        ScopeType::Llm,
+        None,
+        Some(
+            CategoryProfile::builder()
+                .annotated_response(Arc::new(response))
+                .build(),
+        ),
+    );
+    let attrs = attr_map(&crate::observability::otel_genai::end_attributes(&end));
+    let messages: Json = serde_json::from_str(&attrs["gen_ai.output.messages"]).unwrap();
+    assert_eq!(
+        messages[0]["parts"],
+        json!([{ "type": "tool_call", "id": "call-wrapper", "name": "exec", "arguments": input }])
+    );
 }

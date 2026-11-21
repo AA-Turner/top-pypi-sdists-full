@@ -431,6 +431,45 @@ my_function.add_event_source(ManagedKafkaEventSource(
 ))
 ```
 
+### Consumption mode (Kafka queues)
+
+By default, Lambda reads a Kafka topic as a consumer group: each partition is read by one poller, in order
+(`lambda.KafkaConsumptionMode.STREAM`). If your self-managed cluster runs Kafka 4.2.0 or later, you can instead read
+the topic as a share group (`lambda.KafkaConsumptionMode.QUEUE`). In queue mode, several pollers can read the same
+partition in parallel, which removes head-of-line blocking at the cost of ordering.
+
+```python
+from aws_cdk.aws_secretsmanager import Secret
+from aws_cdk.aws_lambda_event_sources import SelfManagedKafkaEventSource
+
+# my_function: lambda.Function
+# secret: Secret
+
+
+my_function.add_event_source(SelfManagedKafkaEventSource(
+    bootstrap_servers=["kafka-broker-1:9092", "kafka-broker-2:9092"],
+    topic="orders",
+    secret=secret,
+    consumer_group_id="orders-queue",
+    consumption_mode=lambda_.KafkaConsumptionMode.QUEUE
+))
+```
+
+Queue mode changes how some options behave:
+
+* `startingPosition` and `startingPositionTimestamp` aren't supported. Leave them unset.
+* `maxBatchingWindow` isn't supported. Leave it unset.
+* `retryAttempts` accepts 0 to 10000, and defaults to 0. `-1` (infinite retries) isn't supported. As in stream mode,
+  `retryAttempts` is only available in provisioned mode (`provisionedPollerConfig`).
+* The consumption mode can't be changed after the event source mapping is created. To switch modes, create a new
+  event source (for example, with a different `consumerGroupId`) and remove the old one.
+* `consumerGroupId` is the name of the share group. Kafka doesn't allow a consumer group and a share group with the
+  same name, so if the ID already exists on the broker as a consumer group, Lambda disables the mapping. Use a new ID,
+  or omit it to let Lambda generate one.
+
+Other options work the same as in stream mode. Queue mode isn't available for `ManagedKafkaEventSource` (Amazon
+MSK).
+
 ### Failure Destinations
 
 You can specify failure destinations for records that fail processing. Kafka event sources support Kafka Topic Destinations, S3 Bucket Destinations, SQS Queue and SNS topic:
@@ -638,9 +677,28 @@ orders_function.add_event_source(ManagedKafkaEventSource(
 ))
 ```
 
-Set a confluent or self-managed schema registry to de-serialize events from the event source.
+### Schema Registry
 
-Note: This will also work for `SelfManagedKafkaEventSource`.
+Lambda can validate the key, the value, or both of each Kafka record against a schema registry before it
+invokes your function. Set `schemaRegistryConfig` on `ManagedKafkaEventSource` or `SelfManagedKafkaEventSource`
+to an AWS Glue schema registry with `GlueSchemaRegistry`, or to a Confluent schema registry, cloud or
+self-managed, with `ConfluentSchemaRegistry`. The registry can validate Avro, Protobuf and JSON Schema records.
+
+Schema registries need provisioned pollers, so also set `provisionedPollerConfig`. Then choose:
+
+* `eventRecordFormat`: `JSON` passes the validated parts to your function as JSON, which suits languages such as
+  Python and Node.js; `SOURCE` passes them in their original format, which suits Avro or Protobuf generated classes.
+* `schemaValidationConfigs`: whether to validate the key, the value, or both.
+
+For Confluent, give the registry URL, an authentication type and the Secrets Manager secret that goes with it;
+the function gets read access to the secret. For Glue, pass the registry; the function gets the Glue
+permissions it needs to read it.
+
+For details, see
+[Using schema registries with Kafka event sources in Lambda](https://docs.aws.amazon.com/lambda/latest/dg/services-consume-kafka-events.html)
+in the AWS Lambda Developer Guide.
+
+This example uses a Confluent schema registry with Amazon MSK:
 
 ```python
 from aws_cdk.aws_lambda_event_sources import ProvisionedPollerConfig
@@ -650,13 +708,14 @@ from aws_cdk.aws_secretsmanager import Secret
 # Your MSK cluster arn
 # cluster_arn: str
 
+# The secret with the credentials for your schema registry
+# secret: Secret
+
 # my_function: lambda.Function
 
 
 # The Kafka topic you want to subscribe to
 topic = "some-cool-topic"
-
-secret = Secret(self, "Secret", secret_name="AmazonMSK_KafkaSecret")
 my_function.add_event_source(ManagedKafkaEventSource(
     cluster_arn=cluster_arn,
     topic=topic,
@@ -675,9 +734,7 @@ my_function.add_event_source(ManagedKafkaEventSource(
 ))
 ```
 
-Set Glue schema registry to de-serialize events from the event source.
-
-Note: This will also work for `SelfManagedKafkaEventSource`.
+This example uses an AWS Glue schema registry with Amazon MSK:
 
 ```python
 from aws_cdk.aws_lambda_event_sources import ProvisionedPollerConfig
@@ -710,6 +767,46 @@ my_function.add_event_source(ManagedKafkaEventSource(
         schema_registry=glue_registry,
         event_record_format=lambda_.EventRecordFormat.JSON,
         schema_validation_configs=[lambda.KafkaSchemaValidationConfig(attribute=lambda_.KafkaSchemaValidationAttribute.KEY)]
+    )
+))
+```
+
+This example uses a self-managed Confluent schema registry with a self-managed Kafka cluster:
+
+```python
+from aws_cdk.aws_lambda_event_sources import ProvisionedPollerConfig
+from aws_cdk.aws_lambda_event_sources import SelfManagedKafkaEventSource, ConfluentSchemaRegistry
+from aws_cdk.aws_secretsmanager import ISecret
+
+# The secret that allows access to your self hosted Kafka cluster
+# kafka_secret: ISecret
+
+# The secret with the client certificate and private key for your schema registry
+# registry_secret: ISecret
+
+# my_function: lambda.Function
+
+
+# The list of Kafka brokers
+bootstrap_servers = ["kafka-broker:9092"]
+
+# The Kafka topic you want to subscribe to
+topic = "some-cool-topic"
+my_function.add_event_source(SelfManagedKafkaEventSource(
+    bootstrap_servers=bootstrap_servers,
+    topic=topic,
+    secret=kafka_secret,
+    starting_position=lambda_.StartingPosition.TRIM_HORIZON,
+    provisioned_poller_config=ProvisionedPollerConfig(
+        minimum_pollers=1,
+        maximum_pollers=3
+    ),
+    schema_registry_config=ConfluentSchemaRegistry(
+        schema_registry_uri="https://schema-registry.example.com",
+        event_record_format=lambda_.EventRecordFormat.SOURCE,
+        authentication_type=lambda_.KafkaSchemaRegistryAccessConfigType.CLIENT_CERTIFICATE_TLS_AUTH,
+        secret=registry_secret,
+        schema_validation_configs=[lambda.KafkaSchemaValidationConfig(attribute=lambda_.KafkaSchemaValidationAttribute.VALUE)]
     )
 ))
 ```
@@ -940,30 +1037,30 @@ class AuthenticationMethod(enum.Enum):
     jsii_type="aws-cdk-lib.aws_lambda_event_sources.BaseStreamEventSourceProps",
     jsii_struct_bases=[],
     name_mapping={
-        "starting_position": "startingPosition",
         "batch_size": "batchSize",
         "enabled": "enabled",
         "max_batching_window": "maxBatchingWindow",
         "provisioned_poller_config": "provisionedPollerConfig",
+        "starting_position": "startingPosition",
     },
 )
 class BaseStreamEventSourceProps:
     def __init__(
         self,
         *,
-        starting_position: "_aws_lambda_b8f2f472.StartingPosition",
         batch_size: typing.Optional[jsii.Number] = None,
         enabled: typing.Optional[builtins.bool] = None,
         max_batching_window: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         provisioned_poller_config: typing.Optional[typing.Union["ProvisionedPollerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        starting_position: typing.Optional["_aws_lambda_b8f2f472.StartingPosition"] = None,
     ) -> None:
         '''The set of properties for streaming event sources shared by Dynamo, Kinesis and Kafka.
 
-        :param starting_position: Where to begin consuming the stream.
         :param batch_size: The largest number of records that AWS Lambda will retrieve from your event source at the time of invoking your function. Your function receives an event with all the retrieved records. Valid Range: - Minimum value of 1 - Maximum value of: - 1000 for ``DynamoEventSource`` - 10000 for ``KinesisEventSource``, ``ManagedKafkaEventSource`` and ``SelfManagedKafkaEventSource`` Default: 100
         :param enabled: If the stream event source mapping should be enabled. Default: true
         :param max_batching_window: The maximum amount of time to gather records before invoking the function. Maximum of Duration.minutes(5). Default: - Duration.seconds(0) for Kinesis, DynamoDB, and SQS event sources, Duration.millis(500) for MSK, self-managed Kafka, and Amazon MQ.
         :param provisioned_poller_config: Configuration for provisioned pollers that read from the event source. When specified, allows control over the minimum and maximum number of pollers that can be provisioned to process events from the source. Default: - no provisioned pollers
+        :param starting_position: Where to begin consuming the stream. Required for DynamoDB, Kinesis and Amazon MSK event sources, and for self-managed Kafka event sources unless ``consumptionMode`` is ``KafkaConsumptionMode.QUEUE``. Not supported in queue mode. Default: - no starting position; synthesis fails if the event source requires one
 
         :exampleMetadata: fixture=_generated
 
@@ -976,9 +1073,6 @@ class BaseStreamEventSourceProps:
             from aws_cdk import aws_lambda_event_sources as lambda_event_sources
             
             base_stream_event_source_props = lambda_event_sources.BaseStreamEventSourceProps(
-                starting_position=lambda_.StartingPosition.TRIM_HORIZON,
-            
-                # the properties below are optional
                 batch_size=123,
                 enabled=False,
                 max_batching_window=cdk.Duration.minutes(30),
@@ -986,21 +1080,20 @@ class BaseStreamEventSourceProps:
                     maximum_pollers=123,
                     minimum_pollers=123,
                     poller_group_name="pollerGroupName"
-                )
+                ),
+                starting_position=lambda_.StartingPosition.TRIM_HORIZON
             )
         '''
         if isinstance(provisioned_poller_config, dict):
             provisioned_poller_config = ProvisionedPollerConfig(**provisioned_poller_config)
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__49e8158c80bdc70be09102671a6e9cb783a1a28274da91874a575eeb7e7b4fc6)
-            check_type(argname="argument starting_position", value=starting_position, expected_type=type_hints["starting_position"])
             check_type(argname="argument batch_size", value=batch_size, expected_type=type_hints["batch_size"])
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             check_type(argname="argument max_batching_window", value=max_batching_window, expected_type=type_hints["max_batching_window"])
             check_type(argname="argument provisioned_poller_config", value=provisioned_poller_config, expected_type=type_hints["provisioned_poller_config"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "starting_position": starting_position,
-        }
+            check_type(argname="argument starting_position", value=starting_position, expected_type=type_hints["starting_position"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
         if batch_size is not None:
             self._values["batch_size"] = batch_size
         if enabled is not None:
@@ -1009,13 +1102,8 @@ class BaseStreamEventSourceProps:
             self._values["max_batching_window"] = max_batching_window
         if provisioned_poller_config is not None:
             self._values["provisioned_poller_config"] = provisioned_poller_config
-
-    @builtins.property
-    def starting_position(self) -> "_aws_lambda_b8f2f472.StartingPosition":
-        '''Where to begin consuming the stream.'''
-        result = self._values.get("starting_position")
-        assert result is not None, "Required property 'starting_position' is missing"
-        return typing.cast("_aws_lambda_b8f2f472.StartingPosition", result)
+        if starting_position is not None:
+            self._values["starting_position"] = starting_position
 
     @builtins.property
     def batch_size(self) -> typing.Optional[jsii.Number]:
@@ -1073,6 +1161,21 @@ class BaseStreamEventSourceProps:
         result = self._values.get("provisioned_poller_config")
         return typing.cast(typing.Optional["ProvisionedPollerConfig"], result)
 
+    @builtins.property
+    def starting_position(
+        self,
+    ) -> typing.Optional["_aws_lambda_b8f2f472.StartingPosition"]:
+        '''Where to begin consuming the stream.
+
+        Required for DynamoDB, Kinesis and Amazon MSK event sources, and for self-managed Kafka
+        event sources unless ``consumptionMode`` is ``KafkaConsumptionMode.QUEUE``. Not supported in
+        queue mode.
+
+        :default: - no starting position; synthesis fails if the event source requires one
+        '''
+        result = self._values.get("starting_position")
+        return typing.cast(typing.Optional["_aws_lambda_b8f2f472.StartingPosition"], result)
+
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -1103,13 +1206,14 @@ class ConfluentSchemaRegistry(
         # Your MSK cluster arn
         # cluster_arn: str
         
+        # The secret with the credentials for your schema registry
+        # secret: Secret
+        
         # my_function: lambda.Function
         
         
         # The Kafka topic you want to subscribe to
         topic = "some-cool-topic"
-        
-        secret = Secret(self, "Secret", secret_name="AmazonMSK_KafkaSecret")
         my_function.add_event_source(ManagedKafkaEventSource(
             cluster_arn=cluster_arn,
             topic=topic,
@@ -1212,13 +1316,14 @@ class ConfluentSchemaRegistryProps(_aws_lambda_b8f2f472.SchemaRegistryProps):
             # Your MSK cluster arn
             # cluster_arn: str
             
+            # The secret with the credentials for your schema registry
+            # secret: Secret
+            
             # my_function: lambda.Function
             
             
             # The Kafka topic you want to subscribe to
             topic = "some-cool-topic"
-            
-            secret = Secret(self, "Secret", secret_name="AmazonMSK_KafkaSecret")
             my_function.add_event_source(ManagedKafkaEventSource(
                 cluster_arn=cluster_arn,
                 topic=topic,
@@ -1635,11 +1740,11 @@ class KafkaDlq(
     jsii_type="aws-cdk-lib.aws_lambda_event_sources.KafkaEventSourceProps",
     jsii_struct_bases=[BaseStreamEventSourceProps],
     name_mapping={
-        "starting_position": "startingPosition",
         "batch_size": "batchSize",
         "enabled": "enabled",
         "max_batching_window": "maxBatchingWindow",
         "provisioned_poller_config": "provisionedPollerConfig",
+        "starting_position": "startingPosition",
         "topic": "topic",
         "bisect_batch_on_error": "bisectBatchOnError",
         "consumer_group_id": "consumerGroupId",
@@ -1660,11 +1765,11 @@ class KafkaEventSourceProps(BaseStreamEventSourceProps):
     def __init__(
         self,
         *,
-        starting_position: "_aws_lambda_b8f2f472.StartingPosition",
         batch_size: typing.Optional[jsii.Number] = None,
         enabled: typing.Optional[builtins.bool] = None,
         max_batching_window: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         provisioned_poller_config: typing.Optional[typing.Union["ProvisionedPollerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        starting_position: typing.Optional["_aws_lambda_b8f2f472.StartingPosition"] = None,
         topic: builtins.str,
         bisect_batch_on_error: typing.Optional[builtins.bool] = None,
         consumer_group_id: typing.Optional[builtins.str] = None,
@@ -1682,14 +1787,14 @@ class KafkaEventSourceProps(BaseStreamEventSourceProps):
     ) -> None:
         '''Properties for a Kafka event source.
 
-        :param starting_position: Where to begin consuming the stream.
         :param batch_size: The largest number of records that AWS Lambda will retrieve from your event source at the time of invoking your function. Your function receives an event with all the retrieved records. Valid Range: - Minimum value of 1 - Maximum value of: - 1000 for ``DynamoEventSource`` - 10000 for ``KinesisEventSource``, ``ManagedKafkaEventSource`` and ``SelfManagedKafkaEventSource`` Default: 100
         :param enabled: If the stream event source mapping should be enabled. Default: true
         :param max_batching_window: The maximum amount of time to gather records before invoking the function. Maximum of Duration.minutes(5). Default: - Duration.seconds(0) for Kinesis, DynamoDB, and SQS event sources, Duration.millis(500) for MSK, self-managed Kafka, and Amazon MQ.
         :param provisioned_poller_config: Configuration for provisioned pollers that read from the event source. When specified, allows control over the minimum and maximum number of pollers that can be provisioned to process events from the source. Default: - no provisioned pollers
+        :param starting_position: Where to begin consuming the stream. Required for DynamoDB, Kinesis and Amazon MSK event sources, and for self-managed Kafka event sources unless ``consumptionMode`` is ``KafkaConsumptionMode.QUEUE``. Not supported in queue mode. Default: - no starting position; synthesis fails if the event source requires one
         :param topic: The Kafka topic to subscribe to.
         :param bisect_batch_on_error: - If the function returns an error, split the batch in two and retry. Default: false
-        :param consumer_group_id: The identifier for the Kafka consumer group to join. The consumer group ID must be unique among all your Kafka event sources. After creating a Kafka event source mapping with the consumer group ID specified, you cannot update this value. The value must have a length between 1 and 200 and full the pattern '[a-zA-Z0-9-/*:_+=.@-]*'. Default: - none
+        :param consumer_group_id: The identifier for the Kafka consumer group to join. The consumer group ID must be unique among all your Kafka event sources. After creating a Kafka event source mapping with the consumer group ID specified, you cannot update this value. The value must have a length between 1 and 200 and full the pattern '[a-zA-Z0-9-/*:_+=.@-]*'. When ``consumptionMode`` is ``KafkaConsumptionMode.QUEUE``, this is the name of the share group. Default: - none
         :param filter_encryption: Add Customer managed KMS key to encrypt Filter Criteria. Default: - none
         :param filters: Add filter criteria to Event Source. Default: - none
         :param log_level: Configuration for logging verbosity from the event source mapping poller. Default: - No logging
@@ -1697,7 +1802,7 @@ class KafkaEventSourceProps(BaseStreamEventSourceProps):
         :param metrics_config: Configuration for enhanced monitoring metrics collection. Default: - Enhanced monitoring is disabled
         :param on_failure: Add an on Failure Destination for this Kafka event. Supported destinations: - {@link KafkaDlq } - Send failed records to a Kafka topic - SNS topics - Send failed records to an SNS topic - SQS queues - Send failed records to an SQS queue - S3 buckets - Send failed records to an S3 bucket Default: - discarded records are ignored
         :param report_batch_item_failures: - Allow functions to return partially successful responses for a batch of records. Default: false
-        :param retry_attempts: - Maximum number of retry attempts. Set to -1 for infinite retries (until the record expires in the event source). Default: -1 (infinite retries)
+        :param retry_attempts: - Maximum number of retry attempts. Set to -1 for infinite retries (until the record expires in the event source). ``-1`` isn't supported when ``consumptionMode`` is ``KafkaConsumptionMode.QUEUE``. Default: -1 (infinite retries) in stream mode, 0 in queue mode
         :param schema_registry_config: Specific configuration settings for a Kafka schema registry. Default: - none
         :param secret: The secret with the Kafka credentials, see https://docs.aws.amazon.com/msk/latest/developerguide/msk-password.html for details This field is required if your Kafka brokers are accessed over the Internet. Default: none
         :param starting_position_timestamp: The time from which to start reading, in Unix time seconds. Default: - no timestamp
@@ -1721,7 +1826,6 @@ class KafkaEventSourceProps(BaseStreamEventSourceProps):
             # secret: secretsmanager.Secret
             
             kafka_event_source_props = lambda_event_sources.KafkaEventSourceProps(
-                starting_position=lambda_.StartingPosition.TRIM_HORIZON,
                 topic="topic",
             
                 # the properties below are optional
@@ -1749,6 +1853,7 @@ class KafkaEventSourceProps(BaseStreamEventSourceProps):
                 retry_attempts=123,
                 schema_registry_config=schema_registry,
                 secret=secret,
+                starting_position=lambda_.StartingPosition.TRIM_HORIZON,
                 starting_position_timestamp=123
             )
         '''
@@ -1758,11 +1863,11 @@ class KafkaEventSourceProps(BaseStreamEventSourceProps):
             metrics_config = _aws_lambda_b8f2f472.MetricsConfig(**metrics_config)
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__980041697091a50415a7444df02a046d910ddd83f1229789d80780bf7903633d)
-            check_type(argname="argument starting_position", value=starting_position, expected_type=type_hints["starting_position"])
             check_type(argname="argument batch_size", value=batch_size, expected_type=type_hints["batch_size"])
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             check_type(argname="argument max_batching_window", value=max_batching_window, expected_type=type_hints["max_batching_window"])
             check_type(argname="argument provisioned_poller_config", value=provisioned_poller_config, expected_type=type_hints["provisioned_poller_config"])
+            check_type(argname="argument starting_position", value=starting_position, expected_type=type_hints["starting_position"])
             check_type(argname="argument topic", value=topic, expected_type=type_hints["topic"])
             check_type(argname="argument bisect_batch_on_error", value=bisect_batch_on_error, expected_type=type_hints["bisect_batch_on_error"])
             check_type(argname="argument consumer_group_id", value=consumer_group_id, expected_type=type_hints["consumer_group_id"])
@@ -1778,7 +1883,6 @@ class KafkaEventSourceProps(BaseStreamEventSourceProps):
             check_type(argname="argument secret", value=secret, expected_type=type_hints["secret"])
             check_type(argname="argument starting_position_timestamp", value=starting_position_timestamp, expected_type=type_hints["starting_position_timestamp"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "starting_position": starting_position,
             "topic": topic,
         }
         if batch_size is not None:
@@ -1789,6 +1893,8 @@ class KafkaEventSourceProps(BaseStreamEventSourceProps):
             self._values["max_batching_window"] = max_batching_window
         if provisioned_poller_config is not None:
             self._values["provisioned_poller_config"] = provisioned_poller_config
+        if starting_position is not None:
+            self._values["starting_position"] = starting_position
         if bisect_batch_on_error is not None:
             self._values["bisect_batch_on_error"] = bisect_batch_on_error
         if consumer_group_id is not None:
@@ -1815,13 +1921,6 @@ class KafkaEventSourceProps(BaseStreamEventSourceProps):
             self._values["secret"] = secret
         if starting_position_timestamp is not None:
             self._values["starting_position_timestamp"] = starting_position_timestamp
-
-    @builtins.property
-    def starting_position(self) -> "_aws_lambda_b8f2f472.StartingPosition":
-        '''Where to begin consuming the stream.'''
-        result = self._values.get("starting_position")
-        assert result is not None, "Required property 'starting_position' is missing"
-        return typing.cast("_aws_lambda_b8f2f472.StartingPosition", result)
 
     @builtins.property
     def batch_size(self) -> typing.Optional[jsii.Number]:
@@ -1880,6 +1979,21 @@ class KafkaEventSourceProps(BaseStreamEventSourceProps):
         return typing.cast(typing.Optional["ProvisionedPollerConfig"], result)
 
     @builtins.property
+    def starting_position(
+        self,
+    ) -> typing.Optional["_aws_lambda_b8f2f472.StartingPosition"]:
+        '''Where to begin consuming the stream.
+
+        Required for DynamoDB, Kinesis and Amazon MSK event sources, and for self-managed Kafka
+        event sources unless ``consumptionMode`` is ``KafkaConsumptionMode.QUEUE``. Not supported in
+        queue mode.
+
+        :default: - no starting position; synthesis fails if the event source requires one
+        '''
+        result = self._values.get("starting_position")
+        return typing.cast(typing.Optional["_aws_lambda_b8f2f472.StartingPosition"], result)
+
+    @builtins.property
     def topic(self) -> builtins.str:
         '''The Kafka topic to subscribe to.'''
         result = self._values.get("topic")
@@ -1900,6 +2014,7 @@ class KafkaEventSourceProps(BaseStreamEventSourceProps):
         '''The identifier for the Kafka consumer group to join.
 
         The consumer group ID must be unique among all your Kafka event sources. After creating a Kafka event source mapping with the consumer group ID specified, you cannot update this value.  The value must have a length between 1 and 200 and full the pattern '[a-zA-Z0-9-/*:_+=.@-]*'.
+        When ``consumptionMode`` is ``KafkaConsumptionMode.QUEUE``, this is the name of the share group.
 
         :default: - none
 
@@ -1995,8 +2110,9 @@ class KafkaEventSourceProps(BaseStreamEventSourceProps):
         '''- Maximum number of retry attempts.
 
         Set to -1 for infinite retries (until the record expires in the event source).
+        ``-1`` isn't supported when ``consumptionMode`` is ``KafkaConsumptionMode.QUEUE``.
 
-        :default: -1 (infinite retries)
+        :default: -1 (infinite retries) in stream mode, 0 in queue mode
         '''
         result = self._values.get("retry_attempts")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2046,11 +2162,11 @@ class KafkaEventSourceProps(BaseStreamEventSourceProps):
     jsii_type="aws-cdk-lib.aws_lambda_event_sources.ManagedKafkaEventSourceProps",
     jsii_struct_bases=[KafkaEventSourceProps],
     name_mapping={
-        "starting_position": "startingPosition",
         "batch_size": "batchSize",
         "enabled": "enabled",
         "max_batching_window": "maxBatchingWindow",
         "provisioned_poller_config": "provisionedPollerConfig",
+        "starting_position": "startingPosition",
         "topic": "topic",
         "bisect_batch_on_error": "bisectBatchOnError",
         "consumer_group_id": "consumerGroupId",
@@ -2072,11 +2188,11 @@ class ManagedKafkaEventSourceProps(KafkaEventSourceProps):
     def __init__(
         self,
         *,
-        starting_position: "_aws_lambda_b8f2f472.StartingPosition",
         batch_size: typing.Optional[jsii.Number] = None,
         enabled: typing.Optional[builtins.bool] = None,
         max_batching_window: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         provisioned_poller_config: typing.Optional[typing.Union["ProvisionedPollerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        starting_position: typing.Optional["_aws_lambda_b8f2f472.StartingPosition"] = None,
         topic: builtins.str,
         bisect_batch_on_error: typing.Optional[builtins.bool] = None,
         consumer_group_id: typing.Optional[builtins.str] = None,
@@ -2095,14 +2211,14 @@ class ManagedKafkaEventSourceProps(KafkaEventSourceProps):
     ) -> None:
         '''Properties for a MSK event source.
 
-        :param starting_position: Where to begin consuming the stream.
         :param batch_size: The largest number of records that AWS Lambda will retrieve from your event source at the time of invoking your function. Your function receives an event with all the retrieved records. Valid Range: - Minimum value of 1 - Maximum value of: - 1000 for ``DynamoEventSource`` - 10000 for ``KinesisEventSource``, ``ManagedKafkaEventSource`` and ``SelfManagedKafkaEventSource`` Default: 100
         :param enabled: If the stream event source mapping should be enabled. Default: true
         :param max_batching_window: The maximum amount of time to gather records before invoking the function. Maximum of Duration.minutes(5). Default: - Duration.seconds(0) for Kinesis, DynamoDB, and SQS event sources, Duration.millis(500) for MSK, self-managed Kafka, and Amazon MQ.
         :param provisioned_poller_config: Configuration for provisioned pollers that read from the event source. When specified, allows control over the minimum and maximum number of pollers that can be provisioned to process events from the source. Default: - no provisioned pollers
+        :param starting_position: Where to begin consuming the stream. Required for DynamoDB, Kinesis and Amazon MSK event sources, and for self-managed Kafka event sources unless ``consumptionMode`` is ``KafkaConsumptionMode.QUEUE``. Not supported in queue mode. Default: - no starting position; synthesis fails if the event source requires one
         :param topic: The Kafka topic to subscribe to.
         :param bisect_batch_on_error: - If the function returns an error, split the batch in two and retry. Default: false
-        :param consumer_group_id: The identifier for the Kafka consumer group to join. The consumer group ID must be unique among all your Kafka event sources. After creating a Kafka event source mapping with the consumer group ID specified, you cannot update this value. The value must have a length between 1 and 200 and full the pattern '[a-zA-Z0-9-/*:_+=.@-]*'. Default: - none
+        :param consumer_group_id: The identifier for the Kafka consumer group to join. The consumer group ID must be unique among all your Kafka event sources. After creating a Kafka event source mapping with the consumer group ID specified, you cannot update this value. The value must have a length between 1 and 200 and full the pattern '[a-zA-Z0-9-/*:_+=.@-]*'. When ``consumptionMode`` is ``KafkaConsumptionMode.QUEUE``, this is the name of the share group. Default: - none
         :param filter_encryption: Add Customer managed KMS key to encrypt Filter Criteria. Default: - none
         :param filters: Add filter criteria to Event Source. Default: - none
         :param log_level: Configuration for logging verbosity from the event source mapping poller. Default: - No logging
@@ -2110,7 +2226,7 @@ class ManagedKafkaEventSourceProps(KafkaEventSourceProps):
         :param metrics_config: Configuration for enhanced monitoring metrics collection. Default: - Enhanced monitoring is disabled
         :param on_failure: Add an on Failure Destination for this Kafka event. Supported destinations: - {@link KafkaDlq } - Send failed records to a Kafka topic - SNS topics - Send failed records to an SNS topic - SQS queues - Send failed records to an SQS queue - S3 buckets - Send failed records to an S3 bucket Default: - discarded records are ignored
         :param report_batch_item_failures: - Allow functions to return partially successful responses for a batch of records. Default: false
-        :param retry_attempts: - Maximum number of retry attempts. Set to -1 for infinite retries (until the record expires in the event source). Default: -1 (infinite retries)
+        :param retry_attempts: - Maximum number of retry attempts. Set to -1 for infinite retries (until the record expires in the event source). ``-1`` isn't supported when ``consumptionMode`` is ``KafkaConsumptionMode.QUEUE``. Default: -1 (infinite retries) in stream mode, 0 in queue mode
         :param schema_registry_config: Specific configuration settings for a Kafka schema registry. Default: - none
         :param secret: The secret with the Kafka credentials, see https://docs.aws.amazon.com/msk/latest/developerguide/msk-password.html for details This field is required if your Kafka brokers are accessed over the Internet. Default: none
         :param starting_position_timestamp: The time from which to start reading, in Unix time seconds. Default: - no timestamp
@@ -2151,11 +2267,11 @@ class ManagedKafkaEventSourceProps(KafkaEventSourceProps):
             metrics_config = _aws_lambda_b8f2f472.MetricsConfig(**metrics_config)
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e930f585c1bae37174885c54f0f224909bfb0a75d9f1b652bbcf3346100e977e)
-            check_type(argname="argument starting_position", value=starting_position, expected_type=type_hints["starting_position"])
             check_type(argname="argument batch_size", value=batch_size, expected_type=type_hints["batch_size"])
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             check_type(argname="argument max_batching_window", value=max_batching_window, expected_type=type_hints["max_batching_window"])
             check_type(argname="argument provisioned_poller_config", value=provisioned_poller_config, expected_type=type_hints["provisioned_poller_config"])
+            check_type(argname="argument starting_position", value=starting_position, expected_type=type_hints["starting_position"])
             check_type(argname="argument topic", value=topic, expected_type=type_hints["topic"])
             check_type(argname="argument bisect_batch_on_error", value=bisect_batch_on_error, expected_type=type_hints["bisect_batch_on_error"])
             check_type(argname="argument consumer_group_id", value=consumer_group_id, expected_type=type_hints["consumer_group_id"])
@@ -2172,7 +2288,6 @@ class ManagedKafkaEventSourceProps(KafkaEventSourceProps):
             check_type(argname="argument starting_position_timestamp", value=starting_position_timestamp, expected_type=type_hints["starting_position_timestamp"])
             check_type(argname="argument cluster_arn", value=cluster_arn, expected_type=type_hints["cluster_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "starting_position": starting_position,
             "topic": topic,
             "cluster_arn": cluster_arn,
         }
@@ -2184,6 +2299,8 @@ class ManagedKafkaEventSourceProps(KafkaEventSourceProps):
             self._values["max_batching_window"] = max_batching_window
         if provisioned_poller_config is not None:
             self._values["provisioned_poller_config"] = provisioned_poller_config
+        if starting_position is not None:
+            self._values["starting_position"] = starting_position
         if bisect_batch_on_error is not None:
             self._values["bisect_batch_on_error"] = bisect_batch_on_error
         if consumer_group_id is not None:
@@ -2210,13 +2327,6 @@ class ManagedKafkaEventSourceProps(KafkaEventSourceProps):
             self._values["secret"] = secret
         if starting_position_timestamp is not None:
             self._values["starting_position_timestamp"] = starting_position_timestamp
-
-    @builtins.property
-    def starting_position(self) -> "_aws_lambda_b8f2f472.StartingPosition":
-        '''Where to begin consuming the stream.'''
-        result = self._values.get("starting_position")
-        assert result is not None, "Required property 'starting_position' is missing"
-        return typing.cast("_aws_lambda_b8f2f472.StartingPosition", result)
 
     @builtins.property
     def batch_size(self) -> typing.Optional[jsii.Number]:
@@ -2275,6 +2385,21 @@ class ManagedKafkaEventSourceProps(KafkaEventSourceProps):
         return typing.cast(typing.Optional["ProvisionedPollerConfig"], result)
 
     @builtins.property
+    def starting_position(
+        self,
+    ) -> typing.Optional["_aws_lambda_b8f2f472.StartingPosition"]:
+        '''Where to begin consuming the stream.
+
+        Required for DynamoDB, Kinesis and Amazon MSK event sources, and for self-managed Kafka
+        event sources unless ``consumptionMode`` is ``KafkaConsumptionMode.QUEUE``. Not supported in
+        queue mode.
+
+        :default: - no starting position; synthesis fails if the event source requires one
+        '''
+        result = self._values.get("starting_position")
+        return typing.cast(typing.Optional["_aws_lambda_b8f2f472.StartingPosition"], result)
+
+    @builtins.property
     def topic(self) -> builtins.str:
         '''The Kafka topic to subscribe to.'''
         result = self._values.get("topic")
@@ -2295,6 +2420,7 @@ class ManagedKafkaEventSourceProps(KafkaEventSourceProps):
         '''The identifier for the Kafka consumer group to join.
 
         The consumer group ID must be unique among all your Kafka event sources. After creating a Kafka event source mapping with the consumer group ID specified, you cannot update this value.  The value must have a length between 1 and 200 and full the pattern '[a-zA-Z0-9-/*:_+=.@-]*'.
+        When ``consumptionMode`` is ``KafkaConsumptionMode.QUEUE``, this is the name of the share group.
 
         :default: - none
 
@@ -2390,8 +2516,9 @@ class ManagedKafkaEventSourceProps(KafkaEventSourceProps):
         '''- Maximum number of retry attempts.
 
         Set to -1 for infinite retries (until the record expires in the event source).
+        ``-1`` isn't supported when ``consumptionMode`` is ``KafkaConsumptionMode.QUEUE``.
 
-        :default: -1 (infinite retries)
+        :default: -1 (infinite retries) in stream mode, 0 in queue mode
         '''
         result = self._values.get("retry_attempts")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2808,11 +2935,11 @@ class S3OnFailureDestination(
     jsii_type="aws-cdk-lib.aws_lambda_event_sources.SelfManagedKafkaEventSourceProps",
     jsii_struct_bases=[KafkaEventSourceProps],
     name_mapping={
-        "starting_position": "startingPosition",
         "batch_size": "batchSize",
         "enabled": "enabled",
         "max_batching_window": "maxBatchingWindow",
         "provisioned_poller_config": "provisionedPollerConfig",
+        "starting_position": "startingPosition",
         "topic": "topic",
         "bisect_batch_on_error": "bisectBatchOnError",
         "consumer_group_id": "consumerGroupId",
@@ -2829,6 +2956,7 @@ class S3OnFailureDestination(
         "starting_position_timestamp": "startingPositionTimestamp",
         "bootstrap_servers": "bootstrapServers",
         "authentication_method": "authenticationMethod",
+        "consumption_mode": "consumptionMode",
         "root_ca_certificate": "rootCACertificate",
         "security_group": "securityGroup",
         "vpc": "vpc",
@@ -2839,11 +2967,11 @@ class SelfManagedKafkaEventSourceProps(KafkaEventSourceProps):
     def __init__(
         self,
         *,
-        starting_position: "_aws_lambda_b8f2f472.StartingPosition",
         batch_size: typing.Optional[jsii.Number] = None,
         enabled: typing.Optional[builtins.bool] = None,
         max_batching_window: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         provisioned_poller_config: typing.Optional[typing.Union["ProvisionedPollerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        starting_position: typing.Optional["_aws_lambda_b8f2f472.StartingPosition"] = None,
         topic: builtins.str,
         bisect_batch_on_error: typing.Optional[builtins.bool] = None,
         consumer_group_id: typing.Optional[builtins.str] = None,
@@ -2860,6 +2988,7 @@ class SelfManagedKafkaEventSourceProps(KafkaEventSourceProps):
         starting_position_timestamp: typing.Optional[jsii.Number] = None,
         bootstrap_servers: typing.Sequence[builtins.str],
         authentication_method: typing.Optional["AuthenticationMethod"] = None,
+        consumption_mode: typing.Optional["_aws_lambda_b8f2f472.KafkaConsumptionMode"] = None,
         root_ca_certificate: typing.Optional["_aws_secretsmanager_64b8a1c5.ISecret"] = None,
         security_group: typing.Optional["_aws_ec2_09840e12.ISecurityGroup"] = None,
         vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
@@ -2869,14 +2998,14 @@ class SelfManagedKafkaEventSourceProps(KafkaEventSourceProps):
 
         If your Kafka cluster is only reachable via VPC make sure to configure it.
 
-        :param starting_position: Where to begin consuming the stream.
         :param batch_size: The largest number of records that AWS Lambda will retrieve from your event source at the time of invoking your function. Your function receives an event with all the retrieved records. Valid Range: - Minimum value of 1 - Maximum value of: - 1000 for ``DynamoEventSource`` - 10000 for ``KinesisEventSource``, ``ManagedKafkaEventSource`` and ``SelfManagedKafkaEventSource`` Default: 100
         :param enabled: If the stream event source mapping should be enabled. Default: true
         :param max_batching_window: The maximum amount of time to gather records before invoking the function. Maximum of Duration.minutes(5). Default: - Duration.seconds(0) for Kinesis, DynamoDB, and SQS event sources, Duration.millis(500) for MSK, self-managed Kafka, and Amazon MQ.
         :param provisioned_poller_config: Configuration for provisioned pollers that read from the event source. When specified, allows control over the minimum and maximum number of pollers that can be provisioned to process events from the source. Default: - no provisioned pollers
+        :param starting_position: Where to begin consuming the stream. Required for DynamoDB, Kinesis and Amazon MSK event sources, and for self-managed Kafka event sources unless ``consumptionMode`` is ``KafkaConsumptionMode.QUEUE``. Not supported in queue mode. Default: - no starting position; synthesis fails if the event source requires one
         :param topic: The Kafka topic to subscribe to.
         :param bisect_batch_on_error: - If the function returns an error, split the batch in two and retry. Default: false
-        :param consumer_group_id: The identifier for the Kafka consumer group to join. The consumer group ID must be unique among all your Kafka event sources. After creating a Kafka event source mapping with the consumer group ID specified, you cannot update this value. The value must have a length between 1 and 200 and full the pattern '[a-zA-Z0-9-/*:_+=.@-]*'. Default: - none
+        :param consumer_group_id: The identifier for the Kafka consumer group to join. The consumer group ID must be unique among all your Kafka event sources. After creating a Kafka event source mapping with the consumer group ID specified, you cannot update this value. The value must have a length between 1 and 200 and full the pattern '[a-zA-Z0-9-/*:_+=.@-]*'. When ``consumptionMode`` is ``KafkaConsumptionMode.QUEUE``, this is the name of the share group. Default: - none
         :param filter_encryption: Add Customer managed KMS key to encrypt Filter Criteria. Default: - none
         :param filters: Add filter criteria to Event Source. Default: - none
         :param log_level: Configuration for logging verbosity from the event source mapping poller. Default: - No logging
@@ -2884,12 +3013,13 @@ class SelfManagedKafkaEventSourceProps(KafkaEventSourceProps):
         :param metrics_config: Configuration for enhanced monitoring metrics collection. Default: - Enhanced monitoring is disabled
         :param on_failure: Add an on Failure Destination for this Kafka event. Supported destinations: - {@link KafkaDlq } - Send failed records to a Kafka topic - SNS topics - Send failed records to an SNS topic - SQS queues - Send failed records to an SQS queue - S3 buckets - Send failed records to an S3 bucket Default: - discarded records are ignored
         :param report_batch_item_failures: - Allow functions to return partially successful responses for a batch of records. Default: false
-        :param retry_attempts: - Maximum number of retry attempts. Set to -1 for infinite retries (until the record expires in the event source). Default: -1 (infinite retries)
+        :param retry_attempts: - Maximum number of retry attempts. Set to -1 for infinite retries (until the record expires in the event source). ``-1`` isn't supported when ``consumptionMode`` is ``KafkaConsumptionMode.QUEUE``. Default: -1 (infinite retries) in stream mode, 0 in queue mode
         :param schema_registry_config: Specific configuration settings for a Kafka schema registry. Default: - none
         :param secret: The secret with the Kafka credentials, see https://docs.aws.amazon.com/msk/latest/developerguide/msk-password.html for details This field is required if your Kafka brokers are accessed over the Internet. Default: none
         :param starting_position_timestamp: The time from which to start reading, in Unix time seconds. Default: - no timestamp
         :param bootstrap_servers: The list of host and port pairs that are the addresses of the Kafka brokers in a "bootstrap" Kafka cluster that a Kafka client connects to initially to bootstrap itself. They are in the format ``abc.xyz.com:xxxx``.
         :param authentication_method: The authentication method for your Kafka cluster. Default: AuthenticationMethod.SASL_SCRAM_512_AUTH
+        :param consumption_mode: How Lambda reads records from the Kafka topic. **Queue mode requires Kafka 4.2.0 or later.** ``KafkaConsumptionMode.QUEUE`` reads the topic as a Kafka share group, so records in a partition can be processed in parallel. In queue mode, ``startingPosition``, ``startingPositionTimestamp`` and ``maxBatchingWindow`` are not supported, ``retryAttempts`` must be between 0 and 10000 and defaults to 0 (and, as in stream mode, requires provisioned mode), and ``consumerGroupId`` is the name of the share group. The consumption mode can't be changed after the event source mapping is created. Default: - Lambda reads the topic in stream mode (``KafkaConsumptionMode.STREAM``)
         :param root_ca_certificate: The secret with the root CA certificate used by your Kafka brokers for TLS encryption This field is required if your Kafka brokers use certificates signed by a private CA. Default: - none
         :param security_group: If your Kafka brokers are only reachable via VPC, provide the security group here. Default: - none, required if setting vpc
         :param vpc: If your Kafka brokers are only reachable via VPC provide the VPC here. Default: none
@@ -2929,11 +3059,11 @@ class SelfManagedKafkaEventSourceProps(KafkaEventSourceProps):
             vpc_subnets = _aws_ec2_09840e12.SubnetSelection(**vpc_subnets)
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0100a45aa91b9c2103378e2ba54dd41b054f1d6a50733797256d6971b9833166)
-            check_type(argname="argument starting_position", value=starting_position, expected_type=type_hints["starting_position"])
             check_type(argname="argument batch_size", value=batch_size, expected_type=type_hints["batch_size"])
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             check_type(argname="argument max_batching_window", value=max_batching_window, expected_type=type_hints["max_batching_window"])
             check_type(argname="argument provisioned_poller_config", value=provisioned_poller_config, expected_type=type_hints["provisioned_poller_config"])
+            check_type(argname="argument starting_position", value=starting_position, expected_type=type_hints["starting_position"])
             check_type(argname="argument topic", value=topic, expected_type=type_hints["topic"])
             check_type(argname="argument bisect_batch_on_error", value=bisect_batch_on_error, expected_type=type_hints["bisect_batch_on_error"])
             check_type(argname="argument consumer_group_id", value=consumer_group_id, expected_type=type_hints["consumer_group_id"])
@@ -2950,12 +3080,12 @@ class SelfManagedKafkaEventSourceProps(KafkaEventSourceProps):
             check_type(argname="argument starting_position_timestamp", value=starting_position_timestamp, expected_type=type_hints["starting_position_timestamp"])
             check_type(argname="argument bootstrap_servers", value=bootstrap_servers, expected_type=type_hints["bootstrap_servers"])
             check_type(argname="argument authentication_method", value=authentication_method, expected_type=type_hints["authentication_method"])
+            check_type(argname="argument consumption_mode", value=consumption_mode, expected_type=type_hints["consumption_mode"])
             check_type(argname="argument root_ca_certificate", value=root_ca_certificate, expected_type=type_hints["root_ca_certificate"])
             check_type(argname="argument security_group", value=security_group, expected_type=type_hints["security_group"])
             check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
             check_type(argname="argument vpc_subnets", value=vpc_subnets, expected_type=type_hints["vpc_subnets"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "starting_position": starting_position,
             "topic": topic,
             "bootstrap_servers": bootstrap_servers,
         }
@@ -2967,6 +3097,8 @@ class SelfManagedKafkaEventSourceProps(KafkaEventSourceProps):
             self._values["max_batching_window"] = max_batching_window
         if provisioned_poller_config is not None:
             self._values["provisioned_poller_config"] = provisioned_poller_config
+        if starting_position is not None:
+            self._values["starting_position"] = starting_position
         if bisect_batch_on_error is not None:
             self._values["bisect_batch_on_error"] = bisect_batch_on_error
         if consumer_group_id is not None:
@@ -2995,6 +3127,8 @@ class SelfManagedKafkaEventSourceProps(KafkaEventSourceProps):
             self._values["starting_position_timestamp"] = starting_position_timestamp
         if authentication_method is not None:
             self._values["authentication_method"] = authentication_method
+        if consumption_mode is not None:
+            self._values["consumption_mode"] = consumption_mode
         if root_ca_certificate is not None:
             self._values["root_ca_certificate"] = root_ca_certificate
         if security_group is not None:
@@ -3003,13 +3137,6 @@ class SelfManagedKafkaEventSourceProps(KafkaEventSourceProps):
             self._values["vpc"] = vpc
         if vpc_subnets is not None:
             self._values["vpc_subnets"] = vpc_subnets
-
-    @builtins.property
-    def starting_position(self) -> "_aws_lambda_b8f2f472.StartingPosition":
-        '''Where to begin consuming the stream.'''
-        result = self._values.get("starting_position")
-        assert result is not None, "Required property 'starting_position' is missing"
-        return typing.cast("_aws_lambda_b8f2f472.StartingPosition", result)
 
     @builtins.property
     def batch_size(self) -> typing.Optional[jsii.Number]:
@@ -3068,6 +3195,21 @@ class SelfManagedKafkaEventSourceProps(KafkaEventSourceProps):
         return typing.cast(typing.Optional["ProvisionedPollerConfig"], result)
 
     @builtins.property
+    def starting_position(
+        self,
+    ) -> typing.Optional["_aws_lambda_b8f2f472.StartingPosition"]:
+        '''Where to begin consuming the stream.
+
+        Required for DynamoDB, Kinesis and Amazon MSK event sources, and for self-managed Kafka
+        event sources unless ``consumptionMode`` is ``KafkaConsumptionMode.QUEUE``. Not supported in
+        queue mode.
+
+        :default: - no starting position; synthesis fails if the event source requires one
+        '''
+        result = self._values.get("starting_position")
+        return typing.cast(typing.Optional["_aws_lambda_b8f2f472.StartingPosition"], result)
+
+    @builtins.property
     def topic(self) -> builtins.str:
         '''The Kafka topic to subscribe to.'''
         result = self._values.get("topic")
@@ -3088,6 +3230,7 @@ class SelfManagedKafkaEventSourceProps(KafkaEventSourceProps):
         '''The identifier for the Kafka consumer group to join.
 
         The consumer group ID must be unique among all your Kafka event sources. After creating a Kafka event source mapping with the consumer group ID specified, you cannot update this value.  The value must have a length between 1 and 200 and full the pattern '[a-zA-Z0-9-/*:_+=.@-]*'.
+        When ``consumptionMode`` is ``KafkaConsumptionMode.QUEUE``, this is the name of the share group.
 
         :default: - none
 
@@ -3183,8 +3326,9 @@ class SelfManagedKafkaEventSourceProps(KafkaEventSourceProps):
         '''- Maximum number of retry attempts.
 
         Set to -1 for infinite retries (until the record expires in the event source).
+        ``-1`` isn't supported when ``consumptionMode`` is ``KafkaConsumptionMode.QUEUE``.
 
-        :default: -1 (infinite retries)
+        :default: -1 (infinite retries) in stream mode, 0 in queue mode
         '''
         result = self._values.get("retry_attempts")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3236,6 +3380,26 @@ class SelfManagedKafkaEventSourceProps(KafkaEventSourceProps):
         '''
         result = self._values.get("authentication_method")
         return typing.cast(typing.Optional["AuthenticationMethod"], result)
+
+    @builtins.property
+    def consumption_mode(
+        self,
+    ) -> typing.Optional["_aws_lambda_b8f2f472.KafkaConsumptionMode"]:
+        '''How Lambda reads records from the Kafka topic.
+
+        **Queue mode requires Kafka 4.2.0 or later.** ``KafkaConsumptionMode.QUEUE`` reads the topic as
+        a Kafka share group, so records in a partition can be processed in parallel. In queue mode,
+        ``startingPosition``, ``startingPositionTimestamp`` and ``maxBatchingWindow`` are not supported, ``retryAttempts`` must be
+        between 0 and 10000 and defaults to 0 (and, as in stream mode, requires provisioned mode), and
+        ``consumerGroupId`` is the name of the share group. The consumption mode can't be changed after the event source
+        mapping is created.
+
+        :default: - Lambda reads the topic in stream mode (``KafkaConsumptionMode.STREAM``)
+
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-eventsourcemapping-selfmanagedkafkaeventsourceconfig.html
+        '''
+        result = self._values.get("consumption_mode")
+        return typing.cast(typing.Optional["_aws_lambda_b8f2f472.KafkaConsumptionMode"], result)
 
     @builtins.property
     def root_ca_certificate(
@@ -3883,11 +4047,11 @@ class StreamEventSource(
         report_batch_item_failures: typing.Optional[builtins.bool] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
         tumbling_window: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
-        starting_position: "_aws_lambda_b8f2f472.StartingPosition",
         batch_size: typing.Optional[jsii.Number] = None,
         enabled: typing.Optional[builtins.bool] = None,
         max_batching_window: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         provisioned_poller_config: typing.Optional[typing.Union["ProvisionedPollerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        starting_position: typing.Optional["_aws_lambda_b8f2f472.StartingPosition"] = None,
     ) -> None:
         '''
         :param bisect_batch_on_error: If the function returns an error, split the batch in two and retry. Default: false
@@ -3900,11 +4064,11 @@ class StreamEventSource(
         :param report_batch_item_failures: Allow functions to return partially successful responses for a batch of records. Default: false
         :param retry_attempts: Maximum number of retry attempts. Set to -1 for infinite retries (until the record expires in the event source). Valid Range: -1 (infinite) or 0 to 10000 Default: -1 (infinite retries)
         :param tumbling_window: The size of the tumbling windows to group records sent to DynamoDB or Kinesis Valid Range: 0 - 15 minutes. Default: - None
-        :param starting_position: Where to begin consuming the stream.
         :param batch_size: The largest number of records that AWS Lambda will retrieve from your event source at the time of invoking your function. Your function receives an event with all the retrieved records. Valid Range: - Minimum value of 1 - Maximum value of: - 1000 for ``DynamoEventSource`` - 10000 for ``KinesisEventSource``, ``ManagedKafkaEventSource`` and ``SelfManagedKafkaEventSource`` Default: 100
         :param enabled: If the stream event source mapping should be enabled. Default: true
         :param max_batching_window: The maximum amount of time to gather records before invoking the function. Maximum of Duration.minutes(5). Default: - Duration.seconds(0) for Kinesis, DynamoDB, and SQS event sources, Duration.millis(500) for MSK, self-managed Kafka, and Amazon MQ.
         :param provisioned_poller_config: Configuration for provisioned pollers that read from the event source. When specified, allows control over the minimum and maximum number of pollers that can be provisioned to process events from the source. Default: - no provisioned pollers
+        :param starting_position: Where to begin consuming the stream. Required for DynamoDB, Kinesis and Amazon MSK event sources, and for self-managed Kafka event sources unless ``consumptionMode`` is ``KafkaConsumptionMode.QUEUE``. Not supported in queue mode. Default: - no starting position; synthesis fails if the event source requires one
         '''
         props = StreamEventSourceProps(
             bisect_batch_on_error=bisect_batch_on_error,
@@ -3917,11 +4081,11 @@ class StreamEventSource(
             report_batch_item_failures=report_batch_item_failures,
             retry_attempts=retry_attempts,
             tumbling_window=tumbling_window,
-            starting_position=starting_position,
             batch_size=batch_size,
             enabled=enabled,
             max_batching_window=max_batching_window,
             provisioned_poller_config=provisioned_poller_config,
+            starting_position=starting_position,
         )
 
         jsii.create(self.__class__, self, [props])
@@ -3947,6 +4111,7 @@ class StreamEventSource(
         filters: typing.Optional[typing.Sequence[typing.Mapping[builtins.str, typing.Any]]] = None,
         kafka_bootstrap_servers: typing.Optional[typing.Sequence[builtins.str]] = None,
         kafka_consumer_group_id: typing.Optional[builtins.str] = None,
+        kafka_consumption_mode: typing.Optional["_aws_lambda_b8f2f472.KafkaConsumptionMode"] = None,
         kafka_topic: typing.Optional[builtins.str] = None,
         log_level: typing.Optional["_aws_lambda_b8f2f472.EventSourceMappingLogLevel"] = None,
         max_batching_window: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
@@ -3974,6 +4139,7 @@ class StreamEventSource(
         :param filters: Add filter criteria to Event Source. Default: - none
         :param kafka_bootstrap_servers: A list of host and port pairs that are the addresses of the Kafka brokers in a self managed "bootstrap" Kafka cluster that a Kafka client connects to initially to bootstrap itself. They are in the format ``abc.example.com:9096``. Default: - none
         :param kafka_consumer_group_id: The identifier for the Kafka consumer group to join. The consumer group ID must be unique among all your Kafka event sources. After creating a Kafka event source mapping with the consumer group ID specified, you cannot update this value. The value must have a length between 1 and 200 and full the pattern '[a-zA-Z0-9-/*:_+=.@-]*'. For more information, see `Customizable consumer group ID <https://docs.aws.amazon.com/lambda/latest/dg/with-msk.html#services-msk-consumer-group-id>`_. Default: - none
+        :param kafka_consumption_mode: How Lambda reads records from the Kafka topic. Only supported for self-managed Kafka event sources (``kafkaBootstrapServers``). **Queue mode requires Kafka 4.2.0 or later.** In queue mode, ``startingPosition``, ``startingPositionTimestamp`` and ``maxBatchingWindow`` are not supported, and ``retryAttempts`` must be between 0 and 10000 and defaults to 0 (and, as in stream mode, requires ``provisionedPollerConfig``). The consumption mode can't be changed after the event source mapping is created. Default: - Lambda reads the topic in stream mode (``KafkaConsumptionMode.STREAM``)
         :param kafka_topic: The name of the Kafka topic. Default: - no topic
         :param log_level: Configuration for logging verbosity from the event source mapping poller. This configuration controls the verbosity of the logs generated by the polling infrastructure that reads events from the event source. The logs provide insights into the internal operations of the event source mapping, including connection status, polling behavior, and error conditions. Default: - No logging
         :param max_batching_window: The maximum amount of time to gather records before invoking the function. Maximum of Duration.minutes(5) Default: Duration.seconds(0)
@@ -3984,7 +4150,7 @@ class StreamEventSource(
         :param parallelization_factor: The number of batches to process from each shard concurrently. Valid Range: - Minimum value of 1 - Maximum value of 10 Default: 1
         :param provisioned_poller_config: Configuration for provisioned pollers that read from the event source. When specified, allows control over the minimum and maximum number of pollers that can be provisioned to process events from the source. Default: - no provisioned pollers
         :param report_batch_item_failures: Allow functions to return partially successful responses for a batch of records. Default: false
-        :param retry_attempts: The maximum number of times to retry when the function returns an error. Set to ``undefined`` if you want lambda to keep retrying infinitely or until the record expires. Valid Range: - Minimum value of 0 - Maximum value of 10000 Default: - infinite or until the record expires.
+        :param retry_attempts: The maximum number of times to retry when the function returns an error. Set to ``undefined`` if you want lambda to keep retrying infinitely or until the record expires. Valid Range: - Minimum value of 0 - Maximum value of 10000 Default: - infinite or until the record expires; 0 when ``kafkaConsumptionMode`` is ``KafkaConsumptionMode.QUEUE``
         :param schema_registry_config: Specific configuration settings for a Kafka schema registry. Default: - none
         :param source_access_configurations: Specific settings like the authentication protocol or the VPC components to secure access to your event source. Default: - none
         :param starting_position: The position in the DynamoDB, Kinesis or MSK stream where AWS Lambda should start reading. Default: - no starting position
@@ -4001,6 +4167,7 @@ class StreamEventSource(
             filters=filters,
             kafka_bootstrap_servers=kafka_bootstrap_servers,
             kafka_consumer_group_id=kafka_consumer_group_id,
+            kafka_consumption_mode=kafka_consumption_mode,
             kafka_topic=kafka_topic,
             log_level=log_level,
             max_batching_window=max_batching_window,
@@ -4048,11 +4215,11 @@ typing.cast(typing.Any, StreamEventSource).__jsii_proxy_class__ = lambda : _Stre
     jsii_type="aws-cdk-lib.aws_lambda_event_sources.StreamEventSourceProps",
     jsii_struct_bases=[BaseStreamEventSourceProps],
     name_mapping={
-        "starting_position": "startingPosition",
         "batch_size": "batchSize",
         "enabled": "enabled",
         "max_batching_window": "maxBatchingWindow",
         "provisioned_poller_config": "provisionedPollerConfig",
+        "starting_position": "startingPosition",
         "bisect_batch_on_error": "bisectBatchOnError",
         "filter_encryption": "filterEncryption",
         "filters": "filters",
@@ -4069,11 +4236,11 @@ class StreamEventSourceProps(BaseStreamEventSourceProps):
     def __init__(
         self,
         *,
-        starting_position: "_aws_lambda_b8f2f472.StartingPosition",
         batch_size: typing.Optional[jsii.Number] = None,
         enabled: typing.Optional[builtins.bool] = None,
         max_batching_window: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         provisioned_poller_config: typing.Optional[typing.Union["ProvisionedPollerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        starting_position: typing.Optional["_aws_lambda_b8f2f472.StartingPosition"] = None,
         bisect_batch_on_error: typing.Optional[builtins.bool] = None,
         filter_encryption: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
         filters: typing.Optional[typing.Sequence[typing.Mapping[builtins.str, typing.Any]]] = None,
@@ -4087,11 +4254,11 @@ class StreamEventSourceProps(BaseStreamEventSourceProps):
     ) -> None:
         '''The set of properties for streaming event sources shared by Dynamo and Kinesis.
 
-        :param starting_position: Where to begin consuming the stream.
         :param batch_size: The largest number of records that AWS Lambda will retrieve from your event source at the time of invoking your function. Your function receives an event with all the retrieved records. Valid Range: - Minimum value of 1 - Maximum value of: - 1000 for ``DynamoEventSource`` - 10000 for ``KinesisEventSource``, ``ManagedKafkaEventSource`` and ``SelfManagedKafkaEventSource`` Default: 100
         :param enabled: If the stream event source mapping should be enabled. Default: true
         :param max_batching_window: The maximum amount of time to gather records before invoking the function. Maximum of Duration.minutes(5). Default: - Duration.seconds(0) for Kinesis, DynamoDB, and SQS event sources, Duration.millis(500) for MSK, self-managed Kafka, and Amazon MQ.
         :param provisioned_poller_config: Configuration for provisioned pollers that read from the event source. When specified, allows control over the minimum and maximum number of pollers that can be provisioned to process events from the source. Default: - no provisioned pollers
+        :param starting_position: Where to begin consuming the stream. Required for DynamoDB, Kinesis and Amazon MSK event sources, and for self-managed Kafka event sources unless ``consumptionMode`` is ``KafkaConsumptionMode.QUEUE``. Not supported in queue mode. Default: - no starting position; synthesis fails if the event source requires one
         :param bisect_batch_on_error: If the function returns an error, split the batch in two and retry. Default: false
         :param filter_encryption: Add Customer managed KMS key to encrypt Filter Criteria. Default: - none
         :param filters: Add filter criteria option. Default: - None
@@ -4119,9 +4286,6 @@ class StreamEventSourceProps(BaseStreamEventSourceProps):
             # key: kms.Key
             
             stream_event_source_props = lambda_event_sources.StreamEventSourceProps(
-                starting_position=lambda_.StartingPosition.TRIM_HORIZON,
-            
-                # the properties below are optional
                 batch_size=123,
                 bisect_batch_on_error=False,
                 enabled=False,
@@ -4143,6 +4307,7 @@ class StreamEventSourceProps(BaseStreamEventSourceProps):
                 ),
                 report_batch_item_failures=False,
                 retry_attempts=123,
+                starting_position=lambda_.StartingPosition.TRIM_HORIZON,
                 tumbling_window=cdk.Duration.minutes(30)
             )
         '''
@@ -4152,11 +4317,11 @@ class StreamEventSourceProps(BaseStreamEventSourceProps):
             metrics_config = _aws_lambda_b8f2f472.MetricsConfig(**metrics_config)
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f846cf48a1cd8d8120ed4973fabeee827928eff2de72d372506124b7d1eedd59)
-            check_type(argname="argument starting_position", value=starting_position, expected_type=type_hints["starting_position"])
             check_type(argname="argument batch_size", value=batch_size, expected_type=type_hints["batch_size"])
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             check_type(argname="argument max_batching_window", value=max_batching_window, expected_type=type_hints["max_batching_window"])
             check_type(argname="argument provisioned_poller_config", value=provisioned_poller_config, expected_type=type_hints["provisioned_poller_config"])
+            check_type(argname="argument starting_position", value=starting_position, expected_type=type_hints["starting_position"])
             check_type(argname="argument bisect_batch_on_error", value=bisect_batch_on_error, expected_type=type_hints["bisect_batch_on_error"])
             check_type(argname="argument filter_encryption", value=filter_encryption, expected_type=type_hints["filter_encryption"])
             check_type(argname="argument filters", value=filters, expected_type=type_hints["filters"])
@@ -4167,9 +4332,7 @@ class StreamEventSourceProps(BaseStreamEventSourceProps):
             check_type(argname="argument report_batch_item_failures", value=report_batch_item_failures, expected_type=type_hints["report_batch_item_failures"])
             check_type(argname="argument retry_attempts", value=retry_attempts, expected_type=type_hints["retry_attempts"])
             check_type(argname="argument tumbling_window", value=tumbling_window, expected_type=type_hints["tumbling_window"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "starting_position": starting_position,
-        }
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
         if batch_size is not None:
             self._values["batch_size"] = batch_size
         if enabled is not None:
@@ -4178,6 +4341,8 @@ class StreamEventSourceProps(BaseStreamEventSourceProps):
             self._values["max_batching_window"] = max_batching_window
         if provisioned_poller_config is not None:
             self._values["provisioned_poller_config"] = provisioned_poller_config
+        if starting_position is not None:
+            self._values["starting_position"] = starting_position
         if bisect_batch_on_error is not None:
             self._values["bisect_batch_on_error"] = bisect_batch_on_error
         if filter_encryption is not None:
@@ -4198,13 +4363,6 @@ class StreamEventSourceProps(BaseStreamEventSourceProps):
             self._values["retry_attempts"] = retry_attempts
         if tumbling_window is not None:
             self._values["tumbling_window"] = tumbling_window
-
-    @builtins.property
-    def starting_position(self) -> "_aws_lambda_b8f2f472.StartingPosition":
-        '''Where to begin consuming the stream.'''
-        result = self._values.get("starting_position")
-        assert result is not None, "Required property 'starting_position' is missing"
-        return typing.cast("_aws_lambda_b8f2f472.StartingPosition", result)
 
     @builtins.property
     def batch_size(self) -> typing.Optional[jsii.Number]:
@@ -4261,6 +4419,21 @@ class StreamEventSourceProps(BaseStreamEventSourceProps):
         '''
         result = self._values.get("provisioned_poller_config")
         return typing.cast(typing.Optional["ProvisionedPollerConfig"], result)
+
+    @builtins.property
+    def starting_position(
+        self,
+    ) -> typing.Optional["_aws_lambda_b8f2f472.StartingPosition"]:
+        '''Where to begin consuming the stream.
+
+        Required for DynamoDB, Kinesis and Amazon MSK event sources, and for self-managed Kafka
+        event sources unless ``consumptionMode`` is ``KafkaConsumptionMode.QUEUE``. Not supported in
+        queue mode.
+
+        :default: - no starting position; synthesis fails if the event source requires one
+        '''
+        result = self._values.get("starting_position")
+        return typing.cast(typing.Optional["_aws_lambda_b8f2f472.StartingPosition"], result)
 
     @builtins.property
     def bisect_batch_on_error(self) -> typing.Optional[builtins.bool]:
@@ -4434,11 +4607,11 @@ class DynamoEventSource(
         report_batch_item_failures: typing.Optional[builtins.bool] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
         tumbling_window: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
-        starting_position: "_aws_lambda_b8f2f472.StartingPosition",
         batch_size: typing.Optional[jsii.Number] = None,
         enabled: typing.Optional[builtins.bool] = None,
         max_batching_window: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         provisioned_poller_config: typing.Optional[typing.Union["ProvisionedPollerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        starting_position: typing.Optional["_aws_lambda_b8f2f472.StartingPosition"] = None,
     ) -> None:
         '''
         :param table: -
@@ -4452,11 +4625,11 @@ class DynamoEventSource(
         :param report_batch_item_failures: Allow functions to return partially successful responses for a batch of records. Default: false
         :param retry_attempts: Maximum number of retry attempts. Set to -1 for infinite retries (until the record expires in the event source). Valid Range: -1 (infinite) or 0 to 10000 Default: -1 (infinite retries)
         :param tumbling_window: The size of the tumbling windows to group records sent to DynamoDB or Kinesis Valid Range: 0 - 15 minutes. Default: - None
-        :param starting_position: Where to begin consuming the stream.
         :param batch_size: The largest number of records that AWS Lambda will retrieve from your event source at the time of invoking your function. Your function receives an event with all the retrieved records. Valid Range: - Minimum value of 1 - Maximum value of: - 1000 for ``DynamoEventSource`` - 10000 for ``KinesisEventSource``, ``ManagedKafkaEventSource`` and ``SelfManagedKafkaEventSource`` Default: 100
         :param enabled: If the stream event source mapping should be enabled. Default: true
         :param max_batching_window: The maximum amount of time to gather records before invoking the function. Maximum of Duration.minutes(5). Default: - Duration.seconds(0) for Kinesis, DynamoDB, and SQS event sources, Duration.millis(500) for MSK, self-managed Kafka, and Amazon MQ.
         :param provisioned_poller_config: Configuration for provisioned pollers that read from the event source. When specified, allows control over the minimum and maximum number of pollers that can be provisioned to process events from the source. Default: - no provisioned pollers
+        :param starting_position: Where to begin consuming the stream. Required for DynamoDB, Kinesis and Amazon MSK event sources, and for self-managed Kafka event sources unless ``consumptionMode`` is ``KafkaConsumptionMode.QUEUE``. Not supported in queue mode. Default: - no starting position; synthesis fails if the event source requires one
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__826ee32f5239c7c242a7200ffc24778bee01c1101c3cc939fed4a861510c8358)
@@ -4472,11 +4645,11 @@ class DynamoEventSource(
             report_batch_item_failures=report_batch_item_failures,
             retry_attempts=retry_attempts,
             tumbling_window=tumbling_window,
-            starting_position=starting_position,
             batch_size=batch_size,
             enabled=enabled,
             max_batching_window=max_batching_window,
             provisioned_poller_config=provisioned_poller_config,
+            starting_position=starting_position,
         )
 
         jsii.create(self.__class__, self, [table, props])
@@ -4509,11 +4682,11 @@ class DynamoEventSource(
     jsii_type="aws-cdk-lib.aws_lambda_event_sources.DynamoEventSourceProps",
     jsii_struct_bases=[StreamEventSourceProps],
     name_mapping={
-        "starting_position": "startingPosition",
         "batch_size": "batchSize",
         "enabled": "enabled",
         "max_batching_window": "maxBatchingWindow",
         "provisioned_poller_config": "provisionedPollerConfig",
+        "starting_position": "startingPosition",
         "bisect_batch_on_error": "bisectBatchOnError",
         "filter_encryption": "filterEncryption",
         "filters": "filters",
@@ -4530,11 +4703,11 @@ class DynamoEventSourceProps(StreamEventSourceProps):
     def __init__(
         self,
         *,
-        starting_position: "_aws_lambda_b8f2f472.StartingPosition",
         batch_size: typing.Optional[jsii.Number] = None,
         enabled: typing.Optional[builtins.bool] = None,
         max_batching_window: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         provisioned_poller_config: typing.Optional[typing.Union["ProvisionedPollerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        starting_position: typing.Optional["_aws_lambda_b8f2f472.StartingPosition"] = None,
         bisect_batch_on_error: typing.Optional[builtins.bool] = None,
         filter_encryption: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
         filters: typing.Optional[typing.Sequence[typing.Mapping[builtins.str, typing.Any]]] = None,
@@ -4547,11 +4720,11 @@ class DynamoEventSourceProps(StreamEventSourceProps):
         tumbling_window: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''
-        :param starting_position: Where to begin consuming the stream.
         :param batch_size: The largest number of records that AWS Lambda will retrieve from your event source at the time of invoking your function. Your function receives an event with all the retrieved records. Valid Range: - Minimum value of 1 - Maximum value of: - 1000 for ``DynamoEventSource`` - 10000 for ``KinesisEventSource``, ``ManagedKafkaEventSource`` and ``SelfManagedKafkaEventSource`` Default: 100
         :param enabled: If the stream event source mapping should be enabled. Default: true
         :param max_batching_window: The maximum amount of time to gather records before invoking the function. Maximum of Duration.minutes(5). Default: - Duration.seconds(0) for Kinesis, DynamoDB, and SQS event sources, Duration.millis(500) for MSK, self-managed Kafka, and Amazon MQ.
         :param provisioned_poller_config: Configuration for provisioned pollers that read from the event source. When specified, allows control over the minimum and maximum number of pollers that can be provisioned to process events from the source. Default: - no provisioned pollers
+        :param starting_position: Where to begin consuming the stream. Required for DynamoDB, Kinesis and Amazon MSK event sources, and for self-managed Kafka event sources unless ``consumptionMode`` is ``KafkaConsumptionMode.QUEUE``. Not supported in queue mode. Default: - no starting position; synthesis fails if the event source requires one
         :param bisect_batch_on_error: If the function returns an error, split the batch in two and retry. Default: false
         :param filter_encryption: Add Customer managed KMS key to encrypt Filter Criteria. Default: - none
         :param filters: Add filter criteria option. Default: - None
@@ -4593,11 +4766,11 @@ class DynamoEventSourceProps(StreamEventSourceProps):
             metrics_config = _aws_lambda_b8f2f472.MetricsConfig(**metrics_config)
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ec371d5e4612e8923bbdcc024d90e26915d64be2dc40151f22fc41139c2d48b3)
-            check_type(argname="argument starting_position", value=starting_position, expected_type=type_hints["starting_position"])
             check_type(argname="argument batch_size", value=batch_size, expected_type=type_hints["batch_size"])
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             check_type(argname="argument max_batching_window", value=max_batching_window, expected_type=type_hints["max_batching_window"])
             check_type(argname="argument provisioned_poller_config", value=provisioned_poller_config, expected_type=type_hints["provisioned_poller_config"])
+            check_type(argname="argument starting_position", value=starting_position, expected_type=type_hints["starting_position"])
             check_type(argname="argument bisect_batch_on_error", value=bisect_batch_on_error, expected_type=type_hints["bisect_batch_on_error"])
             check_type(argname="argument filter_encryption", value=filter_encryption, expected_type=type_hints["filter_encryption"])
             check_type(argname="argument filters", value=filters, expected_type=type_hints["filters"])
@@ -4608,9 +4781,7 @@ class DynamoEventSourceProps(StreamEventSourceProps):
             check_type(argname="argument report_batch_item_failures", value=report_batch_item_failures, expected_type=type_hints["report_batch_item_failures"])
             check_type(argname="argument retry_attempts", value=retry_attempts, expected_type=type_hints["retry_attempts"])
             check_type(argname="argument tumbling_window", value=tumbling_window, expected_type=type_hints["tumbling_window"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "starting_position": starting_position,
-        }
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
         if batch_size is not None:
             self._values["batch_size"] = batch_size
         if enabled is not None:
@@ -4619,6 +4790,8 @@ class DynamoEventSourceProps(StreamEventSourceProps):
             self._values["max_batching_window"] = max_batching_window
         if provisioned_poller_config is not None:
             self._values["provisioned_poller_config"] = provisioned_poller_config
+        if starting_position is not None:
+            self._values["starting_position"] = starting_position
         if bisect_batch_on_error is not None:
             self._values["bisect_batch_on_error"] = bisect_batch_on_error
         if filter_encryption is not None:
@@ -4639,13 +4812,6 @@ class DynamoEventSourceProps(StreamEventSourceProps):
             self._values["retry_attempts"] = retry_attempts
         if tumbling_window is not None:
             self._values["tumbling_window"] = tumbling_window
-
-    @builtins.property
-    def starting_position(self) -> "_aws_lambda_b8f2f472.StartingPosition":
-        '''Where to begin consuming the stream.'''
-        result = self._values.get("starting_position")
-        assert result is not None, "Required property 'starting_position' is missing"
-        return typing.cast("_aws_lambda_b8f2f472.StartingPosition", result)
 
     @builtins.property
     def batch_size(self) -> typing.Optional[jsii.Number]:
@@ -4702,6 +4868,21 @@ class DynamoEventSourceProps(StreamEventSourceProps):
         '''
         result = self._values.get("provisioned_poller_config")
         return typing.cast(typing.Optional["ProvisionedPollerConfig"], result)
+
+    @builtins.property
+    def starting_position(
+        self,
+    ) -> typing.Optional["_aws_lambda_b8f2f472.StartingPosition"]:
+        '''Where to begin consuming the stream.
+
+        Required for DynamoDB, Kinesis and Amazon MSK event sources, and for self-managed Kafka
+        event sources unless ``consumptionMode`` is ``KafkaConsumptionMode.QUEUE``. Not supported in
+        queue mode.
+
+        :default: - no starting position; synthesis fails if the event source requires one
+        '''
+        result = self._values.get("starting_position")
+        return typing.cast(typing.Optional["_aws_lambda_b8f2f472.StartingPosition"], result)
 
     @builtins.property
     def bisect_batch_on_error(self) -> typing.Optional[builtins.bool]:
@@ -4872,11 +5053,11 @@ class KinesisConsumerEventSource(
         report_batch_item_failures: typing.Optional[builtins.bool] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
         tumbling_window: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
-        starting_position: "_aws_lambda_b8f2f472.StartingPosition",
         batch_size: typing.Optional[jsii.Number] = None,
         enabled: typing.Optional[builtins.bool] = None,
         max_batching_window: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         provisioned_poller_config: typing.Optional[typing.Union["ProvisionedPollerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        starting_position: typing.Optional["_aws_lambda_b8f2f472.StartingPosition"] = None,
     ) -> None:
         '''
         :param stream_consumer: -
@@ -4891,11 +5072,11 @@ class KinesisConsumerEventSource(
         :param report_batch_item_failures: Allow functions to return partially successful responses for a batch of records. Default: false
         :param retry_attempts: Maximum number of retry attempts. Set to -1 for infinite retries (until the record expires in the event source). Valid Range: -1 (infinite) or 0 to 10000 Default: -1 (infinite retries)
         :param tumbling_window: The size of the tumbling windows to group records sent to DynamoDB or Kinesis Valid Range: 0 - 15 minutes. Default: - None
-        :param starting_position: Where to begin consuming the stream.
         :param batch_size: The largest number of records that AWS Lambda will retrieve from your event source at the time of invoking your function. Your function receives an event with all the retrieved records. Valid Range: - Minimum value of 1 - Maximum value of: - 1000 for ``DynamoEventSource`` - 10000 for ``KinesisEventSource``, ``ManagedKafkaEventSource`` and ``SelfManagedKafkaEventSource`` Default: 100
         :param enabled: If the stream event source mapping should be enabled. Default: true
         :param max_batching_window: The maximum amount of time to gather records before invoking the function. Maximum of Duration.minutes(5). Default: - Duration.seconds(0) for Kinesis, DynamoDB, and SQS event sources, Duration.millis(500) for MSK, self-managed Kafka, and Amazon MQ.
         :param provisioned_poller_config: Configuration for provisioned pollers that read from the event source. When specified, allows control over the minimum and maximum number of pollers that can be provisioned to process events from the source. Default: - no provisioned pollers
+        :param starting_position: Where to begin consuming the stream. Required for DynamoDB, Kinesis and Amazon MSK event sources, and for self-managed Kafka event sources unless ``consumptionMode`` is ``KafkaConsumptionMode.QUEUE``. Not supported in queue mode. Default: - no starting position; synthesis fails if the event source requires one
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5d4436c01738e680b66bbfda741235beea5eb51d1e287ec05ae0c58abfa41f1a)
@@ -4912,11 +5093,11 @@ class KinesisConsumerEventSource(
             report_batch_item_failures=report_batch_item_failures,
             retry_attempts=retry_attempts,
             tumbling_window=tumbling_window,
-            starting_position=starting_position,
             batch_size=batch_size,
             enabled=enabled,
             max_batching_window=max_batching_window,
             provisioned_poller_config=provisioned_poller_config,
+            starting_position=starting_position,
         )
 
         jsii.create(self.__class__, self, [stream_consumer, props])
@@ -4989,11 +5170,11 @@ class KinesisEventSource(
         report_batch_item_failures: typing.Optional[builtins.bool] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
         tumbling_window: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
-        starting_position: "_aws_lambda_b8f2f472.StartingPosition",
         batch_size: typing.Optional[jsii.Number] = None,
         enabled: typing.Optional[builtins.bool] = None,
         max_batching_window: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         provisioned_poller_config: typing.Optional[typing.Union["ProvisionedPollerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        starting_position: typing.Optional["_aws_lambda_b8f2f472.StartingPosition"] = None,
     ) -> None:
         '''
         :param stream: -
@@ -5008,11 +5189,11 @@ class KinesisEventSource(
         :param report_batch_item_failures: Allow functions to return partially successful responses for a batch of records. Default: false
         :param retry_attempts: Maximum number of retry attempts. Set to -1 for infinite retries (until the record expires in the event source). Valid Range: -1 (infinite) or 0 to 10000 Default: -1 (infinite retries)
         :param tumbling_window: The size of the tumbling windows to group records sent to DynamoDB or Kinesis Valid Range: 0 - 15 minutes. Default: - None
-        :param starting_position: Where to begin consuming the stream.
         :param batch_size: The largest number of records that AWS Lambda will retrieve from your event source at the time of invoking your function. Your function receives an event with all the retrieved records. Valid Range: - Minimum value of 1 - Maximum value of: - 1000 for ``DynamoEventSource`` - 10000 for ``KinesisEventSource``, ``ManagedKafkaEventSource`` and ``SelfManagedKafkaEventSource`` Default: 100
         :param enabled: If the stream event source mapping should be enabled. Default: true
         :param max_batching_window: The maximum amount of time to gather records before invoking the function. Maximum of Duration.minutes(5). Default: - Duration.seconds(0) for Kinesis, DynamoDB, and SQS event sources, Duration.millis(500) for MSK, self-managed Kafka, and Amazon MQ.
         :param provisioned_poller_config: Configuration for provisioned pollers that read from the event source. When specified, allows control over the minimum and maximum number of pollers that can be provisioned to process events from the source. Default: - no provisioned pollers
+        :param starting_position: Where to begin consuming the stream. Required for DynamoDB, Kinesis and Amazon MSK event sources, and for self-managed Kafka event sources unless ``consumptionMode`` is ``KafkaConsumptionMode.QUEUE``. Not supported in queue mode. Default: - no starting position; synthesis fails if the event source requires one
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9f81acc98c12b4967363bdd43130a7e674a566679a7b200f5ccd6a0ae313ad2e)
@@ -5029,11 +5210,11 @@ class KinesisEventSource(
             report_batch_item_failures=report_batch_item_failures,
             retry_attempts=retry_attempts,
             tumbling_window=tumbling_window,
-            starting_position=starting_position,
             batch_size=batch_size,
             enabled=enabled,
             max_batching_window=max_batching_window,
             provisioned_poller_config=provisioned_poller_config,
+            starting_position=starting_position,
         )
 
         jsii.create(self.__class__, self, [stream, props])
@@ -5071,11 +5252,11 @@ class KinesisEventSource(
     jsii_type="aws-cdk-lib.aws_lambda_event_sources.KinesisEventSourceProps",
     jsii_struct_bases=[StreamEventSourceProps],
     name_mapping={
-        "starting_position": "startingPosition",
         "batch_size": "batchSize",
         "enabled": "enabled",
         "max_batching_window": "maxBatchingWindow",
         "provisioned_poller_config": "provisionedPollerConfig",
+        "starting_position": "startingPosition",
         "bisect_batch_on_error": "bisectBatchOnError",
         "filter_encryption": "filterEncryption",
         "filters": "filters",
@@ -5093,11 +5274,11 @@ class KinesisEventSourceProps(StreamEventSourceProps):
     def __init__(
         self,
         *,
-        starting_position: "_aws_lambda_b8f2f472.StartingPosition",
         batch_size: typing.Optional[jsii.Number] = None,
         enabled: typing.Optional[builtins.bool] = None,
         max_batching_window: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         provisioned_poller_config: typing.Optional[typing.Union["ProvisionedPollerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        starting_position: typing.Optional["_aws_lambda_b8f2f472.StartingPosition"] = None,
         bisect_batch_on_error: typing.Optional[builtins.bool] = None,
         filter_encryption: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
         filters: typing.Optional[typing.Sequence[typing.Mapping[builtins.str, typing.Any]]] = None,
@@ -5111,11 +5292,11 @@ class KinesisEventSourceProps(StreamEventSourceProps):
         starting_position_timestamp: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param starting_position: Where to begin consuming the stream.
         :param batch_size: The largest number of records that AWS Lambda will retrieve from your event source at the time of invoking your function. Your function receives an event with all the retrieved records. Valid Range: - Minimum value of 1 - Maximum value of: - 1000 for ``DynamoEventSource`` - 10000 for ``KinesisEventSource``, ``ManagedKafkaEventSource`` and ``SelfManagedKafkaEventSource`` Default: 100
         :param enabled: If the stream event source mapping should be enabled. Default: true
         :param max_batching_window: The maximum amount of time to gather records before invoking the function. Maximum of Duration.minutes(5). Default: - Duration.seconds(0) for Kinesis, DynamoDB, and SQS event sources, Duration.millis(500) for MSK, self-managed Kafka, and Amazon MQ.
         :param provisioned_poller_config: Configuration for provisioned pollers that read from the event source. When specified, allows control over the minimum and maximum number of pollers that can be provisioned to process events from the source. Default: - no provisioned pollers
+        :param starting_position: Where to begin consuming the stream. Required for DynamoDB, Kinesis and Amazon MSK event sources, and for self-managed Kafka event sources unless ``consumptionMode`` is ``KafkaConsumptionMode.QUEUE``. Not supported in queue mode. Default: - no starting position; synthesis fails if the event source requires one
         :param bisect_batch_on_error: If the function returns an error, split the batch in two and retry. Default: false
         :param filter_encryption: Add Customer managed KMS key to encrypt Filter Criteria. Default: - none
         :param filters: Add filter criteria option. Default: - None
@@ -5150,11 +5331,11 @@ class KinesisEventSourceProps(StreamEventSourceProps):
             metrics_config = _aws_lambda_b8f2f472.MetricsConfig(**metrics_config)
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a0e5c31953f1ef382a7863484f36982000428c40cc94325c4f41de1e3d040903)
-            check_type(argname="argument starting_position", value=starting_position, expected_type=type_hints["starting_position"])
             check_type(argname="argument batch_size", value=batch_size, expected_type=type_hints["batch_size"])
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             check_type(argname="argument max_batching_window", value=max_batching_window, expected_type=type_hints["max_batching_window"])
             check_type(argname="argument provisioned_poller_config", value=provisioned_poller_config, expected_type=type_hints["provisioned_poller_config"])
+            check_type(argname="argument starting_position", value=starting_position, expected_type=type_hints["starting_position"])
             check_type(argname="argument bisect_batch_on_error", value=bisect_batch_on_error, expected_type=type_hints["bisect_batch_on_error"])
             check_type(argname="argument filter_encryption", value=filter_encryption, expected_type=type_hints["filter_encryption"])
             check_type(argname="argument filters", value=filters, expected_type=type_hints["filters"])
@@ -5166,9 +5347,7 @@ class KinesisEventSourceProps(StreamEventSourceProps):
             check_type(argname="argument retry_attempts", value=retry_attempts, expected_type=type_hints["retry_attempts"])
             check_type(argname="argument tumbling_window", value=tumbling_window, expected_type=type_hints["tumbling_window"])
             check_type(argname="argument starting_position_timestamp", value=starting_position_timestamp, expected_type=type_hints["starting_position_timestamp"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "starting_position": starting_position,
-        }
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
         if batch_size is not None:
             self._values["batch_size"] = batch_size
         if enabled is not None:
@@ -5177,6 +5356,8 @@ class KinesisEventSourceProps(StreamEventSourceProps):
             self._values["max_batching_window"] = max_batching_window
         if provisioned_poller_config is not None:
             self._values["provisioned_poller_config"] = provisioned_poller_config
+        if starting_position is not None:
+            self._values["starting_position"] = starting_position
         if bisect_batch_on_error is not None:
             self._values["bisect_batch_on_error"] = bisect_batch_on_error
         if filter_encryption is not None:
@@ -5199,13 +5380,6 @@ class KinesisEventSourceProps(StreamEventSourceProps):
             self._values["tumbling_window"] = tumbling_window
         if starting_position_timestamp is not None:
             self._values["starting_position_timestamp"] = starting_position_timestamp
-
-    @builtins.property
-    def starting_position(self) -> "_aws_lambda_b8f2f472.StartingPosition":
-        '''Where to begin consuming the stream.'''
-        result = self._values.get("starting_position")
-        assert result is not None, "Required property 'starting_position' is missing"
-        return typing.cast("_aws_lambda_b8f2f472.StartingPosition", result)
 
     @builtins.property
     def batch_size(self) -> typing.Optional[jsii.Number]:
@@ -5262,6 +5436,21 @@ class KinesisEventSourceProps(StreamEventSourceProps):
         '''
         result = self._values.get("provisioned_poller_config")
         return typing.cast(typing.Optional["ProvisionedPollerConfig"], result)
+
+    @builtins.property
+    def starting_position(
+        self,
+    ) -> typing.Optional["_aws_lambda_b8f2f472.StartingPosition"]:
+        '''Where to begin consuming the stream.
+
+        Required for DynamoDB, Kinesis and Amazon MSK event sources, and for self-managed Kafka
+        event sources unless ``consumptionMode`` is ``KafkaConsumptionMode.QUEUE``. Not supported in
+        queue mode.
+
+        :default: - no starting position; synthesis fails if the event source requires one
+        '''
+        result = self._values.get("starting_position")
+        return typing.cast(typing.Optional["_aws_lambda_b8f2f472.StartingPosition"], result)
 
     @builtins.property
     def bisect_batch_on_error(self) -> typing.Optional[builtins.bool]:
@@ -5444,17 +5633,17 @@ class ManagedKafkaEventSource(
         schema_registry_config: typing.Optional["_aws_lambda_b8f2f472.ISchemaRegistry"] = None,
         secret: typing.Optional["_aws_secretsmanager_64b8a1c5.ISecret"] = None,
         starting_position_timestamp: typing.Optional[jsii.Number] = None,
-        starting_position: "_aws_lambda_b8f2f472.StartingPosition",
         batch_size: typing.Optional[jsii.Number] = None,
         enabled: typing.Optional[builtins.bool] = None,
         max_batching_window: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         provisioned_poller_config: typing.Optional[typing.Union["ProvisionedPollerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        starting_position: typing.Optional["_aws_lambda_b8f2f472.StartingPosition"] = None,
     ) -> None:
         '''
         :param cluster_arn: An MSK cluster construct.
         :param topic: The Kafka topic to subscribe to.
         :param bisect_batch_on_error: - If the function returns an error, split the batch in two and retry. Default: false
-        :param consumer_group_id: The identifier for the Kafka consumer group to join. The consumer group ID must be unique among all your Kafka event sources. After creating a Kafka event source mapping with the consumer group ID specified, you cannot update this value. The value must have a length between 1 and 200 and full the pattern '[a-zA-Z0-9-/*:_+=.@-]*'. Default: - none
+        :param consumer_group_id: The identifier for the Kafka consumer group to join. The consumer group ID must be unique among all your Kafka event sources. After creating a Kafka event source mapping with the consumer group ID specified, you cannot update this value. The value must have a length between 1 and 200 and full the pattern '[a-zA-Z0-9-/*:_+=.@-]*'. When ``consumptionMode`` is ``KafkaConsumptionMode.QUEUE``, this is the name of the share group. Default: - none
         :param filter_encryption: Add Customer managed KMS key to encrypt Filter Criteria. Default: - none
         :param filters: Add filter criteria to Event Source. Default: - none
         :param log_level: Configuration for logging verbosity from the event source mapping poller. Default: - No logging
@@ -5462,15 +5651,15 @@ class ManagedKafkaEventSource(
         :param metrics_config: Configuration for enhanced monitoring metrics collection. Default: - Enhanced monitoring is disabled
         :param on_failure: Add an on Failure Destination for this Kafka event. Supported destinations: - {@link KafkaDlq } - Send failed records to a Kafka topic - SNS topics - Send failed records to an SNS topic - SQS queues - Send failed records to an SQS queue - S3 buckets - Send failed records to an S3 bucket Default: - discarded records are ignored
         :param report_batch_item_failures: - Allow functions to return partially successful responses for a batch of records. Default: false
-        :param retry_attempts: - Maximum number of retry attempts. Set to -1 for infinite retries (until the record expires in the event source). Default: -1 (infinite retries)
+        :param retry_attempts: - Maximum number of retry attempts. Set to -1 for infinite retries (until the record expires in the event source). ``-1`` isn't supported when ``consumptionMode`` is ``KafkaConsumptionMode.QUEUE``. Default: -1 (infinite retries) in stream mode, 0 in queue mode
         :param schema_registry_config: Specific configuration settings for a Kafka schema registry. Default: - none
         :param secret: The secret with the Kafka credentials, see https://docs.aws.amazon.com/msk/latest/developerguide/msk-password.html for details This field is required if your Kafka brokers are accessed over the Internet. Default: none
         :param starting_position_timestamp: The time from which to start reading, in Unix time seconds. Default: - no timestamp
-        :param starting_position: Where to begin consuming the stream.
         :param batch_size: The largest number of records that AWS Lambda will retrieve from your event source at the time of invoking your function. Your function receives an event with all the retrieved records. Valid Range: - Minimum value of 1 - Maximum value of: - 1000 for ``DynamoEventSource`` - 10000 for ``KinesisEventSource``, ``ManagedKafkaEventSource`` and ``SelfManagedKafkaEventSource`` Default: 100
         :param enabled: If the stream event source mapping should be enabled. Default: true
         :param max_batching_window: The maximum amount of time to gather records before invoking the function. Maximum of Duration.minutes(5). Default: - Duration.seconds(0) for Kinesis, DynamoDB, and SQS event sources, Duration.millis(500) for MSK, self-managed Kafka, and Amazon MQ.
         :param provisioned_poller_config: Configuration for provisioned pollers that read from the event source. When specified, allows control over the minimum and maximum number of pollers that can be provisioned to process events from the source. Default: - no provisioned pollers
+        :param starting_position: Where to begin consuming the stream. Required for DynamoDB, Kinesis and Amazon MSK event sources, and for self-managed Kafka event sources unless ``consumptionMode`` is ``KafkaConsumptionMode.QUEUE``. Not supported in queue mode. Default: - no starting position; synthesis fails if the event source requires one
         '''
         props = ManagedKafkaEventSourceProps(
             cluster_arn=cluster_arn,
@@ -5488,11 +5677,11 @@ class ManagedKafkaEventSource(
             schema_registry_config=schema_registry_config,
             secret=secret,
             starting_position_timestamp=starting_position_timestamp,
-            starting_position=starting_position,
             batch_size=batch_size,
             enabled=enabled,
             max_batching_window=max_batching_window,
             provisioned_poller_config=provisioned_poller_config,
+            starting_position=starting_position,
         )
 
         jsii.create(self.__class__, self, [props])
@@ -5558,6 +5747,7 @@ class SelfManagedKafkaEventSource(
         *,
         bootstrap_servers: typing.Sequence[builtins.str],
         authentication_method: typing.Optional["AuthenticationMethod"] = None,
+        consumption_mode: typing.Optional["_aws_lambda_b8f2f472.KafkaConsumptionMode"] = None,
         root_ca_certificate: typing.Optional["_aws_secretsmanager_64b8a1c5.ISecret"] = None,
         security_group: typing.Optional["_aws_ec2_09840e12.ISecurityGroup"] = None,
         vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
@@ -5576,22 +5766,23 @@ class SelfManagedKafkaEventSource(
         schema_registry_config: typing.Optional["_aws_lambda_b8f2f472.ISchemaRegistry"] = None,
         secret: typing.Optional["_aws_secretsmanager_64b8a1c5.ISecret"] = None,
         starting_position_timestamp: typing.Optional[jsii.Number] = None,
-        starting_position: "_aws_lambda_b8f2f472.StartingPosition",
         batch_size: typing.Optional[jsii.Number] = None,
         enabled: typing.Optional[builtins.bool] = None,
         max_batching_window: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         provisioned_poller_config: typing.Optional[typing.Union["ProvisionedPollerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        starting_position: typing.Optional["_aws_lambda_b8f2f472.StartingPosition"] = None,
     ) -> None:
         '''
         :param bootstrap_servers: The list of host and port pairs that are the addresses of the Kafka brokers in a "bootstrap" Kafka cluster that a Kafka client connects to initially to bootstrap itself. They are in the format ``abc.xyz.com:xxxx``.
         :param authentication_method: The authentication method for your Kafka cluster. Default: AuthenticationMethod.SASL_SCRAM_512_AUTH
+        :param consumption_mode: How Lambda reads records from the Kafka topic. **Queue mode requires Kafka 4.2.0 or later.** ``KafkaConsumptionMode.QUEUE`` reads the topic as a Kafka share group, so records in a partition can be processed in parallel. In queue mode, ``startingPosition``, ``startingPositionTimestamp`` and ``maxBatchingWindow`` are not supported, ``retryAttempts`` must be between 0 and 10000 and defaults to 0 (and, as in stream mode, requires provisioned mode), and ``consumerGroupId`` is the name of the share group. The consumption mode can't be changed after the event source mapping is created. Default: - Lambda reads the topic in stream mode (``KafkaConsumptionMode.STREAM``)
         :param root_ca_certificate: The secret with the root CA certificate used by your Kafka brokers for TLS encryption This field is required if your Kafka brokers use certificates signed by a private CA. Default: - none
         :param security_group: If your Kafka brokers are only reachable via VPC, provide the security group here. Default: - none, required if setting vpc
         :param vpc: If your Kafka brokers are only reachable via VPC provide the VPC here. Default: none
         :param vpc_subnets: If your Kafka brokers are only reachable via VPC, provide the subnets selection here. Default: - none, required if setting vpc
         :param topic: The Kafka topic to subscribe to.
         :param bisect_batch_on_error: - If the function returns an error, split the batch in two and retry. Default: false
-        :param consumer_group_id: The identifier for the Kafka consumer group to join. The consumer group ID must be unique among all your Kafka event sources. After creating a Kafka event source mapping with the consumer group ID specified, you cannot update this value. The value must have a length between 1 and 200 and full the pattern '[a-zA-Z0-9-/*:_+=.@-]*'. Default: - none
+        :param consumer_group_id: The identifier for the Kafka consumer group to join. The consumer group ID must be unique among all your Kafka event sources. After creating a Kafka event source mapping with the consumer group ID specified, you cannot update this value. The value must have a length between 1 and 200 and full the pattern '[a-zA-Z0-9-/*:_+=.@-]*'. When ``consumptionMode`` is ``KafkaConsumptionMode.QUEUE``, this is the name of the share group. Default: - none
         :param filter_encryption: Add Customer managed KMS key to encrypt Filter Criteria. Default: - none
         :param filters: Add filter criteria to Event Source. Default: - none
         :param log_level: Configuration for logging verbosity from the event source mapping poller. Default: - No logging
@@ -5599,19 +5790,20 @@ class SelfManagedKafkaEventSource(
         :param metrics_config: Configuration for enhanced monitoring metrics collection. Default: - Enhanced monitoring is disabled
         :param on_failure: Add an on Failure Destination for this Kafka event. Supported destinations: - {@link KafkaDlq } - Send failed records to a Kafka topic - SNS topics - Send failed records to an SNS topic - SQS queues - Send failed records to an SQS queue - S3 buckets - Send failed records to an S3 bucket Default: - discarded records are ignored
         :param report_batch_item_failures: - Allow functions to return partially successful responses for a batch of records. Default: false
-        :param retry_attempts: - Maximum number of retry attempts. Set to -1 for infinite retries (until the record expires in the event source). Default: -1 (infinite retries)
+        :param retry_attempts: - Maximum number of retry attempts. Set to -1 for infinite retries (until the record expires in the event source). ``-1`` isn't supported when ``consumptionMode`` is ``KafkaConsumptionMode.QUEUE``. Default: -1 (infinite retries) in stream mode, 0 in queue mode
         :param schema_registry_config: Specific configuration settings for a Kafka schema registry. Default: - none
         :param secret: The secret with the Kafka credentials, see https://docs.aws.amazon.com/msk/latest/developerguide/msk-password.html for details This field is required if your Kafka brokers are accessed over the Internet. Default: none
         :param starting_position_timestamp: The time from which to start reading, in Unix time seconds. Default: - no timestamp
-        :param starting_position: Where to begin consuming the stream.
         :param batch_size: The largest number of records that AWS Lambda will retrieve from your event source at the time of invoking your function. Your function receives an event with all the retrieved records. Valid Range: - Minimum value of 1 - Maximum value of: - 1000 for ``DynamoEventSource`` - 10000 for ``KinesisEventSource``, ``ManagedKafkaEventSource`` and ``SelfManagedKafkaEventSource`` Default: 100
         :param enabled: If the stream event source mapping should be enabled. Default: true
         :param max_batching_window: The maximum amount of time to gather records before invoking the function. Maximum of Duration.minutes(5). Default: - Duration.seconds(0) for Kinesis, DynamoDB, and SQS event sources, Duration.millis(500) for MSK, self-managed Kafka, and Amazon MQ.
         :param provisioned_poller_config: Configuration for provisioned pollers that read from the event source. When specified, allows control over the minimum and maximum number of pollers that can be provisioned to process events from the source. Default: - no provisioned pollers
+        :param starting_position: Where to begin consuming the stream. Required for DynamoDB, Kinesis and Amazon MSK event sources, and for self-managed Kafka event sources unless ``consumptionMode`` is ``KafkaConsumptionMode.QUEUE``. Not supported in queue mode. Default: - no starting position; synthesis fails if the event source requires one
         '''
         props = SelfManagedKafkaEventSourceProps(
             bootstrap_servers=bootstrap_servers,
             authentication_method=authentication_method,
+            consumption_mode=consumption_mode,
             root_ca_certificate=root_ca_certificate,
             security_group=security_group,
             vpc=vpc,
@@ -5630,11 +5822,11 @@ class SelfManagedKafkaEventSource(
             schema_registry_config=schema_registry_config,
             secret=secret,
             starting_position_timestamp=starting_position_timestamp,
-            starting_position=starting_position,
             batch_size=batch_size,
             enabled=enabled,
             max_batching_window=max_batching_window,
             provisioned_poller_config=provisioned_poller_config,
+            starting_position=starting_position,
         )
 
         jsii.create(self.__class__, self, [props])
@@ -5713,11 +5905,11 @@ def _typecheckingstub__73ec0ded49c07328bae7b0199db22b5890dd2441734e4b15832fa275d
 
 def _typecheckingstub__49e8158c80bdc70be09102671a6e9cb783a1a28274da91874a575eeb7e7b4fc6(
     *,
-    starting_position: _aws_lambda_b8f2f472.StartingPosition,
     batch_size: typing.Optional[jsii.Number] = None,
     enabled: typing.Optional[builtins.bool] = None,
     max_batching_window: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     provisioned_poller_config: typing.Optional[typing.Union[ProvisionedPollerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    starting_position: typing.Optional[_aws_lambda_b8f2f472.StartingPosition] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5772,11 +5964,11 @@ def _typecheckingstub__3687a83a7d4c5a8f9aa8079fb7189397989e6b5e01b5cde590f8d8d29
 
 def _typecheckingstub__980041697091a50415a7444df02a046d910ddd83f1229789d80780bf7903633d(
     *,
-    starting_position: _aws_lambda_b8f2f472.StartingPosition,
     batch_size: typing.Optional[jsii.Number] = None,
     enabled: typing.Optional[builtins.bool] = None,
     max_batching_window: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     provisioned_poller_config: typing.Optional[typing.Union[ProvisionedPollerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    starting_position: typing.Optional[_aws_lambda_b8f2f472.StartingPosition] = None,
     topic: builtins.str,
     bisect_batch_on_error: typing.Optional[builtins.bool] = None,
     consumer_group_id: typing.Optional[builtins.str] = None,
@@ -5797,11 +5989,11 @@ def _typecheckingstub__980041697091a50415a7444df02a046d910ddd83f1229789d80780bf7
 
 def _typecheckingstub__e930f585c1bae37174885c54f0f224909bfb0a75d9f1b652bbcf3346100e977e(
     *,
-    starting_position: _aws_lambda_b8f2f472.StartingPosition,
     batch_size: typing.Optional[jsii.Number] = None,
     enabled: typing.Optional[builtins.bool] = None,
     max_batching_window: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     provisioned_poller_config: typing.Optional[typing.Union[ProvisionedPollerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    starting_position: typing.Optional[_aws_lambda_b8f2f472.StartingPosition] = None,
     topic: builtins.str,
     bisect_batch_on_error: typing.Optional[builtins.bool] = None,
     consumer_group_id: typing.Optional[builtins.str] = None,
@@ -5883,11 +6075,11 @@ def _typecheckingstub__ed74f959af3cc18fd86e892f9b5cbb3d2c7a862ab15b0750992d59c44
 
 def _typecheckingstub__0100a45aa91b9c2103378e2ba54dd41b054f1d6a50733797256d6971b9833166(
     *,
-    starting_position: _aws_lambda_b8f2f472.StartingPosition,
     batch_size: typing.Optional[jsii.Number] = None,
     enabled: typing.Optional[builtins.bool] = None,
     max_batching_window: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     provisioned_poller_config: typing.Optional[typing.Union[ProvisionedPollerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    starting_position: typing.Optional[_aws_lambda_b8f2f472.StartingPosition] = None,
     topic: builtins.str,
     bisect_batch_on_error: typing.Optional[builtins.bool] = None,
     consumer_group_id: typing.Optional[builtins.str] = None,
@@ -5904,6 +6096,7 @@ def _typecheckingstub__0100a45aa91b9c2103378e2ba54dd41b054f1d6a50733797256d6971b
     starting_position_timestamp: typing.Optional[jsii.Number] = None,
     bootstrap_servers: typing.Sequence[builtins.str],
     authentication_method: typing.Optional[AuthenticationMethod] = None,
+    consumption_mode: typing.Optional[_aws_lambda_b8f2f472.KafkaConsumptionMode] = None,
     root_ca_certificate: typing.Optional[_aws_secretsmanager_64b8a1c5.ISecret] = None,
     security_group: typing.Optional[_aws_ec2_09840e12.ISecurityGroup] = None,
     vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
@@ -6008,11 +6201,11 @@ def _typecheckingstub__3e0ed4eff42dc483c777c36202f1204c313643f383a707df39d666cb8
 
 def _typecheckingstub__f846cf48a1cd8d8120ed4973fabeee827928eff2de72d372506124b7d1eedd59(
     *,
-    starting_position: _aws_lambda_b8f2f472.StartingPosition,
     batch_size: typing.Optional[jsii.Number] = None,
     enabled: typing.Optional[builtins.bool] = None,
     max_batching_window: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     provisioned_poller_config: typing.Optional[typing.Union[ProvisionedPollerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    starting_position: typing.Optional[_aws_lambda_b8f2f472.StartingPosition] = None,
     bisect_batch_on_error: typing.Optional[builtins.bool] = None,
     filter_encryption: typing.Optional[_aws_kms_ff87d74a.IKey] = None,
     filters: typing.Optional[typing.Sequence[typing.Mapping[builtins.str, typing.Any]]] = None,
@@ -6040,11 +6233,11 @@ def _typecheckingstub__826ee32f5239c7c242a7200ffc24778bee01c1101c3cc939fed4a8615
     report_batch_item_failures: typing.Optional[builtins.bool] = None,
     retry_attempts: typing.Optional[jsii.Number] = None,
     tumbling_window: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
-    starting_position: _aws_lambda_b8f2f472.StartingPosition,
     batch_size: typing.Optional[jsii.Number] = None,
     enabled: typing.Optional[builtins.bool] = None,
     max_batching_window: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     provisioned_poller_config: typing.Optional[typing.Union[ProvisionedPollerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    starting_position: typing.Optional[_aws_lambda_b8f2f472.StartingPosition] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6057,11 +6250,11 @@ def _typecheckingstub__731dfd85d86fb8aaf4e3e255fe815a599db4083f02a9ab96740b45476
 
 def _typecheckingstub__ec371d5e4612e8923bbdcc024d90e26915d64be2dc40151f22fc41139c2d48b3(
     *,
-    starting_position: _aws_lambda_b8f2f472.StartingPosition,
     batch_size: typing.Optional[jsii.Number] = None,
     enabled: typing.Optional[builtins.bool] = None,
     max_batching_window: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     provisioned_poller_config: typing.Optional[typing.Union[ProvisionedPollerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    starting_position: typing.Optional[_aws_lambda_b8f2f472.StartingPosition] = None,
     bisect_batch_on_error: typing.Optional[builtins.bool] = None,
     filter_encryption: typing.Optional[_aws_kms_ff87d74a.IKey] = None,
     filters: typing.Optional[typing.Sequence[typing.Mapping[builtins.str, typing.Any]]] = None,
@@ -6090,11 +6283,11 @@ def _typecheckingstub__5d4436c01738e680b66bbfda741235beea5eb51d1e287ec05ae0c58ab
     report_batch_item_failures: typing.Optional[builtins.bool] = None,
     retry_attempts: typing.Optional[jsii.Number] = None,
     tumbling_window: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
-    starting_position: _aws_lambda_b8f2f472.StartingPosition,
     batch_size: typing.Optional[jsii.Number] = None,
     enabled: typing.Optional[builtins.bool] = None,
     max_batching_window: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     provisioned_poller_config: typing.Optional[typing.Union[ProvisionedPollerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    starting_position: typing.Optional[_aws_lambda_b8f2f472.StartingPosition] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6119,11 +6312,11 @@ def _typecheckingstub__9f81acc98c12b4967363bdd43130a7e674a566679a7b200f5ccd6a0ae
     report_batch_item_failures: typing.Optional[builtins.bool] = None,
     retry_attempts: typing.Optional[jsii.Number] = None,
     tumbling_window: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
-    starting_position: _aws_lambda_b8f2f472.StartingPosition,
     batch_size: typing.Optional[jsii.Number] = None,
     enabled: typing.Optional[builtins.bool] = None,
     max_batching_window: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     provisioned_poller_config: typing.Optional[typing.Union[ProvisionedPollerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    starting_position: typing.Optional[_aws_lambda_b8f2f472.StartingPosition] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6136,11 +6329,11 @@ def _typecheckingstub__f07c6df7a369cb7a2f714649c4e8459d046e9799f36eb2d7cf7a4c5c5
 
 def _typecheckingstub__a0e5c31953f1ef382a7863484f36982000428c40cc94325c4f41de1e3d040903(
     *,
-    starting_position: _aws_lambda_b8f2f472.StartingPosition,
     batch_size: typing.Optional[jsii.Number] = None,
     enabled: typing.Optional[builtins.bool] = None,
     max_batching_window: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     provisioned_poller_config: typing.Optional[typing.Union[ProvisionedPollerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    starting_position: typing.Optional[_aws_lambda_b8f2f472.StartingPosition] = None,
     bisect_batch_on_error: typing.Optional[builtins.bool] = None,
     filter_encryption: typing.Optional[_aws_kms_ff87d74a.IKey] = None,
     filters: typing.Optional[typing.Sequence[typing.Mapping[builtins.str, typing.Any]]] = None,

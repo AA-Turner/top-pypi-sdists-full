@@ -57,7 +57,7 @@ class G2ReviewsItem(BaseModel):
     created_utc: float | None = Field(
         default=None,
         alias="createdUtc",
-        description="UTC epoch timestamp in seconds (Unix time). Multiply by 1000 for a JS Date in milliseconds. Populated whenever the provider has data for the entity. Present whenever the upstream returns this record.",
+        description="UTC epoch timestamp in seconds (Unix time) of when the review was published. On older reviews where G2 records no publication date, it is the date the review was submitted. Multiply by 1000 for a JS Date in milliseconds. Populated whenever the provider has data for the entity. Present whenever the upstream returns this record.",
     )
     dislikes: str | None = Field(
         default=None,
@@ -109,7 +109,7 @@ class G2ReviewsItem(BaseModel):
     )
     ratings: G2ReviewsRating | None = Field(
         default=None,
-        description="G2's rating rubric, each on a 0 to 10 scale. A reviewer may skip any of them, and the last two are asked far less often.",
+        description="G2's rating rubric, each on G2's 1 to 7 scale. A reviewer may skip any of them, and the last two are asked far less often.",
     )
     response_type: str | None = Field(
         default=None,
@@ -195,7 +195,7 @@ class G2Namespace:
         and dislike, problems solved, market segment, and G2's rating rubric as
         clean JSON.
 
-        Price: $0.00015 per request plus $0.00005 per result (maximum $0.00455).
+        Price: $0.00016 per request plus $0.00005 per result (maximum $0.00496).
 
         Example:
             res = client.g2.reviews(limit=50, product="hubspot-marketing-hub", sortBy="recent")
@@ -221,7 +221,7 @@ class AsyncG2Namespace:
         and dislike, problems solved, market segment, and G2's rating rubric as
         clean JSON.
 
-        Price: $0.00015 per request plus $0.00005 per result (maximum $0.00455).
+        Price: $0.00016 per request plus $0.00005 per result (maximum $0.00496).
 
         Example:
             res = client.g2.reviews(limit=50, product="hubspot-marketing-hub", sortBy="recent")

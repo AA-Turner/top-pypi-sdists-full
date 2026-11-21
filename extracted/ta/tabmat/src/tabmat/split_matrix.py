@@ -12,8 +12,10 @@ from .standardized_mat import StandardizedMatrix
 from .util import (
     check_matvec_dimensions,
     check_matvec_out_shape,
+    check_out_kernel_compatible,
     check_sandwich_compatible,
     check_transpose_matvec_out_shape,
+    prepare_vector,
     set_up_rows_or_cols,
 )
 
@@ -86,7 +88,7 @@ def _combine_matrices(matrices, indices):
     Combine multiple SparseMatrix and DenseMatrix objects into a single object of each
     type.
 
-    ``matrices`` is  and ``indices`` marks which columns they correspond to.
+    `matrices` is  and `indices` marks which columns they correspond to.
     Categorical matrices remain unmodified by this function since categorical
     matrices cannot be combined (each categorical matrix represents a single category).
 
@@ -150,11 +152,10 @@ class SplitMatrix(MatrixBase):
     allows for a significant speedup in matrix multiplications compared to
     representations that are entirely dense or entirely sparse.
 
-    Initialize a SplitMatrix directly with a list of ``matrices`` and a
-    list of column ``indices`` for each matrix.
-    Most of the time, it will
-    be best to use :func:`tabmat.from_pandas` or :func:`tabmat.from_csc`
-    to initialize a ``SplitMatrix``.
+    Initialize a SplitMatrix directly with a list of `matrices` and a
+    list of column `indices` for each matrix. Most of the time, it will be best
+    to use [`tabmat.from_pandas`][tabmat.from_pandas] or
+    [`tabmat.from_csc`][tabmat.from_csc] to initialize a `SplitMatrix`.
 
     Parameters
     ----------
@@ -162,8 +163,8 @@ class SplitMatrix(MatrixBase):
         The sub-matrices composing the columns of this SplitMatrix.
 
     indices:
-        If ``indices`` is not None, then for each matrix passed in
-        ``matrices``, ``indices`` must contain the set of columns which that matrix
+        If `indices` is not None, then for each matrix passed in
+        `matrices`, `indices` must contain the set of columns which that matrix
         covers.
     """
 
@@ -327,16 +328,42 @@ class SplitMatrix(MatrixBase):
         cols: np.ndarray | None = None,
     ) -> np.ndarray:
         """Perform a sandwich product: X.T @ diag(d) @ X."""
-        d = np.asarray(d)
+        return self._centered_sandwich(d, None, rows, cols)
+
+    def _part_centers(self, center: np.ndarray | None) -> list[np.ndarray | None]:
+        """Split `center` (one value per column) into one center per part.
+
+        Only the dense part is centered; the other parts get `None`.
+        """
+        return [
+            center[idx] if center is not None and isinstance(mat, DenseMatrix) else None
+            for mat, idx in zip(self.matrices, self.indices)
+        ]
+
+    def _centered_sandwich(
+        self,
+        d: np.ndarray | list,
+        center: np.ndarray | None,
+        rows: np.ndarray | None = None,
+        cols: np.ndarray | None = None,
+    ) -> np.ndarray:
+        """Like `sandwich`, with the dense part centered by `center`.
+
+        The dense columns are centered inside the kernels, both for their own
+        block and for their cross blocks with the other parts, so that a large
+        center does not cancel. `center=None` means no centering.
+        """
+        d = prepare_vector(d)
         check_sandwich_compatible(self, d)
 
         subset_cols_indices, subset_cols, n_cols = self._split_col_subsets(cols)
+        centers = self._part_centers(center)
 
         out = np.zeros((n_cols, n_cols))
         for i in range(len(self.indices)):
             idx_i = subset_cols_indices[i]
             mat_i = self.matrices[i]
-            res = mat_i.sandwich(d, rows, subset_cols[i])
+            res = mat_i._centered_sandwich(d, centers[i], rows, subset_cols[i])
             if isinstance(res, sps.dia_matrix):
                 out[(idx_i, idx_i)] += np.squeeze(res.data)
             else:
@@ -345,9 +372,29 @@ class SplitMatrix(MatrixBase):
             for j in range(i + 1, len(self.indices)):
                 idx_j = subset_cols_indices[j]
                 mat_j = self.matrices[j]
-                res = mat_i._cross_sandwich(
-                    mat_j, d, rows, subset_cols[i], subset_cols[j]
-                )
+                # A centered dense part goes on the right, as the other matrix.
+                if centers[i] is not None:
+                    res = mat_j._cross_sandwich(
+                        mat_i,
+                        d,
+                        rows,
+                        subset_cols[j],
+                        subset_cols[i],
+                        dense_center=centers[i],
+                    ).T
+                elif centers[j] is not None:
+                    res = mat_i._cross_sandwich(
+                        mat_j,
+                        d,
+                        rows,
+                        subset_cols[i],
+                        subset_cols[j],
+                        dense_center=centers[j],
+                    )
+                else:
+                    res = mat_i._cross_sandwich(
+                        mat_j, d, rows, subset_cols[i], subset_cols[j]
+                    )
 
                 out[np.ix_(idx_i, idx_j)] = res
                 out[np.ix_(idx_j, idx_i)] = res.T
@@ -376,15 +423,30 @@ class SplitMatrix(MatrixBase):
         out: np.ndarray | None = None,
     ) -> np.ndarray:
         """Perform self[:, cols] @ other[cols]."""
+        return self._centered_matvec(v, None, cols, out)
+
+    def _centered_matvec(
+        self,
+        v: np.ndarray,
+        center: np.ndarray | None,
+        cols: np.ndarray | None = None,
+        out: np.ndarray | None = None,
+    ) -> np.ndarray:
+        """Like `matvec`, with the dense part centered by `center` (one
+        value per column) inside the kernels. `center=None` means no centering.
+        """
         assert not isinstance(v, sps.spmatrix)
         v = np.asarray(v)
         check_matvec_dimensions(self, v, transpose=False)
         check_matvec_out_shape(self, out)
+        # The parts write into `out` one after the other, so check it up front.
+        check_out_kernel_compatible(out)
 
         if v.shape[0] != self.shape[1]:
             raise ValueError(f"shapes {self.shape} and {v.shape} not aligned")
 
         _, subset_cols, n_cols = self._split_col_subsets(cols)
+        centers = self._part_centers(center)
 
         out_shape = [self.shape[0]] + ([] if v.ndim == 1 else list(v.shape[1:]))
         out_dtype = np.result_type(self.dtype, v.dtype)
@@ -404,7 +466,8 @@ class SplitMatrix(MatrixBase):
             idx = self.indices[dense_matrix_idx]
             mat = self.matrices[dense_matrix_idx]
             in_vec = v[idx, ...]
-            out = np.asarray(mat.matvec(in_vec, sub_cols, out), dtype=out_dtype)
+            res = mat._centered_matvec(in_vec, centers[dense_matrix_idx], sub_cols, out)
+            out = np.asarray(res, dtype=out_dtype)
         else:
             dense_matrix_idx = -1
             out = _prepare_out_array(out, out_shape, out_dtype)
@@ -436,7 +499,20 @@ class SplitMatrix(MatrixBase):
                 = sum_{j in rows} sum_{mat in self.matrices} 1(cols[i] in mat)
                                                             self[j, cols[i]] v[j]
         """
+        return self._centered_transpose_matvec(v, None, rows, cols, out)
 
+    def _centered_transpose_matvec(
+        self,
+        v: np.ndarray | list,
+        center: np.ndarray | None,
+        rows: np.ndarray | None = None,
+        cols: np.ndarray | None = None,
+        out: np.ndarray | None = None,
+    ) -> np.ndarray:
+        """Like `transpose_matvec`, with the dense part centered by
+        `center` (one value per column) inside the kernels. `center=None`
+        means no centering.
+        """
         v = np.asarray(v)
         check_matvec_dimensions(self, v, transpose=True)
         check_transpose_matvec_out_shape(self, out)
@@ -450,8 +526,10 @@ class SplitMatrix(MatrixBase):
         if cols is not None:
             cols = np.asarray(cols, dtype=np.int32)
 
-        for idx, sub_cols, mat in zip(subset_cols_indices, subset_cols, self.matrices):
-            res = mat.transpose_matvec(v, rows=rows, cols=sub_cols)
+        for idx, sub_cols, mat, mat_center in zip(
+            subset_cols_indices, subset_cols, self.matrices, self._part_centers(center)
+        ):
+            res = mat._centered_transpose_matvec(v, mat_center, rows, sub_cols)
             if out_is_none or cols is None:
                 out[idx, ...] += res
             else:
@@ -478,7 +556,7 @@ class SplitMatrix(MatrixBase):
     def multiply(self, other):
         """Element-wise multiplication.
 
-        This assumes that ``other`` is a vector of size ``self.shape[0]``.
+        This assumes that `other` is a vector of size `self.shape[0]`.
         """
         return SplitMatrix(
             [mat.multiply(other) for mat in self.matrices], indices=self.indices
@@ -504,7 +582,7 @@ class SplitMatrix(MatrixBase):
         """Get column names.
 
         For columns that do not have a name, a default name is created using the
-        following pattern: ``"{missing_prefix}{start_index + i}"`` where ``i`` is
+        following pattern: `"{missing_prefix}{start_index + i}"` where `i` is
         the index of the column.
 
         Parameters
@@ -513,13 +591,13 @@ class SplitMatrix(MatrixBase):
             Whether to get column names or term names. The main difference is
             that a categorical submatrix counts as one term, but can count as
             multiple columns. Furthermore, matrices created from formulas
-            distinguish between columns and terms (c.f. ``formulaic`` docs).
+            distinguish between columns and terms (c.f. `formulaic` docs).
         missing_prefix: Optional[str], default None
             Prefix to use for columns that do not have a name. If None, then no
             default name is created.
         indices
-            The indices used for columns that do not have a name. If ``None``,
-            then the indices are ``list(range(self.shape[1]))``.
+            The indices used for columns that do not have a name. If `None`,
+            then the indices are `list(range(self.shape[1]))`.
 
         Returns
         -------
@@ -542,7 +620,7 @@ class SplitMatrix(MatrixBase):
             Whether to get column names or term names. The main difference is
             that a categorical submatrix counts as one term, but can count as
             multiple columns. Furthermore, matrices created from formulas
-            distinguish between columns and terms (c.f. ``formulaic`` docs).
+            distinguish between columns and terms (c.f. `formulaic` docs).
         """
         names_array = np.array(names)
 

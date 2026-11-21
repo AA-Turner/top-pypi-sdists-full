@@ -274,7 +274,7 @@ Expression* Expression::tryConnectPortArray(const ASTContext& context, const Typ
     int32_t offset = 0;
     for (size_t i = 0; i < arrayPath.size(); i++) {
         if (i > 0)
-            offset *= int32_t(instanceDims[i - 1].width());
+            offset *= int32_t(instanceDims[i].width());
 
         uint32_t index = arrayPath[i];
         if (!instanceDims[i].isDescending())
@@ -448,9 +448,7 @@ Expression& AssignmentExpression::fromComponents(
 }
 
 bool AssignmentExpression::isLValueArg() const {
-    return right().kind == ExpressionKind::EmptyArgument ||
-           (right().kind == ExpressionKind::Conversion &&
-            right().as<ConversionExpression>().operand().kind == ExpressionKind::EmptyArgument);
+    return right().unwrapImplicitConversions().kind == ExpressionKind::EmptyArgument;
 }
 
 ConstantValue AssignmentExpression::evalImpl(EvalContext& context) const {
@@ -1661,6 +1659,17 @@ Expression& StructuredAssignmentPatternExpression::forAssociativeArray(
         }
     }
 
+    // If there is a default setter expression, translate it to the target type
+    // of the array, and store that in case we need it to do constant evaluation.
+    if (defaultSetter) {
+        auto matched = matchElementValue(context, elementType, nullptr, type, syntax, {},
+                                         defaultSetter);
+        if (!matched)
+            bad = true;
+        else
+            defaultSetter = matched;
+    }
+
     auto result = comp.emplace<StructuredAssignmentPatternExpression>(
         type, std::span<const MemberSetter>{}, std::span<const TypeSetter>{},
         indexSetters.copy(comp), defaultSetter, std::span<const Expression*>{}, sourceRange);
@@ -1739,18 +1748,22 @@ Expression& ReplicatedAssignmentPatternExpression::forStruct(
         return badExpr(comp, nullptr);
     }
 
+    // Each replicated item is assigned to its own member [10.9.2], and the members
+    // can have different types, so we expand the replication out into a simple
+    // pattern with one element per member.
     bool bad = false;
     size_t index = 0;
     SmallVector<const Expression*> elems;
-    for (auto item : syntax.items) {
-        auto& expr = Expression::bindRValue(*types[index++], *item, {}, context);
-        elems.push_back(&expr);
-        bad |= expr.bad();
+    for (size_t i = 0; i < count; i++) {
+        for (auto item : syntax.items) {
+            auto& expr = Expression::bindRValue(*types[index++], *item, {}, context);
+            elems.push_back(&expr);
+            bad |= expr.bad();
+        }
     }
 
-    auto result = comp.emplace<ReplicatedAssignmentPatternExpression>(type, countExpr,
-                                                                      elems.copy(comp),
-                                                                      sourceRange);
+    auto result = comp.emplace<SimpleAssignmentPatternExpression>(type, /* isLValue */ false,
+                                                                  elems.copy(comp), sourceRange);
     if (bad)
         return badExpr(comp, result);
 

@@ -75,12 +75,14 @@ class Subscriptions(SyncAPIResource):
         auto_issuance: Optional[bool] | Omit = omit,
         aws_region: Optional[str] | Omit = omit,
         billing_cycle_anchor_configuration: Optional[BillingCycleAnchorConfiguration] | Omit = omit,
+        billing_entity_id: Optional[str] | Omit = omit,
         coupon_redemption_code: Optional[str] | Omit = omit,
         credits_overage_rate: Optional[float] | Omit = omit,
         currency: Optional[str] | Omit = omit,
         customer_id: Optional[str] | Omit = omit,
         default_invoice_memo: Optional[str] | Omit = omit,
         end_date: Union[str, datetime, None] | Omit = omit,
+        external_billing_entity_id: Optional[str] | Omit = omit,
         external_customer_id: Optional[str] | Omit = omit,
         external_marketplace: Optional[Literal["google", "aws", "azure"]] | Omit = omit,
         external_marketplace_reporting_id: Optional[str] | Omit = omit,
@@ -389,6 +391,10 @@ class Subscriptions(SyncAPIResource):
               require manual approval. If `null` is specified, this defaults to the behavior
               configured for this customer.
 
+          billing_entity_id: The id of the active billing entity that issues this subscription's invoices. If
+              not specified, falls back to the customer's billing entity, then the plan's,
+              then the account's default. This cannot be changed after creation.
+
           coupon_redemption_code: Redemption code to be used for this subscription. If the coupon cannot be found
               by its redemption code, or cannot be redeemed, an error response will be
               returned and the subscription creation or plan change will not be scheduled.
@@ -398,6 +404,9 @@ class Subscriptions(SyncAPIResource):
 
           default_invoice_memo: Determines the default memo on this subscription's invoices. Note that if this
               is not provided, it is determined by the plan configuration.
+
+          external_billing_entity_id: The external id of the active billing entity that issues this subscription's
+              invoices.
 
           external_plan_id: The external_plan_id of the plan that the given subscription should be switched
               to. Note that either this property or `plan_id` must be specified.
@@ -420,9 +429,12 @@ class Subscriptions(SyncAPIResource):
           name: The name to use for the subscription. If not specified, the plan name will be
               used.
 
-          net_terms: The net terms determines the difference between the invoice date and the issue
-              date for the invoice. If you intend the invoice to be due on issue, set this
-              to 0. If not provided, this defaults to the value specified in the plan.
+          net_terms: The number of days until the invoice is due, counting the start date as day 1,
+              so net 30 from October 1 is due October 30. The account's
+              [due date calculation method](/invoicing/payments#configuring-net-terms-and-collection-behavior)
+              sets whether the start date is the invoice date or the issuance date. If you
+              intend the invoice to be due on issue, set this to 0. If not provided, this
+              defaults to the value specified in the plan.
 
           plan_id: The plan that the given subscription should be switched to. Note that either
               this property or `external_plan_id` must be specified.
@@ -477,12 +489,14 @@ class Subscriptions(SyncAPIResource):
                     "auto_issuance": auto_issuance,
                     "aws_region": aws_region,
                     "billing_cycle_anchor_configuration": billing_cycle_anchor_configuration,
+                    "billing_entity_id": billing_entity_id,
                     "coupon_redemption_code": coupon_redemption_code,
                     "credits_overage_rate": credits_overage_rate,
                     "currency": currency,
                     "customer_id": customer_id,
                     "default_invoice_memo": default_invoice_memo,
                     "end_date": end_date,
+                    "external_billing_entity_id": external_billing_entity_id,
                     "external_customer_id": external_customer_id,
                     "external_marketplace": external_marketplace,
                     "external_marketplace_reporting_id": external_marketplace_reporting_id,
@@ -561,10 +575,12 @@ class Subscriptions(SyncAPIResource):
               by setting the value to `null`, and the entire metadata mapping can be cleared
               by setting `metadata` to `null`.
 
-          net_terms: Determines the difference between the invoice issue date for subscription
-              invoices as the date that they are due. A value of `0` here represents that the
-              invoice is due on issue, whereas a value of `30` represents that the customer
-              has a month to pay the invoice.
+          net_terms: The number of days until subscription invoices are due, counting the start date
+              set by the account's
+              [due date calculation method](/invoicing/payments#configuring-net-terms-and-collection-behavior)
+              as day 1. A value of `0` here represents that the invoice is due on issue,
+              whereas a value of `30` represents that the customer has a month to pay the
+              invoice.
 
           extra_headers: Send extra headers
 
@@ -604,6 +620,7 @@ class Subscriptions(SyncAPIResource):
     def list(
         self,
         *,
+        billing_entity_id: Optional[str] | Omit = omit,
         created_at_gt: Union[str, datetime, None] | Omit = omit,
         created_at_gte: Union[str, datetime, None] | Omit = omit,
         created_at_lt: Union[str, datetime, None] | Omit = omit,
@@ -639,6 +656,10 @@ class Subscriptions(SyncAPIResource):
         `status[]=active&status[]=ended`.
 
         Args:
+          billing_entity_id: Filters to objects issued by this billing entity. Filtering on the account's
+              default billing entity also matches objects created before the account had
+              billing entities.
+
           cursor: Cursor for pagination. This can be populated by the `next_cursor` value returned
               from the initial request.
 
@@ -662,6 +683,7 @@ class Subscriptions(SyncAPIResource):
                 timeout=timeout,
                 query=maybe_transform(
                     {
+                        "billing_entity_id": billing_entity_id,
                         "created_at_gt": created_at_gt,
                         "created_at_gte": created_at_gte,
                         "created_at_lt": created_at_lt,
@@ -1244,6 +1266,7 @@ class Subscriptions(SyncAPIResource):
     def list_summary(
         self,
         *,
+        billing_entity_id: Optional[str] | Omit = omit,
         created_at_gt: Union[str, datetime, None] | Omit = omit,
         created_at_gte: Union[str, datetime, None] | Omit = omit,
         created_at_lt: Union[str, datetime, None] | Omit = omit,
@@ -1274,6 +1297,10 @@ class Subscriptions(SyncAPIResource):
         [webhook payloads](/integrations-and-exports/webhook-payload-styles) carry.
 
         Args:
+          billing_entity_id: Filters to objects issued by this billing entity. Filtering on the account's
+              default billing entity also matches objects created before the account had
+              billing entities.
+
           cursor: Cursor for pagination. This can be populated by the `next_cursor` value returned
               from the initial request.
 
@@ -1297,6 +1324,7 @@ class Subscriptions(SyncAPIResource):
                 timeout=timeout,
                 query=maybe_transform(
                     {
+                        "billing_entity_id": billing_entity_id,
                         "created_at_gt": created_at_gt,
                         "created_at_gte": created_at_gte,
                         "created_at_lt": created_at_lt,
@@ -1822,9 +1850,12 @@ class Subscriptions(SyncAPIResource):
               be issued for the subscription. If not specified, invoices will only be issued
               at the end of the billing period.
 
-          net_terms: The net terms determines the difference between the invoice date and the issue
-              date for the invoice. If you intend the invoice to be due on issue, set this
-              to 0. If not provided, this defaults to the value specified in the plan.
+          net_terms: The number of days until the invoice is due, counting the start date as day 1,
+              so net 30 from October 1 is due October 30. The account's
+              [due date calculation method](/invoicing/payments#configuring-net-terms-and-collection-behavior)
+              sets whether the start date is the invoice date or the issuance date. If you
+              intend the invoice to be due on issue, set this to 0. If not provided, this
+              defaults to the value specified in the plan.
 
           plan_id: The plan that the given subscription should be switched to. Note that either
               this property or `external_plan_id` must be specified.
@@ -2329,12 +2360,14 @@ class AsyncSubscriptions(AsyncAPIResource):
         auto_issuance: Optional[bool] | Omit = omit,
         aws_region: Optional[str] | Omit = omit,
         billing_cycle_anchor_configuration: Optional[BillingCycleAnchorConfiguration] | Omit = omit,
+        billing_entity_id: Optional[str] | Omit = omit,
         coupon_redemption_code: Optional[str] | Omit = omit,
         credits_overage_rate: Optional[float] | Omit = omit,
         currency: Optional[str] | Omit = omit,
         customer_id: Optional[str] | Omit = omit,
         default_invoice_memo: Optional[str] | Omit = omit,
         end_date: Union[str, datetime, None] | Omit = omit,
+        external_billing_entity_id: Optional[str] | Omit = omit,
         external_customer_id: Optional[str] | Omit = omit,
         external_marketplace: Optional[Literal["google", "aws", "azure"]] | Omit = omit,
         external_marketplace_reporting_id: Optional[str] | Omit = omit,
@@ -2643,6 +2676,10 @@ class AsyncSubscriptions(AsyncAPIResource):
               require manual approval. If `null` is specified, this defaults to the behavior
               configured for this customer.
 
+          billing_entity_id: The id of the active billing entity that issues this subscription's invoices. If
+              not specified, falls back to the customer's billing entity, then the plan's,
+              then the account's default. This cannot be changed after creation.
+
           coupon_redemption_code: Redemption code to be used for this subscription. If the coupon cannot be found
               by its redemption code, or cannot be redeemed, an error response will be
               returned and the subscription creation or plan change will not be scheduled.
@@ -2652,6 +2689,9 @@ class AsyncSubscriptions(AsyncAPIResource):
 
           default_invoice_memo: Determines the default memo on this subscription's invoices. Note that if this
               is not provided, it is determined by the plan configuration.
+
+          external_billing_entity_id: The external id of the active billing entity that issues this subscription's
+              invoices.
 
           external_plan_id: The external_plan_id of the plan that the given subscription should be switched
               to. Note that either this property or `plan_id` must be specified.
@@ -2674,9 +2714,12 @@ class AsyncSubscriptions(AsyncAPIResource):
           name: The name to use for the subscription. If not specified, the plan name will be
               used.
 
-          net_terms: The net terms determines the difference between the invoice date and the issue
-              date for the invoice. If you intend the invoice to be due on issue, set this
-              to 0. If not provided, this defaults to the value specified in the plan.
+          net_terms: The number of days until the invoice is due, counting the start date as day 1,
+              so net 30 from October 1 is due October 30. The account's
+              [due date calculation method](/invoicing/payments#configuring-net-terms-and-collection-behavior)
+              sets whether the start date is the invoice date or the issuance date. If you
+              intend the invoice to be due on issue, set this to 0. If not provided, this
+              defaults to the value specified in the plan.
 
           plan_id: The plan that the given subscription should be switched to. Note that either
               this property or `external_plan_id` must be specified.
@@ -2731,12 +2774,14 @@ class AsyncSubscriptions(AsyncAPIResource):
                     "auto_issuance": auto_issuance,
                     "aws_region": aws_region,
                     "billing_cycle_anchor_configuration": billing_cycle_anchor_configuration,
+                    "billing_entity_id": billing_entity_id,
                     "coupon_redemption_code": coupon_redemption_code,
                     "credits_overage_rate": credits_overage_rate,
                     "currency": currency,
                     "customer_id": customer_id,
                     "default_invoice_memo": default_invoice_memo,
                     "end_date": end_date,
+                    "external_billing_entity_id": external_billing_entity_id,
                     "external_customer_id": external_customer_id,
                     "external_marketplace": external_marketplace,
                     "external_marketplace_reporting_id": external_marketplace_reporting_id,
@@ -2815,10 +2860,12 @@ class AsyncSubscriptions(AsyncAPIResource):
               by setting the value to `null`, and the entire metadata mapping can be cleared
               by setting `metadata` to `null`.
 
-          net_terms: Determines the difference between the invoice issue date for subscription
-              invoices as the date that they are due. A value of `0` here represents that the
-              invoice is due on issue, whereas a value of `30` represents that the customer
-              has a month to pay the invoice.
+          net_terms: The number of days until subscription invoices are due, counting the start date
+              set by the account's
+              [due date calculation method](/invoicing/payments#configuring-net-terms-and-collection-behavior)
+              as day 1. A value of `0` here represents that the invoice is due on issue,
+              whereas a value of `30` represents that the customer has a month to pay the
+              invoice.
 
           extra_headers: Send extra headers
 
@@ -2858,6 +2905,7 @@ class AsyncSubscriptions(AsyncAPIResource):
     def list(
         self,
         *,
+        billing_entity_id: Optional[str] | Omit = omit,
         created_at_gt: Union[str, datetime, None] | Omit = omit,
         created_at_gte: Union[str, datetime, None] | Omit = omit,
         created_at_lt: Union[str, datetime, None] | Omit = omit,
@@ -2893,6 +2941,10 @@ class AsyncSubscriptions(AsyncAPIResource):
         `status[]=active&status[]=ended`.
 
         Args:
+          billing_entity_id: Filters to objects issued by this billing entity. Filtering on the account's
+              default billing entity also matches objects created before the account had
+              billing entities.
+
           cursor: Cursor for pagination. This can be populated by the `next_cursor` value returned
               from the initial request.
 
@@ -2916,6 +2968,7 @@ class AsyncSubscriptions(AsyncAPIResource):
                 timeout=timeout,
                 query=maybe_transform(
                     {
+                        "billing_entity_id": billing_entity_id,
                         "created_at_gt": created_at_gt,
                         "created_at_gte": created_at_gte,
                         "created_at_lt": created_at_lt,
@@ -3498,6 +3551,7 @@ class AsyncSubscriptions(AsyncAPIResource):
     def list_summary(
         self,
         *,
+        billing_entity_id: Optional[str] | Omit = omit,
         created_at_gt: Union[str, datetime, None] | Omit = omit,
         created_at_gte: Union[str, datetime, None] | Omit = omit,
         created_at_lt: Union[str, datetime, None] | Omit = omit,
@@ -3528,6 +3582,10 @@ class AsyncSubscriptions(AsyncAPIResource):
         [webhook payloads](/integrations-and-exports/webhook-payload-styles) carry.
 
         Args:
+          billing_entity_id: Filters to objects issued by this billing entity. Filtering on the account's
+              default billing entity also matches objects created before the account had
+              billing entities.
+
           cursor: Cursor for pagination. This can be populated by the `next_cursor` value returned
               from the initial request.
 
@@ -3551,6 +3609,7 @@ class AsyncSubscriptions(AsyncAPIResource):
                 timeout=timeout,
                 query=maybe_transform(
                     {
+                        "billing_entity_id": billing_entity_id,
                         "created_at_gt": created_at_gt,
                         "created_at_gte": created_at_gte,
                         "created_at_lt": created_at_lt,
@@ -4076,9 +4135,12 @@ class AsyncSubscriptions(AsyncAPIResource):
               be issued for the subscription. If not specified, invoices will only be issued
               at the end of the billing period.
 
-          net_terms: The net terms determines the difference between the invoice date and the issue
-              date for the invoice. If you intend the invoice to be due on issue, set this
-              to 0. If not provided, this defaults to the value specified in the plan.
+          net_terms: The number of days until the invoice is due, counting the start date as day 1,
+              so net 30 from October 1 is due October 30. The account's
+              [due date calculation method](/invoicing/payments#configuring-net-terms-and-collection-behavior)
+              sets whether the start date is the invoice date or the issuance date. If you
+              intend the invoice to be due on issue, set this to 0. If not provided, this
+              defaults to the value specified in the plan.
 
           plan_id: The plan that the given subscription should be switched to. Note that either
               this property or `external_plan_id` must be specified.

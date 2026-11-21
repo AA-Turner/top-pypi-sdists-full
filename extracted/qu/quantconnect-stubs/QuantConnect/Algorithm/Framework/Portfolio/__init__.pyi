@@ -1413,7 +1413,7 @@ class BlackLittermanOptimizationPortfolioConstructionModel(QuantConnect.Algorith
         :param period: The time interval of history price to calculate the weight
         :param resolution: The resolution of the history price
         :param risk_free_rate: The risk free rate
-        :param delta: The risk aversion coeffficient of the market portfolio
+        :param delta: The risk aversion coefficient of the market portfolio
         :param tau: The model parameter indicating the uncertainty of the CAPM prior
         :param optimizer: The portfolio optimization algorithm. If no algorithm is explicitly provided then the default will be max Sharpe ratio optimization.
         """
@@ -1430,7 +1430,7 @@ class BlackLittermanOptimizationPortfolioConstructionModel(QuantConnect.Algorith
         :param period: The time interval of history price to calculate the weight
         :param resolution: The resolution of the history price
         :param risk_free_rate: The risk free rate
-        :param delta: The risk aversion coeffficient of the market portfolio
+        :param delta: The risk aversion coefficient of the market portfolio
         :param tau: The model parameter indicating the uncertainty of the CAPM prior
         :param optimizer: The portfolio optimization algorithm. If no algorithm is explicitly provided then the default will be max Sharpe ratio optimization.
         """
@@ -1447,7 +1447,7 @@ class BlackLittermanOptimizationPortfolioConstructionModel(QuantConnect.Algorith
         :param period: The time interval of history price to calculate the weight
         :param resolution: The resolution of the history price
         :param risk_free_rate: The risk free rate
-        :param delta: The risk aversion coeffficient of the market portfolio
+        :param delta: The risk aversion coefficient of the market portfolio
         :param tau: The model parameter indicating the uncertainty of the CAPM prior
         :param optimizer: The portfolio optimization algorithm. If no algorithm is explicitly provided then the default will be max Sharpe ratio optimization.
         """
@@ -1465,7 +1465,7 @@ class BlackLittermanOptimizationPortfolioConstructionModel(QuantConnect.Algorith
         :param period: The time interval of history price to calculate the weight
         :param resolution: The resolution of the history price
         :param risk_free_rate: The risk free rate
-        :param delta: The risk aversion coeffficient of the market portfolio
+        :param delta: The risk aversion coefficient of the market portfolio
         :param tau: The model parameter indicating the uncertainty of the CAPM prior
         :param optimizer: The portfolio optimization algorithm. If no algorithm is explicitly provided then the default will be max Sharpe ratio optimization.
         """
@@ -1483,7 +1483,7 @@ class BlackLittermanOptimizationPortfolioConstructionModel(QuantConnect.Algorith
         :param period: The time interval of history price to calculate the weight
         :param resolution: The resolution of the history price
         :param risk_free_rate: The risk free rate
-        :param delta: The risk aversion coeffficient of the market portfolio
+        :param delta: The risk aversion coefficient of the market portfolio
         :param tau: The model parameter indicating the uncertainty of the CAPM prior
         :param optimizer: The portfolio optimization algorithm. If no algorithm is explicitly provided then the default will be max Sharpe ratio optimization.
         """
@@ -1502,7 +1502,7 @@ class BlackLittermanOptimizationPortfolioConstructionModel(QuantConnect.Algorith
         :param period: The time interval of history price to calculate the weight
         :param resolution: The resolution of the history price
         :param risk_free_rate: The risk free rate
-        :param delta: The risk aversion coeffficient of the market portfolio
+        :param delta: The risk aversion coefficient of the market portfolio
         :param tau: The model parameter indicating the uncertainty of the CAPM prior
         :param optimizer: The portfolio optimization algorithm. If no algorithm is explicitly provided then the default will be max Sharpe ratio optimization.
         """

@@ -24,6 +24,8 @@ else:
 
 __all__ = (
     "AdminAccountStatusType",
+    "CoverageStatusType",
+    "DefaultSubnetConnectivityType",
     "EntityStatusFilterType",
     "EntityStatusType",
     "ExistingCustomerWebACLResolutionType",
@@ -32,8 +34,10 @@ __all__ = (
     "ListAggregateResourceSynchronizationStatusesPaginatorName",
     "ListDeploymentSnapshotsPaginatorName",
     "ListDeploymentsPaginatorName",
+    "ListEntityCoveragesPaginatorName",
     "ListPoliciesPaginatorName",
     "ListPolicySnapshotsPaginatorName",
+    "ListProtectedResourceCoveragesPaginatorName",
     "ListResourceAssociationsPaginatorName",
     "ListResourceSynchronizationStatusesPaginatorName",
     "ListRuleSnapshotsPaginatorName",
@@ -53,14 +57,19 @@ __all__ = (
     "ScopeResourceTypeType",
     "ServiceName",
     "ServiceResourceTypeType",
+    "SpecializedScopeTypeType",
+    "SubnetConnectivityType",
     "SynchronizationStatusType",
     "TemplateFirewallTypeType",
+    "TemplateOwnerType",
     "WAFConfigDataTypeType",
     "WAFConflictResolutionOptionsType",
 )
 
 
 AdminAccountStatusType = Literal["OFFBOARDED", "ONBOARDED"]
+CoverageStatusType = Literal["IN_EFFECT", "SUPERSEDED"]
+DefaultSubnetConnectivityType = Literal["bidirectional", "flexible", "outbound-only"]
 EntityStatusFilterType = Literal["ACTIVE", "DISABLED", "DRAFT"]
 EntityStatusType = Literal["ACTIVE", "DISABLED", "DRAFT"]
 ExistingCustomerWebACLResolutionType = Literal["NO_REMEDIATION", "OVERRIDE_ASSOCIATION", "RETROFIT"]
@@ -71,8 +80,10 @@ ListAggregateResourceSynchronizationStatusesPaginatorName = Literal[
 ]
 ListDeploymentSnapshotsPaginatorName = Literal["list_deployment_snapshots"]
 ListDeploymentsPaginatorName = Literal["list_deployments"]
+ListEntityCoveragesPaginatorName = Literal["list_entity_coverages"]
 ListPoliciesPaginatorName = Literal["list_policies"]
 ListPolicySnapshotsPaginatorName = Literal["list_policy_snapshots"]
+ListProtectedResourceCoveragesPaginatorName = Literal["list_protected_resource_coverages"]
 ListResourceAssociationsPaginatorName = Literal["list_resource_associations"]
 ListResourceSynchronizationStatusesPaginatorName = Literal["list_resource_synchronization_statuses"]
 ListRuleSnapshotsPaginatorName = Literal["list_rule_snapshots"]
@@ -81,30 +92,36 @@ ListScopeSnapshotsPaginatorName = Literal["list_scope_snapshots"]
 ListScopesPaginatorName = Literal["list_scopes"]
 ListTemplateSnapshotsPaginatorName = Literal["list_template_snapshots"]
 ListTemplatesPaginatorName = Literal["list_templates"]
-PolicyFirewallTypeType = Literal["SHIELD_ADVANCED", "WAF"]
+PolicyFirewallTypeType = Literal["IGW_FIREWALL", "SHIELD_ADVANCED", "WAF"]
 ResourceTypeType = Literal[
     "AWS::ApiGateway::Stage",
     "AWS::CloudFront::Distribution",
     "AWS::EC2::EIP",
+    "AWS::EC2::VPC",
     "AWS::ElasticLoadBalancing::LoadBalancer",
     "AWS::ElasticLoadBalancingV2::LoadBalancer::application",
     "AWS::Shield::Protection",
     "AWS::ShieldRegional::Protection",
     "AWS::WAFv2::WebACL",
 ]
-RuleFirewallTypeType = Literal["WAF"]
+RuleFirewallTypeType = Literal["IGW_FIREWALL", "WAF"]
 RuleTypeType = Literal["CONFIGURATION", "INSPECTION"]
 SchemeType = Literal["internal", "internet-facing"]
 ScopeResourceTypeType = Literal[
     "AWS::ApiGateway::Stage",
     "AWS::CloudFront::Distribution",
     "AWS::EC2::EIP",
+    "AWS::EC2::Subnet",
+    "AWS::EC2::VPC",
     "AWS::ElasticLoadBalancing::LoadBalancer",
     "AWS::ElasticLoadBalancingV2::LoadBalancer::application",
 ]
 ServiceResourceTypeType = Literal["Deployment", "Policy", "Rule", "Scope", "Template"]
+SpecializedScopeTypeType = Literal["IGW_FIREWALL_SUBNET_CONNECTIVITY_OVERRIDE"]
+SubnetConnectivityType = Literal["bidirectional", "exclude", "flexible", "outbound-only"]
 SynchronizationStatusType = Literal["IN_SYNC", "NOT_APPLICABLE", "OUT_OF_SYNC"]
-TemplateFirewallTypeType = Literal["WAF"]
+TemplateFirewallTypeType = Literal["IGW_FIREWALL", "WAF"]
+TemplateOwnerType = Literal["AWS", "CUSTOMER"]
 WAFConfigDataTypeType = Literal[
     "AssociationConfig",
     "CaptchaConfig",
@@ -127,6 +144,7 @@ ServiceName = Literal[
     "account-access-runtime",
     "acm",
     "acm-pca",
+    "agent-discovery",
     "agent-registry",
     "agent-registry-control",
     "aiops",
@@ -137,6 +155,7 @@ ServiceName = Literal[
     "apigateway",
     "apigatewaymanagementapi",
     "apigatewayv2",
+    "apiportal",
     "appconfig",
     "appconfigdata",
     "appfabric",
@@ -427,6 +446,7 @@ ServiceName = Literal[
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
+    "payments",
     "pca-connector-ad",
     "pca-connector-scep",
     "pcs",
@@ -482,6 +502,7 @@ ServiceName = Literal[
     "sagemaker-a2i-runtime",
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
+    "sagemaker-gateway-runtime",
     "sagemaker-geospatial",
     "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
@@ -569,8 +590,10 @@ PaginatorName = Literal[
     "list_aggregate_resource_synchronization_statuses",
     "list_deployment_snapshots",
     "list_deployments",
+    "list_entity_coverages",
     "list_policies",
     "list_policy_snapshots",
+    "list_protected_resource_coverages",
     "list_resource_associations",
     "list_resource_synchronization_statuses",
     "list_rule_snapshots",

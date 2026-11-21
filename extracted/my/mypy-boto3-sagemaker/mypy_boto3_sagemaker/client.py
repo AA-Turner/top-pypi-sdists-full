@@ -28,7 +28,9 @@ from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
     CreateHubContentPresignedUrlsPaginator,
+    DescribeResourceAssociationsPaginator,
     DescribeTrainingPlanExtensionHistoryPaginator,
+    GetCapacityReservationUsagePaginator,
     ListActionsPaginator,
     ListAIBenchmarkJobsPaginator,
     ListAIRecommendationJobsPaginator,
@@ -41,6 +43,7 @@ from .paginator import (
     ListAssociationsPaginator,
     ListAutoMLJobsPaginator,
     ListCandidatesForAutoMLJobPaginator,
+    ListCapacityReservationsPaginator,
     ListClusterEventsPaginator,
     ListClusterExtensionsPaginator,
     ListClusterExtensionVersionsPaginator,
@@ -63,12 +66,14 @@ from .paginator import (
     ListExperimentsPaginator,
     ListFeatureGroupsPaginator,
     ListFlowDefinitionsPaginator,
+    ListGlobalInferenceGatewaysPaginator,
     ListHumanTaskUisPaginator,
     ListHyperParameterTuningJobsPaginator,
     ListImagesPaginator,
     ListImageVersionsPaginator,
     ListInferenceComponentsPaginator,
     ListInferenceExperimentsPaginator,
+    ListInferenceGatewaysPaginator,
     ListInferenceRecommendationsJobsPaginator,
     ListInferenceRecommendationsJobStepsPaginator,
     ListInferenceRoutersPaginator,
@@ -126,6 +131,8 @@ from .paginator import (
 from .type_defs import (
     AddAssociationRequestTypeDef,
     AddAssociationResponseTypeDef,
+    AddInferenceGatewayRequestTypeDef,
+    AddInferenceGatewayResponseTypeDef,
     AddTagsInputTypeDef,
     AddTagsOutputTypeDef,
     AssociateTrialComponentRequestTypeDef,
@@ -197,6 +204,8 @@ from .type_defs import (
     CreateFeatureGroupResponseTypeDef,
     CreateFlowDefinitionRequestTypeDef,
     CreateFlowDefinitionResponseTypeDef,
+    CreateGlobalInferenceGatewayRequestTypeDef,
+    CreateGlobalInferenceGatewayResponseTypeDef,
     CreateHubContentPresignedUrlsRequestTypeDef,
     CreateHubContentPresignedUrlsResponseTypeDef,
     CreateHubContentReferenceRequestTypeDef,
@@ -328,6 +337,8 @@ from .type_defs import (
     DeleteExperimentResponseTypeDef,
     DeleteFeatureGroupRequestTypeDef,
     DeleteFlowDefinitionRequestTypeDef,
+    DeleteGlobalInferenceGatewayRequestTypeDef,
+    DeleteGlobalInferenceGatewayResponseTypeDef,
     DeleteHubContentReferenceRequestTypeDef,
     DeleteHubContentRequestTypeDef,
     DeleteHubRequestTypeDef,
@@ -396,6 +407,8 @@ from .type_defs import (
     DescribeAutoMLJobResponseTypeDef,
     DescribeAutoMLJobV2RequestTypeDef,
     DescribeAutoMLJobV2ResponseTypeDef,
+    DescribeCapacityReservationRequestTypeDef,
+    DescribeCapacityReservationResponseTypeDef,
     DescribeClusterEventRequestTypeDef,
     DescribeClusterEventResponseTypeDef,
     DescribeClusterExtensionRequestTypeDef,
@@ -440,6 +453,8 @@ from .type_defs import (
     DescribeFeatureMetadataResponseTypeDef,
     DescribeFlowDefinitionRequestTypeDef,
     DescribeFlowDefinitionResponseTypeDef,
+    DescribeGlobalInferenceGatewayRequestTypeDef,
+    DescribeGlobalInferenceGatewayResponseTypeDef,
     DescribeHubContentRequestTypeDef,
     DescribeHubContentResponseTypeDef,
     DescribeHubRequestTypeDef,
@@ -510,6 +525,8 @@ from .type_defs import (
     DescribeProjectOutputTypeDef,
     DescribeReservedCapacityRequestTypeDef,
     DescribeReservedCapacityResponseTypeDef,
+    DescribeResourceAssociationsRequestTypeDef,
+    DescribeResourceAssociationsResponseTypeDef,
     DescribeSpaceRequestTypeDef,
     DescribeSpaceResponseTypeDef,
     DescribeStudioLifecycleConfigRequestTypeDef,
@@ -543,6 +560,8 @@ from .type_defs import (
     EmptyResponseMetadataTypeDef,
     ExtendTrainingPlanRequestTypeDef,
     ExtendTrainingPlanResponseTypeDef,
+    GetCapacityReservationUsageRequestTypeDef,
+    GetCapacityReservationUsageResponseTypeDef,
     GetDeviceFleetReportRequestTypeDef,
     GetDeviceFleetReportResponseTypeDef,
     GetEndpointPolicyRequestTypeDef,
@@ -582,6 +601,8 @@ from .type_defs import (
     ListAutoMLJobsResponseTypeDef,
     ListCandidatesForAutoMLJobRequestTypeDef,
     ListCandidatesForAutoMLJobResponseTypeDef,
+    ListCapacityReservationsRequestTypeDef,
+    ListCapacityReservationsResponseTypeDef,
     ListClusterEventsRequestTypeDef,
     ListClusterEventsResponseTypeDef,
     ListClusterExtensionsRequestTypeDef,
@@ -626,6 +647,8 @@ from .type_defs import (
     ListFeatureGroupsResponseTypeDef,
     ListFlowDefinitionsRequestTypeDef,
     ListFlowDefinitionsResponseTypeDef,
+    ListGlobalInferenceGatewaysRequestTypeDef,
+    ListGlobalInferenceGatewaysResponseTypeDef,
     ListHubContentsRequestTypeDef,
     ListHubContentsResponseTypeDef,
     ListHubContentVersionsRequestTypeDef,
@@ -644,6 +667,8 @@ from .type_defs import (
     ListInferenceComponentsOutputTypeDef,
     ListInferenceExperimentsRequestTypeDef,
     ListInferenceExperimentsResponseTypeDef,
+    ListInferenceGatewaysRequestTypeDef,
+    ListInferenceGatewaysResponseTypeDef,
     ListInferenceRecommendationsJobsRequestTypeDef,
     ListInferenceRecommendationsJobsResponseTypeDef,
     ListInferenceRecommendationsJobStepsRequestTypeDef,
@@ -748,6 +773,8 @@ from .type_defs import (
     ListWorkforcesResponseTypeDef,
     ListWorkteamsRequestTypeDef,
     ListWorkteamsResponseTypeDef,
+    MoveClusterNodesRequestTypeDef,
+    MoveClusterNodesResponseTypeDef,
     PutEndpointPolicyRequestTypeDef,
     PutEndpointPolicyResponseTypeDef,
     PutModelPackageGroupPolicyInputTypeDef,
@@ -755,6 +782,8 @@ from .type_defs import (
     QueryLineageRequestTypeDef,
     QueryLineageResponseTypeDef,
     RegisterDevicesRequestTypeDef,
+    RemoveInferenceGatewayRequestTypeDef,
+    RemoveInferenceGatewayResponseTypeDef,
     RenderUiTemplateRequestTypeDef,
     RenderUiTemplateResponseTypeDef,
     RetryPipelineExecutionRequestTypeDef,
@@ -838,6 +867,8 @@ from .type_defs import (
     UpdateFeatureGroupRequestTypeDef,
     UpdateFeatureGroupResponseTypeDef,
     UpdateFeatureMetadataRequestTypeDef,
+    UpdateGlobalInferenceGatewayRequestTypeDef,
+    UpdateGlobalInferenceGatewayResponseTypeDef,
     UpdateHubContentReferenceRequestTypeDef,
     UpdateHubContentReferenceResponseTypeDef,
     UpdateHubContentRequestTypeDef,
@@ -972,6 +1003,16 @@ class SageMakerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/add_association.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#add_association)
+        """
+
+    def add_inference_gateway(
+        self, **kwargs: Unpack[AddInferenceGatewayRequestTypeDef]
+    ) -> AddInferenceGatewayResponseTypeDef:
+        """
+        Adds an in-cluster inference gateway to a global inference gateway.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/add_inference_gateway.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#add_inference_gateway)
         """
 
     def add_tags(self, **kwargs: Unpack[AddTagsInputTypeDef]) -> AddTagsOutputTypeDef:
@@ -1349,6 +1390,16 @@ class SageMakerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/create_flow_definition.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#create_flow_definition)
+        """
+
+    def create_global_inference_gateway(
+        self, **kwargs: Unpack[CreateGlobalInferenceGatewayRequestTypeDef]
+    ) -> CreateGlobalInferenceGatewayResponseTypeDef:
+        """
+        Creates a global inference gateway.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/create_global_inference_gateway.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#create_global_inference_gateway)
         """
 
     def create_hub(self, **kwargs: Unpack[CreateHubRequestTypeDef]) -> CreateHubResponseTypeDef:
@@ -2100,6 +2151,17 @@ class SageMakerClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#delete_flow_definition)
         """
 
+    def delete_global_inference_gateway(
+        self, **kwargs: Unpack[DeleteGlobalInferenceGatewayRequestTypeDef]
+    ) -> DeleteGlobalInferenceGatewayResponseTypeDef:
+        """
+        Delete a global inference gateway and its member inference gateways, which are
+        then free to join another global inference gateway.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/delete_global_inference_gateway.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#delete_global_inference_gateway)
+        """
+
     def delete_hub(self, **kwargs: Unpack[DeleteHubRequestTypeDef]) -> EmptyResponseMetadataTypeDef:
         """
         Delete a hub.
@@ -2598,6 +2660,17 @@ class SageMakerClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#describe_auto_ml_job_v2)
         """
 
+    def describe_capacity_reservation(
+        self, **kwargs: Unpack[DescribeCapacityReservationRequestTypeDef]
+    ) -> DescribeCapacityReservationResponseTypeDef:
+        """
+        Returns details about a SageMaker Capacity Reservation, such as its instance
+        type, instance count, Availability Zone, and start and end times.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/describe_capacity_reservation.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#describe_capacity_reservation)
+        """
+
     def describe_cluster(
         self, **kwargs: Unpack[DescribeClusterRequestTypeDef]
     ) -> DescribeClusterResponseTypeDef:
@@ -2821,6 +2894,17 @@ class SageMakerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/describe_flow_definition.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#describe_flow_definition)
+        """
+
+    def describe_global_inference_gateway(
+        self, **kwargs: Unpack[DescribeGlobalInferenceGatewayRequestTypeDef]
+    ) -> DescribeGlobalInferenceGatewayResponseTypeDef:
+        """
+        Retrieves information about a global inference gateway, including its status,
+        endpoints, and routing configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/describe_global_inference_gateway.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#describe_global_inference_gateway)
         """
 
     def describe_hub(
@@ -3179,6 +3263,17 @@ class SageMakerClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#describe_reserved_capacity)
         """
 
+    def describe_resource_associations(
+        self, **kwargs: Unpack[DescribeResourceAssociationsRequestTypeDef]
+    ) -> DescribeResourceAssociationsResponseTypeDef:
+        """
+        Returns the resources in your account that are associated with a SageMaker
+        Capacity Reservation and the status of each association.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/describe_resource_associations.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#describe_resource_associations)
+        """
+
     def describe_space(
         self, **kwargs: Unpack[DescribeSpaceRequestTypeDef]
     ) -> DescribeSpaceResponseTypeDef:
@@ -3358,6 +3453,17 @@ class SageMakerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/extend_training_plan.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#extend_training_plan)
+        """
+
+    def get_capacity_reservation_usage(
+        self, **kwargs: Unpack[GetCapacityReservationUsageRequestTypeDef]
+    ) -> GetCapacityReservationUsageResponseTypeDef:
+        """
+        Returns the number of instances in use from a SageMaker Capacity Reservation,
+        for each account that uses them.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/get_capacity_reservation_usage.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#get_capacity_reservation_usage)
         """
 
     def get_device_fleet_report(
@@ -3556,6 +3662,16 @@ class SageMakerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/list_candidates_for_auto_ml_job.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#list_candidates_for_auto_ml_job)
+        """
+
+    def list_capacity_reservations(
+        self, **kwargs: Unpack[ListCapacityReservationsRequestTypeDef]
+    ) -> ListCapacityReservationsResponseTypeDef:
+        """
+        Lists the SageMaker Capacity Reservations in your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/list_capacity_reservations.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#list_capacity_reservations)
         """
 
     def list_cluster_events(
@@ -3781,6 +3897,16 @@ class SageMakerClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#list_flow_definitions)
         """
 
+    def list_global_inference_gateways(
+        self, **kwargs: Unpack[ListGlobalInferenceGatewaysRequestTypeDef]
+    ) -> ListGlobalInferenceGatewaysResponseTypeDef:
+        """
+        Lists summaries of the global inference gateways in your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/list_global_inference_gateways.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#list_global_inference_gateways)
+        """
+
     def list_hub_content_versions(
         self, **kwargs: Unpack[ListHubContentVersionsRequestTypeDef]
     ) -> ListHubContentVersionsResponseTypeDef:
@@ -3867,6 +3993,17 @@ class SageMakerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/list_inference_experiments.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#list_inference_experiments)
+        """
+
+    def list_inference_gateways(
+        self, **kwargs: Unpack[ListInferenceGatewaysRequestTypeDef]
+    ) -> ListInferenceGatewaysResponseTypeDef:
+        """
+        Lists the in-cluster inference gateways in a global inference gateway, in the
+        order that they were added.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/list_inference_gateways.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#list_inference_gateways)
         """
 
     def list_inference_recommendations_job_steps(
@@ -4391,6 +4528,16 @@ class SageMakerClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#list_workteams)
         """
 
+    def move_cluster_nodes(
+        self, **kwargs: Unpack[MoveClusterNodesRequestTypeDef]
+    ) -> MoveClusterNodesResponseTypeDef:
+        """
+        Moves running nodes from one instance group to another instance group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/move_cluster_nodes.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#move_cluster_nodes)
+        """
+
     def put_endpoint_policy(
         self, **kwargs: Unpack[PutEndpointPolicyRequestTypeDef]
     ) -> PutEndpointPolicyResponseTypeDef:
@@ -4430,6 +4577,16 @@ class SageMakerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/register_devices.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#register_devices)
+        """
+
+    def remove_inference_gateway(
+        self, **kwargs: Unpack[RemoveInferenceGatewayRequestTypeDef]
+    ) -> RemoveInferenceGatewayResponseTypeDef:
+        """
+        Removes an in-cluster inference gateway from a global inference gateway.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/remove_inference_gateway.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#remove_inference_gateway)
         """
 
     def render_ui_template(
@@ -4959,6 +5116,16 @@ class SageMakerClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#update_feature_metadata)
         """
 
+    def update_global_inference_gateway(
+        self, **kwargs: Unpack[UpdateGlobalInferenceGatewayRequestTypeDef]
+    ) -> UpdateGlobalInferenceGatewayResponseTypeDef:
+        """
+        Updates the routing configuration of a global inference gateway.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/update_global_inference_gateway.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#update_global_inference_gateway)
+        """
+
     def update_hub(self, **kwargs: Unpack[UpdateHubRequestTypeDef]) -> UpdateHubResponseTypeDef:
         """
         Update a hub.
@@ -5266,8 +5433,30 @@ class SageMakerClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_resource_associations"]
+    ) -> DescribeResourceAssociationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["describe_training_plan_extension_history"]
     ) -> DescribeTrainingPlanExtensionHistoryPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_capacity_reservation_usage"]
+    ) -> GetCapacityReservationUsagePaginator:
         """
         Create a paginator for an operation.
 
@@ -5400,6 +5589,17 @@ class SageMakerClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_candidates_for_auto_ml_job"]
     ) -> ListCandidatesForAutoMLJobPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_capacity_reservations"]
+    ) -> ListCapacityReservationsPaginator:
         """
         Create a paginator for an operation.
 
@@ -5651,6 +5851,17 @@ class SageMakerClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_global_inference_gateways"]
+    ) -> ListGlobalInferenceGatewaysPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_human_task_uis"]
     ) -> ListHumanTaskUisPaginator:
         """
@@ -5708,6 +5919,17 @@ class SageMakerClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_inference_experiments"]
     ) -> ListInferenceExperimentsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_inference_gateways"]
+    ) -> ListInferenceGatewaysPaginator:
         """
         Create a paginator for an operation.
 

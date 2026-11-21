@@ -132,7 +132,7 @@ class FuraffinityExtractor(Extractor):
         else:
             # old site layout
             data["scraps"] = (
-                "/scraps/" in extr('class="minigallery-title', "</a>"))
+                'href="/scraps/' in extr('<!-- actions bar -->', "<table"))
             data["title"] = text.unescape(extr("<h2>", "</h2>"))
             data["artist_url"] = extr('title="', '"').strip()
             data["artist"] = extr(">", "<")
@@ -145,8 +145,8 @@ class FuraffinityExtractor(Extractor):
             data["views"] = pi(extr("<b>Views:</b>", "<"))
             data["width"] = pi(extr("<b>Resolution:</b>", "x"))
             data["height"] = pi(extr("", "<"))
-            data["tags"] = text.split_html(extr(
-                'id="keywords">', '</div>'))[::2]
+            data["tags"] = [tag for tag in text.split_html(extr(
+                'id="keywords">', '</div>')) if tag]
             data["rating"] = extr('<img alt="', ' ')
             data["_description"] = extr(
                 '<td valign="top" align="left" width="70%" class="alt1" '

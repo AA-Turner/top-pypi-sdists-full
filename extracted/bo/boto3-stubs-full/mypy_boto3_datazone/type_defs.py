@@ -25,6 +25,7 @@ from botocore.response import StreamingBody
 
 from .literals import (
     AcceptRuleBehaviorType,
+    AssetOwnershipTransferStatusType,
     AttributeEntityTypeType,
     AuthenticationTypeType,
     AuthTypeType,
@@ -160,6 +161,7 @@ __all__ = (
     "AssetListingItemAdditionalAttributesTypeDef",
     "AssetListingItemTypeDef",
     "AssetListingTypeDef",
+    "AssetOwnershipTransferTypeDef",
     "AssetPermissionTypeDef",
     "AssetRevisionTypeDef",
     "AssetScopeTypeDef",
@@ -884,6 +886,8 @@ __all__ = (
     "UpdateAccountPoolOutputTypeDef",
     "UpdateAssetFilterInputTypeDef",
     "UpdateAssetFilterOutputTypeDef",
+    "UpdateAssetOwnerInputTypeDef",
+    "UpdateAssetOwnerOutputTypeDef",
     "UpdateConnectionInputTypeDef",
     "UpdateConnectionOutputTypeDef",
     "UpdateDataSourceInputTypeDef",
@@ -1095,6 +1099,14 @@ class AssetListingDetailsTypeDef(TypedDict):
 class DetailedGlossaryTermTypeDef(TypedDict):
     name: NotRequired[str]
     shortDescription: NotRequired[str]
+
+
+class AssetOwnershipTransferTypeDef(TypedDict):
+    status: AssetOwnershipTransferStatusType
+    sourceProjectId: str
+    targetProjectId: str
+    startedAt: NotRequired[datetime]
+    updatedAt: NotRequired[datetime]
 
 
 AssetRevisionTypeDef = TypedDict(
@@ -3165,6 +3177,13 @@ class UntagResourceRequestTypeDef(TypedDict):
     tagKeys: Sequence[str]
 
 
+class UpdateAssetOwnerInputTypeDef(TypedDict):
+    domainIdentifier: str
+    identifier: str
+    targetProjectIdentifier: str
+    clientToken: NotRequired[str]
+
+
 class UpdateDesignationInputTypeDef(TypedDict):
     domainIdentifier: str
     identifier: str
@@ -3582,33 +3601,6 @@ class ListTimeSeriesDataPointsOutputTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
-GetAssetOutputTypeDef = TypedDict(
-    "GetAssetOutputTypeDef",
-    {
-        "id": str,
-        "name": str,
-        "typeIdentifier": str,
-        "typeRevision": str,
-        "externalIdentifier": str,
-        "revision": str,
-        "description": str,
-        "createdAt": datetime,
-        "createdBy": str,
-        "firstRevisionCreatedAt": datetime,
-        "firstRevisionCreatedBy": str,
-        "glossaryTerms": list[str],
-        "governedGlossaryTerms": list[str],
-        "owningProjectId": str,
-        "domainId": str,
-        "listing": AssetListingDetailsTypeDef,
-        "formsOutput": list[FormOutputTypeDef],
-        "readOnlyFormsOutput": list[FormOutputTypeDef],
-        "latestTimeSeriesDataPointFormsOutput": list[TimeSeriesDataPointSummaryFormOutputTypeDef],
-        "ResponseMetadata": ResponseMetadataTypeDef,
-    },
-)
-
-
 class AssetListingTypeDef(TypedDict):
     assetId: NotRequired[str]
     assetRevision: NotRequired[str]
@@ -3640,6 +3632,43 @@ class SubscribedProductListingTypeDef(TypedDict):
     name: NotRequired[str]
     description: NotRequired[str]
     assetListings: NotRequired[list[AssetInDataProductListingItemTypeDef]]
+
+
+GetAssetOutputTypeDef = TypedDict(
+    "GetAssetOutputTypeDef",
+    {
+        "id": str,
+        "name": str,
+        "typeIdentifier": str,
+        "typeRevision": str,
+        "externalIdentifier": str,
+        "revision": str,
+        "description": str,
+        "createdAt": datetime,
+        "createdBy": str,
+        "firstRevisionCreatedAt": datetime,
+        "firstRevisionCreatedBy": str,
+        "glossaryTerms": list[str],
+        "governedGlossaryTerms": list[str],
+        "owningProjectId": str,
+        "domainId": str,
+        "listing": AssetListingDetailsTypeDef,
+        "formsOutput": list[FormOutputTypeDef],
+        "readOnlyFormsOutput": list[FormOutputTypeDef],
+        "latestTimeSeriesDataPointFormsOutput": list[TimeSeriesDataPointSummaryFormOutputTypeDef],
+        "ownershipTransfer": AssetOwnershipTransferTypeDef,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+UpdateAssetOwnerOutputTypeDef = TypedDict(
+    "UpdateAssetOwnerOutputTypeDef",
+    {
+        "id": str,
+        "revision": str,
+        "ownershipTransfer": AssetOwnershipTransferTypeDef,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
 
 
 class ListAssetRevisionsOutputTypeDef(TypedDict):
@@ -4388,6 +4417,7 @@ class EnvironmentConfigurationParametersDetailsTypeDef(TypedDict):
 
 class EnvironmentConfigurationUserParameterOutputTypeDef(TypedDict):
     environmentId: NotRequired[str]
+    environmentBlueprintId: NotRequired[str]
     environmentResolvedAccount: NotRequired[EnvironmentResolvedAccountTypeDef]
     environmentConfigurationName: NotRequired[str]
     environmentParameters: NotRequired[list[EnvironmentParameterTypeDef]]
@@ -4395,6 +4425,7 @@ class EnvironmentConfigurationUserParameterOutputTypeDef(TypedDict):
 
 class EnvironmentConfigurationUserParameterTypeDef(TypedDict):
     environmentId: NotRequired[str]
+    environmentBlueprintId: NotRequired[str]
     environmentResolvedAccount: NotRequired[EnvironmentResolvedAccountTypeDef]
     environmentConfigurationName: NotRequired[str]
     environmentParameters: NotRequired[Sequence[EnvironmentParameterTypeDef]]
@@ -6864,6 +6895,7 @@ class UpdateProjectInputTypeDef(TypedDict):
     environmentDeploymentDetails: NotRequired[EnvironmentDeploymentDetailsUnionTypeDef]
     userParameters: NotRequired[Sequence[EnvironmentConfigurationUserParameterUnionTypeDef]]
     projectProfileVersion: NotRequired[str]
+    projectProfileAction: NotRequired[Literal["DISASSOCIATE"]]
 
 
 class MatchClausePaginatorTypeDef(TypedDict):

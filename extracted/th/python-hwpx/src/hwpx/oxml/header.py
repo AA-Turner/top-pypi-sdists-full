@@ -5,8 +5,7 @@ import logging
 import base64
 import binascii
 from dataclasses import dataclass, field, replace
-from datetime import datetime, timezone
-from typing import Dict, List, Mapping, Optional
+from typing import TYPE_CHECKING, Dict, List, Mapping, Optional, cast
 
 from lxml import etree
 
@@ -14,6 +13,10 @@ from .common import GenericElement, parse_generic_element
 from .namespaces import HP
 from .paragraph_heading import paragraph_heading
 from .utils import local_name, parse_bool, parse_int, text_or_none
+
+if TYPE_CHECKING:
+    from ._document_primitives import IdSource
+    from ..objects.results import Alignment
 
 
 @dataclass(slots=True)
@@ -111,7 +114,8 @@ class FontSubstitution:
     face: str
     type: str
     is_embedded: bool
-    binary_item_id_ref: Optional[str]
+    #: The embedded font file's binary item (``binaryItemIDRef``), as ``doc.media.images`` names items.
+    item_id: Optional[str]
 
 
 @dataclass(slots=True)
@@ -125,7 +129,8 @@ class Font:
     face: str
     type: Optional[str]
     is_embedded: bool
-    binary_item_id_ref: Optional[str]
+    #: The embedded font file's binary item (``binaryItemIDRef``), as ``doc.media.images`` names items.
+    item_id: Optional[str]
     substitution: Optional[FontSubstitution] = None
     type_info: Optional[FontTypeInfo] = None
     other_children: Dict[str, List[GenericElement]] = field(default_factory=dict)
@@ -259,6 +264,21 @@ class ForbiddenWordList:
     words: List[str]
 
 
+def memo_line_width_index(line_width_mm: object, *, argument: str = "line_width_mm") -> int:
+    """The ``hh:memoPr@lineWidth`` value for a memo line *line_width_mm* mm thick: its index in Hancom's line
+    width list, which takes only the listed widths (``style-line-width-invalid`` otherwise).
+
+    Evidence (Hangul 2024, observed only): re-saving memos written with lineWidth 0, 1, 2, 6, 10, 12, 15,
+    33, 141 keeps them, 283 becomes 27 (one byte) and "0.6mm"/"0.4 mm" become 0; the 54 public Hangul-saved
+    documents hold only 1 (62 memo shapes) and 3 (6) — as HWPUNIT 1 would be an invisible line and 1 mm (283)
+    would not fit in the byte. Hangul draws no memo on the page, so the width itself was not seen on screen.
+    """
+
+    from .utils import LINE_WIDTHS, line_width_text
+
+    return LINE_WIDTHS.index(line_width_text(line_width_mm, argument=argument))
+
+
 @dataclass(slots=True)
 class MemoShape:
     id: Optional[int]
@@ -270,6 +290,29 @@ class MemoShape:
     active_color: Optional[str]
     memo_type: Optional[str]
     attributes: Dict[str, str] = field(default_factory=dict)
+
+    @property
+    def line_width_mm(self) -> float | None:
+        """The memo's line width in millimetres (``0.12`` for ``lineWidth="1"``), or ``None``.
+
+        ``hh:memoPr@lineWidth`` is not a length but the index into Hancom's line widths (0.1,
+        0.12, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.7, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0 mm) that
+        borders use: see :func:`memo_line_width_index`. It is read as Hangul 2024 reads it: a
+        value that is no whole number (``"0.6mm"``) is ``0`` (0.1 mm) and a number is kept as one
+        byte (283 is 27). A byte past the list reads ``None``.
+        """
+
+        from .utils import LINE_WIDTHS
+
+        if self.line_width is None:
+            return None
+        try:
+            index = int(str(self.line_width).strip()) % 256
+        except ValueError:
+            index = 0  # Hangul 2024 saves "0.6mm" / "0.4 mm" back as lineWidth="0"
+        if not 0 <= index < len(LINE_WIDTHS):
+            return None
+        return float(LINE_WIDTHS[index].split()[0])
 
     def matches_id(self, memo_shape_id_ref: int | str | None) -> bool:
         if memo_shape_id_ref is None:
@@ -335,7 +378,7 @@ class BulletParaHead:
     text: str
     level: Optional[int]
     start: Optional[int]
-    align: Optional[str]
+    alignment: "Alignment | None"
     use_inst_width: Optional[bool]
     auto_indent: Optional[bool]
     width_adjust: Optional[int]
@@ -524,7 +567,8 @@ class ParagraphProperty:
     snap_to_grid: Optional[bool]
     suppress_line_numbers: Optional[bool]
     checked: Optional[bool]
-    align: Optional[ParagraphAlignment] = None
+    #: The paragraph shape's alignment (``hh:align``: ``.horizontal``, ``.vertical``).
+    alignment: Optional[ParagraphAlignment] = None
     heading: Optional[ParagraphHeading] = None
     break_setting: Optional[ParagraphBreakSetting] = None
     margin: Optional[ParagraphMargin] = None
@@ -865,8 +909,12 @@ class Header:
         *,
         author_name: str = "AI Agent",
         date: str | None = None,
+        ids: "IdSource | None",
+        minimum_id: int = 0,
     ) -> int:
-        """Append tracked-change metadata and return the new change id."""
+        """Append tracked-change metadata and return the new change id. A change without *date* is
+        dated now, or with the ``now=`` of the document (its source *ids*). The id is at least
+        *minimum_id* (the document does not give one twice while it is open)."""
 
         normalized_type = normalize_track_change_type(change_type)
         resolved_author = author_name.strip() or "AI Agent"
@@ -889,7 +937,7 @@ class Header:
                 id=author_id,
                 raw_id=None,
                 name=resolved_author,
-                mark=author_id,
+                mark=True,  # xs:boolean (Hancom writes mark="1"); the id is no mark
                 color=None,
             )
             author_list.authors.append(author)
@@ -901,13 +949,13 @@ class Header:
             ref_list.track_changes = TrackChangeList(item_cnt=0, changes=[])
         change_list = ref_list.track_changes
 
-        change_id = _next_track_change_id(change_list.changes)
+        change_id = max(_next_track_change_id(change_list.changes), minimum_id)
         change_list.changes.append(
             TrackChange(
                 id=change_id,
                 raw_id=None,
                 change_type=normalized_type,
-                date=format_track_change_date(date),
+                date=format_track_change_date(date, ids),
                 author_id=author_id,
                 char_shape_id=None,
                 para_shape_id=None,
@@ -916,17 +964,16 @@ class Header:
         )
         change_list.item_cnt = len(change_list.changes)
 
-        if self.track_change_config is None:
-            self.track_change_config = TrackChangeConfig(flags=1)
-        else:
-            self.track_change_config.flags = (self.track_change_config.flags or 0) | 1
+        # ``hh:trackchageConfig@flags`` is the header part's to write (HwpxOxmlHeader.add_track_change).
         return change_id
 
 
-def format_track_change_date(value: str | None = None) -> str:
+def format_track_change_date(value: str | None, ids: "IdSource | None") -> str:
     if value is not None:
         return value
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    from ._document_primitives import current_time
+
+    return current_time(ids).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def normalize_track_change_type(change_type: str) -> str:
@@ -1108,7 +1155,7 @@ def parse_font_substitution(node: etree._Element) -> FontSubstitution:
         face=node.get("face", ""),
         type=node.get("type", ""),
         is_embedded=_embed_flag(node),
-        binary_item_id_ref=node.get("binaryItemIDRef"),
+        item_id=node.get("binaryItemIDRef"),
     )
 
 
@@ -1135,7 +1182,7 @@ def parse_font(node: etree._Element) -> Font:
         face=node.get("face", ""),
         type=node.get("type"),
         is_embedded=_embed_flag(node),
-        binary_item_id_ref=node.get("binaryItemIDRef"),
+        item_id=node.get("binaryItemIDRef"),
         substitution=substitution,
         type_info=type_info,
         other_children=other_children,
@@ -1318,12 +1365,26 @@ def parse_memo_properties(node: etree._Element) -> MemoProperties:
     )
 
 
+def _head_alignment(token: Optional[str]) -> "Alignment | None":
+    """A bullet head's ``align`` as an :class:`~hwpx.objects.Alignment` (``None`` when unsaid; a token
+    outside the list reads as written)."""
+
+    from ..objects.results import Alignment
+
+    if token is None:
+        return None
+    try:
+        return Alignment(token.strip().upper())
+    except ValueError:
+        return cast("Alignment", token)
+
+
 def parse_bullet_para_head(node: etree._Element) -> BulletParaHead:
     return BulletParaHead(
         text=text_or_none(node) or "",
         level=parse_int(node.get("level")),
         start=parse_int(node.get("start")),
-        align=node.get("align"),
+        alignment=_head_alignment(node.get("align")),
         use_inst_width=parse_bool(node.get("useInstWidth")),
         auto_indent=parse_bool(node.get("autoIndent")),
         width_adjust=parse_int(node.get("widthAdjust")),
@@ -1593,7 +1654,7 @@ def parse_paragraph_property(node: etree._Element) -> ParagraphProperty:
         snap_to_grid=parse_bool(node.get("snapToGrid")),
         suppress_line_numbers=parse_bool(node.get("suppressLineNumbers")),
         checked=parse_bool(node.get("checked")),
-        align=align,
+        alignment=align,
         heading=heading,
         break_setting=break_setting,
         margin=margin,
@@ -1665,14 +1726,17 @@ def parse_track_change(node: etree._Element) -> TrackChange:
         key: value for key, value in node.attrib.items() if key not in known_attrs
     }
 
+    # The schema spells charShapeID/paraShapeID; a paragraph shape change converted from
+    # HWP 5.0 is written parashapeID (hwp5.header_xml, as Hancom converts it). That spelling
+    # is read too and stays in ``attributes``, so it is written back as it was.
     return TrackChange(
         id=parse_int(node.get("id")),
         raw_id=node.get("id"),
         change_type=node.get("type"),
         date=node.get("date"),
         author_id=parse_int(node.get("authorID")),
-        char_shape_id=parse_int(node.get("charShapeID")),
-        para_shape_id=parse_int(node.get("paraShapeID")),
+        char_shape_id=parse_int(node.get("charShapeID") or node.get("charshapeID")),
+        para_shape_id=parse_int(node.get("paraShapeID") or node.get("parashapeID")),
         hide=parse_bool(node.get("hide")),
         attributes=attributes,
     )
@@ -1815,8 +1879,10 @@ def track_change_to_xml(change: TrackChange) -> etree._Element:
     _set_optional_str_attr(attributes, "type", change.change_type)
     _set_optional_str_attr(attributes, "date", change.date)
     _set_optional_int_attr(attributes, "authorID", change.author_id)
-    _set_optional_int_attr(attributes, "charShapeID", change.char_shape_id)
-    _set_optional_int_attr(attributes, "paraShapeID", change.para_shape_id)
+    if "charshapeID" not in attributes:  # read from that spelling: written back in it
+        _set_optional_int_attr(attributes, "charShapeID", change.char_shape_id)
+    if "parashapeID" not in attributes:
+        _set_optional_int_attr(attributes, "paraShapeID", change.para_shape_id)
     _set_optional_flag_attr(attributes, "hide", change.hide)
     _set_optional_int_attr(attributes, "id", change.id)
     if change.raw_id is not None and change.id is None:

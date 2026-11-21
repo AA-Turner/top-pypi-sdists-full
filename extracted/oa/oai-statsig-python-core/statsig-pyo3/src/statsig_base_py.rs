@@ -33,7 +33,6 @@ use pyo3_stub_gen::derive::*;
 use serde_json::Value;
 use statsig_rust::interned_string::InternedString;
 use statsig_rust::user::StatsigUserInternal;
-use statsig_rust::user::fast_statsig_user::FastStatsigUser;
 use statsig_rust::{
     BulkEvaluationOptions, ClientInitResponseOptions, DynamicConfigEvaluationOptions,
     ExperimentEvaluationOptions, FeatureGateEvaluationOptions, HashAlgorithm,
@@ -77,8 +76,8 @@ impl StatsigBasePy {
     #[pyo3(signature = (sdk_key, options=None))]
     pub fn new(sdk_key: &str, options: Option<StatsigOptionsPy>, py: Python) -> Self {
         let (opts, ob_client) = safe_convert_to_statsig_options(py, options);
-        let sdk_key = sdk_key.to_owned();
-        let inner = py.detach(move || Statsig::new(&sdk_key, opts.map(Arc::new)));
+        let inner = py.detach(|| Statsig::new(sdk_key, opts.map(Arc::new)));
+        inner.set_remote_id_list_wait(SafeGil::wait_for_membership);
 
         Self {
             inner: Arc::new(inner),
@@ -373,10 +372,14 @@ impl StatsigBasePy {
         let statsig = &self.inner;
         let options = options.map_or(FeatureGateEvaluationOptions::default(), Into::into);
         // name's immutable Python string is kept alive by the scoped method call.
-        Ok(py.detach(move || {
-            let internal = StatsigUserInternal::from_prepared_user(&user, Some(statsig));
-            statsig.check_gate_with_options_for_internal_user(&internal, name, options)
-        }))
+        Ok(SafeGil::detach_for_gate_check(
+            py,
+            statsig.has_remote_id_list_resolver(),
+            move || {
+                let internal = StatsigUserInternal::from_prepared_user(&user, Some(statsig));
+                statsig.check_gate_with_options_for_internal_user(&internal, name, options)
+            },
+        ))
     }
 
     #[pyo3(name="_INTERNAL_get_feature_gate_anonymous_parts", signature = (name, id_options, context=None, custom=None, custom_ids=None, ip=None, country=None, locale=None, user_agent=None, options=None))]
@@ -469,7 +472,7 @@ impl StatsigBasePy {
         let statsig = &self.inner;
         let user = prepare_user(context, user_id, custom);
         let options = options.map_or(FeatureGateEvaluationOptions::default(), Into::into);
-        py.detach(move || {
+        SafeGil::detach_for_gate_check(py, statsig.has_remote_id_list_resolver(), move || {
             let internal = StatsigUserInternal::from_prepared_user(&user, Some(statsig));
             statsig.check_gate_with_options_for_internal_user(&internal, name, options)
         })
@@ -601,12 +604,12 @@ impl StatsigBasePy {
         name: &str,
         options: Option<FeatureGateEvaluationOptionsPy>,
     ) -> bool {
-        let statsig = self.inner.clone();
-        let user = user.inner.clone();
-        let name = name.to_string();
-        let options = options.map_or(FeatureGateEvaluationOptions::default(), |o| o.into());
-
-        py.detach(move || check_gate_for_python(statsig.as_ref(), &user, &name, options))
+        let options = options.map_or(FeatureGateEvaluationOptions::default(), Into::into);
+        SafeGil::detach_for_gate_check(py, self.inner.has_remote_id_list_resolver(), || {
+            let user = StatsigUserInternal::from_fast_user(&user.inner, Some(&self.inner));
+            self.inner
+                .check_gate_with_options_for_internal_user(&user, name, options)
+        })
     }
 
     #[pyo3(name="_INTERNAL_get_feature_gate", signature = (user, name, options=None))]
@@ -768,7 +771,7 @@ impl StatsigBasePy {
     ) -> crate::typed_config_py::NativeTypedConfigContext {
         crate::typed_config_py::NativeTypedConfigContext {
             statsig: self.inner.clone(),
-            user: user.inner.clone(),
+            user: self.inner.clone_user_for_evaluation(&user.inner),
             name: name.to_string(),
         }
     }
@@ -1229,16 +1232,6 @@ fn extract_event_metadata(metadata: Option<Bound<PyDict>>) -> Option<HashMap<Str
     metadata.map(|m| py_dict_to_json_value_map(&m))
 }
 
-fn check_gate_for_python(
-    statsig: &Statsig,
-    user: &FastStatsigUser,
-    name: &str,
-    options: FeatureGateEvaluationOptions,
-) -> bool {
-    let user_internal = StatsigUserInternal::from_fast_user(user, Some(statsig));
-    statsig.check_gate_with_options_for_internal_user(&user_internal, name, options)
-}
-
 fn bulk_evaluate_for_python(
     py: Python,
     statsig: &Statsig,
@@ -1261,7 +1254,8 @@ fn bulk_evaluate_for_python(
         Into::into,
     );
     let resolved = statsig.resolve_bulk_evaluation_options(options);
-    let user_internal = StatsigUserInternal::from_fast_user(&user.inner, Some(statsig));
+    let user_internal = StatsigUserInternal::from_fast_user(&user.inner, Some(statsig))
+        .with_membership_deadline(statsig);
     bulk_evaluate_to_py_dict(
         py,
         statsig,

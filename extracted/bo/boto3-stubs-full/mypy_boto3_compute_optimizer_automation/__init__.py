@@ -19,6 +19,8 @@ Usage::
         ListAutomationRulePreviewPaginator,
         ListAutomationRulePreviewSummariesPaginator,
         ListAutomationRulesPaginator,
+        ListOrganizationEnrollmentConfigurationsPaginator,
+        ListOrganizationalUnitsPaginator,
         ListRecommendedActionSummariesPaginator,
         ListRecommendedActionsPaginator,
     )
@@ -33,6 +35,8 @@ Usage::
     list_automation_rule_preview_paginator: ListAutomationRulePreviewPaginator = client.get_paginator("list_automation_rule_preview")
     list_automation_rule_preview_summaries_paginator: ListAutomationRulePreviewSummariesPaginator = client.get_paginator("list_automation_rule_preview_summaries")
     list_automation_rules_paginator: ListAutomationRulesPaginator = client.get_paginator("list_automation_rules")
+    list_organization_enrollment_configurations_paginator: ListOrganizationEnrollmentConfigurationsPaginator = client.get_paginator("list_organization_enrollment_configurations")
+    list_organizational_units_paginator: ListOrganizationalUnitsPaginator = client.get_paginator("list_organizational_units")
     list_recommended_action_summaries_paginator: ListRecommendedActionSummariesPaginator = client.get_paginator("list_recommended_action_summaries")
     list_recommended_actions_paginator: ListRecommendedActionsPaginator = client.get_paginator("list_recommended_actions")
     ```
@@ -47,6 +51,8 @@ from .paginator import (
     ListAutomationRulePreviewPaginator,
     ListAutomationRulePreviewSummariesPaginator,
     ListAutomationRulesPaginator,
+    ListOrganizationalUnitsPaginator,
+    ListOrganizationEnrollmentConfigurationsPaginator,
     ListRecommendedActionsPaginator,
     ListRecommendedActionSummariesPaginator,
 )
@@ -64,6 +70,8 @@ __all__ = (
     "ListAutomationRulePreviewPaginator",
     "ListAutomationRulePreviewSummariesPaginator",
     "ListAutomationRulesPaginator",
+    "ListOrganizationEnrollmentConfigurationsPaginator",
+    "ListOrganizationalUnitsPaginator",
     "ListRecommendedActionSummariesPaginator",
     "ListRecommendedActionsPaginator",
 )

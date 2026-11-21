@@ -20,14 +20,22 @@ fn chiral_mcs_uses_mapped_neighbor_parity_not_smiles_tag_spelling() {
             let outcome = find_mcs_with_config_checked(&refs, &config);
             assert!(matches!(outcome, McsOutcome::Exhaustive(_)));
             let query = outcome.into_query();
+            // The archived score treated any incomplete four-ligand frame
+            // as unoriented. Three mapped ligands distinguish this pair.
+            let expected = if pair["left"] == "F[C@](Cl)(Br)I" && pair["right"] == "Cl[C@](F)(Br)I"
+            {
+                [3, 2]
+            } else {
+                [0, 1].map(|i| pair["expected"][i].as_u64().unwrap() as usize)
+            };
             assert_eq!(
                 query.atom_count(),
-                pair["expected"][0].as_u64().unwrap() as usize
+                expected[0],
+                "{} versus {}",
+                pair["left"].as_str().unwrap(),
+                pair["right"].as_str().unwrap()
             );
-            assert_eq!(
-                query.bonds.len(),
-                pair["expected"][1].as_u64().unwrap() as usize
-            );
+            assert_eq!(query.bonds.len(), expected[1]);
         }
     }
 }
@@ -46,6 +54,30 @@ fn chiral_mcs_checks_each_molecule_in_a_multi_input_mapping() {
     assert!(matches!(outcome, McsOutcome::Exhaustive(_)));
     let query = outcome.into_query();
     assert_eq!([query.atom_count(), query.bonds.len()], [4, 3]);
+}
+
+#[test]
+fn chiral_mcs_mixed_three_input_result_is_order_invariant() {
+    let first = parse("F[C@H](Cl)Br").unwrap();
+    let same_ordered_differently = parse("Cl[C@@H](F)Br").unwrap();
+    let opposite = parse("Cl[C@H](F)Br").unwrap();
+    let config = McsConfig {
+        match_chiral_tag: true,
+        ..Default::default()
+    };
+    for refs in [
+        [&first, &same_ordered_differently, &opposite],
+        [&first, &opposite, &same_ordered_differently],
+        [&same_ordered_differently, &first, &opposite],
+        [&same_ordered_differently, &opposite, &first],
+        [&opposite, &first, &same_ordered_differently],
+        [&opposite, &same_ordered_differently, &first],
+    ] {
+        let outcome = find_mcs_with_config_checked(&refs, &config);
+        assert!(matches!(outcome, McsOutcome::Exhaustive(_)));
+        let query = outcome.into_query();
+        assert_eq!([query.atom_count(), query.bonds.len()], [3, 2]);
+    }
 }
 
 #[test]
@@ -195,6 +227,14 @@ fn rdkit_heavy_mode_matches_pinned_mcs_count_oracle() {
             row["expected"][1].as_u64().unwrap() as usize,
             "{line}"
         );
+        if query.atom_count() > 0 {
+            for input in &inputs {
+                assert!(
+                    !crate::find_matches(&query, input).is_empty(),
+                    "RDKit-heavy MCS query did not re-match an input: {line}"
+                );
+            }
+        }
         comparisons += 1;
     }
     assert_eq!(comparisons, 660);
@@ -239,6 +279,14 @@ fn pinned_mcs_profile_counts_remain_exact() {
             ],
             "{line}"
         );
+        if query.atom_count() > 0 {
+            for input in &inputs {
+                assert!(
+                    !crate::find_matches(&query, input).is_empty(),
+                    "native MCS query did not re-match an input: {line}"
+                );
+            }
+        }
         comparisons += 1;
     }
     assert_eq!(comparisons, 1980);
@@ -279,4 +327,164 @@ fn complete_rings_only_keeps_smaller_valid_chain_after_larger_partial_ring() {
         assert!(!crate::find_matches(&query, refs[0]).is_empty());
         assert!(!crate::find_matches(&query, refs[1]).is_empty());
     }
+}
+
+#[test]
+fn mcs_comparator_query_matches_every_input() {
+    use crate::find_matches;
+
+    for (smiles, atom_compare, bond_compare, match_bonds, atoms, bonds) in [
+        (
+            ["CO", "NO", "SO"],
+            AtomCompare::Any,
+            BondCompare::OrderOrAromatic,
+            true,
+            2,
+            1,
+        ),
+        (
+            ["CO", "NO", "SO"],
+            AtomCompare::AnyHeavyAtom,
+            BondCompare::OrderOrAromatic,
+            true,
+            2,
+            1,
+        ),
+        (
+            ["C=N", "CN", "C#N"],
+            AtomCompare::Elements,
+            BondCompare::Any,
+            true,
+            2,
+            1,
+        ),
+        (
+            ["C=N", "CN", "C#N"],
+            AtomCompare::Elements,
+            BondCompare::OrderOrAromatic,
+            false,
+            2,
+            1,
+        ),
+    ] {
+        let molecules: Vec<_> = smiles.iter().map(|value| parse(value).unwrap()).collect();
+        let refs: Vec<_> = molecules.iter().collect();
+        let config = McsConfig {
+            atom_compare,
+            bond_compare,
+            match_bonds,
+            ..Default::default()
+        };
+        let outcome = find_mcs_with_config_checked(&refs, &config);
+        assert!(matches!(outcome, McsOutcome::Exhaustive(_)));
+        let query = outcome.into_query();
+        assert_eq!(query.atom_count(), atoms, "{smiles:?}");
+        assert_eq!(query.bonds.len(), bonds, "{smiles:?}");
+        for (smiles, mol) in smiles.iter().zip(&molecules) {
+            assert!(
+                !find_matches(&query, mol).is_empty(),
+                "MCS query does not match source {smiles}"
+            );
+        }
+    }
+}
+
+#[test]
+fn mcs_comparator_query_excludes_unobserved_alternatives() {
+    use crate::find_matches;
+
+    let carbon_oxygen = parse("CO").unwrap();
+    let nitrogen_oxygen = parse("NO").unwrap();
+    let phosphorus_oxygen = parse("PO").unwrap();
+    let any_atoms = McsConfig {
+        atom_compare: AtomCompare::Any,
+        ..Default::default()
+    };
+    let query = find_mcs_with_config(&[&carbon_oxygen, &nitrogen_oxygen], &any_atoms);
+    assert_eq!(query.atom_count(), 2);
+    assert!(find_matches(&query, &phosphorus_oxygen).is_empty());
+
+    let double = parse("C=N").unwrap();
+    let single = parse("CN").unwrap();
+    let triple = parse("C#N").unwrap();
+    let any_bonds = McsConfig {
+        bond_compare: BondCompare::Any,
+        ..Default::default()
+    };
+    let query = find_mcs_with_config(&[&double, &single], &any_bonds);
+    assert_eq!(query.bonds.len(), 1);
+    assert!(find_matches(&query, &triple).is_empty());
+}
+
+#[test]
+fn bond_first_reaches_dense_component_after_finding_larger_chain() {
+    use crate::{McsObjective, find_mcs_with_objective_checked};
+
+    let first = chematic_smiles::parse("CCCCC.C12C3C1C23").unwrap();
+    let second = chematic_smiles::parse("C12C3C1C23.CCCCC").unwrap();
+    for mols in [[&first, &second], [&second, &first]] {
+        for (objective, expected) in [
+            (McsObjective::AtomCount, (5, 4)),
+            (McsObjective::BondCount, (4, 6)),
+        ] {
+            let result = find_mcs_with_objective_checked(&mols, &McsConfig::default(), objective);
+            assert!(!result.was_timed_out() && !result.was_resource_limited());
+            let query = result.into_query();
+            assert_eq!((query.atom_count(), query.bonds.len()), expected);
+        }
+        let config = McsConfig {
+            min_atoms: 5,
+            ..McsConfig::default()
+        };
+        let query =
+            find_mcs_with_objective_checked(&mols, &config, McsObjective::BondCount).into_query();
+        assert_eq!((query.atom_count(), query.bonds.len()), (5, 4));
+    }
+}
+
+#[test]
+fn bond_first_can_grow_through_a_later_common_edge() {
+    use crate::{McsObjective, find_mcs_with_objective_checked};
+
+    for (left, right, expected) in [
+        ("C1NOS1", "CSON", (4, 3)),
+        (
+            "c1cc(-c2ccnc(NC3CCCC3)n2)ccn1",
+            "O=C(O)C1Nc2cc(Cl)cc(Cl)c2S(=O)(=O)N1CCCCc1ccccc1",
+            (7, 6),
+        ),
+        (
+            "NS(=O)(=O)c1ccc(C2=C(c3ccc(C(F)(F)F)cc3)CCC2)cc1",
+            "O=C(Nc1ccc(Cl)cc1)N1CCCCC1C12CC3CC(CC(C3)C1)C2",
+            (7, 6),
+        ),
+    ] {
+        let left = parse(left).unwrap();
+        let right = parse(right).unwrap();
+        let result = find_mcs_with_objective_checked(
+            &[&left, &right],
+            &McsConfig::default(),
+            McsObjective::BondCount,
+        );
+        assert!(matches!(result, McsOutcome::Exhaustive(_)));
+        let q = result.into_query();
+        assert_eq!((q.atom_count(), q.bonds.len()), expected);
+    }
+}
+
+#[test]
+fn bond_first_reports_completion_when_class_bounds_are_met_at_the_node_limit() {
+    use crate::{McsObjective, find_mcs_with_objective_checked};
+
+    let left = parse("CCO").unwrap();
+    let right = parse("CCN").unwrap();
+    let config = McsConfig {
+        max_search_nodes: Some(2),
+        ..McsConfig::default()
+    };
+    let result =
+        find_mcs_with_objective_checked(&[&left, &right], &config, McsObjective::BondCount);
+    assert!(matches!(result, McsOutcome::Exhaustive(_)));
+    let query = result.into_query();
+    assert_eq!((query.atom_count(), query.bonds.len()), (2, 1));
 }

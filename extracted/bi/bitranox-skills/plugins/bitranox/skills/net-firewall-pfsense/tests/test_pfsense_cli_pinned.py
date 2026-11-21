@@ -14,10 +14,9 @@ and say which in the commit.
 import json
 from pathlib import Path, PureWindowsPath
 
-import pytest
-
 import fake_firewall as F
 import pfsense as P
+import pytest
 
 DIGESTS = Path(__file__).with_name("pfsense_cli_digests.json")
 SCRIPT = Path(P.__file__)
@@ -45,7 +44,7 @@ def test_every_verb_still_prints_and_sends_what_was_pinned(tmp_path):
 
 def test_the_matrix_drives_every_cmd_function_in_both_output_forms():
     parser = P.build_parser()
-    driven = {parser.parse_args(["--host", "192.0.2.1", *argv]).func.__name__
+    driven = {parser.parse_args(["--host", "192.0.2.1", *argv]).verb.func.__name__
               for argv in F.scenario_argvs(F.rich_state(), "/opt/config.xml").values()}
     assert driven == {name for name in dir(P) if name.startswith("cmd_")}
     assert {key.rsplit("/", 1)[1] for key in _pinned()} == {"human", "json"}
@@ -54,8 +53,11 @@ def test_the_matrix_drives_every_cmd_function_in_both_output_forms():
 @pytest.mark.parametrize(("anchor", "planted"), [
     # human output only
     ('f"  ({len(reservations)} reservations)"', 'f"  ({len(reservations)} reservation)"'),
-    # --json output only
-    ('"skipped": skipped or []}', '"skipped": skipped or [], "extra": 1}'),
+    # --json output only: the envelope every verb shares
+    ('"skipped": list(self.skipped)}', '"skipped": list(self.skipped), "extra": 1}'),
+    # --json output only: records built on this side rather than decoded from a PHP reply
+    ('"permanent": self.permanent}', '"permanent": not self.permanent}'),
+    ('out["passlist_entries"] = self.passlist.passlist_entries', 'out["passlist_entries"] = 0'),
 ])
 def test_a_planted_change_to_either_output_form_is_caught(anchor, planted, tmp_path):
     source = SCRIPT.read_text(encoding="utf-8")

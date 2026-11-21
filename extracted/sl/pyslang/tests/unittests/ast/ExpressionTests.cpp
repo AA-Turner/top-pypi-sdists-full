@@ -407,6 +407,23 @@ endmodule
     CHECK(diags[1].code == diag::UndeclaredIdentifier);
 }
 
+TEST_CASE("Replication width overflowing 32 bits -- GH #2130") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    wire [15:0] a = { 8 << $clog2(8 << 22) {a} };
+    wire [15:0] b = { 32'h7fffffff {16'd0} };
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 2);
+    CHECK(diags[0].code == diag::ValueExceedsMaxBitWidth);
+    CHECK(diags[1].code == diag::ValueExceedsMaxBitWidth);
+}
+
 TEST_CASE("Invalid sized cast operand type") {
     auto tree = SyntaxTree::fromText(R"(
 module m;
@@ -2484,6 +2501,33 @@ endmodule
     CHECK(e.getValue().integer() == 8);
 }
 
+TEST_CASE("Nested type reference operators") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    int i;
+    localparam int a = type(type(int)) == type(int);
+    localparam int b = type(type(i)) == type(int);
+    localparam int c = type(type(type(i))) != type(int);
+    localparam int d = $bits(type(type(i)));
+
+    case (type(type(i)))
+        type(int): begin: b1 end
+    endcase
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+
+    auto& root = compilation.getRoot();
+    CHECK(root.lookupName<ParameterSymbol>("m.a").getValue().integer() == 1);
+    CHECK(root.lookupName<ParameterSymbol>("m.b").getValue().integer() == 1);
+    CHECK(root.lookupName<ParameterSymbol>("m.c").getValue().integer() == 0);
+    CHECK(root.lookupName<ParameterSymbol>("m.d").getValue().integer() == 32);
+    CHECK(!root.lookupName<GenerateBlockSymbol>("m.b1").isUninstantiated);
+}
+
 TEST_CASE("Casting with type references") {
     auto tree = SyntaxTree::fromText(R"(
 module m;
@@ -3487,6 +3531,10 @@ module m;
     localparam b = 5.3 inside { "ASDF", 5.0, [7.0+%-25] };
     localparam c = 5 inside { [7+%-25] };
     localparam d = -6 inside { [-7+%-25] };
+    localparam e = 3 inside { [7 +/- 3.6] };
+    localparam f = 4 inside { [7 +/- 3.6] };
+    localparam g = 11 inside { [7 +/- 3.6] };
+    localparam h = 10 inside { [7 +/- 3.6] };
 endmodule
 )",
                                      options);
@@ -3503,6 +3551,10 @@ endmodule
     CHECK(getValue("m.b").integer() == 1);
     CHECK(getValue("m.c").integer() == 0);
     CHECK(getValue("m.d").integer() == 1);
+    CHECK(getValue("m.e").integer() == 0);
+    CHECK(getValue("m.f").integer() == 1);
+    CHECK(getValue("m.g").integer() == 0);
+    CHECK(getValue("m.h").integer() == 1);
 }
 
 TEST_CASE("v1800-2023: ref static arguments") {
@@ -4758,6 +4810,49 @@ endmodule
     NO_COMPILATION_ERRORS;
 }
 
+TEST_CASE("Compilation diagnostic capture") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    int i;
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    REQUIRE(compilation.getAllDiagnostics().empty());
+
+    auto& root = compilation.getRoot();
+    ASTContext context(root, LookupLocation::max);
+
+    auto syntax = SyntaxTree::fromText("undefinedVar");
+    auto& exprSyntax = syntax->root().as<ExpressionSyntax>();
+
+    Compilation::DiagnosticCapture capture(compilation);
+    auto& expr = Expression::bind(exprSyntax, context);
+    CHECK(expr.bad());
+
+    auto diags = capture.finish();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::UndeclaredIdentifier);
+
+    // Captured diagnostics don't affect the compilation.
+    CHECK(compilation.getAllDiagnostics().empty());
+
+    // Nested captures: inner gets diagnostics until it finishes.
+    Compilation::DiagnosticCapture outer(compilation);
+    {
+        auto syntax2 = SyntaxTree::fromText("(1 + 1) = 2");
+        auto& exprSyntax2 = syntax2->root().as<ExpressionSyntax>();
+
+        Compilation::DiagnosticCapture inner(compilation);
+        Expression::bind(exprSyntax2, context, ASTFlags::AssignmentAllowed);
+        auto innerDiags = inner.finish();
+        REQUIRE(innerDiags.size() == 1);
+        CHECK(innerDiags[0].code == diag::ExpressionNotAssignable);
+    }
+    CHECK(outer.finish().empty());
+}
+
 TEST_CASE("Integer to real constant conversion warnings") {
     auto tree = SyntaxTree::fromText(R"(
 module m;
@@ -4779,4 +4874,62 @@ endmodule
     CHECK(diags[0].code == diag::ConstantConversion);
     CHECK(diags[1].code == diag::ConstantConversion);
     CHECK(diags[2].code == diag::ConstantConversion);
+}
+
+TEST_CASE("Unsized integer in replication count concat does not warn") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    logic [3:0] foo;
+    logic [15:0] a;
+    logic [19:0] b;
+    logic [63:0] c;
+    logic [3:0] d;
+    logic [7:0] e;
+    logic [11:0] f, g, h;
+
+    assign a = {{4}{foo}};
+    assign b = {foo, {4{foo}}};
+    assign c = {1, 2};
+    assign d = {{{1}}{foo}};
+    assign e = {{1, 1'b0}{foo}};
+    assign f = {({3}){foo}};
+    assign g = {{({3})}{foo}};
+    assign h = {{(3)}{foo}};
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 2);
+    CHECK(diags[0].code == diag::UnsizedInConcat);
+    CHECK(diags[1].code == diag::UnsizedInConcat);
+}
+
+TEST_CASE("Inside ranges with unbounded bounds in constant functions") {
+    auto tree = SyntaxTree::fromText(R"(
+function automatic int f(int n);
+    return (n inside {[5:$]} ? 4 : 2) + (n inside {[$:3]} ? 8 : 0);
+endfunction
+
+module m;
+    localparam int P = f(10);
+    logic [f(10):0] x;
+    logic [f(1):0] y;
+    case (f(10))
+        4: begin : g end
+    endcase
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+
+    auto& m = compilation.getRoot().lookupName<InstanceSymbol>("m").body;
+    CHECK(m.find<ParameterSymbol>("P").getValue().integer() == 4);
+    CHECK(m.find<VariableSymbol>("x").getType().getBitWidth() == 5);
+    CHECK(m.find<VariableSymbol>("y").getType().getBitWidth() == 11);
+    CHECK(m.find("g"));
 }

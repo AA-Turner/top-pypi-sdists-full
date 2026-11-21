@@ -22,12 +22,16 @@ from datetime import datetime
 from typing import Union
 
 from .literals import (
+    AccountScopeType,
     AssociationTypeType,
+    ChannelContractStatusType,
     CoverageType,
     HandshakeStatusType,
     HandshakeTypeType,
+    ManagedServicesSupportedServiceType,
     ParticipantTypeType,
     ProgramManagementAccountStatusType,
+    ProgramManagementAccountTypeType,
     ProgramType,
     ProviderType,
     ResaleAccountModelType,
@@ -46,11 +50,23 @@ __all__ = (
     "AcceptChannelHandshakeDetailTypeDef",
     "AcceptChannelHandshakeRequestTypeDef",
     "AcceptChannelHandshakeResponseTypeDef",
+    "AddressTypeDef",
+    "CancelChannelContractDetailTypeDef",
+    "CancelChannelContractRequestTypeDef",
+    "CancelChannelContractResponseTypeDef",
     "CancelChannelHandshakeDetailTypeDef",
     "CancelChannelHandshakeRequestTypeDef",
     "CancelChannelHandshakeResponseTypeDef",
+    "ChannelContractDetailTypeDef",
+    "ChannelContractDetailsTypeDef",
+    "ChannelContractPayloadTypeDef",
+    "ChannelContractSummaryDetailsTypeDef",
+    "ChannelContractSummaryTypeDef",
     "ChannelHandshakePayloadTypeDef",
     "ChannelHandshakeSummaryTypeDef",
+    "CreateChannelContractDetailTypeDef",
+    "CreateChannelContractRequestTypeDef",
+    "CreateChannelContractResponseTypeDef",
     "CreateChannelHandshakeDetailTypeDef",
     "CreateChannelHandshakeRequestTypeDef",
     "CreateChannelHandshakeResponseTypeDef",
@@ -62,9 +78,16 @@ __all__ = (
     "CreateRelationshipResponseTypeDef",
     "DeleteProgramManagementAccountRequestTypeDef",
     "DeleteRelationshipRequestTypeDef",
+    "GetChannelContractRequestTypeDef",
+    "GetChannelContractResponseTypeDef",
     "GetRelationshipRequestTypeDef",
     "GetRelationshipResponseTypeDef",
     "HandshakeDetailTypeDef",
+    "ListChannelContractsRequestPaginateTypeDef",
+    "ListChannelContractsRequestTypeDef",
+    "ListChannelContractsResponseTypeDef",
+    "ListChannelContractsTypeFiltersTypeDef",
+    "ListChannelContractsTypeSortTypeDef",
     "ListChannelHandshakesRequestPaginateTypeDef",
     "ListChannelHandshakesRequestTypeDef",
     "ListChannelHandshakesResponseTypeDef",
@@ -80,6 +103,11 @@ __all__ = (
     "ListRelationshipsSortBaseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
+    "ManagedServicesAttestationDetailsTypeDef",
+    "ManagedServicesAttestationPayloadTypeDef",
+    "ManagedServicesAttestationSummaryDetailsTypeDef",
+    "ManagedServicesAttestationTypeFiltersTypeDef",
+    "ManagedServicesAttestationTypeSortTypeDef",
     "PaginatorConfigTypeDef",
     "PartnerLedSupportTypeDef",
     "ProgramManagementAccountHandshakeDetailTypeDef",
@@ -138,6 +166,33 @@ class ResponseMetadataTypeDef(TypedDict):
     HostId: NotRequired[str]
 
 
+class AddressTypeDef(TypedDict):
+    city: str
+    stateOrRegion: str
+    postalCode: str
+    countryCode: str
+    addressLine: str
+    addressLine2: NotRequired[str]
+
+
+CancelChannelContractDetailTypeDef = TypedDict(
+    "CancelChannelContractDetailTypeDef",
+    {
+        "id": NotRequired[str],
+        "arn": NotRequired[str],
+        "status": NotRequired[ChannelContractStatusType],
+        "cancellationReason": NotRequired[str],
+    },
+)
+
+
+class CancelChannelContractRequestTypeDef(TypedDict):
+    catalog: str
+    identifier: str
+    reason: NotRequired[str]
+    clientToken: NotRequired[str]
+
+
 CancelChannelHandshakeDetailTypeDef = TypedDict(
     "CancelChannelHandshakeDetailTypeDef",
     {
@@ -153,13 +208,22 @@ class CancelChannelHandshakeRequestTypeDef(TypedDict):
     identifier: str
 
 
+class ManagedServicesAttestationSummaryDetailsTypeDef(TypedDict):
+    legalEntityName: str
+    relationshipIdentifier: str
+    programManagementAccountIdentifier: str
+    endDate: datetime
+    supportedServices: list[ManagedServicesSupportedServiceType]
+    memberAccountIds: NotRequired[list[str]]
+
+
 class RevokeServicePeriodPayloadTypeDef(TypedDict):
     programManagementAccountIdentifier: str
     note: NotRequired[str]
 
 
-CreateChannelHandshakeDetailTypeDef = TypedDict(
-    "CreateChannelHandshakeDetailTypeDef",
+CreateChannelContractDetailTypeDef = TypedDict(
+    "CreateChannelContractDetailTypeDef",
     {
         "id": NotRequired[str],
         "arn": NotRequired[str],
@@ -172,6 +236,13 @@ class TagTypeDef(TypedDict):
     value: str
 
 
+CreateChannelHandshakeDetailTypeDef = TypedDict(
+    "CreateChannelHandshakeDetailTypeDef",
+    {
+        "id": NotRequired[str],
+        "arn": NotRequired[str],
+    },
+)
 CreateProgramManagementAccountDetailTypeDef = TypedDict(
     "CreateProgramManagementAccountDetailTypeDef",
     {
@@ -186,6 +257,7 @@ CreateRelationshipDetailTypeDef = TypedDict(
         "id": NotRequired[str],
     },
 )
+TimestampTypeDef = Union[datetime, str]
 
 
 class DeleteProgramManagementAccountRequestTypeDef(TypedDict):
@@ -199,6 +271,11 @@ class DeleteRelationshipRequestTypeDef(TypedDict):
     identifier: str
     programManagementAccountIdentifier: str
     clientToken: NotRequired[str]
+
+
+class GetChannelContractRequestTypeDef(TypedDict):
+    catalog: str
+    identifier: str
 
 
 class GetRelationshipRequestTypeDef(TypedDict):
@@ -220,9 +297,12 @@ RelationshipDetailTypeDef = TypedDict(
         "displayName": NotRequired[str],
         "resaleAccountModel": NotRequired[ResaleAccountModelType],
         "sector": NotRequired[SectorType],
+        "accountScope": NotRequired[AccountScopeType],
+        "channelContractId": NotRequired[str],
         "createdAt": NotRequired[datetime],
         "updatedAt": NotRequired[datetime],
         "startDate": NotRequired[datetime],
+        "endDate": NotRequired[datetime],
     },
 )
 
@@ -251,6 +331,16 @@ class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
     PageSize: NotRequired[int]
     StartingToken: NotRequired[str]
+
+
+class ManagedServicesAttestationTypeFiltersTypeDef(TypedDict):
+    relationshipIdentifiers: NotRequired[Sequence[str]]
+    legalEntityNames: NotRequired[Sequence[str]]
+
+
+class ManagedServicesAttestationTypeSortTypeDef(TypedDict):
+    sortOrder: SortOrderType
+    sortBy: Literal["UpdatedAt"]
 
 
 class ProgramManagementAccountTypeFiltersTypeDef(TypedDict):
@@ -299,6 +389,7 @@ ProgramManagementAccountSummaryTypeDef = TypedDict(
         "updatedAt": NotRequired[datetime],
         "startDate": NotRequired[datetime],
         "status": NotRequired[ProgramManagementAccountStatusType],
+        "type": NotRequired[ProgramManagementAccountTypeType],
     },
 )
 
@@ -364,9 +455,6 @@ class ResoldUnifiedOperationsTypeDef(TypedDict):
     chargeAccountId: NotRequired[str]
 
 
-TimestampTypeDef = Union[datetime, str]
-
-
 class UntagResourceRequestTypeDef(TypedDict):
     resourceArn: str
     tagKeys: Sequence[str]
@@ -406,23 +494,49 @@ class AcceptChannelHandshakeResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class ManagedServicesAttestationDetailsTypeDef(TypedDict):
+    legalEntityName: str
+    relationshipIdentifier: str
+    programManagementAccountIdentifier: str
+    endDate: datetime
+    supportedServices: list[ManagedServicesSupportedServiceType]
+    signatoryName: str
+    signatoryEmail: str
+    memberAccountIds: NotRequired[list[str]]
+    legalEntityAddress: NotRequired[AddressTypeDef]
+
+
+class CancelChannelContractResponseTypeDef(TypedDict):
+    channelContractDetail: CancelChannelContractDetailTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class CancelChannelHandshakeResponseTypeDef(TypedDict):
     channelHandshakeDetail: CancelChannelHandshakeDetailTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class CreateChannelHandshakeResponseTypeDef(TypedDict):
-    channelHandshakeDetail: CreateChannelHandshakeDetailTypeDef
+class ChannelContractSummaryDetailsTypeDef(TypedDict):
+    managedServicesAttestationDetails: NotRequired[ManagedServicesAttestationSummaryDetailsTypeDef]
+
+
+class CreateChannelContractResponseTypeDef(TypedDict):
+    channelContractDetail: CreateChannelContractDetailTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class CreateProgramManagementAccountRequestTypeDef(TypedDict):
-    catalog: str
-    program: ProgramType
-    displayName: str
-    accountId: str
-    clientToken: NotRequired[str]
-    tags: NotRequired[Sequence[TagTypeDef]]
+CreateProgramManagementAccountRequestTypeDef = TypedDict(
+    "CreateProgramManagementAccountRequestTypeDef",
+    {
+        "catalog": str,
+        "program": ProgramType,
+        "displayName": str,
+        "accountId": str,
+        "clientToken": NotRequired[str],
+        "tags": NotRequired[Sequence[TagTypeDef]],
+        "type": NotRequired[ProgramManagementAccountTypeType],
+    },
+)
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
@@ -435,6 +549,11 @@ class TagResourceRequestTypeDef(TypedDict):
     tags: Sequence[TagTypeDef]
 
 
+class CreateChannelHandshakeResponseTypeDef(TypedDict):
+    channelHandshakeDetail: CreateChannelHandshakeDetailTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class CreateProgramManagementAccountResponseTypeDef(TypedDict):
     programManagementAccountDetail: CreateProgramManagementAccountDetailTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -443,6 +562,26 @@ class CreateProgramManagementAccountResponseTypeDef(TypedDict):
 class CreateRelationshipResponseTypeDef(TypedDict):
     relationshipDetail: CreateRelationshipDetailTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ManagedServicesAttestationPayloadTypeDef(TypedDict):
+    legalEntityName: str
+    relationshipIdentifier: str
+    programManagementAccountIdentifier: str
+    endDate: TimestampTypeDef
+    supportedServices: Sequence[ManagedServicesSupportedServiceType]
+    legalEntityAddress: AddressTypeDef
+    signatoryName: str
+    signatoryEmail: str
+    memberAccountIds: NotRequired[Sequence[str]]
+
+
+class StartServicePeriodPayloadTypeDef(TypedDict):
+    programManagementAccountIdentifier: str
+    servicePeriodType: ServicePeriodTypeType
+    note: NotRequired[str]
+    minimumNoticeDays: NotRequired[str]
+    endDate: NotRequired[TimestampTypeDef]
 
 
 class GetRelationshipResponseTypeDef(TypedDict):
@@ -458,6 +597,14 @@ class HandshakeDetailTypeDef(TypedDict):
     ]
 
 
+class ListChannelContractsTypeFiltersTypeDef(TypedDict):
+    managedServicesAttestationTypeFilters: NotRequired[ManagedServicesAttestationTypeFiltersTypeDef]
+
+
+class ListChannelContractsTypeSortTypeDef(TypedDict):
+    managedServicesAttestationTypeSort: NotRequired[ManagedServicesAttestationTypeSortTypeDef]
+
+
 class ListChannelHandshakesTypeFiltersTypeDef(TypedDict):
     startServicePeriodTypeFilters: NotRequired[StartServicePeriodTypeFiltersTypeDef]
     revokeServicePeriodTypeFilters: NotRequired[RevokeServicePeriodTypeFiltersTypeDef]
@@ -470,25 +617,33 @@ class ListChannelHandshakesTypeSortTypeDef(TypedDict):
     programManagementAccountTypeSort: NotRequired[ProgramManagementAccountTypeSortTypeDef]
 
 
-class ListProgramManagementAccountsRequestPaginateTypeDef(TypedDict):
-    catalog: str
-    displayNames: NotRequired[Sequence[str]]
-    programs: NotRequired[Sequence[ProgramType]]
-    accountIds: NotRequired[Sequence[str]]
-    statuses: NotRequired[Sequence[ProgramManagementAccountStatusType]]
-    sort: NotRequired[ListProgramManagementAccountsSortBaseTypeDef]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-
-class ListProgramManagementAccountsRequestTypeDef(TypedDict):
-    catalog: str
-    maxResults: NotRequired[int]
-    displayNames: NotRequired[Sequence[str]]
-    programs: NotRequired[Sequence[ProgramType]]
-    accountIds: NotRequired[Sequence[str]]
-    statuses: NotRequired[Sequence[ProgramManagementAccountStatusType]]
-    sort: NotRequired[ListProgramManagementAccountsSortBaseTypeDef]
-    nextToken: NotRequired[str]
+ListProgramManagementAccountsRequestPaginateTypeDef = TypedDict(
+    "ListProgramManagementAccountsRequestPaginateTypeDef",
+    {
+        "catalog": str,
+        "displayNames": NotRequired[Sequence[str]],
+        "programs": NotRequired[Sequence[ProgramType]],
+        "accountIds": NotRequired[Sequence[str]],
+        "statuses": NotRequired[Sequence[ProgramManagementAccountStatusType]],
+        "sort": NotRequired[ListProgramManagementAccountsSortBaseTypeDef],
+        "type": NotRequired[ProgramManagementAccountTypeType],
+        "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
+    },
+)
+ListProgramManagementAccountsRequestTypeDef = TypedDict(
+    "ListProgramManagementAccountsRequestTypeDef",
+    {
+        "catalog": str,
+        "maxResults": NotRequired[int],
+        "displayNames": NotRequired[Sequence[str]],
+        "programs": NotRequired[Sequence[ProgramType]],
+        "accountIds": NotRequired[Sequence[str]],
+        "statuses": NotRequired[Sequence[ProgramManagementAccountStatusType]],
+        "sort": NotRequired[ListProgramManagementAccountsSortBaseTypeDef],
+        "nextToken": NotRequired[str],
+        "type": NotRequired[ProgramManagementAccountTypeType],
+    },
+)
 
 
 class ListProgramManagementAccountsResponseTypeDef(TypedDict):
@@ -535,14 +690,6 @@ class SupportPlanTypeDef(TypedDict):
     resoldUnifiedOperations: NotRequired[ResoldUnifiedOperationsTypeDef]
 
 
-class StartServicePeriodPayloadTypeDef(TypedDict):
-    programManagementAccountIdentifier: str
-    servicePeriodType: ServicePeriodTypeType
-    note: NotRequired[str]
-    minimumNoticeDays: NotRequired[str]
-    endDate: NotRequired[TimestampTypeDef]
-
-
 class UpdateProgramManagementAccountResponseTypeDef(TypedDict):
     programManagementAccountDetail: UpdateProgramManagementAccountDetailTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -551,6 +698,35 @@ class UpdateProgramManagementAccountResponseTypeDef(TypedDict):
 class UpdateRelationshipResponseTypeDef(TypedDict):
     relationshipDetail: UpdateRelationshipDetailTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ChannelContractDetailsTypeDef(TypedDict):
+    managedServicesAttestationDetails: NotRequired[ManagedServicesAttestationDetailsTypeDef]
+
+
+ChannelContractSummaryTypeDef = TypedDict(
+    "ChannelContractSummaryTypeDef",
+    {
+        "id": str,
+        "arn": str,
+        "catalog": str,
+        "contractType": Literal["MANAGED_SERVICES_ATTESTATION"],
+        "status": ChannelContractStatusType,
+        "createdAt": datetime,
+        "updatedAt": datetime,
+        "details": ChannelContractSummaryDetailsTypeDef,
+        "respondedAt": NotRequired[datetime],
+    },
+)
+
+
+class ChannelContractPayloadTypeDef(TypedDict):
+    managedServicesAttestationPayload: NotRequired[ManagedServicesAttestationPayloadTypeDef]
+
+
+class ChannelHandshakePayloadTypeDef(TypedDict):
+    startServicePeriodPayload: NotRequired[StartServicePeriodPayloadTypeDef]
+    revokeServicePeriodPayload: NotRequired[RevokeServicePeriodPayloadTypeDef]
 
 
 ChannelHandshakeSummaryTypeDef = TypedDict(
@@ -571,6 +747,25 @@ ChannelHandshakeSummaryTypeDef = TypedDict(
         "status": NotRequired[HandshakeStatusType],
     },
 )
+
+
+class ListChannelContractsRequestPaginateTypeDef(TypedDict):
+    catalog: str
+    contractType: Literal["MANAGED_SERVICES_ATTESTATION"]
+    statuses: NotRequired[Sequence[ChannelContractStatusType]]
+    contractTypeFilters: NotRequired[ListChannelContractsTypeFiltersTypeDef]
+    contractTypeSort: NotRequired[ListChannelContractsTypeSortTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListChannelContractsRequestTypeDef(TypedDict):
+    catalog: str
+    contractType: Literal["MANAGED_SERVICES_ATTESTATION"]
+    statuses: NotRequired[Sequence[ChannelContractStatusType]]
+    contractTypeFilters: NotRequired[ListChannelContractsTypeFiltersTypeDef]
+    contractTypeSort: NotRequired[ListChannelContractsTypeSortTypeDef]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
 
 
 class ListChannelHandshakesRequestPaginateTypeDef(TypedDict):
@@ -600,13 +795,15 @@ class CreateRelationshipRequestTypeDef(TypedDict):
     catalog: str
     associationType: AssociationTypeType
     programManagementAccountIdentifier: str
-    associatedAccountId: str
     displayName: str
     sector: SectorType
+    associatedAccountId: NotRequired[str]
     resaleAccountModel: NotRequired[ResaleAccountModelType]
     clientToken: NotRequired[str]
     tags: NotRequired[Sequence[TagTypeDef]]
     requestedSupportPlan: NotRequired[SupportPlanTypeDef]
+    accountScope: NotRequired[AccountScopeType]
+    startDate: NotRequired[TimestampTypeDef]
 
 
 class UpdateRelationshipRequestTypeDef(TypedDict):
@@ -618,15 +815,35 @@ class UpdateRelationshipRequestTypeDef(TypedDict):
     requestedSupportPlan: NotRequired[SupportPlanTypeDef]
 
 
-class ChannelHandshakePayloadTypeDef(TypedDict):
-    startServicePeriodPayload: NotRequired[StartServicePeriodPayloadTypeDef]
-    revokeServicePeriodPayload: NotRequired[RevokeServicePeriodPayloadTypeDef]
+ChannelContractDetailTypeDef = TypedDict(
+    "ChannelContractDetailTypeDef",
+    {
+        "id": str,
+        "arn": str,
+        "catalog": str,
+        "contractType": Literal["MANAGED_SERVICES_ATTESTATION"],
+        "status": ChannelContractStatusType,
+        "createdAt": datetime,
+        "updatedAt": datetime,
+        "details": ChannelContractDetailsTypeDef,
+        "respondedAt": NotRequired[datetime],
+        "cancellationReason": NotRequired[str],
+    },
+)
 
 
-class ListChannelHandshakesResponseTypeDef(TypedDict):
-    items: list[ChannelHandshakeSummaryTypeDef]
+class ListChannelContractsResponseTypeDef(TypedDict):
+    items: list[ChannelContractSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+
+class CreateChannelContractRequestTypeDef(TypedDict):
+    contractType: Literal["MANAGED_SERVICES_ATTESTATION"]
+    catalog: str
+    payload: ChannelContractPayloadTypeDef
+    clientToken: NotRequired[str]
+    tags: NotRequired[Sequence[TagTypeDef]]
 
 
 class CreateChannelHandshakeRequestTypeDef(TypedDict):
@@ -636,3 +853,14 @@ class CreateChannelHandshakeRequestTypeDef(TypedDict):
     payload: NotRequired[ChannelHandshakePayloadTypeDef]
     clientToken: NotRequired[str]
     tags: NotRequired[Sequence[TagTypeDef]]
+
+
+class ListChannelHandshakesResponseTypeDef(TypedDict):
+    items: list[ChannelHandshakeSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class GetChannelContractResponseTypeDef(TypedDict):
+    channelContractDetail: ChannelContractDetailTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef

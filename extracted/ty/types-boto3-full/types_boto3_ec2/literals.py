@@ -314,6 +314,8 @@ __all__ = (
     "FastSnapshotRestoreStateCodeType",
     "FilterByDimensionType",
     "FindingsFoundType",
+    "FirewallModeType",
+    "FirewallOnboardingStatusType",
     "FleetActivityStatusType",
     "FleetCapacityReservationTenancyType",
     "FleetCapacityReservationUsageStrategyType",
@@ -523,6 +525,7 @@ __all__ = (
     "NatGatewayStateType",
     "NestedVirtualizationSpecificationType",
     "NetworkCardInterfaceTypeType",
+    "NetworkFirewallConnectivityTypeType",
     "NetworkInterfaceAttributeType",
     "NetworkInterfaceAvailableWaiterName",
     "NetworkInterfaceCreationTypeType",
@@ -1297,6 +1300,8 @@ FilterByDimensionType = Literal[
     "tenancy",
 ]
 FindingsFoundType = Literal["false", "true", "unknown"]
+FirewallModeType = Literal["enforce", "monitor"]
+FirewallOnboardingStatusType = Literal["active", "disabling", "pending"]
 FleetActivityStatusType = Literal[
     "error", "fulfilled", "pending_fulfillment", "pending_termination"
 ]
@@ -3013,7 +3018,9 @@ IpamMeteredAccountType = Literal["ipam-owner", "resource-owner"]
 IpamNetworkInterfaceAttachmentStatusType = Literal["available", "in-use"]
 IpamOverlapStatusType = Literal["ignored", "nonoverlapping", "overlapping"]
 IpamPolicyManagedByType = Literal["account", "delegated-administrator-for-ipam"]
-IpamPolicyResourceTypeType = Literal["alb", "eip", "rds", "rnat"]
+IpamPolicyResourceTypeType = Literal[
+    "alb", "eip", "igw-firewall", "lambda-network-connector", "rds", "rnat"
+]
 IpamPolicyStateType = Literal[
     "create-complete",
     "create-failed",
@@ -3151,6 +3158,7 @@ IpamRoutingPolicyRegistrationStateType = Literal[
     "create-in-progress",
     "delete-complete",
     "delete-in-progress",
+    "disable-complete",
     "pending-activate",
     "update-complete",
     "update-in-progress",
@@ -3317,6 +3325,9 @@ NatGatewayDeletedWaiterName = Literal["nat_gateway_deleted"]
 NatGatewayStateType = Literal["available", "deleted", "deleting", "failed", "pending"]
 NestedVirtualizationSpecificationType = Literal["disabled", "enabled"]
 NetworkCardInterfaceTypeType = Literal["efa", "efa-only", "interface", "secondary"]
+NetworkFirewallConnectivityTypeType = Literal[
+    "az-unsupported", "bidirectional", "exclude", "flexible", "outbound-only"
+]
 NetworkInterfaceAttributeType = Literal[
     "associatePublicIpAddress", "attachment", "description", "groupSet", "sourceDestCheck"
 ]
@@ -3654,7 +3665,9 @@ ServiceConnectivityTypeType = Literal["ipv4", "ipv6"]
 ServiceLinkVirtualInterfaceConfigurationStateType = Literal[
     "available", "deleted", "deleting", "pending"
 ]
-ServiceManagedType = Literal["alb", "nlb", "rds", "rnat"]
+ServiceManagedType = Literal[
+    "alb", "igw-firewall", "lambda-network-connector", "nlb", "rds", "rnat"
+]
 ServiceStateType = Literal["Available", "Deleted", "Deleting", "Failed", "Pending"]
 ServiceTypeType = Literal["Gateway", "GatewayLoadBalancer", "Interface"]
 SeverityLabelType = Literal["critical", "high", "informational", "low", "medium"]
@@ -3820,7 +3833,7 @@ TransitGatewayStateType = Literal["available", "deleted", "deleting", "modifying
 TransportProtocolType = Literal["tcp", "udp"]
 TrustProviderTypeType = Literal["device", "user"]
 TunnelInsideIpVersionType = Literal["ipv4", "ipv6"]
-UnlimitedSupportedInstanceFamilyType = Literal["t2", "t3", "t3a", "t4g", "t8i"]
+UnlimitedSupportedInstanceFamilyType = Literal["t2", "t3", "t3a", "t4g", "t8i", "t9g"]
 UnsuccessfulInstanceCreditSpecificationErrorCodeType = Literal[
     "IncorrectInstanceState",
     "InstanceCreditSpecification.NotSupported",
@@ -3922,6 +3935,7 @@ ServiceName = Literal[
     "account-access-runtime",
     "acm",
     "acm-pca",
+    "agent-discovery",
     "agent-registry",
     "agent-registry-control",
     "aiops",
@@ -3932,6 +3946,7 @@ ServiceName = Literal[
     "apigateway",
     "apigatewaymanagementapi",
     "apigatewayv2",
+    "apiportal",
     "appconfig",
     "appconfigdata",
     "appfabric",
@@ -4222,6 +4237,7 @@ ServiceName = Literal[
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
+    "payments",
     "pca-connector-ad",
     "pca-connector-scep",
     "pcs",
@@ -4277,6 +4293,7 @@ ServiceName = Literal[
     "sagemaker-a2i-runtime",
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
+    "sagemaker-gateway-runtime",
     "sagemaker-geospatial",
     "sagemaker-inference-router-runtime",
     "sagemaker-metrics",

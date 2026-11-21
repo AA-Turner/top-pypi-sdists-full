@@ -12,9 +12,11 @@ Usage::
     from mypy_boto3_sagemaker import (
         Client,
         CreateHubContentPresignedUrlsPaginator,
+        DescribeResourceAssociationsPaginator,
         DescribeTrainingPlanExtensionHistoryPaginator,
         EndpointDeletedWaiter,
         EndpointInServiceWaiter,
+        GetCapacityReservationUsagePaginator,
         ImageCreatedWaiter,
         ImageDeletedWaiter,
         ImageUpdatedWaiter,
@@ -32,6 +34,7 @@ Usage::
         ListAssociationsPaginator,
         ListAutoMLJobsPaginator,
         ListCandidatesForAutoMLJobPaginator,
+        ListCapacityReservationsPaginator,
         ListClusterEventsPaginator,
         ListClusterExtensionVersionsPaginator,
         ListClusterExtensionsPaginator,
@@ -54,12 +57,14 @@ Usage::
         ListExperimentsPaginator,
         ListFeatureGroupsPaginator,
         ListFlowDefinitionsPaginator,
+        ListGlobalInferenceGatewaysPaginator,
         ListHumanTaskUisPaginator,
         ListHyperParameterTuningJobsPaginator,
         ListImageVersionsPaginator,
         ListImagesPaginator,
         ListInferenceComponentsPaginator,
         ListInferenceExperimentsPaginator,
+        ListInferenceGatewaysPaginator,
         ListInferenceRecommendationsJobStepsPaginator,
         ListInferenceRecommendationsJobsPaginator,
         ListInferenceRoutersPaginator,
@@ -140,7 +145,9 @@ Usage::
     transform_job_completed_or_stopped_waiter: TransformJobCompletedOrStoppedWaiter = client.get_waiter("transform_job_completed_or_stopped")
 
     create_hub_content_presigned_urls_paginator: CreateHubContentPresignedUrlsPaginator = client.get_paginator("create_hub_content_presigned_urls")
+    describe_resource_associations_paginator: DescribeResourceAssociationsPaginator = client.get_paginator("describe_resource_associations")
     describe_training_plan_extension_history_paginator: DescribeTrainingPlanExtensionHistoryPaginator = client.get_paginator("describe_training_plan_extension_history")
+    get_capacity_reservation_usage_paginator: GetCapacityReservationUsagePaginator = client.get_paginator("get_capacity_reservation_usage")
     list_ai_benchmark_jobs_paginator: ListAIBenchmarkJobsPaginator = client.get_paginator("list_ai_benchmark_jobs")
     list_ai_recommendation_jobs_paginator: ListAIRecommendationJobsPaginator = client.get_paginator("list_ai_recommendation_jobs")
     list_ai_workload_configs_paginator: ListAIWorkloadConfigsPaginator = client.get_paginator("list_ai_workload_configs")
@@ -153,6 +160,7 @@ Usage::
     list_associations_paginator: ListAssociationsPaginator = client.get_paginator("list_associations")
     list_auto_ml_jobs_paginator: ListAutoMLJobsPaginator = client.get_paginator("list_auto_ml_jobs")
     list_candidates_for_auto_ml_job_paginator: ListCandidatesForAutoMLJobPaginator = client.get_paginator("list_candidates_for_auto_ml_job")
+    list_capacity_reservations_paginator: ListCapacityReservationsPaginator = client.get_paginator("list_capacity_reservations")
     list_cluster_events_paginator: ListClusterEventsPaginator = client.get_paginator("list_cluster_events")
     list_cluster_extension_versions_paginator: ListClusterExtensionVersionsPaginator = client.get_paginator("list_cluster_extension_versions")
     list_cluster_extensions_paginator: ListClusterExtensionsPaginator = client.get_paginator("list_cluster_extensions")
@@ -175,12 +183,14 @@ Usage::
     list_experiments_paginator: ListExperimentsPaginator = client.get_paginator("list_experiments")
     list_feature_groups_paginator: ListFeatureGroupsPaginator = client.get_paginator("list_feature_groups")
     list_flow_definitions_paginator: ListFlowDefinitionsPaginator = client.get_paginator("list_flow_definitions")
+    list_global_inference_gateways_paginator: ListGlobalInferenceGatewaysPaginator = client.get_paginator("list_global_inference_gateways")
     list_human_task_uis_paginator: ListHumanTaskUisPaginator = client.get_paginator("list_human_task_uis")
     list_hyper_parameter_tuning_jobs_paginator: ListHyperParameterTuningJobsPaginator = client.get_paginator("list_hyper_parameter_tuning_jobs")
     list_image_versions_paginator: ListImageVersionsPaginator = client.get_paginator("list_image_versions")
     list_images_paginator: ListImagesPaginator = client.get_paginator("list_images")
     list_inference_components_paginator: ListInferenceComponentsPaginator = client.get_paginator("list_inference_components")
     list_inference_experiments_paginator: ListInferenceExperimentsPaginator = client.get_paginator("list_inference_experiments")
+    list_inference_gateways_paginator: ListInferenceGatewaysPaginator = client.get_paginator("list_inference_gateways")
     list_inference_recommendations_job_steps_paginator: ListInferenceRecommendationsJobStepsPaginator = client.get_paginator("list_inference_recommendations_job_steps")
     list_inference_recommendations_jobs_paginator: ListInferenceRecommendationsJobsPaginator = client.get_paginator("list_inference_recommendations_jobs")
     list_inference_routers_paginator: ListInferenceRoutersPaginator = client.get_paginator("list_inference_routers")
@@ -240,7 +250,9 @@ Usage::
 from .client import SageMakerClient
 from .paginator import (
     CreateHubContentPresignedUrlsPaginator,
+    DescribeResourceAssociationsPaginator,
     DescribeTrainingPlanExtensionHistoryPaginator,
+    GetCapacityReservationUsagePaginator,
     ListActionsPaginator,
     ListAIBenchmarkJobsPaginator,
     ListAIRecommendationJobsPaginator,
@@ -253,6 +265,7 @@ from .paginator import (
     ListAssociationsPaginator,
     ListAutoMLJobsPaginator,
     ListCandidatesForAutoMLJobPaginator,
+    ListCapacityReservationsPaginator,
     ListClusterEventsPaginator,
     ListClusterExtensionsPaginator,
     ListClusterExtensionVersionsPaginator,
@@ -275,12 +288,14 @@ from .paginator import (
     ListExperimentsPaginator,
     ListFeatureGroupsPaginator,
     ListFlowDefinitionsPaginator,
+    ListGlobalInferenceGatewaysPaginator,
     ListHumanTaskUisPaginator,
     ListHyperParameterTuningJobsPaginator,
     ListImagesPaginator,
     ListImageVersionsPaginator,
     ListInferenceComponentsPaginator,
     ListInferenceExperimentsPaginator,
+    ListInferenceGatewaysPaginator,
     ListInferenceRecommendationsJobsPaginator,
     ListInferenceRecommendationsJobStepsPaginator,
     ListInferenceRoutersPaginator,
@@ -356,9 +371,11 @@ Client = SageMakerClient
 __all__ = (
     "Client",
     "CreateHubContentPresignedUrlsPaginator",
+    "DescribeResourceAssociationsPaginator",
     "DescribeTrainingPlanExtensionHistoryPaginator",
     "EndpointDeletedWaiter",
     "EndpointInServiceWaiter",
+    "GetCapacityReservationUsagePaginator",
     "ImageCreatedWaiter",
     "ImageDeletedWaiter",
     "ImageUpdatedWaiter",
@@ -376,6 +393,7 @@ __all__ = (
     "ListAssociationsPaginator",
     "ListAutoMLJobsPaginator",
     "ListCandidatesForAutoMLJobPaginator",
+    "ListCapacityReservationsPaginator",
     "ListClusterEventsPaginator",
     "ListClusterExtensionVersionsPaginator",
     "ListClusterExtensionsPaginator",
@@ -398,12 +416,14 @@ __all__ = (
     "ListExperimentsPaginator",
     "ListFeatureGroupsPaginator",
     "ListFlowDefinitionsPaginator",
+    "ListGlobalInferenceGatewaysPaginator",
     "ListHumanTaskUisPaginator",
     "ListHyperParameterTuningJobsPaginator",
     "ListImageVersionsPaginator",
     "ListImagesPaginator",
     "ListInferenceComponentsPaginator",
     "ListInferenceExperimentsPaginator",
+    "ListInferenceGatewaysPaginator",
     "ListInferenceRecommendationsJobStepsPaginator",
     "ListInferenceRecommendationsJobsPaginator",
     "ListInferenceRoutersPaginator",

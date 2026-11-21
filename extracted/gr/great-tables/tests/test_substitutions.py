@@ -11,6 +11,7 @@ from great_tables import GT, md
 from great_tables._gt_data import FormatterSkipElement
 from great_tables._substitution import SubMissing, SubZero, SubSmallVals, SubLargeVals, SubValues
 from great_tables._tbl_data import DataFrameLike, to_list
+from tests.utils import DataFrameConstructor
 
 params_frames = [
     pytest.param(pd.DataFrame, id="pandas"),
@@ -19,9 +20,11 @@ params_frames = [
 ]
 
 
-@pytest.fixture(params=params_frames, scope="function")
-def df(request) -> DataFrameLike:
-    return request.param({"col1": [None, nan, 0]})
+@pytest.fixture
+def df(frame_constructor: DataFrameConstructor) -> DataFrameLike:
+    # 0.5 keeps the column float: the pandas nullable and pyarrow-backed constructors turn whole
+    # floats into ints
+    return frame_constructor({"col1": [None, nan, 0.0, 0.5]})
 
 
 @pytest.fixture(params=params_frames, scope="function")
@@ -48,13 +51,13 @@ def test_sub_missing_el_skip(df_empty: DataFrameLike):
 
 def test_sub_missing_meth(df):
     new_gt = GT(df).sub_missing("col1", missing_text="--")._render_formats("html")
-    assert_series_equals(new_gt._body.body["col1"], ["--", "--", "0.0"])
+    assert_series_equals(new_gt._body.body["col1"], ["--", "--", "0.0", "0.5"])
 
 
 def test_sub_missing_meth_implicit_columns(df):
     # Drive by: https://github.com/posit-dev/great-tables/issues/667
     new_gt = GT(df).sub_missing(missing_text="--")._render_formats("html")
-    assert_series_equals(new_gt._body.body["col1"], ["--", "--", "0.0"])
+    assert_series_equals(new_gt._body.body["col1"], ["--", "--", "0.0", "0.5"])
 
 
 @pytest.mark.parametrize("el", [0, 0.0])
@@ -79,7 +82,7 @@ def test_sub_zero_el_numeric_scalars(df_empty: DataFrameLike, el):
 
 def test_sub_zero_meth(df):
     new_gt = GT(df).sub_zero("col1", zero_text="no")._render_formats("html")
-    assert_series_equals(new_gt._body.body["col1"], [None, None, "no"])
+    assert_series_equals(new_gt._body.body["col1"], [None, None, "no", "0.5"])
 
 
 @pytest.mark.parametrize(
@@ -106,7 +109,7 @@ def test_sub_missing_latex(df):
 
 def test_sub_zero_latex(df):
     new_gt = GT(df).sub_zero("col1", zero_text=md("**nil**"))._render_formats("latex")
-    assert_series_equals(new_gt._body.body["col1"], [None, None, "\\textbf{nil}"])
+    assert_series_equals(new_gt._body.body["col1"], [None, None, "\\textbf{nil}", "0.5"])
 
 
 def test_sub_vals_latex():
@@ -243,9 +246,9 @@ class TestSubSmallVals:
         assert isinstance(subber.to_html(0.5), FormatterSkipElement)
         assert isinstance(subber.to_html(0.7), FormatterSkipElement)
 
-    def test_method_integration(self):
+    def test_method_integration(self, frame_constructor: DataFrameConstructor):
         """End-to-end test using the GT method."""
-        df = pl.DataFrame({"val": [0.001, 0.01, 0.1, 1.0, 0.0]})
+        df = frame_constructor({"val": [0.001, 0.01, 0.1, 1.0, 0.0]})
         gt = GT(df).sub_small_vals(columns="val")
         result = gt._render_formats("html")
         body = [x for x in to_list(result._body.body["val"])]
@@ -395,14 +398,15 @@ class TestSubLargeVals:
         body = [x for x in to_list(result._body.body["val"])]
         assert body == ["-10.0", "≤−1000", "≤−1000"]
 
-    def test_method_integration(self):
+    def test_method_integration(self, frame_constructor: DataFrameConstructor):
         """End-to-end test using the GT method."""
-        df = pl.DataFrame({"val": [0.0, 100.0, 1e10, 1e12, 1e14]})
+        # 0.5 keeps the column float (see the `df` fixture)
+        df = frame_constructor({"val": [0.5, 100.0, 1e10, 1e12, 1e14]})
         gt = GT(df).sub_large_vals(columns="val")
         result = gt._render_formats("html")
         body = [x for x in to_list(result._body.body["val"])]
         # Only 1e12 and 1e14 are >= 1e12
-        assert body == ["0.0", "100.0", "10000000000.0", "≥1e+12", "≥1e+12"]
+        assert body == ["0.5", "100.0", "10000000000.0", "≥1e+12", "≥1e+12"]
 
     @pytest.mark.parametrize("dtype", ["int64", "float32"])
     def test_method_pandas_numpy_dtypes(self, dtype: str):
@@ -461,33 +465,101 @@ class TestSubValues:
 
     def test_match_by_numeric_value(self):
         """Numeric values can be matched."""
-        subber = SubValues(values=[74, 500], pattern=None, fn=None, replacement="—")
+        subber = SubValues(pl.DataFrame(), values=[74, 500], pattern=None, fn=None, replacement="—")
         assert subber.to_html(74) == "—"
         assert subber.to_html(500) == "—"
         assert isinstance(subber.to_html(100), FormatterSkipElement)
 
     def test_match_by_string_value(self):
         """String values can be matched."""
-        subber = SubValues(values=["B"], pattern=None, fn=None, replacement="Bee")
+        subber = SubValues(pl.DataFrame(), values=["B"], pattern=None, fn=None, replacement="Bee")
         assert subber.to_html("B") == "Bee"
         assert isinstance(subber.to_html("A"), FormatterSkipElement)
 
     def test_match_single_value(self):
         """A single value (non-list) can be matched."""
-        subber = SubValues(values=42, pattern=None, fn=None, replacement="answer")
+        subber = SubValues(pl.DataFrame(), values=42, pattern=None, fn=None, replacement="answer")
         assert subber.to_html(42) == "answer"
         assert isinstance(subber.to_html(43), FormatterSkipElement)
 
     def test_none_values_skipped(self):
         """None values are not matched."""
-        subber = SubValues(values=[None], pattern=None, fn=None, replacement="x")
+        subber = SubValues(pl.DataFrame(), values=[None], pattern=None, fn=None, replacement="x")
         assert isinstance(subber.to_html(None), FormatterSkipElement)
+
+    @pytest.mark.parametrize(
+        "x",
+        [
+            pytest.param(np.nan, id="nan"),
+            pytest.param(pd.NA, id="pd.NA"),
+            pytest.param(pd.NaT, id="NaT"),
+        ],
+    )
+    def test_missing_values_never_matched(self, x):
+        """Missing values aren't matched, even when listed in `values` (as in R gt)."""
+        subber = SubValues(pd.DataFrame(), values=[x], pattern=None, fn=None, replacement="x")
+        assert isinstance(subber.to_html(x), FormatterSkipElement)
+
+    def test_fn_is_called_on_missing_values(self):
+        """`fn` decides for missing values itself (as in R gt), so it can target them."""
+        subber = SubValues(pd.DataFrame(), values=None, pattern=None, fn=pd.isna, replacement="x")
+        assert subber.to_html(np.nan) == "x"
+        assert subber.to_html(pd.NA) == "x"
+        assert subber.to_html(None) == "x"
+
+    def test_fn_is_called_on_none(self):
+        subber = SubValues(
+            pl.DataFrame(), values=None, pattern=None, fn=lambda x: x is None, replacement="x"
+        )
+        assert subber.to_html(None) == "x"
+        assert isinstance(subber.to_html(1), FormatterSkipElement)
+
+    @pytest.mark.filterwarnings("ignore:PyArrow Table support is currently experimental")
+    @pytest.mark.parametrize("frame", [pl.DataFrame, pa.table])
+    def test_method_fn_targets_nulls(self, frame):
+        from great_tables.gt import _get_column_of_values
+
+        df = frame({"col": [1.0, None]})
+
+        gt = GT(df).sub_values(columns="col", fn=lambda x: x is None, replacement="missing")
+        assert _get_column_of_values(gt, column_name="col", context="html") == ["1.0", "missing"]
+
+        # An `fn` that raises on a null (`None > 0`) doesn't replace it
+        gt = GT(df).sub_values(columns="col", fn=lambda x: x > 0, replacement="positive")
+        assert _get_column_of_values(gt, column_name="col", context="html") == ["positive", "None"]
+
+    def test_array_cell_doesnt_match_single_value(self):
+        """A cell holding an array is compared element-wise, so it doesn't match a value."""
+        subber = SubValues(pd.DataFrame(), values=[1], pattern=None, fn=None, replacement="one")
+        assert isinstance(subber.to_html(np.array([1])), FormatterSkipElement)
+        assert isinstance(subber.to_html(np.array([1, 2])), FormatterSkipElement)
+        assert subber.to_html(np.int64(1)) == "one"
+
+    @pytest.mark.parametrize(
+        "values,dtype",
+        [
+            pytest.param([1, None, 2], "Int64", id="Int64"),
+            pytest.param([1.5, None, 2.5], "Float64", id="Float64"),
+            pytest.param(["a", None, "b"], "string", id="string"),
+            pytest.param([True, None, False], "boolean", id="boolean"),
+        ],
+    )
+    @pytest.mark.parametrize("context", ["html", "latex"])
+    def test_method_skips_pandas_missing_values(self, values, dtype, context):
+        """pandas nullable columns with missing values work; the missing value is left as is."""
+        df = pd.DataFrame({"x": pd.Series(values, dtype=dtype)})
+        gt = GT(df).sub_values(columns="x", values=[values[0]], replacement="first")
+        body = to_list(gt._render_formats(context)._body.body["x"])
+
+        assert body[0] == "first"
+        assert body[1] is pd.NA
+        assert body[2] == str(values[2])
 
     # --- Pattern matching ---
 
     def test_match_by_regex_pattern(self):
         """Regex pattern can match string values."""
-        subber = SubValues(values=None, pattern="A|C|E", fn=None, replacement="Ace")
+        subber = SubValues(pl.DataFrame(), values=None, pattern="A|C|E", fn=None, replacement="Ace")
         assert subber.to_html("A") == "Ace"
         assert subber.to_html("C") == "Ace"
         assert subber.to_html("E") == "Ace"
@@ -495,12 +567,14 @@ class TestSubValues:
 
     def test_pattern_only_matches_strings(self):
         """Pattern matching only works on string columns."""
-        subber = SubValues(values=None, pattern="123", fn=None, replacement="x")
+        subber = SubValues(pl.DataFrame(), values=None, pattern="123", fn=None, replacement="x")
         assert isinstance(subber.to_html(123), FormatterSkipElement)
 
     def test_pattern_takes_precedence_over_values(self):
         """If both pattern and values are supplied, pattern takes precedence."""
-        subber = SubValues(values=["X"], pattern="A", fn=None, replacement="matched")
+        subber = SubValues(
+            pl.DataFrame(), values=["X"], pattern="A", fn=None, replacement="matched"
+        )
         # Pattern is checked, not values
         assert subber.to_html("A") == "matched"
         assert isinstance(subber.to_html("X"), FormatterSkipElement)
@@ -510,6 +584,7 @@ class TestSubValues:
     def test_match_by_function(self):
         """Custom function can target values."""
         subber = SubValues(
+            pl.DataFrame(),
             values=None,
             pattern=None,
             fn=lambda x: isinstance(x, (int, float)) and x >= 0 and x < 50,
@@ -522,13 +597,16 @@ class TestSubValues:
 
     def test_fn_takes_precedence_over_pattern(self):
         """If fn and pattern are both supplied, fn takes precedence."""
-        subber = SubValues(values=None, pattern="A", fn=lambda x: x == "B", replacement="matched")
+        subber = SubValues(
+            pl.DataFrame(), values=None, pattern="A", fn=lambda x: x == "B", replacement="matched"
+        )
         assert subber.to_html("B") == "matched"
         assert isinstance(subber.to_html("A"), FormatterSkipElement)
 
     def test_fn_exception_returns_skip(self):
         """If fn raises TypeError/ValueError, the value is skipped."""
         subber = SubValues(
+            pl.DataFrame(),
             values=None,
             pattern=None,
             fn=lambda x: x > 5,  # will raise TypeError for strings
@@ -540,14 +618,14 @@ class TestSubValues:
 
     def test_numeric_replacement(self):
         """Numeric replacement value is converted to string."""
-        subber = SubValues(values=[1], pattern=None, fn=None, replacement=150)
+        subber = SubValues(pl.DataFrame(), values=[1], pattern=None, fn=None, replacement=150)
         assert subber.to_html(1) == "150"
 
     # --- Method integration ---
 
-    def test_method_values_integration(self):
+    def test_method_values_integration(self, frame_constructor: DataFrameConstructor):
         """End-to-end test using the GT method with values."""
-        df = pl.DataFrame({"col": [1, 2, 3, 4, 5]})
+        df = frame_constructor({"col": [1, 2, 3, 4, 5]})
         gt = GT(df).sub_values(columns="col", values=[2, 4], replacement="even")
         result = gt._render_formats("html")
         body = [x for x in to_list(result._body.body["col"])]
@@ -561,9 +639,9 @@ class TestSubValues:
         body = [x for x in to_list(result._body.body["col"])]
         assert body == ["fruit", "banana", "fruit", "cherry"]
 
-    def test_method_fn_integration(self):
+    def test_method_fn_integration(self, frame_constructor: DataFrameConstructor):
         """End-to-end test using the GT method with fn."""
-        df = pl.DataFrame({"col": [10, 20, 30, 40, 50]})
+        df = frame_constructor({"col": [10, 20, 30, 40, 50]})
         gt = GT(df).sub_values(columns="col", fn=lambda x: x > 25, replacement="big")
         result = gt._render_formats("html")
         body = [x for x in to_list(result._body.body["col"])]
@@ -611,22 +689,28 @@ class TestSubValues:
         body = [x for x in to_list(result._body.body["col"])]
         assert body == ["second", "100"]
 
-    def test_fn_operates_across_columns(self):
+    def test_fn_operates_across_columns(self, frame_constructor: DataFrameConstructor):
         """fn matching works across numeric and character columns."""
-        df = pl.DataFrame({"num": [-1, 0, 5, 50], "lett": ["A", "B", "C", "D"]})
+        df = frame_constructor({"num": [-1, 0, 5, 50], "lett": ["A", "B", "C", "D"]})
         gt = GT(df).sub_values(
             fn=lambda x: isinstance(x, (int, float)) and x < 0, replacement="neg"
         )
         result = gt._render_formats("html")
         num_body = [x for x in to_list(result._body.body["num"])]
         lett_body = [x for x in to_list(result._body.body["lett"])]
-        # Only the negative number is replaced; letters are unaffected
-        assert num_body == ["neg", "0", "5", "50"]
+        # Only the negative number is replaced; letters are unaffected. Plain and nullable pandas
+        # pass `fn` NumPy ints, which fail `isinstance(x, int)`, so `-1` stays; whether every
+        # backend should pass Python scalars is undecided
+        passes_numpy_ints = frame_constructor.__name__ in (
+            "pandas_constructor",
+            "pandas_nullable_constructor",
+        )
+        assert num_body == ["-1" if passes_numpy_ints else "neg", "0", "5", "50"]
         assert lett_body == ["A", "B", "C", "D"]
 
-    def test_pattern_does_not_match_numeric_columns(self):
+    def test_pattern_does_not_match_numeric_columns(self, frame_constructor: DataFrameConstructor):
         """Pattern matching only targets string columns, not numeric."""
-        df = pl.DataFrame({"num": [0, 1, 500], "lett": ["A0", "B1", "C2"]})
+        df = frame_constructor({"num": [0, 1, 500], "lett": ["A0", "B1", "C2"]})
         gt = GT(df).sub_values(pattern="0", replacement="matched")
         result = gt._render_formats("html")
         num_body = [x for x in to_list(result._body.body["num"])]
@@ -675,7 +759,7 @@ def test_sub_values_is_match_no_criteria():
     """SubValues._is_match returns False when fn, pattern, and values are all None."""
     from great_tables._substitution import SubValues
 
-    sub = SubValues(values=None, pattern=None, fn=None, replacement="x")
+    sub = SubValues(pl.DataFrame(), values=None, pattern=None, fn=None, replacement="x")
 
     assert sub._is_match("anything") is False
     assert sub._is_match(42) is False
@@ -700,20 +784,12 @@ def test_convert_missing_non_empty_el_returns_el():
 
 
 @pytest.mark.filterwarnings("ignore:PyArrow Table support is currently experimental")
-@pytest.mark.parametrize(
-    "frame",
-    [
-        lambda: pl.DataFrame({"x": [True, False]}),
-        lambda: pd.DataFrame({"x": [True, False]}),
-        lambda: pa.table({"x": [True, False]}),
-    ],
-)
-def test_sub_small_large_vals_skip_booleans(frame):
+def test_sub_small_large_vals_skip_booleans(frame_constructor: DataFrameConstructor):
     # Booleans aren't numbers here (as in R gt), whatever the backend's boolean type
     from great_tables.gt import _get_column_of_values
 
     gt = (
-        GT(frame())
+        GT(frame_constructor({"x": [True, False]}))
         .sub_small_vals(columns="x", threshold=2)
         .sub_large_vals(columns="x", threshold=1)
     )
@@ -721,43 +797,29 @@ def test_sub_small_large_vals_skip_booleans(frame):
 
 
 @pytest.mark.filterwarnings("ignore:PyArrow Table support is currently experimental")
-@pytest.mark.parametrize(
-    "frame",
-    [
-        lambda: pl.DataFrame({"b": [True, False, None], "n": [1, 0, None]}),
-        lambda: pd.DataFrame({"b": [True, False, False], "n": [1, 0, 2]}),
-        lambda: pd.DataFrame(
-            {
-                "b": pd.Series([True, False, None], dtype="boolean"),
-                "n": pd.Series([1, 0, None], dtype="Int64"),
-            }
-        ),
-        lambda: pa.table({"b": [True, False, None], "n": [1, 0, None]}),
-    ],
-)
-def test_sub_zero_skips_booleans(frame):
-    # With no `columns=`, `sub_zero()` targets every column; only the numeric zero is replaced
+def test_sub_zero_skips_booleans(frame_constructor: DataFrameConstructor):
+    # With no `columns=`, `sub_zero()` targets every column; only the numeric zero is replaced.
+    # Plain pandas keeps `b` as NumPy bools and stores `b_na` as object and `n` as float64.
     from great_tables.gt import _get_column_of_values
 
-    gt = GT(frame()).sub_zero()
+    df = frame_constructor(
+        {"b": [True, False, False], "b_na": [True, False, None], "n": [1, 0, None]}
+    )
+    gt = GT(df).sub_zero()
 
     assert _get_column_of_values(gt, column_name="b", context="html")[:2] == ["True", "False"]
-    assert _get_column_of_values(gt, column_name="n", context="html")[:2] == ["1", "nil"]
+    assert _get_column_of_values(gt, column_name="b_na", context="html")[:2] == ["True", "False"]
+    assert _get_column_of_values(gt, column_name="n", context="html")[1] == "nil"
 
 
-@pytest.mark.parametrize(
-    "frame",
-    [
-        lambda vals: pl.DataFrame({"x": vals}),
-        lambda vals: pd.DataFrame({"x": vals}),
-    ],
-)
-def test_sub_small_large_vals_decimal_values(frame):
+def test_sub_small_large_vals_decimal_values(frame_constructor: DataFrameConstructor):
     from decimal import Decimal
 
     from great_tables.gt import _get_column_of_values
 
-    df = frame([Decimal("0.001"), Decimal("5"), Decimal("2000"), Decimal("-0.001")])
+    df = frame_constructor(
+        {"x": [Decimal("0.001"), Decimal("5"), Decimal("2000"), Decimal("-0.001")]}
+    )
     gt = (
         GT(df)
         .sub_small_vals(columns="x")
@@ -766,5 +828,5 @@ def test_sub_small_large_vals_decimal_values(frame):
     )
     x = _get_column_of_values(gt, column_name="x", context="html")
 
-    # (the unsubstituted `5` is shown as polars or pandas displays a `Decimal`)
+    # (the unsubstituted `5` is shown as each backend displays a `Decimal`)
     assert [x[0], x[2], x[3]] == ["&lt;0.01", "≥1000", "&gt;-0.01"]

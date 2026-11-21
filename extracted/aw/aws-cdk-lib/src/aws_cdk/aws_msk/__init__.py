@@ -2719,7 +2719,8 @@ class CfnCluster(
                         ),
                         volume_size=123
                     )
-                )
+                ),
+                topic_reassignment="topicReassignment"
             ),
             cluster_name="clusterName",
             kafka_version="kafkaVersion",
@@ -2759,7 +2760,7 @@ class CfnCluster(
             ),
             enhanced_monitoring="enhancedMonitoring",
             logging_info=msk.CfnCluster.LoggingInfoProperty(
-                broker_logs=msk.CfnCluster.BrokerLogsProperty(
+                authorizer_logs=msk.CfnCluster.AuthorizerLogsProperty(
                     cloud_watch_logs=msk.CfnCluster.CloudWatchLogsProperty(
                         enabled=False,
         
@@ -2780,9 +2781,7 @@ class CfnCluster(
                         prefix="prefix"
                     )
                 ),
-        
-                # the properties below are optional
-                authorizer_logs=msk.CfnCluster.AuthorizerLogsProperty(
+                broker_logs=msk.CfnCluster.BrokerLogsProperty(
                     cloud_watch_logs=msk.CfnCluster.CloudWatchLogsProperty(
                         enabled=False,
         
@@ -3448,6 +3447,7 @@ class CfnCluster(
             "connectivity_info": "connectivityInfo",
             "security_groups": "securityGroups",
             "storage_info": "storageInfo",
+            "topic_reassignment": "topicReassignment",
         },
     )
     class BrokerNodeGroupInfoProperty:
@@ -3460,6 +3460,7 @@ class CfnCluster(
             connectivity_info: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.ConnectivityInfoProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
             storage_info: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.StorageInfoProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            topic_reassignment: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Describes the setup to be used for the broker nodes in the cluster.
 
@@ -3469,6 +3470,7 @@ class CfnCluster(
             :param connectivity_info: Information about the cluster's connectivity setting.
             :param security_groups: The security groups to associate with the ENIs in order to specify who can connect to and communicate with the Amazon MSK cluster. If you don't specify a security group, Amazon MSK uses the default security group associated with the VPC. If you specify security groups that were shared with you, you must ensure that you have permissions to them. Specifically, you need the ``ec2:DescribeSecurityGroups`` permission.
             :param storage_info: Contains information about storage volumes attached to Amazon MSK broker nodes.
+            :param topic_reassignment: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-cluster-brokernodegroupinfo.html
             :exampleMetadata: fixture=_generated
@@ -3515,7 +3517,8 @@ class CfnCluster(
                             ),
                             volume_size=123
                         )
-                    )
+                    ),
+                    topic_reassignment="topicReassignment"
                 )
             '''
             if __debug__:
@@ -3526,6 +3529,7 @@ class CfnCluster(
                 check_type(argname="argument connectivity_info", value=connectivity_info, expected_type=type_hints["connectivity_info"])
                 check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
                 check_type(argname="argument storage_info", value=storage_info, expected_type=type_hints["storage_info"])
+                check_type(argname="argument topic_reassignment", value=topic_reassignment, expected_type=type_hints["topic_reassignment"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "client_subnets": client_subnets,
                 "instance_type": instance_type,
@@ -3538,6 +3542,8 @@ class CfnCluster(
                 self._values["security_groups"] = security_groups
             if storage_info is not None:
                 self._values["storage_info"] = storage_info
+            if topic_reassignment is not None:
+                self._values["topic_reassignment"] = topic_reassignment
 
         @builtins.property
         def client_subnets(self) -> typing.List[builtins.str]:
@@ -3627,6 +3633,14 @@ class CfnCluster(
             '''
             result = self._values.get("storage_info")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.StorageInfoProperty"]], result)
+
+        @builtins.property
+        def topic_reassignment(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-cluster-brokernodegroupinfo.html#cfn-msk-cluster-brokernodegroupinfo-topicreassignment
+            '''
+            result = self._values.get("topic_reassignment")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4493,23 +4507,23 @@ class CfnCluster(
         jsii_type="aws-cdk-lib.aws_msk.CfnCluster.LoggingInfoProperty",
         jsii_struct_bases=[],
         name_mapping={
-            "broker_logs": "brokerLogs",
             "authorizer_logs": "authorizerLogs",
+            "broker_logs": "brokerLogs",
         },
     )
     class LoggingInfoProperty:
         def __init__(
             self,
             *,
-            broker_logs: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.BrokerLogsProperty", typing.Dict[builtins.str, typing.Any]]],
             authorizer_logs: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.AuthorizerLogsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            broker_logs: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.BrokerLogsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''You can configure your MSK cluster to send broker logs to different destination types.
 
             This is a container for the configuration details related to broker logs.
 
-            :param broker_logs: You can configure your MSK cluster to send broker logs to different destination types. This configuration specifies the details of these destinations.
             :param authorizer_logs: 
+            :param broker_logs: You can configure your MSK cluster to send broker logs to different destination types. This configuration specifies the details of these destinations.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-cluster-logginginfo.html
             :exampleMetadata: fixture=_generated
@@ -4521,7 +4535,7 @@ class CfnCluster(
                 from aws_cdk import aws_msk as msk
                 
                 logging_info_property = msk.CfnCluster.LoggingInfoProperty(
-                    broker_logs=msk.CfnCluster.BrokerLogsProperty(
+                    authorizer_logs=msk.CfnCluster.AuthorizerLogsProperty(
                         cloud_watch_logs=msk.CfnCluster.CloudWatchLogsProperty(
                             enabled=False,
                 
@@ -4542,9 +4556,7 @@ class CfnCluster(
                             prefix="prefix"
                         )
                     ),
-                
-                    # the properties below are optional
-                    authorizer_logs=msk.CfnCluster.AuthorizerLogsProperty(
+                    broker_logs=msk.CfnCluster.BrokerLogsProperty(
                         cloud_watch_logs=msk.CfnCluster.CloudWatchLogsProperty(
                             enabled=False,
                 
@@ -4569,27 +4581,13 @@ class CfnCluster(
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__cb34e9e4e6ea2dca1d1d7c205b60cf5fc069f6150273b5e5c14b565ef784c6cb)
-                check_type(argname="argument broker_logs", value=broker_logs, expected_type=type_hints["broker_logs"])
                 check_type(argname="argument authorizer_logs", value=authorizer_logs, expected_type=type_hints["authorizer_logs"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "broker_logs": broker_logs,
-            }
+                check_type(argname="argument broker_logs", value=broker_logs, expected_type=type_hints["broker_logs"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
             if authorizer_logs is not None:
                 self._values["authorizer_logs"] = authorizer_logs
-
-        @builtins.property
-        def broker_logs(
-            self,
-        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.BrokerLogsProperty"]:
-            '''You can configure your MSK cluster to send broker logs to different destination types.
-
-            This configuration specifies the details of these destinations.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-cluster-logginginfo.html#cfn-msk-cluster-logginginfo-brokerlogs
-            '''
-            result = self._values.get("broker_logs")
-            assert result is not None, "Required property 'broker_logs' is missing"
-            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.BrokerLogsProperty"], result)
+            if broker_logs is not None:
+                self._values["broker_logs"] = broker_logs
 
         @builtins.property
         def authorizer_logs(
@@ -4600,6 +4598,19 @@ class CfnCluster(
             '''
             result = self._values.get("authorizer_logs")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.AuthorizerLogsProperty"]], result)
+
+        @builtins.property
+        def broker_logs(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.BrokerLogsProperty"]]:
+            '''You can configure your MSK cluster to send broker logs to different destination types.
+
+            This configuration specifies the details of these destinations.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-cluster-logginginfo.html#cfn-msk-cluster-logginginfo-brokerlogs
+            '''
+            result = self._values.get("broker_logs")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.BrokerLogsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6194,7 +6205,8 @@ class CfnClusterProps:
                             ),
                             volume_size=123
                         )
-                    )
+                    ),
+                    topic_reassignment="topicReassignment"
                 ),
                 cluster_name="clusterName",
                 kafka_version="kafkaVersion",
@@ -6234,7 +6246,7 @@ class CfnClusterProps:
                 ),
                 enhanced_monitoring="enhancedMonitoring",
                 logging_info=msk.CfnCluster.LoggingInfoProperty(
-                    broker_logs=msk.CfnCluster.BrokerLogsProperty(
+                    authorizer_logs=msk.CfnCluster.AuthorizerLogsProperty(
                         cloud_watch_logs=msk.CfnCluster.CloudWatchLogsProperty(
                             enabled=False,
             
@@ -6255,9 +6267,7 @@ class CfnClusterProps:
                             prefix="prefix"
                         )
                     ),
-            
-                    # the properties below are optional
-                    authorizer_logs=msk.CfnCluster.AuthorizerLogsProperty(
+                    broker_logs=msk.CfnCluster.BrokerLogsProperty(
                         cloud_watch_logs=msk.CfnCluster.CloudWatchLogsProperty(
                             enabled=False,
             
@@ -11635,6 +11645,7 @@ def _typecheckingstub__047ba5870776adf805ab38c9eed596d6715e6bfa45af6eaf20ea7bd91
     connectivity_info: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.ConnectivityInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     storage_info: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.StorageInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    topic_reassignment: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11728,8 +11739,8 @@ def _typecheckingstub__4eaa737fdd4b761b60d33bd8c66551298c9e7beeb94798e2b9eb9a3cb
 
 def _typecheckingstub__cb34e9e4e6ea2dca1d1d7c205b60cf5fc069f6150273b5e5c14b565ef784c6cb(
     *,
-    broker_logs: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.BrokerLogsProperty, typing.Dict[builtins.str, typing.Any]]],
     authorizer_logs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.AuthorizerLogsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    broker_logs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.BrokerLogsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

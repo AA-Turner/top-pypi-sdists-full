@@ -23,7 +23,14 @@ from rich.text import Text
 
 from dreamscale import tables
 
-from .benchmarks import BENCHMARK_LABELS, DEFAULT_SUITES, robocasa_tasks
+from .benchmarks import BENCHMARK_LABELS as LOCAL_LABELS
+from .benchmarks import DEFAULT_SUITES as LOCAL_DEFAULT_SUITES
+from .benchmarks import robocasa_tasks
+
+# The benchmarks `dreamscale sim` runs on this computer, then RoboLab, which runs on
+# Dreamscale's simulators.
+BENCHMARK_LABELS = {**LOCAL_LABELS, "robolab": "RoboLab (hosted)"}
+DEFAULT_SUITES = {**LOCAL_DEFAULT_SUITES, "robolab": "smoke10"}
 
 
 @dataclass(frozen=True)
@@ -178,6 +185,21 @@ def _molmospaces_tasks(suite: str) -> list[Task]:
 # --- ABC: the station's tasks; --task-id is an episode (a seeded scene), any number.
 
 
+def _robolab_suites() -> list[Suite]:
+    from .robolab_catalog import SUITES
+
+    described = {"smoke10": "ten single-object tasks", "all": "every RoboLab task"}
+    return [Suite(name, len(names), described.get(name, "")) for name, names in SUITES.items()]
+
+
+def _robolab_tasks(suite: str) -> list[Task]:
+    from .robolab_catalog import SUITES
+
+    if suite not in SUITES:
+        raise ValueError(f"RoboLab --task-suite must be one of {', '.join(SUITES)}.")
+    return [Task(name, _words(name.removesuffix("Task"))) for name in SUITES[suite]]
+
+
 def _abc_suites() -> list[Suite]:
     from .abc_catalog import TASKS
 
@@ -197,10 +219,12 @@ def _abc_tasks(suite: str) -> list[Task]:
 _SUITES: dict[str, Callable[[], list[Suite]]] = {
     "libero": _libero_suites, "robocasa365": _robocasa_suites,
     "molmospaces": _molmospaces_suites, "roboeval": _roboeval_suites, "abc": _abc_suites,
+    "robolab": _robolab_suites,
 }
 _TASKS: dict[str, Callable[[str], list[Task]]] = {
     "libero": _libero_tasks, "robocasa365": _robocasa_tasks,
     "molmospaces": _molmospaces_tasks, "roboeval": _roboeval_tasks, "abc": _abc_tasks,
+    "robolab": _robolab_tasks,
 }
 # What each benchmark's --task-id is, for the suite list's footer.
 _TASK_ID = {
@@ -209,6 +233,7 @@ _TASK_ID = {
     "molmospaces": "an episode number, or all",
     "roboeval": "the variant's number or name",
     "abc": "an episode number, 0 or more",
+    "robolab": "a task's name",
 }
 
 

@@ -150,6 +150,7 @@ fn map_anthropic_stop_reason(reason: &str) -> FinishReason {
         "end_turn" => FinishReason::Complete,
         "max_tokens" => FinishReason::Length,
         "tool_use" => FinishReason::ToolUse,
+        "refusal" => FinishReason::ContentFilter,
         other => FinishReason::Unknown(other.to_string()),
     }
 }
@@ -1540,7 +1541,12 @@ impl AnthropicMessagesStreamingState {
 
     fn observe_usage(&mut self, usage: &Json) {
         if let (Some(Json::Object(current)), Json::Object(update)) = (self.usage.as_mut(), usage) {
-            current.extend(update.clone());
+            current.extend(
+                update
+                    .iter()
+                    .filter(|(_, value)| !value.is_null())
+                    .map(|(key, value)| (key.clone(), value.clone())),
+            );
         } else {
             self.usage = Some(usage.clone());
         }

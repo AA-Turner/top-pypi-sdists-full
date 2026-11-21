@@ -23,6 +23,7 @@ from typing import Any
 
 from .literals import (
     BatchGetDiscoverableRegistryRecordErrorCodeType,
+    BotCategoryType,
     RecordTypeType,
     RegistryRecordFilterNameType,
     RegistryRecordStatusType,
@@ -64,6 +65,8 @@ __all__ = (
     "SearchDiscoverableRegistryRecordsRequestPaginateTypeDef",
     "SearchDiscoverableRegistryRecordsRequestTypeDef",
     "SearchDiscoverableRegistryRecordsResponseTypeDef",
+    "SignatureAgentCardAdditionalDataTypeDef",
+    "SignatureAgentCardDescriptorTypeDef",
 )
 
 class BatchGetDiscoverableRegistryRecordErrorTypeDef(TypedDict):
@@ -128,6 +131,9 @@ class SearchDiscoverableRegistryRecordsRequestTypeDef(TypedDict):
     searchType: NotRequired[SearchTypeType]
     nextToken: NotRequired[str]
 
+class SignatureAgentCardAdditionalDataTypeDef(TypedDict):
+    category: NotRequired[BotCategoryType]
+
 class BatchGetDiscoverableRegistryRecordRequestTypeDef(TypedDict):
     entries: Sequence[RegistryRecordsEntryTypeDef]
 
@@ -176,6 +182,12 @@ class AgentSkillsMdDescriptorTypeDef(TypedDict):
 class HttpDescriptorTypeDef(TypedDict):
     source: NotRequired[DescriptorSourceTypeDef]
 
+class SignatureAgentCardDescriptorTypeDef(TypedDict):
+    data: NotRequired[str]
+    dataSchemaVersion: NotRequired[str]
+    source: NotRequired[DescriptorSourceTypeDef]
+    additionalData: NotRequired[SignatureAgentCardAdditionalDataTypeDef]
+
 class McpServerDescriptorTypeDef(TypedDict):
     data: NotRequired[str]
     dataSchemaVersion: NotRequired[str]
@@ -197,6 +209,7 @@ class DescriptorsTypeDef(TypedDict):
     custom: NotRequired[CustomDescriptorTypeDef]
     http: NotRequired[HttpDescriptorTypeDef]
     agui: NotRequired[AgUiDescriptorTypeDef]
+    signatureAgentCard: NotRequired[SignatureAgentCardDescriptorTypeDef]
 
 class RegistryRecordSummaryTypeDef(TypedDict):
     registryArn: str

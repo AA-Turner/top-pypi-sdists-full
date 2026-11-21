@@ -209,8 +209,17 @@ jobs:
         uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0 # meson project() derives the version from git history
-          submodules: recursive # every conformance oracle plus the html5lib-tests data; shallow submodules init here too
           persist-credentials: false
+      - name: 📥 Check out the conformance oracles
+        # checkout never retries a submodule fetch, and one dropped connection on a large oracle (unicodetools) failed
+        # the whole job; the .gitmodules shallow flags keep each fetch to the pinned commit. parse5 pins its nested
+        # html5lib-tests by SSH URL, which a runner without a key cannot clone, so rewrite it to HTTPS as checkout does
+        run: |
+          for attempt in 1 2 3; do
+            git -c url.https://github.com/.insteadOf=git@github.com: submodule update --init --recursive --jobs 8 && exit 0
+            sleep 15
+          done
+          exit 1
       - name: 🟢 Install Node
         # zizmor: ignore[cache-poisoning] no cache: input is set, so setup-node writes no restorable cache
         uses: actions/setup-node@v7.1.0
@@ -391,7 +400,7 @@ jobs:
       dry-run: true
   hooks:
     name: 🧹 Hooks under the cooldown
-    uses: tox-dev/github-workflows/.github/workflows/cooled-hooks.yaml@ef0cd88bef592260a48345753b8b509b209ab189 # 6.8.3
+    uses: tox-dev/github-workflows/.github/workflows/cooled-hooks.yaml@b34c57a8a06e7b043c2ddd0b6b7a8a778d7aa8f7 # 6.8.5
     permissions:
       contents: read
   gate:
@@ -413,6 +422,6 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: 🚦 Require all jobs to succeed
-        uses: tox-dev/github-workflows/required-checks@6.8.3
+        uses: tox-dev/github-workflows/required-checks@6.8.5
         with:
           needs: ${{ toJSON(needs) }}

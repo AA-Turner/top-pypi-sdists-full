@@ -7,7 +7,6 @@ compatibility.
 """
 
 import logging
-import re
 import threading
 from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field
@@ -16,7 +15,6 @@ from typing import TYPE_CHECKING, Any
 
 import yaml
 
-from ..core.target_catalog import normalize_target_name
 from .dependency import (
     DependencyReference,
     GitReferenceType,
@@ -26,10 +24,12 @@ from .dependency import (
     ResolvedReference,
     parse_git_reference,
 )
+from .extension_keys import is_extension_key
 from .manifest_targets import (
     _LEGACY_ALL_TARGET,
     _MANIFEST_TARGET_KEYS,
     ManifestTargetDeclaration,
+    canonical_target_names,
 )
 from .validation import (
     InvalidVirtualPackageExtensionError,
@@ -136,6 +136,19 @@ def invalidate_apm_yml_cache_entry(apm_yml_path: Path) -> None:
             _apm_yml_cache.pop(key, None)
 
 
+_REGISTRY_KEYS = ("insecure", "url")
+_V01_REGISTRY_KEYS = ("aliases", "insecure", "url")
+
+
+def _reject_unknown_registry_keys(name: str, body: dict, known: tuple[str, ...]) -> None:
+    """Reject a mistyped ``registries.<name>`` key; ``x-`` extension keys are ignored."""
+    unknown = sorted(str(key) for key in body if key not in known and not _is_extension_key(key))
+    if unknown:
+        raise ValueError(
+            f"Registry {name!r} has unknown fields: {unknown} (known fields: {list(known)})"
+        )
+
+
 def _parse_v01_registries_block(
     data: dict,
     apm_yml_path: Path,
@@ -146,6 +159,8 @@ def _parse_v01_registries_block(
         return None, None
     if not isinstance(raw, dict):
         raise ValueError(f"OpenAPM v0.1 'registries:' in {apm_yml_path} must be a mapping")
+    from ..deps.registry.url_scheme import registry_url_error
+
     registries: dict[str, str] = {}
     default_name = raw.get("default")
     for name, value in raw.items():
@@ -154,10 +169,12 @@ def _parse_v01_registries_block(
         body = {"url": value} if isinstance(value, str) else value
         if not isinstance(name, str) or not isinstance(body, dict):
             raise ValueError("OpenAPM v0.1 registry entries must be named strings or objects")
+        _reject_unknown_registry_keys(name, body, _V01_REGISTRY_KEYS)
         url = body.get("url")
-        if not isinstance(url, str) or not url.startswith(("https://", "http://")):
-            raise ValueError(f"OpenAPM v0.1 registry {name!r} requires an HTTP(S) url")
-        registries[name] = url
+        error = registry_url_error(name, url, insecure=body.get("insecure"))
+        if error is not None:
+            raise ValueError(f"{error} (in {apm_yml_path})")
+        registries[name] = url.strip()
         aliases = body.get("aliases", [])
         if aliases is not None and not isinstance(aliases, list):
             raise ValueError(f"OpenAPM v0.1 registry {name!r} aliases must be a list")
@@ -199,6 +216,8 @@ def _parse_registries_block(
     if manifest_contract is ManifestContract.OPENAPM_V01:
         return _parse_v01_registries_block(data, apm_yml_path)
 
+    from ..deps.registry.url_scheme import registry_url_error
+
     raw = data.get("registries")
     if raw is None:
         return None, None
@@ -231,28 +250,21 @@ def _parse_registries_block(
             )
         # Token trap: tokens must never appear in repo-tracked YAML files.
         if "token" in body:
+            from ..core.remediation import REGISTRY_TOKEN_IN_MANIFEST
             from ..deps.registry.auth import registry_token_env_var
 
             raise ValueError(
                 f"Registry {name!r}: 'token' must not appear in apm.yml. "
-                f"Use the {registry_token_env_var(name)} "
-                f"environment variable or 'apm config set registry.{name}.token <value>'."
-            )
-        url = body.get("url")
-        if not isinstance(url, str) or not url.strip():
-            raise ValueError(f"Registry {name!r} is missing required field 'url:'")
-        url = url.strip()
-        if not url.startswith(("https://", "http://")):
-            raise ValueError(
-                f"Registry {name!r} URL must start with https:// or http:// (got {url!r})"
+                f"Use the {registry_token_env_var(name)} environment variable, or "
+                f"{REGISTRY_TOKEN_IN_MANIFEST.bind(name=name).clause()}."
             )
         # Reject any unknown keys to catch typos early.
-        unknown = set(body.keys()) - {"url"}
-        if unknown:
-            raise ValueError(
-                f"Registry {name!r} has unknown fields: {sorted(unknown)} (known fields: ['url'])"
-            )
-        registries_map[name] = url
+        _reject_unknown_registry_keys(name, body, _REGISTRY_KEYS)
+        url = body.get("url")
+        error = registry_url_error(name, url, insecure=body.get("insecure"))
+        if error is not None:
+            raise ValueError(f"{error} (in {apm_yml_path})")
+        registries_map[name] = url.strip()
 
     default_name: str | None = None
     if default_value is not None:
@@ -367,13 +379,7 @@ _KNOWN_TOP_LEVEL_KEYS = frozenset(
         "schemaVersion",
     }
 )
-# OpenAPM req-ext-001. A bare ``x-`` prefix is not an extension.
-_EXTENSION_KEY_RE = re.compile(r"^x-[a-z][a-z0-9-]*$")
-
-
-def _is_extension_key(key: object) -> bool:
-    """True when *key* matches OpenAPM req-ext-001 (``x-[a-z][a-z0-9-]*``)."""
-    return isinstance(key, str) and _EXTENSION_KEY_RE.fullmatch(key) is not None
+_is_extension_key = is_extension_key
 
 
 def _ascii_token(value: object) -> str:
@@ -382,12 +388,25 @@ def _ascii_token(value: object) -> str:
     return ascii(text)[1:-1]
 
 
+# OpenAPM req-mf-021: reserved for v0.2; named as such, ignored, never fatal.
+_RESERVED_V02_KEYS = frozenset({"workspaces"})
+
+
 def _warn_unknown_manifest_keys(keys: list[str], manifest_path: Path) -> None:
     """Warn once, naming every ignored top-level key."""
     from ..utils.console import _rich_warning
 
-    safe_keys = ", ".join(_ascii_token(key) for key in keys)
     safe_path = _ascii_token(manifest_path.as_posix())
+    for key in sorted(_RESERVED_V02_KEYS.intersection(keys)):
+        _rich_warning(
+            f"Top-level key '{key}' in {safe_path} is reserved for OpenAPM v0.2; "
+            "its value is ignored in v0.1.",
+            symbol="warning",
+        )
+    keys = [key for key in keys if key not in _RESERVED_V02_KEYS]
+    if not keys:
+        return
+    safe_keys = ", ".join(_ascii_token(key) for key in keys)
     _rich_warning(
         f"Unknown top-level key(s) in {safe_path}: {safe_keys}. "
         "These keys were ignored. Rename each to match x-[a-z][a-z0-9-]* "
@@ -420,6 +439,16 @@ def _collect_manifest_extensions(
     if unknown and warning_handler is not None:
         warning_handler(unknown, manifest_path)
     return extensions
+
+
+def _refuse_reserved_conflict_resolution(raw_deps: Mapping[str, Any], manifest: Path) -> None:
+    """Refuse ``conflict_resolution: nest``, reserved for v0.2 (OpenAPM req-rs-013)."""
+    if raw_deps.get("conflict_resolution") == "nest":
+        raise ValueError(
+            f"'dependencies.conflict_resolution: nest' in {_ascii_token(manifest.as_posix())} "
+            "is reserved for OpenAPM v0.2 and cannot be installed (OpenAPM v0.1 "
+            "Section 7.2, clause (3)). Remove the key or set it to 'intersection-pick'."
+        )
 
 
 def _iter_apm_dependency_lists(
@@ -487,6 +516,9 @@ class APMPackage:
     registries: dict[str, str] | None = None
     # Value of ``registries.default:`` -- routes unscoped deps to this registry.
     default_registry: str | None = None
+    # Value of ``default_host:`` -- the host shorthand dependencies in this
+    # manifest resolve against (OpenAPM req-mf-019). None when omitted.
+    default_host: str | None = None
     manifest_contract: str = "working-draft"
 
     # Top-level ``allowExecutables:`` block -- per-package approval for
@@ -533,9 +565,13 @@ class APMPackage:
             raw_targets.extend(self.target)
         elif isinstance(self.target, str):
             raw_targets.append(self.target)
-        self.canonical_targets = tuple(
-            name if name == "all" else normalize_target_name(name) for name in raw_targets
-        )
+        self.canonical_targets = canonical_target_names(raw_targets)
+
+    @property
+    def vendor_targets(self) -> tuple[str, ...]:
+        """Declared ``x-<vendor>-<name>`` targets (req-tg-004); never deployed."""
+        declaration = self.target_declaration
+        return declaration.vendor_targets if declaration is not None else ()
 
     @classmethod
     def _parse_dependency_dict(cls, raw_deps: dict, label: str = "") -> dict:
@@ -595,6 +631,40 @@ class APMPackage:
         return parsed
 
     @classmethod
+    def _parse_dependency_sections(cls, data: dict, source_manifest: Path) -> tuple:
+        """Parse ``dependencies`` and ``devDependencies`` from manifest data."""
+        dependencies = None
+        raw_deps = data.get("dependencies")
+        if raw_deps is not None:
+            if not isinstance(raw_deps, dict):
+                raise ValueError(
+                    f"Invalid 'dependencies' in {source_manifest}: expected a mapping "
+                    f"with 'apm:' and/or 'mcp:' keys, got {type(raw_deps).__name__}. "
+                    "Use the structured format:\n"
+                    "  dependencies:\n"
+                    "    apm:\n"
+                    "      - owner/repo"
+                )
+            _refuse_reserved_conflict_resolution(raw_deps, source_manifest)
+            dependencies = cls._parse_dependency_dict(raw_deps, label="")
+
+        # Parse devDependencies (same structure as dependencies)
+        dev_dependencies = None
+        raw_dev_deps = data.get("devDependencies")
+        if raw_dev_deps is not None:
+            if not isinstance(raw_dev_deps, dict):
+                raise ValueError(
+                    f"Invalid 'devDependencies' in {source_manifest}: expected a mapping "
+                    f"with 'apm:' and/or 'mcp:' keys, got {type(raw_dev_deps).__name__}. "
+                    "Use the structured format:\n"
+                    "  devDependencies:\n"
+                    "    apm:\n"
+                    "      - owner/repo"
+                )
+            dev_dependencies = cls._parse_dependency_dict(raw_dev_deps, label="dev ")
+        return dependencies, dev_dependencies
+
+    @classmethod
     def from_mapping(
         cls,
         manifest_data: Mapping[str, Any],
@@ -604,6 +674,7 @@ class APMPackage:
         manifest_path: Path | None = None,
         create_config: bool = True,
         warning_handler: Callable[[list[str], Path], None] | None = _warn_unknown_manifest_keys,
+        warn_deprecated: bool = True,
     ) -> "APMPackage":
         """Construct a package from already interpreted manifest data.
 
@@ -624,6 +695,8 @@ class APMPackage:
             warning_handler: Receives unknown keys and their manifest path.
                 Defaults to a terminal warning. Use ``None`` for a prospective
                 parse whose source manifest is diagnosed separately.
+            warn_deprecated: Warn once per process when *manifest_path* is
+                the consumer manifest and uses a deprecated key.
 
         Returns:
             A package with all compatibility projections populated.
@@ -634,13 +707,24 @@ class APMPackage:
         data = dict(manifest_data)
         from apm_cli.deps.plugin_parser import resolve_plugin_root_placeholders
 
+        # MCP and LSP declarations keep the authored ${CLAUDE_PLUGIN_ROOT}: it is
+        # bound below and rendered per target, so recorded state is portable.
         for dependency_key in ("dependencies", "devDependencies"):
-            if dependency_key in data:
-                data[dependency_key] = resolve_plugin_root_placeholders(
-                    data[dependency_key],
-                    package_path,
-                )
-        source_manifest = manifest_path or package_path / "apm.yml"
+            group = data.get(dependency_key)
+            if isinstance(group, dict):
+                data[dependency_key] = {
+                    kind: (
+                        entries
+                        if kind in ("mcp", "lsp")
+                        else resolve_plugin_root_placeholders(entries, package_path)
+                    )
+                    for kind, entries in group.items()
+                }
+            elif group is not None:
+                data[dependency_key] = resolve_plugin_root_placeholders(group, package_path)
+        from apm_cli.core.scope import manifest_file
+
+        source_manifest = manifest_path or manifest_file(package_path)
         resolved_source = source_path.resolve() if source_path is not None else None
 
         from .manifest_contract import negotiate_manifest_contract
@@ -665,39 +749,27 @@ class APMPackage:
             create_config=create_config,
         )
 
-        # Parse dependencies
-        dependencies = None
-        raw_deps = data.get("dependencies")
-        if raw_deps is not None:
-            if not isinstance(raw_deps, dict):
-                raise ValueError(
-                    f"Invalid 'dependencies' in {source_manifest}: expected a mapping "
-                    f"with 'apm:' and/or 'mcp:' keys, got {type(raw_deps).__name__}. "
-                    "Use the structured format:\n"
-                    "  dependencies:\n"
-                    "    apm:\n"
-                    "      - owner/repo"
-                )
-            dependencies = cls._parse_dependency_dict(raw_deps, label="")
+        # ``default_host:`` (OpenAPM req-mf-019): shorthand dependencies in
+        # this manifest resolve against it instead of the implementation
+        # default (GITHUB_HOST or github.com).
+        from .dependency.manifest_host import manifest_host_scope_for
 
-        # Parse devDependencies (same structure as dependencies)
-        dev_dependencies = None
-        raw_dev_deps = data.get("devDependencies")
-        if raw_dev_deps is not None:
-            if not isinstance(raw_dev_deps, dict):
-                raise ValueError(
-                    f"Invalid 'devDependencies' in {source_manifest}: expected a mapping "
-                    f"with 'apm:' and/or 'mcp:' keys, got {type(raw_dev_deps).__name__}. "
-                    "Use the structured format:\n"
-                    "  devDependencies:\n"
-                    "    apm:\n"
-                    "      - owner/repo"
-                )
-            dev_dependencies = cls._parse_dependency_dict(raw_dev_deps, label="dev ")
+        with manifest_host_scope_for(data) as manifest_default_host:
+            dependencies, dev_dependencies = cls._parse_dependency_sections(data, source_manifest)
+
+        from ..deps.plugin_root_render import bind_plugin_roots
+
+        for parsed_group in (dependencies, dev_dependencies):
+            for kind in ("mcp", "lsp"):
+                bind_plugin_roots((parsed_group or {}).get(kind), package_path)
 
         # Merge user/policy registry URLs and config.json default routing.
-        from ..deps.registry.config_loader import resolve_effective_registries
+        from ..deps.registry.config_loader import (
+            resolve_effective_registries,
+            user_registry_config_path,
+        )
 
+        project_registries = registries
         registries, default_registry = resolve_effective_registries(
             registries,
             default_registry,
@@ -706,9 +778,13 @@ class APMPackage:
         if registries or default_registry:
             from ..deps.registry.feature_gate import require_package_registry_enabled
 
+            user_source = None
+            if not project_registries:
+                user_source = user_registry_config_path(create_config=create_config)
             require_package_registry_enabled(
                 "Registry configuration",
                 create_config=create_config,
+                config_source=str(user_source) if user_source else None,
             )
 
         # Route unscoped deps to the effective default registry when configured.
@@ -752,7 +828,9 @@ class APMPackage:
         # The declaration owner validates ``target:`` with the --target
         # vocabulary and ``targets:`` with the manifest vocabulary, and rejects
         # a manifest that declares both.
-        target_declaration = ManifestTargetDeclaration.from_mapping(data, source_manifest)
+        target_declaration = ManifestTargetDeclaration.from_manifest(
+            data, source_manifest, warn_deprecated=warn_deprecated
+        )
         selection = target_declaration.selection
         target_value = selection if target_declaration.spelling == "target" else None
         targets_value = selection if target_declaration.spelling == "targets" else None
@@ -817,6 +895,7 @@ class APMPackage:
             includes=includes,
             registries=registries,
             default_registry=default_registry,
+            default_host=manifest_default_host,
             manifest_contract=manifest_contract.value,
             allow_executables=allow_executables,
             extensions=extensions,
@@ -961,18 +1040,19 @@ def canonical_package_targets(package: object) -> tuple[str, ...]:
         return tuple(canonical)
     plural = getattr(package, "targets", None)
     if isinstance(plural, list) and plural:
-        return tuple(name if name == "all" else normalize_target_name(name) for name in plural)
+        return canonical_target_names(plural)
     singular = getattr(package, "target", None)
     values = singular if isinstance(singular, list) else [singular]
-    return tuple(
-        name if name == "all" else normalize_target_name(name)
-        for name in values
-        if isinstance(name, str) and name
-    )
+    return canonical_target_names(name for name in values if isinstance(name, str) and name)
 
 
 def canonical_package_target_config(package: object) -> dict[str, object]:
     """Project canonical targets into the compatibility config shape.
+
+    The projection is canonical and lossy: ``vscode`` becomes ``copilot``.
+    MCP destination fidelity (``.vscode/mcp.json``) comes from the
+    spelling-preserving ``selection`` that builds the effective target
+    decision, which MCP and LSP installs consult before this config.
 
     Conflicting singular and plural fields remain present so the canonical
     parser can reject the authoring error before any MCP write.
@@ -1044,7 +1124,13 @@ class PackageInfo:
     )
     package_type: PackageType | None = None  # APM_PACKAGE, CLAUDE_SKILL, or HYBRID
     root_local_project_root: Path | None = None
-    deployment_package_root: Path | None = None  # Source root in the deployment output frame
+    # Source root in the deployment output frame: live for replayed dependencies
+    # (paired with deployment_frame), scratch for the replayed self-entry.
+    deployment_package_root: Path | None = None
+    # (replay output root, live deploy root): audit replay renders links live (#3901)
+    deployment_frame: tuple[Path, Path] | None = None
+    local_bundle_id: str | None = None  # Set only for a local bundle's hook view (#3700)
+    local_bundle_approval: str | None = None  # The key that admitted those hooks (#4027)
     # Verbatim licence copies APM added after materialization (#3556); see
     # apm_cli.deps.carried_license. Empty when nothing was carried.
     carried_licenses: tuple[Any, ...] = ()

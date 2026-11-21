@@ -32,6 +32,8 @@ class EditWorkspaceGitSyncConfigJsonBodyGitSyncSettingsRepositoriesItemAutoPull:
         webhook_secret (Union[Unset, str]):
         webhook_url (Union[Unset, str]):
         webhook_error (Union[Unset, str]):
+        webhook_verified_id (Union[Unset, int]): The webhook_id a delivery from the host last arrived for. Polling
+            relaxes to about every 10 minutes only while it matches webhook_id. Set by the server.
         last_synced_sha (Union[Unset,
             EditWorkspaceGitSyncConfigJsonBodyGitSyncSettingsRepositoriesItemAutoPullLastSyncedSha]):
         last_pull_status (Union[Unset,
@@ -48,6 +50,7 @@ class EditWorkspaceGitSyncConfigJsonBodyGitSyncSettingsRepositoriesItemAutoPull:
     webhook_secret: Union[Unset, str] = UNSET
     webhook_url: Union[Unset, str] = UNSET
     webhook_error: Union[Unset, str] = UNSET
+    webhook_verified_id: Union[Unset, int] = UNSET
     last_synced_sha: Union[
         Unset, "EditWorkspaceGitSyncConfigJsonBodyGitSyncSettingsRepositoriesItemAutoPullLastSyncedSha"
     ] = UNSET
@@ -69,6 +72,7 @@ class EditWorkspaceGitSyncConfigJsonBodyGitSyncSettingsRepositoriesItemAutoPull:
         webhook_secret = self.webhook_secret
         webhook_url = self.webhook_url
         webhook_error = self.webhook_error
+        webhook_verified_id = self.webhook_verified_id
         last_synced_sha: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.last_synced_sha, Unset):
             last_synced_sha = self.last_synced_sha.to_dict()
@@ -100,6 +104,8 @@ class EditWorkspaceGitSyncConfigJsonBodyGitSyncSettingsRepositoriesItemAutoPull:
             field_dict["webhook_url"] = webhook_url
         if webhook_error is not UNSET:
             field_dict["webhook_error"] = webhook_error
+        if webhook_verified_id is not UNSET:
+            field_dict["webhook_verified_id"] = webhook_verified_id
         if last_synced_sha is not UNSET:
             field_dict["last_synced_sha"] = last_synced_sha
         if last_pull_status is not UNSET:
@@ -140,6 +146,8 @@ class EditWorkspaceGitSyncConfigJsonBodyGitSyncSettingsRepositoriesItemAutoPull:
 
         webhook_error = d.pop("webhook_error", UNSET)
 
+        webhook_verified_id = d.pop("webhook_verified_id", UNSET)
+
         _last_synced_sha = d.pop("last_synced_sha", UNSET)
         last_synced_sha: Union[
             Unset, EditWorkspaceGitSyncConfigJsonBodyGitSyncSettingsRepositoriesItemAutoPullLastSyncedSha
@@ -177,6 +185,7 @@ class EditWorkspaceGitSyncConfigJsonBodyGitSyncSettingsRepositoriesItemAutoPull:
             webhook_secret=webhook_secret,
             webhook_url=webhook_url,
             webhook_error=webhook_error,
+            webhook_verified_id=webhook_verified_id,
             last_synced_sha=last_synced_sha,
             last_pull_status=last_pull_status,
             enabled_by=enabled_by,

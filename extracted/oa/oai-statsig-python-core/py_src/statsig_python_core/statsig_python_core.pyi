@@ -413,20 +413,18 @@ class StatsigOptions:
     @property
     def lazy_load_id_lists(self) -> typing.Optional[builtins.bool]:
         r"""
-        Fetch the manifest at initialization and load list bodies on first evaluation.
-        True opts in when enable_id_lists is enabled; False or None keeps eager loading.
-        Cold evaluations wait up to 30 ms for loading, then return a partial result
-        while the download continues. Read when the SDK is constructed; recreate
-        the SDK to change this setting. This does not change the synchronous API.
+        With enable_id_lists=True, fetch the manifest at startup and load all lists
+        reachable from a spec before evaluation. Synchronous getters wait up to
+        30 ms. On timeout, they return a partial result while loading continues.
+        False or None selects eager loading. Recreate the SDK to switch modes.
         """
     @lazy_load_id_lists.setter
     def lazy_load_id_lists(self, value: typing.Optional[builtins.bool]) -> None:
         r"""
-        Fetch the manifest at initialization and load list bodies on first evaluation.
-        True opts in when enable_id_lists is enabled; False or None keeps eager loading.
-        Cold evaluations wait up to 30 ms for loading, then return a partial result
-        while the download continues. Read when the SDK is constructed; recreate
-        the SDK to change this setting. This does not change the synchronous API.
+        With enable_id_lists=True, fetch the manifest at startup and load all lists
+        reachable from a spec before evaluation. Synchronous getters wait up to
+        30 ms. On timeout, they return a partial result while loading continues.
+        False or None selects eager loading. Recreate the SDK to switch modes.
         """
     @property
     def enable_id_list_elias_fano(self) -> typing.Optional[builtins.bool]:
@@ -479,12 +477,18 @@ class StatsigOptions:
     @property
     def shared_id_lists_dir(self) -> typing.Optional[builtins.str]:
         r"""
-        Opt into local shared ID-list snapshots. Unset keeps process-private ID lists.
+        Trusted directory for shared ID lists. Omit for private lists. By default,
+        only eager workers share downloads and updates. Add "shared_initial_id_list_base"
+        to experimental_flags at SDK construction to let eligible eager and lazy
+        workers share initial indexes and fetch their own updates.
         """
     @shared_id_lists_dir.setter
     def shared_id_lists_dir(self, value: typing.Optional[builtins.str]) -> None:
         r"""
-        Opt into local shared ID-list snapshots. Unset keeps process-private ID lists.
+        Trusted directory for shared ID lists. Omit for private lists. By default,
+        only eager workers share downloads and updates. Add "shared_initial_id_list_base"
+        to experimental_flags at SDK construction to let eligible eager and lazy
+        workers share initial indexes and fetch their own updates.
         """
     @property
     def download_id_list_file_api(self) -> typing.Optional[builtins.str]: ...

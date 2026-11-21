@@ -21,6 +21,10 @@
 
 #include <string.h>
 
+#if !defined(TH_FORCE_SCALAR) && (defined(__SSE2__) || defined(_M_X64))
+#include <emmintrin.h>
+#endif
+
 /* Doctype quirks tables and the foreign-content step: static helper collections that
    compile into this translation unit. foreign.h forward-declares the tree-builder
    statics it shares (defined below), so both include cleanly at the top. */
@@ -652,6 +656,12 @@ static Py_ssize_t stack_depth_bound(const th_tree *tree) {
     return tree->open_len + tree->open_templates;
 }
 
+/* The depth an append can reach, for the DOM cap: an entry removed from below open elements can stay their ancestor,
+   one level the stack no longer counts. */
+static Py_ssize_t cap_depth_bound(const th_tree *tree) {
+    return stack_depth_bound(tree) + tree->stack_slack;
+}
+
 static int is_html_template(const th_node *node) {
     return node->ns == TH_NS_HTML && node->atom == TH_TAG_TEMPLATE;
 }
@@ -667,7 +677,7 @@ static void note_template_pushed(th_tree *tree) {
     tree->open_templates++;
     tree->stack_tracked = 1;
     note_stack_depth(tree);
-    if (stack_depth_bound(tree) + 1 >= TH_MAX_TREE_DEPTH) {
+    if (cap_depth_bound(tree) + 1 >= TH_MAX_TREE_DEPTH) {
         tree->depth_near_cap = 1;
     }
 }
@@ -703,7 +713,7 @@ static inline int stack_push_checks(th_tree *tree, th_node *node) {
         return 1;
     }
     tree->nest_bound &= TH_NEST_CAPPED;
-    if (stack_depth_bound(tree) + 1 >= TH_MAX_TREE_DEPTH) {
+    if (cap_depth_bound(tree) + 1 >= TH_MAX_TREE_DEPTH) {
         tree->depth_near_cap = 1;
     }
     if (tree->open_blocks != NULL || tree->open_len > STACK_LAZY_BLOCKS) {
@@ -731,11 +741,13 @@ static int stack_push(th_tree *tree, th_node *node) {
         tree->open_cap = (Py_ssize_t)cap;
     }
     tree->open[tree->open_len++] = node;
-    if (node != NULL && node->ns == TH_NS_HTML && node->atom == TH_TAG_P) { /* GCOVR_EXCL_BR_LINE: alloc failure */
-        tree->open_p_count++;
-    }
+    int is_p = node != NULL && node->ns == TH_NS_HTML && node->atom == TH_TAG_P; /* GCOVR_EXCL_BR_LINE: alloc failure */
+    tree->open_p_count += is_p;
     if (!stack_push_checks(tree, node)) { /* GCOVR_EXCL_BR_LINE: allocation failure */
-        return 0;                         /* GCOVR_EXCL_LINE: allocation failure */
+        /* the block summaries could not grow to cover this slot, so the failed parse's unwinding pop must not see it */
+        tree->open_len--;           /* GCOVR_EXCL_LINE: allocation failure */
+        tree->open_p_count -= is_p; /* GCOVR_EXCL_LINE: allocation failure */
+        return 0;                   /* GCOVR_EXCL_LINE: allocation failure */
     }
     tree->stack_version++;
     return 1;
@@ -986,19 +998,75 @@ static int has_ancestors_at_least(const th_node *node, Py_ssize_t limit) {
     return 0;
 }
 
+/* How many ancestors node has; the DOM cap keeps it at most TH_MAX_TREE_DEPTH. */
+static Py_ssize_t ancestor_count(const th_node *node) {
+    Py_ssize_t count = 0;
+    for (const th_node *up = node->parent; up != NULL; up = up->parent) {
+        count++;
+    }
+    return count;
+}
+
+/* The adoption agency's move and the option copy into a selectedcontent build with plain appends, so they can nest
+   nodes past the cap: under a formatting clone, or under a selectedcontent deeper than the option. Walking root's
+   subtree in document order, a node with TH_MAX_TREE_DEPTH ancestors hands its children to its own parent, right after
+   itself, as an append the cap refused would have placed them; the moved nodes keep their order, so the text does too.
+   A refused node stays refused for later appends. */
+static TH_NOINLINE void cap_moved_subtree(th_tree *tree, th_node *root) {
+    Py_ssize_t base = ancestor_count(root);
+    Py_ssize_t depth = base;
+    th_node *stop = root->next_sibling;
+    th_node *node = root;
+    for (;;) {
+        if (depth >= TH_MAX_TREE_DEPTH && node->first_child != NULL) {
+            tree->depth_capped = 1;
+            node->cap_refused = 1;
+            th_node *after = node->next_sibling;
+            while (node->first_child != NULL) {
+                th_node *child = node->first_child;
+                node_remove(child);
+                node_insert_before(node->parent, child, after);
+            }
+        }
+        th_node *down = depth < TH_MAX_TREE_DEPTH ? node->first_child : NULL;
+        if (down != NULL) {
+            node = down;
+            depth++;
+            continue;
+        }
+        while (depth > base && node->next_sibling == NULL) {
+            node = node->parent;
+            depth--;
+        }
+        node = node->next_sibling;
+        if (depth == base && node == stop) {
+            return;
+        }
+    }
+}
+
 /* The open-element stack is never refused, but the DOM stops at TH_MAX_TREE_DEPTH levels: an append under a parent with
    that many ancestors goes to the parent's parent instead (Blink attaches the same way). Nodes the capped parent placed
    after itself were created after it, so they stay in front of the new node: the insertion point is after them. A
    sibling created before the parent, such as a table a reconstructed element was foster-parented before, still bounds
    the run. Foster parenting inserts before a table, which is shallower than the cap, so only appends can need the move.
-   A template's content fragment counts as its template. A stack whose depth bound stays below the cap cannot reach it,
-   which skips the walk. */
+   A template's content fragment counts as its template. A parent the cap refused once keeps refusing: the adoption
+   agency can lift a refused element back under the cap, and an append into it would then land before the nodes already
+   sent after it. A refused element the option copy into a selectedcontent detached from the tree takes appends again,
+   since nothing above it is left to send them to. While the depth bound stays below the cap, only a refused parent
+   moves. */
 static TH_NOINLINE void cap_insertion_walk(th_tree *tree, th_node **parent, th_node **before) {
-    if (!has_ancestors_at_least(*parent, TH_MAX_TREE_DEPTH)) {
+    int deep = cap_depth_bound(tree) + 1 >= TH_MAX_TREE_DEPTH;
+    if (!deep && !tree->depth_capped) {
+        return;
+    }
+    th_node *anchor = (*parent)->type == TH_NODE_CONTENT ? (*parent)->parent : *parent;
+    if (anchor->parent == NULL ||
+        (!anchor->cap_refused && !(deep && has_ancestors_at_least(*parent, TH_MAX_TREE_DEPTH)))) {
         return;
     }
     tree->depth_capped = 1;
-    th_node *anchor = (*parent)->type == TH_NODE_CONTENT ? (*parent)->parent : *parent;
+    anchor->cap_refused = 1;
     *parent = anchor->parent;
     *before = anchor->next_sibling;
     while (*before != NULL && (*before)->seq > anchor->seq) {
@@ -1008,7 +1076,7 @@ static TH_NOINLINE void cap_insertion_walk(th_tree *tree, th_node **parent, th_n
 
 static void insertion_location_target(th_tree *tree, th_node *target, th_node **parent, th_node **before) {
     insertion_location_place(tree, target, parent, before);
-    if (tree->depth_near_cap && *before == NULL && stack_depth_bound(tree) + 1 >= TH_MAX_TREE_DEPTH) {
+    if (tree->depth_near_cap && *before == NULL) {
         cap_insertion_walk(tree, parent, before);
     }
 }
@@ -1687,6 +1755,22 @@ static th_node *insert_template(th_tree *tree, const th_token *token) {
     return node;
 }
 
+/* The first U+0000 in text[0, len), or len when there is none: four code points per SSE2 compare, then the tail. */
+static Py_ssize_t first_nul(const Py_UCS4 *text, Py_ssize_t len) {
+    Py_ssize_t index = 0;
+#if !defined(TH_FORCE_SCALAR) && (defined(__SSE2__) || defined(_M_X64))
+    const __m128i zero = _mm_setzero_si128();
+    while (index + 4 <= len &&
+           _mm_movemask_epi8(_mm_cmpeq_epi32(_mm_loadu_si128((const __m128i *)(text + index)), zero)) == 0) {
+        index += 4;
+    }
+#endif
+    while (index < len && text[index] != 0) {
+        index++;
+    }
+    return index;
+}
+
 static void insert_text(th_tree *tree, Py_UCS4 *text, Py_ssize_t len) {
     if (len == 0) {
         return;
@@ -1695,10 +1779,7 @@ static void insert_text(th_tree *tree, Py_UCS4 *text, Py_ssize_t len) {
        per-run scan entirely unless the document actually contains a NUL */
     Py_ssize_t nul = len;
     if (tree->has_nul) {
-        nul = 0;
-        while (nul < len && text[nul] != 0) {
-            nul++;
-        }
+        nul = first_nul(text, len);
     }
     if (nul < len) {
         Py_ssize_t write_pos = nul;
@@ -2332,6 +2413,9 @@ static void replace_target_children(th_tree *tree, th_select_cache *cache, th_no
             node_remove(target->first_child);
         }
         deep_copy_children(tree, option, target);
+        if (tree->depth_near_cap) {
+            cap_moved_subtree(tree, target);
+        }
     }
     cache->filled = (uint8_t)cache->target_count;
 }
@@ -2486,10 +2570,13 @@ static void select_cache_finish(th_tree *tree) {
     if (state == NULL) {
         return;
     }
-    /* read once: the copies below allocate nodes, so the compiler would reload these after every one */
+    /* read once: the copies below allocate nodes, so the compiler would reload these after every one. Indexed, not
+       an end pointer: a state whose first cache allocation failed holds no caches array, and NULL plus zero is UB */
     const uint8_t recheck = state->recheck;
-    const th_select_cache *end = state->caches + state->count;
-    for (th_select_cache *cache = state->caches; cache != end; cache++) {
+    const Py_ssize_t count = state->count;
+    th_select_cache *caches = state->caches;
+    for (Py_ssize_t index = 0; index < count; index++) {
+        th_select_cache *cache = &caches[index];
         if (cache->disabled || cache->multiple) {
             continue;
         }
@@ -2553,6 +2640,14 @@ static void afe_remove_at(th_tree *tree, Py_ssize_t index) {
    formatting element and its furthest block, which hold no special element and so no template. */
 static void stack_remove_at(th_tree *tree, Py_ssize_t index) {
     tree->open[index]->left_stack = 1;
+    if (index < tree->open_len - 1) {
+        tree->stack_slack++;
+        /* a push below TH_HAS_MEMO_DEPTH skips the cap check, so slack that alone brings such a stack to the cap
+           turns the insertion check on now */
+        if (tree->stack_slack + TH_HAS_MEMO_DEPTH + 1 >= TH_MAX_TREE_DEPTH) {
+            tree->depth_near_cap = 1;
+        }
+    }
     Py_ssize_t old_len = tree->open_len;
     memmove(&tree->open[index], &tree->open[index + 1], (size_t)(tree->open_len - index - 1) * sizeof(th_node *));
     tree->open_len--;
@@ -2836,6 +2931,7 @@ static Py_ssize_t afe_index_of(th_tree *tree, th_node *node) {
 
 static Py_ssize_t stack_index_of(th_tree *tree, th_node *node) {
     for (Py_ssize_t index = tree->open_len - 1; index >= 0; index--) {
+        TH_WORK_STEP();
         if (tree->open[index] == node) {
             return index;
         }
@@ -2870,13 +2966,10 @@ static th_node *afe_find_atom(th_tree *tree, uint16_t atom) {
     return NULL;
 }
 
-static int afe_on_stack(th_tree *tree, th_node *node) {
-    if (tree->afe_stack_hint >= 0 && tree->afe_stack_hint < tree->open_len &&
-        tree->open[tree->afe_stack_hint] == node) {
-        return 1;
-    }
-    tree->afe_stack_hint = stack_index_of(tree, node);
-    return tree->afe_stack_hint >= 0;
+/* An element enters the stack once, when it is created, and every removal marks it as gone, so the mark answers
+   without a scan down a stack that has no depth limit. */
+static int afe_on_stack(const th_node *node) {
+    return !node->left_stack;
 }
 
 /* The most active formatting elements one reconstruction reopens: the entries nearest the end of the list, the ones
@@ -2893,12 +2986,12 @@ static void reconstruct_afe(th_tree *tree) {
         return;
     }
     Py_ssize_t index = tree->afe_len - 1;
-    if (tree->afe[index] == NULL || afe_on_stack(tree, tree->afe[index])) {
+    if (tree->afe[index] == NULL || afe_on_stack(tree->afe[index])) {
         return;
     }
     while (index > 0) {
         index--;
-        if (tree->afe[index] == NULL || afe_on_stack(tree, tree->afe[index])) {
+        if (tree->afe[index] == NULL || afe_on_stack(tree->afe[index])) {
             index++;
             break;
         }
@@ -3005,6 +3098,8 @@ static int adoption_agency(th_tree *tree, uint16_t atom) {
         th_node *common = fmt_stack > 0 /* GCOVR_EXCL_BR_LINE */ ? tree->open[fmt_stack - 1] : tree->document;
         Py_ssize_t bookmark = afe_index_of(tree, fmt);
         th_node *old_select = furthest->reaches_selectedcontent ? select_reaching(furthest->parent) : NULL;
+        /* the move deepens nothing unless the furthest block ends no shallower than it started */
+        Py_ssize_t furthest_depth = tree->depth_near_cap ? ancestor_count(furthest) : 0;
         th_node *node, *last = furthest;
         Py_ssize_t node_idx = furthest_idx;
         /* The inner loop runs until it reaches the formatting element; the
@@ -3074,6 +3169,9 @@ static int adoption_agency(th_tree *tree, uint16_t atom) {
             child = next;
         }
         node_append(furthest, fmt_clone);
+        if (tree->depth_near_cap && ancestor_count(furthest) >= furthest_depth) {
+            cap_moved_subtree(tree, last);
+        }
         if (tree->select_state != NULL) {
             tree->select_state->recheck = 1;
         }
@@ -4378,9 +4476,8 @@ static enum th_drain drain_in_body(th_tree *tree, th_token *tok, th_insert *dc) 
                 if (ai >= 0) {
                     afe_remove_at(tree, ai);
                 }
-                Py_ssize_t si = stack_index_of(tree, existing);
-                if (si >= 0) {
-                    stack_remove_at(tree, si);
+                if (afe_on_stack(existing)) {
+                    stack_remove_at(tree, stack_index_of(tree, existing));
                 }
             }
         }
@@ -5470,25 +5567,9 @@ static void run_close(th_tree *tree) {
 /* Feed the input to the tokenizer (borrowing when there is no CR to normalize)
    and point tree->data at the tokenizer's authoritative input base. */
 static int setup_input(th_tree *tree, th_tokenizer *sm, int kind, const void *data, Py_ssize_t length) {
-    /* hoist the width check out of the per-character loop: a 1-byte buffer uses
-       libc's vectorized memchr, the wide buffers a tight typed scan */
-    int has_cr = 0;
-    if (kind == PyUnicode_1BYTE_KIND) {
-        has_cr = memchr(data, '\r', (size_t)length) != NULL;
-        tree->has_nul = memchr(data, '\0', (size_t)length) != NULL;
-    } else if (kind == PyUnicode_2BYTE_KIND) {
-        const uint16_t *units = (const uint16_t *)data;
-        for (Py_ssize_t index = 0; index < length; index++) {
-            has_cr |= units[index] == '\r';
-            tree->has_nul |= units[index] == 0;
-        }
-    } else {
-        const uint32_t *units = (const uint32_t *)data;
-        for (Py_ssize_t index = 0; index < length; index++) {
-            has_cr |= units[index] == '\r';
-            tree->has_nul |= units[index] == 0;
-        }
-    }
+    int has_nul;
+    int has_cr = th_tok_scan_cr_nul(kind, data, length, &has_nul);
+    tree->has_nul |= has_nul;
     if (has_cr) {
         th_tok_feed(sm, kind, data, length);
     } else {
@@ -5888,6 +5969,14 @@ int th_tree_fragment_context_known(const char *context, Py_ssize_t context_len) 
     return intern_atom(&ctx_name, &ctx_flags) != TH_TAG_UNKNOWN;
 }
 
+/* PyMem_Free for a buffer most trees never allocate: a constructed element's tree frees a dozen NULL pointers, and
+   skipping the allocator call for each keeps building small trees cheap. */
+static inline void free_if_set(void *buffer) {
+    if (buffer != NULL) {
+        PyMem_Free(buffer);
+    }
+}
+
 void th_tree_free(th_tree *tree) {
     if (tree == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure before tree creation */
         return;         /* GCOVR_EXCL_LINE */
@@ -5903,18 +5992,18 @@ void th_tree_free(th_tree *tree) {
         PyMem_Free(block);
         block = next;
     }
-    PyMem_Free(tree->open);
-    PyMem_Free(tree->open_blocks);
-    PyMem_Free(tree->afe);
-    PyMem_Free(tree->afe_hashes);
-    PyMem_Free(tree->tmpl);
-    PyMem_Free(tree->attr_slots);
-    PyMem_Free(tree->attr_recs);
-    PyMem_Free(tree->shadows);
-    PyMem_Free(tree->shadow_index.entries);
+    free_if_set(tree->open);
+    free_if_set(tree->open_blocks);
+    free_if_set(tree->afe);
+    free_if_set(tree->afe_hashes);
+    free_if_set(tree->tmpl);
+    free_if_set(tree->attr_slots);
+    free_if_set(tree->attr_recs);
+    free_if_set(tree->shadows);
+    free_if_set(tree->shadow_index.entries);
     select_cache_free(tree);
-    PyMem_Free(tree->meta_labels);
-    PyMem_Free(tree->owned_data);
+    free_if_set(tree->meta_labels);
+    free_if_set(tree->owned_data);
     th_error_sink_free(&tree->errors);
     PyMem_Free(tree);
 }
@@ -6193,7 +6282,6 @@ static int shadow_compact(th_shadow *shadow, th_node **refs, Py_ssize_t count, s
     dest->stack_version = src->stack_version;
     dest->scope_version = src->stack_version - 1;
     dest->open_p_count = src->open_p_count;
-    dest->afe_stack_hint = -1;
     dest->frameset_ok = src->frameset_ok;
     dest->drop_newline = src->drop_newline;
     dest->foster = src->foster;

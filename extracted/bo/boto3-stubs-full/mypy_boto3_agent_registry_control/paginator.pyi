@@ -12,6 +12,8 @@ Usage::
 
     from mypy_boto3_agent_registry_control.client import AgentRegistryControlClient
     from mypy_boto3_agent_registry_control.paginator import (
+        ListPublisherAssociationsPaginator,
+        ListPublishersPaginator,
         ListRegistriesPaginator,
         ListRegistryRecordsPaginator,
     )
@@ -19,6 +21,8 @@ Usage::
     session = Session()
     client: AgentRegistryControlClient = session.client("agent-registry-control")
 
+    list_publisher_associations_paginator: ListPublisherAssociationsPaginator = client.get_paginator("list_publisher_associations")
+    list_publishers_paginator: ListPublishersPaginator = client.get_paginator("list_publishers")
     list_registries_paginator: ListRegistriesPaginator = client.get_paginator("list_registries")
     list_registry_records_paginator: ListRegistryRecordsPaginator = client.get_paginator("list_registry_records")
     ```
@@ -32,6 +36,10 @@ from typing import TYPE_CHECKING
 from botocore.paginate import PageIterator, Paginator
 
 from .type_defs import (
+    ListPublisherAssociationsRequestPaginateTypeDef,
+    ListPublisherAssociationsResponseTypeDef,
+    ListPublishersRequestPaginateTypeDef,
+    ListPublishersResponseTypeDef,
     ListRegistriesRequestPaginateTypeDef,
     ListRegistriesResponseTypeDef,
     ListRegistryRecordsRequestPaginateTypeDef,
@@ -43,7 +51,48 @@ if sys.version_info >= (3, 12):
 else:
     from typing_extensions import Unpack
 
-__all__ = ("ListRegistriesPaginator", "ListRegistryRecordsPaginator")
+__all__ = (
+    "ListPublisherAssociationsPaginator",
+    "ListPublishersPaginator",
+    "ListRegistriesPaginator",
+    "ListRegistryRecordsPaginator",
+)
+
+if TYPE_CHECKING:
+    _ListPublisherAssociationsPaginatorBase = Paginator[ListPublisherAssociationsResponseTypeDef]
+else:
+    _ListPublisherAssociationsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListPublisherAssociationsPaginator(_ListPublisherAssociationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/agent-registry-control/paginator/ListPublisherAssociations.html#AgentRegistryControl.Paginator.ListPublisherAssociations)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_agent_registry_control/paginators/#listpublisherassociationspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListPublisherAssociationsRequestPaginateTypeDef]
+    ) -> PageIterator[ListPublisherAssociationsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/agent-registry-control/paginator/ListPublisherAssociations.html#AgentRegistryControl.Paginator.ListPublisherAssociations.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_agent_registry_control/paginators/#listpublisherassociationspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListPublishersPaginatorBase = Paginator[ListPublishersResponseTypeDef]
+else:
+    _ListPublishersPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListPublishersPaginator(_ListPublishersPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/agent-registry-control/paginator/ListPublishers.html#AgentRegistryControl.Paginator.ListPublishers)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_agent_registry_control/paginators/#listpublisherspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListPublishersRequestPaginateTypeDef]
+    ) -> PageIterator[ListPublishersResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/agent-registry-control/paginator/ListPublishers.html#AgentRegistryControl.Paginator.ListPublishers.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_agent_registry_control/paginators/#listpublisherspaginator)
+        """
 
 if TYPE_CHECKING:
     _ListRegistriesPaginatorBase = Paginator[ListRegistriesResponseTypeDef]

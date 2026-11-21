@@ -1,3 +1,4 @@
+use super::PreparedIdListUpdate;
 use super::id_list_ids::CompactionPolicy;
 use super::shared_id_list_format::IdListImage;
 use serde::Serialize;
@@ -27,7 +28,7 @@ pub struct IdListFileVersion<'a> {
 }
 
 impl IdListMetadata {
-    pub(super) fn file_version(&self) -> IdListFileVersion<'_> {
+    pub(crate) fn file_version(&self) -> IdListFileVersion<'_> {
         IdListFileVersion {
             file_id: self.file_id.as_deref(),
             creation_time: self.creation_time.into(),
@@ -168,24 +169,51 @@ pub(crate) enum IdListEncoding {
     EliasFano,
 }
 
-enum UpdateMode {
+pub(crate) enum UpdateMode {
     Private(IdListEncoding),
     SharedPublisher,
 }
 
 impl IdList {
-    pub(crate) fn from_update_base(
-        previous: Option<&Self>,
-        snapshot: Option<Self>,
-        metadata: &IdListMetadata,
-    ) -> Self {
+    pub(crate) fn select_base<'a>(
+        installed: Option<&'a IdList>,
+        snapshot: Option<&'a IdList>,
+    ) -> Option<&'a IdList> {
         snapshot
-            .filter(|staged| {
-                previous
-                    .is_none_or(|old| old.metadata.creation_time <= staged.metadata.creation_time)
+            .filter(|base| {
+                installed
+                    .is_none_or(|old| old.metadata.creation_time <= base.metadata.creation_time)
             })
-            .or_else(|| previous.cloned())
-            .unwrap_or_else(|| Self::new(metadata.clone()))
+            .or(installed)
+    }
+
+    pub(crate) fn build(
+        previous: Option<&Self>,
+        update: PreparedIdListUpdate,
+        mode: UpdateMode,
+    ) -> Self {
+        match update {
+            PreparedIdListUpdate::Base(list) => {
+                if let Some(old) =
+                    previous.filter(|old| old.metadata.creation_time > list.metadata.creation_time)
+                {
+                    return old.clone();
+                }
+                list
+            }
+            PreparedIdListUpdate::Raw(update) => {
+                let mut list = previous
+                    .cloned()
+                    .unwrap_or_else(|| Self::new(update.new_metadata.clone()));
+                list.apply_update_inner(update, mode);
+                list
+            }
+        }
+    }
+
+    pub(crate) fn same_membership(&self, other: &Self) -> bool {
+        self.metadata.file_version() == other.metadata.file_version()
+            && Arc::ptr_eq(&self.ids, &other.ids)
     }
 
     pub fn new(metadata: IdListMetadata) -> Self {
@@ -202,6 +230,7 @@ impl IdList {
         self.apply_update_with_encoding(IdListEncoding::Hash, update);
     }
 
+    #[cfg(test)]
     pub(super) fn apply_update_for_publish(&mut self, update: IdListUpdate) {
         self.apply_update_inner(update, UpdateMode::SharedPublisher);
     }
@@ -304,15 +333,21 @@ impl IdListIds {
 }
 
 fn parse_edits(changeset_data: &str) -> impl Iterator<Item = (&str, bool)> {
-    changeset_data.lines().filter_map(|change| {
-        let (sign, id) = change.split_at_checked(1)?;
-        let present = match sign {
-            "+" => true,
-            "-" => false,
-            _ => return None,
-        };
-        (!id.trim().is_empty()).then_some((id, present))
-    })
+    changeset_data.lines().filter_map(parse_edit)
+}
+
+pub(super) fn is_complete_record_prefix(changeset: &str) -> bool {
+    changeset.ends_with('\n') && changeset.lines().all(|line| parse_edit(line).is_some())
+}
+
+fn parse_edit(change: &str) -> Option<(&str, bool)> {
+    let (sign, id) = change.split_at_checked(1)?;
+    let present = match sign {
+        "+" => true,
+        "-" => false,
+        _ => return None,
+    };
+    (!id.trim().is_empty()).then_some((id, present))
 }
 
 #[cfg(test)]

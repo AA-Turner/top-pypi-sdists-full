@@ -16,6 +16,26 @@
 //! let written = write_mol(&mol, &meta);
 //! ```
 
+pub mod bgf;
+pub use bgf::{
+    BgfAtom, BgfAtomKind, BgfConnectivity, BgfError, BgfLimits, BgfRecord, bgf_record_from_json,
+    parse_bgf, parse_bgf_with_limits, write_bgf,
+};
+
+pub mod dlpoly_history;
+pub use dlpoly_history::{
+    DlpolyHistory, DlpolyHistoryAtom, DlpolyHistoryError, DlpolyHistoryFrame, DlpolyHistoryLimits,
+    dlpoly_history_from_json, parse_dlpoly_history, parse_dlpoly_history_with_limits,
+    write_dlpoly_history,
+};
+
+pub mod nwchem;
+pub use nwchem::{
+    NwchemCenter, NwchemError, NwchemGeometry, NwchemLimits, NwchemNucleus, NwchemPrint,
+    nwchem_geometry_from_json, parse_nwchem_geometry, parse_nwchem_geometry_with_limits,
+    write_nwchem_geometry,
+};
+
 pub mod ccd;
 pub use ccd::{
     CcdAtom, CcdBond, CcdComponent, CcdError, CcdParseLimits, parse_ccd_component,
@@ -34,25 +54,61 @@ pub mod cif;
 #[cfg(feature = "crystal")]
 mod cif_symmetry;
 pub mod cjson;
+pub mod cjson_output;
 pub mod cjson_record;
 pub mod cml;
 pub mod cml_named;
 pub mod conversion;
 pub mod cube;
+pub mod fract;
+pub use fract::{
+    FractAtom, FractError, FractNumber, FractParseLimits, FractRecord, parse_fract,
+    parse_fract_json, parse_fract_with_limits, write_fract, write_fract_with_limits,
+};
+pub mod dlpoly;
 pub mod dmol3;
+pub use dlpoly::{
+    DlpolyAtom, DlpolyConfig, DlpolyConfigLimits, DlpolyError, dlpoly_config_from_json,
+    parse_dlpoly_config, parse_dlpoly_config_with_limits, write_dlpoly_config,
+};
+pub mod molden;
+pub use molden::{
+    MoldenAtom, MoldenAtoms, MoldenError, MoldenIntensity, MoldenLengthUnit, MoldenLimits,
+    MoldenNormalMode, MoldenRecord, MoldenVibrationAtom, molden_record_from_json, parse_molden,
+    parse_molden_with_limits, write_molden,
+};
 pub mod error;
 pub mod exyz;
+pub mod tinker;
+pub use tinker::{
+    TinkerAtom, TinkerCell, TinkerError, TinkerParseLimits, TinkerXyz, parse_tinker_xyz,
+    parse_tinker_xyz_with_limits, tinker_xyz_from_json, write_tinker_xyz,
+};
 pub mod fhiaims;
 pub mod gamess_zmat;
 pub mod gaussian;
+pub mod gpr;
 pub mod gro;
+pub mod gromos96;
+pub use gromos96::{
+    Gromos96Block, Gromos96Document, Gromos96Error, Gromos96Geometry, Gromos96Identity,
+    Gromos96LengthUnit, Gromos96ParseLimits, parse_gromos96, parse_gromos96_json,
+    parse_gromos96_with_limits, write_gromos96, write_gromos96_with_limits,
+};
 pub mod gro_lammps;
 pub mod gzmat;
+pub mod unixyz;
+pub mod viewmol;
 pub use gamess_zmat::{GamessZmatWriteOptions, write_gamess_zmat, xyz_to_gamess_zmat};
 pub mod hin;
 pub mod ket;
 pub mod lammps_data;
 pub mod lammps_dump;
+pub mod lpmd;
+pub use lpmd::{
+    LpmdDocument, LpmdError, LpmdFrame, LpmdParseLimits, parse_lpmd, parse_lpmd_json,
+    parse_lpmd_with_limits, write_lpmd, write_lpmd_with_limits,
+};
 pub mod mmcif;
 pub mod mmcif_pdb;
 pub mod mol2000;
@@ -96,7 +152,9 @@ pub use conversion::{
     ConversionAtomMapping, ConversionBondMapping, ConversionError, ConversionLimits,
     ConversionObservation, ConversionPolicy, ConversionReport, PreservationStatus,
     convert_with_report, convert_with_report_json, convert_with_report_with_limits,
-    project_mol2_to_cjson, project_mol2_to_cjson_with_limits,
+    project_cjson_to_cml, project_cjson_to_cml_with_limits, project_cml_to_cjson,
+    project_cml_to_cjson_with_limits, project_mol2_to_cjson, project_mol2_to_cjson_with_limits,
+    roundtrip_cml_source, roundtrip_cml_source_with_limits,
 };
 pub use error::MolParseError;
 pub use reaction_cdxml::{ReactionCdxmlError, write_reaction_cdxml_checked};
@@ -126,6 +184,7 @@ pub use cif::{
     write_cif_periodic_structure,
 };
 pub use cjson::{CjsonError, CjsonParseLimits, parse_cjson, parse_cjson_with_limits, write_cjson};
+pub use cjson_output::{CjsonWriteError, write_cjson_checked};
 pub use cjson_record::{
     CjsonProjection, CjsonRecord, parse_cjson_checked, parse_cjson_checked_with_limits,
     parse_cjson_record, parse_cjson_record_with_limits, write_cjson_record,
@@ -195,12 +254,12 @@ pub use mol2000::{
     CoordinateDimension, GeometryRank, MolFormat, MolMetadata, MolReadReport, MolStereoLoss,
     MolStereoWriteError, SquarePlanarPerceptionDiagnostic, SquarePlanarRejectionReason,
     Stereo3DDiagnostic, UnsupportedStereoReason, parse_mol, parse_mol_with_coords,
-    parse_sdf_with_coords, read_mol_with_diagnostics, read_sdf_with_diagnostics,
-    validate_square_planar_for_write, write_laid_out_mol, write_laid_out_sdf_record_into,
-    write_mol, write_mol_with_conformer, write_mol_with_conformer_checked, write_mol_with_coords,
-    write_mol_with_stereo_report, write_sdf, write_sdf_record, write_sdf_record_v3000,
-    write_sdf_record_with_conformer, write_sdf_record_with_conformer_checked,
-    write_sdf_with_charges,
+    parse_mol_with_coords_3d, parse_sdf_with_coords, read_mol_with_diagnostics,
+    read_sdf_with_diagnostics, validate_square_planar_for_write, write_laid_out_mol,
+    write_laid_out_sdf_record_into, write_mol, write_mol_with_conformer,
+    write_mol_with_conformer_checked, write_mol_with_coords, write_mol_with_stereo_report,
+    write_sdf, write_sdf_record, write_sdf_record_v3000, write_sdf_record_with_conformer,
+    write_sdf_record_with_conformer_checked, write_sdf_with_charges,
 };
 pub use mol3000::{
     V3000SGroup, V3000SGroupKind, V3000SourceLimits, parse_mol_v3000, parse_mol_v3000_with_coords,
@@ -235,17 +294,20 @@ pub use orca::{
     GeometryFrame, OrcaAtom, OrcaBlock, OrcaCartesianError, OrcaCartesianGeometry,
     OrcaCoordinateUnits, OrcaCoords, OrcaInput, OrcaInputError, OrcaInputParseLimits,
     OrcaOptConvergence, OrcaOutput, OrcaOutputError, OrcaOutputParseLimits, OrcaTermination,
-    parse_orca_cartesian, parse_orca_cartesian_with_limits, parse_orca_input,
-    parse_orca_input_with_limits, parse_orca_output, parse_orca_output_with_limits,
-    write_orca_input,
+    OrcaWriteError, OrcaWriteLimits, parse_orca_cartesian, parse_orca_cartesian_with_limits,
+    parse_orca_input, parse_orca_input_with_limits, parse_orca_output,
+    parse_orca_output_with_limits, write_orca_input, write_orca_input_checked,
+    write_orca_input_checked_with_limits, write_orca_input_json_checked,
+    write_orca_input_json_checked_with_limits,
 };
 pub use pdb_selection::{
     PdbSelectedAtom, PdbSelectionError, PdbSelectionLimits, PdbSelectionLoss, PdbSelectionReport,
     select_pdb_atoms, select_pdb_atoms_with_limits,
 };
 pub use pdbqt::{
-    PdbqtError, PdbqtParseLimits, PdbqtWriteError, autodock_atom_type, parse_pdbqt,
-    parse_pdbqt_with_limits, write_pdbqt, write_pdbqt_checked,
+    PdbqtError, PdbqtIsotopeLoss, PdbqtIsotopeProjection, PdbqtParseLimits, PdbqtWriteError,
+    autodock_atom_type, parse_pdbqt, parse_pdbqt_with_limits, project_pdbqt_isotopes, write_pdbqt,
+    write_pdbqt_checked,
 };
 pub use pqr::{
     PqrAtomRecord, PqrError, PqrParseLimits, PqrResult, PqrWriteError, PqrWriteLimits,
@@ -366,4 +428,18 @@ pub use rdfile::{
 pub use pdb_conect::{
     PdbConectError, PdbConectFrame, PdbConectLimits, PdbConectOptions, parse_pdb_conect,
     parse_pdb_conect_with_options, parse_pdb_conect_with_options_and_limits,
+};
+
+pub use gpr::{
+    GprAtom, GprBond, GprBondOrder, GprCoordinate, GprError, GprParseLimits, GprPartialCharge,
+    GprRecord, gpr_nominal_value, parse_gpr, parse_gpr_json, parse_gpr_with_limits, write_gpr,
+    write_gpr_with_limits,
+};
+pub use unixyz::{
+    UnixyzAtom, UnixyzError, UnixyzParseLimits, UnixyzRecord, parse_unixyz, parse_unixyz_json,
+    parse_unixyz_with_limits, unixyz_nominal_value, write_unixyz, write_unixyz_with_limits,
+};
+pub use viewmol::{
+    ViewmolAtom, ViewmolError, ViewmolParseLimits, ViewmolRecord, parse_viewmol,
+    parse_viewmol_json, parse_viewmol_with_limits, write_viewmol, write_viewmol_with_limits,
 };

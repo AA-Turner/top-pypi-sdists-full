@@ -261,8 +261,8 @@ class HttpMediaSession:
                 self._device_response_handler_loop()
             )
 
-        except Exception:
-            # Close socket in case of issues during setup
+        except BaseException:
+            # Close the socket on cancellation as well as authentication errors.
             # noinspection PyBroadException
             try:
                 self._writer.close()
@@ -282,6 +282,30 @@ class HttpMediaSession:
 
         self._writer.write(b"\r\n")
         await self._writer.drain()
+
+    def _decrypt(self, ciphertext):
+        """Plaintext, or the exception to hand to the receiver (runs in a worker thread)."""
+        try:
+            return self._aes.decrypt(ciphertext)
+        except ValueError as e:
+            if "padding is incorrect" in e.args[0].lower():
+                e = ValueError(
+                    e.args[0]
+                    + " - This usually means that"
+                    + " the cloud password is incorrect."
+                )
+            return e
+        except Exception as e:
+            return e
+
+    @staticmethod
+    def _find_audio(tsReader, plaintext):
+        """First complete audio packet of a response, or None (runs in a worker thread)."""
+        tsReader.setBuffer(plaintext)
+        pkt = tsReader.getPacket()
+        if pkt and pkt.payloadType in (PayloadType.PCMA, PayloadType.PCMU):
+            return pkt
+        return None
 
     async def _device_response_handler_loop(self):
         logger.debug("Response handler is running")
@@ -313,18 +337,8 @@ class HttpMediaSession:
             data = await self._reader.readexactly(length)
             if encrypted:
                 ciphertext = data
-                try:
-                    plaintext = self._aes.decrypt(ciphertext)
-                except ValueError as e:
-                    if "padding is incorrect" in e.args[0].lower():
-                        e = ValueError(
-                            e.args[0]
-                            + " - This usually means that"
-                            + " the cloud password is incorrect."
-                        )
-                    plaintext = e
-                except Exception as e:
-                    plaintext = e
+                # Off the event loop: a download decrypts thousands of responses.
+                plaintext = await asyncio.to_thread(self._decrypt, ciphertext)
             else:
                 ciphertext = None
                 plaintext = data
@@ -435,6 +449,20 @@ class HttpMediaSession:
             )
 
             await queue.put(response_obj)
+
+    async def send_audio(self, data: bytes, session: int):
+        """Write a speaker MPEG-TS chunk without waiting for a response."""
+        if not self._started or session not in self._sessions:
+            raise RuntimeError("Media session is not open")
+        headers = {
+            b"Content-Type": b"audio/mp2t",
+            b"X-If-Encrypt": b"0",
+            b"X-Session-Id": str(session).encode(),
+            b"Content-Length": str(len(data)).encode(),
+        }
+        await self._send_http_request(b"--" + self.client_boundary, headers)
+        self._writer.write(data)
+        await self._writer.drain()
 
     async def transceive(
         self,
@@ -560,9 +588,10 @@ class HttpMediaSession:
 
                 # JPEG snapshots and JSON messages are not MPEG-TS packets.
                 if resp.mimetype == "video/mp2t":
-                    tsReader.setBuffer(resp.plaintext)
-                    pkt = tsReader.getPacket()
-                    if pkt and pkt.payloadType in (PayloadType.PCMA, PayloadType.PCMU):
+                    # Off the event loop; responses of one stream are handled one
+                    # after another, so tsReader is never used by two threads.
+                    pkt = await asyncio.to_thread(self._find_audio, tsReader, resp.plaintext)
+                    if pkt:
                         resp.audioPayload = pkt.payload
                         resp.audioPayloadType = pkt.payloadType
 

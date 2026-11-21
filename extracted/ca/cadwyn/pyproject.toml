@@ -1,6 +1,6 @@
 [project]
 name = "cadwyn"
-version = "9.0.1"
+version = "9.1.0"
 description = "Production-ready community-driven modern Stripe-like API versioning in FastAPI"
 authors = [{ name = "Stanislav Zmiev", email = "zmievsa@gmail.com" }]
 license = "MIT"
@@ -49,6 +49,8 @@ classifiers = [
     "Topic :: Internet :: WWW/HTTP",
 ]
 dependencies = [
+    # Exactly the same version, which `cadwyn` and `cadwyn_core` also check at import
+    "cadwyn-core==9.1.0",
     "fastapi >=0.137.1",
     "starlette >=0.30.0",
     "pydantic >=2.12.0",
@@ -76,7 +78,7 @@ dev = [
     "dirty-equals >=0.6.0",
     "uvicorn ~=0.23.0",
     # type checking
-    "ty>=0.0.97",
+    "ty>=0.0.102",
     # docs
     "mkdocs >=1.5.2",
     "mkdocs-material >=9.3.1",
@@ -99,8 +101,14 @@ dev = [
 [tool.uv]
 default-groups = ['dev']
 
+[tool.uv.workspace]
+members = ["cadwyn-core"]
+
+[tool.uv.sources]
+cadwyn-core = { workspace = true }
+
 [tool.hatch.build]
-exclude = ["/node_modules"]
+exclude = ["/node_modules", "/cadwyn-core"]
 skip-excluded-dirs = true
 
 
@@ -153,6 +161,8 @@ omit = [
 ]
 
 [tool.pytest.ini_options]
+# They run in a standalone install of cadwyn-core, which the `standalone` tox environment makes
+addopts = "--ignore=cadwyn-core/tests"
 filterwarnings = [
     # When debugging `ResourceWarning`s, change this to "all" and set PYTHONTRACEMALLOC.
     "error",

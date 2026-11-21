@@ -34,6 +34,7 @@ __all__ = (
     "DeviceFormFactorType",
     "DevicePlatformType",
     "DevicePoolTypeType",
+    "DeviceTypeType",
     "ExecutionResultCodeType",
     "ExecutionResultType",
     "ExecutionStatusType",
@@ -119,6 +120,7 @@ DeviceAttributeType = Literal[
     "APPIUM_VERSION",
     "ARN",
     "AVAILABILITY",
+    "DEVICE_TYPE",
     "FLEET_TYPE",
     "FORM_FACTOR",
     "INSTANCE_ARN",
@@ -134,6 +136,7 @@ DeviceAvailabilityType = Literal["AVAILABLE", "BUSY", "HIGHLY_AVAILABLE", "TEMPO
 DeviceFilterAttributeType = Literal[
     "ARN",
     "AVAILABILITY",
+    "DEVICE_TYPE",
     "FLEET_TYPE",
     "FORM_FACTOR",
     "INSTANCE_ARN",
@@ -148,6 +151,7 @@ DeviceFilterAttributeType = Literal[
 DeviceFormFactorType = Literal["PHONE", "TABLET"]
 DevicePlatformType = Literal["ANDROID", "IOS"]
 DevicePoolTypeType = Literal["CURATED", "PRIVATE"]
+DeviceTypeType = Literal["PHYSICAL", "VIRTUAL"]
 ExecutionResultCodeType = Literal["PARSING_FAILED", "VPC_ENDPOINT_SETUP_FAILED"]
 ExecutionResultType = Literal[
     "ERRORED", "FAILED", "PASSED", "PENDING", "SKIPPED", "STOPPED", "WARNED"
@@ -284,6 +288,7 @@ ServiceName = Literal[
     "account-access-runtime",
     "acm",
     "acm-pca",
+    "agent-discovery",
     "agent-registry",
     "agent-registry-control",
     "aiops",
@@ -294,6 +299,7 @@ ServiceName = Literal[
     "apigateway",
     "apigatewaymanagementapi",
     "apigatewayv2",
+    "apiportal",
     "appconfig",
     "appconfigdata",
     "appfabric",
@@ -584,6 +590,7 @@ ServiceName = Literal[
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
+    "payments",
     "pca-connector-ad",
     "pca-connector-scep",
     "pcs",
@@ -639,6 +646,7 @@ ServiceName = Literal[
     "sagemaker-a2i-runtime",
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
+    "sagemaker-gateway-runtime",
     "sagemaker-geospatial",
     "sagemaker-inference-router-runtime",
     "sagemaker-metrics",

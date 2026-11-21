@@ -94,14 +94,16 @@ def _normalize_chat_override(messages: list[JsonValue]) -> None:
 
 
 def effective_body(body: Mapping[str, Any]) -> JsonObject:
-    result = deepcopy(dict(body))
+    result: JsonObject = deepcopy(dict(body))
     extra = result.pop("extra_body", None)
     if isinstance(extra, dict):
 
-        def merge(target: dict, overlay: dict) -> None:
+        def merge(target: JsonObject, overlay: JsonObject) -> None:
             for key, value in overlay.items():
-                if isinstance(value, dict) and isinstance(target.get(key), dict):
-                    merge(target[key], value)
+                if isinstance(value, dict) and isinstance(
+                    current := target.get(key), dict
+                ):
+                    merge(current, value)
                 else:
                     target[key] = value
 
@@ -125,7 +127,7 @@ class HistoryNegotiation:
         self._key = key
         suggestion = self._cache.read(key)
         self._revision: int | None = suggestion.revision
-        self._cached_mode = suggestion.mode
+        self._cached_mode: HistoryMode | None = suggestion.mode
         self._order = list(
             dict.fromkeys(
                 [

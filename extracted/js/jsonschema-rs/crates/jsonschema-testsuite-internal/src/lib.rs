@@ -1,13 +1,30 @@
 use serde_json::Value;
 use std::collections::BTreeMap;
 
+/// A suite file: related test cases, usually for one keyword.
+#[derive(Debug, serde::Deserialize)]
+pub struct SuiteFile {
+    pub tests: Vec<Case>,
+}
+
 /// An individual test case, containing multiple tests of a single schema's behavior.
 #[derive(Debug, serde::Deserialize)]
 pub struct Case {
+    /// Position within the suite file.
+    #[serde(skip)]
+    pub index: usize,
     /// The test case description.
     pub description: String,
+    /// Dialects the case applies to; `None` means every dialect.
+    pub compatibility: Option<String>,
+    /// Behaviors an implementation must provide for the case to apply.
+    #[serde(default)]
+    pub tags: Vec<String>,
     /// A valid JSON Schema.
     pub schema: Value,
+    /// Schemas the case's schema references, keyed by retrieval URI.
+    #[serde(default, rename = "externalSchemas")]
+    pub external_schemas: BTreeMap<String, Value>,
     /// A set of related tests all using the same schema.
     pub tests: Vec<InnerTest>,
 }
@@ -28,9 +45,14 @@ pub struct InnerTest {
 #[derive(Debug)]
 pub struct Test {
     pub draft: &'static str,
+    /// Suite file the case comes from, relative to `validation/tests`.
+    pub file: &'static str,
     pub schema: Value,
+    /// Schemas the case's schema references, keyed by retrieval URI.
+    pub external_schemas: Vec<(&'static str, Value)>,
     pub case: &'static str,
-    pub is_optional: bool,
+    /// The `format` behavior the case expects; `None` leaves the draft's default.
+    pub validate_formats: Option<bool>,
     /// The test description, briefly explaining which behavior it exercises.
     pub description: &'static str,
     /// Instance validated against the surrounding `schema`.
@@ -82,6 +104,15 @@ pub struct OutputTest {
     pub data: Value,
     pub outputs: Vec<OutputFormat>,
     pub remotes: &'static [OutputRemote],
+    /// The generated validator's `evaluate`, when the generator supports the schema.
+    pub evaluate: Option<fn(&Value) -> EvaluateOutputs>,
+}
+
+/// The `list` and `hierarchical` outputs of one `evaluate` run.
+#[derive(Debug, PartialEq)]
+pub struct EvaluateOutputs {
+    pub list: Value,
+    pub hierarchical: Value,
 }
 
 /// Remote schema contents used by the output test-suite.
@@ -89,6 +120,16 @@ pub struct OutputTest {
 pub struct OutputRemote {
     pub uri: &'static str,
     pub contents: &'static str,
+}
+
+/// What a validation error reports, compared between generated and runtime validators.
+#[derive(Debug, PartialEq, Eq)]
+pub struct ErrorReport {
+    pub message: String,
+    pub schema_path: String,
+    pub evaluation_path: String,
+    pub absolute_keyword_location: Option<String>,
+    pub instance_path: String,
 }
 
 /// Trait for compile-time generated validators.
@@ -101,6 +142,8 @@ pub trait CodegenValidator {
     ///
     /// Returns an error if the instance is invalid according to the schema.
     fn validate(&self, instance: &Value) -> Result<(), Box<dyn std::any::Any + Send + Sync>>;
-    /// Every error, as `(message, schema_path, instance_path)` triples in iteration order.
-    fn iter_errors(&self, instance: &Value) -> Vec<(String, String, String)>;
+    /// Every error, in iteration order.
+    fn iter_errors(&self, instance: &Value) -> Vec<ErrorReport>;
+    /// The `list` and `hierarchical` outputs of `evaluate`.
+    fn evaluate(&self, instance: &Value) -> (Value, Value);
 }

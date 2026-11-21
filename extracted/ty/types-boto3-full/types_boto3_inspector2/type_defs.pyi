@@ -108,6 +108,7 @@ from .literals import (
     PackageTypeType,
     PeriodicScanFrequencyType,
     ProviderType,
+    PurlQualifierKeyType,
     RelationshipStatusType,
     ReportFormatType,
     ReportingErrorCodeType,
@@ -116,6 +117,9 @@ from .literals import (
     ResourceStringComparisonType,
     ResourceTypeType,
     RuleSetCategoryType,
+    RuntimeReachabilityComparisonType,
+    RuntimeReachabilityReasonType,
+    RuntimeReachabilityType,
     RuntimeType,
     SbomReportFormatType,
     ScanModeType,
@@ -481,6 +485,7 @@ __all__ = (
     "ProviderDetailCreateTypeDef",
     "ProviderDetailUpdateTypeDef",
     "ProviderFilterTypeDef",
+    "PurlQualifierFilterTypeDef",
     "RecommendationTypeDef",
     "RemediationTypeDef",
     "RepositoryAggregationResponseTypeDef",
@@ -497,6 +502,8 @@ __all__ = (
     "ResourceStringFilterTypeDef",
     "ResourceTypeDef",
     "ResponseMetadataTypeDef",
+    "RuntimeReachabilityFilterTypeDef",
+    "RuntimeReachabilityReasonFilterTypeDef",
     "ScanStatusTypeDef",
     "ScheduleOutputTypeDef",
     "ScheduleTypeDef",
@@ -1298,6 +1305,19 @@ class PortRangeTypeDef(TypedDict):
     begin: int
     end: int
 
+class PurlQualifierFilterTypeDef(TypedDict):
+    comparison: Literal["EQUALS"]
+    key: PurlQualifierKeyType
+    value: NotRequired[str]
+
+class RuntimeReachabilityFilterTypeDef(TypedDict):
+    comparison: RuntimeReachabilityComparisonType
+    value: RuntimeReachabilityType
+
+class RuntimeReachabilityReasonFilterTypeDef(TypedDict):
+    comparison: RuntimeReachabilityComparisonType
+    value: RuntimeReachabilityReasonType
+
 class VulnerablePackageTypeDef(TypedDict):
     name: str
     version: str
@@ -1310,6 +1330,9 @@ class VulnerablePackageTypeDef(TypedDict):
     fixedInVersion: NotRequired[str]
     remediation: NotRequired[str]
     sourceLambdaLayerArn: NotRequired[str]
+    runtimeReachability: NotRequired[RuntimeReachabilityType]
+    runtimeReachabilityReason: NotRequired[RuntimeReachabilityReasonType]
+    purl: NotRequired[str]
 
 class ProjectContinuousIntegrationScanConfigurationTypeDef(TypedDict):
     supportedEvent: NotRequired[ContinuousIntegrationScanEventType]
@@ -1892,16 +1915,6 @@ class UpdateOrganizationConfigurationResponseTypeDef(TypedDict):
     autoEnable: AutoEnableTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
-class PackageFilterTypeDef(TypedDict):
-    name: NotRequired[StringFilterTypeDef]
-    version: NotRequired[StringFilterTypeDef]
-    epoch: NotRequired[NumberFilterTypeDef]
-    release: NotRequired[StringFilterTypeDef]
-    architecture: NotRequired[StringFilterTypeDef]
-    sourceLayerHash: NotRequired[StringFilterTypeDef]
-    sourceLambdaLayerArn: NotRequired[StringFilterTypeDef]
-    filePath: NotRequired[StringFilterTypeDef]
-
 class AwsEksMetadataDetailsTypeDef(TypedDict):
     namespace: NotRequired[str]
     workloadInfoList: NotRequired[list[AwsEksWorkloadInfoTypeDef]]
@@ -2314,6 +2327,19 @@ class ListOnDemandScansResponseTypeDef(TypedDict):
 class NetworkPathTypeDef(TypedDict):
     steps: NotRequired[list[StepTypeDef]]
 
+class PackageFilterTypeDef(TypedDict):
+    name: NotRequired[StringFilterTypeDef]
+    version: NotRequired[StringFilterTypeDef]
+    epoch: NotRequired[NumberFilterTypeDef]
+    release: NotRequired[StringFilterTypeDef]
+    architecture: NotRequired[StringFilterTypeDef]
+    sourceLayerHash: NotRequired[StringFilterTypeDef]
+    sourceLambdaLayerArn: NotRequired[StringFilterTypeDef]
+    filePath: NotRequired[StringFilterTypeDef]
+    runtimeReachability: NotRequired[RuntimeReachabilityFilterTypeDef]
+    runtimeReachabilityReason: NotRequired[RuntimeReachabilityReasonFilterTypeDef]
+    purlQualifier: NotRequired[PurlQualifierFilterTypeDef]
+
 class PackageVulnerabilityDetailsTypeDef(TypedDict):
     vulnerabilityId: str
     source: str
@@ -2469,77 +2495,6 @@ class BatchDisassociateCodeSecurityScanConfigurationResponseTypeDef(TypedDict):
     successfulAssociations: list[SuccessfulAssociationResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
-class FilterCriteriaOutputTypeDef(TypedDict):
-    findingArn: NotRequired[list[StringFilterTypeDef]]
-    awsAccountId: NotRequired[list[StringFilterTypeDef]]
-    findingType: NotRequired[list[StringFilterTypeDef]]
-    severity: NotRequired[list[StringFilterTypeDef]]
-    firstObservedAt: NotRequired[list[DateFilterOutputTypeDef]]
-    lastObservedAt: NotRequired[list[DateFilterOutputTypeDef]]
-    updatedAt: NotRequired[list[DateFilterOutputTypeDef]]
-    findingStatus: NotRequired[list[StringFilterTypeDef]]
-    title: NotRequired[list[StringFilterTypeDef]]
-    inspectorScore: NotRequired[list[NumberFilterTypeDef]]
-    resourceType: NotRequired[list[StringFilterTypeDef]]
-    resourceId: NotRequired[list[StringFilterTypeDef]]
-    resourceTags: NotRequired[list[MapFilterTypeDef]]
-    ec2InstanceImageId: NotRequired[list[StringFilterTypeDef]]
-    ec2InstanceVpcId: NotRequired[list[StringFilterTypeDef]]
-    ec2InstanceSubnetId: NotRequired[list[StringFilterTypeDef]]
-    ecrImagePushedAt: NotRequired[list[DateFilterOutputTypeDef]]
-    ecrImageArchitecture: NotRequired[list[StringFilterTypeDef]]
-    ecrImageRegistry: NotRequired[list[StringFilterTypeDef]]
-    ecrImageRepositoryName: NotRequired[list[StringFilterTypeDef]]
-    ecrImageTags: NotRequired[list[StringFilterTypeDef]]
-    ecrImageHash: NotRequired[list[StringFilterTypeDef]]
-    ecrImageLastInUseAt: NotRequired[list[DateFilterOutputTypeDef]]
-    ecrImageInUseCount: NotRequired[list[NumberFilterTypeDef]]
-    portRange: NotRequired[list[PortRangeFilterTypeDef]]
-    networkProtocol: NotRequired[list[StringFilterTypeDef]]
-    componentId: NotRequired[list[StringFilterTypeDef]]
-    componentType: NotRequired[list[StringFilterTypeDef]]
-    vulnerabilityId: NotRequired[list[StringFilterTypeDef]]
-    vulnerabilitySource: NotRequired[list[StringFilterTypeDef]]
-    vendorSeverity: NotRequired[list[StringFilterTypeDef]]
-    vulnerablePackages: NotRequired[list[PackageFilterTypeDef]]
-    relatedVulnerabilities: NotRequired[list[StringFilterTypeDef]]
-    fixAvailable: NotRequired[list[StringFilterTypeDef]]
-    lambdaFunctionName: NotRequired[list[StringFilterTypeDef]]
-    lambdaFunctionLayers: NotRequired[list[StringFilterTypeDef]]
-    lambdaFunctionRuntime: NotRequired[list[StringFilterTypeDef]]
-    lambdaFunctionLastModifiedAt: NotRequired[list[DateFilterOutputTypeDef]]
-    lambdaFunctionExecutionRoleArn: NotRequired[list[StringFilterTypeDef]]
-    exploitAvailable: NotRequired[list[StringFilterTypeDef]]
-    codeVulnerabilityDetectorName: NotRequired[list[StringFilterTypeDef]]
-    codeVulnerabilityDetectorTags: NotRequired[list[StringFilterTypeDef]]
-    codeVulnerabilityFilePath: NotRequired[list[StringFilterTypeDef]]
-    epssScore: NotRequired[list[NumberFilterTypeDef]]
-    codeRepositoryProjectName: NotRequired[list[StringFilterTypeDef]]
-    codeRepositoryProviderType: NotRequired[list[StringFilterTypeDef]]
-    machineImageId: NotRequired[list[StringFilterTypeDef]]
-    machineImageName: NotRequired[list[StringFilterTypeDef]]
-    machineImageOwnerAccountId: NotRequired[list[StringFilterTypeDef]]
-    machineImagePlatform: NotRequired[list[StringFilterTypeDef]]
-    cloudProvider: NotRequired[list[StringFilterTypeDef]]
-    cloudProviderRegion: NotRequired[list[StringFilterTypeDef]]
-    cloudProviderAccountId: NotRequired[list[StringFilterTypeDef]]
-    cloudProviderOrgId: NotRequired[list[StringFilterTypeDef]]
-    cloudVmImageReference: NotRequired[list[StringFilterTypeDef]]
-    cloudVmNetworkId: NotRequired[list[StringFilterTypeDef]]
-    cloudVmSubnetIds: NotRequired[list[StringFilterTypeDef]]
-    cloudImageRepositoryName: NotRequired[list[StringFilterTypeDef]]
-    cloudImageRegistry: NotRequired[list[StringFilterTypeDef]]
-    cloudImageDigest: NotRequired[list[StringFilterTypeDef]]
-    cloudImageTags: NotRequired[list[StringFilterTypeDef]]
-    cloudImagePushedAt: NotRequired[list[DateFilterOutputTypeDef]]
-    cloudImageArchitecture: NotRequired[list[StringFilterTypeDef]]
-    cloudImageLastInUseAt: NotRequired[list[DateFilterOutputTypeDef]]
-    cloudImageInUseCount: NotRequired[list[NumberFilterTypeDef]]
-    cloudServerlessFunctionName: NotRequired[list[StringFilterTypeDef]]
-    cloudServerlessFunctionRuntime: NotRequired[list[StringFilterTypeDef]]
-    cloudServerlessFunctionLastModifiedAt: NotRequired[list[DateFilterOutputTypeDef]]
-    cloudServerlessFunctionExecutionRole: NotRequired[list[StringFilterTypeDef]]
-
 class ClusterMetadataTypeDef(TypedDict):
     awsEcsMetadataDetails: NotRequired[AwsEcsMetadataDetailsTypeDef]
     awsEksMetadataDetails: NotRequired[AwsEksMetadataDetailsTypeDef]
@@ -2639,77 +2594,6 @@ class AwsEcrContainerAggregationTypeDef(TypedDict):
     inUseCount: NotRequired[Sequence[NumberFilterTypeDef]]
 
 DateFilterUnionTypeDef = Union[DateFilterTypeDef, DateFilterOutputTypeDef]
-
-class FilterCriteriaTypeDef(TypedDict):
-    findingArn: NotRequired[Sequence[StringFilterTypeDef]]
-    awsAccountId: NotRequired[Sequence[StringFilterTypeDef]]
-    findingType: NotRequired[Sequence[StringFilterTypeDef]]
-    severity: NotRequired[Sequence[StringFilterTypeDef]]
-    firstObservedAt: NotRequired[Sequence[DateFilterTypeDef]]
-    lastObservedAt: NotRequired[Sequence[DateFilterTypeDef]]
-    updatedAt: NotRequired[Sequence[DateFilterTypeDef]]
-    findingStatus: NotRequired[Sequence[StringFilterTypeDef]]
-    title: NotRequired[Sequence[StringFilterTypeDef]]
-    inspectorScore: NotRequired[Sequence[NumberFilterTypeDef]]
-    resourceType: NotRequired[Sequence[StringFilterTypeDef]]
-    resourceId: NotRequired[Sequence[StringFilterTypeDef]]
-    resourceTags: NotRequired[Sequence[MapFilterTypeDef]]
-    ec2InstanceImageId: NotRequired[Sequence[StringFilterTypeDef]]
-    ec2InstanceVpcId: NotRequired[Sequence[StringFilterTypeDef]]
-    ec2InstanceSubnetId: NotRequired[Sequence[StringFilterTypeDef]]
-    ecrImagePushedAt: NotRequired[Sequence[DateFilterTypeDef]]
-    ecrImageArchitecture: NotRequired[Sequence[StringFilterTypeDef]]
-    ecrImageRegistry: NotRequired[Sequence[StringFilterTypeDef]]
-    ecrImageRepositoryName: NotRequired[Sequence[StringFilterTypeDef]]
-    ecrImageTags: NotRequired[Sequence[StringFilterTypeDef]]
-    ecrImageHash: NotRequired[Sequence[StringFilterTypeDef]]
-    ecrImageLastInUseAt: NotRequired[Sequence[DateFilterTypeDef]]
-    ecrImageInUseCount: NotRequired[Sequence[NumberFilterTypeDef]]
-    portRange: NotRequired[Sequence[PortRangeFilterTypeDef]]
-    networkProtocol: NotRequired[Sequence[StringFilterTypeDef]]
-    componentId: NotRequired[Sequence[StringFilterTypeDef]]
-    componentType: NotRequired[Sequence[StringFilterTypeDef]]
-    vulnerabilityId: NotRequired[Sequence[StringFilterTypeDef]]
-    vulnerabilitySource: NotRequired[Sequence[StringFilterTypeDef]]
-    vendorSeverity: NotRequired[Sequence[StringFilterTypeDef]]
-    vulnerablePackages: NotRequired[Sequence[PackageFilterTypeDef]]
-    relatedVulnerabilities: NotRequired[Sequence[StringFilterTypeDef]]
-    fixAvailable: NotRequired[Sequence[StringFilterTypeDef]]
-    lambdaFunctionName: NotRequired[Sequence[StringFilterTypeDef]]
-    lambdaFunctionLayers: NotRequired[Sequence[StringFilterTypeDef]]
-    lambdaFunctionRuntime: NotRequired[Sequence[StringFilterTypeDef]]
-    lambdaFunctionLastModifiedAt: NotRequired[Sequence[DateFilterTypeDef]]
-    lambdaFunctionExecutionRoleArn: NotRequired[Sequence[StringFilterTypeDef]]
-    exploitAvailable: NotRequired[Sequence[StringFilterTypeDef]]
-    codeVulnerabilityDetectorName: NotRequired[Sequence[StringFilterTypeDef]]
-    codeVulnerabilityDetectorTags: NotRequired[Sequence[StringFilterTypeDef]]
-    codeVulnerabilityFilePath: NotRequired[Sequence[StringFilterTypeDef]]
-    epssScore: NotRequired[Sequence[NumberFilterTypeDef]]
-    codeRepositoryProjectName: NotRequired[Sequence[StringFilterTypeDef]]
-    codeRepositoryProviderType: NotRequired[Sequence[StringFilterTypeDef]]
-    machineImageId: NotRequired[Sequence[StringFilterTypeDef]]
-    machineImageName: NotRequired[Sequence[StringFilterTypeDef]]
-    machineImageOwnerAccountId: NotRequired[Sequence[StringFilterTypeDef]]
-    machineImagePlatform: NotRequired[Sequence[StringFilterTypeDef]]
-    cloudProvider: NotRequired[Sequence[StringFilterTypeDef]]
-    cloudProviderRegion: NotRequired[Sequence[StringFilterTypeDef]]
-    cloudProviderAccountId: NotRequired[Sequence[StringFilterTypeDef]]
-    cloudProviderOrgId: NotRequired[Sequence[StringFilterTypeDef]]
-    cloudVmImageReference: NotRequired[Sequence[StringFilterTypeDef]]
-    cloudVmNetworkId: NotRequired[Sequence[StringFilterTypeDef]]
-    cloudVmSubnetIds: NotRequired[Sequence[StringFilterTypeDef]]
-    cloudImageRepositoryName: NotRequired[Sequence[StringFilterTypeDef]]
-    cloudImageRegistry: NotRequired[Sequence[StringFilterTypeDef]]
-    cloudImageDigest: NotRequired[Sequence[StringFilterTypeDef]]
-    cloudImageTags: NotRequired[Sequence[StringFilterTypeDef]]
-    cloudImagePushedAt: NotRequired[Sequence[DateFilterTypeDef]]
-    cloudImageArchitecture: NotRequired[Sequence[StringFilterTypeDef]]
-    cloudImageLastInUseAt: NotRequired[Sequence[DateFilterTypeDef]]
-    cloudImageInUseCount: NotRequired[Sequence[NumberFilterTypeDef]]
-    cloudServerlessFunctionName: NotRequired[Sequence[StringFilterTypeDef]]
-    cloudServerlessFunctionRuntime: NotRequired[Sequence[StringFilterTypeDef]]
-    cloudServerlessFunctionLastModifiedAt: NotRequired[Sequence[DateFilterTypeDef]]
-    cloudServerlessFunctionExecutionRole: NotRequired[Sequence[StringFilterTypeDef]]
 
 class ListCisScansResponseTypeDef(TypedDict):
     scans: list[CisScanTypeDef]
@@ -2912,6 +2796,148 @@ class NetworkReachabilityDetailsTypeDef(TypedDict):
     protocol: NetworkProtocolType
     networkPath: NetworkPathTypeDef
 
+class FilterCriteriaOutputTypeDef(TypedDict):
+    findingArn: NotRequired[list[StringFilterTypeDef]]
+    awsAccountId: NotRequired[list[StringFilterTypeDef]]
+    findingType: NotRequired[list[StringFilterTypeDef]]
+    severity: NotRequired[list[StringFilterTypeDef]]
+    firstObservedAt: NotRequired[list[DateFilterOutputTypeDef]]
+    lastObservedAt: NotRequired[list[DateFilterOutputTypeDef]]
+    updatedAt: NotRequired[list[DateFilterOutputTypeDef]]
+    findingStatus: NotRequired[list[StringFilterTypeDef]]
+    title: NotRequired[list[StringFilterTypeDef]]
+    inspectorScore: NotRequired[list[NumberFilterTypeDef]]
+    resourceType: NotRequired[list[StringFilterTypeDef]]
+    resourceId: NotRequired[list[StringFilterTypeDef]]
+    resourceTags: NotRequired[list[MapFilterTypeDef]]
+    ec2InstanceImageId: NotRequired[list[StringFilterTypeDef]]
+    ec2InstanceVpcId: NotRequired[list[StringFilterTypeDef]]
+    ec2InstanceSubnetId: NotRequired[list[StringFilterTypeDef]]
+    ecrImagePushedAt: NotRequired[list[DateFilterOutputTypeDef]]
+    ecrImageArchitecture: NotRequired[list[StringFilterTypeDef]]
+    ecrImageRegistry: NotRequired[list[StringFilterTypeDef]]
+    ecrImageRepositoryName: NotRequired[list[StringFilterTypeDef]]
+    ecrImageTags: NotRequired[list[StringFilterTypeDef]]
+    ecrImageHash: NotRequired[list[StringFilterTypeDef]]
+    ecrImageLastInUseAt: NotRequired[list[DateFilterOutputTypeDef]]
+    ecrImageInUseCount: NotRequired[list[NumberFilterTypeDef]]
+    portRange: NotRequired[list[PortRangeFilterTypeDef]]
+    networkProtocol: NotRequired[list[StringFilterTypeDef]]
+    componentId: NotRequired[list[StringFilterTypeDef]]
+    componentType: NotRequired[list[StringFilterTypeDef]]
+    vulnerabilityId: NotRequired[list[StringFilterTypeDef]]
+    vulnerabilitySource: NotRequired[list[StringFilterTypeDef]]
+    vendorSeverity: NotRequired[list[StringFilterTypeDef]]
+    vulnerablePackages: NotRequired[list[PackageFilterTypeDef]]
+    relatedVulnerabilities: NotRequired[list[StringFilterTypeDef]]
+    fixAvailable: NotRequired[list[StringFilterTypeDef]]
+    lambdaFunctionName: NotRequired[list[StringFilterTypeDef]]
+    lambdaFunctionLayers: NotRequired[list[StringFilterTypeDef]]
+    lambdaFunctionRuntime: NotRequired[list[StringFilterTypeDef]]
+    lambdaFunctionLastModifiedAt: NotRequired[list[DateFilterOutputTypeDef]]
+    lambdaFunctionExecutionRoleArn: NotRequired[list[StringFilterTypeDef]]
+    exploitAvailable: NotRequired[list[StringFilterTypeDef]]
+    codeVulnerabilityDetectorName: NotRequired[list[StringFilterTypeDef]]
+    codeVulnerabilityDetectorTags: NotRequired[list[StringFilterTypeDef]]
+    codeVulnerabilityFilePath: NotRequired[list[StringFilterTypeDef]]
+    epssScore: NotRequired[list[NumberFilterTypeDef]]
+    codeRepositoryProjectName: NotRequired[list[StringFilterTypeDef]]
+    codeRepositoryProviderType: NotRequired[list[StringFilterTypeDef]]
+    machineImageId: NotRequired[list[StringFilterTypeDef]]
+    machineImageName: NotRequired[list[StringFilterTypeDef]]
+    machineImageOwnerAccountId: NotRequired[list[StringFilterTypeDef]]
+    machineImagePlatform: NotRequired[list[StringFilterTypeDef]]
+    cloudProvider: NotRequired[list[StringFilterTypeDef]]
+    cloudProviderRegion: NotRequired[list[StringFilterTypeDef]]
+    cloudProviderAccountId: NotRequired[list[StringFilterTypeDef]]
+    cloudProviderOrgId: NotRequired[list[StringFilterTypeDef]]
+    cloudVmImageReference: NotRequired[list[StringFilterTypeDef]]
+    cloudVmNetworkId: NotRequired[list[StringFilterTypeDef]]
+    cloudVmSubnetIds: NotRequired[list[StringFilterTypeDef]]
+    cloudImageRepositoryName: NotRequired[list[StringFilterTypeDef]]
+    cloudImageRegistry: NotRequired[list[StringFilterTypeDef]]
+    cloudImageDigest: NotRequired[list[StringFilterTypeDef]]
+    cloudImageTags: NotRequired[list[StringFilterTypeDef]]
+    cloudImagePushedAt: NotRequired[list[DateFilterOutputTypeDef]]
+    cloudImageArchitecture: NotRequired[list[StringFilterTypeDef]]
+    cloudImageLastInUseAt: NotRequired[list[DateFilterOutputTypeDef]]
+    cloudImageInUseCount: NotRequired[list[NumberFilterTypeDef]]
+    cloudServerlessFunctionName: NotRequired[list[StringFilterTypeDef]]
+    cloudServerlessFunctionRuntime: NotRequired[list[StringFilterTypeDef]]
+    cloudServerlessFunctionLastModifiedAt: NotRequired[list[DateFilterOutputTypeDef]]
+    cloudServerlessFunctionExecutionRole: NotRequired[list[StringFilterTypeDef]]
+
+class FilterCriteriaTypeDef(TypedDict):
+    findingArn: NotRequired[Sequence[StringFilterTypeDef]]
+    awsAccountId: NotRequired[Sequence[StringFilterTypeDef]]
+    findingType: NotRequired[Sequence[StringFilterTypeDef]]
+    severity: NotRequired[Sequence[StringFilterTypeDef]]
+    firstObservedAt: NotRequired[Sequence[DateFilterTypeDef]]
+    lastObservedAt: NotRequired[Sequence[DateFilterTypeDef]]
+    updatedAt: NotRequired[Sequence[DateFilterTypeDef]]
+    findingStatus: NotRequired[Sequence[StringFilterTypeDef]]
+    title: NotRequired[Sequence[StringFilterTypeDef]]
+    inspectorScore: NotRequired[Sequence[NumberFilterTypeDef]]
+    resourceType: NotRequired[Sequence[StringFilterTypeDef]]
+    resourceId: NotRequired[Sequence[StringFilterTypeDef]]
+    resourceTags: NotRequired[Sequence[MapFilterTypeDef]]
+    ec2InstanceImageId: NotRequired[Sequence[StringFilterTypeDef]]
+    ec2InstanceVpcId: NotRequired[Sequence[StringFilterTypeDef]]
+    ec2InstanceSubnetId: NotRequired[Sequence[StringFilterTypeDef]]
+    ecrImagePushedAt: NotRequired[Sequence[DateFilterTypeDef]]
+    ecrImageArchitecture: NotRequired[Sequence[StringFilterTypeDef]]
+    ecrImageRegistry: NotRequired[Sequence[StringFilterTypeDef]]
+    ecrImageRepositoryName: NotRequired[Sequence[StringFilterTypeDef]]
+    ecrImageTags: NotRequired[Sequence[StringFilterTypeDef]]
+    ecrImageHash: NotRequired[Sequence[StringFilterTypeDef]]
+    ecrImageLastInUseAt: NotRequired[Sequence[DateFilterTypeDef]]
+    ecrImageInUseCount: NotRequired[Sequence[NumberFilterTypeDef]]
+    portRange: NotRequired[Sequence[PortRangeFilterTypeDef]]
+    networkProtocol: NotRequired[Sequence[StringFilterTypeDef]]
+    componentId: NotRequired[Sequence[StringFilterTypeDef]]
+    componentType: NotRequired[Sequence[StringFilterTypeDef]]
+    vulnerabilityId: NotRequired[Sequence[StringFilterTypeDef]]
+    vulnerabilitySource: NotRequired[Sequence[StringFilterTypeDef]]
+    vendorSeverity: NotRequired[Sequence[StringFilterTypeDef]]
+    vulnerablePackages: NotRequired[Sequence[PackageFilterTypeDef]]
+    relatedVulnerabilities: NotRequired[Sequence[StringFilterTypeDef]]
+    fixAvailable: NotRequired[Sequence[StringFilterTypeDef]]
+    lambdaFunctionName: NotRequired[Sequence[StringFilterTypeDef]]
+    lambdaFunctionLayers: NotRequired[Sequence[StringFilterTypeDef]]
+    lambdaFunctionRuntime: NotRequired[Sequence[StringFilterTypeDef]]
+    lambdaFunctionLastModifiedAt: NotRequired[Sequence[DateFilterTypeDef]]
+    lambdaFunctionExecutionRoleArn: NotRequired[Sequence[StringFilterTypeDef]]
+    exploitAvailable: NotRequired[Sequence[StringFilterTypeDef]]
+    codeVulnerabilityDetectorName: NotRequired[Sequence[StringFilterTypeDef]]
+    codeVulnerabilityDetectorTags: NotRequired[Sequence[StringFilterTypeDef]]
+    codeVulnerabilityFilePath: NotRequired[Sequence[StringFilterTypeDef]]
+    epssScore: NotRequired[Sequence[NumberFilterTypeDef]]
+    codeRepositoryProjectName: NotRequired[Sequence[StringFilterTypeDef]]
+    codeRepositoryProviderType: NotRequired[Sequence[StringFilterTypeDef]]
+    machineImageId: NotRequired[Sequence[StringFilterTypeDef]]
+    machineImageName: NotRequired[Sequence[StringFilterTypeDef]]
+    machineImageOwnerAccountId: NotRequired[Sequence[StringFilterTypeDef]]
+    machineImagePlatform: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudProvider: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudProviderRegion: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudProviderAccountId: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudProviderOrgId: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudVmImageReference: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudVmNetworkId: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudVmSubnetIds: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudImageRepositoryName: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudImageRegistry: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudImageDigest: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudImageTags: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudImagePushedAt: NotRequired[Sequence[DateFilterTypeDef]]
+    cloudImageArchitecture: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudImageLastInUseAt: NotRequired[Sequence[DateFilterTypeDef]]
+    cloudImageInUseCount: NotRequired[Sequence[NumberFilterTypeDef]]
+    cloudServerlessFunctionName: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudServerlessFunctionRuntime: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudServerlessFunctionLastModifiedAt: NotRequired[Sequence[DateFilterTypeDef]]
+    cloudServerlessFunctionExecutionRole: NotRequired[Sequence[StringFilterTypeDef]]
+
 class CodeRepositoryMetadataTypeDef(TypedDict):
     projectName: str
     providerType: str
@@ -2974,27 +3000,6 @@ class AmiConfigurationTypeDef(TypedDict):
     scanModeConfiguration: AmiScanModeConfigurationUnionTypeDef
     lastLaunchedWithin: NotRequired[AmiScanDurationType]
     createdWithin: NotRequired[AmiScanDurationType]
-
-class FilterTypeDef(TypedDict):
-    arn: str
-    ownerId: str
-    name: str
-    criteria: FilterCriteriaOutputTypeDef
-    action: FilterActionType
-    createdAt: datetime
-    updatedAt: datetime
-    description: NotRequired[str]
-    reason: NotRequired[str]
-    tags: NotRequired[dict[str, str]]
-
-class GetFindingsReportStatusResponseTypeDef(TypedDict):
-    reportId: str
-    status: ExternalReportStatusType
-    errorCode: ReportingErrorCodeType
-    errorMessage: str
-    destination: DestinationTypeDef
-    filterCriteria: FilterCriteriaOutputTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
 
 class ClusterDetailsTypeDef(TypedDict):
     lastInUse: datetime
@@ -3068,8 +3073,6 @@ class ContainerImageAggregationTypeDef(TypedDict):
     sortOrder: NotRequired[SortOrderType]
     sortBy: NotRequired[ContainerImageSortByType]
 
-FilterCriteriaUnionTypeDef = Union[FilterCriteriaTypeDef, FilterCriteriaOutputTypeDef]
-
 class CreateIntegrationDetailTypeDef(TypedDict):
     gitlabSelfManaged: NotRequired[CreateGitLabSelfManagedIntegrationDetailTypeDef]
     githubEnterprise: NotRequired[CreateGitHubEnterpriseIntegrationDetailTypeDef]
@@ -3114,6 +3117,29 @@ class ListConnectorsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
+class FilterTypeDef(TypedDict):
+    arn: str
+    ownerId: str
+    name: str
+    criteria: FilterCriteriaOutputTypeDef
+    action: FilterActionType
+    createdAt: datetime
+    updatedAt: datetime
+    description: NotRequired[str]
+    reason: NotRequired[str]
+    tags: NotRequired[dict[str, str]]
+
+class GetFindingsReportStatusResponseTypeDef(TypedDict):
+    reportId: str
+    status: ExternalReportStatusType
+    errorCode: ReportingErrorCodeType
+    errorMessage: str
+    destination: DestinationTypeDef
+    filterCriteria: FilterCriteriaOutputTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+FilterCriteriaUnionTypeDef = Union[FilterCriteriaTypeDef, FilterCriteriaOutputTypeDef]
+
 class ResourceScanMetadataTypeDef(TypedDict):
     ecrRepository: NotRequired[EcrRepositoryMetadataTypeDef]
     ecrImage: NotRequired[EcrContainerImageMetadataTypeDef]
@@ -3142,11 +3168,6 @@ class UpdateConfigurationRequestTypeDef(TypedDict):
     ec2Configuration: NotRequired[Ec2ConfigurationTypeDef]
     amiConfiguration: NotRequired[AmiConfigurationTypeDef]
     updateConfigurationInheritance: NotRequired[UpdateConfigurationInheritanceTypeDef]
-
-class ListFiltersResponseTypeDef(TypedDict):
-    filters: list[FilterTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
 
 class ClusterInformationTypeDef(TypedDict):
     clusterArn: str
@@ -3196,38 +3217,6 @@ class AggregationRequestTypeDef(TypedDict):
     containerImageAggregation: NotRequired[ContainerImageAggregationTypeDef]
     serverlessFunctionAggregation: NotRequired[ServerlessFunctionAggregationTypeDef]
 
-class CreateFilterRequestTypeDef(TypedDict):
-    action: FilterActionType
-    filterCriteria: FilterCriteriaUnionTypeDef
-    name: str
-    description: NotRequired[str]
-    tags: NotRequired[Mapping[str, str]]
-    reason: NotRequired[str]
-
-class CreateFindingsReportRequestTypeDef(TypedDict):
-    reportFormat: ReportFormatType
-    s3Destination: DestinationTypeDef
-    filterCriteria: NotRequired[FilterCriteriaUnionTypeDef]
-
-class ListFindingsRequestPaginateTypeDef(TypedDict):
-    filterCriteria: NotRequired[FilterCriteriaUnionTypeDef]
-    sortCriteria: NotRequired[SortCriteriaTypeDef]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListFindingsRequestTypeDef(TypedDict):
-    maxResults: NotRequired[int]
-    nextToken: NotRequired[str]
-    filterCriteria: NotRequired[FilterCriteriaUnionTypeDef]
-    sortCriteria: NotRequired[SortCriteriaTypeDef]
-
-class UpdateFilterRequestTypeDef(TypedDict):
-    filterArn: str
-    action: NotRequired[FilterActionType]
-    description: NotRequired[str]
-    filterCriteria: NotRequired[FilterCriteriaUnionTypeDef]
-    name: NotRequired[str]
-    reason: NotRequired[str]
-
 CreateCodeSecurityIntegrationRequestTypeDef = TypedDict(
     "CreateCodeSecurityIntegrationRequestTypeDef",
     {
@@ -3269,6 +3258,43 @@ class UpdateConnectorRequestTypeDef(TypedDict):
     connectorArn: str
     description: NotRequired[str]
     providerDetail: NotRequired[ProviderDetailUpdateTypeDef]
+
+class ListFiltersResponseTypeDef(TypedDict):
+    filters: list[FilterTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class CreateFilterRequestTypeDef(TypedDict):
+    action: FilterActionType
+    filterCriteria: FilterCriteriaUnionTypeDef
+    name: str
+    description: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
+    reason: NotRequired[str]
+
+class CreateFindingsReportRequestTypeDef(TypedDict):
+    reportFormat: ReportFormatType
+    s3Destination: DestinationTypeDef
+    filterCriteria: NotRequired[FilterCriteriaUnionTypeDef]
+
+class ListFindingsRequestPaginateTypeDef(TypedDict):
+    filterCriteria: NotRequired[FilterCriteriaUnionTypeDef]
+    sortCriteria: NotRequired[SortCriteriaTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListFindingsRequestTypeDef(TypedDict):
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+    filterCriteria: NotRequired[FilterCriteriaUnionTypeDef]
+    sortCriteria: NotRequired[SortCriteriaTypeDef]
+
+class UpdateFilterRequestTypeDef(TypedDict):
+    filterArn: str
+    action: NotRequired[FilterActionType]
+    description: NotRequired[str]
+    filterCriteria: NotRequired[FilterCriteriaUnionTypeDef]
+    name: NotRequired[str]
+    reason: NotRequired[str]
 
 class CoveredResourceTypeDef(TypedDict):
     resourceType: CoverageResourceTypeType

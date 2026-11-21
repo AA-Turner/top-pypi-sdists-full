@@ -382,6 +382,8 @@ from .type_defs import (
     UpdateAccountPoolOutputTypeDef,
     UpdateAssetFilterInputTypeDef,
     UpdateAssetFilterOutputTypeDef,
+    UpdateAssetOwnerInputTypeDef,
+    UpdateAssetOwnerOutputTypeDef,
     UpdateConnectionInputTypeDef,
     UpdateConnectionOutputTypeDef,
     UpdateDataSourceInputTypeDef,
@@ -2180,6 +2182,17 @@ class DataZoneClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/update_asset_filter.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_datazone/client/#update_asset_filter)
+        """
+
+    def update_asset_owner(
+        self, **kwargs: Unpack[UpdateAssetOwnerInputTypeDef]
+    ) -> UpdateAssetOwnerOutputTypeDef:
+        """
+        Transfers the ownership of an asset to another project in the same Amazon
+        DataZone domain.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/update_asset_owner.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_datazone/client/#update_asset_owner)
         """
 
     def update_connection(

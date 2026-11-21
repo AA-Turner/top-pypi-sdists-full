@@ -13,6 +13,7 @@ Usage::
         Client,
         GetOfferTermsPaginator,
         ListFulfillmentOptionsPaginator,
+        ListListingAttributesPaginator,
         ListPurchaseOptionsPaginator,
         MarketplaceDiscoveryClient,
         SearchFacetsPaginator,
@@ -24,6 +25,7 @@ Usage::
 
     get_offer_terms_paginator: GetOfferTermsPaginator = client.get_paginator("get_offer_terms")
     list_fulfillment_options_paginator: ListFulfillmentOptionsPaginator = client.get_paginator("list_fulfillment_options")
+    list_listing_attributes_paginator: ListListingAttributesPaginator = client.get_paginator("list_listing_attributes")
     list_purchase_options_paginator: ListPurchaseOptionsPaginator = client.get_paginator("list_purchase_options")
     search_facets_paginator: SearchFacetsPaginator = client.get_paginator("search_facets")
     search_listings_paginator: SearchListingsPaginator = client.get_paginator("search_listings")
@@ -34,6 +36,7 @@ from .client import MarketplaceDiscoveryClient
 from .paginator import (
     GetOfferTermsPaginator,
     ListFulfillmentOptionsPaginator,
+    ListListingAttributesPaginator,
     ListPurchaseOptionsPaginator,
     SearchFacetsPaginator,
     SearchListingsPaginator,
@@ -45,6 +48,7 @@ __all__ = (
     "Client",
     "GetOfferTermsPaginator",
     "ListFulfillmentOptionsPaginator",
+    "ListListingAttributesPaginator",
     "ListPurchaseOptionsPaginator",
     "MarketplaceDiscoveryClient",
     "SearchFacetsPaginator",

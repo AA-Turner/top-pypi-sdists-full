@@ -34,6 +34,7 @@ async def solve(
     platforms: Sequence[Subdir | SubdirLiteral] | None = None,
     locked_packages: Sequence[RepoDataRecord] | None = None,
     pinned_packages: Sequence[RepoDataRecord] | None = None,
+    additional_packages: Sequence[RepoDataRecord] | None = None,
     virtual_packages: Sequence[GenericVirtualPackage | VirtualPackage] | None = None,
     timeout: datetime.timedelta | None = None,
     channel_priority: ChannelPriority = ChannelPriority.Strict,
@@ -44,6 +45,7 @@ async def solve(
     channel_relations_max_depth: int | None = None,
     add_pip_as_python_dependency: bool = False,
     timestamp_policy: TimestampPolicy = "require-timestamp",
+    package_format_selection: PackageFormatSelection | None = None,
 ) -> list[RepoDataRecord]:
     """
     Resolve the dependencies and return the `RepoDataRecord`s
@@ -72,11 +74,26 @@ async def solve(
                  there is a variant available in the `pinned_packages` field it
                  will always select that version no matter what even if that
                  means other packages have to be downgraded.
+        additional_packages: Records that are candidates in the solve, without any
+                 preference. Unlike `locked_packages`, these packages are not
+                 favored. And unlike `pinned_packages`, they do not restrict the candidates
+                 for their package. Use them for records already installed in a prefix that
+                 may come from channels no longer in `available_packages`. Channel priority
+                 treats each record as if it came from the highest-priority channel channel
+                 in `available_packages` that contains a package with the same name, or from
+                 the highest-priority channel when none does. As a result:
+                   - with `ChannelPriority.Strict`, strict channel priority never removes
+                     these records, and they never cause a channel record to be removed.
+                   - with `ChannelPriority.Flexible`, they compete with records from the same channel
+                   - with `ChannelPriority.Disabled`, they compete with all records
+                   - with `ChannelPriority.VersionFirst`, they compete with all records and
+                     rank with that channel when versions tie
+                 A record from a lower-priority channel therefore competes with higher-priority
+                 channels. For example, an installed `foo 3.0` from a lower-priority channel is selected
+                 over `foo 2.0` from a higher-priority channel
         virtual_packages: A list of virtual packages considered active.
-        channel_priority: (Default = ChannelPriority.Strict) When `ChannelPriority.Strict`
-                 the channel that the package is first found in will be used as
-                 the only channel for that package. When `ChannelPriority.Disabled`
-                 it will search for every package in every channel.
+        channel_priority: (Default = ChannelPriority.Strict) How the order of the
+                 channels affects the solve, see `ChannelPriority` for available modes.
         timeout:    The maximum time the solver is allowed to run.
         exclude_newer: Exclude any record that is newer than the given datetime,
             or newer than the cutoff produced by subtracting a timedelta from now.
@@ -106,6 +123,9 @@ async def solve(
             ``channel_relations``. ``0`` behaves like ``channel_relations="disabled"``.
         add_pip_as_python_dependency: Add `pip` as a dependency of Python 2 and 3
             package records before solving.
+        package_format_selection: Which archive formats of a package are considered when
+            the same build is available in more than one format. Applies to every source.
+            `None` uses the gateway default (`PackageFormatSelection.PREFER_CONDA`).
 
     Returns:
         Resolved list of `RepoDataRecord`s.
@@ -129,6 +149,7 @@ async def solve(
             gateway=gateway._gateway,
             locked_packages=[package._record for package in locked_packages or []],
             pinned_packages=[package._record for package in pinned_packages or []],
+            additional_packages=[package._record for package in additional_packages or []],
             virtual_packages=[
                 v_package.into_generic()._generic_virtual_package
                 if isinstance(v_package, VirtualPackage)
@@ -156,6 +177,7 @@ async def solve(
             channel_relations=channel_relations,
             channel_relations_max_depth=channel_relations_max_depth,
             add_pip_as_python_dependency=add_pip_as_python_dependency,
+            package_format_selection=package_format_selection.value if package_format_selection is not None else None,
         )
     ]
 
@@ -165,6 +187,7 @@ async def solve_with_sparse_repodata(
     sparse_repodata: Sequence[SparseRepoData | MultiSource],
     locked_packages: Sequence[RepoDataRecord] | None = None,
     pinned_packages: Sequence[RepoDataRecord] | None = None,
+    additional_packages: Sequence[RepoDataRecord] | None = None,
     virtual_packages: Sequence[GenericVirtualPackage | VirtualPackage] | None = None,
     timeout: datetime.timedelta | None = None,
     channel_priority: ChannelPriority = ChannelPriority.Strict,
@@ -202,11 +225,26 @@ async def solve_with_sparse_repodata(
                  there is a variant available in the `pinned_packages` field it
                  will always select that version no matter what even if that
                  means other packages have to be downgraded.
+        additional_packages: Records that are candidates in the solve, without any
+                 preference. Unlike `locked_packages`, these packages are not
+                 favored. And unlike `pinned_packages`, they do not restrict the candidates
+                 for their package. Use them for records already installed in a prefix that
+                 may come from channels no longer in `available_packages`. Channel priority
+                 treats each record as if it came from the highest-priority channel channel
+                 in `available_packages` that contains a package with the same name, or from
+                 the highest-priority channel when none does. As a result:
+                   - with `ChannelPriority.Strict`, strict channel priority never removes
+                     these records, and they never cause a channel record to be removed.
+                   - with `ChannelPriority.Flexible`, they compete with records from the same channel
+                   - with `ChannelPriority.Disabled`, they compete with all records
+                   - with `ChannelPriority.VersionFirst`, they compete with all records and
+                     rank with that channel when versions tie
+                 A record from a lower-priority channel therefore competes with higher-priority
+                 channels. For example, an installed `foo 3.0` from a lower-priority channel is selected
+                 over `foo 2.0` from a higher-priority channel
         virtual_packages: A list of virtual packages considered active.
-        channel_priority: (Default = ChannelPriority.Strict) When `ChannelPriority.Strict`
-                 the channel that the package is first found in will be used as
-                 the only channel for that package. When `ChannelPriority.Disabled`
-                 it will search for every package in every channel.
+        channel_priority: (Default = ChannelPriority.Strict) How the order of the
+                 channels affects the solve, see `ChannelPriority` for available modes.
         timeout:    The maximum time the solver is allowed to run.
         exclude_newer: Exclude any record that is newer than the given datetime,
             or newer than the cutoff produced by subtracting a timedelta from now.
@@ -260,6 +298,7 @@ async def solve_with_sparse_repodata(
             multi_sources=multi_sources,
             locked_packages=[package._record for package in locked_packages or []],
             pinned_packages=[package._record for package in pinned_packages or []],
+            additional_packages=[package._record for package in additional_packages or []],
             virtual_packages=[
                 v_package.into_generic()._generic_virtual_package
                 if isinstance(v_package, VirtualPackage)

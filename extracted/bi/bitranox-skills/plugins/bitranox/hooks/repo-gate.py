@@ -2695,8 +2695,8 @@ def _log_decision_refusal(record):
     skipped."""
     try:
         # Imported here as an optional sink: a broken audit module must not break the gate.
-        from self_improve_signals import _audit_dir  # noqa: PLC0415 - optional sink
-        path = _audit_dir() / "skill-decision-gate.jsonl"
+        from self_improve_signals import audit_dir  # noqa: PLC0415 - optional sink
+        path = audit_dir() / "skill-decision-gate.jsonl"
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(record) + "\n")
@@ -3810,7 +3810,9 @@ def _unpushed_message(name, checkout, branch):
 #: Said under any block whose repository came from `hook_landing`'s fallback.
 _FALLBACK_NOTE = ("repo-gate: the directory this command runs git in could not be read from its text, "
                   "so the session's repository %s was judged. If the commit lands elsewhere, name the "
-                  "target literally (cd /path/to/repo && git commit, or git -C /path/to/repo commit).")
+                  "target literally (cd /path/to/repo && git commit, or git -C /path/to/repo commit). "
+                  "On Windows spell it with its drive (/c/... or C:/...): Git Bash maps any other "
+                  "rooted path, /tmp included, through its mount table, which the gate cannot read.")
 
 
 def _say_unverifiable(names, marketplace):

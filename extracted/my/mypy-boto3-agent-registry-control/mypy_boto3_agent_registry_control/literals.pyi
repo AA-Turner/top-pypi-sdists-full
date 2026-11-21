@@ -26,13 +26,19 @@ __all__ = (
     "AgentCoreRuntimeServerProtocolType",
     "AgentRegistryControlServiceName",
     "AgentSkillsRepositoryProviderType",
+    "AssociationApprovalStatusType",
+    "AssociationStatusType",
     "AutoApprovalRuleType",
     "AutoDetectionScopeType",
     "AutoDetectionStatusType",
+    "BotCategoryType",
     "ClaimMatchOperatorTypeType",
     "CustomMetadataSchemaComplianceStatusType",
     "EndpointIpAddressTypeType",
+    "IdentifierTypeType",
     "InboundTokenClaimValueTypeType",
+    "ListPublisherAssociationsPaginatorName",
+    "ListPublishersPaginatorName",
     "ListRegistriesPaginatorName",
     "ListRegistryRecordsPaginatorName",
     "PaginatorName",
@@ -50,23 +56,49 @@ __all__ = (
     "ResourceServiceName",
     "ServiceName",
     "SourceTypeType",
+    "VerificationStatusType",
     "WaiterName",
 )
 
 AgentCoreGatewayProtocolTypeType = Literal["MCP"]
 AgentCoreRuntimeServerProtocolType = Literal["A2A", "AGUI", "HTTP", "MCP"]
 AgentSkillsRepositoryProviderType = Literal["GITHUB"]
+AssociationApprovalStatusType = Literal["APPROVED", "REJECTED"]
+AssociationStatusType = Literal["APPROVED", "PENDING_APPROVAL", "REJECTED", "SUSPENDED"]
 AutoApprovalRuleType = Literal["APPROVE_ALL"]
 AutoDetectionScopeType = Literal["ORGANIZATION"]
 AutoDetectionStatusType = Literal["ACTIVE", "INACTIVE"]
+BotCategoryType = Literal[
+    "advertising",
+    "ai_assistant",
+    "ai_content_optimization",
+    "ai_search",
+    "ai_training",
+    "archiver",
+    "content_fetcher",
+    "email_client",
+    "http_library",
+    "link_checker",
+    "miscellaneous",
+    "monitoring",
+    "page_preview",
+    "scraping_framework",
+    "search_engine",
+    "security",
+    "seo",
+    "social_media",
+]
 ClaimMatchOperatorTypeType = Literal["CONTAINS", "CONTAINS_ANY", "EQUALS"]
 CustomMetadataSchemaComplianceStatusType = Literal["COMPLIANT", "NON_COMPLIANT"]
 EndpointIpAddressTypeType = Literal["IPV4", "IPV6"]
+IdentifierTypeType = Literal["DOMAIN"]
 InboundTokenClaimValueTypeType = Literal["STRING", "STRING_ARRAY"]
+ListPublisherAssociationsPaginatorName = Literal["list_publisher_associations"]
+ListPublishersPaginatorName = Literal["list_publishers"]
 ListRegistriesPaginatorName = Literal["list_registries"]
 ListRegistryRecordsPaginatorName = Literal["list_registry_records"]
 ProvenanceRelationType = Literal["DETECTED_FROM"]
-RecordTypeType = Literal["AGENT", "CUSTOM", "GATEWAY", "MCP", "SKILL"]
+RecordTypeType = Literal["AGENT", "CUSTOM", "GATEWAY", "MCP", "SKILL", "WEB_BOT"]
 RegistryAuthorizerTypeType = Literal["AWS_IAM", "CUSTOM_JWT"]
 RegistryFilterNameType = Literal["discoveryConfiguration.authorizerType", "status"]
 RegistryReadyWaiterName = Literal["registry_ready"]
@@ -91,6 +123,7 @@ RegistryStatusType = Literal[
     "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "READY", "UPDATE_FAILED", "UPDATING"
 ]
 SourceTypeType = Literal["AWS::BedrockAgentCore::Gateway", "AWS::BedrockAgentCore::Runtime"]
+VerificationStatusType = Literal["ACTION_REQUIRED", "ACTIVE", "DELETING", "FAILED", "SUSPENDED"]
 AgentRegistryControlServiceName = Literal["agent-registry-control"]
 ServiceName = Literal[
     "abuse-signal",
@@ -100,6 +133,7 @@ ServiceName = Literal[
     "account-access-runtime",
     "acm",
     "acm-pca",
+    "agent-discovery",
     "agent-registry",
     "agent-registry-control",
     "aiops",
@@ -110,6 +144,7 @@ ServiceName = Literal[
     "apigateway",
     "apigatewaymanagementapi",
     "apigatewayv2",
+    "apiportal",
     "appconfig",
     "appconfigdata",
     "appfabric",
@@ -400,6 +435,7 @@ ServiceName = Literal[
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
+    "payments",
     "pca-connector-ad",
     "pca-connector-scep",
     "pcs",
@@ -455,6 +491,7 @@ ServiceName = Literal[
     "sagemaker-a2i-runtime",
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
+    "sagemaker-gateway-runtime",
     "sagemaker-geospatial",
     "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
@@ -537,5 +574,7 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
-PaginatorName = Literal["list_registries", "list_registry_records"]
+PaginatorName = Literal[
+    "list_publisher_associations", "list_publishers", "list_registries", "list_registry_records"
+]
 WaiterName = Literal["registry_ready", "registry_record_approved"]

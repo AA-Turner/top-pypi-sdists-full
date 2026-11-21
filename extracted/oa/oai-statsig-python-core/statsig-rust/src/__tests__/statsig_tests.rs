@@ -1,3 +1,4 @@
+use crate::StatsigHttpIdListsAdapter;
 use async_trait::async_trait;
 use rusty_fork::rusty_fork_test;
 use std::sync::atomic::AtomicUsize;
@@ -16,6 +17,27 @@ const EVAL_PROJ_JSON: &[u8] = include_bytes!("../../tests/data/eval_proj_dcs.jso
 
 const LAZY_CONFIG_ID_LIST_MANIFEST_URL: &str = "https://lists.test/manifest";
 const LAZY_CONFIG_ID_LIST_FILE_URL: &str = "https://lists.test/lazy-members";
+
+#[test]
+fn shared_initial_base_is_selected_per_instance() {
+    let directory = tempfile::tempdir().unwrap();
+    let client = |experimental_flags| {
+        Statsig::new(
+            "secret-initial-base-test",
+            Some(Arc::new(StatsigOptions {
+                enable_id_lists: Some(true),
+                enable_id_list_elias_fano: Some(true),
+                shared_id_lists_dir: Some(directory.path().display().to_string()),
+                experimental_flags,
+                ..Default::default()
+            })),
+        )
+    };
+    let pilot = client(Some(["shared_initial_id_list_base".into()].into()));
+    let control = client(None);
+    assert!(matches!(pilot.id_lists_adapter, LocalIdLists::Worker(_)));
+    assert!(matches!(control.id_lists_adapter, LocalIdLists::Catalog(_)));
+}
 
 #[derive(Default)]
 struct CapturingEventLoggingAdapter {
@@ -192,11 +214,7 @@ async fn setup_lazy_config_test_with_option(
     let network: Arc<dyn NetworkProvider> = provider.clone();
     adapter.set_network_provider_for_test(Arc::downgrade(&network));
     let adapter = Arc::new(adapter);
-    statsig.id_lists_adapter = IdListsAdapterHousing {
-        inner: Some(adapter.clone()),
-        as_default_adapter: Some(adapter.clone()),
-        as_shared_adapter: None,
-    };
+    statsig.id_lists_adapter = LocalIdLists::Worker(adapter.clone());
     adapter
         .clone()
         .start(&statsig.statsig_runtime, statsig.spec_store.clone())

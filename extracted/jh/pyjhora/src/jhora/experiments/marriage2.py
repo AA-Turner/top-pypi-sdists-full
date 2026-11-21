@@ -543,10 +543,7 @@ def _expand_to_md_ad_segments(vdb_info):
     if not vdb_info:
         return segs
     starts = []
-    for row in vdb_info:
-        md, ad, s = row
-        s = s.split()[0].strip()
-        y, m, d = map(int, s.split('-'))
+    for (md,ad),(y,m,d,fh),durn in vdb_info:
         starts.append((md, ad, datetime(y, m, d)))
 
     for i, (md, ad, start_dt) in enumerate(starts):

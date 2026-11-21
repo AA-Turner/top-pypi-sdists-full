@@ -11911,7 +11911,7 @@ class Messages(System.Object):
         missing_ssh_key: str = "FTP SSH key missing for SFTP notification."
         """String message saying the SSH key is missing"""
 
-        missing_password: str = "FTP password is missing for unsecure FTP notification."
+        missing_password: str = "FTP password is missing for insecure FTP notification."
         """String message saying the password is missing"""
 
     class NotificationManager(System.Object):

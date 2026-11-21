@@ -22,6 +22,7 @@ from turbohtml import (
     parse,
     parse_xml,
 )
+from turbohtml.clean import collapse_whitespace_node
 from turbohtml.transform import Transform
 
 if TYPE_CHECKING:
@@ -29,6 +30,8 @@ if TYPE_CHECKING:
     from types import ModuleType
 
     from work_steps import WorkSteps
+
+    from turbohtml import DocumentFragment
 
 
 def _doctype(doc: Document) -> Doctype:
@@ -480,9 +483,9 @@ def test_insert_node_into_element() -> None:
 
 def test_delete_contents_from_an_empty_parsed_comment() -> None:
     # a parsed empty comment has a NULL text pointer, which memcpy may not receive even for length 0
-    paragraph: Final = _by_id(parse("<p id=a><!---->x</p>"), "a")
+    paragraph: Final[Element] = _by_id(parse("<p id=a><!---->x</p>"), "a")
     comment, text = paragraph.children
-    boundary: Final = Range(comment, 0)
+    boundary: Final[Range] = Range(comment, 0)
     boundary.set_end(text, 1)
     boundary.delete_contents()
     assert paragraph.serialize() == '<p id="a"><!----></p>'
@@ -685,6 +688,77 @@ def test_deleted_run_moves_later_boundaries_back() -> None:
     assert (after.start_offset, after.end_offset) == (4, 4)
 
 
+@pytest.mark.parametrize(
+    ("data", "offset", "expected"),
+    [
+        pytest.param("a   b", 1, 1, id="before-run"),
+        pytest.param("a   b", 2, 2, id="run-start"),
+        pytest.param("a   b", 3, 2, id="inside-run"),
+        pytest.param("a   b", 4, 2, id="run-end"),
+        pytest.param("a   b", 5, 3, id="after-run"),
+        pytest.param("a  b  c", 3, 2, id="before-second-word"),
+        pytest.param("a  b  c", 6, 4, id="after-second-run"),
+        pytest.param("a   ", 4, 2, id="trailing-run"),
+        pytest.param("  a", 2, 1, id="leading-run"),
+    ],
+)
+def test_collapse_moves_boundaries_past_dropped_spaces(data: str, offset: int, expected: int) -> None:
+    text = Text(data)
+    paragraph = Element("p", children=[text])
+    boundary = Range(text, offset)
+    collapse_whitespace_node(paragraph)
+    assert (boundary.start_container == text, boundary.start_offset) == (True, expected)
+
+
+def test_collapse_moves_boundaries_past_a_space_carried_from_the_previous_text() -> None:
+    first, second = Text("a "), Text("  b")
+    paragraph = Element("p", children=[first, second])
+    before_b = Range(second, 2)
+    collapse_whitespace_node(paragraph)
+    assert (second.data, before_b.start_container == second, before_b.start_offset) == ("b", True, 0)
+
+
+def test_collapse_moves_a_boundary_from_the_issue_example_to_the_run_start() -> None:
+    paragraph = _found(parse("<p>a      b</p>"), "p")
+    text = paragraph.children[0]
+    inside = Range(text, 6)
+    collapse_whitespace_node(paragraph)
+    assert paragraph.text == "a b"
+    assert (inside.start_container == text, inside.start_offset) == (True, 2)
+
+
+@pytest.mark.parametrize(
+    ("start", "end", "expected"),
+    [
+        pytest.param(1, 5, (1, 3), id="around-run"),
+        pytest.param(3, 4, (2, 2), id="inside-run"),
+        pytest.param(0, 5, (0, 3), id="whole-text"),
+    ],
+)
+def test_collapse_moves_start_and_end_boundaries_independently(start: int, end: int, expected: tuple[int, int]) -> None:
+    text = Text("a   b")
+    paragraph = Element("p", children=[text])
+    boundary = Range(text, start)
+    boundary.set_end(text, end)
+    collapse_whitespace_node(paragraph)
+    assert (boundary.start_offset, boundary.end_offset) == expected
+
+
+def test_collapse_moves_each_of_several_boundaries_in_the_same_text() -> None:
+    text = Text("a   b   c")
+    paragraph = Element("p", children=[text])
+    ranges = [Range(text, offset) for offset in range(len(text.data) + 1)]
+    collapse_whitespace_node(paragraph)
+    assert [boundary.start_offset for boundary in ranges] == [0, 1, 2, 2, 2, 3, 4, 4, 4, 5]
+
+
+def test_collapse_keeps_boundaries_on_the_parent() -> None:
+    paragraph = Element("p", children=[Text("a   b"), Element("i")])
+    at_parent = Range(paragraph, 1)
+    collapse_whitespace_node(paragraph)
+    assert (at_parent.start_container == paragraph, at_parent.start_offset) == (True, 1)
+
+
 def test_split_moves_later_boundaries_into_the_new_node() -> None:
     text = Text("abcdefgh")
     paragraph = Element("p", children=[text])
@@ -706,7 +780,80 @@ def test_normalize_folds_boundaries_into_the_first_text() -> None:
     paragraph.normalize()
     assert len(paragraph.children) == 1
     assert (in_second.start_container == first, in_second.start_offset) == (True, 3)
-    assert (between.start_container == paragraph, between.start_offset) == (True, 1)
+    assert (between.start_container == first, between.start_offset) == (True, 2)
+
+
+def test_normalize_moves_parent_boundaries_at_merged_texts_into_the_first_text() -> None:
+    first, second, third = Text("ab"), Text("cd"), Text("ef")
+    paragraph = Element("p", children=[first, second, third, Element("i")])
+    before_merge = Range(paragraph, 0)
+    at_second = Range(paragraph, 1)
+    at_third = Range(paragraph, 2)
+    after_texts = Range(paragraph, 4)
+    paragraph.normalize()
+    assert first.data == "abcdef"
+    assert (before_merge.start_container == paragraph, before_merge.start_offset) == (True, 0)
+    assert (at_second.start_container == first, at_second.start_offset) == (True, 2)
+    assert (at_third.start_container == first, at_third.start_offset) == (True, 4)
+    assert (after_texts.start_container == paragraph, after_texts.start_offset) == (True, 2)
+
+
+def test_normalize_moves_a_boundary_from_the_issue_example_into_the_merged_text() -> None:
+    paragraph = _found(parse("<p>a<i></i>b</p>"), "p")
+    first = paragraph.children[0]
+    boundary = Range(paragraph, 2)
+    paragraph.children[1].extract()
+    paragraph.normalize()
+    assert paragraph.html == "<p>ab</p>"
+    assert (boundary.start_container == first, boundary.start_offset) == (True, 1)
+
+
+@pytest.mark.parametrize(
+    ("offset", "container", "expected"),
+    [
+        pytest.param(0, "paragraph", 0, id="before-first-text"),
+        pytest.param(1, "first", 1, id="at-empty-text"),
+        pytest.param(2, "first", 1, id="at-merged-text"),
+        pytest.param(3, "paragraph", 1, id="before-element"),
+        pytest.param(4, "paragraph", 2, id="after-element"),
+    ],
+)
+def test_normalize_moves_parent_boundaries_across_empty_and_merged_texts(
+    offset: int, container: str, expected: int
+) -> None:
+    first = Text("a")
+    paragraph = Element("p", children=[first, Text(""), Text("b"), Element("i")])
+    boundary = Range(paragraph, offset)
+    paragraph.normalize()
+    containers = {"first": first, "paragraph": paragraph}
+    assert (boundary.start_container == containers[container], boundary.start_offset) == (True, expected)
+
+
+def test_normalize_moves_end_boundaries_on_the_parent_and_in_text() -> None:
+    first, second = Text("ab"), Text("cd")
+    paragraph = Element("p", children=[first, second, Element("i")])
+    span = Range(first, 1)
+    span.set_end(paragraph, 1)
+    paragraph.normalize()
+    assert (span.end_container == first, span.end_offset) == (True, 2)
+
+
+def test_normalize_moves_a_boundary_in_an_empty_text_after_the_only_text_into_it() -> None:
+    first, empty = Text("ab"), Text("")
+    paragraph = Element("p", children=[first, empty])
+    inside = Range(empty, 0)
+    paragraph.normalize()
+    assert len(paragraph.children) == 1
+    assert (inside.start_container == first, inside.start_offset) == (True, 2)
+
+
+def test_normalize_moves_a_boundary_in_a_leading_empty_text_to_the_parent() -> None:
+    empty = Text("")
+    paragraph = Element("p", children=[empty, Text("ab")])
+    inside = Range(empty, 0)
+    paragraph.normalize()
+    assert paragraph.html == "<p>ab</p>"
+    assert (inside.start_container == paragraph, inside.start_offset) == (True, 0)
 
 
 def test_removed_element_moves_its_boundaries_to_the_parent() -> None:
@@ -1168,7 +1315,7 @@ def test_static_range_rejects_doctype_end() -> None:
 )
 @pytest.mark.parametrize("offset", [pytest.param(0, id="start"), pytest.param(2, id="end")])
 def test_boundary_endpoint(container: Node, offset: int) -> None:
-    boundary: Final = Range(container, offset)
+    boundary: Final[Range] = Range(container, offset)
     assert (boundary.start_container, boundary.start_offset, boundary.end_container, boundary.end_offset) == (
         container,
         offset,
@@ -1209,7 +1356,7 @@ def test_boundary_rejects_invalid_offset(container: Node, offset: int) -> None:
     ],
 )
 def test_select_character_data_contents(container: Node) -> None:
-    boundary: Final = Range(container)
+    boundary: Final[Range] = Range(container)
     boundary.select_node_contents(container)
     assert (boundary.start_offset, boundary.end_offset) == (0, 2)
 
@@ -1218,8 +1365,8 @@ def test_select_character_data_contents(container: Node) -> None:
     ("offset", "expected"), [pytest.param(0, 1, id="before-child"), pytest.param(1, -1, id="after-child")]
 )
 def test_compare_descendant_with_ancestor_boundary(offset: int, expected: int) -> None:
-    child: Final = Text("abc")
-    parent: Final = Element("div", children=[child])
+    child: Final[Text] = Text("abc")
+    parent: Final[Element] = Element("div", children=[child])
     assert Range(child, 1).compare_boundary_points(Range.START_TO_START, Range(parent, offset)) == expected
 
 
@@ -1227,11 +1374,11 @@ def test_compare_descendant_with_ancestor_boundary(offset: int, expected: int) -
     "method", [pytest.param("clone_contents", id="clone"), pytest.param("extract_contents", id="extract")]
 )
 def test_range_contained_interval(method: str) -> None:
-    root: Final = Element("div")
+    root: Final[Element] = Element("div")
     root.set_inner_html("".join(f"<i>{index}</i>" for index in range(100)))
-    boundary: Final = Range(root, 10)
+    boundary: Final[Range] = Range(root, 10)
     boundary.set_end(root, 90)
-    result: Final = getattr(boundary, method)()
+    result: Final[DocumentFragment] = getattr(boundary, method)()
     assert result.html == "".join(f"<i>{index}</i>" for index in range(10, 90))
 
 
@@ -1239,11 +1386,11 @@ def test_range_contained_interval(method: str) -> None:
     "method", [pytest.param("clone_contents", id="clone"), pytest.param("extract_contents", id="extract")]
 )
 def test_range_partial_excludes_siblings(method: str) -> None:
-    root: Final = Element("div")
+    root: Final[Element] = Element("div")
     root.set_inner_html(f'<section data-x="é水😀">abcdef{"<i></i>" * 100}</section>tail')
-    boundary: Final = Range(root)
+    boundary: Final[Range] = Range(root)
     boundary.set_end(root.children[0].children[0], 3)
-    result: Final = getattr(boundary, method)()
+    result: Final[DocumentFragment] = getattr(boundary, method)()
     assert result.html == '<section data-x="é水😀">abc</section>'
 
 
@@ -1283,16 +1430,14 @@ def test_content_operation_with_deep_paths_ignores_ancestors(
 
 
 def _deep_path_range(depth: int) -> Range:
-    path_down = f"{'<p>' * _PATH_LEVELS}<i>x</i>{'</p>' * _PATH_LEVELS}"
-    path_across = f"{'<q>' * _PATH_LEVELS}<j>y</j>{'</q>' * _PATH_LEVELS}"
+    # Below the 400-level limit on boundary paths, so the content operations take their recursive path.
+    path_levels: int = 380
+    path_down = f"{'<p>' * path_levels}<i>x</i>{'</p>' * path_levels}"
+    path_across = f"{'<q>' * path_levels}<j>y</j>{'</q>' * path_levels}"
     doc = parse_xml(f"{'<w>' * depth}{'<s/>' * depth}{path_down}{path_across}{'</w>' * depth}")
     boundary = Range(_found(doc, "i").children[0], 0)
     boundary.set_end(_found(doc, "j").children[0], 1)
     return boundary
-
-
-# Below the 400-level limit on boundary paths, so the content operations take their recursive path.
-_PATH_LEVELS: Final[int] = 380
 
 
 def test_surround_contents_over_siblings_is_linear(work_steps: WorkSteps) -> None:

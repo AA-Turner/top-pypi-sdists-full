@@ -100,7 +100,8 @@ static int string_value_empty(const jm_node *node) {
             return 0;           /* GCOVR_EXCL_LINE */
         }
         Py_UCS4 next = inner[index + 1];
-        if (next == '\r' && index + 2 < len && inner[index + 2] == '\n') { /* a CRLF continuation */
+        /* a CRLF continuation; at the content's end the read lands on the closing quote, which is no LF */
+        if (next == '\r' && inner[index + 2] == '\n') {
             index += 3;
         } else if (next == '\n' || next == '\r' || next == 0x2028 || next == 0x2029) {
             index += 2;
@@ -153,9 +154,14 @@ static int is_pure_const(F *folder, int32_t idx) {
 
 /* The primitive type an expression is statically certain to evaluate to -- 's'tring, 'n'umber,
    'b'oolean, 'u'ndefined -- or 0 when unknown. Only shapes whose type the grammar fixes qualify:
-   a literal, `typeof` (always a string, 13.5.3), `!` (always a boolean, 13.5.7), `void` (always
-   undefined, 13.5.2). */
-static char static_type(F *folder, int32_t idx) {
+   a literal, `typeof` (always a string, 13.5.3), `!` and `delete` (always a boolean, 13.5.7,
+   13.5.1), `void` (always undefined, 13.5.2), unary `+` (a number, or a throw for a BigInt,
+   13.5.4), a relational or equality operator (a boolean, 13.10, 13.11), `>>>` (a number, or a throw
+   for a BigInt, 6.1.6.2.11), and the other arithmetic operators once one operand is a number: a
+   BigInt cannot mix with a Number (13.15.3 step 8), so the result is a number or a throw. A `+`
+   with a string operand concatenates (13.15.3 step 5). depth caps the descent a concatenation
+   chain would otherwise take one level per operand. */
+static char static_type(F *folder, int32_t idx, int depth) {
     const jm_node *node = &folder->prog->nodes[idx];
     switch (node->kind) {
     case JN_STRING:
@@ -166,16 +172,58 @@ static char static_type(F *folder, int32_t idx) {
         if (node->op == JT_NOT) {
             return 'b';
         }
-        if (node->op == JT_IDENT && ident_is(node, "typeof")) {
-            return 's';
+        if (node->op == JT_PLUS) {
+            return 'n';
         }
-        if (node->op == JT_IDENT && ident_is(node, "void")) {
-            return 'u';
+        if (node->op == JT_IDENT) { /* the word operators: typeof, void, and delete */
+            return ident_is(node, "typeof") ? 's' : ident_is(node, "void") ? 'u' : 'b';
         }
         return 0;
+    case JN_BINARY:
+        switch (node->op) {
+        case JT_LT:
+        case JT_GT:
+        case JT_LE:
+        case JT_GE:
+        case JT_EQ_EQ:
+        case JT_NE:
+        case JT_EQ_EQ_EQ:
+        case JT_NE_EQ:
+            return 'b';
+        case JT_USHR:
+            return 'n';
+        case JT_PLUS:
+        case JT_MINUS:
+        case JT_STAR:
+        case JT_DIV:
+        case JT_MOD:
+        case JT_POW:
+        case JT_SHL:
+        case JT_SHR:
+        case JT_BIT_AND:
+        case JT_BIT_OR:
+        case JT_BIT_XOR: {
+            if (depth == 0) {
+                return 0;
+            }
+            char left = static_type(folder, node->a, depth - 1);
+            char right = static_type(folder, node->b, depth - 1);
+            if (node->op == JT_PLUS) {
+                return left == 's' || right == 's' ? 's' : left == 'n' && right == 'n' ? 'n' : 0;
+            }
+            return left == 'n' || right == 'n' ? 'n' : 0;
+        }
+        default:
+            return 'b'; /* the word operators, `in` and `instanceof` (13.10) */
+        }
     default:
         return 0;
     }
+}
+
+static int same_type(F *folder, int32_t left, int32_t right) {
+    char type = static_type(folder, left, 4);
+    return type != 0 && type == static_type(folder, right, 4);
 }
 
 /* Whether the string literal spells `word` (the lexeme keeps its quotes; an escape in the
@@ -338,6 +386,22 @@ static void fold_void(F *folder, int32_t idx) {
     node->str_len = 4;
     node->a = num;
     folder->changed = 1;
+}
+
+/* A fresh `void 0`, or -1 on allocation failure. */
+static int32_t make_undefined(F *folder) {
+    int32_t undef = jm_node_new(folder->prog, JN_UNARY);
+    if (undef < 0) { /* GCOVR_EXCL_BR_LINE: allocation-failure path */
+        return -1;   /* GCOVR_EXCL_LINE */
+    }
+    fold_void(folder, undef);
+    return folder->prog->nodes[undef].str == NULL ? -1 : undef; /* GCOVR_EXCL_BR_LINE: alloc failure */
+}
+
+/* Whether an expression is `void X` for a pure X: undefined, with nothing to evaluate. */
+static int is_bare_undefined(F *folder, int32_t idx) {
+    const jm_node *node = &folder->prog->nodes[idx];
+    return node->kind == JN_UNARY && node->op == JT_IDENT && ident_is(node, "void") && is_pure_const(folder, node->a);
 }
 
 static int pattern_binds(F *folder, int32_t idx, const char *name) {
@@ -799,6 +863,129 @@ static void fold_to_logical(F *folder, int32_t idx, uint16_t op, int32_t left, i
     replace_with(folder, idx, logic);
 }
 
+/* The value of a `!<digit>` boolean literal such as `!0` or `!1`: 1, 0, or -1 for anything else. */
+static int bool_literal(const jm_program *prog, int32_t idx) {
+    const jm_node *node = &prog->nodes[idx];
+    if (node->kind != JN_UNARY || node->op != JT_NOT || prog->nodes[node->a].kind != JN_NUM ||
+        prog->nodes[node->a].str_len != 1) {
+        return -1;
+    }
+    return prog->nodes[node->a].str[0] == '0';
+}
+
+/* Whether the expression always yields a boolean: a `!` or a comparison (7.2.13-7.2.15, 13.10). */
+static int yields_boolean(const jm_program *prog, int32_t idx) {
+    const jm_node *node = &prog->nodes[idx];
+    if (node->kind == JN_UNARY) {
+        return node->op == JT_NOT;
+    }
+    return node->kind == JN_BINARY &&
+           (node->op == JT_EQ_EQ || node->op == JT_NE || node->op == JT_EQ_EQ_EQ || node->op == JT_NE_EQ ||
+            node->op == JT_LT || node->op == JT_GT || node->op == JT_LE || node->op == JT_GE);
+}
+
+/* Whether the expression as the right operand of op (&& or ||) prints no parentheses a conditional's branch would
+   not: a lower precedence form, or a `??` that the grammar forbids mixing with either, needs them, while a sequence
+   needs them in both places. */
+static int fits_logical_operand(const jm_program *prog, int32_t idx, uint16_t op) {
+    const jm_node *node = &prog->nodes[idx];
+    switch (node->kind) {
+    case JN_COND:
+    case JN_ASSIGN:
+    case JN_ARROW:
+    case JN_YIELD:
+        return 0;
+    case JN_LOGICAL:
+        return node->op == JT_AND || node->op == op;
+    default:
+        return 1;
+    }
+}
+
+/* The boolean complement of an expression whose value is used, so the result must be exactly true or false: an
+   (in)equality flips its operator, anything a `!` binds without parentheses gains one, and -1 when neither fits or
+   on allocation failure. */
+static int32_t negate_value(F *folder, int32_t idx) {
+    jm_node *node = &folder->prog->nodes[idx];
+    if (node->kind == JN_BINARY &&
+        (node->op == JT_EQ_EQ || node->op == JT_NE || node->op == JT_EQ_EQ_EQ || node->op == JT_NE_EQ)) {
+        node->op = node->op == JT_EQ_EQ      ? JT_NE
+                   : node->op == JT_NE       ? JT_EQ_EQ
+                   : node->op == JT_EQ_EQ_EQ ? JT_NE_EQ
+                                             : JT_EQ_EQ_EQ;
+        return idx;
+    }
+    if (node->kind != JN_IDENT && node->kind != JN_CALL && node->kind != JN_MEMBER_EXPR && node->kind != JN_UNARY) {
+        return -1;
+    }
+    int32_t neg = jm_node_new(folder->prog, JN_UNARY);
+    if (neg < 0) { /* GCOVR_EXCL_BR_LINE: allocation-failure path */
+        return -1; /* GCOVR_EXCL_LINE */
+    }
+    folder->prog->nodes[neg].op = JT_NOT;
+    folder->prog->nodes[neg].a = idx;
+    return neg;
+}
+
+/* Replace `c?!0:!1` with the boolean of c, `!!c` or c itself when c is a boolean, and `c?!1:!0` with `!c`. Returns
+   whether it applied. */
+static int fold_boolean_test(F *folder, int32_t idx, int truthy) {
+    int32_t test = folder->prog->nodes[idx].a;
+    int wraps = truthy ? 2 * !yields_boolean(folder->prog, test) : 1;
+    for (int wrap = 0; wrap < wraps; wrap++) {
+        int32_t neg = jm_node_new(folder->prog, JN_UNARY);
+        if (neg < 0) { /* GCOVR_EXCL_BR_LINE: allocation-failure path keeps the conditional */
+            return 0;  /* GCOVR_EXCL_LINE */
+        }
+        folder->prog->nodes[neg].op = JT_NOT;
+        folder->prog->nodes[neg].a = test;
+        test = neg;
+    }
+    replace_with(folder, idx, test);
+    return 1;
+}
+
+/* Fold a conditional with a boolean literal branch into a short circuit of the same value: `c?x:!0` is `!c||x`,
+   `c?!1:x` is `!c&&x`, and with a boolean c, `c?!0:x` is `c||x` and `c?x:!1` is `c&&x`. Returns whether it
+   applied. */
+static TH_NOINLINE int fold_boolean_branch(F *folder, int32_t idx, int32_t depth) {
+    jm_program *prog = folder->prog;
+    int32_t test = prog->nodes[idx].a;
+    int32_t cons = prog->nodes[idx].b;
+    int32_t alt = prog->nodes[idx].c;
+    int cons_bool = bool_literal(prog, cons);
+    int alt_bool = bool_literal(prog, alt);
+    uint16_t op;
+    int32_t rest;
+    if (alt_bool >= 0 && cons_bool < 0) {
+        op = alt_bool ? JT_OR : JT_AND;
+        rest = cons;
+    } else if (cons_bool >= 0 && alt_bool < 0) {
+        op = cons_bool ? JT_OR : JT_AND;
+        rest = alt;
+    } else if (cons_bool >= 0 && cons_bool != alt_bool) {
+        return fold_boolean_test(folder, idx, cons_bool);
+    } else {
+        return 0;
+    }
+    if (!fits_logical_operand(prog, rest, op)) {
+        return 0;
+    }
+    /* the test stands as is when its truthy side keeps the literal's place, else it must be negated */
+    int negate = (rest == cons) == (op == JT_OR);
+    if (!negate && !yields_boolean(prog, test)) {
+        return 0;
+    }
+    if (negate) {
+        test = negate_value(folder, test);
+        if (test < 0) {
+            return 0;
+        }
+    }
+    fold_to_logical(folder, idx, op, test, rest, depth);
+    return 1;
+}
+
 /* Conditional algebra (13.14): rewrite a `test ? cons : alt` whose branches share structure into a
    shorter equivalent. `test` is already known impure (a pure one folds to the taken branch earlier), so
    only rewrites that keep test's single evaluation and order are applied. */
@@ -811,6 +998,9 @@ static void fold_conditional(F *folder, int32_t idx, int32_t depth) {
         /* `x?y:y` is left as written: dropping the test would lose the ReferenceError an unresolvable
            read throws, and the fold pass has no binding resolution to prove the read safe (#435). The
            `x?x:y` / `x?y:x` rewrites below stay valid because they keep evaluating the test. */
+        return;
+    }
+    if (fold_boolean_branch(folder, idx, depth)) {
         return;
     }
     if (prog->nodes[test].kind == JN_IDENT && same_expr(prog, test, cons)) {
@@ -1045,14 +1235,20 @@ static void fold_if_return_chain(F *folder, int32_t first) {
         int32_t index = guards[position];
         int32_t then = branch_stmt(folder, prog->nodes[index].b);
         int32_t next = prog->nodes[index].next;
-        if (then < 0 || prog->nodes[then].kind != JN_RETURN || prog->nodes[then].a < 0 || next < 0 ||
-            prog->nodes[next].kind != JN_RETURN || prog->nodes[next].a < 0) {
+        if (then < 0 || prog->nodes[then].kind != JN_RETURN || next < 0 || prog->nodes[next].kind != JN_RETURN ||
+            (prog->nodes[then].a < 0 && prog->nodes[next].a < 0)) {
             continue;
         }
         if (folder->deepest >= prog->rewrite_limit) {
             break; /* this guard and the ones before it stay statements */
         }
-        int32_t cond = make_cond(folder, prog->nodes[index].a, prog->nodes[then].a, prog->nodes[next].a);
+        /* a bare return returns undefined, so `if(c)return;return b` is `return c?void 0:b` */
+        int32_t then_value = prog->nodes[then].a >= 0 ? prog->nodes[then].a : make_undefined(folder);
+        int32_t next_value = prog->nodes[next].a >= 0 ? prog->nodes[next].a : make_undefined(folder);
+        if (then_value < 0 || next_value < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced */
+            break;                              /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
+        int32_t cond = make_cond(folder, prog->nodes[index].a, then_value, next_value);
         if (cond < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced */
             break;      /* GCOVR_EXCL_LINE: allocation-failure path */
         }
@@ -1069,13 +1265,31 @@ static void fold_if_return_chain(F *folder, int32_t first) {
     }
 }
 
+/* Whether a statement declares a binding scoped to the body that holds it: a let, const, class or function
+   declaration, which a block around it would scope to the block instead (a function also stops hoisting to the
+   body). A var hoists out of any block. */
+static int binds_in_body(const jm_program *prog, int32_t stmt) {
+    const jm_node *node = &prog->nodes[stmt];
+    switch (node->kind) {
+    case JN_VAR:
+        return node->decl != 0;
+    case JN_FUNC:
+    case JN_CLASS:
+        return !(node->flags & JN_F_EXPR);
+    case JN_LABEL:
+        return binds_in_body(prog, node->a);
+    default:
+        return 0;
+    }
+}
+
 /* A guard clause `if(c)JUMP; REST` at the top of a body whose JUMP skips the rest of that body -- a void
    `return` at a function body's top level, or a bare `continue` at a loop body's top level -- runs REST
-   exactly when c is falsy, so it is `c || (REST)`. Rewrite it to `if(!c){REST}` when every following
-   statement is a mergeable expression; a later fold merges that block into one comma sequence and
-   convert_if turns `if(!c){seq}` into `c||seq`. Applied only at that top level: in a nested block, code
-   after the block would still run, and a labeled jump could target an outer loop, so neither is folded.
-   jump_kind is JN_RETURN (function body) or JN_CONTINUE (loop body). */
+   exactly when c is falsy, so it is `c || (REST)`. Rewrite it to `if(!c){REST}`, which drops the jump for a
+   pair of braces, unless REST declares a binding the block would rescope; a later fold merges an all-expression
+   block into one comma sequence and convert_if turns `if(!c){seq}` into `c||seq`. Applied only at that top level: in a
+   nested block, code after the block would still run, and a labeled jump could target an outer loop, so neither is
+   folded. jump_kind is JN_RETURN (function body) or JN_CONTINUE (loop body). */
 static void fold_guard_jump(F *folder, int32_t first, int jump_kind) {
     jm_program *prog = folder->prog;
     for (int32_t idx = first; idx >= 0; idx = prog->nodes[idx].next) {
@@ -1090,26 +1304,24 @@ static void fold_guard_jump(F *folder, int32_t first, int jump_kind) {
         if (jump_kind == JN_RETURN ? prog->nodes[then].a >= 0 : prog->nodes[then].str != NULL) {
             continue; /* a valued return or a labeled continue is not a plain skip-the-rest */
         }
-        int mergeable = 1;
+        int movable = 1;
         for (int32_t stmt = rest; stmt >= 0; stmt = prog->nodes[stmt].next) {
-            if (!mergeable_expr(prog, stmt)) {
-                mergeable = 0; /* a declaration or control-flow statement cannot move into the block */
+            if (binds_in_body(prog, stmt)) {
+                movable = 0;
                 break;
             }
         }
-        if (!mergeable) {
+        if (!movable) {
             continue;
-        }
-        int32_t neg = jm_node_new(prog, JN_UNARY);
-        if (neg < 0) { /* GCOVR_EXCL_BR_LINE: allocation-failure path */
-            return;    /* GCOVR_EXCL_LINE */
         }
         int32_t block = jm_node_new(prog, JN_BLOCK);
         if (block < 0) { /* GCOVR_EXCL_BR_LINE: allocation-failure path */
             return;      /* GCOVR_EXCL_LINE */
         }
-        prog->nodes[neg].op = JT_NOT;
-        prog->nodes[neg].a = prog->nodes[idx].a;
+        int32_t neg = negate_for_test(folder, prog->nodes[idx].a);
+        if (neg < 0) { /* GCOVR_EXCL_BR_LINE: allocation-failure path */
+            return;    /* GCOVR_EXCL_LINE */
+        }
         prog->nodes[block].a = rest;
         prog->nodes[idx].a = neg;
         prog->nodes[idx].b = block;
@@ -1117,6 +1329,42 @@ static void fold_guard_jump(F *folder, int32_t first, int jump_kind) {
         folder->changed = 1;
         return; /* one guard per pass; the next fold pass cascades a chain */
     }
+}
+
+/* A tail `return c?a:void 0` returns a when c holds and undefined otherwise, which falling off the end returns too,
+   so it is `if(c)return a`; `return c?void 0:b` is `if(!c)return b`. In `return x,c?a:void 0` the test keeps the
+   sequence's leading elements: `if(x,c)return a`. */
+static void fold_tail_conditional(F *folder, int32_t ret, int32_t cond, int32_t cond_prev) {
+    jm_program *prog = folder->prog;
+    int32_t test = prog->nodes[cond].a;
+    int32_t kept;
+    if (is_bare_undefined(folder, prog->nodes[cond].c)) {
+        kept = prog->nodes[cond].b;
+    } else if (is_bare_undefined(folder, prog->nodes[cond].b)) {
+        kept = prog->nodes[cond].c;
+        test = negate_for_test(folder, test);
+        if (test < 0) { /* GCOVR_EXCL_BR_LINE: allocation-failure path */
+            return;     /* GCOVR_EXCL_LINE */
+        }
+    } else {
+        return;
+    }
+    int32_t inner = jm_node_new(prog, JN_RETURN);
+    if (inner < 0) { /* GCOVR_EXCL_BR_LINE: allocation-failure path */
+        return;      /* GCOVR_EXCL_LINE */
+    }
+    prog->nodes[inner].a = kept;
+    prog->nodes[kept].next = -1;
+    prog->nodes[test].next = -1;
+    if (cond_prev >= 0) {
+        prog->nodes[cond_prev].next = test;
+        test = prog->nodes[ret].a; /* the sequence, now ending in the test */
+    }
+    prog->nodes[ret].kind = JN_IF;
+    prog->nodes[ret].a = test;
+    prog->nodes[ret].b = inner;
+    prog->nodes[ret].c = -1;
+    folder->changed = 1;
 }
 
 /* A `return` ending a function body is redundant when it returns undefined: falling off the end
@@ -1157,20 +1405,17 @@ static void fold_tail_return(F *folder, int32_t block) {
         }
     }
     const jm_node *tail = &prog->nodes[value];
+    if (tail->kind == JN_COND) {
+        fold_tail_conditional(folder, last, value, value_prev);
+        return;
+    }
     if (!(tail->kind == JN_UNARY && tail->op == JT_IDENT && ident_is(tail, "void"))) {
         return;
     }
     if (!is_pure_const(folder, prog->nodes[value].a)) {
         replace_with(folder, value, prog->nodes[value].a); /* keep X's evaluation, lose the void */
-    } else if (value_prev < 0) {
-        if (prev < 0) { /* `return void 0` alone: the whole statement goes */
-            prog->nodes[block].a = -1;
-        } else {
-            prog->nodes[prev].next = -1;
-        }
-        folder->changed = 1;
-        return;
-    } else { /* `return a,b,void 0`: drop the pure tail element, unwrapping a lone survivor */
+    } else { /* `return a,b,void 0`: drop the pure tail element, unwrapping a lone survivor; a lone `return void 0`
+                never gets here, as walking the return already made it the bare `return` handled above */
         prog->nodes[value_prev].next = -1;
         if (value_prev == prog->nodes[arg].a) {
             prog->nodes[last].a = value_prev;
@@ -1345,19 +1590,36 @@ static int32_t walk_list(F *folder, int32_t first, int32_t depth) {
     return first;
 }
 
-/* Parse a plain non-negative decimal integer lexeme (digits only, no dot, exponent, separator or
-   radix prefix) under 10^15 so every sum/product stays an exact IEEE-754 integer. 1 and *out set,
-   or 0. */
+/* Parse a plain non-negative integer lexeme (decimal digits, or 0x/0o/0b digits, and `_` separators; no dot or
+   exponent) under 10^15 so every sum/product stays an exact IEEE-754 integer. The printer drops the separators and
+   writes a radix literal in decimal, so reading through both folds `1_0+1` and `4*0x40` in the pass that prints them
+   rather than in a re-minification. 1 and *out set, or 0. */
 static int int_value(const jm_node *node, uint64_t *out) {
-    if (node->kind != JN_NUM || node->str_len > 15) {
+    if (node->kind != JN_NUM) {
         return 0;
     }
+    unsigned base = 10;
+    Py_ssize_t start = 0;
+    if (node->str_len > 1 && node->str[0] == '0') {
+        Py_UCS4 mark = node->str[1] | 0x20;
+        base = mark == 'x' ? 16 : mark == 'o' ? 8 : mark == 'b' ? 2 : 0;
+        if (base == 0) {
+            return 0; /* a legacy octal (`010` is 8) does not read as its decimal digits, so it never folds */
+        }
+        start = 2;
+    }
     uint64_t value = 0;
-    for (Py_ssize_t index = 0; index < node->str_len; index++) {
-        if (node->str[index] < '0' || node->str[index] > '9') {
+    for (Py_ssize_t index = start; index < node->str_len; index++) {
+        Py_UCS4 ch = node->str[index];
+        if (ch == '_') {
+            continue;
+        }
+        /* a dot, an exponent or its sign maps to a digit no base admits */
+        Py_UCS4 digit = ch <= '9' ? ch - '0' : (ch | 0x20) - 'a' + 10;
+        if (digit >= base || value > (UINT64_C(999999999999999) - digit) / base) {
             return 0;
         }
-        value = value * 10 + (uint64_t)(node->str[index] - '0');
+        value = value * base + digit;
     }
     *out = value;
     return 1;
@@ -1408,6 +1670,17 @@ static void fold_arithmetic(F *folder, int32_t idx) {
     }
 }
 
+/* The quote that delimits value[0..len) with fewer escapes, or current when both need as many. */
+static Py_UCS4 fewer_escapes_quote(const Py_UCS4 *value, Py_ssize_t len, Py_UCS4 current) {
+    Py_ssize_t singles = 0;
+    Py_ssize_t doubles = 0;
+    for (Py_ssize_t index = 0; index < len; index++) {
+        singles += value[index] == '\'';
+        doubles += value[index] == '"';
+    }
+    return singles < doubles ? '\'' : doubles < singles ? '"' : current;
+}
+
 /* The decoded operands of a `+` chain, joined left to right (ECMA-262 13.15.3). The operand values are decoded and the
    joined value re-encoded rather than the raw lexemes spliced: a trailing variable-length escape (a legacy octal or a
    `\x`) in the left operand would otherwise absorb the right operand's first character and change the value
@@ -1417,7 +1690,7 @@ typedef struct {
     Py_UCS4 *value;   /* the decoded operands joined so far */
     Py_ssize_t len;   /* the code points in value */
     Py_ssize_t cap;   /* the code points value can hold */
-    Py_UCS4 quote;    /* the quote every joined operand uses */
+    Py_UCS4 quote;    /* the first operand's quote, which the joined value keeps unless the other one escapes less */
     int32_t join;     /* the last `+` the run joined, whose node takes the value; -1 while none */
     int32_t boundary; /* the owned count right after the last joined operand's walk */
     int32_t mark;     /* the owned count before the chain's first operand was walked */
@@ -1430,18 +1703,22 @@ static int concat_reserve(F *folder, concat_run *run, Py_ssize_t extra) {
     if (run->len + extra <= run->cap) {
         return 1;
     }
-    Py_ssize_t cap = run->cap < 64 ? 64 : run->cap;
-    while (cap < run->len + extra) {
-        cap *= 2;
+    size_t cap;
+    size_t bytes;
+    int grew = th_grow_cap((size_t)(run->len + extra), (size_t)run->cap, 64, sizeof(Py_UCS4), &cap, &bytes);
+    if (!grew) {                  /* GCOVR_EXCL_BR_LINE: needs a literal chain past SIZE_MAX bytes, 32-bit only */
+        folder->prog->failed = 1; /* GCOVR_EXCL_LINE */
+        run->open = 0;            /* GCOVR_EXCL_LINE */
+        return 0;                 /* GCOVR_EXCL_LINE */
     }
-    Py_UCS4 *grown = jm_realloc(run->value, (size_t)cap * sizeof(Py_UCS4));
+    Py_UCS4 *grown = jm_realloc(run->value, bytes);
     if (grown == NULL) {          /* GCOVR_EXCL_BR_LINE: allocation-failure path */
         folder->prog->failed = 1; /* GCOVR_EXCL_LINE */
         run->open = 0;            /* GCOVR_EXCL_LINE */
         return 0;                 /* GCOVR_EXCL_LINE */
     }
     run->value = grown;
-    run->cap = cap;
+    run->cap = (Py_ssize_t)cap;
     return 1;
 }
 
@@ -1479,8 +1756,7 @@ static void concat_join(F *folder, concat_run *run, int32_t idx, int32_t right_i
         return;
     }
     const jm_node *right = &folder->prog->nodes[right_index];
-    /* same-quote operands only, so the result keeps that quote and re-encoding stays minimal */
-    if (right->kind != JN_STRING || right->str[0] != run->quote) {
+    if (right->kind != JN_STRING) {
         run->open = 0;
         return;
     }
@@ -1506,15 +1782,22 @@ static void concat_join(F *folder, concat_run *run, int32_t idx, int32_t right_i
    joined operands owned was synthesized for a node the collapse unlinks, and keeping them until the program is freed
    would make an n-literal chain hold n/2 copies of its joined value. */
 static void concat_commit(F *folder, concat_run *run) {
+    /* GCOVR_EXCL_START: needs a 32-bit build and a joined value of over 178 million code points */
+    if ((size_t)run->len > (SIZE_MAX / sizeof(Py_UCS4) - 2) / 6) {
+        folder->prog->failed = 1;
+        return;
+    }
+    /* GCOVR_EXCL_STOP */
     Py_UCS4 *lexeme = jm_malloc((size_t)(run->len * 6 + 2) * sizeof(Py_UCS4)); /* the widest escape is 6 wide */
     if (lexeme == NULL) {         /* GCOVR_EXCL_BR_LINE: allocation-failure path */
         folder->prog->failed = 1; /* GCOVR_EXCL_LINE */
         return;                   /* GCOVR_EXCL_LINE */
     }
-    lexeme[0] = run->quote;
     TH_WORK_STEPS_ADD(run->len);
-    Py_ssize_t inner = jm_str_encode(run->value, run->len, run->quote, lexeme + 1);
-    lexeme[inner + 1] = run->quote;
+    Py_UCS4 quote = fewer_escapes_quote(run->value, run->len, run->quote);
+    lexeme[0] = quote;
+    Py_ssize_t inner = jm_str_encode(run->value, run->len, quote, lexeme + 1);
+    lexeme[inner + 1] = quote;
     const Py_UCS4 *owned = jm_program_own(folder->prog, lexeme, inner + 2);
     jm_free(lexeme);
     if (owned == NULL) { /* GCOVR_EXCL_BR_LINE: allocation-failure path */
@@ -1523,6 +1806,7 @@ static void concat_commit(F *folder, concat_run *run) {
     jm_program_release(folder->prog, run->mark, run->boundary);
     jm_node *node = &folder->prog->nodes[run->join];
     node->kind = JN_STRING;
+    node->flags &= ~(uint32_t)JN_F_CANONICAL;
     node->str = owned;
     node->str_len = inner + 2;
     node->a = -1;
@@ -1696,6 +1980,125 @@ static inline void walk_stmt(F *folder, int32_t idx, int32_t depth, int member) 
     }
 }
 
+/* The mark slot of the function body body, or of the free slot its probe ends on. */
+static jm_fold_mark *mark_slot(jm_fold_marks *marks, int32_t body) {
+    uint32_t mask = (uint32_t)marks->cap - 1;
+    uint32_t hash = (uint32_t)body * 0x9E3779B1u;
+    for (uint32_t slot = (hash ^ (hash >> 16)) & mask;; slot = (slot + 1) & mask) {
+        jm_fold_mark *mark = &marks->slots[slot];
+        if (mark->body == body || mark->body < 0) {
+            return mark;
+        }
+    }
+}
+
+/* Whether the function at idx is one an earlier pass of this fold call walked at the same depth without a change: a
+   pass over it now would change nothing either, so it only counts how deep it reaches. Every fold inside a function
+   reads the tree below it and how deep that sits, never the statements around it, and a fold of the code around it
+   leaves its body alone. */
+static int skip_unchanged(F *folder, int32_t idx, int32_t depth) {
+    const jm_program *prog = folder->prog;
+    if (prog->fold_marks == NULL) {
+        return 0;
+    }
+    const jm_fold_mark *mark = mark_slot(prog->fold_marks, prog->nodes[idx].b);
+    if (mark->body < 0 || mark->stamp != prog->fold_stamp || mark->depth != depth) {
+        return 0;
+    }
+    note_depth(folder, mark->reach);
+    return 1;
+}
+
+/* Record how the walk of the function at idx went: a mark when it changed nothing, and none left behind when it did,
+   since an earlier mark at another depth describes the body before this walk changed it. */
+static void mark_walked(F *folder, int32_t idx, int32_t depth) {
+    jm_program *prog = folder->prog;
+    jm_fold_marks *marks = prog->fold_marks;
+    int32_t body = prog->nodes[idx].b;
+    if (folder->changed || folder->with_depth > 0) {
+        if (marks != NULL) {
+            mark_slot(marks, body)->stamp = 0;
+        }
+        return;
+    }
+    if (marks == NULL || marks->count * 2 >= marks->cap) {
+        int32_t cap = marks == NULL ? 8 : marks->cap * 2;
+        jm_fold_marks *grown = jm_malloc(sizeof(jm_fold_marks) + (size_t)cap * sizeof(jm_fold_mark));
+        if (grown == NULL) {  /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced */
+            prog->failed = 1; /* GCOVR_EXCL_LINE: allocation-failure path */
+            return;           /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
+        grown->cap = cap;
+        grown->count = 0;
+        for (int32_t slot = 0; slot < cap; slot++) {
+            grown->slots[slot].body = -1;
+        }
+        for (int32_t slot = 0; marks != NULL && slot < marks->cap; slot++) {
+            if (marks->slots[slot].body >= 0) {
+                *mark_slot(grown, marks->slots[slot].body) = marks->slots[slot];
+                grown->count++;
+            }
+        }
+        jm_free(marks);
+        prog->fold_marks = marks = grown;
+    }
+    jm_fold_mark *mark = mark_slot(marks, body);
+    marks->count += mark->body < 0;
+    *mark = (jm_fold_mark){body, prog->fold_stamp, depth, folder->deepest};
+}
+
+/* The UTF-8 bytes of the code points text[0..len). */
+static Py_ssize_t utf8_size(const Py_UCS4 *text, Py_ssize_t len) {
+    Py_ssize_t size = len;
+    for (Py_ssize_t index = 0; index < len; index++) {
+        size += (text[index] >= 0x80) + (text[index] >= 0x800) + (text[index] >= 0x10000);
+    }
+    return size;
+}
+
+/* Re-encode the string literal at idx from its value when that prints fewer UTF-8 bytes: a code point an escape
+   spelled is written raw, and the quote the value holds fewer of delimits it. Only a literal with an escape can
+   shrink, and a directive keeps its spelling, which is what makes it one (11.2.1). The literal is marked, so later
+   passes skip it. */
+static void canonical_string(F *folder, int32_t idx) {
+    jm_program *prog = folder->prog;
+    if (prog->nodes[idx].flags & JN_F_CANONICAL) {
+        return;
+    }
+    prog->nodes[idx].flags |= JN_F_CANONICAL;
+    const Py_UCS4 *lexeme = prog->nodes[idx].str;
+    Py_ssize_t len = prog->nodes[idx].str_len;
+    Py_ssize_t escape = 1;
+    while (escape < len - 1 && lexeme[escape] != '\\') {
+        escape++;
+    }
+    if (escape >= len - 1) {
+        return;
+    }
+    Py_UCS4 *value = jm_malloc((size_t)(len * 7 + 2) * sizeof(Py_UCS4)); /* the value, then its widest encoding */
+    if (value == NULL) {          /* GCOVR_EXCL_BR_LINE: allocation-failure path keeps the literal */
+        folder->prog->failed = 1; /* GCOVR_EXCL_LINE */
+        return;                   /* GCOVR_EXCL_LINE */
+    }
+    Py_ssize_t decoded = jm_str_decode(lexeme, len, value);
+    if (decoded >= 0) {
+        Py_UCS4 quote = fewer_escapes_quote(value, decoded, lexeme[0]);
+        Py_UCS4 *encoded = value + len;
+        encoded[0] = quote;
+        Py_ssize_t inner = jm_str_encode(value, decoded, quote, encoded + 1);
+        encoded[inner + 1] = quote;
+        if (utf8_size(encoded, inner + 2) < utf8_size(lexeme, len)) {
+            const Py_UCS4 *owned = jm_program_own(prog, encoded, inner + 2);
+            if (owned != NULL) { /* GCOVR_EXCL_BR_LINE: allocation-failure path keeps the literal */
+                prog->nodes[idx].str = owned;
+                prog->nodes[idx].str_len = inner + 2;
+                folder->changed = 1;
+            }
+        }
+    }
+    jm_free(value);
+}
+
 /* Fold the subtree at idx, which sits depth walk calls under the program root. folder->deepest is the deepest point
    the walk has reached under the innermost if, logical or statement list around it: the guard fold and the chain
    rotation read it to know how tall the tree they are about to grow already is. */
@@ -1707,8 +2110,10 @@ static void walk(F *folder, int32_t idx, int32_t depth) {
     jm_node *node = &folder->prog->nodes[idx];
     int kind = node->kind;
     switch (kind) {
-    case JN_NUM:
     case JN_STRING:
+        canonical_string(folder, idx);
+        return;
+    case JN_NUM:
     case JN_REGEX:
     case JN_BIGINT:
     case JN_EMPTY:
@@ -1761,6 +2166,8 @@ static void walk(F *folder, int32_t idx, int32_t depth) {
     case JN_MEMBER:
         if (flags & JN_F_COMPUTED) {
             walk(folder, child_a, depth + 1);
+        } else if (child_a >= 0 && folder->prog->nodes[child_a].kind == JN_STRING) {
+            canonical_string(folder, child_a);
         }
         walk(folder, child_b, depth + 1);
         return;
@@ -1789,7 +2196,9 @@ static void walk(F *folder, int32_t idx, int32_t depth) {
         }
         return;
     case JN_EXPR_STMT:
-        walk(folder, child_a, depth + 1);
+        if (!(flags & JN_F_DIRECTIVE)) {
+            walk(folder, child_a, depth + 1);
+        }
         /* a constant has no side effect, so the statement only matters as a directive (11.2.1) */
         if (is_pure_const(folder, child_a) && !(folder->prog->nodes[idx].flags & JN_F_DIRECTIVE)) {
             jm_node_empty(folder->prog, idx);
@@ -1805,7 +2214,14 @@ static void walk(F *folder, int32_t idx, int32_t depth) {
         walk_block(folder, idx, depth, 0);
         return;
     case JN_FUNC:
-    case JN_ARROW:
+    case JN_ARROW: {
+        if (skip_unchanged(folder, idx, depth)) {
+            return;
+        }
+        int outer_changed = folder->changed;
+        int32_t outer = folder->deepest;
+        folder->changed = 0;
+        folder->deepest = depth;
         walk_chain(folder, child_a, depth + 1); /* params (default values may fold) */
         walk(folder, child_b, depth + 1);       /* body */
         if (!(kind == JN_ARROW && (flags & JN_F_EXPRBODY))) {
@@ -1814,7 +2230,13 @@ static void walk(F *folder, int32_t idx, int32_t depth) {
             fold_tail_return(folder, child_b);
             fold_guard_jump(folder, folder->prog->nodes[child_b].a, JN_RETURN);
         }
+        mark_walked(folder, idx, depth);
+        folder->changed |= outer_changed;
+        if (outer > folder->deepest) {
+            folder->deepest = outer;
+        }
         return;
+    }
     case JN_FOR:
     case JN_FORIN:
     case JN_FOROF:
@@ -1940,6 +2362,14 @@ static void walk(F *folder, int32_t idx, int32_t depth) {
     /* then transform this node against its now-folded children */
     node = &folder->prog->nodes[idx];
     switch (node->kind) {
+    case JN_RETURN:
+        /* `return void 0` and a bare `return` both return undefined (14.10.1); the bare form is shorter, and the
+           one the guard and tail folds read */
+        if (node->a >= 0 && is_bare_undefined(folder, node->a)) {
+            node->a = -1;
+            folder->changed = 1;
+        }
+        return;
     case JN_UNARY:
         if (node->op == JT_NOT) {
             const jm_node *operand = &folder->prog->nodes[node->a];
@@ -1995,23 +2425,18 @@ static void walk(F *folder, int32_t idx, int32_t depth) {
                 /* `typeof X op "undefined"` is true exactly when X's value is undefined (13.5.3),
                    so it shortens to the strict `void 0===X` / `void 0!==X`; X's evaluation (and any
                    throw from it) is identical on both forms since X is not a bare name. */
-                int32_t undef = jm_node_new(folder->prog, JN_UNARY);
+                int32_t undef = make_undefined(folder);
                 if (undef < 0) { /* GCOVR_EXCL_BR_LINE: allocation-failure path keeps the typeof */
                     return;      /* GCOVR_EXCL_LINE */
                 }
-                fold_void(folder, undef);
-                node = &folder->prog->nodes[idx];             /* the two allocations may have moved the arena */
-                if (folder->prog->nodes[undef].str == NULL) { /* GCOVR_EXCL_BR_LINE: alloc failure */
-                    return;                                   /* GCOVR_EXCL_LINE */
-                }
+                node = &folder->prog->nodes[idx]; /* the two allocations may have moved the arena */
                 node->op = node->op == JT_EQ_EQ || node->op == JT_EQ_EQ_EQ ? JT_EQ_EQ_EQ : JT_NE_EQ;
                 node->a = undef;
                 node->b = folder->prog->nodes[typeof_side].a;
                 return;
             }
         }
-        if ((node->op == JT_EQ_EQ_EQ || node->op == JT_NE_EQ) && static_type(folder, node->a) != 0 &&
-            static_type(folder, node->a) == static_type(folder, node->b)) {
+        if ((node->op == JT_EQ_EQ_EQ || node->op == JT_NE_EQ) && same_type(folder, node->a, node->b)) {
             /* same-type operands make loose equality strict (7.2.14 step 1), so === weakens to ==
                without a behavior change: typeof x==="string" -> typeof x=="string" */
             node->op = node->op == JT_EQ_EQ_EQ ? JT_EQ_EQ : JT_NE;
@@ -2023,7 +2448,7 @@ static void walk(F *folder, int32_t idx, int32_t depth) {
     }
 }
 
-int jm_fold(jm_program *prog) {
+static int fold_passes(jm_program *prog) {
     F folder = {.prog = prog, .changed = 0};
     /* with a binding named `undefined` anywhere, only a read resolution proves global folds. The passes move and
        drop bindings but never create one, so once none is named `undefined` a later fold need not look again. */
@@ -2048,4 +2473,27 @@ int jm_fold(jm_program *prog) {
     }
     jm_free(folder.hoists);
     return any;
+}
+
+int jm_fold(jm_program *prog) {
+    prog->fold_stamp++; /* the marks an earlier call left describe a tree the passes since may have changed */
+    return fold_passes(prog);
+}
+
+int jm_fold_touched(jm_program *prog) {
+    return fold_passes(prog);
+}
+
+void jm_fold_touch_function(jm_program *prog, int32_t func) {
+    if (prog->fold_marks != NULL) {
+        mark_slot(prog->fold_marks, prog->nodes[func].b)->stamp = 0;
+    }
+}
+
+void jm_fold_touch(jm_program *prog, int32_t scope) {
+    for (; scope >= 0; scope = prog->scopes[scope].parent) {
+        if (prog->scopes[scope].node >= 0) {
+            jm_fold_touch_function(prog, prog->scopes[scope].node);
+        }
+    }
 }

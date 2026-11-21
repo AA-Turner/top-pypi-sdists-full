@@ -1200,41 +1200,6 @@ class CfnConnectPeer(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
-    @jsii.member(jsii_name="arnForConnectPeer")
-    @builtins.classmethod
-    def arn_for_connect_peer(
-        cls,
-        resource: "_aws_networkmanager_440bf644.IConnectPeerRef",
-    ) -> builtins.str:
-        '''
-        :param resource: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__9539f56db4082869974bcf8ec1775d4a394fb2439ee06498c92dfbecfaf50771)
-            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
-        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForConnectPeer", [resource]))
-
-    @jsii.member(jsii_name="fromConnectPeerId")
-    @builtins.classmethod
-    def from_connect_peer_id(
-        cls,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        connect_peer_id: builtins.str,
-    ) -> "_aws_networkmanager_440bf644.IConnectPeerRef":
-        '''Creates a new IConnectPeerRef from a connectPeerId.
-
-        :param scope: -
-        :param id: -
-        :param connect_peer_id: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__7d187bcb8ec29aaf67b316fe660a687be304a5ad5f292f083dc2ab2a1584a294)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument connect_peer_id", value=connect_peer_id, expected_type=type_hints["connect_peer_id"])
-        return typing.cast("_aws_networkmanager_440bf644.IConnectPeerRef", jsii.sinvoke(cls, "fromConnectPeerId", [scope, id, connect_peer_id]))
-
     @jsii.member(jsii_name="isCfnConnectPeer")
     @builtins.classmethod
     def is_cfn_connect_peer(cls, x: typing.Any) -> builtins.bool:
@@ -2401,6 +2366,539 @@ class CfnConnectionProps:
 
     def __repr__(self) -> str:
         return "CfnConnectionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_networkmanager_440bf644.IContextStoreRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnContextStore(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_networkmanager.CfnContextStore",
+):
+    '''Creates a Context Store paired to a Global Network for sharing network context with firewall vendors.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkmanager-contextstore.html
+    :cloudformationResource: AWS::NetworkManager::ContextStore
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_networkmanager as networkmanager
+        
+        cfn_context_store = networkmanager.CfnContextStore(self, "MyCfnContextStore",
+            description="description",
+            global_network_id="globalNetworkId",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        description: typing.Optional[builtins.str] = None,
+        global_network_id: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::NetworkManager::ContextStore``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param description: The description of the context store.
+        :param global_network_id: The ID of the global network.
+        :param tags: 
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3b5a852bebd8f659f11d61abe692ae4c7d85e809148f82f0c88037ef49e5ce52)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnContextStoreProps(
+            description=description, global_network_id=global_network_id, tags=tags
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForContextStore")
+    @builtins.classmethod
+    def arn_for_context_store(
+        cls,
+        resource: "_aws_networkmanager_440bf644.IContextStoreRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3787223ba11c720c934b4822dbb586b39312e41e2f4376dce3147ff503ce6baf)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForContextStore", [resource]))
+
+    @jsii.member(jsii_name="isCfnContextStore")
+    @builtins.classmethod
+    def is_cfn_context_store(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnContextStore.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__741fa9e0da7e4662772778f0c1bb0142c681feb02bac8e2d8201aa09f6e44f33)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnContextStore", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5cb6e026a62ddd8eb16027951383b0d55a831d091c8cef8dde7ba25788c2e244)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__69b9e8bab2d18a8a4886bb0c21ac2755db3e05c265a4ae66d771f464ff1184c1)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrContextStoreArn")
+    def attr_context_store_arn(self) -> builtins.str:
+        '''The ARN of the context store.
+
+        :cloudformationAttribute: ContextStoreArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrContextStoreArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrContextStoreId")
+    def attr_context_store_id(self) -> builtins.str:
+        '''The ID of the context store.
+
+        :cloudformationAttribute: ContextStoreId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrContextStoreId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''Creation timestamp.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrState")
+    def attr_state(self) -> builtins.str:
+        '''The state of the context store (PENDING / AVAILABLE / UPDATING / DELETING / DELETED).
+
+        :cloudformationAttribute: State
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrState"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="contextStoreRef")
+    def context_store_ref(self) -> "_aws_networkmanager_440bf644.ContextStoreReference":
+        '''A reference to a ContextStore resource.'''
+        return typing.cast("_aws_networkmanager_440bf644.ContextStoreReference", jsii.get(self, "contextStoreRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the context store.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__26cc210675ffa9bcf457b4b3f86265e600613b06e8a031149e1b9ca801749896)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="globalNetworkId")
+    def global_network_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the global network.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "globalNetworkId"))
+
+    @global_network_id.setter
+    def global_network_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e00ed151648be96df6683c8e53e0f6cb7110a2cf66c485df2a4ec544de5bb448)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "globalNetworkId", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3a7ec417e02bd3e1277598397eb42c1f0640667ca2d95ab5e1e05059edfff908)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value)
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_networkmanager_440bf644.IContextStoreAssociationRef)
+class CfnContextStoreAssociation(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_networkmanager.CfnContextStoreAssociation",
+):
+    '''Associates a Transit Gateway with a Context Store for sharing network context.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkmanager-contextstoreassociation.html
+    :cloudformationResource: AWS::NetworkManager::ContextStoreAssociation
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_networkmanager as networkmanager
+        
+        cfn_context_store_association = networkmanager.CfnContextStoreAssociation(self, "MyCfnContextStoreAssociation",
+            context_store_id="contextStoreId",
+            resource_arn="resourceArn"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        context_store_id: builtins.str,
+        resource_arn: builtins.str,
+    ) -> None:
+        '''Create a new ``AWS::NetworkManager::ContextStoreAssociation``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param context_store_id: The ID of the context store.
+        :param resource_arn: The ARN of the Transit Gateway to associate.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8f1f05e2046c0cfc886baf4c50fe4b02927e78bad469b976f3b35b43f0ec07a8)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnContextStoreAssociationProps(
+            context_store_id=context_store_id, resource_arn=resource_arn
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnContextStoreAssociation")
+    @builtins.classmethod
+    def is_cfn_context_store_association(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnContextStoreAssociation.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__27d13ddb9ee36595016f30cc357e20fba5b2db6ddb2008eafd3b56451f3d8c37)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnContextStoreAssociation", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2e069ccc16c2b1ef7d5db8e4cb0fa8f0fa50d28568858f3a9db74f87b0f77878)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__928507bea44a4e6f68e123a1fa167f30ed5078a9e813bbb5fc1d57a0e01a3b82)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''Creation timestamp (ISO-8601).
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrState")
+    def attr_state(self) -> builtins.str:
+        '''The state of the association (ASSOCIATING, ASSOCIATED, DISASSOCIATING, FAILED).
+
+        :cloudformationAttribute: State
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrState"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="contextStoreAssociationRef")
+    def context_store_association_ref(
+        self,
+    ) -> "_aws_networkmanager_440bf644.ContextStoreAssociationReference":
+        '''A reference to a ContextStoreAssociation resource.'''
+        return typing.cast("_aws_networkmanager_440bf644.ContextStoreAssociationReference", jsii.get(self, "contextStoreAssociationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="contextStoreId")
+    def context_store_id(self) -> builtins.str:
+        '''The ID of the context store.'''
+        return typing.cast(builtins.str, jsii.get(self, "contextStoreId"))
+
+    @context_store_id.setter
+    def context_store_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c6d02eb3bbe3eab666f33c1c211f99c11791c4ec9bdac502ab3c1845ee99779c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "contextStoreId", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceArn")
+    def resource_arn(self) -> builtins.str:
+        '''The ARN of the Transit Gateway to associate.'''
+        return typing.cast(builtins.str, jsii.get(self, "resourceArn"))
+
+    @resource_arn.setter
+    def resource_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c8a3bdb94410c323fc1d5ba26309e711e98279d5da4df02d49d65213e6fca430)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resourceArn", value)
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_networkmanager.CfnContextStoreAssociationProps",
+    jsii_struct_bases=[],
+    name_mapping={"context_store_id": "contextStoreId", "resource_arn": "resourceArn"},
+)
+class CfnContextStoreAssociationProps:
+    def __init__(
+        self,
+        *,
+        context_store_id: builtins.str,
+        resource_arn: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnContextStoreAssociation``.
+
+        :param context_store_id: The ID of the context store.
+        :param resource_arn: The ARN of the Transit Gateway to associate.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkmanager-contextstoreassociation.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_networkmanager as networkmanager
+            
+            cfn_context_store_association_props = networkmanager.CfnContextStoreAssociationProps(
+                context_store_id="contextStoreId",
+                resource_arn="resourceArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2f9fddf1c6609db0bf62985e129fd706d545d1550f9cd42fbbbbe062d28bd7f7)
+            check_type(argname="argument context_store_id", value=context_store_id, expected_type=type_hints["context_store_id"])
+            check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "context_store_id": context_store_id,
+            "resource_arn": resource_arn,
+        }
+
+    @builtins.property
+    def context_store_id(self) -> builtins.str:
+        '''The ID of the context store.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkmanager-contextstoreassociation.html#cfn-networkmanager-contextstoreassociation-contextstoreid
+        '''
+        result = self._values.get("context_store_id")
+        assert result is not None, "Required property 'context_store_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def resource_arn(self) -> builtins.str:
+        '''The ARN of the Transit Gateway to associate.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkmanager-contextstoreassociation.html#cfn-networkmanager-contextstoreassociation-resourcearn
+        '''
+        result = self._values.get("resource_arn")
+        assert result is not None, "Required property 'resource_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnContextStoreAssociationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_networkmanager.CfnContextStoreProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "description": "description",
+        "global_network_id": "globalNetworkId",
+        "tags": "tags",
+    },
+)
+class CfnContextStoreProps:
+    def __init__(
+        self,
+        *,
+        description: typing.Optional[builtins.str] = None,
+        global_network_id: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnContextStore``.
+
+        :param description: The description of the context store.
+        :param global_network_id: The ID of the global network.
+        :param tags: 
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkmanager-contextstore.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_networkmanager as networkmanager
+            
+            cfn_context_store_props = networkmanager.CfnContextStoreProps(
+                description="description",
+                global_network_id="globalNetworkId",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5a2a35e135680b6f7402e9949d61e56b8123ebee069ea028e3486ea394bde7a2)
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument global_network_id", value=global_network_id, expected_type=type_hints["global_network_id"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if description is not None:
+            self._values["description"] = description
+        if global_network_id is not None:
+            self._values["global_network_id"] = global_network_id
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the context store.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkmanager-contextstore.html#cfn-networkmanager-contextstore-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def global_network_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the global network.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkmanager-contextstore.html#cfn-networkmanager-contextstore-globalnetworkid
+        '''
+        result = self._values.get("global_network_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkmanager-contextstore.html#cfn-networkmanager-contextstore-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnContextStoreProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -10267,6 +10765,10 @@ __all__ = [
     "CfnConnectPeerProps",
     "CfnConnection",
     "CfnConnectionProps",
+    "CfnContextStore",
+    "CfnContextStoreAssociation",
+    "CfnContextStoreAssociationProps",
+    "CfnContextStoreProps",
     "CfnCoreNetwork",
     "CfnCoreNetworkPrefixListAssociation",
     "CfnCoreNetworkPrefixListAssociationProps",
@@ -10474,20 +10976,6 @@ def _typecheckingstub__614dda353f68a248b8ae08e0094dfb5ecab0817abd8f24330d861cce6
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__9539f56db4082869974bcf8ec1775d4a394fb2439ee06498c92dfbecfaf50771(
-    resource: _aws_networkmanager_440bf644.IConnectPeerRef,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7d187bcb8ec29aaf67b316fe660a687be304a5ad5f292f083dc2ab2a1584a294(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    connect_peer_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__25e8ead32673cd0b3f33520064553b647bab4d7a1a93c88b5e1f9f3cd0ad0da3(
     x: typing.Any,
 ) -> None:
@@ -10678,6 +11166,116 @@ def _typecheckingstub__5c392c12b34c3f5b99604557705242f1df42d7add96cd683fc32e81de
     connected_link_id: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     link_id: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3b5a852bebd8f659f11d61abe692ae4c7d85e809148f82f0c88037ef49e5ce52(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    description: typing.Optional[builtins.str] = None,
+    global_network_id: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3787223ba11c720c934b4822dbb586b39312e41e2f4376dce3147ff503ce6baf(
+    resource: _aws_networkmanager_440bf644.IContextStoreRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__741fa9e0da7e4662772778f0c1bb0142c681feb02bac8e2d8201aa09f6e44f33(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5cb6e026a62ddd8eb16027951383b0d55a831d091c8cef8dde7ba25788c2e244(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__69b9e8bab2d18a8a4886bb0c21ac2755db3e05c265a4ae66d771f464ff1184c1(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__26cc210675ffa9bcf457b4b3f86265e600613b06e8a031149e1b9ca801749896(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e00ed151648be96df6683c8e53e0f6cb7110a2cf66c485df2a4ec544de5bb448(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3a7ec417e02bd3e1277598397eb42c1f0640667ca2d95ab5e1e05059edfff908(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8f1f05e2046c0cfc886baf4c50fe4b02927e78bad469b976f3b35b43f0ec07a8(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    context_store_id: builtins.str,
+    resource_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__27d13ddb9ee36595016f30cc357e20fba5b2db6ddb2008eafd3b56451f3d8c37(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2e069ccc16c2b1ef7d5db8e4cb0fa8f0fa50d28568858f3a9db74f87b0f77878(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__928507bea44a4e6f68e123a1fa167f30ed5078a9e813bbb5fc1d57a0e01a3b82(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c6d02eb3bbe3eab666f33c1c211f99c11791c4ec9bdac502ab3c1845ee99779c(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c8a3bdb94410c323fc1d5ba26309e711e98279d5da4df02d49d65213e6fca430(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2f9fddf1c6609db0bf62985e129fd706d545d1550f9cd42fbbbbe062d28bd7f7(
+    *,
+    context_store_id: builtins.str,
+    resource_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5a2a35e135680b6f7402e9949d61e56b8123ebee069ea028e3486ea394bde7a2(
+    *,
+    description: typing.Optional[builtins.str] = None,
+    global_network_id: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

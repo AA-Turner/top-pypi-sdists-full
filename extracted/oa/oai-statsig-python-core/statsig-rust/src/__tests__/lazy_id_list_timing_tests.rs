@@ -137,12 +137,10 @@ async fn lazy_load_silent_observer_skips_collection_and_export() {
         .suppress_diagnostic_output(true),
     )
     .await;
-    let enabled = statsig
-        .id_lists_adapter
-        .as_default_adapter
-        .as_ref()
-        .unwrap()
-        .load_timings_enabled;
+    let LocalIdLists::Worker(adapter) = &statsig.id_lists_adapter else {
+        panic!("expected worker adapter")
+    };
+    let enabled = adapter.load_timings_enabled;
     assert!(!enabled);
     let ops = OpsStatsForInstance::new();
     let mut events = ops.subscribe_for_test();
@@ -207,14 +205,20 @@ async fn lazy_load_without_observer_skips_collection_and_export() {
 // from another test. Register through options, exactly as an application does.
 rusty_fork_test! {
     #[test]
-    fn lazy_load_callbacks_do_not_block_other_lists_on_a_single_sdk_worker() {
+    fn id_list_callbacks_do_not_block_other_lists_on_a_single_sdk_worker() {
         let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
         runtime.block_on(async {
-            for metric in ["list_phase_ms", "wait_ms", "batch_ms"] {
+            for metric in [
+                "lazy_id_list_load.list_phase_ms",
+                "lazy_id_list_load.wait_ms",
+                "lazy_id_list_load.batch_ms",
+                "id_list_membership_lookup",
+                "id_list_membership_rpc_latency_ms",
+            ] {
                 let (entered_tx, entered_rx) = std::sync::mpsc::channel();
                 let (release_tx, release_rx) = std::sync::mpsc::channel();
                 let observer: Arc<dyn crate::ObservabilityClient> = Arc::new(BlockingObserver {
-                    metric: format!("statsig.sdk.lazy_id_list_load.{metric}"),
+                    metric: format!("statsig.sdk.{metric}"),
                     entered: parking_lot::Mutex::new(Some(entered_tx)),
                     release: parking_lot::Mutex::new(release_rx),
                 });
@@ -227,9 +231,13 @@ rusty_fork_test! {
                 let _release_on_failure = scopeguard::guard(release_tx, |tx| { let _ = tx.send(()); });
                 let user = StatsigUser::with_user_id("lazy-member");
                 statsig.get_dynamic_config(&user, "lazy-config");
+                let metrics = remote_id_list_metrics::RemoteIdListMetrics::new(
+                    &statsig.options, &statsig.ops_stats,
+                );
+                metrics.record_cache_hit("members", Some(true), true);
+                metrics.record_rpc_latency("members", Some(Duration::ZERO), "answered");
                 entered_rx.recv_timeout(Duration::from_secs(3)).unwrap();
-                // A is published and its callback remains blocked. B must still
-                // download, publish, and return its configured value on this call.
+                // The observer is blocked. A second cold list must still load on this call.
                 let result = statsig.get_dynamic_config(&user, "second-config");
                 assert_eq!(result.get_opt::<bool>("loaded"), Some(true), "{metric}: {}", result.details.reason);
                 assert!(!result.details.reason.contains("IdListLoadTimeout"));
@@ -245,7 +253,9 @@ struct BlockingObserver {
 }
 impl crate::ObservabilityClient for BlockingObserver {
     fn init(&self) {}
-    fn increment(&self, _: String, _: f64, _: Option<HashMap<String, String>>) {}
+    fn increment(&self, name: String, value: f64, tags: Option<HashMap<String, String>>) {
+        self.dist(name, value, tags);
+    }
     fn gauge(&self, _: String, _: f64, _: Option<HashMap<String, String>>) {}
     fn error(&self, _: String, _: String) {}
     fn should_enable_high_cardinality_for_this_tag(&self, _: String) -> Option<bool> {

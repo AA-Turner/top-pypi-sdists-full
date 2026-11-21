@@ -154,6 +154,8 @@ from .literals import (
     FastSnapshotRestoreStateCodeType,
     FilterByDimensionType,
     FindingsFoundType,
+    FirewallModeType,
+    FirewallOnboardingStatusType,
     FleetActivityStatusType,
     FleetEventTypeType,
     FleetExcessCapacityTerminationPolicyType,
@@ -305,6 +307,7 @@ from .literals import (
     NatGatewayStateType,
     NestedVirtualizationSpecificationType,
     NetworkCardInterfaceTypeType,
+    NetworkFirewallConnectivityTypeType,
     NetworkInterfaceAttributeType,
     NetworkInterfaceCreationTypeType,
     NetworkInterfacePermissionStateCodeType,
@@ -2387,6 +2390,7 @@ __all__ = (
     "IamInstanceProfileTypeDef",
     "IcmpTypeCodeTypeDef",
     "IdFormatTypeDef",
+    "IgwFirewallTypeDef",
     "ImageAncestryEntryTypeDef",
     "ImageAttributeTypeDef",
     "ImageCreateTagsRequestTypeDef",
@@ -2896,6 +2900,7 @@ __all__ = (
     "NetworkBandwidthGbpsRequestTypeDef",
     "NetworkBandwidthGbpsTypeDef",
     "NetworkCardInfoTypeDef",
+    "NetworkFirewallAssociationTypeDef",
     "NetworkInfoTypeDef",
     "NetworkInsightsAccessScopeAnalysisTypeDef",
     "NetworkInsightsAccessScopeContentTypeDef",
@@ -7130,6 +7135,10 @@ class IamInstanceProfileTypeDef(TypedDict):
     Arn: NotRequired[str]
     Id: NotRequired[str]
 
+class IgwFirewallTypeDef(TypedDict):
+    FirewallArn: NotRequired[str]
+    Status: NotRequired[FirewallOnboardingStatusType]
+
 class LaunchPermissionTypeDef(TypedDict):
     OrganizationArn: NotRequired[str]
     OrganizationalUnitArn: NotRequired[str]
@@ -8305,6 +8314,11 @@ class NetworkCardInfoTypeDef(TypedDict):
     MaximumEnaQueueCountPerInterface: NotRequired[int]
     InterfaceTypes: NotRequired[list[NetworkCardInterfaceTypeType]]
 
+class NetworkFirewallAssociationTypeDef(TypedDict):
+    FirewallArn: NotRequired[str]
+    FirewallOnboardingStatus: NotRequired[FirewallOnboardingStatusType]
+    FirewallMode: NotRequired[FirewallModeType]
+
 class NetworkInterfaceAssociationTypeDef(TypedDict):
     AllocationId: NotRequired[str]
     AssociationId: NotRequired[str]
@@ -8779,26 +8793,6 @@ class RouteServerRouteInstallationDetailTypeDef(TypedDict):
     RouteTableId: NotRequired[str]
     RouteInstallationStatus: NotRequired[RouteServerRouteInstallationStatusType]
     RouteInstallationStatusReason: NotRequired[str]
-
-class RouteTypeDef(TypedDict):
-    DestinationCidrBlock: NotRequired[str]
-    DestinationIpv6CidrBlock: NotRequired[str]
-    DestinationPrefixListId: NotRequired[str]
-    EgressOnlyInternetGatewayId: NotRequired[str]
-    GatewayId: NotRequired[str]
-    InstanceId: NotRequired[str]
-    InstanceOwnerId: NotRequired[str]
-    NatGatewayId: NotRequired[str]
-    TransitGatewayId: NotRequired[str]
-    LocalGatewayId: NotRequired[str]
-    CarrierGatewayId: NotRequired[str]
-    NetworkInterfaceId: NotRequired[str]
-    Origin: NotRequired[RouteOriginType]
-    State: NotRequired[RouteStateType]
-    VpcPeeringConnectionId: NotRequired[str]
-    CoreNetworkArn: NotRequired[str]
-    OdbNetworkArn: NotRequired[str]
-    IpAddress: NotRequired[str]
 
 class RunInstancesMonitoringEnabledTypeDef(TypedDict):
     Enabled: bool
@@ -15532,6 +15526,27 @@ class IamInstanceProfileAssociationTypeDef(TypedDict):
     State: NotRequired[IamInstanceProfileAssociationStateType]
     Timestamp: NotRequired[datetime]
 
+class RouteTypeDef(TypedDict):
+    DestinationCidrBlock: NotRequired[str]
+    DestinationIpv6CidrBlock: NotRequired[str]
+    DestinationPrefixListId: NotRequired[str]
+    EgressOnlyInternetGatewayId: NotRequired[str]
+    GatewayId: NotRequired[str]
+    InstanceId: NotRequired[str]
+    InstanceOwnerId: NotRequired[str]
+    NatGatewayId: NotRequired[str]
+    TransitGatewayId: NotRequired[str]
+    LocalGatewayId: NotRequired[str]
+    CarrierGatewayId: NotRequired[str]
+    NetworkInterfaceId: NotRequired[str]
+    Origin: NotRequired[RouteOriginType]
+    State: NotRequired[RouteStateType]
+    VpcPeeringConnectionId: NotRequired[str]
+    CoreNetworkArn: NotRequired[str]
+    OdbNetworkArn: NotRequired[str]
+    IpAddress: NotRequired[str]
+    IgwFirewall: NotRequired[IgwFirewallTypeDef]
+
 class LaunchPermissionModificationsTypeDef(TypedDict):
     Add: NotRequired[Sequence[LaunchPermissionTypeDef]]
     Remove: NotRequired[Sequence[LaunchPermissionTypeDef]]
@@ -17617,15 +17632,6 @@ class DescribeClientVpnTargetNetworksResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
-class RouteTableTypeDef(TypedDict):
-    Associations: NotRequired[list[RouteTableAssociationTypeDef]]
-    PropagatingVgws: NotRequired[list[PropagatingVgwTypeDef]]
-    RouteTableId: NotRequired[str]
-    Routes: NotRequired[list[RouteTypeDef]]
-    Tags: NotRequired[list[TagTypeDef]]
-    VpcId: NotRequired[str]
-    OwnerId: NotRequired[str]
-
 class DescribeSnapshotsResultTypeDef(TypedDict):
     Snapshots: list[SnapshotTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -18581,6 +18587,15 @@ class ReplaceIamInstanceProfileAssociationResultTypeDef(TypedDict):
     IamInstanceProfileAssociation: IamInstanceProfileAssociationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class RouteTableTypeDef(TypedDict):
+    Associations: NotRequired[list[RouteTableAssociationTypeDef]]
+    PropagatingVgws: NotRequired[list[PropagatingVgwTypeDef]]
+    RouteTableId: NotRequired[str]
+    Routes: NotRequired[list[RouteTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
+    VpcId: NotRequired[str]
+    OwnerId: NotRequired[str]
+
 class ModifyImageAttributeRequestImageModifyAttributeTypeDef(TypedDict):
     Attribute: NotRequired[str]
     Description: NotRequired[AttributeValueTypeDef]
@@ -19396,6 +19411,7 @@ SubnetTypeDef = TypedDict(
         "PrivateDnsNameOptionsOnLaunch": NotRequired[PrivateDnsNameOptionsOnLaunchTypeDef],
         "BlockPublicAccessStates": NotRequired[BlockPublicAccessStatesTypeDef],
         "Type": NotRequired[str],
+        "NetworkFirewallConnectivityType": NotRequired[NetworkFirewallConnectivityTypeType],
         "SubnetId": NotRequired[str],
         "State": NotRequired[SubnetStateType],
         "VpcId": NotRequired[str],
@@ -21137,16 +21153,6 @@ class InstanceApplicationStatusTypeDef(TypedDict):
     ApplicationStatus: NotRequired[ApplicationStatusTypeDef]
     Tags: NotRequired[list[TagTypeDef]]
 
-class CreateRouteTableResultTypeDef(TypedDict):
-    RouteTable: RouteTableTypeDef
-    ClientToken: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class DescribeRouteTablesResultTypeDef(TypedDict):
-    RouteTables: list[RouteTableTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
 class GetFlowLogsIntegrationTemplateRequestTypeDef(TypedDict):
     FlowLogId: str
     ConfigDeliveryS3DestinationArn: str
@@ -21512,6 +21518,16 @@ class DescribeApplicationStatusChecksResultTypeDef(TypedDict):
 class ModifyApplicationStatusCheckResultTypeDef(TypedDict):
     ApplicationStatusCheck: ApplicationStatusCheckResponseObjectTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateRouteTableResultTypeDef(TypedDict):
+    RouteTable: RouteTableTypeDef
+    ClientToken: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeRouteTablesResultTypeDef(TypedDict):
+    RouteTables: list[RouteTableTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 class DescribeInstanceImageMetadataResultTypeDef(TypedDict):
     InstanceImageMetadata: list[InstanceImageMetadataTypeDef]
@@ -21898,6 +21914,7 @@ class VpcTypeDef(TypedDict):
     EncryptionControl: NotRequired[VpcEncryptionControlTypeDef]
     Tags: NotRequired[list[TagTypeDef]]
     BlockPublicAccessStates: NotRequired[BlockPublicAccessStatesTypeDef]
+    NetworkFirewallAssociations: NotRequired[list[NetworkFirewallAssociationTypeDef]]
     VpcId: NotRequired[str]
     State: NotRequired[VpcStateType]
     CidrBlock: NotRequired[str]

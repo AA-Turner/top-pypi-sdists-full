@@ -1,3 +1,4 @@
+import dataclasses
 import json
 
 import django
@@ -8,12 +9,10 @@ from django.contrib.admin import RelatedFieldListFilter
 from django.contrib.admin.actions import delete_selected
 from django.contrib.admin.models import CHANGE, DELETION, LogEntry
 from django.contrib.admin.options import (
-    IncorrectLookupParameters,
     ModelAdmin,
     get_content_type_for_model,
 )
 from django.contrib.admin.utils import get_model_from_relation
-from django.core.exceptions import ValidationError
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import IntegrityError, transaction
 from django.db.models.fields.related import ForeignObjectRel, ManyToManyField
@@ -25,6 +24,12 @@ from js_asset import Script
 from mptt.exceptions import InvalidMove
 from mptt.forms import MPTTAdminForm, TreeNodeChoiceField
 from mptt.models import MPTTModel, TreeForeignKey
+
+
+try:
+    from django.contrib.admin.options import ActionLocation
+except ImportError:  # Django < 6.1
+    ActionLocation = None
 
 
 __all__ = ("DraggableMPTTAdmin", "MPTTAdminForm", "MPTTModelAdmin")
@@ -105,13 +110,27 @@ class MPTTModelAdmin(ModelAdmin):
             # (ab)using the built-in action to display the confirmation page
             return delete_selected(self, request, queryset)
 
-    def get_actions(self, request):
-        actions = super().get_actions(request)
-        if actions is not None and "delete_selected" in actions:
-            actions["delete_selected"] = (
-                self.delete_selected_tree,
-                "delete_selected",
-                _("Delete selected %(verbose_name_plural)s"),
+    if ActionLocation is None:
+
+        def get_actions(self, request):
+            return self._replace_delete_selected(super().get_actions(request))
+
+    else:
+        # Django checks the signature for action_location, **kwargs isn't enough.
+        def get_actions(self, request, action_location=ActionLocation.CHANGE_LIST):
+            return self._replace_delete_selected(
+                super().get_actions(request, action_location=action_location)
+            )
+
+    def _replace_delete_selected(self, actions):
+        action = actions.get("delete_selected") if actions else None
+        if action is None:
+            pass
+        elif isinstance(action, tuple):  # Django < 6.1
+            actions["delete_selected"] = (self.delete_selected_tree, *action[1:])
+        else:
+            actions["delete_selected"] = dataclasses.replace(
+                action, func=self.delete_selected_tree
             )
         return actions
 
@@ -358,9 +377,11 @@ class TreeRelatedFieldListFilter(RelatedFieldListFilter):
             other_models = other_model.get_descendants(True)
             del self.used_parameters[self.changed_lookup_kwarg]
             self.used_parameters.update(
-                {f"{self.field_path}__{self.rel_name}__in": [
-                    str(pk) for pk in other_models.values_list("pk", flat=True)
-                    ]}
+                {
+                    f"{self.field_path}__{self.rel_name}__in": [
+                        str(pk) for pk in other_models.values_list("pk", flat=True)
+                    ]
+                }
             )
         return super().queryset(request, queryset)
 

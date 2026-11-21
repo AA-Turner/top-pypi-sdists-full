@@ -39,10 +39,12 @@ Source references:
 """
 
 import ast
-import functools
 import math
+import os
 import re
 from typing import Any, Sequence
+
+import jax
 
 _MULTI_HOST_BOUNDS = (2, 2, 1)
 # Edge families expose a 2D chip torus; fish families expose a 3D torus. The two
@@ -50,7 +52,8 @@ _MULTI_HOST_BOUNDS = (2, 2, 1)
 # derive the full supported set from them.
 _EDGE_FAMILIES = frozenset({"v5e", "v6e"})
 _FISH_FAMILIES = frozenset({"v4", "v5p", "v7x"})
-_SUPPORTED_FAMILIES = _EDGE_FAMILIES | _FISH_FAMILIES
+_GPU_FAMILIES = frozenset({"b200", "h200", "h100", "a100", "l4"})
+_SUPPORTED_FAMILIES = _EDGE_FAMILIES | _FISH_FAMILIES | _GPU_FAMILIES
 # Supported fish-family (v4/v5p/v7x) sub-cube chip shapes below the first full
 # cube, keyed by chip count. Each volume is unique, so a chip count maps to
 # exactly one shape. At or above the first full cube (4x4x4), multiple axis
@@ -95,34 +98,107 @@ def _best_single_host_fish_shape(
   Returns:
     The best fitting within-host shape, or None when none holds the count.
   """
+  supported_shapes = _supported_single_host_fish_shapes(
+      required_chips, available_chip_shape
+  )
+  if not supported_shapes:
+    return None
+  return supported_shapes[0]
+
+
+def _supported_single_host_fish_shapes(
+    required_chips: int,
+    available_chip_shape: Sequence[int] | None,
+) -> list[tuple[int, int, int]]:
+  """Returns all exact single-host fish shapes ranked by compactness.
+
+  Args:
+    required_chips: Number of chips requested.
+    available_chip_shape: Optional 3D per-axis bound; the per-host bound is
+      further capped to it. When its rank is not 3, no shape is returned.
+
+  Returns:
+    All matching shapes sorted from more cubical to less cubical.
+  """
   host_shape = _MULTI_HOST_BOUNDS
   if available_chip_shape is not None:
     if len(available_chip_shape) != 3:
-      return None
+      return []
     host_shape = tuple(
         min(int(limit), host_limit)
         for limit, host_limit in zip(available_chip_shape, _MULTI_HOST_BOUNDS)
     )
 
-  best_shape = None
-  best_key = None
+  supported_shapes = []
   for x in range(1, host_shape[0] + 1):
     for y in range(1, host_shape[1] + 1):
       for z in range(1, host_shape[2] + 1):
         shape = (x, y, z)
         if math.prod(shape) != required_chips:
           continue
-        # Pack into earlier axes first: prefer larger x, then y, then z.
-        key = (
-            max(shape),
-            tuple(sorted(shape, reverse=True)),
-            tuple(-dim for dim in shape),
-            shape,
-        )
-        if best_key is None or key < best_key:
-          best_shape = shape
-          best_key = key
-  return best_shape
+        supported_shapes.append(shape)
+
+  return sorted(
+      supported_shapes,
+      key=lambda shape: (
+          max(shape),
+          tuple(sorted(shape, reverse=True)),
+          tuple(-dim for dim in shape),
+          shape,
+      ),
+  )
+
+
+def _supported_single_host_edge_shapes(
+    required_chips: int,
+    available_chip_shape: Sequence[int] | None,
+) -> list[tuple[int, int, int]]:
+  """Returns all exact single-host edge shapes ranked by compactness.
+
+  Edge families expose a 2D chip torus, but small requests may still occupy a
+  fraction of one host. This enumerates all 2D rectangular factorizations of
+  ``required_chips`` that fit within the per-host ``2x2`` bound, then
+  canonicalizes them to ``(x, y, z=1)``.
+
+  Args:
+    required_chips: Number of chips requested.
+    available_chip_shape: Optional 2D/3D per-axis bound; when malformed it is
+      ignored to preserve the existing edge-family behavior.
+
+  Returns:
+    All matching shapes sorted from more cubical to less cubical, breaking ties
+    by preferring earlier axes first.
+  """
+  host_shape = _MULTI_HOST_BOUNDS
+  if available_chip_shape is not None:
+    canonical_available_shape = _canonicalize_chip_shape_to_3d(
+        available_chip_shape
+    )
+    if canonical_available_shape is not None:
+      host_shape = tuple(
+          min(int(limit), host_limit)
+          for limit, host_limit in zip(
+              canonical_available_shape, _MULTI_HOST_BOUNDS
+          )
+      )
+
+  supported_shapes = []
+  for x in range(1, host_shape[0] + 1):
+    for y in range(1, host_shape[1] + 1):
+      shape = (x, y, 1)
+      if math.prod(shape) != required_chips:
+        continue
+      supported_shapes.append(shape)
+
+  return sorted(
+      supported_shapes,
+      key=lambda shape: (
+          max(shape),
+          tuple(sorted(shape, reverse=True)),
+          tuple(-dim for dim in shape),
+          shape,
+      ),
+  )
 
 
 def _topology_shape_sort_key(
@@ -159,15 +235,20 @@ def _shape_fits_within(
   return all(dim <= limit for dim, limit in zip(shape, available_shape))
 
 
-@functools.cache
 def _is_pathways_backend_used() -> bool:
   """Returns whether the current process is attached to a Pathways backend.
 
   Returns:
     True if a Pathways backend is used, otherwise False.
   """
+  jax_platforms_env = os.environ.get("JAX_PLATFORMS", "").lower()
+  if "proxy" in jax_platforms_env or "pathways" in jax_platforms_env:
+    return True
+  jax_platforms_cfg = (jax.config.jax_platforms or "").lower()
+  if "proxy" in jax_platforms_cfg or "pathways" in jax_platforms_cfg:
+    return True
   try:
-    import pathwaysutils  # pylint: disable=g-import-not-at-top # pytype: disable=import-error
+    import pathwaysutils  # pylint: disable=g-import-not-at-top  # pyrefly: ignore[missing-import]
 
     return bool(pathwaysutils.is_pathways_backend_used())
   except ImportError:
@@ -229,12 +310,13 @@ def _normalize_device_kind(device_kind: str) -> str | None:
   """Maps a raw JAX ``device_kind`` string to a normalized family key.
 
   Args:
-    device_kind: The runtime device kind, e.g. ``"TPU v5 lite"`` or ``"TPU
-      v7"``.
+    device_kind: The runtime device kind, e.g. ``"TPU v5 lite"``, ``"TPU v7"``,
+      or ``"NVIDIA H100 80GB HBM3"``.
 
   Returns:
-    The normalized family key (``"v4"``, ``"v5e"``, ``"v5p"``, ``"v6e"``, or
-    ``"v7x"``), or None when the kind does not name a supported TPU family.
+    The normalized TPU (``"v4"``, ``"v5e"``, ``"v5p"``, ``"v6e"``, ``"v7x"``)
+    or GPU (``"b200"``, ``"h200"``, ``"h100"``, ``"a100"``, ``"l4"``) family
+    key, or None when the kind does not name a supported accelerator family.
   """
   device_kind = device_kind.lower()
   if "v7" in device_kind:
@@ -247,7 +329,24 @@ def _normalize_device_kind(device_kind: str) -> str | None:
     return "v5p"
   if "v4" in device_kind:
     return "v4"
+  if "gb200" in device_kind or "b200" in device_kind:
+    return "b200"
+  if "h200" in device_kind:
+    return "h200"
+  if "h100" in device_kind:
+    return "h100"
+  if "a100" in device_kind:
+    return "a100"
+  if "l4" in device_kind:
+    return "l4"
   return None
+
+
+def is_gpu_family(device_kind_or_family: str | None) -> bool:
+  """Returns whether a raw device kind or family key names a supported GPU family."""
+  if device_kind_or_family is None:
+    return False
+  return _resolve_family(device_kind_or_family) in _GPU_FAMILIES
 
 
 def _resolve_family(device_kind_or_family: str) -> str | None:
@@ -360,9 +459,36 @@ def _best_fish_cube_shape(
     ValueError: If `required_chips` is at or above one full cube but not an
       exact multiple of the cube volume.
   """
+  supported_shapes = _supported_fish_cube_shapes(
+      required_chips, available_chip_shape
+  )
+  if not supported_shapes:
+    return None
+  return supported_shapes[0]
+
+
+def _supported_fish_cube_shapes(
+    required_chips: int,
+    available_chip_shape: Sequence[int] | None,
+) -> list[tuple[int, int, int]]:
+  """Returns all valid fish-family cube-multiple shapes, best first.
+
+  Args:
+    required_chips: Total chip count requested.
+    available_chip_shape: Optional per-axis chip bound the shape must fit
+      within. When None, only the cube-count constraint applies. Expected to be
+      a 3-tuple when provided.
+
+  Returns:
+    All valid shapes sorted from more cubical to less cubical.
+
+  Raises:
+    ValueError: If `required_chips` is at or above one full cube but not an
+      exact multiple of the cube volume.
+  """
   cube_volume = _FISH_CUBE_GRANULARITY**3
   if required_chips < cube_volume:
-    return None
+    return []
 
   cube_units, remainder = divmod(required_chips, cube_volume)
   if remainder != 0:
@@ -382,8 +508,7 @@ def _best_fish_cube_shape(
   # once; `i * i <= cube_units` and `i * j <= cube_units` bound the loops to
   # that ordering (once i exceeds the cube root, no valid j >= i remains). The
   # actual shape multiplies each factor by the 4-chip cube edge.
-  best_shape = None
-  best_shape_key = None
+  supported_shapes = []
   i = 1
   while i <= max_i and i * i <= cube_units:
     j = i
@@ -395,13 +520,102 @@ def _best_fish_cube_shape(
             _FISH_CUBE_GRANULARITY * j,
             _FISH_CUBE_GRANULARITY * int(k),
         )
-        shape_key = _topology_shape_sort_key(shape)
-        if best_shape_key is None or shape_key < best_shape_key:
-          best_shape = shape
-          best_shape_key = shape_key
+        supported_shapes.append(shape)
       j += 1
     i += 1
-  return best_shape
+  return sorted(supported_shapes, key=_topology_shape_sort_key)
+
+
+def supported_topology_shapes_for_chip_count(
+    device_kind_or_family: str,
+    required_chips: int,
+    *,
+    chip_rank: int = 3,
+    available_chip_shape: Sequence[int] | None = None,
+) -> list[tuple[int, ...]]:
+  """Returns all legal topology shapes for a requested chip count.
+
+  Shapes are ranked from more cubical to less cubical. This is the full-shape
+  counterpart to `best_topology_shapes_for_chip_count()`, which returns only
+  the first entry.
+
+  Args:
+    device_kind_or_family: Either a raw device kind (``"TPU v5 lite"``) or an
+      already-normalized family key (``"v5e"``).
+    required_chips: Number of physical chips the shape must contain.
+    chip_rank: Rank of the returned shapes. Edge families support 2 or 3; fish
+      families support only 3.
+    available_chip_shape: Optional per-axis chip bound the shape must fit
+      within.
+
+  Returns:
+    A possibly-empty list of all legal shapes, sorted best-first.
+
+  Raises:
+    ValueError: If a fish-family request at or above ``4x4x4`` is not divisible
+      by the cube granularity volume.
+  """
+  if required_chips <= 0:
+    return []
+
+  family = _resolve_family(device_kind_or_family)
+  if family is None:
+    return []
+
+  parsed_available_shape = None
+  if available_chip_shape is not None:
+    parsed_available_shape = tuple(available_chip_shape)
+
+  if family in _EDGE_FAMILIES:
+    supported_shapes = _supported_single_host_edge_shapes(
+        required_chips, parsed_available_shape
+    )
+    if not supported_shapes:
+      shape = _EDGE_SHAPE_BY_CHIP_COUNT.get(required_chips)
+      if shape is None:
+        return []
+      if parsed_available_shape is not None:
+        canonical_edge_available_shape = _canonicalize_chip_shape_to_3d(
+            parsed_available_shape
+        )
+        if canonical_edge_available_shape is not None and not _shape_fits_within(
+            shape, canonical_edge_available_shape
+        ):
+          return []
+      supported_shapes = [shape]
+    if chip_rank == 2:
+      return [shape[:2] for shape in supported_shapes]
+    if chip_rank == 3:
+      return supported_shapes  # pyrefly: ignore[bad-return]
+    return []
+
+  if family not in _FISH_FAMILIES:
+    return []
+
+  if chip_rank != 3:
+    return []
+
+  if parsed_available_shape is not None and len(parsed_available_shape) != 3:
+    return []
+
+  sub_cube_shape = _FISH_SUB_CUBE_SHAPE_BY_CHIP_COUNT.get(required_chips)
+  if sub_cube_shape is not None and (
+      parsed_available_shape is None
+      or _shape_fits_within(sub_cube_shape, parsed_available_shape)
+  ):
+    return [sub_cube_shape]
+
+  single_host_shapes = _supported_single_host_fish_shapes(
+      required_chips, parsed_available_shape
+  )
+  if single_host_shapes:
+    return single_host_shapes  # pyrefly: ignore[bad-return]
+
+  cube_shapes = _supported_fish_cube_shapes(required_chips, parsed_available_shape)
+  if cube_shapes:
+    return cube_shapes  # pyrefly: ignore[bad-return]
+
+  return []
 
 
 def best_topology_shapes_for_chip_count(
@@ -451,63 +665,12 @@ def best_topology_shapes_for_chip_count(
             "TPU v7", 576, available_chip_shape=(4, 12, 16))            # [(4,
             12, 12)]
   """
-  if required_chips <= 0:
-    return []
-
-  family = _resolve_family(device_kind_or_family)
-  if family is None:
-    return []
-
-  parsed_available_shape = None
-  if available_chip_shape is not None:
-    parsed_available_shape = tuple(available_chip_shape)
-
-  if family in _EDGE_FAMILIES:
-    shape = _EDGE_SHAPE_BY_CHIP_COUNT.get(required_chips)
-    if shape is None:
-      return []
-    if parsed_available_shape is not None:
-      canonical_edge_available_shape = _canonicalize_chip_shape_to_3d(
-          parsed_available_shape
-      )
-      # A malformed available shape (not 2D/3D) canonicalizes to None and is
-      # treated as no constraint, matching the prior behavior.
-      if canonical_edge_available_shape is not None and not _shape_fits_within(
-          shape, canonical_edge_available_shape
-      ):
-        return []
-    if chip_rank == 2:
-      return [shape[:2]]
-    if chip_rank == 3:
-      return [shape]
-    return []
-
-  if chip_rank != 3:
-    return []
-
-  if parsed_available_shape is not None and len(parsed_available_shape) != 3:
-    return []
-
-  # Exactly one chip-count range applies, so each branch already yields its own
-  # best shape -- no cross-branch ranking is needed.
-  #   * below the first full cube, each sub-cube volume maps to one shape;
-  #   * a sub-host fraction (1-2 chips) is searched within the per-host bound;
-  #   * at or above the first full cube, shapes are 4i x 4j x 4k multiples.
-  sub_cube_shape = _FISH_SUB_CUBE_SHAPE_BY_CHIP_COUNT.get(required_chips)
-  if sub_cube_shape is not None and (
-      parsed_available_shape is None
-      or _shape_fits_within(sub_cube_shape, parsed_available_shape)
-  ):
-    return [sub_cube_shape]
-
-  single_host_shape = _best_single_host_fish_shape(
-      required_chips, parsed_available_shape
+  supported_shapes = supported_topology_shapes_for_chip_count(
+      device_kind_or_family,
+      required_chips,
+      chip_rank=chip_rank,
+      available_chip_shape=available_chip_shape,
   )
-  if single_host_shape is not None:
-    return [single_host_shape]
-
-  cube_shape = _best_fish_cube_shape(required_chips, parsed_available_shape)
-  if cube_shape is not None:
-    return [cube_shape]
-
-  return []
+  if not supported_shapes:
+    return []
+  return [supported_shapes[0]]

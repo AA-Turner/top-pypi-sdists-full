@@ -400,7 +400,7 @@ class GoogleAdsNamespace:
         20-ad call can take a minute or more; many text ads come back only as an
         image of the ad.
 
-        Price: $0.00006 per request plus $0.00099 per result (maximum $0.0199).
+        Price: $0.00006 per request plus $0.00108 per result (maximum $0.0217).
 
         Example:
             res = client.google_ads.search(limit=3, url="https://adstransparency.google.com/?region=US&domain=nike.com")
@@ -519,7 +519,7 @@ class AsyncGoogleAdsNamespace:
         20-ad call can take a minute or more; many text ads come back only as an
         image of the ad.
 
-        Price: $0.00006 per request plus $0.00099 per result (maximum $0.0199).
+        Price: $0.00006 per request plus $0.00108 per result (maximum $0.0217).
 
         Example:
             res = client.google_ads.search(limit=3, url="https://adstransparency.google.com/?region=US&domain=nike.com")

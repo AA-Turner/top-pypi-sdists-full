@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import sys
 from collections import Counter
 from dataclasses import dataclass
 from functools import lru_cache
@@ -14,6 +15,7 @@ from lxml import etree
 from ..document import HwpxDocument
 from ..opc.package import HwpxPackage
 from ..opc.relationships import is_linked_file, parse_manifest_relationships
+from ..opc.security import guard_xml_bytes
 from ..oxml import load_schema, parse_header_xml, parse_section_xml
 
 _DEFAULT_SCHEMA_DIR = Path(__file__).resolve().parent / "_schemas"
@@ -283,8 +285,9 @@ def _owpml_violations(payload: bytes, kind: str) -> list[tuple[str, int | None]]
     for old, new in _OWPML_NAMESPACES:
         payload = payload.replace(old, new)
     try:
-        root = etree.fromstring(payload, etree.XMLParser(huge_tree=True))
-    except etree.XMLSyntaxError:
+        guard_xml_bytes(payload)  # a part with a DTD is not read here either
+        root = etree.fromstring(payload, etree.XMLParser(huge_tree=True, resolve_entities=False, no_network=True))
+    except (etree.XMLSyntaxError, ValueError):
         return []  # the part cannot be read at all -- reported by the parse check
     for sec_pr in root.iter(f"{_OWPML_PARAGRAPH}secPr"):
         # elements only: a comment or processing instruction has no name to order by
@@ -387,7 +390,7 @@ def _manifest_drift_issues(package: HwpxPackage) -> list[ValidationIssue]:
 
 
 def validate_document(
-    source: str | Path | bytes | BinaryIO,
+    source: str | Path | bytes | BinaryIO | HwpxDocument,
     *,
     schema_dir: Path | None = None,
     header_schema: etree.XMLSchema | None = None,
@@ -406,9 +409,12 @@ def validate_document(
     schema. Violations that documents Hancom opens also carry (its 2011 practice
     departing from the 2024 schema) are left out; the rest are warnings, so ``ok``
     still reflects hard errors only.
+
+    *source* may be a document that is already open; it is checked as it is,
+    without being opened again.
     """
 
-    document = HwpxDocument.open(source)
+    document = source if isinstance(source, HwpxDocument) else HwpxDocument.open(source)
     if header_schema is None or section_schema is None:
         schemas = load_default_schemas(schema_dir)
         if header_schema is None:
@@ -452,18 +458,51 @@ def validate_document(
 
 def main(argv: Sequence[str] | None = None) -> int:
     """Entry point for ``python -m hwpx.tools.validator``."""
+    from .archive_cli import _printable_stdout
+    _printable_stdout()
 
-    parser = argparse.ArgumentParser(description="Validate HWPX documents against the official schemas")
-    parser.add_argument("source", help="Path to the HWPX file to validate")
+    parser = argparse.ArgumentParser(
+        description=(
+            "Validate the header and section XML of an HWPX document against python-hwpx's reference "
+            "schemas (errors) and the full OWPML schema (warnings). An .hwp file is converted first, "
+            "and the converted HWPX is what gets checked."
+        )
+    )
+    parser.add_argument("source", help="Path to the .hwpx (or .hwp) file to validate")
     parser.add_argument(
         "--schema-root",
         type=Path,
         default=None,
-        help="Directory containing the OWPML schema XML files. Defaults to the bundled DevDoc copy.",
+        help=(
+            "Directory holding header.xsd and section.xsd, the reference schemas whose violations are "
+            "errors. Defaults to the copies shipped in hwpx/tools/_schemas. The full OWPML schema check "
+            "always uses the shipped owpml-*.xsd."
+        ),
     )
     args = parser.parse_args(argv)
 
-    report = validate_document(args.source, schema_dir=args.schema_root)
+    from .archive_cli import _input_file_problem
+
+    problem = _input_file_problem(args.source, tool="hwpx-validate", accepts_hwp=True)
+    if problem is not None:
+        print(f"ERROR: {problem}", file=sys.stderr)
+        return 1
+    if args.schema_root is not None and not Path(args.schema_root).is_dir():
+        print(f"ERROR: schema folder not found: {args.schema_root}", file=sys.stderr)
+        return 1
+    with open(args.source, "rb") as stream:
+        converted = stream.read(len(HwpxPackage.OLE2_MAGIC)) == HwpxPackage.OLE2_MAGIC  # HWP 5.0
+    if converted:
+        print(
+            f"note: {Path(args.source).name} is an HWP 5.0 (.hwp) file; checking the HWPX python-hwpx "
+            "converts it to, not the .hwp file itself."
+        )
+
+    try:
+        report = validate_document(args.source, schema_dir=args.schema_root)
+    except Exception as exc:  # noqa: BLE001 - one line for the person at the terminal
+        print(f"ERROR: cannot read {args.source}: {exc}", file=sys.stderr)
+        return 1
 
     for part_name in report.validated_parts:
         print(f"validated {part_name}")
@@ -475,10 +514,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     if not report.ok:
         return 1
 
+    target = " (of the converted HWPX)" if converted else ""
     if report.warnings:
-        print("Schema lint warnings found.")
+        print(f"Schema lint warnings found{target}.")
     else:
-        print("All schema validations passed.")
+        print(f"All schema validations passed{target}.")
     return 0
 
 

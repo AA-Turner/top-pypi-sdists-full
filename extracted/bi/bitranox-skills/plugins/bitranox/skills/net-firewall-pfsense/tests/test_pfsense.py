@@ -11,17 +11,17 @@ The load-bearing properties, each one a fault that has actually shipped:
 
 Addresses are RFC 5737 documentation ranges throughout.
 """
+import argparse
 import datetime
+import json
 import os
 import pathlib
-import json
 import shutil
 import subprocess
 import sys
 
-import pytest
-
 import pfsense as P
+import pytest
 
 TARGET = P.Target(host="192.0.2.1", user="admin", ssh="ssh -i /key")
 
@@ -154,10 +154,10 @@ def test_an_override_reply_of_another_shape_is_refused_naming_the_box(reply, cap
 
 @pytest.mark.parametrize("reply", [
     '{"version":"2.8.0","dhcp_backend":"isc","resolver":"unbound","packages":[]}',  # no interfaces
-    '{"version":"2.8.0","dhcp_backend":"isc","resolver":"unbound","packages":[],'
-    '"interfaces":[{"name":"lan","descr":"","ipaddr":"192.0.2.1","subnet":"24"}]}',  # no if
-    '{"version":"2.8.0","dhcp_backend":"isc","resolver":"unbound","interfaces":[],'
-    '"packages":[{"name":"snort","version":4}]}',                                      # a number for text
+    ('{"version":"2.8.0","dhcp_backend":"isc","resolver":"unbound","packages":[],'
+     '"interfaces":[{"name":"lan","descr":"","ipaddr":"192.0.2.1","subnet":"24"}]}'),  # no if
+    ('{"version":"2.8.0","dhcp_backend":"isc","resolver":"unbound","interfaces":[],'
+     '"packages":[{"name":"snort","version":4}]}'),                                    # a number for text
 ])
 def test_an_info_reply_of_another_shape_is_refused_naming_the_box(reply, capsys):
     fake = FakeRun([('"dhcp_backend"', (0, reply, ""))])
@@ -319,13 +319,13 @@ def test_normalize_mac_refuses_something_that_is_not_one():
 
 def test_parse_arp_marks_the_permanent_entry():
     entries = P.parse_arp(ARP_TEXT)
-    assert [e["ip"] for e in entries] == ["192.0.2.1", "192.0.2.30", "192.0.2.31", "192.0.2.99"]
-    assert [e["permanent"] for e in entries] == [False, True, False, False]
+    assert [e.ip for e in entries] == ["192.0.2.1", "192.0.2.30", "192.0.2.31", "192.0.2.99"]
+    assert [e.permanent for e in entries] == [False, True, False, False]
 
 
 def test_parse_arp_keeps_an_incomplete_entry_with_no_mac():
-    incomplete = [e for e in P.parse_arp(ARP_TEXT) if e["ip"] == "192.0.2.99"][0]
-    assert incomplete["mac"] == ""
+    incomplete = next(e for e in P.parse_arp(ARP_TEXT) if e.ip == "192.0.2.99")
+    assert incomplete.mac == ""
 
 
 def test_an_override_fqdn_handles_an_override_with_no_host_part():
@@ -413,15 +413,9 @@ def test_reservations_are_read_out_of_a_snapshot_with_the_static_arp_flag():
         res("192.0.2.31", "00:11:22:33:44:31", hostname="nas")]
 
 
-def test_overrides_are_read_from_unbound_hosts_not_hostoverride():
-    """The GUI says Host Overrides; the element is `hosts`. The wrong path returns [] silently."""
-    overrides = P.overrides_from_config_xml(CONFIG_XML)
-    assert [o.fqdn for o in overrides] == ["nas.example.com", "bare.example.com"]
-
-
 # ---- doctor -------------------------------------------------------------------------------------
 def test_doctor_warns_about_an_armed_static_arp_entry():
-    findings = P.doctor_findings(reservations=P.reservations_from_config_xml(CONFIG_XML), overrides=[])
+    findings = P.doctor_findings(reservations=P.reservations_from_config_xml(CONFIG_XML))
     armed = [f for f in findings if f.check == "static_arp_armed"]
     assert len(armed) == 1 and armed[0].severity == "warn" and "192.0.2.30" in armed[0].subject
 
@@ -429,7 +423,7 @@ def test_doctor_warns_about_an_armed_static_arp_entry():
 def test_doctor_stays_quiet_on_a_config_with_nothing_wrong():
     """A check that fires on a healthy config is as useless as one that never fires."""
     clean = [res("192.0.2.31", "00:11:22:33:44:31")]
-    assert [f for f in P.doctor_findings(reservations=clean, overrides=[]) if f.severity == "warn"] == []
+    assert [f for f in P.doctor_findings(reservations=clean) if f.severity == "warn"] == []
 
 
 def test_a_finding_with_a_misspelled_severity_is_refused():
@@ -451,21 +445,21 @@ def test_one_address_shared_by_several_macs_is_context_not_a_warning():
     A wired and a wireless interface sharing one reserved address is the intended setup.
     """
     shared = [res("192.0.2.31", "00:11:22:33:44:31"), res("192.0.2.31", "00:11:22:33:44:32")]
-    findings = P.doctor_findings(reservations=shared, overrides=[])
+    findings = P.doctor_findings(reservations=shared)
     assert [f.check for f in findings] == ["shared_ip_multi_mac"]
     assert findings[0].severity == "info"
 
 
 def test_static_arp_on_a_shared_address_names_the_lethal_combination():
     shared = [res("192.0.2.31", "00:11:22:33:44:31", static_arp=True), res("192.0.2.31", "00:11:22:33:44:32")]
-    armed = [f for f in P.doctor_findings(reservations=shared, overrides=[]) if f.check == "static_arp_armed"]
+    armed = [f for f in P.doctor_findings(reservations=shared) if f.check == "static_arp_armed"]
     assert "2 MACs" in armed[0].detail
 
 
 def test_doctor_reports_an_address_held_by_hardware_the_reservation_does_not_name():
     """The stale-reservation-versus-live-device collision, which shows up as flaky wifi."""
     reservations = [res("192.0.2.30", "aa:aa:aa:aa:aa:aa", descr="old AP")]
-    findings = P.doctor_findings(reservations=reservations, overrides=[], arp=P.parse_arp(ARP_TEXT))
+    findings = P.doctor_findings(reservations=reservations, arp=P.parse_arp(ARP_TEXT))
     mismatch = [f for f in findings if f.check == "reservation_mac_mismatch"]
     assert len(mismatch) == 1 and "00:11:22:33:44:30" in mismatch[0].subject
 
@@ -478,7 +472,7 @@ def test_an_idle_device_is_never_reported_as_gone():
     dhcpd writes no lease for a fixed-address reservation.
     """
     reservations = [res("192.0.2.77", "aa:aa:aa:aa:aa:aa", descr="idle")]
-    assert P.doctor_findings(reservations=reservations, overrides=[], arp=P.parse_arp(ARP_TEXT)) == []
+    assert P.doctor_findings(reservations=reservations, arp=P.parse_arp(ARP_TEXT)) == []
 
 
 def test_one_reserved_mac_answering_for_a_shared_address_is_not_a_mismatch():
@@ -487,15 +481,20 @@ def test_one_reserved_mac_answering_for_a_shared_address_is_not_a_mismatch():
     Measured: treating the others as mismatches produced 5 false warnings against a live config.
     """
     shared = [res("192.0.2.30", "00:11:22:33:44:30"), res("192.0.2.30", "00:11:22:33:44:99")]
-    findings = P.doctor_findings(reservations=shared, overrides=[], arp=P.parse_arp(ARP_TEXT))
+    findings = P.doctor_findings(reservations=shared, arp=P.parse_arp(ARP_TEXT))
     assert [f.check for f in findings] == ["shared_ip_multi_mac"]
 
 
-def test_an_override_pointing_at_a_static_host_is_not_a_finding():
-    """A statically configured server has no reservation; that is normal, not a fault."""
-    overrides = [P.Override(host="srv", domain="example.com", ip="192.0.2.200", descr="")]
-    assert P.doctor_findings(reservations=[], overrides=overrides) == []
-    assert P.doctor_findings(reservations=[], overrides=overrides, arp=P.parse_arp(ARP_TEXT)) == []
+def test_live_doctor_does_not_fetch_the_host_overrides():
+    """No check reads them: an override naming an address no reservation holds is a statically
+    configured server, which is normal, not a fault. Fetching them anyway cost an ssh round trip
+    and turned an unreadable override list into exit 2 for an audit that never looked at it."""
+    fake = _doctor_fake()
+    # Answered, so a doctor that did fetch them still exits 0 and fails on the assertion below.
+    fake.responses.append(('config_get_path("unbound/hosts"', (0, "[]", "")))
+    assert P.main(["--host", "192.0.2.1", "doctor"], run=fake) == 0
+    assert not [body for body in fake.php_bodies() if "unbound/hosts" in body]
+    assert [body for body in fake.php_bodies() if 'config_get_path("dhcpd"' in body]
 
 
 # Real captures, with the site-specific values replaced. HIJACKED is what tailscaled writes with
@@ -518,7 +517,7 @@ search internal.example
 
 
 def test_doctor_warns_when_magicdns_has_taken_over_the_resolver():
-    findings = P.doctor_findings(reservations=[], overrides=[], arp=[], resolv_conf=RESOLV_HIJACKED)
+    findings = P.doctor_findings(reservations=[], arp=[], resolv_conf=RESOLV_HIJACKED)
     assert [f.check for f in findings] == ["magicdns_in_resolv_conf"]
 
 
@@ -529,29 +528,29 @@ def test_upstream_fallbacks_after_loopback_are_not_a_fault():
     naming its perfectly normal fallbacks as the evidence of a hijack. The check had only ever
     been run against the broken box, never against a healthy one.
     """
-    assert P.doctor_findings(reservations=[], overrides=[], arp=[], resolv_conf=RESOLV_HEALTHY) == []
+    assert P.doctor_findings(reservations=[], arp=[], resolv_conf=RESOLV_HEALTHY) == []
 
 
 def test_ipv6_loopback_counts_as_the_box_resolving_through_itself():
-    assert P.doctor_findings(reservations=[], overrides=[], arp=[],
+    assert P.doctor_findings(reservations=[], arp=[],
                              resolv_conf="nameserver ::1\nnameserver 192.0.2.53\n") == []
 
 
 def test_doctor_warns_when_the_box_does_not_ask_itself_first():
-    findings = P.doctor_findings(reservations=[], overrides=[], arp=[],
+    findings = P.doctor_findings(reservations=[], arp=[],
                                  resolv_conf="nameserver 192.0.2.53\nnameserver 127.0.0.1\n")
     assert [f.check for f in findings] == ["resolver_not_first"]
 
 
 def test_doctor_reports_an_upgrade_lock_and_names_its_path():
-    findings = P.doctor_findings(reservations=[], overrides=[], arp=[],
+    findings = P.doctor_findings(reservations=[], arp=[],
                                  upgrade_locks=["/tmp/pfSense-upgrade.lock"])
     assert [f.check for f in findings] == ["upgrade_lock_present"]
     assert findings[0].subject == "/tmp/pfSense-upgrade.lock"
 
 
 def test_doctor_reports_no_lock_finding_when_no_lock_was_found():
-    assert P.doctor_findings(reservations=[], overrides=[], arp=[], upgrade_locks=[]) == []
+    assert P.doctor_findings(reservations=[], arp=[], upgrade_locks=[]) == []
 
 
 def test_the_upgrade_lock_finding_sends_the_reader_to_dns_before_the_lock():
@@ -560,7 +559,7 @@ def test_the_upgrade_lock_finding_sends_the_reader_to_dns_before_the_lock():
     Advising removal on its own is the dirty patch: the next metadata run hangs again and the
     message comes back.
     """
-    [finding] = P.doctor_findings(reservations=[], overrides=[], arp=[],
+    [finding] = P.doctor_findings(reservations=[], arp=[],
                                   upgrade_locks=["/var/run/pfSense-upgrade.lock"])
     assert "fix the box's dns first" in finding.detail.lower()
     assert "the lock is stale and the file can be removed" not in finding.detail
@@ -568,7 +567,7 @@ def test_the_upgrade_lock_finding_sends_the_reader_to_dns_before_the_lock():
 
 def test_the_magicdns_finding_does_not_advise_forwarding_to_quad_100():
     """quad-100 does not answer on FreeBSD/pfSense, so a forward to it SERVFAILs there."""
-    [finding] = P.doctor_findings(reservations=[], overrides=[], arp=[],
+    [finding] = P.doctor_findings(reservations=[], arp=[],
                                   resolv_conf=RESOLV_HIJACKED)
     assert "domain override" not in finding.detail
     assert "forward the tailnet's domain to MagicDNS" not in finding.detail
@@ -850,7 +849,7 @@ def _git_says(answer, code=0):
     it. A double whose SHAPE differs from the seam tests nothing.
     """
     def fake(argv, *, timeout=None, stdin_text=None):
-        assert argv[0] == "git", "the probe must shell out to git, got %r" % (argv[0],)
+        assert argv[0] == "git", f"the probe must shell out to git, got {argv[0]!r}"
         return code, answer, ""
     return fake
 
@@ -920,6 +919,27 @@ def test_inside_git_worktree_is_false_when_git_cannot_answer(tmp_path):
         raise OSError("no git")
     assert P.inside_git_worktree(tmp_path, run=boom) is False
     assert P.inside_git_worktree(tmp_path, run=_git_says("", 128)) is False
+
+
+@pytest.mark.parametrize("failure", [OSError("no git"), subprocess.TimeoutExpired("git", 10),
+                                     ValueError("embedded null byte")])
+def test_the_git_probes_answer_their_safe_default_for_every_way_a_process_fails(tmp_path, failure):
+    """What starting git can raise: OSError, a timeout (a SubprocessError) and ValueError."""
+    def fails(*_a, **_k):
+        raise failure
+    assert P.inside_git_worktree(tmp_path, run=fails) is False
+    assert P.ignored_by_git(tmp_path, run=fails) is False
+
+
+@pytest.mark.skipif(shutil.which("git") is None, reason="the work-tree probe asks only when git exists")
+def test_a_defect_in_the_runner_is_not_read_as_git_answering_no(tmp_path):
+    """Only a failing PROCESS earns the safe default; a bug in the seam surfaces instead of hiding."""
+    def broken(*_a, **_k):
+        raise KeyError("a defect, not a process failure")
+    with pytest.raises(KeyError):
+        P.inside_git_worktree(tmp_path, run=broken)
+    with pytest.raises(KeyError):
+        P.ignored_by_git(tmp_path, run=broken)
 
 
 # ---- the git guard must see a directory that does not exist yet ---------------------------------
@@ -1508,8 +1528,8 @@ INFO_JSON = json.dumps({
 def _dhcp_edit_fake():
     # The edit payloads also read config_get_path("dhcpd"), so their markers come first.
     return FakeRun([
-        ("$added", (0, '{"added":{"interface":"lan","mac":"00:11:22:33:44:50","ip":"192.0.2.50",'
-                       '"hostname":"printer"},"unbound_follows":false}', "")),
+        ("$added", (0, ('{"added":{"interface":"lan","mac":"00:11:22:33:44:50","ip":"192.0.2.50",'
+                        '"hostname":"printer"},"unbound_follows":false}'), "")),
         ("$renamed", (0, '{"renamed":[{"interface":"lan","ip":"192.0.2.31"}],"unbound_follows":false}', "")),
         ('"dhcp_backend"', (0, INFO_JSON, BANNER)),
         ('config_get_path("dhcpd"', (0, RESERVATIONS_JSON, BANNER)),
@@ -1811,6 +1831,30 @@ def test_snort_verify_checks_the_cidr_is_inside_a_scoped_suppression(capsys):
     assert _verify_json("1:9", supp, "--cidr", "198.51.96.0/20", passlist="198.51.96.0/20\n") == 1
 
 
+def test_snort_verify_without_cidr_neither_reads_nor_reports_the_pass_list(capsys):
+    """The pass-list keys appear only when --cidr asked for them, and the list is not read."""
+    fake = FakeRun([("ps auxww", (0, PS_SNORT, "")), ("/supp*", (0, "suppress gen_id 1, sig_id 9\n", ""))])
+    assert P.main(["--host", "192.0.2.1", "--json", "snort", "verify", "--sid", "1:9"], run=fake) == 0
+    data = json.loads(capsys.readouterr().out)["data"]
+    assert list(data) == ["instance_dir", "gid", "sid", "gid_assumed", "sid_suppressed",
+                          "suppressions", "coverage"]
+    assert not [c for c in fake.calls if "Whitelist" in c["remote"]]
+
+
+def test_a_suppression_check_record_prints_the_pass_list_last_and_only_when_checked():
+    sig = P.SignatureId(gid=1, sid=9)
+    scope = P.SuppressScope(track=None, ip=None)
+    bare = P.SuppressionCheck(instance_dir="/opt/snort", sig=sig, sid_suppressed=True,
+                              suppressions=(scope,), coverage=(("192.0.2.7", ("all",)),), passlist=None)
+    assert bare.to_json() == {"instance_dir": "/opt/snort", "gid": 1, "sid": 9, "gid_assumed": False,
+                              "sid_suppressed": True,
+                              "suppressions": [{"track": None, "ip": None, "understood": True}],
+                              "coverage": {"192.0.2.7": ["all"]}}
+    checked = P.SuppressionCheck(**{**bare.__dict__, "passlist": P.PassListCheck(True, 3)})
+    assert list(checked.to_json())[-2:] == ["cidr_passlisted", "passlist_entries"]
+    assert checked.to_json()["passlist_entries"] == 3
+
+
 def test_snort_verify_refuses_an_ip_that_is_not_an_address():
     assert _verify_sid("125:9", SCOPED_SRC, "--ip", "192.0.2.300") == 2
 
@@ -1979,7 +2023,6 @@ def test_snort_unblock_of_several_where_all_stay_blocked_is_exit_2(capsys):
 def _doctor_fake(arp=(0, "", ""), resolv=(0, "nameserver 127.0.0.1\n", ""), lock=(1, "", "")):
     return FakeRun([
         ('config_get_path("dhcpd"', (0, "[]", "")),
-        ('config_get_path("unbound/hosts"', (0, "[]", "")),
         ("arp -an", arp),
         ("cat /etc/resolv.conf", resolv),
         ("test -f", lock),
@@ -2039,6 +2082,22 @@ def test_arp_permanent_returns_only_the_permanent_entries(capsys):
     assert P.main(["--host", "192.0.2.1", "--json", "arp", "--permanent"], run=fake) == 0
     data = json.loads(capsys.readouterr().out)["data"]
     assert [e["ip"] for e in data] == ["192.0.2.30"]
+
+
+def test_an_arp_entry_prints_the_keys_arp_json_has_always_had():
+    [entry] = [e for e in P.parse_arp(ARP_TEXT) if e.permanent]
+    assert entry.to_json() == {"ip": "192.0.2.30", "mac": entry.mac, "interface": entry.interface,
+                               "permanent": True}
+    assert list(entry.to_json()) == ["ip", "mac", "interface", "permanent"]
+
+
+def test_the_envelope_prints_its_four_keys_and_keeps_skipped_as_given():
+    skipped = ["--apply not given"]
+    env = P.Envelope(command="table del", data={"would_delete": ["192.0.2.9"]}, ok=True, skipped=skipped)
+    skipped.append("added after the envelope was built")
+    assert env.to_json() == {"ok": True, "command": "table del", "data": {"would_delete": ["192.0.2.9"]},
+                             "skipped": ["--apply not given"]}
+    assert P.Envelope(command="x", data=None, ok=False).to_json()["skipped"] == []
 
 
 # ---- cross-platform text handling ---------------------------------------------------------------
@@ -2111,7 +2170,7 @@ POOL_CONFIG_XML = """<?xml version="1.0"?>
 
 
 def _pool_findings(text=POOL_CONFIG_XML):
-    findings = P.doctor_findings(reservations=P.reservations_from_config_xml(text), overrides=[],
+    findings = P.doctor_findings(reservations=P.reservations_from_config_xml(text),
                                  pools=P.pools_from_config_xml(text))
     return [f for f in findings if f.check == "static_map_in_dynamic_pool"]
 
@@ -2152,7 +2211,18 @@ def test_doctor_ignores_a_static_map_outside_the_pool_and_on_a_disabled_server()
 def test_a_pool_on_another_interface_does_not_claim_a_reservation():
     reservations = [res("203.0.113.150", "00:11:22:33:44:70", hostname="x")]
     pools = [P.Pool(interface="opt2", first="203.0.113.100", last="203.0.113.199")]
-    assert P.doctor_findings(reservations=reservations, overrides=[], pools=pools) == []
+    assert P.doctor_findings(reservations=reservations, pools=pools) == []
+
+
+@pytest.mark.parametrize(("first", "last", "address"), [
+    ("192.0.2.100", "2001:db8::ff", "192.0.2.150"),     # comparing 192.0.2.150 <= 2001:db8::ff raised
+    ("2001:db8::1", "192.0.2.199", "2001:db8::5"),
+])
+def test_a_pool_whose_ends_are_two_address_families_holds_nothing(first, last, address):
+    """Comparing addresses of two families raises TypeError, which crashed doctor (exit 1, a traceback)."""
+    reservations = [res(address, "00:11:22:33:44:71", hostname="x")]
+    pools = [P.Pool(interface="lan", first=first, last=last)]
+    assert P.doctor_findings(reservations=reservations, pools=pools) == []
 
 
 def test_doctor_from_a_snapshot_reports_the_pool_overlap(tmp_path, capsys):
@@ -2251,3 +2321,36 @@ def test_a_dhcp_write_over_a_dead_unbound_is_exit_2_saying_the_change_is_written
     rc = P.main(["--host", "192.0.2.1", "--apply", "--snapshot-dir", str(tmp_path), *argv], run=fake)
     assert rc == 2
     assert "written to config.xml" in capsys.readouterr().err
+
+
+# ---- the command line is read into typed records once, at the edge ------------------------------
+def test_every_verb_reads_its_options_into_its_own_record():
+    """Each subcommand carries a Verb whose reader builds the record its command function takes."""
+    parser = P.build_parser()
+    parsed = P.ParsedArgs(parser.parse_args(["--host", "192.0.2.1", "--apply", "snort", "verify",
+                                             "--sid", "1:2000", "--ip", "192.0.2.5", "--ip", "192.0.2.6"]))
+    common = P.CommonOptions.read(parsed, P._run)
+    verb = parsed.namespace.verb
+    assert verb.func is P.cmd_snort_verify
+    assert verb.read(parsed) == P.SnortVerifyArgs(sid="1:2000", cidr=None, ip=("192.0.2.5", "192.0.2.6"))
+    assert (common.host, common.apply, common.json, parsed.command()) == ("192.0.2.1", True, False, "snort verify")
+
+
+def test_an_append_option_never_given_reads_as_no_values():
+    parsed = P.ParsedArgs(P.build_parser().parse_args(["snort", "verify", "--sid", "2000"]))
+    assert parsed.texts("ip") == ()
+
+
+@pytest.mark.parametrize(("namespace", "read"), [
+    (argparse.Namespace(mac=3), lambda p: p.text("mac")),
+    (argparse.Namespace(host=["192.0.2.1"]), lambda p: p.optional_text("host")),
+    (argparse.Namespace(apply="yes"), lambda p: p.flag("apply")),
+    (argparse.Namespace(timeout=True), lambda p: p.number("timeout")),
+    (argparse.Namespace(ips="192.0.2.5"), lambda p: p.texts("ips")),
+    (argparse.Namespace(ips=["192.0.2.5", 7]), lambda p: p.texts("ips")),
+    (argparse.Namespace(verb=P.cmd_info), lambda p: p.handler()),
+])
+def test_a_parsed_value_of_the_wrong_type_is_a_defect_not_an_answer(namespace, read):
+    """A parser and reader that disagree raise TypeError, which main() does not turn into exit 2."""
+    with pytest.raises(TypeError, match="the parsed option"):
+        read(P.ParsedArgs(namespace))

@@ -2,7 +2,7 @@
 
 `Container(dict)` backs `Document` and `Table`. Dict storage follows
 doc-stream first-occurrence order; mutations update the slot stream
-through `_index`, `_refs`, `_header`, and `_body_tail`.
+through `_bindings`, `_refs`, `_header`, and `_body_tail`.
 """
 
 from __future__ import annotations
@@ -38,7 +38,6 @@ from tomlrt._comments import (
     EolCommentView,
     LeadingBlockView,
     LeadingCommentView,
-    _direct_kv_slot,
     _doc_epilogue_get,
     _doc_epilogue_set,
     _doc_preamble_get,
@@ -117,16 +116,16 @@ class Container(_View, dict[str, Any]):
     """Dict-typed base for `Document` and `Table` views.
 
     Reads are pure dict operations. Section mutations use the
-    per-container cache (`_index`, `_refs`, `_header`,
+    per-container cache (`_bindings`, `_refs`, `_header`,
     `_body_tail`). Inline tables keep those caches empty and mutate
     the backing `InlineTableValue` in `_value`.
     """
 
     __slots__ = (
+        "_bindings",
         "_body_tail",
         "_header",
         "_host",
-        "_index",
         "_inline",
         "_layout_root",
         "_owner_aot_entry",
@@ -153,7 +152,7 @@ class Container(_View, dict[str, Any]):
         self._inline = False
         self._host: Array | AoT | Container | None = None
         self._owner_aot_entry: AoTEntry | None = None
-        self._index: dict[str, list[Slot]] = {}
+        self._bindings: dict[str, KVSlot] = {}
         self._refs: list[Slot] = []
         self._header: StructuralHeaderSlot | None = None
         self._body_tail: Slot | None = None
@@ -642,41 +641,26 @@ class Container(_View, dict[str, Any]):
     ) -> _layout_ops.PromotedHeader | None:
         """Install ``value`` (an AoT) under ``key``.
 
-        Public sources are copied. Private layout moves with its live
-        views; entries without layout are synthesized in place.
+        Detached roots move with their live views; owned sources are copied.
         """
         snapshot = _snapshot_for_overlapping_install(self, key, value)
         if snapshot is not value:
             assert isinstance(snapshot, AoT)
-            return _layout_ops.clone_aot(self, key, snapshot)
-        src_root = value._layout_root  # noqa: SLF001
-        if src_root is not None and not _can_adopt_from(src_root, self._attached_doc):
-            return _layout_ops.clone_aot(self, key, value)
-        emptied = value._host  # noqa: SLF001
+            return _layout_ops.clone_headered_layout(self, key, snapshot)
+        if not _can_adopt(value, self._attached_doc):
+            return _layout_ops.clone_headered_layout(self, key, value)
+        if value._layout_root is not None and value:  # noqa: SLF001
+            _layout_ops.adopt_private_block(self, key, value)
+            return None
         existing_entries: list[Table] = list(value)
-        _layout_ops.detach_aot_from_orphan(value)
         promotion = _layout_ops.attach_aot(self, key, value)
         list.clear(value)
         dict.__setitem__(self, key, value)
-        for entry_table in existing_entries:
-            source_doc = entry_table._layout_root  # noqa: SLF001
-            if source_doc is None:
-                _layout_ops.add_aot_entry(
-                    value, None, rehome=entry_table, capture=capture
-                )
-            elif _can_adopt_from(source_doc, self._attached_doc):
-                source_parent = (
-                    emptied if src_root is not None else entry_table._parent  # noqa: SLF001
-                )
-                _layout_ops.adopt_private_entry(
-                    value,
-                    entry_table,
-                    preserve_source_separator=src_root is not None,
-                )
-                _layout_ops.synthesise_header_for_emptied(source_parent)
-            else:
-                _layout_ops.add_aot_entry(value, entry_table, capture=capture)
-        _layout_ops.synthesise_header_for_emptied(emptied)
+        _layout_ops.insert_aot_entries(
+            value,
+            existing_entries,
+            capture=capture,
+        )
         return promotion
 
     def _attach_section(
@@ -694,25 +678,20 @@ class Container(_View, dict[str, Any]):
         if src_root is None:
             assert isinstance(value, Table), "a section factory must be a Table"
             _layout_ops.attach_section_at(self, (key,), value, capture=capture)
-        elif _can_adopt_from(src_root, self._attached_doc):
+        elif _can_adopt(value, self._attached_doc):
             assert value._refs, "a private section owns slots"
-            emptied = value._parent
             if value._header is not None:
-                _layout_ops.adopt_private_section(self, key, value)
+                _layout_ops.adopt_private_block(self, key, value)
             else:
                 _layout_ops.adopt_private_implicit(self, key, value)
-            _layout_ops.synthesise_header_for_emptied(emptied)
         elif value._header is not None or isinstance(value, Document):
-            _layout_ops.clone_section(self, key, value)
+            _layout_ops.clone_headered_layout(self, key, value)
         else:
             _layout_ops.clone_implicit_section(self, key, value)
 
     def _replace_scalar(self, key: str, value: Scalar) -> None:
         """Replace a scalar while preserving its existing KV slot."""
-        refs = self._index.get(key)
-        assert refs is not None, "scalar value must have a slot"
-        slot = refs[0]
-        assert isinstance(slot, KVSlot), "scalar value must have a KV slot"
+        slot = self._bindings[key]
         slot.value = coerce_scalar(value)
         dict.__setitem__(self, key, value)
 
@@ -735,11 +714,7 @@ class Container(_View, dict[str, Any]):
                 )
                 dict.__setitem__(self, key, decoded)
             return
-        refs = self._index.get(key)
-        assert refs is not None, "inline value must have a slot"
-        assert len(refs) == 1, "inline value must be backed by exactly one slot"
-        slot = refs[0]
-        assert isinstance(slot, KVSlot), "inline value must be backed by a KV slot"
+        slot = self._bindings[key]
         slot.value = cst
         dict.__setitem__(self, key, decoded)
         _layout_ops.reset_displaced_views(old)
@@ -848,7 +823,7 @@ class Container(_View, dict[str, Any]):
             for k in current:
                 has_leaf = False
                 has_header = False
-                for slot in self._index.get(k, ()):
+                for slot in _layout_ops.binding_refs(self, k):
                     if isinstance(slot, KVSlot):
                         has_leaf = True
                     else:
@@ -880,10 +855,7 @@ class Container(_View, dict[str, Any]):
         though ``a`` has no header of its own. Returns ``False`` for missing
         keys and values written entirely as key-value lines.
         """
-        refs = self._index.get(key, ())
-        # A plain loop measurably beats any()+generator here; sort()
-        # calls this once per key, so it's hot for wide containers.
-        for slot in refs:  # noqa: SIM110
+        for slot in _layout_ops.binding_refs(self, key):
             if isinstance(slot, StructuralHeaderSlot):
                 return True
         return False
@@ -1134,8 +1106,7 @@ def _reorder_dict_storage(c: Container, new_key_order: list[str]) -> None:
     """
     values = [(k, dict.__getitem__(c, k)) for k in new_key_order]
     dict.clear(c)
-    for k, v in values:
-        dict.__setitem__(c, k, v)
+    dict.update(c, values)
 
 
 def _direct_kv_trivia(c: Container, key: str) -> tuple[str, str]:
@@ -1144,8 +1115,7 @@ def _direct_kv_trivia(c: Container, key: str) -> tuple[str, str]:
     Both fields are non-Optional on `KVSlot`, so the result is never
     ``None`` in either component.
     """
-    slot = _direct_kv_slot(c, key)
-    assert slot is not None, "inline promotion source must have a direct KV slot"
+    slot = c._bindings[key]  # noqa: SLF001
     return slot.leading, slot.eol
 
 
@@ -1206,8 +1176,7 @@ def _make_inline_chain(parts: Sequence[str]) -> tuple[Table, Table]:
 
 def _populate_unattached(t: Container, mapping: Mapping[str, TomlInput]) -> None:
     """Populate an unattached ``Container`` whose keys are already validated."""
-    for k, v in _mapping_items(mapping):
-        dict.__setitem__(t, k, v)
+    dict.update(t, _mapping_items(mapping))
 
 
 class Table(Container):
@@ -1336,8 +1305,8 @@ class Document(Container):
     """
 
     __slots__ = (
+        "_detached_root",
         "_head",
-        "_is_private",
         "_newline",
         "_preamble",
         "_protected_source_roots",
@@ -1369,7 +1338,7 @@ class Document(Container):
         self._trailing: str = ""
         self._preamble: str = ""
         self._newline: str = DEFAULT_NEWLINE
-        self._is_private: bool = False
+        self._detached_root: Container | AoT | None = None
         self._protected_source_roots: dict[int, Document] | None = None
         self._section_blank_separated = True
         self._layout_root = self
@@ -1486,12 +1455,12 @@ def _detached_inline_value(v: Container | Array) -> Value | None:
 def _clone_private_layout(value: Container | AoT) -> Table | AoT:
     """Copy structural layout into a private holder without taking its source."""
     holder = Document()
-    holder._is_private = True  # noqa: SLF001
     holder._newline = value._doc_newline  # noqa: SLF001
     with _sources_kept_intact(holder, (value,)):
         holder._setitem_validated("", value)  # noqa: SLF001
     result = dict.__getitem__(holder, "")
     assert isinstance(result, (Table, AoT))
+    holder._detached_root = result  # noqa: SLF001
     return result
 
 
@@ -1608,7 +1577,7 @@ def _collect_private_roots(value: object, found: dict[int, Document]) -> None:
     if isinstance(value, _View):
         root = value._layout_root  # noqa: SLF001
         if root is not None:
-            if root._is_private:  # noqa: SLF001
+            if root._detached_root is not None:  # noqa: SLF001
                 found[id(root)] = root
             return
     if isinstance(value, Mapping):
@@ -1619,10 +1588,17 @@ def _collect_private_roots(value: object, found: dict[int, Document]) -> None:
             _collect_private_roots(sub, found)
 
 
-def _can_adopt_from(source: Document, destination: Document) -> bool:
-    """Whether this destination may consume the source root's layout."""
-    protected = destination._protected_source_roots  # noqa: SLF001
-    return source._is_private and (protected is None or id(source) not in protected)  # noqa: SLF001
+def _can_adopt(value: Container | AoT, destination: Document | None = None) -> bool:
+    """Whether ``value`` is an unowned structural root available for attachment."""
+    source = value._layout_root  # noqa: SLF001
+    if source is None:
+        return value._host is None  # noqa: SLF001
+    if source._detached_root is not value:  # noqa: SLF001
+        return False
+    protected = (
+        None if destination is None else destination._protected_source_roots  # noqa: SLF001
+    )
+    return protected is None or id(source) not in protected
 
 
 @contextlib.contextmanager
@@ -1818,9 +1794,7 @@ def _host_kv_slot(view: Array | Container) -> KVSlot | None:
         up = cur._host  # noqa: SLF001
     assert isinstance(up, Container), "internal: attached value has no host container"
     leaf = cur._name if isinstance(cur, Array) else cur._path[-1]  # noqa: SLF001
-    kv = _direct_kv_slot(up, leaf)
-    assert kv is not None, "internal: host key is absent from its container index"
-    return kv
+    return up._bindings[leaf]  # noqa: SLF001
 
 
 def _synth_value(

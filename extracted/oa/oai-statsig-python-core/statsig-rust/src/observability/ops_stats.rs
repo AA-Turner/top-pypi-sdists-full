@@ -464,7 +464,7 @@ impl OpsStatsForInstance {
         &self,
         runtime: Arc<StatsigRuntime>,
         observer: Weak<dyn OpsStatsEventObserver>,
-        offload_load_callbacks: bool,
+        offload_id_list_callbacks: bool,
     ) {
         let Some(sender) = self.sender.as_ref() else {
             return;
@@ -481,13 +481,16 @@ impl OpsStatsForInstance {
                         };
 
                         if let Ok(event) = event {
-                            let offload = offload_load_callbacks && (
-                                matches!(&event, OpsStatsEvent::IdListLoad(_))
-                                || matches!(&event, OpsStatsEvent::Observability(data)
-                                    if data.metric_name.starts_with("lazy_id_list_load.")));
+                            let offload = offload_id_list_callbacks && match &event {
+                                OpsStatsEvent::IdListLoad(_) => true,
+                                OpsStatsEvent::Observability(data) => {
+                                    data.metric_name.starts_with("lazy_id_list_load.")
+                                        || data.metric_name.starts_with("id_list_membership_")
+                                }
+                                _ => false,
+                            };
                             if offload {
-                                // User callbacks may block. Yield the SDK worker so another
-                                // cold load can progress even with one runtime worker.
+                                // Keep the SDK worker available for list loads and membership RPCs.
                                 // Await one export at a time: the existing bounded receiver
                                 // remains the queue, rather than creating unbounded jobs.
                                 let policy = crate::output_policy::OutputPolicy::current();

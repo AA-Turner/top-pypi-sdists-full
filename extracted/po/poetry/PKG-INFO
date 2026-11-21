@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: poetry
-Version: 2.5.1
+Version: 2.5.2
 Summary: Python dependency management and packaging made easy.
 License-Expression: MIT
 License-File: LICENSE
@@ -29,7 +29,7 @@ Requires-Dist: installer (>=0.7.0,<2.0.0)
 Requires-Dist: keyring (>=25.1.0,<26.0.0)
 Requires-Dist: packaging (>=24.2)
 Requires-Dist: pbs-installer[download,install] (>=2025.6.10)
-Requires-Dist: pkginfo (>=1.12,<2.0)
+Requires-Dist: pkginfo (>=1.12,<3.0)
 Requires-Dist: platformdirs (>=3.0.0,<5)
 Requires-Dist: poetry-core (==2.5.0)
 Requires-Dist: pyproject-hooks (>=1.0.0,<2.0.0)

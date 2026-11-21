@@ -30,6 +30,8 @@ class SDKWorkers:
         enabled=True,
         disk_access=True,
         enable_id_list_elias_fano=None,
+        lazy_load_id_lists=None,
+        experimental_flags=None,
         evaluation_cache=False,
         enable_logging=False,
     ):
@@ -41,6 +43,8 @@ class SDKWorkers:
             "shared_id_lists_dir": str(shared_dir) if shared_dir is not None else None,
             "enable_id_lists": enabled,
             "enable_id_list_elias_fano": enable_id_list_elias_fano,
+            "lazy_load_id_lists": lazy_load_id_lists,
+            "experimental_flags": sorted(experimental_flags) if experimental_flags is not None else None,
             "disable_disk_access": not disk_access,
             "evaluation_cache": evaluation_cache,
             "enable_logging": enable_logging,
@@ -342,3 +346,37 @@ def test_failed_cold_refresh_keeps_eager_gate_semantics(monkeypatch, flag, envir
             assert sdk.check_gate(user, "b")
         finally:
             sdk.shutdown().wait(10)
+
+
+@pytest.mark.parametrize("lazy", [False, True], ids=["eager", "lazy"])
+@pytest.mark.parametrize("elias_fano", [False, True], ids=["hash", "ef"])
+def test_workers_map_initial_base_and_poll_their_own_tails(tmp_path, lazy, elias_fano):
+    directory = tmp_path / "shared"
+    options = dict(
+        enable_id_list_elias_fano=elias_fano,
+        lazy_load_id_lists=lazy,
+        experimental_flags={"shared_initial_id_list_base"},
+    )
+    with IdListHTTPFixture() as server:
+        with SDKWorkers(server, directory, tmp_path / "seed.log", count=1, **options) as seed:
+            if lazy:
+                assert not file_requests(server)
+            wait_for_membership(seed, {"alice": True, "bob": False})
+            [base] = seed.command("mapped_files")["0"]["files"]
+            offset = server.state()["manifest"]["members"]["size"]
+        with SDKWorkers(server, directory, tmp_path / "readers.log", count=2, **options) as workers:
+            wait_for_membership(workers, {"alice": True, "bob": False})
+            assert len(file_requests(server)) == 1
+            for reader in workers.command("mapped_files").values():
+                assert base in reader["files"]
+            server.control({"op": "append", "add_users": ["bob"], "remove_users": ["alice"]})
+            wait_for_membership(workers, {"alice": False, "bob": True})
+            tails = file_requests(server)[1:]
+            assert {r["worker"] for r in tails} == {
+                "shared-id-list-worker-0", "shared-id-list-worker-1"
+            }
+            assert all(r["start"] == offset for r in tails)
+            for reader in workers.command("mapped_files").values():
+                assert reader["files"] == [base]
+            server.control({"op": "replace", "users": ["carol"]})
+            wait_for_membership(workers, {"bob": False, "carol": True})

@@ -5,6 +5,7 @@
 
 #include "slang/ast/statements/LoopStatements.h"
 #include "slang/ast/symbols/BlockSymbols.h"
+#include "slang/ast/symbols/ClassSymbols.h"
 #include "slang/ast/symbols/CompilationUnitSymbols.h"
 #include "slang/ast/symbols/InstanceSymbols.h"
 #include "slang/ast/symbols/MemberSymbols.h"
@@ -245,6 +246,29 @@ endmodule
     REQUIRE(diags.size() == 2);
     CHECK(diags[0].code == diag::InvalidDPIReturnType);
     CHECK(diags[1].code == diag::InvalidDPIReturnType);
+}
+
+TEST_CASE("DPI import with unnamed formal arguments missing values") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    import "DPI-C" function void f1(input int, output logic [3:0]);
+    logic [3:0] r;
+    initial begin
+        f1(, r);
+        f1(.x(1));
+    end
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 4);
+    CHECK(diags[0].code == diag::UnnamedArgCannotBeEmpty);
+    CHECK(diags[1].code == diag::UnnamedUnconnectedArg);
+    CHECK(diags[2].code == diag::UnnamedUnconnectedArg);
+    CHECK(diags[3].code == diag::ArgDoesNotExist);
 }
 
 TEST_CASE("DPI Exports") {
@@ -597,6 +621,24 @@ endfunction
     CHECK(diags[2].code == diag::UndeclaredIdentifier);
 }
 
+TEST_CASE("Function call cycle through a return type found via an earlier lookup") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    localparam p = $bits(f);
+    localparam int a = f();
+    function logic [a-1:0] f; return 1; endfunction
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 2);
+    CHECK(diags[0].code == diag::UsedBeforeDeclared);
+    CHECK(diags[1].code == diag::RecursiveDefinition);
+}
+
 TEST_CASE("Extern interface method errors") {
     auto tree = SyntaxTree::fromText(R"(
 interface I;
@@ -801,4 +843,44 @@ endmodule
     auto& diags = compilation.getAllDiagnostics();
     REQUIRE(diags.size() == 1);
     CHECK(diags[0].code == diag::ExpectedFunctionPort);
+}
+
+TEST_CASE("Implicit return var lifetime matches subroutine -- GH #2079") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    function [3:0] f1(input [3:0] value);
+        f1 = value;
+    endfunction
+
+    function automatic [3:0] f2(input [3:0] value);
+        f2 = value;
+    endfunction
+endmodule
+
+class C;
+    function int f3;
+        return 1;
+    endfunction
+endclass
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+
+    auto& root = compilation.getRoot();
+    auto& m = root.lookupName<InstanceSymbol>("m").body;
+    auto& f1 = m.find<SubroutineSymbol>("f1");
+    REQUIRE(f1.returnValVar);
+    CHECK(f1.returnValVar->lifetime == VariableLifetime::Static);
+
+    auto& f2 = m.find<SubroutineSymbol>("f2");
+    REQUIRE(f2.returnValVar);
+    CHECK(f2.returnValVar->lifetime == VariableLifetime::Automatic);
+
+    auto& f3 =
+        compilation.getRoot().compilationUnits[0]->find<ClassType>("C").find<SubroutineSymbol>(
+            "f3");
+    REQUIRE(f3.returnValVar);
+    CHECK(f3.returnValVar->lifetime == VariableLifetime::Automatic);
 }

@@ -187,7 +187,7 @@ __all__ = (
     "SchemaStatusType",
     "SchemaVersionStatusType",
     "SearchAssetsPaginatorName",
-    "SearchFilterOperatorType",
+    "SearchFilterComparatorType",
     "SearchSortOrderType",
     "SeparatorType",
     "ServiceName",
@@ -690,8 +690,13 @@ SchemaDiffTypeType = Literal["SYNTAX_DIFF"]
 SchemaStatusType = Literal["AVAILABLE", "DELETING", "PENDING"]
 SchemaVersionStatusType = Literal["AVAILABLE", "DELETING", "FAILURE", "PENDING"]
 SearchAssetsPaginatorName = Literal["search_assets"]
-SearchFilterOperatorType = Literal[
-    "equals", "greaterThan", "greaterThanOrEquals", "lessThan", "lessThanOrEquals", "notExists"
+SearchFilterComparatorType = Literal[
+    "EQUALS",
+    "GREATER_THAN",
+    "GREATER_THAN_OR_EQUALS",
+    "LESS_THAN",
+    "LESS_THAN_OR_EQUALS",
+    "NOT_EXISTS",
 ]
 SearchSortOrderType = Literal["ASCENDING", "DESCENDING"]
 SeparatorType = Literal["comma", "ctrla", "pipe", "semicolon", "tab"]
@@ -766,12 +771,14 @@ WorkerTypeType = Literal[
 WorkflowRunStatusType = Literal["COMPLETED", "ERROR", "RUNNING", "STOPPED", "STOPPING"]
 GlueServiceName = Literal["glue"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",
     "account-access-runtime",
     "acm",
     "acm-pca",
+    "agent-discovery",
     "agent-registry",
     "agent-registry-control",
     "aiops",
@@ -782,6 +789,7 @@ ServiceName = Literal[
     "apigateway",
     "apigatewaymanagementapi",
     "apigatewayv2",
+    "apiportal",
     "appconfig",
     "appconfigdata",
     "appfabric",
@@ -874,6 +882,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -1058,6 +1067,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -1065,10 +1075,12 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-marketing",
     "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
+    "payments",
     "pca-connector-ad",
     "pca-connector-scep",
     "pcs",
@@ -1124,7 +1136,9 @@ ServiceName = Literal[
     "sagemaker-a2i-runtime",
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
+    "sagemaker-gateway-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",

@@ -4,12 +4,12 @@
 {
     "distutils": {
         "depends": [
-            "/tmp/build-env-o5moaa_a/lib/python3.11/site-packages/numpy/_core/include/numpy/arrayobject.h",
-            "/tmp/build-env-o5moaa_a/lib/python3.11/site-packages/numpy/_core/include/numpy/arrayscalars.h",
-            "/tmp/build-env-o5moaa_a/lib/python3.11/site-packages/numpy/_core/include/numpy/ndarrayobject.h",
-            "/tmp/build-env-o5moaa_a/lib/python3.11/site-packages/numpy/_core/include/numpy/ndarraytypes.h",
-            "/tmp/build-env-o5moaa_a/lib/python3.11/site-packages/numpy/_core/include/numpy/ufuncobject.h",
-            "src/tabmat/ext/cat_split_helpers.cpp"
+            "/tmp/build-env-ekwztw7k/lib/python3.11/site-packages/numpy/_core/include/numpy/arrayobject.h",
+            "/tmp/build-env-ekwztw7k/lib/python3.11/site-packages/numpy/_core/include/numpy/arrayscalars.h",
+            "/tmp/build-env-ekwztw7k/lib/python3.11/site-packages/numpy/_core/include/numpy/ndarrayobject.h",
+            "/tmp/build-env-ekwztw7k/lib/python3.11/site-packages/numpy/_core/include/numpy/ndarraytypes.h",
+            "/tmp/build-env-ekwztw7k/lib/python3.11/site-packages/numpy/_core/include/numpy/ufuncobject.h",
+            "src/tabmat/ext/cat_split_helpers.hpp"
         ],
         "extra_compile_args": [
             "-fopenmp",
@@ -22,7 +22,7 @@
         ],
         "include_dirs": [
             "src/tabmat/ext",
-            "/tmp/build-env-o5moaa_a/lib/python3.11/site-packages/numpy/_core/include"
+            "/tmp/build-env-ekwztw7k/lib/python3.11/site-packages/numpy/_core/include"
         ],
         "language": "c++",
         "name": "tabmat.ext.categorical",
@@ -1308,7 +1308,7 @@ static int __Pyx_init_tpflags_variables(void) {
 #include "numpy/ndarraytypes.h"
 #include "numpy/arrayscalars.h"
 #include "numpy/ufuncobject.h"
-#include "cat_split_helpers.cpp"
+#include "cat_split_helpers.hpp"
 #include "pythread.h"
 
     typedef int (*__pyx_memoryview_to_dtype_func_type)(char*, PyObject*);
@@ -1560,7 +1560,7 @@ static const char * const __pyx_cfilenm = __FILE__;
 
 static const char* const __pyx_f[] = {
   "src/tabmat/ext/categorical.pyx",
-  "__pyx_ff_map_fused_8b55c5_2_2_float__and_double",
+  "__pyx_ff_map_fused_2a7731_2_2_float__and_double",
   "numpy/__init__.cython-30.pxd",
   "cpython/type.pxd",
 };
@@ -2035,7 +2035,7 @@ struct __pyx_memoryviewslice_obj;
  * 
  * def transpose_matvec_fast(             # <<<<<<<<<<<<<<
  *     const int[:] indices,
- *     floating[:] other,
+ *     const floating[::1] other,
 */
 struct __pyx_defaults {
   PyObject_HEAD
@@ -3490,10 +3490,16 @@ static int __Pyx_ValidateAndInit_memviewslice(
                 PyObject *original_obj);
 
 /* ObjectToMemviewSlice.proto */
-static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_ds_float(PyObject *, int writable_flag);
+static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_dc_float__const__(PyObject *, int writable_flag);
 
 /* ObjectToMemviewSlice.proto */
-static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_ds_double(PyObject *, int writable_flag);
+static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_dc_double__const__(PyObject *, int writable_flag);
+
+/* ObjectToMemviewSlice.proto */
+static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_ds_float__const__(PyObject *, int writable_flag);
+
+/* ObjectToMemviewSlice.proto */
+static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_ds_double__const__(PyObject *, int writable_flag);
 
 /* ObjectToMemviewSlice.proto */
 static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_ds_short(PyObject *, int writable_flag);
@@ -3503,6 +3509,12 @@ static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_ds_int
 
 /* ObjectToMemviewSlice.proto */
 static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_ds_long(PyObject *, int writable_flag);
+
+/* ObjectToMemviewSlice.proto */
+static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_ds_float(PyObject *, int writable_flag);
+
+/* ObjectToMemviewSlice.proto */
+static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_ds_double(PyObject *, int writable_flag);
 
 /* ObjectToMemviewSlice.proto */
 static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_ds___pyx_t_float_complex(PyObject *, int writable_flag);
@@ -3515,6 +3527,12 @@ static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_ds_PY_
 
 /* ObjectToMemviewSlice.proto */
 static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_ds_int__const__(PyObject *, int writable_flag);
+
+/* ObjectToMemviewSlice.proto */
+static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_dc_float(PyObject *, int writable_flag);
+
+/* ObjectToMemviewSlice.proto */
+static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_dc_double(PyObject *, int writable_flag);
 
 /* RealImag.proto */
 #if CYTHON_CCOMPLEX
@@ -3870,7 +3888,7 @@ static PyObject *contiguous = 0;
 static PyObject *indirect_contiguous = 0;
 static int __pyx_memoryview_thread_locks_used;
 static PyThread_type_lock __pyx_memoryview_thread_locks[8];
-static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *, PyTypeObject *); /*proto*/
+static PyObject *__pyx_ff_map_fused_2a7731_2_2_float__and_double(PyObject *, PyTypeObject *); /*proto*/
 static PyObject *__pyx_ff_match_signatures_single(PyObject *, PyObject *); /*proto*/
 static int __pyx_array_allocate_buffer(struct __pyx_array_obj *); /*proto*/
 static struct __pyx_array_obj *__pyx_array_new(PyObject *, Py_ssize_t, char *, char const *, char *); /*proto*/
@@ -3910,11 +3928,13 @@ static void __pyx_memoryview_slice_assign_scalar(__Pyx_memviewslice *, int, size
 static void __pyx_memoryview__slice_assign_scalar(char *, Py_ssize_t *, Py_ssize_t *, int, size_t, void *); /*proto*/
 static PyObject *__pyx_unpickle_Enum__set_state(struct __pyx_MemviewEnum_obj *, PyObject *); /*proto*/
 /* #### Code section: typeinfo ### */
-static const __Pyx_TypeInfo __Pyx_TypeInfo_float = { "float", NULL, sizeof(float), { 0 }, 0, 'R', 0, 0 };
-static const __Pyx_TypeInfo __Pyx_TypeInfo_double = { "double", NULL, sizeof(double), { 0 }, 0, 'R', 0, 0 };
+static const __Pyx_TypeInfo __Pyx_TypeInfo_float__const__ = { "const float", NULL, sizeof(float const ), { 0 }, 0, 'R', 0, 0 };
+static const __Pyx_TypeInfo __Pyx_TypeInfo_double__const__ = { "const double", NULL, sizeof(double const ), { 0 }, 0, 'R', 0, 0 };
 static const __Pyx_TypeInfo __Pyx_TypeInfo_short = { "short", NULL, sizeof(short), { 0 }, 0, __PYX_IS_UNSIGNED(short) ? 'U' : 'I', __PYX_IS_UNSIGNED(short), 0 };
 static const __Pyx_TypeInfo __Pyx_TypeInfo_int = { "int", NULL, sizeof(int), { 0 }, 0, __PYX_IS_UNSIGNED(int) ? 'U' : 'I', __PYX_IS_UNSIGNED(int), 0 };
 static const __Pyx_TypeInfo __Pyx_TypeInfo_long = { "long", NULL, sizeof(long), { 0 }, 0, __PYX_IS_UNSIGNED(long) ? 'U' : 'I', __PYX_IS_UNSIGNED(long), 0 };
+static const __Pyx_TypeInfo __Pyx_TypeInfo_float = { "float", NULL, sizeof(float), { 0 }, 0, 'R', 0, 0 };
+static const __Pyx_TypeInfo __Pyx_TypeInfo_double = { "double", NULL, sizeof(double), { 0 }, 0, 'R', 0, 0 };
 static const __Pyx_TypeInfo __Pyx_TypeInfo___pyx_t_float_complex = { "float complex", NULL, sizeof(__pyx_t_float_complex), { 0 }, 0, 'C', 0, 0 };
 static const __Pyx_TypeInfo __Pyx_TypeInfo___pyx_t_double_complex = { "double complex", NULL, sizeof(__pyx_t_double_complex), { 0 }, 0, 'C', 0, 0 };
 static const __Pyx_TypeInfo __Pyx_TypeInfo_PY_LONG_LONG = { "long long", NULL, sizeof(PY_LONG_LONG), { 0 }, 0, __PYX_IS_UNSIGNED(PY_LONG_LONG) ? 'U' : 'I', __PYX_IS_UNSIGNED(PY_LONG_LONG), 0 };
@@ -4363,11 +4383,11 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #define __pyx_n_u_kwargs __pyx_string_tab[106]
 #define __pyx_n_u_long __pyx_string_tab[107]
 #define __pyx_n_u_matvec_complex __pyx_string_tab[108]
-#define __pyx_n_u_matvec_complex_double_double __pyx_string_tab[109]
-#define __pyx_n_u_matvec_complex_float_float __pyx_string_tab[110]
+#define __pyx_n_u_matvec_complex_const_double_doub __pyx_string_tab[109]
+#define __pyx_n_u_matvec_complex_const_float_float __pyx_string_tab[110]
 #define __pyx_n_u_matvec_fast __pyx_string_tab[111]
-#define __pyx_n_u_matvec_fast_double_double __pyx_string_tab[112]
-#define __pyx_n_u_matvec_fast_float_float __pyx_string_tab[113]
+#define __pyx_n_u_matvec_fast_const_double_double __pyx_string_tab[112]
+#define __pyx_n_u_matvec_fast_const_float_float __pyx_string_tab[113]
 #define __pyx_n_u_memview __pyx_string_tab[114]
 #define __pyx_n_u_mode __pyx_string_tab[115]
 #define __pyx_n_u_multiply_complex __pyx_string_tab[116]
@@ -4410,11 +4430,11 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #define __pyx_n_u_rows __pyx_string_tab[153]
 #define __pyx_n_u_rows_view __pyx_string_tab[154]
 #define __pyx_n_u_sandwich_categorical_complex __pyx_string_tab[155]
-#define __pyx_n_u_sandwich_categorical_complex_dou __pyx_string_tab[156]
-#define __pyx_n_u_sandwich_categorical_complex_flo __pyx_string_tab[157]
+#define __pyx_n_u_sandwich_categorical_complex_con_2 __pyx_string_tab[156]
+#define __pyx_n_u_sandwich_categorical_complex_con __pyx_string_tab[157]
 #define __pyx_n_u_sandwich_categorical_fast __pyx_string_tab[158]
-#define __pyx_n_u_sandwich_categorical_fast_double __pyx_string_tab[159]
-#define __pyx_n_u_sandwich_categorical_fast_float __pyx_string_tab[160]
+#define __pyx_n_u_sandwich_categorical_fast_const_2 __pyx_string_tab[159]
+#define __pyx_n_u_sandwich_categorical_fast_const __pyx_string_tab[160]
 #define __pyx_n_u_setdefault __pyx_string_tab[161]
 #define __pyx_n_u_shape __pyx_string_tab[162]
 #define __pyx_n_u_short __pyx_string_tab[163]
@@ -4427,11 +4447,11 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #define __pyx_n_u_subset_categorical_complex __pyx_string_tab[170]
 #define __pyx_n_u_tabmat_ext_categorical __pyx_string_tab[171]
 #define __pyx_n_u_transpose_matvec_complex __pyx_string_tab[172]
-#define __pyx_n_u_transpose_matvec_complex_double __pyx_string_tab[173]
-#define __pyx_n_u_transpose_matvec_complex_float_f __pyx_string_tab[174]
+#define __pyx_n_u_transpose_matvec_complex_const_d __pyx_string_tab[173]
+#define __pyx_n_u_transpose_matvec_complex_const_f __pyx_string_tab[174]
 #define __pyx_n_u_transpose_matvec_fast __pyx_string_tab[175]
-#define __pyx_n_u_transpose_matvec_fast_double_dou __pyx_string_tab[176]
-#define __pyx_n_u_transpose_matvec_fast_float_floa __pyx_string_tab[177]
+#define __pyx_n_u_transpose_matvec_fast_const_doub __pyx_string_tab[176]
+#define __pyx_n_u_transpose_matvec_fast_const_floa __pyx_string_tab[177]
 #define __pyx_n_u_unpack __pyx_string_tab[178]
 #define __pyx_n_u_update __pyx_string_tab[179]
 #define __pyx_n_u_values __pyx_string_tab[180]
@@ -4578,15 +4598,15 @@ return 0;
 #endif
 /* #### Code section: module_code ### */
 
-/* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":14
- *     __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_ds_double(object, int)
+/* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":14
+ *     __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_dc_double__const__(object, int)
  * 
- * @cname('__pyx_ff_map_fused_8b55c5_2_2_float__and_double')             # <<<<<<<<<<<<<<
+ * @cname('__pyx_ff_map_fused_2a7731_2_2_float__and_double')             # <<<<<<<<<<<<<<
  * cdef str map_fused_type(object arg, type ndarray):
  * 
 */
 
-static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx_v_arg, PyTypeObject *__pyx_v_ndarray) {
+static PyObject *__pyx_ff_map_fused_2a7731_2_2_float__and_double(PyObject *__pyx_v_arg, PyTypeObject *__pyx_v_ndarray) {
   __Pyx_memviewslice __pyx_v_memslice;
   Py_ssize_t __pyx_v_itemsize;
   CYTHON_UNUSED int __pyx_v_dtype_signed;
@@ -4610,7 +4630,7 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("map_fused_type", 0);
 
-  /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":22
+  /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":22
  *     cdef Py_UCS4 kind
  * 
  *     itemsize = -1             # <<<<<<<<<<<<<<
@@ -4619,7 +4639,7 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
 */
   __pyx_v_itemsize = -1L;
 
-  /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":27
+  /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":27
  * 
  * 
  *     if ndarray is not None:             # <<<<<<<<<<<<<<
@@ -4630,7 +4650,7 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
   if (__pyx_t_1) {
 
 
-    /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":28
+    /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":28
  * 
  *     if ndarray is not None:
  *         if isinstance(arg, ndarray):             # <<<<<<<<<<<<<<
@@ -4641,7 +4661,7 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
     if (__pyx_t_1) {
 
 
-      /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":29
+      /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":29
  *     if ndarray is not None:
  *         if isinstance(arg, ndarray):
  *             dtype = arg.dtype             # <<<<<<<<<<<<<<
@@ -4653,7 +4673,7 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
       __pyx_v_dtype = __pyx_t_2;
       __pyx_t_2 = 0;
 
-      /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":28
+      /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":28
  * 
  *     if ndarray is not None:
  *         if isinstance(arg, ndarray):             # <<<<<<<<<<<<<<
@@ -4663,7 +4683,7 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
       goto __pyx_L4;
     }
 
-    /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":31
+    /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":31
  *             dtype = arg.dtype
  * 
  *         elif __pyx_memoryview_check(arg):             # <<<<<<<<<<<<<<
@@ -4675,7 +4695,7 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
     if (__pyx_t_1) {
 
 
-      /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":32
+      /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":32
  * 
  *         elif __pyx_memoryview_check(arg):
  *             arg_base = arg.base             # <<<<<<<<<<<<<<
@@ -4687,7 +4707,7 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
       __pyx_v_arg_base = __pyx_t_2;
       __pyx_t_2 = 0;
 
-      /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":33
+      /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":33
  *         elif __pyx_memoryview_check(arg):
  *             arg_base = arg.base
  *             if isinstance(arg_base, ndarray):             # <<<<<<<<<<<<<<
@@ -4698,7 +4718,7 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
       if (__pyx_t_1) {
 
 
-        /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":34
+        /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":34
  *             arg_base = arg.base
  *             if isinstance(arg_base, ndarray):
  *                 dtype = arg_base.dtype             # <<<<<<<<<<<<<<
@@ -4710,7 +4730,7 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
         __pyx_v_dtype = __pyx_t_2;
         __pyx_t_2 = 0;
 
-        /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":33
+        /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":33
  *         elif __pyx_memoryview_check(arg):
  *             arg_base = arg.base
  *             if isinstance(arg_base, ndarray):             # <<<<<<<<<<<<<<
@@ -4720,7 +4740,7 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
         goto __pyx_L5;
       }
 
-      /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":36
+      /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":36
  *                 dtype = arg_base.dtype
  *             else:
  *                 dtype = None             # <<<<<<<<<<<<<<
@@ -4733,7 +4753,7 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
       }
       __pyx_L5:;
 
-      /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":31
+      /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":31
  *             dtype = arg.dtype
  * 
  *         elif __pyx_memoryview_check(arg):             # <<<<<<<<<<<<<<
@@ -4743,7 +4763,7 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
       goto __pyx_L4;
     }
 
-    /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":38
+    /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":38
  *                 dtype = None
  *         else:
  *             dtype = None             # <<<<<<<<<<<<<<
@@ -4756,7 +4776,7 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
     }
     __pyx_L4:;
 
-    /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":40
+    /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":40
  *             dtype = None
  * 
  *         itemsize = -1             # <<<<<<<<<<<<<<
@@ -4765,7 +4785,7 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
 */
     __pyx_v_itemsize = -1L;
 
-    /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":41
+    /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":41
  * 
  *         itemsize = -1
  *         if dtype is not None:             # <<<<<<<<<<<<<<
@@ -4776,7 +4796,7 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
     if (__pyx_t_1) {
 
 
-      /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":42
+      /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":42
  *         itemsize = -1
  *         if dtype is not None:
  *             itemsize = dtype.itemsize             # <<<<<<<<<<<<<<
@@ -4789,7 +4809,7 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
       __pyx_v_itemsize = __pyx_t_3;
 
-      /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":43
+      /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":43
  *         if dtype is not None:
  *             itemsize = dtype.itemsize
  *             kind = ord(dtype.kind)             # <<<<<<<<<<<<<<
@@ -4802,7 +4822,7 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
       __pyx_v_kind = __pyx_t_4;
 
-      /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":44
+      /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":44
  *             itemsize = dtype.itemsize
  *             kind = ord(dtype.kind)
  *             dtype_signed = kind == u'i'             # <<<<<<<<<<<<<<
@@ -4811,7 +4831,7 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
 */
       __pyx_v_dtype_signed = (__pyx_v_kind == 0x69);
 
-      /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":45
+      /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":45
  *             kind = ord(dtype.kind)
  *             dtype_signed = kind == u'i'
  *             if kind in u'iu':             # <<<<<<<<<<<<<<
@@ -4824,14 +4844,14 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
         break;
         case 0x66:
 
-        /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":49
+        /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":49
  *             elif kind == u'f':
  *                 pass
- *                 if sizeof(float) == itemsize and (<Py_ssize_t>arg.ndim) == 1:             # <<<<<<<<<<<<<<
+ *                 if sizeof(const float) == itemsize and (<Py_ssize_t>arg.ndim) == 1:             # <<<<<<<<<<<<<<
  *                     return 'float'
- *                 if sizeof(double) == itemsize and (<Py_ssize_t>arg.ndim) == 1:
+ *                 if sizeof(const double) == itemsize and (<Py_ssize_t>arg.ndim) == 1:
 */
-        __pyx_t_5 = ((sizeof(float)) == __pyx_v_itemsize);
+        __pyx_t_5 = ((sizeof(float const )) == __pyx_v_itemsize);
 
         if (__pyx_t_5) {
 
@@ -4855,11 +4875,11 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
         if (__pyx_t_1) {
 
 
-          /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":50
+          /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":50
  *                 pass
- *                 if sizeof(float) == itemsize and (<Py_ssize_t>arg.ndim) == 1:
+ *                 if sizeof(const float) == itemsize and (<Py_ssize_t>arg.ndim) == 1:
  *                     return 'float'             # <<<<<<<<<<<<<<
- *                 if sizeof(double) == itemsize and (<Py_ssize_t>arg.ndim) == 1:
+ *                 if sizeof(const double) == itemsize and (<Py_ssize_t>arg.ndim) == 1:
  *                     return 'double'
 */
           {
@@ -4873,23 +4893,23 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
           }
           goto __pyx_L0;
 
-          /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":49
+          /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":49
  *             elif kind == u'f':
  *                 pass
- *                 if sizeof(float) == itemsize and (<Py_ssize_t>arg.ndim) == 1:             # <<<<<<<<<<<<<<
+ *                 if sizeof(const float) == itemsize and (<Py_ssize_t>arg.ndim) == 1:             # <<<<<<<<<<<<<<
  *                     return 'float'
- *                 if sizeof(double) == itemsize and (<Py_ssize_t>arg.ndim) == 1:
+ *                 if sizeof(const double) == itemsize and (<Py_ssize_t>arg.ndim) == 1:
 */
         }
 
-        /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":51
- *                 if sizeof(float) == itemsize and (<Py_ssize_t>arg.ndim) == 1:
+        /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":51
+ *                 if sizeof(const float) == itemsize and (<Py_ssize_t>arg.ndim) == 1:
  *                     return 'float'
- *                 if sizeof(double) == itemsize and (<Py_ssize_t>arg.ndim) == 1:             # <<<<<<<<<<<<<<
+ *                 if sizeof(const double) == itemsize and (<Py_ssize_t>arg.ndim) == 1:             # <<<<<<<<<<<<<<
  *                     return 'double'
  *             elif kind == u'c':
 */
-        __pyx_t_5 = ((sizeof(double)) == __pyx_v_itemsize);
+        __pyx_t_5 = ((sizeof(double const )) == __pyx_v_itemsize);
 
         if (__pyx_t_5) {
 
@@ -4913,9 +4933,9 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
         if (__pyx_t_1) {
 
 
-          /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":52
+          /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":52
  *                     return 'float'
- *                 if sizeof(double) == itemsize and (<Py_ssize_t>arg.ndim) == 1:
+ *                 if sizeof(const double) == itemsize and (<Py_ssize_t>arg.ndim) == 1:
  *                     return 'double'             # <<<<<<<<<<<<<<
  *             elif kind == u'c':
  *                 pass
@@ -4931,27 +4951,27 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
           }
           goto __pyx_L0;
 
-          /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":51
- *                 if sizeof(float) == itemsize and (<Py_ssize_t>arg.ndim) == 1:
+          /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":51
+ *                 if sizeof(const float) == itemsize and (<Py_ssize_t>arg.ndim) == 1:
  *                     return 'float'
- *                 if sizeof(double) == itemsize and (<Py_ssize_t>arg.ndim) == 1:             # <<<<<<<<<<<<<<
+ *                 if sizeof(const double) == itemsize and (<Py_ssize_t>arg.ndim) == 1:             # <<<<<<<<<<<<<<
  *                     return 'double'
  *             elif kind == u'c':
 */
         }
 
-        /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":47
+        /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":47
  *             if kind in u'iu':
  *                 pass
  *             elif kind == u'f':             # <<<<<<<<<<<<<<
  *                 pass
- *                 if sizeof(float) == itemsize and (<Py_ssize_t>arg.ndim) == 1:
+ *                 if sizeof(const float) == itemsize and (<Py_ssize_t>arg.ndim) == 1:
 */
         break;
         case 99:
 
-        /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":53
- *                 if sizeof(double) == itemsize and (<Py_ssize_t>arg.ndim) == 1:
+        /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":53
+ *                 if sizeof(const double) == itemsize and (<Py_ssize_t>arg.ndim) == 1:
  *                     return 'double'
  *             elif kind == u'c':             # <<<<<<<<<<<<<<
  *                 pass
@@ -4961,7 +4981,7 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
         default: break;
       }
 
-      /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":41
+      /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":41
  * 
  *         itemsize = -1
  *         if dtype is not None:             # <<<<<<<<<<<<<<
@@ -4970,7 +4990,7 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
 */
     }
 
-    /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":27
+    /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":27
  * 
  * 
  *     if ndarray is not None:             # <<<<<<<<<<<<<<
@@ -4979,7 +4999,7 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
 */
   }
 
-  /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":56
+  /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":56
  *                 pass
  * 
  *     if arg is None:             # <<<<<<<<<<<<<<
@@ -4990,7 +5010,7 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
   if (__pyx_t_1) {
 
 
-    /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":57
+    /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":57
  * 
  *     if arg is None:
  *         return 'float'             # <<<<<<<<<<<<<<
@@ -5008,7 +5028,7 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
     }
     goto __pyx_L0;
 
-    /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":56
+    /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":56
  *                 pass
  * 
  *     if arg is None:             # <<<<<<<<<<<<<<
@@ -5017,7 +5037,7 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
 */
   }
 
-  /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":59
+  /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":59
  *         return 'float'
  * 
  *     try:             # <<<<<<<<<<<<<<
@@ -5033,7 +5053,7 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
     __Pyx_XGOTREF(__pyx_t_8);
     /*try:*/ {
 
-      /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":60
+      /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":60
  * 
  *     try:
  *         arg_as_memoryview = memoryview(arg)             # <<<<<<<<<<<<<<
@@ -5045,7 +5065,7 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
       __pyx_v_arg_as_memoryview = ((PyObject*)__pyx_t_2);
       __pyx_t_2 = 0;
 
-      /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":59
+      /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":59
  *         return 'float'
  * 
  *     try:             # <<<<<<<<<<<<<<
@@ -5054,21 +5074,21 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
 */
     }
 
-    /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":66
+    /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":66
  * 
- *         # try float
- *         if (((itemsize == -1 and arg_as_memoryview.itemsize == sizeof(float))             # <<<<<<<<<<<<<<
- *                 or itemsize == sizeof(float))
+ *         # try const float
+ *         if (((itemsize == -1 and arg_as_memoryview.itemsize == sizeof(const float))             # <<<<<<<<<<<<<<
+ *                 or itemsize == sizeof(const float))
  *                 and arg_as_memoryview.ndim == 1):
 */
     /*else:*/ {
 
-      /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":67
- *         # try float
- *         if (((itemsize == -1 and arg_as_memoryview.itemsize == sizeof(float))
- *                 or itemsize == sizeof(float))             # <<<<<<<<<<<<<<
+      /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":67
+ *         # try const float
+ *         if (((itemsize == -1 and arg_as_memoryview.itemsize == sizeof(const float))
+ *                 or itemsize == sizeof(const float))             # <<<<<<<<<<<<<<
  *                 and arg_as_memoryview.ndim == 1):
- *             memslice = __Pyx_PyObject_to_MemoryviewSlice_ds_float(arg_as_memoryview, 0)
+ *             memslice = __Pyx_PyObject_to_MemoryviewSlice_dc_float__const__(arg_as_memoryview, 0)
 */
       __pyx_t_5 = (__pyx_v_itemsize == -1L);
 
@@ -5079,15 +5099,15 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
 
       }
 
-      /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":66
+      /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":66
  * 
- *         # try float
- *         if (((itemsize == -1 and arg_as_memoryview.itemsize == sizeof(float))             # <<<<<<<<<<<<<<
- *                 or itemsize == sizeof(float))
+ *         # try const float
+ *         if (((itemsize == -1 and arg_as_memoryview.itemsize == sizeof(const float))             # <<<<<<<<<<<<<<
+ *                 or itemsize == sizeof(const float))
  *                 and arg_as_memoryview.ndim == 1):
 */
       __pyx_t_3 = __Pyx_PyMemoryView_Get_itemsize(__pyx_v_arg_as_memoryview); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(1, 66, __pyx_L16_except_error)
-      __pyx_t_5 = (__pyx_t_3 == (sizeof(float)));
+      __pyx_t_5 = (__pyx_t_3 == (sizeof(float const )));
 
 
       if (!__pyx_t_5) {
@@ -5098,14 +5118,14 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
       }
       __pyx_L23_next_or:;
 
-      /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":67
- *         # try float
- *         if (((itemsize == -1 and arg_as_memoryview.itemsize == sizeof(float))
- *                 or itemsize == sizeof(float))             # <<<<<<<<<<<<<<
+      /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":67
+ *         # try const float
+ *         if (((itemsize == -1 and arg_as_memoryview.itemsize == sizeof(const float))
+ *                 or itemsize == sizeof(const float))             # <<<<<<<<<<<<<<
  *                 and arg_as_memoryview.ndim == 1):
- *             memslice = __Pyx_PyObject_to_MemoryviewSlice_ds_float(arg_as_memoryview, 0)
+ *             memslice = __Pyx_PyObject_to_MemoryviewSlice_dc_float__const__(arg_as_memoryview, 0)
 */
-      __pyx_t_5 = (__pyx_v_itemsize == (sizeof(float)));
+      __pyx_t_5 = (__pyx_v_itemsize == (sizeof(float const )));
 
       if (__pyx_t_5) {
 
@@ -5117,11 +5137,11 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
       }
       __pyx_L22_next_and:;
 
-      /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":68
- *         if (((itemsize == -1 and arg_as_memoryview.itemsize == sizeof(float))
- *                 or itemsize == sizeof(float))
+      /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":68
+ *         if (((itemsize == -1 and arg_as_memoryview.itemsize == sizeof(const float))
+ *                 or itemsize == sizeof(const float))
  *                 and arg_as_memoryview.ndim == 1):             # <<<<<<<<<<<<<<
- *             memslice = __Pyx_PyObject_to_MemoryviewSlice_ds_float(arg_as_memoryview, 0)
+ *             memslice = __Pyx_PyObject_to_MemoryviewSlice_dc_float__const__(arg_as_memoryview, 0)
  *             if memslice.memview:
 */
       __pyx_t_9 = __Pyx_PyMemoryView_Get_ndim(__pyx_v_arg_as_memoryview); if (unlikely(__pyx_t_9 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(1, 68, __pyx_L16_except_error)
@@ -5133,28 +5153,28 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
 
       __pyx_L21_bool_binop_done:;
 
-      /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":66
+      /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":66
  * 
- *         # try float
- *         if (((itemsize == -1 and arg_as_memoryview.itemsize == sizeof(float))             # <<<<<<<<<<<<<<
- *                 or itemsize == sizeof(float))
+ *         # try const float
+ *         if (((itemsize == -1 and arg_as_memoryview.itemsize == sizeof(const float))             # <<<<<<<<<<<<<<
+ *                 or itemsize == sizeof(const float))
  *                 and arg_as_memoryview.ndim == 1):
 */
       if (__pyx_t_1) {
 
 
-        /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":69
- *                 or itemsize == sizeof(float))
+        /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":69
+ *                 or itemsize == sizeof(const float))
  *                 and arg_as_memoryview.ndim == 1):
- *             memslice = __Pyx_PyObject_to_MemoryviewSlice_ds_float(arg_as_memoryview, 0)             # <<<<<<<<<<<<<<
+ *             memslice = __Pyx_PyObject_to_MemoryviewSlice_dc_float__const__(arg_as_memoryview, 0)             # <<<<<<<<<<<<<<
  *             if memslice.memview:
  *                 __PYX_XCLEAR_MEMVIEW(&memslice, 1)
 */
-        __pyx_v_memslice = __Pyx_PyObject_to_MemoryviewSlice_ds_float(__pyx_v_arg_as_memoryview, 0);
+        __pyx_v_memslice = __Pyx_PyObject_to_MemoryviewSlice_dc_float__const__(__pyx_v_arg_as_memoryview, 0);
 
-        /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":70
+        /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":70
  *                 and arg_as_memoryview.ndim == 1):
- *             memslice = __Pyx_PyObject_to_MemoryviewSlice_ds_float(arg_as_memoryview, 0)
+ *             memslice = __Pyx_PyObject_to_MemoryviewSlice_dc_float__const__(arg_as_memoryview, 0)
  *             if memslice.memview:             # <<<<<<<<<<<<<<
  *                 __PYX_XCLEAR_MEMVIEW(&memslice, 1)
  *                 # print 'found a match for the buffer through format parsing'
@@ -5164,8 +5184,8 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
         if (__pyx_t_1) {
 
 
-          /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":71
- *             memslice = __Pyx_PyObject_to_MemoryviewSlice_ds_float(arg_as_memoryview, 0)
+          /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":71
+ *             memslice = __Pyx_PyObject_to_MemoryviewSlice_dc_float__const__(arg_as_memoryview, 0)
  *             if memslice.memview:
  *                 __PYX_XCLEAR_MEMVIEW(&memslice, 1)             # <<<<<<<<<<<<<<
  *                 # print 'found a match for the buffer through format parsing'
@@ -5173,7 +5193,7 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
 */
           __PYX_XCLEAR_MEMVIEW((&__pyx_v_memslice), 1);
 
-          /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":73
+          /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":73
  *                 __PYX_XCLEAR_MEMVIEW(&memslice, 1)
  *                 # print 'found a match for the buffer through format parsing'
  *                 return 'float'             # <<<<<<<<<<<<<<
@@ -5191,40 +5211,40 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
           }
           goto __pyx_L17_except_return;
 
-          /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":70
+          /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":70
  *                 and arg_as_memoryview.ndim == 1):
- *             memslice = __Pyx_PyObject_to_MemoryviewSlice_ds_float(arg_as_memoryview, 0)
+ *             memslice = __Pyx_PyObject_to_MemoryviewSlice_dc_float__const__(arg_as_memoryview, 0)
  *             if memslice.memview:             # <<<<<<<<<<<<<<
  *                 __PYX_XCLEAR_MEMVIEW(&memslice, 1)
  *                 # print 'found a match for the buffer through format parsing'
 */
         }
 
-        /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":75
+        /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":75
  *                 return 'float'
  *             else:
  *                 __pyx_PyErr_Clear()             # <<<<<<<<<<<<<<
  * 
- *         # try double
+ *         # try const double
 */
         /*else*/ {
           PyErr_Clear();
         }
 
-        /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":66
+        /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":66
  * 
- *         # try float
- *         if (((itemsize == -1 and arg_as_memoryview.itemsize == sizeof(float))             # <<<<<<<<<<<<<<
- *                 or itemsize == sizeof(float))
+ *         # try const float
+ *         if (((itemsize == -1 and arg_as_memoryview.itemsize == sizeof(const float))             # <<<<<<<<<<<<<<
+ *                 or itemsize == sizeof(const float))
  *                 and arg_as_memoryview.ndim == 1):
 */
       }
 
-      /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":78
+      /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":78
  * 
- *         # try double
- *         if (((itemsize == -1 and arg_as_memoryview.itemsize == sizeof(double))             # <<<<<<<<<<<<<<
- *                 or itemsize == sizeof(double))
+ *         # try const double
+ *         if (((itemsize == -1 and arg_as_memoryview.itemsize == sizeof(const double))             # <<<<<<<<<<<<<<
+ *                 or itemsize == sizeof(const double))
  *                 and arg_as_memoryview.ndim == 1):
 */
       __pyx_t_5 = (__pyx_v_itemsize == -1L);
@@ -5236,7 +5256,7 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
 
       }
       __pyx_t_3 = __Pyx_PyMemoryView_Get_itemsize(__pyx_v_arg_as_memoryview); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(1, 78, __pyx_L16_except_error)
-      __pyx_t_5 = (__pyx_t_3 == (sizeof(double)));
+      __pyx_t_5 = (__pyx_t_3 == (sizeof(double const )));
 
 
       if (!__pyx_t_5) {
@@ -5247,14 +5267,14 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
       }
       __pyx_L29_next_or:;
 
-      /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":79
- *         # try double
- *         if (((itemsize == -1 and arg_as_memoryview.itemsize == sizeof(double))
- *                 or itemsize == sizeof(double))             # <<<<<<<<<<<<<<
+      /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":79
+ *         # try const double
+ *         if (((itemsize == -1 and arg_as_memoryview.itemsize == sizeof(const double))
+ *                 or itemsize == sizeof(const double))             # <<<<<<<<<<<<<<
  *                 and arg_as_memoryview.ndim == 1):
- *             memslice = __Pyx_PyObject_to_MemoryviewSlice_ds_double(arg_as_memoryview, 0)
+ *             memslice = __Pyx_PyObject_to_MemoryviewSlice_dc_double__const__(arg_as_memoryview, 0)
 */
-      __pyx_t_5 = (__pyx_v_itemsize == (sizeof(double)));
+      __pyx_t_5 = (__pyx_v_itemsize == (sizeof(double const )));
 
       if (__pyx_t_5) {
 
@@ -5266,11 +5286,11 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
       }
       __pyx_L28_next_and:;
 
-      /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":80
- *         if (((itemsize == -1 and arg_as_memoryview.itemsize == sizeof(double))
- *                 or itemsize == sizeof(double))
+      /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":80
+ *         if (((itemsize == -1 and arg_as_memoryview.itemsize == sizeof(const double))
+ *                 or itemsize == sizeof(const double))
  *                 and arg_as_memoryview.ndim == 1):             # <<<<<<<<<<<<<<
- *             memslice = __Pyx_PyObject_to_MemoryviewSlice_ds_double(arg_as_memoryview, 0)
+ *             memslice = __Pyx_PyObject_to_MemoryviewSlice_dc_double__const__(arg_as_memoryview, 0)
  *             if memslice.memview:
 */
       __pyx_t_9 = __Pyx_PyMemoryView_Get_ndim(__pyx_v_arg_as_memoryview); if (unlikely(__pyx_t_9 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(1, 80, __pyx_L16_except_error)
@@ -5282,28 +5302,28 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
 
       __pyx_L27_bool_binop_done:;
 
-      /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":78
+      /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":78
  * 
- *         # try double
- *         if (((itemsize == -1 and arg_as_memoryview.itemsize == sizeof(double))             # <<<<<<<<<<<<<<
- *                 or itemsize == sizeof(double))
+ *         # try const double
+ *         if (((itemsize == -1 and arg_as_memoryview.itemsize == sizeof(const double))             # <<<<<<<<<<<<<<
+ *                 or itemsize == sizeof(const double))
  *                 and arg_as_memoryview.ndim == 1):
 */
       if (__pyx_t_1) {
 
 
-        /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":81
- *                 or itemsize == sizeof(double))
+        /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":81
+ *                 or itemsize == sizeof(const double))
  *                 and arg_as_memoryview.ndim == 1):
- *             memslice = __Pyx_PyObject_to_MemoryviewSlice_ds_double(arg_as_memoryview, 0)             # <<<<<<<<<<<<<<
+ *             memslice = __Pyx_PyObject_to_MemoryviewSlice_dc_double__const__(arg_as_memoryview, 0)             # <<<<<<<<<<<<<<
  *             if memslice.memview:
  *                 __PYX_XCLEAR_MEMVIEW(&memslice, 1)
 */
-        __pyx_v_memslice = __Pyx_PyObject_to_MemoryviewSlice_ds_double(__pyx_v_arg_as_memoryview, 0);
+        __pyx_v_memslice = __Pyx_PyObject_to_MemoryviewSlice_dc_double__const__(__pyx_v_arg_as_memoryview, 0);
 
-        /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":82
+        /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":82
  *                 and arg_as_memoryview.ndim == 1):
- *             memslice = __Pyx_PyObject_to_MemoryviewSlice_ds_double(arg_as_memoryview, 0)
+ *             memslice = __Pyx_PyObject_to_MemoryviewSlice_dc_double__const__(arg_as_memoryview, 0)
  *             if memslice.memview:             # <<<<<<<<<<<<<<
  *                 __PYX_XCLEAR_MEMVIEW(&memslice, 1)
  *                 # print 'found a match for the buffer through format parsing'
@@ -5313,8 +5333,8 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
         if (__pyx_t_1) {
 
 
-          /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":83
- *             memslice = __Pyx_PyObject_to_MemoryviewSlice_ds_double(arg_as_memoryview, 0)
+          /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":83
+ *             memslice = __Pyx_PyObject_to_MemoryviewSlice_dc_double__const__(arg_as_memoryview, 0)
  *             if memslice.memview:
  *                 __PYX_XCLEAR_MEMVIEW(&memslice, 1)             # <<<<<<<<<<<<<<
  *                 # print 'found a match for the buffer through format parsing'
@@ -5322,7 +5342,7 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
 */
           __PYX_XCLEAR_MEMVIEW((&__pyx_v_memslice), 1);
 
-          /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":85
+          /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":85
  *                 __PYX_XCLEAR_MEMVIEW(&memslice, 1)
  *                 # print 'found a match for the buffer through format parsing'
  *                 return 'double'             # <<<<<<<<<<<<<<
@@ -5340,16 +5360,16 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
           }
           goto __pyx_L17_except_return;
 
-          /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":82
+          /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":82
  *                 and arg_as_memoryview.ndim == 1):
- *             memslice = __Pyx_PyObject_to_MemoryviewSlice_ds_double(arg_as_memoryview, 0)
+ *             memslice = __Pyx_PyObject_to_MemoryviewSlice_dc_double__const__(arg_as_memoryview, 0)
  *             if memslice.memview:             # <<<<<<<<<<<<<<
  *                 __PYX_XCLEAR_MEMVIEW(&memslice, 1)
  *                 # print 'found a match for the buffer through format parsing'
 */
         }
 
-        /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":87
+        /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":87
  *                 return 'double'
  *             else:
  *                 __pyx_PyErr_Clear()             # <<<<<<<<<<<<<<
@@ -5359,11 +5379,11 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
           PyErr_Clear();
         }
 
-        /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":78
+        /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":78
  * 
- *         # try double
- *         if (((itemsize == -1 and arg_as_memoryview.itemsize == sizeof(double))             # <<<<<<<<<<<<<<
- *                 or itemsize == sizeof(double))
+ *         # try const double
+ *         if (((itemsize == -1 and arg_as_memoryview.itemsize == sizeof(const double))             # <<<<<<<<<<<<<<
+ *                 or itemsize == sizeof(const double))
  *                 and arg_as_memoryview.ndim == 1):
 */
       }
@@ -5375,7 +5395,7 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
     __pyx_L14_error:;
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":61
+    /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":61
  *     try:
  *         arg_as_memoryview = memoryview(arg)
  *     except (ValueError, TypeError):             # <<<<<<<<<<<<<<
@@ -5389,7 +5409,7 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
     }
     goto __pyx_L16_except_error;
 
-    /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":59
+    /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":59
  *         return 'float'
  * 
  *     try:             # <<<<<<<<<<<<<<
@@ -5416,7 +5436,7 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
     __pyx_L19_try_end:;
   }
 
-  /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":88
+  /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":88
  *             else:
  *                 __pyx_PyErr_Clear()
  *     return None             # <<<<<<<<<<<<<<
@@ -5431,10 +5451,10 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
   }
   goto __pyx_L0;
 
-  /* "__pyx_ff_map_fused_8b55c5_2_2_float__and_double":14
- *     __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_ds_double(object, int)
+  /* "__pyx_ff_map_fused_2a7731_2_2_float__and_double":14
+ *     __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_dc_double__const__(object, int)
  * 
- * @cname('__pyx_ff_map_fused_8b55c5_2_2_float__and_double')             # <<<<<<<<<<<<<<
+ * @cname('__pyx_ff_map_fused_2a7731_2_2_float__and_double')             # <<<<<<<<<<<<<<
  * cdef str map_fused_type(object arg, type ndarray):
  * 
 */
@@ -5442,7 +5462,7 @@ static PyObject *__pyx_ff_map_fused_8b55c5_2_2_float__and_double(PyObject *__pyx
   /* function exit code */
   __pyx_L1_error:;
   __Pyx_XDECREF(__pyx_t_2);
-  __Pyx_AddTraceback("__pyx_ff_map_fused_8b55c5_2_2_float__and_double.map_fused_type", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_AddTraceback("__pyx_ff_map_fused_2a7731_2_2_float__and_double.map_fused_type", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = 0;
   __pyx_L0:;
 
@@ -5563,6 +5583,885 @@ static PyObject *__pyx_ff_match_signatures_single(PyObject *__pyx_v_signatures, 
   __pyx_r = 0;
   __pyx_L0:;
   __Pyx_XDECREF(__pyx_v_found_match);
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":14
+ *     __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_ds_double__const__(object, int)
+ * 
+ * @cname('__pyx_ff_map_fused_a20f79_2_2_float__and_double')             # <<<<<<<<<<<<<<
+ * cdef str map_fused_type(object arg, type ndarray):
+ * 
+*/
+
+static PyObject *__pyx_ff_map_fused_a20f79_2_2_float__and_double(PyObject *__pyx_v_arg, PyTypeObject *__pyx_v_ndarray) {
+  __Pyx_memviewslice __pyx_v_memslice;
+  Py_ssize_t __pyx_v_itemsize;
+  CYTHON_UNUSED int __pyx_v_dtype_signed;
+  Py_UCS4 __pyx_v_kind;
+  PyObject *__pyx_v_arg_as_memoryview = 0;
+  PyObject *__pyx_v_dtype = NULL;
+  PyObject *__pyx_v_arg_base = NULL;
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  int __pyx_t_1;
+  PyObject *__pyx_t_2 = NULL;
+  Py_ssize_t __pyx_t_3;
+  long __pyx_t_4;
+  int __pyx_t_5;
+  PyObject *__pyx_t_6 = NULL;
+  PyObject *__pyx_t_7 = NULL;
+  PyObject *__pyx_t_8 = NULL;
+  int __pyx_t_9;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("map_fused_type", 0);
+
+  /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":22
+ *     cdef Py_UCS4 kind
+ * 
+ *     itemsize = -1             # <<<<<<<<<<<<<<
+ * 
+ *     cdef memoryview arg_as_memoryview
+*/
+  __pyx_v_itemsize = -1L;
+
+  /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":27
+ * 
+ * 
+ *     if ndarray is not None:             # <<<<<<<<<<<<<<
+ *         if isinstance(arg, ndarray):
+ *             dtype = arg.dtype
+*/
+  __pyx_t_1 = (__pyx_v_ndarray != ((PyTypeObject*)Py_None));
+  if (__pyx_t_1) {
+
+
+    /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":28
+ * 
+ *     if ndarray is not None:
+ *         if isinstance(arg, ndarray):             # <<<<<<<<<<<<<<
+ *             dtype = arg.dtype
+ * 
+*/
+    __pyx_t_1 = __Pyx_TypeCheck(__pyx_v_arg, __pyx_v_ndarray); 
+    if (__pyx_t_1) {
+
+
+      /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":29
+ *     if ndarray is not None:
+ *         if isinstance(arg, ndarray):
+ *             dtype = arg.dtype             # <<<<<<<<<<<<<<
+ * 
+ *         elif __pyx_memoryview_check(arg):
+*/
+      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_arg, __pyx_mstate_global->__pyx_n_u_dtype); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 29, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_2);
+      __pyx_v_dtype = __pyx_t_2;
+      __pyx_t_2 = 0;
+
+      /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":28
+ * 
+ *     if ndarray is not None:
+ *         if isinstance(arg, ndarray):             # <<<<<<<<<<<<<<
+ *             dtype = arg.dtype
+ * 
+*/
+      goto __pyx_L4;
+    }
+
+    /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":31
+ *             dtype = arg.dtype
+ * 
+ *         elif __pyx_memoryview_check(arg):             # <<<<<<<<<<<<<<
+ *             arg_base = arg.base
+ *             if isinstance(arg_base, ndarray):
+*/
+    __pyx_t_1 = __pyx_memoryview_check(__pyx_v_arg);
+
+    if (__pyx_t_1) {
+
+
+      /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":32
+ * 
+ *         elif __pyx_memoryview_check(arg):
+ *             arg_base = arg.base             # <<<<<<<<<<<<<<
+ *             if isinstance(arg_base, ndarray):
+ *                 dtype = arg_base.dtype
+*/
+      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_arg, __pyx_mstate_global->__pyx_n_u_base); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 32, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_2);
+      __pyx_v_arg_base = __pyx_t_2;
+      __pyx_t_2 = 0;
+
+      /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":33
+ *         elif __pyx_memoryview_check(arg):
+ *             arg_base = arg.base
+ *             if isinstance(arg_base, ndarray):             # <<<<<<<<<<<<<<
+ *                 dtype = arg_base.dtype
+ *             else:
+*/
+      __pyx_t_1 = __Pyx_TypeCheck(__pyx_v_arg_base, __pyx_v_ndarray); 
+      if (__pyx_t_1) {
+
+
+        /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":34
+ *             arg_base = arg.base
+ *             if isinstance(arg_base, ndarray):
+ *                 dtype = arg_base.dtype             # <<<<<<<<<<<<<<
+ *             else:
+ *                 dtype = None
+*/
+        __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_arg_base, __pyx_mstate_global->__pyx_n_u_dtype); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 34, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_2);
+        __pyx_v_dtype = __pyx_t_2;
+        __pyx_t_2 = 0;
+
+        /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":33
+ *         elif __pyx_memoryview_check(arg):
+ *             arg_base = arg.base
+ *             if isinstance(arg_base, ndarray):             # <<<<<<<<<<<<<<
+ *                 dtype = arg_base.dtype
+ *             else:
+*/
+        goto __pyx_L5;
+      }
+
+      /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":36
+ *                 dtype = arg_base.dtype
+ *             else:
+ *                 dtype = None             # <<<<<<<<<<<<<<
+ *         else:
+ *             dtype = None
+*/
+      /*else*/ {
+        __Pyx_INCREF(Py_None);
+        __pyx_v_dtype = Py_None;
+      }
+      __pyx_L5:;
+
+      /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":31
+ *             dtype = arg.dtype
+ * 
+ *         elif __pyx_memoryview_check(arg):             # <<<<<<<<<<<<<<
+ *             arg_base = arg.base
+ *             if isinstance(arg_base, ndarray):
+*/
+      goto __pyx_L4;
+    }
+
+    /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":38
+ *                 dtype = None
+ *         else:
+ *             dtype = None             # <<<<<<<<<<<<<<
+ * 
+ *         itemsize = -1
+*/
+    /*else*/ {
+      __Pyx_INCREF(Py_None);
+      __pyx_v_dtype = Py_None;
+    }
+    __pyx_L4:;
+
+    /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":40
+ *             dtype = None
+ * 
+ *         itemsize = -1             # <<<<<<<<<<<<<<
+ *         if dtype is not None:
+ *             itemsize = dtype.itemsize
+*/
+    __pyx_v_itemsize = -1L;
+
+    /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":41
+ * 
+ *         itemsize = -1
+ *         if dtype is not None:             # <<<<<<<<<<<<<<
+ *             itemsize = dtype.itemsize
+ *             kind = ord(dtype.kind)
+*/
+    __pyx_t_1 = (__pyx_v_dtype != Py_None);
+    if (__pyx_t_1) {
+
+
+      /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":42
+ *         itemsize = -1
+ *         if dtype is not None:
+ *             itemsize = dtype.itemsize             # <<<<<<<<<<<<<<
+ *             kind = ord(dtype.kind)
+ *             dtype_signed = kind == u'i'
+*/
+      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_dtype, __pyx_mstate_global->__pyx_n_u_itemsize); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 42, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_2);
+      __pyx_t_3 = __Pyx_PyIndex_AsSsize_t(__pyx_t_2); if (unlikely((__pyx_t_3 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(1, 42, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+      __pyx_v_itemsize = __pyx_t_3;
+
+      /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":43
+ *         if dtype is not None:
+ *             itemsize = dtype.itemsize
+ *             kind = ord(dtype.kind)             # <<<<<<<<<<<<<<
+ *             dtype_signed = kind == u'i'
+ *             if kind in u'iu':
+*/
+      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_dtype, __pyx_mstate_global->__pyx_n_u_kind); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 43, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_2);
+      __pyx_t_4 = __Pyx_PyObject_Ord(__pyx_t_2); if (unlikely(__pyx_t_4 == ((long)(long)(Py_UCS4)-1))) __PYX_ERR(1, 43, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+      __pyx_v_kind = __pyx_t_4;
+
+      /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":44
+ *             itemsize = dtype.itemsize
+ *             kind = ord(dtype.kind)
+ *             dtype_signed = kind == u'i'             # <<<<<<<<<<<<<<
+ *             if kind in u'iu':
+ *                 pass
+*/
+      __pyx_v_dtype_signed = (__pyx_v_kind == 0x69);
+
+      /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":45
+ *             kind = ord(dtype.kind)
+ *             dtype_signed = kind == u'i'
+ *             if kind in u'iu':             # <<<<<<<<<<<<<<
+ *                 pass
+ *             elif kind == u'f':
+*/
+      switch (__pyx_v_kind) {
+        case 0x69:
+        case 0x75:
+        break;
+        case 0x66:
+
+        /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":49
+ *             elif kind == u'f':
+ *                 pass
+ *                 if sizeof(const float) == itemsize and (<Py_ssize_t>arg.ndim) == 1:             # <<<<<<<<<<<<<<
+ *                     return 'float'
+ *                 if sizeof(const double) == itemsize and (<Py_ssize_t>arg.ndim) == 1:
+*/
+        __pyx_t_5 = ((sizeof(float const )) == __pyx_v_itemsize);
+
+        if (__pyx_t_5) {
+
+        } else {
+
+          __pyx_t_1 = __pyx_t_5;
+
+          goto __pyx_L8_bool_binop_done;
+        }
+        __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_arg, __pyx_mstate_global->__pyx_n_u_ndim); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 49, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_2);
+        __pyx_t_3 = __Pyx_PyIndex_AsSsize_t(__pyx_t_2); if (unlikely((__pyx_t_3 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(1, 49, __pyx_L1_error)
+        __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+        __pyx_t_5 = (((Py_ssize_t)__pyx_t_3) == 1);
+
+
+
+        __pyx_t_1 = __pyx_t_5;
+
+        __pyx_L8_bool_binop_done:;
+        if (__pyx_t_1) {
+
+
+          /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":50
+ *                 pass
+ *                 if sizeof(const float) == itemsize and (<Py_ssize_t>arg.ndim) == 1:
+ *                     return 'float'             # <<<<<<<<<<<<<<
+ *                 if sizeof(const double) == itemsize and (<Py_ssize_t>arg.ndim) == 1:
+ *                     return 'double'
+*/
+          {
+            PyObject *__pyx_temp;
+            {
+              __pyx_temp = __pyx_r;
+              __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_float);
+              __pyx_r = __pyx_mstate_global->__pyx_n_u_float;
+            }
+            __Pyx_XDECREF(__pyx_temp);
+          }
+          goto __pyx_L0;
+
+          /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":49
+ *             elif kind == u'f':
+ *                 pass
+ *                 if sizeof(const float) == itemsize and (<Py_ssize_t>arg.ndim) == 1:             # <<<<<<<<<<<<<<
+ *                     return 'float'
+ *                 if sizeof(const double) == itemsize and (<Py_ssize_t>arg.ndim) == 1:
+*/
+        }
+
+        /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":51
+ *                 if sizeof(const float) == itemsize and (<Py_ssize_t>arg.ndim) == 1:
+ *                     return 'float'
+ *                 if sizeof(const double) == itemsize and (<Py_ssize_t>arg.ndim) == 1:             # <<<<<<<<<<<<<<
+ *                     return 'double'
+ *             elif kind == u'c':
+*/
+        __pyx_t_5 = ((sizeof(double const )) == __pyx_v_itemsize);
+
+        if (__pyx_t_5) {
+
+        } else {
+
+          __pyx_t_1 = __pyx_t_5;
+
+          goto __pyx_L11_bool_binop_done;
+        }
+        __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_arg, __pyx_mstate_global->__pyx_n_u_ndim); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 51, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_2);
+        __pyx_t_3 = __Pyx_PyIndex_AsSsize_t(__pyx_t_2); if (unlikely((__pyx_t_3 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(1, 51, __pyx_L1_error)
+        __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+        __pyx_t_5 = (((Py_ssize_t)__pyx_t_3) == 1);
+
+
+
+        __pyx_t_1 = __pyx_t_5;
+
+        __pyx_L11_bool_binop_done:;
+        if (__pyx_t_1) {
+
+
+          /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":52
+ *                     return 'float'
+ *                 if sizeof(const double) == itemsize and (<Py_ssize_t>arg.ndim) == 1:
+ *                     return 'double'             # <<<<<<<<<<<<<<
+ *             elif kind == u'c':
+ *                 pass
+*/
+          {
+            PyObject *__pyx_temp;
+            {
+              __pyx_temp = __pyx_r;
+              __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_double);
+              __pyx_r = __pyx_mstate_global->__pyx_n_u_double;
+            }
+            __Pyx_XDECREF(__pyx_temp);
+          }
+          goto __pyx_L0;
+
+          /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":51
+ *                 if sizeof(const float) == itemsize and (<Py_ssize_t>arg.ndim) == 1:
+ *                     return 'float'
+ *                 if sizeof(const double) == itemsize and (<Py_ssize_t>arg.ndim) == 1:             # <<<<<<<<<<<<<<
+ *                     return 'double'
+ *             elif kind == u'c':
+*/
+        }
+
+        /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":47
+ *             if kind in u'iu':
+ *                 pass
+ *             elif kind == u'f':             # <<<<<<<<<<<<<<
+ *                 pass
+ *                 if sizeof(const float) == itemsize and (<Py_ssize_t>arg.ndim) == 1:
+*/
+        break;
+        case 99:
+
+        /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":53
+ *                 if sizeof(const double) == itemsize and (<Py_ssize_t>arg.ndim) == 1:
+ *                     return 'double'
+ *             elif kind == u'c':             # <<<<<<<<<<<<<<
+ *                 pass
+ * 
+*/
+        break;
+        default: break;
+      }
+
+      /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":41
+ * 
+ *         itemsize = -1
+ *         if dtype is not None:             # <<<<<<<<<<<<<<
+ *             itemsize = dtype.itemsize
+ *             kind = ord(dtype.kind)
+*/
+    }
+
+    /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":27
+ * 
+ * 
+ *     if ndarray is not None:             # <<<<<<<<<<<<<<
+ *         if isinstance(arg, ndarray):
+ *             dtype = arg.dtype
+*/
+  }
+
+  /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":56
+ *                 pass
+ * 
+ *     if arg is None:             # <<<<<<<<<<<<<<
+ *         return 'float'
+ * 
+*/
+  __pyx_t_1 = (__pyx_v_arg == Py_None);
+  if (__pyx_t_1) {
+
+
+    /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":57
+ * 
+ *     if arg is None:
+ *         return 'float'             # <<<<<<<<<<<<<<
+ * 
+ *     try:
+*/
+    {
+      PyObject *__pyx_temp;
+      {
+        __pyx_temp = __pyx_r;
+        __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_float);
+        __pyx_r = __pyx_mstate_global->__pyx_n_u_float;
+      }
+      __Pyx_XDECREF(__pyx_temp);
+    }
+    goto __pyx_L0;
+
+    /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":56
+ *                 pass
+ * 
+ *     if arg is None:             # <<<<<<<<<<<<<<
+ *         return 'float'
+ * 
+*/
+  }
+
+  /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":59
+ *         return 'float'
+ * 
+ *     try:             # <<<<<<<<<<<<<<
+ *         arg_as_memoryview = memoryview(arg)
+ *     except (ValueError, TypeError):
+*/
+  {
+    __Pyx_PyThreadState_declare
+    __Pyx_PyThreadState_assign
+    __Pyx_ExceptionSave(&__pyx_t_6, &__pyx_t_7, &__pyx_t_8);
+    __Pyx_XGOTREF(__pyx_t_6);
+    __Pyx_XGOTREF(__pyx_t_7);
+    __Pyx_XGOTREF(__pyx_t_8);
+    /*try:*/ {
+
+      /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":60
+ * 
+ *     try:
+ *         arg_as_memoryview = memoryview(arg)             # <<<<<<<<<<<<<<
+ *     except (ValueError, TypeError):
+ *         pass
+*/
+      __pyx_t_2 = PyMemoryView_FromObject(__pyx_v_arg); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 60, __pyx_L14_error)
+      __Pyx_GOTREF(__pyx_t_2);
+      __pyx_v_arg_as_memoryview = ((PyObject*)__pyx_t_2);
+      __pyx_t_2 = 0;
+
+      /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":59
+ *         return 'float'
+ * 
+ *     try:             # <<<<<<<<<<<<<<
+ *         arg_as_memoryview = memoryview(arg)
+ *     except (ValueError, TypeError):
+*/
+    }
+
+    /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":66
+ * 
+ *         # try const float
+ *         if (((itemsize == -1 and arg_as_memoryview.itemsize == sizeof(const float))             # <<<<<<<<<<<<<<
+ *                 or itemsize == sizeof(const float))
+ *                 and arg_as_memoryview.ndim == 1):
+*/
+    /*else:*/ {
+
+      /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":67
+ *         # try const float
+ *         if (((itemsize == -1 and arg_as_memoryview.itemsize == sizeof(const float))
+ *                 or itemsize == sizeof(const float))             # <<<<<<<<<<<<<<
+ *                 and arg_as_memoryview.ndim == 1):
+ *             memslice = __Pyx_PyObject_to_MemoryviewSlice_ds_float__const__(arg_as_memoryview, 0)
+*/
+      __pyx_t_5 = (__pyx_v_itemsize == -1L);
+
+      if (!__pyx_t_5) {
+
+        goto __pyx_L23_next_or;
+      } else {
+
+      }
+
+      /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":66
+ * 
+ *         # try const float
+ *         if (((itemsize == -1 and arg_as_memoryview.itemsize == sizeof(const float))             # <<<<<<<<<<<<<<
+ *                 or itemsize == sizeof(const float))
+ *                 and arg_as_memoryview.ndim == 1):
+*/
+      __pyx_t_3 = __Pyx_PyMemoryView_Get_itemsize(__pyx_v_arg_as_memoryview); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(1, 66, __pyx_L16_except_error)
+      __pyx_t_5 = (__pyx_t_3 == (sizeof(float const )));
+
+
+      if (!__pyx_t_5) {
+
+      } else {
+
+        goto __pyx_L22_next_and;
+      }
+      __pyx_L23_next_or:;
+
+      /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":67
+ *         # try const float
+ *         if (((itemsize == -1 and arg_as_memoryview.itemsize == sizeof(const float))
+ *                 or itemsize == sizeof(const float))             # <<<<<<<<<<<<<<
+ *                 and arg_as_memoryview.ndim == 1):
+ *             memslice = __Pyx_PyObject_to_MemoryviewSlice_ds_float__const__(arg_as_memoryview, 0)
+*/
+      __pyx_t_5 = (__pyx_v_itemsize == (sizeof(float const )));
+
+      if (__pyx_t_5) {
+
+      } else {
+
+        __pyx_t_1 = __pyx_t_5;
+
+        goto __pyx_L21_bool_binop_done;
+      }
+      __pyx_L22_next_and:;
+
+      /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":68
+ *         if (((itemsize == -1 and arg_as_memoryview.itemsize == sizeof(const float))
+ *                 or itemsize == sizeof(const float))
+ *                 and arg_as_memoryview.ndim == 1):             # <<<<<<<<<<<<<<
+ *             memslice = __Pyx_PyObject_to_MemoryviewSlice_ds_float__const__(arg_as_memoryview, 0)
+ *             if memslice.memview:
+*/
+      __pyx_t_9 = __Pyx_PyMemoryView_Get_ndim(__pyx_v_arg_as_memoryview); if (unlikely(__pyx_t_9 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(1, 68, __pyx_L16_except_error)
+      __pyx_t_5 = (__pyx_t_9 == 1);
+
+
+
+      __pyx_t_1 = __pyx_t_5;
+
+      __pyx_L21_bool_binop_done:;
+
+      /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":66
+ * 
+ *         # try const float
+ *         if (((itemsize == -1 and arg_as_memoryview.itemsize == sizeof(const float))             # <<<<<<<<<<<<<<
+ *                 or itemsize == sizeof(const float))
+ *                 and arg_as_memoryview.ndim == 1):
+*/
+      if (__pyx_t_1) {
+
+
+        /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":69
+ *                 or itemsize == sizeof(const float))
+ *                 and arg_as_memoryview.ndim == 1):
+ *             memslice = __Pyx_PyObject_to_MemoryviewSlice_ds_float__const__(arg_as_memoryview, 0)             # <<<<<<<<<<<<<<
+ *             if memslice.memview:
+ *                 __PYX_XCLEAR_MEMVIEW(&memslice, 1)
+*/
+        __pyx_v_memslice = __Pyx_PyObject_to_MemoryviewSlice_ds_float__const__(__pyx_v_arg_as_memoryview, 0);
+
+        /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":70
+ *                 and arg_as_memoryview.ndim == 1):
+ *             memslice = __Pyx_PyObject_to_MemoryviewSlice_ds_float__const__(arg_as_memoryview, 0)
+ *             if memslice.memview:             # <<<<<<<<<<<<<<
+ *                 __PYX_XCLEAR_MEMVIEW(&memslice, 1)
+ *                 # print 'found a match for the buffer through format parsing'
+*/
+        __pyx_t_1 = (__pyx_v_memslice.memview != 0);
+
+        if (__pyx_t_1) {
+
+
+          /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":71
+ *             memslice = __Pyx_PyObject_to_MemoryviewSlice_ds_float__const__(arg_as_memoryview, 0)
+ *             if memslice.memview:
+ *                 __PYX_XCLEAR_MEMVIEW(&memslice, 1)             # <<<<<<<<<<<<<<
+ *                 # print 'found a match for the buffer through format parsing'
+ *                 return 'float'
+*/
+          __PYX_XCLEAR_MEMVIEW((&__pyx_v_memslice), 1);
+
+          /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":73
+ *                 __PYX_XCLEAR_MEMVIEW(&memslice, 1)
+ *                 # print 'found a match for the buffer through format parsing'
+ *                 return 'float'             # <<<<<<<<<<<<<<
+ *             else:
+ *                 __pyx_PyErr_Clear()
+*/
+          {
+            PyObject *__pyx_temp;
+            {
+              __pyx_temp = __pyx_r;
+              __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_float);
+              __pyx_r = __pyx_mstate_global->__pyx_n_u_float;
+            }
+            __Pyx_XDECREF(__pyx_temp);
+          }
+          goto __pyx_L17_except_return;
+
+          /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":70
+ *                 and arg_as_memoryview.ndim == 1):
+ *             memslice = __Pyx_PyObject_to_MemoryviewSlice_ds_float__const__(arg_as_memoryview, 0)
+ *             if memslice.memview:             # <<<<<<<<<<<<<<
+ *                 __PYX_XCLEAR_MEMVIEW(&memslice, 1)
+ *                 # print 'found a match for the buffer through format parsing'
+*/
+        }
+
+        /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":75
+ *                 return 'float'
+ *             else:
+ *                 __pyx_PyErr_Clear()             # <<<<<<<<<<<<<<
+ * 
+ *         # try const double
+*/
+        /*else*/ {
+          PyErr_Clear();
+        }
+
+        /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":66
+ * 
+ *         # try const float
+ *         if (((itemsize == -1 and arg_as_memoryview.itemsize == sizeof(const float))             # <<<<<<<<<<<<<<
+ *                 or itemsize == sizeof(const float))
+ *                 and arg_as_memoryview.ndim == 1):
+*/
+      }
+
+      /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":78
+ * 
+ *         # try const double
+ *         if (((itemsize == -1 and arg_as_memoryview.itemsize == sizeof(const double))             # <<<<<<<<<<<<<<
+ *                 or itemsize == sizeof(const double))
+ *                 and arg_as_memoryview.ndim == 1):
+*/
+      __pyx_t_5 = (__pyx_v_itemsize == -1L);
+
+      if (!__pyx_t_5) {
+
+        goto __pyx_L29_next_or;
+      } else {
+
+      }
+      __pyx_t_3 = __Pyx_PyMemoryView_Get_itemsize(__pyx_v_arg_as_memoryview); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(1, 78, __pyx_L16_except_error)
+      __pyx_t_5 = (__pyx_t_3 == (sizeof(double const )));
+
+
+      if (!__pyx_t_5) {
+
+      } else {
+
+        goto __pyx_L28_next_and;
+      }
+      __pyx_L29_next_or:;
+
+      /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":79
+ *         # try const double
+ *         if (((itemsize == -1 and arg_as_memoryview.itemsize == sizeof(const double))
+ *                 or itemsize == sizeof(const double))             # <<<<<<<<<<<<<<
+ *                 and arg_as_memoryview.ndim == 1):
+ *             memslice = __Pyx_PyObject_to_MemoryviewSlice_ds_double__const__(arg_as_memoryview, 0)
+*/
+      __pyx_t_5 = (__pyx_v_itemsize == (sizeof(double const )));
+
+      if (__pyx_t_5) {
+
+      } else {
+
+        __pyx_t_1 = __pyx_t_5;
+
+        goto __pyx_L27_bool_binop_done;
+      }
+      __pyx_L28_next_and:;
+
+      /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":80
+ *         if (((itemsize == -1 and arg_as_memoryview.itemsize == sizeof(const double))
+ *                 or itemsize == sizeof(const double))
+ *                 and arg_as_memoryview.ndim == 1):             # <<<<<<<<<<<<<<
+ *             memslice = __Pyx_PyObject_to_MemoryviewSlice_ds_double__const__(arg_as_memoryview, 0)
+ *             if memslice.memview:
+*/
+      __pyx_t_9 = __Pyx_PyMemoryView_Get_ndim(__pyx_v_arg_as_memoryview); if (unlikely(__pyx_t_9 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(1, 80, __pyx_L16_except_error)
+      __pyx_t_5 = (__pyx_t_9 == 1);
+
+
+
+      __pyx_t_1 = __pyx_t_5;
+
+      __pyx_L27_bool_binop_done:;
+
+      /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":78
+ * 
+ *         # try const double
+ *         if (((itemsize == -1 and arg_as_memoryview.itemsize == sizeof(const double))             # <<<<<<<<<<<<<<
+ *                 or itemsize == sizeof(const double))
+ *                 and arg_as_memoryview.ndim == 1):
+*/
+      if (__pyx_t_1) {
+
+
+        /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":81
+ *                 or itemsize == sizeof(const double))
+ *                 and arg_as_memoryview.ndim == 1):
+ *             memslice = __Pyx_PyObject_to_MemoryviewSlice_ds_double__const__(arg_as_memoryview, 0)             # <<<<<<<<<<<<<<
+ *             if memslice.memview:
+ *                 __PYX_XCLEAR_MEMVIEW(&memslice, 1)
+*/
+        __pyx_v_memslice = __Pyx_PyObject_to_MemoryviewSlice_ds_double__const__(__pyx_v_arg_as_memoryview, 0);
+
+        /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":82
+ *                 and arg_as_memoryview.ndim == 1):
+ *             memslice = __Pyx_PyObject_to_MemoryviewSlice_ds_double__const__(arg_as_memoryview, 0)
+ *             if memslice.memview:             # <<<<<<<<<<<<<<
+ *                 __PYX_XCLEAR_MEMVIEW(&memslice, 1)
+ *                 # print 'found a match for the buffer through format parsing'
+*/
+        __pyx_t_1 = (__pyx_v_memslice.memview != 0);
+
+        if (__pyx_t_1) {
+
+
+          /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":83
+ *             memslice = __Pyx_PyObject_to_MemoryviewSlice_ds_double__const__(arg_as_memoryview, 0)
+ *             if memslice.memview:
+ *                 __PYX_XCLEAR_MEMVIEW(&memslice, 1)             # <<<<<<<<<<<<<<
+ *                 # print 'found a match for the buffer through format parsing'
+ *                 return 'double'
+*/
+          __PYX_XCLEAR_MEMVIEW((&__pyx_v_memslice), 1);
+
+          /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":85
+ *                 __PYX_XCLEAR_MEMVIEW(&memslice, 1)
+ *                 # print 'found a match for the buffer through format parsing'
+ *                 return 'double'             # <<<<<<<<<<<<<<
+ *             else:
+ *                 __pyx_PyErr_Clear()
+*/
+          {
+            PyObject *__pyx_temp;
+            {
+              __pyx_temp = __pyx_r;
+              __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_double);
+              __pyx_r = __pyx_mstate_global->__pyx_n_u_double;
+            }
+            __Pyx_XDECREF(__pyx_temp);
+          }
+          goto __pyx_L17_except_return;
+
+          /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":82
+ *                 and arg_as_memoryview.ndim == 1):
+ *             memslice = __Pyx_PyObject_to_MemoryviewSlice_ds_double__const__(arg_as_memoryview, 0)
+ *             if memslice.memview:             # <<<<<<<<<<<<<<
+ *                 __PYX_XCLEAR_MEMVIEW(&memslice, 1)
+ *                 # print 'found a match for the buffer through format parsing'
+*/
+        }
+
+        /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":87
+ *                 return 'double'
+ *             else:
+ *                 __pyx_PyErr_Clear()             # <<<<<<<<<<<<<<
+ *     return None
+*/
+        /*else*/ {
+          PyErr_Clear();
+        }
+
+        /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":78
+ * 
+ *         # try const double
+ *         if (((itemsize == -1 and arg_as_memoryview.itemsize == sizeof(const double))             # <<<<<<<<<<<<<<
+ *                 or itemsize == sizeof(const double))
+ *                 and arg_as_memoryview.ndim == 1):
+*/
+      }
+    }
+    __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
+    __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
+    __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
+    goto __pyx_L19_try_end;
+    __pyx_L14_error:;
+    __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+
+    /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":61
+ *     try:
+ *         arg_as_memoryview = memoryview(arg)
+ *     except (ValueError, TypeError):             # <<<<<<<<<<<<<<
+ *         pass
+ *     else:
+*/
+    __pyx_t_9 = __Pyx_PyErr_ExceptionMatches2(((PyObject *)(((PyTypeObject*)PyExc_ValueError))), ((PyObject *)(((PyTypeObject*)PyExc_TypeError))));
+    if (__pyx_t_9) {
+      __Pyx_ErrRestore(0,0,0);
+      goto __pyx_L15_exception_handled;
+    }
+    goto __pyx_L16_except_error;
+
+    /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":59
+ *         return 'float'
+ * 
+ *     try:             # <<<<<<<<<<<<<<
+ *         arg_as_memoryview = memoryview(arg)
+ *     except (ValueError, TypeError):
+*/
+    __pyx_L16_except_error:;
+    __Pyx_XGIVEREF(__pyx_t_6);
+    __Pyx_XGIVEREF(__pyx_t_7);
+    __Pyx_XGIVEREF(__pyx_t_8);
+    __Pyx_ExceptionReset(__pyx_t_6, __pyx_t_7, __pyx_t_8);
+    goto __pyx_L1_error;
+    __pyx_L17_except_return:;
+    __Pyx_XGIVEREF(__pyx_t_6);
+    __Pyx_XGIVEREF(__pyx_t_7);
+    __Pyx_XGIVEREF(__pyx_t_8);
+    __Pyx_ExceptionReset(__pyx_t_6, __pyx_t_7, __pyx_t_8);
+    goto __pyx_L0;
+    __pyx_L15_exception_handled:;
+    __Pyx_XGIVEREF(__pyx_t_6);
+    __Pyx_XGIVEREF(__pyx_t_7);
+    __Pyx_XGIVEREF(__pyx_t_8);
+    __Pyx_ExceptionReset(__pyx_t_6, __pyx_t_7, __pyx_t_8);
+    __pyx_L19_try_end:;
+  }
+
+  /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":88
+ *             else:
+ *                 __pyx_PyErr_Clear()
+ *     return None             # <<<<<<<<<<<<<<
+*/
+  {
+    PyObject *__pyx_temp;
+    {
+      __pyx_temp = __pyx_r;
+      __pyx_r = ((PyObject*)Py_None); __Pyx_INCREF(Py_None);
+    }
+    __Pyx_XDECREF(__pyx_temp);
+  }
+  goto __pyx_L0;
+
+  /* "__pyx_ff_map_fused_a20f79_2_2_float__and_double":14
+ *     __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_ds_double__const__(object, int)
+ * 
+ * @cname('__pyx_ff_map_fused_a20f79_2_2_float__and_double')             # <<<<<<<<<<<<<<
+ * cdef str map_fused_type(object arg, type ndarray):
+ * 
+*/
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_AddTraceback("__pyx_ff_map_fused_a20f79_2_2_float__and_double.map_fused_type", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = 0;
+  __pyx_L0:;
+
+
+
+
+  __Pyx_XDECREF(__pyx_v_arg_as_memoryview);
+  __Pyx_XDECREF(__pyx_v_dtype);
+  __Pyx_XDECREF(__pyx_v_arg_base);
   __Pyx_XGIVEREF(__pyx_r);
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
@@ -23836,7 +24735,7 @@ static CYTHON_INLINE NPY_DATETIMEUNIT __pyx_f_5numpy_get_datetime64_unit(PyObjec
  * 
  * def transpose_matvec_fast(             # <<<<<<<<<<<<<<
  *     const int[:] indices,
- *     floating[:] other,
+ *     const floating[::1] other,
 */
 
 /* Python wrapper */
@@ -24055,7 +24954,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_transpose_matvec_fast(CYTHO
   }
   __pyx_L6:;
   if (unlikely(!__pyx_v_arg)) { __Pyx_RaiseUnboundLocalError("arg"); __PYX_ERR(0, 23, __pyx_L1_error) }
-  __pyx_t_5 = __pyx_ff_map_fused_8b55c5_2_2_float__and_double(__pyx_v_arg, __pyx_v_ndarray); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 23, __pyx_L1_error)
+  __pyx_t_5 = __pyx_ff_map_fused_2a7731_2_2_float__and_double(__pyx_v_arg, __pyx_v_ndarray); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 23, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_v_dest_sig0 = ((PyObject*)__pyx_t_5);
   __pyx_t_5 = 0;
@@ -24175,12 +25074,12 @@ static PyObject *__pyx_fuse_0__pyx_pw_6tabmat_3ext_11categorical_19transpose_mat
       if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 23, __pyx_L3_error)
     }
     __pyx_v_indices = __Pyx_PyObject_to_MemoryviewSlice_ds_int__const__(values[0], 0); if (unlikely(!__pyx_v_indices.memview)) __PYX_ERR(0, 24, __pyx_L3_error)
-    __pyx_v_other = __Pyx_PyObject_to_MemoryviewSlice_ds_float(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_other.memview)) __PYX_ERR(0, 25, __pyx_L3_error)
+    __pyx_v_other = __Pyx_PyObject_to_MemoryviewSlice_dc_float__const__(values[1], 0); if (unlikely(!__pyx_v_other.memview)) __PYX_ERR(0, 25, __pyx_L3_error)
     __pyx_v_n_cols = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_n_cols == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 26, __pyx_L3_error)
     __pyx_v_dtype = values[3];
     __pyx_v_rows = values[4];
     __pyx_v_cols = values[5];
-    __pyx_v_out = __Pyx_PyObject_to_MemoryviewSlice_ds_float(values[6], PyBUF_WRITABLE); if (unlikely(!__pyx_v_out.memview)) __PYX_ERR(0, 30, __pyx_L3_error)
+    __pyx_v_out = __Pyx_PyObject_to_MemoryviewSlice_dc_float(values[6], PyBUF_WRITABLE); if (unlikely(!__pyx_v_out.memview)) __PYX_ERR(0, 30, __pyx_L3_error)
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
@@ -24360,7 +25259,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_18transpose_matvec_fast(CYT
     __pyx_t_8 = 0;
     __pyx_t_9 = 0;
     __pyx_t_10 = 0;
-    _transpose_matvec_all_rows_fast<int,float>(__pyx_v_n_rows, (&(*((int const  *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_8 * __pyx_v_indices.strides[0]) )))), (&(*((float *) ( /* dim=0 */ (__pyx_v_other.data + __pyx_t_9 * __pyx_v_other.strides[0]) )))), (&(*((float *) ( /* dim=0 */ (__pyx_v_out.data + __pyx_t_10 * __pyx_v_out.strides[0]) )))), __pyx_v_out_size);
+    _transpose_matvec_all_rows_fast<int,float>(__pyx_v_n_rows, (&(*((int const  *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_8 * __pyx_v_indices.strides[0]) )))), (&(*((float const  *) ( /* dim=0 */ ((char *) (((float const  *) __pyx_v_other.data) + __pyx_t_9)) )))), (&(*((float *) ( /* dim=0 */ ((char *) (((float *) __pyx_v_out.data) + __pyx_t_10)) )))), __pyx_v_out_size);
 
     /* "tabmat/ext/categorical.pyx":41
  * 
@@ -24440,7 +25339,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_18transpose_matvec_fast(CYT
       __pyx_t_10 = __pyx_v_row;
       __pyx_t_9 = __pyx_v_row;
       __pyx_t_8 = (*((int const  *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_9 * __pyx_v_indices.strides[0]) )));
-      *((float *) ( /* dim=0 */ (__pyx_v_out.data + __pyx_t_8 * __pyx_v_out.strides[0]) )) += (*((float *) ( /* dim=0 */ (__pyx_v_other.data + __pyx_t_10 * __pyx_v_other.strides[0]) )));
+      *((float *) ( /* dim=0 */ ((char *) (((float *) __pyx_v_out.data) + __pyx_t_8)) )) += (*((float const  *) ( /* dim=0 */ ((char *) (((float const  *) __pyx_v_other.data) + __pyx_t_10)) )));
     }
 
 
@@ -24552,7 +25451,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_18transpose_matvec_fast(CYT
 */
           __pyx_t_10 = __pyx_v_row_idx;
           __pyx_t_9 = __pyx_v_col;
-          *((float *) ( /* dim=0 */ (__pyx_v_out.data + __pyx_t_9 * __pyx_v_out.strides[0]) )) += (*((float *) ( /* dim=0 */ (__pyx_v_other.data + __pyx_t_10 * __pyx_v_other.strides[0]) )));
+          *((float *) ( /* dim=0 */ ((char *) (((float *) __pyx_v_out.data) + __pyx_t_9)) )) += (*((float const  *) ( /* dim=0 */ ((char *) (((float const  *) __pyx_v_other.data) + __pyx_t_10)) )));
 
           /* "tabmat/ext/categorical.pyx":57
  *             for row_idx in range(n_rows):
@@ -24654,7 +25553,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_18transpose_matvec_fast(CYT
 */
           __pyx_t_10 = __pyx_v_row;
           __pyx_t_9 = __pyx_v_col;
-          *((float *) ( /* dim=0 */ (__pyx_v_out.data + __pyx_t_9 * __pyx_v_out.strides[0]) )) += (*((float *) ( /* dim=0 */ (__pyx_v_other.data + __pyx_t_10 * __pyx_v_other.strides[0]) )));
+          *((float *) ( /* dim=0 */ ((char *) (((float *) __pyx_v_out.data) + __pyx_t_9)) )) += (*((float const  *) ( /* dim=0 */ ((char *) (((float const  *) __pyx_v_other.data) + __pyx_t_10)) )));
 
           /* "tabmat/ext/categorical.pyx":66
  *                 row = rows_view[row_idx]
@@ -24676,7 +25575,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_18transpose_matvec_fast(CYT
  * 
  * def transpose_matvec_fast(             # <<<<<<<<<<<<<<
  *     const int[:] indices,
- *     floating[:] other,
+ *     const floating[::1] other,
 */
 
   /* function exit code */
@@ -24793,12 +25692,12 @@ static PyObject *__pyx_fuse_1__pyx_pw_6tabmat_3ext_11categorical_21transpose_mat
       if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 23, __pyx_L3_error)
     }
     __pyx_v_indices = __Pyx_PyObject_to_MemoryviewSlice_ds_int__const__(values[0], 0); if (unlikely(!__pyx_v_indices.memview)) __PYX_ERR(0, 24, __pyx_L3_error)
-    __pyx_v_other = __Pyx_PyObject_to_MemoryviewSlice_ds_double(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_other.memview)) __PYX_ERR(0, 25, __pyx_L3_error)
+    __pyx_v_other = __Pyx_PyObject_to_MemoryviewSlice_dc_double__const__(values[1], 0); if (unlikely(!__pyx_v_other.memview)) __PYX_ERR(0, 25, __pyx_L3_error)
     __pyx_v_n_cols = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_n_cols == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 26, __pyx_L3_error)
     __pyx_v_dtype = values[3];
     __pyx_v_rows = values[4];
     __pyx_v_cols = values[5];
-    __pyx_v_out = __Pyx_PyObject_to_MemoryviewSlice_ds_double(values[6], PyBUF_WRITABLE); if (unlikely(!__pyx_v_out.memview)) __PYX_ERR(0, 30, __pyx_L3_error)
+    __pyx_v_out = __Pyx_PyObject_to_MemoryviewSlice_dc_double(values[6], PyBUF_WRITABLE); if (unlikely(!__pyx_v_out.memview)) __PYX_ERR(0, 30, __pyx_L3_error)
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
@@ -24978,7 +25877,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_20transpose_matvec_fast(CYT
     __pyx_t_8 = 0;
     __pyx_t_9 = 0;
     __pyx_t_10 = 0;
-    _transpose_matvec_all_rows_fast<int,double>(__pyx_v_n_rows, (&(*((int const  *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_8 * __pyx_v_indices.strides[0]) )))), (&(*((double *) ( /* dim=0 */ (__pyx_v_other.data + __pyx_t_9 * __pyx_v_other.strides[0]) )))), (&(*((double *) ( /* dim=0 */ (__pyx_v_out.data + __pyx_t_10 * __pyx_v_out.strides[0]) )))), __pyx_v_out_size);
+    _transpose_matvec_all_rows_fast<int,double>(__pyx_v_n_rows, (&(*((int const  *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_8 * __pyx_v_indices.strides[0]) )))), (&(*((double const  *) ( /* dim=0 */ ((char *) (((double const  *) __pyx_v_other.data) + __pyx_t_9)) )))), (&(*((double *) ( /* dim=0 */ ((char *) (((double *) __pyx_v_out.data) + __pyx_t_10)) )))), __pyx_v_out_size);
 
     /* "tabmat/ext/categorical.pyx":41
  * 
@@ -25058,7 +25957,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_20transpose_matvec_fast(CYT
       __pyx_t_10 = __pyx_v_row;
       __pyx_t_9 = __pyx_v_row;
       __pyx_t_8 = (*((int const  *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_9 * __pyx_v_indices.strides[0]) )));
-      *((double *) ( /* dim=0 */ (__pyx_v_out.data + __pyx_t_8 * __pyx_v_out.strides[0]) )) += (*((double *) ( /* dim=0 */ (__pyx_v_other.data + __pyx_t_10 * __pyx_v_other.strides[0]) )));
+      *((double *) ( /* dim=0 */ ((char *) (((double *) __pyx_v_out.data) + __pyx_t_8)) )) += (*((double const  *) ( /* dim=0 */ ((char *) (((double const  *) __pyx_v_other.data) + __pyx_t_10)) )));
     }
 
 
@@ -25170,7 +26069,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_20transpose_matvec_fast(CYT
 */
           __pyx_t_10 = __pyx_v_row_idx;
           __pyx_t_9 = __pyx_v_col;
-          *((double *) ( /* dim=0 */ (__pyx_v_out.data + __pyx_t_9 * __pyx_v_out.strides[0]) )) += (*((double *) ( /* dim=0 */ (__pyx_v_other.data + __pyx_t_10 * __pyx_v_other.strides[0]) )));
+          *((double *) ( /* dim=0 */ ((char *) (((double *) __pyx_v_out.data) + __pyx_t_9)) )) += (*((double const  *) ( /* dim=0 */ ((char *) (((double const  *) __pyx_v_other.data) + __pyx_t_10)) )));
 
           /* "tabmat/ext/categorical.pyx":57
  *             for row_idx in range(n_rows):
@@ -25272,7 +26171,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_20transpose_matvec_fast(CYT
 */
           __pyx_t_10 = __pyx_v_row;
           __pyx_t_9 = __pyx_v_col;
-          *((double *) ( /* dim=0 */ (__pyx_v_out.data + __pyx_t_9 * __pyx_v_out.strides[0]) )) += (*((double *) ( /* dim=0 */ (__pyx_v_other.data + __pyx_t_10 * __pyx_v_other.strides[0]) )));
+          *((double *) ( /* dim=0 */ ((char *) (((double *) __pyx_v_out.data) + __pyx_t_9)) )) += (*((double const  *) ( /* dim=0 */ ((char *) (((double const  *) __pyx_v_other.data) + __pyx_t_10)) )));
 
           /* "tabmat/ext/categorical.pyx":66
  *                 row = rows_view[row_idx]
@@ -25294,7 +26193,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_20transpose_matvec_fast(CYT
  * 
  * def transpose_matvec_fast(             # <<<<<<<<<<<<<<
  *     const int[:] indices,
- *     floating[:] other,
+ *     const floating[::1] other,
 */
 
   /* function exit code */
@@ -25329,7 +26228,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_20transpose_matvec_fast(CYT
  * 
  * def transpose_matvec_complex(             # <<<<<<<<<<<<<<
  *     const int[:] indices,
- *     floating[:] other,
+ *     const floating[::1] other,
 */
 
 /* Python wrapper */
@@ -25548,7 +26447,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_2transpose_matvec_complex(C
   }
   __pyx_L6:;
   if (unlikely(!__pyx_v_arg)) { __Pyx_RaiseUnboundLocalError("arg"); __PYX_ERR(0, 70, __pyx_L1_error) }
-  __pyx_t_5 = __pyx_ff_map_fused_8b55c5_2_2_float__and_double(__pyx_v_arg, __pyx_v_ndarray); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 70, __pyx_L1_error)
+  __pyx_t_5 = __pyx_ff_map_fused_2a7731_2_2_float__and_double(__pyx_v_arg, __pyx_v_ndarray); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 70, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_v_dest_sig0 = ((PyObject*)__pyx_t_5);
   __pyx_t_5 = 0;
@@ -25675,12 +26574,12 @@ static PyObject *__pyx_fuse_0__pyx_pw_6tabmat_3ext_11categorical_25transpose_mat
       if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[7])) __PYX_ERR(0, 70, __pyx_L3_error)
     }
     __pyx_v_indices = __Pyx_PyObject_to_MemoryviewSlice_ds_int__const__(values[0], 0); if (unlikely(!__pyx_v_indices.memview)) __PYX_ERR(0, 71, __pyx_L3_error)
-    __pyx_v_other = __Pyx_PyObject_to_MemoryviewSlice_ds_float(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_other.memview)) __PYX_ERR(0, 72, __pyx_L3_error)
+    __pyx_v_other = __Pyx_PyObject_to_MemoryviewSlice_dc_float__const__(values[1], 0); if (unlikely(!__pyx_v_other.memview)) __PYX_ERR(0, 72, __pyx_L3_error)
     __pyx_v_n_cols = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_n_cols == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 73, __pyx_L3_error)
     __pyx_v_dtype = values[3];
     __pyx_v_rows = values[4];
     __pyx_v_cols = values[5];
-    __pyx_v_out = __Pyx_PyObject_to_MemoryviewSlice_ds_float(values[6], PyBUF_WRITABLE); if (unlikely(!__pyx_v_out.memview)) __PYX_ERR(0, 77, __pyx_L3_error)
+    __pyx_v_out = __Pyx_PyObject_to_MemoryviewSlice_dc_float(values[6], PyBUF_WRITABLE); if (unlikely(!__pyx_v_out.memview)) __PYX_ERR(0, 77, __pyx_L3_error)
     __pyx_v_drop_first = __Pyx_PyObject_IsTrue(values[7]); if (unlikely((__pyx_v_drop_first == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 78, __pyx_L3_error)
   }
   goto __pyx_L6_skip;
@@ -25862,7 +26761,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_24transpose_matvec_complex(
     __pyx_t_8 = 0;
     __pyx_t_9 = 0;
     __pyx_t_10 = 0;
-    _transpose_matvec_all_rows_complex<int,float>(__pyx_v_n_rows, (&(*((int const  *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_8 * __pyx_v_indices.strides[0]) )))), (&(*((float *) ( /* dim=0 */ (__pyx_v_other.data + __pyx_t_9 * __pyx_v_other.strides[0]) )))), (&(*((float *) ( /* dim=0 */ (__pyx_v_out.data + __pyx_t_10 * __pyx_v_out.strides[0]) )))), __pyx_v_out_size, __pyx_v_drop_first);
+    _transpose_matvec_all_rows_complex<int,float>(__pyx_v_n_rows, (&(*((int const  *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_8 * __pyx_v_indices.strides[0]) )))), (&(*((float const  *) ( /* dim=0 */ ((char *) (((float const  *) __pyx_v_other.data) + __pyx_t_9)) )))), (&(*((float *) ( /* dim=0 */ ((char *) (((float *) __pyx_v_out.data) + __pyx_t_10)) )))), __pyx_v_out_size, __pyx_v_drop_first);
 
     /* "tabmat/ext/categorical.pyx":89
  * 
@@ -25963,7 +26862,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_24transpose_matvec_complex(
 */
         __pyx_t_10 = __pyx_v_row;
         __pyx_t_9 = __pyx_v_col_idx;
-        *((float *) ( /* dim=0 */ (__pyx_v_out.data + __pyx_t_9 * __pyx_v_out.strides[0]) )) += (*((float *) ( /* dim=0 */ (__pyx_v_other.data + __pyx_t_10 * __pyx_v_other.strides[0]) )));
+        *((float *) ( /* dim=0 */ ((char *) (((float *) __pyx_v_out.data) + __pyx_t_9)) )) += (*((float const  *) ( /* dim=0 */ ((char *) (((float const  *) __pyx_v_other.data) + __pyx_t_10)) )));
 
         /* "tabmat/ext/categorical.pyx":98
  *             row = rows_view[row_idx]
@@ -26098,7 +26997,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_24transpose_matvec_complex(
 */
           __pyx_t_10 = __pyx_v_row_idx;
           __pyx_t_9 = __pyx_v_col_idx;
-          *((float *) ( /* dim=0 */ (__pyx_v_out.data + __pyx_t_9 * __pyx_v_out.strides[0]) )) += (*((float *) ( /* dim=0 */ (__pyx_v_other.data + __pyx_t_10 * __pyx_v_other.strides[0]) )));
+          *((float *) ( /* dim=0 */ ((char *) (((float *) __pyx_v_out.data) + __pyx_t_9)) )) += (*((float const  *) ( /* dim=0 */ ((char *) (((float const  *) __pyx_v_other.data) + __pyx_t_10)) )));
 
           /* "tabmat/ext/categorical.pyx":107
  *             for row_idx in range(n_rows):
@@ -26214,7 +27113,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_24transpose_matvec_complex(
 */
           __pyx_t_10 = __pyx_v_row;
           __pyx_t_9 = __pyx_v_col_idx;
-          *((float *) ( /* dim=0 */ (__pyx_v_out.data + __pyx_t_9 * __pyx_v_out.strides[0]) )) += (*((float *) ( /* dim=0 */ (__pyx_v_other.data + __pyx_t_10 * __pyx_v_other.strides[0]) )));
+          *((float *) ( /* dim=0 */ ((char *) (((float *) __pyx_v_out.data) + __pyx_t_9)) )) += (*((float const  *) ( /* dim=0 */ ((char *) (((float const  *) __pyx_v_other.data) + __pyx_t_10)) )));
 
           /* "tabmat/ext/categorical.pyx":116
  *                 row = rows_view[row_idx]
@@ -26236,7 +27135,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_24transpose_matvec_complex(
  * 
  * def transpose_matvec_complex(             # <<<<<<<<<<<<<<
  *     const int[:] indices,
- *     floating[:] other,
+ *     const floating[::1] other,
 */
 
   /* function exit code */
@@ -26360,12 +27259,12 @@ static PyObject *__pyx_fuse_1__pyx_pw_6tabmat_3ext_11categorical_27transpose_mat
       if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[7])) __PYX_ERR(0, 70, __pyx_L3_error)
     }
     __pyx_v_indices = __Pyx_PyObject_to_MemoryviewSlice_ds_int__const__(values[0], 0); if (unlikely(!__pyx_v_indices.memview)) __PYX_ERR(0, 71, __pyx_L3_error)
-    __pyx_v_other = __Pyx_PyObject_to_MemoryviewSlice_ds_double(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_other.memview)) __PYX_ERR(0, 72, __pyx_L3_error)
+    __pyx_v_other = __Pyx_PyObject_to_MemoryviewSlice_dc_double__const__(values[1], 0); if (unlikely(!__pyx_v_other.memview)) __PYX_ERR(0, 72, __pyx_L3_error)
     __pyx_v_n_cols = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_n_cols == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 73, __pyx_L3_error)
     __pyx_v_dtype = values[3];
     __pyx_v_rows = values[4];
     __pyx_v_cols = values[5];
-    __pyx_v_out = __Pyx_PyObject_to_MemoryviewSlice_ds_double(values[6], PyBUF_WRITABLE); if (unlikely(!__pyx_v_out.memview)) __PYX_ERR(0, 77, __pyx_L3_error)
+    __pyx_v_out = __Pyx_PyObject_to_MemoryviewSlice_dc_double(values[6], PyBUF_WRITABLE); if (unlikely(!__pyx_v_out.memview)) __PYX_ERR(0, 77, __pyx_L3_error)
     __pyx_v_drop_first = __Pyx_PyObject_IsTrue(values[7]); if (unlikely((__pyx_v_drop_first == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 78, __pyx_L3_error)
   }
   goto __pyx_L6_skip;
@@ -26547,7 +27446,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_26transpose_matvec_complex(
     __pyx_t_8 = 0;
     __pyx_t_9 = 0;
     __pyx_t_10 = 0;
-    _transpose_matvec_all_rows_complex<int,double>(__pyx_v_n_rows, (&(*((int const  *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_8 * __pyx_v_indices.strides[0]) )))), (&(*((double *) ( /* dim=0 */ (__pyx_v_other.data + __pyx_t_9 * __pyx_v_other.strides[0]) )))), (&(*((double *) ( /* dim=0 */ (__pyx_v_out.data + __pyx_t_10 * __pyx_v_out.strides[0]) )))), __pyx_v_out_size, __pyx_v_drop_first);
+    _transpose_matvec_all_rows_complex<int,double>(__pyx_v_n_rows, (&(*((int const  *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_8 * __pyx_v_indices.strides[0]) )))), (&(*((double const  *) ( /* dim=0 */ ((char *) (((double const  *) __pyx_v_other.data) + __pyx_t_9)) )))), (&(*((double *) ( /* dim=0 */ ((char *) (((double *) __pyx_v_out.data) + __pyx_t_10)) )))), __pyx_v_out_size, __pyx_v_drop_first);
 
     /* "tabmat/ext/categorical.pyx":89
  * 
@@ -26648,7 +27547,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_26transpose_matvec_complex(
 */
         __pyx_t_10 = __pyx_v_row;
         __pyx_t_9 = __pyx_v_col_idx;
-        *((double *) ( /* dim=0 */ (__pyx_v_out.data + __pyx_t_9 * __pyx_v_out.strides[0]) )) += (*((double *) ( /* dim=0 */ (__pyx_v_other.data + __pyx_t_10 * __pyx_v_other.strides[0]) )));
+        *((double *) ( /* dim=0 */ ((char *) (((double *) __pyx_v_out.data) + __pyx_t_9)) )) += (*((double const  *) ( /* dim=0 */ ((char *) (((double const  *) __pyx_v_other.data) + __pyx_t_10)) )));
 
         /* "tabmat/ext/categorical.pyx":98
  *             row = rows_view[row_idx]
@@ -26783,7 +27682,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_26transpose_matvec_complex(
 */
           __pyx_t_10 = __pyx_v_row_idx;
           __pyx_t_9 = __pyx_v_col_idx;
-          *((double *) ( /* dim=0 */ (__pyx_v_out.data + __pyx_t_9 * __pyx_v_out.strides[0]) )) += (*((double *) ( /* dim=0 */ (__pyx_v_other.data + __pyx_t_10 * __pyx_v_other.strides[0]) )));
+          *((double *) ( /* dim=0 */ ((char *) (((double *) __pyx_v_out.data) + __pyx_t_9)) )) += (*((double const  *) ( /* dim=0 */ ((char *) (((double const  *) __pyx_v_other.data) + __pyx_t_10)) )));
 
           /* "tabmat/ext/categorical.pyx":107
  *             for row_idx in range(n_rows):
@@ -26899,7 +27798,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_26transpose_matvec_complex(
 */
           __pyx_t_10 = __pyx_v_row;
           __pyx_t_9 = __pyx_v_col_idx;
-          *((double *) ( /* dim=0 */ (__pyx_v_out.data + __pyx_t_9 * __pyx_v_out.strides[0]) )) += (*((double *) ( /* dim=0 */ (__pyx_v_other.data + __pyx_t_10 * __pyx_v_other.strides[0]) )));
+          *((double *) ( /* dim=0 */ ((char *) (((double *) __pyx_v_out.data) + __pyx_t_9)) )) += (*((double const  *) ( /* dim=0 */ ((char *) (((double const  *) __pyx_v_other.data) + __pyx_t_10)) )));
 
           /* "tabmat/ext/categorical.pyx":116
  *                 row = rows_view[row_idx]
@@ -26921,7 +27820,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_26transpose_matvec_complex(
  * 
  * def transpose_matvec_complex(             # <<<<<<<<<<<<<<
  *     const int[:] indices,
- *     floating[:] other,
+ *     const floating[::1] other,
 */
 
   /* function exit code */
@@ -27235,7 +28134,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_4get_col_included(CYTHON_UN
  * 
  * def matvec_fast(             # <<<<<<<<<<<<<<
  *     const int[:] indices,
- *     floating[:] other,
+ *     const floating[:] other,
 */
 
 /* Python wrapper */
@@ -27455,7 +28354,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_6matvec_fast(CYTHON_UNUSED 
   }
   __pyx_L6:;
   if (unlikely(!__pyx_v_arg)) { __Pyx_RaiseUnboundLocalError("arg"); __PYX_ERR(0, 128, __pyx_L1_error) }
-  __pyx_t_5 = __pyx_ff_map_fused_8b55c5_2_2_float__and_double(__pyx_v_arg, __pyx_v_ndarray); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 128, __pyx_L1_error)
+  __pyx_t_5 = __pyx_ff_map_fused_a20f79_2_2_float__and_double(__pyx_v_arg, __pyx_v_ndarray); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 128, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_v_dest_sig0 = ((PyObject*)__pyx_t_5);
   __pyx_t_5 = 0;
@@ -27568,7 +28467,7 @@ static PyObject *__pyx_fuse_0__pyx_pw_6tabmat_3ext_11categorical_31matvec_fast(P
       if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 128, __pyx_L3_error)
     }
     __pyx_v_indices = __Pyx_PyObject_to_MemoryviewSlice_ds_int__const__(values[0], 0); if (unlikely(!__pyx_v_indices.memview)) __PYX_ERR(0, 129, __pyx_L3_error)
-    __pyx_v_other = __Pyx_PyObject_to_MemoryviewSlice_ds_float(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_other.memview)) __PYX_ERR(0, 130, __pyx_L3_error)
+    __pyx_v_other = __Pyx_PyObject_to_MemoryviewSlice_ds_float__const__(values[1], 0); if (unlikely(!__pyx_v_other.memview)) __PYX_ERR(0, 130, __pyx_L3_error)
     __pyx_v_n_rows = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_n_rows == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 131, __pyx_L3_error)
     __pyx_v_cols = __Pyx_PyObject_to_MemoryviewSlice_ds_int(values[3], PyBUF_WRITABLE); if (unlikely(!__pyx_v_cols.memview)) __PYX_ERR(0, 132, __pyx_L3_error)
     __pyx_v_n_cols = __Pyx_PyLong_As_int(values[4]); if (unlikely((__pyx_v_n_cols == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 133, __pyx_L3_error)
@@ -27689,7 +28588,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_30matvec_fast(CYTHON_UNUSED
                               __pyx_t_5 = __pyx_v_i;
                               __pyx_t_6 = (*((int const  *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_5 * __pyx_v_indices.strides[0]) )));
                               __pyx_t_7 = __pyx_v_i;
-                              *((float *) ( /* dim=0 */ (__pyx_v_out_vec.data + __pyx_t_7 * __pyx_v_out_vec.strides[0]) )) += (*((float *) ( /* dim=0 */ (__pyx_v_other.data + __pyx_t_6 * __pyx_v_other.strides[0]) )));
+                              *((float *) ( /* dim=0 */ (__pyx_v_out_vec.data + __pyx_t_7 * __pyx_v_out_vec.strides[0]) )) += (*((float const  *) ( /* dim=0 */ (__pyx_v_other.data + __pyx_t_6 * __pyx_v_other.strides[0]) )));
                           }
                       }
                   }
@@ -27841,7 +28740,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_30matvec_fast(CYTHON_UNUSED
 */
                                 __pyx_t_5 = __pyx_v_col_idx;
                                 __pyx_t_6 = __pyx_v_i;
-                                *((float *) ( /* dim=0 */ (__pyx_v_out_vec.data + __pyx_t_6 * __pyx_v_out_vec.strides[0]) )) += (*((float *) ( /* dim=0 */ (__pyx_v_other.data + __pyx_t_5 * __pyx_v_other.strides[0]) )));
+                                *((float *) ( /* dim=0 */ (__pyx_v_out_vec.data + __pyx_t_6 * __pyx_v_out_vec.strides[0]) )) += (*((float const  *) ( /* dim=0 */ (__pyx_v_other.data + __pyx_t_5 * __pyx_v_other.strides[0]) )));
 
                                 /* "tabmat/ext/categorical.pyx":149
  *         for i in prange(n_rows, nogil=True):
@@ -27906,7 +28805,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_30matvec_fast(CYTHON_UNUSED
  * 
  * def matvec_fast(             # <<<<<<<<<<<<<<
  *     const int[:] indices,
- *     floating[:] other,
+ *     const floating[:] other,
 */
 
   /* function exit code */
@@ -28008,7 +28907,7 @@ static PyObject *__pyx_fuse_1__pyx_pw_6tabmat_3ext_11categorical_33matvec_fast(P
       if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 128, __pyx_L3_error)
     }
     __pyx_v_indices = __Pyx_PyObject_to_MemoryviewSlice_ds_int__const__(values[0], 0); if (unlikely(!__pyx_v_indices.memview)) __PYX_ERR(0, 129, __pyx_L3_error)
-    __pyx_v_other = __Pyx_PyObject_to_MemoryviewSlice_ds_double(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_other.memview)) __PYX_ERR(0, 130, __pyx_L3_error)
+    __pyx_v_other = __Pyx_PyObject_to_MemoryviewSlice_ds_double__const__(values[1], 0); if (unlikely(!__pyx_v_other.memview)) __PYX_ERR(0, 130, __pyx_L3_error)
     __pyx_v_n_rows = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_n_rows == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 131, __pyx_L3_error)
     __pyx_v_cols = __Pyx_PyObject_to_MemoryviewSlice_ds_int(values[3], PyBUF_WRITABLE); if (unlikely(!__pyx_v_cols.memview)) __PYX_ERR(0, 132, __pyx_L3_error)
     __pyx_v_n_cols = __Pyx_PyLong_As_int(values[4]); if (unlikely((__pyx_v_n_cols == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 133, __pyx_L3_error)
@@ -28129,7 +29028,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_32matvec_fast(CYTHON_UNUSED
                               __pyx_t_5 = __pyx_v_i;
                               __pyx_t_6 = (*((int const  *) ( /* dim=0 */ (__pyx_v_indices.data + __pyx_t_5 * __pyx_v_indices.strides[0]) )));
                               __pyx_t_7 = __pyx_v_i;
-                              *((double *) ( /* dim=0 */ (__pyx_v_out_vec.data + __pyx_t_7 * __pyx_v_out_vec.strides[0]) )) += (*((double *) ( /* dim=0 */ (__pyx_v_other.data + __pyx_t_6 * __pyx_v_other.strides[0]) )));
+                              *((double *) ( /* dim=0 */ (__pyx_v_out_vec.data + __pyx_t_7 * __pyx_v_out_vec.strides[0]) )) += (*((double const  *) ( /* dim=0 */ (__pyx_v_other.data + __pyx_t_6 * __pyx_v_other.strides[0]) )));
                           }
                       }
                   }
@@ -28281,7 +29180,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_32matvec_fast(CYTHON_UNUSED
 */
                                 __pyx_t_5 = __pyx_v_col_idx;
                                 __pyx_t_6 = __pyx_v_i;
-                                *((double *) ( /* dim=0 */ (__pyx_v_out_vec.data + __pyx_t_6 * __pyx_v_out_vec.strides[0]) )) += (*((double *) ( /* dim=0 */ (__pyx_v_other.data + __pyx_t_5 * __pyx_v_other.strides[0]) )));
+                                *((double *) ( /* dim=0 */ (__pyx_v_out_vec.data + __pyx_t_6 * __pyx_v_out_vec.strides[0]) )) += (*((double const  *) ( /* dim=0 */ (__pyx_v_other.data + __pyx_t_5 * __pyx_v_other.strides[0]) )));
 
                                 /* "tabmat/ext/categorical.pyx":149
  *         for i in prange(n_rows, nogil=True):
@@ -28346,7 +29245,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_32matvec_fast(CYTHON_UNUSED
  * 
  * def matvec_fast(             # <<<<<<<<<<<<<<
  *     const int[:] indices,
- *     floating[:] other,
+ *     const floating[:] other,
 */
 
   /* function exit code */
@@ -28373,7 +29272,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_32matvec_fast(CYTHON_UNUSED
  * 
  * def matvec_complex(             # <<<<<<<<<<<<<<
  *     const int[:] indices,
- *     floating[:] other,
+ *     const floating[:] other,
 */
 
 /* Python wrapper */
@@ -28593,7 +29492,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_8matvec_complex(CYTHON_UNUS
   }
   __pyx_L6:;
   if (unlikely(!__pyx_v_arg)) { __Pyx_RaiseUnboundLocalError("arg"); __PYX_ERR(0, 154, __pyx_L1_error) }
-  __pyx_t_5 = __pyx_ff_map_fused_8b55c5_2_2_float__and_double(__pyx_v_arg, __pyx_v_ndarray); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 154, __pyx_L1_error)
+  __pyx_t_5 = __pyx_ff_map_fused_a20f79_2_2_float__and_double(__pyx_v_arg, __pyx_v_ndarray); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 154, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_v_dest_sig0 = ((PyObject*)__pyx_t_5);
   __pyx_t_5 = 0;
@@ -28713,7 +29612,7 @@ static PyObject *__pyx_fuse_0__pyx_pw_6tabmat_3ext_11categorical_37matvec_comple
       if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 154, __pyx_L3_error)
     }
     __pyx_v_indices = __Pyx_PyObject_to_MemoryviewSlice_ds_int__const__(values[0], 0); if (unlikely(!__pyx_v_indices.memview)) __PYX_ERR(0, 155, __pyx_L3_error)
-    __pyx_v_other = __Pyx_PyObject_to_MemoryviewSlice_ds_float(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_other.memview)) __PYX_ERR(0, 156, __pyx_L3_error)
+    __pyx_v_other = __Pyx_PyObject_to_MemoryviewSlice_ds_float__const__(values[1], 0); if (unlikely(!__pyx_v_other.memview)) __PYX_ERR(0, 156, __pyx_L3_error)
     __pyx_v_n_rows = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_n_rows == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 157, __pyx_L3_error)
     __pyx_v_cols = __Pyx_PyObject_to_MemoryviewSlice_ds_int(values[3], PyBUF_WRITABLE); if (unlikely(!__pyx_v_cols.memview)) __PYX_ERR(0, 158, __pyx_L3_error)
     __pyx_v_n_cols = __Pyx_PyLong_As_int(values[4]); if (unlikely((__pyx_v_n_cols == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 159, __pyx_L3_error)
@@ -28857,7 +29756,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_36matvec_complex(CYTHON_UNU
 */
                                 __pyx_t_5 = __pyx_v_col_idx;
                                 __pyx_t_6 = __pyx_v_i;
-                                *((float *) ( /* dim=0 */ (__pyx_v_out_vec.data + __pyx_t_6 * __pyx_v_out_vec.strides[0]) )) += (*((float *) ( /* dim=0 */ (__pyx_v_other.data + __pyx_t_5 * __pyx_v_other.strides[0]) )));
+                                *((float *) ( /* dim=0 */ (__pyx_v_out_vec.data + __pyx_t_6 * __pyx_v_out_vec.strides[0]) )) += (*((float const  *) ( /* dim=0 */ (__pyx_v_other.data + __pyx_t_5 * __pyx_v_other.strides[0]) )));
 
                                 /* "tabmat/ext/categorical.pyx":172
  *         for i in prange(n_rows, nogil=True):
@@ -29032,7 +29931,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_36matvec_complex(CYTHON_UNU
 */
                                 __pyx_t_5 = __pyx_v_col_idx;
                                 __pyx_t_6 = __pyx_v_i;
-                                *((float *) ( /* dim=0 */ (__pyx_v_out_vec.data + __pyx_t_6 * __pyx_v_out_vec.strides[0]) )) += (*((float *) ( /* dim=0 */ (__pyx_v_other.data + __pyx_t_5 * __pyx_v_other.strides[0]) )));
+                                *((float *) ( /* dim=0 */ (__pyx_v_out_vec.data + __pyx_t_6 * __pyx_v_out_vec.strides[0]) )) += (*((float const  *) ( /* dim=0 */ (__pyx_v_other.data + __pyx_t_5 * __pyx_v_other.strides[0]) )));
 
                                 /* "tabmat/ext/categorical.pyx":178
  *         for i in prange(n_rows, nogil=True):
@@ -29097,7 +29996,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_36matvec_complex(CYTHON_UNU
  * 
  * def matvec_complex(             # <<<<<<<<<<<<<<
  *     const int[:] indices,
- *     floating[:] other,
+ *     const floating[:] other,
 */
 
   /* function exit code */
@@ -29206,7 +30105,7 @@ static PyObject *__pyx_fuse_1__pyx_pw_6tabmat_3ext_11categorical_39matvec_comple
       if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 154, __pyx_L3_error)
     }
     __pyx_v_indices = __Pyx_PyObject_to_MemoryviewSlice_ds_int__const__(values[0], 0); if (unlikely(!__pyx_v_indices.memview)) __PYX_ERR(0, 155, __pyx_L3_error)
-    __pyx_v_other = __Pyx_PyObject_to_MemoryviewSlice_ds_double(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_other.memview)) __PYX_ERR(0, 156, __pyx_L3_error)
+    __pyx_v_other = __Pyx_PyObject_to_MemoryviewSlice_ds_double__const__(values[1], 0); if (unlikely(!__pyx_v_other.memview)) __PYX_ERR(0, 156, __pyx_L3_error)
     __pyx_v_n_rows = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_n_rows == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 157, __pyx_L3_error)
     __pyx_v_cols = __Pyx_PyObject_to_MemoryviewSlice_ds_int(values[3], PyBUF_WRITABLE); if (unlikely(!__pyx_v_cols.memview)) __PYX_ERR(0, 158, __pyx_L3_error)
     __pyx_v_n_cols = __Pyx_PyLong_As_int(values[4]); if (unlikely((__pyx_v_n_cols == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 159, __pyx_L3_error)
@@ -29350,7 +30249,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_38matvec_complex(CYTHON_UNU
 */
                                 __pyx_t_5 = __pyx_v_col_idx;
                                 __pyx_t_6 = __pyx_v_i;
-                                *((double *) ( /* dim=0 */ (__pyx_v_out_vec.data + __pyx_t_6 * __pyx_v_out_vec.strides[0]) )) += (*((double *) ( /* dim=0 */ (__pyx_v_other.data + __pyx_t_5 * __pyx_v_other.strides[0]) )));
+                                *((double *) ( /* dim=0 */ (__pyx_v_out_vec.data + __pyx_t_6 * __pyx_v_out_vec.strides[0]) )) += (*((double const  *) ( /* dim=0 */ (__pyx_v_other.data + __pyx_t_5 * __pyx_v_other.strides[0]) )));
 
                                 /* "tabmat/ext/categorical.pyx":172
  *         for i in prange(n_rows, nogil=True):
@@ -29525,7 +30424,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_38matvec_complex(CYTHON_UNU
 */
                                 __pyx_t_5 = __pyx_v_col_idx;
                                 __pyx_t_6 = __pyx_v_i;
-                                *((double *) ( /* dim=0 */ (__pyx_v_out_vec.data + __pyx_t_6 * __pyx_v_out_vec.strides[0]) )) += (*((double *) ( /* dim=0 */ (__pyx_v_other.data + __pyx_t_5 * __pyx_v_other.strides[0]) )));
+                                *((double *) ( /* dim=0 */ (__pyx_v_out_vec.data + __pyx_t_6 * __pyx_v_out_vec.strides[0]) )) += (*((double const  *) ( /* dim=0 */ (__pyx_v_other.data + __pyx_t_5 * __pyx_v_other.strides[0]) )));
 
                                 /* "tabmat/ext/categorical.pyx":178
  *         for i in prange(n_rows, nogil=True):
@@ -29590,7 +30489,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_38matvec_complex(CYTHON_UNU
  * 
  * def matvec_complex(             # <<<<<<<<<<<<<<
  *     const int[:] indices,
- *     floating[:] other,
+ *     const floating[:] other,
 */
 
   /* function exit code */
@@ -29617,7 +30516,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_38matvec_complex(CYTHON_UNU
  * 
  * def sandwich_categorical_fast(             # <<<<<<<<<<<<<<
  *     const int[:] indices,
- *     floating[:] d,
+ *     const floating[:] d,
 */
 
 /* Python wrapper */
@@ -29836,7 +30735,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_10sandwich_categorical_fast
   }
   __pyx_L6:;
   if (unlikely(!__pyx_v_arg)) { __Pyx_RaiseUnboundLocalError("arg"); __PYX_ERR(0, 183, __pyx_L1_error) }
-  __pyx_t_5 = __pyx_ff_map_fused_8b55c5_2_2_float__and_double(__pyx_v_arg, __pyx_v_ndarray); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 183, __pyx_L1_error)
+  __pyx_t_5 = __pyx_ff_map_fused_a20f79_2_2_float__and_double(__pyx_v_arg, __pyx_v_ndarray); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 183, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_v_dest_sig0 = ((PyObject*)__pyx_t_5);
   __pyx_t_5 = 0;
@@ -29942,7 +30841,7 @@ static PyObject *__pyx_fuse_0__pyx_pw_6tabmat_3ext_11categorical_43sandwich_cate
       if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 183, __pyx_L3_error)
     }
     __pyx_v_indices = __Pyx_PyObject_to_MemoryviewSlice_ds_int__const__(values[0], 0); if (unlikely(!__pyx_v_indices.memview)) __PYX_ERR(0, 184, __pyx_L3_error)
-    __pyx_v_d = __Pyx_PyObject_to_MemoryviewSlice_ds_float(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_d.memview)) __PYX_ERR(0, 185, __pyx_L3_error)
+    __pyx_v_d = __Pyx_PyObject_to_MemoryviewSlice_ds_float__const__(values[1], 0); if (unlikely(!__pyx_v_d.memview)) __PYX_ERR(0, 185, __pyx_L3_error)
     __pyx_v_rows = __Pyx_PyObject_to_MemoryviewSlice_ds_int(values[2], PyBUF_WRITABLE); if (unlikely(!__pyx_v_rows.memview)) __PYX_ERR(0, 186, __pyx_L3_error)
     __pyx_v_dtype = values[3];
     __pyx_v_n_cols = __Pyx_PyLong_As_int(values[4]); if (unlikely((__pyx_v_n_cols == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 188, __pyx_L3_error)
@@ -30115,7 +31014,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_42sandwich_categorical_fast
 */
     __pyx_t_12 = __pyx_v_k;
     __pyx_t_13 = __pyx_v_col_idx;
-    *((float *) ( /* dim=0 */ (__pyx_v_res.data + __pyx_t_13 * __pyx_v_res.strides[0]) )) += (*((float *) ( /* dim=0 */ (__pyx_v_d.data + __pyx_t_12 * __pyx_v_d.strides[0]) )));
+    *((float *) ( /* dim=0 */ (__pyx_v_res.data + __pyx_t_13 * __pyx_v_res.strides[0]) )) += (*((float const  *) ( /* dim=0 */ (__pyx_v_d.data + __pyx_t_12 * __pyx_v_d.strides[0]) )));
   }
 
 
@@ -30171,7 +31070,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_42sandwich_categorical_fast
  * 
  * def sandwich_categorical_fast(             # <<<<<<<<<<<<<<
  *     const int[:] indices,
- *     floating[:] d,
+ *     const floating[:] d,
 */
 
   /* function exit code */
@@ -30268,7 +31167,7 @@ static PyObject *__pyx_fuse_1__pyx_pw_6tabmat_3ext_11categorical_45sandwich_cate
       if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 183, __pyx_L3_error)
     }
     __pyx_v_indices = __Pyx_PyObject_to_MemoryviewSlice_ds_int__const__(values[0], 0); if (unlikely(!__pyx_v_indices.memview)) __PYX_ERR(0, 184, __pyx_L3_error)
-    __pyx_v_d = __Pyx_PyObject_to_MemoryviewSlice_ds_double(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_d.memview)) __PYX_ERR(0, 185, __pyx_L3_error)
+    __pyx_v_d = __Pyx_PyObject_to_MemoryviewSlice_ds_double__const__(values[1], 0); if (unlikely(!__pyx_v_d.memview)) __PYX_ERR(0, 185, __pyx_L3_error)
     __pyx_v_rows = __Pyx_PyObject_to_MemoryviewSlice_ds_int(values[2], PyBUF_WRITABLE); if (unlikely(!__pyx_v_rows.memview)) __PYX_ERR(0, 186, __pyx_L3_error)
     __pyx_v_dtype = values[3];
     __pyx_v_n_cols = __Pyx_PyLong_As_int(values[4]); if (unlikely((__pyx_v_n_cols == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 188, __pyx_L3_error)
@@ -30441,7 +31340,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_44sandwich_categorical_fast
 */
     __pyx_t_12 = __pyx_v_k;
     __pyx_t_13 = __pyx_v_col_idx;
-    *((double *) ( /* dim=0 */ (__pyx_v_res.data + __pyx_t_13 * __pyx_v_res.strides[0]) )) += (*((double *) ( /* dim=0 */ (__pyx_v_d.data + __pyx_t_12 * __pyx_v_d.strides[0]) )));
+    *((double *) ( /* dim=0 */ (__pyx_v_res.data + __pyx_t_13 * __pyx_v_res.strides[0]) )) += (*((double const  *) ( /* dim=0 */ (__pyx_v_d.data + __pyx_t_12 * __pyx_v_d.strides[0]) )));
   }
 
 
@@ -30497,7 +31396,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_44sandwich_categorical_fast
  * 
  * def sandwich_categorical_fast(             # <<<<<<<<<<<<<<
  *     const int[:] indices,
- *     floating[:] d,
+ *     const floating[:] d,
 */
 
   /* function exit code */
@@ -30526,7 +31425,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_44sandwich_categorical_fast
  * 
  * def sandwich_categorical_complex(             # <<<<<<<<<<<<<<
  *     const int[:] indices,
- *     floating[:] d,
+ *     const floating[:] d,
 */
 
 /* Python wrapper */
@@ -30745,7 +31644,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_12sandwich_categorical_comp
   }
   __pyx_L6:;
   if (unlikely(!__pyx_v_arg)) { __Pyx_RaiseUnboundLocalError("arg"); __PYX_ERR(0, 201, __pyx_L1_error) }
-  __pyx_t_5 = __pyx_ff_map_fused_8b55c5_2_2_float__and_double(__pyx_v_arg, __pyx_v_ndarray); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 201, __pyx_L1_error)
+  __pyx_t_5 = __pyx_ff_map_fused_a20f79_2_2_float__and_double(__pyx_v_arg, __pyx_v_ndarray); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 201, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_v_dest_sig0 = ((PyObject*)__pyx_t_5);
   __pyx_t_5 = 0;
@@ -30858,7 +31757,7 @@ static PyObject *__pyx_fuse_0__pyx_pw_6tabmat_3ext_11categorical_49sandwich_cate
       if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 201, __pyx_L3_error)
     }
     __pyx_v_indices = __Pyx_PyObject_to_MemoryviewSlice_ds_int__const__(values[0], 0); if (unlikely(!__pyx_v_indices.memview)) __PYX_ERR(0, 202, __pyx_L3_error)
-    __pyx_v_d = __Pyx_PyObject_to_MemoryviewSlice_ds_float(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_d.memview)) __PYX_ERR(0, 203, __pyx_L3_error)
+    __pyx_v_d = __Pyx_PyObject_to_MemoryviewSlice_ds_float__const__(values[1], 0); if (unlikely(!__pyx_v_d.memview)) __PYX_ERR(0, 203, __pyx_L3_error)
     __pyx_v_rows = __Pyx_PyObject_to_MemoryviewSlice_ds_int(values[2], PyBUF_WRITABLE); if (unlikely(!__pyx_v_rows.memview)) __PYX_ERR(0, 204, __pyx_L3_error)
     __pyx_v_dtype = values[3];
     __pyx_v_n_cols = __Pyx_PyLong_As_int(values[4]); if (unlikely((__pyx_v_n_cols == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 206, __pyx_L3_error)
@@ -31046,7 +31945,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_48sandwich_categorical_comp
 */
       __pyx_t_12 = __pyx_v_k;
       __pyx_t_14 = __pyx_v_col_idx;
-      *((float *) ( /* dim=0 */ (__pyx_v_res.data + __pyx_t_14 * __pyx_v_res.strides[0]) )) += (*((float *) ( /* dim=0 */ (__pyx_v_d.data + __pyx_t_12 * __pyx_v_d.strides[0]) )));
+      *((float *) ( /* dim=0 */ (__pyx_v_res.data + __pyx_t_14 * __pyx_v_res.strides[0]) )) += (*((float const  *) ( /* dim=0 */ (__pyx_v_d.data + __pyx_t_12 * __pyx_v_d.strides[0]) )));
 
       /* "tabmat/ext/categorical.pyx":216
  *         k = rows[k_idx]
@@ -31111,7 +32010,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_48sandwich_categorical_comp
  * 
  * def sandwich_categorical_complex(             # <<<<<<<<<<<<<<
  *     const int[:] indices,
- *     floating[:] d,
+ *     const floating[:] d,
 */
 
   /* function exit code */
@@ -31215,7 +32114,7 @@ static PyObject *__pyx_fuse_1__pyx_pw_6tabmat_3ext_11categorical_51sandwich_cate
       if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 201, __pyx_L3_error)
     }
     __pyx_v_indices = __Pyx_PyObject_to_MemoryviewSlice_ds_int__const__(values[0], 0); if (unlikely(!__pyx_v_indices.memview)) __PYX_ERR(0, 202, __pyx_L3_error)
-    __pyx_v_d = __Pyx_PyObject_to_MemoryviewSlice_ds_double(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_d.memview)) __PYX_ERR(0, 203, __pyx_L3_error)
+    __pyx_v_d = __Pyx_PyObject_to_MemoryviewSlice_ds_double__const__(values[1], 0); if (unlikely(!__pyx_v_d.memview)) __PYX_ERR(0, 203, __pyx_L3_error)
     __pyx_v_rows = __Pyx_PyObject_to_MemoryviewSlice_ds_int(values[2], PyBUF_WRITABLE); if (unlikely(!__pyx_v_rows.memview)) __PYX_ERR(0, 204, __pyx_L3_error)
     __pyx_v_dtype = values[3];
     __pyx_v_n_cols = __Pyx_PyLong_As_int(values[4]); if (unlikely((__pyx_v_n_cols == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 206, __pyx_L3_error)
@@ -31403,7 +32302,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_50sandwich_categorical_comp
 */
       __pyx_t_12 = __pyx_v_k;
       __pyx_t_14 = __pyx_v_col_idx;
-      *((double *) ( /* dim=0 */ (__pyx_v_res.data + __pyx_t_14 * __pyx_v_res.strides[0]) )) += (*((double *) ( /* dim=0 */ (__pyx_v_d.data + __pyx_t_12 * __pyx_v_d.strides[0]) )));
+      *((double *) ( /* dim=0 */ (__pyx_v_res.data + __pyx_t_14 * __pyx_v_res.strides[0]) )) += (*((double const  *) ( /* dim=0 */ (__pyx_v_d.data + __pyx_t_12 * __pyx_v_d.strides[0]) )));
 
       /* "tabmat/ext/categorical.pyx":216
  *         k = rows[k_idx]
@@ -31468,7 +32367,7 @@ static PyObject *__pyx_pf_6tabmat_3ext_11categorical_50sandwich_categorical_comp
  * 
  * def sandwich_categorical_complex(             # <<<<<<<<<<<<<<
  *     const int[:] indices,
- *     floating[:] d,
+ *     const floating[:] d,
 */
 
   /* function exit code */
@@ -39034,11 +39933,11 @@ __Pyx_RefNannySetupContext("PyInit_categorical", 0);
  * 
  * def transpose_matvec_fast(             # <<<<<<<<<<<<<<
  *     const int[:] indices,
- *     floating[:] other,
+ *     const floating[::1] other,
 */
   __pyx_t_4 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 23, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = __pyx_FusedFunction_New(&__pyx_fuse_0__pyx_mdef_6tabmat_3ext_11categorical_19transpose_matvec_fast, 0, __pyx_mstate_global->__pyx_n_u_transpose_matvec_fast_float_floa, NULL, __pyx_mstate_global->__pyx_n_u_tabmat_ext_categorical, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 23, __pyx_L1_error)
+  __pyx_t_5 = __pyx_FusedFunction_New(&__pyx_fuse_0__pyx_mdef_6tabmat_3ext_11categorical_19transpose_matvec_fast, 0, __pyx_mstate_global->__pyx_n_u_transpose_matvec_fast_const_floa, NULL, __pyx_mstate_global->__pyx_n_u_tabmat_ext_categorical, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 23, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
@@ -39046,7 +39945,7 @@ __Pyx_RefNannySetupContext("PyInit_categorical", 0);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_5, __pyx_mstate_global->__pyx_empty_tuple);
   if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_float, __pyx_t_5) < (0)) __PYX_ERR(0, 23, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = __pyx_FusedFunction_New(&__pyx_fuse_1__pyx_mdef_6tabmat_3ext_11categorical_21transpose_matvec_fast, 0, __pyx_mstate_global->__pyx_n_u_transpose_matvec_fast_double_dou, NULL, __pyx_mstate_global->__pyx_n_u_tabmat_ext_categorical, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[1])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 23, __pyx_L1_error)
+  __pyx_t_5 = __pyx_FusedFunction_New(&__pyx_fuse_1__pyx_mdef_6tabmat_3ext_11categorical_21transpose_matvec_fast, 0, __pyx_mstate_global->__pyx_n_u_transpose_matvec_fast_const_doub, NULL, __pyx_mstate_global->__pyx_n_u_tabmat_ext_categorical, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[1])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 23, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
@@ -39080,11 +39979,11 @@ __Pyx_RefNannySetupContext("PyInit_categorical", 0);
  * 
  * def transpose_matvec_complex(             # <<<<<<<<<<<<<<
  *     const int[:] indices,
- *     floating[:] other,
+ *     const floating[::1] other,
 */
   __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 70, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_4 = __pyx_FusedFunction_New(&__pyx_fuse_0__pyx_mdef_6tabmat_3ext_11categorical_25transpose_matvec_complex, 0, __pyx_mstate_global->__pyx_n_u_transpose_matvec_complex_float_f, NULL, __pyx_mstate_global->__pyx_n_u_tabmat_ext_categorical, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[3])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 70, __pyx_L1_error)
+  __pyx_t_4 = __pyx_FusedFunction_New(&__pyx_fuse_0__pyx_mdef_6tabmat_3ext_11categorical_25transpose_matvec_complex, 0, __pyx_mstate_global->__pyx_n_u_transpose_matvec_complex_const_f, NULL, __pyx_mstate_global->__pyx_n_u_tabmat_ext_categorical, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[3])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 70, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
@@ -39092,7 +39991,7 @@ __Pyx_RefNannySetupContext("PyInit_categorical", 0);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_4, __pyx_mstate_global->__pyx_empty_tuple);
   if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_float, __pyx_t_4) < (0)) __PYX_ERR(0, 70, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_4 = __pyx_FusedFunction_New(&__pyx_fuse_1__pyx_mdef_6tabmat_3ext_11categorical_27transpose_matvec_complex, 0, __pyx_mstate_global->__pyx_n_u_transpose_matvec_complex_double, NULL, __pyx_mstate_global->__pyx_n_u_tabmat_ext_categorical, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[4])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 70, __pyx_L1_error)
+  __pyx_t_4 = __pyx_FusedFunction_New(&__pyx_fuse_1__pyx_mdef_6tabmat_3ext_11categorical_27transpose_matvec_complex, 0, __pyx_mstate_global->__pyx_n_u_transpose_matvec_complex_const_d, NULL, __pyx_mstate_global->__pyx_n_u_tabmat_ext_categorical, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[4])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 70, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
@@ -39141,11 +40040,11 @@ __Pyx_RefNannySetupContext("PyInit_categorical", 0);
  * 
  * def matvec_fast(             # <<<<<<<<<<<<<<
  *     const int[:] indices,
- *     floating[:] other,
+ *     const floating[:] other,
 */
   __pyx_t_4 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 128, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = __pyx_FusedFunction_New(&__pyx_fuse_0__pyx_mdef_6tabmat_3ext_11categorical_31matvec_fast, 0, __pyx_mstate_global->__pyx_n_u_matvec_fast_float_float, NULL, __pyx_mstate_global->__pyx_n_u_tabmat_ext_categorical, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[7])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 128, __pyx_L1_error)
+  __pyx_t_5 = __pyx_FusedFunction_New(&__pyx_fuse_0__pyx_mdef_6tabmat_3ext_11categorical_31matvec_fast, 0, __pyx_mstate_global->__pyx_n_u_matvec_fast_const_float_float, NULL, __pyx_mstate_global->__pyx_n_u_tabmat_ext_categorical, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[7])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 128, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
@@ -39153,7 +40052,7 @@ __Pyx_RefNannySetupContext("PyInit_categorical", 0);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_5, __pyx_mstate_global->__pyx_empty_tuple);
   if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_float, __pyx_t_5) < (0)) __PYX_ERR(0, 128, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = __pyx_FusedFunction_New(&__pyx_fuse_1__pyx_mdef_6tabmat_3ext_11categorical_33matvec_fast, 0, __pyx_mstate_global->__pyx_n_u_matvec_fast_double_double, NULL, __pyx_mstate_global->__pyx_n_u_tabmat_ext_categorical, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[8])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 128, __pyx_L1_error)
+  __pyx_t_5 = __pyx_FusedFunction_New(&__pyx_fuse_1__pyx_mdef_6tabmat_3ext_11categorical_33matvec_fast, 0, __pyx_mstate_global->__pyx_n_u_matvec_fast_const_double_double, NULL, __pyx_mstate_global->__pyx_n_u_tabmat_ext_categorical, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[8])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 128, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
@@ -39187,11 +40086,11 @@ __Pyx_RefNannySetupContext("PyInit_categorical", 0);
  * 
  * def matvec_complex(             # <<<<<<<<<<<<<<
  *     const int[:] indices,
- *     floating[:] other,
+ *     const floating[:] other,
 */
   __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 154, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_4 = __pyx_FusedFunction_New(&__pyx_fuse_0__pyx_mdef_6tabmat_3ext_11categorical_37matvec_complex, 0, __pyx_mstate_global->__pyx_n_u_matvec_complex_float_float, NULL, __pyx_mstate_global->__pyx_n_u_tabmat_ext_categorical, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[10])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 154, __pyx_L1_error)
+  __pyx_t_4 = __pyx_FusedFunction_New(&__pyx_fuse_0__pyx_mdef_6tabmat_3ext_11categorical_37matvec_complex, 0, __pyx_mstate_global->__pyx_n_u_matvec_complex_const_float_float, NULL, __pyx_mstate_global->__pyx_n_u_tabmat_ext_categorical, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[10])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 154, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
@@ -39199,7 +40098,7 @@ __Pyx_RefNannySetupContext("PyInit_categorical", 0);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_4, __pyx_mstate_global->__pyx_empty_tuple);
   if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_float, __pyx_t_4) < (0)) __PYX_ERR(0, 154, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_4 = __pyx_FusedFunction_New(&__pyx_fuse_1__pyx_mdef_6tabmat_3ext_11categorical_39matvec_complex, 0, __pyx_mstate_global->__pyx_n_u_matvec_complex_double_double, NULL, __pyx_mstate_global->__pyx_n_u_tabmat_ext_categorical, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[11])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 154, __pyx_L1_error)
+  __pyx_t_4 = __pyx_FusedFunction_New(&__pyx_fuse_1__pyx_mdef_6tabmat_3ext_11categorical_39matvec_complex, 0, __pyx_mstate_global->__pyx_n_u_matvec_complex_const_double_doub, NULL, __pyx_mstate_global->__pyx_n_u_tabmat_ext_categorical, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[11])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 154, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
@@ -39233,11 +40132,11 @@ __Pyx_RefNannySetupContext("PyInit_categorical", 0);
  * 
  * def sandwich_categorical_fast(             # <<<<<<<<<<<<<<
  *     const int[:] indices,
- *     floating[:] d,
+ *     const floating[:] d,
 */
   __pyx_t_4 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 183, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = __pyx_FusedFunction_New(&__pyx_fuse_0__pyx_mdef_6tabmat_3ext_11categorical_43sandwich_categorical_fast, 0, __pyx_mstate_global->__pyx_n_u_sandwich_categorical_fast_float, NULL, __pyx_mstate_global->__pyx_n_u_tabmat_ext_categorical, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[13])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 183, __pyx_L1_error)
+  __pyx_t_5 = __pyx_FusedFunction_New(&__pyx_fuse_0__pyx_mdef_6tabmat_3ext_11categorical_43sandwich_categorical_fast, 0, __pyx_mstate_global->__pyx_n_u_sandwich_categorical_fast_const, NULL, __pyx_mstate_global->__pyx_n_u_tabmat_ext_categorical, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[13])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 183, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
@@ -39245,7 +40144,7 @@ __Pyx_RefNannySetupContext("PyInit_categorical", 0);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_5, __pyx_mstate_global->__pyx_empty_tuple);
   if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_float, __pyx_t_5) < (0)) __PYX_ERR(0, 183, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = __pyx_FusedFunction_New(&__pyx_fuse_1__pyx_mdef_6tabmat_3ext_11categorical_45sandwich_categorical_fast, 0, __pyx_mstate_global->__pyx_n_u_sandwich_categorical_fast_double, NULL, __pyx_mstate_global->__pyx_n_u_tabmat_ext_categorical, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[14])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 183, __pyx_L1_error)
+  __pyx_t_5 = __pyx_FusedFunction_New(&__pyx_fuse_1__pyx_mdef_6tabmat_3ext_11categorical_45sandwich_categorical_fast, 0, __pyx_mstate_global->__pyx_n_u_sandwich_categorical_fast_const_2, NULL, __pyx_mstate_global->__pyx_n_u_tabmat_ext_categorical, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[14])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 183, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
@@ -39279,11 +40178,11 @@ __Pyx_RefNannySetupContext("PyInit_categorical", 0);
  * 
  * def sandwich_categorical_complex(             # <<<<<<<<<<<<<<
  *     const int[:] indices,
- *     floating[:] d,
+ *     const floating[:] d,
 */
   __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 201, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_4 = __pyx_FusedFunction_New(&__pyx_fuse_0__pyx_mdef_6tabmat_3ext_11categorical_49sandwich_categorical_complex, 0, __pyx_mstate_global->__pyx_n_u_sandwich_categorical_complex_flo, NULL, __pyx_mstate_global->__pyx_n_u_tabmat_ext_categorical, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[16])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 201, __pyx_L1_error)
+  __pyx_t_4 = __pyx_FusedFunction_New(&__pyx_fuse_0__pyx_mdef_6tabmat_3ext_11categorical_49sandwich_categorical_complex, 0, __pyx_mstate_global->__pyx_n_u_sandwich_categorical_complex_con, NULL, __pyx_mstate_global->__pyx_n_u_tabmat_ext_categorical, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[16])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 201, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
@@ -39291,7 +40190,7 @@ __Pyx_RefNannySetupContext("PyInit_categorical", 0);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_4, __pyx_mstate_global->__pyx_empty_tuple);
   if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_float, __pyx_t_4) < (0)) __PYX_ERR(0, 201, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_4 = __pyx_FusedFunction_New(&__pyx_fuse_1__pyx_mdef_6tabmat_3ext_11categorical_51sandwich_categorical_complex, 0, __pyx_mstate_global->__pyx_n_u_sandwich_categorical_complex_dou, NULL, __pyx_mstate_global->__pyx_n_u_tabmat_ext_categorical, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[17])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 201, __pyx_L1_error)
+  __pyx_t_4 = __pyx_FusedFunction_New(&__pyx_fuse_1__pyx_mdef_6tabmat_3ext_11categorical_51sandwich_categorical_complex, 0, __pyx_mstate_global->__pyx_n_u_sandwich_categorical_complex_con_2, NULL, __pyx_mstate_global->__pyx_n_u_tabmat_ext_categorical, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[17])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 201, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
@@ -39620,31 +40519,31 @@ static int __Pyx_InitConstants(__pyx_mstatetype *__pyx_mstate) {
   int __pyx_clineno = 0;
   CYTHON_UNUSED_VAR(__pyx_mstate);
   {
-    const struct { const unsigned int length: 8; } str_length_index[] = {{6},{8},{1},{2},{15},{23},{25},{32},{20},{22},{1},{1},{37},{45},{22},{27},{179},{8},{15},{7},{14},{6},{13},{2},{9},{9},{50},{39},{34},{30},{30},{37},{1},{5},{2},{8},{8},{15},{20},{12},{9},{17},{8},{8},{12},{10},{8},{10},{8},{7},{14},{11},{10},{19},{14},{12},{10},{17},{13},{12},{12},{19},{8},{15},{13},{3},{15},{4},{7},{18},{4},{1},{18},{3},{7},{12},{4},{13},{5},{1},{8},{6},{10},{5},{15},{5},{6},{9},{5},{5},{5},{6},{7},{3},{16},{1},{2},{5},{7},{3},{5},{5},{8},{1},{5},{4},{6},{4},{14},{35},{33},{11},{32},{30},{7},{4},{16},{35},{27},{34},{26},{24},{30},{25},{26},{6},{15},{11},{6},{4},{5},{4},{8},{11},{10},{19},{19},{10},{11},{2},{5},{5},{3},{5},{3},{8},{7},{4},{3},{8},{3},{3},{7},{4},{9},{28},{39},{38},{25},{36},{35},{10},{5},{5},{10},{4},{5},{4},{4},{6},{26},{22},{24},{45},{43},{21},{42},{40},{6},{6},{6},{9},{12},{11},{1},{5}};
+    const struct { const unsigned int length: 8; } str_length_index[] = {{6},{8},{1},{2},{15},{23},{25},{32},{20},{22},{1},{1},{37},{45},{22},{27},{179},{8},{15},{7},{14},{6},{13},{2},{9},{9},{50},{39},{34},{30},{30},{37},{1},{5},{2},{8},{8},{15},{20},{12},{9},{17},{8},{8},{12},{10},{8},{10},{8},{7},{14},{11},{10},{19},{14},{12},{10},{17},{13},{12},{12},{19},{8},{15},{13},{3},{15},{4},{7},{18},{4},{1},{18},{3},{7},{12},{4},{13},{5},{1},{8},{6},{10},{5},{15},{5},{6},{9},{5},{5},{5},{6},{7},{3},{16},{1},{2},{5},{7},{3},{5},{5},{8},{1},{5},{4},{6},{4},{14},{41},{39},{11},{38},{36},{7},{4},{16},{35},{27},{34},{26},{24},{30},{25},{26},{6},{15},{11},{6},{4},{5},{4},{8},{11},{10},{19},{19},{10},{11},{2},{5},{5},{3},{5},{3},{8},{7},{4},{3},{8},{3},{3},{7},{4},{9},{28},{45},{44},{25},{42},{41},{10},{5},{5},{10},{4},{5},{4},{4},{6},{26},{22},{24},{55},{53},{21},{52},{50},{6},{6},{6},{9},{12},{11},{1},{5}};
     const struct { const unsigned int length: 9; } bytes_length_index[] = {{1},{57},{81},{94},{292},{338},{94},{124},{147},{184}};
     #ifndef CYTHON_COMPRESS_STRINGS
       #define CYTHON_COMPRESS_STRINGS 90
     #endif
-    #if (CYTHON_COMPRESS_STRINGS) == 1 /* compression: zlib (1838 bytes) */
-static const char cstring[] = "x\332\255V\315s\333\306\0257\033I\246j\266\225\254/\333I\235UR\225Mk\323\245\354\266\236\214\343\016\207\226\033MS\327\264\335Lg<6f\t,\311\255\300]\020\273\240\310L2\343#\2178\342\210#\2168\362\250\243\216:\342\250?!\177B\336\003H\212\222(\305\315DC\000\213\367\375~\357\003\"T\223?\367\210\254\377\217\231\372q\351s\362\350_\254-\335\376\327\234\355\023\331 \217L)4oz\322S\204\n\213X\334E\301\263d.\306\014\245]n1kJ\230H\367R\376i\332D\362\361\337\253T\010\251\tU\2127\005\321\222\270\214Zw\245\260\373\244\235\006\331\205 wE\227\332\334\"mi\261;\204\365\034\320\005SE\263\210~\213\r\351j\227\212\342\035\322\004Sca\325\242\016\003W\204\366\270\"\317$iSm\266\270h\022tE\265\3472\322\220\236\260\236I\315\210n\001H\325\276nIA@\334b6\2573\227j\006\201`\350\340\320E!A\236\357<\277\373\340\341\2034\021\227!\244\212(\257n\332\220\003S\210g\335\343\266\006\307\272\3570U\"\273\r\322\227\036\021\014B\206\004\035\220\233V\320-&\210b\032\017\244\230\302A5\227\302\000u\210\2668B\220w\031j?\245\266b%jY\006\3101S\3326\362\244P%Z7-\256h\335f\226\364\340NL\331vl\326c\002i\r[B\202#R\323\344*#[\266\004@\360&$$\335\240\236\255\211a\270\314\362Lf\030\304\362R\257B\212\273\000B\227S\033\270&\027\\\033\206\360\332N\277d\230\322e\2456\350q\352\272\264O\032\224\333Y\246\274\355@e\246\305<\250A\353\234\204r\315{\232\326\201w\217\365\364=\023PoJ\200\234\332%\247\337\363\322@Q\232\332\266D&\311\034YT\323\322\014nVx,O\326s\252\364m\345euw\267\312wl\233;\212\253\227\254\3431a2\034\200\322\311,\030\306\363~\017\256\047Pm\343\031\204\362\2025\014cT\021@\0032\307\232\235\034\232Ls\315\332H\260P\007\376\032\2360\361\t,5\326\312\262\304S\233r\221>\245\345\331)O\320v\366D\367\206\001\371\032f\213\231{\312kgo#+x\304~\312N\236p\270\271\007\026v\304X\256\253\021\010\264\321\361\250=6;.\344\344d\246->E`=|\201\376\233\204\242\246B\237\234O\3644S:MT1\313\200Q\202a\006\033\\a\205\245\007}\317\240\023\307\3050\352^\243\001s\3446\025Ui\331\250\352\013\223\313\322DZ\325\251b\246i\303\321\000t`\222MV\247\346\036\3646""\374\014n\365\322\2070m\017\366\007\234\025^S\004Ohk\324\272*k}\313\225\216\321\340\256\322\026b\226\3360\302l\003\262\266\243\373P~X&\014\340K\247\234\271\256t\0336m\252tP`\243\264\323;\356\025(%\374\214\351(8\267\322\264q\221\231Lq\330\223B\337\337\306fP\331\355\033\266\267\207\261\357\201\310\336>\346\217C\006F\273\3144Fcx\372\355u\026\373\353\317\337\334\231\234\336\234\021I\203C\211\361a,\320\240JO\035/\263\225\362g\030bm\\\265\270b\323av\354\376$\3163\357\257O/\230T{\266\310L\326\251Ut\261\304L\016\300<\223>Yc\027rg2T\013J\214\034\201\345U\331}Rea\3541\346\030\256\334\007Nz\207\t\021\251\240\305\3338\261\270\202\3609\352\203\321\321\321\256\220i\277\270,\373v\340\202\006\022\3308C\022.\254\030Sh8}\303\\\231\036\035\221\372\302\265\t\r+\341\263\200\223\002?\003\333\n\237PF\007&\304\221\216\313\232\\\301\247\t\254\202\022\332\207\236Cu\274\014,\250\202E\270\317\315\2261\265V\307\371_\306\233\252\340\245b\223Z\315\224\302f\273\220\361c.Nu\352\033XE\343)\307\005\237\226n\362%W\010\rl* i\346(-\341r=\3704{u\\m3\002\317>8%8\224\246\2708\357\312\221\212\031\247\047\357\"\372\314A\273P\370\374\324\235\023\305\234g\022\337\317\323\005\303\r\337\013\350\027\317\201~e\360\337\221\307Tw\334\276\335\251\376\355\2364p\017\333Q\375\373].\231\3738p\303\365\260\023\345\343\205\270>L\t*\334\014\313\311\\~\2600`~\331\257$\371U\277\342\277\n\226\203b\270\234\314]\033\224\337\345\276\377\365\225\371\217\202\355\340\353\260\034~\031=\2157\217\347\326}\023D\340\220\037,\372k>\365;I\2760x\342\347\374\345$\177\335/\"3\311\203\366\340\253 \227\276\200\251\355\301\177\375\232O\301\340\322O1\370i\360\"\350\240\321\207\376}\237&\205\337\014:~!\250\004\265\200\236\266\276ze~#3\227\314\335\010>\010\312\337/\\\231\337\nw\242\225h\047^\211\253qg\27004\017 \275\337\235\047\242l\376\350\352\207\301\003tVL\321\312\305\033\303\334puX\033\262\203\362\301\223\303\334\341\312a\345\360\325Q\355\305\361\342/S\304\222\374(\001\214\372\237\276\207a%\205\353\376gA9\250d\241^\365;\301b\270\026\322\260\003>""\026o\036\335\370C\224\213\326\243\3161\342\224\024\226\374k\301_\302\034\240\276\264\3567\323\254\226V\374/R\312\352\006(\347\303\371\260\026RP\376\325\315 \227\024n\001\"(uZ\223\007\2350\367#&\000\243\365\237\017\243?F\233\321\303\270\034\377cX\036>9\310\035\254\035\320\003}X>\254\036v\216\236\277:z\365\366\350\255\361\2368eQ\263p;\254!h=_\201$\244P\366\277\232$\177)r\267\260m\303\317\242\355\250\226,\255\372_\006U\350\360\255\360\273\270\022\3272\010\n\220\316r\264\371~(f\346\266B7Z\276\334\034 \372\021`\362\316\033T\007\235\244\200\034\260\215\201?\r\266\300\326U\350\243\334q~\343h\003;j!\242\023\231q\241 \335o\001\204\335\360e\004\216\221\271\000@\224\303J27\017\326o\237\267\236i\232\341u\030\340\023\260\2464/\3617\322Z\362\363P\373\373 \376(\352\304\213\303\225ae\206\357\355+\213k~5U\317\337\202\031\315o\202\366_!\355b\274\036\273C\030P\022\376\"\374}Z\023\027\372\344\351\360\023\260\223\277\rY\345\177\033\324p\246\347\007\377\3617\375r\222GHv\202e\034\343\277\001\345>vCR\270\001K\342\343\350*\304\360A\274\r\320\026>\014\312\307s850\377\376\226\3379\206\001\377\"\270\006\215\3616\306\215\364x*\244\233\301\36218\253\207\0130[\373Q#\006\337\357\027\341\247\200\301\377\023\346\032,\030\021V\260\021\263\230o\203?\032\251\370\023\360Y@h\316\306\374\320\337\366\337\204\177\212^D\337\r+?\000M\272,\310";
-    PyObject *data = __Pyx_DecompressString(cstring, 1838, 1);
+    #if (CYTHON_COMPRESS_STRINGS) == 1 /* compression: zlib (1856 bytes) */
+static const char cstring[] = "x\332\255V\315s\333\306\0257\033I\246j\266\225\254/\333I\235UR\225Mk\323\245\354\266\036\217\343\016G\226\033M\023\327\264\335Lg<2f\t,\311\255\300]\020\273\240\310L2\343#\2178\342\210#\2168\362\250\243\216:\342\250?!\177B\337\003H\212\222hY\311TC\000\017\373\276\177\357\003\"T\223?w\211\254\375\227\231\372I\351\021y\374\rkI\267\367-g\373D\326\311cS\n\315\033\236\364\024\241\302\"\026wQ\360\3541\027#\206\322.\267\2305!L\244{!\377\364\331X\362\311\337\267\250\020R\023\252\024o\010\242%q\031\265\356Ja\367H+\r\262\003A\356\210\016\265\271EZ\322bw\010\353:\240\013\246\212f\021\375\026\353\322\325.\025\305;\244\001\246F\302\252I\035\006\256\010\355rE\236K\322\242\332lr\321 \350\212j\317e\244.=a=\227\232\021\335\004\220\266z\272)\005\001q\213\331\274\306\\\252\031\004\202\241\203C\027\205\004y\261\375\342\356\203\207\017\322D\\\206\220*\242\274\232iC\016L!\2365\217\333\032\034\353\236\303T\211\354\324IOzD0\010\031\022t@nRA7\231 \212i$H1\205\203j.\205\001\352\020mq\210 \3570\324~Fm\305J\324\262\014\220c\246\264m\344I\241J\264fZ\\\321\232\315,\351\301\235\230\262\345\330\254\313\004\236\325m\t\t\016\217\032&W\331\261eK\000\004oBB\322u\352\331\232\030\206\313,\317d\206A,/\365*\244\270\013 t8\265\201kr\301\265a\010\257\345\364J\206)]Vj\201\036\247\256K{\244N\271\235e\312[\016TfR\314\203\0324\317I(\327\274\247i\rx\367XW\3373\001\365\206\004\310\251]rz]/\r\024\245\251mKd\222\314\221E5-M\341f\205\307\362d=\247J\337W^m\355\354l\361m\333\346\216\342\352\025k{L\230\014\007\240t2\013\206\361\242\327\205\353)T\333x\016\241\274du\303\030V\004\320\200\314\261f\047D\203i\256Y\013\017,\324\201\277\272\047L|\002K\215\264\262,\221jQ.\322\247\264<;\345\t\332\312\236\350\3360 _\303l2sOy\255\354mh\005I\354\247\214\362\204\303\315=\260\260-Fr\035\215@\240\215\266G\355\221\331Q!\307\224\231\266\370\304\001\353\342\013\364\3378\0245\021\372\230>\321\323L\3514Q\305,\003F\t\206\031lp\205\025\226\036\364=\203N\034\025\303\250y\365:\314\221\333PT\245e\243\252\047L.KciU\243\212\231\246\r\244\001\350""\300$\233\254F\315=\350m\370\031\334\352\246\017a\332\036\354\017\240\025^\023\007\236\320\326\260uU\326\372\226+\035\243\316]\245-\304,\275a\204\331\006d-G\367\240\374\260L\030\300\227N9s]\351\326m\332P\351\240\300Fi\245w\334+PJ\370\031\223Qpn\245i\343\"3\231\342\260\047\205\276\277\211\315\240\262\333wlo\017c\337\003\221\275}\314\037\207\014\214v\230i\014\307\360\364\333\033X\267J\223,\2037\217v\357\214\251\335\251\202i\240(7\"Fbu\252\364\004\371a\273\023RS\214\262\026\256`\\\275\351\220;vo\034\377\231\3677\247\027O\252=]d*\353\324\212z\277\304T\016\300?\365|\274\336\336\313\235\312PM(=r\004\226]e\367q\365\205\261\307\230c\270r\0378\351\035&G\244\202\026o\341$\343j\302\347\260?\206\244\243]!\323>rY\366M\301\305\rG`\343\314\221pa\365\230B\003\365\035seJ:\"\365\205\353\024\032Y\302\347\002\047\010~\006\266\033>\241\230\016L\216#\035\2275\270\202O\026X\005%\264\017\275\210\352x\031XP\005\013r\237\233Mcb\335\216\362\277\210w\266\235v/!<\256\333TYl\277\3672.\347nJ\007\357\302\352\032m\005\374 \244%\035\177\371\025B\006\233\r\2164s\224\226p\271\036|\312\275\032\256\302)\251d\037\250\022\020\245\t.\356\007\345H\305\214\3233\372\276\3633\351<*\237\214#\320\273\037P\033\346\206Z\047\344y%Dc\352\341O\365~\036\3263\256\341;\004\375\3469\320\357\014\376\353\362\230\352\214\332\2773\321\377\235\223\001\350b;\253\177\275\313%3\237\006n\270\032\266\243|<\027\327\006\351\201\n\327\303r2\223\357\317\365\231_\366+I~\331\257\370\257\203\305\240\030.&3\327\372\345w\271\037\177}e\366\223`3\3706,\207_E\317\342\365\343\231U\337\004\021 \362\375y\177\305\247~;\311\027\372O\375\234\277\230\344\257\373Ed&y\320\356\177\035\344\322\0270\265\331\377\217_\365)\030\\\3709\006?\017^\006m4\372\320\277\357\323\244\360\233~\333/\004\225\240\032\320\323\326\227\257\314\256e\346\222\231\033\301GA\371\307\271+\263\033\341v\264\024m\307K\361V\334\036\314\r\314\003H\357w\347\017Q6\177t\365\343\340\001:+\246h\345\342\265An\260<\250\016\330A\371\340\351a\356p\351\260r\370\372\250\372\362x\376\227)bI~\230""\000F\375O\337\303\260\222\302u\377\213\240\034T\262P\257\372\355`>\\\ti\330\006\037\3637\217n\374!\312E\253Q\373\030qJ\n\013\376\265\340/a\016P_X\365\033iV\013K\376\227\351\311\362\032(\347\303\331\260\032RP\376\325\315 \227\024n\001\"(uZ\223\007\3550\367\001\023\200\321\352\377\017\243?F\353\321\303\270\034\377cP\036<=\310\035\254\034\320\003}X>\334:l\037\275x}\364\372\355\321[\343\2228eQ\263p3\254\"h]_\201$\244P\366\277\036\047\177!r\267\260m\303/\242\315\250\232,,\373_\005[\320\341\033\341\017q%\256f\020\024 \235\305h\375r(f\3466B7Z\274\330\034 \372\t`\362\316\353o\365\333I\0019`\033\003\177\026l\200\255\253\320G\271\343\374\332\321\032v\324\\D\3072\243BA\272\337\003\010;\341\253\010\034#s\016\200(\207\225df\026\254\337>o=\3234\303\3530\300\047`Mh^\340o\250\265\340\347\241\366\367A\374q\324\216\347\007K\203\312\024\337\233W\346W\374\255T=\177\013f4\277\016\332\177\205\264\213\361j\354\016`@I\370\213\360\367iM\\\350\223g\203\317\300N\3766d\225\377mP\305\231\236\355\377\333_\367\313I\036!\331\016\026q\214\377\006\047\367\261\033\222\302\rX\022\237FW!\206\217\342M\200\266\360qP>\236\301\251\201\371\3677\374\3661\014\370\227\3015h\214\2671n\244\047\023!\335\014\026\217\301Y-\234\203\331\332\217\3521\370\276\\\204\237\003\006?%\314\025X0\"\254`#f1\337\006\1774R\361g\340\263\200\320\234\215\371\241\277\351\357\206\177\212^F?\014*\377\003FcKt";
+    PyObject *data = __Pyx_DecompressString(cstring, 1856, 1);
     #define __Pyx_DecompressString_LZSS_UNUSED
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #elif (CYTHON_COMPRESS_STRINGS) > 0 && (CYTHON_COMPRESS_STRINGS) <= 90 /* compression: lzss (2378 bytes) */
-static const char cstring[] = "\377 at 0x o\377bject>.:\377 <Memory\377View of \377<contigu\377ous and gdir%\001\007\rin\021\005\177strided\"\010o or \004\031><(\t\376A\006>?Canno\377t assign\377 to read\177-only m\240\002\375v\242\000Invali\377d mode, \347exp\305\000|\000\047c\047\376t\001\047fortra\237n\047, gH\000%\005s\357hape\222\000 ax\377is No ma\177tching g\001\377ature fo\377undNote \373th\242 Cytho\373n ,\000delib\237erate\206\000\353\001c\367ter!\001n PE\337P-484\245\"re\376\317!s subcl\366\301\000es\314!buil\373ti\313\000ypes.\377 If you \223ne\257 \336\000p\351\000%\tt\177hen set\200\000\367e \047\212\"atio_n_typ\253\000\047\210D\373iv\242\000o Fal\177se.add_\264 \237ecoll\321@+\000s\377.abcdisa\277bledou\003\000 \377complexe\235n\020\001flo\203`\014\004gwcis\021\003dlo\216 \376\001\001no defa\377ult __re\377duce__ d\275uq\002non-\361@v\367ial\033\000cini\377t__numpy\377._core.m\3765\000iarray \357fail\344\003imp\324\227@\033\tu\201@h\021\016sr\337c/tab\235@/e\357xt/c\363 gor\377ical.pyxyu\273\002\227aallo\031\001} c\003data.\013\020\370\363C\305\204\001\242\204\003s.|AS\377CIICiEll\377ipsisSeq_uence\375\204\001.\202\205\007\337__Pyx\001\000Di\357ct_N\210\000Ref\263__\213D\213 __\340B_\375_\001\005getite\345m\r\001d0\001\027\000fun\031c\035\001\030\000st\274`)\001\202#\3363\001main\003\002od\273ulM\002nam\002\003e\371wT\001\355\000_chec\007ksuT\000\n\001?\004\025\001\216`\374\221@\037\001unpick\226?\000En \005v\277 M\003qGualO\005\301E\312Fc\336\204\002L\277\001\335Dex\314\001\375`_\203\005\307set\262\006\003\006.\007te\373st\344\002sed_s\337igindA\000is\376\205aoutinea\373bc\243E_buff\377erargsas\376\233basyncio\371.\264`(\003sbase\327ccl6\000_\233 tr\377acebackc\377olcol_id\375x\002\002nclude\037dcols\000\001(\000\t\005\257untd\264\204\004s\365\204\003d\377rop_firs\223td\260!\000\002_\237\000\374\210\003e\357mpty\374@ode\357enum\341\206\002err\177orflags\244\205\002?format\321\207\004\343@:\346@_z\tiid\362\002\217\211\001\277cesint\000\0003\3652\211as\000\002izek\375k\270\001kindkw""\374\374\001\346\205\001matvec\351_\223\206\004\000\013[\261\206\003[:]\005,\001\006]\024\014\301\206\002\036\001\001\005\031\005\017fastV\004\007\0010\031\033\002\3066\020em\347\211\001\337\211\001\310\206\002pl\221y\237\006\331\206\001\005\010[\323\207\013\257\000]\001m\r\023\006\022\376\207\n\010\027B\022\347 Z\022\370\276\210\006\005\026\221\022short\312\274\001n\333As\000\003\322fn_\377keep_row\354\027\000\001\002am\264alsn\177dimnew_\377\207\001\370\004\001\201d\004\004ptrno\206\253bre\266\213\003\235\212\001\020\000G\000_\376\005\013nref_cn\377tnonzero\346\006\002pnm\002\332\211\001obj\367oth\026\000utou\307t_s\324`\004\001\301`pa\377ckpopreg\037isterf\000\244\000\\\001\247idx\255\001\261\001_\270\215\001s\377andwich_\020\314\211\010\371e\000\031\205\204\007]\n\032\201\204\006T\022\360\224\204\001\000\026C\035\235\204\n]set\320\336\206\005\326\216\001\266B\301\216\006s\227!st\367art\213 psto\376\001\000ructsub\370\327\210\001\351\020\353\213\003.ext.\374\346\213\010\304\217\001spose_\000\235\206\013\000\025\240\206\022\024\026\255\206\017_\016\305\206\001\000\022\354D#\306\206\024un\254aupd\377atevalue\253sv\267\204\005v\265\204\010v\267\204\007x\376\213\204\001sO\200\001\330\004\037\377\230r\240\026\240q\250\010\337\260\006\260b\270\014\002s\240\377!\2401\330\004\010\210\006\377\210e\2201\220A\330\010\377\024\220A\220T\230\021\230\377\047\240\021\330\004\013\2101\377\200\001\360\016\000\005\034\230\3772\230V\2401\240H\250\377F\260!\340\004\026\220c\374 \000\006\000\010\210\t\220\025\220\377a\220q\330\010\014\210D\377\220\001\220\021\330\010\022\220\355\047\031\001\330\010;\000\210L\230\371\001\010\002H\0002\210X\220Q\353\220aN\000\020\0351#\230R\375\230d\000\013\2108\2203\220\377a\330\014\017\210q\220\014\177\230A\230Q\230a\330Q\n\357\024\000\005\027\232\003\330\004\030\377\230\003\2301\360\006\000\005\377%\240E\250\023\250E\260\377\023\260C\260q\270\006\270\313c\300\334\000$\003\017(\001\010\320\257\007\033\2304i\001\047\251\"\001\377\260\027\270\001\270""\024\270Q\377\270e\3001\300D\310\001\377\310\023\310A\310T\320QoR\340\t\n\255\"\330\010\213$\356\203!K\220u\223\001\330\014\022\277\220)\2301\230A\245\003\007\377\220q\230\t\240\025\240a\373\240q\215\000\t\031\320\030(\177\250\001\250\026\250q\340\244!\377\330\014\020\220\013\2305\240\275\001\363 \020\026\220g\321\002\020\267\023\220=\r\002\024\027:\000\010\277\240\005\240Q\240a\312\000\r\377\031\230\001\330\014\032\230#\374\367\002,\013i\230q\240\001\330\364%\033\320@\026\332\200G*\250!\250\3778\2601\260G\2701\270\377D\300\001\300\025\300a\300\377t\3101\310C\310q\320\377PT\320T^\320^_|\201\201$\363\003e\2402\240Q\334A\277x\220s\230!\330\203 1\323\220L\364\006\235:\032\263\204\001\240)\377\2502\250Q\330\020\024\220\377H\230C\230s\240%\240\277}\260A\260Q\330\301\"\014\316\205`\021\250!\240\201#I\003%\240\367r\250\0211\033\200\001\360\034\377\000\005\010\200u\210C\210\347q\330\014\253A\237@\023\2201\357\220F\230%\217@\007\240q\177\250\001\340\010\027\320\027\316a\347\006\250a\033\006\344E\014\017\210=|\252`I\240S\250\274@\354A\377\006\230e\2401\240A\330?\004\005\200\001\360\036L\017\240c\037c\240\022\2401\242(/\010U\030\376/\004\020\220\010\230\003\2303\376f\000<\250q\260\t\270\023\357\270A\330\020k\0162\000\t\337\025\220C\220q\362`\010\032\337\230!\340\010!q\0006\250\377\021\250\047\260\026\260r\270\377\021\330\010 \240\002\240&\376\311\204\002r\260\023\260F\270\"\376E\000\010\036\230a\330\010\035\377\230Q\340\004\010\210\005\210\177U\220!\2201\330\010\217!WE\230\021\230\207\0017\017\0003\304\207\001\377\330\014\030\230\001\230\037\250\335\007\201\000\003\2602\247@\014\033\357\2301\340\004\335\206\001\001\220\021\377\220%\220q\340\004\013\210\267=\230\013\226`^\260\216\210\001>\336\210\010\031\230\021\340j\000b\240\377\006\240a\240w\250f\260\233A\330{$#\240\217\000|(\025?\220Q\220n\240A\202\206\001\256\003}\036m\000a\250s\260\"q\000\371\014\227!\244\r8\2202\220]\377\240+\250R\250}\270A";
-    PyObject *data = __Pyx_DecompressString_LZSS(cstring, 2378, 4030);
+    #elif (CYTHON_COMPRESS_STRINGS) > 0 && (CYTHON_COMPRESS_STRINGS) <= 90 /* compression: lzss (2404 bytes) */
+static const char cstring[] = "\377 at 0x o\377bject>.:\377 <Memory\377View of \377<contigu\377ous and gdir%\001\007\rin\021\005\177strided\"\010o or \004\031><(\t\376A\006>?Canno\377t assign\377 to read\177-only m\240\002\375v\242\000Invali\377d mode, \347exp\305\000|\000\047c\047\376t\001\047fortra\237n\047, gH\000%\005s\357hape\222\000 ax\377is No ma\177tching g\001\377ature fo\377undNote \373th\242 Cytho\373n ,\000delib\237erate\206\000\353\001c\367ter!\001n PE\337P-484\245\"re\376\317!s subcl\366\301\000es\314!buil\373ti\313\000ypes.\377 If you \223ne\257 \336\000p\351\000%\tt\177hen set\200\000\367e \047\212\"atio_n_typ\253\000\047\210D\373iv\242\000o Fal\177se.add_\264 \237ecoll\321@+\000s\377.abcdisa\277bledou\003\000 \377complexe\235n\020\001flo\203`\014\004gwcis\021\003dlo\216 \376\001\001no defa\377ult __re\377duce__ d\275uq\002non-\361@v\367ial\033\000cini\377t__numpy\377._core.m\3765\000iarray \357fail\344\003imp\324\227@\033\tu\201@h\021\016sr\337c/tab\235@/e\357xt/c\363 gor\377ical.pyxyu\273\002\227aallo\031\001} c\003data.\013\020\370\363C\305\204\001\242\204\003s.|AS\377CIICiEll\377ipsisSeq_uence\375\204\001.\202\205\007\337__Pyx\001\000Di\357ct_N\210\000Ref\263__\213D\213 __\340B_\375_\001\005getite\345m\r\001d0\001\027\000fun\031c\035\001\030\000st\274`)\001\202#\3363\001main\003\002od\273ulM\002nam\002\003e\371wT\001\355\000_chec\007ksuT\000\n\001?\004\025\001\216`\374\221@\037\001unpick\226?\000En \005v\277 M\003qGualO\005\301E\312Fc\336\204\002L\277\001\335Dex\314\001\375`_\203\005\307set\262\006\003\006.\007te\373st\344\002sed_s\337igindA\000is\376\205aoutinea\373bc\243E_buff\377erargsas\376\233basyncio\371.\264`(\003sbase\327ccl6\000_\233 tr\377acebackc\377olcol_id\375x\002\002nclude\037dcols\000\001(\000\t\005\257untd\264\204\004s\365\204\003d\377rop_firs\223td\260!\000\002_\237\000\374\210\003e\357mpty\374@ode\357enum\341\206\002err\177orflags\244\205\002?format\321\207\004\343@:\346@_z\tiid\362\002\217\211\001\277cesint\000\0003\3652\211as\000\002izek\375k\270\001kindkw""\374\374\001\346\205\001matvec\371_\223\206\004\000\013[cons{t \267\206\003[:],\001\006\301]\024\022\315\206\002$\001\001\005\037\005fa\203stb\004\007\0016\037\033\010B\020eqm\377\211\001\367\211\001\340\206\002ply\267\006d\361\206\001\005\010[\353\207\013\301\000]m\r\023\000\006\022\226\210\n\010\027B\022\377 Z\022\326\210\006\005\026\276\221\022short\274\001n\362\363As\000\003\352fn_ke?ep_row\027\000\001\002\373am\314alsndi\037mnew_\227\210\001\004\001\231d\276\004\004ptrno\303br\241e\316\213\003\265\212\001\020\000G\000_\005\013n\377ref_cntn\277onzero\006\002p\371nm\002\362\211\001objot\375h\026\000utout_\361s\354`\004\001\331`pack\377popregis\307terf\000\244\000\\\001id\351x\255\001\261\001_\320\215\001san?dwich_\344\211\010\221\204\005\004\000\031\227\204\r]\n \231\204\006`\022\254\204\001\000\026<I#\257\204\020]set\216\207\005\206\217\001\364\316B\361\216\006s\257!star\275t\243 psto\001\000r?uctsub\207\211\001\2010>\233\214\003.ext.\226\214\010\364\217\001?spose_\315\206\013\000\025&\326\206\014:1\335\206\007\t\000]\030\034\354\206\004\0002\001\001\007#\017\375\206\001\210\016\370\206\020]\036\207\207\017\366l\014un\354aupda\377tevaluesUv\367\204\005v\365\204\010v\367\204\007x\313\204\001\377sO\200\001\330\004\037\230\377r\240\026\240q\250\010\260\357\006\260b\270\014\002s\240!\377\2401\330\004\010\210\006\210\377e\2201\220A\330\010\024\377\220A\220T\230\021\230\047\377\240\021\330\004\013\2101\200\377\001\360\016\000\005\034\2302\377\230V\2401\240H\250F\177\260!\340\004\026\220c \000\376\006\000\010\210\t\220\025\220a\377\220q\330\010\014\210D\220\377\001\220\021\330\010\022\220\047\366\031\001\330\010;\000\210L\230\001\374\010\002H\0002\210X\220Q\220\365aN\000\020\0351#\230R\230\376d\000\013\2108\2203\220a\377\330\014\017\210q\220\014\230\277A\230Q\230a\330Q\n\024\367\000\005\027\232\003\330\004\030\230\377\003\2301\360\006\000\005%\377\240E\250\023\250E\260\023\377\260C\260q\270\006\270c\345\300\334\000$\003\017(\001\010\320\007\327\033\2304i\001\047\251""\"\001\260\377\027\270\001\270\024\270Q\270\377e\3001\300D\310\001\310\377\023\310A\310T\320QR7\340\t\n\255\"\330\010\213$\203!\367K\220u\223\001\330\014\022\220\337)\2301\230A\245\003\007\220\377q\230\t\240\025\240a\240\375q\215\000\t\031\320\030(\250\277\001\250\026\250q\340\244!\330\377\014\020\220\013\2305\240\001\336\363 \020\026\220g\321\002\020\023\333\220=\r\002\024\027:\000\010\240\337\005\240Q\240a\312\000\r\031\177\230\001\330\014\032\230#\367\002~,\013i\230q\240\001\330%\033\372\320@\026\332\200G*\250!\2508\377\2601\260G\2701\270D\377\300\001\300\025\300a\300t\377\3101\310C\310q\320P\177T\320T^\320^_\201\201$\276\363\003e\2402\240Q\334Ax\337\220s\230!\330\203 1\220\351L\364\006\235:\032\263\204\001\240)\250\3772\250Q\330\020\024\220H\377\230C\230s\240%\240}_\260A\260Q\330\301\"\014\205`\347\021\250!\240\201#I\003%\240r\373\250\0211\033\200\001\360\034\000\377\005\010\200u\210C\210q\363\330\014\253A\237@\023\2201\220\367F\230%\217@\007\240q\250\277\001\340\010\027\320\027\316a\006\363\250a\033\006\344E\014\017\210|\236\252`I\240S\250\274@\354A\006\377\230e\2401\240A\330\004\237\005\200\001\360\036L\017\240cc\017\240\022\2401\242(/\010U\030/\004\177\020\220\010\230\003\2303f\000\377<\250q\260\t\270\023\270\367A\330\020k\0162\000\t\025\357\220C\220q\362`\010\032\230\357!\340\010!q\0006\250\021\377\250\047\260\026\260r\270\021\177\330\010 \240\002\240&\311\204\002\177r\260\023\260F\270\"E\000\377\010\036\230a\330\010\035\230\377Q\340\004\010\210\005\210U\277\220!\2201\330\010\217!E\253\230\021\230\207\0017\017\0003\304\207\001\330\377\014\030\230\001\230\037\250\007\356\201\000\003\2602\247@\014\033\230\3671\340\004\335\206\001\001\220\021\220\377%\220q\340\004\013\210=[\230\013\226`^\260\216\210\001>\210\010\357\031\230\021\340j\000b\240\006\377\240a\240w\250f\260A\315\330{$#\240\217\000|(\025\220\237Q\220n\240A\202\206\001\256\003\036\276m\000a\250s\260\"q\000\014\374\227!\244\r8\2202\220]\240\177+\250R\250}\270A";
+    PyObject *data = __Pyx_DecompressString_LZSS(cstring, 2404, 4118);
     #define __Pyx_DecompressString_UNUSED
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #else /* compression: none (4030 bytes) */
-static const char bytes[] = " at 0x object>.: <MemoryView of <contiguous and direct><contiguous and indirect><strided and direct or indirect><strided and direct><strided and indirect>>?Cannot assign to read-only memoryviewInvalid mode, expected \047c\047 or \047fortran\047, got Invalid shape in axis No matching signature foundNote that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the \047annotation_typing\047 directive to False.add_notecollections.abcdisabledouble complexenablefloat complexgcisenabledlong longno default __reduce__ due to non-trivial __cinit__numpy._core.multiarray failed to importnumpy._core.umath failed to importsrc/tabmat/ext/categorical.pyxunable to allocate array data.unable to allocate shape and strides.|ASCIICiEllipsisSequenceView.MemoryView__Pyx_PyDict_NextRef__annotate____class____class_getitem____dict____func____getstate____import____main____module____name____new____pyx_checksum__pyx_state__pyx_type__pyx_unpickle_Enum__pyx_vtable____qualname____reduce____reduce_cython____reduce_ex____set_name____setstate____setstate_cython____test___fused_sigindex_is_coroutineabcallocate_bufferargsasarrayasyncio.coroutinesbaseccline_in_tracebackcolcol_idxcol_includedcolscols_includedcountddefaultsdoubledrop_firstdtypedtype_is_objectemptyencodeenumerateerrorflagsfloatformatfortrangetget_col_includediidindexindicesintint32itemsitemsizekk_idxkindkwargslongmatvec_complexmatvec_complex[double[:],double[:]]matvec_complex[float[:],float[:]]matvec_fastmatvec_fast[double[:],double[:]]matvec_fast[float[:],float[:]]memviewmodemultiply_complexmultiply_complex[double complex[:]]multiply_complex[double[:]]multiply_complex[float complex[:]]multiply_complex[float[:]]multiply_complex[int[:]]multiply_complex[long long[:]]multiply_complex[long[:]]multiply_complex[short[:]]n_colsn_cols_includedn_keep_rowsn_rowsnamencolsndimnew_datanew_indicesnew_indptrno_col_restrictionsno_row_restrictionsnonref_cntnonzero_cntnpnrowsnumpyobjo""theroutout_sizeout_vecpackpopregisterresrowrow_idxrowsrows_viewsandwich_categorical_complexsandwich_categorical_complex[double[:]]sandwich_categorical_complex[float[:]]sandwich_categorical_fastsandwich_categorical_fast[double[:]]sandwich_categorical_fast[float[:]]setdefaultshapeshortsignaturessizestartstepstopstructsubset_categorical_complextabmat.ext.categoricaltranspose_matvec_complextranspose_matvec_complex[double[:],double[:]]transpose_matvec_complex[float[:],float[:]]transpose_matvec_fasttranspose_matvec_fast[double[:],double[:]]transpose_matvec_fast[float[:],float[:]]unpackupdatevaluesvnew_datavnew_indicesvnew_indptrxzerosO\200\001\330\004\037\230r\240\026\240q\250\010\260\006\260b\270\001\330\004\037\230s\240!\2401\330\004\010\210\006\210e\2201\220A\330\010\024\220A\220T\230\021\230\047\240\021\330\004\013\2101\200\001\360\016\000\005\034\2302\230V\2401\240H\250F\260!\340\004\026\220c\230\021\230!\340\004\010\210\t\220\025\220a\220q\330\010\014\210D\220\001\220\021\330\010\022\220\047\230\021\230!\330\010\013\2101\210L\230\001\230\021\230!\330\004\013\2102\210X\220Q\220a\200\001\360\020\000\005\034\2302\230V\2401\240H\250F\260!\340\004\026\220c\230\021\230!\340\004\010\210\t\220\025\220a\220q\330\010\014\210D\220\001\220\021\330\010\022\220\047\230\021\230#\230R\230q\330\010\013\2108\2203\220a\330\014\017\210q\220\014\230A\230Q\230a\330\004\013\2102\210X\220Q\220a\200\001\360\024\000\005\027\220c\230\021\230!\330\004\030\230\003\2301\360\006\000\005%\240E\250\023\250E\260\023\260C\260q\270\006\270c\300\021\330\004$\240E\250\023\250E\260\023\260C\260q\270\006\270c\300\021\360\006\000\005\010\320\007\033\2304\230q\330\010\047\240q\250\010\260\001\260\027\270\001\270\024\270Q\270e\3001\300D\310\001\310\023\310A\310T\320QR\340\t\n\330\010\024\220A\330\010\026\220c\230\021\230!\330\010\014\210K\220u\230A\230Q\330\014\022\220)\2301\230A\330\014\017\210q\220\007\220q\230\t\240\025\240a\240q\360\006\000\t\031\320\030(\250\001\250\026\250q\340\010\013\2101\330\014""\020\220\013\2305\240\001\240\021\330\020\026\220g\230Q\230a\330\020\023\220=\240\001\240\021\330\024\027\220q\230\010\240\005\240Q\240a\360\006\000\r\031\230\001\330\014\032\230#\230Q\230a\330\014\020\220\013\2305\240\001\240\021\330\020\026\220i\230q\240\001\330\020\026\220g\230Q\230a\330\020\023\220=\240\001\240\021\330\024\027\220q\230\010\240\005\240Q\240a\200\001\360\026\000\005\027\220c\230\021\230!\330\004\030\230\003\2301\360\006\000\005%\240E\250\023\250E\260\023\260C\260q\270\006\270c\300\021\330\004$\240E\250\023\250E\260\023\260C\260q\270\006\270c\300\021\360\006\000\005\010\320\007\033\2304\230q\330\010*\250!\2508\2601\260G\2701\270D\300\001\300\025\300a\300t\3101\310C\310q\320PT\320T^\320^_\340\t\n\330\010\024\220A\330\010\026\220c\230\021\230!\330\010\014\210K\220u\230A\230Q\330\014\022\220)\2301\230A\330\014\026\220g\230Q\230e\2402\240Q\330\014\017\210x\220s\230!\330\020\023\2201\220L\240\005\240Q\240a\360\006\000\t\031\320\030(\250\001\250\026\250q\340\010\013\2101\330\014\020\220\013\2305\240\001\240\021\330\020\032\230\047\240\021\240)\2502\250Q\330\020\024\220H\230C\230s\240%\240}\260A\260Q\330\024\027\220q\230\014\240E\250\021\250!\360\006\000\r\031\230\001\330\014\032\230#\230Q\230a\330\014\020\220\013\2305\240\001\240\021\330\020\026\220i\230q\240\001\330\020\032\230\047\240\021\240%\240r\250\021\330\020\024\220H\230C\230s\240%\240}\260A\260Q\330\024\027\220q\230\014\240E\250\021\250!\200\001\360\034\000\005\010\200u\210C\210q\330\014\027\220q\230\001\330\014\023\2201\220F\230%\230q\240\007\240q\250\001\340\010\027\320\027\047\240q\250\006\250a\330\014\027\220q\230\001\330\014\026\220g\230Q\230a\330\014\017\210|\2301\230I\240S\250\001\330\020\027\220q\230\006\230e\2401\240A\330\004\005\200\001\360\036\000\005\010\200u\210C\210q\330\014\027\220q\230\001\330\014\026\220g\230Q\230c\240\022\2401\330\014\017\210x\220s\230!\330\020\027\220q\230\006\230e\2401\240A\340\010\027\320\027\047\240q\250\006\250a\330\014\027\220q\230\001\330\014\026\220g""\230Q\230c\240\022\2401\330\014\020\220\010\230\003\2303\230e\240<\250q\260\t\270\023\270A\330\020\027\220q\230\006\230e\2401\240A\330\004\005\200\001\3602\000\t\025\220C\220q\230\001\330\010\032\230!\340\010!\240\022\2406\250\021\250\047\260\026\260r\270\021\330\010 \240\002\240&\250\001\250\026\250r\260\023\260F\270\"\270A\330\010\036\230a\330\010\035\230Q\340\004\010\210\005\210U\220!\2201\330\010\023\2201\220E\230\021\330\010\013\2107\220!\2203\220c\230\021\330\014\030\230\001\230\037\250\007\250q\260\003\2602\260Q\330\014\033\2301\340\004\017\210q\220\001\220\021\220%\220q\340\004\013\210=\230\013\2402\240^\2601\200\001\360>\000\t\025\220C\220q\230\001\330\010\031\230\021\340\010\036\230b\240\006\240a\240w\250f\260A\330\010!\240\022\2406\250\021\250\047\260\026\260r\270\021\330\010 \240\002\240&\250\001\250\026\250r\260\023\260F\270\"\270A\330\010#\2401\330\010\036\230a\330\010\035\230Q\340\004\010\210\005\210U\220!\2201\330\010\023\2201\220E\230\021\330\010\013\2107\220!\2203\220c\230\021\330\014\025\220Q\220n\240A\240Q\240a\330\014\030\230\001\230\036\240w\250a\250s\260\"\260A\330\014\032\230!\340\004\017\210q\220\001\220\021\220%\220q\340\004\013\2108\2202\220]\240+\250R\250}\270A";
+    #else /* compression: none (4118 bytes) */
+static const char bytes[] = " at 0x object>.: <MemoryView of <contiguous and direct><contiguous and indirect><strided and direct or indirect><strided and direct><strided and indirect>>?Cannot assign to read-only memoryviewInvalid mode, expected \047c\047 or \047fortran\047, got Invalid shape in axis No matching signature foundNote that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the \047annotation_typing\047 directive to False.add_notecollections.abcdisabledouble complexenablefloat complexgcisenabledlong longno default __reduce__ due to non-trivial __cinit__numpy._core.multiarray failed to importnumpy._core.umath failed to importsrc/tabmat/ext/categorical.pyxunable to allocate array data.unable to allocate shape and strides.|ASCIICiEllipsisSequenceView.MemoryView__Pyx_PyDict_NextRef__annotate____class____class_getitem____dict____func____getstate____import____main____module____name____new____pyx_checksum__pyx_state__pyx_type__pyx_unpickle_Enum__pyx_vtable____qualname____reduce____reduce_cython____reduce_ex____set_name____setstate____setstate_cython____test___fused_sigindex_is_coroutineabcallocate_bufferargsasarrayasyncio.coroutinesbaseccline_in_tracebackcolcol_idxcol_includedcolscols_includedcountddefaultsdoubledrop_firstdtypedtype_is_objectemptyencodeenumerateerrorflagsfloatformatfortrangetget_col_includediidindexindicesintint32itemsitemsizekk_idxkindkwargslongmatvec_complexmatvec_complex[const double[:],double[:]]matvec_complex[const float[:],float[:]]matvec_fastmatvec_fast[const double[:],double[:]]matvec_fast[const float[:],float[:]]memviewmodemultiply_complexmultiply_complex[double complex[:]]multiply_complex[double[:]]multiply_complex[float complex[:]]multiply_complex[float[:]]multiply_complex[int[:]]multiply_complex[long long[:]]multiply_complex[long[:]]multiply_complex[short[:]]n_colsn_cols_includedn_keep_rowsn_rowsnamencolsndimnew_datanew_indicesnew_indptrno_col_restrictionsno_row_restrictionsnonref_cntnon""zero_cntnpnrowsnumpyobjotheroutout_sizeout_vecpackpopregisterresrowrow_idxrowsrows_viewsandwich_categorical_complexsandwich_categorical_complex[const double[:]]sandwich_categorical_complex[const float[:]]sandwich_categorical_fastsandwich_categorical_fast[const double[:]]sandwich_categorical_fast[const float[:]]setdefaultshapeshortsignaturessizestartstepstopstructsubset_categorical_complextabmat.ext.categoricaltranspose_matvec_complextranspose_matvec_complex[const double[::1],double[::1]]transpose_matvec_complex[const float[::1],float[::1]]transpose_matvec_fasttranspose_matvec_fast[const double[::1],double[::1]]transpose_matvec_fast[const float[::1],float[::1]]unpackupdatevaluesvnew_datavnew_indicesvnew_indptrxzerosO\200\001\330\004\037\230r\240\026\240q\250\010\260\006\260b\270\001\330\004\037\230s\240!\2401\330\004\010\210\006\210e\2201\220A\330\010\024\220A\220T\230\021\230\047\240\021\330\004\013\2101\200\001\360\016\000\005\034\2302\230V\2401\240H\250F\260!\340\004\026\220c\230\021\230!\340\004\010\210\t\220\025\220a\220q\330\010\014\210D\220\001\220\021\330\010\022\220\047\230\021\230!\330\010\013\2101\210L\230\001\230\021\230!\330\004\013\2102\210X\220Q\220a\200\001\360\020\000\005\034\2302\230V\2401\240H\250F\260!\340\004\026\220c\230\021\230!\340\004\010\210\t\220\025\220a\220q\330\010\014\210D\220\001\220\021\330\010\022\220\047\230\021\230#\230R\230q\330\010\013\2108\2203\220a\330\014\017\210q\220\014\230A\230Q\230a\330\004\013\2102\210X\220Q\220a\200\001\360\024\000\005\027\220c\230\021\230!\330\004\030\230\003\2301\360\006\000\005%\240E\250\023\250E\260\023\260C\260q\270\006\270c\300\021\330\004$\240E\250\023\250E\260\023\260C\260q\270\006\270c\300\021\360\006\000\005\010\320\007\033\2304\230q\330\010\047\240q\250\010\260\001\260\027\270\001\270\024\270Q\270e\3001\300D\310\001\310\023\310A\310T\320QR\340\t\n\330\010\024\220A\330\010\026\220c\230\021\230!\330\010\014\210K\220u\230A\230Q\330\014\022\220)\2301\230A\330\014\017\210q\220\007\220q\230\t\240""\025\240a\240q\360\006\000\t\031\320\030(\250\001\250\026\250q\340\010\013\2101\330\014\020\220\013\2305\240\001\240\021\330\020\026\220g\230Q\230a\330\020\023\220=\240\001\240\021\330\024\027\220q\230\010\240\005\240Q\240a\360\006\000\r\031\230\001\330\014\032\230#\230Q\230a\330\014\020\220\013\2305\240\001\240\021\330\020\026\220i\230q\240\001\330\020\026\220g\230Q\230a\330\020\023\220=\240\001\240\021\330\024\027\220q\230\010\240\005\240Q\240a\200\001\360\026\000\005\027\220c\230\021\230!\330\004\030\230\003\2301\360\006\000\005%\240E\250\023\250E\260\023\260C\260q\270\006\270c\300\021\330\004$\240E\250\023\250E\260\023\260C\260q\270\006\270c\300\021\360\006\000\005\010\320\007\033\2304\230q\330\010*\250!\2508\2601\260G\2701\270D\300\001\300\025\300a\300t\3101\310C\310q\320PT\320T^\320^_\340\t\n\330\010\024\220A\330\010\026\220c\230\021\230!\330\010\014\210K\220u\230A\230Q\330\014\022\220)\2301\230A\330\014\026\220g\230Q\230e\2402\240Q\330\014\017\210x\220s\230!\330\020\023\2201\220L\240\005\240Q\240a\360\006\000\t\031\320\030(\250\001\250\026\250q\340\010\013\2101\330\014\020\220\013\2305\240\001\240\021\330\020\032\230\047\240\021\240)\2502\250Q\330\020\024\220H\230C\230s\240%\240}\260A\260Q\330\024\027\220q\230\014\240E\250\021\250!\360\006\000\r\031\230\001\330\014\032\230#\230Q\230a\330\014\020\220\013\2305\240\001\240\021\330\020\026\220i\230q\240\001\330\020\032\230\047\240\021\240%\240r\250\021\330\020\024\220H\230C\230s\240%\240}\260A\260Q\330\024\027\220q\230\014\240E\250\021\250!\200\001\360\034\000\005\010\200u\210C\210q\330\014\027\220q\230\001\330\014\023\2201\220F\230%\230q\240\007\240q\250\001\340\010\027\320\027\047\240q\250\006\250a\330\014\027\220q\230\001\330\014\026\220g\230Q\230a\330\014\017\210|\2301\230I\240S\250\001\330\020\027\220q\230\006\230e\2401\240A\330\004\005\200\001\360\036\000\005\010\200u\210C\210q\330\014\027\220q\230\001\330\014\026\220g\230Q\230c\240\022\2401\330\014\017\210x\220s\230!\330\020\027\220q\230\006\230e\2401\240A""\340\010\027\320\027\047\240q\250\006\250a\330\014\027\220q\230\001\330\014\026\220g\230Q\230c\240\022\2401\330\014\020\220\010\230\003\2303\230e\240<\250q\260\t\270\023\270A\330\020\027\220q\230\006\230e\2401\240A\330\004\005\200\001\3602\000\t\025\220C\220q\230\001\330\010\032\230!\340\010!\240\022\2406\250\021\250\047\260\026\260r\270\021\330\010 \240\002\240&\250\001\250\026\250r\260\023\260F\270\"\270A\330\010\036\230a\330\010\035\230Q\340\004\010\210\005\210U\220!\2201\330\010\023\2201\220E\230\021\330\010\013\2107\220!\2203\220c\230\021\330\014\030\230\001\230\037\250\007\250q\260\003\2602\260Q\330\014\033\2301\340\004\017\210q\220\001\220\021\220%\220q\340\004\013\210=\230\013\2402\240^\2601\200\001\360>\000\t\025\220C\220q\230\001\330\010\031\230\021\340\010\036\230b\240\006\240a\240w\250f\260A\330\010!\240\022\2406\250\021\250\047\260\026\260r\270\021\330\010 \240\002\240&\250\001\250\026\250r\260\023\260F\270\"\270A\330\010#\2401\330\010\036\230a\330\010\035\230Q\340\004\010\210\005\210U\220!\2201\330\010\023\2201\220E\230\021\330\010\013\2107\220!\2203\220c\230\021\330\014\025\220Q\220n\240A\240Q\240a\330\014\030\230\001\230\036\240w\250a\250s\260\"\260A\330\014\032\230!\340\004\017\210q\220\001\220\021\220%\220q\340\004\013\2108\2202\220]\240+\250R\250}\270A";
     PyObject *data = NULL;
     #define __Pyx_DecompressString_UNUSED
     #define __Pyx_DecompressString_LZSS_UNUSED
@@ -39770,32 +40669,32 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
   {
     const __Pyx_PyCode_New_function_description descr = {7, 0, 0, 7, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 23};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_indices, __pyx_mstate->__pyx_n_u_other, __pyx_mstate->__pyx_n_u_n_cols, __pyx_mstate->__pyx_n_u_dtype, __pyx_mstate->__pyx_n_u_rows, __pyx_mstate->__pyx_n_u_cols, __pyx_mstate->__pyx_n_u_out};
-    __pyx_mstate_global->__pyx_codeobj_tab[0] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_tabmat_ext_categorical_pyx, __pyx_mstate->__pyx_n_u_transpose_matvec_fast_float_floa, __pyx_mstate->__pyx_kp_b_iso88591_c_1_E_E_Cq_c_E_E_Cq_c_4q_q_Qe1D, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[0])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[0] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_tabmat_ext_categorical_pyx, __pyx_mstate->__pyx_n_u_transpose_matvec_fast_const_floa, __pyx_mstate->__pyx_kp_b_iso88591_c_1_E_E_Cq_c_E_E_Cq_c_4q_q_Qe1D, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[0])) goto bad;
   }
   {
     const __Pyx_PyCode_New_function_description descr = {7, 0, 0, 7, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 23};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_indices, __pyx_mstate->__pyx_n_u_other, __pyx_mstate->__pyx_n_u_n_cols, __pyx_mstate->__pyx_n_u_dtype, __pyx_mstate->__pyx_n_u_rows, __pyx_mstate->__pyx_n_u_cols, __pyx_mstate->__pyx_n_u_out};
-    __pyx_mstate_global->__pyx_codeobj_tab[1] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_tabmat_ext_categorical_pyx, __pyx_mstate->__pyx_n_u_transpose_matvec_fast_double_dou, __pyx_mstate->__pyx_kp_b_iso88591_c_1_E_E_Cq_c_E_E_Cq_c_4q_q_Qe1D, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[1])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[1] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_tabmat_ext_categorical_pyx, __pyx_mstate->__pyx_n_u_transpose_matvec_fast_const_doub, __pyx_mstate->__pyx_kp_b_iso88591_c_1_E_E_Cq_c_E_E_Cq_c_4q_q_Qe1D, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[1])) goto bad;
   }
   {
     const __Pyx_PyCode_New_function_description descr = {7, 0, 0, 17, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 23};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_indices, __pyx_mstate->__pyx_n_u_other, __pyx_mstate->__pyx_n_u_n_cols, __pyx_mstate->__pyx_n_u_dtype, __pyx_mstate->__pyx_n_u_rows, __pyx_mstate->__pyx_n_u_cols, __pyx_mstate->__pyx_n_u_out, __pyx_mstate->__pyx_n_u_row, __pyx_mstate->__pyx_n_u_row_idx, __pyx_mstate->__pyx_n_u_n_keep_rows, __pyx_mstate->__pyx_n_u_col, __pyx_mstate->__pyx_n_u_n_rows, __pyx_mstate->__pyx_n_u_out_size, __pyx_mstate->__pyx_n_u_rows_view, __pyx_mstate->__pyx_n_u_cols_included, __pyx_mstate->__pyx_n_u_no_row_restrictions, __pyx_mstate->__pyx_n_u_no_col_restrictions};
-    __pyx_mstate_global->__pyx_codeobj_tab[2] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_tabmat_ext_categorical_pyx, __pyx_mstate->__pyx_n_u_transpose_matvec_fast_float_floa, __pyx_mstate->__pyx_kp_b_iso88591_c_1_E_E_Cq_c_E_E_Cq_c_4q_q_Qe1D, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[2])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[2] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_tabmat_ext_categorical_pyx, __pyx_mstate->__pyx_n_u_transpose_matvec_fast_const_floa, __pyx_mstate->__pyx_kp_b_iso88591_c_1_E_E_Cq_c_E_E_Cq_c_4q_q_Qe1D, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[2])) goto bad;
   }
   {
     const __Pyx_PyCode_New_function_description descr = {8, 0, 0, 8, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 70};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_indices, __pyx_mstate->__pyx_n_u_other, __pyx_mstate->__pyx_n_u_n_cols, __pyx_mstate->__pyx_n_u_dtype, __pyx_mstate->__pyx_n_u_rows, __pyx_mstate->__pyx_n_u_cols, __pyx_mstate->__pyx_n_u_out, __pyx_mstate->__pyx_n_u_drop_first};
-    __pyx_mstate_global->__pyx_codeobj_tab[3] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_tabmat_ext_categorical_pyx, __pyx_mstate->__pyx_n_u_transpose_matvec_complex_float_f, __pyx_mstate->__pyx_kp_b_iso88591_c_1_E_E_Cq_c_E_E_Cq_c_4q_81G1D, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[3])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[3] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_tabmat_ext_categorical_pyx, __pyx_mstate->__pyx_n_u_transpose_matvec_complex_const_f, __pyx_mstate->__pyx_kp_b_iso88591_c_1_E_E_Cq_c_E_E_Cq_c_4q_81G1D, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[3])) goto bad;
   }
   {
     const __Pyx_PyCode_New_function_description descr = {8, 0, 0, 8, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 70};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_indices, __pyx_mstate->__pyx_n_u_other, __pyx_mstate->__pyx_n_u_n_cols, __pyx_mstate->__pyx_n_u_dtype, __pyx_mstate->__pyx_n_u_rows, __pyx_mstate->__pyx_n_u_cols, __pyx_mstate->__pyx_n_u_out, __pyx_mstate->__pyx_n_u_drop_first};
-    __pyx_mstate_global->__pyx_codeobj_tab[4] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_tabmat_ext_categorical_pyx, __pyx_mstate->__pyx_n_u_transpose_matvec_complex_double, __pyx_mstate->__pyx_kp_b_iso88591_c_1_E_E_Cq_c_E_E_Cq_c_4q_81G1D, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[4])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[4] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_tabmat_ext_categorical_pyx, __pyx_mstate->__pyx_n_u_transpose_matvec_complex_const_d, __pyx_mstate->__pyx_kp_b_iso88591_c_1_E_E_Cq_c_E_E_Cq_c_4q_81G1D, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[4])) goto bad;
   }
   {
     const __Pyx_PyCode_New_function_description descr = {8, 0, 0, 18, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 70};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_indices, __pyx_mstate->__pyx_n_u_other, __pyx_mstate->__pyx_n_u_n_cols, __pyx_mstate->__pyx_n_u_dtype, __pyx_mstate->__pyx_n_u_rows, __pyx_mstate->__pyx_n_u_cols, __pyx_mstate->__pyx_n_u_out, __pyx_mstate->__pyx_n_u_drop_first, __pyx_mstate->__pyx_n_u_row, __pyx_mstate->__pyx_n_u_row_idx, __pyx_mstate->__pyx_n_u_n_keep_rows, __pyx_mstate->__pyx_n_u_col_idx, __pyx_mstate->__pyx_n_u_n_rows, __pyx_mstate->__pyx_n_u_out_size, __pyx_mstate->__pyx_n_u_rows_view, __pyx_mstate->__pyx_n_u_cols_included, __pyx_mstate->__pyx_n_u_no_row_restrictions, __pyx_mstate->__pyx_n_u_no_col_restrictions};
-    __pyx_mstate_global->__pyx_codeobj_tab[5] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_tabmat_ext_categorical_pyx, __pyx_mstate->__pyx_n_u_transpose_matvec_complex_float_f, __pyx_mstate->__pyx_kp_b_iso88591_c_1_E_E_Cq_c_E_E_Cq_c_4q_81G1D, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[5])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[5] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_tabmat_ext_categorical_pyx, __pyx_mstate->__pyx_n_u_transpose_matvec_complex_const_f, __pyx_mstate->__pyx_kp_b_iso88591_c_1_E_E_Cq_c_E_E_Cq_c_4q_81G1D, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[5])) goto bad;
   }
   {
     const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 120};
@@ -39805,62 +40704,62 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
   {
     const __Pyx_PyCode_New_function_description descr = {6, 0, 0, 6, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 128};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_indices, __pyx_mstate->__pyx_n_u_other, __pyx_mstate->__pyx_n_u_n_rows, __pyx_mstate->__pyx_n_u_cols, __pyx_mstate->__pyx_n_u_n_cols, __pyx_mstate->__pyx_n_u_out_vec};
-    __pyx_mstate_global->__pyx_codeobj_tab[7] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_tabmat_ext_categorical_pyx, __pyx_mstate->__pyx_n_u_matvec_fast_float_float, __pyx_mstate->__pyx_kp_b_iso88591_uCq_q_1F_q_q_q_a_q_gQa_1IS_q_e1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[7])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[7] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_tabmat_ext_categorical_pyx, __pyx_mstate->__pyx_n_u_matvec_fast_const_float_float, __pyx_mstate->__pyx_kp_b_iso88591_uCq_q_1F_q_q_q_a_q_gQa_1IS_q_e1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[7])) goto bad;
   }
   {
     const __Pyx_PyCode_New_function_description descr = {6, 0, 0, 6, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 128};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_indices, __pyx_mstate->__pyx_n_u_other, __pyx_mstate->__pyx_n_u_n_rows, __pyx_mstate->__pyx_n_u_cols, __pyx_mstate->__pyx_n_u_n_cols, __pyx_mstate->__pyx_n_u_out_vec};
-    __pyx_mstate_global->__pyx_codeobj_tab[8] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_tabmat_ext_categorical_pyx, __pyx_mstate->__pyx_n_u_matvec_fast_double_double, __pyx_mstate->__pyx_kp_b_iso88591_uCq_q_1F_q_q_q_a_q_gQa_1IS_q_e1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[8])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[8] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_tabmat_ext_categorical_pyx, __pyx_mstate->__pyx_n_u_matvec_fast_const_double_double, __pyx_mstate->__pyx_kp_b_iso88591_uCq_q_1F_q_q_q_a_q_gQa_1IS_q_e1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[8])) goto bad;
   }
   {
     const __Pyx_PyCode_New_function_description descr = {6, 0, 0, 9, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 128};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_indices, __pyx_mstate->__pyx_n_u_other, __pyx_mstate->__pyx_n_u_n_rows, __pyx_mstate->__pyx_n_u_cols, __pyx_mstate->__pyx_n_u_n_cols, __pyx_mstate->__pyx_n_u_out_vec, __pyx_mstate->__pyx_n_u_i, __pyx_mstate->__pyx_n_u_col_idx, __pyx_mstate->__pyx_n_u_col_included};
-    __pyx_mstate_global->__pyx_codeobj_tab[9] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_tabmat_ext_categorical_pyx, __pyx_mstate->__pyx_n_u_matvec_fast_float_float, __pyx_mstate->__pyx_kp_b_iso88591_uCq_q_1F_q_q_q_a_q_gQa_1IS_q_e1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[9])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[9] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_tabmat_ext_categorical_pyx, __pyx_mstate->__pyx_n_u_matvec_fast_const_float_float, __pyx_mstate->__pyx_kp_b_iso88591_uCq_q_1F_q_q_q_a_q_gQa_1IS_q_e1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[9])) goto bad;
   }
   {
     const __Pyx_PyCode_New_function_description descr = {7, 0, 0, 7, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 154};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_indices, __pyx_mstate->__pyx_n_u_other, __pyx_mstate->__pyx_n_u_n_rows, __pyx_mstate->__pyx_n_u_cols, __pyx_mstate->__pyx_n_u_n_cols, __pyx_mstate->__pyx_n_u_out_vec, __pyx_mstate->__pyx_n_u_drop_first};
-    __pyx_mstate_global->__pyx_codeobj_tab[10] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_tabmat_ext_categorical_pyx, __pyx_mstate->__pyx_n_u_matvec_complex_float_float, __pyx_mstate->__pyx_kp_b_iso88591_uCq_q_gQc_1_xs_q_e1A_q_a_q_gQc, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[10])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[10] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_tabmat_ext_categorical_pyx, __pyx_mstate->__pyx_n_u_matvec_complex_const_float_float, __pyx_mstate->__pyx_kp_b_iso88591_uCq_q_gQc_1_xs_q_e1A_q_a_q_gQc, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[10])) goto bad;
   }
   {
     const __Pyx_PyCode_New_function_description descr = {7, 0, 0, 7, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 154};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_indices, __pyx_mstate->__pyx_n_u_other, __pyx_mstate->__pyx_n_u_n_rows, __pyx_mstate->__pyx_n_u_cols, __pyx_mstate->__pyx_n_u_n_cols, __pyx_mstate->__pyx_n_u_out_vec, __pyx_mstate->__pyx_n_u_drop_first};
-    __pyx_mstate_global->__pyx_codeobj_tab[11] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_tabmat_ext_categorical_pyx, __pyx_mstate->__pyx_n_u_matvec_complex_double_double, __pyx_mstate->__pyx_kp_b_iso88591_uCq_q_gQc_1_xs_q_e1A_q_a_q_gQc, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[11])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[11] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_tabmat_ext_categorical_pyx, __pyx_mstate->__pyx_n_u_matvec_complex_const_double_doub, __pyx_mstate->__pyx_kp_b_iso88591_uCq_q_gQc_1_xs_q_e1A_q_a_q_gQc, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[11])) goto bad;
   }
   {
     const __Pyx_PyCode_New_function_description descr = {7, 0, 0, 10, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 154};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_indices, __pyx_mstate->__pyx_n_u_other, __pyx_mstate->__pyx_n_u_n_rows, __pyx_mstate->__pyx_n_u_cols, __pyx_mstate->__pyx_n_u_n_cols, __pyx_mstate->__pyx_n_u_out_vec, __pyx_mstate->__pyx_n_u_drop_first, __pyx_mstate->__pyx_n_u_i, __pyx_mstate->__pyx_n_u_col_idx, __pyx_mstate->__pyx_n_u_col_included};
-    __pyx_mstate_global->__pyx_codeobj_tab[12] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_tabmat_ext_categorical_pyx, __pyx_mstate->__pyx_n_u_matvec_complex_float_float, __pyx_mstate->__pyx_kp_b_iso88591_uCq_q_gQc_1_xs_q_e1A_q_a_q_gQc, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[12])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[12] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_tabmat_ext_categorical_pyx, __pyx_mstate->__pyx_n_u_matvec_complex_const_float_float, __pyx_mstate->__pyx_kp_b_iso88591_uCq_q_gQc_1_xs_q_e1A_q_a_q_gQc, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[12])) goto bad;
   }
   {
     const __Pyx_PyCode_New_function_description descr = {5, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 183};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_indices, __pyx_mstate->__pyx_n_u_d, __pyx_mstate->__pyx_n_u_rows, __pyx_mstate->__pyx_n_u_dtype, __pyx_mstate->__pyx_n_u_n_cols};
-    __pyx_mstate_global->__pyx_codeobj_tab[13] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_tabmat_ext_categorical_pyx, __pyx_mstate->__pyx_n_u_sandwich_categorical_fast_float, __pyx_mstate->__pyx_kp_b_iso88591_2V1HF_c_aq_D_1L_2XQa, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[13])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[13] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_tabmat_ext_categorical_pyx, __pyx_mstate->__pyx_n_u_sandwich_categorical_fast_const, __pyx_mstate->__pyx_kp_b_iso88591_2V1HF_c_aq_D_1L_2XQa, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[13])) goto bad;
   }
   {
     const __Pyx_PyCode_New_function_description descr = {5, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 183};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_indices, __pyx_mstate->__pyx_n_u_d, __pyx_mstate->__pyx_n_u_rows, __pyx_mstate->__pyx_n_u_dtype, __pyx_mstate->__pyx_n_u_n_cols};
-    __pyx_mstate_global->__pyx_codeobj_tab[14] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_tabmat_ext_categorical_pyx, __pyx_mstate->__pyx_n_u_sandwich_categorical_fast_double, __pyx_mstate->__pyx_kp_b_iso88591_2V1HF_c_aq_D_1L_2XQa, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[14])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[14] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_tabmat_ext_categorical_pyx, __pyx_mstate->__pyx_n_u_sandwich_categorical_fast_const_2, __pyx_mstate->__pyx_kp_b_iso88591_2V1HF_c_aq_D_1L_2XQa, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[14])) goto bad;
   }
   {
     const __Pyx_PyCode_New_function_description descr = {5, 0, 0, 10, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 183};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_indices, __pyx_mstate->__pyx_n_u_d, __pyx_mstate->__pyx_n_u_rows, __pyx_mstate->__pyx_n_u_dtype, __pyx_mstate->__pyx_n_u_n_cols, __pyx_mstate->__pyx_n_u_res, __pyx_mstate->__pyx_n_u_col_idx, __pyx_mstate->__pyx_n_u_k, __pyx_mstate->__pyx_n_u_k_idx, __pyx_mstate->__pyx_n_u_n_rows};
-    __pyx_mstate_global->__pyx_codeobj_tab[15] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_tabmat_ext_categorical_pyx, __pyx_mstate->__pyx_n_u_sandwich_categorical_fast_float, __pyx_mstate->__pyx_kp_b_iso88591_2V1HF_c_aq_D_1L_2XQa, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[15])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[15] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_tabmat_ext_categorical_pyx, __pyx_mstate->__pyx_n_u_sandwich_categorical_fast_const, __pyx_mstate->__pyx_kp_b_iso88591_2V1HF_c_aq_D_1L_2XQa, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[15])) goto bad;
   }
   {
     const __Pyx_PyCode_New_function_description descr = {6, 0, 0, 6, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 201};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_indices, __pyx_mstate->__pyx_n_u_d, __pyx_mstate->__pyx_n_u_rows, __pyx_mstate->__pyx_n_u_dtype, __pyx_mstate->__pyx_n_u_n_cols, __pyx_mstate->__pyx_n_u_drop_first};
-    __pyx_mstate_global->__pyx_codeobj_tab[16] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_tabmat_ext_categorical_pyx, __pyx_mstate->__pyx_n_u_sandwich_categorical_complex_flo, __pyx_mstate->__pyx_kp_b_iso88591_2V1HF_c_aq_D_Rq_83a_q_AQa_2XQa, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[16])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[16] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_tabmat_ext_categorical_pyx, __pyx_mstate->__pyx_n_u_sandwich_categorical_complex_con, __pyx_mstate->__pyx_kp_b_iso88591_2V1HF_c_aq_D_Rq_83a_q_AQa_2XQa, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[16])) goto bad;
   }
   {
     const __Pyx_PyCode_New_function_description descr = {6, 0, 0, 6, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 201};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_indices, __pyx_mstate->__pyx_n_u_d, __pyx_mstate->__pyx_n_u_rows, __pyx_mstate->__pyx_n_u_dtype, __pyx_mstate->__pyx_n_u_n_cols, __pyx_mstate->__pyx_n_u_drop_first};
-    __pyx_mstate_global->__pyx_codeobj_tab[17] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_tabmat_ext_categorical_pyx, __pyx_mstate->__pyx_n_u_sandwich_categorical_complex_dou, __pyx_mstate->__pyx_kp_b_iso88591_2V1HF_c_aq_D_Rq_83a_q_AQa_2XQa, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[17])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[17] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_tabmat_ext_categorical_pyx, __pyx_mstate->__pyx_n_u_sandwich_categorical_complex_con_2, __pyx_mstate->__pyx_kp_b_iso88591_2V1HF_c_aq_D_Rq_83a_q_AQa_2XQa, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[17])) goto bad;
   }
   {
     const __Pyx_PyCode_New_function_description descr = {6, 0, 0, 11, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 201};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_indices, __pyx_mstate->__pyx_n_u_d, __pyx_mstate->__pyx_n_u_rows, __pyx_mstate->__pyx_n_u_dtype, __pyx_mstate->__pyx_n_u_n_cols, __pyx_mstate->__pyx_n_u_drop_first, __pyx_mstate->__pyx_n_u_res, __pyx_mstate->__pyx_n_u_col_idx, __pyx_mstate->__pyx_n_u_k, __pyx_mstate->__pyx_n_u_k_idx, __pyx_mstate->__pyx_n_u_n_rows};
-    __pyx_mstate_global->__pyx_codeobj_tab[18] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_tabmat_ext_categorical_pyx, __pyx_mstate->__pyx_n_u_sandwich_categorical_complex_flo, __pyx_mstate->__pyx_kp_b_iso88591_2V1HF_c_aq_D_Rq_83a_q_AQa_2XQa, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[18])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[18] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_src_tabmat_ext_categorical_pyx, __pyx_mstate->__pyx_n_u_sandwich_categorical_complex_con, __pyx_mstate->__pyx_kp_b_iso88591_2V1HF_c_aq_D_Rq_83a_q_AQa_2XQa, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[18])) goto bad;
   }
   {
     const __Pyx_PyCode_New_function_description descr = {5, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 221};
@@ -47545,18 +48444,18 @@ no_fail:
 }
 
 /* ObjectToMemviewSlice */
-static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_ds_float(PyObject *obj, int writable_flag) {
+static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_dc_float__const__(PyObject *obj, int writable_flag) {
     __Pyx_memviewslice result = __Pyx_MEMSLICE_INIT;
     __Pyx_BufFmt_StackElem stack[1];
-    int axes_specs[] = { (__Pyx_MEMVIEW_DIRECT | __Pyx_MEMVIEW_STRIDED) };
+    int axes_specs[] = { (__Pyx_MEMVIEW_DIRECT | __Pyx_MEMVIEW_CONTIG) };
     int retcode;
     if (obj == Py_None) {
         result.memview = (struct __pyx_memoryview_obj *) Py_None;
         return result;
     }
-    retcode = __Pyx_ValidateAndInit_memviewslice(axes_specs, 0,
-                                                 PyBUF_RECORDS_RO | writable_flag, 1,
-                                                 &__Pyx_TypeInfo_float, stack,
+    retcode = __Pyx_ValidateAndInit_memviewslice(axes_specs, __Pyx_IS_C_CONTIG,
+                                                 (PyBUF_C_CONTIGUOUS | PyBUF_FORMAT) | writable_flag, 1,
+                                                 &__Pyx_TypeInfo_float__const__, stack,
                                                  &result, obj);
     if (unlikely(retcode == -1))
         goto __pyx_fail;
@@ -47568,7 +48467,30 @@ __pyx_fail:
 }
 
 /* ObjectToMemviewSlice */
-static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_ds_double(PyObject *obj, int writable_flag) {
+static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_dc_double__const__(PyObject *obj, int writable_flag) {
+    __Pyx_memviewslice result = __Pyx_MEMSLICE_INIT;
+    __Pyx_BufFmt_StackElem stack[1];
+    int axes_specs[] = { (__Pyx_MEMVIEW_DIRECT | __Pyx_MEMVIEW_CONTIG) };
+    int retcode;
+    if (obj == Py_None) {
+        result.memview = (struct __pyx_memoryview_obj *) Py_None;
+        return result;
+    }
+    retcode = __Pyx_ValidateAndInit_memviewslice(axes_specs, __Pyx_IS_C_CONTIG,
+                                                 (PyBUF_C_CONTIGUOUS | PyBUF_FORMAT) | writable_flag, 1,
+                                                 &__Pyx_TypeInfo_double__const__, stack,
+                                                 &result, obj);
+    if (unlikely(retcode == -1))
+        goto __pyx_fail;
+    return result;
+__pyx_fail:
+    result.memview = NULL;
+    result.data = NULL;
+    return result;
+}
+
+/* ObjectToMemviewSlice */
+static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_ds_float__const__(PyObject *obj, int writable_flag) {
     __Pyx_memviewslice result = __Pyx_MEMSLICE_INIT;
     __Pyx_BufFmt_StackElem stack[1];
     int axes_specs[] = { (__Pyx_MEMVIEW_DIRECT | __Pyx_MEMVIEW_STRIDED) };
@@ -47579,7 +48501,30 @@ static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_ds_dou
     }
     retcode = __Pyx_ValidateAndInit_memviewslice(axes_specs, 0,
                                                  PyBUF_RECORDS_RO | writable_flag, 1,
-                                                 &__Pyx_TypeInfo_double, stack,
+                                                 &__Pyx_TypeInfo_float__const__, stack,
+                                                 &result, obj);
+    if (unlikely(retcode == -1))
+        goto __pyx_fail;
+    return result;
+__pyx_fail:
+    result.memview = NULL;
+    result.data = NULL;
+    return result;
+}
+
+/* ObjectToMemviewSlice */
+static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_ds_double__const__(PyObject *obj, int writable_flag) {
+    __Pyx_memviewslice result = __Pyx_MEMSLICE_INIT;
+    __Pyx_BufFmt_StackElem stack[1];
+    int axes_specs[] = { (__Pyx_MEMVIEW_DIRECT | __Pyx_MEMVIEW_STRIDED) };
+    int retcode;
+    if (obj == Py_None) {
+        result.memview = (struct __pyx_memoryview_obj *) Py_None;
+        return result;
+    }
+    retcode = __Pyx_ValidateAndInit_memviewslice(axes_specs, 0,
+                                                 PyBUF_RECORDS_RO | writable_flag, 1,
+                                                 &__Pyx_TypeInfo_double__const__, stack,
                                                  &result, obj);
     if (unlikely(retcode == -1))
         goto __pyx_fail;
@@ -47649,6 +48594,52 @@ static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_ds_lon
     retcode = __Pyx_ValidateAndInit_memviewslice(axes_specs, 0,
                                                  PyBUF_RECORDS_RO | writable_flag, 1,
                                                  &__Pyx_TypeInfo_long, stack,
+                                                 &result, obj);
+    if (unlikely(retcode == -1))
+        goto __pyx_fail;
+    return result;
+__pyx_fail:
+    result.memview = NULL;
+    result.data = NULL;
+    return result;
+}
+
+/* ObjectToMemviewSlice */
+static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_ds_float(PyObject *obj, int writable_flag) {
+    __Pyx_memviewslice result = __Pyx_MEMSLICE_INIT;
+    __Pyx_BufFmt_StackElem stack[1];
+    int axes_specs[] = { (__Pyx_MEMVIEW_DIRECT | __Pyx_MEMVIEW_STRIDED) };
+    int retcode;
+    if (obj == Py_None) {
+        result.memview = (struct __pyx_memoryview_obj *) Py_None;
+        return result;
+    }
+    retcode = __Pyx_ValidateAndInit_memviewslice(axes_specs, 0,
+                                                 PyBUF_RECORDS_RO | writable_flag, 1,
+                                                 &__Pyx_TypeInfo_float, stack,
+                                                 &result, obj);
+    if (unlikely(retcode == -1))
+        goto __pyx_fail;
+    return result;
+__pyx_fail:
+    result.memview = NULL;
+    result.data = NULL;
+    return result;
+}
+
+/* ObjectToMemviewSlice */
+static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_ds_double(PyObject *obj, int writable_flag) {
+    __Pyx_memviewslice result = __Pyx_MEMSLICE_INIT;
+    __Pyx_BufFmt_StackElem stack[1];
+    int axes_specs[] = { (__Pyx_MEMVIEW_DIRECT | __Pyx_MEMVIEW_STRIDED) };
+    int retcode;
+    if (obj == Py_None) {
+        result.memview = (struct __pyx_memoryview_obj *) Py_None;
+        return result;
+    }
+    retcode = __Pyx_ValidateAndInit_memviewslice(axes_specs, 0,
+                                                 PyBUF_RECORDS_RO | writable_flag, 1,
+                                                 &__Pyx_TypeInfo_double, stack,
                                                  &result, obj);
     if (unlikely(retcode == -1))
         goto __pyx_fail;
@@ -47772,6 +48763,52 @@ __pyx_fail:
         }\
         return (target_type) value;\
     }
+
+/* ObjectToMemviewSlice */
+static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_dc_float(PyObject *obj, int writable_flag) {
+    __Pyx_memviewslice result = __Pyx_MEMSLICE_INIT;
+    __Pyx_BufFmt_StackElem stack[1];
+    int axes_specs[] = { (__Pyx_MEMVIEW_DIRECT | __Pyx_MEMVIEW_CONTIG) };
+    int retcode;
+    if (obj == Py_None) {
+        result.memview = (struct __pyx_memoryview_obj *) Py_None;
+        return result;
+    }
+    retcode = __Pyx_ValidateAndInit_memviewslice(axes_specs, __Pyx_IS_C_CONTIG,
+                                                 (PyBUF_C_CONTIGUOUS | PyBUF_FORMAT) | writable_flag, 1,
+                                                 &__Pyx_TypeInfo_float, stack,
+                                                 &result, obj);
+    if (unlikely(retcode == -1))
+        goto __pyx_fail;
+    return result;
+__pyx_fail:
+    result.memview = NULL;
+    result.data = NULL;
+    return result;
+}
+
+/* ObjectToMemviewSlice */
+static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_dc_double(PyObject *obj, int writable_flag) {
+    __Pyx_memviewslice result = __Pyx_MEMSLICE_INIT;
+    __Pyx_BufFmt_StackElem stack[1];
+    int axes_specs[] = { (__Pyx_MEMVIEW_DIRECT | __Pyx_MEMVIEW_CONTIG) };
+    int retcode;
+    if (obj == Py_None) {
+        result.memview = (struct __pyx_memoryview_obj *) Py_None;
+        return result;
+    }
+    retcode = __Pyx_ValidateAndInit_memviewslice(axes_specs, __Pyx_IS_C_CONTIG,
+                                                 (PyBUF_C_CONTIGUOUS | PyBUF_FORMAT) | writable_flag, 1,
+                                                 &__Pyx_TypeInfo_double, stack,
+                                                 &result, obj);
+    if (unlikely(retcode == -1))
+        goto __pyx_fail;
+    return result;
+__pyx_fail:
+    result.memview = NULL;
+    result.data = NULL;
+    return result;
+}
 
 /* Declarations */
 #if CYTHON_CCOMPLEX && (1) && (!0 || __cplusplus)

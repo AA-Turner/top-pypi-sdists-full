@@ -18,8 +18,9 @@ from papyrus_content.images.handlers import Caller, Handler, ImageOperationError
 
 from . import operations
 from .deliveries import Deliveries
+from .hashtags import story_hashtags
 from .operations import Services
-from .spend import SpendLedger
+from .spend import FunctionLedger
 from .x_account import AnnouncementError
 from .x_runner import SpendControl
 
@@ -56,6 +57,13 @@ class Functions:
 
     def status(self) -> dict:
         return self._call("announcementsXStatus", {})["status"]
+
+    def spent(self, account_id: str, start: Any) -> str | None:
+        """What the account spent on X in the cycle that starts on ``start``: the function reads it from the spend ledger, which a person's own client cannot."""
+        return self._call("announcementsXSpend", {"accountId": account_id, "cycleStart": start.isoformat()})["spent"]
+
+    def save_app(self, client_id: str, client_secret: str) -> dict:
+        return self._call("announcementsXSaveApp", {"clientId": client_id, "clientSecret": client_secret}, mutation=True)["status"]
 
 
 def _lazy_model() -> tuple[Callable[..., dict], Callable[..., dict]]:
@@ -131,14 +139,15 @@ def x_services(client: Any, environ: Mapping[str, str] | None = None, *, model: 
     functions = functions or Functions(client)
     style = environment.get(STYLE_ENV, "html")
     return XServices(settings=functions.read, connection=functions.status, story=lambda lineage: load_story(client, lineage, item_url_style=style), site_origin=origin,
-                     guidelines_for=guidelines_for, llm=llm, judge=judge, model=DEFAULT_LLM_MODEL, learned=learned, guideline_layers=guideline_layers)
+                     guidelines_for=guidelines_for, llm=llm, judge=judge, model=DEFAULT_LLM_MODEL, learned=learned, guideline_layers=guideline_layers,
+                     hashtags=lambda lineage: story_hashtags(client, lineage))
 
 
 def build_services(client: Any, environ: Mapping[str, str] | None = None, *, model: bool = False, llm: Any = None, judge: Any = None, guidelines_text: str | None = None,
                    files: Any = None, functions: Any = None) -> Services:
     functions = functions or Functions(client)
     x = x_services(client, environ, model=model, llm=llm, judge=judge, guidelines_text=guidelines_text, functions=functions)
-    return Services(client=client, x=x, control=SpendControl(settings=functions, connection=functions.status, ledger=SpendLedger(client)), deliveries=Deliveries(client, files))
+    return Services(client=client, x=x, control=SpendControl(settings=functions, connection=functions.status, ledger=FunctionLedger(functions)), deliveries=Deliveries(client, files))
 
 
 def _publication(client: Any) -> str:
@@ -198,6 +207,15 @@ def account_connect(client, arguments: dict, caller: Caller, services: Services)
     return Outcome(operations.account_connect_link(base), _publication(client))
 
 
+def account_set_app(client, arguments: dict, caller: Caller, services: Services) -> Outcome:
+    status = _refusal(lambda: services.control.settings.save_app(arguments["clientId"], arguments["clientSecret"]))
+    return Outcome({"status": status, "saved": True}, _publication(client))
+
+
+def hashtags_of(client, arguments: dict, caller: Caller, services: Services) -> Outcome:
+    return Outcome({"lineageId": arguments["story"], "hashtags": story_hashtags(client, arguments["story"])}, _publication(client))
+
+
 def blocked(client, arguments: dict, caller: Caller, services: Services) -> Outcome:
     return Outcome({"blocked": operations.blocked_stories(services)}, _publication(client))
 
@@ -218,7 +236,7 @@ def retry(client, arguments: dict, caller: Caller, services: Services) -> Outcom
 ANNOUNCEMENT_HANDLERS: dict[str, tuple[Callable[..., Outcome], bool]] = {
     "announcements_dry_run": (dry_run, True), "announcements_pause": (pause, False), "announcements_resume": (resume, False),
     "announcements_settings_show": (settings_show, False), "announcements_settings_set": (settings_set, False), "announcements_account_status": (account_status, False),
-    "announcements_account_connect": (account_connect, False), "announcements_blocked": (blocked, False), "announcements_retry": (retry, False),
+    "announcements_account_connect": (account_connect, False), "announcements_account_set_app": (account_set_app, False), "announcements_hashtags": (hashtags_of, False), "announcements_blocked": (blocked, False), "announcements_retry": (retry, False),
 }
 
 

@@ -1226,6 +1226,7 @@ class CfnTrustAnchor(
             ),
         
             # the properties below are optional
+            crl_dp_revocation_enabled=False,
             enabled=False,
             notification_settings=[rolesanywhere.CfnTrustAnchor.NotificationSettingProperty(
                 enabled=False,
@@ -1249,6 +1250,7 @@ class CfnTrustAnchor(
         *,
         name: builtins.str,
         source: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTrustAnchor.SourceProperty", typing.Dict[builtins.str, typing.Any]]],
+        crl_dp_revocation_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         notification_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTrustAnchor.NotificationSettingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1259,6 +1261,7 @@ class CfnTrustAnchor(
         :param id: Construct identifier for this resource (unique in its scope).
         :param name: The name of the trust anchor.
         :param source: The trust anchor type and its related certificate data.
+        :param crl_dp_revocation_enabled: 
         :param enabled: Indicates whether the trust anchor is enabled.
         :param notification_settings: A list of notification settings to be associated to the trust anchor.
         :param tags: The tags to attach to the trust anchor.
@@ -1270,6 +1273,7 @@ class CfnTrustAnchor(
         props = CfnTrustAnchorProps(
             name=name,
             source=source,
+            crl_dp_revocation_enabled=crl_dp_revocation_enabled,
             enabled=enabled,
             notification_settings=notification_settings,
             tags=tags,
@@ -1446,6 +1450,23 @@ class CfnTrustAnchor(
             type_hints = cached_type_hints(_typecheckingstub__b96b35b1c2f1a1254cda56368cc47ef0b688766951d9ea203e33c12867524fc6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "source", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="crlDpRevocationEnabled")
+    def crl_dp_revocation_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "crlDpRevocationEnabled"))
+
+    @crl_dp_revocation_enabled.setter
+    def crl_dp_revocation_enabled(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2fdd0ba0c7856d4881b740db08e06b9203d05e63b10676cf31a8b4caa0438515)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "crlDpRevocationEnabled", value)
 
     @builtins.property
     @jsii.member(jsii_name="enabled")
@@ -1781,6 +1802,7 @@ class CfnTrustAnchor(
     name_mapping={
         "name": "name",
         "source": "source",
+        "crl_dp_revocation_enabled": "crlDpRevocationEnabled",
         "enabled": "enabled",
         "notification_settings": "notificationSettings",
         "tags": "tags",
@@ -1792,6 +1814,7 @@ class CfnTrustAnchorProps:
         *,
         name: builtins.str,
         source: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTrustAnchor.SourceProperty", typing.Dict[builtins.str, typing.Any]]],
+        crl_dp_revocation_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         notification_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTrustAnchor.NotificationSettingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1800,6 +1823,7 @@ class CfnTrustAnchorProps:
 
         :param name: The name of the trust anchor.
         :param source: The trust anchor type and its related certificate data.
+        :param crl_dp_revocation_enabled: 
         :param enabled: Indicates whether the trust anchor is enabled.
         :param notification_settings: A list of notification settings to be associated to the trust anchor.
         :param tags: The tags to attach to the trust anchor.
@@ -1825,6 +1849,7 @@ class CfnTrustAnchorProps:
                 ),
             
                 # the properties below are optional
+                crl_dp_revocation_enabled=False,
                 enabled=False,
                 notification_settings=[rolesanywhere.CfnTrustAnchor.NotificationSettingProperty(
                     enabled=False,
@@ -1844,6 +1869,7 @@ class CfnTrustAnchorProps:
             type_hints = cached_type_hints(_typecheckingstub__aecfaf7030b586bd60e26cea2bf3123c06c4f75b114eeece3ea9fa0b08526da7)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument source", value=source, expected_type=type_hints["source"])
+            check_type(argname="argument crl_dp_revocation_enabled", value=crl_dp_revocation_enabled, expected_type=type_hints["crl_dp_revocation_enabled"])
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             check_type(argname="argument notification_settings", value=notification_settings, expected_type=type_hints["notification_settings"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -1851,6 +1877,8 @@ class CfnTrustAnchorProps:
             "name": name,
             "source": source,
         }
+        if crl_dp_revocation_enabled is not None:
+            self._values["crl_dp_revocation_enabled"] = crl_dp_revocation_enabled
         if enabled is not None:
             self._values["enabled"] = enabled
         if notification_settings is not None:
@@ -1879,6 +1907,16 @@ class CfnTrustAnchorProps:
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
         return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrustAnchor.SourceProperty"], result)
+
+    @builtins.property
+    def crl_dp_revocation_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rolesanywhere-trustanchor.html#cfn-rolesanywhere-trustanchor-crldprevocationenabled
+        '''
+        result = self._values.get("crl_dp_revocation_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def enabled(
@@ -2175,6 +2213,7 @@ def _typecheckingstub__0fba7372f75a907053dd110f3529fe09fcae6182a22a6de9556840fb3
     *,
     name: builtins.str,
     source: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTrustAnchor.SourceProperty, typing.Dict[builtins.str, typing.Any]]],
+    crl_dp_revocation_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     notification_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTrustAnchor.NotificationSettingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2234,6 +2273,12 @@ def _typecheckingstub__b96b35b1c2f1a1254cda56368cc47ef0b688766951d9ea203e33c1286
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__2fdd0ba0c7856d4881b740db08e06b9203d05e63b10676cf31a8b4caa0438515(
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__71c1dcfb08f1fa865b29567c29660256ff1249099dfa782cfa24a3d18aa3505b(
     value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
@@ -2282,6 +2327,7 @@ def _typecheckingstub__aecfaf7030b586bd60e26cea2bf3123c06c4f75b114eeece3ea9fa0b0
     *,
     name: builtins.str,
     source: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTrustAnchor.SourceProperty, typing.Dict[builtins.str, typing.Any]]],
+    crl_dp_revocation_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     notification_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTrustAnchor.NotificationSettingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,

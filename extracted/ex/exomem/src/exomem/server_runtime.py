@@ -22,6 +22,7 @@ import anyio
 
 from . import (
     env_compat,
+    foreground_priority,
     media_jobs,
     media_processing,
     metrics,
@@ -137,7 +138,7 @@ class LocalRuntimeActivation:
         self.fallback_seconds = fallback_seconds
         self._lock = threading.Lock()
         self._started = False
-        self._shutdown = threading.Event()
+        self._shutdown = foreground_priority.StopEvent()
         self._timer: threading.Timer | None = None
         self._thread: threading.Thread | None = None
         self.media_worker: Any | None = None
@@ -150,14 +151,16 @@ class LocalRuntimeActivation:
         self._catalogue_stop = threading.Event()
         # The recovery watcher runs until told to stop, so it has its own stop
         # event: every path that stops the other workers stops it too.
-        self._vocabulary_stop = threading.Event()
+        self._vocabulary_stop = foreground_priority.StopEvent()
         self.recall_reembed: Any | None = None
         self.retrieval_warmup: threading.Thread | None = None
         self.matrix_warmup: threading.Thread | None = None
         self.dreamer: Any | None = None
         self.graph_drain: threading.Thread | None = None
         self.original_fixity: threading.Thread | None = None
+        self.media_replicas: threading.Thread | None = None
         self.review_pass: threading.Thread | None = None
+        self.vault_backup: threading.Thread | None = None
         self.graph_cleanup_attempted = False
         # Set when this process builds an HTTP app, the only thing that serves
         # `/upload/sessions`; a stdio server never resumes their commits.
@@ -302,7 +305,9 @@ class LocalRuntimeActivation:
             ("vocabulary recovery", self._start_vocabulary_recovery),
             ("recall re-embed", self._start_recall_reembed),
             ("original fixity", self._start_original_fixity),
+            ("media replicas", self._start_media_replicas),
             ("review pass", self._start_review_pass),
+            ("vault backup", self._start_vault_backup),
             # Last: upkeep is the least important background work and must
             # never contend with admission, the watcher or graph convergence.
             ("dreamer", self._start_dreamer),
@@ -322,6 +327,11 @@ class LocalRuntimeActivation:
 
         watcher = self.file_watcher
         if watcher is None or not freshness.event_indexes_enabled():
+            return
+        if not watcher.seeds_recall_projections:
+            # A store-mode watcher's first pass is the importer's whole-vault sweep, which outlasts the
+            # wait on a large vault. A downgrade would then stop the importer for the life of the
+            # process, and readers answer from the store whether or not it has seeded.
             return
         try:
             seeded = watcher.wait_until_seeded(timeout=RECALL_SEED_WAIT_SECONDS)
@@ -395,10 +405,18 @@ class LocalRuntimeActivation:
             from . import original_fixity
 
             original_fixity.stop(worker=self.original_fixity)
+        if self.media_replicas is not None:
+            from . import media_replicas
+
+            media_replicas.stop(worker=self.media_replicas)
         if self.review_pass is not None:
             from . import review_pass
 
             review_pass.stop(worker=self.review_pass)
+        if self.vault_backup is not None:
+            from . import vault_backup
+
+            vault_backup.stop(worker=self.vault_backup)
         semantic_failure = None
         for label, worker in (
             ("semantic drain", self.semantic_drain),
@@ -484,6 +502,20 @@ class LocalRuntimeActivation:
         from . import original_fixity
 
         self.original_fixity = original_fixity.start(vault_root)
+
+    def _start_vault_backup(self, vault_root: Path) -> None:
+        """Keep the owner's backup current when a backup config names this vault, in the serving HTTP runtime only."""
+        if not self.serves_upload_sessions:
+            return
+        from . import vault_backup
+
+        self.vault_backup = vault_backup.start(vault_root)
+
+    def _start_media_replicas(self, vault_root: Path) -> None:
+        """Its own thread: copying to a replica store is long bulk work that fixity and extraction must not wait on."""
+        from . import media_replicas
+
+        self.media_replicas = media_replicas.start(vault_root)
 
     def _start_review_pass(self, vault_root: Path) -> None:
         """Keep the owner's review passes current, in the serving HTTP runtime only.
@@ -757,7 +789,7 @@ def drain_vocabulary_recovery(
     stops as soon as a pass processes nothing, when the projection never becomes
     current, or when the runtime shuts down. Returns the number of jobs drained.
     """
-    from . import vocabulary_delivery
+    from . import foreground_priority, vocabulary_delivery
     from .governance.principal import library_scope
     from .vault_store import graph_state
 
@@ -774,20 +806,22 @@ def drain_vocabulary_recovery(
             return 0
         shutdown.wait(0.25)
     drained = 0
-    for _ in range(max_passes):
-        if shutdown.is_set():
-            break
-        try:
-            with library_scope():
-                result = vocabulary_delivery.recover(vault_root)
-        except Exception:  # noqa: BLE001 - recovery retries on the next activation
-            log.warning("vocabulary recovery pass failed", exc_info=True)
-            break
-        processed = result.get("processed")
-        processed = processed if isinstance(processed, int) and processed > 0 else 0
-        drained += processed
-        if not processed:
-            break
+    # Bulk work: each job waits for a request in flight. Shutdown ends the loop between jobs, as before.
+    with foreground_priority.bulk():
+        for _ in range(max_passes):
+            if shutdown.is_set():
+                break
+            try:
+                with library_scope():
+                    result = vocabulary_delivery.recover(vault_root)
+            except Exception:  # noqa: BLE001 - recovery retries on the next activation
+                log.warning("vocabulary recovery pass failed", exc_info=True)
+                break
+            processed = result.get("processed")
+            processed = processed if isinstance(processed, int) and processed > 0 else 0
+            drained += processed
+            if not processed:
+                break
     if drained:
         log.info("drained %d queued vocabulary recovery job(s)", drained)
     return drained

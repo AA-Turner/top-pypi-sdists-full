@@ -395,8 +395,10 @@ impl IdListIds {
             return;
         }
         match &self.storage {
-            Storage::Image(image) if !image.is_mapped() => return,
-            Storage::Pending(p) if !p.requires_full_base && !p.base.is_mapped() => {
+            Storage::Image(image) if !image.needs_private_copy() => return,
+            Storage::Pending(p)
+                if !p.requires_full_base && !p.base.delta_base_image().needs_private_copy() =>
+            {
                 if p.changes.len() == 0 {
                     *self = Arc::clone(&p.base);
                 }
@@ -476,7 +478,11 @@ impl IdListIds {
         match &self.storage {
             Storage::Image(image) => image.is_mapped(),
             Storage::Overlay { .. } => true,
-            _ => false,
+            Storage::Pending(p) => {
+                let image = p.base.delta_base_image();
+                image.is_mapped() && !image.needs_private_copy()
+            }
+            Storage::Owned(_) => false,
         }
     }
     // Compatibility diagnostics for baseline tests. No lease retains a seed.

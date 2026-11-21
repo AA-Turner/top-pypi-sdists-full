@@ -208,6 +208,7 @@ _SUBMODULE_FQN_MAP = {
     "aws-cdk-lib.aws_kms": "aws_cdk.aws_kms",
     "aws-cdk-lib.aws_lakeformation": "aws_cdk.aws_lakeformation",
     "aws-cdk-lib.aws_lambda": "aws_cdk.aws_lambda",
+    "aws-cdk-lib.aws_lambda.mixins": "aws_cdk.aws_lambda.mixins",
     "aws-cdk-lib.aws_lambda_destinations": "aws_cdk.aws_lambda_destinations",
     "aws-cdk-lib.aws_lambda_event_sources": "aws_cdk.aws_lambda_event_sources",
     "aws-cdk-lib.aws_lambda_nodejs": "aws_cdk.aws_lambda_nodejs",
@@ -696,7 +697,7 @@ _SUBMODULE_FQN_MAP = {
 }
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
-    "aws-cdk-lib", "2.277.0", __name__[0:-6], "aws-cdk-lib@2.277.0.jsii.tgz"
+    "aws-cdk-lib", "2.278.0", __name__[0:-6], "aws-cdk-lib@2.278.0.jsii.tgz"
 )
 
 __all__ = [

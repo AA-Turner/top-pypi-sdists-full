@@ -3,7 +3,7 @@ use std::iter::FlatMap;
 
 use serde_json::Value;
 
-use crate::{segments::Segment, Error, Resolver, ResourceRef, Segments};
+use crate::{segments::Segment, Segments};
 
 use super::Children;
 
@@ -34,8 +34,7 @@ type ObjectChildIter<'a> = FlatMap<
     fn((&'a std::string::String, &'a Value)) -> ChildIterInner<'a>,
 >;
 
-/// A simple iterator that either wraps an iterator producing &Value or is empty.
-/// NOTE: It is noticeably slower if `Object` is boxed.
+/// Subschemas of a schema object, or none. `Object` stays unboxed: boxing it slows iteration.
 #[allow(clippy::large_enum_variant)]
 pub(crate) enum ChildIter<'a> {
     Object(ObjectChildIter<'a>),
@@ -118,11 +117,7 @@ pub(crate) fn object_iter<'a>((key, value): (&'a String, &'a Value)) -> ChildIte
     }
 }
 
-pub(crate) fn maybe_in_subresource<'r>(
-    segments: &Segments,
-    resolver: &Resolver<'r>,
-    subresource: ResourceRef<'_>,
-) -> Result<Resolver<'r>, Error> {
+pub(crate) fn is_subschema(segments: &Segments) -> bool {
     const IN_VALUE: &[&str] = &[
         "additionalProperties",
         "contains",
@@ -154,33 +149,32 @@ pub(crate) fn maybe_in_subresource<'r>(
             if !IN_VALUE.contains(&key.as_ref())
                 && (!IN_CHILD.contains(&key.as_ref()) || iter.next().is_none())
             {
-                return Ok(resolver.clone());
+                return false;
             }
         }
     }
-    resolver.in_subresource(subresource)
+    true
 }
 
 #[inline]
-pub(crate) fn maybe_in_subresource_with_items_and_dependencies<'r>(
+pub(crate) fn is_subschema_with_items_and_dependencies(
     segments: &Segments,
-    resolver: &Resolver<'r>,
-    subresource: ResourceRef<'_>,
+    contents: &Value,
     in_value: &[&str],
     in_child: &[&str],
-) -> Result<Resolver<'r>, Error> {
+) -> bool {
     let mut iter = segments.iter();
     while let Some(segment) = iter.next() {
         if let Segment::Key(key) = segment {
-            if (*key == "items" || *key == "dependencies") && subresource.contents().is_object() {
-                return resolver.in_subresource(subresource);
+            if (*key == "items" || *key == "dependencies") && contents.is_object() {
+                return true;
             }
             if !in_value.contains(&key.as_ref())
                 && (!in_child.contains(&key.as_ref()) || iter.next().is_none())
             {
-                return Ok(resolver.clone());
+                return false;
             }
         }
     }
-    resolver.in_subresource(subresource)
+    true
 }

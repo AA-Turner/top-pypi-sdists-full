@@ -186,9 +186,7 @@ fn setup_with_options(
             ..options
         },
     );
-    adapter
-        .network
-        .set_network_provider_for_test(Arc::downgrade(&dynamic));
+    adapter.set_network_provider_for_test(Arc::downgrade(&dynamic));
     let adapter = Arc::new(adapter);
     let listener = Arc::new(Listener::default());
     adapter.set_listener(listener.clone());
@@ -752,12 +750,11 @@ async fn manifest_and_file_failure_diagnostics_preserve_region_and_transport_err
                     ..StatsigOptions::default()
                 },
             );
-            adapter
-                .network
-                .set_network_provider_for_test(Arc::downgrade(&provider));
+            adapter.set_network_provider_for_test(Arc::downgrade(&provider));
             let mut events = adapter.ops_stats.subscribe_for_test();
             let result = if is_file {
                 adapter
+                    .transport
                     .download_id_list(
                         &IdListDownloadJob {
                             range_start: 0,
@@ -773,10 +770,7 @@ async fn manifest_and_file_failure_diagnostics_preserve_region_and_transport_err
                     .await
                     .map(|_| ())
             } else {
-                adapter
-                    .fetch_id_list_manifests_from_network(false)
-                    .await
-                    .map(|_| ())
+                adapter.refresh(RefreshTrigger::PrivateInitialize).await
             };
             assert!(result.is_err());
             let mut markers = Vec::new();
@@ -1179,7 +1173,14 @@ async fn forced_stop_fences_inline_publication_and_is_reentrant() {
             stopped.send(()).unwrap();
         }
     });
-    until(|| adapter.network.shutdown_flag().load(Ordering::SeqCst)).await;
+    until(|| {
+        adapter
+            .transport
+            .network
+            .shutdown_flag()
+            .load(Ordering::SeqCst)
+    })
+    .await;
     assert!(
         tokio::time::timeout(Duration::from_millis(50), &mut force_done)
             .await
@@ -1282,7 +1283,7 @@ async fn aborted_partial_batch_reports_completed_files_and_only_id_list_cancella
     assert!(refresh.await.unwrap_err().is_cancelled());
     assert!(listener.publications.lock().is_empty());
     {
-        let request = adapter.network.request_once(
+        let request = adapter.transport.network.request_once(
             HttpMethod::GET,
             RequestArgs {
                 url: pending_url.to_owned(),
@@ -1349,7 +1350,7 @@ async fn serialized_shutdown_during_file_backoff_does_not_retry() {
     assert_eq!(provider.attempts("a"), 1);
     assert_eq!(provider.active.load(Ordering::SeqCst), 0);
     assert_eq!(
-        adapter.download_permits.available_permits(),
+        adapter.transport.download_permits.available_permits(),
         ID_LIST_DOWNLOAD_CONCURRENCY
     );
     adapter.force_shutdown();
@@ -1367,7 +1368,7 @@ async fn id_list_snapshot_opt_in_preserves_the_send_only_raw_provider() {
     for private in [false, true] {
         let (provider, mut adapter, _) = setup(&["a"]);
         let adapter = Arc::get_mut(&mut adapter).unwrap();
-        adapter.snapshot_enabled = true;
+        adapter.transport.snapshot_enabled = true;
         if private {
             adapter.set_listener(Arc::new(SpecStore::new(
                 "secret-tests",
@@ -1382,8 +1383,11 @@ async fn id_list_snapshot_opt_in_preserves_the_send_only_raw_provider() {
         }
         adapter.sync_id_lists().await.unwrap();
         assert_eq!(provider.attempts("a"), 1);
-        let listener = adapter.current_listener().unwrap().into_listener();
-        assert_eq!(listener.get_current_id_list_metadata()["a"].size, 3);
+        let listener = adapter.current_listener().unwrap();
+        assert_eq!(
+            listener.as_ref().get_current_id_list_metadata()["a"].size,
+            3
+        );
     }
 }
 
@@ -1532,7 +1536,7 @@ impl ColdSnapshot {
 async fn id_list_snapshot_cancelled_validation_retains_the_download_permit() {
     let mut snapshot = cold_snapshot(false).await;
     snapshot.cancel_during_validation().await;
-    let downloads = &snapshot.adapter.download_permits;
+    let downloads = &snapshot.adapter.transport.download_permits;
     assert_eq!(
         downloads.available_permits(),
         ID_LIST_DOWNLOAD_CONCURRENCY - 1
@@ -1558,7 +1562,7 @@ async fn parallel_snapshot_retry_shares_running_validation_but_cancels_before_re
     assert_eq!(builds.available_permits(), PRIVATE_INDEX_BUILD_CONCURRENCY);
     drop(network_waiter);
     assert_eq!(
-        adapter.download_permits.available_permits(),
+        adapter.transport.download_permits.available_permits(),
         ID_LIST_DOWNLOAD_CONCURRENCY
     );
 

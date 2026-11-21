@@ -152,29 +152,20 @@ class ExpressionParser:
 
         # Resolve step bounds before Sunday aliases and one-based digits are adjusted.
         expression_parts[5] = self._normalize_day_of_week_steps(expression_parts[5])
+        expression_parts[5] = self._normalize_day_of_week_full_week_range(expression_parts[5])
 
         # Adjust DOW based on dayOfWeekStartIndexZero option
-        def digit_replace(match: re.Match[str]) -> str:
-            match_value = match.group()
-            dow_digits = re.sub(r"\D", "", match_value)
-            dow_digits_adjusted = dow_digits
-            if self._day_of_week_start_index_zero:
-                if dow_digits == "7":
-                    dow_digits_adjusted = "0"
-            else:
-                dow_digits_adjusted = str(int(dow_digits) - 1)
-
-            return match_value.replace(dow_digits, dow_digits_adjusted)
-
-        expression_parts[5] = re.sub(r"(^\d)|([^#/\s]\d)", digit_replace, expression_parts[5])
+        expression_parts[5] = re.sub(r"(^\d+)|([^#/\s\d]\d+)", self._adjust_day_of_week_digit, expression_parts[5])
 
         # Convert DOM '?' to '*'
         if expression_parts[3] == "?":
             expression_parts[3] = "*"
 
         # convert SUN-SAT format to 0-6 format
-        for day_number in self._cron_days:
-            expression_parts[5] = expression_parts[5].upper().replace(self._cron_days[day_number], str(day_number))
+        expression_parts[5] = self._normalize_day_of_week_names(expression_parts[5])
+
+        # 0 and 7 are both Sunday, so "0,7" ends up as "0,0" here; name each day once.
+        expression_parts[5] = ",".join(dict.fromkeys(expression_parts[5].split(",")))
 
         # convert JAN-DEC format to 1-12 format
         for month_number in self._cron_months:
@@ -225,6 +216,14 @@ class ExpressionParser:
                     parts = expression_parts[i].split("/")
                     expression_parts[i] = f"{parts[0]}-{step_range_through}/{parts[1]}"
 
+    def _normalize_day_of_week_names(self, expression: str) -> str:
+        """Convert SUN-SAT names to 0-6, and a bare L to 6."""
+        expression = expression.upper()
+        for day_number, day_name in self._cron_days.items():
+            expression = expression.replace(day_name, str(day_number))
+        # A bare L is the last day of the week, Saturday (as in Quartz), also as a list item
+        return ",".join("6" if item == "L" else item for item in expression.split(","))
+
     def _normalize_day_of_week_steps(self, expression: str) -> str:
         """Keep weekday steps within their list item and the selected numbering scheme."""
         offset = 0 if self._day_of_week_start_index_zero else 1
@@ -257,3 +256,26 @@ class ExpressionParser:
             else:
                 segments[i] = f"{start}-{end}/{step}"
         return ",".join(segments)
+
+    def _normalize_day_of_week_full_week_range(self, expression: str) -> str:
+        """Read a zero-based Sunday-to-Sunday range (0-7) as 0-6, so 7 does not wrap it to 0-0."""
+        if not self._day_of_week_start_index_zero:
+            return expression
+        segments = expression.split(",")
+        for i, segment in enumerate(segments):
+            if re.fullmatch(r"(?:0+|SUN)-0*7", segment, flags=re.IGNORECASE):
+                segments[i] = "0-6"
+        return ",".join(segments)
+
+    def _adjust_day_of_week_digit(self, match: re.Match[str]) -> str:
+        """Adjusts a single day-of-week digit based on the dayOfWeekStartIndexZero option."""
+        match_value = match.group()
+        dow_digits = re.sub(r"\D", "", match_value)
+        day_number = int(dow_digits)
+        minimum = 0 if self._day_of_week_start_index_zero else 1
+        if not minimum <= day_number <= 7:
+            msg = f"Error: Day of week '{dow_digits}' is out of range.  Expected values are {minimum}-7."
+            raise FormatError(msg)
+        day_number_adjusted = day_number % 7 if self._day_of_week_start_index_zero else day_number - 1
+
+        return match_value.replace(dow_digits, str(day_number_adjusted))

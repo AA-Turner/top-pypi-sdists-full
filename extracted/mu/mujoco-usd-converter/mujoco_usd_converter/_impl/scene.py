@@ -68,6 +68,7 @@ def convert_scene(data: ConversionData):
     set_schema_attribute(scene_prim, "mjc:flag:fwdinv", is_enabled(1 << 2, data))
     set_schema_attribute(scene_prim, "mjc:flag:invdiscrete", is_enabled(1 << 3, data))
     set_schema_attribute(scene_prim, "mjc:flag:override", is_enabled(1 << 0, data))
+    set_schema_attribute(scene_prim, "mjc:flag:sleep", is_enabled(1 << 4, data))
     actuator_groups = [i for i in range(31) if data.spec.option.disableactuator & (1 << i)]
     set_schema_attribute(scene_prim, "mjc:option:actuatorgroupdisable", Vt.IntArray(actuator_groups))
 
@@ -92,6 +93,7 @@ def convert_scene(data: ConversionData):
     set_schema_attribute(scene_prim, "mjc:option:o_solref", Vt.DoubleArray(data.spec.option.o_solref))
     set_schema_attribute(scene_prim, "mjc:option:sdf_initpoints", data.spec.option.sdf_initpoints)
     set_schema_attribute(scene_prim, "mjc:option:sdf_iterations", data.spec.option.sdf_iterations)
+    set_schema_attribute(scene_prim, "mjc:option:sleep_tolerance", data.spec.option.sleep_tolerance)
     set_schema_attribute(scene_prim, "mjc:option:solver", get_solver_token(data.spec.option.solver))
     set_schema_attribute(scene_prim, "mjc:option:tolerance", data.spec.option.tolerance)
     set_schema_attribute(scene_prim, "mjc:option:viscosity", data.spec.option.viscosity)
@@ -107,8 +109,12 @@ def convert_scene(data: ConversionData):
     set_schema_attribute(scene_prim, "mjc:compiler:fitAABB", data.spec.compiler.fitaabb)
     set_schema_attribute(scene_prim, "mjc:compiler:fuseStatic", data.spec.compiler.fusestatic)
     set_schema_attribute(scene_prim, "mjc:compiler:inertiaFromGeom", get_inertia_from_geom_token(data.spec.compiler.inertiafromgeom))
-    set_schema_attribute(scene_prim, "mjc:compiler:inertiaGroupRange:max", int(data.spec.compiler.inertiagrouprange[1]))
-    set_schema_attribute(scene_prim, "mjc:compiler:inertiaGroupRange:min", int(data.spec.compiler.inertiagrouprange[0]))
+    # MuJoCo's USD decoder ignores the range unless both of its ends are authored
+    range_attrs = [scene_prim.GetAttribute(f"mjc:compiler:inertiaGroupRange:{end}") for end in ("min", "max")]
+    inertia_group_range = [int(x) for x in data.spec.compiler.inertiagrouprange]
+    if inertia_group_range != [attr.Get() for attr in range_attrs]:
+        for attr, value in zip(range_attrs, inertia_group_range):
+            attr.Set(value)
     set_schema_attribute(scene_prim, "mjc:compiler:saveInertial", data.spec.compiler.saveinertial)
     set_schema_attribute(scene_prim, "mjc:compiler:setTotalMass", data.spec.compiler.settotalmass)
     set_schema_attribute(scene_prim, "mjc:compiler:useThread", data.spec.compiler.usethread)

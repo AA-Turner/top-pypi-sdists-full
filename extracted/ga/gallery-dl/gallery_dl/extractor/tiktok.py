@@ -945,7 +945,8 @@ class TiktokTimeCursor(TiktokPaginationCursor):
             elif not self.reverse and (new_cursor < self.cursor or no_cursor):
                 new_cursor = self.fallback_cursor(data)
         elif no_cursor:
-            raise self.exc.ExtractionError("Could not extract next cursor")
+            raise TiktokExtractor.exc.ExtractionError(
+                "Could not extract next cursor")
         self.cursor = new_cursor
         return not data.get(self.has_more_key, False)
 
@@ -1083,10 +1084,9 @@ class TiktokPaginationRequest:
                                                  set(incoming_items.keys()))
                     self.items.update(incoming_items)
                     if cursor:
-                        final_page_reached = cursor.next_page(data,
-                                                              final_parameters)
-                        exit_early = self.exit_early(extractor, url)
-                        if exit_early or final_page_reached:
+                        if self.exit_early(extractor, url):
+                            return True
+                        if cursor.next_page(data, final_parameters):
                             return True
                         # Continue to next page and reset tries counter.
                         break
@@ -1274,7 +1274,7 @@ class TiktokPaginationRequest:
             extractor.log.warning("%s: TikTok API keeps sending the same "
                                   "page. Taking measures to avoid an infinite "
                                   "loop", url)
-            raise self.exc.ExtractionError(
+            raise extractor.exc.ExtractionError(
                 "TikTok API keeps sending the same page")
 
 
@@ -1286,8 +1286,8 @@ class TiktokItemListRequest(TiktokPaginationRequest):
         self.exit_early_due_to_no_items = False
 
     def extract_items(self, data):
-        if "itemList" not in data:
-            if not data.get("hasMorePrevious", data.get("hasMore", False)):
+        if not data.get("itemList"):
+            if not self.items:
                 self.exit_early_due_to_no_items = True
             return {}
         return {item["id"]: item for item in data["itemList"]}
@@ -1518,6 +1518,8 @@ class TiktokStoryBatchItemListRequest(TiktokItemListRequest):
             return items
         for userStories in data["batchStoryItemLists"]:
             items.update(super().extract_items(userStories))
+        if items:
+            self.exit_early_due_to_no_items = False
         return items
 
 

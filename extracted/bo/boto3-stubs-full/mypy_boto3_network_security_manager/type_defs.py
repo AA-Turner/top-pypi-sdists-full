@@ -23,17 +23,23 @@ from typing import Any, Union
 
 from .literals import (
     AdminAccountStatusType,
+    CoverageStatusType,
+    DefaultSubnetConnectivityType,
     EntityStatusFilterType,
     EntityStatusType,
     ExistingCustomerWebACLResolutionType,
     IpAddressTypeType,
     PolicyFirewallTypeType,
     ResourceTypeType,
+    RuleFirewallTypeType,
     RuleTypeType,
     SchemeType,
     ScopeResourceTypeType,
     ServiceResourceTypeType,
+    SubnetConnectivityType,
     SynchronizationStatusType,
+    TemplateFirewallTypeType,
+    TemplateOwnerType,
     WAFConfigDataTypeType,
 )
 
@@ -112,7 +118,10 @@ __all__ = (
     "GetScopeOutputTypeDef",
     "GetTemplateInputTypeDef",
     "GetTemplateOutputTypeDef",
+    "IgwFirewallConfigOutputTypeDef",
+    "IgwFirewallConfigTypeDef",
     "InvalidFirewallReasonsTypeDef",
+    "InvalidResourceIssueTypeDef",
     "ListAdminAccountsRequestPaginateTypeDef",
     "ListAdminAccountsRequestTypeDef",
     "ListAdminAccountsResponseTypeDef",
@@ -125,12 +134,18 @@ __all__ = (
     "ListDeploymentsInputPaginateTypeDef",
     "ListDeploymentsInputTypeDef",
     "ListDeploymentsOutputTypeDef",
+    "ListEntityCoveragesInputPaginateTypeDef",
+    "ListEntityCoveragesInputTypeDef",
+    "ListEntityCoveragesOutputTypeDef",
     "ListPoliciesInputPaginateTypeDef",
     "ListPoliciesInputTypeDef",
     "ListPoliciesOutputTypeDef",
     "ListPolicySnapshotsInputPaginateTypeDef",
     "ListPolicySnapshotsInputTypeDef",
     "ListPolicySnapshotsOutputTypeDef",
+    "ListProtectedResourceCoveragesInputPaginateTypeDef",
+    "ListProtectedResourceCoveragesInputTypeDef",
+    "ListProtectedResourceCoveragesOutputTypeDef",
     "ListResourceAssociationsInputPaginateTypeDef",
     "ListResourceAssociationsInputTypeDef",
     "ListResourceAssociationsOutputTypeDef",
@@ -161,7 +176,9 @@ __all__ = (
     "OrganizationalUnitReferenceTypeDef",
     "OutOfSyncReasonsViewTypeDef",
     "PaginatorConfigTypeDef",
+    "PolicyConfigurationOutputTypeDef",
     "PolicyConfigurationTypeDef",
+    "PolicyConfigurationUnionTypeDef",
     "PolicyReferenceTypeDef",
     "PolicySummaryTypeDef",
     "PutAdminAccountRequestTypeDef",
@@ -169,6 +186,7 @@ __all__ = (
     "RemediationIssueDetailsTypeDef",
     "RemediationIssuesViewTypeDef",
     "ResourceAssociationTypeDef",
+    "ResourceCoverageSummaryTypeDef",
     "ResourceCriteriaOutputTypeDef",
     "ResourceCriteriaTypeDef",
     "ResourceLogicalExpressionOutputTypeDef",
@@ -186,6 +204,8 @@ __all__ = (
     "ScopeConfigurationUnionTypeDef",
     "ScopeReferenceTypeDef",
     "ScopeSummaryTypeDef",
+    "SubnetConnectivityOverrideOutputTypeDef",
+    "SubnetConnectivityOverrideTypeDef",
     "TagResourceInputTypeDef",
     "TemplateOrRuleReferenceTypeDef",
     "TemplateSummaryTypeDef",
@@ -326,7 +346,7 @@ class CreatePolicySnapshotInputTypeDef(TypedDict):
 
 class CreateRuleInputTypeDef(TypedDict):
     ruleName: str
-    firewallType: Literal["WAF"]
+    firewallType: RuleFirewallTypeType
     ruleType: RuleTypeType
     configuration: Mapping[str, Any]
     clientToken: NotRequired[str]
@@ -391,9 +411,15 @@ class DeploymentSummaryTypeDef(TypedDict):
     updatedAt: NotRequired[datetime]
 
 
+class InvalidResourceIssueTypeDef(TypedDict):
+    resourceId: NotRequired[str]
+    expectedValue: NotRequired[str]
+    actualValue: NotRequired[str]
+
+
 class GenerateRuleConfigurationRequestTypeDef(TypedDict):
     prompt: str
-    ruleFirewallType: Literal["WAF"]
+    ruleFirewallType: RuleFirewallTypeType
     ruleType: RuleTypeType
     wafConfigDataType: NotRequired[WAFConfigDataTypeType]
     currentConfiguration: NotRequired[str]
@@ -422,6 +448,16 @@ class GetScopeInputTypeDef(TypedDict):
 
 class GetTemplateInputTypeDef(TypedDict):
     templateIdentifier: str
+
+
+class SubnetConnectivityOverrideOutputTypeDef(TypedDict):
+    connectivityType: SubnetConnectivityType
+    scopes: list[str]
+
+
+class SubnetConnectivityOverrideTypeDef(TypedDict):
+    connectivityType: SubnetConnectivityType
+    scopes: Sequence[str]
 
 
 class PaginatorConfigTypeDef(TypedDict):
@@ -453,6 +489,25 @@ class ListDeploymentsInputTypeDef(TypedDict):
     status: NotRequired[EntityStatusFilterType]
 
 
+class ListEntityCoveragesInputTypeDef(TypedDict):
+    entityArn: str
+    resourceOwnerAccountId: NotRequired[str]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class ResourceCoverageSummaryTypeDef(TypedDict):
+    resourceArn: NotRequired[str]
+    entityType: NotRequired[ServiceResourceTypeType]
+    entityArn: NotRequired[str]
+    resourceOwnerAccountId: NotRequired[str]
+    resourceType: NotRequired[ScopeResourceTypeType]
+    firewallType: NotRequired[PolicyFirewallTypeType]
+    coverageStatus: NotRequired[CoverageStatusType]
+    deploymentArns: NotRequired[list[str]]
+    updatedAt: NotRequired[datetime]
+
+
 class ListPoliciesInputTypeDef(TypedDict):
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
@@ -473,6 +528,13 @@ class PolicySummaryTypeDef(TypedDict):
 
 class ListPolicySnapshotsInputTypeDef(TypedDict):
     policyIdentifier: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class ListProtectedResourceCoveragesInputTypeDef(TypedDict):
+    resourceArn: str
+    entityType: NotRequired[ServiceResourceTypeType]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
 
@@ -505,7 +567,7 @@ class RuleSummaryTypeDef(TypedDict):
     ruleId: str
     ruleArn: str
     ruleName: str
-    firewallType: NotRequired[Literal["WAF"]]
+    firewallType: NotRequired[RuleFirewallTypeType]
     ruleType: NotRequired[RuleTypeType]
     status: NotRequired[EntityStatusType]
     version: NotRequired[str]
@@ -529,6 +591,7 @@ class ScopeSummaryTypeDef(TypedDict):
     scopeId: str
     scopeArn: str
     scopeName: NotRequired[str]
+    specializedScopeType: NotRequired[Literal["IGW_FIREWALL_SUBNET_CONNECTIVITY_OVERRIDE"]]
     status: NotRequired[EntityStatusType]
     version: NotRequired[str]
     hasPublishedVersion: NotRequired[bool]
@@ -555,10 +618,11 @@ class TemplateSummaryTypeDef(TypedDict):
     templateId: str
     templateArn: str
     templateName: str
+    templateOwner: NotRequired[TemplateOwnerType]
     status: NotRequired[EntityStatusType]
     version: NotRequired[str]
     hasPublishedVersion: NotRequired[bool]
-    firewallType: NotRequired[Literal["WAF"]]
+    firewallType: NotRequired[TemplateFirewallTypeType]
     updatedAt: NotRequired[datetime]
 
 
@@ -566,6 +630,7 @@ class ListTemplatesInputTypeDef(TypedDict):
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
     status: NotRequired[EntityStatusFilterType]
+    templateOwner: NotRequired[TemplateOwnerType]
 
 
 class NotVisibleMarkerTypeDef(TypedDict):
@@ -712,7 +777,7 @@ class CreateRuleOutputTypeDef(TypedDict):
     ruleId: str
     ruleArn: str
     ruleName: str
-    firewallType: Literal["WAF"]
+    firewallType: RuleFirewallTypeType
     ruleType: RuleTypeType
     ruleDescription: str
     configuration: dict[str, Any]
@@ -729,7 +794,7 @@ class CreateRuleSnapshotOutputTypeDef(TypedDict):
     ruleId: str
     ruleArn: str
     ruleName: str
-    firewallType: Literal["WAF"]
+    firewallType: RuleFirewallTypeType
     ruleType: RuleTypeType
     ruleDescription: str
     configuration: dict[str, Any]
@@ -753,7 +818,7 @@ class CreateTemplateOutputTypeDef(TypedDict):
     updateToken: str
     isSnapshot: bool
     hasPublishedVersion: bool
-    firewallType: Literal["WAF"]
+    firewallType: TemplateFirewallTypeType
     updatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -769,7 +834,7 @@ class CreateTemplateSnapshotOutputTypeDef(TypedDict):
     updateToken: str
     isSnapshot: bool
     hasPublishedVersion: bool
-    firewallType: Literal["WAF"]
+    firewallType: TemplateFirewallTypeType
     updatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -807,7 +872,7 @@ class GetRuleOutputTypeDef(TypedDict):
     ruleId: str
     ruleArn: str
     ruleName: str
-    firewallType: Literal["WAF"]
+    firewallType: RuleFirewallTypeType
     ruleType: RuleTypeType
     ruleDescription: str
     configuration: dict[str, Any]
@@ -831,7 +896,7 @@ class GetTemplateOutputTypeDef(TypedDict):
     updateToken: str
     isSnapshot: bool
     hasPublishedVersion: bool
-    firewallType: Literal["WAF"]
+    firewallType: TemplateFirewallTypeType
     updatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -870,7 +935,7 @@ class UpdateRuleOutputTypeDef(TypedDict):
     ruleId: str
     ruleArn: str
     ruleName: str
-    firewallType: Literal["WAF"]
+    firewallType: RuleFirewallTypeType
     ruleType: RuleTypeType
     ruleDescription: str
     configuration: dict[str, Any]
@@ -894,7 +959,7 @@ class UpdateTemplateOutputTypeDef(TypedDict):
     updateToken: str
     isSnapshot: bool
     hasPublishedVersion: bool
-    firewallType: Literal["WAF"]
+    firewallType: TemplateFirewallTypeType
     updatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -902,7 +967,7 @@ class UpdateTemplateOutputTypeDef(TypedDict):
 class CreateTemplateInputTypeDef(TypedDict):
     templateName: str
     associatedRuleList: Sequence[RuleReferenceTypeDef]
-    firewallType: Literal["WAF"]
+    firewallType: TemplateFirewallTypeType
     clientToken: NotRequired[str]
     templateDescription: NotRequired[str]
     isPublished: NotRequired[bool]
@@ -930,6 +995,16 @@ class ListDeploymentsOutputTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class IgwFirewallConfigOutputTypeDef(TypedDict):
+    defaultSubnetConnectivity: NotRequired[DefaultSubnetConnectivityType]
+    subnetConnectivityOverrides: NotRequired[list[SubnetConnectivityOverrideOutputTypeDef]]
+
+
+class IgwFirewallConfigTypeDef(TypedDict):
+    defaultSubnetConnectivity: NotRequired[DefaultSubnetConnectivityType]
+    subnetConnectivityOverrides: NotRequired[Sequence[SubnetConnectivityOverrideTypeDef]]
+
+
 class ListAdminAccountsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -949,6 +1024,12 @@ class ListDeploymentsInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListEntityCoveragesInputPaginateTypeDef(TypedDict):
+    entityArn: str
+    resourceOwnerAccountId: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListPoliciesInputPaginateTypeDef(TypedDict):
     status: NotRequired[EntityStatusFilterType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -956,6 +1037,12 @@ class ListPoliciesInputPaginateTypeDef(TypedDict):
 
 class ListPolicySnapshotsInputPaginateTypeDef(TypedDict):
     policyIdentifier: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListProtectedResourceCoveragesInputPaginateTypeDef(TypedDict):
+    resourceArn: str
+    entityType: NotRequired[ServiceResourceTypeType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -997,7 +1084,20 @@ class ListTemplateSnapshotsInputPaginateTypeDef(TypedDict):
 
 class ListTemplatesInputPaginateTypeDef(TypedDict):
     status: NotRequired[EntityStatusFilterType]
+    templateOwner: NotRequired[TemplateOwnerType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListEntityCoveragesOutputTypeDef(TypedDict):
+    resourceCoverages: list[ResourceCoverageSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListProtectedResourceCoveragesOutputTypeDef(TypedDict):
+    resourceCoverages: list[ResourceCoverageSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 
 class ListPoliciesOutputTypeDef(TypedDict):
@@ -1054,12 +1154,6 @@ class ListTemplatesOutputTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
-class PolicyConfigurationTypeDef(TypedDict):
-    remediationEnabled: bool
-    resourcesCleanUp: bool
-    wafConfig: NotRequired[WafConfigTypeDef]
-
-
 class RemediationIssuesViewTypeDef(TypedDict):
     issues: NotRequired[dict[PolicyFirewallTypeType, RemediationIssueDetailsTypeDef]]
     notVisible: NotRequired[NotVisibleMarkerTypeDef]
@@ -1099,101 +1193,21 @@ ResourceLogicalExpressionTypeDef = TypedDict(
 class FirewallSyncReasonTypeDef(TypedDict):
     missingFirewall: NotRequired[str]
     invalidFirewall: NotRequired[InvalidFirewallReasonsTypeDef]
+    invalidResource: NotRequired[dict[ScopeResourceTypeType, list[InvalidResourceIssueTypeDef]]]
 
 
-class CreatePolicyInputTypeDef(TypedDict):
-    policyName: str
-    priority: int
-    firewallType: PolicyFirewallTypeType
-    policyConfiguration: PolicyConfigurationTypeDef
-    clientToken: NotRequired[str]
-    policyDescription: NotRequired[str]
-    associatedTemplateAndRuleList: NotRequired[Sequence[TemplateOrRuleReferenceTypeDef]]
-    isPublished: NotRequired[bool]
-    tags: NotRequired[Mapping[str, str]]
+class PolicyConfigurationOutputTypeDef(TypedDict):
+    remediationEnabled: bool
+    resourcesCleanUp: bool
+    wafConfig: NotRequired[WafConfigTypeDef]
+    igwFirewallConfig: NotRequired[IgwFirewallConfigOutputTypeDef]
 
 
-class CreatePolicyOutputTypeDef(TypedDict):
-    policyId: str
-    policyArn: str
-    policyName: str
-    policyDescription: str
-    status: EntityStatusType
-    priority: int
-    associatedTemplateAndRuleList: list[AssociatedTemplateOrRuleTypeDef]
-    version: str
-    updateToken: str
-    isSnapshot: bool
-    hasPublishedVersion: bool
-    firewallType: PolicyFirewallTypeType
-    policyConfiguration: PolicyConfigurationTypeDef
-    updatedAt: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class CreatePolicySnapshotOutputTypeDef(TypedDict):
-    policyId: str
-    policyArn: str
-    policyName: str
-    policyDescription: str
-    status: EntityStatusType
-    priority: int
-    associatedTemplateAndRuleList: list[AssociatedTemplateOrRuleTypeDef]
-    version: str
-    updateToken: str
-    isSnapshot: bool
-    hasPublishedVersion: bool
-    firewallType: PolicyFirewallTypeType
-    policyConfiguration: PolicyConfigurationTypeDef
-    updatedAt: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class GetPolicyOutputTypeDef(TypedDict):
-    policyId: str
-    policyArn: str
-    policyName: str
-    policyDescription: str
-    status: EntityStatusType
-    priority: int
-    associatedTemplateAndRuleList: list[AssociatedTemplateOrRuleTypeDef]
-    version: str
-    updateToken: str
-    isSnapshot: bool
-    hasPublishedVersion: bool
-    firewallType: PolicyFirewallTypeType
-    policyConfiguration: PolicyConfigurationTypeDef
-    updatedAt: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class UpdatePolicyInputTypeDef(TypedDict):
-    policyIdentifier: str
-    updateToken: str
-    isPublished: bool
-    policyDescription: NotRequired[str]
-    priority: NotRequired[int]
-    associatedTemplateAndRuleList: NotRequired[Sequence[TemplateOrRuleReferenceTypeDef]]
-    policyConfiguration: NotRequired[PolicyConfigurationTypeDef]
-    clientToken: NotRequired[str]
-
-
-class UpdatePolicyOutputTypeDef(TypedDict):
-    policyId: str
-    policyArn: str
-    policyName: str
-    policyDescription: str
-    status: EntityStatusType
-    priority: int
-    associatedTemplateAndRuleList: list[AssociatedTemplateOrRuleTypeDef]
-    version: str
-    updateToken: str
-    isSnapshot: bool
-    hasPublishedVersion: bool
-    firewallType: PolicyFirewallTypeType
-    policyConfiguration: PolicyConfigurationTypeDef
-    updatedAt: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
+class PolicyConfigurationTypeDef(TypedDict):
+    remediationEnabled: bool
+    resourcesCleanUp: bool
+    wafConfig: NotRequired[WafConfigTypeDef]
+    igwFirewallConfig: NotRequired[IgwFirewallConfigTypeDef]
 
 
 class PutAdminAccountRequestTypeDef(TypedDict):
@@ -1220,6 +1234,83 @@ class ResourceSetTypeDef(TypedDict):
 class OutOfSyncReasonsViewTypeDef(TypedDict):
     reasons: NotRequired[dict[PolicyFirewallTypeType, FirewallSyncReasonTypeDef]]
     notVisible: NotRequired[NotVisibleMarkerTypeDef]
+
+
+class CreatePolicyOutputTypeDef(TypedDict):
+    policyId: str
+    policyArn: str
+    policyName: str
+    policyDescription: str
+    status: EntityStatusType
+    priority: int
+    associatedTemplateAndRuleList: list[AssociatedTemplateOrRuleTypeDef]
+    version: str
+    updateToken: str
+    isSnapshot: bool
+    hasPublishedVersion: bool
+    firewallType: PolicyFirewallTypeType
+    policyConfiguration: PolicyConfigurationOutputTypeDef
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreatePolicySnapshotOutputTypeDef(TypedDict):
+    policyId: str
+    policyArn: str
+    policyName: str
+    policyDescription: str
+    status: EntityStatusType
+    priority: int
+    associatedTemplateAndRuleList: list[AssociatedTemplateOrRuleTypeDef]
+    version: str
+    updateToken: str
+    isSnapshot: bool
+    hasPublishedVersion: bool
+    firewallType: PolicyFirewallTypeType
+    policyConfiguration: PolicyConfigurationOutputTypeDef
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetPolicyOutputTypeDef(TypedDict):
+    policyId: str
+    policyArn: str
+    policyName: str
+    policyDescription: str
+    status: EntityStatusType
+    priority: int
+    associatedTemplateAndRuleList: list[AssociatedTemplateOrRuleTypeDef]
+    version: str
+    updateToken: str
+    isSnapshot: bool
+    hasPublishedVersion: bool
+    firewallType: PolicyFirewallTypeType
+    policyConfiguration: PolicyConfigurationOutputTypeDef
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdatePolicyOutputTypeDef(TypedDict):
+    policyId: str
+    policyArn: str
+    policyName: str
+    policyDescription: str
+    status: EntityStatusType
+    priority: int
+    associatedTemplateAndRuleList: list[AssociatedTemplateOrRuleTypeDef]
+    version: str
+    updateToken: str
+    isSnapshot: bool
+    hasPublishedVersion: bool
+    firewallType: PolicyFirewallTypeType
+    policyConfiguration: PolicyConfigurationOutputTypeDef
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+PolicyConfigurationUnionTypeDef = Union[
+    PolicyConfigurationTypeDef, PolicyConfigurationOutputTypeDef
+]
 
 
 class AdminAccountDetailsTypeDef(TypedDict):
@@ -1251,6 +1342,29 @@ class ResourceSynchronizationStatusSummaryTypeDef(TypedDict):
     outOfSyncReasons: NotRequired[OutOfSyncReasonsViewTypeDef]
     remediationIssues: NotRequired[RemediationIssuesViewTypeDef]
     evaluatedAt: NotRequired[datetime]
+
+
+class CreatePolicyInputTypeDef(TypedDict):
+    policyName: str
+    priority: int
+    firewallType: PolicyFirewallTypeType
+    policyConfiguration: PolicyConfigurationUnionTypeDef
+    clientToken: NotRequired[str]
+    policyDescription: NotRequired[str]
+    associatedTemplateAndRuleList: NotRequired[Sequence[TemplateOrRuleReferenceTypeDef]]
+    isPublished: NotRequired[bool]
+    tags: NotRequired[Mapping[str, str]]
+
+
+class UpdatePolicyInputTypeDef(TypedDict):
+    policyIdentifier: str
+    updateToken: str
+    isPublished: bool
+    policyDescription: NotRequired[str]
+    priority: NotRequired[int]
+    associatedTemplateAndRuleList: NotRequired[Sequence[TemplateOrRuleReferenceTypeDef]]
+    policyConfiguration: NotRequired[PolicyConfigurationUnionTypeDef]
+    clientToken: NotRequired[str]
 
 
 class GetAdminAccountResponseTypeDef(TypedDict):
@@ -1291,6 +1405,7 @@ class CreateScopeOutputTypeDef(TypedDict):
     scopeName: str
     scopeDescription: str
     scopeConfiguration: ScopeConfigurationOutputTypeDef
+    specializedScopeType: Literal["IGW_FIREWALL_SUBNET_CONNECTIVITY_OVERRIDE"]
     status: EntityStatusType
     version: str
     updateToken: str
@@ -1306,6 +1421,7 @@ class CreateScopeSnapshotOutputTypeDef(TypedDict):
     scopeName: str
     scopeDescription: str
     scopeConfiguration: ScopeConfigurationOutputTypeDef
+    specializedScopeType: Literal["IGW_FIREWALL_SUBNET_CONNECTIVITY_OVERRIDE"]
     status: EntityStatusType
     version: str
     updateToken: str
@@ -1321,6 +1437,7 @@ class GetScopeOutputTypeDef(TypedDict):
     scopeName: str
     scopeDescription: str
     scopeConfiguration: ScopeConfigurationOutputTypeDef
+    specializedScopeType: Literal["IGW_FIREWALL_SUBNET_CONNECTIVITY_OVERRIDE"]
     status: EntityStatusType
     version: str
     updateToken: str
@@ -1336,6 +1453,7 @@ class UpdateScopeOutputTypeDef(TypedDict):
     scopeName: str
     scopeDescription: str
     scopeConfiguration: ScopeConfigurationOutputTypeDef
+    specializedScopeType: Literal["IGW_FIREWALL_SUBNET_CONNECTIVITY_OVERRIDE"]
     status: EntityStatusType
     version: str
     updateToken: str
@@ -1353,6 +1471,7 @@ class CreateScopeInputTypeDef(TypedDict):
     scopeConfiguration: ScopeConfigurationUnionTypeDef
     clientToken: NotRequired[str]
     scopeDescription: NotRequired[str]
+    specializedScopeType: NotRequired[Literal["IGW_FIREWALL_SUBNET_CONNECTIVITY_OVERRIDE"]]
     isPublished: NotRequired[bool]
     tags: NotRequired[Mapping[str, str]]
 

@@ -298,7 +298,6 @@ impl ResponseData {
     }
 
     /// Only byte-backed responses can be read synchronously without doing I/O.
-    #[cfg(all(test, feature = "reqwest", not(feature = "custom_network_provider")))]
     pub(crate) fn buffered_stream(&mut self) -> Option<&mut dyn ResponseDataStream> {
         self.is_buffered.then(|| self.get_stream_mut())
     }

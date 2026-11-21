@@ -14,6 +14,7 @@ from resiliparse.parse.encoding import (
 )
 from resiliparse.parse.html import HTMLTree
 
+from bench.link_attributes import LINK_ELEMENTS_SELECTOR, element_links
 from bench.timing import Mutating
 
 if TYPE_CHECKING:
@@ -22,8 +23,6 @@ if TYPE_CHECKING:
     from bench.operations import Timed
 
 _REQUIREMENTS: Final[tuple[str, ...]] = ("resiliparse>=1.0.8",)
-
-_LINKS_BASE: Final[str] = "https://example.com/base/"  # the base turbohtml resolves relative hrefs against
 
 
 def parse(text: str) -> None:
@@ -40,7 +39,7 @@ def _parsed(text: str) -> HTMLTree:
 def _document(tree: HTMLTree) -> DocumentNode:
     # resiliparse types the document as optional, though a parsed tree always has one.
     if (document := tree.document) is None:
-        msg: Final = "resiliparse parsed no document"
+        msg: Final[str] = "resiliparse parsed no document"
         raise ValueError(msg)
     return document
 
@@ -74,11 +73,16 @@ def select_has(text: str) -> None:
 def _select_relative(case: tuple[str, str, int]) -> None:
     selector, text, repeats = case
     if selector == "section:has(+ section a)":
-        msg: Final = "resiliparse returns no matches for section:has(+ section a)"
+        msg: Final[str] = "resiliparse returns no matches for section:has(+ section a)"
         raise NotImplementedError(msg)
     document = _document(_parsed(text))
     for _ in range(repeats):
         document.query_selector_all(selector)
+
+
+def _select_scaling(case: tuple[str, str]) -> None:
+    selector, text = case
+    _document(_parsed(text)).query_selector_all(selector)
 
 
 def text_content(text: str) -> None:
@@ -115,9 +119,22 @@ def extract_text(text: str) -> None:
     _ = [anchor.text for anchor in _document(_parsed(text)).query_selector_all("a")]
 
 
+def link_urls(text: str) -> list[str]:
+    # Select only the elements that can hold a link: resiliparse builds each element's Python view on first touch, about
+    # 1 ms apiece, so walking every element costs far more than the links it yields.
+    return [
+        link
+        for element in _document(_parsed(text)).query_selector_all(LINK_ELEMENTS_SELECTOR)
+        for link in element_links(
+            element.tag,
+            [(name, element.getattr(name)) for name in element.attrs],
+            element.text_content if element.tag == "style" else None,
+        )
+    ]
+
+
 def links_extract(text: str) -> None:
-    # Collect every anchor's href with resiliparse, the shape a scraper reads links in.
-    _ = [anchor.getattr("href") for anchor in _document(_parsed(text)).query_selector_all("a")]
+    _ = link_urls(text)
 
 
 def links_rewrite(text: str) -> None:
@@ -169,9 +186,11 @@ def edit(tree: HTMLTree) -> None:
 
 def links_absolutize(tree: HTMLTree) -> None:
     # Resolve every relative link on a freshly parsed tree against the base with resiliparse's setattr.
+    # the base turbohtml resolves relative hrefs against
+    links_base: str = "https://example.com/base/"
     for anchor in _document(tree).query_selector_all("a"):
         if (href := anchor.getattr("href")) is not None:
-            anchor.setattr("href", urljoin(_LINKS_BASE, href))
+            anchor.setattr("href", urljoin(links_base, href))
 
 
 def _encoding_result(case: tuple[int, bytes]) -> None:
@@ -192,7 +211,7 @@ OPERATIONS: Final[dict[str, tuple[Timed, str]]] = {
     "text-main": (text_main, "resiliparse"),
     "find": (find, "resiliparse"),
     "select": (select, "resiliparse"),
-    "select-nth": (_select_relative, "resiliparse"),
+    "select-nth": (_select_scaling, "resiliparse"),
     "select-relative": (_select_relative, "resiliparse"),
     "select-has": (select_has, "resiliparse"),
     "text-content": (text_content, "resiliparse"),

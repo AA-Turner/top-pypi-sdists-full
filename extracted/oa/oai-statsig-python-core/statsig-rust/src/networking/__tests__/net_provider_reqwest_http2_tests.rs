@@ -551,7 +551,7 @@ async fn plaintext_discovery_is_coalesced_cached_and_expires() {
             .plaintext_http2_available(&args, Duration::from_secs(1))
             .await
     );
-    provider.transport.http2_origins.lock().get_mut(&origin).unwrap().0 =
+    provider.transport.http2_origins.lock().get_mut(&(origin, None)).unwrap().0 =
         Instant::now() - HTTP2_CAPABILITY_TTL;
     assert!(
         !provider.transport

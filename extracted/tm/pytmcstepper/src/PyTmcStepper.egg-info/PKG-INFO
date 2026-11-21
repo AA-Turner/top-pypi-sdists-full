@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PyTmcStepper
-Version: 0.21.3
+Version: 0.21.4
 Summary: This is a Python libary to drive a stepper motor with a Trinamic stepper driver and a single board computer like a Raspberry Pi
 Author-email: Christian Köhlke <christian@koehlke.de>
 License-Expression: GPL-3.0

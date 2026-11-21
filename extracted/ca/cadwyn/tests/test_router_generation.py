@@ -81,7 +81,6 @@ from starlette.routing import Route
 from typing_extensions import TypeAliasType, TypeVarTuple, Unpack, override
 
 from cadwyn import VersionBundle, VersionedAPIRouter
-from cadwyn._utils import _callable_name
 from cadwyn.applications import Cadwyn
 from cadwyn.dependencies import current_dependency_solver
 from cadwyn.exceptions import (
@@ -92,12 +91,13 @@ from cadwyn.exceptions import (
     SchemaGenerationError,
 )
 from cadwyn.route_generation import copy_route, generate_versioned_routers
-from cadwyn.schema_generation import generate_versioned_models
-from cadwyn.schema_generation._annotation_evaluation import _UNRESOLVED, _get_value_of_type_alias_with_args
-from cadwyn.structure import Version, convert_request_to_next_version_for, endpoint, schema
-from cadwyn.structure.data import RequestInfo, ResponseInfo, convert_response_to_previous_version_for
-from cadwyn.structure.enums import enum
-from cadwyn.structure.versions import HeadVersion, VersionChange
+from cadwyn_core._utils import _callable_name
+from cadwyn_core.schema_generation import generate_versioned_models
+from cadwyn_core.schema_generation._annotation_evaluation import _UNRESOLVED, _get_value_of_type_alias_with_args
+from cadwyn_core.structure import Version, convert_request_to_next_version_for, endpoint, schema
+from cadwyn_core.structure.data import RequestInfo, ResponseInfo, convert_response_to_previous_version_for
+from cadwyn_core.structure.enums import enum
+from cadwyn_core.structure.versions import HeadVersion, VersionChange
 from tests._data.sqlalchemy_models import ImperativelyMappedModel, MappedChild, MappedModel, ModelFields
 from tests._data.unversioned_schema_dir import UnversionedSchema2
 from tests._data.unversioned_schema_dir.unversioned_schemas import UnversionedSchema1
@@ -2804,7 +2804,7 @@ class ParentWithClassVar(BaseModel):
 with pytest.warns(UserWarning, match='Field name "value" .* shadows an attribute in parent'):
 
     class ChildRedeclaringClassVarAsField(ParentWithClassVar):
-        value: Annotated[str, Field(min_length=2)] = Field()  # ty: ignore[invalid-attribute-override]
+        value: Annotated[str, Field(min_length=2)] = Field()  # ty: ignore[incompatible-attribute-override]
 
 
 @pytest.mark.filterwarnings('ignore:Field name "value" .* shadows an attribute in parent:UserWarning')
@@ -3218,7 +3218,7 @@ class ParentWhoseFieldGetsRenamed(BaseModel):
 
 
 class ChildThatRedeclaresFieldThatParentRenames(ParentWhoseFieldGetsRenamed):
-    kind: Literal["child"]  # ty: ignore[invalid-mutable-override]
+    kind: Literal["child"]  # ty: ignore[incompatible-mutable-override]
 
 
 def test__router_generation__parent_renamed_field_that_route_model_redeclares__should_fail_at_startup(
@@ -4558,7 +4558,7 @@ def test__router_generation__dependency_with_parameters_only_in_signature__shoul
         return kwargs
 
     # Some libraries build dependencies dynamically and only describe their parameters through __signature__
-    dynamic_dependency.__signature__ = inspect.Signature(  # ty: ignore[unresolved-attribute]  # Set dynamically.
+    dynamic_dependency.__signature__ = inspect.Signature(  # ty: ignore[missing-attribute]  # Set dynamically.
         [
             inspect.Parameter("limit", inspect.Parameter.KEYWORD_ONLY, default=Query(ge=1), annotation=int),
             inspect.Parameter("body", inspect.Parameter.KEYWORD_ONLY, annotation=SchemaWithOneIntField),
@@ -4868,7 +4868,7 @@ class ParentWithChangedEnum(BaseModel):
 
 
 class ChildThatOverridesChangedEnum(ParentWithChangedEnum):
-    role_name: str  # ty: ignore[invalid-attribute-override]
+    role_name: str  # ty: ignore[incompatible-attribute-override]
 
 
 class ModelWithChangedEnumInClassVar(BaseModel):
@@ -5576,7 +5576,7 @@ def get_kwargs(**kwargs: Any) -> dict[str, Any]:
     return kwargs
 
 
-get_kwargs.__signature__ = inspect.Signature(  # ty: ignore[unresolved-attribute]
+get_kwargs.__signature__ = inspect.Signature(  # ty: ignore[missing-attribute]
     [inspect.Parameter("limit", inspect.Parameter.KEYWORD_ONLY, default=Query(10, ge=1), annotation=int)]
 )
 

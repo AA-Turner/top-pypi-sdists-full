@@ -3419,6 +3419,15 @@ class CfnConformancePack(
             )],
             delivery_s3_bucket="deliveryS3Bucket",
             delivery_s3_key_prefix="deliveryS3KeyPrefix",
+            scope=config.CfnConformancePack.ScopeProperty(
+                tag_key="tagKey",
+        
+                # the properties below are optional
+                tag_value="tagValue"
+            ),
+            source=config.CfnConformancePack.SourceProperty(
+                source_identifier="sourceIdentifier"
+            ),
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -3431,13 +3440,15 @@ class CfnConformancePack(
 
     def __init__(
         self,
-        scope: "_constructs_77d1e7e8.Construct",
+        scope_: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         conformance_pack_name: builtins.str,
         conformance_pack_input_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConformancePack.ConformancePackInputParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         delivery_s3_bucket: typing.Optional[typing.Union[builtins.str, "_aws_s3_03fe213b.IBucketRef"]] = None,
         delivery_s3_key_prefix: typing.Optional[builtins.str] = None,
+        scope: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConformancePack.ScopeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        source: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConformancePack.SourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         template_body: typing.Optional[builtins.str] = None,
         template_s3_uri: typing.Optional[builtins.str] = None,
@@ -3445,12 +3456,14 @@ class CfnConformancePack(
     ) -> None:
         '''Create a new ``AWS::Config::ConformancePack``.
 
-        :param scope: Scope in which this resource is defined.
+        :param scope_: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param conformance_pack_name: Name of the conformance pack you want to create.
         :param conformance_pack_input_parameters: A list of ConformancePackInputParameter objects.
         :param delivery_s3_bucket: The name of the Amazon S3 bucket where AWS Config stores conformance pack templates.
         :param delivery_s3_key_prefix: The prefix for the Amazon S3 bucket.
+        :param scope: The global tag scope of the managed conformance pack. If specified, only resources with this tag key and value pair are in scope of the conformance pack.
+        :param source: The source of a managed conformance pack. Specifying Source creates a managed conformance pack, whose Config rules are managed by AWS. You can only specify one of Source or the template body or template S3Uri fields.
         :param tags: The tags for the conformance pack.
         :param template_body: A string containing full conformance pack template body. Structure containing the template body with a minimum length of 1 byte and a maximum length of 51,200 bytes. .. epigraph:: You can only use a YAML template with two resource types: config rule ( ``AWS::Config::ConfigRule`` ) and a remediation action ( ``AWS::Config::RemediationConfiguration`` ).
         :param template_s3_uri: Location of file containing the template body (s3://bucketname/prefix). The uri must point to the conformance pack template (max size: 300 KB) that is located in an Amazon S3 bucket. .. epigraph:: You must have access to read Amazon S3 bucket.
@@ -3458,20 +3471,22 @@ class CfnConformancePack(
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3e2b5c522b5074ba2ef97dd80a498043778309ce04aa178507276f160fde847d)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument scope_", value=scope_, expected_type=type_hints["scope_"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnConformancePackProps(
             conformance_pack_name=conformance_pack_name,
             conformance_pack_input_parameters=conformance_pack_input_parameters,
             delivery_s3_bucket=delivery_s3_bucket,
             delivery_s3_key_prefix=delivery_s3_key_prefix,
+            scope=scope,
+            source=source,
             tags=tags,
             template_body=template_body,
             template_s3_uri=template_s3_uri,
             template_ssm_document_details=template_ssm_document_details,
         )
 
-        jsii.create(self.__class__, self, [scope, id, props])
+        jsii.create(self.__class__, self, [scope_, id, props])
 
     @jsii.member(jsii_name="arnForConformancePack")
     @builtins.classmethod
@@ -3538,6 +3553,17 @@ class CfnConformancePack(
         :cloudformationAttribute: ConformancePackArn
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrConformancePackArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrType")
+    def attr_type(self) -> builtins.str:
+        '''The type of the conformance pack.
+
+        CUSTOM for a conformance pack whose Config rules are managed by the customer; MANAGED for a managed conformance pack whose Config rules are managed by AWS.
+
+        :cloudformationAttribute: Type
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrType"))
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
@@ -3630,6 +3656,42 @@ class CfnConformancePack(
             type_hints = cached_type_hints(_typecheckingstub__efa81031141bc30ac68f2881e9910f55d05494d80263ec0832f9c3b4cfa72355)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "deliveryS3KeyPrefix", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="scope")
+    def scope(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConformancePack.ScopeProperty"]]:
+        '''The global tag scope of the managed conformance pack.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConformancePack.ScopeProperty"]], jsii.get(self, "scope"))
+
+    @scope.setter
+    def scope(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConformancePack.ScopeProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__816db3a47c69cf3ddb2009660a734498b55d572a125a024746fc3eff8b691bac)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "scope", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="source")
+    def source(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConformancePack.SourceProperty"]]:
+        '''The source of a managed conformance pack.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConformancePack.SourceProperty"]], jsii.get(self, "source"))
+
+    @source.setter
+    def source(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConformancePack.SourceProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e18e3a589458ebaa81b9ca9540e7f216d36647aeeeed6096f222d9783c8afea5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "source", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -3750,6 +3812,139 @@ class CfnConformancePack(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_config.CfnConformancePack.ScopeProperty",
+        jsii_struct_bases=[],
+        name_mapping={"tag_key": "tagKey", "tag_value": "tagValue"},
+    )
+    class ScopeProperty:
+        def __init__(
+            self,
+            *,
+            tag_key: builtins.str,
+            tag_value: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The global tag scope of the managed conformance pack.
+
+            If specified, only resources with this tag key and value pair are in scope of the conformance pack.
+
+            :param tag_key: The tag key of the tag scope. Only resources with this tag key are in scope of the conformance pack.
+            :param tag_value: The tag value of the tag scope. If omitted, resources are in scope based on the presence of the tag key alone, regardless of its value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-config-conformancepack-scope.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_config as config
+                
+                scope_property = config.CfnConformancePack.ScopeProperty(
+                    tag_key="tagKey",
+                
+                    # the properties below are optional
+                    tag_value="tagValue"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__d26632341ce54fc2ea709e992ab58ee977572cb0d1c12de7db60ba12fa26d012)
+                check_type(argname="argument tag_key", value=tag_key, expected_type=type_hints["tag_key"])
+                check_type(argname="argument tag_value", value=tag_value, expected_type=type_hints["tag_value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "tag_key": tag_key,
+            }
+            if tag_value is not None:
+                self._values["tag_value"] = tag_value
+
+        @builtins.property
+        def tag_key(self) -> builtins.str:
+            '''The tag key of the tag scope.
+
+            Only resources with this tag key are in scope of the conformance pack.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-config-conformancepack-scope.html#cfn-config-conformancepack-scope-tagkey
+            '''
+            result = self._values.get("tag_key")
+            assert result is not None, "Required property 'tag_key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def tag_value(self) -> typing.Optional[builtins.str]:
+            '''The tag value of the tag scope.
+
+            If omitted, resources are in scope based on the presence of the tag key alone, regardless of its value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-config-conformancepack-scope.html#cfn-config-conformancepack-scope-tagvalue
+            '''
+            result = self._values.get("tag_value")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ScopeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_config.CfnConformancePack.SourceProperty",
+        jsii_struct_bases=[],
+        name_mapping={"source_identifier": "sourceIdentifier"},
+    )
+    class SourceProperty:
+        def __init__(self, *, source_identifier: builtins.str) -> None:
+            '''The source of a managed conformance pack.
+
+            Specifying Source creates a managed conformance pack, whose Config rules are managed by AWS. You can only specify one of Source or the template body or template S3Uri fields.
+
+            :param source_identifier: The identifier specifying which managed conformance pack is being deployed.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-config-conformancepack-source.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_config as config
+                
+                source_property = config.CfnConformancePack.SourceProperty(
+                    source_identifier="sourceIdentifier"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__274729b02a5db0b198a9391adb156a293de78127399484bb94a483369ecba877)
+                check_type(argname="argument source_identifier", value=source_identifier, expected_type=type_hints["source_identifier"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "source_identifier": source_identifier,
+            }
+
+        @builtins.property
+        def source_identifier(self) -> builtins.str:
+            '''The identifier specifying which managed conformance pack is being deployed.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-config-conformancepack-source.html#cfn-config-conformancepack-source-sourceidentifier
+            '''
+            result = self._values.get("source_identifier")
+            assert result is not None, "Required property 'source_identifier' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SourceProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_config.CfnConformancePack.TemplateSSMDocumentDetailsProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -3842,6 +4037,8 @@ class CfnConformancePack(
         "conformance_pack_input_parameters": "conformancePackInputParameters",
         "delivery_s3_bucket": "deliveryS3Bucket",
         "delivery_s3_key_prefix": "deliveryS3KeyPrefix",
+        "scope": "scope",
+        "source": "source",
         "tags": "tags",
         "template_body": "templateBody",
         "template_s3_uri": "templateS3Uri",
@@ -3856,6 +4053,8 @@ class CfnConformancePackProps:
         conformance_pack_input_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConformancePack.ConformancePackInputParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         delivery_s3_bucket: typing.Optional[typing.Union[builtins.str, "_aws_s3_03fe213b.IBucketRef"]] = None,
         delivery_s3_key_prefix: typing.Optional[builtins.str] = None,
+        scope: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConformancePack.ScopeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        source: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConformancePack.SourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         template_body: typing.Optional[builtins.str] = None,
         template_s3_uri: typing.Optional[builtins.str] = None,
@@ -3867,6 +4066,8 @@ class CfnConformancePackProps:
         :param conformance_pack_input_parameters: A list of ConformancePackInputParameter objects.
         :param delivery_s3_bucket: The name of the Amazon S3 bucket where AWS Config stores conformance pack templates.
         :param delivery_s3_key_prefix: The prefix for the Amazon S3 bucket.
+        :param scope: The global tag scope of the managed conformance pack. If specified, only resources with this tag key and value pair are in scope of the conformance pack.
+        :param source: The source of a managed conformance pack. Specifying Source creates a managed conformance pack, whose Config rules are managed by AWS. You can only specify one of Source or the template body or template S3Uri fields.
         :param tags: The tags for the conformance pack.
         :param template_body: A string containing full conformance pack template body. Structure containing the template body with a minimum length of 1 byte and a maximum length of 51,200 bytes. .. epigraph:: You can only use a YAML template with two resource types: config rule ( ``AWS::Config::ConfigRule`` ) and a remediation action ( ``AWS::Config::RemediationConfiguration`` ).
         :param template_s3_uri: Location of file containing the template body (s3://bucketname/prefix). The uri must point to the conformance pack template (max size: 300 KB) that is located in an Amazon S3 bucket. .. epigraph:: You must have access to read Amazon S3 bucket.
@@ -3894,6 +4095,15 @@ class CfnConformancePackProps:
                 )],
                 delivery_s3_bucket="deliveryS3Bucket",
                 delivery_s3_key_prefix="deliveryS3KeyPrefix",
+                scope=config.CfnConformancePack.ScopeProperty(
+                    tag_key="tagKey",
+            
+                    # the properties below are optional
+                    tag_value="tagValue"
+                ),
+                source=config.CfnConformancePack.SourceProperty(
+                    source_identifier="sourceIdentifier"
+                ),
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -3909,6 +4119,8 @@ class CfnConformancePackProps:
             check_type(argname="argument conformance_pack_input_parameters", value=conformance_pack_input_parameters, expected_type=type_hints["conformance_pack_input_parameters"])
             check_type(argname="argument delivery_s3_bucket", value=delivery_s3_bucket, expected_type=type_hints["delivery_s3_bucket"])
             check_type(argname="argument delivery_s3_key_prefix", value=delivery_s3_key_prefix, expected_type=type_hints["delivery_s3_key_prefix"])
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument source", value=source, expected_type=type_hints["source"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument template_body", value=template_body, expected_type=type_hints["template_body"])
             check_type(argname="argument template_s3_uri", value=template_s3_uri, expected_type=type_hints["template_s3_uri"])
@@ -3922,6 +4134,10 @@ class CfnConformancePackProps:
             self._values["delivery_s3_bucket"] = delivery_s3_bucket
         if delivery_s3_key_prefix is not None:
             self._values["delivery_s3_key_prefix"] = delivery_s3_key_prefix
+        if scope is not None:
+            self._values["scope"] = scope
+        if source is not None:
+            self._values["source"] = source
         if tags is not None:
             self._values["tags"] = tags
         if template_body is not None:
@@ -3971,6 +4187,32 @@ class CfnConformancePackProps:
         '''
         result = self._values.get("delivery_s3_key_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def scope(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConformancePack.ScopeProperty"]]:
+        '''The global tag scope of the managed conformance pack.
+
+        If specified, only resources with this tag key and value pair are in scope of the conformance pack.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-config-conformancepack.html#cfn-config-conformancepack-scope
+        '''
+        result = self._values.get("scope")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConformancePack.ScopeProperty"]], result)
+
+    @builtins.property
+    def source(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConformancePack.SourceProperty"]]:
+        '''The source of a managed conformance pack.
+
+        Specifying Source creates a managed conformance pack, whose Config rules are managed by AWS. You can only specify one of Source or the template body or template S3Uri fields.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-config-conformancepack.html#cfn-config-conformancepack-source
+        '''
+        result = self._values.get("source")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConformancePack.SourceProperty"]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
@@ -4054,6 +4296,13 @@ class CfnConnector(
                 azure=config.CfnConnector.AzureConnectorConfigurationProperty(
                     client_identifier="clientIdentifier",
                     tenant_identifier="tenantIdentifier"
+                ),
+                gcp=config.CfnConnector.GcpConnectorConfigurationProperty(
+                    service_account_email="serviceAccountEmail",
+                    workload_identity_pool_provider="workloadIdentityPoolProvider",
+        
+                    # the properties below are optional
+                    gcp_organization_id="gcpOrganizationId"
                 )
             ),
         
@@ -4077,7 +4326,7 @@ class CfnConnector(
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param connector_configuration: The configuration for the connector. Specify the third-party cloud provider configuration.
+        :param connector_configuration: The configuration for the connector. Specify exactly one third-party cloud provider configuration: Azure or Gcp.
         :param tags: The tags for the connector.
         '''
         if __debug__:
@@ -4309,19 +4558,21 @@ class CfnConnector(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_config.CfnConnector.ConnectorConfigurationProperty",
         jsii_struct_bases=[],
-        name_mapping={"azure": "azure"},
+        name_mapping={"azure": "azure", "gcp": "gcp"},
     )
     class ConnectorConfigurationProperty:
         def __init__(
             self,
             *,
             azure: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnector.AzureConnectorConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            gcp: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnector.GcpConnectorConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The configuration for the connector.
 
-            Specify the third-party cloud provider configuration.
+            Specify exactly one third-party cloud provider configuration: Azure or Gcp.
 
             :param azure: Configuration for connecting to Microsoft Azure.
+            :param gcp: Configuration for connecting to Google Cloud.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-config-connector-connectorconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -4336,15 +4587,25 @@ class CfnConnector(
                     azure=config.CfnConnector.AzureConnectorConfigurationProperty(
                         client_identifier="clientIdentifier",
                         tenant_identifier="tenantIdentifier"
+                    ),
+                    gcp=config.CfnConnector.GcpConnectorConfigurationProperty(
+                        service_account_email="serviceAccountEmail",
+                        workload_identity_pool_provider="workloadIdentityPoolProvider",
+                
+                        # the properties below are optional
+                        gcp_organization_id="gcpOrganizationId"
                     )
                 )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__cd4830195bb325be6a0e73e32a32f84cc9ab97cc48eda8b0c3afda8c42de5aa6)
                 check_type(argname="argument azure", value=azure, expected_type=type_hints["azure"])
+                check_type(argname="argument gcp", value=gcp, expected_type=type_hints["gcp"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if azure is not None:
                 self._values["azure"] = azure
+            if gcp is not None:
+                self._values["gcp"] = gcp
 
         @builtins.property
         def azure(
@@ -4357,6 +4618,17 @@ class CfnConnector(
             result = self._values.get("azure")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.AzureConnectorConfigurationProperty"]], result)
 
+        @builtins.property
+        def gcp(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.GcpConnectorConfigurationProperty"]]:
+            '''Configuration for connecting to Google Cloud.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-config-connector-connectorconfiguration.html#cfn-config-connector-connectorconfiguration-gcp
+            '''
+            result = self._values.get("gcp")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.GcpConnectorConfigurationProperty"]], result)
+
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -4365,6 +4637,100 @@ class CfnConnector(
 
         def __repr__(self) -> str:
             return "ConnectorConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_config.CfnConnector.GcpConnectorConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "service_account_email": "serviceAccountEmail",
+            "workload_identity_pool_provider": "workloadIdentityPoolProvider",
+            "gcp_organization_id": "gcpOrganizationId",
+        },
+    )
+    class GcpConnectorConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            service_account_email: builtins.str,
+            workload_identity_pool_provider: builtins.str,
+            gcp_organization_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Configuration for connecting to Google Cloud.
+
+            :param service_account_email: The email address of the Google Cloud service account that AWS Config uses.
+            :param workload_identity_pool_provider: The full resource name of the workload identity pool provider that AWS Config uses to federate into Google Cloud.
+            :param gcp_organization_id: The ID of the Google Cloud organization that contains the connector's management project, which is the project of the service account in ServiceAccountEmail. Required if the management project belongs to an organization. A connector needs an organization ID to record an entire organization or more than one project. Omit it only if the management project doesn't belong to an organization. In that case, the connector can record only the management project.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-config-connector-gcpconnectorconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_config as config
+                
+                gcp_connector_configuration_property = config.CfnConnector.GcpConnectorConfigurationProperty(
+                    service_account_email="serviceAccountEmail",
+                    workload_identity_pool_provider="workloadIdentityPoolProvider",
+                
+                    # the properties below are optional
+                    gcp_organization_id="gcpOrganizationId"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__1d10407ff3db0f4f6de3943cf0dbb1b077fa04c8eef81a33e21e544c93a11362)
+                check_type(argname="argument service_account_email", value=service_account_email, expected_type=type_hints["service_account_email"])
+                check_type(argname="argument workload_identity_pool_provider", value=workload_identity_pool_provider, expected_type=type_hints["workload_identity_pool_provider"])
+                check_type(argname="argument gcp_organization_id", value=gcp_organization_id, expected_type=type_hints["gcp_organization_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "service_account_email": service_account_email,
+                "workload_identity_pool_provider": workload_identity_pool_provider,
+            }
+            if gcp_organization_id is not None:
+                self._values["gcp_organization_id"] = gcp_organization_id
+
+        @builtins.property
+        def service_account_email(self) -> builtins.str:
+            '''The email address of the Google Cloud service account that AWS Config uses.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-config-connector-gcpconnectorconfiguration.html#cfn-config-connector-gcpconnectorconfiguration-serviceaccountemail
+            '''
+            result = self._values.get("service_account_email")
+            assert result is not None, "Required property 'service_account_email' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def workload_identity_pool_provider(self) -> builtins.str:
+            '''The full resource name of the workload identity pool provider that AWS Config uses to federate into Google Cloud.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-config-connector-gcpconnectorconfiguration.html#cfn-config-connector-gcpconnectorconfiguration-workloadidentitypoolprovider
+            '''
+            result = self._values.get("workload_identity_pool_provider")
+            assert result is not None, "Required property 'workload_identity_pool_provider' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def gcp_organization_id(self) -> typing.Optional[builtins.str]:
+            '''The ID of the Google Cloud organization that contains the connector's management project, which is the project of the service account in ServiceAccountEmail.
+
+            Required if the management project belongs to an organization. A connector needs an organization ID to record an entire organization or more than one project. Omit it only if the management project doesn't belong to an organization. In that case, the connector can record only the management project.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-config-connector-gcpconnectorconfiguration.html#cfn-config-connector-gcpconnectorconfiguration-gcporganizationid
+            '''
+            result = self._values.get("gcp_organization_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GcpConnectorConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -4383,7 +4749,7 @@ class CfnConnectorProps:
     ) -> None:
         '''Properties for defining a ``CfnConnector``.
 
-        :param connector_configuration: The configuration for the connector. Specify the third-party cloud provider configuration.
+        :param connector_configuration: The configuration for the connector. Specify exactly one third-party cloud provider configuration: Azure or Gcp.
         :param tags: The tags for the connector.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-config-connector.html
@@ -4401,6 +4767,13 @@ class CfnConnectorProps:
                     azure=config.CfnConnector.AzureConnectorConfigurationProperty(
                         client_identifier="clientIdentifier",
                         tenant_identifier="tenantIdentifier"
+                    ),
+                    gcp=config.CfnConnector.GcpConnectorConfigurationProperty(
+                        service_account_email="serviceAccountEmail",
+                        workload_identity_pool_provider="workloadIdentityPoolProvider",
+            
+                        # the properties below are optional
+                        gcp_organization_id="gcpOrganizationId"
                     )
                 ),
             
@@ -4427,7 +4800,7 @@ class CfnConnectorProps:
     ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.ConnectorConfigurationProperty"]:
         '''The configuration for the connector.
 
-        Specify the third-party cloud provider configuration.
+        Specify exactly one third-party cloud provider configuration: Azure or Gcp.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-config-connector.html#cfn-config-connector-connectorconfiguration
         '''
@@ -16648,13 +17021,15 @@ def _typecheckingstub__68cc2049b8c095672250d1c12a5af6fc05b3421a6c23124f87e5e31e2
     pass
 
 def _typecheckingstub__3e2b5c522b5074ba2ef97dd80a498043778309ce04aa178507276f160fde847d(
-    scope: _constructs_77d1e7e8.Construct,
+    scope_: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
     conformance_pack_name: builtins.str,
     conformance_pack_input_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConformancePack.ConformancePackInputParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     delivery_s3_bucket: typing.Optional[typing.Union[builtins.str, _aws_s3_03fe213b.IBucketRef]] = None,
     delivery_s3_key_prefix: typing.Optional[builtins.str] = None,
+    scope: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConformancePack.ScopeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    source: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConformancePack.SourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     template_body: typing.Optional[builtins.str] = None,
     template_s3_uri: typing.Optional[builtins.str] = None,
@@ -16717,6 +17092,18 @@ def _typecheckingstub__efa81031141bc30ac68f2881e9910f55d05494d80263ec0832f9c3b4c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__816db3a47c69cf3ddb2009660a734498b55d572a125a024746fc3eff8b691bac(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnConformancePack.ScopeProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e18e3a589458ebaa81b9ca9540e7f216d36647aeeeed6096f222d9783c8afea5(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnConformancePack.SourceProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__02a8aa042e48725a38e8f1abc2f7884120603e878d4de78006c6530bb4428d14(
     value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
@@ -16743,6 +17130,21 @@ def _typecheckingstub__0051d9ed94eb42b0d8f41b517dbab424e6b016ccd95fda52fae7900e6
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d26632341ce54fc2ea709e992ab58ee977572cb0d1c12de7db60ba12fa26d012(
+    *,
+    tag_key: builtins.str,
+    tag_value: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__274729b02a5db0b198a9391adb156a293de78127399484bb94a483369ecba877(
+    *,
+    source_identifier: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__10d0cf9a7e5ad0f39e4c2325532b8a4ad5ccd7cd37c16ad8dbbdb7c948035106(
     *,
     document_name: typing.Optional[builtins.str] = None,
@@ -16757,6 +17159,8 @@ def _typecheckingstub__eb7114b56400f450b835ab5d3aed18b5a4e6466e2dad2710b6844c6e7
     conformance_pack_input_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConformancePack.ConformancePackInputParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     delivery_s3_bucket: typing.Optional[typing.Union[builtins.str, _aws_s3_03fe213b.IBucketRef]] = None,
     delivery_s3_key_prefix: typing.Optional[builtins.str] = None,
+    scope: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConformancePack.ScopeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    source: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConformancePack.SourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     template_body: typing.Optional[builtins.str] = None,
     template_s3_uri: typing.Optional[builtins.str] = None,
@@ -16822,6 +17226,16 @@ def _typecheckingstub__6e20d6acd8f147a6b57d8a4c81ef53f6cbc1bb336ad271308262e3ff7
 def _typecheckingstub__cd4830195bb325be6a0e73e32a32f84cc9ab97cc48eda8b0c3afda8c42de5aa6(
     *,
     azure: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnector.AzureConnectorConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    gcp: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnector.GcpConnectorConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1d10407ff3db0f4f6de3943cf0dbb1b077fa04c8eef81a33e21e544c93a11362(
+    *,
+    service_account_email: builtins.str,
+    workload_identity_pool_provider: builtins.str,
+    gcp_organization_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

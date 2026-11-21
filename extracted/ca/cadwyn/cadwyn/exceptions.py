@@ -1,42 +1,22 @@
-from typing import Any
+"""The errors of Cadwyn, which has the errors of cadwyn-core too, as these are the same classes."""
 
-from fastapi.routing import APIRoute, APIWebSocketRoute
+from typing import TYPE_CHECKING, Union
 
+from cadwyn_core.exceptions import (
+    CadwynError,
+    CadwynHeadRequestValidationError,
+    CadwynRenderError,
+    CadwynStructureError,
+    InvalidGenerationInstructionError,
+    LintingError,
+    SchemaGenerationError,
+)
 
-class CadwynRenderError(Exception):
-    pass
-
-
-class CadwynError(Exception):
-    pass
-
-
-class CadwynHeadRequestValidationError(CadwynError):
-    def __init__(self, errors: list[Any], body: Any, version: str) -> None:
-        self.errors = errors
-        self.body = body
-        self.version = version
-        super().__init__(
-            f"We failed to migrate the request with version={self.version}. "
-            "This means that there is some error in your migrations or schema structure that makes it impossible "
-            "to migrate the request of that version to latest.\n"
-            f"body={self.body}\n\nerrors={self.errors}"
-        )
-
-
-class LintingError(CadwynError):
-    pass
-
-
-class SchemaGenerationError(CadwynError):
-    pass
+if TYPE_CHECKING:
+    from fastapi.routing import APIRoute, APIWebSocketRoute
 
 
 class ModuleIsNotAvailableAsTextError(SchemaGenerationError):
-    pass
-
-
-class InvalidGenerationInstructionError(SchemaGenerationError):
     pass
 
 
@@ -61,13 +41,9 @@ class RouteByPathConverterDoesNotApplyToAnythingError(RouterGenerationError):
 
 
 class RouteAlreadyExistsError(RouterGenerationError):
-    def __init__(self, *routes: APIRoute | APIWebSocketRoute) -> None:
+    def __init__(self, *routes: "Union[APIRoute, APIWebSocketRoute]") -> None:
         self.routes = routes
         super().__init__(f"The following routes are duplicates of each other: {routes}")
-
-
-class CadwynStructureError(CadwynError):
-    pass
 
 
 class ModuleIsNotVersionedError(ValueError):
@@ -76,3 +52,23 @@ class ModuleIsNotVersionedError(ValueError):
 
 class ImportFromStringError(CadwynError):
     pass
+
+
+__all__ = [
+    "CadwynError",
+    "CadwynHeadRequestValidationError",
+    "CadwynRenderError",
+    "CadwynStructureError",
+    "ImportFromStringError",
+    "InvalidGenerationInstructionError",
+    "LintingError",
+    "ModuleIsNotAvailableAsTextError",
+    "ModuleIsNotVersionedError",
+    "RouteAlreadyExistsError",
+    "RouteByPathConverterDoesNotApplyToAnythingError",
+    "RouteRequestBySchemaConverterDoesNotApplyToAnythingError",
+    "RouteResponseBySchemaConverterDoesNotApplyToAnythingError",
+    "RouterGenerationError",
+    "RouterPathParamsModifiedError",
+    "SchemaGenerationError",
+]

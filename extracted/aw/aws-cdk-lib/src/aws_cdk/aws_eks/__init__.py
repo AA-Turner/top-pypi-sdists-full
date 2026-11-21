@@ -16021,7 +16021,14 @@ class CfnPodIdentityAssociation(
                 key="key",
                 value="value"
             )],
-            target_role_arn="targetRoleArn"
+            target_role_arn="targetRoleArn",
+            workload_identity_config=eks.CfnPodIdentityAssociation.WorkloadIdentityConfigProperty(
+                enabled=False,
+        
+                # the properties below are optional
+                provider_arn="providerArn",
+                template_arn="templateArn"
+            )
         )
     '''
 
@@ -16038,6 +16045,7 @@ class CfnPodIdentityAssociation(
         policy: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         target_role_arn: typing.Optional[builtins.str] = None,
+        workload_identity_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPodIdentityAssociation.WorkloadIdentityConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::EKS::PodIdentityAssociation``.
 
@@ -16051,6 +16059,7 @@ class CfnPodIdentityAssociation(
         :param policy: The policy of the pod identity association.
         :param tags: Metadata that assists with categorization and organization. Each tag consists of a key and an optional value. You define both. Tags don't propagate to any other cluster or AWS resources. The following basic restrictions apply to tags: - Maximum number of tags per resource – 50 - For each resource, each tag key must be unique, and each tag key can have only one value. - Maximum key length – 128 Unicode characters in UTF-8 - Maximum value length – 256 Unicode characters in UTF-8 - If your tagging schema is used across multiple services and resources, remember that other services may have restrictions on allowed characters. Generally allowed characters are: letters, numbers, and spaces representable in UTF-8, and the following characters: + - = . _ : /
         :param target_role_arn: The Amazon Resource Name (ARN) of the target IAM role to associate with the service account. This role is assumed by using the EKS Pod Identity association role, then the credentials for this role are injected into the Pod.
+        :param workload_identity_config: The workload identity configuration of the pod identity association. When enabled, the association also provisions a SPIFFE identity for the workload. Setting Enabled to false disables workload identity and keeps the ARNs. Removing the property from the template leaves the association unchanged; set Enabled to false to disable workload identity.
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__be8311b6089cea26f85c63a586f0c5b063230a1b4a96ffcd4c6c983a331d8652)
@@ -16065,6 +16074,7 @@ class CfnPodIdentityAssociation(
             policy=policy,
             tags=tags,
             target_role_arn=target_role_arn,
+            workload_identity_config=workload_identity_config,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -16282,6 +16292,122 @@ class CfnPodIdentityAssociation(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "targetRoleArn", value)
 
+    @builtins.property
+    @jsii.member(jsii_name="workloadIdentityConfig")
+    def workload_identity_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPodIdentityAssociation.WorkloadIdentityConfigProperty"]]:
+        '''The workload identity configuration of the pod identity association.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPodIdentityAssociation.WorkloadIdentityConfigProperty"]], jsii.get(self, "workloadIdentityConfig"))
+
+    @workload_identity_config.setter
+    def workload_identity_config(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPodIdentityAssociation.WorkloadIdentityConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__96808591645d37ac3d7f90f185c4ea99be97ee9b4fea6de9f0064d0ba8542f1a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "workloadIdentityConfig", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_eks.CfnPodIdentityAssociation.WorkloadIdentityConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "enabled": "enabled",
+            "provider_arn": "providerArn",
+            "template_arn": "templateArn",
+        },
+    )
+    class WorkloadIdentityConfigProperty:
+        def __init__(
+            self,
+            *,
+            enabled: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+            provider_arn: typing.Optional[builtins.str] = None,
+            template_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The workload identity configuration of the pod identity association.
+
+            When enabled, the association also provisions a SPIFFE identity for the workload. Setting Enabled to false disables workload identity and keeps the ARNs. Removing the property from the template leaves the association unchanged; set Enabled to false to disable workload identity.
+
+            :param enabled: Whether workload identity is enabled for the association. Enabling it requires TemplateArn and ProviderArn, and cannot be combined with TargetRoleArn.
+            :param provider_arn: The ARN of the customer-owned IAM workload identity provider that produces the trusted context assertion for the workload.
+            :param template_arn: The ARN of the customer-owned IAM workload identity template that renders the workload's SPIFFE identity.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-podidentityassociation-workloadidentityconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_eks as eks
+                
+                workload_identity_config_property = eks.CfnPodIdentityAssociation.WorkloadIdentityConfigProperty(
+                    enabled=False,
+                
+                    # the properties below are optional
+                    provider_arn="providerArn",
+                    template_arn="templateArn"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__8d4a825524d3d0eb4b76a7899df4015ad366db4a2b1e6787bd55436e85956ca3)
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+                check_type(argname="argument provider_arn", value=provider_arn, expected_type=type_hints["provider_arn"])
+                check_type(argname="argument template_arn", value=template_arn, expected_type=type_hints["template_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "enabled": enabled,
+            }
+            if provider_arn is not None:
+                self._values["provider_arn"] = provider_arn
+            if template_arn is not None:
+                self._values["template_arn"] = template_arn
+
+        @builtins.property
+        def enabled(
+            self,
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
+            '''Whether workload identity is enabled for the association.
+
+            Enabling it requires TemplateArn and ProviderArn, and cannot be combined with TargetRoleArn.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-podidentityassociation-workloadidentityconfig.html#cfn-eks-podidentityassociation-workloadidentityconfig-enabled
+            '''
+            result = self._values.get("enabled")
+            assert result is not None, "Required property 'enabled' is missing"
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
+
+        @builtins.property
+        def provider_arn(self) -> typing.Optional[builtins.str]:
+            '''The ARN of the customer-owned IAM workload identity provider that produces the trusted context assertion for the workload.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-podidentityassociation-workloadidentityconfig.html#cfn-eks-podidentityassociation-workloadidentityconfig-providerarn
+            '''
+            result = self._values.get("provider_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def template_arn(self) -> typing.Optional[builtins.str]:
+            '''The ARN of the customer-owned IAM workload identity template that renders the workload's SPIFFE identity.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-podidentityassociation-workloadidentityconfig.html#cfn-eks-podidentityassociation-workloadidentityconfig-templatearn
+            '''
+            result = self._values.get("template_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "WorkloadIdentityConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_eks.CfnPodIdentityAssociationProps",
@@ -16295,6 +16421,7 @@ class CfnPodIdentityAssociation(
         "policy": "policy",
         "tags": "tags",
         "target_role_arn": "targetRoleArn",
+        "workload_identity_config": "workloadIdentityConfig",
     },
 )
 class CfnPodIdentityAssociationProps:
@@ -16309,6 +16436,7 @@ class CfnPodIdentityAssociationProps:
         policy: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         target_role_arn: typing.Optional[builtins.str] = None,
+        workload_identity_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPodIdentityAssociation.WorkloadIdentityConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnPodIdentityAssociation``.
 
@@ -16320,6 +16448,7 @@ class CfnPodIdentityAssociationProps:
         :param policy: The policy of the pod identity association.
         :param tags: Metadata that assists with categorization and organization. Each tag consists of a key and an optional value. You define both. Tags don't propagate to any other cluster or AWS resources. The following basic restrictions apply to tags: - Maximum number of tags per resource – 50 - For each resource, each tag key must be unique, and each tag key can have only one value. - Maximum key length – 128 Unicode characters in UTF-8 - Maximum value length – 256 Unicode characters in UTF-8 - If your tagging schema is used across multiple services and resources, remember that other services may have restrictions on allowed characters. Generally allowed characters are: letters, numbers, and spaces representable in UTF-8, and the following characters: + - = . _ : /
         :param target_role_arn: The Amazon Resource Name (ARN) of the target IAM role to associate with the service account. This role is assumed by using the EKS Pod Identity association role, then the credentials for this role are injected into the Pod.
+        :param workload_identity_config: The workload identity configuration of the pod identity association. When enabled, the association also provisions a SPIFFE identity for the workload. Setting Enabled to false disables workload identity and keeps the ARNs. Removing the property from the template leaves the association unchanged; set Enabled to false to disable workload identity.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eks-podidentityassociation.html
         :exampleMetadata: fixture=_generated
@@ -16344,7 +16473,14 @@ class CfnPodIdentityAssociationProps:
                     key="key",
                     value="value"
                 )],
-                target_role_arn="targetRoleArn"
+                target_role_arn="targetRoleArn",
+                workload_identity_config=eks.CfnPodIdentityAssociation.WorkloadIdentityConfigProperty(
+                    enabled=False,
+            
+                    # the properties below are optional
+                    provider_arn="providerArn",
+                    template_arn="templateArn"
+                )
             )
         '''
         if __debug__:
@@ -16357,6 +16493,7 @@ class CfnPodIdentityAssociationProps:
             check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument target_role_arn", value=target_role_arn, expected_type=type_hints["target_role_arn"])
+            check_type(argname="argument workload_identity_config", value=workload_identity_config, expected_type=type_hints["workload_identity_config"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "cluster_name": cluster_name,
             "namespace": namespace,
@@ -16371,6 +16508,8 @@ class CfnPodIdentityAssociationProps:
             self._values["tags"] = tags
         if target_role_arn is not None:
             self._values["target_role_arn"] = target_role_arn
+        if workload_identity_config is not None:
+            self._values["workload_identity_config"] = workload_identity_config
 
     @builtins.property
     def cluster_name(self) -> builtins.str:
@@ -16473,6 +16612,19 @@ class CfnPodIdentityAssociationProps:
         '''
         result = self._values.get("target_role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def workload_identity_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPodIdentityAssociation.WorkloadIdentityConfigProperty"]]:
+        '''The workload identity configuration of the pod identity association.
+
+        When enabled, the association also provisions a SPIFFE identity for the workload. Setting Enabled to false disables workload identity and keeps the ARNs. Removing the property from the template leaves the association unchanged; set Enabled to false to disable workload identity.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eks-podidentityassociation.html#cfn-eks-podidentityassociation-workloadidentityconfig
+        '''
+        result = self._values.get("workload_identity_config")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPodIdentityAssociation.WorkloadIdentityConfigProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -29574,6 +29726,7 @@ def _typecheckingstub__be8311b6089cea26f85c63a586f0c5b063230a1b4a96ffcd4c6c983a3
     policy: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     target_role_arn: typing.Optional[builtins.str] = None,
+    workload_identity_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPodIdentityAssociation.WorkloadIdentityConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -29644,6 +29797,21 @@ def _typecheckingstub__cb6220c6db8cf93a8a307b1ba0630d6bc64b4a09325e7cfe5854228aa
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__96808591645d37ac3d7f90f185c4ea99be97ee9b4fea6de9f0064d0ba8542f1a(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPodIdentityAssociation.WorkloadIdentityConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8d4a825524d3d0eb4b76a7899df4015ad366db4a2b1e6787bd55436e85956ca3(
+    *,
+    enabled: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+    provider_arn: typing.Optional[builtins.str] = None,
+    template_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__40e8da56b529234cdbb596fa46af952a935adf744e907347861dfc232b89038b(
     *,
     cluster_name: builtins.str,
@@ -29654,6 +29822,7 @@ def _typecheckingstub__40e8da56b529234cdbb596fa46af952a935adf744e907347861dfc232
     policy: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     target_role_arn: typing.Optional[builtins.str] = None,
+    workload_identity_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPodIdentityAssociation.WorkloadIdentityConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

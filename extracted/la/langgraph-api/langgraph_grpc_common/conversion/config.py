@@ -1,5 +1,5 @@
 import logging
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import orjson
 from langchain_core.runnables import RunnableConfig
@@ -23,11 +23,13 @@ from langgraph_grpc_common.conversion._compat import (
     CONFIG_KEY_STREAM,
     CONFIG_KEY_TASK_ID,
     CONFIG_KEY_THREAD_ID,
-    Runtime,
     StreamProtocol,
 )
 from langgraph_grpc_common.conversion.struct import _default_serializer
 from langgraph_grpc_common.proto import engine_common_pb2, enum_stream_mode_pb2
+
+if TYPE_CHECKING:
+    from langgraph.runtime import Runtime
 
 CONFIG_KEY_GRAPH_ID = "graph_id"
 CONFIG_KEY_NODE_FINISHED = "__pregel_node_finished"
@@ -346,7 +348,7 @@ def _inject_configurable_into_proto(
             raise
 
 
-def runtime_to_proto(runtime: Runtime) -> engine_common_pb2.Runtime:
+def runtime_to_proto(runtime: "Runtime") -> engine_common_pb2.Runtime:
     proto = engine_common_pb2.Runtime()
 
     if runtime.context:

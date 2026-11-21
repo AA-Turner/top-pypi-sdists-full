@@ -1,3 +1,4 @@
+import re
 import math
 from typing import Any
 
@@ -32,6 +33,30 @@ def test_generate_data_vals_fails_ambig():
 def test_generate_data_vals_fails_novals():
     with pytest.raises(ValueError):
         _generate_data_vals("abc")
+
+
+def test_fmt_nanoplot_pandas_nullable_float_with_missing_value():
+    np = pytest.importorskip("numpy")
+    pd = pytest.importorskip("pandas")
+
+    values = [1.5, None, 3.0]
+    gt_nullable = GT(pd.DataFrame({"x": pd.array(values, dtype="Float64")}), id="t")
+    gt_numpy = GT(pd.DataFrame({"x": [1.5, np.nan, 3.0]}), id="t")
+
+    html_nullable = gt_nullable.fmt_nanoplot("x").as_raw_html()
+
+    # The missing value gets no plot, and the others share the scale as with a NumPy column
+    assert html_nullable.count("<svg") == 2
+    assert html_nullable == gt_numpy.fmt_nanoplot("x").as_raw_html()
+
+
+@pytest.mark.usefixtures("no_polars_import")
+def test_fmt_nanoplot_pandas_without_polars():
+    pd = pytest.importorskip("pandas")
+
+    html = GT(pd.DataFrame({"x": ["1 2 3"]})).fmt_nanoplot("x").as_raw_html()
+
+    assert "<svg" in html
 
 
 def test_generate_data_vals_fails_date_strings():
@@ -175,10 +200,83 @@ def test_fmt_nanoplot_na_in_number_stream_with_ref_keywords(plot_type: str):
     assert [float(label) for label in ref_line_labels] == [3, 6]
 
 
+@pytest.mark.parametrize("plot_type", ["line", "bar", "boxplot"])
+@pytest.mark.parametrize("keyword,dst", [("first", [2, 7]), ("last", [4, 6])])
+def test_fmt_nanoplot_ref_keywords_first_last(plot_type: str, keyword: str, dst: list[float]):
+    gt = GT(pl.DataFrame({"v": ["2 5 3 9 4", "7 1 6"]})).fmt_nanoplot(
+        columns="v", plot_type=plot_type, reference_line=keyword, reference_area=["first", "last"]
+    )
+
+    import re
+
+    ref_line_labels = re.findall(r'<g class="ref-line">.*?>([^<>]*)</text></g>', gt.as_raw_html())
+
+    assert [float(label) for label in ref_line_labels] == dst
+
+
 @pytest.mark.parametrize("plot_type", ["line", "bar"])
 def test_fmt_nanoplot_bracketed_number_stream(plot_type: str):
     def render(vals: list[str]) -> str:
-        gt = GT(pl.DataFrame({"v": vals}), id="t").fmt_nanoplot(columns="v", plot_type=plot_type)
-        return gt.as_raw_html()
+        # Only the bare stream is number-like and right-aligns, so compare with alignment off
+        gt = GT(pl.DataFrame({"v": vals}), id="t", auto_align=False)
+        return gt.fmt_nanoplot(columns="v", plot_type=plot_type).as_raw_html()
 
     assert render(["[1, 5, 3]", "[2; 4]"]) == render(["1 5 3", "2 4"])
+
+
+@pytest.mark.parametrize("dtype", ["int64", "int32", "float32"])
+def test_generate_data_vals_numpy_scalars(dtype: str):
+    np = pytest.importorskip("numpy")
+
+    scalar = _generate_data_vals(np.dtype(dtype).type(3))
+    values = _generate_data_vals([np.dtype(dtype).type(1), None, np.dtype(dtype).type(3)])
+
+    assert scalar == 3 and type(scalar) in (int, float)
+    assert values == [1, None, 3] and all(type(v) in (int, float) for v in values if v is not None)
+
+
+@pytest.mark.parametrize("dtype", ["int64", "int32", "float32"])
+def test_fmt_nanoplot_pandas_numpy_columns(dtype: str):
+    pd = pytest.importorskip("pandas")
+
+    pl_dtypes = {"int64": pl.Int64, "int32": pl.Int32, "float32": pl.Float32}
+    values = [1, 2, 3]
+    gt_pandas = GT(pd.DataFrame({"x": pd.Series(values, dtype=dtype)}), id="t").fmt_nanoplot("x")
+    gt_polars = GT(
+        pl.DataFrame({"x": pl.Series(values, dtype=pl_dtypes[dtype])}), id="t"
+    ).fmt_nanoplot("x")
+
+    # The nanoplots of a pandas column match those of a Polars column of the same dtype
+    assert gt_pandas.as_raw_html().count("<svg") == 3
+    assert gt_pandas.as_raw_html() == gt_polars.as_raw_html()
+
+
+def _numeric_column(kind: str):
+    import pyarrow as pa
+    from decimal import Decimal
+
+    vals = ["1.5", "2.5", "4.0"]
+    if kind == "polars_float":
+        return pl.DataFrame({"x": [float(v) for v in vals]})
+    if kind == "pyarrow_float64":
+        return pa.table({"x": pa.array([float(v) for v in vals])})
+    if kind == "polars_decimal":
+        return pl.DataFrame({"x": [Decimal(v) for v in vals]}, schema={"x": pl.Decimal(10, 2)})
+    if kind == "pyarrow_decimal":
+        return pa.table({"x": pa.array([Decimal(v) for v in vals], type=pa.decimal128(10, 2))})
+    raise ValueError(kind)
+
+
+@pytest.mark.parametrize("plot_type", ["line", "bar"])
+@pytest.mark.parametrize("kind", ["pyarrow_float64", "polars_decimal", "pyarrow_decimal"])
+def test_fmt_nanoplot_numeric_column_dtypes_match_polars_float(kind: str, plot_type: str):
+    pytest.importorskip("pyarrow")
+
+    def draw(tbl):
+        # the alignment is fixed: it is inferred from the dtype, which is not under test here
+        gt = GT(tbl).fmt_nanoplot("x", plot_type=plot_type).cols_align("right", columns="x")
+        html = gt.as_raw_html()
+        # the table id and the ids of the SVG elements differ between tables
+        return re.sub(r'id="[^"]*"|#[a-z]+\w*', "", html)
+
+    assert draw(_numeric_column(kind)) == draw(_numeric_column("polars_float"))

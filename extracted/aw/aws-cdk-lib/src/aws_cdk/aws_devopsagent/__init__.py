@@ -1854,7 +1854,10 @@ class CfnAssociation(
                     owner="owner",
                     owner_type="ownerType",
                     repo_id="repoId",
-                    repo_name="repoName"
+                    repo_name="repoName",
+        
+                    # the properties below are optional
+                    release_management_association_id="releaseManagementAssociationId"
                 ),
                 git_lab=devopsagent.CfnAssociation.GitLabConfigurationProperty(
                     project_id="projectId",
@@ -1862,7 +1865,8 @@ class CfnAssociation(
         
                     # the properties below are optional
                     enable_webhook_updates=False,
-                    instance_identifier="instanceIdentifier"
+                    instance_identifier="instanceIdentifier",
+                    release_management_association_id="releaseManagementAssociationId"
                 ),
                 mcp_server=devopsagent.CfnAssociation.MCPServerConfigurationProperty(
                     tools=["tools"],
@@ -2885,6 +2889,7 @@ class CfnAssociation(
             "owner_type": "ownerType",
             "repo_id": "repoId",
             "repo_name": "repoName",
+            "release_management_association_id": "releaseManagementAssociationId",
         },
     )
     class GitHubConfigurationProperty:
@@ -2895,6 +2900,7 @@ class CfnAssociation(
             owner_type: builtins.str,
             repo_id: builtins.str,
             repo_name: builtins.str,
+            release_management_association_id: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Configuration for GitHub repository integration.
 
@@ -2904,6 +2910,7 @@ class CfnAssociation(
             :param owner_type: Type of repository owner.
             :param repo_id: Associated Github repo ID.
             :param repo_name: Associated Github repo name.
+            :param release_management_association_id: The ID of the release management association that this repository uses for automated testing.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-githubconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -2918,7 +2925,10 @@ class CfnAssociation(
                     owner="owner",
                     owner_type="ownerType",
                     repo_id="repoId",
-                    repo_name="repoName"
+                    repo_name="repoName",
+                
+                    # the properties below are optional
+                    release_management_association_id="releaseManagementAssociationId"
                 )
             '''
             if __debug__:
@@ -2927,12 +2937,15 @@ class CfnAssociation(
                 check_type(argname="argument owner_type", value=owner_type, expected_type=type_hints["owner_type"])
                 check_type(argname="argument repo_id", value=repo_id, expected_type=type_hints["repo_id"])
                 check_type(argname="argument repo_name", value=repo_name, expected_type=type_hints["repo_name"])
+                check_type(argname="argument release_management_association_id", value=release_management_association_id, expected_type=type_hints["release_management_association_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "owner": owner,
                 "owner_type": owner_type,
                 "repo_id": repo_id,
                 "repo_name": repo_name,
             }
+            if release_management_association_id is not None:
+                self._values["release_management_association_id"] = release_management_association_id
 
         @builtins.property
         def owner(self) -> builtins.str:
@@ -2974,6 +2987,15 @@ class CfnAssociation(
             assert result is not None, "Required property 'repo_name' is missing"
             return typing.cast(builtins.str, result)
 
+        @builtins.property
+        def release_management_association_id(self) -> typing.Optional[builtins.str]:
+            '''The ID of the release management association that this repository uses for automated testing.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-githubconfiguration.html#cfn-devopsagent-association-githubconfiguration-releasemanagementassociationid
+            '''
+            result = self._values.get("release_management_association_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -2993,6 +3015,7 @@ class CfnAssociation(
             "project_path": "projectPath",
             "enable_webhook_updates": "enableWebhookUpdates",
             "instance_identifier": "instanceIdentifier",
+            "release_management_association_id": "releaseManagementAssociationId",
         },
     )
     class GitLabConfigurationProperty:
@@ -3003,6 +3026,7 @@ class CfnAssociation(
             project_path: builtins.str,
             enable_webhook_updates: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             instance_identifier: typing.Optional[builtins.str] = None,
+            release_management_association_id: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Configuration for GitLab project integration.
 
@@ -3012,6 +3036,7 @@ class CfnAssociation(
             :param project_path: Full GitLab project path (e.g., namespace/project-name).
             :param enable_webhook_updates: When set to true, enables the Agent Space to create and update webhooks for receiving notifications and events from the service.
             :param instance_identifier: GitLab instance identifier (e.g., gitlab.com).
+            :param release_management_association_id: The ID of the release management association that this project uses for automated testing.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-gitlabconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -3028,7 +3053,8 @@ class CfnAssociation(
                 
                     # the properties below are optional
                     enable_webhook_updates=False,
-                    instance_identifier="instanceIdentifier"
+                    instance_identifier="instanceIdentifier",
+                    release_management_association_id="releaseManagementAssociationId"
                 )
             '''
             if __debug__:
@@ -3037,6 +3063,7 @@ class CfnAssociation(
                 check_type(argname="argument project_path", value=project_path, expected_type=type_hints["project_path"])
                 check_type(argname="argument enable_webhook_updates", value=enable_webhook_updates, expected_type=type_hints["enable_webhook_updates"])
                 check_type(argname="argument instance_identifier", value=instance_identifier, expected_type=type_hints["instance_identifier"])
+                check_type(argname="argument release_management_association_id", value=release_management_association_id, expected_type=type_hints["release_management_association_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "project_id": project_id,
                 "project_path": project_path,
@@ -3045,6 +3072,8 @@ class CfnAssociation(
                 self._values["enable_webhook_updates"] = enable_webhook_updates
             if instance_identifier is not None:
                 self._values["instance_identifier"] = instance_identifier
+            if release_management_association_id is not None:
+                self._values["release_management_association_id"] = release_management_association_id
 
         @builtins.property
         def project_id(self) -> builtins.str:
@@ -3084,6 +3113,15 @@ class CfnAssociation(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-gitlabconfiguration.html#cfn-devopsagent-association-gitlabconfiguration-instanceidentifier
             '''
             result = self._values.get("instance_identifier")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def release_management_association_id(self) -> typing.Optional[builtins.str]:
+            '''The ID of the release management association that this project uses for automated testing.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-gitlabconfiguration.html#cfn-devopsagent-association-gitlabconfiguration-releasemanagementassociationid
+            '''
+            result = self._values.get("release_management_association_id")
             return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -4241,7 +4279,10 @@ class CfnAssociation(
                         owner="owner",
                         owner_type="ownerType",
                         repo_id="repoId",
-                        repo_name="repoName"
+                        repo_name="repoName",
+                
+                        # the properties below are optional
+                        release_management_association_id="releaseManagementAssociationId"
                     ),
                     git_lab=devopsagent.CfnAssociation.GitLabConfigurationProperty(
                         project_id="projectId",
@@ -4249,7 +4290,8 @@ class CfnAssociation(
                 
                         # the properties below are optional
                         enable_webhook_updates=False,
-                        instance_identifier="instanceIdentifier"
+                        instance_identifier="instanceIdentifier",
+                        release_management_association_id="releaseManagementAssociationId"
                     ),
                     mcp_server=devopsagent.CfnAssociation.MCPServerConfigurationProperty(
                         tools=["tools"],
@@ -5365,7 +5407,10 @@ class CfnAssociationProps:
                         owner="owner",
                         owner_type="ownerType",
                         repo_id="repoId",
-                        repo_name="repoName"
+                        repo_name="repoName",
+            
+                        # the properties below are optional
+                        release_management_association_id="releaseManagementAssociationId"
                     ),
                     git_lab=devopsagent.CfnAssociation.GitLabConfigurationProperty(
                         project_id="projectId",
@@ -5373,7 +5418,8 @@ class CfnAssociationProps:
             
                         # the properties below are optional
                         enable_webhook_updates=False,
-                        instance_identifier="instanceIdentifier"
+                        instance_identifier="instanceIdentifier",
+                        release_management_association_id="releaseManagementAssociationId"
                     ),
                     mcp_server=devopsagent.CfnAssociation.MCPServerConfigurationProperty(
                         tools=["tools"],
@@ -12327,6 +12373,7 @@ def _typecheckingstub__f52e2bfd74e3e041299304fca2e11acf7c77935cb3d81768bd90034e8
     owner_type: builtins.str,
     repo_id: builtins.str,
     repo_name: builtins.str,
+    release_management_association_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12337,6 +12384,7 @@ def _typecheckingstub__3d0bf76d18d2da5c1a7b65fd908fdd6aa4ca798335d0ef9f07ec4c064
     project_path: builtins.str,
     enable_webhook_updates: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     instance_identifier: typing.Optional[builtins.str] = None,
+    release_management_association_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

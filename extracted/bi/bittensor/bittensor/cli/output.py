@@ -223,7 +223,7 @@ _INCIDENTAL_KEYS = {"path", "timepoint", "block"}
 
 
 def record_rows(label: str, records: list[dict], text=lambda key, value: str(value)) -> list:
-    """A list of records (spend entries) as one card row per record."""
+    """A list of records as one card row per record."""
     return [
         (
             f"{label} {index}",
@@ -2320,6 +2320,10 @@ class Output:
             if followup.get("proxy_for"):
                 target += f" as {followup['proxy_for']} via proxy"
             fields["target"] = target
+        if followup.get("protected_inner"):
+            inner = followup["protected_inner"]
+            fields["protected call"] = inner.get("summary") or inner.get("op")
+            fields["protected hash"] = inner.get("call_hash")
         approval_labels = followup.get("approval_labels") or followup.get("approvals_so_far") or []
         if approval_labels:
             fields["approved_by"] = approval_labels

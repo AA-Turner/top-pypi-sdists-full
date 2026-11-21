@@ -1,3 +1,4 @@
+use super::unit_id::is_user_id_type;
 use crate::{evaluation::dynamic_value::DynamicValue, hashing};
 #[cfg(feature = "ordered_user_data_maps")]
 use indexmap::IndexMap;
@@ -65,7 +66,7 @@ impl UserData {
     }
 
     pub fn get_unit_id_hash(&self, id_type: &str) -> u64 {
-        if id_type.eq_ignore_ascii_case("userid") {
+        if is_user_id_type(id_type) {
             return self
                 .user_id
                 .as_ref()

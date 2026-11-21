@@ -267,6 +267,8 @@ TimingControl& Delay3Control::fromParams(Compilation& compilation,
         }
 
         delays[i] = &Expression::bind(*items[i]->as<OrderedParamAssignmentSyntax>().expr, context);
+        if (delays[i]->bad())
+            return badCtrl(compilation, nullptr);
 
         if (!delays[i]->type->isNumeric()) {
             context.addDiag(diag::DelayNotNumeric, delays[i]->sourceRange) << *delays[i]->type;
@@ -501,7 +503,11 @@ static void collectEvents(const ASTContext& context, const SyntaxNode& expr,
             break;
         }
         default:
-            SLANG_UNREACHABLE;
+            // Other sequence and property operators can show up inside
+            // parentheses (e.g. "(a and b)") but aren't valid event expressions.
+            context.addDiag(diag::InvalidSyntaxInEventExpr, expr.sourceRange());
+            addResult(*context.getCompilation().emplace<InvalidTimingControl>(nullptr));
+            break;
     }
 }
 

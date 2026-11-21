@@ -2865,6 +2865,7 @@ https://docs.chalk.ai/cli/apply
         write_to: str | None = None,
         input_checks: Collection[Union[str, DataQualityCheck]] = (),
         output_checks: Collection[Union[str, DataQualityCheck]] = (),
+        namespace_filters: Mapping[str, Mapping[str, datetime | None]] | None = None,
     ) -> DatasetImpl:
         run_asynchronously = (
             use_multiple_computers
@@ -3053,6 +3054,7 @@ https://docs.chalk.ai/cli/apply
             upper_bound=upper_bound,
             lower_bound_inserted_at=lower_bound_inserted_at,
             upper_bound_inserted_at=upper_bound_inserted_at,
+            namespace_filters=namespace_filters,
             store_plan_stages=store_plan_stages,
             tags=tags,
             required_resolver_tags=required_resolver_tags,
@@ -4592,6 +4594,7 @@ https://docs.chalk.ai/cli/apply
         use_metaplanner: bool | None = False,
         unload_resolvers: list[dict[str, Any]] | None = None,
         write_to: str | None = None,
+        namespace_filters: Mapping[str, Mapping[str, datetime | None]] | None = None,
     ) -> DatasetResponse:
         if not (
             isinstance(recompute_features, list)
@@ -4654,6 +4657,7 @@ https://docs.chalk.ai/cli/apply
             observed_at_upper_bound=upper_bound_str,
             inserted_at_lower_bound=lower_bound_inserted_at_str,
             inserted_at_upper_bound=upper_bound_inserted_at_str,
+            namespace_filters=namespace_filters,
             store_plan_stages=store_plan_stages,
             correlation_id=correlation_id,
             query_context=query_context,

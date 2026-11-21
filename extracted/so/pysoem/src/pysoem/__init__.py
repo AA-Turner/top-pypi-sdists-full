@@ -1,4 +1,4 @@
-__version__ = '1.1.13'
+__version__ = "1.1.14"
 
 
 # Classes:
@@ -8,6 +8,7 @@ from pysoem.pysoem import (
     Emergency,
     SdoInfoError,
     MailboxError,
+    FoeError,
     PacketError,
     ConfigMapError,
     EepromError,
@@ -42,6 +43,7 @@ from pysoem.pysoem import (
     ECT_COEDET_UPLOAD,
     ECT_COEDET_SDOCA,
 )
+
 globals().update(pysoem.ec_datatype.__members__)
 
 # Functions:
@@ -59,6 +61,4 @@ from pysoem.pysoem import (
 )
 
 # Settings:
-from pysoem.pysoem import (
-    settings
-)
+from pysoem.pysoem import settings

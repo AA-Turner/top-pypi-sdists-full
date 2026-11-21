@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+import math
+import numbers
 import re
 import warnings
 from collections.abc import Callable
+from contextlib import suppress
+from datetime import datetime, time
+from decimal import Decimal
 from functools import singledispatch
-from typing import TYPE_CHECKING, Any, TypeAlias, Union
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypeAlias
 
 from ._databackend import AbstractBackend
 
@@ -42,8 +47,8 @@ if TYPE_CHECKING:
     NpInteger = np.integer
     NpBool = np.bool_
 
-    DataFrameLike = Union[PdDataFrame, PlDataFrame, PyArrowTable]
-    SeriesLike = Union[PdSeries, PlSeries, PyArrowArray, PyArrowChunkedArray]
+    DataFrameLike = PdDataFrame | PlDataFrame | PyArrowTable
+    SeriesLike = PdSeries | PlSeries | PyArrowArray | PyArrowChunkedArray
     TblData = DataFrameLike
 
 else:
@@ -54,44 +59,47 @@ else:
     from typing import Any as Selector
 
     class PdDataFrame(AbstractBackend):
-        _backends = [("pandas", "DataFrame")]
+        _backends: ClassVar = [("pandas", "DataFrame")]
 
     class PlDataFrame(AbstractBackend):
-        _backends = [("polars", "DataFrame")]
+        _backends: ClassVar = [("polars", "DataFrame")]
 
     class PyArrowTable(AbstractBackend):
-        _backends = [("pyarrow", "Table")]
+        _backends: ClassVar = [("pyarrow", "Table")]
 
     class PlSelectExpr(AbstractBackend):
-        _backends = [("polars.selectors", "_selector_proxy_"), ("polars.selectors", "Selector")]
+        _backends: ClassVar = [
+            ("polars.selectors", "_selector_proxy_"),
+            ("polars.selectors", "Selector"),
+        ]
         _strict = False
 
     class PlExpr(AbstractBackend):
-        _backends = [("polars", "Expr")]
+        _backends: ClassVar = [("polars", "Expr")]
 
     class PdSeries(AbstractBackend):
-        _backends = [("pandas", "Series")]
+        _backends: ClassVar = [("pandas", "Series")]
 
     class PlSeries(AbstractBackend):
-        _backends = [("polars", "Series")]
+        _backends: ClassVar = [("polars", "Series")]
 
     class PyArrowArray(AbstractBackend):
-        _backends = [("pyarrow", "Array")]
+        _backends: ClassVar = [("pyarrow", "Array")]
 
     class PyArrowChunkedArray(AbstractBackend):
-        _backends = [("pyarrow", "ChunkedArray")]
+        _backends: ClassVar = [("pyarrow", "ChunkedArray")]
 
     class PdNA(AbstractBackend):
-        _backends = [("pandas", "NA")]
+        _backends: ClassVar = [("pandas", "NA")]
 
     class PlNull(AbstractBackend):
-        _backends = [("polars", "Null")]
+        _backends: ClassVar = [("polars", "Null")]
 
     class NpInteger(AbstractBackend):
-        _backends = [("numpy", "integer")]
+        _backends: ClassVar = [("numpy", "integer")]
 
     class NpBool(AbstractBackend):
-        _backends = [("numpy", "bool_")]
+        _backends: ClassVar = [("numpy", "bool_")]
 
     # TODO: these types are imported throughout gt, so we need to either put
     # those imports under TYPE_CHECKING, or continue to make available dynamically here.
@@ -278,6 +286,84 @@ def _(data: PyArrowTable, row: int, column: str, value: Any) -> PyArrowTable:
     return data
 
 
+# _set_cells ----
+
+
+@singledispatch
+def _set_cells(data: DataFrameLike, column: str, values: dict[int, Any]) -> DataFrameLike:
+    """
+    Set the cells of one column (a dict of row index to value) and return the table, which is
+    modified in place for pandas and polars, and a new table for PyArrow.
+    """
+    _raise_not_implemented(data)  # pragma: no cover
+
+
+def _set_cells_one_by_one(data: DataFrameLike, column: str, values: dict[int, Any]):
+    for row, value in values.items():
+        result = _set_cell(data, row, column, value)
+        if result is not None:
+            data = result
+
+    return data
+
+
+def _are_strings(values: dict[int, Any]) -> bool:
+    # Formatters give strings (or None), which are set in one go; other values are set one at a
+    # time, as each backend converts them differently (polars casts them to strings, pandas raises)
+    return all(value is None or isinstance(value, str) for value in values.values())
+
+
+@_set_cells.register(PdDataFrame)
+def _(data, column: str, values: dict[int, Any]):
+    col_indx = data.columns.get_loc(column)
+
+    if (
+        not values
+        or not isinstance(col_indx, int)
+        or data.dtypes.iloc[col_indx] != "string"
+        or not _are_strings(values)
+    ):
+        return _set_cells_one_by_one(data, column, values)
+
+    data.iloc[list(values), col_indx] = list(values.values())
+    return data
+
+
+@_set_cells.register(PlDataFrame)
+def _(data, column: str, values: dict[int, Any]):
+    import polars as pl
+
+    col_indx = data.columns.index(column)
+
+    if not values or data.dtypes[col_indx] != pl.String or not _are_strings(values):
+        return _set_cells_one_by_one(data, column, values)
+
+    series = data.to_series(col_indx).clone()
+    series.scatter(list(values), pl.Series(list(values.values()), dtype=pl.String))
+    data.replace_column(col_indx, series)
+    return data
+
+
+@_set_cells.register(PyArrowTable)
+def _(data: PyArrowTable, column: str, values: dict[int, Any]) -> PyArrowTable:
+    import pyarrow as pa
+
+    if not values:
+        return data
+
+    colindex = data.column_names.index(column)
+    column_type = data.schema.field(colindex).type
+    is_string = pa.types.is_string(column_type) or pa.types.is_large_string(column_type)
+    pylist = data.column(column).to_pylist()
+    for row, value in values.items():
+        if is_string and isinstance(value, float) and math.isnan(value):
+            # A formatter passes a NaN through unchanged, and pa.array() cannot mix it with strings.
+            # Show it as polars does.
+            value = "NaN"
+        pylist[row] = value
+    return data.set_column(colindex, column, pa.array(pylist))
+
+
 # _get_column_dtype ----
 
 
@@ -292,17 +378,17 @@ def _(data: PyArrowTable, column: str) -> Any:
     return data.column(column).type
 
 
+# Anchored: nested dtypes name numeric types in their parameters ("dictionary<indices=int32, ...>")
+_NUMERIC_DTYPE_PREFIX = re.compile(r"(?:sparse\[)?(?:u?int\d|(?:half)?float|double|decimal)")
+
+
 def _is_numeric_dtype(data: DataFrameLike, column: str) -> bool:
     """Check whether a column in the original data has a numeric dtype."""
     try:
         dtype = _get_column_dtype(data, column)
-    except Exception:
+    except Exception:  # noqa: BLE001
         return False
-    dtype_str = str(dtype).lower()
-    for token in ("int", "float", "decimal", "double", "numeric", "number"):
-        if token in dtype_str:
-            return True
-    return False
+    return _NUMERIC_DTYPE_PREFIX.match(str(dtype).lower()) is not None
 
 
 # _get_column_levels ----
@@ -311,7 +397,7 @@ def _is_numeric_dtype(data: DataFrameLike, column: str) -> bool:
 @singledispatch
 def _get_column_levels(data: DataFrameLike, column: str) -> list[Any] | None:
     """Get the declared levels of an ordered categorical column (or `None` if there are none)"""
-    return None
+    return None  # pragma: no cover
 
 
 @_get_column_levels.register
@@ -338,6 +424,425 @@ def _(data: PlDataFrame, column: str) -> list[Any] | None:
     return None
 
 
+@_get_column_levels.register
+def _(data: PyArrowTable, column: str) -> list[Any] | None:
+    import pyarrow as pa
+
+    col = data.column(column)
+
+    if pa.types.is_dictionary(col.type) and col.type.ordered:
+        # Chunks can carry different dictionaries, and a null entry is not a level
+        dictionaries = [chunk.dictionary for chunk in col.chunks]
+        return pa.chunked_array(dictionaries, col.type.value_type).unique().drop_null().to_pylist()
+
+    return None
+
+
+# _get_column_kind ----
+
+# The kinds of columns that interactive tables can sort (and, later, filter), named independently
+# of any backend. Anything else (lists, structs, objects, mixed types) is "other".
+ColumnKind: TypeAlias = Literal[
+    "number", "string", "boolean", "date", "datetime", "time", "duration", "category", "other"
+]
+
+
+def _is_arrow_string_view(dtype: pa.DataType) -> bool:
+    import pyarrow as pa
+
+    # PyArrow 16 added `is_string_view()` along with the type
+    is_string_view = getattr(pa.types, "is_string_view", None)
+    return is_string_view is not None and is_string_view(dtype)
+
+
+def _decode_arrow_dictionary(col: pa.ChunkedArray[Any]) -> pa.ChunkedArray[Any]:
+    import pyarrow as pa
+
+    value_type = col.type.value_type
+    if _is_arrow_string_view(value_type):
+        # PyArrow can't decode a dictionary of string_view
+        value_type = pa.large_string()
+        col = col.cast(pa.dictionary(col.type.index_type, value_type))
+    return col.cast(value_type)
+
+
+def _arrow_type_kind(dtype: Any) -> ColumnKind:
+    import pyarrow as pa
+
+    if pa.types.is_boolean(dtype):
+        return "boolean"
+    if pa.types.is_integer(dtype) or pa.types.is_floating(dtype) or pa.types.is_decimal(dtype):
+        return "number"
+    if pa.types.is_date(dtype):
+        return "date"
+    if pa.types.is_timestamp(dtype):
+        return "datetime"
+    if pa.types.is_time(dtype):
+        return "time"
+    if pa.types.is_duration(dtype):
+        return "duration"
+    if pa.types.is_string(dtype) or pa.types.is_large_string(dtype):
+        return "string"
+    if _is_arrow_string_view(dtype):
+        return "string"
+    if pa.types.is_dictionary(dtype):
+        return "category"
+    return "other"
+
+
+@singledispatch
+def _get_column_kind(data: DataFrameLike, column: str) -> ColumnKind:
+    """Get the backend-independent kind of a column (see `ColumnKind`)"""
+    _raise_not_implemented(data)  # pragma: no cover
+
+
+@_get_column_kind.register
+def _(data: PdDataFrame, column: str) -> ColumnKind:
+    import pandas as pd
+    from pandas.api import types
+
+    ser = data[column]
+    dtype = ser.dtype
+
+    if isinstance(dtype, pd.CategoricalDtype):
+        return "category"
+    if isinstance(dtype, pd.ArrowDtype):
+        return _arrow_type_kind(dtype.pyarrow_dtype)
+    if types.is_bool_dtype(dtype):
+        return "boolean"
+    if types.is_numeric_dtype(dtype):
+        return "number"
+    if types.is_datetime64_any_dtype(dtype):
+        return "datetime"
+    if types.is_timedelta64_dtype(dtype):
+        return "duration"
+    if isinstance(dtype, pd.StringDtype):
+        return "string"
+    if types.is_object_dtype(dtype):
+        # An object column's kind is that of its values, if they're all of one kind
+        inferred = types.infer_dtype(ser, skipna=True)
+        return {
+            "string": "string",
+            "boolean": "boolean",
+            "integer": "number",
+            "floating": "number",
+            "mixed-integer-float": "number",
+            "decimal": "number",
+            "date": "date",
+            "datetime": "datetime",
+            "time": "time",
+            "timedelta": "duration",
+        }.get(inferred, "other")
+    return "other"
+
+
+@_get_column_kind.register
+def _(data: PlDataFrame, column: str) -> ColumnKind:
+    import polars as pl
+
+    dtype = data[column].dtype
+    base = dtype.base_type()
+
+    if base == pl.Boolean:
+        return "boolean"
+    if dtype.is_numeric():
+        return "number"
+    if base == pl.Date:
+        return "date"
+    if base == pl.Datetime:
+        return "datetime"
+    if base == pl.Time:
+        return "time"
+    if base == pl.Duration:
+        return "duration"
+    if base == pl.String:
+        return "string"
+    if base in (pl.Categorical, pl.Enum):
+        return "category"
+    return "other"
+
+
+@_get_column_kind.register
+def _(data: PyArrowTable, column: str) -> ColumnKind:
+    return _arrow_type_kind(data.column(column).type)
+
+
+# _get_column_ranks ----
+
+
+def _same_sort_value(a: Any, b: Any) -> bool:
+    # NaN isn't equal to itself, but NaNs sort together
+    if isinstance(a, float) and isinstance(b, float) and math.isnan(a) and math.isnan(b):
+        return True
+    return bool(a == b)
+
+
+def _dense_ranks(order: list[int], values: list[Any], is_null: list[bool]) -> list[int | None]:
+    """Number the distinct values in sort order `order` (0, 1, ...); missing values get `None`."""
+    ranks: list[int | None] = [None] * len(values)
+    rank = -1
+    prev: Any = None
+    for i in order:
+        if is_null[i]:
+            continue
+        value = values[i]
+        if rank < 0 or not _same_sort_value(value, prev):
+            rank += 1
+        ranks[i] = rank
+        prev = value
+    return ranks
+
+
+@singledispatch
+def _get_column_ranks(data: DataFrameLike, column: str) -> list[int | None] | None:
+    """Get the dense sort rank of each row's value in a column, in the backend's own ordering.
+
+    Sorting the rows by rank (ascending, with ties in either order) gives the same order as sorting
+    the frame by the column with the backend; missing values get `None` (pandas counts `NaN` as
+    missing, Polars and PyArrow sort it after all numbers). Returns `None` for a column that can't
+    be sorted: one of the `"other"` kind (see `_get_column_kind()`), or one the backend can't sort
+    (e.g. an object column of mixed types).
+    """
+    _raise_not_implemented(data)  # pragma: no cover
+
+
+@_get_column_ranks.register
+def _(data: PdDataFrame, column: str) -> list[int | None] | None:
+    import pandas as pd
+
+    if _get_column_kind(data, column) == "other":
+        return None
+
+    ser = data[column].reset_index(drop=True)
+    if isinstance(ser.dtype, pd.ArrowDtype):
+        import pyarrow as pa
+
+        if pa.types.is_dictionary(ser.dtype.pyarrow_dtype):
+            # pandas sorts with PyArrow, which can't sort dictionaries; rank as the PyArrow table does
+            return _get_column_ranks(pa.table({column: ser.array}), column)
+    try:
+        order = ser.sort_values(kind="stable", na_position="last").index.to_list()
+    except TypeError:
+        return None
+    return _dense_ranks(order, ser.to_list(), ser.isna().to_list())
+
+
+@_get_column_ranks.register
+def _(data: PlDataFrame, column: str) -> list[int | None] | None:
+    # Checked first: Polars panics (rather than raises) when sorting some dtypes, e.g. objects
+    if _get_column_kind(data, column) == "other":
+        return None
+
+    ser = data[column]
+    order = ser.arg_sort(nulls_last=True).to_list()
+    return _dense_ranks(order, ser.to_list(), ser.is_null().to_list())
+
+
+@_get_column_ranks.register
+def _(data: PyArrowTable, column: str) -> list[int | None] | None:
+    import pyarrow as pa
+    import pyarrow.compute as pc
+
+    if _get_column_kind(data, column) == "other":
+        return None
+
+    col = data.column(column)
+    is_null = pc.is_null(col).to_pylist()
+
+    if pa.types.is_dictionary(col.type):
+        # PyArrow can't sort dictionary columns, so rank the levels of an ordered one in order,
+        # and the values of an unordered one as text (as Polars sorts a categorical column)
+        levels = _get_column_levels(data, column)
+        if levels is not None:
+            values = col.to_pylist()
+            position = {level: i for i, level in enumerate(levels)}
+            order = sorted(
+                (i for i, v in enumerate(values) if not is_null[i]),
+                key=lambda i: position[values[i]],
+            )
+            return _dense_ranks(order, [position.get(v) for v in values], is_null)
+        col = _decode_arrow_dictionary(col)
+    if _is_arrow_string_view(col.type):
+        # PyArrow can't sort string_view
+        col = col.cast(pa.large_string())
+
+    # (nulls sort last by default; `null_placement=` is deprecated as of PyArrow 25)
+    order = pc.sort_indices(col).to_pylist()
+    return _dense_ranks(order, col.to_pylist(), is_null)
+
+
+# _get_column_values ----
+
+
+@singledispatch
+def _get_column_values(data: DataFrameLike, column: str) -> list[Any]:
+    """Get a column's values, as a list (missing values as the backend has them)."""
+    _raise_not_implemented(data)  # pragma: no cover
+
+
+@_get_column_values.register
+def _(data: PdDataFrame, column: str) -> list[Any]:
+    return data[column].to_list()
+
+
+@_get_column_values.register
+def _(data: PlDataFrame, column: str) -> list[Any]:
+    return data[column].to_list()
+
+
+@_get_column_values.register
+def _(data: PyArrowTable, column: str) -> list[Any]:
+    return data.column(column).to_pylist()
+
+
+# _get_column_missing ----
+
+
+@singledispatch
+def _get_column_missing(data: DataFrameLike, column: str) -> list[int]:
+    """Get the rows whose value in a column is missing: null, or NaN in a column of floats (as
+    pandas has NaN already)."""
+    _raise_not_implemented(data)  # pragma: no cover
+
+
+@_get_column_missing.register
+def _(data: PdDataFrame, column: str) -> list[int]:
+    missing = data[column].isna().to_list()
+    return [i for i, is_missing in enumerate(missing) if is_missing]
+
+
+@_get_column_missing.register
+def _(data: PlDataFrame, column: str) -> list[int]:
+    ser = data[column]
+    missing = ser.is_null() | ser.is_nan() if ser.dtype.is_float() else ser.is_null()
+    return [i for i, is_missing in enumerate(missing.to_list()) if is_missing]
+
+
+@_get_column_missing.register
+def _(data: PyArrowTable, column: str) -> list[int]:
+    import pyarrow.compute as pc
+
+    # (`nan_is_null=` is for a column of floats)
+    missing = pc.is_null(data.column(column), nan_is_null=True).to_pylist()
+    return [i for i, is_missing in enumerate(missing) if is_missing]
+
+
+# _get_column_dtype_name ----
+
+# The short names of dtypes, as Polars prints them (without their parameters): the same for every
+# backend, so that a column of 64-bit floats is "f64" in each
+_POLARS_DTYPES = {
+    "Int8": "i8",
+    "Int16": "i16",
+    "Int32": "i32",
+    "Int64": "i64",
+    "Int128": "i128",
+    "UInt8": "u8",
+    "UInt16": "u16",
+    "UInt32": "u32",
+    "UInt64": "u64",
+    "UInt128": "u128",
+    "Float16": "f16",
+    "Float32": "f32",
+    "Float64": "f64",
+    "Decimal": "decimal",
+    "Boolean": "bool",
+    "String": "str",
+    "Utf8": "str",
+    "Categorical": "cat",
+    "Enum": "enum",
+    "Date": "date",
+    "Time": "time",
+    "Datetime": "datetime",
+    "Duration": "duration",
+    "List": "list",
+    "Array": "array",
+    "Struct": "struct",
+    "Binary": "binary",
+    "Null": "null",
+    "Object": "object",
+}
+
+
+def _arrow_dtype(dtype: Any) -> str:
+    import pyarrow as pa
+
+    if pa.types.is_integer(dtype):
+        return f"{'i' if pa.types.is_signed_integer(dtype) else 'u'}{dtype.bit_width}"
+    if pa.types.is_floating(dtype):
+        return f"f{dtype.bit_width}"
+    if pa.types.is_fixed_size_list(dtype):
+        return "array"
+    if pa.types.is_large_list(dtype) or pa.types.is_list(dtype):
+        return "list"
+    checks = [
+        (pa.types.is_decimal, "decimal"),
+        (pa.types.is_boolean, "bool"),
+        (pa.types.is_string, "str"),
+        (pa.types.is_large_string, "str"),
+        (_is_arrow_string_view, "str"),
+        (pa.types.is_dictionary, "cat"),
+        (pa.types.is_date, "date"),
+        (pa.types.is_time, "time"),
+        (pa.types.is_timestamp, "datetime"),
+        (pa.types.is_duration, "duration"),
+        (pa.types.is_struct, "struct"),
+        (pa.types.is_binary, "binary"),
+        (pa.types.is_large_binary, "binary"),
+        (pa.types.is_null, "null"),
+    ]
+    for check, name in checks:
+        if check(dtype):
+            return name
+    # (Another, by its name without its parameters, as in "map")
+    return str(dtype).split("<")[0].split("[")[0].split("(")[0]
+
+
+@singledispatch
+def _get_column_dtype_name(data: DataFrameLike, column: str) -> str:
+    """Get the short name of a column's dtype, as Polars prints it (`"f64"`, `"str"`, `"date"`,
+    `"datetime"`...), for any backend: an object column of strings is `"str"`, and a column of
+    another dtype has its name, without its parameters."""
+    _raise_not_implemented(data)  # pragma: no cover
+
+
+@_get_column_dtype_name.register
+def _(data: PdDataFrame, column: str) -> str:
+    import pandas as pd
+
+    dtype = data[column].dtype
+    if isinstance(dtype, pd.ArrowDtype):
+        return _arrow_dtype(dtype.pyarrow_dtype)
+    if isinstance(dtype, pd.CategoricalDtype):
+        return "cat"
+    if isinstance(dtype, pd.StringDtype):
+        return "str"
+    # (NumPy's dtypes and pandas' nullable ones, by their kind and size)
+    kind = getattr(dtype, "kind", None)
+    if kind in ("i", "u", "f"):
+        return f"{kind}{dtype.itemsize * 8}"
+    if kind == "b":
+        return "bool"
+    if kind == "M":
+        return "datetime"
+    if kind == "m":
+        return "duration"
+    if kind == "O" and dtype.name == "object":
+        return "str" if _get_column_kind(data, column) == "string" else "object"
+    return str(dtype).split("[")[0]
+
+
+@_get_column_dtype_name.register
+def _(data: PlDataFrame, column: str) -> str:
+    base = data[column].dtype.base_type()
+    return _POLARS_DTYPES.get(base.__name__, base.__name__.lower())
+
+
+@_get_column_dtype_name.register
+def _(data: PyArrowTable, column: str) -> str:
+    return _arrow_dtype(data.column(column).type)
+
+
 # reorder ----
 
 
@@ -362,7 +867,9 @@ def _(data: PlDataFrame, rows: list[int], columns: list[str]) -> PlDataFrame:
 
 @reorder.register
 def _(data: PyArrowTable, rows: list[int], columns: list[str]) -> PyArrowTable:
-    return data.select(columns).take(rows)
+    import pyarrow as pa
+
+    return data.select(columns).take(pa.array(rows, type=pa.int64()))
 
 
 # group_splits ----
@@ -373,8 +880,16 @@ def group_splits(data: DataFrameLike, group_key: str) -> dict[Any, list[int]]:
 
 @group_splits.register
 def _(data: PdDataFrame, group_key: str) -> dict[Any, list[int]]:
-    g_df = data.groupby(group_key, dropna=False)
-    return {k: list(v) for k, v in g_df.indices.items()}
+    import pandas as pd
+
+    key = data[group_key]
+    # groupby(dropna=False).indices drops the NaN group of a categorical key, and pandas 2
+    # files the null rows of an Arrow dictionary key under another group
+    if isinstance(key.dtype, pd.CategoricalDtype) or str(key.dtype).startswith("dictionary<"):
+        key = key.astype(object)
+    g_df = data.groupby(key, dropna=False)
+    # pandas spells the missing key NaN or NA; polars and pyarrow spell it None
+    return {None if is_na(data, k) else k: list(v) for k, v in g_df.indices.items()}
 
 
 @group_splits.register
@@ -382,9 +897,9 @@ def _(data: PlDataFrame, group_key: str) -> dict[Any, list[int]]:
     # TODO: should ensure row count name isn't already in data
     import polars as pl
 
-    # with_row_index supersedes with_row_count
+    # polars 0.20.4 renamed with_row_count to with_row_index
     meth_row_number = getattr(data, "with_row_index", None)
-    if not meth_row_number:
+    if not meth_row_number:  # pragma: no cover
         meth_row_number = data.with_row_count
 
     groups = meth_row_number("__row_count__").group_by(group_key).agg(pl.col("__row_count__"))
@@ -395,15 +910,26 @@ def _(data: PlDataFrame, group_key: str) -> dict[Any, list[int]]:
 
 @group_splits.register
 def _(data: PyArrowTable, group_key: str) -> dict[Any, list[int]]:
+    import pyarrow as pa
     import pyarrow.compute as pc
 
     group_col = data.column(group_key)
-    encoded = group_col.dictionary_encode().combine_chunks()
+    dtype = group_col.type
+    if pa.types.is_dictionary(dtype):
+        # NOTE: If a column is already dictionary-typed, dictionary_encode() returns it unchanged and
+        # ignores null_encoding so its nulls would stay null indices and their rows would be dropped
+        group_col = _decode_arrow_dictionary(group_col)
+    if _is_arrow_string_view(group_col.type):
+        # (PyArrow encodes a string_view's null as "", which would merge it with an empty string)
+        group_col = group_col.cast(pa.large_string())
+
+    # The default null_encoding="mask" drops the rows with a null key; polars groups them under None
+    encoded = group_col.dictionary_encode(null_encoding="encode").combine_chunks()
 
     d = {}
-    for idx, group_key in enumerate(encoded.dictionary):
+    for idx, key in enumerate(encoded.dictionary):
         mask = pc.equal(encoded.indices, idx)
-        d[group_key.as_py()] = pc.indices_nonzero(mask).to_pylist()
+        d[key.as_py()] = pc.indices_nonzero(mask).to_pylist()
     return d
 
 
@@ -451,7 +977,11 @@ def _(
 
 
 @eval_select.register
-def _(data: PlDataFrame, expr: list[str] | PlSelectExpr, strict: bool = True) -> _NamePos:
+def _(
+    data: PlDataFrame,
+    expr: list[str] | PlSelectExpr | Callable[[str], bool],
+    strict: bool = True,
+) -> _NamePos:
     import polars as pl
     import polars.selectors as cs
     from polars import Expr
@@ -465,6 +995,8 @@ def _(data: PlDataFrame, expr: list[str] | PlSelectExpr, strict: bool = True) ->
         expr = [expr]
 
     if isinstance(expr, list):
+        _check_names_are_columns(data.columns, expr)
+
         # convert str and int entries to selectors ----
         all_selectors = [
             cs.by_name(x) if isinstance(x, str) else cs.by_index(x) if isinstance(x, int) else x
@@ -482,11 +1014,12 @@ def _(data: PlDataFrame, expr: list[str] | PlSelectExpr, strict: bool = True) ->
             for sel in all_selectors
             for col_name in cs.expand_selector(data, sel, **expand_opts)
         ).as_list()
-    else:
-        if not isinstance(expr, (PlSelectExpr, Expr)):
-            raise TypeError(f"Unsupported selection expr type: {type(expr)}")
-
+    elif isinstance(expr, (PlSelectExpr, Expr)):
         final_columns = cs.expand_selector(data, expr, **expand_opts)
+    elif callable(expr):
+        final_columns = [col for col in data.columns if expr(col)]
+    else:
+        raise TypeError(f"Unsupported selection expr type: {type(expr)}")
 
     col_pos = {k: ii for ii, k in enumerate(data.columns)}
 
@@ -523,16 +1056,24 @@ def _validate_selector_list(selectors: list, strict=True):
             raise TypeError(f"Expected a list of selectors, but entry {ii} is type: {type(sel)}.")
 
 
+def _check_names_are_columns(columns: list[str], expr: list) -> None:
+    # (So that every backend raises on a name that isn't a column, as polars would)
+    names = set(columns)
+    missing = [x for x in expr if isinstance(x, str) and x not in names]
+    if missing:
+        raise ValueError(f"The table has no column named {', '.join(map(repr, missing))}.")
+
+
 def _eval_select_from_list(columns: list[str], expr: list[str | int]) -> list[tuple[str, int]]:
     col_pos = {k: ii for ii, k in enumerate(columns)}
+    _check_names_are_columns(columns, expr)
 
     # TODO: should prohibit duplicate names in expr?
     res: list[tuple[str, int]] = []
     n_cols = len(columns)
     for col in expr:
         if isinstance(col, str):
-            if col in col_pos:
-                res.append((col, col_pos[col]))
+            res.append((col, col_pos[col]))
         elif isinstance(col, int):
             _pos = col if col >= 0 else n_cols + col
             res.append((columns[col], _pos))
@@ -663,6 +1204,15 @@ def _(df: PyArrowTable):
             # adding zero turns -0.0 into 0.0 and leaves every other value alone
             column = pc.add(column, pa.scalar(0.0, type=column.type))
 
+        if pa.types.is_nested(column.type):
+            # pyarrow can't cast nested values to strings; spell them as Python does
+            return pa.array(
+                [None if v is None else str(v) for v in column.to_pylist()], pa.string()
+            )
+
+        if pa.types.is_dictionary(column.type):
+            column = _decode_arrow_dictionary(column)
+
         return pa.array(column.cast(pa.string()))
 
     return pa.table({col: _to_string(df.column(col)) for col in df.column_names})
@@ -770,9 +1320,9 @@ def eval_transform(df: DataFrameLike, expr: Any) -> list[Any]:
 def _(df: PdDataFrame, expr: Callable[[PdDataFrame], PdSeries]) -> list[Any]:
     res = expr(df)
 
-    if not isinstance(res, PdSeries):  # pragma: no cover
+    if not isinstance(res, PdSeries):
         raise ValueError(f"Result must be a pandas Series. Received {type(res)}")
-    elif not len(res) == len(df):  # pragma: no cover
+    elif not len(res) == len(df):
         raise ValueError(
             f"Result must be same length as input data. Observed different lengths."
             f"\n\nInput data: {len(df)}.\nResult: {len(res)}."
@@ -782,17 +1332,27 @@ def _(df: PdDataFrame, expr: Callable[[PdDataFrame], PdSeries]) -> list[Any]:
 
 
 @eval_transform.register
-def _(df: PlDataFrame, expr: PlExpr) -> list[Any]:
-    df_res = df.select(expr)
+def _(df: PlDataFrame, expr: PlExpr | Callable[[PlDataFrame], PlSeries | PlExpr]) -> list[Any]:
+    if not isinstance(expr, PlExpr):
+        # a callable takes the DataFrame and returns a Series (or an expression to evaluate)
+        expr = expr(df)
 
-    if len(df_res.columns) > 1:  # pragma: no cover
-        raise ValueError(f"Result must be a single column. Received {len(df_res.columns)} columns.")
+    if isinstance(expr, PlSeries):
+        res = expr
     else:
-        res = df_res[df_res.columns[0]]
+        df_res = df.select(expr)
 
+        if len(df_res.columns) > 1:
+            raise ValueError(
+                f"Result must be a single column. Received {len(df_res.columns)} columns."
+            )
+        else:
+            res = df_res[df_res.columns[0]]
+
+    # NOTE: unreachable, a column of `df.select()` is always a Series
     if not isinstance(res, PlSeries):  # pragma: no cover
         raise ValueError(f"Result must be a polars Series. Received {type(res)}")
-    elif not len(res) == len(df):  # pragma: no cover
+    elif not len(res) == len(df):
         raise ValueError(
             f"Result must be same length as input data. Observed different lengths."
             f"\n\nInput data: {len(df)}.\nResult: {len(res)}."
@@ -802,12 +1362,14 @@ def _(df: PlDataFrame, expr: PlExpr) -> list[Any]:
 
 
 @eval_transform.register
-def _(df: PyArrowTable, expr: Callable[[PyArrowTable], PyArrowArray]) -> list[Any]:
+def _(
+    df: PyArrowTable, expr: Callable[[PyArrowTable], PyArrowArray | PyArrowChunkedArray]
+) -> list[Any]:
     res = expr(df)
 
-    if not isinstance(res, PyArrowArray):  # pragma: no cover
-        raise ValueError(f"Result must be an Arrow Array. Received {type(res)}")
-    elif not len(res) == len(df):  # pragma: no cover
+    if not isinstance(res, (PyArrowArray, PyArrowChunkedArray)):
+        raise ValueError(f"Result must be an Arrow Array or ChunkedArray. Received {type(res)}")
+    elif not len(res) == len(df):
         raise ValueError(
             f"Result must be same length as input data. Observed different lengths."
             f"\n\nInput data: {df.num_rows}.\nResult: {len(res)}."
@@ -825,7 +1387,10 @@ def is_na(df: DataFrameLike, x: Any) -> bool:
 def _(df: PdDataFrame, x: Any) -> bool:
     import pandas as pd
 
-    return pd.isna(x)
+    # `pd.isna()` checks each element of an array-like cell (e.g., a NumPy array in an object
+    # column) and returns an array; such a cell holds a value, so it isn't missing
+    result = pd.isna(x)
+    return result if isinstance(result, bool) else False
 
 
 @is_na.register(Agnostic)
@@ -833,17 +1398,15 @@ def _(df: PdDataFrame, x: Any) -> bool:
 def _(df: PlDataFrame, x: Any) -> bool:
     from math import isnan
 
-    import polars as pl
-
-    return x is None or isinstance(x, pl.Null) or (isinstance(x, float) and isnan(x))
+    return x is None or isinstance(x, PlNull) or (isinstance(x, float) and isnan(x))
 
 
 @is_na.register
 def _(df: PyArrowTable, x: Any) -> bool:
-    import pyarrow as pa
+    from math import isnan
 
-    arr = pa.array([x])
-    return arr.is_null(nan_is_null=True).to_pylist()[0]
+    # Cells leave a pyarrow table as Python values (`as_py()`), where a null is None
+    return x is None or (isinstance(x, float) and isnan(x))
 
 
 @singledispatch
@@ -899,8 +1462,6 @@ def _(df: PlDataFrame) -> PlDataFrame:
 
 @validate_frame.register
 def _(df: PyArrowTable) -> PyArrowTable:
-    warnings.warn("PyArrow Table support is currently experimental.")
-
     if len(set(df.column_names)) != len(df.column_names):
         raise ValueError("Column names must be unique.")
 
@@ -908,6 +1469,79 @@ def _(df: PyArrowTable) -> PyArrowTable:
 
 
 # to_frame ----
+
+
+def _is_same_value(given: Any, stored: Any) -> bool:
+    """Whether `stored`, read back from a column, is the value `given` that was put into it."""
+
+    if given is None and stored is not None:
+        # pandas stores a missing value as NaN, NaT or NA
+        return type(stored).__name__ == "NAType" or bool(stored != stored)
+
+    if given is None or stored is None:
+        return given is stored
+
+    # A number may be stored as another number type (e.g., an int in a float column) if its value
+    # is unchanged, but not as a bool or the other way around (`True` is shown as text by
+    # formatters like `fmt_markdown()`)
+    number_types = (numbers.Real, Decimal)
+
+    if isinstance(given, number_types) and isinstance(stored, number_types):
+        if isinstance(given, bool) != isinstance(stored, bool):
+            return False
+
+        # NaN isn't equal to itself
+        if given != given:
+            return stored != stored
+
+        return given == stored
+
+    # Any other value may only be stored as a subclass or a base class of its type (e.g., a pandas
+    # `Timestamp` for a `datetime`)
+    if not (isinstance(stored, type(given)) or isinstance(given, type(stored))):
+        return False
+
+    try:
+        if not bool(given == stored):
+            return False
+
+        # Aware datetimes are equal when they're the same instant, so their UTC offsets are
+        # compared too (e.g., a datetime at -05:00 that was converted to UTC)
+        if isinstance(given, (datetime, time)):
+            return given.utcoffset() == stored.utcoffset()
+
+        return True
+    except (TypeError, ValueError):
+        # e.g., NumPy arrays, which compare element-wise
+        return False
+
+
+def _is_same_values(given: list[Any], stored: list[Any]) -> bool:
+    """Whether a column kept every value of the list it was made from."""
+
+    return len(given) == len(stored) and all(map(_is_same_value, given, stored))
+
+
+def frame_from_dict(data: dict[str, list[Any]]) -> DataFrameLike:
+    """Make a DataFrame from columns of values, with the first library installed: polars, pandas,
+    then pyarrow."""
+
+    with suppress(ImportError):
+        import polars as pl
+
+        return pl.DataFrame(data)
+
+    with suppress(ImportError):
+        import pandas as pd
+
+        return pd.DataFrame(data)
+
+    with suppress(ImportError):
+        import pyarrow as pa
+
+        return pa.table(data)
+
+    raise ImportError("Making a DataFrame requires polars, pandas, or pyarrow to be installed.")
 
 
 @singledispatch
@@ -918,18 +1552,34 @@ def to_frame(ser: list[Any] | SeriesLike, name: str | None = None) -> DataFrameL
     if not name:
         raise ValueError("name must be specified, when converting a list to a DataFrame.")
 
-    # Try available DataFrame libraries: prefer polars, then pandas
+    # Try available DataFrame libraries: prefer polars, then pandas. The column type they infer can
+    # change values (e.g., polars converts fixed UTC offsets to UTC, and makes integers too big for
+    # any integer type null), so when it does, the values are kept as they are in an object column
     try:
         import polars as pl
 
-        return pl.DataFrame({name: ser}, strict=False)
+        try:
+            df = pl.DataFrame({name: ser}, strict=False)
+        except (pl.exceptions.PolarsError, TypeError, ValueError, OverflowError):
+            # e.g., datetimes in different time zones
+            df = None
+
+        if df is None or not _is_same_values(ser, df[name].to_list()):
+            df = pl.DataFrame({name: pl.Series(ser, dtype=pl.Object)})
+
+        return df
     except ImportError:  # pragma: no cover
         pass
 
     try:
         import pandas as pd
 
-        return pd.DataFrame({name: ser})
+        df = pd.DataFrame({name: ser})
+
+        if not _is_same_values(ser, df[name].tolist()):
+            df = pd.DataFrame({name: pd.Series(ser, dtype=object)})
+
+        return df
     except ImportError:  # pragma: no cover
         pass
 
@@ -1046,4 +1696,9 @@ def _(ser: PlSeries, indexes: list[int]) -> PlSeries:
 @get_rows.register(PyArrowArray)
 @get_rows.register(PyArrowChunkedArray)
 def _(ser: Any, indexes: list[int]) -> PyArrowArray | PyArrowChunkedArray:
-    return ser.take(indexes)
+    import pyarrow as pa
+
+    if _is_arrow_string_view(ser.type):
+        # (PyArrow has no `take` for a string_view)
+        ser = ser.cast(pa.large_string())
+    return ser.take(pa.array(indexes, type=pa.int64()))

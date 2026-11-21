@@ -152,9 +152,7 @@ fn setup_with_options(
     let mut adapter =
         StatsigHttpIdListsAdapter::new_with_store("secret-lazy-list-test", &options, store.clone());
     let network: Arc<dyn NetworkProvider> = provider.clone();
-    adapter
-        .network
-        .set_network_provider_for_test(Arc::downgrade(&network));
+    adapter.set_network_provider_for_test(Arc::downgrade(&network));
     (provider, Arc::new(adapter), store)
 }
 

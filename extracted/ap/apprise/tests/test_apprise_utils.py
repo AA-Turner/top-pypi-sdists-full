@@ -31,6 +31,7 @@ from inspect import cleandoc
 # Disable logging for a cleaner testing output
 import logging
 import os
+import random
 import re
 import sys
 import time
@@ -38,6 +39,7 @@ from unittest import mock
 from urllib.parse import unquote
 
 from apprise import Apprise, NotificationManager, utils
+from apprise.common import NotifyType
 from apprise.tag import AppriseTag
 
 logging.disable(logging.CRITICAL)
@@ -1476,6 +1478,112 @@ def test_parse_bool():
     assert utils.parse.parse_bool("OhYeah", True) is True
 
 
+def test_parse_choice_matches():
+    """utils: parse_choice() resolves full, partial and mixed-case values."""
+    choices = ("webhook", "bot", "workflow")
+
+    # Full names, any case, surrounding spaces ignored
+    assert utils.parse.parse_choice("bot", choices) == "bot"
+    assert utils.parse.parse_choice("BOT", choices) == "bot"
+    assert utils.parse.parse_choice("  WebHook \n", choices) == "webhook"
+
+    # Abbreviations take the first match in the order given
+    assert utils.parse.parse_choice("w", choices) == "webhook"
+    assert utils.parse.parse_choice("WO", choices) == "workflow"
+    assert utils.parse.parse_choice("b", choices) == "bot"
+
+    # An exact match beats an earlier, longer choice
+    assert utils.parse.parse_choice("ab", ("abc", "ab")) == "ab"
+    assert utils.parse.parse_choice("a", ("abc", "ab")) == "abc"
+
+    # Mixed-case choices are matched and returned untouched
+    assert utils.parse.parse_choice("info", ("INFO", "WARNING")) == "INFO"
+
+    # A dict matches on its keys
+    assert utils.parse.parse_choice("hi", {"low": 1, "high": 2}) == "high"
+
+    # A str Enum returns its member
+    assert utils.parse.parse_choice("warn", NotifyType) is NotifyType.WARNING
+
+    # A single string is treated as one choice
+    assert utils.parse.parse_choice("al", "alpha") == "alpha"
+    assert utils.parse.parse_choice("p", "alpha") is None
+
+    # A length limits how much of the value is compared
+    priorities = ("min", "low", "normal", "high", "max")
+    assert utils.parse.parse_choice("highest", priorities, length=2) == "high"
+    assert utils.parse.parse_choice("MAXIMUM", priorities, length=2) == "max"
+    assert utils.parse.parse_choice("n", priorities, length=2) == "normal"
+    assert utils.parse.parse_choice("highest", priorities) is None
+
+    # An exact match is checked on the whole value first
+    assert utils.parse.parse_choice("abc", ("ab", "abc"), length=2) == "abc"
+    assert utils.parse.parse_choice("abd", ("ab", "abc"), length=2) == "ab"
+
+    # An invalid length is ignored
+    for length in (None, 0, -1, True, 1.5, "2"):
+        assert (
+            utils.parse.parse_choice("highest", priorities, length=length)
+            is None
+        )
+        assert (
+            utils.parse.parse_choice("hi", priorities, length=length) == "high"
+        )
+
+    # Generators work, and non-string entries are skipped
+    assert (
+        utils.parse.parse_choice("t", (c for c in (None, 3, b"two", "two")))
+        == "two"
+    )
+
+
+def test_parse_choice_no_match():
+    """utils: parse_choice() returns the default for anything unusable."""
+    choices = ("webhook", "bot")
+
+    # Nothing matches
+    assert utils.parse.parse_choice("invalid", choices) is None
+    assert utils.parse.parse_choice("bots", choices) is None
+    assert utils.parse.parse_choice("invalid", choices, "bot") == "bot"
+
+    # Empty or blank values never match the first choice
+    assert utils.parse.parse_choice("", choices) is None
+    assert utils.parse.parse_choice("   ", choices) is None
+    assert utils.parse.parse_choice("", choices, default="x") == "x"
+
+    # Values that are not strings
+    for value in (None, 0, 1, True, 1.5, b"bot", ["bot"], ("bot",), {}):
+        assert utils.parse.parse_choice(value, choices) is None
+        assert utils.parse.parse_choice(value, choices, "d") == "d"
+
+    # Choices that can not be used
+    for bad in (None, 0, 1.5, True, object(), (), [], {}, ""):
+        assert utils.parse.parse_choice("bot", bad) is None
+        assert utils.parse.parse_choice("bot", bad, "d") == "d"
+
+    # Choices that hold no strings
+    assert utils.parse.parse_choice("1", (1, 2, None, b"1")) is None
+
+    class Broken:
+        """An iterable that fails part way through."""
+
+        def __iter__(self):
+            yield "bot"
+            raise RuntimeError("broken")
+
+    assert utils.parse.parse_choice("bot", Broken()) is None
+
+    # A dict that changes while it is read
+    shifting = {"bot": 1}
+
+    def mutate():
+        for key in shifting:
+            shifting["x"] = 1
+            yield key
+
+    assert utils.parse.parse_choice("bot", mutate()) is None
+
+
 def test_is_uuid():
     """
     API: is_uuid() function
@@ -2624,6 +2732,148 @@ def test_parse_urls():
     assert time.monotonic() - t0 < 5.0
     assert results == ["https://example.com"]
 
+    # A long run of letters with no "://" after it is also read quickly
+    t0 = time.monotonic()
+    results = utils.parse.parse_urls("://" + "a" * 50000)
+    assert time.monotonic() - t0 < 5.0
+    # Nothing in it is a URL, so it is kept as written to be reported
+    assert results == ["://" + "a" * 50000]
+
+    # Many schemas on a line that can never end a URL are read quickly
+    t0 = time.monotonic()
+    utils.parse.parse_urls("a://" * 50000 + "\nx")
+    assert time.monotonic() - t0 < 5.0
+
+    # A schema glued to the text before it is still read as one URL
+    assert utils.parse.parse_urls("abcjson://a json://b") == [
+        "abcjson://a",
+        "json://b",
+    ]
+
+
+def test_parse_urls_nested_urls():
+    """utils: parse_urls() only starts a new URL after a delimiter
+
+    - A URL inside another (after "=", "/", "&", "#" or "@") stays part
+      of it.
+    - A space, tab, new line, comma or semicolon before a schema starts a
+      new URL, even inside a query value.
+    """
+    cases = (
+        # A URL inside another stays one URL
+        (
+            "reddit://credentials?url=https://url",
+            ["reddit://credentials?url=https://url"],
+        ),
+        (
+            "json://host/path?cb=https://a.example/x?y=1&z=http://b.example",
+            ["json://host/path?cb=https://a.example/x?y=1&z=http://b.example"],
+        ),
+        (
+            "json://host/https://other.example/path",
+            ["json://host/https://other.example/path"],
+        ),
+        (
+            "json://host#https://other.example",
+            ["json://host#https://other.example"],
+        ),
+        (
+            "json://user@https://other.example",
+            ["json://user@https://other.example"],
+        ),
+        (
+            "mailto://user:pass@example.com?to=mailto://a@example.com",
+            ["mailto://user:pass@example.com?to=mailto://a@example.com"],
+        ),
+        (
+            "reddit://credentials?url=https%3A%2F%2Furl",
+            ["reddit://credentials?url=https%3A%2F%2Furl"],
+        ),
+        # An encoded comma keeps a list inside a query value together
+        (
+            "reddit://credentials?url=https://a%2Chttps://b",
+            ["reddit://credentials?url=https://a%2Chttps://b"],
+        ),
+        # A URL inside another, followed by a second URL
+        (
+            "reddit://credentials?url=https://url, mailto://u:p@example.com",
+            [
+                "reddit://credentials?url=https://url",
+                "mailto://u:p@example.com",
+            ],
+        ),
+        # Each delimiter starts a new URL, even inside a query value
+        (
+            "reddit://credentials?url=https://a,https://b",
+            ["reddit://credentials?url=https://a", "https://b"],
+        ),
+        (
+            "reddit://credentials?url=https://a https://b",
+            ["reddit://credentials?url=https://a", "https://b"],
+        ),
+        (
+            "reddit://credentials?url=https://a;https://b",
+            ["reddit://credentials?url=https://a", "https://b"],
+        ),
+        ("json://a\tjson://b", ["json://a", "json://b"]),
+        ("json://a\njson://b", ["json://a", "json://b"]),
+        ("json://a\r\njson://b", ["json://a", "json://b"]),
+        ("JSON://a, HTTPS://b; xml://c", ["JSON://a", "HTTPS://b", "xml://c"]),
+    )
+    for text, expected in cases:
+        assert utils.parse.parse_urls(text) == expected, repr(text)
+
+
+def test_find_urls_matches_regex():
+    """utils: _find_urls() finds exactly what URL_DETECTION_RE finds"""
+    # The expression as it was before _find_urls() replaced it. Every
+    # change to how URLs are split must still agree with it.
+    original = re.compile(
+        r"([a-z0-9]+?:\/\/.*?)(?=$|[\s,;]{1,32}[a-z0-9]{1,32}?:\/\/)", re.I
+    )
+
+    # Pieces that build every case the expression handles: schemas, the
+    # delimiters, new lines, long runs and letters that fold to a-z.
+    pieces = (
+        "a",
+        "Z",
+        "1",
+        "\u212a",
+        "\u017f",
+        ":",
+        "/",
+        "://",
+        "json://",
+        " ",
+        "  ",
+        "\t",
+        "\n",
+        ",",
+        ";",
+        "x",
+        ".",
+        "?",
+        "=",
+        "&",
+        "#",
+        "@",
+        "%2C",
+    )
+    rng = random.Random(7)
+    for _ in range(20000):
+        text = "".join(rng.choice(pieces) for _ in range(rng.randint(0, 40)))
+        if rng.random() < 0.05:
+            # Around the 32 delimiter limit
+            text = " " * rng.randint(30, 34) + text
+
+        if rng.random() < 0.05:
+            # Around the 32 character schema limit
+            text += "a" * rng.randint(30, 34) + "://x"
+
+        found = utils.parse._find_urls(text)
+        assert found == utils.parse.URL_DETECTION_RE.findall(text), repr(text)
+        assert found == original.findall(text), repr(text)
+
 
 def test_parse_urls_semicolon_delimiter():
     """utils: parse_urls() accepts a semicolon between URLs"""
@@ -3590,6 +3840,25 @@ def test_apply_templating():
         **{"value": '"quotes are escaped"'},
     )
     assert result == '{value: "\\"quotes are escaped\\""}'
+
+    # Keywords are matched without regard to case, and are swapped in too
+    result = utils.templates.apply_template(
+        "{{ Title }} {{BODY}} {{body}}", **{"title": "t", "body": "b"}
+    )
+    assert result == "t b b"
+
+    # An exact case match wins when keywords only differ by case
+    result = utils.templates.apply_template(
+        "{{A}} {{a}} {{ a }}", **{"A": "1", "a": "2"}
+    )
+    assert result == "1 2 2"
+
+    # Case matching follows the pattern, not str.lower()
+    result = utils.templates.apply_template("{{\u03a3}}", **{"\u03c2": "s"})
+    assert result == "s"
+
+    # An empty placeholder is never swapped
+    assert utils.templates.apply_template("{{}} {{ }}") == "{{}} {{ }}"
 
 
 def test_cwe312_word():

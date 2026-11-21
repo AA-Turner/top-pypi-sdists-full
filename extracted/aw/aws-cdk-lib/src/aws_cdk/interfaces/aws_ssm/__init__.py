@@ -137,6 +137,66 @@ class CloudConnectorReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_ssm.DefaultHostManagementConfigurationReference",
+    jsii_struct_bases=[],
+    name_mapping={"setting_arn": "settingArn", "setting_id": "settingId"},
+)
+class DefaultHostManagementConfigurationReference:
+    def __init__(self, *, setting_arn: builtins.str, setting_id: builtins.str) -> None:
+        '''A reference to a DefaultHostManagementConfiguration resource.
+
+        :param setting_arn: The ARN of the DefaultHostManagementConfiguration resource.
+        :param setting_id: The SettingId of the DefaultHostManagementConfiguration resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_ssm as interfaces_ssm
+            
+            default_host_management_configuration_reference = interfaces_ssm.DefaultHostManagementConfigurationReference(
+                setting_arn="settingArn",
+                setting_id="settingId"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__94af0300610c0bfda8b85003ae93ebfde4229809acbb248795d7438630a6c4bb)
+            check_type(argname="argument setting_arn", value=setting_arn, expected_type=type_hints["setting_arn"])
+            check_type(argname="argument setting_id", value=setting_id, expected_type=type_hints["setting_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "setting_arn": setting_arn,
+            "setting_id": setting_id,
+        }
+
+    @builtins.property
+    def setting_arn(self) -> builtins.str:
+        '''The ARN of the DefaultHostManagementConfiguration resource.'''
+        result = self._values.get("setting_arn")
+        assert result is not None, "Required property 'setting_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def setting_id(self) -> builtins.str:
+        '''The SettingId of the DefaultHostManagementConfiguration resource.'''
+        result = self._values.get("setting_id")
+        assert result is not None, "Required property 'setting_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DefaultHostManagementConfigurationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_ssm.DocumentReference",
     jsii_struct_bases=[],
     name_mapping={"document_name": "documentName"},
@@ -273,6 +333,57 @@ class _ICloudConnectorRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, ICloudConnectorRef).__jsii_proxy_class__ = lambda : _ICloudConnectorRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_ssm.IDefaultHostManagementConfigurationRef"
+)
+class IDefaultHostManagementConfigurationRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a DefaultHostManagementConfiguration.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="defaultHostManagementConfigurationRef")
+    def default_host_management_configuration_ref(
+        self,
+    ) -> "DefaultHostManagementConfigurationReference":
+        '''(experimental) A reference to a DefaultHostManagementConfiguration resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDefaultHostManagementConfigurationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a DefaultHostManagementConfiguration.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_ssm.IDefaultHostManagementConfigurationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="defaultHostManagementConfigurationRef")
+    def default_host_management_configuration_ref(
+        self,
+    ) -> "DefaultHostManagementConfigurationReference":
+        '''(experimental) A reference to a DefaultHostManagementConfiguration resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("DefaultHostManagementConfigurationReference", jsii.get(self, "defaultHostManagementConfigurationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDefaultHostManagementConfigurationRef).__jsii_proxy_class__ = lambda : _IDefaultHostManagementConfigurationRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ssm.IDocumentRef")
@@ -1228,9 +1339,11 @@ class ServiceSettingReference:
 __all__ = [
     "AssociationReference",
     "CloudConnectorReference",
+    "DefaultHostManagementConfigurationReference",
     "DocumentReference",
     "IAssociationRef",
     "ICloudConnectorRef",
+    "IDefaultHostManagementConfigurationRef",
     "IDocumentRef",
     "IMaintenanceWindowRef",
     "IMaintenanceWindowTargetRef",
@@ -1264,6 +1377,14 @@ def _typecheckingstub__775cc1fff0c5bb13a3195ec65e12083c34d45a6e8ae92b01ac08b89b1
 def _typecheckingstub__67c0aeb3c250df3eaa9f4d1a2455fa6344099d5d43ef67b0700c7f3da92d2907(
     *,
     cloud_connector_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__94af0300610c0bfda8b85003ae93ebfde4229809acbb248795d7438630a6c4bb(
+    *,
+    setting_arn: builtins.str,
+    setting_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1342,5 +1463,5 @@ def _typecheckingstub__cd646cd093078abe85046328da0225b07b29d4fb68198e44c76087901
     """Type checking stubs"""
     pass
 
-for cls in [IAssociationRef, ICloudConnectorRef, IDocumentRef, IMaintenanceWindowRef, IMaintenanceWindowTargetRef, IMaintenanceWindowTaskRef, IOpsItemRef, IParameterRef, IPatchBaselineRef, IResourceDataSyncRef, IResourcePolicyRef, IServiceSettingRef]:
+for cls in [IAssociationRef, ICloudConnectorRef, IDefaultHostManagementConfigurationRef, IDocumentRef, IMaintenanceWindowRef, IMaintenanceWindowTargetRef, IMaintenanceWindowTaskRef, IOpsItemRef, IParameterRef, IPatchBaselineRef, IResourceDataSyncRef, IResourcePolicyRef, IServiceSettingRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

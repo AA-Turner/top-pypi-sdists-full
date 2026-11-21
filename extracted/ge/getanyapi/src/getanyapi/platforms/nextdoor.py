@@ -284,7 +284,7 @@ class NextdoorNamespace:
         Fetch one Nextdoor business page by its slug, with phone, email, website,
         and street address.
 
-        Price: $0.0055 per request plus $0.00242 per result (maximum $0.00792).
+        Price: $0.006 per request plus $0.00264 per result (maximum $0.00864).
 
         Example:
             res = client.nextdoor.business(pageSlug="radiant-plumbing-air-conditioning-austin-tx")
@@ -305,7 +305,7 @@ class NextdoorNamespace:
         Find local businesses listed on Nextdoor by city and trade category, with
         phone, email, website, and street address.
 
-        Price: $0.011 per request plus $0.00242 per result (maximum $0.0594).
+        Price: $0.012 per request plus $0.00264 per result (maximum $0.0648).
 
         Example:
             res = client.nextdoor.search(city="austin--tx", limit=5, query="plumber")
@@ -333,7 +333,7 @@ class AsyncNextdoorNamespace:
         Fetch one Nextdoor business page by its slug, with phone, email, website,
         and street address.
 
-        Price: $0.0055 per request plus $0.00242 per result (maximum $0.00792).
+        Price: $0.006 per request plus $0.00264 per result (maximum $0.00864).
 
         Example:
             res = client.nextdoor.business(pageSlug="radiant-plumbing-air-conditioning-austin-tx")
@@ -354,7 +354,7 @@ class AsyncNextdoorNamespace:
         Find local businesses listed on Nextdoor by city and trade category, with
         phone, email, website, and street address.
 
-        Price: $0.011 per request plus $0.00242 per result (maximum $0.0594).
+        Price: $0.012 per request plus $0.00264 per result (maximum $0.0648).
 
         Example:
             res = client.nextdoor.search(city="austin--tx", limit=5, query="plumber")

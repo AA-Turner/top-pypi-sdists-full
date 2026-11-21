@@ -5,34 +5,39 @@ from hashlib import md5
 # Django
 from django.contrib.auth.models import User
 from django.core.cache import cache
-from django.urls import reverse
-from django.utils.html import format_html
 
 # Alliance Auth
 from allianceauth.authentication.models import CharacterOwnership
-from allianceauth.services.hooks import get_extension_logger
 
 # Alliance Auth (External Libs)
-from app_utils.logging import LoggerAddTag
 from memberaudit.models import CharacterSkill
 
 # AA Memberaudit Doctrine Checker
-from madc import __title__
 from madc.models.skillchecker import SkillList
+from madc.providers import logger
 
 SKILL_CACHE_TIMEOUT_SECONDS = 60 * 60 * 72  # 72 hours
-SKILL_CACHE_HEADERS_KEY = "SKILL_HEADER"
-SKILL_CACHE_USER_KEY = "SKILL_LISTS_{}"
-
-logger = LoggerAddTag(get_extension_logger(__name__), __title__)
+# Keys with a version: a new version drops results cached in an older format
+SKILL_CACHE_HEADERS_KEY = "SKILL_HEADER_V3"
+SKILL_CACHE_USER_KEY = "SKILL_LISTS_V3_{}"
 
 
 class SkillListHandler:
     """handler for skill lists."""
 
-    def _get_skill_list_hash(self, skills: list[str]) -> str:
-        """Generate a hash for the skill list names."""
-        return md5(",".join(str(x) for x in sorted(skills)).encode()).hexdigest()
+    def _get_skill_list_hash(self, skill_lists) -> str:
+        """
+        Generate a hash over everything of the skill lists that changes a result.
+
+        Name, category, ordering, active flag and the skills are part of the
+        cached check results, so a change of any of them gives a new hash.
+        """
+        rows = sorted(
+            skill_lists.values_list(
+                "pk", "name", "category", "ordering", "active", "skill_list"
+            )
+        )
+        return md5(json.dumps(rows).encode()).hexdigest()
 
     def _get_chars_hash(self, characters: list[int]) -> str:
         return md5(",".join(str(x) for x in sorted(characters)).encode()).hexdigest()
@@ -40,39 +45,6 @@ class SkillListHandler:
     def _build_account_cache_key(self, characters):
         """Build a cache key based on the character IDs."""
         return SKILL_CACHE_USER_KEY.format(self._get_chars_hash(characters))
-
-    def _generate_doctrine_html(
-        self,
-        skill_list_name: str,
-        character_id: int,
-        has_missing_skills: bool,
-        skill_list_pk: int = None,
-    ) -> str:
-        """Generate HTML for doctrine buttons based on skill status."""
-        html = f"<div class='doctrine-item btn-group' role='group' data-doctrine='{skill_list_name}'>"
-        html += "<button type='button' "
-
-        if has_missing_skills:
-            url = reverse(
-                viewname="madc:api:get_missing_skills",
-                kwargs={"character_id": character_id, "pk": skill_list_pk},
-            )
-            html += f"class='btn btn-danger btn-sm' id='missing-{skill_list_name}-{character_id}' data-bs-toggle='modal' data-bs-target='#modalViewMissingContainer' data-ajax_missing='{url}'>"
-        else:
-            html += "class='btn btn-success btn-sm'>"
-
-        html += f"{skill_list_name}</button>"
-        html += "<button type='button' class='flex-one btn "
-
-        if has_missing_skills:
-            html += f"btn-danger btn-sm' id='copy-{skill_list_name}-{character_id}'>"
-            html += "<i class='fa-solid fa-copy'></i>"
-        else:
-            html += "btn-success btn-sm'>"
-            html += "<i class='fa-solid fa-check'></i>"
-        html += "</button></div>"
-
-        return format_html(html)
 
     def check_skill_lists(self, skill_lists: list[SkillList], linked_characters):
         """Check if the skill lists are up to date."""
@@ -133,23 +105,14 @@ class SkillListHandler:
                         ] = level
 
                 # Add metadata for the doctrine
+                character_data["doctrines"][skill_list_name]["id"] = skill_list_misc[
+                    skill_list_name
+                ]["pk"]
                 character_data["doctrines"][skill_list_name]["order"] = skill_list_misc[
                     skill_list_name
                 ]["order-weight"]
                 character_data["doctrines"][skill_list_name]["category"] = (
                     skill_list_misc[skill_list_name]["category"]
-                )
-
-                has_missing_skills = bool(
-                    character_data["doctrines"][skill_list_name]["skills"]
-                )
-                character_data["doctrines"][skill_list_name]["html"] = (
-                    self._generate_doctrine_html(
-                        skill_list_name=skill_list_name,
-                        character_id=character_data["character_id"],
-                        has_missing_skills=has_missing_skills,
-                        skill_list_pk=skill_list_misc[skill_list_name]["pk"],
-                    )
                 )
         return skill_dict
 
@@ -160,7 +123,7 @@ class SkillListHandler:
         )
 
         skill_lists = SkillList.objects.all().order_by("ordering", "name")
-        skill_list_hash = self._get_skill_list_hash(skill_lists.values_list("name"))
+        skill_list_hash = self._get_skill_list_hash(skill_lists)
         cached_header = cache.get(SKILL_CACHE_HEADERS_KEY, False)
         skill_lists_up_to_date = cached_header == skill_list_hash
 
@@ -197,7 +160,7 @@ class SkillListHandler:
         )
 
         skill_lists = SkillList.objects.all().order_by("ordering", "name")
-        skill_list_hash = self._get_skill_list_hash(skill_lists.values_list("name"))
+        skill_list_hash = self._get_skill_list_hash(skill_lists)
         cached_header = cache.get(SKILL_CACHE_HEADERS_KEY, False)
         skill_lists_up_to_date = cached_header == skill_list_hash
 
@@ -231,3 +194,6 @@ class SkillListHandler:
         )
         cache.set(SKILL_CACHE_HEADERS_KEY, skill_list_hash)
         return output
+
+
+skill_list_handler = SkillListHandler()

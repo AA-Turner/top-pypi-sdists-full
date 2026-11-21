@@ -34,7 +34,9 @@ from .prefs import (
 )
 from .download import ensure_binary
 from ._geoip_db import ensure_geoip_mmdb
-from ._intermediates import ensure_intermediates, update_intermediates
+from ._security_state import ensure_security_state, update_security_state
+# Compatibility name ONLY: the wrapper's current CLI imports `update_intermediates`. It goes when the wrapper calls `update_security_state`.
+update_intermediates = update_security_state
 from ._geo import (
     GeoTimezoneError,
     SessionGeo,
@@ -108,8 +110,10 @@ __all__ = [
     # binary + geoip
     "ensure_binary",
     "ensure_geoip_mmdb",
-    # the preloaded intermediate certificates the core declares to the engine
-    "ensure_intermediates",
+    # the security state (intermediates, OneCRL, CRLite) the core has the engine generate and every launch copies into its profile
+    "ensure_security_state",
+    "update_security_state",
+    # the name the wrapper's `fetch` imports today: it goes when the wrapper calls `update_security_state`
     "update_intermediates",
     # geo / timezone / language: ONE decision, read by every consumer
     "prepare_session_geo",

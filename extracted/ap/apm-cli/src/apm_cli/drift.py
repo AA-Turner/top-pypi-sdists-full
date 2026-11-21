@@ -49,11 +49,13 @@ Scope / non-goals
 from __future__ import annotations
 
 import builtins
+from dataclasses import dataclass
 from dataclasses import replace as _dataclass_replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from apm_cli.core.host_providers import effective_host_provider_identity
+from apm_cli.core.remediation import FROZEN_MARKETPLACE_UNLOCKED, MARKETPLACE_CATALOG_REPINNED
 from apm_cli.install.phases._skip_logic import _should_use_locked_ref
 from apm_cli.utils.github_host import default_host
 
@@ -150,6 +152,155 @@ def marketplace_ref_mismatch(
     elif spec != locked_dep.resolved_ref:
         return f"manifest ref '{spec}' != lockfile ref '{locked_dep.resolved_ref or '(missing)'}'"
     return None
+
+
+def locked_marketplace_row(
+    dep_ref: DependencyReference,
+    lockfile: LockFile | None,
+    marketplace_index: dict | None = None,
+) -> LockedDependency | None:
+    """Return the lock row an unchanged marketplace declaration still matches.
+
+    The row must be the lock's single association for the declaration's
+    ``{name, marketplace}``, carry no replacement binding, and satisfy
+    :func:`marketplace_ref_mismatch`. Never performs catalog I/O. Callers
+    looking up many declarations pass one ``lockfile.marketplace_index()``.
+    """
+    if lockfile is None or getattr(dep_ref, "is_marketplace", False) is not True:
+        return None
+    locked_dep = lockfile.get_dependency(
+        dep_ref.get_unique_key(), marketplace_index=marketplace_index
+    )
+    if (
+        locked_dep is None
+        or locked_dep.replacement is not None
+        or marketplace_ref_mismatch(dep_ref, locked_dep) is not None
+    ):
+        return None
+    return locked_dep
+
+
+def _owns_locked_servers(
+    lockfile: LockFile, locked_dep: LockedDependency, package_dir: Path
+) -> bool:
+    """True when the lock records MCP or LSP servers contributed by *locked_dep*.
+
+    Each kind's owner token comes from its provenance writer: MCP names the
+    declaring package, LSP uses the lock key or, on a first install, the
+    package's ``apm_modules``-relative *package_dir*.
+    """
+    from apm_cli.install.lsp.integration import package_lsp_owner
+    from apm_cli.integration.mcp_config_view import mcp_package_owner
+
+    mcp_owners = {mcp_package_owner(locked_dep.name, package_dir=package_dir)}
+    lsp_owners = {
+        package_lsp_owner(owner) for owner in (locked_dep.get_unique_key(), package_dir.as_posix())
+    }
+    for owners, provenance in (
+        (mcp_owners, lockfile.mcp_config_provenance),
+        (lsp_owners, lockfile.lsp_config_provenance),
+    ):
+        for recorded in (provenance or {}).values():
+            tokens = recorded if isinstance(recorded, list) else [recorded]
+            if owners.intersection(tokens):
+                return True
+    return False
+
+
+MARKETPLACE_REPLAYED = "replayed"
+MARKETPLACE_UNLOCKED = "unlocked"
+MARKETPLACE_UPDATE = "update"
+MARKETPLACE_CATALOG_METADATA = "catalog-metadata"
+
+
+@dataclass(frozen=True)
+class MarketplaceReplay:
+    """Outcome of the replay-vs-re-resolve decision for one declaration."""
+
+    reason: str
+    reference: DependencyReference | None = None
+
+
+def locked_marketplace_replay(
+    dep_ref: DependencyReference,
+    lockfile: LockFile | None,
+    *,
+    update_refs: bool = False,
+    modules_dir: Path | None = None,
+) -> MarketplaceReplay:
+    """Decide whether a marketplace declaration replays its lock row (#3911).
+
+    Single owner of "replay vs re-resolve" for object-form marketplace
+    declarations. A row found by :func:`locked_marketplace_row` replays
+    without catalog, alias or registration I/O (``replayed``); the row's
+    commit and hashes then pin the download. New, changed, ambiguous,
+    replacement-bound or under-evidenced entries are ``unlocked`` and
+    ``apm update`` / ``--refresh`` (*update_refs*) is ``update``; both
+    resolve through the marketplace.
+
+    ``catalog-metadata`` covers one case: catalog entries may define MCP or
+    LSP servers inline, and the lock cannot rebuild that metadata, so a row
+    whose package owns locked servers replays only while its materialized
+    copy under *modules_dir* exists. A cold copy reads the catalog for that
+    metadata only; :func:`catalog_metadata_refusal` keeps the lock's pin.
+    """
+    if update_refs:
+        return MarketplaceReplay(MARKETPLACE_UPDATE)
+    locked_dep = locked_marketplace_row(dep_ref, lockfile)
+    if locked_dep is None:
+        return MarketplaceReplay(MARKETPLACE_UNLOCKED)
+    replayed = locked_dep.to_edge_reference(dep_ref)
+    if modules_dir is not None and replayed.get_install_path(modules_dir).is_dir():
+        return MarketplaceReplay(MARKETPLACE_REPLAYED, replayed)
+    if _owns_locked_servers(lockfile, locked_dep, replayed.get_install_path(Path())):
+        return MarketplaceReplay(MARKETPLACE_CATALOG_METADATA)
+    return MarketplaceReplay(MARKETPLACE_REPLAYED, replayed)
+
+
+def frozen_marketplace_refusal(decision: MarketplaceReplay) -> ValueError | None:
+    """Return the ``--frozen`` refusal for a declaration the lock cannot replay.
+
+    Only an unlocked declaration is refused; ``catalog-metadata`` rows keep
+    reading the catalog because only it holds their server definitions.
+    """
+    if decision.reason != MARKETPLACE_UNLOCKED:
+        return None
+    return ValueError(
+        "--frozen replays marketplace dependencies from apm.lock.yaml only, and "
+        f"no locked entry matches this declaration. {FROZEN_MARKETPLACE_UNLOCKED.sentence()}"
+    )
+
+
+def catalog_metadata_refusal(
+    dep_ref: DependencyReference,
+    resolved: DependencyReference,
+    lockfile: LockFile | None,
+) -> ValueError | None:
+    """Refuse a ``catalog-metadata`` re-read whose catalog no longer pins the lock row.
+
+    The catalog is read only for the server definitions the lock cannot
+    rebuild; the locked commit still pins the download. A catalog that now
+    selects another source or ref would silently re-pin the package, so only
+    ``apm update`` may move it.
+    """
+    locked_dep = locked_marketplace_row(dep_ref, lockfile)
+    if (
+        locked_dep is not None
+        and resolved.get_unique_key() == locked_dep.get_unique_key()
+        and not detect_ref_change(resolved, locked_dep)
+    ):
+        return None
+    locked = (
+        f"{locked_dep.get_unique_key()}#{locked_dep.resolved_ref or locked_dep.resolved_commit}"
+        if locked_dep is not None
+        else "another selection"
+    )
+    current = f"{resolved.get_unique_key()}#{resolved.reference or 'HEAD'}"
+    return ValueError(
+        f"the catalog now selects {current}, but apm.lock.yaml pins {locked}. "
+        "Catalog edits do not change what installs; "
+        f"{MARKETPLACE_CATALOG_REPINNED.bind(package=dep_ref.get_display_name()).clause()}"
+    )
 
 
 def _routes_to_locked_proxy(dep_ref: DependencyReference, locked_dep: Any) -> bool:
@@ -294,7 +445,9 @@ def should_force_ref_recheck(
     callback. The resolver reads a package's ``apm.yml`` from whatever path this
     gate leaves in place, so returning False means "the materialized copy is
     current". A normal install rechecks local packages (their source can change
-    without any ref moving) and manifest/lock drift; *update_keys* scopes both
+    without any ref moving), manifest/lock drift, and a copy whose commit or
+    content contradicts its lock row (:func:`locked_copy_is_stale`);
+    *update_keys* scopes both
     the local recheck and the update rechecks to a targeted run's selected
     subtree. An explicit update also
     rechecks mutable Git refs, semver ranges and hook-only packages. Hook
@@ -341,7 +494,91 @@ def should_force_ref_recheck(
             # one.
             return not is_full_revision_pin(dep_ref.reference)
         return False
-    return detect_ref_change(dep_ref, locked_dep, update_refs=False)
+    if detect_ref_change(dep_ref, locked_dep, update_refs=False):
+        return True
+    # #3884: an unchanged manifest ref does not prove the copy on disk holds
+    # the locked commit; a stale copy would resolve children from an old apm.yml.
+    return package_path is not None and locked_copy_is_stale(locked_dep, package_path)
+
+
+LOCKED_COPY_GIT_HEAD = "git-head"
+LOCKED_COPY_PIN = "pin"
+LOCKED_COPY_CONTENT_HASH = "content-hash"
+
+
+def _locked_commit(locked_dep: Any) -> str | None:
+    commit = getattr(locked_dep, "resolved_commit", None)
+    if isinstance(commit, str) and commit and commit != "cached":
+        return commit
+    return None
+
+
+def locked_copy_proof(
+    locked_dep: Any, package_path: Path, *, trust_marker: bool = False
+) -> str | None:
+    """Return how the copy at *package_path* proves it holds *locked_dep*, else None.
+
+    This is the single owner of "is this apm_modules copy the locked
+    content". Strongest evidence first: a readable ``.git`` HEAD decides on
+    its own; otherwise the ``.apm-pin`` marker naming the locked
+    ``resolved_commit``, then the recorded ``content_hash`` (rows without a
+    commit, or copies without a marker). The marker only catches honest
+    staleness, so by default only the git HEAD or the verified content hash
+    prove a copy whose bytes may be deployed; *trust_marker* admits the
+    marker for resolution freshness (:func:`locked_copy_is_stale`).
+    """
+    if locked_dep is None or not package_path.is_dir():
+        return None
+    commit = _locked_commit(locked_dep)
+    if commit is not None:
+        if (package_path / ".git").exists():
+            try:
+                from git import Repo as GitRepo
+
+                head = GitRepo(package_path).head.commit.hexsha
+            except Exception:  # unreadable checkout: fall back to marker and hash
+                head = None
+            if head is not None:
+                return LOCKED_COPY_GIT_HEAD if head == commit else None
+        if trust_marker:
+            from apm_cli.install.cache_pin import CachePinError, verify_marker
+
+            try:
+                verify_marker(package_path, commit)
+                return LOCKED_COPY_PIN
+            except CachePinError:
+                pass
+    from apm_cli.install.phases._redownload import _should_skip_redownload
+
+    if _should_skip_redownload(locked_dep, package_path):
+        return LOCKED_COPY_CONTENT_HASH
+    return None
+
+
+def locked_copy_holds_commit(locked_dep: Any, package_path: Path) -> bool:
+    """Whether a cached copy proves the locked commit for replay (marker admitted)."""
+    return locked_copy_proof(locked_dep, package_path, trust_marker=True) is not None
+
+
+def locked_copy_is_stale(locked_dep: Any, package_path: Path) -> bool:
+    """Return whether an existing copy contradicts what *locked_dep* records.
+
+    Only evidence can contradict a copy: a recorded content hash, an
+    ``.apm-pin`` marker or a ``.git`` checkout that does not prove the locked
+    content. A legacy copy with none of these (and a row without a content
+    hash) is kept, as before #3884; installs mark it from then on.
+    """
+    if locked_dep is None or not package_path.is_dir():
+        return False
+    if locked_copy_proof(locked_dep, package_path, trust_marker=True) is not None:
+        return False
+    from apm_cli.install.cache_pin import MARKER_FILENAME
+
+    return bool(
+        getattr(locked_dep, "content_hash", None)
+        or (_locked_commit(locked_dep) is not None and (package_path / MARKER_FILENAME).exists())
+        or (_locked_commit(locked_dep) is not None and (package_path / ".git").exists())
+    )
 
 
 def _refetches_mutable_ref_during_resolution(dep_ref: DependencyReference) -> bool:
@@ -365,50 +602,6 @@ def _refetches_mutable_ref_during_resolution(dep_ref: DependencyReference) -> bo
 # ---------------------------------------------------------------------------
 
 
-def detect_orphans(
-    existing_lockfile: LockFile | None,
-    intended_dep_keys: builtins.set,
-    *,
-    only_packages: builtins.list,
-    logger=None,
-) -> builtins.set:
-    """Return the set of deployed file paths whose owning package left the manifest.
-
-    Only relevant for *full* installs (``only_packages`` is empty/None).
-    Partial installs (``apm install <pkg>``) preserve all existing lockfile
-    entries unchanged.
-
-    Args:
-        existing_lockfile: The lockfile from the previous install, or ``None``
-                           on first install.
-        intended_dep_keys: Set of unique dependency keys for packages declared
-                           in the updated manifest.
-        only_packages: When non-empty this is a partial install — return an
-                       empty set so no cleanup is performed.
-
-    Returns:
-        A set of workspace-relative path strings that belong to packages which
-        are no longer in the manifest.  The caller is responsible for actually
-        removing the files.
-    """
-    from apm_cli.deps.lockfile import _SELF_KEY
-
-    orphaned: builtins.set = builtins.set()
-    if only_packages or not existing_lockfile:
-        return orphaned
-    for dep_key, dep in existing_lockfile.dependencies.items():
-        # The synthesized self-entry (key ".") holds the project's own
-        # includes:auto content, which the real install always re-deploys
-        # (never removes). It can never appear in the manifest-derived
-        # intended set, so skip it to avoid over-counting self-includes as
-        # removals in the dry-run preview.
-        if dep_key == _SELF_KEY:
-            continue
-        if dep_key not in intended_dep_keys:
-            orphaned.update(dep.deployed_files)
-    return orphaned
-
-
 # ---------------------------------------------------------------------------
 # File-level stale detection (intra-package)
 # ---------------------------------------------------------------------------
@@ -420,7 +613,7 @@ def detect_stale_files(
 ) -> builtins.set:
     """Return the set of paths that were deployed previously but are no longer produced.
 
-    Complements :func:`detect_orphans`, which operates at the *package* level
+    Complements the orphan owner (``install/orphans.py``), which operates at the *package* level
     (a whole package left the manifest).  This helper operates at the *file*
     level *inside* a still-present package: if a package renamed or removed a
     file between installs, the now-unused path is flagged as stale.

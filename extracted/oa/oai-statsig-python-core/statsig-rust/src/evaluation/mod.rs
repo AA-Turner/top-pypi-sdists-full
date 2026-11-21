@@ -20,6 +20,7 @@ pub(crate) mod comparisons;
 pub(crate) mod country_lookup;
 pub(crate) mod cron_window;
 pub(crate) mod get_unit_id;
+mod id_list_membership;
 
 #[cfg(test)]
 mod __tests__;

@@ -16,8 +16,6 @@
 //!
 //! ## Supported drafts
 //!
-//! Compliance levels vary across drafts, with newer versions having some unimplemented keywords.
-//!
 //! - ![Draft 2020-12](https://img.shields.io/endpoint?url=https%3A%2F%2Fbowtie.report%2Fbadges%2Frust-jsonschema%2Fcompliance%2Fdraft2020-12.json)
 //! - ![Draft 2019-09](https://img.shields.io/endpoint?url=https%3A%2F%2Fbowtie.report%2Fbadges%2Frust-jsonschema%2Fcompliance%2Fdraft2019-09.json)
 //! - ![Draft 7](https://img.shields.io/endpoint?url=https%3A%2F%2Fbowtie.report%2Fbadges%2Frust-jsonschema%2Fcompliance%2Fdraft7.json)
@@ -42,8 +40,8 @@
 //! assert!(jsonschema::validate(&schema, &instance).is_ok());
 //! ```
 //!
-//! For better performance, especially when validating multiple instances against the same schema, build a validator once and reuse it:
-//! If your schema contains external references, you can choose between blocking and non-blocking construction:
+//! Build a validator once to validate many instances; with external references, build it
+//! blocking or non-blocking:
 //!
 //! ```rust
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -77,7 +75,8 @@
 //!
 //! ### Note on `format` keyword
 //!
-//! By default, format validation is draft‑dependent. To opt in for format checks, you can configure your validator like this:
+//! Drafts 4, 6 and 7 check `format` by default; 2019-09 and 2020-12 only annotate. To check it in
+//! any draft:
 //!
 //! ```rust
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -91,7 +90,7 @@
 //! # }
 //! ```
 //!
-//! Once built, any `format` keywords in your schema will be actively validated according to the chosen draft.
+//! The validator then checks every known `format`, using the chosen draft's definitions.
 //!
 //! `idn-hostname` and `idn-email` need the `idna` feature, which is on by default. Without it they
 //! are treated as unknown formats.
@@ -148,8 +147,8 @@
 //!
 //! # Compile-Time Validator Macro
 //!
-//! The `validator` attribute macro (enabled by the `macros` feature) compiles schemas at build time:
-//! Generated validators are significantly faster than runtime validators, so prefer them when the schema is known at
+//! The `validator` attribute macro (`macros` feature) compiles a schema at build time into a
+//! validator that runs faster than a runtime `Validator`; prefer it when the schema is known at
 //! build time.
 //!
 //! ```ignore
@@ -162,7 +161,8 @@
 //!
 //! let instance = serde_json::json!("value");
 //! assert!(Short::is_valid(&instance));
-//! Short::validate(&instance)?;
+//! assert!(Short::validate(&instance).is_ok());
+//! assert!(Short::evaluate(&instance).is_valid());
 //! ```
 //!
 //! Supported macro attributes; each mirrors the matching [`ValidationOptions`] builder method,
@@ -185,8 +185,8 @@
 //! - `content_encodings = { "name" => { check = ..., convert = ... } }` -> [`ValidationOptions::with_content_encoding`]
 //! - `pattern_options = { ... }` -> [`PatternOptions`]
 //! - `email_options = { ... }` -> [`EmailOptions`]
-//! - `methods = { is_valid = true, validate = false, iter_errors = false }`, which methods to
-//!   generate (all default to `true`; at least one must stay enabled)
+//! - `methods = { is_valid = true|false, validate = ..., iter_errors = ..., evaluate = ... }`,
+//!   which methods to generate (all default to `true`; at least one must stay enabled)
 //!
 //! ## Python Extension Modules
 //!
@@ -245,17 +245,13 @@
 //!
 //! ## Limitations
 //!
-//! - `is_valid`, `validate`, and `iter_errors` are generated; `evaluate` is not implemented yet.
-//! - Custom keywords cannot override built-in ones: a `keywords` entry named like a built-in keyword runs in
-//!   addition to the built-in check, not instead of it.
-//! - When an instance violates several keywords, the first error reported by `validate()` may differ from the runtime
-//!   validator's, since generated checks are not ordered by keyword priority; `is_valid` and validity are unaffected.
+//! - A `keywords` entry cannot take a built-in keyword's name: the macro rejects it, while
+//!   [`ValidationOptions::with_keyword`] replaces the built-in.
 //!
 //! # Structured Output
 //!
 //! The `evaluate()` method provides access to structured validation output formats defined by
 //! [JSON Schema Output v1](https://github.com/json-schema-org/json-schema-spec/blob/main/specs/output/jsonschema-validation-output-machines.md).
-//! This is useful when you need detailed information about the validation process beyond simple pass/fail results.
 //!
 //! ```rust
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -307,44 +303,7 @@
 //! # }
 //! ```
 //!
-//! The structured output formats are particularly useful for:
-//! - **Debugging**: Understanding exactly which schema keywords matched or failed
-//! - **User feedback**: Providing detailed, actionable error messages
-//! - **Annotations**: Collecting metadata produced by successful validation
-//! - **Tooling**: Building development tools that work with JSON Schema
-//!
-//! For example, validating `["hello", "oops"]` against a schema with both `prefixItems` and
-//! `items` produces list output similar to:
-//!
-//! ```json
-//! {
-//!   "valid": false,
-//!   "details": [
-//!     {"valid": false, "evaluationPath": "", "schemaLocation": "", "instanceLocation": ""},
-//!     {
-//!       "valid": false,
-//!       "evaluationPath": "/items",
-//!       "schemaLocation": "/items",
-//!       "instanceLocation": "",
-//!       "droppedAnnotations": true
-//!     },
-//!     {
-//!       "valid": false,
-//!       "evaluationPath": "/items",
-//!       "schemaLocation": "/items",
-//!       "instanceLocation": "/1"
-//!     },
-//!     {
-//!       "valid": false,
-//!       "evaluationPath": "/items/type",
-//!       "schemaLocation": "/items/type",
-//!       "instanceLocation": "/1",
-//!       "errors": {"type": "\"oops\" is not of type \"integer\""}
-//!     },
-//!     {"valid": true, "evaluationPath": "/prefixItems", "schemaLocation": "/prefixItems", "instanceLocation": "", "annotations": 0}
-//!   ]
-//! }
-//! ```
+//! [`Evaluation::list`] shows the full list output for an example schema.
 //!
 //! ## Output Formats
 //!
@@ -414,8 +373,7 @@
 //!
 //! # Meta-Schema Validation
 //!
-//! The crate provides functionality to validate JSON Schema documents themselves against their meta-schemas.
-//! This ensures your schema documents are valid according to the JSON Schema specification.
+//! [`meta`] checks a schema document against its meta-schema:
 //!
 //! ```rust
 //! use serde_json::json;
@@ -443,8 +401,6 @@
 //!
 //! # Configuration
 //!
-//! `jsonschema` provides several ways to configure and use JSON Schema validation.
-//!
 //! ## Draft-specific Modules
 //!
 //! The library offers modules for specific JSON Schema draft versions:
@@ -462,8 +418,6 @@
 //! - An `options` function to create a draft-specific configuration builder
 //! - A `meta` module for draft-specific meta-schema validation
 //!
-//! Here's how you can explicitly use a specific draft version:
-//!
 //! ```rust
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! use serde_json::json;
@@ -480,7 +434,7 @@
 //! # }
 //! ```
 //!
-//! You can also use the convenience [`is_valid`] and [`validate`] functions:
+//! Each draft module also has one-off `is_valid` and `validate`:
 //!
 //! ```rust
 //! use serde_json::json;
@@ -512,9 +466,7 @@
 //!
 //! ## General Configuration
 //!
-//! For configuration options that are not draft-specific, `jsonschema` provides a builder via `jsonschema::options()`.
-//!
-//! Here's an example:
+//! [`options()`] returns the same builder with the draft detected from `$schema`:
 //!
 //! ```rust
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -530,7 +482,7 @@
 //! # }
 //! ```
 //!
-//! For a complete list of configuration options and their usage, please refer to the [`ValidationOptions`] struct.
+//! [`ValidationOptions`] lists every option.
 //!
 //! ## Automatic Draft Detection
 //!
@@ -552,8 +504,7 @@
 //! # External References
 //!
 //! By default, `jsonschema` resolves HTTP references using `reqwest` and file references from the local file system.
-//! Both blocking and non-blocking retrieval is supported during validator construction. Note that the validation
-//! itself is always synchronous as it operates on in-memory data only.
+//! Both blocking and non-blocking retrieval is supported during validator construction.
 //!
 //! ```rust
 //! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
@@ -574,24 +525,18 @@
 //! # }
 //! ```
 //!
-//! To enable HTTPS support, add the `rustls-tls` feature to `reqwest` in your `Cargo.toml`:
-//!
-//! ```toml
-//! reqwest = { version = "*", features = ["rustls-tls"] }
-//! ```
-//!
 //! You can disable the default behavior using crate features:
 //!
-//! - Disable HTTP resolving: `default-features = false, features = ["resolve-file"]`
-//! - Disable file resolving: `default-features = false, features = ["resolve-http", "tls-aws-lc-rs"]`
+//! - Disable HTTP resolving: `default-features = false, features = ["resolve-file", "idna"]`
+//! - Disable file resolving:
+//!   `default-features = false, features = ["resolve-http", "tls-aws-lc-rs", "idna"]`
 //! - Enable async resolution: `features = ["resolve-async"]`
-//! - Disable all resolving: `default-features = false`
+//! - Disable all resolving: `default-features = false, features = ["idna"]`
 //!
 //! ## Custom retrievers
 //!
-//! A retriever is for documents fetched on demand — from a database, an embedded asset, a cache.
-//! When the set of documents is known up front, put them in a [`Registry`] instead; the example
-//! below is a retriever only because it has to be one to demonstrate the trait.
+//! A retriever fetches documents on demand, from a database or a cache. When the set of documents
+//! is known up front, put them in a [`Registry`] instead.
 //!
 //! You can implement custom retrievers for both blocking and non-blocking retrieval:
 //!
@@ -664,7 +609,7 @@
 //! #     ),
 //! # ))]
 //! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-//! use jsonschema::{AsyncRetrieve, Registry, Resource, Uri};
+//! use jsonschema::{AsyncRetrieve, Uri};
 //! use serde_json::{Value, json};
 //!
 //! struct HttpRetriever;
@@ -697,10 +642,8 @@
 //!
 //! ## Validating against schema definitions
 //!
-//! When working with large schemas containing multiple definitions (e.g., Open API schemas, DAP schemas),
-//! you may want to validate data against a specific definition rather than the entire schema. This can be
-//! achieved by registering the root schema as a resource and creating a wrapper schema that references
-//! the target definition:
+//! To validate against one definition of a larger schema, take it from [`validator_map_for`] by
+//! pointer, or register the root schema and reference the definition from a wrapper schema:
 //!
 //! ```rust
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -749,11 +692,6 @@
 //! # }
 //! ```
 //!
-//! This pattern is particularly useful when:
-//! - Working with API schemas that define multiple request/response types
-//! - Validating configuration snippets against specific sections of a larger schema
-//! - Testing individual schema components in isolation
-//!
 //! ## Offline validation
 //!
 //! [`ValidationOptions::offline`] disables retrieval, so a reference that is not already in the
@@ -780,17 +718,13 @@
 //!
 //! # Regular Expression Configuration
 //!
-//! The `jsonschema` crate allows configuring the regular expression engine used for validating
-//! keywords like `pattern` or `patternProperties`.
+//! [`PatternOptions`] picks the engine for `pattern` and `patternProperties`.
 //!
 //! By default, the crate uses [`fancy-regex`](https://docs.rs/fancy-regex), which supports advanced
 //! regular expression features such as lookaround and backreferences.
 //!
-//! The primary motivation for switching to the `regex` engine is security and performance:
-//! it guarantees linear-time matching, preventing potential Denial of Service attacks from malicious patterns
-//! in user-provided schemas while offering better performance with a smaller feature set.
-//!
-//! You can configure the engine at **runtime** using the [`PatternOptions`] API:
+//! The `regex` engine matches in linear time, so a hostile pattern in a user-provided schema
+//! cannot stall validation; it lacks lookaround and backreferences.
 //!
 //! ### Example: Configure `fancy-regex` with Backtracking Limit
 //!
@@ -829,23 +763,40 @@
 //!     .expect("A valid schema");
 //! ```
 //!
+//! ### Example: Patterns in the Engine's Own Syntax
+//!
+//! Patterns are read as ECMA 262 and translated for the engine: `\d` matches `0-9` only. With
+//! [`PatternSyntax::Engine`] they reach the engine unchanged, so `\d` matches every Unicode
+//! decimal digit, as it does in the `regex` crate.
+//!
+//! ```rust
+//! use serde_json::json;
+//! use jsonschema::{PatternOptions, PatternSyntax};
+//!
+//! let schema = json!({"pattern": r"^\d+$"});
+//!
+//! let validator = jsonschema::options()
+//!     .with_pattern_options(PatternOptions::regex().syntax(PatternSyntax::Engine))
+//!     .build(&schema)
+//!     .expect("A valid schema");
+//!
+//! assert!(validator.is_valid(&json!("٣")));
+//! ```
+//!
 //! ### Notes
 //!
-//! - If neither engine is explicitly set, `fancy-regex` is used by default.
+//! - If no syntax is set, patterns are ECMA 262.
 //! - Regular expressions that rely on advanced features like `(?<=...)` (lookbehind) or backreferences (`\1`) will fail with the `regex` engine.
 //!
 //! # Custom Keywords
 //!
-//! `jsonschema` allows you to extend its functionality by implementing custom validation logic through custom keywords.
-//! This feature is particularly useful when you need to validate against domain-specific rules that aren't covered by the standard JSON Schema keywords.
+//! A custom keyword adds a check the standard keywords lack.
 //! Keywords are generic over the instance representation ([`json`] module).
 //!
 //! To implement a custom keyword, you need to:
 //! 1. Create a struct that implements the [`Keyword`] trait
 //! 2. Create a factory function or closure that produces instances of your custom keyword
-//! 3. Register the custom keyword with the [`Validator`] instance using the [`ValidationOptions::with_keyword`] method
-//!
-//! Here's a complete example:
+//! 3. Register the factory with [`ValidationOptions::with_keyword`]
 //!
 //! ```rust
 //! use jsonschema::{paths::Location, Keyword, ValidationError};
@@ -855,7 +806,7 @@
 //!
 //! impl<'i> Keyword<'i> for EvenNumberValidator {
 //!     fn validate(&self, instance: &'i Value) -> Result<(), ValidationError<'i>> {
-//!         if let Some(n) = instance.as_u64() {
+//!         if let Some(n) = instance.as_i64() {
 //!             if n % 2 == 0 {
 //!                 return Ok(());
 //!             }
@@ -864,7 +815,7 @@
 //!     }
 //!
 //!     fn is_valid(&self, instance: &'i Value) -> bool {
-//!         instance.as_u64().map_or(false, |n| n % 2 == 0)
+//!         instance.as_i64().map_or(false, |n| n % 2 == 0)
 //!     }
 //! }
 //!
@@ -890,10 +841,6 @@
 //! assert!(!validator.is_valid(&json!(3)));
 //! assert!(!validator.is_valid(&json!("not a number")));
 //! ```
-//!
-//! In this example, we've created a custom `even-number` keyword that validates whether a number is even.
-//! The `EvenNumberValidator` implements the actual validation logic, while the `even_number_factory`
-//! creates instances of the validator and allows for additional configuration based on the keyword's value in the schema.
 //!
 //! You can also use a closure instead of a factory function for simpler cases:
 //!
@@ -923,21 +870,16 @@
 //!
 //! # Custom Formats
 //!
-//! JSON Schema allows for format validation through the `format` keyword. While `jsonschema`
-//! provides built-in validators for standard formats, you can also define custom format validators
-//! for domain-specific string formats.
-//!
-//! To implement a custom format validator:
-//!
-//! 1. Define a function or a closure that takes a `&str` and returns a `bool`.
-//! 2. Register the function with `jsonschema::options().with_format()`.
+//! [`ValidationOptions::with_format`] adds a check for a `format` name the built-ins do not cover.
+//! Register a `fn(&str) -> bool` or a closure; on Draft 2019-09 and 2020-12 also call
+//! `should_validate_formats(true)`:
 //!
 //! ```rust
 //! use serde_json::json;
 //!
 //! // Step 1: Define the custom format validator function
 //! fn ends_with_42(s: &str) -> bool {
-//!     s.ends_with("42!")
+//!     s.ends_with("42")
 //! }
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -950,13 +892,13 @@
 //! // Step 3: Build the validator with the custom format
 //! let validator = jsonschema::options()
 //!     .with_format("ends-with-42", ends_with_42)
-//!     .with_format("ends-with-43", |s| s.ends_with("43!"))
+//!     .with_format("ends-with-43", |s| s.ends_with("43"))
 //!     .should_validate_formats(true)
 //!     .build(&schema)?;
 //!
 //! // Step 4: Validate instances
-//! assert!(validator.is_valid(&json!("Hello42!")));
-//! assert!(!validator.is_valid(&json!("Hello43!")));
+//! assert!(validator.is_valid(&json!("Hello42")));
+//! assert!(!validator.is_valid(&json!("Hello43")));
 //! assert!(!validator.is_valid(&json!(42))); // Not a string
 //! #    Ok(())
 //! # }
@@ -965,9 +907,8 @@
 //! ### Notes on Custom Format Validators
 //!
 //! - Custom format validators are only called for string instances.
-//! - In newer drafts, `format` is purely an annotation and won’t do any checking unless you
-//!   opt in by calling `.should_validate_formats(true)` on your options builder. If you omit
-//!   it, all `format` keywords are ignored at validation time.
+//! - In Draft 2019-09 and 2020-12, `format` checks nothing unless you call
+//!   `.should_validate_formats(true)`.
 //!
 //! # Arbitrary Precision Numbers
 //!
@@ -981,8 +922,8 @@
 //! - Arbitrarily large integers (e.g., `18446744073709551616`)
 //! - Exact decimal precision without `f64` rounding (e.g., `0.1`, `0.3`)
 //!
-//! **Important**: Precision is only preserved when parsing JSON from strings. Using Rust literals
-//! or the `json!()` macro converts numbers to `f64`, losing precision.
+//! **Important**: precision survives only when `serde_json` parses JSON text; a float literal in
+//! `json!()` is an `f64` first.
 //!
 //! ```rust
 //! # use jsonschema::Validator;
@@ -1020,19 +961,12 @@
 //!
 //! ## Browser/JavaScript (`wasm32-unknown-unknown`)
 //!
-//! When targeting browser or JavaScript environments, external reference resolution is not
-//! supported by default due to platform limitations:
-//!    - No filesystem access (`resolve-file` feature is not available)
-//!    - No synchronous HTTP requests (`resolve-http` feature is not available)
-//!
-//! To use `jsonschema` in these environments, disable default features:
+//! On this target `resolve-file` and `resolve-http` do not compile: there is no filesystem and
+//! no blocking HTTP. Disable default features:
 //!
 //! ```toml
 //! jsonschema = { version = "x.y.z", default-features = false }
 //! ```
-//!
-//! Note: Attempting to compile with `resolve-http` or `resolve-file` features on
-//! `wasm32-unknown-unknown` will result in a compile error.
 //!
 //! For external references in browser environments, implement a custom retriever that uses
 //! browser APIs (like `fetch`). See the [External References](#external-references) section.
@@ -1056,9 +990,8 @@
 //! jsonschema = { version = "x.y.z", default-features = false, features = ["resolve-file"] }
 //! ```
 //!
-//! **Workaround for HTTP:** Implement a custom blocking or async [`Retrieve`] that uses your preferred
-//! HTTP client, and enable `resolve-async` if you want to build validators through `async_options()`
-//! on WASI.
+//! **HTTP:** implement [`Retrieve`], or `AsyncRetrieve` with `resolve-async`, over your own HTTP
+//! client.
 
 #[cfg(all(
     target_arch = "wasm32",
@@ -1107,12 +1040,12 @@ pub(crate) use jsonschema_value::{
 ///
 /// The slice lives until the memory context resets. The bytes are in the server's native byte
 /// order, and keys and strings are read as UTF-8. An error's instance is built on first access;
-/// past 128 levels of nesting it holds `null` there and
-/// `json::jsonb::take_pending_error` returns the error.
+/// past 128 levels of nesting it holds `null`, and `json::jsonb::take_pending_error` returns
+/// the message.
 ///
-/// The accessors are infallible, so the representation must be total over JSON: reject nodes
-/// with no JSON meaning (tags, foreign objects) before validation, or track them on a side
-/// channel of the representation.
+/// The accessors are infallible, so every node must map to a JSON value: reject nodes with no
+/// JSON meaning (tags, foreign objects) before validation, or track them on a side channel of
+/// the representation.
 ///
 /// # Example
 ///
@@ -1371,7 +1304,7 @@ pub use http::HttpOptions;
 pub use jsonschema_macros::validator;
 pub use keywords::custom::Keyword;
 pub use options::{
-    EmailOptions, FancyRegex, PatternCache, PatternOptions, Regex, ValidationOptions,
+    EmailOptions, FancyRegex, PatternCache, PatternOptions, PatternSyntax, Regex, ValidationOptions,
 };
 pub use referencing::{
     uri, Draft, Error as ReferencingError, Registry, RegistryBuilder, Resource, Retrieve, Uri,
@@ -1392,8 +1325,7 @@ pub use retriever::AsyncHttpRetriever;
 
 use serde_json::Value;
 
-/// Validate `instance` against `schema` and get a `true` if the instance is valid and `false`
-/// otherwise. Draft is detected automatically.
+/// Whether `schema` accepts `instance`. The draft is detected from `$schema`.
 ///
 /// # Examples
 ///
@@ -1407,7 +1339,7 @@ use serde_json::Value;
 ///
 /// # Panics
 ///
-/// This function panics if an invalid schema is passed.
+/// Panics if the schema is invalid or a reference cannot be resolved.
 ///
 /// This function **must not** be called from within an async runtime if the schema contains
 /// external references that require network requests, or it will panic when attempting to block.
@@ -1439,7 +1371,7 @@ pub fn is_valid(schema: &Value, instance: &Value) -> bool {
 ///
 /// # Panics
 ///
-/// This function panics if an invalid schema is passed.
+/// Panics if the schema is invalid or a reference cannot be resolved.
 ///
 /// This function **must not** be called from within an async runtime if the schema contains
 /// external references that require network requests, or it will panic when attempting to block.
@@ -1470,7 +1402,7 @@ pub fn validate<'i>(schema: &Value, instance: &'i Value) -> Result<(), Validatio
 ///
 /// # Panics
 ///
-/// This function panics if an invalid schema is passed.
+/// Panics if the schema is invalid or a reference cannot be resolved.
 ///
 /// This function **must not** be called from within an async runtime if the schema contains
 /// external references that require network requests, or it will panic when attempting to block.
@@ -1561,18 +1493,18 @@ pub fn validator_map_for(schema: &Value) -> Result<ValidatorMap, ValidationError
 /// producing a Compound Schema Document that validates identically to the original.
 /// Draft 4/6/7 use `definitions`; Draft 2019-09/2020-12 use `$defs`.
 /// `$ref` values are preserved unchanged.
-/// For mixed-draft bundles, embedded resources may include both `id` and `$id`
-/// to maximize interoperability with downstream validators that differ in draft
-/// handling.
+/// An embedded resource of another draft gets both `id` and `$id`, so the root's draft finds
+/// it too.
 ///
-/// **Limitation:** `$dynamicRef` is not followed during bundling.
+/// **Limitation:** only `$ref` is followed; `$dynamicRef` and `$recursiveRef` targets are not
+/// embedded.
 ///
 /// For custom resources or retrievers, use [`options()`] and call `.bundle()`.
 ///
 /// # Errors
 ///
-/// Returns an error if draft detection fails, registry construction fails,
-/// subresource scope resolution fails, or any `$ref` cannot be resolved.
+/// Returns an error if the meta-schema named in `$schema`, an `$id` against its base URI, or
+/// a `$ref` cannot be resolved.
 ///
 /// # Panics
 ///
@@ -1630,8 +1562,8 @@ pub fn dereference(schema: &Value) -> Result<Value, ReferencingError> {
 ///
 /// # Errors
 ///
-/// Returns an error if draft detection fails, registry construction fails,
-/// subresource scope resolution fails, or any `$ref` cannot be resolved.
+/// Returns an error if the meta-schema named in `$schema`, an `$id` against its base URI, or
+/// a `$ref` cannot be resolved.
 #[cfg(feature = "resolve-async")]
 pub async fn async_bundle(schema: &Value) -> Result<Value, ReferencingError> {
     async_options().bundle(schema).await
@@ -1653,8 +1585,8 @@ pub async fn async_dereference(schema: &Value) -> Result<Value, ReferencingError
 /// Create a validator for the input schema with automatic draft detection and default options,
 /// using non-blocking retrieval for external references.
 ///
-/// This is the async counterpart to [`validator_for`]. Note that only the construction is
-/// asynchronous - validation itself is always synchronous.
+/// This is the async counterpart to [`validator_for`]. Only construction is asynchronous;
+/// validation is synchronous.
 ///
 /// # Examples
 ///
@@ -1729,16 +1661,11 @@ pub fn canonicalize(value: &Value) -> Result<canonical::CanonicalSchema, Canonic
 
 /// Create a builder for configuring JSON Schema validation options.
 ///
-/// This function returns a [`ValidationOptions`] struct, which allows you to set various
-/// options for JSON Schema validation. You can use this builder to specify
-/// the draft version, set custom formats, and more.
-///
 /// If [`with_draft`](ValidationOptions::with_draft) is not called, the draft is
-/// auto-detected from the schema's `$schema` field — the same behaviour as [`validator_for`].
+/// auto-detected from the schema's `$schema` field, as in [`validator_for`].
 ///
-/// **Note:** When calling [`ValidationOptions::build`], it **must not** be called from within
-/// an async runtime if the schema contains external references that require network requests,
-/// or it will panic. Use `async_options` for async contexts.
+/// **Note:** [`ValidationOptions::build`] panics inside an async runtime when the schema has
+/// references that need network requests; use `async_options` there.
 ///
 /// # Examples
 ///
@@ -1802,10 +1729,7 @@ pub fn async_options_for<'i, F: Json>(
     ValidationOptions::default()
 }
 
-/// Create a builder for configuring JSON Schema validation options.
-///
-/// This function returns a [`ValidationOptions`] struct which allows you to set various options for JSON Schema validation.
-/// External references will be retrieved using non-blocking I/O.
+/// Create a builder whose validators retrieve external references with non-blocking I/O.
 ///
 /// # Examples
 ///
@@ -1859,7 +1783,8 @@ pub fn async_options_for<'i, F: Json>(
 /// # }
 /// ```
 ///
-/// On `wasm32` targets, annotate your implementation with `async_trait::async_trait(?Send)` to drop the `Send + Sync` requirement.
+/// On `wasm` targets the trait is declared with `async_trait(?Send)`, and your implementation
+/// must use it too.
 ///
 /// See [`ValidationOptions`] for all available configuration options.
 #[cfg(feature = "resolve-async")]
@@ -1868,7 +1793,7 @@ pub fn async_options<'i>() -> ValidationOptions<'i, std::sync::Arc<dyn AsyncRetr
     Validator::async_options()
 }
 
-/// Functionality for validating JSON Schema documents against their meta-schemas.
+/// Validating schema documents against their meta-schemas.
 pub mod meta {
     use crate::{error::ValidationError, Draft, Json, Node, Object, Registry, Validator};
     use ahash::AHashSet;
@@ -1899,8 +1824,8 @@ pub mod meta {
 
         /// The draft whose meta-schema `schema` names in `$schema`.
         ///
-        /// `Draft::Unknown` means a URI outside the bundled drafts, which the functions above
-        /// cannot answer for.
+        /// `Draft::Unknown` means a URI outside the bundled drafts, which [`is_valid_fn`] and
+        /// [`validate_fn`] cannot check; no `$schema` gives Draft 2020-12.
         #[must_use]
         pub fn draft_of(schema: Borrowed<'_, '_, PyAny>) -> Draft {
             super::meta_cache::<crate::json::Pyo3>().draft_of(&schema)
@@ -1923,8 +1848,8 @@ pub mod meta {
 
         /// The draft whose meta-schema `schema` names in `$schema`.
         ///
-        /// `Draft::Unknown` means a URI outside the bundled drafts, which the functions above
-        /// cannot answer for.
+        /// `Draft::Unknown` means a URI outside the bundled drafts, which [`is_valid_fn`] and
+        /// [`validate_fn`] cannot check; no `$schema` gives Draft 2020-12.
         #[must_use]
         pub fn draft_of(schema: RbNode<'_>) -> Draft {
             super::meta_cache::<crate::json::Magnus>().draft_of(&schema)
@@ -2031,12 +1956,11 @@ pub mod meta {
         use serde_json::Value;
         use std::{marker::PhantomData, ops::Deref};
 
-        /// Handle to a draft-specific meta-schema [`Validator`]. Borrows cached validators on native
-        /// targets and owns validators on `wasm32`.
+        /// Handle to a meta-schema [`Validator`].
         pub struct MetaValidator<'a>(MetaValidatorInner<'a>);
 
-        // Native builds can hand out references to cached validators or own dynamic ones,
-        // while wasm targets need owned instances because the validator type does not implement `Sync` there.
+        // Native builds borrow cached validators or own one built for a custom meta-schema; wasm
+        // targets always own them because `Validator` does not implement `Sync` there.
         // Under `macros`, native builds dispatch to compile-time generated validators; the cached
         // runtime validator is resolved lazily by draft only for the `evaluate` path (`AsRef`).
         enum MetaValidatorInner<'a> {
@@ -2187,7 +2111,7 @@ pub mod meta {
             build_validator(&referencing::meta::DRAFT202012)
         }
 
-        // Backs the `evaluate`/`iter_errors` fallback for generated meta validators.
+        // Backs `evaluate` and the other `Deref` methods of a generated meta validator.
         #[cfg(all(feature = "macros", not(target_family = "wasm")))]
         pub(crate) fn runtime_validator_for_draft(draft: crate::Draft) -> &'static Validator {
             use crate::Draft;
@@ -2233,8 +2157,7 @@ pub mod meta {
         }
     }
 
-    /// Validate a JSON Schema document against its meta-schema and get a `true` if the schema is valid
-    /// and `false` otherwise. Draft version is detected automatically.
+    /// Whether its meta-schema accepts `schema`. The draft is detected from `$schema`.
     ///
     /// # Examples
     ///
@@ -2250,13 +2173,12 @@ pub mod meta {
     ///
     /// # Panics
     ///
-    /// This function panics if the meta-schema can't be detected.
+    /// Panics if the meta-schema cannot be resolved.
     ///
     /// # Note
     ///
-    /// This helper only works with the built-in JSON Schema drafts. For schemas that declare a
-    /// custom `$schema`, construct a registry that contains your meta-schema and use
-    /// [`meta::options().with_registry(...)`](crate::meta::options) to validate it.
+    /// A custom `$schema` is fetched with the default retriever; to supply the meta-schema
+    /// yourself, use [`meta::options().with_registry(...)`](crate::meta::options).
     #[must_use]
     pub fn is_valid(schema: &Value) -> bool {
         match try_meta_validator_for(schema, None) {
@@ -2287,17 +2209,13 @@ pub mod meta {
     ///
     /// # Errors
     ///
-    /// Returns the first [`ValidationError`] describing why the schema violates the detected meta-schema.
-    ///
-    /// # Panics
-    ///
-    /// This function panics if the meta-schema can't be detected.
+    /// Returns the first [`ValidationError`] describing why the schema violates the detected
+    /// meta-schema, or an error if the meta-schema cannot be resolved.
     ///
     /// # Note
     ///
-    /// Like [`is_valid`], this helper only handles the bundled JSON
-    /// Schema drafts. For custom meta-schemas, use [`meta::options().with_registry(...)`](crate::meta::options)
-    /// so the registry can supply the meta-schema.
+    /// A custom `$schema` is fetched with the default retriever; to supply the meta-schema
+    /// yourself, use [`meta::options().with_registry(...)`](crate::meta::options).
     pub fn validate(schema: &Value) -> Result<(), ValidationError<'_>> {
         let validator = try_meta_validator_for(schema, None)?;
         validator.validate(schema)
@@ -2331,21 +2249,18 @@ pub mod meta {
     ///
     /// Returns [`ValidationError`] if the meta-schema cannot be resolved or built.
     ///
-    /// # Panics
-    ///
-    /// This function panics if the meta-schema can't be detected.
-    ///
     /// # Note
     ///
-    /// This helper only handles the bundled JSON Schema drafts. For custom meta-schemas,
-    /// use [`meta::options().with_registry(...)`](crate::meta::options).
+    /// A custom `$schema` is fetched with the default retriever; to supply the meta-schema
+    /// yourself, use [`meta::options().with_registry(...)`](crate::meta::options).
     pub fn validator_for(
         schema: &Value,
     ) -> Result<MetaValidator<'static>, ValidationError<'static>> {
         try_meta_validator_for(schema, None)
     }
 
-    /// Validate a schema document held in a foreign representation against its meta-schema.
+    /// Validate a schema document held in a custom JSON representation ([`json`](crate::json))
+    /// against its meta-schema.
     /// Draft version is detected automatically.
     ///
     /// # Errors
@@ -2364,7 +2279,7 @@ pub mod meta {
         }
     }
 
-    /// Check a schema document held in a foreign representation against its meta-schema.
+    /// Check a schema document held in a custom JSON representation against its meta-schema.
     /// Draft version is detected automatically.
     ///
     /// # Errors
@@ -2477,7 +2392,7 @@ pub mod meta {
                 .and_then(|obj| obj.get("$schema"))
                 .and_then(|s| s.as_str())
             {
-                // Try registry first if available
+                // A registry, when given, is the only source of the meta-schema
                 if let Some(registry) = registry {
                     let (custom_meta_schema, resolved_draft) =
                         resolve_meta_schema_with_registry(meta_schema_uri, registry)?;
@@ -2566,12 +2481,9 @@ pub mod meta {
     }
 }
 
-/// Functionality specific to JSON Schema Draft 4.
+/// Validators for JSON Schema Draft 4.
 ///
 /// [![Draft 4](https://img.shields.io/endpoint?url=https%3A%2F%2Fbowtie.report%2Fbadges%2Frust-jsonschema%2Fcompliance%2Fdraft4.json)](https://bowtie.report/#/implementations/rust-jsonschema)
-///
-/// This module provides functions for creating validators and performing validation
-/// according to the JSON Schema Draft 4 specification.
 ///
 /// # Examples
 ///
@@ -2610,7 +2522,7 @@ pub mod draft4 {
     pub fn new(schema: &Value) -> Result<Validator, ValidationError<'static>> {
         options().build(schema)
     }
-    /// Validate an instance against a schema using Draft 4 specifications without creating a validator.
+    /// Whether `schema` accepts `instance` under Draft 4, building a validator per call.
     ///
     /// # Examples
     ///
@@ -2632,7 +2544,8 @@ pub mod draft4 {
     pub fn is_valid(schema: &Value, instance: &Value) -> bool {
         new(schema).expect("Invalid schema").is_valid(instance)
     }
-    /// Validate an instance against a schema using Draft 4 specifications without creating a validator.
+    /// Validate `instance` against `schema` under Draft 4 and return the first error,
+    /// building a validator per call.
     ///
     /// # Examples
     ///
@@ -2685,20 +2598,18 @@ pub mod draft4 {
         crate::options().with_draft(Draft::Draft4)
     }
 
-    /// Functionality for validating JSON Schema Draft 4 documents.
+    /// Checking schemas against the Draft 4 meta-schema.
     pub mod meta {
         use crate::{meta::MetaValidator, ValidationError};
         use serde_json::Value;
 
-        /// Returns a handle to the Draft 4 meta-schema validator. Native targets borrow cached
-        /// statics while `wasm32` builds an owned validator.
+        /// Returns a handle to the Draft 4 meta-schema validator.
         #[must_use]
         pub fn validator() -> MetaValidator<'static> {
             crate::meta::validator_for_draft(super::Draft::Draft4)
         }
 
-        /// Validate a JSON Schema document against Draft 4 meta-schema and get a `true` if the schema is valid
-        /// and `false` otherwise.
+        /// Whether the Draft 4 meta-schema accepts `schema`.
         ///
         /// # Examples
         ///
@@ -2747,12 +2658,9 @@ pub mod draft4 {
     }
 }
 
-/// Functionality specific to JSON Schema Draft 6.
+/// Validators for JSON Schema Draft 6.
 ///
 /// [![Draft 6](https://img.shields.io/endpoint?url=https%3A%2F%2Fbowtie.report%2Fbadges%2Frust-jsonschema%2Fcompliance%2Fdraft6.json)](https://bowtie.report/#/implementations/rust-jsonschema)
-///
-/// This module provides functions for creating validators and performing validation
-/// according to the JSON Schema Draft 6 specification.
 ///
 /// # Examples
 ///
@@ -2791,7 +2699,7 @@ pub mod draft6 {
     pub fn new(schema: &Value) -> Result<Validator, ValidationError<'static>> {
         options().build(schema)
     }
-    /// Validate an instance against a schema using Draft 6 specifications without creating a validator.
+    /// Whether `schema` accepts `instance` under Draft 6, building a validator per call.
     ///
     /// # Examples
     ///
@@ -2813,7 +2721,8 @@ pub mod draft6 {
     pub fn is_valid(schema: &Value, instance: &Value) -> bool {
         new(schema).expect("Invalid schema").is_valid(instance)
     }
-    /// Validate an instance against a schema using Draft 6 specifications without creating a validator.
+    /// Validate `instance` against `schema` under Draft 6 and return the first error,
+    /// building a validator per call.
     ///
     /// # Examples
     ///
@@ -2866,20 +2775,18 @@ pub mod draft6 {
         crate::options().with_draft(Draft::Draft6)
     }
 
-    /// Functionality for validating JSON Schema Draft 6 documents.
+    /// Checking schemas against the Draft 6 meta-schema.
     pub mod meta {
         use crate::{meta::MetaValidator, ValidationError};
         use serde_json::Value;
 
-        /// Returns a handle to the Draft 6 meta-schema validator. Native targets borrow cached
-        /// statics while `wasm32` builds an owned validator.
+        /// Returns a handle to the Draft 6 meta-schema validator.
         #[must_use]
         pub fn validator() -> MetaValidator<'static> {
             crate::meta::validator_for_draft(super::Draft::Draft6)
         }
 
-        /// Validate a JSON Schema document against Draft 6 meta-schema and get a `true` if the schema is valid
-        /// and `false` otherwise.
+        /// Whether the Draft 6 meta-schema accepts `schema`.
         ///
         /// # Examples
         ///
@@ -2928,12 +2835,9 @@ pub mod draft6 {
     }
 }
 
-/// Functionality specific to JSON Schema Draft 7.
+/// Validators for JSON Schema Draft 7.
 ///
 /// [![Draft 7](https://img.shields.io/endpoint?url=https%3A%2F%2Fbowtie.report%2Fbadges%2Frust-jsonschema%2Fcompliance%2Fdraft7.json)](https://bowtie.report/#/implementations/rust-jsonschema)
-///
-/// This module provides functions for creating validators and performing validation
-/// according to the JSON Schema Draft 7 specification.
 ///
 /// # Examples
 ///
@@ -2972,7 +2876,7 @@ pub mod draft7 {
     pub fn new(schema: &Value) -> Result<Validator, ValidationError<'static>> {
         options().build(schema)
     }
-    /// Validate an instance against a schema using Draft 7 specifications without creating a validator.
+    /// Whether `schema` accepts `instance` under Draft 7, building a validator per call.
     ///
     /// # Examples
     ///
@@ -2994,7 +2898,8 @@ pub mod draft7 {
     pub fn is_valid(schema: &Value, instance: &Value) -> bool {
         new(schema).expect("Invalid schema").is_valid(instance)
     }
-    /// Validate an instance against a schema using Draft 7 specifications without creating a validator.
+    /// Validate `instance` against `schema` under Draft 7 and return the first error,
+    /// building a validator per call.
     ///
     /// # Examples
     ///
@@ -3047,20 +2952,18 @@ pub mod draft7 {
         crate::options().with_draft(Draft::Draft7)
     }
 
-    /// Functionality for validating JSON Schema Draft 7 documents.
+    /// Checking schemas against the Draft 7 meta-schema.
     pub mod meta {
         use crate::{meta::MetaValidator, ValidationError};
         use serde_json::Value;
 
-        /// Returns a handle to the Draft 7 meta-schema validator. Native targets borrow cached
-        /// statics while `wasm32` builds an owned validator.
+        /// Returns a handle to the Draft 7 meta-schema validator.
         #[must_use]
         pub fn validator() -> MetaValidator<'static> {
             crate::meta::validator_for_draft(super::Draft::Draft7)
         }
 
-        /// Validate a JSON Schema document against Draft 7 meta-schema and get a `true` if the schema is valid
-        /// and `false` otherwise.
+        /// Whether the Draft 7 meta-schema accepts `schema`.
         ///
         /// # Examples
         ///
@@ -3109,12 +3012,9 @@ pub mod draft7 {
     }
 }
 
-/// Functionality specific to JSON Schema Draft 2019-09.
+/// Validators for JSON Schema Draft 2019-09.
 ///
 /// [![Draft 2019-09](https://img.shields.io/endpoint?url=https%3A%2F%2Fbowtie.report%2Fbadges%2Frust-jsonschema%2Fcompliance%2Fdraft2019-09.json)](https://bowtie.report/#/implementations/rust-jsonschema)
-///
-/// This module provides functions for creating validators and performing validation
-/// according to the JSON Schema Draft 2019-09 specification.
 ///
 /// # Examples
 ///
@@ -3153,7 +3053,7 @@ pub mod draft201909 {
     pub fn new(schema: &Value) -> Result<Validator, ValidationError<'static>> {
         options().build(schema)
     }
-    /// Validate an instance against a schema using Draft 2019-09 specifications without creating a validator.
+    /// Whether `schema` accepts `instance` under Draft 2019-09, building a validator per call.
     ///
     /// # Examples
     ///
@@ -3175,7 +3075,8 @@ pub mod draft201909 {
     pub fn is_valid(schema: &Value, instance: &Value) -> bool {
         new(schema).expect("Invalid schema").is_valid(instance)
     }
-    /// Validate an instance against a schema using Draft 2019-09 specifications without creating a validator.
+    /// Validate `instance` against `schema` under Draft 2019-09 and return the first error,
+    /// building a validator per call.
     ///
     /// # Examples
     ///
@@ -3228,19 +3129,17 @@ pub mod draft201909 {
         crate::options().with_draft(Draft::Draft201909)
     }
 
-    /// Functionality for validating JSON Schema Draft 2019-09 documents.
+    /// Checking schemas against the Draft 2019-09 meta-schema.
     pub mod meta {
         use crate::{meta::MetaValidator, ValidationError};
         use serde_json::Value;
 
-        /// Returns a handle to the Draft 2019-09 meta-schema validator. Native targets borrow cached
-        /// statics while `wasm32` builds an owned validator.
+        /// Returns a handle to the Draft 2019-09 meta-schema validator.
         #[must_use]
         pub fn validator() -> MetaValidator<'static> {
             crate::meta::validator_for_draft(super::Draft::Draft201909)
         }
-        /// Validate a JSON Schema document against Draft 2019-09 meta-schema and get a `true` if the schema is valid
-        /// and `false` otherwise.
+        /// Whether the Draft 2019-09 meta-schema accepts `schema`.
         ///
         /// # Examples
         ///
@@ -3289,12 +3188,9 @@ pub mod draft201909 {
     }
 }
 
-/// Functionality specific to JSON Schema Draft 2020-12.
+/// Validators for JSON Schema Draft 2020-12.
 ///
 /// [![Draft 2020-12](https://img.shields.io/endpoint?url=https%3A%2F%2Fbowtie.report%2Fbadges%2Frust-jsonschema%2Fcompliance%2Fdraft2020-12.json)](https://bowtie.report/#/implementations/rust-jsonschema)
-///
-/// This module provides functions for creating validators and performing validation
-/// according to the JSON Schema Draft 2020-12 specification.
 ///
 /// # Examples
 ///
@@ -3336,7 +3232,7 @@ pub mod draft202012 {
     pub fn new(schema: &Value) -> Result<Validator, ValidationError<'static>> {
         options().build(schema)
     }
-    /// Validate an instance against a schema using Draft 2020-12 specifications without creating a validator.
+    /// Whether `schema` accepts `instance` under Draft 2020-12, building a validator per call.
     ///
     /// # Examples
     ///
@@ -3358,7 +3254,8 @@ pub mod draft202012 {
     pub fn is_valid(schema: &Value, instance: &Value) -> bool {
         new(schema).expect("Invalid schema").is_valid(instance)
     }
-    /// Validate an instance against a schema using Draft 2020-12 specifications without creating a validator.
+    /// Validate `instance` against `schema` under Draft 2020-12 and return the first error,
+    /// building a validator per call.
     ///
     /// # Examples
     ///
@@ -3411,20 +3308,18 @@ pub mod draft202012 {
         crate::options().with_draft(Draft::Draft202012)
     }
 
-    /// Functionality for validating JSON Schema Draft 2020-12 documents.
+    /// Checking schemas against the Draft 2020-12 meta-schema.
     pub mod meta {
         use crate::{meta::MetaValidator, ValidationError};
         use serde_json::Value;
 
-        /// Returns a handle to the Draft 2020-12 meta-schema validator. Native targets borrow
-        /// cached statics while `wasm32` builds an owned validator.
+        /// Returns a handle to the Draft 2020-12 meta-schema validator.
         #[must_use]
         pub fn validator() -> MetaValidator<'static> {
             crate::meta::validator_for_draft(super::Draft::Draft202012)
         }
 
-        /// Validate a JSON Schema document against Draft 2020-12 meta-schema and get a `true` if the schema is valid
-        /// and `false` otherwise.
+        /// Whether the Draft 2020-12 meta-schema accepts `schema`.
         ///
         /// # Examples
         ///
@@ -3481,7 +3376,8 @@ pub mod __private {
         pub use pyo3::{intern, types::PyString, Borrowed, Bound, PyAny, PyResult};
     }
 
-    // Wraps a `backend = Pyo3` validator, so a build without the feature reports that alone.
+    // Expands to the generated `backend = Pyo3` code, or without the `pyo3` feature to one
+    // `compile_error!` naming it.
     #[cfg(feature = "pyo3")]
     #[doc(hidden)]
     #[macro_export]
@@ -3505,7 +3401,8 @@ pub mod __private {
         pub use ::magnus::{rb_sys::AsRawValue, Error, Value};
     }
 
-    // Wraps a `backend = Magnus` validator, so a build without the feature reports that alone.
+    // Expands to the generated `backend = Magnus` code, or without the `magnus` feature to one
+    // `compile_error!` naming it.
     #[cfg(feature = "magnus")]
     #[doc(hidden)]
     #[macro_export]
@@ -3549,7 +3446,7 @@ pub mod __private {
 
         std::thread_local! {
             static MATCHES: RefCell<Option<Box<MatchAssumptions>>> = const { RefCell::new(None) };
-            /// Whether `MATCHES` holds a record, for the one check an entry makes after its run.
+            /// Whether `MATCHES` holds a record, readable without borrowing it.
             static MET: Cell<bool> = const { Cell::new(false) };
         }
 
@@ -3561,27 +3458,25 @@ pub mod __private {
         }
 
         /// Whether `regex` matches `subject`. A match the engine cannot finish is recorded at
-        /// `schema_path` with the `pattern` keyword's source pattern and the instance location
-        /// when the caller tracks one.
+        /// `schema_path` with the instance location when the caller tracks one.
         #[inline]
         #[must_use]
         pub fn fancy_is_match(
             regex: &fancy_regex::Regex,
             subject: &str,
             schema_path: &str,
-            pattern: Option<&str>,
             instance_path: Option<&LazyLocation>,
         ) -> bool {
             if MET.get() {
                 if let Some(matches) =
-                    resolve_unfinished(regex, subject, schema_path, pattern, instance_path)
+                    resolve_unfinished(regex, subject, schema_path, instance_path)
                 {
                     return matches;
                 }
             }
             match regex.is_match(subject) {
                 Ok(matches) => matches,
-                Err(error) => resolve(regex, subject, error, schema_path, pattern, instance_path),
+                Err(error) => resolve(regex, subject, error, schema_path, instance_path),
             }
         }
 
@@ -3592,14 +3487,13 @@ pub mod __private {
             regex: &fancy_regex::Regex,
             subject: &str,
             schema_path: &str,
-            pattern: Option<&str>,
             instance_path: Option<&LazyLocation>,
         ) -> Option<bool> {
             MATCHES.with_borrow_mut(|matches| {
                 let matches = matches.as_mut()?;
                 matches.is_unfinished(regex.as_str(), subject).then(|| {
                     matches.resolve_unfinished(regex.as_str(), subject, || {
-                        site(schema_path, pattern, instance_path)
+                        site(schema_path, instance_path)
                     })
                 })
             })
@@ -3611,10 +3505,9 @@ pub mod __private {
             subject: &str,
             error: fancy_regex::Error,
             schema_path: &str,
-            pattern: Option<&str>,
             instance_path: Option<&LazyLocation>,
         ) -> bool {
-            let error = FancyRegexError::Engine {
+            let error = FancyRegexError {
                 error,
                 pattern: regex.as_str().into(),
             };
@@ -3622,20 +3515,12 @@ pub mod __private {
             MATCHES.with_borrow_mut(|matches| {
                 matches
                     .get_or_insert_with(Box::default)
-                    .resolve(subject, error, || site(schema_path, pattern, instance_path))
+                    .resolve(subject, error, || site(schema_path, instance_path))
             })
         }
 
-        fn site(
-            schema_path: &str,
-            pattern: Option<&str>,
-            instance_path: Option<&LazyLocation>,
-        ) -> MatchSite {
-            let site = MatchSite::escaped(schema_path, instance_path.map(Into::into));
-            match pattern {
-                Some(pattern) => site.pattern(pattern),
-                None => site,
-            }
+        fn site(schema_path: &str, instance_path: Option<&LazyLocation>) -> MatchSite {
+            MatchSite::escaped(schema_path, instance_path.map(Into::into))
         }
 
         fn swap(matches: &mut Option<Box<MatchAssumptions>>) {
@@ -3678,7 +3563,7 @@ pub mod __private {
         #[must_use]
         pub fn validate<'i, N: Copy>(
             instance: impl FnOnce() -> LazyInstance<'i>,
-            collect: fn(N, &LazyLocation, &mut Vec<ValidationError<'i>>),
+            collect: fn(N, &LazyLocation, &mut super::error::Errors<'i>) -> bool,
             node: N,
         ) -> Option<ValidationError<'i>> {
             collect_errors(instance, collect, node).into_iter().next()
@@ -3689,18 +3574,147 @@ pub mod __private {
         #[must_use]
         pub fn collect_errors<'i, N: Copy>(
             instance: impl FnOnce() -> LazyInstance<'i>,
-            collect: fn(N, &LazyLocation, &mut Vec<ValidationError<'i>>),
+            collect: fn(N, &LazyLocation, &mut super::error::Errors<'i>) -> bool,
             node: N,
         ) -> Vec<ValidationError<'i>> {
             let run = || {
-                let mut errors = Vec::new();
-                collect(node, &LazyLocation::new(), &mut errors);
-                errors
+                let mut errors = super::error::Errors::new(false);
+                let _ = collect(node, &LazyLocation::new(), &mut errors);
+                errors.into_vec()
             };
             match under_each_outcome(run) {
                 Ok(outcomes) => errors(outcomes, instance),
                 Err(errors) => errors,
             }
+        }
+    }
+    /// Results of `$ref` cycles that reach deeper instances, so the keywords that reach one
+    /// instance through the same cycle validate it once per run.
+    pub mod ref_memo {
+        use std::{
+            cell::{Cell, RefCell},
+            hash::Hash,
+            thread::LocalKey,
+        };
+
+        use ahash::AHashMap;
+
+        use crate::{
+            json::{Json, Node, NodeIdentity},
+            validator::MEMO_MIN_VISITS,
+        };
+
+        type Results<K> = RefCell<Option<AHashMap<K, bool>>>;
+
+        std::thread_local! {
+            /// Targets computed so far; a call's share of it decides whether its result is kept.
+            static VISITS: Cell<u32> = const { Cell::new(0) };
+            static RESULTS: Results<(usize, NodeIdentity)> = const { RefCell::new(None) };
+            /// Results under a dynamic scope, by the scope's entry in `SCOPES`.
+            static SCOPED_RESULTS: Results<(usize, usize, NodeIdentity)> =
+                const { RefCell::new(None) };
+            /// The dynamic scopes seen on this thread. Code addresses stay fixed, so an identity
+            /// holds across runs.
+            static SCOPES: RefCell<Option<Scopes>> = const { RefCell::new(None) };
+        }
+
+        /// Each dynamic scope's identity, by the code it binds the looked-up names to.
+        #[derive(Default)]
+        struct Scopes {
+            identities: AHashMap<Box<[usize]>, usize>,
+            /// The bindings of each identity.
+            bindings: Vec<Box<[usize]>>,
+            /// The identity given last, which nested calls in one scope ask for again.
+            last: usize,
+        }
+
+        /// Drops the results of the previous run on this thread.
+        #[inline]
+        pub fn clear() {
+            RESULTS.with_borrow_mut(Option::take);
+        }
+
+        /// Drops the results [`is_valid_in_scope`] kept in the previous run on this thread.
+        #[inline]
+        pub fn clear_in_scope() {
+            SCOPED_RESULTS.with_borrow_mut(Option::take);
+        }
+
+        /// `target(instance)`, computed once per container once it costs enough to keep.
+        #[inline]
+        pub fn is_valid<'a, F: Json>(
+            target: fn(F::Node<'a>) -> bool,
+            instance: F::Node<'a>,
+        ) -> bool {
+            let Some(identity) = instance.container_identity() else {
+                return target(instance);
+            };
+            kept(&RESULTS, (target as usize, identity), || target(instance))
+        }
+
+        /// [`is_valid`] for a target whose result depends on the dynamic scope: `scope` gives the
+        /// scope's identity, so a result is kept for the scope it was computed in.
+        #[inline]
+        pub fn is_valid_in_scope<'a, F: Json>(
+            target: fn(F::Node<'a>) -> bool,
+            instance: F::Node<'a>,
+            scope: fn() -> usize,
+        ) -> bool {
+            let Some(identity) = instance.container_identity() else {
+                return target(instance);
+            };
+            kept(
+                &SCOPED_RESULTS,
+                (target as usize, scope(), identity),
+                || target(instance),
+            )
+        }
+
+        /// The identity of the dynamic scope given by `bindings`: for each name a dynamic
+        /// reference looks up, the address of the code bound to it, or `0` when unbound.
+        #[must_use]
+        #[inline]
+        pub fn scope<const N: usize>(bindings: &[usize; N]) -> usize {
+            SCOPES.with_borrow_mut(|scopes| {
+                let scopes = scopes.get_or_insert_with(Scopes::default);
+                if scopes.bindings.get(scopes.last).is_some_and(|last| {
+                    last.len() == N && last.iter().zip(bindings).all(|(last, bound)| last == bound)
+                }) {
+                    return scopes.last;
+                }
+                let scope = if let Some(&scope) = scopes.identities.get(&bindings[..]) {
+                    scope
+                } else {
+                    let scope = scopes.bindings.len();
+                    scopes.identities.insert(bindings[..].into(), scope);
+                    scopes.bindings.push(bindings[..].into());
+                    scope
+                };
+                scopes.last = scope;
+                scope
+            })
+        }
+
+        /// The kept result under `key`, or `compute`'s, kept once it costs enough.
+        #[inline]
+        fn kept<K: Hash + Eq>(
+            results: &'static LocalKey<Results<K>>,
+            key: K,
+            compute: impl FnOnce() -> bool,
+        ) -> bool {
+            if let Some(valid) = results.with_borrow(|results| results.as_ref()?.get(&key).copied())
+            {
+                return valid;
+            }
+            let visit = VISITS.get();
+            VISITS.set(visit.wrapping_add(1));
+            let valid = compute();
+            if VISITS.get().wrapping_sub(visit) >= MEMO_MIN_VISITS {
+                results.with_borrow_mut(|results| {
+                    results.get_or_insert_with(AHashMap::new).insert(key, valid);
+                });
+            }
+            valid
         }
     }
     pub mod unique_items {
@@ -3725,7 +3739,7 @@ pub mod __private {
             keyword: &dyn crate::Keyword<'i, F>,
             instance: &F::Node<'i>,
             instance_path: Location,
-            schema_path: &str,
+            schema_path: &'static str,
             keyword_name: &str,
         ) -> Option<crate::ValidationError<'i>> {
             match keyword.validate(instance.clone()) {
@@ -3733,34 +3747,41 @@ pub mod __private {
                 Err(error) => Some(error.with_generated_context(
                     instance.to_value(),
                     instance_path,
-                    Location::from_escaped(schema_path),
+                    super::schema_location(schema_path),
                     keyword_name,
                 )),
             }
         }
 
-        /// Run a custom keyword's `iter_errors`, filling in context exactly like [`validate`] does.
-        pub fn collect_errors<'i, F: Json>(
+        /// Report a custom keyword's errors: its `validate` error when only the first is wanted,
+        /// its `iter_errors` otherwise, with context filled in exactly like [`validate`] does.
+        /// `true` when the caller must stop.
+        pub fn errors<'i, F: Json>(
             keyword: &dyn crate::Keyword<'i, F>,
             instance: &F::Node<'i>,
-            instance_path: &Location,
-            schema_path: &str,
+            instance_path: Location,
+            schema_path: &'static str,
             keyword_name: &str,
-            errors: &mut Vec<crate::ValidationError<'i>>,
-        ) {
+            errors: &mut super::error::Errors<'i>,
+        ) -> bool {
+            if errors.first_only() {
+                return validate(keyword, instance, instance_path, schema_path, keyword_name)
+                    .is_some_and(|error| errors.push(error));
+            }
             let mut found = keyword.iter_errors(instance.clone()).peekable();
             if found.peek().is_none() {
-                return;
+                return false;
             }
             let value = instance.to_value();
             for error in found {
-                errors.push(error.with_generated_context(
+                let _ = errors.push(error.with_generated_context(
                     value.clone(),
                     instance_path.clone(),
-                    Location::from_escaped(schema_path),
+                    super::schema_location(schema_path),
                     keyword_name,
                 ));
             }
+            false
         }
     }
     pub mod types {
@@ -3779,14 +3800,14 @@ pub mod __private {
         #[cfg(feature = "idna")]
         pub use crate::keywords::format::is_valid_idn_hostname;
         pub use crate::keywords::format::{
-            is_valid_date, is_valid_datetime, is_valid_duration, is_valid_hostname,
-            is_valid_hostname_rfc1034, is_valid_ipv4, is_valid_ipv6, is_valid_iri,
-            is_valid_iri_reference, is_valid_json_pointer, is_valid_regex,
-            is_valid_relative_json_pointer, is_valid_time, is_valid_uri, is_valid_uri_reference,
-            is_valid_uri_template, is_valid_uuid,
+            is_valid_date, is_valid_datetime, is_valid_duration, is_valid_fancy_regex_engine_regex,
+            is_valid_hostname, is_valid_hostname_rfc1034, is_valid_ipv4, is_valid_ipv6,
+            is_valid_iri, is_valid_iri_reference, is_valid_json_pointer, is_valid_regex,
+            is_valid_regex_engine_regex, is_valid_relative_json_pointer, is_valid_time,
+            is_valid_uri, is_valid_uri_reference, is_valid_uri_template, is_valid_uuid,
         };
 
-        // Without `idna` the format is unknown, and an unknown format admits every instance.
+        // Without `idna` the format is unknown, and an unknown format accepts every instance.
         #[cfg(not(feature = "idna"))]
         #[must_use]
         pub fn is_valid_idn_hostname(_: &str) -> bool {
@@ -3815,7 +3836,7 @@ pub mod __private {
             crate::keywords::format::is_valid_idn_email(value, options.map(|opts| &opts.inner))
         }
 
-        // Without `idna` the format is unknown, and an unknown format admits every instance.
+        // Without `idna` the format is unknown, and an unknown format accepts every instance.
         #[cfg(not(feature = "idna"))]
         #[must_use]
         pub fn is_valid_idn_email_with_options(_: &str, _: Option<&crate::EmailOptions>) -> bool {
@@ -3972,7 +3993,44 @@ pub mod __private {
         }
     }
 
-    /// Per-keyword error constructors for generated code; evaluation path always equals schema path.
+    pub use crate::evaluation::generated as evaluation;
+
+    /// The schema path of an error a generated validator reports, shared by every error at that
+    /// site on this thread instead of allocated per error.
+    fn schema_location(path: &'static str) -> crate::paths::Location {
+        /// Every site's location, and the last one asked for, as errors at one site come in runs.
+        #[derive(Default)]
+        struct Locations {
+            last: Option<((usize, usize), crate::paths::Location)>,
+            all: ahash::AHashMap<(usize, usize), crate::paths::Location>,
+        }
+        std::thread_local! {
+            static LOCATIONS: std::cell::RefCell<Locations> = std::cell::RefCell::default();
+        }
+        if path.is_empty() {
+            return crate::paths::Location::new();
+        }
+        let key = (path.as_ptr().addr(), path.len());
+        // During thread teardown the cache is gone, and the path is built as it would be without it.
+        LOCATIONS
+            .try_with(|locations| {
+                let mut locations = locations.borrow_mut();
+                if let Some((last, location)) = &locations.last {
+                    if *last == key {
+                        return location.clone();
+                    }
+                }
+                let location = locations
+                    .all
+                    .entry(key)
+                    .or_insert_with(|| crate::paths::Location::from_escaped(path))
+                    .clone();
+                locations.last = Some((key, location.clone()));
+                location
+            })
+            .unwrap_or_else(|_| crate::paths::Location::from_escaped(path))
+    }
+
     pub mod error {
         use serde_json::Value;
 
@@ -3990,16 +4048,157 @@ pub mod __private {
             ErrorIterator::from_iterator(errors.into_iter())
         }
 
+        /// Errors reported by generated code: all of them for `iter_errors`, or only the first
+        /// one for `validate`.
+        pub enum Errors<'i> {
+            First(Option<ValidationError<'i>>),
+            All(Vec<ValidationError<'i>>),
+        }
+
+        impl<'i> Errors<'i> {
+            #[inline]
+            #[must_use]
+            pub fn new(first_only: bool) -> Self {
+                if first_only {
+                    Self::First(None)
+                } else {
+                    Self::All(Vec::new())
+                }
+            }
+
+            /// Records `error`; `true` when the caller must stop because only the first error
+            /// is wanted.
+            #[inline]
+            #[must_use]
+            pub fn push(&mut self, error: ValidationError<'i>) -> bool {
+                match self {
+                    Self::First(first) => {
+                        *first = Some(error);
+                        true
+                    }
+                    Self::All(errors) => {
+                        errors.push(error);
+                        false
+                    }
+                }
+            }
+
+            #[inline]
+            #[must_use]
+            pub fn first_only(&self) -> bool {
+                matches!(self, Self::First(_))
+            }
+
+            /// Where the errors recorded next start.
+            #[inline]
+            #[must_use]
+            pub fn mark(&self) -> usize {
+                match self {
+                    Self::First(first) => usize::from(first.is_some()),
+                    Self::All(errors) => errors.len(),
+                }
+            }
+
+            fn since(&mut self, start: usize) -> &mut [ValidationError<'i>] {
+                match self {
+                    Self::First(first) => {
+                        let first = first.as_mut().map(std::slice::from_mut).unwrap_or_default();
+                        let start = start.min(first.len());
+                        &mut first[start..]
+                    }
+                    Self::All(errors) => &mut errors[start..],
+                }
+            }
+
+            /// The errors recorded since `start` come from the subschema at `pointer`, reached
+            /// through the reference at `site`: their evaluation paths move from `pointer` to
+            /// `site`. With `base`, errors not yet located are placed in that resource, which
+            /// starts `offset` bytes into their schema paths.
+            pub fn reached(
+                &mut self,
+                start: usize,
+                pointer: &str,
+                base: Option<&str>,
+                offset: usize,
+                site: &str,
+            ) {
+                let errors = self.since(start);
+                if errors.is_empty() {
+                    return;
+                }
+                let base = base.map(|base| {
+                    referencing::uri::from_str(base).expect("the generator writes a URI base")
+                });
+                let mut buffer = referencing::uri::EncodedBuffer::new();
+                let moves = !pointer.is_empty() || !site.is_empty();
+                for error in errors {
+                    error.edit_all(&mut |error| {
+                        if let Some(base) = &base {
+                            if error.is_unlocated() {
+                                error.locate_in(Some(base), offset, &mut buffer);
+                            }
+                        }
+                        if moves {
+                            error.move_evaluation_path(pointer, site);
+                        }
+                    });
+                }
+            }
+
+            /// The errors recorded since `start` come from the subschema in place at `site`, through
+            /// the function that reports them relative to that subschema.
+            pub fn inside(&mut self, start: usize, site: &str) {
+                for error in self.since(start) {
+                    error.edit_all(&mut |error| error.nest_under(site));
+                }
+            }
+
+            /// Places the errors recorded since `start` and not yet located in the resource at
+            /// `base` (the default base for `None`), which starts `offset` bytes into their schema
+            /// paths.
+            pub fn within(&mut self, start: usize, base: Option<&str>, offset: usize) {
+                let base = base.map(|base| {
+                    referencing::uri::from_str(base).expect("the generator writes a URI base")
+                });
+                let mut buffer = referencing::uri::EncodedBuffer::new();
+                for error in self.since(start) {
+                    error.edit_all(&mut |error| {
+                        if error.is_unlocated() {
+                            error.locate_in(base.as_ref(), offset, &mut buffer);
+                        }
+                    });
+                }
+            }
+
+            #[inline]
+            #[must_use]
+            pub fn into_first(self) -> Option<ValidationError<'i>> {
+                match self {
+                    Self::First(first) => first,
+                    Self::All(errors) => errors.into_iter().next(),
+                }
+            }
+
+            #[inline]
+            #[must_use]
+            pub fn into_vec(self) -> Vec<ValidationError<'i>> {
+                match self {
+                    Self::First(first) => first.into_iter().collect(),
+                    Self::All(errors) => errors,
+                }
+            }
+        }
+
         /// `contentEncoding` keyword violation.
         #[inline]
         pub fn content_encoding<'i>(
-            schema_path: &str,
+            schema_path: &'static str,
             instance_path: Location,
             instance: impl Into<LazyInstance<'i>>,
             encoding: &str,
         ) -> ValidationError<'i> {
             ValidationError::content_encoding(
-                Location::from_escaped(schema_path),
+                super::schema_location(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
                 instance.into(),
@@ -4007,16 +4206,34 @@ pub mod __private {
             )
         }
 
+        /// A failure to convert the decoded content, reported at the `contentEncoding` location
+        /// as the runtime does.
+        #[inline]
+        pub fn content_conversion<'i>(
+            schema_path: &'static str,
+            instance_path: Location,
+            instance: impl Into<LazyInstance<'i>>,
+            error: ValidationError<'_>,
+        ) -> ValidationError<'i> {
+            ValidationError::new(
+                instance.into(),
+                error.into_parts().kind,
+                instance_path,
+                super::schema_location(schema_path),
+                LazyEvaluationPath::SameAsSchemaPath,
+            )
+        }
+
         /// `contentMediaType` keyword violation.
         #[inline]
         pub fn content_media_type<'i>(
-            schema_path: &str,
+            schema_path: &'static str,
             instance_path: Location,
             instance: impl Into<LazyInstance<'i>>,
             media_type: &str,
         ) -> ValidationError<'i> {
             ValidationError::content_media_type(
-                Location::from_escaped(schema_path),
+                super::schema_location(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
                 instance.into(),
@@ -4027,13 +4244,13 @@ pub mod __private {
         /// `minLength` keyword violation: string is shorter than `limit` characters.
         #[inline]
         pub fn min_length<'i>(
-            schema_path: &str,
+            schema_path: &'static str,
             instance_path: Location,
             instance: impl Into<LazyInstance<'i>>,
             limit: u64,
         ) -> ValidationError<'i> {
             ValidationError::min_length(
-                Location::from_escaped(schema_path),
+                super::schema_location(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
                 instance.into(),
@@ -4044,13 +4261,13 @@ pub mod __private {
         /// `maxLength` keyword violation: string exceeds `limit` characters.
         #[inline]
         pub fn max_length<'i>(
-            schema_path: &str,
+            schema_path: &'static str,
             instance_path: Location,
             instance: impl Into<LazyInstance<'i>>,
             limit: u64,
         ) -> ValidationError<'i> {
             ValidationError::max_length(
-                Location::from_escaped(schema_path),
+                super::schema_location(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
                 instance.into(),
@@ -4061,13 +4278,13 @@ pub mod __private {
         /// `pattern` keyword violation.
         #[inline]
         pub fn pattern<'i>(
-            schema_path: &str,
+            schema_path: &'static str,
             instance_path: Location,
             instance: impl Into<LazyInstance<'i>>,
             pattern: &str,
         ) -> ValidationError<'i> {
             ValidationError::pattern(
-                Location::from_escaped(schema_path),
+                super::schema_location(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
                 instance.into(),
@@ -4078,13 +4295,13 @@ pub mod __private {
         /// `format` keyword violation.
         #[inline]
         pub fn format<'i>(
-            schema_path: &str,
+            schema_path: &'static str,
             instance_path: Location,
             instance: impl Into<LazyInstance<'i>>,
             format: &str,
         ) -> ValidationError<'i> {
             ValidationError::format(
-                Location::from_escaped(schema_path),
+                super::schema_location(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
                 instance.into(),
@@ -4092,18 +4309,16 @@ pub mod __private {
             )
         }
 
-        /// `type` keyword violation: instance is not one of the expected JSON types.
-        ///
-        /// Use [`single_type`] when only one type is expected, [`multiple_types`] for union types.
+        /// `type` keyword violation for one expected type; [`multiple_types`] takes several.
         #[inline]
         pub fn single_type<'i>(
-            schema_path: &str,
+            schema_path: &'static str,
             instance_path: Location,
             instance: impl Into<LazyInstance<'i>>,
             ty: JsonType,
         ) -> ValidationError<'i> {
             ValidationError::single_type_error(
-                Location::from_escaped(schema_path),
+                super::schema_location(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
                 instance.into(),
@@ -4114,13 +4329,13 @@ pub mod __private {
         /// `type` keyword violation for a union of expected types.
         #[inline]
         pub fn multiple_types<'i>(
-            schema_path: &str,
+            schema_path: &'static str,
             instance_path: Location,
             instance: impl Into<LazyInstance<'i>>,
             types: JsonTypeSet,
         ) -> ValidationError<'i> {
             ValidationError::multiple_type_error(
-                Location::from_escaped(schema_path),
+                super::schema_location(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
                 instance.into(),
@@ -4131,13 +4346,13 @@ pub mod __private {
         /// `minimum` keyword violation: value is less than `limit`.
         #[inline]
         pub fn minimum<'i>(
-            schema_path: &str,
+            schema_path: &'static str,
             instance_path: Location,
             instance: impl Into<LazyInstance<'i>>,
             limit: Value,
         ) -> ValidationError<'i> {
             ValidationError::minimum(
-                Location::from_escaped(schema_path),
+                super::schema_location(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
                 instance.into(),
@@ -4148,13 +4363,13 @@ pub mod __private {
         /// `maximum` keyword violation: value exceeds `limit`.
         #[inline]
         pub fn maximum<'i>(
-            schema_path: &str,
+            schema_path: &'static str,
             instance_path: Location,
             instance: impl Into<LazyInstance<'i>>,
             limit: Value,
         ) -> ValidationError<'i> {
             ValidationError::maximum(
-                Location::from_escaped(schema_path),
+                super::schema_location(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
                 instance.into(),
@@ -4165,13 +4380,13 @@ pub mod __private {
         /// `exclusiveMinimum` keyword violation: value is not strictly greater than `limit`.
         #[inline]
         pub fn exclusive_minimum<'i>(
-            schema_path: &str,
+            schema_path: &'static str,
             instance_path: Location,
             instance: impl Into<LazyInstance<'i>>,
             limit: Value,
         ) -> ValidationError<'i> {
             ValidationError::exclusive_minimum(
-                Location::from_escaped(schema_path),
+                super::schema_location(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
                 instance.into(),
@@ -4182,13 +4397,13 @@ pub mod __private {
         /// `exclusiveMaximum` keyword violation: value is not strictly less than `limit`.
         #[inline]
         pub fn exclusive_maximum<'i>(
-            schema_path: &str,
+            schema_path: &'static str,
             instance_path: Location,
             instance: impl Into<LazyInstance<'i>>,
             limit: Value,
         ) -> ValidationError<'i> {
             ValidationError::exclusive_maximum(
-                Location::from_escaped(schema_path),
+                super::schema_location(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
                 instance.into(),
@@ -4200,13 +4415,13 @@ pub mod __private {
         #[cfg(not(feature = "arbitrary-precision"))]
         #[inline]
         pub fn multiple_of<'i>(
-            schema_path: &str,
+            schema_path: &'static str,
             instance_path: Location,
             instance: impl Into<LazyInstance<'i>>,
             multiple_of: f64,
         ) -> ValidationError<'i> {
             ValidationError::multiple_of(
-                Location::from_escaped(schema_path),
+                super::schema_location(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
                 instance.into(),
@@ -4218,13 +4433,13 @@ pub mod __private {
         #[cfg(feature = "arbitrary-precision")]
         #[inline]
         pub fn multiple_of<'i>(
-            schema_path: &str,
+            schema_path: &'static str,
             instance_path: Location,
             instance: impl Into<LazyInstance<'i>>,
             multiple_of: Value,
         ) -> ValidationError<'i> {
             ValidationError::multiple_of(
-                Location::from_escaped(schema_path),
+                super::schema_location(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
                 instance.into(),
@@ -4235,13 +4450,13 @@ pub mod __private {
         /// `minItems` keyword violation: array has fewer items than `limit`.
         #[inline]
         pub fn min_items<'i>(
-            schema_path: &str,
+            schema_path: &'static str,
             instance_path: Location,
             instance: impl Into<LazyInstance<'i>>,
             limit: u64,
         ) -> ValidationError<'i> {
             ValidationError::min_items(
-                Location::from_escaped(schema_path),
+                super::schema_location(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
                 instance.into(),
@@ -4252,13 +4467,13 @@ pub mod __private {
         /// `maxItems` keyword violation: array exceeds `limit` items.
         #[inline]
         pub fn max_items<'i>(
-            schema_path: &str,
+            schema_path: &'static str,
             instance_path: Location,
             instance: impl Into<LazyInstance<'i>>,
             limit: u64,
         ) -> ValidationError<'i> {
             ValidationError::max_items(
-                Location::from_escaped(schema_path),
+                super::schema_location(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
                 instance.into(),
@@ -4266,16 +4481,16 @@ pub mod __private {
             )
         }
 
-        /// `additionalItems` keyword violation (Draft 4 / 2019-09 tuple form).
+        /// `additionalItems` keyword violation (drafts 4 to 2019-09, array form of `items`).
         #[inline]
         pub fn additional_items<'i>(
-            schema_path: &str,
+            schema_path: &'static str,
             instance_path: Location,
             instance: impl Into<LazyInstance<'i>>,
             limit: usize,
         ) -> ValidationError<'i> {
             ValidationError::additional_items(
-                Location::from_escaped(schema_path),
+                super::schema_location(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
                 instance.into(),
@@ -4286,12 +4501,12 @@ pub mod __private {
         /// `uniqueItems` keyword violation: array contains duplicate elements.
         #[inline]
         pub fn unique_items<'i>(
-            schema_path: &str,
+            schema_path: &'static str,
             instance_path: Location,
             instance: impl Into<LazyInstance<'i>>,
         ) -> ValidationError<'i> {
             ValidationError::unique_items(
-                Location::from_escaped(schema_path),
+                super::schema_location(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
                 instance.into(),
@@ -4301,28 +4516,62 @@ pub mod __private {
         /// `contains` keyword violation: no array item matched the `contains` schema.
         #[inline]
         pub fn contains<'i>(
-            schema_path: &str,
+            schema_path: &'static str,
             instance_path: Location,
             instance: impl Into<LazyInstance<'i>>,
         ) -> ValidationError<'i> {
             ValidationError::contains(
-                Location::from_escaped(schema_path),
+                super::schema_location(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
                 instance.into(),
             )
         }
 
+        /// `minContains` keyword violation: fewer than `limit` items match `contains`.
+        #[inline]
+        pub fn min_contains<'i>(
+            schema_path: &'static str,
+            instance_path: Location,
+            instance: impl Into<LazyInstance<'i>>,
+            limit: u64,
+        ) -> ValidationError<'i> {
+            ValidationError::min_contains(
+                super::schema_location(schema_path),
+                LazyEvaluationPath::SameAsSchemaPath,
+                instance_path,
+                instance.into(),
+                limit,
+            )
+        }
+
+        /// `maxContains` keyword violation: more than `limit` items match `contains`.
+        #[inline]
+        pub fn max_contains<'i>(
+            schema_path: &'static str,
+            instance_path: Location,
+            instance: impl Into<LazyInstance<'i>>,
+            limit: u64,
+        ) -> ValidationError<'i> {
+            ValidationError::max_contains(
+                super::schema_location(schema_path),
+                LazyEvaluationPath::SameAsSchemaPath,
+                instance_path,
+                instance.into(),
+                limit,
+            )
+        }
+
         /// `minProperties` keyword violation: object has fewer properties than `limit`.
         #[inline]
         pub fn min_properties<'i>(
-            schema_path: &str,
+            schema_path: &'static str,
             instance_path: Location,
             instance: impl Into<LazyInstance<'i>>,
             limit: u64,
         ) -> ValidationError<'i> {
             ValidationError::min_properties(
-                Location::from_escaped(schema_path),
+                super::schema_location(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
                 instance.into(),
@@ -4333,13 +4582,13 @@ pub mod __private {
         /// `maxProperties` keyword violation: object exceeds `limit` properties.
         #[inline]
         pub fn max_properties<'i>(
-            schema_path: &str,
+            schema_path: &'static str,
             instance_path: Location,
             instance: impl Into<LazyInstance<'i>>,
             limit: u64,
         ) -> ValidationError<'i> {
             ValidationError::max_properties(
-                Location::from_escaped(schema_path),
+                super::schema_location(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
                 instance.into(),
@@ -4347,16 +4596,27 @@ pub mod __private {
             )
         }
 
+        /// `propertyNames` keyword violation: `error` is why the subschema rejects one property
+        /// name.
+        #[inline]
+        pub fn property_names<'i>(
+            instance_path: Location,
+            instance: impl Into<LazyInstance<'i>>,
+            error: ValidationError<'_>,
+        ) -> ValidationError<'i> {
+            ValidationError::property_names(instance_path, instance.into(), error.to_owned())
+        }
+
         /// `required` keyword violation: object is missing `property`.
         #[inline]
         pub fn required<'i>(
-            schema_path: &str,
+            schema_path: &'static str,
             instance_path: Location,
             instance: impl Into<LazyInstance<'i>>,
             property: &str,
         ) -> ValidationError<'i> {
             ValidationError::required(
-                Location::from_escaped(schema_path),
+                super::schema_location(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
                 instance.into(),
@@ -4367,13 +4627,13 @@ pub mod __private {
         /// `additionalProperties` keyword violation (the `false` schema form).
         #[inline]
         pub fn additional_properties<'i>(
-            schema_path: &str,
+            schema_path: &'static str,
             instance_path: Location,
             instance: impl Into<LazyInstance<'i>>,
             unexpected: Vec<String>,
         ) -> ValidationError<'i> {
             ValidationError::additional_properties(
-                Location::from_escaped(schema_path),
+                super::schema_location(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
                 instance.into(),
@@ -4384,7 +4644,7 @@ pub mod __private {
         /// `const` keyword violation: instance does not equal the expected constant.
         #[inline]
         pub fn constant<'i>(
-            schema_path: &str,
+            schema_path: &'static str,
             instance_path: Location,
             instance: impl Into<LazyInstance<'i>>,
             expected: &std::sync::Arc<Value>,
@@ -4395,7 +4655,7 @@ pub mod __private {
                     expected_value: std::sync::Arc::clone(expected),
                 },
                 instance_path,
-                Location::from_escaped(schema_path),
+                super::schema_location(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
             )
         }
@@ -4403,13 +4663,13 @@ pub mod __private {
         /// `enum` keyword violation: instance does not match any of the allowed values.
         #[inline]
         pub fn enumeration<'i>(
-            schema_path: &str,
+            schema_path: &'static str,
             instance_path: Location,
             instance: impl Into<LazyInstance<'i>>,
             options: &std::sync::Arc<Value>,
         ) -> ValidationError<'i> {
             ValidationError::enumeration(
-                Location::from_escaped(schema_path),
+                super::schema_location(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
                 instance.into(),
@@ -4420,12 +4680,12 @@ pub mod __private {
         /// `false` schema violation: nothing is valid against a `false` schema.
         #[inline]
         pub fn false_schema<'i>(
-            schema_path: &str,
+            schema_path: &'static str,
             instance_path: Location,
             instance: impl Into<LazyInstance<'i>>,
         ) -> ValidationError<'i> {
             ValidationError::false_schema(
-                Location::from_escaped(schema_path),
+                super::schema_location(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
                 instance.into(),
@@ -4435,13 +4695,13 @@ pub mod __private {
         /// `not` keyword violation: instance is valid against the negated schema.
         #[inline]
         pub fn not<'i>(
-            schema_path: &str,
+            schema_path: &'static str,
             instance_path: Location,
             instance: impl Into<LazyInstance<'i>>,
             schema: Value,
         ) -> ValidationError<'i> {
             ValidationError::not(
-                Location::from_escaped(schema_path),
+                super::schema_location(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
                 instance.into(),
@@ -4452,13 +4712,13 @@ pub mod __private {
         /// `anyOf` keyword violation: instance is not valid under any of the listed schemas.
         #[inline]
         pub fn any_of<'i>(
-            schema_path: &str,
+            schema_path: &'static str,
             instance_path: Location,
             instance: impl Into<LazyInstance<'i>>,
             context: Vec<Vec<ValidationError<'i>>>,
         ) -> ValidationError<'i> {
             ValidationError::any_of(
-                Location::from_escaped(schema_path),
+                super::schema_location(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
                 instance.into(),
@@ -4469,13 +4729,13 @@ pub mod __private {
         /// `oneOf` keyword violation: instance is not valid under any of the listed schemas.
         #[inline]
         pub fn one_of_not_valid<'i>(
-            schema_path: &str,
+            schema_path: &'static str,
             instance_path: Location,
             instance: impl Into<LazyInstance<'i>>,
             context: Vec<Vec<ValidationError<'i>>>,
         ) -> ValidationError<'i> {
             ValidationError::one_of_not_valid(
-                Location::from_escaped(schema_path),
+                super::schema_location(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
                 instance.into(),
@@ -4486,13 +4746,13 @@ pub mod __private {
         /// `oneOf` keyword violation: instance is valid under more than one of the listed schemas.
         #[inline]
         pub fn one_of_multiple_valid<'i>(
-            schema_path: &str,
+            schema_path: &'static str,
             instance_path: Location,
             instance: impl Into<LazyInstance<'i>>,
             context: Vec<Vec<ValidationError<'i>>>,
         ) -> ValidationError<'i> {
             ValidationError::one_of_multiple_valid(
-                Location::from_escaped(schema_path),
+                super::schema_location(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
                 instance.into(),
@@ -4503,13 +4763,13 @@ pub mod __private {
         /// `unevaluatedProperties` keyword violation.
         #[inline]
         pub fn unevaluated_properties<'i>(
-            schema_path: &str,
+            schema_path: &'static str,
             instance_path: Location,
             instance: impl Into<LazyInstance<'i>>,
             unexpected: Vec<String>,
         ) -> ValidationError<'i> {
             ValidationError::unevaluated_properties(
-                Location::from_escaped(schema_path),
+                super::schema_location(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
                 instance.into(),
@@ -4520,13 +4780,13 @@ pub mod __private {
         /// `unevaluatedItems` keyword violation.
         #[inline]
         pub fn unevaluated_items<'i>(
-            schema_path: &str,
+            schema_path: &'static str,
             instance_path: Location,
             instance: impl Into<LazyInstance<'i>>,
             unexpected: Vec<String>,
         ) -> ValidationError<'i> {
             ValidationError::unevaluated_items(
-                Location::from_escaped(schema_path),
+                super::schema_location(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
                 instance.into(),
@@ -4540,7 +4800,51 @@ pub mod __private {
 pub(crate) mod tests_util {
     use super::Validator;
     use crate::ValidationError;
-    use serde_json::Value;
+    use serde_json::{json, Value};
+    use std::fmt::Write;
+
+    /// `{path} @{instance location} ok|FAIL` per unit of the hierarchical output, children
+    /// indented below their parent.
+    pub(crate) fn evaluation_outline(schema: &Value, instance: &Value) -> Vec<String> {
+        let evaluation = crate::validator_for(schema)
+            .expect("valid schema")
+            .evaluate(instance);
+        let mut lines = Vec::new();
+        outline(
+            &serde_json::to_value(evaluation.hierarchical()).expect("hierarchical output"),
+            0,
+            &mut lines,
+        );
+        lines
+    }
+
+    fn outline(node: &Value, depth: usize, lines: &mut Vec<String>) {
+        let mut line = format!(
+            "{}{} @{} {}",
+            "  ".repeat(depth),
+            node["evaluationPath"].as_str().expect("path"),
+            node["instanceLocation"].as_str().expect("location"),
+            if node["valid"] == json!(true) {
+                "ok"
+            } else {
+                "FAIL"
+            },
+        );
+        if let Some(annotations) = node.get("annotations") {
+            write!(line, " ann={annotations}").expect("writes to a string");
+        }
+        if let Some(annotations) = node.get("droppedAnnotations") {
+            write!(line, " dropped={annotations}").expect("writes to a string");
+        }
+        if let Some(errors) = node.get("errors").and_then(Value::as_object) {
+            let keywords: Vec<_> = errors.keys().map(String::as_str).collect();
+            write!(line, " err={}", keywords.join(",")).expect("writes to a string");
+        }
+        lines.push(line);
+        for child in node["details"].as_array().into_iter().flatten() {
+            outline(child, depth + 1, lines);
+        }
+    }
 
     #[track_caller]
     pub(crate) fn is_not_valid_with(validator: &Validator, instance: &Value) {
@@ -4873,7 +5177,7 @@ pub(crate) mod tests_util {
 
 #[cfg(test)]
 mod tests {
-    use crate::{validator_for, Registry, SerdeJson, ValidationError};
+    use crate::{validator_for, CanonicalizationError, Registry, SerdeJson, ValidationError};
 
     use super::Draft;
     use serde_json::{json, Value};
@@ -4901,6 +5205,157 @@ mod tests {
             .build(&json!({"properties": {"pair": pair}}))
             .expect("Should build validator");
         assert_eq!(validator.is_valid(&json!({"pair": [1]})), expected);
+    }
+
+    // A subschema's `$schema` picks its draft whether evaluation reaches it inline or through a
+    // `$ref`, in either compilation order.
+    #[test_case(DRAFT202012, &json!({"$schema": DRAFT4, "type": "integer"}), &json!(1.0), false ; "draft 4 type under 2020-12")]
+    #[test_case(DRAFT201909, &json!({"$schema": DRAFT4, "type": "integer"}), &json!(1.0), false ; "draft 4 type under 2019-09")]
+    #[test_case(DRAFT7, &json!({"$schema": DRAFT4, "type": "integer"}), &json!(1.0), false ; "draft 4 type under draft 7")]
+    #[test_case(DRAFT202012, &json!({"$schema": DRAFT4, "maximum": 5, "exclusiveMaximum": true}), &json!(5), false ; "draft 4 boolean exclusiveMaximum under 2020-12")]
+    #[test_case(DRAFT201909, &json!({"$schema": DRAFT4, "maximum": 5, "exclusiveMaximum": true}), &json!(5), false ; "draft 4 boolean exclusiveMaximum under 2019-09")]
+    #[test_case(DRAFT7, &json!({"$schema": DRAFT4, "maximum": 5, "exclusiveMaximum": true}), &json!(5), false ; "draft 4 boolean exclusiveMaximum under draft 7")]
+    #[test_case(DRAFT7, &json!({"$schema": DRAFT201909, "dependentRequired": {"foo": ["bar"]}}), &json!({"foo": 1}), false ; "2019-09 dependentRequired under draft 7")]
+    #[test_case(DRAFT202012, &json!({"$schema": DRAFT201909, "prefixItems": [{"type": "string"}]}), &json!([1]), true ; "2019-09 prefixItems under 2020-12")]
+    #[test_case(DRAFT202012, &json!({"$schema": DRAFT7, "prefixItems": [{"type": "string"}]}), &json!([1]), true ; "draft 7 prefixItems under 2020-12")]
+    #[test_case(DRAFT201909, &json!({"$schema": DRAFT202012, "prefixItems": [{"type": "string"}]}), &json!([1]), false ; "2020-12 prefixItems under 2019-09")]
+    #[test_case(DRAFT7, &json!({"$schema": DRAFT202012, "prefixItems": [{"type": "string"}]}), &json!([1]), false ; "2020-12 prefixItems under draft 7")]
+    #[test_case(DRAFT202012, &json!({"$schema": DRAFT201909, "items": [{"type": "string"}]}), &json!([1]), false ; "2019-09 array items under 2020-12")]
+    #[test_case(DRAFT202012, &json!({"$schema": DRAFT7, "items": [{"type": "string"}]}), &json!([1]), false ; "draft 7 array items under 2020-12")]
+    #[test_case(DRAFT202012, &json!({"$schema": DRAFT7, "allOf": [{"$ref": "https://example.com/any", "type": "integer"}]}), &json!("x"), true ; "draft 7 keyword beside ref under 2020-12")]
+    #[test_case(DRAFT201909, &json!({"$schema": DRAFT7, "allOf": [{"$ref": "https://example.com/any", "type": "integer"}]}), &json!("x"), true ; "draft 7 keyword beside ref under 2019-09")]
+    #[test_case(DRAFT7, &json!({"$schema": DRAFT201909, "allOf": [{"$ref": "https://example.com/any", "type": "integer"}]}), &json!("x"), false ; "2019-09 keyword beside ref under draft 7")]
+    #[test_case(DRAFT7, &json!({"$schema": DRAFT202012, "allOf": [{"$ref": "https://example.com/any", "type": "integer"}]}), &json!("x"), false ; "2020-12 keyword beside ref under draft 7")]
+    #[test_case(DRAFT202012, &json!({"$id": "https://example.com/x", "id": "https://example.com/x", "$schema": DRAFT4, "type": "integer"}), &json!(1.0), false ; "draft 4 resource under 2020-12")]
+    #[test_case(DRAFT7, &json!({"$id": "https://example.com/x", "$schema": DRAFT201909, "dependentRequired": {"foo": ["bar"]}}), &json!({"foo": 1}), false ; "2019-09 resource under draft 7")]
+    #[test_case(DRAFT7, &json!({"$id": "https://example.com/x", "$schema": DRAFT202012, "prefixItems": [{"type": "string"}]}), &json!([1]), false ; "2020-12 resource under draft 7")]
+    fn nested_schema_applies_inline_and_through_ref(
+        root: &str,
+        body: &Value,
+        instance: &Value,
+        expected: bool,
+    ) {
+        let any = json!({});
+        let registry = Registry::new()
+            .add("https://example.com/any", &any)
+            .expect("Valid resource")
+            .prepare()
+            .expect("Registry builds");
+        let verdict = |schema: Value, property: &str| {
+            crate::options()
+                .with_registry(&registry)
+                .build(&schema)
+                .expect("Should build validator")
+                .is_valid(&json!({property: instance}))
+        };
+        let inline_first =
+            json!({"$schema": root, "properties": {"a": body, "b": {"$ref": "#/properties/a"}}});
+        let reference_first =
+            json!({"$schema": root, "properties": {"a": {"$ref": "#/properties/b"}, "b": body}});
+        assert_eq!(
+            [
+                verdict(json!({"$schema": root, "properties": {"a": body}}), "a"),
+                verdict(
+                    json!({"$schema": root, "properties": {"a": {"$ref": "#/definitions/x"}}, "definitions": {"x": body}}),
+                    "a"
+                ),
+                verdict(inline_first.clone(), "a"),
+                verdict(inline_first, "b"),
+                verdict(reference_first.clone(), "a"),
+                verdict(reference_first, "b"),
+            ],
+            [expected; 6]
+        );
+    }
+
+    // A subschema below a `$schema` is in that draft too, and a `$ref` target is in the draft of
+    // where it is written, whatever draft the `$ref` sits in.
+    #[test_case(&json!({"properties": {"a": {"$schema": DRAFT4, "allOf": [{"type": "integer"}]}}}), &json!({"a": 1.0}), false ; "child inline")]
+    #[test_case(&json!({"properties": {"a": {"$ref": "#/$defs/x/allOf/0"}}, "$defs": {"x": {"$schema": DRAFT4, "allOf": [{"type": "integer"}]}}}), &json!({"a": 1.0}), false ; "child through ref")]
+    #[test_case(&json!({"properties": {"a": {"$ref": "#/$defs/x/allOf/0"}}, "$defs": {"x": {"$id": "https://example.com/x", "id": "https://example.com/x", "$schema": DRAFT4, "allOf": [{"type": "integer"}]}}}), &json!({"a": 1.0}), false ; "child of a resource through ref")]
+    #[test_case(&json!({"properties": {"a": {"$schema": DRAFT4, "properties": {"n": {"$ref": "#/$defs/t"}}}, "b": {"$ref": "#/$defs/t"}}, "$defs": {"t": {"type": "integer"}}}), &json!({"a": {"n": 1.0}}), true ; "target in root draft from draft 4 first")]
+    #[test_case(&json!({"properties": {"a": {"$schema": DRAFT4, "properties": {"n": {"$ref": "#/$defs/t"}}}, "b": {"$ref": "#/$defs/t"}}, "$defs": {"t": {"type": "integer"}}}), &json!({"b": 1.0}), true ; "target in root draft from root draft second")]
+    #[test_case(&json!({"properties": {"a": {"$ref": "#/$defs/t"}, "b": {"$schema": DRAFT4, "properties": {"n": {"$ref": "#/$defs/t"}}}}, "$defs": {"t": {"type": "integer"}}}), &json!({"b": {"n": 1.0}}), true ; "target in root draft from draft 4 second")]
+    #[test_case(&json!({"properties": {"a": {"$ref": "#/$defs/t"}, "b": {"$schema": DRAFT4, "properties": {"n": {"$ref": "#/$defs/t"}}}}, "$defs": {"t": {"$schema": DRAFT4, "type": "integer"}}}), &json!({"a": 1.0}), false ; "target in draft 4 from root draft first")]
+    #[test_case(&json!({"properties": {"a": {"$ref": "#/$defs/t"}, "b": {"$schema": DRAFT4, "properties": {"n": {"$ref": "#/$defs/t"}}}}, "$defs": {"t": {"$schema": DRAFT4, "type": "integer"}}}), &json!({"b": {"n": 1.0}}), false ; "target in draft 4 from draft 4 second")]
+    // Draft 4 names a resource with `id`, so the pointer enters it and its `$ref`s resolve there.
+    #[test_case(&json!({"properties": {"a": {"$ref": "#/$defs/x"}}, "$defs": {"x": {"$schema": DRAFT4, "id": "https://example.com/x", "properties": {"n": {"$ref": "#/definitions/y"}}, "definitions": {"y": {"type": "integer"}}}}}), &json!({"a": {"n": 1.0}}), false ; "draft 4 id through ref")]
+    #[test_case(&json!({"properties": {"a": {"$ref": "#/$defs/x/definitions/y"}}, "$defs": {"x": {"$schema": DRAFT4, "definitions": {"y": {"id": "https://example.com/y", "properties": {"n": {"$ref": "#/definitions/z"}}, "definitions": {"z": {"type": "integer"}}}}}}}), &json!({"a": {"n": 1.0}}), false ; "draft 4 id below a draft 4 subschema through ref")]
+    fn nested_schema_draft_through_ref(schema: &Value, instance: &Value, expected: bool) {
+        let validator = validator_for(schema).expect("Should build validator");
+        assert_eq!(validator.is_valid(instance), expected);
+    }
+
+    const NO_VALIDATION: &str = "json-schema:///meta/no-validation";
+
+    // The vocabularies a subschema's `$schema` declares hold for its children, inline and
+    // through a `$ref`: the meta-schema turns `minimum` off.
+    #[test_case(&json!({"properties": {"a": {"$schema": NO_VALIDATION, "allOf": [{"minimum": 5}]}}}), true ; "custom inline")]
+    #[test_case(&json!({"properties": {"a": {"$ref": "#/$defs/x"}}, "$defs": {"x": {"$schema": NO_VALIDATION, "allOf": [{"minimum": 5}]}}}), true ; "custom through ref")]
+    #[test_case(&json!({"properties": {"a": {"$ref": "#/$defs/x/allOf/0"}}, "$defs": {"x": {"$schema": NO_VALIDATION, "allOf": [{"minimum": 5}]}}}), true ; "custom child through ref")]
+    #[test_case(&json!({"$schema": NO_VALIDATION, "properties": {"a": {"$schema": DRAFT201909, "allOf": [{"minimum": 5}]}}}), false ; "standard under custom inline")]
+    #[test_case(&json!({"$schema": NO_VALIDATION, "properties": {"a": {"$ref": "#/$defs/x/allOf/0"}}, "$defs": {"x": {"$schema": DRAFT201909, "allOf": [{"minimum": 5}]}}}), false ; "standard under custom child through ref")]
+    #[test_case(&json!({"properties": {"a": {"$ref": "#c"}}, "$defs": {"x": {"$schema": NO_VALIDATION, "allOf": [{"$anchor": "c", "minimum": 5}]}}}), true ; "custom child through anchor")]
+    #[test_case(&json!({"properties": {"a": {"$dynamicRef": "#c"}}, "$defs": {"x": {"$schema": NO_VALIDATION, "allOf": [{"$dynamicAnchor": "c", "minimum": 5}]}}}), true ; "custom child through dynamic anchor")]
+    #[test_case(&json!({"$schema": NO_VALIDATION, "properties": {"a": {"$ref": "#c"}}, "$defs": {"x": {"$schema": DRAFT202012, "allOf": [{"$anchor": "c", "minimum": 5}]}}}), false ; "standard under custom child through anchor")]
+    #[test_case(&json!({"$schema": NO_VALIDATION, "properties": {"a": {"$id": "https://example.com/r", "allOf": [{"minimum": 5}]}}}), true ; "resource under custom inline")]
+    #[test_case(&json!({"$schema": NO_VALIDATION, "properties": {"a": {"$ref": "https://example.com/r"}}, "$defs": {"r": {"$id": "https://example.com/r", "allOf": [{"minimum": 5}]}}}), true ; "resource under custom through ref")]
+    #[test_case(&json!({"properties": {"a": {"$ref": "https://example.com/r"}}, "$defs": {"x": {"$schema": NO_VALIDATION, "allOf": [{"$id": "https://example.com/r", "minimum": 5}]}}}), true ; "resource below custom through ref")]
+    fn nested_schema_vocabularies_through_ref(schema: &Value, expected: bool) {
+        let registry = no_validation_registry(None);
+        let validator = crate::options()
+            .with_registry(&registry)
+            .build(schema)
+            .expect("Should build validator");
+        assert_eq!(validator.is_valid(&json!({"a": 1})), expected);
+    }
+
+    fn no_validation_registry(deep: Option<Value>) -> Registry<'static> {
+        let meta_schema = json!({
+            "$id": NO_VALIDATION,
+            "$schema": DRAFT202012,
+            "$vocabulary": {
+                "https://json-schema.org/draft/2020-12/vocab/core": true,
+                "https://json-schema.org/draft/2020-12/vocab/applicator": true,
+                "https://json-schema.org/draft/2020-12/vocab/validation": false
+            }
+        });
+        let registry = Registry::new()
+            .add(NO_VALIDATION, meta_schema)
+            .expect("Valid resource");
+        match deep {
+            Some(document) => registry.add("https://example.com/deep", document),
+            None => Ok(registry),
+        }
+        .expect("Valid resource")
+        .prepare()
+        .expect("Registry builds")
+    }
+
+    // An anchor nested deeper than the registry crawls recursively, below a subschema whose
+    // `$schema` turns `minimum` off, in the document itself and in an owned resource.
+    #[test_case(false ; "borrowed")]
+    #[test_case(true ; "owned")]
+    fn nested_schema_vocabularies_deep_below(owned: bool) {
+        let mut nested = json!({"$anchor": "c", "minimum": 5});
+        for _ in 0..200 {
+            nested = json!({"allOf": [nested]});
+        }
+        let document =
+            json!({"$defs": {"x": {"$schema": NO_VALIDATION, "allOf": [nested]}}, "$ref": "#c"});
+        let (registry, schema) = if owned {
+            (
+                no_validation_registry(Some(document)),
+                json!({"$ref": "https://example.com/deep#c"}),
+            )
+        } else {
+            (no_validation_registry(None), document)
+        };
+        let validator = crate::options()
+            .with_registry(&registry)
+            .build(&schema)
+            .expect("Should build validator");
+        assert!(validator.is_valid(&json!(1)));
     }
 
     // The fragment of an absolute keyword location is a JSON Pointer from the root of the
@@ -5087,7 +5542,7 @@ mod tests {
     #[test_case(
         &json!({"$id": "https://example.com/tree", "properties": {"a": {"type": "string"}, "b": {"type": "string"}}, "required": ["a", "b"]}),
         &json!({}),
-        &["", "/properties", "https://example.com/tree#", "https://example.com/tree#/properties", "https://example.com/tree#/required"];
+        &["", "/properties", "https://example.com/tree#", "https://example.com/tree#/required", "https://example.com/tree#/properties"];
         "required"
     )]
     #[test_case(
@@ -5111,7 +5566,7 @@ mod tests {
     #[test_case(
         &json!({"$id": "https://example.com/tree", "patternProperties": {"^a": {}}, "additionalProperties": false}),
         &json!({"a": 1, "b": 1}),
-        &["", "/properties", "https://example.com/tree#", "https://example.com/tree#/additionalProperties", "https://example.com/tree#/patternProperties/%5Ea", "https://example.com/tree#/patternProperties"];
+        &["", "/properties", "https://example.com/tree#", "https://example.com/tree#/patternProperties", "https://example.com/tree#/patternProperties/%5Ea", "https://example.com/tree#/additionalProperties", "https://example.com/tree#/additionalProperties"];
         "patternProperties beside additionalProperties"
     )]
     fn list_schema_locations_in_nested_resource(tree: &Value, instance: &Value, expected: &[&str]) {
@@ -5504,23 +5959,25 @@ mod tests {
     const DRAFT7: &str = "http://json-schema.org/draft-07/schema#";
     const DRAFT202012: &str = "https://json-schema.org/draft/2020-12/schema";
 
-    fn with_embedded_resource(root: &str, resource: &Value) -> Value {
-        json!({"$schema": root, "properties": {"a": resource}})
+    fn with_subschema(root: &str, subschema: &Value) -> Value {
+        json!({"$schema": root, "properties": {"a": subschema}})
     }
 
-    // An embedded resource is checked against the meta-schema of its own `$schema`, not the root's.
+    // A subschema is checked against the meta-schema of its own `$schema`, not the root's.
     #[test_case(DRAFT202012, &json!({"$id": "https://example.com/a", "$schema": DRAFT4, "items": [{"type": "string"}]}), &json!(["x"]), &json!([1]) ; "draft 4 tuple items under 2020-12")]
+    #[test_case(DRAFT202012, &json!({"$schema": DRAFT4, "items": [{"type": "string"}]}), &json!(["x"]), &json!([1]) ; "draft 4 tuple items without id under 2020-12")]
+    #[test_case(DRAFT7, &json!({"$schema": DRAFT4, "minimum": 5, "exclusiveMinimum": true}), &json!(6), &json!(5) ; "draft 4 boolean exclusiveMinimum without id under draft 7")]
     #[test_case(DRAFT202012, &json!({"$id": "https://example.com/a", "$schema": DRAFT4, "minimum": 5, "exclusiveMinimum": true}), &json!(6), &json!(5) ; "draft 4 boolean exclusiveMinimum under 2020-12")]
     #[test_case(DRAFT6, &json!({"$id": "https://example.com/a", "$schema": DRAFT4, "minimum": 5, "exclusiveMinimum": true}), &json!(6), &json!(5) ; "draft 4 boolean exclusiveMinimum under draft 6")]
     #[test_case(DRAFT4, &json!({"$id": "https://example.com/a", "$schema": DRAFT202012, "exclusiveMinimum": 5}), &json!(6), &json!(5) ; "2020-12 numeric exclusiveMinimum under draft 4")]
-    fn embedded_resource_follows_own_meta_schema(
+    fn subschema_follows_own_meta_schema(
         root: &str,
-        resource: &Value,
+        subschema: &Value,
         valid: &Value,
         invalid: &Value,
     ) {
         let validator =
-            validator_for(&with_embedded_resource(root, resource)).expect("Should build validator");
+            validator_for(&with_subschema(root, subschema)).expect("Should build validator");
         assert_eq!(
             (
                 validator.is_valid(&json!({"a": valid})),
@@ -5530,25 +5987,126 @@ mod tests {
         );
     }
 
-    // The error points at the offending keyword inside the embedded resource.
+    // The error points at the offending keyword inside the subschema.
     #[test_case(DRAFT7, &json!({"$id": "https://example.com/a", "$schema": DRAFT202012, "minContains": -1}), "/properties/a/minContains" ; "2020-12 under draft 7")]
     #[test_case(DRAFT202012, &json!({"$id": "https://example.com/a", "$schema": DRAFT4, "minimum": 1, "exclusiveMinimum": 5}), "/properties/a/exclusiveMinimum" ; "draft 4 under 2020-12")]
     #[test_case(DRAFT202012, &json!({"$id": "https://example.com/a", "$schema": DRAFT4, "properties": {"b": {"$id": "https://example.com/b", "$schema": DRAFT202012, "minContains": -1}}}), "/properties/a/properties/b/minContains" ; "2020-12 under draft 4 under 2020-12")]
-    fn embedded_resource_rejected_by_own_meta_schema(root: &str, resource: &Value, expected: &str) {
-        let error = validator_for(&with_embedded_resource(root, resource))
-            .expect_err("Should reject the embedded resource");
+    #[test_case(DRAFT202012, &json!({"$schema": DRAFT4, "exclusiveMaximum": 5}), "/properties/a/exclusiveMaximum" ; "draft 4 without id under 2020-12")]
+    #[test_case(DRAFT201909, &json!({"$schema": DRAFT4, "exclusiveMaximum": 5}), "/properties/a/exclusiveMaximum" ; "draft 4 without id under 2019-09")]
+    #[test_case(DRAFT7, &json!({"$schema": DRAFT4, "exclusiveMaximum": 5}), "/properties/a/exclusiveMaximum" ; "draft 4 without id under draft 7")]
+    fn subschema_rejected_by_own_meta_schema(root: &str, subschema: &Value, expected: &str) {
+        let error = validator_for(&with_subschema(root, subschema))
+            .expect_err("Should reject the subschema");
         assert_eq!(error.instance_path().as_str(), expected);
     }
 
-    // Without `$id` the subschema is not a resource root, so the root's meta-schema still applies.
-    #[test]
-    fn nested_schema_without_id_follows_root_meta_schema() {
-        let error = validator_for(&with_embedded_resource(
-            DRAFT202012,
-            &json!({"$schema": DRAFT4, "items": [{"type": "string"}]}),
-        ))
-        .expect_err("Should reject array-form `items` under 2020-12");
-        assert_eq!(error.instance_path().as_str(), "/properties/a/items");
+    const DRAFT201909: &str = "https://json-schema.org/draft/2019-09/schema";
+
+    fn build_error(schema: &Value) -> ValidationError<'static> {
+        validator_for(schema).expect_err("Should reject the schema")
+    }
+
+    fn build_error_with_draft4(schema: &Value) -> ValidationError<'static> {
+        crate::options()
+            .with_draft(Draft::Draft4)
+            .build(schema)
+            .expect_err("Should reject the schema")
+    }
+
+    fn build_error_asserting_formats(schema: &Value) -> ValidationError<'static> {
+        crate::options()
+            .should_validate_formats(true)
+            .build(schema)
+            .expect_err("Should reject the schema")
+    }
+
+    fn build_error_ignoring_formats(schema: &Value) -> ValidationError<'static> {
+        crate::options()
+            .should_validate_formats(false)
+            .build(schema)
+            .expect_err("Should reject the schema")
+    }
+
+    // `$schema` names a registered meta-schema written against Draft 7.
+    fn build_error_with_custom_meta_schema(schema: &Value) -> ValidationError<'static> {
+        let registry = Registry::new()
+            .add(
+                "https://example.com/meta",
+                json!({"$schema": DRAFT7, "type": "object"}),
+            )
+            .expect("Should accept the meta-schema")
+            .prepare()
+            .expect("Should create registry");
+        crate::options()
+            .with_registry(&registry)
+            .build(schema)
+            .expect_err("Should reject the schema")
+    }
+
+    fn build_map_error(schema: &Value) -> ValidationError<'static> {
+        crate::options()
+            .build_map(schema)
+            .expect_err("Should reject the schema")
+    }
+
+    fn canonical_prepare_error(schema: &Value) -> ValidationError<'static> {
+        let Err(CanonicalizationError::ValidationError(error)) =
+            crate::canonical::options().prepare(schema)
+        else {
+            panic!("Should reject the schema against its meta-schema");
+        };
+        error
+    }
+
+    // A schema its meta-schema rejects fails to build with the first error that meta-schema reports.
+    #[test_case(build_error, &json!({"$schema": DRAFT4, "minimum": "foo"}), "\"foo\" is not of type \"number\"", "/minimum", "/properties/minimum/type", "/properties/minimum/type", "http://json-schema.org/draft-04/schema#/properties/minimum/type", "type" ; "draft 4")]
+    #[test_case(build_error_with_draft4, &json!({"minimum": "foo"}), "\"foo\" is not of type \"number\"", "/minimum", "/properties/minimum/type", "/properties/minimum/type", "http://json-schema.org/draft-04/schema#/properties/minimum/type", "type" ; "explicit draft 4")]
+    #[test_case(build_error, &json!({"$schema": DRAFT6, "exclusiveMinimum": true}), "true is not of type \"number\"", "/exclusiveMinimum", "/properties/exclusiveMinimum/type", "/properties/exclusiveMinimum/type", "http://json-schema.org/draft-06/schema#/properties/exclusiveMinimum/type", "type" ; "draft 6")]
+    #[test_case(build_error, &json!({"$schema": DRAFT7, "properties": {"a": {"type": "invalid_type"}}}), "\"invalid_type\" is not valid under any of the schemas listed in the 'anyOf' keyword", "/properties/a/type", "/properties/type/anyOf", "/properties/properties/additionalProperties/$ref/properties/type/anyOf", "http://json-schema.org/draft-07/schema#/properties/type/anyOf", "anyOf" ; "draft 7 subschema")]
+    #[test_case(build_error, &json!({"$schema": DRAFT7, "pattern": "["}), "\"[\" is not a \"regex\"", "/pattern", "/properties/pattern/format", "/properties/pattern/format", "http://json-schema.org/draft-07/schema#/properties/pattern/format", "format" ; "draft 7 regex format")]
+    #[test_case(build_error_ignoring_formats, &json!({"$schema": DRAFT7, "pattern": "["}), "\"[\" is not a \"regex\"", "/pattern", "/properties/pattern/format", "/properties/pattern/format", "http://json-schema.org/draft-07/schema#/properties/pattern/format", "format" ; "draft 7 regex format with formats ignored")]
+    #[test_case(build_error, &json!({"$schema": DRAFT201909, "items": {"minItems": -1}}), "{\"minItems\":-1} is not valid under any of the schemas listed in the 'anyOf' keyword", "/items", "/properties/items/anyOf", "/allOf/1/$ref/properties/items/anyOf", "https://json-schema.org/draft/2019-09/meta/applicator#/properties/items/anyOf", "anyOf" ; "2019-09 subschema")]
+    #[test_case(build_error, &json!({"properties": {"a": {"$defs": {"b": {"required": "x"}}}}}), "\"x\" is not of type \"array\"", "/properties/a/$defs/b/required", "/$defs/stringArray/type", "/allOf/1/$ref/properties/properties/additionalProperties/$dynamicRef/allOf/0/$ref/properties/$defs/additionalProperties/$dynamicRef/allOf/3/$ref/properties/required/$ref/type", "https://json-schema.org/draft/2020-12/meta/validation#/$defs/stringArray/type", "type" ; "2020-12 subschema")]
+    #[test_case(build_error_asserting_formats, &json!({"properties": {"a": {"$defs": {"b": {"required": "x"}}}}}), "\"x\" is not of type \"array\"", "/properties/a/$defs/b/required", "/$defs/stringArray/type", "/allOf/1/$ref/properties/properties/additionalProperties/$dynamicRef/allOf/0/$ref/properties/$defs/additionalProperties/$dynamicRef/allOf/3/$ref/properties/required/$ref/type", "https://json-schema.org/draft/2020-12/meta/validation#/$defs/stringArray/type", "type" ; "2020-12 subschema with formats asserted")]
+    #[test_case(build_error, &json!({"type": "invalid_type", "minimum": "not_a_number", "required": true}), "\"not_a_number\" is not of type \"number\"", "/minimum", "/properties/minimum/type", "/allOf/3/$ref/properties/minimum/type", "https://json-schema.org/draft/2020-12/meta/validation#/properties/minimum/type", "type" ; "several violations")]
+    #[test_case(build_error_with_custom_meta_schema, &json!({"$schema": "https://example.com/meta", "minLength": -1}), "-1 is less than the minimum of 0", "/minLength", "/definitions/nonNegativeInteger/minimum", "/properties/minLength/$ref/allOf/0/$ref/minimum", "http://json-schema.org/draft-07/schema#/definitions/nonNegativeInteger/minimum", "minimum" ; "registered custom meta-schema")]
+    #[test_case(build_error, &json!({"$schema": "https://example.com/unknown", "minLength": -1}), "-1 is less than the minimum of 0", "/minLength", "/$defs/nonNegativeInteger/minimum", "/allOf/3/$ref/properties/minLength/$ref/$ref/minimum", "https://json-schema.org/draft/2020-12/meta/validation#/$defs/nonNegativeInteger/minimum", "minimum" ; "unregistered meta-schema")]
+    #[test_case(build_error, &json!({"$schema": DRAFT7, "properties": {"a": {"$id": "https://example.com/a", "$schema": DRAFT202012, "minContains": -1}}}), "-1 is less than the minimum of 0", "/properties/a/minContains", "/$defs/nonNegativeInteger/minimum", "/allOf/3/$ref/properties/minContains/$ref/minimum", "https://json-schema.org/draft/2020-12/meta/validation#/$defs/nonNegativeInteger/minimum", "minimum" ; "embedded resource")]
+    #[test_case(build_error, &json!({"$schema": DRAFT202012, "minLength": -1, "properties": {"a": {"$id": "https://example.com/a", "$schema": DRAFT4, "items": [{}]}}}), "-1 is less than the minimum of 0", "/minLength", "/$defs/nonNegativeInteger/minimum", "/allOf/3/$ref/properties/minLength/$ref/$ref/minimum", "https://json-schema.org/draft/2020-12/meta/validation#/$defs/nonNegativeInteger/minimum", "minimum" ; "resource enclosing an embedded one")]
+    #[test_case(build_map_error, &json!({"properties": {"a": {"$defs": {"b": {"required": "x"}}}}}), "\"x\" is not of type \"array\"", "/properties/a/$defs/b/required", "/$defs/stringArray/type", "/allOf/1/$ref/properties/properties/additionalProperties/$dynamicRef/allOf/0/$ref/properties/$defs/additionalProperties/$dynamicRef/allOf/3/$ref/properties/required/$ref/type", "https://json-schema.org/draft/2020-12/meta/validation#/$defs/stringArray/type", "type" ; "validator map")]
+    #[test_case(canonical_prepare_error, &json!({"$schema": DRAFT4, "minimum": "foo"}), "\"foo\" is not of type \"number\"", "/minimum", "/properties/minimum/type", "/properties/minimum/type", "http://json-schema.org/draft-04/schema#/properties/minimum/type", "type" ; "canonicalization")]
+    fn meta_schema_rejection(
+        reject: fn(&Value) -> ValidationError<'static>,
+        schema: &Value,
+        message: &str,
+        instance_path: &str,
+        schema_path: &str,
+        evaluation_path: &str,
+        absolute_keyword_location: &str,
+        keyword: &str,
+    ) {
+        let error = reject(schema);
+        assert_eq!(
+            (
+                error.to_string(),
+                error.instance_path().as_str(),
+                error.schema_path().as_str(),
+                error.evaluation_path().as_str(),
+                error
+                    .absolute_keyword_location()
+                    .map(ToString::to_string)
+                    .unwrap_or_default(),
+                error.kind().keyword(),
+            ),
+            (
+                message.to_string(),
+                instance_path,
+                schema_path,
+                evaluation_path,
+                absolute_keyword_location.to_string(),
+                keyword,
+            )
+        );
     }
 
     #[test_case(crate::is_valid ; "autodetect")]
@@ -5859,7 +6417,7 @@ mod tests {
     #[test_case(Draft::Draft6)]
     #[test_case(Draft::Draft7)]
     fn meta_schemas(draft: Draft) {
-        // See GH-258
+        // The bundled meta-schemas accept an empty `enum` and one with equal members.
         for schema in [json!({"enum": [0, 0.0]}), json!({"enum": []})] {
             assert!(crate::options().with_draft(draft).build(&schema).is_ok());
         }
@@ -5867,7 +6425,7 @@ mod tests {
 
     #[test]
     fn incomplete_escape_in_pattern() {
-        // See GH-253
+        // An incomplete `\u` escape in `pattern` fails to build.
         let schema = json!({"pattern": "\\u"});
         assert!(crate::validator_for(&schema).is_err());
     }
@@ -5890,7 +6448,7 @@ mod tests {
             "type": "string"
         });
 
-        // Meta-validation now errors when the meta-schema is unknown/unregistered
+        // Meta-validation errors when the meta-schema cannot be retrieved
         assert!(crate::meta::validate(&schema).is_err());
 
         // Building a validator also fails without registration
@@ -6020,7 +6578,6 @@ mod tests {
 
     #[test]
     fn simple_schema_with_unknown_draft() {
-        // Define a custom meta-schema
         let meta_schema = json!({
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "$id": "http://custom.example.com/schema",
@@ -6031,7 +6588,6 @@ mod tests {
             }
         });
 
-        // Schema using the custom meta-schema
         let schema = json!({
             "$schema": "http://custom.example.com/schema",
             "type": "object",
@@ -6051,13 +6607,8 @@ mod tests {
             .build(&schema)
             .expect("Should build validator");
 
-        // Valid instance
         assert!(validator.is_valid(&json!({"name": "test"})));
-
-        // Invalid instance - name should be string, not number
         assert!(!validator.is_valid(&json!({"name": 123})));
-
-        // Also verify type validation works
         assert!(!validator.is_valid(&json!("not an object")));
     }
 
@@ -6478,8 +7029,8 @@ mod tests {
 
     #[test]
     fn strict_meta_schema_catches_typos() {
-        // Issue #764: Use strict meta-schema with unevaluatedProperties: false
-        // to catch typos in schema keywords
+        // A meta-schema with `unevaluatedProperties: false` rejects unknown keywords, top-level
+        // and nested.
 
         let strict_meta = json!({
             "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -6534,9 +7085,8 @@ mod tests {
 
     #[test]
     fn custom_meta_schema_preserves_underlying_draft_behavior() {
-        // Regression test: Custom meta-schemas should preserve the draft-specific
-        // behavior of their underlying draft, not default to Draft 2020-12
-        // Draft 7 specific behavior: $ref siblings are ignored
+        // A custom meta-schema written against Draft 7 keeps Draft 7 rules: `$ref` siblings are
+        // ignored.
 
         let custom_meta_draft7 = json!({
             "$id": "http://example.com/meta/draft7-custom",
@@ -7253,7 +7803,6 @@ mod async_tests {
 
     use crate::{AsyncRetrieve, Draft, Uri};
 
-    /// Mock async retriever for testing
     #[derive(Clone)]
     struct TestRetriever {
         schemas: HashMap<String, serde_json::Value>,

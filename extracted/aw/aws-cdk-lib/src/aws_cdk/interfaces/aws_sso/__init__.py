@@ -564,6 +564,51 @@ class _IPermissionSetRefProxy(
 typing.cast(typing.Any, IPermissionSetRef).__jsii_proxy_class__ = lambda : _IPermissionSetRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_sso.ITrustedTokenIssuerRef")
+class ITrustedTokenIssuerRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a TrustedTokenIssuer.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="trustedTokenIssuerRef")
+    def trusted_token_issuer_ref(self) -> "TrustedTokenIssuerReference":
+        '''(experimental) A reference to a TrustedTokenIssuer resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ITrustedTokenIssuerRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a TrustedTokenIssuer.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_sso.ITrustedTokenIssuerRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="trustedTokenIssuerRef")
+    def trusted_token_issuer_ref(self) -> "TrustedTokenIssuerReference":
+        '''(experimental) A reference to a TrustedTokenIssuer resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("TrustedTokenIssuerReference", jsii.get(self, "trustedTokenIssuerRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ITrustedTokenIssuerRef).__jsii_proxy_class__ = lambda : _ITrustedTokenIssuerRefProxy
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_sso.InstanceAccessControlAttributeConfigurationReference",
     jsii_struct_bases=[],
@@ -730,6 +775,55 @@ class PermissionSetReference:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_sso.TrustedTokenIssuerReference",
+    jsii_struct_bases=[],
+    name_mapping={"trusted_token_issuer_arn": "trustedTokenIssuerArn"},
+)
+class TrustedTokenIssuerReference:
+    def __init__(self, *, trusted_token_issuer_arn: builtins.str) -> None:
+        '''A reference to a TrustedTokenIssuer resource.
+
+        :param trusted_token_issuer_arn: The TrustedTokenIssuerArn of the TrustedTokenIssuer resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_sso as interfaces_sso
+            
+            trusted_token_issuer_reference = interfaces_sso.TrustedTokenIssuerReference(
+                trusted_token_issuer_arn="trustedTokenIssuerArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__98a0a670e01e84276ee00b3b8e3030bafb1de0589ad26d00b82d1c24b8647d16)
+            check_type(argname="argument trusted_token_issuer_arn", value=trusted_token_issuer_arn, expected_type=type_hints["trusted_token_issuer_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "trusted_token_issuer_arn": trusted_token_issuer_arn,
+        }
+
+    @builtins.property
+    def trusted_token_issuer_arn(self) -> builtins.str:
+        '''The TrustedTokenIssuerArn of the TrustedTokenIssuer resource.'''
+        result = self._values.get("trusted_token_issuer_arn")
+        assert result is not None, "Required property 'trusted_token_issuer_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TrustedTokenIssuerReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "ApplicationAssignmentReference",
     "ApplicationReference",
@@ -740,9 +834,11 @@ __all__ = [
     "IInstanceAccessControlAttributeConfigurationRef",
     "IInstanceRef",
     "IPermissionSetRef",
+    "ITrustedTokenIssuerRef",
     "InstanceAccessControlAttributeConfigurationReference",
     "InstanceReference",
     "PermissionSetReference",
+    "TrustedTokenIssuerReference",
 ]
 
 publication.publish()
@@ -797,5 +893,12 @@ def _typecheckingstub__ca11e913da510f673bdbcee699e7a609b1b2640eaa35681158c848adc
     """Type checking stubs"""
     pass
 
-for cls in [IApplicationAssignmentRef, IApplicationRef, IAssignmentRef, IInstanceAccessControlAttributeConfigurationRef, IInstanceRef, IPermissionSetRef]:
+def _typecheckingstub__98a0a670e01e84276ee00b3b8e3030bafb1de0589ad26d00b82d1c24b8647d16(
+    *,
+    trusted_token_issuer_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+for cls in [IApplicationAssignmentRef, IApplicationRef, IAssignmentRef, IInstanceAccessControlAttributeConfigurationRef, IInstanceRef, IPermissionSetRef, ITrustedTokenIssuerRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

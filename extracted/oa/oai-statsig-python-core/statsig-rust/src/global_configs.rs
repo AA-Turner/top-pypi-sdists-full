@@ -14,6 +14,7 @@ use std::{
 const TAG: &str = stringify!(GlobalConfigs);
 
 pub const MAX_SAMPLING_RATE: f64 = 10000.0;
+pub(crate) const SPECIAL_CASE_SAMPLING_RATE: &str = "special_case_sampling_rate";
 const DEFAULT_EXPOSURE_DEDUPE_TTL_MS: u64 = 60_000;
 const ROLLOUT_BOOST_RULES_CONFIG: &str = "rollout_boost_rules";
 const ROLLOUT_BOOST_MAX_ROLLOUTS_CONFIG: &str = "rollout_boost_max_rollouts";
@@ -113,6 +114,14 @@ impl GlobalConfigs {
     }
 
     pub fn set_sdk_configs(&self, new_configs: HashMap<String, DynamicValue>) {
+        self.apply_sdk_configs(new_configs, false);
+    }
+
+    pub(crate) fn apply_sdk_configs(
+        &self,
+        new_configs: HashMap<String, DynamicValue>,
+        is_full_snapshot: bool,
+    ) {
         let partial_rollout_boost = Self::partial_rollout_boost_config(&new_configs)
             .map(|(config, max_rollouts)| PartialRolloutBoostState {
                 config: Some(config),
@@ -134,6 +143,10 @@ impl GlobalConfigs {
         match self.configs.try_write_for(Duration::from_secs(5)) {
             Some(mut configs_guard) => {
                 configs_guard.partial_rollout_boost = partial_rollout_boost;
+                if is_full_snapshot {
+                    // A full snapshot omits the override to restore the evaluation's own rate.
+                    configs_guard.sdk_configs.remove(SPECIAL_CASE_SAMPLING_RATE);
+                }
                 configs_guard.sdk_configs.extend(new_configs);
                 if let Some(ttl_ms) = exposure_dedupe_ttl_ms {
                     self.exposure_dedupe_ttl_ms.store(ttl_ms, Ordering::Relaxed);

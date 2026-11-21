@@ -47,6 +47,7 @@ from ._formats import (
     fmt_units,
     fmt_url,
 )
+from ._gridwell import as_gridwell
 from ._gt_data import GTData
 from ._heading import tab_header
 from ._helpers import random_id
@@ -114,7 +115,7 @@ from ._tab_create_modify import (
     text_transform,
 )
 from ._tab_stub_indent import tab_stub_indent
-from ._tbl_data import _get_cell, _set_cell, n_rows
+from ._tbl_data import _get_cell, _set_cell, _set_cells, n_rows
 from ._utils import _migrate_unformatted_to_output
 from ._utils_render_html import (
     _get_table_aria_attrs,
@@ -173,10 +174,13 @@ def _apply_text_transforms(data: GT, body: Body, context: str = "html") -> Body:
             else:
                 cells = [(pos, fn(value)) for pos, value in cells]
 
+            # The transformed values of each column, set one column at a time
+            new_values: dict[str, dict[int, str]] = {}
             for pos, new_value in cells:
-                result = _set_cell(body.body, pos.row, pos.colname, new_value)
-                if result is not None:
-                    body.body = result
+                new_values.setdefault(pos.colname, {})[pos.row] = new_value
+
+            for col, values in new_values.items():
+                body.body = _set_cells(body.body, col, values)
 
     return body
 
@@ -508,6 +512,7 @@ class GT(
     as_raw_html = as_raw_html
     write_raw_html = write_raw_html
     as_latex = as_latex
+    as_gridwell = as_gridwell
 
     pipe = pipe
 
@@ -529,6 +534,38 @@ class GT(
         )
 
         return rendered
+
+    def __html__(self) -> str:
+        # The table's HTML, as it is, in a page made with a Jinja template (as Flask's are) or with
+        # FastHTML, which take what has an `__html__()` as HTML (Django makes it a string first)
+        return self.as_raw_html()
+
+    def __ft__(self) -> str:
+        # The table's HTML, for FastHTML, as one of its components: so a route can return the table
+        # on its own (or in a tuple), which it shows as HTML, in a page (rather than as its repr)
+        from .web import _HTML
+
+        return _HTML(self.as_raw_html())
+
+    # (Not seen by type checkers, which can still tell when an attribute is misspelled)
+    if not TYPE_CHECKING:
+
+        def __getattr__(self, name: str) -> Any:
+            # The `i_` methods are those of `GTI` tables
+            if name.startswith("i_"):
+                from .gti import GTI
+
+                if hasattr(GTI, name):
+                    raise AttributeError(
+                        f"`{name}()` is a method of interactive tables, made with `GTI()` in place "
+                        "of `GT()` (or from a `GT` table, with `GTI.from_gt()`).",
+                        name=name,
+                        obj=self,
+                    )
+            # (With `name=` and `obj=`, Python can suggest a name that's close)
+            raise AttributeError(
+                f"{type(self).__name__!r} object has no attribute {name!r}", name=name, obj=self
+            )
 
     def _render_formats(self, context: str) -> Self:
         new_body = self._body.copy()
@@ -558,7 +595,7 @@ class GT(
         built = self._render_formats(context)
 
         # Perform column merging
-        built = perform_col_merge(built)
+        built = perform_col_merge(built, context=context)
 
         final_body = body_reassemble(built._body)
 
@@ -638,10 +675,7 @@ class GT(
         # Obtain the `table_id` value from the Options (might be set, might be None)
         table_id = self._options.table_id.value
 
-        if table_id is None:
-            id = random_id()
-        else:
-            id = table_id
+        id = random_id() if table_id is None else table_id
 
         # Compile the SCSS as CSS
         from ._scss import compile_scss

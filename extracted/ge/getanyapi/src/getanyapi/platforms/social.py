@@ -74,7 +74,7 @@ class SocialNamespace:
         Find a person's or brand's profiles across major social networks from a
         single name, returned as normalized JSON.
 
-        Price: $0.0011 per request plus $0.0022 per result (maximum $0.0231).
+        Price: $0.0012 per request plus $0.0024 per result (maximum $0.0252).
 
         Example:
             res = client.social.finder(limit=3, name="Elon Musk")
@@ -102,7 +102,7 @@ class AsyncSocialNamespace:
         Find a person's or brand's profiles across major social networks from a
         single name, returned as normalized JSON.
 
-        Price: $0.0011 per request plus $0.0022 per result (maximum $0.0231).
+        Price: $0.0012 per request plus $0.0024 per result (maximum $0.0252).
 
         Example:
             res = client.social.finder(limit=3, name="Elon Musk")

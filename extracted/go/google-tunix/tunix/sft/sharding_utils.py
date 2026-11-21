@@ -20,6 +20,10 @@ import jax
 from jax.interpreters import pxla
 import jax.sharding as shd
 import numpy as np
+from tunix.utils import sharding_utils as common_sharding_utils
+
+place_array_on_target = common_sharding_utils.place_array_on_target
+place_arrays_on_targets = common_sharding_utils.place_arrays_on_targets
 
 
 def shard_input(
@@ -73,8 +77,10 @@ def shard_input(
     )
 
 
-def get_sharding(x: jax.Array, mesh: shd.Mesh, pspec: shd.PartitionSpec):
-  """Get a sharding for an tensor given a mesh and partition spec."""
+def get_sharding(
+    x: jax.Array | np.ndarray, mesh: shd.Mesh, pspec: shd.PartitionSpec
+) -> shd.NamedSharding:
+  """Get a sharding for a tensor given a mesh and partition spec."""
   # Only shard arrays with rank > 0.
   if not isinstance(x, (np.ndarray, jax.Array)) or x.ndim == 0:
     return shd.NamedSharding(mesh, shd.PartitionSpec())  # Replicated
@@ -88,6 +94,8 @@ def get_sharding(x: jax.Array, mesh: shd.Mesh, pspec: shd.PartitionSpec):
     if axis_name is not None:
       axis_names = axis_name if isinstance(axis_name, tuple) else (axis_name,)
       for name in axis_names:
+        if name is not None and name not in mesh.shape:
+          return shd.NamedSharding(mesh, shd.PartitionSpec())
         axis_size = mesh.shape[name]
         if x.shape[i] % axis_size != 0:
           # Replicate if not evenly divisible.

@@ -2,7 +2,10 @@ use super::event_queue::queued_event::{EnqueueOperation, QueuedExposure};
 use crate::{
     DynamicValue,
     evaluation::evaluation_types::{BaseEvaluation, ExtraExposureInfo},
-    global_configs::{GlobalConfigs, PartialRolloutBoostConfig, PartialRolloutBoostRule},
+    global_configs::{
+        GlobalConfigs, PartialRolloutBoostConfig, PartialRolloutBoostRule,
+        SPECIAL_CASE_SAMPLING_RATE,
+    },
     log_d, log_e,
     user::user_data::UserData,
     write_lock_or_noop, write_lock_or_return,
@@ -533,10 +536,7 @@ impl GlobalConfigs {
             }
         }
 
-        self.use_sdk_config_value(
-            "special_case_sampling_rate",
-            parse_special_case_sampling_rate,
-        )
+        self.use_sdk_config_value(SPECIAL_CASE_SAMPLING_RATE, parse_special_case_sampling_rate)
     }
 
     fn get_exposure_spec_sampling_ttl_ms(&self) -> u64 {

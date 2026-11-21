@@ -28,12 +28,12 @@ yum -y install libffi-devel
 
 tox_env_map() {
     case $1 in
-        *"cp310"*) echo 'py310';;
         *"cp311"*) echo 'py311';;
         *"cp312"*) echo 'py312';;
         *"cp313"*) echo 'py313';;
         *"cp314"*) echo 'py314';;
         *"cp315"*) echo 'py315';;
+        *"pp311"*) echo 'pypy3';;
         *) echo 'py';;
     esac
 }
@@ -41,19 +41,14 @@ tox_env_map() {
 # Compile wheels
 for PYBIN in /opt/python/*/bin; do
     if \
-       [[ "${PYBIN}" == *"cp310/"* ]] || \
+       [[ "${PYBIN}" == *"pp311-"* ]] || \
        [[ "${PYBIN}" == *"cp311/"* ]] || \
        [[ "${PYBIN}" == *"cp312/"* ]] || \
        [[ "${PYBIN}" == *"cp313/"* ]] || \
        [[ "${PYBIN}" == *"cp314/"* ]] || \
-       [[ "${PYBIN}" == *"cp315/"* ]] ; then
-        if [[ "${PYBIN}" == *"cp315/"* ]] ; then
-            "${PYBIN}/pip" install --pre -e /io/
-            "${PYBIN}/pip" wheel /io/ --pre -w wheelhouse/
-        else
-            "${PYBIN}/pip" install -e /io/
-            "${PYBIN}/pip" wheel /io/ -w wheelhouse/
-        fi
+       [[ "${PYBIN}" == *"cp315/"* ]]  ; then
+        "${PYBIN}/pip" install -e /io/
+        "${PYBIN}/pip" wheel /io/ -w wheelhouse/
         if [ `uname -m` == 'aarch64' ]; then
           cd /io/
           ${PYBIN}/pip install tox
@@ -70,5 +65,11 @@ echo "Fixing up the following wheels:"
 ls -l wheelhouse/persistence*.whl
 # Bundle external shared libraries into the wheels
 for whl in wheelhouse/persistence*.whl; do
+    if [[ "$whl" == *"-none-any.whl" ]]; then
+        # A pure Python wheel (e.g. PyPy does not build the C extension)
+        # cannot be repaired and is not published.
+        echo "Skipping pure Python wheel $whl"
+        continue
+    fi
     auditwheel repair "$whl" -w /io/wheelhouse/
 done

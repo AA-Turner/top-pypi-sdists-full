@@ -436,6 +436,27 @@ def test_quaternions_from_matrices():
     assert_array_almost_equal(q, q_from_R)
 
 
+@pytest.mark.parametrize("shape", [(), (1,), (2, 3)])
+@pytest.mark.parametrize("use_out", [False, True])
+def test_quaternions_from_matrices_near_x_half_turn(shape, use_out):
+    axis = pr.norm_vector([1.0, 2e-8, 0.0])
+    R = 2.0 * np.outer(axis, axis) - np.eye(3)
+    pr.check_matrix(R)
+    Rs = np.broadcast_to(R, shape + (3, 3))
+    out = np.empty(shape + (4,)) if use_out else None
+
+    Q = pbr.quaternions_from_matrices(Rs, out=out)
+
+    if use_out:
+        assert Q is out
+    np.testing.assert_allclose(
+        np.linalg.norm(Q, axis=-1), 1.0, rtol=0, atol=1e-14
+    )
+    np.testing.assert_allclose(
+        Q, np.broadcast_to(np.r_[0.0, axis], shape + (4,)), rtol=0, atol=1e-14
+    )
+
+
 def test_quaternions_from_matrices_no_batch():
     rng = np.random.default_rng(85)
     for _ in range(5):
@@ -961,3 +982,71 @@ def test_smooth_quaternion_trajectory_empty():
         ValueError, match=r"At least one quaternion is expected"
     ):
         pbr.smooth_quaternion_trajectory(np.zeros((0, 4)))
+
+
+def test_norm_axis_angles_180_degrees_deterministic_batch():
+    # (4,)
+    a_single = np.array([-1.0, 0.0, 0.0, np.pi])
+    res_single = pbr.norm_axis_angles(a_single)
+    assert_array_almost_equal(res_single, np.array([1.0, 0.0, 0.0, np.pi]))
+
+    # (N, 4)
+    A = np.array(
+        [
+            [-1.0, 0.0, 0.0, np.pi],
+            [0.0, -1.0, 0.0, np.pi],
+            [0.0, 0.0, -1.0, np.pi],
+        ]
+    )
+    expected = np.array(
+        [
+            [1.0, 0.0, 0.0, np.pi],
+            [0.0, 1.0, 0.0, np.pi],
+            [0.0, 0.0, 1.0, np.pi],
+        ]
+    )
+    assert_array_almost_equal(pbr.norm_axis_angles(A), expected)
+
+    # (N, M, 4)
+    A_nested = np.array(
+        [
+            [[-1.0, 0.0, 0.0, np.pi], [0.0, -1.0, 0.0, np.pi]],
+            [[0.0, 0.0, -1.0, np.pi], [-1.0, 0.0, 0.0, np.pi]],
+        ]
+    )
+    expected_nested = np.array(
+        [
+            [[1.0, 0.0, 0.0, np.pi], [0.0, 1.0, 0.0, np.pi]],
+            [[0.0, 0.0, 1.0, np.pi], [1.0, 0.0, 0.0, np.pi]],
+        ]
+    )
+    res_nested = pbr.norm_axis_angles(A_nested)
+    assert res_nested.shape == A_nested.shape
+    assert_array_almost_equal(res_nested, expected_nested)
+
+    # random
+    rng = np.random.default_rng(39232)
+    axes = pbr.norm_vectors(rng.standard_normal(size=(10, 3)))
+    axes = np.vstack((axes, -axes))
+    A_random = np.hstack((axes, np.full((len(axes), 1), np.pi)))
+    res_random = pbr.norm_axis_angles(A_random)
+
+    # scalar vs batch consistency
+    assert_array_almost_equal(
+        res_random, np.array([pr.norm_axis_angle(a) for a in A_random])
+    )
+
+    # non-circular check: same rotation matrices
+    assert_array_almost_equal(
+        pbr.matrices_from_compact_axis_angles(
+            A_random[:, :3] * A_random[:, 3:]
+        ),
+        pbr.matrices_from_compact_axis_angles(
+            res_random[:, :3] * res_random[:, 3:]
+        ),
+    )
+
+    # [0, 0, 0]
+    a_zero_axis = np.array([0.0, 0.0, 0.0, np.pi])
+    res_zero_axis = pbr.norm_axis_angles(a_zero_axis)
+    assert_array_almost_equal(res_zero_axis, [1.0, 0.0, 0.0, 0.0])

@@ -32,6 +32,7 @@ class BlindSpotReason(str, Enum):
     SOURCE_FAILED = 'source_failed'
     NOT_YET_REPORTED = 'not_yet_reported'
     SOURCE_STALE = 'source_stale'
+    NO_DISCOVERY_PROJECT = 'no_discovery_project'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

@@ -1,28 +1,27 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.1
 Name: google-tunix
-Version: 0.1.7
+Version: 0.1.8
 Summary: A lightweight JAX-native LLM post-training framework.
-Author-email: Tunix Developers <tunix-dev@google.com>
+Author-Email: Tunix Developers <tunix-dev@google.com>
 License: Apache-2.0
-Project-URL: Source, https://github.com/google/tunix
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Requires-Python: >=3.11
-Description-Content-Type: text/markdown
-License-File: LICENSE
-Requires-Dist: datasets
-Requires-Dist: flax>=0.11.1
+Project-URL: Source, https://github.com/google/tunix
+Requires-Python: >=3.12
+Requires-Dist: datasets>=4.0.0
+Requires-Dist: flax>=0.12.5
 Requires-Dist: fsspec
 Requires-Dist: google-metrax>=0.2.3
 Requires-Dist: grain
 Requires-Dist: hf_transfer
 Requires-Dist: huggingface_hub
 Requires-Dist: importlib_resources
+Requires-Dist: jax!=0.7.2,<0.11.1,>=0.6.0
 Requires-Dist: jaxtyping
 Requires-Dist: jinja2
 Requires-Dist: kagglehub
@@ -30,16 +29,18 @@ Requires-Dist: numba
 Requires-Dist: omegaconf
 Requires-Dist: orbax-checkpoint>=0.12.0
 Requires-Dist: pillow
+Requires-Dist: pydantic
 Requires-Dist: pylatexenc
 Requires-Dist: python-dotenv
 Requires-Dist: perfetto
 Requires-Dist: qwix>=0.1.6
 Requires-Dist: sentencepiece
 Requires-Dist: safetensors<0.8
+Requires-Dist: sqlalchemy
 Requires-Dist: sympy
 Requires-Dist: tensorflow_datasets
 Requires-Dist: tqdm
-Requires-Dist: transformers
+Requires-Dist: transformers!=4.57.2
 Requires-Dist: tenacity
 Provides-Extra: docs
 Requires-Dist: sphinx>=8.2.3; extra == "docs"
@@ -52,16 +53,47 @@ Requires-Dist: sphinx-gallery>=0.19.0; extra == "docs"
 Requires-Dist: sphinx-collections>=0.0.1; extra == "docs"
 Requires-Dist: sphinx_contributors; extra == "docs"
 Provides-Extra: prod
-Requires-Dist: jax[tpu]!=0.7.2,>=0.6.0; extra == "prod"
+Requires-Dist: jax[tpu]!=0.7.2,<0.11.1,>=0.6.0; extra == "prod"
+Requires-Dist: tokamax>=0.0.4; extra == "prod"
+Provides-Extra: tpu
+Requires-Dist: jax[tpu]!=0.7.2,<0.11.1,>=0.6.0; extra == "tpu"
+Requires-Dist: tokamax>=0.0.4; extra == "tpu"
+Provides-Extra: gpu
+Requires-Dist: jax[cuda12]!=0.7.2,<0.11.1,>=0.6.0; extra == "gpu"
+Requires-Dist: tokamax>=0.0.4; extra == "gpu"
+Requires-Dist: triton; extra == "gpu"
+Requires-Dist: jax-triton; extra == "gpu"
+Provides-Extra: cuda13
+Requires-Dist: jax[cuda13]!=0.7.2,<0.11.1,>=0.6.0; extra == "cuda13"
+Requires-Dist: tokamax>=0.0.4; extra == "cuda13"
+Requires-Dist: triton; extra == "cuda13"
+Requires-Dist: jax-triton; extra == "cuda13"
 Provides-Extra: dev
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-xdist; extra == "test"
 Requires-Dist: gcsfs; extra == "test"
 Requires-Dist: chex; extra == "test"
+Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.25.0; extra == "test"
+Requires-Dist: opentelemetry-sdk>=1.25.0; extra == "test"
 Provides-Extra: cli
 Requires-Dist: tensorflow; extra == "cli"
-Dynamic: license-file
+Provides-Extra: otel
+Requires-Dist: opentelemetry-api>=1.25.0; extra == "otel"
+Requires-Dist: opentelemetry-sdk>=1.25.0; extra == "otel"
+Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.25.0; extra == "otel"
+Provides-Extra: frozenlake
+Requires-Dist: gymnasium; extra == "frozenlake"
+Provides-Extra: experimental
+Requires-Dist: absl-py; extra == "experimental"
+Requires-Dist: cloudpickle; extra == "experimental"
+Requires-Dist: etils[epath]; extra == "experimental"
+Requires-Dist: grpcio; extra == "experimental"
+Requires-Dist: grpcio-tools; extra == "experimental"
+Requires-Dist: pandas; extra == "experimental"
+Requires-Dist: simple_parsing; extra == "experimental"
+Requires-Dist: termcolor; extra == "experimental"
+Description-Content-Type: text/markdown
 
 # Tunix: A Lightweight LLM Post-Training Library
 
@@ -71,9 +103,9 @@ Dynamic: license-file
 
 </div>
 
-**Tunix (Tune-in-JAX)** is a JAX based library designed to streamline the
-post-training of Large Language Models. It provides efficient and scalable
-support for:
+**Tunix (Tune-in-Accelerators)** is a unified library designed to streamline the
+post-training of Large Language Models on accelerators. It provides efficient
+and scalable support for:
 
 - **SOTA Training performance on TPUs**
 - **Supervised Fine-Tuning**
@@ -83,8 +115,8 @@ support for:
 Tunix leverages the power of JAX for accelerated computation and seamless
 integration with JAX-based modeling frameworks like
 [Flax NNX](https://flax.readthedocs.io/en/latest/nnx_basics.html), and
-integrates with high-performance inference engines like vLLM and SGLang-JAX for
-rollout. **For our detailed documentation, please refer to the [Tunix Website](https://tunix.readthedocs.io/en/latest/index.html)**.
+integrates with high-performance inference engines like vLLM for rollout.
+**For our detailed documentation, please refer to the [Tunix Website](https://tunix.readthedocs.io/en/latest/index.html)**.
 
 
 **Current Status: V2 Release**
@@ -136,9 +168,8 @@ tuning workflows on top of the XLA and JAX infrastructure. See [Design Overview]
     -   Components are designed to be reusable and composable
     -   Easy to customize and extend
 -   **Performance & Efficiency**:
-    -   Native [vLLM](https://tunix.readthedocs.io/en/latest/rollout.html#vllm) and
-        [SGLang-JAX](https://tunix.readthedocs.io/en/latest/rollout.html#sglang) on TPU integration for performant
-        rollout
+    -   Native [vLLM](https://tunix.readthedocs.io/en/latest/rollout.html#vllm) on TPU
+        integration for performant rollout
     -   Native [MaxText](https://github.com/AI-Hypercomputer/maxtext) model
         integration for high performance kernels and model execution
     -   [Micro-batching](https://tunix.readthedocs.io/en/latest/performance.html#batching-config) support for component
@@ -147,19 +178,24 @@ tuning workflows on top of the XLA and JAX infrastructure. See [Design Overview]
     -   Seamless multi-host distributed training with Pathways which can scale
         up to thousands of devices
     -   [Checkpointing and Fault Tolerance](https://tunix.readthedocs.io/en/latest/reliability.html)
+-   **Observability & Diagnostics**:
+    -   [RL Monitoring and Profiling with Google Cloud ML Diagnostics](https://github.com/google/tunix/blob/main/docs/ml_diagnostics.md)
+        for scalar metrics tracking and per-role (`actor` / `rollout`) XProf
+        profiling
 
 ## Getting Started
+
 **Installation:** Jump to [Installation](https://tunix.readthedocs.io/en/latest/quickstart.html#installation) to install Tunix and run your first training
 job.
 
 For TPU users integrating `vllm` and `tpu-inference`, there are two supported
 setup paths:
 
-- Docker image builds use [Dockerfile](/usr/local/google/home/lancewang/github/tunix/Dockerfile) and install
+- Docker image builds use [Dockerfile](https://github.com/google/tunix/blob/main/Dockerfile) and install
     the pinned dependencies directly from `requirements/requirements.txt` and
     `requirements/special_requirements.txt`.
 - Local TPU VM or developer-machine installs can use
-    [scripts/install_tunix_vllm_requirement.sh](/usr/local/google/home/lancewang/github/tunix/scripts/install_tunix_vllm_requirement.sh),
+    [scripts/install_tunix_vllm_requirement.sh](https://github.com/google/tunix/blob/main/scripts/install_tunix_vllm_requirement.sh),
     which installs the same requirement files outside Docker.
 
 These are separate entry points. If you are building the Docker image, you do
@@ -197,7 +233,7 @@ cutting-edge research and easy reproducibility.
 ## Citing Tunix
 ```bibtex
 @misc{tunix2025,
-  title={Tunix (Tune-in-JAX)},
+  title={Tunix (Tune-in-Accelerators)},
   author={Bao, Tianshu and Carpenter, Jeff and Chai, Lin and Gao, Haoyu and Jiang, Yangmu and Noghabi, Shadi and Sharma, Abheesht and Tan, Sizhi and Wang, Lance and Yan, Ann and Yu, Weiren and others},
   year={2025},
   howpublished={\url{https://github.com/google/tunix}},

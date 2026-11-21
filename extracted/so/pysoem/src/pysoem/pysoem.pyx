@@ -23,6 +23,7 @@ import collections
 import time
 import contextlib
 import warnings
+import threading
 
 from cpython.mem cimport PyMem_Malloc, PyMem_Realloc, PyMem_Free
 from cpython.bytes cimport PyBytes_FromString, PyBytes_FromStringAndSize
@@ -31,6 +32,7 @@ from libc.string cimport memcpy, memset
 from cpython.ref cimport Py_INCREF, Py_DECREF
 
 logger = logging.getLogger(__name__)
+
 
 NONE_STATE = cpysoem.EC_STATE_NONE
 INIT_STATE = cpysoem.EC_STATE_INIT
@@ -44,6 +46,7 @@ STATE_ERROR = cpysoem.EC_STATE_ERROR
 ECT_REG_WD_DIV = 0x0400
 ECT_REG_WD_TIME_PDI = 0x0410
 ECT_REG_WD_TIME_PROCESSDATA = 0x0420
+ECT_REG_FMMU0 = 0x0600
 ECT_REG_SM0 = 0x0800
 ECT_REG_SM1 = ECT_REG_SM0 + 0x08
 
@@ -119,6 +122,44 @@ cdef class CdefSettings:
         self.always_release_gil = False
 
 settings = CdefSettings()
+
+
+cdef class OperationCounter:
+    """Thread-safe counter that signals when count reaches zero."""
+    
+    cdef int _count
+    cdef object _lock
+    cdef object _zero_event
+    
+    def __init__(self):
+        self._count = 0
+        self._lock = threading.Lock()
+        self._zero_event = threading.Event()
+        self._zero_event.set()  # Initially zero
+    
+    def increment(self):
+        """Increment counter, clear event if transitioning from 0."""
+        with self._lock:
+            if self._count == 0:
+                self._zero_event.clear()
+            self._count += 1
+    
+    def decrement(self):
+        """Decrement counter, set event if reaching 0."""
+        with self._lock:
+            self._count -= 1
+            if self._count == 0:
+                self._zero_event.set()
+    
+    def wait_for_zero(self, timeout=None):
+        """Wait until count reaches zero. Returns True if zero, False on timeout."""
+        return self._zero_event.wait(timeout)
+    
+    def reset(self):
+        """Reset counter to zero and set event."""
+        with self._lock:
+            self._count = 0
+            self._zero_event.set()
 
 cpdef enum ec_datatype:
     ECT_BOOLEAN         = 0x0001,
@@ -210,7 +251,7 @@ class Master(CdefMaster):
 
 cdef enum:
     EC_MAXSLAVE = 200
-    EC_MAXGROUP = 1
+    EC_MAXGROUP = 2
     EC_MAXEEPBITMAP = 128
     EC_MAXEEPBUF = EC_MAXEEPBITMAP * 32
     EC_MAXMAPT = 8
@@ -248,6 +289,8 @@ cdef class CdefMaster:
     cdef public int sdo_write_timeout
     cdef public cpysoem.boolean always_release_gil
     cdef readonly cpysoem.boolean context_initialized
+    cdef object _active_ops_counter
+    cdef cpysoem.boolean _closing
 
     state = property(_get_state, _set_state)
     expected_wkc  = property(_get_expected_wkc)
@@ -284,6 +327,8 @@ cdef class CdefMaster:
         self._settings.sdo_read_timeout = &self.sdo_read_timeout
         self._settings.sdo_write_timeout = &self.sdo_write_timeout
         self.context_initialized = False
+        self._active_ops_counter = OperationCounter()
+        self._closing = False
         
     def open(self, ifname, ifname_red=None):
         """Initialize and open network interface.
@@ -312,10 +357,27 @@ cdef class CdefMaster:
             raise ConnectionError('could not open interface {}'.format(ifname))
 
         self.context_initialized = True
+        self._closing = False
+        self._active_ops_counter.reset()
 
-    def check_context_is_initialized(self):
+    @contextlib.contextmanager
+    def _operation_context(self):
+        """Context manager for guarding operations that require the context to be open.
+        
+        Checks that context is initialized and not closing, increments active operation counter 
+        on entry, decrements on exit (even if exception occurs).
+        Raises NetworkInterfaceNotOpenError if not initialized, RuntimeError if closing.
+        """
         if not self.context_initialized:
             raise NetworkInterfaceNotOpenError("SOEM Network interface is not initialized or has been closed. Call Master.open() first")
+        if self._closing:
+            raise RuntimeError("SOEM context is closing and cannot accept new operations")
+        
+        self._active_ops_counter.increment()
+        try:
+            yield
+        finally:
+            self._active_ops_counter.decrement()
 
     cdef int __config_init_nogil(self, uint8_t usetable):
         """Enumerate and init all slaves without GIL.
@@ -353,64 +415,77 @@ cdef class CdefMaster:
             int: Working counter of slave discover datagram = number of slaves found, -1 when no slave is connected
         """
         release_gil = self.check_release_gil(release_gil)
-        self.check_context_is_initialized()
-        self.slaves = []
-        
         cdef int ret_val
-        if release_gil:
-            ret_val = self.__config_init_nogil(usetable)
-        else:
-            ret_val = cpysoem.ecx_config_init(&self._ecx_contextt, usetable)
+        with self._operation_context():
+            self.slaves = []
+            
+            if release_gil:
+                ret_val = self.__config_init_nogil(usetable)
+            else:
+                ret_val = cpysoem.ecx_config_init(&self._ecx_contextt, usetable)
 
-        if ret_val > 0:
-          for i in range(self._ec_slavecount):
-              self.slaves.append(self._get_slave(i))
-        return ret_val
+            if ret_val > 0:
+              for i in range(self._ec_slavecount):
+                  self.slaves.append(self._get_slave(i))
+            return ret_val
         
-    def config_map(self):
+    def _validate_group(self, group):
+        if isinstance(group, bool) or not isinstance(group, int) or not 0 <= group < EC_MAXGROUP:
+            raise ValueError(f"Invalid group {group}. Group must be between 0 and {EC_MAXGROUP - 1}.")
+        return group
+
+    def config_map(self, group=0):
         """Map all slaves PDOs in IO map.
-        
-        Returns:
-            int: IO map size (sum of all PDO in an out data)
-        """
-        self.check_context_is_initialized()
-        cdef _CallbackData cd
-        # ecx_config_map_group returns the actual IO map size (not an error value), expect the value to be less than EC_IOMAPSIZE
-        ret_val = cpysoem.ecx_config_map_group(&self._ecx_contextt, &self.io_map, 0)
-        # check for exceptions raised in the config functions
-        for slave in self.slaves:
-            cd = slave._cd
-            if cd.exc_raised:
-                raise cd.exc_info[0], cd.exc_info[1], cd.exc_info[2]
-        logger.debug('io map size: {}'.format(ret_val))
-        # raise an exception if one or more mailbox errors occured within ecx_config_map_group call
-        error_list = self._collect_mailbox_errors()
-        if len(error_list) > 0:
-            raise ConfigMapError(error_list)
-        return ret_val
-        
-    def config_overlap_map(self):
-        """Map all slaves PDOs to overlapping IO map.
-        
-        Returns:
-            int: IO map size (sum of all PDO in an out data)
-        """
-        self.check_context_is_initialized()
-        cdef _CallbackData cd
-        # ecx_config_map_group returns the actual IO map size (not an error value), expect the value to be less than EC_IOMAPSIZE
-        ret_val = cpysoem.ecx_config_overlap_map_group(&self._ecx_contextt, &self.io_map, 0)
-        # check for exceptions raised in the config functions
-        for slave in self.slaves:
-            cd = slave._cd
-            if cd.exc_raised:
-                raise cd.exc_info[0],cd.exc_info[1],cd.exc_info[2]
-        logger.debug('io map size: {}'.format(ret_val))
-        # raise an exception if one or more mailbox errors occured within ecx_config_overlap_map_group call
-        error_list = self._collect_mailbox_errors()
-        if len(error_list) > 0:
-            raise ConfigMapError(error_list)
 
-        return ret_val
+        Args:
+            group: Process-data group to map. Defaults to group 0.
+        
+        Returns:
+            int: IO map size (sum of all PDO in an out data)
+        """
+        group = self._validate_group(group)
+        cdef _CallbackData cd
+        with self._operation_context():
+            # ecx_config_map_group returns the actual IO map size (not an error value), expect the value to be less than EC_IOMAPSIZE
+            ret_val = cpysoem.ecx_config_map_group(&self._ecx_contextt, &self.io_map, group)
+            # check for exceptions raised in the config functions
+            for slave in self.slaves:
+                cd = slave._cd
+                if cd.exc_raised:
+                    raise cd.exc_info[0], cd.exc_info[1], cd.exc_info[2]
+            logger.debug('io map size: {}'.format(ret_val))
+            # raise an exception if one or more mailbox errors occured within ecx_config_map_group call
+            error_list = self._collect_mailbox_errors()
+            if len(error_list) > 0:
+                raise ConfigMapError(error_list)
+            return ret_val
+        
+    def config_overlap_map(self, group=0):
+        """Map all slaves PDOs to overlapping IO map.
+
+        Args:
+            group: Process-data group to map. Defaults to group 0.
+        
+        Returns:
+            int: IO map size (sum of all PDO in an out data)
+        """
+        group = self._validate_group(group)
+        cdef _CallbackData cd
+        with self._operation_context():
+            # ecx_config_map_group returns the actual IO map size (not an error value), expect the value to be less than EC_IOMAPSIZE
+            ret_val = cpysoem.ecx_config_overlap_map_group(&self._ecx_contextt, &self.io_map, group)
+            # check for exceptions raised in the config functions
+            for slave in self.slaves:
+                cd = slave._cd
+                if cd.exc_raised:
+                    raise cd.exc_info[0],cd.exc_info[1],cd.exc_info[2]
+            logger.debug('io map size: {}'.format(ret_val))
+            # raise an exception if one or more mailbox errors occured within ecx_config_overlap_map_group call
+            error_list = self._collect_mailbox_errors()
+            if len(error_list) > 0:
+                raise ConfigMapError(error_list)
+
+            return ret_val
 
     def _collect_mailbox_errors(self):
         # collect SDO or mailbox errors that occurred during PDO configuration read in ecx_config_map_group
@@ -439,16 +514,28 @@ cdef class CdefMaster:
         Returns:
             bool: if slaves are found with DC
         """
-        self.check_context_is_initialized()
-        return cpysoem.ecx_configdc(&self._ecx_contextt)
+        with self._operation_context():
+            return cpysoem.ecx_configdc(&self._ecx_contextt)
         
     def close(self):
         """Close the network interface.
         
+        Signals that no new operations should start and waits for any in-flight operations 
+        to complete before closing. Uses a timeout of 5 seconds; logs a warning if timeout occurs.
         """
+        self._closing = True
+        
+        # Wait for all active operations to complete
+        timeout = 5.0
+        if not self._active_ops_counter.wait_for_zero(timeout=timeout):
+            logger.warning("Timeout waiting for active SOEM operations to complete during close(). "
+                          "There may be threads still accessing the context. Proceeding with close anyway.")
+        
         # ecx_close returns nothing
         self.context_initialized = False
         cpysoem.ecx_close(&self._ecx_contextt)
+        self._closing = False
+        
 
     def read_state(self):
         """Read all slaves states.
@@ -456,8 +543,8 @@ cdef class CdefMaster:
         Returns:
             int: lowest state found
         """
-        self.check_context_is_initialized()
-        return cpysoem.ecx_readstate(&self._ecx_contextt)
+        with self._operation_context():
+            return cpysoem.ecx_readstate(&self._ecx_contextt)
         
     def write_state(self):
         """Write all slaves state.
@@ -467,8 +554,8 @@ cdef class CdefMaster:
         Returns:
             int: Working counter or EC_NOFRAME
         """
-        self.check_context_is_initialized()
-        return cpysoem.ecx_writestate(&self._ecx_contextt, 0)
+        with self._operation_context():
+            return cpysoem.ecx_writestate(&self._ecx_contextt, 0)
         
     def state_check(self, int expected_state, timeout=50000):
         """Check actual slave state.
@@ -483,21 +570,21 @@ cdef class CdefMaster:
         Returns:
             int: Requested state, or found state after timeout
         """
-        self.check_context_is_initialized()
-        return cpysoem.ecx_statecheck(&self._ecx_contextt, 0, expected_state, timeout)
+        with self._operation_context():
+            return cpysoem.ecx_statecheck(&self._ecx_contextt, 0, expected_state, timeout)
 
-    cdef int __send_processdata_nogil(self):
+    cdef int __send_processdata_nogil(self, cpysoem.uint8 group):
         """Transmit processdata to slaves without GIL."""
         cdef int result
         
         Py_INCREF(self)
         with nogil:
-            result = cpysoem.ecx_send_processdata(&self._ecx_contextt)
+            result = cpysoem.ecx_send_processdata_group(&self._ecx_contextt, group)
         Py_DECREF(self)
         
         return result
         
-    def send_processdata(self, *, release_gil=None):
+    def send_processdata(self, *, group=0, release_gil=None):
         """Transmit processdata to slaves.
         
         Uses LRW, or LRD/LWR if LRW is not allowed (blockLRW).
@@ -509,39 +596,47 @@ cdef class CdefMaster:
         In order to recombine the slave response, a stack is used.
 
         Args:
+            group (int): Process-data group. Defaults to group 0.
             release_gil (:obj:`bool`, optional): True to transmit processdata releasing the GIL. Defaults to False.
         
         Returns:
             int: >0 if processdata is transmitted, might only by 0 if config map is not configured properly
         """
+        group = self._validate_group(group)
         release_gil = self.check_release_gil(release_gil)
-        self.check_context_is_initialized()
-        if release_gil:
-            return self.__send_processdata_nogil()
-        return cpysoem.ecx_send_processdata(&self._ecx_contextt)
+        with self._operation_context():
+            if release_gil:
+                return self.__send_processdata_nogil(group)
+            return cpysoem.ecx_send_processdata_group(&self._ecx_contextt, group)
 
-    cdef int __send_overlap_processdata_nogil(self):
+    cdef int __send_overlap_processdata_nogil(self, cpysoem.uint8 group):
         """Transmit overlap processdata to slaves without GIL."""
         cdef int result
         Py_INCREF(self)
         with nogil:
-            result = cpysoem.ecx_send_overlap_processdata(&self._ecx_contextt)
+            result = cpysoem.ecx_send_overlap_processdata_group(&self._ecx_contextt, group)
         Py_DECREF(self)
 
         return result
 
-    def send_overlap_processdata(self, *, release_gil=None):
+    def send_overlap_processdata(self, *, group=0, release_gil=None):
         """Transmit overlap processdata to slaves.
+
+        Args:
+            group (int): Process-data group. Defaults to group 0.
+            release_gil (:obj:`bool`, optional): True to transmit processdata releasing the GIL.
         
         Returns:
             int: >0 if processdata is transmitted, might only by 0 if config map is not configured properly
         """
-        self.check_context_is_initialized()
-        if release_gil:
-            return self.__send_overlap_processdata_nogil()
-        return cpysoem.ecx_send_overlap_processdata(&self._ecx_contextt)
+        group = self._validate_group(group)
+        release_gil = self.check_release_gil(release_gil)
+        with self._operation_context():
+            if release_gil:
+                return self.__send_overlap_processdata_nogil(group)
+            return cpysoem.ecx_send_overlap_processdata_group(&self._ecx_contextt, group)
 
-    cdef int __receive_processdata_nogil(self, int timeout):
+    cdef int __receive_processdata_nogil(self, cpysoem.uint8 group, int timeout):
         """Receive processdata from slaves without GIL.
         
         Args:
@@ -551,12 +646,12 @@ cdef class CdefMaster:
         
         Py_INCREF(self)
         with nogil:
-            result = cpysoem.ecx_receive_processdata(&self._ecx_contextt, timeout)
+            result = cpysoem.ecx_receive_processdata_group(&self._ecx_contextt, group, timeout)
         Py_DECREF(self)
         
         return result
     
-    def receive_processdata(self, timeout=2000, *, release_gil=None):
+    def receive_processdata(self, timeout=2000, *, group=0, release_gil=None):
         """Receive processdata from slaves.
 
         Second part from send_processdata().
@@ -565,15 +660,17 @@ cdef class CdefMaster:
 
         Args:
             timeout (int): Timeout in us.
+            group (int): Process-data group. Defaults to group 0.
             release_gil (:obj:`bool`, optional): True to receive processdata releasing the GIL. Defaults to False.
         Returns
             int: Working Counter
         """
+        group = self._validate_group(group)
         release_gil = self.check_release_gil(release_gil)
-        self.check_context_is_initialized()
-        if release_gil:
-            return self.__receive_processdata_nogil(timeout)
-        return cpysoem.ecx_receive_processdata(&self._ecx_contextt, timeout)
+        with self._operation_context():
+            if release_gil:
+                return self.__receive_processdata_nogil(group, timeout)
+            return cpysoem.ecx_receive_processdata_group(&self._ecx_contextt, group, timeout)
     
     def _get_slave(self, int pos):
         if pos < 0:
@@ -597,9 +694,27 @@ cdef class CdefMaster:
     def _set_state(self, value):
         self._ec_slave[0].state = value
     
-    def _get_expected_wkc(self):
-        """Calculates the expected Working Counter"""
-        return (self._ec_group[0].outputsWKC * 2) + self._ec_group[0].inputsWKC
+    def _get_expected_wkc(self, group=0):
+        """Calculate the expected Working Counter for a process-data group.
+
+        The ``expected_wkc`` property calls this getter without an argument and
+        therefore continues to return the group-0 value.
+
+        Args:
+            group: Process-data group. Defaults to group 0.
+        """
+        group = self._validate_group(group)
+        return (self._ec_group[group].outputsWKC * 2) + self._ec_group[group].inputsWKC
+
+    def get_expected_wkc(self, group=0):
+        """Calculate the expected process-data Working Counter for a group.
+
+        Args:
+            group: Process-data group. Defaults to group 0.
+
+        .. versionadded:: 1.1.14
+        """
+        return self._get_expected_wkc(group)
     
     def _get_dc_time(self):
         """DC time in ns required to synchronize the EtherCAT cycle with SYNC0 cycles.
@@ -741,6 +856,22 @@ class EepromError(Exception):
     def __init__(self, message):
         self.message = message
 
+class FoeError(Exception):
+    """Errors during File over EtherCAT operations
+    
+    Attributes:
+        slave_pos (int): position of the slave
+        error_code (int): error code
+        desc (str): error description
+    """
+
+    def __init__(self, slave_pos, error_code, desc):
+        self.slave_pos = slave_pos
+        self.error_code = error_code
+        self.desc = desc
+        
+    def __str__(self):
+        return f"Slave {self.slave_pos}: FoE Error 0x{self.error_code:x} - {self.desc}"
 
 class WkcError(Exception):
     """Working counter error.
@@ -808,6 +939,7 @@ cdef class CdefSlave:
     config_func = property(_get_PO2SOconfig, _set_PO2SOconfig)
     setup_func = property(_get_PO2SOconfigEx, _set_PO2SOconfigEx)
     state = property(_get_state, _set_state)
+    group = property(_get_group, _set_group)
     input = property(_get_input)
     output = property(_get_output, _set_output)
     al_status = property(_get_al_status)
@@ -820,6 +952,23 @@ cdef class CdefSlave:
         self._cd.slave = self
         self._emcy_callbacks = []
 
+    def _get_group(self):
+        """Return the SOEM process-data group assigned to this slave."""
+        return self._ec_slave.group
+
+    def _set_group(self, group):
+        """Assign this slave to a process-data group before mapping PDOs.
+
+        Args:
+            group: Process-data group index.
+
+        Raises:
+            ValueError: If the group index is outside PySOEM's configured range.
+        """
+        group = self._master._validate_group(group)
+        with self._master._operation_context():
+            self._ec_slave.group = group
+
     def dc_sync(self, act, sync0_cycle_time, sync0_shift_time=0, sync1_cycle_time=None):
         """Activate or deactivate SYNC pulses at the slave.
 
@@ -830,12 +979,11 @@ cdef class CdefSlave:
             sync1_cycle_time (int): Optional cycltime for SYNC1 in ns. This time is a delta time in relation to SYNC0.
                                     If CylcTime1 = 0 then SYNC1 fires at the same time as SYNC0.
         """
-        self._master.check_context_is_initialized()
-    
-        if sync1_cycle_time is None:
-            cpysoem.ecx_dcsync0(self._ecx_contextt, self._pos, act, sync0_cycle_time, sync0_shift_time)
-        else:
-            cpysoem.ecx_dcsync01(self._ecx_contextt, self._pos, act, sync0_cycle_time, sync1_cycle_time, sync0_shift_time) 
+        with self._master._operation_context():
+            if sync1_cycle_time is None:
+                cpysoem.ecx_dcsync0(self._ecx_contextt, self._pos, act, sync0_cycle_time, sync0_shift_time)
+            else:
+                cpysoem.ecx_dcsync01(self._ecx_contextt, self._pos, act, sync0_cycle_time, sync1_cycle_time, sync0_shift_time) 
 
     cdef int __sdo_read_nogil(self, uint16_t index, uint8_t subindex, int8_t ca, int* size_inout, unsigned char* pbuf):
         """Read a CoE object without GIL.
@@ -878,53 +1026,53 @@ cdef class CdefSlave:
             PacketError: on packet level error
             WkcError: if working counter is not higher than 0, the exception includes the working counter
         """
+        cdef unsigned char* pbuf
+        cdef uint8_t std_buffer[STATIC_SDO_READ_BUFFER_SIZE]
+        cdef int size_inout
+        cdef int result
+        cdef cpysoem.ec_errort err
+        
         release_gil = self._master.check_release_gil(release_gil=release_gil)
         if self._ecx_contextt == NULL:
             raise UnboundLocalError()
 
-        self._master.check_context_is_initialized()
-        
-        cdef unsigned char* pbuf
-        cdef uint8_t std_buffer[STATIC_SDO_READ_BUFFER_SIZE]
-        cdef int size_inout
-        if size == 0:
-            pbuf = std_buffer
-            size_inout = STATIC_SDO_READ_BUFFER_SIZE
-        else:
-            pbuf = <unsigned char*>PyMem_Malloc((size)*sizeof(unsigned char))
-            size_inout = size
-        
-        if pbuf == NULL:
-            raise MemoryError()
-        
-        cdef int result
-        if release_gil:
-            result = self.__sdo_read_nogil(index, subindex, ca, &size_inout, pbuf)
-        else:
-            result = cpysoem.ecx_SDOread(self._ecx_contextt, self._pos, index, subindex, ca,
-                                              &size_inout, pbuf, self._the_masters_settings.sdo_read_timeout[0])
-
-        cdef cpysoem.ec_errort err
-        while cpysoem.ecx_poperror(self._ecx_contextt, &err):
-            assert err.Slave == self._pos
-
-            if (err.Etype == cpysoem.EC_ERR_TYPE_EMERGENCY) and (len(self._emcy_callbacks) > 0):
-                self._on_emergency(&err)
+        with self._master._operation_context():
+            if size == 0:
+                pbuf = std_buffer
+                size_inout = STATIC_SDO_READ_BUFFER_SIZE
             else:
+                pbuf = <unsigned char*>PyMem_Malloc((size)*sizeof(unsigned char))
+                size_inout = size
+            
+            if pbuf == NULL:
+                raise MemoryError()
+            
+            if release_gil:
+                result = self.__sdo_read_nogil(index, subindex, ca, &size_inout, pbuf)
+            else:
+                result = cpysoem.ecx_SDOread(self._ecx_contextt, self._pos, index, subindex, ca,
+                                                  &size_inout, pbuf, self._the_masters_settings.sdo_read_timeout[0])
+
+            while cpysoem.ecx_poperror(self._ecx_contextt, &err):
+                assert err.Slave == self._pos
+
+                if (err.Etype == cpysoem.EC_ERR_TYPE_EMERGENCY) and (len(self._emcy_callbacks) > 0):
+                    self._on_emergency(&err)
+                else:
+                    if pbuf != std_buffer:
+                        PyMem_Free(pbuf)
+                    self._raise_exception(&err)
+
+            if not result > 0:
+                if pbuf != std_buffer:
+                        PyMem_Free(pbuf)
+                raise WkcError(wkc=result)
+
+            try:
+                return PyBytes_FromStringAndSize(<char*>pbuf, size_inout)
+            finally:
                 if pbuf != std_buffer:
                     PyMem_Free(pbuf)
-                self._raise_exception(&err)
-
-        if not result > 0:
-            if pbuf != std_buffer:
-                    PyMem_Free(pbuf)
-            raise WkcError(wkc=result)
-
-        try:
-            return PyBytes_FromStringAndSize(<char*>pbuf, size_inout)
-        finally:
-            if pbuf != std_buffer:
-                PyMem_Free(pbuf)
 
     cdef int __sdo_write_nogil(self, uint16_t index, uint8_t subindex, int8_t ca, int size, bytes data):
         """Write to a CoE object without GIL.
@@ -962,26 +1110,27 @@ cdef class CdefSlave:
             PacketError: on packet level error
             WkcError: if working counter is not higher than 0, the exception includes the working counter
         """
-        release_gil = self._master.check_release_gil(release_gil=release_gil)
-        self._master.check_context_is_initialized()
-
         cdef int size = len(data)
         cdef int result
-        if release_gil:
-            result = self.__sdo_write_nogil(index, subindex, ca, size, data)
-        else:
-            result = cpysoem.ecx_SDOwrite(self._ecx_contextt, self._pos, index, subindex, ca,
-                                               size, <unsigned char*>data, self._the_masters_settings.sdo_write_timeout[0])
-        
         cdef cpysoem.ec_errort err
-        while(cpysoem.ecx_poperror(self._ecx_contextt, &err)):
-            if (err.Etype == cpysoem.EC_ERR_TYPE_EMERGENCY) and (len(self._emcy_callbacks) > 0):
-                self._on_emergency(&err)
-            else:
-                self._raise_exception(&err)
+        
+        release_gil = self._master.check_release_gil(release_gil=release_gil)
 
-        if not result > 0:
-            raise WkcError(wkc=result)
+        with self._master._operation_context():
+            if release_gil:
+                result = self.__sdo_write_nogil(index, subindex, ca, size, data)
+            else:
+                result = cpysoem.ecx_SDOwrite(self._ecx_contextt, self._pos, index, subindex, ca,
+                                                   size, <unsigned char*>data, self._the_masters_settings.sdo_write_timeout[0])
+            
+            while(cpysoem.ecx_poperror(self._ecx_contextt, &err)):
+                if (err.Etype == cpysoem.EC_ERR_TYPE_EMERGENCY) and (len(self._emcy_callbacks) > 0):
+                    self._on_emergency(&err)
+                else:
+                    self._raise_exception(&err)
+
+            if not result > 0:
+                raise WkcError(wkc=result)
 
     def mbx_receive(self):
         """Read out the slaves out mailbox - to check for emergency messages.
@@ -992,33 +1141,34 @@ cdef class CdefSlave:
         :rtype: int
         :raises Emergency: if an emergency message was received
         """
-        self._master.check_context_is_initialized()
-
         cdef cpysoem.ec_mbxbuft buf
-        cpysoem.ec_clearmbx(&buf)
-        cdef int wkt = cpysoem.ecx_mbxreceive(self._ecx_contextt, self._pos, &buf, 0)
-
+        cdef int wkt
         cdef cpysoem.ec_errort err
-        if cpysoem.ecx_poperror(self._ecx_contextt, &err):
-            if (err.Etype == cpysoem.EC_ERR_TYPE_EMERGENCY) and (len(self._emcy_callbacks) > 0):
-                self._on_emergency(&err)
-            else:
-                self._raise_exception(&err)
+        
+        with self._master._operation_context():
+            cpysoem.ec_clearmbx(&buf)
+            wkt = cpysoem.ecx_mbxreceive(self._ecx_contextt, self._pos, &buf, 0)
 
-        return wkt
+            if cpysoem.ecx_poperror(self._ecx_contextt, &err):
+                if (err.Etype == cpysoem.EC_ERR_TYPE_EMERGENCY) and (len(self._emcy_callbacks) > 0):
+                    self._on_emergency(&err)
+                else:
+                    self._raise_exception(&err)
+
+            return wkt
         
     def write_state(self):
         """Write slave state.
 
         Note: The function does not check if the actual state is changed.
         """
-        self._master.check_context_is_initialized()
-        return cpysoem.ecx_writestate(self._ecx_contextt, self._pos)
+        with self._master._operation_context():
+            return cpysoem.ecx_writestate(self._ecx_contextt, self._pos)
         
     def state_check(self, int expected_state, timeout=2000):
         """Wait for the slave to reach the state that was requested."""
-        self._master.check_context_is_initialized()
-        return cpysoem.ecx_statecheck(self._ecx_contextt, self._pos, expected_state, timeout)
+        with self._master._operation_context():
+            return cpysoem.ecx_statecheck(self._ecx_contextt, self._pos, expected_state, timeout)
         
     def reconfig(self, timeout=500):
         """Reconfigure slave.
@@ -1027,8 +1177,52 @@ cdef class CdefSlave:
         :return: Slave state
         :rtype: int
         """
-        self._master.check_context_is_initialized()
-        return cpysoem.ecx_reconfig_slave(self._ecx_contextt, self._pos, timeout)
+        with self._master._operation_context():
+            return cpysoem.ecx_reconfig_slave(self._ecx_contextt, self._pos, timeout)
+
+    def clear_pdo_mapping(self, timeout=2000):
+        """Clear this slave's PDO SyncManagers and FMMUs while preserving mailbox SMs.
+
+        The slave must be in INIT or PREOP. Cached SyncManager descriptors are retained so
+        ``Master.config_map()`` can restore the PDO mapping later.
+
+        :param timeout: timeout for each register write, in microseconds
+        :raises RuntimeError: if the slave is not in INIT or PREOP
+        :raises WkcError: if a register write fails
+        
+        .. versionadded:: 1.1.14
+        """
+        with self._master._operation_context():
+            cpysoem.ecx_readstate(self._ecx_contextt)
+            state = self._ec_slave.state & 0x0F
+            if state not in (cpysoem.EC_STATE_INIT, cpysoem.EC_STATE_PRE_OP):
+                raise RuntimeError("Slave must be in INIT or PREOP state to clear its PDO mapping.")
+
+            sm_size = sizeof(cpysoem.ec_smt)
+            for sm_index in range(cpysoem.EC_MAXSM):
+                if self._ec_slave.SMtype[sm_index] in (3, 4):
+                    self._fpwr(
+                        ECT_REG_SM0 + sm_index * sm_size,
+                        bytes(sm_size),
+                        timeout,
+                    )
+
+            fmmu_size = sizeof(cpysoem.ec_fmmut)
+            for fmmu_index in range(cpysoem.EC_MAXFMMU):
+                self._fpwr(
+                    ECT_REG_FMMU0 + fmmu_index * fmmu_size,
+                    bytes(fmmu_size),
+                    timeout,
+                )
+                memset(&self._ec_slave.FMMU[fmmu_index], 0, fmmu_size)
+
+            self._ec_slave.FMMUunused = 0
+            self._ec_slave.inputs = NULL
+            self._ec_slave.outputs = NULL
+            self._ec_slave.Ibytes = 0
+            self._ec_slave.Obytes = 0
+            self._ec_slave.Istartbit = 0
+            self._ec_slave.Ostartbit = 0
         
     def recover(self, timeout=500):
         """Recover slave.
@@ -1037,8 +1231,8 @@ cdef class CdefSlave:
         :return: >0 if successful
         :rtype: int
         """
-        self._master.check_context_is_initialized()
-        return cpysoem.ecx_recover_slave(self._ecx_contextt, self._pos, timeout)
+        with self._master._operation_context():
+            return cpysoem.ecx_recover_slave(self._ecx_contextt, self._pos, timeout)
         
     def eeprom_read(self, int word_address, timeout=20000):
         """Read 4 byte from EEPROM
@@ -1052,8 +1246,9 @@ cdef class CdefSlave:
         Returns:
             bytes: EEPROM data
         """
-        self._master.check_context_is_initialized()
-        cdef uint32_t tmp = cpysoem.ecx_readeeprom(self._ecx_contextt, self._pos, word_address, timeout)
+        cdef uint32_t tmp
+        with self._master._operation_context():
+            tmp = cpysoem.ecx_readeeprom(self._ecx_contextt, self._pos, word_address, timeout)
         return PyBytes_FromStringAndSize(<char*>&tmp, 4)
         
     def eeprom_write(self, int word_address, bytes data, timeout=20000):
@@ -1070,12 +1265,13 @@ cdef class CdefSlave:
             EepromError: if write fails
             AttributeError: if data size is not 2
         """
-        self._master.check_context_is_initialized()
+        cdef uint16_t tmp
+        cdef int result
         if not len(data) == 2:
             raise AttributeError()
-        cdef uint16_t tmp
         memcpy(<char*>&tmp, <unsigned char*>data, 2)
-        cdef int result = cpysoem.ecx_writeeeprom(self._ecx_contextt, self._pos, word_address, tmp, timeout)
+        with self._master._operation_context():
+            result = cpysoem.ecx_writeeeprom(self._ecx_contextt, self._pos, word_address, tmp, timeout)
         if not result > 0:
             raise EepromError('EEPROM write error')
 
@@ -1111,28 +1307,29 @@ cdef class CdefSlave:
             timeout (int): Timeout value in us
             release_gil (:obj:`bool`, optional): True to FoE write releasing the GIL. Defaults to False.
         """
+        cdef int result
+        cdef int size = len(data)
+        cdef cpysoem.ec_errort err
+
         release_gil = self._master.check_release_gil(release_gil=release_gil)
         # error handling
         if self._ecx_contextt == NULL:
             raise UnboundLocalError()
 
-        self._master.check_context_is_initialized()
+        with self._master._operation_context():
+            if release_gil:
+                result = self.__foe_write_nogil(filename, password, size, data, timeout)
+            else:
+                result = cpysoem.ecx_FOEwrite(self._ecx_contextt, self._pos, filename.encode('utf8'), password, size, <unsigned char*>data, timeout)
 
-        cdef int result
-        cdef int size = len(data)
-        
-        if release_gil:
-            result = self.__foe_write_nogil(filename, password, size, data, timeout)
-        else:
-            result = cpysoem.ecx_FOEwrite(self._ecx_contextt, self._pos, filename.encode('utf8'), password, size, <unsigned char*>data, timeout)
-        
-        # error handling
-        cdef cpysoem.ec_errort err
-        if cpysoem.ecx_poperror(self._ecx_contextt, &err):
-            assert err.Slave == self._pos
-            self._raise_exception(&err)
+            # error handling
+            if cpysoem.ecx_poperror(self._ecx_contextt, &err):
+                assert err.Slave == self._pos
+                self._raise_exception(&err)
 
-        return result
+            self._check_foe_result(result)
+
+            return result
 
     cdef int __foe_read_nogil(self, str filename, uint32_t password, int size_inout, unsigned char* pbuf, int timeout):
         """Read given filename from device using FoE without GIL.
@@ -1152,7 +1349,7 @@ cdef class CdefSlave:
         with nogil:
             result = cpysoem.ecx_FOEread(self._ecx_contextt, self._pos, c_filename, password, &size_inout, pbuf, timeout)
         Py_DECREF(self)
-        
+
         return result
 
     def foe_read(self, filename, password, size, timeout = 200000, *, release_gil=None):
@@ -1165,36 +1362,41 @@ cdef class CdefSlave:
             timeout (int): Timeout value in us
             release_gil (:obj:`bool`, optional): True to FoE write releasing the GIL. Defaults to False.
         """
+        cdef unsigned char* pbuf
+        cdef int size_inout
+        cdef int result
+        cdef cpysoem.ec_errort err
+
         release_gil = self._master.check_release_gil(release_gil=release_gil)
         if self._ecx_contextt == NULL:
             raise UnboundLocalError()
 
-        self._master.check_context_is_initialized()
+        with self._master._operation_context():
+            # prepare call of c function
+            pbuf = <unsigned char*>PyMem_Malloc((size)*sizeof(unsigned char))
+            if pbuf == NULL:
+                raise MemoryError()
 
-        # prepare call of c function
-        cdef unsigned char* pbuf
-        cdef int size_inout
-        pbuf = <unsigned char*>PyMem_Malloc((size)*sizeof(unsigned char))
-        size_inout = size
+            # Initialize buffer to zeros to prevent stale data if read operation fails early
+            memset(pbuf, 0, size*sizeof(unsigned char))
+            size_inout = size
 
-        cdef int result
-        if release_gil:
-            result = self.__foe_read_nogil(filename, password, size_inout, pbuf, timeout)
-        else:
-            result = cpysoem.ecx_FOEread(self._ecx_contextt, self._pos, filename.encode('utf8'), password, &size_inout, pbuf, timeout)
+            try:
+                if release_gil:
+                    result = self.__foe_read_nogil(filename, password, size_inout, pbuf, timeout)
+                else:
+                    result = cpysoem.ecx_FOEread(self._ecx_contextt, self._pos, filename.encode('utf8'), password, &size_inout, pbuf, timeout)
 
-        # error handling
-        cdef cpysoem.ec_errort err
-        if cpysoem.ecx_poperror(self._ecx_contextt, &err):
-            PyMem_Free(pbuf)
-            assert err.Slave == self._pos
-            self._raise_exception(&err)
+                # error handling
+                if cpysoem.ecx_poperror(self._ecx_contextt, &err):
+                    assert err.Slave == self._pos
+                    self._raise_exception(&err)
 
-        # return data
-        try:
-            return PyBytes_FromStringAndSize(<char*>pbuf, size_inout)
-        finally:
-            PyMem_Free(pbuf)
+                self._check_foe_result(result)
+
+                return PyBytes_FromStringAndSize(<char*>pbuf, size_inout)
+            finally:
+                PyMem_Free(pbuf)
 
     def amend_mbx(self, mailbox, start_address, size):
         """Change the start address and size of a mailbox.
@@ -1207,33 +1409,32 @@ cdef class CdefSlave:
 
         .. versionadded:: 1.0.6
         """
-        self._master.check_context_is_initialized()
-
-        fpwr_timeout_us = 4000
-        if mailbox == 'out':
-            # Clear the slaves mailbox configuration.
-            self._fpwr(ECT_REG_SM0, bytes(sizeof(self._ec_slave.SM[0])))
-            self._ec_slave.SM[0].StartAddr = start_address
-            self._ec_slave.SM[0].SMlength = size
-            self._ec_slave.mbx_wo = start_address
-            self._ec_slave.mbx_l = size
-            # Update the slaves mailbox configuration.
-            self._fpwr(ECT_REG_SM0,
-                       PyBytes_FromStringAndSize(<char*>&self._ec_slave.SM[0], sizeof(self._ec_slave.SM[0])),
-                       fpwr_timeout_us)
-        elif mailbox == 'in':
-            # Clear the slaves mailbox configuration.
-            self._fpwr(ECT_REG_SM1, bytes(sizeof(self._ec_slave.SM[1])))
-            self._ec_slave.SM[1].StartAddr = start_address
-            self._ec_slave.SM[1].SMlength = size
-            self._ec_slave.mbx_ro = start_address
-            self._ec_slave.mbx_rl = size
-            # Update the slaves mailbox configuration.
-            self._fpwr(ECT_REG_SM1,
-                       PyBytes_FromStringAndSize(<char*>&self._ec_slave.SM[1], sizeof(self._ec_slave.SM[1])),
-                       fpwr_timeout_us)
-        else:
-            raise AttributeError()
+        with self._master._operation_context():
+            fpwr_timeout_us = 4000
+            if mailbox == 'out':
+                # Clear the slaves mailbox configuration.
+                self._fpwr(ECT_REG_SM0, bytes(sizeof(self._ec_slave.SM[0])))
+                self._ec_slave.SM[0].StartAddr = start_address
+                self._ec_slave.SM[0].SMlength = size
+                self._ec_slave.mbx_wo = start_address
+                self._ec_slave.mbx_l = size
+                # Update the slaves mailbox configuration.
+                self._fpwr(ECT_REG_SM0,
+                           PyBytes_FromStringAndSize(<char*>&self._ec_slave.SM[0], sizeof(self._ec_slave.SM[0])),
+                           fpwr_timeout_us)
+            elif mailbox == 'in':
+                # Clear the slaves mailbox configuration.
+                self._fpwr(ECT_REG_SM1, bytes(sizeof(self._ec_slave.SM[1])))
+                self._ec_slave.SM[1].StartAddr = start_address
+                self._ec_slave.SM[1].SMlength = size
+                self._ec_slave.mbx_ro = start_address
+                self._ec_slave.mbx_rl = size
+                # Update the slaves mailbox configuration.
+                self._fpwr(ECT_REG_SM1,
+                           PyBytes_FromStringAndSize(<char*>&self._ec_slave.SM[1], sizeof(self._ec_slave.SM[1])),
+                           fpwr_timeout_us)
+            else:
+                raise AttributeError()
 
     def set_watchdog(self, wd_type, wd_time_ms):
         """Change the watchdog time of the PDI or Process Data watchdog.
@@ -1247,30 +1448,29 @@ cdef class CdefSlave:
 
         .. versionadded:: 1.0.6
         """
-        self._master.check_context_is_initialized()
+        with self._master._operation_context():
+            fprd_fpwr_timeout_us = 4000
+            wd_type_to_reg_map = {
+                'pdi': ECT_REG_WD_TIME_PDI,
+                'processdata': ECT_REG_WD_TIME_PROCESSDATA,
+            }
+            if wd_type not in wd_type_to_reg_map.keys():
+                raise AttributeError()
+            wd_time_ms_limit = self.get_max_watchdog_time()
+            if wd_time_ms > wd_time_ms_limit:
+                raise AttributeError('wd_time_ms is limited to {} ms'.format(wd_time_ms_limit))
 
-        fprd_fpwr_timeout_us = 4000
-        wd_type_to_reg_map = {
-            'pdi': ECT_REG_WD_TIME_PDI,
-            'processdata': ECT_REG_WD_TIME_PROCESSDATA,
-        }
-        if wd_type not in wd_type_to_reg_map.keys():
-            raise AttributeError()
-        wd_time_ms_limit = self.get_max_watchdog_time()
-        if wd_time_ms > wd_time_ms_limit:
-            raise AttributeError('wd_time_ms is limited to {} ms'.format(wd_time_ms_limit))
+            wd_div_ns = self._get_watchdog_divider_ns()
+            wd_time_reg = int((wd_time_ms*1000000.0) / wd_div_ns)
 
-        wd_div_ns = self._get_watchdog_divider_ns()
-        wd_time_reg = int((wd_time_ms*1000000.0) / wd_div_ns)
+            self._fpwr(wd_type_to_reg_map[wd_type],
+                       wd_time_reg.to_bytes(2, byteorder='little', signed=False),
+                       fprd_fpwr_timeout_us)
+            
+            actual_wd_time_ms = wd_time_reg * wd_div_ns / 1000000.0
 
-        self._fpwr(wd_type_to_reg_map[wd_type],
-                   wd_time_reg.to_bytes(2, byteorder='little', signed=False),
-                   fprd_fpwr_timeout_us)
-        
-        actual_wd_time_ms = wd_time_reg * wd_div_ns / 1000000.0
-
-        if actual_wd_time_ms != wd_time_ms:
-            warnings.warn(f'The actual set watchdog time ({actual_wd_time_ms} ms) differs from the requested watchdog time ({wd_time_ms} ms) due to resolution limits of the hardware!', UserWarning)
+            if actual_wd_time_ms != wd_time_ms:
+                warnings.warn(f'The actual set watchdog time ({actual_wd_time_ms} ms) differs from the requested watchdog time ({wd_time_ms} ms) due to resolution limits of the hardware!', UserWarning)
 
     def get_watchdog(self, wd_type):
         """Get the watchdog time of the PDI or Process Data watchdog.
@@ -1320,8 +1520,8 @@ cdef class CdefSlave:
             Callable which must take one argument of an
             :class:`~Emergency` instance.
         """
-        self._master.check_context_is_initialized()
-        self._emcy_callbacks.append(callback)
+        with self._master._operation_context():
+            self._emcy_callbacks.append(callback)
 
     cdef _on_emergency(self, cpysoem.ec_errort* emcy):
         """Notify all emergency callbacks that an emergency message
@@ -1369,6 +1569,23 @@ cdef class CdefSlave:
         cdef int wkc = cpysoem.ecx_FPWR(self._ecx_contextt.port, self._ec_slave.configadr, address, <int>len(data), <unsigned char*>data, timeout_us)
         if wkc != 1:
             raise WkcError()
+
+    cdef _check_foe_result(self, int result):
+        if result < 0:
+            if result == -cpysoem.EC_ERR_TYPE_FOE_ERROR:
+                raise FoeError(self._pos, result, "General FoE error")
+            elif result == -cpysoem.EC_ERR_TYPE_FOE_BUF2SMALL:
+                raise FoeError(self._pos, result, "Buffer too small for file content")
+            elif result == -cpysoem.EC_ERR_TYPE_FOE_PACKETNUMBER:
+                raise FoeError(self._pos, result, "Packet number error")
+            elif result == -cpysoem.EC_ERR_TYPE_FOE_FILE_NOTFOUND:
+                raise FoeError(self._pos, result, "File not found or access denied")
+            elif result == -cpysoem.EC_ERR_TYPE_PACKET_ERROR:
+                raise FoeError(self._pos, result, "Unexpected packet received")
+            else:
+                raise FoeError(self._pos, result, "Unknown FoE error")
+        if result == 0:
+            raise WkcError(wkc=result)
 
     cdef _raise_exception(self, cpysoem.ec_errort* err):
         if err.Etype == cpysoem.EC_ERR_TYPE_SDO_ERROR:
@@ -1460,18 +1677,24 @@ cdef class CdefSlave:
         self._ec_slave.state = value
 
     def _get_input(self):
+        if self._ec_slave.inputs == NULL:
+            return b""
         num_bytes = self._ec_slave.Ibytes
         if (self._ec_slave.Ibytes == 0 and self._ec_slave.Ibits > 0):
             num_bytes = 1
         return PyBytes_FromStringAndSize(<char*>self._ec_slave.inputs, num_bytes)
 
     def _get_output(self):
+        if self._ec_slave.outputs == NULL:
+            return b""
         num_bytes = self._ec_slave.Obytes
         if (self._ec_slave.Obytes == 0 and self._ec_slave.Obits > 0):
             num_bytes = 1
         return PyBytes_FromStringAndSize(<char*>self._ec_slave.outputs, num_bytes)
 
     def _set_output(self, bytes value):
+        if self._ec_slave.outputs == NULL:
+            raise RuntimeError("PDO mapping is not configured for this slave.")
         memcpy(<char*>self._ec_slave.outputs, <char*>value, len(value))
     
     def _get_al_status(self):

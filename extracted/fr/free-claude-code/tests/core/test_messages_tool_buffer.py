@@ -2,9 +2,10 @@ import pytest
 
 from free_claude_code.core.anthropic.tool_calls import MessagesToolCallBuffer
 from free_claude_code.core.failures import ExecutionFailure
+from free_claude_code.core.json_types import JsonObject, JsonValue
 
 
-def event(kind, **data):
+def event(kind: str, **data: JsonValue) -> tuple[str, JsonObject]:
     return kind, {"type": kind, **data}
 
 
@@ -28,7 +29,7 @@ def test_stopped_tool_waits_for_successful_message_reason():
 
 
 @pytest.mark.parametrize("reason", ["max_tokens", "refusal", "pause_turn"])
-def test_truncation_discards_stopped_tool_and_releases_later_text(reason):
+def test_truncation_discards_stopped_tool_and_releases_later_text(reason: str):
     buffer = MessagesToolCallBuffer()
     buffer.feed(
         *event(

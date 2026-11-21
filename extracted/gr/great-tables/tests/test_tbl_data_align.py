@@ -1,16 +1,60 @@
 """Tests for dtype classification and auto-alignment."""
 
+from collections.abc import Callable
+from datetime import date, datetime, time
+from decimal import Decimal
+from typing import Any
+
 import pandas as pd
 import polars as pl
 import pyarrow as pa
 import pytest
 
+from great_tables._tbl_data import DataFrameLike, _re_version
 from great_tables._tbl_data_align import (
     ALIGNMENT_MAP,
     classify_dtype_for_alignment,
     is_number_like_column,
 )
 import great_tables as gt
+from tests.utils import DataFrameConstructor
+
+pandas_ge_v3 = _re_version(pd.__version__) >= (3, 0, 0)
+
+
+class TestClassifyDtype:
+    """Test dtype classification on every backend.
+
+    `test_classify_dtype_for_alignment_dtype_matrix` in test_tbl_data.py covers the other dtypes,
+    with missing values.
+    """
+
+    @pytest.mark.parametrize(
+        "values, expected",
+        [
+            pytest.param([1, 2, 3], "numeric", id="int"),
+            pytest.param([1.5, 2.5, 3.5], "numeric", id="float"),
+            pytest.param(["a", "b", "c"], "string", id="str"),
+            pytest.param([True, False, True], "other", id="bool"),
+        ],
+    )
+    def test_types(self, frame_constructor: DataFrameConstructor, values: list[Any], expected: str):
+        df = frame_constructor({"col": values})
+        assert classify_dtype_for_alignment(df, "col") == expected
+
+    def test_date_type(self, frame_constructor: DataFrameConstructor):
+        df = frame_constructor({"col": [date(2024, 1, 1), date(2024, 1, 2)]})
+
+        # pandas keeps dates in an object column, which is classified by its values (#1024)
+        assert classify_dtype_for_alignment(df, "col") == "numeric"
+        assert [col.column_align for col in gt.GT(df)._boxhead._d] == ["right"]
+
+    def test_datetime_type(self, frame_constructor: DataFrameConstructor):
+        df = frame_constructor({"col": [datetime(2024, 1, 1, 12, 30), datetime(2024, 1, 2)]})
+        assert classify_dtype_for_alignment(df, "col") == "numeric"
+
+
+# Dtypes that Python values can't build
 
 
 class TestClassifyDtypePandas:
@@ -29,18 +73,27 @@ class TestClassifyDtypePandas:
         df = pd.DataFrame({"col": pd.array([1, 2, 3], dtype=dtype)})
         assert classify_dtype_for_alignment(df, "col") == expected
 
-    def test_str_type_classified_as_string(self):
-        # Pandas 3.x uses "str" dtype for string columns, which is in STRING_DTYPES
-        df = pd.DataFrame({"col": ["a", "b", "c"]})
-        assert classify_dtype_for_alignment(df, "col") == "string"
-
-    def test_bool_type(self):
-        df = pd.DataFrame({"col": [True, False, True]})
-        assert classify_dtype_for_alignment(df, "col") == "other"
-
-    def test_datetime_type(self):
-        df = pd.DataFrame({"col": pd.to_datetime(["2024-01-01", "2024-01-02"])})
-        assert classify_dtype_for_alignment(df, "col") == "numeric"
+    @pytest.mark.parametrize(
+        "values, expected",
+        [
+            pytest.param([True, None], "other", id="bool-with-missing"),
+            pytest.param([time(12, 30), None], "other", id="time"),
+            pytest.param([Decimal("1.5"), None], "other", id="decimal"),
+            pytest.param([[1, 2], [3]], "other", id="list"),
+            pytest.param([None, None], "other", id="all-missing"),
+            pytest.param([date(2024, 1, 1), None], "numeric", id="date"),
+            pytest.param([datetime(2024, 1, 1, 12, 30), None], "numeric", id="datetime"),
+            pytest.param([1, 2.5, None], "numeric", id="numbers"),
+            pytest.param(["1.5", None], "string", id="number-like-str"),
+            pytest.param(["a", 1], "string", id="mixed-with-str"),
+        ],
+    )
+    def test_object_column_classified_by_values(self, values: list[Any], expected: str):
+        # polars and pyarrow type these columns; pandas keeps them as `object`, so they are
+        # classified by their values to align the same way (#1024)
+        df = pd.DataFrame({"col": pd.Series(values, dtype=object)})
+        assert str(df["col"].dtype) == "object"
+        assert classify_dtype_for_alignment(df, "col") == expected
 
 
 class TestClassifyDtypePolars:
@@ -61,23 +114,6 @@ class TestClassifyDtypePolars:
         df = pl.DataFrame({"col": pl.Series([1, 2, 3]).cast(dtype)})
         assert classify_dtype_for_alignment(df, "col") == expected
 
-    def test_string_type(self):
-        df = pl.DataFrame({"col": ["a", "b", "c"]})
-        # Polars "String" dtype lowercases to "string" which is in STRING_DTYPES
-        assert classify_dtype_for_alignment(df, "col") == "string"
-
-    def test_bool_type(self):
-        df = pl.DataFrame({"col": [True, False, True]})
-        assert classify_dtype_for_alignment(df, "col") == "other"
-
-    def test_date_type(self):
-        df = pl.DataFrame({"col": pl.Series(["2024-01-01", "2024-01-02"]).str.to_date()})
-        assert classify_dtype_for_alignment(df, "col") == "numeric"
-
-    def test_datetime_type(self):
-        df = pl.DataFrame({"col": pl.Series(["2024-01-01", "2024-01-02"]).str.to_datetime()})
-        assert classify_dtype_for_alignment(df, "col") == "numeric"
-
 
 class TestClassifyDtypePyArrow:
     """Test dtype classification for PyArrow."""
@@ -96,25 +132,6 @@ class TestClassifyDtypePyArrow:
         table = pa.table({"col": pa.array([1, 2, 3], type=pyarrow_type)})
         assert classify_dtype_for_alignment(table, "col") == expected
 
-    def test_string_type(self):
-        table = pa.table({"col": pa.array(["a", "b", "c"], type=pa.string())})
-        assert classify_dtype_for_alignment(table, "col") == "string"
-
-    def test_large_string_type(self):
-        table = pa.table({"col": pa.array(["a", "b", "c"], type=pa.large_string())})
-        # large_string doesn't match STRING_DTYPES exactly, gets "other"
-        assert classify_dtype_for_alignment(table, "col") == "other"
-
-    def test_bool_type(self):
-        table = pa.table({"col": pa.array([True, False, True], type=pa.bool_())})
-        assert classify_dtype_for_alignment(table, "col") == "other"
-
-    def test_date_type(self):
-        import datetime
-
-        table = pa.table({"col": pa.array([datetime.date(2024, 1, 1), datetime.date(2024, 1, 2)])})
-        assert classify_dtype_for_alignment(table, "col") == "numeric"
-
     def test_utf8_type(self):
         # utf8 is an alias for string in PyArrow
         table = pa.table({"col": pa.array(["a", "b", "c"], type=pa.utf8())})
@@ -124,45 +141,25 @@ class TestClassifyDtypePyArrow:
 class TestNumberLikeDetection:
     """Tests for is_number_like_column() function."""
 
-    def test_date_like_strings(self):
-        df = pd.DataFrame({"col": ["2024-01-15", "2024-02-20", "2024-03-25"]})
-        assert is_number_like_column(df, "col") is True
-
-    def test_time_like_strings(self):
-        df = pd.DataFrame({"col": ["10:30:00", "14:45:30", "23:59:59"]})
-        assert is_number_like_column(df, "col") is True
-
-    def test_mixed_text_not_number_like(self):
-        df = pd.DataFrame({"col": ["abc", "123", "def"]})
-        assert is_number_like_column(df, "col") is False
-
-    def test_pure_text_not_number_like(self):
-        df = pd.DataFrame({"col": ["hello", "world", "test"]})
-        assert is_number_like_column(df, "col") is False
-
-    def test_numeric_strings(self):
-        df = pd.DataFrame({"col": ["123", "456", "789"]})
-        assert is_number_like_column(df, "col") is True
-
-    def test_empty_strings(self):
-        # NOTE: Empty strings match the current pattern (^[0-9 -/:\\.]*$)
-        # This documents current behavior
-        df = pd.DataFrame({"col": ["", "", ""]})
-        assert is_number_like_column(df, "col") is True
-
-    def test_polars_number_like(self):
-        # Polars string columns work with number-like detection
-        df_str = pl.DataFrame({"col": ["2024-01-15", "2024-02-20"]})
-        assert is_number_like_column(df_str, "col") is True
-
-    def test_pyarrow_number_like(self):
-        # PyArrow string columns work with number-like detection
-        table = pa.table({"col": pa.array(["2024-01-15", "2024-02-20"])})
-        assert is_number_like_column(table, "col") is True
-
-    def test_pyarrow_not_number_like(self):
-        table = pa.table({"col": pa.array(["hello", "world"])})
-        assert is_number_like_column(table, "col") is False
+    @pytest.mark.parametrize(
+        ("values", "expected"),
+        [
+            pytest.param(["2024-01-15", "2024-02-20", "2024-03-25"], True, id="dates"),
+            pytest.param(["10:30:00", "14:45:30", "23:59:59"], True, id="times"),
+            pytest.param(["123", "456", "789"], True, id="numbers"),
+            pytest.param(["", "", ""], True, id="empty strings"),
+            pytest.param(["1.5", None], True, id="missing value"),
+            pytest.param(["12\n"], False, id="trailing newline"),
+            pytest.param(["abc", "123", "def"], False, id="mixed text"),
+            pytest.param(["hello", "world", "test"], False, id="text"),
+            pytest.param([True, None], False, id="no strings"),
+        ],
+    )
+    def test_number_like(
+        self, frame_constructor: DataFrameConstructor, values: list[Any], expected: bool
+    ):
+        df = frame_constructor({"col": values})
+        assert is_number_like_column(df, "col") is expected
 
 
 class TestAlignmentMap:
@@ -181,35 +178,63 @@ class TestAlignmentMap:
 class TestAutoAlignIntegration:
     """Integration tests verifying GT auto-alignment behavior."""
 
-    def test_pandas_auto_align(self):
-        df = pd.DataFrame({"num": [1, 2], "text": ["a", "b"]})
+    def test_auto_align(self, frame_constructor: DataFrameConstructor):
+        df = frame_constructor(
+            {"int": [1, 2], "float": [1.5, 2.5], "str": ["a", "b"], "bool": [True, False]}
+        )
         gt_tbl = gt.GT(df)
         aligns = [col.column_align for col in gt_tbl._boxhead._d]
-        assert aligns == ["right", "left"]  # int -> right, str -> left
+        assert aligns == ["right", "right", "left", "center"]
 
-    def test_polars_auto_align(self):
-        df = pl.DataFrame({"num": [1, 2], "text": ["a", "b"]})
-        gt_tbl = gt.GT(df)
-        aligns = [col.column_align for col in gt_tbl._boxhead._d]
-        assert aligns == ["right", "left"]  # int -> right, String -> left
-
-    def test_auto_align_disabled(self):
-        df = pd.DataFrame({"num": [1, 2], "text": ["a", "b"]})
+    def test_auto_align_disabled(self, frame_constructor: DataFrameConstructor):
+        df = frame_constructor({"num": [1, 2], "text": ["a", "b"]})
         gt_tbl = gt.GT(df, auto_align=False)
         aligns = [col.column_align for col in gt_tbl._boxhead._d]
         # When auto_align=False, columns keep default alignment (None)
         assert aligns == [None, None]
 
-    def test_pandas_date_strings_right_align(self):
-        # String columns with number-like content (dates) get right-aligned
-        df = pd.DataFrame({"dates": ["2024-01-15", "2024-02-20", "2024-03-25"]})
+    def test_number_like_strings_align(self, frame_constructor: DataFrameConstructor):
+        df = frame_constructor({"col": ["1.5", "2024-01-01"]})
+
+        if frame_constructor.__name__ == "pandas_constructor":
+            # The same strings make a `str` column on pandas 3 and an `object` one on pandas 2
+            assert str(df["col"].dtype) == ("str" if pandas_ge_v3 else "object")
+
         gt_tbl = gt.GT(df)
         aligns = [col.column_align for col in gt_tbl._boxhead._d]
-        assert aligns == ["right"]  # number-like strings -> right
+        assert aligns == ["right"]
 
-    def test_pandas_mixed_text_left_align(self):
+    @pytest.mark.parametrize(
+        "values", [pytest.param([None, None], id="all-null"), pytest.param([], id="zero-rows")]
+    )
+    @pytest.mark.parametrize(
+        "make_frame",
+        [
+            pytest.param(lambda v: pl.DataFrame({"s": v}, schema={"s": pl.String}), id="polars"),
+            pytest.param(lambda v: pa.table({"s": pa.array(v, type=pa.string())}), id="pyarrow"),
+            pytest.param(
+                lambda v: pd.DataFrame({"s": pd.array(v, dtype="string")}), id="pandas-nullable"
+            ),
+            pytest.param(
+                lambda v: pd.DataFrame({"s": pd.array(v, dtype=pd.ArrowDtype(pa.string()))}),
+                id="pandas-pyarrow",
+            ),
+            pytest.param(
+                lambda v: pd.DataFrame({"s": pd.Series(v, dtype="str")}),
+                id="pandas-str",
+                marks=pytest.mark.skipif(not pandas_ge_v3, reason="`str` is `object` on pandas 2"),
+            ),
+        ],
+    )
+    def test_string_column_without_values_left_aligned(
+        self, make_frame: Callable[[list[Any]], DataFrameLike], values: list[Any]
+    ):
+        aligns = [col.column_align for col in gt.GT(make_frame(values))._boxhead._d]
+        assert aligns == ["left"]
+
+    def test_mixed_text_left_align(self, frame_constructor: DataFrameConstructor):
         # String columns with non-number-like content get left-aligned
-        df = pd.DataFrame({"mixed": ["hello", "123", "world"]})
+        df = frame_constructor({"mixed": ["hello", "123", None]})
         gt_tbl = gt.GT(df)
         aligns = [col.column_align for col in gt_tbl._boxhead._d]
         assert aligns == ["left"]  # mixed text -> left
@@ -239,6 +264,34 @@ class TestAutoAlignIntegration:
         aligns = [col.column_align for col in gt_tbl._boxhead._d]
         assert aligns == ["right", "left"]
 
+    @pytest.mark.parametrize(
+        "arrow_str",
+        [
+            pytest.param("string", id="string"),
+            pytest.param("large_string", id="large_string"),
+            pytest.param(
+                "string_view",
+                id="string_view",
+                marks=pytest.mark.skipif(
+                    not hasattr(pa, "string_view"), reason="requires pyarrow>=16"
+                ),
+            ),
+        ],
+    )
+    def test_pyarrow_string_types_auto_align(self, arrow_str):
+        arrow_type = getattr(pa, arrow_str)()
+        table = pa.table(
+            {
+                "num": pa.array([1, 2], type=pa.int64()),
+                "text": pa.array(["a", "b"], type=arrow_type),
+                "number_like": pa.array(["1.5", None], type=arrow_type),
+            }
+        )
+        assert classify_dtype_for_alignment(table, "text") == "string"
+        gt_tbl = gt.GT(table)
+        aligns = [col.column_align for col in gt_tbl._boxhead._d]
+        assert aligns == ["right", "left", "right"]
+
     def test_pandas_pyarrow_string_matches_object(self):
         df = pd.DataFrame(
             {
@@ -254,33 +307,6 @@ class TestAutoAlignIntegration:
         result = [col.column_align for col in gt.GT(df_arrow)._boxhead._d]
         assert expected == ["left", "right", "right"]
         assert result == expected
-
-    def test_pandas_pyarrow_string_mixed_text_left_align(self):
-        df = pd.DataFrame(
-            {"mixed": pd.array(["hello", "123", None], dtype=pd.ArrowDtype(pa.string()))}
-        )
-        gt_tbl = gt.GT(df)
-        aligns = [col.column_align for col in gt_tbl._boxhead._d]
-        assert aligns == ["left"]
-
-    def test_pyarrow_auto_align(self):
-        table = pa.table({"num": [1, 2], "text": ["a", "b"]})
-        gt_tbl = gt.GT(table)
-        aligns = [col.column_align for col in gt_tbl._boxhead._d]
-        assert aligns == ["right", "left"]  # int64 -> right, string -> left
-
-    def test_pyarrow_mixed_types(self):
-        table = pa.table(
-            {
-                "int_col": pa.array([1, 2, 3], type=pa.int64()),
-                "float_col": pa.array([1.1, 2.2, 3.3], type=pa.float64()),
-                "str_col": pa.array(["a", "b", "c"], type=pa.string()),
-                "bool_col": pa.array([True, False, True], type=pa.bool_()),
-            }
-        )
-        gt_tbl = gt.GT(table)
-        aligns = [col.column_align for col in gt_tbl._boxhead._d]
-        assert aligns == ["right", "right", "left", "center"]
 
 
 class TestClassifyDtypeFallback:

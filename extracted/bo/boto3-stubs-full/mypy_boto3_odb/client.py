@@ -31,6 +31,7 @@ from .paginator import (
     ListAutonomousDatabaseCharacterSetsPaginator,
     ListAutonomousDatabaseClonesPaginator,
     ListAutonomousDatabasePeersPaginator,
+    ListAutonomousDatabaseRefreshableClonesPaginator,
     ListAutonomousDatabasesPaginator,
     ListAutonomousDatabaseVersionsPaginator,
     ListAutonomousVirtualMachinesPaginator,
@@ -128,6 +129,8 @@ from .type_defs import (
     ListAutonomousDatabaseClonesOutputTypeDef,
     ListAutonomousDatabasePeersInputTypeDef,
     ListAutonomousDatabasePeersOutputTypeDef,
+    ListAutonomousDatabaseRefreshableClonesInputTypeDef,
+    ListAutonomousDatabaseRefreshableClonesOutputTypeDef,
     ListAutonomousDatabasesInputTypeDef,
     ListAutonomousDatabasesOutputTypeDef,
     ListAutonomousDatabaseVersionsInputTypeDef,
@@ -174,6 +177,8 @@ from .type_defs import (
     ShrinkAutonomousDatabaseOutputTypeDef,
     StartAutonomousDatabaseInputTypeDef,
     StartAutonomousDatabaseOutputTypeDef,
+    StartAutonomousDatabaseRefreshInputTypeDef,
+    StartAutonomousDatabaseRefreshOutputTypeDef,
     StartDbNodeInputTypeDef,
     StartDbNodeOutputTypeDef,
     StopAutonomousDatabaseInputTypeDef,
@@ -722,6 +727,16 @@ class OdbClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/client/#list_autonomous_database_peers)
         """
 
+    def list_autonomous_database_refreshable_clones(
+        self, **kwargs: Unpack[ListAutonomousDatabaseRefreshableClonesInputTypeDef]
+    ) -> ListAutonomousDatabaseRefreshableClonesOutputTypeDef:
+        """
+        Lists the refreshable clones of the specified Autonomous Database.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/list_autonomous_database_refreshable_clones.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/client/#list_autonomous_database_refreshable_clones)
+        """
+
     def list_autonomous_database_versions(
         self, **kwargs: Unpack[ListAutonomousDatabaseVersionsInputTypeDef]
     ) -> ListAutonomousDatabaseVersionsOutputTypeDef:
@@ -964,6 +979,17 @@ class OdbClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/client/#start_autonomous_database)
         """
 
+    def start_autonomous_database_refresh(
+        self, **kwargs: Unpack[StartAutonomousDatabaseRefreshInputTypeDef]
+    ) -> StartAutonomousDatabaseRefreshOutputTypeDef:
+        """
+        Starts a refresh of the specified refreshable clone Autonomous Database with
+        data from its source database.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/start_autonomous_database_refresh.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/client/#start_autonomous_database_refresh)
+        """
+
     def start_db_node(self, **kwargs: Unpack[StartDbNodeInputTypeDef]) -> StartDbNodeOutputTypeDef:
         """
         Starts the specified DB node in a VM cluster.
@@ -1165,6 +1191,17 @@ class OdbClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_autonomous_database_peers"]
     ) -> ListAutonomousDatabasePeersPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_autonomous_database_refreshable_clones"]
+    ) -> ListAutonomousDatabaseRefreshableClonesPaginator:
         """
         Create a paginator for an operation.
 

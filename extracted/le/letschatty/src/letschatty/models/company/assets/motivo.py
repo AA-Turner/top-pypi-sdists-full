@@ -8,6 +8,7 @@ meterlos como motivos falsos arruina el eje sobre el que la empresa quiere repor
 que agregar un miembro a `AttributeType`, que es un StrEnum validado — un criterio guardado
 con un valor nuevo revienta al parsear en todo servicio parado en un pin viejo de letschatty.
 """
+import re
 from typing import Any, ClassVar, Optional
 
 from pydantic import Field, field_validator, model_validator
@@ -20,10 +21,29 @@ from .atencion.al_responder import AlResponder, Asignacion, ModoAsignacion
 from .atencion.seguimientos import Seguimientos
 from .account_scope import normalize_account_ids
 from .automation import Automation
+from .recepcion import Recepcion, RecepcionDelMotivo
 
 # `assets/__init__` hace `from .motivo import *`: sin esto reexportaría Accion, AlResponder,
 # Seguimientos, Automation… como si fueran de `letschatty.models.company.assets`.
 __all__ = ["Motivo", "MotivoPreview"]
+
+
+_ICONO_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+
+
+def normalizar_icono(value: Any) -> Optional[str]:
+    """`icono`: el nombre de un ícono de la librería del front (lucide: «shopping-cart»), NUNCA una URL.
+    Vacío o None = sin ícono. Lo que no tiene esa forma se rechaza al escribir."""
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError("icono tiene que ser el nombre de un ícono")
+    nombre = value.strip()
+    if not nombre:
+        return None
+    if len(nombre) > 40 or not _ICONO_RE.match(nombre):
+        raise ValueError("icono: sólo el nombre del ícono (minúsculas, números y guiones), sin URL")
+    return nombre
 
 
 class MotivoPreview(ChattyAssetPreview):
@@ -37,11 +57,17 @@ class MotivoPreview(ChattyAssetPreview):
     description: str = Field(default="")
     workflow_id: Optional[StrObjectId] = Field(default=None)
     account_ids: list[StrObjectId] = Field(default_factory=list)
+    icono: Optional[str] = Field(default=None)
 
     @field_validator("account_ids", mode="before")
     @classmethod
     def _normalize_account_ids(cls, value: Any) -> list[str]:
         return normalize_account_ids(value)
+
+    @field_validator("icono", mode="before")
+    @classmethod
+    def _normalize_icono(cls, value: Any) -> Optional[str]:
+        return normalizar_icono(value)
 
     @classmethod
     def get_projection(cls) -> dict[str, Any]:
@@ -53,6 +79,7 @@ class MotivoPreview(ChattyAssetPreview):
             "description": 1,
             "workflow_id": 1,
             "account_ids": 1,
+            "icono": 1,
         }
 
     @classmethod
@@ -71,6 +98,7 @@ class MotivoPreview(ChattyAssetPreview):
             description=asset.description,
             workflow_id=asset.workflow_id,
             account_ids=asset.account_ids,
+            icono=asset.icono,
         )
 
 
@@ -114,6 +142,10 @@ class Motivo(CompanyAssetModel):
         default=True, description="Si el clasificador lo puede elegir"
     )
     active: bool = Field(default=True)
+    icono: Optional[str] = Field(
+        default=None,
+        description="Nombre de un ícono de la librería del front (lucide, «shopping-cart»). Nunca una URL. None = sin ícono.",
+    )
 
     # --- Flujo de atención configurable (spec 2026-09-29) ---------------------------------
     # None en un bloque = «como en Consulta general». En Consulta general (is_fallback) lo que
@@ -129,6 +161,13 @@ class Motivo(CompanyAssetModel):
     # 0.6.57.6 — Opcional en todos lados: la bienvenida puede ser todo el mensaje. En Consulta general, None = no se
     # envía nada después de la bienvenida (la efectiva es «nada»); en un motivo, None = como en Consulta general y
     # `{tipo: "nada"}` = no envía aunque Consulta general envíe.
+    # 0.6.57.8 — Recepción propia del motivo (horario + bienvenida + aviso de cerrado). None = el bloque entero de la
+    # general. Con la recepción propia de algún motivo candidato, api-chatty primero identifica el motivo y DESPUÉS
+    # manda la recepción que corresponde (también por WhatsApp directo). `bienvenida_fast_answer_id` queda como
+    # alias de lectura de su bienvenida (lo usan los MCPs); sin `recepcion`, conserva su regla de siempre.
+    recepcion: Optional[RecepcionDelMotivo] = Field(
+        default=None, description="Recepción propia del motivo. None = como en la general",
+    )
     respuesta: Optional[Accion] = Field(
         default=None,
         description="¿Qué les enviamos? Opcional. En Consulta general, sin respuesta no se envía nada después de la bienvenida.",
@@ -171,6 +210,11 @@ class Motivo(CompanyAssetModel):
     def _normalize_account_ids(cls, value: Any) -> list[str]:
         return normalize_account_ids(value)
 
+    @field_validator("icono", mode="before")
+    @classmethod
+    def _normalize_icono(cls, value: Any) -> Optional[str]:
+        return normalizar_icono(value)
+
     @model_validator(mode="after")
     def validate_motivo(self) -> "Motivo":
         if self.ai_assignable and not self.description.strip():
@@ -188,6 +232,10 @@ class Motivo(CompanyAssetModel):
                       or getattr(getattr(self.seguimientos, "si_responde", None), "identificar_motivo", False))
         if identifica and not self.is_fallback:
             raise ValueError("«Identificar el motivo y pasarlo» es sólo de Consulta general")
+        if self.recepcion is not None:
+            if self.is_fallback:
+                raise ValueError("Consulta general usa la recepción general")
+            self.bienvenida_fast_answer_id = self.recepcion.bienvenida_fast_answer_id
         if self.is_fallback:
             self.borrador = False
         if self.borrador:
@@ -199,6 +247,15 @@ class Motivo(CompanyAssetModel):
                     "Consulta general no tiene bienvenida propia: su bienvenida es la general"
                 )
         return self
+
+    def tiene_recepcion_propia(self) -> bool:
+        return self.recepcion is not None
+
+    def recepcion_efectiva(self, general: Optional[Recepcion]) -> Optional[Recepcion]:
+        """La recepción con la que corre un chat de este motivo: la propia sobre la general, o la general."""
+        if self.recepcion is None or general is None:
+            return general
+        return self.recepcion.efectiva(general)
 
     def identifica_el_motivo(self) -> bool:
         """0.6.57.7 — ¿Consulta general tiene «Identificar el motivo y pasarlo» en «Si responde» (de su respuesta)?

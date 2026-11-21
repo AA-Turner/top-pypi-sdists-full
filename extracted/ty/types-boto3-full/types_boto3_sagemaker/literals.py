@@ -78,7 +78,13 @@ __all__ = (
     "CandidateSortByType",
     "CandidateStatusType",
     "CandidateStepTypeType",
+    "CapacityReservationEndpointSharingType",
+    "CapacityReservationFilterNameType",
+    "CapacityReservationMatchCriteriaType",
+    "CapacityReservationOptInStatusType",
     "CapacityReservationPreferenceType",
+    "CapacityReservationResourceTypeType",
+    "CapacityReservationStatusType",
     "CapacityReservationTypeType",
     "CapacitySizeTypeType",
     "CaptureModeType",
@@ -127,6 +133,7 @@ __all__ = (
     "DataSourceNameType",
     "DatabaseConfigurationRollbackStatusType",
     "DeepHealthCheckTypeType",
+    "DescribeResourceAssociationsPaginatorName",
     "DescribeTrainingPlanExtensionHistoryPaginatorName",
     "DetailedAlgorithmStatusType",
     "DetailedModelPackageStatusType",
@@ -165,6 +172,11 @@ __all__ = (
     "FlowDefinitionStatusType",
     "ForEachStatusType",
     "FrameworkType",
+    "GetCapacityReservationUsagePaginatorName",
+    "GlobalInferenceGatewayFilterNameType",
+    "GlobalInferenceGatewayMemberFilterNameType",
+    "GlobalInferenceGatewayMemberStatusType",
+    "GlobalInferenceGatewayStatusType",
     "HomeEfsFileSystemCreationType",
     "HubContentSortByType",
     "HubContentStatusType",
@@ -232,6 +244,7 @@ __all__ = (
     "ListAssociationsPaginatorName",
     "ListAutoMLJobsPaginatorName",
     "ListCandidatesForAutoMLJobPaginatorName",
+    "ListCapacityReservationsPaginatorName",
     "ListClusterEventsPaginatorName",
     "ListClusterExtensionVersionsPaginatorName",
     "ListClusterExtensionsPaginatorName",
@@ -258,12 +271,14 @@ __all__ = (
     "ListExperimentsPaginatorName",
     "ListFeatureGroupsPaginatorName",
     "ListFlowDefinitionsPaginatorName",
+    "ListGlobalInferenceGatewaysPaginatorName",
     "ListHumanTaskUisPaginatorName",
     "ListHyperParameterTuningJobsPaginatorName",
     "ListImageVersionsPaginatorName",
     "ListImagesPaginatorName",
     "ListInferenceComponentsPaginatorName",
     "ListInferenceExperimentsPaginatorName",
+    "ListInferenceGatewaysPaginatorName",
     "ListInferenceRecommendationsJobStepsPaginatorName",
     "ListInferenceRecommendationsJobsPaginatorName",
     "ListInferenceRecommendationsJobsSortByType",
@@ -361,6 +376,7 @@ __all__ = (
     "MonitoringProblemTypeType",
     "MonitoringScheduleSortKeyType",
     "MonitoringTypeType",
+    "MoveClusterNodesErrorCodeType",
     "NodeUnavailabilityTypeType",
     "NotebookInstanceAcceleratorTypeType",
     "NotebookInstanceDeletedWaiterName",
@@ -914,7 +930,13 @@ CandidateStatusType = Literal["Completed", "Failed", "InProgress", "Stopped", "S
 CandidateStepTypeType = Literal[
     "AWS::SageMaker::ProcessingJob", "AWS::SageMaker::TrainingJob", "AWS::SageMaker::TransformJob"
 ]
+CapacityReservationEndpointSharingType = Literal["MultipleEndpoints", "SingleEndpoint"]
+CapacityReservationFilterNameType = Literal["Status"]
+CapacityReservationMatchCriteriaType = Literal["Open", "Targeted"]
+CapacityReservationOptInStatusType = Literal["Active", "Inactive", "Pending"]
 CapacityReservationPreferenceType = Literal["capacity-reservations-only"]
+CapacityReservationResourceTypeType = Literal["Endpoints", "HyperPodClusters"]
+CapacityReservationStatusType = Literal["Active", "Expired", "Scheduled"]
 CapacityReservationTypeType = Literal["CRG", "ODCR"]
 CapacitySizeTypeType = Literal["CAPACITY_PERCENT", "INSTANCE_COUNT"]
 CaptureModeType = Literal["Input", "InputAndOutput", "Output"]
@@ -996,7 +1018,9 @@ ClusterImageVersionStatusType = Literal[
     "EndOfLife", "SecurityUpdateRequired", "UpToDate", "UpdateAvailable"
 ]
 ClusterInstanceStatusType = Literal[
+    "AttachInProgress",
     "DeepHealthCheckInProgress",
+    "DetachInProgress",
     "Failure",
     "NotFound",
     "Pending",
@@ -1250,6 +1274,7 @@ DatabaseConfigurationRollbackStatusType = Literal["NotApplicable", "RevertFailed
 DeepHealthCheckTypeType = Literal[
     "InstanceConnectivity", "InstanceStress", "MultiNodeTrainingValidation"
 ]
+DescribeResourceAssociationsPaginatorName = Literal["describe_resource_associations"]
 DescribeTrainingPlanExtensionHistoryPaginatorName = Literal[
     "describe_training_plan_extension_history"
 ]
@@ -1337,6 +1362,11 @@ ForEachStatusType = Literal["Failed", "Stopped", "Succeeded"]
 FrameworkType = Literal[
     "DARKNET", "KERAS", "MXNET", "ONNX", "PYTORCH", "SKLEARN", "TENSORFLOW", "TFLITE", "XGBOOST"
 ]
+GetCapacityReservationUsagePaginatorName = Literal["get_capacity_reservation_usage"]
+GlobalInferenceGatewayFilterNameType = Literal["Status"]
+GlobalInferenceGatewayMemberFilterNameType = Literal["ClusterArn", "Status"]
+GlobalInferenceGatewayMemberStatusType = Literal["ACTIVE", "ADDING", "FAILED", "REMOVING"]
+GlobalInferenceGatewayStatusType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED", "UPDATING"]
 HomeEfsFileSystemCreationType = Literal["Disabled", "Enabled"]
 HubContentSortByType = Literal["CreationTime", "HubContentName", "HubContentStatus"]
 HubContentStatusType = Literal[
@@ -1648,6 +1678,7 @@ ListArtifactsPaginatorName = Literal["list_artifacts"]
 ListAssociationsPaginatorName = Literal["list_associations"]
 ListAutoMLJobsPaginatorName = Literal["list_auto_ml_jobs"]
 ListCandidatesForAutoMLJobPaginatorName = Literal["list_candidates_for_auto_ml_job"]
+ListCapacityReservationsPaginatorName = Literal["list_capacity_reservations"]
 ListClusterEventsPaginatorName = Literal["list_cluster_events"]
 ListClusterExtensionVersionsPaginatorName = Literal["list_cluster_extension_versions"]
 ListClusterExtensionsPaginatorName = Literal["list_cluster_extensions"]
@@ -1678,12 +1709,14 @@ ListEndpointsPaginatorName = Literal["list_endpoints"]
 ListExperimentsPaginatorName = Literal["list_experiments"]
 ListFeatureGroupsPaginatorName = Literal["list_feature_groups"]
 ListFlowDefinitionsPaginatorName = Literal["list_flow_definitions"]
+ListGlobalInferenceGatewaysPaginatorName = Literal["list_global_inference_gateways"]
 ListHumanTaskUisPaginatorName = Literal["list_human_task_uis"]
 ListHyperParameterTuningJobsPaginatorName = Literal["list_hyper_parameter_tuning_jobs"]
 ListImageVersionsPaginatorName = Literal["list_image_versions"]
 ListImagesPaginatorName = Literal["list_images"]
 ListInferenceComponentsPaginatorName = Literal["list_inference_components"]
 ListInferenceExperimentsPaginatorName = Literal["list_inference_experiments"]
+ListInferenceGatewaysPaginatorName = Literal["list_inference_gateways"]
 ListInferenceRecommendationsJobStepsPaginatorName = Literal[
     "list_inference_recommendations_job_steps"
 ]
@@ -1863,6 +1896,9 @@ MonitoringProblemTypeType = Literal[
 ]
 MonitoringScheduleSortKeyType = Literal["CreationTime", "Name", "Status"]
 MonitoringTypeType = Literal["DataQuality", "ModelBias", "ModelExplainability", "ModelQuality"]
+MoveClusterNodesErrorCodeType = Literal[
+    "InvalidNodeStatus", "NodeIdInUse", "NodeIdNotFound", "NodeInstanceTypeMismatch"
+]
 NodeUnavailabilityTypeType = Literal["CAPACITY_PERCENTAGE", "INSTANCE_COUNT"]
 NotebookInstanceAcceleratorTypeType = Literal[
     "ml.eia1.large",
@@ -2618,7 +2654,13 @@ SlurmHealthComponentType = Literal["Slurmdbd"]
 SlurmHealthReasonType = Literal["DaemonDisabled", "DaemonDown", "DbUnreachable"]
 SlurmHealthStatusType = Literal["Healthy", "Unhealthy"]
 SoftwareUpdateStatusType = Literal[
-    "Failed", "InProgress", "Pending", "RollbackComplete", "RollbackInProgress", "Succeeded"
+    "Failed",
+    "InProgress",
+    "PartiallySucceeded",
+    "Pending",
+    "RollbackComplete",
+    "RollbackInProgress",
+    "Succeeded",
 ]
 SortActionsByType = Literal["CreationTime", "Name"]
 SortArtifactsByType = Literal["CreationTime"]
@@ -3130,6 +3172,7 @@ ServiceName = Literal[
     "account-access-runtime",
     "acm",
     "acm-pca",
+    "agent-discovery",
     "agent-registry",
     "agent-registry-control",
     "aiops",
@@ -3140,6 +3183,7 @@ ServiceName = Literal[
     "apigateway",
     "apigatewaymanagementapi",
     "apigatewayv2",
+    "apiportal",
     "appconfig",
     "appconfigdata",
     "appfabric",
@@ -3430,6 +3474,7 @@ ServiceName = Literal[
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
+    "payments",
     "pca-connector-ad",
     "pca-connector-scep",
     "pcs",
@@ -3485,6 +3530,7 @@ ServiceName = Literal[
     "sagemaker-a2i-runtime",
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
+    "sagemaker-gateway-runtime",
     "sagemaker-geospatial",
     "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
@@ -3569,7 +3615,9 @@ ResourceServiceName = Literal[
 ]
 PaginatorName = Literal[
     "create_hub_content_presigned_urls",
+    "describe_resource_associations",
     "describe_training_plan_extension_history",
+    "get_capacity_reservation_usage",
     "list_actions",
     "list_ai_benchmark_jobs",
     "list_ai_recommendation_jobs",
@@ -3582,6 +3630,7 @@ PaginatorName = Literal[
     "list_associations",
     "list_auto_ml_jobs",
     "list_candidates_for_auto_ml_job",
+    "list_capacity_reservations",
     "list_cluster_events",
     "list_cluster_extension_versions",
     "list_cluster_extensions",
@@ -3604,12 +3653,14 @@ PaginatorName = Literal[
     "list_experiments",
     "list_feature_groups",
     "list_flow_definitions",
+    "list_global_inference_gateways",
     "list_human_task_uis",
     "list_hyper_parameter_tuning_jobs",
     "list_image_versions",
     "list_images",
     "list_inference_components",
     "list_inference_experiments",
+    "list_inference_gateways",
     "list_inference_recommendations_job_steps",
     "list_inference_recommendations_jobs",
     "list_inference_routers",

@@ -40,6 +40,7 @@ from .literals import (
     AutomationTypeType,
     CalendarStateType,
     CloudConnectorFilterKeyType,
+    CloudProviderType,
     CommandFilterKeyType,
     CommandInvocationStatusType,
     CommandPluginStatusType,
@@ -1269,6 +1270,7 @@ class DocumentVersionInfoTypeDef(TypedDict):
     Status: NotRequired[DocumentStatusType]
     StatusInformation: NotRequired[str]
     ReviewStatus: NotRequired[ReviewStatusType]
+    CloudProviders: NotRequired[list[CloudProviderType]]
 
 class PatchStatusTypeDef(TypedDict):
     DeploymentStatus: NotRequired[PatchDeploymentStatusType]
@@ -2179,6 +2181,7 @@ class UpdateDocumentRequestTypeDef(TypedDict):
     DocumentVersion: NotRequired[str]
     DocumentFormat: NotRequired[DocumentFormatType]
     TargetType: NotRequired[str]
+    CloudProviders: NotRequired[Sequence[CloudProviderType]]
 
 class DescribeAutomationExecutionsRequestTypeDef(TypedDict):
     Filters: NotRequired[Sequence[AutomationExecutionFilterTypeDef]]
@@ -2334,6 +2337,7 @@ class CreateDocumentRequestTypeDef(TypedDict):
     DocumentFormat: NotRequired[DocumentFormatType]
     TargetType: NotRequired[str]
     Tags: NotRequired[Sequence[TagTypeDef]]
+    CloudProviders: NotRequired[Sequence[CloudProviderType]]
 
 class DocumentIdentifierTypeDef(TypedDict):
     Name: NotRequired[str]
@@ -2351,6 +2355,7 @@ class DocumentIdentifierTypeDef(TypedDict):
     Requires: NotRequired[list[DocumentRequiresTypeDef]]
     ReviewStatus: NotRequired[ReviewStatusType]
     Author: NotRequired[str]
+    CloudProviders: NotRequired[list[CloudProviderType]]
 
 class GetDocumentResultTypeDef(TypedDict):
     Name: str
@@ -2878,6 +2883,7 @@ class DocumentDescriptionTypeDef(TypedDict):
     ReviewStatus: NotRequired[ReviewStatusType]
     Category: NotRequired[list[str]]
     CategoryEnum: NotRequired[list[str]]
+    CloudProviders: NotRequired[list[CloudProviderType]]
 
 class ListDocumentsRequestPaginateTypeDef(TypedDict):
     DocumentFilterList: NotRequired[Sequence[DocumentFilterTypeDef]]

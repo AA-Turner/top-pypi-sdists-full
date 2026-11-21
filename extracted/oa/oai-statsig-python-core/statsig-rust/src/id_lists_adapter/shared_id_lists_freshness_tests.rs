@@ -160,6 +160,7 @@ async fn cold_partial_catalog_times_out_from_its_first_publication_and_resumes_i
                 lease,
                 &fixture.initial,
                 &HashMap::new(),
+                &HashMap::new(),
                 Some(Default::default()),
                 || 1,
             )
@@ -168,6 +169,7 @@ async fn cold_partial_catalog_times_out_from_its_first_publication_and_resumes_i
             .publish_with_clock(
                 lease,
                 &fixture.initial,
+                &HashMap::new(),
                 &HashMap::new(),
                 Some(first.status),
                 now_ms,
@@ -211,16 +213,23 @@ async fn publication_clock_is_sampled_after_files_are_ready() {
     let next = fixture.updated();
     let catalog = fixture
         .store
-        .publish_with_clock(&fixture.lease, &next, &HashMap::new(), None, || {
-            let images = std::fs::read_dir(fixture.store.directory())
-                .unwrap()
-                .filter_map(Result::ok)
-                .filter(|entry| entry.path().extension().is_some_and(|value| value == "ids"))
-                .count();
-            // Both committed old image and newly prepared image exist at this point.
-            assert_eq!(images, 2);
-            123_456
-        })
+        .publish_with_clock(
+            &fixture.lease,
+            &next,
+            &HashMap::new(),
+            &HashMap::new(),
+            None,
+            || {
+                let images = std::fs::read_dir(fixture.store.directory())
+                    .unwrap()
+                    .filter_map(Result::ok)
+                    .filter(|entry| entry.path().extension().is_some_and(|value| value == "ids"))
+                    .count();
+                // Both committed old image and newly prepared image exist at this point.
+                assert_eq!(images, 2);
+                123_456
+            },
+        )
         .unwrap();
     assert_eq!(catalog.status.successful_refresh_ms, 123_456);
     assert_eq!(
@@ -262,11 +271,18 @@ async fn publication_still_in_flight_past_budget_does_not_get_unbounded_grace() 
     let (release, resumed) = mpsc::channel();
     let publisher = std::thread::spawn(move || {
         store
-            .publish_with_clock(&lease, &next, &HashMap::new(), None, || {
-                entered.send(()).unwrap();
-                resumed.recv_timeout(Duration::from_secs(10)).unwrap();
-                now_ms()
-            })
+            .publish_with_clock(
+                &lease,
+                &next,
+                &HashMap::new(),
+                &HashMap::new(),
+                None,
+                || {
+                    entered.send(()).unwrap();
+                    resumed.recv_timeout(Duration::from_secs(10)).unwrap();
+                    now_ms()
+                },
+            )
             .unwrap()
     });
     observed.recv_timeout(Duration::from_secs(2)).unwrap();
@@ -313,5 +329,84 @@ async fn fast_polling_keeps_sharing_through_a_short_refresh_failure() {
     fixture.adapter.poll_for_test().await.unwrap();
     assert_eq!(fixture.adapter.role_for_test().await, "follower");
     assert!(fixture.view.0.lock()["members"].ids.contains("bbbbbbbb"));
+    fixture.adapter.force_shutdown();
+}
+
+#[tokio::test]
+#[serial]
+async fn non_observing_successor_drops_proof_only_when_it_publishes() {
+    let mut fixture = Fixture::unstarted(false).await;
+    let previous_revisions = HashMap::from([(
+        "members".to_owned(),
+        fixture.initial["members"]
+            .metadata
+            .file_version()
+            .membership_revision()
+            .unwrap(),
+    )]);
+    let previous = fixture
+        .store
+        .publish_with_clock(
+            &fixture.lease,
+            &fixture.initial,
+            &HashMap::new(),
+            &previous_revisions,
+            None,
+            now_ms,
+        )
+        .unwrap();
+    let failed_body = fixture
+        .server
+        .mock("GET", "/members")
+        .with_status(401)
+        .expect(1)
+        .create();
+    let changed = fixture.updated();
+    let manifest = fixture
+        .server
+        .mock("POST", "/lists")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(serde_json::json!({"members":changed["members"].metadata}).to_string())
+        .expect(2)
+        .create();
+    drop(fixture.lease);
+    let runtime = StatsigRuntime::get_runtime();
+    assert!(
+        fixture
+            .adapter
+            .clone()
+            .start(&runtime, fixture.view.clone())
+            .await
+            .is_err()
+    );
+    assert_eq!(fixture.adapter.role_for_test().await, "leader");
+    let retained = fixture.store.load().unwrap().unwrap();
+    assert_eq!(retained.generation, previous.generation);
+    assert_eq!(retained.observed_membership_revisions, previous_revisions);
+
+    failed_body.assert();
+    failed_body.remove();
+    let body = fixture
+        .server
+        .mock("GET", "/members")
+        .match_header("range", "bytes=10-")
+        .with_status(206)
+        .with_header("content-range", "bytes 10-19/20")
+        .with_body("+bbbbbbbb\n")
+        .expect(1)
+        .create();
+    fixture
+        .adapter
+        .clone()
+        .start(&runtime, fixture.view.clone())
+        .await
+        .unwrap();
+    let committed = fixture.store.load().unwrap().unwrap();
+    assert_ne!(committed.generation, previous.generation);
+    assert!(committed.observed_membership_revisions.is_empty());
+    assert!(fixture.view.0.lock()["members"].ids.contains("bbbbbbbb"));
+    manifest.assert();
+    body.assert();
     fixture.adapter.force_shutdown();
 }

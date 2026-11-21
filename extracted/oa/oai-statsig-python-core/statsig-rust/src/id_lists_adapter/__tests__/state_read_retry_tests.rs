@@ -93,9 +93,7 @@ async fn files_count_once_per_refresh_and_manifest_success_does_not_reset_them()
         },
     );
     let network_provider: Arc<dyn NetworkProvider> = provider.clone();
-    adapter
-        .network
-        .set_network_provider_for_test(Arc::downgrade(&network_provider));
+    adapter.set_network_provider_for_test(Arc::downgrade(&network_provider));
     adapter.set_listener(listener.clone());
     for refresh in 1..=10 {
         provider.calls.lock().clear();
@@ -162,18 +160,14 @@ async fn manifest_has_its_own_cadence_and_terminal_statuses_never_fallback() {
             ..Default::default()
         },
     );
-    adapter.fallback_url = Some("https://cdn.test/manifest".into());
+    adapter.transport.fallback_url = Some("https://cdn.test/manifest".into());
     let network_provider: Arc<dyn NetworkProvider> = provider.clone();
-    adapter
-        .network
-        .set_network_provider_for_test(Arc::downgrade(&network_provider));
+    adapter.set_network_provider_for_test(Arc::downgrade(&network_provider));
+    adapter.set_listener(Arc::new(Listener::default()));
     for n in 1..=10 {
         provider.calls.lock().clear();
         assert_eq!(
-            adapter
-                .fetch_id_list_manifests_from_network(true)
-                .await
-                .is_ok(),
+            adapter.refresh(RefreshTrigger::Background).await.is_ok(),
             n % 5 == 0
         );
         assert_eq!(provider.calls.lock().len(), if n % 5 == 0 { 3 } else { 2 });
@@ -183,7 +177,7 @@ async fn manifest_has_its_own_cadence_and_terminal_statuses_never_fallback() {
         provider.calls.lock().clear();
         assert!(
             adapter
-                .fetch_id_list_manifests_from_network(false)
+                .refresh(RefreshTrigger::PrivateInitialize)
                 .await
                 .is_err()
         );
@@ -219,9 +213,7 @@ async fn configured_primary_budget_controls_manifests_and_each_file() {
             },
         );
         let network_provider: Arc<dyn NetworkProvider> = provider.clone();
-        adapter
-            .network
-            .set_network_provider_for_test(Arc::downgrade(&network_provider));
+        adapter.set_network_provider_for_test(Arc::downgrade(&network_provider));
         adapter.set_listener(Arc::new(Listener::default()));
         let mut events = adapter.ops_stats.subscribe_for_test();
         assert!(

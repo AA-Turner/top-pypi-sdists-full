@@ -1698,6 +1698,326 @@ class CfnPreparedStatementProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_athena_e10947a6.ISystemTablesRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnSystemTables(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_athena.CfnSystemTables",
+):
+    '''Resource schema for AWS::Athena::SystemTables.
+
+    Manages the account-level System Tables configuration. System Tables is a single account-wide switch: the reserved name ALL turns all system tables on; the existence of the configuration is the switch.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-athena-systemtables.html
+    :cloudformationResource: AWS::Athena::SystemTables
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_athena as athena
+        
+        cfn_system_tables = athena.CfnSystemTables(self, "MyCfnSystemTables",
+            table_name="tableName",
+        
+            # the properties below are optional
+            kms_key_arn="kmsKeyArn",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        table_name: builtins.str,
+        kms_key_arn: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Athena::SystemTables``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param table_name: The reserved keyword identifying the account-level System Tables configuration. The only accepted value is ALL, which enables all system tables for the account. This is the resource's primary identifier.
+        :param kms_key_arn: The ARN of the customer managed AWS KMS key used to encrypt the system table data. Specify a key ARN (not an alias); the key must be in the same account and Region. The encryption choice is permanent for the account and Region: it cannot be changed or removed after creation, and it persists after this resource is deleted.
+        :param tags: 
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__36e1944b48213c8e323d2f8133aab67abd7a7ecf275a7cb194405cb2b3793509)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnSystemTablesProps(
+            table_name=table_name, kms_key_arn=kms_key_arn, tags=tags
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForSystemTables")
+    @builtins.classmethod
+    def arn_for_system_tables(
+        cls,
+        resource: "_aws_athena_e10947a6.ISystemTablesRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__171ce575b7f81dd73ea845a2bca97ff74a7275a959c2ea54a04ed5d4103ed91d)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSystemTables", [resource]))
+
+    @jsii.member(jsii_name="fromTableName")
+    @builtins.classmethod
+    def from_table_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        table_name: builtins.str,
+    ) -> "_aws_athena_e10947a6.ISystemTablesRef":
+        '''Creates a new ISystemTablesRef from a tableName.
+
+        :param scope: -
+        :param id: -
+        :param table_name: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9f0db8f980ea9fd6469315e4efe27feda9de2f92c71c5d6d57d8326acd77fbea)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
+        return typing.cast("_aws_athena_e10947a6.ISystemTablesRef", jsii.sinvoke(cls, "fromTableName", [scope, id, table_name]))
+
+    @jsii.member(jsii_name="isCfnSystemTables")
+    @builtins.classmethod
+    def is_cfn_system_tables(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnSystemTables.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__51445817f6a8fd7e5a93a12f69966ee7d13a04499f1268959ec715387b81e350)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSystemTables", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__55183e4bb522319a82be85d950194e035c5bdc2d2edf01feff7994a9e7c55db2)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b67aa959e8b8b94a7d4107758e6587cc30543a107049fe8c29240bd516b02923)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The time the configuration was created, set by the service.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastModifiedAt")
+    def attr_last_modified_at(self) -> builtins.str:
+        '''The time the configuration was last modified, set by the service.
+
+        :cloudformationAttribute: LastModifiedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="systemTablesRef")
+    def system_tables_ref(self) -> "_aws_athena_e10947a6.SystemTablesReference":
+        '''A reference to a SystemTables resource.'''
+        return typing.cast("_aws_athena_e10947a6.SystemTablesReference", jsii.get(self, "systemTablesRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tableName")
+    def table_name(self) -> builtins.str:
+        '''The reserved keyword identifying the account-level System Tables configuration.'''
+        return typing.cast(builtins.str, jsii.get(self, "tableName"))
+
+    @table_name.setter
+    def table_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c87f1baada026cf28ce2cb58bca2b0019127666a5d058849980f3d9e9622fc6a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tableName", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKeyArn")
+    def kms_key_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the customer managed AWS KMS key used to encrypt the system table data.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyArn"))
+
+    @kms_key_arn.setter
+    def kms_key_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2cf70eb57130897179ca0152229c33d0fe8a7e26c1390397593fb93f15765787)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "kmsKeyArn", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e22d710586b86cb69134a51df63416c2f2f0c5ba0090fc0bf9057f8e78d4f4b9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value)
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_athena.CfnSystemTablesProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "table_name": "tableName",
+        "kms_key_arn": "kmsKeyArn",
+        "tags": "tags",
+    },
+)
+class CfnSystemTablesProps:
+    def __init__(
+        self,
+        *,
+        table_name: builtins.str,
+        kms_key_arn: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSystemTables``.
+
+        :param table_name: The reserved keyword identifying the account-level System Tables configuration. The only accepted value is ALL, which enables all system tables for the account. This is the resource's primary identifier.
+        :param kms_key_arn: The ARN of the customer managed AWS KMS key used to encrypt the system table data. Specify a key ARN (not an alias); the key must be in the same account and Region. The encryption choice is permanent for the account and Region: it cannot be changed or removed after creation, and it persists after this resource is deleted.
+        :param tags: 
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-athena-systemtables.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_athena as athena
+            
+            cfn_system_tables_props = athena.CfnSystemTablesProps(
+                table_name="tableName",
+            
+                # the properties below are optional
+                kms_key_arn="kmsKeyArn",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6fb54fb23123fc16ec41dfcc663248468cb18abea485981a341f41b76f6d59b3)
+            check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
+            check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "table_name": table_name,
+        }
+        if kms_key_arn is not None:
+            self._values["kms_key_arn"] = kms_key_arn
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def table_name(self) -> builtins.str:
+        '''The reserved keyword identifying the account-level System Tables configuration.
+
+        The only accepted value is ALL, which enables all system tables for the account. This is the resource's primary identifier.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-athena-systemtables.html#cfn-athena-systemtables-tablename
+        '''
+        result = self._values.get("table_name")
+        assert result is not None, "Required property 'table_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def kms_key_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the customer managed AWS KMS key used to encrypt the system table data.
+
+        Specify a key ARN (not an alias); the key must be in the same account and Region. The encryption choice is permanent for the account and Region: it cannot be changed or removed after creation, and it persists after this resource is deleted.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-athena-systemtables.html#cfn-athena-systemtables-kmskeyarn
+        '''
+        result = self._values.get("kms_key_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-athena-systemtables.html#cfn-athena-systemtables-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSystemTablesProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_athena_e10947a6.IWorkGroupRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnWorkGroup(
     _aws_cdk_0cae9daa.CfnResource,
@@ -4524,6 +4844,8 @@ __all__ = [
     "CfnNamedQueryProps",
     "CfnPreparedStatement",
     "CfnPreparedStatementProps",
+    "CfnSystemTables",
+    "CfnSystemTablesProps",
     "CfnWorkGroup",
     "CfnWorkGroupProps",
 ]
@@ -4856,6 +5178,76 @@ def _typecheckingstub__709f141308344c291dfca2deddc79eabfe04118b21e11aa37c781298b
     statement_name: builtins.str,
     work_group: typing.Union[builtins.str, _aws_athena_e10947a6.IWorkGroupRef],
     description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__36e1944b48213c8e323d2f8133aab67abd7a7ecf275a7cb194405cb2b3793509(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    table_name: builtins.str,
+    kms_key_arn: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__171ce575b7f81dd73ea845a2bca97ff74a7275a959c2ea54a04ed5d4103ed91d(
+    resource: _aws_athena_e10947a6.ISystemTablesRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9f0db8f980ea9fd6469315e4efe27feda9de2f92c71c5d6d57d8326acd77fbea(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    table_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__51445817f6a8fd7e5a93a12f69966ee7d13a04499f1268959ec715387b81e350(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__55183e4bb522319a82be85d950194e035c5bdc2d2edf01feff7994a9e7c55db2(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b67aa959e8b8b94a7d4107758e6587cc30543a107049fe8c29240bd516b02923(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c87f1baada026cf28ce2cb58bca2b0019127666a5d058849980f3d9e9622fc6a(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2cf70eb57130897179ca0152229c33d0fe8a7e26c1390397593fb93f15765787(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e22d710586b86cb69134a51df63416c2f2f0c5ba0090fc0bf9057f8e78d4f4b9(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6fb54fb23123fc16ec41dfcc663248468cb18abea485981a341f41b76f6d59b3(
+    *,
+    table_name: builtins.str,
+    kms_key_arn: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

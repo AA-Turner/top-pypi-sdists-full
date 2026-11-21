@@ -177,6 +177,23 @@ endfunction
     CHECK(diags[21].code == diag::QualifiersOnOutOfBlock);
 }
 
+TEST_CASE("Invalid rand qualifiers on methods don't crash") {
+    auto tree = SyntaxTree::fromText(R"(
+class C;
+    randc task t(); endtask
+    rand function void f(); endfunction
+endclass
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 2);
+    CHECK(diags[0].code == diag::InvalidMethodQualifier);
+    CHECK(diags[1].code == diag::InvalidMethodQualifier);
+}
+
 TEST_CASE("Class typedefs") {
     auto tree = SyntaxTree::fromText(R"(
 typedef class C;
@@ -626,6 +643,38 @@ endtask
     CHECK(diags[12].code == diag::NotAClass);
     CHECK(diags[13].code == diag::NoDeclInClass);
     CHECK(diags[14].code == diag::MethodArgDirectionMismatch);
+}
+
+TEST_CASE("Out-of-block default values that need conversion to the argument type") {
+    auto tree = SyntaxTree::fromText(R"(
+class C;
+    int x;
+    extern function void f1(byte bar = 1);
+    extern function void f2(int bar = $bits(x));
+    extern function void f3(real bar = 1);
+    extern function void f4(byte bar = 1);
+endclass
+
+function void C::f1(byte bar = 2);
+endfunction
+
+function void C::f2(int bar = 32);
+endfunction
+
+function void C::f3(real bar = 1);
+endfunction
+
+function void C::f4(byte bar = 1);
+endfunction
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 2);
+    CHECK(diags[0].code == diag::MethodArgDefaultMismatch);
+    CHECK(diags[1].code == diag::MethodArgDefaultMismatch);
 }
 
 TEST_CASE("Out-of-block default value") {
@@ -1418,6 +1467,38 @@ endclass
     CHECK(diags[4].code == diag::IfaceMethodHidden);
 }
 
+TEST_CASE("Interface class name conflict with inherited enum value") {
+    auto tree = SyntaxTree::fromText(R"(
+interface class IntfBase #(type T = int);
+    typedef enum { A } e_t;
+    pure virtual function enum { B } f();
+endclass
+
+interface class IntfExt1 extends IntfBase#(bit);
+endclass
+
+interface class IntfExt2 extends IntfBase#(logic);
+endclass
+
+interface class IntfFinal extends IntfExt1, IntfExt2;
+    typedef int T;
+    typedef int e_t;
+    pure virtual function int f();
+endclass
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto diags = compilation.getAllDiagnostics().filter(DefaultIgnoreWarnings);
+    REQUIRE(diags.size() == 3);
+    CHECK(diags[0].code == diag::IfaceNameConflict);
+    CHECK(std::get<std::string>(diags[0].args[2]) == "IntfBase");
+    CHECK(diags[1].code == diag::IfaceNameConflict);
+    CHECK(std::get<std::string>(diags[1].args[2]) == "IntfBase");
+    CHECK(diags[2].code == diag::VirtualReturnMismatch);
+}
+
 TEST_CASE("Interface class diamond with generics") {
     auto tree = SyntaxTree::fromText(R"(
 interface class IntfBase #(type T = int);
@@ -2010,6 +2091,23 @@ endclass
     CHECK(diags[15].code == diag::RandCInSolveBefore);
     CHECK(diags[16].code == diag::SolveBeforeDisallowed);
     CHECK(diags[17].code == diag::RandCInSoft);
+}
+
+TEST_CASE("Range items in uniqueness constraints") {
+    auto tree = SyntaxTree::fromText(R"(
+class C;
+    rand int a, b;
+    constraint c { unique {a, [b:b], [a:b]}; }
+endclass
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 2);
+    CHECK(diags[0].code == diag::InvalidUniquenessExpr);
+    CHECK(diags[1].code == diag::InvalidUniquenessExpr);
 }
 
 TEST_CASE("Constraint qualifiers") {
@@ -4154,6 +4252,37 @@ endclass
     CHECK(diags[1].code == diag::RandNeededInDist);
 }
 
+TEST_CASE("Class specializations with types declared in parameter defaults") {
+    auto tree = SyntaxTree::fromText(R"(
+class foo #(int N = 4, type T = struct packed { logic [N-1:0] x; },
+            type U = struct packed { T y; } [1:0], type V = struct { int z; });
+    static T t;
+    static U u;
+    static V v;
+endclass
+
+module m;
+    foo f;
+    foo #() g;
+    foo #(4) h;
+    foo #(5) i;
+    initial begin
+        $static_assert(type(f) == type(g));
+        $static_assert(type(f) == type(h));
+        $static_assert(type(f.t) == type(g.t));
+        $static_assert(type(f.u) == type(h.u));
+        $static_assert(type(f.v) == type(g.v));
+        $static_assert(type(f) != type(i));
+        $static_assert($bits(i.t) == 5);
+    end
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
 TEST_CASE("string type not valid in constraint expression") {
     auto tree = SyntaxTree::fromText(R"(
 class C;
@@ -4189,4 +4318,73 @@ endmodule
     auto& diags = compilation.getAllDiagnostics();
     REQUIRE(diags.size() == 1);
     CHECK(diags[0].code == diag::MissingConstraintBlock);
+}
+
+TEST_CASE("Invalid class specifiers on constraints and methods") {
+    auto tree = SyntaxTree::fromText(R"(
+class A;
+endclass
+
+class C extends A;
+    constraint :1 c;
+    constraint :foo d { }
+    virtual function :1 void f(); endfunction
+endclass
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(!diags.empty());
+    for (auto& diag : diags)
+        CHECK(diag.isError());
+}
+
+TEST_CASE("Enum value initializers can refer to this in methods") {
+    auto tree = SyntaxTree::fromText(R"(
+class C;
+    int x;
+    function void f();
+        enum { A = $bits(this.x) } e;
+        begin
+            enum { B = $bits(this.x) + int'(A) } e2;
+        end
+    endfunction
+
+    static function void g();
+        enum { D = $bits(this.x) } e;
+    endfunction
+endclass
+
+module m;
+    enum { E = $bits(this) } e;
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 2);
+    CHECK(diags[0].code == diag::InvalidThisHandle);
+    CHECK(diags[1].code == diag::InvalidThisHandle);
+}
+
+TEST_CASE("Never-specialized generic classes that contain nested generic classes") {
+    // Forcing an invalid specialization of each never-specialized generic class during the final
+    // diagnostic pass reaches its nested generic class, which appends to the list of generic
+    // classes that is being iterated.
+    std::string source;
+    for (int n = 0; n < 40; ++n) {
+        auto s = std::to_string(n);
+        source += "class G" + s + " #(type T = int);\n";
+        source += "class Inner" + s + " #(type U = int); endclass\n";
+        source += "endclass\n";
+    }
+
+    auto tree = SyntaxTree::fromText(source);
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
 }

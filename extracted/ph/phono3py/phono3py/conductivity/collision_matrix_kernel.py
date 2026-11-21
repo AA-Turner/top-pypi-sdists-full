@@ -3,7 +3,7 @@
 
 Extracted from LBTEKappaSolver to serve as a shared utility for all
 LBTE-based kappa solvers.  Each kappa solver composes
-a CollisionMatrixKernel instance and calls store() / solve() rather than
+a CollisionMatrixKernel instance and calls store() / solve_iter() rather than
 inheriting or delegating to an inner solver.
 
 The base class CollisionMatrixKernel holds shared logic.  Two subclasses
@@ -18,7 +18,6 @@ from __future__ import annotations
 import sys
 import time
 from collections.abc import Iterator
-from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
 import numpy as np
@@ -38,38 +37,6 @@ from phono3py.conductivity.utils import (
     select_colmat_solver,
 )
 from phono3py.phonon.degeneracy import average_over_degenerate_sets
-
-
-@dataclass
-class LBTESolveResult:
-    """Result of CollisionMatrixKernel.solve().
-
-    Attributes
-    ----------
-    kappa : NDArray[np.double]
-        LBTE thermal conductivity, shape (num_sigma, num_temp, 6).
-    kappa_RTA : NDArray[np.double]
-        RTA thermal conductivity, shape (num_sigma, num_temp, 6).
-    mode_kappa : NDArray[np.double]
-        Mode LBTE kappa, shape (num_sigma, num_temp, num_gp, num_band0, 6).
-    mode_kappa_RTA : NDArray[np.double]
-        Mode RTA kappa, shape (num_sigma, num_temp, num_gp, num_band0, 6).
-    collision_eigenvalues : NDArray[np.double] | None
-        Eigenvalues of collision matrix.
-    f_vectors : NDArray[np.double]
-        f-vectors, shape (num_gp, num_band0, 3).
-    mfp : NDArray[np.double]
-        Mean free path, shape (num_sigma, num_temp, num_gp, num_band0, 3).
-
-    """
-
-    kappa: NDArray[np.double]
-    kappa_RTA: NDArray[np.double]
-    mode_kappa: NDArray[np.double]
-    mode_kappa_RTA: NDArray[np.double]
-    collision_eigenvalues: NDArray[np.double] | None
-    f_vectors: NDArray[np.double]
-    mfp: NDArray[np.double]
 
 
 class CollisionMatrixKernel:
@@ -94,9 +61,6 @@ class CollisionMatrixKernel:
         points, see phonopy's get_degenerate_ids.
     num_gp : int
         Number of grid points for output arrays (IR or full mesh).
-    solve_collective_phonon : bool, optional
-        Use Chaput collective-phonon method (not supported; must be False).
-        Default False.
     pinv_cutoff : float, optional
         Eigenvalue cutoff for pseudo-inversion.  Default 1e-8.
     pinv_solver : int, optional
@@ -104,8 +68,11 @@ class CollisionMatrixKernel:
     pinv_method : int, optional
         Pseudo-inverse criterion (0=abs(eig)<cutoff, 1=eig<cutoff).
         Default 0.
-    lang : {"C", "Python"}, optional
-        Backend for C-extension operations.  Default "C".
+    lang : {"C", "Python", "Rust"}, optional
+        Backend of the symmetrization and the expansion by symmetry of the
+        collision matrix.  ``"C"`` falls back to ``"Rust"`` when the C
+        extension is not installed, and ``"Python"`` uses numpy.  Default
+        "Rust".
     log_level : int, optional
         Verbosity level.  Default 0.
 
@@ -117,7 +84,6 @@ class CollisionMatrixKernel:
         frequencies: NDArray[np.double],
         degenerate_ids: NDArray[np.int64],
         num_gp: int,
-        solve_collective_phonon: bool = False,
         pinv_cutoff: float = 1.0e-8,
         pinv_solver: int = 0,
         pinv_method: int = 0,
@@ -129,7 +95,6 @@ class CollisionMatrixKernel:
         self._frequencies = frequencies
         self._degenerate_ids = degenerate_ids
         self._num_gp = num_gp
-        self._solve_collective_phonon = solve_collective_phonon
         self._pinv_cutoff = pinv_cutoff
         self._pinv_solver = pinv_solver
         self._pinv_method = pinv_method
@@ -141,9 +106,10 @@ class CollisionMatrixKernel:
             kappa_settings.bz_grid, kappa_settings.is_kappa_star
         )
 
-        # Set by solve() from grid_point_data (references, not copies).
+        # Set by solve_iter() from aggregates (references, not copies).
         self._gamma: NDArray[np.double] | None = None
         self._gamma_iso: NDArray[np.double] | None = None
+        self._gamma_boundary: NDArray[np.double] | None = None
         self._gv: NDArray[np.double] | None = None
         self._cv: NDArray[np.double] | None = None
 
@@ -196,29 +162,6 @@ class CollisionMatrixKernel:
 
         """
         raise NotImplementedError
-
-    def solve(
-        self,
-        aggregates: GridPointAggregates,
-    ) -> LBTESolveResult:
-        """Assemble collision matrix and compute LBTE thermal conductivity.
-
-        Stage 2: combine diagonals, apply weights, symmetrize, solve for
-        kappa.
-
-        Parameters
-        ----------
-        aggregates : GridPointAggregates
-            Aggregated per-grid-point data from the calculator.
-
-        Returns
-        -------
-        LBTESolveResult
-
-        """
-        for _ in self.solve_iter(aggregates):
-            pass
-        return self._build_result()
 
     def solve_iter(
         self,
@@ -283,7 +226,15 @@ class CollisionMatrixKernel:
 
     @property
     def kappa_RTA(self) -> NDArray[np.double]:
-        """Return RTA thermal conductivity, shape (num_sigma, num_temp, 6)."""
+        """Return RTA thermal conductivity, shape (num_sigma, num_temp, 6).
+
+        For the irreducible collision matrix, the collision term is
+        approximated by the imaginary part of the self-energy, as in the RTA
+        calculation.  For the reducible collision matrix, it is approximated
+        by the diagonal elements of the collision matrix instead, so the
+        values differ slightly from those of the RTA calculation.
+
+        """
         return self._kappa_RTA
 
     @property
@@ -293,7 +244,11 @@ class CollisionMatrixKernel:
 
     @property
     def mode_kappa_RTA(self) -> NDArray[np.double]:
-        """Return mode RTA kappa."""
+        """Return mode RTA kappa.
+
+        See kappa_RTA for the approximation of the collision term.
+
+        """
         return self._mode_kappa_RTA
 
     @property
@@ -362,6 +317,14 @@ class CollisionMatrixKernel:
     def _get_X_frequencies(self) -> NDArray[np.double]:
         raise NotImplementedError
 
+    def _get_gamma_index(self) -> int | None:
+        """Return index of Gamma-point in grid points of X and Y.
+
+        None is returned when the grid points do not include Gamma-point.
+
+        """
+        raise NotImplementedError
+
     def _get_Y_problem_size(self) -> tuple[int, int]:
         raise NotImplementedError
 
@@ -383,18 +346,6 @@ class CollisionMatrixKernel:
     # Shared internals
     # ------------------------------------------------------------------
 
-    def _build_result(self) -> LBTESolveResult:
-        """Build LBTESolveResult from current solver state."""
-        return LBTESolveResult(
-            kappa=self._kappa,
-            kappa_RTA=self._kappa_RTA,
-            mode_kappa=self._mode_kappa,
-            mode_kappa_RTA=self._mode_kappa_RTA,
-            collision_eigenvalues=self._collision_eigenvalues,
-            f_vectors=self._f_vectors,  # type: ignore[arg-type]
-            mfp=self._mfp,  # type: ignore[arg-type]
-        )
-
     def _get_main_diagonal(self, i: int, j: int, k: int) -> NDArray[np.double]:
         """Return main diagonal of collision matrix at grid point i.
 
@@ -411,22 +362,9 @@ class CollisionMatrixKernel:
         main_diagonal = self._gamma[j, k, i].copy()
         if self._gamma_iso is not None:
             main_diagonal += self._gamma_iso[j, i]
-        if self._kappa_settings.boundary_mfp is not None:
-            main_diagonal += self._get_boundary_scattering(i)
+        if self._gamma_boundary is not None:
+            main_diagonal += self._gamma_boundary[i]
         return main_diagonal
-
-    def _get_boundary_scattering(self, i_gp: int) -> NDArray[np.double]:
-        num_band = self._frequencies.shape[1]
-        g_boundary = np.zeros(num_band, dtype="double")
-        assert self._kappa_settings.boundary_mfp is not None
-        for ll in range(num_band):
-            g_boundary[ll] = (
-                np.linalg.norm(self._gv[i_gp, ll])
-                * get_physical_units().Angstrom
-                * 1e6
-                / (4 * np.pi * self._kappa_settings.boundary_mfp)
-            )
-        return g_boundary
 
     def _iter_sigma_temp(self) -> Iterator[tuple[int, int]]:
         return np.ndindex(  # type: ignore[return-value]
@@ -743,8 +681,12 @@ class CollisionMatrixKernel:
         Collision matrix is defined as half of that in Chaput's paper,
         so the factor of 2 is not needed here.
 
+        The three lowest modes at Gamma-point are skipped, assuming no
+        imaginary modes.
+
         """
         num_band = self._frequencies.shape[1]
+        i_gamma = self._get_gamma_index()
         for i, (v_gp, f_gp) in enumerate(
             zip(
                 X.reshape(num_grid_points, num_band, 3),
@@ -753,9 +695,7 @@ class CollisionMatrixKernel:
             )
         ):
             for j, (v, f) in enumerate(zip(v_gp, f_gp, strict=True)):
-                # Skip three lowest modes at Gamma-point
-                # (assumed no imaginary modes).
-                if (self._kappa_settings.bz_grid.addresses[i] == 0).all() and j < 3:
+                if i == i_gamma and j < 3:
                     continue
                 sum_k = self._compute_mode_kappa_tensor(v, f)
                 sum_k = sum_k + sum_k.T
@@ -797,9 +737,6 @@ class IrreducibleCollisionMatrixKernel(CollisionMatrixKernel):
     rot_grid_points : ndarray of int64
         Grid points generated by point-group rotations of ir_grid_points,
         shape (num_ir_gp, num_ops).
-    solve_collective_phonon : bool, optional
-        Use Chaput collective-phonon method (not supported; must be False).
-        Default False.
     pinv_cutoff : float, optional
         Eigenvalue cutoff for pseudo-inversion.  Default 1e-8.
     pinv_solver : int, optional
@@ -807,10 +744,19 @@ class IrreducibleCollisionMatrixKernel(CollisionMatrixKernel):
     pinv_method : int, optional
         Pseudo-inverse criterion (0=abs(eig)<cutoff, 1=eig<cutoff).
         Default 0.
-    lang : {"C", "Python"}, optional
-        Backend for C-extension operations.  Default "C".
+    lang : {"C", "Python", "Rust"}, optional
+        Backend of the symmetrization and the expansion by symmetry of the
+        collision matrix.  ``"C"`` falls back to ``"Rust"`` when the C
+        extension is not installed, and ``"Python"`` uses numpy.  Default
+        "Rust".
     log_level : int, optional
         Verbosity level.  Default 0.
+    is_one_gp_colmat : bool, optional
+        When True, the collision matrix is allocated for one grid point,
+        and the part computed at each grid point overwrites it. This is
+        used to compute collisions at specified grid points and write
+        them to files, where the collision matrix is not solved.
+        Default False.
 
     """
 
@@ -820,12 +766,12 @@ class IrreducibleCollisionMatrixKernel(CollisionMatrixKernel):
         frequencies: NDArray[np.double],
         degenerate_ids: NDArray[np.int64],
         rot_grid_points: NDArray[np.int64],
-        solve_collective_phonon: bool = False,
         pinv_cutoff: float = 1.0e-8,
         pinv_solver: int = 0,
         pinv_method: int = 0,
         lang: Literal["C", "Python", "Rust"] = "Rust",
         log_level: int = 0,
+        is_one_gp_colmat: bool = False,
     ) -> None:
         """Init method."""
         num_ir_gp = len(kappa_settings.grid_points)
@@ -834,7 +780,6 @@ class IrreducibleCollisionMatrixKernel(CollisionMatrixKernel):
             frequencies,
             degenerate_ids,
             num_ir_gp,
-            solve_collective_phonon,
             pinv_cutoff,
             pinv_solver,
             pinv_method,
@@ -842,6 +787,7 @@ class IrreducibleCollisionMatrixKernel(CollisionMatrixKernel):
             log_level,
         )
         self._rot_grid_points = rot_grid_points
+        self._is_one_gp_colmat = is_one_gp_colmat
 
         num_sigma = len(kappa_settings.sigmas)
         num_temp = len(kappa_settings.temperatures)
@@ -852,7 +798,7 @@ class IrreducibleCollisionMatrixKernel(CollisionMatrixKernel):
             (
                 num_sigma,
                 num_temp,
-                num_ir_gp,
+                1 if is_one_gp_colmat else num_ir_gp,
                 num_band0,
                 3,
                 num_ir_gp,
@@ -875,25 +821,37 @@ class IrreducibleCollisionMatrixKernel(CollisionMatrixKernel):
     ) -> None:
         """Store collision matrix row for grid point."""
         assert self._collision_matrix is not None
-        self._collision_matrix[:, :, i_gp, :] = collision_result.collision_row
+        i_colmat = 0 if self._is_one_gp_colmat else i_gp
+        self._collision_matrix[:, :, i_colmat, :] = collision_result.collision_row
 
     def _setup_solve_data(self, aggregates: GridPointAggregates) -> None:
         self._gamma = aggregates.gamma
         self._gamma_iso = aggregates.gamma_isotope
+        self._gamma_boundary = aggregates.gamma_boundary
         self._gv = aggregates.group_velocities
         self._cv = aggregates.mode_heat_capacities
 
     def _prepare_collision_matrix(self) -> NDArray[np.double]:
+        """Prepare collision matrix and return weights array.
+
+        The main diagonal is averaged over each degenerate set and added
+        after the degeneracy averaging of the collision matrix.  Added
+        before, it would be averaged over each degenerate block as well, and
+        the diagonal elements would no longer be the scattering rates of the
+        modes.  The averaging over each degenerate set is needed for the
+        isotope scattering rates, which differ among degenerate modes.
+
+        """
+        self._average_collision_matrix_by_degeneracy()
         self._combine_collisions()
         weights = self._get_collision_weights()
-        self._average_collision_matrix_by_degeneracy()
         self._symmetrize_collision_matrix()
         return weights
 
     # -- Combine diagonals --
 
     def _combine_collisions(self) -> None:
-        """Add main diagonal elements to the IR collision matrix."""
+        """Add main diagonal averaged by degeneracy to the collision matrix."""
         for j, k in self._iter_sigma_temp():
             for i_irgp, main_diag, rotation in self._iter_ir_diagonal_entries(j, k):
                 self._add_main_diagonal(
@@ -914,7 +872,11 @@ class IrreducibleCollisionMatrixKernel(CollisionMatrixKernel):
             ):
                 if ir_gp != rotated_gp:
                     continue
-                main_diag = self._get_main_diagonal(i_irgp, i_sigma, i_temp)
+                main_diag = average_over_degenerate_sets(
+                    self._get_main_diagonal(i_irgp, i_sigma, i_temp),
+                    self._degenerate_ids[ir_gp],
+                    0,
+                )
                 yield i_irgp, main_diag, rotation
 
     def _add_main_diagonal(
@@ -995,10 +957,6 @@ class IrreducibleCollisionMatrixKernel(CollisionMatrixKernel):
     def _set_kappa_at_step(
         self, i_sigma: int, i_temp: int, weights: NDArray[np.double]
     ) -> None:
-        if self._solve_collective_phonon:
-            raise NotImplementedError(
-                "solve_collective_phonon is not supported in CollisionMatrixKernel."
-            )
         X = self._get_X(i_temp, weights)
         Y = self._get_Y(i_sigma, i_temp, weights, X)
         self._set_mean_free_path(i_sigma, i_temp, weights, Y)
@@ -1049,6 +1007,15 @@ class IrreducibleCollisionMatrixKernel(CollisionMatrixKernel):
     def _get_X_frequencies(self) -> NDArray[np.double]:
         return self._frequencies[self._kappa_settings.grid_points]
 
+    def _get_gamma_index(self) -> int | None:
+        gp_Gamma = self._kappa_settings.bz_grid.gp_Gamma
+        if gp_Gamma is None:
+            return None
+        indices = np.flatnonzero(self._kappa_settings.grid_points == gp_Gamma)
+        if len(indices) == 0:
+            return None
+        return int(indices[0])
+
     def _get_Y_problem_size(self) -> tuple[int, int]:
         num_band = self._frequencies.shape[1]
         num_ir_gp = len(self._kappa_settings.grid_points)
@@ -1079,6 +1046,10 @@ class ReducibleCollisionMatrixKernel(CollisionMatrixKernel):
 
     Uses all grid points in the mesh without symmetry reduction.
 
+    All mesh arrays of this class are indexed by GR grid point indices.  The
+    frequencies and degenerate_ids, given in BZ grid order, are reordered to
+    GR grid order in the init method.
+
     Parameters
     ----------
     kappa_settings : KappaSettings
@@ -1088,9 +1059,6 @@ class ReducibleCollisionMatrixKernel(CollisionMatrixKernel):
     degenerate_ids : ndarray of int64, shape (num_bzgp, num_band)
         Smallest band index in the degenerate set of each band at all BZ grid
         points, see phonopy's get_degenerate_ids.
-    solve_collective_phonon : bool, optional
-        Use Chaput collective-phonon method (not supported; must be False).
-        Default False.
     pinv_cutoff : float, optional
         Eigenvalue cutoff for pseudo-inversion.  Default 1e-8.
     pinv_solver : int, optional
@@ -1098,10 +1066,15 @@ class ReducibleCollisionMatrixKernel(CollisionMatrixKernel):
     pinv_method : int, optional
         Pseudo-inverse criterion (0=abs(eig)<cutoff, 1=eig<cutoff).
         Default 0.
-    lang : {"C", "Python"}, optional
-        Backend for C-extension operations.  Default "C".
+    lang : {"C", "Python", "Rust"}, optional
+        Backend of the symmetrization and the expansion by symmetry of the
+        collision matrix.  ``"C"`` falls back to ``"Rust"`` when the C
+        extension is not installed, and ``"Python"`` uses numpy.  Default
+        "Rust".
     log_level : int, optional
         Verbosity level.  Default 0.
+    is_one_gp_colmat : bool, optional
+        See ``IrreducibleCollisionMatrixKernel``. Default False.
 
     """
 
@@ -1110,12 +1083,12 @@ class ReducibleCollisionMatrixKernel(CollisionMatrixKernel):
         kappa_settings: KappaSettings,
         frequencies: NDArray[np.double],
         degenerate_ids: NDArray[np.int64],
-        solve_collective_phonon: bool = False,
         pinv_cutoff: float = 1.0e-8,
         pinv_solver: int = 0,
         pinv_method: int = 0,
         lang: Literal["C", "Python", "Rust"] = "Rust",
         log_level: int = 0,
+        is_one_gp_colmat: bool = False,
     ) -> None:
         """Init method."""
         num_gp = int(np.prod(kappa_settings.mesh_numbers))
@@ -1124,12 +1097,20 @@ class ReducibleCollisionMatrixKernel(CollisionMatrixKernel):
             frequencies,
             degenerate_ids,
             num_gp,
-            solve_collective_phonon,
             pinv_cutoff,
             pinv_solver,
             pinv_method,
             lang,
             log_level,
+        )
+
+        self._is_one_gp_colmat = is_one_gp_colmat
+
+        bz_grid = kappa_settings.bz_grid
+        self._gr_frequencies = frequencies[bz_grid.grg2bzg]
+        self._gr_degenerate_ids = degenerate_ids[bz_grid.grg2bzg]
+        self._ir_gr_grid_points = np.array(
+            bz_grid.bzg2grg[kappa_settings.grid_points], dtype="int64"
         )
 
         num_sigma = len(kappa_settings.sigmas)
@@ -1141,7 +1122,7 @@ class ReducibleCollisionMatrixKernel(CollisionMatrixKernel):
             (
                 num_sigma,
                 num_temp,
-                num_gp,
+                1 if is_one_gp_colmat else num_gp,
                 num_band0,
                 num_gp,
                 num_band,
@@ -1162,8 +1143,10 @@ class ReducibleCollisionMatrixKernel(CollisionMatrixKernel):
     ) -> None:
         """Store collision matrix row for grid point."""
         assert self._collision_matrix is not None
-        ir_gp = self._kappa_settings.grid_points[i_gp]
-        i_data = int(self._kappa_settings.bz_grid.bzg2grg[ir_gp])
+        if self._is_one_gp_colmat:
+            i_data = 0
+        else:
+            i_data = int(self._ir_gr_grid_points[i_gp])
         self._collision_matrix[:, :, i_data, :] = collision_result.collision_row
 
     def _setup_solve_data(self, aggregates: GridPointAggregates) -> None:
@@ -1179,6 +1162,7 @@ class ReducibleCollisionMatrixKernel(CollisionMatrixKernel):
         gv_ir = aggregates.group_velocities
         cv_ir = aggregates.mode_heat_capacities
         gamma_iso_ir = aggregates.gamma_isotope
+        gamma_boundary_ir = aggregates.gamma_boundary
 
         num_sigma, num_temp, _, num_band0 = gamma_ir.shape
 
@@ -1196,53 +1180,68 @@ class ReducibleCollisionMatrixKernel(CollisionMatrixKernel):
             )
         else:
             self._gamma_iso = None
+        if gamma_boundary_ir is not None:
+            self._gamma_boundary = np.zeros((num_mesh, num_band0), dtype="double")
+        else:
+            self._gamma_boundary = None
 
-        for i_gp, ir_gp in enumerate(self._kappa_settings.grid_points):
-            i_gr = int(self._kappa_settings.bz_grid.bzg2grg[ir_gp])
-            self._gamma[:, :, i_gr, :] = gamma_ir[:, :, i_gp, :]
-            self._gv[i_gr] = gv_ir[i_gp]
+        for i_gp, ir_gr_gp in enumerate(self._ir_gr_grid_points):
+            self._gamma[:, :, ir_gr_gp, :] = gamma_ir[:, :, i_gp, :]
+            self._gv[ir_gr_gp] = gv_ir[i_gp]
             if cv_ir is not None and self._cv is not None:
-                self._cv[:, i_gr, :] = cv_ir[:, i_gp, :]
+                self._cv[:, ir_gr_gp, :] = cv_ir[:, i_gp, :]
             if gamma_iso_ir is not None and self._gamma_iso is not None:
-                self._gamma_iso[:, i_gr, :] = gamma_iso_ir[:, i_gp, :]
+                self._gamma_iso[:, ir_gr_gp, :] = gamma_iso_ir[:, i_gp, :]
+            if gamma_boundary_ir is not None and self._gamma_boundary is not None:
+                self._gamma_boundary[ir_gr_gp] = gamma_boundary_ir[i_gp]
 
     def _prepare_collision_matrix(self) -> NDArray[np.double]:
+        """Prepare collision matrix and return weights array.
+
+        With is_kappa_star, the collision matrix is first expanded to all
+        mesh points.  It is averaged by degeneracy before the main diagonal
+        is added, for the reason given in
+        IrreducibleCollisionMatrixKernel._prepare_collision_matrix.
+
+        """
         if self._kappa_settings.is_kappa_star:
             self._expand_by_symmetry()
+        self._average_collision_matrix_by_degeneracy()
         self._combine_collisions()
-        if self._kappa_settings.is_kappa_star:
-            # Same order as the irreducible kernel: main diagonal first, then
-            # degeneracy averaging over all mesh points.
-            self._average_collision_matrix_by_degeneracy()
         weights = self._get_collision_weights()
         self._symmetrize_collision_matrix()
+        if self._log_level:
+            print(
+                "- RTA values below are computed with the collision term "
+                "approximated by the\n"
+                "  diagonal elements of the collision matrix, not by the "
+                "imaginary part of the\n"
+                "  self-energy."
+            )
         return weights
 
     # -- Symmetry expansion (reducible only) --
 
     def _expand_by_symmetry(self) -> None:
-        ir_gr_gps, rot_gps = self._get_rotation_maps()
-        self._expand_collisions(ir_gr_gps, rot_gps)
-        self._expand_local_values(ir_gr_gps, rot_gps)
+        rot_gps = self._get_rotation_map()
+        self._expand_collisions(self._ir_gr_grid_points, rot_gps)
+        self._expand_local_values(self._ir_gr_grid_points, rot_gps)
 
-    def _get_rotation_maps(
-        self,
-    ) -> tuple[NDArray[np.int64], NDArray[np.int64]]:
+    def _get_rotation_map(self) -> NDArray[np.int64]:
+        """Return GR grid points rotated from each GR grid point.
+
+        get_grid_points_by_rotations takes and returns BZ grid point indices.
+
+        """
+        bz_grid = self._kappa_settings.bz_grid
         num_mesh_points = int(np.prod(self._kappa_settings.mesh_numbers))
         num_rot = len(self._rotations_cartesian)
         rot_grid_points = np.zeros((num_rot, num_mesh_points), dtype="int64")
-        ir_gr_grid_points = np.array(
-            self._kappa_settings.bz_grid.bzg2grg[self._kappa_settings.grid_points],
-            dtype="int64",
-        )
-        for i in range(num_mesh_points):
-            rot_grid_points[:, i] = self._kappa_settings.bz_grid.bzg2grg[
-                get_grid_points_by_rotations(
-                    self._kappa_settings.bz_grid.grg2bzg[i],
-                    self._kappa_settings.bz_grid,
-                )
+        for gr_gp in range(num_mesh_points):
+            rot_grid_points[:, gr_gp] = bz_grid.bzg2grg[
+                get_grid_points_by_rotations(bz_grid.grg2bzg[gr_gp], bz_grid)
             ]
-        return ir_gr_grid_points, rot_grid_points
+        return rot_grid_points
 
     def _expand_collisions(
         self,
@@ -1295,7 +1294,7 @@ class ReducibleCollisionMatrixKernel(CollisionMatrixKernel):
         ir_gr_grid_points: NDArray[np.int64],
         rot_grid_points: NDArray[np.int64],
     ) -> None:
-        """Expand gv, cv, gamma to all mesh grid points by symmetry."""
+        """Expand gv, cv, and gammas to all mesh grid points by symmetry."""
         for ir_gp in ir_gr_grid_points:
             multi = (rot_grid_points[:, ir_gp] == ir_gp).sum()
             gv_irgp = self._gv[ir_gp].copy()
@@ -1307,6 +1306,9 @@ class ReducibleCollisionMatrixKernel(CollisionMatrixKernel):
             if self._gamma_iso is not None:
                 gamma_iso_irgp = self._gamma_iso[:, ir_gp, :].copy()
                 self._gamma_iso[:, ir_gp, :] = 0
+            if self._gamma_boundary is not None:
+                gamma_boundary_irgp = self._gamma_boundary[ir_gp].copy()
+                self._gamma_boundary[ir_gp] = 0
             for j, r in enumerate(self._rotations_cartesian):
                 gp_r = rot_grid_points[j, ir_gp]
                 self._gv[gp_r] += np.dot(gv_irgp, r.T) / multi
@@ -1314,15 +1316,21 @@ class ReducibleCollisionMatrixKernel(CollisionMatrixKernel):
                 self._gamma[:, :, gp_r, :] += gamma_irgp / multi
                 if self._gamma_iso is not None:
                     self._gamma_iso[:, gp_r, :] += gamma_iso_irgp / multi  # type: ignore[possibly-undefined]
+                if self._gamma_boundary is not None:
+                    self._gamma_boundary[gp_r] += gamma_boundary_irgp / multi  # type: ignore[possibly-undefined]
 
     # -- Combine diagonals --
 
     def _combine_collisions(self) -> None:
-        """Add main diagonal elements to the reducible collision matrix."""
+        """Add main diagonal averaged by degeneracy to the collision matrix."""
         num_mesh_points = int(np.prod(self._kappa_settings.mesh_numbers))
         for j, k in self._iter_sigma_temp():
             for i_mesh in range(num_mesh_points):
-                main_diag = self._get_main_diagonal(i_mesh, j, k)
+                main_diag = average_over_degenerate_sets(
+                    self._get_main_diagonal(i_mesh, j, k),
+                    self._gr_degenerate_ids[i_mesh],
+                    0,
+                )
                 self._add_main_diagonal(
                     i_sigma=j,
                     i_temp=k,
@@ -1350,24 +1358,21 @@ class ReducibleCollisionMatrixKernel(CollisionMatrixKernel):
     # -- Degeneracy averaging --
 
     def _iter_mesh_degenerate_ids(self) -> Iterator[tuple[int, NDArray[np.int64]]]:
-        """Yield (i_data, degenerate_ids) for mesh points with degenerate bands."""
-        bz_grid = self._kappa_settings.bz_grid
-        num_mesh_points = int(np.prod(self._kappa_settings.mesh_numbers))
-        for i_data in range(num_mesh_points):
-            ids = self._degenerate_ids[bz_grid.grg2bzg[i_data]]
+        """Yield (gr_gp, degenerate_ids) for mesh points with degenerate bands."""
+        for gr_gp, ids in enumerate(self._gr_degenerate_ids):
             if (ids != np.arange(len(ids))).any():
-                yield i_data, ids
+                yield gr_gp, ids
 
     def _average_colmat_rows_by_degeneracy(self, col_mat: NDArray[np.double]) -> None:
-        for i_data, ids in self._iter_mesh_degenerate_ids():
-            col_mat[:, :, i_data] = average_over_degenerate_sets(
-                col_mat[:, :, i_data], ids, 2
+        for gr_gp, ids in self._iter_mesh_degenerate_ids():
+            col_mat[:, :, gr_gp] = average_over_degenerate_sets(
+                col_mat[:, :, gr_gp], ids, 2
             )
 
     def _average_colmat_cols_by_degeneracy(self, col_mat: NDArray[np.double]) -> None:
-        for i_data, ids in self._iter_mesh_degenerate_ids():
-            col_mat[:, :, :, :, i_data] = average_over_degenerate_sets(
-                col_mat[:, :, :, :, i_data], ids, 4
+        for gr_gp, ids in self._iter_mesh_degenerate_ids():
+            col_mat[:, :, :, :, gr_gp] = average_over_degenerate_sets(
+                col_mat[:, :, :, :, gr_gp], ids, 4
             )
 
     def _get_symmetrization_size(self) -> int:
@@ -1410,18 +1415,23 @@ class ReducibleCollisionMatrixKernel(CollisionMatrixKernel):
             self._collision_matrix[i_sigma, i_temp].reshape(size, size)
         )
         Y = np.zeros_like(X)
-        for gp in range(num_mesh_points):
-            frequencies = self._frequencies[gp]
-            for j, f in enumerate(frequencies):
+        for gr_gp in range(num_mesh_points):
+            for j, f in enumerate(self._gr_frequencies[gr_gp]):
                 if f > self._kappa_settings.cutoff_frequency:
-                    i_mode = gp * num_band + j
+                    i_mode = gr_gp * num_band + j
                     Y[i_mode, :] = X[i_mode, :] / v_diag[i_mode]
         return Y
 
     # -- X and Y --
 
     def _get_X_frequencies(self) -> NDArray[np.double]:
-        return self._frequencies[self._kappa_settings.bz_grid.grg2bzg]
+        return self._gr_frequencies
+
+    def _get_gamma_index(self) -> int | None:
+        bz_grid = self._kappa_settings.bz_grid
+        if bz_grid.gp_Gamma is None:
+            return None
+        return int(bz_grid.bzg2grg[bz_grid.gp_Gamma])
 
     def _get_Y_problem_size(self) -> tuple[int, int]:
         num_band = self._frequencies.shape[1]
@@ -1456,12 +1466,12 @@ def create_collision_matrix_kernel(
     frequencies: NDArray[np.double],
     degenerate_ids: NDArray[np.int64],
     rot_grid_points: NDArray[np.int64] | None = None,
-    solve_collective_phonon: bool = False,
     pinv_cutoff: float = 1.0e-8,
     pinv_solver: int = 0,
     pinv_method: int = 0,
     lang: Literal["C", "Python", "Rust"] = "Rust",
     log_level: int = 0,
+    is_one_gp_colmat: bool = False,
 ) -> CollisionMatrixKernel:
     """Create the appropriate CollisionMatrixKernel subclass.
 
@@ -1478,9 +1488,6 @@ def create_collision_matrix_kernel(
         Grid points generated by point-group rotations of ir_grid_points,
         shape (num_ir_gp, num_ops).  None selects the full reducible
         (non-symmetry-reduced) collision matrix.  Default None.
-    solve_collective_phonon : bool, optional
-        Use Chaput collective-phonon method (not supported; must be False).
-        Default False.
     pinv_cutoff : float, optional
         Eigenvalue cutoff for pseudo-inversion.  Default 1e-8.
     pinv_solver : int, optional
@@ -1488,10 +1495,15 @@ def create_collision_matrix_kernel(
     pinv_method : int, optional
         Pseudo-inverse criterion (0=abs(eig)<cutoff, 1=eig<cutoff).
         Default 0.
-    lang : {"C", "Python"}, optional
-        Backend for C-extension operations.  Default "C".
+    lang : {"C", "Python", "Rust"}, optional
+        Backend of the symmetrization and the expansion by symmetry of the
+        collision matrix.  ``"C"`` falls back to ``"Rust"`` when the C
+        extension is not installed, and ``"Python"`` uses numpy.  Default
+        "Rust".
     log_level : int, optional
         Verbosity level.  Default 0.
+    is_one_gp_colmat : bool, optional
+        See ``IrreducibleCollisionMatrixKernel``. Default False.
 
     Returns
     -------
@@ -1505,22 +1517,22 @@ def create_collision_matrix_kernel(
             kappa_settings=kappa_settings,
             frequencies=frequencies,
             degenerate_ids=degenerate_ids,
-            solve_collective_phonon=solve_collective_phonon,
             pinv_cutoff=pinv_cutoff,
             pinv_solver=pinv_solver,
             pinv_method=pinv_method,
             lang=lang,
             log_level=log_level,
+            is_one_gp_colmat=is_one_gp_colmat,
         )
     return IrreducibleCollisionMatrixKernel(
         kappa_settings=kappa_settings,
         frequencies=frequencies,
         degenerate_ids=degenerate_ids,
         rot_grid_points=rot_grid_points,
-        solve_collective_phonon=solve_collective_phonon,
         pinv_cutoff=pinv_cutoff,
         pinv_solver=pinv_solver,
         pinv_method=pinv_method,
         lang=lang,
         log_level=log_level,
+        is_one_gp_colmat=is_one_gp_colmat,
     )

@@ -11,7 +11,7 @@ from .string_ import format, get_length, is_null_or_empty, join, replace, replic
 from .util import UNIT, Unit, clear, range, slice_index, string_hash, to_enumerable
 
 
-def _expr226() -> TypeInfo:
+def _expr222() -> TypeInfo:
     return class_type("System.Text.StringBuilder", None, StringBuilder)
 
 
@@ -34,7 +34,7 @@ class StringBuilder(StringableBase):
         return string_hash(to_string(x))
 
 
-StringBuilder_reflection = _expr226
+StringBuilder_reflection = _expr222
 
 
 def StringBuilder__ctor_Z18115A39(value: str, capacity: int) -> StringBuilder:

@@ -784,8 +784,8 @@ SUFFIXES = "KMGTPEZY"
 EXECUTABLE = getattr(sys, "frozen", False)
 SPECIAL_EXTRACTORS = {"oauth", "recursive", "generic"}
 
-EXTS_IMAGE = {"jpg", "jpeg", "png", "gif", "bmp", "svg", "psd", "ico",
-              "webp", "avif", "heic", "heif"}
+EXTS_IMAGE = {"jpg", "jpeg", "jpe", "jfif", "jif", "jfi", "png", "gif", "bmp",
+              "webp", "avif", "heic", "heif", "svg", "psd", "ico"}
 EXTS_VIDEO = {"mp4", "m4v", "mov", "webm", "mkv", "ogv", "flv", "avi", "wmv"}
 EXTS_ARCHIVE = {"zip", "rar", "7z", "tar", "gz", "bz2", "lzma", "xz"}
 

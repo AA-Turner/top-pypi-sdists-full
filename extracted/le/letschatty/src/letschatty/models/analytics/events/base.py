@@ -15,6 +15,13 @@ class EventData(BaseModel):
         raise NotImplementedError("Subclasses must implement this method")
 
 class Event(BaseModel):
+    """An analytics event.
+
+    `model_dump_json()` in the subclasses returns a **dict**, not a string (since a327c755, letschatty .49, 2025-06-19): the dict
+    carries `data` nested as a JSON string, which is the shape the analytics consumers read. Whoever publishes it serializes the
+    dict once, e.g. api-chatty's `events_manager` sends `Detail=json.dumps(event.model_dump_json())`; serializing a string again
+    is the double-encoded `Detail` EventBridge rejects (`docs/eventbridge-publishing.md` in api-chatty). The name is kept because
+    other repos (lambdas, cintia) call it."""
     id: StrObjectId = Field(default_factory=lambda: str(ObjectId()), alias="_id")
     specversion: str = Field(description="The version of the package")
     type: EventType

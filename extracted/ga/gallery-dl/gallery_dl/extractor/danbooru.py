@@ -61,6 +61,15 @@ class DanbooruExtractor(BaseExtractor):
                 includes = "artist_commentary,children,notes,parent,uploader"
             self.includes = includes + ",id"
 
+        # remove session cookie when API key is present
+        # https://github.com/danbooru/danbooru/commit/ebc1ee6b46d6b34ddbcbca223f58699a939a3f6c
+        if self.session.auth and self.cookies:
+            try:
+                self.cookies.clear(self.root[self.root.find("://")+3:],
+                                   "/", "_danbooru2_session")
+            except KeyError:
+                pass
+
         data = self.metadata()
         for post in self.posts():
 

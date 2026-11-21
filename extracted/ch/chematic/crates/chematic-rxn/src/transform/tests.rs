@@ -2801,16 +2801,21 @@ fn traced_apply_match_reports_atom_sources() {
                     for src in t.atom_sources.iter().flatten() {
                         assert!(seen.insert(*src), "{smirks}: duplicate source {src:?}");
                     }
-                    // Product template atom i is product atom i: a mapped
-                    // one traces to where the match put that map number,
-                    // an unmapped one is new.
-                    for i in 0..template.atom_count() {
+                    // Template atoms precede any carried substituents. A
+                    // mapped one traces to its match; an unmapped one is new.
+                    assert!(t.atom_sources.len() >= template.atom_count());
+                    for (i, source) in t
+                        .atom_sources
+                        .iter()
+                        .take(template.atom_count())
+                        .enumerate()
+                    {
                         let expected = template
                             .atom(AtomIdx(i as u32))
                             .atom_map
                             .and_then(|am| global.get(&am))
                             .map(|&(reactant, atom)| ReactantAtom { reactant, atom });
-                        assert_eq!(t.atom_sources[i], expected, "{smirks}: template atom {i}");
+                        assert_eq!(source, &expected, "{smirks}: template atom {i}");
                     }
                 }
             }
@@ -3293,4 +3298,40 @@ fn native_detailed_report_exposes_typed_rejection_without_returning_product() {
             .iter()
             .any(|atom| atom.template_map == Some(2))
     );
+}
+
+#[test]
+fn smirks_boundary_contracts_cover_grouping_queries_and_stereo() {
+    let templates = [
+        "[C:1]-[O:2]>>([C:1].[O:2])",
+        "[C;H3:1][OH:2]>>[C;H3:1][Cl:2]",
+        "[$([OH]):1]>>[O-:1]",
+        "[C,N:1]>>[*:1]",
+        "[C@H:1](F)Cl>>[C@@H:1](F)Br",
+        "F/[C:1]=[C:2]/Cl>>F/[C:1]=[C:2]/Br",
+        "[N+0:1]>>[N+:1]",
+        "[13C:1]>>[13CH3:1]",
+    ];
+    for smirks in templates {
+        let parsed = parse_smirks_templates(smirks, true)
+            .unwrap_or_else(|error| panic!("{smirks}: {error}"));
+        assert!(!parsed.1.is_empty(), "{smirks}");
+        assert_eq!(parsed.0.reactants.len(), parsed.1.len(), "{smirks}");
+        assert_eq!(parsed.0.products.len(), parsed.2.len(), "{smirks}");
+        assert_eq!(template_atom_maps_of(&parsed.1).len(), parsed.1.len());
+    }
+
+    for invalid in ["no arrow", "[C:1]>>[C", "[$(:1]>>[C:1]"] {
+        assert!(parse_smirks_templates(invalid, false).is_err(), "{invalid}");
+    }
+
+    let specs = product_atom_specs("[13C@@H+:1]C%12[OH0+0:2]");
+    assert_eq!(specs.len(), 3);
+    assert!(specs[0].charge && specs[0].hcount);
+    assert!(specs[2].charge && specs[2].hcount);
+
+    assert_eq!(permutation_parity(&[1, 2, 3], &[1, 2, 3]), Some(true));
+    assert_eq!(permutation_parity(&[1, 2, 3], &[2, 1, 3]), Some(false));
+    assert_eq!(permutation_parity(&[1, 2], &[1]), None);
+    assert_eq!(permutation_parity(&[1, 2], &[1, 3]), None);
 }

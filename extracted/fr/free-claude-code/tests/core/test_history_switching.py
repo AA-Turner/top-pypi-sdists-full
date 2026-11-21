@@ -1,6 +1,7 @@
 """Regressions for history loss when changing upstream providers."""
 
 import json
+from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from typing import Any, cast
 
@@ -14,6 +15,7 @@ from free_claude_code.core.history_replay import (
     ReplayOrigin,
     prepare_history,
 )
+from free_claude_code.core.json_types import JsonObject, JsonValue
 from free_claude_code.core.openai_responses.chat_request import (
     build_responses_chat_request,
 )
@@ -27,17 +29,20 @@ from tests.providers.support import (
     make_provider_config,
     without_empty_reasoning,
 )
+from tests.wire_payload import array_payload, object_array, object_payload
 
 
-def _chat(items):
-    return build_responses_chat_request(
+def _chat(items: Sequence[Mapping[str, JsonValue]]):
+    messages = build_responses_chat_request(
         OpenAIResponsesRequest(model="synthetic", input=items),
         reasoning_replay=ReasoningReplayMode.REASONING_CONTENT,
         structured_reasoning_details=True,
     ).body["messages"]
+    assert isinstance(messages, list)
+    return object_array(messages)
 
 
-def _reasoning(text, opaque):
+def _reasoning(text: str, opaque: str):
     return {
         "type": "reasoning",
         "content": [{"type": "reasoning_text", "text": text}],
@@ -45,7 +50,7 @@ def _reasoning(text, opaque):
     }
 
 
-def _call(call_id, arguments="{}"):
+def _call(call_id: str, arguments: str = "{}"):
     return {
         "type": "function_call",
         "call_id": call_id,
@@ -97,7 +102,8 @@ def test_malformed_tool_call_keeps_its_reasoning_and_error_result():
         }
     ]
     assert [
-        (call["id"], call["function"]["arguments"]) for call in assistant["tool_calls"]
+        (call["id"], object_payload(call["function"])["arguments"])
+        for call in object_array(assistant["tool_calls"])
     ] == [("broken", "{"), ("valid", "{}")]
     assert [
         (message["tool_call_id"], message["content"])
@@ -161,11 +167,13 @@ def test_opaque_details_stay_with_the_assistant_that_produced_them():
     original = request.model_dump()
     assistants = [
         message
-        for message in provider._chat._build_request_body(request)["messages"]
-        if message["role"] == "assistant"
+        for message in array_payload(
+            provider._chat._build_request_body(request)["messages"]
+        )
+        if object_payload(message)["role"] == "assistant"
     ]
-    assert "reasoning_details" not in assistants[0]
-    assert assistants[1]["reasoning_details"] == [detail]
+    assert "reasoning_details" not in object_payload(assistants[0])
+    assert object_payload(assistants[1])["reasoning_details"] == [detail]
     assert request.model_dump() == original
 
 
@@ -189,12 +197,12 @@ def test_deepseek_tools_require_reasoning_on_earlier_plain_assistant_turns():
 
 
 @pytest.mark.parametrize("wire", ["messages", "responses"])
-def test_deepseek_off_to_on_preserves_effort_and_all_available_history(wire):
+def test_deepseek_off_to_on_preserves_effort_and_all_available_history(wire: str):
     provider = DeepSeekProvider(
         make_provider_config(api_key="synthetic", base_url="https://example.invalid"),
         admission=immediate_admission(),
     )
-    function = {"type": "object", "properties": {}}
+    function: JsonObject = {"type": "object", "properties": {}}
     if wire == "messages":
         request = MessagesRequest.model_validate(
             {
@@ -265,11 +273,13 @@ def test_deepseek_off_to_on_preserves_effort_and_all_available_history(wire):
                 request, reasoning=ReasoningPolicy.on()
             ).body,
         )
-    assert body["extra_body"]["thinking"] == {"type": "enabled"}
+    assert object_payload(body["extra_body"])["thinking"] == {"type": "enabled"}
     assistants = [
-        message for message in body["messages"] if message["role"] == "assistant"
+        message
+        for message in array_payload(body["messages"])
+        if object_payload(message)["role"] == "assistant"
     ]
-    assert [message["reasoning_content"] for message in assistants] == [
+    assert [object_payload(message)["reasoning_content"] for message in assistants] == [
         "",
         "",
         "real reasoning",
@@ -354,12 +364,25 @@ def test_messages_interleaved_reasoning_belongs_to_the_tool_group():
         }
     )
     messages = provider._chat._build_request_body(request)["messages"]
-    assistant = next(message for message in messages if message.get("tool_calls"))
-    assert assistant["reasoning_content"] == "first\nsecond"
-    assert assistant["reasoning_details"] == [
+    assistant = next(
+        message
+        for message in array_payload(messages)
+        if object_payload(message).get("tool_calls")
+    )
+    assert object_payload(assistant)["reasoning_content"] == "first\nsecond"
+    assert object_payload(assistant)["reasoning_details"] == [
         {"type": "reasoning.encrypted", "data": "second-opaque"}
     ]
-    assert len([message for message in messages if message["role"] == "assistant"]) == 1
+    assert (
+        len(
+            [
+                message
+                for message in array_payload(messages)
+                if object_payload(message)["role"] == "assistant"
+            ]
+        )
+        == 1
+    )
 
 
 def test_completed_native_hosted_tools_become_readable_chat_history():
@@ -396,11 +419,11 @@ def test_completed_native_hosted_tools_become_readable_chat_history():
     rendered = json.dumps(body["messages"])
     assert "[Earlier tool record]" in rendered
     assert "sample" in rendered and "web_search_tool_result" in rendered
-    assert "tool_calls" not in body["messages"][0]
+    assert "tool_calls" not in object_array(body["messages"])[0]
 
 
 @pytest.mark.parametrize("wire", ["messages", "responses"])
-def test_malformed_carrier_fails_startup_before_inference(wire):
+def test_malformed_carrier_fails_startup_before_inference(wire: str):
     from free_claude_code.application.errors import InvalidRequestError
 
     provider = OpenRouterProvider(
@@ -442,7 +465,7 @@ def test_malformed_carrier_fails_startup_before_inference(wire):
 
 
 @pytest.mark.parametrize("wire", ["messages", "responses"])
-def test_destination_without_native_reasoning_keeps_readable_context(wire):
+def test_destination_without_native_reasoning_keeps_readable_context(wire: str):
     if wire == "responses":
         body = build_responses_chat_request(
             OpenAIResponsesRequest(

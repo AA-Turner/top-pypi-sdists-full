@@ -8,6 +8,7 @@ from urllib.parse import urljoin
 
 from selectolax.lexbor import LexborHTMLParser, LexborNode
 
+from bench.link_attributes import element_links
 from bench.timing import Mutating
 from bench.tree_text import PRESERVE_TAGS, SPACE_RUN
 
@@ -51,8 +52,15 @@ def select_has(text: str) -> None:
     _parsed(text).css("div:has(a)")
 
 
-def _select_relative(case: tuple[str, str]) -> None:
+def _select_scaling(case: tuple[str, str]) -> None:
     _parsed(case[1]).css(case[0])
+
+
+def _select_relative(case: tuple[str, str, int]) -> None:
+    selector, text, repeats = case
+    document = _parsed(text)
+    for _ in range(repeats):
+        document.css(selector)
 
 
 def text_content(text: str) -> None:
@@ -74,9 +82,17 @@ def navigate(text: str) -> None:
             pass
 
 
+def link_urls(text: str) -> list[str]:
+    # Collect every link-bearing attribute and <style> url() with selectolax, the set turbohtml's links() reads.
+    return [
+        link
+        for node in _parsed(text).css("*")
+        for link in element_links(node.tag, node.attributes.items(), node.text() if node.tag == "style" else None)
+    ]
+
+
 def links_extract(text: str) -> None:
-    # Collect every anchor's href with selectolax, the shape a scraper reads links in.
-    _ = [anchor.attributes.get("href") for anchor in _parsed(text).css("a")]
+    _ = link_urls(text)
 
 
 def extract_attr(text: str) -> None:
@@ -181,9 +197,9 @@ def _encode_inner(text: str) -> bytes:
 
 
 def _fresh_transform(text: str) -> LexborHTMLParser:
-    tree: Final = _fresh(text)
+    tree: Final[LexborHTMLParser] = _fresh(text)
     if tree.css("template"):
-        message: Final = "selectolax does not expose template contents for mutation"
+        message: Final[str] = "selectolax does not expose template contents for mutation"
         raise ValueError(message)
     return tree
 
@@ -197,7 +213,7 @@ def _collapse_whitespace(tree: LexborHTMLParser) -> None:
             parent = parent.parent
         if parent is not None:
             continue
-        text: Final = cast("str", node.text_content)
+        text: Final[str] = cast("str", node.text_content)
         collapsed = SPACE_RUN.sub(" ", text)
         previous = node.prev
         while previous is not None and previous.is_text_node and not previous.text_content:
@@ -234,7 +250,7 @@ OPERATIONS: Final[dict[str, tuple[Timed, str]]] = {
     "parse-scope": (parse, "selectolax"),
     "find": (find, "selectolax"),
     "select": (select, "selectolax"),
-    "select-nth": (_select_relative, "selectolax"),
+    "select-nth": (_select_scaling, "selectolax"),
     "select-relative": (_select_relative, "selectolax"),
     "select-has": (select_has, "selectolax"),
     "text-content": (text_content, "selectolax"),

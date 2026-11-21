@@ -26,6 +26,7 @@ from .literals import (
     AzureEventHubTierType,
     AzureTelemetryTypeType,
     CentralizationFailureReasonType,
+    CentralizeWithDataProtectionType,
     ContextGraphStatusType,
     EncryptedLogGroupStrategyType,
     EncryptionConflictResolutionStrategyType,
@@ -397,6 +398,7 @@ class SourceLogsConfigurationTypeDef(TypedDict):
     EncryptedLogGroupStrategy: EncryptedLogGroupStrategyType
     LogGroupSelectionCriteria: NotRequired[str]
     DataSourceSelectionCriteria: NotRequired[str]
+    CentralizeWithDataProtection: NotRequired[CentralizeWithDataProtectionType]
 
 class SourceMetricsConfigurationTypeDef(TypedDict):
     MetricsSelectionCriteria: NotRequired[str]

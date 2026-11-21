@@ -246,6 +246,7 @@ modules = [
     "tiktok",
     "tistory",
     "tmohentai",
+    "topfaps",
     "toyhouse",
     "tumblr",
     "tumblrgallery",

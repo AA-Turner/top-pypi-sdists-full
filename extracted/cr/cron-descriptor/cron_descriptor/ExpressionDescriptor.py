@@ -150,7 +150,10 @@ class ExpressionDescriptor:
             six_field_expression_has_seconds=six_field_expression_has_seconds,
             day_of_week_start_index_zero=day_of_week_start_index_zero,
         )
-        self._expression_parts = parser.parse()
+        try:
+            self._expression_parts = parser.parse()
+        except (ValueError, IndexError, KeyError, OverflowError) as e:
+            raise FormatError(self._get_format_error_message()) from e
 
     def translate(self, message: str) -> str:
         return self.get_text.trans.gettext(message)
@@ -163,7 +166,7 @@ class ExpressionDescriptor:
         Returns:
             The cron expression description
         Raises:
-            Exception:
+            FormatError: if the requested description cannot be generated from the expression
 
         """
         choices = {
@@ -178,7 +181,14 @@ class ExpressionDescriptor:
             DescriptionTypeEnum.YEAR: self.get_year_description,
         }
 
-        return choices.get(description_type, self.get_seconds_description)()
+        try:
+            return choices.get(description_type, self.get_seconds_description)()
+        except (ValueError, IndexError, KeyError, OverflowError) as e:
+            raise FormatError(self._get_format_error_message()) from e
+
+    def _get_format_error_message(self) -> str:
+        message = "An error occurred when generating the expression description.  Check the cron expression syntax."
+        return self.translate(message) or message
 
     def get_full_description(self) -> str:
         """Generates the FULL description
@@ -201,10 +211,7 @@ class ExpressionDescriptor:
             description = self.transform_verbosity(description, use_verbose_format=self._verbose)
             description = ExpressionDescriptor.transform_case(description, self._casing_type)
         except Exception as e:
-            description = self.translate(
-                "An error occurred when generating the expression description.  Check the cron expression syntax.",
-            )
-            raise FormatError(description) from e
+            raise FormatError(self._get_format_error_message()) from e
 
         return description
 
@@ -447,15 +454,15 @@ class ExpressionDescriptor:
                     get_format,
                     lambda _: self.translate(", {0} through {1}"),
                 )
+                groups = [description] if description else []
                 for s in special:
                     _, separator, ordinal = s.partition("#")
                     day = get_day_name(s)
                     item = format_nth_days(f"{get_ordinal(int(ordinal))} {day}") if separator else get_format(s).format(day)
-                    if description:
-                        description += self.translate(" and ") + item.lstrip(" ,、،")
-                    else:
-                        description = item
-                return description
+                    groups.append(item.lstrip(" ,、،") if groups else item)
+                if len(groups) == 2 and len(plain) > 1:
+                    groups[0] += ","
+                return self.get_list_description(groups)
 
         return self.get_segment_description(
             self._expression_parts[5],

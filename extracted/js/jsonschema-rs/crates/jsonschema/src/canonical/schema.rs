@@ -3,6 +3,7 @@ use std::{
     cmp::Ordering,
     collections::{BTreeMap, BTreeSet},
     hash::{Hash, Hasher},
+    ops::ControlFlow,
     sync::Arc,
 };
 
@@ -24,13 +25,13 @@ use crate::{
 
 pub(crate) type DefinitionMap = BTreeMap<Arc<str>, Schema>;
 
-/// Whether one schema admits every value another does, as [`CanonicalSchema::covers`] reports it.
+/// Whether one schema accepts every value another does, as [`CanonicalSchema::covers`] reports it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, IntoStaticStr, VariantArray)]
 #[strum(serialize_all = "snake_case")]
 pub enum Containment {
-    /// Every value the argument admits, the receiver admits too.
+    /// Every value the argument accepts, the receiver accepts too.
     Yes,
-    /// Some value the argument admits, the receiver rejects.
+    /// Some value the argument accepts, the receiver rejects.
     No,
     /// Neither was established.
     Unknown,
@@ -88,9 +89,8 @@ fn pointers_read(schema: &Schema, definitions: &DefinitionMap) -> BTreeSet<Arc<s
     pointers
 }
 
-/// Intersections the difference behind a coverage question may take. It is the last resort, after
-/// the containment check and a value scan, and a caller comparing two wide documents wants an
-/// answer back.
+/// Intersections `covers` may spend on its difference, the last resort after the containment check
+/// and a value scan; a caller comparing two wide documents still gets an answer.
 const COVERS_DIFFERENCE_BUDGET: u64 = 20_000;
 
 /// `Yes` when the leaf's own size or value window is enough to pick a value out of, `Unknown` when
@@ -174,7 +174,7 @@ impl PartialOrd for Document {
     }
 }
 
-/// Canonical JSON Schema IR handle.
+/// A canonicalized schema, with the document its references resolve through.
 #[derive(Clone, Debug)]
 pub struct CanonicalSchema {
     inner: Schema,
@@ -294,7 +294,7 @@ impl CanonicalSchema {
 
     /// Whether any instance satisfies this schema.
     ///
-    /// Only `No` proves the schema admits nothing; `Unknown` means undecided, not empty. Test for
+    /// Only `No` proves the schema accepts nothing; `Unknown` means undecided, not empty. Test for
     /// `No`, and treat `Unknown` like `Yes`.
     #[must_use]
     pub fn satisfiability(&self) -> Satisfiability {
@@ -319,7 +319,6 @@ impl CanonicalSchema {
         }
         // Canonicalization reduces what it proves empty to `False`. Every other answer here names a
         // value the schema takes: a member it lists, or the shortest value of its type.
-        // TODO(canonical): the composite forms wait on a search that finds a value for them.
         let answer = match node.kind() {
             SchemaKind::False => Satisfiability::No,
             // `Enum` carries at least two members by construction, so it names one outright, and a
@@ -355,7 +354,7 @@ impl CanonicalSchema {
             }
 
             // The empty array and the empty object are the instances to reach for, where the leaf
-            // admits a value that short and demands nothing of what it would have to hold.
+            // accepts a value that short and demands nothing of what it would have to hold.
             SchemaKind::Array(leaf) => {
                 let leaf = leaf.get();
                 holds_a_value(
@@ -373,8 +372,8 @@ impl CanonicalSchema {
                 )
             }
             // A numeric window is over the reals, where non-empty does not mean a value can be
-            // written down: nothing lies between `1` and its own successor. These and the composite
-            // forms are answered by the candidate walk below, which exhibits one.
+            // written down: nothing lies between `1` and its `f64` successor. These and the
+            // composite forms are answered by the candidate walk below, which exhibits one.
             SchemaKind::Integer(_)
             | SchemaKind::Number(_)
             | SchemaKind::Not(_)
@@ -394,21 +393,26 @@ impl CanonicalSchema {
             &[&self.document.root],
             &self.document.definitions,
         );
-        for candidate in candidates::instances(
+        // Each candidate is checked as it is built, so the walk stops at the first one accepted.
+        let mut answer = Satisfiability::Unknown;
+        let _ = candidates::search(
             node,
             &|uri| self.document.target(uri),
             candidates::DEPTH,
             &Cell::new(candidates::NODES),
             &context,
-        ) {
-            let (verdict, inexact) = context.probe(|| {
-                algebra::admits_value(node, &candidate, UncheckableFacet::Undecided, &context)
-            });
-            if verdict == Verdict::Admits && !inexact && !context.outgrew_distribution() {
-                return Satisfiability::Yes;
-            }
-        }
-        Satisfiability::Unknown
+            &mut |candidate| {
+                let (verdict, inexact) = context.probe(|| {
+                    algebra::accepts_value(node, &candidate, UncheckableFacet::Undecided, &context)
+                });
+                if verdict == Verdict::Accepts && !inexact && !context.outgrew_distribution() {
+                    answer = Satisfiability::Yes;
+                    return ControlFlow::Break(());
+                }
+                ControlFlow::Continue(())
+            },
+        );
+        answer
     }
 
     /// Whether this node contains no `$ref` at all, so nothing of its document can be seen through
@@ -418,8 +422,8 @@ impl CanonicalSchema {
         !algebra::contains_reference(&self.inner)
     }
 
-    /// Whether the two nodes read the same part of their documents, which is all either can observe
-    /// of the document it came out of.
+    /// Whether two equal nodes read the same part of their documents, which is all either can
+    /// observe of the document it came out of.
     fn reads_same_document_as(&self, other: &Self) -> bool {
         if self.document == other.document {
             return true;
@@ -482,7 +486,8 @@ impl CanonicalSchema {
             .map(|body| self.wrap_child(body))
     }
 
-    /// Every reachable reference target known to this document, keyed by its URI.
+    /// Every reference target of this handle's document, keyed by its URI, including ones this
+    /// node does not reach.
     pub fn definitions(&self) -> impl ExactSizeIterator<Item = (String, CanonicalSchema)> + '_ {
         self.document
             .definitions
@@ -490,7 +495,7 @@ impl CanonicalSchema {
             .map(|(uri, body)| (uri.to_string(), self.wrap_child(body)))
     }
 
-    /// Every value both schemas admit.
+    /// Every value both schemas accept.
     ///
     /// # Errors
     ///
@@ -512,7 +517,7 @@ impl CanonicalSchema {
         })
     }
 
-    /// Every value either schema admits.
+    /// Every value either schema accepts.
     ///
     /// # Errors
     ///
@@ -533,11 +538,10 @@ impl CanonicalSchema {
         })
     }
 
-    /// Every value this schema admits and `other` rejects (`self \ other`).
+    /// Every value this schema accepts and `other` rejects (`self \ other`).
     ///
-    /// The difference is what a change to a schema stops admitting: `old.subtract(new)` accepts
-    /// exactly the values `old` took and `new` turns away, and is empty iff `new` still takes
-    /// everything `old` did.
+    /// `old.subtract(&new)` accepts the values `old` accepts and `new` rejects, so it accepts
+    /// nothing iff `new` accepts everything `old` does.
     ///
     /// # Errors
     ///
@@ -578,15 +582,15 @@ impl CanonicalSchema {
         if !inexact && matches!(intersection.kind(), SchemaKind::False) {
             return Some(taken.clone());
         }
-        // Everything `taken` admits `removed` admits too, so the difference is empty. Asked through
-        // the containment check, which turns down an equality resting on a facet no checker covers and compares
-        // through the targets its pointers name.
-        if containment::covers(removed, taken, ctx) == Verdict::Admits {
+        // `removed` accepts everything `taken` accepts, so the difference is empty. The containment
+        // check refuses an equality resting on a facet no checker covers, and reads through the
+        // targets the pointers name.
+        if containment::covers(removed, taken, ctx) == Verdict::Accepts {
             return Some(Schema::falsy());
         }
-        // A negation over a facet no checker covers bars the values the algebra reads as meeting
-        // it, so the difference built around it is not the one that checker takes - unless `taken`
-        // demands the same facets, where both sides carry them.
+        // Negating a facet no checker covers rejects, for the algebra, only the values it reads as
+        // satisfying the facet, while the validator rejects every value; the two agree only where
+        // `taken` demands the same facets.
         if !algebra::uncheckable_string_facets(removed, ctx)
             .is_subset(&algebra::uncheckable_string_facets(taken, ctx))
         {
@@ -604,7 +608,8 @@ impl CanonicalSchema {
             return None;
         }
         // A negation built around an intersection the form could only approximate, or around
-        // whatever a walk out of intersections had reached, is no negation to subtract with.
+        // whatever a walk that ran out of intersections had reached, is no negation to subtract
+        // with.
         if inexact || ctx.outgrew_distribution() {
             return None;
         }
@@ -635,6 +640,19 @@ impl CanonicalSchema {
             return Err(CanonicalizationError::UnsupportedResult);
         }
         let document = Self::combined_document(&merged, &inner, definitions);
+        let inner = if merged.root_as_pointer && is_root_pointer(&inner) {
+            // A root read as `#` that comes back alone is that root again.
+            document.root.clone()
+        } else if inner == document.root
+            && emptiness::root_inverts_on_an_in_place_cycle(&inner, &document.definitions)
+        {
+            // Written as the root's own body, the result reads `#` as a copy of that body does,
+            // which accepts other values than the root. A handle holding the root's node is the
+            // root.
+            return Err(CanonicalizationError::UnsupportedResult);
+        } else {
+            inner
+        };
         Ok(Self::within(
             inner,
             self.draft,
@@ -644,7 +662,7 @@ impl CanonicalSchema {
         ))
     }
 
-    /// Whether this schema admits every value `other` admits.
+    /// Whether this schema accepts every value `other` accepts.
     ///
     /// Only `Yes` proves containment; `Unknown` means undecided, not disproved. Test for `Yes`,
     /// and treat `Unknown` like `No`.
@@ -671,7 +689,7 @@ impl CanonicalSchema {
             if context.saw_inexact_intersection() || context.outgrew_distribution() {
                 return Some(Containment::Unknown);
             }
-            (verdict == Verdict::Admits).then_some(decided)
+            (verdict == Verdict::Accepts).then_some(decided)
         };
         if let Some(answer) = decided(
             containment::covers(&merged.left, &merged.right, &context),
@@ -679,13 +697,14 @@ impl CanonicalSchema {
         ) {
             return Ok(answer);
         }
-        // Only a value `other` admits and this schema rejects refutes the coverage, so the
+        // Only a value `other` accepts and this schema rejects refutes the coverage, so the
         // refutation rests on such a value rather than on the proof above having failed. A form
         // listing its members hands them over; every other one leaves the difference to say whether
         // any value is left over at all.
         if let Some(values) = merged.right.kind().finite_values() {
-            // Only a member whose whole class this schema shares nothing of is refused: under
-            // Draft 4 the intersection narrows `1` to the integer type, which still takes `1`.
+            // A member counts against coverage only when this schema accepts nothing of its
+            // equality class (`1` and `1.0`): under Draft 4 the intersection narrows `1` to the
+            // integer type, which still accepts `1`.
             // Probed, so what the scan approximated does not decide the answers after it.
             let (refuted, inexact) =
                 context.probe(|| {
@@ -698,8 +717,8 @@ impl CanonicalSchema {
                 return Ok(answer);
             }
         }
-        // On the frame already built here: `subtract` would merge the maps and re-walk the graph.
-        // The difference the other way round: `other \ self`, on the frame already built here.
+        // `other \ self` on the frame already built here: `subtract` would merge the maps and
+        // re-walk the graph.
         let flipped = Combined {
             definitions: Arc::clone(definitions),
             left: merged.right.clone(),
@@ -707,6 +726,7 @@ impl CanonicalSchema {
             left_root: merged.right_root.clone(),
             right_root: merged.left_root.clone(),
             local: Arc::clone(&merged.local),
+            root_as_pointer: merged.root_as_pointer,
         };
         // Bounded: the difference is a side question, and one over two wide schemas costs more than
         // the answer is worth. Out of allowance it says `Unknown`, where the long walk almost always
@@ -737,13 +757,13 @@ impl CanonicalSchema {
         })
     }
 
-    /// Every value this schema rejects.
+    /// Every value this schema rejects. Negating a schema that accepts nothing returns `true`.
     ///
     /// # Errors
     ///
     /// [`CanonicalizationError::UnsupportedOperand`] when this schema is unsupported, and
     /// [`CanonicalizationError::UnsupportedResult`] where the canonical form cannot express the
-    /// negation exactly. Negating a schema that admits nothing returns `true`.
+    /// negation exactly.
     pub fn negate(&self) -> Result<Self, CanonicalizationError> {
         // A `Raw` operand is unsupported whichever operation reaches it, so a unary one reports it the
         // same way the binary ones do rather than as a negation it could not express.
@@ -759,7 +779,8 @@ impl CanonicalSchema {
             negate::negate_with_definitions(&self.inner, &self.document.definitions, &context)
                 .ok_or(CanonicalizationError::UnsupportedResult)?;
         // A negation built around an intersection the form could only approximate, or around
-        // whatever a walk out of intersections had reached, is a decline and not a result.
+        // whatever a walk that ran out of intersections had reached, is a decline and not a
+        // result.
         if context.outgrew_distribution() || context.saw_inexact_intersection() {
             return Err(CanonicalizationError::UnsupportedResult);
         }
@@ -848,8 +869,8 @@ impl CanonicalSchema {
         for node in nodes {
             reachable.extend(pointers_read(node, definitions));
         }
-        // Through the operands' own roots: `self`'s names the ones it had before the merge
-        // renamed them apart, which are no longer keys of this map.
+        // Through the roots passed in: `self.document.root` still names keys the merge renamed,
+        // which this map does not hold.
         if reachable.contains(ROOT_DEFINITION_KEY) {
             for root in roots {
                 reachable.extend(pointers_read(root, definitions));
@@ -885,17 +906,38 @@ impl CanonicalSchema {
         Err(CanonicalizationError::IncompatibleOperands(mismatch))
     }
 
+    /// Whether an operation reads this schema as `#` rather than as its node.
+    ///
+    /// The document root is the target of its own `#`. Where it reads itself back on the same value
+    /// through `not` or `oneOf`, a copy of its body accepts other values than it does, so the root
+    /// takes part as `#` itself.
+    fn takes_part_as_root_pointer(&self) -> bool {
+        self.inner == self.document.root
+            && emptiness::root_inverts_on_an_in_place_cycle(&self.inner, &self.document.definitions)
+    }
+
     /// The map the result resolves references through.
     fn merged_definitions(&self, other: &Self) -> Result<Combined, CanonicalizationError> {
         let ours = &self.document.definitions;
         let theirs = &other.document.definitions;
+        let left_as_root_pointer = self.takes_part_as_root_pointer();
+        let right_as_root_pointer = other.takes_part_as_root_pointer();
         let mut combined = Combined {
             definitions: Arc::clone(ours),
-            left: self.inner.clone(),
-            right: other.inner.clone(),
+            left: if left_as_root_pointer {
+                root_pointer()
+            } else {
+                self.inner.clone()
+            },
+            right: if right_as_root_pointer {
+                root_pointer()
+            } else {
+                other.inner.clone()
+            },
             left_root: self.document.root.clone(),
             right_root: other.document.root.clone(),
             local: Arc::clone(&self.document.local),
+            root_as_pointer: left_as_root_pointer || right_as_root_pointer,
         };
         // Both sides' private names travel with the result whichever map it keeps, or the operand
         // order would decide which of them a later operation may rename apart.
@@ -921,8 +963,8 @@ impl CanonicalSchema {
         let (ours, theirs) = if renames.is_empty() {
             (Arc::clone(ours), Arc::clone(theirs))
         } else {
-            combined.left = rename::rename_references(&self.inner, &renames.left);
-            combined.right = rename::rename_references(&other.inner, &renames.right);
+            combined.left = rename::rename_references(&combined.left, &renames.left);
+            combined.right = rename::rename_references(&combined.right, &renames.right);
             combined.left_root = rename::rename_references(&self.document.root, &renames.left);
             combined.right_root = rename::rename_references(&other.document.root, &renames.right);
             combined.local = Arc::new(rename::rename_keys(
@@ -952,6 +994,16 @@ impl CanonicalSchema {
         };
         Ok(combined)
     }
+}
+
+/// `#`, standing for the document root.
+fn root_pointer() -> Schema {
+    Schema::new(SchemaKind::Reference(Arc::from(ROOT_DEFINITION_KEY)))
+}
+
+/// Whether `schema` is `#` and nothing else.
+fn is_root_pointer(schema: &Schema) -> bool {
+    matches!(schema.kind(), SchemaKind::Reference(uri) if uri.as_ref() == ROOT_DEFINITION_KEY)
 }
 
 /// The private names a pruned map still holds. A marker outliving its body would let a later
@@ -993,4 +1045,6 @@ struct Combined {
     left_root: Schema,
     right_root: Schema,
     local: Arc<BTreeSet<Arc<str>>>,
+    /// Whether an operand is a document root read as `#`.
+    root_as_pointer: bool,
 }

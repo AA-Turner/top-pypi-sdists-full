@@ -2288,6 +2288,27 @@ endmodule
                         [](auto& d) { return d.code == diag::ConstEvalDynamicArrayIndex; }) == 2);
 }
 
+TEST_CASE("Queue delete with non-constant index in constant function") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    function automatic int f();
+        int q[$] = {1, 2, 3};
+        q.delete($urandom);
+        return q.size();
+    endfunction
+
+    localparam int p = f();
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::SysFuncNotConst);
+}
+
 TEST_CASE("Iterator index method errors") {
     auto tree = SyntaxTree::fromText(R"(
 module m;
@@ -2576,4 +2597,54 @@ endmodule
     REQUIRE(diags.size() == 2);
     CHECK(diags[0].code == diag::InvalidStringArg);
     CHECK(diags[1].code == diag::InvalidStringArg);
+}
+
+TEST_CASE("%p formatting of empty associative arrays and untagged unions") {
+    auto tree = SyntaxTree::fromText(R"(
+module top;
+    function automatic string f1();
+        int aa[int];
+        return $sformatf("%p|%0p", aa, aa);
+    endfunction
+
+    typedef union {int i; byte b;} u_t;
+    function automatic u_t mkb(); u_t u; u.b = 8'd7; return u; endfunction
+    function automatic u_t mki(); u_t u; u.i = 9; return u; endfunction
+
+    localparam string s1 = f1();
+    localparam u_t ub = mkb();
+    localparam u_t ui = mki();
+    localparam string s2 = $sformatf("%p", ub);
+    localparam string s3 = $sformatf("%p|%0p", ui, ui);
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+
+    auto& root = compilation.getRoot();
+    auto get = [&](std::string_view name) {
+        return root.lookupName<ParameterSymbol>(name).getValue().str();
+    };
+    CHECK(get("top.s1") == "'{}|'{}");
+    CHECK(get("top.s2") == "'{i:7}");
+    CHECK(get("top.s3") == "'{i:9}|'{9}");
+}
+
+TEST_CASE("Elaboration tasks format byte arrays with no format specifier as strings") {
+    auto tree = SyntaxTree::fromText(R"(
+module top;
+    localparam byte ba[0:1] = '{"o", "k"};
+    $info(ba);
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::InfoTask);
+    CHECK(report(diags).find("$info encountered: ok") != std::string::npos);
 }

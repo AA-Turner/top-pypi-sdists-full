@@ -7,8 +7,8 @@
 
     AttributeError: 'int' object has no attribute 'properties'
 
-`section=`은 객체를 요구하는데 사용자는 당연히 인덱스를 넘기고, 정답인
-`section_index=`는 이름이 따로 있어 발견되지 않는다. 터지는 것도 내부가
+`section=`은 객체를 요구하는데 사용자는 당연히 인덱스를 넘기고, 정답이던
+`section_index=`는 이름이 따로 있어 발견되지 않았다. 터지는 것도 내부가
 새는 `AttributeError`라 호출자가 잡으려던 `TypeError`에 걸리지 않았다.
 별 142개짜리 서드파티 스킬이 이것 때문에 "python-hwpx API를 우회해 XML을
 손으로 풀라"고 자기 사용자에게 가르치고 있었다.
@@ -22,47 +22,98 @@
 
 ## 규약
 
-- `section=`은 인덱스도 객체도 받는다 — 이것이 정본.
-- `section_index=`는 6.x 동안 살아 있는 deprecated 별칭이고 7.0에서 사라진다.
-  6.0에서 바로 없애면 **문서를 읽고 올바르게 쓴 사람만** 깨진다.
+- `section=`은 인덱스도 객체도 받는다 — 이것이 유일한 인자다.
+- 6.x의 별칭 `section_index=`는 7.0에서 없어졌다. 주면
+  `hwpx-argument-removed` 오류가 `section=`을 알려 준다
+  (:func:`hwpx.errors.rejects_removed_arguments`).
 - 실패는 전부 `HwpxError` 계열이다. `AttributeError`가 공개 경로로 새어
   나가지 않는다.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from functools import wraps
+from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
 
 from ..errors import HwpxLookupError, HwpxTypeError, HwpxValueError
+
+_F = TypeVar("_F", bound=Callable[..., Any])
+
+
+def refused_leaves_no_paragraph(func: _F) -> _F:
+    """For a function that puts something into *paragraph*, or -- given none -- into a paragraph it
+    appends to a section first (:func:`home_paragraph`): when the call is refused, that new paragraph
+    goes again.
+
+    The paragraph is made before the thing itself is checked (its text, its sizes, its colours), so a
+    refused ``doc.shapes.add_line(line_color="nope")`` or ``doc.notes.add_footnote(123)`` used to leave
+    an empty paragraph at the end of the section. Only the paragraph the function made for itself is
+    taken out: whatever else changed while the call ran (an argument that edits the document as it is
+    read) is not this function's to undo, and the section stays marked as changed.
+    """
+
+    @wraps(func)
+    def wrapper(doc: Any, *args: Any, **kwargs: Any) -> Any:
+        made: list[Any] = []
+        records = doc.__dict__.setdefault("_home_paragraph_records", [])
+        records.append(made)
+        try:
+            return func(doc, *args, **kwargs)
+        except BaseException:
+            for paragraph in made:
+                element = paragraph.element
+                holder = element.getparent() if hasattr(element, "getparent") else None
+                if holder is not None:
+                    holder.remove(element)
+            raise
+        finally:
+            records.pop()
+
+    return cast(_F, wrapper)
+
+
+def home_paragraph(doc: Any, *args: Any, **kwargs: Any) -> "HwpxOxmlParagraph":
+    """``doc.add_paragraph(...)`` for the paragraph a function makes to put its object into, noted so
+    that :func:`refused_leaves_no_paragraph` takes it out again when the function is refused."""
+
+    return note_home_paragraph(doc, doc.add_paragraph(*args, **kwargs))
+
+
+def note_home_paragraph(doc: Any, paragraph: "HwpxOxmlParagraph") -> "HwpxOxmlParagraph":
+    """Note *paragraph* as the one the running function made for its object (see
+    :func:`refused_leaves_no_paragraph`) and return it."""
+
+    records = doc.__dict__.get("_home_paragraph_records")
+    if records:
+        records[-1].append(paragraph)
+    return paragraph
 
 if TYPE_CHECKING:
     from ..oxml import HwpxOxmlParagraph, HwpxOxmlSection
     from ..document import HwpxDocument
 
-__all__ = ["resolve_section", "resolve_paragraph"]
+__all__ = ["resolve_section", "resolve_paragraph", "optional_paragraph"]
 
 
-def _sections(document: "HwpxDocument") -> list["HwpxOxmlSection"]:
+def _sections(document: "HwpxDocument") -> tuple["HwpxOxmlSection", ...]:
     return document.oxml.sections
 
 
 def resolve_section(
     document: "HwpxDocument",
     section: "int | HwpxOxmlSection | None" = None,
-    section_index: int | None = None,
     *,
     caller: str = "",
 ) -> "HwpxOxmlSection":
-    """`section` / `section_index` 삼형을 하나의 섹션 객체로 해석한다.
+    """`section` 인자(번호·객체·``None``)를 하나의 섹션 객체로 해석한다.
 
     Args:
         document: 대상 문서.
         section: 섹션 객체 **또는 인덱스**. ``None``이면 마지막 섹션.
-        section_index: 6.x deprecated 별칭. ``section``과 동시에 줄 수 없다.
         caller: 오류 ``context``에 실릴 호출 API 이름.
 
     Raises:
-        HwpxValueError: 두 인자를 동시에 줬거나 문서에 섹션이 없다.
+        HwpxValueError: 문서에 섹션이 없다.
         HwpxLookupError: 인덱스가 범위 밖이다.
         HwpxTypeError: 섹션도 정수도 아닌 값을 줬다.
     """
@@ -70,14 +121,6 @@ def resolve_section(
     from ..oxml import HwpxOxmlSection  # 순환 import 회피 — 런타임에만 필요
 
     ctx: dict[str, Any] = {"caller": caller} if caller else {}
-
-    if section is not None and section_index is not None:
-        raise HwpxValueError(
-            "section 과 section_index 를 동시에 지정할 수 없습니다.",
-            code="section-argument-conflict",
-            context={**ctx, "section": repr(section), "sectionIndex": section_index},
-            suggestion="section= 하나만 쓰세요. section= 은 인덱스와 객체를 모두 받습니다.",
-        )
 
     sections = _sections(document)
     if not sections:
@@ -88,11 +131,21 @@ def resolve_section(
             suggestion="doc.add_section() 으로 섹션을 먼저 만드세요.",
         )
 
-    requested = section if section is not None else section_index
+    requested = section
     if requested is None:
         return sections[-1]
 
     if isinstance(requested, HwpxOxmlSection):
+        if not any(requested is own for own in sections):
+            # Another document's section (or one removed from this one): the paragraph went into that
+            # document and the image, the styles and the ids into this one -- a picture in one file
+            # and its image in the other.
+            raise HwpxLookupError(
+                "그 섹션은 이 문서의 섹션이 아닙니다.",
+                code="section-not-found",
+                context=ctx,
+                suggestion="이 문서의 doc.sections[i] 나 정수 인덱스를 넘기세요.",
+            )
         return requested
 
     # bool 은 int 의 서브클래스다. `section=True` 를 인덱스 1 로 읽으면
@@ -116,12 +169,43 @@ def resolve_section(
     )
 
 
+def _belongs(document: "HwpxDocument", paragraph: "HwpxOxmlParagraph") -> bool:
+    """Whether *paragraph*'s element sits in one of *document*'s sections (body, cell, header,
+    footer, note or memo): not another document's, and not one taken out."""
+
+    sections = _sections(document)
+    element = paragraph.element
+    if not hasattr(element, "getparent"):  # a stdlib tree: its section must be this document's
+        return any(section is paragraph.section for section in sections) and any(
+            node is element for section in sections for node in section.element.iter()
+        )
+    root: Any = element  # an lxml element here; the stdlib type has no getparent
+    while (parent := root.getparent()) is not None:
+        root = parent
+    return any(section.element is root for section in sections)
+
+
+def optional_paragraph(
+    document: "HwpxDocument",
+    paragraph: "int | HwpxOxmlParagraph | None",
+    *,
+    section: "int | HwpxOxmlSection | None" = None,
+    caller: str = "",
+) -> "HwpxOxmlParagraph | None":
+    """:func:`resolve_paragraph` for a ``paragraph=`` that may be left out: ``None`` stays
+    ``None`` (the caller adds a paragraph); an index or a paragraph object is resolved and
+    checked to belong to *document*."""
+
+    if paragraph is None:
+        return None
+    return resolve_paragraph(document, paragraph, section=section, caller=caller)
+
+
 def resolve_paragraph(
     document: "HwpxDocument",
     paragraph: "int | HwpxOxmlParagraph | None" = None,
     *,
     section: "int | HwpxOxmlSection | None" = None,
-    section_index: int | None = None,
     caller: str = "",
 ) -> "HwpxOxmlParagraph":
     """`paragraph` 인자를 문단 객체로 해석한다 — `section` 과 같은 규약.
@@ -135,11 +219,18 @@ def resolve_paragraph(
     ctx: dict[str, Any] = {"caller": caller} if caller else {}
 
     if isinstance(paragraph, HwpxOxmlParagraph):
+        if not _belongs(document, paragraph):
+            raise HwpxValueError(
+                "넘긴 문단은 이 문서에 속한 문단이 아닙니다(다른 문서의 문단이거나 지운 문단).",
+                code="paragraph-not-in-document",
+                context=ctx,
+                suggestion="이 문서의 doc.paragraphs, cell.paragraphs, header.paragraphs 에서 문단을 넘기세요.",
+            )
         return paragraph
 
-    scoped = section is not None or section_index is not None
+    scoped = section is not None
     if scoped:
-        target = resolve_section(document, section, section_index, caller=caller)
+        target = resolve_section(document, section, caller=caller)
         paragraphs = target.paragraphs
     else:
         paragraphs = document.paragraphs

@@ -95,7 +95,7 @@ import requests
 from ..common import NotifyType
 from ..exception import AppriseImproperlyConfigured
 from ..locale import gettext_lazy as _
-from ..utils.parse import is_hostname, is_ipaddr, validate_regex
+from ..utils.parse import is_hostname, is_ipaddr, parse_choice, validate_regex
 from .base import NotifyBase
 
 # A URL Parser to detect App ID
@@ -667,8 +667,7 @@ class NotifyLametric(NotifyBase):
         LametricSound object it was found in."""
 
         for x in LAMETRIC_SOUNDS:
-            match = next((f for f in x[1] if f.startswith(lookup)), None)
-            if match:
+            if parse_choice(lookup, x[1]):
                 # We're done
                 return x
 
@@ -877,7 +876,7 @@ class NotifyLametric(NotifyBase):
         except requests.RequestException as e:
             self.logger.warning(
                 "A Connection error occurred sending LaMetric "
-                f"notification to {self.host}."
+                f"notification to {self.host or 'the LaMetric cloud'}."
             )
             self.logger.debug(f"Socket Exception: {e!s}")
 
@@ -1111,6 +1110,10 @@ class NotifyLametric(NotifyBase):
                     results["password"]
                 )
 
+            # The cloud has no host of our own; the host was the app id,
+            # and reporting both would read it twice
+            results["host"] = None
+
         # Set cycles
         with contextlib.suppress(TypeError, ValueError):
             results["cycles"] = abs(int(results["qsd"].get("cycles")))
@@ -1132,7 +1135,7 @@ class NotifyLametric(NotifyBase):
         # ?token={APP_ACCESS_TOKEN} to the parameters at the end or the
         # URL will fail to load in later stages.
         result = re.match(
-            r"^http(?P<secure>s)?://(?P<host>[^/]+)"
+            r"^http(?P<secure>s)?://developer\.lametric\.com"
             r"/api/(?P<api_ver>v[1-9]*[0-9]+)"
             r"/dev/widget/update/"
             r"com\.lametric\.(?P<app_id>[0-9a-z.-]{1,64})"

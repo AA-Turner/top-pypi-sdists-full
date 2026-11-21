@@ -32,6 +32,8 @@ pub mod hash;
 pub mod hydrogen;
 pub mod ifg;
 pub mod isotope_distribution;
+mod isotope_formula;
+pub use isotope_formula::calc_mol_formula_with_isotopes;
 pub mod iupac_stereo;
 pub mod logd;
 pub mod meso_stereo_group;
@@ -45,7 +47,6 @@ pub mod parent;
 pub mod pka;
 pub mod qed;
 mod rdkit_graph;
-mod rdkit_isotope_mass_table;
 pub mod recap;
 pub mod resonance;
 pub mod rgroup;
@@ -69,8 +70,10 @@ pub use checked_distance_matrix::{
     try_topological_distance_matrix_with_limits,
 };
 pub use cip::{
-    CipAssignment, CipMode, CipModeAssignment, CipModeError, CipUnresolvedReason, EzCompleteness,
-    assign_cip, assign_cip_with_mode, assign_ez_bonds, assign_ez_bonds_with_mode,
+    CipAssignment, CipMode, CipModeAssignment, CipModeError, CipUnresolvedReason,
+    CumuleneEzAssignment, DoubleBondCip, EzCompleteness, assign_accurate_cip_with_bond_labels,
+    assign_accurate_cip_with_double_bond_labels, assign_accurate_double_bond_cip, assign_cip,
+    assign_cip_with_mode, assign_cumulene_ez, assign_ez_bonds, assign_ez_bonds_with_mode,
     cip_label_depends_on_kekule_spelling, cip_label_depends_on_smiles_spelling, ez_completeness,
     rdkit_canonical_atom_ranks, tetrahedral_stereo_neighbors,
 };

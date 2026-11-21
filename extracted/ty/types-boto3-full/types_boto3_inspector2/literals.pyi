@@ -144,6 +144,7 @@ __all__ = (
     "ProjectSelectionScopeType",
     "ProviderComparisonType",
     "ProviderType",
+    "PurlQualifierKeyType",
     "RegionName",
     "RelationshipStatusType",
     "ReportFormatType",
@@ -155,6 +156,9 @@ __all__ = (
     "ResourceStringComparisonType",
     "ResourceTypeType",
     "RuleSetCategoryType",
+    "RuntimeReachabilityComparisonType",
+    "RuntimeReachabilityReasonType",
+    "RuntimeReachabilityType",
     "RuntimeType",
     "SbomReportFormatType",
     "ScanModeType",
@@ -477,6 +481,24 @@ PeriodicScanFrequencyType = Literal["MONTHLY", "NEVER", "WEEKLY"]
 ProjectSelectionScopeType = Literal["ALL"]
 ProviderComparisonType = Literal["EQUALS"]
 ProviderType = Literal["AWS", "AZURE", "GCP"]
+PurlQualifierKeyType = Literal[
+    "arch",
+    "collector",
+    "dev_dependency",
+    "distro",
+    "epoch",
+    "go_toolchain",
+    "hardened",
+    "private",
+    "rust_toolchain",
+    "scope",
+    "skip_chromium_download",
+    "source",
+    "stream",
+    "transitive_dependency",
+    "unresolved",
+    "vendor",
+]
 RelationshipStatusType = Literal[
     "ACCOUNT_SUSPENDED",
     "CANNOT_CREATE_DETECTOR_IN_ORG_MASTER",
@@ -519,6 +541,14 @@ ResourceTypeType = Literal[
     "compute.googleapis.com/Instance",
 ]
 RuleSetCategoryType = Literal["IAC", "SAST", "SCA"]
+RuntimeReachabilityComparisonType = Literal["EQUALS", "NOT_EQUALS"]
+RuntimeReachabilityReasonType = Literal[
+    "PACKAGE_IN_DOCKERFILE_WORKLOAD_PATH",
+    "PACKAGE_NOT_IN_DOCKERFILE_WORKLOAD_PATH",
+    "PROCESS_NOT_OBSERVED_IN_EC2_RUNTIME",
+    "PROCESS_OBSERVED_IN_EC2_RUNTIME",
+]
+RuntimeReachabilityType = Literal["NOT_REACHABLE", "REACHABLE", "UNKNOWN"]
 RuntimeType = Literal[
     "DOTNETCORE_3_1",
     "DOTNET_10",
@@ -666,6 +696,7 @@ ServiceName = Literal[
     "account-access-runtime",
     "acm",
     "acm-pca",
+    "agent-discovery",
     "agent-registry",
     "agent-registry-control",
     "aiops",
@@ -676,6 +707,7 @@ ServiceName = Literal[
     "apigateway",
     "apigatewaymanagementapi",
     "apigatewayv2",
+    "apiportal",
     "appconfig",
     "appconfigdata",
     "appfabric",
@@ -966,6 +998,7 @@ ServiceName = Literal[
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
+    "payments",
     "pca-connector-ad",
     "pca-connector-scep",
     "pcs",
@@ -1021,6 +1054,7 @@ ServiceName = Literal[
     "sagemaker-a2i-runtime",
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
+    "sagemaker-gateway-runtime",
     "sagemaker-geospatial",
     "sagemaker-inference-router-runtime",
     "sagemaker-metrics",

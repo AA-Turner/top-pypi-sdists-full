@@ -1,8 +1,12 @@
+#[path = "../examples/support/synthetic_specs.rs"]
+mod codec;
+
+use serde_json::json;
 use statsig_rust::{
     SpecStore, SpecsSource, SpecsUpdate, StatsigRuntime, global_configs::GlobalConfigs,
     networking::ResponseData, sdk_event_emitter::SdkEventEmitter,
 };
-use std::fs;
+use std::{collections::HashMap, fs};
 
 fn create_test_spec_store(sdk_key: &str) -> SpecStore {
     SpecStore::new(
@@ -12,6 +16,66 @@ fn create_test_spec_store(sdk_key: &str) -> SpecStore {
         std::sync::Arc::new(SdkEventEmitter::default()),
         None,
     )
+}
+
+#[test]
+fn only_full_snapshots_clear_an_omitted_special_case_sampling_rate() {
+    let key = "secret-sampling-rate-refresh";
+    let store = create_test_spec_store(key);
+    let globals = GlobalConfigs::get_instance(key);
+    let number =
+        |name: &str| globals.use_sdk_config_value(name, |value| value.and_then(|v| v.float_value));
+    let apply = |data| {
+        store
+            .set_values(SpecsUpdate {
+                data,
+                source: SpecsSource::Network,
+                received_at: 0,
+                source_api: None,
+                has_updates: None,
+            })
+            .unwrap();
+    };
+    let full = |time, checksum| {
+        json!({
+            "time": time, "checksum": checksum, "response_format": "dcs-v2", "has_updates": true,
+            "experiment_to_layer": {}, "condition_map": {}, "feature_gates": {},
+            "dynamic_configs": {}, "layer_configs": {}
+        })
+    };
+    let proto_headers = HashMap::from([
+        ("content-type".into(), "application/octet-stream".into()),
+        ("content-encoding".into(), "statsig-zstd".into()),
+    ]);
+    let proto = |bytes| ResponseData::from_bytes_with_headers(bytes, Some(proto_headers.clone()));
+
+    let mut initial = full(1, "initial");
+    initial["sdk_configs"] = json!({"special_case_sampling_rate": 101});
+    apply(proto(codec::encode_full(&initial).unwrap()));
+    assert_eq!(number("special_case_sampling_rate"), Some(101.0));
+
+    let mut delta = full(2, "delta");
+    delta["sdk_configs"] = json!({"event_queue_size": 250});
+    apply(proto(codec::encode_delta(&initial, &delta).unwrap()));
+    assert_eq!(number("event_queue_size"), Some(250.0));
+    assert_eq!(number("special_case_sampling_rate"), Some(101.0));
+
+    let mut refresh = full(3, "refresh");
+    refresh["sdk_configs"] = delta["sdk_configs"].clone();
+    apply(ResponseData::from_bytes(
+        serde_json::to_vec(&refresh).unwrap(),
+    ));
+    assert_eq!(number("special_case_sampling_rate"), None);
+
+    let mut enabled_again = full(4, "enabled-again");
+    enabled_again["sdk_configs"] = json!({"special_case_sampling_rate": 17});
+    apply(proto(codec::encode_full(&enabled_again).unwrap()));
+    assert_eq!(number("special_case_sampling_rate"), Some(17.0));
+    apply(proto(
+        codec::encode_full(&full(5, "no-sdk-configs")).unwrap(),
+    ));
+    assert_eq!(number("special_case_sampling_rate"), None);
+    assert_eq!(number("event_queue_size"), Some(250.0));
 }
 
 #[test]
@@ -147,7 +211,7 @@ fn test_set_and_get_sampling_rate() {
 
 #[test]
 fn test_set_and_get_sdk_flag() {
-    let sdk_key = "secret-key-sampling-global-configs-test";
+    let sdk_key = "secret-key-with-sdk-flags";
     let spec_store: SpecStore = create_test_spec_store(sdk_key);
     let data =
         fs::read_to_string("tests/data/dcs_with_sdk_configs.json").expect("Unable to read file");
@@ -173,7 +237,7 @@ fn test_set_and_get_sdk_flag() {
 
 #[test]
 fn test_set_and_get_sdk_flag_when_dcs_has_no_sdk_flags() {
-    let sdk_key = "secret-key-sampling-global-configs-test";
+    let sdk_key = "secret-key-without-sdk-flags";
     let spec_store: SpecStore = create_test_spec_store(sdk_key);
     let data = fs::read_to_string("tests/data/eval_proj_dcs.json").expect("Unable to read file");
 

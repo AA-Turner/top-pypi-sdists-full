@@ -76,6 +76,7 @@ __all__ = (
     "OriginAccessControlSigningBehaviorsType",
     "OriginAccessControlSigningProtocolsType",
     "OriginGroupSelectionCriteriaType",
+    "OriginHttpVersionType",
     "OriginProtocolPolicyType",
     "OriginRequestPolicyCookieBehaviorType",
     "OriginRequestPolicyHeaderBehaviorType",
@@ -199,6 +200,7 @@ OriginAccessControlSigningBehaviorsType = Literal[
 ]
 OriginAccessControlSigningProtocolsType = Literal["sigv4", "sigv4a"]
 OriginGroupSelectionCriteriaType = Literal["default", "media-quality-based"]
+OriginHttpVersionType = Literal["http1.1", "http2"]
 OriginProtocolPolicyType = Literal["http-only", "https-only", "match-viewer"]
 OriginRequestPolicyCookieBehaviorType = Literal["all", "allExcept", "none", "whitelist"]
 OriginRequestPolicyHeaderBehaviorType = Literal[
@@ -240,6 +242,7 @@ ServiceName = Literal[
     "account-access-runtime",
     "acm",
     "acm-pca",
+    "agent-discovery",
     "agent-registry",
     "agent-registry-control",
     "aiops",
@@ -250,6 +253,7 @@ ServiceName = Literal[
     "apigateway",
     "apigatewaymanagementapi",
     "apigatewayv2",
+    "apiportal",
     "appconfig",
     "appconfigdata",
     "appfabric",
@@ -540,6 +544,7 @@ ServiceName = Literal[
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
+    "payments",
     "pca-connector-ad",
     "pca-connector-scep",
     "pcs",
@@ -595,6 +600,7 @@ ServiceName = Literal[
     "sagemaker-a2i-runtime",
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
+    "sagemaker-gateway-runtime",
     "sagemaker-geospatial",
     "sagemaker-inference-router-runtime",
     "sagemaker-metrics",

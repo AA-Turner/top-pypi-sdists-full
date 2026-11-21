@@ -231,20 +231,21 @@ class InstagramExtractor(Extractor):
         return {}
 
     def _parse_post(self, post):
+        owner = post.get("user") or {}
         if "items" in post:  # story or highlight
             items = post["items"]
-            user = post.get("user") or self._user
+            owner = owner or self._user or {}
             reel_type, _, reel_id = str(post["id"]).rpartition(":")
             if reel_type or post.get("reel_type") == "highlight_reel":
                 post_url = f"{self.root}/stories/highlights/{reel_id}/"
                 expires = None
                 reel_type = "highlight"
             else:
-                post_url = f"{self.root}/stories/{user.get('username')}/"
+                post_url = f"{self.root}/stories/{owner.get('username')}/"
                 expires = post["seen"] + 86400
                 reel_type = "story"
             data = {
-                "user"   : user,
+                "user"   : owner,
                 "expires": self.parse_timestamp(expires),
                 "post_id": reel_id,
                 "post_shortcode": shortcode_from_id(reel_id),
@@ -308,7 +309,6 @@ class InstagramExtractor(Extractor):
             else:
                 items = (post,)
 
-        owner = post["user"] or {}
         data["owner_id"] = owner.get("pk")
         data["username"] = owner.get("username")
         data["fullname"] = owner.get("full_name")

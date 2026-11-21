@@ -1,4 +1,4 @@
-#  Copyright 2016-2023. Couchbase, Inc.
+#  Copyright 2016-2026. Couchbase, Inc.
 #  All Rights Reserved.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License")
@@ -21,11 +21,13 @@ from setuptools import find_packages, setup
 
 sys.path.append('.')
 import couchbase_version  # nopep8 # isort:skip # noqa: E402
-from pycbc_build_setup import (BuildCommand,  # nopep8 # isort:skip # noqa: E402
+from pycbc_build_setup import (BdistWheelCommand,  # nopep8 # isort:skip # noqa: E402
+                               BuildCommand,
                                CMakeBuildExt,
                                CMakeConfigureExt,
                                CMakeExtension,
-                               CMAKE_EXE)
+                               CMAKE_EXE,
+                               use_py_limited_api)
 
 try:
     couchbase_version.gen_version()
@@ -36,10 +38,13 @@ PYCBC_README = os.path.join(os.path.dirname(__file__), 'README.md')
 PYCBC_VERSION = couchbase_version.get_version()
 
 
-package_data = {}
+package_data = {pkg: ['py.typed'] for pkg in ('couchbase', 'acouchbase', 'txcouchbase')}
+# find_packages takes modules only, so the stubs beside the generated protobuf modules are named here.
+package_data['couchbase.protocol.couchbase2._generated'] = ['**/*.pyi']
 # some more Windows tomfoolery...
 if platform.system() == 'Windows':
-    package_data = {'couchbase.logic.pycbc_core': ['_core.pyd']}
+    # glob so both build modes match: _core.pyd (abi3) and _core.cp3XY-win_amd64.pyd
+    package_data['couchbase.protocol.classic._pycbc_core'] = ['_core*.pyd']
 
 # request installing cmake from PyPI if no CMake executable was found.
 # otherwise, we want to use the system executable.
@@ -48,6 +53,16 @@ if not CMAKE_EXE:
     setup_requires += ["cmake>=3.19.0,<4.0.0"]
 
 print(f'Python SDK version: {PYCBC_VERSION}')
+
+# What couchbase2:// needs.  The floor is the oldest release the generated code loads on, and on 3.15
+# the first grpcio with wheels for it.
+couchbase2_requires = [
+    'certifi',
+    'googleapis-common-protos>=1.63.1',
+    'grpcio>=1.71.2',
+    'grpcio>=1.84.0; python_version>="3.15"',
+    'protobuf>=5.29.0',
+]
 
 # Optional dependencies
 extras_require = {
@@ -60,35 +75,45 @@ extras_require = {
 
 setup(name='couchbase',
       version=PYCBC_VERSION,
-      ext_modules=[CMakeExtension('couchbase.logic.pycbc_core._core')],
+      ext_modules=[CMakeExtension('couchbase.protocol.classic._pycbc_core._core',
+                                  py_limited_api=use_py_limited_api())],
       cmdclass={'build': BuildCommand,
                 'build_ext': CMakeBuildExt,
-                'configure_ext': CMakeConfigureExt},
-      python_requires='>=3.7',
+                'configure_ext': CMakeConfigureExt,
+                'bdist_wheel': BdistWheelCommand},
+      python_requires='>=3.11',
       install_requires=[
           'typing-extensions>=4.14; python_version<"3.13"',
+          *couchbase2_requires,
       ],
       setup_requires=setup_requires,
       extras_require=extras_require,
       packages=find_packages(
           include=['acouchbase', 'couchbase', 'txcouchbase', 'couchbase.*', 'acouchbase.*', 'txcouchbase.*'],
-          exclude=['acouchbase.tests', 'couchbase.tests', 'txcouchbase.tests']),
+          exclude=['acouchbase.tests', 'couchbase.tests', 'txcouchbase.tests',
+                   'acouchbase.tests.*', 'couchbase.tests.*', 'txcouchbase.tests.*']),
       package_data=package_data,
       url="https://github.com/couchbase/couchbase-python-client",
       author="Couchbase, Inc.",
       author_email="PythonPackage@couchbase.com",
-      license="Apache License 2.0",
+      license="Apache-2.0",
+      license_files=["LICENSE"],
       description="Python Client for Couchbase",
       long_description=open(PYCBC_README, "r").read(),
       long_description_content_type='text/markdown',
       keywords=["couchbase", "nosql", "pycouchbase", "libcouchbase"],
       classifiers=[
           "Development Status :: 5 - Production/Stable",
-          "License :: OSI Approved :: Apache Software License",
           "Intended Audience :: Developers",
           "Operating System :: OS Independent",
           "Programming Language :: Python",
           "Programming Language :: Python :: 3",
+          "Programming Language :: Python :: 3 :: Only",
+          "Programming Language :: Python :: 3.11",
+          "Programming Language :: Python :: 3.12",
+          "Programming Language :: Python :: 3.13",
+          "Programming Language :: Python :: 3.14",
+          "Programming Language :: Python :: 3.15",
           "Programming Language :: Python :: Implementation :: CPython",
           "Topic :: Database",
           "Topic :: Software Development :: Libraries",

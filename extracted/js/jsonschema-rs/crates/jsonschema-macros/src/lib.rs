@@ -1,15 +1,11 @@
 use proc_macro::TokenStream;
 
-/// Generates a compile-time JSON Schema validator.
-///
-/// Reads and compiles the schema at compile time, generating inherent methods on the
-/// annotated struct:
+/// Generates a JSON Schema validator at compile time as inherent methods on the annotated struct:
 ///
 /// - `pub fn is_valid(instance: &serde_json::Value) -> bool`
 /// - `pub fn validate(instance: &Value) -> Result<(), jsonschema::ValidationError<'_>>`
 /// - `pub fn iter_errors(instance: &Value) -> jsonschema::ErrorIterator<'_>`
-///
-/// The `evaluate` method is not implemented yet.
+/// - `pub fn evaluate(instance: &Value) -> jsonschema::Evaluation`
 ///
 /// Schema errors are emitted as regular Rust compile errors.
 ///
@@ -17,7 +13,7 @@ use proc_macro::TokenStream;
 ///
 /// Exactly one schema source must be provided:
 ///
-/// - `path = "relative/or/absolute/path/to/schema.json"`
+/// - `path = "schema.json"` (relative to the crate's `Cargo.toml` directory, or absolute)
 /// - `schema = r#"{"type":"string"}"#`
 ///
 /// # Optional attributes
@@ -30,6 +26,7 @@ use proc_macro::TokenStream;
 ///   `jsonschema::Draft::Draft7` is accepted; only the final segment is inspected)
 /// - `base_uri = "json-schema:///root/main.json"`
 /// - `resources = { "uri" => { schema = r#"..."# }, "uri2" => { path = "..." } }`
+/// - `vocabularies = ["uri", ...]` (same as `ValidationOptions::with_vocabulary`)
 /// - `validate_formats = true|false`
 /// - `ignore_unknown_formats = true|false` (default: `true`)
 /// - `formats = { "name" => crate::path::to::format_fn }`
@@ -41,8 +38,9 @@ use proc_macro::TokenStream;
 ///   (same fn signatures as `ValidationOptions::{with_content_media_type,with_content_encoding}`)
 /// - `email_options = { ... }`
 /// - `pattern_options = { ... }`
-/// - `methods = { is_valid = <bool>, validate = <bool>, iter_errors = <bool> }` (all default to
-///   `true`; a method set to `false` is not generated, and at least one must stay enabled)
+/// - `methods = { is_valid = <bool>, validate = <bool>, iter_errors = <bool>, evaluate = <bool> }`
+///   (all default to `true`; a method set to `false` is not generated, and at least one must
+///   stay enabled)
 ///
 /// `email_options` keys:
 ///
@@ -55,6 +53,7 @@ use proc_macro::TokenStream;
 /// `pattern_options` keys:
 ///
 /// - `engine = fancy_regex|regex`
+/// - `syntax = ecma262|engine` (`engine` passes patterns to the engine unchanged)
 /// - `backtrack_limit = <usize>` (only for `fancy_regex`)
 /// - `size_limit = <usize>`
 /// - `dfa_size_limit = <usize>`

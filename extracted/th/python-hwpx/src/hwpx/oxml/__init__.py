@@ -24,7 +24,7 @@ from .header_part import HwpxOxmlHeader
 from .history_part import DiffNode, History, HistoryEntry
 from .master_page import MasterPage
 from .memo import HwpxOxmlMemo, HwpxOxmlMemoGroup, HwpxOxmlNote
-from .numbering import DocumentNumbering, SectionStartNumbering
+from .numbering import DocumentNumbering
 from .objects import Caption, ContainerMember, DrawText, HwpxOxmlInlineObject, HwpxOxmlShape
 from .shape_position import PictureGlow, PictureReflection, PictureShadow
 from .paragraph import HwpxOxmlParagraph
@@ -212,7 +212,6 @@ __all__ = [
     "RefList",
     "Run",
     "Section",
-    "SectionStartNumbering",
     "Style",
     "StyleList",
     "TabDefinition",
@@ -272,3 +271,7 @@ __all__ = [
 ]
 
 logger = logging.getLogger(__name__)
+
+from ._paragraph_text_edit import install_detached_guard as _install_detached_guard  # noqa: E402
+
+_install_detached_guard()  # writes on the document side refuse an object taken out of it

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import warnings
 from collections.abc import Iterable
 from dataclasses import dataclass, fields, replace
@@ -11,6 +12,14 @@ from ._helpers import FontStackName, GoogleFont, _scaled_px, px
 if TYPE_CHECKING:
     from ._locations import LocColumnLabels, LocRowGroups, LocStub
     from ._types import GTSelf
+
+# A CSS length (not negative), e.g. "400px" or "60vh", or a `calc()`, `min()`, `max()` or `clamp()`
+# of lengths, e.g. "min(60vh, 600px)"
+_CSS_LENGTH = re.compile(
+    r"(?:\d+(?:\.\d+)?|\.\d+)(?:px|em|rem|ex|ch|lh|rlh|vw|vh|vmin|vmax|[sld]v[hw]|%|cm|mm|q|in|pt|pc)"
+    r"|(?:calc|min|max|clamp)\([0-9a-z.%+\-*/(), ]+\)",
+    re.IGNORECASE,
+)
 
 
 def tab_options(
@@ -187,7 +196,7 @@ def tab_options(
     ihtml_page_size_default: int | None = None,
     ihtml_page_size_values: list[int] | None = None,
     ihtml_pagination_type: str | None = None,
-    ihtml_height: str | None = None,
+    ihtml_height: str | float | None = None,
     ihtml_selection_mode: str | None = None,
 ) -> GTSelf:
     """
@@ -595,6 +604,30 @@ def tab_options(
         css_val = modified_args["table_additional_css"].strip()
         modified_args["table_additional_css"] = [css_val] if css_val else []
 
+    # - `ihtml_selection_mode` is "single" or "multiple" (or `None`, leaving it as it is)
+    selection_mode = modified_args.get("ihtml_selection_mode")
+    if selection_mode is not None and selection_mode not in ("single", "multiple"):
+        raise ValueError(
+            f"The chosen option for `ihtml_selection_mode` ({selection_mode!r}) is invalid. "
+            'Use either "single" or "multiple".'
+        )
+
+    # - `ihtml_pagination_type` is "numbers", "jump", "simple" or "full"
+    pagination_type = modified_args.get("ihtml_pagination_type")
+    if pagination_type is not None and pagination_type not in _PAGINATION_TYPES:
+        raise ValueError(
+            f"The chosen option for `ihtml_pagination_type` ({pagination_type!r}) is invalid. "
+            'Use "numbers", "jump", "simple", or "full".'
+        )
+
+    # - `ihtml_height` is "auto", a CSS length, or a number of pixels
+    height = modified_args.get("ihtml_height")
+    if height is not None and not _is_height(height):
+        raise ValueError(
+            f'The chosen option for `ihtml_height` ({height!r}) is invalid. Use "auto", a CSS '
+            'length (e.g., "400px" or "60vh"), or a number of pixels.'
+        )
+
     # Validate and coerce option values based on their declared types
     new_options_info = {}
     for k, v in modified_args.items():
@@ -605,6 +638,18 @@ def tab_options(
     new_options = replace(self._options, **new_options_info)
 
     return self._replace(_options=new_options)
+
+
+# (R gt's, and "full", which GTI draws as first/previous/next/last)
+_PAGINATION_TYPES = ("numbers", "jump", "simple", "full")
+
+
+def _is_height(value: object) -> bool:
+    if isinstance(value, bool):
+        return False
+    if isinstance(value, (int, float)):
+        return value >= 0 and value != float("inf")
+    return isinstance(value, str) and (value == "auto" or _CSS_LENGTH.fullmatch(value) is not None)
 
 
 def opt_footnote_marks(self: GTSelf, marks: str | list[str] = "numbers") -> GTSelf:
@@ -649,7 +694,7 @@ def opt_footnote_marks(self: GTSelf, marks: str | list[str] = "numbers") -> GTSe
     # Validate the marks keyword passed in as a string
     if marks is str:
         marks = _utils._match_arg(
-            x=cast(str, marks),
+            x=cast("str", marks),
             lst=["numbers", "letters", "LETTERS", "standard", "extended"],
         )
 
@@ -1229,7 +1274,7 @@ def opt_all_caps(
         "row_groups": LocRowGroups,
     }
 
-    if any([isinstance(x, str) for x in locations]):
+    if any(isinstance(x, str) for x in locations):
         warnings.warn(
             "Using string-based locations in `opt_all_caps()` is deprecated and support will be "
             "removed in a future release. Please use the location classes from `great_tables.loc` "
@@ -1466,10 +1511,9 @@ def opt_table_font(
 
     ```{python}
     import polars as pl
-    from great_tables import GT
-    from great_tables.data import sp500
+    from great_tables import GT, data
 
-    sp500_mini = pl.from_pandas(sp500).slice(0, 10).drop(["volume", "adj_close"])
+    sp500_mini = data.pl.sp500.slice(0, 10).drop(["volume", "adj_close"])
 
     (
         GT(sp500_mini, rowname_col="date")
@@ -1490,10 +1534,10 @@ def opt_table_font(
     computing environments.
 
     ```{python}
-    from great_tables.data import sza
+    from great_tables import data
 
     sza_mini = (
-        pl.from_pandas(sza)
+        data.pl.sza
         .filter((pl.col("latitude") == "20") & (pl.col("month") == "jan"))
         .drop_nulls()
         .drop(["latitude", "month"])
@@ -1758,10 +1802,10 @@ def opt_css(
     value of `"one"`, setting it up with `GT(id=)`).
 
     ```{python}
-    from great_tables import GT, exibble
+    from great_tables import GT, data
     import polars as pl
 
-    exibble_mini = pl.from_pandas(exibble).select(["num", "currency"])
+    exibble_mini = data.pl.exibble.select(["num", "currency"])
 
     (
         GT(exibble_mini, id="one")
@@ -1801,7 +1845,7 @@ def opt_css(
         return self
     else:
         # Add the new CSS to the existing CSS
-        additional_css = existing_additional_css + [css]
+        additional_css = [*existing_additional_css, css]
 
     # Use tab_options() to set the additional CSS
     res = tab_options(self, table_additional_css=additional_css)
@@ -1825,15 +1869,27 @@ def opt_interactive(
     page_size_default: int = 10,
     page_size_values: list[int] | None = None,
     pagination_type: str = "numbers",
-    height: str = "auto",
+    height: str | float = "auto",
     selection_mode: str | None = None,
 ) -> GTSelf:
     """
     Option to enable an interactive table.
 
-    With `opt_interactive()`, a GT table can be transformed to an interactive HTML table.
-    Interactive tables allow users to sort columns, search/filter rows, paginate through data,
-    and more. All interactivity is handled in the browser with no server required.
+    With `opt_interactive()`, a GT table becomes one that readers can browse in the browser: they
+    can sort it by its columns, search and filter its rows, and page through them. Everything else
+    about the table stays as it is: its formatting, styles, header and footer, stub, row groups,
+    spanners and summary rows are all kept, as they'd be in the static table. The interactivity is
+    added to the table's own HTML by a small script that comes with it, so no server, internet
+    connection, or other library is needed, and the table can be read before (or without) the
+    script running. The table is interactive wherever its HTML is shown: in notebooks, in Quarto
+    documents, and in HTML files written with
+    [`write_raw_html()`](`great_tables.GT.write_raw_html`).
+
+    The options here are those of R gt's `opt_interactive()`, so that a published table can be
+    made browsable without changing what it is. For a table that's more of an interface (with
+    filters chosen column by column, exports, views that can be saved and shared, pinned and
+    hideable columns, and a control bar that brings these together), use `GTI`, or turn a
+    finished table into one with `GTI.from_gt()`. Both render the table with the same engine.
 
     Parameters
     ----------
@@ -1843,13 +1899,20 @@ def opt_interactive(
     use_pagination
         Whether to paginate rows. Enabled by default.
     use_pagination_info
-        Whether to show the pagination info text (e.g., "Showing 1 to 10 of 100 entries").
+        Whether to show which rows are on the page, next to the page controls (e.g., "1–10 of 100
+        rows").
     use_sorting
-        Whether to enable column sorting by clicking headers.
+        Whether to enable column sorting by clicking the column labels. Columns are sorted by their
+        values, not by how they're formatted.
     use_search
-        Whether to add a global search box above the table.
+        Whether to add a global search box above the table. It searches the text shown in the
+        cells.
     use_filters
-        Whether to add per-column filter inputs below the column headers.
+        Whether readers can filter the rows by each column, with a filter button on its column
+        label (the stub and the row group column don't have one). The filter is suited to the
+        column's type: a range of numbers or dates, a choice of values for a column with only a few
+        of them (or a categorical one), true or false for a boolean column, and text to match for
+        the rest.
     use_resizers
         Whether to allow columns to be resized by dragging their edges.
     use_highlight
@@ -1857,7 +1920,8 @@ def opt_interactive(
     use_compact_mode
         Whether to use compact row padding to fit more rows on screen.
     use_text_wrapping
-        Whether to allow cell text to wrap. When `False`, cells clip to a single line.
+        Whether to allow cell text to wrap. When `False`, cell text stays on one line, ending with
+        an ellipsis where it doesn't fit.
     use_page_size_select
         Whether to show a dropdown for the user to change the number of rows per page.
     page_size_default
@@ -1867,14 +1931,19 @@ def opt_interactive(
         `[10, 25, 50, 100]`.
     pagination_type
         The pagination control style. One of `"numbers"` (page number buttons),
-        `"simple"` (previous/next only), or `"full"` (first/previous/next/last).
+        `"simple"` (previous/next only), `"full"` (first/previous/next/last, with the page
+        number), or `"jump"` (previous/next, with a box to type the page number in).
     height
-        The height of the table's scrollable body. Use `"auto"` (the default) to let the
-        table grow with its content, or supply a CSS length (e.g., `"400px"`) to fix the
-        height and enable vertical scrolling.
+        The most the table can be in height. Use `"auto"` (the default) to let the table grow with
+        its content, or supply a CSS length (e.g., `"400px"` or `"60vh"`) or a number of pixels to
+        limit the height and have the table scroll within it, with its header and column labels
+        staying in view.
     selection_mode
         Row selection mode. One of `"single"`, `"multiple"`, or `None` (the default,
-        which disables row selection).
+        which disables row selection). Rows are selected by clicking them or their checkboxes.
+        With `"single"`, selecting a row clears the one selected before; with `"multiple"`,
+        Shift-click selects a range of rows, and a checkbox in the column labels selects every
+        row that matches the search.
 
     Returns
     -------
@@ -1895,7 +1964,7 @@ def opt_interactive(
     if page_size_values is None:
         page_size_values = [10, 25, 50, 100]
 
-    return tab_options(
+    res = tab_options(
         self,
         ihtml_active=active,
         ihtml_use_pagination=use_pagination,
@@ -1914,6 +1983,15 @@ def opt_interactive(
         ihtml_height=height,
         ihtml_selection_mode=selection_mode,
     )
+
+    # (`tab_options()` leaves an option given as `None` as it was, but `selection_mode=None` turns
+    # selection off, as every other option here is set to the value given)
+    if selection_mode is None:
+        options = res._options
+        selection = replace(options.ihtml_selection_mode, value=None)
+        res = res._replace(_options=replace(options, ihtml_selection_mode=selection))
+
+    return res
 
 
 @dataclass

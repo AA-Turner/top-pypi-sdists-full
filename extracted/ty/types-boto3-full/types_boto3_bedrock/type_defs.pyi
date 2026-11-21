@@ -44,6 +44,10 @@ from .literals import (
     CustomModelDeploymentStatusType,
     CustomModelDeploymentUpdateStatusType,
     DataRetentionModeType,
+    DataRetentionStorageDestinationType,
+    DataRetentionStorageModelProviderType,
+    DataRetentionStorageResourceStatusType,
+    DataRetentionStorageScopeType,
     EntitlementAvailabilityType,
     EvaluationJobStatusType,
     EvaluationJobTypeType,
@@ -79,6 +83,7 @@ from .literals import (
     ModelStatusType,
     OfferTypeType,
     PerformanceConfigLatencyType,
+    ProjectStatusType,
     PromptRouterTypeType,
     ProvisionedModelStatusType,
     ReasoningEffortType,
@@ -89,6 +94,9 @@ from .literals import (
     SelectiveGuardingModeType,
     SortOrderType,
     StatusType,
+    TrustedAccessProgramOptInType,
+    TrustedAccessProgramScopeType,
+    TrustedAccessProgramStatusType,
 )
 
 if sys.version_info >= (3, 12):
@@ -103,6 +111,8 @@ __all__ = (
     "AdvancedPromptOptimizationJobSummaryTypeDef",
     "AdvancedPromptOptimizationOutputConfigTypeDef",
     "AgreementAvailabilityTypeDef",
+    "ArchiveProjectRequestTypeDef",
+    "ArchiveProjectResponseTypeDef",
     "AutomatedEvaluationConfigOutputTypeDef",
     "AutomatedEvaluationConfigTypeDef",
     "AutomatedEvaluationCustomMetricConfigOutputTypeDef",
@@ -252,6 +262,8 @@ __all__ = (
     "CreateModelImportJobResponseTypeDef",
     "CreateModelInvocationJobRequestTypeDef",
     "CreateModelInvocationJobResponseTypeDef",
+    "CreateProjectRequestTypeDef",
+    "CreateProjectResponseTypeDef",
     "CreatePromptRouterRequestTypeDef",
     "CreatePromptRouterResponseTypeDef",
     "CreateProvisionedModelThroughputRequestTypeDef",
@@ -268,6 +280,8 @@ __all__ = (
     "CustomModelUnitsTypeDef",
     "CustomizationConfigTypeDef",
     "DataProcessingDetailsTypeDef",
+    "DataRetentionStorageConfigurationTypeDef",
+    "DeleteAccountDataRetentionStorageRequestTypeDef",
     "DeleteAutomatedReasoningPolicyBuildWorkflowRequestTypeDef",
     "DeleteAutomatedReasoningPolicyRequestTypeDef",
     "DeleteAutomatedReasoningPolicyTestCaseRequestTypeDef",
@@ -279,6 +293,8 @@ __all__ = (
     "DeleteImportedModelRequestTypeDef",
     "DeleteInferenceProfileRequestTypeDef",
     "DeleteMarketplaceModelEndpointRequestTypeDef",
+    "DeleteOrganizationDataRetentionStorageRequestTypeDef",
+    "DeleteProjectDataRetentionStorageRequestTypeDef",
     "DeletePromptRouterRequestTypeDef",
     "DeleteProvisionedModelThroughputRequestTypeDef",
     "DeleteResourcePolicyRequestTypeDef",
@@ -328,6 +344,8 @@ __all__ = (
     "GenerationConfigurationOutputTypeDef",
     "GenerationConfigurationTypeDef",
     "GetAccountDataRetentionResponseTypeDef",
+    "GetAccountDataRetentionStorageRequestTypeDef",
+    "GetAccountDataRetentionStorageResponseTypeDef",
     "GetAdvancedPromptOptimizationJobRequestTypeDef",
     "GetAdvancedPromptOptimizationJobResponseTypeDef",
     "GetAutomatedReasoningPolicyAnnotationsRequestTypeDef",
@@ -371,12 +389,26 @@ __all__ = (
     "GetModelInvocationJobRequestTypeDef",
     "GetModelInvocationJobResponseTypeDef",
     "GetModelInvocationLoggingConfigurationResponseTypeDef",
+    "GetOrganizationDataRetentionStorageRequestTypeDef",
+    "GetOrganizationDataRetentionStorageResponseTypeDef",
+    "GetProjectDataRetentionStorageRequestTypeDef",
+    "GetProjectDataRetentionStorageResponseTypeDef",
+    "GetProjectRequestTypeDef",
+    "GetProjectResponseTypeDef",
     "GetPromptRouterRequestTypeDef",
     "GetPromptRouterResponseTypeDef",
     "GetProvisionedModelThroughputRequestTypeDef",
     "GetProvisionedModelThroughputResponseTypeDef",
     "GetResourcePolicyRequestTypeDef",
     "GetResourcePolicyResponseTypeDef",
+    "GetTrustedAccessProgramAccountEnrollmentRequestTypeDef",
+    "GetTrustedAccessProgramAccountEnrollmentResponseTypeDef",
+    "GetTrustedAccessProgramOrganizationEnrollmentRequestTypeDef",
+    "GetTrustedAccessProgramOrganizationEnrollmentResponseTypeDef",
+    "GetTrustedAccessProgramProjectEnrollmentRequestTypeDef",
+    "GetTrustedAccessProgramProjectEnrollmentResponseTypeDef",
+    "GetTrustedAccessProgramRequestTypeDef",
+    "GetTrustedAccessProgramResponseTypeDef",
     "GetUseCaseForModelAccessResponseTypeDef",
     "GraderConfigTypeDef",
     "GuardrailAutomatedReasoningPolicyConfigTypeDef",
@@ -498,6 +530,9 @@ __all__ = (
     "ListModelInvocationJobsRequestPaginateTypeDef",
     "ListModelInvocationJobsRequestTypeDef",
     "ListModelInvocationJobsResponseTypeDef",
+    "ListProjectsRequestPaginateTypeDef",
+    "ListProjectsRequestTypeDef",
+    "ListProjectsResponseTypeDef",
     "ListPromptRoutersRequestPaginateTypeDef",
     "ListPromptRoutersRequestTypeDef",
     "ListPromptRoutersResponseTypeDef",
@@ -506,6 +541,9 @@ __all__ = (
     "ListProvisionedModelThroughputsResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
+    "ListTrustedAccessProgramsRequestPaginateTypeDef",
+    "ListTrustedAccessProgramsRequestTypeDef",
+    "ListTrustedAccessProgramsResponseTypeDef",
     "LoggingConfigTypeDef",
     "MarketplaceModelEndpointSummaryTypeDef",
     "MarketplaceModelEndpointTypeDef",
@@ -534,17 +572,31 @@ __all__ = (
     "PaginatorConfigTypeDef",
     "PerformanceConfigurationTypeDef",
     "PricingTermTypeDef",
+    "ProjectDataRetentionTypeDef",
+    "ProjectSummaryTypeDef",
     "PromptRouterSummaryTypeDef",
     "PromptRouterTargetModelTypeDef",
     "PromptTemplateTypeDef",
     "ProvisionedModelSummaryTypeDef",
     "PutAccountDataRetentionRequestTypeDef",
     "PutAccountDataRetentionResponseTypeDef",
+    "PutAccountDataRetentionStorageRequestTypeDef",
+    "PutAccountDataRetentionStorageResponseTypeDef",
     "PutEnforcedGuardrailConfigurationRequestTypeDef",
     "PutEnforcedGuardrailConfigurationResponseTypeDef",
     "PutModelInvocationLoggingConfigurationRequestTypeDef",
+    "PutOrganizationDataRetentionStorageRequestTypeDef",
+    "PutOrganizationDataRetentionStorageResponseTypeDef",
+    "PutProjectDataRetentionStorageRequestTypeDef",
+    "PutProjectDataRetentionStorageResponseTypeDef",
     "PutResourcePolicyRequestTypeDef",
     "PutResourcePolicyResponseTypeDef",
+    "PutTrustedAccessProgramAccountEnrollmentRequestTypeDef",
+    "PutTrustedAccessProgramAccountEnrollmentResponseTypeDef",
+    "PutTrustedAccessProgramOrganizationEnrollmentRequestTypeDef",
+    "PutTrustedAccessProgramOrganizationEnrollmentResponseTypeDef",
+    "PutTrustedAccessProgramProjectEnrollmentRequestTypeDef",
+    "PutTrustedAccessProgramProjectEnrollmentResponseTypeDef",
     "PutUseCaseForModelAccessRequestTypeDef",
     "QueryTransformationConfigurationTypeDef",
     "RAGConfigOutputTypeDef",
@@ -579,6 +631,12 @@ __all__ = (
     "StartAutomatedReasoningPolicyBuildWorkflowResponseTypeDef",
     "StartAutomatedReasoningPolicyTestWorkflowRequestTypeDef",
     "StartAutomatedReasoningPolicyTestWorkflowResponseTypeDef",
+    "StartTrustedAccessProgramAccountApplicationRequestTypeDef",
+    "StartTrustedAccessProgramAccountApplicationResponseTypeDef",
+    "StartTrustedAccessProgramOrganizationApplicationRequestTypeDef",
+    "StartTrustedAccessProgramOrganizationApplicationResponseTypeDef",
+    "StartTrustedAccessProgramProjectApplicationRequestTypeDef",
+    "StartTrustedAccessProgramProjectApplicationResponseTypeDef",
     "StatusDetailsTypeDef",
     "StopAdvancedPromptOptimizationJobRequestTypeDef",
     "StopEvaluationJobRequestTypeDef",
@@ -597,6 +655,10 @@ __all__ = (
     "TrainingDataConfigUnionTypeDef",
     "TrainingDetailsTypeDef",
     "TrainingMetricsTypeDef",
+    "TrustedAccessProgramApplicationResultTypeDef",
+    "TrustedAccessProgramProviderHandoffTypeDef",
+    "TrustedAccessProgramSummaryTypeDef",
+    "TrustedAccessResolutionContextTypeDef",
     "UntagResourceRequestTypeDef",
     "UpdateAutomatedReasoningPolicyAnnotationsRequestTypeDef",
     "UpdateAutomatedReasoningPolicyAnnotationsResponseTypeDef",
@@ -610,6 +672,8 @@ __all__ = (
     "UpdateGuardrailResponseTypeDef",
     "UpdateMarketplaceModelEndpointRequestTypeDef",
     "UpdateMarketplaceModelEndpointResponseTypeDef",
+    "UpdateProjectRequestTypeDef",
+    "UpdateProjectResponseTypeDef",
     "UpdateProvisionedModelThroughputRequestTypeDef",
     "ValidationDataConfigOutputTypeDef",
     "ValidationDataConfigTypeDef",
@@ -653,6 +717,19 @@ class AdvancedPromptOptimizationOutputConfigTypeDef(TypedDict):
 class AgreementAvailabilityTypeDef(TypedDict):
     status: AgreementStatusType
     errorMessage: NotRequired[str]
+
+class ArchiveProjectRequestTypeDef(TypedDict):
+    projectIdentifier: str
+
+class ProjectDataRetentionTypeDef(TypedDict):
+    mode: DataRetentionModeType
+
+class ResponseMetadataTypeDef(TypedDict):
+    RequestId: str
+    HTTPStatusCode: int
+    HTTPHeaders: dict[str, str]
+    RetryAttempts: int
+    HostId: NotRequired[str]
 
 AutomatedReasoningCheckRuleTypeDef = TypedDict(
     "AutomatedReasoningCheckRuleTypeDef",
@@ -855,13 +932,6 @@ class BatchDeleteAdvancedPromptOptimizationJobItemTypeDef(TypedDict):
 class BatchDeleteAdvancedPromptOptimizationJobRequestTypeDef(TypedDict):
     jobIdentifiers: Sequence[str]
 
-class ResponseMetadataTypeDef(TypedDict):
-    RequestId: str
-    HTTPStatusCode: int
-    HTTPHeaders: dict[str, str]
-    RetryAttempts: int
-    HostId: NotRequired[str]
-
 class BatchDeleteEvaluationJobErrorTypeDef(TypedDict):
     jobIdentifier: str
     code: str
@@ -971,6 +1041,14 @@ class DataProcessingDetailsTypeDef(TypedDict):
     creationTime: NotRequired[datetime]
     lastModifiedTime: NotRequired[datetime]
 
+class DataRetentionStorageConfigurationTypeDef(TypedDict):
+    kmsKeyArn: str
+    s3BucketArn: str
+    s3BucketOwner: str
+
+class DeleteAccountDataRetentionStorageRequestTypeDef(TypedDict):
+    modelProvider: DataRetentionStorageModelProviderType
+
 TimestampTypeDef = Union[datetime, str]
 
 class DeleteAutomatedReasoningPolicyRequestTypeDef(TypedDict):
@@ -1001,6 +1079,13 @@ class DeleteInferenceProfileRequestTypeDef(TypedDict):
 
 class DeleteMarketplaceModelEndpointRequestTypeDef(TypedDict):
     endpointArn: str
+
+class DeleteOrganizationDataRetentionStorageRequestTypeDef(TypedDict):
+    modelProvider: DataRetentionStorageModelProviderType
+
+class DeleteProjectDataRetentionStorageRequestTypeDef(TypedDict):
+    projectIdentifier: str
+    modelProvider: DataRetentionStorageModelProviderType
 
 class DeletePromptRouterRequestTypeDef(TypedDict):
     promptRouterArn: str
@@ -1078,6 +1163,9 @@ class FoundationModelLifecycleTypeDef(TypedDict):
     legacyTime: NotRequired[datetime]
     publicExtendedAccessTime: NotRequired[datetime]
 
+class GetAccountDataRetentionStorageRequestTypeDef(TypedDict):
+    modelProvider: DataRetentionStorageModelProviderType
+
 class GetAdvancedPromptOptimizationJobRequestTypeDef(TypedDict):
     jobIdentifier: str
 
@@ -1131,6 +1219,7 @@ class GetFoundationModelAvailabilityRequestTypeDef(TypedDict):
 
 class GetFoundationModelRequestTypeDef(TypedDict):
     modelIdentifier: str
+    projectIdentifier: NotRequired[str]
 
 class GetGuardrailRequestTypeDef(TypedDict):
     guardrailIdentifier: str
@@ -1149,6 +1238,7 @@ class GetImportedModelRequestTypeDef(TypedDict):
 
 class GetInferenceProfileRequestTypeDef(TypedDict):
     inferenceProfileIdentifier: str
+    projectIdentifier: NotRequired[str]
 
 class InferenceProfileModelTypeDef(TypedDict):
     modelArn: NotRequired[str]
@@ -1172,6 +1262,16 @@ class GetModelImportJobRequestTypeDef(TypedDict):
 class GetModelInvocationJobRequestTypeDef(TypedDict):
     jobIdentifier: str
 
+class GetOrganizationDataRetentionStorageRequestTypeDef(TypedDict):
+    modelProvider: DataRetentionStorageModelProviderType
+
+class GetProjectDataRetentionStorageRequestTypeDef(TypedDict):
+    projectIdentifier: str
+    modelProvider: DataRetentionStorageModelProviderType
+
+class GetProjectRequestTypeDef(TypedDict):
+    projectIdentifier: str
+
 class GetPromptRouterRequestTypeDef(TypedDict):
     promptRouterArn: str
 
@@ -1180,6 +1280,24 @@ class GetProvisionedModelThroughputRequestTypeDef(TypedDict):
 
 class GetResourcePolicyRequestTypeDef(TypedDict):
     resourceArn: str
+
+class GetTrustedAccessProgramAccountEnrollmentRequestTypeDef(TypedDict):
+    programIdentifier: str
+
+class GetTrustedAccessProgramOrganizationEnrollmentRequestTypeDef(TypedDict):
+    programIdentifier: str
+
+class GetTrustedAccessProgramProjectEnrollmentRequestTypeDef(TypedDict):
+    programIdentifier: str
+    projectIdentifier: str
+
+class GetTrustedAccessProgramRequestTypeDef(TypedDict):
+    programIdentifier: str
+    projectIdentifier: NotRequired[str]
+
+class TrustedAccessResolutionContextTypeDef(TypedDict):
+    accountId: str
+    projectArn: NotRequired[str]
 
 class LambdaGraderConfigTypeDef(TypedDict):
     lambdaArn: str
@@ -1454,6 +1572,7 @@ class ListFoundationModelsRequestTypeDef(TypedDict):
     byCustomizationType: NotRequired[ModelCustomizationType]
     byOutputModality: NotRequired[ModelModalityType]
     byInferenceType: NotRequired[InferenceTypeType]
+    projectIdentifier: NotRequired[str]
 
 class ListGuardrailsRequestTypeDef(TypedDict):
     guardrailIdentifier: NotRequired[str]
@@ -1464,6 +1583,7 @@ class ListInferenceProfilesRequestTypeDef(TypedDict):
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
     typeEquals: NotRequired[InferenceProfileTypeType]
+    projectIdentifier: NotRequired[str]
 
 class ListMarketplaceModelEndpointsRequestTypeDef(TypedDict):
     maxResults: NotRequired[int]
@@ -1487,6 +1607,11 @@ class ModelImportJobSummaryTypeDef(TypedDict):
     endTime: NotRequired[datetime]
     importedModelArn: NotRequired[str]
     importedModelName: NotRequired[str]
+
+class ListProjectsRequestTypeDef(TypedDict):
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+    statusFilter: NotRequired[ProjectStatusType]
 
 ListPromptRoutersRequestTypeDef = TypedDict(
     "ListPromptRoutersRequestTypeDef",
@@ -1513,6 +1638,11 @@ class ProvisionedModelSummaryTypeDef(TypedDict):
 
 class ListTagsForResourceRequestTypeDef(TypedDict):
     resourceARN: str
+
+class ListTrustedAccessProgramsRequestTypeDef(TypedDict):
+    projectIdentifier: NotRequired[str]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
 
 class S3DataSourceTypeDef(TypedDict):
     s3Uri: str
@@ -1544,6 +1674,19 @@ class PutAccountDataRetentionRequestTypeDef(TypedDict):
 class PutResourcePolicyRequestTypeDef(TypedDict):
     resourceArn: str
     resourcePolicy: str
+
+class PutTrustedAccessProgramAccountEnrollmentRequestTypeDef(TypedDict):
+    programIdentifier: str
+    optIn: TrustedAccessProgramOptInType
+
+class PutTrustedAccessProgramOrganizationEnrollmentRequestTypeDef(TypedDict):
+    programIdentifier: str
+    optIn: TrustedAccessProgramOptInType
+
+class PutTrustedAccessProgramProjectEnrollmentRequestTypeDef(TypedDict):
+    programIdentifier: str
+    projectIdentifier: str
+    optIn: TrustedAccessProgramOptInType
 
 class RFTHyperParametersTypeDef(TypedDict):
     epochCount: NotRequired[int]
@@ -1581,6 +1724,16 @@ class StartAutomatedReasoningPolicyTestWorkflowRequestTypeDef(TypedDict):
     testCaseIds: NotRequired[Sequence[str]]
     clientRequestToken: NotRequired[str]
 
+class StartTrustedAccessProgramAccountApplicationRequestTypeDef(TypedDict):
+    programIdentifier: str
+
+class StartTrustedAccessProgramOrganizationApplicationRequestTypeDef(TypedDict):
+    programIdentifier: str
+
+class StartTrustedAccessProgramProjectApplicationRequestTypeDef(TypedDict):
+    programIdentifier: str
+    projectIdentifier: str
+
 class TrainingDetailsTypeDef(TypedDict):
     status: NotRequired[JobStatusDetailsType]
     creationTime: NotRequired[datetime]
@@ -1608,6 +1761,11 @@ class SupportTermTypeDef(TypedDict):
 
 class ValidityTermTypeDef(TypedDict):
     agreementDuration: NotRequired[str]
+
+class TrustedAccessProgramProviderHandoffTypeDef(TypedDict):
+    applicationToken: str
+    applicationTokenExpiresAt: datetime
+    enrollmentUrl: NotRequired[str]
 
 class UntagResourceRequestTypeDef(TypedDict):
     resourceARN: str
@@ -1647,6 +1805,314 @@ class AccountEnforcedGuardrailOutputConfigurationTypeDef(TypedDict):
     owner: NotRequired[Literal["ACCOUNT"]]
     modelEnforcement: NotRequired[ModelEnforcementOutputTypeDef]
 
+ProjectSummaryTypeDef = TypedDict(
+    "ProjectSummaryTypeDef",
+    {
+        "id": str,
+        "arn": str,
+        "name": str,
+        "status": ProjectStatusType,
+        "createdAt": datetime,
+        "dataRetention": ProjectDataRetentionTypeDef,
+        "archivedAt": NotRequired[datetime],
+    },
+)
+
+class UpdateProjectRequestTypeDef(TypedDict):
+    projectIdentifier: str
+    name: NotRequired[str]
+    dataRetention: NotRequired[ProjectDataRetentionTypeDef]
+
+ArchiveProjectResponseTypeDef = TypedDict(
+    "ArchiveProjectResponseTypeDef",
+    {
+        "id": str,
+        "arn": str,
+        "name": str,
+        "status": ProjectStatusType,
+        "createdAt": datetime,
+        "archivedAt": datetime,
+        "dataRetention": ProjectDataRetentionTypeDef,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+
+class CreateAdvancedPromptOptimizationJobResponseTypeDef(TypedDict):
+    jobArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateAutomatedReasoningPolicyResponseTypeDef(TypedDict):
+    policyArn: str
+    version: str
+    name: str
+    description: str
+    definitionHash: str
+    createdAt: datetime
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateAutomatedReasoningPolicyTestCaseResponseTypeDef(TypedDict):
+    policyArn: str
+    testCaseId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateAutomatedReasoningPolicyVersionResponseTypeDef(TypedDict):
+    policyArn: str
+    version: str
+    name: str
+    description: str
+    definitionHash: str
+    createdAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateCustomModelDeploymentResponseTypeDef(TypedDict):
+    customModelDeploymentArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateCustomModelResponseTypeDef(TypedDict):
+    modelArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateEvaluationJobResponseTypeDef(TypedDict):
+    jobArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateFoundationModelAgreementResponseTypeDef(TypedDict):
+    modelId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateGuardrailResponseTypeDef(TypedDict):
+    guardrailId: str
+    guardrailArn: str
+    version: str
+    createdAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateGuardrailVersionResponseTypeDef(TypedDict):
+    guardrailId: str
+    version: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateInferenceProfileResponseTypeDef(TypedDict):
+    inferenceProfileArn: str
+    status: Literal["ACTIVE"]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateModelCopyJobResponseTypeDef(TypedDict):
+    jobArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateModelCustomizationJobResponseTypeDef(TypedDict):
+    jobArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateModelImportJobResponseTypeDef(TypedDict):
+    jobArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateModelInvocationJobResponseTypeDef(TypedDict):
+    jobArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+CreateProjectResponseTypeDef = TypedDict(
+    "CreateProjectResponseTypeDef",
+    {
+        "id": str,
+        "arn": str,
+        "name": str,
+        "status": ProjectStatusType,
+        "createdAt": datetime,
+        "archivedAt": datetime,
+        "dataRetention": ProjectDataRetentionTypeDef,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+
+class CreatePromptRouterResponseTypeDef(TypedDict):
+    promptRouterArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateProvisionedModelThroughputResponseTypeDef(TypedDict):
+    provisionedModelArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetAccountDataRetentionResponseTypeDef(TypedDict):
+    mode: DataRetentionModeType
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetAutomatedReasoningPolicyBuildWorkflowResponseTypeDef(TypedDict):
+    policyArn: str
+    buildWorkflowId: str
+    status: AutomatedReasoningPolicyBuildWorkflowStatusType
+    buildWorkflowType: AutomatedReasoningPolicyBuildWorkflowTypeType
+    documentName: str
+    documentContentType: AutomatedReasoningPolicyBuildDocumentContentTypeType
+    documentDescription: str
+    createdAt: datetime
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetAutomatedReasoningPolicyResponseTypeDef(TypedDict):
+    policyArn: str
+    name: str
+    version: str
+    policyId: str
+    description: str
+    definitionHash: str
+    kmsKeyArn: str
+    createdAt: datetime
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetFoundationModelAvailabilityResponseTypeDef(TypedDict):
+    modelId: str
+    agreementAvailability: AgreementAvailabilityTypeDef
+    authorizationStatus: AuthorizationStatusType
+    entitlementAvailability: EntitlementAvailabilityType
+    regionAvailability: RegionAvailabilityType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+GetProjectResponseTypeDef = TypedDict(
+    "GetProjectResponseTypeDef",
+    {
+        "id": str,
+        "arn": str,
+        "name": str,
+        "status": ProjectStatusType,
+        "createdAt": datetime,
+        "archivedAt": datetime,
+        "dataRetention": ProjectDataRetentionTypeDef,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+
+class GetProvisionedModelThroughputResponseTypeDef(TypedDict):
+    modelUnits: int
+    desiredModelUnits: int
+    provisionedModelName: str
+    provisionedModelArn: str
+    modelArn: str
+    desiredModelArn: str
+    foundationModelArn: str
+    status: ProvisionedModelStatusType
+    creationTime: datetime
+    lastModifiedTime: datetime
+    failureMessage: str
+    commitmentDuration: CommitmentDurationType
+    commitmentExpirationTime: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetResourcePolicyResponseTypeDef(TypedDict):
+    resourcePolicy: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetTrustedAccessProgramAccountEnrollmentResponseTypeDef(TypedDict):
+    optIn: TrustedAccessProgramOptInType
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetTrustedAccessProgramOrganizationEnrollmentResponseTypeDef(TypedDict):
+    optIn: TrustedAccessProgramOptInType
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetTrustedAccessProgramProjectEnrollmentResponseTypeDef(TypedDict):
+    optIn: TrustedAccessProgramOptInType
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetUseCaseForModelAccessResponseTypeDef(TypedDict):
+    formData: bytes
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ListAdvancedPromptOptimizationJobsResponseTypeDef(TypedDict):
+    jobSummaries: list[AdvancedPromptOptimizationJobSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class PutAccountDataRetentionResponseTypeDef(TypedDict):
+    mode: DataRetentionModeType
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class PutEnforcedGuardrailConfigurationResponseTypeDef(TypedDict):
+    configId: str
+    updatedAt: datetime
+    updatedBy: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class PutResourcePolicyResponseTypeDef(TypedDict):
+    resourceArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class PutTrustedAccessProgramAccountEnrollmentResponseTypeDef(TypedDict):
+    optIn: TrustedAccessProgramOptInType
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class PutTrustedAccessProgramOrganizationEnrollmentResponseTypeDef(TypedDict):
+    optIn: TrustedAccessProgramOptInType
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class PutTrustedAccessProgramProjectEnrollmentResponseTypeDef(TypedDict):
+    optIn: TrustedAccessProgramOptInType
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class StartAutomatedReasoningPolicyBuildWorkflowResponseTypeDef(TypedDict):
+    policyArn: str
+    buildWorkflowId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class StartAutomatedReasoningPolicyTestWorkflowResponseTypeDef(TypedDict):
+    policyArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateAutomatedReasoningPolicyAnnotationsResponseTypeDef(TypedDict):
+    policyArn: str
+    buildWorkflowId: str
+    annotationSetHash: str
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateAutomatedReasoningPolicyResponseTypeDef(TypedDict):
+    policyArn: str
+    name: str
+    definitionHash: str
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateAutomatedReasoningPolicyTestCaseResponseTypeDef(TypedDict):
+    policyArn: str
+    testCaseId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateCustomModelDeploymentResponseTypeDef(TypedDict):
+    customModelDeploymentArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateGuardrailResponseTypeDef(TypedDict):
+    guardrailId: str
+    guardrailArn: str
+    version: str
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+UpdateProjectResponseTypeDef = TypedDict(
+    "UpdateProjectResponseTypeDef",
+    {
+        "id": str,
+        "arn": str,
+        "name": str,
+        "status": ProjectStatusType,
+        "createdAt": datetime,
+        "archivedAt": datetime,
+        "dataRetention": ProjectDataRetentionTypeDef,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
 AutomatedReasoningCheckLogicWarningTypeDef = TypedDict(
     "AutomatedReasoningCheckLogicWarningTypeDef",
     {
@@ -1727,6 +2193,13 @@ class ByteContentDocTypeDef(TypedDict):
 class PutUseCaseForModelAccessRequestTypeDef(TypedDict):
     formData: BlobTypeDef
 
+class ListAutomatedReasoningPolicyBuildWorkflowsResponseTypeDef(TypedDict):
+    automatedReasoningPolicyBuildWorkflowSummaries: list[
+        AutomatedReasoningPolicyBuildWorkflowSummaryTypeDef
+    ]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
 class AutomatedReasoningPolicyDefinitionQualityReportTypeDef(TypedDict):
     typeCount: int
     variableCount: int
@@ -1757,6 +2230,26 @@ class AutomatedReasoningPolicyVariableReportTypeDef(TypedDict):
 class AutomatedReasoningPolicyScenariosTypeDef(TypedDict):
     policyScenarios: list[AutomatedReasoningPolicyScenarioTypeDef]
 
+class GetAutomatedReasoningPolicyNextScenarioResponseTypeDef(TypedDict):
+    policyArn: str
+    scenario: AutomatedReasoningPolicyScenarioTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ListAutomatedReasoningPoliciesResponseTypeDef(TypedDict):
+    automatedReasoningPolicySummaries: list[AutomatedReasoningPolicySummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class GetAutomatedReasoningPolicyTestCaseResponseTypeDef(TypedDict):
+    policyArn: str
+    testCase: AutomatedReasoningPolicyTestCaseTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ListAutomatedReasoningPolicyTestCasesResponseTypeDef(TypedDict):
+    testCases: list[AutomatedReasoningPolicyTestCaseTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
 class AutomatedReasoningPolicyTypeValueAnnotationTypeDef(TypedDict):
     addTypeValue: NotRequired[AutomatedReasoningPolicyAddTypeValueTypeDef]
     updateTypeValue: NotRequired[AutomatedReasoningPolicyUpdateTypeValueTypeDef]
@@ -1774,238 +2267,6 @@ AutomatedReasoningPolicyUpdateFromScenarioFeedbackAnnotationUnionTypeDef = Union
 class BatchDeleteAdvancedPromptOptimizationJobResponseTypeDef(TypedDict):
     errors: list[BatchDeleteAdvancedPromptOptimizationJobErrorTypeDef]
     advancedPromptOptimizationJobs: list[BatchDeleteAdvancedPromptOptimizationJobItemTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class CreateAdvancedPromptOptimizationJobResponseTypeDef(TypedDict):
-    jobArn: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class CreateAutomatedReasoningPolicyResponseTypeDef(TypedDict):
-    policyArn: str
-    version: str
-    name: str
-    description: str
-    definitionHash: str
-    createdAt: datetime
-    updatedAt: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class CreateAutomatedReasoningPolicyTestCaseResponseTypeDef(TypedDict):
-    policyArn: str
-    testCaseId: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class CreateAutomatedReasoningPolicyVersionResponseTypeDef(TypedDict):
-    policyArn: str
-    version: str
-    name: str
-    description: str
-    definitionHash: str
-    createdAt: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class CreateCustomModelDeploymentResponseTypeDef(TypedDict):
-    customModelDeploymentArn: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class CreateCustomModelResponseTypeDef(TypedDict):
-    modelArn: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class CreateEvaluationJobResponseTypeDef(TypedDict):
-    jobArn: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class CreateFoundationModelAgreementResponseTypeDef(TypedDict):
-    modelId: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class CreateGuardrailResponseTypeDef(TypedDict):
-    guardrailId: str
-    guardrailArn: str
-    version: str
-    createdAt: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class CreateGuardrailVersionResponseTypeDef(TypedDict):
-    guardrailId: str
-    version: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class CreateInferenceProfileResponseTypeDef(TypedDict):
-    inferenceProfileArn: str
-    status: Literal["ACTIVE"]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class CreateModelCopyJobResponseTypeDef(TypedDict):
-    jobArn: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class CreateModelCustomizationJobResponseTypeDef(TypedDict):
-    jobArn: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class CreateModelImportJobResponseTypeDef(TypedDict):
-    jobArn: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class CreateModelInvocationJobResponseTypeDef(TypedDict):
-    jobArn: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class CreatePromptRouterResponseTypeDef(TypedDict):
-    promptRouterArn: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class CreateProvisionedModelThroughputResponseTypeDef(TypedDict):
-    provisionedModelArn: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class GetAccountDataRetentionResponseTypeDef(TypedDict):
-    mode: DataRetentionModeType
-    updatedAt: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class GetAutomatedReasoningPolicyBuildWorkflowResponseTypeDef(TypedDict):
-    policyArn: str
-    buildWorkflowId: str
-    status: AutomatedReasoningPolicyBuildWorkflowStatusType
-    buildWorkflowType: AutomatedReasoningPolicyBuildWorkflowTypeType
-    documentName: str
-    documentContentType: AutomatedReasoningPolicyBuildDocumentContentTypeType
-    documentDescription: str
-    createdAt: datetime
-    updatedAt: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class GetAutomatedReasoningPolicyNextScenarioResponseTypeDef(TypedDict):
-    policyArn: str
-    scenario: AutomatedReasoningPolicyScenarioTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class GetAutomatedReasoningPolicyResponseTypeDef(TypedDict):
-    policyArn: str
-    name: str
-    version: str
-    policyId: str
-    description: str
-    definitionHash: str
-    kmsKeyArn: str
-    createdAt: datetime
-    updatedAt: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class GetAutomatedReasoningPolicyTestCaseResponseTypeDef(TypedDict):
-    policyArn: str
-    testCase: AutomatedReasoningPolicyTestCaseTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class GetFoundationModelAvailabilityResponseTypeDef(TypedDict):
-    modelId: str
-    agreementAvailability: AgreementAvailabilityTypeDef
-    authorizationStatus: AuthorizationStatusType
-    entitlementAvailability: EntitlementAvailabilityType
-    regionAvailability: RegionAvailabilityType
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class GetProvisionedModelThroughputResponseTypeDef(TypedDict):
-    modelUnits: int
-    desiredModelUnits: int
-    provisionedModelName: str
-    provisionedModelArn: str
-    modelArn: str
-    desiredModelArn: str
-    foundationModelArn: str
-    status: ProvisionedModelStatusType
-    creationTime: datetime
-    lastModifiedTime: datetime
-    failureMessage: str
-    commitmentDuration: CommitmentDurationType
-    commitmentExpirationTime: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class GetResourcePolicyResponseTypeDef(TypedDict):
-    resourcePolicy: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class GetUseCaseForModelAccessResponseTypeDef(TypedDict):
-    formData: bytes
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class ListAdvancedPromptOptimizationJobsResponseTypeDef(TypedDict):
-    jobSummaries: list[AdvancedPromptOptimizationJobSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-class ListAutomatedReasoningPoliciesResponseTypeDef(TypedDict):
-    automatedReasoningPolicySummaries: list[AutomatedReasoningPolicySummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-class ListAutomatedReasoningPolicyBuildWorkflowsResponseTypeDef(TypedDict):
-    automatedReasoningPolicyBuildWorkflowSummaries: list[
-        AutomatedReasoningPolicyBuildWorkflowSummaryTypeDef
-    ]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-class ListAutomatedReasoningPolicyTestCasesResponseTypeDef(TypedDict):
-    testCases: list[AutomatedReasoningPolicyTestCaseTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-class PutAccountDataRetentionResponseTypeDef(TypedDict):
-    mode: DataRetentionModeType
-    updatedAt: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class PutEnforcedGuardrailConfigurationResponseTypeDef(TypedDict):
-    configId: str
-    updatedAt: datetime
-    updatedBy: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class PutResourcePolicyResponseTypeDef(TypedDict):
-    resourceArn: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class StartAutomatedReasoningPolicyBuildWorkflowResponseTypeDef(TypedDict):
-    policyArn: str
-    buildWorkflowId: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class StartAutomatedReasoningPolicyTestWorkflowResponseTypeDef(TypedDict):
-    policyArn: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class UpdateAutomatedReasoningPolicyAnnotationsResponseTypeDef(TypedDict):
-    policyArn: str
-    buildWorkflowId: str
-    annotationSetHash: str
-    updatedAt: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class UpdateAutomatedReasoningPolicyResponseTypeDef(TypedDict):
-    policyArn: str
-    name: str
-    definitionHash: str
-    updatedAt: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class UpdateAutomatedReasoningPolicyTestCaseResponseTypeDef(TypedDict):
-    policyArn: str
-    testCaseId: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class UpdateCustomModelDeploymentResponseTypeDef(TypedDict):
-    customModelDeploymentArn: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class UpdateGuardrailResponseTypeDef(TypedDict):
-    guardrailId: str
-    guardrailArn: str
-    version: str
-    updatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchDeleteEvaluationJobResponseTypeDef(TypedDict):
@@ -2043,6 +2304,11 @@ class CreateModelCopyJobRequestTypeDef(TypedDict):
     modelKmsKeyId: NotRequired[str]
     targetModelTags: NotRequired[Sequence[TagTypeDef]]
     clientRequestToken: NotRequired[str]
+
+class CreateProjectRequestTypeDef(TypedDict):
+    name: str
+    tags: NotRequired[Sequence[TagTypeDef]]
+    dataRetention: NotRequired[ProjectDataRetentionTypeDef]
 
 class CreateProvisionedModelThroughputRequestTypeDef(TypedDict):
     modelUnits: int
@@ -2165,6 +2431,84 @@ class ListCustomModelsResponseTypeDef(TypedDict):
     modelSummaries: list[CustomModelSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+class GetAccountDataRetentionStorageResponseTypeDef(TypedDict):
+    scope: DataRetentionStorageScopeType
+    modelProvider: DataRetentionStorageModelProviderType
+    storageDestination: DataRetentionStorageDestinationType
+    storageConfiguration: DataRetentionStorageConfigurationTypeDef
+    updatedAt: datetime
+    kmsKeyStatus: DataRetentionStorageResourceStatusType
+    s3BucketStatus: DataRetentionStorageResourceStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetOrganizationDataRetentionStorageResponseTypeDef(TypedDict):
+    scope: DataRetentionStorageScopeType
+    modelProvider: DataRetentionStorageModelProviderType
+    storageDestination: DataRetentionStorageDestinationType
+    storageConfiguration: DataRetentionStorageConfigurationTypeDef
+    updatedAt: datetime
+    kmsKeyStatus: DataRetentionStorageResourceStatusType
+    s3BucketStatus: DataRetentionStorageResourceStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetProjectDataRetentionStorageResponseTypeDef(TypedDict):
+    scope: DataRetentionStorageScopeType
+    modelProvider: DataRetentionStorageModelProviderType
+    storageDestination: DataRetentionStorageDestinationType
+    storageConfiguration: DataRetentionStorageConfigurationTypeDef
+    updatedAt: datetime
+    kmsKeyStatus: DataRetentionStorageResourceStatusType
+    s3BucketStatus: DataRetentionStorageResourceStatusType
+    projectArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class PutAccountDataRetentionStorageRequestTypeDef(TypedDict):
+    modelProvider: DataRetentionStorageModelProviderType
+    storageDestination: DataRetentionStorageDestinationType
+    storageConfiguration: NotRequired[DataRetentionStorageConfigurationTypeDef]
+
+class PutAccountDataRetentionStorageResponseTypeDef(TypedDict):
+    scope: DataRetentionStorageScopeType
+    modelProvider: DataRetentionStorageModelProviderType
+    storageDestination: DataRetentionStorageDestinationType
+    storageConfiguration: DataRetentionStorageConfigurationTypeDef
+    updatedAt: datetime
+    kmsKeyStatus: DataRetentionStorageResourceStatusType
+    s3BucketStatus: DataRetentionStorageResourceStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class PutOrganizationDataRetentionStorageRequestTypeDef(TypedDict):
+    modelProvider: DataRetentionStorageModelProviderType
+    storageDestination: DataRetentionStorageDestinationType
+    storageConfiguration: NotRequired[DataRetentionStorageConfigurationTypeDef]
+
+class PutOrganizationDataRetentionStorageResponseTypeDef(TypedDict):
+    scope: DataRetentionStorageScopeType
+    modelProvider: DataRetentionStorageModelProviderType
+    storageDestination: DataRetentionStorageDestinationType
+    storageConfiguration: DataRetentionStorageConfigurationTypeDef
+    updatedAt: datetime
+    kmsKeyStatus: DataRetentionStorageResourceStatusType
+    s3BucketStatus: DataRetentionStorageResourceStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class PutProjectDataRetentionStorageRequestTypeDef(TypedDict):
+    projectIdentifier: str
+    modelProvider: DataRetentionStorageModelProviderType
+    storageDestination: DataRetentionStorageDestinationType
+    storageConfiguration: NotRequired[DataRetentionStorageConfigurationTypeDef]
+
+class PutProjectDataRetentionStorageResponseTypeDef(TypedDict):
+    scope: DataRetentionStorageScopeType
+    modelProvider: DataRetentionStorageModelProviderType
+    storageDestination: DataRetentionStorageDestinationType
+    storageConfiguration: DataRetentionStorageConfigurationTypeDef
+    updatedAt: datetime
+    kmsKeyStatus: DataRetentionStorageResourceStatusType
+    s3BucketStatus: DataRetentionStorageResourceStatusType
+    projectArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class DeleteAutomatedReasoningPolicyBuildWorkflowRequestTypeDef(TypedDict):
     policyArn: str
@@ -2433,6 +2777,37 @@ class SageMakerEndpointOutputTypeDef(TypedDict):
     kmsEncryptionKey: NotRequired[str]
     vpc: NotRequired[VpcConfigOutputTypeDef]
 
+class GetTrustedAccessProgramResponseTypeDef(TypedDict):
+    programId: str
+    name: str
+    description: str
+    providerName: str
+    detailsUrl: str
+    enrollmentUrl: str
+    status: TrustedAccessProgramStatusType
+    statusReason: str
+    source: TrustedAccessProgramScopeType
+    eligibilityScope: TrustedAccessProgramScopeType
+    resolvedFor: TrustedAccessResolutionContextTypeDef
+    optIn: TrustedAccessProgramOptInType
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class TrustedAccessProgramSummaryTypeDef(TypedDict):
+    programId: str
+    name: str
+    description: str
+    providerName: str
+    detailsUrl: str
+    status: TrustedAccessProgramStatusType
+    source: TrustedAccessProgramScopeType
+    resolvedFor: TrustedAccessResolutionContextTypeDef
+    optIn: TrustedAccessProgramOptInType
+    enrollmentUrl: NotRequired[str]
+    statusReason: NotRequired[str]
+    eligibilityScope: NotRequired[TrustedAccessProgramScopeType]
+    updatedAt: NotRequired[datetime]
+
 class GraderConfigTypeDef(TypedDict):
     lambdaGrader: NotRequired[LambdaGraderConfigTypeDef]
 
@@ -2575,6 +2950,7 @@ class ListImportedModelsRequestPaginateTypeDef(TypedDict):
 
 class ListInferenceProfilesRequestPaginateTypeDef(TypedDict):
     typeEquals: NotRequired[InferenceProfileTypeType]
+    projectIdentifier: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListMarketplaceModelEndpointsRequestPaginateTypeDef(TypedDict):
@@ -2619,6 +2995,10 @@ class ListModelInvocationJobsRequestPaginateTypeDef(TypedDict):
     sortOrder: NotRequired[SortOrderType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListProjectsRequestPaginateTypeDef(TypedDict):
+    statusFilter: NotRequired[ProjectStatusType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 ListPromptRoutersRequestPaginateTypeDef = TypedDict(
     "ListPromptRoutersRequestPaginateTypeDef",
     {
@@ -2635,6 +3015,10 @@ class ListProvisionedModelThroughputsRequestPaginateTypeDef(TypedDict):
     nameContains: NotRequired[str]
     sortBy: NotRequired[Literal["CreationTime"]]
     sortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListTrustedAccessProgramsRequestPaginateTypeDef(TypedDict):
+    projectIdentifier: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListMarketplaceModelEndpointsResponseTypeDef(TypedDict):
@@ -2696,6 +3080,9 @@ class StatusDetailsTypeDef(TypedDict):
     dataProcessingDetails: NotRequired[DataProcessingDetailsTypeDef]
     trainingDetails: NotRequired[TrainingDetailsTypeDef]
 
+class TrustedAccessProgramApplicationResultTypeDef(TypedDict):
+    providerHandoff: NotRequired[TrustedAccessProgramProviderHandoffTypeDef]
+
 class ValidationDataConfigOutputTypeDef(TypedDict):
     validators: list[ValidatorTypeDef]
 
@@ -2704,6 +3091,11 @@ class ValidationDataConfigTypeDef(TypedDict):
 
 class ListEnforcedGuardrailsConfigurationResponseTypeDef(TypedDict):
     guardrailsConfig: list[AccountEnforcedGuardrailOutputConfigurationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class ListProjectsResponseTypeDef(TypedDict):
+    projectSummaries: list[ProjectSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2879,6 +3271,11 @@ class ListInferenceProfilesResponseTypeDef(TypedDict):
 
 class EndpointConfigOutputTypeDef(TypedDict):
     sageMaker: NotRequired[SageMakerEndpointOutputTypeDef]
+
+class ListTrustedAccessProgramsResponseTypeDef(TypedDict):
+    programSummaries: list[TrustedAccessProgramSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 class RFTConfigTypeDef(TypedDict):
     graderConfig: NotRequired[GraderConfigTypeDef]
@@ -3128,6 +3525,18 @@ class ModelCustomizationJobSummaryTypeDef(TypedDict):
     customModelArn: NotRequired[str]
     customModelName: NotRequired[str]
     customizationType: NotRequired[CustomizationTypeType]
+
+class StartTrustedAccessProgramAccountApplicationResponseTypeDef(TypedDict):
+    result: TrustedAccessProgramApplicationResultTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class StartTrustedAccessProgramOrganizationApplicationResponseTypeDef(TypedDict):
+    result: TrustedAccessProgramApplicationResultTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class StartTrustedAccessProgramProjectApplicationResponseTypeDef(TypedDict):
+    result: TrustedAccessProgramApplicationResultTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 ValidationDataConfigUnionTypeDef = Union[
     ValidationDataConfigTypeDef, ValidationDataConfigOutputTypeDef

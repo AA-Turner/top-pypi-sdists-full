@@ -66,12 +66,15 @@ __all__ = (
     "AudioTypeControlType",
     "Av1AdaptiveQuantizationType",
     "Av1BitDepthType",
+    "Av1FastDecodeType",
     "Av1FilmGrainSynthesisType",
     "Av1FramerateControlType",
     "Av1FramerateConversionAlgorithmType",
+    "Av1GopSizeUnitsType",
     "Av1RateControlModeType",
     "Av1SceneChangeDetectType",
     "Av1SpatialAdaptiveQuantizationType",
+    "Av1TemporalAdaptiveQuantizationType",
     "AvcIntraClassType",
     "AvcIntraFramerateControlType",
     "AvcIntraFramerateConversionAlgorithmType",
@@ -165,6 +168,7 @@ __all__ = (
     "DolbyVisionPresenceType",
     "DolbyVisionProfileType",
     "DropFrameTimecodeType",
+    "DtsxCodingModeType",
     "DvbSubSubtitleFallbackFontType",
     "DvbSubtitleAlignmentType",
     "DvbSubtitleApplyFontColorType",
@@ -177,6 +181,7 @@ __all__ = (
     "DvbSubtitlingTypeType",
     "DvbddsHandlingType",
     "DynamicAudioSelectorTypeType",
+    "DynamicMultiviewSettingsEnabledType",
     "Eac3AtmosBitstreamModeType",
     "Eac3AtmosCodingModeType",
     "Eac3AtmosDialogueIntelligenceType",
@@ -611,6 +616,8 @@ AudioCodecType = Literal[
     "AC3",
     "AC4",
     "AIFF",
+    "DTSC",
+    "DTSX",
     "EAC3",
     "EAC3_ATMOS",
     "FLAC",
@@ -635,16 +642,19 @@ AudioSelectorTypeType = Literal[
 ]
 AudioSmpte337PassthroughType = Literal["DISABLED", "ENABLED"]
 AudioTypeControlType = Literal["FOLLOW_INPUT", "USE_CONFIGURED"]
-Av1AdaptiveQuantizationType = Literal["HIGH", "HIGHER", "LOW", "MAX", "MEDIUM", "OFF"]
+Av1AdaptiveQuantizationType = Literal["AUTO", "HIGH", "HIGHER", "LOW", "MAX", "MEDIUM", "OFF"]
 Av1BitDepthType = Literal["BIT_10", "BIT_8"]
+Av1FastDecodeType = Literal["DISABLED", "ENABLED"]
 Av1FilmGrainSynthesisType = Literal["DISABLED", "ENABLED"]
 Av1FramerateControlType = Literal["INITIALIZE_FROM_SOURCE", "SPECIFIED"]
 Av1FramerateConversionAlgorithmType = Literal[
     "DUPLICATE_DROP", "FRAMEFORMER", "INTERPOLATE", "MAINTAIN_FRAME_COUNT"
 ]
+Av1GopSizeUnitsType = Literal["FRAMES", "SECONDS"]
 Av1RateControlModeType = Literal["CBR", "QVBR"]
 Av1SceneChangeDetectType = Literal["DISABLED", "ENABLED", "TRANSITION_DETECTION"]
 Av1SpatialAdaptiveQuantizationType = Literal["DISABLED", "ENABLED"]
+Av1TemporalAdaptiveQuantizationType = Literal["DISABLED", "ENABLED"]
 AvcIntraClassType = Literal["CLASS_100", "CLASS_200", "CLASS_4K_2K", "CLASS_50"]
 AvcIntraFramerateControlType = Literal["INITIALIZE_FROM_SOURCE", "SPECIFIED"]
 AvcIntraFramerateConversionAlgorithmType = Literal[
@@ -874,6 +884,7 @@ DolbyVisionMappingType = Literal["HDR10_1000", "HDR10_NOMAP"]
 DolbyVisionPresenceType = Literal["ABSENT", "PRESENT"]
 DolbyVisionProfileType = Literal["PROFILE_5", "PROFILE_8_1"]
 DropFrameTimecodeType = Literal["DISABLED", "ENABLED"]
+DtsxCodingModeType = Literal["CODING_MODE_5_1", "CODING_MODE_5_1_4"]
 DvbSubSubtitleFallbackFontType = Literal[
     "BEST_MATCH",
     "MONOSPACED_SANSSERIF",
@@ -894,6 +905,7 @@ DvbSubtitleTeletextSpacingType = Literal["AUTO", "FIXED_GRID", "PROPORTIONAL"]
 DvbSubtitlingTypeType = Literal["HEARING_IMPAIRED", "STANDARD"]
 DvbddsHandlingType = Literal["NONE", "NO_DISPLAY_WINDOW", "SPECIFIED", "SPECIFIED_OPTIMAL"]
 DynamicAudioSelectorTypeType = Literal["ALL_TRACKS", "LANGUAGE_CODE"]
+DynamicMultiviewSettingsEnabledType = Literal["DISABLED", "ENABLED"]
 Eac3AtmosBitstreamModeType = Literal["COMPLETE_MAIN"]
 Eac3AtmosCodingModeType = Literal[
     "CODING_MODE_5_1_4", "CODING_MODE_7_1_4", "CODING_MODE_9_1_6", "CODING_MODE_AUTO"
@@ -1716,6 +1728,7 @@ ServiceName = Literal[
     "account-access-runtime",
     "acm",
     "acm-pca",
+    "agent-discovery",
     "agent-registry",
     "agent-registry-control",
     "aiops",
@@ -1726,6 +1739,7 @@ ServiceName = Literal[
     "apigateway",
     "apigatewaymanagementapi",
     "apigatewayv2",
+    "apiportal",
     "appconfig",
     "appconfigdata",
     "appfabric",
@@ -2016,6 +2030,7 @@ ServiceName = Literal[
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
+    "payments",
     "pca-connector-ad",
     "pca-connector-scep",
     "pcs",
@@ -2071,6 +2086,7 @@ ServiceName = Literal[
     "sagemaker-a2i-runtime",
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
+    "sagemaker-gateway-runtime",
     "sagemaker-geospatial",
     "sagemaker-inference-router-runtime",
     "sagemaker-metrics",

@@ -1,7 +1,7 @@
 Metadata-Version: 2.5
 Name: rapidata
-Version: 3.31.5
-Summary: Rapidata package containing the Rapidata Python Client to interact with the Rapidata Web API in an easy way.
+Version: 3.31.6
+Summary: Official Python SDK for Rapidata: human feedback, preference data for RLHF, model evaluation and data labeling from real people.
 Project-URL: Homepage, https://rapidata.ai/?utm_source=pypi&utm_medium=referral&utm_campaign=python_sdk&utm_content=project_links
 Project-URL: Documentation, https://docs.rapidata.ai/?utm_source=pypi&utm_medium=referral&utm_campaign=python_sdk&utm_content=project_links
 Author-email: Rapidata AG <info@rapidata.ai>
@@ -30,7 +30,7 @@ Description-Content-Type: text/markdown
 
 # Rapidata Python Client
 
-Python client to interface with the Rapidata API.
+The official Python SDK for the Rapidata API: human feedback from real people for preference data and RLHF, model evaluation and data labeling.
 
 Docs: https://docs.rapidata.ai/
 

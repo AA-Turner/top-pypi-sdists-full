@@ -1,5 +1,3 @@
-mod utils;
-
 use lazy_static::lazy_static;
 use statsig_rust::{Statsig, StatsigUser};
 use std::sync::{Arc, Mutex, MutexGuard};

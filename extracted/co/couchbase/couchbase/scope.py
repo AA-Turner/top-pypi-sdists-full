@@ -1,4 +1,4 @@
-#  Copyright 2016-2022. Couchbase, Inc.
+#  Copyright 2016-2026. Couchbase, Inc.
 #  All Rights Reserved.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License")
@@ -15,14 +15,13 @@
 
 from __future__ import annotations
 
-from typing import (TYPE_CHECKING,
-                    Any,
-                    Dict)
+__all__ = [
+    'Scope',
+]
+
+from typing import TYPE_CHECKING, Any
 
 from couchbase.collection import Collection
-from couchbase.logic.observability import ObservableRequestHandler
-from couchbase.logic.operation_types import StreamingOperationType
-from couchbase.logic.scope_impl import ScopeImpl
 from couchbase.management.eventing import ScopeEventingFunctionManager
 from couchbase.management.search import ScopeSearchIndexManager
 from couchbase.options import (AnalyticsOptions,
@@ -33,45 +32,51 @@ from couchbase.result import (AnalyticsResult,
                               SearchResult)
 
 if TYPE_CHECKING:
+    from typing_extensions import Unpack
+
     from couchbase.bucket import Bucket
+    from couchbase.common._interfaces._scope import ScopeInterface
+    from couchbase.common._utils import JSONType
+    from couchbase.common.options import SearchOptionsKwargs
     from couchbase.search import SearchQuery, SearchRequest
 
 
 class Scope:
+    """A scope in a bucket: its collections, and the queries and searches run against it.
+
+    Get one from :meth:`~couchbase.bucket.Bucket.scope`.
+
+    Args:
+        bucket (:class:`~couchbase.bucket.Bucket`): The bucket the scope belongs to.
+        scope_name (str): The name of the scope.
+    """
 
     def __init__(self, bucket: Bucket, scope_name: str) -> None:
-        self._impl = ScopeImpl(scope_name, bucket)
+        self._impl: ScopeInterface = bucket._impl.scope(scope_name)
 
     @property
     def name(self) -> str:
-        """
-            str: The name of this :class:`~.Scope` instance.
-        """
+        """The name of this scope."""
         return self._impl.name
 
     @property
     def bucket_name(self) -> str:
-        """
-            str: The name of the bucket in which this :class:`~.Scope` instance belongs.
-        """
+        """The name of the bucket this scope belongs to."""
         return self._impl.bucket_name
 
     def collection(self, name: str) -> Collection:
-        """Creates a :class:`~.collection.Collection` instance of the specified collection.
+        """Creates a :class:`~couchbase.collection.Collection` instance of the specified collection.
 
         Args:
             name (str): Name of the collection to reference.
 
         Returns:
-            :class:`~.collection.Collection`: A :class:`~.collection.Collection` instance of the specified collection.
+            :class:`~couchbase.collection.Collection`: A :class:`~couchbase.collection.Collection` instance of the
+            specified collection.
         """
         return Collection(self, name)
 
-    def query(self,
-              statement,  # type: str
-              *options,  # type: QueryOptions
-              **kwargs  # type: Dict[str, Any]
-              ) -> QueryResult:
+    def query(self, statement: str, *options: QueryOptions | JSONType, **kwargs: Any) -> QueryResult:
         """Executes a N1QL query against the scope.
 
         .. note::
@@ -88,8 +93,10 @@ class Scope:
         Args:
             statement (str): The N1QL statement to execute.
             options (:class:`~couchbase.options.QueryOptions`): Optional parameters for the query operation.
-            **kwargs (Dict[str, Any]): keyword arguments that can be used in place or to
-                override provided :class:`~couchbase.options.QueryOptions`
+            **kwargs: keyword arguments that can be used in place or to
+                override provided :class:`~couchbase.options.QueryOptions`.  A keyword that is not one of its
+                options is sent as a named parameter; prefer ``QueryOptions(named_parameters=...)``, which
+                cannot collide with an option name.
 
         Returns:
             :class:`~couchbase.result.QueryResult`: An instance of a :class:`~couchbase.result.QueryResult` which
@@ -139,16 +146,9 @@ class Scope:
                 print(f'Query metrics: {q_res.metadata().metrics()}')
 
         """
-        op_type = StreamingOperationType.Query
-        obs_handler = ObservableRequestHandler(op_type, self._impl.observability_instruments)
-        req = self._impl.request_builder.build_query_request(statement, obs_handler, *options, **kwargs)
-        return self._impl.query(req)
+        return self._impl.query(statement, *options, **kwargs)
 
-    def analytics_query(self,
-                        statement,  # type: str
-                        *options,  # type: AnalyticsOptions
-                        **kwargs   # type: Dict[str, Any]
-                        ) -> AnalyticsResult:
+    def analytics_query(self, statement: str, *options: AnalyticsOptions | JSONType, **kwargs: Any) -> AnalyticsResult:
         """Executes an analaytics query against the scope.
 
         .. note::
@@ -156,19 +156,23 @@ class Scope:
             :class:`~couchbase.result.AnalyticsResult` begins.
 
         .. seealso::
-            * :class:`~couchbase.management.analytics.AnalyticsIndexManager`: for how to manage analytics dataverses, datasets, indexes and links.
+            * :class:`~couchbase.management.analytics.AnalyticsIndexManager`: for how to manage analytics dataverses,
+              datasets, indexes and links.
             * :meth:`~couchbase.cluster.Cluster.analytics_query`: for how to execute cluster-level analytics queries
 
         Args:
             statement (str): The analytics SQL++ statement to execute.
             options (:class:`~couchbase.options.AnalyticsOptions`): Optional parameters for the analytics query
                 operation.
-            **kwargs (Dict[str, Any]): keyword arguments that can be used in place or to
-                override provided :class:`~couchbase.options.AnalyticsOptions`
+            **kwargs: keyword arguments that can be used in place or to
+                override provided :class:`~couchbase.options.AnalyticsOptions`.  A keyword that is not one of its
+                options is sent as a named parameter; prefer ``AnalyticsOptions(named_parameters=...)``, which
+                cannot collide with an option name.
 
         Returns:
-            :class:`~couchbase.result.AnalyticsResult`: An instance of a :class:`~couchbase.result.AnalyticsResult` which provides access to iterate over the analytics
-            query results and access metadata and metrics about the analytics query.
+            :class:`~couchbase.result.AnalyticsResult`: An instance of a :class:`~couchbase.result.AnalyticsResult`
+            which provides access to iterate over the analytics query results and access metadata and metrics about the
+            analytics query.
 
         Examples:
             .. note::
@@ -215,22 +219,17 @@ class Scope:
                 print(f'Analytics query metadata: {q_res.metadata()}')
                 print(f'Analytics query metrics: {q_res.metadata().metrics()}')
 
-        """  # noqa: E501
-        op_type = StreamingOperationType.AnalyticsQuery
-        obs_handler = ObservableRequestHandler(op_type, self._impl.observability_instruments)
-        req = self._impl.request_builder.build_analytics_query_request(statement, obs_handler, *options, **kwargs)
-        return self._impl.analytics_query(req)
+        """
+        return self._impl.analytics_query(statement, *options, **kwargs)
 
     def search_query(self,
-                     index,  # type: str
-                     query,  # type: SearchQuery
-                     *options,  # type: SearchOptions
-                     **kwargs   # type: Dict[str, Any]
-                     ) -> SearchResult:
+                     index: str,
+                     query: SearchQuery,
+                     options: SearchOptions | None = None,
+                     **kwargs: Unpack[SearchOptionsKwargs]) -> SearchResult:
         """Executes an search query against the scope.
 
-        .. warning::
-            This method is **DEPRECATED** and will be removed in a future release.
+        .. deprecated:: 4.1.11
             Use :meth:`~couchbase.scope.Scope.search` instead.
 
         .. note::
@@ -242,13 +241,18 @@ class Scope:
             query (:class:`~couchbase.search.SearchQuery`): Type of search query to perform.
             options (:class:`~couchbase.options.SearchOptions`): Optional parameters for the search query
                 operation.
-            **kwargs (Dict[str, Any]): keyword arguments that can be used in place or to
+            **kwargs: keyword arguments that can be used in place or to
                 override provided :class:`~couchbase.options.SearchOptions`
 
         Returns:
             :class:`~couchbase.result.SearchResult`: An instance of a
             :class:`~couchbase.result.SearchResult` which provides access to iterate over the search
             query results and access metadata and metrics about the search query.
+
+        Raises:
+            :class:`~couchbase.exceptions.InvalidArgumentException`: If a
+                :class:`~couchbase.search.SearchRequest` is provided.  Use
+                :meth:`~couchbase.scope.Scope.search` for a search request.
 
         Examples:
 
@@ -314,17 +318,13 @@ class Scope:
                     print(f'Locations: {row.locations}')
 
         """
-        op_type = StreamingOperationType.SearchQuery
-        obs_handler = ObservableRequestHandler(op_type, self._impl.observability_instruments)
-        req = self._impl.request_builder.build_search_request(index, query, obs_handler, *options, **kwargs)
-        return self._impl.search(req)
+        return self._impl.search_query(index, query, options, **kwargs)
 
     def search(self,
-               index,  # type: str
-               request,  # type: SearchRequest
-               *options,  # type: SearchOptions
-               **kwargs,  # type: Dict[str, Any]
-               ) -> SearchResult:
+               index: str,
+               request: SearchRequest | SearchQuery,
+               options: SearchOptions | None = None,
+               **kwargs: Unpack[SearchOptionsKwargs]) -> SearchResult:
         """Executes an search against the scope.
 
         .. note::
@@ -337,9 +337,14 @@ class Scope:
 
         Args:
             index (str): Name of the search index to use.
-            request (:class:`~couchbase.search.SearchRequest`): Type of search request to perform.
+            request (:class:`~couchbase.search.SearchRequest` | :class:`~couchbase.search.SearchQuery`): Type of
+                search request to perform.
+
+                .. deprecated:: 4.7.0
+                    Passing a :class:`~couchbase.search.SearchQuery` is deprecated; wrap it with
+                    :meth:`~couchbase.search.SearchRequest.create` instead.
             options (:class:`~couchbase.options.SearchOptions`): Optional parameters for the search query operation.
-            **kwargs (Dict[str, Any]): keyword arguments that can be used in place or to
+            **kwargs: keyword arguments that can be used in place or to
                 override provided :class:`~couchbase.options.SearchOptions`
 
         Returns:
@@ -375,9 +380,11 @@ class Scope:
 
                 # ... other code ...
 
-                # NOTE:  the vector is expected to be type List[float], set the vector to the appropriate value, this is an example.
+                # NOTE:  the vector is expected to be type list[float], set the vector to the appropriate value,
+                # this is an example.
                 vector = [-0.014653487130999565, -0.008658270351588726, 0.017129190266132355, -0.015563474968075752]
-                request = search.SearchRequest.create(VectorSearch.from_vector_query(VectorQuery('vector_field', vector)))
+                vector_search = VectorSearch.from_vector_query(VectorQuery('vector_field', vector))
+                request = search.SearchRequest.create(vector_search)
                 q_res = scope.search('travel-sample-vector-index', request, SearchOptions(limit=10))
 
                 for row in q_res.rows():
@@ -391,7 +398,8 @@ class Scope:
 
                 # ... other code ...
 
-                # NOTE:  the vector is expected to be type List[float], set the vector to the appropriate value, this is an example.
+                # NOTE:  the vector is expected to be type list[float], set the vector to the appropriate value,
+                # this is an example.
                 vector_search = VectorSearch.from_vector_query(VectorQuery('vector_field', [-0.014653487130999565,
                                                                                             -0.008658270351588726,
                                                                                             0.017129190266132355,
@@ -401,34 +409,30 @@ class Scope:
 
                 for row in q_res.rows():
                     print(f'Found row: {row}')
-        """  # noqa: E501
-        op_type = StreamingOperationType.SearchQuery
-        obs_handler = ObservableRequestHandler(op_type, self._impl.observability_instruments)
-        req = self._impl.request_builder.build_search_request(index, request, obs_handler, *options, **kwargs)
-        return self._impl.search(req)
+        """
+        return self._impl.search(index, request, options, **kwargs)
 
     def search_indexes(self) -> ScopeSearchIndexManager:
-        """
-        Get a :class:`~couchbase.management.search.ScopeSearchIndexManager` which can be used to manage the search
-        indexes of this scope.
+        """Get a manager for the search indexes of this scope.
 
         Returns:
-            :class:`~couchbase.management.search.ScopeSearchIndexManager`: A :class:`~couchbase.management.search.ScopeSearchIndexManager` instance.
+            :class:`~couchbase.management.search.ScopeSearchIndexManager`: A
+            :class:`~couchbase.management.search.ScopeSearchIndexManager` instance.
 
-        """  # noqa: E501
-        return ScopeSearchIndexManager(self._impl._client_adapter, self.bucket_name, self.name, self._impl.observability_instruments)  # noqa: E501
+        """
+        return ScopeSearchIndexManager(self._impl.search_index_mgmt())
 
     def eventing_functions(self) -> ScopeEventingFunctionManager:
-        """
-        Get a :class:`~couchbase.management.search.ScopeEventingFunctionManager` which can be used to manage the eventing
-        functions of this scope.
+        """Get a manager for the eventing functions of this scope.
 
         Returns:
-            :class:`~couchbase.management.search.ScopeEventingFunctionManager`: A :class:`~couchbase.management.search.ScopeSearchIndexManager` instance.
+            :class:`~couchbase.management.eventing.ScopeEventingFunctionManager`: A
+            :class:`~couchbase.management.eventing.ScopeEventingFunctionManager` instance.
 
-        """  # noqa: E501
-        return ScopeEventingFunctionManager(self._impl._client_adapter, self.bucket_name, self.name, self._impl.observability_instruments)  # noqa: E501
+        """
+        return ScopeEventingFunctionManager(self._impl.eventing_function_mgmt())
 
     @staticmethod
     def default_name() -> str:
+        """The name of a bucket's default scope."""
         return "_default"

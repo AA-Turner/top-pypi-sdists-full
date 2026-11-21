@@ -76,6 +76,13 @@ FLEET = (
         {},
     ),
     (
+        "bale",
+        "bale://123456789:abcdefghij/111/999/",
+        "111",
+        "999",
+        {},
+    ),
+    (
         "zalo",
         "zalo://123456789:abcdefghij/chat1/chat999/",
         "chat1",
@@ -204,6 +211,18 @@ FLEET = (
         {},
     ),
     (
+        "acs",
+        (
+            f"acs://user@example.com/{'YWJj' * 22}"
+            "/contoso.communication.azure.com"
+            "/one@example.ca/nine@example.ca"
+        ),
+        "one@example.ca",
+        "nine@example.ca",
+        # ACS answers a send with 202 Accepted
+        {"__http__": requests.codes.accepted},
+    ),
+    (
         "mailersend",
         (
             f"mailersend://{TOKEN}:user@example.com"
@@ -306,6 +325,13 @@ FLEET = (
         f"whatsapp://{TOKEN}@12125550000/12125550001/12125559999",
         "12125550001",
         "12125559999",
+        {},
+    ),
+    (
+        "instagram",
+        f"instagram://{TOKEN}/1111111/9999999",
+        "1111111",
+        "9999999",
         {},
     ),
     (

@@ -122,6 +122,11 @@ class CfnWorkflow(
                 # the properties below are optional
                 kms_key_id="kmsKeyId"
             ),
+            environment=mwaaserverless.CfnWorkflow.EnvironmentProperty(
+                variables={
+                    "variables_key": "variables"
+                }
+            ),
             logging_configuration=mwaaserverless.CfnWorkflow.LoggingConfigurationProperty(
                 log_group_name="logGroupName"
             ),
@@ -147,6 +152,7 @@ class CfnWorkflow(
         code: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflow.CodeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
         encryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflow.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        environment: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflow.EnvironmentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         logging_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflow.LoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
         network_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflow.NetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -162,6 +168,7 @@ class CfnWorkflow(
         :param code: The location of code artifacts in Amazon S3 for the workflow. Modeled as a single-member container so it stays extensible to future artifact types (e.g. OCI images).
         :param description: 
         :param encryption_configuration: 
+        :param environment: Contains the environment variables that tasks in a workflow use during execution.
         :param logging_configuration: 
         :param name: 
         :param network_configuration: 
@@ -178,6 +185,7 @@ class CfnWorkflow(
             code=code,
             description=description,
             encryption_configuration=encryption_configuration,
+            environment=environment,
             logging_configuration=logging_configuration,
             name=name,
             network_configuration=network_configuration,
@@ -397,6 +405,24 @@ class CfnWorkflow(
             type_hints = cached_type_hints(_typecheckingstub__e9714e5f8cd597317652144f2aeeb3923ed676c079ccbe101f8b1965d814594e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "encryptionConfiguration", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="environment")
+    def environment(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.EnvironmentProperty"]]:
+        '''Contains the environment variables that tasks in a workflow use during execution.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.EnvironmentProperty"]], jsii.get(self, "environment"))
+
+    @environment.setter
+    def environment(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.EnvironmentProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d3fba2a1d91a162f03eccd567968aff05ca38dab612c63778d9ec941b3a31b66)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "environment", value)
 
     @builtins.property
     @jsii.member(jsii_name="loggingConfiguration")
@@ -695,6 +721,68 @@ class CfnWorkflow(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mwaaserverless.CfnWorkflow.EnvironmentProperty",
+        jsii_struct_bases=[],
+        name_mapping={"variables": "variables"},
+    )
+    class EnvironmentProperty:
+        def __init__(
+            self,
+            *,
+            variables: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]],
+        ) -> None:
+            '''Contains the environment variables that tasks in a workflow use during execution.
+
+            :param variables: A map of environment variable names to values. Up to 50 variables. Names must start with a letter and contain only letters, numbers, and underscores. Names starting with AWS_ or AIRFLOW__ are reserved, except AIRFLOW__WORKERS__SECRETS_BACKEND, AIRFLOW__WORKERS__SECRETS_BACKEND_KWARGS, and names prefixed with AIRFLOW__WORKERS__SECRETS_BACKEND_KWARG__.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mwaaserverless-workflow-environment.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mwaaserverless as mwaaserverless
+                
+                environment_property = mwaaserverless.CfnWorkflow.EnvironmentProperty(
+                    variables={
+                        "variables_key": "variables"
+                    }
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__ebfca4b4bd4b2ff22129d6a4d2aab8af64ec61b60292232e099324d92ab3fa6d)
+                check_type(argname="argument variables", value=variables, expected_type=type_hints["variables"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "variables": variables,
+            }
+
+        @builtins.property
+        def variables(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]:
+            '''A map of environment variable names to values.
+
+            Up to 50 variables. Names must start with a letter and contain only letters, numbers, and underscores. Names starting with AWS_ or AIRFLOW__ are reserved, except AIRFLOW__WORKERS__SECRETS_BACKEND, AIRFLOW__WORKERS__SECRETS_BACKEND_KWARGS, and names prefixed with AIRFLOW__WORKERS__SECRETS_BACKEND_KWARG__.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mwaaserverless-workflow-environment.html#cfn-mwaaserverless-workflow-environment-variables
+            '''
+            result = self._values.get("variables")
+            assert result is not None, "Required property 'variables' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EnvironmentProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mwaaserverless.CfnWorkflow.LoggingConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={"log_group_name": "logGroupName"},
@@ -965,6 +1053,7 @@ class CfnWorkflow(
         "code": "code",
         "description": "description",
         "encryption_configuration": "encryptionConfiguration",
+        "environment": "environment",
         "logging_configuration": "loggingConfiguration",
         "name": "name",
         "network_configuration": "networkConfiguration",
@@ -981,6 +1070,7 @@ class CfnWorkflowProps:
         code: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflow.CodeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
         encryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflow.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        environment: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflow.EnvironmentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         logging_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflow.LoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
         network_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflow.NetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -994,6 +1084,7 @@ class CfnWorkflowProps:
         :param code: The location of code artifacts in Amazon S3 for the workflow. Modeled as a single-member container so it stays extensible to future artifact types (e.g. OCI images).
         :param description: 
         :param encryption_configuration: 
+        :param environment: Contains the environment variables that tasks in a workflow use during execution.
         :param logging_configuration: 
         :param name: 
         :param network_configuration: 
@@ -1036,6 +1127,11 @@ class CfnWorkflowProps:
                     # the properties below are optional
                     kms_key_id="kmsKeyId"
                 ),
+                environment=mwaaserverless.CfnWorkflow.EnvironmentProperty(
+                    variables={
+                        "variables_key": "variables"
+                    }
+                ),
                 logging_configuration=mwaaserverless.CfnWorkflow.LoggingConfigurationProperty(
                     log_group_name="logGroupName"
                 ),
@@ -1057,6 +1153,7 @@ class CfnWorkflowProps:
             check_type(argname="argument code", value=code, expected_type=type_hints["code"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument encryption_configuration", value=encryption_configuration, expected_type=type_hints["encryption_configuration"])
+            check_type(argname="argument environment", value=environment, expected_type=type_hints["environment"])
             check_type(argname="argument logging_configuration", value=logging_configuration, expected_type=type_hints["logging_configuration"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument network_configuration", value=network_configuration, expected_type=type_hints["network_configuration"])
@@ -1072,6 +1169,8 @@ class CfnWorkflowProps:
             self._values["description"] = description
         if encryption_configuration is not None:
             self._values["encryption_configuration"] = encryption_configuration
+        if environment is not None:
+            self._values["environment"] = environment
         if logging_configuration is not None:
             self._values["logging_configuration"] = logging_configuration
         if name is not None:
@@ -1133,6 +1232,17 @@ class CfnWorkflowProps:
         '''
         result = self._values.get("encryption_configuration")
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.EncryptionConfigurationProperty"]], result)
+
+    @builtins.property
+    def environment(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.EnvironmentProperty"]]:
+        '''Contains the environment variables that tasks in a workflow use during execution.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mwaaserverless-workflow.html#cfn-mwaaserverless-workflow-environment
+        '''
+        result = self._values.get("environment")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.EnvironmentProperty"]], result)
 
     @builtins.property
     def logging_configuration(
@@ -1207,6 +1317,7 @@ def _typecheckingstub__7e2bce4e70d0388a15f4045d87762a0a9bbddefe5c4cc8c92886c1b78
     code: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflow.CodeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflow.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    environment: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflow.EnvironmentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     logging_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflow.LoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
     network_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflow.NetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1270,6 +1381,12 @@ def _typecheckingstub__e9714e5f8cd597317652144f2aeeb3923ed676c079ccbe101f8b1965d
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d3fba2a1d91a162f03eccd567968aff05ca38dab612c63778d9ec941b3a31b66(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnWorkflow.EnvironmentProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__c616011f97b5b305e924c2f2daf971e2cd5a3d599eaa2a5175e319dd0350d98e(
     value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnWorkflow.LoggingConfigurationProperty]],
 ) -> None:
@@ -1324,6 +1441,13 @@ def _typecheckingstub__efe2f8cb733b4f3d7876c831146f412fca47453cee38a647e87fa7529
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ebfca4b4bd4b2ff22129d6a4d2aab8af64ec61b60292232e099324d92ab3fa6d(
+    *,
+    variables: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__8fd38e2fbacdb3636b041bc0c31da853f2a1440112ae620aee7dcbcb464ed0d2(
     *,
     log_group_name: builtins.str,
@@ -1362,6 +1486,7 @@ def _typecheckingstub__36755512823c440877f151e4568051c22a8df773ab4409c547b6f6b7d
     code: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflow.CodeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflow.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    environment: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflow.EnvironmentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     logging_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflow.LoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
     network_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflow.NetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

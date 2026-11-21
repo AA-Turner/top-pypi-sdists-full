@@ -8,7 +8,6 @@ use crate::{
     Array, Json, Node, SerdeJson, ValidationError,
 };
 use referencing::Uri;
-use serde_json::Value;
 use std::{
     fmt,
     sync::{Arc, OnceLock, Weak},
@@ -44,7 +43,7 @@ impl SchemaLocation {
 
 /// The absolute location of `location`, built on first use: most are never read.
 ///
-/// Only errors reach it, so it stays out of the validation loops it is called from.
+/// Only errors and `evaluate` reach it, so it stays out of the loops it is called from.
 #[cold]
 #[inline(never)]
 fn absolute_location<'a>(
@@ -97,7 +96,8 @@ impl<F: Json> fmt::Debug for SchemaNode<F> {
     }
 }
 
-// Separate type used only during compilation for handling recursive references
+/// A `$ref` target filled in once compiled, so recursive references can point at a node still
+/// being built.
 pub(crate) struct PendingSchemaNode<F: Json = SerdeJson> {
     cell: Arc<OnceLock<PendingTarget<F>>>,
 }
@@ -129,16 +129,7 @@ struct WeakTarget<F: Json> {
 }
 
 enum NodeValidators<F: Json> {
-    /// The result of compiling a boolean valued schema, e.g
-    ///
-    /// ```json
-    /// {
-    ///     "additionalProperties": false
-    /// }
-    /// ```
-    ///
-    /// Here the result of `compiler::compile` called with the `false` value will return a
-    /// `SchemaNode` with a single `BooleanValidator` as it's `validators`.
+    /// A `true` schema (no validator) or a `false` one (its `FalseValidator`).
     Boolean {
         validator: Option<BoxedValidator<F>>,
     },
@@ -190,11 +181,8 @@ impl<F: Json> fmt::Debug for NodeValidators<F> {
 }
 
 struct KeywordValidators<F: Json> {
-    /// The keywords on this node which were not recognized by any vocabularies. These are
-    /// stored so we can later produce them as annotations
-    unmatched_keywords: Option<Arc<Value>>,
-    // We should probably use AHashMap here but it breaks a bunch of tests which assume
-    // validators are in a particular order
+    /// Keywords no vocabulary recognizes, reported as the node's annotation.
+    unmatched_keywords: Option<Annotations>,
     validators: KeywordList<F>,
     /// Per-validator data only error and evaluation paths read, kept apart so `is_valid` walks
     /// densely packed validators.
@@ -229,13 +217,17 @@ struct KeywordValidator<F: Json> {
     validator: BoxedValidator<F>,
     /// Asserts on the instance itself, so `is_valid` may run ahead of `validate`.
     is_leaf: bool,
+    /// Reports the output units of the sibling keywords it checks, with its own.
+    reports_units: bool,
 }
 
 #[cfg(all(target_arch = "x86_64", target_pointer_width = "64"))]
 const _: () = assert!(std::mem::size_of::<KeywordValidator<SerdeJson>>() == 24);
 
 struct KeywordMetadata {
-    location: Location,
+    keyword: Keyword,
+    /// The node's location joined with `keyword`; only errors and evaluation read it.
+    location: OnceLock<Location>,
     /// Read by errors; evaluation reads `schema_location`.
     absolute_location: OnceLock<Arc<Uri<String>>>,
     schema_location: OnceLock<SchemaLocation>,
@@ -248,6 +240,7 @@ struct EntryParts<'a, F: Json> {
     absolute_location: &'a OnceLock<Arc<Uri<String>>>,
     schema_location: &'a OnceLock<SchemaLocation>,
     validator: &'a BoxedValidator<F>,
+    reports_units: bool,
 }
 
 impl<F: Json> EntryParts<'_, F> {
@@ -269,25 +262,36 @@ impl<F: Json> EntryParts<'_, F> {
 }
 
 impl KeywordMetadata {
+    fn location(&self, node: &Location) -> &Location {
+        self.location.get_or_init(|| node.join(&self.keyword))
+    }
+
     #[inline]
     fn absolute_location(
         &self,
         base: Option<&DeferredAbsoluteLocation>,
+        node: &Location,
     ) -> Option<&Arc<Uri<String>>> {
-        absolute_location(base, &self.absolute_location, &self.location)
+        let base = base?;
+        Some(
+            self.absolute_location
+                .get_or_init(|| base.resolve(self.location(node))),
+        )
     }
 
     fn parts<'a, F: Json>(
         &'a self,
-        validator: &'a BoxedValidator<F>,
+        node: &'a Location,
+        entry: &'a KeywordValidator<F>,
         absolute_base: Option<&'a DeferredAbsoluteLocation>,
     ) -> EntryParts<'a, F> {
         EntryParts {
-            location: &self.location,
+            location: self.location(node),
             absolute_base,
             absolute_location: &self.absolute_location,
             schema_location: &self.schema_location,
-            validator,
+            validator: &entry.validator,
+            reports_units: entry.reports_units,
         }
     }
 }
@@ -422,14 +426,29 @@ impl<F: Json> Validate<F> for PendingSchemaNode<F> {
             PendingTarget::Strong(node) => return node.validate(instance, location, tracker, ctx),
             PendingTarget::Weak(target) => target,
         };
+        let node_id = target.node_id();
         let identity = instance.identity();
-        if ctx.enter::<F>(target.node_id(), identity) {
+        if ctx.enter::<F>(node_id, identity) {
             return Ok(());
         }
-        let result = target
-            .materialize()
-            .validate(instance, location, tracker, ctx);
-        ctx.exit::<F>(target.node_id(), identity);
+        let result = match instance.container_identity().filter(|_| F::ACYCLIC) {
+            Some(container) => {
+                if ctx.reports_nothing(node_id, container) {
+                    Ok(())
+                } else {
+                    let visit = ctx.start_errors_visit();
+                    let result = target
+                        .materialize()
+                        .validate(instance, location, tracker, ctx);
+                    ctx.finish_errors_visit(visit, node_id, container, result.is_ok());
+                    result
+                }
+            }
+            None => target
+                .materialize()
+                .validate(instance, location, tracker, ctx),
+        };
+        ctx.exit::<F>(node_id, identity);
         result
     }
 
@@ -447,14 +466,27 @@ impl<F: Json> Validate<F> for PendingSchemaNode<F> {
             }
             PendingTarget::Weak(target) => target,
         };
+        let node_id = target.node_id();
         let identity = instance.identity();
-        if ctx.enter::<F>(target.node_id(), identity) {
+        if ctx.enter::<F>(node_id, identity) {
             return;
         }
-        target
-            .materialize()
-            .collect_errors(instance, location, tracker, ctx, errors);
-        ctx.exit::<F>(target.node_id(), identity);
+        match instance.container_identity().filter(|_| F::ACYCLIC) {
+            Some(container) => {
+                if !ctx.reports_nothing(node_id, container) {
+                    let visit = ctx.start_errors_visit();
+                    let reported = errors.len();
+                    target
+                        .materialize()
+                        .collect_errors(instance, location, tracker, ctx, errors);
+                    ctx.finish_errors_visit(visit, node_id, container, errors.len() == reported);
+                }
+            }
+            None => target
+                .materialize()
+                .collect_errors(instance, location, tracker, ctx, errors),
+        }
+        ctx.exit::<F>(node_id, identity);
     }
 
     fn evaluate(
@@ -526,58 +558,75 @@ impl<F: Json> SchemaNode<F> {
     }
 
     /// `absorbed` holds the keywords a fused validator in `validators` checks on its own.
-    pub(crate) fn from_keywords(
+    pub(crate) fn from_keywords<V>(
         ctx: &Context<'_, F>,
-        mut validators: Vec<(Keyword, BoxedValidator<F>)>,
+        mut validators: V,
         absorbed: Option<Arc<AbsorbedKeywords>>,
-        unmatched_keywords: Option<Arc<Value>>,
-    ) -> SchemaNode<F> {
+        unmatched_keywords: Option<Annotations>,
+    ) -> SchemaNode<F>
+    where
+        V: AsMut<[(Keyword, BoxedValidator<F>)]>
+            + IntoIterator<Item = (Keyword, BoxedValidator<F>)>,
+    {
+        let sorted = validators.as_mut();
         // Sort validators by priority (lower = execute first).
         // This enables "fail fast" by running cheap validators (type, const)
         // before expensive ones (allOf, $ref).
-        validators.sort_by_key(|(keyword, _)| crate::keywords::keyword_priority(keyword));
+        sorted.sort_by_key(|(keyword, _)| crate::keywords::keyword_priority(keyword));
         let absorbed = absorbed.map(|keywords| {
             // Nothing sorts between `minItems` and `maxItems`, and nothing before `type`.
             let priority = crate::keywords::keyword_priority(&BuiltinKeyword::MinItems.into());
             AbsorbedUnits {
                 keywords,
-                counts_at: validators.partition_point(|(keyword, _)| {
+                counts_at: sorted.partition_point(|(keyword, _)| {
                     crate::keywords::keyword_priority(keyword) < priority
                 }),
             }
         });
+        let count = sorted.len();
 
-        let (metadata, mut validators): (Vec<_>, Vec<_>) = validators
-            .into_iter()
-            .map(|(keyword, validator)| {
-                let metadata = KeywordMetadata {
-                    location: ctx.location().join(&keyword),
-                    absolute_location: OnceLock::new(),
-                    schema_location: OnceLock::new(),
-                };
-                // Only `required` may lean on a sibling keyword; asking every validator costs a call each.
-                let is_leaf = crate::keywords::keyword_is_leaf(&keyword)
-                    && (!matches!(
-                        keyword,
-                        crate::keywords::Keyword::Builtin(
-                            crate::keywords::BuiltinKeyword::Required
-                        )
-                    ) || validator.is_valid_alone());
-                let validator = KeywordValidator { validator, is_leaf };
-                (metadata, validator)
-            })
-            .unzip();
-        let accepted_types = match validators.as_slice() {
-            [only] => match only.validator.owned_ref_target() {
+        let mut metadata = Vec::with_capacity(count);
+        let mut entries = validators.into_iter().map(|(keyword, validator)| {
+            // Only `required` may lean on a sibling keyword; asking every validator costs a call each.
+            let is_leaf = crate::keywords::keyword_is_leaf(&keyword)
+                && (!matches!(
+                    keyword,
+                    crate::keywords::Keyword::Builtin(crate::keywords::BuiltinKeyword::Required)
+                ) || validator.is_valid_alone());
+            // Only `minLength`, `properties`, `additionalProperties` and `if` check sibling
+            // keywords; asking every validator costs a call each.
+            let reports_units = matches!(
+                keyword,
+                crate::keywords::Keyword::Builtin(
+                    crate::keywords::BuiltinKeyword::MinLength
+                        | crate::keywords::BuiltinKeyword::Properties
+                        | crate::keywords::BuiltinKeyword::AdditionalProperties
+                        | crate::keywords::BuiltinKeyword::If
+                )
+            ) && validator.reports_units();
+            metadata.push(KeywordMetadata {
+                keyword,
+                location: OnceLock::new(),
+                absolute_location: OnceLock::new(),
+                schema_location: OnceLock::new(),
+            });
+            KeywordValidator {
+                validator,
+                is_leaf,
+                reports_units,
+            }
+        });
+        let validators = if count == 1 {
+            KeywordList::One(entries.next().expect("one validator"))
+        } else {
+            KeywordList::Many(entries.collect())
+        };
+        let accepted_types = match &validators {
+            KeywordList::One(only) => match only.validator.owned_ref_target() {
                 Some(target) => target.inner.accepted_types,
                 None => only.validator.accepted_types().and_then(type_shortcut),
             },
-            _ => None,
-        };
-        let validators = if validators.len() == 1 {
-            KeywordList::One(validators.pop().expect("one validator"))
-        } else {
-            KeywordList::Many(validators.into_boxed_slice())
+            KeywordList::Many(_) => None,
         };
         SchemaNode {
             inner: Arc::new(SchemaNodeInner {
@@ -601,10 +650,9 @@ impl<F: Json> SchemaNode<F> {
     ) -> SchemaNode<F> {
         let validators = validators
             .into_iter()
-            .enumerate()
-            .map(|(index, validator)| ArrayValidatorEntry {
+            .map(|validator| ArrayValidatorEntry {
                 validator,
-                location: ctx.location().join(index),
+                location: ctx.location().clone(),
                 absolute_location: OnceLock::new(),
                 schema_location: OnceLock::new(),
             })
@@ -714,7 +762,7 @@ impl<F: Json> SchemaNode<F> {
         }
     }
 
-    /// Helper function to evaluate subschemas which already know their locations.
+    /// Evaluates `subschemas`, each carrying its own location.
     fn evaluate_subschemas<'a, 'i, I>(
         instance: &F::Node<'i>,
         location: &LazyLocation,
@@ -752,6 +800,7 @@ impl<F: Json> SchemaNode<F> {
         tracker: Option<&RefTracker>,
         validators: &[KeywordValidator<F>],
         metadata: &[KeywordMetadata],
+        node_location: &Location,
         absolute_base: Option<&DeferredAbsoluteLocation>,
         absorbed: &AbsorbedUnits,
         annotations: Option<Annotations>,
@@ -773,7 +822,7 @@ impl<F: Json> SchemaNode<F> {
             metadata_before
                 .iter()
                 .zip(before)
-                .map(|(m, v)| m.parts(&v.validator, absolute_base)),
+                .map(|(m, v)| m.parts(node_location, v, absolute_base)),
             &mut children,
             ctx,
         );
@@ -786,7 +835,7 @@ impl<F: Json> SchemaNode<F> {
             metadata_after
                 .iter()
                 .zip(after)
-                .map(|(m, v)| m.parts(&v.validator, absolute_base)),
+                .map(|(m, v)| m.parts(node_location, v, absolute_base)),
             &mut children,
             ctx,
         );
@@ -831,6 +880,17 @@ impl<F: Json> SchemaNode<F> {
         let mut invalid = false;
 
         for parts in subschemas {
+            if parts.reports_units {
+                invalid |= parts.validator.evaluate_units(
+                    instance,
+                    location,
+                    instance_loc,
+                    tracker,
+                    ctx,
+                    children,
+                );
+                continue;
+            }
             let child_result = parts.validator.evaluate_with_location(
                 instance,
                 location,
@@ -839,11 +899,6 @@ impl<F: Json> SchemaNode<F> {
                 ctx,
             );
 
-            // schemaLocation: The canonical location WITHOUT $ref traversals.
-            // Per JSON Schema spec: "MUST NOT include by-reference applicators such as $ref"
-            // For by-reference validators like $ref, use the target's canonical location,
-            // which lives in the target's resource.
-            // For regular validators, use the keyword's location.
             let schema_location = parts.schema_location();
             let absolute_location = schema_location.absolute.clone();
             let formatted_schema_location = Arc::clone(&schema_location.formatted);
@@ -906,8 +961,15 @@ impl<F: Json> SchemaNode<F> {
     }
 }
 
-fn stamp_absolute_location(errors: &mut [ValidationError<'_>], uri: Option<&Arc<Uri<String>>>) {
-    let Some(uri) = uri else { return };
+/// `uri` is resolved only when the keyword reported errors.
+fn stamp_absolute_location<'a>(
+    errors: &mut [ValidationError<'_>],
+    uri: impl FnOnce() -> Option<&'a Arc<Uri<String>>>,
+) {
+    if errors.is_empty() {
+        return;
+    }
+    let uri = uri();
     for error in errors {
         error.set_absolute_keyword_location(uri);
     }
@@ -1011,7 +1073,10 @@ impl<F: Json> Validate<F> for SchemaNode<F> {
                     .map_err(|e| {
                         e.with_absolute_keyword_location(
                             kvs.metadata[0]
-                                .absolute_location(self.inner.absolute_base.as_ref())
+                                .absolute_location(
+                                    self.inner.absolute_base.as_ref(),
+                                    &self.location,
+                                )
                                 .cloned(),
                         )
                     });
@@ -1027,7 +1092,10 @@ impl<F: Json> Validate<F> for SchemaNode<F> {
                         .map_err(|e| {
                             e.with_absolute_keyword_location(
                                 metadata
-                                    .absolute_location(self.inner.absolute_base.as_ref())
+                                    .absolute_location(
+                                        self.inner.absolute_base.as_ref(),
+                                        &self.location,
+                                    )
                                     .cloned(),
                             )
                         })?;
@@ -1065,6 +1133,11 @@ impl<F: Json> Validate<F> for SchemaNode<F> {
         ctx: &mut ValidationContext,
         errors: &mut Vec<ValidationError<'i>>,
     ) {
+        if let Some(types) = self.inner.accepted_types {
+            if types.contains(instance.json_type()) {
+                return;
+            }
+        }
         match &self.inner.validators {
             NodeValidators::Keyword(kvs) => {
                 for (entry, metadata) in kvs.validators.as_slice().iter().zip(&kvs.metadata) {
@@ -1075,10 +1148,10 @@ impl<F: Json> Validate<F> for SchemaNode<F> {
                     entry
                         .validator
                         .collect_errors(instance, location, tracker, ctx, errors);
-                    stamp_absolute_location(
-                        &mut errors[start..],
-                        metadata.absolute_location(self.inner.absolute_base.as_ref()),
-                    );
+                    stamp_absolute_location(&mut errors[start..], || {
+                        metadata
+                            .absolute_location(self.inner.absolute_base.as_ref(), &self.location)
+                    });
                 }
             }
             NodeValidators::Boolean {
@@ -1086,7 +1159,7 @@ impl<F: Json> Validate<F> for SchemaNode<F> {
             } => {
                 let start = errors.len();
                 v.collect_errors(instance, location, tracker, ctx, errors);
-                stamp_absolute_location(&mut errors[start..], self.absolute_path());
+                stamp_absolute_location(&mut errors[start..], || self.absolute_path());
             }
             NodeValidators::Boolean {
                 validator: None, ..
@@ -1097,10 +1170,9 @@ impl<F: Json> Validate<F> for SchemaNode<F> {
                     entry
                         .validator
                         .collect_errors(instance, location, tracker, ctx, errors);
-                    stamp_absolute_location(
-                        &mut errors[start..],
-                        entry.absolute_location(self.inner.absolute_base.as_ref()),
-                    );
+                    stamp_absolute_location(&mut errors[start..], || {
+                        entry.absolute_location(self.inner.absolute_base.as_ref())
+                    });
                 }
             }
         }
@@ -1156,6 +1228,7 @@ impl<F: Json> SchemaNode<F> {
                     absolute_location: &entry.absolute_location,
                     schema_location: &entry.schema_location,
                     validator: &entry.validator,
+                    reports_units: false,
                 }),
                 None,
                 ctx,
@@ -1179,9 +1252,7 @@ impl<F: Json> SchemaNode<F> {
                 } = *kvals;
                 let validators = validators.as_slice();
                 let absolute_base = self.inner.absolute_base.as_ref();
-                let annotations: Option<Annotations> = unmatched_keywords
-                    .as_ref()
-                    .map(|v| Annotations::from_arc(Arc::clone(v)));
+                let annotations: Option<Annotations> = unmatched_keywords.clone();
                 if let Some(absorbed) = absorbed {
                     Self::evaluate_with_absorbed(
                         instance,
@@ -1190,6 +1261,7 @@ impl<F: Json> SchemaNode<F> {
                         tracker,
                         validators,
                         metadata,
+                        &self.location,
                         absolute_base,
                         absorbed,
                         annotations,
@@ -1204,7 +1276,7 @@ impl<F: Json> SchemaNode<F> {
                         metadata
                             .iter()
                             .zip(validators)
-                            .map(|(m, v)| m.parts(&v.validator, absolute_base)),
+                            .map(|(m, v)| m.parts(&self.location, v, absolute_base)),
                         annotations,
                         ctx,
                     )

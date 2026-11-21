@@ -285,7 +285,7 @@ namespace sogen
                         thread->restore(c.emu, c.proc.gdt_base);
                     }
 
-                    cpu_context::restore(c.x64_cpu(), widened_wow64_debug_registers(new_wow64_context));
+                    cpu_context::restore(c.x64_cpu(), widened_wow64_debug_registers(new_wow64_context), c.proc.is_wow64_process);
 
                     if (needs_switch)
                     {
@@ -400,12 +400,12 @@ namespace sogen
                         {
                             if (t.teb32.has_value())
                             {
-                                t.teb32->access([&](TEB32& teb32) { teb32.TlsSlots.arr[tls_cell] = 0; });
+                                t.teb32->field<std::uint32_t>(offsetof(TEB32, TlsSlots) + tls_cell * sizeof(std::uint32_t)).write(0);
                             }
                         }
                         else
                         {
-                            t.teb64->access([&](TEB64& teb64) { teb64.TlsSlots.arr[tls_cell] = 0; });
+                            t.teb64->field<std::uint64_t>(offsetof(TEB64, TlsSlots) + tls_cell * sizeof(std::uint64_t)).write(0);
                         }
                     }
                     else if (tls_cell < TLS_MINIMUM_AVAILABLE + TLS_EXPANSION_SLOTS)
@@ -414,22 +414,21 @@ namespace sogen
                         {
                             if (t.teb32.has_value())
                             {
-                                t.teb32->access([&](TEB32& teb32) {
-                                    if (teb32.TlsExpansionSlots)
-                                    {
-                                        c.emu.write_memory<uint32_t>(teb32.TlsExpansionSlots + (4 * tls_cell) - TLS_MINIMUM_AVAILABLE, 0);
-                                    }
-                                });
+                                const auto expansion_slots = t.teb32->field<std::uint32_t>(offsetof(TEB32, TlsExpansionSlots)).read();
+                                if (expansion_slots)
+                                {
+                                    c.emu.write_memory<uint32_t>(expansion_slots + (tls_cell - TLS_MINIMUM_AVAILABLE) * sizeof(uint32_t),
+                                                                 0);
+                                }
                             }
                         }
                         else
                         {
-                            t.teb64->access([&](TEB64& teb64) {
-                                if (teb64.TlsExpansionSlots)
-                                {
-                                    c.emu.write_memory<uint64_t>(teb64.TlsExpansionSlots + (8 * tls_cell) - TLS_MINIMUM_AVAILABLE, 0);
-                                }
-                            });
+                            const auto expansion_slots = t.teb64->field<std::uint64_t>(offsetof(TEB64, TlsExpansionSlots)).read();
+                            if (expansion_slots)
+                            {
+                                c.emu.write_memory<uint64_t>(expansion_slots + (tls_cell - TLS_MINIMUM_AVAILABLE) * sizeof(uint64_t), 0);
+                            }
                         }
                     }
                 }
@@ -1071,6 +1070,38 @@ namespace sogen
             return STATUS_SUCCESS;
         }
 
+        // KeAlertThread in user mode: a thread in an alertable wait has it ended with STATUS_ALERTED at once (KiSignalThread);
+        // any other, a suspended one included, keeps the alert for its next alertable wait, NtTestAlert or NtContinue's
+        // test-alert (emulator_thread::user_alerted), and an alert already pending stays as it is.
+        NTSTATUS handle_NtAlertThread(const syscall_context& c, const handle thread_handle)
+        {
+            auto* thread = thread_handle == CURRENT_THREAD ? c.vcpu.active_thread : c.proc.threads.get(thread_handle);
+            if (!thread)
+            {
+                return STATUS_INVALID_HANDLE;
+            }
+
+            if (thread->user_alerted)
+            {
+                return STATUS_SUCCESS;
+            }
+
+            // The scheduler looks at a wait only when it passes it. A wait that its object's signal, its timeout or a user APC
+            // queued meanwhile (KiSignalThreadForApc) ended before the alert has ended on Windows, so it ends that way here
+            // first (as NtPulseEvent wakes its waiters), and the alert stays pending.
+            if (thread->is_in_alertable_wait() && !thread->user_apc_ended_wait && !thread->is_thread_ready(c.win_emu))
+            {
+                thread->end_wait_with_alert();
+            }
+            else
+            {
+                thread->user_alerted = true;
+            }
+
+            c.win_emu.wake_idle_vcpu();
+            return STATUS_SUCCESS;
+        }
+
         NTSTATUS handle_NtAlertThreadByThreadId(const syscall_context& c, const uint64_t thread_id)
         {
             for (auto& t : c.proc.threads | std::views::values)
@@ -1310,7 +1341,9 @@ namespace sogen
             KCONTINUE_ARGUMENT argument{};
             if (continue_argument <= 0xFF)
             {
-                argument.ContinueFlags = KCONTINUE_FLAG_TEST_ALERT;
+                // An inline TestAlert: KiContinueEx tests for an alert only when it is nonzero, so NtContinue(context, FALSE),
+                // which exception dispatch uses, neither takes a pending alert nor delivers queued user APCs.
+                argument.ContinueFlags = continue_argument != 0 ? KCONTINUE_FLAG_TEST_ALERT : 0;
             }
             else
             {
@@ -1325,10 +1358,11 @@ namespace sogen
             }
             else
             {
-                cpu_context::restore(c.x64_cpu(), c.emu.read_memory<CONTEXT64>(thread_context));
+                cpu_context::restore(c.x64_cpu(), c.emu.read_memory<CONTEXT64>(thread_context), c.proc.is_wow64_process);
             }
 
-            if (argument.ContinueFlags & KCONTINUE_FLAG_TEST_ALERT)
+            // KeTestAlertThread takes a pending user-mode alert; only without one does it have queued user APCs delivered.
+            if ((argument.ContinueFlags & KCONTINUE_FLAG_TEST_ALERT) && !std::exchange(c.thread().user_alerted, false))
             {
                 c.win_emu.yield_thread(c.vcpu, true);
             }
@@ -1388,14 +1422,14 @@ namespace sogen
             return STATUS_NO_MORE_ENTRIES;
         }
 
-        void load_context(guest_cpu& cpu, const CONTEXT64& context)
+        void load_context(const syscall_context& c, const CONTEXT64& context)
         {
-            cpu_context::restore(dynamic_cast<x86_64_cpu&>(cpu), context);
+            cpu_context::restore(dynamic_cast<x86_64_cpu&>(c.emu), context, c.proc.is_wow64_process);
         }
 
-        void load_context(guest_cpu& cpu, const arm64_context& context)
+        void load_context(const syscall_context& c, const arm64_context& context)
         {
-            cpu_context::restore(dynamic_cast<arm64_cpu&>(cpu), context);
+            cpu_context::restore(dynamic_cast<arm64_cpu&>(c.emu), context);
         }
 
         void store_context(guest_cpu& cpu, CONTEXT64& context)
@@ -1470,7 +1504,7 @@ namespace sogen
             if (!c.proc.is_wow64_process && c.win_emu.abi().instruction_pointer(c.emu) == c.proc.ldr_initialize_thunk)
             {
                 initial_context = c.win_emu.abi().function_argument(c.emu, 0);
-                load_context(c.emu, c.emu.read_memory<Context>(*initial_context));
+                load_context(c, c.emu.read_memory<Context>(*initial_context));
             }
 
             // Windows shows a thread inside a syscall after the syscall instruction. Its saved registers keep the
@@ -1608,7 +1642,7 @@ namespace sogen
                 }
 
                 const auto accessed = access_thread_context<arm64_context>(c, *thread, [&] {
-                    load_context(c.emu, context);
+                    load_context(c, context);
                     // X18 always addresses the thread's TEB; the kernel does not take it from a user context.
                     c.win_emu.abi().install_thread_environment(c.emu, thread->teb64->value());
                     return true;
@@ -1628,7 +1662,7 @@ namespace sogen
 
             const auto context = thread_context.read();
             const auto accessed = access_thread_context<CONTEXT64>(c, *thread, [&] {
-                load_context(c.emu, context);
+                load_context(c, context);
                 return true;
             });
             if (!accessed)
@@ -1813,7 +1847,7 @@ namespace sogen
                 // return STATUS_NOT_SUPPORTED;
             }
 
-            thread->pending_apcs.push_back({
+            thread->queue_user_apc({
                 .flags = apc_flags,
                 .apc_routine = apc_routine,
                 .apc_argument1 = apc_argument1,
@@ -1944,7 +1978,7 @@ namespace sogen
             }
             memcpy(&context, bytes.data(), sizeof(context));
             syscalls::access_thread_context<Context>(c, thread, [&] {
-                syscalls::load_context(c.emu, context);
+                syscalls::load_context(c, context);
                 if constexpr (std::is_same_v<Context, arm64_context>)
                 {
                     // X18 always addresses the thread's TEB; the kernel does not take it from a user context.
@@ -2031,7 +2065,7 @@ namespace sogen
                     return false;
                 }
 
-                cpu_context::restore(c.x64_cpu(), syscalls::widened_wow64_debug_registers(update));
+                cpu_context::restore(c.x64_cpu(), syscalls::widened_wow64_debug_registers(update), c.proc.is_wow64_process);
                 return true;
             }
 
@@ -2057,7 +2091,7 @@ namespace sogen
             native.Dr3 = merged.Dr3;
             native.Dr6 = merged.Dr6;
             native.Dr7 = merged.Dr7;
-            syscalls::load_context(c.emu, native);
+            syscalls::load_context(c, native);
             in_registers = true;
             return true;
         });

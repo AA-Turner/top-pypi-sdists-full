@@ -29,8 +29,10 @@ Usage::
         ListModelCustomizationJobsPaginator,
         ListModelImportJobsPaginator,
         ListModelInvocationJobsPaginator,
+        ListProjectsPaginator,
         ListPromptRoutersPaginator,
         ListProvisionedModelThroughputsPaginator,
+        ListTrustedAccessProgramsPaginator,
     )
 
     session = Session()
@@ -53,8 +55,10 @@ Usage::
     list_model_customization_jobs_paginator: ListModelCustomizationJobsPaginator = client.get_paginator("list_model_customization_jobs")
     list_model_import_jobs_paginator: ListModelImportJobsPaginator = client.get_paginator("list_model_import_jobs")
     list_model_invocation_jobs_paginator: ListModelInvocationJobsPaginator = client.get_paginator("list_model_invocation_jobs")
+    list_projects_paginator: ListProjectsPaginator = client.get_paginator("list_projects")
     list_prompt_routers_paginator: ListPromptRoutersPaginator = client.get_paginator("list_prompt_routers")
     list_provisioned_model_throughputs_paginator: ListProvisionedModelThroughputsPaginator = client.get_paginator("list_provisioned_model_throughputs")
+    list_trusted_access_programs_paginator: ListTrustedAccessProgramsPaginator = client.get_paginator("list_trusted_access_programs")
     ```
 """
 
@@ -77,8 +81,10 @@ from .paginator import (
     ListModelCustomizationJobsPaginator,
     ListModelImportJobsPaginator,
     ListModelInvocationJobsPaginator,
+    ListProjectsPaginator,
     ListPromptRoutersPaginator,
     ListProvisionedModelThroughputsPaginator,
+    ListTrustedAccessProgramsPaginator,
 )
 
 Client = BedrockClient
@@ -103,6 +109,8 @@ __all__ = (
     "ListModelCustomizationJobsPaginator",
     "ListModelImportJobsPaginator",
     "ListModelInvocationJobsPaginator",
+    "ListProjectsPaginator",
     "ListPromptRoutersPaginator",
     "ListProvisionedModelThroughputsPaginator",
+    "ListTrustedAccessProgramsPaginator",
 )

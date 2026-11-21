@@ -45,7 +45,6 @@ impl fmt::Debug for Resolver<'_> {
 }
 
 impl<'r> Resolver<'r> {
-    /// Create a new `Resolver` with the given registry and base URI.
     #[inline]
     pub(crate) fn new(registry: &'r Registry<'r>, base_uri: Arc<Uri<String>>) -> Self {
         Self {
@@ -67,10 +66,26 @@ impl<'r> Resolver<'r> {
     /// If the reference cannot be resolved or is invalid.
     pub fn lookup(&self, reference: &str) -> Result<Resolved<'r>, Error> {
         let target = self.lookup_target(reference)?;
-        self.enter(&target)
+        Ok(self.enter(&target))
+    }
+    /// Resolve a `$dynamicRef` to the resource it points to.
+    ///
+    /// A fragment naming a `$dynamicAnchor` resolves to the outermost resource with a
+    /// `$dynamicAnchor` of that name, in the dynamic scope or at this resolver's base URI. When
+    /// that resource is another one, the resource at the base URI joins the dynamic scope of the
+    /// returned resolver if it declares a `$dynamicAnchor` that no resource in the scope declares.
+    /// Any other reference resolves as [`Resolver::lookup`] does.
+    ///
+    /// # Errors
+    ///
+    /// If the reference cannot be resolved or is invalid.
+    pub fn lookup_dynamic_ref(&self, reference: &str) -> Result<Resolved<'r>, Error> {
+        let target = self.lookup_target(reference)?;
+        self.enter_dynamic_ref(&target)
     }
     /// Resolve a reference to a target that [`Resolver::enter`] turns into what
-    /// [`Resolver::lookup`] returns.
+    /// [`Resolver::lookup`] returns, and [`Resolver::enter_dynamic_ref`] into what
+    /// [`Resolver::lookup_dynamic_ref`] returns.
     #[doc(hidden)]
     ///
     /// The target depends only on the base URI and the reference, not on the dynamic scope, so
@@ -138,7 +153,7 @@ impl<'r> Resolver<'r> {
                     base_uri: Arc::clone(&uri),
                     draft: resource.draft(),
                 },
-                anchor @ Anchor::Dynamic { .. } => TargetKind::DynamicAnchor(anchor),
+                Anchor::Dynamic { name, resource } => TargetKind::DynamicAnchor { name, resource },
             };
             return Ok(Target {
                 #[cfg(debug_assertions)]
@@ -161,27 +176,48 @@ impl<'r> Resolver<'r> {
     }
     /// Enter a target returned by [`Resolver::lookup_target`] on a resolver with this base URI.
     #[doc(hidden)]
-    ///
-    /// # Errors
-    ///
-    /// If the target is a dynamic anchor that cannot be resolved in this dynamic scope.
-    pub fn enter(&self, target: &Target<'r>) -> Result<Resolved<'r>, Error> {
+    #[must_use]
+    pub fn enter(&self, target: &Target<'r>) -> Resolved<'r> {
         #[cfg(debug_assertions)]
         assert_eq!(
             target.origin, self.base_uri,
             "a target is entered on a resolver with the base URI it was resolved from"
         );
-        let mut resolver = self.evolve(Arc::clone(&target.document));
         match &target.kind {
             TargetKind::Resolved {
                 contents,
                 base_uri,
                 draft,
             } => {
-                resolver.base_uri = Arc::clone(base_uri);
-                Ok(Resolved::new(contents, resolver, *draft))
+                // A pointer that lands in an embedded resource also leaves the current one.
+                let leaves = target.document != self.base_uri || *base_uri != target.document;
+                let resolver = self.moved(Arc::clone(base_uri), leaves);
+                Resolved::new(contents, resolver, *draft)
             }
-            TargetKind::DynamicAnchor(anchor) => anchor.resolve(resolver),
+            TargetKind::DynamicAnchor { resource, .. } => Resolved::new(
+                resource.contents(),
+                self.evolve(Arc::clone(&target.document)),
+                resource.draft(),
+            ),
+        }
+    }
+    /// Enter a target as `$dynamicRef` does: a dynamic anchor resolves in this dynamic scope.
+    #[doc(hidden)]
+    ///
+    /// # Errors
+    ///
+    /// If the target is a dynamic anchor that cannot be resolved in this dynamic scope.
+    pub fn enter_dynamic_ref(&self, target: &Target<'r>) -> Result<Resolved<'r>, Error> {
+        match &target.kind {
+            TargetKind::Resolved { .. } => Ok(self.enter(target)),
+            TargetKind::DynamicAnchor { name, resource } => {
+                #[cfg(debug_assertions)]
+                assert_eq!(
+                    target.origin, self.base_uri,
+                    "a target is entered on a resolver with the base URI it was resolved from"
+                );
+                crate::anchor::resolve_dynamic(name, *resource, &target.document, self)
+            }
         }
     }
     /// Resolve a recursive reference.
@@ -189,42 +225,23 @@ impl<'r> Resolver<'r> {
     /// This method implements the recursive reference resolution algorithm
     /// as specified in JSON Schema Draft 2019-09.
     ///
-    /// It starts by resolving "#" and then follows the dynamic scope,
-    /// looking for resources with `$recursiveAnchor: true`.
+    /// It resolves "#", and when that resource has `$recursiveAnchor: true`, lands on the
+    /// outermost resource in the dynamic scope with `$recursiveAnchor: true` instead. Resources
+    /// in between without it do not end the search.
     ///
     /// # Errors
     ///
     /// This method can return any error that [`Resolver::lookup`] can return.
     pub fn lookup_recursive_ref(&self) -> Result<Resolved<'r>, Error> {
         let mut resolved = self.lookup("#")?;
-
-        if let Value::Object(obj) = resolved.contents {
-            if obj
-                .get("$recursiveAnchor")
-                .and_then(Value::as_bool)
-                .unwrap_or(false)
-            {
-                for uri in &self.dynamic_scope() {
-                    let next_resolved = self.lookup(uri.as_str())?;
-
-                    match next_resolved.contents {
-                        Value::Object(next_obj) => {
-                            if !next_obj
-                                .get("$recursiveAnchor")
-                                .and_then(Value::as_bool)
-                                .unwrap_or(false)
-                            {
-                                break;
-                            }
-                        }
-                        _ => break,
-                    }
-
-                    resolved = next_resolved;
+        if has_recursive_anchor(resolved.contents) {
+            for uri in &self.dynamic_scope() {
+                let next = self.lookup(uri.as_str())?;
+                if has_recursive_anchor(next.contents) {
+                    resolved = next;
                 }
             }
         }
-
         Ok(resolved)
     }
 
@@ -255,27 +272,100 @@ impl<'r> Resolver<'r> {
             Ok(self.clone())
         }
     }
-    /// The same resolver based at `uri`, keeping the dynamic scope.
-    #[inline]
-    pub(crate) fn at_uri(&self, uri: &Uri<String>) -> Result<Self, Error> {
+    /// The resolver for a subschema that evaluation descends into. A subschema whose `$id` names
+    /// another resource starts it, and the resource it is embedded in joins the dynamic scope, as
+    /// it does when a reference leaves it.
+    #[doc(hidden)]
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the resource id cannot be resolved against the base URI of this resolver.
+    pub fn descend_into(&self, subresource: ResourceRef<'_>) -> Result<Self, Error> {
+        let Some(id) = subresource.id() else {
+            return Ok(self.clone());
+        };
+        let base_uri = self.registry.resolve_uri(&self.base_uri.borrow(), id)?;
+        // `moved` pushes this resource onto an empty scope for a reference that stays in it.
+        let scopes = if base_uri == self.base_uri
+            || self.scopes.iter().next() == Some(self.base_uri.as_ref())
+        {
+            self.scopes.clone()
+        } else {
+            self.scopes.push_front(Arc::clone(&self.base_uri))
+        };
         Ok(Resolver {
             registry: self.registry,
-            base_uri: self
-                .registry
-                .resolve_uri(&self.base_uri.borrow(), uri.as_str())?,
-            scopes: self.scopes.clone(),
+            base_uri,
+            scopes,
         })
+    }
+    /// The resolver a `$ref` to this resolver's own resource enters; the resource joins an empty
+    /// dynamic scope.
+    #[doc(hidden)]
+    #[must_use]
+    pub fn in_dynamic_scope(&self) -> Self {
+        self.evolve(Arc::clone(&self.base_uri))
+    }
+    /// The resolver for the target of a `$dynamicRef` in this resolver's resource, which landed in
+    /// the resource at `landed`. Landing in another resource keeps this one in the dynamic scope,
+    /// which matters only when it declares a `$dynamicAnchor` no resource in the scope declares.
+    pub(crate) fn dynamic_ref_lands_in(&self, landed: Arc<Uri<String>>) -> Self {
+        let leaves = landed != self.base_uri && self.adds_dynamic_anchors();
+        self.moved(landed, leaves)
+    }
+    /// Whether the resource at the base URI declares a `$dynamicAnchor` no resource in the dynamic
+    /// scope declares.
+    fn adds_dynamic_anchors(&self) -> bool {
+        let mut adds = false;
+        self.registry
+            .for_each_dynamic_anchor(&self.base_uri, |name| {
+                adds = adds || !self.declares_dynamic_anchor(&self.scopes, name);
+            });
+        adds
     }
     #[must_use]
     #[inline]
     pub fn dynamic_scope(&self) -> List<Uri<String>> {
         self.scopes.clone()
     }
+    /// Whether every `$dynamicRef` resolves alike in the dynamic scope `outer` and in this one,
+    /// also after both extend by the same resources; `false` unless this scope extends `outer`.
+    ///
+    /// A `$dynamicRef` resolves to the outermost resource in the scope with a `$dynamicAnchor` of
+    /// its name, so the resources this scope adds change only names no resource in `outer`
+    /// declares.
+    #[doc(hidden)]
+    #[must_use]
+    pub fn binds_dynamic_anchors_like(&self, outer: &List<Uri<String>>) -> bool {
+        let Some(mut added) = self.scopes.prefix_before(outer) else {
+            return false;
+        };
+        added.all(|uri| {
+            outer.iter().any(|resource| resource == uri) || {
+                let mut declared = true;
+                self.registry.for_each_dynamic_anchor(uri, |name| {
+                    declared = declared && self.declares_dynamic_anchor(outer, name);
+                });
+                declared
+            }
+        })
+    }
+    /// Whether a resource in `scope` declares a `$dynamicAnchor` called `name`.
+    fn declares_dynamic_anchor(&self, scope: &List<Uri<String>>, name: &str) -> bool {
+        scope
+            .iter()
+            .any(|uri| matches!(self.registry.anchor(uri, name), Ok(Anchor::Dynamic { .. })))
+    }
     #[inline]
     fn evolve(&self, base_uri: Arc<Uri<String>>) -> Resolver<'r> {
-        if !self.base_uri.as_str().is_empty()
-            && (self.scopes.is_empty() || base_uri != self.base_uri)
-        {
+        let leaves = base_uri != self.base_uri;
+        self.moved(base_uri, leaves)
+    }
+    /// This resolver based at `base_uri`; the current resource joins the dynamic scope when the
+    /// scope is empty or `leaves` is set.
+    #[inline]
+    fn moved(&self, base_uri: Arc<Uri<String>>, leaves: bool) -> Resolver<'r> {
+        if !self.base_uri.as_str().is_empty() && (self.scopes.is_empty() || leaves) {
             Resolver {
                 registry: self.registry,
                 base_uri,
@@ -299,18 +389,26 @@ impl<'r> Resolver<'r> {
         self.registry.resolve_uri(base, uri)
     }
 
-    /// Vocabulary of `contents` when it declares `$schema`; otherwise of the containing resource
-    /// root (the resolver's base URI), so a `$schema`-less subschema inherits it.
+    /// Vocabulary of `contents` when it declares `$schema`; otherwise of the `$schema` above it
+    /// that its resource root does not settle, or of the containing resource root (the resolver's
+    /// base URI), so a `$schema`-less subschema inherits it.
     #[must_use]
     pub fn find_vocabularies(&self, draft: Draft, contents: &Value) -> VocabularySet {
         if contents.get("$schema").is_some() {
             return self.registry.find_vocabularies(draft, contents);
+        }
+        if let Some(declared) = self.registry.nested_dialect(contents) {
+            return self.registry.vocabularies_declared(draft, Some(declared));
         }
         if let Some(resource) = self.registry.resource_by_uri(self.base_uri.as_ref()) {
             return self.registry.find_vocabularies(draft, resource.contents());
         }
         self.registry.find_vocabularies(draft, contents)
     }
+}
+
+fn has_recursive_anchor(contents: &Value) -> bool {
+    contents.get("$recursiveAnchor").and_then(Value::as_bool) == Some(true)
 }
 
 /// A reference resolved by [`Resolver::lookup_target`], before entering the dynamic scope.
@@ -325,6 +423,15 @@ pub struct Target<'r> {
     kind: TargetKind<'r>,
 }
 
+impl Target<'_> {
+    /// The document the reference names, before a JSON Pointer fragment enters any resource
+    /// embedded in it.
+    #[must_use]
+    pub fn document(&self) -> &Arc<Uri<String>> {
+        &self.document
+    }
+}
+
 #[derive(Debug, Clone)]
 enum TargetKind<'r> {
     Resolved {
@@ -332,8 +439,11 @@ enum TargetKind<'r> {
         base_uri: Arc<Uri<String>>,
         draft: Draft,
     },
-    /// Its target depends on the dynamic scope it is entered in.
-    DynamicAnchor(Anchor<'r>),
+    /// `$dynamicRef` resolves it in the dynamic scope it is entered in.
+    DynamicAnchor {
+        name: &'r str,
+        resource: ResourceRef<'r>,
+    },
 }
 
 /// A reference resolved to its contents by a [`Resolver`].
@@ -341,7 +451,7 @@ enum TargetKind<'r> {
 pub struct Resolved<'r> {
     /// The contents of the resolved reference.
     contents: &'r Value,
-    /// The resolver that resolved this reference, which can be used for further resolutions.
+    /// Resolver for references inside `contents`.
     resolver: Resolver<'r>,
     draft: Draft,
 }
@@ -359,7 +469,7 @@ impl<'r> Resolved<'r> {
     pub fn contents(&self) -> &'r Value {
         self.contents
     }
-    /// Resolver used to resolve this contents.
+    /// Resolver for references inside the resolved contents.
     #[must_use]
     pub fn resolver(&self) -> &Resolver<'r> {
         &self.resolver

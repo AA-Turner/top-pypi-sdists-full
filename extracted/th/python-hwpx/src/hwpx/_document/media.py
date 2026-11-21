@@ -7,7 +7,7 @@ from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, Any, Iterator, NamedTuple, cast
 
 from ..errors import HwpxStateError, HwpxValueError
-from ..objects.binary_item import BinaryItem, PictureRef
+from ..objects.binary_item import BinaryItem
 from ..objects.results import PictureReplacement
 from ..opc.relationships import (
     BINARY_ITEM_REF_ATTRS,
@@ -17,18 +17,19 @@ from ..opc.relationships import (
     normalize_part_name,
     resolve_part_name,
 )
-from ..oxml import HwpxOxmlInlineObject, HwpxOxmlParagraph
+from ..oxml import HwpxOxmlParagraph
 from ..oxml.namespaces import HC, HP
+from ..oxml.objects import HwpxOxmlPicture
 from ..oxml.color import normalize_color
 from ..oxml.shape_position import PictureGlow, PictureReflection, PictureShadow, validate_picture_effects
 from ..oxml.shape_position import (
-    validate_picture_align, validate_picture_border, validate_picture_crop, validate_picture_image, validate_shape_size,
+    line_width_units, validate_picture_align, validate_picture_crop, validate_picture_image, validate_shape_size,
 )
 from ._units import _mm_to_hwp_units
 
 if TYPE_CHECKING:
     from hwpx.document import HwpxDocument
-    from ..oxml import HwpxOxmlSection
+    from ..oxml import HwpxOxmlSection, Style
 
 _HP = HP
 _HC = HC
@@ -85,6 +86,78 @@ def _png_dimensions(image_data: bytes) -> tuple[int, int] | None:
     return width, height
 
 
+#: The image formats a picture takes, each with the format its bytes must show (``jpeg`` and
+#: ``jpg``, ``tif`` and ``tiff`` are one each).
+_IMAGE_FORMATS = {
+    "png": "png", "jpg": "jpeg", "jpeg": "jpeg", "gif": "gif", "bmp": "bmp",
+    "tif": "tiff", "tiff": "tiff", "svg": "svg", "wmf": "wmf", "emf": "emf",
+}
+
+
+def _sniff_image(data: bytes) -> str | None:
+    """The image format the first bytes of *data* show, or ``None``."""
+
+    head = bytes(data[:64])
+    if head.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "png"
+    if head.startswith(b"\xff\xd8\xff"):
+        return "jpeg"
+    if head.startswith((b"GIF87a", b"GIF89a")):
+        return "gif"
+    if head.startswith(b"BM"):
+        return "bmp"
+    if head.startswith((b"II*\x00", b"MM\x00*")):
+        return "tiff"
+    if head.startswith((b"\xd7\xcd\xc6\x9a", b"\x01\x00\x09\x00", b"\x02\x00\x09\x00")):
+        return "wmf"
+    if head.startswith(b"\x01\x00\x00\x00") and head[40:44] == b" EMF":
+        return "emf"
+    text = bytes(data[:1024]).lstrip(b"\xef\xbb\xbf \t\r\n").lower()
+    if text.startswith((b"<svg", b"<?xml", b"<!doctype svg")) and b"<svg" in text:
+        return "svg"
+    return None
+
+
+def check_image(image_data: Any, image_format: Any) -> str:
+    """Refuse bytes that are not an image of a format a picture takes; return the format name.
+
+    The format name must be one of :data:`_IMAGE_FORMATS` and the first bytes of *image_data*
+    must show that format: Hancom shows an empty frame for anything else, and the save does
+    not notice. Raises :class:`~hwpx.errors.HwpxValueError` (``code="media-image-invalid"``).
+    """
+
+    fmt = str(image_format).lower().lstrip(".") if isinstance(image_format, str) else ""
+    allowed = sorted(_IMAGE_FORMATS)
+    if fmt not in _IMAGE_FORMATS:
+        raise HwpxValueError(
+            f"그림 형식 이름 {image_format!r} 을(를) 모릅니다.",
+            code="media-image-invalid",
+            context={"format": repr(image_format), "allowed": allowed},
+            suggestion="형식 이름은 " + ", ".join(allowed) + " 중 하나입니다(파일 확장자).",
+        )
+    if not isinstance(image_data, (bytes, bytearray, memoryview)):
+        raise HwpxValueError(
+            f"그림 데이터는 bytes 여야 합니다 — {type(image_data).__name__}.",
+            code="media-image-invalid",
+            context={"format": fmt, "type": type(image_data).__name__},
+            suggestion="파일이면 pathlib.Path(경로).read_bytes() 로 읽어 넘기세요.",
+        )
+    found = _sniff_image(bytes(image_data))
+    if found != _IMAGE_FORMATS[fmt]:
+        what = "그림 파일이 아닙니다" if found is None else f"{found} 그림입니다"
+        raise HwpxValueError(
+            f"{fmt} 형식이라고 했지만 데이터의 첫 바이트를 보면 {what}.",
+            code="media-image-invalid",
+            context={"format": fmt, "detected": found},
+            suggestion=(
+                "그림 파일의 bytes 를 그대로 넘기세요."
+                if found is None
+                else f"형식 이름을 {found!r} 로 주세요."
+            ),
+        )
+    return fmt
+
+
 def _bin_data_stem(value: Any) -> str | None:
     if value is None:
         return None
@@ -105,35 +178,35 @@ def add_picture(
     image_format: str,
     *,
     section: HwpxOxmlSection | None = None,
-    section_index: int | None = None,
     width: int | None = None,
     height: int | None = None,
     width_mm: float | None = None,
     height_mm: float | None = None,
-    align: str | None = None,
+    alignment: str | None = None,
     brightness: int = 0,
     contrast: int = 0,
     effect: str = "REAL_PIC",
     alpha: int = 0,
     line_color: str | None = None,
-    line_width: int = 33,
+    line_width_mm: float = 0.12,
     crop: tuple[int, int, int, int] | None = None,
     shadow: PictureShadow | None = None,
     glow: PictureGlow | None = None,
     soft_edge: int | None = None,
     reflection: PictureReflection | None = None,
     para_pr_id_ref: str | int | None = None,
-    style_id_ref: str | int | None = None,
+    style: "int | str | Style | None" = None,
     char_pr_id_ref: str | int | None = None,
     run_attributes: dict[str, str] | None = None,
-    **extra_attrs: str,
-) -> HwpxOxmlInlineObject:
+) -> HwpxOxmlPicture:
     """Embed image data and place a picture object in a new paragraph, the image adjusted and bordered as
-    :meth:`HwpxOxmlParagraph.add_picture` takes it."""
+    :meth:`HwpxOxmlParagraph.add_picture` takes it (*alignment* as a name, *line_width_mm* in mm)."""
 
+    align = alignment
+    check_image(image_data, image_format)
     validate_picture_align(align)  # before anything is stored: Hancom reads an unknown one as LEFT
     validate_picture_image(brightness, contrast, effect, alpha)  # ... and draws no other adjustment
-    validate_picture_border(line_width)
+    line_width_units(line_width_mm)  # a width in mm from 0, checked before anything is stored too
     if line_color is not None:
         normalize_color(line_color)
     resolved_width = width
@@ -156,48 +229,58 @@ def add_picture(
     validate_picture_crop(crop, resolved_width, resolved_height)
     validate_picture_effects(shadow, glow, soft_edge, reflection)
 
-    # Call the local primitive directly rather than `doc.add_image` — that
-    # facade name moved in 6.0 (design table row 33), and going through it
-    # would fire a DeprecationWarning on every `add_picture` call even though
-    # `add_picture` itself is a kept (unmoved) root method.
-    binary_item_id_ref = str(add_image(doc, image_data, image_format))
-
+    # The paragraph first: it checks the section, the style and the paragraph and character shape ids
+    # before it changes anything. The image was stored before it, so a call refused for one of those
+    # (``style="no such style"``) left the image bytes in the saved file (7.0 development; 6.x looked the
+    # style up first).
     paragraph = doc.add_paragraph(
         "",
         section=section,
-        section_index=section_index,
         para_pr_id_ref=para_pr_id_ref,
-        style_id_ref=style_id_ref,
+        style=style,
         char_pr_id_ref=char_pr_id_ref,
         include_run=False,
-        **cast(Any, extra_attrs),
     )
-    alignment = _INLINE_PICTURE_ALIGNMENT.get(str(align).strip().upper()) if align else None
-    if alignment is not None and doc._root.headers:
+    stored: BinaryItem | None = None
+    try:
+        # Call the local primitive directly rather than `doc.add_image` — that
+        # facade name moved in 6.0 (design table row 33), and going through it
+        # would fire a DeprecationWarning on every `add_picture` call even though
+        # `add_picture` itself is a kept (unmoved) root method.
+        stored = add_image(doc, image_data, image_format)
+        picture = paragraph.add_picture(
+            str(stored),
+            width=resolved_width,
+            height=resolved_height,
+            alignment=align,
+            brightness=brightness,
+            contrast=contrast,
+            effect=effect,
+            alpha=alpha,
+            line_color=line_color,
+            line_width_mm=line_width_mm,
+            crop=crop,
+            shadow=shadow,
+            glow=glow,
+            soft_edge=soft_edge,
+            reflection=reflection,
+            run_attributes=run_attributes,
+            char_pr_id_ref=char_pr_id_ref,
+        )
+    except BaseException:
+        # Whatever refused it, the call leaves neither the image nor the empty paragraph behind.
+        if stored is not None:
+            remove_image(doc, stored, force=True)
+        paragraph.remove()
+        raise
+    paragraph_alignment = _INLINE_PICTURE_ALIGNMENT.get(str(align).strip().upper()) if align else None
+    if paragraph_alignment is not None and doc._root.headers:
         # The picture sits in the text line, so Hancom places it by the
         # paragraph's alignment; hp:pos/@horzAlign alone does not move it.
         paragraph.para_pr_id_ref = doc._root.headers[0].ensure_paragraph_format(
-            base_para_pr_id=paragraph.para_pr_id_ref, alignment=alignment,
+            base_para_pr_id=paragraph.para_pr_id_ref, alignment=paragraph_alignment,
         )
-    return paragraph.add_picture(
-        binary_item_id_ref,
-        width=resolved_width,
-        height=resolved_height,
-        align=align,
-        brightness=brightness,
-        contrast=contrast,
-        effect=effect,
-        alpha=alpha,
-        line_color=line_color,
-        line_width=line_width,
-        crop=crop,
-        shadow=shadow,
-        glow=glow,
-        soft_edge=soft_edge,
-        reflection=reflection,
-        run_attributes=run_attributes,
-        char_pr_id_ref=char_pr_id_ref,
-    )
+    return picture
 
 
 def _iter_picture_images(
@@ -210,31 +293,28 @@ def _iter_picture_images(
                 yield section_index, section, picture, image
 
 
-def _parse_hwpunit(value: str | None) -> int | None:
-    if value is None:
-        return None
-    try:
-        return int(value)
-    except ValueError:  # pragma: no cover - defensive: non-numeric sz attrs
-        return None
+def _enclosing_paragraph(element: Any, section: "HwpxOxmlSection") -> "HwpxOxmlParagraph | None":
+    """The innermost ``hp:p`` holding *element*: up its parents (lxml), else down from the section."""
+
+    getparent = getattr(element, "getparent", None)
+    if getparent is None:
+        return _owning_paragraph(element, section)
+    node = getparent()
+    while node is not None and _local_name(node) != "p":
+        node = node.getparent()
+    return HwpxOxmlParagraph(node, section) if node is not None else None
 
 
-def picture_references(doc: "HwpxDocument") -> tuple[PictureRef, ...]:
-    """Return body picture references in document order."""
+def pictures(doc: "HwpxDocument") -> "tuple[HwpxOxmlPicture, ...]":
+    """Every picture in the body, in document order -- the order (and so the ``index``) of
+    :func:`replace_picture`: in table cells, text boxes, notes and groups too."""
 
-    refs: list[PictureRef] = []
-    for picture_index, (section_index, _section, picture, image) in enumerate(_iter_picture_images(doc)):
-        size = picture.find(f"{_HP}sz")
-        refs.append(
-            PictureRef(
-                picture_index=picture_index,
-                section_index=section_index,
-                binary_item_id_ref=image.get("binaryItemIDRef"),
-                width=_parse_hwpunit(size.get("width") if size is not None else None),
-                height=_parse_hwpunit(size.get("height") if size is not None else None),
-            )
-        )
-    return tuple(refs)
+    found: list[HwpxOxmlPicture] = []
+    for _section_index, section, element, _image in _iter_picture_images(doc):
+        paragraph = _enclosing_paragraph(element, section)
+        if paragraph is not None:
+            found.append(HwpxOxmlPicture(element, paragraph))
+    return tuple(found)
 
 
 def replace_picture(
@@ -242,39 +322,52 @@ def replace_picture(
     image_data: bytes,
     image_format: str,
     *,
-    picture_index: int = 0,
-    binary_item_id_ref: str | None = None,
+    index: int = 0,
+    old_item_id: str | None = None,
     remove_orphaned: bool = True,
     item_id: str | None = None,
 ) -> PictureReplacement:
     """Replace a body picture's image asset while preserving its geometry.
 
-    The existing ``<hp:pic>`` element is left in place.  Only the child
-    ``<hc:img>`` ``binaryItemIDRef`` is changed, so size, position, crop,
+    The picture is the *index*-th of :func:`pictures` (document order), or with *old_item_id*
+    the *index*-th of those showing that binary item. The existing ``<hp:pic>`` element is left
+    in place.  Only the child ``<hc:img>`` ``binaryItemIDRef`` is changed, so size, position, crop,
     rotation, and wrapping geometry remain untouched.
     """
 
-    if picture_index < 0:
-        raise IndexError("picture_index must be non-negative")
+    check_image(image_data, image_format)
+    from ..errors import HwpxIndexError
+
+    if index < 0:
+        raise HwpxIndexError(
+            "index must be non-negative",
+            code="media-picture-not-found",
+            context={"pictureIndex": index},
+            suggestion="index 는 0부터 셉니다. doc.media.pictures 로 그림 목록을 보세요.",
+        )
 
     selected: tuple[int, HwpxOxmlSection, Any, Any] | None = None
     matched_index = -1
-    for current_index, picture in enumerate(_iter_picture_images(doc)):
+    for picture in _iter_picture_images(doc):
         _section_index, _section, _picture_element, image = picture
         current_ref = (image.get("binaryItemIDRef") or "").strip()
-        if binary_item_id_ref is not None and current_ref != str(binary_item_id_ref):
+        if old_item_id is not None and current_ref != str(old_item_id):
             continue
         matched_index += 1
-        if matched_index == picture_index:
+        if matched_index == index:
             selected = picture
             break
 
     if selected is None:
-        if binary_item_id_ref is None:
-            raise IndexError(f"picture_index {picture_index} is out of range")
-        raise IndexError(
-            f"picture_index {picture_index} for binaryItemIDRef "
-            f"{binary_item_id_ref!r} is out of range"
+        message = f"picture index {index} is out of range" if old_item_id is None else (
+            f"picture index {index} for binaryItemIDRef {old_item_id!r} is out of range"
+        )
+        raise HwpxIndexError(
+            message,
+            code="media-picture-not-found",
+            context={"pictureIndex": index, "found": matched_index + 1,
+                     "binaryItemIdRef": old_item_id},
+            suggestion=f"그림이 {matched_index + 1}개 있습니다. doc.media.pictures 로 목록을 보세요.",
         )
 
     section_index, section, picture_element, image = selected
@@ -303,7 +396,7 @@ def replace_picture(
         )
 
     return PictureReplacement(
-        picture=HwpxOxmlInlineObject(picture_element, paragraph),
+        picture=HwpxOxmlPicture(picture_element, paragraph),
         item_id=new_ref,
         previous_item_id=old_ref or None,
         removed_orphans=(old_ref,) if removed_old_image else (),
@@ -491,7 +584,7 @@ def remove_image(
                 context={"itemId": item_id, "references": references},
                 suggestion=(
                     "Remove or repoint the objects that use it first "
-                    "(doc.media.picture_references() lists body pictures), "
+                    "(doc.media.pictures lists body pictures), "
                     "or pass force=True to remove it anyway."
                 ),
             )
@@ -513,6 +606,86 @@ def remove_unused_images(doc: "HwpxDocument") -> tuple[BinaryItem, ...]:
         if target is None or _binary_item_references(doc, target):
             continue
         if _remove_binary_item(doc, target):
+            removed.append(item)
+    return tuple(removed)
+
+
+def _document_view(root: Any) -> "HwpxDocument | None":
+    """The document *root* (a ``HwpxOxmlDocument``) and the package it was read from, as the helpers here take
+    one; ``None`` for a document read from no package."""
+
+    package = getattr(getattr(root, "_manifest_source", None), "__self__", None)
+    if package is None:
+        return None
+    from types import SimpleNamespace
+
+    from ..document import HwpxDocument
+
+    return cast("HwpxDocument", SimpleNamespace(_root=root, _package=package,
+                                                _FORMAT_TO_MEDIA_TYPE=HwpxDocument._FORMAT_TO_MEDIA_TYPE))
+
+
+def carry_object_parts(element: Any, source_root: Any, target_root: Any) -> None:
+    """Give the document *target_root* the images and charts the object *element* (a copy from the document
+    *source_root*) shows, and point *element* at them there, as Hancom 2024 does when it pastes an object
+    copied from another document (objlim evidence xpic, xpic2, xchart, xchart2): each image becomes a new
+    binary item of the target, and each chart part a ``Chart/chartN.xml`` with the first number the target
+    does not use (``chart2.xml`` beside a ``chart1.xml``)."""
+
+    from ..opc.relationships import BINARY_ITEM_REF_ATTRS
+
+    source, target = _document_view(source_root), _document_view(target_root)
+    if source is None or target is None:
+        return
+    carried: dict[str, str] = {}
+    for node in element.iter():
+        for attribute in BINARY_ITEM_REF_ATTRS:
+            reference = node.get(attribute)
+            if not reference:
+                continue
+            if reference not in carried:
+                found = _find_binary_item(source, reference)
+                if found is None or not found.bin_data_path or not source._package.has_part(found.bin_data_path):
+                    continue
+                data = source._package.read(found.bin_data_path)
+                fmt = PurePosixPath(found.bin_data_path).suffix.lstrip(".").lower() or "png"
+                carried[reference] = str(add_image(target, data, fmt))
+            node.set(attribute, carried[reference])
+        chart = node.get("chartIDRef")
+        if chart and source._package.has_part(chart):
+            used = {name for name in target._package.part_names() if name.startswith("Chart/")}
+            number = 1
+            while f"Chart/chart{number}.xml" in used:
+                number += 1
+            name = f"Chart/chart{number}.xml"
+            target._package.write(name, source._package.read(chart))
+            node.set("chartIDRef", name)
+
+
+def remove_orphaned_items(root: Any, references: "set[str]") -> tuple[BinaryItem, ...]:
+    """Remove the binary items *references* name (``binaryItemIDRef`` values and the like of an object just
+    taken out of the document *root*, a ``HwpxOxmlDocument``) that nothing in the document points at any
+    more, and return them: :func:`remove_unused_images` limited to those items, for ``obj.remove()``.
+
+    The package is the one *root* was read from (its manifest source); a document read from none removes
+    nothing. An item still pointed at anywhere :func:`remove_image` checks stays.
+    """
+
+    package = getattr(getattr(root, "_manifest_source", None), "__self__", None)
+    wanted: set[str] = set()
+    for reference in references:
+        wanted |= bin_ref_aliases(reference)
+    if package is None or not wanted:
+        return ()
+    from types import SimpleNamespace
+
+    view = cast("HwpxDocument", SimpleNamespace(_root=root, _package=package))
+    removed: list[BinaryItem] = []
+    for item in list_images(view):
+        target = _find_binary_item(view, str(item))
+        if target is None or target.aliases.isdisjoint(wanted) or _binary_item_references(view, target):
+            continue
+        if _remove_binary_item(view, target):
             removed.append(item)
     return tuple(removed)
 

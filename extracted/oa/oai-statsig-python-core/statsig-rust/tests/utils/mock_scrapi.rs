@@ -85,7 +85,6 @@ pub struct MockScrapi {
     mock_server: MockServer,
     requests: Arc<Mutex<Vec<Request>>>,
     logged_events: Arc<AtomicU64>,
-    no_diagnostics_logged_events: Arc<AtomicU64>,
 }
 
 impl MockScrapi {
@@ -97,7 +96,6 @@ impl MockScrapi {
             mock_server,
             requests: Arc::new(Mutex::new(Vec::new())),
             logged_events: Arc::new(AtomicU64::new(0)),
-            no_diagnostics_logged_events: Arc::new(AtomicU64::new(0)),
         }
     }
 
@@ -113,12 +111,10 @@ impl MockScrapi {
         self.mock_server.reset().await;
         self.requests.lock().unwrap().clear();
         self.logged_events.store(0, Ordering::SeqCst);
-        self.no_diagnostics_logged_events.store(0, Ordering::SeqCst);
     }
 
     pub async fn stub(&self, stub: EndpointStub) {
         let logged_events = self.logged_events.clone();
-        let no_diagnostics_logged_events = self.no_diagnostics_logged_events.clone();
         let reqs = self.requests.clone();
 
         let mut builder = Mock::given(method(WiremockMethod::from(stub.method)));
@@ -144,17 +140,13 @@ impl MockScrapi {
                         .unwrap();
 
                     let local_logged_events_ptr = logged_events.clone();
-                    let local_no_diagnostics_logged_events_ptr =
-                        no_diagnostics_logged_events.clone();
-                    let non_diag_count = get_non_diagnostics_logged_event_count(&req.body);
+                    assert_valid_event_batch(&req.body);
 
                     tokio::task::spawn(async move {
                         tokio::time::sleep(Duration::from_millis(stub.delay_ms)).await;
 
                         if stub.status >= 200 && stub.status < 300 {
                             local_logged_events_ptr.fetch_add(count, Ordering::SeqCst);
-                            local_no_diagnostics_logged_events_ptr
-                                .fetch_add(non_diag_count, Ordering::SeqCst);
                         }
                     });
                 }
@@ -189,10 +181,6 @@ impl MockScrapi {
         self.logged_events.load(Ordering::SeqCst)
     }
 
-    pub fn get_non_diagnostics_logged_event_count(&self) -> u64 {
-        self.no_diagnostics_logged_events.load(Ordering::SeqCst)
-    }
-
     pub fn get_requests(&self) -> Vec<Request> {
         self.requests.lock().unwrap().clone()
     }
@@ -225,25 +213,20 @@ impl MockScrapi {
     }
 }
 
-fn get_non_diagnostics_logged_event_count(body: &Vec<u8>) -> u64 {
+fn assert_valid_event_batch(body: &[u8]) {
     let uncompressed_body = decompress_body(body);
     let body_json: Value = serde_json::from_slice(&uncompressed_body).unwrap();
 
-    let events = body_json["events"].as_array().unwrap();
-    let mut count = 0;
-
-    for event in events {
-        let name = event.get("eventName").unwrap().as_str();
-        if name != Some("statsig::diagnostics") {
-            count += 1;
-        }
+    for event in body_json["events"]
+        .as_array()
+        .expect("expected an events array")
+    {
+        assert!(event.get("eventName").is_some(), "missing eventName");
     }
-
-    count
 }
 
 #[cfg(not(any(feature = "with_zstd", feature = "pyo3_event_zstd")))]
-fn decompress_body(body: &Vec<u8>) -> Vec<u8> {
+fn decompress_body(body: &[u8]) -> Vec<u8> {
     let mut decoder = flate2::read::GzDecoder::new(std::io::Cursor::new(body));
     let mut unzipped = Vec::new();
     decoder.read_to_end(&mut unzipped).unwrap();
@@ -252,7 +235,7 @@ fn decompress_body(body: &Vec<u8>) -> Vec<u8> {
 }
 
 #[cfg(any(feature = "with_zstd", feature = "pyo3_event_zstd"))]
-fn decompress_body(body: &Vec<u8>) -> Vec<u8> {
+fn decompress_body(body: &[u8]) -> Vec<u8> {
     let mut decoder = zstd::Decoder::new(std::io::Cursor::new(body)).unwrap();
     let mut unzipped = Vec::new();
     decoder.read_to_end(&mut unzipped).unwrap();

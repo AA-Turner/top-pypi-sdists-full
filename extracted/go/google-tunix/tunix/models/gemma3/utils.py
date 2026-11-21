@@ -110,13 +110,13 @@ def _make_causal_mask(
   Returns:
     Attention mask of shape [B, L, L] (where B=batch dim and L=sequence dim).
   """
-  if len(input_mask.shape) != 2:  # pytype: disable=attribute-error  # jax-arraylike
+  if len(input_mask.shape) != 2:  # pyrefly: ignore[missing-attribute]
     raise ValueError(
-        f'Input mask must be 2D (shape [B, L]), but got {input_mask.shape}.'  # pytype: disable=attribute-error  # jax-arraylike
+        f'Input mask must be 2D (shape [B, L]), but got {input_mask.shape}.'
     )
-  seq_len = input_mask.shape[-1]  # pytype: disable=attribute-error  # jax-arraylike
+  seq_len = input_mask.shape[-1]  # pyrefly: ignore[bad-index]
   causal_mask = jnp.tril(jnp.ones((seq_len, seq_len), dtype=jnp.bool))
-  attn_mask = input_mask[..., None, :]
+  attn_mask = input_mask[..., None, :]  # pyrefly: ignore[bad-index]
   attn_mask *= causal_mask[None, ...]
   return attn_mask
 
@@ -147,7 +147,7 @@ def _add_bidirectional_mask(
   q_block_indices = _make_block_mask_indices(bidirectional_mask)
   kv_block_indices = q_block_indices
   attn_mask = attn_mask | (
-      (kv_block_indices[:, None, :] == q_block_indices[..., None])
-      & (q_block_indices[..., None] > 0)
+      (kv_block_indices[:, None, :] == q_block_indices[..., None])  # pyrefly: ignore[bad-index]
+      & (q_block_indices[..., None] > 0)  # pyrefly: ignore[bad-index]
   )
   return attn_mask

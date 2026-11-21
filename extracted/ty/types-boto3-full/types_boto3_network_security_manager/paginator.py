@@ -16,8 +16,10 @@ Usage::
         ListAggregateResourceSynchronizationStatusesPaginator,
         ListDeploymentSnapshotsPaginator,
         ListDeploymentsPaginator,
+        ListEntityCoveragesPaginator,
         ListPoliciesPaginator,
         ListPolicySnapshotsPaginator,
+        ListProtectedResourceCoveragesPaginator,
         ListResourceAssociationsPaginator,
         ListResourceSynchronizationStatusesPaginator,
         ListRuleSnapshotsPaginator,
@@ -35,8 +37,10 @@ Usage::
     list_aggregate_resource_synchronization_statuses_paginator: ListAggregateResourceSynchronizationStatusesPaginator = client.get_paginator("list_aggregate_resource_synchronization_statuses")
     list_deployment_snapshots_paginator: ListDeploymentSnapshotsPaginator = client.get_paginator("list_deployment_snapshots")
     list_deployments_paginator: ListDeploymentsPaginator = client.get_paginator("list_deployments")
+    list_entity_coverages_paginator: ListEntityCoveragesPaginator = client.get_paginator("list_entity_coverages")
     list_policies_paginator: ListPoliciesPaginator = client.get_paginator("list_policies")
     list_policy_snapshots_paginator: ListPolicySnapshotsPaginator = client.get_paginator("list_policy_snapshots")
+    list_protected_resource_coverages_paginator: ListProtectedResourceCoveragesPaginator = client.get_paginator("list_protected_resource_coverages")
     list_resource_associations_paginator: ListResourceAssociationsPaginator = client.get_paginator("list_resource_associations")
     list_resource_synchronization_statuses_paginator: ListResourceSynchronizationStatusesPaginator = client.get_paginator("list_resource_synchronization_statuses")
     list_rule_snapshots_paginator: ListRuleSnapshotsPaginator = client.get_paginator("list_rule_snapshots")
@@ -64,10 +68,14 @@ from .type_defs import (
     ListDeploymentSnapshotsInputPaginateTypeDef,
     ListDeploymentSnapshotsOutputTypeDef,
     ListDeploymentsOutputTypeDef,
+    ListEntityCoveragesInputPaginateTypeDef,
+    ListEntityCoveragesOutputTypeDef,
     ListPoliciesInputPaginateTypeDef,
     ListPoliciesOutputTypeDef,
     ListPolicySnapshotsInputPaginateTypeDef,
     ListPolicySnapshotsOutputTypeDef,
+    ListProtectedResourceCoveragesInputPaginateTypeDef,
+    ListProtectedResourceCoveragesOutputTypeDef,
     ListResourceAssociationsInputPaginateTypeDef,
     ListResourceAssociationsOutputTypeDef,
     ListResourceSynchronizationStatusesInputPaginateTypeDef,
@@ -97,8 +105,10 @@ __all__ = (
     "ListAggregateResourceSynchronizationStatusesPaginator",
     "ListDeploymentSnapshotsPaginator",
     "ListDeploymentsPaginator",
+    "ListEntityCoveragesPaginator",
     "ListPoliciesPaginator",
     "ListPolicySnapshotsPaginator",
+    "ListProtectedResourceCoveragesPaginator",
     "ListResourceAssociationsPaginator",
     "ListResourceSynchronizationStatusesPaginator",
     "ListRuleSnapshotsPaginator",
@@ -199,6 +209,27 @@ class ListDeploymentsPaginator(_ListDeploymentsPaginatorBase):
 
 
 if TYPE_CHECKING:
+    _ListEntityCoveragesPaginatorBase = Paginator[ListEntityCoveragesOutputTypeDef]
+else:
+    _ListEntityCoveragesPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListEntityCoveragesPaginator(_ListEntityCoveragesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-security-manager/paginator/ListEntityCoverages.html#NetworkSecurityManagerCustomerAPI.Paginator.ListEntityCoverages)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_security_manager/paginators/#listentitycoveragespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListEntityCoveragesInputPaginateTypeDef]
+    ) -> PageIterator[ListEntityCoveragesOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-security-manager/paginator/ListEntityCoverages.html#NetworkSecurityManagerCustomerAPI.Paginator.ListEntityCoverages.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_security_manager/paginators/#listentitycoveragespaginator)
+        """
+
+
+if TYPE_CHECKING:
     _ListPoliciesPaginatorBase = Paginator[ListPoliciesOutputTypeDef]
 else:
     _ListPoliciesPaginatorBase = Paginator  # type: ignore[assignment]
@@ -237,6 +268,29 @@ class ListPolicySnapshotsPaginator(_ListPolicySnapshotsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-security-manager/paginator/ListPolicySnapshots.html#NetworkSecurityManagerCustomerAPI.Paginator.ListPolicySnapshots.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_security_manager/paginators/#listpolicysnapshotspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListProtectedResourceCoveragesPaginatorBase = Paginator[
+        ListProtectedResourceCoveragesOutputTypeDef
+    ]
+else:
+    _ListProtectedResourceCoveragesPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListProtectedResourceCoveragesPaginator(_ListProtectedResourceCoveragesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-security-manager/paginator/ListProtectedResourceCoverages.html#NetworkSecurityManagerCustomerAPI.Paginator.ListProtectedResourceCoverages)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_security_manager/paginators/#listprotectedresourcecoveragespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListProtectedResourceCoveragesInputPaginateTypeDef]
+    ) -> PageIterator[ListProtectedResourceCoveragesOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-security-manager/paginator/ListProtectedResourceCoverages.html#NetworkSecurityManagerCustomerAPI.Paginator.ListProtectedResourceCoverages.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_security_manager/paginators/#listprotectedresourcecoveragespaginator)
         """
 
 

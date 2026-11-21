@@ -1,5 +1,7 @@
 use crate::networking::network_error::NetworkError;
-use crate::networking::{HttpMethod, NetworkClient, RequestArgs, ResponseData};
+use crate::networking::{
+    HttpMethod, ID_LIST_MEMBERSHIP_PATH as LOOKUP_PATH, NetworkClient, RequestArgs, ResponseData,
+};
 use base64::{Engine, prelude::BASE64_STANDARD};
 use serde::de;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -8,9 +10,9 @@ use std::io::Read;
 use std::time::Duration;
 use url::Url;
 
-const LOOKUP_PATH: &str = "/v1/id_list_membership";
 const TIMEOUT: Duration = Duration::from_millis(200);
 const MAX_RESPONSE_BYTES: u64 = 1024;
+const MANIFEST_PATH: &str = "/v1/get_id_lists";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum MembershipLookupError {
@@ -150,8 +152,8 @@ fn decode_membership_body(
     decode_membership_reply(&bytes)
 }
 
-/// Fixed same-origin route. Without a configured primary, only the OpenAI default
-/// is trusted; a future change in the SDK default must not silently reroute IDs.
+/// Use the manifest's gateway prefix for the sibling membership endpoint.
+/// Without a configured primary, only the OpenAI default is trusted.
 pub(crate) fn membership_url(sdk_key: &str, configured: Option<&str>) -> Option<Url> {
     if !(sdk_key.starts_with("secret-") || sdk_key.starts_with("server-"))
         || sdk_key.len() > 512
@@ -161,14 +163,25 @@ pub(crate) fn membership_url(sdk_key: &str, configured: Option<&str>) -> Option<
     {
         return None;
     }
-    let url = http_url(
+    let mut url = http_url(
         configured.unwrap_or(crate::networking::DEFAULT_CDN_ID_LISTS_MANIFEST_URL_PREFIX),
     )?;
     if configured.is_none() && url.origin().ascii_serialization() != "https://statsigcdn.openai.com"
     {
         return None;
     }
-    url.join(LOOKUP_PATH).ok()
+    let path = url.path().trim_end_matches('/');
+    let prefix = path
+        .strip_suffix(MANIFEST_PATH)
+        .or_else(|| {
+            let (manifest, _key) = path.rsplit_once('/')?;
+            manifest.strip_suffix(MANIFEST_PATH)
+        })
+        .unwrap_or_default();
+    url.set_path(&format!("{prefix}{LOOKUP_PATH}"));
+    url.set_query(None);
+    url.set_fragment(None);
+    Some(url)
 }
 
 fn http_url(input: &str) -> Option<Url> {

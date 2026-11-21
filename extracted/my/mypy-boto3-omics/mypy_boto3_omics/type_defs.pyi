@@ -656,6 +656,7 @@ class DefaultRunSettingOutputTypeDef(TypedDict):
     sessionPolicy: NotRequired[str]
     engineSettings: NotRequired[dict[str, Any]]
     scratchStorageMode: NotRequired[ScratchStorageModeType]
+    requesterPaysEnabled: NotRequired[bool]
 
 class DefaultRunSettingTypeDef(TypedDict):
     workflowId: str
@@ -681,6 +682,7 @@ class DefaultRunSettingTypeDef(TypedDict):
     sessionPolicy: NotRequired[str]
     engineSettings: NotRequired[Mapping[str, Any]]
     scratchStorageMode: NotRequired[ScratchStorageModeType]
+    requesterPaysEnabled: NotRequired[bool]
 
 SourceReferenceTypeDef = TypedDict(
     "SourceReferenceTypeDef",
@@ -1365,6 +1367,8 @@ class StartRunRequestTypeDef(TypedDict):
     sessionPolicy: NotRequired[str]
     engineSettings: NotRequired[Mapping[str, Any]]
     outputUriPrefixMode: NotRequired[RunOutputUriPrefixModeType]
+    requesterPaysEnabled: NotRequired[bool]
+    parametersUri: NotRequired[str]
 
 class VariantImportItemSourceTypeDef(TypedDict):
     source: str
@@ -2317,6 +2321,8 @@ GetRunResponseTypeDef = TypedDict(
         "engineSettings": dict[str, Any],
         "sessionPolicy": str,
         "outputUriPrefixMode": RunOutputUriPrefixModeType,
+        "requesterPaysEnabled": bool,
+        "parametersUri": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )

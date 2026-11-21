@@ -2,6 +2,9 @@
 //! (`DGeomHelpers::EmbedMolecule`, ETKDGv3). The compatibility lane targets
 //! the same fixed-seed behavior while treating platform-dependent final-bit
 //! coordinate drift as a versioned artifact-gate concern.
+//! Multi-conformer seed zero intentionally fixes RDKit #9738: the attempt
+//! seeds are `0, 2, 3, ...`, preserving the first conformer without repeatedly
+//! embedding the same seed. Positive-seed compatibility remains unchanged.
 
 // The port keeps RDKit's index loops, mirrored if/else chains and negated
 // (NaN-propagating) comparisons so it reads side by side with the C++.
@@ -38,7 +41,8 @@ pub use molecule::{
     RdkitEmbedError, RdkitEmbedMmffError, RdkitEmbedOptions, RdkitMmffConformer,
     RdkitMmffConformerDiagnostics, etkdg_embed_molecule_corrected,
     etkdg_embed_multiple_confs_corrected, etkdg_embed_multiple_confs_mmff_best_gradient,
-    etkdg_embed_multiple_confs_mmff_corrected, rdkit_bounds_matrix,
+    etkdg_embed_multiple_confs_mmff_corrected, etkdg_embed_multiple_confs_mmff_torsion_search,
+    etkdg_embed_multiple_confs_mmff_torsion_search_with_pool, rdkit_bounds_matrix,
     rdkit_bounds_matrix_with_constraints, rdkit_embed_initial_molecule, rdkit_embed_molecule,
     rdkit_embed_molecule_with_constraints, rdkit_embed_multiple_confs,
     rdkit_embed_multiple_confs_mmff, rdkit_embed_multiple_confs_mmff_adaptive,

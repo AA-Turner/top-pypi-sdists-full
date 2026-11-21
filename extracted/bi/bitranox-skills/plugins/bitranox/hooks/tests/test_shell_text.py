@@ -4,9 +4,13 @@ This module exists so the command-scanning guards agree about what counts as DAT
 are the corpus that proved the two former copies behaviourally identical before they were merged;
 keeping them here is what stops the next edit from splitting the behaviour again.
 """
+import copy
 import cProfile
 import os
+import pickle
 import pstats
+import random
+import shlex
 import subprocess
 import pytest
 import shell_text as S
@@ -701,18 +705,22 @@ def test_strip_leading_cd_keeps_a_bare_cd_with_nothing_after_it():
 
 
 # ---- git_verb_dir: where a gated git command lands ----------------------------------------------
+# The walk tests here and below pass msys_drives=False: their rooted fixtures (/repo, /s, /alpha)
+# are Git Bash mounts on a Windows host, where the default reading makes them unknown
+# (test_a_non_drive_mount_reads_as_unknown). The walk is their subject, not the drive reading, so
+# they pin the reading every host shares and run the same cases on every CI cell.
 
 
 def test_git_verb_dir_follows_cd_and_dash_c_to_the_first_matching_verb():
     verbs = S.GATED_GIT_VERBS
     moved = os.path.normpath("/repo")        # a path the walk resolved is normalised: `\repo` on Windows
-    assert S.git_verb_dir("git push", "/s", verbs) == "/s"
-    assert S.git_verb_dir("cd /repo && git push origin master", "/s", verbs) == moved
-    assert S.git_verb_dir("git -C /repo push", "/s", verbs) == moved
+    assert S.git_verb_dir("git push", "/s", verbs, msys_drives=False) == "/s"
+    assert S.git_verb_dir("cd /repo && git push origin master", "/s", verbs, msys_drives=False) == moved
+    assert S.git_verb_dir("git -C /repo push", "/s", verbs, msys_drives=False) == moved
     # only a cd BEFORE the verb moves it; a later one belongs to the next statement
-    assert S.git_verb_dir("git commit -m x && cd /repo && git push", "/s", verbs) == "/s"
+    assert S.git_verb_dir("git commit -m x && cd /repo && git push", "/s", verbs, msys_drives=False) == "/s"
     # a verb outside the set is not where the walk stops
-    assert S.git_verb_dir("git -C /alpha status; cd /repo; git commit -m x", "/s", verbs) == moved
+    assert S.git_verb_dir("git -C /alpha status; cd /repo; git commit -m x", "/s", verbs, msys_drives=False) == moved
 
 
 def test_git_verb_dir_refuses_what_the_text_cannot_name():
@@ -728,24 +736,24 @@ def test_git_verb_dir_follows_a_variable_the_same_command_assigned_literally():
     """Measured 2026-10-19: `W=<worktree>; cd "$W" && git commit` was read as unreadable, so the
     commit gate judged the SESSION's repository and blocked a commit that repo was not making."""
     verbs, moved = S.GATED_GIT_VERBS, os.path.normpath("/repo")
-    assert S.git_verb_dir('W=/repo; cd "$W" && git commit -m x', "/s", verbs) == moved
-    assert S.git_verb_dir("W=/repo && cd $W && git push", "/s", verbs) == moved
-    assert S.git_verb_dir('export W=/repo; cd "${W}" && git commit -m x', "/s", verbs) == moved
-    assert S.git_verb_dir('W=/repo; git -C "$W" commit -m x', "/s", verbs) == moved
-    assert S.git_verb_dir('W=/repo; cd "$W/sub" && git commit -m x', "/s", verbs) == os.path.normpath("/repo/sub")
-    assert S.git_verb_dir('W="/alpha b"; cd "$W" && git commit -m x', "/s", verbs) == os.path.normpath("/alpha b")
+    assert S.git_verb_dir('W=/repo; cd "$W" && git commit -m x', "/s", verbs, msys_drives=False) == moved
+    assert S.git_verb_dir("W=/repo && cd $W && git push", "/s", verbs, msys_drives=False) == moved
+    assert S.git_verb_dir('export W=/repo; cd "${W}" && git commit -m x', "/s", verbs, msys_drives=False) == moved
+    assert S.git_verb_dir('W=/repo; git -C "$W" commit -m x', "/s", verbs, msys_drives=False) == moved
+    assert S.git_verb_dir('W=/repo; cd "$W/sub" && git commit -m x', "/s", verbs, msys_drives=False) == os.path.normpath("/repo/sub")
+    assert S.git_verb_dir('W="/alpha b"; cd "$W" && git commit -m x', "/s", verbs, msys_drives=False) == os.path.normpath("/alpha b")
 
 
 def test_git_verb_dir_keeps_a_leading_value_for_the_whole_command():
     """The value is not forgotten after the first statement that uses it: `git -C "$R"` on two
     statements, or behind an unrelated one, commits in /repo."""
     verbs, moved = S.GATED_GIT_VERBS, os.path.normpath("/repo")
-    assert S.git_verb_dir('R=/repo; git -C "$R" add x && git -C "$R" commit -m y', "/s", verbs) == moved
-    assert S.git_verb_dir('R=/repo; echo hi; git -C "$R" commit -m y', "/s", verbs) == moved
-    assert S.git_verb_dir('R=/repo\ngit -C "$R" status\ngit -C "$R" push', "/s", verbs) == moved
+    assert S.git_verb_dir('R=/repo; git -C "$R" add x && git -C "$R" commit -m y', "/s", verbs, msys_drives=False) == moved
+    assert S.git_verb_dir('R=/repo; echo hi; git -C "$R" commit -m y', "/s", verbs, msys_drives=False) == moved
+    assert S.git_verb_dir('R=/repo\ngit -C "$R" status\ngit -C "$R" push', "/s", verbs, msys_drives=False) == moved
     # the name inside another word is not a rebinding: `%B`, `-B`
-    assert S.git_verb_dir('B=/repo; git -C $B commit -q && git -C $B log -1 --format=%B', "/s", verbs) == moved
-    assert S.git_verb_dir('B=/repo; git -C $B status -B; git -C $B push', "/s", verbs) == moved
+    assert S.git_verb_dir('B=/repo; git -C $B commit -q && git -C $B log -1 --format=%B', "/s", verbs, msys_drives=False) == moved
+    assert S.git_verb_dir('B=/repo; git -C $B status -B; git -C $B push', "/s", verbs, msys_drives=False) == moved
 
 
 @pytest.mark.parametrize("command", [
@@ -823,10 +831,10 @@ def test_git_verb_dir_follows_variables_only_in_bash():
 def test_a_backgrounded_or_piped_cd_does_not_move_the_next_statement():
     """`cd x & git commit` runs the cd in a subshell, so git runs where the command started."""
     verbs = S.GATED_GIT_VERBS
-    assert S.git_verb_dir("cd /repo & git commit -m x", "/s", verbs) == "/s"
-    assert S.git_verb_dir("cd /repo | cat; git commit -m x", "/s", verbs) == "/s"
-    assert S.git_verb_dir('W=/repo; cd "$W" & git commit -m x', "/s", verbs) == "/s"
-    assert S.git_verb_dir("cd /repo || exit; git commit -m x", "/s", verbs) == os.path.normpath("/repo")
+    assert S.git_verb_dir("cd /repo & git commit -m x", "/s", verbs, msys_drives=False) == "/s"
+    assert S.git_verb_dir("cd /repo | cat; git commit -m x", "/s", verbs, msys_drives=False) == "/s"
+    assert S.git_verb_dir('W=/repo; cd "$W" & git commit -m x', "/s", verbs, msys_drives=False) == "/s"
+    assert S.git_verb_dir("cd /repo || exit; git commit -m x", "/s", verbs, msys_drives=False) == os.path.normpath("/repo")
 
 
 _AT_R, _AT_A = os.path.normpath("/repo"), os.path.normpath("/alpha")
@@ -851,7 +859,7 @@ _AT_R, _AT_A = os.path.normpath("/repo"), os.path.normpath("/alpha")
     ("{ cd /repo; }; git commit -m x", _AT_R),
 ])
 def test_git_verb_dir_undoes_a_cd_made_inside_a_subshell(command, lands):
-    assert S.git_verb_dir(command, "/s", S.GATED_GIT_VERBS) == lands
+    assert S.git_verb_dir(command, "/s", S.GATED_GIT_VERBS, msys_drives=False) == lands
 
 
 @pytest.mark.parametrize("command", [
@@ -869,7 +877,7 @@ def test_a_close_paren_that_ends_no_subshell_keeps_the_subshell_open(command):
     """Adversarial review: an array, f(), ${x:-(a)} and extglob send only their `)` to the gap, and
     a first version popped the subshell on it - the git after it then read as running OUTSIDE."""
     for tool in (None, "Bash"):
-        assert S.git_verb_dir(command, "/s", S.GATED_GIT_VERBS, tool) == _AT_R
+        assert S.git_verb_dir(command, "/s", S.GATED_GIT_VERBS, tool, msys_drives=False) == _AT_R
 
 
 @pytest.mark.parametrize("command", [
@@ -941,7 +949,7 @@ def test_a_cd_inside_an_if_or_loop_block_is_unknown(command):
     ("for b in a c; do git push origin $b; done; cd /alpha", "/s"),
 ])
 def test_control_an_if_or_loop_block_without_a_cd_keeps_the_walk(command, lands):
-    assert S.git_verb_dir(command, "/s", S.GATED_GIT_VERBS) == lands
+    assert S.git_verb_dir(command, "/s", S.GATED_GIT_VERBS, msys_drives=False) == lands
 
 
 @pytest.mark.parametrize("command, lands", [
@@ -960,7 +968,7 @@ def test_control_an_if_or_loop_block_without_a_cd_keeps_the_walk(command, lands)
     ("f() { cd /alpha; }; echo f; git commit -m x", "/s"),
 ])
 def test_control_a_case_or_function_without_a_reachable_cd_keeps_the_walk(command, lands):
-    assert S.git_verb_dir(command, "/s", S.GATED_GIT_VERBS) == lands
+    assert S.git_verb_dir(command, "/s", S.GATED_GIT_VERBS, msys_drives=False) == lands
 
 
 @pytest.mark.parametrize("command, lands", [
@@ -976,11 +984,11 @@ def test_a_relative_cd_after_the_command_sets_cdpath_is_unknown():
     """bash resolves a relative cd against CDPATH first, so `CDPATH=/alpha; cd sub` lands in /alpha/sub
     when that exists - which the text cannot tell. An absolute cd is unaffected."""
     verbs = S.GATED_GIT_VERBS
-    assert S.git_verb_dir("CDPATH=/alpha; cd sub; git commit -m x", "/s", verbs) is None
-    assert S.git_verb_dir("export CDPATH=/alpha; cd sub && git push", "/s", verbs) is None
-    assert S.git_verb_dir("CDPATH=/alpha cd sub; git commit -m x", "/s", verbs) is None
-    assert S.git_verb_dir("CDPATH=/alpha; cd /repo; git commit -m x", "/s", verbs) == _AT_R
-    assert S.git_verb_dir("cd sub; git commit -m x", "/s", verbs) == os.path.normpath("/s/sub")
+    assert S.git_verb_dir("CDPATH=/alpha; cd sub; git commit -m x", "/s", verbs, msys_drives=False) is None
+    assert S.git_verb_dir("export CDPATH=/alpha; cd sub && git push", "/s", verbs, msys_drives=False) is None
+    assert S.git_verb_dir("CDPATH=/alpha cd sub; git commit -m x", "/s", verbs, msys_drives=False) is None
+    assert S.git_verb_dir("CDPATH=/alpha; cd /repo; git commit -m x", "/s", verbs, msys_drives=False) == _AT_R
+    assert S.git_verb_dir("cd sub; git commit -m x", "/s", verbs, msys_drives=False) == os.path.normpath("/s/sub")
 
 
 @pytest.mark.parametrize(("command", "below_home"), [
@@ -1030,7 +1038,7 @@ def test_git_verb_dir_reads_a_continued_line_with_a_quoted_dash_c_value():
            " && git -c credential.helper='!gh auth git-credential' push origin main \\\n"
            " && git status --porcelain")
     for tool in ("Bash", None):
-        assert S.git_verb_dir(cmd, "/s", S.GATED_GIT_VERBS, tool) == moved
+        assert S.git_verb_dir(cmd, "/s", S.GATED_GIT_VERBS, tool, msys_drives=False) == moved
 
 
 @pytest.mark.parametrize("command", [
@@ -1075,7 +1083,7 @@ def test_a_cd_that_may_not_run_is_unknown(command):
     ('mkdir -p /tmpd && cd /repo && test "$(git branch --show-current)" = m && git commit -m x', _AT_R),
 ])
 def test_control_a_cd_the_verb_cannot_run_without_keeps_the_walk(command, lands):
-    assert S.git_verb_dir(command, "/s", S.GATED_GIT_VERBS) == lands
+    assert S.git_verb_dir(command, "/s", S.GATED_GIT_VERBS, msys_drives=False) == lands
 
 
 @pytest.mark.parametrize("command, lands", [
@@ -1086,7 +1094,7 @@ def test_control_a_cd_the_verb_cannot_run_without_keeps_the_walk(command, lands)
     ("for b in a; do (cd /repo && git push); done", _AT_R),
 ])
 def test_a_subshell_cd_inside_a_block_stays_in_its_subshell(command, lands):
-    assert S.git_verb_dir(command, "/s", S.GATED_GIT_VERBS) == lands
+    assert S.git_verb_dir(command, "/s", S.GATED_GIT_VERBS, msys_drives=False) == lands
 
 
 def test_control_a_block_inside_a_subshell_still_hides_its_cd():
@@ -1102,8 +1110,8 @@ def test_a_verb_only_a_failed_cd_reaches_is_not_answered_with_the_cd():
 def test_git_verb_dir_sees_a_cd_behind_an_env_prefix_or_a_keyword():
     """The shared cd reader skips what stands in front of the program, as the git walk does."""
     moved = os.path.normpath("/repo")
-    assert S.git_verb_dir("X=1 cd /repo && git push", "/s", S.GATED_GIT_VERBS) == moved
-    assert S.git_verb_dir("if cd /repo; then git push; fi", "/s", S.GATED_GIT_VERBS) == moved
+    assert S.git_verb_dir("X=1 cd /repo && git push", "/s", S.GATED_GIT_VERBS, msys_drives=False) == moved
+    assert S.git_verb_dir("if cd /repo; then git push; fi", "/s", S.GATED_GIT_VERBS, msys_drives=False) == moved
 
 
 # ---- directory_change: THE cd reader every cd-tracking hook shares ----------------------------
@@ -1134,7 +1142,7 @@ def _norm(path):
     ("/usr/bin/cd /repo", "/repo"),
 ])
 def test_directory_change_reads_where_a_cd_lands(statement, expected):
-    assert S.directory_change(statement, _HERE) == (True, _norm(expected))
+    assert S.directory_change(statement, _HERE, msys_drives=False) == (True, _norm(expected))
 
 
 @pytest.mark.parametrize("statement", [
@@ -1155,8 +1163,8 @@ def test_directory_change_leaves_a_non_cd_statement_alone(statement):
 
 
 def test_directory_change_needs_a_base_for_a_relative_target():
-    assert S.directory_change("cd r", None) == (True, None)
-    assert S.directory_change("cd /repo", None) == (True, _norm("/repo"))
+    assert S.directory_change("cd r", None, msys_drives=False) == (True, None)
+    assert S.directory_change("cd /repo", None, msys_drives=False) == (True, _norm("/repo"))
 
 
 def test_directory_change_expands_home_only_when_asked(monkeypatch):
@@ -1223,7 +1231,8 @@ def test_one_word_s_drive_reading_is_the_shared_decision_on_each_arm(tool, os_na
     reaches the Windows arm on every host."""
     windows = S.reads_msys_drives(tool, os_name)
     for word in _ONE_WORDS:
-        assert S.msys_drive_path_for_tool(word, tool, os_name) == S.msys_drive_path(word, windows)
+        expected = None if S.is_msys_mount(word, windows) else S.msys_drive_path(word, windows)
+        assert S.msys_drive_path_for_tool(word, tool, os_name) == expected
 
 
 @pytest.mark.parametrize("tool, os_name, expected", [
@@ -1235,6 +1244,15 @@ def test_one_word_s_drive_reading_by_value(tool, os_name, expected):
     assert S.msys_drive_path_for_tool("/c/temp/x", tool, os_name) == expected
 
 
+@pytest.mark.parametrize("tool, os_name, expected", [
+    ("Bash", "nt", None),                 # only Git Bash's mount table places it
+    ("PowerShell", "nt", "/tmp/x"),       # the current drive's root, as PowerShell lands
+    ("Bash", "posix", "/tmp/x"),
+])
+def test_one_word_s_mount_reading_by_value(tool, os_name, expected):
+    assert S.msys_drive_path_for_tool("/tmp/x", tool, os_name) == expected
+
+
 def test_one_word_s_drive_reading_defaults_to_the_bash_tool_on_this_host():
     expected = "C:/temp/x" if os.name == "nt" else "/c/temp/x"
     assert S.msys_drive_path_for_tool("/c/temp/x") == expected
@@ -1243,14 +1261,61 @@ def test_one_word_s_drive_reading_defaults_to_the_bash_tool_on_this_host():
 # Measured on a Windows box with Git for Windows (`mount`, `cygpath -w`): `/` is the INSTALL
 # directory, `/bin` its usr\bin, `/tmp` the user's own %TEMP% (an fstab `usertemp` mount), and
 # `/cygdrive/c` the install directory's cygdrive\c. None of that is in a hook's reach without the
-# mount table, so these stay where the host's os.path roots them (the decision is in shell_text's
-# module docstring). Resolving `/tmp` from TEMP, or `/usr` from a guessed install root, fails here.
+# mount table, and the current drive's root that os.path reads is none of them, so these read as
+# unknown (the decision is in shell_text's module docstring), as a bare `cd` does. Resolving `/tmp`
+# from TEMP, or `/usr` from a guessed install root, fails here; so does the current-drive reading.
 
-@pytest.mark.parametrize("path", ["/tmp/x", "/usr/bin", "/bin", "/etc", "/", "/cygdrive/c/x"])
-def test_a_non_drive_mount_keeps_the_host_s_reading(path):
+_MOUNTS = ["/tmp/x", "/usr/bin", "/bin", "/etc", "/", "/cygdrive/c/x", "/temp/x", "/cc/x", "///x"]
+
+
+@pytest.mark.parametrize("path", _MOUNTS)
+def test_a_non_drive_mount_reads_as_unknown(path):
+    assert S.is_msys_mount(path, True) is True
     assert S.msys_drive_path(path, True) == path
-    assert S.resolve_path(path, _HERE, msys_drives=True) == path
-    assert S.directory_change(f"cd {path}", _HERE, msys_drives=True) == (True, _norm(path))
+    assert S.resolve_path(path, _HERE, msys_drives=True) is None
+    assert S.resolve_path(path, None, msys_drives=True) is None
+    assert S.directory_change(f"cd {path}", _HERE, msys_drives=True) == (True, None)
+    assert S.git_verb_dir(f"cd {path} && git commit", _HERE, {"commit"}, "Bash",
+                          msys_drives=True) is None
+    assert S.git_verb_dir(f"git -C {path} commit", _HERE, {"commit"}, "Bash",
+                          msys_drives=True) is None
+    tokens = S.argv_for_match(f"git -C {path} push", "Bash")
+    assert S.git_segment_dir(tokens, {"push"}, _HERE, msys_drives=True) == (True, None)
+
+
+@pytest.mark.parametrize("path", _MOUNTS)
+def test_a_mount_is_an_ordinary_rooted_path_off_git_bash(path):
+    """On POSIX, and for the PowerShell tool on Windows, the same text is rooted where os.path
+    roots it: only Git Bash maps it through a mount table."""
+    assert S.is_msys_mount(path, False) is False
+    assert S.resolve_path(path, _HERE, msys_drives=False) == path
+    assert S.directory_change(f"cd {path}", _HERE, msys_drives=False) == (True, _norm(path))
+
+
+@pytest.mark.parametrize("path", _MOUNTS)
+def test_unknown_mounts_false_keeps_the_host_s_reading(path):
+    """For a caller that asks only whether a landing is rooted and never opens it."""
+    assert S.resolve_path(path, _HERE, msys_drives=True, unknown_mounts=False) == path
+    assert S.directory_change(f"cd {path}", _HERE, msys_drives=True,
+                              unknown_mounts=False) == (True, _norm(path))
+    tokens = S.argv_for_match(f"git -C {path} push", "Bash")
+    assert S.git_segment_dir(tokens, {"push"}, _HERE, msys_drives=True,
+                             unknown_mounts=False) == (True, _norm(path))
+
+
+@pytest.mark.parametrize("path", ["/c/temp", "/C", "/d/", "//server/share", "//c/temp", "C:/temp",
+                                  "c/temp", "", "~/x", "x"])
+def test_a_drive_a_unc_path_or_a_relative_path_is_not_a_mount(path):
+    assert S.is_msys_mount(path, True) is False
+
+
+@pytest.mark.parametrize("statement", ["cd /tmp/x && cd sub", "cd / && cd c/temp"])
+def test_a_relative_cd_after_a_mount_stays_unknown(statement):
+    """A relative cd is joined onto where the last one landed, which a mount leaves unknown."""
+    here = _HERE
+    for part in statement.split(" && "):
+        _changed, here = S.directory_change(part, here, msys_drives=True)
+    assert here is None
 
 
 @pytest.mark.parametrize("windows, expected", [(True, "C:/temp/x"), (False, "/c/temp/x")])
@@ -1305,12 +1370,29 @@ def test_the_git_segment_reader_reads_a_drive_path_in_a_minus_c_value():
     ("/c/temp/h.txt", "/s", True, "C:/temp/h.txt"),          # translated, base ignored
     ("/c/temp/h.txt", None, True, "C:/temp/h.txt"),
     ("/c/temp/h.txt", "/s", False, "/c/temp/h.txt"),         # rooted, kept as written
-    ("/temp/h.txt", "/s", True, "/temp/h.txt"),               # a name, not a drive letter
+    ("/temp/h.txt", "/s", True, None),                        # a name, not a drive: a mount
+    ("/temp/h.txt", "/s", False, "/temp/h.txt"),              # rooted off Git Bash
     ("h.txt", "/s", True, os.path.join("/s", "h.txt")),
     ("h.txt", None, True, None),                              # relative and no base: unknown
 ])
 def test_resolve_path_finds_a_path_the_way_the_shell_hands_it_on(path, base, windows, expected):
     assert S.resolve_path(path, base, msys_drives=windows) == expected
+
+
+@pytest.mark.parametrize("tool, os_name, expected", [
+    ("Bash", "nt", "C:/temp/h.txt"),             # Git Bash on Windows: the drive
+    ("PowerShell", "nt", "/c/temp/h.txt"),       # PowerShell hands the text on as written
+    ("Bash", "posix", "/c/temp/h.txt"),          # anywhere else /c is a directory
+])
+def test_resolve_path_takes_the_drive_reading_from_the_host_it_is_told(tool, os_name, expected):
+    """With `msys_drives` left to its default, the drive reading follows the tool AND the host;
+    `os_name` reaches the Windows arm from any host."""
+    assert S.resolve_path("/c/temp/h.txt", "/s", tool, os_name=os_name) == expected
+
+
+def test_resolve_path_reads_a_git_bash_mount_as_unknown_on_a_windows_host():
+    assert S.resolve_path("/tmp/x", "/s", "Bash", os_name="nt") is None
+    assert S.resolve_path("/tmp/x", "/s", "Bash", os_name="posix") == "/tmp/x"
 
 
 # ---- past_command_prefix: the launcher walk, public -------------------------------------------
@@ -1386,6 +1468,82 @@ def test_drop_redirections_on_a_trailing_bare_operator_drops_it_alone():
     assert S.drop_redirections(["origin", "v1", ">"]) == ["origin", "v1"]
 
 
+# A redirection operator is only ever UNQUOTED text. The split words used to lose that, so a quoted
+# message beginning with `<` or `>` was dropped as one, and a guard read `-m` as having no value.
+@pytest.mark.parametrize("command, kept", [
+    ('git stash push -m "<worktree>: <why>"', ["git", "stash", "push", "-m", "<worktree>: <why>"]),
+    ("git commit -m '<a>' f", ["git", "commit", "-m", "<a>", "f"]),
+    ('git commit -m ">" f', ["git", "commit", "-m", ">", "f"]),
+    ("git commit -m '<' f", ["git", "commit", "-m", "<", "f"]),
+    (r"git commit -m \<a f", ["git", "commit", "-m", "<a", "f"]),
+    (r"echo \> f", ["echo", ">", "f"]),
+    ('echo 2">"x f', ["echo", "2>x", "f"]),                # the operator itself is quoted
+    ('echo "2>&1" f', ["echo", "2>&1", "f"]),
+    ('git commit -m "x <a> y" f', ["git", "commit", "-m", "x <a> y", "f"]),
+])
+def test_a_quoted_word_is_never_a_redirection(command, kept):
+    assert S.drop_redirections(S.split_for_tool(command)) == kept
+    assert S.drop_redirections(S.argv_for_match(command)) == kept
+
+
+@pytest.mark.parametrize("command, kept", [
+    ("cmd < in > out 2>&1 arg", ["cmd", "arg"]),
+    ("cmd >file arg", ["cmd", "arg"]),
+    ("cat <<<word x", ["cat", "x"]),
+    ('cmd >"a b" x', ["cmd", "x"]),                         # a quoted TARGET is still a target
+    ("cmd 2>'/tmp/e r' x", ["cmd", "x"]),
+    ('cmd ""<in x', ["cmd", "x"]),                          # an empty quote adds no character
+])
+def test_an_unquoted_redirection_is_still_dropped(command, kept):
+    assert S.drop_redirections(S.split_for_tool(command)) == kept
+
+
+@pytest.mark.parametrize("command, kept", [
+    ('Write-Output "<a>" x', ["Write-Output", "<a>", "x"]),
+    ("Write-Output '>' x", ["Write-Output", ">", "x"]),
+    ("cmd *> log x", ["cmd", "x"]),
+    ("cmd 2>&1 x", ["cmd", "x"]),
+    ('cmd >"C:\\a b\\log" x', ["cmd", "x"]),
+])
+def test_the_powershell_reading_keeps_quoting_too(command, kept):
+    assert S.drop_redirections(S.split_for_tool(command, "PowerShell")) == kept
+
+
+def _shlex_outcome(text, comments):
+    try:
+        return shlex.split(text, comments=comments)
+    except ValueError as exc:
+        return "ValueError: %s" % exc
+
+
+def _reader_outcome(text, comments):
+    try:
+        return S._posix_words(text, comments=comments)
+    except ValueError as exc:
+        return "ValueError: %s" % exc
+
+
+@pytest.mark.parametrize("comments", [False, True])
+def test_the_posix_reader_splits_exactly_as_shlex_does(comments):
+    """Every guard read shlex's words before the reader learned quoting; the words must not move.
+
+    Seeded random text over the characters the state machine branches on, plus the shapes that
+    end in an error, compared outcome for outcome (word lists AND error messages)."""
+    rng = random.Random(20261120)
+    alphabet = "ab <>2&|\"'\\#\n\t\r "
+    texts = ["", " ", "''", '""', "a''b", '"', "'", "\\", "a\\", '"a\\"', "a#b c", "#x\ny",
+             '"x\\y\\"z\\\\"', "'a\\'"]
+    texts += ["".join(rng.choice(alphabet) for _ in range(rng.randint(1, 14))) for _ in range(20000)]
+    for text in texts:
+        assert _reader_outcome(text, comments) == _shlex_outcome(text, comments), repr(text)
+
+
+def test_a_shell_word_survives_copy_and_pickle_with_its_quoting():
+    word = S.split_for_tool("'<a>'")[0]
+    for clone in (copy.copy(word), copy.deepcopy(word), pickle.loads(pickle.dumps(word))):
+        assert clone == "<a>" and clone.unquoted_lead == 0
+
+
 def test_git_verb_operands_keeps_redirections_so_callers_can_locate_the_verb():
     """The suffix invariant callers rely on (`tokens[len(tokens) - len(operands) - 1]` is the verb)
     is why redirections are dropped by the reader of the operands, not by the verb walk."""
@@ -1398,7 +1556,7 @@ def test_git_verb_operands_keeps_redirections_so_callers_can_locate_the_verb():
 def test_the_edge_of_a_substitution_before_an_and_does_not_end_the_list():
     """`B=$(git hash-object f) && git commit` - the text between the two statements is `) &&`."""
     command = 'printf x > /tmpd/m && cd /repo && B=$(git hash-object -w f) && git commit -q -F /tmpd/m'
-    assert S.git_verb_dir(command, "/s", S.GATED_GIT_VERBS) == _AT_R
+    assert S.git_verb_dir(command, "/s", S.GATED_GIT_VERBS, msys_drives=False) == _AT_R
 
 
 @pytest.mark.parametrize("gap, joined", [

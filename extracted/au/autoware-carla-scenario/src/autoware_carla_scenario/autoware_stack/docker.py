@@ -408,6 +408,7 @@ class DockerAutowareLauncher:
     _container_name: Optional[str]
     _prepared: bool
     _episodes: int
+    _log_stem: Optional[str]
 
     def __init__(
         self, config: DockerAutowareConfig, *, log_dir: Optional[Path] = None
@@ -420,6 +421,7 @@ class DockerAutowareLauncher:
         self._container_name = None
         self._prepared = False
         self._episodes = 0
+        self._log_stem = None
 
     @property
     def config(self) -> DockerAutowareConfig:
@@ -429,6 +431,11 @@ class DockerAutowareLauncher:
     # ------------------------------------------------------------------
     # AutowareLauncher
     # ------------------------------------------------------------------
+
+    def use_log_stem(self, stem: Optional[str]) -> None:
+        """Name the next stacks' log after *stem*; ``None`` goes back to the
+        index and name (:func:`~.launcher.episode_log_path`)."""
+        self._log_stem = stem
 
     def prepare(self, log_dir: Optional[Path] = None) -> None:
         if log_dir is not None:
@@ -540,7 +547,7 @@ class DockerAutowareLauncher:
         self._process = ProcessGroup(
             argv,
             env=self._run_env(extra_env),
-            log_path=episode_log_path(self._log_dir, episode),
+            log_path=episode_log_path(self._log_dir, episode, self._log_stem),
             stop_timeout_s=self._config.stop_timeout_s,
         )
         return episode
@@ -819,15 +826,13 @@ class DockerAutowareLauncher:
         )
         return inspected.returncode == 0
 
-    def _dependency_image(self, base_image: str, tag: Optional[str] = None) -> str:
+    def _dependency_image(self, base_image: str, tag: str) -> str:
         """The image with what the stack needs installed, made if missing.
 
         That is the ``scenario_bridge`` node's packages and, with ``rosdep``,
-        the workspace's dependencies.  *tag* is :meth:`_dependency_tag`'s,
-        when the caller has it.
+        the workspace's dependencies.  *tag* is :meth:`_dependency_tag`'s for
+        *base_image*.
         """
-        if tag is None:
-            tag = self._dependency_tag(base_image)
         if self._has_image(tag):
             logger.info("Workspace dependencies: %s", tag)
             return tag

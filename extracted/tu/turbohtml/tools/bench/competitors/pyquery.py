@@ -6,8 +6,10 @@ import functools
 from typing import TYPE_CHECKING, Final
 from urllib.parse import urljoin
 
+from lxml import html as lxml_html
 from pyquery import PyQuery
 
+from bench.link_attributes import element_links
 from bench.timing import Mutating
 
 if TYPE_CHECKING:
@@ -36,8 +38,9 @@ def _fresh(text: str) -> PyQuery:
 
 
 def parse(text: str) -> None:
-    # Parse a whole document into a queryable tree through PyQuery.
-    PyQuery(text, parser="html")
+    # PyQuery has no parser option, so libxml2 parses with huge_tree here: its default nesting limit drops the rest
+    # of a deeply nested page.
+    PyQuery(lxml_html.document_fromstring(text, parser=lxml_html.HTMLParser(huge_tree=True)))
 
 
 def find(text: str) -> None:
@@ -73,10 +76,15 @@ def _select_relative(case: tuple[str, str, int]) -> None:
         document(selector)
 
 
+def _select_scaling(case: tuple[str, str]) -> None:
+    selector, text = case
+    _parsed(text)(selector)
+
+
 def text_content(text: str) -> None:
     # Collect visible text from the body or fragment root.
-    document: Final = _parsed(text)
-    body: Final = document("body")
+    document: Final[PyQuery] = _parsed(text)
+    body: Final[PyQuery] = document("body")
     (body or document).text()
 
 
@@ -91,9 +99,17 @@ def navigate(text: str) -> None:
         pass
 
 
+def link_urls(text: str) -> list[str]:
+    # Collect every link-bearing attribute and <style> url() over pyquery's elements, the set turbohtml's links() reads.
+    return [
+        link
+        for element in _parsed(text)("*")
+        for link in element_links(element.tag, element.attrib.items(), element.text if element.tag == "style" else None)
+    ]
+
+
 def links_extract(text: str) -> None:
-    # Collect every anchor's href by iterating a pyquery items() set.
-    _ = [item.attr("href") for item in _parsed(text)("a").items()]
+    _ = link_urls(text)
 
 
 def links_filter(text: str) -> None:
@@ -209,7 +225,7 @@ def _encode_inner(text: str) -> bytes:
 
 def _query_closest(case: tuple[int, bool]) -> PyQuery:
     if case[1]:
-        unsupported: Final = "Pyquery closest retains duplicate ancestors for multiple roots"
+        unsupported: Final[str] = "Pyquery closest retains duplicate ancestors for multiple roots"
         raise NotImplementedError(unsupported)
     return _query_parents_case(case).closest("main")
 
@@ -221,7 +237,7 @@ def _query_parents(case: tuple[int, bool]) -> PyQuery:
 @functools.cache
 def _query_parents_case(case: tuple[int, bool]) -> PyQuery:
     count, shared = case
-    text: Final = f"<main>{'<p>x</p>' * count}</main>" if shared else "<main><p>x</p></main>" * count
+    text: Final[str] = f"<main>{'<p>x</p>' * count}</main>" if shared else "<main><p>x</p></main>" * count
     return PyQuery(text, parser="html")("p")
 
 
@@ -233,7 +249,9 @@ def _query_siblings(case: tuple[int, bool]) -> PyQuery:
 def _query_siblings_case(case: tuple[int, bool]) -> PyQuery:
     count, all_selected = case
     if all_selected:
-        unsupported: Final = "Pyquery siblings retains duplicates and uses a different result order for multiple roots"
+        unsupported: Final[str] = (
+            "Pyquery siblings retains duplicates and uses a different result order for multiple roots"
+        )
         raise NotImplementedError(unsupported)
     return PyQuery(f"<main>{'<p>x</p>' * count}</main>", parser="html")("p").eq(0)
 
@@ -253,7 +271,7 @@ OPERATIONS: Final[dict[str, tuple[Timed, str]]] = {
     "parse-scope": (parse, "pyquery"),
     "find": (find, "pyquery"),
     "select": (select, "pyquery"),
-    "select-nth": (_select_relative, "pyquery"),
+    "select-nth": (_select_scaling, "pyquery"),
     "select-relative": (_select_relative, "pyquery"),
     "find-text": (find_text, "pyquery"),
     "find-text-exact": (_find_text_exact, "pyquery"),

@@ -35,6 +35,7 @@ __all__ = (
     "ListTaxExemptionsPaginatorName",
     "ListTaxRegistrationsPaginatorName",
     "MalaysiaServiceTaxCodeType",
+    "NorwayTaxRegistrationNumberTypeType",
     "PaginatorName",
     "PersonTypeType",
     "PolandTaxRegistrationNumberTypeType",
@@ -48,6 +49,7 @@ __all__ = (
     "TaxRegistrationStatusType",
     "TaxRegistrationTypeType",
     "TaxSettingsServiceName",
+    "UaeTaxRegistrationNumberTypeType",
     "UkraineTrnTypeType",
     "UzbekistanTaxRegistrationNumberTypeType",
 )
@@ -74,6 +76,7 @@ ListTaxRegistrationsPaginatorName = Literal["list_tax_registrations"]
 MalaysiaServiceTaxCodeType = Literal[
     "Consultancy", "Digital Service And Electronic Medium", "IT Services", "Training Or Coaching"
 ]
+NorwayTaxRegistrationNumberTypeType = Literal["LocalRegistrationNumber", "TaxRegistrationNumber"]
 PersonTypeType = Literal["Business", "Legal Person", "Physical Person"]
 PolandTaxRegistrationNumberTypeType = Literal[
     "EUTaxRegistrationNumber", "LocalRegistrationNumber", "LocalTaxRegistrationNumber"
@@ -102,16 +105,19 @@ TaxRegistrationTypeType = Literal[
     "TIN",
     "VAT",
 ]
+UaeTaxRegistrationNumberTypeType = Literal["LocalTaxRegistrationNumber", "VATTaxRegistrationNumber"]
 UkraineTrnTypeType = Literal["Business", "Individual"]
 UzbekistanTaxRegistrationNumberTypeType = Literal["Business", "Individual"]
 TaxSettingsServiceName = Literal["taxsettings"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",
     "account-access-runtime",
     "acm",
     "acm-pca",
+    "agent-discovery",
     "agent-registry",
     "agent-registry-control",
     "aiops",
@@ -122,6 +128,7 @@ ServiceName = Literal[
     "apigateway",
     "apigatewaymanagementapi",
     "apigatewayv2",
+    "apiportal",
     "appconfig",
     "appconfigdata",
     "appfabric",
@@ -214,6 +221,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -398,6 +406,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -405,10 +414,12 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-marketing",
     "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
+    "payments",
     "pca-connector-ad",
     "pca-connector-scep",
     "pcs",
@@ -464,7 +475,9 @@ ServiceName = Literal[
     "sagemaker-a2i-runtime",
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
+    "sagemaker-gateway-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",

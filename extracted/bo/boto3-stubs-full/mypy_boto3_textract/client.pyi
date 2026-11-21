@@ -26,7 +26,12 @@ from botocore.client import BaseClient, ClientMeta
 from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
-from .paginator import ListAdaptersPaginator, ListAdapterVersionsPaginator
+from .paginator import (
+    ListAdaptersPaginator,
+    ListAdapterVersionsPaginator,
+    ListBlueprintsPaginator,
+    ListProjectsPaginator,
+)
 from .type_defs import (
     AnalyzeDocumentRequestTypeDef,
     AnalyzeDocumentResponseTypeDef,
@@ -38,16 +43,28 @@ from .type_defs import (
     CreateAdapterResponseTypeDef,
     CreateAdapterVersionRequestTypeDef,
     CreateAdapterVersionResponseTypeDef,
+    CreateBlueprintRequestTypeDef,
+    CreateBlueprintResponseTypeDef,
+    CreateBlueprintVersionRequestTypeDef,
+    CreateBlueprintVersionResponseTypeDef,
+    CreateProjectRequestTypeDef,
+    CreateProjectResponseTypeDef,
     DeleteAdapterRequestTypeDef,
     DeleteAdapterVersionRequestTypeDef,
+    DeleteBlueprintRequestTypeDef,
+    DeleteProjectRequestTypeDef,
     DetectDocumentTextRequestTypeDef,
     DetectDocumentTextResponseTypeDef,
     GetAdapterRequestTypeDef,
     GetAdapterResponseTypeDef,
     GetAdapterVersionRequestTypeDef,
     GetAdapterVersionResponseTypeDef,
+    GetBlueprintRequestTypeDef,
+    GetBlueprintResponseTypeDef,
     GetDocumentAnalysisRequestTypeDef,
     GetDocumentAnalysisResponseTypeDef,
+    GetDocumentInsightsRequestTypeDef,
+    GetDocumentInsightsResponseTypeDef,
     GetDocumentTextDetectionRequestTypeDef,
     GetDocumentTextDetectionResponseTypeDef,
     GetExpenseAnalysisRequestTypeDef,
@@ -56,14 +73,22 @@ from .type_defs import (
     GetLendingAnalysisResponseTypeDef,
     GetLendingAnalysisSummaryRequestTypeDef,
     GetLendingAnalysisSummaryResponseTypeDef,
+    GetProjectRequestTypeDef,
+    GetProjectResponseTypeDef,
     ListAdaptersRequestTypeDef,
     ListAdaptersResponseTypeDef,
     ListAdapterVersionsRequestTypeDef,
     ListAdapterVersionsResponseTypeDef,
+    ListBlueprintsRequestTypeDef,
+    ListBlueprintsResponseTypeDef,
+    ListProjectsRequestTypeDef,
+    ListProjectsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
     StartDocumentAnalysisRequestTypeDef,
     StartDocumentAnalysisResponseTypeDef,
+    StartDocumentInsightsRequestTypeDef,
+    StartDocumentInsightsResponseTypeDef,
     StartDocumentTextDetectionRequestTypeDef,
     StartDocumentTextDetectionResponseTypeDef,
     StartExpenseAnalysisRequestTypeDef,
@@ -74,6 +99,10 @@ from .type_defs import (
     UntagResourceRequestTypeDef,
     UpdateAdapterRequestTypeDef,
     UpdateAdapterResponseTypeDef,
+    UpdateBlueprintRequestTypeDef,
+    UpdateBlueprintResponseTypeDef,
+    UpdateProjectRequestTypeDef,
+    UpdateProjectResponseTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -189,6 +218,39 @@ class TextractClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_textract/client/#create_adapter_version)
         """
 
+    def create_blueprint(
+        self, **kwargs: Unpack[CreateBlueprintRequestTypeDef]
+    ) -> CreateBlueprintResponseTypeDef:
+        """
+        Creates a blueprint that defines the schema Amazon Textract uses to extract
+        structured data from a document during a document insights job.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/textract/client/create_blueprint.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_textract/client/#create_blueprint)
+        """
+
+    def create_blueprint_version(
+        self, **kwargs: Unpack[CreateBlueprintVersionRequestTypeDef]
+    ) -> CreateBlueprintVersionResponseTypeDef:
+        """
+        Creates a new, immutable version of an existing blueprint so that projects can
+        pin to a specific version.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/textract/client/create_blueprint_version.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_textract/client/#create_blueprint_version)
+        """
+
+    def create_project(
+        self, **kwargs: Unpack[CreateProjectRequestTypeDef]
+    ) -> CreateProjectResponseTypeDef:
+        """
+        Creates a project that groups the configuration used to run document insights
+        jobs.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/textract/client/create_project.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_textract/client/#create_project)
+        """
+
     def delete_adapter(self, **kwargs: Unpack[DeleteAdapterRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes an Amazon Textract adapter.
@@ -205,6 +267,22 @@ class TextractClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/textract/client/delete_adapter_version.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_textract/client/#delete_adapter_version)
+        """
+
+    def delete_blueprint(self, **kwargs: Unpack[DeleteBlueprintRequestTypeDef]) -> dict[str, Any]:
+        """
+        Deletes a blueprint, or a specific version of a blueprint.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/textract/client/delete_blueprint.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_textract/client/#delete_blueprint)
+        """
+
+    def delete_project(self, **kwargs: Unpack[DeleteProjectRequestTypeDef]) -> dict[str, Any]:
+        """
+        Deletes a project.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/textract/client/delete_project.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_textract/client/#delete_project)
         """
 
     def detect_document_text(
@@ -239,6 +317,17 @@ class TextractClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_textract/client/#get_adapter_version)
         """
 
+    def get_blueprint(
+        self, **kwargs: Unpack[GetBlueprintRequestTypeDef]
+    ) -> GetBlueprintResponseTypeDef:
+        """
+        Gets the details of a blueprint, including its schema, encryption settings, and
+        timestamps.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/textract/client/get_blueprint.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_textract/client/#get_blueprint)
+        """
+
     def get_document_analysis(
         self, **kwargs: Unpack[GetDocumentAnalysisRequestTypeDef]
     ) -> GetDocumentAnalysisResponseTypeDef:
@@ -248,6 +337,17 @@ class TextractClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/textract/client/get_document_analysis.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_textract/client/#get_document_analysis)
+        """
+
+    def get_document_insights(
+        self, **kwargs: Unpack[GetDocumentInsightsRequestTypeDef]
+    ) -> GetDocumentInsightsResponseTypeDef:
+        """
+        Gets the status and results of a document insights job that was started by
+        <a>StartDocumentInsights</a>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/textract/client/get_document_insights.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_textract/client/#get_document_insights)
         """
 
     def get_document_text_detection(
@@ -294,6 +394,15 @@ class TextractClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_textract/client/#get_lending_analysis_summary)
         """
 
+    def get_project(self, **kwargs: Unpack[GetProjectRequestTypeDef]) -> GetProjectResponseTypeDef:
+        """
+        Gets the details of a project, including its configuration, status, and
+        timestamps.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/textract/client/get_project.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_textract/client/#get_project)
+        """
+
     def list_adapter_versions(
         self, **kwargs: Unpack[ListAdapterVersionsRequestTypeDef]
     ) -> ListAdapterVersionsResponseTypeDef:
@@ -312,6 +421,28 @@ class TextractClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/textract/client/list_adapters.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_textract/client/#list_adapters)
+        """
+
+    def list_blueprints(
+        self, **kwargs: Unpack[ListBlueprintsRequestTypeDef]
+    ) -> ListBlueprintsResponseTypeDef:
+        """
+        Lists the blueprints that are available to the caller, with optional filtering
+        by project and resource owner.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/textract/client/list_blueprints.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_textract/client/#list_blueprints)
+        """
+
+    def list_projects(
+        self, **kwargs: Unpack[ListProjectsRequestTypeDef]
+    ) -> ListProjectsResponseTypeDef:
+        """
+        Lists the projects that are available to the caller, with optional filtering by
+        blueprint.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/textract/client/list_projects.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_textract/client/#list_projects)
         """
 
     def list_tags_for_resource(
@@ -333,6 +464,17 @@ class TextractClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/textract/client/start_document_analysis.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_textract/client/#start_document_analysis)
+        """
+
+    def start_document_insights(
+        self, **kwargs: Unpack[StartDocumentInsightsRequestTypeDef]
+    ) -> StartDocumentInsightsResponseTypeDef:
+        """
+        Starts an asynchronous job that analyzes a document using the configuration
+        defined by a project or a set of blueprints.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/textract/client/start_document_insights.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_textract/client/#start_document_insights)
         """
 
     def start_document_text_detection(
@@ -392,6 +534,27 @@ class TextractClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_textract/client/#update_adapter)
         """
 
+    def update_blueprint(
+        self, **kwargs: Unpack[UpdateBlueprintRequestTypeDef]
+    ) -> UpdateBlueprintResponseTypeDef:
+        """
+        Updates an existing blueprint, replacing its schema and, optionally, its
+        encryption configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/textract/client/update_blueprint.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_textract/client/#update_blueprint)
+        """
+
+    def update_project(
+        self, **kwargs: Unpack[UpdateProjectRequestTypeDef]
+    ) -> UpdateProjectResponseTypeDef:
+        """
+        Updates the configuration of an existing project.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/textract/client/update_project.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_textract/client/#update_project)
+        """
+
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_adapter_versions"]
@@ -407,6 +570,28 @@ class TextractClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_adapters"]
     ) -> ListAdaptersPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/textract/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_textract/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_blueprints"]
+    ) -> ListBlueprintsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/textract/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_textract/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_projects"]
+    ) -> ListProjectsPaginator:
         """
         Create a paginator for an operation.
 

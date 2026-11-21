@@ -183,7 +183,7 @@ def read_pdf(
           the per-page choices. (More accurate but slower, since it renders
           every page for the probe.)
     suppress_stdout : bool, optional (default: False)
-        Print all logs and warnings.
+        Suppress logs and warnings.
     parallel : bool, optional (default: False)
         Process pages in parallel using all available cpu cores.
     cpu_count : int, optional (default: None)
@@ -220,6 +220,18 @@ def read_pdf(
         List of table area strings of the form x1,y1,x2,y2
         where (x1, y1) -> left-top and (x2, y2) -> right-bottom
         in PDF coordinate space.
+    header_text^ : list, optional (default: None)
+        List of substrings identifying a text line above a stream table.
+        When ``table_areas`` is not supplied and a matching line is found,
+        its bottom coordinate becomes the top edge of the derived table
+        area. If no match is found, Camelot falls back to automatic table
+        detection.
+    footer_text^ : list, optional (default: None)
+        List of substrings identifying a text line below a stream table.
+        When ``table_areas`` is not supplied and a matching line is found,
+        its top coordinate becomes the bottom edge of the derived table
+        area. If no match is found, Camelot falls back to automatic table
+        detection.
     columns^ : list, optional (default: None)
         List of column x-coordinates strings where the coordinates
         are comma-separated.

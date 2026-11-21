@@ -621,10 +621,10 @@ def _sim_list(benchmark: str | None, task_suite: str | None, *, json_output: boo
     if benchmark is None and task_suite is not None:
         raise typer.BadParameter("--task-suite needs a benchmark: dreamscale sim <benchmark> "
                                  "--task-suite <suite> --list", param_hint="--task-suite")
-    if benchmark is not None and benchmark not in BENCHMARK_MODELS:
+    if benchmark is not None and benchmark not in BENCHMARK_MODELS and benchmark != "robolab":
         raise typer.BadParameter(
-            "choose a benchmark: dreamscale sim libero, robocasa365, molmospaces, roboeval "
-            "or abc",
+            "choose a benchmark: dreamscale sim libero, robocasa365, molmospaces, roboeval, "
+            "abc or robolab",
             param_hint="benchmark",
         )
     try:
@@ -688,7 +688,8 @@ def _sim_hosted(benchmark: str, *, model: str | None, task_id: str | None,
 def sim(
     ctx: typer.Context,
     benchmark: str | None = typer.Argument(
-        None, help="libero, robocasa365, molmospaces, roboeval or abc."
+        None, help="libero, robocasa365, molmospaces, roboeval, abc, or robolab (runs on "
+        "Dreamscale's simulators)."
     ),
     model: str | None = typer.Option(
         None,
@@ -764,10 +765,17 @@ def sim(
         help="List the benchmarks, a benchmark's suites, or with --task-suite its tasks, "
         "instead of running one.",
     ),
-    # Hosted benchmarks' options, hidden until they launch (dreamscale.sim.hosted).
-    episodes: int | None = typer.Option(None, "--episodes", min=1, max=50, hidden=True),
-    no_view: bool = typer.Option(False, "--no-view", hidden=True),
-    max_units: int | None = typer.Option(None, "--max-units", min=1, max=4, hidden=True),
+    # RoboLab's options (dreamscale.sim.hosted). --json and --artifacts are older spellings of
+    # --non-interactive and --output-root.
+    episodes: int | None = typer.Option(
+        None, "--episodes", min=1, max=50, metavar="N",
+        help="robolab: episodes per task, 1-50 (default 4).",
+    ),
+    no_view: bool = typer.Option(False, "--no-view", help="robolab: don't open the live view."),
+    max_units: int | None = typer.Option(
+        None, "--max-units", min=1, max=4, metavar="N",
+        help="robolab: simulators to run tasks on at once, 1-4 (default 1).",
+    ),
     json_flag: bool = typer.Option(False, "--json", hidden=True),
     artifacts: Annotated[Path | None, typer.Option("--artifacts", hidden=True)] = None,
 ) -> None:
@@ -846,7 +854,13 @@ def sim(
             param_hint="'--model'",
             param_type="option",
         )
-    keep_warm = _keep_warm(model, keep_warm)
+    deployment_ref = None
+    if benchmark == "abc":
+        from dreamscale.checkpoints_cmd import may_name_deployment
+
+        if may_name_deployment(model):
+            deployment_ref = model
+    keep_warm = _keep_warm(model, keep_warm, deployment_ref)
     if benchmark in ("molmospaces", "roboeval", "abc"):
         task_suite = task_suite or DEFAULT_SUITES[benchmark]
         task_id = task_id or "0"
@@ -882,6 +896,22 @@ def sim(
             output_root=output_root,
         )
         return
+    from dreamscale.sim.isaac_libero import is_isaac_libero
+
+    if benchmark == "libero" and is_isaac_libero(model):
+        # Isaac 0.5 LIBERO (a catalog model on Isaac 0.5 deployments): Perceptron's protocol,
+        # a synchronous chunk of 10 planned, 8 played, at LIBERO's 20 Hz.
+        from dreamscale.sim.isaac_libero import run_isaac_libero
+
+        if not str(task_id).isdigit():
+            raise typer.BadParameter("--task-id is a task number", param_hint="--task-id")
+        _run(
+            run_isaac_libero,
+            model=model, task_suite=task_suite, task_id=int(task_id), task_seed=task_seed,
+            max_steps=max_steps if max_duration is None else max(1, ceil(max_duration * 20)),
+            region=region, json_output=non_interactive, output_root=output_root,
+        )
+        return
     if benchmark == "abc":
         # The YAM robot's simulator: the robot's own session and run loop (sim/abc.py), not a
         # catalog sim.
@@ -891,13 +921,16 @@ def sim(
             task_id = validate_selection(benchmark, model, task_suite, task_id)
         except ValueError as exc:
             raise typer.BadParameter(str(exc), param_hint="--model") from exc
-        _run(
-            run_abc,
-            model=model, task_suite=task_suite, task_id=task_id, task_seed=task_seed,
-            max_steps=max_steps, max_duration=max_duration, view=view,
-            real_time=True, json_output=non_interactive, keep_warm=keep_warm,
-            transport=transport.value, region=region, output_root=output_root, **steady,
-        )
+        try:
+            _run(
+                run_abc,
+                model=model, task_suite=task_suite, task_id=task_id, task_seed=task_seed,
+                max_steps=max_steps, max_duration=max_duration, view=view,
+                real_time=True, json_output=non_interactive, keep_warm=keep_warm,
+                transport=transport.value, region=region, output_root=output_root, **steady,
+            )
+        except ValueError as exc:
+            raise typer.BadParameter(str(exc), param_hint="--model") from exc
         return
     try:
         task_id = validate_selection(benchmark, model, task_suite, task_id)
@@ -1599,7 +1632,7 @@ _TRAIN_POSITIONAL = typer.Argument(None, hidden=True, show_default=False)
 _TRAIN_DATASETS = typer.Option(
     None, "--dataset", help="The dataset to train on: one of yours (towels, towels@2, "
     "acme/towels) or a Hugging Face one (hf://owner/name[@revision]). Repeat it for several "
-    "Hugging Face datasets, which train together (they must match after the column mapping).",
+    "datasets, which train together (they must match after the column mapping).",
     show_default=False,
 )
 
@@ -1632,8 +1665,8 @@ def train_create(
         "(Praxis-1; any robot), abc-vla-base (ABC-VLA) or pi0.5-rtc-yam (π0.5 RTC YAM, our "
         "checkpoint trained on bimanual YAM; any robot) where your organization has them, one of "
         "your runs (tr_…: its latest checkpoint, or --base-step), or one of your deployments: one "
-        "made from a run, or a π0.5, FLUX 3 Action or Praxis-1 checkpoint you imported (the "
-        "checkpoint it serves). Required.",
+        "made from a run, or a π0.5, FLUX 3 Action or Xiaomi-Robotics-1 checkpoint you imported "
+        "(the checkpoint it serves). Required.",
     ),
     base_step: int | None = typer.Option(
         None, "--base-step", min=1, help="With --base tr_…: start from this step's checkpoint."
@@ -1770,6 +1803,7 @@ def train_create(
     if schedule not in (None, "cosine", "constant"):
         raise typer.BadParameter("--schedule: cosine or constant")
     no_hardware_check = no_hardware_check or no_clean  # the older, hidden spelling
+    no_trim_idle = no_trim_idle or no_clean
     inputs = _run_train(parse_inputs, specs=run_input) if run_input else None
     run = _run_train(
         run_create, dataset=dataset[0] if len(dataset) == 1 else dataset, base=base,

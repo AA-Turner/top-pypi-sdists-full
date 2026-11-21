@@ -4,13 +4,16 @@ import re
 from dataclasses import fields
 from functools import partial
 from string import Template
+from typing import TYPE_CHECKING
 
 from importlib_resources import files
 
 from ._data_color.base import _html_color, _ideal_fgnd_color
-from ._gt_data import GTData
 from ._helpers import pct, px
 from ._utils import OrderedSet, _as_css_font_family_attr
+
+if TYPE_CHECKING:
+    from ._gt_data import GTData
 
 DEFAULTS_TABLE_BACKGROUND = (
     "heading_background_color",
@@ -23,6 +26,13 @@ DEFAULTS_TABLE_BACKGROUND = (
     "footnotes_background_color",
     "source_notes_background_color",
     "row_striping_background_color",
+)
+
+# A rule (at the start of a line or after another rule) whose selectors are all bare elements
+ELEMENT = re.compile(r"\b(thead|tbody|tfoot|tr|td|th|p)\b")
+ELEMENT_RULE = re.compile(
+    r"(^|\}) *((?:thead|tbody|tfoot|tr|td|th|p)(?:\s*,\s*(?:thead|tbody|tfoot|tr|td|th|p))*\s*)\{",
+    flags=re.MULTILINE,
 )
 
 FONT_COLOR_VARS = (
@@ -78,7 +88,7 @@ def _clean_num(x: float) -> int | float:
     return int(x) if x == int(x) else x
 
 
-def css_add(value: str | int | float, amount: int | float):
+def css_add(value: str | float, amount: float):
     if isinstance(value, (int, float)):
         return value + amount
     elif value.endswith("px"):
@@ -117,7 +127,7 @@ def compile_scss(
         **font_params,
         "heading_subtitle_padding_top": css_add(scss_params["heading_padding"], -1),
         "heading_subtitle_padding_bottom": css_add(scss_params["heading_padding"], 1),
-        "heading_padding_bottom": css_add(scss_params["heading_padding"], 1),
+        "column_labels_padding_bottom": css_add(scss_params["column_labels_padding"], 1),
     }
 
     # Handle table id ----
@@ -132,16 +142,10 @@ def compile_scss(
     # Handle fonts ----
     # Get the unique list of fonts from `gt_options_dict`
     _font_names = data._options.table_font_names.value
-    if _font_names is not None:
-        font_list = OrderedSet(_font_names).as_list()
-    else:
-        font_list = None
+    font_list = OrderedSet(_font_names).as_list() if _font_names is not None else None
 
     # Generate a `font-family` string
-    if font_list is not None:
-        font_family_attr = _as_css_font_family_attr(fonts=font_list)
-    else:
-        font_family_attr = ""
+    font_family_attr = _as_css_font_family_attr(fonts=font_list) if font_list is not None else ""
 
     # Generate styles ----
     gt_table_open_str = f"#{id} table" if has_id else ".gt_table"
@@ -183,10 +187,14 @@ def compile_scss(
 
     if has_id:
         compiled_css = re.sub(r"\.gt_", f"#{id} .gt_", compiled_css, count=0, flags=re.MULTILINE)
-        compiled_css = re.sub(r"thead", f"#{id} thead", compiled_css, count=0, flags=re.MULTILINE)
-        compiled_css = re.sub(
-            r"^( p|p) \{", f"#{id} p {{", compiled_css, count=0, flags=re.MULTILINE
-        )
+
+    # Scope each selector of the rules for bare elements (like `tr` or `td`) to the table, so that
+    # they don't reach other tables on the page
+    scope = f"#{id}" if has_id else ".gt_table"
+    compiled_css = ELEMENT_RULE.sub(
+        lambda m: m.group(1) + ELEMENT.sub(rf"{scope} \1", m.group(2)) + "{",
+        compiled_css,
+    )
 
     if all_important:
         compiled_css = re.sub(r";", " !important;", compiled_css, count=0, flags=re.MULTILINE)

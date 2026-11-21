@@ -1,23 +1,25 @@
 Metadata-Version: 2.4
 Name: zope.location
-Version: 6.0
+Version: 6.1
 Summary: Zope Location
-Home-page: http://github.com/zopefoundation/zope.location/
-Author: Zope Foundation and Contributors
-Author-email: zope-dev@zope.dev
-License: ZPL-2.1
-Keywords: zope location structural
+Author-email: Zope Foundation and contributors <zope-dev@zope.dev>
+Maintainer-email: Plone Foundation and contributors <zope-dev@zope.dev>
+License-Expression: ZPL-2.1
+Project-URL: Documentation, https://zopelocation.readthedocs.io/
+Project-URL: Source, http://github.com/zopefoundation/zope.location/
+Project-URL: Issues, https://github.com/zopefoundation/zope.location/issues
+Project-URL: Changelog, https://raw.githubusercontent.com/zopefoundation/zope.location/master/CHANGES.rst
+Keywords: zope,location,structural
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Zope Public License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Natural Language :: English
@@ -25,9 +27,10 @@ Classifier: Operating System :: OS Independent
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Framework :: Zope :: 3
 Classifier: Framework :: Zope :: 5
-Requires-Python: >=3.9
+Classifier: Framework :: Zope :: 6
+Requires-Python: >=3.11
+Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
-Requires-Dist: setuptools
 Requires-Dist: zope.interface>=4.0.2
 Requires-Dist: zope.schema>=4.2.2
 Requires-Dist: zope.proxy>=4.0.1
@@ -53,18 +56,7 @@ Requires-Dist: repoze.sphinx.autointerface; extra == "docs"
 Requires-Dist: Sphinx; extra == "docs"
 Requires-Dist: zope.component>=4.0.1; extra == "docs"
 Requires-Dist: zope.configuration; extra == "docs"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 ===================
  ``zope.location``
@@ -96,10 +88,21 @@ for a useful extension of this concept to "containers".
 
 Documentation is hosted at https://zopelocation.readthedocs.io/
 
-
 =========
  Changes
 =========
+
+6.1 (2026-11-21)
+================
+
+- Move package metadata from setup.py to pyproject.toml.
+
+- Add support for Python 3.14, 3.15.
+
+- Drop support for Python 3.10, 3.9.
+
+- Remove run-time dependency on ``setuptools``.
+
 
 6.0 (2025-09-12)
 ================

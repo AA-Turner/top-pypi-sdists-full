@@ -58,6 +58,12 @@ def get_page_image(
     except pypdfium2.PdfiumError as e:
         raise MalformedPDFException(e)
 
+    # Initialize the form environment so that filled AcroForm field
+    # content is drawn into the rendered bitmap. Must be called after
+    # opening the document and before loading any pages.
+    # See https://github.com/jsvine/pdfplumber/issues/1367
+    pdfium_doc.init_forms()
+
     pdfium_page = pdfium_doc.get_page(page_ix)
 
     img: PIL.Image.Image = pdfium_page.render(
@@ -374,10 +380,11 @@ class PageImage:
         stroke_width: int = DEFAULT_STROKE_WIDTH,
         x_tolerance: T_num = utils.DEFAULT_X_TOLERANCE,
         y_tolerance: T_num = utils.DEFAULT_Y_TOLERANCE,
+        **kwargs: Any,
     ) -> "PageImage":
 
         words = self.page.extract_words(
-            x_tolerance=x_tolerance, y_tolerance=y_tolerance
+            x_tolerance=x_tolerance, y_tolerance=y_tolerance, **kwargs
         )
         self.draw_rects(words, stroke=stroke, fill=fill, stroke_width=stroke_width)
         return self

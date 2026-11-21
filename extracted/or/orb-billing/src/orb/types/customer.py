@@ -60,7 +60,10 @@ class DefaultPaymentMethod(BaseModel):
     """The ID of the Orb customer this payment method is attached to."""
 
     default: bool
-    """Whether this is the customer's default payment method."""
+    """
+    Whether this is the customer's default payment method on its payment gateway
+    connection.
+    """
 
     external_payment_method_id: str
     """The identifier of this payment method in the external payment provider."""
@@ -380,6 +383,9 @@ class Customer(BaseModel):
     This field is nullable for backwards compatibility but will always return a
     boolean value.
     """
+
+    billing_entity_id: Optional[str] = None
+    """The id of the default billing entity of this customer."""
 
     default_payment_method: Optional[DefaultPaymentMethod] = None
     """

@@ -24,6 +24,7 @@ else:
 
 __all__ = (
     "AcceptRuleBehaviorType",
+    "AssetOwnershipTransferStatusType",
     "AttributeEntityTypeType",
     "AuthTypeType",
     "AuthenticationTypeType",
@@ -131,6 +132,7 @@ __all__ = (
     "PackageManagerType",
     "PaginatorName",
     "ProjectDesignationType",
+    "ProjectProfileActionType",
     "ProjectStatusType",
     "ProtocolType",
     "QueryGraphPaginatorName",
@@ -181,6 +183,7 @@ __all__ = (
 
 
 AcceptRuleBehaviorType = Literal["ALL", "NONE"]
+AssetOwnershipTransferStatusType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDED"]
 AttributeEntityTypeType = Literal["ASSET", "LISTING"]
 AuthTypeType = Literal["DISABLED", "IAM_IDC"]
 AuthenticationTypeType = Literal["BASIC", "CUSTOM", "OAUTH2"]
@@ -428,6 +431,7 @@ PackageManagerType = Literal["UV"]
 ProjectDesignationType = Literal[
     "CONTRIBUTOR", "OWNER", "PROJECT_CATALOG_STEWARD", "USER_CREATED_DESIGNATION"
 ]
+ProjectProfileActionType = Literal["DISASSOCIATE"]
 ProjectStatusType = Literal[
     "ACTIVE", "DELETE_FAILED", "DELETING", "MOVING", "UPDATE_FAILED", "UPDATING"
 ]
@@ -578,12 +582,14 @@ UserSearchTypeType = Literal["DATAZONE_IAM_USER", "DATAZONE_SSO_USER", "DATAZONE
 UserTypeType = Literal["IAM_ROLE", "IAM_ROLE_SESSION", "IAM_USER", "SSO_USER"]
 DataZoneServiceName = Literal["datazone"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",
     "account-access-runtime",
     "acm",
     "acm-pca",
+    "agent-discovery",
     "agent-registry",
     "agent-registry-control",
     "aiops",
@@ -594,6 +600,7 @@ ServiceName = Literal[
     "apigateway",
     "apigatewaymanagementapi",
     "apigatewayv2",
+    "apiportal",
     "appconfig",
     "appconfigdata",
     "appfabric",
@@ -686,6 +693,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -870,6 +878,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -877,10 +886,12 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-marketing",
     "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
+    "payments",
     "pca-connector-ad",
     "pca-connector-scep",
     "pcs",
@@ -936,7 +947,9 @@ ServiceName = Literal[
     "sagemaker-a2i-runtime",
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
+    "sagemaker-gateway-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",

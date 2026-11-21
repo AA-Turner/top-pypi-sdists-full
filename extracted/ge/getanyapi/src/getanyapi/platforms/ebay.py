@@ -27,11 +27,13 @@ class EbayAcceptedOffersInput(TypedDict, total=False):
     ignoreSources: NotRequired[list[str]]
     """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the remaining sources. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
     limit: NotRequired[int]
-    """Maximum number of sales to return (1-240, default 240). Sales without a listing title or image are left out, so a page can hold fewer. Range: 1 to 240. Default: 240."""
+    """Maximum number of sales to return (1-240, default 240). It is also the page size when you send page. Sales without a listing title or image are left out, so a page can hold fewer. Range: 1 to 240. Default: 240."""
     maxPrice: NotRequired[float]
     """Optional maximum price paid, in USD (e.g. 2000). It trims the returned page; it does not search all history for sales at that price. Minimum: 0."""
     minPrice: NotRequired[float]
     """Optional minimum price paid, in USD (e.g. 200). It trims the returned page; it does not search all history for sales at that price. Minimum: 0."""
+    page: NotRequired[int]
+    """1-based results page (e.g. 2); leave it out for the first page. Use with hasMore in the output to paginate, and keep query, dates, filters, and limit the same while walking pages, because limit sets the page size. Paging needs a limit of at least 10. Minimum: 1."""
     preferLatencyUnderMs: NotRequired[int]
     """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
     query: Required[str]
@@ -66,6 +68,8 @@ class EbayProductFullInput(TypedDict, total=False):
     """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the remaining sources. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
     preferLatencyUnderMs: NotRequired[int]
     """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
+    requireFields: NotRequired[list[Literal["countryCode"]]]
+    """Optional; omit it and routing is unchanged, with the cheapest source serving. Name the output fields this request must be able to return, for example `countryCode`, and it is served only by a source that returns every one of them. Fields you do not name are still returned whenever the serving source has them. This can raise your price: when the cheapest source cannot return a named field, a dearer source serves, and you are quoted and charged its price. A named field can still be absent on a listing that genuinely lacks it. Naming a combination that no single source returns together is refused as invalid input, with no charge."""
     source: NotRequired[list[str]]
     """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
     url: Required[str]
@@ -189,6 +193,13 @@ class EbaySoldListingsThinInput(TypedDict, total=False):
 
 
 class EbayAcceptedOffersData(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    has_more: bool | None = Field(
+        default=None,
+        alias="hasMore",
+        description="True when another results page exists. A page can be short or empty while this is still true, because sales without a title or image and sales outside minPrice or maxPrice are left out; request page + 1 with the same inputs to continue. Paging needs a limit of at least 10, so with a smaller limit treat hasMore as a hint to search again with a larger limit.",
+    )
     items: list[EbayAcceptedOffersItem] = Field(
         description="Completed eBay sales, newest first: title, the price the buyer actually paid, sale date, units sold, shipping, format, and item URL. Populated whenever the provider has data for the entity."
     )
@@ -440,7 +451,7 @@ class EbayProductFullItem(BaseModel):
     country_code: str | None = Field(
         default=None,
         alias="countryCode",
-        description="ISO country code of the eBay marketplace the listing is on.",
+        description="ISO country code of the eBay marketplace the listing is on, or null when the serving source does not report it.",
     )
     currency: str | None = Field(
         default=None, description="ISO currency code of the price (e.g. USD, GBP)."
@@ -684,7 +695,7 @@ class EbaySoldListingsItem(BaseModel):
     sold_utc: float | None = Field(
         default=None,
         alias="soldUtc",
-        description="UTC epoch timestamp in seconds (Unix time). Multiply by 1000 for a JS Date in milliseconds.",
+        description="UTC epoch timestamp in seconds (Unix time). Multiply by 1000 for a JS Date in milliseconds. When the sale ended. Most sales carry the time to the minute; some carry only the day, as midnight UTC.",
     )
     title: str = Field(
         description="Listing title as it appeared on eBay. Populated whenever the provider has data for the entity."
@@ -747,7 +758,7 @@ class EbaySoldListingsThinItem(BaseModel):
     sold_utc: float | None = Field(
         default=None,
         alias="soldUtc",
-        description="UTC epoch timestamp in seconds (Unix time). Multiply by 1000 for a JS Date in milliseconds.",
+        description="UTC epoch timestamp in seconds (Unix time). Multiply by 1000 for a JS Date in milliseconds. When the sale ended. Most sales carry the time to the minute; some carry only the day, as midnight UTC.",
     )
     title: str = Field(
         description="Listing title as it appeared on eBay. Populated whenever the provider has data for the entity."
@@ -776,8 +787,10 @@ class EbayNamespace:
         the sale date, units sold, shipping, and format. History is available back
         to December 2023. Auctions are never Best Offers, so look at fixed-price
         sales. Results come back newest first, so with a small limit the sales can
-        cover only the last few days of a date window; raise limit (up to 240) to
-        cover more of it.
+        cover only the last few days of a date window; raise limit (up to 240) or
+        walk pages to cover more of it. To page, send page 2, 3 and so on while
+        hasMore is true, keeping query, dates, filters and limit the same; paging
+        needs a limit of at least 10.
 
         Price: $0.003 per request.
 
@@ -824,7 +837,7 @@ class EbayNamespace:
         per-category attribute), the seller's full description, every listing image,
         and the seller's feedback record.
 
-        Price: $0.0018 per request.
+        Price: $0.0012 per request.
 
         Example:
             res = client.ebay.product_full(url="https://www.ebay.com/itm/133576802017")
@@ -919,8 +932,10 @@ class AsyncEbayNamespace:
         the sale date, units sold, shipping, and format. History is available back
         to December 2023. Auctions are never Best Offers, so look at fixed-price
         sales. Results come back newest first, so with a small limit the sales can
-        cover only the last few days of a date window; raise limit (up to 240) to
-        cover more of it.
+        cover only the last few days of a date window; raise limit (up to 240) or
+        walk pages to cover more of it. To page, send page 2, 3 and so on while
+        hasMore is true, keeping query, dates, filters and limit the same; paging
+        needs a limit of at least 10.
 
         Price: $0.003 per request.
 
@@ -967,7 +982,7 @@ class AsyncEbayNamespace:
         per-category attribute), the seller's full description, every listing image,
         and the seller's feedback record.
 
-        Price: $0.0018 per request.
+        Price: $0.0012 per request.
 
         Example:
             res = client.ebay.product_full(url="https://www.ebay.com/itm/133576802017")

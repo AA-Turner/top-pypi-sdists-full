@@ -27,16 +27,26 @@ __all__ = (
     "BlockTypeType",
     "ContentClassifierType",
     "EntityTypeType",
+    "ExtractionGranularityTypeType",
     "FeatureTypeType",
     "JobStatusType",
     "ListAdapterVersionsPaginatorName",
     "ListAdaptersPaginatorName",
+    "ListBlueprintsPaginatorName",
+    "ListProjectsPaginatorName",
+    "OutputTextFormatTypeType",
+    "PIIEntityTypeType",
+    "PIIRedactionMaskModeType",
     "PaginatorName",
+    "ProjectStatusType",
     "RegionName",
     "RelationshipTypeType",
+    "ResourceOwnerType",
     "ResourceServiceName",
     "SelectionStatusType",
+    "SensitiveDataDetectionModeType",
     "ServiceName",
+    "StateType",
     "TextTypeType",
     "TextractServiceName",
     "ValueTypeType",
@@ -84,10 +94,50 @@ EntityTypeType = Literal[
     "TABLE_TITLE",
     "VALUE",
 ]
+ExtractionGranularityTypeType = Literal["DOCUMENT", "ELEMENT", "LINE", "PAGE", "WORD"]
 FeatureTypeType = Literal["FORMS", "LAYOUT", "QUERIES", "SIGNATURES", "TABLES"]
 JobStatusType = Literal["FAILED", "IN_PROGRESS", "PARTIAL_SUCCESS", "SUCCEEDED"]
 ListAdapterVersionsPaginatorName = Literal["list_adapter_versions"]
 ListAdaptersPaginatorName = Literal["list_adapters"]
+ListBlueprintsPaginatorName = Literal["list_blueprints"]
+ListProjectsPaginatorName = Literal["list_projects"]
+OutputTextFormatTypeType = Literal["CSV", "HTML", "MARKDOWN", "PLAIN_TEXT"]
+PIIEntityTypeType = Literal[
+    "ADDRESS",
+    "AGE",
+    "ALL",
+    "AWS_ACCESS_KEY",
+    "AWS_SECRET_KEY",
+    "CA_HEALTH_NUMBER",
+    "CA_SOCIAL_INSURANCE_NUMBER",
+    "CREDIT_DEBIT_CARD_CVV",
+    "CREDIT_DEBIT_CARD_EXPIRY",
+    "CREDIT_DEBIT_CARD_NUMBER",
+    "DRIVER_ID",
+    "EMAIL",
+    "INTERNATIONAL_BANK_ACCOUNT_NUMBER",
+    "IP_ADDRESS",
+    "LICENSE_PLATE",
+    "MAC_ADDRESS",
+    "NAME",
+    "PASSWORD",
+    "PHONE",
+    "PIN",
+    "SWIFT_CODE",
+    "UK_NATIONAL_HEALTH_SERVICE_NUMBER",
+    "UK_NATIONAL_INSURANCE_NUMBER",
+    "UK_UNIQUE_TAXPAYER_REFERENCE_NUMBER",
+    "URL",
+    "USERNAME",
+    "US_BANK_ACCOUNT_NUMBER",
+    "US_BANK_ROUTING_NUMBER",
+    "US_INDIVIDUAL_TAX_IDENTIFICATION_NUMBER",
+    "US_PASSPORT_NUMBER",
+    "US_SOCIAL_SECURITY_NUMBER",
+    "VEHICLE_IDENTIFICATION_NUMBER",
+]
+PIIRedactionMaskModeType = Literal["ENTITY_TYPE", "PII"]
+ProjectStatusType = Literal["COMPLETED", "FAILED"]
 RelationshipTypeType = Literal[
     "ANSWER",
     "CHILD",
@@ -99,17 +149,22 @@ RelationshipTypeType = Literal[
     "TITLE",
     "VALUE",
 ]
+ResourceOwnerType = Literal["ACCOUNT", "SERVICE"]
 SelectionStatusType = Literal["NOT_SELECTED", "SELECTED"]
+SensitiveDataDetectionModeType = Literal["DETECTION", "DETECTION_AND_REDACTION", "DISABLED"]
+StateType = Literal["DISABLED", "ENABLED"]
 TextTypeType = Literal["HANDWRITING", "PRINTED"]
 ValueTypeType = Literal["DATE"]
 TextractServiceName = Literal["textract"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",
     "account-access-runtime",
     "acm",
     "acm-pca",
+    "agent-discovery",
     "agent-registry",
     "agent-registry-control",
     "aiops",
@@ -120,6 +175,7 @@ ServiceName = Literal[
     "apigateway",
     "apigatewaymanagementapi",
     "apigatewayv2",
+    "apiportal",
     "appconfig",
     "appconfigdata",
     "appfabric",
@@ -212,6 +268,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -396,6 +453,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -403,10 +461,12 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-marketing",
     "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
+    "payments",
     "pca-connector-ad",
     "pca-connector-scep",
     "pcs",
@@ -462,7 +522,9 @@ ServiceName = Literal[
     "sagemaker-a2i-runtime",
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
+    "sagemaker-gateway-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
@@ -543,7 +605,9 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
-PaginatorName = Literal["list_adapter_versions", "list_adapters"]
+PaginatorName = Literal[
+    "list_adapter_versions", "list_adapters", "list_blueprints", "list_projects"
+]
 RegionName = Literal[
     "ap-northeast-1",
     "ap-northeast-2",

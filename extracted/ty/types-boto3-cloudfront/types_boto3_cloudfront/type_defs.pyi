@@ -54,6 +54,7 @@ from .literals import (
     OriginAccessControlSigningBehaviorsType,
     OriginAccessControlSigningProtocolsType,
     OriginGroupSelectionCriteriaType,
+    OriginHttpVersionType,
     OriginProtocolPolicyType,
     OriginRequestPolicyCookieBehaviorType,
     OriginRequestPolicyHeaderBehaviorType,
@@ -1554,6 +1555,7 @@ class VpcOriginConfigTypeDef(TypedDict):
     OwnerAccountId: NotRequired[str]
     OriginReadTimeout: NotRequired[int]
     OriginKeepaliveTimeout: NotRequired[int]
+    OriginHttpVersion: NotRequired[OriginHttpVersionType]
 
 class OriginSslProtocolsTypeDef(TypedDict):
     Quantity: int
@@ -2036,6 +2038,7 @@ class CustomOriginConfigOutputTypeDef(TypedDict):
     OriginKeepaliveTimeout: NotRequired[int]
     IpAddressType: NotRequired[IpAddressTypeType]
     OriginMtlsConfig: NotRequired[OriginMtlsConfigTypeDef]
+    OriginHttpVersion: NotRequired[OriginHttpVersionType]
 
 class VpcOriginEndpointConfigOutputTypeDef(TypedDict):
     Name: str
@@ -2769,6 +2772,7 @@ class CustomOriginConfigTypeDef(TypedDict):
     OriginKeepaliveTimeout: NotRequired[int]
     IpAddressType: NotRequired[IpAddressTypeType]
     OriginMtlsConfig: NotRequired[OriginMtlsConfigTypeDef]
+    OriginHttpVersion: NotRequired[OriginHttpVersionType]
 
 VpcOriginEndpointConfigUnionTypeDef = Union[
     VpcOriginEndpointConfigTypeDef, VpcOriginEndpointConfigOutputTypeDef

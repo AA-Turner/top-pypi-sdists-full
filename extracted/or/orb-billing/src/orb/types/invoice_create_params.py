@@ -37,6 +37,12 @@ class InvoiceCreateParams(TypedDict, total=False):
     auto_collection setting.
     """
 
+    billing_entity_id: Optional[str]
+    """The id of the active billing entity that issues this invoice.
+
+    If not specified, falls back to the customer's billing entity.
+    """
+
     customer_id: Optional[str]
     """The id of the `Customer` to create this invoice for.
 
@@ -51,6 +57,9 @@ class InvoiceCreateParams(TypedDict, total=False):
 
     If not set, the due date will be calculated based on the `net_terms` value.
     """
+
+    external_billing_entity_id: Optional[str]
+    """The external id of the active billing entity that issues this invoice."""
 
     external_customer_id: Optional[str]
     """The `external_customer_id` of the `Customer` to create this invoice for.
@@ -72,13 +81,13 @@ class InvoiceCreateParams(TypedDict, total=False):
     """
 
     net_terms: Optional[int]
-    """The net terms determines the due date of the invoice.
-
-    Due date is calculated based on the invoice or issuance date, depending on the
-    account's configured due date calculation method. A value of '0' here represents
-    that the invoice is due on issue, whereas a value of '30' represents that the
-    customer has 30 days to pay the invoice. Do not set this field if you want to
-    set a custom due date.
+    """
+    The number of days until the invoice is due, counting the start date as day 1,
+    so net 30 from October 1 is due October 30. The account's
+    [due date calculation method](/invoicing/payments#configuring-net-terms-and-collection-behavior)
+    sets whether the start date is the invoice date or the issuance date. A value of
+    '0' here represents that the invoice is due on issue. Do not set this field if
+    you want to set a custom due date.
     """
 
     will_auto_issue: bool

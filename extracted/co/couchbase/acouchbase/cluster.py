@@ -1,4 +1,4 @@
-#  Copyright 2016-2022. Couchbase, Inc.
+#  Copyright 2016-2026. Couchbase, Inc.
 #  All Rights Reserved.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License")
@@ -15,36 +15,47 @@
 
 from __future__ import annotations
 
+__all__ = [
+    'AsyncCluster',
+    'Cluster',
+    'get_event_loop',
+]
+
 from asyncio import AbstractEventLoop
 from datetime import timedelta
-from typing import (TYPE_CHECKING,
-                    Any,
-                    Dict,
-                    Union)
+from typing import TYPE_CHECKING, Any
 
 from acouchbase import get_event_loop  # noqa: F401
 from acouchbase.bucket import AsyncBucket
-from acouchbase.logic.cluster_impl import AsyncClusterImpl
 from acouchbase.management.analytics import AnalyticsIndexManager
 from acouchbase.management.buckets import BucketManager
 from acouchbase.management.eventing import EventingFunctionManager
 from acouchbase.management.queries import QueryIndexManager
 from acouchbase.management.search import SearchIndexManager
 from acouchbase.management.users import UserManager
+from acouchbase.result import (AsyncAnalyticsResult,
+                               AsyncQueryResult,
+                               AsyncSearchResult)
 from acouchbase.transactions import Transactions
 from couchbase.auth import (CertificateAuthenticator,
                             JwtAuthenticator,
                             PasswordAuthenticator)
-from couchbase.logic.observability import ObservableRequestHandler
-from couchbase.logic.operation_types import StreamingOperationType
-from couchbase.result import (AnalyticsResult,
-                              ClusterInfoResult,
+from couchbase.common._registry import ASYNC_CLUSTER, resolve
+from couchbase.common.protocol import CouchbaseProtocol
+from couchbase.result import (ClusterInfoResult,
                               DiagnosticsResult,
-                              PingResult,
-                              QueryResult,
-                              SearchResult)
+                              PingResult)
 
 if TYPE_CHECKING:
+    from typing_extensions import Unpack
+
+    from couchbase.common._interfaces._cluster import AsyncClusterInterface
+    from couchbase.common._utils import JSONType
+    from couchbase.common.options import (ClusterKwargs,
+                                          DiagnosticsOptionsKwargs,
+                                          PingOptionsKwargs,
+                                          SearchOptionsKwargs,
+                                          WaitUntilReadyKwargs)
     from couchbase.options import (AnalyticsOptions,
                                    ClusterOptions,
                                    DiagnosticsOptions,
@@ -77,7 +88,10 @@ class AsyncCluster:
         options (:class:`~couchbase.options.ClusterOptions`): Global options to set for the cluster.
             Some operations allow the global options to be overriden by passing in options to the
             operation.
-        **kwargs (Dict[str, Any]): keyword arguments that can be used in place or to
+        loop (:class:`asyncio.AbstractEventLoop`, optional): The event loop the cluster runs on.  It must be
+            running when the cluster is created.  If not provided, the running loop is used.  Any loop type is
+            accepted.
+        **kwargs: keyword arguments that can be used in place or to
             overrride provided :class:`~couchbase.options.ClusterOptions`
 
     Raises:
@@ -89,25 +103,21 @@ class AsyncCluster:
     """
 
     def __init__(self,
-                 connstr,  # type: str
-                 *options,  # type: ClusterOptions
-                 **kwargs,  # type: Dict[str, Any]
-                 ) -> None:
-        self._impl = AsyncClusterImpl(connstr, *options, **kwargs)
+                 connstr: str,
+                 *options: ClusterOptions,
+                 loop: AbstractEventLoop | None = None,
+                 **kwargs: Unpack[ClusterKwargs]) -> None:
+        impl = resolve(ASYNC_CLUSTER, CouchbaseProtocol.from_connstr(connstr))
+        self._impl: AsyncClusterInterface = impl(connstr, *options, loop=loop, **kwargs)
 
     @property
     def loop(self) -> AbstractEventLoop:
-        """
-        **INTERNAL**
-        """
+        """**INTERNAL** The event loop the cluster runs on."""
         return self._impl.loop
 
     @property
     def transactions(self) -> Transactions:
-        """
-            :class:`~acouchbase.transactions.Transactions`: A Transactions instance which can be used to
-                perform transactions on this cluster.
-        """
+        """Runs transactions on this cluster."""
         return self._impl.transactions
 
     async def on_connect(self) -> None:
@@ -134,7 +144,7 @@ class AsyncCluster:
         await self._impl.close_connection()
 
     def set_authenticator(
-            self, authenticator: Union[CertificateAuthenticator, JwtAuthenticator, PasswordAuthenticator]
+            self, authenticator: CertificateAuthenticator | JwtAuthenticator | PasswordAuthenticator
     ) -> None:
         """Replace the authenticator used by this Cluster.
 
@@ -157,8 +167,7 @@ class AsyncCluster:
             :class:`~couchbase.exceptions.InvalidArgumentException`: If `authenticator` is not the
                 same type as the current authenticator.
         """
-        req = self._impl.request_builder.build_update_credential_request(authenticator)
-        self._impl.update_credentials(req)
+        self._impl.update_credentials(authenticator)
 
     def bucket(self, bucket_name: str) -> AsyncBucket:
         """Creates a Bucket instance to a specific bucket.
@@ -172,15 +181,15 @@ class AsyncCluster:
         Returns:
             :class:`~acouchbase.bucket.AsyncBucket`: A bucket instance
 
-        Raises:
-            :class:`~couchbase.exceptions.BucketNotFoundException`: If provided `bucket_name` cannot
-                be found.
+        The bucket opens on the event loop once the cluster is connected, so this call does not raise.  A
+        bucket that cannot be opened, such as one that does not exist, fails the first operation awaited on
+        it, or :meth:`~acouchbase.bucket.AsyncBucket.on_connect`.
 
         """
         return AsyncBucket(self, bucket_name)
 
     async def cluster_info(self) -> ClusterInfoResult:
-        """Retrieve the Couchbase cluster information
+        """Retrieve the Couchbase cluster information.
 
         .. note::
             If using Couchbase Server version < 6.6, a bucket *must* be opened prior to calling
@@ -192,18 +201,13 @@ class AsyncCluster:
             Awaitable[:class:`~couchbase.result.ClusterInfoResult`]: Information about the connected cluster.
 
         Raises:
-            RuntimeError:  If called prior to the cluster being connected.
             :class:`~couchbase.exceptions.ServiceUnavailableException`: If called prior to connecting
                 to a bucket if using server version < 6.6.
 
         """
-        req = self._impl.request_builder.build_cluster_info_request()
-        return await self._impl.get_cluster_info(req)
+        return await self._impl.get_cluster_info()
 
-    async def ping(self,
-                   *opts,  # type: PingOptions
-                   **kwargs  # type: Any
-                   ) -> PingResult:
+    async def ping(self, opts: PingOptions | None = None, **kwargs: Unpack[PingOptionsKwargs]) -> PingResult:
         """Performs a ping operation against the cluster.
 
         The ping operation pings the services which are specified
@@ -212,19 +216,19 @@ class AsyncCluster:
 
         Args:
             opts (:class:`~couchbase.options.PingOptions`): Optional parameters for this operation.
+            **kwargs: keyword arguments that can be used in place or to
+                override provided :class:`~couchbase.options.PingOptions`
 
         Returns:
             Awaitable[:class:`~couchbase.result.PingResult`]: A report which describes the outcome of the
             ping operations which were performed.
 
         """
-        req = self._impl.request_builder.build_ping_request(*opts, **kwargs)
-        return await self._impl.ping(req)
+        return await self._impl.ping(opts, **kwargs)
 
     async def diagnostics(self,
-                          *opts,  # type: DiagnosticsOptions
-                          **kwargs  # type: Dict[str, Any]
-                          ) -> DiagnosticsResult:
+                          opts: DiagnosticsOptions | None = None,
+                          **kwargs: Unpack[DiagnosticsOptionsKwargs]) -> DiagnosticsResult:
         """Performs a diagnostic operation against the cluster.
 
         The diagnostic operations returns a report about the current active connections with the cluster.
@@ -232,20 +236,20 @@ class AsyncCluster:
 
         Args:
             opts (:class:`~couchbase.options.DiagnosticsOptions`): Optional parameters for this operation.
+            **kwargs: keyword arguments that can be used in place or to
+                override provided :class:`~couchbase.options.DiagnosticsOptions`
 
         Returns:
             Awaitable[:class:`~couchbase.result.DiagnosticsResult`]: A report which describes current active
             connections with the cluster.
 
         """
-        req = self._impl.request_builder.build_diagnostics_request(*opts, **kwargs)
-        return await self._impl.diagnostics(req)
+        return await self._impl.diagnostics(opts, **kwargs)
 
     async def wait_until_ready(self,
-                               timeout,  # type: timedelta
-                               *opts,  # type: WaitUntilReadyOptions
-                               **kwargs  # type: Dict[str, Any]
-                               ) -> None:
+                               timeout: timedelta,
+                               opts: WaitUntilReadyOptions | None = None,
+                               **kwargs: Unpack[WaitUntilReadyKwargs]) -> None:
         """Wait until the cluster is ready for use.
 
             Check the current connections to see if the desired state has been reached.  If not,
@@ -261,7 +265,7 @@ class AsyncCluster:
             timeout (timedelta): Amount of time to wait for cluster to be ready before a
                 :class:`~couchbase.exceptions.UnAmbiguousTimeoutException` is raised.
             opts (:class:`~couchbase.options.WaitUntilReadyOptions`): Optional parameters for this operation.
-            **kwargs (Dict[str, Any]): keyword arguments that can be used in place or to
+            **kwargs: keyword arguments that can be used in place or to
                 override provided :class:`~couchbase.options.WaitUntilReadyOptions`
 
         Raises:
@@ -269,13 +273,12 @@ class AsyncCluster:
                 the cluster being ready for use.
 
         Example:
-
             Wait until the cluster is ready to use KV and query services::
 
                 from acouchbase.cluster import Cluster
-                from couchbase.auth import PasswordAuthenticator
-                from couchbase.diagnostics import ServiceType
-                from couchbase.options import WaitUntilReadyOptions
+                from acouchbase.auth import PasswordAuthenticator
+                from acouchbase.diagnostics import ServiceType
+                from acouchbase.options import WaitUntilReadyOptions
 
                 auth = PasswordAuthenticator('username', 'password')
                 cluster = Cluster.connect('couchbase://localhost', ClusterOptions(auth))
@@ -284,19 +287,14 @@ class AsyncCluster:
                          WaitUntilReadyOptions(service_types=[ServiceType.KeyValue, ServiceType.Query]))
 
         """
-        req = self._impl.request_builder.build_wait_until_ready_request(timeout, *opts, **kwargs)
-        await self._impl.wait_until_ready(req)
+        await self._impl.wait_until_ready(timeout, opts, **kwargs)
 
-    def query(self,
-              statement,  # type: str
-              *options,  # type: QueryOptions
-              **kwargs  # type: Dict[str, Any]
-              ) -> QueryResult:
+    def query(self, statement: str, *options: QueryOptions | JSONType, **kwargs: Any) -> AsyncQueryResult:
         """Executes a N1QL query against the cluster.
 
         .. note::
             The query is executed lazily in that it is executed once iteration over the
-            :class:`~couchbase.result.QueryResult` begins.
+            :class:`~acouchbase.result.AsyncQueryResult` begins.
 
         .. seealso::
             * :class:`~acouchbase.management.queries.QueryIndexManager`: for how to manage query indexes
@@ -305,12 +303,15 @@ class AsyncCluster:
         Args:
             statement (str): The N1QL statement to execute.
             options (:class:`~couchbase.options.QueryOptions`): Optional parameters for the query operation.
-            **kwargs (Dict[str, Any]): keyword arguments that can be used in place or to
-                override provided :class:`~couchbase.options.QueryOptions`
+            **kwargs: keyword arguments that can be used in place or to
+                override provided :class:`~couchbase.options.QueryOptions`.  A keyword that is not one of its
+                options is sent as a named parameter; prefer ``QueryOptions(named_parameters=...)``, which
+                cannot collide with an option name.
 
         Returns:
-            :class:`~couchbase.result.QueryResult`: An instance of a :class:`~couchbase.result.QueryResult` which
-            provides access to iterate over the query results and access metadata and metrics about the query.
+            :class:`~acouchbase.result.AsyncQueryResult`: An instance of a
+            :class:`~acouchbase.result.AsyncQueryResult` which provides access to iterate over the
+            query results and access metadata and metrics about the query.
 
         Examples:
             Simple query::
@@ -321,7 +322,7 @@ class AsyncCluster:
 
             Simple query with positional parameters::
 
-                from couchbase.options import QueryOptions
+                from acouchbase.options import QueryOptions
 
                 # ... other code ...
 
@@ -332,7 +333,7 @@ class AsyncCluster:
 
             Simple query with named parameters::
 
-                from couchbase.options import QueryOptions
+                from acouchbase.options import QueryOptions
 
                 # ... other code ...
 
@@ -343,7 +344,7 @@ class AsyncCluster:
 
             Retrieve metadata and/or metrics from query::
 
-                from couchbase.options import QueryOptions
+                from acouchbase.options import QueryOptions
 
                 # ... other code ...
 
@@ -356,36 +357,35 @@ class AsyncCluster:
                 print(f'Query metrics: {q_res.metadata().metrics()}')
 
         """
-        op_type = StreamingOperationType.Query
-        obs_handler = ObservableRequestHandler(op_type, self._impl.observability_instruments)
-        req = self._impl.request_builder.build_query_request(statement, obs_handler, *options, **kwargs)
-        return self._impl.query(req)
+        return self._impl.query(statement, *options, **kwargs)
 
-    def analytics_query(self,  # type: Cluster
-                        statement,  # type: str
-                        *options,  # type: AnalyticsOptions
-                        **kwargs,  # type: Dict[str, Any]
-                        ) -> AnalyticsResult:
+    def analytics_query(self,
+                        statement: str,
+                        *options: AnalyticsOptions | JSONType,
+                        **kwargs: Any) -> AsyncAnalyticsResult:
         """Executes an analaytics query against the cluster.
 
         .. note::
             The analytics query is executed lazily in that it is executed once iteration over the
-            :class:`~couchbase.result.AnalyticsResult` begins.
+            :class:`~acouchbase.result.AsyncAnalyticsResult` begins.
 
         .. seealso::
-            * :class:`~acouchbase.management.analytics.AnalyticsIndexManager`: for how to manage analytics dataverses, datasets, indexes and links.
+            * :class:`~acouchbase.management.analytics.AnalyticsIndexManager`: for how to manage analytics dataverses,
+              datasets, indexes and links.
             * :meth:`~acouchbase.scope.AsyncScope.analytics_query`: for how to execute scope-level analytics queries
 
         Args:
             statement (str): The analytics SQL++ statement to execute.
             options (:class:`~couchbase.options.AnalyticsOptions`): Optional parameters for the analytics query
                 operation.
-            **kwargs (Dict[str, Any]): keyword arguments that can be used in place or to
-                override provided :class:`~couchbase.options.AnalyticsOptions`
+            **kwargs: keyword arguments that can be used in place or to
+                override provided :class:`~couchbase.options.AnalyticsOptions`.  A keyword that is not one of its
+                options is sent as a named parameter; prefer ``AnalyticsOptions(named_parameters=...)``, which
+                cannot collide with an option name.
 
         Returns:
-            :class:`~couchbase.result.AnalyticsResult`: An instance of a
-            :class:`~couchbase.result.AnalyticsResult` which provides access to iterate over the analytics
+            :class:`~acouchbase.result.AsyncAnalyticsResult`: An instance of a
+            :class:`~acouchbase.result.AsyncAnalyticsResult` which provides access to iterate over the analytics
             query results and access metadata and metrics about the analytics query.
 
         Examples:
@@ -402,7 +402,7 @@ class AsyncCluster:
 
             Simple analytics query with positional parameters::
 
-                from couchbase.options import AnalyticsOptions
+                from acouchbase.options import AnalyticsOptions
 
                 # ... other code ...
 
@@ -413,7 +413,7 @@ class AsyncCluster:
 
             Simple analytics query with named parameters::
 
-                from couchbase.options import AnalyticsOptions
+                from acouchbase.options import AnalyticsOptions
 
                 # ... other code ...
 
@@ -433,23 +433,22 @@ class AsyncCluster:
                 print(f'Analytics query metadata: {q_res.metadata()}')
                 print(f'Analytics query metrics: {q_res.metadata().metrics()}')
 
-        """  # noqa: E501
-        op_type = StreamingOperationType.AnalyticsQuery
-        obs_handler = ObservableRequestHandler(op_type, self._impl.observability_instruments)
-        req = self._impl.request_builder.build_analytics_query_request(statement, obs_handler, *options, **kwargs)
-        return self._impl.analytics_query(req)
+        """
+        return self._impl.analytics_query(statement, *options, **kwargs)
 
     def search_query(self,
-                     index,  # type: str
-                     query,  # type: SearchQuery
-                     *options,  # type: SearchOptions
-                     **kwargs   # type: Dict[str, Any]
-                     ) -> SearchResult:
+                     index: str,
+                     query: SearchQuery,
+                     options: SearchOptions | None = None,
+                     **kwargs: Unpack[SearchOptionsKwargs]) -> AsyncSearchResult:
         """Executes an search query against the cluster.
+
+        .. deprecated:: 4.1.11
+            Use :meth:`~acouchbase.cluster.AsyncCluster.search` instead.
 
         .. note::
             The search query is executed lazily in that it is executed once iteration over the
-            :class:`~couchbase.result.SearchResult` begins.
+            :class:`~acouchbase.result.AsyncSearchResult` begins.
 
         .. seealso::
             * :class:`~acouchbase.management.search.SearchIndexManager`: for how to manage search indexes.
@@ -460,13 +459,18 @@ class AsyncCluster:
             query (:class:`~couchbase.search.SearchQuery`): Type of search query to perform.
             options (:class:`~couchbase.options.SearchOptions`): Optional parameters for the search query
                 operation.
-            **kwargs (Dict[str, Any]): keyword arguments that can be used in place or to
+            **kwargs: keyword arguments that can be used in place or to
                 override provided :class:`~couchbase.options.SearchOptions`
 
         Returns:
-            :class:`~couchbase.result.SearchResult`: An instance of a
-            :class:`~couchbase.result.SearchResult` which provides access to iterate over the search
+            :class:`~acouchbase.result.AsyncSearchResult`: An instance of a
+            :class:`~acouchbase.result.AsyncSearchResult` which provides access to iterate over the search
             query results and access metadata and metrics about the search query.
+
+        Raises:
+            :class:`~couchbase.exceptions.InvalidArgumentException`: If a
+                :class:`~couchbase.search.SearchRequest` is provided.  Use
+                :meth:`~acouchbase.cluster.AsyncCluster.search` for a search request.
 
         Examples:
 
@@ -478,7 +482,7 @@ class AsyncCluster:
             Simple search query::
 
                 import couchbase.search as search
-                from couchbase.options import SearchOptions
+                from acouchbase.options import SearchOptions
 
                 # ... other code ...
 
@@ -494,7 +498,7 @@ class AsyncCluster:
             Simple search query with facets::
 
                 import couchbase.search as search
-                from couchbase.options import SearchOptions
+                from acouchbase.options import SearchOptions
 
                 # ... other code ...
 
@@ -514,7 +518,7 @@ class AsyncCluster:
             Simple search query with fields and locations::
 
                 import couchbase.search as search
-                from couchbase.options import SearchOptions
+                from acouchbase.options import SearchOptions
 
                 # ... other code ...
 
@@ -532,22 +536,18 @@ class AsyncCluster:
                     print(f'Locations: {row.locations}')
 
         """
-        op_type = StreamingOperationType.SearchQuery
-        obs_handler = ObservableRequestHandler(op_type, self._impl.observability_instruments)
-        req = self._impl.request_builder.build_search_request(index, query, obs_handler, *options, **kwargs)
-        return self._impl.search(req)
+        return self._impl.search_query(index, query, options, **kwargs)
 
     def search(self,
-               index,  # type: str
-               request,  # type: SearchRequest
-               *options,  # type: SearchOptions
-               **kwargs,  # type: Dict[str, Any]
-               ) -> SearchResult:
+               index: str,
+               request: SearchRequest | SearchQuery,
+               options: SearchOptions | None = None,
+               **kwargs: Unpack[SearchOptionsKwargs]) -> AsyncSearchResult:
         """Executes an search against the cluster.
 
         .. note::
             The search is executed lazily in that it is executed once iteration over the
-            :class:`~couchbase.result.SearchResult` begins.
+            :class:`~acouchbase.result.AsyncSearchResult` begins.
 
         .. seealso::
             * :class:`~couchbase.management.search.SearchIndexManager`: for how to manage search indexes.
@@ -555,14 +555,19 @@ class AsyncCluster:
 
         Args:
             index (str): Name of the search index to use.
-            request (:class:`~couchbase.search.SearchRequest`): Type of search request to perform.
+            request (:class:`~couchbase.search.SearchRequest` | :class:`~couchbase.search.SearchQuery`): Type of
+                search request to perform.
+
+                .. deprecated:: 4.7.0
+                    Passing a :class:`~couchbase.search.SearchQuery` is deprecated; wrap it with
+                    :meth:`~couchbase.search.SearchRequest.create` instead.
             options (:class:`~couchbase.options.SearchOptions`): Optional parameters for the search query operation.
-            **kwargs (Dict[str, Any]): keyword arguments that can be used in place or to
+            **kwargs: keyword arguments that can be used in place or to
                 override provided :class:`~couchbase.options.SearchOptions`
 
         Returns:
-            :class:`~couchbase.result.SearchResult`: An instance of a
-            :class:`~couchbase.result.SearchResult` which provides access to iterate over the search
+            :class:`~acouchbase.result.AsyncSearchResult`: An instance of a
+            :class:`~acouchbase.result.AsyncSearchResult` which provides access to iterate over the search
             query results and access metadata and metrics about the search query.
 
         Examples:
@@ -575,7 +580,7 @@ class AsyncCluster:
             Simple search::
 
                 import couchbase.search as search
-                from couchbase.options import SearchOptions
+                from acouchbase.options import SearchOptions
 
                 # ... other code ...
 
@@ -590,14 +595,16 @@ class AsyncCluster:
             Simple vector search::
 
                 import couchbase.search as search
-                from couchbase.options import SearchOptions
-                from couchbase.vector_search import VectorQuery, VectorSearch
+                from acouchbase.options import SearchOptions
+                from acouchbase.vector_search import VectorQuery, VectorSearch
 
                 # ... other code ...
 
-                # NOTE:  the vector is expected to be type List[float], set the vector to the appropriate value, this is an example.
+                # NOTE:  the vector is expected to be type list[float], set the vector to the appropriate value,
+                # this is an example.
                 vector = [-0.014653487130999565, -0.008658270351588726, 0.017129190266132355, -0.015563474968075752]
-                request = search.SearchRequest.create(VectorSearch.from_vector_query(VectorQuery('vector_field', vector)))
+                vector_search = VectorSearch.from_vector_query(VectorQuery('vector_field', vector))
+                request = search.SearchRequest.create(vector_search)
                 q_res = cluster.search('travel-sample-vector-index',
                                        request,
                                        SearchOptions(limit=10))
@@ -608,12 +615,13 @@ class AsyncCluster:
             Combine search and vector search::
 
                 import couchbase.search as search
-                from couchbase.options import SearchOptions
-                from couchbase.vector_search import VectorQuery, VectorSearch
+                from acouchbase.options import SearchOptions
+                from acouchbase.vector_search import VectorQuery, VectorSearch
 
                 # ... other code ...
 
-                # NOTE:  the vector is expected to be type List[float], set the vector to the appropriate value, this is an example.
+                # NOTE:  the vector is expected to be type list[float], set the vector to the appropriate value,
+                # this is an example.
                 vector_search = VectorSearch.from_vector_query(VectorQuery('vector_field', [-0.014653487130999565,
                                                                                             -0.008658270351588726,
                                                                                             0.017129190266132355,
@@ -625,84 +633,75 @@ class AsyncCluster:
 
                 async for row in q_res.rows():
                     print(f'Found row: {row}')
-        """  # noqa: E501
-        op_type = StreamingOperationType.SearchQuery
-        obs_handler = ObservableRequestHandler(op_type, self._impl.observability_instruments)
-        req = self._impl.request_builder.build_search_request(index, request, obs_handler, *options, **kwargs)
-        return self._impl.search(req)
+        """
+        return self._impl.search(index, request, options, **kwargs)
 
     def buckets(self) -> BucketManager:
-        """
-        Get a :class:`~acouchbase.management.buckets.BucketManager` which can be used to manage the buckets
-        of this cluster.
+        """Get a manager for the buckets of this cluster.
 
         Returns:
-            :class:`~acouchbase.management.buckets.BucketManager`: A :class:`~acouchbase.management.buckets.BucketManager` instance.
-        """  # noqa: E501
-        return BucketManager(self._impl._client_adapter, self._impl.observability_instruments)
+            :class:`~acouchbase.management.buckets.BucketManager`: A
+            :class:`~acouchbase.management.buckets.BucketManager` instance.
+        """
+        return BucketManager(self._impl.bucket_mgmt())
 
     def users(self) -> UserManager:
-        """
-        Get a :class:`~acouchbase.management.users.UserManager` which can be used to manage the users
-        of this cluster.
+        """Get a manager for the users of this cluster.
 
         Returns:
-            :class:`~acouchbase.management.users.UserManager`: A :class:`~couchbase.management.users.UserManager` instance.
-        """  # noqa: E501
-        return UserManager(self._impl._client_adapter, self._impl.observability_instruments)
+            :class:`~acouchbase.management.users.UserManager`: A :class:`~couchbase.management.users.UserManager`
+            instance.
+        """
+        return UserManager(self._impl.user_mgmt())
 
     def query_indexes(self) -> QueryIndexManager:
-        """
-        Get a :class:`~acouchbase.management.queries.QueryIndexManager` which can be used to manage the query
-        indexes of this cluster.
+        """Get a manager for the query indexes of this cluster.
 
         Returns:
-            :class:`~acouchbase.management.queries.QueryIndexManager`: A :class:`~acouchbase.management.queries.QueryIndexManager` instance.
-        """  # noqa: E501
-        return QueryIndexManager(self._impl._client_adapter, self._impl.observability_instruments)
+            :class:`~acouchbase.management.queries.QueryIndexManager`: A
+            :class:`~acouchbase.management.queries.QueryIndexManager` instance.
+        """
+        return QueryIndexManager(self._impl.query_index_mgmt())
 
     def analytics_indexes(self) -> AnalyticsIndexManager:
-        """
-        Get a :class:`~acouchbase.management.analytics.AnalyticsIndexManager` which can be used to manage the analytics
-        dataverses, dataset, indexes and links of this cluster.
+        """Get a manager for the analytics dataverses, datasets, indexes and links of this cluster.
 
         Returns:
-            :class:`~acouchbase.management.analytics.AnalyticsIndexManager`: An :class:`~acouchbase.management.analytics.AnalyticsIndexManager` instance.
-        """  # noqa: E501
-        return AnalyticsIndexManager(self._impl._client_adapter, self._impl.observability_instruments)
+            :class:`~acouchbase.management.analytics.AnalyticsIndexManager`: An
+            :class:`~acouchbase.management.analytics.AnalyticsIndexManager` instance.
+        """
+        return AnalyticsIndexManager(self._impl.analytics_mgmt())
 
     def search_indexes(self) -> SearchIndexManager:
-        """
-        Get a :class:`~acouchbase.management.search.SearchIndexManager` which can be used to manage the search
-        indexes of this cluster.
+        """Get a manager for the search indexes of this cluster.
 
         Returns:
-            :class:`~acouchbase.management.search.SearchIndexManager`: A :class:`~acouchbase.management.search.SearchIndexManager` instance.
+            :class:`~acouchbase.management.search.SearchIndexManager`: A
+            :class:`~acouchbase.management.search.SearchIndexManager` instance.
 
-        """  # noqa: E501
-        return SearchIndexManager(self._impl._client_adapter, self._impl.observability_instruments)
+        """
+        return SearchIndexManager(self._impl.search_index_mgmt())
 
     def eventing_functions(self) -> EventingFunctionManager:
-        """
-        Get a :class:`~acouchbase.management.eventing.EventingFunctionManager` which can be used to manage the
-        eventing functions of this cluster.
+        """Get a manager for the eventing functions of this cluster.
 
         .. note::
             Eventing function management is an **uncommitted** API that is unlikely to change,
             but may still change as final consensus on its behavior has not yet been reached.
 
         Returns:
-            :class:`~acouchbase.management.eventing.EventingFunctionManager`: An :class:`~acouchbase.management.eventing.EventingFunctionManager` instance.
+            :class:`~acouchbase.management.eventing.EventingFunctionManager`: An
+            :class:`~acouchbase.management.eventing.EventingFunctionManager` instance.
 
-        """  # noqa: E501
-        return EventingFunctionManager(self._impl._client_adapter, self._impl.observability_instruments)
+        """
+        return EventingFunctionManager(self._impl.eventing_function_mgmt())
 
     @staticmethod
-    async def connect(connstr,  # type: str
-                      *options,  # type: ClusterOptions
-                      **kwargs,  # type: Dict[str, Any]
-                      ) -> AsyncCluster:
-        """Create a Couchbase Cluster and connect
+    async def connect(connstr: str,
+                      *options: ClusterOptions,
+                      loop: AbstractEventLoop | None = None,
+                      **kwargs: Unpack[ClusterKwargs]) -> AsyncCluster:
+        """Create a cluster and connect to it.
 
         Args:
             connstr (str):
@@ -716,7 +715,9 @@ class AsyncCluster:
             options (:class:`~couchbase.options.ClusterOptions`): Global options to set for the cluster.
                 Some operations allow the global options to be overriden by passing in options to the
                 operation.
-            **kwargs (Dict[str, Any]): keyword arguments that can be used in place or to
+            loop (:class:`asyncio.AbstractEventLoop`, optional): The event loop the cluster runs on.  It must be
+                the running loop.  If not provided, the running loop is used.
+            **kwargs: keyword arguments that can be used in place or to
                 overrride provided :class:`~couchbase.options.ClusterOptions`
 
         Returns:
@@ -733,8 +734,8 @@ class AsyncCluster:
             Initialize cluster using default options::
 
                 from acouchbase.cluster import Cluster
-                from couchbase.auth import PasswordAuthenticator
-                from couchbase.options import ClusterOptions
+                from acouchbase.auth import PasswordAuthenticator
+                from acouchbase.options import ClusterOptions
 
                 auth = PasswordAuthenticator('username', 'password')
                 cluster = await Cluster.connect('couchbase://localhost', ClusterOptions(auth))
@@ -742,8 +743,8 @@ class AsyncCluster:
             Connect using SSL::
 
                 from acouchbase.cluster import Cluster
-                from couchbase.auth import PasswordAuthenticator
-                from couchbase.options import ClusterOptions
+                from acouchbase.auth import PasswordAuthenticator
+                from acouchbase.options import ClusterOptions
 
                 auth = PasswordAuthenticator('username', 'password', cert_path='/path/to/cert')
                 cluster = await Cluster.connect('couchbases://localhost', ClusterOptions(auth))
@@ -753,8 +754,8 @@ class AsyncCluster:
                 from datetime import timedelta
 
                 from acouchbase.cluster import Cluster
-                from couchbase.auth import PasswordAuthenticator
-                from couchbase.options import ClusterOptions, ClusterTimeoutOptions
+                from acouchbase.auth import PasswordAuthenticator
+                from acouchbase.options import ClusterOptions, ClusterTimeoutOptions
 
                 auth = PasswordAuthenticator('username', 'password')
                 timeout_opts = ClusterTimeoutOptions(kv_timeout=timedelta(seconds=10),
@@ -763,7 +764,7 @@ class AsyncCluster:
                                                 ClusterOptions(auth, timeout_options=timeout_opts))
 
         """
-        cluster = AsyncCluster(connstr, *options, **kwargs)
+        cluster = AsyncCluster(connstr, *options, loop=loop, **kwargs)
         await cluster.on_connect()
         return cluster
 

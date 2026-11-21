@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: zernio-sdk
-Version: 1.4.1918
+Version: 1.4.1925
 Summary: The official Python library for the Zernio API
 Project-URL: Homepage, https://zernio.com
 Project-URL: Documentation, https://docs.zernio.com
@@ -1931,6 +1931,16 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `workflows.take_over_workflow()` | Take over a workflow |
 | `workflows.trigger_api_call_workflow()` | Start an API-triggered workflow |
 | `workflows.trigger_workflow()` | Manually start a workflow run |
+
+### Workspaces
+| Method | Description |
+|--------|-------------|
+| `workspaces.list_workspaces()` | List workspaces |
+| `workspaces.create_workspace()` | Create workspace |
+| `workspaces.create_workspace_api_key()` | Create workspace key |
+| `workspaces.get_workspace()` | Get workspace |
+| `workspaces.update_workspace()` | Rename workspace |
+| `workspaces.delete_workspace()` | Delete workspace |
 
 ### Invites
 | Method | Description |

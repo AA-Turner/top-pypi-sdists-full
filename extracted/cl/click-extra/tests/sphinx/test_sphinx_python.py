@@ -25,13 +25,15 @@ Covers ``python:source``, ``python:run``, and the three render variants:
 from __future__ import annotations
 
 import sys
+import traceback
 from pathlib import Path
 from textwrap import dedent
 
 import pytest
 from click.testing import CliRunner
 
-from click_extra.cli import refresh_directives_cmd
+from click_extra.bug_report import REPORT_START
+from click_extra.cli import demo, refresh_directives_cmd
 from click_extra.sphinx.python import (
     MIRROR_MARKER_END,
     MIRROR_MARKER_START,
@@ -641,6 +643,74 @@ def test_refresh_directives_cli_reads_and_writes_a_page_once(tmp_path, monkeypat
     result = CliRunner().invoke(refresh_directives_cmd, [str(doc)])
     assert result.exit_code == 0, result.output
     assert calls == ["read", "write"]
+
+
+def test_refresh_directives_crashing_mirror_gets_no_bug_report(invoke, tmp_path):
+    """A crash of a mirror block is a bug of its page: Click Extra reports none.
+
+    The `click-extra` CLI has a `report_url`, so its root would otherwise end the
+    run with a report for the issues of Click Extra. The subcommand has its own
+    `--version` option, so the flag it sets reaches the root only through the
+    `ctx.meta` they share.
+    """
+    doc = tmp_path / "page.md"
+    doc.write_text(
+        dedent("""\
+            ```{python:render}
+            :mirror:
+            print(len("plums") // 0)
+            ```
+            """),
+        encoding="UTF-8",
+    )
+    result = invoke(demo, "refresh-directives", doc)
+
+    assert result.exit_code == 1
+    assert isinstance(result.exception, ZeroDivisionError)
+    assert REPORT_START not in result.stderr
+
+
+@pytest.mark.parametrize(
+    "page",
+    [
+        pytest.param(
+            "# Orchard\n"
+            "\n"
+            "```{python:render}\n"
+            ":mirror:\n"
+            "\n"
+            'fruits = ["apple", "pear"]\n'
+            "print(len(fruits) // 0)\n"
+            "```\n",
+            id="fence",
+        ),
+        pytest.param(
+            "# Orchard\n"
+            "\n"
+            "<!-- mirror-src\n"
+            "\n"
+            'fruits = ["apple", "pear"]\n'
+            "print(len(fruits) // 0)\n"
+            "-->\n",
+            id="comment",
+        ),
+    ],
+)
+def test_crashing_mirror_traceback_names_its_page_line(tmp_path, page):
+    """The traceback of a mirror block that raises names the line of its page."""
+    doc = tmp_path / "page.md"
+    doc.write_text(page, encoding="UTF-8")
+
+    with pytest.raises(ZeroDivisionError) as excinfo:
+        update_mirror_blocks([doc])
+
+    raiser = "print(len(fruits) // 0)"
+    frames = [
+        (frame.lineno, frame.line)
+        for frame in traceback.extract_tb(excinfo.value.__traceback__)
+        if frame.filename == str(doc)
+    ]
+    assert frames == [(page.splitlines().index(raiser) + 1, raiser)]
 
 
 def test_python_render_mirror_show_source_still_single_table(sphinx_app_myst):

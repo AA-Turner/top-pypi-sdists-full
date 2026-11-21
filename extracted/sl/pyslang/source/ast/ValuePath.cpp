@@ -322,8 +322,11 @@ ValuePath ValuePath::clone(BumpAllocator& alloc, EvalContext& evalContext) const
 static const Expression& doRetarget(BumpAllocator& alloc, const Expression& expr,
                                     const ValueSymbol& target) {
     auto checkTypeMatch = [&](const Type& symType) {
+        // Retargeting happens between instances that share a body, so a type declared
+        // in one of them (like an enum) can be a copy of the one declared in the other.
         auto& targetType = target.getType();
-        return symType.isMatching(targetType) || symType.isIdenticalStructUnion(targetType);
+        return symType.isMatchingAcrossElaborations(targetType) ||
+               symType.isIdenticalStructUnion(targetType);
     };
 
     switch (expr.kind) {

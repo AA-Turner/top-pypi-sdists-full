@@ -139,7 +139,7 @@ from .literals import (
     ScheduleTypeType,
     SchemaStatusType,
     SchemaVersionStatusType,
-    SearchFilterOperatorType,
+    SearchFilterComparatorType,
     SearchSortOrderType,
     SeparatorType,
     SessionStatusType,
@@ -210,8 +210,11 @@ __all__ = (
     "ApplyMappingTypeDef",
     "ApplyMappingUnionTypeDef",
     "AssetFormEntryTypeDef",
-    "AssetTypeFormReferenceTypeDef",
+    "AssetFormInputTypeDef",
+    "AssetTypeFormOutputTypeDef",
     "AssetTypeItemTypeDef",
+    "AssetsExportResultTypeDef",
+    "AssetsExportTypeDef",
     "AssociateGlossaryTermsRequestTypeDef",
     "AssociateGlossaryTermsResponseTypeDef",
     "AthenaConnectorSourceOutputTypeDef",
@@ -521,7 +524,6 @@ __all__ = (
     "DecimalNumberTypeDef",
     "DecimalNumberUnionTypeDef",
     "DeleteAssetRequestTypeDef",
-    "DeleteAssetTypeRequestTypeDef",
     "DeleteAttachmentRequestTypeDef",
     "DeleteAttachmentResponseTypeDef",
     "DeleteBlueprintRequestTypeDef",
@@ -1152,8 +1154,6 @@ __all__ = (
     "PublishDataQualityResultV2ResponseTypeDef",
     "PutAssetRequestTypeDef",
     "PutAssetResponseTypeDef",
-    "PutAssetTypeRequestTypeDef",
-    "PutAssetTypeResponseTypeDef",
     "PutAttachmentRequestTypeDef",
     "PutAttachmentResponseTypeDef",
     "PutDataCatalogEncryptionSettingsRequestTypeDef",
@@ -1282,6 +1282,9 @@ __all__ = (
     "S3ParquetSourceTypeDef",
     "S3ParquetSourceUnionTypeDef",
     "S3SourceAdditionalOptionsTypeDef",
+    "S3TablesConfigurationResultTypeDef",
+    "S3TablesConfigurationTypeDef",
+    "S3TablesExportStateTypeDef",
     "S3TargetOutputTypeDef",
     "S3TargetTypeDef",
     "ScheduleTypeDef",
@@ -1596,13 +1599,26 @@ class AssetFormEntryTypeDef(TypedDict):
     Content: NotRequired[str]
 
 
-class AssetTypeFormReferenceTypeDef(TypedDict):
-    FormTypeIdentifier: str
+class AssetFormInputTypeDef(TypedDict):
+    FormTypeIdentifier: NotRequired[str]
+    Content: NotRequired[str]
+
+
+class AssetTypeFormOutputTypeDef(TypedDict):
+    FormTypeId: NotRequired[str]
 
 
 class AssetTypeItemTypeDef(TypedDict):
     Id: NotRequired[str]
     Name: NotRequired[str]
+
+
+class S3TablesExportStateTypeDef(TypedDict):
+    Status: NotRequired[ExportStatusType]
+
+
+class AssetsExportTypeDef(TypedDict):
+    S3TablesExport: NotRequired[ExportSettingType]
 
 
 class AssociateGlossaryTermsRequestTypeDef(TypedDict):
@@ -2956,10 +2972,6 @@ class DecimalNumberOutputTypeDef(TypedDict):
 
 
 class DeleteAssetRequestTypeDef(TypedDict):
-    Identifier: str
-
-
-class DeleteAssetTypeRequestTypeDef(TypedDict):
     Identifier: str
 
 
@@ -4322,9 +4334,9 @@ class PutAttachmentRequestTypeDef(TypedDict):
     AssetIdentifier: str
     AttachmentName: str
     Content: str
-    FormTypeId: str
     IterableFormName: NotRequired[str]
     ItemIdentifier: NotRequired[str]
+    FormTypeIdentifier: NotRequired[str]
     ClientToken: NotRequired[str]
 
 
@@ -4439,8 +4451,9 @@ class SearchSortTypeDef(TypedDict):
 
 class SearchResultItemTypeDef(TypedDict):
     Id: NotRequired[str]
-    AssetName: NotRequired[str]
-    AssetDescription: NotRequired[str]
+    Name: NotRequired[str]
+    Description: NotRequired[str]
+    CreatedAt: NotRequired[datetime]
     UpdatedAt: NotRequired[datetime]
     AssetTypeId: NotRequired[str]
 
@@ -5043,24 +5056,23 @@ class IterableFormItemTypeDef(TypedDict):
 
 
 class PutAssetRequestTypeDef(TypedDict):
-    AssetTypeId: str
     Identifier: str
     Name: str
-    Forms: Mapping[str, AssetFormEntryTypeDef]
+    Forms: Mapping[str, AssetFormInputTypeDef]
+    AssetTypeIdentifier: NotRequired[str]
     Description: NotRequired[str]
     ClientToken: NotRequired[str]
 
 
-class PutAssetTypeRequestTypeDef(TypedDict):
-    Name: str
-    Forms: Mapping[str, AssetTypeFormReferenceTypeDef]
-    ClientToken: NotRequired[str]
+class AssetsExportResultTypeDef(TypedDict):
+    S3TablesExport: NotRequired[ExportSettingType]
+    S3TablesExportState: NotRequired[S3TablesExportStateTypeDef]
 
 
 class AssociateGlossaryTermsResponseTypeDef(TypedDict):
-    AssetIdentifier: str
+    AssetId: str
     IterableFormName: str
-    ItemIdentifier: str
+    ItemId: str
     GlossaryTerms: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -5217,9 +5229,9 @@ class CreateWorkflowResponseTypeDef(TypedDict):
 
 
 class DeleteAttachmentResponseTypeDef(TypedDict):
-    AssetIdentifier: str
+    AssetId: str
     IterableFormName: str
-    ItemIdentifier: str
+    ItemId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -5273,9 +5285,9 @@ class DeleteWorkflowResponseTypeDef(TypedDict):
 
 
 class DisassociateGlossaryTermsResponseTypeDef(TypedDict):
-    AssetIdentifier: str
+    AssetId: str
     IterableFormName: str
-    ItemIdentifier: str
+    ItemId: str
     GlossaryTerms: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -5283,7 +5295,7 @@ class DisassociateGlossaryTermsResponseTypeDef(TypedDict):
 class GetAssetTypeResponseTypeDef(TypedDict):
     Id: str
     Name: str
-    Forms: dict[str, AssetTypeFormReferenceTypeDef]
+    Forms: dict[str, AssetTypeFormOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -5506,22 +5518,16 @@ class PutAssetResponseTypeDef(TypedDict):
     Id: str
     Name: str
     Description: str
+    AssetTypeId: str
     CreatedAt: datetime
     Forms: dict[str, AssetFormEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class PutAssetTypeResponseTypeDef(TypedDict):
-    Id: str
-    Name: str
-    Forms: dict[str, AssetTypeFormReferenceTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class PutAttachmentResponseTypeDef(TypedDict):
-    AssetIdentifier: str
+    AssetId: str
     IterableFormName: str
-    ItemIdentifier: str
+    ItemId: str
     AttachmentName: str
     FormTypeId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -7020,26 +7026,13 @@ class SchemaVersionErrorItemTypeDef(TypedDict):
     ErrorDetails: NotRequired[ErrorDetailsTypeDef]
 
 
-class GetDataCatalogExportConfigurationOutputTypeDef(TypedDict):
-    ExportSetting: ExportSettingType
-    Status: ExportStatusType
-    EncryptionConfiguration: ExportEncryptionConfigurationTypeDef
-    S3TableBucketArn: str
-    CreatedAt: datetime
-    UpdatedAt: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class PutDataCatalogExportConfigurationInputTypeDef(TypedDict):
-    ExportSetting: ExportSettingType
+class S3TablesConfigurationResultTypeDef(TypedDict):
+    TableBucketArn: NotRequired[str]
     EncryptionConfiguration: NotRequired[ExportEncryptionConfigurationTypeDef]
-    ClientToken: NotRequired[str]
 
 
-class PutDataCatalogExportConfigurationOutputTypeDef(TypedDict):
-    ExportSetting: ExportSettingType
-    EncryptionConfiguration: ExportEncryptionConfigurationTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
+class S3TablesConfigurationTypeDef(TypedDict):
+    EncryptionConfiguration: NotRequired[ExportEncryptionConfigurationTypeDef]
 
 
 class ExtractedParameterTypeDef(TypedDict):
@@ -7545,7 +7538,7 @@ class SearchAssetsOutputTypeDef(TypedDict):
 
 class SearchAttributeFilterTypeDef(TypedDict):
     Attribute: str
-    Operator: SearchFilterOperatorType
+    Comparator: NotRequired[SearchFilterComparatorType]
     Value: NotRequired[SearchFilterValueTypeDef]
 
 
@@ -8332,6 +8325,26 @@ EncryptionConfigurationUnionTypeDef = Union[
 
 class DeleteSchemaVersionsResponseTypeDef(TypedDict):
     SchemaVersionErrors: list[SchemaVersionErrorItemTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetDataCatalogExportConfigurationOutputTypeDef(TypedDict):
+    CreatedAt: datetime
+    UpdatedAt: datetime
+    S3TablesConfiguration: S3TablesConfigurationResultTypeDef
+    Assets: AssetsExportResultTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class PutDataCatalogExportConfigurationInputTypeDef(TypedDict):
+    ClientToken: NotRequired[str]
+    S3TablesConfiguration: NotRequired[S3TablesConfigurationTypeDef]
+    Assets: NotRequired[AssetsExportTypeDef]
+
+
+class PutDataCatalogExportConfigurationOutputTypeDef(TypedDict):
+    S3TablesConfiguration: S3TablesConfigurationTypeDef
+    Assets: AssetsExportTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 

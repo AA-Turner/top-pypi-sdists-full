@@ -680,11 +680,11 @@ def _readpath_cases() -> tuple[tuple[str, Case], ...]:
 
 
 def _stream_cases() -> tuple[tuple[str, Case], ...]:
-    wide_paragraph: Final = f"<p>{'名' * 4089}</p>"
-    wide_body: Final = wide_paragraph * 64
-    prefix: Final = "<html><head></head><body>"
-    suffix: Final = "</body></html>"
-    nul_element: Final = "<p data-x='\x00'></p>"
+    wide_paragraph: Final[str] = f"<p>{'名' * 4089}</p>"
+    wide_body: Final[str] = wide_paragraph * 64
+    prefix: Final[str] = "<html><head></head><body>"
+    suffix: Final[str] = "</body></html>"
+    nul_element: Final[str] = "<p data-x='\x00'></p>"
     return (
         *_readpath_cases(),
         ("64 BMP paragraphs, early NUL", prefix + nul_element + wide_body + suffix),
@@ -976,6 +976,11 @@ def _article_page(paragraphs: int) -> str:
     return f"{head}{nav}{article}<footer><p>Copyright notice, all rights reserved here.</p></footer></body></html>"
 
 
+def _full_document(fragment: str) -> str:
+    # htmldate returns None without searching a fragment with no html tag in its first 50 characters.
+    return f"<html><body>{fragment}</body></html>"
+
+
 _FILTER_STYLED_PAGES: Final[tuple[tuple[str, str], ...]] = tuple(
     (
         f"256 rules / 128 parent-child pairs / {label}",
@@ -1212,7 +1217,7 @@ _XSLT_SOURCE: Final[str] = (
 
 def _transform_text_cases() -> tuple[tuple[str, Case], ...]:
     cases: Final[list[tuple[str, Case]]] = []
-    payload: Final = "payload " * 8
+    payload: Final[str] = "payload " * 8
     for kind in ("builtin", "literal", "xsl:text"):
         for count in (4096, 1_400):
             if kind == "builtin":
@@ -1256,8 +1261,10 @@ def _transform_key_cases() -> tuple[tuple[str, Case], ...]:
 def _transform_scope_cases() -> tuple[tuple[str, Case], ...]:
     cases: Final[list[tuple[str, Case]]] = []
     for scope, count in (("local", 1024), ("local", 2_000), ("global", 1024), ("global", 2_000)):
-        declarations: Final = "".join(f'<xsl:variable name="v{index}" select="{index}"/>' for index in range(count))
-        sheet: Final = (
+        declarations: Final[str] = "".join(
+            f'<xsl:variable name="v{index}" select="{index}"/>' for index in range(count)
+        )
+        sheet: Final[str] = (
             '<xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="1.0">'
             '<xsl:output method="text"/>'
             f'{declarations if scope == "global" else ""}<xsl:template match="/">'
@@ -1277,16 +1284,16 @@ def _transform_namespace_cases() -> tuple[tuple[str, Case], ...]:
         ("shallow leaf run", 1, 400, True, False),
         ("namespace-free repeated leaf", 32, 512, False, False),
     ):
-        prefix: Final = f"p{(depth - 1) % 8}:" if namespaced else ""
-        ancestors: Final = "".join(
+        prefix: Final[str] = f"p{(depth - 1) % 8}:" if namespaced else ""
+        ancestors: Final[str] = "".join(
             f'<xsl:if test="1" xmlns:p{index % 8}="urn:{index}">' if namespaced else '<xsl:if test="1">'
             for index in range(depth)
         )
         # Use each binding so competitors retain the same namespace declarations.
-        attributes: Final = (
+        attributes: Final[str] = (
             "".join(f' p{index}:a=""' for index in range(min(depth - 1, 7) - 1, -1, -1)) if namespaced else ""
         )
-        sheet: Final = (
+        sheet: Final[str] = (
             '<xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="1.0">'
             '<xsl:output method="xml" omit-xml-declaration="yes"/><xsl:template match="/">'
             f'<out><xsl:for-each select="r/n">{ancestors}<{prefix}leaf{attributes}/>'
@@ -1305,7 +1312,7 @@ def _transform_cases() -> tuple[tuple[str, Case], ...]:
             (
                 (
                     '<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">'
-                    '<xsl:output method="html"/>'
+                    '<xsl:output method="html" indent="no"/>'
                     '<xsl:key name="by-cat" match="book" use="@cat"/>'
                     '<xsl:template match="/"><table>'
                     '<xsl:apply-templates select="catalog/book">'
@@ -1960,7 +1967,7 @@ def _validate_facet_cases() -> tuple[tuple[str, tuple[str, str]], ...]:
 
 
 def _compile_facet_schema() -> str:
-    derived: Final = "".join(
+    derived: Final[str] = "".join(
         f'<xs:simpleType name="derived{index}"><xs:restriction base="item">'
         f'<xs:maxLength value="{index % 6 + 3}"/></xs:restriction></xs:simpleType>'
         for index in range(256)
@@ -1969,7 +1976,7 @@ def _compile_facet_schema() -> str:
 
 
 def _compile_pattern_schema() -> str:
-    patterns: Final = "".join(f'<xs:pattern value="[a-z]+{index}[0-9]+"/>' for index in range(210))
+    patterns: Final[str] = "".join(f'<xs:pattern value="[a-z]+{index}[0-9]+"/>' for index in range(210))
     return (
         '<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:simpleType name="item">'
         f'<xs:restriction base="xs:string">{patterns}</xs:restriction></xs:simpleType>'
@@ -1979,9 +1986,9 @@ def _compile_pattern_schema() -> str:
 
 
 def _encoding_chunks_cases() -> tuple[tuple[str, tuple[int, bytes]], ...]:
-    ascii_body: Final = (_ENCODING_ASCII * 900).encode()[:65536]
-    japanese: Final = _ENCODING_JAPANESE.encode("shift_jis")
-    mixed: Final = japanese + ascii_body
+    ascii_body: Final[bytes] = (_ENCODING_ASCII * 900).encode()[:65536]
+    japanese: Final[bytes] = _ENCODING_JAPANESE.encode("shift_jis")
+    mixed: Final[bytes] = japanese + ascii_body
     return (
         ("Japanese prefix, 64 KiB ASCII suffix, 4 KiB chunks", (4096, mixed)),
         ("Japanese prefix, 2,088-byte ASCII suffix, 16-byte chunks", (16, japanese + b"plain ASCII suffix" * 116)),
@@ -2250,7 +2257,7 @@ INPUTS: Final[dict[str, Callable[[], tuple[tuple[str, Case], ...]]]] = {
     ),
     "query-roots": lambda: tuple(
         (f"{count} {order} roots", (count, order))
-        for count, order in ((2_048, "reversed"), (2_048, "shuffled"), (2_048, "sorted"), (2_048, "reversed"))
+        for count, order in ((2_048, "reversed"), (2_048, "shuffled"), (2_048, "sorted"))
     ),
     "query-closest": lambda: (
         ("32,768 children, shared ancestor", (32_768, True)),
@@ -2901,20 +2908,22 @@ INPUTS: Final[dict[str, Callable[[], tuple[tuple[str, Case], ...]]]] = {
     "date-tally": lambda: (
         (
             "1000 distinct visible dates",
-            f"<p>{' '.join((date(2000, 1, 1) + timedelta(days=index)).isoformat() for index in range(1000))}</p>",
+            _full_document(
+                f"<p>{' '.join((date(2000, 1, 1) + timedelta(days=index)).isoformat() for index in range(1000))}</p>"
+            ),
         ),
-        ("1000 repeated visible dates", f"<p>{'2000-01-01 ' * 1000}</p>"),
+        ("1000 repeated visible dates", _full_document(f"<p>{'2000-01-01 ' * 1000}</p>")),
     ),
     "date": lambda: (
         ("post (4 KiB)", _article_page(16)),
         ("longform (16 KiB)", _article_page(72)),
-        ("100 meta candidates", f"<head>{'<meta name=date content=2024-05-06>' * 100}</head>"),
-        ("early temporal ISO date, 36 KiB text", f"<time>2024-05-06 {'ordinary ' * 4096}</time>"),
-        ("late temporal ISO date, 36 KiB text", f"<time>{'ordinary ' * 4096}2024-05-06</time>"),
-        ("temporal text without dates, 36 KiB", f"<time>{'ordinary ' * 4096}</time>"),
-        ("single temporal ISO date, 72 KiB text", f"<time>{'ordinary ' * 8192}2024-05-06</time>"),
-        ("early temporal numeric date, 36 KiB text", f"<time>06/05/2024 {'ordinary ' * 4096}</time>"),
-        ("early temporal written date, 36 KiB text", f"<time>May 6, 2024 {'ordinary ' * 4096}</time>"),
+        ("100 meta candidates", f"<html><head>{'<meta name=date content=2024-05-06>' * 100}</head></html>"),
+        ("early temporal ISO date, 36 KiB text", _full_document(f"<time>2024-05-06 {'ordinary ' * 4096}</time>")),
+        ("late temporal ISO date, 36 KiB text", _full_document(f"<time>{'ordinary ' * 4096}2024-05-06</time>")),
+        ("temporal text without dates, 36 KiB", _full_document(f"<time>{'ordinary ' * 4096}</time>")),
+        ("single temporal ISO date, 72 KiB text", _full_document(f"<time>{'ordinary ' * 8192}2024-05-06</time>")),
+        ("early temporal numeric date, 36 KiB text", _full_document(f"<time>06/05/2024 {'ordinary ' * 4096}</time>")),
+        ("early temporal written date, 36 KiB text", _full_document(f"<time>May 6, 2024 {'ordinary ' * 4096}</time>")),
     ),
     "text-render": lambda: (("article (2 KiB)", _TEXT_ARTICLE), ("table (4 KiB)", _TEXT_TABLE)),
     "text-collapsed": lambda: (("collapsed (2 KiB)", _TEXT_ARTICLE),),

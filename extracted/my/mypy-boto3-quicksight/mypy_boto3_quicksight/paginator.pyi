@@ -14,6 +14,7 @@ Usage::
     from mypy_boto3_quicksight.paginator import (
         DescribeFolderPermissionsPaginator,
         DescribeFolderResolvedPermissionsPaginator,
+        ListAccessControlApplicationsPaginator,
         ListActionConnectorsPaginator,
         ListAnalysesPaginator,
         ListApprovalPoliciesPaginator,
@@ -35,11 +36,15 @@ Usage::
         ListGroupsPaginator,
         ListIAMPolicyAssignmentsForUserPaginator,
         ListIAMPolicyAssignmentsPaginator,
+        ListInboundConnectorApplicationAssociationsPaginator,
+        ListInboundConnectorsPaginator,
         ListIngestionsPaginator,
+        ListKnowledgeBaseRefreshSchedulesPaginator,
         ListKnowledgeBasesPaginator,
         ListLimitsProfilesPaginator,
         ListNamespacesPaginator,
         ListOAuthClientApplicationsPaginator,
+        ListPrincipalsForPolicyPaginator,
         ListRoleMembershipsPaginator,
         ListTemplateAliasesPaginator,
         ListTemplateVersionsPaginator,
@@ -68,6 +73,7 @@ Usage::
 
     describe_folder_permissions_paginator: DescribeFolderPermissionsPaginator = client.get_paginator("describe_folder_permissions")
     describe_folder_resolved_permissions_paginator: DescribeFolderResolvedPermissionsPaginator = client.get_paginator("describe_folder_resolved_permissions")
+    list_access_control_applications_paginator: ListAccessControlApplicationsPaginator = client.get_paginator("list_access_control_applications")
     list_action_connectors_paginator: ListActionConnectorsPaginator = client.get_paginator("list_action_connectors")
     list_analyses_paginator: ListAnalysesPaginator = client.get_paginator("list_analyses")
     list_approval_policies_paginator: ListApprovalPoliciesPaginator = client.get_paginator("list_approval_policies")
@@ -89,11 +95,15 @@ Usage::
     list_groups_paginator: ListGroupsPaginator = client.get_paginator("list_groups")
     list_iam_policy_assignments_for_user_paginator: ListIAMPolicyAssignmentsForUserPaginator = client.get_paginator("list_iam_policy_assignments_for_user")
     list_iam_policy_assignments_paginator: ListIAMPolicyAssignmentsPaginator = client.get_paginator("list_iam_policy_assignments")
+    list_inbound_connector_application_associations_paginator: ListInboundConnectorApplicationAssociationsPaginator = client.get_paginator("list_inbound_connector_application_associations")
+    list_inbound_connectors_paginator: ListInboundConnectorsPaginator = client.get_paginator("list_inbound_connectors")
     list_ingestions_paginator: ListIngestionsPaginator = client.get_paginator("list_ingestions")
+    list_knowledge_base_refresh_schedules_paginator: ListKnowledgeBaseRefreshSchedulesPaginator = client.get_paginator("list_knowledge_base_refresh_schedules")
     list_knowledge_bases_paginator: ListKnowledgeBasesPaginator = client.get_paginator("list_knowledge_bases")
     list_limits_profiles_paginator: ListLimitsProfilesPaginator = client.get_paginator("list_limits_profiles")
     list_namespaces_paginator: ListNamespacesPaginator = client.get_paginator("list_namespaces")
     list_o_auth_client_applications_paginator: ListOAuthClientApplicationsPaginator = client.get_paginator("list_o_auth_client_applications")
+    list_principals_for_policy_paginator: ListPrincipalsForPolicyPaginator = client.get_paginator("list_principals_for_policy")
     list_role_memberships_paginator: ListRoleMembershipsPaginator = client.get_paginator("list_role_memberships")
     list_template_aliases_paginator: ListTemplateAliasesPaginator = client.get_paginator("list_template_aliases")
     list_template_versions_paginator: ListTemplateVersionsPaginator = client.get_paginator("list_template_versions")
@@ -130,6 +140,8 @@ from .type_defs import (
     DescribeFolderPermissionsResponseTypeDef,
     DescribeFolderResolvedPermissionsRequestPaginateTypeDef,
     DescribeFolderResolvedPermissionsResponseTypeDef,
+    ListAccessControlApplicationsRequestPaginateTypeDef,
+    ListAccessControlApplicationsResponseTypeDef,
     ListActionConnectorsRequestPaginateTypeDef,
     ListActionConnectorsResponseTypeDef,
     ListAnalysesRequestPaginateTypeDef,
@@ -172,8 +184,14 @@ from .type_defs import (
     ListIAMPolicyAssignmentsForUserResponseTypeDef,
     ListIAMPolicyAssignmentsRequestPaginateTypeDef,
     ListIAMPolicyAssignmentsResponseTypeDef,
+    ListInboundConnectorApplicationAssociationsRequestPaginateTypeDef,
+    ListInboundConnectorApplicationAssociationsResponseTypeDef,
+    ListInboundConnectorsRequestPaginateTypeDef,
+    ListInboundConnectorsResponseTypeDef,
     ListIngestionsRequestPaginateTypeDef,
     ListIngestionsResponseTypeDef,
+    ListKnowledgeBaseRefreshSchedulesRequestPaginateTypeDef,
+    ListKnowledgeBaseRefreshSchedulesResponseTypeDef,
     ListKnowledgeBasesRequestPaginateTypeDef,
     ListKnowledgeBasesResponseTypeDef,
     ListLimitsProfilesRequestPaginateTypeDef,
@@ -182,6 +200,8 @@ from .type_defs import (
     ListNamespacesResponseTypeDef,
     ListOAuthClientApplicationsRequestPaginateTypeDef,
     ListOAuthClientApplicationsResponseTypeDef,
+    ListPrincipalsForPolicyRequestPaginateTypeDef,
+    ListPrincipalsForPolicyResponseTypeDef,
     ListRoleMembershipsRequestPaginateTypeDef,
     ListRoleMembershipsResponseTypeDef,
     ListTemplateAliasesRequestPaginateTypeDef,
@@ -234,6 +254,7 @@ else:
 __all__ = (
     "DescribeFolderPermissionsPaginator",
     "DescribeFolderResolvedPermissionsPaginator",
+    "ListAccessControlApplicationsPaginator",
     "ListActionConnectorsPaginator",
     "ListAnalysesPaginator",
     "ListApprovalPoliciesPaginator",
@@ -255,11 +276,15 @@ __all__ = (
     "ListGroupsPaginator",
     "ListIAMPolicyAssignmentsForUserPaginator",
     "ListIAMPolicyAssignmentsPaginator",
+    "ListInboundConnectorApplicationAssociationsPaginator",
+    "ListInboundConnectorsPaginator",
     "ListIngestionsPaginator",
+    "ListKnowledgeBaseRefreshSchedulesPaginator",
     "ListKnowledgeBasesPaginator",
     "ListLimitsProfilesPaginator",
     "ListNamespacesPaginator",
     "ListOAuthClientApplicationsPaginator",
+    "ListPrincipalsForPolicyPaginator",
     "ListRoleMembershipsPaginator",
     "ListTemplateAliasesPaginator",
     "ListTemplateVersionsPaginator",
@@ -319,6 +344,26 @@ class DescribeFolderResolvedPermissionsPaginator(_DescribeFolderResolvedPermissi
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/DescribeFolderResolvedPermissions.html#QuickSight.Paginator.DescribeFolderResolvedPermissions.paginate)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/paginators/#describefolderresolvedpermissionspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListAccessControlApplicationsPaginatorBase = Paginator[
+        ListAccessControlApplicationsResponseTypeDef
+    ]
+else:
+    _ListAccessControlApplicationsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListAccessControlApplicationsPaginator(_ListAccessControlApplicationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListAccessControlApplications.html#QuickSight.Paginator.ListAccessControlApplications)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/paginators/#listaccesscontrolapplicationspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListAccessControlApplicationsRequestPaginateTypeDef]
+    ) -> PageIterator[ListAccessControlApplicationsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListAccessControlApplications.html#QuickSight.Paginator.ListAccessControlApplications.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/paginators/#listaccesscontrolapplicationspaginator)
         """
 
 if TYPE_CHECKING:
@@ -702,6 +747,46 @@ class ListIAMPolicyAssignmentsPaginator(_ListIAMPolicyAssignmentsPaginatorBase):
         """
 
 if TYPE_CHECKING:
+    _ListInboundConnectorApplicationAssociationsPaginatorBase = Paginator[
+        ListInboundConnectorApplicationAssociationsResponseTypeDef
+    ]
+else:
+    _ListInboundConnectorApplicationAssociationsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListInboundConnectorApplicationAssociationsPaginator(
+    _ListInboundConnectorApplicationAssociationsPaginatorBase
+):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListInboundConnectorApplicationAssociations.html#QuickSight.Paginator.ListInboundConnectorApplicationAssociations)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/paginators/#listinboundconnectorapplicationassociationspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListInboundConnectorApplicationAssociationsRequestPaginateTypeDef]
+    ) -> PageIterator[ListInboundConnectorApplicationAssociationsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListInboundConnectorApplicationAssociations.html#QuickSight.Paginator.ListInboundConnectorApplicationAssociations.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/paginators/#listinboundconnectorapplicationassociationspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListInboundConnectorsPaginatorBase = Paginator[ListInboundConnectorsResponseTypeDef]
+else:
+    _ListInboundConnectorsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListInboundConnectorsPaginator(_ListInboundConnectorsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListInboundConnectors.html#QuickSight.Paginator.ListInboundConnectors)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/paginators/#listinboundconnectorspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListInboundConnectorsRequestPaginateTypeDef]
+    ) -> PageIterator[ListInboundConnectorsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListInboundConnectors.html#QuickSight.Paginator.ListInboundConnectors.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/paginators/#listinboundconnectorspaginator)
+        """
+
+if TYPE_CHECKING:
     _ListIngestionsPaginatorBase = Paginator[ListIngestionsResponseTypeDef]
 else:
     _ListIngestionsPaginatorBase = Paginator  # type: ignore[assignment]
@@ -717,6 +802,26 @@ class ListIngestionsPaginator(_ListIngestionsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListIngestions.html#QuickSight.Paginator.ListIngestions.paginate)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/paginators/#listingestionspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListKnowledgeBaseRefreshSchedulesPaginatorBase = Paginator[
+        ListKnowledgeBaseRefreshSchedulesResponseTypeDef
+    ]
+else:
+    _ListKnowledgeBaseRefreshSchedulesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListKnowledgeBaseRefreshSchedulesPaginator(_ListKnowledgeBaseRefreshSchedulesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListKnowledgeBaseRefreshSchedules.html#QuickSight.Paginator.ListKnowledgeBaseRefreshSchedules)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/paginators/#listknowledgebaserefreshschedulespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListKnowledgeBaseRefreshSchedulesRequestPaginateTypeDef]
+    ) -> PageIterator[ListKnowledgeBaseRefreshSchedulesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListKnowledgeBaseRefreshSchedules.html#QuickSight.Paginator.ListKnowledgeBaseRefreshSchedules.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/paginators/#listknowledgebaserefreshschedulespaginator)
         """
 
 if TYPE_CHECKING:
@@ -791,6 +896,24 @@ class ListOAuthClientApplicationsPaginator(_ListOAuthClientApplicationsPaginator
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListOAuthClientApplications.html#QuickSight.Paginator.ListOAuthClientApplications.paginate)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/paginators/#listoauthclientapplicationspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListPrincipalsForPolicyPaginatorBase = Paginator[ListPrincipalsForPolicyResponseTypeDef]
+else:
+    _ListPrincipalsForPolicyPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListPrincipalsForPolicyPaginator(_ListPrincipalsForPolicyPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListPrincipalsForPolicy.html#QuickSight.Paginator.ListPrincipalsForPolicy)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/paginators/#listprincipalsforpolicypaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListPrincipalsForPolicyRequestPaginateTypeDef]
+    ) -> PageIterator[ListPrincipalsForPolicyResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListPrincipalsForPolicy.html#QuickSight.Paginator.ListPrincipalsForPolicy.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/paginators/#listprincipalsforpolicypaginator)
         """
 
 if TYPE_CHECKING:

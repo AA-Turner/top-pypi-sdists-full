@@ -76,14 +76,14 @@ try:
 except ImportError:
     has_imgmath = False
 
-__version__ = '3.2.0'
+__version__ = '3.3.0'
 
 
 def setup(app):
     ConfluenceLogger.initialize()
     cm = app.config_manager_ = ConfigManager(app)
 
-    app.require_sphinx('8.0')
+    app.require_sphinx('8.1')
     app.add_builder(ConfluenceBuilder)
     app.add_builder(ConfluenceReportBuilder)
     app.add_builder(SingleConfluenceBuilder)
@@ -307,6 +307,8 @@ def setup(app):
     cm.add_conf_bool('confluence_adv_disable_anchor_fix')
     # Disable any delays when publishing property updates on Cloud
     cm.add_conf_bool('confluence_adv_disable_cloud_prop_delay')
+    # Disable overriding image/svg+xml mime-type tweak used for publish support
+    cm.add_conf_bool('confluence_adv_disable_imgsvg_override')
     # Disable any attempts to initialize this extension's custom entities.
     cm.add_conf_bool('confluence_adv_disable_init')
     # Flag to permit the use of embedded certificates from requests.

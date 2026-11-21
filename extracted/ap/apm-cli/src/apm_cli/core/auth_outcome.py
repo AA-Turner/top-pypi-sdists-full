@@ -14,44 +14,51 @@ same way.
 
 from __future__ import annotations
 
+import logging
 import re
+import traceback
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 from urllib.parse import urlsplit
 
-# ---------------------------------------------------------------------------
-# Secret redaction (gate for every external diagnostic string)
-# ---------------------------------------------------------------------------
+from ..utils.credential_rendering import redact_secrets
 
-# Keyword + ``:``/``=`` separator redacts any value (optionally after an auth
-# scheme word). Keyword + whitespace only redacts token-shaped values (>= 16
-# chars) so prose such as "bearer token acquisition failed" stays readable.
-SECRET_RE = re.compile(
-    r"(?:"
-    r"(?:token|password|secret|authorization)\s*[:=]\s*"
-    r"(?:(?:bearer|basic|token)\s+)?"
-    r"[\w.~!*\'();:@&=+$,/?#\[\]\-]{4,}"
-    r"|"
-    r"(?:token|password|secret|bearer|basic)\s+"
-    r"[\w.~!*\'();:@&=+$,/?#\[\]\-]{16,}"
-    r"|"
-    r"://[^:@/\s]+:[^:@/\s]+@"
-    r"|"
-    r"\b(?:github_pat_[A-Za-z0-9_]{20,}|gh[psour]_[A-Za-z0-9_]{20,})\b"
-    r"|"
-    r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{4,}"
-    r")",
-    re.IGNORECASE,
-)
+# Secret redaction (gate for every external diagnostic string) is owned by
+# utils/credential_rendering.py.
 
 _MAX_DETAIL_CHARS = 300
 
 
-def redact_secrets(text: str) -> str:
-    """Replace credential-shaped substrings in *text* with ``[REDACTED]``."""
-    return SECRET_RE.sub("[REDACTED]", text)
+class SecretRedactionFilter(logging.Filter):
+    """Logging filter that redacts secret patterns from all emitted log records.
+
+    Lives beside :func:`redact_secrets` so the root CLI can install it on every
+    run without importing the auth resolver. Install on logging handlers when
+    debug logging is enabled so that exception messages carrying HTTP client error strings --
+    which some libraries embed auth headers or token values in -- do not leak
+    credentials into the debug stream.
+
+    Usage::
+
+        logging.getLogger("apm_cli").addFilter(SecretRedactionFilter())
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        try:
+            msg = record.getMessage()
+            redacted = redact_secrets(msg)
+            if redacted != msg:
+                record.msg = redacted
+                record.args = ()
+            if record.exc_info is not None:
+                formatted = "".join(traceback.format_exception(*record.exc_info))
+                record.exc_text = redact_secrets(formatted)
+                record.exc_info = None
+        except Exception:
+            pass
+        return True
 
 
 def sanitize_diagnostic_detail(text: str | None) -> str:
@@ -105,16 +112,36 @@ _AUTH_FAILURE_KINDS = frozenset(
 
 @dataclass(frozen=True)
 class AuthOutcome:
-    """Classified result of one attempt; ``detail`` is always redacted."""
+    """Classified result of one attempt; ``detail`` is always redacted.
+
+    ``rejection_verified`` is set only when the server refused the presented
+    credential itself: HTTP 401, or Git's wording for a 401. A 403, a sign-in
+    redirect, or a sign-in page never sets it, because those also answer a
+    valid credential that lacks access.
+    """
 
     kind: AuthOutcomeKind
     detail: str = ""
     status: int | None = None
+    rejection_verified: bool = False
 
     @property
     def is_auth_failure(self) -> bool:
         """Return whether the auth chain may escalate to the next credential."""
         return self.kind in _AUTH_FAILURE_KINDS
+
+    @property
+    def is_verified_rejection(self) -> bool:
+        """Return whether the presented credential was verifiably refused (HTTP 401)."""
+        return self.kind is AuthOutcomeKind.CREDENTIAL_REJECTED and self.rejection_verified
+
+
+class RepositoryNotFoundError(RuntimeError):
+    """The host answered that the repository does not exist or is not visible.
+
+    Raised with a rendered message once every credential the chain may try was
+    tried, so callers can name a next step without re-reading Git stderr.
+    """
 
 
 class AuthAttemptFailed(RuntimeError):
@@ -204,10 +231,63 @@ _AUTH_STATUS_RE = re.compile(
     r"(?:http(?: error)?|returned error:|status(?: code)?[=: ]+)\s*(?:401|403)\b|\b(?:401|403)\b",
     re.IGNORECASE,
 )
+# Git and HTTP wording that only follows an HTTP 401 for a presented credential
+# (Git asks for a new credential, or reports the one it sent as failed).
+_REJECTED_PHRASES = (
+    "authentication failed",
+    "could not read username",
+    "could not read password",
+    "terminal prompts disabled",
+    "invalid username or password",
+)
+# Status-anchored only, with a separator: a bare or glued "401" (team-401,
+# http401) may be part of a repository URL.
+_STATUS_PREFIX = (
+    r"(?:\bhttp(?:/\d(?:\.\d)?| error)?\s+|returned error:\s*"
+    r"|\bstatus(?: code)?\s*[=:]\s*|\bstatus\s+)"
+)
+_REJECTED_STATUS_RE = re.compile(_STATUS_PREFIX + r"401\b", re.IGNORECASE)
+_FORBIDDEN_STATUS_RE = re.compile(_STATUS_PREFIX + r"403\b", re.IGNORECASE)
+# A proxy challenge is about the proxy credential, never the host credential.
+_PROXY_SIGNAL_RE = re.compile(r"proxy|\b407\b", re.IGNORECASE)
+_URL_RE = re.compile(r"[a-z][a-z0-9+.-]*://[^\s'\"<>]+", re.IGNORECASE)
+
+
+_DEFAULT_PORTS = {"https": 443, "http": 80}
+
+
+def _names_other_host(text: str, host: str | None, port: int | None) -> bool:
+    """Return whether *text* names a URL other than the requested HTTPS endpoint.
+
+    Without a requested host no URL can be confirmed, so any URL counts.
+    """
+    if not host:
+        return _URL_RE.search(text) is not None
+    wanted_port = port if port is not None else _DEFAULT_PORTS["https"]
+    for match in _URL_RE.finditer(text):
+        try:
+            parsed = urlsplit(match.group(0))
+            scheme = parsed.scheme.lower()
+            other_port = parsed.port if parsed.port is not None else _DEFAULT_PORTS.get(scheme)
+        except ValueError:
+            return True
+        if scheme != "https" or (parsed.hostname or "").lower() != host.lower():
+            return True
+        if other_port != wanted_port:
+            return True
+    return False
+
+
 _PUBLIC_GITHUB_STATUS_RE = re.compile(
     r"(?:http(?: error)?|returned error:|status(?: code)?[=: ]+)\s*(?:401|403|404)\b",
 )
-_NOT_FOUND_RE = re.compile(r"\bTF401019\b|repository not found|\b404\b", re.IGNORECASE)
+# Git's own wording for an HTTP 404 on a repository URL: "fatal: repository
+# '<url>' not found". GitHub adds "remote: Repository not found." before it.
+_GIT_REPOSITORY_NOT_FOUND_RE = re.compile(r"\brepository '[^'\n]*' not found", re.IGNORECASE)
+_NOT_FOUND_RE = re.compile(
+    r"\bTF401019\b|repository not found|\b404\b|" + _GIT_REPOSITORY_NOT_FOUND_RE.pattern,
+    re.IGNORECASE,
+)
 
 
 def _cause_chain(error: object) -> Iterator[BaseException]:
@@ -298,6 +378,11 @@ def _header(headers: Mapping[str, str] | None, name: str) -> str:
     return str(value or "")
 
 
+def _text_attr(obj: Any, name: str) -> str | None:
+    value = getattr(obj, name, None)
+    return value if isinstance(value, str) else None
+
+
 def _failure(kind_presented: bool) -> AuthOutcomeKind:
     return AuthOutcomeKind.CREDENTIAL_REJECTED if kind_presented else AuthOutcomeKind.AUTH_REQUIRED
 
@@ -315,6 +400,12 @@ def _classify_response(
     if not isinstance(status, int):
         return AuthOutcome(AuthOutcomeKind.OTHER, "response without status")
     if is_ado:
+        # A response that landed on the sign-in service (followed by a
+        # redirect helper that keeps no history) is never a direct rejection.
+        if is_ado_signin_location(_text_attr(response, "url")):
+            return AuthOutcome(
+                _failure(credential_presented), "Azure DevOps redirected to sign-in", status
+            )
         for previous in getattr(response, "history", None) or ():
             if is_ado_signin_location(_header(getattr(previous, "headers", None), "Location")):
                 return AuthOutcome(
@@ -332,7 +423,12 @@ def _classify_response(
             )
         return AuthOutcome(AuthOutcomeKind.OK, "", status)
     if status in (401, 403):
-        return AuthOutcome(_failure(credential_presented), f"HTTP {status}", status)
+        return AuthOutcome(
+            _failure(credential_presented),
+            f"HTTP {status}",
+            status,
+            rejection_verified=credential_presented and status == 401,
+        )
     if 300 <= status < 400:
         location = _header(headers, "Location")
         if is_ado and is_ado_signin_location(location):
@@ -357,6 +453,8 @@ def _classify_text(
     *,
     credential_presented: bool,
     public_github_anonymous: bool,
+    host: str | None = None,
+    port: int | None = None,
 ) -> AuthOutcome:
     detail = sanitize_diagnostic_detail(text)
     lowered = text.lower()
@@ -369,15 +467,41 @@ def _classify_text(
     if public_github_anonymous:
         if any(phrase in lowered for phrase in (*_AUTH_PHRASES, "repository not found")):
             return AuthOutcome(AuthOutcomeKind.AUTH_REQUIRED, detail)
+        if _GIT_REPOSITORY_NOT_FOUND_RE.search(text):
+            return AuthOutcome(AuthOutcomeKind.AUTH_REQUIRED, detail)
         if any(status in {401, 403, 404} for status in statuses):
             return AuthOutcome(AuthOutcomeKind.AUTH_REQUIRED, detail)
         if _PUBLIC_GITHUB_STATUS_RE.search(lowered):
             return AuthOutcome(AuthOutcomeKind.AUTH_REQUIRED, detail)
         return AuthOutcome(AuthOutcomeKind.OTHER, detail)
+    # A 403, not-found, proxy signal, or a URL on another endpoint makes a
+    # rejection ambiguous: never verified. URLs are matched separately so a
+    # repository named "proxy" or "team-404" does not hide a real rejection.
+    prose = _URL_RE.sub(" ", text)
+    ambiguous = (
+        bool({403, 404} & set(statuses))
+        or _FORBIDDEN_STATUS_RE.search(prose) is not None
+        or _NOT_FOUND_RE.search(prose) is not None
+        or "not found" in prose.lower()
+        or _PROXY_SIGNAL_RE.search(prose) is not None
+        or _names_other_host(text, host, port)
+    )
     if any(status in {401, 403} for status in statuses):
-        return AuthOutcome(_failure(credential_presented), detail)
+        return AuthOutcome(
+            _failure(credential_presented),
+            detail,
+            rejection_verified=credential_presented and 401 in statuses and not ambiguous,
+        )
     if any(phrase in lowered for phrase in _AUTH_PHRASES) or _AUTH_STATUS_RE.search(text):
-        return AuthOutcome(_failure(credential_presented), detail)
+        verified = (
+            credential_presented
+            and not ambiguous
+            and (
+                any(phrase in prose.lower() for phrase in _REJECTED_PHRASES)
+                or _REJECTED_STATUS_RE.search(prose) is not None
+            )
+        )
+        return AuthOutcome(_failure(credential_presented), detail, rejection_verified=verified)
     if 404 in statuses or _NOT_FOUND_RE.search(text):
         return AuthOutcome(AuthOutcomeKind.NOT_FOUND, detail)
     return AuthOutcome(AuthOutcomeKind.OTHER, detail)
@@ -428,7 +552,26 @@ def classify_auth_outcome(
         statuses,
         credential_presented=credential_presented,
         public_github_anonymous=public_github_anonymous,
+        host=getattr(host_info, "host", None),
+        port=getattr(host_info, "port", None),
     )
+
+
+def is_repository_not_found(error: object) -> bool:
+    """Return whether *error* reports a missing (or invisible) repository.
+
+    True for an HTTP 404, Git's "repository '<url>' not found", or Azure
+    DevOps TF401019, with no network, TLS, throttle, or auth signal. The
+    public github.com anonymous leg reads the same 404 as "credentials may be
+    required"; this answers the question after the chain has run.
+    """
+    outcome = classify_auth_outcome(error=error, credential_presented=True)
+    return outcome.kind is AuthOutcomeKind.NOT_FOUND
+
+
+def reports_repository_not_found(error: BaseException) -> bool:
+    """Return whether *error* or one of its causes is a :class:`RepositoryNotFoundError`."""
+    return any(isinstance(current, RepositoryNotFoundError) for current in _cause_chain(error))
 
 
 def raise_for_auth_outcome(

@@ -943,6 +943,142 @@ def test_rewrite_raw_text_in_unclosed_element_is_literal() -> None:
     assert rewrite("<script>a", elements=edit) == "<script>x < y"
 
 
+_RAW_TEXT_TAGS: Final[tuple[str, ...]] = ("script", "style", "xmp", "iframe", "noembed", "noframes", "noscript")
+
+
+@pytest.mark.parametrize("tag", [*_RAW_TEXT_TAGS, "plaintext"])
+def test_rewrite_after_unclosed_raw_text_element_reads_back_as_written(tag: str) -> None:
+    (element,) = parse(rewrite(f"<{tag}>", elements=[(tag, _after("a\r\nb&amp;<i>"))]), scripting=True).select(tag)
+    assert element.text == "a\nb&amp;<i>"
+
+
+def _after(content: str, *, html: bool = False) -> Callable[[Element], None]:
+    def handler(element: Element) -> None:
+        element.after(content, html=html)
+
+    return handler
+
+
+@pytest.mark.parametrize("tag", _RAW_TEXT_TAGS)
+def test_rewrite_after_closed_raw_text_element_stays_escaped(tag: str) -> None:
+    output = rewrite(f"<{tag}>x</{tag}>", elements=[(tag, _after("a\r\nb&amp;<i>"))])
+    assert output == f"<{tag}>x</{tag}>a&#13;\nb&amp;amp;&lt;i&gt;"
+
+
+@pytest.mark.parametrize("content", ["</script>", "<!--"])
+def test_rewrite_after_that_ends_an_unclosed_script_raises(content: str) -> None:
+    with pytest.raises(ValueError, match="text written into <script> must not contain '</script' or '<!--'"):
+        rewrite("<script>", elements=[("script", _after(content))])
+
+
+def test_rewrite_after_that_ends_an_unclosed_style_raises() -> None:
+    with pytest.raises(ValueError, match="text written into <style> must not contain '</style'"):
+        rewrite("<style>", elements=[("style", _after("</style"))])
+
+
+@pytest.mark.parametrize("content", ["</plaintext>", "</script>", "<!--"])
+def test_rewrite_after_unclosed_plaintext_never_raises(content: str) -> None:
+    assert rewrite("<plaintext>", elements=[("plaintext", _after(content))]) == f"<plaintext>{content}"
+
+
+@pytest.mark.parametrize("tag", [*_RAW_TEXT_TAGS, "plaintext"])
+def test_rewrite_after_html_unclosed_raw_text_element_is_written_as_is(tag: str) -> None:
+    output = rewrite(f"<{tag}>", elements=[(tag, _after("a\r\nb&amp;<i>", html=True))])
+    assert output == f"<{tag}>a\nb&amp;<i>"
+
+
+def test_rewrite_after_html_that_ends_an_unclosed_script_is_not_checked() -> None:
+    assert rewrite("<script>", elements=[("script", _after("</script><b>", html=True))]) == "<script></script><b>"
+
+
+@pytest.mark.parametrize("method", ["remove", "remove_and_keep_content"])
+def test_rewrite_after_on_unwrapped_raw_text_element_stays_escaped(method: str) -> None:
+    handler = _edits((methodcaller("after", "a&b"), methodcaller(method)))
+    assert rewrite("<script>", elements=[("script", handler)]) == "a&amp;b"
+
+
+def test_rewrite_after_unclosed_raw_text_read_as_markup_is_escaped() -> None:
+    # unwrapping the foreignObject leaves an SVG script, which the output reads as markup, so its text is escaped
+    edits = [("foreignObject", _unwrap), ("script", _after("a\r\nb&amp;<i>"))]
+    assert rewrite("<svg><foreignObject><script>", elements=edits) == "<svg><script>a&#13;\nb&amp;amp;&lt;i&gt;"
+
+
+def test_rewrite_after_unclosed_raw_text_in_foreign_content_reads_back_as_written() -> None:
+    edits = [("foreignObject", _edits((methodcaller("before", "x"),))), ("script", _after("a\r\nb&amp;<i>"))]
+    (element,) = parse(rewrite("<svg><foreignObject><script>", elements=edits), scripting=True).select("script")
+    assert element.text == "a\nb&amp;<i>"
+
+
+@pytest.mark.parametrize("tag", _RAW_TEXT_TAGS)
+def test_rewrite_after_unclosed_raw_text_with_comment_start_reads_back_as_written(tag: str) -> None:
+    assert rewrite(f"<{tag}><!--a", elements=[(tag, _after("x"))]) == f"<{tag}><!--ax"
+
+
+@pytest.mark.parametrize(
+    ("html", "content", "expected"),
+    [
+        pytest.param("<script><!--a", "-->", "<script><!--a-->", id="comment-end"),
+        pytest.param("<script><!--a", "<b>", "<script><!--a<b>", id="markup-without-end-tag"),
+        pytest.param("<script>hello world", "x", "<script>hello worldx", id="long-content"),
+        pytest.param("<script><!--a", "", "<script><!--a", id="empty"),
+        pytest.param("<script>x</script", " ", "<script>x</script ", id="open-end-tag"),
+        pytest.param("<script>x</script", "/", "<script>x</script/", id="open-end-tag-slash"),
+        pytest.param("<script>x</script", "x>", "<script>x</scriptx>", id="name-continued-by-added"),
+        pytest.param("<script>x</scriptx", ">", "<script>x</scriptx>", id="name-continued-in-input"),
+        pytest.param("<script>x</script", "x ", "<script>x</scriptx ", id="name-continued-then-open"),
+        pytest.param("<script>x</script", "", "<script>x</script", id="empty-after-end-tag"),
+        pytest.param("<script>x</script ", ">", "<script>x>", id="partial-end-tag-is-dropped"),
+    ],
+)
+def test_rewrite_after_keeps_unclosed_script_that_no_end_tag_closes(html: str, content: str, expected: str) -> None:
+    assert rewrite(html, elements=[("script", _after(content))]) == expected
+
+
+@pytest.mark.parametrize(
+    ("html", "content"),
+    [
+        pytest.param("<script><!--a", "</script>", id="end-tag"),
+        pytest.param("<script><!--a", "</SCRIPT>", id="end-tag-upper"),
+        pytest.param("<script>a", "<!--", id="comment-start"),
+        pytest.param("<script>a", "x<!--y", id="comment-start-in-text"),
+        pytest.param("<script>x<!", "--", id="comment-split"),
+        pytest.param("<script>x<!-", "-", id="comment-split-dashes"),
+        pytest.param("<script>x<", "!--", id="comment-split-bang"),
+        pytest.param("<script>x<", "/script", id="end-tag-split-slash"),
+        pytest.param("<script>x</", "script", id="end-tag-split-name"),
+        pytest.param("<script>x</sc", "ript", id="end-tag-split-sc"),
+        pytest.param("<script>x</scr", "ipt", id="end-tag-split-scr"),
+        pytest.param("<script>x</SCRIP", "t>", id="end-tag-split-upper"),
+        pytest.param("<script>x</scrip", "t", id="end-tag-split-scrip"),
+        pytest.param("<script>x</script", ">", id="end-tag-completed-by-gt"),
+        pytest.param("<script>x</script", "/>", id="end-tag-completed-by-slash"),
+        pytest.param("<script>x</script", " x>", id="end-tag-attribute-completed-by-gt"),
+        pytest.param("<script>x</SCRIPT", ">", id="end-tag-upper-completed-by-gt"),
+    ],
+)
+def test_rewrite_after_that_completes_an_end_tag_raises(html: str, content: str) -> None:
+    with pytest.raises(ValueError, match="text written into <script> must not contain '</script'"):
+        rewrite(html, elements=[("script", _after(content))])
+
+
+@pytest.mark.parametrize("tag", _RAW_TEXT_TAGS)
+def test_rewrite_after_end_tag_split_across_input_end_raises(tag: str) -> None:
+    with pytest.raises(ValueError, match=f"text written into <{tag}> must not contain '</{tag}'"):
+        rewrite(f"<{tag}>x</{tag[:-1]}", elements=[(tag, _after(tag[-1]))])
+
+
+@pytest.mark.parametrize("tag", _RAW_TEXT_TAGS)
+def test_rewrite_after_end_tag_completed_by_gt_raises(tag: str) -> None:
+    with pytest.raises(ValueError, match=f"text written into <{tag}> must not contain '</{tag}'"):
+        rewrite(f"<{tag}>x</{tag}", elements=[(tag, _after(">"))])
+
+
+def test_rewrite_after_end_tag_split_over_two_calls_raises() -> None:
+    edits = _edits((methodcaller("after", "</scr"), methodcaller("after", "ipt")))
+    with pytest.raises(ValueError, match="text written into <script> must not contain '</script'"):
+        rewrite("<script>x", elements=[("script", edits)])
+
+
 @pytest.mark.parametrize(
     ("html", "expected"),
     [
@@ -1451,8 +1587,8 @@ def test_rewrite_attribute_growth_order(initial: int, count: int) -> None:
         for index in range(count):
             element.set_attribute(f"a{index}", "x")
 
-    before: Final = "".join(f' b{index}="before"' for index in range(initial))
-    after: Final = "".join(f' a{index}="x"' for index in range(count))
+    before: Final[str] = "".join(f' b{index}="before"' for index in range(initial))
+    after: Final[str] = "".join(f' a{index}="x"' for index in range(count))
     assert rewrite(f"<x{before}>body</x>", elements=(("x", add),)) == f"<x{before}{after}>body</x>"
 
 
@@ -1474,7 +1610,7 @@ def test_rewrite_attribute_growth_replace_and_escape() -> None:
             element.set_attribute(f"a{index}", "before")
         element.set_attribute("a0", '"&')
 
-    rest: Final = "".join(f' a{index}="before"' for index in range(1, 17))
+    rest: Final[str] = "".join(f' a{index}="before"' for index in range(1, 17))
     assert rewrite("<x>body</x>", elements=(("x", change),)) == f'<x a0="&quot;&amp;"{rest}>body</x>'
 
 
@@ -2911,7 +3047,7 @@ def test_rewrite_past_the_depth_guard_reads_raw_text_as_raw(prefix: str, body: s
 
 @pytest.mark.parametrize("seed", range(16))
 def test_rewrite_passthrough_adds_no_element_the_source_lacks(seed: int) -> None:
-    pieces: Final = (
+    pieces: Final[tuple[str, ...]] = (
         "<",
         "<",
         "</>",
@@ -3081,7 +3217,7 @@ def _without_empty_body(markup: str) -> str:
 
 @pytest.mark.parametrize("seed", range(5))
 def test_rewrite_edit_revives_no_element_the_source_lacks(seed: int) -> None:
-    pieces: Final = (
+    pieces: Final[tuple[str, ...]] = (
         "<frameset>",
         "</frameset>",
         "<frame src=a>",
@@ -3155,7 +3291,7 @@ def test_rewrite_edit_revives_no_element_the_source_lacks(seed: int) -> None:
         "<embed src=a>",
         "</table></tr>",
     )
-    targets: Final = (
+    targets: Final[tuple[str, ...]] = (
         "frameset",
         "frame",
         "template",
@@ -3198,7 +3334,7 @@ def test_rewrite_edit_revives_no_element_the_source_lacks(seed: int) -> None:
         "embed",
         "link",
     )
-    edits: Final = (_remove, _unwrap, _blank)
+    edits: Final[tuple[Callable[[Element], None], ...]] = (_remove, _unwrap, _blank)
     rng = random.Random(seed)  # ruff:ignore[suspicious-non-cryptographic-random-usage]  # a fixed generated corpus
     for _ in range(2000):
         source = "".join(rng.choice(pieces) for _ in range(rng.randint(1, 12)))
@@ -3474,7 +3610,7 @@ def test_rewrite_unwrap_keeps_formatting_elements_open_with_attribute_edit(
 
 @pytest.mark.parametrize("seed", range(5))
 def test_rewrite_attribute_edits_on_read_attributes_revive_no_element(seed: int) -> None:
-    pieces: Final = (
+    pieces: Final[tuple[str, ...]] = (
         "<frameset>",
         "</frameset>",
         "<frame src=a>",
@@ -3519,7 +3655,7 @@ def test_rewrite_attribute_edits_on_read_attributes_revive_no_element(seed: int)
         "text",
         "<img src=a>",
     )
-    targets: Final = (
+    targets: Final[tuple[str, ...]] = (
         "input",
         "option",
         "optgroup",
@@ -3539,7 +3675,22 @@ def test_rewrite_attribute_edits_on_read_attributes_revive_no_element(seed: int)
         "b",
         "caption",
     )
-    edits: Final = (
+    edits: Final[
+        tuple[
+            tuple[str, str],
+            tuple[str, None],
+            tuple[str, str],
+            tuple[str, str],
+            tuple[str, str],
+            tuple[str, str],
+            tuple[str, str],
+            tuple[str, str],
+            tuple[str, str],
+            tuple[str, str],
+            tuple[str, str],
+            tuple[str, str],
+        ]
+    ] = (
         ("type", "hidden"),
         ("type", None),
         ("selected", ""),
@@ -3671,7 +3822,13 @@ def test_rewrite_removed_attribute_is_gone_for_later_rules_and_descendants() -> 
     def record(element: Element) -> None:
         matched.append((element.tag, element.attrs))
 
-    rules: Final = [("p", drop), ("p[a]", record), ("p[c]", record), ("p[a] i", record), ("p[b] > i", record)]
+    rules: Final[list[tuple[str, Callable[[Element], None]]]] = [
+        ("p", drop),
+        ("p[a]", record),
+        ("p[c]", record),
+        ("p[a] i", record),
+        ("p[b] > i", record),
+    ]
     assert rewrite("<p a b c><i>t</i></p>", elements=rules) == "<p b c><i>t</i></p>"
     assert matched == [("p", (("b", None), ("c", None))), ("i", ())]
 
@@ -3683,7 +3840,7 @@ def test_rewrite_handler_raising_after_removing_attributes() -> None:
         msg = "after-removal-boom"
         raise ValueError(msg)
 
-    names: Final = "".join(f" a{index}=v" for index in range(40))
+    names: Final[str] = "".join(f" a{index}=v" for index in range(40))
     with pytest.raises(ValueError, match="after-removal-boom"):
         rewrite(f"<p{names}>t</p>", elements=[("p", handler)])
 
@@ -3706,11 +3863,11 @@ def test_rewrite_attribute_edits_by_name_on_a_long_tag(count: int) -> None:
         element.remove_attribute("b0")
         assert not element.has_attribute("b0")
 
-    values: Final = {index: f"v{index}" for index in range(1, count, 2)}
+    values: Final[dict[int, str]] = {index: f"v{index}" for index in range(1, count, 2)}
     values.update((index, "set") for index in range(1, count, 4))
-    source: Final = "".join(f" a{index}=v{index}" for index in range(count))
-    kept: Final = "".join(f' a{index}="{value}"' for index, value in values.items())
-    added: Final = "".join(f' b{index}="new"' for index in range(1, count))
+    source: Final[str] = "".join(f" a{index}=v{index}" for index in range(count))
+    kept: Final[str] = "".join(f' a{index}="{value}"' for index, value in values.items())
+    added: Final[str] = "".join(f' b{index}="new"' for index in range(1, count))
     assert rewrite(f"<p{source}>t</p>", elements=[("p", handler)]) == f"<p{kept}{added}>t</p>"
 
 
@@ -3726,15 +3883,15 @@ def test_rewrite_attribute_names_past_the_interning_key_stay_distinct() -> None:
         seen.append(element.has_attribute(first))
         seen.append(element.get(second))
 
-    first: Final = f"data-{'z' * 300}"
-    second: Final = f"{first}y"
+    first: Final[str] = f"data-{'z' * 300}"
+    second: Final[str] = f"{first}y"
     assert rewrite(f"<p {first}=1 {second}=2>t</p>", elements=[("p", handler)]) == f'<p {second}="set">t</p>'
     assert seen == ["1", "2", "set", False, "set"]
 
 
 def test_rewrite_edited_start_tag_writes_attribute_names_past_the_interning_key_whole() -> None:
-    first: Final = f"data-{'z' * 300}"
-    second: Final = f"{first}y"
+    first: Final[str] = f"data-{'z' * 300}"
+    second: Final[str] = f"{first}y"
 
     def add_marker(element: Element) -> None:
         element.set_attribute("marker", "1")
@@ -3745,14 +3902,14 @@ def test_rewrite_edited_start_tag_writes_attribute_names_past_the_interning_key_
 
 
 def test_rewrite_selector_past_the_interning_key_matches_only_its_own_name() -> None:
-    first: Final = f"data-{'z' * 300}"
-    second: Final = f"{first}y"
+    first: Final[str] = f"data-{'z' * 300}"
+    second: Final[str] = f"{first}y"
     seen: list[str] = []
 
     def record(element: Element) -> None:
         seen.append(element.tag)
 
-    source: Final = f"<p {first}=1><i {second}=2>t</i></p>"
+    source: Final[str] = f"<p {first}=1><i {second}=2>t</i></p>"
     assert rewrite(source, elements=[(f"[{second}]", record)]) == source
     assert seen == ["i"]
 
@@ -3803,7 +3960,7 @@ def test_one_call_per_name_on_a_long_tag_scans_in_linear_time(
 
 
 def _long_tag(count: int, prefix: str) -> str:
-    names: Final = "".join(f" {prefix}{index}" for index in range(count))
+    names: Final[str] = "".join(f" {prefix}{index}" for index in range(count))
     return f"<p{names}>"
 
 
@@ -3851,8 +4008,8 @@ def _mark(element: Element) -> None:
 
 
 def test_rewrite_handler_replaces_long_values_of_a_matched_element() -> None:
-    source: Final = f'<ol class="{_PAD}hit"><li class="{_PAD}" data-v="{_PAD}"><i></i></li></ol>'
-    expected: Final = f'<ol class="{_PAD}hit"><li class="short"><i k=""></i></li></ol>'
+    source: Final[str] = f'<ol class="{_PAD}hit"><li class="{_PAD}" data-v="{_PAD}"><i></i></li></ol>'
+    expected: Final[str] = f'<ol class="{_PAD}hit"><li class="short"><i k=""></i></li></ol>'
     assert rewrite(source, elements=[(".hit li", _replace_long_values), (".hit i", _mark)]) == expected
 
 
@@ -3862,8 +4019,8 @@ def _replace_long_values(element: Element) -> None:
 
 
 def test_rewrite_long_value_under_type_rule_is_kept() -> None:
-    source: Final = f'<ol class="{_PAD}"><li data-v="{_PAD}"></li></ol>'
-    expected: Final = f'<ol class="{_PAD}"><li data-v="{_PAD}" k=""></li></ol>'
+    source: Final[str] = f'<ol class="{_PAD}"><li data-v="{_PAD}"></li></ol>'
+    expected: Final[str] = f'<ol class="{_PAD}"><li data-v="{_PAD}" k=""></li></ol>'
     assert rewrite(source, elements=[("li", _mark)]) == expected
 
 

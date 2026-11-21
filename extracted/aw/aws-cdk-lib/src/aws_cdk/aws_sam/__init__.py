@@ -8653,7 +8653,7 @@ class CfnFunctionProps:
                 ),
                 events={
                     "events_key": sam.CfnFunction.EventSourceProperty(
-                        properties=sam.CfnFunction.S3EventProperty(
+                        properties=sam.CfnFunction.IoTRuleEventProperty(
                             skill_id="skillId"
                         ),
                         type="type"

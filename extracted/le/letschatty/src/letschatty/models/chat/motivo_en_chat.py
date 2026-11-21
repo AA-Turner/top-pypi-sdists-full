@@ -34,8 +34,12 @@ ORIGEN_CONSULTA_GENERAL = "consulta_general"
 # `cambiar_motivo` de la acción de IA).
 ORIGEN_CAMBIADO_POR_IA = "cambiado_por_ia"
 
+# 0.6.57.10 — «Pasar al motivo…» de una rama de la precalificación (`Rama.pasar_a_motivo_id`).
+ORIGEN_RAMA = "rama"
+
 ORIGENES_DEL_MOTIVO = frozenset(
-    {ORIGEN_FUENTE, ORIGEN_CLASIFICADO, ORIGEN_PREGUNTADO, ORIGEN_CONSULTA_GENERAL, ORIGEN_CAMBIADO_POR_IA}
+    {ORIGEN_FUENTE, ORIGEN_CLASIFICADO, ORIGEN_PREGUNTADO, ORIGEN_CONSULTA_GENERAL, ORIGEN_CAMBIADO_POR_IA,
+     ORIGEN_RAMA}
 )
 
 

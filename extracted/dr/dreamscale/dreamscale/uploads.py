@@ -67,10 +67,11 @@ BATCH_SECONDS = 2.0
 REFRESHES = 2  # fresh links asked in a row, when storage refuses one (HTTP 403 or 404)
 DATASET_BACKOFF_S = (1.0, 2.0, 4.0, 8.0, 15.0, 30.0)
 STALL_S = 600.0  # an upload gives up when no part has landed for this long
+DROP_COOLDOWN_S = 5.0
 PART_ATTEMPTS = 5
 RETRY_BACKOFF_S = (1.0, 2.0, 4.0, 8.0)
 _RETRY_STATUS = frozenset({408, 429, 500, 502, 503, 504})
-_READ_CHUNK = 8 << 20
+_READ_CHUNK = 1 << 20
 
 Progress = Callable[[int, int], None]  # (bytes done, bytes total)
 
@@ -572,30 +573,53 @@ class _Throttle:
     def __init__(self, limit: int) -> None:
         self.most = self.limit = max(limit, 1)
         self.active = self.landed = 0
-        self.landed_at = time.monotonic()
-        self._changed = asyncio.Condition()
+        self.landed_at: float | None = None
+        self._epoch = 0
+        self._dropped_at: float | None = None
+        self._open = asyncio.Event()
+        self._open.set()
 
-    async def __aenter__(self) -> None:
-        async with self._changed:
-            await self._changed.wait_for(lambda: self.active < self.limit)
-            self.active += 1
+    def _sync(self) -> None:
+        if self.active < self.limit:
+            self._open.set()
+        else:
+            self._open.clear()
+
+    async def __aenter__(self) -> int:
+        while self.active >= self.limit:
+            self._open.clear()
+            await self._open.wait()
+        self.active += 1
+        self._sync()
+        if self.landed_at is None:
+            self.landed_at = time.monotonic()
+        return self._epoch
 
     async def __aexit__(self, *_exc) -> None:
-        async with self._changed:
-            self.active -= 1
-            self._changed.notify_all()
+        self.active -= 1
+        self._sync()
 
-    def dropped(self) -> None:
+    def dropped(self, epoch: int | None = None) -> None:
+        now = time.monotonic()
+        if epoch is not None:
+            if epoch != self._epoch:
+                return
+            if self._dropped_at is not None and now - self._dropped_at < DROP_COOLDOWN_S:
+                return
+        self._epoch += 1
+        self._dropped_at = now
         self.limit, self.landed = max(self.limit // 2, 1), 0
+        self._sync()
 
     def stalled(self) -> bool:
-        return time.monotonic() - self.landed_at > STALL_S
+        return self.landed_at is not None and time.monotonic() - self.landed_at > STALL_S
 
     def landed_one(self) -> None:
         self.landed_at = time.monotonic()
         self.landed += 1
         if self.landed >= self.limit * 2 and self.limit < self.most:
             self.limit, self.landed = self.limit + 1, 0
+            self._sync()
 
 
 async def _put_stream(
@@ -622,20 +646,20 @@ async def _put_stream(
                     yield chunk
 
         try:
-            async with throttle:
+            async with throttle as epoch:
                 resp = await http.put(
                     url, content=body(), headers={"Content-Length": str(length)}
                 )
         except httpx.TransportError as error:
             cause = f"the network failed ({type(error).__name__})"
-            throttle.dropped()
+            throttle.dropped(epoch)
         except ssl.SSLCertVerificationError as error:  # retrying can't make it trusted
             raise _upload_failed(
                 path, f"storage's certificate couldn't be verified ({error.verify_message})"
             ) from None
         except ssl.SSLError as error:
             cause = _tls_failed(error)
-            throttle.dropped()
+            throttle.dropped(epoch)
         else:
             if resp.status_code < 300:
                 throttle.landed_one()
@@ -646,7 +670,7 @@ async def _put_stream(
                 raise _Expired(cause)
             if resp.status_code not in _RETRY_STATUS:
                 raise _upload_failed(path, cause)
-            throttle.dropped()
+            throttle.dropped(epoch)
         advance(-sent)
         if throttle.stalled():
             raise _upload_failed(path, cause)
@@ -789,8 +813,14 @@ async def upload_dataset(
 
     try:
         async with (
-            httpx.AsyncClient(timeout=httpx.Timeout(300.0, connect=10.0), transport=transport)
-            as http,
+            httpx.AsyncClient(
+                timeout=httpx.Timeout(60.0, connect=10.0, pool=None),
+                limits=httpx.Limits(
+                    max_connections=max(concurrency * 2, 20),
+                    max_keepalive_connections=max(concurrency, 20),
+                ),
+                transport=transport,
+            ) as http,
             asyncio.TaskGroup() as group,
         ):
             await asyncio.gather(*(hash_one(group, rel, size) for rel, size in files))

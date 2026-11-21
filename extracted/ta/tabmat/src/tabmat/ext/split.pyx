@@ -2,9 +2,12 @@ import numpy as np
 
 cimport numpy as np
 from cython cimport floating, integral
+from cython.parallel import prange
 from libc.stdlib cimport free, malloc
 from libcpp cimport bool
 from libcpp.vector cimport vector
+
+from .dense import _check_center
 
 
 # This is necessary because it's quite difficult to have a dynamic array of
@@ -20,11 +23,14 @@ ctypedef fused win_integral:
     long long
 
 
-cdef extern from "cat_split_helpers.cpp":
-    void _sandwich_cat_denseC_fast[Int, F](F*, const int*, Int*, Int, Int*, Int, F*, Int, F*, Int, Int) nogil
-    void _sandwich_cat_denseF_fast[Int, F](F*, const int*, Int*, Int, Int*, Int, F*, Int, F*, Int, Int) nogil
-    void _sandwich_cat_denseC_complex[Int, F](F*, const int*, Int*, Int, Int*, Int, F*, Int, F*, Int, Int, bool) nogil
-    void _sandwich_cat_denseF_complex[Int, F](F*, const int*, Int*, Int, Int*, Int, F*, Int, F*, Int, Int, bool) nogil
+cdef extern from "cat_split_helpers.hpp":
+    # The C++ kernels take the center of the dense matrix as const F*. It is
+    # declared as F* here because older Cython versions (e.g. 3.2) cannot deduce
+    # F from a const F*.
+    void _sandwich_cat_denseC_fast[Int, F](F*, const int*, Int*, Int, Int*, Int, F*, Int, F*, F*, Int, Int) nogil
+    void _sandwich_cat_denseF_fast[Int, F](F*, const int*, Int*, Int, Int*, Int, F*, Int, F*, F*, Int, Int) nogil
+    void _sandwich_cat_denseC_complex[Int, F](F*, const int*, Int*, Int, Int*, Int, F*, Int, F*, F*, Int, Int, bool) nogil
+    void _sandwich_cat_denseF_complex[Int, F](F*, const int*, Int*, Int, Int*, Int, F*, Int, F*, F*, Int, Int, bool) nogil
     void _sandwich_cat_cat_fast[Int, F](F*, const int*, const int*, Int*, Int, F*, Int, Int)
     void _sandwich_cat_cat_complex[Int, F](F*, const int*, const int*, Int*, Int, F*, Int, Int, bool, bool)
 
@@ -32,18 +38,25 @@ cdef extern from "cat_split_helpers.cpp":
 def sandwich_cat_dense(
     const int[:] i_indices,
     int i_ncol,
-    floating[:] d,
+    const floating[::1] d,
     np.ndarray mat_j,
     int[:] rows,
     int[:] j_cols,
     bool is_c_contiguous,
     bool has_missings,
-    bint drop_first
+    bint drop_first,
+    dense_center=None
 ):
+    # dense_center (None means none) is subtracted from mat_j as it is read.
     cdef int nj_rows = mat_j.shape[0]
     cdef int nj_cols = mat_j.shape[1]
     cdef int n_active_rows = len(rows)
     cdef int nj_active_cols = len(j_cols)
+
+    cdef const floating[::1] mu = _check_center(
+        dense_center, nj_cols, mat_j.dtype, "dense_center"
+    )
+
     cdef floating[:, :] res
     res = np.zeros((i_ncol, nj_active_cols), dtype=mat_j.dtype)
     cdef int res_size = res.size
@@ -51,31 +64,34 @@ def sandwich_cat_dense(
     if d.shape[0] == 0 or n_active_rows == 0 or nj_active_cols == 0 or i_ncol == 0:
         return np.asarray(res)
 
-    cdef floating* d_p = &d[0]
+    cdef floating* d_p = <floating*>&d[0]
     cdef const int* i_indices_p = &i_indices[0]
     cdef int* rows_p = &rows[0]
     cdef int* j_cols_p = &j_cols[0]
 
     cdef floating* mat_j_p = <floating*>mat_j.data
+    cdef floating* mup = NULL
+    if mu is not None:
+        mup = <floating*>&mu[0]
 
     if (not drop_first) and (not has_missings):
         if is_c_contiguous:
             _sandwich_cat_denseC_fast(d_p, i_indices_p, rows_p, n_active_rows, j_cols_p,
                                       nj_active_cols, &res[0, 0], res_size, mat_j_p,
-                                      nj_rows, nj_cols)
+                                      mup, nj_rows, nj_cols)
         else:
             _sandwich_cat_denseF_fast(d_p, i_indices_p, rows_p, n_active_rows, j_cols_p,
                                       nj_active_cols, &res[0, 0], res_size, mat_j_p,
-                                      nj_rows, nj_cols)
+                                      mup, nj_rows, nj_cols)
     else:
         if is_c_contiguous:
             _sandwich_cat_denseC_complex(d_p, i_indices_p, rows_p, n_active_rows, j_cols_p,
                                          nj_active_cols, &res[0, 0], res_size, mat_j_p,
-                                         nj_rows, nj_cols, drop_first)
+                                         mup, nj_rows, nj_cols, drop_first)
         else:
             _sandwich_cat_denseF_complex(d_p, i_indices_p, rows_p, n_active_rows, j_cols_p,
                                          nj_active_cols, &res[0, 0], res_size, mat_j_p,
-                                         nj_rows, nj_cols, drop_first)
+                                         mup, nj_rows, nj_cols, drop_first)
 
     return np.asarray(res)
 
@@ -85,7 +101,7 @@ def sandwich_cat_cat(
     const int[:] j_indices,
     int i_ncol,
     int j_ncol,
-    floating[:] d,
+    const floating[::1] d,
     int[:] rows,
     dtype,
     bint i_drop_first,
@@ -101,14 +117,71 @@ def sandwich_cat_cat(
     cdef int res_size = res.size
 
     if i_drop_first or j_drop_first or i_has_missings or j_has_missings:
-        _sandwich_cat_cat_complex(&d[0], &i_indices[0], &j_indices[0], &rows[0],
+        _sandwich_cat_cat_complex(<floating*>&d[0], &i_indices[0], &j_indices[0], &rows[0],
                                   n_rows, &res[0, 0], j_ncol, res_size,
                                   i_drop_first, j_drop_first)
     else:
-        _sandwich_cat_cat_fast(&d[0], &i_indices[0], &j_indices[0], &rows[0],
+        _sandwich_cat_cat_fast(<floating*>&d[0], &i_indices[0], &j_indices[0], &rows[0],
                                n_rows, &res[0, 0], j_ncol, res_size)
 
     return np.asarray(res)
+
+
+def sandwich_cat_sparse(
+    const int[:] i_indices,
+    const int[::1] out_pos,
+    int n_out,
+    const floating[:] d,
+    const floating[:] A_data,
+    const win_integral[:] A_indices,
+    const win_integral[:] A_indptr,
+    rows,
+    const win_integral[:] A_cols,
+    bint drop_first,
+):
+    """X1[:, L_cols].T @ diag(d) @ A[:, A_cols] for a categorical X1 and a CSC A.
+
+    `out_pos` maps each column of X1 (after dropping the first category) to
+    its column in the `n_out`-wide output, or to -1 if it is not in `L_cols`.
+    Rows outside `rows` (`None` means all rows) are skipped. Missing values
+    (negative codes) and the dropped first category are skipped as well. Each
+    thread owns whole columns of A, so that no reduction is needed.
+    """
+    cdef Py_ssize_t n_A_cols = A_cols.shape[0]
+    cdef Py_ssize_t n_rows = d.shape[0]
+    # Transposed, so that each column of A owns a contiguous row of the output.
+    out_T = np.zeros((n_A_cols, n_out), dtype=np.asarray(d).dtype)
+    if n_A_cols == 0 or n_out == 0:
+        return out_T.T
+    cdef floating[:, ::1] out_T_view = out_T
+
+    # The mask counts a repeated row only once, as in the sparse sandwich
+    # kernel, so `rows` must not contain duplicates.
+    cdef uint8[::1] row_included
+    cdef bint restrict_rows = rows is not None and len(rows) < n_rows
+    mask = np.ones(1, dtype=np.uint8)
+    if restrict_rows:
+        mask = np.zeros(n_rows, dtype=np.uint8)
+        mask[np.asarray(rows, dtype=np.intp)] = 1
+    row_included = mask
+
+    cdef Py_ssize_t Cj, idx
+    cdef win_integral j, k
+    cdef int i
+    for Cj in prange(n_A_cols, nogil=True, schedule="dynamic"):
+        j = A_cols[Cj]
+        for idx in range(A_indptr[j], A_indptr[j + 1]):
+            k = A_indices[idx]
+            if restrict_rows and not row_included[k]:
+                continue
+            i = i_indices[k] - drop_first
+            if i < 0:
+                continue
+            i = out_pos[i]
+            if i < 0:
+                continue
+            out_T_view[Cj, i] += d[k] * A_data[idx]
+    return out_T.T
 
 
 # This seems slower, so not using it for now

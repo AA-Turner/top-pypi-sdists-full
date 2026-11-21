@@ -1,5 +1,23 @@
 use super::*;
 
+type RdkitAtomPairDetail = (
+    Vec<u8>,
+    std::collections::BTreeMap<u32, u32>,
+    std::collections::BTreeMap<u32, u32>,
+);
+
+type RdkitRdkDetail = (
+    Vec<u8>,
+    std::collections::HashMap<u32, u32>,
+    std::collections::HashMap<u32, u32>,
+);
+
+type RdkitTorsionDetail = (
+    Vec<u8>,
+    std::collections::BTreeMap<u32, u32>,
+    std::collections::BTreeMap<u64, u32>,
+);
+
 #[pymethods]
 impl Mol {
     // -----------------------------------------------------------------------
@@ -112,12 +130,10 @@ impl Mol {
     ///
     /// A from-scratch Rust port of RDKit's
     /// ``rdkit.Chem.AllChem.GetHashedTopologicalTorsionFingerprintAsBitVect(mol, nBits=2048)``.
-    /// Measured 87.2% bit-exact on a 1000-molecule general corpus sample against a live
-    /// RDKit oracle. Two known, documented residual sources remain (see
-    /// ``chematic_fp::rdkit_torsion``'s own module doc comment for detail): RDKit's
-    /// hybridization-gated pi-electron count for hypervalent atoms (e.g. P/S) is not yet
-    /// replicated, and asymmetrically-substituted 3-membered rings can need more closure
-    /// entries than this implementation generates. A separate, opt-in function from
+    /// Against RDKit 2026.09.1, the pinned CLI comparison is 4,071/4,072 exact on
+    /// ``stress-v1.smi`` and exact on separate 10,000- and 5,000-molecule corpora.
+    /// The remaining stress input has an overvalent aromatic carbon; unusual
+    /// three-membered rings retain a documented closure limit. A separate function from
     /// :meth:`torsion_fp` (chematic's own native, similarity-preserving scheme, unchanged);
     /// neither affects the other's output. Does not support chirality (``includeChirality=True``
     /// is not implemented).
@@ -136,16 +152,48 @@ impl Mol {
     ///
     /// A from-scratch Rust port of RDKit's
     /// ``rdkit.Chem.AllChem.GetHashedAtomPairFingerprintAsBitVect(mol, nBits=2048)``.
-    /// Measured 87.2% bit-exact on a 1000-molecule general corpus sample against a live
-    /// RDKit oracle -- every mismatching molecule in that sample contains a hypervalent
-    /// S or P atom, confirming the *only* residual is the one already documented for
-    /// :meth:`rdkit_torsion_fp` (RDKit's hybridization-gated pi-electron count for
-    /// hypervalent atoms is not yet replicated; see ``chematic_fp::rdkit_torsion``'s
-    /// module doc comment). A separate, opt-in function from :meth:`atom_pair_fp`
+    /// Against RDKit 2026.09.1, the pinned CLI comparison is 4,071/4,072 exact on
+    /// ``stress-v1.smi`` and exact on separate 10,000- and 5,000-molecule corpora.
+    /// The remaining stress input has an overvalent aromatic carbon.
+    /// A separate function from :meth:`atom_pair_fp`
     /// (chematic's own native scheme, unchanged); neither affects the other's output.
     /// Does not support chirality (``includeChirality=True`` is not implemented).
     fn rdkit_atom_pair_fp(&self) -> Vec<u8> {
         bitvec2048_to_bytes(&chematic_fp::rdkit_atom_pair_fp(&self.inner))
+    }
+
+    /// Configurable 2D RDKit Atom Pair fingerprint. Returns packed bits, folded
+    /// counts and unhashed counts. The counts are independent of count simulation.
+    #[pyo3(signature = (*, nbits = 2048, min_distance = 1, max_distance = 30,
+        include_chirality = false, count_simulation = true, count_bounds = None))]
+    fn rdkit_atom_pair_config_detail(
+        &self,
+        nbits: usize,
+        min_distance: u32,
+        max_distance: u32,
+        include_chirality: bool,
+        count_simulation: bool,
+        count_bounds: Option<Vec<u32>>,
+    ) -> PyResult<RdkitAtomPairDetail> {
+        let mut config = chematic_fp::RdkitAtomPairConfig {
+            nbits,
+            min_distance,
+            max_distance,
+            include_chirality,
+            ..Default::default()
+        };
+        if !count_simulation {
+            config.count_bounds = None;
+        } else if count_bounds.is_some() {
+            config.count_bounds = count_bounds;
+        }
+        let result = chematic_fp::rdkit_atom_pair_config(&self.inner, &config)
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        Ok((
+            result.fingerprint.to_le_bytes(),
+            result.folded_counts.into_iter().collect(),
+            result.sparse_counts.into_iter().collect(),
+        ))
     }
 
     /// RDKit-compatible atom-pair fingerprint as a dense NumPy bit vector.
@@ -176,6 +224,40 @@ impl Mol {
         Ok(chematic_fp::rdkit_torsion_counts(&self.inner, nbits))
     }
 
+    /// Return packed bits, folded counts and unhashed counts for configured
+    /// RDKit Topological Torsion. Counts are independent of count simulation.
+    #[pyo3(signature = (*, atom_count = 4, nbits = 2048, only_shortest_paths = false,
+        include_chirality = false, count_simulation = true, count_bounds = None))]
+    fn rdkit_torsion_config_detail(
+        &self,
+        atom_count: usize,
+        nbits: usize,
+        only_shortest_paths: bool,
+        include_chirality: bool,
+        count_simulation: bool,
+        count_bounds: Option<Vec<u32>>,
+    ) -> PyResult<RdkitTorsionDetail> {
+        let mut config = chematic_fp::RdkitTorsionConfig {
+            atom_count,
+            nbits,
+            only_shortest_paths,
+            include_chirality,
+            ..Default::default()
+        };
+        if !count_simulation {
+            config.count_bounds = None;
+        } else if count_bounds.is_some() {
+            config.count_bounds = count_bounds;
+        }
+        let result = chematic_fp::rdkit_torsion_config(&self.inner, &config)
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        Ok((
+            result.fingerprint.to_le_bytes(),
+            result.folded_counts.into_iter().collect(),
+            result.sparse_counts.into_iter().collect(),
+        ))
+    }
+
     /// RDKit-compatible "Layered fingerprint" (``rdkit.Chem.LayeredFingerprint``)
     /// as bytes (256 bytes = 2048 bits).
     ///
@@ -203,12 +285,10 @@ impl Mol {
     /// ``rdkit.Chem.PatternFingerprint(mol, fpSize=2048)``. Unlike
     /// :meth:`rdkit_torsion_fp`/:meth:`rdkit_atom_pair_fp`, this uses SMARTS
     /// substructure matching against 13 fixed patterns rather than a path/pair
-    /// enumeration. Measured against a live RDKit oracle on three corpora with
-    /// different chemical distributions: 100% bit-exact on a general and a
-    /// ChEMBL sample, 99.6% on an NCI sample -- the residual traces entirely to
-    /// chematic's own aromaticity-perception model disagreeing with RDKit's on
-    /// specific ring systems (see ``chematic_fp::rdkit_pattern``'s module doc
-    /// comment for detail), not a defect in this port's own logic. A separate,
+    /// enumeration. Against RDKit 2026.09.1, the pinned CLI comparison is
+    /// 4,071/4,072 exact on ``stress-v1.smi`` and exact on separate 10,000-
+    /// and 5,000-molecule corpora. The remaining stress input has an
+    /// overvalent aromatic carbon. A separate,
     /// opt-in function from :meth:`pattern_fp` (chematic's own native scheme,
     /// unchanged); neither affects the other's output. Does not support
     /// ``tautomericFingerprint=True``.
@@ -254,6 +334,64 @@ impl Mol {
         let fingerprint = chematic_fp::rdkit_rdk_fp_ignoring_atoms(&self.inner, &ignored)
             .map_err(|error| PyValueError::new_err(error.to_string()))?;
         Ok(bitvec2048_to_bytes(&fingerprint))
+    }
+
+    /// Configured RDKit RDK fingerprint on the input's indexed graph.
+    /// Returns packed bits, folded counts, and sparse counts. Input hydrogens
+    /// survive unless `use_hs` is false, and both count outputs are independent
+    /// of count simulation.
+    #[pyo3(signature = (*, min_path = 1, max_path = 7, nbits = 2048, bits_per_feature = 2,
+        use_hs = true, branched_paths = true, use_bond_order = true, from_atoms = None,
+        ignore_atoms = None, atom_invariants = None, count_simulation = false, count_bounds = None,
+        max_visits = 1_000_000, max_paths = 100_000))]
+    #[allow(clippy::too_many_arguments)]
+    fn rdkit_rdk_config_detail(
+        &self,
+        min_path: usize,
+        max_path: usize,
+        nbits: usize,
+        bits_per_feature: usize,
+        use_hs: bool,
+        branched_paths: bool,
+        use_bond_order: bool,
+        from_atoms: Option<Vec<u32>>,
+        ignore_atoms: Option<Vec<u32>>,
+        atom_invariants: Option<Vec<u32>>,
+        count_simulation: bool,
+        count_bounds: Option<Vec<u32>>,
+        max_visits: usize,
+        max_paths: usize,
+    ) -> PyResult<RdkitRdkDetail> {
+        let indices = |atoms: Option<Vec<u32>>| {
+            atoms
+                .unwrap_or_default()
+                .into_iter()
+                .map(chematic_core::AtomIdx)
+                .collect()
+        };
+        let config = chematic_fp::RdkitRdkConfig {
+            min_path,
+            max_path,
+            nbits,
+            bits_per_feature,
+            use_hs,
+            branched_paths,
+            use_bond_order,
+            from_atoms: indices(from_atoms),
+            ignore_atoms: indices(ignore_atoms),
+            atom_invariants,
+            count_bounds: count_simulation
+                .then(|| count_bounds.unwrap_or_else(|| vec![1, 2, 4, 8])),
+            max_visits,
+            max_paths,
+        };
+        let result = chematic_fp::rdkit_rdk_config(&self.inner, &config)
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        Ok((
+            result.fingerprint.to_le_bytes(),
+            result.folded_counts.into_iter().collect(),
+            result.sparse_counts.into_iter().collect(),
+        ))
     }
 
     /// RDKit-compatible RDK fingerprint as a dense NumPy bit vector.
@@ -362,14 +500,8 @@ impl Mol {
         count_simulation: bool,
     ) -> PyResult<Vec<u8>> {
         let config = python_rdkit_morgan_config(radius, nbits, include_chirality)?;
-        if count_simulation {
-            let fp = chematic_fp::rdkit_morgan_count_simulation(&self.inner, &config)
-                .map_err(|e| PyValueError::new_err(e.to_string()))?;
-            return Ok(bitvecn_to_bytes(&fp));
-        }
-        let fingerprint = chematic_fp::rdkit_morgan_bitvec(&self.inner, &config)
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        Ok(bitvecn_to_bytes(&fingerprint))
+        rdkit_morgan_bytes(&self.inner, &config, count_simulation)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     /// Configurable RDKit-compatible Morgan fingerprint as a dense NumPy bit vector.
@@ -513,19 +645,7 @@ impl Mol {
 
     /// MACCS 166-bit keys as bytes (21 bytes, LSB-first).
     fn maccs(&self) -> Vec<u8> {
-        let fp = chematic_fp::maccs(&self.inner);
-        (0..21usize)
-            .map(|byte_idx| {
-                let mut byte = 0u8;
-                for bit in 0..8usize {
-                    let global_bit = byte_idx * 8 + bit;
-                    if global_bit < 166 && fp.get(global_bit) {
-                        byte |= 1 << bit;
-                    }
-                }
-                byte
-            })
-            .collect()
+        chematic_fp::maccs(&self.inner).to_le_bytes()[..21].to_vec()
     }
 
     // -----------------------------------------------------------------------
@@ -676,6 +796,26 @@ impl Mol {
             })
             .collect();
         chematic_mol::write_cjson(&self.inner, &c3d)
+    }
+
+    /// ChemicalJSON graph/Cartesian projection that refuses unsupported atom,
+    /// bond and stereo properties. Does not check discarded source metadata.
+    /// Coordinates are absent ([]) or exactly one finite [x,y,z] row per atom.
+    #[pyo3(signature = (coords = vec![]))]
+    fn to_cjson_checked(&self, coords: Vec<Vec<f64>>) -> PyResult<String> {
+        let points = coords
+            .iter()
+            .enumerate()
+            .map(|(index, row)| match row.as_slice() {
+                &[x, y, z] => Ok((x, y, z)),
+                _ => Err(PyValueError::new_err(format!(
+                    "CJSON: expected 3 coordinates at atom {index}, got {}",
+                    row.len()
+                ))),
+            })
+            .collect::<PyResult<Vec<_>>>()?;
+        chematic_mol::write_cjson_checked(&self.inner, &points)
+            .map_err(|error| PyValueError::new_err(error.to_string()))
     }
 
     /// Serialize the molecule to a MolJSON string (pretty-printed).
@@ -833,27 +973,11 @@ impl Mol {
         profile: &str,
         py: Python<'py>,
     ) -> PyResult<Bound<'py, PyDict>> {
-        use chematic_smarts::{RdkitParityError, RdkitRingCountModel};
-
-        let ring_count_model = match profile {
-            "2026.03.6" => RdkitRingCountModel::SymmetrizedSssr,
-            "2026.09.1" => RdkitRingCountModel::RelevantCycles,
-            other => {
-                return Err(PyValueError::new_err(format!(
-                    "unknown profile '{other}': expected '2026.03.6' or '2026.09.1'"
-                )));
-            }
-        };
-
+        let config = crate::misc::parity_profile(profile)?;
         let query = crate::misc::cached_smarts(smarts).map_err(|e| {
             crate::errors::malformed("smarts", format!("invalid SMARTS '{smarts}': {e}"))
         })?;
         let result = PyDict::new(py);
-        let config = chematic_smarts::RdkitParityConfig {
-            use_rdkit_parity_aromaticity: true,
-            ring_count_model,
-            ..chematic_smarts::RdkitParityConfig::default()
-        };
         // RDKit matches its hydrogen-suppressed molecule (`MolFromSmiles`
         // removes most hydrogen graph atoms), in its atom numbering.
         let suppressed = chematic_smiles::rdkit_hydrogen_suppressed(&self.inner);
@@ -870,15 +994,7 @@ impl Mol {
                 result.set_item("matches", py.None())?;
             }
             Err(error) => {
-                let (status, reason) = match &error {
-                    RdkitParityError::RingModelAmbiguous { .. } => {
-                        ("typed_unsupported", "ring_model_ambiguous")
-                    }
-                    RdkitParityError::RingModelBudgetExceeded { .. } => {
-                        ("typed_refusal", "ring_model_budget_exceeded")
-                    }
-                    RdkitParityError::Aromaticity(_) => ("typed_refusal", "aromaticity_failure"),
-                };
+                let (status, reason) = crate::misc::parity_error_status(&error);
                 result.set_item("status", status)?;
                 result.set_item("reason", reason)?;
                 result.set_item("matches", py.None())?;

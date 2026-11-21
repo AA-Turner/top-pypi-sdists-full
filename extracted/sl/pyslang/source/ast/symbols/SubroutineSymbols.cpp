@@ -147,8 +147,9 @@ std::pair<SubroutineSymbol*, bool> SubroutineSymbol::fromSyntax(
     else if (subroutineKind == SubroutineKind::Function &&
              proto->returnType->kind != SyntaxKind::VoidType) {
         // The function gets an implicit variable inserted that represents the return value.
+        // It has the same lifetime as the function's other variables (LRM 6.21, 13.4.1).
         auto implicitReturnVar = compilation.emplace<VariableSymbol>(result->name, result->location,
-                                                                     VariableLifetime::Automatic);
+                                                                     *lifetime);
         implicitReturnVar->getDeclaredType()->setLink(result->declaredReturnType);
         implicitReturnVar->flags |= VariableFlags::CompilerGenerated;
         result->addMember(*implicitReturnVar);
@@ -218,6 +219,7 @@ static std::pair<bitmask<MethodFlags>, Visibility> getMethodFlags(
             case TokenKind::ConstKeyword:
             case TokenKind::ExternKeyword:
             case TokenKind::RandKeyword:
+            case TokenKind::RandCKeyword:
                 // Parser already issued errors for these, so just ignore them here.
                 break;
             default:
@@ -226,7 +228,7 @@ static std::pair<bitmask<MethodFlags>, Visibility> getMethodFlags(
     }
 
     for (auto specifier : proto.specifiers) {
-        if (!specifier->keyword.isMissing()) {
+        if (specifier->keyword && !specifier->keyword.isMissing()) {
             switch (specifier->keyword.kind) {
                 case TokenKind::InitialKeyword:
                     flags |= MethodFlags::Initial;
@@ -396,9 +398,12 @@ SubroutineSymbol& SubroutineSymbol::createOutOfBlock(Compilation& compilation,
                 diag.addNote(diag::NoteDeclarationHere, pa->location);
                 return *result;
             }
-            else if (de->syntax && pe->syntax && !de->bad() && !pe->bad()) {
-                // Check for "syntactically identical" expressions.
-                if (!de->syntax->isEquivalentTo(*pe->syntax)) {
+            else if (!de->bad() && !pe->bad()) {
+                // Check for "syntactically identical" expressions. Implicit conversions
+                // to the argument type don't have syntax of their own, so look through them.
+                auto ds = de->unwrapImplicitConversions().syntax;
+                auto ps = pe->unwrapImplicitConversions().syntax;
+                if (ds && ps && !ds->isEquivalentTo(*ps)) {
                     auto& diag = parent.addDiag(diag::MethodArgDefaultMismatch, de->sourceRange);
                     diag << da->name;
                     diag.addNote(diag::NoteDeclarationHere, pa->location) << pe->sourceRange;

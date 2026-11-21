@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: letschatty
-Version: 0.6.89
+Version: 0.6.97
 Summary: Models and custom classes to work across the Chattyverse
 License: MIT
 Author: Axel
@@ -15,7 +15,7 @@ Requires-Dist: motor (>=3.6.0,<4.0.0) ; extra == "db"
 Requires-Dist: phonenumbers (>=9.0.2,<10.0.0)
 Requires-Dist: pycountry (>=24.6.1,<25.0.0)
 Requires-Dist: pydantic (>=2.9.2,<3.0.0)
-Requires-Dist: pymongo (>=4.10.1,<5.0.0) ; extra == "db"
+Requires-Dist: pymongo[zstd] (>=4.10.1,<5.0.0) ; extra == "db"
 Requires-Dist: python-dotenv (>=1.0.1,<2.0.0)
 Requires-Dist: redis[hiredis] (>=5.0.0,<6.0.0)
 Requires-Dist: toml (>=0.10.2,<0.11.0)

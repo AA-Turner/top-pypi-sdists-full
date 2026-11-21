@@ -4,16 +4,18 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import TYPE_CHECKING, Any, Iterator, Mapping, Sequence
+from typing import TYPE_CHECKING, Any, Iterator, Mapping, Sequence, cast
 import xml.etree.ElementTree as ET
 
 from ._document_primitives import (
-    _DEFAULT_PARAGRAPH_ATTRS,
+    SameElement,
+    paragraph_attributes,
     _HP,
     _append_child,
     _clear_paragraph_layout_cache,
     _default_sublist_attributes,
     _paragraph_id,
+    _require_text,
     _sanitize_text,
     _text_element_content,
 )
@@ -21,7 +23,10 @@ from ._paragraph_text_edit import set_text_with_tabs
 from .numbering_kinds import number_format
 
 if TYPE_CHECKING:
+    from .header import Style
+    from .objects import HwpxOxmlInlineObject
     from .paragraph import HwpxOxmlParagraph
+    from .run import HwpxOxmlRun
     from .section_format import HwpxOxmlSectionProperties
 
 
@@ -233,7 +238,7 @@ def _control_story_index(section_element: ET.Element) -> dict[_PairKey, list[ET.
 
 
 def _story_pairs(section_element: ET.Element) -> list[tuple[ET.Element, ET.Element]]:
-    """(``hp:secPr`` story, its one ``hp:ctrl`` copy) for each story python-hwpx keeps twice."""
+    """(``hp:secPr`` story, its one ``hp:ctrl`` copy) for each story python-hwpx 6.x kept twice."""
 
     stories = [story for sec_pr in section_element.findall(f"{_HP}p/{_HP}run/{_HP}secPr")
                for story in sec_pr if story.tag in _STORY_TAGS]
@@ -250,17 +255,8 @@ def story_marks(section_element: ET.Element) -> dict[_PairKey, tuple]:
             if (content := _tree_key(story)) == _tree_key(mirror)}
 
 
-def remember_story_pair(section: Any, story: ET.Element) -> None:
-    """Note that *story* and its control copy agree now: they were just written alike."""
-
-    marks = getattr(section, "_story_marks", None)
-    if marks is None:
-        marks = section._story_marks = {}
-    marks[_pair_key(story)] = _tree_key(story)
-
-
 def control_twins(section_element: ET.Element) -> set[ET.Element]:
-    """The ``hp:ctrl`` copies of the stories python-hwpx keeps twice.
+    """The ``hp:ctrl`` copies of the stories python-hwpx 6.x kept twice.
 
     A reader that walks the whole section skips them, so that each header or
     footer counts once (its form fields, for one).
@@ -284,9 +280,11 @@ def _copy_into(target: ET.Element, source: ET.Element) -> None:
 def sync_story_mirrors(section: Any) -> int:
     """Bring the two copies of each header/footer back in step before a save.
 
-    The stories python-hwpx writes live twice: under ``hp:secPr``, where its
-    story objects read and edit them, and in a body ``hp:ctrl``, the only copy
-    Hancom reads. When the copies differ, the one that changed since they last
+    The stories python-hwpx up to 6.x wrote live twice: under ``hp:secPr``,
+    where its story objects read and edit them, and in a body ``hp:ctrl``, the
+    only copy Hancom reads (python-hwpx 7.0 writes the control copy alone, and
+    drops a 6.x ``hp:secPr`` copy when that story is set again). When the
+    copies differ, the one that changed since they last
     agreed (when the document was opened, when the story was set, or at the
     last save) is copied over the other; when that is not known, or both
     changed, the ``hp:secPr`` story wins. Both elements stay in place, so story
@@ -414,7 +412,7 @@ def _validated_mirror_parts(
     return mirror_parts
 
 
-class HwpxOxmlSectionHeaderFooter:
+class HwpxOxmlSectionHeaderFooter(SameElement):
     """Wraps a ``<hp:header>`` or ``<hp:footer>`` element."""
 
     def __init__(
@@ -424,8 +422,32 @@ class HwpxOxmlSectionHeaderFooter:
         apply_element: ET.Element | None = None,
     ):
         self.element = element
-        self._properties = properties
+        self._held_properties = properties
         self._apply_element = apply_element
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name == "apply_page_type":  # the 6.x name: a write is refused like a read, not kept aside (7.0)
+            from .._removed_names import removed_name_error
+
+            error = removed_name_error("HeaderFooter", name)
+            if error is not None:
+                raise error
+        object.__setattr__(self, name, value)
+
+    @property
+    def _properties(self) -> "HwpxOxmlSectionProperties":
+        """The properties of the section holding the header or footer now. Its control sits in a body
+        paragraph, and once that paragraph moved to another section the story is that section's: an
+        edit through an object taken before the move marked the section it was taken from, so the
+        change was reported and not saved."""
+
+        from ._paragraph_text_edit import live_holder
+
+        held = self._held_properties
+        section = live_holder(self.element, held.section)
+        if section is not held.section and hasattr(section, "properties"):
+            self._held_properties = held = section.properties
+        return held
 
     @property
     def apply_element(self) -> ET.Element | None:
@@ -476,8 +498,13 @@ class HwpxOxmlSectionHeaderFooter:
             self._properties.section.mark_dirty()
 
     @property
-    def apply_page_type(self) -> str:
-        """Return the page type the header/footer applies to."""
+    def page_type(self) -> str:
+        """The pages this header/footer is drawn on (``applyPageType``): ``BOTH``, ``EVEN``, ``ODD``,
+        ``FIRST`` or ``LAST``, the name ``doc.page.set_header(page_type=...)`` uses.
+
+        Setting it moves the header/footer to other pages: the story, its apply element and its
+        control copy all take the value.
+        """
 
         value = self.element.get("applyPageType")
         if value is not None:
@@ -486,8 +513,8 @@ class HwpxOxmlSectionHeaderFooter:
             return self._apply_element.get("applyPageType", "BOTH")
         return "BOTH"
 
-    @apply_page_type.setter
-    def apply_page_type(self, value: str) -> None:
+    @page_type.setter
+    def page_type(self, value: str) -> None:
         copy = self._control_copy()
         changed = False
         if self.element.get("applyPageType") != value:
@@ -560,7 +587,8 @@ class HwpxOxmlSectionHeaderFooter:
         attrs["vertAlign"] = "TOP" if self.element.tag.endswith("header") else "BOTTOM"
         size = self._properties.page_size
         margins = self._properties.page_margins
-        text_width = max(size.drawn_width - margins.left - margins.right, 0)
+        known = size.drawn_width is not None and margins.left is not None and margins.right is not None
+        text_width = max(size.drawn_width - margins.left - margins.right, 0) if known else 0  # type: ignore[operator]
         text_height = margins.header if self.element.tag.endswith("header") else margins.footer
         if text_width:
             attrs["textWidth"] = str(text_width)
@@ -578,8 +606,7 @@ class HwpxOxmlSectionHeaderFooter:
             )
         paragraph = sublist.find(f"{_HP}p")
         if paragraph is None:
-            paragraph_attrs = dict(_DEFAULT_PARAGRAPH_ATTRS)
-            paragraph_attrs["id"] = _paragraph_id()
+            paragraph_attrs = paragraph_attributes(_paragraph_id(self._properties.section._ids))
             paragraph = _append_child(sublist, f"{_HP}p", paragraph_attrs)
         run = paragraph.find(f"{_HP}run")
         if run is None:
@@ -597,10 +624,11 @@ class HwpxOxmlSectionHeaderFooter:
 
     @text.setter
     def text(self, value: str) -> None:
-        # Replace existing content with a simple paragraph.
-        for child in list(self.element):
-            if child.tag == f"{_HP}subList":
-                self.element.remove(child)
+        # Not text: refused before the old content goes (it went first, and the refusal left the
+        # header or footer empty).
+        _require_text(value)
+        # Replace existing content with a simple paragraph (the notes in it leave the count).
+        self._remove_sublists()
         # A tab becomes an hp:tab inside hp:t, as Hancom writes it.
         set_text_with_tabs(self._ensure_text_element(), value)
         # Clear cached lineseg so Hangul recalculates layout.
@@ -667,12 +695,15 @@ class HwpxOxmlSectionHeaderFooter:
         return sublist
 
     def _remove_sublists(self) -> bool:
-        removed = False
-        for child in list(self.element):
-            if child.tag == f"{_HP}subList":
-                self.element.remove(child)
-                removed = True
-        return removed
+        from .note_authoring import note_kinds_in_all, renumber_note_kinds
+
+        section = self._properties.section
+        gone = [child for child in self.element if child.tag == f"{_HP}subList"]
+        note_kinds = note_kinds_in_all(section, gone)  # notes in the text that goes: the rest count again
+        for child in gone:
+            self.element.remove(child)
+        renumber_note_kinds(section, note_kinds)
+        return bool(gone)
 
     def clear_content(self) -> None:
         """Remove existing rich/plain content while keeping header/footer linkage.
@@ -686,23 +717,64 @@ class HwpxOxmlSectionHeaderFooter:
         self._properties.section.mark_dirty()
 
     @property
-    def paragraphs(self) -> list["HwpxOxmlParagraph"]:
-        """Return the paragraphs of this header/footer, like ``cell.paragraphs``."""
+    def paragraphs(self) -> tuple["HwpxOxmlParagraph", ...]:
+        """The paragraphs of this header/footer, like ``cell.paragraphs``."""
 
         from .paragraph import HwpxOxmlParagraph
 
         sublist = self.element.find(f"{_HP}subList")
         if sublist is None:
-            return []
+            return ()
         section = self._properties.section
-        return [HwpxOxmlParagraph(element, section) for element in sublist.findall(f"{_HP}p")]
+        return tuple(HwpxOxmlParagraph(element, section) for element in sublist.findall(f"{_HP}p"))
 
-    def add_paragraph(self, *, align: str | None = None) -> ET.Element:
+    @property
+    def kind(self) -> str:
+        """``"header"`` or ``"footer"``."""
+
+        return _story_kind(self.element)
+
+    def add_paragraph(
+        self,
+        text: str = "",
+        *,
+        style: "int | str | Style | None" = None,
+        para_pr_id_ref: str | int | None = None,
+        char_pr_id_ref: str | int | None = None,
+    ) -> "HwpxOxmlParagraph":
+        """Append a paragraph (with *text*, if given) and return it as a paragraph object.
+
+        ``style`` (a name, a numeric id or a ``Style``) gives the paragraph that style and its
+        paragraph and character shapes unless they are passed; ``para_pr_id_ref`` and
+        ``char_pr_id_ref`` name the shapes directly, as every ``add_paragraph`` takes them. The
+        rest is a property of the returned paragraph (``p.alignment = "CENTER"``; 7.0 took away
+        ``align=``). Up to 6.x this returned the bare ``hp:p`` element and took no text.
+        """
+
+        _require_text(text)  # not text: refused before anything is written
+        from .paragraph import HwpxOxmlParagraph
+        from .section import style_shape_refs
+
+        section = self._properties.section
+        style_id_ref, para_pr_id_ref, char_pr_id_ref = style_shape_refs(
+            section.document, style, para_pr_id_ref, char_pr_id_ref
+        )
+        element = self._append_paragraph_element()
+        if para_pr_id_ref is not None:
+            element.set("paraPrIDRef", str(para_pr_id_ref))
+        if style_id_ref is not None:
+            element.set("styleIDRef", str(style_id_ref))
+        if text or char_pr_id_ref is not None:
+            run = _append_child(element, f"{_HP}run", {"charPrIDRef": str(char_pr_id_ref or "0")})
+            set_text_with_tabs(_append_child(run, f"{_HP}t"), text)
+            _clear_paragraph_layout_cache(element)
+        return HwpxOxmlParagraph(element, section)
+
+    def _append_paragraph_element(self, *, align: str | None = None) -> ET.Element:
         """Append an empty paragraph to the header/footer subList."""
 
         sublist = self._ensure_sublist()
-        paragraph_attrs = dict(_DEFAULT_PARAGRAPH_ATTRS)
-        paragraph_attrs["id"] = _paragraph_id()
+        paragraph_attrs = paragraph_attributes(_paragraph_id(self._properties.section._ids))
         if align:
             document = self._properties.section.document
             if document is not None and document.headers:
@@ -717,14 +789,14 @@ class HwpxOxmlSectionHeaderFooter:
         sublist = self._ensure_sublist()
         paragraph = sublist.find(f"{_HP}p")
         if paragraph is None:
-            paragraph = self.add_paragraph()
+            paragraph = self._append_paragraph_element()
         return paragraph
 
     def add_run(
         self,
         text: str,
         *,
-        paragraph: ET.Element | None = None,
+        paragraph: "HwpxOxmlParagraph | ET.Element | None" = None,
         bold: bool = False,
         italic: bool = False,
         underline: bool = False,
@@ -733,10 +805,18 @@ class HwpxOxmlSectionHeaderFooter:
         size: int | float | None = None,
         highlight: str | None = None,
         strike: bool | None = None,
-    ) -> ET.Element:
-        """Append a text run to a header/footer paragraph."""
+    ) -> "HwpxOxmlRun":
+        """Append a text run to a header/footer paragraph and return it as a run object.
 
-        target = paragraph if paragraph is not None else self._ensure_content_paragraph()
+        *paragraph* is one of :attr:`paragraphs` (or its element); by default the first.
+        Up to 6.x this returned the bare ``hp:run`` element.
+        """
+
+        _require_text(text)  # not text: refused before anything is written
+        from .paragraph import HwpxOxmlParagraph
+        from .run import HwpxOxmlRun
+
+        target = self._paragraph_element(paragraph)
         char_pr_id_ref = "0"
         if any((bold, italic, underline, color, font, size, highlight, strike)):
             document = self._properties.section.document
@@ -755,19 +835,41 @@ class HwpxOxmlSectionHeaderFooter:
         set_text_with_tabs(_append_child(run, f"{_HP}t"), text)
         _clear_paragraph_layout_cache(target)
         self._properties.section.mark_dirty()
-        return run
+        return HwpxOxmlRun(run, HwpxOxmlParagraph(target, self._properties.section))
+
+    def _paragraph_element(self, paragraph: "HwpxOxmlParagraph | ET.Element | None") -> ET.Element:
+        if paragraph is None:
+            return self._ensure_content_paragraph()
+        held = getattr(paragraph, "element", None)
+        element = cast(ET.Element, paragraph if held is None else held)
+        if not any(node is element for node in self.element.iter(f"{_HP}p")):
+            from ..errors import HwpxValueError
+
+            raise HwpxValueError(
+                "the paragraph is not in this header/footer",
+                code="story-paragraph-not-here",
+                suggestion="Pass one of this header/footer's own paragraphs (story.paragraphs).",
+            )
+        return element
 
     def add_page_number_field(
         self,
         *,
-        paragraph: ET.Element | None = None,
+        paragraph: "HwpxOxmlParagraph | ET.Element | None" = None,
         format: str = "page",
         position: str = "BOTTOM_CENTER",
         format_type: str | None = None,
-    ) -> ET.Element:
-        """Append the corpus-observed automatic page-number control."""
+    ) -> "HwpxOxmlInlineObject":
+        """Append the corpus-observed automatic page-number control.
 
-        target = paragraph if paragraph is not None else self._ensure_content_paragraph()
+        Returns the page-number control (``hp:pageNum``) as an inline object; up to 6.x
+        the bare element.
+        """
+
+        from .objects import HwpxOxmlInlineObject
+        from .paragraph import HwpxOxmlParagraph
+
+        target = self._paragraph_element(paragraph)
         normalized_format = str(format_type or format or "DIGIT").strip().upper()
         # ``format`` also names the display ("page", "page/total"); those count in digits.
         page_format_type = number_format("DIGIT" if normalized_format in {"PAGE", "PAGE/TOTAL"} else normalized_format)
@@ -783,7 +885,7 @@ class HwpxOxmlSectionHeaderFooter:
         )
         _clear_paragraph_layout_cache(target)
         self._properties.section.mark_dirty()
-        return page_number
+        return HwpxOxmlInlineObject(page_number, HwpxOxmlParagraph(target, self._properties.section))
 
     def _add_total_page_counter(self, paragraph: ET.Element, format_type: str = "DIGIT") -> None:
         """Append the total-page counter of a "page/total" field.
@@ -808,24 +910,60 @@ class HwpxOxmlSectionHeaderFooter:
         header/footer as it was.
         """
 
-        from .color import normalize_color
-
-        for paragraph_spec in content:  # colours first: nothing is cleared for a bad one
-            for child in paragraph_spec.get("children") or paragraph_spec.get("runs") or ():
-                for key in ("color", "highlight"):
-                    if child.get(key) is not None:
-                        normalize_color(child.get(key))
-        saved = deepcopy(self.element)
+        self._check_content(content)
+        # What is there now, as it is: the same nodes go back if writing still fails, so a paragraph or
+        # run object taken before keeps writing into the document. Copies went back before, and an edit
+        # through such an object was then reported and not saved.
+        attributes, text, children = dict(self.element.attrib), self.element.text, list(self.element)
         try:
             self._fill_content(content)
         except Exception:
             self.element.attrib.clear()
-            self.element.attrib.update(saved.attrib)
-            self.element.text = saved.text
+            self.element.attrib.update(attributes)
+            self.element.text = text
             for child in list(self.element):
                 self.element.remove(child)
-            self.element.extend(list(saved))
+            self.element.extend(children)
+            # the notes that went with the old content were counted out; they are back
+            from .note_authoring import note_kinds_in, renumber_note_kinds
+
+            renumber_note_kinds(self._properties.section, note_kinds_in(children))
             raise
+
+    @staticmethod
+    def _check_content(content: Sequence[Mapping[str, Any]]) -> None:
+        """Everything :meth:`_fill_content` refuses, checked for the whole of *content* before the first
+        paragraph is written: the kind of each child, a run's colours, size and font, a page number's
+        format, a paragraph's alignment. A later child refused used to leave what the earlier ones had
+        declared (a character shape for a sized run) in the header of the document."""
+
+        from .color import normalize_color
+        from .header_fonts import check_run_fonts, check_run_size
+        from .header_part import HwpxOxmlHeader
+
+        for paragraph_spec in content:
+            align = paragraph_spec.get("align")
+            if align:
+                HwpxOxmlHeader._normalize_paragraph_alignment(str(align))
+            children = paragraph_spec.get("children")
+            if children is None:
+                children = paragraph_spec.get("runs")
+            for child in children or ():
+                page_number_format = child.get("page_number")
+                kind = "page_number" if page_number_format is not None else str(child.get("type", "run"))
+                if kind == "run":
+                    for key in ("color", "highlight"):
+                        if child.get(key) is not None:
+                            normalize_color(child.get(key))
+                    check_run_size(child.get("size"))
+                    check_run_fonts(child.get("font"), None)
+                elif kind == "page_number":
+                    page_format = str(page_number_format or child.get("format", "page"))
+                    chosen = str(child.get("formatType") or child.get("format_type") or page_format or "DIGIT")
+                    chosen = chosen.strip().upper()
+                    number_format("DIGIT" if chosen in {"PAGE", "PAGE/TOTAL"} else chosen)
+                else:
+                    raise _unsupported_content(kind)
 
     def _fill_content(self, content: Sequence[Mapping[str, Any]]) -> None:
         if not content:
@@ -834,7 +972,7 @@ class HwpxOxmlSectionHeaderFooter:
         self._remove_sublists()
         self._properties.section.mark_dirty()
         for paragraph_spec in content:
-            paragraph = self.add_paragraph(align=paragraph_spec.get("align"))
+            paragraph = self._append_paragraph_element(align=paragraph_spec.get("align"))
             children = paragraph_spec.get("children")
             if children is None:
                 children = paragraph_spec.get("runs")
@@ -868,9 +1006,20 @@ class HwpxOxmlSectionHeaderFooter:
                     )
                     if page_format == "page/total":
                         self.add_run("/", paragraph=paragraph)
-                        self._add_total_page_counter(paragraph, page_number.get("formatType") or "DIGIT")
+                        self._add_total_page_counter(paragraph, page_number.element.get("formatType") or "DIGIT")
                     continue
-                raise ValueError(f"unsupported header/footer content type: {kind}")
+                raise _unsupported_content(kind)
+
+def _unsupported_content(kind: str) -> Exception:
+    from ..errors import HwpxValueError
+
+    return HwpxValueError(
+        f"unsupported header/footer content type: {kind}",
+        code="story-content-type-unsupported",
+        context={"requested": kind},
+        suggestion='Use {"text": ...} for a run or {"page_number": "page"} for a page number.',
+    )
+
 
 def _append_auto_number(ctrl: ET.Element, num_type: str, format_type: str) -> ET.Element:
     """Append ``hp:autoNum`` with its number format, as Hancom writes it.

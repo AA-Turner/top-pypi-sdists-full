@@ -6389,6 +6389,1068 @@ class CfnApplicationReferenceDataSourceProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_kinesisanalyticsv2_6a4c8ff3.ISnapshotRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnSnapshot(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_kinesisanalyticsv2.CfnSnapshot",
+):
+    '''Resource Type definition for AWS::KinesisAnalyticsV2::Snapshot, a point-in-time snapshot of a Managed Service for Apache Flink (Kinesis Analytics V2) application's state.
+
+    Snapshots are account-scoped and immutable: every input property except Tags is create-only, so changing any of them forces replacement, while changing Tags updates the snapshot in place. Specify exactly one source: ApplicationName to snapshot a running application (CreateSnapshot), or ImportSourceConfiguration to import a snapshot from Amazon S3 (ImportSnapshot). CloudFormation deletes the snapshot via DeleteSnapshot; to retain a snapshot beyond the stack, set DeletionPolicy: Retain on the resource.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-snapshot.html
+    :cloudformationResource: AWS::KinesisAnalyticsV2::Snapshot
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_kinesisanalyticsv2 as kinesisanalyticsv2
+        
+        cfn_snapshot = kinesisanalyticsv2.CfnSnapshot(self, "MyCfnSnapshot",
+            snapshot_name="snapshotName",
+        
+            # the properties below are optional
+            application_name="applicationName",
+            import_source_configuration=kinesisanalyticsv2.CfnSnapshot.ImportSourceConfigurationProperty(
+                import_role_arn="importRoleArn",
+                source_s3_prefix_location=kinesisanalyticsv2.CfnSnapshot.S3PrefixLocationProperty(
+                    bucket_arn="bucketArn",
+                    key_prefix="keyPrefix"
+                ),
+                source_type="sourceType",
+        
+                # the properties below are optional
+                source_encryption_configuration=kinesisanalyticsv2.CfnSnapshot.SnapshotEncryptionConfigurationDescriptionProperty(
+                    key_type="keyType",
+        
+                    # the properties below are optional
+                    key_id="keyId"
+                )
+            ),
+            snapshot_description="snapshotDescription",
+            snapshot_encryption_configuration_description=kinesisanalyticsv2.CfnSnapshot.SnapshotEncryptionConfigurationDescriptionProperty(
+                key_type="keyType",
+        
+                # the properties below are optional
+                key_id="keyId"
+            ),
+            snapshot_format="snapshotFormat",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        snapshot_name: builtins.str,
+        application_name: typing.Optional[builtins.str] = None,
+        import_source_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSnapshot.ImportSourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        snapshot_description: typing.Optional[builtins.str] = None,
+        snapshot_encryption_configuration_description: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSnapshot.SnapshotEncryptionConfigurationDescriptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        snapshot_format: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::KinesisAnalyticsV2::Snapshot``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param snapshot_name: The customer-chosen name of the snapshot, unique within the account. Immutable after create.
+        :param application_name: The name of the Managed Service for Apache Flink application to snapshot. Used only at create time to select the source application; immutable after create. Specify either ApplicationName or ImportSourceConfiguration, not both.
+        :param import_source_configuration: The Amazon S3 location to import a snapshot from, and the role the service assumes to read it.
+        :param snapshot_description: Optional customer-supplied description of the snapshot. Immutable after create.
+        :param snapshot_encryption_configuration_description: A KMS encryption configuration for snapshot data: the key type, and the key when it is a customer managed key.
+        :param snapshot_format: The format of the snapshot (CANONICAL). Sent to ImportSnapshot with ImportSourceConfiguration; with ApplicationName it may only be CANONICAL, the format CreateSnapshot produces. Returned by DescribeSnapshot. Immutable after create.
+        :param tags: Tags to apply to the snapshot. Applied at create time (with CreateSnapshot, or with TagResource right after ImportSnapshot) and updated in place with TagResource and UntagResource. Tag keys must not start with aws:.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f88a7959fff04909e855868a1fb89f55bd99e76784c2853cccc6a5879ddb97d4)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnSnapshotProps(
+            snapshot_name=snapshot_name,
+            application_name=application_name,
+            import_source_configuration=import_source_configuration,
+            snapshot_description=snapshot_description,
+            snapshot_encryption_configuration_description=snapshot_encryption_configuration_description,
+            snapshot_format=snapshot_format,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForSnapshot")
+    @builtins.classmethod
+    def arn_for_snapshot(
+        cls,
+        resource: "_aws_kinesisanalyticsv2_6a4c8ff3.ISnapshotRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7821b4caf32a4578480f422eef0490971e55f3d401d44d728288f16774d5dd5f)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSnapshot", [resource]))
+
+    @jsii.member(jsii_name="isCfnSnapshot")
+    @builtins.classmethod
+    def is_cfn_snapshot(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnSnapshot.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9ebab6e3018505c849fa0da86baa9f0c152d6bd667228adec0ee77d2599c4d1e)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSnapshot", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__92bef96a88c3a0dab71083fa7905b7890b195f4b6e3f67bad2d1a2b0f6b75e3f)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c8c4377549fd6430670bb6805e557c01a9848d0ccdc2ce5acd1f3e6f5d239046)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRuntimeEnvironment")
+    def attr_runtime_environment(self) -> builtins.str:
+        '''The runtime environment of the source application when the snapshot was taken with ApplicationName (CreateSnapshot), for example FLINK-1_20.
+
+        Populated by DescribeSnapshot. Not returned for snapshots created with ImportSourceConfiguration (ImportSnapshot), which carry no runtime version.
+
+        :cloudformationAttribute: RuntimeEnvironment
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRuntimeEnvironment"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSnapshotArn")
+    def attr_snapshot_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the snapshot.
+
+        Account-scoped: arn::kinesisanalytics:::snapshot/. Assigned by the service at create time and used as the resource's primary identifier.
+
+        :cloudformationAttribute: SnapshotArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSnapshotArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSnapshotCreationTimestamp")
+    def attr_snapshot_creation_timestamp(self) -> builtins.str:
+        '''The time at which the service created the snapshot, in ISO-8601 format.
+
+        Populated by DescribeSnapshot.
+
+        :cloudformationAttribute: SnapshotCreationTimestamp
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSnapshotCreationTimestamp"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSnapshotInitiator")
+    def attr_snapshot_initiator(self) -> builtins.str:
+        '''Indicates whether the snapshot was initiated by the customer or by the service.
+
+        Populated by DescribeSnapshot.
+
+        :cloudformationAttribute: SnapshotInitiator
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSnapshotInitiator"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSnapshotInitiatorOperation")
+    def attr_snapshot_initiator_operation(self) -> builtins.str:
+        '''The operation that initiated the snapshot.
+
+        Populated by DescribeSnapshot.
+
+        :cloudformationAttribute: SnapshotInitiatorOperation
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSnapshotInitiatorOperation"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSnapshotSizeInBytes")
+    def attr_snapshot_size_in_bytes(self) -> jsii.Number:
+        '''The size of the snapshot in bytes.
+
+        Populated by DescribeSnapshot once the snapshot reaches READY.
+
+        :cloudformationAttribute: SnapshotSizeInBytes
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrSnapshotSizeInBytes"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSnapshotSourceDescription")
+    def attr_snapshot_source_description(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''Details about the source (application and/or S3 location) the snapshot was taken from.
+
+        Populated by DescribeSnapshot.
+
+        :cloudformationAttribute: SnapshotSourceDescription
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrSnapshotSourceDescription"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSnapshotSourceDescriptionS3PrefixLocationBucketArn")
+    def attr_snapshot_source_description_s3_prefix_location_bucket_arn(
+        self,
+    ) -> builtins.str:
+        '''The ARN of the S3 bucket.
+
+        :cloudformationAttribute: SnapshotSourceDescription.S3PrefixLocation.BucketARN
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSnapshotSourceDescriptionS3PrefixLocationBucketArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSnapshotSourceDescriptionS3PrefixLocationKeyPrefix")
+    def attr_snapshot_source_description_s3_prefix_location_key_prefix(
+        self,
+    ) -> builtins.str:
+        '''The S3 key prefix.
+
+        :cloudformationAttribute: SnapshotSourceDescription.S3PrefixLocation.KeyPrefix
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSnapshotSourceDescriptionS3PrefixLocationKeyPrefix"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSnapshotSourceDescriptionSourceApplicationDescriptionApplicationCreationTimestamp")
+    def attr_snapshot_source_description_source_application_description_application_creation_timestamp(
+        self,
+    ) -> builtins.str:
+        '''The time at which the source application was created.
+
+        :cloudformationAttribute: SnapshotSourceDescription.SourceApplicationDescription.ApplicationCreationTimestamp
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSnapshotSourceDescriptionSourceApplicationDescriptionApplicationCreationTimestamp"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSnapshotSourceDescriptionSourceApplicationDescriptionApplicationName")
+    def attr_snapshot_source_description_source_application_description_application_name(
+        self,
+    ) -> builtins.str:
+        '''The name of the source application.
+
+        :cloudformationAttribute: SnapshotSourceDescription.SourceApplicationDescription.ApplicationName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSnapshotSourceDescriptionSourceApplicationDescriptionApplicationName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSnapshotSourceDescriptionSourceApplicationDescriptionApplicationVersionId")
+    def attr_snapshot_source_description_source_application_description_application_version_id(
+        self,
+    ) -> jsii.Number:
+        '''The version of the source application captured in the snapshot.
+
+        :cloudformationAttribute: SnapshotSourceDescription.SourceApplicationDescription.ApplicationVersionId
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrSnapshotSourceDescriptionSourceApplicationDescriptionApplicationVersionId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSnapshotStatus")
+    def attr_snapshot_status(self) -> builtins.str:
+        '''The lifecycle status of the snapshot as reported by the service (CREATING, READY, DELETING, FAILED).
+
+        Populated by DescribeSnapshot.
+
+        :cloudformationAttribute: SnapshotStatus
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSnapshotStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="snapshotRef")
+    def snapshot_ref(self) -> "_aws_kinesisanalyticsv2_6a4c8ff3.SnapshotReference":
+        '''A reference to a Snapshot resource.'''
+        return typing.cast("_aws_kinesisanalyticsv2_6a4c8ff3.SnapshotReference", jsii.get(self, "snapshotRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="snapshotName")
+    def snapshot_name(self) -> builtins.str:
+        '''The customer-chosen name of the snapshot, unique within the account.'''
+        return typing.cast(builtins.str, jsii.get(self, "snapshotName"))
+
+    @snapshot_name.setter
+    def snapshot_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__febf2eb18be3cc10551a4f289a927f914f713d5a7b7d0ddf65baa062a05c366a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "snapshotName", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationName")
+    def application_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the Managed Service for Apache Flink application to snapshot.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "applicationName"))
+
+    @application_name.setter
+    def application_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__aa3be619848e7a8e9d8a82302abd05b2f07d4f13ece5cc922d1e780230307437)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "applicationName", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="importSourceConfiguration")
+    def import_source_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSnapshot.ImportSourceConfigurationProperty"]]:
+        '''The Amazon S3 location to import a snapshot from, and the role the service assumes to read it.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSnapshot.ImportSourceConfigurationProperty"]], jsii.get(self, "importSourceConfiguration"))
+
+    @import_source_configuration.setter
+    def import_source_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSnapshot.ImportSourceConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7c9f9f4aad962e1e39ba5c2667692262cf4365693de844890d6d797a0698a3ec)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "importSourceConfiguration", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="snapshotDescription")
+    def snapshot_description(self) -> typing.Optional[builtins.str]:
+        '''Optional customer-supplied description of the snapshot.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "snapshotDescription"))
+
+    @snapshot_description.setter
+    def snapshot_description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__161d3505f05f2189680a0aaccc00d1c7d546ec93286b0a00aa4821dd6c311d7f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "snapshotDescription", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="snapshotEncryptionConfigurationDescription")
+    def snapshot_encryption_configuration_description(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSnapshot.SnapshotEncryptionConfigurationDescriptionProperty"]]:
+        '''A KMS encryption configuration for snapshot data: the key type, and the key when it is a customer managed key.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSnapshot.SnapshotEncryptionConfigurationDescriptionProperty"]], jsii.get(self, "snapshotEncryptionConfigurationDescription"))
+
+    @snapshot_encryption_configuration_description.setter
+    def snapshot_encryption_configuration_description(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSnapshot.SnapshotEncryptionConfigurationDescriptionProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__dac8280a604870cfd6d4a2d8faafd574531815c992b484ae102d4825557a56c2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "snapshotEncryptionConfigurationDescription", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="snapshotFormat")
+    def snapshot_format(self) -> typing.Optional[builtins.str]:
+        '''The format of the snapshot (CANONICAL).'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "snapshotFormat"))
+
+    @snapshot_format.setter
+    def snapshot_format(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f415c39363f099240d49e7cb117d42eae3a88f9b686f1bdee09cb20dc4ef45c0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "snapshotFormat", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags to apply to the snapshot.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__be69871744428508e923c27b7bd5ed2368e509d901134bfd9a496e10d5aa712b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_kinesisanalyticsv2.CfnSnapshot.ImportSourceConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "import_role_arn": "importRoleArn",
+            "source_s3_prefix_location": "sourceS3PrefixLocation",
+            "source_type": "sourceType",
+            "source_encryption_configuration": "sourceEncryptionConfiguration",
+        },
+    )
+    class ImportSourceConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            import_role_arn: builtins.str,
+            source_s3_prefix_location: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSnapshot.S3PrefixLocationProperty", typing.Dict[builtins.str, typing.Any]]],
+            source_type: builtins.str,
+            source_encryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSnapshot.SnapshotEncryptionConfigurationDescriptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''The Amazon S3 location to import a snapshot from, and the role the service assumes to read it.
+
+            :param import_role_arn: The ARN of the IAM role that the service assumes to read the snapshot files from Amazon S3 (and to decrypt them, if they are encrypted with a customer managed key).
+            :param source_s3_prefix_location: An Amazon S3 prefix location.
+            :param source_type: The type of storage the snapshot is imported from.
+            :param source_encryption_configuration: A KMS encryption configuration for snapshot data: the key type, and the key when it is a customer managed key.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-snapshot-importsourceconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_kinesisanalyticsv2 as kinesisanalyticsv2
+                
+                import_source_configuration_property = kinesisanalyticsv2.CfnSnapshot.ImportSourceConfigurationProperty(
+                    import_role_arn="importRoleArn",
+                    source_s3_prefix_location=kinesisanalyticsv2.CfnSnapshot.S3PrefixLocationProperty(
+                        bucket_arn="bucketArn",
+                        key_prefix="keyPrefix"
+                    ),
+                    source_type="sourceType",
+                
+                    # the properties below are optional
+                    source_encryption_configuration=kinesisanalyticsv2.CfnSnapshot.SnapshotEncryptionConfigurationDescriptionProperty(
+                        key_type="keyType",
+                
+                        # the properties below are optional
+                        key_id="keyId"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__5d3e2c50ef2cd097a8534a733fdb784785d604e7f529ac8c14f03f1a0e424a7f)
+                check_type(argname="argument import_role_arn", value=import_role_arn, expected_type=type_hints["import_role_arn"])
+                check_type(argname="argument source_s3_prefix_location", value=source_s3_prefix_location, expected_type=type_hints["source_s3_prefix_location"])
+                check_type(argname="argument source_type", value=source_type, expected_type=type_hints["source_type"])
+                check_type(argname="argument source_encryption_configuration", value=source_encryption_configuration, expected_type=type_hints["source_encryption_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "import_role_arn": import_role_arn,
+                "source_s3_prefix_location": source_s3_prefix_location,
+                "source_type": source_type,
+            }
+            if source_encryption_configuration is not None:
+                self._values["source_encryption_configuration"] = source_encryption_configuration
+
+        @builtins.property
+        def import_role_arn(self) -> builtins.str:
+            '''The ARN of the IAM role that the service assumes to read the snapshot files from Amazon S3 (and to decrypt them, if they are encrypted with a customer managed key).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-snapshot-importsourceconfiguration.html#cfn-kinesisanalyticsv2-snapshot-importsourceconfiguration-importrolearn
+            '''
+            result = self._values.get("import_role_arn")
+            assert result is not None, "Required property 'import_role_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def source_s3_prefix_location(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSnapshot.S3PrefixLocationProperty"]:
+            '''An Amazon S3 prefix location.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-snapshot-importsourceconfiguration.html#cfn-kinesisanalyticsv2-snapshot-importsourceconfiguration-sources3prefixlocation
+            '''
+            result = self._values.get("source_s3_prefix_location")
+            assert result is not None, "Required property 'source_s3_prefix_location' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSnapshot.S3PrefixLocationProperty"], result)
+
+        @builtins.property
+        def source_type(self) -> builtins.str:
+            '''The type of storage the snapshot is imported from.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-snapshot-importsourceconfiguration.html#cfn-kinesisanalyticsv2-snapshot-importsourceconfiguration-sourcetype
+            '''
+            result = self._values.get("source_type")
+            assert result is not None, "Required property 'source_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def source_encryption_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSnapshot.SnapshotEncryptionConfigurationDescriptionProperty"]]:
+            '''A KMS encryption configuration for snapshot data: the key type, and the key when it is a customer managed key.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-snapshot-importsourceconfiguration.html#cfn-kinesisanalyticsv2-snapshot-importsourceconfiguration-sourceencryptionconfiguration
+            '''
+            result = self._values.get("source_encryption_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSnapshot.SnapshotEncryptionConfigurationDescriptionProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ImportSourceConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_kinesisanalyticsv2.CfnSnapshot.S3PrefixLocationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"bucket_arn": "bucketArn", "key_prefix": "keyPrefix"},
+    )
+    class S3PrefixLocationProperty:
+        def __init__(
+            self,
+            *,
+            bucket_arn: builtins.str,
+            key_prefix: builtins.str,
+        ) -> None:
+            '''An Amazon S3 prefix location.
+
+            :param bucket_arn: The ARN of the S3 bucket.
+            :param key_prefix: The S3 key prefix.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-snapshot-s3prefixlocation.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_kinesisanalyticsv2 as kinesisanalyticsv2
+                
+                s3_prefix_location_property = kinesisanalyticsv2.CfnSnapshot.S3PrefixLocationProperty(
+                    bucket_arn="bucketArn",
+                    key_prefix="keyPrefix"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__f30a960c973e3963e0710cbef746c80693094d2c423687a40bc861d0b77b246e)
+                check_type(argname="argument bucket_arn", value=bucket_arn, expected_type=type_hints["bucket_arn"])
+                check_type(argname="argument key_prefix", value=key_prefix, expected_type=type_hints["key_prefix"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "bucket_arn": bucket_arn,
+                "key_prefix": key_prefix,
+            }
+
+        @builtins.property
+        def bucket_arn(self) -> builtins.str:
+            '''The ARN of the S3 bucket.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-snapshot-s3prefixlocation.html#cfn-kinesisanalyticsv2-snapshot-s3prefixlocation-bucketarn
+            '''
+            result = self._values.get("bucket_arn")
+            assert result is not None, "Required property 'bucket_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def key_prefix(self) -> builtins.str:
+            '''The S3 key prefix.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-snapshot-s3prefixlocation.html#cfn-kinesisanalyticsv2-snapshot-s3prefixlocation-keyprefix
+            '''
+            result = self._values.get("key_prefix")
+            assert result is not None, "Required property 'key_prefix' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "S3PrefixLocationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_kinesisanalyticsv2.CfnSnapshot.SnapshotEncryptionConfigurationDescriptionProperty",
+        jsii_struct_bases=[],
+        name_mapping={"key_type": "keyType", "key_id": "keyId"},
+    )
+    class SnapshotEncryptionConfigurationDescriptionProperty:
+        def __init__(
+            self,
+            *,
+            key_type: builtins.str,
+            key_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''A KMS encryption configuration for snapshot data: the key type, and the key when it is a customer managed key.
+
+            :param key_type: The type of KMS key: AWS_OWNED_KEY or CUSTOMER_MANAGED_KEY.
+            :param key_id: The ARN of the customer managed KMS key. Required when KeyType is CUSTOMER_MANAGED_KEY; must be omitted for AWS_OWNED_KEY.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-snapshot-snapshotencryptionconfigurationdescription.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_kinesisanalyticsv2 as kinesisanalyticsv2
+                
+                snapshot_encryption_configuration_description_property = kinesisanalyticsv2.CfnSnapshot.SnapshotEncryptionConfigurationDescriptionProperty(
+                    key_type="keyType",
+                
+                    # the properties below are optional
+                    key_id="keyId"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__fced7145d22f3e0fc4b957601fe6cb58cc8401301b375ee0f530c25db66ae5e8)
+                check_type(argname="argument key_type", value=key_type, expected_type=type_hints["key_type"])
+                check_type(argname="argument key_id", value=key_id, expected_type=type_hints["key_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "key_type": key_type,
+            }
+            if key_id is not None:
+                self._values["key_id"] = key_id
+
+        @builtins.property
+        def key_type(self) -> builtins.str:
+            '''The type of KMS key: AWS_OWNED_KEY or CUSTOMER_MANAGED_KEY.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-snapshot-snapshotencryptionconfigurationdescription.html#cfn-kinesisanalyticsv2-snapshot-snapshotencryptionconfigurationdescription-keytype
+            '''
+            result = self._values.get("key_type")
+            assert result is not None, "Required property 'key_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def key_id(self) -> typing.Optional[builtins.str]:
+            '''The ARN of the customer managed KMS key.
+
+            Required when KeyType is CUSTOMER_MANAGED_KEY; must be omitted for AWS_OWNED_KEY.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-snapshot-snapshotencryptionconfigurationdescription.html#cfn-kinesisanalyticsv2-snapshot-snapshotencryptionconfigurationdescription-keyid
+            '''
+            result = self._values.get("key_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SnapshotEncryptionConfigurationDescriptionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_kinesisanalyticsv2.CfnSnapshot.SnapshotSourceDescriptionProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "s3_prefix_location": "s3PrefixLocation",
+            "source_application_description": "sourceApplicationDescription",
+        },
+    )
+    class SnapshotSourceDescriptionProperty:
+        def __init__(
+            self,
+            *,
+            s3_prefix_location: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSnapshot.S3PrefixLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            source_application_description: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSnapshot.SourceApplicationDescriptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Details about the source (application and/or S3 location) the snapshot was taken from.
+
+            Populated by DescribeSnapshot.
+
+            :param s3_prefix_location: An Amazon S3 prefix location.
+            :param source_application_description: Details about the application the snapshot was taken from.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-snapshot-snapshotsourcedescription.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_kinesisanalyticsv2 as kinesisanalyticsv2
+                
+                snapshot_source_description_property = kinesisanalyticsv2.CfnSnapshot.SnapshotSourceDescriptionProperty(
+                    s3_prefix_location=kinesisanalyticsv2.CfnSnapshot.S3PrefixLocationProperty(
+                        bucket_arn="bucketArn",
+                        key_prefix="keyPrefix"
+                    ),
+                    source_application_description=kinesisanalyticsv2.CfnSnapshot.SourceApplicationDescriptionProperty(
+                        application_creation_timestamp="applicationCreationTimestamp",
+                        application_name="applicationName",
+                        application_version_id=123
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__63c2f6eebf0bf3b4f2cc02848cd4253928ccafdec401613747bbbc64c6937f07)
+                check_type(argname="argument s3_prefix_location", value=s3_prefix_location, expected_type=type_hints["s3_prefix_location"])
+                check_type(argname="argument source_application_description", value=source_application_description, expected_type=type_hints["source_application_description"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if s3_prefix_location is not None:
+                self._values["s3_prefix_location"] = s3_prefix_location
+            if source_application_description is not None:
+                self._values["source_application_description"] = source_application_description
+
+        @builtins.property
+        def s3_prefix_location(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSnapshot.S3PrefixLocationProperty"]]:
+            '''An Amazon S3 prefix location.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-snapshot-snapshotsourcedescription.html#cfn-kinesisanalyticsv2-snapshot-snapshotsourcedescription-s3prefixlocation
+            '''
+            result = self._values.get("s3_prefix_location")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSnapshot.S3PrefixLocationProperty"]], result)
+
+        @builtins.property
+        def source_application_description(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSnapshot.SourceApplicationDescriptionProperty"]]:
+            '''Details about the application the snapshot was taken from.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-snapshot-snapshotsourcedescription.html#cfn-kinesisanalyticsv2-snapshot-snapshotsourcedescription-sourceapplicationdescription
+            '''
+            result = self._values.get("source_application_description")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSnapshot.SourceApplicationDescriptionProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SnapshotSourceDescriptionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_kinesisanalyticsv2.CfnSnapshot.SourceApplicationDescriptionProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "application_creation_timestamp": "applicationCreationTimestamp",
+            "application_name": "applicationName",
+            "application_version_id": "applicationVersionId",
+        },
+    )
+    class SourceApplicationDescriptionProperty:
+        def __init__(
+            self,
+            *,
+            application_creation_timestamp: builtins.str,
+            application_name: builtins.str,
+            application_version_id: jsii.Number,
+        ) -> None:
+            '''Details about the application the snapshot was taken from.
+
+            :param application_creation_timestamp: The time at which the source application was created.
+            :param application_name: The name of the source application.
+            :param application_version_id: The version of the source application captured in the snapshot.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-snapshot-sourceapplicationdescription.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_kinesisanalyticsv2 as kinesisanalyticsv2
+                
+                source_application_description_property = kinesisanalyticsv2.CfnSnapshot.SourceApplicationDescriptionProperty(
+                    application_creation_timestamp="applicationCreationTimestamp",
+                    application_name="applicationName",
+                    application_version_id=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__650bf7bb953f3cf6b7aaa08e839459c66cf09fbc26d5fcc07b8574539a09f0f9)
+                check_type(argname="argument application_creation_timestamp", value=application_creation_timestamp, expected_type=type_hints["application_creation_timestamp"])
+                check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
+                check_type(argname="argument application_version_id", value=application_version_id, expected_type=type_hints["application_version_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "application_creation_timestamp": application_creation_timestamp,
+                "application_name": application_name,
+                "application_version_id": application_version_id,
+            }
+
+        @builtins.property
+        def application_creation_timestamp(self) -> builtins.str:
+            '''The time at which the source application was created.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-snapshot-sourceapplicationdescription.html#cfn-kinesisanalyticsv2-snapshot-sourceapplicationdescription-applicationcreationtimestamp
+            '''
+            result = self._values.get("application_creation_timestamp")
+            assert result is not None, "Required property 'application_creation_timestamp' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def application_name(self) -> builtins.str:
+            '''The name of the source application.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-snapshot-sourceapplicationdescription.html#cfn-kinesisanalyticsv2-snapshot-sourceapplicationdescription-applicationname
+            '''
+            result = self._values.get("application_name")
+            assert result is not None, "Required property 'application_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def application_version_id(self) -> jsii.Number:
+            '''The version of the source application captured in the snapshot.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisanalyticsv2-snapshot-sourceapplicationdescription.html#cfn-kinesisanalyticsv2-snapshot-sourceapplicationdescription-applicationversionid
+            '''
+            result = self._values.get("application_version_id")
+            assert result is not None, "Required property 'application_version_id' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SourceApplicationDescriptionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_kinesisanalyticsv2.CfnSnapshotProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "snapshot_name": "snapshotName",
+        "application_name": "applicationName",
+        "import_source_configuration": "importSourceConfiguration",
+        "snapshot_description": "snapshotDescription",
+        "snapshot_encryption_configuration_description": "snapshotEncryptionConfigurationDescription",
+        "snapshot_format": "snapshotFormat",
+        "tags": "tags",
+    },
+)
+class CfnSnapshotProps:
+    def __init__(
+        self,
+        *,
+        snapshot_name: builtins.str,
+        application_name: typing.Optional[builtins.str] = None,
+        import_source_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSnapshot.ImportSourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        snapshot_description: typing.Optional[builtins.str] = None,
+        snapshot_encryption_configuration_description: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSnapshot.SnapshotEncryptionConfigurationDescriptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        snapshot_format: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSnapshot``.
+
+        :param snapshot_name: The customer-chosen name of the snapshot, unique within the account. Immutable after create.
+        :param application_name: The name of the Managed Service for Apache Flink application to snapshot. Used only at create time to select the source application; immutable after create. Specify either ApplicationName or ImportSourceConfiguration, not both.
+        :param import_source_configuration: The Amazon S3 location to import a snapshot from, and the role the service assumes to read it.
+        :param snapshot_description: Optional customer-supplied description of the snapshot. Immutable after create.
+        :param snapshot_encryption_configuration_description: A KMS encryption configuration for snapshot data: the key type, and the key when it is a customer managed key.
+        :param snapshot_format: The format of the snapshot (CANONICAL). Sent to ImportSnapshot with ImportSourceConfiguration; with ApplicationName it may only be CANONICAL, the format CreateSnapshot produces. Returned by DescribeSnapshot. Immutable after create.
+        :param tags: Tags to apply to the snapshot. Applied at create time (with CreateSnapshot, or with TagResource right after ImportSnapshot) and updated in place with TagResource and UntagResource. Tag keys must not start with aws:.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-snapshot.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_kinesisanalyticsv2 as kinesisanalyticsv2
+            
+            cfn_snapshot_props = kinesisanalyticsv2.CfnSnapshotProps(
+                snapshot_name="snapshotName",
+            
+                # the properties below are optional
+                application_name="applicationName",
+                import_source_configuration=kinesisanalyticsv2.CfnSnapshot.ImportSourceConfigurationProperty(
+                    import_role_arn="importRoleArn",
+                    source_s3_prefix_location=kinesisanalyticsv2.CfnSnapshot.S3PrefixLocationProperty(
+                        bucket_arn="bucketArn",
+                        key_prefix="keyPrefix"
+                    ),
+                    source_type="sourceType",
+            
+                    # the properties below are optional
+                    source_encryption_configuration=kinesisanalyticsv2.CfnSnapshot.SnapshotEncryptionConfigurationDescriptionProperty(
+                        key_type="keyType",
+            
+                        # the properties below are optional
+                        key_id="keyId"
+                    )
+                ),
+                snapshot_description="snapshotDescription",
+                snapshot_encryption_configuration_description=kinesisanalyticsv2.CfnSnapshot.SnapshotEncryptionConfigurationDescriptionProperty(
+                    key_type="keyType",
+            
+                    # the properties below are optional
+                    key_id="keyId"
+                ),
+                snapshot_format="snapshotFormat",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__54c9c69a903cc7852d2d7145fcd6611abb91b3cca9365fcc661583b0a6cdee35)
+            check_type(argname="argument snapshot_name", value=snapshot_name, expected_type=type_hints["snapshot_name"])
+            check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
+            check_type(argname="argument import_source_configuration", value=import_source_configuration, expected_type=type_hints["import_source_configuration"])
+            check_type(argname="argument snapshot_description", value=snapshot_description, expected_type=type_hints["snapshot_description"])
+            check_type(argname="argument snapshot_encryption_configuration_description", value=snapshot_encryption_configuration_description, expected_type=type_hints["snapshot_encryption_configuration_description"])
+            check_type(argname="argument snapshot_format", value=snapshot_format, expected_type=type_hints["snapshot_format"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "snapshot_name": snapshot_name,
+        }
+        if application_name is not None:
+            self._values["application_name"] = application_name
+        if import_source_configuration is not None:
+            self._values["import_source_configuration"] = import_source_configuration
+        if snapshot_description is not None:
+            self._values["snapshot_description"] = snapshot_description
+        if snapshot_encryption_configuration_description is not None:
+            self._values["snapshot_encryption_configuration_description"] = snapshot_encryption_configuration_description
+        if snapshot_format is not None:
+            self._values["snapshot_format"] = snapshot_format
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def snapshot_name(self) -> builtins.str:
+        '''The customer-chosen name of the snapshot, unique within the account.
+
+        Immutable after create.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-snapshot.html#cfn-kinesisanalyticsv2-snapshot-snapshotname
+        '''
+        result = self._values.get("snapshot_name")
+        assert result is not None, "Required property 'snapshot_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def application_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the Managed Service for Apache Flink application to snapshot.
+
+        Used only at create time to select the source application; immutable after create. Specify either ApplicationName or ImportSourceConfiguration, not both.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-snapshot.html#cfn-kinesisanalyticsv2-snapshot-applicationname
+        '''
+        result = self._values.get("application_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def import_source_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSnapshot.ImportSourceConfigurationProperty"]]:
+        '''The Amazon S3 location to import a snapshot from, and the role the service assumes to read it.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-snapshot.html#cfn-kinesisanalyticsv2-snapshot-importsourceconfiguration
+        '''
+        result = self._values.get("import_source_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSnapshot.ImportSourceConfigurationProperty"]], result)
+
+    @builtins.property
+    def snapshot_description(self) -> typing.Optional[builtins.str]:
+        '''Optional customer-supplied description of the snapshot.
+
+        Immutable after create.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-snapshot.html#cfn-kinesisanalyticsv2-snapshot-snapshotdescription
+        '''
+        result = self._values.get("snapshot_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def snapshot_encryption_configuration_description(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSnapshot.SnapshotEncryptionConfigurationDescriptionProperty"]]:
+        '''A KMS encryption configuration for snapshot data: the key type, and the key when it is a customer managed key.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-snapshot.html#cfn-kinesisanalyticsv2-snapshot-snapshotencryptionconfigurationdescription
+        '''
+        result = self._values.get("snapshot_encryption_configuration_description")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSnapshot.SnapshotEncryptionConfigurationDescriptionProperty"]], result)
+
+    @builtins.property
+    def snapshot_format(self) -> typing.Optional[builtins.str]:
+        '''The format of the snapshot (CANONICAL).
+
+        Sent to ImportSnapshot with ImportSourceConfiguration; with ApplicationName it may only be CANONICAL, the format CreateSnapshot produces. Returned by DescribeSnapshot. Immutable after create.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-snapshot.html#cfn-kinesisanalyticsv2-snapshot-snapshotformat
+        '''
+        result = self._values.get("snapshot_format")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags to apply to the snapshot.
+
+        Applied at create time (with CreateSnapshot, or with TagResource right after ImportSnapshot) and updated in place with TagResource and UntagResource. Tag keys must not start with aws:.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-snapshot.html#cfn-kinesisanalyticsv2-snapshot-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSnapshotProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "CfnApplication",
     "CfnApplicationCloudWatchLoggingOption",
@@ -6398,6 +7460,8 @@ __all__ = [
     "CfnApplicationProps",
     "CfnApplicationReferenceDataSource",
     "CfnApplicationReferenceDataSourceProps",
+    "CfnSnapshot",
+    "CfnSnapshotProps",
 ]
 
 publication.publish()
@@ -7095,6 +8159,143 @@ def _typecheckingstub__35273442239da04f9822cc1118ce780b5116be6cd9b38ef3351996f2b
     *,
     application_name: builtins.str,
     reference_data_source: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplicationReferenceDataSource.ReferenceDataSourceProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f88a7959fff04909e855868a1fb89f55bd99e76784c2853cccc6a5879ddb97d4(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    snapshot_name: builtins.str,
+    application_name: typing.Optional[builtins.str] = None,
+    import_source_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSnapshot.ImportSourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    snapshot_description: typing.Optional[builtins.str] = None,
+    snapshot_encryption_configuration_description: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSnapshot.SnapshotEncryptionConfigurationDescriptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    snapshot_format: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7821b4caf32a4578480f422eef0490971e55f3d401d44d728288f16774d5dd5f(
+    resource: _aws_kinesisanalyticsv2_6a4c8ff3.ISnapshotRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9ebab6e3018505c849fa0da86baa9f0c152d6bd667228adec0ee77d2599c4d1e(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__92bef96a88c3a0dab71083fa7905b7890b195f4b6e3f67bad2d1a2b0f6b75e3f(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c8c4377549fd6430670bb6805e557c01a9848d0ccdc2ce5acd1f3e6f5d239046(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__febf2eb18be3cc10551a4f289a927f914f713d5a7b7d0ddf65baa062a05c366a(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aa3be619848e7a8e9d8a82302abd05b2f07d4f13ece5cc922d1e780230307437(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7c9f9f4aad962e1e39ba5c2667692262cf4365693de844890d6d797a0698a3ec(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnSnapshot.ImportSourceConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__161d3505f05f2189680a0aaccc00d1c7d546ec93286b0a00aa4821dd6c311d7f(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dac8280a604870cfd6d4a2d8faafd574531815c992b484ae102d4825557a56c2(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnSnapshot.SnapshotEncryptionConfigurationDescriptionProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f415c39363f099240d49e7cb117d42eae3a88f9b686f1bdee09cb20dc4ef45c0(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__be69871744428508e923c27b7bd5ed2368e509d901134bfd9a496e10d5aa712b(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5d3e2c50ef2cd097a8534a733fdb784785d604e7f529ac8c14f03f1a0e424a7f(
+    *,
+    import_role_arn: builtins.str,
+    source_s3_prefix_location: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSnapshot.S3PrefixLocationProperty, typing.Dict[builtins.str, typing.Any]]],
+    source_type: builtins.str,
+    source_encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSnapshot.SnapshotEncryptionConfigurationDescriptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f30a960c973e3963e0710cbef746c80693094d2c423687a40bc861d0b77b246e(
+    *,
+    bucket_arn: builtins.str,
+    key_prefix: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fced7145d22f3e0fc4b957601fe6cb58cc8401301b375ee0f530c25db66ae5e8(
+    *,
+    key_type: builtins.str,
+    key_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__63c2f6eebf0bf3b4f2cc02848cd4253928ccafdec401613747bbbc64c6937f07(
+    *,
+    s3_prefix_location: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSnapshot.S3PrefixLocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    source_application_description: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSnapshot.SourceApplicationDescriptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__650bf7bb953f3cf6b7aaa08e839459c66cf09fbc26d5fcc07b8574539a09f0f9(
+    *,
+    application_creation_timestamp: builtins.str,
+    application_name: builtins.str,
+    application_version_id: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__54c9c69a903cc7852d2d7145fcd6611abb91b3cca9365fcc661583b0a6cdee35(
+    *,
+    snapshot_name: builtins.str,
+    application_name: typing.Optional[builtins.str] = None,
+    import_source_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSnapshot.ImportSourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    snapshot_description: typing.Optional[builtins.str] = None,
+    snapshot_encryption_configuration_description: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSnapshot.SnapshotEncryptionConfigurationDescriptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    snapshot_format: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_route53.type_defs import AccountLimitTypeDef
+    from mypy_boto3_route53.type_defs import AZAffinityTypeDef
 
-    data: AccountLimitTypeDef = ...
+    data: AZAffinityTypeDef = ...
     ```
 """
 
@@ -24,17 +24,25 @@ from typing import Union
 from .literals import (
     AcceleratedRecoveryStatusType,
     AccountLimitTypeType,
+    AZAffinityLocationTypeType,
     ChangeActionType,
+    ChangeGuardrailNameType,
+    ChangeGuardrailStatusType,
+    ChangeHistoryOperationType,
+    ChangeHistorySortOrderType,
     ChangeStatusType,
     CidrCollectionChangeActionType,
     CloudWatchRegionType,
     ComparisonOperatorType,
     EndpointTypeType,
+    FeatureEnablementType,
+    FeatureStatusType,
     HealthCheckRegionType,
     HealthCheckSourceStatusReasonCodeType,
     HealthCheckSourceStatusType,
     HealthCheckTypeType,
     HostedZoneLimitTypeType,
+    HostedZoneTierType,
     InsufficientDataHealthStatusType,
     ResettableElementNameType,
     ResourceRecordSetFailoverType,
@@ -51,6 +59,7 @@ else:
     from typing_extensions import Literal, NotRequired, TypedDict
 
 __all__ = (
+    "AZAffinityTypeDef",
     "AccountLimitTypeDef",
     "ActivateKeySigningKeyRequestTypeDef",
     "ActivateKeySigningKeyResponseTypeDef",
@@ -58,10 +67,16 @@ __all__ = (
     "AliasTargetTypeDef",
     "AssociateVPCWithHostedZoneRequestTypeDef",
     "AssociateVPCWithHostedZoneResponseTypeDef",
+    "ChangeBatchOutputTypeDef",
+    "ChangeBatchSummaryTypeDef",
     "ChangeBatchTypeDef",
+    "ChangeBatchUnionTypeDef",
     "ChangeCidrCollectionRequestTypeDef",
     "ChangeCidrCollectionResponseTypeDef",
+    "ChangeGuardrailTypeDef",
+    "ChangeHistoryFeatureTypeDef",
     "ChangeInfoTypeDef",
+    "ChangeOutputTypeDef",
     "ChangeResourceRecordSetsRequestTypeDef",
     "ChangeResourceRecordSetsResponseTypeDef",
     "ChangeTagsForResourceRequestTypeDef",
@@ -145,6 +160,8 @@ __all__ = (
     "GetHealthCheckSourceResponseTypeDef",
     "GetHealthCheckStatusRequestTypeDef",
     "GetHealthCheckStatusResponseTypeDef",
+    "GetHostedZoneChangeBatchRequestTypeDef",
+    "GetHostedZoneChangeBatchResponseTypeDef",
     "GetHostedZoneCountResponseTypeDef",
     "GetHostedZoneLimitRequestTypeDef",
     "GetHostedZoneLimitResponseTypeDef",
@@ -199,6 +216,9 @@ __all__ = (
     "ListHealthChecksRequestPaginateTypeDef",
     "ListHealthChecksRequestTypeDef",
     "ListHealthChecksResponseTypeDef",
+    "ListHostedZoneChangeBatchesRequestPaginateTypeDef",
+    "ListHostedZoneChangeBatchesRequestTypeDef",
+    "ListHostedZoneChangeBatchesResponseTypeDef",
     "ListHostedZonesByNameRequestTypeDef",
     "ListHostedZonesByNameResponseTypeDef",
     "ListHostedZonesByVPCRequestTypeDef",
@@ -209,6 +229,9 @@ __all__ = (
     "ListQueryLoggingConfigsRequestPaginateTypeDef",
     "ListQueryLoggingConfigsRequestTypeDef",
     "ListQueryLoggingConfigsResponseTypeDef",
+    "ListResourceRecordSetChangesRequestPaginateTypeDef",
+    "ListResourceRecordSetChangesRequestTypeDef",
+    "ListResourceRecordSetChangesResponseTypeDef",
     "ListResourceRecordSetProtectionsRequestPaginateTypeDef",
     "ListResourceRecordSetProtectionsRequestTypeDef",
     "ListResourceRecordSetProtectionsResponseTypeDef",
@@ -237,12 +260,12 @@ __all__ = (
     "LocationSummaryTypeDef",
     "PaginatorConfigTypeDef",
     "QueryLoggingConfigTypeDef",
+    "ResourceRecordSetChangeTypeDef",
     "ResourceRecordSetOutputTypeDef",
     "ResourceRecordSetProtectionConfigTypeDef",
     "ResourceRecordSetProtectionKeyTypeDef",
     "ResourceRecordSetProtectionTypeDef",
     "ResourceRecordSetTypeDef",
-    "ResourceRecordSetUnionTypeDef",
     "ResourceRecordTypeDef",
     "ResourceTagSetTypeDef",
     "ResponseMetadataTypeDef",
@@ -261,6 +284,7 @@ __all__ = (
     "UpdateHostedZoneCommentRequestTypeDef",
     "UpdateHostedZoneCommentResponseTypeDef",
     "UpdateHostedZoneFeaturesRequestTypeDef",
+    "UpdateHostedZoneTierRequestTypeDef",
     "UpdateTrafficPolicyCommentRequestTypeDef",
     "UpdateTrafficPolicyCommentResponseTypeDef",
     "UpdateTrafficPolicyInstanceRequestTypeDef",
@@ -268,6 +292,10 @@ __all__ = (
     "VPCTypeDef",
     "WaiterConfigTypeDef",
 )
+
+class AZAffinityTypeDef(TypedDict):
+    LocationType: NotRequired[AZAffinityLocationTypeType]
+    LocationId: NotRequired[str]
 
 AccountLimitTypeDef = TypedDict(
     "AccountLimitTypeDef",
@@ -307,10 +335,27 @@ class VPCTypeDef(TypedDict):
     VPCRegion: NotRequired[VPCRegionType]
     VPCId: NotRequired[str]
 
+class ChangeBatchSummaryTypeDef(TypedDict):
+    ChangeId: str
+    Operation: ChangeHistoryOperationType
+    SubmittedAt: datetime
+    ChangeCount: int
+    SubmittedBy: NotRequired[str]
+    RequestId: NotRequired[str]
+    Comment: NotRequired[str]
+
 class CidrCollectionChangeTypeDef(TypedDict):
     LocationName: str
     Action: CidrCollectionChangeActionType
     CidrList: Sequence[str]
+
+class ChangeGuardrailTypeDef(TypedDict):
+    Name: ChangeGuardrailNameType
+    Status: ChangeGuardrailStatusType
+
+class ChangeHistoryFeatureTypeDef(TypedDict):
+    Status: NotRequired[FeatureEnablementType]
+    RetentionStartsAt: NotRequired[datetime]
 
 class TagTypeDef(TypedDict):
     Key: NotRequired[str]
@@ -351,6 +396,7 @@ class CreateCidrCollectionRequestTypeDef(TypedDict):
 class HostedZoneConfigTypeDef(TypedDict):
     Comment: NotRequired[str]
     PrivateZone: NotRequired[bool]
+    HostedZoneTier: NotRequired[HostedZoneTierType]
 
 class DelegationSetTypeDef(TypedDict):
     NameServers: list[str]
@@ -534,6 +580,10 @@ class GetHealthCheckSourceRequestTypeDef(TypedDict):
 class GetHealthCheckStatusRequestTypeDef(TypedDict):
     HealthCheckId: str
 
+class GetHostedZoneChangeBatchRequestTypeDef(TypedDict):
+    HostedZoneId: str
+    ChangeId: str
+
 GetHostedZoneLimitRequestTypeDef = TypedDict(
     "GetHostedZoneLimitRequestTypeDef",
     {
@@ -647,6 +697,15 @@ class ListHealthChecksRequestTypeDef(TypedDict):
     Marker: NotRequired[str]
     MaxItems: NotRequired[str]
 
+class ListHostedZoneChangeBatchesRequestTypeDef(TypedDict):
+    HostedZoneId: str
+    SubmittedAfter: NotRequired[str]
+    SubmittedBefore: NotRequired[str]
+    StartAfterChangeId: NotRequired[str]
+    SortOrder: NotRequired[ChangeHistorySortOrderType]
+    MaxResults: NotRequired[str]
+    NextToken: NotRequired[str]
+
 class ListHostedZonesByNameRequestTypeDef(TypedDict):
     DNSName: NotRequired[str]
     HostedZoneId: NotRequired[str]
@@ -668,6 +727,16 @@ class ListQueryLoggingConfigsRequestTypeDef(TypedDict):
     HostedZoneId: NotRequired[str]
     NextToken: NotRequired[str]
     MaxResults: NotRequired[str]
+
+class ListResourceRecordSetChangesRequestTypeDef(TypedDict):
+    HostedZoneId: str
+    RecordName: NotRequired[str]
+    RecordType: NotRequired[RRTypeType]
+    SubmittedAfter: NotRequired[str]
+    SubmittedBefore: NotRequired[str]
+    SortOrder: NotRequired[ChangeHistorySortOrderType]
+    MaxResults: NotRequired[str]
+    NextToken: NotRequired[str]
 
 class ListResourceRecordSetProtectionsRequestTypeDef(TypedDict):
     HostedZoneId: str
@@ -760,9 +829,10 @@ class UpdateHostedZoneCommentRequestTypeDef(TypedDict):
     Id: str
     Comment: NotRequired[str]
 
-class UpdateHostedZoneFeaturesRequestTypeDef(TypedDict):
+class UpdateHostedZoneTierRequestTypeDef(TypedDict):
     HostedZoneId: str
-    EnableAcceleratedRecovery: NotRequired[bool]
+    HostedZoneTier: HostedZoneTierType
+    DryRun: NotRequired[bool]
 
 class UpdateTrafficPolicyCommentRequestTypeDef(TypedDict):
     Id: str
@@ -963,10 +1033,22 @@ class ListVPCAssociationAuthorizationsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class ListHostedZoneChangeBatchesResponseTypeDef(TypedDict):
+    ChangeBatchSummaries: list[ChangeBatchSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 class ChangeCidrCollectionRequestTypeDef(TypedDict):
     Id: str
     Changes: Sequence[CidrCollectionChangeTypeDef]
     CollectionVersion: NotRequired[int]
+
+class UpdateHostedZoneFeaturesRequestTypeDef(TypedDict):
+    HostedZoneId: str
+    EnableAcceleratedRecovery: NotRequired[bool]
+    EnablePublicDNSFallback: NotRequired[bool]
+    ChangeGuardrails: NotRequired[Sequence[ChangeGuardrailTypeDef]]
+    DryRun: NotRequired[bool]
 
 class ChangeTagsForResourceRequestTypeDef(TypedDict):
     ResourceType: TagResourceTypeType
@@ -1020,6 +1102,8 @@ class CreateHostedZoneRequestTypeDef(TypedDict):
     VPC: NotRequired[VPCTypeDef]
     HostedZoneConfig: NotRequired[HostedZoneConfigTypeDef]
     DelegationSetId: NotRequired[str]
+    EnablePublicDNSFallback: NotRequired[bool]
+    ChangeGuardrails: NotRequired[Sequence[ChangeGuardrailTypeDef]]
 
 class CreateReusableDelegationSetResponseTypeDef(TypedDict):
     DelegationSet: DelegationSetTypeDef
@@ -1185,7 +1269,10 @@ class HealthCheckSourceConfigTypeDef(TypedDict):
 
 class HostedZoneFeaturesTypeDef(TypedDict):
     AcceleratedRecoveryStatus: NotRequired[AcceleratedRecoveryStatusType]
+    PublicDNSFallbackStatus: NotRequired[FeatureStatusType]
+    ChangeHistory: NotRequired[ChangeHistoryFeatureTypeDef]
     FailureReasons: NotRequired[HostedZoneFailureReasonsTypeDef]
+    ChangeGuardrails: NotRequired[list[ChangeGuardrailTypeDef]]
 
 class HostedZoneSummaryTypeDef(TypedDict):
     HostedZoneId: str
@@ -1214,6 +1301,14 @@ class ListHealthChecksBySourceRequestPaginateTypeDef(TypedDict):
 class ListHealthChecksRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListHostedZoneChangeBatchesRequestPaginateTypeDef(TypedDict):
+    HostedZoneId: str
+    SubmittedAfter: NotRequired[str]
+    SubmittedBefore: NotRequired[str]
+    StartAfterChangeId: NotRequired[str]
+    SortOrder: NotRequired[ChangeHistorySortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListHostedZonesRequestPaginateTypeDef(TypedDict):
     DelegationSetId: NotRequired[str]
     HostedZoneType: NotRequired[Literal["PrivateHostedZone"]]
@@ -1221,6 +1316,15 @@ class ListHostedZonesRequestPaginateTypeDef(TypedDict):
 
 class ListQueryLoggingConfigsRequestPaginateTypeDef(TypedDict):
     HostedZoneId: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListResourceRecordSetChangesRequestPaginateTypeDef(TypedDict):
+    HostedZoneId: str
+    RecordName: NotRequired[str]
+    RecordType: NotRequired[RRTypeType]
+    SubmittedAfter: NotRequired[str]
+    SubmittedBefore: NotRequired[str]
+    SortOrder: NotRequired[ChangeHistorySortOrderType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListResourceRecordSetProtectionsRequestPaginateTypeDef(TypedDict):
@@ -1291,6 +1395,7 @@ ResourceRecordSetOutputTypeDef = TypedDict(
         "TrafficPolicyInstanceId": NotRequired[str],
         "CidrRoutingConfig": NotRequired[CidrRoutingConfigTypeDef],
         "GeoProximityLocation": NotRequired[GeoProximityLocationTypeDef],
+        "AZAffinity": NotRequired[AZAffinityTypeDef],
     },
 )
 ResourceRecordSetTypeDef = TypedDict(
@@ -1311,6 +1416,7 @@ ResourceRecordSetTypeDef = TypedDict(
         "TrafficPolicyInstanceId": NotRequired[str],
         "CidrRoutingConfig": NotRequired[CidrRoutingConfigTypeDef],
         "GeoProximityLocation": NotRequired[GeoProximityLocationTypeDef],
+        "AZAffinity": NotRequired[AZAffinityTypeDef],
     },
 )
 
@@ -1381,6 +1487,10 @@ class UpdateHealthCheckResponseTypeDef(TypedDict):
     HealthCheck: HealthCheckTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class ChangeOutputTypeDef(TypedDict):
+    Action: ChangeActionType
+    ResourceRecordSet: ResourceRecordSetOutputTypeDef
+
 class ListResourceRecordSetsResponseTypeDef(TypedDict):
     ResourceRecordSets: list[ResourceRecordSetOutputTypeDef]
     IsTruncated: bool
@@ -1390,7 +1500,18 @@ class ListResourceRecordSetsResponseTypeDef(TypedDict):
     MaxItems: str
     ResponseMetadata: ResponseMetadataTypeDef
 
-ResourceRecordSetUnionTypeDef = Union[ResourceRecordSetTypeDef, ResourceRecordSetOutputTypeDef]
+class ResourceRecordSetChangeTypeDef(TypedDict):
+    ChangeId: str
+    Operation: ChangeHistoryOperationType
+    SubmittedAt: datetime
+    Action: ChangeActionType
+    ResourceRecordSet: ResourceRecordSetOutputTypeDef
+    SubmittedBy: NotRequired[str]
+    RequestId: NotRequired[str]
+
+class ChangeTypeDef(TypedDict):
+    Action: ChangeActionType
+    ResourceRecordSet: ResourceRecordSetTypeDef
 
 class GetHealthCheckSourceResponseTypeDef(TypedDict):
     HealthCheckSource: HealthCheckSourceTypeDef
@@ -1442,14 +1563,26 @@ class UpdateHostedZoneCommentResponseTypeDef(TypedDict):
     HostedZone: HostedZoneTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
-class ChangeTypeDef(TypedDict):
-    Action: ChangeActionType
-    ResourceRecordSet: ResourceRecordSetUnionTypeDef
+class ChangeBatchOutputTypeDef(TypedDict):
+    Changes: list[ChangeOutputTypeDef]
+    Comment: NotRequired[str]
+
+class ListResourceRecordSetChangesResponseTypeDef(TypedDict):
+    ResourceRecordSetChanges: list[ResourceRecordSetChangeTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 class ChangeBatchTypeDef(TypedDict):
     Changes: Sequence[ChangeTypeDef]
     Comment: NotRequired[str]
 
+class GetHostedZoneChangeBatchResponseTypeDef(TypedDict):
+    ChangeBatchSummary: ChangeBatchSummaryTypeDef
+    ChangeBatch: ChangeBatchOutputTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+ChangeBatchUnionTypeDef = Union[ChangeBatchTypeDef, ChangeBatchOutputTypeDef]
+
 class ChangeResourceRecordSetsRequestTypeDef(TypedDict):
     HostedZoneId: str
-    ChangeBatch: ChangeBatchTypeDef
+    ChangeBatch: ChangeBatchUnionTypeDef

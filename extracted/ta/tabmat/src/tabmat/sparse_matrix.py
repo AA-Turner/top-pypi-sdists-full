@@ -17,6 +17,7 @@ from .util import (
     check_matvec_out_shape,
     check_sandwich_compatible,
     check_transpose_matvec_out_shape,
+    prepare_vector,
     set_up_rows_or_cols,
     setup_restrictions,
 )
@@ -25,7 +26,7 @@ from .util import (
 class SparseMatrix(MatrixBase):
     """
     A scipy.sparse csc matrix subclass that allows such objects to conform
-    to the ``MatrixBase`` interface.
+    to the `MatrixBase` interface.
 
     SparseMatrix is instantiated in the same way as scipy.sparse.csc_matrix.
     """
@@ -46,6 +47,16 @@ class SparseMatrix(MatrixBase):
                 raise ValueError("Input array must be 1- or 2-dimensional")
 
         self._array = sps.csc_matrix(input_array, shape, dtype, copy)
+        # The kernels read these arrays through pointers, so they must be contiguous
+        # and in native byte order. scipy keeps strided or byte-swapped arrays.
+        for name in ("data", "indices", "indptr"):
+            arr = getattr(self._array, name)
+            if not (arr.dtype.isnative and arr.flags.c_contiguous):
+                setattr(
+                    self._array,
+                    name,
+                    np.ascontiguousarray(arr, dtype=arr.dtype.newbyteorder("=")),
+                )
 
         self.idx_dtype = max(self._array.indices.dtype, self._array.indptr.dtype)
         if self._array.indices.dtype != self.idx_dtype:
@@ -55,6 +66,11 @@ class SparseMatrix(MatrixBase):
         assert self.indices.dtype == self.idx_dtype
 
         if not self._array.has_sorted_indices:
+            if not (
+                self._array.data.flags.writeable and self._array.indices.flags.writeable
+            ):
+                # Read-only input, e.g. from a pandas DataFrame with copy-on-write.
+                self._array = self._array.copy()
             self._array.sort_indices()
         self._array_csr = None
 
@@ -177,7 +193,7 @@ class SparseMatrix(MatrixBase):
         cols: np.ndarray | None = None,
     ) -> np.ndarray:
         """Perform a sandwich product: X.T @ diag(d) @ X."""
-        d = np.asarray(d)
+        d = prepare_vector(d)
         check_sandwich_compatible(self, d)
         rows, cols = setup_restrictions(self.shape, rows, cols, dtype=self.idx_dtype)
         return sparse_sandwich(self, self.array_csr, d, rows, cols)
@@ -189,13 +205,20 @@ class SparseMatrix(MatrixBase):
         rows: np.ndarray | None,
         L_cols: np.ndarray | None = None,
         R_cols: np.ndarray | None = None,
+        dense_center: np.ndarray | None = None,
     ):
-        """Perform a sandwich product: X.T @ diag(d) @ Y."""
+        """Perform a sandwich product: X.T @ diag(d) @ Y.
+
+        If `other` is dense, `dense_center` centers it, see
+        [`sandwich_dense`][tabmat.SparseMatrix.sandwich_dense].
+        """
         from .categorical_matrix import CategoricalMatrix
         from .dense_matrix import DenseMatrix
 
         if isinstance(other, DenseMatrix):
-            return self.sandwich_dense(other._array, d, rows, L_cols, R_cols)
+            return self.sandwich_dense(
+                other._array, d, rows, L_cols, R_cols, B_center=dense_center
+            )
 
         if isinstance(other, CategoricalMatrix):
             return other._cross_sandwich(self, d, rows, R_cols, L_cols).T
@@ -208,10 +231,14 @@ class SparseMatrix(MatrixBase):
         rows: np.ndarray | None,
         L_cols: np.ndarray | None,
         R_cols: np.ndarray | None,
+        B_center: np.ndarray | None = None,
     ) -> np.ndarray:
-        """Perform a sandwich product: self.T @ diag(d) @ B."""
-        if not hasattr(d, "dtype"):
-            d = np.asarray(d)
+        """Perform a sandwich product: self.T @ diag(d) @ B.
+
+        If `B_center` (one value per column of `B`) is given, compute
+        `self.T @ diag(d) @ (B - B_center)` instead, centering `B` in the kernel.
+        """
+        d = prepare_vector(d)
 
         if self.dtype != d.dtype or B.dtype != d.dtype:
             raise TypeError(
@@ -219,12 +246,13 @@ class SparseMatrix(MatrixBase):
                 np.float64 or np.float32. This matrix is of type {self.dtype},
                 B is of type {B.dtype}, while d is of type {d.dtype}."""
             )
-        if np.issubdtype(d.dtype, np.signedinteger):
-            d = d.astype(float)
-
-        rows, L_cols = setup_restrictions(self.shape, rows, L_cols)
-        R_cols = set_up_rows_or_cols(R_cols, B.shape[1])
-        return csr_dense_sandwich(self.array_csr, B, d, rows, L_cols, R_cols)
+        rows, L_cols = setup_restrictions(
+            self.shape, rows, L_cols, dtype=self.idx_dtype
+        )
+        R_cols = set_up_rows_or_cols(R_cols, B.shape[1], dtype=self.idx_dtype)
+        return csr_dense_sandwich(
+            self.array_csr, B, d, rows, L_cols, R_cols, B_center=B_center
+        )
 
     def _matvec_helper(
         self,
@@ -234,7 +262,7 @@ class SparseMatrix(MatrixBase):
         out: np.ndarray | None,
         transpose: bool,
     ):
-        vec = np.asarray(vec)
+        vec = prepare_vector(vec)
         check_matvec_dimensions(self, vec, transpose)
 
         unrestricted_rows = rows is None or len(rows) == self.shape[0]
@@ -259,7 +287,7 @@ class SparseMatrix(MatrixBase):
         if vec.ndim == 1:
             res = fast_fnc(vec)
         elif vec.ndim == 2 and vec.shape[1] == 1:
-            res = fast_fnc(vec[:, 0])[:, None]
+            res = fast_fnc(np.ascontiguousarray(vec[:, 0]))[:, None]
         else:
             res = matrix_matvec(
                 self[np.ix_(rows, cols)]._array, vec[rows] if transpose else vec[cols]
@@ -315,9 +343,9 @@ class SparseMatrix(MatrixBase):
     def multiply(self, other):
         """Element-wise multiplication.
 
-        See ``scipy.sparse.csc_matrix.multiply``. The method is taken almost directly
-        from the parent class except that ``other`` is assumed to be a vector of size
-        ``self.shape[0]``.
+        See `scipy.sparse.csc_matrix.multiply`. The method is taken almost directly
+        from the parent class except that `other` is assumed to be a vector of size
+        `self.shape[0]`.
         """
         if np.asanyarray(other).ndim == 1:
             return type(self)(
@@ -340,7 +368,7 @@ class SparseMatrix(MatrixBase):
         """Get column names.
 
         For columns that do not have a name, a default name is created using the
-        following pattern: ``"{missing_prefix}{start_index + i}"`` where ``i`` is
+        following pattern: `"{missing_prefix}{start_index + i}"` where `i` is
         the index of the column.
 
         Parameters
@@ -349,13 +377,13 @@ class SparseMatrix(MatrixBase):
             Whether to get column names or term names. The main difference is
             that a categorical submatrix counts as one term, but can count as
             multiple columns. Furthermore, matrices created from formulas
-            distinguish between columns and terms (c.f. ``formulaic`` docs).
+            distinguish between columns and terms (c.f. `formulaic` docs).
         missing_prefix: Optional[str], default None
             Prefix to use for columns that do not have a name. If None, then no
             default name is created.
         indices
-            The indices used for columns that do not have a name. If ``None``,
-            then the indices are ``list(range(self.shape[1]))``.
+            The indices used for columns that do not have a name. If `None`,
+            then the indices are `list(range(self.shape[1]))`.
 
         Returns
         -------
@@ -389,7 +417,7 @@ class SparseMatrix(MatrixBase):
             Whether to get column names or term names. The main difference is
             that a categorical submatrix counts as one term, but can count as
             multiple columns. Furthermore, matrices created from formulas
-            distinguish between columns and terms (c.f. ``formulaic`` docs).
+            distinguish between columns and terms (c.f. `formulaic` docs).
         """
         if isinstance(names, str):
             names = [names]

@@ -37,13 +37,12 @@ from urllib.parse import quote
 
 import html5lib
 import tinycss2
+from fuzz.html5lib_reference import html5lib_parser
 from html5lib.constants import namespaces
 
 from turbohtml import Comment, Element, Namespace, Node, Text, parse_fragment
 from turbohtml.clean import DEFAULT_CSS_PROPERTIES, OnDisallowed, Policy, sanitize, sanitize_node
 from turbohtml.extract import normalize_url
-
-from .html5lib_reference import html5lib_parser
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Sequence
@@ -571,8 +570,8 @@ class _Run:
         signature = f"{oracle}: {detail}"
         self.hits[signature] += 1
         if signature not in self.found:
-            default: Final = Policy()
-            policy_repr: Final = "Policy({})".format(
+            default: Final[Policy] = Policy()
+            policy_repr: Final[str] = "Policy({})".format(
                 ", ".join(
                     f"{field.name}={_value_repr(value)}"
                     for field in dataclasses.fields(Policy)
@@ -697,8 +696,8 @@ def _seeds(rng: random.Random) -> list[str]:
     # Collect the vendored payload corpora; a missing one is a setup error, never a silent skip.
     corpus = sorted((_ROOT / "tools" / "fuzz" / "corpus" / "sanitize").glob("*"))
     # Unwrap the H5SC vectors from the ``<div id=N>…//["'`-->]]>]</div>`` shell vectors.txt puts around each.
-    text: Final = _require(_DATA / "h5sc" / "vectors.txt").read_text(encoding="utf-8")
-    h5sc: Final = _H5SC_PATTERN.findall(text)
+    text: Final[str] = _require(_DATA / "h5sc" / "vectors.txt").read_text(encoding="utf-8")
+    h5sc = _H5SC_PATTERN.findall(text)
     return list(
         dict.fromkeys([
             *_dompurify_payloads(),

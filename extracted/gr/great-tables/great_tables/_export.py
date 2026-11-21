@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 import tempfile
 import time
 import warnings
@@ -40,13 +41,24 @@ def _create_temp_file_server(fname: Path) -> HTTPServer:
     return server
 
 
+def _running_in_marimo() -> bool:
+    # A marimo kernel has always imported marimo, so there's no need to import it to check
+    marimo = sys.modules.get("marimo")
+    return marimo is not None and marimo.running_in_notebook()
+
+
 def _infer_render_target(
-    ipy: InteractiveShell | None | type = MISSING,
+    ipy: InteractiveShell | type | None = MISSING,
 ) -> Literal["auto", "notebook", "browser"]:
     # adapted from py-htmltools
     # Note that `ipy` arguments are possible return values of IPython.get_ipython()
     # They are manually passed in from unit tests to validate this function.
     target: Literal["auto", "notebook", "browser"]
+
+    # marimo doesn't run an IPython shell, so get_ipython() returns None in it
+    if _running_in_marimo():
+        return "notebook"
+
     try:
         import IPython  # pyright: ignore[reportUnknownVariableType]
         from IPython.terminal.interactiveshell import TerminalInteractiveShell
@@ -99,7 +111,11 @@ def show(
     if target == "auto":
         target = _infer_render_target()
 
-    if target == "notebook":
+    if target == "notebook" and _running_in_marimo():
+        import marimo
+
+        marimo.output.append(self)
+    elif target == "notebook":
         from IPython.core.display import display_html
 
         html = self._repr_html_()
@@ -119,7 +135,7 @@ def show(
             webbrowser.open(f"http://127.0.0.1:{server.server_port}/{f_path.name}")
             server.handle_request()
     else:
-        raise Exception(f"Unknown target display: {target}")
+        raise ValueError(f"Unknown target display: {target}")
 
 
 def as_raw_html(
@@ -127,6 +143,7 @@ def as_raw_html(
     inline_css: bool = False,
     make_page: bool = False,
     all_important: bool = False,
+    runtime: Literal["inline", "none"] = "inline",
 ) -> str:
     """
     Get the HTML content of a GT object.
@@ -152,7 +169,10 @@ def as_raw_html(
     inline_css
         If `True`, all CSS styles are inlined into the HTML elements as `style` attributes.
         This is essential for email clients, which often strip out `<style>` blocks but preserve
-        inline styles.
+        inline styles. It doesn't apply to an interactive table (one made with
+        [`opt_interactive()`](`great_tables.GT.opt_interactive`)), which needs its `<style>` block
+        and its script: it's ignored, with a warning (for a table in an email, use
+        `opt_interactive(active=False)`).
     make_page
         If `True`, the table will be wrapped in a complete HTML page with proper `<html>`, `<head>`,
         and `<body>` tags. This is useful when you want to display the table in a web browser or
@@ -160,6 +180,13 @@ def as_raw_html(
     all_important
         If `True`, all CSS declarations are marked with `!important` to ensure they take precedence
         over other styles that might be present in the document.
+    runtime
+        Whether an interactive table's HTML (a table made with
+        [`opt_interactive()`](`great_tables.GT.opt_interactive`)) is followed by the runtime that
+        makes it interactive, its JavaScript and CSS: `"inline"` (the default) or `"none"`, for a
+        page that has the runtime once, however many tables it shows (see
+        [`runtime_tags()`](`great_tables.web.runtime_tags`)). A static table has no runtime, so
+        this doesn't change it.
 
     Returns
     -------
@@ -172,12 +199,12 @@ def as_raw_html(
     Let's use a subset of the `gtcars` dataset to create a new table.
 
     ```{python}
-    from great_tables import GT, md, style, loc
+    from great_tables import GT, data, md, style, loc
     from great_tables.data import gtcars
     import polars as pl
 
     gtcars_mini = (
-        pl.from_pandas(gtcars)
+        data.pl.gtcars
         .select(["mfr", "model", "msrp"])
         .head(5)
     )
@@ -227,16 +254,25 @@ def as_raw_html(
     ```
     """
 
-    if self._options.ihtml_active.value:
-        from ._ihtml import render_as_ihtml
+    if runtime not in ("inline", "none"):
+        raise ValueError(f'`runtime=` must be "inline" or "none", not {runtime!r}.')
 
-        fragment = render_as_ihtml(self)
-        if make_page:
-            return (
-                '<!DOCTYPE html>\n<html lang="en">\n<head>\n'
-                '<meta charset="utf-8"/>\n</head>\n<body>\n' + fragment + "\n</body>\n</html>\n"
+    # An interactive table (from `opt_interactive()`) is a `<gt-table>` element, whose CSS can't be
+    # inlined: `inline_css=` doesn't apply to it
+    if self._options.ihtml_active.value:
+        from ._gti import page_html, render_gti_html
+
+        if inline_css:
+            warnings.warn(
+                "An interactive table (from `opt_interactive()`) can't have its CSS inlined, so "
+                "`inline_css=True` is ignored: its HTML needs a <style> block and a script, which "
+                "email clients don't run. For a table in an email, use "
+                "`opt_interactive(active=False)`.",
+                stacklevel=2,
             )
-        return fragment
+
+        fragment = render_gti_html(self, runtime=runtime, all_important=all_important)
+        return page_html(fragment) if make_page else fragment
 
     built_table = self._build_data(context="html")
 
@@ -256,10 +292,7 @@ def as_raw_html(
             # Obtain the `table_id` value from the Options (might be set, might be None)
             table_id = self._options.table_id.value
 
-            if table_id is None:
-                id = random_id()
-            else:
-                id = table_id
+            id = random_id() if table_id is None else table_id
 
             # Compile the SCSS as CSS
             table_css = compile_scss(self, id=id, compress=False, all_important=all_important)
@@ -343,12 +376,12 @@ def as_latex(self: GT, use_longtable: bool = False, tbl_pos: str | None = None) 
     Let's use a subset of the `gtcars` dataset to create a new table.
 
     ```{python}
-    from great_tables import GT
+    from great_tables import GT, data
     from great_tables.data import gtcars
     import polars as pl
 
     gtcars_mini = (
-        pl.from_pandas(gtcars)
+        data.pl.gtcars
         .select(["mfr", "model", "msrp"])
         .head(5)
     )
@@ -400,7 +433,7 @@ def save(  # pragma: no cover
     expand: int = 5,
     web_driver: WebDrivers | webdriver.Remote = "chrome",
     window_size: tuple[int, int] = (6000, 6000),
-    debug_port: None | int = None,
+    debug_port: int | None = None,
     encoding: str = "utf-8",
     _debug_dump: DebugDumpOptions | None = None,
 ) -> GTSelf:
@@ -430,6 +463,11 @@ def save(  # pragma: no cover
 
         Specified browser must be installed. Note that if a webdriver instance is passed, options
         that require setting up a webdriver, like debug_port, will not be used.
+
+        Chrome and Edge run with their sandbox turned off only when Python runs as root on Linux
+        (e.g., in Google Colab or a Docker container), where these browsers won't start otherwise.
+        To use other browser options, pass a configured webdriver instance (e.g.,
+        `webdriver.Chrome(options=...)`).
     window_size
         The size of the browser window to use when laying out the table. This shouldn't be necessary
         to capture a table, but may affect the tables appearance.
@@ -621,6 +659,7 @@ def write_raw_html(
     newline: str | None = None,
     make_page: bool = False,
     all_important: bool = False,
+    runtime: Literal["inline", "none"] = "inline",
 ) -> None:
     """
     Write the table to an HTML file.
@@ -642,6 +681,18 @@ def write_raw_html(
         largely supported in email clients over using CSS in a `<style>` block.
     newline
         The newline character to use when writing the file. Defaults to `os.linesep`.
+    make_page
+        If `True`, the table is wrapped in a complete HTML page, with `<html>`, `<head>` and
+        `<body>` tags.
+    all_important
+        If `True`, all CSS declarations are marked with `!important`.
+    runtime
+        Whether an interactive table's HTML is followed by the runtime that makes it interactive,
+        its JavaScript and CSS: `"inline"` (the default) or `"none"`, for a page that has the
+        runtime once, however many tables it shows (see
+        [`runtime_tags()`](`great_tables.web.runtime_tags`)). A static table has no runtime, so
+        this doesn't change it.
+
     Returns
     -------
     None
@@ -649,14 +700,30 @@ def write_raw_html(
     """
     import os
 
-    html_content = as_raw_html(
-        gt, inline_css=inline_css, make_page=make_page, all_important=all_important
+    # (As the table renders itself: a `GTI` table renders as interactive HTML)
+    html_content = gt.as_raw_html(
+        inline_css=inline_css, make_page=make_page, all_important=all_important, runtime=runtime
     )
 
     newline = newline if newline is not None else os.linesep
 
     with open(filename, "w", encoding=encoding, newline=newline) as f:
         f.write(html_content)
+
+
+# The formats gridwell writes from the table's gridwell IR (`as_gridwell()`): the ones Great Tables
+# can't make itself, by file extension, with gridwell's name for each
+_GRIDWELL_FORMATS = {
+    ".svg": "svg",
+    ".docx": "docx",
+    ".xlsx": "xlsx",
+    ".pptx": "pptx",
+    ".rtf": "rtf",
+    ".typ": "typst",
+}
+
+# The formats a headless browser makes from the table's HTML (with `nokap`)
+_BROWSER_FORMATS = {".png", ".jpg", ".jpeg", ".webp", ".pdf"}
 
 
 def gtsave(
@@ -670,20 +737,27 @@ def gtsave(
     vheight: int = 744,
 ) -> GT:
     """
-    Save a GT table to a file (PNG, JPEG, WebP, or PDF).
+    Save a GT table to a file (PNG, JPEG, WebP, PDF, SVG, Word, Excel, PowerPoint, RTF, or Typst).
 
     The `gtsave()` method renders the table to an image or PDF using a headless Chrome browser via
     the `nokap` package. This provides a reliable way to produce high-resolution image files of
-    tables without requiring Selenium or Playwright.
+    tables without requiring Selenium or Playwright. Chrome or Chromium must be installed on the
+    system for these formats.
 
-    Chrome or Chromium must be installed on the system for this method to work.
+    The other formats (SVG, Word, Excel, PowerPoint, RTF, and Typst) are written by
+    [gridwell](https://github.com/rich-iannone/gridwell) from the table's gridwell IR (see
+    `GT.as_gridwell()`), with no browser needed. Install gridwell with
+    `pip install "great_tables[gridwell]"`. SVG output is experimental in gridwell, and its
+    styling may change between gridwell releases.
 
     Parameters
     ----------
     file
         The file path to write the output to. The format is determined by the file extension:
-        `.png`, `.jpg`/`.jpeg`, `.webp` for images; `.pdf` for PDF. If no extension is provided,
-        `.png` is assumed.
+        `.png`, `.jpg`/`.jpeg`, `.webp` for images; `.pdf` for PDF; and, with gridwell, `.svg` for
+        SVG, `.docx` for Word, `.xlsx` for Excel, `.pptx` for PowerPoint, `.rtf` for RTF, and
+        `.typ` for Typst. If no extension is provided, `.png` is assumed. The other arguments
+        apply to images and PDF only.
     selector
         A CSS selector targeting the element to capture. Defaults to `"table"`, which captures just
         the table element with tight bounds.
@@ -715,12 +789,12 @@ def gtsave(
     Using a small subset of the `gtcars` dataset, let's create a table and save it to a PNG file.
 
     ```python
-    from great_tables import GT
+    from great_tables import GT, data
     from great_tables.data import gtcars
     import polars as pl
 
     gtcars_mini = (
-        pl.from_pandas(gtcars)
+        data.pl.gtcars
         .select(["mfr", "model", "msrp"])
         .head(5)
     )
@@ -752,21 +826,36 @@ def gtsave(
         .gtsave("my_table.pdf")
     )
     ```
-    """
-    import nokap
 
+    With gridwell installed, save the same table as SVG, or as a Word document.
+
+    ```python
+    GT(gtcars_mini).fmt_currency(columns="msrp").gtsave("my_table.svg")
+    GT(gtcars_mini).fmt_currency(columns="msrp").gtsave("my_table.docx")
+    ```
+    """
     # If there is no file extension, default to .png
     out_path = Path(file)
     if out_path.suffix == "":
         out_path = out_path.with_suffix(".png")
+    suffix = out_path.suffix.lower()
+
+    if suffix in _GRIDWELL_FORMATS:
+        gridwell = _try_import(
+            name="gridwell", pip_install_line='pip install "great_tables[gridwell]"'
+        )
+        gridwell.Table(self.as_gridwell()).save(out_path, format=_GRIDWELL_FORMATS[suffix])
+        return self
 
     # Validate file extension
-    allowed_extensions = {".png", ".jpg", ".jpeg", ".webp", ".pdf"}
-    if out_path.suffix.lower() not in allowed_extensions:
+    if suffix not in _BROWSER_FORMATS:
+        supported = sorted(_BROWSER_FORMATS | set(_GRIDWELL_FORMATS))
         raise ValueError(
             f"Unsupported file extension: '{out_path.suffix}'. "
-            f"Supported formats: {', '.join(sorted(allowed_extensions))}"
+            f"Supported formats: {', '.join(supported)}"
         )
+
+    import nokap
 
     # Get the HTML content of the table
     html_content = as_raw_html(self)

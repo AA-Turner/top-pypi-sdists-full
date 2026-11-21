@@ -1,6 +1,6 @@
 import pytest
 
-from jsonschema_rs import Draft202012, ReferencingError, Registry
+from jsonschema_rs import Draft4, Draft6, Draft7, Draft201909, Draft202012, ReferencingError, Registry
 
 NESTED_RESOURCES = [
     (
@@ -101,6 +101,37 @@ def test_resolver_lookup_supports_pointers_and_anchors():
     assert anchor.resolver.base_uri == "https://example.com/anchors.json"
 
 
+SAME_NAME_DYNAMIC_ANCHORS = [
+    (
+        "https://example.com/root",
+        {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$defs": {
+                "outer": {"$dynamicAnchor": "item", "type": "null"},
+                "inner": {"$id": "inner", "$dynamicAnchor": "item", "type": "string"},
+            },
+        },
+    )
+]
+
+
+@pytest.mark.parametrize(
+    ("method", "expected", "base_uri"),
+    [
+        ("lookup", {"$id": "inner", "$dynamicAnchor": "item", "type": "string"}, "https://example.com/inner"),
+        ("lookup_dynamic_ref", {"$dynamicAnchor": "item", "type": "null"}, "https://example.com/root"),
+    ],
+)
+def test_resolver_lookup_of_dynamic_anchor(method, expected, base_uri):
+    registry = Registry(SAME_NAME_DYNAMIC_ANCHORS)
+    resolver = registry.resolver("https://example.com/root")
+
+    resolved = getattr(resolver, method)("inner#item")
+
+    assert resolved.contents == expected
+    assert resolved.resolver.base_uri == base_uri
+
+
 def test_resolver_lookup_raises_referencing_error_for_missing_resource():
     registry = Registry(NESTED_RESOURCES)
     resolver = registry.resolver("https://example.com/person.json")
@@ -109,3 +140,30 @@ def test_resolver_lookup_raises_referencing_error_for_missing_resource():
         resolver.lookup("https://example.com/missing.json")
 
     assert "missing.json" in str(exc.value)
+
+
+@pytest.mark.parametrize(
+    "dialect,draft",
+    [
+        ("http://json-schema.org/draft-04/schema#", Draft4),
+        ("http://json-schema.org/draft-06/schema#", Draft6),
+        ("http://json-schema.org/draft-07/schema#", Draft7),
+        ("https://json-schema.org/draft/2019-09/schema", Draft201909),
+    ],
+)
+def test_lookup_reports_the_draft_of_the_resource(dialect, draft):
+    registry = Registry([("https://example.com/s.json", {"$schema": dialect})])
+    assert registry.resolver("https://example.com/s.json").lookup("").draft == draft
+
+
+@pytest.mark.parametrize(
+    "build",
+    [
+        lambda: Registry([("http://[::1", {})]),
+        lambda: Registry([]).resolver("http://[::1"),
+    ],
+    ids=["resource", "resolver base"],
+)
+def test_malformed_uri(build):
+    with pytest.raises(ValueError, match=r"^Invalid URI reference 'http://\[::1': unexpected character at index 11$"):
+        build()

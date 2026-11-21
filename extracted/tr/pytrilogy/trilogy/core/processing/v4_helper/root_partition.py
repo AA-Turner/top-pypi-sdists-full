@@ -28,7 +28,7 @@ from dataclasses import dataclass
 
 from trilogy.core import graph as nx
 from trilogy.core.constants import ALL_ROWS_ADDRESS
-from trilogy.core.enums import Derivation, Purpose
+from trilogy.core.enums import Derivation, Granularity, Purpose
 from trilogy.core.models.build import (
     BoolExpr,
     BuildConcept,
@@ -336,6 +336,25 @@ def _split_strands_condition_scan(
     )
 
 
+def _single_rows_apart(
+    root_sets: list[set[str]], concept_attrs: dict[str, ConceptAttrs]
+) -> list[set[str]]:
+    """A one-row root (a stored `max(h) by *`) is its own condition scan, as in
+    `partition_roots`: scanned beside keyed roots, a summary re-aggregates it
+    at their keys (`max(h) by species`), and a set compares that as the
+    total."""
+    out: list[set[str]] = []
+    for roots in root_sets:
+        single = {
+            n
+            for n in roots
+            if concept_attrs[n].granularity == Granularity.SINGLE_ROW
+            and not concept_attrs[n].scan_filtered
+        }
+        out += [roots - single, single] if single and single != roots else [roots]
+    return out
+
+
 def _condition_scans(
     concept_attrs: dict[str, ConceptAttrs],
     d1_calc_roots_by_stage: dict[int | None, list[set[str]]],
@@ -403,12 +422,7 @@ def _prune_existence_exclusive_roots(
         successors = list(concept_graph.successors(root))
         if not successors or not all(s in d1_subgraph for s in successors):
             continue
-        lineage = [
-            s
-            for s in successors
-            if edge_kind(concept_edges, root, s) == EdgeKind.LINEAGE
-        ]
-        if _reaches_existence_set(concept_graph, concept_edges, d1_subgraph, lineage):
+        if _feeds_only_sets(concept_graph, concept_edges, d1_subgraph, successors):
             exclusive_addrs.add(concept_attrs[root].address)
     if not exclusive_addrs:
         return
@@ -427,24 +441,32 @@ def _prune_existence_exclusive_roots(
         )
 
 
-def _reaches_existence_set(
+def _feeds_only_sets(
     concept_graph: nx.DiGraph,
     concept_edges: EdgeMap,
     d1_subgraph: set[str],
     seeds: list[str],
 ) -> bool:
-    """Some seed, or a condition node downstream of one, defines a semijoin set."""
+    """Every condition node downstream of the seeds ends in a semijoin set:
+    none escapes the condition subgraph but through the set (`city` keying
+    both a set's `count(tree_id) by city > 1` and the outer gate's `count by
+    city > 2` must stay on the shared root, the gate's join key)."""
     stack = list(seeds)
     seen: set[str] = set()
+    reached = False
     while stack:
         cur = stack.pop()
         if cur in seen:
             continue
         seen.add(cur)
-        if feeds_existence(concept_graph, concept_edges, cur):
-            return True
-        stack.extend(n for n in concept_graph.successors(cur) if n in d1_subgraph)
-    return False
+        for succ in concept_graph.successors(cur):
+            if edge_kind(concept_edges, cur, succ) == EdgeKind.EXISTENCE:
+                reached = True
+            elif succ not in d1_subgraph:
+                return False
+            else:
+                stack.append(succ)
+    return reached
 
 
 def _finest_determining_key(
@@ -1276,6 +1298,10 @@ def partition_root_demand(
         condition_roots | {n for n, a in concept_attrs.items() if a.scan_filtered},
     )
     trace_buckets("entity clusters peeled", buckets, primary_group)
+    roots_by_stage = {
+        stage: _single_rows_apart(root_sets, concept_attrs)
+        for stage, root_sets in roots_by_stage.items()
+    }
     scans = _condition_scans(concept_attrs, roots_by_stage)
     buckets.update(
         {scan.group_id: scan for stage_scans in scans.values() for scan in stage_scans}

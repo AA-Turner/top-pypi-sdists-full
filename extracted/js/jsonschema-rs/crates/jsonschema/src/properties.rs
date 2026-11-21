@@ -4,17 +4,14 @@ use crate::{
     compiler,
     keywords::pattern_properties::invalid_regex,
     node::SchemaNode,
-    regex::{
-        analyze_pattern, contains_ecma_whitespace, Compiled, LazyRegex, PatternOptimization,
-        RegexBackendPanic, SequenceMatcher,
-    },
+    regex::{contains_ecma_whitespace, Compiled, LazyRegex, PatternOptimization, SequenceMatcher},
     Json, Object, SerdeJson, ValidationContext,
 };
 use serde_json::{Map, Value};
 
 use crate::ValidationError;
 
-/// A compiled pattern that can be a literal optimized match or a full regex.
+/// A pattern compiled to the cheapest matcher that decides it.
 #[derive(Debug, Clone)]
 pub(crate) enum CompiledPattern<R> {
     /// Simple prefix match using `starts_with()`.
@@ -31,10 +28,7 @@ pub(crate) enum CompiledPattern<R> {
     Regex(R),
 }
 
-impl<R: crate::regex::RegexEngine> crate::regex::RegexEngine for CompiledPattern<R>
-where
-    R::Error: From<RegexBackendPanic>,
-{
+impl<R: crate::regex::RegexEngine> crate::regex::RegexEngine for CompiledPattern<R> {
     type Error = R::Error;
 
     #[inline]
@@ -44,7 +38,10 @@ where
             CompiledPattern::Exact(exact) => Ok(text == exact.as_ref()),
             CompiledPattern::Alternation(alts) => Ok(alts.iter().any(|a| a.as_str() == text)),
             CompiledPattern::NoWhitespace => Ok(!contains_ecma_whitespace(text)),
-            CompiledPattern::Sequence(sequence) => sequence.is_match(text).map_err(Into::into),
+            CompiledPattern::Sequence(sequence) => {
+                let Ok(matched) = sequence.is_match(text);
+                Ok(matched)
+            }
             CompiledPattern::Regex(re) => re.is_match(text),
         }
     }
@@ -61,10 +58,7 @@ pub(crate) trait PropertyPattern: crate::regex::RegexEngine {
     ) -> bool;
 }
 
-impl<R: crate::regex::RegexEngine> PropertyPattern for CompiledPattern<R>
-where
-    R::Error: From<RegexBackendPanic>,
-{
+impl<R: crate::regex::RegexEngine> PropertyPattern for CompiledPattern<R> {
     #[inline]
     fn is_match_in(
         &self,
@@ -96,16 +90,14 @@ pub(crate) trait PropertiesValidatorsMap<F: Json = SerdeJson>: Send + Sync {
     fn get_indexed_validator(&self, property: &str) -> Option<(usize, &SchemaNode<F>)>;
 }
 
-/// Threshold for switching from linear scan to `HashMap`.
+/// Name count from which lookups use `NameBuckets` instead of a linear scan.
 pub(crate) const HASHMAP_THRESHOLD: usize = 15;
 
-/// Whether one pass over an object's members beats a lookup per declared property.
-///
-/// A members pass costs about one cheap `KeyHead` compare per pair; a lookup is a tree descent or a
-/// hash of the key. Past four members per declared property the lookups win under both map orders.
+/// Whether one pass over an object's members beats a lookup per declared property: the
+/// representation says how many members a pass may visit per property it replaces.
 #[inline]
-pub(crate) fn scan_members(members: usize, properties: usize) -> bool {
-    members <= properties.saturating_mul(4)
+pub(crate) fn scan_members<F: Json>(members: usize, properties: usize) -> bool {
+    members <= properties.saturating_mul(F::MEMBERS_PER_PROPERTY)
 }
 
 /// Lengths of a set of names, one bit per length modulo 64; a key whose length has no bit cannot be
@@ -434,8 +426,7 @@ where
     true
 }
 
-/// Create a vector of pattern-validators pairs.
-/// Uses prefix optimization when patterns are simple `^prefix` patterns.
+/// Compile `patternProperties`, using `fancy-regex` only for patterns no cheaper matcher decides.
 #[inline]
 pub(crate) fn compile_fancy_regex_patterns<'a, F: Json>(
     ctx: &compiler::Context<F>,
@@ -445,7 +436,7 @@ pub(crate) fn compile_fancy_regex_patterns<'a, F: Json>(
     let mut compiled_patterns = Vec::with_capacity(obj.len());
     for (pattern, subschema) in obj {
         let pctx = kctx.new_at_location(pattern.as_str());
-        let compiled_pattern = match analyze_pattern(pattern) {
+        let compiled_pattern = match ctx.analyze_pattern(pattern) {
             Some(PatternOptimization::Prefix(prefix)) => CompiledPattern::Prefix(Arc::from(prefix)),
             Some(PatternOptimization::Exact(exact)) => CompiledPattern::Exact(Arc::from(exact)),
             Some(PatternOptimization::Alternation(alts)) => {
@@ -469,8 +460,7 @@ pub(crate) fn compile_fancy_regex_patterns<'a, F: Json>(
     Ok(compiled_patterns)
 }
 
-/// Create a vector of pattern-validators pairs using standard regex.
-/// Uses literal optimizations when patterns are simple prefix or exact-match patterns.
+/// Compile `patternProperties`, using `regex` only for patterns no cheaper matcher decides.
 #[inline]
 pub(crate) fn compile_regex_patterns<'a, F: Json>(
     ctx: &compiler::Context<F>,
@@ -480,7 +470,7 @@ pub(crate) fn compile_regex_patterns<'a, F: Json>(
     let mut compiled_patterns = Vec::with_capacity(obj.len());
     for (pattern, subschema) in obj {
         let pctx = kctx.new_at_location(pattern.as_str());
-        let compiled_pattern = match analyze_pattern(pattern) {
+        let compiled_pattern = match ctx.analyze_pattern(pattern) {
             Some(PatternOptimization::Prefix(prefix)) => CompiledPattern::Prefix(Arc::from(prefix)),
             Some(PatternOptimization::Exact(exact)) => CompiledPattern::Exact(Arc::from(exact)),
             Some(PatternOptimization::Alternation(alts)) => {

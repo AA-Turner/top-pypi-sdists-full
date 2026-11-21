@@ -651,39 +651,46 @@ static int starts_with_brace_or_keyword(const jm_program *prog, int32_t index) {
     }
 }
 
-/* Emit a numeric literal in its shortest value-preserving form: drop `_` separators,
-   remove redundant zeros (1.0 -> 1, 0.5 -> .5, 5. -> 5), and fold trailing integer
-   zeros into an exponent (1000 -> 1e3) when shorter. Radix (0x/0o/0b), legacy-octal,
-   exponent-bearing and over-long literals are emitted underscore-free but unchanged. */
-static void print_number(St *st, const jm_node *node) {
-    Py_UCS4 buf[64];
+/* Rewrite a separator-free 0x/0o/0b literal of len code points in buf as its decimal digits when they are shorter:
+   0x10000 is 65536. Only a value up to 2^53 converts, where every integer is exact; a larger one keeps the radix
+   spelling, whose digits the engine rounds. Returns the decimal length, or 0 when buf is unchanged. */
+static TH_NOINLINE Py_ssize_t to_decimal(Py_UCS4 *buf, Py_ssize_t len) {
+    unsigned base = buf[1] == 'x' || buf[1] == 'X' ? 16 : buf[1] == 'o' || buf[1] == 'O' ? 8 : 2;
+    uint64_t value = 0;
+    for (Py_ssize_t index = 2; index < len; index++) {
+        Py_UCS4 ch = buf[index];
+        unsigned digit = ch <= '9' ? ch - '0' : (ch | 0x20) - 'a' + 10;
+        if (value > ((UINT64_C(1) << 53) - digit) / base) {
+            return 0;
+        }
+        value = value * base + digit;
+    }
+    char digits[24];
+    int digit_len = snprintf(digits, sizeof(digits), "%llu", (unsigned long long)value);
+    if (digit_len >= len) {
+        return 0;
+    }
+    for (int index = 0; index < digit_len; index++) {
+        buf[index] = (Py_UCS4)(unsigned char)digits[index];
+    }
+    return digit_len;
+}
+
+/* Spell a numeric literal in its shortest value-preserving form into buf (JM_NUMBER_SPELL_MAX code points): drop `_`
+   separators, remove redundant zeros (1.0 -> 1, 0.5 -> .5, 5. -> 5), and fold trailing integer zeros into an exponent
+   (1000 -> 1e3) when shorter. A radix (0x/0o/0b) literal turns decimal when that is shorter; legacy-octal,
+   exponent-bearing and over-long literals are spelled underscore-free but unchanged. Every rewrite only shortens, so
+   it runs in place. Returns the length, or -1 when the separator-free lexeme does not fit buf. */
+Py_ssize_t jm_number_spell(const jm_node *node, Py_UCS4 *buf) {
     Py_ssize_t len = 0;
-    int overflow = 0;
     for (Py_ssize_t index = 0; index < node->str_len; index++) {
         if (node->str[index] == '_') {
             continue;
         }
-        if (len >= (Py_ssize_t)(sizeof(buf) / sizeof(buf[0]))) {
-            overflow = 1;
-            break;
+        if (len >= JM_NUMBER_SPELL_MAX) {
+            return -1;
         }
         buf[len++] = node->str[index];
-    }
-    if (overflow) { /* an unusually long literal (a huge exponent): one run, separators removed */
-        Py_UCS4 *big = jm_malloc((size_t)node->str_len * sizeof(Py_UCS4));
-        if (big == NULL) {  /* GCOVR_EXCL_BR_LINE: allocation-failure path */
-            st->failed = 1; /* GCOVR_EXCL_LINE */
-            return;         /* GCOVR_EXCL_LINE */
-        }
-        Py_ssize_t pos = 0;
-        for (Py_ssize_t index = 0; index < node->str_len; index++) {
-            if (node->str[index] != '_') {
-                big[pos++] = node->str[index];
-            }
-        }
-        put_run(st, big, pos);
-        jm_free(big);
-        return;
     }
     int has_e = 0;
     Py_ssize_t dot = -1;
@@ -700,11 +707,12 @@ static void print_number(St *st, const jm_node *node) {
     /* a leading 0 followed by another digit (not x/o/b) is a legacy octal, left as-is */
     int legacy = dot < 0 && !has_e && len > 1 && buf[0] == '0' && buf[1] <= '9';
     if (radix || has_e || legacy) {
-        put_run(st, buf, len); /* leave these forms alone beyond stripping separators */
-        return;
+        Py_ssize_t decimal_len = radix ? to_decimal(buf, len) : 0;
+        if (decimal_len == 0) {
+            return len; /* leave these forms alone beyond stripping separators */
+        }
+        len = decimal_len; /* a radix literal has no dot, so its decimal digits take the integer path */
     }
-    Py_UCS4 out[80];
-    Py_ssize_t out_len = 0;
     if (dot < 0) {
         Py_ssize_t zeros = 0;
         while (zeros < len && buf[len - 1 - zeros] == '0') {
@@ -712,20 +720,15 @@ static void print_number(St *st, const jm_node *node) {
         }
         Py_ssize_t head = len - zeros;
         if (head == 0 || zeros < 3) { /* an exponent needs at least two characters */
-            put_run(st, buf, len);
-            return;
+            return len;
         }
         char digits[8];
         int digit_len = snprintf(digits, sizeof(digits), "%lld", (long long)zeros);
-        for (Py_ssize_t index = 0; index < head; index++) {
-            out[out_len++] = buf[index];
-        }
-        out[out_len++] = 'e';
+        buf[head] = 'e'; /* `e` and the zero count take no more room than the three or more zeros they replace */
         for (int index = 0; index < digit_len; index++) {
-            out[out_len++] = (Py_UCS4)(unsigned char)digits[index];
+            buf[head + 1 + index] = (Py_UCS4)(unsigned char)digits[index];
         }
-        put_run(st, out, out_len);
-        return;
+        return head + 1 + digit_len;
     }
     Py_ssize_t istart = 0;
     while (istart < dot && buf[istart] == '0') {
@@ -735,19 +738,47 @@ static void print_number(St *st, const jm_node *node) {
     while (fend > dot + 1 && buf[fend - 1] == '0') {
         fend--; /* 1.50 -> 1.5 */
     }
+    Py_ssize_t out_len = 0; /* trails every read index, so the copy never overwrites what it has yet to read */
     for (Py_ssize_t index = istart; index < dot; index++) {
-        out[out_len++] = buf[index];
+        buf[out_len++] = buf[index];
     }
     if (fend > dot + 1) {
-        out[out_len++] = '.';
+        buf[out_len++] = '.';
         for (Py_ssize_t index = dot + 1; index < fend; index++) {
-            out[out_len++] = buf[index];
+            buf[out_len++] = buf[index];
         }
     }
     if (out_len == 0) { /* 0.0 collapsed to nothing */
-        out[out_len++] = '0';
+        buf[out_len++] = '0';
     }
-    put_run(st, out, out_len);
+    return out_len;
+}
+
+static void print_number(St *st, const jm_node *node) {
+    Py_UCS4 buf[JM_NUMBER_SPELL_MAX];
+    Py_ssize_t len = jm_number_spell(node, buf);
+    if (len >= 0) {
+        put_run(st, buf, len);
+        return;
+    }
+    /* an unusually long literal (a huge exponent): one run, separators removed */
+    /* GCOVR_EXCL_START: needs a 32-bit build and a literal of over a billion code points */
+    Py_UCS4 *big = ((size_t)node->str_len > SIZE_MAX / sizeof(Py_UCS4))
+                       ? NULL
+                       : jm_malloc((size_t)node->str_len * sizeof(Py_UCS4));
+    /* GCOVR_EXCL_STOP */
+    if (big == NULL) {  /* GCOVR_EXCL_BR_LINE: allocation-failure path */
+        st->failed = 1; /* GCOVR_EXCL_LINE */
+        return;         /* GCOVR_EXCL_LINE */
+    }
+    Py_ssize_t pos = 0;
+    for (Py_ssize_t index = 0; index < node->str_len; index++) {
+        if (node->str[index] != '_') {
+            big[pos++] = node->str[index];
+        }
+    }
+    put_run(st, big, pos);
+    jm_free(big);
 }
 
 /* A BigInt literal carries no dot or exponent, so stripping numeric separators is its only safe
@@ -762,7 +793,11 @@ static void print_bigint(St *st, const jm_node *node) {
         print_text(st, node);
         return;
     }
-    Py_UCS4 *buf = jm_malloc((size_t)node->str_len * sizeof(Py_UCS4));
+    /* GCOVR_EXCL_START: needs a 32-bit build and a literal of over a billion code points */
+    Py_UCS4 *buf = ((size_t)node->str_len > SIZE_MAX / sizeof(Py_UCS4))
+                       ? NULL
+                       : jm_malloc((size_t)node->str_len * sizeof(Py_UCS4));
+    /* GCOVR_EXCL_STOP */
     if (buf == NULL) {  /* GCOVR_EXCL_BR_LINE: allocation-failure path */
         st->failed = 1; /* GCOVR_EXCL_LINE */
         return;         /* GCOVR_EXCL_LINE */
@@ -1127,33 +1162,10 @@ static int print_substmt(St *st, int32_t index) {
     return print_stmt(st, index);
 }
 
-/* A block scopes its `let`/`const`/class/function declarations, so those keep their braces; a `var` or
-   an ordinary statement does not, so a single one can shed the braces. */
-static int keeps_block_scope(const jm_program *prog, int32_t stmt) {
-    int kind = prog->nodes[stmt].kind;
-    return kind == JN_CLASS || kind == JN_FUNC || (kind == JN_VAR && prog->nodes[stmt].decl != 0);
-}
+enum { NO_STATEMENT = JM_NO_STATEMENT };
 
-enum { NO_STATEMENT = -2 };
-
-/* The statement a block prints braceless -- its single scope-free statement --, -1 when the braces stay
-   (several statements, or one that needs the block scope), or NO_STATEMENT when it holds none. */
 static int32_t block_single_stmt(const St *st, int32_t index) {
-    int32_t only = -1;
-    int count = 0;
-    for (int32_t stmt = st->prog->nodes[index].a; stmt >= 0; stmt = st->prog->nodes[stmt].next) {
-        if (st->prog->nodes[stmt].kind == JN_EMPTY) {
-            continue;
-        }
-        only = stmt;
-        if (++count > 1) {
-            break;
-        }
-    }
-    if (count == 0) {
-        return NO_STATEMENT;
-    }
-    return count == 1 && !keeps_block_scope(st->prog, only) ? only : -1;
+    return jm_block_single_stmt(st->prog, index);
 }
 
 /* Whether the statement, printed braceless, ends in an `if` with no `else` -- the shape a following

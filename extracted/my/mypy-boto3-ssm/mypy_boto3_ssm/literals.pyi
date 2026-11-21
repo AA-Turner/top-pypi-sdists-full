@@ -39,6 +39,7 @@ __all__ = (
     "AutomationTypeType",
     "CalendarStateType",
     "CloudConnectorFilterKeyType",
+    "CloudProviderType",
     "CommandExecutedWaiterName",
     "CommandFilterKeyType",
     "CommandInvocationStatusType",
@@ -248,6 +249,7 @@ AutomationSubtypeType = Literal["AccessRequest", "ChangeRequest"]
 AutomationTypeType = Literal["CrossAccount", "Local"]
 CalendarStateType = Literal["CLOSED", "OPEN"]
 CloudConnectorFilterKeyType = Literal["OrganizationId", "ProjectId", "SubscriptionId", "TenantId"]
+CloudProviderType = Literal["AWS", "Azure", "GCP"]
 CommandExecutedWaiterName = Literal["command_executed"]
 CommandFilterKeyType = Literal[
     "DocumentName", "ExecutionStage", "InvokedAfter", "InvokedBefore", "Status"
@@ -652,12 +654,14 @@ ValidationFindingScopeTypeType = Literal[
 ValidationFindingTypeType = Literal["ERROR", "INFO", "WARN"]
 SSMServiceName = Literal["ssm"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",
     "account-access-runtime",
     "acm",
     "acm-pca",
+    "agent-discovery",
     "agent-registry",
     "agent-registry-control",
     "aiops",
@@ -668,6 +672,7 @@ ServiceName = Literal[
     "apigateway",
     "apigatewaymanagementapi",
     "apigatewayv2",
+    "apiportal",
     "appconfig",
     "appconfigdata",
     "appfabric",
@@ -760,6 +765,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -944,6 +950,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -951,10 +958,12 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-marketing",
     "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
+    "payments",
     "pca-connector-ad",
     "pca-connector-scep",
     "pcs",
@@ -1010,7 +1019,9 @@ ServiceName = Literal[
     "sagemaker-a2i-runtime",
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
+    "sagemaker-gateway-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",

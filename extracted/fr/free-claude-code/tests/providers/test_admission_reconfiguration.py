@@ -1,6 +1,7 @@
 """Live policy changes preserve capacity and wake the correct waiting calls."""
 
 import asyncio
+from dataclasses import dataclass
 from types import SimpleNamespace
 
 import pytest
@@ -17,16 +18,21 @@ from free_claude_code.providers.admission_policy import ProviderAdmissionLimits
 from free_claude_code.providers.admission_registry import ProviderAdmissionRegistry
 
 
-async def admit(controller):
+async def admit(controller: ProviderAdmissionController):
     return await controller.start_execution().open_attempt(
         ProviderOperationKind.GENERATION
     )
 
 
-async def completed(controller):
+async def completed(controller: ProviderAdmissionController):
     attempt = await admit(controller)
     await attempt.accept()
     await attempt.aclose()
+
+
+@dataclass
+class _Clock:
+    now: float
 
 
 @pytest.mark.asyncio
@@ -54,8 +60,10 @@ async def test_limit_changes_preserve_occupied_slots_and_wake_waiters():
 
 
 @pytest.mark.asyncio
-async def test_waiting_for_concurrency_does_not_spend_rate_capacity(monkeypatch):
-    clock = SimpleNamespace(now=0.0)
+async def test_waiting_for_concurrency_does_not_spend_rate_capacity(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    clock = _Clock(0.0)
     monkeypatch.setattr(
         capacity_module, "time", SimpleNamespace(monotonic=lambda: clock.now)
     )
@@ -93,8 +101,10 @@ async def test_rate_count_increase_wakes_waiter_without_clearing_history():
 
 
 @pytest.mark.asyncio
-async def test_longer_window_waits_only_until_discarded_history_expires(monkeypatch):
-    clock = SimpleNamespace(now=0.0)
+async def test_longer_window_waits_only_until_discarded_history_expires(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    clock = _Clock(0.0)
     monkeypatch.setattr(
         capacity_module, "time", SimpleNamespace(monotonic=lambda: clock.now)
     )
@@ -125,9 +135,9 @@ async def test_longer_window_waits_only_until_discarded_history_expires(monkeypa
 
 @pytest.mark.asyncio
 async def test_shorter_window_wakes_waiter_and_longer_window_uses_retained_history(
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
 ):
-    clock = SimpleNamespace(now=0.0)
+    clock = _Clock(0.0)
     monkeypatch.setattr(
         capacity_module, "time", SimpleNamespace(monotonic=lambda: clock.now)
     )
@@ -159,13 +169,13 @@ async def test_shorter_window_wakes_waiter_and_longer_window_uses_retained_histo
     ],
 )
 @pytest.mark.parametrize("value", [0, -1])
-def test_settings_reject_invalid_admission_limits(field, value):
+def test_settings_reject_invalid_admission_limits(field: str, value: int):
     with pytest.raises(ValidationError):
         Settings.model_validate({field: value})
 
 
 @pytest.mark.parametrize("window", [float("inf"), float("nan"), 0, -1])
-def test_internal_policy_rejects_invalid_window(window):
+def test_internal_policy_rejects_invalid_window(window: float | int):
     with pytest.raises(ValueError, match="rate_window"):
         ProviderAdmissionLimits(1, window, 1, PROVIDER_MAX_ATTEMPTS_DEFAULT)
 

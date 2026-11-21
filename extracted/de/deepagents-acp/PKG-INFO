@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: deepagents-acp
-Version: 0.0.13
+Version: 0.1.0
 Summary: Agent Client Protocol integration for Deep Agents
 Project-URL: Homepage, https://docs.langchain.com/oss/python/deepagents/overview
 Project-URL: Documentation, https://reference.langchain.com/python/deepagents/
@@ -16,8 +16,8 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.11
-Requires-Dist: agent-client-protocol>=0.10.1
+Requires-Python: <4.0,>=3.11
+Requires-Dist: agent-client-protocol<2.0.0,>=1.0.0
 Requires-Dist: deepagents
 Requires-Dist: python-dotenv>=1.2.2
 Description-Content-Type: text/markdown
@@ -233,5 +233,6 @@ You can see a full example [here](./examples/demo_agent.py) with LangChain's mod
 
 ## Resources
 
+- [Changelog](https://github.com/langchain-ai/deepagents/blob/main/libs/acp/CHANGELOG.md) — Release history
 - [LangChain Academy](https://academy.langchain.com/) — Comprehensive, free courses on LangChain libraries and products, made by the LangChain team.
 - [Code of Conduct](https://github.com/langchain-ai/langchain/?tab=coc-ov-file) — community guidelines and standards

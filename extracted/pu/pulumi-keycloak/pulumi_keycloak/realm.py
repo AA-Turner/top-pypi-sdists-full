@@ -93,10 +93,10 @@ class RealmArgs:
         :param pulumi.Input[_builtins.str] docker_authentication_flow: Which flow should be used for DockerAuthenticationFlow
         :param pulumi.Input[_builtins.bool] enabled: When `false`, users and clients will not be able to access this realm. Defaults to `true`.
         :param pulumi.Input[_builtins.str] first_broker_login_flow: Which flow should be used for FirstBrokerLoginFlow
-        :param pulumi.Input[_builtins.str] internal_id: When specified, this will be used as the realm's internal ID within Keycloak. When not specified, the realm's internal ID will be set to the realm's name.
+        :param pulumi.Input[_builtins.str] internal_id: When specified, this will be used as the realm's internal ID within Keycloak. When not specified, Keycloak generates a UUID. Realms created by earlier versions of this provider may still have the realm's name as internal ID.
         :param pulumi.Input[_builtins.bool] organizations_enabled: When `true`, organization support is enabled. Defaults to `false`.
         :param pulumi.Input[_builtins.str] password_policy: String that represents the passwordPolicies that are in place. Each policy is separated with " and ". Supported policies can be found in the server-info providers page. example: "upperCase(1) and length(8) and forceExpiredPasswordChange(365) and notUsername(undefined)"
-        :param pulumi.Input[_builtins.str] realm: The name of the realm. This is unique across Keycloak. This will also be used as the realm's internal ID within Keycloak.
+        :param pulumi.Input[_builtins.str] realm: The name of the realm. This is unique across Keycloak. This will also be used as the realm's internal ID within Keycloak. Changing it renames the realm in place; see Renaming a realm. The `master` realm cannot be renamed.
         :param pulumi.Input[_builtins.str] registration_flow: Which flow should be used for RegistrationFlow
         :param pulumi.Input[_builtins.str] reset_credentials_flow: Which flow should be used for ResetCredentialsFlow
         :param pulumi.Input[_builtins.str] ssl_required: SSL Required: Values can be 'none', 'external' or 'all'.
@@ -498,7 +498,7 @@ class RealmArgs:
     @pulumi.getter(name="internalId")
     def internal_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        When specified, this will be used as the realm's internal ID within Keycloak. When not specified, the realm's internal ID will be set to the realm's name.
+        When specified, this will be used as the realm's internal ID within Keycloak. When not specified, Keycloak generates a UUID. Realms created by earlier versions of this provider may still have the realm's name as internal ID.
         """
         return pulumi.get(self, "internal_id")
 
@@ -615,7 +615,7 @@ class RealmArgs:
     @pulumi.getter
     def realm(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        The name of the realm. This is unique across Keycloak. This will also be used as the realm's internal ID within Keycloak.
+        The name of the realm. This is unique across Keycloak. This will also be used as the realm's internal ID within Keycloak. Changing it renames the realm in place; see Renaming a realm. The `master` realm cannot be renamed.
         """
         return pulumi.get(self, "realm")
 
@@ -894,10 +894,10 @@ class _RealmState:
         :param pulumi.Input[_builtins.str] docker_authentication_flow: Which flow should be used for DockerAuthenticationFlow
         :param pulumi.Input[_builtins.bool] enabled: When `false`, users and clients will not be able to access this realm. Defaults to `true`.
         :param pulumi.Input[_builtins.str] first_broker_login_flow: Which flow should be used for FirstBrokerLoginFlow
-        :param pulumi.Input[_builtins.str] internal_id: When specified, this will be used as the realm's internal ID within Keycloak. When not specified, the realm's internal ID will be set to the realm's name.
+        :param pulumi.Input[_builtins.str] internal_id: When specified, this will be used as the realm's internal ID within Keycloak. When not specified, Keycloak generates a UUID. Realms created by earlier versions of this provider may still have the realm's name as internal ID.
         :param pulumi.Input[_builtins.bool] organizations_enabled: When `true`, organization support is enabled. Defaults to `false`.
         :param pulumi.Input[_builtins.str] password_policy: String that represents the passwordPolicies that are in place. Each policy is separated with " and ". Supported policies can be found in the server-info providers page. example: "upperCase(1) and length(8) and forceExpiredPasswordChange(365) and notUsername(undefined)"
-        :param pulumi.Input[_builtins.str] realm: The name of the realm. This is unique across Keycloak. This will also be used as the realm's internal ID within Keycloak.
+        :param pulumi.Input[_builtins.str] realm: The name of the realm. This is unique across Keycloak. This will also be used as the realm's internal ID within Keycloak. Changing it renames the realm in place; see Renaming a realm. The `master` realm cannot be renamed.
         :param pulumi.Input[_builtins.str] registration_flow: Which flow should be used for RegistrationFlow
         :param pulumi.Input[_builtins.str] reset_credentials_flow: Which flow should be used for ResetCredentialsFlow
         :param pulumi.Input[_builtins.str] ssl_required: SSL Required: Values can be 'none', 'external' or 'all'.
@@ -1299,7 +1299,7 @@ class _RealmState:
     @pulumi.getter(name="internalId")
     def internal_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        When specified, this will be used as the realm's internal ID within Keycloak. When not specified, the realm's internal ID will be set to the realm's name.
+        When specified, this will be used as the realm's internal ID within Keycloak. When not specified, Keycloak generates a UUID. Realms created by earlier versions of this provider may still have the realm's name as internal ID.
         """
         return pulumi.get(self, "internal_id")
 
@@ -1416,7 +1416,7 @@ class _RealmState:
     @pulumi.getter
     def realm(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        The name of the realm. This is unique across Keycloak. This will also be used as the realm's internal ID within Keycloak.
+        The name of the realm. This is unique across Keycloak. This will also be used as the realm's internal ID within Keycloak. Changing it renames the realm in place; see Renaming a realm. The `master` realm cannot be renamed.
         """
         return pulumi.get(self, "realm")
 
@@ -1758,10 +1758,65 @@ class Realm(pulumi.CustomResource):
             })
         ```
 
+        ## Renaming a realm
+
+        Changing `realm` renames the realm in place instead of replacing it, so its data is kept. Keycloak addresses a realm by
+        its name, and the resources inside it (clients, groups, roles, ...) refer to it with `realm_id`, which is that name.
+        Terraform sees `realm_id` change on a rename and replaces those resources, which deletes their data.
+
+        When the `Realm` resource has an `internal_id` in state, the account that the provider authenticates with
+        must be able to confirm that ID. If Keycloak hides it from that account, refreshing the realm fails, and with it
+        `pulumi preview`, as well as updating and destroying the realm. Grant the provider's account the `view-realm` role
+        on the realm again to continue. This prevents a reused name from pointing Terraform at a different realm. Imports
+        and older state without a recorded ID use the stored name.
+
+        To prevent the resources inside a realm from being replaced when it is renamed, reference the realm by its internal
+        id, which never changes, using `realm_internal_id` instead of `realm_id`:
+
+        ```python
+        import pulumi
+        import pulumi_keycloak as keycloak
+
+        realm = keycloak.Realm("realm", realm="my-realm")
+        group = keycloak.Group("group",
+            realm_internal_id=realm.internal_id,
+            name="group")
+        ```
+
+        `realm_internal_id` is available on every resource and data source that has a `realm_id` (or `realm`) argument, which then
+        holds the current realm name as a read-only value. Set exactly one of them. Data sources should use it too: they are
+        read while planning, when a renamed realm does not exist under its new name yet.
+
+        Looking up a realm by its internal id requires that the provider's account can see the realm's id. Keycloak hides it
+        from accounts that have no `view-realm` role on that realm (for example one that only has `manage-clients`), so grant
+        that role (the `realm-management` client role of the realm) before using `realm_internal_id`. Configurations that keep using
+        `realm_id` are not affected. If the id is hidden, using `realm_internal_id` fails with an error instead of replacing resources.
+        Likewise, if the account loses `view-realm` later, resources whose state holds a `realm_internal_id` fail with that error until the
+        role is granted again: the provider will not guess a realm from a name that may have been reused.
+
+        Things to know about renaming:
+
+        - A realm keeps its internal id when it is renamed, and the name of a renamed realm can be reused by a new realm. The
+          exception is a realm whose internal id is its old name: realms created by earlier versions of this provider got the
+          realm name as internal id. After renaming such a realm from `a` to `b` its id `a` stays taken, so creating a new realm
+          called `a` with `internal_id = "a"` fails. Leave `internal_id` unset so that Keycloak generates a UUID.
+        - Resources whose id contains the realm name (for example `DefaultGroups`) get the new name in their id on
+          the next refresh.
+        - A resource that still uses `realm_id` (the realm name) depends on where the name comes from. If it comes from
+          `keycloak_realm.x.realm`, the plan of the rename already shows the new name, so the resource is replaced in that
+          apply. If it comes from `keycloak_realm.x.id`, the plan of the rename still shows the old name, because the id only
+          changes while the realm is updated. The next refresh then brings the resource up to date, so it is not replaced, but
+          adding or changing such a resource in the same apply as the rename fails with `Provider produced inconsistent final
+          plan`, after the realm has already been renamed. Use `realm_internal_id` for all resources of a realm that you want to rename.
+
+        To migrate an existing configuration, first upgrade the provider and run `pulumi up`, or `pulumi up -refresh-only`;
+        `realm_internal_id` is filled in for existing resources. Then replace `realm_id = keycloak_realm.realm.id` with
+        `realm_internal_id = keycloak_realm.realm.internal_id`, which shows no changes. After that, `realm` can be changed safely.
+
         ## Default Client Scopes
 
-        - `default_default_client_scopes` - (Optional) A list of default `default client scopes` to be used for client definitions. Defaults to `[]` or keycloak's built-in default `default client-scopes`. For an alternative, please refer to the dedicated resource `RealmDefaultClientScopes`.
-        - `default_optional_client_scopes` - (Optional) A list of default `optional client scopes` to be used for client definitions. Defaults to `[]` or keycloak's built-in default `optional client-scopes`. For an alternative, please refer to the dedicated resource `RealmOptionalClientScopes`.
+        - `default_default_client_scopes` - (Optional) A list of default `default client scopes` to be used for client definitions. Defaults to `[]` or keycloak's built-in default `default client-scopes`. Alternatively, manage both assignment sets with `ClientScopeAssignments` and omit both scope-assignment fields from this realm resource.
+        - `default_optional_client_scopes` - (Optional) A list of default `optional client scopes` to be used for client definitions. Defaults to `[]` or keycloak's built-in default `optional client-scopes`. Do not configure this field or `default_default_client_scopes` alongside a realm-level `ClientScopeAssignments` resource; they manage the same assignments and will conflict.
 
         ## Import
 
@@ -1785,10 +1840,10 @@ class Realm(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] docker_authentication_flow: Which flow should be used for DockerAuthenticationFlow
         :param pulumi.Input[_builtins.bool] enabled: When `false`, users and clients will not be able to access this realm. Defaults to `true`.
         :param pulumi.Input[_builtins.str] first_broker_login_flow: Which flow should be used for FirstBrokerLoginFlow
-        :param pulumi.Input[_builtins.str] internal_id: When specified, this will be used as the realm's internal ID within Keycloak. When not specified, the realm's internal ID will be set to the realm's name.
+        :param pulumi.Input[_builtins.str] internal_id: When specified, this will be used as the realm's internal ID within Keycloak. When not specified, Keycloak generates a UUID. Realms created by earlier versions of this provider may still have the realm's name as internal ID.
         :param pulumi.Input[_builtins.bool] organizations_enabled: When `true`, organization support is enabled. Defaults to `false`.
         :param pulumi.Input[_builtins.str] password_policy: String that represents the passwordPolicies that are in place. Each policy is separated with " and ". Supported policies can be found in the server-info providers page. example: "upperCase(1) and length(8) and forceExpiredPasswordChange(365) and notUsername(undefined)"
-        :param pulumi.Input[_builtins.str] realm: The name of the realm. This is unique across Keycloak. This will also be used as the realm's internal ID within Keycloak.
+        :param pulumi.Input[_builtins.str] realm: The name of the realm. This is unique across Keycloak. This will also be used as the realm's internal ID within Keycloak. Changing it renames the realm in place; see Renaming a realm. The `master` realm cannot be renamed.
         :param pulumi.Input[_builtins.str] registration_flow: Which flow should be used for RegistrationFlow
         :param pulumi.Input[_builtins.str] reset_credentials_flow: Which flow should be used for ResetCredentialsFlow
         :param pulumi.Input[_builtins.str] ssl_required: SSL Required: Values can be 'none', 'external' or 'all'.
@@ -1872,10 +1927,65 @@ class Realm(pulumi.CustomResource):
             })
         ```
 
+        ## Renaming a realm
+
+        Changing `realm` renames the realm in place instead of replacing it, so its data is kept. Keycloak addresses a realm by
+        its name, and the resources inside it (clients, groups, roles, ...) refer to it with `realm_id`, which is that name.
+        Terraform sees `realm_id` change on a rename and replaces those resources, which deletes their data.
+
+        When the `Realm` resource has an `internal_id` in state, the account that the provider authenticates with
+        must be able to confirm that ID. If Keycloak hides it from that account, refreshing the realm fails, and with it
+        `pulumi preview`, as well as updating and destroying the realm. Grant the provider's account the `view-realm` role
+        on the realm again to continue. This prevents a reused name from pointing Terraform at a different realm. Imports
+        and older state without a recorded ID use the stored name.
+
+        To prevent the resources inside a realm from being replaced when it is renamed, reference the realm by its internal
+        id, which never changes, using `realm_internal_id` instead of `realm_id`:
+
+        ```python
+        import pulumi
+        import pulumi_keycloak as keycloak
+
+        realm = keycloak.Realm("realm", realm="my-realm")
+        group = keycloak.Group("group",
+            realm_internal_id=realm.internal_id,
+            name="group")
+        ```
+
+        `realm_internal_id` is available on every resource and data source that has a `realm_id` (or `realm`) argument, which then
+        holds the current realm name as a read-only value. Set exactly one of them. Data sources should use it too: they are
+        read while planning, when a renamed realm does not exist under its new name yet.
+
+        Looking up a realm by its internal id requires that the provider's account can see the realm's id. Keycloak hides it
+        from accounts that have no `view-realm` role on that realm (for example one that only has `manage-clients`), so grant
+        that role (the `realm-management` client role of the realm) before using `realm_internal_id`. Configurations that keep using
+        `realm_id` are not affected. If the id is hidden, using `realm_internal_id` fails with an error instead of replacing resources.
+        Likewise, if the account loses `view-realm` later, resources whose state holds a `realm_internal_id` fail with that error until the
+        role is granted again: the provider will not guess a realm from a name that may have been reused.
+
+        Things to know about renaming:
+
+        - A realm keeps its internal id when it is renamed, and the name of a renamed realm can be reused by a new realm. The
+          exception is a realm whose internal id is its old name: realms created by earlier versions of this provider got the
+          realm name as internal id. After renaming such a realm from `a` to `b` its id `a` stays taken, so creating a new realm
+          called `a` with `internal_id = "a"` fails. Leave `internal_id` unset so that Keycloak generates a UUID.
+        - Resources whose id contains the realm name (for example `DefaultGroups`) get the new name in their id on
+          the next refresh.
+        - A resource that still uses `realm_id` (the realm name) depends on where the name comes from. If it comes from
+          `keycloak_realm.x.realm`, the plan of the rename already shows the new name, so the resource is replaced in that
+          apply. If it comes from `keycloak_realm.x.id`, the plan of the rename still shows the old name, because the id only
+          changes while the realm is updated. The next refresh then brings the resource up to date, so it is not replaced, but
+          adding or changing such a resource in the same apply as the rename fails with `Provider produced inconsistent final
+          plan`, after the realm has already been renamed. Use `realm_internal_id` for all resources of a realm that you want to rename.
+
+        To migrate an existing configuration, first upgrade the provider and run `pulumi up`, or `pulumi up -refresh-only`;
+        `realm_internal_id` is filled in for existing resources. Then replace `realm_id = keycloak_realm.realm.id` with
+        `realm_internal_id = keycloak_realm.realm.internal_id`, which shows no changes. After that, `realm` can be changed safely.
+
         ## Default Client Scopes
 
-        - `default_default_client_scopes` - (Optional) A list of default `default client scopes` to be used for client definitions. Defaults to `[]` or keycloak's built-in default `default client-scopes`. For an alternative, please refer to the dedicated resource `RealmDefaultClientScopes`.
-        - `default_optional_client_scopes` - (Optional) A list of default `optional client scopes` to be used for client definitions. Defaults to `[]` or keycloak's built-in default `optional client-scopes`. For an alternative, please refer to the dedicated resource `RealmOptionalClientScopes`.
+        - `default_default_client_scopes` - (Optional) A list of default `default client scopes` to be used for client definitions. Defaults to `[]` or keycloak's built-in default `default client-scopes`. Alternatively, manage both assignment sets with `ClientScopeAssignments` and omit both scope-assignment fields from this realm resource.
+        - `default_optional_client_scopes` - (Optional) A list of default `optional client scopes` to be used for client definitions. Defaults to `[]` or keycloak's built-in default `optional client-scopes`. Do not configure this field or `default_default_client_scopes` alongside a realm-level `ClientScopeAssignments` resource; they manage the same assignments and will conflict.
 
         ## Import
 
@@ -2118,10 +2228,10 @@ class Realm(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] docker_authentication_flow: Which flow should be used for DockerAuthenticationFlow
         :param pulumi.Input[_builtins.bool] enabled: When `false`, users and clients will not be able to access this realm. Defaults to `true`.
         :param pulumi.Input[_builtins.str] first_broker_login_flow: Which flow should be used for FirstBrokerLoginFlow
-        :param pulumi.Input[_builtins.str] internal_id: When specified, this will be used as the realm's internal ID within Keycloak. When not specified, the realm's internal ID will be set to the realm's name.
+        :param pulumi.Input[_builtins.str] internal_id: When specified, this will be used as the realm's internal ID within Keycloak. When not specified, Keycloak generates a UUID. Realms created by earlier versions of this provider may still have the realm's name as internal ID.
         :param pulumi.Input[_builtins.bool] organizations_enabled: When `true`, organization support is enabled. Defaults to `false`.
         :param pulumi.Input[_builtins.str] password_policy: String that represents the passwordPolicies that are in place. Each policy is separated with " and ". Supported policies can be found in the server-info providers page. example: "upperCase(1) and length(8) and forceExpiredPasswordChange(365) and notUsername(undefined)"
-        :param pulumi.Input[_builtins.str] realm: The name of the realm. This is unique across Keycloak. This will also be used as the realm's internal ID within Keycloak.
+        :param pulumi.Input[_builtins.str] realm: The name of the realm. This is unique across Keycloak. This will also be used as the realm's internal ID within Keycloak. Changing it renames the realm in place; see Renaming a realm. The `master` realm cannot be renamed.
         :param pulumi.Input[_builtins.str] registration_flow: Which flow should be used for RegistrationFlow
         :param pulumi.Input[_builtins.str] reset_credentials_flow: Which flow should be used for ResetCredentialsFlow
         :param pulumi.Input[_builtins.str] ssl_required: SSL Required: Values can be 'none', 'external' or 'all'.
@@ -2193,6 +2303,132 @@ class Realm(pulumi.CustomResource):
         __props__.__dict__["web_authn_passwordless_policy"] = web_authn_passwordless_policy
         __props__.__dict__["web_authn_policy"] = web_authn_policy
         return Realm(resource_name, opts=opts, __props__=__props__)
+
+    @staticmethod
+    def exists(id: pulumi.Input[str],
+            opts: Optional[pulumi.ResourceOptions] = None,
+            access_code_lifespan: pulumi.Input[Optional[_builtins.str]] = None,
+            access_code_lifespan_login: pulumi.Input[Optional[_builtins.str]] = None,
+            access_code_lifespan_user_action: pulumi.Input[Optional[_builtins.str]] = None,
+            access_token_lifespan: pulumi.Input[Optional[_builtins.str]] = None,
+            access_token_lifespan_for_implicit_flow: pulumi.Input[Optional[_builtins.str]] = None,
+            account_theme: pulumi.Input[Optional[_builtins.str]] = None,
+            action_token_generated_by_admin_lifespan: pulumi.Input[Optional[_builtins.str]] = None,
+            action_token_generated_by_user_lifespan: pulumi.Input[Optional[_builtins.str]] = None,
+            admin_permissions_enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+            admin_theme: pulumi.Input[Optional[_builtins.str]] = None,
+            attributes: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            browser_flow: pulumi.Input[Optional[_builtins.str]] = None,
+            client_authentication_flow: pulumi.Input[Optional[_builtins.str]] = None,
+            client_session_idle_timeout: pulumi.Input[Optional[_builtins.str]] = None,
+            client_session_max_lifespan: pulumi.Input[Optional[_builtins.str]] = None,
+            default_default_client_scopes: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+            default_optional_client_scopes: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+            default_signature_algorithm: pulumi.Input[Optional[_builtins.str]] = None,
+            direct_grant_flow: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            display_name_html: pulumi.Input[Optional[_builtins.str]] = None,
+            docker_authentication_flow: pulumi.Input[Optional[_builtins.str]] = None,
+            duplicate_emails_allowed: pulumi.Input[Optional[_builtins.bool]] = None,
+            edit_username_allowed: pulumi.Input[Optional[_builtins.bool]] = None,
+            email_theme: pulumi.Input[Optional[_builtins.str]] = None,
+            enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+            first_broker_login_flow: pulumi.Input[Optional[_builtins.str]] = None,
+            internal_id: pulumi.Input[Optional[_builtins.str]] = None,
+            internationalization: pulumi.Input[Optional[Union['RealmInternationalizationArgs', 'RealmInternationalizationArgsDict', 'outputs.RealmInternationalization']]] = None,
+            login_theme: pulumi.Input[Optional[_builtins.str]] = None,
+            login_with_email_allowed: pulumi.Input[Optional[_builtins.bool]] = None,
+            oauth2_device_code_lifespan: pulumi.Input[Optional[_builtins.str]] = None,
+            oauth2_device_polling_interval: pulumi.Input[Optional[_builtins.int]] = None,
+            offline_session_idle_timeout: pulumi.Input[Optional[_builtins.str]] = None,
+            offline_session_max_lifespan: pulumi.Input[Optional[_builtins.str]] = None,
+            offline_session_max_lifespan_enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+            organizations_enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+            otp_policy: pulumi.Input[Optional[Union['RealmOtpPolicyArgs', 'RealmOtpPolicyArgsDict', 'outputs.RealmOtpPolicy']]] = None,
+            password_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            realm: pulumi.Input[Optional[_builtins.str]] = None,
+            refresh_token_max_reuse: pulumi.Input[Optional[_builtins.int]] = None,
+            registration_allowed: pulumi.Input[Optional[_builtins.bool]] = None,
+            registration_email_as_username: pulumi.Input[Optional[_builtins.bool]] = None,
+            registration_flow: pulumi.Input[Optional[_builtins.str]] = None,
+            remember_me: pulumi.Input[Optional[_builtins.bool]] = None,
+            reset_credentials_flow: pulumi.Input[Optional[_builtins.str]] = None,
+            reset_password_allowed: pulumi.Input[Optional[_builtins.bool]] = None,
+            revoke_refresh_token: pulumi.Input[Optional[_builtins.bool]] = None,
+            security_defenses: pulumi.Input[Optional[Union['RealmSecurityDefensesArgs', 'RealmSecurityDefensesArgsDict', 'outputs.RealmSecurityDefenses']]] = None,
+            smtp_server: pulumi.Input[Optional[Union['RealmSmtpServerArgs', 'RealmSmtpServerArgsDict', 'outputs.RealmSmtpServer']]] = None,
+            ssl_required: pulumi.Input[Optional[_builtins.str]] = None,
+            sso_session_idle_timeout: pulumi.Input[Optional[_builtins.str]] = None,
+            sso_session_idle_timeout_remember_me: pulumi.Input[Optional[_builtins.str]] = None,
+            sso_session_max_lifespan: pulumi.Input[Optional[_builtins.str]] = None,
+            sso_session_max_lifespan_remember_me: pulumi.Input[Optional[_builtins.str]] = None,
+            terraform_deletion_protection: pulumi.Input[Optional[_builtins.bool]] = None,
+            user_managed_access: pulumi.Input[Optional[_builtins.bool]] = None,
+            verify_email: pulumi.Input[Optional[_builtins.bool]] = None,
+            web_authn_passwordless_policy: pulumi.Input[Optional[Union['RealmWebAuthnPasswordlessPolicyArgs', 'RealmWebAuthnPasswordlessPolicyArgsDict', 'outputs.RealmWebAuthnPasswordlessPolicy']]] = None,
+            web_authn_policy: pulumi.Input[Optional[Union['RealmWebAuthnPolicyArgs', 'RealmWebAuthnPolicyArgsDict', 'outputs.RealmWebAuthnPolicy']]] = None) -> pulumi.Output[bool]:
+        __props__: dict = {}
+        __props__["accessCodeLifespan"] = access_code_lifespan
+        __props__["accessCodeLifespanLogin"] = access_code_lifespan_login
+        __props__["accessCodeLifespanUserAction"] = access_code_lifespan_user_action
+        __props__["accessTokenLifespan"] = access_token_lifespan
+        __props__["accessTokenLifespanForImplicitFlow"] = access_token_lifespan_for_implicit_flow
+        __props__["accountTheme"] = account_theme
+        __props__["actionTokenGeneratedByAdminLifespan"] = action_token_generated_by_admin_lifespan
+        __props__["actionTokenGeneratedByUserLifespan"] = action_token_generated_by_user_lifespan
+        __props__["adminPermissionsEnabled"] = admin_permissions_enabled
+        __props__["adminTheme"] = admin_theme
+        __props__["attributes"] = attributes
+        __props__["browserFlow"] = browser_flow
+        __props__["clientAuthenticationFlow"] = client_authentication_flow
+        __props__["clientSessionIdleTimeout"] = client_session_idle_timeout
+        __props__["clientSessionMaxLifespan"] = client_session_max_lifespan
+        __props__["defaultDefaultClientScopes"] = default_default_client_scopes
+        __props__["defaultOptionalClientScopes"] = default_optional_client_scopes
+        __props__["defaultSignatureAlgorithm"] = default_signature_algorithm
+        __props__["directGrantFlow"] = direct_grant_flow
+        __props__["displayName"] = display_name
+        __props__["displayNameHtml"] = display_name_html
+        __props__["dockerAuthenticationFlow"] = docker_authentication_flow
+        __props__["duplicateEmailsAllowed"] = duplicate_emails_allowed
+        __props__["editUsernameAllowed"] = edit_username_allowed
+        __props__["emailTheme"] = email_theme
+        __props__["enabled"] = enabled
+        __props__["firstBrokerLoginFlow"] = first_broker_login_flow
+        __props__["internalId"] = internal_id
+        __props__["internationalization"] = internationalization
+        __props__["loginTheme"] = login_theme
+        __props__["loginWithEmailAllowed"] = login_with_email_allowed
+        __props__["oauth2DeviceCodeLifespan"] = oauth2_device_code_lifespan
+        __props__["oauth2DevicePollingInterval"] = oauth2_device_polling_interval
+        __props__["offlineSessionIdleTimeout"] = offline_session_idle_timeout
+        __props__["offlineSessionMaxLifespan"] = offline_session_max_lifespan
+        __props__["offlineSessionMaxLifespanEnabled"] = offline_session_max_lifespan_enabled
+        __props__["organizationsEnabled"] = organizations_enabled
+        __props__["otpPolicy"] = otp_policy
+        __props__["passwordPolicy"] = password_policy
+        __props__["realm"] = realm
+        __props__["refreshTokenMaxReuse"] = refresh_token_max_reuse
+        __props__["registrationAllowed"] = registration_allowed
+        __props__["registrationEmailAsUsername"] = registration_email_as_username
+        __props__["registrationFlow"] = registration_flow
+        __props__["rememberMe"] = remember_me
+        __props__["resetCredentialsFlow"] = reset_credentials_flow
+        __props__["resetPasswordAllowed"] = reset_password_allowed
+        __props__["revokeRefreshToken"] = revoke_refresh_token
+        __props__["securityDefenses"] = security_defenses
+        __props__["smtpServer"] = smtp_server
+        __props__["sslRequired"] = ssl_required
+        __props__["ssoSessionIdleTimeout"] = sso_session_idle_timeout
+        __props__["ssoSessionIdleTimeoutRememberMe"] = sso_session_idle_timeout_remember_me
+        __props__["ssoSessionMaxLifespan"] = sso_session_max_lifespan
+        __props__["ssoSessionMaxLifespanRememberMe"] = sso_session_max_lifespan_remember_me
+        __props__["terraformDeletionProtection"] = terraform_deletion_protection
+        __props__["userManagedAccess"] = user_managed_access
+        __props__["verifyEmail"] = verify_email
+        __props__["webAuthnPasswordlessPolicy"] = web_authn_passwordless_policy
+        __props__["webAuthnPolicy"] = web_authn_policy
+        return pulumi.runtime.exists_resource(None, 'keycloak:index/realm:Realm', id, __props__, opts or pulumi.ResourceOptions())
 
     @_builtins.property
     @pulumi.getter(name="accessCodeLifespan")
@@ -2360,7 +2596,7 @@ class Realm(pulumi.CustomResource):
     @pulumi.getter(name="internalId")
     def internal_id(self) -> pulumi.Output[_builtins.str]:
         """
-        When specified, this will be used as the realm's internal ID within Keycloak. When not specified, the realm's internal ID will be set to the realm's name.
+        When specified, this will be used as the realm's internal ID within Keycloak. When not specified, Keycloak generates a UUID. Realms created by earlier versions of this provider may still have the realm's name as internal ID.
         """
         return pulumi.get(self, "internal_id")
 
@@ -2429,7 +2665,7 @@ class Realm(pulumi.CustomResource):
     @pulumi.getter
     def realm(self) -> pulumi.Output[_builtins.str]:
         """
-        The name of the realm. This is unique across Keycloak. This will also be used as the realm's internal ID within Keycloak.
+        The name of the realm. This is unique across Keycloak. This will also be used as the realm's internal ID within Keycloak. Changing it renames the realm in place; see Renaming a realm. The `master` realm cannot be renamed.
         """
         return pulumi.get(self, "realm")
 

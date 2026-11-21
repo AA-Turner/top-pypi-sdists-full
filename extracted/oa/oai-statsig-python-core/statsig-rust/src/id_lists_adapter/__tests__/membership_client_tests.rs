@@ -20,20 +20,34 @@ fn network_and_endpoint(proxy: &MockServer) -> (NetworkClient, String) {
 }
 
 #[test]
-fn uses_only_the_configured_manifest_authority_or_trusted_openai_default() {
+fn uses_the_manifest_gateway_prefix_or_trusted_openai_default() {
     assert_eq!(
         membership_url(SDK_KEY, None).unwrap().as_str(),
         "https://statsigcdn.openai.com/v1/id_list_membership"
     );
-    assert_eq!(
-        membership_url(
-            "server-valid",
-            Some("https://internal-sfp:5443/v1/get_id_lists?x=1#old")
-        )
-        .unwrap()
-        .as_str(),
-        "https://internal-sfp:5443/v1/id_list_membership"
-    );
+    for (manifest, expected) in [
+        ("/v1/get_id_lists?x=1#old", "/v1/id_list_membership"),
+        (
+            "/proxy/v1/get_id_lists/?x=1#old",
+            "/proxy/v1/id_list_membership",
+        ),
+        (
+            "/tenant/v1/get_id_lists/secret-test",
+            "/tenant/v1/id_list_membership",
+        ),
+        (
+            "/tenant/v1/get_id_lists/secret-test.json",
+            "/tenant/v1/id_list_membership",
+        ),
+        ("/custom/manifest", "/v1/id_list_membership"),
+    ] {
+        let origin = "https://internal-sfp:5443";
+        let url = membership_url("server-valid", Some(&format!("{origin}{manifest}"))).unwrap();
+        assert_eq!(url.as_str(), format!("{origin}{expected}"));
+        assert!(crate::networking::is_id_list_membership_endpoint(
+            url.as_str()
+        ));
+    }
     assert!(membership_url("client-valid", None).is_none());
     assert!(membership_url(SDK_KEY, Some("https://user:secret@attacker")).is_none());
 }

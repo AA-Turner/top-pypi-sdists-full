@@ -5,9 +5,13 @@ Mirrors the MCP integration pattern with runtime-neutral target selection.
 
 import builtins
 import logging
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import TYPE_CHECKING
+from types import MappingProxyType
+from typing import TYPE_CHECKING, Any
+
+from apm_cli.core.scope import manifest_file
 
 if TYPE_CHECKING:
     from apm_cli.core.command_logger import InstallLogger
@@ -135,10 +139,13 @@ def _graph_declares_trusted_lsp(ctx: "InstallContext") -> bool:
         if graph is not None
         else ctx.deps_to_install
     )
-    allow_map = None
+    from apm_cli.security.executables import closed_exec_map
+
+    # Resolved once, on the first package that declares LSP servers.
+    allow_map = closed_exec_map(None)
     allow_resolved = False
     for dep_ref in dependencies:
-        manifest = dep_ref.get_install_path(ctx.apm_modules_dir) / "apm.yml"
+        manifest = manifest_file(dep_ref.get_install_path(ctx.apm_modules_dir))
         try:
             declared = (
                 manifest.is_file() and APMPackage.from_apm_yml(manifest).get_lsp_dependencies()
@@ -192,11 +199,21 @@ def _target_server_sets(lockfile: "LockFile") -> dict[str, set[str]]:
     return {runtime: set(server_names) for runtime, server_names in target_servers.items()}
 
 
+def recorded_lsp_targets(lockfile: "LockFile") -> tuple[str, ...]:
+    """Return the LSP targets *lockfile* records APM writing servers to."""
+    return tuple(sorted(name for name, servers in _target_server_sets(lockfile).items() if servers))
+
+
+def package_lsp_owner(resolved_by: str) -> str:
+    """Return the ``lsp_config_provenance`` token for a package's LSP servers."""
+    return f"{_PACKAGE_LSP_OWNER_PREFIX}{resolved_by}"
+
+
 def _dependency_provenance(dependencies: list["LSPDependency"]) -> dict[str, str]:
     """Map every regular install declaration to its stable owner token."""
     return {
         dependency.name: (
-            f"{_PACKAGE_LSP_OWNER_PREFIX}{dependency.resolved_by}"
+            package_lsp_owner(dependency.resolved_by)
             if dependency.resolved_by
             else _PROJECT_LSP_OWNER
         )
@@ -215,6 +232,74 @@ def _bundle_owner_aliases(owner: str) -> frozenset[str]:
     if owner.startswith(_RESERVED_LSP_OWNER_PREFIXES):
         return frozenset({canonical})
     return frozenset({canonical, owner})
+
+
+@dataclass(frozen=True)
+class WithdrawnBundleLspServer:
+    """A deployed bundle LSP server whose bundle's LSP grant was withdrawn (RA-041)."""
+
+    owner: str
+    server: str
+
+    def describe(self) -> str:
+        return (
+            f"{self.owner}: bundle LSP server '{self.server}' is deployed, but the "
+            "bundle's approval no longer grants lsp"
+        )
+
+
+def withdrawn_bundle_lsp_servers(
+    lockfile: "LockFile | None", scope_dir: Path, trust_context: Callable[[], Any]
+) -> list[WithdrawnBundleLspServer]:
+    """Bundle-owned LSP servers in *lockfile* that a deny or revoke withdrew (RA-041).
+
+    The one rule ``apm install`` retires them by and ``apm install --frozen``
+    and ``apm audit --ci`` refuse them by. *trust_context* is called once, and
+    only when a bundle owning a recorded LSP server has an install record.
+    """
+    from apm_cli.install.local_bundle_pending import bundle_grant_withdrawn, recorded_bundle_keys
+    from apm_cli.security.executables import EXEC_TYPE_LSP
+
+    raw = getattr(lockfile, "lsp_config_provenance", None)
+    provenance = dict(raw) if isinstance(raw, dict) else {}
+    owners = {
+        name: owner.removeprefix(_BUNDLE_LSP_OWNER_PREFIX)
+        for name, owner in sorted(provenance.items())
+        if not _is_regular_owner(owner)
+    }
+    if not any(recorded_bundle_keys(scope_dir, owner) for owner in owners.values()):
+        return []
+    context = trust_context()
+    if context is None:
+        return []
+    return [
+        WithdrawnBundleLspServer(owner, name)
+        for name, owner in owners.items()
+        if bundle_grant_withdrawn(scope_dir, owner, context, EXEC_TYPE_LSP)
+    ]
+
+
+def withdrawn_bundle_lsp_for_scope(
+    lockfile: "LockFile | None",
+    scope_dir: Path,
+    project_root: Path,
+    *,
+    user_scope: bool,
+    no_policy: bool,
+) -> list[WithdrawnBundleLspServer]:
+    """:func:`withdrawn_bundle_lsp_servers` under the scope's grants and org policy.
+
+    ``apm install``, ``apm install --frozen`` and ``apm audit --ci`` all ask
+    here, through the trust owner's admission, so they reach one verdict.
+    """
+    from apm_cli.security.trust import McpAdmission
+
+    def _context() -> Any:
+        return McpAdmission.for_project(
+            project_root, user_scope=user_scope, no_policy=no_policy
+        ).context
+
+    return withdrawn_bundle_lsp_servers(lockfile, scope_dir, _context)
 
 
 def _clean_target_differences(
@@ -341,6 +426,13 @@ def run_owned_lsp_integration(
     return count
 
 
+def has_recorded_lsp_state(lockfile: "LockFile | None") -> bool:
+    """Return whether *lockfile* records LSP servers APM may need to reconcile."""
+    return lockfile is not None and bool(
+        lockfile.lsp_servers or lockfile.lsp_target_servers or lockfile.lsp_config_provenance
+    )
+
+
 def reconcile_lsp_after_uninstall(
     *,
     apm_package: "APMPackage",
@@ -350,11 +442,15 @@ def reconcile_lsp_after_uninstall(
     project_root: Path,
     user_scope: bool,
     logger,
+    excluded_package_keys: Mapping[str, str] = MappingProxyType({}),
 ) -> bool:
-    """Recompute trusted LSP state from every surviving declaration."""
-    if lockfile is None or not (
-        lockfile.lsp_servers or lockfile.lsp_target_servers or lockfile.lsp_config_provenance
-    ):
+    """Recompute trusted LSP state from every surviving declaration.
+
+    Servers declared by *excluded_package_keys* (survivors the current gates
+    no longer allow, from ``install/exec_gate.py::gate_retirements``) are
+    left out, so the reconcile removes them (#4446).
+    """
+    if not has_recorded_lsp_state(lockfile):
         return False
     if apm_package is None:
         raise ValueError("Cannot reconcile existing LSP state without a valid project manifest")
@@ -365,18 +461,58 @@ def reconcile_lsp_after_uninstall(
         dict(lockfile.lsp_config_provenance),
     )
     from apm_cli.core.scope import InstallScope
-    from apm_cli.core.target_detection import resolve_package_target_decision
-    from apm_cli.models.apm_package import canonical_package_target_config
+    from apm_cli.core.target_detection import (
+        resolve_deployment_target_decision,
+        resolve_package_target_decision,
+    )
+    from apm_cli.models.apm_package import (
+        canonical_package_target_config,
+        package_target_selection,
+    )
 
     scope = InstallScope.USER if user_scope else InstallScope.PROJECT
-    target_decision = resolve_package_target_decision(
-        project_root,
-        package=apm_package,
-        explicit_target=None,
-        user_scope=user_scope,
+    # Survivors stay where APM recorded writing them (#4059): a saved default
+    # or harness detection decides only when the lock records no LSP target.
+    target_decision = resolve_deployment_target_decision(
+        manifest_target=package_target_selection(apm_package),
+        recorded_targets=recorded_lsp_targets(lockfile),
+        fallback=lambda: resolve_package_target_decision(
+            project_root,
+            package=apm_package,
+            explicit_target=None,
+            user_scope=user_scope,
+        ),
     )
     apm_config = {"scripts": apm_package.scripts or {}}
     apm_config.update(canonical_package_target_config(apm_package))
+    target_context = (apm_config, target_decision.value, scope)
+    prepared = None
+    if excluded_package_keys:
+        prepared = prepare_lsp_integration(
+            apm_package=apm_package,
+            apm_modules_path=modules_dir,
+            lock_path=lock_path,
+            project_root=project_root,
+            should_install=True,
+            logger=logger,
+            existing_lock=lockfile,
+            user_scope=user_scope,
+            target_context=target_context,
+            target_decision=target_decision,
+        )
+        kept, dropped = [], set()
+        for dependency in prepared.dependencies:
+            owner = getattr(dependency, "resolved_by", None)
+            if owner in excluded_package_keys:
+                dropped.add(owner)
+            else:
+                kept.append(dependency)
+        for owner in sorted(dropped):
+            logger.warning(
+                f"{owner} is no longer allowed ({excluded_package_keys[owner]}); "
+                "removing its LSP servers"
+            )
+        prepared = replace(prepared, dependencies=kept)
     run_lsp_integration(
         apm_package=apm_package,
         apm_modules_path=modules_dir,
@@ -386,10 +522,11 @@ def reconcile_lsp_after_uninstall(
         user_scope=user_scope,
         should_install=True,
         logger=logger,
-        target_context=(apm_config, target_decision.value, scope),
+        target_context=target_context,
         target_decision=target_decision,
         fail_on_write_error=True,
         persist=False,
+        prepared=prepared,
     )
     after = (
         list(lockfile.lsp_servers),
@@ -416,7 +553,7 @@ class PreparedLspIntegration:
             require_lsp_capable_target(self.target_runtimes)
 
 
-def prepare_lsp_integration(
+def prepare_lsp_integration(  # noqa: PLR0913
     *,
     apm_package: "APMPackage",
     apm_modules_path: Path,
@@ -433,6 +570,7 @@ def prepare_lsp_integration(
     diagnostics: "DiagnosticCollector | None" = None,
     executable_context: tuple[dict[str, dict[str, bool]] | None, bool] = (None, False),
     no_policy: bool = False,
+    claude_native_keys: frozenset[str] = frozenset(),
 ) -> PreparedLspIntegration:
     """Collect trusted declarations once before native-service reconciliation."""
     from apm_cli.integration.lsp_integrator import LSPIntegrator
@@ -451,12 +589,14 @@ def prepare_lsp_integration(
             apm_modules_path,
             lock_path,
             diagnostics=diagnostics,
+            claude_native_keys=claude_native_keys,
         )
         if transitive_lsp:
             logger.verbose_detail(f"Collected {len(transitive_lsp)} transitive LSP dependency(ies)")
             effective_allow_executables = resolve_project_exec_allow_map(
                 project_root,
                 apm_package,
+                user_scope=user_scope,
                 executable_context=executable_context,
                 no_policy=no_policy,
                 logger=logger,
@@ -591,6 +731,17 @@ def run_lsp_integration(  # noqa: PLR0913
         bundle_names = {
             name for name, owner in old_lsp_provenance.items() if not _is_regular_owner(owner)
         }
+        withdrawn = bundle_names & {
+            item.server
+            for item in withdrawn_bundle_lsp_for_scope(
+                existing_lock,
+                apm_modules_path.parent,
+                project_root,
+                user_scope=user_scope,
+                no_policy=no_policy,
+            )
+        }
+        bundle_names -= withdrawn
         old_regular_names = {
             name for name, owner in old_lsp_provenance.items() if _is_regular_owner(owner)
         }
@@ -628,7 +779,7 @@ def run_lsp_integration(  # noqa: PLR0913
             for runtime_name, server_names in old_lsp_targets.items()
         }
         for server_names in new_targets.values():
-            server_names.difference_update(old_regular_names)
+            server_names.difference_update(old_regular_names | withdrawn)
         for target_runtime in target_runtimes or []:
             new_targets.setdefault(target_runtime, set()).update(
                 LSPIntegrator.expressible_server_names(lsp_deps, target_runtime)

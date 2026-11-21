@@ -5,7 +5,9 @@ from __future__ import annotations
 
 import re as _re
 from copy import deepcopy
-from typing import Callable, Iterable, Mapping, Optional, TypeVar
+from datetime import datetime, timezone
+from random import Random
+from typing import Any, Callable, Iterable, Mapping, Optional, TypeVar, cast
 from uuid import uuid4
 import xml.etree.ElementTree as ET
 
@@ -13,6 +15,7 @@ from lxml import etree as LET  # type: ignore[reportAttributeAccessIssue]  # lxm
 
 from .namespaces import (
     HWPML_COMPAT_ROOT_NAMESPACES,
+    serialize_compat_root,
     HC,
     HC_NS,
     HH,
@@ -26,7 +29,10 @@ from .namespaces import (
     tag_namespace,
 )
 from .color import normalize_color
-from .utils import hancom_text_length, holding_paragraphs, line_seg_past_text, tab_elements_in, tabs_as_elements, without_markup_nodes
+from .utils import (
+    hancom_text_length, holding_paragraphs, line_seg_past_text, normalize_line_width, tab_elements_in,
+    tabs_as_elements, without_markup_nodes,
+)
 
 register_owpml_namespaces(ET.register_namespace)
 
@@ -48,6 +54,64 @@ _DEFAULT_PARAGRAPH_ATTRS = {
     "merged": "0",
 }
 
+def paragraph_attributes(paragraph_id: str, **values: str) -> dict[str, str]:
+    """The attributes of a new ``hp:p`` in the order Hancom writes them -- ``id`` first, then
+    ``paraPrIDRef``, ``styleIDRef``, ``pageBreak``, ``columnBreak``, ``merged`` (80,781 of the 80,781
+    paragraphs with all six in ``tests/fixtures/hancom_saved``) -- with *values* in place of the defaults."""
+
+    attrs = {"id": paragraph_id, **_DEFAULT_PARAGRAPH_ATTRS}
+    attrs.update(values)
+    return attrs
+
+
+def set_id_first(element: Any, value: str) -> None:
+    """Give the new definition *element* the id *value* as its first attribute, as Hancom writes ``id``."""
+
+    kept = [(key, item) for key, item in element.attrib.items() if key != "id"]
+    element.attrib.clear()
+    element.set("id", value)
+    for key, item in kept:
+        element.set(key, item)
+
+
+def attributes_in_order(element: Any, leading: "Iterable[str]") -> None:
+    """Put the attributes of *element* named in *leading* first, in that order; the rest keep their order after
+    them. For an element the engine makes whose attributes are set in another order than Hancom writes them."""
+
+    items = dict(element.attrib.items())
+    order = [key for key in leading if key in items] + [key for key in items if key not in leading]
+    if list(items) == order:
+        return
+    element.attrib.clear()
+    for key in order:
+        element.set(key, items[key])
+
+
+def place_new_attributes(element: Any, before: "Iterable[str]", order: "Iterable[str]") -> None:
+    """Move the attributes of *element* not in *before* (the ones just added) to their place in Hancom's *order*:
+    each right before the first attribute it precedes there. The attributes that were there keep their order, so
+    an element read from a file is not reordered."""
+
+    old = set(before)
+    rank = {key: index for index, key in enumerate(order)}
+    items = list(element.attrib.items())
+    kept = [(key, value) for key, value in items if key in old]
+    added = [(key, value) for key, value in items if key not in old]
+    if not added:
+        return
+    for key, value in added:
+        at = len(kept)
+        if key in rank:
+            at = next((index for index, (other, _v) in enumerate(kept)
+                       if rank.get(other, len(rank)) > rank[key]), len(kept))
+        kept.insert(at, (key, value))
+    if kept == items:
+        return
+    element.attrib.clear()
+    for key, value in kept:
+        element.set(key, value)
+
+
 _DEFAULT_CELL_WIDTH = 7200
 _DEFAULT_CELL_HEIGHT = 282  # as a new Hancom table: each row grows to its text
 
@@ -67,6 +131,11 @@ _BASIC_BORDER_CHILDREN: tuple[tuple[str, dict[str, str]], ...] = (
     ("bottomBorder", {"type": "SOLID", "width": "0.12 mm", "color": "#000000"}),
     ("diagonal", {"type": "SOLID", "width": "0.1 mm", "color": "#000000"}),
 )
+
+#: The ``hh:diagonal`` of every border fill Hancom saves: all 3,511 in the 1,265 Hancom-saved
+#: fixtures are this one line, whatever the four sides are (no fixture draws a slash or backslash).
+#: The diagonal draws nothing while ``hh:slash``/``hh:backSlash`` are ``NONE``.
+_HANCOM_DIAGONAL = {"type": "SOLID", "width": "0.1 mm", "color": "#000000"}
 
 _BORDER_SIDE_ELEMENTS = {
     "left": "leftBorder",
@@ -93,7 +162,95 @@ def _sanitize_text(value: str) -> str:
     Carriage return (``\\r`` / U+000D) is stripped; newline (``\\n`` / U+000A)
     is preserved for multiline cells.
     """
+    _require_text(value)
     return _ILLEGAL_XML_CHARS.sub("", value)
+
+
+def _require_nonempty_str(argument: str, value: object, *, code: str, suggestion: str) -> str:
+    """*value* of a name-like *argument* (a bookmark name, a link target, a field name), checked to be
+    a ``str`` (a typed ``TypeError`` otherwise) that is not blank (``HwpxValueError`` with *code*)."""
+
+    from ..errors import HwpxValueError, argument_type_error
+
+    if not isinstance(value, str):
+        raise argument_type_error(argument, value, "str", suggestion=suggestion)
+    if not value.strip():
+        raise HwpxValueError(
+            f"{argument} must not be empty",
+            code=code,
+            context={"argument": argument},
+            suggestion=suggestion,
+        )
+    return value
+
+
+_M = TypeVar("_M", bound=Callable[..., Any])
+
+
+def refused_appends_nothing(method: _M) -> _M:
+    """For a paragraph method that makes a run for something new: when it raises, the run it made goes
+    again.
+
+    The run is put into the paragraph and then filled, so a value lxml cannot write (an ``int`` for a
+    name, bytes for a caption) raised with a half-made control already in the paragraph -- a ``hp:ctrl``
+    with no control in it keeps Hancom from opening the document. Only the runs the method noted as its
+    own (:func:`note_made_run`) are taken out: a run something else added while the call ran is not
+    this method's to undo. The line cache the method dropped for its run goes back when the paragraph
+    has the children and the attributes it had (what is inside an existing run is not compared: writing
+    the paragraph down on every call cost more than the call).
+    """
+
+    from functools import wraps
+
+    @wraps(method)
+    def wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
+        before = list(self.element)
+        attributes = dict(self.element.attrib)
+        made: list[Any] = []
+        records = self.__dict__.setdefault("_made_run_records", [])
+        records.append(made)
+        try:
+            return method(self, *args, **kwargs)
+        except BaseException:
+            for run in made:
+                if any(child is run for child in self.element):
+                    self.element.remove(run)
+            now = list(self.element)
+            kept = [child for child in before if child.tag != f"{_HP}linesegarray"]
+            if (len(kept) != len(before) and len(now) == len(kept) and all(a is b for a, b in zip(now, kept))
+                    and dict(self.element.attrib) == attributes):
+                for child in now:
+                    self.element.remove(child)
+                self.element.extend(before)  # as it was, its line cache too
+            raise
+        finally:
+            records.pop()
+
+    return cast(_M, wrapper)
+
+
+def note_made_run(paragraph: Any, run: Any) -> None:
+    """Note *run* as made by the paragraph method that is running (see :func:`refused_appends_nothing`)."""
+
+    records = paragraph.__dict__.get("_made_run_records")
+    if records:
+        records[-1].append(run)
+
+
+def _require_text(value: object) -> None:
+    """Refuse text that is not a ``str`` before it is written into ``hp:t``: the typed
+    ``paragraph-text-invalid-type`` error, not a bare ``TypeError`` from a regular expression."""
+
+    if not isinstance(value, str):
+        from ..errors import argument_type_error
+
+        raise argument_type_error(
+            "text",
+            value,
+            "str",
+            code="paragraph-text-invalid-type",
+            suggestion=f"Convert it first: str({value!r}).",
+        )
 
 
 def _child_tag_like(parent: ET.Element, local_name: str, fallback_namespace: str) -> str:
@@ -141,37 +298,143 @@ def _serialize_xml(element: ET.Element) -> bytes:
     if element.tag in {_HS + "sec", _HH + "head"}:
         root = LET.fromstring(xml_bytes)
         tabs_as_elements(root)
-        wrapped = LET.Element(root.tag, nsmap=HWPML_COMPAT_ROOT_NAMESPACES)
-        wrapped.attrib.update(root.attrib)
-        wrapped.text = root.text
-        wrapped.tail = root.tail
-        for child in root:
-            wrapped.append(child)
-        return LET.tostring(
-            wrapped,
-            encoding="UTF-8",
-            xml_declaration=True,
-            standalone=True,
-        )
-    return tab_elements_in(ET.tostring(element, encoding="utf-8", xml_declaration=True))
+        return serialize_compat_root(root)
+    # Written by lxml, as Hangul writes XML: an empty element is ``<a/>``, not ElementTree's ``<a />``. The
+    # declaration and the root's namespace declarations are put back as the part had them when the package
+    # writes it (``hwpx.opc.xml_utils.keep_source_form``).
+    return tab_elements_in(LET.tostring(LET.fromstring(xml_bytes), encoding="utf-8", xml_declaration=True))
 
 
-def _paragraph_id() -> str:
+class SameElement:
+    """Equality for the document's wrapper objects: two of them are equal when they wrap the same XML
+    element (``doc.paragraphs[3] == p`` whichever call made each), and they hash alike, so a
+    paragraph, run, table, cell, note, memo or object can be a dict key or a set member and
+    ``doc.paragraphs.index(p)`` finds it. A wrapper is never equal to another kind of value.
+
+    The hash follows the element: an object whose element changes (a 6.x memo moved into its MEMO
+    field) is a new key afterwards."""
+
+    __slots__ = ()
+    element: Any
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, SameElement):
+            return NotImplemented
+        return self.element is other.element
+
+    def __hash__(self) -> int:
+        return id(self.element)
+
+
+class IdSource:
+    """Where the ids and timestamps a document mints come from.
+
+    ``HwpxDocument.new(seed=..., now=...)`` gives the document one
+    (``HwpxOxmlDocument._id_source``), used for that document only: every place
+    that makes an id or a date is handed the source of the document it is for.
+    With a *seed*, every
+    paragraph/object/memo id is drawn from ``random.Random(seed)`` instead of
+    ``uuid4``: the same calls in the same order give the same ids, in another
+    process too. The values keep the range of the random ids (1 .. 2**31 - 1)
+    and never repeat within one source. With *now*, every automatic timestamp
+    (the new document's creation date, memo and tracked-change dates) is that
+    moment instead of the clock.
+    """
+
+    __slots__ = ("seed", "now", "_rng", "_issued")
+
+    def __init__(self, seed: "int | None" = None, now: "datetime | None" = None) -> None:
+        if now is not None and now.tzinfo is None:
+            now = now.astimezone()
+        self.seed = seed
+        self.now = now.astimezone(timezone.utc) if now is not None else None
+        self._rng = Random(seed) if seed is not None else None
+        self._issued: set[int] = set()
+
+    def next_id(self) -> "str | None":
+        if self._rng is None:
+            return None
+        while True:
+            value = self._rng.getrandbits(31)
+            if value and value not in self._issued:
+                self._issued.add(value)
+                return str(value)
+
+
+def keep_ids_clear_of(ids: "IdSource | None", values: "Iterable[str | None]") -> None:
+    """*values* (ids the document took in with what was brought from elsewhere) are not handed out by
+    *ids* afterwards. Two documents made with the same seed hand out the same ids, so one that took in
+    the other's fields was later given the id of one of them for a copy of its own (a copied table row),
+    and neither field could be filled by id (``field-ambiguous``). A source without a seed draws at
+    random and needs no telling."""
+
+    if ids is None or ids._rng is None:
+        return
+    ids._issued.update(  # what the source can hand out: a decimal number below 2**31
+        int(value) for value in values if value and len(value) <= 10 and value.isascii() and value.isdigit())
+
+
+class PendingIds(IdSource):
+    """The source of a shape made for no document yet (a ``ContainerMember``): its ids are written
+    empty, and the document that takes it gives them (``container.bind_member_ids``)."""
+
+    __slots__ = ()
+
+    def next_id(self) -> "str | None":
+        return ""
+
+
+#: Where a group member made before any document takes it gets its ids from (none yet).
+PENDING_IDS = PendingIds()
+
+
+def current_time(ids: "IdSource | None") -> datetime:
+    """Now in UTC, unless *ids* (the source of the document the date is for) fixes the clock."""
+
+    if ids is not None and ids.now is not None:
+        return ids.now
+    return datetime.now(timezone.utc)
+
+
+def _new_id(ids: "IdSource | None") -> str:
+    """A new paragraph/object/memo id for the document whose source is *ids*.
+
+    Every caller passes the source of the document the id goes into (``None``: a document
+    without ``seed=``, or a part in no document), so one document's seed never reaches another.
+    """
+
+    if ids is not None:
+        value = ids.next_id()
+        if value is not None:
+            return value
+    return str(uuid4().int & 0x7FFFFFFF)
+
+
+def _paragraph_id(ids: "IdSource | None") -> str:
     """Generate an identifier for a new paragraph element."""
-    return str(uuid4().int & 0x7FFFFFFF)
+    return _new_id(ids)
 
 
-def _object_id() -> str:
+def _object_id(ids: "IdSource | None") -> str:
     """Generate an identifier suitable for table and shape objects."""
-    return str(uuid4().int & 0x7FFFFFFF)
+    return _new_id(ids)
 
 
-def _memo_id() -> str:
+def _memo_id(ids: "IdSource | None") -> str:
     """Generate a lightweight identifier for memo elements."""
-    return str(uuid4().int & 0x7FFFFFFF)
+    return _new_id(ids)
 
 
-def _refresh_copied_paragraph_subtree_ids(paragraph: ET.Element) -> None:
+#: Headers and footers, whose ``id`` a copy renews.
+_COPY_RENEWED_STORY_TAGS = frozenset(f"{_HP}{name}" for name in ("header", "footer"))
+#: Objects whose ``id`` a copy renews unless it is ``0`` (a group member, as Hancom writes them). Earlier
+#: a copy kept the ids of lines, rectangles, ellipses, arcs, polygons, curves, connectors and charts.
+_COPY_RENEWED_OBJECT_TAGS = frozenset(f"{_HP}{name}" for name in (
+    "tbl", "pic", "container", "ole", "equation", "textart", "video",
+    "line", "rect", "ellipse", "arc", "polygon", "curve", "connectLine", "chart"))
+
+
+def _refresh_copied_paragraph_subtree_ids(paragraph: ET.Element, *, ids: "IdSource | None") -> None:
     """Assign fresh local identifiers inside a copied paragraph subtree.
 
     This is intentionally narrow: it refreshes paragraph ids for the copied
@@ -182,30 +445,27 @@ def _refresh_copied_paragraph_subtree_ids(paragraph: ET.Element) -> None:
 
     for node in paragraph.iter():
         if node.tag == f"{_HP}p":
-            node.set("id", _paragraph_id())
+            node.set("id", _paragraph_id(ids))
             continue
 
-        if "id" in node.attrib and node.tag in {
-            f"{_HP}tbl",
-            f"{_HP}pic",
-            f"{_HP}container",
-            f"{_HP}ole",
-            f"{_HP}equation",
-            f"{_HP}textart",
-            f"{_HP}video",
-            f"{_HP}header",
-            f"{_HP}footer",
-        }:
-            node.set("id", _object_id())
+        same = "id" in node.attrib and node.get("id") == node.get("instid")
+        if "id" in node.attrib and (node.tag in _COPY_RENEWED_STORY_TAGS or (
+                node.tag in _COPY_RENEWED_OBJECT_TAGS and node.get("id") != "0")):
+            # an object's id="0" -- a group member, as Hancom writes members -- stays
+            node.set("id", _object_id(ids))
 
         # 개체(그림·도형 등)의 속성명은 "instid", 각주·미주는 "instId"다
         # (스키마·한/글). 어느 철자든 값만 재발급하고 속성명은 그대로 둔다.
+        renewed = node.get("id")  # the id just given (or kept), for an instid that was equal to it
         for inst_attr in ("instid", "instId"):
             if inst_attr in node.attrib:
-                node.set(inst_attr, _object_id())
+                # Hancom writes an object's id and instid alike (1,114 of the 1,433 objects with both in
+                # the Hancom-saved fixtures; the others are group members, id 0): a copy keeps them so
+                keep = same and inst_attr == "instid"
+                node.set(inst_attr, renewed if keep and renewed is not None else _object_id(ids))
 
 
-def _clone_paragraph_element(paragraph: ET.Element) -> ET.Element:
+def _clone_paragraph_element(paragraph: ET.Element, *, ids: "IdSource | None") -> ET.Element:
     """Return a deep-copied paragraph element with refreshed local ids.
 
     Cached line layout (``hp:linesegarray``) is dropped from the clone and
@@ -218,7 +478,7 @@ def _clone_paragraph_element(paragraph: ET.Element) -> ET.Element:
     """
 
     cloned = deepcopy(paragraph)
-    _refresh_copied_paragraph_subtree_ids(cloned)
+    _refresh_copied_paragraph_subtree_ids(cloned, ids=ids)
     for node in cloned.iter():
         if _element_local_name(node) == "p":
             _clear_paragraph_layout_cache(node)
@@ -228,6 +488,7 @@ def _clone_paragraph_element(paragraph: ET.Element) -> ET.Element:
 def _create_paragraph_element(
     text: str,
     *,
+    ids: "IdSource | None",
     char_pr_id_ref: str | int | None = None,
     para_pr_id_ref: str | int | None = None,
     style_id_ref: str | int | None = None,
@@ -237,7 +498,7 @@ def _create_paragraph_element(
 ) -> ET.Element:
     """Return a paragraph element populated with a single run and text node."""
 
-    attrs = {"id": _paragraph_id(), **_DEFAULT_PARAGRAPH_ATTRS}
+    attrs = {"id": _paragraph_id(ids), **_DEFAULT_PARAGRAPH_ATTRS}  # id first, as Hancom writes it
     attrs.update(paragraph_attributes or {})
 
     if para_pr_id_ref is not None:
@@ -335,6 +596,35 @@ def _element_local_name(node: ET.Element) -> str:
     # callable such as ``etree.Comment``, not a string) yield ``""`` instead of
     # raising; ``""`` never matches a real OWPML tag, so such nodes are skipped.
     return tag_local_name(node.tag)
+
+
+def _definition_id_keys(raw: str | None) -> tuple[str, ...]:
+    """The keys a header definition's ``id`` is found under: as written and as a plain number
+    (``"01"`` also under ``"1"``), as the definition dicts (``as_dict()``) key them."""
+
+    if not raw:
+        return ()
+    try:
+        normalized = str(int(raw))
+    except (TypeError, ValueError):
+        return (raw,)
+    return (raw,) if normalized == raw else (raw, normalized)
+
+
+def _lookup_keys(identifier: int | str | None) -> tuple[str, ...]:
+    """The keys an id lookup tries, in order: as given (stripped) and then as a plain number --
+    ``HwpxOxmlHeader._lookup_by_id``'s rule."""
+
+    if identifier is None:
+        return ()
+    key = identifier.strip() if isinstance(identifier, str) else str(identifier)
+    if not key:
+        return ()
+    try:
+        normalized = str(int(key))
+    except (TypeError, ValueError):
+        return (key,)
+    return (key,) if normalized == key else (key, normalized)
 
 
 #: Characters the inline atoms of ``hp:t`` mixed content stand for -- the
@@ -476,9 +766,10 @@ def _fill_text_element(text_element: ET.Element, value: str, *, special_spaces: 
     ``hp:fwSpace`` (:data:`_RUN_CHOICE_ATOM_MARKERS`); without it they stay characters of the text.
     """
 
+    _require_text(value)
     tab_tag = _child_tag_like(text_element, "tab", _HP_NS)
     break_tag = _child_tag_like(text_element, "lineBreak", _HP_NS)
-    parts = (_TEXT_MARK_AND_SPACE_SPLIT_RE if special_spaces else _TEXT_MARK_SPLIT_RE).split(value)
+    parts =(_TEXT_MARK_AND_SPACE_SPLIT_RE if special_spaces else _TEXT_MARK_SPLIT_RE).split(value)
     text_element.text = _sanitize_text(parts[0])
     for mark, segment in zip(parts[1::2], parts[2::2]):
         marker_name = _RUN_CHOICE_ATOM_MARKERS.get(mark)
@@ -678,6 +969,61 @@ def _normalize_border_side_names(active_borders: Iterable[str] | None) -> set[st
     return normalized
 
 
+#: The width Hancom writes on a side drawn with no line (``type="NONE"``).
+NONE_SIDE_WIDTH = "0.1 mm"
+
+
+def _normalize_border_sides(
+    sides: "Mapping[str, Mapping[str, Any] | None] | None",
+    *,
+    border_color: str,
+    border_width: str,
+    border_type: str,
+    allowed_types: frozenset[str],
+    type_aliases: "Mapping[str, str]",
+) -> dict[str, tuple[str, str, str]]:
+    """``{side: (type, width, color)}`` for the sides *sides* draws on their own.
+
+    A side maps to ``{"type", "width_mm", "color"}``, each optional (the uniform
+    border's value stands in), or to ``None`` for no line on that side. ``width_mm``
+    is a number of mm on Hancom's width list (:func:`~hwpx.oxml.utils.line_width_text`;
+    6.x's ``"width": "0.4 mm"`` string is refused with the new key named). A side with no line is
+    ``("NONE", "0.1 mm", color)``, the width Hancom writes there.
+    """
+
+    from ..errors import HwpxValueError
+    from .utils import line_width_text
+
+    lines: dict[str, tuple[str, str, str]] = {}
+    for side, spec in (sides or {}).items():
+        key = str(side).strip().lower()
+        unknown = sorted(set(spec) - {"type", "width_mm", "color"}) if spec is not None else []
+        if key not in _BORDER_SIDE_ELEMENTS or unknown:
+            renamed = " — 7.0: 'width': '0.4 mm' is now 'width_mm': 0.4 (mm, a number)" if "width" in unknown else ""
+            raise HwpxValueError(
+                (f"unsupported keys {unknown!r} for border side {side!r}" if unknown else f"unsupported border side {side!r}")
+                + renamed,
+                code="style-border-side-invalid",
+                context={"side": str(side), "unknownKeys": unknown},
+                suggestion="Name sides 'left', 'right', 'top' or 'bottom', each mapped to None or to a mapping "
+                "with any of 'type', 'width_mm' (a number of mm on Hancom's width list) and 'color'.",
+            )
+        if spec is None:
+            # no line, written as Hancom writes one: 0.1 mm (9,768 of the 9,772 NONE sides in the 1,257
+            # Hancom-saved fixtures; the other 4 0.4 mm, none the width of a line beside it)
+            lines[key] = ("NONE", NONE_SIDE_WIDTH, border_color)
+            continue
+        line_type = str(spec.get("type") or border_type).upper()
+        width_mm = spec.get("width_mm")
+        lines[key] = (
+            _normalize_border_type(type_aliases.get(line_type, line_type), allowed_types),
+            normalize_line_width(border_width) if width_mm is None
+            else line_width_text(width_mm, argument=f"sides[{key!r}]['width_mm']"),
+            _normalize_color(spec.get("color")) or border_color,
+        )
+    return lines
+
+
 def _border_fill_fill_color(element: ET.Element) -> str | None:
     fill_brush = next(
         (child for child in element if _element_local_name(child) == "fillBrush"),
@@ -728,6 +1074,7 @@ def _border_fill_matches(
     fill_gradient: "Mapping[str, object] | None" = None,
     active_borders: set[str],
     border_type: str = "SOLID",
+    side_lines: "Mapping[str, tuple[str, str, str]] | None" = None,
 ) -> bool:
     if _element_local_name(element) != "borderFill":
         return False
@@ -745,25 +1092,27 @@ def _border_fill_matches(
         return False
 
     for side, child_name in _BORDER_SIDE_ELEMENTS.items():
-        child = element.find(f"{_HH}{child_name}")
-        if child is None:
+        line = (side_lines or {}).get(side) or (
+            border_type if side in active_borders else "NONE", border_width, border_color)
+        if not _border_line_matches(element.find(f"{_HH}{child_name}"), *line):
             return False
-        expected_type = border_type if side in active_borders else "NONE"
-        if (child.get("type") or "").upper() != expected_type:
-            return False
-        if _normalize_length(child.get("width")) != _normalize_length(border_width):
-            return False
-        if (child.get("color") or "").upper() != border_color.upper():
-            return False
+    if any(
+        (child := element.find(f"{_HH}{name}")) is None or (child.get("type") or "").upper() != "NONE"
+        for name in ("slash", "backSlash")
+    ):
+        return False
+    return _border_line_matches(element.find(f"{_HH}diagonal"), *_HANCOM_DIAGONAL.values())
 
-    for child_name in ("slash", "backSlash", "diagonal"):
-        child = element.find(f"{_HH}{child_name}")
-        if child is None:
-            return False
-        if (child.get("type") or "").upper() != "NONE":
-            return False
 
-    return True
+def _border_line_matches(child: ET.Element | None, line_type: str, width: str, color: str) -> bool:
+    """Whether the border line *child* (a side or the diagonal) is *line_type*, *width* and *color*."""
+
+    return (
+        child is not None
+        and (child.get("type") or "").upper() == line_type
+        and _normalize_length(child.get("width")) == _normalize_length(width)
+        and (child.get("color") or "").upper() == color.upper()
+    )
 
 
 def _attach_new_child(parent: ET.Element, new_child: ET.Element) -> None:
@@ -791,9 +1140,10 @@ def _append_fill_brush(
 ) -> None:
     """Append ``hc:fillBrush`` (winBrush/imgBrush/gradation) to *parent* if any
     fill was requested — the schema's fillBrush choice (Core XML
-    schema.xml:650), so at most one branch fires. Shared by
-    :func:`_create_border_fill_element` and
-    ``HwpxOxmlHeader.ensure_shading_border_fill``.
+    schema.xml:650), so at most one branch fires. Used by
+    :func:`_create_border_fill_element`, and for the picture and gradation of a
+    border fill derived from another (``hwpx.oxml.formatting.set_border_fill_image``
+    and ``set_border_fill_gradient``).
     """
 
     if fill_image is not None:
@@ -841,33 +1191,6 @@ def _append_fill_brush(
             )
 
 
-def _find_shading_border_fill_id(
-    element: ET.Element,
-    *,
-    face_color: str | None,
-    fill_image: "Mapping[str, str] | None" = None,
-    fill_gradient: "Mapping[str, object] | None" = None,
-) -> str | None:
-    """Return the id of an existing ``hh:borderFill`` whose fill already
-    matches — the dedupe half of ``HwpxOxmlHeader.ensure_shading_border_fill``,
-    extracted so that caller stays inside header_part.py's line-count ratchet.
-    """
-
-    for border_fill in element.findall(f"{_HH}borderFill"):
-        if fill_image is not None or fill_gradient is not None:
-            image, gradient = _border_fill_image_gradient(border_fill)
-            if image != (dict(fill_image) if fill_image is not None else None):
-                continue
-            if gradient != (dict(fill_gradient) if fill_gradient is not None else None):
-                continue
-        elif _border_fill_fill_color(border_fill) != face_color:
-            continue
-        border_id = border_fill.get("id")
-        if border_id:
-            return border_id
-    return None
-
-
 def _create_border_fill_element(
     border_id: str,
     *,
@@ -878,26 +1201,26 @@ def _create_border_fill_element(
     fill_gradient: "Mapping[str, object] | None" = None,
     active_borders: set[str],
     border_type: str = "SOLID",
+    side_lines: "Mapping[str, tuple[str, str, str]] | None" = None,
 ) -> ET.Element:
     element = ET.Element(f"{_HH}borderFill", {"id": border_id, **_BASIC_BORDER_FILL_ATTRIBUTES})
     ET.SubElement(element, f"{_HH}slash", {"type": "NONE", "Crooked": "0", "isCounter": "0"})
     ET.SubElement(element, f"{_HH}backSlash", {"type": "NONE", "Crooked": "0", "isCounter": "0"})
     for side, child_name in _BORDER_SIDE_ELEMENTS.items():
+        own = (side_lines or {}).get(side)
         ET.SubElement(
             element,
             f"{_HH}{child_name}",
-            _border_fill_child_attrs(
+            {"type": own[0], "width": own[1], "color": own[2]}
+            if own
+            else _border_fill_child_attrs(
                 active=side in active_borders,
                 color=border_color,
                 width=border_width,
                 border_type=border_type,
             ),
         )
-    ET.SubElement(
-        element,
-        f"{_HH}diagonal",
-        _border_fill_child_attrs(active=False, color=border_color, width=border_width),
-    )
+    ET.SubElement(element, f"{_HH}diagonal", dict(_HANCOM_DIAGONAL))
     _append_fill_brush(element, fill_color=fill_color, fill_image=fill_image, fill_gradient=fill_gradient)
     return element
 
@@ -981,8 +1304,7 @@ def _ensure_memo_shape(
     (``hh:memoProperties``). Returns ``(id, None)`` if an existing shape
     already matches, else ``(new_id, new_unattached_element)`` — the caller
     (``HwpxOxmlHeader.ensure_memo_shape``) owns attaching it via
-    :func:`_attach_new_child` plus ``itemCnt``/``mark_dirty`` bookkeeping,
-    the same split :func:`_find_shading_border_fill_id` uses.
+    :func:`_attach_new_child` plus ``itemCnt``/``mark_dirty`` bookkeeping.
     """
 
     for memo_pr in element.findall(f"{_HH}memoPr"):
@@ -1024,10 +1346,8 @@ def _default_cell_attributes(border_fill_id_ref: str) -> dict[str, str]:
     }
 
 
-def _default_cell_paragraph_attributes() -> dict[str, str]:
-    attrs = dict(_DEFAULT_PARAGRAPH_ATTRS)
-    attrs["id"] = _paragraph_id()
-    return attrs
+def _default_cell_paragraph_attributes(ids: "IdSource | None") -> dict[str, str]:
+    return paragraph_attributes(_paragraph_id(ids))
 
 
 def _default_cell_margin_attributes() -> dict[str, str]:
@@ -1534,13 +1854,18 @@ def _ensure_tab_definition_element(
     tab_stops: "Iterable[Mapping[str, object]] | None",
     auto_tab_left: bool,
     auto_tab_right: bool,
+    normalized_stops: "tuple[tuple[int, str, str], ...] | None" = None,
 ) -> tuple[str, bool]:
     """Find-or-create the ``hh:tabPr`` matching this spec inside *container*
     (the ``hh:tabProperties`` element). Returns ``(tab_id, created)`` so the
     caller only marks the header dirty when something actually changed.
+
+    *normalized_stops* is what :func:`_normalize_tab_stops` already made of *tab_stops* (a caller that
+    checks the stops before it makes *container*): the stops are then not read a second time.
     """
 
-    normalized_stops = _normalize_tab_stops(tab_stops)
+    if normalized_stops is None:
+        normalized_stops = _normalize_tab_stops(tab_stops)
     for tab_pr in container.findall(f"{_HH}tabPr"):
         if _tab_definition_matches(
             tab_pr,

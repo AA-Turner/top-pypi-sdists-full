@@ -4,7 +4,7 @@ import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from ._tbl_data import Agnostic, _get_cell, _set_cell, is_na
+from ._tbl_data import Agnostic, _get_cell, _set_cells, is_na
 
 if TYPE_CHECKING:
     from ._gt_data import Body, GTData
@@ -221,10 +221,7 @@ def _resolve_conditional_sections(text: str) -> str:
         section_content = text[last_open + 2 : first_close]
 
         # Check if the section contains a missing value token
-        if _MISSING_VAL_TOKEN in section_content:
-            replacement = ""
-        else:
-            replacement = section_content
+        replacement = "" if _MISSING_VAL_TOKEN in section_content else section_content
 
         text = text[:last_open] + replacement + text[first_close + 2 :]
 
@@ -270,7 +267,7 @@ def merge_pattern(pattern: str, *values: Any) -> str:
     return info.merge(*normalized)
 
 
-def perform_col_merge(data: GTData) -> GTData:
+def perform_col_merge(data: GTData, context: str) -> GTData:
     """Perform all column merge operations on the table data.
 
     This function processes all column merge operations registered on the GT object,
@@ -296,6 +293,7 @@ def perform_col_merge(data: GTData) -> GTData:
             col_merge=col_merge,
             body=new_body,
             tbl_data=data._tbl_data,
+            context=context,
         )
 
     return data._replace(_body=new_body)
@@ -305,6 +303,7 @@ def _apply_single_col_merge(
     col_merge: ColMergeInfo,
     body: Body,
     tbl_data: TblData,
+    context: str,
 ) -> Body:
     """Apply a single column merge operation to the body.
 
@@ -316,6 +315,8 @@ def _apply_single_col_merge(
         The body data to modify.
     tbl_data
         The original table data (for checking missing values).
+    context
+        The output context (e.g., "html" or "latex").
 
     Returns
     -------
@@ -334,27 +335,46 @@ def _apply_single_col_merge(
 
     target_column = col_merge.vars[0]
 
+    # The merged values, set in one go once every row is merged (each row only reads its own cells)
+    merged_values: dict[int, str] = {}
+
     for row_idx in col_merge.rows:
         values = [
             _get_display_value(body, tbl_data, row_idx, col_name) for col_name in col_merge.vars
         ]
 
+        if col_merge.type in ("merge_uncert", "merge_range", "merge_n_pct"):
+            # These merges look for missing values in the original data, so text from
+            # sub_missing() is never merged in as a value
+            is_missing = [
+                is_na(tbl_data, _get_cell(tbl_data, row_idx, col_name))
+                for col_name in col_merge.vars
+            ]
+
+            # A missing base value (or both ends of a range missing) leaves the cell as it is
+            # (empty, or the sub_missing() text)
+            keep_cell = all(is_missing) if col_merge.type == "merge_range" else is_missing[0]
+            if keep_cell:
+                merged_values[row_idx] = values[0] or ""
+                continue
+
+            values = [None if missing else value for value, missing in zip(values, is_missing)]
+
         # Dispatch to the appropriate merge strategy
         if col_merge.type == "merge":
             merged_value = col_merge.merge(*values)
         elif col_merge.type == "merge_uncert":
-            merged_value = _merge_uncert(values, col_merge.sep)
+            merged_value = _merge_uncert(
+                values, col_merge.sep, context, tbl_data, col_merge.vars, row_idx
+            )
         elif col_merge.type == "merge_range":
             merged_value = _merge_range(values, col_merge.sep)
         else:  # "merge_n_pct"
             merged_value = _merge_n_pct(values, tbl_data, col_merge.vars, row_idx)
 
-        result = _set_cell(body.body, row_idx, target_column, merged_value)
+        merged_values[row_idx] = merged_value
 
-        # For Pandas and Polars, _set_cell() modifies in place and returns None but
-        # for PyArrow, _set_cell() returns a new table
-        if result is not None:  # pragma: no cover
-            body.body = result
+    body.body = _set_cells(body.body, target_column, merged_values)
 
     return body
 
@@ -363,8 +383,9 @@ def _get_display_value(body: Body, tbl_data: TblData, row_idx: int, col_name: st
     """Get the value of a cell to use in a merge, or None if the cell is truly missing.
 
     The formatted (body) value is preferred, falling back to the original value. A cell
-    is only considered missing if BOTH are NA, so sub_missing() replacements (e.g., "--")
-    are not treated as missing, matching R's gt behavior.
+    is only considered missing if BOTH are NA, so cols_merge() keeps sub_missing()
+    replacements (e.g., "--") as values. The uncertainty, range and n/pct merges check
+    the original data for missing values before calling this.
     """
     formatted_value = _get_cell(body.body, row_idx, col_name)
     if not is_na(body.body, formatted_value):
@@ -377,20 +398,21 @@ def _get_display_value(body: Body, tbl_data: TblData, row_idx: int, col_name: st
     return None
 
 
-def _merge_uncert(values: list[Any], sep: str) -> str:
+def _merge_uncert(
+    values: list[Any],
+    sep: str,
+    context: str,
+    tbl_data: TblData,
+    vars: list[str],
+    row_idx: int,
+) -> str:
     """Apply uncertainty merge semantics.
 
-    NA handling:
-    - NA in col_val -> result is NA
-    - NA in col_uncert (but not col_val) -> show only col_val
-    - NA in both -> result is NA
+    NA handling (an NA in col_val is handled before this is called):
+    - NA in col_uncert -> show only col_val
     - For asymmetric (3 columns): val (+upper/−lower)
     """
     col_val = values[0]
-
-    # If the base value is missing, the result is always missing
-    if col_val is None:
-        return ""
 
     if len(values) == 2:
         # Symmetric uncertainty: val ± uncert
@@ -403,33 +425,34 @@ def _merge_uncert(values: list[Any], sep: str) -> str:
         col_lower = values[1]
         col_upper = values[2] if len(values) > 2 else None
 
+        # LaTeX output gets a plain hyphen-minus rather than the Unicode minus sign
+        minus_mark = "-" if context == "latex" else "\u2212"
+
         if col_lower is None and col_upper is None:
             return str(col_val)
         elif col_lower is None:
             return f"{col_val} (+{col_upper})"
         elif col_upper is None:
-            return f"{col_val} (\u2212{col_lower})"
-        elif str(col_lower) == str(col_upper):
-            # When lower == upper, use symmetric format
+            return f"{col_val} ({minus_mark}{col_lower})"
+        elif _get_cell(tbl_data, row_idx, vars[1]) == _get_cell(tbl_data, row_idx, vars[2]):
+            # When lower == upper, use symmetric format (comparing the original values, as gt
+            # does, rather than the formatted ones)
             return f"{col_val}{sep}{col_lower}"
         else:
-            return f"{col_val} (+{col_upper}/\u2212{col_lower})"
+            return f"{col_val} (+{col_upper}/{minus_mark}{col_lower})"
 
 
 def _merge_range(values: list[Any], sep: str) -> str:
     """Apply range merge semantics.
 
-    NA handling:
-    - NA in col_begin (but not col_end) -> show only col_end
-    - NA in col_end (but not col_begin) -> show only col_begin
-    - NA in both -> result is NA
+    NA handling (an NA in both columns is handled before this is called):
+    - NA in col_begin -> show only col_end
+    - NA in col_end -> show only col_begin
     """
     col_begin = values[0]
     col_end = values[1]
 
-    if col_begin is None and col_end is None:
-        return ""
-    elif col_begin is None:
+    if col_begin is None:
         return str(col_end)
     elif col_end is None:
         return str(col_begin)
@@ -440,18 +463,12 @@ def _merge_range(values: list[Any], sep: str) -> str:
 def _merge_n_pct(values: list[Any], tbl_data: TblData, vars: list[str], row_idx: int) -> str:
     """Apply count-and-percentage merge semantics.
 
-    NA handling:
-    - NA in col_n -> result is NA
-    - NA in col_pct (but not col_n) -> show only col_n
-    - NA in both -> result is NA
+    NA handling (an NA in col_n is handled before this is called):
+    - NA in col_pct -> show only col_n
     - Zero in col_n (original value) -> show only "0" (no percentage)
     """
     col_n = values[0]
     col_pct = values[1]
-
-    # If the count is missing, the result is always missing
-    if col_n is None:
-        return ""
 
     # Check if the original value of col_n is zero
     original_n = _get_cell(tbl_data, row_idx, vars[0])

@@ -371,3 +371,14 @@ def test_the_reusable_workflow_reads_its_judge_from_main_of_the_core_with_the_hi
     assert judge and judge[0]["with"]["ref"] == "main"
     assert "ci_noreply_identity.py" in judge[0]["with"]["sparse-checkout"]
     assert spec["permissions"] == {"contents": "read"}
+
+
+def test_the_judged_repository_is_fetched_without_trees_or_files():
+    """The engine series is about 5 GB with its trees: a full clone did not finish in the
+    job's minutes. Commits and tags are all the judge reads."""
+    steps = _spec("noreply-identity.yml")["jobs"]["noreply-identity"]["steps"]
+    judged = [s for s in steps if s.get("uses", "").startswith("actions/checkout")
+              and "repository" not in s.get("with", {})][0]["with"]
+    assert judged["filter"] == "tree:0"
+    assert judged["sparse-checkout"].split() == ["/.github/"]
+    assert judged["sparse-checkout-cone-mode"] is False

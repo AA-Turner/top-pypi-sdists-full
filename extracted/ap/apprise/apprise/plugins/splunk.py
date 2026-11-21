@@ -41,7 +41,7 @@ import requests
 from ..common import NOTIFY_TYPES, NotifyType
 from ..exception import AppriseImproperlyConfigured
 from ..locale import gettext_lazy as _
-from ..utils.parse import validate_regex
+from ..utils.parse import parse_choice, validate_regex
 from .base import NotifyBase
 
 
@@ -257,9 +257,7 @@ class NotifySplunk(NotifyBase):
             self.entity_id = entity_id.strip(" \r\n\t\v/")
 
         if action and isinstance(action, str) and action.strip():
-            self.action = next(
-                (a for a in SPLUNK_ACTIONS if a.startswith(action)), None
-            )
+            self.action = parse_choice(action, SPLUNK_ACTIONS)
             if self.action not in SPLUNK_ACTIONS:
                 msg = f"The Splunk action specified ({action}) is invalid."
                 self.logger.warning(msg)
@@ -272,7 +270,7 @@ class NotifySplunk(NotifyBase):
         if mapping and isinstance(mapping, dict):
             for k_, v_ in mapping.items():
                 # Get our mapping
-                k = next((t for t in NOTIFY_TYPES if t.startswith(k_)), None)
+                k = parse_choice(k_, NOTIFY_TYPES)
                 if not k:
                     msg = (
                         f"The Splunk mapping key specified ({k_}) is invalid."
@@ -280,11 +278,7 @@ class NotifySplunk(NotifyBase):
                     self.logger.warning(msg)
                     raise AppriseImproperlyConfigured(msg)
 
-                v_upper = v_.upper()
-                v = next(
-                    (v for v in SPLUNK_MESSAGE_TYPES if v.startswith(v_upper)),
-                    None,
-                )
+                v = parse_choice(v_, SPLUNK_MESSAGE_TYPES)
                 if not v:
                     msg = (
                         f"The Splunk mapping value (assigned to {k}) "

@@ -17,19 +17,34 @@ id 별칭은 `field_id` 하나로, 위치 5키는 `location` 하나로 접혔다
 `CheckBox.checked` 가 쓰기 가능한 속성이므로 `set_check_box` 는 사실상
 `doc.fields.check_boxes[i].checked = False` 로 대체된다. 5.x 이름은 shim 으로
 살아 있고, 이 네임스페이스에도 같은 이름을 남겨 이주 중 양쪽이 겹치게 했다.
+
+글자로 적힌 선택 칸(``□ 예  □ 아니오``)을 읽고 고르는 `choices`·`choose` 는 문단 글에서
+양식을 짐작하는 일이라 7.0에서 python-hwpx-automation(`hwpx_automation.forms`)으로 옮겼다.
 """
 
 from __future__ import annotations
 
+from types import ModuleType
 from typing import TYPE_CHECKING
 
-from .._resolve import resolve_section
-from ._base import _Namespace
+from ...model import Paragraph, Section
+from ...objects import CellField, CheckBox, FieldFillResult, FormField, FormulaField, TextBoxField
+from ...objects.checkbox import Button, ComboBox, EditBox, RadioButton
+from ...oxml import HwpxOxmlParagraph, HwpxOxmlSection
+from .._resolve import optional_paragraph, resolve_section
+from ._base import _LazyModule, _Namespace
+
+# Named in an annotation only; loaded when the hint is resolved (``import hwpx`` stays light).
+def _load_fit_policy() -> ModuleType:
+    from ...form_fit import policy
+
+    return policy
+
 
 if TYPE_CHECKING:
-    from ...form_fit.policy import FitPolicy
-    from ...objects import CellField, CheckBox, FieldFillResult, FormField, FormulaField, TextBoxField
-    from ...oxml import HwpxOxmlParagraph, HwpxOxmlSection
+    from ...form_fit import policy as _fit_policy
+else:
+    _fit_policy = _LazyModule(_load_fit_policy)
 
 __all__ = ["FieldsNamespace"]
 
@@ -49,11 +64,14 @@ class FieldsNamespace(_Namespace):
         prompt: str = "",
         memo: str = "",
         editable: bool = True,
-        paragraph: "HwpxOxmlParagraph | None" = None,
+        paragraph: "HwpxOxmlParagraph | int | None" = None,
         section: "int | HwpxOxmlSection | None" = None,
-        section_index: int | None = None,
     ) -> "FormField":
-        """누름틀(form field)을 만들고 그 라이브 뷰를 돌려준다."""
+        """누름틀(form field)을 만들고 그 라이브 뷰를 돌려준다.
+
+        ``paragraph=``는 문단 객체나 번호(*section*을 주면 그 구역 안, 아니면 문서 전체에서
+        몇 번째)다. 주지 않으면 새 문단을 더한다.
+        """
 
         from .. import fields as _fields
 
@@ -63,9 +81,11 @@ class FieldsNamespace(_Namespace):
             prompt=prompt,
             memo=memo,
             editable=editable,
-            paragraph=paragraph,
+            paragraph=optional_paragraph(
+                self._doc, paragraph, section=section, caller="doc.fields.add"
+            ),
             section=resolve_section(
-                self._doc, section, section_index, caller="doc.fields.add"
+                self._doc, section, caller="doc.fields.add"
             ),
         )
 
@@ -74,7 +94,7 @@ class FieldsNamespace(_Namespace):
         """문서의 모든 누름틀을 문서 순서로.
 
         이름이 빈 누름틀(``name=""``)도 빈 이름으로 나오고 ``field_id``로 구별한다.
-        ``fill(name=)``은 한/글처럼 이런 누름틀을 찾지 않지만, ``fill(field_index=)``·
+        ``fill(name=)``은 한/글처럼 이런 누름틀을 찾지 않지만, ``fill(index=)``·
         ``fill(field_id=)``로는 채울 수 있다.
         """
 
@@ -86,14 +106,24 @@ class FieldsNamespace(_Namespace):
         self,
         value: str,
         *,
-        field_index: int | None = None,
+        index: int | None = None,
         field_id: str | None = None,
         name: str | None = None,
-        fit_policy: "FitPolicy | None" = None,
+        fit: "_fit_policy.FitPolicy | None" = None,
         box_width: int | None = None,
         font_pt: float | None = None,
+        char_pr_id_ref: str | int | None = None,
     ) -> "FieldFillResult":
         """누름틀 하나를 채우고 채움 결과를 돌려준다.
+
+        채울 누름틀은 *index*(:attr:`all` 의 몇 번째, 0부터)·*field_id*·*name* 가운데 하나로
+        고른다. *fit* (``FitPolicy``)을 주면 칸에 맞게 글자를 줄이거나 줄을 나눈다.
+
+        값의 글자 모양은 한/글처럼 누름틀 시작이 든 런의 모양이다. *char_pr_id_ref* 를 주면 값만
+        그 글자 모양(``doc.styles.char_properties`` 의 id)이 된다. 값이 다른 것(누름틀 시작·끝,
+        누름틀 밖의 글)과 한 런에 있으면 그 런을 자식 사이에서 나눠 값 조각만 바꾸고, 나머지는
+        제 모양을 지킨다. 문서에 없는 id 는 ``field-char-pr-not-found``, *fit* 과 함께 주면
+        ``field-fill-char-shape-conflict`` 로 거절한다(채우기 전에).
 
         내용이 여러 문단에 걸친 누름틀은 한/글처럼 채운다. 걸친 문단(그 안의 표 포함)을 지우고,
         값과 누름틀 끝을 시작 문단에 둔다. 끝 문단에서 누름틀 끝 뒤에 있던 글은 시작 문단으로 합친다.
@@ -109,12 +139,13 @@ class FieldsNamespace(_Namespace):
         return _fields.fill_form_field(
             self._doc,
             value=value,
-            field_index=field_index,
+            index=index,
             field_id=field_id,
             name=name,
-            fit_policy=fit_policy,
+            fit=fit,
             box_width=box_width,
             font_pt=font_pt,
+            char_pr_id_ref=char_pr_id_ref,
         )
 
     # -- 셀 필드 -----------------------------------------------------------
@@ -192,11 +223,13 @@ class FieldsNamespace(_Namespace):
         *,
         checked: bool = False,
         name: str | None = None,
-        paragraph: "HwpxOxmlParagraph | None" = None,
+        paragraph: "HwpxOxmlParagraph | int | None" = None,
         section: "int | HwpxOxmlSection | None" = None,
-        section_index: int | None = None,
     ) -> "CheckBox":
-        """체크박스 양식개체를 만들고 그 라이브 뷰를 돌려준다."""
+        """체크박스 양식개체를 만들고 그 라이브 뷰를 돌려준다.
+
+        ``paragraph=``는 :meth:`add`와 같이 문단 객체나 번호를 받는다.
+        """
 
         from .. import fields as _fields
 
@@ -205,9 +238,11 @@ class FieldsNamespace(_Namespace):
             caption=caption,
             checked=checked,
             name=name,
-            paragraph=paragraph,
+            paragraph=optional_paragraph(
+                self._doc, paragraph, section=section, caller="doc.fields.add_check_box"
+            ),
             section=resolve_section(
-                self._doc, section, section_index, caller="doc.fields.add_check_box"
+                self._doc, section, caller="doc.fields.add_check_box"
             ),
         )
 
@@ -235,3 +270,118 @@ class FieldsNamespace(_Namespace):
         from .. import fields as _fields
 
         return _fields.set_check_box(self._doc, checked=checked, index=index, name=name)
+
+    # -- 그 밖의 양식 개체 ---------------------------------------------------
+
+    @property
+    def radio_buttons(self) -> "tuple[RadioButton, ...]":
+        """문서의 모든 라디오 단추(``hp:radioBtn``)를 문서 순서로.
+
+        ``checked`` 를 쓰면 같은 묶음(``group``)의 다른 단추는 풀린다.
+        """
+
+        from .. import fields as _fields
+
+        return _fields.list_form_objects(self._doc, "radioBtn")
+
+    @property
+    def combo_boxes(self) -> "tuple[ComboBox, ...]":
+        """문서의 모든 콤보 상자(``hp:comboBox``)를 문서 순서로. ``items`` 는 항목 목록, ``value`` 는 고른 값."""
+
+        from .. import fields as _fields
+
+        return _fields.list_form_objects(self._doc, "comboBox")
+
+    @property
+    def edit_boxes(self) -> "tuple[EditBox, ...]":
+        """문서의 모든 입력 상자(``hp:edit``)를 문서 순서로. ``text`` 를 읽고 쓴다."""
+
+        from .. import fields as _fields
+
+        return _fields.list_form_objects(self._doc, "edit")
+
+    @property
+    def buttons(self) -> "tuple[Button, ...]":
+        """문서의 모든 명령 단추(``hp:btn``)를 문서 순서로. ``caption`` 은 단추에 적힌 글(읽기만)."""
+
+        from .. import fields as _fields
+
+        return _fields.list_form_objects(self._doc, "btn")
+
+    def _place(self, paragraph, section, caller: str):
+        return (
+            optional_paragraph(self._doc, paragraph, section=section, caller=f"doc.fields.{caller}"),
+            resolve_section(self._doc, section, caller=f"doc.fields.{caller}"),
+        )
+
+    def add_radio_button(
+        self,
+        caption: str,
+        *,
+        group: str = "",
+        checked: bool = False,
+        name: str | None = None,
+        paragraph: "Paragraph | int | None" = None,
+        section: "int | Section | None" = None,
+    ) -> "RadioButton":
+        """라디오 단추를 한/글이 새로 만드는 모양 그대로 만들고 그 라이브 뷰를 돌려준다.
+
+        *group* 이 같은 단추끼리 하나만 고를 수 있다(``radioGroupName``). ``checked=True`` 면
+        같은 묶음의 다른 단추는 풀린다. *name* 을 주지 않으면 한/글처럼 ``RadioButton1``,
+        ``RadioButton2`` … 를 붙인다. *paragraph* 를 주지 않으면 *section* 끝에 새 문단을 만든다.
+        캡션이 비면 ``field-radio-caption-empty``.
+        """
+
+        from .. import fields as _fields
+
+        target, owner = self._place(paragraph, section, "add_radio_button")
+        return _fields.add_radio_button(
+            self._doc, caption, group=group, checked=checked, name=name, paragraph=target, section=owner,
+        )
+
+    def add_combo_box(
+        self,
+        text: str = "",
+        *,
+        editable_text: bool = True,
+        name: str | None = None,
+        paragraph: "Paragraph | int | None" = None,
+        section: "int | Section | None" = None,
+    ) -> "ComboBox":
+        """콤보 상자를 한/글이 새로 만드는 모양 그대로 만들고 그 라이브 뷰를 돌려준다.
+
+        한/글은 콤보 상자의 고를 목록을 파일에 두지 않는다(.hwp 양식 개체에 목록 칸이 없다).
+        상자에 보이는 글 *text* 를 목록 항목 하나의 값으로 둔다 — 한/글 저장본과 같은 모양이다.
+        여러 항목의 목록은 한/글 저장본에서 본 적이 없어 쓰지 않는다. *editable_text* 는 직접
+        입력할 수 있는지(``editEnable``, 한/글 새 상자의 기본은 켬)다.
+        """
+
+        from .. import fields as _fields
+
+        target, owner = self._place(paragraph, section, "add_combo_box")
+        return _fields.add_combo_box(
+            self._doc, text, editable_text=editable_text, name=name, paragraph=target, section=owner,
+        )
+
+    def add_edit_box(
+        self,
+        text: str = "",
+        *,
+        multi_line: bool = False,
+        read_only: bool = False,
+        name: str | None = None,
+        paragraph: "Paragraph | int | None" = None,
+        section: "int | Section | None" = None,
+    ) -> "EditBox":
+        """입력 상자를 한/글이 새로 만드는 모양 그대로 만들고 그 라이브 뷰를 돌려준다.
+
+        *text* 는 상자에 든 글이다. 한 줄 상자(``multi_line=False``)는 줄 바꿈을 빈칸으로 바꾼다.
+        *read_only* 면 양식 모드에서 고칠 수 없다.
+        """
+
+        from .. import fields as _fields
+
+        target, owner = self._place(paragraph, section, "add_edit_box")
+        return _fields.add_edit_box(
+            self._doc, text, multi_line=multi_line, read_only=read_only, name=name, paragraph=target, section=owner,
+        )

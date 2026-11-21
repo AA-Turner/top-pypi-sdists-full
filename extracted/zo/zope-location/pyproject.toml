@@ -1,13 +1,80 @@
-# 
-# Generated from:
-# https://github.com/zopefoundation/meta/tree/master/config/pure-python
-
+# Generated with zope.meta (https://zopemeta.readthedocs.io/) from:
+# https://github.com/zopefoundation/meta/tree/master/src/zope/meta/pure-python
 [build-system]
 requires = [
-    "setuptools == 78.1.1",
+    "setuptools >= 78.1.1,< 82",
     "wheel",
 ]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "zope.location"
+version = "6.1"
+description = "Zope Location"
+license = "ZPL-2.1"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Topic :: Internet :: WWW/HTTP",
+    "Framework :: Zope :: 3",
+    "Framework :: Zope :: 5",
+    "Framework :: Zope :: 6",
+]
+dynamic = ["readme"]
+requires-python = ">=3.11"
+authors = [
+    {name = "Zope Foundation and contributors",email = "zope-dev@zope.dev"},
+]
+maintainers = [
+    {name = "Plone Foundation and contributors",email = "zope-dev@zope.dev"},
+]
+dependencies = [
+    "zope.interface>=4.0.2",
+    "zope.schema>=4.2.2",
+    "zope.proxy>=4.0.1",
+]
+keywords = ["zope", "location", "structural"]
+
+[project.optional-dependencies]
+zcml = ["zope.configuration"]
+component = ["zope.component >= 4.0.1"]
+copy = ["zope.copy >= 4.0"]
+test-minimal = ["zope.testrunner >= 6.4"]
+test-component = [
+    "zope.testrunner >= 6.4",
+    "zope.component >= 4.0.1",
+    "zope.configuration",
+]
+test = [
+    "zope.testrunner >= 6.4",
+    "zope.configuration",
+    "zope.component >= 4.0.1",
+    "zope.copy >= 4.0",
+]
+docs = [
+    "repoze.sphinx.autointerface",
+    "Sphinx",
+    "zope.component >= 4.0.1",
+    "zope.configuration",
+]
+
+[project.urls]
+Documentation = "https://zopelocation.readthedocs.io/"
+Source = "http://github.com/zopefoundation/zope.location/"
+Issues = "https://github.com/zopefoundation/zope.location/issues"
+Changelog = "https://raw.githubusercontent.com/zopefoundation/zope.location/master/CHANGES.rst"
 
 [tool.coverage.run]
 branch = true
@@ -31,3 +98,11 @@ exclude_lines = [
 
 [tool.coverage.html]
 directory = "parts/htmlcov"
+
+[tool.setuptools.dynamic]
+readme = {file = ["README.rst", "CHANGES.rst"]}
+
+[tool.zest-releaser]
+create-wheel = false
+extra-message = ""
+upload-pypi = false

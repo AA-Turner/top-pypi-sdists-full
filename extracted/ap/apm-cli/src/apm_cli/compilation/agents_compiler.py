@@ -10,6 +10,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, NamedTuple  # noqa: UP035
 
+from ..core import remediation as _advice
 from ..core.target_catalog import accepted_target_values, get_target_capability
 from ..core.target_detection import (
     CompileTargetType,
@@ -18,6 +19,7 @@ from ..core.target_detection import (
     should_compile_claude_md,
     should_compile_copilot_instructions_md,
     should_compile_gemini_md,
+    target_without_compile_output,
 )
 from ..primitives.discovery import discover_primitives
 from ..primitives.models import Instruction, PrimitiveCollection
@@ -186,9 +188,9 @@ class CompilationConfig:
 
         # Try to load from apm.yml
         try:
-            from pathlib import Path
+            from ..core.scope import manifest_file
 
-            if Path("apm.yml").exists():
+            if manifest_file(Path(".")).exists():
                 from ..utils.yaml_io import load_yaml
 
                 apm_config = load_yaml("apm.yml") or {}
@@ -470,12 +472,12 @@ class AgentsCompiler:
             if "gemini" in requested_outputs and should_compile_gemini_md(routing_target):
                 results.append(self._compile_gemini_md(config, primitives))
 
-            # Some targets (e.g. agent-skills) use only the data-driven
-            # integration layer and have no root-context compilation output.
+            # Targets without a compile family (skills-only, experimental) use
+            # only the integration layer and have no root-context output.
             if not results:
-                if logger and config.target == "agent-skills":
+                if logger and (no_output := target_without_compile_output(config.target)):
                     logger.progress(
-                        "agent-skills -- no compile outputs, skipping",
+                        f"{no_output.name} -- no compile outputs, skipping",
                         symbol="info",
                     )
                 return CompilationResult(
@@ -564,6 +566,7 @@ class AgentsCompiler:
         # AGENTS.md for instructions, so dedup must not fire for those
         # targets (issue #1678).
         # --force-instructions / --no-dedup lets users opt out entirely.
+        dedup_coverage = "deployed rules already cover this target"
         if config.no_dedup:
             skip_instructions = False
             self._log(
@@ -579,6 +582,7 @@ class AgentsCompiler:
                 rules_dir_rel, target_key = dedup_rules
                 dep_dir = self.base_dir / rules_dir_rel
                 log_dep_dir = f"{rules_dir_rel}/"
+                dedup_coverage = f"{log_dep_dir} already covers {target_key.title()}"
 
                 expected_filenames = _build_expected_rule_filenames(target_key, primitives)
 
@@ -648,7 +652,7 @@ class AgentsCompiler:
                 self._log(
                     "progress",
                     f"Skipped {suppressed_count} empty AGENTS.md {noun} -- "
-                    ".github/instructions/ already covers Copilot; "
+                    f"{dedup_coverage}; "
                     "pass --force-instructions to write all AGENTS.md files",
                     symbol="info",
                 )
@@ -657,7 +661,7 @@ class AgentsCompiler:
                 self._log(
                     "progress",
                     f"AGENTS.md not generated ({suppressed_count} {noun}) -- "
-                    ".github/instructions/ already covers Copilot; "
+                    f"{dedup_coverage}; "
                     "pass --force-instructions to write AGENTS.md",
                     symbol="info",
                 )
@@ -1122,6 +1126,7 @@ class AgentsCompiler:
         stats["claude_empty_due_to_no_primitives"] = (
             would_emit_no_claude_md and not skip_instructions
         )
+        stats["claude_native_rules_only"] = would_emit_no_claude_md and skip_instructions
 
         if would_emit_no_claude_md:
             if protected_claude_paths:
@@ -1256,7 +1261,7 @@ class AgentsCompiler:
         from .gemini_formatter import GeminiFormatter
 
         gemini_formatter = GeminiFormatter(str(self.base_dir))
-        gemini_result = gemini_formatter.format_distributed(primitives)
+        gemini_result = gemini_formatter.format_distributed(primitives, dry_run=config.dry_run)
 
         protected_gemini_paths = {
             path
@@ -1574,11 +1579,10 @@ class AgentsCompiler:
             (AGENTS_MD_GENERATED_MARKER,),
         ):
             rel_path = portable_relpath(output_path, self.base_dir)
+            advice = _advice.ROOT_INSTRUCTIONS_HAND_AUTHORED.bind(marker=AGENTS_MD_GENERATED_MARKER)
             result.warnings.append(
                 f"Skipped {rel_path}: hand-authored file will not be overwritten. "
-                "To regenerate, either delete or rename it, or prepend the line "
-                f"'{AGENTS_MD_GENERATED_MARKER}' to the top of the file. "
-                "Then re-run 'apm compile'."
+                f"{advice.sentence()}"
             )
             # The file was never compared to new content; record as
             # 'skipped', not 'unchanged'. Also reset 'generated' since no
@@ -1844,7 +1848,7 @@ class AgentsCompiler:
             self.warnings.append(
                 f"Skipping AGENTS.md at {agents_rel}: nested Git repository "
                 f"{root_rel} belongs to a separate repository. "
-                f"Run apm compile from {nested_root} to compile it separately"
+                f"{_advice.NESTED_REPOSITORY_SKIPPED.bind(root=nested_root).sentence()}"
             )
             return None
         if (
@@ -2052,7 +2056,7 @@ class AgentsCompiler:
                 f"Total instructions: {distributed_result.stats.get('total_instructions_placed', 0)}",
                 f"Total patterns: {distributed_result.stats.get('total_patterns_covered', 0)}",
                 "",
-                "Use 'apm compile --single-agents' for traditional single-file compilation.",
+                _advice.SINGLE_AGENTS_COMPILATION.sentence(),
             ]
         )
 

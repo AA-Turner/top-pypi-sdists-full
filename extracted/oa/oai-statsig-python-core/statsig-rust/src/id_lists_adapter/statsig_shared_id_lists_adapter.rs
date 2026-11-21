@@ -2,12 +2,14 @@ use super::shared_id_list_store::{ManifestRead, RefreshStatus};
 use super::statsig_http_id_lists_adapter::RefreshTrigger;
 use super::{
     IdList, IdListMetadata, IdListPropagationUpdate, IdListPublicationMode, IdListUpdate,
-    IdListUpdateBase, IdListsAdapter, IdListsUpdateListener, SharedIdListCatalog,
-    SharedIdListLease, SharedIdListStore, StatsigHttpIdListsAdapter,
+    IdListsAdapter, IdListsUpdateListener, SharedIdListCatalog, SharedIdListLease,
+    SharedIdListStore, StatsigHttpIdListsAdapter,
 };
+use super::{IdListUpdateBatch, PreparedIdListUpdate, UpdateMode};
 use crate::networking::normalize_default_cdn_id_lists_manifest_url;
 use crate::observability::observability_client_adapter::{MetricType, ObservabilityEvent};
 use crate::observability::ops_stats::{OPS_STATS, OpsStatsForInstance};
+use crate::statsig::remote_id_lists::RemoteIdListResolver;
 use crate::{StatsigErr, StatsigOptions, StatsigRuntime};
 use async_trait::async_trait;
 use chrono::Utc;
@@ -16,7 +18,7 @@ use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Weak};
+use std::sync::{Arc, OnceLock, Weak};
 use std::time::{Duration, Instant};
 use tokio::sync::{Mutex as AsyncMutex, MutexGuard, watch};
 
@@ -31,6 +33,7 @@ pub(crate) struct StatsigSharedIdListsAdapter {
     sdk_key: String,
     options: StatsigOptions,
     partial_refresh: bool,
+    pub(crate) membership_resolver: OnceLock<Weak<RemoteIdListResolver>>,
     store: Option<Arc<SharedIdListStore>>,
     state: AsyncMutex<ControllerState>,
     storage_work: Arc<AsyncMutex<()>>,
@@ -60,7 +63,7 @@ enum PollResult {
     Follower(ManifestRead),
     Elected {
         lease: SharedIdListLease,
-        recovered: SharedIdListCatalog,
+        recovered: Box<SharedIdListCatalog>,
         cleanup_failed: bool,
     },
 }
@@ -162,6 +165,7 @@ impl StatsigSharedIdListsAdapter {
             sdk_key: sdk_key.to_owned(),
             options: options.clone(),
             partial_refresh,
+            membership_resolver: OnceLock::new(),
             store,
             storage_work: Arc::new(AsyncMutex::new(())),
             state: AsyncMutex::new(ControllerState {
@@ -262,13 +266,20 @@ impl StatsigSharedIdListsAdapter {
         StatsigErr::ShutdownFailure("Shared ID-list adapter stopped".to_string())
     }
 
-    fn http(&self) -> Result<Arc<StatsigHttpIdListsAdapter>, StatsigErr> {
+    fn http(
+        &self,
+        publisher: Option<Arc<PublishingListener>>,
+    ) -> Result<Arc<StatsigHttpIdListsAdapter>, StatsigErr> {
         let mut http = StatsigHttpIdListsAdapter::with_partial_refresh(
             &self.sdk_key,
             &self.options,
             self.partial_refresh,
         );
         http.refresh_gate = self.storage_work.clone();
+        if let Some(resolver) = self.membership_resolver.get() {
+            let _ = http.membership_resolver.set(resolver.clone());
+            http.membership_publisher = publisher;
+        }
         let http = Arc::new(http);
         // stop() signals first, then reads active_http. Either it sees this adapter,
         // or registration observes that the controller has already stopped.
@@ -367,6 +378,14 @@ impl StatsigSharedIdListsAdapter {
         Ok(true)
     }
 
+    fn observe_shared_revisions(&self, catalog: Option<&SharedIdListCatalog>) {
+        if let Some(resolver) = self.membership_resolver.get().and_then(Weak::upgrade) {
+            resolver.observe_revisions(|name| {
+                catalog?.observed_membership_revisions.get(name).copied()
+            });
+        }
+    }
+
     async fn fallback(
         &self,
         state: &mut ControllerState,
@@ -374,13 +393,14 @@ impl StatsigSharedIdListsAdapter {
         trigger: RefreshTrigger,
     ) -> Result<bool, StatsigErr> {
         self.failure(reason);
+        self.observe_shared_revisions(None);
         if let Role::Leader { http, .. } = &state.role {
             http.force_shutdown();
         }
         // tick_locked has returned, so replacing the role drops the last leader
         // references before the private request starts.
         state.role = Role::Follower;
-        let http = self.http()?;
+        let http = self.http(None)?;
         state.role = Role::HttpFallback(http.clone());
         state.next_metrics = Instant::now();
         state.next_sync = Instant::now() + self.sync_interval;
@@ -489,7 +509,7 @@ impl StatsigSharedIdListsAdapter {
                     let cleanup_failed = reader.cleanup(&lease).is_err();
                     PollResult::Elected {
                         lease,
-                        recovered,
+                        recovered: Box::new(recovered),
                         cleanup_failed,
                     }
                 }
@@ -533,6 +553,9 @@ impl StatsigSharedIdListsAdapter {
                 recovered,
                 cleanup_failed,
             } => {
+                let mut recovered = *recovered;
+                // A successor publishes only revisions it observes itself.
+                recovered.observed_membership_revisions.clear();
                 state.installed_manifest = None;
                 if cleanup_failed {
                     self.failure("cleanup");
@@ -553,7 +576,7 @@ impl StatsigSharedIdListsAdapter {
                     install_pending: AtomicBool::new(false),
                     ops_stats: self.ops_stats.clone(),
                 });
-                let http = self.http()?;
+                let http = self.http(Some(publisher.clone()))?;
                 state.role = Role::Leader {
                     http: http.clone(),
                     publisher: publisher.clone(),
@@ -565,7 +588,7 @@ impl StatsigSharedIdListsAdapter {
                     1.0,
                     None,
                 );
-                http.set_listener(publisher.clone());
+                http.set_publisher(publisher.clone());
                 return self
                     .refresh_leader(state, &http, &publisher, trigger, true)
                     .await;
@@ -575,6 +598,7 @@ impl StatsigSharedIdListsAdapter {
             ManifestRead::Changed(_, catalog) => catalog.status,
             ManifestRead::Unchanged => state.status,
             ManifestRead::Missing => {
+                self.observe_shared_revisions(None);
                 if state.waiting_since.elapsed() >= self.initial_wait {
                     return Ok(TickResult::Fallback("initial_timeout"));
                 }
@@ -584,7 +608,8 @@ impl StatsigSharedIdListsAdapter {
         let expired = self.catalog_expired(status);
         if !expired || status.incomplete_since_ms.is_some() {
             if let ManifestRead::Changed(handle, catalog) = catalog {
-                if !self.try_install(state, catalog).await? {
+                self.observe_shared_revisions((!expired).then_some(&catalog));
+                if !self.try_install(state, *catalog).await? {
                     return Ok(TickResult::Fallback("stale"));
                 }
                 state.installed_manifest = Some(Arc::new(handle));
@@ -736,7 +761,7 @@ impl IdListsAdapter for StatsigSharedIdListsAdapter {
     }
 }
 
-struct PublishingListener {
+pub(super) struct PublishingListener {
     store: Arc<SharedIdListStore>,
     lease: SharedIdListLease,
     current: Mutex<SharedIdListCatalog>,
@@ -748,6 +773,20 @@ struct PublishingListener {
 }
 
 impl PublishingListener {
+    pub(super) fn stage_manifest_revisions(&self, manifest: &super::IdListManifest) {
+        // The refresh gate serializes this with the ordinary catalog publication.
+        // Followers may enroll different lists, so record every valid revision.
+        self.current.lock().observed_membership_revisions = manifest
+            .iter()
+            .filter_map(|(name, entry)| {
+                Some((
+                    name.clone(),
+                    entry.metadata.file_version().membership_revision()?,
+                ))
+            })
+            .collect();
+    }
+
     fn snapshot(&self) -> SharedIdListCatalog {
         self.current.lock().clone()
     }
@@ -763,29 +802,8 @@ impl PublishingListener {
 
 impl IdListsUpdateListener for PublishingListener {
     fn supports_id_list_snapshot_updates(&self) -> bool {
+        // HTTP negotiates snapshots and delivers them through publish_prepared_id_lists.
         true
-    }
-
-    fn try_receive_id_list_snapshot_updates(
-        &self,
-        updates: HashMap<String, IdListUpdate>,
-        bases: HashMap<String, IdListUpdateBase>,
-        propagation: HashMap<String, IdListPropagationUpdate>,
-        mode: IdListPublicationMode,
-        _eager_downloads: Option<u64>,
-    ) -> Result<(), StatsigErr> {
-        // The elected writer refreshes the catalog under one lease and refresh lock.
-        // A lazy merge would drop lists omitted from this publication.
-        let complete = match mode {
-            IdListPublicationMode::Replace => true,
-            IdListPublicationMode::IncompleteRefresh => false,
-            IdListPublicationMode::Merge => {
-                return Err(StatsigErr::InvalidOperation(
-                    "shared publisher requires a manifest refresh".into(),
-                ));
-            }
-        };
-        self.publish(updates, Some(bases), propagation, complete)
     }
 
     fn requires_blocking_id_list_publication(&self) -> bool {
@@ -802,7 +820,6 @@ impl IdListsUpdateListener for PublishingListener {
     }
 
     fn did_receive_id_list_updates(&self, updates: HashMap<String, IdListUpdate>) {
-        // The elected controller always uses the fallible callback below.
         let _ = self.try_receive_id_list_updates_with_propagation(updates, HashMap::new());
     }
 
@@ -811,7 +828,7 @@ impl IdListsUpdateListener for PublishingListener {
         updates: HashMap<String, IdListUpdate>,
         propagation: HashMap<String, IdListPropagationUpdate>,
     ) -> Result<(), StatsigErr> {
-        self.publish(updates, None, propagation, true)
+        self.publish(updates, propagation, IdListPublicationMode::Replace)
     }
 
     fn try_receive_incomplete_id_list_refresh(
@@ -819,18 +836,39 @@ impl IdListsUpdateListener for PublishingListener {
         updates: HashMap<String, IdListUpdate>,
         propagation: HashMap<String, IdListPropagationUpdate>,
     ) -> Result<(), StatsigErr> {
-        self.publish(updates, None, propagation, false)
+        self.publish(
+            updates,
+            propagation,
+            IdListPublicationMode::IncompleteRefresh,
+        )
     }
 }
 
 impl PublishingListener {
+    pub(super) fn publish_prepared_id_lists(
+        &self,
+        batch: IdListUpdateBatch,
+    ) -> Result<(), StatsigErr> {
+        self.publish(batch.updates, batch.propagation, batch.mode)
+    }
+
     fn publish(
         &self,
-        updates: HashMap<String, IdListUpdate>,
-        mut bases: Option<HashMap<String, IdListUpdateBase>>,
+        updates: HashMap<String, impl Into<PreparedIdListUpdate>>,
         mut propagation: HashMap<String, IdListPropagationUpdate>,
-        complete: bool,
+        mode: IdListPublicationMode,
     ) -> Result<(), StatsigErr> {
+        // The elected writer refreshes the catalog under one lease and refresh lock.
+        // A lazy merge would drop lists omitted from this publication.
+        let complete = match mode {
+            IdListPublicationMode::Replace => true,
+            IdListPublicationMode::IncompleteRefresh => false,
+            IdListPublicationMode::Merge => {
+                return Err(StatsigErr::InvalidOperation(
+                    "shared publisher requires a manifest refresh".into(),
+                ));
+            }
+        };
         let mut current = self.current.lock();
         let mut lists = HashMap::with_capacity(updates.len());
         for (name, update) in updates {
@@ -839,10 +877,11 @@ impl PublishingListener {
                     propagation.insert(name.clone(), previous.clone());
                 }
             }
-            let snapshot = bases.as_mut().and_then(|bases| bases.remove(&name)?.list);
-            let mut list =
-                IdList::from_update_base(current.lists.get(&name), snapshot, &update.new_metadata);
-            list.apply_update_for_publish(update);
+            let list = IdList::build(
+                current.lists.get(&name),
+                update.into(),
+                UpdateMode::SharedPublisher,
+            );
             lists.insert(name, list);
         }
         let propagation = cumulative_propagation(&current, &lists, propagation);
@@ -852,6 +891,7 @@ impl PublishingListener {
                 &self.lease,
                 &lists,
                 &propagation,
+                &current.observed_membership_revisions,
                 (!complete).then_some(current.status),
                 now_ms,
             )

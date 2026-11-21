@@ -126,7 +126,7 @@ class ActionRefs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.ActionRefs"):
     @jsii.member(jsii_name="ACTIONS_SETUP_JAVA")
     @builtins.classmethod
     def ACTIONS_SETUP_JAVA(cls) -> builtins.str:
-        '''(experimental) actions/setup-java at v6.2.0 (immutable).
+        '''(experimental) actions/setup-java at v6.3.0 (immutable).
 
         :stability: experimental
         '''

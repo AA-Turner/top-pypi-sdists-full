@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crowdypy
-Version: 0.35.0
+Version: 0.36.0
 Summary: Official Python SDK for Crowded Kingdoms: typed GraphQL clients and a native UDP replication core
 Keywords: crowded-kingdoms,multiplayer,replication,graphql,sdk,udp
 Author: Crowded Kingdoms
@@ -50,6 +50,8 @@ CrowdyPy follows the [CrowdyJS](https://github.com/CrowdedKingdoms/CrowdyJS) API
 (`mintAppToken` is `mint_app_token`). Its realtime path is CrowdyCPP's native replication
 client, bound with [nanobind](https://github.com/wjakob/nanobind) and shipped inside the
 wheel. Python never touches a datagram.
+
+**v0.36.0: an organization's cap of apps.** `app_limit_reached_of(err)` reads Game API v2.80.0's `APP_LIMIT_REACHED` (an organization without a funded wallet or auto-billing past 10 apps) as `CrowdyAppLimitReached(limit, max)`, and the exec status reports the compute ceiling an unfunded organization's apps share. Vendors CrowdyCPP 0.89.0; schema at CrowdyJS 18.35.0.
 
 **v0.35.0: a full channel says so.** `group_limit_reached_of(err)` reads Game API v2.77.0's `GROUP_LIMIT_REACHED` (a join, an add or a creation past a channel or team cap) as `CrowdyGroupLimitReached(limit, max)`, and `payment_method_required` no longer counts wallet funds. Vendors CrowdyCPP 0.88.0 and follows CrowdyJS 18.34.0; works with every Game API on dev, test and prod. See [MIGRATION.md](MIGRATION.md).
 

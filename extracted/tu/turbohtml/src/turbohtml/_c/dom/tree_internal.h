@@ -22,8 +22,12 @@
 #ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
 /* One aligned slot, so a short input opens several blocks and walks the doubling path. */
 #define ARENA_BLOCK ((Py_ssize_t)16)
+#define ARENA_SMALL_BLOCK ((Py_ssize_t)16)
 #else
 #define ARENA_BLOCK ((Py_ssize_t)64 * 1024)
+/* The first block of a tree made for one constructed element or text node (see th_tree_new_small): it fits Python's
+   small-object allocator, where such a tree, a few hundred bytes, would otherwise cost a 64 KiB allocation. */
+#define ARENA_SMALL_BLOCK ((Py_ssize_t)(512 - sizeof(arena_block)))
 #endif
 #define ARENA_MAX_BLOCK ((Py_ssize_t)256 * 1024)
 
@@ -134,6 +138,8 @@ struct th_tree {
     int depth_near_cap; /* the depth bound has reached the cap once; set and never cleared, so an insertion checks only
                            then */
     int depth_capped;   /* the DOM cap moved a node, so the tree is flatter than the markup it came from */
+    Py_ssize_t stack_slack; /* entries removed from the middle of the stack: each can stay an ancestor of the elements
+                               above it, one DOM level the stack no longer counts */
     Py_ssize_t open_cap;
     th_stack_block *open_blocks; /* per-block summaries of open, built once the stack passes one block; NULL before */
     Py_ssize_t open_block_cap;
@@ -142,11 +148,11 @@ struct th_tree {
     Py_ssize_t nest_bound;    /* see th_tree_nest_bound; under TH_HAS_MEMO_DEPTH while no bound is known */
     th_node **afe;            /* active formatting elements; NULL entry is a scope marker */
     Py_ssize_t afe_len;
-    Py_ssize_t afe_stack_hint;
     uint64_t *afe_hashes;
     size_t afe_hash_count, afe_hash_capacity;
     uint8_t afe_hash_valid;
     uint8_t seq_wrapped; /* node_seq has wrapped to 0: a seq no longer numbers one node of the tree */
+    int8_t source_ascii; /* data[0:length] is ASCII (1) or not (-1); 0 until a text read first needs it */
     uint32_t node_seq;   /* next value for node_new to stamp onto th_node::seq; fills the
                             padding after afe_hash_valid so th_tree stays <= 512 bytes */
     Py_ssize_t afe_cap;
@@ -179,6 +185,7 @@ struct th_tree {
     int track_positions; /* record each element's source line/col in trailing node slots */
     int track_locations; /* record each element's granular source spans (implies track_positions) */
     int kind;            /* borrowed input storage */
+    int small_arena;     /* made by th_tree_new_small: the arena starts with an ARENA_SMALL_BLOCK */
     /* attribute slots copied onto formatting-element clones so far, which clone_formatting bounds; it fills the
        padding before data, so th_tree stays at 512 bytes */
     uint32_t clone_attr_slots;
@@ -260,6 +267,9 @@ static inline void *arena_alloc(th_tree *tree, Py_ssize_t size) {
     arena_block *block = tree->arena;
     if (block == NULL || block->used + size > block->cap) {
         Py_ssize_t cap = ARENA_BLOCK;
+        if (tree->small_arena) {
+            cap = ARENA_SMALL_BLOCK;
+        }
         if (block != NULL) {
             cap = block->cap < ARENA_MAX_BLOCK ? block->cap * 2 : ARENA_MAX_BLOCK;
         }

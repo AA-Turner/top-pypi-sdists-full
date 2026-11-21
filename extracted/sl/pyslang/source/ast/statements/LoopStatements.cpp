@@ -262,9 +262,11 @@ ER RepeatLoopStatement::evalImpl(EvalContext& context) const {
     if (cv.bad())
         return ER::Fail;
 
-    std::optional<int64_t> oc = cv.integer().as<int64_t>();
+    // Negative, unknown, and high impedance values are all treated as zero.
+    auto& ci = cv.integer();
+    std::optional<int64_t> oc = ci.as<int64_t>();
     if (!oc || oc < 0) {
-        if (cv.integer().hasUnknown())
+        if (ci.hasUnknown() || (ci.isSigned() && ci.isNegative()))
             oc = 0;
         else {
             auto& diag = context.addDiag(diag::ValueOutOfRange, count.sourceRange);
@@ -452,12 +454,15 @@ ER ForeachLoopStatement::evalImpl(EvalContext& context) const {
 
 ER ForeachLoopStatement::evalRecursive(EvalContext& context, const ConstantValue& cv,
                                        std::span<const LoopDim> currDims) const {
+    // We can run out of dimensions here if the trailing ones were skipped,
+    // in which case it's time to evaluate the body.
+    if (currDims.empty())
+        return body.eval(context);
+
     // If there is no loop var just skip this index.
     auto& dim = currDims[0];
-    if (!dim.loopVar) {
-        // Shouldn't ever be at the end here.
+    if (!dim.loopVar)
         return evalRecursive(context, nullptr, currDims.subspan(1));
-    }
 
     auto local = context.createLocal(dim.loopVar);
 

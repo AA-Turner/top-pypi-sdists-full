@@ -3,6 +3,7 @@ use quote::{format_ident, quote};
 use std::collections::HashSet;
 use syn::{parse_macro_input, ItemFn};
 
+mod annotation;
 mod backend_generator;
 mod canonical;
 mod files;
@@ -11,7 +12,6 @@ mod idents;
 mod loader;
 mod output_generator;
 mod output_loader;
-mod remotes;
 
 /// A procedural macro that generates tests from
 /// [JSON-Schema-Test-Suite](https://github.com/json-schema-org/JSON-Schema-Test-Suite).
@@ -21,44 +21,8 @@ pub fn suite(args: TokenStream, input: TokenStream) -> TokenStream {
     let test_func = parse_macro_input!(input as ItemFn);
     let test_func_ident = &test_func.sig.ident;
 
-    let remote_data = match remotes::generate(&config.path) {
-        Ok(data) => data,
-        Err(e) => return compile_error_ts(e.to_string()),
-    };
-    let remotes_static = &remote_data.static_array;
-    let remote_resources = &remote_data.resources;
-
     let mut output = quote! {
         #test_func
-
-        #remotes_static
-
-        struct TestsuiteRetriever;
-
-        impl jsonschema::Retrieve for TestsuiteRetriever {
-            fn retrieve(
-                &self,
-                uri: &jsonschema::Uri<String>,
-            ) -> Result<serde_json::Value, Box<dyn std::error::Error + Send + Sync>> {
-                static REMOTE_MAP: std::sync::LazyLock<std::collections::HashMap<&'static str, &'static str>> =
-                    std::sync::LazyLock::new(|| {
-                        let mut map = std::collections::HashMap::with_capacity(REMOTE_DOCUMENTS.len());
-                        for (uri, contents) in REMOTE_DOCUMENTS {
-                            map.insert(*uri, *contents);
-                        }
-                        map
-                    });
-                match REMOTE_MAP.get(uri.as_str()) {
-                    Some(contents) => Ok(serde_json::from_str(contents)
-                        .expect("Failed to parse remote schema")),
-                    None => Err(format!("Unknown remote: {uri}").into()),
-                }
-            }
-        }
-
-        fn testsuite_retriever() -> TestsuiteRetriever {
-            TestsuiteRetriever
-        }
 
         #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
         use wasm_bindgen_test::wasm_bindgen_test;
@@ -70,13 +34,8 @@ pub fn suite(args: TokenStream, input: TokenStream) -> TokenStream {
             Ok(tree) => tree,
             Err(e) => return compile_error_ts(e.to_string()),
         };
-        let modules = generator::generate_modules(
-            &suite_tree,
-            &mut functions,
-            &config.xfail,
-            draft,
-            remote_resources,
-        );
+        let modules =
+            generator::generate_modules(&suite_tree, &mut functions, &config.xfail, draft);
         let module_ident = format_ident!("{}", &draft.replace('-', "_"));
         output = quote! {
             #output
@@ -183,6 +142,18 @@ pub fn canonical_suite(args: TokenStream, input: TokenStream) -> TokenStream {
     output.into()
 }
 
+/// Replaces a function with one returning the generated `evaluate` of each annotation suite case
+/// under `path`, by file name and case description.
+#[proc_macro_attribute]
+pub fn annotation_suite(args: TokenStream, input: TokenStream) -> TokenStream {
+    let config = parse_macro_input!(args as testsuite::CanonicalSuiteConfig);
+    let lookup = parse_macro_input!(input as ItemFn);
+    match annotation::generate(&config.path, &lookup.sig.ident) {
+        Ok(tokens) => tokens.into(),
+        Err(e) => compile_error_ts(e),
+    }
+}
+
 fn compile_error_ts(err: impl quote::ToTokens) -> TokenStream {
     TokenStream::from(quote! {
         compile_error!(#err);
@@ -191,16 +162,7 @@ fn compile_error_ts(err: impl quote::ToTokens) -> TokenStream {
 
 fn backend_suite(input: TokenStream, backend: &str) -> TokenStream {
     let config = parse_macro_input!(input as testsuite::SuiteConfig);
-    let remote_data = match remotes::generate(&config.path) {
-        Ok(data) => data,
-        Err(e) => return compile_error_ts(e.to_string()),
-    };
-    match backend_generator::generate(
-        &format_ident!("{backend}"),
-        &config.path,
-        &config.drafts,
-        &remote_data.resources,
-    ) {
+    match backend_generator::generate(&format_ident!("{backend}"), &config.path, &config.drafts) {
         Ok(tokens) => tokens.into(),
         Err(e) => compile_error_ts(e.to_string()),
     }

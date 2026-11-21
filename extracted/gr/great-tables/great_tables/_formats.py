@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import html
 import math
+import numbers
 import re
 from collections.abc import Callable
-from dataclasses import dataclass
-from datetime import date, datetime, time
-from decimal import Decimal
-from functools import partial
+from dataclasses import dataclass, field
+from datetime import date, datetime, time, timedelta
+from decimal import ROUND_HALF_EVEN, Context, Decimal, localcontext
+from functools import cache, partial
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
@@ -22,9 +23,10 @@ from typing import (
 )
 
 import babel
-import faicons
-from babel.dates import format_date, format_datetime, format_time
+from babel.core import get_global
+from babel.dates import PATTERN_CHARS, format_date, format_datetime, format_time, parse_pattern
 
+from ._fontawesome import fa_svg
 from ._gt_data import FormatFn, FormatFns, FormatInfo, FormatterSkipElement, GTData, PFrameData
 from ._helpers import px
 from ._locale import (
@@ -35,6 +37,7 @@ from ._locale import (
     _get_locales_data,
 )
 from ._locations import RowSelectExpr, resolve_cols_c, resolve_rows_i
+from ._styles import FromColumn
 from ._tbl_data import (
     Agnostic,
     DataFrameLike,
@@ -46,7 +49,6 @@ from ._tbl_data import (
     is_series,
     to_list,
 )
-from ._styles import FromColumn
 from ._text import _html_escape, _latex_escape, _md_html, _md_latex, escape_pattern_str_latex
 from ._utils import _str_detect, _str_replace, is_valid_http_schema
 from ._utils_nanoplots import _generate_nanoplot
@@ -73,6 +75,30 @@ DateStyle: TypeAlias = Literal[
     "y.mn.day",
     "year_week",
     "year_quarter",
+    "yMd",
+    "yMEd",
+    "yMMM",
+    "yMMMM",
+    "yMMMd",
+    "yMMMEd",
+    "GyMd",
+    "GyMMMd",
+    "GyMMMEd",
+    "yM",
+    "Md",
+    "MEd",
+    "MMMd",
+    "MMMEd",
+    "MMMMd",
+    "GyMMM",
+    "yQQQ",
+    "yQQQQ",
+    "Gy",
+    "y",
+    "M",
+    "MMM",
+    "d",
+    "Ed",
 ]
 TimeStyle: TypeAlias = Literal[
     "iso",
@@ -80,11 +106,33 @@ TimeStyle: TypeAlias = Literal[
     "h_m_s_p",
     "h_m_p",
     "h_p",
+    "Hms",
+    "Hm",
+    "H",
+    "EHm",
+    "EHms",
+    "Hmsv",
+    "Hmv",
+    "hms",
+    "hm",
+    "h",
+    "Ehm",
+    "Ehms",
+    "EBhms",
+    "Bhms",
+    "EBhm",
+    "Bhm",
+    "Bh",
+    "hmsv",
+    "hmv",
+    "ms",
 ]
 PlotType: TypeAlias = Literal[
     "line",
     "bar",
+    "boxplot",
 ]
+NumberSystem: TypeAlias = Literal["intl", "ind"]
 MissingVals: TypeAlias = Literal[
     "marker",
     "gap",
@@ -186,6 +234,7 @@ def fmt_number(
     force_sign: bool = False,
     min_sep_threshold: int = 1,
     locale: str | None = None,
+    system: NumberSystem = "intl",
 ) -> GTSelf:
     """
     Format numeric values.
@@ -248,7 +297,8 @@ def fmt_number(
     compact
         A boolean value that allows for compact formatting of numeric values. Values will be scaled
         and decorated with the appropriate suffixes (e.g., `1230` becomes `1.23K`, and `1230000`
-        becomes `1.23M`). The `compact` option is `False` by default.
+        becomes `1.23M`). The `compact` option is `False` by default. With `system="ind"`, values
+        are expressed in lakhs and crores instead (e.g., `1234567` becomes `12.35 Lac`).
     pattern
         A formatting pattern that allows for decoration of the formatted value. The formatted value
         is represented by the `{x}` (which can be used multiple times, if needed) and all other
@@ -275,6 +325,13 @@ def fmt_number(
     locale
         An optional locale identifier that can be used for formatting values according the locale's
         rules. Examples include `"en"` for English (United States) and `"fr"` for French (France).
+    system
+        The numbering system to use for digit grouping. The international numbering system
+        (`"intl"`, the default) always separates groups of three digits (e.g., `"1,234,567"`). The
+        Indian numbering system (`"ind"`) separates the last three digits and then groups of two,
+        which correspond to thousands, lakhs, crores, and higher quantities (e.g., `"12,34,567"`).
+        The separator itself is still set by `sep_mark=` (or the locale) and can be turned off with
+        `use_seps=False`.
 
 
     Returns
@@ -310,7 +367,25 @@ def fmt_number(
         .fmt_number(columns="num", decimals=3, use_seps=False)
     )
     ```
+
+    Large values can be grouped according to the Indian numbering system with `system="ind"`, and
+    with `compact=True` they're expressed in lakhs and crores.
+
+    ```{python}
+    import polars as pl
+
+    values = [12345.0, 123456.0, 1234567.0, 123456789.0]
+    df = pl.DataFrame({"value": values, "compact": values})
+
+    (
+        GT(df)
+        .fmt_number(columns="value", system="ind")
+        .fmt_number(columns="compact", system="ind", compact=True)
+    )
+    ```
     """
+    _validate_number_system(system)
+
     locale = _resolve_locale(self, locale=locale)
 
     # Use locale-based marks if a locale ID is provided
@@ -334,6 +409,7 @@ def fmt_number(
         dec_mark=dec_mark,
         force_sign=force_sign,
         pattern=pattern,
+        system=system,
     )
 
     return fmt_by_context(self, pf_format=pf_format, columns=columns, rows=rows)
@@ -356,12 +432,13 @@ def fmt_number_context(
     force_sign: bool,
     pattern: str,
     context: str,
+    system: NumberSystem = "intl",
 ) -> str:
     if is_na(data._tbl_data, x):
         return x
 
     # Scale `x` value by a defined `scale_by` value
-    x = x * scale_by
+    x = _scale_value(x, scale_by=scale_by)
 
     # Determine whether the value is positive
     is_negative = _has_negative_value(value=x)
@@ -378,6 +455,7 @@ def fmt_number_context(
             min_sep_threshold=min_sep_threshold,
             dec_mark=dec_mark,
             force_sign=force_sign,
+            system=system,
         )
     else:
         x_formatted = _value_to_decimal_notation(
@@ -391,6 +469,7 @@ def fmt_number_context(
             min_sep_threshold=min_sep_threshold,
             dec_mark=dec_mark,
             force_sign=force_sign,
+            system=system,
         )
 
     # A value that rounds to zero is shown as zero, so it gets no minus sign or accounting style
@@ -425,6 +504,7 @@ def fmt_integer(
     force_sign: bool = False,
     min_sep_threshold: int = 1,
     locale: str | None = None,
+    system: NumberSystem = "intl",
 ) -> GTSelf:
     """
     Format values as integers.
@@ -467,7 +547,8 @@ def fmt_integer(
     compact
         A boolean value that allows for compact formatting of numeric values. Values will be scaled
         and decorated with the appropriate suffixes (e.g., `1230` becomes `1K`, and `1230000`
-        becomes `1M`). The `compact` option is `False` by default.
+        becomes `1M`). The `compact` option is `False` by default. With `system="ind"`, values are
+        expressed in lakhs and crores instead (e.g., `1234567` becomes `12 Lac`).
     pattern
         A formatting pattern that allows for decoration of the formatted value. The formatted value
         is represented by the `{x}` (which can be used multiple times, if needed) and all other
@@ -490,6 +571,13 @@ def fmt_integer(
     locale
         An optional locale identifier that can be used for formatting values according the locale's
         rules. Examples include `"en"` for English (United States) and `"fr"` for French (France).
+    system
+        The numbering system to use for digit grouping. The international numbering system
+        (`"intl"`, the default) always separates groups of three digits (e.g., `"1,234,567"`). The
+        Indian numbering system (`"ind"`) separates the last three digits and then groups of two,
+        which correspond to thousands, lakhs, crores, and higher quantities (e.g., `"12,34,567"`).
+        The separator itself is still set by `sep_mark=` (or the locale) and can be turned off with
+        `use_seps=False`.
 
 
     Returns
@@ -525,6 +613,8 @@ def fmt_integer(
     ```
     """
 
+    _validate_number_system(system)
+
     locale = _resolve_locale(self, locale=locale)
 
     # Use locale-based marks if a locale ID is provided
@@ -542,6 +632,7 @@ def fmt_integer(
         min_sep_threshold=min_sep_threshold,
         force_sign=force_sign,
         pattern=pattern,
+        system=system,
     )
 
     return fmt_by_context(self, pf_format=pf_format, columns=columns, rows=rows)
@@ -559,12 +650,13 @@ def fmt_integer_context(
     force_sign: bool,
     pattern: str,
     context: str,
+    system: NumberSystem = "intl",
 ) -> str:
     if is_na(data._tbl_data, x):
         return x
 
     # Scale `x` value by a defined `scale_by` value
-    x = x * scale_by
+    x = _scale_value(x, scale_by=scale_by)
 
     # Determine whether the value is positive
     is_negative = _has_negative_value(value=x)
@@ -581,6 +673,7 @@ def fmt_integer_context(
             min_sep_threshold=min_sep_threshold,
             dec_mark="not used",
             force_sign=force_sign,
+            system=system,
         )
 
     else:
@@ -595,6 +688,7 @@ def fmt_integer_context(
             min_sep_threshold=min_sep_threshold,
             dec_mark="not used",
             force_sign=force_sign,
+            system=system,
         )
 
     # A value that rounds to zero is shown as zero, so it gets no minus sign or accounting style
@@ -789,7 +883,7 @@ def fmt_scientific_context(
         return x
 
     # Scale `x` value by a defined `scale_by` value
-    x = x * scale_by
+    x = _scale_value(x, scale_by=scale_by)
 
     # Infinite values (and NaN, e.g., from `inf * 0` with `scale_by=0`) have no mantissa or exponent
     if not math.isfinite(x):
@@ -1112,7 +1206,7 @@ def fmt_engineering_context(
         return x
 
     # Scale `x` value by a defined `scale_by` value
-    x = x * scale_by
+    x = _scale_value(x, scale_by=scale_by)
 
     # Infinite values (and NaN, e.g., from `inf * 0` with `scale_by=0`) have no mantissa or exponent
     if not math.isfinite(x):
@@ -1125,10 +1219,11 @@ def fmt_engineering_context(
 
     # For engineering notation, we need to calculate the exponent that is a multiple of 3
     # (zero, which has no logarithm, gets an exponent of 0) and adjust the mantissa accordingly
-    power_3 = 0 if x == 0 else int(math.floor(math.log10(abs(x)) / 3) * 3)
+    power_3 = 0 if x == 0 else _decimal_exponent(x) // 3 * 3
 
-    # Calculate the mantissa by dividing by 10^power_3
-    m_value = x / 10**power_3
+    # Calculate the mantissa by shifting the decimal point (exactly, so that it's rounded once,
+    # from the stored value, as in `fmt_scientific()`)
+    m_value = _shift_decimal_point(x, -power_3)
 
     # If rounding carries the mantissa up to 1000 (e.g., 999,999.5 with two decimals
     # would give `1000.00 x 10^3`), use the next power of 1000 instead (`1.00 x 10^6`); the
@@ -1526,8 +1621,8 @@ def _get_si_prefix(
 ) -> tuple[int, str]:
     """Get the exponent and symbol of the SI prefix to use for an absolute value."""
 
-    if abs_x == 0 or math.isinf(abs_x):
-        # Zero and infinity get no prefix
+    if abs_x == 0 or not math.isfinite(abs_x):
+        # Zero, infinity and NaN get no prefix
         return 0, ""
 
     if abs_x >= 1 and abs_x < 1000 and (prefix_mode != "decimal" or abs_x < 10):
@@ -1535,9 +1630,11 @@ def _get_si_prefix(
         # In decimal mode, values in [1, 10) need no prefix
         return 0, ""
 
-    # Find the best SI prefix: the largest exponent where mantissa >= 1
+    # Find the best SI prefix: the largest exponent where mantissa >= 1 (the exponent is compared
+    # exactly, while a float `10.0**exp` isn't exactly a power of ten)
+    x_exp = _decimal_exponent(abs_x)
     for exp, symbol in si_table:
-        if abs_x >= 10.0**exp:
+        if exp <= x_exp:
             return exp, symbol
 
     return 0, ""
@@ -1582,22 +1679,19 @@ def fmt_number_si_context(
         return x
 
     # Scale `x` value by a defined `scale_by` value
-    x = x * scale_by
+    x = _scale_value(x, scale_by=scale_by)
 
     # Determine whether the value is negative
     is_negative = _has_negative_value(value=x)
 
     # Select the appropriate SI prefix table
-    if prefix_mode == "decimal":
-        si_table = _SI_PREFIXES_DECIMAL
-    else:
-        si_table = _SI_PREFIXES_ENGINEERING
+    si_table = _SI_PREFIXES_DECIMAL if prefix_mode == "decimal" else _SI_PREFIXES_ENGINEERING
 
     # Determine the appropriate SI prefix
-    exp, si_symbol = _get_si_prefix(abs(x), si_table=si_table, prefix_mode=prefix_mode)
+    exp, si_symbol = _get_si_prefix(_exact_abs(x), si_table=si_table, prefix_mode=prefix_mode)
 
-    # Scale the value to the prefix (this is the value itself when there is no prefix)
-    scaled_value = x / 10.0**exp if si_symbol else x
+    # Scale the value to the prefix exactly (this is the value itself when there is no prefix)
+    scaled_value = _shift_decimal_point(x, -exp) if si_symbol else x
 
     # If rounding the scaled value carries it up to the next prefix (e.g., 999.96 with one
     # decimal would give `1,000.0`), use the next prefix instead (`1.0 k`); the value is then
@@ -1804,10 +1898,7 @@ def fmt_percent(
     min_sep_threshold = _get_locale_min_sep_threshold(default=min_sep_threshold, locale=locale)
     dec_mark = _get_locale_dec_mark(default=dec_mark, locale=locale)
 
-    if scale_values:
-        scale_by = 100.0
-    else:
-        scale_by = 1.0
+    scale_by = 100 if scale_values else 1
 
     pf_format = partial(
         fmt_percent_context,
@@ -1852,7 +1943,7 @@ def fmt_percent_context(
         return x
 
     # Scale `x` value by a defined `scale_by` value
-    x = x * scale_by
+    x = _scale_value(x, scale_by=scale_by)
 
     # Determine properties of the value
     is_negative = _has_negative_value(value=x)
@@ -2104,16 +2195,10 @@ def fmt_partsper(
     min_sep_threshold = _get_locale_min_sep_threshold(default=1, locale=locale)
 
     # Determine the scale factor
-    if scale_values:
-        scale_by = float(_PARTSPER_UNITS[to_units]["factor"])
-    else:
-        scale_by = 1.0
+    scale_by = _PARTSPER_UNITS[to_units]["factor"] if scale_values else 1
 
     # Determine the symbol to use
-    if symbol == "auto":
-        resolved_symbol = _PARTSPER_UNITS[to_units]["symbol"]
-    else:
-        resolved_symbol = symbol
+    resolved_symbol = _PARTSPER_UNITS[to_units]["symbol"] if symbol == "auto" else symbol
 
     # Determine spacing: "auto" means no space for Unicode symbols (‰, ‱), space for text
     if incl_space == "auto":
@@ -2162,7 +2247,7 @@ def fmt_partsper_context(
         return x
 
     # Scale `x` value by the defined scale factor
-    x = x * scale_by
+    x = _scale_value(x, scale_by=scale_by)
 
     # Determine properties of the value
     is_negative = _has_negative_value(value=x)
@@ -2450,7 +2535,7 @@ def fmt_currency_context(
         return x
 
     # Scale `x` value by a defined `scale_by` value
-    x = x * scale_by
+    x = _scale_value(x, scale_by=scale_by)
 
     # Determine properties of the value
     is_negative = _has_negative_value(value=x)
@@ -2467,10 +2552,7 @@ def fmt_currency_context(
         currency_symbol = _latex_escape(html.unescape(currency_symbol))
 
     # Choose the appropriate formatting function based on the `compact=` option
-    if compact:
-        f_formatter = _format_number_compactly
-    else:
-        f_formatter = _value_to_decimal_notation
+    f_formatter = _format_number_compactly if compact else _value_to_decimal_notation
 
     # Perform formatting to decimal notation
     x_formatted = f_formatter(
@@ -2854,12 +2936,10 @@ def _format_whole_number(
     if not use_seps or not sep_mark or len(s) < min_sep_threshold + 3:
         return s
     result = ""
-    count = 0
-    for digit in reversed(s):
+    for count, digit in enumerate(reversed(s)):
         if count and count % 3 == 0:
             result = sep_mark + result
         result = digit + result
-        count += 1
     return result
 
 
@@ -3342,7 +3422,7 @@ def _chem_token(token: str, markup: _ChemMarkup) -> str:
         rest = italic_m.group(2)
         result = markup.em(letter)
         if rest:
-            if rest.startswith("-") or rest.startswith("="):
+            if rest.startswith(("-", "=")):
                 result += rest[0]
                 rest = rest[1:]
             if rest:
@@ -3794,17 +3874,11 @@ def fmt_url(
 
     # Resolve color settings
     if color == "auto":
-        if as_button:
-            resolved_color = "#FFFFFF"
-        else:
-            resolved_color = _URL_DEFAULT_COLOR
+        resolved_color = "#FFFFFF" if as_button else _URL_DEFAULT_COLOR
     else:
         resolved_color = _normalize_color(color)
 
-    if show_underline == "auto":
-        resolved_underline = not as_button
-    else:
-        resolved_underline = bool(show_underline)
+    resolved_underline = not as_button if show_underline == "auto" else bool(show_underline)
 
     resolved_fill: str | None = None
     if as_button:
@@ -4005,17 +4079,11 @@ def fmt_email(
 
     # Resolve color settings (same logic as fmt_url)
     if color == "auto":
-        if as_button:
-            resolved_color = "#FFFFFF"
-        else:
-            resolved_color = _URL_DEFAULT_COLOR
+        resolved_color = "#FFFFFF" if as_button else _URL_DEFAULT_COLOR
     else:
         resolved_color = _normalize_color(color)
 
-    if show_underline == "auto":
-        resolved_underline = not as_button
-    else:
-        resolved_underline = bool(show_underline)
+    resolved_underline = not as_button if show_underline == "auto" else bool(show_underline)
 
     resolved_fill: str | None = None
     if as_button:
@@ -4272,26 +4340,24 @@ def fmt_bytes_context(
     # Determine properties of the value
     is_negative = _has_negative_value(value=x)
 
-    # Determine the power index for the value
-    if x == 0:
-        # If the value is zero, then the power index is 1; otherwise, we'd get
-        # an error when trying to calculate the log of zero
-        num_power_idx = 1
-    else:
-        # Otherwise, we can calculate the power index by taking the log of the value
-        # and dividing by the log of the base; we add 1 to the result to account for
-        # the fact that the power index is 1-based (i.e., the first element in the
-        # `byte_units` list is at index 0) --- the final statement ensures that the
-        # power index is always at least 1
-        num_power_idx = math.floor(math.log(abs(x), base)) + 1
-        num_power_idx = max(1, min(len(byte_units), num_power_idx))
+    # Determine the power index for the value: the exponent of the largest power of `base` that
+    # is at most the absolute value, plus 1 (the power index is 1-based, i.e., the first element
+    # in the `byte_units` list is at index 0), and 1 for zero; the integers are compared exactly,
+    # while `math.log()` can round up just below a power of the base (e.g.,
+    # `math.log(10**15 - 1, 1000)` gives `5.0`)
+    num_power_idx = 1
+    while num_power_idx < len(byte_units) and abs(x) >= base**num_power_idx:
+        num_power_idx += 1
 
-        # If rounding the scaled value carries it up to `base` (e.g., 999,999 bytes
-        # would give `1,000 kB`), use the next unit instead (`1 MB`)
-        if num_power_idx < len(byte_units) and _rounds_up_to(
-            x / base ** (num_power_idx - 1), threshold=base, decimals=decimals, n_sigfig=n_sigfig
-        ):
-            num_power_idx += 1
+    # If rounding the scaled value carries it up to `base` (e.g., 999,999 bytes
+    # would give `1,000 kB`), use the next unit instead (`1 MB`)
+    if num_power_idx < len(byte_units) and _rounds_up_to(
+        _divide_by_power(x, base=base, power=num_power_idx - 1),
+        threshold=base,
+        decimals=decimals,
+        n_sigfig=n_sigfig,
+    ):
+        num_power_idx += 1
 
     # The `units_str` is obtained by indexing the `byte_units` list with the `num_power_idx`
     # value; this is the string that will be affixed to the formatted value
@@ -4299,8 +4365,9 @@ def fmt_bytes_context(
 
     # Scale `x` value by a defined `base` value, this is done by dividing by the
     # `base` value raised to the power index minus 1 (we subtract 1 because the
-    # power index is 1-based)
-    x = x / base ** (num_power_idx - 1)
+    # power index is 1-based); the division is exact, so the value is rounded only once,
+    # when it's formatted
+    x = _divide_by_power(x, base=base, power=num_power_idx - 1)
 
     # Format the value to decimal notation; this is done before the `byte_units` text
     # is affixed to the value
@@ -4484,7 +4551,7 @@ def _apply_duration_pattern(patterns: dict[str, str], value: int, formatted_valu
     # Try the specific plural form, then fall back to "other"
     if plural in patterns:
         pattern = patterns[plural]
-    elif plural == "zero" and "other" in patterns or plural == "two" and "other" in patterns:
+    elif (plural == "zero" and "other" in patterns) or (plural == "two" and "other" in patterns):
         pattern = patterns["other"]
     else:
         pattern = patterns.get("other", "{0}")
@@ -4499,7 +4566,7 @@ def fmt_duration(
     input_units: str | None = None,
     output_units: str | list[str] | None = None,
     duration_style: DurationStyle = "narrow",
-    trim_zero_units: bool | list[str] = True,
+    trim_zero_units: bool | str | list[str] = True,
     max_output_units: int | None = None,
     pattern: str = "{x}",
     use_seps: bool = True,
@@ -4550,11 +4617,12 @@ def fmt_duration(
         Provides methods to remove output time units that have zero values. By default this is
         `True` and duration values that might otherwise be formatted as `"0w 1d 0h 4m 19s"` with
         `trim_zero_units=False` are instead displayed as `"1d 4m 19s"`. Aside from using
-        `True`/`False` we could provide a list of keywords for more precise control. These keywords
-        are: (1) `"leading"`, to omit all leading zero-value time units (e.g., `"0w 1d"` ->
-        `"1d"`), (2) `"trailing"`, to omit all trailing zero-value time units (e.g., `"3d 5h 0s"`
-        -> `"3d 5h"`), and (3) `"internal"`, which removes all internal zero-value time units
-        (e.g., `"5d 0h 33m"` -> `"5d 33m"`).
+        `True`/`False` we could provide a keyword or a list of keywords for more precise control.
+        These keywords are: (1) `"leading"`, to omit all leading zero-value time units (e.g.,
+        `"0w 1d"` -> `"1d"`), (2) `"trailing"`, to omit all trailing zero-value time units (e.g.,
+        `"3d 5h 0s"` -> `"3d 5h"`), and (3) `"internal"`, which removes all internal zero-value
+        time units (e.g., `"5d 0h 33m"` -> `"5d 33m"`). With `duration_style="colon-sep"`, only
+        `"leading"` has an effect (omitting zero hours, as in `"02:05"`).
     max_output_units
         If `output_units` is `None`, where the output time units are unspecified and left to be
         handled automatically, a numeric value provided for `max_output_units=` will be taken as the
@@ -4603,7 +4671,9 @@ def fmt_duration(
     - `["days", "hours", "minutes"]` -> `(D/)HH:MM`
 
     Any other specialized combinations will result in the default set being used, which is
-    `["days", "hours", "minutes", "seconds"]`.
+    `["days", "hours", "minutes", "seconds"]`. The largest unit carries any larger ones that
+    aren't shown, so with `["hours", "minutes", "seconds"]` a duration of 1 day, 8 hours, and 24
+    minutes is displayed as `32:24:00`.
 
     Compatibility of formatting function with data values
     -----------------------------------------------------
@@ -4760,6 +4830,31 @@ def fmt_duration(
                 f"got '{unit}'."
             )
 
+    # Validate max_output_units before the colon-sep and ISO styles set it aside
+    if max_output_units is not None and (
+        not isinstance(max_output_units, int) or max_output_units < 1
+    ):
+        raise ValueError("`max_output_units` must be an integer >= 1 or None.")
+
+    # Resolve trim_zero_units to a list of keywords (also before the style overrides)
+    if isinstance(trim_zero_units, str):
+        trim_zero_units = [trim_zero_units]
+    if isinstance(trim_zero_units, bool):
+        resolved_trim = ["leading", "trailing", "internal"] if trim_zero_units else []
+    elif isinstance(trim_zero_units, list):
+        for kw in trim_zero_units:
+            if kw not in ("leading", "trailing", "internal"):
+                raise ValueError(
+                    f"Each entry in `trim_zero_units` must be one of 'leading', 'trailing', "
+                    f"or 'internal', got '{kw}'."
+                )
+        resolved_trim = trim_zero_units
+    else:
+        raise ValueError(
+            "`trim_zero_units` must be a bool, a keyword, or a list of keywords "
+            "('leading', 'trailing', 'internal')."
+        )
+
     # Sort output_units from largest to smallest
     unit_order = list(_DURATION_OUTPUT_UNITS)
     resolved_output_units = sorted(resolved_output_units, key=lambda u: unit_order.index(u))
@@ -4781,49 +4876,23 @@ def fmt_duration(
         else:
             colon_sep_output_units = ["days", "hours", "minutes", "seconds"]
 
-        # Override resolved_output_units for the decomposition step
-        resolved_output_units = ["days", "hours", "minutes", "seconds"]
+        # Split values into the shown units only, so that the largest one carries the rest
+        # (e.g., 1 day 8 hours is `32:00:00` as `HH:MM:SS`, not `08:00:00`)
+        resolved_output_units = colon_sep_output_units
 
-        # Handle trim_zero_units for colon-sep
-        if (
-            isinstance(trim_zero_units, list)
-            and trim_zero_units == ["leading"]
-            or trim_zero_units == "leading"
-        ):
-            colon_sep_trim_leading = True
+        # Every colon-sep field is always shown, so dropping time parts would only zero them out
+        max_output_units = None
+
+        # Only leading zero hours can be trimmed in the colon-sep style
+        colon_sep_trim_leading = resolved_trim == ["leading"]
+        resolved_trim = []
 
     if duration_style == "iso":
         resolved_output_units = ["days", "hours", "minutes", "seconds"]
         max_output_units = None
         # Zero-valued units are left out everywhere, giving the minimal form (`P7DT1M1S` rather
         # than R gt's `P7DT0H1M1S`); a zero duration keeps its smallest unit (`PT0S`)
-        trim_zero_units = ["leading", "trailing", "internal"]
-
-    # Resolve trim_zero_units to a list of keywords
-    if isinstance(trim_zero_units, bool):
-        if trim_zero_units:
-            resolved_trim = ["leading", "trailing", "internal"]
-        else:
-            resolved_trim = []
-    elif isinstance(trim_zero_units, list):
-        for kw in trim_zero_units:
-            if kw not in ("leading", "trailing", "internal"):
-                raise ValueError(
-                    f"Each entry in `trim_zero_units` must be one of 'leading', 'trailing', "
-                    f"or 'internal', got '{kw}'."
-                )
-        resolved_trim = trim_zero_units
-    else:
-        raise ValueError(
-            "`trim_zero_units` must be a bool or a list of keywords "
-            "('leading', 'trailing', 'internal')."
-        )
-
-    # Validate max_output_units
-    if max_output_units is not None and (
-        not isinstance(max_output_units, int) or max_output_units < 1
-    ):
-        raise ValueError("`max_output_units` must be an integer >= 1 or None.")
+        resolved_trim = ["leading", "trailing", "internal"]
 
     pf_format = partial(
         fmt_duration_context,
@@ -4957,8 +5026,10 @@ def fmt_duration_context(
             locale=locale,
         )
 
-    # Escape the `<` of values below the smallest output unit (e.g., `<1s`) for LaTeX
-    if context == "latex":
+    # Escape the `<` of values below the smallest output unit (e.g., `<1s`) for HTML and LaTeX
+    if context == "html":
+        x_formatted = _html_escape(x_formatted)
+    elif context == "latex":
         x_formatted = _latex_escape(x_formatted)
 
     # A duration shown as zero in the colon and ISO styles (e.g., `00:00:00` for `-0.4` seconds)
@@ -5138,7 +5209,7 @@ def _format_duration_colon_sep(
         colon_sep_output_units = ["days", "hours", "minutes", "seconds"]
 
     # Build a dict from the decomposed time_parts
-    parts_dict = {unit: value for unit, value in time_parts}
+    parts_dict = dict(time_parts)
 
     # Ensure all colon_sep_output_units are present
     for unit in colon_sep_output_units:
@@ -5173,7 +5244,8 @@ def _format_duration_colon_sep(
         if unit == "days":
             day_part = _format_number_for_duration(value, sep_mark, min_sep_threshold) + "/"
         else:
-            # Zero-pad hours, minutes, seconds to 2 digits
+            # Zero-pad hours, minutes, seconds to 2 digits; the largest field can be longer since
+            # it carries any larger units that aren't shown (e.g., `1944:00` as `MM:SS`)
             hms_parts.append(f"{value:02d}")
 
     return day_part + ":".join(hms_parts)
@@ -5190,7 +5262,7 @@ def fmt_date(
     """
     Format values as dates.
 
-    Format input values to time values using one of 17 preset date styles. Input can be in the form
+    Format input values to date values using one of 41 preset date styles. Input can be in the form
     of `date` type or as a ISO-8601 string (in the form of `YYYY-MM-DD HH:MM:SS` or `YYYY-MM-DD`).
 
     Parameters
@@ -5217,33 +5289,67 @@ def fmt_date(
     Formatting with the `date_style=` argument
     -----------------------------------------
     We need to supply a preset date style to the `date_style=` argument. The date styles are
-    numerous and can handle localization to any supported locale. The following table provides a
-    listing of all date styles and their output values (corresponding to an input date of
-    `2000-02-29`).
+    numerous and can handle localization to any supported locale. A large segment of date styles
+    are termed flexible date formats and this means that their output will adapt to any `locale=`
+    provided: the order of the fields, the punctuation, and even which fields are abbreviated
+    follow the locale's conventions (e.g., `"yMMMd"` is `"Feb 29, 2000"` in English and
+    `"29. Feb. 2000"` in German). That feature makes the flexible date formats a better option for
+    locales other than `"en"` (the default locale).
 
-    |    | Date Style            | Output                  |
-    |----|-----------------------|-------------------------|
-    | 1  | `"iso"`               | `"2000-02-29"`          |
-    | 2  | `"wday_month_day_year"`| `"Tuesday, February 29, 2000"`  |
-    | 3  | `"wd_m_day_year"`     | `"Tue, Feb 29, 2000"`   |
-    | 4  | `"wday_day_month_year"`| `"Tuesday 29 February 2000"`    |
-    | 5  | `"month_day_year"`    | `"February 29, 2000"`   |
-    | 6  | `"m_day_year"`        | `"Feb 29, 2000"`        |
-    | 7  | `"day_m_year"`        | `"29 Feb 2000"`         |
-    | 8  | `"day_month_year"`    | `"29 February 2000"`    |
-    | 9  | `"day_month"`         | `"29 February"`         |
-    | 10 | `"day_m"`             | `"29 Feb"`              |
-    | 11 | `"year"`              | `"2000"`                |
-    | 12 | `"month"`             | `"February"`            |
-    | 13 | `"day"`               | `"29"`                  |
-    | 14 | `"year.mn.day"`       | `"2000/02/29"`          |
-    | 15 | `"y.mn.day"`          | `"00/02/29"`            |
-    | 16 | `"year_week"`         | `"2000-W09"`            |
-    | 17 | `"year_quarter"`      | `"2000-Q1"`             |
+    The following table provides a listing of all date styles and their output values
+    (corresponding to an input date of `2000-02-29`).
+
+    |    | Date Style             | Output                         | Notes    |
+    |----|------------------------|--------------------------------|----------|
+    | 1  | `"iso"`                | `"2000-02-29"`                 | ISO 8601 |
+    | 2  | `"wday_month_day_year"`| `"Tuesday, February 29, 2000"` |          |
+    | 3  | `"wd_m_day_year"`      | `"Tue, Feb 29, 2000"`          |          |
+    | 4  | `"wday_day_month_year"`| `"Tuesday 29 February 2000"`   |          |
+    | 5  | `"month_day_year"`     | `"February 29, 2000"`          |          |
+    | 6  | `"m_day_year"`         | `"Feb 29, 2000"`               |          |
+    | 7  | `"day_m_year"`         | `"29 Feb 2000"`                |          |
+    | 8  | `"day_month_year"`     | `"29 February 2000"`           |          |
+    | 9  | `"day_month"`          | `"29 February"`                |          |
+    | 10 | `"day_m"`              | `"29 Feb"`                     |          |
+    | 11 | `"year"`               | `"2000"`                       |          |
+    | 12 | `"month"`              | `"February"`                   |          |
+    | 13 | `"day"`                | `"29"`                         |          |
+    | 14 | `"year.mn.day"`        | `"2000/02/29"`                 |          |
+    | 15 | `"y.mn.day"`           | `"00/02/29"`                   |          |
+    | 16 | `"year_week"`          | `"2000-W09"`                   | ISO 8601 |
+    | 17 | `"year_quarter"`       | `"2000-Q1"`                    |          |
+    | 18 | `"yMd"`                | `"2/29/2000"`                  | flexible |
+    | 19 | `"yMEd"`               | `"Tue, 2/29/2000"`             | flexible |
+    | 20 | `"yMMM"`               | `"Feb 2000"`                   | flexible |
+    | 21 | `"yMMMM"`              | `"February 2000"`              | flexible |
+    | 22 | `"yMMMd"`              | `"Feb 29, 2000"`               | flexible |
+    | 23 | `"yMMMEd"`             | `"Tue, Feb 29, 2000"`          | flexible |
+    | 24 | `"GyMd"`               | `"2/29/2000 AD"`               | flexible |
+    | 25 | `"GyMMMd"`             | `"Feb 29, 2000 AD"`            | flexible |
+    | 26 | `"GyMMMEd"`            | `"Tue, Feb 29, 2000 AD"`       | flexible |
+    | 27 | `"yM"`                 | `"2/2000"`                     | flexible |
+    | 28 | `"Md"`                 | `"2/29"`                       | flexible |
+    | 29 | `"MEd"`                | `"Tue, 2/29"`                  | flexible |
+    | 30 | `"MMMd"`               | `"Feb 29"`                     | flexible |
+    | 31 | `"MMMEd"`              | `"Tue, Feb 29"`                | flexible |
+    | 32 | `"MMMMd"`              | `"February 29"`                | flexible |
+    | 33 | `"GyMMM"`              | `"Feb 2000 AD"`                | flexible |
+    | 34 | `"yQQQ"`               | `"Q1 2000"`                    | flexible |
+    | 35 | `"yQQQQ"`              | `"1st quarter 2000"`           | flexible |
+    | 36 | `"Gy"`                 | `"2000 AD"`                    | flexible |
+    | 37 | `"y"`                  | `"2000"`                       | flexible |
+    | 38 | `"M"`                  | `"2"`                          | flexible |
+    | 39 | `"MMM"`                | `"Feb"`                        | flexible |
+    | 40 | `"d"`                  | `"29"`                         | flexible |
+    | 41 | `"Ed"`                 | `"29 Tue"`                     | flexible |
 
     The `"year_week"` style gives the ISO 8601 week date in every locale: weeks start on Monday,
     week 1 is the week containing the first Thursday of the year, and the year shown is the one the
     week belongs to (so `2024-12-30` is `"2025-W01"`).
+
+    The names of the flexible date styles are CLDR skeletons, where each letter stands for a field:
+    `G` is the era, `y` the year, `Q` the quarter, `M` the month, `d` the day of the month, and `E`
+    the day of the week. A longer run of `Q`, `M`, or `E` gives a longer form of that field.
 
     Returns
     -------
@@ -5275,12 +5381,22 @@ def fmt_date(
         .fmt_date(columns="date", date_style="month_day_year")
     )
     ```
+
+    A flexible date style adapts to the locale. Here, the `"yMMMEd"` style is used to format the
+    dates for a table in German.
+
+    ```{python}
+    (
+        GT(exibble_mini, locale="de")
+        .fmt_date(columns="date", date_style="yMMMEd")
+    )
+    ```
     """
 
     locale = _resolve_locale(self, locale=locale)
 
     # Get the date format string based on the `date_style` value
-    date_format_str = _get_date_format(date_style=date_style)
+    date_format_str = _get_date_format(date_style=date_style, locale=locale)
 
     pf_format = partial(
         fmt_date_context,
@@ -5313,14 +5429,10 @@ def fmt_date_context(
         # Stop if `x` is not a valid date object
         _validate_date_obj(x=x)
 
-    # Fix up the locale for `format_date()` by replacing any hyphens with underscores
-    if locale is None:
-        locale = "en_US"
-    else:
-        locale = _str_replace(locale, "-", "_")
-
     # Format the date object to a string using Babel's `format_date()` function
-    x_formatted = format_date(x, format=_resolve_iso_week(date_format_str, x), locale=locale)
+    x_formatted = format_date(
+        x, format=_resolve_iso_week(date_format_str, x), locale=_get_babel_locale(locale)
+    )
 
     # Use a supplied pattern specification to decorate the formatted value
     x_formatted = _apply_value_pattern(x_formatted, pattern=pattern, context=context)
@@ -5339,7 +5451,7 @@ def fmt_time(
     """
     Format values as times.
 
-    Format input values to time values using one of 5 preset time styles. Input can be in the form
+    Format input values to time values using one of 25 preset time styles. Input can be in the form
     of `time` values, or strings in the ISO 8601 forms of `HH:MM:SS` or `YYYY-MM-DD HH:MM:SS`.
     For `datetime` values (and datetime strings), the time part is formatted. Dates without a time
     (e.g., `"2024-01-05"`) raise an error; use [`fmt_date()`](`great_tables.GT.fmt_date`) for
@@ -5357,7 +5469,7 @@ def fmt_time(
         DataFrames) a Polars expression such as `pl.col("x") > 0`.
     time_style
         The time style to use. By default this is the short name `"iso"` which corresponds to how
-        times are formatted within ISO 8601 datetime values. There are 5 time styles in total.
+        times are formatted within ISO 8601 datetime values. There are 25 time styles in total.
     pattern
         A formatting pattern that allows for decoration of the formatted value. The formatted value
         is represented by the `{x}` (which can be used multiple times, if needed) and all other
@@ -5369,17 +5481,54 @@ def fmt_time(
     Formatting with the `time_style=` argument
     -----------------------------------------
     We need to supply a preset time style to the `time_style=` argument. The time styles are
-    numerous and can handle localization to any supported locale. The following table provides a
-    listing of all time styles and their output values (corresponding to an input time of
-    `14:35:00`).
+    numerous and can handle localization to any supported locale. Many of the time styles are
+    termed flexible time formats and this means that their output will adapt to any `locale=`
+    provided (e.g., `"hm"` is `"2:35 PM"` in English and `"午後2:35"` in Japanese). That feature
+    makes the flexible time formats a better option for locales other than `"en"` (the default
+    locale).
 
-    |    | Time Style    | Output                          | Notes         |
-    |----|---------------|---------------------------------|---------------|
-    | 1  | `"iso"`       | `"14:35:00"`                    | ISO 8601, 24h |
-    | 2  | `"iso-short"` | `"14:35"`                       | ISO 8601, 24h |
-    | 3  | `"h_m_s_p"`   | `"2:35:00 PM"`                  | 12h           |
-    | 4  | `"h_m_p"`     | `"2:35 PM"`                     | 12h           |
-    | 5  | `"h_p"`       | `"2 PM"`                        | 12h           |
+    The following table provides a listing of all time styles and their output values
+    (corresponding to an input of `2000-02-29 14:35:00`). It is noted which of these represent 12-
+    or 24-hour time.
+
+    |    | Time Style    | Output                            | Notes         |
+    |----|---------------|-----------------------------------|---------------|
+    | 1  | `"iso"`       | `"14:35:00"`                      | ISO 8601, 24h |
+    | 2  | `"iso-short"` | `"14:35"`                         | ISO 8601, 24h |
+    | 3  | `"h_m_s_p"`   | `"2:35:00 PM"`                    | 12h           |
+    | 4  | `"h_m_p"`     | `"2:35 PM"`                       | 12h           |
+    | 5  | `"h_p"`       | `"2 PM"`                          | 12h           |
+    | 6  | `"Hms"`       | `"14:35:00"`                      | flexible, 24h |
+    | 7  | `"Hm"`        | `"14:35"`                         | flexible, 24h |
+    | 8  | `"H"`         | `"14"`                            | flexible, 24h |
+    | 9  | `"EHm"`       | `"Tue 14:35"`                     | flexible, 24h |
+    | 10 | `"EHms"`      | `"Tue 14:35:00"`                  | flexible, 24h |
+    | 11 | `"Hmsv"`      | `"14:35:00 UTC"`                  | flexible, 24h |
+    | 12 | `"Hmv"`       | `"14:35 UTC"`                     | flexible, 24h |
+    | 13 | `"hms"`       | `"2:35:00 PM"`                    | flexible, 12h |
+    | 14 | `"hm"`        | `"2:35 PM"`                       | flexible, 12h |
+    | 15 | `"h"`         | `"2 PM"`                          | flexible, 12h |
+    | 16 | `"Ehm"`       | `"Tue 2:35 PM"`                   | flexible, 12h |
+    | 17 | `"Ehms"`      | `"Tue 2:35:00 PM"`                | flexible, 12h |
+    | 18 | `"EBhms"`     | `"Tue 2:35:00 in the afternoon"`  | flexible, 12h |
+    | 19 | `"Bhms"`      | `"2:35:00 in the afternoon"`      | flexible, 12h |
+    | 20 | `"EBhm"`      | `"Tue 2:35 in the afternoon"`     | flexible, 12h |
+    | 21 | `"Bhm"`       | `"2:35 in the afternoon"`         | flexible, 12h |
+    | 22 | `"Bh"`        | `"2 in the afternoon"`            | flexible, 12h |
+    | 23 | `"hmsv"`      | `"2:35:00 PM UTC"`                | flexible, 12h |
+    | 24 | `"hmv"`       | `"2:35 PM UTC"`                   | flexible, 12h |
+    | 25 | `"ms"`        | `"35:00"`                         | flexible      |
+
+    The names of the flexible time styles are CLDR skeletons, where each letter stands for a field:
+    `H` is the hour (0-23), `h` the hour (1-12) with AM or PM, `B` the hour with a period of the day
+    (e.g., "in the afternoon"), `m` the minute, `s` the second, `E` the day of the week, and `v` the
+    time zone.
+
+    The styles with the day of the week (`E`) need `datetime` values (or datetime strings); a `time`
+    value without a date raises an error with them. The styles with the time zone (`v`) give its
+    generic name for an aware value (e.g., `"ET"` for `America/New_York`), falling back to a name
+    like `"UTC"` or an offset like `"-0500"` for a zone without one. A naive value is taken to be in
+    UTC.
 
     Returns
     -------
@@ -5411,17 +5560,29 @@ def fmt_time(
         .fmt_time(columns="time", time_style="h_m_s_p")
     )
     ```
+
+    A flexible time style adapts to the locale. Here, the `"hm"` style is used to format the times
+    for a table in Japanese.
+
+    ```{python}
+    (
+        GT(exibble_mini, locale="ja")
+        .fmt_time(columns="time", time_style="hm")
+    )
+    ```
     """
 
     locale = _resolve_locale(self, locale=locale)
 
-    # Get the time format string based on the `time_style` value
-    time_format_str = _get_time_format(time_style=time_style)
+    # Get the time format pattern based on the `time_style` value
+    time_pattern = _DatetimePattern.from_pattern(
+        _get_time_format(time_style=time_style, locale=locale)
+    )
 
     pf_format = partial(
         fmt_time_context,
         data=self,
-        time_format_str=time_format_str,
+        time_pattern=time_pattern,
         pattern=pattern,
         locale=locale,
         context=None,  # Ensure the 'context' parameter is explicitly handled
@@ -5433,7 +5594,7 @@ def fmt_time(
 def fmt_time_context(
     x: Any,
     data: GTData,
-    time_format_str: str,
+    time_pattern: _DatetimePattern,
     pattern: str,
     locale: str | None,
     context: str,
@@ -5441,27 +5602,32 @@ def fmt_time_context(
     if is_na(data._tbl_data, x):
         return x
 
-    # If `x` is a string, assume it is an ISO time string and convert it to a time object
+    # If `x` is a string, assume it is an ISO time (or datetime) string and convert it
     if isinstance(x, str):
-        # Convert the ISO time string to a time object
         x = _iso_str_to_time(x)
 
-    elif isinstance(x, datetime):
-        # Use the time part of a datetime (as for datetime strings)
-        x = x.time()
-
-    else:
+    elif not isinstance(x, datetime):
         # Stop if `x` is not a valid time object
         _validate_time_obj(x=x)
 
-    # Fix up the locale for `format_time()` by replacing any hyphens with underscores
-    if locale is None:
-        locale = "en_US"
-    else:
-        locale = _str_replace(locale, "-", "_")
+    babel_locale = _get_babel_locale(locale)
 
-    # Format the time object to a string using Babel's `format_time()` function
-    x_formatted = format_time(x, format=time_format_str, locale=locale)
+    if isinstance(x, datetime):
+        # Babel's `format_time()` would drop the date, which a style showing the weekday needs
+        x_formatted = format_datetime(
+            x, format=time_pattern.for_value(x, locale), locale=babel_locale
+        )
+
+    elif time_pattern.has_date_fields:
+        # Babel would take the date as today
+        raise ValueError(
+            f"Invalid time: '{x}' has no date, so it can't be formatted with a time style that "
+            "shows the weekday. Use datetime values or a time style without the weekday."
+        )
+
+    else:
+        # Format the time object to a string using Babel's `format_time()` function
+        x_formatted = format_time(x, format=time_pattern.for_value(x, locale), locale=babel_locale)
 
     # Use a supplied pattern specification to decorate the formatted value
     x_formatted = _apply_value_pattern(x_formatted, pattern=pattern, context=context)
@@ -5483,9 +5649,9 @@ def fmt_datetime(
     """
     Format values as datetimes.
 
-    Format input values to datetime values using one of 17 preset date styles and one of 5 preset
-    time styles. Input can be in the form of `datetime` values, or strings in the ISO 8601 forms of
-    `YYYY-MM-DD HH:MM:SS` or `YYYY-MM-DD`.
+    Format input values to datetime values using one of 41 preset date styles and one of 25 preset
+    time styles, or with a format string. Input can be in the form of `datetime` values, or strings
+    in the ISO 8601 forms of `YYYY-MM-DD HH:MM:SS` or `YYYY-MM-DD`.
 
     Parameters
     ----------
@@ -5502,14 +5668,16 @@ def fmt_datetime(
         ISO 8601 date formatting. There are 41 date styles in total.
     time_style
         The time style to use. By default this is the short name `"iso"` which corresponds to how
-        times are formatted within ISO 8601 datetime values. There are 5 time styles in total.
+        times are formatted within ISO 8601 datetime values. There are 25 time styles in total.
     format_str
-        A string that specifies the format of the datetime string. This is a `strftime()` format
-        string that can be used to format date or datetime input. If `format=` is provided, the
-        `date_style=` and `time_style=` arguments are ignored.
+        A format string to use instead of the preset styles. This can be a CLDR datetime pattern
+        (e.g., `"EEEE, d MMMM y"`), which is localized using `locale=` (or the table locale), or a
+        `strftime()` format string (any string containing `%`, e.g., `"%d.%m.%Y"`), which isn't
+        localized. If `format_str=` is provided, the `date_style=`, `time_style=`, and `sep=`
+        arguments are ignored.
     sep
         A string that separates the date and time components of the datetime string. The default is
-        a space character (`" "`). This is ignored if `format=` is provided.
+        a space character (`" "`). This is ignored if `format_str=` is provided.
     pattern
         A formatting pattern that allows for decoration of the formatted value. The formatted value
         is represented by the `{x}` (which can be used multiple times, if needed) and all other
@@ -5517,51 +5685,140 @@ def fmt_datetime(
     locale
         An optional locale identifier that can be used for formatting values according the locale's
         rules. Examples include `"en"` for English (United States) and `"fr"` for French (France).
-        Only relevant if `date_style=` or `time_style=` are provided.
+        This can't be used with a `strftime()` format string in `format_str=`, since that isn't
+        localized (with one, a table locale set in [`GT()`](`great_tables.GT`) is ignored).
 
     Formatting with the `date_style=` and `time_style=` arguments
     -------------------------------------------------------------
     If not supplying a formatting string to `format_str=` we need to supply a preset date style to
-    the `date_style=` argument and a preset time style to the `time_style=` argument. The date
-    styles are numerous and can handle localization to any supported locale. The following table
-    provides a listing of all date styles and their output values (corresponding to an input date of
-    `2000-02-29 14:35:00`).
+    the `date_style=` argument and a preset time style to the `time_style=` argument. The date and
+    time parts are formatted separately and joined by `sep=`. The styles are numerous and can
+    handle localization to any supported locale. Those termed flexible adapt their output to any
+    `locale=` provided: the order of the fields, the punctuation, and even which fields are
+    abbreviated follow the locale's conventions. That feature makes the flexible formats a better
+    option for locales other than `"en"` (the default locale).
 
-    |    | Date Style            | Output                  |
-    |----|-----------------------|-------------------------|
-    | 1  | `"iso"`               | `"2000-02-29"`          |
-    | 2  | `"wday_month_day_year"`| `"Tuesday, February 29, 2000"`  |
-    | 3  | `"wd_m_day_year"`     | `"Tue, Feb 29, 2000"`   |
-    | 4  | `"wday_day_month_year"`| `"Tuesday 29 February 2000"`    |
-    | 5  | `"month_day_year"`    | `"February 29, 2000"`   |
-    | 6  | `"m_day_year"`        | `"Feb 29, 2000"`        |
-    | 7  | `"day_m_year"`        | `"29 Feb 2000"`         |
-    | 8  | `"day_month_year"`    | `"29 February 2000"`    |
-    | 9  | `"day_month"`         | `"29 February"`         |
-    | 10 | `"day_m"`             | `"29 Feb"`              |
-    | 11 | `"year"`              | `"2000"`                |
-    | 12 | `"month"`             | `"February"`            |
-    | 13 | `"day"`               | `"29"`                  |
-    | 14 | `"year.mn.day"`       | `"2000/02/29"`          |
-    | 15 | `"y.mn.day"`          | `"00/02/29"`            |
-    | 16 | `"year_week"`         | `"2000-W09"`            |
-    | 17 | `"year_quarter"`      | `"2000-Q1"`             |
+    The following table provides a listing of all date styles and their output values
+    (corresponding to an input of `2000-02-29 14:35:00`).
+
+    |    | Date Style             | Output                         | Notes    |
+    |----|------------------------|--------------------------------|----------|
+    | 1  | `"iso"`                | `"2000-02-29"`                 | ISO 8601 |
+    | 2  | `"wday_month_day_year"`| `"Tuesday, February 29, 2000"` |          |
+    | 3  | `"wd_m_day_year"`      | `"Tue, Feb 29, 2000"`          |          |
+    | 4  | `"wday_day_month_year"`| `"Tuesday 29 February 2000"`   |          |
+    | 5  | `"month_day_year"`     | `"February 29, 2000"`          |          |
+    | 6  | `"m_day_year"`         | `"Feb 29, 2000"`               |          |
+    | 7  | `"day_m_year"`         | `"29 Feb 2000"`                |          |
+    | 8  | `"day_month_year"`     | `"29 February 2000"`           |          |
+    | 9  | `"day_month"`          | `"29 February"`                |          |
+    | 10 | `"day_m"`              | `"29 Feb"`                     |          |
+    | 11 | `"year"`               | `"2000"`                       |          |
+    | 12 | `"month"`              | `"February"`                   |          |
+    | 13 | `"day"`                | `"29"`                         |          |
+    | 14 | `"year.mn.day"`        | `"2000/02/29"`                 |          |
+    | 15 | `"y.mn.day"`           | `"00/02/29"`                   |          |
+    | 16 | `"year_week"`          | `"2000-W09"`                   | ISO 8601 |
+    | 17 | `"year_quarter"`       | `"2000-Q1"`                    |          |
+    | 18 | `"yMd"`                | `"2/29/2000"`                  | flexible |
+    | 19 | `"yMEd"`               | `"Tue, 2/29/2000"`             | flexible |
+    | 20 | `"yMMM"`               | `"Feb 2000"`                   | flexible |
+    | 21 | `"yMMMM"`              | `"February 2000"`              | flexible |
+    | 22 | `"yMMMd"`              | `"Feb 29, 2000"`               | flexible |
+    | 23 | `"yMMMEd"`             | `"Tue, Feb 29, 2000"`          | flexible |
+    | 24 | `"GyMd"`               | `"2/29/2000 AD"`               | flexible |
+    | 25 | `"GyMMMd"`             | `"Feb 29, 2000 AD"`            | flexible |
+    | 26 | `"GyMMMEd"`            | `"Tue, Feb 29, 2000 AD"`       | flexible |
+    | 27 | `"yM"`                 | `"2/2000"`                     | flexible |
+    | 28 | `"Md"`                 | `"2/29"`                       | flexible |
+    | 29 | `"MEd"`                | `"Tue, 2/29"`                  | flexible |
+    | 30 | `"MMMd"`               | `"Feb 29"`                     | flexible |
+    | 31 | `"MMMEd"`              | `"Tue, Feb 29"`                | flexible |
+    | 32 | `"MMMMd"`              | `"February 29"`                | flexible |
+    | 33 | `"GyMMM"`              | `"Feb 2000 AD"`                | flexible |
+    | 34 | `"yQQQ"`               | `"Q1 2000"`                    | flexible |
+    | 35 | `"yQQQQ"`              | `"1st quarter 2000"`           | flexible |
+    | 36 | `"Gy"`                 | `"2000 AD"`                    | flexible |
+    | 37 | `"y"`                  | `"2000"`                       | flexible |
+    | 38 | `"M"`                  | `"2"`                          | flexible |
+    | 39 | `"MMM"`                | `"Feb"`                        | flexible |
+    | 40 | `"d"`                  | `"29"`                         | flexible |
+    | 41 | `"Ed"`                 | `"29 Tue"`                     | flexible |
 
     The `"year_week"` style gives the ISO 8601 week date in every locale: weeks start on Monday,
     week 1 is the week containing the first Thursday of the year, and the year shown is the one the
     week belongs to (so `2024-12-30` is `"2025-W01"`).
 
-    The time styles can also handle localization to any supported locale. The following table
-    provides a listing of all time styles and their output values (corresponding to an input time of
-    `2000-02-29 14:35:00`).
+    The following table provides a listing of all time styles and their output values
+    (corresponding to an input of `2000-02-29 14:35:00`). It is noted which of these represent 12-
+    or 24-hour time.
 
-    |    | Time Style    | Output                          | Notes         |
-    |----|---------------|---------------------------------|---------------|
-    | 1  | `"iso"`       | `"14:35:00"`                    | ISO 8601, 24h |
-    | 2  | `"iso-short"` | `"14:35"`                       | ISO 8601, 24h |
-    | 3  | `"h_m_s_p"`   | `"2:35:00 PM"`                  | 12h           |
-    | 4  | `"h_m_p"`     | `"2:35 PM"`                     | 12h           |
-    | 5  | `"h_p"`       | `"2 PM"`                        | 12h           |
+    |    | Time Style    | Output                            | Notes         |
+    |----|---------------|-----------------------------------|---------------|
+    | 1  | `"iso"`       | `"14:35:00"`                      | ISO 8601, 24h |
+    | 2  | `"iso-short"` | `"14:35"`                         | ISO 8601, 24h |
+    | 3  | `"h_m_s_p"`   | `"2:35:00 PM"`                    | 12h           |
+    | 4  | `"h_m_p"`     | `"2:35 PM"`                       | 12h           |
+    | 5  | `"h_p"`       | `"2 PM"`                          | 12h           |
+    | 6  | `"Hms"`       | `"14:35:00"`                      | flexible, 24h |
+    | 7  | `"Hm"`        | `"14:35"`                         | flexible, 24h |
+    | 8  | `"H"`         | `"14"`                            | flexible, 24h |
+    | 9  | `"EHm"`       | `"Tue 14:35"`                     | flexible, 24h |
+    | 10 | `"EHms"`      | `"Tue 14:35:00"`                  | flexible, 24h |
+    | 11 | `"Hmsv"`      | `"14:35:00 UTC"`                  | flexible, 24h |
+    | 12 | `"Hmv"`       | `"14:35 UTC"`                     | flexible, 24h |
+    | 13 | `"hms"`       | `"2:35:00 PM"`                    | flexible, 12h |
+    | 14 | `"hm"`        | `"2:35 PM"`                       | flexible, 12h |
+    | 15 | `"h"`         | `"2 PM"`                          | flexible, 12h |
+    | 16 | `"Ehm"`       | `"Tue 2:35 PM"`                   | flexible, 12h |
+    | 17 | `"Ehms"`      | `"Tue 2:35:00 PM"`                | flexible, 12h |
+    | 18 | `"EBhms"`     | `"Tue 2:35:00 in the afternoon"`  | flexible, 12h |
+    | 19 | `"Bhms"`      | `"2:35:00 in the afternoon"`      | flexible, 12h |
+    | 20 | `"EBhm"`      | `"Tue 2:35 in the afternoon"`     | flexible, 12h |
+    | 21 | `"Bhm"`       | `"2:35 in the afternoon"`         | flexible, 12h |
+    | 22 | `"Bh"`        | `"2 in the afternoon"`            | flexible, 12h |
+    | 23 | `"hmsv"`      | `"2:35:00 PM UTC"`                | flexible, 12h |
+    | 24 | `"hmv"`       | `"2:35 PM UTC"`                   | flexible, 12h |
+    | 25 | `"ms"`        | `"35:00"`                         | flexible      |
+
+    The styles with the time zone (`v`) give its generic name for an aware value (e.g., `"ET"` for
+    `America/New_York`), falling back to a name like `"UTC"` or an offset like `"-0500"` for a zone
+    without one. A naive value is taken to be in UTC.
+
+    Formatting with a pattern in `format_str=`
+    ------------------------------------------
+    For full control over the output, a CLDR datetime pattern can be given to `format_str=`. In a
+    pattern, runs of letters are fields that are replaced with parts of the datetime, and the
+    length of a run sets the form of that field. Literal text that has letters must be put in
+    single quotes (e.g., `"h 'o''clock' a"`, where `''` is a single quote). Some of the fields are:
+
+    | Field             | Letters                  | Output for `2000-02-29 14:35:07`              |
+    |-------------------|--------------------------|-----------------------------------------------|
+    | year              | `y`, `yy`                | `"2000"`, `"00"`                              |
+    | quarter           | `Q`, `QQQ`, `QQQQ`       | `"1"`, `"Q1"`, `"1st quarter"`                |
+    | month             | `M`, `MM`, `MMM`, `MMMM` | `"2"`, `"02"`, `"Feb"`, `"February"`          |
+    | day of the month  | `d`, `dd`                | `"29"`, `"29"`                                |
+    | day of the week   | `E`, `EEEE`              | `"Tue"`, `"Tuesday"`                          |
+    | hour (1-12)       | `h`, `hh`                | `"2"`, `"02"`                                 |
+    | hour (0-23)       | `H`, `HH`                | `"14"`, `"14"`                                |
+    | AM or PM          | `a`                      | `"PM"`                                        |
+    | period of the day | `B`                      | `"in the afternoon"`                          |
+    | minute            | `mm`                     | `"35"`                                        |
+    | second            | `ss`                     | `"07"`                                        |
+    | time zone         | `z`, `zzzz`, `xxx`       | `"UTC"`, `"Coordinated Universal Time"`, `"+00:00"` |
+
+    The full list of fields is in the [CLDR date field symbol
+    table](https://unicode.org/reports/tr35/tr35-dates.html#Date_Field_Symbol_Table). The generic
+    time zone fields (`v` and `vvvv`, e.g., `"ET"` and `"Eastern Time"` for `America/New_York`)
+    and the location ones (`V` and `VVVV`) fall back to the `z` and `zzzz` forms for a zone
+    without a generic name, as with the time styles. The short GMT offset `O` gives forms like
+    `"GMT-5"`, `"GMT+5:30"` and `"GMT"`, and `g` is the modified Julian day (days since
+    1858-11-17). The output of a pattern is localized (e.g., `"EEEE, d MMMM y"` gives
+    `"Dienstag, 29 Februar 2000"` with `locale="de"`), though the pattern itself fixes the order of
+    the fields and the punctuation.
+
+    A `strftime()` format string can be used instead (any value with `%` is treated as one). Its
+    output isn't localized, so it can't be used together with `locale=`.
 
     Returns
     -------
@@ -5590,22 +5847,55 @@ def fmt_datetime(
         )
     )
     ```
+
+    With a CLDR pattern in `format_str=`, we choose the fields and their order ourselves. The
+    names of the weekdays and months are still localized, here for a table in French.
+
+    ```{python}
+    (
+        GT(exibble_mini, locale="fr")
+        .fmt_datetime(columns="date", format_str="EEEE d MMMM y")
+    )
+    ```
     """
+
+    # A `format_str=` value with a `%` is a `strftime()` format string and any other is a CLDR pattern
+    strftime_str = None
+    format_pattern = None
+
+    if format_str is not None and "%" in format_str:
+        # A `strftime()` format string isn't localized, so it can't be combined with `locale=`;
+        # this is checked before resolving the locale so that a table locale doesn't trigger it
+        if locale is not None:
+            raise ValueError(
+                "A `strftime()` format string (one with `%`) given to `format_str=` isn't "
+                "localized, so it cannot be used together with `locale=`. To format with a "
+                'locale, use a CLDR pattern instead (e.g., `format_str="d MMMM y, HH:mm"`).'
+            )
+
+        strftime_str = format_str
+
+    elif format_str is not None:
+        _validate_cldr_pattern(format_str)
+        format_pattern = _DatetimePattern.from_pattern(format_str)
 
     locale = _resolve_locale(self, locale=locale)
 
     # Get the date format string based on the `date_style` value
-    date_format_str = _get_date_format(date_style=date_style)
+    date_format_str = _get_date_format(date_style=date_style, locale=locale)
 
-    # Get the time format string based on the `time_style` value
-    time_format_str = _get_time_format(time_style=time_style)
+    # Get the time format pattern based on the `time_style` value
+    time_pattern = _DatetimePattern.from_pattern(
+        _get_time_format(time_style=time_style, locale=locale)
+    )
 
     pf_format = partial(
         fmt_datetime_context,
         data=self,
         date_format_str=date_format_str,
-        time_format_str=time_format_str,
-        format_str=format_str,
+        time_pattern=time_pattern,
+        strftime_str=strftime_str,
+        format_pattern=format_pattern,
         sep=sep,
         pattern=pattern,
         locale=locale,
@@ -5618,8 +5908,9 @@ def fmt_datetime_context(
     x: Any,
     data: GTData,
     date_format_str: str,
-    time_format_str: str,
-    format_str: str | None,
+    time_pattern: _DatetimePattern,
+    strftime_str: str | None,
+    format_pattern: _DatetimePattern | None,
     sep: str,
     pattern: str,
     locale: str | None,
@@ -5637,26 +5928,23 @@ def fmt_datetime_context(
         # Stop if `x` is not a valid datetime object
         _validate_datetime_obj(x=x)
 
-    if format_str is not None:
-        if locale is not None:
-            raise ValueError("The `format_str=` and `locale=` arguments cannot be used together.")
+    babel_locale = _get_babel_locale(locale)
 
-        x_formatted = x.strftime(format_str)
+    if strftime_str is not None:
+        x_formatted = x.strftime(strftime_str)
+
+    elif format_pattern is not None:
+        x_formatted = format_datetime(
+            x, format=format_pattern.for_value(x, locale), locale=babel_locale
+        )
 
     else:
-        # From the date and time format strings, create a datetime format string
-        datetime_format_str = f"{date_format_str}'{sep}'{time_format_str}"
+        # Format the date and the time separately and join them with `sep` (which, as literal
+        # text, can't safely be put into one CLDR pattern with them)
+        date_str = format_date(x, format=_resolve_iso_week(date_format_str, x), locale=babel_locale)
+        time_str = format_datetime(x, format=time_pattern.for_value(x, locale), locale=babel_locale)
 
-        # Fix up the locale for `format_datetime()` by replacing any hyphens with underscores
-        if locale is None:
-            locale = "en_US"
-        else:
-            locale = _str_replace(locale, "-", "_")
-
-        # Format the datetime object to a string using Babel's `format_datetime()` function
-        x_formatted = format_datetime(
-            x, format=_resolve_iso_week(datetime_format_str, x), locale=locale
-        )
+        x_formatted = f"{date_str}{sep}{time_str}"
 
     # Use a supplied pattern specification to decorate the formatted value
     x_formatted = _apply_value_pattern(x_formatted, pattern=pattern, context=context)
@@ -5762,12 +6050,11 @@ def fmt_tf(
     downward arrows (through the `colors=` option).
 
     ```{python}
-    from great_tables import GT
-    from great_tables.data import sp500
+    from great_tables import GT, data
     import polars as pl
 
     sp500_mini = (
-        pl.from_pandas(sp500)
+        data.pl.sp500
         .slice(0, 5)
         .drop(["volume", "adj_close", "high", "low"])
         .with_columns(dir = pl.col("close") > pl.col("open"))
@@ -5822,7 +6109,7 @@ def fmt_tf_context(
     elif not isinstance(x, bool):
         raise ValueError(f"Expected boolean value or NA, but got {type(x)}.")
 
-    x = cast(bool | None, x)
+    x = cast("bool | None", x)
 
     # Validate `tf_style=` value
     if tf_style not in TF_FORMATS:
@@ -6165,12 +6452,12 @@ def fmt_units(
     `"<unit_1> <unit_2>^-1"`).
 
     ```{python}
-    from great_tables.data import constants
+    from great_tables import data
     import polars as pl
     import polars.selectors as cs
 
     constants_mini = (
-        pl.from_pandas(constants)
+        data.pl.constants
         .filter(pl.col("name").str.contains("molar")).sort("value")
         .with_columns(
             name=pl.col("name")
@@ -6258,6 +6545,7 @@ def _value_to_decimal_notation(
     dec_mark: str = ".",
     force_sign: bool = False,
     min_sep_threshold: int = 1,
+    system: NumberSystem = "intl",
 ) -> str:
     """
     Decimal notation.
@@ -6281,6 +6569,7 @@ def _value_to_decimal_notation(
             dec_mark=dec_mark,
             preserve_integer=False,
             min_sep_threshold=min_sep_threshold,
+            system=system,
         )
 
     else:
@@ -6295,6 +6584,7 @@ def _value_to_decimal_notation(
             sep_mark=sep_mark,
             dec_mark=dec_mark,
             min_sep_threshold=min_sep_threshold,
+            system=system,
         )
 
     # Drop the trailing decimal mark if it is present
@@ -6357,6 +6647,7 @@ def _format_number_n_sigfig(
     dec_mark: str = ".",
     preserve_integer: bool = False,
     min_sep_threshold: int = 1,
+    system: NumberSystem = "intl",
 ) -> str:
     sig_digits, power, is_negative = _get_number_profile(value, n_sigfig)
 
@@ -6380,12 +6671,7 @@ def _format_number_n_sigfig(
     # Insert grouping separators within the integer part, but only when it has enough digits
     # for the `min_sep_threshold` (the default of `1` starts grouping at four digits)
     if use_seps and len(integer_part) >= min_sep_threshold + 3:
-        count = 0
-        for digit in reversed(integer_part):
-            if count and count % 3 == 0:
-                formatted_integer = sep_mark + formatted_integer
-            formatted_integer = digit + formatted_integer
-            count += 1
+        formatted_integer = _group_integer_digits(integer_part, sep_mark=sep_mark, system=system)
     else:
         formatted_integer = integer_part
 
@@ -6407,6 +6693,7 @@ def _format_number_fixed_decimals(
     sep_mark: str = ",",
     dec_mark: str = ".",
     min_sep_threshold: int = 1,
+    system: NumberSystem = "intl",
 ) -> str:
     # If `number` is a string, cast it into a float
     if isinstance(value, str):
@@ -6416,8 +6703,18 @@ def _format_number_fixed_decimals(
 
     fmt_spec = f".{decimals}f"
 
-    # Get the formatted `x` value
-    value_str = format(value, fmt_spec)
+    # Get the formatted `x` value; the `f` format converts an integer to a float, which changes
+    # the digits of integers above 2^53 (e.g., 1234567890123456789 would give
+    # 1234567890123456768), so integers are formatted as a `Decimal` to keep all of their digits
+    if isinstance(value, numbers.Integral):
+        value_str = format(Decimal(int(value)), fmt_spec)
+    elif isinstance(value, Decimal):
+        # A `Decimal` is rounded with the rounding mode of the active `decimal` context, which a
+        # user may have changed, so round half to even here, as float formatting does
+        with localcontext(Context(rounding=ROUND_HALF_EVEN)):
+            value_str = format(value, fmt_spec)
+    else:
+        value_str = format(value, fmt_spec)
 
     # Very small or very large numbers can be represented in exponential
     # notation but we don't want that; we need the string value to be fully
@@ -6444,12 +6741,7 @@ def _format_number_fixed_decimals(
     # Insert grouping separators within the integer part, but only when it has enough digits
     # for the `min_sep_threshold` (the default of `1` starts grouping at four digits)
     if use_seps and len(integer_part) >= min_sep_threshold + 3:
-        count = 0
-        for digit in reversed(integer_part):
-            if count and count % 3 == 0:
-                formatted_integer = sep_mark + formatted_integer
-            formatted_integer = digit + formatted_integer
-            count += 1
+        formatted_integer = _group_integer_digits(integer_part, sep_mark=sep_mark, system=system)
     else:
         formatted_integer = integer_part
 
@@ -6461,6 +6753,29 @@ def _format_number_fixed_decimals(
     result = formatted_integer + formatted_decimal
 
     return result
+
+
+def _group_integer_digits(integer_part: str, sep_mark: str, system: NumberSystem = "intl") -> str:
+    """
+    Insert grouping separators into the digits of an integer part.
+
+    The international system groups every three digits (`1,234,567`); the Indian system groups
+    the last three digits and then every two (`12,34,567`), for thousands, lakhs and crores.
+    """
+
+    head, groups = integer_part[:-3], [integer_part[-3:]]
+    size = 2 if system == "ind" else 3
+
+    while head:
+        groups.append(head[-size:])
+        head = head[:-size]
+
+    return sep_mark.join(reversed(groups))
+
+
+def _validate_number_system(system: str) -> None:
+    if system not in ("intl", "ind"):
+        raise ValueError(f"`system` must be either 'intl' or 'ind', got {system!r}.")
 
 
 def _rounds_up_to(
@@ -6477,7 +6792,7 @@ def _rounds_up_to(
     """
 
     formatted = _value_to_decimal_notation(
-        value=abs(scaled_value),
+        value=_exact_abs(scaled_value),
         decimals=decimals,
         n_sigfig=n_sigfig,
         use_seps=False,
@@ -6485,6 +6800,13 @@ def _rounds_up_to(
     )
 
     return float(formatted) >= threshold
+
+
+# The power of ten and the suffix of each unit used by `compact=True`, for each number system
+_COMPACT_SUFFIXES: dict[str, list[tuple[int, str]]] = {
+    "intl": [(0, ""), (3, "K"), (6, "M"), (9, "B"), (12, "T"), (15, "Q")],
+    "ind": [(0, ""), (5, " Lac"), (7, " Cr")],
+}
 
 
 def _format_number_compactly(
@@ -6498,6 +6820,7 @@ def _format_number_compactly(
     dec_mark: str,
     force_sign: bool,
     min_sep_threshold: int = 1,
+    system: NumberSystem = "intl",
 ) -> str:
     # If the value is exactly zero, then we can return `0` immediately
     if value == 0:
@@ -6511,26 +6834,34 @@ def _format_number_compactly(
     if n_sigfig is not None:
         _validate_n_sigfig(n_sigfig=n_sigfig)
 
-    # Determine the power index for the value and put it in the range of 0 to 5 which
-    # corresponds to the list of suffixes `["", "K", "M", "B", "T", "Q"]`
-    num_power_idx = math.floor(math.log(abs(value), 1000))
-    num_power_idx = max(0, min(5, num_power_idx))
+    # The powers of ten that each suffix stands for, from the smallest; as in gt, the Indian
+    # system leaves thousands unsuffixed and expresses anything from a crore up in crores
+    powers_and_suffixes = _COMPACT_SUFFIXES[system]
 
-    # Scale `x` value by a defined `base` value, this is done by dividing by the `base`
-    # value (`1000`) raised to the power index
-    scaled_value = value / 1000**num_power_idx
+    # Use the largest power that doesn't exceed the value's own power of ten
+    exponent = _decimal_exponent(value)
+    num_power_idx = max(
+        (i for i, (power, _) in enumerate(powers_and_suffixes) if power <= exponent), default=0
+    )
+    power = powers_and_suffixes[num_power_idx][0]
 
-    # If rounding the scaled value carries it up to 1000 (e.g., 999,999 with two
+    # Scale `x` value by the power of ten, by shifting the decimal point exactly (so that the
+    # value is rounded once, from the stored value)
+    scaled_value = _shift_decimal_point(value, -power)
+
+    # If rounding the scaled value carries it up to the next suffix (e.g., 999,999 with two
     # decimals would give `1,000.00K`), use the next suffix instead (`1.00M`); the value is
     # then exactly 1 of the next suffix
-    if num_power_idx < 5 and _rounds_up_to(
-        scaled_value, threshold=1000, decimals=decimals, n_sigfig=n_sigfig
-    ):
-        num_power_idx += 1
-        scaled_value = math.copysign(1.0, value)
+    if num_power_idx < len(powers_and_suffixes) - 1:
+        next_power = powers_and_suffixes[num_power_idx + 1][0]
 
-    # The `units_str` is obtained by indexing a list of suffixes with the `num_power_idx`
-    units_str = ["", "K", "M", "B", "T", "Q"][num_power_idx]
+        if _rounds_up_to(
+            scaled_value, threshold=10 ** (next_power - power), decimals=decimals, n_sigfig=n_sigfig
+        ):
+            num_power_idx += 1
+            scaled_value = math.copysign(1.0, value)
+
+    units_str = powers_and_suffixes[num_power_idx][1]
 
     # Format the value to decimal notation; this is done before the `byte_units` text
     # is affixed to the value
@@ -6545,10 +6876,11 @@ def _format_number_compactly(
         min_sep_threshold=min_sep_threshold,
         dec_mark=dec_mark,
         force_sign=force_sign,
+        system=system,
     )
 
     # Create a `suffix_pattern` object for affixing the `units_str`, which is the
-    # string that represents the 'K', 'M', 'B', 'T', or 'Q' suffix
+    # string that represents the 'K', 'M', 'B', 'T', or 'Q' suffix (or 'Lac' or 'Cr')
     suffix_pattern = f"{{x}}{units_str}"
 
     x_formatted = suffix_pattern.replace("{x}", x_formatted)
@@ -6570,25 +6902,36 @@ def _get_number_profile(value: float, n_sigfig: int) -> tuple[str, int, bool]:
     exponent to get the decimal mark to the proper location, and (3) a boolean
     value that's True if the value is less than zero (i.e., negative).
     """
-    value = float(value)
+    # Integers and `Decimal` values are kept exact as a `Decimal` (a float can't hold all the digits
+    # of an integer above 2^53, e.g., 1234567890123456789 would become 1234567890123456768, nor
+    # those of a mantissa shifted by `_shift_decimal_point()`)
+    if isinstance(value, (numbers.Integral, Decimal)):
+        value = _exact_decimal(value)
+    else:
+        value = float(value)
     is_negative = value < 0
-    value = abs(value)
+    value = _exact_abs(value)
 
     if value == 0:
         sig_digits = "0" * n_sigfig
         power = -(1 - n_sigfig)
     else:
-        power = -1 * math.floor(math.log10(value)) + n_sigfig - 1
-        value_power = value * 10.0**power
-
-        # If rounding carries over into an extra digit (e.g., 9.9999 to three significant
-        # digits gives 1000), shift the power down by one so that the result keeps `n_sigfig`
-        # digits (and its magnitude increases by a power of ten); comparing the rounded value
-        # against 10^n_sigfig avoids false carries from floating-point error in `value_power`
-        if round(value_power) >= 10**n_sigfig:
-            power -= 1
-
-        sig_digits = str(int(round(value * 10.0**power)))
+        # Scientific notation with `n_sigfig - 1` decimals rounds the stored value itself, as
+        # `decimals=` formatting does; scaling the value by a power of ten first rounds it twice
+        # (32.85 is stored as 32.850000000000001, but 32.85 * 10 is exactly 328.5, which
+        # `round()` takes to 328) and overflows for very small values. A rounding carry (e.g.,
+        # 9.9999 to three significant digits) is reflected in the exponent ("1.00e+01")
+        fmt_spec = f".{n_sigfig - 1}e"
+        if isinstance(value, Decimal):
+            # A `Decimal` is rounded with the rounding mode of the active `decimal` context, which
+            # a user may have changed, so round half to even here, as float formatting does
+            with localcontext(Context(rounding=ROUND_HALF_EVEN)):
+                value_str = format(value, fmt_spec)
+        else:
+            value_str = format(value, fmt_spec)
+        mantissa, exponent = value_str.split("e")
+        sig_digits = mantissa.replace(".", "")
+        power = n_sigfig - 1 - int(exponent)
 
     return sig_digits, -power, is_negative
 
@@ -6598,7 +6941,6 @@ def _get_sci_parts(value: float, n_sigfig: int) -> tuple[bool, str, int, int]:
     Returns the properties for constructing a number in scientific notation.
     """
 
-    value = float(value)
     sig_digits, power, is_negative = _get_number_profile(value, n_sigfig)
 
     dot_power = -(n_sigfig - 1)
@@ -6678,7 +7020,84 @@ def _listify(
     elif not isinstance(x, list):
         return [x]
     else:
-        return cast(Any, x)
+        return cast("Any", x)
+
+
+def _scale_value(value: float, scale_by: float) -> float:
+    """Multiply `value` by `scale_by`, exactly when both are integers.
+
+    NumPy integers (e.g., the cells of a pandas `int64` column) are turned into Python integers
+    first: NumPy integer arithmetic overflows and wraps around (`1234567890123456789 * 1000` gives
+    `-1363962815083169272`), while Python integers have no size limit.
+
+    A `Decimal` can't be multiplied by a float, so a float `scale_by` for a `Decimal` value (e.g., a
+    cell of a polars `Decimal` column) is turned into the `Decimal` of its shortest repr (`2.5` stays
+    exactly `2.5`), and a `Decimal` `scale_by` for a float value is turned into a float.
+    """
+    if isinstance(value, numbers.Integral):
+        value = int(value)
+    if isinstance(scale_by, numbers.Integral):
+        scale_by = int(scale_by)
+    if isinstance(value, Decimal) and not isinstance(scale_by, (int, Decimal)):
+        scale_by = Decimal(repr(float(scale_by)))
+    elif isinstance(scale_by, Decimal) and not isinstance(value, (int, Decimal)):
+        scale_by = float(scale_by)
+    return value * scale_by
+
+
+def _exact_decimal(value: float | Decimal) -> Decimal:
+    """Get a number's exact value as a `Decimal` (a float's stored value, an integer's digits)."""
+    if isinstance(value, Decimal):
+        return value
+    if isinstance(value, numbers.Integral):
+        return Decimal(int(value))
+    return Decimal(float(value))
+
+
+def _exact_abs(value: float | Decimal) -> float | Decimal:
+    """Get a number's absolute value (`abs()` rounds a `Decimal` to the context's precision)."""
+    return value.copy_abs() if isinstance(value, Decimal) else abs(value)
+
+
+def _decimal_exponent(value: float | Decimal) -> int:
+    """Get the exponent of a finite, nonzero number's leading digit (`floor(log10(abs(value)))`).
+
+    The exponent is read from the exact value, so it's right where `math.log10()` rounds across
+    an integer (e.g., `math.log10(999.9999999999999)` gives `3.0`).
+    """
+    return _exact_decimal(value).adjusted()
+
+
+def _shift_decimal_point(value: float | Decimal, places: int) -> float | Decimal:
+    """Multiply a finite number by `10**places` exactly, giving a `Decimal`.
+
+    Dividing by a power of ten (`x / 10**3`) rounds the result to a float, so formatting it rounds
+    the value a second time (6.7405e-05 is stored as 6.74049999...e-05, but `6.7405e-05 / 1e-06`
+    gives 67.405, which then rounds to 67.41) and loses the last digits of integers above 2^53;
+    `10**-324` is even `0.0`. The digits are moved by changing the exponent, which (unlike
+    `Decimal.scaleb()`) doesn't round to the `decimal` context's precision. The value is
+    returned as is for `places=0`.
+    """
+    if places == 0:
+        return value
+    sign, digits, exponent = _exact_decimal(value).as_tuple()
+    return Decimal((sign, digits, exponent + places))
+
+
+def _divide_by_power(value: int, base: int, power: int) -> float | Decimal:
+    """Divide an integer by `base**power` exactly, giving a `Decimal` (`base` is 1000 or 1024).
+
+    Dividing by a power of the base as a float rounds the result (`1150 / 1000` is stored as
+    1.149999...), so formatting it rounds the value a second time (`1.1` instead of `1.2`) and
+    loses the last digits of integers above 2^53. The quotient has a finite number of decimal
+    places: dividing by `1000**power` shifts the decimal point by `3 * power` places, and dividing
+    by `1024**power` (`2**n`, with `n = 10 * power`) is the same as multiplying by `5**n` and
+    shifting the decimal point by `n` places. The value is returned as is for `power=0`.
+    """
+    if base == 1000:
+        return _shift_decimal_point(value, -3 * power)
+    n = 10 * power
+    return _shift_decimal_point(value * 5**n, -n)
 
 
 def _has_negative_value(value: float) -> bool:
@@ -6704,7 +7123,8 @@ def _has_zero_value(value: float) -> bool:
 
 def _context_exp_marks(context: str) -> list[str]:
     if context == "html":
-        marks = [" \u00d7 10<sup style='font-size: 65%;'>", "</sup>"]
+        # Non-breaking spaces keep the mantissa and the power of ten on the same line (as in gt)
+        marks = ["&nbsp;\u00d7&nbsp;10<sup style='font-size: 65%;'>", "</sup>"]
     elif context == "latex":
         marks = [" $\\times$ 10\\textsuperscript{", "}"]
     else:
@@ -6734,28 +7154,19 @@ def _context_exp_str(exp_style: str, context: str) -> str:
 
 
 def _context_minus_mark(context: str) -> str:
-    if context == "html":
-        mark = "\u2212"
-    else:
-        mark = "-"
+    mark = "−" if context == "html" else "-"
 
     return mark
 
 
 def _context_percent_mark(context: str) -> str:
-    if context == "latex":
-        mark = "\\%"
-    else:
-        mark = "%"
+    mark = "\\%" if context == "latex" else "%"
 
     return mark
 
 
 def _context_dollar_mark(context: str) -> str:
-    if context == "latex":
-        mark = "\\$"
-    else:
-        mark = "$"
+    mark = "\\$" if context == "latex" else "$"
 
     return mark
 
@@ -6794,7 +7205,7 @@ T_dict = TypeVar("T_dict", bound=TypedDict)
 def _filter_pd_df_to_row(pd_df: list[T_dict], column: str, filter_expr: str) -> T_dict:
     filtered_pd_df = [entry for entry in pd_df if entry[column] == filter_expr]
     if len(filtered_pd_df) != 1:
-        raise Exception(
+        raise RuntimeError(
             "Internal Error, the filtered table doesn't result in a table of exactly one row."
         )
     return filtered_pd_df[0]
@@ -7329,12 +7740,65 @@ def _get_time_formats_dict() -> dict[str, str]:
     return time_formats
 
 
-def _get_date_format(date_style: str) -> str:
+# The flexible date and time styles are CLDR skeletons, which name the fields to show; each locale
+# has its own pattern for a skeleton (e.g., `"yMd"` is `"M/d/y"` in `en` and `"d.M.y"` in `de`)
+_FLEXIBLE_DATE_STYLES = (
+    "yMd",
+    "yMEd",
+    "yMMM",
+    "yMMMM",
+    "yMMMd",
+    "yMMMEd",
+    "GyMd",
+    "GyMMMd",
+    "GyMMMEd",
+    "yM",
+    "Md",
+    "MEd",
+    "MMMd",
+    "MMMEd",
+    "MMMMd",
+    "GyMMM",
+    "yQQQ",
+    "yQQQQ",
+    "Gy",
+    "y",
+    "M",
+    "MMM",
+    "d",
+    "Ed",
+)
+_FLEXIBLE_TIME_STYLES = (
+    "Hms",
+    "Hm",
+    "H",
+    "EHm",
+    "EHms",
+    "Hmsv",
+    "Hmv",
+    "hms",
+    "hm",
+    "h",
+    "Ehm",
+    "Ehms",
+    "EBhms",
+    "Bhms",
+    "EBhm",
+    "Bhm",
+    "Bh",
+    "hmsv",
+    "hmv",
+    "ms",
+)
+
+
+def _get_date_format(date_style: str, locale: str | None) -> str:
     """
-    Get the date format string based on the date style.
+    Get the CLDR date pattern for a date style in a locale.
 
     Args:
         date_style (str): The style of the date.
+        locale (str | None): The locale, which gives the pattern for a flexible date style.
 
     Returns:
         str: The date format string.
@@ -7342,23 +7806,23 @@ def _get_date_format(date_style: str) -> str:
     Raises:
         ValueError: If `date_style` does not have a valid value.
     """
-    date_formats = _get_date_formats_dict()
 
     # Stop if `date_style` does not have a valid value
     _validate_date_style(date_style=date_style)
 
-    # Get the date format string based on the date style
-    date_format_str = date_formats[date_style]
+    if date_style in _FLEXIBLE_DATE_STYLES:
+        return _get_babel_locale(locale).datetime_skeletons[date_style].pattern
 
-    return date_format_str
+    return _get_date_formats_dict()[date_style]
 
 
-def _get_time_format(time_style: str) -> str:
+def _get_time_format(time_style: str, locale: str | None) -> str:
     """
-    Get the time format string based on the given time style.
+    Get the CLDR time pattern for a time style in a locale.
 
     Args:
         time_style (str): The style of the time format.
+        locale (str | None): The locale, which gives the pattern for a flexible time style.
 
     Returns:
         str: The time format string.
@@ -7366,15 +7830,282 @@ def _get_time_format(time_style: str) -> str:
     Raises:
         ValueError: If `time_style` does not have a valid value.
     """
-    time_formats = _get_time_formats_dict()
 
     # Stop if `time_style` does not have a valid value
     _validate_time_style(time_style=time_style)
 
-    # Get the time format string based on the date style
-    time_format_str = time_formats[time_style]
+    if time_style in _FLEXIBLE_TIME_STYLES:
+        return _get_babel_locale(locale).datetime_skeletons[time_style].pattern
 
-    return time_format_str
+    return _get_time_formats_dict()[time_style]
+
+
+@cache
+def _get_babel_locale(locale: str | None) -> babel.Locale:
+    """
+    Get the Babel `Locale` for a locale from `_resolve_locale()` (where `None` is `en_US`).
+
+    It's cached, so that formatting each value doesn't parse the locale again.
+    """
+    if locale is None:
+        locale = "en_US"
+
+    return babel.Locale.parse(_str_replace(locale, "-", "_"))
+
+
+# A CLDR pattern is made of unquoted text, where every ASCII letter is a field, and quoted literal
+# text (`'...'`, where `''` is a single quote); the last alternative is an unterminated quote
+_CLDR_PATTERN_PARTS = re.compile(r"'[^']*'|[^']+|'[^']*$")
+
+# The letters of the CLDR fields for parts of the date (the others are for the time and the zone)
+_CLDR_DATE_FIELDS = frozenset("GyYuQqMLwWdDFgEec")
+
+
+def _unquoted_cldr_text(pattern: str) -> str:
+    """Get the unquoted text of a CLDR pattern (i.e., its fields and any punctuation)."""
+    return "".join(part for part in _CLDR_PATTERN_PARTS.findall(pattern) if part[0] != "'")
+
+
+def _validate_cldr_pattern(pattern: str) -> None:
+    """
+    Stop if the CLDR pattern given to `format_str=` can't be formatted as written.
+
+    Babel raises for a field of an invalid length (e.g., `EEEEEEE`), but it silently drops the
+    text after an unterminated quote and shows letters that aren't fields (e.g., `j`) as is.
+    """
+
+    for part in _CLDR_PATTERN_PARTS.findall(pattern):
+        if part[0] == "'" and (len(part) == 1 or part[-1] != "'"):
+            raise ValueError(
+                f"The `format_str=` pattern {pattern!r} has an unterminated quote. Literal text is "
+                "quoted with `'` (e.g., `\"h 'o''clock' a\"`), where `''` is a single quote."
+            )
+
+    unknown = sorted(
+        {
+            char
+            for char in _unquoted_cldr_text(pattern)
+            if char.isascii() and char.isalpha() and char not in PATTERN_CHARS
+        }
+    )
+
+    if unknown:
+        raise ValueError(
+            f"The `format_str=` pattern {pattern!r} has letters that aren't CLDR date or time "
+            f"fields ({', '.join(f'`{char}`' for char in unknown)}). Literal text is quoted with "
+            "`'` (e.g., `\"d MMMM 'at' h a\"`)."
+        )
+
+    try:
+        parse_pattern(pattern)
+    except ValueError as e:
+        raise ValueError(f"The `format_str=` pattern {pattern!r} isn't valid: {e}") from None
+
+
+def _split_cldr_pattern(pattern: str) -> list[tuple[str, bool]]:
+    """
+    Split a CLDR pattern into its unquoted text and its literal text, as `(text, is_literal)`
+    pairs, where the literal text has its quotes removed (e.g., `"h 'o''clock' a"` gives
+    `[("h ", False), ("o'clock", True), (" a", False)]`).
+    """
+
+    parts = []
+    i = 0
+
+    while i < len(pattern):
+        if pattern[i] != "'":
+            end = pattern.find("'", i)
+            end = len(pattern) if end == -1 else end
+            parts.append((pattern[i:end], False))
+            i = end
+
+        elif pattern.startswith("''", i):
+            # A quote outside quoted text
+            parts.append(("'", True))
+            i += 2
+
+        else:
+            # Quoted text, where `''` is a quote; it ends at the next lone quote
+            text = []
+            i += 1
+            while i < len(pattern):
+                if pattern.startswith("''", i):
+                    text.append("'")
+                    i += 2
+                elif pattern[i] == "'":
+                    i += 1
+                    break
+                else:
+                    text.append(pattern[i])
+                    i += 1
+            parts.append(("".join(text), True))
+
+    return parts
+
+
+def _join_cldr_pattern(parts: list[tuple[str, bool]]) -> str:
+    """Join the parts from `_split_cldr_pattern()` into a CLDR pattern, quoting the literal text."""
+
+    pattern = []
+    literal = []
+
+    # Adjacent literal parts are quoted together (`'a''b'` would be the text `a'b`); Babel reads
+    # each `''` as a quote before it looks for the quoted text, so text made only of quotes can't
+    # be quoted (`''''` would be two quotes) and is written as one `''` per quote
+    def append_literal():
+        literal_text = "".join(literal)
+        literal.clear()
+
+        if literal_text.strip("'"):
+            pattern.append("'" + literal_text.replace("'", "''") + "'")
+        else:
+            pattern.append(literal_text.replace("'", "''"))
+
+    for text, is_literal in parts:
+        if is_literal:
+            literal.append(text)
+        elif text:
+            append_literal()
+            pattern.append(text)
+
+    append_literal()
+
+    return "".join(pattern)
+
+
+# The fields that Babel can't format: the short localized GMT format (`O`) and the modified Julian
+# day (`g`); `OOOO` is left to Babel
+_CLDR_FIELDS_FILLED_IN = re.compile(r"(?<!O)O(?!O)|g+")
+
+# The day that the modified Julian day counts from
+_MJD_EPOCH_ORDINAL = date(1858, 11, 17).toordinal()
+
+
+def _fill_in_cldr_fields(pattern: str, x: datetime | time, locale: str | None) -> str:
+    """Replace the fields of a CLDR pattern that Babel can't format with their values for `x`."""
+
+    parts = []
+
+    for text, is_literal in _split_cldr_pattern(pattern):
+        if is_literal:
+            parts.append((text, True))
+            continue
+
+        end = 0
+        for cldr_field in _CLDR_FIELDS_FILLED_IN.finditer(text):
+            parts.append((text[end : cldr_field.start()], False))
+            parts.append((_format_cldr_field(cldr_field.group(), x, locale), True))
+            end = cldr_field.end()
+        parts.append((text[end:], False))
+
+    return _join_cldr_pattern(parts)
+
+
+def _format_cldr_field(field: str, x: datetime | time, locale: str | None) -> str:
+    """Format the `O` (e.g., `"GMT-5"`) or the `g` (e.g., `"51603"`) field of a CLDR pattern."""
+
+    if field == "O":
+        # The short localized GMT format: the hours without a leading zero, and the minutes (and
+        # seconds) only when they aren't zero; a naive value is in UTC, as elsewhere in Babel
+        offset = x.utcoffset() or timedelta(0)
+        gmt_format = _get_babel_locale(locale).zone_formats["gmt"]
+
+        if not offset:
+            # CLDR's `gmtZeroFormat` (e.g., `"GMT"`, `"UTC"` in `fr`), which Babel doesn't have; it
+            # is the GMT format without an offset (some keep a direction mark, e.g., in `he`)
+            return (gmt_format % "").strip(" \u200e\u200f")
+
+        sign = "-" if offset < timedelta(0) else "+"
+        minutes, seconds = divmod(int(abs(offset).total_seconds()), 60)
+        hours, minutes = divmod(minutes, 60)
+
+        offset_str = f"{sign}{hours}"
+        if minutes or seconds:
+            offset_str += f":{minutes:02d}"
+        if seconds:
+            offset_str += f":{seconds:02d}"
+
+        return gmt_format % offset_str
+
+    # The modified Julian day of the date (days since 1858-11-17), zero-padded to the field's length
+    # (a time without a date is rejected before formatting, as for the other date fields)
+    days = x.toordinal() - _MJD_EPOCH_ORDINAL
+    sign = "-" if days < 0 else ""
+
+    return f"{sign}{abs(days):0{len(field)}d}"
+
+
+def _has_generic_zone_name(x: datetime | time) -> bool:
+    """
+    Check whether the time zone of a value has a generic name (e.g., "ET" for `America/New_York`).
+
+    The zones without one include those of naive values (formatted as UTC), fixed offsets, and the
+    `Etc/*` zones; Babel names them as "Unknown Region (UTC) Time" and the like.
+    """
+    zone = getattr(x.tzinfo, "zone", None) or getattr(x.tzinfo, "key", None)
+    zone = get_global("zone_aliases").get(zone, zone)
+
+    return get_global("zone_territories").get(zone, "ZZ") != "ZZ"
+
+
+# The generic zone names (`v`, `vvvv`) and the generic location format (`V`, `VVVV`; Babel gives
+# names like "ET" and "United States (New York) Time"); `VV` (the zone ID) and `VVV` (the city) work
+_GENERIC_ZONE_FIELDS = re.compile(r"(?<!V)(?:VVVV|V)(?!V)|v+")
+
+
+@dataclass(frozen=True)
+class _DatetimePattern:
+    """A CLDR pattern for formatting times or datetimes, prepared once per formatting call."""
+
+    pattern: str
+    # The pattern with its generic zone names (`v` and `V`, e.g., "ET") written as specific ones
+    # (`z`, e.g., "EST"), for the values whose zone has no generic name; `None` if there are none
+    zone_fallback: str | None
+    # Whether the pattern shows part of the date (e.g., the weekday), which a time doesn't have
+    has_date_fields: bool
+    # Whether the pattern has fields that Babel can't format (`O` and `g`), which are filled in
+    has_filled_in_fields: bool
+
+    @classmethod
+    def from_pattern(cls, pattern: str) -> _DatetimePattern:
+        parts = _split_cldr_pattern(pattern)
+        # The fields are found in each unquoted part (`O'x'O` has two `O` fields, not an `OO`)
+        unquoted_parts = [text for text, is_literal in parts if not is_literal]
+
+        zone_fallback = None
+        if any(_GENERIC_ZONE_FIELDS.search(text) for text in unquoted_parts):
+            zone_fallback = _join_cldr_pattern(
+                [
+                    (
+                        text
+                        if is_literal
+                        else _GENERIC_ZONE_FIELDS.sub(lambda m: "z" * len(m.group()), text),
+                        is_literal,
+                    )
+                    for text, is_literal in parts
+                ]
+            )
+
+        return cls(
+            pattern=pattern,
+            zone_fallback=zone_fallback,
+            has_date_fields=not _CLDR_DATE_FIELDS.isdisjoint("".join(unquoted_parts)),
+            has_filled_in_fields=any(
+                _CLDR_FIELDS_FILLED_IN.search(text) for text in unquoted_parts
+            ),
+        )
+
+    def for_value(self, x: datetime | time, locale: str | None) -> str:
+        """Get the pattern that Babel formats `x` with."""
+
+        pattern = self.pattern
+        if self.zone_fallback is not None and not _has_generic_zone_name(x):
+            pattern = self.zone_fallback
+
+        if self.has_filled_in_fields:
+            pattern = _fill_in_cldr_fields(pattern, x, locale)
+
+        return pattern
 
 
 def _validate_date_style(date_style: str) -> None:
@@ -7390,8 +8121,10 @@ def _validate_date_style(date_style: str) -> None:
     Returns:
         None
     """
-    if date_style not in _get_date_formats_dict():
-        raise ValueError(f"date_style must be one of: {', '.join(_get_date_formats_dict().keys())}")
+    date_styles = [*_get_date_formats_dict(), *_FLEXIBLE_DATE_STYLES]
+
+    if date_style not in date_styles:
+        raise ValueError(f"date_style must be one of: {', '.join(date_styles)}")
 
 
 def _validate_time_style(time_style: str) -> None:
@@ -7407,23 +8140,25 @@ def _validate_time_style(time_style: str) -> None:
     Returns:
         None
     """
-    if time_style not in _get_time_formats_dict():
-        raise ValueError(f"time_style must be one of: {', '.join(_get_time_formats_dict().keys())}")
+    time_styles = [*_get_time_formats_dict(), *_FLEXIBLE_TIME_STYLES]
+
+    if time_style not in time_styles:
+        raise ValueError(f"time_style must be one of: {', '.join(time_styles)}")
 
 
-def _iso_str_to_time(x: str) -> time:
+def _iso_str_to_time(x: str) -> time | datetime:
     """
-    Converts a string in ISO format to a time object.
+    Converts a string in ISO format to a time object (or a datetime object).
 
-    The string can be a time (`HH:MM:SS`) or a datetime (`YYYY-MM-DD HH:MM:SS`), in which case
-    its time part is used. A date without a time (`YYYY-MM-DD`) is rejected rather than read as
-    midnight.
+    The string can be a time (`HH:MM:SS`) or a datetime (`YYYY-MM-DD HH:MM:SS`), which is kept as a
+    datetime so that a time style showing the weekday can be used. A date without a time
+    (`YYYY-MM-DD`) is rejected rather than read as midnight.
 
     Args:
         x (str): The string to be converted.
 
     Returns:
-        time: The converted time object.
+        time | datetime: The converted time (or datetime) object.
     """
     try:
         return time.fromisoformat(x)
@@ -7441,7 +8176,7 @@ def _iso_str_to_time(x: str) -> time:
         )
 
     try:
-        return datetime.fromisoformat(x).time()
+        return datetime.fromisoformat(x)
     except ValueError:
         # The string is neither a time nor a datetime, so report the error for a time string
         raise time_error from None
@@ -7673,7 +8408,7 @@ def fmt_image(
 
 @dataclass
 class FmtImage:
-    dispatch_on: DataFrameLike | Agnostic = Agnostic()
+    dispatch_on: DataFrameLike | Agnostic = field(default_factory=Agnostic)
     height: str | int | None = None
     width: str | int | None = None
     sep: str = " "
@@ -7694,18 +8429,12 @@ class FmtImage:
         if is_na(self.dispatch_on, val):
             return val
 
-        if "," in val:
-            files = re.split(r",\s*", val)
-        else:
-            files = [val]
+        files = re.split(r",\s*", val) if "," in val else [val]
 
         # TODO: if we allowing height and width to be set based on column values, then
         # they could end up as bespoke types like np int64, etc..
         # We should ensure we process those before hitting FmtImage
-        if isinstance(self.height, (int, float)):
-            height = px(self.height)
-        else:
-            height = self.height
+        height = px(self.height) if isinstance(self.height, (int, float)) else self.height
 
         # TODO: note that only height can be numeric in the R program. Is this on purpose?
         # In any event, raising explicitly for numeric width below.
@@ -7727,10 +8456,7 @@ class FmtImage:
             else:
                 filename = str((Path(self.path or "") / file).expanduser().absolute())
 
-                if self.encode:
-                    uri = self._get_image_uri(filename)
-                else:
-                    uri = filename
+                uri = self._get_image_uri(filename) if self.encode else filename
 
             # TODO: do we have a way to create tags, that is good at escaping, etc..?
             alt_text = "" if self.alt is None else self.alt.replace("{x}", file_ref)
@@ -7810,10 +8536,16 @@ def fmt_icon(
 
     We can draw from a library of thousands of icons and selectively insert them into a table. The
     `fmt_icon()` method makes this possible by mapping input cell labels to an icon name. We are
-    exclusively using Font Awesome icons here so the reference is the short icon name. Multiple
-    icons can be included per cell by separating icon names with commas (e.g.,
-    `"hard-drive,clock"`). The `sep=` argument allows for a common separator to be applied between
-    icons.
+    exclusively using Font Awesome (version 7) icons here so the reference is the short icon name
+    (e.g., `"star"`). Some icons come in both a regular and a solid style, and for these the
+    regular icon is used; a full name like `"fas fa-star"` (or `"far fa-star"`) can be given to
+    choose the style. Earlier names for icons are also accepted (e.g., `"user-large"` gives the
+    `"user"` icon). Multiple icons can be included per cell by separating icon names with commas
+    (e.g., `"hard-drive,clock"`). The `sep=` argument allows for a common separator to be applied
+    between icons.
+
+    The icon data is included in Great Tables, so icons are generated without any web requests.
+    Font Awesome Free icons are licensed under CC BY 4.0 (<https://fontawesome.com/license/free>).
 
     Parameters
     ----------
@@ -7831,9 +8563,7 @@ def fmt_icon(
         In the output of icons within a body cell, `sep=` provides the separator between each icon.
     stroke_color
         The icon stroke is essentially the outline of the icon. The color of the stroke can be
-        modified by applying a single color here. If not provided then the default value of
-        `"currentColor"` is applied so that the stroke color matches that of the parent HTML
-        element's color attribute.
+        modified by applying a single color here. If not provided then no stroke is drawn.
     stroke_width
         The `stroke_width=` option allows for setting the color of the icon outline stroke. By
         default, the stroke width is very small at "1px" so a size adjustment here can sometimes be
@@ -7904,10 +8634,10 @@ def fmt_icon(
 
     ```{python}
     import polars as pl
-    from great_tables.data import towny
+    from great_tables import data
 
     towny_mini = (
-        pl.from_pandas(towny.loc[[323, 14, 26, 235]])
+        data.pl.towny[[323, 14, 26, 235]]
         .select(["name", "csd_type", "population_2021"])
         .with_columns(
            csd_type = pl.when(pl.col("csd_type") == "town")
@@ -7936,10 +8666,10 @@ def fmt_icon(
     which color should be used for each icon.
 
     ```{python}
-    from great_tables.data import sp500
+    from great_tables import data
 
     sp500_mini = (
-        pl.from_pandas(sp500)
+        data.pl.sp500
         .head(10)
         .select(["date", "open", "close"])
         .sort("date", descending=False)
@@ -7988,7 +8718,7 @@ def fmt_icon(
 
 @dataclass
 class FmtIcon:
-    dispatch_on: DataFrameLike | Agnostic = Agnostic()
+    dispatch_on: DataFrameLike | Agnostic = field(default_factory=Agnostic)
     height: str | None = None
     sep: str = " "
     stroke_color: str | None = None
@@ -8005,15 +8735,9 @@ class FmtIcon:
         if is_na(self.dispatch_on, val):
             return val
 
-        if "," in val:
-            icon_list = re.split(r",\s*", val)
-        else:
-            icon_list = [val]
+        icon_list = re.split(r",\s*", val) if "," in val else [val]
 
-        if self.height is None:
-            height = "1em"
-        else:
-            height = self.height
+        height = "1em" if self.height is None else self.height
 
         if self.stroke_width is None:
             stroke_width = "1px"
@@ -8026,27 +8750,23 @@ class FmtIcon:
 
         for icon in icon_list:
             if isinstance(self.fill_color, dict):
-                if icon in self.fill_color:
-                    fill_color = self.fill_color[icon]
-                else:
-                    fill_color = None
+                fill_color = self.fill_color.get(icon, None)
             else:
                 fill_color = self.fill_color
 
-            icon_svg = faicons.icon_svg(
+            icon_svg = fa_svg(
                 icon,
                 height=height,
                 stroke=self.stroke_color,
                 stroke_width=stroke_width,
-                # (`str(None)` would give the invalid CSS `stroke-opacity:None`)
-                stroke_opacity=None if self.stroke_alpha is None else str(self.stroke_alpha),
+                stroke_opacity=self.stroke_alpha,
                 fill=fill_color,
-                fill_opacity=None if self.fill_alpha is None else str(self.fill_alpha),
+                fill_opacity=self.fill_alpha,
                 margin_left=self.margin_left,
                 margin_right=self.margin_right,
             )
 
-            out.append(str(icon_svg))
+            out.append(icon_svg)
 
         img_tags = self.sep.join(out)
         span = self.SPAN_TEMPLATE.format(img_tags)
@@ -8124,12 +8844,11 @@ def fmt_flag(
     flag icons.
 
     ```{python}
-    from great_tables import GT
-    from great_tables.data import countrypops
+    from great_tables import GT, data
     import polars as pl
 
     countrypops_mini = (
-        pl.from_pandas(countrypops)
+        data.pl.countrypops
         .filter(pl.col("year") == 2021)
         .filter(pl.col("country_name").str.starts_with("S"))
         .sort("country_name")
@@ -8159,7 +8878,7 @@ def fmt_flag(
     import polars.selectors as cs
 
     countrypops_mini = (
-        pl.from_pandas(countrypops)
+        data.pl.countrypops
         .filter(pl.col("country_code_3").is_in(["BEL", "NLD", "LUX"]))
         .filter((pl.col("year") % 10 == 0) & (pl.col("year") >= 1960))
         .pivot("year", index = ["country_code_3", "country_name"], values="population")
@@ -8191,7 +8910,7 @@ def fmt_flag(
 
 @dataclass
 class FmtFlag:
-    dispatch_on: DataFrameLike | Agnostic = Agnostic()
+    dispatch_on: DataFrameLike | Agnostic = field(default_factory=Agnostic)
     height: str | int | float | None = None
     sep: str = " "
     use_title: bool = True
@@ -8202,10 +8921,7 @@ class FmtFlag:
         if is_na(self.dispatch_on, val):
             return val
 
-        if "," in val:
-            flag_list = re.split(r",\s*", val)
-        else:
-            flag_list = [val]
+        flag_list = re.split(r",\s*", val) if "," in val else [val]
 
         if self.height is None:
             height = "1em"
@@ -8311,8 +9027,8 @@ def fmt_nanoplot(
     """Format data for nanoplot visualizations.
 
     The `fmt_nanoplot()` method is used to format data for nanoplot visualizations. This method
-    allows for the creation of a variety of different plot types, including line, bar, and scatter
-    plots.
+    allows for the creation of a variety of different plot types, including line, bar, box, and
+    scatter plots.
 
     :::{.callout-warning}
     `fmt_nanoplot()` is still experimental.
@@ -8329,9 +9045,11 @@ def fmt_nanoplot(
         formatted. Alternatively, we can supply a row index, a list of row indices, or (for Polars
         DataFrames) a Polars expression such as `pl.col("x") > 0`.
     plot_type
-        Nanoplots can either take the form of a line plot (using `"line"`) or a bar plot (with
-        `"bar"`). A line plot, by default, contains layers for a data line, data points, and a data
-        area. With a bar plot, the always visible layer is that of the data bars.
+        Nanoplots can either take the form of a line plot (using `"line"`), a bar plot (with
+        `"bar"`), or a box plot (with `"boxplot"`). A line plot, by default, contains layers for a
+        data line, data points, and a data area. With a bar plot, the always visible layer is that
+        of the data bars. A box plot summarizes the distribution of each row's values (see the Box
+        plots section below); like bar plots, box plots don't use *x* values.
     plot_height
         The height of the nanoplots. The default here is a sensible value of `"2em"`.
     missing_vals
@@ -8340,17 +9058,19 @@ def fmt_nanoplot(
         where data lines will have discontinuities and bar plots will have missing bars; (2)
         `"marker"` will behave like `"gap"` but show prominent visual marks at the missing data
         locations; (3) `"zero"` will replace missing values with zero values; and (4) `"remove"`
-        will remove any incoming missing values.
+        will remove any incoming missing values. Box plots leave missing values out, unless
+        `"zero"` is used.
     autoscale
         Using `autoscale=True` will ensure that the bounds of all nanoplots produced are based on
         the limits of data combined from all input rows. This will result in a shared scale across
         all of the nanoplots (for *y*- and *x*-axis data), which is useful in those cases where the
-        nanoplot data should be compared across rows.
+        nanoplot data should be compared across rows. Box plots always share a scale.
     reference_line
         A reference line requires a single input to define the line. It could be a numeric value,
         applied to all nanoplots generated. Or, the input can be one of the following for generating
         the line from the underlying data: (1) `"mean"`, (2) `"median"`, (3) `"min"`, (4) `"max"`,
-        (5) `"q1"`, (6) `"q3"`, (7) `"first"`, or (8) `"last"`.
+        (5) `"q1"`, (6) `"q3"`, (7) `"first"`, or (8) `"last"`. The quartiles (`"q1"` and `"q3"`)
+        are interpolated between data values, as with the default method of R's `quantile()`.
     reference_area
         A reference area requires a list of two values for defining bottom and top boundaries (in
         the *y* direction) for a rectangular area. The types of values supplied are the same as
@@ -8394,6 +9114,22 @@ def fmt_nanoplot(
     [`nanoplot_options()`](`great_tables.nanoplot_options`) helper function. With that, layers of
     the nanoplots can be selectively removed and the aesthetics of the remaining plot components can
     be modified.
+
+    Box plots
+    ---------
+    With `plot_type="boxplot"`, each row's values are summarized as a horizontal box-and-whisker
+    diagram. The box spans the first to the third quartile (with a line at the median), and the
+    whiskers extend to the most extreme values within 1.5 times the interquartile range of the box;
+    any values beyond the whiskers are outliers. Rows with fewer than 20 values show every value as
+    a faint point, and rows with more show only their outliers. All of the box plots share a scale,
+    so they can be compared across rows, and hovering over a box shows its statistics.
+
+    A reference line or area is drawn vertically, with keywords (e.g., `"mean"`) computed from each
+    row's values, and `expand_y=` extends the (horizontal) scale. In
+    [`nanoplot_options()`](`great_tables.nanoplot_options`), `data_bar_stroke_color=` and
+    `data_bar_stroke_width=` style the box and whiskers, `data_point_radius=` sets the box's
+    thickness (six times the radius), `show_data_points=False` hides the points, and
+    `y_val_fmt_fn=` formats the statistics.
 
     Examples
     --------
@@ -8523,6 +9259,27 @@ def fmt_nanoplot(
         .fmt_nanoplot(columns="lines", plot_type="line")
     )
     ```
+
+    Box plots are a good way to compare distributions across rows. Here, we collect the horsepower
+    ratings of the cars in the `gtcars` dataset by body style and show each group as a box plot (all
+    of them on the same scale). Hover over any box to see its quartiles and whiskers.
+
+    ```{python}
+    from great_tables import data
+
+    hp_by_body_style = (
+        data.pl.gtcars
+        .group_by("bdy_style")
+        .agg(n=pl.len(), hp=pl.col("hp"))
+        .sort("bdy_style")
+    )
+
+    (
+        GT(hp_by_body_style, rowname_col="bdy_style")
+        .fmt_nanoplot(columns="hp", plot_type="boxplot")
+        .cols_label(n="Cars", hp="Horsepower")
+    )
+    ```
     """
 
     # guards ----
@@ -8533,9 +9290,9 @@ def fmt_nanoplot(
             f"\n\nReceived: {columns}"
         )
 
-    if plot_type not in ("line", "bar"):
+    if plot_type not in ("line", "bar", "boxplot"):
         raise NotImplementedError(
-            "Currently, fmt_nanoplot() only support line or bar as plot_type"
+            "Currently, fmt_nanoplot() only supports line, bar, or boxplot as plot_type"
             f"\n\n Received: {plot_type}"
         )
 
@@ -8551,8 +9308,13 @@ def fmt_nanoplot(
 
     # A numeric column has a single `y` value per cell; these are drawn as horizontal bars or lines
     # on a scale shared by all of the targeted cells (so autoscaling doesn't apply)
-    if col_class.startswith(("int", "uint", "float")):
-        all_single_y_vals = target_vals
+    # (dtype names differ between libraries: PyArrow calls float64 `double` and has `decimal128(...)`)
+    if col_class.startswith(("int", "uint", "float", "double", "decimal")):
+        # Missing values (e.g., `pd.NA` in a nullable pandas column) are given as `None`
+        all_single_y_vals = [
+            None if is_na(data_tbl, v) else float(v) if isinstance(v, Decimal) else v
+            for v in target_vals
+        ]
         autoscale = False
     else:
         all_single_y_vals = None
@@ -8575,6 +9337,18 @@ def fmt_nanoplot(
 
         if all_y_vals:
             expand_y = [min(all_y_vals), max(all_y_vals)]
+
+    # Box plots always share a scale, spanning the values of all targeted cells (with missing
+    # values left out, or counted as zero with `missing_vals="zero"`)
+    boxplot_vals = None
+    if plot_type == "boxplot":
+        boxplot_vals = [
+            0 if is_na(data_tbl, val) else val
+            for cell in target_vals
+            if not is_na(data_tbl, cell)
+            for val in _get_cell_y_vals(cell)
+            if missing_vals == "zero" or not is_na(data_tbl, val)
+        ]
 
     # Generate a function that turns the nanoplot data in a cell into an SVG nanoplot (with the
     # given alternative text)
@@ -8611,6 +9385,7 @@ def fmt_nanoplot(
             expand_y=expand_y,
             missing_vals=missing_vals,
             all_single_y_vals=all_single_y_vals,
+            all_y_vals=boxplot_vals,
             plot_type=plot_type,
             svg_height=plot_height,
             alt=alt_text,
@@ -8626,10 +9401,7 @@ def fmt_nanoplot(
     rows_by_alt: dict[str, list[int]] = {}
     for _, row in resolve_rows_i(self, rows):
         value = alt_values[row]
-        if is_na(data_tbl, value):
-            text = ""
-        else:
-            text = str(alt.fn(value) if alt.fn is not None else value)
+        text = "" if is_na(data_tbl, value) else str(alt.fn(value) if alt.fn is not None else value)
         rows_by_alt.setdefault(text, []).append(row)
 
     res = self
@@ -8650,6 +9422,15 @@ def _get_cell_y_vals(cell: Any) -> list[int | float]:
         data_vals = data_vals[1]
 
     return data_vals if isinstance(data_vals, list) else [data_vals]
+
+
+def _to_python_number(val: Any) -> Any:
+    """Turn a NumPy number (as in a pandas column) into a Python `int` or `float`."""
+
+    if val is None or isinstance(val, (int, float)):
+        return val
+
+    return val.item() if hasattr(val, "item") else float(val)
 
 
 def _generate_data_vals(
@@ -8683,13 +9464,16 @@ def _generate_data_vals(
 
         # Check that the values within the list are numeric; missing values are allowed
         for val in data_vals:
-            if val is not None and not isinstance(val, (int, float)):
+            if val is not None and not isinstance(val, numbers.Real):
                 raise ValueError(f"The input data values must be numeric.\n\nValue received: {val}")
 
-        return data_vals
+        return [_to_python_number(val) for val in data_vals]
 
-    elif isinstance(data_vals, int) or isinstance(data_vals, float):
-        return data_vals
+    elif isinstance(data_vals, numbers.Real):
+        return _to_python_number(data_vals)
+
+    elif isinstance(data_vals, Decimal):
+        return float(data_vals)
 
     elif isinstance(data_vals, str):
         # If the cell value is a string, assume it is a value stream and convert to a list
@@ -8709,7 +9493,7 @@ def _generate_data_vals(
 
         # If the dictionary contains only one key, then assume that the values are for y
         if num_keys == 1:
-            data_vals = list(data_vals.values())[0]
+            data_vals = next(iter(data_vals.values()))
 
             # The data values can be anything, so recursively call this function to process them
             data_vals = _generate_data_vals(data_vals=data_vals)

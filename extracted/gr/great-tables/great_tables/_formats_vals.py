@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Callable
 from contextvars import ContextVar
 from functools import partial, wraps
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, Concatenate, TypeAlias, overload
 
 from typing_extensions import ParamSpec
@@ -14,6 +12,7 @@ from ._formats import (
     _get_locale_min_sep_threshold,
     _get_locale_sep_mark,
     _resolve_locale,
+    _validate_number_system,
     fmt_integer_context,
 )
 from ._gt_data import FramelessData, GTData
@@ -21,8 +20,10 @@ from ._tbl_data import PlExpr, SeriesLike, to_frame
 from .gt import GT, _get_column_of_values
 
 if TYPE_CHECKING:
-    from ._formats import DateStyle, TimeStyle
-    from ._tbl_data import SeriesLike
+    from collections.abc import Callable
+    from pathlib import Path
+
+    from ._formats import DateStyle, NumberSystem, TimeStyle
 
 
 X: TypeAlias = "Any | list[Any] | SeriesLike | PlExpr"
@@ -125,6 +126,7 @@ def val_fmt_number(
     force_sign: bool = False,
     min_sep_threshold: int = 1,
     locale: str | None = None,
+    system: NumberSystem = "intl",
 ) -> list[str]:
     """
     Format numeric values.
@@ -181,7 +183,8 @@ def val_fmt_number(
     compact
         A boolean value that allows for compact formatting of numeric values. Values will be scaled
         and decorated with the appropriate suffixes (e.g., `1230` becomes `1.23K`, and `1230000`
-        becomes `1.23M`). The `compact` option is `False` by default.
+        becomes `1.23M`). The `compact` option is `False` by default. With `system="ind"`, values
+        are expressed in lakhs and crores instead (e.g., `1234567` becomes `12.35 Lac`).
     pattern
         A formatting pattern that allows for decoration of the formatted value. The formatted value
         is represented by the `{x}` (which can be used multiple times, if needed) and all other
@@ -207,6 +210,13 @@ def val_fmt_number(
     locale
         An optional locale identifier that can be used for formatting values according the locale's
         rules. Examples include `"en"` for English (United States) and `"fr"` for French (France).
+    system
+        The numbering system to use for digit grouping. The international numbering system
+        (`"intl"`, the default) always separates groups of three digits (e.g., `"1,234,567"`). The
+        Indian numbering system (`"ind"`) separates the last three digits and then groups of two,
+        which correspond to thousands, lakhs, crores, and higher quantities (e.g., `"12,34,567"`).
+        The separator itself is still set by `sep_mark=` (or the locale) and can be turned off with
+        `use_seps=False`.
 
 
     Returns
@@ -241,6 +251,7 @@ def val_fmt_number(
         force_sign=force_sign,
         locale=locale,
         min_sep_threshold=min_sep_threshold,
+        system=system,
     )
 
     vals_fmt = _get_column_of_values(gt=gt_obj_fmt, column_name="x", context=_VALS_CONTEXT.get())
@@ -260,6 +271,7 @@ def val_fmt_integer(
     force_sign: bool = False,
     min_sep_threshold: int = 1,
     locale: str | None = None,
+    system: NumberSystem = "intl",
 ) -> list[str]:
     """
     Format values as integers.
@@ -296,7 +308,8 @@ def val_fmt_integer(
     compact
         A boolean value that allows for compact formatting of numeric values. Values will be scaled
         and decorated with the appropriate suffixes (e.g., `1230` becomes `1K`, and `1230000`
-        becomes `1M`). The `compact` option is `False` by default.
+        becomes `1M`). The `compact` option is `False` by default. With `system="ind"`, values are
+        expressed in lakhs and crores instead (e.g., `1234567` becomes `12 Lac`).
     pattern
         A formatting pattern that allows for decoration of the formatted value. The formatted value
         is represented by the `{x}` (which can be used multiple times, if needed) and all other
@@ -318,6 +331,13 @@ def val_fmt_integer(
     locale
         An optional locale identifier that can be used for formatting values according the locale's
         rules. Examples include `"en"` for English (United States) and `"fr"` for French (France).
+    system
+        The numbering system to use for digit grouping. The international numbering system
+        (`"intl"`, the default) always separates groups of three digits (e.g., `"1,234,567"`). The
+        Indian numbering system (`"ind"`) separates the last three digits and then groups of two,
+        which correspond to thousands, lakhs, crores, and higher quantities (e.g., `"12,34,567"`).
+        The separator itself is still set by `sep_mark=` (or the locale) and can be turned off with
+        `use_seps=False`.
 
 
     Returns
@@ -335,6 +355,8 @@ def val_fmt_integer(
     """
 
     x = _upgrade_to_list(x)
+
+    _validate_number_system(system)
 
     # TODO: handle data init from fmt_integer()
     # e.g. locale
@@ -356,6 +378,7 @@ def val_fmt_integer(
         min_sep_threshold=min_sep_threshold,
         force_sign=force_sign,
         context=_VALS_CONTEXT.get(),
+        system=system,
     )
 
     return [pf(val) for val in x]
@@ -1674,7 +1697,7 @@ def val_fmt_duration(
     input_units: str | None = None,
     output_units: str | list[str] | None = None,
     duration_style: str = "narrow",
-    trim_zero_units: bool | list[str] = True,
+    trim_zero_units: bool | str | list[str] = True,
     max_output_units: int | None = None,
     pattern: str = "{x}",
     use_seps: bool = True,
@@ -1706,7 +1729,7 @@ def val_fmt_duration(
         `"iso"` (e.g., `"P1DT8H24M"`).
     trim_zero_units
         Provides methods to remove output time units that have zero values. By default this is
-        `True`. Can also be a list of `"leading"`, `"trailing"`, and/or `"internal"`.
+        `True`. Can also be one of `"leading"`, `"trailing"`, or `"internal"`, or a list of these.
     max_output_units
         Maximum number of time units to display. By default (`None`), all possible time units will
         be displayed.
@@ -1766,7 +1789,7 @@ def val_fmt_date(
     """
     Format values as dates.
 
-    Format input values to time values using one of 17 preset date styles. Input can be in the form
+    Format input values to date values using one of 41 preset date styles. Input can be in the form
     of `date` type or as a ISO-8601 string (in the form of `YYYY-MM-DD HH:MM:SS` or `YYYY-MM-DD`).
 
     Parameters
@@ -1775,8 +1798,7 @@ def val_fmt_date(
         A list of values to be formatted.
     date_style
         The date style to use. By default this is the short name `"iso"` which corresponds to
-        ISO 8601 date formatting. There are 41 date styles in total and their short names can be
-        viewed using `info_date_style()`.
+        ISO 8601 date formatting. There are 41 date styles in total.
     pattern
         A formatting pattern that allows for decoration of the formatted value. The formatted value
         is represented by the `{x}` (which can be used multiple times, if needed) and all other
@@ -1789,31 +1811,58 @@ def val_fmt_date(
     -----------------------------------------
 
     We need to supply a preset date style to the `date_style` argument. The date styles are numerous
-    and can handle localization to any supported locale. The following table provides a listing of
-    all date styles and their output values (corresponding to an input date of `2000-02-29`).
+    and can handle localization to any supported locale. Those termed flexible adapt their output
+    to any `locale=` provided, following the locale's conventions for the order of the fields, the
+    punctuation, and which fields are abbreviated. The following table provides a listing of all
+    date styles and their output values (corresponding to an input date of `2000-02-29`).
 
-    |    | Date Style            | Output                  |
-    |----|-----------------------|-------------------------|
-    | 1  | `"iso"`               | `"2000-02-29"`          |
-    | 2  | `"wday_month_day_year"`| `"Tuesday, February 29, 2000"`  |
-    | 3  | `"wd_m_day_year"`     | `"Tue, Feb 29, 2000"`   |
-    | 4  | `"wday_day_month_year"`| `"Tuesday 29 February 2000"`    |
-    | 5  | `"month_day_year"`    | `"February 29, 2000"`   |
-    | 6  | `"m_day_year"`        | `"Feb 29, 2000"`        |
-    | 7  | `"day_m_year"`        | `"29 Feb 2000"`         |
-    | 8  | `"day_month_year"`    | `"29 February 2000"`    |
-    | 9  | `"day_month"`         | `"29 February"`         |
-    | 10 | `"day_m"`             | `"29 Feb"`              |
-    | 11 | `"year"`              | `"2000"`                |
-    | 12 | `"month"`             | `"February"`            |
-    | 13 | `"day"`               | `"29"`                  |
-    | 14 | `"year.mn.day"`       | `"2000/02/29"`          |
-    | 15 | `"y.mn.day"`          | `"00/02/29"`            |
-    | 16 | `"year_week"`         | `"2000-W09"`            |
-    | 17 | `"year_quarter"`      | `"2000-Q1"`             |
+    |    | Date Style             | Output                         | Notes    |
+    |----|------------------------|--------------------------------|----------|
+    | 1  | `"iso"`                | `"2000-02-29"`                 | ISO 8601 |
+    | 2  | `"wday_month_day_year"`| `"Tuesday, February 29, 2000"` |          |
+    | 3  | `"wd_m_day_year"`      | `"Tue, Feb 29, 2000"`          |          |
+    | 4  | `"wday_day_month_year"`| `"Tuesday 29 February 2000"`   |          |
+    | 5  | `"month_day_year"`     | `"February 29, 2000"`          |          |
+    | 6  | `"m_day_year"`         | `"Feb 29, 2000"`               |          |
+    | 7  | `"day_m_year"`         | `"29 Feb 2000"`                |          |
+    | 8  | `"day_month_year"`     | `"29 February 2000"`           |          |
+    | 9  | `"day_month"`          | `"29 February"`                |          |
+    | 10 | `"day_m"`              | `"29 Feb"`                     |          |
+    | 11 | `"year"`               | `"2000"`                       |          |
+    | 12 | `"month"`              | `"February"`                   |          |
+    | 13 | `"day"`                | `"29"`                         |          |
+    | 14 | `"year.mn.day"`        | `"2000/02/29"`                 |          |
+    | 15 | `"y.mn.day"`           | `"00/02/29"`                   |          |
+    | 16 | `"year_week"`          | `"2000-W09"`                   | ISO 8601 |
+    | 17 | `"year_quarter"`       | `"2000-Q1"`                    |          |
+    | 18 | `"yMd"`                | `"2/29/2000"`                  | flexible |
+    | 19 | `"yMEd"`               | `"Tue, 2/29/2000"`             | flexible |
+    | 20 | `"yMMM"`               | `"Feb 2000"`                   | flexible |
+    | 21 | `"yMMMM"`              | `"February 2000"`              | flexible |
+    | 22 | `"yMMMd"`              | `"Feb 29, 2000"`               | flexible |
+    | 23 | `"yMMMEd"`             | `"Tue, Feb 29, 2000"`          | flexible |
+    | 24 | `"GyMd"`               | `"2/29/2000 AD"`               | flexible |
+    | 25 | `"GyMMMd"`             | `"Feb 29, 2000 AD"`            | flexible |
+    | 26 | `"GyMMMEd"`            | `"Tue, Feb 29, 2000 AD"`       | flexible |
+    | 27 | `"yM"`                 | `"2/2000"`                     | flexible |
+    | 28 | `"Md"`                 | `"2/29"`                       | flexible |
+    | 29 | `"MEd"`                | `"Tue, 2/29"`                  | flexible |
+    | 30 | `"MMMd"`               | `"Feb 29"`                     | flexible |
+    | 31 | `"MMMEd"`              | `"Tue, Feb 29"`                | flexible |
+    | 32 | `"MMMMd"`              | `"February 29"`                | flexible |
+    | 33 | `"GyMMM"`              | `"Feb 2000 AD"`                | flexible |
+    | 34 | `"yQQQ"`               | `"Q1 2000"`                    | flexible |
+    | 35 | `"yQQQQ"`              | `"1st quarter 2000"`           | flexible |
+    | 36 | `"Gy"`                 | `"2000 AD"`                    | flexible |
+    | 37 | `"y"`                  | `"2000"`                       | flexible |
+    | 38 | `"M"`                  | `"2"`                          | flexible |
+    | 39 | `"MMM"`                | `"Feb"`                        | flexible |
+    | 40 | `"d"`                  | `"29"`                         | flexible |
+    | 41 | `"Ed"`                 | `"29 Tue"`                     | flexible |
 
-    We can use the `info_date_style()` function within the console to view a similar table of date
-    styles with example output.
+    The names of the flexible date styles are CLDR skeletons, where each letter stands for a field:
+    `G` is the era, `y` the year, `Q` the quarter, `M` the month, `d` the day of the month, and `E`
+    the day of the week. A longer run of `Q`, `M`, or `E` gives a longer form of that field.
 
     Returns
     -------
@@ -1853,7 +1902,7 @@ def val_fmt_time(
     """
     Format values as times.
 
-    Format input values to time values using one of 5 preset time styles. Input can be in the form
+    Format input values to time values using one of 25 preset time styles. Input can be in the form
     of `time` values, or strings in the ISO 8601 forms of `HH:MM:SS` or `YYYY-MM-DD HH:MM:SS`.
 
     Parameters
@@ -1862,8 +1911,7 @@ def val_fmt_time(
         A list of values to be formatted.
     time_style
         The time style to use. By default this is the short name `"iso"` which corresponds to how
-        times are formatted within ISO 8601 datetime values. There are 5 time styles in total and
-        their short names can be viewed using `info_time_style()`.
+        times are formatted within ISO 8601 datetime values. There are 25 time styles in total.
     pattern
         A formatting pattern that allows for decoration of the formatted value. The formatted value
         is represented by the `{x}` (which can be used multiple times, if needed) and all other
@@ -1876,19 +1924,48 @@ def val_fmt_time(
     -----------------------------------------
 
     We need to supply a preset time style to the `time_style` argument. The time styles are numerous
-    and can handle localization to any supported locale. The following table provides a listing of
-    all time styles and their output values (corresponding to an input time of `14:35:00`).
+    and can handle localization to any supported locale. Those termed flexible adapt their output
+    to any `locale=` provided. The following table provides a listing of all time styles and their
+    output values (corresponding to an input of `2000-02-29 14:35:00`).
 
-    |    | Time Style    | Output                          | Notes         |
-    |----|---------------|---------------------------------|---------------|
-    | 1  | `"iso"`       | `"14:35:00"`                    | ISO 8601, 24h |
-    | 2  | `"iso-short"` | `"14:35"`                       | ISO 8601, 24h |
-    | 3  | `"h_m_s_p"`   | `"2:35:00 PM"`                  | 12h           |
-    | 4  | `"h_m_p"`     | `"2:35 PM"`                     | 12h           |
-    | 5  | `"h_p"`       | `"2 PM"`                        | 12h           |
+    |    | Time Style    | Output                            | Notes         |
+    |----|---------------|-----------------------------------|---------------|
+    | 1  | `"iso"`       | `"14:35:00"`                      | ISO 8601, 24h |
+    | 2  | `"iso-short"` | `"14:35"`                         | ISO 8601, 24h |
+    | 3  | `"h_m_s_p"`   | `"2:35:00 PM"`                    | 12h           |
+    | 4  | `"h_m_p"`     | `"2:35 PM"`                       | 12h           |
+    | 5  | `"h_p"`       | `"2 PM"`                          | 12h           |
+    | 6  | `"Hms"`       | `"14:35:00"`                      | flexible, 24h |
+    | 7  | `"Hm"`        | `"14:35"`                         | flexible, 24h |
+    | 8  | `"H"`         | `"14"`                            | flexible, 24h |
+    | 9  | `"EHm"`       | `"Tue 14:35"`                     | flexible, 24h |
+    | 10 | `"EHms"`      | `"Tue 14:35:00"`                  | flexible, 24h |
+    | 11 | `"Hmsv"`      | `"14:35:00 UTC"`                  | flexible, 24h |
+    | 12 | `"Hmv"`       | `"14:35 UTC"`                     | flexible, 24h |
+    | 13 | `"hms"`       | `"2:35:00 PM"`                    | flexible, 12h |
+    | 14 | `"hm"`        | `"2:35 PM"`                       | flexible, 12h |
+    | 15 | `"h"`         | `"2 PM"`                          | flexible, 12h |
+    | 16 | `"Ehm"`       | `"Tue 2:35 PM"`                   | flexible, 12h |
+    | 17 | `"Ehms"`      | `"Tue 2:35:00 PM"`                | flexible, 12h |
+    | 18 | `"EBhms"`     | `"Tue 2:35:00 in the afternoon"`  | flexible, 12h |
+    | 19 | `"Bhms"`      | `"2:35:00 in the afternoon"`      | flexible, 12h |
+    | 20 | `"EBhm"`      | `"Tue 2:35 in the afternoon"`     | flexible, 12h |
+    | 21 | `"Bhm"`       | `"2:35 in the afternoon"`         | flexible, 12h |
+    | 22 | `"Bh"`        | `"2 in the afternoon"`            | flexible, 12h |
+    | 23 | `"hmsv"`      | `"2:35:00 PM UTC"`                | flexible, 12h |
+    | 24 | `"hmv"`       | `"2:35 PM UTC"`                   | flexible, 12h |
+    | 25 | `"ms"`        | `"35:00"`                         | flexible      |
 
-    We can use the `info_time_style()` function within the console to view a similar table of time
-    styles with example output.
+    The names of the flexible time styles are CLDR skeletons, where each letter stands for a field:
+    `H` is the hour (0-23), `h` the hour (1-12) with AM or PM, `B` the hour with a period of the day
+    (e.g., "in the afternoon"), `m` the minute, `s` the second, `E` the day of the week, and `v` the
+    time zone.
+
+    The styles with the day of the week (`E`) need `datetime` values (or datetime strings); a `time`
+    value without a date raises an error with them. The styles with the time zone (`v`) give its
+    generic name for an aware value (e.g., `"ET"` for `America/New_York`), falling back to a name
+    like `"UTC"` or an offset like `"-0500"` for a zone without one. A naive value is taken to be in
+    UTC.
 
     Returns
     -------
@@ -1909,6 +1986,113 @@ def val_fmt_time(
     gt_obj_fmt = gt_obj.fmt_time(
         columns="x",
         time_style=time_style,
+        pattern=pattern,
+        locale=locale,
+    )
+
+    vals_fmt = _get_column_of_values(gt=gt_obj_fmt, column_name="x", context=_VALS_CONTEXT.get())
+
+    return vals_fmt
+
+
+@expressive
+def val_fmt_datetime(
+    x: X,
+    date_style: DateStyle = "iso",
+    time_style: TimeStyle = "iso",
+    format_str: str | None = None,
+    sep: str = " ",
+    pattern: str = "{x}",
+    locale: str | None = None,
+) -> list[str]:
+    """
+    Format values as datetimes.
+
+    Format input values to datetime values using one of 41 preset date styles and one of 25 preset
+    time styles, or with a format string. Input can be in the form of `datetime` values, or strings
+    in the ISO 8601 forms of `YYYY-MM-DD HH:MM:SS` or `YYYY-MM-DD`.
+
+    Parameters
+    ----------
+    x
+        A list of values to be formatted.
+    date_style
+        The date style to use. By default this is the short name `"iso"` which corresponds to
+        ISO 8601 date formatting. There are 41 date styles in total.
+    time_style
+        The time style to use. By default this is the short name `"iso"` which corresponds to how
+        times are formatted within ISO 8601 datetime values. There are 25 time styles in total.
+    format_str
+        A format string to use instead of the preset styles. This can be a CLDR datetime pattern
+        (e.g., `"EEEE, d MMMM y"`), which is localized using `locale=`, or a `strftime()` format
+        string (any string containing `%`, e.g., `"%d.%m.%Y"`), which isn't localized. If
+        `format_str=` is provided, the `date_style=`, `time_style=`, and `sep=` arguments are
+        ignored.
+    sep
+        A string that separates the date and time components of the datetime string. The default is
+        a space character (`" "`). This is ignored if `format_str=` is provided.
+    pattern
+        A formatting pattern that allows for decoration of the formatted value. The formatted value
+        is represented by the `{x}` (which can be used multiple times, if needed) and all other
+        characters will be interpreted as string literals.
+    locale
+        An optional locale identifier that can be used for formatting values according the locale's
+        rules. Examples include `"en"` for English (United States) and `"fr"` for French (France).
+        This can't be used with a `strftime()` format string in `format_str=`, since that isn't
+        localized.
+
+    Formatting with the `date_style` and `time_style` arguments
+    -----------------------------------------------------------
+
+    The date and time parts are formatted separately, with the styles of
+    [`fmt_date()`](`great_tables.vals.fmt_date`) and [`fmt_time()`](`great_tables.vals.fmt_time`)
+    (see those for tables of the styles and their output), and joined by `sep=`.
+
+    Formatting with a pattern in `format_str=`
+    ------------------------------------------
+
+    A CLDR datetime pattern given to `format_str=` sets the fields to show and their order. In a
+    pattern, runs of letters are fields (e.g., `y` for the year, `MMMM` for the month's name, `d` for
+    the day, `EEEE` for the weekday's name, `HH` for the hour, and `mm` for the minute) and literal
+    text with letters must be put in single quotes. See
+    [`GT.fmt_datetime()`](`great_tables.GT.fmt_datetime`) for a table of the most common fields.
+
+    Returns
+    -------
+    list[str]
+        A list of formatted values is returned.
+
+    Examples
+    --------
+    ```{python}
+    from great_tables import vals
+
+    vals.fmt_datetime(
+        ["2025-01-01 09:30", "2025-07-14 17:45"],
+        date_style="yMMMEd",
+        time_style="hm",
+    )
+    ```
+
+    A CLDR pattern in `format_str=` is localized:
+
+    ```{python}
+    vals.fmt_datetime(
+        ["2025-01-01 09:30", "2025-07-14 17:45"],
+        format_str="EEEE d MMMM y, HH:mm",
+        locale="fr",
+    )
+    ```
+    """
+
+    gt_obj: GTData = _make_one_col_table(vals=x)
+
+    gt_obj_fmt = gt_obj.fmt_datetime(
+        columns="x",
+        date_style=date_style,
+        time_style=time_style,
+        format_str=format_str,
+        sep=sep,
         pattern=pattern,
         locale=locale,
     )

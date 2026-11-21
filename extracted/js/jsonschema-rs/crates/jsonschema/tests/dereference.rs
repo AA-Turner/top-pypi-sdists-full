@@ -300,14 +300,203 @@ fn registry_with_address() -> jsonschema::Registry<'static> {
     });
     "property_named_const_inlined"
 )]
+#[test_case(
+    json!({
+        "$defs": {"money": {"type": "number", "minimum": -1000}},
+        "properties": {"subtotal": {"$ref": "#/$defs/money", "minimum": 0}}
+    }),
+    json!({
+        "$defs": {"money": {"type": "number", "minimum": -1000}},
+        "properties": {"subtotal": {"allOf": [{"type": "number", "minimum": -1000}], "minimum": 0}}
+    });
+    "colliding_sibling_kept_next_to_target"
+)]
+#[test_case(
+    json!({
+        "$schema": "https://json-schema.org/draft/2019-09/schema",
+        "$defs": {"money": {"minimum": -1000}},
+        "properties": {"subtotal": {"$ref": "#/$defs/money", "minimum": 0}}
+    }),
+    json!({
+        "$schema": "https://json-schema.org/draft/2019-09/schema",
+        "$defs": {"money": {"minimum": -1000}},
+        "properties": {"subtotal": {"allOf": [{"minimum": -1000}], "minimum": 0}}
+    });
+    "colliding_sibling_kept_next_to_target_draft2019_09"
+)]
+#[test_case(
+    json!({
+        "$defs": {"low": {"allOf": [{"minimum": -1000}]}},
+        "properties": {"x": {"$ref": "#/$defs/low", "allOf": [{"minimum": 0}]}}
+    }),
+    json!({
+        "$defs": {"low": {"allOf": [{"minimum": -1000}]}},
+        "properties": {"x": {"allOf": [{"allOf": [{"minimum": -1000}]}, {"minimum": 0}]}}
+    });
+    "colliding_all_of_sibling_prepends_target"
+)]
+#[test_case(
+    json!({
+        "$defs": {"any": true},
+        "properties": {"x": {"$ref": "#/$defs/any", "minimum": 0}}
+    }),
+    json!({
+        "$defs": {"any": true},
+        "properties": {"x": {"allOf": [true], "minimum": 0}}
+    });
+    "boolean_target_keeps_siblings"
+)]
+#[test_case(
+    json!({
+        "$defs": {"any": true},
+        "properties": {"x": {"$ref": "#/$defs/any"}}
+    }),
+    json!({
+        "$defs": {"any": true},
+        "properties": {"x": true}
+    });
+    "boolean_target_without_siblings_inlined"
+)]
+// Drafts 4 and 7 ignore `$ref` siblings
+#[test_case(
+    json!({
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "definitions": {"money": {"minimum": -1000}},
+        "properties": {"subtotal": {"$ref": "#/definitions/money", "minimum": 0}}
+    }),
+    json!({
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "definitions": {"money": {"minimum": -1000}},
+        "properties": {"subtotal": {"minimum": -1000}}
+    });
+    "draft7_colliding_sibling_ignored"
+)]
+#[test_case(
+    json!({
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "definitions": {"money": {"type": "number"}},
+        "properties": {"subtotal": {"$ref": "#/definitions/money", "minimum": 0}}
+    }),
+    json!({
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "definitions": {"money": {"type": "number"}},
+        "properties": {"subtotal": {"type": "number"}}
+    });
+    "draft7_validating_sibling_ignored"
+)]
+#[test_case(
+    json!({
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "definitions": {"money": {"type": "number"}},
+        "properties": {"subtotal": {"$ref": "#/definitions/money", "minimum": 0}}
+    }),
+    json!({
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "definitions": {"money": {"type": "number"}},
+        "properties": {"subtotal": {"type": "number"}}
+    });
+    "draft4_validating_sibling_ignored"
+)]
+// Draft 7 ignores `$id` beside `$ref`, so it must not become the base URI of the result
+#[test_case(
+    json!({
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "$id": "https://example.com/root.json",
+        "definitions": {"int": {"type": "integer"}},
+        "description": "d",
+        "$ref": "#/definitions/int"
+    }),
+    json!({
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "definitions": {"int": {"type": "integer"}},
+        "description": "d",
+        "type": "integer"
+    });
+    "draft7_id_sibling_ignored"
+)]
+#[test_case(
+    json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://example.com/root.json",
+        "$anchor": "root",
+        "$comment": "c",
+        "$defs": {"int": {"type": "integer"}},
+        "definitions": {},
+        "title": "t",
+        "description": "d",
+        "default": 1,
+        "examples": [1],
+        "deprecated": true,
+        "readOnly": true,
+        "writeOnly": false,
+        "$ref": "#/$defs/int"
+    }),
+    json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://example.com/root.json",
+        "$anchor": "root",
+        "$comment": "c",
+        "$defs": {"int": {"type": "integer"}},
+        "definitions": {},
+        "title": "t",
+        "description": "d",
+        "default": 1,
+        "examples": [1],
+        "deprecated": true,
+        "readOnly": true,
+        "writeOnly": false,
+        "type": "integer"
+    });
+    "non_validating_siblings_merged"
+)]
+#[test_case(
+    json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://example.com/root",
+        "properties": {"item": {"$ref": "inner#item"}},
+        "$defs": {
+            "outer": {"$dynamicAnchor": "item", "type": "null"},
+            "inner": {"$id": "inner", "$dynamicAnchor": "item", "type": "string"}
+        }
+    }),
+    json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://example.com/root",
+        "properties": {
+            "item": {"$id": "inner", "$dynamicAnchor": "item", "type": "string"}
+        },
+        "$defs": {
+            "outer": {"$dynamicAnchor": "item", "type": "null"},
+            "inner": {"$id": "inner", "$dynamicAnchor": "item", "type": "string"}
+        }
+    });
+    "ref_to_dynamic_anchor_ignores_outer_anchor_of_that_name"
+)]
 #[allow(clippy::needless_pass_by_value)]
 fn test_dereference(schema: Value, expected: Value) {
     assert_eq!(jsonschema::dereference(&schema).unwrap(), expected);
 }
 
+// Merging these would let a sibling change what the target accepts, or the reverse
+#[test_case(json!({"additionalProperties": false}), json!({"properties": {"b": {}}}); "additional_properties_beside_properties")]
+#[test_case(json!({"unevaluatedProperties": false}), json!({"properties": {"b": {}}}); "unevaluated_properties_beside_properties")]
+#[test_case(json!({"items": false}), json!({"prefixItems": [{}]}); "items_beside_prefix_items")]
+#[test_case(json!({"then": {"minimum": 0}}), json!({"if": {"type": "number"}}); "then_beside_if")]
+#[test_case(json!({"contains": {"type": "string"}}), json!({"minContains": 2}); "contains_beside_min_contains")]
+#[allow(clippy::needless_pass_by_value)]
+fn test_dereference_keeps_target_apart_from_validating_siblings(target: Value, siblings: Value) {
+    let mut schema = json!({"$defs": {"target": target.clone()}, "$ref": "#/$defs/target"});
+    let mut expected = json!({"$defs": {"target": target.clone()}, "allOf": [target]});
+    for (key, value) in siblings.as_object().expect("siblings are an object") {
+        schema[key] = value.clone();
+        expected[key] = value.clone();
+    }
+    assert_eq!(jsonschema::dereference(&schema).unwrap(), expected);
+}
+
 #[test]
 fn test_dereference_with_registry() {
-    // Exercises the registry fast-path in dereference_with_options
+    // Dereferences through a caller-supplied registry.
     let schema = json!({
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "$ref": ADDR_URI
@@ -344,7 +533,7 @@ fn test_unknown_ref_returns_error() {
 
 #[test]
 fn test_mutual_recursion_left_in_place() {
-    // A references B, B references A — indirect cycle
+    // `a` and `b` refer to each other.
     let schema = json!({
         "$defs": {
             "a": {
@@ -367,7 +556,7 @@ fn test_mutual_recursion_left_in_place() {
     assert_eq!(result["type"], "object");
     // b is inlined inside a
     assert_eq!(result["properties"]["b"]["type"], "object");
-    // a inside b is circular — left as $ref
+    // `a` inside `b` closes the cycle and stays a `$ref`.
     assert_eq!(
         result["properties"]["b"]["properties"]["a"]["$ref"],
         "#/$defs/a"
@@ -389,7 +578,7 @@ mod async_tests {
 
     #[tokio::test]
     async fn test_async_dereference_with_registry() {
-        // Exercises the registry fast-path in dereference_with_options_async
+        // Dereferences through a caller-supplied registry.
         let schema = json!({
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "$ref": ADDR_URI

@@ -6,7 +6,7 @@ except ImportError:  # pragma: no cover
     from urllib.parse import urlunparse
 
 
-__version__ = "2.0.3"
+__version__ = "2.0.4"
 
 
 class UrlsMetaclass(type):
@@ -50,6 +50,10 @@ class Urls(metaclass=UrlsMetaclass):
         self.__wrapped__ = None
 
     def __getattr__(self, attr):
+        # Dunder attributes cannot be URLs. We raise an AttributeError,
+        # which is what Python expects when looking for them with getattr().
+        if attr.startswith("__"):
+            raise AttributeError(attr)
         return self.get_url(attr)
 
     def get_url(self, attr: str) -> "UrlString":

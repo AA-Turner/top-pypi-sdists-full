@@ -1,0 +1,413 @@
+#include "echion/echion_sampler.h"
+#include "echion/task_name.h"
+#include "sampler.hpp"
+
+#include <gtest/gtest.h>
+
+#include <cstddef>
+#include <cstring>
+#include <memory>
+#include <optional>
+#include <string_view>
+
+namespace {
+
+constexpr char STACK_CAPTURE_CONTEXT[] = "StackCaptureContext";
+
+struct StackCaptureContext
+{
+    EchionSampler* echion;
+    FrameStack stack;
+    std::optional<UnwindResult> unwind_result;
+};
+
+PyObject*
+capture_stack(PyObject* capsule, PyObject* Py_UNUSED(args))
+{
+    auto* context = static_cast<StackCaptureContext*>(PyCapsule_GetPointer(capsule, STACK_CAPTURE_CONTEXT));
+    if (context == nullptr) {
+        return nullptr;
+    }
+
+    auto unwind_result = unwind_python_stack(*context->echion, PyThreadState_Get(), context->stack, 2);
+    if (!unwind_result) {
+        PyErr_SetString(PyExc_RuntimeError, "failed to unwind test stack");
+        return nullptr;
+    }
+
+    context->unwind_result = *unwind_result;
+    Py_RETURN_NONE;
+}
+
+} // namespace
+
+#if PY_VERSION_HEX >= 0x030e0000
+namespace {
+InterpreterInfo
+interpreter(int64_t id, uint64_t generation)
+{
+    InterpreterInfo info;
+    info.id = id;
+    info.code_object_generation = generation;
+    return info;
+}
+
+struct InterpreterWithAlternateGeneration
+{
+    PyInterpreterState interpreter{};
+    uint64_t generation = 0;
+};
+} // namespace
+#endif
+
+#if defined PL_LINUX
+TEST(ThreadInfoCreate, IgnoresNonPthreadPythonThreadId)
+{
+    // Linux limits TIDs to less than 2^22, so this exercises clock_gettime(EINVAL).
+    constexpr unsigned long invalid_native_id = 1UL << 24;
+    auto thread = ThreadInfo::create(1, invalid_native_id, "test-thread");
+
+    ASSERT_TRUE(thread);
+    EXPECT_EQ((*thread)->thread_id, 1);
+    EXPECT_EQ((*thread)->cpu_time, 0);
+}
+#endif
+
+TEST(SamplingCycleState, GCFrameScopeRestoresPreviousFrame)
+{
+    EchionSampler echion;
+    PyObject outer_frame{};
+    PyObject inner_frame{};
+
+    EXPECT_EQ(echion.current_gc_frame(), nullptr);
+    {
+        auto outer_scope = echion.use_gc_frame(&outer_frame);
+        EXPECT_EQ(echion.current_gc_frame(), &outer_frame);
+        {
+            auto inner_scope = echion.use_gc_frame(&inner_frame);
+            EXPECT_EQ(echion.current_gc_frame(), &inner_frame);
+        }
+        EXPECT_EQ(echion.current_gc_frame(), &outer_frame);
+    }
+    EXPECT_EQ(echion.current_gc_frame(), nullptr);
+}
+
+TEST(SamplingCycleState, UnwindReplacesTaskAndGreenletStacksFromPriorCycle)
+{
+    EchionSampler echion;
+#if defined PL_LINUX
+    ThreadInfo thread(1, 1, "test-thread", CLOCK_THREAD_CPUTIME_ID);
+#elif defined PL_DARWIN
+    ThreadInfo thread(1, 1, "test-thread", mach_thread_self());
+#endif
+    PyThreadState empty_tstate{};
+
+    thread.current_tasks.push_back(std::make_unique<StackInfo>(TaskName::from_literal("stale-task"), false, 1));
+    thread.current_greenlets.push_back(std::make_unique<StackInfo>(TaskName::from_literal("stale-greenlet"), false, 2));
+
+    auto result = thread.unwind(echion, &empty_tstate, 0);
+#if PY_VERSION_HEX >= 0x030b0000 && PY_VERSION_HEX < 0x030d0000
+    // A null C frame must fail, not masquerade as a successfully unwound empty stack.
+    EXPECT_FALSE(result);
+    EXPECT_EQ(result.error(), ErrorKind::FrameError);
+#else
+    EXPECT_TRUE(result);
+#endif
+    EXPECT_EQ(thread.python_stack_unwind_result.frames_added, 0);
+
+    EXPECT_TRUE(thread.current_tasks.empty());
+    EXPECT_TRUE(thread.current_greenlets.empty());
+}
+
+#if PY_VERSION_HEX >= 0x030e0000
+TEST(SamplingCycleState, ReadsCodeObjectGenerationFromRuntimeOffset)
+{
+    _PyRuntimeState runtime{};
+    InterpreterWithAlternateGeneration node;
+    node.interpreter.id = 1;
+    node.generation = 42;
+    runtime.interpreters.head = &node.interpreter;
+    runtime.debug_offsets.interpreter_state.code_object_generation =
+      offsetof(InterpreterWithAlternateGeneration, generation);
+
+    InterpreterInfo result;
+    ASSERT_TRUE(for_each_interp(&runtime, [&](InterpreterInfo& info) { result = info; }));
+    EXPECT_EQ(result.interp, &node.interpreter);
+    EXPECT_EQ(result.code_object_generation, 42);
+}
+
+TEST(SamplingCycleState, InterpreterLimitPreservesSamplingAndCacheInvalidation)
+{
+    _PyRuntimeState runtime{};
+    std::vector<InterpreterWithAlternateGeneration> nodes(257);
+    for (size_t i = 0; i < nodes.size(); ++i) {
+        nodes[i].interpreter.id = static_cast<int64_t>(i);
+        nodes[i].interpreter.next = i + 1 < nodes.size() ? &nodes[i + 1].interpreter : nullptr;
+        nodes[i].generation = 1;
+    }
+    runtime.interpreters.head = &nodes[0].interpreter;
+    runtime.debug_offsets.interpreter_state.code_object_generation =
+      offsetof(InterpreterWithAlternateGeneration, generation);
+
+    EchionSampler echion(2);
+    constexpr Frame::Key key = 42;
+    std::vector<InterpreterInfo> captured;
+    auto capture = [&]() {
+        captured.clear();
+        bool success = for_each_interp(&runtime, [&](InterpreterInfo& info) { captured.push_back(info); });
+        EXPECT_TRUE(success);
+        EXPECT_EQ(captured.size(), 256);
+        return echion.validate_code_object_generations(captured, success);
+    };
+
+    ASSERT_TRUE(capture());
+    EXPECT_EQ(captured.back().interp, &nodes[255].interpreter);
+    echion.frame_cache().store(key, std::make_unique<Frame>(10));
+    ASSERT_TRUE(capture());
+    EXPECT_TRUE(echion.frame_cache().lookup(key));
+
+    nodes[255].generation++;
+    ASSERT_TRUE(capture());
+    EXPECT_FALSE(echion.frame_cache().lookup(key));
+
+    // The omitted interpreter's generation is not part of the captured snapshot.
+    echion.frame_cache().store(key, std::make_unique<Frame>(10));
+    nodes[256].generation++;
+    ASSERT_TRUE(capture());
+    EXPECT_TRUE(echion.frame_cache().lookup(key));
+
+    // Changing the captured interpreter IDs invalidates the cache even though the count is unchanged.
+    runtime.interpreters.head = &nodes[1].interpreter;
+    ASSERT_TRUE(capture());
+    EXPECT_EQ(captured.back().interp, &nodes[256].interpreter);
+    EXPECT_FALSE(echion.frame_cache().lookup(key));
+}
+
+TEST(SamplingCycleState, CodeObjectGenerationInvalidatesFrameIdentityCache)
+{
+    EchionSampler echion(2);
+    constexpr Frame::Key key = 42;
+
+    ASSERT_TRUE(echion.validate_code_object_generations({ interpreter(1, 1), interpreter(2, 1) }, true));
+    echion.frame_cache().store(key, std::make_unique<Frame>(10));
+
+    EXPECT_TRUE(echion.validate_code_object_generations({ interpreter(2, 1), interpreter(1, 1) }, true));
+    EXPECT_TRUE(echion.frame_cache().lookup(key));
+
+    EXPECT_TRUE(echion.validate_code_object_generations({ interpreter(1, 1), interpreter(2, 2) }, true));
+    EXPECT_FALSE(echion.frame_cache().lookup(key));
+
+    // Removing an interpreter invalidates, even when another one is added in its place.
+    echion.frame_cache().store(key, std::make_unique<Frame>(10));
+    EXPECT_TRUE(echion.validate_code_object_generations({ interpreter(1, 1), interpreter(3, 2) }, true));
+    EXPECT_FALSE(echion.frame_cache().lookup(key));
+
+    // A duplicated entry cannot stand in for a removed interpreter.
+    echion.frame_cache().store(key, std::make_unique<Frame>(10));
+    EXPECT_TRUE(echion.validate_code_object_generations({ interpreter(1, 1), interpreter(1, 1) }, true));
+    EXPECT_FALSE(echion.frame_cache().lookup(key));
+
+    // A newly added interpreter has nothing cached yet, so adding one keeps the cache.
+    ASSERT_TRUE(echion.validate_code_object_generations({ interpreter(1, 1) }, true));
+    echion.frame_cache().store(key, std::make_unique<Frame>(10));
+    EXPECT_TRUE(echion.validate_code_object_generations({ interpreter(4, 1), interpreter(1, 1) }, true));
+    EXPECT_TRUE(echion.frame_cache().lookup(key));
+
+    EXPECT_TRUE(echion.validate_code_object_generations({ interpreter(1, 1) }, true));
+    EXPECT_FALSE(echion.frame_cache().lookup(key));
+
+    echion.frame_cache().store(key, std::make_unique<Frame>(10));
+    EXPECT_FALSE(echion.validate_code_object_generations({ interpreter(1, 1), interpreter(3, 2) }, false));
+    EXPECT_FALSE(echion.frame_cache().lookup(key));
+}
+
+TEST(SamplingCycleState, CodeObjectGenerationInvalidatesStringIdentityCaches)
+{
+    if (!Py_IsInitialized()) {
+        Py_Initialize();
+    }
+    _set_pid(getpid());
+
+    EchionSampler echion(2);
+    ASSERT_TRUE(echion.validate_code_object_generations({ interpreter(1, 1) }, true));
+
+    // CPython 3.14 frees a code object's mortal interned co_name with the code object, so a replacement code object
+    // can get a different name at the same address. Rewriting a fresh string in place reproduces that reuse.
+    constexpr std::string_view old_name = "old_name";
+    constexpr std::string_view new_name = "new_name";
+    PyObject* name = PyUnicode_New(static_cast<Py_ssize_t>(old_name.size()), 127);
+    ASSERT_NE(name, nullptr);
+    std::memcpy(PyUnicode_DATA(name), old_name.data(), old_name.size());
+
+    auto old_key = echion.string_table().key(name, StringTag::FuncName);
+    ASSERT_TRUE(old_key);
+    echion.asyncio_boundary_frame() = BoundaryFrame{ *old_key, *old_key };
+    echion.uvloop_boundary_frame() = BoundaryFrame{ *old_key, *old_key };
+    std::memcpy(PyUnicode_DATA(name), new_name.data(), new_name.size());
+
+    // Unchanged generations keep the cached strings.
+    ASSERT_TRUE(echion.validate_code_object_generations({ interpreter(1, 1) }, true));
+    auto cached = echion.string_table().lookup(*old_key);
+    ASSERT_TRUE(cached);
+    EXPECT_EQ(cached->get(), old_name);
+    EXPECT_TRUE(echion.asyncio_boundary_frame());
+    EXPECT_TRUE(echion.uvloop_boundary_frame());
+
+    ASSERT_TRUE(echion.validate_code_object_generations({ interpreter(1, 2) }, true));
+    EXPECT_FALSE(echion.string_table().lookup(*old_key));
+    EXPECT_FALSE(echion.asyncio_boundary_frame());
+    EXPECT_FALSE(echion.uvloop_boundary_frame());
+
+    auto new_key = echion.string_table().key(name, StringTag::FuncName);
+    ASSERT_TRUE(new_key);
+    auto reread = echion.string_table().lookup(*new_key);
+    ASSERT_TRUE(reread);
+    EXPECT_EQ(reread->get(), new_name);
+
+    auto invalid = echion.string_table().lookup(StringTable::INVALID);
+    ASSERT_TRUE(invalid);
+    EXPECT_EQ(invalid->get(), "<invalid>");
+
+    Py_DECREF(name);
+}
+#endif
+
+TEST(StackUnwind, ReportsFramesAndTruncationAtLimit)
+{
+    if (!Py_IsInitialized()) {
+        Py_Initialize();
+    }
+    _set_pid(getpid());
+
+    EchionSampler echion;
+    StackCaptureContext context{ &echion, {}, std::nullopt };
+    PyObject* capsule = PyCapsule_New(&context, STACK_CAPTURE_CONTEXT, nullptr);
+    ASSERT_NE(capsule, nullptr);
+
+    static PyMethodDef capture_method = {
+        "capture_stack",
+        capture_stack,
+        METH_NOARGS,
+        nullptr,
+    };
+    PyObject* capture = PyCFunction_NewEx(&capture_method, capsule, nullptr);
+    ASSERT_NE(capture, nullptr);
+
+    PyObject* globals = PyDict_New();
+    ASSERT_NE(globals, nullptr);
+    ASSERT_EQ(PyDict_SetItemString(globals, "__builtins__", PyEval_GetBuiltins()), 0);
+    ASSERT_EQ(PyDict_SetItemString(globals, "capture_stack", capture), 0);
+
+    PyObject* result = PyRun_String(R"(
+def outer():
+    middle()
+def middle():
+    inner()
+def inner():
+    capture_stack()
+outer()
+)",
+                                    Py_file_input,
+                                    globals,
+                                    globals);
+    if (result == nullptr) {
+        PyErr_Print();
+    }
+    ASSERT_NE(result, nullptr);
+    ASSERT_TRUE(context.unwind_result.has_value());
+    EXPECT_EQ(context.stack.size(), 2);
+    EXPECT_EQ(context.unwind_result->frames_added, 2);
+    EXPECT_EQ(context.unwind_result->truncation, TruncationStatus::Truncated);
+
+    Py_DECREF(result);
+    Py_DECREF(globals);
+    Py_DECREF(capture);
+    Py_DECREF(capsule);
+}
+
+TEST(StackUnwind, DisabledDetectionRemainsUnknown)
+{
+    EchionSampler echion;
+    FrameStack stack;
+    auto result = unwind_frame(echion, nullptr, stack, 1, false);
+    EXPECT_EQ(result.frames_added, 0);
+    EXPECT_EQ(result.truncation, TruncationStatus::Unknown);
+
+    result = unwind_frame(echion, nullptr, stack, 1, true);
+    EXPECT_EQ(result.truncation, TruncationStatus::NotTruncated);
+}
+
+#if PY_VERSION_HEX >= 0x030c0000
+TEST(StackUnwind, ProbeBudgetExhaustionRemainsUnknown)
+{
+    _set_pid(getpid());
+    EchionSampler echion;
+    FrameStack stack;
+    std::vector<_PyInterpreterFrame> frames(MAX_STACK_UNWIND_SAFETY_LIMIT + 1);
+    for (size_t i = 0; i < frames.size(); i++) {
+#if PY_VERSION_HEX >= 0x030e0000
+        frames[i].owner = FRAME_OWNED_BY_INTERPRETER;
+#else
+        frames[i].owner = FRAME_OWNED_BY_CSTACK;
+#endif
+        frames[i].previous = i + 1 < frames.size() ? &frames[i + 1] : nullptr;
+    }
+
+    // Ignored frames do not prove truncation, even when lookahead reaches its safety ceiling.
+    std::unordered_set<PyObject*> seen_frames;
+    auto result = unwind_frame(echion, reinterpret_cast<PyObject*>(frames.data()), stack, seen_frames, 0, true);
+    EXPECT_EQ(seen_frames.size(), MAX_STACK_UNWIND_SAFETY_LIMIT);
+    EXPECT_EQ(result.frames_added, 0);
+    EXPECT_EQ(result.truncation, TruncationStatus::Unknown);
+
+    // Within the probe budget, the same ignored chain can prove the stack is complete.
+    frames[MAX_STACK_UNWIND_SAFETY_LIMIT - 1].previous = nullptr;
+    result = unwind_frame(echion, reinterpret_cast<PyObject*>(frames.data()), stack, seen_frames, 0, true);
+    EXPECT_EQ(result.truncation, TruncationStatus::NotTruncated);
+
+    result = unwind_frame(echion, reinterpret_cast<PyObject*>(frames.data()), stack, seen_frames, 0, false);
+    EXPECT_TRUE(seen_frames.empty());
+    EXPECT_EQ(result.truncation, TruncationStatus::Unknown);
+}
+#endif
+
+TEST(SamplingCycleState, GreenletSwitchPreservesLinkedParentFrame)
+{
+    constexpr GreenletInfo::ID child_id = 101;
+    constexpr GreenletInfo::ID parent_id = 102;
+    PyObject child_running_frame{};
+    PyObject child_suspended_frame{};
+    PyObject parent_suspended_frame{};
+    PyObject parent_resumed_frame{};
+
+    Datadog::Sampler& sampler = Datadog::Sampler::get();
+    EchionSampler& echion = sampler.get_echion();
+    {
+        std::lock_guard<std::mutex> guard(echion.greenlet_info_map_lock());
+        auto& greenlets = echion.greenlet_info_map();
+        greenlets.emplace(
+          child_id, std::make_unique<GreenletInfo>(child_id, &child_running_frame, TaskName::from_literal("child")));
+        greenlets.emplace(
+          parent_id,
+          std::make_unique<GreenletInfo>(parent_id, &parent_suspended_frame, TaskName::from_literal("parent")));
+    }
+    sampler.link_greenlets(parent_id, child_id);
+
+    sampler.record_greenlet_switch(child_id, &child_suspended_frame, parent_id, &parent_resumed_frame, false);
+    {
+        std::lock_guard<std::mutex> guard(echion.greenlet_info_map_lock());
+        EXPECT_EQ(echion.greenlet_parent_map().at(child_id), parent_id);
+        EXPECT_EQ(echion.greenlet_info_map().at(child_id)->frame, &child_suspended_frame);
+        EXPECT_EQ(echion.greenlet_info_map().at(parent_id)->frame, &parent_suspended_frame);
+    }
+
+    sampler.record_greenlet_switch(child_id, &child_running_frame, parent_id, &parent_resumed_frame, true);
+    {
+        std::lock_guard<std::mutex> guard(echion.greenlet_info_map_lock());
+        EXPECT_EQ(echion.greenlet_info_map().at(child_id)->frame, &child_running_frame);
+        EXPECT_EQ(echion.greenlet_info_map().at(parent_id)->frame, &parent_resumed_frame);
+        echion.greenlet_info_map().erase(child_id);
+        echion.greenlet_info_map().erase(parent_id);
+        echion.greenlet_parent_map().erase(child_id);
+    }
+}

@@ -355,14 +355,6 @@ def _add_run_options(parser: argparse.ArgumentParser) -> None:
         help="Calculate full supercell force constants matrix",
     )
     parser.add_argument(
-        "--cph",
-        "--collective-phonon",
-        dest="solve_collective_phonon",
-        action="store_true",
-        default=None,
-        help="Solve collective phonons",
-    )
-    parser.add_argument(
         "--const-ave-pp",
         dest="const_ave_pp",
         type=float,
@@ -738,15 +730,16 @@ def _add_run_options(parser: argparse.ArgumentParser) -> None:
         default=None,
         help="Calculate real part of self energy",
     )
+    # REMOVE-AT-V5
     parser.add_argument(
         "--rust",
         dest="use_rust",
         action="store_true",
         default=None,
         help=(
-            "Deprecated no-op: the Rust backend (phonors) is the default in "
-            "phono3py v4. Pass --legacy-backend to opt back into the C "
-            "extension."
+            "Deprecated no-op that will be removed in v5.0. The Rust backend "
+            "(phonors) is the default in phono3py v4. Pass --legacy-backend "
+            "to opt back into the C extension."
         ),
     )
     parser.add_argument(
@@ -1143,6 +1136,7 @@ class Phono3pyMockArgs:
     """
 
     average_degenerate_weights: bool | None = None
+    band_indices: Sequence[str] | None = None
     cell_filename: str | os.PathLike | None = None
     conf_filename: str | os.PathLike | None = None
     create_forces_fc2: Sequence[str | os.PathLike] | None = None
@@ -1156,6 +1150,7 @@ class Phono3pyMockArgs:
     filename: Sequence[str | os.PathLike] | None = None
     force_sets_mode: bool | None = None
     force_sets_to_forces_fc2_mode: bool | None = None
+    grid_points: Sequence[str] | None = None
     input_filename: None = None
     input_output_filename: None = None
     log_level: int | None = None
@@ -1182,8 +1177,9 @@ class Phono3pyMockArgs:
     temperatures: Sequence[str] | None = None
     transport_type: str | None = None
     use_pypolymlp: bool | None = None
-    use_rust: bool | None = None
+    use_rust: bool | None = None  # REMOVE-AT-V5
     use_legacy_backend: bool | None = None
+    write_collision: bool | None = None
     write_gamma: bool | None = None
     write_gamma_detail: bool | None = None
     write_grid_points: bool | None = None

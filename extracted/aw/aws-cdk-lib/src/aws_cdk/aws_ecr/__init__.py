@@ -2014,6 +2014,9 @@ class CfnReplicationConfiguration(
                     )],
         
                     # the properties below are optional
+                    delete_replication=ecr.CfnReplicationConfiguration.DeleteReplicationProperty(
+                        enabled=False
+                    ),
                     repository_filters=[ecr.CfnReplicationConfiguration.RepositoryFilterProperty(
                         filter="filter",
                         filter_type="filterType"
@@ -2135,6 +2138,63 @@ class CfnReplicationConfiguration(
         jsii.set(self, "replicationConfiguration", value)
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecr.CfnReplicationConfiguration.DeleteReplicationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"enabled": "enabled"},
+    )
+    class DeleteReplicationProperty:
+        def __init__(
+            self,
+            *,
+            enabled: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+        ) -> None:
+            '''
+            :param enabled: Whether image deletions and image tag removals in the source registry are replicated to the replication destinations.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecr-replicationconfiguration-deletereplication.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecr as ecr
+                
+                delete_replication_property = ecr.CfnReplicationConfiguration.DeleteReplicationProperty(
+                    enabled=False
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__20d4460897925a1531bcd11ab73ed3393130fcaae5ed71e3df28dcca2cf2f966)
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "enabled": enabled,
+            }
+
+        @builtins.property
+        def enabled(
+            self,
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
+            '''Whether image deletions and image tag removals in the source registry are replicated to the replication destinations.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecr-replicationconfiguration-deletereplication.html#cfn-ecr-replicationconfiguration-deletereplication-enabled
+            '''
+            result = self._values.get("enabled")
+            assert result is not None, "Required property 'enabled' is missing"
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DeleteReplicationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_ecr.CfnReplicationConfiguration.ReplicationConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={"rules": "rules"},
@@ -2166,6 +2226,9 @@ class CfnReplicationConfiguration(
                         )],
                 
                         # the properties below are optional
+                        delete_replication=ecr.CfnReplicationConfiguration.DeleteReplicationProperty(
+                            enabled=False
+                        ),
                         repository_filters=[ecr.CfnReplicationConfiguration.RepositoryFilterProperty(
                             filter="filter",
                             filter_type="filterType"
@@ -2276,6 +2339,7 @@ class CfnReplicationConfiguration(
         jsii_struct_bases=[],
         name_mapping={
             "destinations": "destinations",
+            "delete_replication": "deleteReplication",
             "repository_filters": "repositoryFilters",
         },
     )
@@ -2284,11 +2348,13 @@ class CfnReplicationConfiguration(
             self,
             *,
             destinations: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnReplicationConfiguration.ReplicationDestinationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            delete_replication: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnReplicationConfiguration.DeleteReplicationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             repository_filters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnReplicationConfiguration.RepositoryFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''An array of objects representing the replication destinations and repository filters for a replication configuration.
 
             :param destinations: An array of objects representing the destination for a replication rule.
+            :param delete_replication: 
             :param repository_filters: An array of objects representing the filters for a replication rule. Specifying a repository filter for a replication rule provides a method for controlling which repositories in a private registry are replicated.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecr-replicationconfiguration-replicationrule.html
@@ -2307,6 +2373,9 @@ class CfnReplicationConfiguration(
                     )],
                 
                     # the properties below are optional
+                    delete_replication=ecr.CfnReplicationConfiguration.DeleteReplicationProperty(
+                        enabled=False
+                    ),
                     repository_filters=[ecr.CfnReplicationConfiguration.RepositoryFilterProperty(
                         filter="filter",
                         filter_type="filterType"
@@ -2316,10 +2385,13 @@ class CfnReplicationConfiguration(
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__db6d7133bf506488b87a4ed998e2db1455e219e9bfa903d0880e4240a48da3c6)
                 check_type(argname="argument destinations", value=destinations, expected_type=type_hints["destinations"])
+                check_type(argname="argument delete_replication", value=delete_replication, expected_type=type_hints["delete_replication"])
                 check_type(argname="argument repository_filters", value=repository_filters, expected_type=type_hints["repository_filters"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "destinations": destinations,
             }
+            if delete_replication is not None:
+                self._values["delete_replication"] = delete_replication
             if repository_filters is not None:
                 self._values["repository_filters"] = repository_filters
 
@@ -2334,6 +2406,16 @@ class CfnReplicationConfiguration(
             result = self._values.get("destinations")
             assert result is not None, "Required property 'destinations' is missing"
             return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplicationConfiguration.ReplicationDestinationProperty"]]], result)
+
+        @builtins.property
+        def delete_replication(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplicationConfiguration.DeleteReplicationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecr-replicationconfiguration-replicationrule.html#cfn-ecr-replicationconfiguration-replicationrule-deletereplication
+            '''
+            result = self._values.get("delete_replication")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplicationConfiguration.DeleteReplicationProperty"]], result)
 
         @builtins.property
         def repository_filters(
@@ -2465,6 +2547,9 @@ class CfnReplicationConfigurationProps:
                         )],
             
                         # the properties below are optional
+                        delete_replication=ecr.CfnReplicationConfiguration.DeleteReplicationProperty(
+                            enabled=False
+                        ),
                         repository_filters=[ecr.CfnReplicationConfiguration.RepositoryFilterProperty(
                             filter="filter",
                             filter_type="filterType"
@@ -7209,6 +7294,13 @@ def _typecheckingstub__99f4c1062f6a81bbbbbb1ec51556be75ca089974820458f2cf7c2b6ef
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__20d4460897925a1531bcd11ab73ed3393130fcaae5ed71e3df28dcca2cf2f966(
+    *,
+    enabled: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__4f1a61ec35ac6455ef5be103b0ad56cd75e35b592381509aff016aeca6fc509b(
     *,
     rules: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReplicationConfiguration.ReplicationRuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
@@ -7227,6 +7319,7 @@ def _typecheckingstub__be71124f033e3826f4c32205bda1d3adb39ad2e783cc193fc52ee22d7
 def _typecheckingstub__db6d7133bf506488b87a4ed998e2db1455e219e9bfa903d0880e4240a48da3c6(
     *,
     destinations: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReplicationConfiguration.ReplicationDestinationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    delete_replication: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReplicationConfiguration.DeleteReplicationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     repository_filters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReplicationConfiguration.RepositoryFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""

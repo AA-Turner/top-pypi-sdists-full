@@ -30,7 +30,17 @@ pub struct IdListUpdate {
 #[doc(hidden)]
 pub struct IdListUpdateBase {
     pub(crate) previous: Option<IdListMetadata>,
-    pub(crate) list: Option<super::IdList>,
+    // Only populated at the external listener boundary.
+    pub(crate) list: Option<Box<super::IdList>>,
+}
+
+impl IdListUpdateBase {
+    pub(super) fn expected(previous: Option<IdListMetadata>) -> Self {
+        Self {
+            previous,
+            list: None,
+        }
+    }
 }
 
 #[async_trait]

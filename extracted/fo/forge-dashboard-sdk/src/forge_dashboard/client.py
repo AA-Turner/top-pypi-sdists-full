@@ -15,7 +15,7 @@ import httpx2
 
 from ._generated.api.health import get_version as _get_version
 from ._generated.api.health import health as _get_health
-from ._generated.client import Client as _GeneratedClient
+from ._generated.client import AuthenticatedClient as _GeneratedClient
 from ._generated.models.health import Health
 from ._generated.models.version import Version
 from .errors import decode_error
@@ -30,8 +30,8 @@ API_TOKEN_ENV_VAR = "FORGE_DASHBOARD_API_TOKEN"  # noqa: S105 # nosec B105
 class ForgeDashboardClient:
     """A forge-dashboard API client.
 
-    Every operation except :meth:`health`, :meth:`get_version` and the two
-    webhook receivers requires an authenticated session. forge-dashboard
+    Every operation except :meth:`health` and the two webhook receivers
+    requires an authenticated session. forge-dashboard
     accepts either a browser's passkey session cookie or a personal API
     token (``Authorization: Bearer <token>``, minted via ``POST
     /api/tokens``) -- see the spec's ``auth`` tag. This wrapper only speaks
@@ -72,7 +72,7 @@ class ForgeDashboardClient:
         # doesn't mask a real mutation of raise_on_unexpected_status on the
         # same line -- that one *is* read, by every generated operation's
         # _parse_response.
-        self._raw = _GeneratedClient(base_url=base_url)  # pragma: no mutate - never read back, see comment above
+        self._raw = _GeneratedClient(base_url=base_url, token=token or "")  # pragma: no mutate
         self._raw.raise_on_unexpected_status = raise_on_unexpected_status
 
         sync_client = httpx_client
@@ -93,7 +93,7 @@ class ForgeDashboardClient:
 
     @property
     def raw(self) -> _GeneratedClient:
-        """The underlying generated ``Client``."""
+        """The underlying generated ``AuthenticatedClient``."""
         return self._raw
 
     def health(self) -> Health:
@@ -127,7 +127,7 @@ class ForgeDashboardClient:
         return response.parsed
 
     def get_version(self) -> Version:
-        """The running server's build version. Needs no session.
+        """The running server's build version. Needs a session.
 
         Returns:
             The running server's build version.
@@ -135,7 +135,7 @@ class ForgeDashboardClient:
         response = _get_version.sync_detailed(client=self._raw)
         if error := decode_error(response):
             raise error
-        if response.parsed is None:
+        if not isinstance(response.parsed, Version):
             raise TypeError(f"unexpected getVersion response body: {response.parsed!r}")
         return response.parsed
 
@@ -148,7 +148,7 @@ class ForgeDashboardClient:
         response = await _get_version.asyncio_detailed(client=self._raw)
         if error := decode_error(response):
             raise error
-        if response.parsed is None:
+        if not isinstance(response.parsed, Version):
             raise TypeError(f"unexpected getVersion response body: {response.parsed!r}")
         return response.parsed
 

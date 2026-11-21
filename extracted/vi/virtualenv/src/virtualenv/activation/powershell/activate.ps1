@@ -184,7 +184,21 @@ if ($VenvDir) {
     Write-Verbose "VenvDir=$VenvDir"
 }
 
+if ($VenvDir.Contains([string][IO.Path]::PathSeparator)) {
+    throw "Environment directory '$VenvDir' contains the PATH separator."
+}
+
 $pyvenvCfg = Get-PyVenvConfig -ConfigDir $VenvDir
+
+if ($VenvDir.Contains('%')) {
+    $PathOption = $VenvDir.Substring($VenvDir.IndexOf('%') + 1)
+    if (
+        $PathOption.StartsWith('func', [StringComparison]::Ordinal) -or
+        $PathOption.StartsWith('builtin', [StringComparison]::Ordinal)
+    ) {
+        throw "Environment directory '$VenvDir' contains a shell PATH option."
+    }
+}
 
 if ($Prompt) {
     Write-Verbose "Prompt specified as argument, using '$Prompt'"

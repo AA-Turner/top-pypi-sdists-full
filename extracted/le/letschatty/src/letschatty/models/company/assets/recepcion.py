@@ -25,6 +25,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from ...base_models.chatty_asset_model import ChattyAssetPreview, CompanyAssetModel
 from ...utils.types import StrObjectId
 from ...utils.types.serializer_type import SerializerType
+from .atencion.pregunta_frecuente import SalidaPreguntaFrecuente
 from .automation import Automation
 
 logger = logging.getLogger(__name__)
@@ -290,6 +291,12 @@ class Ausencia(BaseModel):
 
     horario: HorarioDeAtencion = Field(default_factory=HorarioDeAtencion)
 
+    # 0.6.57.8 (2026-11-18, Axel): «Si está cerrado: el aviso reemplaza la bienvenida | bienvenida y después el
+    # aviso». False = como siempre (bienvenida y después el aviso). Sin aviso configurado no reemplaza nada.
+    reemplaza_bienvenida: bool = Field(
+        default=False, description="Cerrado y con aviso: sale SÓLO el aviso, en lugar de la bienvenida",
+    )
+
     TOPE_REENVIO: ClassVar[timedelta] = timedelta(hours=24)
 
     @field_validator("con_ia_autonoma", mode="before")
@@ -515,6 +522,12 @@ class Recepcion(CompanyAssetModel):
         ),
     )
 
+    # 0.6.57.10 — «Era una pregunta frecuente» (atencion/pregunta_frecuente.py): lo que se le suma a esa salida de
+    # «¿Por qué escribió?» en el nuevo inicio. None = la IA contesta y nada más. Es de la empresa (no por cuenta).
+    pregunta_frecuente: Optional[SalidaPreguntaFrecuente] = Field(
+        default=None, description="Acciones de la salida «Era una pregunta frecuente». None = sólo contesta la IA",
+    )
+
     # --- Por cuenta (0.6.17) ---------------------------------------------------------------
     account_receptions: dict[str, Any] = Field(
         default_factory=dict,
@@ -590,3 +603,20 @@ class Recepcion(CompanyAssetModel):
                 self.company_id, account_id, exc_info=True,
             )
             return self
+
+
+class RecepcionDelMotivo(BaseModel):
+    """0.6.57.8 — La recepción PROPIA de un motivo (`Motivo.recepcion`): el bloque entero «¿Está abierto? → Abierto:
+    bienvenida / Cerrado: aviso», editable sólo para ese motivo. Sin ella el motivo hereda el bloque entero de la
+    general. La pausa manual (`Ausencia.activa`) es siempre la de la empresa: cerró el local, cerró para todos."""
+
+    bienvenida_fast_answer_id: Optional[StrObjectId] = Field(default=None, description="None = sin bienvenida")
+    ausencia: Ausencia = Field(default_factory=Ausencia, description="Horario, aviso de cerrado y si reemplaza la bienvenida")
+
+    def efectiva(self, general: "Recepcion") -> "Recepcion":
+        """La recepción con la que corre un chat de este motivo: la general (lo demás) con esta bienvenida, este
+        horario y este aviso. Pura."""
+        ausencia = self.ausencia.model_copy(
+            update={"activa": general.ausencia.activa, "activa_hasta": general.ausencia.activa_hasta})
+        return general.model_copy(update={"bienvenida_fast_answer_id": self.bienvenida_fast_answer_id,
+                                          "ausencia": ausencia})

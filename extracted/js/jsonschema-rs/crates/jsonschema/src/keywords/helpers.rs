@@ -5,7 +5,19 @@ use std::borrow::Cow;
 
 use serde_json::{Map, Value};
 
-use crate::{compiler, paths::Location, types::JsonType, Json, ValidationError};
+use crate::{
+    compiler::{self, DeferredAbsoluteLocation},
+    evaluation::{
+        format_keyword_location, Annotations, ChildList, ErrorDescription, EvaluationNode,
+        InstancePosition,
+    },
+    paths::{LazyLocation, Location, RefTracker},
+    types::JsonType,
+    validator::ValidationContext,
+    Json, Node, ValidationError,
+};
+use referencing::Uri;
+use std::sync::{Arc, OnceLock};
 
 /// A non-negative bound on a collection size, saturating at `u64::MAX`.
 ///
@@ -51,7 +63,7 @@ fn is_integer_past_u64(schema: &Value) -> bool {
 #[cfg(not(feature = "arbitrary-precision"))]
 fn is_integer_past_u64(schema: &Value) -> bool {
     // Without the raw text such a value is an `f64`, and every `f64` at or past `2^64` is an exact
-    // integer - no float in that range carries a fractional part - so the draft gate is moot.
+    // integer; Draft 4's integer-literal rule cannot be checked here.
     schema
         .as_f64()
         .is_some_and(|value| value >= crate::canonical::json::U64_UPPER_EXCLUSIVE_F64)
@@ -59,7 +71,7 @@ fn is_integer_past_u64(schema: &Value) -> bool {
 
 /// Extract a u64 value from a schema map, returning a compilation error if invalid.
 ///
-/// This is a defensive check - normally caught by metaschema validation.
+/// Reached when meta-validation is off or the schema is a registry resource.
 #[inline]
 pub(crate) fn map_get_u64<'a, F: Json>(
     m: &'a Map<String, Value>,
@@ -78,7 +90,7 @@ pub(crate) fn map_get_u64<'a, F: Json>(
 
 /// Create a compilation error for schema values that must be non-negative integers.
 ///
-/// This is a defensive check - normally caught by metaschema validation.
+/// Reached when meta-validation is off or the schema is a registry resource.
 pub(crate) fn fail_on_non_positive_integer(
     schema_value: &Value,
     schema_path: Location,
@@ -100,6 +112,116 @@ pub(crate) fn fail_on_non_positive_integer(
             Location::new(),
             LazyInstance::Ready(Cow::Borrowed(schema_value)),
             JsonType::Integer,
+        )
+    }
+}
+
+/// A schema position with the locations its output reports, rendered on first use.
+pub(crate) struct SchemaSite {
+    pub(crate) location: Location,
+    base: Option<DeferredAbsoluteLocation>,
+    absolute_location: OnceLock<Option<Arc<Uri<String>>>>,
+    schema_location: OnceLock<Arc<str>>,
+}
+
+impl SchemaSite {
+    pub(crate) fn new<F: Json>(ctx: &compiler::Context<F>, location: Location) -> Self {
+        SchemaSite {
+            location,
+            base: ctx.deferred_absolute_location(),
+            absolute_location: OnceLock::new(),
+            schema_location: OnceLock::new(),
+        }
+    }
+
+    pub(crate) fn absolute_location(&self) -> Option<&Arc<Uri<String>>> {
+        self.absolute_location
+            .get_or_init(|| self.base.as_ref().map(|base| base.resolve(&self.location)))
+            .as_ref()
+    }
+
+    pub(crate) fn schema_location(&self) -> Arc<str> {
+        Arc::clone(
+            self.schema_location
+                .get_or_init(|| format_keyword_location(&self.location, self.absolute_location())),
+        )
+    }
+}
+
+/// A leaf keyword's output unit: valid and empty, or failing with `error`.
+pub(crate) fn unit(
+    site: &SchemaSite,
+    error: Option<ErrorDescription>,
+    instance_location: InstancePosition,
+    tracker: Option<&RefTracker>,
+    ctx: &mut ValidationContext,
+) -> EvaluationNode {
+    unit_over(
+        site,
+        error.into_iter().collect(),
+        None,
+        ChildList::default(),
+        instance_location,
+        tracker,
+        ctx,
+    )
+}
+
+/// A `false` subschema failing at the instance at `path`, as a unit at `site`.
+pub(crate) fn false_schema_unit<F: Json>(
+    ctx: &mut ValidationContext,
+    site: &SchemaSite,
+    value: &F::Node<'_>,
+    path: &LazyLocation,
+    tracker: Option<&RefTracker>,
+) -> EvaluationNode {
+    let error = ErrorDescription::from_validation_error(&ValidationError::false_schema(
+        site.location.clone(),
+        crate::paths::capture_evaluation_path(tracker, &site.location),
+        path.into(),
+        value.lazy_value(),
+    ));
+    let position = ctx.instance_position(path);
+    unit_over(
+        site,
+        vec![error],
+        None,
+        ChildList::default(),
+        position,
+        tracker,
+        ctx,
+    )
+}
+
+/// A keyword's output unit over `children`, failing with `errors` or with a failing child.
+pub(crate) fn unit_over(
+    site: &SchemaSite,
+    errors: Vec<ErrorDescription>,
+    annotations: Option<Annotations>,
+    children: ChildList,
+    instance_location: InstancePosition,
+    tracker: Option<&RefTracker>,
+    ctx: &mut ValidationContext,
+) -> EvaluationNode {
+    let evaluation_path = crate::paths::evaluation_path(tracker, &site.location, ctx);
+    if errors.is_empty() && children.all_valid() {
+        EvaluationNode::valid(
+            evaluation_path,
+            site.absolute_location().cloned(),
+            site.schema_location(),
+            instance_location,
+            annotations,
+            children,
+        )
+    } else {
+        EvaluationNode::invalid(
+            evaluation_path,
+            site.absolute_location().cloned(),
+            site.schema_location(),
+            instance_location,
+            annotations,
+            errors,
+            children,
         )
     }
 }

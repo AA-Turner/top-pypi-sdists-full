@@ -8,13 +8,9 @@ Meta is not called here. The caller verifies the Embedded Signup result with Met
 exchange, `debug_token`, the WABA's owner portfolio) and passes the confirmed ids as a
 `VerifiedConnection`; nothing the browser sent is trusted.
 """
-from dataclasses import dataclass
-from enum import StrEnum
 from typing import List, Optional
 
 from bson import ObjectId
-from pydantic import SecretStr
-
 from ...models.utils.types.identifier import StrObjectId
 from ...models.whatsapp import (
     AccountCannotBeDefault,
@@ -29,6 +25,13 @@ from ...models.whatsapp import (
 from ...models.whatsapp.exceptions import CannotTakeDownDefaultNumber, NumberAlreadyClaimed
 from ...models.whatsapp.whatsapp_number import known_number_digits
 from ...models.whatsapp.time import utc_now
+from ...domain.whatsapp.connect_number import (
+    ConnectionResult,
+    ConnectMode,
+    ConnectRequest,
+    VerifiedConnection,
+    WabaChange,
+)
 from .directory import AccountDirectory
 from .repositories import (
     WhatsAppAccountRepository,
@@ -37,49 +40,9 @@ from .repositories import (
     WhatsAppPortfolioRepository,
 )
 
-
-class ConnectMode(StrEnum):
-    NEW = "new"
-    RECONNECT = "reconnect"
-
-
-@dataclass(frozen=True)
-class VerifiedConnection:
-    """What Meta confirmed for an Embedded Signup, server side."""
-    phone_number_id: str
-    display_phone_number: str
-    waba_id: str
-    token: SecretStr
-    verified_name: str = ""
-    portfolio_id: Optional[str] = None
-    portfolio_name: str = ""
-    waba_name: str = ""
-    is_coexistence: bool = False
-
-
-@dataclass(frozen=True)
-class ConnectRequest:
-    company_id: StrObjectId
-    mode: ConnectMode
-    #: RECONNECT: the account that takes the number.
-    account_id: Optional[StrObjectId] = None
-    #: NEW: the name the user gave the account. Defaults to Meta's verified name.
-    name: Optional[str] = None
-
-
-@dataclass(frozen=True)
-class WabaChange:
-    previous_waba_id: str
-    new_waba_id: str
-    portfolio_changed: bool
-
-
-@dataclass(frozen=True)
-class ConnectionResult:
-    account: WhatsAppAccount
-    created: bool
-    previous_phone_number_id: Optional[str]
-    waba_change: Optional[WabaChange]
+# The five request/result types live in `domain/whatsapp/connect_number.py` (ENG-458); the old import path keeps them.
+__all__ = ["ConnectMode", "VerifiedConnection", "ConnectRequest", "WabaChange", "ConnectionResult",
+           "NumberAlreadyInAccount", "ConnectNumber", "AccountAdministration"]
 
 
 class NumberAlreadyInAccount(NumberAlreadyClaimed):

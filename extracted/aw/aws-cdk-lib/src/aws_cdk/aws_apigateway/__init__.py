@@ -915,6 +915,55 @@ proxy = resource.add_proxy(
 )
 ```
 
+### Automatic Path Parameter Configuration
+
+When creating proxy resources, you typically need to configure path parameters in two places:
+the method request and the integration request. The `autoConfigurePathParameter` option
+simplifies this by automatically configuring both:
+
+```python
+# resource: apigateway.Resource
+
+
+# Without auto-configuration (manual setup required)
+resource.add_proxy(
+    default_integration=apigateway.HttpIntegration("http://example.com/api/{proxy}",
+        options=apigateway.IntegrationOptions(
+            request_parameters={
+                "integration.request.path.proxy": "method.request.path.proxy"
+            }
+        )
+    ),
+    default_method_options=apigateway.MethodOptions(
+        request_parameters={
+            "method.request.path.proxy": True
+        }
+    )
+)
+
+# With auto-configuration (simpler)
+resource.add_proxy(
+    auto_configure_path_parameter=True,
+    default_integration=apigateway.HttpIntegration("http://example.com/api/{proxy}")
+)
+```
+
+When `autoConfigurePathParameter` is set to `true`, the proxy resource automatically:
+
+* Adds `method.request.path.proxy: true` to method request parameters
+* Adds `integration.request.path.proxy: 'method.request.path.proxy'` to integration request parameters
+
+This matches the behavior of the AWS Console when creating proxy resources and ensures
+that requests like `/api/foo/bar` are correctly forwarded to the backend with the full path.
+
+This option is meant for integrations whose URI uses `{proxy}`, such as HTTP integrations.
+Lambda proxy (`AWS_PROXY`) integrations do not need it, as Lambda already receives the full
+request path. The mapping is added even when the integration URI has no `{proxy}`.
+
+Mock integrations, such as the ones created for CORS preflight requests, are left unchanged.
+When the proxy is added to the root resource (`api.root.addProxy()`), the method that is also
+added to the root resource has no `{proxy}` path parameter, so it is not configured.
+
 ## Authorizers
 
 API Gateway [supports several different authorization types](https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-control-access-to-api.html)
@@ -3000,9 +3049,9 @@ class ApiDefinition(
         :param asset_hash: Specify a custom hash for this asset. If ``assetHashType`` is set it must be set to ``AssetHashType.CUSTOM``. For consistency, this custom hash will be SHA256 hashed and encoded as hex. The resulting hash will be the asset hash. NOTE: the hash is used in order to identify a specific revision of the asset, and used for optimizing and caching deployment activities related to this asset such as packaging, uploading to Amazon S3, etc. If you chose to customize the hash, you will need to make sure it is updated every time the asset changes, or otherwise it is possible that some deployments will not be invalidated. Default: - based on ``assetHashType``
         :param asset_hash_type: Specifies the type of hash to calculate for this asset. If ``assetHash`` is configured, this option must be ``undefined`` or ``AssetHashType.CUSTOM``. Default: - the default is ``AssetHashType.SOURCE``, but if ``assetHash`` is explicitly specified this value defaults to ``AssetHashType.CUSTOM``.
         :param bundling: Bundle the asset by executing a command in a Docker container or a custom bundling provider. The asset path will be mounted at ``/asset-input``. The Docker container is responsible for putting content at ``/asset-output``. The content at ``/asset-output`` will be zipped and used as the final asset. Default: - uploaded as-is to S3 if the asset is a regular file or a .zip file, archived into a .zip file and uploaded to S3 otherwise
-        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Has no effect on Assets bundled using the ``bundling`` property. Default: - nothing is excluded
-        :param follow_symlinks: A strategy for how to handle symlinks. Default: SymlinkFollowMode.NEVER
-        :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
+        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, this controls the files that will be included in the copy. Files matching the ``exclude`` patterns will not be included in the copy. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the value of ``exclude`` is only meaningful if the ``assetHashType`` is set to ``AssetHashType.SOURCE``, and ignored for other asset hash types. The ``exclude`` patterns will be used to determine which files contribute to the asset, and the bundling command is skipped if the source files have not changed since the last bundling operation. **NOTE:** The bundling operation still has access to all files in the source path, regardless of the ``exclude`` patterns. It is your responsibility to ensure the ``exclude`` pattern accurately matches the files the bundling operation will *actually* access and base its final output on. For ``OUTPUT`` or ``CUSTOM`` asset hash types, the ``exclude`` pattern is ignored. Default: - nothing is excluded
+        :param follow_symlinks: A strategy for how to handle symlinks. Symlinks may be copied, materialized or rejected. Note that if symlinks are copied they should be relative; absolute symlinks will lose their meaning if the cloud assembly is moved to another machine. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, symlinks are materialized or blocked with respect to the ``sourcePath`` directory as they are being copied. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the bundling command is fully in charge of producing a set of files in an output directory, and the ``AssetStaging`` construct will never affect symlink materialization. If the ``assetHashType`` is ``AssetHashType.SOURCE``, this flag affects what the source hash is based on, and the recommended value is one of ``SymlinkFollowMode.EXTERNAL`` or ``SymlinkFollowMode.BLOCK_EXTERNAL``. If the ``SymlinkFollowMode.BLOCK_EXTERNAL`` mode is used: - symlinks pointing outside the source tree will be blocked if using ``AssetHashType.SOURCE``. - symlinks pointing outside the bundle output will be blocked. Default: SymlinkFollowMode.EXTERNAL
+        :param ignore_mode: What syntax the ``exclude`` patterns are written in. Default: - IgnoreMode.GLOB for file assets, ``IgnoreMode.DOCKER`` for image assets (requires that the ``@aws-cdk/aws-ecr-assets:dockerIgnoreSupport`` feature flag is set, which is recommended)
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__931fac6af706dd0dae384cc682b2ecb066666ff6165060417e461a3920d8895e)
@@ -3539,9 +3588,9 @@ class AssetApiDefinition(
         :param asset_hash: Specify a custom hash for this asset. If ``assetHashType`` is set it must be set to ``AssetHashType.CUSTOM``. For consistency, this custom hash will be SHA256 hashed and encoded as hex. The resulting hash will be the asset hash. NOTE: the hash is used in order to identify a specific revision of the asset, and used for optimizing and caching deployment activities related to this asset such as packaging, uploading to Amazon S3, etc. If you chose to customize the hash, you will need to make sure it is updated every time the asset changes, or otherwise it is possible that some deployments will not be invalidated. Default: - based on ``assetHashType``
         :param asset_hash_type: Specifies the type of hash to calculate for this asset. If ``assetHash`` is configured, this option must be ``undefined`` or ``AssetHashType.CUSTOM``. Default: - the default is ``AssetHashType.SOURCE``, but if ``assetHash`` is explicitly specified this value defaults to ``AssetHashType.CUSTOM``.
         :param bundling: Bundle the asset by executing a command in a Docker container or a custom bundling provider. The asset path will be mounted at ``/asset-input``. The Docker container is responsible for putting content at ``/asset-output``. The content at ``/asset-output`` will be zipped and used as the final asset. Default: - uploaded as-is to S3 if the asset is a regular file or a .zip file, archived into a .zip file and uploaded to S3 otherwise
-        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Has no effect on Assets bundled using the ``bundling`` property. Default: - nothing is excluded
-        :param follow_symlinks: A strategy for how to handle symlinks. Default: SymlinkFollowMode.NEVER
-        :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
+        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, this controls the files that will be included in the copy. Files matching the ``exclude`` patterns will not be included in the copy. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the value of ``exclude`` is only meaningful if the ``assetHashType`` is set to ``AssetHashType.SOURCE``, and ignored for other asset hash types. The ``exclude`` patterns will be used to determine which files contribute to the asset, and the bundling command is skipped if the source files have not changed since the last bundling operation. **NOTE:** The bundling operation still has access to all files in the source path, regardless of the ``exclude`` patterns. It is your responsibility to ensure the ``exclude`` pattern accurately matches the files the bundling operation will *actually* access and base its final output on. For ``OUTPUT`` or ``CUSTOM`` asset hash types, the ``exclude`` pattern is ignored. Default: - nothing is excluded
+        :param follow_symlinks: A strategy for how to handle symlinks. Symlinks may be copied, materialized or rejected. Note that if symlinks are copied they should be relative; absolute symlinks will lose their meaning if the cloud assembly is moved to another machine. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, symlinks are materialized or blocked with respect to the ``sourcePath`` directory as they are being copied. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the bundling command is fully in charge of producing a set of files in an output directory, and the ``AssetStaging`` construct will never affect symlink materialization. If the ``assetHashType`` is ``AssetHashType.SOURCE``, this flag affects what the source hash is based on, and the recommended value is one of ``SymlinkFollowMode.EXTERNAL`` or ``SymlinkFollowMode.BLOCK_EXTERNAL``. If the ``SymlinkFollowMode.BLOCK_EXTERNAL`` mode is used: - symlinks pointing outside the source tree will be blocked if using ``AssetHashType.SOURCE``. - symlinks pointing outside the bundle output will be blocked. Default: SymlinkFollowMode.EXTERNAL
+        :param ignore_mode: What syntax the ``exclude`` patterns are written in. Default: - IgnoreMode.GLOB for file assets, ``IgnoreMode.DOCKER`` for image assets (requires that the ``@aws-cdk/aws-ecr-assets:dockerIgnoreSupport`` feature flag is set, which is recommended)
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8d060d6bc8fc5b369cfe71dc05efc964aa6b083b674baa7dc17f1762a8d68421)
@@ -17665,53 +17714,33 @@ class HttpIntegrationProps:
         :param options: Integration options, such as request/resopnse mapping, content handling, etc. Default: defaults based on ``IntegrationOptions`` defaults
         :param proxy: Determines whether to use proxy integration or custom integration. Default: true
 
-        :exampleMetadata: fixture=_generated
+        :exampleMetadata: infused
 
         Example::
 
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            import aws_cdk as cdk
-            from aws_cdk import aws_apigateway as apigateway
-            from aws_cdk import aws_iam as iam
+            # resource: apigateway.Resource
             
-            # role: iam.Role
-            # vpc_link: apigateway.VpcLink
             
-            http_integration_props = apigateway.HttpIntegrationProps(
-                http_method="httpMethod",
-                options=apigateway.IntegrationOptions(
-                    cache_key_parameters=["cacheKeyParameters"],
-                    cache_namespace="cacheNamespace",
-                    connection_type=apigateway.ConnectionType.INTERNET,
-                    content_handling=apigateway.ContentHandling.CONVERT_TO_BINARY,
-                    credentials_passthrough=False,
-                    credentials_role=role,
-                    integration_responses=[apigateway.IntegrationResponse(
-                        status_code="statusCode",
-            
-                        # the properties below are optional
-                        content_handling=apigateway.ContentHandling.CONVERT_TO_BINARY,
-                        response_parameters={
-                            "response_parameters_key": "responseParameters"
-                        },
-                        response_templates={
-                            "response_templates_key": "responseTemplates"
-                        },
-                        selection_pattern="selectionPattern"
-                    )],
-                    passthrough_behavior=apigateway.PassthroughBehavior.WHEN_NO_MATCH,
-                    request_parameters={
-                        "request_parameters_key": "requestParameters"
-                    },
-                    request_templates={
-                        "request_templates_key": "requestTemplates"
-                    },
-                    response_transfer_mode=apigateway.ResponseTransferMode.BUFFERED,
-                    timeout=cdk.Duration.minutes(30),
-                    vpc_link=vpc_link
+            # Without auto-configuration (manual setup required)
+            resource.add_proxy(
+                default_integration=apigateway.HttpIntegration("http://example.com/api/{proxy}",
+                    options=apigateway.IntegrationOptions(
+                        request_parameters={
+                            "integration.request.path.proxy": "method.request.path.proxy"
+                        }
+                    )
                 ),
-                proxy=False
+                default_method_options=apigateway.MethodOptions(
+                    request_parameters={
+                        "method.request.path.proxy": True
+                    }
+                )
+            )
+            
+            # With auto-configuration (simpler)
+            resource.add_proxy(
+                auto_configure_path_parameter=True,
+                default_integration=apigateway.HttpIntegration("http://example.com/api/{proxy}")
             )
         '''
         if isinstance(options, dict):
@@ -18195,6 +18224,7 @@ class IResource(
         self,
         *,
         any_method: typing.Optional[builtins.bool] = None,
+        auto_configure_path_parameter: typing.Optional[builtins.bool] = None,
         default_cors_preflight_options: typing.Optional[typing.Union["CorsOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         default_integration: typing.Optional["Integration"] = None,
         default_method_options: typing.Optional[typing.Union["MethodOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -18202,6 +18232,7 @@ class IResource(
         '''Adds a greedy proxy resource ("{proxy+}") and an ANY method to this route.
 
         :param any_method: Adds an "ANY" method to this resource. If set to ``false``, you will have to explicitly add methods to this resource after it's created. Default: true
+        :param auto_configure_path_parameter: Automatically configure path parameter mapping for the proxy resource. When enabled, this property automatically configures both the method request and integration request to properly handle the proxy path parameter: - Adds ``method.request.path.proxy: true`` to method request parameters - Adds ``integration.request.path.proxy: 'method.request.path.proxy'`` to integration request parameters This matches the behavior of the AWS Console when creating proxy resources and eliminates the need to manually configure path parameters. This is meant for integrations whose URI uses ``{proxy}``, such as HTTP integrations. Lambda proxy (``AWS_PROXY``) integrations do not need it, as Lambda already receives the full request path. The mapping is added even when the integration URI has no ``{proxy}``. Mock integrations are left unchanged. When the proxy is added to the root resource, the method that is also added to the root has no ``{proxy}`` path parameter, so it is not configured. Default: false
         :param default_cors_preflight_options: Adds a CORS preflight OPTIONS method to this resource and all child resources. You can add CORS at the resource-level using ``addCorsPreflight``. Default: - CORS is disabled
         :param default_integration: An integration to use as a default for all methods created within this API unless an integration is specified. Default: - Inherited from parent.
         :param default_method_options: Method options to use as a default for all methods created within this API unless custom options are specified. Default: - Inherited from parent.
@@ -18415,6 +18446,7 @@ class _IResourceProxy(
         self,
         *,
         any_method: typing.Optional[builtins.bool] = None,
+        auto_configure_path_parameter: typing.Optional[builtins.bool] = None,
         default_cors_preflight_options: typing.Optional[typing.Union["CorsOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         default_integration: typing.Optional["Integration"] = None,
         default_method_options: typing.Optional[typing.Union["MethodOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -18422,12 +18454,14 @@ class _IResourceProxy(
         '''Adds a greedy proxy resource ("{proxy+}") and an ANY method to this route.
 
         :param any_method: Adds an "ANY" method to this resource. If set to ``false``, you will have to explicitly add methods to this resource after it's created. Default: true
+        :param auto_configure_path_parameter: Automatically configure path parameter mapping for the proxy resource. When enabled, this property automatically configures both the method request and integration request to properly handle the proxy path parameter: - Adds ``method.request.path.proxy: true`` to method request parameters - Adds ``integration.request.path.proxy: 'method.request.path.proxy'`` to integration request parameters This matches the behavior of the AWS Console when creating proxy resources and eliminates the need to manually configure path parameters. This is meant for integrations whose URI uses ``{proxy}``, such as HTTP integrations. Lambda proxy (``AWS_PROXY``) integrations do not need it, as Lambda already receives the full request path. The mapping is added even when the integration URI has no ``{proxy}``. Mock integrations are left unchanged. When the proxy is added to the root resource, the method that is also added to the root has no ``{proxy}`` path parameter, so it is not configured. Default: false
         :param default_cors_preflight_options: Adds a CORS preflight OPTIONS method to this resource and all child resources. You can add CORS at the resource-level using ``addCorsPreflight``. Default: - CORS is disabled
         :param default_integration: An integration to use as a default for all methods created within this API unless an integration is specified. Default: - Inherited from parent.
         :param default_method_options: Method options to use as a default for all methods created within this API unless custom options are specified. Default: - Inherited from parent.
         '''
         options = ProxyResourceOptions(
             any_method=any_method,
+            auto_configure_path_parameter=auto_configure_path_parameter,
             default_cors_preflight_options=default_cors_preflight_options,
             default_integration=default_integration,
             default_method_options=default_method_options,
@@ -19316,67 +19350,46 @@ class IntegrationOptions:
         :param timeout: The maximum amount of time an integration will run before it returns without a response. By default, the value must be between 50 milliseconds and 29 seconds. The upper bound can be increased for regional and private Rest APIs only, via a quota increase request for your account. This increase might require a reduction in your account-level throttle quota limit. See {@link https://docs.aws.amazon.com/apigateway/latest/developerguide/limits.html Amazon API Gateway quotas} for more details. Default: Duration.seconds(29)
         :param vpc_link: The VpcLink used for the integration. Required if connectionType is VPC_LINK
 
-        :exampleMetadata: lit=aws-apigateway/test/authorizers/integ.request-authorizer.lit.ts infused
+        :exampleMetadata: nofixture infused
 
         Example::
 
-            from aws_cdk.aws_apigateway import IntegrationResponse, MethodResponse, IntegrationResponse, MethodResponse
-            import path as path
-            import aws_cdk.aws_lambda as lambda_
-            from aws_cdk import App, Stack
-            from aws_cdk.aws_apigateway import MockIntegration, PassthroughBehavior, RestApi, RequestAuthorizer, IdentitySource
+            from aws_cdk.aws_apigateway import MethodOptions, CorsOptions, IntegrationResponse, MethodResponse
+            class MyStack(Stack):
+                def __init__(self, scope, id):
+                    super().__init__(scope, id)
             
-            # Against the RestApi endpoint from the stack output, run
-            # `curl -s -o /dev/null -w "%{http_code}" <url>` should return 401
-            # `curl -s -o /dev/null -w "%{http_code}" -H 'Authorization: deny' <url>?allow=yes` should return 403
-            # `curl -s -o /dev/null -w "%{http_code}" -H 'Authorization: allow' <url>?allow=yes` should return 200
+                    authorizer_fn = lambda_.Function(self, "MyAuthorizerFunction",
+                        runtime=lambda_.Runtime.NODEJS_LATEST,
+                        handler="index.handler",
+                        code=lambda_.AssetCode.from_asset(path.join(__dirname, "integ.token-authorizer.handler"))
+                    )
             
-            app = App()
-            stack = Stack(app, "RequestAuthorizerInteg")
+                    authorizer = TokenAuthorizer(self, "MyAuthorizer",
+                        handler=authorizer_fn
+                    )
             
-            authorizer_fn = lambda_.Function(stack, "MyAuthorizerFunction",
-                runtime=lambda_.Runtime.NODEJS_LATEST,
-                handler="index.handler",
-                code=lambda_.AssetCode.from_asset(path.join(__dirname, "integ.request-authorizer.handler"))
-            )
+                    restapi = RestApi(self, "MyRestApi",
+                        cloud_watch_role=True,
+                        default_method_options=MethodOptions(
+                            authorizer=authorizer
+                        ),
+                        default_cors_preflight_options=CorsOptions(
+                            allow_origins=Cors.ALL_ORIGINS
+                        )
+                    )
             
-            restapi = RestApi(stack, "MyRestApi", cloud_watch_role=True)
-            
-            authorizer = RequestAuthorizer(stack, "MyAuthorizer",
-                handler=authorizer_fn,
-                identity_sources=[IdentitySource.header("Authorization"), IdentitySource.query_string("allow")]
-            )
-            
-            second_authorizer = RequestAuthorizer(stack, "MySecondAuthorizer",
-                handler=authorizer_fn,
-                identity_sources=[IdentitySource.header("Authorization"), IdentitySource.query_string("allow")]
-            )
-            
-            restapi.root.add_method("ANY", MockIntegration(
-                integration_responses=[IntegrationResponse(status_code="200")
-                ],
-                passthrough_behavior=PassthroughBehavior.NEVER,
-                request_templates={
-                    "application/json": "{ \"statusCode\": 200 }"
-                }
-            ),
-                method_responses=[MethodResponse(status_code="200")
-                ],
-                authorizer=authorizer
-            )
-            
-            restapi.root.resource_for_path("auth").add_method("ANY", MockIntegration(
-                integration_responses=[IntegrationResponse(status_code="200")
-                ],
-                passthrough_behavior=PassthroughBehavior.NEVER,
-                request_templates={
-                    "application/json": "{ \"statusCode\": 200 }"
-                }
-            ),
-                method_responses=[MethodResponse(status_code="200")
-                ],
-                authorizer=second_authorizer
-            )
+                    restapi.root.add_method("ANY", MockIntegration(
+                        integration_responses=[IntegrationResponse(status_code="200")
+                        ],
+                        passthrough_behavior=PassthroughBehavior.NEVER,
+                        request_templates={
+                            "application/json": "{ \"statusCode\": 200 }"
+                        }
+                    ),
+                        method_responses=[MethodResponse(status_code="200")
+                        ]
+                    )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2d8fe5f6bdc4536c27b3cea965d20260495a3bdffbb6422a7b5ce729924b6434)
@@ -24671,6 +24684,7 @@ class ResourceBase(
         self,
         *,
         any_method: typing.Optional[builtins.bool] = None,
+        auto_configure_path_parameter: typing.Optional[builtins.bool] = None,
         default_cors_preflight_options: typing.Optional[typing.Union["CorsOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         default_integration: typing.Optional["Integration"] = None,
         default_method_options: typing.Optional[typing.Union["MethodOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -24678,12 +24692,14 @@ class ResourceBase(
         '''Adds a greedy proxy resource ("{proxy+}") and an ANY method to this route.
 
         :param any_method: Adds an "ANY" method to this resource. If set to ``false``, you will have to explicitly add methods to this resource after it's created. Default: true
+        :param auto_configure_path_parameter: Automatically configure path parameter mapping for the proxy resource. When enabled, this property automatically configures both the method request and integration request to properly handle the proxy path parameter: - Adds ``method.request.path.proxy: true`` to method request parameters - Adds ``integration.request.path.proxy: 'method.request.path.proxy'`` to integration request parameters This matches the behavior of the AWS Console when creating proxy resources and eliminates the need to manually configure path parameters. This is meant for integrations whose URI uses ``{proxy}``, such as HTTP integrations. Lambda proxy (``AWS_PROXY``) integrations do not need it, as Lambda already receives the full request path. The mapping is added even when the integration URI has no ``{proxy}``. Mock integrations are left unchanged. When the proxy is added to the root resource, the method that is also added to the root has no ``{proxy}`` path parameter, so it is not configured. Default: false
         :param default_cors_preflight_options: Adds a CORS preflight OPTIONS method to this resource and all child resources. You can add CORS at the resource-level using ``addCorsPreflight``. Default: - CORS is disabled
         :param default_integration: An integration to use as a default for all methods created within this API unless an integration is specified. Default: - Inherited from parent.
         :param default_method_options: Method options to use as a default for all methods created within this API unless custom options are specified. Default: - Inherited from parent.
         '''
         options = ProxyResourceOptions(
             any_method=any_method,
+            auto_configure_path_parameter=auto_configure_path_parameter,
             default_cors_preflight_options=default_cors_preflight_options,
             default_integration=default_integration,
             default_method_options=default_method_options,
@@ -33518,6 +33534,7 @@ class LambdaRestApiProps(RestApiProps):
         "default_integration": "defaultIntegration",
         "default_method_options": "defaultMethodOptions",
         "any_method": "anyMethod",
+        "auto_configure_path_parameter": "autoConfigurePathParameter",
     },
 )
 class ProxyResourceOptions(ResourceOptions):
@@ -33528,12 +33545,14 @@ class ProxyResourceOptions(ResourceOptions):
         default_integration: typing.Optional["Integration"] = None,
         default_method_options: typing.Optional[typing.Union["MethodOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         any_method: typing.Optional[builtins.bool] = None,
+        auto_configure_path_parameter: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
         :param default_cors_preflight_options: Adds a CORS preflight OPTIONS method to this resource and all child resources. You can add CORS at the resource-level using ``addCorsPreflight``. Default: - CORS is disabled
         :param default_integration: An integration to use as a default for all methods created within this API unless an integration is specified. Default: - Inherited from parent.
         :param default_method_options: Method options to use as a default for all methods created within this API unless custom options are specified. Default: - Inherited from parent.
         :param any_method: Adds an "ANY" method to this resource. If set to ``false``, you will have to explicitly add methods to this resource after it's created. Default: true
+        :param auto_configure_path_parameter: Automatically configure path parameter mapping for the proxy resource. When enabled, this property automatically configures both the method request and integration request to properly handle the proxy path parameter: - Adds ``method.request.path.proxy: true`` to method request parameters - Adds ``integration.request.path.proxy: 'method.request.path.proxy'`` to integration request parameters This matches the behavior of the AWS Console when creating proxy resources and eliminates the need to manually configure path parameters. This is meant for integrations whose URI uses ``{proxy}``, such as HTTP integrations. Lambda proxy (``AWS_PROXY``) integrations do not need it, as Lambda already receives the full request path. The mapping is added even when the integration URI has no ``{proxy}``. Mock integrations are left unchanged. When the proxy is added to the root resource, the method that is also added to the root has no ``{proxy}`` path parameter, so it is not configured. Default: false
 
         :exampleMetadata: infused
 
@@ -33559,6 +33578,7 @@ class ProxyResourceOptions(ResourceOptions):
             check_type(argname="argument default_integration", value=default_integration, expected_type=type_hints["default_integration"])
             check_type(argname="argument default_method_options", value=default_method_options, expected_type=type_hints["default_method_options"])
             check_type(argname="argument any_method", value=any_method, expected_type=type_hints["any_method"])
+            check_type(argname="argument auto_configure_path_parameter", value=auto_configure_path_parameter, expected_type=type_hints["auto_configure_path_parameter"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if default_cors_preflight_options is not None:
             self._values["default_cors_preflight_options"] = default_cors_preflight_options
@@ -33568,6 +33588,8 @@ class ProxyResourceOptions(ResourceOptions):
             self._values["default_method_options"] = default_method_options
         if any_method is not None:
             self._values["any_method"] = any_method
+        if auto_configure_path_parameter is not None:
+            self._values["auto_configure_path_parameter"] = auto_configure_path_parameter
 
     @builtins.property
     def default_cors_preflight_options(self) -> typing.Optional["CorsOptions"]:
@@ -33610,6 +33632,33 @@ class ProxyResourceOptions(ResourceOptions):
         result = self._values.get("any_method")
         return typing.cast(typing.Optional[builtins.bool], result)
 
+    @builtins.property
+    def auto_configure_path_parameter(self) -> typing.Optional[builtins.bool]:
+        '''Automatically configure path parameter mapping for the proxy resource.
+
+        When enabled, this property automatically configures both the method request
+        and integration request to properly handle the proxy path parameter:
+
+        - Adds ``method.request.path.proxy: true`` to method request parameters
+        - Adds ``integration.request.path.proxy: 'method.request.path.proxy'`` to integration request parameters
+
+        This matches the behavior of the AWS Console when creating proxy resources
+        and eliminates the need to manually configure path parameters.
+
+        This is meant for integrations whose URI uses ``{proxy}``, such as HTTP
+        integrations. Lambda proxy (``AWS_PROXY``) integrations do not need it, as
+        Lambda already receives the full request path. The mapping is added even
+        when the integration URI has no ``{proxy}``.
+
+        Mock integrations are left unchanged. When the proxy is added to the root
+        resource, the method that is also added to the root has no ``{proxy}`` path
+        parameter, so it is not configured.
+
+        :default: false
+        '''
+        result = self._values.get("auto_configure_path_parameter")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -33630,6 +33679,7 @@ class ProxyResourceOptions(ResourceOptions):
         "default_integration": "defaultIntegration",
         "default_method_options": "defaultMethodOptions",
         "any_method": "anyMethod",
+        "auto_configure_path_parameter": "autoConfigurePathParameter",
         "parent": "parent",
     },
 )
@@ -33641,6 +33691,7 @@ class ProxyResourceProps(ProxyResourceOptions):
         default_integration: typing.Optional["Integration"] = None,
         default_method_options: typing.Optional[typing.Union["MethodOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         any_method: typing.Optional[builtins.bool] = None,
+        auto_configure_path_parameter: typing.Optional[builtins.bool] = None,
         parent: "IResource",
     ) -> None:
         '''
@@ -33648,6 +33699,7 @@ class ProxyResourceProps(ProxyResourceOptions):
         :param default_integration: An integration to use as a default for all methods created within this API unless an integration is specified. Default: - Inherited from parent.
         :param default_method_options: Method options to use as a default for all methods created within this API unless custom options are specified. Default: - Inherited from parent.
         :param any_method: Adds an "ANY" method to this resource. If set to ``false``, you will have to explicitly add methods to this resource after it's created. Default: true
+        :param auto_configure_path_parameter: Automatically configure path parameter mapping for the proxy resource. When enabled, this property automatically configures both the method request and integration request to properly handle the proxy path parameter: - Adds ``method.request.path.proxy: true`` to method request parameters - Adds ``integration.request.path.proxy: 'method.request.path.proxy'`` to integration request parameters This matches the behavior of the AWS Console when creating proxy resources and eliminates the need to manually configure path parameters. This is meant for integrations whose URI uses ``{proxy}``, such as HTTP integrations. Lambda proxy (``AWS_PROXY``) integrations do not need it, as Lambda already receives the full request path. The mapping is added even when the integration URI has no ``{proxy}``. Mock integrations are left unchanged. When the proxy is added to the root resource, the method that is also added to the root has no ``{proxy}`` path parameter, so it is not configured. Default: false
         :param parent: The parent resource of this resource. You can either pass another ``Resource`` object or a ``RestApi`` object here.
 
         :exampleMetadata: fixture=_generated
@@ -33670,6 +33722,7 @@ class ProxyResourceProps(ProxyResourceOptions):
             
                 # the properties below are optional
                 any_method=False,
+                auto_configure_path_parameter=False,
                 default_cors_preflight_options=apigateway.CorsOptions(
                     allow_origins=["allowOrigins"],
             
@@ -33725,6 +33778,7 @@ class ProxyResourceProps(ProxyResourceOptions):
             check_type(argname="argument default_integration", value=default_integration, expected_type=type_hints["default_integration"])
             check_type(argname="argument default_method_options", value=default_method_options, expected_type=type_hints["default_method_options"])
             check_type(argname="argument any_method", value=any_method, expected_type=type_hints["any_method"])
+            check_type(argname="argument auto_configure_path_parameter", value=auto_configure_path_parameter, expected_type=type_hints["auto_configure_path_parameter"])
             check_type(argname="argument parent", value=parent, expected_type=type_hints["parent"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "parent": parent,
@@ -33737,6 +33791,8 @@ class ProxyResourceProps(ProxyResourceOptions):
             self._values["default_method_options"] = default_method_options
         if any_method is not None:
             self._values["any_method"] = any_method
+        if auto_configure_path_parameter is not None:
+            self._values["auto_configure_path_parameter"] = auto_configure_path_parameter
 
     @builtins.property
     def default_cors_preflight_options(self) -> typing.Optional["CorsOptions"]:
@@ -33777,6 +33833,33 @@ class ProxyResourceProps(ProxyResourceOptions):
         :default: true
         '''
         result = self._values.get("any_method")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def auto_configure_path_parameter(self) -> typing.Optional[builtins.bool]:
+        '''Automatically configure path parameter mapping for the proxy resource.
+
+        When enabled, this property automatically configures both the method request
+        and integration request to properly handle the proxy path parameter:
+
+        - Adds ``method.request.path.proxy: true`` to method request parameters
+        - Adds ``integration.request.path.proxy: 'method.request.path.proxy'`` to integration request parameters
+
+        This matches the behavior of the AWS Console when creating proxy resources
+        and eliminates the need to manually configure path parameters.
+
+        This is meant for integrations whose URI uses ``{proxy}``, such as HTTP
+        integrations. Lambda proxy (``AWS_PROXY``) integrations do not need it, as
+        Lambda already receives the full request path. The mapping is added even
+        when the integration URI has no ``{proxy}``.
+
+        Mock integrations are left unchanged. When the proxy is added to the root
+        resource, the method that is also added to the root has no ``{proxy}`` path
+        parameter, so it is not configured.
+
+        :default: false
+        '''
+        result = self._values.get("auto_configure_path_parameter")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
@@ -35339,6 +35422,7 @@ class ProxyResource(
         *,
         parent: "IResource",
         any_method: typing.Optional[builtins.bool] = None,
+        auto_configure_path_parameter: typing.Optional[builtins.bool] = None,
         default_cors_preflight_options: typing.Optional[typing.Union["CorsOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         default_integration: typing.Optional["Integration"] = None,
         default_method_options: typing.Optional[typing.Union["MethodOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -35348,6 +35432,7 @@ class ProxyResource(
         :param id: -
         :param parent: The parent resource of this resource. You can either pass another ``Resource`` object or a ``RestApi`` object here.
         :param any_method: Adds an "ANY" method to this resource. If set to ``false``, you will have to explicitly add methods to this resource after it's created. Default: true
+        :param auto_configure_path_parameter: Automatically configure path parameter mapping for the proxy resource. When enabled, this property automatically configures both the method request and integration request to properly handle the proxy path parameter: - Adds ``method.request.path.proxy: true`` to method request parameters - Adds ``integration.request.path.proxy: 'method.request.path.proxy'`` to integration request parameters This matches the behavior of the AWS Console when creating proxy resources and eliminates the need to manually configure path parameters. This is meant for integrations whose URI uses ``{proxy}``, such as HTTP integrations. Lambda proxy (``AWS_PROXY``) integrations do not need it, as Lambda already receives the full request path. The mapping is added even when the integration URI has no ``{proxy}``. Mock integrations are left unchanged. When the proxy is added to the root resource, the method that is also added to the root has no ``{proxy}`` path parameter, so it is not configured. Default: false
         :param default_cors_preflight_options: Adds a CORS preflight OPTIONS method to this resource and all child resources. You can add CORS at the resource-level using ``addCorsPreflight``. Default: - CORS is disabled
         :param default_integration: An integration to use as a default for all methods created within this API unless an integration is specified. Default: - Inherited from parent.
         :param default_method_options: Method options to use as a default for all methods created within this API unless custom options are specified. Default: - Inherited from parent.
@@ -35359,6 +35444,7 @@ class ProxyResource(
         props = ProxyResourceProps(
             parent=parent,
             any_method=any_method,
+            auto_configure_path_parameter=auto_configure_path_parameter,
             default_cors_preflight_options=default_cors_preflight_options,
             default_integration=default_integration,
             default_method_options=default_method_options,
@@ -39730,6 +39816,7 @@ def _typecheckingstub__04fcc037dd29e643a4f05a9f3672a6aec83a93e9e8ffb1c354eadc180
     default_integration: typing.Optional[Integration] = None,
     default_method_options: typing.Optional[typing.Union[MethodOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     any_method: typing.Optional[builtins.bool] = None,
+    auto_configure_path_parameter: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -39740,6 +39827,7 @@ def _typecheckingstub__c1457a55daf6cd8758fb963c34454aa4eb09d8ab35610dd53365aa548
     default_integration: typing.Optional[Integration] = None,
     default_method_options: typing.Optional[typing.Union[MethodOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     any_method: typing.Optional[builtins.bool] = None,
+    auto_configure_path_parameter: typing.Optional[builtins.bool] = None,
     parent: IResource,
 ) -> None:
     """Type checking stubs"""
@@ -40054,6 +40142,7 @@ def _typecheckingstub__43eb05d0f5ce7cc9f8785755503d0dcfc707d15a9fc739d537bd0428d
     *,
     parent: IResource,
     any_method: typing.Optional[builtins.bool] = None,
+    auto_configure_path_parameter: typing.Optional[builtins.bool] = None,
     default_cors_preflight_options: typing.Optional[typing.Union[CorsOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     default_integration: typing.Optional[Integration] = None,
     default_method_options: typing.Optional[typing.Union[MethodOptions, typing.Dict[builtins.str, typing.Any]]] = None,

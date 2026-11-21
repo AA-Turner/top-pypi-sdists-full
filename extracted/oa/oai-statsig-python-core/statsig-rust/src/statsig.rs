@@ -34,8 +34,6 @@ use crate::event_logging_adapter::StatsigHttpEventLoggingAdapter;
 use crate::gcir::gcir_formatter::GCIRFormatter;
 use crate::gcir::target_app_id_utils::select_app_id_for_gcir;
 use crate::hashing::HashUtil;
-use crate::id_lists_adapter::StatsigSharedIdListsAdapter;
-use crate::id_lists_adapter::id_list_load_timing;
 use crate::initialize_evaluations_response::InitializeEvaluationsResponse;
 use crate::initialize_response::InitializeResponse;
 use crate::initialize_v2_response::InitializeV2Response;
@@ -77,8 +75,7 @@ use crate::utils::get_loggable_sdk_key;
 use crate::{
     ClientInitResponseOptions, GCIRResponseFormat, IdListsAdapter, InitializeDetails,
     OpsStatsEventObserver, OverrideAdapter, PreparedUser, SpecsAdapter, SpecsSource,
-    StatsigHttpIdListsAdapter, StatsigLocalOverrideAdapter, StatsigUser, dyn_value, log_d, log_e,
-    log_w,
+    StatsigLocalOverrideAdapter, StatsigUser, dyn_value, log_d, log_e, log_w,
 };
 use crate::{
     log_error_to_statsig_and_console,
@@ -88,6 +85,7 @@ use crate::{
     },
 };
 use chrono::Utc;
+use local_id_lists::{LazyIdListLoadOutcome, LocalIdLists, mark_partial_id_list_evaluation};
 use parking_lot::Mutex;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -95,8 +93,8 @@ use serde_json::Value;
 use serde_json::json;
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, mpsc};
 use std::time::{Duration, Instant};
 
 #[cfg(feature = "ffi-support")]
@@ -105,7 +103,7 @@ mod saved_experiment_exposure;
 #[cfg(test)]
 #[path = "__tests__/state_read_initialization_tests.rs"]
 mod state_read_initialization_tests;
-use tokio::{task::JoinSet, try_join};
+use tokio::try_join;
 
 const TAG: &str = stringify!(Statsig);
 
@@ -134,72 +132,18 @@ struct RawExperimentExposureOptions {
 const ERROR_SDK_KEY: &str = "__STATSIG_ERROR_SDK_KEY__";
 const INIT_IP_TAG: &str = "INIT_COUNTRY_LOOKUP";
 const INIT_UA_TAG: &str = "INIT_UA";
-const LAZY_ID_LIST_LOAD_TAG: &str = "LAZY_ID_LIST_LOAD";
-const LAZY_ID_LIST_LOAD_TIMEOUT: Duration = Duration::from_millis(30);
-
-#[derive(Clone, Copy)]
-enum LazyIdListLoadStatus {
-    Ready,
-    Timeout,
-    Failed,
-}
-
-impl LazyIdListLoadStatus {
-    fn has_unresolved_lists(self) -> bool {
-        !matches!(self, Self::Ready)
-    }
-
-    fn metric_outcome(self) -> &'static str {
-        match self {
-            Self::Ready => "success",
-            Self::Timeout => "timeout",
-            Self::Failed => "failure",
-        }
-    }
-
-    fn partial_evaluation_reason(self) -> Option<&'static str> {
-        match self {
-            Self::Ready => None,
-            Self::Timeout => Some("IdListLoadTimeout"),
-            Self::Failed => Some("IdListLoadFailure"),
-        }
-    }
-}
-
-struct LazyIdListLoadOutcome {
-    status: LazyIdListLoadStatus,
-    /// The exact store snapshot whose dependencies were checked. Evaluation
-    /// must use this snapshot rather than loading the store again.
-    data: Arc<SpecStoreData>,
-}
-
-fn lazy_id_list_spec_type_name(spec_type: &SpecType) -> &'static str {
-    match spec_type {
-        SpecType::Gate => "gate",
-        SpecType::DynamicConfig => "dynamic_config",
-        SpecType::Experiment => "experiment",
-        SpecType::Layer => "layer",
-        SpecType::ParameterStore => "parameter_store",
-    }
-}
-
-fn mark_partial_id_list_evaluation(details: &mut EvaluationDetails, status: LazyIdListLoadStatus) {
-    if let Some(reason) = status
-        .partial_evaluation_reason()
-        .filter(|_| !details.is_blob_unavailable())
-    {
-        details.reason = format!("{}:PartialEvaluation:{reason}", details.reason);
-    }
-}
-
 lazy_static::lazy_static! {
     static ref SHARED_INSTANCE: Mutex<Option<Arc<Statsig>>> = Mutex::new(None);
 }
 
-#[cfg(test)]
+mod local_id_lists;
 mod remote_id_list_allowlist;
+mod remote_id_list_metrics;
+mod remote_id_list_revisions;
+pub(crate) mod remote_id_lists;
 
 pub struct Statsig {
+    remote_id_list_resolver: Option<Arc<remote_id_lists::RemoteIdListResolver>>,
     output_policy: crate::output_policy::OutputPolicy,
     reuse_default_only_layer_values: bool,
     pub statsig_runtime: Arc<StatsigRuntime>,
@@ -212,7 +156,7 @@ pub struct Statsig {
     delayed_exposure_store: Arc<DelayedExposureStore>,
     specs_adapter: SpecsAdapterHousing,
     event_logging_adapter: Arc<dyn EventLoggingAdapter>,
-    id_lists_adapter: IdListsAdapterHousing,
+    id_lists_adapter: LocalIdLists,
     override_adapter: Option<Arc<dyn OverrideAdapter>>,
     spec_store: Arc<SpecStore>,
     hashing: Arc<HashUtil>,
@@ -241,6 +185,9 @@ pub struct StatsigContext {
 
 impl Drop for Statsig {
     fn drop(&mut self) {
+        if let Some(client) = &self.remote_id_list_resolver {
+            client.shutdown();
+        }
         self.spec_store.close_config_updates();
         let _output_scope = self.output_policy.enter();
         #[cfg(feature = "ffi-support")]
@@ -248,12 +195,7 @@ impl Drop for Statsig {
 
         self.event_logger.force_shutdown();
 
-        if let Some(adapter) = &self.id_lists_adapter.as_default_adapter {
-            adapter.force_shutdown();
-        }
-        if let Some(adapter) = &self.id_lists_adapter.as_shared_adapter {
-            adapter.force_shutdown();
-        }
+        self.id_lists_adapter.force_shutdown();
 
         if let Some(adapter) = &self.specs_adapter.as_default_adapter {
             adapter.force_shutdown();
@@ -335,7 +277,14 @@ impl Statsig {
             Some(&options),
         ));
 
-        let id_lists_adapter = initialize_id_lists_adapter(sdk_key, &options, &spec_store);
+        let (id_lists_adapter, remote_id_list_resolver) = initialize_id_lists(
+            sdk_key,
+            &options,
+            &spec_store,
+            &specs_adapter,
+            &statsig_runtime,
+            &ops_stats,
+        );
 
         let environment = options
             .environment
@@ -354,6 +303,7 @@ impl Statsig {
             CONSOLE_CAPTURE_REGISTRY.get_for_instance(sdk_key, &options, &environment);
 
         Statsig {
+            remote_id_list_resolver,
             output_policy,
             sdk_key: sdk_key.to_string(),
             reuse_default_only_layer_values: options
@@ -493,6 +443,9 @@ impl Statsig {
     }
 
     pub async fn shutdown_with_timeout(&self, timeout: Duration) -> Result<(), StatsigErr> {
+        if let Some(client) = &self.remote_id_list_resolver {
+            client.shutdown();
+        }
         self.spec_store.close_config_updates();
         self.output_policy.scope(async {
         log_d!(
@@ -510,7 +463,8 @@ impl Statsig {
                 ))
             }
             sub_result = async {
-                let id_list_shutdown: Pin<Box<_>> = if let Some(adapter) = &self.id_lists_adapter.inner {
+                let id_list_adapter = self.id_lists_adapter.adapter();
+                let id_list_shutdown: Pin<Box<_>> = if let Some(adapter) = &id_list_adapter {
                     adapter.shutdown(timeout)
                 } else {
                     Box::pin(async { Ok(()) })
@@ -1672,202 +1626,6 @@ impl Statsig {
 // ------------------------------------------------------------------------------- [ Dynamic Config ]
 
 impl Statsig {
-    /// Makes every ID list referenced by an evaluation's current dependency
-    /// graph available before synchronous evaluation. The returned snapshot is
-    /// the exact one that was validated and must also be used for evaluation.
-    fn ensure_spec_id_lists(&self, spec_name: &str, spec_type: &SpecType) -> LazyIdListLoadOutcome {
-        let mut waited = None;
-        let result = self.ensure_spec_id_lists_observed(spec_name, spec_type, &mut waited);
-        if let Some(waited) = waited.filter(|d| !d.is_zero()) {
-            id_list_load_timing::record_duration(
-                &self.ops_stats,
-                "lazy_id_list_load.wait_ms",
-                waited,
-                match result.status {
-                    LazyIdListLoadStatus::Ready => "success",
-                    LazyIdListLoadStatus::Timeout => "timeout",
-                    LazyIdListLoadStatus::Failed => "error",
-                },
-            );
-        }
-        result
-    }
-
-    fn ensure_spec_id_lists_observed(
-        &self,
-        spec_name: &str,
-        spec_type: &SpecType,
-        waited: &mut Option<Duration>,
-    ) -> LazyIdListLoadOutcome {
-        let mut data = self.spec_store.load_data();
-        if self.options.lazy_load_id_lists != Some(true) {
-            return LazyIdListLoadOutcome {
-                status: LazyIdListLoadStatus::Ready,
-                data,
-            };
-        }
-
-        // The 30 ms budget applies only to waiting for asynchronous body loads.
-        // Dependency walking and snapshot validation do not consume it.
-        let mut remaining_wait = LAZY_ID_LIST_LOAD_TIMEOUT;
-        loop {
-            let required = data.id_list_dependencies(spec_name, spec_type);
-            let missing = required
-                .iter()
-                .filter(|name| !data.id_lists.contains_key(name.as_str()))
-                .cloned()
-                .collect::<Vec<_>>();
-            if missing.is_empty() {
-                return LazyIdListLoadOutcome {
-                    status: LazyIdListLoadStatus::Ready,
-                    data,
-                };
-            }
-
-            // SDK-managed lazy loading is implemented by the built-in HTTP
-            // adapter. Custom adapters retain their eager-loading contract.
-            let Some(adapter) = self.id_lists_adapter.as_default_adapter.clone() else {
-                return self.finish_lazy_id_list_load(
-                    LazyIdListLoadStatus::Failed,
-                    spec_type,
-                    data,
-                );
-            };
-            let (sender, receiver) = mpsc::sync_channel(1);
-            // Only actual loads enter timing collection; warm evaluations skip it.
-            if adapter.load_timings_enabled {
-                waited.get_or_insert(Duration::ZERO);
-            }
-            let timing = adapter
-                .load_timings_enabled
-                .then(|| (Instant::now(), Arc::clone(&self.ops_stats)));
-            if let Err(error) =
-                self.statsig_runtime
-                    .spawn(LAZY_ID_LIST_LOAD_TAG, move |_| async move {
-                        // Fan out distinct lists. The adapter coalesces same-name
-                        // loads and globally limits body downloads to four.
-                        let mut loads = JoinSet::new();
-                        for name in missing {
-                            let adapter = Arc::clone(&adapter);
-                            loads.spawn(async move { adapter.process_id_list(&name).await });
-                        }
-
-                        let mut load_result = Ok(());
-                        while let Some(result) = loads.join_next().await {
-                            let error = match result {
-                                Ok(Ok(())) => continue,
-                                Ok(Err(error)) => error,
-                                Err(error) => StatsigErr::ThreadFailure(error.to_string()),
-                            };
-                            if load_result.is_ok() {
-                                load_result = Err(error);
-                            }
-                        }
-                        // The receiver may be gone after a timeout; completed work
-                        // remains published for a later evaluation.
-                        let elapsed = timing.as_ref().map(|(started, _)| started.elapsed());
-                        let succeeded = load_result.is_ok();
-                        let _ = sender.send(load_result);
-                        if let Some(((_, ops_stats), elapsed)) = timing.zip(elapsed) {
-                            id_list_load_timing::record_duration(
-                                &ops_stats,
-                                "lazy_id_list_load.batch_ms",
-                                elapsed,
-                                if succeeded { "success" } else { "error" },
-                            );
-                        }
-                    })
-            {
-                log_error_to_statsig_and_console!(&self.ops_stats, TAG, error);
-                return self.finish_lazy_id_list_load(
-                    LazyIdListLoadStatus::Failed,
-                    spec_type,
-                    data,
-                );
-            }
-
-            let wait_started = Instant::now();
-            let result = receiver.recv_timeout(remaining_wait);
-            let elapsed = wait_started.elapsed();
-            remaining_wait = remaining_wait.saturating_sub(elapsed);
-            if let Some(waited) = waited {
-                *waited += elapsed;
-            }
-            let current = self.spec_store.load_data();
-            match result {
-                Ok(Ok(())) => {
-                    if !Arc::ptr_eq(&data.snapshot, &current.snapshot) {
-                        // The spec graph changed while loading. Recompute from
-                        // the new snapshot and use only the remaining wait budget.
-                        data = current;
-                        if remaining_wait.is_zero() {
-                            return self.finish_lazy_id_list_load(
-                                LazyIdListLoadStatus::Timeout,
-                                spec_type,
-                                data,
-                            );
-                        }
-                        continue;
-                    }
-                    let status = if required
-                        .iter()
-                        .all(|name| current.id_lists.contains_key(name.as_str()))
-                    {
-                        LazyIdListLoadStatus::Ready
-                    } else {
-                        LazyIdListLoadStatus::Failed
-                    };
-                    return self.finish_lazy_id_list_load(status, spec_type, current);
-                }
-                Ok(Err(error)) => {
-                    log_error_to_statsig_and_console!(&self.ops_stats, TAG, error);
-                    return self.finish_lazy_id_list_load(
-                        LazyIdListLoadStatus::Failed,
-                        spec_type,
-                        data,
-                    );
-                }
-                Err(mpsc::RecvTimeoutError::Timeout) => {
-                    return self.finish_lazy_id_list_load(
-                        LazyIdListLoadStatus::Timeout,
-                        spec_type,
-                        data,
-                    );
-                }
-                Err(mpsc::RecvTimeoutError::Disconnected) => {
-                    return self.finish_lazy_id_list_load(
-                        LazyIdListLoadStatus::Failed,
-                        spec_type,
-                        data,
-                    );
-                }
-            }
-        }
-    }
-
-    fn finish_lazy_id_list_load(
-        &self,
-        status: LazyIdListLoadStatus,
-        spec_type: &SpecType,
-        data: Arc<SpecStoreData>,
-    ) -> LazyIdListLoadOutcome {
-        if !matches!(status, LazyIdListLoadStatus::Ready) {
-            self.ops_stats.log(ObservabilityEvent::new_event(
-                MetricType::Increment,
-                "lazy_id_list_load.count".to_string(),
-                1.0,
-                Some(HashMap::from([
-                    ("outcome".to_string(), status.metric_outcome().to_string()),
-                    (
-                        "spec_type".to_string(),
-                        lazy_id_list_spec_type_name(spec_type).to_string(),
-                    ),
-                ])),
-            ));
-        }
-        LazyIdListLoadOutcome { status, data }
-    }
-
     pub fn get_dynamic_config(
         &self,
         user: &StatsigUser,
@@ -2344,14 +2102,15 @@ impl Statsig {
         exposure_metadata: Option<HashMap<String, Value>>,
     ) {
         let _output_scope = self.output_policy.enter();
+        let scoped_user = user_internal.clone().with_membership_deadline(self);
         let (details, evaluation) = self.evaluate_spec_raw_for_manual_exposure(
-            user_internal,
+            &scoped_user,
             layer_name.as_str(),
             &SpecType::Layer,
             None,
         );
         let shared_control_exposures = self.build_shared_control_layer_exposures(
-            user_internal,
+            &scoped_user,
             evaluation
                 .as_ref()
                 .and_then(|result| result.shared_control_experiments.as_deref()),
@@ -3215,10 +2974,11 @@ impl Statsig {
 
         let disable_exposure_logging: bool = options.disable_exposure_logging;
 
+        let scoped_user = user_internal.clone().with_membership_deadline(self);
         let load = self.ensure_spec_id_lists(layer_name, &SpecType::Layer);
         let (mut details, evaluation, _) = self
             .evaluate_spec_raw_with_include_local_override::<false>(
-                user_internal,
+                &scoped_user,
                 layer_name,
                 &SpecType::Layer,
                 Some(disable_exposure_logging),
@@ -3239,7 +2999,7 @@ impl Statsig {
         );
 
         let shared_control_exposures = self.build_shared_control_layer_exposures(
-            user_internal,
+            &scoped_user,
             evaluation
                 .as_ref()
                 .and_then(|result| result.shared_control_experiments.as_deref()),
@@ -3291,6 +3051,7 @@ impl Statsig {
         let mut response = BulkEvaluationResponse::default();
         let resolved = self.resolve_bulk_evaluation_options(options);
         let include_local_override = resolved.include_local_override;
+        let user = self.internalize_user(user).with_membership_deadline(self);
 
         macro_rules! insert_bulk_evaluations {
             ($destination:expr, $names:expr, |$name:ident| $evaluate:expr) => {
@@ -3303,8 +3064,8 @@ impl Statsig {
         }
 
         insert_bulk_evaluations!(response.feature_gates, resolved.feature_gates, |name| self
-            .use_raw_feature_gate_with_delayed_exposure_with_options(
-                user,
+            .use_raw_feature_gate_with_delayed_exposure_with_options_for_internal_user(
+                &user,
                 &name,
                 include_local_override,
                 |raw| BulkFeatureGateEvaluation {
@@ -3318,8 +3079,8 @@ impl Statsig {
             ));
 
         insert_bulk_evaluations!(response.dynamic_configs, resolved.dynamic_configs, |name| {
-            self.use_raw_dynamic_config_with_delayed_exposure_with_options(
-                user,
+            self.use_raw_dynamic_config_with_delayed_exposure_with_options_for_internal_user(
+                &user,
                 &name,
                 include_local_override,
                 |raw| BulkDynamicConfigEvaluation {
@@ -3337,8 +3098,8 @@ impl Statsig {
         });
 
         insert_bulk_evaluations!(response.experiments, resolved.experiments, |name| self
-            .use_raw_experiment_with_delayed_exposure_with_options(
-                user,
+            .use_raw_experiment_with_delayed_exposure_with_options_for_internal_user(
+                &user,
                 &name,
                 ExperimentEvaluationOptions::default(),
                 include_local_override,
@@ -3357,8 +3118,8 @@ impl Statsig {
             ));
 
         insert_bulk_evaluations!(response.layer_configs, resolved.layers, |name| self
-            .use_raw_layer_with_delayed_exposure_with_options(
-                user,
+            .use_raw_layer_with_delayed_exposure_with_options_for_internal_user(
+                &user,
                 &name,
                 LayerEvaluationOptions::default(),
                 include_local_override,
@@ -3716,7 +3477,7 @@ impl Statsig {
         let timeout_future = tokio::time::sleep_until(deadline);
 
         let statsig_runtime = self.statsig_runtime.clone();
-        let id_lists_adapter = self.id_lists_adapter.inner.clone();
+        let id_lists_adapter = self.id_lists_adapter.adapter();
         let specs_adapter = self.specs_adapter.inner.clone();
         let ops_stats = self.ops_stats.clone();
         let background_tasks_started = self.background_tasks_started.clone();
@@ -3791,9 +3552,8 @@ impl Statsig {
         };
         init_failures::record_start_result(&init_res);
 
-        if let Some(adapter) = &self.id_lists_adapter.inner {
+        if let Some(adapter) = self.id_lists_adapter.adapter() {
             match adapter
-                .clone()
                 .start(&self.statsig_runtime, self.spec_store.clone())
                 .await
             {
@@ -3874,7 +3634,7 @@ impl Statsig {
 
         let success = Self::start_background_tasks(
             self.statsig_runtime.clone(),
-            self.id_lists_adapter.inner.clone(),
+            self.id_lists_adapter.adapter(),
             self.specs_adapter.inner.clone(),
             self.ops_stats.clone(),
             self.background_tasks_started.clone(),
@@ -3933,6 +3693,10 @@ impl Statsig {
             .event_logger
             .id_list_access_recorder(self.output_policy);
         context.unresolved_missing_id_lists = unresolved_lazy_id_lists;
+        context.remote_id_lists = self
+            .remote_id_list_resolver
+            .as_ref()
+            .and_then(|resolver| resolver.session(user_internal.membership_deadline));
         // GCIR v2 hashes the original assembled returnable. Keep its context on that path.
         context.reuse_default_only_layer_values = self.reuse_default_only_layer_values;
         context
@@ -4265,6 +4029,7 @@ impl Statsig {
         evaluation_options: LayerEvaluationOptions,
         load: LazyIdListLoadOutcome,
     ) -> Layer {
+        let user_internal = user_internal.with_membership_deadline(self);
         let disable_exposure_logging = evaluation_options.disable_exposure_logging;
 
         if disable_exposure_logging {
@@ -4499,61 +4264,54 @@ fn initialize_specs_adapter(
     }
 }
 
-fn initialize_id_lists_adapter(
+fn initialize_id_lists(
     sdk_key: &str,
-    options: &StatsigOptions,
+    options: &Arc<StatsigOptions>,
     spec_store: &Arc<SpecStore>,
-) -> IdListsAdapterHousing {
-    if let Some(id_lists_adapter) = options.id_lists_adapter.clone() {
-        return IdListsAdapterHousing {
-            inner: Some(id_lists_adapter),
-            as_default_adapter: None,
-            as_shared_adapter: None,
-        };
+    specs_adapter: &SpecsAdapterHousing,
+    statsig_runtime: &Arc<StatsigRuntime>,
+    ops_stats: &Arc<OpsStatsForInstance>,
+) -> (
+    LocalIdLists,
+    Option<Arc<remote_id_lists::RemoteIdListResolver>>,
+) {
+    let id_lists_adapter = LocalIdLists::new(sdk_key, options, spec_store);
+    if matches!(id_lists_adapter, LocalIdLists::Disabled) || options.disable_network == Some(true) {
+        return (id_lists_adapter, None);
     }
-
-    if options.enable_id_lists.unwrap_or(false) {
-        if !options.disable_disk_access.unwrap_or(false)
-            && !options.disable_network.unwrap_or(false)
-            && options.proxy_config.is_none()
-            && options
-                .shared_id_lists_dir
-                .as_deref()
-                .is_some_and(|path| !path.trim().is_empty())
-        {
-            let adapter = Arc::new(
-                StatsigSharedIdListsAdapter::new(sdk_key, options)
-                    .with_listener(spec_store.clone()),
-            );
-            return IdListsAdapterHousing {
-                inner: Some(adapter.clone()),
-                as_default_adapter: None,
-                as_shared_adapter: Some(adapter),
-            };
-        }
-        let adapter = Arc::new(StatsigHttpIdListsAdapter::new_with_store(
+    let remote_id_list_allowlist = remote_id_list_allowlist::RemoteIdListAllowlist::from_env();
+    let remote_id_list_resolver = remote_id_list_allowlist.and_then(|allowlist| {
+        let endpoint = crate::id_lists_adapter::membership_client::membership_url(
             sdk_key,
+            options.id_lists_url.as_deref(),
+        )?;
+        let network = id_lists_adapter
+            .network()
+            .or_else(|| {
+                specs_adapter
+                    .as_default_adapter
+                    .as_ref()
+                    .map(|adapter| adapter.network())
+            })
+            .or_else(|| {
+                specs_adapter
+                    .as_customized_adapter
+                    .as_ref()
+                    .and_then(|adapter| adapter.http_network())
+            });
+        let client = Arc::new(remote_id_lists::RemoteIdListResolver::new(
             options,
-            spec_store.clone(),
+            ops_stats,
+            endpoint,
+            sdk_key,
+            statsig_runtime,
+            network,
+            allowlist,
         ));
-        return IdListsAdapterHousing {
-            inner: Some(adapter.clone()),
-            as_default_adapter: Some(adapter),
-            as_shared_adapter: None,
-        };
-    }
-
-    IdListsAdapterHousing {
-        inner: None,
-        as_default_adapter: None,
-        as_shared_adapter: None,
-    }
-}
-
-struct IdListsAdapterHousing {
-    inner: Option<Arc<dyn IdListsAdapter>>,
-    as_default_adapter: Option<Arc<StatsigHttpIdListsAdapter>>,
-    as_shared_adapter: Option<Arc<StatsigSharedIdListsAdapter>>,
+        id_lists_adapter.observe_revisions(&client);
+        Some(client)
+    });
+    (id_lists_adapter, remote_id_list_resolver)
 }
 
 struct SpecsAdapterHousing {
@@ -4588,12 +4346,10 @@ fn setup_ops_stats(
         statsig_runtime.clone(),
         Arc::downgrade(console_capture_observer),
     );
-    if let Some(ob_client) = &options.observability_client {
-        if let Some(client) = ob_client.upgrade() {
-            client.init();
-            let as_observer = client.to_ops_stats_event_observer();
-            ops_stat.subscribe_observability(statsig_runtime, Arc::downgrade(&as_observer));
-        }
+    if let Some(client) = options.active_observability_client() {
+        client.init();
+        let as_observer = client.to_ops_stats_event_observer();
+        ops_stat.subscribe_observability(statsig_runtime, Arc::downgrade(&as_observer));
     }
 
     ops_stat

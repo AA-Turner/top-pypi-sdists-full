@@ -56,6 +56,7 @@ from ..locale import gettext_lazy as _
 from ..utils.parse import (
     is_email,
     is_phone_no,
+    parse_choice,
     parse_emails,
     parse_list,
     validate_regex,
@@ -330,10 +331,8 @@ class NotifyPingram(NotifyBase):
                 }
 
         # Resolve our mode
-        if mode and isinstance(mode, str):
-            self.mode = next(
-                (a for a in PINGRAM_MODES if a.startswith(mode)), None
-            )
+        if mode and isinstance(mode, str) and mode.strip():
+            self.mode = parse_choice(mode, PINGRAM_MODES)
             if self.mode not in PINGRAM_MODES:
                 msg = f"The Pingram mode specified ({mode}) is invalid."
                 self.logger.warning(msg)

@@ -89,6 +89,27 @@ class MessagingSettings(BaseModel):
                     "machinery and not ownership."
     )
 
+    sin_signos_de_apertura: bool = Field(
+        default=False,
+        description="Regla dura de estilo: nada de lo que la empresa manda lleva ¿ ni ¡. Se borran "
+                    "siempre (al guardar textos de configuración y a la salida de la IA), aunque el "
+                    "modelo los escriba igual. Ver services/messages_helpers/estilo_de_mensajes.py."
+    )
+    sin_rayas: bool = Field(
+        default=False,
+        description="Regla dura de estilo: nada de lo que la empresa manda lleva rayas largas (— –). "
+                    "Se reemplazan siempre por coma, guion común o se sacan, según dónde estén."
+    )
+
+    def limpiar_estilo(self, texto: Optional[str]):
+        """Aplica el estilo de la empresa a un texto (ResultadoDeEstilo con lo que se sacó)."""
+        from letschatty.services.messages_helpers.estilo_de_mensajes import limpiar_estilo
+        return limpiar_estilo(
+            texto,
+            sin_signos_de_apertura=self.sin_signos_de_apertura,
+            sin_rayas=self.sin_rayas,
+        )
+
     @model_validator(mode='after')
     def executive_chatty_forces_hide_chats(self) -> "MessagingSettings":
         """Executive Chatty companies never use the inbox — the owner only receives

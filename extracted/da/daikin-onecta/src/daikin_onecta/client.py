@@ -50,6 +50,7 @@ class OnectaClient:
         path: str,
         *,
         json_data: Any = None,
+        parse_response: bool = True,
     ) -> Any:
         """Perform an authenticated request to the Daikin Onecta API."""
         token = await self._token_provider()
@@ -67,8 +68,6 @@ class OnectaClient:
                 json=json_data,
             ) as response:
                 self.rate_limit = RateLimit.from_headers(response.headers)
-                response_text = await response.text()
-
                 if response.status in (401, 403):
                     raise OnectaAuthenticationError(response.status, method=method, path=path)
 
@@ -76,9 +75,14 @@ class OnectaClient:
                     raise OnectaRateLimitError(self.rate_limit, method=method, path=path)
 
                 if response.status >= 400:
+                    response_text = await response.text()
                     raise OnectaApiError(response.status, response_text, method=method, path=path)
 
-                if response.status == 204 or not response_text:
+                if response.status == 204 or not parse_response:
+                    return None
+
+                response_text = await response.text()
+                if not response_text:
                     return None
 
                 try:
@@ -230,6 +234,7 @@ class OnectaClient:
             f"/v1/gateway-devices/{gateway_id}/management-points/{management_point_id}"
             f"/characteristics/{characteristic}",
             json_data=body,
+            parse_response=False,
         )
 
     async def post_management_point(

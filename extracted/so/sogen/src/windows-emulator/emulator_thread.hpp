@@ -494,6 +494,21 @@ namespace sogen
         get,
     };
 
+    // user32 caches the window a thread last worked with in Win32ClientInfo[8] (its handle) and [9] (its guest pointer).
+    inline std::pair<uint64_t, uint64_t> get_cached_window(const emulator_object<TEB64>& teb)
+    {
+        constexpr auto offset = offsetof(TEB64, Win32ClientInfo);
+        return {teb.field<std::uint64_t>(offset + 8 * sizeof(std::uint64_t)).read(),
+                teb.field<std::uint64_t>(offset + 9 * sizeof(std::uint64_t)).read()};
+    }
+
+    inline void set_cached_window(const emulator_object<TEB64>& teb, const uint64_t handle, const uint64_t window)
+    {
+        constexpr auto offset = offsetof(TEB64, Win32ClientInfo);
+        teb.field<std::uint64_t>(offset + 8 * sizeof(std::uint64_t)).write(handle);
+        teb.field<std::uint64_t>(offset + 9 * sizeof(std::uint64_t)).write(window);
+    }
+
     class emulator_thread : public ref_counted_object
     {
       public:
@@ -564,6 +579,17 @@ namespace sogen
         // reported once.
         std::optional<uint64_t> retriggered_syscall_ip{};
         bool alerted{false};
+        // KTHREAD.Alerted[UserMode]: the alert NtAlertThread keeps for a thread that is not in an alertable wait
+        // (KeAlertThread), which its next alertable wait, NtTestAlert or NtContinue's test-alert takes. `alerted` above is
+        // NtAlertThreadByThreadId's own state.
+        bool user_alerted{false};
+        // KTHREAD.Queue: the port the thread's last NtRemoveIoCompletion(Ex) or NtWaitForWorkViaWorkerFactory joined
+        // (KiSwitchQueue), which it stays with after the call. KeRemoveQueueEx gives such a thread what is queued before it
+        // tests for an alert.
+        object_reference associated_io_completion{};
+        // A user APC queued while the thread was in an alertable wait ended the wait at once (KiSignalThreadForApc): the wait
+        // returns STATUS_USER_APC once the APC runs, and an alert after the APC stays pending.
+        bool user_apc_ended_wait{false};
         uint32_t create_flags{0};
         uint32_t suspended{0};
         std::optional<std::chrono::steady_clock::time_point> await_time{};
@@ -638,17 +664,20 @@ namespace sogen
         uint32_t queue_status_changed_bits{};
 
         void mark_as_ready(NTSTATUS status);
+        // Ends the thread's alertable wait with STATUS_ALERTED, as KeAlertThread (KiSignalThread) or the alert test at the
+        // start of a wait does.
+        void end_wait_with_alert();
 
         void set_impersonation_token(const handle token)
         {
             this->impersonation_token = token;
             if (this->teb64)
             {
-                this->teb64->access([&](TEB64& teb) { teb.IsImpersonating = token != 0; });
+                this->teb64->field<ULONG>(offsetof(TEB64, IsImpersonating)).write(token != 0 ? 1 : 0);
             }
             if (this->teb32)
             {
-                this->teb32->access([&](TEB32& teb) { teb.IsImpersonating = token != 0; });
+                this->teb32->field<ULONG>(offsetof(TEB32, IsImpersonating)).write(token != 0 ? 1 : 0);
             }
         }
 
@@ -691,6 +720,29 @@ namespace sogen
             return this->apc_alertable && !this->pending_apcs.empty();
         }
 
+        // In an alertable wait KeAlertThread ends (KTHREAD.State Waiting, Alertable): one of the waits is_thread_ready checks,
+        // still in progress, that the thread yielded for alertably and is not suspended in.
+        bool is_in_alertable_wait() const
+        {
+            const auto waits = this->waiting_for_alert || this->await_msg_mask.has_value() || !this->await_objects.empty() ||
+                               this->await_file_io || this->await_time.has_value() || this->await_host_condition ||
+                               this->awaits_restored_host_condition || this->await_debug_event.has_value() ||
+                               this->await_io_completion.has_value() || this->await_msg.has_value();
+            return waits && this->apc_alertable && this->suspended == 0 && !this->is_terminated();
+        }
+
+        // KeInsertQueueApc of a user APC, as every way of queuing one ends in: KiSignalThreadForApc ends the thread's
+        // alertable wait at once, with STATUS_USER_APC once the APC runs, so an alert after it finds the thread no longer
+        // waiting (KeAlertThread).
+        void queue_user_apc(const pending_apc& apc)
+        {
+            this->pending_apcs.push_back(apc);
+            if (this->is_in_alertable_wait())
+            {
+                this->user_apc_ended_wait = true;
+            }
+        }
+
         void record_current_message(const msg& message)
         {
             this->current_message_time = message.time;
@@ -724,6 +776,9 @@ namespace sogen
         bool is_terminated() const;
 
         bool is_thread_ready(windows_emulator& win_emu);
+        // Whether the scheduler can pass this thread by without is_thread_ready: it waits for its alert, a delay or an I/O
+        // completion port, and at now nothing has come that could end the wait (alert, APC, packet, port closed, due time).
+        bool is_parked(std::chrono::steady_clock::time_point now, const process_context& process) const;
 
         void save(cpu_interface& emu)
         {
@@ -777,6 +832,9 @@ namespace sogen
 
             buffer.write(this->waiting_for_alert);
             buffer.write(this->alerted);
+            buffer.write(this->user_alerted);
+            buffer.write(this->associated_io_completion);
+            buffer.write(this->user_apc_ended_wait);
 
             buffer.write(this->create_flags);
             buffer.write(this->suspended);
@@ -871,6 +929,9 @@ namespace sogen
 
             buffer.read(this->waiting_for_alert);
             buffer.read(this->alerted);
+            buffer.read(this->user_alerted);
+            buffer.read(this->associated_io_completion);
+            buffer.read(this->user_apc_ended_wait);
 
             buffer.read(this->create_flags);
             buffer.read(this->suspended);

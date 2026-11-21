@@ -16,6 +16,8 @@ default handling.
 
 from __future__ import annotations
 
+__lazy_modules__ = ["typing"]
+
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import Field, dataclass, field, fields
 from typing import Final, Literal, TypeAlias
@@ -27,9 +29,7 @@ from ._native import (
     Formatter,
     Indent,
     Minify,
-)
-from ._native import (
-    register_render_configs as _register_render_configs,
+    register_render_configs,
 )
 
 _Option: TypeAlias = (
@@ -389,8 +389,8 @@ class Html:
         :class:`~turbohtml.Minify` minifies.
     :param sort_attributes: emit each element's attributes in name order rather than source order.
     :param meta_charset: normalize (or inject) the ``<meta charset>`` declaration to the WHATWG name of the output
-        encoding; :meth:`Node.encode` raises :class:`ValueError` for a codec no WHATWG label names, and when the
-        encoded output would not read back as written under the declared label.
+        encoding; :meth:`Node.encode` raises :class:`ValueError` for a codec no WHATWG label names, and for a character
+        the declared label has no byte for.
 
     :param xml: emit XML/XHTML syntax -- every empty element self-closes (``<br/>``), foreign SVG and MathML
         subtrees carry their namespace declarations, and text and attribute values follow the XML escaping rules.
@@ -473,7 +473,7 @@ class Canonical:
 _CANONICAL_DEFAULT: Final[Canonical] = Canonical()
 _CANONICAL_FIELDS: Final[tuple[Field[_Option], ...]] = fields(Canonical)
 
-_register_render_configs(Markdown, PlainText, Html, Canonical)
+register_render_configs(Markdown, PlainText, Html, Canonical)
 
 
 __all__ = [

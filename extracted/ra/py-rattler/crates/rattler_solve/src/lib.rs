@@ -11,7 +11,7 @@ mod priority_tier;
 #[cfg(feature = "resolvo")]
 pub mod resolvo;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt;
 use std::sync::{
     Arc,
@@ -56,7 +56,7 @@ pub enum SolveError {
     #[error(transparent)]
     ParseMatchSpecError(#[from] rattler_conda_types::ParseMatchSpecError),
 
-    /// Encountered duplicate records in the available packages.
+    /// Encountered records with the same package identity but conflicting contents.
     DuplicateRecords(String),
 
     /// To support Resolvo cancellation
@@ -213,7 +213,10 @@ pub enum InvalidExemptionError {
 /// never excluded, regardless of their timestamp. This allows a single vetted
 /// release (for example an urgent security fix) without lowering the cutoff
 /// for every future release of that package. A broad spec such as `pkg` or
-/// `pkg >=1` exempts every matching release, including future ones.
+/// `pkg >=1` exempts every matching release, including future ones. Use
+/// [`Self::with_exemption_until`] to only exempt the matching records
+/// published up to a cutoff, such as the releases that existed when they were
+/// vetted.
 ///
 /// # Example
 ///
@@ -243,8 +246,9 @@ pub struct ExcludeNewer {
     /// Deprecated in favor of [`Self::exemptions`].
     package_cutoffs: HashMap<PackageName, Timestamp>,
 
-    /// Records matching any of these specs are never excluded.
-    exemptions: HashSet<MatchSpec>,
+    /// Records matching any of these specs are never excluded, unless the
+    /// spec has a cutoff and the record is newer than it.
+    exemptions: HashMap<MatchSpec, Option<Timestamp>>,
 
     /// Timestamp policy shared by all packages and channels.
     timestamp_policy: TimestampPolicy,
@@ -263,7 +267,7 @@ impl ExcludeNewer {
             cutoff,
             channel_cutoffs: HashMap::new(),
             package_cutoffs: HashMap::new(),
-            exemptions: HashSet::new(),
+            exemptions: HashMap::new(),
             timestamp_policy: TimestampPolicy::default(),
         }
     }
@@ -280,7 +284,7 @@ impl ExcludeNewer {
             cutoff: Self::cutoff_from_duration(duration, now),
             channel_cutoffs: HashMap::new(),
             package_cutoffs: HashMap::new(),
-            exemptions: HashSet::new(),
+            exemptions: HashMap::new(),
             timestamp_policy: TimestampPolicy::default(),
         }
     }
@@ -370,25 +374,69 @@ impl ExcludeNewer {
     /// If the spec has a channel, only records from exactly that channel are
     /// exempt. The channel is compared by its canonical URL, so a multichannel
     /// name never matches; use the name or URL of the underlying channel.
-    pub fn with_exemption(mut self, spec: MatchSpec) -> Result<Self, InvalidExemptionError> {
+    ///
+    /// Adding an exemption for an equal spec replaces the existing one.
+    pub fn with_exemption(self, spec: MatchSpec) -> Result<Self, InvalidExemptionError> {
+        self.insert_exemption(spec, None)
+    }
+
+    /// Exempts records matching `spec` that were published up to `cutoff`
+    /// from the cutoff of the package and channel.
+    ///
+    /// Unlike [`Self::with_exemption`], a record matching `spec` that is
+    /// newer than `cutoff`, such as a later build of an exempt version, is not
+    /// exempt. A record without a timestamp, as selected by the timestamp
+    /// policy, is not exempt either, because it cannot be shown to be older
+    /// than `cutoff`. Records that are not exempt are subject to the
+    /// effective cutoff of their package and channel as usual.
+    ///
+    /// The build timestamp is set by whoever builds the package, so a later
+    /// build with a backdated timestamp can still be exempt. Use
+    /// [`TimestampPolicy::RequireIndexedTimestamp`] to only trust the time the
+    /// channel indexed a record.
+    ///
+    /// The spec has the same restrictions as for [`Self::with_exemption`].
+    /// Adding an exemption for an equal spec replaces the existing one.
+    pub fn with_exemption_until(
+        self,
+        spec: MatchSpec,
+        cutoff: Timestamp,
+    ) -> Result<Self, InvalidExemptionError> {
+        self.insert_exemption(spec, Some(cutoff))
+    }
+
+    /// Checks that `spec` can be used as an exemption, see
+    /// [`Self::with_exemption`], without adding it.
+    pub fn validate_exemption(spec: &MatchSpec) -> Result<(), InvalidExemptionError> {
         if spec.name.as_exact().is_none() {
             return Err(InvalidExemptionError::NotExactName(spec.to_string()));
         }
         if spec.extras.is_some() || spec.condition.is_some() || spec.namespace.is_some() {
             return Err(InvalidExemptionError::UnsupportedField(spec.to_string()));
         }
-        self.exemptions.insert(spec);
+        Ok(())
+    }
+
+    fn insert_exemption(
+        mut self,
+        spec: MatchSpec,
+        cutoff: Option<Timestamp>,
+    ) -> Result<Self, InvalidExemptionError> {
+        Self::validate_exemption(&spec)?;
+        self.exemptions.insert(spec, cutoff);
         Ok(self)
     }
 
-    /// Returns whether a record matches one of the exemptions.
-    fn is_exempt(&self, record: &RepoDataRecord) -> bool {
-        self.exemptions.iter().any(|spec| {
+    /// Returns whether a record with the given `timestamp`, as selected by
+    /// the timestamp policy, matches one of the exemptions.
+    fn is_exempt(&self, record: &RepoDataRecord, timestamp: Option<Timestamp>) -> bool {
+        self.exemptions.iter().any(|(spec, cutoff)| {
             // `MatchSpec::matches` ignores the channel, subdir, and file name,
             // so check them here.
             // TODO: these checks may belong in `MatchSpec::matches` itself,
             // which the solver also uses for ordinary specs.
-            spec.matches(record)
+            cutoff.is_none_or(|cutoff| timestamp.is_some_and(|timestamp| timestamp <= cutoff))
+                && spec.matches(record)
                 && spec
                     .subdir
                     .as_ref()
@@ -425,17 +473,19 @@ impl ExcludeNewer {
 
     /// Returns why a record is excluded, preserving timestamp provenance.
     pub fn exclusion_reason(&self, record: &RepoDataRecord) -> Option<TimestampExclusionReason> {
-        if self.is_exempt(record) {
-            return None;
-        }
         let package = &record.package_record;
         let timestamp = match self.timestamp_policy {
-            TimestampPolicy::RequireIndexedTimestamp => match package.indexed_timestamp {
-                Some(timestamp) => Some(timestamp),
-                None => return Some(TimestampExclusionReason::MissingIndexedTimestamp),
-            },
+            TimestampPolicy::RequireIndexedTimestamp => package.indexed_timestamp,
             _ => package.indexed_timestamp.or(package.timestamp),
-        };
+        }
+        .map(Timestamp::from);
+        if self.is_exempt(record, timestamp) {
+            return None;
+        }
+        if self.timestamp_policy == TimestampPolicy::RequireIndexedTimestamp && timestamp.is_none()
+        {
+            return Some(TimestampExclusionReason::MissingIndexedTimestamp);
+        }
         let cutoff = self.cutoff_for_package(&package.name, record.channel.as_deref());
         match timestamp {
             Some(timestamp) if timestamp > cutoff => {
@@ -483,6 +533,14 @@ pub enum ChannelPriority {
     /// For a given package, candidates from higher-priority channel's are exhausted
     /// before falling back to the next channel, regardless of the version.
     Flexible,
+
+    /// Like [`ChannelPriority::Disabled`], the package version takes
+    /// precedence over the channel. Unlike it, the channel order still breaks
+    /// ties between candidates with the same version, before the build number
+    /// is compared. This matches conda's documented sort order when its
+    /// channel priority is set to disabled. Only supported by the resolvo
+    /// backend.
+    VersionFirst,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 /// Represents a dependency resolution task, to be solved by one of the backends
@@ -517,6 +575,33 @@ pub struct SolverTask<'a, TAvailablePackagesIterator> {
     /// See [`Self::locked_packages`] for the borrowing rationale.
     pub pinned_packages: Vec<&'a RepoDataRecord>,
 
+    /// Records that are candidates in the solve, without any preference.
+    ///
+    /// Unlike [`Self::locked_packages`], these records are not favored, and
+    /// unlike [`Self::pinned_packages`], they do not restrict the candidates
+    /// for their package. Use them for records already installed in a prefix
+    /// that may come from channels no longer in [`Self::available_packages`].
+    ///
+    /// Channel priority treats each record as if it came from the
+    /// highest-priority channel in [`Self::available_packages`] that contains
+    /// a package with the same name, or from the highest-priority channel when
+    /// none does. As a result:
+    ///
+    /// - With [`ChannelPriority::Strict`], strict channel priority never
+    ///   removes these records, and they never cause a channel record to be
+    ///   removed.
+    /// - With [`ChannelPriority::Flexible`], they compete with the records of
+    ///   that channel.
+    /// - With [`ChannelPriority::Disabled`], they compete with all records.
+    /// - With [`ChannelPriority::VersionFirst`], they compete with all records
+    ///   and rank with that channel when versions tie.
+    ///
+    /// A record from a lower-priority channel therefore competes with
+    /// higher-priority channels. For example, an installed `foo 3.0` from a
+    /// lower-priority channel is selected over `foo 2.0` from a higher-priority
+    /// channel.
+    pub additional_packages: Vec<&'a RepoDataRecord>,
+
     /// Virtual packages considered active
     pub virtual_packages: Vec<GenericVirtualPackage>,
 
@@ -531,8 +616,7 @@ pub struct SolverTask<'a, TAvailablePackagesIterator> {
     /// The timeout after which the solver should stop
     pub timeout: Option<std::time::Duration>,
 
-    /// The channel priority to solve with, either [`ChannelPriority::Strict`]
-    /// or [`ChannelPriority::Disabled`]
+    /// The channel priority to solve with, see [`ChannelPriority`].
     pub channel_priority: ChannelPriority,
 
     /// Exclude packages newer than the configured cutoff.
@@ -544,11 +628,12 @@ pub struct SolverTask<'a, TAvailablePackagesIterator> {
     /// - a relative duration, equivalent to the historical `min_age`
     ///   behavior.
     ///
-    /// The cutoff applies to `locked_packages` and `pinned_packages` as well.
-    /// A locked record newer than the cutoff is not favored, so the solver
-    /// picks a record the cutoff allows instead. With the `resolvo` backend,
-    /// a pinned record newer than the cutoff makes the solve unsatisfiable
-    /// when the package is needed, the same as with `excluded_candidates`.
+    /// The cutoff applies to `locked_packages`, `pinned_packages` and
+    /// `additional_packages` as well. A locked record newer than the cutoff
+    /// is not favored, so the solver picks a record the cutoff allows instead.
+    /// With the `resolvo` backend, a pinned record newer than the cutoff
+    /// makes the solve unsatisfiable when the package is needed, the same as
+    /// with `excluded_candidates`.
     pub exclude_newer: Option<ExcludeNewer>,
 
     /// The solve strategy.
@@ -601,6 +686,7 @@ impl<'r, T> SolverTask<'r, T> {
             available_packages,
             locked_packages: Vec::new(),
             pinned_packages: Vec::new(),
+            additional_packages: Vec::new(),
             virtual_packages: Vec::new(),
             specs: Vec::new(),
             constraints: Vec::new(),
@@ -717,7 +803,10 @@ impl<'a, T: IntoIterator<Item = &'a RepoDataRecord>, S: SolverRepoData<'a>> Into
 /// that package, while channels outside the multichannel are still excluded.
 /// With [`ChannelPriority::Flexible`] the solver does not prefer an earlier
 /// member over a later one. The order of the members only breaks ties between
-/// otherwise identical candidates.
+/// otherwise identical candidates. With [`ChannelPriority::VersionFirst`] a
+/// version tie between two members falls through to the build number, since
+/// the members share a rank, while a tie with a channel outside the
+/// multichannel goes to the earlier tier.
 ///
 /// For backends that support channel-specific match specs, a spec whose
 /// channel name equals the name of the multichannel (e.g. `defaults::python`)

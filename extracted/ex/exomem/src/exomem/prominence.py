@@ -162,7 +162,11 @@ LEARNING_INSTRUCTION = (
     "holds about the systems, projects or topics it touches. As you work, save each "
     "reusable fact you establish (how something is structured, a pitfall, a method that "
     "worked) as one concise observation, and update an existing note when one covers it, "
-    "so a later session does not have to find it again."
+    "so a later session does not have to find it again. Keep each file I hand you to read, "
+    "such as an attachment, a screenshot or a document I point to, as a Source by its "
+    "exact bytes, even when it settles nothing; tell me in one line, and treat what it "
+    "claims as unverified. Files you work on in my own repositories are not handed files. "
+    "Files that hold secrets, such as keys, tokens or a .env file, are not kept."
 )
 
 #: The activation carrier, at `balanced` and `maximal` only.
@@ -236,7 +240,19 @@ _BASELINE_CAPTURE = (
     "there, else one concise compiled observation; Records only for a compatible existing "
     "measurement. Before an affiliation facet, check the relation queue: a match the user "
     "confirms goes to link_acceptance; else save the facet. Fleeting preferences, one-offs, "
-    "incidental associations, trivia, and tentative claims stay quiet."
+    "incidental associations, trivia, and tentative events get no note."
+)
+
+#: What a stepping stone saves beyond a personal baseline. "Tentative" quiets only a baseline's casual
+#: events; served unscoped it taught agents to drop a held view, an open question and the values a task
+#: settled, and to save a pointer to the working file instead. The classes are named as stepping stones
+#: because a real-model probe saw sessions that ended on one, with nothing decided, save nothing. It names
+#: no excluded material: agents echoed a "not X" clause into their writes as a disclaimer that kept X.
+#: Short by budget: above `_CAPTURE_POLICY_MAX_CHARS` the hook keeps only the block's lead sentence, so a
+#: longer text here silences every capture rule.
+_EPISTEMIC_CAPTURE = (
+    "Held views, open questions and settled values are stepping stones: save a view attributed, with its "
+    "uncertainty; a question as open; values in full. Mention nothing kept quiet."
 )
 
 #: What a generated file is worth as a save, positive rule first. Handing a file to the user is the
@@ -446,7 +462,7 @@ CONTRACTS: dict[str, ProminenceContract] = {
             + "Capture at a stepping stone: a durable conclusion, central or recurring "
             "entity with reusable facts, or method that was carried out with a reported "
             "result. Not "
-            "mid-thought exploration, tangents, or unresolved questions. "
+            "mid-thought exploration or tangents; a question the work leaves open is saved as an open question. "
             + _CORRECTION_CAPTURE
             + " "
             + _BASELINE_CAPTURE
@@ -820,7 +836,7 @@ def capture_policy(disposition: str, link_acceptance: str) -> dict[str, str]:
     return {
         "disposition": disposition,
         "link_acceptance": link_acceptance,
-        "say": f"{meaning} {link} {_CORRECTION_CAPTURE} {_BASELINE_CAPTURE} {_ADOPTION_TRIGGER} {_ORIGINAL_CAPTURE} {_DELIVERY_CAPTURE}",
+        "say": f"{meaning} {link} {_CORRECTION_CAPTURE} {_BASELINE_CAPTURE} {_EPISTEMIC_CAPTURE} {_ADOPTION_TRIGGER} {_ORIGINAL_CAPTURE} {_DELIVERY_CAPTURE}",
     }
 
 

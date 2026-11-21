@@ -336,11 +336,12 @@ class Array(_View, list[Any]):
         list.append(self, decoded)
 
     def _extend_prepared(self, prepared: Iterable[tuple[Value, DecodedValue]]) -> None:
-        """Append a batch; the first two items establish bracket pad and separator."""
+        """Append a batch, resampling while its layout settles."""
         style = self._style()
-        for cst, decoded in prepared:
+        for offset, (cst, decoded) in enumerate(prepared):
             self._append_with_style(cst, decoded, style)
-            if len(self) <= 2:
+            # The first append relocates closing trivia; two items establish pads.
+            if offset == 0 or len(self) <= 2:
                 style = self._style()
 
     @override
@@ -590,16 +591,6 @@ class AoT(_View, list["Table"]):
             e = _validate_mapping(entry, label="AoT entry")
             list.append(self, _make_unattached_entry(e))
 
-    def _unbind_from_document(self) -> None:
-        """Detach from the owning document.
-
-        Called once this AoT has left its document, so a caller still
-        holding the view can no longer write through it.
-        """
-        self._layout_root = None
-        self._host = None
-        self._path = ()
-
     def to_list(self) -> list[dict[str, Any]]:
         """Return a deep copy as a list of plain Python dictionaries."""
         out = _container._to_python(self)  # noqa: SLF001
@@ -728,8 +719,11 @@ class AoT(_View, list["Table"]):
     def extend(self, values: Iterable[Table | Mapping[str, TomlInput]]) -> None:
         # Snapshot so ``aot.extend(aot)`` duplicates once like list does.
         entries = _prepare_aot_entries(values)
-        for entry in entries:
-            self._append_validated(entry)
+        if self._layout_root is None:
+            for entry in entries:
+                self._append_validated(entry)
+            return
+        _layout_ops.insert_aot_entries(self, entries)
 
     @override
     def insert(
@@ -818,15 +812,13 @@ def _prepare_aot_entries(
 
 
 def _make_unattached_entry(body: Mapping[str, TomlInput] | None) -> Table:
-    """Build a fresh unattached `Table` view as an AoT-entry placeholder."""
+    """Keep a section factory or build an independent AoT-entry placeholder."""
     from tomlrt._container import Table, _populate_unattached  # noqa: PLC0415
 
     # Keep ordinary mappings free of cold-path imports and helper calls.
-    if (
-        isinstance(body, Table)
-        and body._layout_root is not None  # noqa: SLF001
-        and not body._inline  # noqa: SLF001
-    ):
+    if isinstance(body, Table) and not body._inline:  # noqa: SLF001
+        if _container._can_adopt(body):  # noqa: SLF001
+            return body
         from tomlrt._container import _clone_private_layout  # noqa: PLC0415
 
         entry = _clone_private_layout(body)

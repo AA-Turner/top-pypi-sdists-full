@@ -64,21 +64,24 @@ import json
 import os
 import re
 import shlex
+import shutil
 import socket
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
+from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass, asdict, replace
+from dataclasses import asdict, dataclass, replace
 from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
+from typing import Protocol, cast
 from urllib.parse import urlparse
 
-_DTD_RE = re.compile(r"<!DOCTYPE|<!ENTITY", re.I)
+_DTD_RE = re.compile(r"<!DOCTYPE|<!ENTITY", re.IGNORECASE)
 _DIGITS_RE = re.compile(r"[0-9]+")
 _NON_HEX_RE = re.compile(r"[^0-9a-fA-F]")
-_NAMESERVER_RE = re.compile(r"^[^\S\n]*nameserver\s+(\S+)", re.M)
+_NAMESERVER_RE = re.compile(r"^[^\S\n]*nameserver\s+(\S+)", re.MULTILINE)
 _TRACK_RE = re.compile(r"\btrack\s+([^,\s]+)")
 _TRACK_IP_RE = re.compile(r"\bip\s+(\[[^\]]*\]|[^,\s]+)")
 
@@ -115,6 +118,9 @@ _SID_SPEC_RX = re.compile(r"(?:([0-9]+):)?([0-9]+)")
 
 # `? (192.0.2.10) at 00:11:22:33:44:55 on igb1 expires in 1200 seconds [ethernet]`
 _ARP_RX = re.compile(r"\((?P<ip>[0-9.]+)\)\s+at\s+(?P<mac>[0-9a-fA-F:]+|\(incomplete\))\s+on\s+(?P<iface>\S+)(?P<rest>.*)")
+
+IPAddress = ipaddress.IPv4Address | ipaddress.IPv6Address
+Network = ipaddress.IPv4Network | ipaddress.IPv6Network
 
 
 class PfsenseError(Exception):
@@ -229,26 +235,27 @@ def _preview(value: object) -> str:
     return json.dumps(value)[:200]
 
 
-def _object(value: object, what: str) -> dict:
+def _object(value: object, what: str) -> dict[str, object]:
     if not isinstance(value, dict):
         raise PfsenseError(f"{what} is not a JSON object: {_preview(value)}")
-    return value
+    # json.loads gives every object str keys, and each field is then checked by its own reader.
+    return cast("dict[str, object]", value)
 
 
-def _array(value: object, what: str) -> list:
+def _array(value: object, what: str) -> list[object]:
     if not isinstance(value, list):
         raise PfsenseError(f"{what} is not a JSON array: {_preview(value)}")
-    return value
+    return cast("list[object]", value)
 
 
-def _text(obj: dict, key: str, what: str) -> str:
+def _text(obj: dict[str, object], key: str, what: str) -> str:
     value = obj.get(key)
     if not isinstance(value, str):
         raise PfsenseError(f"{what} has no text field {key!r}: {_preview(obj)}")
     return value
 
 
-def _flag(obj: dict, key: str, what: str) -> bool:
+def _flag(obj: dict[str, object], key: str, what: str) -> bool:
     value = obj.get(key)
     if not isinstance(value, bool):
         raise PfsenseError(f"{what} has no true/false field {key!r}: {_preview(obj)}")
@@ -267,7 +274,7 @@ class Reservation:
     static_arp: bool
 
     @classmethod
-    def from_json(cls, value: object) -> "Reservation":
+    def from_json(cls, value: object) -> Reservation:
         what = "a DHCP reservation"
         obj = _object(value, what)
         return cls(interface=_text(obj, "interface", what), mac=_text(obj, "mac", what),
@@ -275,10 +282,10 @@ class Reservation:
                    descr=_text(obj, "descr", what), static_arp=_flag(obj, "static_arp", what))
 
     @classmethod
-    def list_from_json(cls, value: object) -> list["Reservation"]:
+    def list_from_json(cls, value: object) -> list[Reservation]:
         return [cls.from_json(item) for item in _array(value, "the DHCP reservation list")]
 
-    def to_json(self) -> dict:
+    def to_json(self) -> dict[str, object]:
         return {"interface": self.interface, "mac": self.mac, "ip": self.ip,
                 "hostname": self.hostname, "descr": self.descr, "static_arp": self.static_arp}
 
@@ -292,14 +299,14 @@ class Pool:
     last: str
 
     @classmethod
-    def from_json(cls, value: object) -> "Pool":
+    def from_json(cls, value: object) -> Pool:
         what = "a DHCP pool"
         obj = _object(value, what)
         return cls(interface=_text(obj, "interface", what), first=_text(obj, "from", what),
                    last=_text(obj, "to", what))
 
     @classmethod
-    def list_from_json(cls, value: object) -> list["Pool"]:
+    def list_from_json(cls, value: object) -> list[Pool]:
         return [cls.from_json(item) for item in _array(value, "the DHCP pool list")]
 
 
@@ -319,19 +326,20 @@ class Override:
         return f"{host}.{domain}" if host else domain
 
     @classmethod
-    def from_json(cls, value: object) -> "Override":
+    def from_json(cls, value: object) -> Override:
         what = "a host override"
         obj = _object(value, what)
         return cls(host=_text(obj, "host", what), domain=_text(obj, "domain", what),
                    ip=_text(obj, "ip", what), descr=_text(obj, "descr", what))
 
     @classmethod
-    def list_from_json(cls, value: object) -> list["Override"]:
+    def list_from_json(cls, value: object) -> list[Override]:
         return [cls.from_json(item) for item in _array(value, "the host override list")]
 
-    def to_json(self, *, with_fqdn: bool = False) -> dict:
+    def to_json(self, *, with_fqdn: bool = False) -> dict[str, object]:
         """The object the PHP echoed; `with_fqdn` appends the name `dns rm` selected it by."""
-        out = {"host": self.host, "domain": self.domain, "ip": self.ip, "descr": self.descr}
+        out: dict[str, object] = {"host": self.host, "domain": self.domain, "ip": self.ip,
+                                  "descr": self.descr}
         if with_fqdn:
             out["fqdn"] = self.fqdn
         return out
@@ -348,14 +356,14 @@ class Interface:
     subnet: str
 
     @classmethod
-    def from_json(cls, value: object) -> "Interface":
+    def from_json(cls, value: object) -> Interface:
         what = "an interface"
         obj = _object(value, what)
         return cls(name=_text(obj, "name", what), device=_text(obj, "if", what),
                    descr=_text(obj, "descr", what), ipaddr=_text(obj, "ipaddr", what),
                    subnet=_text(obj, "subnet", what))
 
-    def to_json(self) -> dict:
+    def to_json(self) -> dict[str, object]:
         return {"name": self.name, "if": self.device, "descr": self.descr, "ipaddr": self.ipaddr,
                 "subnet": self.subnet}
 
@@ -368,12 +376,12 @@ class Package:
     version: str
 
     @classmethod
-    def from_json(cls, value: object) -> "Package":
+    def from_json(cls, value: object) -> Package:
         what = "a package"
         obj = _object(value, what)
         return cls(name=_text(obj, "name", what), version=_text(obj, "version", what))
 
-    def to_json(self) -> dict:
+    def to_json(self) -> dict[str, object]:
         return {"name": self.name, "version": self.version}
 
 
@@ -388,7 +396,7 @@ class FirewallInfo:
     packages: tuple[Package, ...]
 
     @classmethod
-    def from_json(cls, value: object) -> "FirewallInfo":
+    def from_json(cls, value: object) -> FirewallInfo:
         what = "the firewall info"
         obj = _object(value, what)
         interfaces = _array(obj.get("interfaces"), "the firewall info's interface list")
@@ -398,7 +406,7 @@ class FirewallInfo:
                    interfaces=tuple(Interface.from_json(item) for item in interfaces),
                    packages=tuple(Package.from_json(item) for item in packages))
 
-    def to_json(self) -> dict:
+    def to_json(self) -> dict[str, object]:
         return {"version": self.version, "dhcp_backend": self.dhcp_backend, "resolver": self.resolver,
                 "interfaces": [i.to_json() for i in self.interfaces],
                 "packages": [p.to_json() for p in self.packages]}
@@ -408,7 +416,7 @@ class FirewallInfo:
 # One record per write, each holding exactly the keys its PHP echoes. `unbound` is the restart-and-
 # resolve check this side adds after the write; it is appended to the --json object last, as the
 # key the PHP never sends.
-def _optional_text(obj: dict, key: str, what: str) -> str | None:
+def _optional_text(obj: dict[str, object], key: str, what: str) -> str | None:
     if key not in obj:
         return None
     return _text(obj, key, what)
@@ -422,11 +430,11 @@ class UnboundCheck:
     resolved: str
     ip: str
 
-    def to_json(self) -> dict:
+    def to_json(self) -> dict[str, object]:
         return {"restarted": self.restarted, "resolved": self.resolved, "ip": self.ip}
 
 
-def _with_unbound(out: dict, unbound: UnboundCheck | None) -> dict:
+def _with_unbound(out: dict[str, object], unbound: UnboundCheck | None) -> dict[str, object]:
     if unbound is not None:
         out["unbound"] = unbound.to_json()
     return out
@@ -440,14 +448,14 @@ class TouchedReservation:
     ip: str
 
     @classmethod
-    def list_from_json(cls, value: object, what: str) -> tuple["TouchedReservation", ...]:
-        items = []
+    def list_from_json(cls, value: object, what: str) -> tuple[TouchedReservation, ...]:
+        items: list[TouchedReservation] = []
         for item in _array(value, what):
             obj = _object(item, f"an entry of {what}")
             items.append(cls(interface=_text(obj, "interface", what), ip=_text(obj, "ip", what)))
         return tuple(items)
 
-    def to_json(self) -> dict:
+    def to_json(self) -> dict[str, object]:
         return {"interface": self.interface, "ip": self.ip}
 
 
@@ -460,13 +468,13 @@ class ReservationRemoved:
     unbound: UnboundCheck | None = None
 
     @classmethod
-    def from_json(cls, value: object) -> "ReservationRemoved":
+    def from_json(cls, value: object) -> ReservationRemoved:
         what = "the reservation removal"
         obj = _object(value, what)
         return cls(removed=TouchedReservation.list_from_json(obj.get("removed"), "its removed list"),
                    unbound_follows=_flag(obj, "unbound_follows", what))
 
-    def to_json(self) -> dict:
+    def to_json(self) -> dict[str, object]:
         return _with_unbound({"removed": [r.to_json() for r in self.removed],
                               "unbound_follows": self.unbound_follows}, self.unbound)
 
@@ -480,13 +488,13 @@ class ReservationRenamed:
     unbound: UnboundCheck | None = None
 
     @classmethod
-    def from_json(cls, value: object) -> "ReservationRenamed":
+    def from_json(cls, value: object) -> ReservationRenamed:
         what = "the reservation rename"
         obj = _object(value, what)
         return cls(renamed=TouchedReservation.list_from_json(obj.get("renamed"), "its renamed list"),
                    unbound_follows=_flag(obj, "unbound_follows", what))
 
-    def to_json(self) -> dict:
+    def to_json(self) -> dict[str, object]:
         return _with_unbound({"renamed": [r.to_json() for r in self.renamed],
                               "unbound_follows": self.unbound_follows}, self.unbound)
 
@@ -498,11 +506,11 @@ class StaticArpCleared:
     changed: tuple[TouchedReservation, ...]
 
     @classmethod
-    def from_json(cls, value: object) -> "StaticArpCleared":
+    def from_json(cls, value: object) -> StaticArpCleared:
         obj = _object(value, "the static ARP change")
         return cls(changed=TouchedReservation.list_from_json(obj.get("changed"), "its changed list"))
 
-    def to_json(self) -> dict:
+    def to_json(self) -> dict[str, object]:
         return {"changed": [r.to_json() for r in self.changed]}
 
 
@@ -516,13 +524,13 @@ class NewReservation:
     hostname: str
 
     @classmethod
-    def from_json(cls, value: object) -> "NewReservation":
+    def from_json(cls, value: object) -> NewReservation:
         what = "the added reservation"
         obj = _object(value, what)
         return cls(interface=_text(obj, "interface", what), mac=_text(obj, "mac", what),
                    ip=_text(obj, "ip", what), hostname=_text(obj, "hostname", what))
 
-    def to_json(self) -> dict:
+    def to_json(self) -> dict[str, object]:
         return {"interface": self.interface, "mac": self.mac, "ip": self.ip, "hostname": self.hostname}
 
 
@@ -536,7 +544,7 @@ class ReservationAdded:
     unbound: UnboundCheck | None = None
 
     @classmethod
-    def from_json(cls, value: object) -> "ReservationAdded":
+    def from_json(cls, value: object) -> ReservationAdded:
         what = "the reservation add"
         obj = _object(value, what)
         if obj.get("added") is None:
@@ -544,7 +552,7 @@ class ReservationAdded:
         return cls(added=NewReservation.from_json(obj["added"]), error=None,
                    unbound_follows=_flag(obj, "unbound_follows", what))
 
-    def to_json(self) -> dict:
+    def to_json(self) -> dict[str, object]:
         if self.added is None:
             return _with_unbound({"added": None, "error": self.error}, self.unbound)
         return _with_unbound({"added": self.added.to_json(), "unbound_follows": self.unbound_follows},
@@ -560,12 +568,12 @@ class NameAndAddress:
     ip: str
 
     @classmethod
-    def from_json(cls, value: object, what: str) -> "NameAndAddress":
+    def from_json(cls, value: object, what: str) -> NameAndAddress:
         obj = _object(value, what)
         return cls(host=_text(obj, "host", what), domain=_text(obj, "domain", what),
                    ip=_text(obj, "ip", what))
 
-    def to_json(self) -> dict:
+    def to_json(self) -> dict[str, object]:
         return {"host": self.host, "domain": self.domain, "ip": self.ip}
 
 
@@ -578,7 +586,7 @@ class OverrideAdded:
     unbound: UnboundCheck | None = None
 
     @classmethod
-    def from_json(cls, value: object) -> "OverrideAdded":
+    def from_json(cls, value: object) -> OverrideAdded:
         what = "the override add"
         obj = _object(value, what)
         if obj.get("added") is None:
@@ -586,8 +594,8 @@ class OverrideAdded:
         return cls(added=NameAndAddress.from_json(obj["added"], "the added override"),
                    error=_optional_text(obj, "error", what))
 
-    def to_json(self) -> dict:
-        out: dict = {"added": None if self.added is None else self.added.to_json()}
+    def to_json(self) -> dict[str, object]:
+        out: dict[str, object] = {"added": None if self.added is None else self.added.to_json()}
         if self.error is not None:
             out["error"] = self.error
         return _with_unbound(out, self.unbound)
@@ -601,14 +609,105 @@ class OverrideRemoved:
     unbound: UnboundCheck | None = None
 
     @classmethod
-    def from_json(cls, value: object) -> "OverrideRemoved":
+    def from_json(cls, value: object) -> OverrideRemoved:
         obj = _object(value, "the override removal")
         what = "its removed list"
         return cls(removed=tuple(NameAndAddress.from_json(item, f"an entry of {what}")
                                  for item in _array(obj.get("removed"), what)))
 
-    def to_json(self) -> dict:
+    def to_json(self) -> dict[str, object]:
         return _with_unbound({"removed": [r.to_json() for r in self.removed]}, self.unbound)
+
+
+# ---- typed results built on this side -----------------------------------------------------------
+# What a verb reads from shell output (arp, pfctl, the snort files) and answers with. Code reads
+# these through attributes, so a misspelled key is a type error instead of a silent default, and
+# `to_json` rebuilds the object --json has always printed, keys in the same order.
+@dataclass(frozen=True)
+class ArpEntry:
+    """One `arp -an` line. `mac` is empty for an incomplete entry; `permanent` marks a static one."""
+
+    ip: str
+    mac: str
+    interface: str
+    permanent: bool
+
+    def to_json(self) -> dict[str, object]:
+        return {"ip": self.ip, "mac": self.mac, "interface": self.interface, "permanent": self.permanent}
+
+
+@dataclass(frozen=True)
+class SnapshotSaved:
+    """The `snapshot` answer: where config.xml was saved, and its size."""
+
+    path: str
+    size: int
+
+    def to_json(self) -> dict[str, object]:
+        return {"path": self.path, "bytes": self.size}
+
+
+@dataclass(frozen=True)
+class TableCheck:
+    """The `table test` answer: which of the asked addresses the table holds."""
+
+    table: str
+    present: tuple[str, ...]
+    absent: tuple[str, ...]
+
+    def to_json(self) -> dict[str, object]:
+        return {"table": self.table, "present": list(self.present), "absent": list(self.absent)}
+
+
+@dataclass(frozen=True)
+class TableDeletion:
+    """The `table del --apply` answer: what was asked for, and what a re-read still found."""
+
+    requested: tuple[str, ...]
+    still_present: tuple[str, ...]
+
+    def to_json(self) -> dict[str, object]:
+        return {"requested": list(self.requested), "still_present": list(self.still_present)}
+
+
+@dataclass(frozen=True)
+class BlockCheck:
+    """The `snort check` answer: each target's addresses, and which of them snort2c holds.
+
+    `resolved` keeps the targets in the order given, each named once.
+    """
+
+    resolved: tuple[tuple[str, tuple[str, ...]], ...]
+    blocked: tuple[str, ...]
+    clear: tuple[str, ...]
+
+    def to_json(self) -> dict[str, object]:
+        return {"resolved": {name: list(ips) for name, ips in self.resolved},
+                "blocked": list(self.blocked), "clear": list(self.clear)}
+
+
+@dataclass(frozen=True)
+class Unblocked:
+    """The `snort unblock --apply` answer: what was asked for, and what a re-read still found."""
+
+    requested: tuple[str, ...]
+    still_blocked: tuple[str, ...]
+
+    def to_json(self) -> dict[str, object]:
+        return {"requested": list(self.requested), "still_blocked": list(self.still_blocked)}
+
+
+@dataclass(frozen=True)
+class FixSteps:
+    """The `snort fixsteps` answer: the rule it is for, the range, and the steps text."""
+
+    sig: SignatureId
+    cidr: str | None
+    steps: str
+
+    def to_json(self) -> dict[str, object]:
+        return {"gid": self.sig.gid, "sid": self.sig.sid, "gid_assumed": self.sig.gid_assumed,
+                "cidr": self.cidr, "steps": self.steps}
 
 
 # ---- target resolution --------------------------------------------------------------------------
@@ -734,6 +833,13 @@ def build_ssh_argv(target: Target, command: str) -> list[str]:
 
 
 # ---- the one process seam -----------------------------------------------------------------------
+class Runner(Protocol):
+    """The shape of the process seam: `_run`, or a test double standing in for it."""
+
+    def __call__(self, argv: list[str], *, stdin_text: str | None = ...,
+                 timeout: int = ...) -> tuple[int, str, str]: ...
+
+
 def _run(argv: list[str], *, stdin_text: str | None = None, timeout: int = 30) -> tuple[int, str, str]:
     """Execute argv and return (rc, stdout, stderr), never merged.
 
@@ -759,13 +865,13 @@ def _child_env(argv: list[str]) -> dict[str, str] | None:
     return {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
 
 
-def run_remote(target: Target, command: str, *, run=_run, stdin_text: str | None = None,
+def run_remote(target: Target, command: str, *, run: Runner = _run, stdin_text: str | None = None,
                timeout: int | None = None) -> tuple[int, str, str]:
     """One remote command. Returns (rc, stdout, stderr) with the streams still separate."""
     return run(build_ssh_argv(target, command), stdin_text=stdin_text, timeout=timeout or target.timeout)
 
 
-def run_php[T](target: Target, php_body: str, *, parse: Callable[[object], T], run=_run,
+def run_php[T](target: Target, php_body: str, *, parse: Callable[[object], T], run: Runner = _run,
                 timeout: int | None = None) -> T:
     """Run PHP against the live config API and return its JSON reply as `parse` reads it.
 
@@ -788,7 +894,7 @@ def run_php[T](target: Target, php_body: str, *, parse: Callable[[object], T], r
         raise PfsenseError(f"php on {target.host} returned an unexpected reply: {exc}{landed}") from None
 
 
-def _run_php_json(target: Target, php_body: str, *, run, timeout: int | None) -> object:
+def _run_php_json(target: Target, php_body: str, *, run: Runner, timeout: int | None) -> object:
     script = '<?php\nrequire_once("config.inc");\nrequire_once("util.inc");\n' + php_body
     rc, out, err = run_remote(target, "php", run=run, stdin_text=script, timeout=timeout)
     if rc != 0:
@@ -812,7 +918,7 @@ def parse_table(text: str) -> set[str]:
     return {line.strip() for line in text.split("\n") if line.strip()}
 
 
-def blocked_among(table_text: str, ips: list[str]) -> list[str]:
+def blocked_among(table_text: str, ips: Sequence[str]) -> list[str]:
     """Which of `ips` the table currently contains, in the order given."""
     present = parse_table(table_text)
     return [ip for ip in ips if ip in present]
@@ -895,7 +1001,7 @@ def alert_moment(timestamp: str, *, now: datetime) -> datetime | None:
         return None  # 13/40, or a 02/29 in a year without one
 
 
-def _in_year(year: int, parts: tuple[int, ...]) -> datetime | None:
+def _in_year(year: int, parts: tuple[int, int, int, int, int, int]) -> datetime | None:
     try:
         return datetime(year, *parts)
     except ValueError:
@@ -940,7 +1046,9 @@ def resolve_ips(target: str) -> list[str]:
     else:
         return [host]
     infos = socket.getaddrinfo(host, None, socket.AF_INET)
-    return sorted({info[4][0] for info in infos})
+    # An AF_INET sockaddr is (address, port): the address is always text, never the int the
+    # IPv6 tuple's later fields are typed as.
+    return sorted({str(info[4][0]) for info in infos})
 
 
 def normalize_mac(mac: str) -> str:
@@ -951,24 +1059,24 @@ def normalize_mac(mac: str) -> str:
     return ":".join(cleaned[i:i + 2] for i in range(0, 12, 2))
 
 
-def parse_arp(text: str) -> list[dict]:
+def parse_arp(text: str) -> list[ArpEntry]:
     """Parse `arp -an`, marking permanent entries.
 
     A permanent entry is the fingerprint of a DHCP reservation with static ARP ticked, which is
     the fault that answers for a device on an interface that is down.
     """
-    entries = []
+    entries: list[ArpEntry] = []
     for line in text.split("\n"):
         match = _ARP_RX.search(line)
         if not match:
             continue
         mac = match.group("mac")
-        entries.append({
-            "ip": match.group("ip"),
-            "mac": "" if mac.startswith("(") else normalize_mac(mac),
-            "interface": match.group("iface"),
-            "permanent": "permanent" in match.group("rest"),
-        })
+        entries.append(ArpEntry(
+            ip=match.group("ip"),
+            mac="" if mac.startswith("(") else normalize_mac(mac),
+            interface=match.group("iface"),
+            permanent="permanent" in match.group("rest"),
+        ))
     return entries
 
 
@@ -1007,7 +1115,7 @@ def reservations_from_config_xml(text: str) -> list[Reservation]:
     checks can be proven able to FAIL against a config known to contain the fault.
     """
     root = parse_xml(text)
-    out = []
+    out: list[Reservation] = []
     for dhcpd in root.findall("dhcpd"):
         for iface in dhcpd:
             for entry in iface.findall("staticmap"):
@@ -1031,7 +1139,7 @@ def pools_from_config_xml(text: str) -> list[Pool]:
     the same `from`/`to` shape as the main range.
     """
     root = parse_xml(text)
-    out = []
+    out: list[Pool] = []
     for dhcpd in root.findall("dhcpd"):
         for iface in dhcpd:
             if iface.find("enable") is None:
@@ -1046,23 +1154,8 @@ def pools_from_config_xml(text: str) -> list[Pool]:
     return out
 
 
-def overrides_from_config_xml(text: str) -> list[Override]:
-    """DNS host overrides from a snapshot. The element is `hosts`, not `hostoverride`."""
-    root = parse_xml(text)
-    unbound = root.find("unbound")
-    if unbound is None:
-        return []
-    return [Override(
-        host=(entry.findtext("host") or "").strip(),
-        domain=(entry.findtext("domain") or "").strip(),
-        ip=(entry.findtext("ip") or "").strip(),
-        descr=(entry.findtext("descr") or "").strip(),
-    ) for entry in unbound.findall("hosts")]
-
-
 # ---- doctor: pure checks over plain data --------------------------------------------------------
-def _pool_holding(address: ipaddress.IPv4Address | ipaddress.IPv6Address, interface: str,
-                  pools: Sequence[Pool]) -> Pool | None:
+def _pool_holding(address: IPAddress, interface: str, pools: Sequence[Pool]) -> Pool | None:
     """The first pool on `interface` whose inclusive first-last range holds `address`."""
     for pool in pools:
         if pool.interface != interface:
@@ -1071,9 +1164,24 @@ def _pool_holding(address: ipaddress.IPv4Address | ipaddress.IPv6Address, interf
             low, high = ipaddress.ip_address(pool.first), ipaddress.ip_address(pool.last)
         except ValueError:
             continue
-        if low.version == address.version and low <= address <= high:
+        if _within(address, low, high):
             return pool
     return None
+
+
+def _within(address: IPAddress, low: IPAddress, high: IPAddress) -> bool:
+    """`low <= address <= high`, and False unless all three are one address family.
+
+    Comparing addresses of two families raises TypeError, so a pool written with an IPv4 start and
+    an IPv6 end crashed doctor for every reservation of the start's family; it holds nothing.
+    """
+    if (isinstance(address, ipaddress.IPv4Address) and isinstance(low, ipaddress.IPv4Address)
+            and isinstance(high, ipaddress.IPv4Address)):
+        return low <= address <= high
+    if (isinstance(address, ipaddress.IPv6Address) and isinstance(low, ipaddress.IPv6Address)
+            and isinstance(high, ipaddress.IPv6Address)):
+        return low <= address <= high
+    return False
 
 
 def _reservations_in_pools(reservations: Sequence[Reservation], pools: Sequence[Pool]) -> list[Finding]:
@@ -1083,7 +1191,7 @@ def _reservations_in_pools(reservations: Sequence[Reservation], pools: Sequence[
     script that bypasses the GUI's checks. A pool on another interface is never a conflict: each
     DHCP server leases only its own range.
     """
-    findings = []
+    findings: list[Finding] = []
     for res in reservations:
         try:
             address = ipaddress.ip_address(res.ip)
@@ -1107,14 +1215,18 @@ def _reservations_in_pools(reservations: Sequence[Reservation], pools: Sequence[
     return findings
 
 
-def doctor_findings(*, reservations: Sequence[Reservation], overrides: Sequence[Override],
-                    arp: list[dict] | None = None, resolv_conf: str | None = None,
+def doctor_findings(*, reservations: Sequence[Reservation],
+                    arp: Sequence[ArpEntry] | None = None, resolv_conf: str | None = None,
                     upgrade_locks: list[str] | None = None,
                     pools: Sequence[Pool] | None = None) -> list[Finding]:
     """Every audit check, as pure logic over plain data.
 
     Each one is a fault that raises no error of its own and so goes unnoticed: they were all found
     the expensive way, by chasing a symptom that pointed somewhere else entirely.
+
+    Host overrides are not an input: an override naming an address no reservation holds is a
+    statically configured server, which is normal, so no check reads them and doctor does not
+    fetch them.
     """
     findings: list[Finding] = []
 
@@ -1164,11 +1276,11 @@ def doctor_findings(*, reservations: Sequence[Reservation], overrides: Sequence[
             if res.ip:
                 macs_for_ip.setdefault(res.ip, set()).add(res.mac)
         for entry in arp:
-            reserved_macs = macs_for_ip.get(entry["ip"])
-            if entry.get("mac") and reserved_macs and entry["mac"] not in reserved_macs:
+            reserved_macs = macs_for_ip.get(entry.ip)
+            if entry.mac and reserved_macs and entry.mac not in reserved_macs:
                 findings.append(Finding(
                     check="reservation_mac_mismatch", severity=Severity.WARN,
-                    subject=f"{entry['ip']} reserved for {', '.join(sorted(reserved_macs))}, held by {entry['mac']}",
+                    subject=f"{entry.ip} reserved for {', '.join(sorted(reserved_macs))}, held by {entry.mac}",
                     detail="the address is in use by hardware no reservation for it names. If the "
                            "reserved device reappears, DHCP hands it an address something else "
                            "already holds, which shows up as an intermittent outage that is hard "
@@ -1500,36 +1612,331 @@ echo json_encode(array("removed" => $removed));
 
 
 # ---- output -------------------------------------------------------------------------------------
-def envelope(*, command: str, data: object, ok: bool, skipped: list[str] | None = None) -> dict:
+@dataclass(frozen=True)
+class Envelope:
     """The machine-readable result envelope. `ok` means "ran without error": true for every
-    answer a command gives (exit 0 or 1), false only on exit 2. The yes/no is the exit code's."""
-    return {"ok": ok, "command": command, "data": data, "skipped": skipped or []}
+    answer a command gives (exit 0 or 1), false only on exit 2. The yes/no is the exit code's.
+
+    `data` is already JSON-ready (a record's `to_json()`, a list, a string): the envelope does not
+    know the verbs' records, it only frames them.
+    """
+
+    command: str
+    data: object
+    ok: bool
+    skipped: Sequence[str] = ()
+
+    def __post_init__(self) -> None:
+        # Held as a tuple so a caller's list mutated afterwards cannot change what is printed.
+        object.__setattr__(self, "skipped", tuple(self.skipped))
+
+    def to_json(self) -> dict[str, object]:
+        return {"ok": self.ok, "command": self.command, "data": self.data, "skipped": list(self.skipped)}
 
 
-def _emit(result: dict, as_json: bool, human: str) -> None:
+def _emit(result: Envelope, as_json: bool, human: str) -> None:
     """Data to stdout. Diagnostics never travel this path; they go to stderr."""
-    print(json.dumps(result, indent=2) if as_json else human)
+    print(json.dumps(result.to_json(), indent=2) if as_json else human)
 
 
-def _target_from_args(args) -> Target:
-    if getattr(args, "fw", None):
-        return load_named_target(args.fw)
-    if not getattr(args, "host", None):
+# ---- the parsed command line --------------------------------------------------------------------
+@dataclass(frozen=True)
+class ParsedArgs:
+    """Typed reads of what argparse parsed: the one place its untyped Namespace is touched.
+
+    Each verb's options are read from here once, at the edge, into a frozen record, so no command
+    function reads an attribute argparse may or may not have set. A value of the wrong type means
+    the parser and its reader disagree, a defect in this file, so it raises TypeError rather than a
+    PfsenseError a caller would read as an answer about the firewall.
+    """
+
+    namespace: argparse.Namespace
+
+    def _value(self, name: str) -> object:
+        value: object = getattr(self.namespace, name, None)
+        return value
+
+    def _refuse(self, name: str, wanted: str, value: object, *, item: bool = False) -> TypeError:
+        subject = f"an item of the parsed option {name}" if item else f"the parsed option {name}"
+        return TypeError(f"{subject} is {type(value).__name__}, not {wanted}")
+
+    def text(self, name: str) -> str:
+        value = self._value(name)
+        if not isinstance(value, str):
+            raise self._refuse(name, "str", value)
+        return value
+
+    def optional_text(self, name: str) -> str | None:
+        value = self._value(name)
+        if value is not None and not isinstance(value, str):
+            raise self._refuse(name, "str or None", value)
+        return value
+
+    def flag(self, name: str) -> bool:
+        value = self._value(name)
+        if not isinstance(value, bool):
+            raise self._refuse(name, "bool", value)
+        return value
+
+    def number(self, name: str) -> int:
+        value = self._value(name)
+        if not isinstance(value, int) or isinstance(value, bool):
+            raise self._refuse(name, "int", value)
+        return value
+
+    def texts(self, name: str) -> tuple[str, ...]:
+        """A list option (nargs or action="append"); an append option never given is None: ()."""
+        value = self._value(name)
+        if value is None:
+            return ()
+        if not isinstance(value, list):
+            raise self._refuse(name, "list", value)
+        items = tuple(cast(list[object], value))
+        texts = tuple(item for item in items if isinstance(item, str))
+        if len(texts) != len(items):
+            bad = next(item for item in items if not isinstance(item, str))
+            raise self._refuse(name, "str", bad, item=True)
+        return texts
+
+    def command(self) -> str:
+        """The verb as the envelope names it: `info`, `dhcp add`, `table del`."""
+        return " ".join(part for part in [self.text("cmd"), self.optional_text("action")] if part)
+
+    def handler(self) -> Handler:
+        value = self._value("verb")
+        if not isinstance(value, Handler):
+            raise self._refuse("verb", "Handler", value)
+        return value
+
+
+@dataclass(frozen=True)
+class CommonOptions:
+    """The options every verb accepts before its subcommand, and the process seam it runs through.
+
+    The mutation flags are here, not on the mutating verbs' records, because the top-level parser
+    accepts them for every verb (`--apply dns add ...`) and `snapshot` reads the snapshot ones too.
+    `run` is not an option: main() injects it, and every remote read of every verb goes through it.
+    """
+
+    host: str | None
+    fw: str | None
+    user: str
+    ssh: str
+    timeout: int
+    json: bool
+    apply: bool
+    snapshot_dir: str | None
+    allow_repo_snapshot: bool
+    run: Runner
+
+    @classmethod
+    def read(cls, parsed: ParsedArgs, run: Runner) -> CommonOptions:
+        return cls(host=parsed.optional_text("host"), fw=parsed.optional_text("fw"),
+                   user=parsed.text("user"), ssh=parsed.text("ssh"), timeout=parsed.number("timeout"),
+                   json=parsed.flag("json"), apply=parsed.flag("apply"),
+                   snapshot_dir=parsed.optional_text("snapshot_dir"),
+                   allow_repo_snapshot=parsed.flag("allow_repo_snapshot"), run=run)
+
+
+@dataclass(frozen=True)
+class NoArgs:
+    """A verb with no options of its own (`info`, `dhcp list`, `dns list`)."""
+
+    @classmethod
+    def read(cls, parsed: ParsedArgs) -> NoArgs:
+        del parsed
+        return cls()
+
+
+@dataclass(frozen=True)
+class SnapshotArgs:
+    dir: str | None
+
+    @classmethod
+    def read(cls, parsed: ParsedArgs) -> SnapshotArgs:
+        return cls(dir=parsed.optional_text("dir"))
+
+
+@dataclass(frozen=True)
+class ArpArgs:
+    permanent: bool
+
+    @classmethod
+    def read(cls, parsed: ParsedArgs) -> ArpArgs:
+        return cls(permanent=parsed.flag("permanent"))
+
+
+@dataclass(frozen=True)
+class RulesArgs:
+    counters: bool
+    nat: bool
+
+    @classmethod
+    def read(cls, parsed: ParsedArgs) -> RulesArgs:
+        return cls(counters=parsed.flag("counters"), nat=parsed.flag("nat"))
+
+
+@dataclass(frozen=True)
+class DoctorArgs:
+    config: str | None
+
+    @classmethod
+    def read(cls, parsed: ParsedArgs) -> DoctorArgs:
+        return cls(config=parsed.optional_text("config"))
+
+
+@dataclass(frozen=True)
+class DhcpAddArgs:
+    mac: str
+    ip: str
+    hostname: str
+    interface: str | None
+    descr: str
+
+    @classmethod
+    def read(cls, parsed: ParsedArgs) -> DhcpAddArgs:
+        return cls(mac=parsed.text("mac"), ip=parsed.text("ip"), hostname=parsed.text("hostname"),
+                   interface=parsed.optional_text("interface"), descr=parsed.text("descr"))
+
+
+@dataclass(frozen=True)
+class DhcpRenameArgs:
+    mac: str
+    hostname: str
+
+    @classmethod
+    def read(cls, parsed: ParsedArgs) -> DhcpRenameArgs:
+        return cls(mac=parsed.text("mac"), hostname=parsed.text("hostname"))
+
+
+@dataclass(frozen=True)
+class MacArgs:
+    """A verb that selects one reservation by MAC (`dhcp rm`, `dhcp rm-static-arp`)."""
+
+    mac: str
+
+    @classmethod
+    def read(cls, parsed: ParsedArgs) -> MacArgs:
+        return cls(mac=parsed.text("mac"))
+
+
+@dataclass(frozen=True)
+class DnsAddArgs:
+    name: str
+    ip: str
+    descr: str
+
+    @classmethod
+    def read(cls, parsed: ParsedArgs) -> DnsAddArgs:
+        return cls(name=parsed.text("name"), ip=parsed.text("ip"), descr=parsed.text("descr"))
+
+
+@dataclass(frozen=True)
+class DnsRmArgs:
+    name: str
+
+    @classmethod
+    def read(cls, parsed: ParsedArgs) -> DnsRmArgs:
+        return cls(name=parsed.text("name"))
+
+
+@dataclass(frozen=True)
+class TableArgs:
+    """`table <action> [table] [ips...]`; which operands an action needs is checked by the verb."""
+
+    action: str
+    table: str | None
+    ips: tuple[str, ...]
+
+    @classmethod
+    def read(cls, parsed: ParsedArgs) -> TableArgs:
+        return cls(action=parsed.text("action"), table=parsed.optional_text("table"),
+                   ips=parsed.texts("ips"))
+
+
+@dataclass(frozen=True)
+class SnortCheckArgs:
+    targets: tuple[str, ...]
+
+    @classmethod
+    def read(cls, parsed: ParsedArgs) -> SnortCheckArgs:
+        return cls(targets=parsed.texts("targets"))
+
+
+@dataclass(frozen=True)
+class IpsArgs:
+    """A verb over a list of addresses (`snort why`, `snort unblock`)."""
+
+    ips: tuple[str, ...]
+
+    @classmethod
+    def read(cls, parsed: ParsedArgs) -> IpsArgs:
+        return cls(ips=parsed.texts("ips"))
+
+
+@dataclass(frozen=True)
+class SnortVerifyArgs:
+    sid: str
+    cidr: str | None
+    ip: tuple[str, ...]
+
+    @classmethod
+    def read(cls, parsed: ParsedArgs) -> SnortVerifyArgs:
+        return cls(sid=parsed.text("sid"), cidr=parsed.optional_text("cidr"), ip=parsed.texts("ip"))
+
+
+@dataclass(frozen=True)
+class SnortFixstepsArgs:
+    sid: str
+    cidr: str | None
+
+    @classmethod
+    def read(cls, parsed: ParsedArgs) -> SnortFixstepsArgs:
+        return cls(sid=parsed.text("sid"), cidr=parsed.optional_text("cidr"))
+
+
+class Handler(ABC):
+    """What a subcommand's parser carries as its `verb` default: how to run it."""
+
+    @abstractmethod
+    def invoke(self, parsed: ParsedArgs, common: CommonOptions) -> int:
+        """Read the verb's own options from `parsed` and run it."""
+
+
+@dataclass(frozen=True)
+class Verb[A](Handler):
+    """One subcommand: the reader of its options, and the command function that takes them.
+
+    Binding the two in one record is what lets the type checker see that every command function
+    receives the record its reader builds.
+    """
+
+    read: Callable[[ParsedArgs], A]
+    func: Callable[[CommonOptions, A], int]
+
+    def invoke(self, parsed: ParsedArgs, common: CommonOptions) -> int:
+        return self.func(common, self.read(parsed))
+
+
+def _target_from_options(common: CommonOptions) -> Target:
+    if common.fw:
+        return load_named_target(common.fw)
+    if not common.host:
         raise PfsenseError("no target: pass --host, or --fw <name> with a section in " + str(config_file()))
-    return Target(host=args.host, user=args.user, ssh=args.ssh, timeout=args.timeout)
+    return Target(host=common.host, user=common.user, ssh=common.ssh, timeout=common.timeout)
 
 
-def _guard_mutation(args, target: Target, what: str) -> str | None:
+def _guard_mutation(common: CommonOptions, target: Target, what: str) -> str | None:
     """Snapshot before an --apply, and describe the intent when it is a dry run.
 
     Returns the snapshot path, or None for a dry run. A mutation whose snapshot failed does not
     proceed: the point of the snapshot is to make the change reversible, so a missing one removes
     the only reason it was safe to go ahead.
     """
-    if not args.apply:
+    if not common.apply:
         return None
-    path = do_snapshot(target, Path(args.snapshot_dir or default_snapshot_dir()),
-                       run=args.run, allow_repo=getattr(args, "allow_repo_snapshot", False))
+    path = do_snapshot(target, Path(common.snapshot_dir or default_snapshot_dir()),
+                       run=common.run, allow_repo=common.allow_repo_snapshot)
     print(f"pfsense: snapshot before {what}: {path}", file=sys.stderr)
     return str(path)
 
@@ -1546,19 +1953,18 @@ def default_snapshot_dir() -> Path:
     return Path(base) / "bitranox" / "pfsense"
 
 
-def inside_git_worktree(directory: Path, *, run=_run) -> bool:
+def inside_git_worktree(directory: Path, *, run: Runner = _run) -> bool:
     """True when `directory` sits inside a git work tree. False when git cannot answer.
 
     Fail-open by design: this is the SECOND layer, behind a default that already points outside any
     checkout. A machine with no git must still be able to take a snapshot.
     """
-    import shutil  # noqa: PLC0415 - only needed on this path, and only to probe for git
     if not shutil.which("git"):
         return False
     try:
         rc, out, _err = run(["git", "-C", str(directory), "rev-parse", "--is-inside-work-tree"],
                             timeout=10)
-    except Exception:
+    except (OSError, subprocess.SubprocessError, ValueError):
         return False
     return rc == 0 and (out or "").strip() == "true"
 
@@ -1574,7 +1980,7 @@ def nearest_existing(directory: Path) -> Path:
 SNAPSHOT_PROBE_NAME = "config-snapshot.xml"
 
 
-def ignored_by_git(directory: Path, *, filename: str = SNAPSHOT_PROBE_NAME, run=_run) -> bool:
+def ignored_by_git(directory: Path, *, filename: str = SNAPSHOT_PROBE_NAME, run: Runner = _run) -> bool:
     """True only when git would never stage `directory/filename`, for anyone using this checkout.
 
     A site's dated backups often live in a gitignored folder of its own machine repo. Four things
@@ -1612,12 +2018,12 @@ def ignored_by_git(directory: Path, *, filename: str = SNAPSHOT_PROBE_NAME, run=
             return False
         rc, tracked, _err = run(["git", "-c", "core.quotePath=false", "-C", str(top), "ls-files",
                                  "-z", "--", asked_dir], timeout=10)
-    except Exception:
+    except (OSError, subprocess.SubprocessError, ValueError):
         return False
     return rc == 0 and not (tracked or "").strip("\0")
 
 
-def _git_toplevel(probe: Path, *, run=_run) -> Path | None:
+def _git_toplevel(probe: Path, *, run: Runner = _run) -> Path | None:
     rc, out, _err = run(["git", "-C", str(probe), "rev-parse", "--show-toplevel"], timeout=10)
     text = (out or "").strip()
     return Path(text).resolve() if rc == 0 and text else None
@@ -1638,7 +2044,7 @@ def _ignore_sources(out: str) -> dict[str, str]:
     return sources
 
 
-def _trusted_ignore_source(source: str, top: Path, *, run=_run) -> bool:
+def _trusted_ignore_source(source: str, top: Path, *, run: Runner = _run) -> bool:
     """A .gitignore inside the checkout, or this clone's info/exclude; nothing per-user.
 
     Both live in the checkout every user of it shares (a tracked or untracked .gitignore alike).
@@ -1655,7 +2061,7 @@ def _trusted_ignore_source(source: str, top: Path, *, run=_run) -> bool:
 
 
 def prepare_snapshot_dir(directory: Path, *, allow_repo: bool = False,
-                         filename: str = SNAPSHOT_PROBE_NAME, run=_run) -> Path:
+                         filename: str = SNAPSHOT_PROBE_NAME, run: Runner = _run) -> Path:
     """Create `directory` private to the user, refusing a git work tree unless told otherwise.
 
     A directory the work tree ignores, with nothing tracked beneath it, is not refused (see
@@ -1686,7 +2092,7 @@ def prepare_snapshot_dir(directory: Path, *, allow_repo: bool = False,
     return directory
 
 
-def do_snapshot(target: Target, directory: Path, *, run=_run, allow_repo: bool = False) -> Path:
+def do_snapshot(target: Target, directory: Path, *, run: Runner = _run, allow_repo: bool = False) -> Path:
     """Fetch /conf/config.xml and write it under a timestamped name.
 
     The content is validated before it is written: an ssh failure or a truncated read must not be
@@ -1724,9 +2130,9 @@ def _write_private(path: Path, text: str) -> None:
 
 
 # ---- commands -----------------------------------------------------------------------------------
-def cmd_info(args) -> int:
-    target = _target_from_args(args)
-    info = run_php(target, php_info(), parse=FirewallInfo.from_json, run=args.run)
+def cmd_info(common: CommonOptions, args: NoArgs) -> int:
+    target = _target_from_options(common)
+    info = run_php(target, php_info(), parse=FirewallInfo.from_json, run=common.run)
     lines = [
         f"  version:      {info.version}",
         f"  dhcp backend: {info.dhcp_backend}",
@@ -1737,27 +2143,27 @@ def cmd_info(args) -> int:
         lines.append(f"    {iface.name:<8} {iface.device:<12} {iface.ipaddr}/{iface.subnet}  {iface.descr}")
     pkgs = ", ".join(p.name for p in info.packages) or "none"
     lines.append(f"  packages:     {pkgs}")
-    _emit(envelope(command="info", data=info.to_json(), ok=True), args.json, "\n".join(lines))
+    _emit(Envelope(command="info", data=info.to_json(), ok=True), common.json, "\n".join(lines))
     return 0
 
 
-def cmd_snapshot(args) -> int:
-    target = _target_from_args(args)
-    directory = args.dir or getattr(args, "snapshot_dir", None) or default_snapshot_dir()
-    path = do_snapshot(target, Path(directory), run=args.run,
-                       allow_repo=getattr(args, "allow_repo_snapshot", False))
-    _emit(envelope(command="snapshot", data={"path": str(path), "bytes": path.stat().st_size}, ok=True),
-          args.json, f"  saved {path} ({path.stat().st_size} bytes)")
+def cmd_snapshot(common: CommonOptions, args: SnapshotArgs) -> int:
+    target = _target_from_options(common)
+    directory = args.dir or common.snapshot_dir or default_snapshot_dir()
+    path = do_snapshot(target, Path(directory), run=common.run, allow_repo=common.allow_repo_snapshot)
+    saved = SnapshotSaved(path=str(path), size=path.stat().st_size)
+    _emit(Envelope(command="snapshot", data=saved.to_json(), ok=True),
+          common.json, f"  saved {saved.path} ({saved.size} bytes)")
     return 0
 
 
-def cmd_dhcp_list(args) -> int:
-    target = _target_from_args(args)
-    reservations = run_php(target, php_list_reservations(), parse=Reservation.list_from_json, run=args.run)
+def cmd_dhcp_list(common: CommonOptions, args: NoArgs) -> int:
+    target = _target_from_options(common)
+    reservations = run_php(target, php_list_reservations(), parse=Reservation.list_from_json, run=common.run)
     lines = [f"  {r.ip:<16} {r.mac:<18} {'STATIC-ARP' if r.static_arp else '          '}  "
              f"{r.hostname or r.descr}" for r in reservations]
     lines.append(f"  ({len(reservations)} reservations)")
-    _emit(envelope(command="dhcp list", data=[r.to_json() for r in reservations], ok=True), args.json,
+    _emit(Envelope(command="dhcp list", data=[r.to_json() for r in reservations], ok=True), common.json,
           "\n".join(lines))
     return 0
 
@@ -1778,7 +2184,7 @@ def valid_hostname(name: str) -> str:
 def interface_for_ip(interfaces: Sequence[Interface], ip: str) -> str:
     """The interface whose static subnet holds `ip`, or a refusal when none or several do."""
     address = ipaddress.ip_address(ip)
-    hits = []
+    hits: list[str] = []
     for iface in interfaces:
         try:
             network = ipaddress.ip_interface(f"{iface.ipaddr}/{iface.subnet}").network
@@ -1792,43 +2198,43 @@ def interface_for_ip(interfaces: Sequence[Interface], ip: str) -> str:
     return hits[0]
 
 
-def cmd_dhcp_add(args) -> int:
-    target = _target_from_args(args)
+def cmd_dhcp_add(common: CommonOptions, args: DhcpAddArgs) -> int:
+    target = _target_from_options(common)
     mac = normalize_mac(args.mac)
     ipaddress.ip_address(args.ip)
     hostname = valid_hostname(args.hostname)
-    reservations = run_php(target, php_list_reservations(), parse=Reservation.list_from_json, run=args.run)
+    reservations = run_php(target, php_list_reservations(), parse=Reservation.list_from_json, run=common.run)
     taken = [r for r in reservations if r.mac == mac or r.ip == args.ip]
     if taken:
         raise PfsenseError(f"already reserved: {taken[0].ip} {taken[0].mac} "
                            f"({taken[0].hostname or taken[0].descr}) - rename or rm it instead")
-    interfaces = run_php(target, php_info(), parse=FirewallInfo.from_json, run=args.run).interfaces
+    interfaces = run_php(target, php_info(), parse=FirewallInfo.from_json, run=common.run).interfaces
     if args.interface:
         # A named interface must still hold the address: the GUI checks this, and this tool
         # bypasses the GUI, so a reservation outside the subnet would be stored and never served.
         interfaces = tuple(i for i in interfaces if i.name == args.interface)
     interface = interface_for_ip(interfaces, args.ip)
     entry = NewReservation(interface=interface, mac=mac, ip=args.ip, hostname=hostname)
-    if not args.apply:
-        _emit(envelope(command="dhcp add", data={"would_add": entry.to_json()}, ok=True,
+    if not common.apply:
+        _emit(Envelope(command="dhcp add", data={"would_add": entry.to_json()}, ok=True,
                        skipped=["--apply not given"]),
-              args.json, f"  DRY RUN: would reserve {args.ip} for {mac} ({hostname}) on {interface}.  "
+              common.json, f"  DRY RUN: would reserve {args.ip} for {mac} ({hostname}) on {interface}.  "
                          "Re-run with --apply.")
         return 0
-    _guard_mutation(args, target, f"adding the reservation {args.ip} for {mac}")
+    _guard_mutation(common, target, f"adding the reservation {args.ip} for {mac}")
     result = run_php(target, php_add_reservation(interface, mac, args.ip, hostname, args.descr),
-                     parse=ReservationAdded.from_json, run=args.run)
+                     parse=ReservationAdded.from_json, run=common.run)
     if result.added is None:
         raise PfsenseError(result.error or "the reservation was not added")
-    result, note = _restart_unbound_after_dhcp(target, result, run=args.run,
+    result, note = _restart_unbound_after_dhcp(target, result, run=common.run,
                                                change=f"the reservation {args.ip} for {mac}")
-    _emit(envelope(command="dhcp add", data=result.to_json(), ok=True), args.json,
+    _emit(Envelope(command="dhcp add", data=result.to_json(), ok=True), common.json,
           f"  reserved {args.ip} for {mac} ({hostname}) on {interface}{note}")
     return 0
 
 
 def _restart_unbound_after_dhcp[R: (ReservationAdded, ReservationRenamed, ReservationRemoved)](
-        target: Target, result: R, *, run, change: str) -> tuple[R, str]:
+        target: Target, result: R, *, run: Runner, change: str) -> tuple[R, str]:
     """Restart unbound and check it answers when the DHCP write also reconfigured it.
 
     The PHP side reconfigured unbound only when it registers DHCP static mappings, and says so in
@@ -1844,54 +2250,54 @@ def _restart_unbound_after_dhcp[R: (ReservationAdded, ReservationRenamed, Reserv
             "; unbound reconfigured and restarted for the static-mapping name, and answers")
 
 
-def cmd_dhcp_rename(args) -> int:
-    target = _target_from_args(args)
+def cmd_dhcp_rename(common: CommonOptions, args: DhcpRenameArgs) -> int:
+    target = _target_from_options(common)
     mac = normalize_mac(args.mac)
     hostname = valid_hostname(args.hostname)
-    reservations = run_php(target, php_list_reservations(), parse=Reservation.list_from_json, run=args.run)
+    reservations = run_php(target, php_list_reservations(), parse=Reservation.list_from_json, run=common.run)
     entry = select_reservation(reservations, mac)
-    if not args.apply:
-        _emit(envelope(command="dhcp rename", data={"would_rename": entry.to_json(), "to": hostname}, ok=True,
+    if not common.apply:
+        _emit(Envelope(command="dhcp rename", data={"would_rename": entry.to_json(), "to": hostname}, ok=True,
                        skipped=["--apply not given"]),
-              args.json, f"  DRY RUN: would rename {entry.ip} {mac} from "
+              common.json, f"  DRY RUN: would rename {entry.ip} {mac} from "
                          f"{entry.hostname or '(no hostname)'} to {hostname}.  Re-run with --apply.")
         return 0
-    _guard_mutation(args, target, f"renaming the reservation for {mac}")
+    _guard_mutation(common, target, f"renaming the reservation for {mac}")
     result = run_php(target, php_rename_reservation(mac, hostname), parse=ReservationRenamed.from_json,
-                     run=args.run)
+                     run=common.run)
     if len(result.renamed) != 1:
         raise PfsenseError(f"the reservation for {mac} was not renamed (it changed since it was listed)")
-    result, note = _restart_unbound_after_dhcp(target, result, run=args.run,
+    result, note = _restart_unbound_after_dhcp(target, result, run=common.run,
                                                change=f"the rename of the reservation for {mac} to {hostname}")
-    _emit(envelope(command="dhcp rename", data=result.to_json(), ok=True), args.json,
+    _emit(Envelope(command="dhcp rename", data=result.to_json(), ok=True), common.json,
           f"  renamed {entry.ip} {mac} to {hostname}{note}")
     return 0
 
 
-def cmd_dhcp_rm(args) -> int:
-    target = _target_from_args(args)
+def cmd_dhcp_rm(common: CommonOptions, args: MacArgs) -> int:
+    target = _target_from_options(common)
     mac = normalize_mac(args.mac)
-    reservations = run_php(target, php_list_reservations(), parse=Reservation.list_from_json, run=args.run)
+    reservations = run_php(target, php_list_reservations(), parse=Reservation.list_from_json, run=common.run)
     entry = select_reservation(reservations, mac)
-    if not args.apply:
-        _emit(envelope(command="dhcp rm", data={"would_remove": entry.to_json()}, ok=True,
+    if not common.apply:
+        _emit(Envelope(command="dhcp rm", data={"would_remove": entry.to_json()}, ok=True,
                        skipped=["--apply not given"]),
-              args.json, f"  DRY RUN: would remove {entry.ip} {entry.mac} "
+              common.json, f"  DRY RUN: would remove {entry.ip} {entry.mac} "
                          f"({entry.hostname or entry.descr}).  Re-run with --apply.")
         return 0
-    _guard_mutation(args, target, f"removing the reservation for {mac}")
-    result = run_php(target, php_rm_reservation(mac), parse=ReservationRemoved.from_json, run=args.run)
+    _guard_mutation(common, target, f"removing the reservation for {mac}")
+    result = run_php(target, php_rm_reservation(mac), parse=ReservationRemoved.from_json, run=common.run)
     removed = result.removed
     _require_effect(removed, f"the reservation for {mac} matched, but removing it removed nothing "
                              "(it changed since it was listed); config.xml was not written")
-    result, note = _restart_unbound_after_dhcp(target, result, run=args.run,
+    result, note = _restart_unbound_after_dhcp(target, result, run=common.run,
                                                change=f"the removal of the reservation for {mac}")
-    _emit(envelope(command="dhcp rm", data=result.to_json(), ok=True), args.json,
+    _emit(Envelope(command="dhcp rm", data=result.to_json(), ok=True), common.json,
           f"  removed {len(removed)} reservation(s) for {mac}{note}")
     return 0
 
 
-def _require_effect(effect: Sequence, failure: str) -> None:
+def _require_effect(effect: Sequence[object], failure: str) -> None:
     """Refuse a single-target change that matched and then changed nothing.
 
     The listing found exactly one entry, so the caller asked for one thing and it did not happen.
@@ -1902,7 +2308,7 @@ def _require_effect(effect: Sequence, failure: str) -> None:
         raise PfsenseError(failure)
 
 
-def _removal_exit(requested: list[str], still: list[str], *, where: str) -> int:
+def _removal_exit(requested: Sequence[str], still: Sequence[str], *, where: str) -> int:
     """0 when every address is gone, 1 when SOME of several remain, 2 (raised) when none went.
 
     Some-of-several is a partial outcome, an answer the caller reads as "these are left". Every
@@ -1916,37 +2322,37 @@ def _removal_exit(requested: list[str], still: list[str], *, where: str) -> int:
     return 1
 
 
-def cmd_dhcp_rm_static_arp(args) -> int:
-    target = _target_from_args(args)
+def cmd_dhcp_rm_static_arp(common: CommonOptions, args: MacArgs) -> int:
+    target = _target_from_options(common)
     mac = normalize_mac(args.mac)
-    reservations = run_php(target, php_list_reservations(), parse=Reservation.list_from_json, run=args.run)
+    reservations = run_php(target, php_list_reservations(), parse=Reservation.list_from_json, run=common.run)
     entry = select_reservation(reservations, mac)
     if not entry.static_arp:
-        _emit(envelope(command="dhcp rm-static-arp", data={"entry": entry.to_json()}, ok=True,
+        _emit(Envelope(command="dhcp rm-static-arp", data={"entry": entry.to_json()}, ok=True,
                        skipped=["static ARP was not set"]),
-              args.json, f"  {entry.ip} {mac} does not have static ARP set; nothing to do.")
+              common.json, f"  {entry.ip} {mac} does not have static ARP set; nothing to do.")
         return 0
-    if not args.apply:
-        _emit(envelope(command="dhcp rm-static-arp", data={"would_clear": entry.to_json()}, ok=True,
+    if not common.apply:
+        _emit(Envelope(command="dhcp rm-static-arp", data={"would_clear": entry.to_json()}, ok=True,
                        skipped=["--apply not given"]),
-              args.json, f"  DRY RUN: would clear static ARP on {entry.ip} {mac}.  Re-run with --apply.")
+              common.json, f"  DRY RUN: would clear static ARP on {entry.ip} {mac}.  Re-run with --apply.")
         return 0
-    _guard_mutation(args, target, f"clearing static ARP for {mac}")
-    result = run_php(target, php_rm_static_arp(mac), parse=StaticArpCleared.from_json, run=args.run)
+    _guard_mutation(common, target, f"clearing static ARP for {mac}")
+    result = run_php(target, php_rm_static_arp(mac), parse=StaticArpCleared.from_json, run=common.run)
     changed = result.changed
     _require_effect(changed, f"static ARP is set on the reservation for {mac}, but clearing it "
                              "changed nothing (it changed since it was listed); config.xml was not written")
-    _emit(envelope(command="dhcp rm-static-arp", data=result.to_json(), ok=True), args.json,
+    _emit(Envelope(command="dhcp rm-static-arp", data=result.to_json(), ok=True), common.json,
           f"  cleared static ARP on {len(changed)} reservation(s) for {mac}")
     return 0
 
 
-def cmd_dns_list(args) -> int:
-    target = _target_from_args(args)
-    overrides = run_php(target, php_list_overrides(), parse=Override.list_from_json, run=args.run)
+def cmd_dns_list(common: CommonOptions, args: NoArgs) -> int:
+    target = _target_from_options(common)
+    overrides = run_php(target, php_list_overrides(), parse=Override.list_from_json, run=common.run)
     lines = [f"  {o.fqdn:<44} -> {o.ip}" for o in overrides]
     lines.append(f"  ({len(overrides)} host overrides)")
-    _emit(envelope(command="dns list", data=[o.to_json() for o in overrides], ok=True), args.json,
+    _emit(Envelope(command="dns list", data=[o.to_json() for o in overrides], ok=True), common.json,
           "\n".join(lines))
     return 0
 
@@ -1959,30 +2365,30 @@ def _split_name(name: str) -> tuple[str, str]:
     return parts[0].lower(), parts[1].lower()
 
 
-def cmd_dns_add(args) -> int:
-    target = _target_from_args(args)
+def cmd_dns_add(common: CommonOptions, args: DnsAddArgs) -> int:
+    target = _target_from_options(common)
     host, domain = _split_name(args.name)
     ipaddress.ip_address(args.ip)
-    if not args.apply:
-        _emit(envelope(command="dns add", data={"would_add": {"host": host, "domain": domain, "ip": args.ip}},
+    if not common.apply:
+        _emit(Envelope(command="dns add", data={"would_add": {"host": host, "domain": domain, "ip": args.ip}},
                        ok=True, skipped=["--apply not given"]),
-              args.json, f"  DRY RUN: would add {host}.{domain} -> {args.ip}.  Re-run with --apply.")
+              common.json, f"  DRY RUN: would add {host}.{domain} -> {args.ip}.  Re-run with --apply.")
         return 0
     # The PHP duplicate check compares host and domain separately, so it cannot see an override
     # stored with an EMPTY host whose domain is this whole name. Compare full names here, with the
     # same rule the listing uses, before anything is snapshotted or written.
-    existing = run_php(target, php_list_overrides(), parse=Override.list_from_json, run=args.run)
+    existing = run_php(target, php_list_overrides(), parse=Override.list_from_json, run=common.run)
     if any(o.fqdn.lower() == f"{host}.{domain}" for o in existing):
         raise PfsenseError(f"an override for {host}.{domain} already exists")
-    _guard_mutation(args, target, f"adding {host}.{domain}")
+    _guard_mutation(common, target, f"adding {host}.{domain}")
     result = run_php(target, php_add_override(host, domain, args.ip, args.descr),
-                     parse=OverrideAdded.from_json, run=args.run)
+                     parse=OverrideAdded.from_json, run=common.run)
     if result.error:
         raise PfsenseError(result.error)
     result = replace(result, unbound=restart_and_verify_unbound(
-        target, name=f"{host}.{domain}", ip=args.ip, run=args.run,
+        target, name=f"{host}.{domain}", ip=args.ip, run=common.run,
         change=f"the override {host}.{domain} -> {args.ip}"))
-    _emit(envelope(command="dns add", data=result.to_json(), ok=True), args.json,
+    _emit(Envelope(command="dns add", data=result.to_json(), ok=True), common.json,
           f"  added {host}.{domain} -> {args.ip}; unbound restarted and answers it")
     return 0
 
@@ -1992,9 +2398,9 @@ def unbound_probe_command(name: str) -> str:
     return f"host {shlex.quote(name)} 127.0.0.1"
 
 
-def answered_addresses(host_output: str) -> set:
+def answered_addresses(host_output: str) -> set[IPAddress]:
     """The addresses a `host` run printed as answers, normalised so 2001:DB8::1 equals 2001:db8::1."""
-    found = set()
+    found: set[IPAddress] = set()
     for token in _HOST_ANSWER_RX.findall(host_output):
         try:
             found.add(ipaddress.ip_address(token))
@@ -2003,7 +2409,7 @@ def answered_addresses(host_output: str) -> set:
     return found
 
 
-def restart_and_verify_unbound(target: Target, *, name: str, ip: str, run, change: str) -> UnboundCheck:
+def restart_and_verify_unbound(target: Target, *, name: str, ip: str, run: Runner, change: str) -> UnboundCheck:
     """Restart unbound and resolve `name` through 127.0.0.1, expecting `ip` among the answers.
 
     services_unbound_configure() has been observed to leave unbound stopped, with
@@ -2043,130 +2449,135 @@ def _probe_after_removal(overrides: Sequence[Override], removed_fqdn: str) -> tu
     return "localhost.", "127.0.0.1"
 
 
-def cmd_dns_rm(args) -> int:
-    target = _target_from_args(args)
+def cmd_dns_rm(common: CommonOptions, args: DnsRmArgs) -> int:
+    target = _target_from_options(common)
     host, domain = _split_name(args.name)
-    overrides = run_php(target, php_list_overrides(), parse=Override.list_from_json, run=args.run)
+    overrides = run_php(target, php_list_overrides(), parse=Override.list_from_json, run=common.run)
     entry = select_one(overrides, f"{host}.{domain}", key=lambda o: o.fqdn, field="fqdn",
                        what="host override")
-    if not args.apply:
-        _emit(envelope(command="dns rm", data={"would_remove": entry.to_json(with_fqdn=True)}, ok=True,
+    if not common.apply:
+        _emit(Envelope(command="dns rm", data={"would_remove": entry.to_json(with_fqdn=True)}, ok=True,
                        skipped=["--apply not given"]),
-              args.json, f"  DRY RUN: would remove {entry.fqdn} -> {entry.ip}.  Re-run with --apply.")
+              common.json, f"  DRY RUN: would remove {entry.fqdn} -> {entry.ip}.  Re-run with --apply.")
         return 0
-    _guard_mutation(args, target, f"removing {host}.{domain}")
+    _guard_mutation(common, target, f"removing {host}.{domain}")
     # Target the fields as STORED, not a re-split of the name: an override with an empty host keeps
     # the whole name in its domain, and host 'bare' + domain 'example.com' would match nothing.
     stored_host = entry.host.lower()
     stored_domain = entry.domain.lower()
     result = run_php(target, php_rm_override(stored_host, stored_domain), parse=OverrideRemoved.from_json,
-                     run=args.run)
+                     run=common.run)
     removed = result.removed
     _require_effect(removed, f"the override {host}.{domain} matched, but removing it removed nothing "
                              "(it changed since it was listed); config.xml was not written")
     probe_name, probe_ip = _probe_after_removal(overrides, entry.fqdn)
     result = replace(result, unbound=restart_and_verify_unbound(
-        target, name=probe_name, ip=probe_ip, run=args.run,
+        target, name=probe_name, ip=probe_ip, run=common.run,
         change=f"the removal of the override {entry.fqdn}"))
-    _emit(envelope(command="dns rm", data=result.to_json(), ok=True), args.json,
+    _emit(Envelope(command="dns rm", data=result.to_json(), ok=True), common.json,
           f"  removed {len(removed)} override(s) for {host}.{domain}; "
           f"unbound restarted and answers {probe_name}")
     return 0
 
 
-def cmd_arp(args) -> int:
-    target = _target_from_args(args)
-    rc, out, err = run_remote(target, "arp -an", run=args.run)
+def cmd_arp(common: CommonOptions, args: ArpArgs) -> int:
+    target = _target_from_options(common)
+    rc, out, err = run_remote(target, "arp -an", run=common.run)
     if rc != 0:
         raise PfsenseError(f"could not read the ARP table on {target.host}: {err.strip()[:200]}")
     entries = parse_arp(out)
     if args.permanent:
-        entries = [e for e in entries if e["permanent"]]
-    lines = [f"  {e['ip']:<16} {e['mac'] or '(incomplete)':<18} {e['interface']:<8} "
-             f"{'PERMANENT' if e['permanent'] else ''}" for e in entries]
+        entries = [e for e in entries if e.permanent]
+    lines = [f"  {e.ip:<16} {e.mac or '(incomplete)':<18} {e.interface:<8} "
+             f"{'PERMANENT' if e.permanent else ''}" for e in entries]
     lines.append(f"  ({len(entries)} entries)")
-    _emit(envelope(command="arp", data=entries, ok=True), args.json, "\n".join(lines))
+    _emit(Envelope(command="arp", data=[e.to_json() for e in entries], ok=True), common.json,
+          "\n".join(lines))
     return 0
 
 
-def _require_table_operands(args) -> None:
-    """Refuse a missing table or address as a usage error.
+def _require_table_operands(args: TableArgs) -> str:
+    """The table name as given, refusing a missing table or address as a usage error.
 
     An empty shell variable in a script otherwise reaches pfctl as `-t ''` and comes back as a
     verdict ("not in", "deleted 0 of 0") with exit 0 or 1, indistinguishable from a real answer.
+    `list` names no table, so it gets "".
     """
+    table = args.table or ""
     if args.action == "list":
-        return
-    if not (args.table or "").strip():
+        return table
+    if not table.strip():
         raise PfsenseError(f"table {args.action} needs a table name")
     if args.action in ("test", "del") and not [ip for ip in args.ips if ip.strip()]:
         raise PfsenseError(f"table {args.action} needs at least one address")
+    return table
 
 
-def cmd_table(args) -> int:
-    _require_table_operands(args)
-    target = _target_from_args(args)
+def cmd_table(common: CommonOptions, args: TableArgs) -> int:
+    table = _require_table_operands(args)
+    target = _target_from_options(common)
     if args.action == "list":
-        rc, out, err = run_remote(target, "pfctl -sT", run=args.run)
+        rc, out, err = run_remote(target, "pfctl -sT", run=common.run)
         if rc != 0:
             raise PfsenseError(f"could not list pf tables: {err.strip()[:200]}")
         names = [line.strip() for line in out.split("\n") if line.strip()]
-        _emit(envelope(command="table list", data=names, ok=True), args.json,
+        _emit(Envelope(command="table list", data=names, ok=True), common.json,
               "\n".join(f"  {n}" for n in names) + f"\n  ({len(names)} tables)")
         return 0
 
     if args.action == "show":
-        rc, out, err = run_remote(target, f"pfctl -t {shlex.quote(args.table)} -T show", run=args.run)
+        rc, out, err = run_remote(target, f"pfctl -t {shlex.quote(table)} -T show", run=common.run)
         if rc != 0:
-            raise PfsenseError(f"could not read table {args.table}: {err.strip()[:200]}")
+            raise PfsenseError(f"could not read table {table}: {err.strip()[:200]}")
         ips = sorted(parse_table(out))
-        _emit(envelope(command="table show", data=ips, ok=True), args.json,
-              "\n".join(f"  {ip}" for ip in ips) + f"\n  ({len(ips)} entries in {args.table})")
+        _emit(Envelope(command="table show", data=ips, ok=True), common.json,
+              "\n".join(f"  {ip}" for ip in ips) + f"\n  ({len(ips)} entries in {table})")
         return 0
 
     if args.action == "test":
-        rc, out, err = run_remote(target, f"pfctl -t {shlex.quote(args.table)} -T show", run=args.run)
+        rc, out, err = run_remote(target, f"pfctl -t {shlex.quote(table)} -T show", run=common.run)
         if rc != 0:
-            raise PfsenseError(f"could not read table {args.table}: {err.strip()[:200]}")
+            raise PfsenseError(f"could not read table {table}: {err.strip()[:200]}")
         present = blocked_among(out, args.ips)
-        data = {"table": args.table, "present": present,
-                "absent": [ip for ip in args.ips if ip not in present]}
-        _emit(envelope(command="table test", data=data, ok=True), args.json,
-              "\n".join(f"  {'IN ' if ip in present else 'not'}  {ip}  ({args.table})" for ip in args.ips))
+        check = TableCheck(table=table, present=tuple(present),
+                           absent=tuple(ip for ip in args.ips if ip not in present))
+        _emit(Envelope(command="table test", data=check.to_json(), ok=True), common.json,
+              "\n".join(f"  {'IN ' if ip in present else 'not'}  {ip}  ({table})" for ip in args.ips))
         return 0 if present else 1
 
     # del
-    if not args.apply:
-        _emit(envelope(command="table del", data={"would_delete": args.ips, "table": args.table},
+    if not common.apply:
+        _emit(Envelope(command="table del", data={"would_delete": args.ips, "table": table},
                        ok=True, skipped=["--apply not given"]),
-              args.json, f"  DRY RUN: would delete {', '.join(args.ips)} from {args.table}.  Re-run with --apply.")
+              common.json, f"  DRY RUN: would delete {', '.join(args.ips)} from {table}.  Re-run with --apply.")
         return 0
     for ip in args.ips:
-        run_remote(target, f"pfctl -t {shlex.quote(args.table)} -T delete {shlex.quote(ip)}", run=args.run)
-    rc, out, err = run_remote(target, f"pfctl -t {shlex.quote(args.table)} -T show", run=args.run)
+        run_remote(target, f"pfctl -t {shlex.quote(table)} -T delete {shlex.quote(ip)}", run=common.run)
+    rc, out, err = run_remote(target, f"pfctl -t {shlex.quote(table)} -T show", run=common.run)
     if rc != 0:
-        raise PfsenseError(f"could not re-read table {args.table} to confirm: {err.strip()[:200]}")
+        raise PfsenseError(f"could not re-read table {table} to confirm: {err.strip()[:200]}")
     still = blocked_among(out, args.ips)
-    code = _removal_exit(args.ips, still, where=f"table {args.table}")
-    _emit(envelope(command="table del", data={"requested": args.ips, "still_present": still}, ok=True),
-          args.json, f"  deleted {len(args.ips) - len(still)} of {len(args.ips)} from {args.table}" +
+    code = _removal_exit(args.ips, still, where=f"table {table}")
+    deletion = TableDeletion(requested=tuple(args.ips), still_present=tuple(still))
+    _emit(Envelope(command="table del", data=deletion.to_json(), ok=True),
+          common.json, f"  deleted {len(args.ips) - len(still)} of {len(args.ips)} from {table}" +
                      (f"\n  STILL PRESENT: {', '.join(still)}" if still else ""))
     return code
 
 
-def cmd_rules(args) -> int:
-    target = _target_from_args(args)
+def cmd_rules(common: CommonOptions, args: RulesArgs) -> int:
+    target = _target_from_options(common)
     command = "pfctl -vvsr" if args.counters else ("pfctl -sn" if args.nat else "pfctl -sr")
-    rc, out, err = run_remote(target, command, run=args.run, timeout=max(target.timeout, 60))
+    rc, out, err = run_remote(target, command, run=common.run, timeout=max(target.timeout, 60))
     if rc != 0:
         raise PfsenseError(f"could not read the ruleset: {err.strip()[:200]}")
     rules = [line.rstrip() for line in out.split("\n") if line.strip()]
-    _emit(envelope(command="rules", data=rules, ok=True), args.json, "\n".join(rules))
+    _emit(Envelope(command="rules", data=rules, ok=True), common.json, "\n".join(rules))
     return 0
 
 
-def cmd_snort_check(args) -> int:
-    target = _target_from_args(args)
+def cmd_snort_check(common: CommonOptions, args: SnortCheckArgs) -> int:
+    target = _target_from_options(common)
     resolved: dict[str, list[str]] = {}
     for name in args.targets:
         try:
@@ -2175,22 +2586,22 @@ def cmd_snort_check(args) -> int:
             raise PfsenseError(f"cannot resolve {name}: {exc}") from exc
     every_ip = [ip for ips in resolved.values() for ip in ips]
 
-    rc, table, err = run_remote(target, f"pfctl -t {SNORT_TABLE} -T show", run=args.run)
+    rc, table, err = run_remote(target, f"pfctl -t {SNORT_TABLE} -T show", run=common.run)
     if rc != 0:
         raise PfsenseError(f"could not read the {SNORT_TABLE} table on {target.host} "
                            f"(is Snort installed?): {err.strip()[:200]}")
 
     blocked = blocked_among(table, every_ip)
-    data = {"resolved": resolved, "blocked": blocked,
-            "clear": [ip for ip in every_ip if ip not in blocked]}
-    lines = []
+    check = BlockCheck(resolved=tuple((name, tuple(ips)) for name, ips in resolved.items()),
+                       blocked=tuple(blocked), clear=tuple(ip for ip in every_ip if ip not in blocked))
+    lines: list[str] = []
     for name, ips in resolved.items():
         for ip in ips:
             lines.append(f"  {'BLOCKED' if ip in blocked else 'clear  '}  {ip}  ({name})")
     if blocked:
         lines.append("")
         lines.append(f"Next: pfsense.py snort why {blocked[0]}   then snort fixsteps --sid <GID:SID>")
-    _emit(envelope(command="snort check", data=data, ok=True), args.json, "\n".join(lines))
+    _emit(Envelope(command="snort check", data=check.to_json(), ok=True), common.json, "\n".join(lines))
     return 1 if blocked else 0
 
 
@@ -2214,26 +2625,26 @@ def split_firewall_clock(out: str) -> tuple[datetime | None, str]:
     return moment, out[:match.start()] + out[match.end():]
 
 
-def cmd_snort_why(args) -> int:
-    target = _target_from_args(args)
+def cmd_snort_why(common: CommonOptions, args: IpsArgs) -> int:
+    target = _target_from_options(common)
     # The alert files ROTATE, so read the whole set: a block laid down yesterday is not in the
     # current file. Read once for every IP rather than per IP - these logs are large. The clock
     # is read in the same command, so it is the time the logs were read at.
     rc, out, err = run_remote(target, f"date '+{CLOCK_MARKER} %Y-%m-%dT%H:%M:%S'; "
                                       "cat /var/log/snort/*/alert /var/log/snort/*/alert.* 2>/dev/null",
-                              run=args.run, timeout=max(target.timeout, 60))
+                              run=common.run, timeout=max(target.timeout, 60))
     firewall_now, out = split_firewall_clock(out)
     if rc != 0 and not out.strip():
         raise PfsenseError(f"could not read the snort alert logs on {target.host}: {err.strip()[:200]}")
     found = {ip: parse_alerts(out, ip=ip) for ip in args.ips}
-    skipped = []
+    skipped: list[str] = []
     now = firewall_now
     if now is None:
         now = datetime.now()
         skipped.append("the firewall clock could not be read; a missing stamp year was inferred "
                        "from the local clock")
 
-    lines = []
+    lines: list[str] = []
     for ip, alerts in found.items():
         if not alerts:
             lines.append(f"  {ip}: no alert names this IP (the block may come from a reputation feed)")
@@ -2250,37 +2661,35 @@ def cmd_snort_why(args) -> int:
         print(f"pfsense: note: {note}", file=sys.stderr)
     any_found = any(found.values())
     data = {ip: [asdict(a) for a in alerts] for ip, alerts in found.items()}
-    _emit(envelope(command="snort why", data=data, ok=True, skipped=skipped), args.json,
+    _emit(Envelope(command="snort why", data=data, ok=True, skipped=skipped), common.json,
           "\n".join(lines))
     return 0 if any_found else 1
 
 
-def cmd_snort_unblock(args) -> int:
-    target = _target_from_args(args)
-    if not args.apply:
-        _emit(envelope(command="snort unblock", data={"would_delete": args.ips}, ok=True,
+def cmd_snort_unblock(common: CommonOptions, args: IpsArgs) -> int:
+    target = _target_from_options(common)
+    if not common.apply:
+        _emit(Envelope(command="snort unblock", data={"would_delete": args.ips}, ok=True,
                        skipped=["--apply not given"]),
-              args.json, f"  DRY RUN: would delete {', '.join(args.ips)} from {SNORT_TABLE}.  Re-run with --apply.")
+              common.json, f"  DRY RUN: would delete {', '.join(args.ips)} from {SNORT_TABLE}.  Re-run with --apply.")
         return 0
     for ip in args.ips:
-        run_remote(target, f"pfctl -t {SNORT_TABLE} -T delete {shlex.quote(ip)}", run=args.run)
-    rc, table, err = run_remote(target, f"pfctl -t {SNORT_TABLE} -T show", run=args.run)
+        run_remote(target, f"pfctl -t {SNORT_TABLE} -T delete {shlex.quote(ip)}", run=common.run)
+    rc, table, err = run_remote(target, f"pfctl -t {SNORT_TABLE} -T show", run=common.run)
     if rc != 0:
         raise PfsenseError(f"could not re-read the table to confirm: {err.strip()[:200]}")
     still = blocked_among(table, args.ips)
     code = _removal_exit(args.ips, still, where=SNORT_TABLE)
-    data = {"requested": args.ips, "still_blocked": still}
+    unblocked = Unblocked(requested=tuple(args.ips), still_blocked=tuple(still))
     human = "  cleared: " + ", ".join(ip for ip in args.ips if ip not in still)
     if still:
         human += f"\n  STILL BLOCKED: {', '.join(still)}"
     human += ("\n\nThis is temporary. Clearing the table does NOT stop the rule re-adding the "
               "address on the next packet: suppress the rule too, with snort fixsteps --sid <GID:SID> "
               "(snort why prints it).")
-    _emit(envelope(command="snort unblock", data=data, ok=True), args.json, human)
+    _emit(Envelope(command="snort unblock", data=unblocked.to_json(), ok=True), common.json, human)
     return code
 
-
-Network = ipaddress.IPv4Network | ipaddress.IPv6Network
 
 _TRACKS = ("by_src", "by_dst")
 
@@ -2307,13 +2716,25 @@ class SuppressScope:
             return True
         if target is None:
             return False
-        return any(target.version == net.version and target.subnet_of(net) for net in self.networks)
+        return any(_subnet_of(target, net) for net in self.networks)
+
+    def to_json(self) -> dict[str, object]:
+        return {"track": self.track, "ip": self.ip, "understood": self.understood}
 
     @property
     def label(self) -> str:
         if self.track is None and self.understood:
             return "every address"
         return f"track {self.track}, ip {self.ip}"
+
+
+def _subnet_of(inner: Network, outer: Network) -> bool:
+    """`inner.subnet_of(outer)`, and False across address families, where subnet_of raises."""
+    if isinstance(inner, ipaddress.IPv4Network) and isinstance(outer, ipaddress.IPv4Network):
+        return inner.subnet_of(outer)
+    if isinstance(inner, ipaddress.IPv6Network) and isinstance(outer, ipaddress.IPv6Network):
+        return inner.subnet_of(outer)
+    return False
 
 
 def _scope_networks(ip_value: str) -> tuple[Network, ...] | None:
@@ -2324,7 +2745,7 @@ def _scope_networks(ip_value: str) -> tuple[Network, ...] | None:
     table and list semantics, so it is not guessed at: None, and the statement covers nothing.
     """
     inner = ip_value[1:-1] if ip_value.startswith("[") and ip_value.endswith("]") else ip_value
-    networks = []
+    networks: list[Network] = []
     for member in (part.strip() for part in inner.split(",")):
         try:
             networks.append(ipaddress.ip_network(member, strict=False))
@@ -2374,7 +2795,7 @@ def _assumed_note(sig: SignatureId) -> str:
     return " (gen_id 1 assumed for a bare --sid; pass the GID:SID that snort why prints)"
 
 
-def _verify_targets(args) -> list[tuple[str, Network | None]]:
+def _verify_targets(args: SnortVerifyArgs) -> list[tuple[str, Network | None]]:
     """The addresses the suppression must cover: each --ip, and the --cidr range.
 
     An --ip that is not an address is refused (ValueError, exit 2). An unparsable --cidr is kept
@@ -2393,14 +2814,17 @@ def _verify_targets(args) -> list[tuple[str, Network | None]]:
     return targets
 
 
-def _scope_verdict(scopes: list[SuppressScope], targets) -> tuple[bool, dict[str, list[str]], list[str]]:
+def _scope_verdict(scopes: list[SuppressScope], targets: Sequence[tuple[str, Network | None]],
+                   ) -> tuple[bool, dict[str, list[str]], list[str]]:
     """(suppressed for what was asked, which scopes cover each target, the human lines)."""
     if not scopes:
         return False, {}, []
     if any(s.understood and s.track is None for s in scopes):
         return True, {label: ["all"] for label, _ in targets}, []
-    coverage = {label: [s.track for s in scopes if s.covers(net)] for label, net in targets}
-    lines = []
+    # A plain statement returned above, so every covering scope here names its side.
+    coverage = {label: [s.track for s in scopes if s.covers(net) and s.track is not None]
+                for label, net in targets}
+    lines: list[str] = []
     for label, tracks in coverage.items():
         if tracks:
             sides = " and ".join(f"track {t}" for t in tracks)
@@ -2410,7 +2834,8 @@ def _scope_verdict(scopes: list[SuppressScope], targets) -> tuple[bool, dict[str
     return bool(targets) and all(coverage.values()), coverage, lines
 
 
-def _suppressed_line(sig: SignatureId, scopes: list[SuppressScope], targets, suppressed: bool) -> str:
+def _suppressed_line(sig: SignatureId, scopes: list[SuppressScope],
+                     targets: Sequence[tuple[str, Network | None]], suppressed: bool) -> str:
     head = f"  GID:SID {sig.label} suppressed: "
     if not scopes:
         return head + "NO"
@@ -2425,41 +2850,81 @@ def _suppressed_line(sig: SignatureId, scopes: list[SuppressScope], targets, sup
     return head + ("yes" if suppressed else "NO") + f", only for {named}"
 
 
-def cmd_snort_verify(args) -> int:
+@dataclass(frozen=True)
+class PassListCheck:
+    """Whether the `--cidr` range is a literal entry of the live instance's generated pass list."""
+
+    cidr_passlisted: bool
+    passlist_entries: int
+
+
+@dataclass(frozen=True)
+class SuppressionCheck:
+    """The `snort verify` answer: the live instance, the rule, every live suppress statement for
+    it with its scope, which statements cover each asked address, and (with --cidr) the pass list.
+
+    `coverage` keeps the asked addresses in the order given, each named once; `["all"]` means a
+    plain statement covers it. `passlist` is None when no --cidr was asked, and its keys are then
+    absent from the JSON, as they always were.
+    """
+
+    instance_dir: str
+    sig: SignatureId
+    sid_suppressed: bool
+    suppressions: tuple[SuppressScope, ...]
+    coverage: tuple[tuple[str, tuple[str, ...]], ...]
+    passlist: PassListCheck | None
+
+    def to_json(self) -> dict[str, object]:
+        out: dict[str, object] = {
+            "instance_dir": self.instance_dir, "gid": self.sig.gid, "sid": self.sig.sid,
+            "gid_assumed": self.sig.gid_assumed, "sid_suppressed": self.sid_suppressed,
+            "suppressions": [s.to_json() for s in self.suppressions],
+            "coverage": {label: list(tracks) for label, tracks in self.coverage}}
+        if self.passlist is not None:
+            out["cidr_passlisted"] = self.passlist.cidr_passlisted
+            out["passlist_entries"] = self.passlist.passlist_entries
+        return out
+
+
+def _passlist_check(target: Target, instance: str, cidr: str, *, run: Runner) -> PassListCheck:
+    """Whether `cidr` is a literal line of the GENERATED pass list.
+
+    Never grep the suppression file for this: its comments name the same addresses, so the match
+    would be vacuous and always "pass".
+    """
+    _, passlist, _ = run_remote(target, f"cat {instance}/*Whitelist* 2>/dev/null", run=run)
+    entries = {line.strip() for line in passlist.split("\n") if line.strip()}
+    return PassListCheck(cidr_passlisted=cidr in entries, passlist_entries=len(entries))
+
+
+def cmd_snort_verify(common: CommonOptions, args: SnortVerifyArgs) -> int:
     sig = parse_sid_spec(args.sid)
     targets = _verify_targets(args)
-    target = _target_from_args(args)
-    rc, ps_out, _ = run_remote(target, "ps auxww", run=args.run)
+    target = _target_from_options(common)
+    rc, ps_out, _ = run_remote(target, "ps auxww", run=common.run)
     instance = instance_dir_from_ps(ps_out) if rc == 0 else None
     if not instance:
         raise PfsenseError(f"snort does not appear to be running on {target.host}")
 
-    checks: dict[str, object] = {"instance_dir": instance, "gid": sig.gid, "sid": sig.sid,
-                                 "gid_assumed": sig.gid_assumed}
     # The SUPPRESSION file carries the GID:SID and the scope of each statement.
-    _, supp, _ = run_remote(target, f"cat {instance}/supp* 2>/dev/null", run=args.run)
+    _, supp, _ = run_remote(target, f"cat {instance}/supp* 2>/dev/null", run=common.run)
     scopes = suppress_scopes(supp, sig)
     suppressed, coverage, coverage_lines = _scope_verdict(scopes, targets)
-    checks["sid_suppressed"] = suppressed
-    checks["suppressions"] = [{"track": s.track, "ip": s.ip, "understood": s.understood} for s in scopes]
-    checks["coverage"] = coverage
+    passlist = _passlist_check(target, instance, args.cidr, run=common.run) if args.cidr else None
+    check = SuppressionCheck(
+        instance_dir=instance, sig=sig, sid_suppressed=suppressed, suppressions=tuple(scopes),
+        coverage=tuple((label, tuple(tracks)) for label, tracks in coverage.items()), passlist=passlist)
 
-    if args.cidr:
-        # The GENERATED PASS LIST only. Never grep the suppression file for this: its comments
-        # name the same addresses, so the match would be vacuous and always "pass".
-        _, passlist, _ = run_remote(target, f"cat {instance}/*Whitelist* 2>/dev/null", run=args.run)
-        entries = {line.strip() for line in passlist.split("\n") if line.strip()}
-        checks["cidr_passlisted"] = args.cidr in entries
-        checks["passlist_entries"] = len(entries)
-
-    ok = suppressed and (not args.cidr or bool(checks.get("cidr_passlisted")))
+    ok = suppressed and (passlist is None or passlist.cidr_passlisted)
     human = "\n".join(
         [f"  live instance: {instance}",
          _suppressed_line(sig, scopes, targets, suppressed) + _assumed_note(sig)]
         + coverage_lines
-        + ([f"  {args.cidr} in pass list: {'yes' if checks.get('cidr_passlisted') else 'NO'}"] if args.cidr else [])
+        + ([f"  {args.cidr} in pass list: {'yes' if passlist.cidr_passlisted else 'NO'}"]
+           if passlist is not None else [])
     )
-    _emit(envelope(command="snort verify", data=checks, ok=True), args.json, human)
+    _emit(Envelope(command="snort verify", data=check.to_json(), ok=True), common.json, human)
     return 0 if ok else 1
 
 
@@ -2521,15 +2986,15 @@ def fix_steps(*, sig: SignatureId, cidr: str | None = None) -> str:
     ])
 
 
-def cmd_snort_fixsteps(args) -> int:
+def cmd_snort_fixsteps(common: CommonOptions, args: SnortFixstepsArgs) -> int:
     sig = parse_sid_spec(args.sid)
     steps = fix_steps(sig=sig, cidr=args.cidr)
-    data = {"gid": sig.gid, "sid": sig.sid, "gid_assumed": sig.gid_assumed, "cidr": args.cidr, "steps": steps}
-    _emit(envelope(command="snort fixsteps", data=data, ok=True), args.json, steps)
+    _emit(Envelope(command="snort fixsteps", data=FixSteps(sig=sig, cidr=args.cidr, steps=steps).to_json(),
+                   ok=True), common.json, steps)
     return 0
 
 
-def _read_or_raise(target: Target, command: str, *, run) -> str:
+def _read_or_raise(target: Target, command: str, *, run: Runner) -> str:
     """Stdout of a read the audit depends on, or a typed error.
 
     An empty read after an ssh drop is indistinguishable from a healthy empty answer, so an
@@ -2541,13 +3006,13 @@ def _read_or_raise(target: Target, command: str, *, run) -> str:
     return out
 
 
-def _present_upgrade_locks(target: Target, *, run) -> list[str]:
+def _present_upgrade_locks(target: Target, *, run: Runner) -> list[str]:
     """The UPGRADE_LOCKS paths that exist on the box, or a typed error.
 
     One `test -f` per path, the same command shape for each: exit 0 is present, 1 is absent, and
     anything else (255 for a dropped ssh) is a failed read, never "no lock".
     """
-    present = []
+    present: list[str] = []
     for path in UPGRADE_LOCKS:
         rc, _, err = run_remote(target, f"test -f {path}", run=run)
         if rc not in (0, 1):
@@ -2558,23 +3023,21 @@ def _present_upgrade_locks(target: Target, *, run) -> list[str]:
     return present
 
 
-def cmd_doctor(args) -> int:
+def cmd_doctor(common: CommonOptions, args: DoctorArgs) -> int:
     if args.config:
         text = Path(args.config).read_text(encoding="utf-8")
         findings = doctor_findings(reservations=reservations_from_config_xml(text),
-                                   overrides=overrides_from_config_xml(text),
                                    pools=pools_from_config_xml(text))
         source = args.config
     else:
-        target = _target_from_args(args)
-        reservations = run_php(target, php_list_reservations(), parse=Reservation.list_from_json, run=args.run)
-        overrides = run_php(target, php_list_overrides(), parse=Override.list_from_json, run=args.run)
-        pools = run_php(target, php_list_pools(), parse=Pool.list_from_json, run=args.run)
-        arp_out = _read_or_raise(target, "arp -an", run=args.run)
-        resolv = _read_or_raise(target, "cat /etc/resolv.conf", run=args.run)
-        findings = doctor_findings(reservations=reservations, overrides=overrides,
+        target = _target_from_options(common)
+        reservations = run_php(target, php_list_reservations(), parse=Reservation.list_from_json, run=common.run)
+        pools = run_php(target, php_list_pools(), parse=Pool.list_from_json, run=common.run)
+        arp_out = _read_or_raise(target, "arp -an", run=common.run)
+        resolv = _read_or_raise(target, "cat /etc/resolv.conf", run=common.run)
+        findings = doctor_findings(reservations=reservations,
                                    arp=parse_arp(arp_out), resolv_conf=resolv,
-                                   upgrade_locks=_present_upgrade_locks(target, run=args.run),
+                                   upgrade_locks=_present_upgrade_locks(target, run=common.run),
                                    pools=pools)
         source = target.host
 
@@ -2584,8 +3047,8 @@ def cmd_doctor(args) -> int:
         lines.append(f"  [{finding.severity.upper():<4}] {finding.check}: {finding.subject}")
         lines.append(f"         {finding.detail}")
     lines.append(f"  ({len(warns)} to act on, {len(findings) - len(warns)} informational)")
-    _emit(envelope(command="doctor", data=[asdict(f) for f in findings], ok=True),
-          args.json, "\n".join(lines))
+    _emit(Envelope(command="doctor", data=[asdict(f) for f in findings], ok=True),
+          common.json, "\n".join(lines))
     return 1 if warns else 0
 
 
@@ -2628,29 +3091,31 @@ def build_parser() -> argparse.ArgumentParser:
                          "repository ignores the folder)")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
-    sub.add_parser("info", help="version, DHCP backend, resolver, interfaces, packages").set_defaults(func=cmd_info)
+    p = sub.add_parser("info", help="version, DHCP backend, resolver, interfaces, packages")
+    p.set_defaults(verb=Verb(read=NoArgs.read, func=cmd_info))
 
     p = sub.add_parser("snapshot", help="save /conf/config.xml under a timestamped name")
     p.add_argument("--dir", default=None,
                    help="destination directory (default: a private per-user "
                         "state dir, never the current directory)")
-    p.set_defaults(func=cmd_snapshot)
+    p.set_defaults(verb=Verb(read=SnapshotArgs.read, func=cmd_snapshot))
 
     p = sub.add_parser("arp", help="the ARP table, flagging permanent entries")
     p.add_argument("--permanent", action="store_true", help="only the permanent entries")
-    p.set_defaults(func=cmd_arp)
+    p.set_defaults(verb=Verb(read=ArpArgs.read, func=cmd_arp))
 
     p = sub.add_parser("rules", help="the live pf ruleset")
     p.add_argument("--counters", action="store_true", help="include per-rule counters (pfctl -vvsr)")
     p.add_argument("--nat", action="store_true", help="show NAT rules instead (pfctl -sn)")
-    p.set_defaults(func=cmd_rules)
+    p.set_defaults(verb=Verb(read=RulesArgs.read, func=cmd_rules))
 
     p = sub.add_parser("doctor", help="audit for the faults that raise no error of their own")
     p.add_argument("--config", help="audit a saved config.xml offline instead of a live box")
-    p.set_defaults(func=cmd_doctor)
+    p.set_defaults(verb=Verb(read=DoctorArgs.read, func=cmd_doctor))
 
     dhcp = sub.add_parser("dhcp", help="DHCP reservations").add_subparsers(dest="action", required=True)
-    dhcp.add_parser("list", help="every reservation, with the static-ARP flag").set_defaults(func=cmd_dhcp_list)
+    p = dhcp.add_parser("list", help="every reservation, with the static-ARP flag")
+    p.set_defaults(verb=Verb(read=NoArgs.read, func=cmd_dhcp_list))
     p = dhcp.add_parser("add", parents=[mut], help="add one reservation (MAC -> address)")
     p.add_argument("--mac", required=True)
     p.add_argument("--ip", required=True)
@@ -2658,57 +3123,58 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--interface", help="pfSense interface name, e.g. lan or opt1 (default: the "
                                        "one whose static subnet holds --ip)")
     p.add_argument("--descr", default="added by pfsense.py")
-    p.set_defaults(func=cmd_dhcp_add)
+    p.set_defaults(verb=Verb(read=DhcpAddArgs.read, func=cmd_dhcp_add))
     p = dhcp.add_parser("rename", parents=[mut], help="set the hostname of one reservation, selected by MAC")
     p.add_argument("--mac", required=True)
     p.add_argument("--hostname", required=True, help="one label, e.g. office-printer")
-    p.set_defaults(func=cmd_dhcp_rename)
+    p.set_defaults(verb=Verb(read=DhcpRenameArgs.read, func=cmd_dhcp_rename))
     p = dhcp.add_parser("rm", parents=[mut], help="delete one reservation, selected by MAC")
     p.add_argument("--mac", required=True)
-    p.set_defaults(func=cmd_dhcp_rm)
+    p.set_defaults(verb=Verb(read=MacArgs.read, func=cmd_dhcp_rm))
     p = dhcp.add_parser("rm-static-arp", parents=[mut], help="clear ARP Table Static Entry, keeping the reservation")
     p.add_argument("--mac", required=True)
-    p.set_defaults(func=cmd_dhcp_rm_static_arp)
+    p.set_defaults(verb=Verb(read=MacArgs.read, func=cmd_dhcp_rm_static_arp))
 
     dns = sub.add_parser("dns", help="unbound host overrides").add_subparsers(dest="action", required=True)
-    dns.add_parser("list", help="every host override").set_defaults(func=cmd_dns_list)
+    p = dns.add_parser("list", help="every host override")
+    p.set_defaults(verb=Verb(read=NoArgs.read, func=cmd_dns_list))
     p = dns.add_parser("add", parents=[mut], help="add one host override")
     p.add_argument("--name", required=True, help="fully qualified, e.g. nas.example.com")
     p.add_argument("--ip", required=True)
     p.add_argument("--descr", default="added by pfsense.py")
-    p.set_defaults(func=cmd_dns_add)
+    p.set_defaults(verb=Verb(read=DnsAddArgs.read, func=cmd_dns_add))
     p = dns.add_parser("rm", parents=[mut], help="remove one host override, selected by name")
     p.add_argument("--name", required=True)
-    p.set_defaults(func=cmd_dns_rm)
+    p.set_defaults(verb=Verb(read=DnsRmArgs.read, func=cmd_dns_rm))
 
     table = sub.add_parser("table", parents=[mut], help="pf tables: snort2c, ISP aliases, anything else")
     table.add_argument("action", choices=["list", "show", "test", "del"])
     table.add_argument("table", nargs="?", help="table name (not needed for list)")
     table.add_argument("ips", nargs="*", help="addresses, for test and del")
-    table.set_defaults(func=cmd_table)
+    table.set_defaults(verb=Verb(read=TableArgs.read, func=cmd_table))
 
     snort = sub.add_parser("snort", help="Snort snort2c blocks").add_subparsers(dest="action", required=True)
     p = snort.add_parser("check", help="is a host/URL/IP blocked in snort2c?")
     p.add_argument("targets", nargs="+")
-    p.set_defaults(func=cmd_snort_check)
+    p.set_defaults(verb=Verb(read=SnortCheckArgs.read, func=cmd_snort_check))
     p = snort.add_parser("why", help="which GID:SID blocked this IP (reads the rotated alert logs)")
     p.add_argument("ips", nargs="+")
-    p.set_defaults(func=cmd_snort_why)
+    p.set_defaults(verb=Verb(read=IpsArgs.read, func=cmd_snort_why))
     p = snort.add_parser("unblock", parents=[mut], help="delete IPs from snort2c (temporary; suppress the SID too)")
     p.add_argument("ips", nargs="+")
-    p.set_defaults(func=cmd_snort_unblock)
+    p.set_defaults(verb=Verb(read=IpsArgs.read, func=cmd_snort_unblock))
     p = snort.add_parser("verify", help="is the SID suppressed and the CIDR pass-listed, in the LIVE instance?")
     p.add_argument("--sid", required=True, metavar="GID:SID",
                    help="the rule as snort why prints it; a bare SID means gen_id 1")
     p.add_argument("--cidr", help="the pass-listed range; a scoped suppression must cover it too")
     p.add_argument("--ip", action="append", metavar="ADDRESS",
                    help="a blocked address a scoped suppression must cover (repeatable)")
-    p.set_defaults(func=cmd_snort_verify)
+    p.set_defaults(verb=Verb(read=SnortVerifyArgs.read, func=cmd_snort_verify))
     p = snort.add_parser("fixsteps", help="print the durable three-part fix")
     p.add_argument("--sid", required=True, metavar="GID:SID",
                    help="the rule as snort why prints it; a bare SID means gen_id 1")
     p.add_argument("--cidr")
-    p.set_defaults(func=cmd_snort_fixsteps)
+    p.set_defaults(verb=Verb(read=SnortFixstepsArgs.read, func=cmd_snort_fixsteps))
 
     return ap
 
@@ -2728,21 +3194,22 @@ def _tolerate_unencodable_output() -> None:
                 pass
 
 
-def main(argv=None, *, run=_run) -> int:
+def main(argv: Sequence[str] | None = None, *, run: Runner = _run) -> int:
     _tolerate_unencodable_output()
-    args = build_parser().parse_args(argv)
-    args.run = run
-    command = " ".join(part for part in [args.cmd, getattr(args, "action", None)] if part)
+    parsed = ParsedArgs(build_parser().parse_args(argv))
+    common = CommonOptions.read(parsed, run)
+    command = parsed.command()
+    handler = parsed.handler()
     try:
-        return args.func(args)
+        return handler.invoke(parsed, common)
     except (PfsenseError, ValueError) as exc:
-        if args.json:
-            print(json.dumps(envelope(command=command, data={"error": str(exc)}, ok=False), indent=2))
+        if common.json:
+            print(json.dumps(Envelope(command=command, data={"error": str(exc)}, ok=False).to_json(), indent=2))
         print(f"pfsense: {exc}", file=sys.stderr)
         return 2
     except (OSError, subprocess.TimeoutExpired) as exc:
-        if args.json:
-            print(json.dumps(envelope(command=command, data={"error": str(exc)}, ok=False), indent=2))
+        if common.json:
+            print(json.dumps(Envelope(command=command, data={"error": str(exc)}, ok=False).to_json(), indent=2))
         print(f"pfsense: {exc}", file=sys.stderr)
         return 2
 

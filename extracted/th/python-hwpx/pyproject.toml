@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "python-hwpx"
-version = "6.12.0"
+version = "7.0.0"
 description = "한글 없이 HWPX 문서를 열고, 편집하고, 생성하고, 검증하는 Python 문서 라이브러리"
 readme = { file = "README.md", content-type = "text/markdown" }
 license = "Apache-2.0"
@@ -15,7 +15,7 @@ authors = [
 ]
 keywords = ["hwp", "hwpx", "hancom", "opc", "xml", "document-automation", "validation", "template"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
@@ -36,15 +36,15 @@ dependencies = [
 # 주입받는 계약이고, 그 스택은 companion 계층이 소유한다. 이름은 기존 설치가
 # `python-hwpx[visual]`로 깨지지 않도록 남기되 아무것도 끌어오지 않는다.
 visual = []
-# Excel(.xlsx/.xlsm) 명부 ingestion for mail_merge. Lazy-imported; absent => clear error.
-xlsx = [
-    "openpyxl>=3.1",
-]
-# Document preview viewer equation rendering: LaTeX -> MathML. Optional; without
-# it the preview fails closed to a LaTeX code block instead of dropping equations.
-preview = [
-    "latex2mathml>=3.77",
-]
+# 7.0에서 메일 머지(xlsx 명부), 미리보기(수식 MathML), LangChain·LlamaIndex 로더가
+# python-hwpx-automation으로 옮겨 갔다. 같은 이름의 extra가 그 패키지에 있다
+# (`pip install "python-hwpx-automation[xlsx]"` 등). 이 네 이름은 `visual = []`처럼
+# 남겨 두어 이미 쓰던 `pip install "python-hwpx[xlsx]"`가 깨지지 않게 하고, 아무것도
+# 끌어오지 않는다.
+xlsx = []
+preview = []
+langchain = []
+llamaindex = []
 # Everything a contributor needs to run the gates in CONTRIBUTING.md: the CI
 # extras (`test` + `typecheck`, what .github/workflows/tests.yml installs) plus
 # twine for checking a built distribution. tests/test_dev_extra_matches_ci.py
@@ -53,7 +53,6 @@ dev = [
     "build>=1.0",
     "twine>=4.0",
     "numpy>=1.26",
-    "openpyxl>=3.1",
     "pillow>=10.0",
     "pytest>=7.4",
     "pytest-cov>=5.0",
@@ -66,12 +65,13 @@ dev = [
 test = [
     "build>=1.0",
     "numpy>=1.26",
-    "openpyxl>=3.1",
     "pillow>=10.0",
     "pytest>=7.4",
     "pytest-cov>=5.0",
     "pyyaml>=6.0,<7",
     "ruff>=0.12",
+    # tests/test_equation_converter.py checks that eqedit_to_latex output parses as
+    # MathML. The library itself no longer imports latex2mathml (7.0).
     "latex2mathml>=3.77",
 ]
 typecheck = [
@@ -83,6 +83,8 @@ typecheck = [
 Homepage = "https://github.com/airmang/python-hwpx"
 Documentation = "https://airmang.github.io/python-hwpx/"
 Issues = "https://github.com/airmang/python-hwpx/issues"
+Changelog = "https://github.com/airmang/python-hwpx/blob/main/CHANGELOG.md"
+"Migration to 7.0" = "https://github.com/airmang/python-hwpx/blob/main/docs/migration-7.0.md"
 
 [project.scripts]
 # The `hwpx` application CLI moved to python-hwpx-automation, which declares the
@@ -98,7 +100,8 @@ hwpx-page-guard = "hwpx.tools.page_guard:main"
 hwpx-analyze-template = "hwpx.tools.template_analyzer:main"
 hwpx-text-extract = "hwpx.tools.text_extract_cli:main"
 hwpx-repair = "hwpx.tools.repair:main"
-hwpx-check-format = "hwpx.tools.format_rules:main"
+# `hwpx-check-format` moved with hwpx.tools.format_rules to python-hwpx-automation in
+# 7.0, which declares the name in the same release train (one declarer per install).
 
 [tool.setuptools]
 package-dir = { "" = "src" }
@@ -125,7 +128,9 @@ packages = [
     # HWP 5.0(.hwp) 읽기·쓰기. `hwpx/__init__.py`가 이 패키지를 가져오므로 빠지면
     # 휠에서 `import hwpx`가 깨진다.
     "hwpx.hwp5",
-    "hwpx.ingest",
+    # hwpx.ingest·hwpx.integrations는 7.0에서 python-hwpx-automation으로 옮겼다.
+    # tests/test_packaging_package_list.py가 src/hwpx 아래 __init__.py가 있는 폴더를
+    # 이 목록과 견준다.
     "hwpx.layout",
     # 6.0: add_* 가 반환하는 도메인 객체·결과 dataclass (WP-C가 채운다).
     "hwpx.objects",
@@ -190,22 +195,16 @@ files = [
     "src/hwpx/equation/tokens.py",
     "src/hwpx/equation/eqedit.py",
     "src/hwpx/equation/authoring.py",
-    "src/hwpx/equation/mathml.py",
-    "src/hwpx/equation/render.py",
-    "src/hwpx/tools/document_viewer.py",
-    "src/hwpx/tools/mail_merge.py",
     "src/hwpx/tools/redline.py",
     "src/hwpx/_document/_units.py",
     # 6.0 (062-engine-surface WP-A): 새 모듈은 게이트 안에서 태어난다. 이
     # 목록이 옛 모듈을 점진 편입하는 것이라고 해서, 새로 만드는 것까지 밖에
     # 둘 이유는 없다.
     #
-    # 예외 하나: `_document/_legacy.py`. 본문이 5.8.0 `document.py`의 것을
-    # **그대로** 옮긴 것이고(그 자리에서는 타입 청결했다), 믹스인으로 분리된
-    # 탓에 `self`가 `HwpxDocument`가 아니라 `Self@_LegacyFacade`로 좁혀져
-    # 위임 호출 52건이 전부 같은 한 가지 이유로 붉어진다. `self` 주석을 달면
-    # `inspect.signature`가 바뀌어 shim 락의 시그니처 동일성(이주 창의 핵심
-    # 약속)이 깨진다. 7.0에서 파일째 삭제되므로 편입하지 않는다.
+    # 7.0: 6.x 이름의 안내 표(`_removed_names.py`)와 그 루트 칸을 보는 창
+    # (`_document/_legacy.py`, 6.x 의 위임 shim 은 7.0에서 지웠다)도 게이트 안이다.
+    "src/hwpx/_removed_names.py",
+    "src/hwpx/_document/_legacy.py",
     "src/hwpx/model.py",
     "src/hwpx/objects/__init__.py",
     # 6.0 (062-engine-surface WP-C): 반환 규약 소유 모듈 5종 — 같은 이유로
@@ -314,6 +313,19 @@ files = [
     # Row and column insertion and deletion and cell splits on the table object, moved
     # out of table.py -- born in the gate, per the WP-A rule.
     "src/hwpx/oxml/table_structure.py",
+    # Where a thing stands in its paragraph's text (the offset reads, asks10a) -- born in the gate,
+    # per the WP-A rule.
+    "src/hwpx/oxml/text_offsets.py",
+    # Putting text in, taking a range out, moving and copying a range (asks10b) -- born in the gate,
+    # per the WP-A rule.
+    "src/hwpx/oxml/text_ranges.py",
+    # Where Hangul opens a document: settings.xml's caret (asks10h) -- born in the gate, per the WP-A rule.
+    "src/hwpx/oxml/caret.py",
+    # Moving and copying a table's rows (asks10d) -- born in the gate, per the WP-A rule.
+    "src/hwpx/oxml/table_rows.py",
+    # A save's ZIP records: read where each entry lies, write an archive from whole records, so an
+    # untouched part keeps its compressed bytes (exec7/zlib-bytes) -- born in the gate, per the WP-A rule.
+    "src/hwpx/opc/zip_records.py",
     # A paragraph shape's heading (outline levels 8 to 10 in Hancom's hp:switch form),
     # written and read in one place -- born in the gate, per the WP-A rule.
     "src/hwpx/oxml/paragraph_heading.py",
@@ -402,22 +414,16 @@ include = [
     "src/hwpx/equation/tokens.py",
     "src/hwpx/equation/eqedit.py",
     "src/hwpx/equation/authoring.py",
-    "src/hwpx/equation/mathml.py",
-    "src/hwpx/equation/render.py",
-    "src/hwpx/tools/document_viewer.py",
-    "src/hwpx/tools/mail_merge.py",
     "src/hwpx/tools/redline.py",
     "src/hwpx/_document/_units.py",
     # 6.0 (062-engine-surface WP-A): 새 모듈은 게이트 안에서 태어난다. 이
     # 목록이 옛 모듈을 점진 편입하는 것이라고 해서, 새로 만드는 것까지 밖에
     # 둘 이유는 없다.
     #
-    # 예외 하나: `_document/_legacy.py`. 본문이 5.8.0 `document.py`의 것을
-    # **그대로** 옮긴 것이고(그 자리에서는 타입 청결했다), 믹스인으로 분리된
-    # 탓에 `self`가 `HwpxDocument`가 아니라 `Self@_LegacyFacade`로 좁혀져
-    # 위임 호출 52건이 전부 같은 한 가지 이유로 붉어진다. `self` 주석을 달면
-    # `inspect.signature`가 바뀌어 shim 락의 시그니처 동일성(이주 창의 핵심
-    # 약속)이 깨진다. 7.0에서 파일째 삭제되므로 편입하지 않는다.
+    # 7.0: 6.x 이름의 안내 표(`_removed_names.py`)와 그 루트 칸을 보는 창
+    # (`_document/_legacy.py`, 6.x 의 위임 shim 은 7.0에서 지웠다)도 게이트 안이다.
+    "src/hwpx/_removed_names.py",
+    "src/hwpx/_document/_legacy.py",
     "src/hwpx/model.py",
     "src/hwpx/objects/__init__.py",
     # 6.0 (062-engine-surface WP-C): 반환 규약 소유 모듈 5종 — 같은 이유로
@@ -526,6 +532,19 @@ include = [
     # Row and column insertion and deletion and cell splits on the table object, moved
     # out of table.py -- born in the gate, per the WP-A rule.
     "src/hwpx/oxml/table_structure.py",
+    # Where a thing stands in its paragraph's text (the offset reads, asks10a) -- born in the gate,
+    # per the WP-A rule.
+    "src/hwpx/oxml/text_offsets.py",
+    # Putting text in, taking a range out, moving and copying a range (asks10b) -- born in the gate,
+    # per the WP-A rule.
+    "src/hwpx/oxml/text_ranges.py",
+    # Where Hangul opens a document: settings.xml's caret (asks10h) -- born in the gate, per the WP-A rule.
+    "src/hwpx/oxml/caret.py",
+    # Moving and copying a table's rows (asks10d) -- born in the gate, per the WP-A rule.
+    "src/hwpx/oxml/table_rows.py",
+    # A save's ZIP records: read where each entry lies, write an archive from whole records, so an
+    # untouched part keeps its compressed bytes (exec7/zlib-bytes) -- born in the gate, per the WP-A rule.
+    "src/hwpx/opc/zip_records.py",
     # A paragraph shape's heading (outline levels 8 to 10 in Hancom's hp:switch form),
     # written and read in one place -- born in the gate, per the WP-A rule.
     "src/hwpx/oxml/paragraph_heading.py",

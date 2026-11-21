@@ -172,7 +172,6 @@ from .type_defs import (
     CreateWorkflowRequestTypeDef,
     CreateWorkflowResponseTypeDef,
     DeleteAssetRequestTypeDef,
-    DeleteAssetTypeRequestTypeDef,
     DeleteAttachmentRequestTypeDef,
     DeleteAttachmentResponseTypeDef,
     DeleteBlueprintRequestTypeDef,
@@ -492,8 +491,6 @@ from .type_defs import (
     PublishDataQualityResultV2ResponseTypeDef,
     PutAssetRequestTypeDef,
     PutAssetResponseTypeDef,
-    PutAssetTypeRequestTypeDef,
-    PutAssetTypeResponseTypeDef,
     PutAttachmentRequestTypeDef,
     PutAttachmentResponseTypeDef,
     PutDataCatalogEncryptionSettingsRequestTypeDef,
@@ -1310,14 +1307,6 @@ class GlueClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/delete_asset.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#delete_asset)
-        """
-
-    def delete_asset_type(self, **kwargs: Unpack[DeleteAssetTypeRequestTypeDef]) -> dict[str, Any]:
-        """
-        Deletes an asset type from Glue Data Catalog.
-
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/delete_asset_type.html)
-        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#delete_asset_type)
         """
 
     def delete_attachment(
@@ -3045,16 +3034,6 @@ class GlueClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#put_asset)
         """
 
-    def put_asset_type(
-        self, **kwargs: Unpack[PutAssetTypeRequestTypeDef]
-    ) -> PutAssetTypeResponseTypeDef:
-        """
-        Creates or updates an asset type in Glue Data Catalog.
-
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/put_asset_type.html)
-        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#put_asset_type)
-        """
-
     def put_attachment(
         self, **kwargs: Unpack[PutAttachmentRequestTypeDef]
     ) -> PutAttachmentResponseTypeDef:
@@ -3211,8 +3190,8 @@ class GlueClient(BaseClient):
         self, **kwargs: Unpack[SearchAssetsInputTypeDef]
     ) -> SearchAssetsOutputTypeDef:
         """
-        Searches for assets in Glue Data Catalog using full-text search, filters,
-        sorting, and aggregations.
+        Searches for assets in Glue Data Catalog using full-text search, filters, and
+        sorting.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/search_assets.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#search_assets)

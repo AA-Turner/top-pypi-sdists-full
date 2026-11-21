@@ -49,7 +49,14 @@ add_constants(PyObject* module)
   if (PyModule_AddIntConstant(module, "FMT_LEGACY_MASK", PYCBC_FMT_LEGACY_MASK) < 0) {
     return -1;
   }
-  if (PyModule_AddIntConstant(module, "FMT_COMMON_MASK", PYCBC_FMT_COMMON_MASK) < 0) {
+  // 0xFF000000 does not fit the C long PyModule_AddIntConstant takes on Windows.
+  PyObject* common_mask = PyLong_FromUnsignedLong(PYCBC_FMT_COMMON_MASK);
+  if (common_mask == nullptr) {
+    return -1;
+  }
+  int add_rc = PyModule_AddObjectRef(module, "FMT_COMMON_MASK", common_mask);
+  Py_DECREF(common_mask);
+  if (add_rc < 0) {
     return -1;
   }
 
@@ -72,47 +79,61 @@ shutdown_logger(PyObject* self, PyObject* Py_UNUSED(ignored))
 
 } // namespace pycbc
 
-static PyMethodDef pycbc_core_methods[] = { { "shutdown_logger",
-                                              (PyCFunction)pycbc::shutdown_logger,
-                                              METH_NOARGS,
-                                              PyDoc_STR("Shutdown C++ core logger") },
-                                            { "create_transactions",
-                                              (PyCFunction)pycbc::txns::create_transactions,
-                                              METH_VARARGS | METH_KEYWORDS,
-                                              PyDoc_STR("Create transactions") },
-                                            { "create_transaction_context",
-                                              (PyCFunction)pycbc::txns::create_transaction_context,
-                                              METH_VARARGS | METH_KEYWORDS,
-                                              PyDoc_STR("Create transaction context") },
-                                            { "create_new_attempt_context",
-                                              (PyCFunction)pycbc::txns::create_new_attempt_context,
-                                              METH_VARARGS | METH_KEYWORDS,
-                                              PyDoc_STR("Create new attempt context") },
-                                            { "transaction_op",
-                                              (PyCFunction)pycbc::txns::transaction_op,
-                                              METH_VARARGS | METH_KEYWORDS,
-                                              PyDoc_STR("Transaction operation") },
-                                            { "transaction_get_multi_op",
-                                              (PyCFunction)pycbc::txns::transaction_get_multi_op,
-                                              METH_VARARGS | METH_KEYWORDS,
-                                              PyDoc_STR("Transaction get multi operation") },
-                                            { "transaction_query_op",
-                                              (PyCFunction)pycbc::txns::transaction_query_op,
-                                              METH_VARARGS | METH_KEYWORDS,
-                                              PyDoc_STR("Transaction query operation") },
-                                            { "transaction_commit",
-                                              (PyCFunction)pycbc::txns::transaction_commit,
-                                              METH_VARARGS | METH_KEYWORDS,
-                                              PyDoc_STR("Transaction commit") },
-                                            { "transaction_rollback",
-                                              (PyCFunction)pycbc::txns::transaction_rollback,
-                                              METH_VARARGS | METH_KEYWORDS,
-                                              PyDoc_STR("Transaction rollback") },
-                                            { "destroy_transactions",
-                                              (PyCFunction)pycbc::txns::destroy_transactions,
-                                              METH_VARARGS | METH_KEYWORDS,
-                                              PyDoc_STR("Destroy transactions") },
-                                            { nullptr, nullptr, 0, nullptr } };
+static PyMethodDef pycbc_core_methods[] = {
+  { "shutdown_logger",
+    (PyCFunction)pycbc::shutdown_logger,
+    METH_NOARGS,
+    PyDoc_STR("Shutdown C++ core logger") },
+  { "transaction_config_as_dict",
+    (PyCFunction)pycbc::txns::transaction_config_as_dict,
+    METH_O,
+    PyDoc_STR("A transaction config block as the core reads it") },
+  { "transaction_options_as_dict",
+    (PyCFunction)pycbc::txns::transaction_options_as_dict,
+    METH_O,
+    PyDoc_STR("A transaction options block as the core reads it") },
+  { "transaction_query_options_as_dict",
+    (PyCFunction)pycbc::txns::transaction_query_options_as_dict,
+    METH_O,
+    PyDoc_STR("A transaction query options block as the core reads it") },
+  { "create_transactions",
+    (PyCFunction)pycbc::txns::create_transactions,
+    METH_VARARGS | METH_KEYWORDS,
+    PyDoc_STR("Create transactions") },
+  { "create_transaction_context",
+    (PyCFunction)pycbc::txns::create_transaction_context,
+    METH_VARARGS | METH_KEYWORDS,
+    PyDoc_STR("Create transaction context") },
+  { "create_new_attempt_context",
+    (PyCFunction)pycbc::txns::create_new_attempt_context,
+    METH_VARARGS | METH_KEYWORDS,
+    PyDoc_STR("Create new attempt context") },
+  { "transaction_op",
+    (PyCFunction)pycbc::txns::transaction_op,
+    METH_VARARGS | METH_KEYWORDS,
+    PyDoc_STR("Transaction operation") },
+  { "transaction_get_multi_op",
+    (PyCFunction)pycbc::txns::transaction_get_multi_op,
+    METH_VARARGS | METH_KEYWORDS,
+    PyDoc_STR("Transaction get multi operation") },
+  { "transaction_query_op",
+    (PyCFunction)pycbc::txns::transaction_query_op,
+    METH_VARARGS | METH_KEYWORDS,
+    PyDoc_STR("Transaction query operation") },
+  { "transaction_commit",
+    (PyCFunction)pycbc::txns::transaction_commit,
+    METH_VARARGS | METH_KEYWORDS,
+    PyDoc_STR("Transaction commit") },
+  { "transaction_rollback",
+    (PyCFunction)pycbc::txns::transaction_rollback,
+    METH_VARARGS | METH_KEYWORDS,
+    PyDoc_STR("Transaction rollback") },
+  { "destroy_transactions",
+    (PyCFunction)pycbc::txns::destroy_transactions,
+    METH_VARARGS | METH_KEYWORDS,
+    PyDoc_STR("Destroy transactions") },
+  { nullptr, nullptr, 0, nullptr }
+};
 
 static PyModuleDef pycbc_core_module = {
   PyModuleDef_HEAD_INIT,
@@ -131,6 +152,12 @@ PyInit__core(void)
 {
   PyObject* module = PyModule_Create(&pycbc_core_module);
   if (module == nullptr) {
+    return nullptr;
+  }
+
+  // First, so later init steps (and their error paths) can use the cached keys.
+  if (init_pycbc_dict_keys() < 0) {
+    Py_DECREF(module);
     return nullptr;
   }
 
@@ -176,11 +203,6 @@ PyInit__core(void)
 
   // Cache exception classes for efficient access
   if (pycbc::cache_exception_classes() < 0) {
-    Py_DECREF(module);
-    return nullptr;
-  }
-
-  if (init_pycbc_dict_keys() < 0) {
     Py_DECREF(module);
     return nullptr;
   }

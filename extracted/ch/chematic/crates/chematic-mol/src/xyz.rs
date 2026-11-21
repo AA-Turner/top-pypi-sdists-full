@@ -70,7 +70,7 @@
 
 use std::collections::HashSet;
 
-use chematic_3d::xyz::element_from_xyz_symbol;
+use chematic_3d::xyz::{XyzRealError, element_from_xyz_symbol, parse_xyz_real};
 use chematic_core::{Atom, Element, Molecule, MoleculeBuilder};
 
 /// The declared type of an extended-XYZ `Properties=` column
@@ -88,16 +88,8 @@ pub enum XyzPropertyKind {
 pub enum XyzValue {
     Real(f64),
     Integer(i64),
-    /// Written as a single unquoted whitespace-delimited token (matching
-    /// how [`parse_extxyz`] reads an `S`-typed atom-row column): a value
-    /// containing whitespace round-trips through [`write_extxyz`] as *more
-    /// than one* atom-row token, desyncing every column after it on
-    /// reparse. `write_extxyz` does not check for this (only
-    /// [`XyzFrame::info`]/[`XyzProperty::name`] are validated, see
-    /// `validate_extxyz_writable`) -- avoid whitespace in `Str` property
-    /// values when hand-building a frame. Not reachable from the
-    /// Python/WASM `to_extxyz` bindings, which only accept real-valued
-    /// (`R`) properties.
+    /// A single unquoted atom-row token. The writer refuses empty values,
+    /// whitespace, controls, quotes, escapes and ambiguous delimiter syntax.
     Str(String),
     Logical(bool),
 }
@@ -229,11 +221,9 @@ pub enum XyzError {
         property: String,
         raw: String,
     },
-    /// [`write_extxyz`]/[`ExtxyzWriter::write_frame`] only: an
-    /// `XyzFrame::info` key/value or [`XyzProperty::name`] contains a
-    /// character extxyz `key=value` syntax cannot represent (see
-    /// [`validate_extxyz_writable`]) -- never produced by this module's own
-    /// parsers, only by writing a hand-built `XyzFrame`.
+    /// [`write_extxyz`]/[`ExtxyzWriter::write_frame`] only: invalid or
+    /// unrepresentable frame data, including nonfinite numbers, property shape/
+    /// type mismatches, duplicate names and unsafe metadata/token syntax.
     UnwritableMetadata { detail: String },
 }
 
@@ -395,6 +385,7 @@ pub fn parse_xyz(text: &str) -> Result<XyzFrame, XyzError> {
 }
 
 /// Parse a single XYZ frame while enforcing resource limits.
+/// Coordinates must be finite; nonzero decimals that round to zero are refused.
 pub fn parse_xyz_with_limits(text: &str, limits: &XyzParseLimits) -> Result<XyzFrame, XyzError> {
     validate_xyz_limits(text, limits)?;
     parse_one_frame(text).map(|(frame, _rest)| frame)
@@ -419,6 +410,21 @@ fn next_line(text: &str) -> Option<(&str, &str)> {
         Some(nl) => Some((text[..nl].trim_end_matches('\r'), &text[nl + 1..])),
         None => Some((text.trim_end_matches('\r'), "")),
     }
+}
+
+/// Share the coordinate contract with the 3D reader and preserve error variants.
+fn parse_coordinate(raw: &str, axis: &'static str, line: usize) -> Result<f64, XyzError> {
+    parse_xyz_real(raw).map_err(|error| match error {
+        XyzRealError::NonFinite => XyzError::NonFiniteCoordinate {
+            line,
+            axis,
+            raw: raw.to_owned(),
+        },
+        _ => XyzError::InvalidAtomLine {
+            line,
+            detail: format!("{axis} coordinate '{raw}': {error}"),
+        },
+    })
 }
 
 /// Parse one frame starting at `text`, returning the frame and the
@@ -459,23 +465,9 @@ fn parse_one_frame(text: &str) -> Result<(XyzFrame, &str), XyzError> {
                 line: lineno,
             })?;
 
-        let parse_coord = |raw: &str, axis: &'static str| -> Result<f64, XyzError> {
-            let v: f64 = raw.parse().map_err(|_| XyzError::InvalidAtomLine {
-                line: lineno,
-                detail: format!("cannot parse {axis} coordinate '{raw}'"),
-            })?;
-            if !v.is_finite() {
-                return Err(XyzError::NonFiniteCoordinate {
-                    line: lineno,
-                    axis,
-                    raw: raw.to_string(),
-                });
-            }
-            Ok(v)
-        };
-        let x = parse_coord(parts[1], "x")?;
-        let y = parse_coord(parts[2], "y")?;
-        let z = parse_coord(parts[3], "z")?;
+        let x = parse_coordinate(parts[1], "x", lineno)?;
+        let y = parse_coordinate(parts[2], "y", lineno)?;
+        let z = parse_coordinate(parts[3], "z", lineno)?;
         atoms.push(XyzAtom { element, x, y, z });
     }
 
@@ -1159,6 +1151,7 @@ pub fn write_xyz(frame: &XyzFrame) -> String {
 }
 
 mod extxyz;
+mod extxyz_validation;
 pub use extxyz::*;
 
 #[cfg(test)]

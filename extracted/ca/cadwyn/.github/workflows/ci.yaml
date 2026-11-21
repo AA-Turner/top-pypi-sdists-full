@@ -1,25 +1,15 @@
 name: CI
 on:
   push:
-    branches: [main, 3.x.x, 9.x.x]
-    paths:
-      - "**.py"
-      - "**.toml"
-      - "**.lock"
+    branches: [main, 3.x.x]
   pull_request:
-    branches: [main, 3.x.x, 9.x.x]
-    paths:
-      - ".github/workflows/ci.yaml" # self
-      - ".github/actions/**"
-      - "**.py"
-      - "**.toml"
-      - "**.lock"
-      - ".pre-commit-config.yaml"
+    branches: [main, 3.x.x]
 
 jobs:
   Tests:
     strategy:
-      fail-fast: true
+      # Every platform reports its own result; the "CI passed" job fails if any of them fails
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
@@ -68,7 +58,7 @@ jobs:
       - run: |
           # Test the docs against this checkout of Cadwyn instead of its latest release,
           # including the `cadwyn` command that the docs tests run.
-          uv pip install --system --reinstall-package cadwyn ".[standard]" pytest coverage dirty-equals fastapi-pagination
+          uv pip install --system --reinstall-package cadwyn --reinstall-package cadwyn-core ./cadwyn-core ".[standard]" pytest coverage dirty-equals fastapi-pagination
           coverage run -m pytest docs_src
       - name: Upload coverage results
         uses: actions/upload-artifact@v6
@@ -77,6 +67,16 @@ jobs:
           path: .coverage*
           include-hidden-files: true
           retention-days: 7
+  Standalone-tests:
+    runs-on: ubuntu-latest
+    name: Standalone tests
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-python-uv
+        with:
+          python-version: "3.11"
+      # cadwyn-core installed on its own, without cadwyn, FastAPI, or Starlette
+      - run: tox run -e standalone
   Coverage:
     needs: [Tests, Tutorial-tests]
     runs-on: ubuntu-latest
@@ -95,11 +95,11 @@ jobs:
           pip install uv
           uv pip install --system tox tox-uv
           tox run -e coverage_report
+      # `coverage report` above enforces 100% coverage, so an outage of Codecov must not block merges
       - name: Upload to Codecov
         uses: codecov/codecov-action@v5
-        env:
-          fail_ci_if_error: true
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   Lint:
     runs-on: ubuntu-latest
@@ -112,3 +112,24 @@ jobs:
           python -m pip install uv
           uv pip install --system prek
           prek run --all-files
+
+  Docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-python-uv
+        with:
+          # When this version is updated,
+          # update the docs `base_python` version in `tox.ini`, too.
+          python-version: "3.11"
+      - run: tox run -e docs
+
+  # The only check that branch protection requires, so that jobs can change without changing the settings
+  CI-passed:
+    name: CI passed
+    if: always()
+    needs: [Tests, Tutorial-tests, Standalone-tests, Coverage, Lint, Docs]
+    runs-on: ubuntu-latest
+    steps:
+      - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
+        run: exit 1

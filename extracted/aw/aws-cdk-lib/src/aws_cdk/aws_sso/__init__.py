@@ -2800,6 +2800,552 @@ class CfnPermissionSetProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_sso_f1373af7.ITrustedTokenIssuerRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnTrustedTokenIssuer(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_sso.CfnTrustedTokenIssuer",
+):
+    '''Resource Type definition for AWS::SSO::TrustedTokenIssuer, a trusted token issuer configuration for IAM Identity Center that enables trusted identity propagation with external identity providers using OIDC.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-trustedtokenissuer.html
+    :cloudformationResource: AWS::SSO::TrustedTokenIssuer
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_sso as sso
+        
+        cfn_trusted_token_issuer = sso.CfnTrustedTokenIssuer(self, "MyCfnTrustedTokenIssuer",
+            instance_arn="instanceArn",
+            name="name",
+            trusted_token_issuer_configuration=sso.CfnTrustedTokenIssuer.TrustedTokenIssuerConfigurationProperty(
+                oidc_jwt_configuration=sso.CfnTrustedTokenIssuer.OidcJwtConfigurationProperty(
+                    claim_attribute_path="claimAttributePath",
+                    identity_store_attribute_path="identityStoreAttributePath",
+                    issuer_url="issuerUrl",
+                    jwks_retrieval_option="jwksRetrievalOption"
+                )
+            ),
+            trusted_token_issuer_type="trustedTokenIssuerType",
+        
+            # the properties below are optional
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        instance_arn: builtins.str,
+        name: builtins.str,
+        trusted_token_issuer_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTrustedTokenIssuer.TrustedTokenIssuerConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        trusted_token_issuer_type: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::SSO::TrustedTokenIssuer``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param instance_arn: The ARN of the IAM Identity Center instance.
+        :param name: The name of the trusted token issuer configuration.
+        :param trusted_token_issuer_configuration: The configuration of a trusted token issuer.
+        :param trusted_token_issuer_type: The type of the trusted token issuer.
+        :param tags: A list of tags to attach to the trusted token issuer.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9c5e6b161534a42bc1cc31b128ff90fef80132cad23b48a4578ca1c42c6f1eac)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnTrustedTokenIssuerProps(
+            instance_arn=instance_arn,
+            name=name,
+            trusted_token_issuer_configuration=trusted_token_issuer_configuration,
+            trusted_token_issuer_type=trusted_token_issuer_type,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForTrustedTokenIssuer")
+    @builtins.classmethod
+    def arn_for_trusted_token_issuer(
+        cls,
+        resource: "_aws_sso_f1373af7.ITrustedTokenIssuerRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__98e026669af2858d05cc552cfbdd42116bc696db5e9382e3327eed7b8d906547)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForTrustedTokenIssuer", [resource]))
+
+    @jsii.member(jsii_name="isCfnTrustedTokenIssuer")
+    @builtins.classmethod
+    def is_cfn_trusted_token_issuer(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnTrustedTokenIssuer.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d66d50a3cef0712487f6c9f527d683dfd8b133604858519d1ac94cf9d1a024fc)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnTrustedTokenIssuer", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__67130a542817ca68d1653378689e812c1e77dbe52a481ce66316c197933b6b67)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b1b04b49c116dc05859c566148c86238b34ddec11ac870890ef0c2bfe3c518d1)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrTrustedTokenIssuerArn")
+    def attr_trusted_token_issuer_arn(self) -> builtins.str:
+        '''The ARN of the trusted token issuer configuration.
+
+        :cloudformationAttribute: TrustedTokenIssuerArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrTrustedTokenIssuerArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="trustedTokenIssuerRef")
+    def trusted_token_issuer_ref(
+        self,
+    ) -> "_aws_sso_f1373af7.TrustedTokenIssuerReference":
+        '''A reference to a TrustedTokenIssuer resource.'''
+        return typing.cast("_aws_sso_f1373af7.TrustedTokenIssuerReference", jsii.get(self, "trustedTokenIssuerRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceArn")
+    def instance_arn(self) -> builtins.str:
+        '''The ARN of the IAM Identity Center instance.'''
+        return typing.cast(builtins.str, jsii.get(self, "instanceArn"))
+
+    @instance_arn.setter
+    def instance_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__11e8559bb6dd1249cb542180d0e67ac44acaac17cfdad254ae0b92f3777bde84)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "instanceArn", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the trusted token issuer configuration.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__cb0549e18399a96a38fe0de0016a1057f311c38c011d7541c6e791342909edea)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="trustedTokenIssuerConfiguration")
+    def trusted_token_issuer_configuration(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrustedTokenIssuer.TrustedTokenIssuerConfigurationProperty"]:
+        '''The configuration of a trusted token issuer.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrustedTokenIssuer.TrustedTokenIssuerConfigurationProperty"], jsii.get(self, "trustedTokenIssuerConfiguration"))
+
+    @trusted_token_issuer_configuration.setter
+    def trusted_token_issuer_configuration(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrustedTokenIssuer.TrustedTokenIssuerConfigurationProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c2eec9d4b8f346ae6bf1bdcdddb478b9e1d841b65600823727be09f5670c03f2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "trustedTokenIssuerConfiguration", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="trustedTokenIssuerType")
+    def trusted_token_issuer_type(self) -> builtins.str:
+        '''The type of the trusted token issuer.'''
+        return typing.cast(builtins.str, jsii.get(self, "trustedTokenIssuerType"))
+
+    @trusted_token_issuer_type.setter
+    def trusted_token_issuer_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__621d67b3e6182e3b57155d557e769593a06bf039e6332b19e4c6f8ae2d1687b7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "trustedTokenIssuerType", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''A list of tags to attach to the trusted token issuer.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ad0323e778fd0318febc5806a1049fb2fdaa592476f313dcbc7b764bafed2e9e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sso.CfnTrustedTokenIssuer.OidcJwtConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "claim_attribute_path": "claimAttributePath",
+            "identity_store_attribute_path": "identityStoreAttributePath",
+            "issuer_url": "issuerUrl",
+            "jwks_retrieval_option": "jwksRetrievalOption",
+        },
+    )
+    class OidcJwtConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            claim_attribute_path: builtins.str,
+            identity_store_attribute_path: builtins.str,
+            issuer_url: builtins.str,
+            jwks_retrieval_option: builtins.str,
+        ) -> None:
+            '''The configuration settings for a trusted token issuer that uses OIDC with JWTs.
+
+            :param claim_attribute_path: The path of the source attribute in the JWT from the trusted token issuer.
+            :param identity_store_attribute_path: The path of the destination attribute in a JWT from IAM Identity Center.
+            :param issuer_url: The URL that IAM Identity Center uses for OpenID Discovery.
+            :param jwks_retrieval_option: The method that the trusted token issuer can use to retrieve the JSON Web Key Set.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sso-trustedtokenissuer-oidcjwtconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sso as sso
+                
+                oidc_jwt_configuration_property = sso.CfnTrustedTokenIssuer.OidcJwtConfigurationProperty(
+                    claim_attribute_path="claimAttributePath",
+                    identity_store_attribute_path="identityStoreAttributePath",
+                    issuer_url="issuerUrl",
+                    jwks_retrieval_option="jwksRetrievalOption"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__a99cab94054458f2334ff8127d3a6013f96040d8289bebc5090590bead7fbae0)
+                check_type(argname="argument claim_attribute_path", value=claim_attribute_path, expected_type=type_hints["claim_attribute_path"])
+                check_type(argname="argument identity_store_attribute_path", value=identity_store_attribute_path, expected_type=type_hints["identity_store_attribute_path"])
+                check_type(argname="argument issuer_url", value=issuer_url, expected_type=type_hints["issuer_url"])
+                check_type(argname="argument jwks_retrieval_option", value=jwks_retrieval_option, expected_type=type_hints["jwks_retrieval_option"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "claim_attribute_path": claim_attribute_path,
+                "identity_store_attribute_path": identity_store_attribute_path,
+                "issuer_url": issuer_url,
+                "jwks_retrieval_option": jwks_retrieval_option,
+            }
+
+        @builtins.property
+        def claim_attribute_path(self) -> builtins.str:
+            '''The path of the source attribute in the JWT from the trusted token issuer.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sso-trustedtokenissuer-oidcjwtconfiguration.html#cfn-sso-trustedtokenissuer-oidcjwtconfiguration-claimattributepath
+            '''
+            result = self._values.get("claim_attribute_path")
+            assert result is not None, "Required property 'claim_attribute_path' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def identity_store_attribute_path(self) -> builtins.str:
+            '''The path of the destination attribute in a JWT from IAM Identity Center.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sso-trustedtokenissuer-oidcjwtconfiguration.html#cfn-sso-trustedtokenissuer-oidcjwtconfiguration-identitystoreattributepath
+            '''
+            result = self._values.get("identity_store_attribute_path")
+            assert result is not None, "Required property 'identity_store_attribute_path' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def issuer_url(self) -> builtins.str:
+            '''The URL that IAM Identity Center uses for OpenID Discovery.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sso-trustedtokenissuer-oidcjwtconfiguration.html#cfn-sso-trustedtokenissuer-oidcjwtconfiguration-issuerurl
+            '''
+            result = self._values.get("issuer_url")
+            assert result is not None, "Required property 'issuer_url' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def jwks_retrieval_option(self) -> builtins.str:
+            '''The method that the trusted token issuer can use to retrieve the JSON Web Key Set.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sso-trustedtokenissuer-oidcjwtconfiguration.html#cfn-sso-trustedtokenissuer-oidcjwtconfiguration-jwksretrievaloption
+            '''
+            result = self._values.get("jwks_retrieval_option")
+            assert result is not None, "Required property 'jwks_retrieval_option' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "OidcJwtConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sso.CfnTrustedTokenIssuer.TrustedTokenIssuerConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"oidc_jwt_configuration": "oidcJwtConfiguration"},
+    )
+    class TrustedTokenIssuerConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            oidc_jwt_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTrustedTokenIssuer.OidcJwtConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''The configuration of a trusted token issuer.
+
+            :param oidc_jwt_configuration: The configuration settings for a trusted token issuer that uses OIDC with JWTs.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sso-trustedtokenissuer-trustedtokenissuerconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sso as sso
+                
+                trusted_token_issuer_configuration_property = sso.CfnTrustedTokenIssuer.TrustedTokenIssuerConfigurationProperty(
+                    oidc_jwt_configuration=sso.CfnTrustedTokenIssuer.OidcJwtConfigurationProperty(
+                        claim_attribute_path="claimAttributePath",
+                        identity_store_attribute_path="identityStoreAttributePath",
+                        issuer_url="issuerUrl",
+                        jwks_retrieval_option="jwksRetrievalOption"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__bc050228d62d97d1c44802eefcf36e562377a4be3c27d60ce29d6a38124cd75d)
+                check_type(argname="argument oidc_jwt_configuration", value=oidc_jwt_configuration, expected_type=type_hints["oidc_jwt_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "oidc_jwt_configuration": oidc_jwt_configuration,
+            }
+
+        @builtins.property
+        def oidc_jwt_configuration(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrustedTokenIssuer.OidcJwtConfigurationProperty"]:
+            '''The configuration settings for a trusted token issuer that uses OIDC with JWTs.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sso-trustedtokenissuer-trustedtokenissuerconfiguration.html#cfn-sso-trustedtokenissuer-trustedtokenissuerconfiguration-oidcjwtconfiguration
+            '''
+            result = self._values.get("oidc_jwt_configuration")
+            assert result is not None, "Required property 'oidc_jwt_configuration' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrustedTokenIssuer.OidcJwtConfigurationProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TrustedTokenIssuerConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_sso.CfnTrustedTokenIssuerProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "instance_arn": "instanceArn",
+        "name": "name",
+        "trusted_token_issuer_configuration": "trustedTokenIssuerConfiguration",
+        "trusted_token_issuer_type": "trustedTokenIssuerType",
+        "tags": "tags",
+    },
+)
+class CfnTrustedTokenIssuerProps:
+    def __init__(
+        self,
+        *,
+        instance_arn: builtins.str,
+        name: builtins.str,
+        trusted_token_issuer_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTrustedTokenIssuer.TrustedTokenIssuerConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        trusted_token_issuer_type: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnTrustedTokenIssuer``.
+
+        :param instance_arn: The ARN of the IAM Identity Center instance.
+        :param name: The name of the trusted token issuer configuration.
+        :param trusted_token_issuer_configuration: The configuration of a trusted token issuer.
+        :param trusted_token_issuer_type: The type of the trusted token issuer.
+        :param tags: A list of tags to attach to the trusted token issuer.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-trustedtokenissuer.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_sso as sso
+            
+            cfn_trusted_token_issuer_props = sso.CfnTrustedTokenIssuerProps(
+                instance_arn="instanceArn",
+                name="name",
+                trusted_token_issuer_configuration=sso.CfnTrustedTokenIssuer.TrustedTokenIssuerConfigurationProperty(
+                    oidc_jwt_configuration=sso.CfnTrustedTokenIssuer.OidcJwtConfigurationProperty(
+                        claim_attribute_path="claimAttributePath",
+                        identity_store_attribute_path="identityStoreAttributePath",
+                        issuer_url="issuerUrl",
+                        jwks_retrieval_option="jwksRetrievalOption"
+                    )
+                ),
+                trusted_token_issuer_type="trustedTokenIssuerType",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f159d6f46af993387543145e75a7582083f27fb51aa25886dc8fe8178583940f)
+            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument trusted_token_issuer_configuration", value=trusted_token_issuer_configuration, expected_type=type_hints["trusted_token_issuer_configuration"])
+            check_type(argname="argument trusted_token_issuer_type", value=trusted_token_issuer_type, expected_type=type_hints["trusted_token_issuer_type"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instance_arn": instance_arn,
+            "name": name,
+            "trusted_token_issuer_configuration": trusted_token_issuer_configuration,
+            "trusted_token_issuer_type": trusted_token_issuer_type,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def instance_arn(self) -> builtins.str:
+        '''The ARN of the IAM Identity Center instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-trustedtokenissuer.html#cfn-sso-trustedtokenissuer-instancearn
+        '''
+        result = self._values.get("instance_arn")
+        assert result is not None, "Required property 'instance_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the trusted token issuer configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-trustedtokenissuer.html#cfn-sso-trustedtokenissuer-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def trusted_token_issuer_configuration(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrustedTokenIssuer.TrustedTokenIssuerConfigurationProperty"]:
+        '''The configuration of a trusted token issuer.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-trustedtokenissuer.html#cfn-sso-trustedtokenissuer-trustedtokenissuerconfiguration
+        '''
+        result = self._values.get("trusted_token_issuer_configuration")
+        assert result is not None, "Required property 'trusted_token_issuer_configuration' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTrustedTokenIssuer.TrustedTokenIssuerConfigurationProperty"], result)
+
+    @builtins.property
+    def trusted_token_issuer_type(self) -> builtins.str:
+        '''The type of the trusted token issuer.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-trustedtokenissuer.html#cfn-sso-trustedtokenissuer-trustedtokenissuertype
+        '''
+        result = self._values.get("trusted_token_issuer_type")
+        assert result is not None, "Required property 'trusted_token_issuer_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''A list of tags to attach to the trusted token issuer.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-trustedtokenissuer.html#cfn-sso-trustedtokenissuer-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnTrustedTokenIssuerProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "CfnApplication",
     "CfnApplicationAssignment",
@@ -2813,6 +3359,8 @@ __all__ = [
     "CfnInstanceProps",
     "CfnPermissionSet",
     "CfnPermissionSetProps",
+    "CfnTrustedTokenIssuer",
+    "CfnTrustedTokenIssuerProps",
 ]
 
 publication.publish()
@@ -3324,6 +3872,101 @@ def _typecheckingstub__f756abcc5c1aa2acf7ae657bd2a8618f372584120d70c190b245e0a01
     permissions_boundary: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPermissionSet.PermissionsBoundaryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     relay_state_type: typing.Optional[builtins.str] = None,
     session_duration: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9c5e6b161534a42bc1cc31b128ff90fef80132cad23b48a4578ca1c42c6f1eac(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    instance_arn: builtins.str,
+    name: builtins.str,
+    trusted_token_issuer_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTrustedTokenIssuer.TrustedTokenIssuerConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    trusted_token_issuer_type: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__98e026669af2858d05cc552cfbdd42116bc696db5e9382e3327eed7b8d906547(
+    resource: _aws_sso_f1373af7.ITrustedTokenIssuerRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d66d50a3cef0712487f6c9f527d683dfd8b133604858519d1ac94cf9d1a024fc(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__67130a542817ca68d1653378689e812c1e77dbe52a481ce66316c197933b6b67(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b1b04b49c116dc05859c566148c86238b34ddec11ac870890ef0c2bfe3c518d1(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__11e8559bb6dd1249cb542180d0e67ac44acaac17cfdad254ae0b92f3777bde84(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cb0549e18399a96a38fe0de0016a1057f311c38c011d7541c6e791342909edea(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c2eec9d4b8f346ae6bf1bdcdddb478b9e1d841b65600823727be09f5670c03f2(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTrustedTokenIssuer.TrustedTokenIssuerConfigurationProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__621d67b3e6182e3b57155d557e769593a06bf039e6332b19e4c6f8ae2d1687b7(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ad0323e778fd0318febc5806a1049fb2fdaa592476f313dcbc7b764bafed2e9e(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a99cab94054458f2334ff8127d3a6013f96040d8289bebc5090590bead7fbae0(
+    *,
+    claim_attribute_path: builtins.str,
+    identity_store_attribute_path: builtins.str,
+    issuer_url: builtins.str,
+    jwks_retrieval_option: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bc050228d62d97d1c44802eefcf36e562377a4be3c27d60ce29d6a38124cd75d(
+    *,
+    oidc_jwt_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTrustedTokenIssuer.OidcJwtConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f159d6f46af993387543145e75a7582083f27fb51aa25886dc8fe8178583940f(
+    *,
+    instance_arn: builtins.str,
+    name: builtins.str,
+    trusted_token_issuer_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTrustedTokenIssuer.TrustedTokenIssuerConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    trusted_token_issuer_type: builtins.str,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

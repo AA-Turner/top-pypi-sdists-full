@@ -1,9 +1,11 @@
 Metadata-Version: 2.4
 Name: decorator
-Version: 5.3.1
+Version: 5.3.2
 Summary: Decorators for Humans
 Author-email: Michele Simionato <michele.simionato@gmail.com>
 License: BSD-2-Clause
+Project-URL: Homepage, https://github.com/micheles/decorator
+Project-URL: Repository, https://github.com/micheles/decorator
 Keywords: decorators
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
@@ -17,6 +19,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Utilities

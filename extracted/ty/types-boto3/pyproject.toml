@@ -4,10 +4,10 @@
 
 [project]
 name = "types-boto3"
-version = "1.44.7"
+version = "1.44.9"
 license = "MIT"
 authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
-description = "Type annotations for boto3 1.44.7 generated with mypy-boto3-builder 8.12.0"
+description = "Type annotations for boto3 1.44.9 generated with mypy-boto3-builder 8.12.0"
 readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -69,7 +69,7 @@ full = [
     "types-boto3-full>=1.44.0, <1.45.0",
 ]
 boto3 = [
-    "boto3==1.44.7",
+    "boto3==1.44.9",
 ]
 all = [
     "types-boto3-abuse-signal>=1.44.0, <1.45.0",
@@ -79,6 +79,7 @@ all = [
     "types-boto3-account-access-runtime>=1.44.0, <1.45.0",
     "types-boto3-acm>=1.44.0, <1.45.0",
     "types-boto3-acm-pca>=1.44.0, <1.45.0",
+    "types-boto3-agent-discovery>=1.44.0, <1.45.0",
     "types-boto3-agent-registry>=1.44.0, <1.45.0",
     "types-boto3-agent-registry-control>=1.44.0, <1.45.0",
     "types-boto3-aiops>=1.44.0, <1.45.0",
@@ -89,6 +90,7 @@ all = [
     "types-boto3-apigateway>=1.44.0, <1.45.0",
     "types-boto3-apigatewaymanagementapi>=1.44.0, <1.45.0",
     "types-boto3-apigatewayv2>=1.44.0, <1.45.0",
+    "types-boto3-apiportal>=1.44.0, <1.45.0",
     "types-boto3-appconfig>=1.44.0, <1.45.0",
     "types-boto3-appconfigdata>=1.44.0, <1.45.0",
     "types-boto3-appfabric>=1.44.0, <1.45.0",
@@ -379,6 +381,7 @@ all = [
     "types-boto3-partnercentral-selling>=1.44.0, <1.45.0",
     "types-boto3-payment-cryptography>=1.44.0, <1.45.0",
     "types-boto3-payment-cryptography-data>=1.44.0, <1.45.0",
+    "types-boto3-payments>=1.44.0, <1.45.0",
     "types-boto3-pca-connector-ad>=1.44.0, <1.45.0",
     "types-boto3-pca-connector-scep>=1.44.0, <1.45.0",
     "types-boto3-pcs>=1.44.0, <1.45.0",
@@ -434,6 +437,7 @@ all = [
     "types-boto3-sagemaker-a2i-runtime>=1.44.0, <1.45.0",
     "types-boto3-sagemaker-edge>=1.44.0, <1.45.0",
     "types-boto3-sagemaker-featurestore-runtime>=1.44.0, <1.45.0",
+    "types-boto3-sagemaker-gateway-runtime>=1.44.0, <1.45.0",
     "types-boto3-sagemaker-geospatial>=1.44.0, <1.45.0",
     "types-boto3-sagemaker-inference-router-runtime>=1.44.0, <1.45.0",
     "types-boto3-sagemaker-metrics>=1.44.0, <1.45.0",
@@ -543,6 +547,9 @@ acm = [
 acm-pca = [
     "types-boto3-acm-pca>=1.44.0, <1.45.0",
 ]
+agent-discovery = [
+    "types-boto3-agent-discovery>=1.44.0, <1.45.0",
+]
 agent-registry = [
     "types-boto3-agent-registry>=1.44.0, <1.45.0",
 ]
@@ -572,6 +579,9 @@ apigatewaymanagementapi = [
 ]
 apigatewayv2 = [
     "types-boto3-apigatewayv2>=1.44.0, <1.45.0",
+]
+apiportal = [
+    "types-boto3-apiportal>=1.44.0, <1.45.0",
 ]
 appconfig = [
     "types-boto3-appconfig>=1.44.0, <1.45.0",
@@ -1443,6 +1453,9 @@ payment-cryptography = [
 payment-cryptography-data = [
     "types-boto3-payment-cryptography-data>=1.44.0, <1.45.0",
 ]
+payments = [
+    "types-boto3-payments>=1.44.0, <1.45.0",
+]
 pca-connector-ad = [
     "types-boto3-pca-connector-ad>=1.44.0, <1.45.0",
 ]
@@ -1607,6 +1620,9 @@ sagemaker-edge = [
 ]
 sagemaker-featurestore-runtime = [
     "types-boto3-sagemaker-featurestore-runtime>=1.44.0, <1.45.0",
+]
+sagemaker-gateway-runtime = [
+    "types-boto3-sagemaker-gateway-runtime>=1.44.0, <1.45.0",
 ]
 sagemaker-geospatial = [
     "types-boto3-sagemaker-geospatial>=1.44.0, <1.45.0",

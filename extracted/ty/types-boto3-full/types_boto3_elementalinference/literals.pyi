@@ -57,7 +57,7 @@ __all__ = (
 BedrockApiType = Literal["INVOKE_MODEL"]
 ContextTypeType = Literal["CLIP_METADATA", "CONTEXTUAL_METADATA", "FRAMES", "SUBTITLES"]
 DataSourceSportType = Literal["american-football", "basketball"]
-DictionaryLanguageType = Literal["deu", "eng", "fra", "ita", "por", "spa"]
+DictionaryLanguageType = Literal["ara", "deu", "eng", "fra", "ita", "por", "spa"]
 DictionaryStatusType = Literal["AVAILABLE", "CREATING", "DELETED", "DELETING", "REFERENCED"]
 EventBridgeDeliveryModeType = Literal["DISABLED", "ENABLED"]
 ExtendedAnalysisModeType = Literal["DISABLED", "ENABLED"]
@@ -81,7 +81,7 @@ ScheduleActionStatusType = Literal["COMPLETED", "FAILED", "PENDING"]
 SearchFixturesPaginatorName = Literal["search_fixtures"]
 SummaryGenerationModeType = Literal["DISABLED", "ENABLED"]
 TranscriptionLanguageType = Literal[
-    "deu", "eng", "eng-au", "eng-gb", "eng-us", "fra", "ita", "por", "spa"
+    "ara", "deu", "eng", "eng-au", "eng-gb", "eng-us", "fra", "ita", "por", "spa"
 ]
 ElementalInferenceServiceName = Literal["elementalinference"]
 ServiceName = Literal[
@@ -92,6 +92,7 @@ ServiceName = Literal[
     "account-access-runtime",
     "acm",
     "acm-pca",
+    "agent-discovery",
     "agent-registry",
     "agent-registry-control",
     "aiops",
@@ -102,6 +103,7 @@ ServiceName = Literal[
     "apigateway",
     "apigatewaymanagementapi",
     "apigatewayv2",
+    "apiportal",
     "appconfig",
     "appconfigdata",
     "appfabric",
@@ -392,6 +394,7 @@ ServiceName = Literal[
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
+    "payments",
     "pca-connector-ad",
     "pca-connector-scep",
     "pcs",
@@ -447,6 +450,7 @@ ServiceName = Literal[
     "sagemaker-a2i-runtime",
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
+    "sagemaker-gateway-runtime",
     "sagemaker-geospatial",
     "sagemaker-inference-router-runtime",
     "sagemaker-metrics",

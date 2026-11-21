@@ -42,6 +42,7 @@ from .entrega_externa import (
     proximo_intento_en,
     tipo_de_entrega,
 )
+from .pregunta_frecuente import SalidaPreguntaFrecuente
 from .precalificacion import AccionPrecalificar, DatoAPedir, ObjetivoPrecalificacion, Precalificacion, Rama
 from .recetas import (
     CLAVES_DEL_MOTIVO,

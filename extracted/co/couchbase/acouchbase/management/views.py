@@ -1,4 +1,4 @@
-#  Copyright 2016-2022. Couchbase, Inc.
+#  Copyright 2016-2026. Couchbase, Inc.
 #  All Rights Reserved.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License")
@@ -15,18 +15,29 @@
 
 from __future__ import annotations
 
-from typing import (TYPE_CHECKING,
-                    Any,
-                    Iterable)
+__all__ = [
+    'DesignDocument',
+    'DesignDocumentNamespace',
+    'View',
+    'ViewIndexManager',
+]
 
-from acouchbase.management.logic.view_index_mgmt_impl import AsyncViewIndexMgmtImpl
-from couchbase.logic.observability import ObservableRequestHandler
-from couchbase.logic.operation_types import MgmtOperationType, ViewIndexMgmtOperationType
-from couchbase.management.logic.view_index_mgmt_types import DesignDocument, DesignDocumentNamespace
+from collections.abc import Iterable
+from typing import TYPE_CHECKING
+
+from couchbase.common.management.views import (DesignDocument,
+                                               DesignDocumentNamespace,
+                                               View)
 
 if TYPE_CHECKING:
-    from acouchbase.logic.client_adapter import AsyncClientAdapter
-    from couchbase.logic.observability import ObservabilityInstruments
+    from typing_extensions import Unpack
+
+    from couchbase.common._interfaces._view_index_mgmt import AsyncViewIndexMgmtInterface
+    from couchbase.common.management.options import (DropDesignDocumentOptionsKwargs,
+                                                     GetAllDesignDocumentsOptionsKwargs,
+                                                     GetDesignDocumentOptionsKwargs,
+                                                     PublishDesignDocumentOptionsKwargs,
+                                                     UpsertDesignDocumentOptionsKwargs)
     from couchbase.management.options import (DropDesignDocumentOptions,
                                               GetAllDesignDocumentsOptions,
                                               GetDesignDocumentOptions,
@@ -35,93 +46,111 @@ if TYPE_CHECKING:
 
 
 class ViewIndexManager:
+    """Performs management operations on a bucket's view design documents."""
 
-    def __init__(
-        self,
-        client_adapter: AsyncClientAdapter,
-        bucket_name: str,
-        observability_instruments: ObservabilityInstruments,
-    ) -> None:
-        self._impl = AsyncViewIndexMgmtImpl(client_adapter, observability_instruments)
-        self._bucket_name = bucket_name
+    def __init__(self, impl: AsyncViewIndexMgmtInterface) -> None:
+        self._impl = impl
 
     async def get_design_document(self,
-                                  design_doc_name,  # type: str
-                                  namespace,  # type: DesignDocumentNamespace
-                                  *options,   # type: GetDesignDocumentOptions
-                                  **kwargs    # type: Any
-                                  ) -> DesignDocument:
-        op_type = ViewIndexMgmtOperationType.ViewIndexGet
-        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
-            req = self._impl.request_builder.build_get_design_document_request(self._bucket_name,
-                                                                               design_doc_name,
-                                                                               namespace,
-                                                                               obs_handler,
-                                                                               *options,
-                                                                               **kwargs)
-            return await self._impl.get_design_document(req, obs_handler)
+                                  design_doc_name: str,
+                                  namespace: DesignDocumentNamespace,
+                                  options: GetDesignDocumentOptions | None = None,
+                                  **kwargs: Unpack[GetDesignDocumentOptionsKwargs]) -> DesignDocument:
+        """Returns a design document.
+
+        Args:
+            design_doc_name (str): The name of the design document.
+            namespace (:class:`.DesignDocumentNamespace`): Whether the design document is in development or production.
+            options (:class:`~couchbase.management.options.GetDesignDocumentOptions`): Optional parameters for this
+                operation.
+            **kwargs: keyword arguments that can be used as optional parameters for this operation.
+
+        Returns:
+            Awaitable[:class:`.DesignDocument`]: The design document.
+
+        Raises:
+            :class:`~couchbase.exceptions.InvalidArgumentException`: If the design_doc_name or namespace is not given.
+            :class:`~couchbase.exceptions.DesignDocumentNotFoundException`: If the design document does not exist.
+        """
+        return await self._impl.get_design_document(design_doc_name, namespace, options, **kwargs)
 
     async def get_all_design_documents(self,
-                                       namespace,     # type: DesignDocumentNamespace
-                                       *options,      # type: GetAllDesignDocumentsOptions
-                                       **kwargs       # type: Any
+                                       namespace: DesignDocumentNamespace,
+                                       options: GetAllDesignDocumentsOptions | None = None,
+                                       **kwargs: Unpack[GetAllDesignDocumentsOptionsKwargs]
                                        ) -> Iterable[DesignDocument]:
-        op_type = ViewIndexMgmtOperationType.ViewIndexGetAll
-        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
-            req = self._impl.request_builder.build_get_all_design_documents_request(self._bucket_name,
-                                                                                    namespace,
-                                                                                    obs_handler,
-                                                                                    *options,
-                                                                                    **kwargs)
-            return await self._impl.get_all_design_documents(req, obs_handler)
+        """Returns every design document in a namespace.
+
+        Args:
+            namespace (:class:`.DesignDocumentNamespace`): Whether the design document is in development or production.
+            options (:class:`~couchbase.management.options.GetAllDesignDocumentsOptions`): Optional parameters for this
+                operation.
+            **kwargs: keyword arguments that can be used as optional parameters for this operation.
+
+        Returns:
+            Awaitable[Iterable[:class:`.DesignDocument`]]: The design documents.
+
+        Raises:
+            :class:`~couchbase.exceptions.InvalidArgumentException`: If the namespace is not given.
+        """
+        return await self._impl.get_all_design_documents(namespace, options, **kwargs)
 
     async def upsert_design_document(self,
-                                     design_doc_data,     # type: DesignDocument
-                                     namespace,           # type: DesignDocumentNamespace
-                                     *options,            # type: UpsertDesignDocumentOptions
-                                     **kwargs             # type: Any
-                                     ) -> None:
-        op_type = ViewIndexMgmtOperationType.ViewIndexUpsert
-        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
-            req = self._impl.request_builder.build_upsert_design_document_request(self._bucket_name,
-                                                                                  design_doc_data,
-                                                                                  namespace,
-                                                                                  obs_handler,
-                                                                                  *options,
-                                                                                  **kwargs)
-            await self._impl.upsert_design_document(req, obs_handler)
+                                     design_doc_data: DesignDocument,
+                                     namespace: DesignDocumentNamespace,
+                                     options: UpsertDesignDocumentOptions | None = None,
+                                     **kwargs: Unpack[UpsertDesignDocumentOptionsKwargs]) -> None:
+        """Creates a design document, or replaces one of the same name.
+
+        Args:
+            design_doc_data (:class:`.DesignDocument`): The design document to create or replace.
+            namespace (:class:`.DesignDocumentNamespace`): Whether the design document is in development or production.
+            options (:class:`~couchbase.management.options.UpsertDesignDocumentOptions`): Optional parameters for this
+                operation.
+            **kwargs: keyword arguments that can be used as optional parameters for this operation.
+
+        Raises:
+            :class:`~couchbase.exceptions.InvalidArgumentException`: If the design_doc_data or namespace is not given.
+        """
+        await self._impl.upsert_design_document(design_doc_data, namespace, options, **kwargs)
 
     async def drop_design_document(self,
-                                   design_doc_name,   # type: str
-                                   namespace,         # type: DesignDocumentNamespace
-                                   *options,          # type: DropDesignDocumentOptions
-                                   **kwargs           # type: Any
-                                   ) -> None:
-        op_type = ViewIndexMgmtOperationType.ViewIndexDrop
-        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
-            req = self._impl.request_builder.build_drop_design_document_request(self._bucket_name,
-                                                                                design_doc_name,
-                                                                                namespace,
-                                                                                obs_handler,
-                                                                                *options,
-                                                                                **kwargs)
-            await self._impl.drop_design_document(req, obs_handler)
+                                   design_doc_name: str,
+                                   namespace: DesignDocumentNamespace,
+                                   options: DropDesignDocumentOptions | None = None,
+                                   **kwargs: Unpack[DropDesignDocumentOptionsKwargs]) -> None:
+        """Drops an existing design document.
 
-    async def publish_design_document(
-        self,
-        design_doc_name,    # type: str
-        *options,           # type: PublishDesignDocumentOptions
-        **kwargs,           # type: Any
-    ) -> None:
-        op_type = MgmtOperationType.ViewIndexPublish
-        async with ObservableRequestHandler(
-            op_type, self._impl.observability_instruments
-        ) as obs_handler:
-            req = self._impl.request_builder.build_publish_design_document_request(
-                self._bucket_name,
-                design_doc_name,
-                obs_handler,
-                *options,
-                **kwargs,
-            )
-            await self._impl.publish_design_document(req, obs_handler)
+        Args:
+            design_doc_name (str): The name of the design document.
+            namespace (:class:`.DesignDocumentNamespace`): Whether the design document is in development or production.
+            options (:class:`~couchbase.management.options.DropDesignDocumentOptions`): Optional parameters for this
+                operation.
+            **kwargs: keyword arguments that can be used as optional parameters for this operation.
+
+        Raises:
+            :class:`~couchbase.exceptions.InvalidArgumentException`: If the design_doc_name or namespace is not given.
+            :class:`~couchbase.exceptions.DesignDocumentNotFoundException`: If the design document does not exist.
+        """
+        await self._impl.drop_design_document(design_doc_name, namespace, options, **kwargs)
+
+    async def publish_design_document(self,
+                                      design_doc_name: str,
+                                      options: PublishDesignDocumentOptions | None = None,
+                                      **kwargs: Unpack[PublishDesignDocumentOptionsKwargs]) -> None:
+        """Copies a design document from the development namespace to production.
+
+        The copy is a get followed by an upsert, and the timeout covers both.
+
+        Args:
+            design_doc_name (str): The name of the development design document to publish.
+            options (:class:`~couchbase.management.options.PublishDesignDocumentOptions`): Optional parameters for this
+                operation.
+            **kwargs: keyword arguments that can be used as optional parameters for this operation.
+
+        Raises:
+            :class:`~couchbase.exceptions.InvalidArgumentException`: If the design_doc_name is not given.
+            :class:`~couchbase.exceptions.DesignDocumentNotFoundException`: If the design document does not exist in the
+                development namespace.
+        """
+        await self._impl.publish_design_document(design_doc_name, options, **kwargs)

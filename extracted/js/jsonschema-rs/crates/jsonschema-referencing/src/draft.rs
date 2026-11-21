@@ -5,7 +5,7 @@ use crate::{
     path::JsonPointerSegment,
     spec::{self, draft201909, draft202012, draft4, draft6, draft7, ObjectAnalysis},
     vocabularies::{VocabularySet, DRAFT_2019_09_VOCABULARIES, DRAFT_2020_12_VOCABULARIES},
-    Anchor, Error, Resolver, Resource, ResourceRef, Segments,
+    Anchor, Error, Resource, ResourceRef, Segments,
 };
 
 /// JSON Schema specification versions.
@@ -23,9 +23,8 @@ pub enum Draft {
     /// JSON Schema Draft 2020-12
     #[default]
     Draft202012,
-    /// Internal use only: Represents custom/unrecognized meta-schemas.
-    /// Do not use directly. Custom meta-schemas are resolved automatically
-    /// when registered in the Registry.
+    /// A `$schema` naming a meta-schema other than the bundled drafts; handled with Draft
+    /// 2020-12 rules.
     #[doc(hidden)]
     Unknown,
 }
@@ -61,18 +60,16 @@ impl Draft {
             | "http://json-schema.org/draft-04/schema" => Draft::Draft4,
             // The version-less URI names whichever draft is current rather than a custom meta-schema.
             "https://json-schema.org/schema" | "http://json-schema.org/schema" => Draft::default(),
-            // Custom/unknown meta-schemas return Unknown
-            // Validation of custom meta-schemas happens during registry building
+            // Registry building rejects a custom `$schema` absent from the registry
             _ => Draft::Unknown,
         }
     }
-    /// Detect what specification could be applied to the given contents.
+    /// Detect the draft of `contents` from its `$schema`.
     ///
-    /// Inspects the `$schema` field and returns the matching draft. If no `$schema`
-    /// field is present, returns `self` unchanged — the caller's current draft is preserved.
+    /// Without a string `$schema`, returns `self`.
     ///
     /// Returns `Draft::Unknown` for custom/unknown `$schema` values.
-    /// Validation of custom meta-schemas happens during registry building.
+    /// Registry building rejects a custom `$schema` absent from the registry.
     #[must_use]
     pub fn detect(self, contents: &Value) -> Draft {
         if let Some(uri) = contents
@@ -168,25 +165,18 @@ impl Draft {
             Draft::Draft202012 | Draft::Unknown => anchor::anchor(self, contents),
         }
     }
-    pub(crate) fn maybe_in_subresource<'r>(
-        self,
-        segments: &Segments,
-        resolver: &Resolver<'r>,
-        subresource: ResourceRef<'_>,
-    ) -> Result<Resolver<'r>, Error> {
+    /// Whether `contents`, at `segments` below a schema in this draft, is a subschema.
+    pub(crate) fn is_subschema(self, segments: &Segments, contents: &Value) -> bool {
         match self {
-            Draft::Draft4 => draft4::maybe_in_subresource(segments, resolver, subresource),
-            Draft::Draft6 => draft6::maybe_in_subresource(segments, resolver, subresource),
-            Draft::Draft7 => draft7::maybe_in_subresource(segments, resolver, subresource),
-            Draft::Draft201909 => {
-                draft201909::maybe_in_subresource(segments, resolver, subresource)
-            }
-            Draft::Draft202012 | Draft::Unknown => {
-                draft202012::maybe_in_subresource(segments, resolver, subresource)
-            }
+            Draft::Draft4 => draft4::is_subschema(segments, contents),
+            Draft::Draft6 => draft6::is_subschema(segments, contents),
+            Draft::Draft7 => draft7::is_subschema(segments, contents),
+            Draft::Draft201909 => draft201909::is_subschema(segments, contents),
+            Draft::Draft202012 | Draft::Unknown => draft202012::is_subschema(segments),
         }
     }
-    /// Identifies known JSON schema keywords per draft.
+    /// Whether this draft defines `keyword`; `$comment` and meta-data keywords such as `title`
+    /// return `false`.
     #[must_use]
     pub fn is_known_keyword(&self, keyword: &str) -> bool {
         match keyword {
@@ -229,11 +219,7 @@ impl Draft {
                 true
             }
 
-            "contentEncoding" | "contentMediaType"
-                if matches!(self, Draft::Draft6 | Draft::Draft7) =>
-            {
-                true
-            }
+            "contentEncoding" | "contentMediaType" if *self == Draft::Draft7 => true,
 
             "contentEncoding" | "contentMediaType" | "contentSchema"
                 if matches!(
@@ -319,6 +305,22 @@ mod tests {
     #[test_case(Draft::Draft202012, true; "draft2020-12 known")]
     fn prefix_items_known_only_in_2020_12(draft: Draft, expected: bool) {
         assert_eq!(draft.is_known_keyword("prefixItems"), expected);
+    }
+
+    // `contentEncoding` and `contentMediaType` exist from Draft 7 on.
+    #[test_case(Draft::Draft4, false; "draft4 unknown")]
+    #[test_case(Draft::Draft6, false; "draft6 unknown")]
+    #[test_case(Draft::Draft7, true; "draft7 known")]
+    #[test_case(Draft::Draft201909, true; "draft2019-09 known")]
+    #[test_case(Draft::Draft202012, true; "draft2020-12 known")]
+    fn content_keywords_known_from_draft_7(draft: Draft, expected: bool) {
+        assert_eq!(
+            [
+                draft.is_known_keyword("contentEncoding"),
+                draft.is_known_keyword("contentMediaType")
+            ],
+            [expected, expected]
+        );
     }
 
     #[test_case(Draft::Draft4; "Draft 4 stays Draft 4")]

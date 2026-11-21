@@ -129,6 +129,7 @@ from .literals import (
     EbuTtDFillLineGapControlType,
     EmbeddedConvert608To708Type,
     EmbeddedDestinationStyleControlType,
+    EmbeddedModeTypeType,
     EmbeddedScte20DetectionType,
     EventBridgeRuleTemplateEventTypeType,
     FeatureActivationsInputPrepareScheduleActionsType,
@@ -1089,6 +1090,7 @@ __all__ = (
     "WaiterConfigTypeDef",
     "WavSettingsTypeDef",
     "WebvttDestinationSettingsTypeDef",
+    "WebvttSourceSettingsTypeDef",
 )
 
 
@@ -1368,6 +1370,11 @@ class Scte27SourceSettingsTypeDef(TypedDict):
 class SmartSubtitleSourceSettingsTypeDef(TypedDict):
     CaptionSynchronizationMode: NotRequired[CaptionSynchronizationModeType]
     InferenceFeedOutput: NotRequired[str]
+
+
+class WebvttSourceSettingsTypeDef(TypedDict):
+    GroupId: NotRequired[str]
+    Name: NotRequired[str]
 
 
 class CdiInputSpecificationTypeDef(TypedDict):
@@ -4215,6 +4222,8 @@ class M2tsSettingsTypeDef(TypedDict):
 class EmbeddedDestinationSettingsTypeDef(TypedDict):
     Position: NotRequired[EmbeddedCaptionPositionSettingsTypeDef]
     StyleControl: NotRequired[EmbeddedDestinationStyleControlType]
+    CaptionServiceChannel: NotRequired[int]
+    EmbeddedMode: NotRequired[EmbeddedModeTypeType]
 
 
 class ListEventBridgeRuleTemplateGroupsResponseTypeDef(TypedDict):
@@ -4741,6 +4750,7 @@ class CaptionSelectorSettingsOutputTypeDef(TypedDict):
     Scte27SourceSettings: NotRequired[Scte27SourceSettingsTypeDef]
     TeletextSourceSettings: NotRequired[TeletextSourceSettingsTypeDef]
     SmartSubtitleSourceSettings: NotRequired[SmartSubtitleSourceSettingsTypeDef]
+    WebvttSourceSettings: NotRequired[WebvttSourceSettingsTypeDef]
 
 
 class CaptionSelectorSettingsTypeDef(TypedDict):
@@ -4752,6 +4762,7 @@ class CaptionSelectorSettingsTypeDef(TypedDict):
     Scte27SourceSettings: NotRequired[Scte27SourceSettingsTypeDef]
     TeletextSourceSettings: NotRequired[TeletextSourceSettingsTypeDef]
     SmartSubtitleSourceSettings: NotRequired[SmartSubtitleSourceSettingsTypeDef]
+    WebvttSourceSettings: NotRequired[WebvttSourceSettingsTypeDef]
 
 
 class CreateClusterRequestTypeDef(TypedDict):

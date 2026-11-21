@@ -31,6 +31,7 @@ __all__ = (
     "CallAnalyticsSkippedReasonCodeType",
     "InputTypeType",
     "LanguageCodeType",
+    "LanguageDetectionModeType",
     "LanguageModelCompletedWaiterName",
     "MediaFormatType",
     "MedicalContentIdentificationTypeType",
@@ -54,6 +55,8 @@ __all__ = (
     "ServiceName",
     "SpecialtyType",
     "SubtitleFormatType",
+    "SyncLanguageCodeType",
+    "SyncLanguageType",
     "ToxicityCategoryType",
     "TranscribeServiceServiceName",
     "TranscriptFilterTypeType",
@@ -195,6 +198,7 @@ LanguageCodeType = Literal[
     "zh-TW",
     "zu-ZA",
 ]
+LanguageDetectionModeType = Literal["IDENTIFY_LANGUAGE"]
 LanguageModelCompletedWaiterName = Literal["language_model_completed"]
 MediaFormatType = Literal["amr", "flac", "m4a", "mp3", "mp4", "ogg", "wav", "webm"]
 MedicalContentIdentificationTypeType = Literal["PHI"]
@@ -248,6 +252,35 @@ RedactionTypeType = Literal["PII"]
 SentimentValueType = Literal["MIXED", "NEGATIVE", "NEUTRAL", "POSITIVE"]
 SpecialtyType = Literal["PRIMARYCARE"]
 SubtitleFormatType = Literal["srt", "vtt"]
+SyncLanguageCodeType = Literal[
+    "de-CH",
+    "de-DE",
+    "en-AB",
+    "en-AU",
+    "en-GB",
+    "en-IE",
+    "en-IN",
+    "en-NZ",
+    "en-US",
+    "en-WL",
+    "en-ZA",
+    "es-ES",
+    "es-MX",
+    "es-US",
+    "fr-CA",
+    "fr-FR",
+    "it-IT",
+    "ja-JP",
+    "ko-KR",
+    "pt-BR",
+    "pt-PT",
+    "zh-CN",
+    "zh-HK",
+    "zh-TW",
+]
+SyncLanguageType = Literal[
+    "de", "en", "es", "fr", "it", "ja", "ko", "pt", "zh-CN", "zh-HK", "zh-TW"
+]
 ToxicityCategoryType = Literal["ALL"]
 TranscriptFilterTypeType = Literal["EXACT"]
 TranscriptionJobCompletedWaiterName = Literal["transcription_job_completed"]
@@ -265,6 +298,7 @@ ServiceName = Literal[
     "account-access-runtime",
     "acm",
     "acm-pca",
+    "agent-discovery",
     "agent-registry",
     "agent-registry-control",
     "aiops",
@@ -275,6 +309,7 @@ ServiceName = Literal[
     "apigateway",
     "apigatewaymanagementapi",
     "apigatewayv2",
+    "apiportal",
     "appconfig",
     "appconfigdata",
     "appfabric",
@@ -565,6 +600,7 @@ ServiceName = Literal[
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
+    "payments",
     "pca-connector-ad",
     "pca-connector-scep",
     "pcs",
@@ -620,6 +656,7 @@ ServiceName = Literal[
     "sagemaker-a2i-runtime",
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
+    "sagemaker-gateway-runtime",
     "sagemaker-geospatial",
     "sagemaker-inference-router-runtime",
     "sagemaker-metrics",

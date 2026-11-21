@@ -1,104 +1,6 @@
+use super::identity_helpers::*;
 use super::*;
-
-use chematic_3d::rdkit_embed::{RdkitEmbedError, RdkitEmbedOptions};
-
-type PyRdkitMmffConformer = (i32, f64, Vec<[f64; 3]>);
-type PyRdkitMmffConformerDiagnostics = (i32, f64, u32, Option<f64>, Vec<[f64; 3]>);
-type PyBondLengthConstraint = (usize, usize, f64, f64);
-type PyBondAngleConstraint = (usize, usize, usize, f64, f64);
-type PyTorsionConstraint = (usize, usize, usize, usize, f64, f64);
-
-fn internal_coordinate_constraints(
-    bond_lengths: Option<Vec<PyBondLengthConstraint>>,
-    bond_angles: Option<Vec<PyBondAngleConstraint>>,
-    torsions: Option<Vec<PyTorsionConstraint>>,
-) -> chematic_3d::rdkit_embed::InternalCoordinateConstraints {
-    use chematic_3d::rdkit_embed::{
-        BondAngleConstraint, BondLengthConstraint, InternalCoordinateConstraints,
-        TorsionAngleConstraint,
-    };
-
-    InternalCoordinateConstraints {
-        bond_lengths: bond_lengths
-            .unwrap_or_default()
-            .into_iter()
-            .map(|(atom1, atom2, target, tolerance)| {
-                BondLengthConstraint::around(atom1, atom2, target, tolerance)
-            })
-            .collect(),
-        bond_angles: bond_angles
-            .unwrap_or_default()
-            .into_iter()
-            .map(
-                |(atom1, center, atom2, target_degrees, tolerance_degrees)| {
-                    BondAngleConstraint::around_degrees(
-                        atom1,
-                        center,
-                        atom2,
-                        target_degrees,
-                        tolerance_degrees,
-                    )
-                },
-            )
-            .collect(),
-        torsions: torsions
-            .unwrap_or_default()
-            .into_iter()
-            .map(
-                |(atom1, atom2, atom3, atom4, target_degrees, tolerance_degrees)| {
-                    TorsionAngleConstraint::around_degrees(
-                        atom1,
-                        atom2,
-                        atom3,
-                        atom4,
-                        target_degrees,
-                        tolerance_degrees,
-                    )
-                },
-            )
-            .collect(),
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-fn rdkit_embed_options(
-    random_seed: i32,
-    max_iterations: u32,
-    use_exp_torsion_angle_prefs: bool,
-    use_basic_knowledge: bool,
-    et_version: u32,
-    use_small_ring_torsions: bool,
-    use_macrocycle_torsions: bool,
-    use_macrocycle_14_config: bool,
-    enforce_chirality: bool,
-    ignore_smoothing_failures: bool,
-) -> PyResult<RdkitEmbedOptions> {
-    if !(1..=2).contains(&et_version) {
-        return Err(PyValueError::new_err(
-            "Only version 1 and 2 of the experimental torsion-angle preferences (ETversion) supported",
-        ));
-    }
-    Ok(RdkitEmbedOptions {
-        random_seed,
-        max_iterations,
-        use_exp_torsion_angle_prefs,
-        use_basic_knowledge,
-        et_version,
-        use_small_ring_torsions,
-        use_macrocycle_torsions,
-        use_macrocycle14config: use_macrocycle_14_config,
-        enforce_chirality,
-        force_trans_amides: true,
-        ignore_smoothing_failures,
-    })
-}
-
-fn map_rdkit_embed_error(error: RdkitEmbedError) -> PyErr {
-    match error {
-        RdkitEmbedError::Failed => pyo3::exceptions::PyRuntimeError::new_err(error.to_string()),
-        _ => PyValueError::new_err(error.to_string()),
-    }
-}
+use chematic_3d::rdkit_embed::RdkitEmbedOptions;
 
 #[pymethods]
 impl Mol {
@@ -130,10 +32,19 @@ impl Mol {
     ///
     ///     chematic.from_smiles("OC(=O)[C@@H]1CCCN1").rdkit_smiles
     ///     # 'O=C(O)[C@@H]1CCCN1'
+    ///
+    /// A Cleanup result retains RDKit's in-memory non-tetrahedral tag on a
+    /// fully disconnected metal. Re-parsing its SMILES would lose that tag.
+    /// The Cleanup writer may retain brackets that RDKit omits when they are
+    /// needed to preserve the atom's hydrogen count on re-parsing.
     #[getter]
     fn rdkit_smiles(&self) -> PyResult<String> {
-        chematic_smiles::rdkit_canonical_smiles(&self.inner)
-            .map_err(|e| PyValueError::new_err(e.to_string()))
+        let write = if self.props.rdkit_cleanup_output {
+            chematic_smiles::rdkit_cleanup_canonical_smiles
+        } else {
+            chematic_smiles::rdkit_canonical_smiles
+        };
+        write(&self.inner).map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     /// SMILES exactly as RDKit 2026.03.1's ``Chem.MolToSmiles`` writes it
@@ -166,6 +77,10 @@ impl Mol {
             all_hs_explicit,
             rooted_at_atom,
         };
+        if self.props.rdkit_cleanup_output {
+            return chematic_smiles::rdkit_cleanup_smiles(&self.inner, &params)
+                .map_err(|e| PyValueError::new_err(e.to_string()));
+        }
         chematic_smiles::rdkit_smiles(&self.inner, &params)
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
@@ -282,6 +197,8 @@ impl Mol {
     /// RDKit 2026.09.1's ``AllChem.EmbedMultipleConfs`` with ETKDGv3
     /// defaults. Bounds and torsion preferences are shared across attempts.
     /// Failed attempts are omitted, as in RDKit's returned conformer-id list.
+    /// Seed zero uses attempts 0, 2, 3, ... (RDKit #9738); the first matches
+    /// single embedding. Positive seeds keep their multiplicative schedule.
     #[pyo3(signature = (num_confs, *, random_seed = 42, max_iterations = 0,
                         use_exp_torsion_angle_prefs = true, use_basic_knowledge = true,
                         et_version = 2, use_small_ring_torsions = false,
@@ -404,8 +321,9 @@ impl Mol {
     /// Compare two ETKDG/MMFF94 ensembles and retain the lowest finite-energy
     /// candidate plus converged candidates from both runs. The second uses the
     /// corrected gradient when relevant; otherwise two additional runs use
-    /// new seeds. This spends roughly twice or three times the candidate work,
-    /// with up to one or two optional MMFF retries respectively.
+    /// new seeds. A fourth seed batch runs only when the third lowers the
+    /// best energy by more than 0.01 kcal/mol. This spends roughly twice to
+    /// four times the candidate work, with up to three optional MMFF retries.
     #[pyo3(signature = (num_confs, *, random_seed = 42, max_iterations = 0,
                         max_mmff_iters = 200))]
     fn etkdg_embed_multiple_confs_mmff_best_gradient(
@@ -427,6 +345,49 @@ impl Mol {
         let mol = self.inner.clone();
         py.detach(move || {
             etkdg_embed_multiple_confs_mmff_best_gradient(&mol, num_confs, &options, max_mmff_iters)
+        })
+        .map(|conformers| {
+            conformers
+                .into_iter()
+                .map(|conformer| (conformer.status, conformer.energy, conformer.coords))
+                .collect()
+        })
+        .map_err(|error| PyValueError::new_err(error.to_string()))
+    }
+
+    /// Extend the quality profile with up to 24 MMFF94 minimizations of
+    /// ±120-degree moves around the best converged conformer's rotatable
+    /// bonds. A move is retained only if it converges, lowers energy, and
+    /// preserves declared stereochemistry. `candidate_confs` may exceed the
+    /// returned count to spend a larger, explicit seed-search budget.
+    #[pyo3(signature = (num_confs, *, random_seed = 42, max_iterations = 0,
+                        max_mmff_iters = 200, candidate_confs = None))]
+    fn etkdg_embed_multiple_confs_mmff_torsion_search(
+        &self,
+        py: Python<'_>,
+        num_confs: usize,
+        random_seed: i32,
+        max_iterations: u32,
+        max_mmff_iters: u32,
+        candidate_confs: Option<usize>,
+    ) -> PyResult<Vec<PyRdkitMmffConformer>> {
+        use chematic_3d::rdkit_embed::{
+            RdkitEmbedOptions, etkdg_embed_multiple_confs_mmff_torsion_search_with_pool,
+        };
+        let options = RdkitEmbedOptions {
+            random_seed,
+            max_iterations,
+            ..Default::default()
+        };
+        let mol = self.inner.clone();
+        py.detach(move || {
+            etkdg_embed_multiple_confs_mmff_torsion_search_with_pool(
+                &mol,
+                num_confs,
+                candidate_confs.unwrap_or(num_confs),
+                &options,
+                max_mmff_iters,
+            )
         })
         .map(|conformers| {
             conformers
@@ -726,6 +687,14 @@ impl Mol {
     #[getter]
     fn formula(&self) -> String {
         chematic_chem::calc_mol_formula(&self.inner)
+    }
+
+    /// Total formula with explicit isotope labels, hydrogens and net charge.
+    /// Example: ``C[13C]H3O2-``. D/T use ``[2H]``/``[3H]``; maps/stereo and
+    /// isotope positions are omitted. Uses the existing formula hydrogen model.
+    #[getter]
+    fn formula_with_isotopes(&self) -> String {
+        chematic_chem::calc_mol_formula_with_isotopes(&self.inner)
     }
 
     /// Number of heavy atoms (non-hydrogen atoms, including isotopic H like [3H]).

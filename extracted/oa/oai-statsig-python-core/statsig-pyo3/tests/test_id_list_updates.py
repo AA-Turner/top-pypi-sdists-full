@@ -220,7 +220,8 @@ def test_membership_append_remove_and_new_file_reset(
 
 
 @pytest.mark.parametrize("lazy", [None, False, True], ids=["unset", "eager", "lazy"])
-def test_lazy_loading_downloads_only_evaluated_lists(httpserver, lazy):
+@pytest.mark.parametrize("shared", [False, True], ids=["private", "shared-directory"])
+def test_lazy_loading_downloads_only_evaluated_lists(httpserver, lazy, shared, tmp_path):
     """Exercise the option through initialization and the synchronous Python getter."""
     body = f"+{_member_key('alice')}\n".encode()
     downloads = []
@@ -262,6 +263,7 @@ def test_lazy_loading_downloads_only_evaluated_lists(httpserver, lazy):
             id_lists_sync_interval_ms=60_000,
             enable_id_lists=True,
             enable_id_list_elias_fano=True,
+            shared_id_lists_dir=str(tmp_path / "id-lists") if shared else None,
             fallback_to_statsig_api=False,
             output_log_level="none",
             **({"lazy_load_id_lists": lazy} if lazy is not None else {}),
@@ -287,5 +289,7 @@ def test_lazy_loading_downloads_only_evaluated_lists(httpserver, lazy):
         with lock:
             assert downloads.count("/lists/members") == 1
             assert downloads.count("/lists/unused") == (0 if lazy else 1)
+        if shared:
+            assert (tmp_path / "id-lists").exists() is not bool(lazy)
     finally:
         assert sdk.shutdown().wait(10)

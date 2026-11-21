@@ -274,8 +274,7 @@ static size_t node_next(size_t probe, size_t walked, size_t mask, const th_node 
     return (probe + 1) & mask;
 }
 
-static int match_set_grow(match_set *set) {
-    size_t new_cap = set->cap == 0 ? 16 : set->cap * 2;
+static int match_set_resize(match_set *set, size_t new_cap) {
     match_slot *slots = PyMem_Calloc(new_cap, sizeof(match_slot));
     if (slots == NULL) { /* GCOVR_EXCL_BR_LINE: allocation cannot be forced */
         return -1;       /* GCOVR_EXCL_LINE */
@@ -295,10 +294,21 @@ static int match_set_grow(match_set *set) {
     return 0;
 }
 
+/* Size the set for `more` further items at once, so a set filled from one evaluation is allocated and zeroed once
+   rather than at every doubling on the way. */
+static int match_set_reserve(match_set *set, size_t more) {
+    size_t cap = set->cap == 0 ? 16 : set->cap;
+    while ((set->count + more) * 2 >= cap) {
+        cap *= 2;
+    }
+    return cap == set->cap ? 0 : match_set_resize(set, cap);
+}
+
 static int match_set_add(match_set *set, const th_node *node, Py_ssize_t attr) {
     if ((set->count + 1) * 2 >= set->cap) {
-        if (match_set_grow(set) < 0) { /* GCOVR_EXCL_BR_LINE: allocation cannot be forced */
-            return -1;                 /* GCOVR_EXCL_LINE */
+        const size_t grown = set->cap == 0 ? 16 : set->cap * 2;
+        if (match_set_resize(set, grown) < 0) { /* GCOVR_EXCL_BR_LINE: allocation cannot be forced */
+            return -1;                          /* GCOVR_EXCL_LINE */
         }
     }
     size_t probe = th_hash_slot(node_hash(node, attr), set->cap);
@@ -738,6 +748,9 @@ typedef struct {
     th_node *body;
     Py_UCS4 *mode;
     Py_ssize_t mode_len;
+    const Py_UCS4 *key; /* the element name the pattern can only match, NULL for a rule any node may match */
+    Py_ssize_t key_len;
+    Py_ssize_t next; /* the next rule in the chain best_rule walks for this rule, or -1 */
 } xslt_rule;
 
 typedef struct {
@@ -864,6 +877,7 @@ typedef struct {
 
 typedef struct {
     const Py_UCS4 *source;
+    const Py_UCS4 *probed; /* the pattern a first call already answered by probing, so the next one indexes it */
     match_set matched;
 } xslt_number_match;
 
@@ -1090,6 +1104,11 @@ typedef struct engine {
     xslt_name_index named_index;
     xslt_name_index key_index;
     xslt_name_index attrset_index;
+    xslt_name_index
+        rule_names;       /* element-named rules by local name; an entry's first is the earliest rule's position + 1 */
+    Py_ssize_t rule_wild; /* the first rule of the chain of rules any node may match, or -1 */
+    Py_ssize_t rule_root; /* the first rule of the chain of rules whose pattern is "/", or -1 */
+    int rule_dispatch;    /* whether best_rule caches its answers, see build_rule_index */
     Py_ssize_t *attrset_previous; /* with attrset_index, per set one past the earlier definition of its name, else 0 */
     xslt_slots attrset_uses;
     xslt_space *spaces;
@@ -1130,6 +1149,7 @@ typedef struct engine {
     size_t out_bindings_cap;
     size_t out_bindings_len;
     th_node_map out_bindings_seen; /* large result element to the attributes recorded from it, plus one */
+    th_node_map instructions;      /* stylesheet element to its enum xsl_instr, plus one, set once at compile time */
     int precedence;                /* import precedence being assigned as declarations are walked */
 
     /* Whether a non-empty default namespace is in scope at the output parent, which a no-namespace result element
@@ -2044,7 +2064,7 @@ done:
 }
 
 /* Evaluate a compiled program against a context item with the current scope and the XSLT extension functions.
-   Returns the xp_eval status; fills *out on success. condition is set when the caller only converts *out to a
+   Returns the xp_eval_at status; fills *out on success. condition is set when the caller only converts *out to a
    boolean (xp_eval_condition_at). */
 static int eval_program_as(engine *eng, const xp_program *prog, const xp_item *context, Py_ssize_t pos, Py_ssize_t size,
                            xp_result *out, int condition) {
@@ -2376,14 +2396,11 @@ static int scan_static_name_pattern(engine *eng, const xp_program *prog, xp_resu
 /* ---- template matching ---------------------------------------------------- */
 
 /* Populate a rule's matched-node set by evaluating its compiled pattern from the
-   source root once and recording the selected items. Out of line: it runs once per rule, and inlined into
+   source root once and recording the selected items. A "/" rule never comes here: best_rule answers it from its own
+   chain. Out of line: it runs once per rule, and inlined into
    apply_to_item its locals would sit in that frame on every level of an xsl:apply-templates recursion. */
 TH_NOINLINE static int build_rule(engine *eng, xslt_rule *rule) {
     rule->built = 1;
-    const xn *pattern = &rule->prog->nodes[rule->prog->root];
-    if (pattern->kind == XN_PATH && pattern->first < 0) {
-        return match_set_add(&rule->matched, eng->src_root, -1);
-    }
     xp_result matched;
     const char *feature = NULL;
     xslt_pattern_scope scope = {.eng = eng, .instruction = rule->body};
@@ -2401,6 +2418,10 @@ TH_NOINLINE static int build_rule(engine *eng, xslt_rule *rule) {
             PyErr_Format(PyExc_ValueError, "xslt: match pattern error (%s)", feature);
         }
         return fail_py(eng);
+    }
+    if (match_set_reserve(&rule->matched, (size_t)matched.nodes.len) < 0) { /* GCOVR_EXCL_BR_LINE: alloc */
+        xp_result_free(&matched);                                           /* GCOVR_EXCL_LINE */
+        return -1;                                                          /* GCOVR_EXCL_LINE */
     }
     for (Py_ssize_t index = 0; index < matched.nodes.len; index++) {
         int added = match_set_add(&rule->matched, matched.nodes.items[index].node, matched.nodes.items[index].attr);
@@ -2454,10 +2475,11 @@ static int dispatch_grow(engine *eng) {
 
 /* The best-matching rule for (node, attr) in the given mode, or NULL for none. The
    rule array is pre-sorted by descending (priority, position), so the
-   first match wins the section 5.5 conflict resolution. */
+   first match wins the section 5.5 conflict resolution. The chains visit only the
+   rules that can match node, in that same order, so a rule no node reaches is never built. */
 static xslt_rule *best_rule(engine *eng, th_node *node, Py_ssize_t attr, const Py_UCS4 *mode, Py_ssize_t mode_len) {
     size_t slot = 0;
-    const int cache = eng->nrules >= 16;
+    const int cache = eng->rule_dispatch;
     if (cache) {
         if (eng->dispatch_count == eng->dispatch_capacity / 2) {
             /* GCOVR_EXCL_BR_START: alloc */
@@ -2473,9 +2495,36 @@ static xslt_rule *best_rule(engine *eng, th_node *node, Py_ssize_t attr, const P
             return eng->dispatch[slot].rule;
         }
     }
+    Py_ssize_t named = -1;
+    if (eng->rule_names.capacity != 0 && attr < 0 && node->type == TH_NODE_ELEMENT) {
+        Py_ssize_t local_len;
+        Py_ssize_t prefix_len;
+        const Py_UCS4 *local = qname_local(node, &local_len, &prefix_len);
+        named = name_index_find(&eng->rule_names, local, local_len) - 1;
+    }
+    Py_ssize_t wild = eng->rule_wild;
+    Py_ssize_t root = node == eng->src_root ? eng->rule_root : -1;
     xslt_rule *winner = NULL;
-    for (Py_ssize_t index = 0; index < eng->nrules; index++) {
-        xslt_rule *rule = &eng->rules[index];
+    while (named >= 0 || wild >= 0 || root >= 0) {
+        xslt_rule *rule;
+        if (root >= 0 && (wild < 0 || root < wild)) {
+            /* only the root reaches this chain, and a "/" pattern matches the root alone, so it needs no match set */
+            rule = &eng->rules[root];
+            root = rule->next;
+            if ((rule->mode == NULL) == (mode == NULL) &&
+                (mode == NULL || str_eq(rule->mode, rule->mode_len, mode, mode_len))) {
+                winner = rule;
+                break;
+            }
+            continue;
+        }
+        if (wild < 0 || (named >= 0 && named < wild)) {
+            rule = &eng->rules[named];
+            named = rule->next;
+        } else {
+            rule = &eng->rules[wild];
+            wild = rule->next;
+        }
         int rule_default = rule->mode == NULL;
         int want_default = mode == NULL;
         if (rule_default != want_default) {
@@ -4523,6 +4572,11 @@ static int match_alternative(engine *eng, xslt_pattern_scope *scope, const xp_pr
     if (status < 0) {
         return number_pattern_error(eng, status);
     }
+    if (match_set_reserve(set, (size_t)matched.nodes.len) < 0) { /* GCOVR_EXCL_BR_LINE: allocation cannot be forced */
+        xp_result_free(&matched);                                /* GCOVR_EXCL_LINE */
+        PyErr_NoMemory();                                        /* GCOVR_EXCL_LINE */
+        return fail_py(eng);                                     /* GCOVR_EXCL_LINE */
+    }
     for (Py_ssize_t slot = 0; slot < matched.nodes.len; slot++) {
         xp_item item = matched.nodes.items[slot];
         int added = match_set_add(set, item.node, item.attr);
@@ -4537,9 +4591,12 @@ static int match_alternative(engine *eng, xslt_pattern_scope *scope, const xp_pr
 }
 
 /* Set out up for one xsl:number call. A pattern that reads nothing but the source and the instruction's namespaces is
-   evaluated over it once and kept on the site; the others are left to number_probe_has. Returns 0, or -1 on error. */
+   evaluated over it once and kept on the site; the others are left to number_probe_has. So is a static pattern on the
+   first call of a site that sets probe_first: there a from pattern stops the walk back at its nearest match, so one
+   call passes only the nodes since, where indexing evaluates the pattern over the whole source, which pays off only
+   once the site runs again. Returns 0, or -1 on error. */
 static int number_pattern_open(engine *eng, th_node *instruction, const Py_UCS4 *pattern, Py_ssize_t len,
-                               xslt_number_match *cache, xslt_number_pattern *out) {
+                               int probe_first, xslt_number_match *cache, xslt_number_pattern *out) {
     *out = (xslt_number_pattern){.set = &cache->matched, .scope = {.eng = eng, .instruction = instruction}};
     if (cache->source == pattern) {
         return 0;
@@ -4556,7 +4613,10 @@ static int number_pattern_open(engine *eng, th_node *instruction, const Py_UCS4 
         }
         dynamic |= xp_pattern_reads_call(programs[index]);
     }
-    if (dynamic) {
+    if (dynamic || (probe_first && cache->probed != pattern)) {
+        if (!dynamic) {
+            cache->probed = pattern;
+        }
         out->set = NULL;
         out->alternatives = PyMem_Calloc((size_t)alternatives, sizeof(*out->alternatives));
         if (out->alternatives == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure */
@@ -6168,12 +6228,20 @@ static int count_numbers(engine *eng, th_node *instruction, number_values *value
     const Py_UCS4 *from_source = number_attr(eng, instruction, eng->number_attrs.from, "from", &from_len);
     xslt_number_pattern count_pattern = {0};
     xslt_number_pattern from_pattern = {0};
+    /* once the from pattern is indexed, every later call reads the index, so only calls before ask for the level */
+    int probe_first = 0;
+    if (from_source != NULL && site->from_match.source != from_source) {
+        Py_ssize_t level_len = 0;
+        const Py_UCS4 *level = number_attr(eng, instruction, eng->number_attrs.level, "level", &level_len);
+        probe_first = level != NULL && ucs4_ascii_eq(level, level_len, "any");
+    }
     /* Compilation validates the count and from patterns before a run. */
     int status = count_source == NULL ? 0
-                                      : number_pattern_open(eng, instruction, count_source, count_len,
+                                      : number_pattern_open(eng, instruction, count_source, count_len, probe_first,
                                                             &site->count_match, &count_pattern);
     if (status == 0 && from_source != NULL) {
-        status = number_pattern_open(eng, instruction, from_source, from_len, &site->from_match, &from_pattern);
+        status =
+            number_pattern_open(eng, instruction, from_source, from_len, probe_first, &site->from_match, &from_pattern);
     }
     if (status == 0) {
         status = count_with(eng, instruction, site, count_source != NULL ? &count_pattern : NULL,
@@ -6578,9 +6646,14 @@ static int apply_builtin(engine *eng, th_node *node, Py_ssize_t attr, const Py_U
             child_count++;
         }
         int rc = 0;
+        /* Only a wildcard-chain rule can match a text node, so without one a text child takes its built-in rule. */
+        const int text_builtin = eng->rule_wild < 0;
         for (th_node *child = node->first_child; child != NULL && rc == 0; child = child->next_sibling) {
             child_pos++;
-            rc = apply_to_item(eng, (xp_item){child, -1}, child_pos, child_count, mode, mode_len, NULL, 0, out_parent);
+            rc = text_builtin && child->type == TH_NODE_TEXT
+                     ? apply_builtin(eng, child, -1, mode, mode_len, out_parent)
+                     : apply_to_item(eng, (xp_item){child, -1}, child_pos, child_count, mode, mode_len, NULL, 0,
+                                     out_parent);
         }
         eng->depth--;
         return rc;
@@ -7077,11 +7150,19 @@ static int instantiate_fallback(engine *eng, th_node *node, th_node *out_parent)
     return 0;
 }
 
-/* The instructions instantiate_one dispatches on directly. XSL_OTHER covers every other
-   xsl:* element (sort, with-param, param, fallback, apply-imports, ...), which the parent
-   consumes or the core does not model, so it instantiates nothing. */
+/* The kinds a stylesheet element is classified into once, at compile time: the xsl:* instructions
+   instantiate_classified dispatches on, a literal result element, and an extension element. XSL_PARAM, XSL_SORT,
+   XSL_WITH_PARAM and XSL_WHEN are named so precompile_instruction and the body walk can tell them apart, and
+   XSL_OTHER covers every other xsl:* element (fallback, apply-imports, ...) the core does not model; none of them
+   instantiates anything. */
 enum xsl_instr {
     XSL_OTHER,
+    XSL_PARAM,
+    XSL_SORT,
+    XSL_WITH_PARAM,
+    XSL_WHEN,
+    XSL_LITERAL,
+    XSL_EXTENSION,
     XSL_VALUE_OF,
     XSL_APPLY_TEMPLATES,
     XSL_CALL_TEMPLATE,
@@ -7152,6 +7233,18 @@ static enum xsl_instr xsl_classify(const Py_UCS4 *local, Py_ssize_t len) {
     if (ucs4_ascii_eq(local, len, "message")) {
         return XSL_MESSAGE;
     }
+    if (ucs4_ascii_eq(local, len, "param")) {
+        return XSL_PARAM;
+    }
+    if (ucs4_ascii_eq(local, len, "sort")) {
+        return XSL_SORT;
+    }
+    if (ucs4_ascii_eq(local, len, "with-param")) {
+        return XSL_WITH_PARAM;
+    }
+    if (ucs4_ascii_eq(local, len, "when")) {
+        return XSL_WHEN;
+    }
     return XSL_OTHER;
 }
 
@@ -7190,6 +7283,18 @@ static int instantiate_non_element(engine *eng, th_node *node, th_node *out_pare
         return emit_literal_text(eng, out_parent, node);
     }
     return 0;
+}
+
+/* The kind of a stylesheet element as a run instantiates it: an xsl:* instruction by its local name, an extension
+   element, or a literal result element. Recorded once by precompile_stylesheet. */
+static enum xsl_instr element_kind(const engine *eng, const th_node *node) {
+    if (eng->xsl_ns_dynamic ? is_any_xsl_dynamic(eng, node) : is_any_xsl_fast(eng, node)) {
+        Py_ssize_t local_len;
+        Py_ssize_t prefix_len;
+        const Py_UCS4 *local = qname_local(node, &local_len, &prefix_len);
+        return xsl_classify(local, local_len);
+    }
+    return is_extension_element(eng, node) ? XSL_EXTENSION : XSL_LITERAL;
 }
 
 /* Every xsl:* instruction dispatches through this frame, so a recursive template repeats it once per nesting level.
@@ -7294,78 +7399,71 @@ static int instantiate_classified(engine *eng, th_node *node, th_node *out_paren
         return 0; /* a non-terminating message is discarded */
     }
     default:
-        /* sort, with-param and param are handled by their parent; anything else the core
-           does not model (fallback, apply-imports, ...) instantiates nothing. */
+        /* param and sort are read by their parent; anything else the core does not model
+           (with-param, fallback, apply-imports, ...) instantiates nothing. */
         return 0;
     }
 }
 
-/* Instantiate one instruction (an xsl:* element, a literal result element, or a text
-   node) into out_parent. */
-static int instantiate_one_fast(engine *eng, th_node *node, th_node *out_parent) {
+/* The kind precompile_stylesheet recorded for a stylesheet element. */
+static int instruction_kind(engine *eng, const th_node *node, enum xsl_instr *kind) {
+    Py_ssize_t slot = th_node_map_find(&eng->instructions, node);
+    if (slot == 0) { /* GCOVR_EXCL_BR_LINE: precompile_stylesheet visits every element a run instantiates */
+        return fail(eng, "xslt: stylesheet instruction was not compiled"); /* GCOVR_EXCL_LINE */
+    }
+    *kind = (enum xsl_instr)(slot - 1);
+    return 0;
+}
+
+/* Instantiate one child of a body or the root (an xsl:* element, a literal result element, an extension element, or a
+   text node) into out_parent. */
+static int instantiate_child(engine *eng, th_node *node, enum xsl_instr kind, th_node *out_parent) {
     if (node->type != TH_NODE_ELEMENT) {
         return instantiate_non_element(eng, node, out_parent);
     }
-    if (!is_any_xsl_fast(eng, node)) {
-        if (is_extension_element(eng, node)) {
-            return instantiate_fallback(eng, node, out_parent);
-        }
+    switch (kind) {
+    case XSL_LITERAL:
         return instantiate_literal(eng, node, out_parent);
+    case XSL_EXTENSION:
+        return instantiate_fallback(eng, node, out_parent);
+    default:
+        return instantiate_classified(eng, node, out_parent, kind);
     }
-    Py_ssize_t offset = eng->xsl_prefix_len + 1;
-    return instantiate_classified(eng, node, out_parent, xsl_classify(node->text + offset, node->text_len - offset));
 }
 
-static int instantiate_one_dynamic(engine *eng, th_node *node, th_node *out_parent) {
-    if (node->type != TH_NODE_ELEMENT) {
-        return instantiate_non_element(eng, node, out_parent);
+static int instantiate_root(engine *eng, th_node *root, th_node *out_parent) {
+    enum xsl_instr kind;
+    if (instruction_kind(eng, root, &kind) < 0) { /* GCOVR_EXCL_LINE */
+        return -1;                                /* GCOVR_EXCL_LINE */
     }
-    if (!is_any_xsl_dynamic(eng, node)) {
-        if (is_extension_element(eng, node)) {
-            return instantiate_fallback(eng, node, out_parent);
-        }
-        return instantiate_literal(eng, node, out_parent);
-    }
-    Py_ssize_t local_len;
-    Py_ssize_t prefix_len;
-    const Py_UCS4 *local = qname_local(node, &local_len, &prefix_len);
-    return instantiate_classified(eng, node, out_parent, xsl_classify(local, local_len));
+    return instantiate_child(eng, root, kind, out_parent);
 }
 
-/* Instantiate every child of `body` (skipping the param declarations already bound). */
+/* Instantiate every child of `body`, except the param and sort declarations its parent reads. */
 static int instantiate_body(engine *eng, th_node *body, th_node *out_parent) {
     if (++eng->depth > XSLT_STACK_CHECK_DEPTH && enter_deep_level(eng, XSLT_LEVEL_TEMPLATE, NULL) < 0) {
         return -1;
     }
     Py_ssize_t scope_mark = eng->scope_len;
     int rc = 0;
-    if (eng->xsl_ns_dynamic) {
-        for (th_node *child = body->first_child; child != NULL && rc == 0; child = child->next_sibling) {
-            TH_WORK_STEP();
-            if (is_xsl_dynamic(eng, child, "param") || is_xsl_dynamic(eng, child, "sort")) {
+    for (th_node *child = body->first_child; child != NULL && rc == 0; child = child->next_sibling) {
+        TH_WORK_STEP();
+        enum xsl_instr kind = XSL_OTHER;
+        if (child->type == TH_NODE_ELEMENT) {
+            if (instruction_kind(eng, child, &kind) < 0) { /* GCOVR_EXCL_LINE */
+                rc = -1;                                   /* GCOVR_EXCL_LINE */
+                break;                                     /* GCOVR_EXCL_LINE */
+            }
+            if (kind == XSL_PARAM || kind == XSL_SORT) {
                 continue;
             }
-#ifdef TH_OPERATION_LIMIT
-            if ((rc = charge_operation(eng, "applying the stylesheet")) < 0) {
-                break;
-            }
-#endif
-            rc = instantiate_one_dynamic(eng, child, out_parent);
         }
-    } else {
-        for (th_node *child = body->first_child; child != NULL && rc == 0; child = child->next_sibling) {
-            /* xsl:param leads a template body and xsl:sort leads a for-each; both are read
-               by the parent, not instantiated. A stray xsl:with-param produces nothing. */
-            if (is_xsl_fast(eng, child, "param") || is_xsl_fast(eng, child, "sort")) {
-                continue;
-            }
 #ifdef TH_OPERATION_LIMIT
-            if ((rc = charge_operation(eng, "applying the stylesheet")) < 0) {
-                break;
-            }
-#endif
-            rc = instantiate_one_fast(eng, child, out_parent);
+        if ((rc = charge_operation(eng, "applying the stylesheet")) < 0) {
+            break;
         }
+#endif
+        rc = instantiate_child(eng, child, kind, out_parent);
     }
     scope_drop(eng, scope_mark); /* local xsl:variable bindings fall out of scope */
     eng->depth--;
@@ -8040,17 +8138,6 @@ static int rule_order(const void *left_ptr, const void *right_ptr) {
 
 /* ---- output serialization ------------------------------------------------- */
 
-/* Append the text of every Text descendant of node, in document order. */
-static int collect_output_text(th_node *node, xb *buffer) {
-    for (th_node *child = node->first_child; child != NULL; child = preorder_next(child, node)) {
-        if (child->type == TH_NODE_TEXT && /* GCOVR_EXCL_BR_LINE: the second condition fails only on allocation */
-            xb_add(buffer, child->text, child->text_len) < 0) { /* GCOVR_EXCL_BR_LINE: alloc */
-            return -1;                                          /* GCOVR_EXCL_LINE */
-        }
-    }
-    return 0;
-}
-
 /* Retype direct text children of cdata-section-elements so the serializer wraps them in CDATA. */
 static void apply_cdata_sections(engine *eng, th_node *node) {
     for (th_node *child = node->first_child; child != NULL; child = preorder_next(child, node)) {
@@ -8103,17 +8190,82 @@ static void auto_select_method(engine *eng, th_node *out_root) {
     }
 }
 
-/* Concatenate the text descendants of the output root (xsl:output method="text"). */
+/* The text descendants of root joined into a string of the narrowest width that holds them, given their total length.
+   Sizing the string first writes each character once, with no UCS-4 copy to grow and narrow. */
+static PyObject *join_wide_text(th_node *root, Py_ssize_t length) {
+    Py_UCS4 bits = 0;
+    for (th_node *node = root->first_child; node != NULL && bits <= 0xFFFF; node = preorder_next(node, root)) {
+        if (node->type == TH_NODE_TEXT) {
+            for (Py_ssize_t index = 0; index < node->text_len; index++) {
+                bits |= node->text[index];
+            }
+        }
+    }
+    Py_UCS4 maxchar = bits <= 0xFF ? 0xFF : bits <= 0xFFFF ? 0xFFFF : 0x10FFFF;
+    PyObject *out = PyUnicode_New(length, th_str_maxchar(maxchar));
+    if (out == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced */
+        return NULL;   /* GCOVR_EXCL_LINE */
+    }
+    int kind = PyUnicode_KIND(out);
+    Py_ssize_t at = 0;
+    for (th_node *node = root->first_child; node != NULL; node = preorder_next(node, root)) {
+        if (node->type != TH_NODE_TEXT) {
+            continue;
+        }
+        const Py_UCS4 *text = node->text;
+        Py_ssize_t text_len = node->text_len;
+        if (kind == PyUnicode_1BYTE_KIND) {
+            Py_UCS1 *destination = PyUnicode_1BYTE_DATA(out) + at;
+            for (Py_ssize_t index = 0; index < text_len; index++) {
+                destination[index] = (Py_UCS1)text[index];
+            }
+#ifndef PYPY_VERSION
+        } else if (kind == PyUnicode_2BYTE_KIND) {
+            Py_UCS2 *destination = PyUnicode_2BYTE_DATA(out) + at;
+            for (Py_ssize_t index = 0; index < text_len; index++) {
+                destination[index] = (Py_UCS2)text[index];
+            }
+#endif
+        } else if (text_len > 0) {
+            memcpy(PyUnicode_4BYTE_DATA(out) + at, text, (size_t)text_len * sizeof(Py_UCS4));
+        }
+        at += text_len;
+    }
+    return out;
+}
+
+/* Concatenate the text descendants of the output root (xsl:output method="text"). Most output is ASCII, so the text
+   goes straight into an ASCII string, checking the width in the same pass; anything wider is joined again. */
 static PyObject *serialize_text(engine *eng, th_node *root) {
     (void)eng;
-    xb buffer = {0};
-    if (collect_output_text(root, &buffer) < 0) { /* GCOVR_EXCL_BR_LINE: alloc */
-        xb_free(&buffer);                         /* GCOVR_EXCL_LINE */
-        return PyErr_NoMemory();                  /* GCOVR_EXCL_LINE */
+    Py_ssize_t length = 0;
+    for (th_node *node = root->first_child; node != NULL; node = preorder_next(node, root)) {
+        if (node->type == TH_NODE_TEXT) {
+            length += node->text_len;
+        }
     }
-    PyObject *out = make_str(buffer.data, buffer.len);
-    xb_free(&buffer);
-    return out;
+    PyObject *out = PyUnicode_New(length, 0x7F);
+    if (out == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced */
+        return NULL;   /* GCOVR_EXCL_LINE */
+    }
+    Py_UCS1 *destination = PyUnicode_1BYTE_DATA(out);
+    Py_UCS4 bits = 0;
+    for (th_node *node = root->first_child; node != NULL && bits <= 0x7F; node = preorder_next(node, root)) {
+        if (node->type == TH_NODE_TEXT) {
+            const Py_UCS4 *text = node->text;
+            Py_ssize_t text_len = node->text_len;
+            for (Py_ssize_t index = 0; index < text_len; index++) {
+                bits |= text[index];
+                destination[index] = (Py_UCS1)text[index];
+            }
+            destination += text_len;
+        }
+    }
+    if (bits <= 0x7F) {
+        return out;
+    }
+    Py_DECREF(out);
+    return join_wide_text(root, length);
 }
 
 static int raise_html_pi_gt(const th_node *pi) {
@@ -8240,6 +8392,8 @@ static void engine_clear(engine *eng) {
     if (eng->owns_model) {
         PyMem_Free(eng->named_index.entries);
         PyMem_Free(eng->key_index.entries);
+        PyMem_Free(eng->rule_names.entries);
+        PyMem_Free(eng->instructions.entries);
         PyMem_Free(eng->attrset_index.entries);
         PyMem_Free(eng->attrset_previous);
         PyMem_Free(eng->attrset_uses.items);
@@ -8755,6 +8909,122 @@ static int bind_expression_scope(engine *eng, xp_program *prog, th_node *element
     return xp_bind_namespaces(prog, scope_prefix_resolve, &source);
 }
 
+static int pattern_node_is_plain(uint8_t kind) {
+    switch (kind) {
+    case XN_PATH:
+    case XN_STEP:
+    case XN_PRED:
+    case XN_NUM:
+    case XN_LIT:
+    case XN_EQ:
+    case XN_NE:
+    case XN_LT:
+    case XN_LE:
+    case XN_GT:
+    case XN_GE:
+    case XN_AND:
+    case XN_OR:
+        return 1;
+    default:
+        return 0;
+    }
+}
+
+/* Set rule->key to the element name the pattern can match, or to NULL when any node may match it. A pattern that is not
+   a plain path or comparison is never named: evaluating a function or a variable can raise whatever nodes the source
+   holds. A prefixed name test raises on an HTML source the same way, so its rule stays in the wildcard chain and is
+   built wherever the scan reaches it, as it always was. */
+static void rule_element_key(xslt_rule *rule) {
+    const xn *nodes = rule->prog->nodes;
+    rule->key = NULL;
+    for (int32_t index = 0; index < rule->prog->count; index++) {
+        const xn *node = &nodes[index];
+        if (!pattern_node_is_plain(node->kind) ||
+            (node->kind == XN_STEP && node->test == NT_NAME && node->prefix_len > 0)) {
+            return;
+        }
+    }
+    const xn *path = &nodes[rule->prog->root];
+    if (path->first < 0) {
+        return;
+    }
+    int32_t last = path->first;
+    while (nodes[last].next >= 0) {
+        last = nodes[last].next;
+    }
+    const xn *step = &nodes[last];
+    if (step->test != NT_NAME || (step->axis != AX_CHILD && step->axis != AX_DESCENDANT)) {
+        return;
+    }
+    rule->key = step->str;
+    rule->key_len = step->str_len;
+}
+
+/* Chain the rules best_rule consults: an element-named rule joins the chain of its name, and every other rule joins
+   the wildcard chain. Each chain keeps the sorted order, so the first matching rule along it is the winner. */
+static int build_rule_index(engine *eng) {
+    Py_ssize_t named = 0;
+    for (Py_ssize_t index = 0; index < eng->nrules; index++) {
+        xslt_rule *rule = &eng->rules[index];
+        rule_element_key(rule);
+        named += rule->key != NULL;
+    }
+    /* GCOVR_EXCL_BR_START: allocation failure */
+    if (name_index_reserve(&eng->rule_names, named) < 0) {
+        return -1; /* GCOVR_EXCL_LINE */
+    }
+    /* GCOVR_EXCL_BR_STOP */
+    Py_ssize_t wild = -1;
+    Py_ssize_t root = -1;
+    Py_ssize_t wild_len = 0;
+    Py_ssize_t root_len = 0;
+    for (Py_ssize_t index = eng->nrules - 1; index >= 0; index--) {
+        xslt_rule *rule = &eng->rules[index];
+        const xn *pattern = &rule->prog->nodes[rule->prog->root];
+        if (pattern->kind == XN_PATH && pattern->first < 0) {
+            rule->next = root;
+            root = index;
+            root_len++;
+        } else if (eng->rule_names.capacity == 0 || rule->key == NULL) {
+            rule->next = wild;
+            wild = index;
+            wild_len++;
+        }
+    }
+    eng->rule_wild = wild;
+    eng->rule_root = root;
+    if (eng->rule_names.capacity != 0) {
+        do {
+            for (Py_ssize_t index = eng->nrules - 1; index >= 0 && !eng->rule_names.walked_far; index--) {
+                xslt_rule *rule = &eng->rules[index];
+                if (rule->key != NULL) {
+                    rule->next = name_index_add(&eng->rule_names, rule->key, rule->key_len, index) - 1;
+                }
+            }
+        } while (name_index_rekey(&eng->rule_names));
+    }
+    /* A lookup in the dispatch cache costs about what testing a few rules does, and on a single pass over the source
+       every lookup misses, so the cache pays only where a node can walk a long chain. Each chain lists its rules in
+       ascending order, so one descending sweep finds every named chain's length from the rule after it. */
+    Py_ssize_t longest = 0;
+    if (eng->rule_names.capacity != 0) {
+        Py_ssize_t *lengths = PyMem_Calloc((size_t)eng->nrules, sizeof(Py_ssize_t));
+        if (lengths == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+            return -1;         /* GCOVR_EXCL_LINE */
+        }
+        for (Py_ssize_t index = eng->nrules - 1; index >= 0; index--) {
+            const xslt_rule *rule = &eng->rules[index];
+            if (rule->key != NULL) {
+                lengths[index] = 1 + (rule->next < 0 ? 0 : lengths[rule->next]);
+                longest = lengths[index] > longest ? lengths[index] : longest;
+            }
+        }
+        PyMem_Free(lengths);
+    }
+    eng->rule_dispatch = eng->nrules >= 16 && wild_len + root_len + longest >= 4;
+    return 0;
+}
+
 static int precompile_expression(engine *eng, th_node *element, const Py_UCS4 *source, Py_ssize_t length,
                                  const char *context) {
     char error[256];
@@ -8826,37 +9096,47 @@ static int precompile_pattern_attribute(engine *eng, th_node *element, const cha
     return 0;
 }
 
-static int precompile_instruction(engine *eng, th_node *element) {
-    const char *select_context = NULL;
-    const char *select_instructions[] = {"apply-templates", "for-each", "value-of",   "copy-of",
-                                         "variable",        "param",    "with-param", "sort"};
-    for (size_t index = 0; index < sizeof(select_instructions) / sizeof(select_instructions[0]); index++) {
-        if (is_xsl(eng, element, select_instructions[index])) {
-            select_context = select_instructions[index];
-            break;
-        }
+static const char *select_context(enum xsl_instr kind) {
+    switch (kind) {
+    case XSL_APPLY_TEMPLATES:
+        return "apply-templates select";
+    case XSL_FOR_EACH:
+        return "for-each select";
+    case XSL_VALUE_OF:
+        return "value-of select";
+    case XSL_COPY_OF:
+        return "copy-of select";
+    case XSL_VARIABLE:
+        return "variable select";
+    case XSL_PARAM:
+        return "param select";
+    case XSL_WITH_PARAM:
+        return "with-param select";
+    case XSL_SORT:
+        return "sort select";
+    default:
+        return NULL;
     }
-    if (select_context != NULL) {
-        char context[64];
-        snprintf(context, sizeof(context), "%s select", select_context);
-        if (precompile_attribute(eng, element, "select", context) < 0) {
-            return -1;
-        }
-    }
-    if ((is_xsl(eng, element, "if") || is_xsl(eng, element, "when")) &&
-        precompile_attribute(eng, element, "test", "test") < 0) {
+}
+
+static int precompile_instruction(engine *eng, th_node *element, enum xsl_instr kind) {
+    const char *context = select_context(kind);
+    if (context != NULL && precompile_attribute(eng, element, "select", context) < 0) {
         return -1;
     }
-    if (is_xsl(eng, element, "number")) {
+    if ((kind == XSL_IF || kind == XSL_WHEN) && precompile_attribute(eng, element, "test", "test") < 0) {
+        return -1;
+    }
+    if (kind == XSL_NUMBER) {
         if (precompile_attribute(eng, element, "value", "number value") < 0 ||
             precompile_pattern_attribute(eng, element, "count") < 0 ||
             precompile_pattern_attribute(eng, element, "from") < 0) {
             return -1;
         }
     }
-    int element_instruction = is_xsl(eng, element, "element");
-    int attribute_instruction = !element_instruction && is_xsl(eng, element, "attribute");
-    if (element_instruction || attribute_instruction || is_xsl(eng, element, "processing-instruction")) {
+    int element_instruction = kind == XSL_ELEMENT;
+    int attribute_instruction = kind == XSL_ATTRIBUTE;
+    if (element_instruction || attribute_instruction || kind == XSL_PI) {
         Py_ssize_t length = 0;
         const Py_UCS4 *source = attr_lookup(eng->sheet_tree, element, "name", 4, &length);
         if (source != NULL && precompile_avt(eng, element, source, length) < 0) {
@@ -8904,8 +9184,12 @@ static int precompile_stylesheet(engine *eng, th_node *root) {
             return -1;
         }
 #endif
+        enum xsl_instr kind = element_kind(eng, node);
+        if (th_node_map_insert(&eng->instructions, node, kind + 1) < 0) { /* GCOVR_EXCL_BR_LINE */
+            return -1;                                                    /* GCOVR_EXCL_LINE */
+        }
         if (node_is_xsl(eng, node)) {
-            if (precompile_instruction(eng, node) < 0) {
+            if (precompile_instruction(eng, node, kind) < 0) {
                 return -1;
             }
         } else if (precompile_literal_attributes(eng, node) < 0) {
@@ -8952,8 +9236,7 @@ static PyObject *run_transform(engine *eng, th_node *sheet_root, PyObject *param
     PyObject *result = NULL;
     int rc = bind_globals(eng, params);
     if (rc == 0) {
-        rc = eng->simplified ? (eng->xsl_ns_dynamic ? instantiate_one_dynamic(eng, sheet_root, out_root)
-                                                    : instantiate_one_fast(eng, sheet_root, out_root))
+        rc = eng->simplified ? instantiate_root(eng, sheet_root, out_root)
                              : apply_to_item(eng, (xp_item){eng->src_root, -1}, 1, 1, NULL, 0, NULL, 0, out_root);
     }
     if (rc == 0) {
@@ -9412,6 +9695,9 @@ TH_NODE_API(, PyObject *, turbohtml_xslt_compile, (PyObject * module, PyObject *
     }
     if (status == 0) {
         status = build_name_indexes(&compiled->model);
+    }
+    if (status == 0) {
+        status = build_rule_index(&compiled->model);
     }
     if (status == 0) {
         status = resolve_attribute_sets(&compiled->model);

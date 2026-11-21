@@ -252,7 +252,7 @@ class WorkgroupEngineVersionTest(unittest.TestCase):
         client = mock.Mock()
         for name in (
             "Athena engine version 4",
-            "Athena DuckDB",
+            "DuckDB",
         ):
             with self.subTest(name=name):
                 client.get_work_group.return_value = {
@@ -1346,7 +1346,7 @@ class ExecutionVersionTest(unittest.TestCase):
 
     def test_renamed_effective_engine_version_selects_v4(self):
         executor = AthenaV4Executor(mock.Mock(), "wg", workgroup_engine_version=3)
-        execution = {"EngineVersion": {"EffectiveEngineVersion": "Athena DuckDB"}}
+        execution = {"EngineVersion": {"EffectiveEngineVersion": "DuckDB"}}
         self.assertEqual(executor._execution_version(execution), 4)
 
     def test_selected_engine_version_without_a_number_falls_back_to_workgroup(self):
@@ -1381,12 +1381,12 @@ class ExecutionVersionTest(unittest.TestCase):
     def test_renamed_override_is_sent_to_start_query_execution(self):
         client = mock.Mock()
         client.start_query_execution.return_value = {"QueryExecutionId": QID}
-        executor = AthenaV4Executor(client, "wg", selected_engine_version="Athena DuckDB")
+        executor = AthenaV4Executor(client, "wg", selected_engine_version="DuckDB")
 
         self.assertEqual(executor.start("SELECT 1"), QID)
         self.assertEqual(
             client.start_query_execution.call_args.kwargs["EngineVersion"],
-            "Athena DuckDB",
+            "DuckDB",
         )
 
 

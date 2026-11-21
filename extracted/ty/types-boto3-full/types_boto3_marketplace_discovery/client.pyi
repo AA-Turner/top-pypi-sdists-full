@@ -29,6 +29,7 @@ from botocore.exceptions import ClientError as BotocoreClientError
 from .paginator import (
     GetOfferTermsPaginator,
     ListFulfillmentOptionsPaginator,
+    ListListingAttributesPaginator,
     ListPurchaseOptionsPaginator,
     SearchFacetsPaginator,
     SearchListingsPaginator,
@@ -46,6 +47,8 @@ from .type_defs import (
     GetProductOutputTypeDef,
     ListFulfillmentOptionsInputTypeDef,
     ListFulfillmentOptionsOutputTypeDef,
+    ListListingAttributesInputTypeDef,
+    ListListingAttributesOutputTypeDef,
     ListPurchaseOptionsInputTypeDef,
     ListPurchaseOptionsOutputTypeDef,
     SearchFacetsInputTypeDef,
@@ -135,9 +138,9 @@ class MarketplaceDiscoveryClient(BaseClient):
         self, **kwargs: Unpack[GetOfferTermsInputTypeDef]
     ) -> GetOfferTermsOutputTypeDef:
         """
-        Returns the terms attached to an offer, such as pricing terms (usage-based,
-        contract, BYOL, free trial), legal terms, payment schedules, validity terms,
-        support terms, and renewal terms.
+        Retrieves the terms attached to an offer, such as pricing terms (usage-based,
+        contract, Bring Your Own License (BYOL), free trial), legal terms, payment
+        schedules, validity terms, support terms, and renewal terms.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-discovery/client/get_offer_terms.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_marketplace_discovery/client/#get_offer_terms)
@@ -156,7 +159,7 @@ class MarketplaceDiscoveryClient(BaseClient):
         self, **kwargs: Unpack[ListFulfillmentOptionsInputTypeDef]
     ) -> ListFulfillmentOptionsOutputTypeDef:
         """
-        Returns the fulfillment options available for a product, including deployment
+        Retrieves the fulfillment options available for a product, including deployment
         details such as version information, operating systems, usage instructions, and
         release notes.
 
@@ -164,11 +167,22 @@ class MarketplaceDiscoveryClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_marketplace_discovery/client/#list_fulfillment_options)
         """
 
+    def list_listing_attributes(
+        self, **kwargs: Unpack[ListListingAttributesInputTypeDef]
+    ) -> ListListingAttributesOutputTypeDef:
+        """
+        Retrieves the requested attributes for a listing, including case studies and
+        trust center information.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-discovery/client/list_listing_attributes.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_marketplace_discovery/client/#list_listing_attributes)
+        """
+
     def list_purchase_options(
         self, **kwargs: Unpack[ListPurchaseOptionsInputTypeDef]
     ) -> ListPurchaseOptionsOutputTypeDef:
         """
-        Returns the purchase options (offers and offer sets) available to the buyer.
+        Retrieves the purchase options (offers and offer sets) available to you.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-discovery/client/list_purchase_options.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_marketplace_discovery/client/#list_purchase_options)
@@ -178,8 +192,9 @@ class MarketplaceDiscoveryClient(BaseClient):
         self, **kwargs: Unpack[SearchFacetsInputTypeDef]
     ) -> SearchFacetsOutputTypeDef:
         """
-        Returns available facet values for filtering listings, such as categories,
-        pricing models, fulfillment option types, publishers, and customer ratings.
+        Retrieves the available facet values for filtering listings, such as
+        categories, pricing models, fulfillment option types, publishers, and customer
+        ratings.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-discovery/client/search_facets.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_marketplace_discovery/client/#search_facets)
@@ -189,7 +204,7 @@ class MarketplaceDiscoveryClient(BaseClient):
         self, **kwargs: Unpack[SearchListingsInputTypeDef]
     ) -> SearchListingsOutputTypeDef:
         """
-        Returns a list of product listings based on search criteria and filters.
+        Searches for listings that match your search criteria and filters.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-discovery/client/search_listings.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_marketplace_discovery/client/#search_listings)
@@ -210,6 +225,17 @@ class MarketplaceDiscoveryClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_fulfillment_options"]
     ) -> ListFulfillmentOptionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-discovery/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_marketplace_discovery/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_listing_attributes"]
+    ) -> ListListingAttributesPaginator:
         """
         Create a paginator for an operation.
 

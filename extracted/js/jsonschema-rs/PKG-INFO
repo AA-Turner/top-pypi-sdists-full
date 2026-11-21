@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jsonschema_rs
-Version: 0.61.2
+Version: 0.62.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -146,6 +146,8 @@ validator = jsonschema_rs.Draft201909Validator({"minimum": 42})
 validator = jsonschema_rs.Draft202012Validator({"minimum": 42})
 ```
 
+With a chosen draft (a draft-specific class or `draft=`), the `$schema` URI is not retrieved: pass a custom meta-schema in `registry=` so its `$vocabulary` applies.
+
 `jsonschema-rs` ships validators for the standard `format` values. To add your own, pass a function that takes a `str` and returns a `bool` via `formats`.
 Drafts 2019-09 and 2020-12 treat `format` as an annotation, so set `validate_formats=True` to get it checked:
 
@@ -195,7 +197,7 @@ The resulting `ValidationError` keeps that exception as `__cause__`:
 
 ```python
 try:
-    validator.validate(instance)
+    validator.validate(10)
 except jsonschema_rs.ValidationError as e:
     print(type(e.__cause__))   # <class 'ValueError'>
     print(e.__cause__)         # original message
@@ -404,8 +406,6 @@ try:
     validator.validate(0)
 except ValidationError as exc:
     assert exc.kind.expected_value == Decimal("1e10000")
-
-# Exponents beyond ~10^1_000_000 are clamped to keep parsing predictable
 ```
 
 ## Schema Bundling and Dereferencing
@@ -446,7 +446,7 @@ dereferenced = jsonschema_rs.dereference(schema, registry=registry)
 
 > **Experimental**: the canonicalization API may change in minor releases.
 
-`canonicalize` reduces a schema to a normal form that accepts the same values. Schemas that accept the same values reduce to equal `CanonicalSchema` objects, and a schema proven to accept nothing reduces to `false`:
+`canonicalize` reduces a schema to a normal form that accepts the same values. Many schemas that accept the same values reduce to equal `CanonicalSchema` objects, and a schema proven to accept nothing reduces to `false`:
 
 ```python
 import jsonschema_rs
@@ -462,7 +462,7 @@ assert canonical.to_json_schema() == {
     "type": "integer", "minimum": 10, "maximum": 100,
 }
 
-# However they were written, equivalent schemas compare equal
+# These two accept the same values and compare equal
 same = jsonschema_rs.canonicalize(
     {"type": "integer", "maximum": 100, "minimum": 10}
 )
@@ -477,7 +477,7 @@ empty = jsonschema_rs.canonicalize(
 assert empty.satisfiability() == Satisfiability.NO
 ```
 
-A schema the canonical form cannot model exactly comes back unchanged, with `kind == CanonicalKind.RAW`. Its `view().reason` names what stopped the run, and `view().pointer` the subschema at fault when a single one is.
+A schema the canonical form cannot model exactly comes back unchanged, with `kind == CanonicalKind.RAW`. Its `view().reason` names why canonicalization kept it raw, and `view().pointer` the subschema at fault when a single one is.
 
 Canonical schemas combine like sets of values. Every emitted schema carries `$schema`; the comments below leave it out:
 
@@ -485,15 +485,15 @@ Canonical schemas combine like sets of values. Every emitted schema carries `$sc
 positive = jsonschema_rs.canonicalize({"type": "integer", "minimum": 0})
 bounded = jsonschema_rs.canonicalize({"type": "integer", "maximum": 100})
 
-# Every value both admit
+# Every value both accept
 positive.intersect(bounded).to_json_schema()
 # {"type": "integer", "minimum": 0, "maximum": 100}
 
-# Every value either admits
+# Every value either accepts
 positive.union(bounded).to_json_schema()
 # {"type": "integer"}
 
-# Every value `positive` admits and `bounded` rejects
+# Every value `positive` accepts and `bounded` rejects
 positive.subtract(bounded).to_json_schema()
 # {"type": "integer", "minimum": 101}
 
@@ -504,7 +504,7 @@ positive.negate().to_json_schema()
 #            {"type": "integer", "maximum": -1},
 #            {"type": "number", "not": {"multipleOf": 1}}]}
 
-# Containment.NO: `bounded` takes negative integers, `positive` does not
+# Containment.NO: `bounded` accepts negative integers, `positive` rejects them
 positive.covers(bounded)
 positive.satisfiability()  # Satisfiability.YES
 ```
@@ -565,7 +565,7 @@ match reasons["/properties/tag"]:
 assert "/properties/name" not in reasons
 ```
 
-A reason is `Literal` (written as `false`), `Empty` (one part admits nothing by itself) or `Conflict` (each part admits values, together they admit none). A missing pointer does not prove that subschema satisfiable. For a document the canonical form cannot model, `find_unsatisfiable` reports nothing, the same way `satisfiability()` answers `UNKNOWN`.
+A reason is `Literal` (written as `false`), `Empty` (one part accepts nothing by itself) or `Conflict` (each part accepts values, together they accept none). A missing pointer does not prove that subschema satisfiable. For a document the canonical form cannot model, `find_unsatisfiable` reports nothing, the same way `satisfiability()` answers `UNKNOWN`.
 
 ## Meta-Schema Validation
 
@@ -629,6 +629,14 @@ validator = jsonschema_rs.validator_for(
         dfa_size_limit=10240      # Maximum DFA cache size
     )
 )
+
+# Patterns in the engine's own syntax instead of ECMA 262:
+# `\d` matches every Unicode decimal digit, as in the Rust `regex` crate
+validator = jsonschema_rs.validator_for(
+    {"type": "string", "pattern": r"^\d+$"},
+    pattern_options=RegexOptions(syntax="engine")
+)
+assert validator.is_valid("٣")
 ```
 
   - `FancyRegexOptions`: default engine, supports lookaround and backreferences
@@ -641,6 +649,8 @@ validator = jsonschema_rs.validator_for(
 
     - `size_limit`: Maximum compiled regex size in bytes
     - `dfa_size_limit`: Maximum DFA cache size in bytes
+
+Both take `syntax`: `"ecma262"` (default) translates patterns for the engine, `"engine"` passes them to it unchanged. Use `"engine"` for schemas whose patterns are written for the Rust [`regex`](https://docs.rs/regex/latest/regex/#syntax) or [`fancy-regex`](https://docs.rs/fancy-regex/latest/fancy_regex/#syntax) crate, such as the ones Pydantic generates.
 
 If you validate against schemas from untrusted sources, use `RegexOptions`: a crafted pattern cannot make it backtrack.
 
@@ -794,7 +804,7 @@ registry = jsonschema_rs.Registry(
 
 ## Error Handling
 
-A `ValidationError` carries the message, both locations and a `kind` with keyword-specific details:
+A `ValidationError` carries the message, the instance and schema paths, and a `kind` with keyword-specific details:
 
 ```python
 import jsonschema_rs
@@ -876,7 +886,7 @@ On instance["password"]:
 Compared with other Python validators:
 
 - **215-15,699x** faster than `jsonschema` for complex schemas and large instances
-- **12-2,623x** faster than `fastjsonschema` on CPython
+- **12-2,623x** faster than `fastjsonschema` on CPython, except `validate` on the invalid `Fast` instance (x0.87)
 
 Full results and methodology are in [BENCHMARKS.md](https://github.com/Stranger6667/jsonschema/blob/master/crates/jsonschema-py/BENCHMARKS.md).
 

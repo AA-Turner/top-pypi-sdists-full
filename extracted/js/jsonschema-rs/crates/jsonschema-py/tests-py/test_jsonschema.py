@@ -19,10 +19,12 @@ from jsonschema_rs import (
     Registry,
     ValidationError,
     ValidationErrorKind,
+    evaluate,
     is_valid,
     iter_errors,
     validate,
     validator_for,
+    validator_map_for,
 )
 
 json = st.recursive(
@@ -214,6 +216,44 @@ def test_cycle_after_a_deep_sibling_stays_valid(prefix):
         innermost = innermost["next"]
     innermost["next"] = target
     assert is_valid(RECURSIVE_OBJECT_SCHEMA, instance)
+
+
+def chain(length):
+    outermost = {}
+    innermost = outermost
+    for _ in range(length):
+        innermost["next"] = {}
+        innermost = innermost["next"]
+    return outermost, innermost
+
+
+# Past the depth where the cycle guard starts counting
+@pytest.mark.parametrize("length", (10, 100))
+def test_self_loop_at_the_end_of_a_chain_stays_valid(length):
+    instance, innermost = chain(length)
+    innermost["next"] = innermost
+    assert is_valid(RECURSIVE_OBJECT_SCHEMA, instance)
+
+
+# Two references are entered for every object on the way down
+TWO_STEP_RECURSIVE_SCHEMA = {
+    "$defs": {
+        "outer": {"$ref": "#/$defs/inner"},
+        "inner": {"type": "object", "additionalProperties": {"$ref": "#/$defs/outer"}},
+    },
+    "$ref": "#/$defs/outer",
+}
+
+
+@pytest.mark.parametrize("length", (10, 100))
+def test_two_references_per_level(length):
+    instance, innermost = chain(length)
+    assert is_valid(TWO_STEP_RECURSIVE_SCHEMA, instance)
+    innermost["next"] = instance
+    assert is_valid(TWO_STEP_RECURSIVE_SCHEMA, instance)
+    innermost["next"] = 1
+    [error] = iter_errors(TWO_STEP_RECURSIVE_SCHEMA, instance)
+    assert error.instance_path == ["next"] * (length + 1)
 
 
 def cyclic_dict():
@@ -438,6 +478,34 @@ def test_nested_validation_keeps_outer_error():
     assert calls == [True]
 
 
+def test_nested_validation_keeps_outer_holding():
+    class Renamed(E.Enum):
+        A = 1
+
+        @property
+        def value(self):
+            return 2
+
+    class Nested:
+        def __init__(self, schema, *args, **kwargs):
+            pass
+
+        def is_valid(self, instance):
+            return is_valid({"type": "string"}, "inner")
+
+        def validate(self, instance):
+            self.is_valid(instance)
+            return iter(())
+
+    # The keyword makes the outer call hold what it reads, the nested call holds nothing, and the
+    # outer call reads the overridden `value` after it
+    validator = validator_for(
+        {"allOf": [{"nested": 1}, {"properties": {"a": {"const": 2}}}]},
+        keywords={"nested": Nested},
+    )
+    assert validator.is_valid({"a": Renamed.A})
+
+
 def test_paths():
     with pytest.raises(ValidationError) as exc:
         validate({"prefixItems": [{"type": "string"}]}, [1])
@@ -470,6 +538,8 @@ def test_validation_error_returns_whole_float_past_2_53(value):
         ({"maxItems": 1}, [1, 2], ValidationErrorKind.MaxItems, {"limit": 1}),
         ({"const": "test"}, "wrong", ValidationErrorKind.Constant, {"expected_value": "test"}),
         ({"contains": {"type": "string"}}, [1, 2, 3], ValidationErrorKind.Contains, {}),
+        ({"contains": {"const": 1}, "minContains": 2}, [1], ValidationErrorKind.MinContains, {"limit": 2}),
+        ({"contains": {"const": 1}, "maxContains": 1}, [1, 1], ValidationErrorKind.MaxContains, {"limit": 1}),
         ({"enum": [1, 2, 3]}, 4, ValidationErrorKind.Enum, {"options": [1, 2, 3]}),
         ({"exclusiveMaximum": 5}, 5, ValidationErrorKind.ExclusiveMaximum, {"limit": 5}),
         ({"exclusiveMinimum": 5}, 5, ValidationErrorKind.ExclusiveMinimum, {"limit": 5}),
@@ -604,7 +674,7 @@ def test_one_of_multiple_valid_with_context():
 @pytest.mark.parametrize(
     "schema,instance,expected_name,draft",
     [
-        # additionalItems is Draft 4/7 only
+        # additionalItems is not a Draft 2020-12 keyword
         ({"additionalItems": False, "items": [{}]}, [1, 2], "additionalItems", Draft7Validator),
         (
             {"type": "object", "properties": {"x": {}}, "additionalProperties": False},
@@ -615,6 +685,8 @@ def test_one_of_multiple_valid_with_context():
         ({"anyOf": [{"type": "string"}, {"type": "number"}]}, True, "anyOf", None),
         ({"const": "test"}, "wrong", "const", None),
         ({"contains": {"type": "string"}}, [1, 2, 3], "contains", None),
+        ({"contains": {"const": 1}, "minContains": 2}, [1], "minContains", None),
+        ({"contains": {"const": 1}, "maxContains": 1}, [1, 1], "maxContains", None),
         ({"enum": [1, 2, 3]}, 4, "enum", None),
         ({"exclusiveMaximum": 5}, 5, "exclusiveMaximum", None),
         ({"exclusiveMinimum": 5}, 5, "exclusiveMinimum", None),
@@ -665,11 +737,78 @@ def test_kind_name(schema, instance, expected_name, draft):
         ({"required": ["foo"]}, {}, "foo"),
         ({"multipleOf": 3}, 5, 3.0),
         ({"format": "email"}, "bad", "email"),
+        ({"properties": {"x": {}}, "additionalProperties": False}, {"a": 1}, ["a"]),
+        ({"unevaluatedProperties": False}, {"a": 1}, ["a"]),
+        ({"unevaluatedItems": False}, [1], ["1"]),
+        ({"exclusiveMaximum": 3}, 3, 3),
+        ({"exclusiveMinimum": 3}, 3, 3),
+        ({"maxItems": 1}, [1, 2], 1),
+        ({"minItems": 1}, [], 1),
+        ({"maxProperties": 0}, {"a": 1}, 0),
+        ({"minProperties": 1}, {}, 1),
+        ({"not": {"type": "integer"}}, 5, {"type": "integer"}),
     ],
 )
 def test_kind_value(schema, instance, expected_value):
     errors = list(iter_errors(schema, instance, validate_formats=True))
     assert errors[0].kind.value == expected_value
+
+
+# Keywords Draft 7 asserts and later drafts read differently or only annotate.
+@pytest.mark.parametrize(
+    "schema,instance,expected_name,expected_value,expected_dict",
+    [
+        ({"items": [{}], "additionalItems": False}, [1, 2], "additionalItems", 1, {"limit": 1}),
+        ({"contentEncoding": "base64"}, "!!", "contentEncoding", "base64", {"content_encoding": "base64"}),
+        (
+            {"contentMediaType": "application/json"},
+            "{",
+            "contentMediaType",
+            "application/json",
+            {"content_media_type": "application/json"},
+        ),
+        (
+            {"contentEncoding": "base64", "contentMediaType": "application/json"},
+            "/w==",
+            "contentEncoding",
+            "invalid utf-8 sequence of 1 bytes from index 0",
+            {"error": "invalid utf-8 sequence of 1 bytes from index 0"},
+        ),
+    ],
+)
+def test_kind_payload_draft7(schema, instance, expected_name, expected_value, expected_dict):
+    [error] = Draft7Validator(schema).iter_errors(instance)
+    assert error.kind.name == expected_name
+    assert error.kind.value == expected_value
+    assert error.kind.as_dict() == expected_dict
+
+
+@pytest.mark.parametrize(
+    "schema,instance,expected_messages",
+    [
+        (
+            {"anyOf": [{"type": "string"}, {"minimum": 5}]},
+            1,
+            [['1 is not of type "string"'], ["1 is less than the minimum of 5"]],
+        ),
+        (
+            {"oneOf": [{"type": "string"}, {"minimum": 5}]},
+            1,
+            [['1 is not of type "string"'], ["1 is less than the minimum of 5"]],
+        ),
+        ({"oneOf": [{"type": "integer"}, {"minimum": 0}]}, 1, [[], []]),
+    ],
+)
+def test_kind_context_lists_each_branch(schema, instance, expected_messages):
+    [error] = iter_errors(schema, instance)
+    for context in (error.kind.value, error.kind.as_dict()["context"]):
+        assert [[inner.message for inner in branch] for branch in context] == expected_messages
+
+
+def test_kind_property_names_carries_the_name_error():
+    [error] = iter_errors({"propertyNames": {"maxLength": 1}}, {"ab": 1})
+    assert error.kind.value.message == '"ab" is longer than 1 character'
+    assert error.kind.as_dict()["error"].message == '"ab" is longer than 1 character'
 
 
 @pytest.mark.parametrize(
@@ -695,10 +834,17 @@ def test_kind_value_none(schema, instance):
         ({"contains": {"type": "string"}}, [1], {}),
         (False, 1, {}),
         ({"uniqueItems": True}, [1, 1], {}),
+        ({"properties": {"x": {}}, "additionalProperties": False}, {"a": 1}, {"unexpected": ["a"]}),
+        ({"const": 1}, 2, {"expected_value": 1}),
+        ({"enum": [1, 2]}, 3, {"options": [1, 2]}),
+        ({"format": "email"}, "bad", {"format": "email"}),
+        ({"maxItems": 1}, [1, 2], {"limit": 1}),
+        ({"multipleOf": 3}, 5, {"multiple_of": 3}),
+        ({"not": {"type": "integer"}}, 5, {"schema": {"type": "integer"}}),
     ],
 )
 def test_kind_as_dict(schema, instance, expected_dict):
-    errors = list(iter_errors(schema, instance))
+    errors = list(iter_errors(schema, instance, validate_formats=True))
     assert errors[0].kind.as_dict() == expected_dict
 
 
@@ -753,7 +899,7 @@ def test_invalid_value(method):
 
 
 def test_invalid_schema_keyword():
-    # Use a genuinely invalid/unknown meta-schema URL
+    # An unknown meta-schema URI
     schema = {"$schema": "https://json-schema.org/draft-99/schema"}
     with pytest.raises(ValidationError, match="Unknown meta-schema: 'https://json-schema.org/draft-99/schema'"):
         validator_for(schema)
@@ -936,10 +1082,16 @@ def test_lookup_through_raising_key_comparison_is_a_miss():
 
 
 def test_dict_with_non_str_keys(backend):
-    schema = {"type": "object"}
+    schema = {"properties": {"a": {"type": "string"}}}
     instance = {uuid.uuid4(): "foo"}
     with pytest.raises(ValueError, match="Dict key must be str or str enum. Got 'UUID'"):
         backend.validate(schema, instance)
+
+
+# Keys are checked where validation reads them
+@pytest.mark.parametrize("instance", [{uuid.uuid4(): "foo"}, {"a": {uuid.uuid4(): "foo"}}], ids=["root", "nested"])
+def test_unread_non_str_keys_are_accepted(backend, instance):
+    assert backend.is_valid({"type": "object"}, instance)
 
 
 class MyDict(dict):
@@ -1479,7 +1631,7 @@ def test_large_number_validation_error_attributes(schema, instance):
     ],
 )
 def test_float_precision_from_string_schema(instance, expected):
-    # Schema values are no longer converted to f64, maintaining better precision
+    # Schema numbers keep their decimal precision
     validator = validator_for('{"multipleOf": 0.01}')
     assert validator.is_valid(instance) == expected
 
@@ -1527,7 +1679,6 @@ def test_decimal_in_schema():
 )
 def test_large_integer_type_validation_all_drafts(validator_cls, value):
     # Large integers outside i64/u64 range should be valid for type: integer in all drafts
-    # This was a bug where Draft4Validator specifically rejected these values
     validator = validator_cls({"type": "integer"})
     assert validator.is_valid(value), f"{validator_cls.__name__} should accept {value} as integer"
 
@@ -1592,3 +1743,43 @@ def test_non_finite_numbers_in_typed_subschemas(schema, instance, expected):
     validator = validator_for(schema)
     assert validator.is_valid(instance) is expected
     assert (next(validator.iter_errors(instance), None) is None) is expected
+
+
+def test_unknown_draft():
+    with pytest.raises(ValueError, match="^Unknown draft: 99$"):
+        is_valid({}, 1, draft=99)
+
+
+@pytest.mark.parametrize(
+    "kwargs,message",
+    [
+        ({"email_options": 1}, "email_options must be an instance of EmailOptions"),
+        ({"http_options": 1}, "http_options must be an instance of HttpOptions"),
+    ],
+)
+def test_options_of_the_wrong_type(kwargs, message):
+    with pytest.raises(TypeError, match=f"^{message}$"):
+        validator_for({}, **kwargs)
+
+
+@pytest.mark.parametrize(
+    "build",
+    [
+        lambda schema: list(iter_errors(schema, 1)),
+        lambda schema: evaluate(schema, 1),
+        lambda schema: validator_map_for(schema),
+    ],
+    ids=["iter_errors", "evaluate", "validator_map_for"],
+)
+def test_invalid_schema_is_reported_by_every_entry_point(build):
+    with pytest.raises(ValidationError) as exc:
+        build({"type": "nope"})
+    assert exc.value.instance_path == ["type"]
+
+
+@pytest.mark.parametrize(
+    "instance,expected",
+    [(Decimal("1e-400"), False), (Decimal("-1e-400"), False), (Decimal("0.5"), False), (2**65, True), (0, True)],
+)
+def test_multiple_of_integer_divisor_past_u64(instance, expected):
+    assert is_valid({"multipleOf": 2**64}, instance) is expected

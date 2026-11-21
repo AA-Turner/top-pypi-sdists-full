@@ -1,6 +1,8 @@
 import base64
 import polars as pl
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 from importlib_resources import files
 
 import pytest
@@ -34,15 +36,15 @@ def test_val_fmt_image_multiple(img_paths: Path):
 
 def test_val_fmt_engineering_single():
     result = vals.fmt_engineering(1234.5, decimals=2)
-    assert result == ["1.23 × 10<sup style='font-size: 65%;'>3</sup>"]
+    assert result == ["1.23&nbsp;×&nbsp;10<sup style='font-size: 65%;'>3</sup>"]
 
 
 def test_val_fmt_engineering_multiple():
     result = vals.fmt_engineering([1234.5, 0.000123, 1e6], decimals=2)
     assert result == [
-        "1.23 × 10<sup style='font-size: 65%;'>3</sup>",
-        "123.00 × 10<sup style='font-size: 65%;'>−6</sup>",
-        "1.00 × 10<sup style='font-size: 65%;'>6</sup>",
+        "1.23&nbsp;×&nbsp;10<sup style='font-size: 65%;'>3</sup>",
+        "123.00&nbsp;×&nbsp;10<sup style='font-size: 65%;'>−6</sup>",
+        "1.00&nbsp;×&nbsp;10<sup style='font-size: 65%;'>6</sup>",
     ]
 
 
@@ -62,6 +64,11 @@ def test_val_fmt_number():
 def test_val_fmt_integer():
     assert vals.fmt_integer(42) == ["42"]
     assert vals.fmt_integer([0, -5, 1000]) == ["0", "−5", "1,000"]
+
+
+@pytest.mark.usefixtures("no_polars_import")
+def test_val_fmt_integer_without_polars():
+    assert vals.fmt_integer([2.4, None]) == ["2", None]
 
 
 def test_val_fmt_scientific():
@@ -110,6 +117,52 @@ def test_val_fmt_date():
 def test_val_fmt_time():
     result = vals.fmt_time("14:30:00")
     assert result == ["14:30:00"]
+
+
+def test_val_fmt_number_big_int():
+    # polars made integers too big for any integer type null (BUGS.md #96)
+    assert vals.fmt_number(10**40, decimals=0) == [
+        "10,000,000,000,000,000,000,000,000,000,000,000,000,000"
+    ]
+    assert vals.fmt_number([1, 10**40], decimals=0) == [
+        "1",
+        "10,000,000,000,000,000,000,000,000,000,000,000,000,000",
+    ]
+
+
+def test_val_fmt_markdown_bool_and_int():
+    # polars made `True` the integer 1
+    assert vals.fmt_markdown([True, 2]) == ["True", "2"]
+
+
+def test_val_fmt_datetime_fixed_offset():
+    # polars converted a fixed UTC offset to UTC, which moved the date to the next day
+    x = datetime(2000, 2, 29, 23, 30, tzinfo=timezone(timedelta(hours=-5)))
+
+    assert vals.fmt_date(x) == ["2000-02-29"]
+    assert vals.fmt_time(x) == ["23:30:00"]
+    assert vals.fmt_datetime(x) == ["2000-02-29 23:30:00"]
+    assert vals.fmt_datetime(x, format_str="HH:mm xxx") == ["23:30 -05:00"]
+
+
+def test_val_fmt_datetime_mixed_zones():
+    # polars raised for datetimes in different time zones, or naive and aware ones
+    x = [
+        datetime(2000, 2, 29, 23, 30, tzinfo=ZoneInfo("America/New_York")),
+        datetime(2000, 2, 29, 23, 30, tzinfo=ZoneInfo("Asia/Tokyo")),
+    ]
+
+    assert vals.fmt_datetime(x, format_str="HH:mm zzzz") == [
+        "23:30 Eastern Standard Time",
+        "23:30 Japan Standard Time",
+    ]
+
+    x = [datetime(2000, 2, 29, 23, 30), datetime(2000, 2, 29, 23, 30, tzinfo=timezone.utc)]
+
+    assert vals.fmt_datetime(x, format_str="yyyy-MM-dd HH:mm") == [
+        "2000-02-29 23:30",
+        "2000-02-29 23:30",
+    ]
 
 
 def test_val_fmt_markdown():

@@ -378,7 +378,6 @@ impl NetworkClient {
 
     /// A bounded request without redirects or response content in diagnostics.
     /// The origin or an intermediary can echo sensitive request data in an error.
-    #[cfg(all(test, feature = "reqwest", not(feature = "custom_network_provider")))]
     pub(crate) async fn request_once_with_redacted_response(
         &self,
         method: HttpMethod,

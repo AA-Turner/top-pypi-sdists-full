@@ -26574,6 +26574,477 @@ class CfnExperimentTrialComponentProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_sagemaker_2f7a2e3e.IExtensionRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnExtension(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_sagemaker.CfnExtension",
+):
+    '''Resource Type definition for AWS::SageMaker::Extension.
+
+    An extension is a versioned software package that Amazon SageMaker HyperPod installs and manages on the nodes of a HyperPod cluster. For example, the sagemaker-observability extension collects metrics from your cluster.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-extension.html
+    :cloudformationResource: AWS::SageMaker::Extension
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_sagemaker as sagemaker
+        
+        cfn_extension = sagemaker.CfnExtension(self, "MyCfnExtension",
+            cluster_arn="clusterArn",
+            extension_name="extensionName",
+        
+            # the properties below are optional
+            configuration_values="configurationValues",
+            extension_version="extensionVersion",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        cluster_arn: builtins.str,
+        extension_name: builtins.str,
+        configuration_values: typing.Optional[builtins.str] = None,
+        extension_version: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::SageMaker::Extension``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param cluster_arn: The Amazon Resource Name (ARN) of the Amazon SageMaker HyperPod cluster to install the extension on.
+        :param extension_name: The name of the extension to install, such as sagemaker-observability. You can't install the same extension twice on a cluster.
+        :param configuration_values: The configuration settings for the extension, as a JSON string. The settings must match the configuration schema for the extension version. For each setting that you don't specify, SageMaker HyperPod uses its default value. When you update the stack, SageMaker HyperPod applies the settings in the string to the current configuration. Settings that you leave out keep their current values. To restore the default value of a setting, set it to null. To write the settings as YAML or JSON in your template, use the Fn::ToJsonString intrinsic function with the AWS::LanguageExtensions transform. The JSON string can be up to 10,240 characters long.
+        :param extension_version: The version of the extension to install, such as 1.0.0. When you create the extension without a version, SageMaker HyperPod installs the latest generally available version. If the extension doesn't have a generally available version, you must specify one. If you remove this property from your template during a stack update, the installed version doesn't change. You can't downgrade an extension. To install an earlier version, delete the extension and create it again.
+        :param tags: The tags to add to the extension. You can add up to 50 tags.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fcb6998e1e34154ef3fa40237c79eb9c24fb136ce943292ed23de301e13e5b01)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnExtensionProps(
+            cluster_arn=cluster_arn,
+            extension_name=extension_name,
+            configuration_values=configuration_values,
+            extension_version=extension_version,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForExtension")
+    @builtins.classmethod
+    def arn_for_extension(
+        cls,
+        resource: "_aws_sagemaker_2f7a2e3e.IExtensionRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1083199bfe0b2fea401f8fc2a870106f25687f5b8dbc2a0ee277960aa1cf8851)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForExtension", [resource]))
+
+    @jsii.member(jsii_name="isCfnExtension")
+    @builtins.classmethod
+    def is_cfn_extension(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnExtension.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5b5ab1c84d848a19baea1c2eeb32d47183be6f0dd2025043c1b2e863d991d2f6)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnExtension", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e894055d3ed71e259da5a286a388bf663c15565be8af20e96d6311ba200e32e6)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b48aeb32425ee2c68e2139ac858ac9323a91a185015a350216faea7e71f7c6db)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreationTime")
+    def attr_creation_time(self) -> builtins.str:
+        '''The date and time that you created the extension.
+
+        :cloudformationAttribute: CreationTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreationTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrExtensionArn")
+    def attr_extension_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the extension.
+
+        :cloudformationAttribute: ExtensionArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrExtensionArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastModifiedTime")
+    def attr_last_modified_time(self) -> builtins.str:
+        '''The date and time of the most recent change to the extension.
+
+        :cloudformationAttribute: LastModifiedTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrNodeSummary")
+    def attr_node_summary(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The number of cluster nodes that the extension applies to, and how many of them run the requested extension version.
+
+        :cloudformationAttribute: NodeSummary
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrNodeSummary"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The current status of the extension.
+
+        CloudFormation doesn't wait for the extension to finish installing or updating on the cluster nodes. To check progress, use Status and NodeSummary.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="extensionRef")
+    def extension_ref(self) -> "_aws_sagemaker_2f7a2e3e.ExtensionReference":
+        '''A reference to a Extension resource.'''
+        return typing.cast("_aws_sagemaker_2f7a2e3e.ExtensionReference", jsii.get(self, "extensionRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="clusterArn")
+    def cluster_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the Amazon SageMaker HyperPod cluster to install the extension on.'''
+        return typing.cast(builtins.str, jsii.get(self, "clusterArn"))
+
+    @cluster_arn.setter
+    def cluster_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6d814f5a1d134d6360ae375ae271ee303ac0689cacb2f9647f8f3a40305598cc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "clusterArn", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="extensionName")
+    def extension_name(self) -> builtins.str:
+        '''The name of the extension to install, such as sagemaker-observability.'''
+        return typing.cast(builtins.str, jsii.get(self, "extensionName"))
+
+    @extension_name.setter
+    def extension_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__551cf933774dfc84ae216d07af19828aad8ef4ff5657c48d6c4260d4de78b1a4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "extensionName", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="configurationValues")
+    def configuration_values(self) -> typing.Optional[builtins.str]:
+        '''The configuration settings for the extension, as a JSON string.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "configurationValues"))
+
+    @configuration_values.setter
+    def configuration_values(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__67357fcab3c6a07df700bad6fcaa96f71b355055cf34cd889de4b644641d84a5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "configurationValues", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="extensionVersion")
+    def extension_version(self) -> typing.Optional[builtins.str]:
+        '''The version of the extension to install, such as 1.0.0. When you create the extension without a version, SageMaker HyperPod installs the latest generally available version. If the extension doesn't have a generally available version, you must specify one. If you remove this property from your template during a stack update, the installed version doesn't change. You can't downgrade an extension. To install an earlier version, delete the extension and create it again.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "extensionVersion"))
+
+    @extension_version.setter
+    def extension_version(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0eb78d271c75beb811651391ce5f6a328cfcc11da426ffe1ee499cef07b5531f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "extensionVersion", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags to add to the extension.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ce521b88b24d41e2620b5f15575bd249978a8e6725d5065ff222968c39a41c54)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnExtension.ExtensionNodeSummaryProperty",
+        jsii_struct_bases=[],
+        name_mapping={"active_count": "activeCount", "total_count": "totalCount"},
+    )
+    class ExtensionNodeSummaryProperty:
+        def __init__(
+            self,
+            *,
+            active_count: jsii.Number,
+            total_count: jsii.Number,
+        ) -> None:
+            '''The number of cluster nodes that the extension applies to, and how many of them run the requested extension version.
+
+            :param active_count: The number of cluster nodes that run the requested extension version.
+            :param total_count: The number of cluster nodes that the extension applies to.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-extension-extensionnodesummary.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                extension_node_summary_property = sagemaker.CfnExtension.ExtensionNodeSummaryProperty(
+                    active_count=123,
+                    total_count=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__1f24dd45ec5e195356b5f5f8ebb3e2e8110081399ab1113f21051a706fd103e5)
+                check_type(argname="argument active_count", value=active_count, expected_type=type_hints["active_count"])
+                check_type(argname="argument total_count", value=total_count, expected_type=type_hints["total_count"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "active_count": active_count,
+                "total_count": total_count,
+            }
+
+        @builtins.property
+        def active_count(self) -> jsii.Number:
+            '''The number of cluster nodes that run the requested extension version.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-extension-extensionnodesummary.html#cfn-sagemaker-extension-extensionnodesummary-activecount
+            '''
+            result = self._values.get("active_count")
+            assert result is not None, "Required property 'active_count' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def total_count(self) -> jsii.Number:
+            '''The number of cluster nodes that the extension applies to.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-extension-extensionnodesummary.html#cfn-sagemaker-extension-extensionnodesummary-totalcount
+            '''
+            result = self._values.get("total_count")
+            assert result is not None, "Required property 'total_count' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ExtensionNodeSummaryProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_sagemaker.CfnExtensionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "cluster_arn": "clusterArn",
+        "extension_name": "extensionName",
+        "configuration_values": "configurationValues",
+        "extension_version": "extensionVersion",
+        "tags": "tags",
+    },
+)
+class CfnExtensionProps:
+    def __init__(
+        self,
+        *,
+        cluster_arn: builtins.str,
+        extension_name: builtins.str,
+        configuration_values: typing.Optional[builtins.str] = None,
+        extension_version: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnExtension``.
+
+        :param cluster_arn: The Amazon Resource Name (ARN) of the Amazon SageMaker HyperPod cluster to install the extension on.
+        :param extension_name: The name of the extension to install, such as sagemaker-observability. You can't install the same extension twice on a cluster.
+        :param configuration_values: The configuration settings for the extension, as a JSON string. The settings must match the configuration schema for the extension version. For each setting that you don't specify, SageMaker HyperPod uses its default value. When you update the stack, SageMaker HyperPod applies the settings in the string to the current configuration. Settings that you leave out keep their current values. To restore the default value of a setting, set it to null. To write the settings as YAML or JSON in your template, use the Fn::ToJsonString intrinsic function with the AWS::LanguageExtensions transform. The JSON string can be up to 10,240 characters long.
+        :param extension_version: The version of the extension to install, such as 1.0.0. When you create the extension without a version, SageMaker HyperPod installs the latest generally available version. If the extension doesn't have a generally available version, you must specify one. If you remove this property from your template during a stack update, the installed version doesn't change. You can't downgrade an extension. To install an earlier version, delete the extension and create it again.
+        :param tags: The tags to add to the extension. You can add up to 50 tags.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-extension.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_sagemaker as sagemaker
+            
+            cfn_extension_props = sagemaker.CfnExtensionProps(
+                cluster_arn="clusterArn",
+                extension_name="extensionName",
+            
+                # the properties below are optional
+                configuration_values="configurationValues",
+                extension_version="extensionVersion",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__811d4559433b491f4a0afaf6d3c6b93a8aeafa3942ac13e81ffbfca497878f4b)
+            check_type(argname="argument cluster_arn", value=cluster_arn, expected_type=type_hints["cluster_arn"])
+            check_type(argname="argument extension_name", value=extension_name, expected_type=type_hints["extension_name"])
+            check_type(argname="argument configuration_values", value=configuration_values, expected_type=type_hints["configuration_values"])
+            check_type(argname="argument extension_version", value=extension_version, expected_type=type_hints["extension_version"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "cluster_arn": cluster_arn,
+            "extension_name": extension_name,
+        }
+        if configuration_values is not None:
+            self._values["configuration_values"] = configuration_values
+        if extension_version is not None:
+            self._values["extension_version"] = extension_version
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def cluster_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the Amazon SageMaker HyperPod cluster to install the extension on.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-extension.html#cfn-sagemaker-extension-clusterarn
+        '''
+        result = self._values.get("cluster_arn")
+        assert result is not None, "Required property 'cluster_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def extension_name(self) -> builtins.str:
+        '''The name of the extension to install, such as sagemaker-observability.
+
+        You can't install the same extension twice on a cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-extension.html#cfn-sagemaker-extension-extensionname
+        '''
+        result = self._values.get("extension_name")
+        assert result is not None, "Required property 'extension_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def configuration_values(self) -> typing.Optional[builtins.str]:
+        '''The configuration settings for the extension, as a JSON string.
+
+        The settings must match the configuration schema for the extension version. For each setting that you don't specify, SageMaker HyperPod uses its default value. When you update the stack, SageMaker HyperPod applies the settings in the string to the current configuration. Settings that you leave out keep their current values. To restore the default value of a setting, set it to null. To write the settings as YAML or JSON in your template, use the Fn::ToJsonString intrinsic function with the AWS::LanguageExtensions transform. The JSON string can be up to 10,240 characters long.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-extension.html#cfn-sagemaker-extension-configurationvalues
+        '''
+        result = self._values.get("configuration_values")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def extension_version(self) -> typing.Optional[builtins.str]:
+        '''The version of the extension to install, such as 1.0.0. When you create the extension without a version, SageMaker HyperPod installs the latest generally available version. If the extension doesn't have a generally available version, you must specify one. If you remove this property from your template during a stack update, the installed version doesn't change. You can't downgrade an extension. To install an earlier version, delete the extension and create it again.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-extension.html#cfn-sagemaker-extension-extensionversion
+        '''
+        result = self._values.get("extension_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags to add to the extension.
+
+        You can add up to 50 tags.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-extension.html#cfn-sagemaker-extension-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnExtensionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_sagemaker_2f7a2e3e.IFeatureGroupRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnFeatureGroup(
     _aws_cdk_0cae9daa.CfnResource,
@@ -71450,6 +71921,8 @@ __all__ = [
     "CfnExperimentProps",
     "CfnExperimentTrialComponent",
     "CfnExperimentTrialComponentProps",
+    "CfnExtension",
+    "CfnExtensionProps",
     "CfnFeatureGroup",
     "CfnFeatureGroupProps",
     "CfnHub",
@@ -74715,6 +75188,92 @@ def _typecheckingstub__d2412b86a470e09397ace7a0296b45fee7c4539825f2ee2084ea45ddf
     start_time: typing.Optional[builtins.str] = None,
     status: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnExperimentTrialComponent.StatusProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[CfnExperimentTrialComponent.TagsItemsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fcb6998e1e34154ef3fa40237c79eb9c24fb136ce943292ed23de301e13e5b01(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    cluster_arn: builtins.str,
+    extension_name: builtins.str,
+    configuration_values: typing.Optional[builtins.str] = None,
+    extension_version: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1083199bfe0b2fea401f8fc2a870106f25687f5b8dbc2a0ee277960aa1cf8851(
+    resource: _aws_sagemaker_2f7a2e3e.IExtensionRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5b5ab1c84d848a19baea1c2eeb32d47183be6f0dd2025043c1b2e863d991d2f6(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e894055d3ed71e259da5a286a388bf663c15565be8af20e96d6311ba200e32e6(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b48aeb32425ee2c68e2139ac858ac9323a91a185015a350216faea7e71f7c6db(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6d814f5a1d134d6360ae375ae271ee303ac0689cacb2f9647f8f3a40305598cc(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__551cf933774dfc84ae216d07af19828aad8ef4ff5657c48d6c4260d4de78b1a4(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__67357fcab3c6a07df700bad6fcaa96f71b355055cf34cd889de4b644641d84a5(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0eb78d271c75beb811651391ce5f6a328cfcc11da426ffe1ee499cef07b5531f(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ce521b88b24d41e2620b5f15575bd249978a8e6725d5065ff222968c39a41c54(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1f24dd45ec5e195356b5f5f8ebb3e2e8110081399ab1113f21051a706fd103e5(
+    *,
+    active_count: jsii.Number,
+    total_count: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__811d4559433b491f4a0afaf6d3c6b93a8aeafa3942ac13e81ffbfca497878f4b(
+    *,
+    cluster_arn: builtins.str,
+    extension_name: builtins.str,
+    configuration_values: typing.Optional[builtins.str] = None,
+    extension_version: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

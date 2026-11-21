@@ -1,12 +1,16 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Reusable helpers for HWPX table discovery and form-like navigation."""
+"""The table map: every table of a document in document order, with its cells' text.
+
+Finding a cell by the label next to it (``find_cell_by_label``, ``form_slots``,
+``fill_by_path``) guesses what a form means and moved to python-hwpx-automation in
+7.0 (``hwpx_automation.forms``). The map stays: it reports what the file holds.
+"""
 
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal, TypedDict
+from typing import TYPE_CHECKING, TypedDict
 
 from ..oxml import HwpxOxmlParagraph, HwpxOxmlTable
 from ..oxml._document_primitives import _text_element_content
@@ -15,27 +19,14 @@ if TYPE_CHECKING:
     from ..document import HwpxDocument
 
 __all__ = [
-    "PathDirection",
-    "SearchDirection",
-    "TableCellReference",
-    "TableFillApplied",
-    "TableFillFailed",
-    "TableFillResult",
-    "TableLabelMatch",
-    "TableLabelSearchResult",
     "TableMapEntry",
     "TableMapResult",
-    "fill_by_path",
-    "find_cell_by_label",
     "get_table_map",
 ]
 
 _HP_NS = "http://www.hancom.co.kr/hwpml/2011/paragraph"
 _HP = f"{{{_HP_NS}}}"
 _WHITESPACE_RE = re.compile(r"\s+")
-
-SearchDirection = Literal["right", "down"]
-PathDirection = Literal["left", "right", "up", "down"]
 
 
 class TableMapEntry(TypedDict):
@@ -60,55 +51,6 @@ class TableMapResult(TypedDict):
     tables: list[TableMapEntry]
 
 
-class TableCellReference(TypedDict):
-    """A logical table cell position and its current text."""
-
-    row: int
-    col: int
-    text: str
-
-
-class TableLabelMatch(TypedDict):
-    """A label cell and the cell reached from it."""
-
-    table_index: int
-    label_cell: TableCellReference
-    target_cell: TableCellReference
-
-
-class TableLabelSearchResult(TypedDict):
-    """Result payload returned by :func:`find_cell_by_label`."""
-
-    matches: list[TableLabelMatch]
-    count: int
-
-
-class TableFillApplied(TypedDict):
-    """A successfully applied path-based fill operation."""
-
-    path: str
-    table_index: int
-    row: int
-    col: int
-    value: str
-
-
-class TableFillFailed(TypedDict):
-    """A failed path-based fill operation and its reason."""
-
-    path: str
-    reason: str
-
-
-class TableFillResult(TypedDict):
-    """Batch fill summary for :func:`fill_by_path`."""
-
-    applied: list[TableFillApplied]
-    failed: list[TableFillFailed]
-    applied_count: int
-    failed_count: int
-
-
 @dataclass(frozen=True, slots=True)
 class _AnchoredTable:
     table: HwpxOxmlTable
@@ -128,24 +70,8 @@ class _IndexedTable:
     header_text: str
 
 
-@dataclass(frozen=True, slots=True)
-class _LabelCandidate:
-    table_index: int
-    table: HwpxOxmlTable
-    row: int
-    col: int
-    text: str
-
-
 def _collapse_whitespace(value: str) -> str:
     return _WHITESPACE_RE.sub(" ", value).strip()
-
-
-def _normalize_label_text(value: str) -> str:
-    normalized = _collapse_whitespace(value).casefold()
-    while normalized.endswith((":", "：")):
-        normalized = normalized[:-1].rstrip()
-    return normalized
 
 
 def _direct_paragraph_text(paragraph: HwpxOxmlParagraph) -> str:
@@ -342,92 +268,6 @@ def _table_cells(table_ref: _IndexedTable) -> list[dict[str, object]]:
     return cells
 
 
-def _direction_delta(direction: PathDirection) -> tuple[int, int]:
-    if direction == "right":
-        return (0, 1)
-    if direction == "left":
-        return (0, -1)
-    if direction == "down":
-        return (1, 0)
-    return (-1, 0)
-
-
-def _move(
-    table: HwpxOxmlTable,
-    row_index: int,
-    col_index: int,
-    direction: PathDirection,
-) -> tuple[int, int] | None:
-    # A direction crosses the current physical cell's edge. Moving one grid
-    # slot could otherwise stay inside a merged label and overwrite the label.
-    grid = table.get_cell_map()
-    current = grid[row_index][col_index]
-    anchor_row, anchor_col = current.anchor
-    row_delta, col_delta = _direction_delta(direction)
-    target_row = anchor_row + (current.row_span if row_delta > 0 else row_delta)
-    target_col = anchor_col + (current.col_span if col_delta > 0 else col_delta)
-    if target_row < 0 or target_col < 0:
-        return None
-    if target_row >= table.row_count or target_col >= table.column_count:
-        return None
-    return grid[target_row][target_col].anchor
-
-
-def _find_label_candidates(
-    tables: list[_IndexedTable],
-    label_text: str,
-) -> list[_LabelCandidate]:
-    normalized_label = _normalize_label_text(label_text)
-    if not normalized_label:
-        raise ValueError("label_text must contain at least one non-whitespace character")
-
-    candidates: list[_LabelCandidate] = []
-    for table_ref in tables:
-        # Count physical cells, not every logical slot occupied by a merge.
-        # Distinct cells with the same label remain ambiguous.
-        for position in table_ref.table.iter_grid():
-            if not position.is_anchor:
-                continue
-            row_index, col_index = position.anchor
-            cell_text = _cell_text(table_ref.table, row_index, col_index)
-            if _normalize_label_text(cell_text) != normalized_label:
-                continue
-            candidates.append(
-                _LabelCandidate(
-                    table_index=table_ref.table_index,
-                    table=table_ref.table,
-                    row=row_index,
-                    col=col_index,
-                    text=cell_text,
-                )
-            )
-    return candidates
-
-
-def _cell_reference(
-    table: HwpxOxmlTable,
-    row_index: int,
-    col_index: int,
-) -> TableCellReference:
-    return {
-        "row": row_index,
-        "col": col_index,
-        "text": _cell_text(table, row_index, col_index),
-    }
-
-
-def _parse_path(path: str) -> tuple[str | None, list[str], str | None]:
-    tokens = [token.strip() for token in path.split(">")]
-    if not tokens or not tokens[0]:
-        return (None, [], "path must start with a label")
-
-    label_text = tokens[0]
-    raw_directions = [token for token in tokens[1:] if token]
-    if not raw_directions:
-        return (label_text, [], "path must include at least one direction")
-    return (label_text, raw_directions, None)
-
-
 def get_table_map(document: HwpxDocument) -> TableMapResult:
     """Return compact metadata for every table in document order."""
 
@@ -451,112 +291,12 @@ def get_table_map(document: HwpxDocument) -> TableMapResult:
     return {"tables": tables}
 
 
-def find_cell_by_label(
-    document: HwpxDocument,
-    label_text: str,
-    direction: SearchDirection = "right",
-) -> TableLabelSearchResult:
-    """Find label cells and return the adjacent target cells that remain in bounds."""
+def __getattr__(name: str) -> object:
+    """이름표로 칸 찾기(7.0에서 ``hwpx_automation.forms``로 옮김)의 이름이면 새 자리를 알려 준다."""
 
-    if direction not in {"right", "down"}:
-        raise ValueError("direction must be one of: right, down")
+    from .._moved_modules import moved_name_error
 
-    matches: list[TableLabelMatch] = []
-    for candidate in _find_label_candidates(_collect_document_tables(document), label_text):
-        target = _move(candidate.table, candidate.row, candidate.col, direction)
-        if target is None:
-            continue
-        target_row, target_col = target
-        matches.append(
-            {
-                "table_index": candidate.table_index,
-                "label_cell": {
-                    "row": candidate.row,
-                    "col": candidate.col,
-                    "text": candidate.text,
-                },
-                "target_cell": _cell_reference(candidate.table, target_row, target_col),
-            }
-        )
-
-    return {
-        "matches": matches,
-        "count": len(matches),
-    }
-
-
-def fill_by_path(
-    document: HwpxDocument,
-    mappings: Mapping[str, str],
-) -> TableFillResult:
-    """Fill multiple table cells using label-based navigation paths."""
-
-    indexed_tables = _collect_document_tables(document)
-    applied: list[TableFillApplied] = []
-    failed: list[TableFillFailed] = []
-
-    for path, value in mappings.items():
-        label_text, raw_directions, path_error = _parse_path(path)
-        if path_error is not None or label_text is None:
-            failed.append({"path": path, "reason": path_error or "invalid path"})
-            continue
-
-        try:
-            candidates = _find_label_candidates(indexed_tables, label_text)
-        except ValueError as exc:
-            failed.append({"path": path, "reason": str(exc)})
-            continue
-
-        if not candidates:
-            failed.append({"path": path, "reason": "label not found"})
-            continue
-        if len(candidates) > 1:
-            failed.append({"path": path, "reason": "ambiguous label"})
-            continue
-
-        candidate = candidates[0]
-        current_row = candidate.row
-        current_col = candidate.col
-        navigation_failed = False
-
-        for raw_direction in raw_directions:
-            direction = raw_direction.casefold()
-            if direction not in {"left", "right", "up", "down"}:
-                failed.append(
-                    {
-                        "path": path,
-                        "reason": f"unsupported direction: {raw_direction}",
-                    }
-                )
-                navigation_failed = True
-                break
-
-            next_position = _move(candidate.table, current_row, current_col, direction)
-            if next_position is None:
-                failed.append({"path": path, "reason": "navigation out of bounds"})
-                navigation_failed = True
-                break
-
-            current_row, current_col = next_position
-
-        if navigation_failed:
-            continue
-
-        text_value = str(value)
-        candidate.table.set_cell_text(current_row, current_col, text_value, logical=True)
-        applied.append(
-            {
-                "path": path,
-                "table_index": candidate.table_index,
-                "row": current_row,
-                "col": current_col,
-                "value": text_value,
-            }
-        )
-
-    return {
-        "applied": applied,
-        "failed": failed,
-        "applied_count": len(applied),
-        "failed_count": len(failed),
-    }
+    moved = moved_name_error(__name__, name)
+    if moved is not None:
+        raise moved
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

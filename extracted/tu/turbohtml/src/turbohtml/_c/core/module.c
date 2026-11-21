@@ -49,6 +49,35 @@ static PyObject *turbohtml_deep_memo_limit_probe(PyObject *module, PyObject *arg
     return PyLong_FromUnsignedLongLong(th_css_deep_memo_limit((size_t)rules, (size_t)nodes));
 }
 
+PyDoc_STRVAR(
+    normalize_doc,
+    "normalize(form, text, /)\n--\n\n"
+    "Return *text* in a Unicode normalization form (UAX #15), the C successor to :func:`unicodedata.normalize`.\n\n"
+    "The four forms pair a decomposition depth with whether the result is recomposed: ``NFD`` fully decomposes "
+    "and\ncanonically orders combining marks, ``NFC`` decomposes then recomposes, and the ``NFK*`` forms "
+    "decompose\ncompatibility equivalents too (folding ligatures, superscripts, and width variants onto their "
+    "plain characters).\n``NFC`` is what you want to compare or store user text so ``\"\xc3\xa9\"`` written as a base "
+    "plus a combining accent equals\n``\"\xc3\xa9\"`` written as one code point; ``NFKC`` additionally flattens "
+    "presentation variants. A quick check returns\nalready-normalized text (the common case) without "
+    "allocating.\n\n"
+    ":param form: the normalization form, one of ``\"NFC\"``, ``\"NFD\"``, ``\"NFKC\"``, ``\"NFKD\"``.\n"
+    ":param text: the string to normalize.\n"
+    ":returns: the normalized string, the same object when it was already normalized.\n"
+    ":raises ValueError: when *form* is not one of the four names.\n"
+    ":raises TypeError: when *text* is not a ``str``.");
+
+PyDoc_STRVAR(is_normalized_doc,
+             "is_normalized(form, text, /)\n--\n\n"
+             "Return whether *text* is already in a Unicode normalization form, the :func:`unicodedata.is_normalized` "
+             "peer.\n\n"
+             "This decides the same question as ``normalize(form, text) == text`` but the quick check settles almost "
+             "every string\nin a single scan, without building the normalized copy.\n\n"
+             ":param form: the normalization form, one of ``\"NFC\"``, ``\"NFD\"``, ``\"NFKC\"``, ``\"NFKD\"``.\n"
+             ":param text: the string to test.\n"
+             ":returns: ``True`` when *text* is unchanged by :func:`normalize` for *form*.\n"
+             ":raises ValueError: when *form* is not one of the four names.\n"
+             ":raises TypeError: when *text* is not a ``str``.");
+
 PyDoc_STRVAR(escape_doc, "escape(s, quote=True)\n--\n\n"
                          "Replace special characters \"&\", \"<\" and \">\" with HTML-safe sequences.\n\n"
                          ":param s: text to escape.\n"
@@ -229,8 +258,9 @@ static PyMethodDef html_methods[] = {
     {"annotation_surface", turbohtml_annotation_surface, METH_VARARGS, annotation_surface_doc},
     {"annotation_tags", turbohtml_annotation_tags, METH_VARARGS, annotation_tags_doc},
     {"_reconstruct", turbohtml_reconstruct, METH_VARARGS, NULL},
+    {"_reconstruct_tree", turbohtml_reconstruct_tree, METH_VARARGS, NULL},
     {"_build_document", (PyCFunction)(void (*)(void))turbohtml_build_document, METH_VARARGS | METH_KEYWORDS, NULL},
-    {"_build_element", turbohtml_build_element, METH_VARARGS, NULL},
+    {"_build_element", (PyCFunction)(void (*)(void))turbohtml_build_element, METH_FASTCALL, NULL},
     {"_tokenize_states", turbohtml_tokenize_states, METH_VARARGS, NULL},
     {"_sax_events", turbohtml_sax_events, METH_O, NULL},
     {"_sax_dispatch", turbohtml_sax_dispatch, METH_VARARGS, NULL},
@@ -263,13 +293,14 @@ static PyMethodDef html_methods[] = {
     {"_minify_js_parse", turbohtml_minify_js_parse, METH_O, NULL},
     {"_decode", turbohtml_decode, METH_VARARGS, NULL},
     {"_boilerplate", turbohtml_extract_boilerplate, METH_VARARGS, NULL},
-    {"_detect", turbohtml_detect_encoding, METH_VARARGS, NULL},
+    {"_detect", (PyCFunction)(void (*)(void))turbohtml_detect_encoding, METH_FASTCALL, NULL},
     {"_detect_rank", turbohtml_detect_rank, METH_VARARGS, NULL},
     {"_detect_language", turbohtml_detect_language, METH_VARARGS, NULL},
     {"_codec_label", turbohtml_codec_label, METH_O, NULL},
-    {"_normalize", turbohtml_normalize, METH_VARARGS, NULL},
+    {"normalize", (PyCFunction)(void (*)(void))turbohtml_normalize, METH_FASTCALL | METH_KEYWORDS, normalize_doc},
     {"_collapse_whitespace", turbohtml_collapse_whitespace, METH_O, NULL},
-    {"_is_normalized", turbohtml_is_normalized, METH_VARARGS, NULL},
+    {"is_normalized", (PyCFunction)(void (*)(void))turbohtml_is_normalized, METH_FASTCALL | METH_KEYWORDS,
+     is_normalized_doc},
     {"_linkify_scan", turbohtml_linkify_scan, METH_VARARGS, NULL},
     {"_linkify_find", turbohtml_linkify_find, METH_VARARGS, NULL},
     {"_linkify_has", turbohtml_linkify_has, METH_VARARGS, NULL},
@@ -426,6 +457,30 @@ static int name_hash_key_init(void) {
     return name_hash_key_status;
 }
 
+#if defined(_WIN32)
+static INIT_ONCE detect_tables_once = INIT_ONCE_STATIC_INIT;
+
+static BOOL CALLBACK detect_tables_build_once(PINIT_ONCE once, PVOID parameter, PVOID *context) {
+    (void)once;
+    (void)parameter;
+    (void)context;
+    th_detect_tables_build();
+    return TRUE;
+}
+#else
+static pthread_once_t detect_tables_once = PTHREAD_ONCE_INIT;
+#endif
+
+/* Built on the first scored detection rather than at import, which most programs never reach; the once primitive
+   publishes the tables to every thread and interpreter, as it does the name hash key. */
+void th_detect_tables_ensure(void) {
+#if defined(_WIN32)
+    InitOnceExecuteOnce(&detect_tables_once, detect_tables_build_once, NULL, NULL);
+#else
+    pthread_once(&detect_tables_once, th_detect_tables_build);
+#endif
+}
+
 static int publish_native_names(PyObject *module) {
     static const char *const names[] = {
         "minify_css",
@@ -488,9 +543,7 @@ static int publish_native_names(PyObject *module) {
         "detect_rank",
         "detect_language",
         "codec_label",
-        "normalize",
         "collapse_whitespace",
-        "is_normalized",
         "linkify_find",
         "linkify_has",
         "linkify_apply",
@@ -586,6 +639,10 @@ static int html_exec(PyObject *module) {
     if (observe_register(module, state) < 0) { /* GCOVR_EXCL_BR_LINE: module initialization allocation failure */
         return -1;                             /* GCOVR_EXCL_LINE: allocation failure */
     }
+    state->codec_shift_cache = PyDict_New();
+    if (state->codec_shift_cache == NULL) { /* GCOVR_EXCL_BR_LINE: module initialization allocation failure */
+        return -1;                          /* GCOVR_EXCL_LINE: allocation failure */
+    }
     return publish_native_names(module);
 }
 
@@ -617,6 +674,8 @@ static int html_traverse(PyObject *module, visitproc visit, void *arg) {
     Py_VISIT(state->document_type);              /* GCOVR_EXCL_BR_LINE: same */
     Py_VISIT(state->document_fragment_type);     /* GCOVR_EXCL_BR_LINE: same */
     Py_VISIT(state->shadow_root_type);           /* GCOVR_EXCL_BR_LINE: same */
+    Py_VISIT(state->tag_maker_type);             /* GCOVR_EXCL_BR_LINE: same */
+    Py_VISIT(state->tag_factory_type);           /* GCOVR_EXCL_BR_LINE: same */
     Py_VISIT(state->parser_type);                /* GCOVR_EXCL_BR_LINE: same */
     Py_VISIT(state->parse_error_type);           /* GCOVR_EXCL_BR_LINE: same */
     Py_VISIT(state->parse_error_exc);            /* GCOVR_EXCL_BR_LINE: same */
@@ -642,6 +701,7 @@ static int html_traverse(PyObject *module, visitproc visit, void *arg) {
     Py_VISIT(state->indent_type);            /* GCOVR_EXCL_BR_LINE: same */
     Py_VISIT(state->pattern_type);           /* GCOVR_EXCL_BR_LINE: same */
     Py_VISIT(state->re_compile);             /* GCOVR_EXCL_BR_LINE: same */
+    Py_VISIT(state->mapping_abc);            /* GCOVR_EXCL_BR_LINE: same */
     Py_VISIT(state->markup_type);            /* GCOVR_EXCL_BR_LINE: same */
     Py_VISIT(state->xpath_string_type);      /* GCOVR_EXCL_BR_LINE: same */
     Py_VISIT(state->xpath_type);             /* GCOVR_EXCL_BR_LINE: same */
@@ -674,6 +734,7 @@ static int html_traverse(PyObject *module, visitproc visit, void *arg) {
     for (int index = 0; index < 3; index++) {
         Py_VISIT(state->formatters[index]); /* GCOVR_EXCL_BR_LINE: same */
     }
+    Py_VISIT(state->codec_shift_cache); /* GCOVR_EXCL_BR_LINE: same */
     return 0;
 }
 
@@ -705,6 +766,8 @@ static int html_clear(PyObject *module) {
     Py_CLEAR(state->document_type);
     Py_CLEAR(state->document_fragment_type);
     Py_CLEAR(state->shadow_root_type);
+    Py_CLEAR(state->tag_maker_type);
+    Py_CLEAR(state->tag_factory_type);
     Py_CLEAR(state->parser_type);
     Py_CLEAR(state->parse_error_type);
     Py_CLEAR(state->parse_error_exc);
@@ -730,6 +793,7 @@ static int html_clear(PyObject *module) {
     Py_CLEAR(state->indent_type);
     Py_CLEAR(state->pattern_type);
     Py_CLEAR(state->re_compile);
+    Py_CLEAR(state->mapping_abc);
     Py_CLEAR(state->markup_type);
     Py_CLEAR(state->xpath_string_type);
     Py_CLEAR(state->xpath_type);
@@ -762,6 +826,7 @@ static int html_clear(PyObject *module) {
     for (int index = 0; index < 3; index++) {
         Py_CLEAR(state->formatters[index]);
     }
+    Py_CLEAR(state->codec_shift_cache);
     return 0;
 }
 
@@ -784,7 +849,7 @@ static PyModuleDef_Slot html_slots[] = {
     {0, NULL},
 };
 
-static struct PyModuleDef htmlmodule = {
+struct PyModuleDef htmlmodule = {
     PyModuleDef_HEAD_INIT,
     .m_name = "_html",
     .m_doc = "C accelerator for turbohtml escaping, unescaping, and tokenizing.",

@@ -1236,6 +1236,7 @@ class UpdateRecoveryPointIndexSettingsInputTypeDef(TypedDict):
 class UpdateRegionSettingsInputTypeDef(TypedDict):
     ResourceTypeOptInPreference: NotRequired[Mapping[str, bool]]
     ResourceTypeManagementPreference: NotRequired[Mapping[str, bool]]
+    ResourceTypeOptInIncremental: NotRequired[Mapping[str, bool]]
 
 
 class BackupPlansListMemberTypeDef(TypedDict):
@@ -1585,6 +1586,7 @@ class DescribeProtectedResourceOutputTypeDef(TypedDict):
 class DescribeRegionSettingsOutputTypeDef(TypedDict):
     ResourceTypeOptInPreference: dict[str, bool]
     ResourceTypeManagementPreference: dict[str, bool]
+    ResourceTypeOptInIncremental: dict[str, bool]
     ResponseMetadata: ResponseMetadataTypeDef
 
 

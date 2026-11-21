@@ -6,6 +6,7 @@ isort:skip_file
 import builtins
 import google.protobuf.descriptor
 import google.protobuf.message
+import google.protobuf.timestamp_pb2
 import typing
 
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
@@ -34,16 +35,26 @@ class GetLedgerBalanceResponse(google.protobuf.message.Message):
 
     BALANCE_CENTS_FIELD_NUMBER: builtins.int
     PENDING_DEPOSIT_CENTS_FIELD_NUMBER: builtins.int
+    LATEST_DEPOSIT_AT_FIELD_NUMBER: builtins.int
     balance_cents: builtins.int
     """Paid deposits minus withdrawals. Zero for an account with no entries."""
     pending_deposit_cents: builtins.int
     """Deposits whose invoices are not paid yet. Not part of balance_cents."""
+    @property
+    def latest_deposit_at(self) -> google.protobuf.timestamp_pb2.Timestamp:
+        """Creation time of the most recent deposit, whether or not its invoice has
+        been paid. Unset when the account has no deposits.
+        """
+
     def __init__(
         self,
         *,
         balance_cents: builtins.int = ...,
         pending_deposit_cents: builtins.int = ...,
+        latest_deposit_at: google.protobuf.timestamp_pb2.Timestamp | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["balance_cents", b"balance_cents", "pending_deposit_cents", b"pending_deposit_cents"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_latest_deposit_at", b"_latest_deposit_at", "latest_deposit_at", b"latest_deposit_at"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_latest_deposit_at", b"_latest_deposit_at", "balance_cents", b"balance_cents", "latest_deposit_at", b"latest_deposit_at", "pending_deposit_cents", b"pending_deposit_cents"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["_latest_deposit_at", b"_latest_deposit_at"]) -> typing.Literal["latest_deposit_at"] | None: ...
 
 global___GetLedgerBalanceResponse = GetLedgerBalanceResponse

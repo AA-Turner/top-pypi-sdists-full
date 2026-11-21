@@ -15,11 +15,11 @@ from jax.experimental.pallas.ops.tpu.splash_attention import (
     splash_attention_mask,
 )
 
-from keras.src import backend
 from keras.src.backend import config
 from keras.src.backend.common import dtypes
 from keras.src.backend.common import is_float_dtype
 from keras.src.backend.common import result_type
+from keras.src.backend.common import standardize_data_format
 from keras.src.backend.common import standardize_dtype
 from keras.src.backend.common.backend_utils import canonicalize_axis
 from keras.src.backend.common.backend_utils import check_conv_input_channels
@@ -76,11 +76,13 @@ def softplus(x):
 
 def softsign(x):
     x = convert_to_tensor(x)
+    x = cast(x, dtypes.promote_to_float_dtype(x.dtype))
     return jnn.soft_sign(x)
 
 
 def soft_shrink(x, threshold=0.5):
     x = convert_to_tensor(x)
+    x = cast(x, dtypes.promote_to_float_dtype(x.dtype))
     return jnp.where(
         x > threshold,
         x - threshold,
@@ -90,6 +92,7 @@ def soft_shrink(x, threshold=0.5):
 
 def sparse_plus(x):
     x = convert_to_tensor(x)
+    x = cast(x, dtypes.promote_to_float_dtype(x.dtype))
     return jnn.sparse_plus(x)
 
 
@@ -100,6 +103,7 @@ def silu(x):
 
 def squareplus(x, b=4):
     x = convert_to_tensor(x)
+    x = cast(x, dtypes.promote_to_float_dtype(x.dtype))
     return jnn.squareplus(x, b=b)
 
 
@@ -143,6 +147,7 @@ def elu(x, alpha=1.0):
 
 def selu(x):
     x = convert_to_tensor(x)
+    x = cast(x, dtypes.promote_to_float_dtype(x.dtype))
     return jnn.selu(x)
 
 
@@ -169,6 +174,7 @@ def hard_tanh(x):
 
 def hard_shrink(x, threshold=0.5):
     x = convert_to_tensor(x)
+    x = cast(x, dtypes.promote_to_float_dtype(x.dtype))
     return jnp.where(jnp.abs(x) > threshold, x, 0.0)
 
 
@@ -267,7 +273,7 @@ def max_pool(
     padding="valid",
     data_format=None,
 ):
-    data_format = backend.standardize_data_format(data_format)
+    data_format = standardize_data_format(data_format)
     num_spatial_dims = inputs.ndim - 2
     pool_size = _convert_to_spatial_operand(
         pool_size, num_spatial_dims, data_format
@@ -286,7 +292,7 @@ def average_pool(
     padding="valid",
     data_format=None,
 ):
-    data_format = backend.standardize_data_format(data_format)
+    data_format = standardize_data_format(data_format)
     num_spatial_dims = inputs.ndim - 2
     pool_size = _convert_to_spatial_operand(
         pool_size, num_spatial_dims, data_format
@@ -693,7 +699,7 @@ def _adaptive_max_pool3d(inputs, output_size, data_format="channels_first"):
 
 
 def adaptive_average_pool(inputs, output_size, data_format=None):
-    data_format = backend.standardize_data_format(data_format)
+    data_format = standardize_data_format(data_format)
     dims = inputs.ndim - 2
     if dims == 1:
         return _adaptive_average_pool1d(inputs, output_size, data_format)
@@ -705,7 +711,7 @@ def adaptive_average_pool(inputs, output_size, data_format=None):
 
 
 def adaptive_max_pool(inputs, output_size, data_format=None):
-    data_format = backend.standardize_data_format(data_format)
+    data_format = standardize_data_format(data_format)
     dims = inputs.ndim - 2
     if dims == 1:
         return _adaptive_max_pool1d(inputs, output_size, data_format)
@@ -749,7 +755,7 @@ def conv(
     data_format=None,
     dilation_rate=1,
 ):
-    data_format = backend.standardize_data_format(data_format)
+    data_format = standardize_data_format(data_format)
     num_spatial_dims = inputs.ndim - 2
     dimension_numbers = _convert_to_lax_conv_dimension_numbers(
         num_spatial_dims,
@@ -809,7 +815,7 @@ def depthwise_conv(
     data_format=None,
     dilation_rate=1,
 ):
-    data_format = backend.standardize_data_format(data_format)
+    data_format = standardize_data_format(data_format)
     inputs = convert_to_tensor(inputs)
     kernel = convert_to_tensor(kernel)
     check_conv_input_channels(inputs, kernel, data_format)
@@ -858,7 +864,7 @@ def separable_conv(
     data_format=None,
     dilation_rate=1,
 ):
-    data_format = backend.standardize_data_format(data_format)
+    data_format = standardize_data_format(data_format)
     inputs = convert_to_tensor(inputs)
     depthwise_kernel = convert_to_tensor(depthwise_kernel)
     pointwise_kernel = convert_to_tensor(pointwise_kernel)
@@ -890,7 +896,7 @@ def conv_transpose(
     data_format=None,
     dilation_rate=1,
 ):
-    data_format = backend.standardize_data_format(data_format)
+    data_format = standardize_data_format(data_format)
     inputs = convert_to_tensor(inputs)
     kernel = convert_to_tensor(kernel)
     check_conv_transpose_input_channels(inputs, kernel, data_format)

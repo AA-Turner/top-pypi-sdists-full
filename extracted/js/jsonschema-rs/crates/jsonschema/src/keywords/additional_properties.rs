@@ -1,19 +1,14 @@
-//! # Description
-//! This module contains various validators for the `additionalProperties` keyword.
-//!
-//! The goal here is to compute intersections with another keywords affecting properties validation:
-//!   - `properties`
-//!   - `patternProperties`
-//!
-//! Each valid combination of these keywords has a validator here.
+//! `additionalProperties` fused with `properties` and `patternProperties`: one validator per
+//! combination.
 use super::required;
 use crate::{
     compiler,
     error::ValidationError,
-    evaluation::{
-        format_keyword_location, Annotations, ChildList, ErrorDescription, EvaluationNode,
+    evaluation::{Annotations, ChildList, EvaluationNode, InstancePosition},
+    keywords::{
+        helpers::{false_schema_unit, unit_over, SchemaSite},
+        CompilationResult,
     },
-    keywords::CompilationResult,
     node::SchemaNode,
     options::PatternEngineOptions,
     paths::{LazyLocation, Location, RefTracker},
@@ -30,25 +25,182 @@ use crate::{
     Json, LazyInstance, Node, Object, SerdeJson,
 };
 use ahash::AHashMap;
-use referencing::{Uri, Vocabulary};
+use referencing::Vocabulary;
 use serde_json::{Map, Value};
-use std::{borrow::Cow, sync::Arc};
+use std::borrow::Cow;
 
-/// # Schema example
-///
-/// ```json
-/// {
-///     "additionalProperties": {"type": "integer"},
-/// }
-/// ```
-///
-/// # Valid value
-///
-/// ```json
-/// {
-///     "bar": 6
-/// }
-/// ```
+/// Where a fused validator's `properties`, `patternProperties` and `additionalProperties` units
+/// sit; the first two only when the schema has them.
+pub(crate) struct ObjectSites {
+    properties: Option<SchemaSite>,
+    patterns: Option<SchemaSite>,
+    additional: SchemaSite,
+}
+
+impl ObjectSites {
+    fn new<F: Json>(ctx: &compiler::Context<F>, properties: bool, patterns: bool) -> Self {
+        let site = |keyword: &str| SchemaSite::new(ctx, ctx.location().join(keyword));
+        ObjectSites {
+            properties: properties.then(|| site("properties")),
+            patterns: patterns.then(|| site("patternProperties")),
+            additional: site("additionalProperties"),
+        }
+    }
+
+    /// The units for an instance that is not an object, which every keyword accepts.
+    fn report_non_object(
+        &self,
+        instance_location: InstancePosition,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
+        children: &mut ChildList,
+    ) -> bool {
+        for site in [&self.properties, &self.patterns]
+            .into_iter()
+            .flatten()
+            .chain([&self.additional])
+        {
+            let node = unit_over(
+                site,
+                Vec::new(),
+                None,
+                ChildList::default(),
+                instance_location,
+                tracker,
+                ctx,
+            );
+            children.push(ctx.arena(), node);
+        }
+        false
+    }
+}
+
+/// The children of each unit, collected in one pass over an object, reported as each keyword
+/// alone reports its own.
+struct ObjectUnits {
+    properties: ChildList,
+    property_names: Vec<Value>,
+    /// One list per pattern, joined in pattern order as `patternProperties` reports them.
+    patterns: Vec<(ChildList, Vec<Value>)>,
+    additional: ChildList,
+    additional_names: Vec<Value>,
+}
+
+impl ObjectUnits {
+    /// `members` bounds how many names each unit can collect.
+    fn new(members: usize) -> Self {
+        ObjectUnits {
+            properties: ChildList::default(),
+            property_names: Vec::with_capacity(members),
+            patterns: Vec::new(),
+            additional: ChildList::default(),
+            additional_names: Vec::new(),
+        }
+    }
+
+    fn property(&mut self, ctx: &mut ValidationContext, name: &str, child: EvaluationNode) {
+        self.properties.push(ctx.arena(), child);
+        self.property_names.push(Value::String(name.to_owned()));
+    }
+
+    fn pattern(
+        &mut self,
+        ctx: &mut ValidationContext,
+        index: usize,
+        name: &str,
+        child: EvaluationNode,
+    ) {
+        // Grown on the first match, so objects no pattern matches allocate nothing for them.
+        if self.patterns.len() <= index {
+            self.patterns
+                .resize_with(index + 1, || (ChildList::default(), Vec::new()));
+        }
+        let (children, names) = &mut self.patterns[index];
+        children.push(ctx.arena(), child);
+        names.push(Value::String(name.to_owned()));
+    }
+
+    fn additional(&mut self, ctx: &mut ValidationContext, name: &str, child: EvaluationNode) {
+        self.additional.push(ctx.arena(), child);
+        self.additional_names.push(Value::String(name.to_owned()));
+    }
+
+    /// A member `additionalProperties: false` rejects: its false schema fails at that member.
+    fn rejected<F: Json>(
+        &mut self,
+        ctx: &mut ValidationContext,
+        site: &SchemaSite,
+        value: &F::Node<'_>,
+        path: &LazyLocation,
+        tracker: Option<&RefTracker>,
+    ) {
+        let node = false_schema_unit::<F>(ctx, site, value, path, tracker);
+        self.additional.push(ctx.arena(), node);
+    }
+
+    /// Pushes the units onto `children`; returns whether any fails. With `additionalProperties:
+    /// false` the extra members are its failing children; with a schema they are also its
+    /// annotation.
+    fn report(
+        self,
+        sites: &ObjectSites,
+        closed: bool,
+        instance_location: InstancePosition,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
+        children: &mut ChildList,
+    ) -> bool {
+        let mut invalid = false;
+        if let Some(site) = &sites.properties {
+            invalid |= !self.properties.all_valid();
+            let annotations = Annotations::new(Value::Array(self.property_names));
+            let node = unit_over(
+                site,
+                Vec::new(),
+                Some(annotations),
+                self.properties,
+                instance_location,
+                tracker,
+                ctx,
+            );
+            children.push(ctx.arena(), node);
+        }
+        if let Some(site) = &sites.patterns {
+            let mut joined = ChildList::default();
+            let mut names = Vec::new();
+            for (list, list_names) in self.patterns {
+                joined.append(ctx.arena(), list);
+                names.extend(list_names);
+            }
+            invalid |= !joined.all_valid();
+            let node = unit_over(
+                site,
+                Vec::new(),
+                Some(Annotations::new(Value::Array(names))),
+                joined,
+                instance_location,
+                tracker,
+                ctx,
+            );
+            children.push(ctx.arena(), node);
+        }
+        let annotations = (!closed).then(|| Annotations::new(Value::Array(self.additional_names)));
+        invalid |= !self.additional.all_valid();
+        let node = unit_over(
+            &sites.additional,
+            Vec::new(),
+            annotations,
+            self.additional,
+            instance_location,
+            tracker,
+            ctx,
+        );
+        children.push(ctx.arena(), node);
+        invalid
+    }
+}
+
+/// `additionalProperties` as a schema, without `properties` or `patternProperties`.
 pub(crate) struct AdditionalPropertiesValidator<F: Json = SerdeJson> {
     node: SchemaNode<F>,
 }
@@ -144,26 +296,19 @@ impl<F: Json> Validate<F> for AdditionalPropertiesValidator<F> {
     }
 }
 
-/// # Schema example
-///
-/// ```json
-/// {
-///     "additionalProperties": false
-/// }
-/// ```
-///
-/// # Valid value
-///
-/// ```json
-/// {}
-/// ```
+/// `additionalProperties: false` without `properties` or `patternProperties`.
 pub(crate) struct AdditionalPropertiesFalseValidator {
-    location: Location,
+    site: SchemaSite,
 }
 impl AdditionalPropertiesFalseValidator {
     #[inline]
-    pub(crate) fn compile<'a, F: Json>(location: Location) -> CompilationResult<'a, F> {
-        Ok(Box::new(AdditionalPropertiesFalseValidator { location }))
+    pub(crate) fn compile<'a, F: Json>(
+        ctx: &compiler::Context<F>,
+        location: Location,
+    ) -> CompilationResult<'a, F> {
+        Ok(Box::new(AdditionalPropertiesFalseValidator {
+            site: SchemaSite::new(ctx, location),
+        }))
     }
 }
 impl<F: Json> Validate<F> for AdditionalPropertiesFalseValidator {
@@ -185,8 +330,8 @@ impl<F: Json> Validate<F> for AdditionalPropertiesFalseValidator {
         if let Some(object) = instance.as_object() {
             if let Some((_, value)) = object.members().next() {
                 return Err(ValidationError::false_schema(
-                    self.location.clone(),
-                    crate::paths::capture_evaluation_path(tracker, &self.location),
+                    self.site.location.clone(),
+                    crate::paths::capture_evaluation_path(tracker, &self.site.location),
                     location.into(),
                     value.lazy_value(),
                 ));
@@ -194,29 +339,32 @@ impl<F: Json> Validate<F> for AdditionalPropertiesFalseValidator {
         }
         Ok(())
     }
+
+    fn evaluate(
+        &self,
+        instance: &F::Node<'_>,
+        location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
+    ) -> EvaluationResult {
+        let Some(object) = instance.as_object() else {
+            return EvaluationResult::valid_empty();
+        };
+        let mut children = ChildList::default();
+        for (name, value) in object.members() {
+            let path = location.push(name.as_ref());
+            let node = false_schema_unit::<F>(ctx, &self.site, &value, &path, tracker);
+            children.push(ctx.arena(), node);
+        }
+        EvaluationResult::from_children(children)
+    }
 }
 
-/// # Schema example
-///
-/// ```json
-/// {
-///     "additionalProperties": false,
-///     "properties": {
-///         "foo": {"type": "string"}
-///     },
-/// }
-/// ```
-///
-/// # Valid value
-///
-/// ```json
-/// {
-///     "foo": "bar",
-/// }
-/// ```
+/// `additionalProperties: false` beside `properties`.
 pub(crate) struct AdditionalPropertiesNotEmptyFalseValidator<M> {
     properties: M,
     location: Location,
+    sites: ObjectSites,
 }
 impl<F: Json> AdditionalPropertiesNotEmptyFalseValidator<SmallValidatorsMap<F>> {
     #[inline]
@@ -227,6 +375,7 @@ impl<F: Json> AdditionalPropertiesNotEmptyFalseValidator<SmallValidatorsMap<F>> 
         Ok(Box::new(AdditionalPropertiesNotEmptyFalseValidator {
             properties: compile_small_map(ctx, map)?,
             location: ctx.location().join("additionalProperties"),
+            sites: ObjectSites::new(ctx, true, false),
         }))
     }
 }
@@ -239,6 +388,7 @@ impl<F: Json> AdditionalPropertiesNotEmptyFalseValidator<BigValidatorsMap<F>> {
         Ok(Box::new(AdditionalPropertiesNotEmptyFalseValidator {
             properties: compile_big_map(ctx, map)?,
             location: ctx.location().join("additionalProperties"),
+            sites: ObjectSites::new(ctx, true, false),
         }))
     }
 }
@@ -284,6 +434,7 @@ impl<F: Json> AdditionalPropertiesNotEmptyFalseWithRequiredValidator<SmallValida
         let closed = AdditionalPropertiesNotEmptyFalseValidator {
             properties: compile_small_map(ctx, map)?,
             location: ctx.location().join("additionalProperties"),
+            sites: ObjectSites::new(ctx, true, false),
         };
         let by_entry = required_bits(
             closed.properties.iter().map(|(name, _)| name.as_str()),
@@ -302,6 +453,7 @@ impl<F: Json> AdditionalPropertiesNotEmptyFalseWithRequiredValidator<BigValidato
         let closed = AdditionalPropertiesNotEmptyFalseValidator {
             properties: compile_big_map(ctx, map)?,
             location: ctx.location().join("additionalProperties"),
+            sites: ObjectSites::new(ctx, true, false),
         };
         let by_entry = required_bits(
             closed
@@ -381,46 +533,36 @@ impl<F: Json, M: PropertiesValidatorsMap<F>> Validate<F>
         }
     }
 
-    fn evaluate(
+    fn reports_units(&self) -> bool {
+        true
+    }
+
+    fn evaluate_units(
         &self,
         instance: &F::Node<'_>,
         location: &LazyLocation,
+        instance_location: InstancePosition,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
-    ) -> EvaluationResult {
-        if let Some(object) = instance.as_object() {
-            let mut unexpected = Vec::with_capacity(object.len());
-            let mut children = ChildList::default();
-            for (property, value) in object.members() {
-                if let Some((_name, node)) = self.properties.get_key_validator(property.as_ref()) {
-                    let child = node.evaluate_instance_below(
-                        &value,
-                        &location.push(property.as_ref()),
-                        tracker,
-                        ctx,
-                    );
-                    children.push(ctx.arena(), child);
-                } else {
-                    unexpected.push(property.as_ref().to_owned());
-                }
+        children: &mut ChildList,
+    ) -> bool {
+        let Some(object) = instance.as_object() else {
+            return self
+                .sites
+                .report_non_object(instance_location, tracker, ctx, children);
+        };
+        let mut units = ObjectUnits::new(object.len());
+        for (property, value) in object.members() {
+            let name = property.as_ref();
+            let path = location.push(name);
+            if let Some((_, node)) = self.properties.get_key_validator(name) {
+                let child = node.evaluate_instance_below(&value, &path, tracker, ctx);
+                units.property(ctx, name, child);
+            } else {
+                units.rejected::<F>(ctx, &self.sites.additional, &value, &path, tracker);
             }
-            let mut result = EvaluationResult::from_children(children);
-            if !unexpected.is_empty() {
-                let eval_path = crate::paths::capture_evaluation_path(tracker, &self.location);
-                result.mark_errored(ErrorDescription::from_validation_error(
-                    &ValidationError::additional_properties(
-                        self.location.clone(),
-                        eval_path,
-                        location.into(),
-                        instance.lazy_value(),
-                        unexpected,
-                    ),
-                ));
-            }
-            result
-        } else {
-            EvaluationResult::valid_empty()
         }
+        units.report(&self.sites, true, instance_location, tracker, ctx, children)
     }
 }
 
@@ -473,54 +615,48 @@ impl<F: Json, M: PropertiesValidatorsMap<F>> Validate<F>
             .collect_errors(instance, location, tracker, ctx, errors);
     }
 
-    fn evaluate(
+    fn reports_units(&self) -> bool {
+        true
+    }
+
+    fn evaluate_units(
         &self,
         instance: &F::Node<'_>,
         location: &LazyLocation,
+        instance_location: InstancePosition,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
-    ) -> EvaluationResult {
-        self.closed.evaluate(instance, location, tracker, ctx)
+        children: &mut ChildList,
+    ) -> bool {
+        Validate::<F>::evaluate_units(
+            &self.closed,
+            instance,
+            location,
+            instance_location,
+            tracker,
+            ctx,
+            children,
+        )
     }
 }
 
-/// Fused validator for properties + additionalProperties: false + required
-/// Eliminates separate required validation pass by tracking the required property during iteration.
+/// `properties` with `additionalProperties: false` and one `required` name, which `is_valid`
+/// checks in its walk.
 pub(crate) struct AdditionalPropertiesNotEmptyFalseWithRequired1Validator<M> {
     properties: M,
+    /// Checked by `is_valid` only; the `required` validator beside this one reports it.
     required: String,
     location: Location,
-    required_location: Location,
-    required_absolute_location: Option<Arc<Uri<String>>>,
+    sites: ObjectSites,
 }
 impl<M> AdditionalPropertiesNotEmptyFalseWithRequired1Validator<M> {
     fn new<F: Json>(properties: M, ctx: &compiler::Context<F>, required: String) -> Self {
-        let required_location = ctx.location().join("required");
         AdditionalPropertiesNotEmptyFalseWithRequired1Validator {
             properties,
             required,
             location: ctx.location().join("additionalProperties"),
-            required_absolute_location: ctx.absolute_location(&required_location),
-            required_location,
+            sites: ObjectSites::new(ctx, true, false),
         }
-    }
-
-    #[cold]
-    #[inline(never)]
-    fn missing_required<'i, F: Json>(
-        &self,
-        instance: &F::Node<'i>,
-        location: &LazyLocation,
-        tracker: Option<&RefTracker>,
-    ) -> ValidationError<'i> {
-        ValidationError::required(
-            self.required_location.clone(),
-            crate::paths::capture_evaluation_path(tracker, &self.required_location),
-            location.into(),
-            instance.lazy_value(),
-            Value::String(self.required.clone()),
-        )
-        .with_absolute_keyword_location(self.required_absolute_location.clone())
     }
 }
 impl<F: Json> AdditionalPropertiesNotEmptyFalseWithRequired1Validator<SmallValidatorsMap<F>> {
@@ -599,13 +735,9 @@ impl<F: Json, M: PropertiesValidatorsMap<F>> Validate<F>
         ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
         if let Some(object) = instance.as_object() {
-            let mut found_required = false;
             for (property, value) in object.members() {
                 if let Some((name, node)) = self.properties.get_key_validator(property.as_ref()) {
                     node.validate(&value, &location.push(name), tracker, ctx)?;
-                    if property.as_ref() == self.required.as_str() {
-                        found_required = true;
-                    }
                 } else {
                     return Err(ValidationError::additional_properties(
                         self.location.clone(),
@@ -615,9 +747,6 @@ impl<F: Json, M: PropertiesValidatorsMap<F>> Validate<F>
                         vec![property.as_ref().to_owned()],
                     ));
                 }
-            }
-            if !found_required {
-                return Err(self.missing_required::<F>(instance, location, tracker));
             }
         }
         Ok(())
@@ -635,13 +764,9 @@ impl<F: Json, M: PropertiesValidatorsMap<F>> Validate<F>
             return;
         };
         let mut unexpected = vec![];
-        let mut found_required = false;
         for (property, value) in object.members() {
             if let Some((name, node)) = self.properties.get_key_validator(property.as_ref()) {
                 node.collect_errors(&value, &location.push(name), tracker, ctx, errors);
-                if property.as_ref() == self.required.as_str() {
-                    found_required = true;
-                }
             } else {
                 unexpected.push(property.as_ref().to_owned());
             }
@@ -655,103 +780,46 @@ impl<F: Json, M: PropertiesValidatorsMap<F>> Validate<F>
                 unexpected,
             ));
         }
-        if !found_required {
-            errors.push(self.missing_required::<F>(instance, location, tracker));
-        }
     }
 
-    fn evaluate(
+    fn reports_units(&self) -> bool {
+        true
+    }
+
+    fn evaluate_units(
         &self,
         instance: &F::Node<'_>,
         location: &LazyLocation,
+        instance_location: InstancePosition,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
-    ) -> EvaluationResult {
-        if let Some(object) = instance.as_object() {
-            let mut unexpected = Vec::with_capacity(object.len());
-            let mut children = ChildList::default();
-            let mut found_required = false;
-            for (property, value) in object.members() {
-                if let Some((_name, node)) = self.properties.get_key_validator(property.as_ref()) {
-                    let child = node.evaluate_instance_below(
-                        &value,
-                        &location.push(property.as_ref()),
-                        tracker,
-                        ctx,
-                    );
-                    children.push(ctx.arena(), child);
-                    if property.as_ref() == self.required.as_str() {
-                        found_required = true;
-                    }
-                } else {
-                    unexpected.push(property.as_ref().to_owned());
-                }
+        children: &mut ChildList,
+    ) -> bool {
+        let Some(object) = instance.as_object() else {
+            return self
+                .sites
+                .report_non_object(instance_location, tracker, ctx, children);
+        };
+        let mut units = ObjectUnits::new(object.len());
+        for (property, value) in object.members() {
+            let name = property.as_ref();
+            let path = location.push(name);
+            if let Some((_, node)) = self.properties.get_key_validator(name) {
+                let child = node.evaluate_instance_below(&value, &path, tracker, ctx);
+                units.property(ctx, name, child);
+            } else {
+                units.rejected::<F>(ctx, &self.sites.additional, &value, &path, tracker);
             }
-            // `required` is fused in, so its failure is a child node at the `required` location.
-            if !found_required {
-                let error = ErrorDescription::from_validation_error(&ValidationError::required(
-                    self.required_location.clone(),
-                    crate::paths::capture_evaluation_path(tracker, &self.required_location),
-                    location.into(),
-                    instance.lazy_value(),
-                    Value::String(self.required.clone()),
-                ));
-                let child = EvaluationNode::invalid(
-                    crate::paths::evaluation_path(tracker, &self.required_location, ctx),
-                    self.required_absolute_location.clone(),
-                    format_keyword_location(
-                        &self.required_location,
-                        self.required_absolute_location.as_ref(),
-                    ),
-                    ctx.instance_position(location),
-                    None,
-                    vec![error],
-                    ChildList::default(),
-                );
-                children.push(ctx.arena(), child);
-            }
-            let mut result = EvaluationResult::from_children(children);
-            if !unexpected.is_empty() {
-                let eval_path = crate::paths::capture_evaluation_path(tracker, &self.location);
-                result.mark_errored(ErrorDescription::from_validation_error(
-                    &ValidationError::additional_properties(
-                        self.location.clone(),
-                        eval_path,
-                        location.into(),
-                        instance.lazy_value(),
-                        unexpected,
-                    ),
-                ));
-            }
-            result
-        } else {
-            EvaluationResult::valid_empty()
         }
+        units.report(&self.sites, true, instance_location, tracker, ctx, children)
     }
 }
 
-/// # Schema example
-///
-/// ```json
-/// {
-///     "additionalProperties": {"type": "integer"},
-///     "properties": {
-///         "foo": {"type": "string"}
-///     }
-/// }
-/// ```
-///
-/// # Valid value
-///
-/// ```json
-/// {
-///     "foo": "bar",
-///     "bar": 6
-/// }
-/// ```
+/// `additionalProperties` as a schema beside `properties`.
 pub(crate) struct AdditionalPropertiesNotEmptyValidator<M, F: Json = SerdeJson> {
     node: SchemaNode<F>,
     properties: M,
+    sites: ObjectSites,
 }
 impl<F: Json> AdditionalPropertiesNotEmptyValidator<SmallValidatorsMap<F>> {
     #[inline]
@@ -764,6 +832,7 @@ impl<F: Json> AdditionalPropertiesNotEmptyValidator<SmallValidatorsMap<F>> {
         Ok(Box::new(AdditionalPropertiesNotEmptyValidator {
             properties: compile_small_map(ctx, map)?,
             node: compiler::compile(&kctx, kctx.as_resource_ref(schema))?,
+            sites: ObjectSites::new(ctx, true, false),
         }))
     }
 }
@@ -778,6 +847,7 @@ impl<F: Json> AdditionalPropertiesNotEmptyValidator<BigValidatorsMap<F>> {
         Ok(Box::new(AdditionalPropertiesNotEmptyValidator {
             properties: compile_big_map(ctx, map)?,
             node: compiler::compile(&kctx, kctx.as_resource_ref(schema))?,
+            sites: ObjectSites::new(ctx, true, false),
         }))
     }
 }
@@ -855,73 +925,54 @@ impl<F: Json, M: PropertiesValidatorsMap<F>> Validate<F>
         }
     }
 
-    fn evaluate(
+    fn reports_units(&self) -> bool {
+        true
+    }
+
+    fn evaluate_units(
         &self,
         instance: &F::Node<'_>,
         location: &LazyLocation,
+        instance_location: InstancePosition,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
-    ) -> EvaluationResult {
-        if let Some(object) = instance.as_object() {
-            let mut matched_propnames = Vec::with_capacity(object.len());
-            let mut children = ChildList::default();
-            for (property, value) in object.members() {
-                let path = location.push(property.as_ref());
-                if let Some((_name, property_validators)) =
-                    self.properties.get_key_validator(property.as_ref())
-                {
-                    let child =
-                        property_validators.evaluate_instance_below(&value, &path, tracker, ctx);
-                    children.push(ctx.arena(), child);
-                } else {
-                    let child = self
-                        .node
-                        .evaluate_instance_below(&value, &path, tracker, ctx);
-                    children.push(ctx.arena(), child);
-                    matched_propnames.push(property.as_ref().to_owned());
-                }
+        children: &mut ChildList,
+    ) -> bool {
+        let Some(object) = instance.as_object() else {
+            return self
+                .sites
+                .report_non_object(instance_location, tracker, ctx, children);
+        };
+        let mut units = ObjectUnits::new(object.len());
+        for (property, value) in object.members() {
+            let name = property.as_ref();
+            let path = location.push(name);
+            if let Some((_, node)) = self.properties.get_key_validator(name) {
+                let child = node.evaluate_instance_below(&value, &path, tracker, ctx);
+                units.property(ctx, name, child);
+            } else {
+                let child = self
+                    .node
+                    .evaluate_instance_below(&value, &path, tracker, ctx);
+                units.additional(ctx, name, child);
             }
-            let mut result = EvaluationResult::from_children(children);
-            if !matched_propnames.is_empty() {
-                result.annotate(Annotations::new(Value::from(matched_propnames)));
-            }
-            result
-        } else {
-            EvaluationResult::valid_empty()
         }
+        units.report(
+            &self.sites,
+            false,
+            instance_location,
+            tracker,
+            ctx,
+            children,
+        )
     }
 }
 
-/// # Schema example
-///
-/// ```json
-/// {
-///     "additionalProperties": {"type": "integer"},
-///     "patternProperties": {
-///         "^x-": {"type": "integer", "minimum": 5},
-///         "-x$": {"type": "integer", "maximum": 10}
-///     }
-/// }
-/// ```
-///
-/// # Valid value
-///
-/// ```json
-/// {
-///     "x-foo": 6,
-///     "foo-x": 7,
-///     "bar": 8
-/// }
-/// ```
+/// `additionalProperties` as a schema beside `patternProperties`.
 pub(crate) struct AdditionalPropertiesWithPatternsValidator<R, F: Json = SerdeJson> {
     node: SchemaNode<F>,
     patterns: Vec<(R, SchemaNode<F>)>,
-    /// We need this because `compiler::compile` uses the additionalProperties keyword to compile
-    /// this validator. That means that the schema node which contains this validator has
-    /// "additionalProperties" as it's path. However, we need to produce annotations which have the
-    /// patternProperties keyword as their path so we store the paths here.
-    pattern_keyword_path: Location,
-    pattern_keyword_absolute_location: Option<Arc<Uri<String>>>,
+    sites: ObjectSites,
 }
 
 impl<F: Json, R: PropertyPattern> Validate<F> for AdditionalPropertiesWithPatternsValidator<R, F> {
@@ -1014,91 +1065,61 @@ impl<F: Json, R: PropertyPattern> Validate<F> for AdditionalPropertiesWithPatter
         }
     }
 
-    fn evaluate(
+    fn reports_units(&self) -> bool {
+        true
+    }
+
+    fn evaluate_units(
         &self,
         instance: &F::Node<'_>,
         location: &LazyLocation,
+        instance_location: InstancePosition,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
-    ) -> EvaluationResult {
-        if let Some(object) = instance.as_object() {
-            let mut pattern_matched_propnames = Vec::with_capacity(object.len());
-            let mut additional_matched_propnames = Vec::with_capacity(object.len());
-            let mut children = ChildList::default();
-            for (property, value) in object.members() {
-                let path = location.push(property.as_ref());
-                let mut has_match = false;
-                for (pattern, node) in &self.patterns {
-                    if pattern.is_match_in(property.as_ref(), ctx, || {
-                        MatchSite::located(node.location(), tracker, location)
-                    }) {
-                        has_match = true;
-                        pattern_matched_propnames.push(property.as_ref().to_owned());
-                        let child = node.evaluate_instance_below(&value, &path, tracker, ctx);
-                        children.push(ctx.arena(), child);
-                    }
-                }
-                if !has_match {
-                    additional_matched_propnames.push(property.as_ref().to_owned());
-                    let child = self
-                        .node
-                        .evaluate_instance_below(&value, &path, tracker, ctx);
-                    children.push(ctx.arena(), child);
+        children: &mut ChildList,
+    ) -> bool {
+        let Some(object) = instance.as_object() else {
+            return self
+                .sites
+                .report_non_object(instance_location, tracker, ctx, children);
+        };
+        let mut units = ObjectUnits::new(object.len());
+        for (property, value) in object.members() {
+            let name = property.as_ref();
+            let path = location.push(name);
+            let mut matched = false;
+            for (index, (pattern, node)) in self.patterns.iter().enumerate() {
+                if pattern.is_match_in(name, ctx, || {
+                    MatchSite::located(node.location(), tracker, location)
+                }) {
+                    matched = true;
+                    let child = node.evaluate_instance_below(&value, &path, tracker, ctx);
+                    units.pattern(ctx, index, name, child);
                 }
             }
-            if !pattern_matched_propnames.is_empty() {
-                let annotation = Annotations::new(Value::from(pattern_matched_propnames));
-                let schema_location = crate::evaluation::format_keyword_location(
-                    &self.pattern_keyword_path,
-                    self.pattern_keyword_absolute_location.as_ref(),
-                );
-                let child = EvaluationNode::valid(
-                    self.pattern_keyword_path.clone(),
-                    self.pattern_keyword_absolute_location.clone(),
-                    schema_location,
-                    ctx.instance_position(location),
-                    Some(annotation),
-                    ChildList::default(),
-                );
-                children.push(ctx.arena(), child);
+            if !matched {
+                let child = self
+                    .node
+                    .evaluate_instance_below(&value, &path, tracker, ctx);
+                units.additional(ctx, name, child);
             }
-            let mut result = EvaluationResult::from_children(children);
-            if !additional_matched_propnames.is_empty() {
-                result.annotate(Annotations::new(Value::from(additional_matched_propnames)));
-            }
-            result
-        } else {
-            EvaluationResult::valid_empty()
         }
+        units.report(
+            &self.sites,
+            false,
+            instance_location,
+            tracker,
+            ctx,
+            children,
+        )
     }
 }
 
-/// # Schema example
-///
-/// ```json
-/// {
-///     "additionalProperties": false,
-///     "patternProperties": {
-///         "^x-": {"type": "integer", "minimum": 5},
-///         "-x$": {"type": "integer", "maximum": 10}
-///     }
-/// }
-/// ```
-///
-/// # Valid value
-///
-/// ```json
-/// {
-///     "x-bar": 6,
-///     "spam-x": 7,
-///     "x-baz-x": 8,
-/// }
-/// ```
+/// `additionalProperties: false` beside `patternProperties`.
 pub(crate) struct AdditionalPropertiesWithPatternsFalseValidator<R, F: Json = SerdeJson> {
     patterns: Vec<(R, SchemaNode<F>)>,
     location: Location,
-    pattern_keyword_path: Location,
-    pattern_keyword_absolute_location: Option<Arc<Uri<String>>>,
+    sites: ObjectSites,
 }
 
 impl<F: Json, R: PropertyPattern> Validate<F>
@@ -1202,104 +1223,56 @@ impl<F: Json, R: PropertyPattern> Validate<F>
         }
     }
 
-    fn evaluate(
+    fn reports_units(&self) -> bool {
+        true
+    }
+
+    fn evaluate_units(
         &self,
         instance: &F::Node<'_>,
         location: &LazyLocation,
+        instance_location: InstancePosition,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
-    ) -> EvaluationResult {
-        if let Some(object) = instance.as_object() {
-            let mut unexpected = Vec::with_capacity(object.len());
-            let mut pattern_matched_props = Vec::with_capacity(object.len());
-            let mut children = ChildList::default();
-            for (property, value) in object.members() {
-                let path = location.push(property.as_ref());
-                let mut has_match = false;
-                for (pattern, node) in &self.patterns {
-                    if pattern.is_match_in(property.as_ref(), ctx, || {
-                        MatchSite::located(node.location(), tracker, location)
-                    }) {
-                        has_match = true;
-                        pattern_matched_props.push(property.as_ref().to_owned());
-                        let child = node.evaluate_instance_below(&value, &path, tracker, ctx);
-                        children.push(ctx.arena(), child);
-                    }
+        children: &mut ChildList,
+    ) -> bool {
+        let Some(object) = instance.as_object() else {
+            return self
+                .sites
+                .report_non_object(instance_location, tracker, ctx, children);
+        };
+        let mut units = ObjectUnits::new(object.len());
+        for (property, value) in object.members() {
+            let name = property.as_ref();
+            let path = location.push(name);
+            let mut matched = false;
+            for (index, (pattern, node)) in self.patterns.iter().enumerate() {
+                if pattern.is_match_in(name, ctx, || {
+                    MatchSite::located(node.location(), tracker, location)
+                }) {
+                    matched = true;
+                    let child = node.evaluate_instance_below(&value, &path, tracker, ctx);
+                    units.pattern(ctx, index, name, child);
                 }
-                if !has_match {
-                    unexpected.push(property.as_ref().to_owned());
-                }
             }
-            if !pattern_matched_props.is_empty() {
-                let annotation = Annotations::new(Value::from(pattern_matched_props));
-                let schema_location = crate::evaluation::format_keyword_location(
-                    &self.pattern_keyword_path,
-                    self.pattern_keyword_absolute_location.as_ref(),
-                );
-                let child = EvaluationNode::valid(
-                    self.pattern_keyword_path.clone(),
-                    self.pattern_keyword_absolute_location.clone(),
-                    schema_location,
-                    ctx.instance_position(location),
-                    Some(annotation),
-                    ChildList::default(),
-                );
-                children.push(ctx.arena(), child);
+            if !matched {
+                units.rejected::<F>(ctx, &self.sites.additional, &value, &path, tracker);
             }
-            let mut result = EvaluationResult::from_children(children);
-            if !unexpected.is_empty() {
-                let eval_path = crate::paths::capture_evaluation_path(tracker, &self.location);
-                result.mark_errored(ErrorDescription::from_validation_error(
-                    &ValidationError::additional_properties(
-                        self.location.clone(),
-                        eval_path,
-                        location.into(),
-                        instance.lazy_value(),
-                        unexpected,
-                    ),
-                ));
-            }
-            result
-        } else {
-            EvaluationResult::valid_empty()
         }
+        units.report(&self.sites, true, instance_location, tracker, ctx, children)
     }
 }
 
-/// # Schema example
-///
-/// ```json
-/// {
-///     "additionalProperties": {"type": "integer"},
-///     "properties": {
-///         "foo": {"type": "string"}
-///     },
-///     "patternProperties": {
-///         "^x-": {"type": "integer", "minimum": 5},
-///         "-x$": {"type": "integer", "maximum": 10}
-///     }
-/// }
-/// ```
-///
-/// # Valid value
-///
-/// ```json
-/// {
-///     "foo": "a",
-///     "x-spam": 6,
-///     "spam-x": 7,
-///     "x-spam-x": 8,
-///     "bar": 42
-/// }
-/// ```
+/// `additionalProperties` as a schema beside `properties` and `patternProperties`.
 pub(crate) struct AdditionalPropertiesWithPatternsNotEmptyValidator<M, R, F: Json = SerdeJson> {
     node: SchemaNode<F>,
     properties: M,
     patterns: Vec<(R, SchemaNode<F>)>,
     /// Pre-computed pattern indices for properties defined in `properties`.
     /// Maps property name -> indices into `patterns` Vec for patterns that match.
-    /// Eliminates regex matching at validation time for known properties.
+    /// Matches that did not finish at compile time run again at validation.
     property_pattern_indices: AHashMap<String, Box<[PatternIndex]>>,
+    sites: ObjectSites,
 }
 
 impl<F: Json, M: PropertiesValidatorsMap<F>, R: PropertyPattern> Validate<F>
@@ -1312,7 +1285,7 @@ impl<F: Json, M: PropertiesValidatorsMap<F>, R: PropertyPattern> Validate<F>
                     if !node.is_valid_child(&value, ctx) {
                         return false;
                     }
-                    // Use pre-computed pattern indices - no regex at runtime
+                    // Patterns known to match this declared name; unfinished ones match again
                     if let Some(pattern_indices) =
                         self.property_pattern_indices.get(property.as_ref())
                     {
@@ -1371,7 +1344,7 @@ impl<F: Json, M: PropertiesValidatorsMap<F>, R: PropertyPattern> Validate<F>
                 if let Some((name, node)) = self.properties.get_key_validator(property.as_ref()) {
                     let name_location = location.push(name);
                     node.validate(&value, &name_location, tracker, ctx)?;
-                    // Use pre-computed pattern indices - no regex at runtime
+                    // Patterns known to match this declared name; unfinished ones match again
                     if let Some(pattern_indices) =
                         self.property_pattern_indices.get(property.as_ref())
                     {
@@ -1435,7 +1408,7 @@ impl<F: Json, M: PropertiesValidatorsMap<F>, R: PropertyPattern> Validate<F>
             if let Some((name, node)) = self.properties.get_key_validator(property.as_ref()) {
                 let name_location = location.push(name);
                 node.collect_errors(&value, &name_location, tracker, ctx, errors);
-                // Use pre-computed pattern indices - no regex at runtime
+                // Patterns known to match this declared name; unfinished ones match again
                 if let Some(pattern_indices) = self.property_pattern_indices.get(property.as_ref())
                 {
                     for &PatternIndex {
@@ -1495,113 +1468,89 @@ impl<F: Json, M: PropertiesValidatorsMap<F>, R: PropertyPattern> Validate<F>
         }
     }
 
-    fn evaluate(
+    fn reports_units(&self) -> bool {
+        true
+    }
+
+    fn evaluate_units(
         &self,
         instance: &F::Node<'_>,
         location: &LazyLocation,
+        instance_location: InstancePosition,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
-    ) -> EvaluationResult {
-        if let Some(object) = instance.as_object() {
-            let mut additional_matches = Vec::with_capacity(object.len());
-            let mut children = ChildList::default();
-            for (property, value) in object.members() {
-                let path = location.push(property.as_ref());
-                if let Some((_name, node)) = self.properties.get_key_validator(property.as_ref()) {
-                    let child = node.evaluate_instance_below(&value, &path, tracker, ctx);
-                    children.push(ctx.arena(), child);
-                    // Use pre-computed pattern indices - no regex at runtime
-                    if let Some(pattern_indices) =
-                        self.property_pattern_indices.get(property.as_ref())
-                    {
-                        for &PatternIndex {
-                            index: idx,
-                            finished,
-                        } in pattern_indices
-                        {
-                            if !finished
-                                && !self.patterns[idx]
-                                    .0
-                                    .is_match_in(property.as_ref(), ctx, || {
-                                        MatchSite::located(
-                                            self.patterns[idx].1.location(),
-                                            tracker,
-                                            location,
-                                        )
-                                    })
-                            {
-                                continue;
-                            }
-                            let child = self.patterns[idx]
-                                .1
-                                .evaluate_instance_below(&value, &path, tracker, ctx);
-                            children.push(ctx.arena(), child);
-                        }
-                    }
-                } else {
-                    // Unknown property - need runtime regex matching
-                    let mut has_match = false;
-                    for (pattern, node) in &self.patterns {
-                        if pattern.is_match_in(property.as_ref(), ctx, || {
+        children: &mut ChildList,
+    ) -> bool {
+        let Some(object) = instance.as_object() else {
+            return self
+                .sites
+                .report_non_object(instance_location, tracker, ctx, children);
+        };
+        let mut units = ObjectUnits::new(object.len());
+        for (property, value) in object.members() {
+            let name = property.as_ref();
+            let path = location.push(name);
+            if let Some((_, node)) = self.properties.get_key_validator(name) {
+                let child = node.evaluate_instance_below(&value, &path, tracker, ctx);
+                units.property(ctx, name, child);
+                // Patterns matching declared names are known ahead; only unfinished ones need a match.
+                for &PatternIndex { index, finished } in self
+                    .property_pattern_indices
+                    .get(name)
+                    .map_or(&[][..], |indices| &indices[..])
+                {
+                    let (pattern, node) = &self.patterns[index];
+                    if !finished
+                        && !pattern.is_match_in(name, ctx, || {
                             MatchSite::located(node.location(), tracker, location)
-                        }) {
-                            has_match = true;
-                            let child = node.evaluate_instance_below(&value, &path, tracker, ctx);
-                            children.push(ctx.arena(), child);
-                        }
+                        })
+                    {
+                        continue;
                     }
-                    if !has_match {
-                        additional_matches.push(property.as_ref().to_owned());
-                        let child = self
-                            .node
-                            .evaluate_instance_below(&value, &path, tracker, ctx);
-                        children.push(ctx.arena(), child);
-                    }
+                    let child = node.evaluate_instance_below(&value, &path, tracker, ctx);
+                    units.pattern(ctx, index, name, child);
+                }
+                continue;
+            }
+            let mut matched = false;
+            for (index, (pattern, node)) in self.patterns.iter().enumerate() {
+                if pattern.is_match_in(name, ctx, || {
+                    MatchSite::located(node.location(), tracker, location)
+                }) {
+                    matched = true;
+                    let child = node.evaluate_instance_below(&value, &path, tracker, ctx);
+                    units.pattern(ctx, index, name, child);
                 }
             }
-            let mut result = EvaluationResult::from_children(children);
-            result.annotate(Annotations::new(Value::from(additional_matches)));
-            result
-        } else {
-            EvaluationResult::valid_empty()
+            if !matched {
+                let child = self
+                    .node
+                    .evaluate_instance_below(&value, &path, tracker, ctx);
+                units.additional(ctx, name, child);
+            }
         }
+        units.report(
+            &self.sites,
+            false,
+            instance_location,
+            tracker,
+            ctx,
+            children,
+        )
     }
 }
 
-/// # Schema example
-///
-/// ```json
-/// {
-///     "additionalProperties": false,
-///     "properties": {
-///         "foo": {"type": "string"}
-///     },
-///     "patternProperties": {
-///         "^x-": {"type": "integer", "minimum": 5},
-///         "-x$": {"type": "integer", "maximum": 10}
-///     }
-/// }
-/// ```
-///
-/// # Valid value
-///
-/// ```json
-/// {
-///     "foo": "bar",
-///     "x-bar": 6,
-///     "spam-x": 7,
-///     "x-baz-x": 8,
-/// }
-/// ```
+/// `additionalProperties: false` beside `properties` and `patternProperties`.
 pub(crate) struct AdditionalPropertiesWithPatternsNotEmptyFalseValidator<M, R, F: Json = SerdeJson>
 {
     properties: M,
     patterns: Vec<(R, SchemaNode<F>)>,
     /// Pre-computed pattern indices for properties defined in `properties`.
     /// Maps property name -> indices into `patterns` Vec for patterns that match.
-    /// Eliminates regex matching at validation time for known properties.
+    /// Matches that did not finish at compile time run again at validation.
     property_pattern_indices: AHashMap<String, Box<[PatternIndex]>>,
     location: Location,
+    sites: ObjectSites,
 }
 
 impl<F: Json, M: PropertiesValidatorsMap<F>, R: PropertyPattern> Validate<F>
@@ -1614,7 +1563,7 @@ impl<F: Json, M: PropertiesValidatorsMap<F>, R: PropertyPattern> Validate<F>
                     if !node.is_valid_child(&value, ctx) {
                         return false;
                     }
-                    // Use pre-computed pattern indices - no regex at runtime for known properties
+                    // Patterns known to match this declared name; unfinished ones match again
                     if let Some(pattern_indices) =
                         self.property_pattern_indices.get(property.as_ref())
                     {
@@ -1671,7 +1620,7 @@ impl<F: Json, M: PropertiesValidatorsMap<F>, R: PropertyPattern> Validate<F>
                 if let Some((name, node)) = self.properties.get_key_validator(property.as_ref()) {
                     let name_location = location.push(name);
                     node.validate(&value, &name_location, tracker, ctx)?;
-                    // Use pre-computed pattern indices - no regex at runtime
+                    // Patterns known to match this declared name; unfinished ones match again
                     if let Some(pattern_indices) =
                         self.property_pattern_indices.get(property.as_ref())
                     {
@@ -1741,7 +1690,7 @@ impl<F: Json, M: PropertiesValidatorsMap<F>, R: PropertyPattern> Validate<F>
             if let Some((name, node)) = self.properties.get_key_validator(property.as_ref()) {
                 let name_location = location.push(name);
                 node.collect_errors(&value, &name_location, tracker, ctx, errors);
-                // Use pre-computed pattern indices - no regex at runtime
+                // Patterns known to match this declared name; unfinished ones match again
                 if let Some(pattern_indices) = self.property_pattern_indices.get(property.as_ref())
                 {
                     for &PatternIndex {
@@ -1804,83 +1753,65 @@ impl<F: Json, M: PropertiesValidatorsMap<F>, R: PropertyPattern> Validate<F>
         }
     }
 
-    fn evaluate(
+    fn reports_units(&self) -> bool {
+        true
+    }
+
+    fn evaluate_units(
         &self,
         instance: &F::Node<'_>,
         location: &LazyLocation,
+        instance_location: InstancePosition,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
-    ) -> EvaluationResult {
-        if let Some(object) = instance.as_object() {
-            let mut unexpected = vec![];
-            let mut children = ChildList::default();
-            for (property, value) in object.members() {
-                let path = location.push(property.as_ref());
-                if let Some((_name, node)) = self.properties.get_key_validator(property.as_ref()) {
-                    let child = node.evaluate_instance_below(&value, &path, tracker, ctx);
-                    children.push(ctx.arena(), child);
-                    // Use pre-computed pattern indices - no regex at runtime
-                    if let Some(pattern_indices) =
-                        self.property_pattern_indices.get(property.as_ref())
-                    {
-                        for &PatternIndex {
-                            index: idx,
-                            finished,
-                        } in pattern_indices
-                        {
-                            if !finished
-                                && !self.patterns[idx]
-                                    .0
-                                    .is_match_in(property.as_ref(), ctx, || {
-                                        MatchSite::located(
-                                            self.patterns[idx].1.location(),
-                                            tracker,
-                                            location,
-                                        )
-                                    })
-                            {
-                                continue;
-                            }
-                            let child = self.patterns[idx]
-                                .1
-                                .evaluate_instance_below(&value, &path, tracker, ctx);
-                            children.push(ctx.arena(), child);
-                        }
-                    }
-                } else {
-                    // Unknown property - need runtime regex matching
-                    let mut has_match = false;
-                    for (pattern, node) in &self.patterns {
-                        if pattern.is_match_in(property.as_ref(), ctx, || {
+        children: &mut ChildList,
+    ) -> bool {
+        let Some(object) = instance.as_object() else {
+            return self
+                .sites
+                .report_non_object(instance_location, tracker, ctx, children);
+        };
+        let mut units = ObjectUnits::new(object.len());
+        for (property, value) in object.members() {
+            let name = property.as_ref();
+            let path = location.push(name);
+            if let Some((_, node)) = self.properties.get_key_validator(name) {
+                let child = node.evaluate_instance_below(&value, &path, tracker, ctx);
+                units.property(ctx, name, child);
+                // Patterns matching declared names are known ahead; only unfinished ones need a match.
+                for &PatternIndex { index, finished } in self
+                    .property_pattern_indices
+                    .get(name)
+                    .map_or(&[][..], |indices| &indices[..])
+                {
+                    let (pattern, node) = &self.patterns[index];
+                    if !finished
+                        && !pattern.is_match_in(name, ctx, || {
                             MatchSite::located(node.location(), tracker, location)
-                        }) {
-                            has_match = true;
-                            let child = node.evaluate_instance_below(&value, &path, tracker, ctx);
-                            children.push(ctx.arena(), child);
-                        }
+                        })
+                    {
+                        continue;
                     }
-                    if !has_match {
-                        unexpected.push(property.as_ref().to_owned());
-                    }
+                    let child = node.evaluate_instance_below(&value, &path, tracker, ctx);
+                    units.pattern(ctx, index, name, child);
+                }
+                continue;
+            }
+            let mut matched = false;
+            for (index, (pattern, node)) in self.patterns.iter().enumerate() {
+                if pattern.is_match_in(name, ctx, || {
+                    MatchSite::located(node.location(), tracker, location)
+                }) {
+                    matched = true;
+                    let child = node.evaluate_instance_below(&value, &path, tracker, ctx);
+                    units.pattern(ctx, index, name, child);
                 }
             }
-            let mut result = EvaluationResult::from_children(children);
-            if !unexpected.is_empty() {
-                let eval_path = crate::paths::capture_evaluation_path(tracker, &self.location);
-                result.mark_errored(ErrorDescription::from_validation_error(
-                    &ValidationError::additional_properties(
-                        self.location.clone(),
-                        eval_path,
-                        location.into(),
-                        instance.lazy_value(),
-                        unexpected,
-                    ),
-                ));
+            if !matched {
+                units.rejected::<F>(ctx, &self.sites.additional, &value, &path, tracker);
             }
-            result
-        } else {
-            EvaluationResult::valid_empty()
         }
+        units.report(&self.sites, true, instance_location, tracker, ctx, children)
     }
 }
 
@@ -1902,7 +1833,7 @@ struct PatternIndex {
 }
 
 /// Pre-compute which `patternProperties` patterns match each property name from `properties`.
-/// This eliminates regex matching at validation time for known properties.
+/// A match the engine cannot finish is kept with `finished: false`.
 fn precompute_property_pattern_indices<R: RegexEngine, F: Json>(
     property_names: impl Iterator<Item = impl AsRef<str> + Clone + Into<String>>,
     patterns: &[(R, SchemaNode<F>)],
@@ -1950,6 +1881,7 @@ where
                 properties: try_compile!(compile_small_map(ctx, map)),
                 patterns,
                 property_pattern_indices,
+                sites: ObjectSites::new(ctx, true, true),
             },
         )))
     } else {
@@ -1959,6 +1891,7 @@ where
                 properties: try_compile!(compile_big_map(ctx, map)),
                 patterns,
                 property_pattern_indices,
+                sites: ObjectSites::new(ctx, true, true),
             },
         )))
     }
@@ -1981,6 +1914,7 @@ where
                 properties: try_compile!(compile_small_map(ctx, map)),
                 patterns,
                 property_pattern_indices,
+                sites: ObjectSites::new(ctx, true, true),
                 location: kctx.location().clone(),
             },
         )))
@@ -1990,6 +1924,7 @@ where
                 properties: try_compile!(compile_big_map(ctx, map)),
                 patterns,
                 property_pattern_indices,
+                sites: ObjectSites::new(ctx, true, true),
                 location: kctx.location().clone(),
             },
         )))
@@ -2005,7 +1940,7 @@ pub(crate) fn compile<'a, F: Json>(
     let properties = parent.get("properties");
     if let Some(patterns) = parent.get("patternProperties") {
         if let Value::Object(obj) = patterns {
-            // Compile all patterns & their validators to avoid doing work in the `patternProperties` validator
+            // `patternProperties` steps aside here, so this validator compiles its patterns
             match ctx.config().pattern_options() {
                 PatternEngineOptions::FancyRegex { .. } => {
                     let patterns = match compile_fancy_regex_patterns(ctx, obj) {
@@ -2036,12 +1971,7 @@ pub(crate) fn compile<'a, F: Json>(
                                     AdditionalPropertiesWithPatternsFalseValidator {
                                         patterns,
                                         location: ctx.location().join("additionalProperties"),
-                                        pattern_keyword_path: ctx
-                                            .location()
-                                            .join("patternProperties"),
-                                        pattern_keyword_absolute_location: ctx.absolute_location(
-                                            &ctx.location().join("patternProperties"),
-                                        ),
+                                        sites: ObjectSites::new(ctx, false, true),
                                     },
                                 )))
                             }
@@ -2071,10 +2001,7 @@ pub(crate) fn compile<'a, F: Json>(
                                         kctx.as_resource_ref(schema),
                                     )),
                                     patterns,
-                                    pattern_keyword_path: ctx.location().join("patternProperties"),
-                                    pattern_keyword_absolute_location: ctx.absolute_location(
-                                        &ctx.location().join("patternProperties"),
-                                    ),
+                                    sites: ObjectSites::new(ctx, false, true),
                                 })))
                             }
                         }
@@ -2109,12 +2036,7 @@ pub(crate) fn compile<'a, F: Json>(
                                     AdditionalPropertiesWithPatternsFalseValidator {
                                         patterns,
                                         location: ctx.location().join("additionalProperties"),
-                                        pattern_keyword_path: ctx
-                                            .location()
-                                            .join("patternProperties"),
-                                        pattern_keyword_absolute_location: ctx.absolute_location(
-                                            &ctx.location().join("patternProperties"),
-                                        ),
+                                        sites: ObjectSites::new(ctx, false, true),
                                     },
                                 )))
                             }
@@ -2144,10 +2066,7 @@ pub(crate) fn compile<'a, F: Json>(
                                         kctx.as_resource_ref(schema),
                                     )),
                                     patterns,
-                                    pattern_keyword_path: ctx.location().join("patternProperties"),
-                                    pattern_keyword_absolute_location: ctx.absolute_location(
-                                        &ctx.location().join("patternProperties"),
-                                    ),
+                                    sites: ObjectSites::new(ctx, false, true),
                                 })))
                             }
                         }
@@ -2218,7 +2137,7 @@ pub(crate) fn compile<'a, F: Json>(
                     )
                 } else {
                     let location = ctx.location().join("additionalProperties");
-                    Some(AdditionalPropertiesFalseValidator::compile(location))
+                    Some(AdditionalPropertiesFalseValidator::compile(ctx, location))
                 }
             }
             _ => {
@@ -2243,9 +2162,9 @@ mod tests {
     use serde_json::{json, Map, Value};
     use test_case::test_case;
 
-    // `required` with one name is fused into `additionalProperties: false`
+    // `required` with one name is checked by the `additionalProperties: false` walk for `is_valid`
     #[test_case(&json!({}), &[("/required", "\"a\" is a required property")]; "missing")]
-    #[test_case(&json!({"z": 1}), &[("/additionalProperties", "Additional properties are not allowed ('z' was unexpected)"), ("/required", "\"a\" is a required property")]; "missing beside an undeclared member")]
+    #[test_case(&json!({"z": 1}), &[("/required", "\"a\" is a required property"), ("/additionalProperties", "False schema does not allow 1")]; "missing beside an undeclared member")]
     fn fused_single_required_evaluate_location(instance: &Value, expected: &[(&str, &str)]) {
         let schema =
             json!({"properties": {"a": {}}, "additionalProperties": false, "required": ["a"]});
@@ -2326,9 +2245,7 @@ mod tests {
         })
     }
 
-    // Another type
     #[test_case(&json!([1]))]
-    // The right type
     #[test_case(&json!({}))]
     // Match `properties.foo`
     #[test_case(&json!({"foo": "a"}))]
@@ -2342,7 +2259,6 @@ mod tests {
     #[test_case(&json!({"bar": 6, "spam": 7}))]
     // All `patternProperties` rules match on the same value
     #[test_case(&json!({"barspam": 7}))]
-    // All combined
     #[test_case(&json!({"barspam": 7, "bar": 6, "spam": 7, "foo": "a", "barbaz": 6}))]
     fn schema_1_valid(instance: &Value) {
         let schema = schema_1();
@@ -2372,7 +2288,6 @@ mod tests {
     #[test_case(&json!({"barspam": 4}), &["4 is less than the minimum of 5"], &["/patternProperties/^bar/minimum"])]
     // `patternProperties.spam$` - (should be <=10), but valid for `patternProperties.^bar`
     #[test_case(&json!({"barspam": 11}), &["11 is greater than the maximum of 10"], &["/patternProperties/spam$/maximum"])]
-    // All combined
     #[test_case(
       &json!({"bar": 4, "spam": 11, "foo": 3, "faz": 1}),
       &[
@@ -2406,9 +2321,7 @@ mod tests {
         })
     }
 
-    // Another type
     #[test_case(&json!([1]))]
-    // The right type
     #[test_case(&json!({}))]
     // Match `patternProperties.^bar`
     #[test_case(&json!({"bar": 6}))]
@@ -2418,7 +2331,6 @@ mod tests {
     #[test_case(&json!({"bar": 6, "spam": 7}))]
     // All `patternProperties` rules match on the same value
     #[test_case(&json!({"barspam": 7}))]
-    // All combined
     #[test_case(&json!({"barspam": 7, "bar": 6, "spam": 7}))]
     fn schema_2_valid(instance: &Value) {
         let schema = schema_2();
@@ -2441,7 +2353,6 @@ mod tests {
     #[test_case(&json!({"barspam": 4}), &["4 is less than the minimum of 5"], &["/patternProperties/^bar/minimum"])]
     // `patternProperties.spam$` - (should be <=10), but valid for `patternProperties.^bar`
     #[test_case(&json!({"barspam": 11}), &["11 is greater than the maximum of 10"], &["/patternProperties/spam$/maximum"])]
-    // All combined
     #[test_case(
       &json!({"bar": 4, "spam": 11, "faz": 1}),
       &[
@@ -2472,9 +2383,7 @@ mod tests {
         })
     }
 
-    // Another type
     #[test_case(&json!([1]))]
-    // The right type
     #[test_case(&json!({}))]
     // Match `properties`
     #[test_case(&json!({"foo": "a"}))]
@@ -2487,7 +2396,6 @@ mod tests {
     #[test_case(&json!({"foo": 3}), &["3 is not of type \"string\""], &["/properties/foo/type"])]
     // `additionalProperties` - extra keyword & not in `properties`
     #[test_case(&json!({"faz": "a"}), &["Additional properties are not allowed (\'faz\' was unexpected)"], &["/additionalProperties"])]
-    // All combined
     #[test_case(
       &json!(
         {"foo": 3, "faz": "a"}),
@@ -2517,15 +2425,12 @@ mod tests {
         })
     }
 
-    // Another type
     #[test_case(&json!([1]))]
-    // The right type
     #[test_case(&json!({}))]
     // Match `properties`
     #[test_case(&json!({"foo": "a"}))]
     // Match `additionalProperties`
     #[test_case(&json!({"bar": 4}))]
-    // All combined
     #[test_case(&json!({"foo": "a", "bar": 4}))]
     fn schema_4_valid(instance: &Value) {
         let schema = schema_4();
@@ -2536,7 +2441,6 @@ mod tests {
     #[test_case(&json!({"foo": 3}), &["3 is not of type \"string\""], &["/properties/foo/type"])]
     // `additionalProperties` - should be an integer
     #[test_case(&json!({"bar": "a"}), &["\"a\" is not of type \"integer\""], &["/additionalProperties/type"])]
-    // All combined
     #[test_case(
       &json!(
         {"foo": 3, "bar": "a"}),
@@ -2571,9 +2475,7 @@ mod tests {
         })
     }
 
-    // Another type
     #[test_case(&json!([1]))]
-    // The right type
     #[test_case(&json!({}))]
     // Match `properties.foo`
     #[test_case(&json!({"foo": "a"}))]
@@ -2589,7 +2491,6 @@ mod tests {
     #[test_case(&json!({"bar": 6, "spam": 7}))]
     // All `patternProperties` rules match on the same value
     #[test_case(&json!({"barspam": 7}))]
-    // All combined
     #[test_case(&json!({"barspam": 7, "bar": 6, "spam": 7, "foo": "a", "barbaz": 6, "faz": 42}))]
     fn schema_5_valid(instance: &Value) {
         let schema = schema_5();
@@ -2653,9 +2554,7 @@ mod tests {
         })
     }
 
-    // Another type
     #[test_case(&json!([1]))]
-    // The right type
     #[test_case(&json!({}))]
     // Match `additionalProperties`
     #[test_case(&json!({"faz": 42}))]
@@ -2667,7 +2566,6 @@ mod tests {
     #[test_case(&json!({"bar": 6, "spam": 7}))]
     // All `patternProperties` rules match on the same value
     #[test_case(&json!({"barspam": 7}))]
-    // All combined
     #[test_case(&json!({"barspam": 7, "bar": 6, "spam": 7, "faz": 42}))]
     fn schema_6_valid(instance: &Value) {
         let schema = schema_6();
@@ -2890,7 +2788,7 @@ mod tests {
     #[test_case(&json!({}), &[(REQUIRED_A, "", "/required")]; "required alone")]
     #[test_case(
         &json!({"x": 1}),
-        &[(X_UNEXPECTED, "", "/additionalProperties"), (REQUIRED_A, "", "/required")];
+        &[(REQUIRED_A, "", "/required"), (X_UNEXPECTED, "", "/additionalProperties")];
         "required with additional property"
     )]
     #[test_case(&json!({"a": 1}), &[(NOT_STRING, "/a", "/properties/a/type")]; "properties alone")]
@@ -2974,7 +2872,6 @@ mod tests {
     const NOT_INTEGER: &str = "\"x\" is not of type \"integer\"";
     const EXTRA: &str = "Additional properties are not allowed ('extra' was unexpected)";
 
-    /// Adds enough integer `properties` for them to be looked up in a hash map.
     // `required` names checked in the closed object's own pass, below and past the bucket threshold.
     #[test_case(&json!({"properties": {"a": {}, "b": {}, "c": {}}, "additionalProperties": false, "required": ["a", "b"]}), &json!({"a": 1, "b": 2}), true; "small, required present")]
     #[test_case(&json!({"properties": {"a": {}, "b": {}, "c": {}}, "additionalProperties": false, "required": ["a", "b"]}), &json!({"a": 1, "c": 2}), false; "small, required missing")]
@@ -3040,6 +2937,7 @@ mod tests {
         }
     }
 
+    /// Adds enough integer `properties` for them to be looked up in buckets.
     fn with_many_properties(mut schema: Value) -> Value {
         let properties: Map<String, Value> = (0..HASHMAP_THRESHOLD)
             .map(|idx| (format!("p{idx}"), json!({"type": "integer"})))
@@ -3067,11 +2965,11 @@ mod tests {
     #[test_case(
         &with_many_properties(json!({"additionalProperties": false, "required": ["p1"]})),
         &json!({"p0": "x", "extra": 1}),
-        Some(EXTRA),
+        Some("\"p1\" is a required property"),
         &[
+            ("\"p1\" is a required property", "", "/required"),
             (NOT_INTEGER, "/p0", "/properties/p0/type"),
             (EXTRA, "", "/additionalProperties"),
-            ("\"p1\" is a required property", "", "/required"),
         ];
         "many properties, false and required invalid"
     )]
@@ -3183,5 +3081,130 @@ mod tests {
         for options in regex_engine_options() {
             tests_util::assert_compile_error_with(&options, schema, message, location);
         }
+    }
+
+    // Each keyword reports its own unit, as it would without the validators fused; `false` fails
+    // each extra member.
+    #[test_case(
+        &json!({"properties": {"a": {"type": "integer"}}, "additionalProperties": false}),
+        &json!({"a": 1, "b": 2}),
+        &[
+            " @ FAIL",
+            "  /properties @ ok ann=[\"a\"]",
+            "    /properties/a @/a ok",
+            "      /properties/a/type @/a ok",
+            "  /additionalProperties @ FAIL",
+            "    /additionalProperties @/b FAIL err=falseSchema",
+        ] ; "properties and false"
+    )]
+    #[test_case(
+        &json!({"properties": {"a": {}}, "additionalProperties": false}),
+        &json!(5),
+        &[" @ ok", "  /properties @ ok", "  /additionalProperties @ ok"] ; "properties and false on a non-object"
+    )]
+    #[test_case(
+        &json!({"properties": {"a": {}}, "additionalProperties": {"type": "string"}}),
+        &json!({"a": 1, "b": 2, "c": "x"}),
+        &[
+            " @ FAIL",
+            "  /properties @ ok ann=[\"a\"]",
+            "    /properties/a @/a ok",
+            "  /additionalProperties @ FAIL dropped=[\"b\",\"c\"]",
+            "    /additionalProperties @/b FAIL",
+            "      /additionalProperties/type @/b FAIL err=type",
+            "    /additionalProperties @/c ok",
+            "      /additionalProperties/type @/c ok",
+        ] ; "properties and schema"
+    )]
+    #[test_case(
+        &json!({"patternProperties": {"^b": {}}, "additionalProperties": {"type": "string"}}),
+        &json!({"bb": 1, "c": 2}),
+        &[
+            " @ FAIL",
+            "  /patternProperties @ ok ann=[\"bb\"]",
+            "    /patternProperties/^b @/bb ok",
+            "  /additionalProperties @ FAIL dropped=[\"c\"]",
+            "    /additionalProperties @/c FAIL",
+            "      /additionalProperties/type @/c FAIL err=type",
+        ] ; "patterns and schema"
+    )]
+    #[test_case(
+        &json!({"patternProperties": {"^b": {}}, "additionalProperties": false}),
+        &json!({"bb": 1, "c": 2}),
+        &[
+            " @ FAIL",
+            "  /patternProperties @ ok ann=[\"bb\"]",
+            "    /patternProperties/^b @/bb ok",
+            "  /additionalProperties @ FAIL",
+            "    /additionalProperties @/c FAIL err=falseSchema",
+        ] ; "patterns and false"
+    )]
+    #[test_case(
+        &json!({"properties": {"a": {}}, "patternProperties": {"^b": {}}, "additionalProperties": {"type": "string"}}),
+        &json!({"a": 1, "bb": 2, "c": 3}),
+        &[
+            " @ FAIL",
+            "  /properties @ ok ann=[\"a\"]",
+            "    /properties/a @/a ok",
+            "  /patternProperties @ ok ann=[\"bb\"]",
+            "    /patternProperties/^b @/bb ok",
+            "  /additionalProperties @ FAIL dropped=[\"c\"]",
+            "    /additionalProperties @/c FAIL",
+            "      /additionalProperties/type @/c FAIL err=type",
+        ] ; "properties, patterns and schema"
+    )]
+    #[test_case(
+        &json!({"properties": {"a": {}}, "patternProperties": {"^b": {}}, "additionalProperties": false}),
+        &json!({"a": 1, "bb": 2, "c": 3}),
+        &[
+            " @ FAIL",
+            "  /properties @ ok ann=[\"a\"]",
+            "    /properties/a @/a ok",
+            "  /patternProperties @ ok ann=[\"bb\"]",
+            "    /patternProperties/^b @/bb ok",
+            "  /additionalProperties @ FAIL",
+            "    /additionalProperties @/c FAIL err=falseSchema",
+        ] ; "properties, patterns and false"
+    )]
+    #[test_case(
+        &json!({"properties": {"a": {"type": "integer"}}, "required": ["a"], "additionalProperties": false}),
+        &json!({"b": 1}),
+        &[
+            " @ FAIL",
+            "  /required @ FAIL err=required",
+            "  /properties @ ok ann=[]",
+            "  /additionalProperties @ FAIL",
+            "    /additionalProperties @/b FAIL err=falseSchema",
+        ] ; "one required name, missing"
+    )]
+    #[test_case(
+        &json!({"properties": {"a": {"type": "integer"}}, "required": ["a"], "additionalProperties": false}),
+        &json!({"a": 1}),
+        &[
+            " @ ok",
+            "  /required @ ok",
+            "  /properties @ ok ann=[\"a\"]",
+            "    /properties/a @/a ok",
+            "      /properties/a/type @/a ok",
+            "  /additionalProperties @ ok",
+        ] ; "one required name, present"
+    )]
+    #[test_case(
+        &json!({"additionalProperties": false}),
+        &json!({"b": 1, "c": 2}),
+        &[
+            " @ FAIL",
+            "  /additionalProperties @ FAIL",
+            "    /additionalProperties @/b FAIL err=falseSchema",
+            "    /additionalProperties @/c FAIL err=falseSchema",
+        ] ; "false alone"
+    )]
+    #[test_case(
+        &json!({"additionalProperties": false}),
+        &json!({}),
+        &[" @ ok", "  /additionalProperties @ ok"] ; "false alone on an empty object"
+    )]
+    fn fused_evaluate_reports_each_keyword(schema: &Value, instance: &Value, expected: &[&str]) {
+        assert_eq!(tests_util::evaluation_outline(schema, instance), expected);
     }
 }

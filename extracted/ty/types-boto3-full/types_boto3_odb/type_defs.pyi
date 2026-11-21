@@ -101,6 +101,7 @@ __all__ = (
     "AutonomousDatabaseConnectionStringsTypeDef",
     "AutonomousDatabaseConnectionUrlsTypeDef",
     "AutonomousDatabasePeerSummaryTypeDef",
+    "AutonomousDatabaseRefreshableCloneSummaryTypeDef",
     "AutonomousDatabaseSummaryTypeDef",
     "AutonomousDatabaseTypeDef",
     "AutonomousDatabaseVersionSummaryTypeDef",
@@ -230,6 +231,9 @@ __all__ = (
     "ListAutonomousDatabasePeersInputPaginateTypeDef",
     "ListAutonomousDatabasePeersInputTypeDef",
     "ListAutonomousDatabasePeersOutputTypeDef",
+    "ListAutonomousDatabaseRefreshableClonesInputPaginateTypeDef",
+    "ListAutonomousDatabaseRefreshableClonesInputTypeDef",
+    "ListAutonomousDatabaseRefreshableClonesOutputTypeDef",
     "ListAutonomousDatabaseVersionsInputPaginateTypeDef",
     "ListAutonomousDatabaseVersionsInputTypeDef",
     "ListAutonomousDatabaseVersionsOutputTypeDef",
@@ -320,6 +324,8 @@ __all__ = (
     "SourceConfigurationTypeDef",
     "StartAutonomousDatabaseInputTypeDef",
     "StartAutonomousDatabaseOutputTypeDef",
+    "StartAutonomousDatabaseRefreshInputTypeDef",
+    "StartAutonomousDatabaseRefreshOutputTypeDef",
     "StartDbNodeInputTypeDef",
     "StartDbNodeOutputTypeDef",
     "StopAutonomousDatabaseInputTypeDef",
@@ -467,6 +473,12 @@ class AutonomousDatabaseConnectionUrlsTypeDef(TypedDict):
     sqlDevWebUrl: NotRequired[str]
 
 class AutonomousDatabasePeerSummaryTypeDef(TypedDict):
+    autonomousDatabaseId: NotRequired[str]
+    autonomousDatabaseArn: NotRequired[str]
+    ocid: NotRequired[str]
+    region: NotRequired[str]
+
+class AutonomousDatabaseRefreshableCloneSummaryTypeDef(TypedDict):
     autonomousDatabaseId: NotRequired[str]
     autonomousDatabaseArn: NotRequired[str]
     ocid: NotRequired[str]
@@ -934,6 +946,11 @@ class ListAutonomousDatabasePeersInputTypeDef(TypedDict):
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
 
+class ListAutonomousDatabaseRefreshableClonesInputTypeDef(TypedDict):
+    autonomousDatabaseId: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
 class ListAutonomousDatabaseVersionsInputTypeDef(TypedDict):
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
@@ -1315,6 +1332,14 @@ class StartAutonomousDatabaseOutputTypeDef(TypedDict):
     statusReason: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class StartAutonomousDatabaseRefreshOutputTypeDef(TypedDict):
+    autonomousDatabaseId: str
+    displayName: str
+    status: AutonomousDatabaseResourceStatusType
+    statusReason: str
+    refreshableStatus: RefreshableStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class StartDbNodeOutputTypeDef(TypedDict):
     dbNodeId: str
     status: DbNodeResourceStatusType
@@ -1445,6 +1470,11 @@ class ListAutonomousDatabasePeersOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
+class ListAutonomousDatabaseRefreshableClonesOutputTypeDef(TypedDict):
+    autonomousDatabaseRefreshableClones: list[AutonomousDatabaseRefreshableCloneSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
 class ListAutonomousDatabaseVersionsOutputTypeDef(TypedDict):
     autonomousDatabaseVersions: list[AutonomousDatabaseVersionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1483,6 +1513,10 @@ class PointInTimeRestoreConfigurationTypeDef(TypedDict):
 class RestoreAutonomousDatabaseInputTypeDef(TypedDict):
     autonomousDatabaseId: str
     timestamp: TimestampTypeDef
+
+class StartAutonomousDatabaseRefreshInputTypeDef(TypedDict):
+    autonomousDatabaseId: str
+    timeOfRefreshCutoff: NotRequired[TimestampTypeDef]
 
 class CloudExadataInfrastructureUnallocatedResourcesTypeDef(TypedDict):
     cloudAutonomousVmClusters: NotRequired[list[CloudAutonomousVmClusterResourceDetailsTypeDef]]
@@ -1745,6 +1779,10 @@ class ListAutonomousDatabaseClonesInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListAutonomousDatabasePeersInputPaginateTypeDef(TypedDict):
+    autonomousDatabaseId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListAutonomousDatabaseRefreshableClonesInputPaginateTypeDef(TypedDict):
     autonomousDatabaseId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 

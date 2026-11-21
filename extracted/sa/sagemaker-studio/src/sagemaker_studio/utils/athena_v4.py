@@ -38,12 +38,12 @@ MIN_ENGINE_VERSION = 4
 # DuckDB, versions 1-3 are Trino.
 _DUCKDB = "duckdb"
 _ATHENA = "athena"
-# Accepted names during the V4 -> Athena DuckDB transition. Service responses use the
+# Accepted names during the V4 -> DuckDB transition. Service responses use the
 # customer-facing names; internal names are accepted defensively during the regional rollout.
 _V4_ENGINE_VERSION_NAMES = frozenset(
     {
         "Athena engine version 4",
-        "Athena DuckDB",
+        "DuckDB",
     }
 )
 _ENGINE_VERSION_NUMBER = re.compile(r"(\d+)\s*$")

@@ -108,6 +108,7 @@ bool parse(std::string_view str, function_ref<void(std::string_view)> onText,
             case 'd':
             case 'o':
             case 'b':
+            case 't':
                 widthAllowed = true;
                 if (options.zeroPad) {
                     options.zeroPad = false;
@@ -122,7 +123,6 @@ bool parse(std::string_view str, function_ref<void(std::string_view)> onText,
                 floatAllowed = true;
                 break;
             case 's':
-            case 't':
                 widthAllowed = true;
                 break;
             case 'c':
@@ -206,20 +206,21 @@ void formatInt(std::string& result, const SVInt& value, LiteralBase base,
         }
     }
 
-    auto doPad = [&] {
-        char pad = '0';
-        if (base == LiteralBase::Decimal)
-            pad = ' ';
+    char pad = '0';
+    if (base == LiteralBase::Decimal)
+        pad = ' ';
 
-        result.append(width - buffer.size(), pad);
-    };
+    // Leading zeros are always displayed [21.2.1.2], so only spaces
+    // can move to the right of a left-justified field.
+    bool padAfter = options.leftJustify && pad == ' ';
+    auto doPad = [&] { result.append(width - buffer.size(), pad); };
 
-    if (buffer.size() < width && !options.leftJustify)
+    if (buffer.size() < width && !padAfter)
         doPad();
 
     result.append(buffer.begin(), buffer.end());
 
-    if (buffer.size() < width && options.leftJustify)
+    if (buffer.size() < width && padAfter)
         doPad();
 }
 
@@ -254,13 +255,17 @@ static void formatChar(std::string& result, const SVInt& value) {
 
 static void formatString(std::string& result, const std::string& value,
                          const FormatOptions& options) {
-    if (options.width) {
-        uint32_t width = *options.width;
-        if (value.size() < width)
-            result.append(width - value.size(), ' ');
-    }
+    size_t padding = 0;
+    if (options.width && value.size() < *options.width)
+        padding = *options.width - value.size();
+
+    if (!options.leftJustify)
+        result.append(padding, ' ');
 
     result.append(value);
+
+    if (options.leftJustify)
+        result.append(padding, ' ');
 }
 
 static void formatRaw2(std::string& result, const ConstantValue& value) {
@@ -456,6 +461,10 @@ struct TypeVisitor {
             if (!u.activeMember) {
                 buffer.append("(unset)");
             }
+            else if (!type.isTagged && !type.fields.empty() &&
+                     printUntaggedUnion(*type.fields[0], *type.fields[*u.activeMember], u.value)) {
+                // Printed as the first declared member.
+            }
             else {
                 auto& field = *type.fields[*u.activeMember];
                 buffer.format("{}", field.name);
@@ -465,6 +474,32 @@ struct TypeVisitor {
                 }
             }
         }
+    }
+
+    // For untagged unions only the first declared member is printed [21.2.1.6].
+    bool printUntaggedUnion(const FieldSymbol& first, const FieldSymbol& active,
+                            const ConstantValue& value) {
+        auto& firstType = first.getType();
+        const ConstantValue* toPrint = &value;
+        ConstantValue converted;
+        if (&first != &active) {
+            // Reinterpret the active member's bits as the first member if we can.
+            if (!firstType.isIntegral() || !value.isInteger())
+                return false;
+
+            converted = value.convertToInt(firstType.getBitWidth(), firstType.isSigned(),
+                                           firstType.isFourState());
+            toPrint = &converted;
+        }
+
+        buffer.append("'{");
+        if (!abbreviated) {
+            buffer.append(first.name);
+            buffer.append(":");
+        }
+        firstType.visit(*this, *toPrint);
+        buffer.append("}");
+        return true;
     }
 
     void visit(const FixedSizeUnpackedArrayType& type, const ConstantValue& arg) {
@@ -499,9 +534,11 @@ struct TypeVisitor {
                     buffer.append(" ");
             }
 
-            buffer.pop_back();
-            if (!abbreviated)
+            if (!arg.map()->empty()) {
                 buffer.pop_back();
+                if (!abbreviated)
+                    buffer.pop_back();
+            }
             buffer.append("}");
         }
     }

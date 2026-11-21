@@ -206,6 +206,10 @@ class AryionExtractor(Extractor):
             "path"  : text.split_html(extr(
                 "cookiecrumb'>", '</span'))[4:-1:2],
             "date"  : dt.datetime(*parsedate_tz(lmod)[:6]),
+            "date_uploaded": dt.parse(
+                extr("<b>Uploaded</b>:", "<") and extr("title='", "'").replace(
+                    "1st", "1th").replace("2nd", "2th").replace("3rd", "3th"),
+                "%b %dth, %Y %I:%M %p") + dt.timedelta(0, 18000),
             "size"  : text.parse_int(clen),
             "views" : text.parse_int(extr("Views</b>:", "<").replace(",", "")),
             "width" : text.parse_int(extr("Resolution</b>:", "x")),

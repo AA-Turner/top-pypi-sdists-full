@@ -12,7 +12,7 @@ use crate::{
     Json, LazyInstance, Node,
 };
 use serde_json::{Map, Value};
-use std::{borrow::Cow, sync::Arc};
+use std::borrow::Cow;
 
 /// Validator for `contentMediaType` keyword.
 pub(crate) struct ContentMediaTypeValidator {
@@ -36,7 +36,6 @@ impl ContentMediaTypeValidator {
     }
 }
 
-/// Validator delegates validation to the stored function.
 impl<F: Json> Validate<F> for ContentMediaTypeValidator {
     fn is_valid(&self, instance: &F::Node<'_>, _ctx: &mut ValidationContext) -> bool {
         if let Some(item) = instance.as_string() {
@@ -279,9 +278,13 @@ pub(crate) fn compile_content_encoding<'a, F: Json>(
     schema: &'a Map<String, Value>,
     subschema: &'a Value,
 ) -> Option<CompilationResult<'a, F>> {
-    // Performed during media type validation
-    if schema.get("contentMediaType").is_some() {
-        // TODO. what if media type is not supported?
+    // `compile_media_type` rejects a non-string `contentMediaType` and checks the encoding together
+    // with a supported media type.
+    if schema.get("contentMediaType").is_some_and(|media_type| {
+        media_type
+            .as_str()
+            .is_none_or(|media_type| ctx.get_content_media_type_check(media_type).is_some())
+    }) {
         return None;
     }
     if let Value::String(content_encoding) = subschema {
@@ -307,7 +310,7 @@ pub(crate) fn compile_content_encoding<'a, F: Json>(
 ///
 /// Per spec, annotations are only produced for string instances.
 pub(crate) struct ContentMediaTypeAnnotationValidator {
-    annotation: Arc<Value>,
+    annotation: Annotations,
 }
 
 impl ContentMediaTypeAnnotationValidator {
@@ -318,7 +321,7 @@ impl ContentMediaTypeAnnotationValidator {
     ) -> Option<CompilationResult<'a, F>> {
         if let Value::String(_) = subschema {
             Some(Ok(Box::new(ContentMediaTypeAnnotationValidator {
-                annotation: Arc::new(subschema.clone()),
+                annotation: Annotations::new(subschema.clone()),
             })))
         } else {
             None
@@ -350,7 +353,7 @@ impl<F: Json> Validate<F> for ContentMediaTypeAnnotationValidator {
     ) -> EvaluationResult {
         if instance.is_string() {
             let mut result = EvaluationResult::valid_empty();
-            result.annotate(Annotations::from_arc(Arc::clone(&self.annotation)));
+            result.annotate(self.annotation.clone());
             result
         } else {
             EvaluationResult::valid_empty()
@@ -370,7 +373,7 @@ pub(crate) fn compile_media_type_annotation<'a, F: Json>(
 ///
 /// Per spec, annotations are only produced for string instances.
 pub(crate) struct ContentEncodingAnnotationValidator {
-    annotation: Arc<Value>,
+    annotation: Annotations,
 }
 
 impl ContentEncodingAnnotationValidator {
@@ -381,7 +384,7 @@ impl ContentEncodingAnnotationValidator {
     ) -> Option<CompilationResult<'a, F>> {
         if let Value::String(_) = subschema {
             Some(Ok(Box::new(ContentEncodingAnnotationValidator {
-                annotation: Arc::new(subschema.clone()),
+                annotation: Annotations::new(subschema.clone()),
             })))
         } else {
             None
@@ -413,7 +416,7 @@ impl<F: Json> Validate<F> for ContentEncodingAnnotationValidator {
     ) -> EvaluationResult {
         if instance.is_string() {
             let mut result = EvaluationResult::valid_empty();
-            result.annotate(Annotations::from_arc(Arc::clone(&self.annotation)));
+            result.annotate(self.annotation.clone());
             result
         } else {
             EvaluationResult::valid_empty()
@@ -434,7 +437,7 @@ pub(crate) fn compile_content_encoding_annotation<'a, F: Json>(
 /// Per spec, the annotation is only produced when the instance is a string AND
 /// `contentMediaType` is also present in the same schema object.
 pub(crate) struct ContentSchemaAnnotationValidator {
-    annotation: Arc<Value>,
+    annotation: Annotations,
 }
 
 impl ContentSchemaAnnotationValidator {
@@ -446,7 +449,7 @@ impl ContentSchemaAnnotationValidator {
         // contentSchema only annotates when contentMediaType is also present
         if schema.contains_key("contentMediaType") {
             Some(Ok(Box::new(ContentSchemaAnnotationValidator {
-                annotation: Arc::new(subschema.clone()),
+                annotation: Annotations::new(subschema.clone()),
             })))
         } else {
             None
@@ -478,7 +481,7 @@ impl<F: Json> Validate<F> for ContentSchemaAnnotationValidator {
     ) -> EvaluationResult {
         if instance.is_string() {
             let mut result = EvaluationResult::valid_empty();
-            result.annotate(Annotations::from_arc(Arc::clone(&self.annotation)));
+            result.annotate(self.annotation.clone());
             result
         } else {
             EvaluationResult::valid_empty()
@@ -504,13 +507,17 @@ mod tests {
     #[test_case(&json!({"contentMediaType": "application/json"}), &json!("asd"), "/contentMediaType")]
     #[test_case(&json!({"contentMediaType": "application/json", "contentEncoding": "base64"}), &json!("ezp9Cg=="), "/contentMediaType")]
     #[test_case(&json!({"contentMediaType": "application/json", "contentEncoding": "base64"}), &json!("{}"), "/contentEncoding")]
+    #[test_case(&json!({"contentMediaType": "text/x-unknown", "contentEncoding": "base64"}), &json!("not base64!"), "/contentEncoding")]
     fn location(schema: &Value, instance: &Value, expected: &str) {
         let validator = crate::options()
             .with_draft(Draft::Draft7)
             .build(schema)
             .expect("Invalid schema");
-        let error = validator.validate(instance).expect_err("Should fail");
-        assert_eq!(error.schema_path().as_str(), expected);
+        let locations: Vec<String> = validator
+            .iter_errors(instance)
+            .map(|error| error.schema_path().as_str().to_owned())
+            .collect();
+        assert_eq!(locations, [expected]);
     }
 
     #[test]
@@ -561,8 +568,35 @@ mod tests {
         crate::tests_util::is_valid_with(&validator, instance);
     }
 
+    // Draft 4 and 6 do not define the content keywords
+    #[test_case(Draft::Draft4, &json!({"contentEncoding": "base64"}), &json!("not base64!"))]
+    #[test_case(Draft::Draft4, &json!({"contentMediaType": "application/json"}), &json!("{"))]
+    #[test_case(Draft::Draft6, &json!({"contentEncoding": "base64"}), &json!("not base64!"))]
+    #[test_case(Draft::Draft6, &json!({"contentMediaType": "application/json"}), &json!("{"))]
+    #[test_case(Draft::Draft6, &json!({"contentEncoding": "base64", "contentMediaType": "application/json"}), &json!("ezp9Cg=="))]
+    #[test_case(Draft::Draft6, &json!({"contentEncoding": 5, "contentMediaType": 6}), &json!("{"))]
+    fn undefined(draft: Draft, schema: &Value, instance: &Value) {
+        let validator = crate::options()
+            .with_draft(draft)
+            .build(schema)
+            .expect("Invalid schema");
+        crate::tests_util::is_valid_with(&validator, instance);
+    }
+
+    #[test_case(&json!({"contentEncoding": "base64"}), &json!("not base64!"))]
+    #[test_case(&json!({"contentMediaType": "application/json"}), &json!("{"))]
+    fn asserted_in_draft7(schema: &Value, instance: &Value) {
+        let validator = crate::options()
+            .with_draft(Draft::Draft7)
+            .build(schema)
+            .expect("Invalid schema");
+        crate::tests_util::is_not_valid_with(&validator, instance);
+    }
+
     #[test_case(&json!({"contentMediaType": 5}), "/contentMediaType"; "media type")]
+    #[test_case(&json!({"contentMediaType": 5, "contentEncoding": 6}), "/contentMediaType"; "media type with malformed encoding")]
     #[test_case(&json!({"contentMediaType": "application/json", "contentEncoding": 5}), "/contentEncoding"; "encoding with media type")]
+    #[test_case(&json!({"contentMediaType": "text/x-unknown", "contentEncoding": 5}), "/contentEncoding"; "encoding with unknown media type")]
     #[test_case(&json!({"contentEncoding": 5}), "/contentEncoding"; "encoding")]
     fn malformed(schema: &Value, location: &str) {
         crate::tests_util::assert_compile_error_with(

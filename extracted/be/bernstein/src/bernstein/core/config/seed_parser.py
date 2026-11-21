@@ -57,7 +57,7 @@ from bernstein.core.models import (
     SmtpConfig,
     TestAgentConfig,
 )
-from bernstein.core.quality_gates import BenchmarkConfig, QualityGatesConfig
+from bernstein.core.quality_gates import BenchmarkConfig, IntentVerificationConfig, QualityGatesConfig
 from bernstein.core.sandbox import parse_docker_sandbox
 from bernstein.core.secrets import SecretsConfig
 from bernstein.core.tenanting import TenantConfig
@@ -105,7 +105,7 @@ type _CAST_DICT_STR_ANY = dict[str, Any]
 type _CAST_STR_INT_FLOAT_NONE = str | int | float | None
 
 
-def _parse_budget(raw: str | int | float | None) -> float | None:
+def _parse_budget(raw: object) -> float | None:
     """Extract a numeric dollar amount from a budget value.
 
     Args:
@@ -121,7 +121,8 @@ def _parse_budget(raw: str | int | float | None) -> float | None:
         return None
     if isinstance(raw, (int, float)):
         return float(raw)
-    # At this point raw must be str (the only remaining type).
+    if not isinstance(raw, str):
+        raise SeedError("Invalid budget format. Expected '$N' or a number.")
     m = _BUDGET_RE.match(raw.strip())
     if m:
         return float(m.group(1))
@@ -1532,6 +1533,26 @@ def _parse_cluster(raw: object) -> ClusterConfig | None:
             "no one. Pin each peer as 'gossip_peer_keys: {<node_id>: <ed25519 public key>}' "
             "(the peer's .sdd/cluster/identity/claim_signing.pub).",
         )
+    shards_raw = cluster_dict.get("shards", {})
+    if not isinstance(shards_raw, dict):
+        raise SeedError("cluster.shards must be a mapping of shard IDs to URLs")
+    shards = tuple(cast("dict[str, str]", shards_raw).items())
+    shard_vnodes = cast("int", cluster_dict.get("shard_vnodes", 128))
+    try:
+        ClusterConfig(shards=shards, shard_vnodes=shard_vnodes)
+    except ValueError as exc:
+        raise SeedError(str(exc)) from exc
+    min_disk_raw = cluster_dict.get("min_disk_free_mb", 512)
+    if isinstance(min_disk_raw, bool) or not isinstance(min_disk_raw, int) or min_disk_raw < 0:
+        raise SeedError("cluster.min_disk_free_mb must be a non-negative integer")
+    health_limits: dict[str, float] = {}
+    for key, default in (("max_mem_used_pct", 95.0), ("max_mesh_rtt_ms", 5000.0)):
+        value = cluster_dict.get(key, default)
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not 0 <= value < float("inf"):
+            raise SeedError(f"cluster.{key} must be a finite non-negative number")
+        if key == "max_mem_used_pct" and value > 100:
+            raise SeedError("cluster.max_mem_used_pct must be at most 100")
+        health_limits[key] = float(value)
     return ClusterConfig(
         enabled=bool(cluster_dict.get("enabled", False)),
         topology=topology,
@@ -1544,6 +1565,11 @@ def _parse_cluster(raw: object) -> ClusterConfig | None:
         claim_lease_ttl_s=lease_raw,
         claim_journal_path=journal_path,
         gossip_peer_keys=peer_keys,
+        shards=shards,
+        shard_vnodes=shard_vnodes,
+        min_disk_free_mb=min_disk_raw,
+        max_mem_used_pct=health_limits["max_mem_used_pct"],
+        max_mesh_rtt_ms=health_limits["max_mesh_rtt_ms"],
     )
 
 
@@ -1849,7 +1875,8 @@ def _parse_quality_gates(raw: object) -> QualityGatesConfig | None:
 
     def _qg_int(key: str, default: int) -> int:
         val = qg_dict.get(key, default)
-        if not isinstance(val, int):
+        # ``bool`` is a subclass of ``int``; ``timeout_s: true`` is a typo, not a timeout.
+        if isinstance(val, bool) or not isinstance(val, int):
             raise SeedError(f"quality_gates.{key} must be an integer, got: {type(val).__name__}")
         return val
 
@@ -1880,6 +1907,7 @@ def _parse_quality_gates(raw: object) -> QualityGatesConfig | None:
     if not isinstance(pii_scan_paths_raw, list):
         raise SeedError(f"quality_gates.pii_scan_paths must be a list, got: {type(pii_scan_paths_raw).__name__}")
     benchmark_cfg = _parse_quality_gate_benchmark(qg_dict.get("benchmark"))
+    intent_cfg = _parse_quality_gate_intent(qg_dict.get("intent_verification"))
 
     return QualityGatesConfig(
         enabled=_qg_bool("enabled", True),
@@ -1950,6 +1978,27 @@ def _parse_quality_gates(raw: object) -> QualityGatesConfig | None:
         behavior_probe_gate_timeout_s=_qg_int("behavior_probe_gate_timeout_s", 300),
         behavior_probe_max_callables=_qg_int("behavior_probe_max_callables", 12),
         behavior_probe_max_probes_per_callable=_qg_int("behavior_probe_max_probes_per_callable", 6),
+        # The seventeen fields below were the remainder of #6615: documented in
+        # docs/architecture/quality-pipeline.md, accepted by the schema, and never
+        # read, so ``mutation_testing: true`` or ``dep_audit: true`` in a seed
+        # left the gate off. Defaults mirror QualityGatesConfig.
+        mutation_testing=_qg_bool("mutation_testing", False),
+        mutation_command=_qg_str("mutation_command", "uv run mutmut run"),
+        mutation_threshold=_qg_float("mutation_threshold", 0.50),
+        mutation_timeout_s=_qg_int("mutation_timeout_s", 600),
+        intent_verification=intent_cfg,
+        dep_audit=_qg_bool("dep_audit", False),
+        dep_audit_command=_qg_str("dep_audit_command", "pip-audit"),
+        dep_audit_files=_qg_str_list("dep_audit_files", list(QualityGatesConfig().dep_audit_files)),
+        migration_reversibility_check=_qg_bool("migration_reversibility_check", False),
+        large_file_check=_qg_bool("large_file_check", False),
+        large_file_threshold=_qg_int("large_file_threshold", 500),
+        integration_test_gen=_qg_bool("integration_test_gen", False),
+        review_rubric=_qg_bool("review_rubric", False),
+        test_expansion=_qg_bool("test_expansion", False),
+        agent_test_mutation=_qg_bool("agent_test_mutation", False),
+        agent_test_mutation_threshold=_qg_float("agent_test_mutation_threshold", 0.70),
+        agent_test_mutation_timeout_s=_qg_int("agent_test_mutation_timeout_s", 300),
         benchmark=benchmark_cfg,
     )
 
@@ -2008,6 +2057,56 @@ def _parse_quality_gate_benchmark(raw: object) -> BenchmarkConfig:
     if not isinstance(bm_threshold, (int, float)):
         raise SeedError(f"quality_gates.benchmark.threshold must be a number, got: {type(bm_threshold).__name__}")
     return BenchmarkConfig(enabled=bm_enabled, command=bm_command, threshold=float(bm_threshold))
+
+
+def _parse_quality_gate_intent(raw: object) -> IntentVerificationConfig:
+    """Parse the quality_gates.intent_verification sub-config (#6615).
+
+    Same shape as ``_parse_quality_gate_benchmark``: a missing mapping is the
+    dataclass default, a present key is type-checked, an unknown key is left to
+    the schema. Defaults come from ``IntentVerificationConfig`` itself so the
+    two cannot drift.
+    """
+    if raw is None:
+        return IntentVerificationConfig()
+    if not isinstance(raw, dict):
+        raise SeedError(f"quality_gates.intent_verification must be a mapping, got: {type(raw).__name__}")
+    iv_dict: dict[str, object] = cast("_StrObjDict", raw)
+    defaults = IntentVerificationConfig()
+
+    def _iv_bool(key: str, default: bool) -> bool:
+        val = iv_dict.get(key, default)
+        if not isinstance(val, bool):
+            raise SeedError(f"quality_gates.intent_verification.{key} must be a bool, got: {type(val).__name__}")
+        return val
+
+    def _iv_str(key: str, default: str) -> str:
+        val = iv_dict.get(key, default)
+        if not isinstance(val, str):
+            raise SeedError(f"quality_gates.intent_verification.{key} must be a string, got: {type(val).__name__}")
+        return val
+
+    def _iv_int(key: str, default: int) -> int:
+        val = iv_dict.get(key, default)
+        if isinstance(val, bool) or not isinstance(val, int):
+            raise SeedError(f"quality_gates.intent_verification.{key} must be an integer, got: {type(val).__name__}")
+        return val
+
+    fork_raw = iv_dict.get("fork_from_context")
+    if fork_raw is not None and not isinstance(fork_raw, str):
+        raise SeedError(
+            f"quality_gates.intent_verification.fork_from_context must be a string, got: {type(fork_raw).__name__}"
+        )
+    return IntentVerificationConfig(
+        enabled=_iv_bool("enabled", defaults.enabled),
+        model=_iv_str("model", defaults.model),
+        provider=_iv_str("provider", defaults.provider),
+        max_diff_chars=_iv_int("max_diff_chars", defaults.max_diff_chars),
+        max_tokens=_iv_int("max_tokens", defaults.max_tokens),
+        block_on_no=_iv_bool("block_on_no", defaults.block_on_no),
+        block_on_partial=_iv_bool("block_on_partial", defaults.block_on_partial),
+        fork_from_context=fork_raw,
+    )
 
 
 def _parse_single_formal_property(idx: int, entry: object) -> FormalProperty:
@@ -2326,6 +2425,7 @@ _PARSED_TOP_LEVEL_KEYS: frozenset[str] = frozenset(
         "gate_repair_enabled",
         "github",
         "goal",
+        "hash_profile",
         "internal_llm_model",
         "internal_llm_provider",
         "judge_model",
@@ -2457,8 +2557,8 @@ def parse_seed(path: Path) -> SeedConfig:
     return _parse_seed(path, apply_tuning=True)
 
 
-def _parse_seed(path: Path, *, apply_tuning: bool) -> SeedConfig:
-    """Share parsing with launch validation without rebinding parent tuning."""
+def _load_seed_mapping(path: Path, *, validate_layers: bool = True) -> dict[str, object]:
+    """Read the effective seed mapping without validating unrelated sections."""
     if not path.exists():
         raise SeedError(f"Seed file not found: {path}")
 
@@ -2466,6 +2566,8 @@ def _parse_seed(path: Path, *, apply_tuning: bool) -> SeedConfig:
         raw_text = path.read_text(encoding="utf-8")
     except OSError as exc:
         raise SeedError(f"Cannot read seed file {path}: {exc}") from exc
+    except UnicodeDecodeError as exc:
+        raise SeedError(f"Seed file {path} must be encoded as UTF-8") from exc
 
     try:
         data_raw: object = yaml.safe_load(raw_text)
@@ -2483,10 +2585,18 @@ def _parse_seed(path: Path, *, apply_tuning: bool) -> SeedConfig:
     # overlay and no ``$BERNSTEIN_CONFIG_OVERRIDE`` this is the identity, and
     # a setup that edits the committed file directly behaves as it always did.
     try:
-        data: dict[str, object] = cast("_StrObjDict", resolve_effective_mapping(committed, config_path=path))
+        data: dict[str, object] = cast(
+            "_StrObjDict", resolve_effective_mapping(committed, config_path=path, validate_layers=validate_layers)
+        )
     except (RunOverlayError, LayerValidationError) as exc:
         raise SeedError(str(exc)) from exc
 
+    return data
+
+
+def _parse_seed(path: Path, *, apply_tuning: bool, mapping: dict[str, object] | None = None) -> SeedConfig:
+    """Share parsing with launch validation without rebinding parent tuning."""
+    data = _load_seed_mapping(path) if mapping is None else mapping
     _warn_unknown_top_level_keys(data)
 
     # --- Required fields ---
@@ -2495,7 +2605,7 @@ def _parse_seed(path: Path, *, apply_tuning: bool) -> SeedConfig:
         raise SeedError("Seed file must contain a non-empty 'goal' string.")
 
     # --- Optional fields ---
-    budget_usd = _parse_budget(cast(_CAST_STR_INT_FLOAT_NONE, data.get("budget")))
+    budget_usd = _parse_budget(data.get("budget"))
     team = _parse_team(data.get("team"))
 
     # ``team_manifest: <name>[@sha256]`` expands deterministically into the
@@ -2614,6 +2724,9 @@ def _parse_seed(path: Path, *, apply_tuning: bool) -> SeedConfig:
     metrics = _parse_metrics(data.get("metrics"))
     mcp_signing_mode = _parse_mcp_signing_mode(data)
     data_class = _parse_data_class(data.get("data_class"))
+    hash_profile = data.get("hash_profile", "py-json-v1")
+    if hash_profile not in ("py-json-v1", "jcs-v2"):
+        raise SeedError(f"unknown hash_profile {hash_profile!r}; expected 'py-json-v1' or 'jcs-v2'")
     if apply_tuning:
         _parse_tuning(data)
 
@@ -2625,6 +2738,7 @@ def _parse_seed(path: Path, *, apply_tuning: bool) -> SeedConfig:
         team_manifest_digest=team_manifest_digest,
         cli=cli,
         max_agents=max_agents_raw,
+        hash_profile=hash_profile,
         model=model_raw,
         max_cost_per_agent=max_cost_per_agent,
         constraints=constraints,

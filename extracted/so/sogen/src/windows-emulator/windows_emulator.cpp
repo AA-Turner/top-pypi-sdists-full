@@ -684,6 +684,18 @@ namespace sogen
             return switch_to_thread(win_emu, vcpu, *thread);
         }
 
+        // A thread parked in its wait stays waiting until something can end it, so the walk passes it by unchecked.
+        bool switch_to_thread_unless_parked(windows_emulator& win_emu, vcpu_context& vcpu, emulator_thread& thread,
+                                            const std::chrono::steady_clock::time_point now)
+        {
+            if (thread.is_parked(now, win_emu.process))
+            {
+                return false;
+            }
+
+            return switch_to_thread(win_emu, vcpu, thread);
+        }
+
         bool switch_to_next_thread(windows_emulator& win_emu, vcpu_context& vcpu)
         {
             const scheduler_clock::scope time_scope{win_emu.scheduling_clock()};
@@ -697,9 +709,12 @@ namespace sogen
                 ++resume_at;
             }
 
+            // One reading of the clock for the walk: it passes a parked thread by until something can end its wait.
+            const auto now = win_emu.clock().steady_now();
+
             for (auto it = resume_at; it != threads.end(); ++it)
             {
-                if (switch_to_thread(win_emu, vcpu, it->second))
+                if (switch_to_thread_unless_parked(win_emu, vcpu, it->second, now))
                 {
                     return true;
                 }
@@ -707,7 +722,7 @@ namespace sogen
 
             for (auto it = threads.begin(); it != resume_at; ++it)
             {
-                if (switch_to_thread(win_emu, vcpu, it->second))
+                if (switch_to_thread_unless_parked(win_emu, vcpu, it->second, now))
                 {
                     return true;
                 }
@@ -915,6 +930,7 @@ namespace sogen
           intercept_kusd_(settings.intercept_kusd),
           keep_guest_time_across_snapshots_(settings.keep_guest_time_across_snapshots),
           spoof_gpu_features_(settings.spoof_gpu_features),
+          steam_app_tickets_(settings.steam_app_tickets),
           elevated_(settings.elevated),
           max_display_mode_(settings.max_display_mode),
           vcpu_count_(static_cast<uint32_t>(this->emu_->vcpu_count()))
@@ -1766,9 +1782,8 @@ namespace sogen
                 acting.reg(x86_register::rax, static_cast<uint32_t>(ticks));
                 acting.reg(x86_register::rdx, static_cast<uint32_t>(ticks >> 32));
 
-                // Return the IA32_TSC_AUX value in RCX (low 32 bits)
-                auto tsc_aux = 0; // Need to replace this with proper CPUID later
-                acting.reg(x86_register::rcx, tsc_aux);
+                // Windows keeps the processor number in IA32_TSC_AUX.
+                acting.reg(x86_register::rcx, static_cast<uint64_t>(vcpu.cpu.index()));
 
                 return instruction_hook_continuation::skip_instruction;
             });
@@ -1891,10 +1906,10 @@ namespace sogen
     void windows_emulator::attach_debugger()
     {
         this->debugger_.attach();
-        this->process.peb64.access([](PEB64& peb) { peb.BeingDebugged = TRUE; });
+        this->process.peb64.field<BOOLEAN>(offsetof(PEB64, BeingDebugged)).write(TRUE);
         if (this->process.peb32)
         {
-            this->process.peb32->access([](PEB32& peb) { peb.BeingDebugged = TRUE; });
+            this->process.peb32->field<BOOLEAN>(offsetof(PEB32, BeingDebugged)).write(TRUE);
         }
     }
 
@@ -1908,10 +1923,10 @@ namespace sogen
     void windows_emulator::detach_debugger()
     {
         this->debugger_.run_on_emulation_thread(*this, [this] {
-            this->process.peb64.access([](PEB64& peb) { peb.BeingDebugged = FALSE; });
+            this->process.peb64.field<BOOLEAN>(offsetof(PEB64, BeingDebugged)).write(FALSE);
             if (this->process.peb32)
             {
-                this->process.peb32->access([](PEB32& peb) { peb.BeingDebugged = FALSE; });
+                this->process.peb32->field<BOOLEAN>(offsetof(PEB32, BeingDebugged)).write(FALSE);
             }
         });
         this->debugger_.detach();
@@ -2731,6 +2746,12 @@ namespace sogen
 
             const auto target = route_pointer(this->process, event.window, point_x(l_param), point_y(l_param));
             m.window = target.window;
+
+            // Windows queues pointer input to the thread that owns the window it is routed to. The shell's windows (the
+            // desktop's Progman and the taskbar) belong to explorer, not to a thread of this process, so the input is not
+            // this process's to handle.
+            const auto* target_window = this->process.windows.get(target.window);
+            thread = target_window ? get_thread_by_id(this->process, target_window->thread_id) : nullptr;
             // WM_MOUSEWHEEL/WM_MOUSEHWHEEL carry screen coordinates in lParam, unlike button/move
             // messages which carry client coordinates. Keep the routed target but preserve screen coords.
             m.lParam = is_mouse_wheel_message(event.message) ? pack_point(new_cursor_x, new_cursor_y) : pack_point(target.x, target.y);
@@ -2789,6 +2810,11 @@ namespace sogen
 
             const bool extended = (event.lParam & (1ull << 24)) != 0;
             this->deliver_raw_keyboard_input(vk, scan_code, event.message, extended);
+        }
+
+        if (!thread)
+        {
+            return;
         }
 
         thread->post_message(*this, m, true);
@@ -2946,7 +2972,7 @@ namespace sogen
                 continue;
             }
 
-            if (!entry->set_signaled(true))
+            if (!this->signal_event(*entry))
             {
                 if (--it->second == 0)
                 {
@@ -3002,6 +3028,30 @@ namespace sogen
                 vcpu.cpu.stop();
             }
         }
+    }
+
+    bool windows_emulator::signal_event(event& e)
+    {
+        const auto was_signaled = e.set_signaled(true);
+        for (auto& thread : this->process.threads | std::views::values)
+        {
+            // KeSetEvent ends wait-any waits (single-object waits included) right away. A wait-all waiter is only woken to
+            // check all its objects again when it runs, and the signal stays for that check.
+            if (!thread.await_any)
+            {
+                continue;
+            }
+
+            const auto waits_on_event = std::ranges::any_of(
+                thread.await_objects, [&](const object_reference& awaited) { return this->process.get_object(awaited) == &e; });
+            if (waits_on_event)
+            {
+                (void)thread.is_thread_ready(*this);
+            }
+        }
+
+        this->wake_idle_vcpu();
+        return was_signaled;
     }
 
     void windows_emulator::wake_idle_vcpu()

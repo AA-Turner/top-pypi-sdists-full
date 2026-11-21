@@ -19,11 +19,16 @@ import zipfile
 from pathlib import Path
 from dataclasses import dataclass, field
 from io import BytesIO
-from .opc.security import guard_zip_file, read_member
-from typing import Any, Literal, Mapping, Sequence
+from .opc.security import guard_zip_file, open_archive, read_member
+from typing import TYPE_CHECKING, Any, Literal, Mapping, Sequence
 from zipfile import ZipInfo
 
 from .errors import HwpxError
+
+if TYPE_CHECKING:
+    from .opc.zip_records import ZipRecords
+    from .quality.report import VisualCompleteReport
+    from .tools.package_validator import EditorOpenSafetyReport
 
 MUTATION_REPORT_SCHEMA = "hwpx.mutation-report/v1"
 COORDINATE_SPACE = "uncompressed-part-bytes"
@@ -58,7 +63,7 @@ _PRESERVED_ZIP_FIELDS = (
 def read_archive_members(data: bytes) -> dict[str, bytes]:
     """Return the uncompressed content of every non-directory member of *data*."""
 
-    with zipfile.ZipFile(BytesIO(data)) as archive:
+    with open_archive(data) as archive:
         guard_zip_file(archive)
         return {
             info.filename: read_member(archive, info)
@@ -161,18 +166,36 @@ class PreservationCounts:
 
 @dataclass(frozen=True)
 class PreservationSummary:
-    """The three separated preservation guarantees (specs/032 §2)."""
+    """The three separated preservation guarantees (specs/032 §2).
+
+    Measured against the source archive's bytes (a document opened from a file), ``untouched_local_zip_records``
+    counts the untouched parts whose whole local ZIP record -- header, compressed bytes, data descriptor -- is
+    the source's byte for byte, and ``whole_package_identical`` is whether the written file is the source file.
+    ``zip_records_rewritten`` is set when the save could not keep the source's records at all and compressed
+    every entry again; it says why (``"zip64"``, ``"duplicate-entry-names"``, ...). ``to_dict()`` adds a
+    ``zipRecordsRewritten`` key only then.
+
+    ``output_read_back`` is ``False`` when the save wrote to a stream that refused to be read back: what
+    the stream holds was not checked, so ``whole_package_identical`` is ``False`` too (it is never claimed
+    unchecked). ``to_dict()`` adds ``"outputReadBack": false`` only then."""
 
     untouched_part_payloads: PreservationCounts
     untouched_local_zip_records: PreservationCounts
     whole_package_identical: bool
+    zip_records_rewritten: str | None = None
+    output_read_back: bool = True
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        data: dict[str, Any] = {
             "untouchedPartPayloads": self.untouched_part_payloads.to_dict(),
             "untouchedLocalZipRecords": self.untouched_local_zip_records.to_dict(),
             "wholePackageIdentical": self.whole_package_identical,
         }
+        if self.zip_records_rewritten is not None:
+            data["zipRecordsRewritten"] = self.zip_records_rewritten
+        if not self.output_read_back:
+            data["outputReadBack"] = False
+        return data
 
 
 @dataclass(frozen=True)
@@ -199,7 +222,20 @@ class VerificationSummary:
 
 @dataclass(frozen=True)
 class MutationReport:
-    """The ``hwpx.mutation-report/v1`` receipt for one save."""
+    """The ``hwpx.mutation-report/v1`` receipt for one save.
+
+    ``quality`` is the :class:`~hwpx.quality.VisualCompleteReport` of the quality
+    gate a ``doc.save(..., quality=policy)`` ran (``None`` when the save ran the
+    transparent gate). ``to_dict()`` adds a ``quality`` key only when it is set,
+    so the schema's required keys stay as they are.
+
+    ``editor_open_safety`` is the :class:`~hwpx.EditorOpenSafetyReport` the save
+    reached for the archive it wrote -- what ``validate_editor_open_safety`` gives
+    for those bytes, without running it again (for an ``.hwp`` save, the HWPX it
+    was made from). A save that returns has passed it; ``verification.open_safety``
+    says so in one word. ``None`` only for a receipt not made by ``doc.save``.
+    ``to_dict()`` leaves it out (``report.editor_open_safety.to_dict()`` gives it).
+    """
 
     requested_mode: Mode
     actual_mode: Literal["patch", "rebuild"]
@@ -208,6 +244,8 @@ class MutationReport:
     preservation: PreservationSummary
     verification: VerificationSummary
     path: str | None = None
+    quality: "VisualCompleteReport | None" = None
+    editor_open_safety: "EditorOpenSafetyReport | None" = field(default=None, compare=False)
     schema_version: str = field(default=MUTATION_REPORT_SCHEMA, init=False)
 
     @property
@@ -220,7 +258,7 @@ class MutationReport:
         )
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        data: dict[str, Any] = {
             "schemaVersion": self.schema_version,
             "ok": self.ok,
             "path": self.path,
@@ -231,6 +269,9 @@ class MutationReport:
             "preservation": self.preservation.to_dict(),
             "verification": self.verification.to_dict(),
         }
+        if self.quality is not None:
+            data["quality"] = self.quality.to_dict()
+        return data
 
 
 class PreservationDowngradeError(HwpxError):
@@ -301,6 +342,9 @@ def measure_save(
     source_infos: Mapping[str, ZipInfo],
     built_bytes: bytes,
     predeclared: set[str],
+    *,
+    source_bytes: bytes | None = None,
+    zip_records_rewritten: str | None = None,
 ) -> PreservationMeasurement:
     """Measure preservation of *built_bytes* against the pre-save source.
 
@@ -309,6 +353,11 @@ def measure_save(
     key set. Changed parts inside ``predeclared`` are ``dirty-part``; any other
     change is ``unexpected`` (e.g. a per-save normalizer touching a part the
     editor never declared dirty).
+
+    With *source_bytes* (the archive the document was opened from) the record layer compares each untouched
+    part's whole local record byte for byte and the whole-package layer compares the files; without it, the
+    record layer compares the preserved ZipInfo fields and the whole-package layer the part contents.
+    *zip_records_rewritten* is the reason the save could not keep the source's records, if it could not.
     """
 
     built_members = read_archive_members(built_bytes)
@@ -335,13 +384,35 @@ def measure_save(
     payload_changed = sum(
         1 for name in untouched if source_members[name] != built_members[name]
     )
-    record_changed = sum(
-        1
-        for name in untouched
-        if not _zip_record_preserved(source_infos.get(name), built_infos.get(name))
-    )
+    source_records, built_records = _records_or_none(source_bytes), _records_or_none(built_bytes)
+    if source_records is not None and built_records is not None:
+        record_changed = sum(
+            1
+            for name in untouched
+            if not _local_record_kept(source_records, built_records, name)
+        )
+    elif source_bytes is not None:
+        # An archive the record reader refuses (ZIP64, bytes before the first record, ...): the records
+        # are still compared byte for byte, sliced where zipfile places them, so "verified" never stands
+        # for a comparison of ZipInfo fields while the bytes moved.
+        before_spans, after_spans = _zipfile_records(source_bytes), _zipfile_records(built_bytes)
+        record_changed = sum(
+            1
+            for name in untouched
+            if before_spans is None or after_spans is None
+            or name not in before_spans or before_spans[name] != after_spans.get(name)
+        )
+    else:
+        record_changed = sum(
+            1
+            for name in untouched
+            if not _zip_record_preserved(source_infos.get(name), built_infos.get(name))
+        )
 
-    whole_package_identical = not (changed_names or added_names or removed_names)
+    if source_bytes is not None:
+        whole_package_identical = built_bytes == source_bytes
+    else:
+        whole_package_identical = not (changed_names or added_names or removed_names)
 
     preservation = PreservationSummary(
         untouched_part_payloads=PreservationCounts(
@@ -351,12 +422,50 @@ def measure_save(
             verified=len(untouched) - record_changed, changed=record_changed
         ),
         whole_package_identical=whole_package_identical,
+        zip_records_rewritten=zip_records_rewritten,
     )
     return PreservationMeasurement(
         changed_parts=tuple(changed_parts),
         preservation=preservation,
         offending_parts=tuple(offending),
     )
+
+
+def _records_or_none(data: bytes | None) -> "ZipRecords | None":
+    if data is None:
+        return None
+    from .opc.zip_records import ZipRecordsUnsupported, read_records
+
+    try:
+        return read_records(data)
+    except ZipRecordsUnsupported:
+        return None
+
+
+def _zipfile_records(data: bytes) -> dict[str, bytes] | None:
+    """Each entry's whole local record (its header up to the next header, or the central directory), as
+    ``zipfile`` places them -- which reads ZIP64 and archives with bytes before the first record too.
+    ``None`` when the archive cannot be read so, or holds a name twice (no record stands for the name)."""
+
+    try:
+        with zipfile.ZipFile(BytesIO(data)) as archive:
+            entries = sorted(archive.infolist(), key=lambda info: info.header_offset)
+            ends = [info.header_offset for info in entries[1:]] + [archive.start_dir]
+    except (zipfile.BadZipFile, OSError, ValueError):
+        return None
+    names = [info.filename for info in entries]
+    if len(set(names)) != len(names):
+        return None
+    return {info.filename: data[info.header_offset:end] for info, end in zip(entries, ends)}
+
+
+def _local_record_kept(before: "ZipRecords", after: "ZipRecords", name: str) -> bool:
+    """True when *name*'s whole local record (header, compressed bytes, data descriptor) is the same bytes."""
+
+    old, new = before.by_name.get(name), after.by_name.get(name)
+    if old is None or new is None:
+        return False
+    return before.local_record(old) == after.local_record(new)
 
 
 def _zip_record_preserved(before: ZipInfo | None, after: ZipInfo | None) -> bool:
@@ -482,7 +591,7 @@ def project_byte_splice(
         before_infos = read_archive_infos(source)
         after_members = read_archive_members(data)
         measurement = measure_save(
-            before_members, before_infos, data, set(changed_part_names)
+            before_members, before_infos, data, set(changed_part_names), source_bytes=source
         )
         changed_parts = tuple(
             ChangedPart(

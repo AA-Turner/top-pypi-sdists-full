@@ -13,6 +13,7 @@ Usage::
         Client,
         DescribeFolderPermissionsPaginator,
         DescribeFolderResolvedPermissionsPaginator,
+        ListAccessControlApplicationsPaginator,
         ListActionConnectorsPaginator,
         ListAnalysesPaginator,
         ListApprovalPoliciesPaginator,
@@ -34,11 +35,15 @@ Usage::
         ListGroupsPaginator,
         ListIAMPolicyAssignmentsForUserPaginator,
         ListIAMPolicyAssignmentsPaginator,
+        ListInboundConnectorApplicationAssociationsPaginator,
+        ListInboundConnectorsPaginator,
         ListIngestionsPaginator,
+        ListKnowledgeBaseRefreshSchedulesPaginator,
         ListKnowledgeBasesPaginator,
         ListLimitsProfilesPaginator,
         ListNamespacesPaginator,
         ListOAuthClientApplicationsPaginator,
+        ListPrincipalsForPolicyPaginator,
         ListRoleMembershipsPaginator,
         ListTemplateAliasesPaginator,
         ListTemplateVersionsPaginator,
@@ -68,6 +73,7 @@ Usage::
 
     describe_folder_permissions_paginator: DescribeFolderPermissionsPaginator = client.get_paginator("describe_folder_permissions")
     describe_folder_resolved_permissions_paginator: DescribeFolderResolvedPermissionsPaginator = client.get_paginator("describe_folder_resolved_permissions")
+    list_access_control_applications_paginator: ListAccessControlApplicationsPaginator = client.get_paginator("list_access_control_applications")
     list_action_connectors_paginator: ListActionConnectorsPaginator = client.get_paginator("list_action_connectors")
     list_analyses_paginator: ListAnalysesPaginator = client.get_paginator("list_analyses")
     list_approval_policies_paginator: ListApprovalPoliciesPaginator = client.get_paginator("list_approval_policies")
@@ -89,11 +95,15 @@ Usage::
     list_groups_paginator: ListGroupsPaginator = client.get_paginator("list_groups")
     list_iam_policy_assignments_for_user_paginator: ListIAMPolicyAssignmentsForUserPaginator = client.get_paginator("list_iam_policy_assignments_for_user")
     list_iam_policy_assignments_paginator: ListIAMPolicyAssignmentsPaginator = client.get_paginator("list_iam_policy_assignments")
+    list_inbound_connector_application_associations_paginator: ListInboundConnectorApplicationAssociationsPaginator = client.get_paginator("list_inbound_connector_application_associations")
+    list_inbound_connectors_paginator: ListInboundConnectorsPaginator = client.get_paginator("list_inbound_connectors")
     list_ingestions_paginator: ListIngestionsPaginator = client.get_paginator("list_ingestions")
+    list_knowledge_base_refresh_schedules_paginator: ListKnowledgeBaseRefreshSchedulesPaginator = client.get_paginator("list_knowledge_base_refresh_schedules")
     list_knowledge_bases_paginator: ListKnowledgeBasesPaginator = client.get_paginator("list_knowledge_bases")
     list_limits_profiles_paginator: ListLimitsProfilesPaginator = client.get_paginator("list_limits_profiles")
     list_namespaces_paginator: ListNamespacesPaginator = client.get_paginator("list_namespaces")
     list_o_auth_client_applications_paginator: ListOAuthClientApplicationsPaginator = client.get_paginator("list_o_auth_client_applications")
+    list_principals_for_policy_paginator: ListPrincipalsForPolicyPaginator = client.get_paginator("list_principals_for_policy")
     list_role_memberships_paginator: ListRoleMembershipsPaginator = client.get_paginator("list_role_memberships")
     list_template_aliases_paginator: ListTemplateAliasesPaginator = client.get_paginator("list_template_aliases")
     list_template_versions_paginator: ListTemplateVersionsPaginator = client.get_paginator("list_template_versions")
@@ -122,6 +132,7 @@ from .client import QuickSightClient
 from .paginator import (
     DescribeFolderPermissionsPaginator,
     DescribeFolderResolvedPermissionsPaginator,
+    ListAccessControlApplicationsPaginator,
     ListActionConnectorsPaginator,
     ListAnalysesPaginator,
     ListApprovalPoliciesPaginator,
@@ -143,11 +154,15 @@ from .paginator import (
     ListGroupsPaginator,
     ListIAMPolicyAssignmentsForUserPaginator,
     ListIAMPolicyAssignmentsPaginator,
+    ListInboundConnectorApplicationAssociationsPaginator,
+    ListInboundConnectorsPaginator,
     ListIngestionsPaginator,
+    ListKnowledgeBaseRefreshSchedulesPaginator,
     ListKnowledgeBasesPaginator,
     ListLimitsProfilesPaginator,
     ListNamespacesPaginator,
     ListOAuthClientApplicationsPaginator,
+    ListPrincipalsForPolicyPaginator,
     ListRoleMembershipsPaginator,
     ListTemplateAliasesPaginator,
     ListTemplatesPaginator,
@@ -177,6 +192,7 @@ __all__ = (
     "Client",
     "DescribeFolderPermissionsPaginator",
     "DescribeFolderResolvedPermissionsPaginator",
+    "ListAccessControlApplicationsPaginator",
     "ListActionConnectorsPaginator",
     "ListAnalysesPaginator",
     "ListApprovalPoliciesPaginator",
@@ -198,11 +214,15 @@ __all__ = (
     "ListGroupsPaginator",
     "ListIAMPolicyAssignmentsForUserPaginator",
     "ListIAMPolicyAssignmentsPaginator",
+    "ListInboundConnectorApplicationAssociationsPaginator",
+    "ListInboundConnectorsPaginator",
     "ListIngestionsPaginator",
+    "ListKnowledgeBaseRefreshSchedulesPaginator",
     "ListKnowledgeBasesPaginator",
     "ListLimitsProfilesPaginator",
     "ListNamespacesPaginator",
     "ListOAuthClientApplicationsPaginator",
+    "ListPrincipalsForPolicyPaginator",
     "ListRoleMembershipsPaginator",
     "ListTemplateAliasesPaginator",
     "ListTemplateVersionsPaginator",

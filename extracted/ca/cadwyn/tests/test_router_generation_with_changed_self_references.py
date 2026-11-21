@@ -41,8 +41,8 @@ from cadwyn import (
     migrate_response_body,
 )
 from cadwyn.exceptions import CadwynError, SchemaGenerationError
-from cadwyn.structure.enums import enum
-from cadwyn.structure.schemas import schema
+from cadwyn_core.structure.enums import enum
+from cadwyn_core.structure.schemas import schema
 from tests.conftest import CreateVersionedApp, version_change
 
 if TYPE_CHECKING:
@@ -717,7 +717,7 @@ class ValueBox(BaseModel, Generic[ValueT]):
 
 class BoxOverridingTypeArgField(ValueBox[int]):
     # Overrides the field typed by the type arg, so CategoryWithItem does not come from a type arg
-    value: list["CategoryWithItem"]  # ty: ignore[invalid-attribute-override]
+    value: list["CategoryWithItem"]  # ty: ignore[incompatible-attribute-override]
 
 
 class BoxWithSerializerOfTypeArgField(ValueBox[int]):
@@ -1217,7 +1217,7 @@ class Box:
     """A custom generic whose subscription requires real classes"""
 
     def __class_getitem__(cls, item: Any) -> Any:
-        return typing._GenericAlias(cls, (item,))  # ty: ignore[unresolved-attribute]
+        return typing._GenericAlias(cls, (item,))  # ty: ignore[missing-attribute]
 
     @classmethod
     def __get_pydantic_core_schema__(cls, source: Any, handler: Any) -> Any:
@@ -1795,7 +1795,7 @@ HOOK_GENERATORS: list[Any] = []
 class AsksForItsCopies:
     @classmethod
     def __pydantic_init_subclass__(cls, **kwargs: Any) -> None:
-        super().__pydantic_init_subclass__(**kwargs)  # ty: ignore[unresolved-attribute]
+        super().__pydantic_init_subclass__(**kwargs)  # ty: ignore[missing-attribute]
         for generator in HOOK_GENERATORS:
             generator[HookedItemTree]
 

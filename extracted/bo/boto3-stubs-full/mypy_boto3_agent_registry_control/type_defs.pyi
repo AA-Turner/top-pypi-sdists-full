@@ -25,7 +25,10 @@ from botocore.response import StreamingBody
 
 from .literals import (
     AgentCoreRuntimeServerProtocolType,
+    AssociationApprovalStatusType,
+    AssociationStatusType,
     AutoDetectionStatusType,
+    BotCategoryType,
     ClaimMatchOperatorTypeType,
     CustomMetadataSchemaComplianceStatusType,
     EndpointIpAddressTypeType,
@@ -39,6 +42,7 @@ from .literals import (
     RegistryRecordStatusType,
     RegistryStatusType,
     SourceTypeType,
+    VerificationStatusType,
 )
 
 if sys.version_info >= (3, 12):
@@ -71,6 +75,8 @@ __all__ = (
     "ApprovalConfigurationOutputTypeDef",
     "ApprovalConfigurationTypeDef",
     "ApprovalConfigurationUnionTypeDef",
+    "AssociatePublisherRequestTypeDef",
+    "AssociatePublisherResponseTypeDef",
     "AuthorizationDataTypeDef",
     "AuthorizerConfigurationOutputTypeDef",
     "AuthorizerConfigurationTypeDef",
@@ -84,6 +90,8 @@ __all__ = (
     "ClaimMatchValueTypeOutputTypeDef",
     "ClaimMatchValueTypeTypeDef",
     "ClaimMatchValueTypeUnionTypeDef",
+    "CreatePublisherRequestTypeDef",
+    "CreatePublisherResponseTypeDef",
     "CreateRegistryRecordRequestTypeDef",
     "CreateRegistryRecordResponseTypeDef",
     "CreateRegistryRequestTypeDef",
@@ -98,6 +106,7 @@ __all__ = (
     "CustomMetadataSchemaConfigurationOutputTypeDef",
     "CustomMetadataSchemaConfigurationTypeDef",
     "CustomMetadataSchemaConfigurationUnionTypeDef",
+    "DeletePublisherRequestTypeDef",
     "DeleteRegistryRecordRequestTypeDef",
     "DeleteRegistryRequestTypeDef",
     "DeleteRegistryResponseTypeDef",
@@ -110,10 +119,14 @@ __all__ = (
     "DescriptorsOutputTypeDef",
     "DescriptorsTypeDef",
     "DescriptorsUnionTypeDef",
+    "DisassociatePublisherRequestTypeDef",
     "DiscoveryConfigurationOutputTypeDef",
     "DiscoveryConfigurationTypeDef",
     "DiscoveryConfigurationUnionTypeDef",
+    "DomainChallengeTypeDef",
+    "EmptyResponseMetadataTypeDef",
     "EncryptionConfigurationTypeDef",
+    "GetPublisherRequestTypeDef",
     "GetRegistryRecordRequestTypeDef",
     "GetRegistryRecordRequestWaitTypeDef",
     "GetRegistryRecordResponseTypeDef",
@@ -123,6 +136,13 @@ __all__ = (
     "GitHubSynchronizedSourceTypeDef",
     "HttpDescriptorOutputTypeDef",
     "HttpDescriptorTypeDef",
+    "IdentifierTypeDef",
+    "ListPublisherAssociationsRequestPaginateTypeDef",
+    "ListPublisherAssociationsRequestTypeDef",
+    "ListPublisherAssociationsResponseTypeDef",
+    "ListPublishersRequestPaginateTypeDef",
+    "ListPublishersRequestTypeDef",
+    "ListPublishersResponseTypeDef",
     "ListRegistriesRequestPaginateTypeDef",
     "ListRegistriesRequestTypeDef",
     "ListRegistriesResponseTypeDef",
@@ -150,6 +170,9 @@ __all__ = (
     "ProvenanceSummaryTypeDef",
     "ProvenanceTypeDef",
     "ProvenanceUnionTypeDef",
+    "PublisherAssociationTypeDef",
+    "PublisherSummaryTypeDef",
+    "PublisherTypeDef",
     "RecordTypeSchemaOverrideTypeDef",
     "RegistryFilterTypeDef",
     "RegistryRecordArtifactDownloadTypeDef",
@@ -172,6 +195,9 @@ __all__ = (
     "S3SourceConfigurationTypeDef",
     "S3SynchronizedSourceTypeDef",
     "SelfManagedLatticeResourceTypeDef",
+    "SignatureAgentCardAdditionalDataTypeDef",
+    "SignatureAgentCardDescriptorOutputTypeDef",
+    "SignatureAgentCardDescriptorTypeDef",
     "SourceDetailsOutputTypeDef",
     "SourceDetailsTypeDef",
     "SourceDetailsUnionTypeDef",
@@ -179,6 +205,7 @@ __all__ = (
     "SubmitRegistryRecordForApprovalResponseTypeDef",
     "TagResourceRequestTypeDef",
     "UntagResourceRequestTypeDef",
+    "UpdatePublisherAssociationApprovalStatusRequestTypeDef",
     "UpdateRegistryRecordRequestTypeDef",
     "UpdateRegistryRecordResponseTypeDef",
     "UpdateRegistryRecordStatusRequestTypeDef",
@@ -201,6 +228,7 @@ __all__ = (
     "UpdatedApprovalConfigurationTypeDef",
     "UpdatedAuthorizerConfigurationTypeDef",
     "UpdatedAutoDetectionConfigurationTypeDef",
+    "UpdatedBotCategoryTypeDef",
     "UpdatedCustomDescriptorFieldsTypeDef",
     "UpdatedCustomDescriptorTypeDef",
     "UpdatedCustomMetadataMapTypeDef",
@@ -222,6 +250,12 @@ __all__ = (
     "UpdatedMcpToolsDescriptorFieldsTypeDef",
     "UpdatedMcpToolsDescriptorTypeDef",
     "UpdatedRegistryRecordArtifactTypeDef",
+    "UpdatedSignatureAgentCardAdditionalDataFieldsTypeDef",
+    "UpdatedSignatureAgentCardAdditionalDataTypeDef",
+    "UpdatedSignatureAgentCardDescriptorFieldsTypeDef",
+    "UpdatedSignatureAgentCardDescriptorTypeDef",
+    "ValidatePublisherRequestTypeDef",
+    "ValidatePublisherResponseTypeDef",
     "WaiterConfigTypeDef",
     "WorkloadIdentityDetailsTypeDef",
 )
@@ -240,6 +274,20 @@ class ApprovalConfigurationOutputTypeDef(TypedDict):
 
 class ApprovalConfigurationTypeDef(TypedDict):
     autoApprovalRules: NotRequired[Sequence[Literal["APPROVE_ALL"]]]
+
+class AssociatePublisherRequestTypeDef(TypedDict):
+    recordArn: str
+    publisherArn: str
+    subdomain: NotRequired[str]
+    categories: NotRequired[Sequence[str]]
+    clientToken: NotRequired[str]
+
+class ResponseMetadataTypeDef(TypedDict):
+    RequestId: str
+    HTTPStatusCode: int
+    HTTPHeaders: dict[str, str]
+    RetryAttempts: int
+    HostId: NotRequired[str]
 
 class OAuth2AuthorizationDataTypeDef(TypedDict):
     authorizationUrl: str
@@ -261,12 +309,12 @@ class ClaimMatchValueTypeTypeDef(TypedDict):
     matchValueString: NotRequired[str]
     matchValueStringList: NotRequired[Sequence[str]]
 
-class ResponseMetadataTypeDef(TypedDict):
-    RequestId: str
-    HTTPStatusCode: int
-    HTTPHeaders: dict[str, str]
-    RetryAttempts: int
-    HostId: NotRequired[str]
+class IdentifierTypeDef(TypedDict):
+    domain: NotRequired[str]
+
+class DomainChallengeTypeDef(TypedDict):
+    recordName: str
+    recordValue: str
 
 class EncryptionConfigurationTypeDef(TypedDict):
     kmsKeyArn: str
@@ -278,12 +326,21 @@ class RecordTypeSchemaOverrideTypeDef(TypedDict):
     recordType: RecordTypeType
     schema: str
 
+class DeletePublisherRequestTypeDef(TypedDict):
+    publisherArn: str
+
 class DeleteRegistryRecordRequestTypeDef(TypedDict):
     registryId: str
     recordId: str
 
 class DeleteRegistryRequestTypeDef(TypedDict):
     registryId: str
+
+class DisassociatePublisherRequestTypeDef(TypedDict):
+    recordArn: str
+
+class GetPublisherRequestTypeDef(TypedDict):
+    publisherArn: str
 
 class GetRegistryRecordRequestTypeDef(TypedDict):
     registryId: str
@@ -309,6 +366,22 @@ class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
     PageSize: NotRequired[int]
     StartingToken: NotRequired[str]
+
+class ListPublisherAssociationsRequestTypeDef(TypedDict):
+    publisherArn: NotRequired[str]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+class PublisherAssociationTypeDef(TypedDict):
+    recordArn: str
+    publicIdentifier: str
+    publisher: str
+    status: AssociationStatusType
+    statusReason: NotRequired[str]
+
+class ListPublishersRequestTypeDef(TypedDict):
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
 
 class RegistryFilterTypeDef(TypedDict):
     name: RegistryFilterNameType
@@ -374,6 +447,9 @@ class S3SynchronizedSourceTypeDef(TypedDict):
     versionId: NotRequired[str]
     eTag: NotRequired[str]
 
+class SignatureAgentCardAdditionalDataTypeDef(TypedDict):
+    category: NotRequired[BotCategoryType]
+
 class SubmitRegistryRecordForApprovalRequestTypeDef(TypedDict):
     registryId: str
     recordId: str
@@ -385,6 +461,11 @@ class TagResourceRequestTypeDef(TypedDict):
 class UntagResourceRequestTypeDef(TypedDict):
     resourceArn: str
     tagKeys: Sequence[str]
+
+class UpdatePublisherAssociationApprovalStatusRequestTypeDef(TypedDict):
+    recordArn: str
+    approvalStatus: AssociationApprovalStatusType
+    approvalStatusReason: str
 
 class UpdatedCustomMetadataMapTypeDef(TypedDict):
     optionalValue: NotRequired[Mapping[str, Any]]
@@ -410,12 +491,58 @@ class UpdatedDescriptorDataTypeDef(TypedDict):
 class UpdatedAgentSkillsRepositoryProviderTypeDef(TypedDict):
     optionalValue: NotRequired[Literal["GITHUB"]]
 
+class UpdatedBotCategoryTypeDef(TypedDict):
+    optionalValue: NotRequired[BotCategoryType]
+
+class ValidatePublisherRequestTypeDef(TypedDict):
+    publisherArn: str
+
 class AgentSkillsSourceConfigurationTypeDef(TypedDict):
     s3: NotRequired[S3SourceConfigurationTypeDef]
 
 ApprovalConfigurationUnionTypeDef = Union[
     ApprovalConfigurationTypeDef, ApprovalConfigurationOutputTypeDef
 ]
+
+class AssociatePublisherResponseTypeDef(TypedDict):
+    recordArn: str
+    publicIdentifier: str
+    publisher: str
+    status: AssociationStatusType
+    statusReason: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateRegistryResponseTypeDef(TypedDict):
+    registryArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteRegistryResponseTypeDef(TypedDict):
+    status: RegistryStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class EmptyResponseMetadataTypeDef(TypedDict):
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ListTagsForResourceResponseTypeDef(TypedDict):
+    tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class SubmitRegistryRecordForApprovalResponseTypeDef(TypedDict):
+    registryArn: str
+    recordArn: str
+    recordId: str
+    status: RegistryRecordStatusType
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateRegistryRecordStatusResponseTypeDef(TypedDict):
+    registryArn: str
+    recordArn: str
+    recordId: str
+    status: RegistryRecordStatusType
+    statusReason: str
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class AuthorizationDataTypeDef(TypedDict):
     oauth2: NotRequired[OAuth2AuthorizationDataTypeDef]
@@ -440,33 +567,54 @@ ClaimMatchValueTypeUnionTypeDef = Union[
     ClaimMatchValueTypeTypeDef, ClaimMatchValueTypeOutputTypeDef
 ]
 
-class CreateRegistryResponseTypeDef(TypedDict):
-    registryArn: str
-    ResponseMetadata: ResponseMetadataTypeDef
+class CreatePublisherRequestTypeDef(TypedDict):
+    value: IdentifierTypeDef
+    tags: NotRequired[Mapping[str, str]]
+    clientToken: NotRequired[str]
 
-class DeleteRegistryResponseTypeDef(TypedDict):
-    status: RegistryStatusType
-    ResponseMetadata: ResponseMetadataTypeDef
+class PublisherSummaryTypeDef(TypedDict):
+    value: IdentifierTypeDef
+    status: VerificationStatusType
+    createdAt: datetime
+    publisherArn: str
+    identifierType: NotRequired[Literal["DOMAIN"]]
+    associationCount: NotRequired[int]
+    pendingAssociationApprovalCount: NotRequired[int]
 
-class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: dict[str, str]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class SubmitRegistryRecordForApprovalResponseTypeDef(TypedDict):
-    registryArn: str
-    recordArn: str
-    recordId: str
-    status: RegistryRecordStatusType
-    updatedAt: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class UpdateRegistryRecordStatusResponseTypeDef(TypedDict):
-    registryArn: str
-    recordArn: str
-    recordId: str
-    status: RegistryRecordStatusType
+class CreatePublisherResponseTypeDef(TypedDict):
+    value: IdentifierTypeDef
+    identifierType: Literal["DOMAIN"]
+    status: VerificationStatusType
     statusReason: str
+    domainChallenge: DomainChallengeTypeDef
+    tags: dict[str, str]
+    createdAt: datetime
     updatedAt: datetime
+    publisherArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class PublisherTypeDef(TypedDict):
+    value: IdentifierTypeDef
+    identifierType: Literal["DOMAIN"]
+    status: VerificationStatusType
+    statusReason: str
+    domainChallenge: DomainChallengeTypeDef
+    tags: dict[str, str]
+    createdAt: datetime
+    updatedAt: datetime
+    publisherArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ValidatePublisherResponseTypeDef(TypedDict):
+    value: IdentifierTypeDef
+    identifierType: Literal["DOMAIN"]
+    status: VerificationStatusType
+    statusReason: str
+    domainChallenge: DomainChallengeTypeDef
+    tags: dict[str, str]
+    createdAt: datetime
+    updatedAt: datetime
+    publisherArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CustomMetadataSchemaConfigurationOutputTypeDef(TypedDict):
@@ -485,6 +633,18 @@ class GetRegistryRecordRequestWaitTypeDef(TypedDict):
 class GetRegistryRequestWaitTypeDef(TypedDict):
     registryId: str
     WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+class ListPublisherAssociationsRequestPaginateTypeDef(TypedDict):
+    publisherArn: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListPublishersRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListPublisherAssociationsResponseTypeDef(TypedDict):
+    items: list[PublisherAssociationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 class ListRegistriesRequestPaginateTypeDef(TypedDict):
     filters: NotRequired[Sequence[RegistryFilterTypeDef]]
@@ -551,6 +711,9 @@ class UpdatedMcpToolsDescriptorFieldsTypeDef(TypedDict):
     data: NotRequired[UpdatedDescriptorDataTypeDef]
     dataSchemaVersion: NotRequired[UpdatedDataSchemaVersionTypeDef]
 
+class UpdatedSignatureAgentCardAdditionalDataFieldsTypeDef(TypedDict):
+    category: NotRequired[UpdatedBotCategoryTypeDef]
+
 class UpdatedAgentSkillsSourceConfigurationTypeDef(TypedDict):
     optionalValue: NotRequired[AgentSkillsSourceConfigurationTypeDef]
 
@@ -574,6 +737,11 @@ class UpdatedRegistryRecordArtifactTypeDef(TypedDict):
 class AuthorizingClaimMatchValueTypeTypeDef(TypedDict):
     claimMatchValue: ClaimMatchValueTypeUnionTypeDef
     claimMatchOperator: ClaimMatchOperatorTypeType
+
+class ListPublishersResponseTypeDef(TypedDict):
+    items: list[PublisherSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 CustomMetadataSchemaConfigurationUnionTypeDef = Union[
     CustomMetadataSchemaConfigurationTypeDef, CustomMetadataSchemaConfigurationOutputTypeDef
@@ -605,6 +773,9 @@ class UpdatedCustomDescriptorTypeDef(TypedDict):
 
 class UpdatedMcpToolsDescriptorTypeDef(TypedDict):
     optionalValue: NotRequired[UpdatedMcpToolsDescriptorFieldsTypeDef]
+
+class UpdatedSignatureAgentCardAdditionalDataTypeDef(TypedDict):
+    optionalValue: NotRequired[UpdatedSignatureAgentCardAdditionalDataFieldsTypeDef]
 
 AuthorizingClaimMatchValueTypeUnionTypeDef = Union[
     AuthorizingClaimMatchValueTypeTypeDef, AuthorizingClaimMatchValueTypeOutputTypeDef
@@ -705,6 +876,12 @@ class McpServerDescriptorOutputTypeDef(TypedDict):
     dataSchemaVersion: NotRequired[str]
     additionalData: NotRequired[McpServerAdditionalDataTypeDef]
     source: NotRequired[DescriptorSourceOutputTypeDef]
+
+class SignatureAgentCardDescriptorOutputTypeDef(TypedDict):
+    data: NotRequired[str]
+    dataSchemaVersion: NotRequired[str]
+    source: NotRequired[DescriptorSourceOutputTypeDef]
+    additionalData: NotRequired[SignatureAgentCardAdditionalDataTypeDef]
 
 RegistryRecordCredentialProviderConfigurationUnionTypeDef = Union[
     RegistryRecordCredentialProviderConfigurationTypeDef,
@@ -814,6 +991,7 @@ class DescriptorsOutputTypeDef(TypedDict):
     custom: NotRequired[CustomDescriptorTypeDef]
     http: NotRequired[HttpDescriptorOutputTypeDef]
     agui: NotRequired[AgUiDescriptorOutputTypeDef]
+    signatureAgentCard: NotRequired[SignatureAgentCardDescriptorOutputTypeDef]
 
 class DescriptorSourceTypeDef(TypedDict):
     fromUrl: NotRequired[DescriptorSourceFromUrlUnionTypeDef]
@@ -895,6 +1073,12 @@ class McpServerDescriptorTypeDef(TypedDict):
     additionalData: NotRequired[McpServerAdditionalDataTypeDef]
     source: NotRequired[DescriptorSourceTypeDef]
 
+class SignatureAgentCardDescriptorTypeDef(TypedDict):
+    data: NotRequired[str]
+    dataSchemaVersion: NotRequired[str]
+    source: NotRequired[DescriptorSourceTypeDef]
+    additionalData: NotRequired[SignatureAgentCardAdditionalDataTypeDef]
+
 class AgentCoreGatewaySourceDetailsTypeDef(TypedDict):
     protocolType: NotRequired[Literal["MCP"]]
     authorizerType: NotRequired[str]
@@ -972,6 +1156,12 @@ class UpdatedMcpServerDescriptorFieldsTypeDef(TypedDict):
     source: NotRequired[UpdatedDescriptorSourceTypeDef]
     additionalData: NotRequired[UpdatedMcpServerAdditionalDataTypeDef]
 
+class UpdatedSignatureAgentCardDescriptorFieldsTypeDef(TypedDict):
+    data: NotRequired[UpdatedDescriptorDataTypeDef]
+    dataSchemaVersion: NotRequired[UpdatedDataSchemaVersionTypeDef]
+    source: NotRequired[UpdatedDescriptorSourceTypeDef]
+    additionalData: NotRequired[UpdatedSignatureAgentCardAdditionalDataTypeDef]
+
 class SourceDetailsTypeDef(TypedDict):
     agentcoreRuntime: NotRequired[AgentCoreRuntimeSourceDetailsUnionTypeDef]
     agentcoreGateway: NotRequired[AgentCoreGatewaySourceDetailsUnionTypeDef]
@@ -1008,6 +1198,9 @@ class UpdatedHttpDescriptorTypeDef(TypedDict):
 class UpdatedMcpServerDescriptorTypeDef(TypedDict):
     optionalValue: NotRequired[UpdatedMcpServerDescriptorFieldsTypeDef]
 
+class UpdatedSignatureAgentCardDescriptorTypeDef(TypedDict):
+    optionalValue: NotRequired[UpdatedSignatureAgentCardDescriptorFieldsTypeDef]
+
 SourceDetailsUnionTypeDef = Union[SourceDetailsTypeDef, SourceDetailsOutputTypeDef]
 
 class DescriptorsTypeDef(TypedDict):
@@ -1017,6 +1210,7 @@ class DescriptorsTypeDef(TypedDict):
     custom: NotRequired[CustomDescriptorTypeDef]
     http: NotRequired[HttpDescriptorTypeDef]
     agui: NotRequired[AgUiDescriptorTypeDef]
+    signatureAgentCard: NotRequired[SignatureAgentCardDescriptorTypeDef]
 
 class UpdatedAgentSkillsAdditionalDataFieldsTypeDef(TypedDict):
     skillMd: NotRequired[UpdatedAgentSkillsMdDescriptorTypeDef]
@@ -1066,6 +1260,7 @@ class UpdatedDescriptorsFieldsTypeDef(TypedDict):
     custom: NotRequired[UpdatedCustomDescriptorTypeDef]
     http: NotRequired[UpdatedHttpDescriptorTypeDef]
     agui: NotRequired[UpdatedAgUiDescriptorTypeDef]
+    signatureAgentCard: NotRequired[UpdatedSignatureAgentCardDescriptorTypeDef]
 
 class UpdatedDescriptorsTypeDef(TypedDict):
     optionalValue: NotRequired[UpdatedDescriptorsFieldsTypeDef]

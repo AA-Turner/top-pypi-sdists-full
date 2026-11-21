@@ -65,6 +65,17 @@ ER VariableDeclStatement::evalImpl(EvalContext& context) const {
     if (!context.checkBitCount(symbol.getType().getBitstreamWidth(), sourceRange))
         return ER::Fail;
 
+    // Static variables retain their values across calls at runtime, which
+    // constant evaluation doesn't model (their initializers are skipped).
+    // That's the defined behavior for constant function calls, but when
+    // we're only speculatively evaluating an expression that isn't required
+    // to be constant, the result would not match the runtime value, so
+    // give up instead.
+    if (symbol.lifetime == VariableLifetime::Static &&
+        !context.flags.has(EvalFlags::RequireConstant)) {
+        return ER::Fail;
+    }
+
     // Figure out the initial value for the variable.
     ConstantValue initial;
     if (auto initializer = symbol.getInitializer()) {
@@ -492,8 +503,10 @@ Statement& WaitOrderStatement::fromSyntax(Compilation& compilation,
     auto result = compilation.emplace<WaitOrderStatement>(events.copy(compilation), ifTrue, ifFalse,
                                                           syntax.sourceRange());
 
-    if (!context.requireTimingAllowed(result->sourceRange))
+    if ((ifTrue && ifTrue->bad()) || (ifFalse && ifFalse->bad()) ||
+        !context.requireTimingAllowed(result->sourceRange)) {
         return badStmt(compilation, result);
+    }
 
     return *result;
 }

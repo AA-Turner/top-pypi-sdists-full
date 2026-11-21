@@ -706,7 +706,7 @@ SPAWN_SITE_ALLOWLIST: dict[tuple[str, str, str, int, int], str] = {
         "src/ouroboros/evaluation/mechanical.py",
         "run_command",
         "asyncio.create_subprocess_exec",
-        130,
+        177,
         24,
     ): "os.environ.copy() minus _OUROBOROS_NESTED; runs .ouroboros/mechanical.toml commands; the repo already controls the command text, so env from the same repo adds no capability. Not routed through sanitized_verify_environment.",
     (
@@ -1270,6 +1270,7 @@ LOADER_KEY_CATALOG_DENIED: tuple[str, ...] = (
     "OUROBOROS_AGENT_RUNTIME",
     "OUROBOROS_ANTIGRAVITY_CLI_PATH",
     "OUROBOROS_ASSERTION_EXTRACTION_MODEL",
+    "OUROBOROS_AUTO_EXPECTATIONS_TIMEOUT",
     "OUROBOROS_AUTO_INVESTIGATOR_CALL_TIMEOUT_SECONDS",
     "OUROBOROS_AUTO_INVESTIGATOR_MAX_CALLS",
     "OUROBOROS_AUTO_REQUESTER_COMMAND",

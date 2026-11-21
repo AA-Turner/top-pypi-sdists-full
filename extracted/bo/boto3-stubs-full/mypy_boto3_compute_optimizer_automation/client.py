@@ -34,6 +34,8 @@ from .paginator import (
     ListAutomationRulePreviewPaginator,
     ListAutomationRulePreviewSummariesPaginator,
     ListAutomationRulesPaginator,
+    ListOrganizationalUnitsPaginator,
+    ListOrganizationEnrollmentConfigurationsPaginator,
     ListRecommendedActionsPaginator,
     ListRecommendedActionSummariesPaginator,
 )
@@ -43,6 +45,7 @@ from .type_defs import (
     CreateAutomationRuleRequestTypeDef,
     CreateAutomationRuleResponseTypeDef,
     DeleteAutomationRuleRequestTypeDef,
+    DeleteOrganizationEnrollmentConfigurationRequestTypeDef,
     DisassociateAccountsRequestTypeDef,
     DisassociateAccountsResponseTypeDef,
     GetAutomationEventRequestTypeDef,
@@ -64,12 +67,17 @@ from .type_defs import (
     ListAutomationRulePreviewSummariesResponseTypeDef,
     ListAutomationRulesRequestTypeDef,
     ListAutomationRulesResponseTypeDef,
+    ListOrganizationalUnitsRequestTypeDef,
+    ListOrganizationalUnitsResponseTypeDef,
+    ListOrganizationEnrollmentConfigurationsRequestTypeDef,
+    ListOrganizationEnrollmentConfigurationsResponseTypeDef,
     ListRecommendedActionsRequestTypeDef,
     ListRecommendedActionsResponseTypeDef,
     ListRecommendedActionSummariesRequestTypeDef,
     ListRecommendedActionSummariesResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
+    PutOrganizationEnrollmentConfigurationRequestTypeDef,
     RollbackAutomationEventRequestTypeDef,
     RollbackAutomationEventResponseTypeDef,
     StartAutomationEventRequestTypeDef,
@@ -94,6 +102,7 @@ __all__ = ("ComputeOptimizerAutomationClient",)
 class Exceptions(BaseClientExceptions):
     AccessDeniedException: type[BotocoreClientError]
     ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
     ForbiddenException: type[BotocoreClientError]
     IdempotencyTokenInUseException: type[BotocoreClientError]
     IdempotentParameterMismatchException: type[BotocoreClientError]
@@ -173,6 +182,17 @@ class ComputeOptimizerAutomationClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/compute-optimizer-automation/client/delete_automation_rule.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_compute_optimizer_automation/client/#delete_automation_rule)
+        """
+
+    def delete_organization_enrollment_configuration(
+        self, **kwargs: Unpack[DeleteOrganizationEnrollmentConfigurationRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes the specified configuration types from an organization enrollment
+        configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/compute-optimizer-automation/client/delete_organization_enrollment_configuration.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_compute_optimizer_automation/client/#delete_organization_enrollment_configuration)
         """
 
     def disassociate_accounts(
@@ -287,6 +307,29 @@ class ComputeOptimizerAutomationClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_compute_optimizer_automation/client/#list_automation_rules)
         """
 
+    def list_organization_enrollment_configurations(
+        self, **kwargs: Unpack[ListOrganizationEnrollmentConfigurationsRequestTypeDef]
+    ) -> ListOrganizationEnrollmentConfigurationsResponseTypeDef:
+        """
+        Lists the organization enrollment configurations that are stored directly on
+        accounts, organizational units (OUs), and the organization root.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/compute-optimizer-automation/client/list_organization_enrollment_configurations.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_compute_optimizer_automation/client/#list_organization_enrollment_configurations)
+        """
+
+    def list_organizational_units(
+        self, **kwargs: Unpack[ListOrganizationalUnitsRequestTypeDef]
+    ) -> ListOrganizationalUnitsResponseTypeDef:
+        """
+        Lists the organization root and organizational units (OUs), including whether
+        an applicable organization enrollment configuration enables Automation for
+        member accounts and the effective organization rule mode for each root or OU.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/compute-optimizer-automation/client/list_organizational_units.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_compute_optimizer_automation/client/#list_organizational_units)
+        """
+
     def list_recommended_action_summaries(
         self, **kwargs: Unpack[ListRecommendedActionSummariesRequestTypeDef]
     ) -> ListRecommendedActionSummariesResponseTypeDef:
@@ -301,7 +344,7 @@ class ComputeOptimizerAutomationClient(BaseClient):
         self, **kwargs: Unpack[ListRecommendedActionsRequestTypeDef]
     ) -> ListRecommendedActionsResponseTypeDef:
         """
-        Lists the recommended actions based that match specified filters.
+        Lists the recommended actions that match the specified filters.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/compute-optimizer-automation/client/list_recommended_actions.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_compute_optimizer_automation/client/#list_recommended_actions)
@@ -315,6 +358,16 @@ class ComputeOptimizerAutomationClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/compute-optimizer-automation/client/list_tags_for_resource.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_compute_optimizer_automation/client/#list_tags_for_resource)
+        """
+
+    def put_organization_enrollment_configuration(
+        self, **kwargs: Unpack[PutOrganizationEnrollmentConfigurationRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Creates or updates an organization enrollment configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/compute-optimizer-automation/client/put_organization_enrollment_configuration.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_compute_optimizer_automation/client/#put_organization_enrollment_configuration)
         """
 
     def rollback_automation_event(
@@ -443,6 +496,28 @@ class ComputeOptimizerAutomationClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_automation_rules"]
     ) -> ListAutomationRulesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/compute-optimizer-automation/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_compute_optimizer_automation/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_organization_enrollment_configurations"]
+    ) -> ListOrganizationEnrollmentConfigurationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/compute-optimizer-automation/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_compute_optimizer_automation/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_organizational_units"]
+    ) -> ListOrganizationalUnitsPaginator:
         """
         Create a paginator for an operation.
 

@@ -17,10 +17,15 @@ Import it directly (`import shell_text`); the hooks directory is on `sys.path` f
 
 Decisions
 ---------
-Git Bash mounts other than the drives are NOT resolved (`/tmp`, `/usr`, `/bin`, `/etc`, `/`).
-- Decision: on a Windows host a rooted Bash-tool path that is not a drive path (`/c/...`) keeps the
-  host's os.path reading, rooted at the current drive. `msys_drive_path` translates the drive
-  form only.
+Git Bash mounts other than the drives are NOT resolved (`/tmp`, `/usr`, `/bin`, `/etc`, `/`): they
+read as unknown.
+- Decision: on a Windows host a rooted Bash-tool path that is neither a drive path (`/c/...`) nor a
+  UNC path (`//server/share`) reads as unknown (`is_msys_mount`): `resolve_path`,
+  `msys_drive_path_for_tool` and every cd and `-C` reader built on them answer None, the answer a
+  bare `cd` or `cd -` already gets, and each caller applies its own policy for an unknown
+  directory. `msys_drive_path` translates the drive form only. A caller that asks only whether a
+  landing is independent of where the shell started, and never reaches the disk with it, passes
+  `unknown_mounts=False` and keeps the host's os.path reading, rooted at the current drive.
 - Why: the mapping lives in the shell's mount table, and nothing a hook can read cheaply states it.
   `/` is the Git INSTALL directory (C:/Program Files/Git by default, but a per-user, portable or
   package-manager install puts it elsewhere), `/bin` is the install's usr/bin, and `/tmp` is the
@@ -28,13 +33,14 @@ Git Bash mounts other than the drives are NOT resolved (`/tmp`, `/usr`, `/bin`, 
   user may edit, as they may add mounts of their own. `EXEPATH`, which names the install, is set
   only by the bin/bash.exe launcher, not by usr/bin/bash.exe. Asking `cygpath -w` is exact but
   spawns a process per hook call, and a host without Git Bash has no cygpath (nor a Bash tool whose
-  text would need it). A guessed mapping lands a guard in a directory the shell never entered,
-  which is worse than the reading it replaces.
+  text would need it). A guessed mapping lands a guard in a directory the shell never entered.
+  So did the current-drive reading these paths had before: Git Bash never means C:/tmp by `/tmp`,
+  so a guard judged a repository or a file the command never touched, where None makes it stop.
 - Evidence: measured with `mount` and `cygpath -w` in Git Bash (Git for Windows, MSYS 3.6): `/` ->
   C:/Program Files/Git, `/bin` and `/usr/bin` -> C:/Program Files/Git/usr/bin, `/tmp` ->
   C:/Users/<user>/AppData/Local/Temp (mount option `usertemp`), `/cygdrive/c` -> C:/Program
   Files/Git/cygdrive/c; one `cygpath` call took 63 ms; a native child of usr/bin/bash.exe had no
-  `EXEPATH`. Pinned by `test_a_non_drive_mount_keeps_the_host_s_reading`.
+  `EXEPATH`. Pinned by `test_a_non_drive_mount_reads_as_unknown`.
 - Reopen if: Claude Code passes the hook the Git Bash it runs (its root or mount table), or a
   measured guard decision on Windows turns on a `/tmp` or `/usr` path.
 """
@@ -43,7 +49,6 @@ import bisect
 import functools
 import os
 import re
-import shlex
 import sys
 from pathlib import PurePosixPath, PureWindowsPath
 
@@ -544,16 +549,29 @@ def drop_redirections(tokens):
     Deliberately NOT done inside `git_verb_operands`: several callers locate the verb as
     `tokens[len(tokens) - len(operands) - 1]`, which holds only while the operands are an unbroken
     suffix of the tokens. Apply this to the operands a caller is about to READ.
+
+    The shell recognises an operator only in UNQUOTED text, so a word whose operator characters
+    were quoted or escaped (`-m "<topic>: <why>"`, `'>'`, `\\<a`) is an argument. The quotes are gone
+    from a split word, so that is read from the `ShellWord` the splitter returned. A plain `str` is
+    taken as raw command text (a `str.split()` of the command): its quotes are still in the word, so
+    a quoted operator cannot sit at its start.
     """
     kept, at = [], 0
     while at < len(tokens):
         match = _REDIRECTION_WORD.match(tokens[at])
+        if match is not None and match.start(1) > _unquoted_lead(tokens[at]):
+            match = None                          # the operator was quoted or escaped: a plain word
         at += 1
         if match is None:
             kept.append(tokens[at - 1])
         elif not match.group(1):
             at += 1                               # the target is the next word
     return kept
+
+
+def _unquoted_lead(token):
+    """How many leading characters of `token` the shell saw unquoted; all of a plain `str`."""
+    return token.unquoted_lead if isinstance(token, ShellWord) else len(token)
 
 
 # Programs that move the shell's directory. `popd` returns somewhere no static read tracks.
@@ -564,17 +582,18 @@ _REPO_OPTIONS = ("--git-dir", "--work-tree")
 _REPO_ENV = ("GIT_DIR=", "GIT_WORK_TREE=")
 
 
-def _readable_dir(target, base, msys_drives=False):
+def _readable_dir(target, base, msys_drives=False, unknown_mounts=True):
     """Where `cd target` (or `git -C target`) lands from `base`, or None when it cannot be read.
 
     Unreadable: no target (a bare `cd` goes to HOME), `-` ($OLDPWD), a tilde path (the HOME of the
     shell that runs it), or a variable, substitution or glob. An absolute target is readable even
     when `base` is not. A path that does not exist is left for git to refuse. With `msys_drives` a
-    Git Bash drive path (`/c/temp`) is read as that drive (see `resolve_path`).
+    Git Bash drive path (`/c/temp`) is read as that drive and another Git Bash mount (`/tmp`) is
+    unreadable unless `unknown_mounts` is False (see `resolve_path`).
     """
     if not target or target == "-" or target.startswith("~") or _UNKNOWABLE_DIR.search(target):
         return None
-    landing = resolve_path(target, base, msys_drives=msys_drives)
+    landing = resolve_path(target, base, msys_drives=msys_drives, unknown_mounts=unknown_mounts)
     return os.path.normpath(landing) if landing else None
 
 
@@ -592,16 +611,25 @@ def reads_msys_drives(tool_name="Bash", os_name=os.name):
     return os_name == "nt" and (tool_name or "Bash") == "Bash"
 
 
-def resolve_path(path, base, tool_name="Bash", *, msys_drives=None):
-    """`path` as the shell finds it from `base`, not normalised, or None for a relative `path` and
-    no `base`.
+def resolve_path(path, base, tool_name="Bash", *, msys_drives=None, unknown_mounts=True,
+                 os_name=os.name):
+    """`path` as the shell finds it from `base`, not normalised, or None when that cannot be read:
+    a relative `path` and no `base`, or a Git Bash mount that is not a drive.
 
     A Git Bash drive path is spelled as its drive (`/c/temp` -> `C:/temp`, see `msys_drive_path`),
-    a rooted path is kept, and a relative one is joined onto `base`. `msys_drives` None asks
-    `reads_msys_drives(tool_name)`; True or False overrides it. A translated drive path counts as
-    rooted on every host, so both arms give the same answer wherever the tests run.
+    a rooted path is kept, and a relative one is joined onto `base`. Where the drive reading
+    applies, a rooted path that is neither a drive nor UNC (`/tmp/x`, `/`, see `is_msys_mount`) is
+    None: only Git Bash's mount table says where it lands (see Decisions in the module docstring).
+    `unknown_mounts=False` keeps such a path as written instead, for a caller that asks only
+    whether a landing is rooted and never reaches the disk with it. `msys_drives` None asks
+    `reads_msys_drives(tool_name, os_name)`; True or False overrides it. A translated drive path
+    counts as rooted on every host, so both arms give the same answer wherever the tests run.
+    `os_name` is a parameter so tests reach the Windows default on any host, as
+    `msys_drive_path_for_tool` lets them.
     """
-    windows = reads_msys_drives(tool_name) if msys_drives is None else msys_drives
+    windows = reads_msys_drives(tool_name, os_name) if msys_drives is None else msys_drives
+    if unknown_mounts and is_msys_mount(path, windows):
+        return None
     drive = msys_drive_path(path, windows)
     if drive != path or is_rooted(path):
         return drive
@@ -621,6 +649,23 @@ def is_rooted(path):
 
 #: A Git Bash drive prefix: one letter right under `/`, followed by `/` or nothing.
 _MSYS_DRIVE = re.compile(r"^/([A-Za-z])(?=/|$)/*")
+#: A UNC path (`//server/share`): exactly two slashes, then a name. Git Bash and os.path agree on it.
+_UNC_PATH = re.compile(r"^//[^/]")
+
+
+def is_msys_mount(path, windows):
+    """True when `windows` is True and `path` is a rooted Git Bash path that is neither a drive
+    path (`/c/...`) nor a UNC path (`//server/share`): `/tmp/x`, `/usr/bin`, `/`, `/cygdrive/c`.
+    PURE.
+
+    Git Bash reaches such a path through its mount table: `/` is the Git install directory and
+    `/tmp` the user's %TEMP%, neither of them the current drive's root that os.path reads. No
+    reader here can say where it lands (see Decisions in the module docstring). The caller decides
+    `windows` as for `msys_drive_path`; on any other host, or for text that is not Git Bash's, it
+    is an ordinary rooted path and this answers False.
+    """
+    return (bool(windows) and path[:1] == "/" and not _MSYS_DRIVE.match(path)
+            and not _UNC_PATH.match(path))
 
 
 def msys_drive_path(path, windows):
@@ -630,9 +675,10 @@ def msys_drive_path(path, windows):
     Git for Windows mounts every drive at `/` (its fstab reads `none / cygdrive ...`), so its
     `pwd` prints `/c/temp` and `cd /c/temp` lands in C:\\temp, either letter case. os.path has no
     such mount and roots `/c/temp` at the CURRENT drive, C:\\c\\temp - a directory the shell never
-    entered. Only the drive form is translated: `/cygdrive/c` does not resolve in Git Bash at all,
-    and the other mounts (`/tmp`, `/usr`) need the mount table, which a hook cannot read cheaply
-    (see Decisions in the module docstring).
+    entered. Only the drive form is translated, and any other path is returned unchanged:
+    `/cygdrive/c` does not resolve in Git Bash at all, and the other mounts (`/tmp`, `/usr`) need
+    the mount table, which a hook cannot read cheaply (see Decisions in the module docstring), so
+    a reader asks `is_msys_mount` and treats them as unknown.
     The caller decides `windows` (the host is Windows AND the text is Git Bash's, not PowerShell's
     or a script's: `reads_msys_drives`), so both arms are testable on every host. Readers resolve
     through `resolve_path`, which asks `reads_msys_drives` by default.
@@ -644,17 +690,19 @@ def msys_drive_path(path, windows):
 
 
 def msys_drive_path_for_tool(path, tool_name="Bash", os_name=os.name):
-    """`path` as `tool_name`'s shell on this host reaches it, for a caller reading ONE word. PURE.
+    """`path` as `tool_name`'s shell on this host reaches it, for a caller reading ONE word, or
+    None for a Git Bash mount no reader can place (`is_msys_mount`: `/tmp/x` on Windows). PURE.
 
     `msys_drive_path` with the drive decision taken from `reads_msys_drives`, the decision every
     other reader here takes, so a caller cannot decide the host on its own and disagree with them.
     A caller with a base directory to join onto uses `resolve_path` instead. `os_name` is a
     parameter so tests reach both arms on any host.
     """
-    return msys_drive_path(path, reads_msys_drives(tool_name, os_name))
+    windows = reads_msys_drives(tool_name, os_name)
+    return None if is_msys_mount(path, windows) else msys_drive_path(path, windows)
 
 
-def is_work_tree_root(directory):
+def is_work_tree_root(directory: str | os.PathLike[str]) -> bool:
     """True when `directory` holds a `.git` that git itself would accept as a repository marker.
 
     git takes a `.git` DIRECTORY only when it holds HEAD, and a `.git` FILE (a linked worktree, a
@@ -690,7 +738,8 @@ def _cd_target(args):
 _STACK_ROTATION = re.compile(r"^[+-]\d+$")
 
 
-def directory_change(statement, here, tool_name="Bash", *, expand_home=False, msys_drives=None):
+def directory_change(statement, here, tool_name="Bash", *, expand_home=False, msys_drives=None,
+                     unknown_mounts=True):
     """(changes, landing) for ONE statement: does it move the shell's directory, and to where.
 
     THE cd reader. Four nudges once carried a private regex each, and they had drifted in every
@@ -711,14 +760,18 @@ def directory_change(statement, here, tool_name="Bash", *, expand_home=False, ms
     skipped. `expand_home` resolves `~` and `~/...` against this process's HOME, for a caller that
     has decided the hook and the shell share one. A Git Bash drive path (`cd /c/temp`) lands on
     that drive whenever `reads_msys_drives(tool_name)` says the text is Git Bash's on a Windows host;
-    `msys_drives` True or False overrides that, for a test that must reach the other arm.
+    `msys_drives` True or False overrides that, for a test that must reach the other arm. There a
+    cd into another Git Bash mount (`cd /tmp/x`, `cd /`) lands at None, since only the shell's
+    mount table places it; `unknown_mounts=False` reads it at the current drive's root instead, for
+    a caller that asks only whether the landing is independent of where the shell started.
     """
     tool = tool_name or "Bash"
     tokens = argv_for_match((statement or "").strip().lstrip("(").strip(), tool)
-    return _directory_change_tokens(tokens, here, tool, expand_home, msys_drives)
+    return _directory_change_tokens(tokens, here, tool, expand_home, msys_drives, unknown_mounts)
 
 
-def _directory_change_tokens(tokens, here, tool, expand_home=False, msys_drives=None):
+def _directory_change_tokens(tokens, here, tool, expand_home=False, msys_drives=None,
+                             unknown_mounts=True):
     """`directory_change` on an argv the caller already split."""
     if msys_drives is None:
         msys_drives = reads_msys_drives(tool)
@@ -740,10 +793,10 @@ def _directory_change_tokens(tokens, here, tool, expand_home=False, msys_drives=
         return True, None
     if expand_home and target and (target == "~" or target.startswith(("~/", "~\\"))):
         target = os.path.expanduser(target)
-    return True, _readable_dir(target, here, msys_drives)
+    return True, _readable_dir(target, here, msys_drives, unknown_mounts)
 
 
-def _apply_git_options(prefix, here, tool, msys_drives):
+def _apply_git_options(prefix, here, tool, msys_drives, unknown_mounts=True):
     """`here` moved by the `-C` options in `prefix` (the tokens before the verb), or None.
 
     None when a `--git-dir`/`--work-tree` option or a `GIT_DIR`/`GIT_WORK_TREE` assignment points
@@ -759,7 +812,7 @@ def _apply_git_options(prefix, here, tool, msys_drives):
             return None
         if token == "-C":                         # several compose, each relative to the last
             here = _readable_dir(options[index + 1] if index + 1 < len(options) else None, here,
-                                 msys_drives)
+                                 msys_drives, unknown_mounts)
         index += 2 if token in GIT_VALUE_OPTS else 1
     return here
 
@@ -1198,6 +1251,8 @@ def git_verb_dir(command, cwd, verbs, tool_name=None, *, msys_drives=None):
 
     A Git Bash drive path in a cd or a `-C` value (`cd /c/repo`, `git -C /d/x`) is read as that
     drive where `reads_msys_drives(tool_name)` says so; `msys_drives` True or False overrides it.
+    Another Git Bash mount there (`cd /tmp/r`, `git -C / commit`) makes the directory None, since
+    only the shell's mount table places it.
     """
     tool, here = tool_name or "Bash", cwd
     drives = reads_msys_drives(tool) if msys_drives is None else msys_drives
@@ -1277,18 +1332,22 @@ def git_verb_dir(command, cwd, verbs, tool_name=None, *, msys_drives=None):
     return None
 
 
-def git_segment_dir(tokens, verbs, here, tool_name="Bash", *, msys_drives=None):
+def git_segment_dir(tokens, verbs, here, tool_name="Bash", *, msys_drives=None,
+                    unknown_mounts=True):
     """(is this statement `git <verb>` for one of `verbs`, the directory it runs in or None).
 
     `here` is where the statement starts; the verb's own `-C` values move it, and a `--git-dir`,
     `--work-tree` or `GIT_DIR` points it somewhere nothing here models (None). A Git Bash drive
-    path in a `-C` value follows `reads_msys_drives(tool_name)` unless `msys_drives` overrides it."""
+    path in a `-C` value follows `reads_msys_drives(tool_name)` unless `msys_drives` overrides it,
+    and another Git Bash mount there is None unless `unknown_mounts` is False (see
+    `directory_change`)."""
     tool = tool_name or "Bash"
     drives = reads_msys_drives(tool) if msys_drives is None else msys_drives
     operands = git_verb_operands(tokens, verbs, tool)
     if operands is None:
         return False, here
-    return True, _apply_git_options(tokens[:len(tokens) - len(operands) - 1], here, tool, drives)
+    return True, _apply_git_options(tokens[:len(tokens) - len(operands) - 1], here, tool, drives,
+                                    unknown_mounts)
 
 
 def iter_segments(text, tool_name=None):
@@ -1313,6 +1372,112 @@ def _segments(text, tool_name=None):
 
 
 
+class ShellWord(str):
+    """A word of a split command line that remembers how much of its start was unquoted.
+
+    `unquoted_lead` counts the leading characters that came from bare source text, neither inside
+    quotes nor escaped. A split word has lost its quotes, and without this a quoted `"<topic>"`
+    and the redirection `<topic` are the same string. An empty quote adds no character, so it
+    does not end the lead: bash reads `""<in` as an empty word plus a redirection too.
+
+    It compares, hashes and prints as the plain string, so a caller that only compares words
+    never notices it; a caller that builds a new string from a word gets a plain `str` back.
+    """
+
+    unquoted_lead: int
+
+    def __new__(cls, value, unquoted_lead):
+        word = super().__new__(cls, value)
+        word.unquoted_lead = unquoted_lead
+        return word
+
+    def __getnewargs__(self):
+        return str(self), self.unquoted_lead     # copy and pickle call __new__ with these
+
+
+class _WordBuilder:
+    """The characters of one word as they are read, and how long its unquoted lead runs."""
+
+    def __init__(self):
+        self.parts, self.lead, self.lead_open = [], 0, True
+
+    def add(self, text, bare):
+        if not text:
+            return
+        self.parts.append(text)
+        if not bare:
+            self.lead_open = False
+        elif self.lead_open:
+            self.lead += len(text)
+
+    def word(self):
+        return ShellWord("".join(self.parts), self.lead)
+
+
+_POSIX_BLANKS = " \t\r\n"
+_POSIX_QUOTES = "'\""
+
+
+def _posix_words(text, comments=False):
+    """`shlex.split(text, comments=comments)` as `ShellWord`s, with the same words and errors.
+
+    A port of shlex's POSIX `read_token` for the whitespace-split mode `shlex.split` uses, so the
+    values cannot drift from what every guard read before; what it adds is the quoting each word
+    had, which shlex drops. Raises ValueError("No closing quotation") and ValueError("No escaped
+    character") where shlex does.
+    """
+    words, at = [], 0
+    while True:
+        word, at = _posix_word(text, at, comments)
+        if word is None:
+            return words
+        words.append(word)
+
+
+def _posix_word(text, at, comments):
+    """(the next word from `at`, the index after it), or (None, len(text)) past the last word."""
+    built, state, back, n = _WordBuilder(), " ", "a", len(text)
+    while at < n:
+        ch, at = text[at], at + 1
+        if state in _POSIX_QUOTES:
+            if ch == state:
+                state = "a"
+            elif ch == "\\" and state == '"':
+                state, back = "\\", '"'
+            else:
+                built.add(ch, bare=False)
+        elif state == "\\":
+            # Inside double quotes only `\\` and `"` are escaped; any other backslash is kept.
+            keep = "\\" if back == '"' and ch not in '\\"' else ""
+            built.add(keep + ch, bare=False)
+            state = back
+        elif ch in _POSIX_BLANKS:
+            if state == "a":
+                return built.word(), at
+        elif comments and ch == "#":
+            at = _after_line(text, at)
+            if state == "a":
+                return built.word(), at
+        elif ch == "\\":
+            state, back = "\\", "a"
+        elif ch in _POSIX_QUOTES:
+            state = ch
+        else:
+            built.add(ch, bare=True)
+            state = "a"
+    if state in _POSIX_QUOTES:
+        raise ValueError("No closing quotation")
+    if state == "\\":
+        raise ValueError("No escaped character")
+    return (built.word() if state == "a" else None), n
+
+
+def _after_line(text, at):
+    """The index just past the newline that ends the line `at` is on, or len(text)."""
+    end = text.find("\n", at)
+    return len(text) if end < 0 else end + 1
+
+
 def _windows_command_argv(command):
     r"""Split a Windows command line by the documented C-runtime rules.
 
@@ -1330,7 +1495,7 @@ def _windows_command_argv(command):
     string is PowerShell before any C runtime sees it: `-newermt '-3 minutes'` is one argument,
     and splitting it at the space made two hooks each keep a private re-join.
     """
-    args, cur, in_quotes, started, i, n = [], [], False, False, 0, len(command)
+    args, cur, in_quotes, started, i, n = [], _WordBuilder(), False, False, 0, len(command)
     while i < n:
         ch = command[i]
         if ch == "\\":
@@ -1339,14 +1504,14 @@ def _windows_command_argv(command):
                 j += 1
             slashes = j - i
             if j < n and command[j] == '"':
-                cur.append("\\" * (slashes // 2))
+                cur.add("\\" * (slashes // 2), bare=not in_quotes)
                 if slashes % 2:
-                    cur.append('"')
+                    cur.add('"', bare=False)              # an escaped quote is a literal
                 else:
                     in_quotes = not in_quotes
                 started, i = True, j + 1
             else:
-                cur.append("\\" * slashes)
+                cur.add("\\" * slashes, bare=not in_quotes)
                 started, i = True, j
             continue
         if ch == '"':
@@ -1355,19 +1520,19 @@ def _windows_command_argv(command):
         if ch == "'" and not in_quotes:
             verbatim, stop = _powershell_single_quoted(command, i)
             if verbatim is not None:
-                cur.append(verbatim)
+                cur.add(verbatim, bare=False)
                 started, i = True, stop
                 continue
         if ch in " \t" and not in_quotes:
             if started:
-                args.append("".join(cur))
-                cur, started = [], False
+                args.append(cur.word())
+                cur, started = _WordBuilder(), False
             i += 1
             continue
-        cur.append(ch)
+        cur.add(ch, bare=not in_quotes)
         started, i = True, i + 1
     if started:
-        args.append("".join(cur))
+        args.append(cur.word())
     return args
 
 
@@ -1419,7 +1584,7 @@ def split_for_tool(command, tool_name="Bash", comments=False):
     """
     if tool_name == "PowerShell":
         return _windows_command_argv(command)
-    return shlex.split(_join_line_continuations(command), comments=comments)
+    return _posix_words(_join_line_continuations(command), comments=comments)
 
 
 def _join_line_continuations(command):

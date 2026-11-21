@@ -104,7 +104,8 @@ class CfnApplication(
                 idle_timeout_minutes=123
             ),
             identity_center_configuration=emrserverless.CfnApplication.IdentityCenterConfigurationProperty(
-                identity_center_instance_arn="identityCenterInstanceArn"
+                identity_center_instance_arn="identityCenterInstanceArn",
+                user_background_sessions_enabled=False
             ),
             image_configuration=emrserverless.CfnApplication.ImageConfigurationInputProperty(
                 image_uri="imageUri"
@@ -1061,19 +1062,24 @@ class CfnApplication(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_emrserverless.CfnApplication.IdentityCenterConfigurationProperty",
         jsii_struct_bases=[],
-        name_mapping={"identity_center_instance_arn": "identityCenterInstanceArn"},
+        name_mapping={
+            "identity_center_instance_arn": "identityCenterInstanceArn",
+            "user_background_sessions_enabled": "userBackgroundSessionsEnabled",
+        },
     )
     class IdentityCenterConfigurationProperty:
         def __init__(
             self,
             *,
             identity_center_instance_arn: typing.Optional[builtins.str] = None,
+            user_background_sessions_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''The IAM Identity Center Configuration accepts the Identity Center instance parameter required to enable trusted identity propagation.
 
             This configuration allows identity propagation between integrated services and the Identity Center instance.
 
             :param identity_center_instance_arn: The ARN of the IAM Identity Center instance.
+            :param user_background_sessions_enabled: Enables user background sessions for this application so sessions can continue running after users log out of their interactive notebook or their Identity Center sessions expire. Default: - false
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrserverless-application-identitycenterconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -1085,15 +1091,19 @@ class CfnApplication(
                 from aws_cdk import aws_emrserverless as emrserverless
                 
                 identity_center_configuration_property = emrserverless.CfnApplication.IdentityCenterConfigurationProperty(
-                    identity_center_instance_arn="identityCenterInstanceArn"
+                    identity_center_instance_arn="identityCenterInstanceArn",
+                    user_background_sessions_enabled=False
                 )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__e39791b3c0e4b2bc25ba2e752692f0e0b9015cac1be177ed585a88beab629a2e)
                 check_type(argname="argument identity_center_instance_arn", value=identity_center_instance_arn, expected_type=type_hints["identity_center_instance_arn"])
+                check_type(argname="argument user_background_sessions_enabled", value=user_background_sessions_enabled, expected_type=type_hints["user_background_sessions_enabled"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if identity_center_instance_arn is not None:
                 self._values["identity_center_instance_arn"] = identity_center_instance_arn
+            if user_background_sessions_enabled is not None:
+                self._values["user_background_sessions_enabled"] = user_background_sessions_enabled
 
         @builtins.property
         def identity_center_instance_arn(self) -> typing.Optional[builtins.str]:
@@ -1103,6 +1113,19 @@ class CfnApplication(
             '''
             result = self._values.get("identity_center_instance_arn")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def user_background_sessions_enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Enables user background sessions for this application so sessions can continue running after users log out of their interactive notebook or their Identity Center sessions expire.
+
+            :default: - false
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrserverless-application-identitycenterconfiguration.html#cfn-emrserverless-application-identitycenterconfiguration-userbackgroundsessionsenabled
+            '''
+            result = self._values.get("user_background_sessions_enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2344,7 +2367,8 @@ class CfnApplicationProps:
                     idle_timeout_minutes=123
                 ),
                 identity_center_configuration=emrserverless.CfnApplication.IdentityCenterConfigurationProperty(
-                    identity_center_instance_arn="identityCenterInstanceArn"
+                    identity_center_instance_arn="identityCenterInstanceArn",
+                    user_background_sessions_enabled=False
                 ),
                 image_configuration=emrserverless.CfnApplication.ImageConfigurationInputProperty(
                     image_uri="imageUri"
@@ -2892,6 +2916,7 @@ def _typecheckingstub__f6631f05a0f985523b64829ba85bb2686c8aecd114d8a1c04c994338e
 def _typecheckingstub__e39791b3c0e4b2bc25ba2e752692f0e0b9015cac1be177ed585a88beab629a2e(
     *,
     identity_center_instance_arn: typing.Optional[builtins.str] = None,
+    user_background_sessions_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

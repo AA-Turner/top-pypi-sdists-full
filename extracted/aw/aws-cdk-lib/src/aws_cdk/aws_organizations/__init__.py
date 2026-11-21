@@ -622,6 +622,48 @@ class CfnOrganization(
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForOrganization", [resource]))
 
+    @jsii.member(jsii_name="fromOrganizationArn")
+    @builtins.classmethod
+    def from_organization_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        arn: builtins.str,
+    ) -> "_aws_organizations_9e2f48a0.IOrganizationRef":
+        '''Creates a new IOrganizationRef from an ARN.
+
+        :param scope: -
+        :param id: -
+        :param arn: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__515848a45ac1a11e94d10eb67b5e95998c0de9463e4e884bdcf825dd5ba51a78)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+        return typing.cast("_aws_organizations_9e2f48a0.IOrganizationRef", jsii.sinvoke(cls, "fromOrganizationArn", [scope, id, arn]))
+
+    @jsii.member(jsii_name="fromOrganizationId")
+    @builtins.classmethod
+    def from_organization_id(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        organization_id: builtins.str,
+    ) -> "_aws_organizations_9e2f48a0.IOrganizationRef":
+        '''Creates a new IOrganizationRef from a organizationId.
+
+        :param scope: -
+        :param id: -
+        :param organization_id: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3b10ab97aef4ac82619c8b50aa86691b4107d385c3f577a82d8c67eaf24cf18a)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument organization_id", value=organization_id, expected_type=type_hints["organization_id"])
+        return typing.cast("_aws_organizations_9e2f48a0.IOrganizationRef", jsii.sinvoke(cls, "fromOrganizationId", [scope, id, organization_id]))
+
     @jsii.member(jsii_name="isCfnOrganization")
     @builtins.classmethod
     def is_cfn_organization(cls, x: typing.Any) -> builtins.bool:
@@ -1991,6 +2033,22 @@ def _typecheckingstub__450a54c6b7334fcb8f406a9a29b8e1f90a618bcbd127f2d5a6a9fa43f
 
 def _typecheckingstub__fc87460a7b7e0ef44f3c618cd0a4730422138ef2ee6b63752435c79731d027e9(
     resource: _aws_organizations_9e2f48a0.IOrganizationRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__515848a45ac1a11e94d10eb67b5e95998c0de9463e4e884bdcf825dd5ba51a78(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3b10ab97aef4ac82619c8b50aa86691b4107d385c3f577a82d8c67eaf24cf18a(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    organization_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -16,9 +16,10 @@ import math
 import random
 import time
 import urllib.parse
+from dataclasses import dataclass, field
 from json.decoder import JSONDecodeError
 from types import NoneType
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Literal
 
 import backoff
 from aiohttp import ClientConnectionError, ClientResponse
@@ -44,6 +45,35 @@ from .errors import (
 from .helpers import _catch_all_exceptions, get_json_value, hide_email, hide_serial
 
 _LOGGER = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class HistoryContinuation:
+    """Opaque, in-memory RVH cursor bound to one login/session and query."""
+
+    start_time: int
+    end_time: int
+    max_record_size: int
+    _login: object = field(repr=False)
+    _session: object = field(repr=False)
+    _domain: str = field(repr=False)
+    _account: str = field(repr=False)
+    _token: str = field(repr=False)
+    _seen: frozenset[str] = field(repr=False)
+
+
+@dataclass(frozen=True)
+class HistoryPage:
+    """Normalized page: success has a cursor, exhausted is final, error is incomplete.
+
+    Transport authentication/rate-limit exceptions and cancellation propagate.
+    Cursors must not be persisted or logged and must be discarded on reload.
+    """
+
+    records: list[dict[str, Any]]
+    status: Literal["success", "exhausted", "error"]
+    continuation: HistoryContinuation | None = None
+    error: str | None = None
 
 
 def _min_expo_wait(min_wait: float):
@@ -391,7 +421,8 @@ class AlexaAPI:
         additional_headers: dict[str, str] | None = None,
         query: dict[str, str | int] | None = None,
         sub_domain: str = "alexa",
-    ) -> ClientResponse | None:
+        with_status: bool = False,
+    ) -> tuple[int, ClientResponse] | ClientResponse | None:
         async with login._oauth_lock:
             if login.expires_in and (login.expires_in - time.time() < 0):
                 _LOGGER.debug(
@@ -543,10 +574,18 @@ class AlexaAPI:
                         additional_headers=additional_headers,
                         query=query,
                         sub_domain=sub_domain,
+                        with_status=with_status,
                     )
                 finally:
                     login._rate_retry_inflight = False
 
+        if with_status:
+            if response.status == 401:
+                # A 401 that survives the retry is a login failure, not a status.
+                return await AlexaAPI._process_response(response, login)
+            if login.stats:
+                login.stats["api_calls"] += 1
+            return response.status, response
         return await AlexaAPI._process_response(response, login)
 
     @_catch_all_exceptions
@@ -1796,6 +1835,69 @@ class AlexaAPI:
 
     @staticmethod
     @_catch_all_exceptions
+    async def get_personality_styles(
+        login: AlexaLogin, device_account_id: str, locale: str
+    ) -> dict[str, Any] | None:
+        """Return the current and available personality styles for a device.
+
+        Returns the response containing ``curatedStyle`` and
+        ``allCuratedStyles``, or None if the response is invalid.
+        """
+        response = await AlexaAPI._static_request(
+            "get", login,
+            "/api/personality/v1/getstyle/"
+            + urllib.parse.quote(device_account_id, safe=""),
+            additional_headers={"Accept-Language": locale},
+        )
+        result, valid = await get_json_value(response, None, dict)
+        if not valid or not isinstance(result.get("allCuratedStyles"), list):
+            return None
+        if not isinstance(result.get("curatedStyle"), str):
+            return None
+        return result
+
+    @staticmethod
+    @_catch_all_exceptions
+    async def set_personality_style(
+        login: AlexaLogin, device_account_id: str, style_id: str, locale: str
+    ) -> bool:
+        """Set an unrestricted supported style and confirm it by reading back.
+
+        Surrounding whitespace is ignored, but style IDs are case-sensitive.
+        Returns False for invalid or unsupported styles, styles requiring
+        consent, rejected updates, or changes not confirmed by a fresh read.
+        An unconfirmed change may still be applied later.
+        """
+        if not isinstance(style_id, str) or not style_id.strip():
+            return False
+        style_id = style_id.strip()
+        current = await AlexaAPI.get_personality_styles(
+            login, device_account_id, locale
+        )
+        if current is None:
+            return False
+        if not any(
+            isinstance(style, dict) and style.get("id") == style_id
+            and not style.get("restrictedAccess")
+            for style in current["allCuratedStyles"]
+        ):
+            return False
+        if current["curatedStyle"] == style_id:
+            return True
+        response = await AlexaAPI._static_request(
+            "post", login, "/api/personality/v1/setstyle",
+            data={"deviceAccountId": device_account_id, "curatedStyle": style_id},
+            additional_headers={"Accept-Language": locale},
+        )
+        if response is None or not 200 <= response.status < 300:
+            return False
+        updated = await AlexaAPI.get_personality_styles(
+            login, device_account_id, locale
+        )
+        return updated is not None and updated["curatedStyle"] == style_id
+
+    @staticmethod
+    @_catch_all_exceptions
     async def find_wake_word(login: AlexaLogin, serial: str) -> str | None:
         """Find the wake word associated to a device."""
         wake_words = (
@@ -1839,6 +1941,166 @@ class AlexaAPI:
         return None
 
     @staticmethod
+    async def _customer_history_headers(login: AlexaLogin) -> dict:
+        """Build RVH headers and refresh the CSRF token when needed."""
+        headers = {
+            "referer": f"https://www.{login.url}",
+            "anti-csrftoken-a2z": login.csrf_token,
+        }
+        if login.csrf_token is None or (
+            int(time.time()) - login.csrf_token_created_at > 24 * 3600
+        ):
+            headers["anti-csrftoken-a2z"] = await login.get_csrf_token()
+        return headers
+
+    @staticmethod
+    async def _request_customer_history_page(
+        login, start_time, end_time, max_record_size, token, headers
+    ) -> dict | None:
+        """Fetch one RVH payload through the shared authenticated transport."""
+        response = await AlexaAPI._static_request(
+            "post",
+            login,
+            "/alexa-privacy/apd/rvh/customer-history-records-v2",
+            data={"previousRequestToken": token},
+            additional_headers=headers,
+            query={
+                "startTime": start_time,
+                "endTime": end_time,
+                "recordType": "VOICE_HISTORY",
+                "maxRecordSize": max_record_size,
+            },
+            sub_domain="www",
+        )
+        payload, valid = await get_json_value(response, None, dict)
+        return payload if valid else None
+
+    @staticmethod
+    def _history_next_token(token, seen) -> tuple[str | None, str]:
+        """Validate tokens consistently for legacy and page callers."""
+        if token is None or token == "":
+            return None, "no continuation token"
+        if not isinstance(token, str):
+            return None, "invalid continuation token type"
+        if token in seen:
+            return None, "repeated continuation token"
+        return token, "continue"
+
+    @staticmethod
+    @_catch_all_exceptions
+    async def get_customer_history_page(  # noqa: PLR0911
+        login: AlexaLogin,
+        start_time: int | None = None,
+        end_time: int | None = None,
+        max_record_size: int | None = None,
+        *,
+        continuation: HistoryContinuation | None = None,
+    ) -> HistoryPage:
+        """Return a normalized page and an in-memory, session-scoped cursor.
+
+        Resumption freezes the initial query. Empty pages can continue.
+        Invalid/cyclic tokens are errors, never genuine exhaustion. Transport
+        authentication/rate-limit exceptions and cancellation propagate.
+        An error may retain the input cursor for retry. Callers must bound
+        retries: the transport can hide HTTP rejection/expiry as no response.
+        Connection failures raise AlexapyConnectionError, as for other requests.
+        """
+        session, domain, account = login.session, login.url, login.email
+        if continuation is not None:
+            if not isinstance(continuation, HistoryContinuation):
+                return HistoryPage([], "error", error="invalid continuation")
+            if (
+                continuation._login is not login
+                or continuation._session is not login.session
+                or continuation._domain != login.url
+                or continuation._account != login.email
+            ):
+                return HistoryPage([], "error", error="continuation scope mismatch")
+            if any(
+                (
+                    start_time is not None and start_time != continuation.start_time,
+                    end_time is not None and end_time != continuation.end_time,
+                    max_record_size is not None
+                    and max_record_size != continuation.max_record_size,
+                )
+            ):
+                return HistoryPage([], "error", error="continuation query mismatch")
+            start_time, end_time = continuation.start_time, continuation.end_time
+            max_record_size = continuation.max_record_size
+            token, seen = continuation._token, continuation._seen
+        else:
+            now = time.time()
+            start_time = (
+                int((now - 7 * 24 * 3600) * 1000) if start_time is None else start_time
+            )
+            end_time = int((now + 24 * 3600) * 1000) if end_time is None else end_time
+            max_record_size = 1 if max_record_size is None else max_record_size
+            token, seen = None, frozenset()
+        headers = await AlexaAPI._customer_history_headers(login)
+        if (
+            login.session is not session
+            or login.url != domain
+            or login.email != account
+        ):
+            return HistoryPage(
+                [], "error", error="session changed during header refresh"
+            )
+        payload = await AlexaAPI._request_customer_history_page(
+            login, start_time, end_time, max_record_size, token, headers
+        )
+        if (
+            login.session is not session
+            or login.url != domain
+            or login.email != account
+        ):
+            return HistoryPage([], "error", error="session changed during request")
+        if payload is None:
+            return HistoryPage([], "error", continuation, "invalid or missing response")
+        raw = payload.get("customerHistoryRecords")
+        if raw is None and "customerHistoryRecords" in payload:
+            if payload.get("encodedRequestToken") not in (None, ""):
+                return HistoryPage([], "error", error="null records with continuation")
+            return HistoryPage([], "exhausted")
+        if not isinstance(raw, list):
+            return HistoryPage([], "error", error="invalid customerHistoryRecords")
+        next_token, reason = AlexaAPI._history_next_token(
+            payload.get("encodedRequestToken"), seen
+        )
+        if reason not in ("continue", "no continuation token"):
+            return HistoryPage([], "error", error=reason)
+        records = []
+        try:
+            for record in raw:
+                if not isinstance(record, dict):
+                    return HistoryPage([], "error", error="invalid history record")
+                records.append(await AlexaAPI._normalize_history_record(login, record))
+        except (TypeError, ValueError, AttributeError, KeyError):
+            return HistoryPage([], "error", error="invalid history record")
+        # Normalization can await wake-word lookup and yield to reauthentication.
+        if (
+            login.session is not session
+            or login.url != domain
+            or login.email != account
+        ):
+            return HistoryPage(
+                [], "error", error="session changed during normalization"
+            )
+        if next_token is None:
+            return HistoryPage(records, "exhausted")
+        cursor = HistoryContinuation(
+            start_time,
+            end_time,
+            max_record_size,
+            login,
+            session,
+            domain,
+            account,
+            next_token,
+            seen | {next_token},
+        )
+        return HistoryPage(records, "success", cursor)
+
+    @staticmethod
     @_catch_all_exceptions
     async def get_customer_history_records(
         login: AlexaLogin,
@@ -1867,15 +2129,7 @@ class AlexaAPI:
         end_time = (
             int((time.time() + 24 * 3600) * 1000) if end_time is None else end_time
         )
-        extra_headers = {
-            "referer": f"https://www.{login.url}",
-            "anti-csrftoken-a2z": login.csrf_token,
-        }
-        # The anti-csrf token expires after 24 hours
-        if login.csrf_token is None or (
-            int(time.time()) - login.csrf_token_created_at > 60 * 60 * 24
-        ):
-            extra_headers["anti-csrftoken-a2z"] = await login.get_csrf_token()
+        extra_headers = await AlexaAPI._customer_history_headers(login)
 
         ret: list[dict[str, Any]] = []
         previous_token: str | None = None
@@ -1890,22 +2144,15 @@ class AlexaAPI:
             )
 
         for page_number in range(1, max_pages + 1):
-            response = await AlexaAPI._static_request(
-                "post",
+            payload = await AlexaAPI._request_customer_history_page(
                 login,
-                "/alexa-privacy/apd/rvh/customer-history-records-v2",
-                data={"previousRequestToken": previous_token},
-                additional_headers=extra_headers,
-                query={
-                    "startTime": start_time,
-                    "endTime": end_time,
-                    "recordType": "VOICE_HISTORY",
-                    "maxRecordSize": max_record_size,
-                },
-                sub_domain="www",
+                start_time,
+                end_time,
+                max_record_size,
+                previous_token,
+                extra_headers,
             )
-            payload, valid = await get_json_value(response, None, dict)
-            if not valid:
+            if payload is None:
                 log_stop(page_number, "invalid or missing response")
                 return None
             customerHistoryRecords = payload.get("customerHistoryRecords")
@@ -1931,15 +2178,11 @@ class AlexaAPI:
                     log_stop(page_number, "usable activity found")
                     return ret
 
-            token = payload.get("encodedRequestToken")
-            if token is None or token == "":
-                log_stop(page_number, "no continuation token")
-                break
-            if not isinstance(token, str):
-                log_stop(page_number, "invalid continuation token type")
-                break
-            if token in seen_tokens:
-                log_stop(page_number, "repeated continuation token")
+            token, reason = AlexaAPI._history_next_token(
+                payload.get("encodedRequestToken"), seen_tokens
+            )
+            if reason != "continue":
+                log_stop(page_number, reason)
                 break
             seen_tokens.add(token)
             previous_token = token
@@ -1962,6 +2205,8 @@ class AlexaAPI:
         if conv_parts:
             o["conversionDetails"] = conv_parts
 
+        if "recordKey" in record:
+            o["recordKey"] = record["recordKey"]
         record_key = (record.get("recordKey") or "").split("#")
         o["deviceType"] = (
             record_key[2] if len(record_key) > 2 and record_key[2] else None
@@ -1969,6 +2214,9 @@ class AlexaAPI:
         o["creationTimestamp"] = record.get("timestamp")
         o["deviceSerialNumber"] = record_key[3] if len(record_key) > 3 else None
         o["utteranceType"] = record.get("utteranceType")
+        for key in ("domain", "intent", "skillName"):
+            if key in record:
+                o[key] = record[key]
 
         wake_word = (
             await AlexaAPI.find_wake_word(login, o["deviceSerialNumber"])
@@ -2033,6 +2281,63 @@ class AlexaAPI:
         )
         response_json, *_ = await get_json_value(response, None, dict)
         return response_json
+
+    @staticmethod
+    async def get_device_setting(
+        login: AlexaLogin, device_account_id: str, setting: str
+    ) -> tuple[int, Any]:
+        """Return (HTTP status, decoded value) for one device setting.
+
+        A 400 status means Amazon does not support the setting on the device.
+        Other non-200 statuses are temporary and can be retried. A 401 that
+        persists after the retry raises AlexapyLoginError and marks the login
+        as failed, as for every other request. The response is released before
+        returning.
+        """
+        if not device_account_id:
+            return 0, None
+        result = await AlexaAPI._static_request(
+            "get",
+            login,
+            f"/api/v1/devices/{urllib.parse.quote(device_account_id, safe='')}"
+            f"/settings/{urllib.parse.quote(setting, safe='')}",
+            with_status=True,
+        )
+        if result is None:  # pragma: no cover - defensive
+            return 0, None
+        status, response = result
+        try:
+            if status != 200:
+                return status, None
+            try:
+                data = await response.json(content_type=None)
+            except (TypeError, ValueError):
+                return status, None
+            value = data.get("value") if isinstance(data, dict) else None
+            if isinstance(value, str):
+                with contextlib.suppress(TypeError, ValueError):
+                    value = json.loads(value)
+            if value is None or isinstance(value, (dict, list)):
+                return status, None
+            return status, value
+        finally:
+            response.release()
+
+    @staticmethod
+    async def set_device_setting(
+        login: AlexaLogin, device_account_id: str, setting: str, value: Any
+    ) -> bool:
+        """Write one device setting and return whether Amazon accepted it."""
+        if not device_account_id:
+            return False
+        response = await AlexaAPI._static_request(
+            "put",
+            login,
+            f"/api/v1/devices/{urllib.parse.quote(device_account_id, safe='')}"
+            f"/settings/{urllib.parse.quote(setting, safe='')}",
+            data={"value": json.dumps(value)},
+        )
+        return response is not None
 
     @staticmethod
     @_catch_all_exceptions

@@ -19,8 +19,11 @@
 # does not, so a rename or a deletion surfaces the same day.
 #
 # Fields:
-#   name            upstream repo name under hyperi-io
-#   language        the fixture's own language; `none` where it has no build
+#   name            the fixture, and its repo under hyperi-io unless `repo` is set
+#   repo            the repo a scenario shares, e.g. hyperi-ci-test
+#   caller          its workflow file that calls hyperi-ci (default ci.yml)
+#   dir             its directory in the repo (default the root)
+#   language       the fixture's own language; `none` where it has no build
 #   workflow        the reusable workflow its ci.yml calls. Drives which
 #                   fixtures a workflow change has to be rehearsed against
 #                   (scripts/rehearse-gate.py), so it is data, not prose.
@@ -44,6 +47,9 @@ fleet:
   # fleet-wide `destinations_oss` opt-outs are NOT masks - cutting the leg
   # out to a public registry is standing fleet policy, not a hidden gap.
   - name: ci-test-go-app
+    repo: hyperi-ci-test
+    caller: ci-test-go-app.yml
+    dir: scenarios/ci-test-go-app
     language: go
     workflow: go-ci.yml
     covers: four-target build and GHCR dev-push
@@ -51,6 +57,9 @@ fleet:
     negative_cases: true
 
   - name: ci-test-manifests
+    repo: hyperi-ci-test
+    caller: ci-test-manifests.yml
+    dir: scenarios/ci-test-manifests
     language: none
     workflow: iac-ci.yml
     covers: container, Kubernetes and IaC linting
@@ -58,12 +67,18 @@ fleet:
     negative_cases: true
 
   - name: ci-test-python-app
+    repo: hyperi-ci-test
+    caller: ci-test-python-app.yml
+    dir: scenarios/ci-test-python-app
     language: python
     workflow: python-ci.yml
     covers: container custom mode on GHCR
     rehearsal: default
 
   - name: ci-test-python-lib
+    repo: hyperi-ci-test
+    caller: ci-test-python-lib.yml
+    dir: scenarios/ci-test-python-lib
     language: python
     workflow: python-ci.yml
     covers: library, container auto-skip
@@ -75,17 +90,34 @@ fleet:
     rehearsal: default
 
   - name: ci-test-rust-lib
+    repo: hyperi-ci-test
+    caller: ci-test-rust-lib.yml
+    dir: scenarios/ci-test-rust-lib
     language: rust
     workflow: rust-ci.yml
     covers: library, container auto-skip
 
+  - name: ci-test-rust-os
+    repo: hyperi-ci-test
+    caller: ci-test-rust-os.yml
+    dir: scenarios/ci-test-rust-os
+    language: rust
+    workflow: rust-ci.yml
+    covers: Windows (msvc) and both macOS legs, cfg-gated OS crates, two binaries
+
   - name: ci-test-rust-simple
+    repo: hyperi-ci-test
+    caller: ci-test-rust-simple.yml
+    dir: scenarios/ci-test-rust-simple
     language: rust
     workflow: rust-ci.yml
     covers: minimal Rust CLI, the baseline pipeline
     negative_cases: true
 
   - name: ci-test-rust-workspace
+    repo: hyperi-ci-test
+    caller: ci-test-rust-workspace.yml
+    dir: scenarios/ci-test-rust-workspace
     language: rust
     workflow: rust-ci.yml
     covers: two-crate workspace, version inheritance
@@ -95,6 +127,9 @@ fleet:
         why: cargo-hack --each-feature check --lib fails on a member with no lib target
 
   - name: ci-test-ts-app
+    repo: hyperi-ci-test
+    caller: ci-test-ts-app.yml
+    dir: scenarios/ci-test-ts-app
     language: typescript
     workflow: ts-ci.yml
     covers: container custom mode on GHCR

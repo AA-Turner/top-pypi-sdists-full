@@ -182,6 +182,60 @@ def _repair_section_ids(part_name: str, payload: bytes) -> bytes:
     return etree.tostring(root, xml_declaration=True, encoding="UTF-8", standalone=True)
 
 
+def _move_section_properties_to_first_paragraph(root: etree._Element) -> bool:
+    """Move a section's settings into its first paragraph when a later paragraph holds them.
+
+    Hancom reads a section's ``hp:secPr`` only from the first paragraph; in a later one it gives the
+    section default paper and margins (``section-properties-not-first``). The ``hp:secPr`` and the
+    page-level controls of its paragraph (columns, header, footer, page numbering) move to the front
+    of the first paragraph, as ``paragraph.insert_before`` puts them, and both paragraphs lose their
+    line layout cache. Returns whether anything moved.
+    """
+
+    from ..oxml._paragraph_text_edit import move_section_settings
+
+    paragraphs = [child for child in root if _local_name(child) == "p"]
+    if not paragraphs:
+        return False
+
+    def holds(paragraph: etree._Element) -> bool:
+        return any(_local_name(grand) == "secPr"
+                   for run in paragraph if _local_name(run) == "run" for grand in run)
+
+    if holds(paragraphs[0]):
+        return False
+    holder = next((paragraph for paragraph in paragraphs[1:] if holds(paragraph)), None)
+    if holder is None:
+        return False
+    return move_section_settings(holder, paragraphs[0])
+
+
+def _add_missing_column_definition(root: etree._Element) -> bool:
+    """Write the one-column definition Hancom writes right after a section's ``hp:secPr`` when its first
+    paragraph has none (``section-columns-missing``): without it Hancom opens the section with default paper
+    and margins. Returns whether anything was added."""
+
+    paragraph = next((child for child in root if _local_name(child) == "p"), None)
+    if paragraph is None:
+        return False
+    runs = [run for run in paragraph if _local_name(run) == "run"]
+    if any(_local_name(control) == "colPr" for run in runs for child in run if _local_name(child) == "ctrl"
+           for control in child):
+        return False
+    holder = next(((run, child) for run in runs for child in run if _local_name(child) == "secPr"), None)
+    if holder is None:
+        return False
+    run, section_properties = holder
+    namespace = etree.QName(section_properties).namespace
+    control = etree.Element(f"{{{namespace}}}ctrl")
+    # Hangul 2024's own, saved into a section that had none (out/preview9/colpr/hancom/without-colpr.hwpx)
+    etree.SubElement(control, f"{{{namespace}}}colPr", {"id": "", "type": "NEWSPAPER", "layout": "LEFT",
+                                                        "colCount": "1", "sameSz": "1", "sameGap": "0"})
+    control.tail, section_properties.tail = section_properties.tail, None
+    run.insert(list(run).index(section_properties) + 1, control)
+    return True
+
+
 def _repair_section_layout_cache(part_name: str, payload: bytes) -> bytes:
     if not is_section_part_name(part_name):
         return _normalize_hwpml_compat_root(part_name, payload)
@@ -190,7 +244,8 @@ def _repair_section_layout_cache(part_name: str, payload: bytes) -> bytes:
     except (etree.XMLSyntaxError, HwpxSecurityError):
         return payload
 
-    changed = False
+    changed = _move_section_properties_to_first_paragraph(root)
+    changed = _add_missing_column_definition(root) or changed
     for paragraph in root.iter():
         if _local_name(paragraph) != "p":
             continue
@@ -466,6 +521,8 @@ def repair_from_recovered(
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    from .archive_cli import _printable_stdout
+    _printable_stdout()
     parser = argparse.ArgumentParser(description="Repair or recover an HWPX archive")
     parser.add_argument("input", help="Input .hwpx path")
     parser.add_argument("output", help="Output repaired .hwpx path")
@@ -481,6 +538,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    from .archive_cli import _input_file_problem
+
+    problem = _input_file_problem(args.input, tool="hwpx-repair")
+    if problem is not None:
+        print(f"ERROR: {problem}")
+        return 1
     try:
         if args.recover:
             result = repair_from_recovered(args.input, args.output, overwrite=args.force)
@@ -491,6 +554,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 1
 
     print(f"Repaired {args.input} -> {result.output_path}")
+    from .archive_cli import _warn_duplicate_entries
+
+    _warn_duplicate_entries(
+        result.output_path,
+        "not repaired: every entry was kept as it was, since which content is meant cannot be told",
+    )
     print(
         " ".join(
             [

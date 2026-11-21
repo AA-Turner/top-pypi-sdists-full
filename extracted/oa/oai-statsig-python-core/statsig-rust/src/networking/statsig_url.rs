@@ -5,6 +5,7 @@ const GET_ID_LISTS_ENDPOINT: &str = "get_id_lists";
 const DOWNLOAD_ID_LIST_FILE_ENDPOINT: &str = "download_id_list_file";
 const DYNAMIC_CONFIG_VALUE_ENDPOINT: &str = "dynamic_config_value";
 const LOG_EVENT_ENDPOINT: &str = "log_event";
+pub(crate) const ID_LIST_MEMBERSHIP_PATH: &str = "/v1/id_list_membership";
 
 // StatsigOptions accepts client-provided endpoint strings for compatibility.
 // Parse those strings here, then normalize SDK-owned endpoint forms centrally.
@@ -176,6 +177,13 @@ pub(crate) fn replace_url_base(
         return Err(invalid());
     }
     Ok(target)
+}
+
+#[cfg(not(feature = "custom_network_provider"))]
+pub(crate) fn is_id_list_membership_endpoint(url: &str) -> bool {
+    strip_query_and_fragment(StatsigUrl::new(url).path)
+        .strip_suffix(ID_LIST_MEMBERSHIP_PATH.trim_start_matches('/'))
+        .is_some_and(|prefix| prefix.is_empty() || prefix.ends_with('/'))
 }
 
 #[cfg(any(test, not(feature = "custom_network_provider")))]

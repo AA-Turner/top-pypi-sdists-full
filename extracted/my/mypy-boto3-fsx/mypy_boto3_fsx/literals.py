@@ -191,7 +191,9 @@ LustreReadCacheSizingModeType = Literal[
 MetadataConfigurationModeType = Literal["AUTOMATIC", "USER_PROVISIONED"]
 NetworkTypeType = Literal["DUAL", "IPV4"]
 NfsVersionType = Literal["NFS3"]
-OntapDeploymentTypeType = Literal["MULTI_AZ_1", "MULTI_AZ_2", "SINGLE_AZ_1", "SINGLE_AZ_2"]
+OntapDeploymentTypeType = Literal[
+    "MULTI_AZ_1", "MULTI_AZ_2", "MULTI_AZ_3", "SINGLE_AZ_1", "SINGLE_AZ_2", "SINGLE_AZ_3"
+]
 OntapFileSystemUserTypeType = Literal["UNIX", "WINDOWS"]
 OntapVolumeTypeType = Literal["DP", "LS", "RW"]
 OpenZFSCopyStrategyType = Literal["CLONE", "FULL_COPY", "INCREMENTAL_COPY"]
@@ -257,12 +259,14 @@ WindowsAccessAuditLogLevelType = Literal[
 WindowsDeploymentTypeType = Literal["MULTI_AZ_1", "SINGLE_AZ_1", "SINGLE_AZ_2"]
 FSxServiceName = Literal["fsx"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",
     "account-access-runtime",
     "acm",
     "acm-pca",
+    "agent-discovery",
     "agent-registry",
     "agent-registry-control",
     "aiops",
@@ -273,6 +277,7 @@ ServiceName = Literal[
     "apigateway",
     "apigatewaymanagementapi",
     "apigatewayv2",
+    "apiportal",
     "appconfig",
     "appconfigdata",
     "appfabric",
@@ -365,6 +370,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -549,6 +555,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -556,10 +563,12 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-marketing",
     "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
+    "payments",
     "pca-connector-ad",
     "pca-connector-scep",
     "pcs",
@@ -615,7 +624,9 @@ ServiceName = Literal[
     "sagemaker-a2i-runtime",
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
+    "sagemaker-gateway-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",

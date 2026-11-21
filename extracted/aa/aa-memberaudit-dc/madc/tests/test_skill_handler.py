@@ -1,70 +1,85 @@
 # Standard Library
 import json
 
-# Django
-from django.test import RequestFactory
-
 # Alliance Auth (External Libs)
-from app_utils.testing import NoSocketsTestCase, create_user_from_evecharacter
 from eveuniverse.models import EveType
-from memberaudit.models import Character, CharacterSkill
+from memberaudit.models import CharacterSkill
 
 # AA Memberaudit Doctrine Checker
 from madc import __title__
 from madc.helpers.skill_handler import SkillListHandler
 from madc.models import SkillList
-from madc.tests.testdata.load_allianceauth import load_allianceauth
+from madc.tests import AuthTestCase
 from madc.tests.testdata.load_eveuniverse import load_eveuniverse
-from madc.tests.testdata.load_memberaudit import load_memberaudit
+from madc.tests.testdata.load_memberaudit import create_memberaudit
 
 
-class TestSkillHandler(NoSocketsTestCase):
+class TestSkillHandler(AuthTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        load_allianceauth()
         load_eveuniverse()
-        load_memberaudit()
-
-        cls.factory = RequestFactory()
-        cls.user, cls.character_ownership = create_user_from_evecharacter(
-            character_id=1001,
-            permissions=["madc.basic_access"],
-        )
-        cls.user_corp_access, cls.character_ownership_corp = (
-            create_user_from_evecharacter(
-                character_id=1002,
-                permissions=["madc.basic_access", "madc.corp_access"],
-            )
-        )
-        cls.user_admin_access, cls.character_ownership_admin = (
-            create_user_from_evecharacter(
-                character_id=1003,
-                permissions=[
-                    "madc.basic_access",
-                    "madc.corp_access",
-                    "madc.admin_access",
-                ],
-            )
-        )
-        cls.user_no_access, cls.character_ownership_no_access = (
-            create_user_from_evecharacter(
-                character_id=1004,
-                permissions=[],
-            )
-        )
 
         cls.eve_type = EveType.objects.get(id=17940)
-        cls.memberaudit = Character.objects.get(eve_character__character_id=1001)
+        cls.memberaudit = create_memberaudit(cls.user.profile.main_character)
 
-    def test_get_skill_list_hash(self):
-        """Test should generate correct skill list hash."""
+    def test_get_skill_list_hash_should_change_with_every_field_of_the_result(self):
         # given
         handler = SkillListHandler()
-        skills = ["Skill A", "Skill B", "Skill C"]
-        expected_hash = "3d6a81fde9ea9a3e2e791536378c37f6"
+        skill_list = SkillList.objects.create(
+            name="fit", category="A", ordering=1, skill_list=json.dumps({"S": 1})
+        )
+        changes = {
+            "name": "fit 2",
+            "category": "B",
+            "ordering": 2,
+            "active": False,
+            "skill_list": json.dumps({"S": 2}),
+        }
+        for field, value in changes.items():
+            with self.subTest(field=field):
+                before = handler._get_skill_list_hash(SkillList.objects.all())
+                # when
+                setattr(skill_list, field, value)
+                skill_list.save()
+                # then
+                after = handler._get_skill_list_hash(SkillList.objects.all())
+                self.assertNotEqual(before, after)
+
+    def test_get_skill_list_hash_should_be_stable_without_changes(self):
+        handler = SkillListHandler()
+        SkillList.objects.create(name="b", ordering=2, skill_list="{}")
+        SkillList.objects.create(name="a", ordering=1, skill_list="{}")
+        self.assertEqual(
+            handler._get_skill_list_hash(SkillList.objects.order_by("name")),
+            handler._get_skill_list_hash(SkillList.objects.order_by("-name")),
+        )
+
+    def test_get_users_skill_list_should_not_use_cache_after_ordering_change(self):
+        # given
+        handler = SkillListHandler()
+        CharacterSkill.objects.create(
+            character=self.memberaudit,
+            eve_type=self.eve_type,
+            active_skill_level=3,
+            skillpoints_in_skill=900000,
+            trained_skill_level=5,
+        )
+        skill_list = SkillList.objects.create(
+            name="fit", category="A", ordering=1, skill_list=json.dumps({"S": 1})
+        )
+        name = self.memberaudit.eve_character.character_name
+        first = handler.get_users_skill_list([self.user])[self.user.pk]["data"]
+        self.assertEqual(first["skills_list"][name]["doctrines"]["fit"]["order"], 1)
+        # when
+        skill_list.ordering = 7
+        skill_list.category = "B"
+        skill_list.save()
         # then
-        self.assertEqual(handler._get_skill_list_hash(skills), expected_hash)
+        second = handler.get_users_skill_list([self.user])[self.user.pk]["data"]
+        doctrine = second["skills_list"][name]["doctrines"]["fit"]
+        self.assertEqual(doctrine["order"], 7)
+        self.assertEqual(doctrine["category"], "B")
 
     def test_get_chars_hash(self):
         """Test should generate correct character hash."""
@@ -75,38 +90,6 @@ class TestSkillHandler(NoSocketsTestCase):
         # then
         self.assertEqual(handler._get_chars_hash(characters), expected_hash)
 
-    def test_generate_doctrine_html(self):
-        """Test should generate doctrine HTML snippet."""
-        # given
-        handler = SkillListHandler()
-        # when
-        html = handler._generate_doctrine_html(
-            skill_list_name="Test Doctrine",
-            character_id=1001,
-            has_missing_skills=True,
-            skill_list_pk=1,
-        )
-        # then
-        self.assertIn("Test Doctrine", html)
-        self.assertIn("1001", html)
-        self.assertIn("btn-danger", html)
-        self.assertIn("<i class='fa-solid fa-copy'></i>", html)
-
-    def test_generate_doctrine_html_no_missing(self):
-        """Test should generate doctrine HTML snippet for complete skills."""
-        # given
-        handler = SkillListHandler()
-        # when
-        html = handler._generate_doctrine_html(
-            skill_list_name="Test Doctrine",
-            character_id=1001,
-            has_missing_skills=False,
-        )
-        # then
-        self.assertIn("Test Doctrine", html)
-        self.assertIn("btn-success", html)
-        self.assertIn("<i class='fa-solid fa-check'></i>", html)
-
     def test_check_skill_lists(self):
         """Test should check skill lists for linked characters."""
         # given
@@ -115,7 +98,9 @@ class TestSkillHandler(NoSocketsTestCase):
             "Skill I": 1,
         }
 
-        skill_list = SkillList(name="fit", skill_list=json.dumps(sk_check))
+        skill_list = SkillList.objects.create(
+            name="fit", skill_list=json.dumps(sk_check)
+        )
 
         CharacterSkill.objects.create(
             character=self.memberaudit,
@@ -126,7 +111,7 @@ class TestSkillHandler(NoSocketsTestCase):
         )
 
         handler = SkillListHandler()
-        linked_characters = [self.character_ownership.character.character_id]
+        linked_characters = [self.user.profile.main_character.character_id]
         # when
         result = handler.check_skill_lists(
             skill_lists=[skill_list],
@@ -137,7 +122,9 @@ class TestSkillHandler(NoSocketsTestCase):
         # then
         self.assertIn(character_name, result)
         self.assertIn("fit", result[character_name]["doctrines"])
-        self.assertTrue(result[character_name]["doctrines"]["fit"]["html"])
+        self.assertEqual(
+            result[character_name]["doctrines"]["fit"]["id"], skill_list.pk
+        )
         self.assertIn("Mining Barge", result[character_name]["skills"])
 
     def test_check_skill_lists_no_skills(self):
@@ -151,7 +138,7 @@ class TestSkillHandler(NoSocketsTestCase):
         skill_list = SkillList(name="fit", skill_list=json.dumps(sk_check))
 
         handler = SkillListHandler()
-        linked_characters = [self.character_ownership.character.character_id]
+        linked_characters = [self.user.profile.main_character.character_id]
         # when
         result = handler.check_skill_lists(
             skill_lists=[skill_list],

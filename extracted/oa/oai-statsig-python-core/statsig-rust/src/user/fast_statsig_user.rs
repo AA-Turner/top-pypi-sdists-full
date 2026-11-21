@@ -1,12 +1,16 @@
+use crate::statsig::remote_id_lists::SharedMembershipCache;
 use crate::statsig_metadata;
 use crate::{evaluation::dynamic_value::DynamicValue, hashing};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::HashMap,
+    sync::{Arc, OnceLock},
+};
 
 use super::{
     into_optional::IntoOptional,
-    unit_id::UnitID,
+    unit_id::{UnitID, is_user_id_type, resolve_unit_id},
     user_data::{UserData, UserDataMap, UserDataMapOf},
     user_value::{UserValue, UserValueMap},
 };
@@ -60,7 +64,7 @@ impl FastUserData {
     }
 
     pub(crate) fn get_unit_id_hash(&self, id_type: &str) -> u64 {
-        if id_type.eq_ignore_ascii_case("userid") {
+        if is_user_id_type(id_type) {
             return self.user_id.as_ref().map_or(0, UserValue::hash_value);
         }
 
@@ -84,6 +88,7 @@ impl FastUserData {
 
 #[derive(Clone)]
 pub struct FastStatsigUser {
+    pub(crate) memberships: OnceLock<SharedMembershipCache>,
     pub data: Arc<FastUserData>,
     pub(crate) sdk_version: &'static str,
 }
@@ -92,6 +97,7 @@ impl FastStatsigUser {
     pub fn new(inner: FastUserData) -> Self {
         Self {
             data: Arc::new(inner),
+            memberships: OnceLock::new(),
             sdk_version: statsig_metadata::SDK_VERSION,
         }
     }
@@ -101,9 +107,13 @@ impl FastStatsigUser {
     }
 
     pub fn set_user_id(&mut self, user_id: impl Into<UnitID>) {
-        let unit_id = user_id.into();
-        let mut_data = Arc::make_mut(&mut self.data);
-        mut_data.user_id = Some(UserValue::from(unit_id));
+        let value = UserValue::from(user_id.into());
+        if self.memberships.get().is_some()
+            && self.get_user_id().unwrap_or_default() != value.string_value().unwrap_or_default()
+        {
+            self.memberships.take();
+        }
+        Arc::make_mut(&mut self.data).user_id = Some(value);
     }
 
     pub fn get_custom_ids(&self) -> Option<HashMap<&str, &str>> {
@@ -128,8 +138,10 @@ impl FastStatsigUser {
             .map(|(key, value)| (key.into(), UserValue::from(value.into())))
             .collect();
 
-        let mut_data = Arc::make_mut(&mut self.data);
-        mut_data.custom_ids = Some(custom_ids);
+        if self.memberships.get().is_some() && self.data.custom_ids.as_ref() != Some(&custom_ids) {
+            self.memberships.take();
+        }
+        Arc::make_mut(&mut self.data).custom_ids = Some(custom_ids);
     }
 
     pub(crate) fn get_unit_id_by_name(
@@ -137,17 +149,12 @@ impl FastStatsigUser {
         id_type: &str,
         lowercased_id_type: &str,
     ) -> Option<&UserValue> {
-        if lowercased_id_type == "userid" {
-            return self.data.user_id.as_ref();
-        }
-
-        let custom_ids = self.data.custom_ids.as_ref()?;
-
-        if let Some(custom_id) = custom_ids.get(id_type) {
-            return Some(custom_id);
-        }
-
-        custom_ids.get(lowercased_id_type)
+        resolve_unit_id(
+            id_type,
+            lowercased_id_type,
+            self.data.user_id.as_ref(),
+            |k| self.data.custom_ids.as_ref()?.get(k),
+        )
     }
 
     pub fn get_statsig_environment(&self) -> Option<HashMap<&str, &str>> {

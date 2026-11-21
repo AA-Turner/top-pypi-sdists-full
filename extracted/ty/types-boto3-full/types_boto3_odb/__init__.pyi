@@ -15,6 +15,7 @@ Usage::
         ListAutonomousDatabaseCharacterSetsPaginator,
         ListAutonomousDatabaseClonesPaginator,
         ListAutonomousDatabasePeersPaginator,
+        ListAutonomousDatabaseRefreshableClonesPaginator,
         ListAutonomousDatabaseVersionsPaginator,
         ListAutonomousDatabasesPaginator,
         ListAutonomousVirtualMachinesPaginator,
@@ -42,6 +43,7 @@ Usage::
     list_autonomous_database_character_sets_paginator: ListAutonomousDatabaseCharacterSetsPaginator = client.get_paginator("list_autonomous_database_character_sets")
     list_autonomous_database_clones_paginator: ListAutonomousDatabaseClonesPaginator = client.get_paginator("list_autonomous_database_clones")
     list_autonomous_database_peers_paginator: ListAutonomousDatabasePeersPaginator = client.get_paginator("list_autonomous_database_peers")
+    list_autonomous_database_refreshable_clones_paginator: ListAutonomousDatabaseRefreshableClonesPaginator = client.get_paginator("list_autonomous_database_refreshable_clones")
     list_autonomous_database_versions_paginator: ListAutonomousDatabaseVersionsPaginator = client.get_paginator("list_autonomous_database_versions")
     list_autonomous_databases_paginator: ListAutonomousDatabasesPaginator = client.get_paginator("list_autonomous_databases")
     list_autonomous_virtual_machines_paginator: ListAutonomousVirtualMachinesPaginator = client.get_paginator("list_autonomous_virtual_machines")
@@ -68,6 +70,7 @@ from .paginator import (
     ListAutonomousDatabaseCharacterSetsPaginator,
     ListAutonomousDatabaseClonesPaginator,
     ListAutonomousDatabasePeersPaginator,
+    ListAutonomousDatabaseRefreshableClonesPaginator,
     ListAutonomousDatabasesPaginator,
     ListAutonomousDatabaseVersionsPaginator,
     ListAutonomousVirtualMachinesPaginator,
@@ -95,6 +98,7 @@ __all__ = (
     "ListAutonomousDatabaseCharacterSetsPaginator",
     "ListAutonomousDatabaseClonesPaginator",
     "ListAutonomousDatabasePeersPaginator",
+    "ListAutonomousDatabaseRefreshableClonesPaginator",
     "ListAutonomousDatabaseVersionsPaginator",
     "ListAutonomousDatabasesPaginator",
     "ListAutonomousVirtualMachinesPaginator",

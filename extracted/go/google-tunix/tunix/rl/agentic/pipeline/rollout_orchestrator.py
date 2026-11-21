@@ -119,8 +119,8 @@ class RolloutOrchestrator:
     gid = group_key_fn(pair_idx, env, traj)
     start_step = start_step_fn() if start_step_fn else 0
     item = TrajectoryItem(
-        pair_index=pair_idx,
-        group_id=gid,
+        prompt_id=gid,
+        group_index=pair_idx,
         start_step=start_step,
         traj=traj,
         metadata={"generation_id": pair_idx},
@@ -173,15 +173,23 @@ class RolloutOrchestrator:
         )
       finally:
         self._rollout_sync_lock.release_rollout()
-    except ExceptionGroup as eg:
-      for e in eg.exceptions:
+    except Exception as e:
+      if isinstance(e, ExceptionGroup):
+        for sub_e in e.exceptions:
+          logging.error(
+              "Fatal error in runner for pair %d: %s",
+              env.extra_kwargs["pair_index"],
+              sub_e,
+          )
+      else:
         logging.error(
             "Fatal error in runner for pair %d: %s",
             env.extra_kwargs["pair_index"],
             e,
         )
       traceback.print_exc()
-      raise eg.exceptions[0]
+      await manager.put_exception(e)
+      raise e
     finally:
       logging.debug(
           "Runner for pair %d completed with %d episodes",
@@ -196,7 +204,7 @@ class RolloutOrchestrator:
           | AsyncIterable[Tuple[ConversationAgentBase, BaseTaskEnv]]
       ),
       *,
-      group_size: int,
+      num_generations: int,
       group_key_fn: Callable[
           [int, BaseTaskEnv, Trajectory], Hashable
       ] = lambda i, _, __: i,
@@ -215,7 +223,8 @@ class RolloutOrchestrator:
     Args:
       pairs_stream: An iterable of tuples, where each tuple contains an
         ConversationAgentBase and a BaseTaskEnv instance.
-      group_size: The number of trajectories to collect before forming a group.
+      num_generations: The number of trajectories to collect before forming a
+        group.
       group_key_fn: A callable that takes `(pair_index, env, trajectory)` and
         returns a hashable group identifier. Using a callable allows for
         flexible grouping strategies. For example, trajectories can be grouped
@@ -241,15 +250,18 @@ class RolloutOrchestrator:
     if self._group_queue_manager:
       raise RuntimeError("Orchestrator is already running.")
 
-    self._group_queue_manager = GroupQueueManager(group_size=group_size)
+    self._group_queue_manager = GroupQueueManager(
+        key_fn=lambda x: getattr(x, "prompt_id", id(x)),
+        num_generations=num_generations,
+    )
     self._stop.clear()
     self._tasks.clear()
 
     is_async_stream = hasattr(pairs_stream, "__aiter__")
     if is_async_stream:
-      pairs_iterator = aiter(pairs_stream)  # pytype: disable=wrong-arg-types
+      pairs_iterator = aiter(pairs_stream)  # pyrefly: ignore[bad-argument-type]
     else:
-      pairs_iterator = iter(pairs_stream)
+      pairs_iterator = iter(pairs_stream)  # pyrefly: ignore[no-matching-overload]
     active_tasks: set[asyncio.Task] = set()
     stream_exhausted = False
 
@@ -269,9 +281,9 @@ class RolloutOrchestrator:
         ):
           try:
             if is_async_stream:
-              agent, env = await anext(pairs_iterator)  # pytype: disable=name-error
+              agent, env = await anext(pairs_iterator)
             else:
-              agent, env = next(pairs_iterator)
+              agent, env = next(pairs_iterator)  # pyrefly: ignore[bad-argument-type]
             task = asyncio.create_task(
                 self._runner(
                     agent=agent,

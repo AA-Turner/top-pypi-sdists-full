@@ -3,6 +3,11 @@
 Builds synthetic memory dirs in tmp_path. All content ASCII.
 """
 
+import json
+import os
+import subprocess
+import sys
+import time
 from pathlib import Path
 
 import reconcile_memory_index as R
@@ -441,7 +446,7 @@ def test_check_tree_reports_a_frame_only_body(tmp_path):
     slug = ME.add_or_update_entry(str(proj), "Real Fact", "When x happens, do y.",
                                  body="a real body", type_="reference")
     # simulate a pre-refusal store: strip the body back to its frame
-    p = us.body_path(Path(ME._anchor(str(proj))), slug)
+    p = us.body_path(Path(ME.anchor_dir(str(proj))), slug)
     head, sep, _body = p.read_text(encoding="utf-8")[4:].partition("\n---\n")
     assert sep, "fixture assumption: the body carries a frontmatter frame"
     p.write_text("---\n" + head + "\n---\n", encoding="utf-8")
@@ -464,10 +469,10 @@ def test_check_tree_does_not_flag_a_real_body(tmp_path):
 def test_find_frame_only_bodies_sees_a_pre_pivot_sharded_body(tmp_path):
     """A pre-pivot sharded body (`facts/<shard>/<uuid>.md`) that is frame-only must be reported
     too - listing only `facts/*.md` left every sharded body out, frame-only or not, exactly the
-    gap `find_dangling_bodies` was already fixed for via `_store_bodies`."""
+    gap `find_dangling_bodies` was already fixed for via `store_bodies`."""
     proj = tmp_path / "proj"
     proj.mkdir()
-    anchor = Path(ME._anchor(str(proj)))  # noqa: SLF001 - test needs the real anchor path
+    anchor = Path(ME.anchor_dir(str(proj)))
     fact_uuid = "ab123456-0000-0000-0000-000000000001"
     sharded_dir = us.central_facts_dir(anchor) / us.shard(fact_uuid)
     sharded_dir.mkdir(parents=True, exist_ok=True)
@@ -484,7 +489,7 @@ def test_find_frame_only_bodies_does_not_flag_a_real_sharded_body(tmp_path):
     empty string and flag it as frame-only for the wrong reason."""
     proj = tmp_path / "proj"
     proj.mkdir()
-    anchor = Path(ME._anchor(str(proj)))  # noqa: SLF001 - test needs the real anchor path
+    anchor = Path(ME.anchor_dir(str(proj)))
     fact_uuid = "ef654321-0000-0000-0000-000000000003"
     sharded_dir = us.central_facts_dir(anchor) / us.shard(fact_uuid)
     sharded_dir.mkdir(parents=True, exist_ok=True)
@@ -812,7 +817,7 @@ def _damaged_fact(tmp_path, body, title="Ruled fact", pin=False):
     proj.mkdir(exist_ok=True)
     slug = ME.add_or_update_entry(str(proj), title, "When ruled, do ruled.",
                                   body="placeholder", pin=pin)
-    p = us.body_path(Path(ME._anchor(str(proj))), slug)
+    p = us.body_path(Path(ME.anchor_dir(str(proj))), slug)
     p.write_text(_old_retype(body, "feedback") + "\n", encoding="utf-8", newline="")
     return proj, slug, p
 
@@ -820,7 +825,9 @@ def _damaged_fact(tmp_path, body, title="Ruled fact", pin=False):
 def test_appended_type_damage_is_recognised_in_both_shapes():
     assert R.appended_type_damage(_old_retype(RULE_BODY, "feedback")) == (
         RULE_BODY.lstrip(), "feedback")
-    prose, kind = R.appended_type_damage(_old_retype(RULE_BODY_NO_SECOND, "user") + "\n")
+    damage = R.appended_type_damage(_old_retype(RULE_BODY_NO_SECOND, "user") + "\n")
+    assert damage is not None
+    prose, kind = damage
     assert kind == "user" and "metadata:" not in prose and "Only one rule" in prose
 
 
@@ -861,12 +868,32 @@ def test_repair_reframes_the_prose_with_the_appended_kind(tmp_path, capsys):
     assert R.main(["--repair-appended-type", str(proj)]) == 0
     assert "repaired: %s" % slug in capsys.readouterr().out
     text = p.read_text(encoding="utf-8")
-    assert ME._has_frontmatter(text) and ME._body_type(text) == "feedback"
+    assert ME._has_frontmatter(text) and ME.body_type(text) == "feedback"
     assert text.endswith(RULE_BODY) or text.rstrip("\n").endswith(RULE_BODY.rstrip("\n"))
     assert text.count("metadata:") == 1
     assert R.check_tree(str(proj))["appended_type_damage"] == []
     pointer = [e for e in ME.read_store(str(proj))[1] if e.slug == slug][0]
     assert pointer.pin is True and pointer.hook == "When ruled, do ruled."
+
+
+def test_repair_leaves_a_body_another_writer_repaired_after_the_scan(tmp_path):
+    """The scan finds the damage; before the re-read, another writer rewrites the body without
+    it. The repair then has nothing to do: it neither repairs nor skips the body and writes
+    nothing, so the other writer's text stands."""
+    proj, slug, p = _damaged_fact(tmp_path, RULE_BODY)
+    healed = "---\nname: %s\ndescription: d\n---\n\nRewritten by another writer.\n" % slug
+    reads: list[str] = []
+
+    def reread_after_a_writer(path: str | os.PathLike[str]) -> str:
+        p.write_text(healed, encoding="utf-8", newline="")     # the concurrent writer
+        reads.append(str(path))
+        return ME.read_store_text(path)
+
+    level_file = (proj / "CLAUDE.local.md").read_bytes()
+    assert R.repair_appended_type(str(proj), read=reread_after_a_writer) == ([], [])
+    assert reads == [str(p)]
+    assert p.read_text(encoding="utf-8") == healed
+    assert (proj / "CLAUDE.local.md").read_bytes() == level_file
 
 
 def test_repair_on_a_clean_tree_is_a_no_op(tmp_path, capsys):
@@ -890,3 +917,122 @@ def test_the_large_index_warning_never_recommends_lifting_facts(proj, capsys):
     assert len(warning) == 1
     assert "lift/" not in warning[0] and "promote" not in warning[0]
     assert "fold near-duplicates, trim long hooks" in warning[0]
+
+
+# ---- an archive never drops a line a concurrent add wrote at the same level --------------------
+
+_ADDER = r'''
+import json, random, sys, time
+from pathlib import Path
+hooks, level, progress, stop = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+sys.path.insert(0, hooks)
+import memory_engine as E
+created = []
+n = 0
+while not Path(stop).exists():
+    n += 1
+    slug, new = E.upsert_entry(level, "Added %d" % n, "When adding %d, keep it." % n,
+                               body="prose %d" % n, slug="added-%d" % n)
+    if new:
+        created.append(slug)
+    Path(progress).write_text(str(len(created)), encoding="utf-8")
+    # a real session pauses between its writes
+    time.sleep(random.uniform(0.0, 0.005))
+print(json.dumps({"created": created}))
+'''
+
+_ADDS_TO_MEET = 150
+"""How many facts the adder creates before the archives stop: counted, not timed, so the adds meet
+many archives whatever the runner's speed."""
+
+
+def _adder_progress(path):
+    """The adder's count of created facts; 0 until it has written one (or mid-write)."""
+    try:
+        return int(path.read_text(encoding="utf-8") or 0)
+    except (OSError, ValueError):
+        return 0
+
+
+def test_an_archive_never_drops_a_line_a_concurrent_add_wrote(tmp_path):
+    """The archive read the level's block without its lock and wrote the block back without the
+    archived line: an `add` of ANOTHER fact landing between the two lost its line (its body stayed,
+    a dangling body), while both sides exited 0. A real second process adds new facts in a loop
+    while this one adds and archives one fact after another; every fact the adder created must
+    keep its line."""
+    root = tmp_path / "tree"
+    root.mkdir()
+    (root / "CLAUDE.md").write_text("x\n", encoding="utf-8")
+    (root / us.STORE_DIRNAME).mkdir()
+    level = str(root)
+    progress, stop, worker = tmp_path / "progress", tmp_path / "stop", tmp_path / "adder.py"
+    worker.write_text(_ADDER, encoding="utf-8")
+    hooks = str(Path(ME.__file__).resolve().parent)
+    proc = subprocess.Popen([sys.executable, str(worker), hooks, level, str(progress), str(stop)],
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf-8")
+    victims = []
+    try:
+        while _adder_progress(progress) < 1:
+            assert proc.poll() is None, proc.communicate()
+            time.sleep(0.002)
+        while _adder_progress(progress) < _ADDS_TO_MEET and len(victims) < 5000:
+            n = len(victims)
+            slug = ME.add_or_update_entry(level, "Victim %d" % n, "When victim %d, drop it." % n,
+                                          body="victim prose", slug="victim-%d" % n)
+            victims.append(slug)
+            assert R.archive_entry(level, slug) is True
+        stop.write_text("x", encoding="utf-8")
+        out, err = proc.communicate(timeout=60)
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+            proc.communicate()
+    assert proc.returncode == 0, err
+    created = json.loads(out.strip().splitlines()[-1])["created"]
+    assert len(created) >= _ADDS_TO_MEET
+    kept = {e.slug for e in ME.read_store(level)[1]}
+    # an add that read the block before an unlocked archive wrote it puts the archived line back
+    # (a pointer naming a body in the archive); an archive that read before an add drops its line
+    back = sorted(kept & set(victims))
+    lost = [slug for slug in created if slug not in kept]
+    assert (back, lost) == ([], []), ("%d of %d archived lines came back, %d of %d added lines "
+                                      "were dropped" % (len(back), len(victims), len(lost),
+                                                        len(created)))
+
+
+_POSIX_ONLY = pytest.mark.skipif(os.name == "nt", reason="a drive path is absolute on Windows")
+
+
+@_POSIX_ONLY
+def test_check_misplaced_never_files_a_windows_path_under_the_cwds_tree(tmp_path, monkeypatch):
+    r"""On POSIX a body's C:\... path is not absolute, so resolving it read it relative to the
+    cwd: run from the beta tree, alpha's fact citing only a Windows path was reported as
+    belonging to beta."""
+    top_a, proj_a, top_b, _proj_b = _two_trees(tmp_path)
+    ME.add_or_update_entry(proj_a, "Win Note", "When on the dev box, use the share.",
+                           body=r"Copy C:\work\tools\sync.py to the share.", scope_default="a")
+    monkeypatch.chdir(top_b)
+    assert R.find_misplaced(top_a) == []
+
+
+@_POSIX_ONLY
+def test_check_misplaced_is_not_outvoted_by_a_windows_path_read_as_its_own_tree(tmp_path,
+                                                                               monkeypatch):
+    r"""Run from the alpha tree, a C:\... path read relative to the cwd counted as a mention of
+    alpha itself, which hid a fact whose only real path is in beta."""
+    top_a, proj_a, top_b, proj_b = _two_trees(tmp_path)
+    ME.add_or_update_entry(proj_a, "Beta Deploy", "When deploying beta, drain first.",
+                           body=r"Edit %s/service.py, then copy C:\work\tools\sync.py." % proj_b,
+                           scope_default="a")
+    monkeypatch.chdir(proj_a)
+    found = R.find_misplaced(top_a)
+    assert [(f["slug"], f["target_anchor"]) for f in found] == [
+        ("beta-deploy", str(Path(top_b).resolve()))]
+
+
+def test_a_windows_path_shape_names_a_path_only_on_windows():
+    assert R._names_a_path_here(r"C:\work\x.py", os_name="nt")
+    assert R._names_a_path_here(r"\\srv\share\x.py", os_name="nt")
+    assert not R._names_a_path_here(r"C:\work\x.py", os_name="posix")
+    assert not R._names_a_path_here(r"\\srv\share\x.py", os_name="posix")
+    assert R._names_a_path_here("/opt/work/x.py", os_name="posix")

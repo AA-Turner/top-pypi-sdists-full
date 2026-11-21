@@ -807,6 +807,7 @@ class InvokeModelRequestTypeDef(TypedDict):
     performanceConfigLatency: NotRequired[PerformanceConfigLatencyType]
     serviceTier: NotRequired[ServiceTierTypeType]
     requestMetadata: NotRequired[str]
+    projectIdentifier: NotRequired[str]
 
 class InvokeModelTokensRequestTypeDef(TypedDict):
     body: BlobTypeDef
@@ -822,6 +823,7 @@ class InvokeModelWithResponseStreamRequestTypeDef(TypedDict):
     performanceConfigLatency: NotRequired[PerformanceConfigLatencyType]
     serviceTier: NotRequired[ServiceTierTypeType]
     requestMetadata: NotRequired[str]
+    projectIdentifier: NotRequired[str]
 
 VideoSourceTypeDef = TypedDict(
     "VideoSourceTypeDef",
@@ -1521,6 +1523,7 @@ class ConverseRequestTypeDef(TypedDict):
     inferenceConfig: NotRequired[InferenceConfigurationTypeDef]
     toolConfig: NotRequired[ToolConfigurationTypeDef]
     guardrailConfig: NotRequired[GuardrailConfigurationTypeDef]
+    projectIdentifier: NotRequired[str]
     additionalModelRequestFields: NotRequired[Mapping[str, Any]]
     promptVariables: NotRequired[Mapping[str, PromptVariableValuesTypeDef]]
     additionalModelResponseFieldPaths: NotRequired[Sequence[str]]
@@ -1536,6 +1539,7 @@ class ConverseStreamRequestTypeDef(TypedDict):
     inferenceConfig: NotRequired[InferenceConfigurationTypeDef]
     toolConfig: NotRequired[ToolConfigurationTypeDef]
     guardrailConfig: NotRequired[GuardrailStreamConfigurationTypeDef]
+    projectIdentifier: NotRequired[str]
     additionalModelRequestFields: NotRequired[Mapping[str, Any]]
     promptVariables: NotRequired[Mapping[str, PromptVariableValuesTypeDef]]
     additionalModelResponseFieldPaths: NotRequired[Sequence[str]]

@@ -10,7 +10,9 @@
 #include <assert.h>
 #include <stdint.h>
 
-#define BSDIFF4_VERSION  "1.4.3"
+#define BSDIFF4_VERSION  "1.4.4"
+
+/* ----------------------  suffix-array construction  -------------------- */
 
 /* swap two values */
 static inline void
@@ -127,12 +129,13 @@ split(Py_ssize_t *sa, Py_ssize_t *rank, Py_ssize_t start,
 }
 
 /* construct suffix array for a byte string */
-static void
+static int
 qsufsort(Py_ssize_t *sa, Py_ssize_t *rank,
          const unsigned char *str, Py_ssize_t size)
 {
     Py_ssize_t buckets[256], i, h;
 
+    Py_BEGIN_ALLOW_THREADS  /* release GIL */
     for (i = 0; i < 256; i++)
         buckets[i] = 0;
     for (i = 0; i < size; i++)
@@ -153,10 +156,15 @@ qsufsort(Py_ssize_t *sa, Py_ssize_t *rank,
         if (buckets[i] == buckets[i - 1] + 1)
             sa[buckets[i]] = -1;
     sa[0] = -1;
+    Py_END_ALLOW_THREADS
 
     for (h = 1; sa[0] != -(size + 1); h += h) {
         Py_ssize_t len = 0;
 
+        if (PyErr_CheckSignals() < 0)
+            return -1;
+
+        Py_BEGIN_ALLOW_THREADS  /* release GIL */
         for (i = 0; i <= size;) {
             if (sa[i] < 0) {
                 len -= sa[i];
@@ -173,10 +181,18 @@ qsufsort(Py_ssize_t *sa, Py_ssize_t *rank,
         }
         if (len)
             sa[i - len] = -len;
+        Py_END_ALLOW_THREADS
     }
 
+    if (PyErr_CheckSignals() < 0)
+        return -1;
+
+    Py_BEGIN_ALLOW_THREADS  /* release GIL */
     for (i = 0; i <= size; i++)
         sa[rank[i]] = i;
+    Py_END_ALLOW_THREADS
+
+    return PyErr_CheckSignals();
 }
 
 /* construct suffix array */
@@ -199,13 +215,229 @@ build_suffix_array(const char *str, Py_ssize_t size)
         return NULL;
     }
 
-    Py_BEGIN_ALLOW_THREADS  /* release GIL */
-    qsufsort(sa, rank, (const unsigned char *) str, size);
-    Py_END_ALLOW_THREADS
-
+    if (qsufsort(sa, rank, (const unsigned char *) str, size) < 0) {
+        PyMem_Free(sa);
+        sa = NULL;
+    }
     PyMem_Free(rank);
     return sa;
 }
+
+/* -----------------------  diff output construction  -------------------- */
+
+/* encode int64 as 8 bytes */
+static int
+encode_int64(char *str, int64_t x)
+{
+    char sign = 0x00;
+    int i;
+
+    if (x == INT64_MIN) {
+        PyErr_SetString(PyExc_OverflowError, "cannot encode -2**63");
+        return -1;
+    }
+
+    if (x < 0) {
+        x = -x;
+        sign = 0x80;
+    }
+    for (i = 0; i < 8; i++) {
+        str[i] = x & 0xff;
+        x >>= 8;
+    }
+    str[7] |= sign;
+    return 0;
+}
+
+typedef struct {
+    PyObject *control;      /* control block as bytearray */
+    unsigned char *diff;    /* difference block */
+    char *extra;            /* extra block */
+    Py_ssize_t diff_len;    /* length of difference block */
+    Py_ssize_t extra_len;   /* length of extra block */
+    Py_ssize_t px, py, pz;  /* pending control values */
+    int has_pending;        /* whether we received any control tuple yet */
+} DiffResult;
+
+/* initialize diff result structure */
+static int
+diff_init(DiffResult *result, Py_ssize_t dst_len)
+{
+    result->control = PyByteArray_FromStringAndSize(NULL, 0);
+    if (result->control == NULL)
+        return -1;
+
+    /* allocate memory for the diff and extra blocks */
+    result->diff = PyMem_Malloc(dst_len);
+    if (result->diff == NULL) {
+        PyErr_NoMemory();
+        Py_DECREF(result->control);
+        return -1;
+    }
+    result->extra = PyMem_Malloc(dst_len);
+    if (result->extra == NULL) {
+        PyErr_NoMemory();
+        Py_DECREF(result->control);
+        PyMem_Free(result->diff);
+        return -1;
+    }
+
+    result->diff_len = 0;
+    result->extra_len = 0;
+    result->px = result->py = result->pz = 0;
+    result->has_pending = 0;
+    return 0;
+}
+
+/* release resources owned by a diff result */
+static void
+diff_clear(DiffResult *result)
+{
+    Py_XDECREF(result->control);
+    PyMem_Free(result->diff);
+    PyMem_Free(result->extra);
+}
+
+/* append pending tuple to control block */
+static int
+diff_append_pending(DiffResult *result)
+{
+    PyObject *control = result->control;
+    Py_ssize_t size;
+    char *str;
+
+    size = PyByteArray_GET_SIZE(control);
+    if (size > PY_SSIZE_T_MAX - 24) {
+        PyErr_NoMemory();
+        return -1;
+    }
+    if (PyByteArray_Resize(control, size + 24) < 0)
+        return -1;
+
+    str = (char *) PyByteArray_AS_STRING(control) + size;
+    if (encode_int64(str, result->px) < 0 ||
+        encode_int64(str + 8, result->py) < 0 ||
+        encode_int64(str + 16, result->pz) < 0)
+        return -1;
+
+    return 0;
+}
+
+/* Append the final pending tuple, unless it produces no output. */
+static int
+diff_flush_pending(DiffResult *result)
+{
+    if (result->has_pending == 0)
+        return 0;
+
+    /* The final source seek is irrelevant. */
+    if (result->px == 0 && result->py == 0)
+        return 0;
+
+    result->pz = 0;
+    return diff_append_pending(result);
+}
+
+/* convert a diff result into Python objects */
+static PyObject *
+diff_build(DiffResult *result)
+{
+    PyObject *control, *diff, *extra, *res;
+
+    if (diff_flush_pending(result) < 0)
+        return NULL;
+
+    control = PyBytes_FromObject(result->control);
+    if (control == NULL)
+        return NULL;
+
+    diff = PyBytes_FromStringAndSize((char *) result->diff, result->diff_len);
+    if (diff == NULL) {
+        Py_DECREF(control);
+        return NULL;
+    }
+
+    extra = PyBytes_FromStringAndSize(result->extra, result->extra_len);
+    if (extra == NULL) {
+        Py_DECREF(control);
+        Py_DECREF(diff);
+        return NULL;
+    }
+
+    res = PyTuple_Pack(3, control, diff, extra);
+    Py_DECREF(control);
+    Py_DECREF(diff);
+    Py_DECREF(extra);
+    return res;
+}
+
+/* Retain one control tuple so it can be merged with the next. */
+static int
+diff_add_control(DiffResult *result, Py_ssize_t x, Py_ssize_t y, Py_ssize_t z)
+{
+    if (result->has_pending == 0) {
+        result->px = x;
+        result->py = y;
+        result->pz = z;
+        result->has_pending = 1;
+        return 0;
+    }
+
+    /* A tuple with no diff range does not access the source; any data it
+       emits is extra data.  Merge it into the preceding tuple:
+       (px, py, pz), (0, y, z) -> (px, py + y, pz + z). */
+    if (x == 0) {
+        assert(y <= PY_SSIZE_T_MAX - result->py);
+        assert((z >= 0 && result->pz <= PY_SSIZE_T_MAX - z) ||
+               (z < 0 && result->pz >= -PY_SSIZE_T_MAX - 1 - z));
+        result->py += y;
+        result->pz += z;
+        return 0;
+    }
+
+    /* The preceding rule may cancel intervening source seeks, leaving
+       (px, 0, 0), (x, y, z).  Merge these into (px + x, y, z), since
+       both diff ranges access consecutive source data. */
+    if (result->py == 0 && result->pz == 0) {
+        assert(x <= PY_SSIZE_T_MAX - result->px);
+        result->px += x;
+        result->py = y;
+        result->pz = z;
+        return 0;
+    }
+
+    if (diff_append_pending(result) < 0)
+        return -1;
+    result->px = x;
+    result->py = y;
+    result->pz = z;
+    return 0;
+}
+
+/* emit diff and extra data and queue the corresponding control tuple */
+static int
+emit_data(const char *src, const char *dst, DiffResult *result,
+          Py_ssize_t diff_len, Py_ssize_t extra_len, Py_ssize_t z,
+          Py_ssize_t dst_pos, Py_ssize_t src_pos)
+{
+    Py_ssize_t i;
+
+    assert(diff_len >= 0 && extra_len >= 0 && dst_pos >= 0 && src_pos >= 0);
+
+    for (i = 0; i < diff_len; i++)
+        result->diff[result->diff_len + i] = (dst[dst_pos + i] -
+                                              src[src_pos + i]);
+
+    memcpy(result->extra + result->extra_len,
+           dst + dst_pos + diff_len, extra_len);
+
+    result->diff_len += diff_len;
+    result->extra_len += extra_len;
+
+    return diff_add_control(result, diff_len, extra_len, z);
+}
+
+/* -------------------------  diff calculation  -------------------------- */
 
 /* return the length of the common prefix */
 static Py_ssize_t
@@ -247,134 +479,6 @@ search(const Py_ssize_t *sa,
         return search(sa, a, a_len, b, b_len, x, hi, pos);
     else
         return search(sa, a, a_len, b, b_len, lo, x, pos);
-}
-
-typedef struct {
-    PyObject *control;      /* control block as bytearray */
-    unsigned char *diff;    /* difference block */
-    char *extra;            /* extra block */
-    Py_ssize_t diff_len;    /* length of difference block */
-    Py_ssize_t extra_len;   /* length of extra block */
-} DiffResult;
-
-/* release resources owned by a diff result */
-static void
-clear_diff_result(DiffResult *result)
-{
-    Py_XDECREF(result->control);
-    PyMem_Free(result->diff);
-    PyMem_Free(result->extra);
-}
-
-/* encode int64 as 8 bytes */
-static int
-encode_int64(char *str, int64_t x)
-{
-    char sign = 0x00;
-    int i;
-
-    if (x == INT64_MIN) {
-        PyErr_SetString(PyExc_OverflowError, "cannot encode -2**63");
-        return -1;
-    }
-
-    if (x < 0) {
-        x = -x;
-        sign = 0x80;
-    }
-    for (i = 0; i < 8; i++) {
-        str[i] = x & 0xff;
-        x >>= 8;
-    }
-    str[7] |= sign;
-    return 0;
-}
-
-/* append tuple to control block */
-static int
-append_control(PyObject *control, Py_ssize_t x, Py_ssize_t y, Py_ssize_t z)
-{
-    char *str;
-    Py_ssize_t size;
-
-    size = PyByteArray_GET_SIZE(control);
-    if (size > PY_SSIZE_T_MAX - 24) {
-        PyErr_NoMemory();
-        return -1;
-    }
-    if (PyByteArray_Resize(control, size + 24) < 0)
-        return -1;
-
-    str = (char *) PyByteArray_AS_STRING(control) + size;
-    if (encode_int64(str, x) < 0 ||
-        encode_int64(str + 8, y) < 0 ||
-        encode_int64(str + 16, z) < 0)
-        return -1;
-
-    return 0;
-}
-
-typedef struct {
-    Py_ssize_t x, y, z;
-    int initialized;  /* whether we received any control tuple yet */
-} PendingControl;
-
-/* Retain one control tuple so it can be merged with the next. */
-static int
-queue_add(PyObject *control, PendingControl *pending,
-          Py_ssize_t x, Py_ssize_t y, Py_ssize_t z)
-{
-    if (pending->initialized == 0) {
-        pending->x = x;
-        pending->y = y;
-        pending->z = z;
-        pending->initialized = 1;
-        return 0;
-    }
-
-    /* A tuple with no diff range does not access the source; any data it
-       emits is extra data.  Merge it into the preceding tuple:
-       (px, py, pz), (0, y, z) -> (px, py + y, pz + z). */
-    if (x == 0) {
-        assert(y <= PY_SSIZE_T_MAX - pending->y);
-        assert((z >= 0 && pending->z <= PY_SSIZE_T_MAX - z) ||
-               (z < 0 && pending->z >= -PY_SSIZE_T_MAX - 1 - z));
-        pending->y += y;
-        pending->z += z;
-        return 0;
-    }
-
-    /* The preceding rule may cancel intervening source seeks, leaving
-       (px, 0, 0), (x, y, z).  Merge these into (px + x, y, z), since
-       both diff ranges access consecutive source data. */
-    if (pending->y == 0 && pending->z == 0) {
-        assert(x <= PY_SSIZE_T_MAX - pending->x);
-        pending->x += x;
-        pending->y = y;
-        pending->z = z;
-        return 0;
-    }
-
-    if (append_control(control, pending->x, pending->y, pending->z) < 0)
-        return -1;
-    pending->x = x;
-    pending->y = y;
-    pending->z = z;
-    return 0;
-}
-
-/* Append the final pending tuple, unless it produces no output. */
-static int
-queue_flush(PyObject *control, const PendingControl *pending)
-{
-    if (pending->initialized == 0)
-        return 0;
-
-    /* The final source seek is irrelevant. */
-    if (pending->x == 0 && pending->y == 0)
-        return 0;
-
-    return append_control(control, pending->x, pending->y, 0);
 }
 
 /* find the best forward match length */
@@ -444,69 +548,67 @@ adjust_overlap(const char *src, const char *dst,
     *lenb -= best_length;
 }
 
+/* find the next match worth switching to */
+static Py_ssize_t
+find_next_match(const Py_ssize_t *sa,
+                const char *src, Py_ssize_t src_len,
+                const char *dst, Py_ssize_t dst_len,
+                Py_ssize_t lastoffset,
+                Py_ssize_t *scan, Py_ssize_t *pos, Py_ssize_t *len)
+{
+    Py_ssize_t cont_score = 0;  /* matches at previous source offset */
+    Py_ssize_t dst_pos;         /* current destination search position */
+    Py_ssize_t score_end;       /* end of destination range scored so far */
+
+    Py_BEGIN_ALLOW_THREADS  /* release GIL */
+    dst_pos = *scan + *len;
+    for (score_end = dst_pos; dst_pos < dst_len; dst_pos++) {
+        *len = search(sa, src, src_len, dst + dst_pos, dst_len - dst_pos,
+                      0, src_len, pos);
+        for (; score_end < dst_pos + *len; score_end++)
+            if (score_end + lastoffset < src_len &&
+                      src[score_end + lastoffset] == dst[score_end])
+                cont_score++;
+        if ((*len == cont_score && *len != 0) || *len > cont_score + 8)
+            break;
+        if (dst_pos + lastoffset < src_len &&
+                  src[dst_pos + lastoffset] == dst[dst_pos])
+            cont_score--;
+    }
+    Py_END_ALLOW_THREADS
+
+    *scan = dst_pos;
+    return cont_score;
+}
+
 /* construct the control, diff and extra blocks */
 static int
 compute_diff(const char *src, Py_ssize_t src_len,
-             const char *dst, Py_ssize_t dst_len, DiffResult *result)
+             const char *dst, Py_ssize_t dst_len,
+             const Py_ssize_t *sa, DiffResult *result)
 {
-    Py_ssize_t lastscan, lastpos, lastoffset;
-    Py_ssize_t scan, pos, len;
-    Py_ssize_t *sa;
-    PendingControl pending = {0, 0, 0, 0};
-
-    result->control = PyByteArray_FromStringAndSize(NULL, 0);
-    if (result->control == NULL)
-        return -1;
-
-    /* perform suffix sort on source data */
-    sa = build_suffix_array(src, src_len);
-    if (sa == NULL)
-        return -1;
-
-    /* allocate memory for the diff and extra blocks */
-    result->diff = PyMem_Malloc(dst_len + 1);
-    if (result->diff == NULL) {
-        PyErr_NoMemory();
-        goto error;
-    }
-    result->extra = PyMem_Malloc(dst_len + 1);
-    if (result->extra == NULL) {
-        PyErr_NoMemory();
-        goto error;
-    }
-    result->diff_len = 0;
-    result->extra_len = 0;
+    Py_ssize_t lastscan = 0;    /* destination position of previous match */
+    Py_ssize_t lastpos = 0;     /* source position of previous match */
+    Py_ssize_t lastoffset = 0;  /* source minus destination position */
+    Py_ssize_t scan = 0;        /* current destination search position */
+    Py_ssize_t pos = 0;         /* source position of best match */
+    Py_ssize_t len = 0;         /* length of best match */
 
     /* perform diff */
-    len = scan = lastscan = lastpos = lastoffset = pos = 0;
     while (scan < dst_len) {
-        Py_ssize_t oldscore = 0, scsc;
+        Py_ssize_t cont_score;  /* matches at previous source offset */
 
         if (PyErr_CheckSignals() < 0)
-            goto error;
+            return -1;
 
-        /* find a match worth switching to from the previous source offset */
-        Py_BEGIN_ALLOW_THREADS  /* release GIL */
-        scan += len;
-        for (scsc = scan; scan < dst_len; scan++) {
-            len = search(sa, src, src_len,
-                         dst + scan, dst_len - scan,
-                         0, src_len, &pos);
-            for (; scsc < scan + len; scsc++)
-                if (scsc + lastoffset < src_len &&
-                          src[scsc + lastoffset] == dst[scsc])
-                    oldscore++;
-            if ((len == oldscore && len != 0) || len > oldscore + 8)
-                break;
-            if (scan + lastoffset < src_len &&
-                      src[scan + lastoffset] == dst[scan])
-                oldscore--;
-        }
-        Py_END_ALLOW_THREADS
+        cont_score = find_next_match(sa, src, src_len, dst, dst_len,
+                                     lastoffset, &scan, &pos, &len);
 
         /* emit data preceding the new match, or all remaining data at EOF */
-        if (len != oldscore || scan == dst_len) {
-            Py_ssize_t lenb = 0, lenf, extra_len, z, i;
+        if (len != cont_score || scan == dst_len) {
+            Py_ssize_t lenb = 0;  /* length of backward match */
+            Py_ssize_t lenf;      /* length of forward match */
+            Py_ssize_t extra_len, z;
 
             lenf = forward_match_length(src, src_len, dst,
                                         lastscan, lastpos, scan);
@@ -520,20 +622,11 @@ compute_diff(const char *src, Py_ssize_t src_len,
             assert(lastscan >= 0 && lenf <= dst_len - lastscan);
             assert(lastscan + lenf <= scan - lenb);
 
-            for (i = 0; i < lenf; i++)
-                result->diff[result->diff_len + i] =
-                    dst[lastscan + i] - src[lastpos + i];
-
             extra_len = (scan - lenb) - (lastscan + lenf);
-            memcpy(result->extra + result->extra_len,
-                   dst + lastscan + lenf, extra_len);
-
-            result->diff_len += lenf;
-            result->extra_len += extra_len;
-
             z = (pos - lenb) - (lastpos + lenf);
-            if (queue_add(result->control, &pending, lenf, extra_len, z) < 0)
-                goto error;
+            if (emit_data(src, dst, result,
+                          lenf, extra_len, z, lastscan, lastpos) < 0)
+                return -1;
 
             lastscan = scan - lenb;
             lastpos = pos - lenb;
@@ -541,72 +634,46 @@ compute_diff(const char *src, Py_ssize_t src_len,
         }
     }
 
-    if (queue_flush(result->control, &pending) < 0)
-        goto error;
-
-    PyMem_Free(sa);
-    assert(result->diff_len <= dst_len);
-    assert(result->extra_len == dst_len - result->diff_len);
+    assert(result->diff_len <= dst_len && result->extra_len <= dst_len);
+    assert(result->diff_len + result->extra_len == dst_len);
     assert(PyByteArray_GET_SIZE(result->control) % 24 == 0);
     return 0;
-
-error:
-    PyMem_Free(sa);
-    return -1;
 }
 
-/* convert a diff result into Python objects */
-static PyObject *
-build_diff_result(DiffResult *result)
-{
-    PyObject *control, *diff, *extra, *res;
-
-    control = PyBytes_FromObject(result->control);
-    if (control == NULL)
-        return NULL;
-
-    diff = PyBytes_FromStringAndSize((char *) result->diff, result->diff_len);
-    if (diff == NULL) {
-        Py_DECREF(control);
-        return NULL;
-    }
-
-    extra = PyBytes_FromStringAndSize(result->extra, result->extra_len);
-    if (extra == NULL) {
-        Py_DECREF(control);
-        Py_DECREF(diff);
-        return NULL;
-    }
-
-    res = PyTuple_Pack(3, control, diff, extra);
-    Py_DECREF(control);
-    Py_DECREF(diff);
-    Py_DECREF(extra);
-    return res;
-}
 
 /* return the control, diff and extra blocks for two byte strings */
 static PyObject *
 mod_diff(PyObject *module, PyObject *args)
 {
-    DiffResult diff = {NULL, NULL, NULL, 0, 0};
-    Py_ssize_t src_len, dst_len;
+    DiffResult diff;
+    Py_ssize_t src_len, dst_len, *sa = NULL;
     char *src, *dst;
-    PyObject *result;
+    PyObject *result = NULL;
 
     if (!PyArg_ParseTuple(args, "s#s#",
                           &src, &src_len,
                           &dst, &dst_len))
         return NULL;
 
-    if (compute_diff(src, src_len, dst, dst_len, &diff) < 0)
-        result = NULL;
-    else
-        result = build_diff_result(&diff);
+    if (diff_init(&diff, dst_len) < 0)
+        return NULL;
 
-    clear_diff_result(&diff);
+    /* perform suffix sort on source data */
+    sa = build_suffix_array(src, src_len);
+    if (sa == NULL)
+        goto finish;
+
+    if (compute_diff(src, src_len, dst, dst_len, sa, &diff) < 0)
+        goto finish;
+
+    result = diff_build(&diff);
+ finish:
+    PyMem_Free(sa);
+    diff_clear(&diff);
     return result;
 }
+
+/* -------------------------  patch application  ------------------------- */
 
 /* decode 8 bytes to int64 */
 static int64_t
@@ -652,10 +719,9 @@ static PyObject *
 mod_patch(PyObject *module, PyObject *args)
 {
     char *src, *dst, *control_block, *diff_block, *extra_block;
-    Py_ssize_t src_len, dst_len, control_len;
-    Py_ssize_t diff_remaining, extra_remaining;
+    Py_ssize_t src_len, control_len;
+    Py_ssize_t diff_remaining, extra_remaining, dst_remaining, i;
     PyObject *result;
-    Py_ssize_t dst_pos = 0, i;
     int64_t src_pos = 0;
 
     if (!PyArg_ParseTuple(args, "s#s#s#s#",
@@ -669,14 +735,14 @@ mod_patch(PyObject *module, PyObject *args)
         PyErr_NoMemory();
         return NULL;
     }
-    dst_len = diff_remaining + extra_remaining;
+    dst_remaining = diff_remaining + extra_remaining;
 
     if (control_len % 24) {
         CORRUPT("invalid control block");
         return NULL;
     }
 
-    result = PyBytes_FromStringAndSize(NULL, dst_len);
+    result = PyBytes_FromStringAndSize(NULL, dst_remaining);
     if (result == NULL)
         return NULL;
     dst = PyBytes_AS_STRING(result);
@@ -685,34 +751,36 @@ mod_patch(PyObject *module, PyObject *args)
         int64_t x, y, z, j;
 
         decode_tuple(control_block + i, &x, &y, &z);
-        if (x < 0 || x > dst_len - dst_pos || x > diff_remaining) {
+        if (x < 0 || x > diff_remaining) {
             CORRUPT("x out of range");
             goto error;
         }
-        memcpy(dst + dst_pos, diff_block, x);
+        memcpy(dst, diff_block, x);
         diff_block += x;
         diff_remaining -= x;
         for (j = 0; j < x; j++) {
             /* Check bounds without overflowing src_pos + j. */
             if (src_pos >= -j && src_pos < src_len - j)
-                dst[dst_pos + j] += src[src_pos + j];
+                dst[j] += src[src_pos + j];
         }
-        dst_pos += x;
-        if (y < 0 || y > dst_len - dst_pos || y > extra_remaining) {
+        dst += x;
+        dst_remaining -= x;
+        if (y < 0 || y > extra_remaining) {
             CORRUPT("y out of range");
             goto error;
         }
-        memcpy(dst + dst_pos, extra_block, y);
+        memcpy(dst, extra_block, y);
         extra_block += y;
         extra_remaining -= y;
-        dst_pos += y;
+        dst += y;
+        dst_remaining -= y;
         if (update_src_pos(&src_pos, x) < 0 ||
             update_src_pos(&src_pos, z) < 0)
             goto error;
-        assert(dst_pos + diff_remaining + extra_remaining == dst_len);
+        assert(diff_remaining + extra_remaining == dst_remaining);
     }
 
-    if (dst_pos != dst_len) {
+    if (dst_remaining != 0) {
         CORRUPT("incomplete output");
         goto error;
     }
@@ -727,6 +795,8 @@ error:
 }
 
 #undef CORRUPT
+
+/* ----------------------  auxiliary Python bindings  -------------------- */
 
 /* encode an integer as 8 bytes */
 static PyObject *

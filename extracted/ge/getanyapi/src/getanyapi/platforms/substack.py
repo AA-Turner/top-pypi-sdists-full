@@ -363,7 +363,7 @@ class SubstackNamespace:
         restacks), author profile, publication details, the full article body as
         text, HTML and Markdown, and optional comment threads.
 
-        Price: $0.00039 per request plus $0.00264 per result (maximum $0.265).
+        Price: $0.00042 per request plus $0.00288 per result (maximum $0.289).
 
         Example:
             res = client.substack.posts(limit=3, url="https://www.astralcodexten.com")
@@ -394,7 +394,7 @@ class AsyncSubstackNamespace:
         restacks), author profile, publication details, the full article body as
         text, HTML and Markdown, and optional comment threads.
 
-        Price: $0.00039 per request plus $0.00264 per result (maximum $0.265).
+        Price: $0.00042 per request plus $0.00288 per result (maximum $0.289).
 
         Example:
             res = client.substack.posts(limit=3, url="https://www.astralcodexten.com")

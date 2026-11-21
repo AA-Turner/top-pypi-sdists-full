@@ -68,6 +68,7 @@ from ..locale import gettext_lazy as _
 from ..utils.parse import (
     URL_PATH_SAFE_CHARS,
     parse_bool,
+    parse_choice,
     parse_list,
     validate_regex,
 )
@@ -258,10 +259,7 @@ class NotifyMattermost(NotifyBase):
 
         # Mode
         if isinstance(mode, str) and mode.strip():
-            mode_ = mode.strip().lower()
-            self.mode = next(
-                (m for m in MATTERMOST_MODES if m.startswith(mode_)), None
-            )
+            self.mode = parse_choice(mode, MATTERMOST_MODES)
             if self.mode not in MATTERMOST_MODES:
                 msg = f"The Mattermost mode specified ({mode}) is invalid."
                 self.logger.warning(msg)
@@ -876,56 +874,3 @@ class NotifyMattermost(NotifyBase):
             )
 
         return results
-
-    @staticmethod
-    def parse_native_url(url: str) -> dict[str, Any] | None:
-        """
-        Support parsing the webhook straight from URL
-            https://HOST:443/workflows/WORKFLOWID/triggers/manual/paths/invoke
-            https://mattermost.HOST/hooks/TOKEN
-        """
-
-        # Match our workflows webhook URL and re-assemble
-        result = re.match(
-            r"^http(?P<secure>s?)://(?P<host>mattermost\.[A-Z0-9_.-]+)"
-            r"(:(?P<port>[1-9][0-9]{0,5}))?"
-            r"/hooks/"
-            r"(?P<token>[A-Z0-9_-]+)/?"
-            r"(?P<params>\?.+)?$",
-            url,
-            re.I,
-        )
-
-        if result:
-            default_port = (
-                int(result.group("port"))
-                if result.group("port")
-                else (443 if result.group("secure") else 80)
-            )
-
-            default_schema = (
-                NotifyMattermost.secure_protocol
-                if result.group("secure")
-                else NotifyMattermost.protocol
-            )
-
-            # Construct our URL
-            return NotifyMattermost.parse_url(
-                "{schema}://{host}{port}/{token}/{params}".format(
-                    schema=default_schema,
-                    host=result.group("host"),
-                    port=(
-                        ""
-                        if not result.group("port")
-                        or int(result.group("port")) == default_port
-                        else f":{default_port}"
-                    ),
-                    token=result.group("token"),
-                    params=(
-                        ""
-                        if not result.group("params")
-                        else result.group("params")
-                    ),
-                )
-            )
-        return None

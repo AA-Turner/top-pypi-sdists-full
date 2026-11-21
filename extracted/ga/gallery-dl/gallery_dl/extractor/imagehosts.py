@@ -105,6 +105,7 @@ class ImxtoImageExtractor(ImagehostImageExtractor):
 
     def get_info(self, page):
         for needle in (
+            '<a class="img-photo" href="',
             '<div style="text-align:center;"><a href="',
             'class="img-center"><a href="',
             'class="centred img-full" src="',
@@ -116,13 +117,13 @@ class ImxtoImageExtractor(ImagehostImageExtractor):
 
         self.file_url = url = img[:img.find('"')]
         filename = (text.extr(img, ' title="', '"') or
-                    text.extr(img, ' alt="', '"'))
-        return url, filename or None
+                    text.extr(img, ' alt="', '"') or None)
+        return url, filename
 
     def metadata(self, page):
-        extr = text.extract_from(page, page.index("[ FILESIZE <"))
-        size = extr(">", "</span>").replace(" ", "")[:-1]
-        width, _, height = extr(">", " px</span>").partition("x")
+        extr = text.extract_from(page, page.index('class="img-meta'))
+        size = extr("<b>", "<")
+        width, _, height = extr("<b>", " px<").partition("&times;")
 
         try:
             _, y, m, d, _ = self.file_url.rsplit("/", 4)
@@ -132,10 +133,10 @@ class ImxtoImageExtractor(ImagehostImageExtractor):
             date = dt.NONE
 
         return {
-            "size"  : text.parse_bytes(size),
+            "size"  : text.parse_bytes(size.replace(" ", "")[:-1]),
             "width" : text.parse_int(width),
             "height": text.parse_int(height),
-            "hash"  : extr(">", "</span>"),
+            "hash"  : extr("<b>", "<"),
             "date"  : date,
         }
 
@@ -149,10 +150,10 @@ class ImxtoGalleryExtractor(ImagehostImageExtractor):
 
     def items(self):
         page = self.request(self.page_url).text
-        title, pos = text.extract(page, '<div class="title', '<')
+        title, pos = text.extract(page, 'class="gal-title', '<')
         data = {
             "_extractor": ImxtoImageExtractor,
-            "title": text.unescape(title.partition(">")[2]).strip(),
+            "title": text.unescape(title[title.find(">")+1:]).strip(),
         }
 
         params = {"page": 1}
@@ -161,9 +162,8 @@ class ImxtoGalleryExtractor(ImagehostImageExtractor):
                 if "/i/" in url:
                     yield Message.Queue, url.strip("\"'"), data
 
-            if 'class="pagination' not in page or \
-                    'class="disabled">Last' in page:
-                return
+            if ' rel="next"' not in page:
+                break
 
             params["page"] += 1
             page = self.request(self.page_url, params=params).text
@@ -500,6 +500,22 @@ class FappicImageExtractor(ImagehostImageExtractor):
         url     , pos = text.extract(page, '<a href="#"><img src="', '"')
         filename, pos = text.extract(page, 'alt="', '"', pos)
         return url, text.re(r"^Porn[ -]Pic(?:s|ture)[ -]").sub("", filename)
+
+
+class FastpicImageExtractor(ImagehostImageExtractor):
+    """Extractor for single images from fastpic.org"""
+    category = "fastpic"
+    pattern = (r"(?:https?://)?((?:www\.)?fastpic\.org"
+               r"/view/\d+/\d+/\d+/(\w{10,})\.[\w\.]+)")
+    example = "https://fastpic.org/view/1/2000/1000/abcde12345.EXT.html"
+
+    def _cookies(self):
+        return self.request(self.page_url).cookies
+
+    def get_info(self, page):
+        if url := text.extr(page, '<template><img src="', '"'):
+            return text.unescape(url), None
+        self.not_found()
 
 
 class PicstateImageExtractor(ImagehostImageExtractor):

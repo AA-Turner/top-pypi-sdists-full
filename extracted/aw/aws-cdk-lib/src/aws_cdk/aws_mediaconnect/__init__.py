@@ -4608,6 +4608,19 @@ class CfnFlow(
                     # the properties below are optional
                     encryption_key_type="encryptionKeyType"
                 ),
+                rtmp_push_details=mediaconnect.CfnFlow.RtmpPushDetailsProperty(
+                    application_name="applicationName",
+                    stream_name="streamName"
+                ),
+                rtmp_push_settings=mediaconnect.CfnFlow.RtmpPushSettingsProperty(
+                    naming_configuration=mediaconnect.CfnFlow.RtmpPushNamingConfigurationProperty(
+                        automatic=automatic,
+                        manual=mediaconnect.CfnFlow.ManualRtmpPushNamingConfigurationProperty(
+                            application_name="applicationName",
+                            stream_name="streamName"
+                        )
+                    )
+                ),
                 sender_control_port=123,
                 sender_ip_address="senderIpAddress",
                 source_arn="sourceArn",
@@ -4882,6 +4895,37 @@ class CfnFlow(
         :cloudformationAttribute: Source.IngestIp
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrSourceIngestIp"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSourceRtmpPushDetails")
+    def attr_source_rtmp_push_details(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The read-only details for the RTMP (Real-Time Messaging Protocol) source.
+
+        :cloudformationAttribute: Source.RtmpPushDetails
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrSourceRtmpPushDetails"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSourceRtmpPushDetailsApplicationName")
+    def attr_source_rtmp_push_details_application_name(self) -> builtins.str:
+        '''The name of the RTMP application.
+
+        Together with the stream name, the application name forms the RTMP URL path, in the pattern rtmp://ingestAddress/applicationName/streamName.
+
+        :cloudformationAttribute: Source.RtmpPushDetails.ApplicationName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSourceRtmpPushDetailsApplicationName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSourceRtmpPushDetailsStreamName")
+    def attr_source_rtmp_push_details_stream_name(self) -> builtins.str:
+        '''The name of the RTMP stream.
+
+        The stream name forms the final segment of the RTMP URL path.
+
+        :cloudformationAttribute: Source.RtmpPushDetails.StreamName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSourceRtmpPushDetailsStreamName"))
 
     @builtins.property
     @jsii.member(jsii_name="attrSourceSourceArn")
@@ -6322,6 +6366,84 @@ class CfnFlow(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlow.ManualRtmpPushNamingConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "application_name": "applicationName",
+            "stream_name": "streamName",
+        },
+    )
+    class ManualRtmpPushNamingConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            application_name: builtins.str,
+            stream_name: builtins.str,
+        ) -> None:
+            '''The manual RTMP naming configuration, where you specify the application and stream names.
+
+            :param application_name: The name of the RTMP application. Together with the stream name, the application name forms the RTMP URL path, in the pattern rtmp://ingestAddress/applicationName/streamName.
+            :param stream_name: The name of the RTMP stream. The stream name forms the final segment of the RTMP URL path.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-manualrtmppushnamingconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                manual_rtmp_push_naming_configuration_property = mediaconnect.CfnFlow.ManualRtmpPushNamingConfigurationProperty(
+                    application_name="applicationName",
+                    stream_name="streamName"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__1e50d71e34375afc5ba668b57a348d9fc727d6cfff255c0afd414c652a54eafe)
+                check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
+                check_type(argname="argument stream_name", value=stream_name, expected_type=type_hints["stream_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "application_name": application_name,
+                "stream_name": stream_name,
+            }
+
+        @builtins.property
+        def application_name(self) -> builtins.str:
+            '''The name of the RTMP application.
+
+            Together with the stream name, the application name forms the RTMP URL path, in the pattern rtmp://ingestAddress/applicationName/streamName.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-manualrtmppushnamingconfiguration.html#cfn-mediaconnect-flow-manualrtmppushnamingconfiguration-applicationname
+            '''
+            result = self._values.get("application_name")
+            assert result is not None, "Required property 'application_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def stream_name(self) -> builtins.str:
+            '''The name of the RTMP stream.
+
+            The stream name forms the final segment of the RTMP URL path.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-manualrtmppushnamingconfiguration.html#cfn-mediaconnect-flow-manualrtmppushnamingconfiguration-streamname
+            '''
+            result = self._values.get("stream_name")
+            assert result is not None, "Required property 'stream_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ManualRtmpPushNamingConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlow.MediaStreamAttributesProperty",
         jsii_struct_bases=[],
         name_mapping={"fmtp": "fmtp", "lang": "lang"},
@@ -6986,6 +7108,228 @@ class CfnFlow(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlow.RtmpPushDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "application_name": "applicationName",
+            "stream_name": "streamName",
+        },
+    )
+    class RtmpPushDetailsProperty:
+        def __init__(
+            self,
+            *,
+            application_name: builtins.str,
+            stream_name: builtins.str,
+        ) -> None:
+            '''The read-only details for the RTMP (Real-Time Messaging Protocol) source.
+
+            :param application_name: The name of the RTMP application. Together with the stream name, the application name forms the RTMP URL path, in the pattern rtmp://ingestAddress/applicationName/streamName.
+            :param stream_name: The name of the RTMP stream. The stream name forms the final segment of the RTMP URL path.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-rtmppushdetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                rtmp_push_details_property = mediaconnect.CfnFlow.RtmpPushDetailsProperty(
+                    application_name="applicationName",
+                    stream_name="streamName"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__ec87fc3d3f930185efad915392121c23b1708692ae79a95c0b2d322b784844b2)
+                check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
+                check_type(argname="argument stream_name", value=stream_name, expected_type=type_hints["stream_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "application_name": application_name,
+                "stream_name": stream_name,
+            }
+
+        @builtins.property
+        def application_name(self) -> builtins.str:
+            '''The name of the RTMP application.
+
+            Together with the stream name, the application name forms the RTMP URL path, in the pattern rtmp://ingestAddress/applicationName/streamName.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-rtmppushdetails.html#cfn-mediaconnect-flow-rtmppushdetails-applicationname
+            '''
+            result = self._values.get("application_name")
+            assert result is not None, "Required property 'application_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def stream_name(self) -> builtins.str:
+            '''The name of the RTMP stream.
+
+            The stream name forms the final segment of the RTMP URL path.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-rtmppushdetails.html#cfn-mediaconnect-flow-rtmppushdetails-streamname
+            '''
+            result = self._values.get("stream_name")
+            assert result is not None, "Required property 'stream_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RtmpPushDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlow.RtmpPushNamingConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"automatic": "automatic", "manual": "manual"},
+    )
+    class RtmpPushNamingConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            automatic: typing.Any = None,
+            manual: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.ManualRtmpPushNamingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param automatic: The automatic RTMP naming configuration, where MediaConnect generates the application and stream names. This type does not require any additional settings.
+            :param manual: The manual RTMP naming configuration, where you specify the application and stream names.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-rtmppushnamingconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                # automatic: Any
+                
+                rtmp_push_naming_configuration_property = mediaconnect.CfnFlow.RtmpPushNamingConfigurationProperty(
+                    automatic=automatic,
+                    manual=mediaconnect.CfnFlow.ManualRtmpPushNamingConfigurationProperty(
+                        application_name="applicationName",
+                        stream_name="streamName"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__e1c4fe8e537e6d9e67e6310b711747437f0bf166e18f6998b5c320aa657f9e2f)
+                check_type(argname="argument automatic", value=automatic, expected_type=type_hints["automatic"])
+                check_type(argname="argument manual", value=manual, expected_type=type_hints["manual"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if automatic is not None:
+                self._values["automatic"] = automatic
+            if manual is not None:
+                self._values["manual"] = manual
+
+        @builtins.property
+        def automatic(self) -> typing.Any:
+            '''The automatic RTMP naming configuration, where MediaConnect generates the application and stream names.
+
+            This type does not require any additional settings.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-rtmppushnamingconfiguration.html#cfn-mediaconnect-flow-rtmppushnamingconfiguration-automatic
+            '''
+            result = self._values.get("automatic")
+            return typing.cast(typing.Any, result)
+
+        @builtins.property
+        def manual(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.ManualRtmpPushNamingConfigurationProperty"]]:
+            '''The manual RTMP naming configuration, where you specify the application and stream names.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-rtmppushnamingconfiguration.html#cfn-mediaconnect-flow-rtmppushnamingconfiguration-manual
+            '''
+            result = self._values.get("manual")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.ManualRtmpPushNamingConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RtmpPushNamingConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlow.RtmpPushSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"naming_configuration": "namingConfiguration"},
+    )
+    class RtmpPushSettingsProperty:
+        def __init__(
+            self,
+            *,
+            naming_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.RtmpPushNamingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''The settings for the RTMP (Real-Time Messaging Protocol) source.
+
+            :param naming_configuration: The configuration settings for the RTMP (Real-Time Messaging Protocol) application and stream names.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-rtmppushsettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                # automatic: Any
+                
+                rtmp_push_settings_property = mediaconnect.CfnFlow.RtmpPushSettingsProperty(
+                    naming_configuration=mediaconnect.CfnFlow.RtmpPushNamingConfigurationProperty(
+                        automatic=automatic,
+                        manual=mediaconnect.CfnFlow.ManualRtmpPushNamingConfigurationProperty(
+                            application_name="applicationName",
+                            stream_name="streamName"
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__b527da4d1c8466d260431fad8b90cfbe6a8ec296f03d95f651e7fe6e1d171b22)
+                check_type(argname="argument naming_configuration", value=naming_configuration, expected_type=type_hints["naming_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "naming_configuration": naming_configuration,
+            }
+
+        @builtins.property
+        def naming_configuration(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.RtmpPushNamingConfigurationProperty"]:
+            '''The configuration settings for the RTMP (Real-Time Messaging Protocol) application and stream names.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-rtmppushsettings.html#cfn-mediaconnect-flow-rtmppushsettings-namingconfiguration
+            '''
+            result = self._values.get("naming_configuration")
+            assert result is not None, "Required property 'naming_configuration' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.RtmpPushNamingConfigurationProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RtmpPushSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlow.SecretsManagerEncryptionKeyConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={"role_arn": "roleArn", "secret_arn": "secretArn"},
@@ -7321,6 +7665,8 @@ class CfnFlow(
             "protocol": "protocol",
             "router_integration_state": "routerIntegrationState",
             "router_integration_transit_decryption": "routerIntegrationTransitDecryption",
+            "rtmp_push_details": "rtmpPushDetails",
+            "rtmp_push_settings": "rtmpPushSettings",
             "sender_control_port": "senderControlPort",
             "sender_ip_address": "senderIpAddress",
             "source_arn": "sourceArn",
@@ -7353,6 +7699,8 @@ class CfnFlow(
             protocol: typing.Optional[builtins.str] = None,
             router_integration_state: typing.Optional[builtins.str] = None,
             router_integration_transit_decryption: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.FlowTransitEncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            rtmp_push_details: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.RtmpPushDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            rtmp_push_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.RtmpPushSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             sender_control_port: typing.Optional[jsii.Number] = None,
             sender_ip_address: typing.Optional[builtins.str] = None,
             source_arn: typing.Optional[builtins.str] = None,
@@ -7388,6 +7736,8 @@ class CfnFlow(
             :param protocol: The protocol that is used by the source. AWS CloudFormation does not currently support CDI or ST 2110 JPEG XS source protocols. .. epigraph:: AWS Elemental MediaConnect no longer supports the Fujitsu QoS protocol. This reference is maintained for legacy purposes only.
             :param router_integration_state: Indicates if router integration is enabled or disabled on the flow source.
             :param router_integration_transit_decryption: The decryption configuration for the flow source when router integration is enabled.
+            :param rtmp_push_details: The read-only details for the RTMP (Real-Time Messaging Protocol) source.
+            :param rtmp_push_settings: The settings for the RTMP (Real-Time Messaging Protocol) source.
             :param sender_control_port: The port that the flow uses to send outbound requests to initiate connection with the sender.
             :param sender_ip_address: The IP address that the flow communicates with to initiate connection with the sender.
             :param source_arn: The ARN of the source.
@@ -7472,6 +7822,19 @@ class CfnFlow(
                         # the properties below are optional
                         encryption_key_type="encryptionKeyType"
                     ),
+                    rtmp_push_details=mediaconnect.CfnFlow.RtmpPushDetailsProperty(
+                        application_name="applicationName",
+                        stream_name="streamName"
+                    ),
+                    rtmp_push_settings=mediaconnect.CfnFlow.RtmpPushSettingsProperty(
+                        naming_configuration=mediaconnect.CfnFlow.RtmpPushNamingConfigurationProperty(
+                            automatic=automatic,
+                            manual=mediaconnect.CfnFlow.ManualRtmpPushNamingConfigurationProperty(
+                                application_name="applicationName",
+                                stream_name="streamName"
+                            )
+                        )
+                    ),
                     sender_control_port=123,
                     sender_ip_address="senderIpAddress",
                     source_arn="sourceArn",
@@ -7505,6 +7868,8 @@ class CfnFlow(
                 check_type(argname="argument protocol", value=protocol, expected_type=type_hints["protocol"])
                 check_type(argname="argument router_integration_state", value=router_integration_state, expected_type=type_hints["router_integration_state"])
                 check_type(argname="argument router_integration_transit_decryption", value=router_integration_transit_decryption, expected_type=type_hints["router_integration_transit_decryption"])
+                check_type(argname="argument rtmp_push_details", value=rtmp_push_details, expected_type=type_hints["rtmp_push_details"])
+                check_type(argname="argument rtmp_push_settings", value=rtmp_push_settings, expected_type=type_hints["rtmp_push_settings"])
                 check_type(argname="argument sender_control_port", value=sender_control_port, expected_type=type_hints["sender_control_port"])
                 check_type(argname="argument sender_ip_address", value=sender_ip_address, expected_type=type_hints["sender_ip_address"])
                 check_type(argname="argument source_arn", value=source_arn, expected_type=type_hints["source_arn"])
@@ -7548,6 +7913,10 @@ class CfnFlow(
                 self._values["router_integration_state"] = router_integration_state
             if router_integration_transit_decryption is not None:
                 self._values["router_integration_transit_decryption"] = router_integration_transit_decryption
+            if rtmp_push_details is not None:
+                self._values["rtmp_push_details"] = rtmp_push_details
+            if rtmp_push_settings is not None:
+                self._values["rtmp_push_settings"] = rtmp_push_settings
             if sender_control_port is not None:
                 self._values["sender_control_port"] = sender_control_port
             if sender_ip_address is not None:
@@ -7732,6 +8101,28 @@ class CfnFlow(
             '''
             result = self._values.get("router_integration_transit_decryption")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.FlowTransitEncryptionProperty"]], result)
+
+        @builtins.property
+        def rtmp_push_details(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.RtmpPushDetailsProperty"]]:
+            '''The read-only details for the RTMP (Real-Time Messaging Protocol) source.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-source.html#cfn-mediaconnect-flow-source-rtmppushdetails
+            '''
+            result = self._values.get("rtmp_push_details")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.RtmpPushDetailsProperty"]], result)
+
+        @builtins.property
+        def rtmp_push_settings(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.RtmpPushSettingsProperty"]]:
+            '''The settings for the RTMP (Real-Time Messaging Protocol) source.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-source.html#cfn-mediaconnect-flow-source-rtmppushsettings
+            '''
+            result = self._values.get("rtmp_push_settings")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.RtmpPushSettingsProperty"]], result)
 
         @builtins.property
         def sender_control_port(self) -> typing.Optional[jsii.Number]:
@@ -9633,6 +10024,7 @@ class CfnFlowOutput(
         from aws_cdk import aws_mediaconnect as mediaconnect
         
         # automatic: Any
+        # public_: Any
         
         cfn_flow_output = mediaconnect.CfnFlowOutput(self, "MyCfnFlowOutput",
             flow_arn="flowArn",
@@ -9692,6 +10084,20 @@ class CfnFlowOutput(
                 # the properties below are optional
                 encryption_key_type="encryptionKeyType"
             ),
+            rtmp_push_settings=mediaconnect.CfnFlowOutput.RtmpPushSettingsProperty(
+                application_name="applicationName",
+                stream_name="streamName",
+        
+                # the properties below are optional
+                tls_encryption=mediaconnect.CfnFlowOutput.TlsEncryptionProperty(
+                    encryption_configuration=mediaconnect.CfnFlowOutput.TlsEncryptionConfigurationProperty(
+                        public=public_
+                    ),
+        
+                    # the properties below are optional
+                    encryption_type="encryptionType"
+                )
+            ),
             smoothing_latency=123,
             stream_id="streamId",
             tags=[CfnTag(
@@ -9728,6 +10134,7 @@ class CfnFlowOutput(
         remote_id: typing.Optional[builtins.str] = None,
         router_integration_state: typing.Optional[builtins.str] = None,
         router_integration_transit_encryption: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlowOutput.FlowTransitEncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        rtmp_push_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlowOutput.RtmpPushSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         smoothing_latency: typing.Optional[jsii.Number] = None,
         stream_id: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -9756,6 +10163,7 @@ class CfnFlowOutput(
         :param remote_id: The remote ID for the Zixi-pull stream.
         :param router_integration_state: 
         :param router_integration_transit_encryption: Encryption information.
+        :param rtmp_push_settings: The settings for an output that pushes a stream to a destination using the RTMP (Real-Time Messaging Protocol) protocol, or RTMPS (RTMP over TLS) when TLS encryption is specified. These settings include the application and stream names, and optional TLS encryption configuration.
         :param smoothing_latency: The smoothing latency in milliseconds for RIST, RTP, and RTP-FEC streams.
         :param stream_id: The stream ID that you want to use for this transport. This parameter applies only to Zixi and SRT caller-based streams.
         :param tags: Key-value pairs that can be used to tag and organize this flow output.
@@ -9785,6 +10193,7 @@ class CfnFlowOutput(
             remote_id=remote_id,
             router_integration_state=router_integration_state,
             router_integration_transit_encryption=router_integration_transit_encryption,
+            rtmp_push_settings=rtmp_push_settings,
             smoothing_latency=smoothing_latency,
             stream_id=stream_id,
             tags=tags,
@@ -10130,6 +10539,24 @@ class CfnFlowOutput(
             type_hints = cached_type_hints(_typecheckingstub__32b31733a523757f4557ebb20483d8cac01327485a4f5ee9746929dd058f123d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "routerIntegrationTransitEncryption", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="rtmpPushSettings")
+    def rtmp_push_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowOutput.RtmpPushSettingsProperty"]]:
+        '''The settings for an output that pushes a stream to a destination using the RTMP (Real-Time Messaging Protocol) protocol, or RTMPS (RTMP over TLS) when TLS encryption is specified.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowOutput.RtmpPushSettingsProperty"]], jsii.get(self, "rtmpPushSettings"))
+
+    @rtmp_push_settings.setter
+    def rtmp_push_settings(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowOutput.RtmpPushSettingsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b9092e0da797acf6a595f06ef3fcae20af545e82cc2643d31d62c801442baf32)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "rtmpPushSettings", value)
 
     @builtins.property
     @jsii.member(jsii_name="smoothingLatency")
@@ -10824,6 +11251,115 @@ class CfnFlowOutput(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlowOutput.RtmpPushSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "application_name": "applicationName",
+            "stream_name": "streamName",
+            "tls_encryption": "tlsEncryption",
+        },
+    )
+    class RtmpPushSettingsProperty:
+        def __init__(
+            self,
+            *,
+            application_name: builtins.str,
+            stream_name: builtins.str,
+            tls_encryption: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlowOutput.TlsEncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''The settings for an output that pushes a stream to a destination using the RTMP (Real-Time Messaging Protocol) protocol, or RTMPS (RTMP over TLS) when TLS encryption is specified.
+
+            These settings include the application and stream names, and optional TLS encryption configuration.
+
+            :param application_name: The name of the RTMP application on the destination server. Together with the stream name, the application name forms the RTMP URL path, in the pattern rtmp://destinationAddress/applicationName/streamName.
+            :param stream_name: The name of the RTMP stream that the output publishes to the destination application. The stream name forms the final segment of the RTMP URL path.
+            :param tls_encryption: The Transport Layer Security (TLS) encryption settings used to establish a secure connection to a destination.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flowoutput-rtmppushsettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                # public_: Any
+                
+                rtmp_push_settings_property = mediaconnect.CfnFlowOutput.RtmpPushSettingsProperty(
+                    application_name="applicationName",
+                    stream_name="streamName",
+                
+                    # the properties below are optional
+                    tls_encryption=mediaconnect.CfnFlowOutput.TlsEncryptionProperty(
+                        encryption_configuration=mediaconnect.CfnFlowOutput.TlsEncryptionConfigurationProperty(
+                            public=public_
+                        ),
+                
+                        # the properties below are optional
+                        encryption_type="encryptionType"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__c22cdb7818bfa0a726a7747adc4dbe9c8b946423be2025f6dc2cfc7729af26b6)
+                check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
+                check_type(argname="argument stream_name", value=stream_name, expected_type=type_hints["stream_name"])
+                check_type(argname="argument tls_encryption", value=tls_encryption, expected_type=type_hints["tls_encryption"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "application_name": application_name,
+                "stream_name": stream_name,
+            }
+            if tls_encryption is not None:
+                self._values["tls_encryption"] = tls_encryption
+
+        @builtins.property
+        def application_name(self) -> builtins.str:
+            '''The name of the RTMP application on the destination server.
+
+            Together with the stream name, the application name forms the RTMP URL path, in the pattern rtmp://destinationAddress/applicationName/streamName.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flowoutput-rtmppushsettings.html#cfn-mediaconnect-flowoutput-rtmppushsettings-applicationname
+            '''
+            result = self._values.get("application_name")
+            assert result is not None, "Required property 'application_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def stream_name(self) -> builtins.str:
+            '''The name of the RTMP stream that the output publishes to the destination application.
+
+            The stream name forms the final segment of the RTMP URL path.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flowoutput-rtmppushsettings.html#cfn-mediaconnect-flowoutput-rtmppushsettings-streamname
+            '''
+            result = self._values.get("stream_name")
+            assert result is not None, "Required property 'stream_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def tls_encryption(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowOutput.TlsEncryptionProperty"]]:
+            '''The Transport Layer Security (TLS) encryption settings used to establish a secure connection to a destination.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flowoutput-rtmppushsettings.html#cfn-mediaconnect-flowoutput-rtmppushsettings-tlsencryption
+            '''
+            result = self._values.get("tls_encryption")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowOutput.TlsEncryptionProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RtmpPushSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlowOutput.SecretsManagerEncryptionKeyConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={"role_arn": "roleArn", "secret_arn": "secretArn"},
@@ -10886,6 +11422,143 @@ class CfnFlowOutput(
 
         def __repr__(self) -> str:
             return "SecretsManagerEncryptionKeyConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlowOutput.TlsEncryptionConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"public": "public"},
+    )
+    class TlsEncryptionConfigurationProperty:
+        def __init__(self, *, public: typing.Any) -> None:
+            '''The configuration settings for TLS encryption.
+
+            :param public: The TLS encryption configuration for destinations that present a certificate from a publicly trusted certificate authority. This type does not require any additional settings.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flowoutput-tlsencryptionconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                # public_: Any
+                
+                tls_encryption_configuration_property = mediaconnect.CfnFlowOutput.TlsEncryptionConfigurationProperty(
+                    public=public_
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__5704979ad4dfc900aaa0fef6bbcccdd748c17c6564f8e9c487b1a586d0961b2b)
+                check_type(argname="argument public", value=public, expected_type=type_hints["public"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "public": public,
+            }
+
+        @builtins.property
+        def public(self) -> typing.Any:
+            '''The TLS encryption configuration for destinations that present a certificate from a publicly trusted certificate authority.
+
+            This type does not require any additional settings.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flowoutput-tlsencryptionconfiguration.html#cfn-mediaconnect-flowoutput-tlsencryptionconfiguration-public
+            '''
+            result = self._values.get("public")
+            assert result is not None, "Required property 'public' is missing"
+            return typing.cast(typing.Any, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TlsEncryptionConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlowOutput.TlsEncryptionProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "encryption_configuration": "encryptionConfiguration",
+            "encryption_type": "encryptionType",
+        },
+    )
+    class TlsEncryptionProperty:
+        def __init__(
+            self,
+            *,
+            encryption_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlowOutput.TlsEncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            encryption_type: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The Transport Layer Security (TLS) encryption settings used to establish a secure connection to a destination.
+
+            :param encryption_configuration: The configuration settings for TLS encryption.
+            :param encryption_type: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flowoutput-tlsencryption.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                # public_: Any
+                
+                tls_encryption_property = mediaconnect.CfnFlowOutput.TlsEncryptionProperty(
+                    encryption_configuration=mediaconnect.CfnFlowOutput.TlsEncryptionConfigurationProperty(
+                        public=public_
+                    ),
+                
+                    # the properties below are optional
+                    encryption_type="encryptionType"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__1895b4eae6cc61f0d7a8faa8618af7fe9b456ba0042d409487be36fb4dbdc068)
+                check_type(argname="argument encryption_configuration", value=encryption_configuration, expected_type=type_hints["encryption_configuration"])
+                check_type(argname="argument encryption_type", value=encryption_type, expected_type=type_hints["encryption_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "encryption_configuration": encryption_configuration,
+            }
+            if encryption_type is not None:
+                self._values["encryption_type"] = encryption_type
+
+        @builtins.property
+        def encryption_configuration(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowOutput.TlsEncryptionConfigurationProperty"]:
+            '''The configuration settings for TLS encryption.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flowoutput-tlsencryption.html#cfn-mediaconnect-flowoutput-tlsencryption-encryptionconfiguration
+            '''
+            result = self._values.get("encryption_configuration")
+            assert result is not None, "Required property 'encryption_configuration' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowOutput.TlsEncryptionConfigurationProperty"], result)
+
+        @builtins.property
+        def encryption_type(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flowoutput-tlsencryption.html#cfn-mediaconnect-flowoutput-tlsencryption-encryptiontype
+            '''
+            result = self._values.get("encryption_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TlsEncryptionProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -10968,6 +11641,7 @@ class CfnFlowOutput(
         "remote_id": "remoteId",
         "router_integration_state": "routerIntegrationState",
         "router_integration_transit_encryption": "routerIntegrationTransitEncryption",
+        "rtmp_push_settings": "rtmpPushSettings",
         "smoothing_latency": "smoothingLatency",
         "stream_id": "streamId",
         "tags": "tags",
@@ -10997,6 +11671,7 @@ class CfnFlowOutputProps:
         remote_id: typing.Optional[builtins.str] = None,
         router_integration_state: typing.Optional[builtins.str] = None,
         router_integration_transit_encryption: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlowOutput.FlowTransitEncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        rtmp_push_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlowOutput.RtmpPushSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         smoothing_latency: typing.Optional[jsii.Number] = None,
         stream_id: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -11023,6 +11698,7 @@ class CfnFlowOutputProps:
         :param remote_id: The remote ID for the Zixi-pull stream.
         :param router_integration_state: 
         :param router_integration_transit_encryption: Encryption information.
+        :param rtmp_push_settings: The settings for an output that pushes a stream to a destination using the RTMP (Real-Time Messaging Protocol) protocol, or RTMPS (RTMP over TLS) when TLS encryption is specified. These settings include the application and stream names, and optional TLS encryption configuration.
         :param smoothing_latency: The smoothing latency in milliseconds for RIST, RTP, and RTP-FEC streams.
         :param stream_id: The stream ID that you want to use for this transport. This parameter applies only to Zixi and SRT caller-based streams.
         :param tags: Key-value pairs that can be used to tag and organize this flow output.
@@ -11039,6 +11715,7 @@ class CfnFlowOutputProps:
             from aws_cdk import aws_mediaconnect as mediaconnect
             
             # automatic: Any
+            # public_: Any
             
             cfn_flow_output_props = mediaconnect.CfnFlowOutputProps(
                 flow_arn="flowArn",
@@ -11098,6 +11775,20 @@ class CfnFlowOutputProps:
                     # the properties below are optional
                     encryption_key_type="encryptionKeyType"
                 ),
+                rtmp_push_settings=mediaconnect.CfnFlowOutput.RtmpPushSettingsProperty(
+                    application_name="applicationName",
+                    stream_name="streamName",
+            
+                    # the properties below are optional
+                    tls_encryption=mediaconnect.CfnFlowOutput.TlsEncryptionProperty(
+                        encryption_configuration=mediaconnect.CfnFlowOutput.TlsEncryptionConfigurationProperty(
+                            public=public_
+                        ),
+            
+                        # the properties below are optional
+                        encryption_type="encryptionType"
+                    )
+                ),
                 smoothing_latency=123,
                 stream_id="streamId",
                 tags=[CfnTag(
@@ -11130,6 +11821,7 @@ class CfnFlowOutputProps:
             check_type(argname="argument remote_id", value=remote_id, expected_type=type_hints["remote_id"])
             check_type(argname="argument router_integration_state", value=router_integration_state, expected_type=type_hints["router_integration_state"])
             check_type(argname="argument router_integration_transit_encryption", value=router_integration_transit_encryption, expected_type=type_hints["router_integration_transit_encryption"])
+            check_type(argname="argument rtmp_push_settings", value=rtmp_push_settings, expected_type=type_hints["rtmp_push_settings"])
             check_type(argname="argument smoothing_latency", value=smoothing_latency, expected_type=type_hints["smoothing_latency"])
             check_type(argname="argument stream_id", value=stream_id, expected_type=type_hints["stream_id"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -11173,6 +11865,8 @@ class CfnFlowOutputProps:
             self._values["router_integration_state"] = router_integration_state
         if router_integration_transit_encryption is not None:
             self._values["router_integration_transit_encryption"] = router_integration_transit_encryption
+        if rtmp_push_settings is not None:
+            self._values["rtmp_push_settings"] = rtmp_push_settings
         if smoothing_latency is not None:
             self._values["smoothing_latency"] = smoothing_latency
         if stream_id is not None:
@@ -11376,6 +12070,19 @@ class CfnFlowOutputProps:
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowOutput.FlowTransitEncryptionProperty"]], result)
 
     @builtins.property
+    def rtmp_push_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowOutput.RtmpPushSettingsProperty"]]:
+        '''The settings for an output that pushes a stream to a destination using the RTMP (Real-Time Messaging Protocol) protocol, or RTMPS (RTMP over TLS) when TLS encryption is specified.
+
+        These settings include the application and stream names, and optional TLS encryption configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-rtmppushsettings
+        '''
+        result = self._values.get("rtmp_push_settings")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowOutput.RtmpPushSettingsProperty"]], result)
+
+    @builtins.property
     def smoothing_latency(self) -> typing.Optional[jsii.Number]:
         '''The smoothing latency in milliseconds for RIST, RTP, and RTP-FEC streams.
 
@@ -11551,6 +12258,19 @@ class CfnFlowProps:
             
                         # the properties below are optional
                         encryption_key_type="encryptionKeyType"
+                    ),
+                    rtmp_push_details=mediaconnect.CfnFlow.RtmpPushDetailsProperty(
+                        application_name="applicationName",
+                        stream_name="streamName"
+                    ),
+                    rtmp_push_settings=mediaconnect.CfnFlow.RtmpPushSettingsProperty(
+                        naming_configuration=mediaconnect.CfnFlow.RtmpPushNamingConfigurationProperty(
+                            automatic=automatic,
+                            manual=mediaconnect.CfnFlow.ManualRtmpPushNamingConfigurationProperty(
+                                application_name="applicationName",
+                                stream_name="streamName"
+                            )
+                        )
                     ),
                     sender_control_port=123,
                     sender_ip_address="senderIpAddress",
@@ -11869,6 +12589,8 @@ class CfnFlowSource(
         # The values are placeholders you should change.
         from aws_cdk import aws_mediaconnect as mediaconnect
         
+        # automatic: Any
+        
         cfn_flow_source = mediaconnect.CfnFlowSource(self, "MyCfnFlowSource",
             description="description",
             flow_arn="flowArn",
@@ -11902,6 +12624,15 @@ class CfnFlowSource(
             max_latency=123,
             min_latency=123,
             protocol="protocol",
+            rtmp_push_settings=mediaconnect.CfnFlowSource.RtmpPushSettingsProperty(
+                naming_configuration=mediaconnect.CfnFlowSource.RtmpPushNamingConfigurationProperty(
+                    automatic=automatic,
+                    manual=mediaconnect.CfnFlowSource.ManualRtmpPushNamingConfigurationProperty(
+                        application_name="applicationName",
+                        stream_name="streamName"
+                    )
+                )
+            ),
             sender_control_port=123,
             sender_ip_address="senderIpAddress",
             source_listener_address="sourceListenerAddress",
@@ -11932,6 +12663,7 @@ class CfnFlowSource(
         max_latency: typing.Optional[jsii.Number] = None,
         min_latency: typing.Optional[jsii.Number] = None,
         protocol: typing.Optional[builtins.str] = None,
+        rtmp_push_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlowSource.RtmpPushSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         sender_control_port: typing.Optional[jsii.Number] = None,
         sender_ip_address: typing.Optional[builtins.str] = None,
         source_listener_address: typing.Optional[builtins.str] = None,
@@ -11956,6 +12688,7 @@ class CfnFlowSource(
         :param max_latency: The maximum latency in milliseconds. This parameter applies only to RIST-based and Zixi-based streams.
         :param min_latency: The minimum latency in milliseconds for SRT-based streams. In streams that use the SRT protocol, this value that you set on your MediaConnect source or output represents the minimal potential latency of that connection. The latency of the stream is set to the highest number between the sender’s minimum latency and the receiver’s minimum latency.
         :param protocol: The protocol that the source uses to deliver the content to MediaConnect. Adding additional sources to an existing flow requires Failover to be enabled. When you enable Failover, the additional source must use the same protocol as the existing source. Only the following protocols support failover: Zixi-push, RTP-FEC, RTP, RIST and SRT protocols. If you use failover with SRT caller or listener, the ``FailoverMode`` property must be set to ``FAILOVER`` . The ``FailoverMode`` property is found in the ``FailoverConfig`` resource of the same flow ARN you used for the source's ``FlowArn`` property. SRT caller/listener does not support merge mode failover.
+        :param rtmp_push_settings: The settings for the RTMP (Real-Time Messaging Protocol) source.
         :param sender_control_port: (deprecated) The port that the flow uses to send outbound requests to initiate connection with the sender.
         :param sender_ip_address: (deprecated) The IP address that the flow communicates with to initiate connection with the sender.
         :param source_listener_address: Source IP or domain name for SRT-caller protocol.
@@ -11981,6 +12714,7 @@ class CfnFlowSource(
             max_latency=max_latency,
             min_latency=min_latency,
             protocol=protocol,
+            rtmp_push_settings=rtmp_push_settings,
             sender_control_port=sender_control_port,
             sender_ip_address=sender_ip_address,
             source_listener_address=source_listener_address,
@@ -12044,6 +12778,37 @@ class CfnFlowSource(
         :cloudformationAttribute: IngestIp
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrIngestIp"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRtmpPushDetails")
+    def attr_rtmp_push_details(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The read-only details for the RTMP (Real-Time Messaging Protocol) source.
+
+        :cloudformationAttribute: RtmpPushDetails
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrRtmpPushDetails"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRtmpPushDetailsApplicationName")
+    def attr_rtmp_push_details_application_name(self) -> builtins.str:
+        '''The name of the RTMP application.
+
+        Together with the stream name, the application name forms the RTMP URL path, in the pattern rtmp://ingestAddress/applicationName/streamName.
+
+        :cloudformationAttribute: RtmpPushDetails.ApplicationName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRtmpPushDetailsApplicationName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRtmpPushDetailsStreamName")
+    def attr_rtmp_push_details_stream_name(self) -> builtins.str:
+        '''The name of the RTMP stream.
+
+        The stream name forms the final segment of the RTMP URL path.
+
+        :cloudformationAttribute: RtmpPushDetails.StreamName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRtmpPushDetailsStreamName"))
 
     @builtins.property
     @jsii.member(jsii_name="attrSourceArn")
@@ -12244,6 +13009,24 @@ class CfnFlowSource(
             type_hints = cached_type_hints(_typecheckingstub__eb57175f10a9dd5a4e263ec48354d53559458e760a13228af2bc8b2d5a738add)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "protocol", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="rtmpPushSettings")
+    def rtmp_push_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowSource.RtmpPushSettingsProperty"]]:
+        '''The settings for the RTMP (Real-Time Messaging Protocol) source.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowSource.RtmpPushSettingsProperty"]], jsii.get(self, "rtmpPushSettings"))
+
+    @rtmp_push_settings.setter
+    def rtmp_push_settings(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowSource.RtmpPushSettingsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5880b1e7b55a87266fb5611a476cbe88c50679a925717e54bb843dcd1f100be7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "rtmpPushSettings", value)
 
     @builtins.property
     @jsii.member(jsii_name="senderControlPort")
@@ -12649,6 +13432,306 @@ class CfnFlowSource(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlowSource.ManualRtmpPushNamingConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "application_name": "applicationName",
+            "stream_name": "streamName",
+        },
+    )
+    class ManualRtmpPushNamingConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            application_name: builtins.str,
+            stream_name: builtins.str,
+        ) -> None:
+            '''The manual RTMP naming configuration, where you specify the application and stream names.
+
+            :param application_name: The name of the RTMP application. Together with the stream name, the application name forms the RTMP URL path, in the pattern rtmp://ingestAddress/applicationName/streamName.
+            :param stream_name: The name of the RTMP stream. The stream name forms the final segment of the RTMP URL path.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flowsource-manualrtmppushnamingconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                manual_rtmp_push_naming_configuration_property = mediaconnect.CfnFlowSource.ManualRtmpPushNamingConfigurationProperty(
+                    application_name="applicationName",
+                    stream_name="streamName"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__44cdbe2b2e77023387bb4e8f05d51cb6adc17b9656cec2a743edcc1055eeddf0)
+                check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
+                check_type(argname="argument stream_name", value=stream_name, expected_type=type_hints["stream_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "application_name": application_name,
+                "stream_name": stream_name,
+            }
+
+        @builtins.property
+        def application_name(self) -> builtins.str:
+            '''The name of the RTMP application.
+
+            Together with the stream name, the application name forms the RTMP URL path, in the pattern rtmp://ingestAddress/applicationName/streamName.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flowsource-manualrtmppushnamingconfiguration.html#cfn-mediaconnect-flowsource-manualrtmppushnamingconfiguration-applicationname
+            '''
+            result = self._values.get("application_name")
+            assert result is not None, "Required property 'application_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def stream_name(self) -> builtins.str:
+            '''The name of the RTMP stream.
+
+            The stream name forms the final segment of the RTMP URL path.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flowsource-manualrtmppushnamingconfiguration.html#cfn-mediaconnect-flowsource-manualrtmppushnamingconfiguration-streamname
+            '''
+            result = self._values.get("stream_name")
+            assert result is not None, "Required property 'stream_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ManualRtmpPushNamingConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlowSource.RtmpPushDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "application_name": "applicationName",
+            "stream_name": "streamName",
+        },
+    )
+    class RtmpPushDetailsProperty:
+        def __init__(
+            self,
+            *,
+            application_name: builtins.str,
+            stream_name: builtins.str,
+        ) -> None:
+            '''The read-only details for the RTMP (Real-Time Messaging Protocol) source.
+
+            :param application_name: The name of the RTMP application. Together with the stream name, the application name forms the RTMP URL path, in the pattern rtmp://ingestAddress/applicationName/streamName.
+            :param stream_name: The name of the RTMP stream. The stream name forms the final segment of the RTMP URL path.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flowsource-rtmppushdetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                rtmp_push_details_property = mediaconnect.CfnFlowSource.RtmpPushDetailsProperty(
+                    application_name="applicationName",
+                    stream_name="streamName"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__fea0efecb46650aef80c89c147f42cc745ccb8689f5e5585f75a5d1caabbf0b1)
+                check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
+                check_type(argname="argument stream_name", value=stream_name, expected_type=type_hints["stream_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "application_name": application_name,
+                "stream_name": stream_name,
+            }
+
+        @builtins.property
+        def application_name(self) -> builtins.str:
+            '''The name of the RTMP application.
+
+            Together with the stream name, the application name forms the RTMP URL path, in the pattern rtmp://ingestAddress/applicationName/streamName.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flowsource-rtmppushdetails.html#cfn-mediaconnect-flowsource-rtmppushdetails-applicationname
+            '''
+            result = self._values.get("application_name")
+            assert result is not None, "Required property 'application_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def stream_name(self) -> builtins.str:
+            '''The name of the RTMP stream.
+
+            The stream name forms the final segment of the RTMP URL path.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flowsource-rtmppushdetails.html#cfn-mediaconnect-flowsource-rtmppushdetails-streamname
+            '''
+            result = self._values.get("stream_name")
+            assert result is not None, "Required property 'stream_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RtmpPushDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlowSource.RtmpPushNamingConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"automatic": "automatic", "manual": "manual"},
+    )
+    class RtmpPushNamingConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            automatic: typing.Any = None,
+            manual: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlowSource.ManualRtmpPushNamingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param automatic: The automatic RTMP naming configuration, where MediaConnect generates the application and stream names. This type does not require any additional settings.
+            :param manual: The manual RTMP naming configuration, where you specify the application and stream names.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flowsource-rtmppushnamingconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                # automatic: Any
+                
+                rtmp_push_naming_configuration_property = mediaconnect.CfnFlowSource.RtmpPushNamingConfigurationProperty(
+                    automatic=automatic,
+                    manual=mediaconnect.CfnFlowSource.ManualRtmpPushNamingConfigurationProperty(
+                        application_name="applicationName",
+                        stream_name="streamName"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__aac57bcbcc1b3fd6be6aab51010b9f847c84d249614f5df1fda106c31ecf7232)
+                check_type(argname="argument automatic", value=automatic, expected_type=type_hints["automatic"])
+                check_type(argname="argument manual", value=manual, expected_type=type_hints["manual"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if automatic is not None:
+                self._values["automatic"] = automatic
+            if manual is not None:
+                self._values["manual"] = manual
+
+        @builtins.property
+        def automatic(self) -> typing.Any:
+            '''The automatic RTMP naming configuration, where MediaConnect generates the application and stream names.
+
+            This type does not require any additional settings.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flowsource-rtmppushnamingconfiguration.html#cfn-mediaconnect-flowsource-rtmppushnamingconfiguration-automatic
+            '''
+            result = self._values.get("automatic")
+            return typing.cast(typing.Any, result)
+
+        @builtins.property
+        def manual(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowSource.ManualRtmpPushNamingConfigurationProperty"]]:
+            '''The manual RTMP naming configuration, where you specify the application and stream names.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flowsource-rtmppushnamingconfiguration.html#cfn-mediaconnect-flowsource-rtmppushnamingconfiguration-manual
+            '''
+            result = self._values.get("manual")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowSource.ManualRtmpPushNamingConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RtmpPushNamingConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlowSource.RtmpPushSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"naming_configuration": "namingConfiguration"},
+    )
+    class RtmpPushSettingsProperty:
+        def __init__(
+            self,
+            *,
+            naming_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlowSource.RtmpPushNamingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''The settings for the RTMP (Real-Time Messaging Protocol) source.
+
+            :param naming_configuration: The configuration settings for the RTMP (Real-Time Messaging Protocol) application and stream names.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flowsource-rtmppushsettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                # automatic: Any
+                
+                rtmp_push_settings_property = mediaconnect.CfnFlowSource.RtmpPushSettingsProperty(
+                    naming_configuration=mediaconnect.CfnFlowSource.RtmpPushNamingConfigurationProperty(
+                        automatic=automatic,
+                        manual=mediaconnect.CfnFlowSource.ManualRtmpPushNamingConfigurationProperty(
+                            application_name="applicationName",
+                            stream_name="streamName"
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__fd720634dd6d8f2888d116726922f14fdaf18e0679ea9df74e8669be6b8cecb1)
+                check_type(argname="argument naming_configuration", value=naming_configuration, expected_type=type_hints["naming_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "naming_configuration": naming_configuration,
+            }
+
+        @builtins.property
+        def naming_configuration(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowSource.RtmpPushNamingConfigurationProperty"]:
+            '''The configuration settings for the RTMP (Real-Time Messaging Protocol) application and stream names.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flowsource-rtmppushsettings.html#cfn-mediaconnect-flowsource-rtmppushsettings-namingconfiguration
+            '''
+            result = self._values.get("naming_configuration")
+            assert result is not None, "Required property 'naming_configuration' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowSource.RtmpPushNamingConfigurationProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RtmpPushSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlowSource.VpcInterfaceAttachmentProperty",
         jsii_struct_bases=[],
         name_mapping={"vpc_interface_name": "vpcInterfaceName"},
@@ -12719,6 +13802,7 @@ class CfnFlowSource(
         "max_latency": "maxLatency",
         "min_latency": "minLatency",
         "protocol": "protocol",
+        "rtmp_push_settings": "rtmpPushSettings",
         "sender_control_port": "senderControlPort",
         "sender_ip_address": "senderIpAddress",
         "source_listener_address": "sourceListenerAddress",
@@ -12744,6 +13828,7 @@ class CfnFlowSourceProps:
         max_latency: typing.Optional[jsii.Number] = None,
         min_latency: typing.Optional[jsii.Number] = None,
         protocol: typing.Optional[builtins.str] = None,
+        rtmp_push_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlowSource.RtmpPushSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         sender_control_port: typing.Optional[jsii.Number] = None,
         sender_ip_address: typing.Optional[builtins.str] = None,
         source_listener_address: typing.Optional[builtins.str] = None,
@@ -12766,6 +13851,7 @@ class CfnFlowSourceProps:
         :param max_latency: The maximum latency in milliseconds. This parameter applies only to RIST-based and Zixi-based streams.
         :param min_latency: The minimum latency in milliseconds for SRT-based streams. In streams that use the SRT protocol, this value that you set on your MediaConnect source or output represents the minimal potential latency of that connection. The latency of the stream is set to the highest number between the sender’s minimum latency and the receiver’s minimum latency.
         :param protocol: The protocol that the source uses to deliver the content to MediaConnect. Adding additional sources to an existing flow requires Failover to be enabled. When you enable Failover, the additional source must use the same protocol as the existing source. Only the following protocols support failover: Zixi-push, RTP-FEC, RTP, RIST and SRT protocols. If you use failover with SRT caller or listener, the ``FailoverMode`` property must be set to ``FAILOVER`` . The ``FailoverMode`` property is found in the ``FailoverConfig`` resource of the same flow ARN you used for the source's ``FlowArn`` property. SRT caller/listener does not support merge mode failover.
+        :param rtmp_push_settings: The settings for the RTMP (Real-Time Messaging Protocol) source.
         :param sender_control_port: (deprecated) The port that the flow uses to send outbound requests to initiate connection with the sender.
         :param sender_ip_address: (deprecated) The IP address that the flow communicates with to initiate connection with the sender.
         :param source_listener_address: Source IP or domain name for SRT-caller protocol.
@@ -12784,6 +13870,8 @@ class CfnFlowSourceProps:
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_mediaconnect as mediaconnect
+            
+            # automatic: Any
             
             cfn_flow_source_props = mediaconnect.CfnFlowSourceProps(
                 description="description",
@@ -12818,6 +13906,15 @@ class CfnFlowSourceProps:
                 max_latency=123,
                 min_latency=123,
                 protocol="protocol",
+                rtmp_push_settings=mediaconnect.CfnFlowSource.RtmpPushSettingsProperty(
+                    naming_configuration=mediaconnect.CfnFlowSource.RtmpPushNamingConfigurationProperty(
+                        automatic=automatic,
+                        manual=mediaconnect.CfnFlowSource.ManualRtmpPushNamingConfigurationProperty(
+                            application_name="applicationName",
+                            stream_name="streamName"
+                        )
+                    )
+                ),
                 sender_control_port=123,
                 sender_ip_address="senderIpAddress",
                 source_listener_address="sourceListenerAddress",
@@ -12844,6 +13941,7 @@ class CfnFlowSourceProps:
             check_type(argname="argument max_latency", value=max_latency, expected_type=type_hints["max_latency"])
             check_type(argname="argument min_latency", value=min_latency, expected_type=type_hints["min_latency"])
             check_type(argname="argument protocol", value=protocol, expected_type=type_hints["protocol"])
+            check_type(argname="argument rtmp_push_settings", value=rtmp_push_settings, expected_type=type_hints["rtmp_push_settings"])
             check_type(argname="argument sender_control_port", value=sender_control_port, expected_type=type_hints["sender_control_port"])
             check_type(argname="argument sender_ip_address", value=sender_ip_address, expected_type=type_hints["sender_ip_address"])
             check_type(argname="argument source_listener_address", value=source_listener_address, expected_type=type_hints["source_listener_address"])
@@ -12873,6 +13971,8 @@ class CfnFlowSourceProps:
             self._values["min_latency"] = min_latency
         if protocol is not None:
             self._values["protocol"] = protocol
+        if rtmp_push_settings is not None:
+            self._values["rtmp_push_settings"] = rtmp_push_settings
         if sender_control_port is not None:
             self._values["sender_control_port"] = sender_control_port
         if sender_ip_address is not None:
@@ -13016,6 +14116,17 @@ class CfnFlowSourceProps:
         '''
         result = self._values.get("protocol")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def rtmp_push_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowSource.RtmpPushSettingsProperty"]]:
+        '''The settings for the RTMP (Real-Time Messaging Protocol) source.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-rtmppushsettings
+        '''
+        result = self._values.get("rtmp_push_settings")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlowSource.RtmpPushSettingsProperty"]], result)
 
     @builtins.property
     def sender_control_port(self) -> typing.Optional[jsii.Number]:
@@ -13915,6 +15026,19 @@ class CfnRouterInput(
                             port=123,
                             recovery_latency_milliseconds=123
                         ),
+                        rtmp_push=mediaconnect.CfnRouterInput.RtmpPushRouterInputConfigurationProperty(
+                            naming_configuration=mediaconnect.CfnRouterInput.RtmpPushNamingConfigurationProperty(
+                                automatic=automatic,
+                                manual=mediaconnect.CfnRouterInput.ManualRtmpPushNamingConfigurationProperty(
+                                    application_name="applicationName",
+                                    stream_name="streamName"
+                                )
+                            ),
+                            port=123,
+        
+                            # the properties below are optional
+                            naming_type="namingType"
+                        ),
                         rtp=mediaconnect.CfnRouterInput.RtpRouterInputConfigurationProperty(
                             port=123,
         
@@ -14003,6 +15127,32 @@ class CfnRouterInput(
         
                             # the properties below are optional
                             forward_error_correction="forwardErrorCorrection"
+                        ),
+                        srt_caller=mediaconnect.CfnRouterInput.SrtCallerRouterInputConfigurationProperty(
+                            minimum_latency_milliseconds=123,
+                            source_address="sourceAddress",
+                            source_port=123,
+        
+                            # the properties below are optional
+                            decryption_configuration=mediaconnect.CfnRouterInput.SrtDecryptionConfigurationProperty(
+                                encryption_key=mediaconnect.CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty(
+                                    role_arn="roleArn",
+                                    secret_arn="secretArn"
+                                )
+                            ),
+                            stream_id="streamId"
+                        ),
+                        srt_listener=mediaconnect.CfnRouterInput.SrtListenerRouterInputConfigurationProperty(
+                            minimum_latency_milliseconds=123,
+                            port=123,
+        
+                            # the properties below are optional
+                            decryption_configuration=mediaconnect.CfnRouterInput.SrtDecryptionConfigurationProperty(
+                                encryption_key=mediaconnect.CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty(
+                                    role_arn="roleArn",
+                                    secret_arn="secretArn"
+                                )
+                            )
                         )
                     )]
                 ),
@@ -14012,6 +15162,19 @@ class CfnRouterInput(
                         rist=mediaconnect.CfnRouterInput.RistRouterInputConfigurationProperty(
                             port=123,
                             recovery_latency_milliseconds=123
+                        ),
+                        rtmp_push=mediaconnect.CfnRouterInput.RtmpPushRouterInputConfigurationProperty(
+                            naming_configuration=mediaconnect.CfnRouterInput.RtmpPushNamingConfigurationProperty(
+                                automatic=automatic,
+                                manual=mediaconnect.CfnRouterInput.ManualRtmpPushNamingConfigurationProperty(
+                                    application_name="applicationName",
+                                    stream_name="streamName"
+                                )
+                            ),
+                            port=123,
+        
+                            # the properties below are optional
+                            naming_type="namingType"
                         ),
                         rtp=mediaconnect.CfnRouterInput.RtpRouterInputConfigurationProperty(
                             port=123,
@@ -14299,6 +15462,77 @@ class CfnRouterInput(
         :cloudformationAttribute: State
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrState"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStreamDetails")
+    def attr_stream_details(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''Configuration details for the router input stream.
+
+        :cloudformationAttribute: StreamDetails
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrStreamDetails"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStreamDetailsFailoverSourceIndexOneStreamDetailsRtmpPushApplicationName")
+    def attr_stream_details_failover_source_index_one_stream_details_rtmp_push_application_name(
+        self,
+    ) -> builtins.str:
+        '''The name of the RTMP application.
+
+        :cloudformationAttribute: StreamDetails.Failover.SourceIndexOneStreamDetails.RtmpPush.ApplicationName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStreamDetailsFailoverSourceIndexOneStreamDetailsRtmpPushApplicationName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStreamDetailsFailoverSourceIndexOneStreamDetailsRtmpPushStreamName")
+    def attr_stream_details_failover_source_index_one_stream_details_rtmp_push_stream_name(
+        self,
+    ) -> builtins.str:
+        '''The name of the RTMP stream.
+
+        :cloudformationAttribute: StreamDetails.Failover.SourceIndexOneStreamDetails.RtmpPush.StreamName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStreamDetailsFailoverSourceIndexOneStreamDetailsRtmpPushStreamName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStreamDetailsFailoverSourceIndexZeroStreamDetailsRtmpPushApplicationName")
+    def attr_stream_details_failover_source_index_zero_stream_details_rtmp_push_application_name(
+        self,
+    ) -> builtins.str:
+        '''The name of the RTMP application.
+
+        :cloudformationAttribute: StreamDetails.Failover.SourceIndexZeroStreamDetails.RtmpPush.ApplicationName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStreamDetailsFailoverSourceIndexZeroStreamDetailsRtmpPushApplicationName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStreamDetailsFailoverSourceIndexZeroStreamDetailsRtmpPushStreamName")
+    def attr_stream_details_failover_source_index_zero_stream_details_rtmp_push_stream_name(
+        self,
+    ) -> builtins.str:
+        '''The name of the RTMP stream.
+
+        :cloudformationAttribute: StreamDetails.Failover.SourceIndexZeroStreamDetails.RtmpPush.StreamName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStreamDetailsFailoverSourceIndexZeroStreamDetailsRtmpPushStreamName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStreamDetailsStandardRtmpPushApplicationName")
+    def attr_stream_details_standard_rtmp_push_application_name(self) -> builtins.str:
+        '''The name of the RTMP application.
+
+        :cloudformationAttribute: StreamDetails.Standard.RtmpPush.ApplicationName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStreamDetailsStandardRtmpPushApplicationName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStreamDetailsStandardRtmpPushStreamName")
+    def attr_stream_details_standard_rtmp_push_stream_name(self) -> builtins.str:
+        '''The name of the RTMP stream.
+
+        :cloudformationAttribute: StreamDetails.Standard.RtmpPush.StreamName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStreamDetailsStandardRtmpPushStreamName"))
 
     @builtins.property
     @jsii.member(jsii_name="attrUpdatedAt")
@@ -14948,12 +16182,27 @@ class CfnRouterInput(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_mediaconnect as mediaconnect
                 
+                # automatic: Any
+                
                 failover_router_input_configuration_property = mediaconnect.CfnRouterInput.FailoverRouterInputConfigurationProperty(
                     network_interface_arn="networkInterfaceArn",
                     protocol_configurations=[mediaconnect.CfnRouterInput.FailoverRouterInputProtocolConfigurationProperty(
                         rist=mediaconnect.CfnRouterInput.RistRouterInputConfigurationProperty(
                             port=123,
                             recovery_latency_milliseconds=123
+                        ),
+                        rtmp_push=mediaconnect.CfnRouterInput.RtmpPushRouterInputConfigurationProperty(
+                            naming_configuration=mediaconnect.CfnRouterInput.RtmpPushNamingConfigurationProperty(
+                                automatic=automatic,
+                                manual=mediaconnect.CfnRouterInput.ManualRtmpPushNamingConfigurationProperty(
+                                    application_name="applicationName",
+                                    stream_name="streamName"
+                                )
+                            ),
+                            port=123,
+                
+                            # the properties below are optional
+                            naming_type="namingType"
                         ),
                         rtp=mediaconnect.CfnRouterInput.RtpRouterInputConfigurationProperty(
                             port=123,
@@ -15064,10 +16313,89 @@ class CfnRouterInput(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterInput.FailoverRouterInputIndexedStreamDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"source_index": "sourceIndex", "rtmp_push": "rtmpPush"},
+    )
+    class FailoverRouterInputIndexedStreamDetailsProperty:
+        def __init__(
+            self,
+            *,
+            source_index: jsii.Number,
+            rtmp_push: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.RtmpPushStreamDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Configuration details for an indexed stream in a failover router input setup.
+
+            :param source_index: The index number (0 or 1) assigned to this source in the failover configuration.
+            :param rtmp_push: Configuration details for an RTMP (Real-Time Messaging Protocol) router input stream, including the application and stream names.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-failoverrouterinputindexedstreamdetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                failover_router_input_indexed_stream_details_property = mediaconnect.CfnRouterInput.FailoverRouterInputIndexedStreamDetailsProperty(
+                    source_index=123,
+                
+                    # the properties below are optional
+                    rtmp_push=mediaconnect.CfnRouterInput.RtmpPushStreamDetailsProperty(
+                        application_name="applicationName",
+                        stream_name="streamName"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__ace2993ba92025f9ae9e6ea8737d5aa5194865778cfc5ebdcb388ce3193d207c)
+                check_type(argname="argument source_index", value=source_index, expected_type=type_hints["source_index"])
+                check_type(argname="argument rtmp_push", value=rtmp_push, expected_type=type_hints["rtmp_push"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "source_index": source_index,
+            }
+            if rtmp_push is not None:
+                self._values["rtmp_push"] = rtmp_push
+
+        @builtins.property
+        def source_index(self) -> jsii.Number:
+            '''The index number (0 or 1) assigned to this source in the failover configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-failoverrouterinputindexedstreamdetails.html#cfn-mediaconnect-routerinput-failoverrouterinputindexedstreamdetails-sourceindex
+            '''
+            result = self._values.get("source_index")
+            assert result is not None, "Required property 'source_index' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def rtmp_push(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RtmpPushStreamDetailsProperty"]]:
+            '''Configuration details for an RTMP (Real-Time Messaging Protocol) router input stream, including the application and stream names.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-failoverrouterinputindexedstreamdetails.html#cfn-mediaconnect-routerinput-failoverrouterinputindexedstreamdetails-rtmppush
+            '''
+            result = self._values.get("rtmp_push")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RtmpPushStreamDetailsProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "FailoverRouterInputIndexedStreamDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterInput.FailoverRouterInputProtocolConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
             "rist": "rist",
+            "rtmp_push": "rtmpPush",
             "rtp": "rtp",
             "srt_caller": "srtCaller",
             "srt_listener": "srtListener",
@@ -15078,12 +16406,14 @@ class CfnRouterInput(
             self,
             *,
             rist: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.RistRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            rtmp_push: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.RtmpPushRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             rtp: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.RtpRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             srt_caller: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.SrtCallerRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             srt_listener: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.SrtListenerRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param rist: The configuration settings for a router input using the RIST (Reliable Internet Stream Transport) protocol, including the port and recovery latency.
+            :param rtmp_push: The configuration settings for a router input using the RTMP (Real-Time Messaging Protocol) protocol.
             :param rtp: The configuration settings for a Router Input using the RTP (Real-Time Transport Protocol) protocol, including the port and forward error correction state.
             :param srt_caller: The configuration settings for a router input using the SRT (Secure Reliable Transport) protocol in caller mode, including the source address and port, minimum latency, stream ID, and decryption key configuration.
             :param srt_listener: The configuration settings for a router input using the SRT (Secure Reliable Transport) protocol in listener mode, including the port, minimum latency, and decryption key configuration.
@@ -15097,10 +16427,25 @@ class CfnRouterInput(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_mediaconnect as mediaconnect
                 
+                # automatic: Any
+                
                 failover_router_input_protocol_configuration_property = mediaconnect.CfnRouterInput.FailoverRouterInputProtocolConfigurationProperty(
                     rist=mediaconnect.CfnRouterInput.RistRouterInputConfigurationProperty(
                         port=123,
                         recovery_latency_milliseconds=123
+                    ),
+                    rtmp_push=mediaconnect.CfnRouterInput.RtmpPushRouterInputConfigurationProperty(
+                        naming_configuration=mediaconnect.CfnRouterInput.RtmpPushNamingConfigurationProperty(
+                            automatic=automatic,
+                            manual=mediaconnect.CfnRouterInput.ManualRtmpPushNamingConfigurationProperty(
+                                application_name="applicationName",
+                                stream_name="streamName"
+                            )
+                        ),
+                        port=123,
+                
+                        # the properties below are optional
+                        naming_type="namingType"
                     ),
                     rtp=mediaconnect.CfnRouterInput.RtpRouterInputConfigurationProperty(
                         port=123,
@@ -15139,12 +16484,15 @@ class CfnRouterInput(
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__d8f038e6a58a77278305824f4d096d5103bdf9497e022340099fbe631d35cdea)
                 check_type(argname="argument rist", value=rist, expected_type=type_hints["rist"])
+                check_type(argname="argument rtmp_push", value=rtmp_push, expected_type=type_hints["rtmp_push"])
                 check_type(argname="argument rtp", value=rtp, expected_type=type_hints["rtp"])
                 check_type(argname="argument srt_caller", value=srt_caller, expected_type=type_hints["srt_caller"])
                 check_type(argname="argument srt_listener", value=srt_listener, expected_type=type_hints["srt_listener"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if rist is not None:
                 self._values["rist"] = rist
+            if rtmp_push is not None:
+                self._values["rtmp_push"] = rtmp_push
             if rtp is not None:
                 self._values["rtp"] = rtp
             if srt_caller is not None:
@@ -15162,6 +16510,17 @@ class CfnRouterInput(
             '''
             result = self._values.get("rist")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RistRouterInputConfigurationProperty"]], result)
+
+        @builtins.property
+        def rtmp_push(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RtmpPushRouterInputConfigurationProperty"]]:
+            '''The configuration settings for a router input using the RTMP (Real-Time Messaging Protocol) protocol.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-failoverrouterinputprotocolconfiguration.html#cfn-mediaconnect-routerinput-failoverrouterinputprotocolconfiguration-rtmppush
+            '''
+            result = self._values.get("rtmp_push")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RtmpPushRouterInputConfigurationProperty"]], result)
 
         @builtins.property
         def rtp(
@@ -15204,6 +16563,100 @@ class CfnRouterInput(
 
         def __repr__(self) -> str:
             return "FailoverRouterInputProtocolConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterInput.FailoverRouterInputStreamDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "source_index_one_stream_details": "sourceIndexOneStreamDetails",
+            "source_index_zero_stream_details": "sourceIndexZeroStreamDetails",
+        },
+    )
+    class FailoverRouterInputStreamDetailsProperty:
+        def __init__(
+            self,
+            *,
+            source_index_one_stream_details: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.FailoverRouterInputIndexedStreamDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
+            source_index_zero_stream_details: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.FailoverRouterInputIndexedStreamDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''Configuration details for a failover router input that can automatically switch between two sources.
+
+            :param source_index_one_stream_details: Configuration details for an indexed stream in a failover router input setup.
+            :param source_index_zero_stream_details: Configuration details for an indexed stream in a failover router input setup.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-failoverrouterinputstreamdetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                failover_router_input_stream_details_property = mediaconnect.CfnRouterInput.FailoverRouterInputStreamDetailsProperty(
+                    source_index_one_stream_details=mediaconnect.CfnRouterInput.FailoverRouterInputIndexedStreamDetailsProperty(
+                        source_index=123,
+                
+                        # the properties below are optional
+                        rtmp_push=mediaconnect.CfnRouterInput.RtmpPushStreamDetailsProperty(
+                            application_name="applicationName",
+                            stream_name="streamName"
+                        )
+                    ),
+                    source_index_zero_stream_details=mediaconnect.CfnRouterInput.FailoverRouterInputIndexedStreamDetailsProperty(
+                        source_index=123,
+                
+                        # the properties below are optional
+                        rtmp_push=mediaconnect.CfnRouterInput.RtmpPushStreamDetailsProperty(
+                            application_name="applicationName",
+                            stream_name="streamName"
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__00ab406f99b4ec33f724f549dbee9f530b285dd2e00154846eca1d05608dc0d0)
+                check_type(argname="argument source_index_one_stream_details", value=source_index_one_stream_details, expected_type=type_hints["source_index_one_stream_details"])
+                check_type(argname="argument source_index_zero_stream_details", value=source_index_zero_stream_details, expected_type=type_hints["source_index_zero_stream_details"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "source_index_one_stream_details": source_index_one_stream_details,
+                "source_index_zero_stream_details": source_index_zero_stream_details,
+            }
+
+        @builtins.property
+        def source_index_one_stream_details(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.FailoverRouterInputIndexedStreamDetailsProperty"]:
+            '''Configuration details for an indexed stream in a failover router input setup.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-failoverrouterinputstreamdetails.html#cfn-mediaconnect-routerinput-failoverrouterinputstreamdetails-sourceindexonestreamdetails
+            '''
+            result = self._values.get("source_index_one_stream_details")
+            assert result is not None, "Required property 'source_index_one_stream_details' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.FailoverRouterInputIndexedStreamDetailsProperty"], result)
+
+        @builtins.property
+        def source_index_zero_stream_details(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.FailoverRouterInputIndexedStreamDetailsProperty"]:
+            '''Configuration details for an indexed stream in a failover router input setup.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-failoverrouterinputstreamdetails.html#cfn-mediaconnect-routerinput-failoverrouterinputstreamdetails-sourceindexzerostreamdetails
+            '''
+            result = self._values.get("source_index_zero_stream_details")
+            assert result is not None, "Required property 'source_index_zero_stream_details' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.FailoverRouterInputIndexedStreamDetailsProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "FailoverRouterInputStreamDetailsProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -15511,6 +16964,84 @@ class CfnRouterInput(
 
         def __repr__(self) -> str:
             return "MaintenanceConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterInput.ManualRtmpPushNamingConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "application_name": "applicationName",
+            "stream_name": "streamName",
+        },
+    )
+    class ManualRtmpPushNamingConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            application_name: builtins.str,
+            stream_name: builtins.str,
+        ) -> None:
+            '''The manual RTMP naming configuration, where you specify the application and stream names.
+
+            :param application_name: The name of the RTMP application. Together with the stream name, the application name forms the RTMP URL path, in the pattern rtmp://ingestAddress/applicationName/streamName.
+            :param stream_name: The name of the RTMP stream. The stream name forms the final segment of the RTMP URL path.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-manualrtmppushnamingconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                manual_rtmp_push_naming_configuration_property = mediaconnect.CfnRouterInput.ManualRtmpPushNamingConfigurationProperty(
+                    application_name="applicationName",
+                    stream_name="streamName"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__b85d1066229bb4387882ee7df2d31f6ec15469508062016fc2a929f792d6b0f6)
+                check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
+                check_type(argname="argument stream_name", value=stream_name, expected_type=type_hints["stream_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "application_name": application_name,
+                "stream_name": stream_name,
+            }
+
+        @builtins.property
+        def application_name(self) -> builtins.str:
+            '''The name of the RTMP application.
+
+            Together with the stream name, the application name forms the RTMP URL path, in the pattern rtmp://ingestAddress/applicationName/streamName.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-manualrtmppushnamingconfiguration.html#cfn-mediaconnect-routerinput-manualrtmppushnamingconfiguration-applicationname
+            '''
+            result = self._values.get("application_name")
+            assert result is not None, "Required property 'application_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def stream_name(self) -> builtins.str:
+            '''The name of the RTMP stream.
+
+            The stream name forms the final segment of the RTMP URL path.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-manualrtmppushnamingconfiguration.html#cfn-mediaconnect-routerinput-manualrtmppushnamingconfiguration-streamname
+            '''
+            result = self._values.get("stream_name")
+            assert result is not None, "Required property 'stream_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ManualRtmpPushNamingConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -15957,6 +17488,32 @@ class CfnRouterInput(
                 
                             # the properties below are optional
                             forward_error_correction="forwardErrorCorrection"
+                        ),
+                        srt_caller=mediaconnect.CfnRouterInput.SrtCallerRouterInputConfigurationProperty(
+                            minimum_latency_milliseconds=123,
+                            source_address="sourceAddress",
+                            source_port=123,
+                
+                            # the properties below are optional
+                            decryption_configuration=mediaconnect.CfnRouterInput.SrtDecryptionConfigurationProperty(
+                                encryption_key=mediaconnect.CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty(
+                                    role_arn="roleArn",
+                                    secret_arn="secretArn"
+                                )
+                            ),
+                            stream_id="streamId"
+                        ),
+                        srt_listener=mediaconnect.CfnRouterInput.SrtListenerRouterInputConfigurationProperty(
+                            minimum_latency_milliseconds=123,
+                            port=123,
+                
+                            # the properties below are optional
+                            decryption_configuration=mediaconnect.CfnRouterInput.SrtDecryptionConfigurationProperty(
+                                encryption_key=mediaconnect.CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty(
+                                    role_arn="roleArn",
+                                    secret_arn="secretArn"
+                                )
+                            )
                         )
                     )]
                 )
@@ -16018,9 +17575,66 @@ class CfnRouterInput(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterInput.MergeRouterInputIndexedStreamDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"source_index": "sourceIndex"},
+    )
+    class MergeRouterInputIndexedStreamDetailsProperty:
+        def __init__(self, *, source_index: jsii.Number) -> None:
+            '''Configuration details for an indexed stream in a merge router input setup.
+
+            :param source_index: The index number (0 or 1) assigned to this source in the merge configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-mergerouterinputindexedstreamdetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                merge_router_input_indexed_stream_details_property = mediaconnect.CfnRouterInput.MergeRouterInputIndexedStreamDetailsProperty(
+                    source_index=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__1a832a282ad7daedfab48a883c3f1829ed10e50ea333083ad6a5f19890802bfc)
+                check_type(argname="argument source_index", value=source_index, expected_type=type_hints["source_index"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "source_index": source_index,
+            }
+
+        @builtins.property
+        def source_index(self) -> jsii.Number:
+            '''The index number (0 or 1) assigned to this source in the merge configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-mergerouterinputindexedstreamdetails.html#cfn-mediaconnect-routerinput-mergerouterinputindexedstreamdetails-sourceindex
+            '''
+            result = self._values.get("source_index")
+            assert result is not None, "Required property 'source_index' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MergeRouterInputIndexedStreamDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterInput.MergeRouterInputProtocolConfigurationProperty",
         jsii_struct_bases=[],
-        name_mapping={"rist": "rist", "rtp": "rtp"},
+        name_mapping={
+            "rist": "rist",
+            "rtp": "rtp",
+            "srt_caller": "srtCaller",
+            "srt_listener": "srtListener",
+        },
     )
     class MergeRouterInputProtocolConfigurationProperty:
         def __init__(
@@ -16028,10 +17642,14 @@ class CfnRouterInput(
             *,
             rist: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.RistRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             rtp: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.RtpRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            srt_caller: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.SrtCallerRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            srt_listener: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.SrtListenerRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param rist: The configuration settings for a router input using the RIST (Reliable Internet Stream Transport) protocol, including the port and recovery latency.
             :param rtp: The configuration settings for a Router Input using the RTP (Real-Time Transport Protocol) protocol, including the port and forward error correction state.
+            :param srt_caller: The configuration settings for a router input using the SRT (Secure Reliable Transport) protocol in caller mode, including the source address and port, minimum latency, stream ID, and decryption key configuration.
+            :param srt_listener: The configuration settings for a router input using the SRT (Secure Reliable Transport) protocol in listener mode, including the port, minimum latency, and decryption key configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-mergerouterinputprotocolconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -16052,6 +17670,32 @@ class CfnRouterInput(
                 
                         # the properties below are optional
                         forward_error_correction="forwardErrorCorrection"
+                    ),
+                    srt_caller=mediaconnect.CfnRouterInput.SrtCallerRouterInputConfigurationProperty(
+                        minimum_latency_milliseconds=123,
+                        source_address="sourceAddress",
+                        source_port=123,
+                
+                        # the properties below are optional
+                        decryption_configuration=mediaconnect.CfnRouterInput.SrtDecryptionConfigurationProperty(
+                            encryption_key=mediaconnect.CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty(
+                                role_arn="roleArn",
+                                secret_arn="secretArn"
+                            )
+                        ),
+                        stream_id="streamId"
+                    ),
+                    srt_listener=mediaconnect.CfnRouterInput.SrtListenerRouterInputConfigurationProperty(
+                        minimum_latency_milliseconds=123,
+                        port=123,
+                
+                        # the properties below are optional
+                        decryption_configuration=mediaconnect.CfnRouterInput.SrtDecryptionConfigurationProperty(
+                            encryption_key=mediaconnect.CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty(
+                                role_arn="roleArn",
+                                secret_arn="secretArn"
+                            )
+                        )
                     )
                 )
             '''
@@ -16059,11 +17703,17 @@ class CfnRouterInput(
                 type_hints = cached_type_hints(_typecheckingstub__d4bff0ea4788435a62555083659b5a3393ff9c2dc3b37396f56d5473c1b65763)
                 check_type(argname="argument rist", value=rist, expected_type=type_hints["rist"])
                 check_type(argname="argument rtp", value=rtp, expected_type=type_hints["rtp"])
+                check_type(argname="argument srt_caller", value=srt_caller, expected_type=type_hints["srt_caller"])
+                check_type(argname="argument srt_listener", value=srt_listener, expected_type=type_hints["srt_listener"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if rist is not None:
                 self._values["rist"] = rist
             if rtp is not None:
                 self._values["rtp"] = rtp
+            if srt_caller is not None:
+                self._values["srt_caller"] = srt_caller
+            if srt_listener is not None:
+                self._values["srt_listener"] = srt_listener
 
         @builtins.property
         def rist(
@@ -16087,6 +17737,28 @@ class CfnRouterInput(
             result = self._values.get("rtp")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RtpRouterInputConfigurationProperty"]], result)
 
+        @builtins.property
+        def srt_caller(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.SrtCallerRouterInputConfigurationProperty"]]:
+            '''The configuration settings for a router input using the SRT (Secure Reliable Transport) protocol in caller mode, including the source address and port, minimum latency, stream ID, and decryption key configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-mergerouterinputprotocolconfiguration.html#cfn-mediaconnect-routerinput-mergerouterinputprotocolconfiguration-srtcaller
+            '''
+            result = self._values.get("srt_caller")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.SrtCallerRouterInputConfigurationProperty"]], result)
+
+        @builtins.property
+        def srt_listener(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.SrtListenerRouterInputConfigurationProperty"]]:
+            '''The configuration settings for a router input using the SRT (Secure Reliable Transport) protocol in listener mode, including the port, minimum latency, and decryption key configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-mergerouterinputprotocolconfiguration.html#cfn-mediaconnect-routerinput-mergerouterinputprotocolconfiguration-srtlistener
+            '''
+            result = self._values.get("srt_listener")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.SrtListenerRouterInputConfigurationProperty"]], result)
+
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -16095,6 +17767,88 @@ class CfnRouterInput(
 
         def __repr__(self) -> str:
             return "MergeRouterInputProtocolConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterInput.MergeRouterInputStreamDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "source_index_one_stream_details": "sourceIndexOneStreamDetails",
+            "source_index_zero_stream_details": "sourceIndexZeroStreamDetails",
+        },
+    )
+    class MergeRouterInputStreamDetailsProperty:
+        def __init__(
+            self,
+            *,
+            source_index_one_stream_details: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.MergeRouterInputIndexedStreamDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
+            source_index_zero_stream_details: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.MergeRouterInputIndexedStreamDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''Configuration details for a merge router input that combines two input sources.
+
+            :param source_index_one_stream_details: Configuration details for an indexed stream in a merge router input setup.
+            :param source_index_zero_stream_details: Configuration details for an indexed stream in a merge router input setup.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-mergerouterinputstreamdetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                merge_router_input_stream_details_property = mediaconnect.CfnRouterInput.MergeRouterInputStreamDetailsProperty(
+                    source_index_one_stream_details=mediaconnect.CfnRouterInput.MergeRouterInputIndexedStreamDetailsProperty(
+                        source_index=123
+                    ),
+                    source_index_zero_stream_details=mediaconnect.CfnRouterInput.MergeRouterInputIndexedStreamDetailsProperty(
+                        source_index=123
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__d99c86e9d03160e733715c6ebd398bd2c992cb4d5b37accb42e107f0851b9c3b)
+                check_type(argname="argument source_index_one_stream_details", value=source_index_one_stream_details, expected_type=type_hints["source_index_one_stream_details"])
+                check_type(argname="argument source_index_zero_stream_details", value=source_index_zero_stream_details, expected_type=type_hints["source_index_zero_stream_details"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "source_index_one_stream_details": source_index_one_stream_details,
+                "source_index_zero_stream_details": source_index_zero_stream_details,
+            }
+
+        @builtins.property
+        def source_index_one_stream_details(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.MergeRouterInputIndexedStreamDetailsProperty"]:
+            '''Configuration details for an indexed stream in a merge router input setup.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-mergerouterinputstreamdetails.html#cfn-mediaconnect-routerinput-mergerouterinputstreamdetails-sourceindexonestreamdetails
+            '''
+            result = self._values.get("source_index_one_stream_details")
+            assert result is not None, "Required property 'source_index_one_stream_details' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.MergeRouterInputIndexedStreamDetailsProperty"], result)
+
+        @builtins.property
+        def source_index_zero_stream_details(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.MergeRouterInputIndexedStreamDetailsProperty"]:
+            '''Configuration details for an indexed stream in a merge router input setup.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-mergerouterinputstreamdetails.html#cfn-mediaconnect-routerinput-mergerouterinputstreamdetails-sourceindexzerostreamdetails
+            '''
+            result = self._values.get("source_index_zero_stream_details")
+            assert result is not None, "Required property 'source_index_zero_stream_details' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.MergeRouterInputIndexedStreamDetailsProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MergeRouterInputStreamDetailsProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -16377,6 +18131,19 @@ class CfnRouterInput(
                                 port=123,
                                 recovery_latency_milliseconds=123
                             ),
+                            rtmp_push=mediaconnect.CfnRouterInput.RtmpPushRouterInputConfigurationProperty(
+                                naming_configuration=mediaconnect.CfnRouterInput.RtmpPushNamingConfigurationProperty(
+                                    automatic=automatic,
+                                    manual=mediaconnect.CfnRouterInput.ManualRtmpPushNamingConfigurationProperty(
+                                        application_name="applicationName",
+                                        stream_name="streamName"
+                                    )
+                                ),
+                                port=123,
+                
+                                # the properties below are optional
+                                naming_type="namingType"
+                            ),
                             rtp=mediaconnect.CfnRouterInput.RtpRouterInputConfigurationProperty(
                                 port=123,
                 
@@ -16465,6 +18232,32 @@ class CfnRouterInput(
                 
                                 # the properties below are optional
                                 forward_error_correction="forwardErrorCorrection"
+                            ),
+                            srt_caller=mediaconnect.CfnRouterInput.SrtCallerRouterInputConfigurationProperty(
+                                minimum_latency_milliseconds=123,
+                                source_address="sourceAddress",
+                                source_port=123,
+                
+                                # the properties below are optional
+                                decryption_configuration=mediaconnect.CfnRouterInput.SrtDecryptionConfigurationProperty(
+                                    encryption_key=mediaconnect.CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty(
+                                        role_arn="roleArn",
+                                        secret_arn="secretArn"
+                                    )
+                                ),
+                                stream_id="streamId"
+                            ),
+                            srt_listener=mediaconnect.CfnRouterInput.SrtListenerRouterInputConfigurationProperty(
+                                minimum_latency_milliseconds=123,
+                                port=123,
+                
+                                # the properties below are optional
+                                decryption_configuration=mediaconnect.CfnRouterInput.SrtDecryptionConfigurationProperty(
+                                    encryption_key=mediaconnect.CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty(
+                                        role_arn="roleArn",
+                                        secret_arn="secretArn"
+                                    )
+                                )
                             )
                         )]
                     ),
@@ -16474,6 +18267,19 @@ class CfnRouterInput(
                             rist=mediaconnect.CfnRouterInput.RistRouterInputConfigurationProperty(
                                 port=123,
                                 recovery_latency_milliseconds=123
+                            ),
+                            rtmp_push=mediaconnect.CfnRouterInput.RtmpPushRouterInputConfigurationProperty(
+                                naming_configuration=mediaconnect.CfnRouterInput.RtmpPushNamingConfigurationProperty(
+                                    automatic=automatic,
+                                    manual=mediaconnect.CfnRouterInput.ManualRtmpPushNamingConfigurationProperty(
+                                        application_name="applicationName",
+                                        stream_name="streamName"
+                                    )
+                                ),
+                                port=123,
+                
+                                # the properties below are optional
+                                naming_type="namingType"
                             ),
                             rtp=mediaconnect.CfnRouterInput.RtpRouterInputConfigurationProperty(
                                 port=123,
@@ -16622,6 +18428,7 @@ class CfnRouterInput(
         jsii_struct_bases=[],
         name_mapping={
             "rist": "rist",
+            "rtmp_push": "rtmpPush",
             "rtp": "rtp",
             "srt_caller": "srtCaller",
             "srt_listener": "srtListener",
@@ -16632,12 +18439,14 @@ class CfnRouterInput(
             self,
             *,
             rist: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.RistRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            rtmp_push: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.RtmpPushRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             rtp: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.RtpRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             srt_caller: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.SrtCallerRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             srt_listener: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.SrtListenerRouterInputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param rist: The configuration settings for a router input using the RIST (Reliable Internet Stream Transport) protocol, including the port and recovery latency.
+            :param rtmp_push: The configuration settings for a router input using the RTMP (Real-Time Messaging Protocol) protocol.
             :param rtp: The configuration settings for a Router Input using the RTP (Real-Time Transport Protocol) protocol, including the port and forward error correction state.
             :param srt_caller: The configuration settings for a router input using the SRT (Secure Reliable Transport) protocol in caller mode, including the source address and port, minimum latency, stream ID, and decryption key configuration.
             :param srt_listener: The configuration settings for a router input using the SRT (Secure Reliable Transport) protocol in listener mode, including the port, minimum latency, and decryption key configuration.
@@ -16651,10 +18460,25 @@ class CfnRouterInput(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_mediaconnect as mediaconnect
                 
+                # automatic: Any
+                
                 router_input_protocol_configuration_property = mediaconnect.CfnRouterInput.RouterInputProtocolConfigurationProperty(
                     rist=mediaconnect.CfnRouterInput.RistRouterInputConfigurationProperty(
                         port=123,
                         recovery_latency_milliseconds=123
+                    ),
+                    rtmp_push=mediaconnect.CfnRouterInput.RtmpPushRouterInputConfigurationProperty(
+                        naming_configuration=mediaconnect.CfnRouterInput.RtmpPushNamingConfigurationProperty(
+                            automatic=automatic,
+                            manual=mediaconnect.CfnRouterInput.ManualRtmpPushNamingConfigurationProperty(
+                                application_name="applicationName",
+                                stream_name="streamName"
+                            )
+                        ),
+                        port=123,
+                
+                        # the properties below are optional
+                        naming_type="namingType"
                     ),
                     rtp=mediaconnect.CfnRouterInput.RtpRouterInputConfigurationProperty(
                         port=123,
@@ -16693,12 +18517,15 @@ class CfnRouterInput(
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__6bee2f8b18c83277f36b402b57e84bb58ee2a5352632583caaeb637773d1069c)
                 check_type(argname="argument rist", value=rist, expected_type=type_hints["rist"])
+                check_type(argname="argument rtmp_push", value=rtmp_push, expected_type=type_hints["rtmp_push"])
                 check_type(argname="argument rtp", value=rtp, expected_type=type_hints["rtp"])
                 check_type(argname="argument srt_caller", value=srt_caller, expected_type=type_hints["srt_caller"])
                 check_type(argname="argument srt_listener", value=srt_listener, expected_type=type_hints["srt_listener"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if rist is not None:
                 self._values["rist"] = rist
+            if rtmp_push is not None:
+                self._values["rtmp_push"] = rtmp_push
             if rtp is not None:
                 self._values["rtp"] = rtp
             if srt_caller is not None:
@@ -16716,6 +18543,17 @@ class CfnRouterInput(
             '''
             result = self._values.get("rist")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RistRouterInputConfigurationProperty"]], result)
+
+        @builtins.property
+        def rtmp_push(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RtmpPushRouterInputConfigurationProperty"]]:
+            '''The configuration settings for a router input using the RTMP (Real-Time Messaging Protocol) protocol.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-routerinputprotocolconfiguration.html#cfn-mediaconnect-routerinput-routerinputprotocolconfiguration-rtmppush
+            '''
+            result = self._values.get("rtmp_push")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RtmpPushRouterInputConfigurationProperty"]], result)
 
         @builtins.property
         def rtp(
@@ -16758,6 +18596,183 @@ class CfnRouterInput(
 
         def __repr__(self) -> str:
             return "RouterInputProtocolConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterInput.RouterInputStreamDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "destination_endpoint": "destinationEndpoint",
+            "failover": "failover",
+            "media_connect_flow": "mediaConnectFlow",
+            "media_live_channel": "mediaLiveChannel",
+            "merge": "merge",
+            "standard": "standard",
+        },
+    )
+    class RouterInputStreamDetailsProperty:
+        def __init__(
+            self,
+            *,
+            destination_endpoint: typing.Any = None,
+            failover: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.FailoverRouterInputStreamDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            media_connect_flow: typing.Any = None,
+            media_live_channel: typing.Any = None,
+            merge: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.MergeRouterInputStreamDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            standard: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.StandardRouterInputStreamDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param destination_endpoint: Configuration details for a router input stream that is represented by a destination endpoint.
+            :param failover: Configuration details for a failover router input that can automatically switch between two sources.
+            :param media_connect_flow: Configuration details for a MediaConnect flow when used as a router input source.
+            :param media_live_channel: Configuration details for a MediaLive channel when used as a router input source.
+            :param merge: Configuration details for a merge router input that combines two input sources.
+            :param standard: Configuration details for a standard router input stream type.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-routerinputstreamdetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                # destination_endpoint: Any
+                # media_connect_flow: Any
+                # media_live_channel: Any
+                
+                router_input_stream_details_property = mediaconnect.CfnRouterInput.RouterInputStreamDetailsProperty(
+                    destination_endpoint=destination_endpoint,
+                    failover=mediaconnect.CfnRouterInput.FailoverRouterInputStreamDetailsProperty(
+                        source_index_one_stream_details=mediaconnect.CfnRouterInput.FailoverRouterInputIndexedStreamDetailsProperty(
+                            source_index=123,
+                
+                            # the properties below are optional
+                            rtmp_push=mediaconnect.CfnRouterInput.RtmpPushStreamDetailsProperty(
+                                application_name="applicationName",
+                                stream_name="streamName"
+                            )
+                        ),
+                        source_index_zero_stream_details=mediaconnect.CfnRouterInput.FailoverRouterInputIndexedStreamDetailsProperty(
+                            source_index=123,
+                
+                            # the properties below are optional
+                            rtmp_push=mediaconnect.CfnRouterInput.RtmpPushStreamDetailsProperty(
+                                application_name="applicationName",
+                                stream_name="streamName"
+                            )
+                        )
+                    ),
+                    media_connect_flow=media_connect_flow,
+                    media_live_channel=media_live_channel,
+                    merge=mediaconnect.CfnRouterInput.MergeRouterInputStreamDetailsProperty(
+                        source_index_one_stream_details=mediaconnect.CfnRouterInput.MergeRouterInputIndexedStreamDetailsProperty(
+                            source_index=123
+                        ),
+                        source_index_zero_stream_details=mediaconnect.CfnRouterInput.MergeRouterInputIndexedStreamDetailsProperty(
+                            source_index=123
+                        )
+                    ),
+                    standard=mediaconnect.CfnRouterInput.StandardRouterInputStreamDetailsProperty(
+                        rtmp_push=mediaconnect.CfnRouterInput.RtmpPushStreamDetailsProperty(
+                            application_name="applicationName",
+                            stream_name="streamName"
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__4d8c670aed6bd72fa16da05a8203f8027a1a0464fbdd6a8193cd84ea7910ef16)
+                check_type(argname="argument destination_endpoint", value=destination_endpoint, expected_type=type_hints["destination_endpoint"])
+                check_type(argname="argument failover", value=failover, expected_type=type_hints["failover"])
+                check_type(argname="argument media_connect_flow", value=media_connect_flow, expected_type=type_hints["media_connect_flow"])
+                check_type(argname="argument media_live_channel", value=media_live_channel, expected_type=type_hints["media_live_channel"])
+                check_type(argname="argument merge", value=merge, expected_type=type_hints["merge"])
+                check_type(argname="argument standard", value=standard, expected_type=type_hints["standard"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if destination_endpoint is not None:
+                self._values["destination_endpoint"] = destination_endpoint
+            if failover is not None:
+                self._values["failover"] = failover
+            if media_connect_flow is not None:
+                self._values["media_connect_flow"] = media_connect_flow
+            if media_live_channel is not None:
+                self._values["media_live_channel"] = media_live_channel
+            if merge is not None:
+                self._values["merge"] = merge
+            if standard is not None:
+                self._values["standard"] = standard
+
+        @builtins.property
+        def destination_endpoint(self) -> typing.Any:
+            '''Configuration details for a router input stream that is represented by a destination endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-routerinputstreamdetails.html#cfn-mediaconnect-routerinput-routerinputstreamdetails-destinationendpoint
+            '''
+            result = self._values.get("destination_endpoint")
+            return typing.cast(typing.Any, result)
+
+        @builtins.property
+        def failover(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.FailoverRouterInputStreamDetailsProperty"]]:
+            '''Configuration details for a failover router input that can automatically switch between two sources.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-routerinputstreamdetails.html#cfn-mediaconnect-routerinput-routerinputstreamdetails-failover
+            '''
+            result = self._values.get("failover")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.FailoverRouterInputStreamDetailsProperty"]], result)
+
+        @builtins.property
+        def media_connect_flow(self) -> typing.Any:
+            '''Configuration details for a MediaConnect flow when used as a router input source.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-routerinputstreamdetails.html#cfn-mediaconnect-routerinput-routerinputstreamdetails-mediaconnectflow
+            '''
+            result = self._values.get("media_connect_flow")
+            return typing.cast(typing.Any, result)
+
+        @builtins.property
+        def media_live_channel(self) -> typing.Any:
+            '''Configuration details for a MediaLive channel when used as a router input source.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-routerinputstreamdetails.html#cfn-mediaconnect-routerinput-routerinputstreamdetails-medialivechannel
+            '''
+            result = self._values.get("media_live_channel")
+            return typing.cast(typing.Any, result)
+
+        @builtins.property
+        def merge(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.MergeRouterInputStreamDetailsProperty"]]:
+            '''Configuration details for a merge router input that combines two input sources.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-routerinputstreamdetails.html#cfn-mediaconnect-routerinput-routerinputstreamdetails-merge
+            '''
+            result = self._values.get("merge")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.MergeRouterInputStreamDetailsProperty"]], result)
+
+        @builtins.property
+        def standard(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.StandardRouterInputStreamDetailsProperty"]]:
+            '''Configuration details for a standard router input stream type.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-routerinputstreamdetails.html#cfn-mediaconnect-routerinput-routerinputstreamdetails-standard
+            '''
+            result = self._values.get("standard")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.StandardRouterInputStreamDetailsProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RouterInputStreamDetailsProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -16919,6 +18934,261 @@ class CfnRouterInput(
 
         def __repr__(self) -> str:
             return "RouterInputTransitEncryptionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterInput.RtmpPushNamingConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"automatic": "automatic", "manual": "manual"},
+    )
+    class RtmpPushNamingConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            automatic: typing.Any = None,
+            manual: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.ManualRtmpPushNamingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param automatic: The automatic RTMP naming configuration, where MediaConnect generates the application and stream names. This type does not require any additional settings.
+            :param manual: The manual RTMP naming configuration, where you specify the application and stream names.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-rtmppushnamingconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                # automatic: Any
+                
+                rtmp_push_naming_configuration_property = mediaconnect.CfnRouterInput.RtmpPushNamingConfigurationProperty(
+                    automatic=automatic,
+                    manual=mediaconnect.CfnRouterInput.ManualRtmpPushNamingConfigurationProperty(
+                        application_name="applicationName",
+                        stream_name="streamName"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__554f6e2bf877d5492fd867cd405442a0391f9d9bc7fa140fe4d919f0f689eca6)
+                check_type(argname="argument automatic", value=automatic, expected_type=type_hints["automatic"])
+                check_type(argname="argument manual", value=manual, expected_type=type_hints["manual"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if automatic is not None:
+                self._values["automatic"] = automatic
+            if manual is not None:
+                self._values["manual"] = manual
+
+        @builtins.property
+        def automatic(self) -> typing.Any:
+            '''The automatic RTMP naming configuration, where MediaConnect generates the application and stream names.
+
+            This type does not require any additional settings.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-rtmppushnamingconfiguration.html#cfn-mediaconnect-routerinput-rtmppushnamingconfiguration-automatic
+            '''
+            result = self._values.get("automatic")
+            return typing.cast(typing.Any, result)
+
+        @builtins.property
+        def manual(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.ManualRtmpPushNamingConfigurationProperty"]]:
+            '''The manual RTMP naming configuration, where you specify the application and stream names.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-rtmppushnamingconfiguration.html#cfn-mediaconnect-routerinput-rtmppushnamingconfiguration-manual
+            '''
+            result = self._values.get("manual")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.ManualRtmpPushNamingConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RtmpPushNamingConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterInput.RtmpPushRouterInputConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "naming_configuration": "namingConfiguration",
+            "port": "port",
+            "naming_type": "namingType",
+        },
+    )
+    class RtmpPushRouterInputConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            naming_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.RtmpPushNamingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            port: jsii.Number,
+            naming_type: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The configuration settings for a router input using the RTMP (Real-Time Messaging Protocol) protocol.
+
+            :param naming_configuration: The configuration settings for the RTMP (Real-Time Messaging Protocol) application and stream names.
+            :param port: The port number for the RTMP protocol. The only valid value is 1935.
+            :param naming_type: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-rtmppushrouterinputconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                # automatic: Any
+                
+                rtmp_push_router_input_configuration_property = mediaconnect.CfnRouterInput.RtmpPushRouterInputConfigurationProperty(
+                    naming_configuration=mediaconnect.CfnRouterInput.RtmpPushNamingConfigurationProperty(
+                        automatic=automatic,
+                        manual=mediaconnect.CfnRouterInput.ManualRtmpPushNamingConfigurationProperty(
+                            application_name="applicationName",
+                            stream_name="streamName"
+                        )
+                    ),
+                    port=123,
+                
+                    # the properties below are optional
+                    naming_type="namingType"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__d93cfff34f992db4cbd197029eede1adec3ed89e95fbdc13c7679f03b65ac128)
+                check_type(argname="argument naming_configuration", value=naming_configuration, expected_type=type_hints["naming_configuration"])
+                check_type(argname="argument port", value=port, expected_type=type_hints["port"])
+                check_type(argname="argument naming_type", value=naming_type, expected_type=type_hints["naming_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "naming_configuration": naming_configuration,
+                "port": port,
+            }
+            if naming_type is not None:
+                self._values["naming_type"] = naming_type
+
+        @builtins.property
+        def naming_configuration(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RtmpPushNamingConfigurationProperty"]:
+            '''The configuration settings for the RTMP (Real-Time Messaging Protocol) application and stream names.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-rtmppushrouterinputconfiguration.html#cfn-mediaconnect-routerinput-rtmppushrouterinputconfiguration-namingconfiguration
+            '''
+            result = self._values.get("naming_configuration")
+            assert result is not None, "Required property 'naming_configuration' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RtmpPushNamingConfigurationProperty"], result)
+
+        @builtins.property
+        def port(self) -> jsii.Number:
+            '''The port number for the RTMP protocol.
+
+            The only valid value is 1935.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-rtmppushrouterinputconfiguration.html#cfn-mediaconnect-routerinput-rtmppushrouterinputconfiguration-port
+            '''
+            result = self._values.get("port")
+            assert result is not None, "Required property 'port' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def naming_type(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-rtmppushrouterinputconfiguration.html#cfn-mediaconnect-routerinput-rtmppushrouterinputconfiguration-namingtype
+            '''
+            result = self._values.get("naming_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RtmpPushRouterInputConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterInput.RtmpPushStreamDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "application_name": "applicationName",
+            "stream_name": "streamName",
+        },
+    )
+    class RtmpPushStreamDetailsProperty:
+        def __init__(
+            self,
+            *,
+            application_name: builtins.str,
+            stream_name: builtins.str,
+        ) -> None:
+            '''Configuration details for an RTMP (Real-Time Messaging Protocol) router input stream, including the application and stream names.
+
+            :param application_name: The name of the RTMP application.
+            :param stream_name: The name of the RTMP stream.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-rtmppushstreamdetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                rtmp_push_stream_details_property = mediaconnect.CfnRouterInput.RtmpPushStreamDetailsProperty(
+                    application_name="applicationName",
+                    stream_name="streamName"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__364a3d5768c1f7b6a533a6378c425ffa768eeb91579dd0218490fce369d3dab6)
+                check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
+                check_type(argname="argument stream_name", value=stream_name, expected_type=type_hints["stream_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "application_name": application_name,
+                "stream_name": stream_name,
+            }
+
+        @builtins.property
+        def application_name(self) -> builtins.str:
+            '''The name of the RTMP application.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-rtmppushstreamdetails.html#cfn-mediaconnect-routerinput-rtmppushstreamdetails-applicationname
+            '''
+            result = self._values.get("application_name")
+            assert result is not None, "Required property 'application_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def stream_name(self) -> builtins.str:
+            '''The name of the RTMP stream.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-rtmppushstreamdetails.html#cfn-mediaconnect-routerinput-rtmppushstreamdetails-streamname
+            '''
+            result = self._values.get("stream_name")
+            assert result is not None, "Required property 'stream_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RtmpPushStreamDetailsProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -17535,12 +19805,27 @@ class CfnRouterInput(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_mediaconnect as mediaconnect
                 
+                # automatic: Any
+                
                 standard_router_input_configuration_property = mediaconnect.CfnRouterInput.StandardRouterInputConfigurationProperty(
                     network_interface_arn="networkInterfaceArn",
                     protocol_configuration=mediaconnect.CfnRouterInput.RouterInputProtocolConfigurationProperty(
                         rist=mediaconnect.CfnRouterInput.RistRouterInputConfigurationProperty(
                             port=123,
                             recovery_latency_milliseconds=123
+                        ),
+                        rtmp_push=mediaconnect.CfnRouterInput.RtmpPushRouterInputConfigurationProperty(
+                            naming_configuration=mediaconnect.CfnRouterInput.RtmpPushNamingConfigurationProperty(
+                                automatic=automatic,
+                                manual=mediaconnect.CfnRouterInput.ManualRtmpPushNamingConfigurationProperty(
+                                    application_name="applicationName",
+                                    stream_name="streamName"
+                                )
+                            ),
+                            port=123,
+                
+                            # the properties below are optional
+                            naming_type="namingType"
                         ),
                         rtp=mediaconnect.CfnRouterInput.RtpRouterInputConfigurationProperty(
                             port=123,
@@ -17633,6 +19918,66 @@ class CfnRouterInput(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterInput.StandardRouterInputStreamDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"rtmp_push": "rtmpPush"},
+    )
+    class StandardRouterInputStreamDetailsProperty:
+        def __init__(
+            self,
+            *,
+            rtmp_push: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterInput.RtmpPushStreamDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Configuration details for a standard router input stream type.
+
+            :param rtmp_push: Configuration details for an RTMP (Real-Time Messaging Protocol) router input stream, including the application and stream names.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-standardrouterinputstreamdetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                standard_router_input_stream_details_property = mediaconnect.CfnRouterInput.StandardRouterInputStreamDetailsProperty(
+                    rtmp_push=mediaconnect.CfnRouterInput.RtmpPushStreamDetailsProperty(
+                        application_name="applicationName",
+                        stream_name="streamName"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__6bc460fe3f0f25a39a3364c4f13a208ed124a4fbf1e9a0dad1414accab2b9fd2)
+                check_type(argname="argument rtmp_push", value=rtmp_push, expected_type=type_hints["rtmp_push"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if rtmp_push is not None:
+                self._values["rtmp_push"] = rtmp_push
+
+        @builtins.property
+        def rtmp_push(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RtmpPushStreamDetailsProperty"]]:
+            '''Configuration details for an RTMP (Real-Time Messaging Protocol) router input stream, including the application and stream names.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-standardrouterinputstreamdetails.html#cfn-mediaconnect-routerinput-standardrouterinputstreamdetails-rtmppush
+            '''
+            result = self._values.get("rtmp_push")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterInput.RtmpPushStreamDetailsProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "StandardRouterInputStreamDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterInputProps",
@@ -17719,6 +20064,19 @@ class CfnRouterInputProps:
                             rist=mediaconnect.CfnRouterInput.RistRouterInputConfigurationProperty(
                                 port=123,
                                 recovery_latency_milliseconds=123
+                            ),
+                            rtmp_push=mediaconnect.CfnRouterInput.RtmpPushRouterInputConfigurationProperty(
+                                naming_configuration=mediaconnect.CfnRouterInput.RtmpPushNamingConfigurationProperty(
+                                    automatic=automatic,
+                                    manual=mediaconnect.CfnRouterInput.ManualRtmpPushNamingConfigurationProperty(
+                                        application_name="applicationName",
+                                        stream_name="streamName"
+                                    )
+                                ),
+                                port=123,
+            
+                                # the properties below are optional
+                                naming_type="namingType"
                             ),
                             rtp=mediaconnect.CfnRouterInput.RtpRouterInputConfigurationProperty(
                                 port=123,
@@ -17808,6 +20166,32 @@ class CfnRouterInputProps:
             
                                 # the properties below are optional
                                 forward_error_correction="forwardErrorCorrection"
+                            ),
+                            srt_caller=mediaconnect.CfnRouterInput.SrtCallerRouterInputConfigurationProperty(
+                                minimum_latency_milliseconds=123,
+                                source_address="sourceAddress",
+                                source_port=123,
+            
+                                # the properties below are optional
+                                decryption_configuration=mediaconnect.CfnRouterInput.SrtDecryptionConfigurationProperty(
+                                    encryption_key=mediaconnect.CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty(
+                                        role_arn="roleArn",
+                                        secret_arn="secretArn"
+                                    )
+                                ),
+                                stream_id="streamId"
+                            ),
+                            srt_listener=mediaconnect.CfnRouterInput.SrtListenerRouterInputConfigurationProperty(
+                                minimum_latency_milliseconds=123,
+                                port=123,
+            
+                                # the properties below are optional
+                                decryption_configuration=mediaconnect.CfnRouterInput.SrtDecryptionConfigurationProperty(
+                                    encryption_key=mediaconnect.CfnRouterInput.SecretsManagerEncryptionKeyConfigurationProperty(
+                                        role_arn="roleArn",
+                                        secret_arn="secretArn"
+                                    )
+                                )
                             )
                         )]
                     ),
@@ -17817,6 +20201,19 @@ class CfnRouterInputProps:
                             rist=mediaconnect.CfnRouterInput.RistRouterInputConfigurationProperty(
                                 port=123,
                                 recovery_latency_milliseconds=123
+                            ),
+                            rtmp_push=mediaconnect.CfnRouterInput.RtmpPushRouterInputConfigurationProperty(
+                                naming_configuration=mediaconnect.CfnRouterInput.RtmpPushNamingConfigurationProperty(
+                                    automatic=automatic,
+                                    manual=mediaconnect.CfnRouterInput.ManualRtmpPushNamingConfigurationProperty(
+                                        application_name="applicationName",
+                                        stream_name="streamName"
+                                    )
+                                ),
+                                port=123,
+            
+                                # the properties below are optional
+                                naming_type="namingType"
                             ),
                             rtp=mediaconnect.CfnRouterInput.RtpRouterInputConfigurationProperty(
                                 port=123,
@@ -24740,6 +27137,14 @@ def _typecheckingstub__57efc1d88b4fa5a6e6df4c17678237b4420bf63b5cd14e340198e67ed
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__1e50d71e34375afc5ba668b57a348d9fc727d6cfff255c0afd414c652a54eafe(
+    *,
+    application_name: builtins.str,
+    stream_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__98c9c952274e74dd38a0129bccf9e3c8688c812151f95c826ce99e20158cfe87(
     *,
     fmtp: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.FmtpProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -24798,6 +27203,29 @@ def _typecheckingstub__8496286cb23af6ad3ef222839457ac264adb6da1e797e1b27442a67dc
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ec87fc3d3f930185efad915392121c23b1708692ae79a95c0b2d322b784844b2(
+    *,
+    application_name: builtins.str,
+    stream_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e1c4fe8e537e6d9e67e6310b711747437f0bf166e18f6998b5c320aa657f9e2f(
+    *,
+    automatic: typing.Any = None,
+    manual: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.ManualRtmpPushNamingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b527da4d1c8466d260431fad8b90cfbe6a8ec296f03d95f651e7fe6e1d171b22(
+    *,
+    naming_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.RtmpPushNamingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__6448e00f3099cbc8bc0d9c871cb06fad1c988a5fae8ed52ee99e7b4398735c6e(
     *,
     role_arn: builtins.str,
@@ -24849,6 +27277,8 @@ def _typecheckingstub__0c35ebd36bb52715c021bc299f222a377254ec8a3bd90d9c933fbefca
     protocol: typing.Optional[builtins.str] = None,
     router_integration_state: typing.Optional[builtins.str] = None,
     router_integration_transit_decryption: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.FlowTransitEncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    rtmp_push_details: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.RtmpPushDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    rtmp_push_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.RtmpPushSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     sender_control_port: typing.Optional[jsii.Number] = None,
     sender_ip_address: typing.Optional[builtins.str] = None,
     source_arn: typing.Optional[builtins.str] = None,
@@ -25156,6 +27586,7 @@ def _typecheckingstub__50a855342b002f2aaf180af2a85e45ce23346b4a5b582c00ee1a8474e
     remote_id: typing.Optional[builtins.str] = None,
     router_integration_state: typing.Optional[builtins.str] = None,
     router_integration_transit_encryption: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlowOutput.FlowTransitEncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    rtmp_push_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlowOutput.RtmpPushSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     smoothing_latency: typing.Optional[jsii.Number] = None,
     stream_id: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -25296,6 +27727,12 @@ def _typecheckingstub__32b31733a523757f4557ebb20483d8cac01327485a4f5ee9746929dd0
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b9092e0da797acf6a595f06ef3fcae20af545e82cc2643d31d62c801442baf32(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFlowOutput.RtmpPushSettingsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__2a7c12acde851480773f720ab16362e6f6dd272465bbe84d6b60322c1bfd207d(
     value: typing.Optional[jsii.Number],
 ) -> None:
@@ -25380,10 +27817,34 @@ def _typecheckingstub__faa5e437983e66807a96f2eedebbdd774906faf99c35e9c25ec0ff0f6
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__c22cdb7818bfa0a726a7747adc4dbe9c8b946423be2025f6dc2cfc7729af26b6(
+    *,
+    application_name: builtins.str,
+    stream_name: builtins.str,
+    tls_encryption: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlowOutput.TlsEncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__006c867b16e13c1b73b4efbe08794e9b0fe37a42ca38d09660e0ccef770f44f2(
     *,
     role_arn: builtins.str,
     secret_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5704979ad4dfc900aaa0fef6bbcccdd748c17c6564f8e9c487b1a586d0961b2b(
+    *,
+    public: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1895b4eae6cc61f0d7a8faa8618af7fe9b456ba0042d409487be36fb4dbdc068(
+    *,
+    encryption_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlowOutput.TlsEncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    encryption_type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -25416,6 +27877,7 @@ def _typecheckingstub__90cee4cbdefa91956af92950bb2bfd2da4fa4f982f439596444cda525
     remote_id: typing.Optional[builtins.str] = None,
     router_integration_state: typing.Optional[builtins.str] = None,
     router_integration_transit_encryption: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlowOutput.FlowTransitEncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    rtmp_push_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlowOutput.RtmpPushSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     smoothing_latency: typing.Optional[jsii.Number] = None,
     stream_id: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -25457,6 +27919,7 @@ def _typecheckingstub__f14359cee01f3506467d65b7510ab8dfc45bad9d560a39ede9f196eb1
     max_latency: typing.Optional[jsii.Number] = None,
     min_latency: typing.Optional[jsii.Number] = None,
     protocol: typing.Optional[builtins.str] = None,
+    rtmp_push_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlowSource.RtmpPushSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     sender_control_port: typing.Optional[jsii.Number] = None,
     sender_ip_address: typing.Optional[builtins.str] = None,
     source_listener_address: typing.Optional[builtins.str] = None,
@@ -25553,6 +28016,12 @@ def _typecheckingstub__eb57175f10a9dd5a4e263ec48354d53559458e760a13228af2bc8b2d5
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__5880b1e7b55a87266fb5611a476cbe88c50679a925717e54bb843dcd1f100be7(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFlowSource.RtmpPushSettingsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__2cb25d08779ab67d6811a557f48cd15bde00000d84c5ba57f8165f13a3f72f99(
     value: typing.Optional[jsii.Number],
 ) -> None:
@@ -25624,6 +28093,37 @@ def _typecheckingstub__30ed56e867002e6d71070cfe3db49514b39a97f4380a7b12628207664
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__44cdbe2b2e77023387bb4e8f05d51cb6adc17b9656cec2a743edcc1055eeddf0(
+    *,
+    application_name: builtins.str,
+    stream_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fea0efecb46650aef80c89c147f42cc745ccb8689f5e5585f75a5d1caabbf0b1(
+    *,
+    application_name: builtins.str,
+    stream_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aac57bcbcc1b3fd6be6aab51010b9f847c84d249614f5df1fda106c31ecf7232(
+    *,
+    automatic: typing.Any = None,
+    manual: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlowSource.ManualRtmpPushNamingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fd720634dd6d8f2888d116726922f14fdaf18e0679ea9df74e8669be6b8cecb1(
+    *,
+    naming_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlowSource.RtmpPushNamingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__91f29aa73d1270b98bef9297507fc5368a6213455c4fab06ce82317542ccbecb(
     *,
     vpc_interface_name: typing.Optional[builtins.str] = None,
@@ -25644,6 +28144,7 @@ def _typecheckingstub__3dd2a850713cccb402475afd88e4c523840081ad6429c6abf35e564ea
     max_latency: typing.Optional[jsii.Number] = None,
     min_latency: typing.Optional[jsii.Number] = None,
     protocol: typing.Optional[builtins.str] = None,
+    rtmp_push_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlowSource.RtmpPushSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     sender_control_port: typing.Optional[jsii.Number] = None,
     sender_ip_address: typing.Optional[builtins.str] = None,
     source_listener_address: typing.Optional[builtins.str] = None,
@@ -25966,12 +28467,29 @@ def _typecheckingstub__0b915443cb98891bf89e968e2338dbbd48e7fc3e6389d7cf542570794
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ace2993ba92025f9ae9e6ea8737d5aa5194865778cfc5ebdcb388ce3193d207c(
+    *,
+    source_index: jsii.Number,
+    rtmp_push: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.RtmpPushStreamDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d8f038e6a58a77278305824f4d096d5103bdf9497e022340099fbe631d35cdea(
     *,
     rist: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.RistRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    rtmp_push: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.RtmpPushRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     rtp: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.RtpRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     srt_caller: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.SrtCallerRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     srt_listener: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.SrtListenerRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__00ab406f99b4ec33f724f549dbee9f530b285dd2e00154846eca1d05608dc0d0(
+    *,
+    source_index_one_stream_details: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.FailoverRouterInputIndexedStreamDetailsProperty, typing.Dict[builtins.str, typing.Any]]],
+    source_index_zero_stream_details: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.FailoverRouterInputIndexedStreamDetailsProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26004,6 +28522,14 @@ def _typecheckingstub__a02453ffb5787750cf8b7c68ece86b453aeac195bd6b7a67d442069cd
     *,
     default: typing.Any = None,
     preferred_day_time: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.PreferredDayTimeMaintenanceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b85d1066229bb4387882ee7df2d31f6ec15469508062016fc2a929f792d6b0f6(
+    *,
+    application_name: builtins.str,
+    stream_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26052,10 +28578,27 @@ def _typecheckingstub__c207577b6eab68f0d1c3f7593cc0b00c18a7e10d165eed0314d6bcb41
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__1a832a282ad7daedfab48a883c3f1829ed10e50ea333083ad6a5f19890802bfc(
+    *,
+    source_index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d4bff0ea4788435a62555083659b5a3393ff9c2dc3b37396f56d5473c1b65763(
     *,
     rist: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.RistRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     rtp: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.RtpRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    srt_caller: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.SrtCallerRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    srt_listener: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.SrtListenerRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d99c86e9d03160e733715c6ebd398bd2c992cb4d5b37accb42e107f0851b9c3b(
+    *,
+    source_index_one_stream_details: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.MergeRouterInputIndexedStreamDetailsProperty, typing.Dict[builtins.str, typing.Any]]],
+    source_index_zero_stream_details: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.MergeRouterInputIndexedStreamDetailsProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26098,9 +28641,22 @@ def _typecheckingstub__367935140f8b2e56d02ff3e2c05252a68073eace6c0eeda3b7abeeeac
 def _typecheckingstub__6bee2f8b18c83277f36b402b57e84bb58ee2a5352632583caaeb637773d1069c(
     *,
     rist: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.RistRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    rtmp_push: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.RtmpPushRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     rtp: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.RtpRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     srt_caller: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.SrtCallerRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     srt_listener: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.SrtListenerRouterInputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4d8c670aed6bd72fa16da05a8203f8027a1a0464fbdd6a8193cd84ea7910ef16(
+    *,
+    destination_endpoint: typing.Any = None,
+    failover: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.FailoverRouterInputStreamDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    media_connect_flow: typing.Any = None,
+    media_live_channel: typing.Any = None,
+    merge: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.MergeRouterInputStreamDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    standard: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.StandardRouterInputStreamDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26117,6 +28673,31 @@ def _typecheckingstub__85f5061e2ce8c42b22b7dc305382ea9bfa145cf532ef8f62591b36842
     *,
     encryption_key_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.RouterInputTransitEncryptionKeyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     encryption_key_type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__554f6e2bf877d5492fd867cd405442a0391f9d9bc7fa140fe4d919f0f689eca6(
+    *,
+    automatic: typing.Any = None,
+    manual: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.ManualRtmpPushNamingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d93cfff34f992db4cbd197029eede1adec3ed89e95fbdc13c7679f03b65ac128(
+    *,
+    naming_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.RtmpPushNamingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    port: jsii.Number,
+    naming_type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__364a3d5768c1f7b6a533a6378c425ffa768eeb91579dd0218490fce369d3dab6(
+    *,
+    application_name: builtins.str,
+    stream_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26185,6 +28766,13 @@ def _typecheckingstub__95ce52cf6881e0f95e336a6920de1725ead5c20a78c3b050791def2f0
     network_interface_arn: builtins.str,
     protocol_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.RouterInputProtocolConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     protocol: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6bc460fe3f0f25a39a3364c4f13a208ed124a4fbf1e9a0dad1414accab2b9fd2(
+    *,
+    rtmp_push: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterInput.RtmpPushStreamDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

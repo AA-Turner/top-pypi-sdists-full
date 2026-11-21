@@ -142,6 +142,7 @@ __all__ = (
     "EbuTtDFillLineGapControlType",
     "EmbeddedConvert608To708Type",
     "EmbeddedDestinationStyleControlType",
+    "EmbeddedModeTypeType",
     "EmbeddedScte20DetectionType",
     "EnrichmentMethodType",
     "EventBridgeRuleTemplateEventTypeType",
@@ -678,6 +679,7 @@ EbuTtDDestinationStyleControlType = Literal["EXCLUDE", "INCLUDE"]
 EbuTtDFillLineGapControlType = Literal["DISABLED", "ENABLED"]
 EmbeddedConvert608To708Type = Literal["DISABLED", "UPCONVERT"]
 EmbeddedDestinationStyleControlType = Literal["MANUAL", "PASSTHROUGH"]
+EmbeddedModeTypeType = Literal["EMBEDDED_608_AND_708", "EMBEDDED_608_ONLY", "EMBEDDED_708_ONLY"]
 EmbeddedScte20DetectionType = Literal["AUTO", "OFF"]
 EnrichmentMethodType = Literal["SCTE35_ELEMENTAL_INFERENCE_QUERY_PARAMS"]
 EventBridgeRuleTemplateEventTypeType = Literal[
@@ -1170,6 +1172,7 @@ ServiceName = Literal[
     "account-access-runtime",
     "acm",
     "acm-pca",
+    "agent-discovery",
     "agent-registry",
     "agent-registry-control",
     "aiops",
@@ -1180,6 +1183,7 @@ ServiceName = Literal[
     "apigateway",
     "apigatewaymanagementapi",
     "apigatewayv2",
+    "apiportal",
     "appconfig",
     "appconfigdata",
     "appfabric",
@@ -1470,6 +1474,7 @@ ServiceName = Literal[
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
+    "payments",
     "pca-connector-ad",
     "pca-connector-scep",
     "pcs",
@@ -1525,6 +1530,7 @@ ServiceName = Literal[
     "sagemaker-a2i-runtime",
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
+    "sagemaker-gateway-runtime",
     "sagemaker-geospatial",
     "sagemaker-inference-router-runtime",
     "sagemaker-metrics",

@@ -72,6 +72,11 @@ from .literals import (
     CandidateSortByType,
     CandidateStatusType,
     CandidateStepTypeType,
+    CapacityReservationEndpointSharingType,
+    CapacityReservationMatchCriteriaType,
+    CapacityReservationOptInStatusType,
+    CapacityReservationResourceTypeType,
+    CapacityReservationStatusType,
     CapacityReservationTypeType,
     CapacitySizeTypeType,
     CaptureModeType,
@@ -149,6 +154,9 @@ from .literals import (
     FlowDefinitionStatusType,
     ForEachStatusType,
     FrameworkType,
+    GlobalInferenceGatewayMemberFilterNameType,
+    GlobalInferenceGatewayMemberStatusType,
+    GlobalInferenceGatewayStatusType,
     HomeEfsFileSystemCreationType,
     HubContentSortByType,
     HubContentStatusType,
@@ -241,6 +249,7 @@ from .literals import (
     MonitoringProblemTypeType,
     MonitoringScheduleSortKeyType,
     MonitoringTypeType,
+    MoveClusterNodesErrorCodeType,
     NodeUnavailabilityTypeType,
     NotebookInstanceAcceleratorTypeType,
     NotebookInstanceLifecycleConfigSortKeyType,
@@ -447,6 +456,8 @@ __all__ = (
     "AddAssociationRequestTypeDef",
     "AddAssociationResponseTypeDef",
     "AddClusterNodeSpecificationTypeDef",
+    "AddInferenceGatewayRequestTypeDef",
+    "AddInferenceGatewayResponseTypeDef",
     "AddTagsInputTypeDef",
     "AddTagsOutputTypeDef",
     "AdditionalEnisTypeDef",
@@ -577,6 +588,14 @@ __all__ = (
     "CandidatePropertiesTypeDef",
     "CanvasAppSettingsOutputTypeDef",
     "CanvasAppSettingsTypeDef",
+    "CapacityReservationDetailTypeDef",
+    "CapacityReservationEndpointsAssociationTypeDef",
+    "CapacityReservationFilterTypeDef",
+    "CapacityReservationHyperPodClustersAssociationTypeDef",
+    "CapacityReservationInstanceUsageTypeDef",
+    "CapacityReservationResourceAssociationTypeDef",
+    "CapacityReservationResourceUsageTypeDef",
+    "CapacityReservationSummaryTypeDef",
     "CapacityReservationTypeDef",
     "CapacitySizeConfigTypeDef",
     "CapacitySizeTypeDef",
@@ -750,6 +769,8 @@ __all__ = (
     "CreateFeatureGroupResponseTypeDef",
     "CreateFlowDefinitionRequestTypeDef",
     "CreateFlowDefinitionResponseTypeDef",
+    "CreateGlobalInferenceGatewayRequestTypeDef",
+    "CreateGlobalInferenceGatewayResponseTypeDef",
     "CreateHubContentPresignedUrlsRequestPaginateTypeDef",
     "CreateHubContentPresignedUrlsRequestTypeDef",
     "CreateHubContentPresignedUrlsResponseTypeDef",
@@ -920,6 +941,8 @@ __all__ = (
     "DeleteExperimentResponseTypeDef",
     "DeleteFeatureGroupRequestTypeDef",
     "DeleteFlowDefinitionRequestTypeDef",
+    "DeleteGlobalInferenceGatewayRequestTypeDef",
+    "DeleteGlobalInferenceGatewayResponseTypeDef",
     "DeleteHubContentReferenceRequestTypeDef",
     "DeleteHubContentRequestTypeDef",
     "DeleteHubRequestTypeDef",
@@ -999,6 +1022,8 @@ __all__ = (
     "DescribeAutoMLJobResponseTypeDef",
     "DescribeAutoMLJobV2RequestTypeDef",
     "DescribeAutoMLJobV2ResponseTypeDef",
+    "DescribeCapacityReservationRequestTypeDef",
+    "DescribeCapacityReservationResponseTypeDef",
     "DescribeClusterEventRequestTypeDef",
     "DescribeClusterEventResponseTypeDef",
     "DescribeClusterExtensionRequestTypeDef",
@@ -1045,6 +1070,8 @@ __all__ = (
     "DescribeFeatureMetadataResponseTypeDef",
     "DescribeFlowDefinitionRequestTypeDef",
     "DescribeFlowDefinitionResponseTypeDef",
+    "DescribeGlobalInferenceGatewayRequestTypeDef",
+    "DescribeGlobalInferenceGatewayResponseTypeDef",
     "DescribeHubContentRequestTypeDef",
     "DescribeHubContentResponseTypeDef",
     "DescribeHubRequestTypeDef",
@@ -1124,6 +1151,9 @@ __all__ = (
     "DescribeProjectOutputTypeDef",
     "DescribeReservedCapacityRequestTypeDef",
     "DescribeReservedCapacityResponseTypeDef",
+    "DescribeResourceAssociationsRequestPaginateTypeDef",
+    "DescribeResourceAssociationsRequestTypeDef",
+    "DescribeResourceAssociationsResponseTypeDef",
     "DescribeSpaceRequestTypeDef",
     "DescribeSpaceResponseTypeDef",
     "DescribeStudioLifecycleConfigRequestTypeDef",
@@ -1260,6 +1290,9 @@ __all__ = (
     "ForEachSelectorResultTypeDef",
     "ForEachStepMetadataTypeDef",
     "GenerativeAiSettingsTypeDef",
+    "GetCapacityReservationUsageRequestPaginateTypeDef",
+    "GetCapacityReservationUsageRequestTypeDef",
+    "GetCapacityReservationUsageResponseTypeDef",
     "GetDeviceFleetReportRequestTypeDef",
     "GetDeviceFleetReportResponseTypeDef",
     "GetEndpointPolicyRequestTypeDef",
@@ -1275,6 +1308,13 @@ __all__ = (
     "GetSearchSuggestionsResponseTypeDef",
     "GitConfigForUpdateTypeDef",
     "GitConfigTypeDef",
+    "GlobalInferenceGatewayFilterTypeDef",
+    "GlobalInferenceGatewayMemberFilterTypeDef",
+    "GlobalInferenceGatewayMemberSummaryTypeDef",
+    "GlobalInferenceGatewayMemberTypeDef",
+    "GlobalInferenceGatewayRoutingTypeDef",
+    "GlobalInferenceGatewayRoutingWeightsTypeDef",
+    "GlobalInferenceGatewaySummaryTypeDef",
     "HiddenSageMakerImageOutputTypeDef",
     "HiddenSageMakerImageTypeDef",
     "HolidayConfigAttributesTypeDef",
@@ -1471,6 +1511,9 @@ __all__ = (
     "ListCandidatesForAutoMLJobRequestPaginateTypeDef",
     "ListCandidatesForAutoMLJobRequestTypeDef",
     "ListCandidatesForAutoMLJobResponseTypeDef",
+    "ListCapacityReservationsRequestPaginateTypeDef",
+    "ListCapacityReservationsRequestTypeDef",
+    "ListCapacityReservationsResponseTypeDef",
     "ListClusterEventsRequestPaginateTypeDef",
     "ListClusterEventsRequestTypeDef",
     "ListClusterEventsResponseTypeDef",
@@ -1537,6 +1580,9 @@ __all__ = (
     "ListFlowDefinitionsRequestPaginateTypeDef",
     "ListFlowDefinitionsRequestTypeDef",
     "ListFlowDefinitionsResponseTypeDef",
+    "ListGlobalInferenceGatewaysRequestPaginateTypeDef",
+    "ListGlobalInferenceGatewaysRequestTypeDef",
+    "ListGlobalInferenceGatewaysResponseTypeDef",
     "ListHubContentVersionsRequestTypeDef",
     "ListHubContentVersionsResponseTypeDef",
     "ListHubContentsRequestTypeDef",
@@ -1561,6 +1607,9 @@ __all__ = (
     "ListInferenceExperimentsRequestPaginateTypeDef",
     "ListInferenceExperimentsRequestTypeDef",
     "ListInferenceExperimentsResponseTypeDef",
+    "ListInferenceGatewaysRequestPaginateTypeDef",
+    "ListInferenceGatewaysRequestTypeDef",
+    "ListInferenceGatewaysResponseTypeDef",
     "ListInferenceRecommendationsJobStepsRequestPaginateTypeDef",
     "ListInferenceRecommendationsJobStepsRequestTypeDef",
     "ListInferenceRecommendationsJobStepsResponseTypeDef",
@@ -1854,6 +1903,10 @@ __all__ = (
     "MonitoringScheduleTypeDef",
     "MonitoringStatisticsResourceTypeDef",
     "MonitoringStoppingConditionTypeDef",
+    "MoveClusterNodeLogicalIdsErrorTypeDef",
+    "MoveClusterNodesErrorTypeDef",
+    "MoveClusterNodesRequestTypeDef",
+    "MoveClusterNodesResponseTypeDef",
     "MultiModelConfigTypeDef",
     "NeoVpcConfigOutputTypeDef",
     "NeoVpcConfigTypeDef",
@@ -2011,6 +2064,8 @@ __all__ = (
     "RegisterModelStepMetadataTypeDef",
     "RemoteDebugConfigForUpdateTypeDef",
     "RemoteDebugConfigTypeDef",
+    "RemoveInferenceGatewayRequestTypeDef",
+    "RemoveInferenceGatewayResponseTypeDef",
     "RenderUiTemplateRequestTypeDef",
     "RenderUiTemplateResponseTypeDef",
     "RenderableTaskTypeDef",
@@ -2278,6 +2333,8 @@ __all__ = (
     "UpdateFeatureGroupRequestTypeDef",
     "UpdateFeatureGroupResponseTypeDef",
     "UpdateFeatureMetadataRequestTypeDef",
+    "UpdateGlobalInferenceGatewayRequestTypeDef",
+    "UpdateGlobalInferenceGatewayResponseTypeDef",
     "UpdateHubContentReferenceRequestTypeDef",
     "UpdateHubContentReferenceResponseTypeDef",
     "UpdateHubContentRequestTypeDef",
@@ -2484,6 +2541,17 @@ class AddClusterNodeSpecificationTypeDef(TypedDict):
     IncrementTargetCountBy: int
     AvailabilityZones: NotRequired[Sequence[str]]
     InstanceTypes: NotRequired[Sequence[ClusterInstanceTypeType]]
+
+class AddInferenceGatewayRequestTypeDef(TypedDict):
+    Identifier: str
+    ClusterArn: str
+    Namespace: str
+    Name: str
+
+class GlobalInferenceGatewayMemberTypeDef(TypedDict):
+    Name: str
+    Namespace: str
+    ClusterArn: str
 
 class TagTypeDef(TypedDict):
     Key: str
@@ -2840,6 +2908,54 @@ class TimeSeriesForecastingSettingsTypeDef(TypedDict):
 class WorkspaceSettingsTypeDef(TypedDict):
     S3ArtifactPath: NotRequired[str]
     S3KmsKeyId: NotRequired[str]
+
+class CapacityReservationDetailTypeDef(TypedDict):
+    SMCapacityReservationArn: str
+    SMCapacityReservationId: str
+    Owner: str
+    Status: CapacityReservationStatusType
+    InstanceType: str
+    AvailabilityZoneId: str
+    TotalInstanceCount: int
+    StartTime: datetime
+    CreationTime: datetime
+    AvailabilityZone: NotRequired[str]
+    EndTime: NotRequired[datetime]
+
+class CapacityReservationEndpointsAssociationTypeDef(TypedDict):
+    Status: CapacityReservationOptInStatusType
+    AssociatedTime: datetime
+    MlReservationId: NotRequired[str]
+    MatchCriteria: NotRequired[CapacityReservationMatchCriteriaType]
+    EndpointSharing: NotRequired[CapacityReservationEndpointSharingType]
+    MlReservationArn: NotRequired[str]
+    FailureReason: NotRequired[str]
+
+class CapacityReservationFilterTypeDef(TypedDict):
+    Name: Literal["Status"]
+    Values: Sequence[str]
+
+class CapacityReservationHyperPodClustersAssociationTypeDef(TypedDict):
+    Status: CapacityReservationOptInStatusType
+    AssociatedTime: datetime
+    FailureReason: NotRequired[str]
+
+class CapacityReservationResourceUsageTypeDef(TypedDict):
+    ResourceType: CapacityReservationResourceTypeType
+    InUseInstanceCount: int
+
+class CapacityReservationSummaryTypeDef(TypedDict):
+    SMCapacityReservationArn: str
+    SMCapacityReservationId: str
+    Owner: str
+    Status: CapacityReservationStatusType
+    InstanceType: str
+    AvailabilityZoneId: str
+    TotalInstanceCount: int
+    StartTime: datetime
+    CreationTime: datetime
+    AvailabilityZone: NotRequired[str]
+    EndTime: NotRequired[datetime]
 
 CapacityReservationTypeDef = TypedDict(
     "CapacityReservationTypeDef",
@@ -3742,6 +3858,9 @@ class DeleteFeatureGroupRequestTypeDef(TypedDict):
 class DeleteFlowDefinitionRequestTypeDef(TypedDict):
     FlowDefinitionName: str
 
+class DeleteGlobalInferenceGatewayRequestTypeDef(TypedDict):
+    Identifier: str
+
 class DeleteHubContentReferenceRequestTypeDef(TypedDict):
     HubName: str
     HubContentType: HubContentTypeType
@@ -3943,6 +4062,9 @@ class ModelDeployResultTypeDef(TypedDict):
 class DescribeAutoMLJobV2RequestTypeDef(TypedDict):
     AutoMLJobName: str
 
+class DescribeCapacityReservationRequestTypeDef(TypedDict):
+    SMCapacityReservationArn: str
+
 class DescribeClusterEventRequestTypeDef(TypedDict):
     EventId: str
     ClusterName: str
@@ -4091,6 +4213,9 @@ class FeatureParameterTypeDef(TypedDict):
 
 class DescribeFlowDefinitionRequestTypeDef(TypedDict):
     FlowDefinitionName: str
+
+class DescribeGlobalInferenceGatewayRequestTypeDef(TypedDict):
+    Identifier: str
 
 class DescribeHubContentRequestTypeDef(TypedDict):
     HubName: str
@@ -4331,6 +4456,11 @@ class UltraServerSummaryTypeDef(TypedDict):
     UltraServerCount: NotRequired[int]
     AvailableSpareInstanceCount: NotRequired[int]
     UnhealthyInstanceCount: NotRequired[int]
+
+class DescribeResourceAssociationsRequestTypeDef(TypedDict):
+    SMCapacityReservationArn: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
 
 class DescribeSpaceRequestTypeDef(TypedDict):
     DomainId: str
@@ -4723,6 +4853,11 @@ class ForEachSelectorResultTypeDef(TypedDict):
     StepName: NotRequired[str]
     Index: NotRequired[int]
 
+class GetCapacityReservationUsageRequestTypeDef(TypedDict):
+    SMCapacityReservationArn: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
 class GetDeviceFleetReportRequestTypeDef(TypedDict):
     DeviceFleetName: str
 
@@ -4748,6 +4883,34 @@ class PropertyNameSuggestionTypeDef(TypedDict):
 
 class GitConfigForUpdateTypeDef(TypedDict):
     SecretArn: NotRequired[str]
+
+class GlobalInferenceGatewayFilterTypeDef(TypedDict):
+    Name: Literal["Status"]
+    Value: str
+
+class GlobalInferenceGatewayMemberFilterTypeDef(TypedDict):
+    Name: GlobalInferenceGatewayMemberFilterNameType
+    Value: str
+
+class GlobalInferenceGatewayMemberSummaryTypeDef(TypedDict):
+    Name: str
+    Namespace: str
+    ClusterArn: str
+    Status: NotRequired[GlobalInferenceGatewayMemberStatusType]
+    FailureReason: NotRequired[str]
+
+class GlobalInferenceGatewayRoutingWeightsTypeDef(TypedDict):
+    KVHeadroom: NotRequired[float]
+    QueueDepth: NotRequired[float]
+    RegionProximity: NotRequired[float]
+    ErrorRate: NotRequired[float]
+
+class GlobalInferenceGatewaySummaryTypeDef(TypedDict):
+    Arn: str
+    Id: str
+    Name: str
+    Status: GlobalInferenceGatewayStatusType
+    CreationTime: NotRequired[datetime]
 
 class HiddenSageMakerImageOutputTypeDef(TypedDict):
     SageMakerImageName: NotRequired[Literal["sagemaker_distribution"]]
@@ -5507,6 +5670,26 @@ class ScheduleConfigTypeDef(TypedDict):
     DataAnalysisStartTime: NotRequired[str]
     DataAnalysisEndTime: NotRequired[str]
 
+class MoveClusterNodeLogicalIdsErrorTypeDef(TypedDict):
+    Code: MoveClusterNodesErrorCodeType
+    Message: str
+    NodeLogicalId: str
+
+class MoveClusterNodesErrorTypeDef(TypedDict):
+    Code: MoveClusterNodesErrorCodeType
+    Message: str
+    NodeId: str
+
+class MoveClusterNodesRequestTypeDef(TypedDict):
+    SourceClusterArn: str
+    SourceInstanceGroupName: str
+    TargetClusterArn: str
+    TargetInstanceGroupName: str
+    InstanceCount: NotRequired[int]
+    NodeIds: NotRequired[Sequence[str]]
+    NodeLogicalIds: NotRequired[Sequence[str]]
+    ClientToken: NotRequired[str]
+
 class NeoVpcConfigTypeDef(TypedDict):
     SecurityGroupIds: Sequence[str]
     Subnets: Sequence[str]
@@ -5731,6 +5914,12 @@ class RecommendationJobVpcConfigTypeDef(TypedDict):
 
 class RemoteDebugConfigForUpdateTypeDef(TypedDict):
     EnableRemoteDebug: NotRequired[bool]
+
+class RemoveInferenceGatewayRequestTypeDef(TypedDict):
+    Identifier: str
+    ClusterArn: str
+    Namespace: str
+    Name: str
 
 class RenderableTaskTypeDef(TypedDict):
     Input: str
@@ -6552,6 +6741,12 @@ class DeleteExperimentResponseTypeDef(TypedDict):
     ExperimentArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class DeleteGlobalInferenceGatewayResponseTypeDef(TypedDict):
+    Arn: str
+    Id: str
+    Name: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class DeleteInferenceExperimentResponseTypeDef(TypedDict):
     InferenceExperimentArn: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -6930,6 +7125,22 @@ class BatchAddClusterNodesRequestTypeDef(TypedDict):
     NodesToAdd: Sequence[AddClusterNodeSpecificationTypeDef]
     ClientToken: NotRequired[str]
 
+class AddInferenceGatewayResponseTypeDef(TypedDict):
+    Arn: str
+    Id: str
+    Name: str
+    Gateway: GlobalInferenceGatewayMemberTypeDef
+    Status: GlobalInferenceGatewayMemberStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class RemoveInferenceGatewayResponseTypeDef(TypedDict):
+    Arn: str
+    Id: str
+    Name: str
+    Gateway: GlobalInferenceGatewayMemberTypeDef
+    Status: GlobalInferenceGatewayMemberStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class AddTagsInputTypeDef(TypedDict):
     ResourceArn: str
     Tags: Sequence[TagTypeDef]
@@ -7290,6 +7501,29 @@ class CanvasAppSettingsTypeDef(TypedDict):
     KendraSettings: NotRequired[KendraSettingsTypeDef]
     GenerativeAiSettings: NotRequired[GenerativeAiSettingsTypeDef]
     EmrServerlessSettings: NotRequired[EmrServerlessSettingsTypeDef]
+
+class DescribeCapacityReservationResponseTypeDef(TypedDict):
+    CapacityReservation: CapacityReservationDetailTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ListCapacityReservationsRequestTypeDef(TypedDict):
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    Filters: NotRequired[Sequence[CapacityReservationFilterTypeDef]]
+
+class CapacityReservationResourceAssociationTypeDef(TypedDict):
+    HyperPodClusters: NotRequired[CapacityReservationHyperPodClustersAssociationTypeDef]
+    Endpoints: NotRequired[CapacityReservationEndpointsAssociationTypeDef]
+
+class CapacityReservationInstanceUsageTypeDef(TypedDict):
+    AccountId: str
+    InUseInstanceCount: int
+    ResourcesUsage: list[CapacityReservationResourceUsageTypeDef]
+
+class ListCapacityReservationsResponseTypeDef(TypedDict):
+    CapacityReservationSummaries: list[CapacityReservationSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 class InstanceGroupMetadataTypeDef(TypedDict):
     FailureMessage: NotRequired[str]
@@ -8453,8 +8687,16 @@ class UpdateDeviceFleetRequestTypeDef(TypedDict):
     Description: NotRequired[str]
     EnableIotRoleAlias: NotRequired[bool]
 
+class DescribeResourceAssociationsRequestPaginateTypeDef(TypedDict):
+    SMCapacityReservationArn: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class DescribeTrainingPlanExtensionHistoryRequestPaginateTypeDef(TypedDict):
     TrainingPlanArn: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class GetCapacityReservationUsageRequestPaginateTypeDef(TypedDict):
+    SMCapacityReservationArn: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListAIBenchmarkJobsRequestPaginateTypeDef(TypedDict):
@@ -8562,6 +8804,10 @@ class ListCandidatesForAutoMLJobRequestPaginateTypeDef(TypedDict):
     CandidateNameEquals: NotRequired[str]
     SortOrder: NotRequired[AutoMLSortOrderType]
     SortBy: NotRequired[CandidateSortByType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListCapacityReservationsRequestPaginateTypeDef(TypedDict):
+    Filters: NotRequired[Sequence[CapacityReservationFilterTypeDef]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListClusterEventsRequestPaginateTypeDef(TypedDict):
@@ -10005,6 +10251,39 @@ class UpdateCodeRepositoryInputTypeDef(TypedDict):
     CodeRepositoryName: str
     GitConfig: NotRequired[GitConfigForUpdateTypeDef]
 
+class ListGlobalInferenceGatewaysRequestPaginateTypeDef(TypedDict):
+    Filters: NotRequired[Sequence[GlobalInferenceGatewayFilterTypeDef]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListGlobalInferenceGatewaysRequestTypeDef(TypedDict):
+    Filters: NotRequired[Sequence[GlobalInferenceGatewayFilterTypeDef]]
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+class ListInferenceGatewaysRequestPaginateTypeDef(TypedDict):
+    Identifier: str
+    Filters: NotRequired[Sequence[GlobalInferenceGatewayMemberFilterTypeDef]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListInferenceGatewaysRequestTypeDef(TypedDict):
+    Identifier: str
+    Filters: NotRequired[Sequence[GlobalInferenceGatewayMemberFilterTypeDef]]
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+class ListInferenceGatewaysResponseTypeDef(TypedDict):
+    InferenceGatewaySummaries: list[GlobalInferenceGatewayMemberSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class GlobalInferenceGatewayRoutingTypeDef(TypedDict):
+    Weights: GlobalInferenceGatewayRoutingWeightsTypeDef
+
+class ListGlobalInferenceGatewaysResponseTypeDef(TypedDict):
+    GlobalInferenceGatewaySummaries: list[GlobalInferenceGatewaySummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 class StudioWebPortalSettingsOutputTypeDef(TypedDict):
     HiddenMlTools: NotRequired[list[MlToolsType]]
     HiddenAppTypes: NotRequired[list[AppTypeType]]
@@ -10484,6 +10763,13 @@ class MonitoringDatasetFormatTypeDef(TypedDict):
 
 class MonitoringOutputTypeDef(TypedDict):
     S3Output: MonitoringS3OutputTypeDef
+
+class MoveClusterNodesResponseTypeDef(TypedDict):
+    Successful: list[str]
+    Failed: list[MoveClusterNodesErrorTypeDef]
+    SuccessfulNodeLogicalIds: list[str]
+    FailedNodeLogicalIds: list[MoveClusterNodeLogicalIdsErrorTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 NeoVpcConfigUnionTypeDef = Union[NeoVpcConfigTypeDef, NeoVpcConfigOutputTypeDef]
 
@@ -10983,6 +11269,22 @@ class AutoMLCandidateTypeDef(TypedDict):
         dict[AutoMLProcessingUnitType, list[AutoMLContainerDefinitionTypeDef]]
     ]
 
+class DescribeResourceAssociationsResponseTypeDef(TypedDict):
+    SMCapacityReservationArn: str
+    SMCapacityReservationId: str
+    ResourceAssociations: list[CapacityReservationResourceAssociationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class GetCapacityReservationUsageResponseTypeDef(TypedDict):
+    SMCapacityReservationId: str
+    TotalInstanceCount: int
+    AvailableInstanceCount: int
+    LastRefreshTime: datetime
+    InstanceUsageSet: list[CapacityReservationInstanceUsageTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 class DeploymentConfigurationOutputTypeDef(TypedDict):
     RollingUpdatePolicy: NotRequired[RollingDeploymentPolicyTypeDef]
     WaitIntervalInSeconds: NotRequired[int]
@@ -11308,6 +11610,49 @@ class PipelineExecutionStepMetadataTypeDef(TypedDict):
     Cleanup: NotRequired[CleanupStepMetadataTypeDef]
     ForEach: NotRequired[ForEachStepMetadataTypeDef]
     HubContent: NotRequired[HubContentStepMetadataTypeDef]
+
+class CreateGlobalInferenceGatewayRequestTypeDef(TypedDict):
+    Name: str
+    ExecutionRoleArn: str
+    Gateways: Sequence[GlobalInferenceGatewayMemberTypeDef]
+    Routing: NotRequired[GlobalInferenceGatewayRoutingTypeDef]
+    ClientToken: NotRequired[str]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
+class CreateGlobalInferenceGatewayResponseTypeDef(TypedDict):
+    Arn: str
+    Id: str
+    Name: str
+    Status: GlobalInferenceGatewayStatusType
+    ExecutionRoleArn: str
+    Routing: GlobalInferenceGatewayRoutingTypeDef
+    Gateways: list[GlobalInferenceGatewayMemberTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeGlobalInferenceGatewayResponseTypeDef(TypedDict):
+    Arn: str
+    Id: str
+    Name: str
+    ExecutionRoleArn: str
+    Status: GlobalInferenceGatewayStatusType
+    EndpointUrl: str
+    VpcEndpointServiceName: str
+    Routing: GlobalInferenceGatewayRoutingTypeDef
+    CreationTime: datetime
+    FailureReason: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateGlobalInferenceGatewayRequestTypeDef(TypedDict):
+    Identifier: str
+    Routing: GlobalInferenceGatewayRoutingTypeDef
+
+class UpdateGlobalInferenceGatewayResponseTypeDef(TypedDict):
+    Arn: str
+    Id: str
+    Name: str
+    Status: GlobalInferenceGatewayStatusType
+    Routing: GlobalInferenceGatewayRoutingTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 HyperParameterTuningResourceConfigUnionTypeDef = Union[
     HyperParameterTuningResourceConfigTypeDef, HyperParameterTuningResourceConfigOutputTypeDef

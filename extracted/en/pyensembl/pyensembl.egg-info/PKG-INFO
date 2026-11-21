@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyensembl
-Version: 2.34.5
+Version: 2.34.8
 Summary: Python interface to Ensembl reference genome metadata
 Author-email: Alex Rubinsteyn <alex.rubinsteyn@unc.edu>
 License-Expression: Apache-2.0
@@ -20,7 +20,6 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: argcomplete<4,>=3
 Requires-Dist: datacache[progress]<2.0.0,>=1.30.0
-Requires-Dist: memoized-property>=1.0.2
 Requires-Dist: gtfparse<4.0.0,>=2.9.0
 Requires-Dist: serializable<2.0.0,>=0.2.1
 Requires-Dist: pyfaidx<1.0.0,>=0.8.1

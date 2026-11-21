@@ -18,41 +18,53 @@ from rattler.repo_data.revisions import RepodataRevisionMetadata, _repodata_revi
 
 class PackageFormatSelection(Enum):
     """
-    Enum that describes what to do if both a `.tar.bz2` and a `.conda` package is available.
+    Enum that describes which archive formats of a package are used when the same build
+    (the same name, version and build string) is available in more than one format.
+
+    Removed packages are dropped before formats are compared: if the `.conda` file of a
+    build is removed, its `.tar.bz2` file counts as having no `.conda` counterpart. Where
+    formats are preferred over each other the order is `.conda` over `.whl` over `.tar.bz2`.
     """
 
     ONLY_TAR_BZ2 = PyPackageFormatSelection.OnlyTarBz2
     """
-    Only use the `.tar.bz2` packages, ignore all `.conda` packages.
+    Only use the `.tar.bz2` packages.
     """
 
     ONLY_CONDA = PyPackageFormatSelection.OnlyConda
     """
-    Only use the `.conda` packages, ignore all `.tar.bz2` packages.
+    Only use the `.conda` packages.
     """
 
     PREFER_CONDA = PyPackageFormatSelection.PreferConda
     """
-    Only use the `.conda` packages if there are both a `.tar.bz2` and a `.conda` package available.
+    Use the `.conda` and `.tar.bz2` packages, but drop a `.tar.bz2` package if the same build
+    is available as `.conda`. Wheels are not used.
     """
 
     PREFER_CONDA_WITH_WHL = PyPackageFormatSelection.PreferCondaWithWhl
     """
-    Only use the `.conda` packages if there are both a `.tar.bz2` and a `.conda` package available.
-    Also adds `.whl` files if available.
+    Use the `.conda`, `.whl` and `.tar.bz2` packages, but only the most preferred format of
+    each build: `.conda` over `.whl` over `.tar.bz2`.
     """
 
     BOTH = PyPackageFormatSelection.Both
     """
-    Use both the `.tar.bz2` and the `.conda` packages.
+    Use both the `.tar.bz2` and the `.conda` packages, also when they represent the same build.
+    Wheels are not used.
+    """
+
+    ALL = PyPackageFormatSelection.All
+    """
+    Use every package regardless of its format, without dropping any format in favor of
+    another.
     """
 
 
 class SparseRepoData:
     """
-    A class to enable loading records from a `repodata.json` file on demand.
-    Since most of the time you don't need all the records from the `repodata.json`
-    this can help provide some significant speedups.
+    Load package records on demand from repodata JSON in a file or in memory.
+    This allows callers to deserialize only the packages they need.
     """
 
     def __init__(
@@ -78,18 +90,48 @@ class SparseRepoData:
             )
         self._sparse = PySparseRepoData(channel._channel, subdir, str(path))
 
+    @classmethod
+    def from_bytes(cls, channel: Channel, subdir: str, data: bytes) -> SparseRepoData:
+        """Load sparse repodata from uncompressed UTF-8 JSON bytes.
+
+        The returned instance owns a copy of the data and does not access the
+        filesystem. The caller can release the original bytes after this call.
+
+        Examples
+        --------
+        ```python
+        >>> channel = Channel("https://example.org/channel")
+        >>> data = b'{"packages": {}}'
+        >>> with SparseRepoData.from_bytes(channel, "linux-64", data) as repo:
+        ...     repo.package_names()
+        []
+        >>>
+        ```
+        """
+        if not isinstance(channel, Channel):
+            raise TypeError(
+                "SparseRepoData.from_bytes received unsupported type "
+                f" {type(channel).__name__!r} for the `channel` parameter"
+            )
+        if not isinstance(subdir, str):
+            raise TypeError(
+                "SparseRepoData.from_bytes received unsupported type "
+                f" {type(subdir).__name__!r} for the `subdir` parameter"
+            )
+        if not isinstance(data, bytes):
+            raise TypeError(
+                f"SparseRepoData.from_bytes received unsupported type  {type(data).__name__!r} for the `data` parameter"
+            )
+        return cls._from_py_sparse_repo_data(PySparseRepoData.from_bytes(channel._channel, subdir, data))
+
     def close(self) -> None:
         """
-        Closes any mapped resources associated with this `SparseRepoData`
-        instance. It is good practice to call this method when you are done
-        with it. This is especially important if you want to modify or delete
-        the file from which this instance was created.
+        Close this instance and release its mapped file or owned JSON bytes.
+        Storage still used by an active operation remains available until that
+        operation finishes. Call this method when you are done with the repodata,
+        or use the instance as a context manager.
 
-        This method will release all resources associated with this instance,
-        including those that are currently being used on another thread. This
-        method will block until all resources are released.
-
-        This method has no effect if the file is already closed. Once the
+        This method has no effect if the instance is already closed. Once the
         instance is closed, any operation on the instance will raise a
         `ValueError`.
 

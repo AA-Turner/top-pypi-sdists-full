@@ -466,7 +466,7 @@ class TaskMetadata(BaseModel):
         bibtex_citation: The BibTeX citation for the dataset. Should be an empty string if no citation is available. As non-existing citations can
             cause authors citing the work to be penalized, we recommend to use an empty string if no citation is available. Similarly, if no article
             exist, we recommend to use an empty string instead of citing e.g. the dataset's website. It is allowed to cite multiple articles.
-        adapted_from: Datasets adapted (translated, sampled from, etc.) from other datasets.
+        adapted_from: Registered MTEB task names this task is adapted (translated, sampled, etc.) from.
         is_public: Whether the dataset is publicly available. If False (closed/private), a HuggingFace token is required to run the datasets.
         contributed_by: The name of the organization or individual who contributed the dataset. This is especially useful for private datasets
             where it may be harder to gather information about the source.
@@ -614,7 +614,7 @@ class TaskMetadata(BaseModel):
     def intext_citation(self, include_cite: bool = True) -> str:
         """Create an in-text citation for the dataset."""
         cite = ""
-        if self.bibtex_citation:
+        if self.bibtex_citation and self.bibtex_citation.strip():
             cite = f"{self.bibtex_citation.split(',')[0].split('{')[1]}"
         if include_cite and cite:
             # check for whitespace in the citation
@@ -990,6 +990,7 @@ class TaskMetadata(BaseModel):
             "MultilabelClassification": ["text-classification"],
             "Clustering": ["text-classification"],
             "PairClassification": ["text-classification"],
+            "Regression": ["text-classification"],
             "Reranking": ["text-ranking"],
             "Retrieval": ["text-retrieval"],
             "STS": ["sentence-similarity"],
@@ -1017,6 +1018,10 @@ class TaskMetadata(BaseModel):
             "AudioPairClassification": ["audio-classification"],
             # video
             "VideoCentricQA": ["visual-question-answering"],
+            "VideoClassification": ["video-classification"],
+            "VideoMultilabelClassification": ["video-classification"],
+            "VideoClustering": ["video-classification"],
+            "VideoPairClassification": ["video-classification"],
             "VideoZeroshotClassification": ["video-classification"],
         }
         if self.type == "ZeroShotClassification":

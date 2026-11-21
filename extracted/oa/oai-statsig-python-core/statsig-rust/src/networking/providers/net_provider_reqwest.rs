@@ -15,7 +15,7 @@ use crate::{
         http_types::{
             HttpMethod, NetworkRequest, RequestArgs, Response, ResponseData, ResponseLimitOutcome,
         },
-        url_path_has_suffix,
+        is_id_list_membership_endpoint, url_path_has_suffix,
     },
 };
 
@@ -133,6 +133,18 @@ struct ResponseLimitClientKey {
     ca_cert_pem: Option<Vec<u8>>,
 }
 
+// A synchronous membership check can block another Tokio runtime while
+// waiting. Its connection and HTTP/2 probe must use the runtime sending the lookup.
+fn id_list_membership_runtime(url: &str) -> Option<tokio::runtime::Id> {
+    if is_id_list_membership_endpoint(url) {
+        tokio::runtime::Handle::try_current()
+            .ok()
+            .map(|handle| handle.id())
+    } else {
+        None
+    }
+}
+
 impl ResponseLimitClientKey {
     fn from_request_args(request_args: &RequestArgs) -> Self {
         let (proxy_host, proxy_port, proxy_auth, proxy_protocol) =
@@ -151,7 +163,7 @@ impl ResponseLimitClientKey {
             };
 
         Self {
-            runtime: None,
+            runtime: id_list_membership_runtime(&request_args.url),
             auto_decode_gzip: auto_decode_gzip(request_args),
             proxy_host,
             proxy_port,
@@ -273,12 +285,13 @@ pub(crate) struct EventUploadTransport {
     clients: Mutex<ClientCache<EventUploadClientKey>>,
 }
 
+type Http2OriginKey = (String, Option<tokio::runtime::Id>);
 type Http2CapabilityEntry = (Instant, Arc<tokio::sync::OnceCell<bool>>);
 
 struct ReqwestTransport {
     has_file_write_access: OnceLock<bool>,
     http2_clients: Mutex<ClientCache<ResponseLimitClientKey>>,
-    http2_origins: Mutex<HashMap<String, Http2CapabilityEntry>>,
+    http2_origins: Mutex<HashMap<Http2OriginKey, Http2CapabilityEntry>>,
     response_limit_clients: Mutex<ClientCache<ResponseLimitClientKey>>,
 }
 
@@ -576,7 +589,10 @@ impl ReqwestTransport {
         let Some(port) = url.port_or_known_default() else {
             return false;
         };
-        let origin = url.origin().ascii_serialization();
+        let origin = (
+            url.origin().ascii_serialization(),
+            id_list_membership_runtime(&args.url),
+        );
         // Coalesce discovery per origin without holding a cache lock during I/O.
         let capability = {
             let mut origins = self.http2_origins.lock();

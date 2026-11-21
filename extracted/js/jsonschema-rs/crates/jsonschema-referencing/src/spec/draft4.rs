@@ -1,6 +1,6 @@
 use serde_json::Value;
 
-use crate::{Error, Resolver, ResourceRef, Segments};
+use crate::Segments;
 
 use super::{
     draft202012::{self, ChildIterInner},
@@ -32,12 +32,10 @@ pub(crate) fn children(key: &str, value: &Value) -> Children {
 
 pub(crate) fn object_iter<'a>((key, value): (&'a String, &'a Value)) -> ChildIterInner<'a> {
     match key.as_str() {
-        // For "items": if it's an array, iterate over it; otherwise, yield one element.
         "items" => match value {
             Value::Array(arr) => ChildIterInner::Array(arr.iter()),
             _ => ChildIterInner::Once(value),
         },
-        // For "allOf", "anyOf", "oneOf", "prefixItems": if the value is an array, iterate over it.
         "allOf" | "anyOf" | "oneOf" | "prefixItems" => {
             if let Some(arr) = value.as_array() {
                 ChildIterInner::Array(arr.iter())
@@ -45,8 +43,6 @@ pub(crate) fn object_iter<'a>((key, value): (&'a String, &'a Value)) -> ChildIte
                 ChildIterInner::Empty
             }
         }
-        // For "$defs", "definitions", "dependentSchemas", "patternProperties", "properties":
-        // if the value is an object, iterate over its values.
         "$defs" | "definitions" | "dependentSchemas" | "patternProperties" | "properties" => {
             if let Some(obj) = value.as_object() {
                 ChildIterInner::Object(obj.values())
@@ -54,7 +50,6 @@ pub(crate) fn object_iter<'a>((key, value): (&'a String, &'a Value)) -> ChildIte
                 ChildIterInner::Empty
             }
         }
-        // For "dependencies": if the value is an object, iterate over its values filtered to only those that are objects.
         "dependencies" => {
             if let Some(obj) = value.as_object() {
                 ChildIterInner::FilteredObject(obj.values())
@@ -62,11 +57,9 @@ pub(crate) fn object_iter<'a>((key, value): (&'a String, &'a Value)) -> ChildIte
                 ChildIterInner::Empty
             }
         }
-        // For "additionalItems" and "additionalProperties", only if the value is an object.
         "additionalItems" | "additionalProperties" if value.is_object() => {
             ChildIterInner::Once(value)
         }
-        // For other keys that were originally in the "single element" group:
         "contains"
         | "contentSchema"
         | "else"
@@ -80,11 +73,7 @@ pub(crate) fn object_iter<'a>((key, value): (&'a String, &'a Value)) -> ChildIte
     }
 }
 
-pub(crate) fn maybe_in_subresource<'r>(
-    segments: &Segments,
-    resolver: &Resolver<'r>,
-    subresource: ResourceRef<'_>,
-) -> Result<Resolver<'r>, Error> {
+pub(crate) fn is_subschema(segments: &Segments, contents: &Value) -> bool {
     const IN_VALUE: &[&str] = &["additionalItems", "additionalProperties", "not"];
     const IN_CHILD: &[&str] = &[
         "allOf",
@@ -94,11 +83,5 @@ pub(crate) fn maybe_in_subresource<'r>(
         "patternProperties",
         "properties",
     ];
-    draft202012::maybe_in_subresource_with_items_and_dependencies(
-        segments,
-        resolver,
-        subresource,
-        IN_VALUE,
-        IN_CHILD,
-    )
+    draft202012::is_subschema_with_items_and_dependencies(segments, contents, IN_VALUE, IN_CHILD)
 }

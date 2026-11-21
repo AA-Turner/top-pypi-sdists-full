@@ -297,6 +297,29 @@ endmodule
     NO_COMPILATION_ERRORS;
 }
 
+TEST_CASE("Modport export followed by a modport without exports") {
+    auto tree = SyntaxTree::fromText(R"(
+interface I;
+    logic x;
+    modport a(export task t());
+    modport b(input x);
+endinterface
+
+module m(I.a i);
+    task i.t(); endtask
+endmodule
+
+module top;
+    I i();
+    m m1(i.a);
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
 TEST_CASE("modport direction checking") {
     auto tree = SyntaxTree::fromText(R"(
 interface I;
@@ -781,6 +804,43 @@ endinterface:sliceIfc
     REQUIRE(diags.size() == 2);
     CHECK(diags[0].code == diag::VirtualIfaceIfacePort);
     CHECK(diags[1].code == diag::VirtualIfaceHierRef);
+}
+
+TEST_CASE("Virtual interface upward refs without a usable source range -- GH #2129") {
+    auto tree = SyntaxTree::fromText(R"(
+interface i ();
+  bit a = r();
+endinterface
+
+class C;
+  virtual i ii;
+  task r();
+  endtask
+endclass
+
+interface j ();
+  logic a;
+  assert property (@($global_clock) a);
+endinterface
+
+module m;
+  logic clk;
+  global clocking @(posedge clk); endclocking
+  class D;
+    virtual j jj;
+  endclass
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto diags = compilation.getAllDiagnostics().filter(DefaultIgnoreWarnings);
+    REQUIRE(diags.size() == 4);
+    CHECK(diags[0].code == diag::NonStaticClassMethod);
+    CHECK(diags[1].code == diag::UndeclaredIdentifier);
+    CHECK(diags[2].code == diag::VirtualIfaceHierRef);
+    CHECK(diags[3].code == diag::VirtualIfaceHierRef);
 }
 
 TEST_CASE("Extern and export methods with instance caching") {
@@ -1359,4 +1419,23 @@ endmodule
     auto& diags = compilation.getAllDiagnostics();
     REQUIRE(diags.size() == 1);
     CHECK(diags[0].code == diag::CouldNotResolveHierarchicalPath);
+}
+
+TEST_CASE("Modport expressions can use values of enums declared in the interface") {
+    auto tree = SyntaxTree::fromText(R"(
+interface I;
+    typedef enum logic [1:0] { A, B } e_t;
+    enum logic [1:0] { C, D } c;
+    logic [3:0] b;
+    modport m(input .x(b[B:0]), input .y(b[D:C]));
+endinterface
+
+module top;
+    I i();
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
 }

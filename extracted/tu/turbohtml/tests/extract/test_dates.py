@@ -214,6 +214,155 @@ def test_written_out_months(text: str, expected: str) -> None:
     assert dates(f"<body><p>{text}</p></body>") == PublicationDate(expected, "text")
 
 
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        pytest.param("4 april 2016", "2016-04-04", id="a-april"),
+        pytest.param("4 AOÛT 2016", "2016-08-04", id="a-accented-uppercase-aout"),
+        pytest.param("4 décembre 2016", "2016-12-04", id="d-decembre"),
+        pytest.param("4 enero 2016", "2016-01-04", id="e-enero"),
+        pytest.param("4 février 2016", "2016-02-04", id="f-fevrier"),
+        pytest.param("4 gennaio 2016", "2016-01-04", id="g-gennaio"),
+        pytest.param("4 juin 2016", "2016-06-04", id="j-juin-longer-than-jun"),
+        pytest.param("4 luglio 2016", "2016-07-04", id="l-luglio"),
+        pytest.param("4 Mai 2016", "2016-05-04", id="m-mai-case-folded"),
+        pytest.param("4 märz 2016", "2016-03-04", id="m-accented-maerz"),
+        pytest.param("4 november 2016", "2016-11-04", id="n-november"),
+        pytest.param("4 oktober 2016", "2016-10-04", id="o-oktober"),
+        pytest.param("4 septiembre 2016", "2016-09-04", id="s-septiembre-longest-name"),
+    ],
+)
+def test_written_month_resolves_for_every_initial(text: str, expected: str) -> None:
+    assert dates(f"<body><p>{text}</p></body>") == PublicationDate(expected, "text")
+
+
+@pytest.mark.parametrize(
+    ("word", "month"),
+    [
+        ("apr", 4),
+        ("april", 4),
+        ("avril", 4),
+        ("abril", 4),
+        ("aprile", 4),
+        ("aug", 8),
+        ("august", 8),
+        ("aout", 8),
+        pytest.param("août", 8, id="aout-accented"),
+        ("agosto", 8),
+        ("dec", 12),
+        ("dezember", 12),
+        ("december", 12),
+        pytest.param("décembre", 12, id="decembre-accented"),
+        ("diciembre", 12),
+        ("dicembre", 12),
+        ("enero", 1),
+        ("feb", 2),
+        ("februar", 2),
+        ("february", 2),
+        pytest.param("février", 2, id="fevrier-accented"),
+        ("febrero", 2),
+        ("febbraio", 2),
+        ("gennaio", 1),
+        ("giugno", 6),
+        ("jan", 1),
+        ("januar", 1),
+        ("january", 1),
+        ("janvier", 1),
+        ("jun", 6),
+        ("juni", 6),
+        ("june", 6),
+        ("juin", 6),
+        ("junio", 6),
+        ("jul", 7),
+        ("juli", 7),
+        ("july", 7),
+        ("juillet", 7),
+        ("julio", 7),
+        ("luglio", 7),
+        ("mar", 3),
+        pytest.param("märz", 3, id="maerz-umlaut"),
+        ("march", 3),
+        ("mars", 3),
+        ("marzo", 3),
+        ("may", 5),
+        ("mai", 5),
+        ("mayo", 5),
+        ("maggio", 5),
+        ("nov", 11),
+        ("november", 11),
+        ("novembre", 11),
+        ("noviembre", 11),
+        ("oct", 10),
+        ("oktober", 10),
+        ("october", 10),
+        ("octobre", 10),
+        ("octubre", 10),
+        ("ottobre", 10),
+        ("sep", 9),
+        ("september", 9),
+        ("septembre", 9),
+        ("septiembre", 9),
+        ("settembre", 9),
+    ],
+)
+def test_every_month_name_in_the_vocabulary_resolves(word: str, month: int) -> None:
+    assert dates(f"<body><p>4 {word} 2016</p></body>") == PublicationDate(f"2016-{month:02d}-04", "text")
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        pytest.param("Published in July and June, not dated.", id="month-names-only"),
+        pytest.param("Friday, Thursday and Zebra were all mentioned.", id="unmonthed-initials-only"),
+    ],
+)
+def test_text_without_a_digit_holds_no_date(text: str) -> None:
+    assert dates(f"<body><p>{text}</p></body>") is None
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        pytest.param("Room 12 on floor 3 of 99 blocks.", id="digits-without-a-date"),
+        pytest.param("Meet on July 4 and 12 May, no year given.", id="month-and-day-without-a-year"),
+        pytest.param("Call 4 of ", id="day-of-then-the-text-ends"),
+        pytest.param("Room 4 posted July  ", id="month-name-then-spaces-to-the-end"),
+        pytest.param("Posted July 4", id="month-then-a-day-at-the-end"),
+    ],
+)
+def test_digits_without_a_valid_date_hold_no_date(text: str) -> None:
+    assert dates(f"<body><p>{text}</p></body>") is None
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        pytest.param(f"July 4, 2016 {'ordinary ' * 8}", "2016-07-04", id="date-in-the-first-chunk"),
+        pytest.param(
+            f"{'ordinary ' * 4}July 4, 2016 {'ordinary ' * 8}", "2016-07-04", id="date-past-the-head-in-a-chunk"
+        ),
+        pytest.param(f"{'ordinary ' * 16}July 4, 2016", "2016-07-04", id="date-in-a-later-chunk"),
+        pytest.param(f"{'ordinary ' * 8}July 4, 2016", "2016-07-04", id="date-in-the-partial-tail"),
+        pytest.param("ordinary " * 16, None, id="no-digit-across-whole-chunks"),
+    ],
+)
+def test_a_long_text_is_scanned_past_its_chunks(text: str, expected: str | None) -> None:
+    assert dates(f"<body><p>{text}</p></body>") == (expected and PublicationDate(expected, "text"))
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        pytest.param("July 4, 2016 and more.", "2016-07-04", id="name-at-the-start"),
+        pytest.param("   4 july 2016", "2016-07-04", id="day-after-leading-spaces"),
+        pytest.param(f"{'ordinary ' * 12}July{' ' * 40}4, 2016", "2016-07-04", id="name-far-in-after-a-long-gap"),
+        pytest.param(f"{'ordinary ' * 12}septiembre.   4 2016", "2016-09-04", id="longest-name-far-in-after-a-dot"),
+    ],
+)
+def test_a_month_name_before_the_first_digit_is_kept(text: str, expected: str) -> None:
+    assert dates(f"<body><p>{text}</p></body>") == PublicationDate(expected, "text")
+
+
 def test_text_ties_break_by_original_or_recent() -> None:
     html = "<body><p>Seen 2014-01-01 once and 2018-01-01 once.</p></body>"
     assert dates(html, DateExtraction(original=True)) == PublicationDate("2014-01-01", "text")
@@ -300,8 +449,8 @@ def test_title_attribute_dates_a_marked_element() -> None:
     "count", [pytest.param(1, id="single"), pytest.param(17, id="growth"), pytest.param(1000, id="collisions")]
 )
 def test_date_tally_ties_keeps_the_original(count: int) -> None:
-    start: Final = date(2000, 1, 1)
-    source: Final = f"<p>{' '.join((start + timedelta(days=index)).isoformat() for index in range(count))}</p>"
+    start: Final[date] = date(2000, 1, 1)
+    source: Final[str] = f"<p>{' '.join((start + timedelta(days=index)).isoformat() for index in range(count))}</p>"
     assert dates(source, DateExtraction(original=True)) == PublicationDate(start.isoformat(), "text")
 
 
@@ -309,16 +458,16 @@ def test_date_tally_ties_keeps_the_original(count: int) -> None:
     "count", [pytest.param(1, id="single"), pytest.param(17, id="growth"), pytest.param(1000, id="collisions")]
 )
 def test_date_tally_ties_keeps_the_last_modified(count: int) -> None:
-    start: Final = date(2000, 1, 1)
-    source: Final = f"<p>{' '.join((start + timedelta(days=index)).isoformat() for index in range(count))}</p>"
-    expected: Final = start + timedelta(days=count - 1)
+    start: Final[date] = date(2000, 1, 1)
+    source: Final[str] = f"<p>{' '.join((start + timedelta(days=index)).isoformat() for index in range(count))}</p>"
+    expected: Final[date] = start + timedelta(days=count - 1)
     assert dates(source, DateExtraction(original=False)) == PublicationDate(expected.isoformat(), "text")
 
 
 @pytest.mark.parametrize("original", [pytest.param(True, id="published"), pytest.param(False, id="modified")])
 def test_date_tally_frequency_precedes_date_order(*, original: bool) -> None:
-    start: Final = date(2000, 1, 1)
-    source: Final = (
+    start: Final[date] = date(2000, 1, 1)
+    source: Final[str] = (
         f"<p>{' '.join((start + timedelta(days=index)).isoformat() for index in range(100))} 2000-02-01 2000-02-01</p>"
     )
     assert dates(source, DateExtraction(original=original)) == PublicationDate("2000-02-01", "text")

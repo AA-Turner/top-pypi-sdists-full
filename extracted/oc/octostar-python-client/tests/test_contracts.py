@@ -86,7 +86,7 @@ SPEC_ROUTES_WITHOUT_SDK = {
     "/api/v2/ai/llm/detokenize": "Detokenize (wrapped via utils/chat/detokenize.py)",
     "/api/v2/ai/llm/tokenize": "Tokenize (wrapped via utils/chat/tokenize.py)",
     # File operations (multipart upload/download, not yet SDK-wrapped)
-    "/api/v1/files/content/{token}": "File download by token",
+    "/api/v1/files/content/{os_workspace}/{entity_id}": "Database-stored file content",
     "/api/v1/files/download-blob/{filename}": "Blob download",
     "/api/v1/files/download/{os_workspace}/{path}": "File download",
     "/api/v1/files/list/{os_workspace}": "File listing",

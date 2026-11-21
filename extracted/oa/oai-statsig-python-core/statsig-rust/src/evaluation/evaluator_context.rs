@@ -12,6 +12,7 @@ use crate::id_lists_adapter::IdList;
 use crate::interned_string::InternedString;
 use crate::spec_store::RetainedConditions;
 use crate::specs_response::spec_types::{Rule, Spec, SpecsResponseFull, UnavailableValues};
+use crate::statsig::remote_id_lists::RemoteIdListSession;
 use crate::user::StatsigUserInternal;
 use crate::{OverrideAdapter, SecondaryExposure, StatsigErr};
 
@@ -65,6 +66,7 @@ pub struct EvaluatorContext<'a> {
     pub(crate) nested_experiment_exposures: Vec<NestedExperimentExposure>,
     /// Distinguishes a body that failed lazy materialization from an empty list.
     pub(crate) unresolved_missing_id_lists: bool,
+    pub(crate) remote_id_lists: Option<RemoteIdListSession<'a>>,
     pub gcir_hashes: Vec<u64>,
 }
 
@@ -103,6 +105,7 @@ impl<'a> EvaluatorContext<'a> {
             manual_layer_exposure_only: false,
             nested_experiment_exposures: Vec::new(),
             unresolved_missing_id_lists: false,
+            remote_id_lists: None,
             gcir_hashes: Vec::new(),
         }
     }

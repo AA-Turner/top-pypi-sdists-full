@@ -80,7 +80,12 @@ def resolve_task(benchmark: str, suite: str, task_id: str | int) -> str | int:
 def validate_selection(benchmark: str, model: str, suite: str, task_id: str | int) -> str | int:
     task = resolve_task(benchmark, suite, task_id)
     if model not in BENCHMARK_MODELS[benchmark]:
-        raise ValueError(f"{public_model(model)} doesn't run on {benchmark}. {errors.SEE_MODELS}")
+        from dreamscale.checkpoints_cmd import may_name_deployment
+
+        if not (benchmark == "abc" and may_name_deployment(model)):
+            raise ValueError(
+                f"{public_model(model)} doesn't run on {benchmark}. {errors.SEE_MODELS}"
+            )
     from dreamscale.policy.runtime import served
 
     # A model trained on one suite refuses the others (its wire's ``sim_task``).

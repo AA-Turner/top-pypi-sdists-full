@@ -1,6 +1,7 @@
 use super::*;
 use crate::id_lists_adapter::IdListIds;
 use crate::id_lists_adapter::shared_id_list_format::{IdListImage, digest, hex, invalid};
+use crate::networking::{Response, ResponseData};
 use crate::portable_id_list_ef::{MAX_IMAGE_BYTES, MEDIA_TYPE, RECORD_BYTES};
 use std::io::{self, Read};
 
@@ -77,7 +78,7 @@ fn read_verified_snapshot(body: &mut ResponseData, expected_digest: &str) -> io:
     Ok(bytes)
 }
 
-impl StatsigHttpIdListsAdapter {
+impl IdListHttpTransport {
     pub(super) async fn validate_snapshot(
         &self,
         job: &IdListDownloadJob,
@@ -133,7 +134,7 @@ impl StatsigHttpIdListsAdapter {
             move || {
                 let _permits = (download_permit, build_permit);
                 if stopped.load(Ordering::SeqCst) {
-                    return Err(StatsigHttpIdListsAdapter::publication_stopped());
+                    return Err(publication_stopped());
                 }
                 let image = id_list_load_timing::measure(Phase::Decode, || {
                     read_verified_snapshot(&mut body, &expected)

@@ -37,12 +37,13 @@ CAPABILITIES_SCHEMA = "hwpx.capabilities/v1"
 
 _DIST_NAME = "python-hwpx"
 
-#: extras 이름 → 그 extra가 끄는 런타임 모듈들. ``visual``은 5.0부터 의도적으로
-#: 빈 extra(설치 호환 유지용)라 백킹 모듈이 없고, 프로브는 공허하게 참이다.
+#: extras 이름 → 그 extra가 끄는 런타임 모듈들. ``visual``은 5.0부터, ``xlsx``·``preview``는
+#: 7.0부터(메일 머지·미리보기가 python-hwpx-automation으로 옮겨 갔다) 의도적으로 빈
+#: extra(설치 호환 유지용)라 백킹 모듈이 없고, 프로브는 공허하게 참이다.
 _EXTRA_MODULES: dict[str, tuple[str, ...]] = {
     "visual": (),
-    "xlsx": ("openpyxl",),
-    "preview": ("latex2mathml",),
+    "xlsx": (),
+    "preview": (),
 }
 
 #: 능력 영역 레지스트리. ``matrix_row``는 ``docs/support-matrix.md`` 표 1열
@@ -117,14 +118,14 @@ _CAPABILITY_AREAS: tuple[dict[str, Any], ...] = (
         "namespace": "doc.shapes",
         "matrix_row": "도형 저작(선·사각형·타원)",
         "entry_points": ("hwpx.document:HwpxDocument", "hwpx.model:Shape"),
-        "authoring_methods": ("add_line", "add_rectangle", "add_ellipse"),
+        "authoring_methods": (),
     },
     {
         "area": "shape-escape-hatch",
         "namespace": "doc.shapes",
         "matrix_row": "저수준 도형·컨트롤 탈출구",
         "entry_points": ("hwpx.document:HwpxDocument",),
-        "authoring_methods": ("add_shape", "add_control"),
+        "authoring_methods": (),
     },
     {
         "area": "curve-objects",
@@ -158,21 +159,21 @@ _CAPABILITY_AREAS: tuple[dict[str, Any], ...] = (
         "namespace": None,
         "matrix_row": "그림 삽입/치환",
         "entry_points": ("hwpx.document:HwpxDocument",),
-        "authoring_methods": ("add_picture", "add_image"),
+        "authoring_methods": ("add_picture",),
     },
     {
         "area": "chart",
         "namespace": "doc.shapes",
         "matrix_row": "차트",
         "entry_points": ("hwpx.document:HwpxDocument",),
-        "authoring_methods": ("add_chart",),
+        "authoring_methods": (),
     },
     {
         "area": "equation",
         "namespace": "doc.shapes",
         "matrix_row": "수식",
         "entry_points": ("hwpx.equation.authoring:latex_to_eqedit",),
-        "authoring_methods": ("add_equation",),
+        "authoring_methods": (),
     },
     {
         "area": "drop-cap",
@@ -190,7 +191,7 @@ _CAPABILITY_AREAS: tuple[dict[str, Any], ...] = (
         "namespace": "doc.tracking",
         "matrix_row": "변경추적(redline)",
         "entry_points": ("hwpx.tools.redline:verify_redline",),
-        "authoring_methods": ("add_track_change", "add_tracked_insert", "add_tracked_delete", "add_tracked_replace"),
+        "authoring_methods": (),
     },
     {
         "area": "highlight",
@@ -211,20 +212,22 @@ _CAPABILITY_AREAS: tuple[dict[str, Any], ...] = (
         "namespace": "doc.notes",
         "matrix_row": "메모(코멘트)",
         "entry_points": ("hwpx.document:HwpxDocument",),
-        "authoring_methods": ("add_memo", "add_memo_with_anchor"),
+        "authoring_methods": (),
     },
     {
         "area": "footnote-endnote",
         "namespace": "doc.notes",
         "matrix_row": "각주/미주",
         "entry_points": ("hwpx.document:HwpxDocument",),
-        "authoring_methods": ("add_footnote", "add_endnote"),
+        "authoring_methods": (),
     },
     {
         "area": "toc-crossref",
-        "namespace": None,
-        # 자리: doc.refs에는 차례·상호참조 메서드가 없다(add_bookmark·add_hyperlink
-        # 뿐). 진입점은 아래 모듈 함수라 namespace는 None이다(ENG-33).
+        "namespace": "doc.refs",
+        # 7.0: doc.refs가 차례(tables_of_contents·add_table_of_contents)와 상호
+        # 참조(cross_references·add_cross_reference)를 읽고 만든다. 지원 매트릭스의
+        # 실한컴 근거(구조 15/15·페이지 정합 5/5)는 아래 모듈 함수가 쓴 차례라
+        # 진입점은 그대로 둔다.
         "matrix_row": "네이티브 목차(TOC)/상호참조",
         "entry_points": ("hwpx.tools.toc_author:add_native_toc",),
         # 6.8 트레인㉚: add_bookmark/add_hyperlink는 여기 있었으나(오귀속),
@@ -275,14 +278,14 @@ _CAPABILITY_AREAS: tuple[dict[str, Any], ...] = (
         "namespace": "doc.fields",
         "matrix_row": "누름틀(form field) 생성",
         "entry_points": ("hwpx.document:HwpxDocument",),
-        "authoring_methods": ("add_form_field",),
+        "authoring_methods": (),
     },
     {
         "area": "check-box",
         "namespace": "doc.fields",
         "matrix_row": "체크박스 양식개체",
         "entry_points": ("hwpx.document:HwpxDocument",),
-        "authoring_methods": ("add_check_box",),
+        "authoring_methods": (),
     },
     {
         "area": "document-options-compatibility",
@@ -333,13 +336,6 @@ _CAPABILITY_AREAS: tuple[dict[str, Any], ...] = (
         "authoring_methods": (),
     },
     {
-        "area": "table-navigation-fill",
-        "namespace": "doc.tables",
-        "matrix_row": "표 탐색 기반 채움(라벨 매칭 네비게이션)",
-        "entry_points": ("hwpx.document:HwpxDocument",),
-        "authoring_methods": (),
-    },
-    {
         "area": "find-replace",
         "namespace": "doc.text",
         "matrix_row": "찾아바꾸기",
@@ -361,17 +357,6 @@ _CAPABILITY_AREAS: tuple[dict[str, Any], ...] = (
         "namespace": "doc.refs",
         "matrix_row": "하이퍼링크·책갈피",
         "entry_points": ("hwpx.document:HwpxDocument",),
-        "authoring_methods": ("add_bookmark", "add_hyperlink"),
-    },
-    {
-        "area": "mail-merge",
-        "namespace": None,
-        "matrix_row": "메일머지(placeholder 템플릿 배치 생성)",
-        # 6.8 트레인㉚가 찾은 신규 측정 갭, 트레인㉛에서 등재. HwpxDocument
-        # 어느 네임스페이스에도 없다(순수 hwpx.tools 모듈 함수 — 이미 연
-        # 문서가 아니라 템플릿 파일 경로를 받아 여러 문서를 배치 생성) —
-        # edit-plan과 같은 이유로 namespace=None, 모듈 진입점만 갖는다.
-        "entry_points": ("hwpx.tools.mail_merge:merge_template_rows",),
         "authoring_methods": (),
     },
     {
@@ -388,23 +373,6 @@ _CAPABILITY_AREAS: tuple[dict[str, Any], ...] = (
         "entry_points": (
             "hwpx.tools.document_merge:append_document",
             "hwpx.tools.document_merge:insert_document",
-        ),
-        "authoring_methods": (),
-    },
-    {
-        "area": "markdown-import",
-        "namespace": None,
-        "matrix_row": "Markdown 가져오기(Markdown → 문서)",
-        # 흔한 Markdown 부분 집합(제목·문단·목록·표·굵게/기울임)을 기존
-        # 저작 primitive(add_paragraph·add_run·add_table·apply_list_format)로
-        # 쓴다. 새 요소를 만들지 않으므로 coverage_ledger 등록은 없다.
-        # 진입점은 모듈 함수(from_markdown)이고 기존 문서에는
-        # doc.text.append_markdown 으로 덧붙인다. 6.x 루트 예산에 빈 칸이
-        # 없어 루트 생성자가 아니라 모듈에 산다(mail-merge와 같은 이유로
-        # namespace=None).
-        "entry_points": (
-            "hwpx.tools.markdown_import:from_markdown",
-            "hwpx.tools.markdown_import:append_markdown",
         ),
         "authoring_methods": (),
     },
@@ -500,7 +468,9 @@ _CAPABILITY_AREAS: tuple[dict[str, Any], ...] = (
         # 기능을 담을 수 없다. date-time-proofreading-mark-fields와 같은
         # field_marks.py·같은 hp:fieldBegin 계열이지만 그쪽에 합류시키지
         # 않은 것도 같은 이유다 — 그 행은 "입력 > 필드" 계열 3종이고
-        # 메일머지 표시는 "도구 > 메일 머지" 메뉴다.
+        # 메일머지 표시는 "도구 > 메일 머지" 메뉴다. 7.0: 그 "mail-merge" 영역(배치
+        # 생성)은 python-hwpx-automation(hwpx_automation.mail_merge)으로 옮겨 이
+        # 레지스트리에서 빠졌다. 필드를 만드는 이 영역은 파일에 적는 일이라 엔진에 남는다.
         "entry_points": ("hwpx.oxml.paragraph:HwpxOxmlParagraph",),
         "authoring_methods": (),
     },
@@ -533,31 +503,20 @@ _CONTRACT_DOCS_DIR = Path(__file__).resolve().parent / "data" / "contract_docs"
 #: 파사드 계약의 일부로 인정하는 dunder(락 생성기와 같은 규칙).
 _PUBLIC_DUNDERS = frozenset({"__init__", "__repr__", "__enter__", "__exit__"})
 
-#: 위임 shim 이 사라지는 major. ``_document._legacy`` 와 같은 값이어야 한다.
+#: 옛 루트 이름(6.x 위임 shim)이 사라진 major. ``_document._legacy`` 와 같은 값이어야 한다.
 _LEGACY_REMOVED_IN = "7.0"
 
 
 def _extra_installed(extra: str) -> bool:
-    """extra 설치 여부 — 함수 스코프 **정적 import** try/except 프로브.
+    """extra 설치 여부.
 
-    core의 importlib 표면은 boundary ratchet상 ``from importlib import
-    resources`` 한 형태뿐이라 동적 프로브(find_spec/import_module)를 쓰지
-    않는다. 닫힌 extras 집합이므로 하우스 패턴(mail_merge의 지연 import)과
-    같은 정적 guarded import면 충분하다.
+    7.0의 extras는 전부 의도적으로 빈 extra다(설치 호환 유지 — ``visual``은 5.0부터,
+    ``xlsx``·``preview``는 7.0부터). 백킹 모듈이 없으니 공허하게 참이다. 동적 프로브
+    (find_spec/import_module)는 쓰지 않는다 — core의 importlib 표면은 boundary ratchet상
+    ``from importlib import resources`` 한 형태뿐이다.
     """
 
-    if extra == "xlsx":
-        try:
-            import openpyxl  # noqa: F401
-        except Exception:
-            return False
-        return True
-    if extra == "preview":
-        from .equation.mathml import latex2mathml_available
-
-        return latex2mathml_available()
-    # visual: 5.0부터 의도적 빈 extra(설치 호환 유지) — 공허하게 참.
-    return True
+    return not _EXTRA_MODULES.get(extra, ())
 
 
 def _package_version() -> str:
@@ -617,9 +576,9 @@ def describe_capabilities() -> dict[str, Any]:
             "legacyShimCount": _legacy_shim_count(),
             "legacyShimsRemovedIn": _LEGACY_REMOVED_IN,
             "note": (
-                "root 는 6.0 파사드의 공개 멤버 수다. legacyShimCount 는 5.x 이름을 "
-                "유지하는 위임 shim 수이며 7.0에서 0이 된다 — 이동을 제거로 보이지 "
-                "않게 하려고 따로 센다."
+                "root 는 파사드의 공개 멤버 수다. legacyShimCount 는 5.x 이름을 "
+                "아직 받아 주는 위임 shim 수로, 6.x 는 79였고 7.0에서 0이 됐다 — 옛 "
+                "이름을 부르면 새 자리를 알려 주는 오류가 난다."
             ),
         },
     }
@@ -638,11 +597,22 @@ def _root_surface_size() -> int:
 
 
 def _legacy_shim_count() -> int:
-    """5.x 이름을 유지하는 위임 shim 수. 7.0에서 0이 된다."""
+    """5.x 이름을 아직 받아 주는 위임 shim 수(6.x 는 79). 7.0에서 0이다.
 
-    from ._document._legacy import _LegacyFacade
+    지운 이름 표(``REMOVED_NAMES``) 가운데 ``HwpxDocument`` 에 아직 남은 것을 센다 —
+    표가 아니라 클래스를 보므로, 누가 옛 이름을 되살리면 이 수가 말한다.
+    """
 
-    return sum(1 for name in vars(_LegacyFacade) if not name.startswith("__"))
+    import inspect
+
+    from ._document._legacy import REMOVED_NAMES
+    from .document import HwpxDocument
+
+    return sum(
+        1
+        for name in REMOVED_NAMES
+        if inspect.getattr_static(HwpxDocument, name, None) is not None
+    )
 
 
 def contract_document(name: str) -> str:
@@ -656,7 +626,7 @@ def contract_document(name: str) -> str:
     if filename is None:
         raise HwpxError(
             f"미지 계약 문서 '{name}'입니다.",
-            code="unknown-contract-document",
+            code="contract-document-unknown",
             suggestion=f"가능한 이름: {', '.join(sorted(_CONTRACT_DOCS))}",
         )
     path = _CONTRACT_DOCS_DIR / filename
@@ -751,6 +721,8 @@ def _mutation_report_json_schema() -> dict[str, Any]:
                     "untouchedPartPayloads": counts,
                     "untouchedLocalZipRecords": counts,
                     "wholePackageIdentical": {"type": "boolean"},
+                    "zipRecordsRewritten": {"type": "string"},
+                    "outputReadBack": {"const": False},
                 },
             },
             "verification": {
@@ -763,6 +735,9 @@ def _mutation_report_json_schema() -> dict[str, Any]:
                     "visual": verification_value,
                 },
             },
+            # 7.0: doc.save(..., quality=policy) 가 돌린 품질 게이트의 VisualCompleteReport.
+            # 선택 키라서 필수 키 9개(동결 계약)는 그대로다.
+            "quality": {"type": "object"},
         },
     }
 
@@ -886,7 +861,7 @@ def contract_json_schema(name: str) -> dict[str, Any]:
     if builder is None:
         raise HwpxError(
             f"미지 계약 스키마 '{name}'입니다.",
-            code="unknown-contract-schema",
+            code="contract-schema-unknown",
             suggestion=f"가능한 이름: {', '.join(sorted(_SCHEMA_BUILDERS))}",
         )
     return builder()

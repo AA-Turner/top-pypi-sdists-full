@@ -44,10 +44,14 @@ from .paginator import (
     ListModelCustomizationJobsPaginator,
     ListModelImportJobsPaginator,
     ListModelInvocationJobsPaginator,
+    ListProjectsPaginator,
     ListPromptRoutersPaginator,
     ListProvisionedModelThroughputsPaginator,
+    ListTrustedAccessProgramsPaginator,
 )
 from .type_defs import (
+    ArchiveProjectRequestTypeDef,
+    ArchiveProjectResponseTypeDef,
     BatchDeleteAdvancedPromptOptimizationJobRequestTypeDef,
     BatchDeleteAdvancedPromptOptimizationJobResponseTypeDef,
     BatchDeleteEvaluationJobRequestTypeDef,
@@ -85,10 +89,13 @@ from .type_defs import (
     CreateModelImportJobResponseTypeDef,
     CreateModelInvocationJobRequestTypeDef,
     CreateModelInvocationJobResponseTypeDef,
+    CreateProjectRequestTypeDef,
+    CreateProjectResponseTypeDef,
     CreatePromptRouterRequestTypeDef,
     CreatePromptRouterResponseTypeDef,
     CreateProvisionedModelThroughputRequestTypeDef,
     CreateProvisionedModelThroughputResponseTypeDef,
+    DeleteAccountDataRetentionStorageRequestTypeDef,
     DeleteAutomatedReasoningPolicyBuildWorkflowRequestTypeDef,
     DeleteAutomatedReasoningPolicyRequestTypeDef,
     DeleteAutomatedReasoningPolicyTestCaseRequestTypeDef,
@@ -100,6 +107,8 @@ from .type_defs import (
     DeleteImportedModelRequestTypeDef,
     DeleteInferenceProfileRequestTypeDef,
     DeleteMarketplaceModelEndpointRequestTypeDef,
+    DeleteOrganizationDataRetentionStorageRequestTypeDef,
+    DeleteProjectDataRetentionStorageRequestTypeDef,
     DeletePromptRouterRequestTypeDef,
     DeleteProvisionedModelThroughputRequestTypeDef,
     DeleteResourcePolicyRequestTypeDef,
@@ -107,6 +116,8 @@ from .type_defs import (
     ExportAutomatedReasoningPolicyVersionRequestTypeDef,
     ExportAutomatedReasoningPolicyVersionResponseTypeDef,
     GetAccountDataRetentionResponseTypeDef,
+    GetAccountDataRetentionStorageRequestTypeDef,
+    GetAccountDataRetentionStorageResponseTypeDef,
     GetAdvancedPromptOptimizationJobRequestTypeDef,
     GetAdvancedPromptOptimizationJobResponseTypeDef,
     GetAutomatedReasoningPolicyAnnotationsRequestTypeDef,
@@ -150,12 +161,26 @@ from .type_defs import (
     GetModelInvocationJobRequestTypeDef,
     GetModelInvocationJobResponseTypeDef,
     GetModelInvocationLoggingConfigurationResponseTypeDef,
+    GetOrganizationDataRetentionStorageRequestTypeDef,
+    GetOrganizationDataRetentionStorageResponseTypeDef,
+    GetProjectDataRetentionStorageRequestTypeDef,
+    GetProjectDataRetentionStorageResponseTypeDef,
+    GetProjectRequestTypeDef,
+    GetProjectResponseTypeDef,
     GetPromptRouterRequestTypeDef,
     GetPromptRouterResponseTypeDef,
     GetProvisionedModelThroughputRequestTypeDef,
     GetProvisionedModelThroughputResponseTypeDef,
     GetResourcePolicyRequestTypeDef,
     GetResourcePolicyResponseTypeDef,
+    GetTrustedAccessProgramAccountEnrollmentRequestTypeDef,
+    GetTrustedAccessProgramAccountEnrollmentResponseTypeDef,
+    GetTrustedAccessProgramOrganizationEnrollmentRequestTypeDef,
+    GetTrustedAccessProgramOrganizationEnrollmentResponseTypeDef,
+    GetTrustedAccessProgramProjectEnrollmentRequestTypeDef,
+    GetTrustedAccessProgramProjectEnrollmentResponseTypeDef,
+    GetTrustedAccessProgramRequestTypeDef,
+    GetTrustedAccessProgramResponseTypeDef,
     GetUseCaseForModelAccessResponseTypeDef,
     ListAdvancedPromptOptimizationJobsRequestTypeDef,
     ListAdvancedPromptOptimizationJobsResponseTypeDef,
@@ -195,19 +220,35 @@ from .type_defs import (
     ListModelImportJobsResponseTypeDef,
     ListModelInvocationJobsRequestTypeDef,
     ListModelInvocationJobsResponseTypeDef,
+    ListProjectsRequestTypeDef,
+    ListProjectsResponseTypeDef,
     ListPromptRoutersRequestTypeDef,
     ListPromptRoutersResponseTypeDef,
     ListProvisionedModelThroughputsRequestTypeDef,
     ListProvisionedModelThroughputsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
+    ListTrustedAccessProgramsRequestTypeDef,
+    ListTrustedAccessProgramsResponseTypeDef,
     PutAccountDataRetentionRequestTypeDef,
     PutAccountDataRetentionResponseTypeDef,
+    PutAccountDataRetentionStorageRequestTypeDef,
+    PutAccountDataRetentionStorageResponseTypeDef,
     PutEnforcedGuardrailConfigurationRequestTypeDef,
     PutEnforcedGuardrailConfigurationResponseTypeDef,
     PutModelInvocationLoggingConfigurationRequestTypeDef,
+    PutOrganizationDataRetentionStorageRequestTypeDef,
+    PutOrganizationDataRetentionStorageResponseTypeDef,
+    PutProjectDataRetentionStorageRequestTypeDef,
+    PutProjectDataRetentionStorageResponseTypeDef,
     PutResourcePolicyRequestTypeDef,
     PutResourcePolicyResponseTypeDef,
+    PutTrustedAccessProgramAccountEnrollmentRequestTypeDef,
+    PutTrustedAccessProgramAccountEnrollmentResponseTypeDef,
+    PutTrustedAccessProgramOrganizationEnrollmentRequestTypeDef,
+    PutTrustedAccessProgramOrganizationEnrollmentResponseTypeDef,
+    PutTrustedAccessProgramProjectEnrollmentRequestTypeDef,
+    PutTrustedAccessProgramProjectEnrollmentResponseTypeDef,
     PutUseCaseForModelAccessRequestTypeDef,
     RegisterMarketplaceModelEndpointRequestTypeDef,
     RegisterMarketplaceModelEndpointResponseTypeDef,
@@ -215,6 +256,12 @@ from .type_defs import (
     StartAutomatedReasoningPolicyBuildWorkflowResponseTypeDef,
     StartAutomatedReasoningPolicyTestWorkflowRequestTypeDef,
     StartAutomatedReasoningPolicyTestWorkflowResponseTypeDef,
+    StartTrustedAccessProgramAccountApplicationRequestTypeDef,
+    StartTrustedAccessProgramAccountApplicationResponseTypeDef,
+    StartTrustedAccessProgramOrganizationApplicationRequestTypeDef,
+    StartTrustedAccessProgramOrganizationApplicationResponseTypeDef,
+    StartTrustedAccessProgramProjectApplicationRequestTypeDef,
+    StartTrustedAccessProgramProjectApplicationResponseTypeDef,
     StopAdvancedPromptOptimizationJobRequestTypeDef,
     StopEvaluationJobRequestTypeDef,
     StopModelCustomizationJobRequestTypeDef,
@@ -233,6 +280,8 @@ from .type_defs import (
     UpdateGuardrailResponseTypeDef,
     UpdateMarketplaceModelEndpointRequestTypeDef,
     UpdateMarketplaceModelEndpointResponseTypeDef,
+    UpdateProjectRequestTypeDef,
+    UpdateProjectResponseTypeDef,
     UpdateProvisionedModelThroughputRequestTypeDef,
 )
 
@@ -289,6 +338,16 @@ class BedrockClient(BaseClient):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/generate_presigned_url.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#generate_presigned_url)
+        """
+
+    def archive_project(
+        self, **kwargs: Unpack[ArchiveProjectRequestTypeDef]
+    ) -> ArchiveProjectResponseTypeDef:
+        """
+        Archives a project.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/archive_project.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#archive_project)
         """
 
     def batch_delete_advanced_prompt_optimization_job(
@@ -484,6 +543,17 @@ class BedrockClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#create_model_invocation_job)
         """
 
+    def create_project(
+        self, **kwargs: Unpack[CreateProjectRequestTypeDef]
+    ) -> CreateProjectResponseTypeDef:
+        """
+        Creates a project: a workload boundary within the account that inference
+        requests can be associated with.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/create_project.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#create_project)
+        """
+
     def create_prompt_router(
         self, **kwargs: Unpack[CreatePromptRouterRequestTypeDef]
     ) -> CreatePromptRouterResponseTypeDef:
@@ -504,6 +574,16 @@ class BedrockClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/create_provisioned_model_throughput.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#create_provisioned_model_throughput)
+        """
+
+    def delete_account_data_retention_storage(
+        self, **kwargs: Unpack[DeleteAccountDataRetentionStorageRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes your account's retention storage configuration for a model provider.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/delete_account_data_retention_storage.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#delete_account_data_retention_storage)
         """
 
     def delete_automated_reasoning_policy(
@@ -623,6 +703,26 @@ class BedrockClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#delete_model_invocation_logging_configuration)
         """
 
+    def delete_organization_data_retention_storage(
+        self, **kwargs: Unpack[DeleteOrganizationDataRetentionStorageRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes the organization's retention storage configuration for a model provider.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/delete_organization_data_retention_storage.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#delete_organization_data_retention_storage)
+        """
+
+    def delete_project_data_retention_storage(
+        self, **kwargs: Unpack[DeleteProjectDataRetentionStorageRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes a project's retention storage configuration for a model provider.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/delete_project_data_retention_storage.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#delete_project_data_retention_storage)
+        """
+
     def delete_prompt_router(
         self, **kwargs: Unpack[DeletePromptRouterRequestTypeDef]
     ) -> dict[str, Any]:
@@ -679,6 +779,17 @@ class BedrockClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/get_account_data_retention.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#get_account_data_retention)
+        """
+
+    def get_account_data_retention_storage(
+        self, **kwargs: Unpack[GetAccountDataRetentionStorageRequestTypeDef]
+    ) -> GetAccountDataRetentionStorageResponseTypeDef:
+        """
+        Returns your account's stored retention storage configuration for a model
+        provider.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/get_account_data_retention_storage.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#get_account_data_retention_storage)
         """
 
     def get_advanced_prompt_optimization_job(
@@ -910,6 +1021,34 @@ class BedrockClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#get_model_invocation_logging_configuration)
         """
 
+    def get_organization_data_retention_storage(
+        self, **kwargs: Unpack[GetOrganizationDataRetentionStorageRequestTypeDef]
+    ) -> GetOrganizationDataRetentionStorageResponseTypeDef:
+        """
+        Returns the organization's retention storage configuration for a model provider.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/get_organization_data_retention_storage.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#get_organization_data_retention_storage)
+        """
+
+    def get_project(self, **kwargs: Unpack[GetProjectRequestTypeDef]) -> GetProjectResponseTypeDef:
+        """
+        Retrieves a project.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/get_project.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#get_project)
+        """
+
+    def get_project_data_retention_storage(
+        self, **kwargs: Unpack[GetProjectDataRetentionStorageRequestTypeDef]
+    ) -> GetProjectDataRetentionStorageResponseTypeDef:
+        """
+        Returns a project's retention storage configuration for a model provider.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/get_project_data_retention_storage.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#get_project_data_retention_storage)
+        """
+
     def get_prompt_router(
         self, **kwargs: Unpack[GetPromptRouterRequestTypeDef]
     ) -> GetPromptRouterResponseTypeDef:
@@ -938,6 +1077,49 @@ class BedrockClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/get_resource_policy.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#get_resource_policy)
+        """
+
+    def get_trusted_access_program(
+        self, **kwargs: Unpack[GetTrustedAccessProgramRequestTypeDef]
+    ) -> GetTrustedAccessProgramResponseTypeDef:
+        """
+        Gets trusted access program details and resolves participation for your account
+        and its current organization.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/get_trusted_access_program.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#get_trusted_access_program)
+        """
+
+    def get_trusted_access_program_account_enrollment(
+        self, **kwargs: Unpack[GetTrustedAccessProgramAccountEnrollmentRequestTypeDef]
+    ) -> GetTrustedAccessProgramAccountEnrollmentResponseTypeDef:
+        """
+        Gets the calling account's stored enrollment setting for a trusted access
+        program.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/get_trusted_access_program_account_enrollment.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#get_trusted_access_program_account_enrollment)
+        """
+
+    def get_trusted_access_program_organization_enrollment(
+        self, **kwargs: Unpack[GetTrustedAccessProgramOrganizationEnrollmentRequestTypeDef]
+    ) -> GetTrustedAccessProgramOrganizationEnrollmentResponseTypeDef:
+        """
+        Gets the current organization's stored enrollment setting for a trusted access
+        program.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/get_trusted_access_program_organization_enrollment.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#get_trusted_access_program_organization_enrollment)
+        """
+
+    def get_trusted_access_program_project_enrollment(
+        self, **kwargs: Unpack[GetTrustedAccessProgramProjectEnrollmentRequestTypeDef]
+    ) -> GetTrustedAccessProgramProjectEnrollmentResponseTypeDef:
+        """
+        Gets a named project's stored enrollment setting for a trusted access program.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/get_trusted_access_program_project_enrollment.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#get_trusted_access_program_project_enrollment)
         """
 
     def get_use_case_for_model_access(self) -> GetUseCaseForModelAccessResponseTypeDef:
@@ -1143,6 +1325,16 @@ class BedrockClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#list_model_invocation_jobs)
         """
 
+    def list_projects(
+        self, **kwargs: Unpack[ListProjectsRequestTypeDef]
+    ) -> ListProjectsResponseTypeDef:
+        """
+        Lists the account's projects.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/list_projects.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#list_projects)
+        """
+
     def list_prompt_routers(
         self, **kwargs: Unpack[ListPromptRoutersRequestTypeDef]
     ) -> ListPromptRoutersResponseTypeDef:
@@ -1173,6 +1365,17 @@ class BedrockClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#list_tags_for_resource)
         """
 
+    def list_trusted_access_programs(
+        self, **kwargs: Unpack[ListTrustedAccessProgramsRequestTypeDef]
+    ) -> ListTrustedAccessProgramsResponseTypeDef:
+        """
+        Lists all trusted access programs visible to your account, ordered by program
+        ID.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/list_trusted_access_programs.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#list_trusted_access_programs)
+        """
+
     def put_account_data_retention(
         self, **kwargs: Unpack[PutAccountDataRetentionRequestTypeDef]
     ) -> PutAccountDataRetentionResponseTypeDef:
@@ -1181,6 +1384,17 @@ class BedrockClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/put_account_data_retention.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#put_account_data_retention)
+        """
+
+    def put_account_data_retention_storage(
+        self, **kwargs: Unpack[PutAccountDataRetentionStorageRequestTypeDef]
+    ) -> PutAccountDataRetentionStorageResponseTypeDef:
+        """
+        Creates or replaces the calling account's retention storage record for a model
+        provider.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/put_account_data_retention_storage.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#put_account_data_retention_storage)
         """
 
     def put_enforced_guardrail_configuration(
@@ -1203,6 +1417,27 @@ class BedrockClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#put_model_invocation_logging_configuration)
         """
 
+    def put_organization_data_retention_storage(
+        self, **kwargs: Unpack[PutOrganizationDataRetentionStorageRequestTypeDef]
+    ) -> PutOrganizationDataRetentionStorageResponseTypeDef:
+        """
+        Creates or replaces the organization's retention storage record for a model
+        provider.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/put_organization_data_retention_storage.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#put_organization_data_retention_storage)
+        """
+
+    def put_project_data_retention_storage(
+        self, **kwargs: Unpack[PutProjectDataRetentionStorageRequestTypeDef]
+    ) -> PutProjectDataRetentionStorageResponseTypeDef:
+        """
+        Creates or replaces a project's retention storage record for a model provider.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/put_project_data_retention_storage.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#put_project_data_retention_storage)
+        """
+
     def put_resource_policy(
         self, **kwargs: Unpack[PutResourcePolicyRequestTypeDef]
     ) -> PutResourcePolicyResponseTypeDef:
@@ -1211,6 +1446,37 @@ class BedrockClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/put_resource_policy.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#put_resource_policy)
+        """
+
+    def put_trusted_access_program_account_enrollment(
+        self, **kwargs: Unpack[PutTrustedAccessProgramAccountEnrollmentRequestTypeDef]
+    ) -> PutTrustedAccessProgramAccountEnrollmentResponseTypeDef:
+        """
+        Sets your account's enrollment preference for a trusted access program.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/put_trusted_access_program_account_enrollment.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#put_trusted_access_program_account_enrollment)
+        """
+
+    def put_trusted_access_program_organization_enrollment(
+        self, **kwargs: Unpack[PutTrustedAccessProgramOrganizationEnrollmentRequestTypeDef]
+    ) -> PutTrustedAccessProgramOrganizationEnrollmentResponseTypeDef:
+        """
+        Sets the current organization's enrollment preference for a trusted access
+        program.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/put_trusted_access_program_organization_enrollment.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#put_trusted_access_program_organization_enrollment)
+        """
+
+    def put_trusted_access_program_project_enrollment(
+        self, **kwargs: Unpack[PutTrustedAccessProgramProjectEnrollmentRequestTypeDef]
+    ) -> PutTrustedAccessProgramProjectEnrollmentResponseTypeDef:
+        """
+        Sets a named project's enrollment preference for a trusted access program.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/put_trusted_access_program_project_enrollment.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#put_trusted_access_program_project_enrollment)
         """
 
     def put_use_case_for_model_access(
@@ -1252,6 +1518,37 @@ class BedrockClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/start_automated_reasoning_policy_test_workflow.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#start_automated_reasoning_policy_test_workflow)
+        """
+
+    def start_trusted_access_program_account_application(
+        self, **kwargs: Unpack[StartTrustedAccessProgramAccountApplicationRequestTypeDef]
+    ) -> StartTrustedAccessProgramAccountApplicationResponseTypeDef:
+        """
+        Prepare a provider application handoff for the calling account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/start_trusted_access_program_account_application.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#start_trusted_access_program_account_application)
+        """
+
+    def start_trusted_access_program_organization_application(
+        self, **kwargs: Unpack[StartTrustedAccessProgramOrganizationApplicationRequestTypeDef]
+    ) -> StartTrustedAccessProgramOrganizationApplicationResponseTypeDef:
+        """
+        Prepare a provider application handoff for the calling account's current
+        organization.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/start_trusted_access_program_organization_application.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#start_trusted_access_program_organization_application)
+        """
+
+    def start_trusted_access_program_project_application(
+        self, **kwargs: Unpack[StartTrustedAccessProgramProjectApplicationRequestTypeDef]
+    ) -> StartTrustedAccessProgramProjectApplicationResponseTypeDef:
+        """
+        Prepare a provider application handoff for a named project.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/start_trusted_access_program_project_application.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#start_trusted_access_program_project_application)
         """
 
     def stop_advanced_prompt_optimization_job(
@@ -1370,6 +1667,17 @@ class BedrockClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/update_marketplace_model_endpoint.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#update_marketplace_model_endpoint)
+        """
+
+    def update_project(
+        self, **kwargs: Unpack[UpdateProjectRequestTypeDef]
+    ) -> UpdateProjectResponseTypeDef:
+        """
+        Updates one mutable project field per call: exactly one of <code>name</code> or
+        <code>dataRetention</code> must be set.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/update_project.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#update_project)
         """
 
     def update_provisioned_model_throughput(
@@ -1571,6 +1879,17 @@ class BedrockClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_projects"]
+    ) -> ListProjectsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_prompt_routers"]
     ) -> ListPromptRoutersPaginator:
         """
@@ -1584,6 +1903,17 @@ class BedrockClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_provisioned_model_throughputs"]
     ) -> ListProvisionedModelThroughputsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_trusted_access_programs"]
+    ) -> ListTrustedAccessProgramsPaginator:
         """
         Create a paginator for an operation.
 

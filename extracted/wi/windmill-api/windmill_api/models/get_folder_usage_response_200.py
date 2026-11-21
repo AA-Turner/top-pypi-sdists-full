@@ -13,7 +13,8 @@ class GetFolderUsageResponse200:
         scripts (float):
         flows (float):
         apps (float):
-        resources (float):
+        resources (float): resources other than AI agents
+        agents (float): saved AI agents (resources of type `ai_agent`)
         variables (float):
         schedules (float):
     """
@@ -22,6 +23,7 @@ class GetFolderUsageResponse200:
     flows: float
     apps: float
     resources: float
+    agents: float
     variables: float
     schedules: float
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -31,6 +33,7 @@ class GetFolderUsageResponse200:
         flows = self.flows
         apps = self.apps
         resources = self.resources
+        agents = self.agents
         variables = self.variables
         schedules = self.schedules
 
@@ -42,6 +45,7 @@ class GetFolderUsageResponse200:
                 "flows": flows,
                 "apps": apps,
                 "resources": resources,
+                "agents": agents,
                 "variables": variables,
                 "schedules": schedules,
             }
@@ -60,6 +64,8 @@ class GetFolderUsageResponse200:
 
         resources = d.pop("resources")
 
+        agents = d.pop("agents")
+
         variables = d.pop("variables")
 
         schedules = d.pop("schedules")
@@ -69,6 +75,7 @@ class GetFolderUsageResponse200:
             flows=flows,
             apps=apps,
             resources=resources,
+            agents=agents,
             variables=variables,
             schedules=schedules,
         )

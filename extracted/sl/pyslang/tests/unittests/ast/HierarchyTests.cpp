@@ -660,6 +660,23 @@ endmodule
     CHECK(it == diags.end());
 }
 
+TEST_CASE("Case generate type reference to undeclared type") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    case (type(undeclared_t))
+        type(int): begin : a end
+    endcase
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::UndeclaredIdentifier);
+}
+
 TEST_CASE("Conditional generate same name") {
     auto tree = SyntaxTree::fromText(R"(
 module m;
@@ -914,6 +931,34 @@ endmodule
 
     auto& g1 = top.find<GenerateBlockArraySymbol>("g1");
     CHECK(g1.getExternalName() == "g1");
+}
+
+TEST_CASE("Generate block external names collide with imports and forward typedefs") {
+    auto tree = SyntaxTree::fromText(R"(
+package p;
+    int genblk1;
+endpackage
+
+module top;
+    import p::genblk1;
+    typedef genblk2;
+
+    if (1) logic a;
+    if (1) logic b;
+
+    typedef int genblk2;
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+
+    auto& top = compilation.getRoot().lookupName<InstanceSymbol>("top").body;
+    auto range = top.membersOfType<GenerateBlockSymbol>();
+    auto it = range.begin();
+    CHECK((it++)->getExternalName() == "genblk01");
+    CHECK((it++)->getExternalName() == "genblk02");
 }
 
 TEST_CASE("Error checking in uninstantiated modules") {
@@ -1346,7 +1391,7 @@ endmodule
 
     auto& top = compilation.getRoot().lookupName<InstanceSymbol>("top").body;
     auto instances = top.membersOfType<InstanceSymbol>();
-    REQUIRE(std::ranges::equal(instances, std::array{"i1", "i3", "ff2", "ff1"}, {}, &Symbol::name));
+    REQUIRE(std::ranges::equal(instances, std::array{"i1", "i3", "ff2"}, {}, &Symbol::name));
 }
 
 TEST_CASE("Instance array size limits") {
@@ -1426,6 +1471,45 @@ endmodule
     auto diags = compilation.getAllDiagnostics().filter(DefaultIgnoreWarnings);
     REQUIRE(diags.size() == 1);
     CHECK(diags[0].code == diag::IllegalReferenceToProgramItem);
+}
+
+TEST_CASE("Non-signal program items can be referenced from modules") {
+    auto tree = SyntaxTree::fromText(R"(
+program worker #(parameter int LIMIT = 2) ();
+    localparam int L = LIMIT * 2;
+    int v;
+    wire w;
+    if (1) begin : blk
+        logic q;
+        localparam int K = 3;
+    end
+    initial $display("%0d", LIMIT);
+endprogram
+
+module top;
+    worker w();
+    defparam w.LIMIT = 7;
+    int x = w.LIMIT;
+    int y = w.L;
+    int z = w.blk.K;
+    wire signed [31:0] a = w.v;
+    wire b = w.w;
+    wire c = w.blk.q;
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto diags = compilation.getAllDiagnostics().filter(DefaultIgnoreWarnings);
+    REQUIRE(diags.size() == 3);
+    CHECK(diags[0].code == diag::IllegalReferenceToProgramItem);
+    CHECK(diags[1].code == diag::IllegalReferenceToProgramItem);
+    CHECK(diags[2].code == diag::IllegalReferenceToProgramItem);
+
+    auto& w = compilation.getRoot().lookupName<InstanceSymbol>("top.w").body;
+    CHECK(w.find<ParameterSymbol>("LIMIT").getValue().integer() == 7);
+    CHECK(w.find<ParameterSymbol>("L").getValue().integer() == 14);
 }
 
 TEST_CASE("Anonymous programs") {
@@ -3144,6 +3228,7 @@ endmodule
     auto& diags = compilation.getAllDiagnostics();
     REQUIRE(diags.size() == 1);
     CHECK(diags[0].code == diag::InfinitelyRecursiveHierarchy);
+    CHECK(compilation.hasFatalErrors());
 }
 
 TEST_CASE("Uinstantiated module assignment pattern param regress -- GH #1572") {
@@ -3314,4 +3399,30 @@ endmodule
     Compilation compilation(options);
     compilation.addSyntaxTree(tree);
     NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Nested modules instantiated in generate blocks or other nested modules") {
+    auto tree = SyntaxTree::fromText(R"(
+module top;
+    module inner; int x; endmodule
+    if (1) begin : g inner i(); end
+endmodule
+
+module top2;
+    module inner2; int x; endmodule
+    module other; inner2 i(); endmodule
+    module solo; int y; endmodule
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+
+    auto& root = compilation.getRoot();
+    CHECK(root.lookupName("top.g.i.x"));
+    CHECK(!root.lookupName("top.inner"));
+    CHECK(root.lookupName("top2.other.i.x"));
+    CHECK(root.lookupName("top2.solo.y"));
+    CHECK(!root.lookupName("top2.inner2"));
 }

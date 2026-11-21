@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cstdio>
 #include <cstring>
 #include <map>
@@ -246,6 +247,11 @@ namespace
     // VkDeviceMemory is host-side; the guest can't see a host pointer. We emulate vkMapMemory by
     // staging a guest-side copy: download the host range on map, hand the app that buffer, and upload
     // it back on unmap so writes persist. allocationSize is tracked here to resolve VK_WHOLE_SIZE.
+    // Guards memory_sizes(), mapped_ranges() and direct_mapped(): guest threads map, flush and free different memory
+    // objects in parallel. The containers are only touched under it; a mapping's staging copy is only accessed by the
+    // threads using that mapping.
+    std::mutex g_memory_state_mutex;
+
     std::unordered_map<gb::object_id, uint64_t>& memory_sizes()
     {
         static std::unordered_map<gb::object_id, uint64_t> sizes;
@@ -273,6 +279,46 @@ namespace
         return memory;
     }
 
+    bool is_direct_mapped(const gb::object_id memory)
+    {
+        const std::lock_guard lock(g_memory_state_mutex);
+        return direct_mapped().contains(memory);
+    }
+
+    mapped_range* find_mapped_range(const gb::object_id memory)
+    {
+        const std::lock_guard lock(g_memory_state_mutex);
+        const auto it = mapped_ranges().find(memory);
+        return it != mapped_ranges().end() ? &it->second : nullptr;
+    }
+
+    // The part of a staged mapping a VkMappedMemoryRange covers. Flushes and invalidations need no external
+    // synchronization on the memory object, so threads may sync disjoint ranges of one mapping at the same time:
+    // each must copy only its own range.
+    struct staged_span
+    {
+        uint64_t memory_offset{};
+        size_t staging_offset{};
+        size_t size{};
+    };
+
+    std::optional<staged_span> find_staged_span(const mapped_range& mapping, const VkMappedMemoryRange& range)
+    {
+        const auto mapping_end = mapping.offset + mapping.staging.size();
+        const auto begin = (std::max)(range.offset, mapping.offset);
+        const auto end = range.size == VK_WHOLE_SIZE ? mapping_end : (std::min)(mapping_end, range.offset + range.size);
+        if (begin >= end)
+        {
+            return std::nullopt;
+        }
+
+        return staged_span{
+            .memory_offset = begin,
+            .staging_offset = static_cast<size_t>(begin - mapping.offset),
+            .size = static_cast<size_t>(end - begin),
+        };
+    }
+
     // vkDestroyX(device, child) for the non-dispatchable device children that share device_child_request.
     template <typename Handle>
     void destroy_device_child(uint32_t code, VkDevice device, Handle child)
@@ -290,8 +336,11 @@ namespace
     // Command-buffer recording is batched: instead of one IOCTL per vkCmd*, each command is appended to a
     // per-command-buffer byte stream and the whole stream (begin -> cmds -> end) is flushed to the bridge
     // in a single IOCTL at vkEndCommandBuffer. This amortises the boundary crossing, which dominates
-    // emulated frame time. The shim only runs inside the single-threaded emulator, so the map needs no
-    // lock. Each record is a gb::command_record_header followed by that command's request payload.
+    // emulated frame time. Each record is a gb::command_record_header followed by that command's request payload.
+    // Guest threads record different command buffers in parallel, so the map itself is shared; one stream is only
+    // ever touched by the thread recording that command buffer.
+    std::mutex g_command_streams_mutex;
+
     std::unordered_map<gb::object_id, std::vector<uint8_t>>& command_streams()
     {
         static std::unordered_map<gb::object_id, std::vector<uint8_t>> streams;
@@ -363,6 +412,131 @@ namespace
         append_pending(&record, sizeof(record));
     }
 
+    // The command ring the bridge maps for this handle (gb::command_ring_header): a call whose answer nobody waits for
+    // becomes a record there, which the host runs without a round trip, and every other call makes the host run the
+    // ring first. Set up at the first record and kept under g_pending_descriptor_updates_mutex, so the pending descriptor
+    // updates always go in ahead of a record. Where the host cannot map one, the calls are made as before.
+    gb::command_ring_header* g_ring = nullptr;
+    uint8_t* g_ring_data = nullptr;
+    uint32_t g_ring_size = 0;
+    uint32_t g_ring_head = 0; // what the header's head says; only this side writes it
+    uint32_t g_ring_sequence = 0;
+    bool g_ring_tried = false;
+
+    // A call made while holding g_pending_descriptor_updates_mutex, which bridge_call's flush would take again.
+    bool raw_bridge_call(uint32_t code, const void* in, DWORD in_len, void* out, DWORD out_len)
+    {
+        const HANDLE handle = bridge();
+        if (handle == INVALID_HANDLE_VALUE)
+        {
+            return false;
+        }
+
+        DWORD returned = 0;
+        return DeviceIoControl(handle, code, const_cast<void*>(in), in_len, out, out_len, &returned, nullptr) != FALSE;
+    }
+
+    bool ring_mapped()
+    {
+        if (!g_ring_tried)
+        {
+            g_ring_tried = true;
+            gb::create_command_ring_response response{};
+            if (raw_bridge_call(gb::ioctl_create_command_ring, nullptr, 0, &response, sizeof(response)) &&
+                response.vk_result == VK_SUCCESS && response.guest_address != 0 && response.data_size != 0 &&
+                (response.data_size & (response.data_size - 1)) == 0)
+            {
+                g_ring = reinterpret_cast<gb::command_ring_header*>(static_cast<uintptr_t>(response.guest_address));
+                g_ring_data = reinterpret_cast<uint8_t*>(g_ring) + gb::command_ring_data_offset;
+                g_ring_size = response.data_size;
+                g_ring_head = std::atomic_ref(g_ring->head).load(std::memory_order_relaxed);
+            }
+        }
+        return g_ring != nullptr;
+    }
+
+    // Writes one record, the input `command`'s IOCTL would take, and publishes it. False without a ring or for a record
+    // too large to queue, and the caller makes the call. A full ring is run by the host first.
+    bool ring_append(const gb::command command, const void* payload, const size_t size)
+    {
+        if (!ring_mapped() || size > g_ring_size / 4)
+        {
+            return false;
+        }
+
+        // Records start on a 16-byte boundary, so the space left before the end always holds a wrap record.
+        const uint32_t bytes = gb::command_ring_record_bytes(static_cast<uint32_t>(size));
+        uint32_t position = g_ring_head & (g_ring_size - 1);
+        const uint32_t contiguous = g_ring_size - position;
+        const uint32_t needed = bytes <= contiguous ? bytes : contiguous + bytes;
+        while (g_ring_size - (g_ring_head - std::atomic_ref(g_ring->tail).load(std::memory_order_acquire)) < needed)
+        {
+            gb::result_response response{};
+            if (!raw_bridge_call(gb::ioctl_drain_command_ring, nullptr, 0, &response, sizeof(response)))
+            {
+                return false;
+            }
+        }
+
+        if (bytes > contiguous)
+        {
+            const gb::command_ring_record wrap{.size = contiguous - static_cast<uint32_t>(sizeof(gb::command_ring_record)),
+                                               .command = gb::command_ring_wrap,
+                                               .thread_id = GetCurrentThreadId(),
+                                               .sequence = 0};
+            std::memcpy(g_ring_data + position, &wrap, sizeof(wrap));
+            g_ring_head += contiguous;
+            position = 0;
+        }
+
+        const gb::command_ring_record record{.size = static_cast<uint32_t>(size),
+                                             .command = static_cast<uint32_t>(command),
+                                             .thread_id = GetCurrentThreadId(),
+                                             .sequence = ++g_ring_sequence};
+        std::memcpy(g_ring_data + position, &record, sizeof(record));
+        if (size != 0)
+        {
+            std::memcpy(g_ring_data + position + sizeof(record), payload, size);
+        }
+        g_ring_head += bytes;
+        std::atomic_ref(g_ring->head).store(g_ring_head, std::memory_order_release);
+        return true;
+    }
+
+    // Moves the pending descriptor updates into the ring; false (keeping them) when they cannot go there.
+    bool ring_take_pending_descriptor_updates()
+    {
+        if (g_pending_descriptor_updates.empty())
+        {
+            return true;
+        }
+        if (!ring_append(gb::command::update_descriptor_sets_batch, g_pending_descriptor_updates.data(),
+                         g_pending_descriptor_updates.size()))
+        {
+            return false;
+        }
+        g_pending_descriptor_updates.clear();
+        return true;
+    }
+
+    // Queues a call whose answer nobody waits for, behind the pending descriptor updates. False when it cannot be queued,
+    // and the caller makes the call, which runs whatever was queued first.
+    bool queue_in_ring(const gb::command command, const void* payload, const size_t size)
+    {
+        std::lock_guard<std::mutex> lock(g_pending_descriptor_updates_mutex);
+        return ring_take_pending_descriptor_updates() && ring_append(command, payload, size);
+    }
+
+    // A record the host could not run makes the next submission fail with its result, the point where a driver reports
+    // failures of work it accepted earlier. Reported, the failure is cleared: the submissions after it ran.
+    VkResult ring_error()
+    {
+        std::lock_guard<std::mutex> lock(g_pending_descriptor_updates_mutex);
+        return g_ring ? static_cast<VkResult>(
+                            std::atomic_ref(g_ring->first_error).exchange(static_cast<int32_t>(VK_SUCCESS), std::memory_order_relaxed))
+                      : VK_SUCCESS;
+    }
+
     void flush_descriptor_updates()
     {
         // Hold the lock across the IOCTL so concurrent flushes stay ordered: releasing it after the swap lets a
@@ -371,6 +545,12 @@ namespace
         // synchronously, so the lock cannot self-deadlock; a preempted appender just waits for this flush.
         std::lock_guard<std::mutex> lock(g_pending_descriptor_updates_mutex);
         if (g_pending_descriptor_updates.empty())
+        {
+            return;
+        }
+
+        // In the ring, they reach the host ahead of the call that comes next, which runs the ring first.
+        if (ring_take_pending_descriptor_updates())
         {
             return;
         }
@@ -388,7 +568,7 @@ namespace
     bool bridge_call_after_descriptor_updates(uint32_t with_updates, uint32_t code, const void* in, DWORD in_len, void* out, DWORD out_len)
     {
         std::unique_lock<std::mutex> lock(g_pending_descriptor_updates_mutex);
-        if (g_pending_descriptor_updates.empty())
+        if (g_pending_descriptor_updates.empty() || ring_take_pending_descriptor_updates())
         {
             lock.unlock();
             return bridge_call(code, in, in_len, out, out_len);
@@ -442,9 +622,26 @@ namespace
         return std::exchange(g_pending_image_destroy, std::nullopt);
     }
 
+    std::vector<uint8_t>& command_stream(const gb::object_id command_buffer)
+    {
+        const std::lock_guard lock(g_command_streams_mutex);
+        return command_streams()[command_buffer];
+    }
+
+    std::optional<std::vector<uint8_t>> take_command_stream(const gb::object_id command_buffer)
+    {
+        const std::lock_guard lock(g_command_streams_mutex);
+        auto node = command_streams().extract(command_buffer);
+        if (node.empty())
+        {
+            return std::nullopt;
+        }
+        return std::move(node.mapped());
+    }
+
     void record_command(gb::object_id command_buffer, gb::command command, const void* payload, size_t size)
     {
-        auto& stream = command_streams()[command_buffer];
+        auto& stream = command_stream(command_buffer);
         gb::command_record_header header{.command = static_cast<uint32_t>(command), .size = static_cast<uint32_t>(size)};
         const auto* header_bytes = reinterpret_cast<const uint8_t*>(&header);
         stream.insert(stream.end(), header_bytes, header_bytes + sizeof(header));
@@ -1085,7 +1282,7 @@ extern "C"
             std::memcpy(message.data(), &request, sizeof(request));
         }
 
-        command_streams()[request.command_buffer].clear();
+        command_stream(request.command_buffer).clear();
         record_command(request.command_buffer, gb::command::begin_command_buffer, message.data(), message.size());
         return VK_SUCCESS;
     }
@@ -1115,13 +1312,19 @@ extern "C"
         request.command_buffer = command_buffer;
         record_command(command_buffer, gb::command::end_command_buffer, &request, sizeof(request));
 
-        const auto it = command_streams().find(command_buffer);
-        if (it == command_streams().end())
+        const auto taken = take_command_stream(command_buffer);
+        if (!taken)
         {
             return VK_ERROR_INITIALIZATION_FAILED;
         }
-        const std::vector<uint8_t> stream = std::move(it->second);
-        command_streams().erase(it);
+        const auto& stream = *taken;
+
+        // Recorded commands only matter once the buffer is submitted, which runs the ring first; a failure to record
+        // them fails that submission (ring_error).
+        if (queue_in_ring(gb::command::record_commands, stream.data(), stream.size()))
+        {
+            return VK_SUCCESS;
+        }
 
         gb::result_response response{};
         if (!bridge_call(gb::ioctl_record_commands, stream.data(), static_cast<DWORD>(stream.size()), &response, sizeof(response)))
@@ -1139,6 +1342,11 @@ extern "C"
         request.command_pool = to_object_id(commandPool);
         request.flags = flags;
 
+        if (queue_in_ring(gb::command::reset_command_pool, &request, sizeof(request)))
+        {
+            return VK_SUCCESS;
+        }
+
         gb::result_response response{};
         if (!bridge_call(gb::ioctl_reset_command_pool, &request, sizeof(request), &response, sizeof(response)))
         {
@@ -1151,7 +1359,7 @@ extern "C"
                                                                               VkCommandBufferResetFlags flags)
     {
         // Drop any half-recorded local stream; recording only reaches the bridge at vkEndCommandBuffer.
-        command_streams().erase(to_object_id(commandBuffer));
+        (void)take_command_stream(to_object_id(commandBuffer));
 
         gb::reset_command_buffer_request request{};
         request.command_buffer = to_object_id(commandBuffer);
@@ -1584,7 +1792,7 @@ extern "C"
                 return VK_ERROR_INITIALIZATION_FAILED;
             }
         }
-        return VK_SUCCESS;
+        return ring_error();
     }
 
     // synchronization2 submit: DXVK uses this for queue submission. Marshal each VkSubmitInfo2 (wait
@@ -1651,7 +1859,7 @@ extern "C"
                 return VK_ERROR_INITIALIZATION_FAILED;
             }
         }
-        return VK_SUCCESS;
+        return ring_error();
     }
 
     // Poll-and-yield: the host endpoint only ever does a non-blocking vkGetFenceStatus, so the host
@@ -1732,7 +1940,10 @@ extern "C"
             return static_cast<VkResult>(response.vk_result);
         }
 
-        memory_sizes()[response.memory] = pAllocateInfo->allocationSize;
+        {
+            const std::lock_guard lock(g_memory_state_mutex);
+            memory_sizes()[response.memory] = pAllocateInfo->allocationSize;
+        }
         *pMemory = to_handle<VkDeviceMemory>(response.memory);
         return VK_SUCCESS;
     }
@@ -1750,6 +1961,7 @@ extern "C"
         request.memory = mem_id;
         bridge_call(gb::ioctl_free_memory, &request, sizeof(request), nullptr, 0);
 
+        const std::lock_guard lock(g_memory_state_mutex);
         memory_sizes().erase(mem_id);
         mapped_ranges().erase(mem_id);
     }
@@ -1762,6 +1974,7 @@ extern "C"
         uint64_t actual = size;
         if (size == VK_WHOLE_SIZE)
         {
+            const std::lock_guard lock(g_memory_state_mutex);
             const auto it = memory_sizes().find(mem_id);
             const uint64_t total = (it != memory_sizes().end()) ? it->second : 0;
             actual = (total > offset) ? (total - offset) : 0;
@@ -1781,6 +1994,7 @@ extern "C"
             if (bridge_call(gb::ioctl_map_memory_direct, &request, sizeof(request), &response, sizeof(response)) &&
                 response.vk_result == VK_SUCCESS && response.guest_address != 0)
             {
+                const std::lock_guard lock(g_memory_state_mutex);
                 direct_mapped().insert(mem_id);
                 *ppData = reinterpret_cast<void*>(static_cast<uintptr_t>(response.guest_address));
                 return VK_SUCCESS;
@@ -1806,6 +2020,7 @@ extern "C"
             }
         }
 
+        const std::lock_guard lock(g_memory_state_mutex);
         auto& stored = (mapped_ranges()[mem_id] = std::move(range));
         *ppData = stored.staging.data();
         return VK_SUCCESS;
@@ -1815,7 +2030,11 @@ extern "C"
     {
         const gb::object_id mem_id = to_object_id(memory);
 
-        if (direct_mapped().erase(mem_id) != 0)
+        const auto was_direct = [&] {
+            const std::lock_guard lock(g_memory_state_mutex);
+            return direct_mapped().erase(mem_id) != 0;
+        }();
+        if (was_direct)
         {
             gb::unmap_memory_direct_request request{};
             request.device = to_object_id(device);
@@ -1824,13 +2043,16 @@ extern "C"
             return;
         }
 
-        const auto it = mapped_ranges().find(mem_id);
-        if (it == mapped_ranges().end())
+        auto node = [&] {
+            const std::lock_guard lock(g_memory_state_mutex);
+            return mapped_ranges().extract(mem_id);
+        }();
+        if (node.empty())
         {
             return;
         }
 
-        const auto& range = it->second;
+        const auto& range = node.mapped();
         if (range.size > 0)
         {
             std::vector<uint8_t> message(sizeof(gb::upload_memory_request) + range.staging.size());
@@ -1845,20 +2067,18 @@ extern "C"
             gb::result_response response{};
             bridge_call(gb::ioctl_upload_memory, message.data(), static_cast<DWORD>(message.size()), &response, sizeof(response));
         }
-
-        mapped_ranges().erase(it);
     }
 
     // The bridge models a map as a private staging copy synced by download (map) / upload (unmap). DXVK may
-    // instead keep a persistent mapping and explicitly flush, so honor flush by re-uploading the staging
-    // copy and invalidate by re-downloading it. (Host-coherent memory makes these no-ops on a real driver.)
+    // instead keep a persistent mapping and explicitly flush, so honor flush by re-uploading the flushed part of
+    // the staging copy and invalidate by re-downloading it. (Host-coherent memory makes these no-ops on a real driver.)
     __declspec(dllexport) VKAPI_ATTR VkResult VKAPI_CALL vkFlushMappedMemoryRanges(VkDevice device, uint32_t memoryRangeCount,
                                                                                    const VkMappedMemoryRange* pMemoryRanges)
     {
         for (uint32_t i = 0; i < memoryRangeCount; ++i)
         {
             const gb::object_id mem_id = to_object_id(pMemoryRanges[i].memory);
-            if (direct_mapped().contains(mem_id))
+            if (is_direct_mapped(mem_id))
             {
                 gb::mapped_memory_range_request request{};
                 request.device = to_object_id(device);
@@ -1878,20 +2098,21 @@ extern "C"
                 continue;
             }
 
-            const auto it = mapped_ranges().find(mem_id);
-            if (it == mapped_ranges().end() || it->second.staging.empty())
+            const auto* const staged = find_mapped_range(mem_id);
+            const auto span = staged ? find_staged_span(*staged, pMemoryRanges[i]) : std::nullopt;
+            if (!span)
             {
                 continue;
             }
 
-            std::vector<uint8_t> message(sizeof(gb::upload_memory_request) + it->second.staging.size());
+            std::vector<uint8_t> message(sizeof(gb::upload_memory_request) + span->size);
             gb::upload_memory_request header{};
             header.device = to_object_id(device);
             header.memory = mem_id;
-            header.offset = it->second.offset;
-            header.size = it->second.size;
+            header.offset = span->memory_offset;
+            header.size = span->size;
             std::memcpy(message.data(), &header, sizeof(header));
-            std::memcpy(message.data() + sizeof(header), it->second.staging.data(), it->second.staging.size());
+            std::memcpy(message.data() + sizeof(header), staged->staging.data() + span->staging_offset, span->size);
 
             gb::result_response response{};
             bridge_call(gb::ioctl_upload_memory, message.data(), static_cast<DWORD>(message.size()), &response, sizeof(response));
@@ -1905,7 +2126,7 @@ extern "C"
         for (uint32_t i = 0; i < memoryRangeCount; ++i)
         {
             const gb::object_id mem_id = to_object_id(pMemoryRanges[i].memory);
-            if (direct_mapped().contains(mem_id))
+            if (is_direct_mapped(mem_id))
             {
                 gb::mapped_memory_range_request request{};
                 request.device = to_object_id(device);
@@ -1925,8 +2146,9 @@ extern "C"
                 continue;
             }
 
-            const auto it = mapped_ranges().find(mem_id);
-            if (it == mapped_ranges().end() || it->second.staging.empty())
+            auto* const staged = find_mapped_range(mem_id);
+            const auto span = staged ? find_staged_span(*staged, pMemoryRanges[i]) : std::nullopt;
+            if (!span)
             {
                 continue;
             }
@@ -1934,10 +2156,10 @@ extern "C"
             gb::download_memory_request request{};
             request.device = to_object_id(device);
             request.memory = mem_id;
-            request.offset = it->second.offset;
-            request.size = it->second.size;
-            bridge_call(gb::ioctl_download_memory, &request, sizeof(request), it->second.staging.data(),
-                        static_cast<DWORD>(it->second.staging.size()));
+            request.offset = span->memory_offset;
+            request.size = span->size;
+            bridge_call(gb::ioctl_download_memory, &request, sizeof(request), staged->staging.data() + span->staging_offset,
+                        static_cast<DWORD>(span->size));
         }
         return VK_SUCCESS;
     }
@@ -2015,7 +2237,10 @@ extern "C"
         gb::device_child_request request{};
         request.device = to_object_id(device);
         request.object = to_object_id(bufferView);
-        bridge_call(gb::ioctl_destroy_buffer_view, &request, sizeof(request), nullptr, 0);
+        if (!queue_in_ring(gb::command::destroy_buffer_view, &request, sizeof(request)))
+        {
+            bridge_call(gb::ioctl_destroy_buffer_view, &request, sizeof(request), nullptr, 0);
+        }
     }
 
     __declspec(dllexport) VKAPI_ATTR VkResult VKAPI_CALL vkCreateQueryPool(VkDevice device, const VkQueryPoolCreateInfo* pCreateInfo,
@@ -2062,6 +2287,11 @@ extern "C"
         request.query_pool = to_object_id(queryPool);
         request.first_query = firstQuery;
         request.query_count = queryCount;
+
+        if (queue_in_ring(gb::command::reset_query_pool, &request, sizeof(request)))
+        {
+            return;
+        }
 
         gb::result_response response{};
         bridge_call(gb::ioctl_reset_query_pool, &request, sizeof(request), &response, sizeof(response));
@@ -4914,7 +5144,15 @@ extern "C"
     __declspec(dllexport) VKAPI_ATTR void VKAPI_CALL vkDestroyImageView(VkDevice device, VkImageView imageView,
                                                                         const VkAllocationCallbacks*)
     {
-        destroy_device_child(gb::ioctl_destroy_image_view, device, imageView);
+        if (!imageView)
+        {
+            return;
+        }
+        const gb::device_child_request request{.device = to_object_id(device), .object = to_object_id(imageView)};
+        if (!queue_in_ring(gb::command::destroy_image_view, &request, sizeof(request)))
+        {
+            destroy_device_child(gb::ioctl_destroy_image_view, device, imageView);
+        }
     }
 
     __declspec(dllexport) VKAPI_ATTR VkResult VKAPI_CALL vkCreateRenderPass(VkDevice device, const VkRenderPassCreateInfo* pCreateInfo,
@@ -5395,6 +5633,19 @@ extern "C"
         request.device = to_object_id(device);
         request.descriptor_pool = to_object_id(descriptorPool);
         request.flags = flags;
+
+        // Queued behind the allocations from the pool that are still pending, which the host makes first.
+        {
+            std::lock_guard<std::mutex> lock(g_pending_descriptor_updates_mutex);
+            if (ring_take_pending_descriptor_updates() && ring_append(gb::command::reset_descriptor_pool, &request, sizeof(request)))
+            {
+                if (const auto pool = descriptor_pools().find(request.descriptor_pool); pool != descriptor_pools().end())
+                {
+                    pool->second.allocated = 0;
+                }
+                return VK_SUCCESS;
+            }
+        }
 
         gb::result_response response{};
         if (!bridge_call(gb::ioctl_reset_descriptor_pool, &request, sizeof(request), &response, sizeof(response)) ||

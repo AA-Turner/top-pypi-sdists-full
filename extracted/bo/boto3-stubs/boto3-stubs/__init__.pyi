@@ -19,6 +19,7 @@ from mypy_boto3_account_access.client import AccountAccessClient
 from mypy_boto3_account_access_runtime.client import AccountAccessRuntimeClient
 from mypy_boto3_acm.client import ACMClient
 from mypy_boto3_acm_pca.client import ACMPCAClient
+from mypy_boto3_agent_discovery.client import AgentDiscoveryClient
 from mypy_boto3_agent_registry.client import AgentRegistryClient
 from mypy_boto3_agent_registry_control.client import AgentRegistryControlClient
 from mypy_boto3_aiops.client import AIOpsClient
@@ -29,6 +30,7 @@ from mypy_boto3_amplifyuibuilder.client import AmplifyUIBuilderClient
 from mypy_boto3_apigateway.client import APIGatewayClient
 from mypy_boto3_apigatewaymanagementapi.client import ApiGatewayManagementApiClient
 from mypy_boto3_apigatewayv2.client import ApiGatewayV2Client
+from mypy_boto3_apiportal.client import APIPortalClient
 from mypy_boto3_appconfig.client import AppConfigClient
 from mypy_boto3_appconfigdata.client import AppConfigDataClient
 from mypy_boto3_appfabric.client import AppFabricClient
@@ -335,6 +337,7 @@ from mypy_boto3_partnercentral_revenue_measurement.client import (
 from mypy_boto3_partnercentral_selling.client import PartnerCentralSellingAPIClient
 from mypy_boto3_payment_cryptography.client import PaymentCryptographyControlPlaneClient
 from mypy_boto3_payment_cryptography_data.client import PaymentCryptographyDataPlaneClient
+from mypy_boto3_payments.client import PaymentsClient
 from mypy_boto3_pca_connector_ad.client import PcaConnectorAdClient
 from mypy_boto3_pca_connector_scep.client import PrivateCAConnectorforSCEPClient
 from mypy_boto3_pcs.client import ParallelComputingServiceClient
@@ -391,6 +394,7 @@ from mypy_boto3_sagemaker.client import SageMakerClient
 from mypy_boto3_sagemaker_a2i_runtime.client import AugmentedAIRuntimeClient
 from mypy_boto3_sagemaker_edge.client import SagemakerEdgeManagerClient
 from mypy_boto3_sagemaker_featurestore_runtime.client import SageMakerFeatureStoreRuntimeClient
+from mypy_boto3_sagemaker_gateway_runtime.client import SageMakerGatewayRuntimeClient
 from mypy_boto3_sagemaker_geospatial.client import SageMakergeospatialcapabilitiesClient
 from mypy_boto3_sagemaker_inference_router_runtime.client import (
     SageMakerInferenceRouterRuntimeClient,
@@ -629,6 +633,24 @@ def client(
 
 @overload
 def client(
+    service_name: Literal["agent-discovery"],
+    region_name: str | None = ...,
+    api_version: str | None = ...,
+    use_ssl: bool | None = ...,
+    verify: bool | str | None = ...,
+    endpoint_url: str | None = ...,
+    aws_access_key_id: str | None = ...,
+    aws_secret_access_key: str | None = ...,
+    aws_session_token: str | None = ...,
+    config: Config | None = ...,
+    aws_account_id: str | None = ...,
+) -> AgentDiscoveryClient:
+    """
+    Create client for AgentDiscovery service.
+    """
+
+@overload
+def client(
     service_name: Literal["agent-registry"],
     region_name: str | None = ...,
     api_version: str | None = ...,
@@ -805,6 +827,24 @@ def client(
 ) -> ApiGatewayV2Client:
     """
     Create client for ApiGatewayV2 service.
+    """
+
+@overload
+def client(
+    service_name: Literal["apiportal"],
+    region_name: str | None = ...,
+    api_version: str | None = ...,
+    use_ssl: bool | None = ...,
+    verify: bool | str | None = ...,
+    endpoint_url: str | None = ...,
+    aws_access_key_id: str | None = ...,
+    aws_secret_access_key: str | None = ...,
+    aws_session_token: str | None = ...,
+    config: Config | None = ...,
+    aws_account_id: str | None = ...,
+) -> APIPortalClient:
+    """
+    Create client for APIPortal service.
     """
 
 @overload
@@ -6029,6 +6069,24 @@ def client(
 
 @overload
 def client(
+    service_name: Literal["payments"],
+    region_name: str | None = ...,
+    api_version: str | None = ...,
+    use_ssl: bool | None = ...,
+    verify: bool | str | None = ...,
+    endpoint_url: str | None = ...,
+    aws_access_key_id: str | None = ...,
+    aws_secret_access_key: str | None = ...,
+    aws_session_token: str | None = ...,
+    config: Config | None = ...,
+    aws_account_id: str | None = ...,
+) -> PaymentsClient:
+    """
+    Create client for Payments service.
+    """
+
+@overload
+def client(
     service_name: Literal["pca-connector-ad"],
     region_name: str | None = ...,
     api_version: str | None = ...,
@@ -7015,6 +7073,24 @@ def client(
 ) -> SageMakerFeatureStoreRuntimeClient:
     """
     Create client for SageMakerFeatureStoreRuntime service.
+    """
+
+@overload
+def client(
+    service_name: Literal["sagemaker-gateway-runtime"],
+    region_name: str | None = ...,
+    api_version: str | None = ...,
+    use_ssl: bool | None = ...,
+    verify: bool | str | None = ...,
+    endpoint_url: str | None = ...,
+    aws_access_key_id: str | None = ...,
+    aws_secret_access_key: str | None = ...,
+    aws_session_token: str | None = ...,
+    config: Config | None = ...,
+    aws_account_id: str | None = ...,
+) -> SageMakerGatewayRuntimeClient:
+    """
+    Create client for SageMakerGatewayRuntime service.
     """
 
 @overload

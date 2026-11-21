@@ -4,9 +4,6 @@ use pyo3::prelude::*;
 ///
 /// Configuration for email format validation.
 ///
-/// This allows customization of email format validation behavior beyond the default
-/// JSON Schema spec requirements.
-///
 ///     >>> from jsonschema_rs import validator_for, EmailOptions
 ///     >>> validator = validator_for(
 ///     ...     {"format": "email", "type": "string"},
@@ -18,7 +15,7 @@ use pyo3::prelude::*;
 ///     >>> validator.is_valid("user@example.com")
 ///     True
 ///
-/// Parameters:
+/// Args:
 ///     require_tld: Require a top-level domain (e.g., reject "user@localhost")
 ///     allow_domain_literal: Allow IP address literals like "user@[127.0.0.1]"
 ///     allow_display_text: Allow display names like "Name <user@example.com>"

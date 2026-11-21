@@ -18,6 +18,7 @@ use crate::{
     error::ValidationError,
     evaluation::Annotations,
     keywords::{rfc3986, CompilationResult},
+    options::{PatternEngineOptions, PatternSyntax},
     paths::{LazyLocation, Location, RefTracker},
     types::JsonType,
     validator::{EvaluationResult, Validate, ValidationContext},
@@ -25,9 +26,6 @@ use crate::{
 };
 
 /// RFC 6570 Level 4 URI Template validator.
-///
-/// Single-pass parser with no allocations, early exit on invalid input.
-/// Supports all operators (+, #, ., /, ;, ?, &, =, ,, !, @, |) and modifiers (:prefix, *explode).
 #[must_use]
 pub fn is_valid_uri_template(template: &str) -> bool {
     let bytes = template.as_bytes();
@@ -36,13 +34,11 @@ pub fn is_valid_uri_template(template: &str) -> bool {
 
     while i < len {
         if bytes[i] == b'{' {
-            // Parse expression
             i += 1;
             if i >= len {
                 return false; // Unclosed brace
             }
 
-            // Optional operator
             if is_operator(bytes[i]) {
                 i += 1;
                 if i >= len {
@@ -50,12 +46,10 @@ pub fn is_valid_uri_template(template: &str) -> bool {
                 }
             }
 
-            // Parse variable list (at least one varspec required)
             if !parse_varspec(bytes, &mut i) {
                 return false;
             }
 
-            // Parse additional varspecs separated by commas
             while i < len && bytes[i] == b',' {
                 i += 1;
                 if !parse_varspec(bytes, &mut i) {
@@ -63,13 +57,11 @@ pub fn is_valid_uri_template(template: &str) -> bool {
                 }
             }
 
-            // Expect closing brace
             if i >= len || bytes[i] != b'}' {
                 return false;
             }
             i += 1;
         } else if bytes[i] == b'}' {
-            // Unmatched closing brace
             return false;
         } else {
             // Parse literal
@@ -155,11 +147,8 @@ fn parse_varname(bytes: &[u8], i: &mut usize) -> bool {
             if !parse_varchar(bytes, i) {
                 return false;
             }
-        } else if is_varchar_start(bytes[*i]) || bytes[*i] == b'%' {
-            if !parse_varchar(bytes, i) {
-                return false;
-            }
         } else {
+            // `parse_varchar` consumed every varchar, so anything else ends the name.
             break;
         }
     }
@@ -199,7 +188,6 @@ fn is_varchar_start(b: u8) -> bool {
     b.is_ascii_alphanumeric() || b == b'_'
 }
 
-/// Check if byte is a hexadecimal digit.
 #[inline]
 fn is_hex_digit(b: u8) -> bool {
     b.is_ascii_hexdigit()
@@ -231,7 +219,7 @@ fn parse_literal(bytes: &[u8], i: &mut usize) -> bool {
 }
 
 /// Check if byte is a valid literal character per RFC 6570 (with errata 6937, which
-/// admits the apostrophe).
+/// allows the apostrophe).
 /// Excludes: CTL (0x00-0x1F, 0x7F), space (0x20), and: `" < > % \ ^ { | }`
 #[inline]
 fn is_literal_char(b: u8) -> bool {
@@ -321,12 +309,10 @@ pub fn is_valid_date(date: &str) -> bool {
         return false;
     }
 
-    // Parse year (YYYY)
     let Some(year) = parse_four_digits(&bytes[0..4]) else {
         return false;
     };
 
-    // Parse month (MM)
     let Some(month) = parse_two_digits(&bytes[5..7]) else {
         return false;
     };
@@ -334,7 +320,6 @@ pub fn is_valid_date(date: &str) -> bool {
         return false;
     }
 
-    // Parse day (DD)
     let Some(day) = parse_two_digits(&bytes[8..10]) else {
         return false;
     };
@@ -342,7 +327,6 @@ pub fn is_valid_date(date: &str) -> bool {
         return false;
     }
 
-    // Check day validity
     match month {
         1 | 3 | 5 | 7 | 8 | 10 | 12 => day <= 31,
         4 | 6 | 9 | 11 => day <= 30,
@@ -451,15 +435,12 @@ pub fn is_valid_time(time: &str) -> bool {
         return false;
     }
 
-    // Parse hour (HH)
     let Some(hour) = parse_two_digits(&bytes[..2]) else {
         return false;
     };
-    // Parse minute (MM)
     let Some(minute) = parse_two_digits(&bytes[3..5]) else {
         return false;
     };
-    // Parse second (SS)
     let Some(second) = parse_two_digits(&bytes[6..8]) else {
         return false;
     };
@@ -498,12 +479,10 @@ pub fn is_valid_time(time: &str) -> bool {
 
 #[must_use]
 pub fn is_valid_datetime(datetime: &str) -> bool {
-    // Find the position of 'T' or 't' separator
     let Some(t_pos) = datetime.bytes().position(|b| b == b'T' || b == b't') else {
         return false;
     };
 
-    // Split the string into date and time parts
     let (date_part, time_part) = datetime.split_at(t_pos);
 
     is_valid_date(date_part) && is_valid_time(&time_part[1..])
@@ -908,13 +887,8 @@ fn validate_unicode_label(label: &str) -> bool {
         previous = Some(current);
     }
 
-    if (has_katakana_middle_dot && !has_hiragana_katakana_han)
-        || (has_arabic_indic_digits && has_extended_arabic_indic_digits)
-    {
-        return false;
-    }
-
-    true
+    !((has_katakana_middle_dot && !has_hiragana_katakana_han)
+        || (has_arabic_indic_digits && has_extended_arabic_indic_digits))
 }
 
 #[cfg(feature = "idna")]
@@ -1046,11 +1020,7 @@ pub fn is_valid_duration(duration: &str) -> bool {
     let has_time_h = seen_units & (1 << 4) != 0; // H is index 0 in time_units, stored at +4
     let has_time_m = seen_units & (1 << 5) != 0; // M is index 1 in time_units, stored at +5
     let has_time_s = seen_units & (1 << 6) != 0; // S is index 2 in time_units, stored at +6
-    if has_time_h && has_time_s && !has_time_m {
-        return false;
-    }
-
-    true
+    !(has_time_h && has_time_s && !has_time_m)
 }
 
 #[must_use]
@@ -1090,32 +1060,114 @@ pub fn is_valid_uuid(uuid: &str) -> bool {
     parse_hyphenated(uuid.as_bytes(), Out::from_mut(&mut out)).is_ok()
 }
 
+/// The latest checks of one thread, so a repeated string is not parsed again.
+struct RecentChecks<K> {
+    entries: Vec<(K, bool)>,
+    next: usize,
+}
+
+impl<K> RecentChecks<K> {
+    const SIZE: usize = 16;
+
+    const fn new() -> Self {
+        Self {
+            entries: Vec::new(),
+            next: 0,
+        }
+    }
+
+    fn get_or_check(
+        &mut self,
+        is_key: impl Fn(&K) -> bool,
+        key: impl FnOnce() -> K,
+        check: impl FnOnce() -> bool,
+    ) -> bool {
+        if let Some((_, valid)) = self.entries.iter().find(|(candidate, _)| is_key(candidate)) {
+            return *valid;
+        }
+        let valid = check();
+        if self.entries.len() < Self::SIZE {
+            self.entries.push((key(), valid));
+        } else {
+            self.entries[self.next] = (key(), valid);
+            self.next = (self.next + 1) % Self::SIZE;
+        }
+        valid
+    }
+}
+
 /// Validate that a string is a valid ECMAScript regular expression.
 #[must_use]
 pub fn is_valid_regex(pattern: &str) -> bool {
-    const CACHE_SIZE: usize = 16;
     thread_local! {
-        static CACHE: std::cell::RefCell<(Vec<(String, bool)>, usize)> =
-            const { std::cell::RefCell::new((Vec::new(), 0)) };
+        static CACHE: std::cell::RefCell<RecentChecks<String>> =
+            const { std::cell::RefCell::new(RecentChecks::new()) };
     }
     CACHE.with(|cache| {
-        let mut cache = cache.borrow_mut();
-        let (entries, next) = &mut *cache;
-        if let Some((_, valid)) = entries.iter().find(|(candidate, _)| candidate == pattern) {
-            return *valid;
-        }
-        let valid = jsonschema_regex::is_valid_ecma_regex(pattern);
-        if entries.len() < CACHE_SIZE {
-            entries.push((pattern.to_owned(), valid));
-        } else {
-            entries[*next] = (pattern.to_owned(), valid);
-            *next = (*next + 1) % CACHE_SIZE;
-        }
-        valid
+        cache.borrow_mut().get_or_check(
+            |candidate| candidate == pattern,
+            || pattern.to_owned(),
+            || jsonschema_regex::is_valid_ecma_regex(pattern),
+        )
     })
 }
 
-/// Implements `evaluate()` for format validators that have an `annotation: Arc<Value>` field.
+/// Whether the engine `options` selects builds `pattern` as written.
+pub(crate) fn engine_accepts_regex(options: PatternEngineOptions, pattern: &str) -> bool {
+    thread_local! {
+        static CACHE: std::cell::RefCell<RecentChecks<(PatternEngineOptions, String)>> =
+            const { std::cell::RefCell::new(RecentChecks::new()) };
+    }
+    CACHE.with(|cache| {
+        cache.borrow_mut().get_or_check(
+            |(candidate_options, candidate)| *candidate_options == options && candidate == pattern,
+            || (options, pattern.to_owned()),
+            || crate::regex::engine_accepts(options, pattern),
+        )
+    })
+}
+
+/// Validate that the `regex` engine builds a string as written.
+#[cfg(feature = "macros")]
+#[doc(hidden)]
+#[must_use]
+pub fn is_valid_regex_engine_regex(
+    pattern: &str,
+    size_limit: Option<usize>,
+    dfa_size_limit: Option<usize>,
+) -> bool {
+    engine_accepts_regex(
+        PatternEngineOptions::Regex {
+            size_limit,
+            dfa_size_limit,
+            syntax: PatternSyntax::Engine,
+        },
+        pattern,
+    )
+}
+
+/// Validate that the `fancy-regex` engine builds a string as written.
+#[cfg(feature = "macros")]
+#[doc(hidden)]
+#[must_use]
+pub fn is_valid_fancy_regex_engine_regex(
+    pattern: &str,
+    backtrack_limit: Option<usize>,
+    size_limit: Option<usize>,
+    dfa_size_limit: Option<usize>,
+) -> bool {
+    engine_accepts_regex(
+        PatternEngineOptions::FancyRegex {
+            backtrack_limit,
+            size_limit,
+            dfa_size_limit,
+            syntax: PatternSyntax::Engine,
+        },
+        pattern,
+    )
+}
+
+/// Implements `evaluate()` for format validators that have an `annotation: Annotations` field.
 ///
 /// Per spec §7.2.1 and §7.2.2, the format value MUST be collected as an annotation
 /// regardless of whether the assertion passes or fails.
@@ -1150,7 +1202,7 @@ macro_rules! impl_format_evaluate {
             } else {
                 EvaluationResult::invalid_empty(errors)
             };
-            result.annotate(Annotations::from_arc(Arc::clone(&self.annotation)));
+            result.annotate(self.annotation.clone());
             result
         }
     };
@@ -1162,14 +1214,14 @@ macro_rules! format_validators {
             $(#[$meta])*
             struct $validator {
                 location: Location,
-                annotation: Arc<Value>,
+                annotation: Annotations,
             }
 
             $(#[$meta])*
             impl $validator {
                 pub(crate) fn compile<'a, F: Json>(ctx: &compiler::Context<F>) -> CompilationResult<'a, F> {
                     let location = ctx.location().join("format");
-                    let annotation = Arc::new(Value::String($format.to_owned()));
+                    let annotation = Annotations::new(Value::String($format.to_owned()));
                     Ok(Box::new($validator { location, annotation }))
                 }
             }
@@ -1247,19 +1299,21 @@ format_validators!(
     (UuidValidator, "uuid", is_valid_uuid),
 );
 
-// Custom RegexValidator that caches ECMA regex transformation results in ValidationContext
+// `format: regex`, with each string's verdict cached in `ValidationContext`
 struct RegexValidator {
     location: Location,
-    annotation: Arc<Value>,
+    annotation: Annotations,
+    pattern_options: PatternEngineOptions,
 }
 
 impl RegexValidator {
     pub(crate) fn compile<'a, F: Json>(ctx: &compiler::Context<F>) -> CompilationResult<'a, F> {
         let location = ctx.location().join("format");
-        let annotation = Arc::new(Value::String("regex".to_owned()));
+        let annotation = Annotations::new(Value::String("regex".to_owned()));
         Ok(Box::new(RegexValidator {
             location,
             annotation,
+            pattern_options: ctx.config().pattern_options(),
         }))
     }
 }
@@ -1267,7 +1321,10 @@ impl RegexValidator {
 impl<F: Json> Validate<F> for RegexValidator {
     fn is_valid(&self, instance: &F::Node<'_>, ctx: &mut ValidationContext) -> bool {
         if let Some(item) = instance.as_string() {
-            ctx.is_valid_ecma_regex(&item)
+            ctx.is_valid_regex(&item, |pattern| match self.pattern_options.syntax() {
+                PatternSyntax::Ecma262 => jsonschema_regex::is_valid_ecma_regex(pattern),
+                PatternSyntax::Engine => engine_accepts_regex(self.pattern_options, pattern),
+            })
         } else {
             true
         }
@@ -1295,17 +1352,16 @@ impl<F: Json> Validate<F> for RegexValidator {
     impl_format_evaluate!();
 }
 
-// Custom EmailValidator that supports email options
 struct EmailValidator {
     location: Location,
-    annotation: Arc<Value>,
+    annotation: Annotations,
     email_options: Option<EmailAddressOptions>,
 }
 
 impl EmailValidator {
     pub(crate) fn compile<'a, F: Json>(ctx: &compiler::Context<F>) -> CompilationResult<'a, F> {
         let location = ctx.location().join("format");
-        let annotation = Arc::new(Value::String("email".to_owned()));
+        let annotation = Annotations::new(Value::String("email".to_owned()));
         let email_options = ctx.config().email_options().copied();
         Ok(Box::new(EmailValidator {
             location,
@@ -1346,11 +1402,10 @@ impl<F: Json> Validate<F> for EmailValidator {
     impl_format_evaluate!();
 }
 
-// Custom IdnEmailValidator that supports email options
 #[cfg(feature = "idna")]
 struct IdnEmailValidator {
     location: Location,
-    annotation: Arc<Value>,
+    annotation: Annotations,
     email_options: Option<EmailAddressOptions>,
 }
 
@@ -1358,7 +1413,7 @@ struct IdnEmailValidator {
 impl IdnEmailValidator {
     pub(crate) fn compile<'a, F: Json>(ctx: &compiler::Context<F>) -> CompilationResult<'a, F> {
         let location = ctx.location().join("format");
-        let annotation = Arc::new(Value::String("idn-email".to_owned()));
+        let annotation = Annotations::new(Value::String("idn-email".to_owned()));
         let email_options = ctx.config().email_options().copied();
         Ok(Box::new(IdnEmailValidator {
             location,
@@ -1402,7 +1457,7 @@ impl<F: Json> Validate<F> for IdnEmailValidator {
 
 struct CustomFormatValidator {
     location: Location,
-    annotation: Arc<Value>,
+    annotation: Annotations,
     format_name: String,
     check: Arc<dyn Format>,
 }
@@ -1413,7 +1468,7 @@ impl CustomFormatValidator {
         check: Arc<dyn Format>,
     ) -> CompilationResult<'a, F> {
         let location = ctx.location().join("format");
-        let annotation = Arc::new(Value::String(format_name.clone()));
+        let annotation = Annotations::new(Value::String(format_name.clone()));
         Ok(Box::new(CustomFormatValidator {
             location,
             annotation,
@@ -1459,7 +1514,7 @@ impl<F: Json> Validate<F> for CustomFormatValidator {
 ///
 /// Always validates successfully but emits the required annotation per spec §7.2.1.
 struct AnnotationOnlyFormatValidator {
-    annotation: Arc<Value>,
+    annotation: Annotations,
 }
 
 impl<F: Json> Validate<F> for AnnotationOnlyFormatValidator {
@@ -1498,7 +1553,7 @@ impl<F: Json> Validate<F> for AnnotationOnlyFormatValidator {
             return EvaluationResult::valid_empty();
         }
         let mut result = EvaluationResult::valid_empty();
-        result.annotate(Annotations::from_arc(Arc::clone(&self.annotation)));
+        result.annotate(self.annotation.clone());
         result
     }
 }
@@ -1603,12 +1658,12 @@ impl BuiltinFormat {
         }
     }
 
-    /// The lengths this format admits, or `None` where it takes any length.
+    /// The lengths this format accepts, or `None` where it takes any length.
     ///
-    /// A window narrower than the strings `is_valid` accepts folds a satisfiable schema to `false`,
-    /// so every bound below comes from a length check in the matching `is_valid_*`. Those count
-    /// bytes, which equals the character length a window is read against only for an ASCII-only
-    /// format - so a format taking non-ASCII has no window.
+    /// A range narrower than the strings `is_valid` accepts would make the canonicalizer reject
+    /// strings the format accepts, so every bound below comes from a length check in the matching
+    /// `is_valid_*`. Those count bytes, which equal characters only for ASCII, so a format taking
+    /// non-ASCII has no range.
     #[must_use]
     pub(crate) const fn length_window(self) -> Option<(u64, u64)> {
         match self {
@@ -1766,7 +1821,7 @@ pub(crate) fn compile<'a, F: Json>(
         } else {
             // Format validation disabled: annotation-only per spec §7.2.1
             Some(Ok(Box::new(AnnotationOnlyFormatValidator {
-                annotation: Arc::new(Value::String(format.clone())),
+                annotation: Annotations::new(Value::String(format.clone())),
             })))
         }
     } else {
@@ -1960,7 +2015,7 @@ mod tests {
 
     #[test]
     fn ecma_regex() {
-        // See GH-230
+        // `\c` control escapes are ECMA 262 syntax
         let schema = json!({"format": "regex", "type": "string"});
         let instance = json!("^\\cc$");
         let validator = crate::validator_for(&schema).unwrap();
@@ -2078,6 +2133,8 @@ mod tests {
     #[test_case("P1Y1Y")]
     #[test_case("PT1H1H")]
     #[test_case("P1WT1H")]
+    #[test_case("P1Y1W"; "weeks after another unit")]
+    #[test_case("P1W1D"; "another unit after weeks")]
     fn test_invalid_duration(input: &str) {
         assert!(!is_valid_duration(input));
     }
@@ -2436,7 +2493,7 @@ mod tests {
 
     #[test]
     fn email_options_backward_compatibility() {
-        // Test that default behavior is unchanged (backward compatibility)
+        // Default options
         let schema = json!({"format": "email", "type": "string"});
         let validator = crate::options()
             .should_validate_formats(true)
@@ -2460,7 +2517,7 @@ mod tests {
             .build(&schema)
             .expect("Schema should compile");
 
-        // Should still work with custom options (same as default for now)
+        // `EmailOptions::default()` agrees with the default
         assert!(validator.is_valid(&json!("user@example.com")));
         assert!(!validator.is_valid(&json!("not-an-email")));
     }
@@ -2523,7 +2580,6 @@ mod tests {
     fn email_options_minimum_sub_domains() {
         let schema = json!({"format": "email", "type": "string"});
 
-        // Test with no minimum sub domains - localhost should be valid
         let validator = crate::options()
             .with_email_options(EmailOptions::default().with_no_minimum_sub_domains())
             .should_validate_formats(true)
@@ -2533,7 +2589,6 @@ mod tests {
         assert!(validator.is_valid(&json!("simon@localhost")));
         assert!(validator.is_valid(&json!("user@example.com")));
 
-        // Test with required TLD - localhost should be invalid
         let validator = crate::options()
             .with_email_options(EmailOptions::default().with_required_tld())
             .should_validate_formats(true)
@@ -2543,7 +2598,6 @@ mod tests {
         assert!(!validator.is_valid(&json!("simon@localhost")));
         assert!(validator.is_valid(&json!("user@example.com")));
 
-        // Test with custom minimum sub domains
         let validator = crate::options()
             .with_email_options(EmailOptions::default().with_minimum_sub_domains(3))
             .should_validate_formats(true)
@@ -2558,18 +2612,15 @@ mod tests {
     fn email_options_domain_literal() {
         let schema = json!({"format": "email", "type": "string"});
 
-        // Test with domain literal allowed (default)
         let validator = crate::options()
             .with_email_options(EmailOptions::default().with_domain_literal())
             .should_validate_formats(true)
             .build(&schema)
             .expect("Schema should compile");
 
-        // Domain literal format is allowed (even if IPv4 is invalid)
         assert!(validator.is_valid(&json!("email@[127.0.0.1]")));
         assert!(validator.is_valid(&json!("email@[IPv6:2001:db8::1]")));
 
-        // Test without domain literal - should reject domain literals
         let validator = crate::options()
             .with_email_options(EmailOptions::default().without_domain_literal())
             .should_validate_formats(true)
@@ -2585,19 +2636,15 @@ mod tests {
     fn email_options_display_text() {
         let schema = json!({"format": "email", "type": "string"});
 
-        // Test with display text allowed (default)
         let validator = crate::options()
             .with_email_options(EmailOptions::default().with_display_text())
             .should_validate_formats(true)
             .build(&schema)
             .expect("Schema should compile");
 
-        // Display text format with actual display name should be allowed
         assert!(validator.is_valid(&json!("Simon <simon@example.com>")));
-        // Plain email should always be valid
         assert!(validator.is_valid(&json!("simon@example.com")));
 
-        // Test without display text - should reject display text formats
         let validator = crate::options()
             .with_email_options(EmailOptions::default().without_display_text())
             .should_validate_formats(true)
@@ -2613,7 +2660,6 @@ mod tests {
     fn email_options_combined() {
         let schema = json!({"format": "email", "type": "string"});
 
-        // Test combining multiple options - strict validation
         let validator = crate::options()
             .with_email_options(
                 EmailOptions::default()
@@ -2625,13 +2671,9 @@ mod tests {
             .build(&schema)
             .expect("Schema should compile");
 
-        // Should reject addresses without TLD
         assert!(!validator.is_valid(&json!("user@localhost")));
-        // Should reject domain literals
         assert!(!validator.is_valid(&json!("user@[127.0.0.1]")));
-        // Should reject display text
         assert!(!validator.is_valid(&json!("Name <user@example.com>")));
-        // Should accept valid email with TLD
         assert!(validator.is_valid(&json!("user@example.com")));
     }
 
@@ -2769,6 +2811,10 @@ mod tests {
     #[test_case("/sparql{?query,default-graph-uri}"; "uritemplate-test 27: hyphen in varname")]
     #[test_case("/sparql{?query){&default-graph-uri*}"; "uritemplate-test 28: paren in template")]
     #[test_case("/resolution{?x, y}"; "uritemplate-test 29: space after comma")]
+    #[test_case("{+"; "expression ends after the operator")]
+    #[test_case("{a:"; "expression ends after the prefix colon")]
+    #[test_case("{a.}"; "dot without a following name")]
+    #[test_case("{a%zz}"; "percent sign without two hex digits")]
     fn test_invalid_uri_template(template: &str) {
         assert!(!is_valid_uri_template(template));
     }

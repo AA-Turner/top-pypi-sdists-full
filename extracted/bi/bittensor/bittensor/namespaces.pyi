@@ -43,6 +43,9 @@ class Balances(_ReadNamespace):
 
         This is the `swap-check` status: `ColdkeySwapAnnouncements` stores the block
         at which the swap becomes executable and the BlakeTwo256 hash committed to.
+        `import_source_policies` is the V2 policy snapshot committed with the
+        destination: True or False for V2, None for a legacy announcement. The hash,
+        snapshot and dispute state are read at the same block.
         `recovery_locked` is true after root `reset_coldkey_swap_keep_locked` (stored
         dispute block 0): the coldkey can only make swap calls until a successful swap or
         a full reset, even when no announcement is pending.
@@ -53,6 +56,9 @@ class Balances(_ReadNamespace):
 
     async def proxies(self, coldkey_ss58: str, *, block: Optional[int] = None) -> dict:
         """Proxy delegations of an account: who may sign on its behalf, and the reserved deposit."""
+
+    async def proxy_announcements(self, delegate_ss58: str, *, block: Optional[int] = None) -> dict:
+        """Pending delayed-proxy announcements made by a delegate, plus reserved deposit."""
 
 class Chain(_ReadNamespace):
     """Chain-level reads: time, block metadata, global limits."""
@@ -236,15 +242,21 @@ class Gamma(_ReadNamespace):
     async def gamma_deposit(self, netuid: int, hotkey_ss58: str, *, block: Optional[int] = None) -> Optional[dict]:
         """The gamma deposit at a hotkey on a subnet, or None.
 
-        Its `netuid`, `hotkey`, `coldkey`, `spender`, and `balance_gamma`,
+        Its `netuid`, `hotkey`, `coldkey`, and `balance_gamma`,
         `daily_spend_cap_gamma` and `spendable_gamma` as exact decimal strings of
         gamma. A `daily_spend_cap_gamma` of None is no cap, and "0" pauses the
         deposit. `spendable_gamma` is the balance within what its daily spend cap
-        allows now.
+        allows now, or 0 when that is below 0.1 gamma and short of the balance.
         """
 
     async def gamma_deposits(self, coldkey_ss58: str, *, block: Optional[int] = None) -> list[dict]:
         """Every gamma deposit of a coldkey, on every subnet."""
+
+    async def gamma_spent(self, netuid: int, service_hotkey_ss58: str, hotkey_ss58: str, *, block: Optional[int] = None) -> str:
+        """The gamma a hotkey has spent at a service on a subnet, as an exact decimal string.
+
+        It only grows, until the subnet is dissolved, which clears it.
+        """
 
     async def quote_mint_gamma(self, netuid: int, amount_tao: float, *, block: Optional[int] = None) -> dict:
         """The alpha burned, its TAO value, and the gamma `mint_gamma` would mint now.
@@ -289,6 +301,9 @@ class Hyperparameters(_ReadNamespace):
 
     async def subnet_emission_enabled(self, netuid: Optional[int] = None, *, block: Optional[int] = None) -> int:
         """Root-controlled pool-side TAO emission flag for a subnet (1 = enabled). New registrations start enabled. When 0, the subnet earns no TAO emission share even while subnet_is_active is true; only root can flip it (see the set_subnet_emission_enabled intent)."""
+
+    async def subnet_gamma_emission_whitelisted(self, netuid: Optional[int] = None, *, block: Optional[int] = None) -> int:
+        """Root-controlled gamma emission whitelist flag for a subnet (1 = whitelisted); other subnets' gamma shares may name it only while it is set (see the set_subnet_gamma_emission_whitelisted intent)."""
 
     async def weights_rate_limit(self, netuid: Optional[int] = None, *, block: Optional[int] = None) -> int:
         """Blocks a hotkey must wait between weight sets on a subnet."""
@@ -695,11 +710,10 @@ class Subnets(_ReadNamespace):
         """Every service published on a subnet, by hotkey.
 
         Each `url` points to its hotkey's own document of its services and the
-        payments they accept; the chain does not check what it says. `spender` is
-        the spender customers name on gamma deposits for the service. `owner`
-        marks the subnet owner's hotkey while the owner owns it, whose spender new
-        deposits name by default. A url that is not printable text is returned as
-        0x-hex.
+        payments they accept; the chain does not check what it says. Gamma is
+        spent at a service's hotkey with `spend_gamma`. `owner` marks the subnet
+        owner's hotkey while the owner owns it. A url that is not printable text
+        is returned as 0x-hex.
         """
 
     async def subnet(self, netuid: int, *, block: Optional[int] = None) -> SubnetInfo:

@@ -10,7 +10,7 @@ description = "This is the phono3py module."
 authors = [{ name = "Atsushi Togo", email = "atztogo@gmail.com" }]
 requires-python = ">=3.11"
 dependencies = [
-    "phonopy>=4.10.0,<4.11.0",
+    "phonopy>=4.11.0,<4.12.0",
 ]
 license = "BSD-3-Clause"
 license-files = ["LICENSE"]
@@ -22,7 +22,7 @@ Repository = "https://github.com/phonopy/phono3py"
 [project.scripts]
 phono3py = "phono3py.scripts.phono3py:run"
 phono3py-init = "phono3py.scripts.phono3py_init:run"
-phono3py-load = "phono3py.scripts.phono3py_load:run"
+phono3py-load = "phono3py.scripts.phono3py_load:run"  # REMOVE-AT-V5
 phono3py-coleigplot = "phono3py.scripts.phono3py_coleigplot:run"
 phono3py-kaccum = "phono3py.scripts.phono3py_kaccum:run"
 phono3py-kdeplot = "phono3py.scripts.phono3py_kdeplot:run"

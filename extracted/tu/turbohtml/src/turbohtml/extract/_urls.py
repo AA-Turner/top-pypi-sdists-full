@@ -15,18 +15,19 @@ documented where it goes beyond the spec. The pipeline runs in C (``_url_clean``
 
 from __future__ import annotations
 
+__lazy_modules__ = [
+    "typing",
+    f"{__spec__.parent}._native",  # ty: ignore[missing-union-attribute]  # imported modules have a spec
+]
+
 from dataclasses import dataclass
 from functools import cache
 from typing import Final
 
 from ._native import (
     parse,
-)
-from ._native import (
-    url_clean as _url_clean,
-)
-from ._native import (
-    url_normalize as _url_normalize,
+    url_clean,
+    url_normalize,
 )
 
 _ISO_639_1: Final[frozenset[str]] = frozenset([
@@ -118,7 +119,7 @@ def clean_url(url: str, options: UrlCleaning | None = None, /) -> str | None:
     :raises TypeError: if ``url`` is not a ``str``.
     """
     active = options or _DEFAULT
-    return _url_clean(
+    return url_clean(
         url,
         active.strict,
         active.trailing_slash,
@@ -187,7 +188,7 @@ def normalize_url(url: str, options: UrlCleaning | None = None, /) -> str:
         (a lone surrogate).
     """
     active = options or _DEFAULT
-    return _url_normalize(
+    return url_normalize(
         url,
         active.strict,
         active.trailing_slash,

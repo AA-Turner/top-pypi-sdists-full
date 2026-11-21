@@ -20,6 +20,7 @@
 #include "Python.h"
 #include "error_contexts.hxx"
 #include "exceptions.hxx"
+#include "gil_guard.hxx"
 #include "operations_autogen.hxx"
 #include "pycbc_kv_request.hxx"
 #include "pytocbpp_defs.hxx"
@@ -53,6 +54,11 @@ public:
   couchbase::core::cluster& cluster()
   {
     return cluster_;
+  }
+
+  std::shared_ptr<asio::io_context> io_context() const
+  {
+    return io_;
   }
 
   bool is_connected() const
@@ -146,6 +152,10 @@ private:
       }
     } else if (pyObj_callback != nullptr) {
       PyObject* ret = PyObject_CallFunctionObjArgs(pyObj_callback, result, nullptr);
+      if (ret == nullptr) {
+        // callback raised; nothing else observes this IO thread's exception state.
+        PyErr_WriteUnraisable(pyObj_callback);
+      }
       Py_XDECREF(ret);
       Py_XDECREF(result);
     } else if (barrier) {
@@ -189,7 +199,7 @@ private:
     }
 
     if (conversion_failed) {
-      Py_DECREF(streamed_res);
+      Py_DECREF(reinterpret_cast<PyObject*>(streamed_res));
       PyObject* conversion_error =
         get_exception_as_object("Failed to convert entry", __FILE__, __LINE__);
       return { true, conversion_error };
@@ -211,7 +221,7 @@ private:
 
     PyObject* metadata = cbpp_to_py(resp.meta);
     if (metadata) {
-      PyDict_SetItemString(result_dict, "metadata", metadata);
+      PyDict_SetItem(result_dict, pycbc::keys::metadata, metadata);
       Py_DECREF(metadata);
     }
 
@@ -219,7 +229,7 @@ private:
     if constexpr (std::is_same_v<Response, couchbase::core::operations::search_response>) {
       PyObject* facets = cbpp_to_py(resp.facets);
       if (facets) {
-        PyDict_SetItemString(result_dict, "facets", facets);
+        PyDict_SetItem(result_dict, pycbc::keys::facets, facets);
         Py_DECREF(facets);
       }
     }
@@ -239,8 +249,8 @@ private:
     std::optional<std::chrono::system_clock::time_point> start_time = std::nullopt)
   {
     using response_type = typename Request::response_type;
-    Py_BEGIN_ALLOW_THREADS
     {
+      gil_release_guard no_gil;
       cluster_.execute(
         req,
         [pyObj_callback, pyObj_errback, barrier, wrapper_span, start_time, this](
@@ -266,10 +276,16 @@ private:
           }
 
           PyObject* target_handler =
-            PyObject_TypeCheck(result, &pycbc_exception_type) ? pyObj_errback : pyObj_callback;
+            PyObject_TypeCheck(result, (PyTypeObject*)pycbc_exception_type_obj) ? pyObj_errback
+                                                                                : pyObj_callback;
 
           if (target_handler != nullptr) {
-            Py_XDECREF(PyObject_CallFunctionObjArgs(target_handler, result, nullptr));
+            PyObject* ret = PyObject_CallFunctionObjArgs(target_handler, result, nullptr);
+            if (ret == nullptr) {
+              // callback/errback raised; nothing else observes this IO thread's exception state.
+              PyErr_WriteUnraisable(target_handler);
+            }
+            Py_XDECREF(ret);
           } else if (barrier != nullptr) {
             barrier->set_value(result);
             result = nullptr; // Reference transferred to barrier
@@ -281,7 +297,6 @@ private:
           PyGILState_Release(state);
         });
     }
-    Py_END_ALLOW_THREADS
   }
 
   template<typename PyType>
@@ -371,11 +386,14 @@ Connection::dispatch_sync(Request&& req)
   using Response = typename Request::response_type;
   auto barrier = std::make_shared<std::promise<Response>>();
   auto fut = barrier->get_future();
-  Py_BEGIN_ALLOW_THREADS cluster_.execute(std::forward<Request>(req), [barrier](Response resp) {
-    barrier->set_value(std::move(resp));
-  });
-  fut.wait();
-  Py_END_ALLOW_THREADS return fut.get();
+  {
+    gil_release_guard no_gil;
+    cluster_.execute(std::forward<Request>(req), [barrier](Response resp) {
+      barrier->set_value(std::move(resp));
+    });
+    fut.wait();
+  }
+  return fut.get();
 }
 
 template<typename Request, typename Response>
@@ -489,91 +507,95 @@ Connection::execute_multi_op(PyObject* arg)
   }
   pycbc_result* multi_result = reinterpret_cast<pycbc_result*>(pyObj_multi_result);
 
-  for (size_t i = 0; i < num_docs; ++i) {
-    PyObject* pyObj_binding = PyList_GetItem(arg, i); // Borrowed ref
-    // Unchecked by contract, see validate_connection_and_multi_request
-    pycbc_kv_request* request = reinterpret_cast<pycbc_kv_request*>(pyObj_binding);
-    std::string key_str = py_to_cbpp<std::string>(request->key);
-    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
-    std::string span_name;
-    extract_field(request->wrapper_span_name, span_name);
-    if (!span_name.empty()) {
-      wrapper_span = std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(span_name);
+  try {
+    for (size_t i = 0; i < num_docs; ++i) {
+      PyObject* pyObj_binding = PyList_GetItem(arg, i); // Borrowed ref
+      // Unchecked by contract, see validate_connection_and_multi_request
+      pycbc_kv_request* request = reinterpret_cast<pycbc_kv_request*>(pyObj_binding);
+      std::string key_str = py_to_cbpp<std::string>(request->key);
+      std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+      std::string span_name;
+      extract_field(request->wrapper_span_name, span_name);
+      if (!span_name.empty()) {
+        wrapper_span = std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(span_name);
+      }
+
+      auto req = py_to_cbpp<Request>(request, wrapper_span);
+      if (PyErr_Occurred()) {
+        Py_DECREF(pyObj_multi_result);
+        return nullptr;
+      }
+
+      // TODO(PYCBC-1746): Delete w/ removal of legacy tracing logic
+      if (wrapper_span == nullptr) {
+        add_cluster_labels(req);
+      }
+
+      std::optional<std::chrono::system_clock::time_point> start_time;
+      if (request->with_metrics == Py_True) {
+        start_time = std::chrono::system_clock::now();
+      }
+
+      auto barrier = std::make_shared<std::promise<Response>>();
+      auto fut = barrier->get_future();
+
+      staging.push_back({ std::move(req),
+                          std::move(key_str),
+                          std::move(wrapper_span),
+                          start_time,
+                          std::move(barrier),
+                          std::move(fut) });
     }
 
-    auto req = py_to_cbpp<Request>(request, wrapper_span);
-    if (PyErr_Occurred()) {
-      Py_DECREF(pyObj_multi_result);
-      return nullptr;
+    {
+      gil_release_guard no_gil;
+      for (auto& s : staging) {
+        auto barrier = s.barrier;
+        cluster_.execute(s.req, [barrier](Response resp) {
+          barrier->set_value(std::move(resp));
+        });
+      }
+
+      for (auto& s : staging) {
+        s.fut.wait();
+      }
     }
-
-    // TODO(PYCBC-1746): Delete w/ removal of legacy tracing logic
-    if (wrapper_span == nullptr) {
-      add_cluster_labels(req);
-    }
-
-    std::optional<std::chrono::system_clock::time_point> start_time;
-    if (request->with_metrics == Py_True) {
-      start_time = std::chrono::system_clock::now();
-    }
-
-    auto barrier = std::make_shared<std::promise<Response>>();
-    auto fut = barrier->get_future();
-
-    staging.push_back({ std::move(req),
-                        std::move(key_str),
-                        std::move(wrapper_span),
-                        start_time,
-                        std::move(barrier),
-                        std::move(fut) });
-  }
-
-  Py_BEGIN_ALLOW_THREADS for (auto& s : staging)
-  {
-    auto barrier = s.barrier;
-    cluster_.execute(s.req, [barrier](Response resp) {
-      barrier->set_value(std::move(resp));
-    });
-  }
-
-  for (auto& s : staging) {
-    s.fut.wait();
-  }
-  Py_END_ALLOW_THREADS
 
     bool all_okay = true;
-  for (auto& s : staging) {
-    PyObject* res =
-      finalize_kv_result<Request>(s.fut.get(), std::move(s.wrapper_span), std::move(s.start_time));
-    // OOM is not a per-key condition, so abandon the whole multi result rather than
-    // reporting a partial one. An exception is already pending.
-    if (res == nullptr) {
-      Py_DECREF(pyObj_multi_result);
-      return nullptr;
-    }
-    if (PyObject_TypeCheck(res, &pycbc_exception_type)) {
-      all_okay = false;
-    }
-    // Not PyDict_SetItemString: it interns the key, and interned keys are immortal on 3.12+.
-    PyObject* pyObj_key =
-      PyUnicode_FromStringAndSize(s.key_str.data(), static_cast<Py_ssize_t>(s.key_str.size()));
-    if (pyObj_key == nullptr) {
+    for (auto& s : staging) {
+      PyObject* res = finalize_kv_result<Request>(
+        s.fut.get(), std::move(s.wrapper_span), std::move(s.start_time));
+      // OOM is not a per-key condition, so abandon the whole multi result rather than
+      // reporting a partial one. An exception is already pending.
+      if (res == nullptr) {
+        Py_DECREF(pyObj_multi_result);
+        return nullptr;
+      }
+      if (PyObject_TypeCheck(res, (PyTypeObject*)pycbc_exception_type_obj)) {
+        all_okay = false;
+      }
+      // Not PyDict_SetItemString: it interns the key, and interned keys are immortal on 3.12+.
+      PyObject* pyObj_key =
+        PyUnicode_FromStringAndSize(s.key_str.data(), static_cast<Py_ssize_t>(s.key_str.size()));
+      if (pyObj_key == nullptr) {
+        Py_DECREF(res);
+        Py_DECREF(pyObj_multi_result);
+        return nullptr;
+      }
+      int rc = PyDict_SetItem(multi_result->raw_result, pyObj_key, res);
+      Py_DECREF(pyObj_key);
       Py_DECREF(res);
-      Py_DECREF(pyObj_multi_result);
-      return nullptr;
+      if (rc < 0) {
+        Py_DECREF(pyObj_multi_result);
+        return nullptr;
+      }
     }
-    int rc = PyDict_SetItem(multi_result->raw_result, pyObj_key, res);
-    Py_DECREF(pyObj_key);
-    Py_DECREF(res);
-    if (rc < 0) {
-      Py_DECREF(pyObj_multi_result);
-      return nullptr;
-    }
-  }
-  if (PyDict_SetItem(
-        multi_result->raw_result, pycbc::keys::all_okay, all_okay ? Py_True : Py_False) < 0) {
+    PyObject* pyObj_old_all_okay = multi_result->multi_resp_all_okay;
+    multi_result->multi_resp_all_okay = Py_NewRef(all_okay ? Py_True : Py_False);
+    Py_XDECREF(pyObj_old_all_okay);
+  } catch (const std::exception& e) {
     Py_DECREF(pyObj_multi_result);
-    return nullptr;
+    return raise_invalid_argument(e.what());
   }
 
   return pyObj_multi_result;
@@ -624,7 +646,7 @@ Connection::execute_streaming_op(PyObject* kwargs)
     }
     // Keep the streamed_result alive until the callback is done by INCREFing it here and DECREFing
     // in the callback
-    Py_INCREF(streamed_res);
+    Py_INCREF(reinterpret_cast<PyObject*>(streamed_res));
 
     // TODO: When C++ SDK supports row_callback, set it here:
     // req.row_callback = [rows = streamed_res->rows](std::string&& row) {
@@ -636,8 +658,8 @@ Connection::execute_streaming_op(PyObject* kwargs)
     // };
 
     using response_type = typename Request::response_type;
-    Py_BEGIN_ALLOW_THREADS
     {
+      gil_release_guard no_gil;
       cluster_.execute(
         req,
         // we pass the shared_ptr rows separately b/c we need t o allow the rows queue to survive
@@ -713,18 +735,21 @@ Connection::execute_streaming_op(PyObject* kwargs)
           // The python side will determine if the query has rows or returned an error
           if (callback != nullptr) {
             PyObject* result = PyObject_CallFunction(callback, "O", Py_True);
+            if (result == nullptr) {
+              // callback raised; nothing else observes this IO thread's exception state.
+              PyErr_WriteUnraisable(callback);
+            }
             Py_XDECREF(result);
           }
 
-          Py_DECREF(streamed_res);
+          Py_DECREF(reinterpret_cast<PyObject*>(streamed_res));
           Py_XDECREF(callback);
           Py_XDECREF(errback);
           PyGILState_Release(state);
         });
     }
-    Py_END_ALLOW_THREADS
 
-      return reinterpret_cast<PyObject*>(streamed_res);
+    return reinterpret_cast<PyObject*>(streamed_res);
 
   } catch (const std::exception& e) {
     Py_XDECREF(pyObj_callback);
@@ -778,9 +803,11 @@ Connection::execute_mgmt_op(PyObject* kwargs)
     execute_op(req, pyObj_callback, pyObj_errback, barrier, wrapper_span);
     if (barrier) {
       PyObject* result = nullptr;
-      Py_BEGIN_ALLOW_THREADS result = fut.get();
-      Py_END_ALLOW_THREADS if (result == nullptr)
       {
+        gil_release_guard no_gil;
+        result = fut.get();
+      }
+      if (result == nullptr) {
         // The IO thread's conversion failed; that failure was already reported via
         // PyErr_WriteUnraisable there, so nothing is pending on this thread.
         set_runtime_error_if_unset("Failed to process operation result.");

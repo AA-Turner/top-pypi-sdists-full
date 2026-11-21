@@ -95,6 +95,8 @@ pub struct StatsigOptions {
     pub id_lists_url: Option<String>,
     /// Opt into local shared ID-list snapshots and one elected HTTP downloader.
     /// Unset keeps process-private ID lists. A custom `id_lists_adapter` takes precedence.
+    /// Add `shared_initial_id_list_base` to `experimental_flags` to share the
+    /// initial hash or Elias–Fano index and fetch updates per worker, including in lazy mode.
     pub shared_id_lists_dir: Option<String>,
     /// Preferred base URL for individual ID-list files; preserves the manifest's path and query.
     /// Set `fallback_to_statsig_api` to true to allow retryable failures to use the original URL
@@ -182,6 +184,14 @@ impl StatsigOptions {
 
     pub(crate) fn get_sdk_instance_id<'a>(&'a self, sdk_key: &'a str) -> &'a str {
         self.sdk_instance_id.as_deref().unwrap_or(sdk_key)
+    }
+
+    pub(crate) fn active_observability_client(&self) -> Option<Arc<dyn ObservabilityClient>> {
+        let client = self.observability_client.as_ref()?;
+        if crate::output_policy::OutputPolicy::from_options(Some(self)).is_silent() {
+            return None;
+        }
+        client.upgrade()
     }
 }
 

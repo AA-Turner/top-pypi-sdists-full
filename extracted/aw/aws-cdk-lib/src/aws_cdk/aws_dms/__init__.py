@@ -1147,6 +1147,8 @@ class CfnDataProvider(
                     # the properties below are optional
                     asm_server="asmServer",
                     certificate_arn="certificateArn",
+                    s3_access_role_arn="s3AccessRoleArn",
+                    s3_path="s3Path",
                     secrets_manager_oracle_asm_access_role_arn="secretsManagerOracleAsmAccessRoleArn",
                     secrets_manager_oracle_asm_secret_id="secretsManagerOracleAsmSecretId",
                     secrets_manager_security_db_encryption_access_role_arn="secretsManagerSecurityDbEncryptionAccessRoleArn",
@@ -2401,6 +2403,8 @@ class CfnDataProvider(
             "ssl_mode": "sslMode",
             "asm_server": "asmServer",
             "certificate_arn": "certificateArn",
+            "s3_access_role_arn": "s3AccessRoleArn",
+            "s3_path": "s3Path",
             "secrets_manager_oracle_asm_access_role_arn": "secretsManagerOracleAsmAccessRoleArn",
             "secrets_manager_oracle_asm_secret_id": "secretsManagerOracleAsmSecretId",
             "secrets_manager_security_db_encryption_access_role_arn": "secretsManagerSecurityDbEncryptionAccessRoleArn",
@@ -2417,6 +2421,8 @@ class CfnDataProvider(
             ssl_mode: builtins.str,
             asm_server: typing.Optional[builtins.str] = None,
             certificate_arn: typing.Optional[builtins.str] = None,
+            s3_access_role_arn: typing.Optional[builtins.str] = None,
+            s3_path: typing.Optional[builtins.str] = None,
             secrets_manager_oracle_asm_access_role_arn: typing.Optional[builtins.str] = None,
             secrets_manager_oracle_asm_secret_id: typing.Optional[builtins.str] = None,
             secrets_manager_security_db_encryption_access_role_arn: typing.Optional[builtins.str] = None,
@@ -2430,6 +2436,8 @@ class CfnDataProvider(
             :param ssl_mode: 
             :param asm_server: For an Oracle source endpoint, your ASM server address. You can set this value from the ``asm_server`` value. You set ``asm_server`` as part of the extra connection attribute string to access an Oracle server with Binary Reader that uses ASM. For more information, see `Configuration for change data capture (CDC) on an Oracle source database <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.Oracle.html#dms/latest/userguide/CHAP_Source.Oracle.html#CHAP_Source.Oracle.CDC.Configuration>`_ .
             :param certificate_arn: 
+            :param s3_access_role_arn: The ARN for the role the application uses to access its Amazon S3 bucket.
+            :param s3_path: The path for the Amazon S3 bucket that the application uses for accessing the user-defined schema.
             :param secrets_manager_oracle_asm_access_role_arn: Required only if your Oracle endpoint uses Automatic Storage Management (ASM). The full ARN of the IAM role that specifies AWS DMS as the trusted entity and grants the required permissions to access the ``SecretsManagerOracleAsmSecret`` . This ``SecretsManagerOracleAsmSecret`` has the secret value that allows access to the Oracle ASM of the endpoint. .. epigraph:: You can specify one of two sets of values for these permissions. You can specify the values for this setting and ``SecretsManagerOracleAsmSecretId`` . Or you can specify clear-text values for ``AsmUser`` , ``AsmPassword`` , and ``AsmServerName`` . You can't specify both. For more information on creating this ``SecretsManagerOracleAsmSecret`` and the ``SecretsManagerOracleAsmAccessRoleArn`` and ``SecretsManagerOracleAsmSecretId`` required to access it, see `Using secrets to access AWS Database Migration Service resources <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Security.html#security-iam-secretsmanager>`_ in the *AWS Database Migration Service User Guide* .
             :param secrets_manager_oracle_asm_secret_id: Required only if your Oracle endpoint uses Automatic Storage Management (ASM). The full ARN, partial ARN, or friendly name of the ``SecretsManagerOracleAsmSecret`` that contains the Oracle ASM connection details for the Oracle endpoint.
             :param secrets_manager_security_db_encryption_access_role_arn: 
@@ -2453,6 +2461,8 @@ class CfnDataProvider(
                     # the properties below are optional
                     asm_server="asmServer",
                     certificate_arn="certificateArn",
+                    s3_access_role_arn="s3AccessRoleArn",
+                    s3_path="s3Path",
                     secrets_manager_oracle_asm_access_role_arn="secretsManagerOracleAsmAccessRoleArn",
                     secrets_manager_oracle_asm_secret_id="secretsManagerOracleAsmSecretId",
                     secrets_manager_security_db_encryption_access_role_arn="secretsManagerSecurityDbEncryptionAccessRoleArn",
@@ -2467,6 +2477,8 @@ class CfnDataProvider(
                 check_type(argname="argument ssl_mode", value=ssl_mode, expected_type=type_hints["ssl_mode"])
                 check_type(argname="argument asm_server", value=asm_server, expected_type=type_hints["asm_server"])
                 check_type(argname="argument certificate_arn", value=certificate_arn, expected_type=type_hints["certificate_arn"])
+                check_type(argname="argument s3_access_role_arn", value=s3_access_role_arn, expected_type=type_hints["s3_access_role_arn"])
+                check_type(argname="argument s3_path", value=s3_path, expected_type=type_hints["s3_path"])
                 check_type(argname="argument secrets_manager_oracle_asm_access_role_arn", value=secrets_manager_oracle_asm_access_role_arn, expected_type=type_hints["secrets_manager_oracle_asm_access_role_arn"])
                 check_type(argname="argument secrets_manager_oracle_asm_secret_id", value=secrets_manager_oracle_asm_secret_id, expected_type=type_hints["secrets_manager_oracle_asm_secret_id"])
                 check_type(argname="argument secrets_manager_security_db_encryption_access_role_arn", value=secrets_manager_security_db_encryption_access_role_arn, expected_type=type_hints["secrets_manager_security_db_encryption_access_role_arn"])
@@ -2481,6 +2493,10 @@ class CfnDataProvider(
                 self._values["asm_server"] = asm_server
             if certificate_arn is not None:
                 self._values["certificate_arn"] = certificate_arn
+            if s3_access_role_arn is not None:
+                self._values["s3_access_role_arn"] = s3_access_role_arn
+            if s3_path is not None:
+                self._values["s3_path"] = s3_path
             if secrets_manager_oracle_asm_access_role_arn is not None:
                 self._values["secrets_manager_oracle_asm_access_role_arn"] = secrets_manager_oracle_asm_access_role_arn
             if secrets_manager_oracle_asm_secret_id is not None:
@@ -2548,6 +2564,24 @@ class CfnDataProvider(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-dataprovider-oraclesettings.html#cfn-dms-dataprovider-oraclesettings-certificatearn
             '''
             result = self._values.get("certificate_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def s3_access_role_arn(self) -> typing.Optional[builtins.str]:
+            '''The ARN for the role the application uses to access its Amazon S3 bucket.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-dataprovider-oraclesettings.html#cfn-dms-dataprovider-oraclesettings-s3accessrolearn
+            '''
+            result = self._values.get("s3_access_role_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def s3_path(self) -> typing.Optional[builtins.str]:
+            '''The path for the Amazon S3 bucket that the application uses for accessing the user-defined schema.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-dataprovider-oraclesettings.html#cfn-dms-dataprovider-oraclesettings-s3path
+            '''
+            result = self._values.get("s3_path")
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
@@ -2962,6 +2996,8 @@ class CfnDataProvider(
                         # the properties below are optional
                         asm_server="asmServer",
                         certificate_arn="certificateArn",
+                        s3_access_role_arn="s3AccessRoleArn",
+                        s3_path="s3Path",
                         secrets_manager_oracle_asm_access_role_arn="secretsManagerOracleAsmAccessRoleArn",
                         secrets_manager_oracle_asm_secret_id="secretsManagerOracleAsmSecretId",
                         secrets_manager_security_db_encryption_access_role_arn="secretsManagerSecurityDbEncryptionAccessRoleArn",
@@ -3433,6 +3469,8 @@ class CfnDataProviderProps:
                         # the properties below are optional
                         asm_server="asmServer",
                         certificate_arn="certificateArn",
+                        s3_access_role_arn="s3AccessRoleArn",
+                        s3_path="s3Path",
                         secrets_manager_oracle_asm_access_role_arn="secretsManagerOracleAsmAccessRoleArn",
                         secrets_manager_oracle_asm_secret_id="secretsManagerOracleAsmSecretId",
                         secrets_manager_security_db_encryption_access_role_arn="secretsManagerSecurityDbEncryptionAccessRoleArn",
@@ -13420,14 +13458,6 @@ class CfnReplicationInstance(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
     @jsii.member(jsii_name="attrReplicationInstanceArn")
     def attr_replication_instance_arn(self) -> builtins.str:
         '''The Amazon Resource Name (ARN) of the replication instance.
@@ -15468,6 +15498,8 @@ def _typecheckingstub__68384bca638e71c68098cc2e318168648bed28f7843c3017fa4e66331
     ssl_mode: builtins.str,
     asm_server: typing.Optional[builtins.str] = None,
     certificate_arn: typing.Optional[builtins.str] = None,
+    s3_access_role_arn: typing.Optional[builtins.str] = None,
+    s3_path: typing.Optional[builtins.str] = None,
     secrets_manager_oracle_asm_access_role_arn: typing.Optional[builtins.str] = None,
     secrets_manager_oracle_asm_secret_id: typing.Optional[builtins.str] = None,
     secrets_manager_security_db_encryption_access_role_arn: typing.Optional[builtins.str] = None,

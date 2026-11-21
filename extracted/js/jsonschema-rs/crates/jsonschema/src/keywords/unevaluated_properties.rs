@@ -1,11 +1,5 @@
-//! Implementation of the `unevaluatedProperties` keyword.
-//!
-//! This keyword validates properties that were not evaluated by other keywords like
-//! `properties`, `additionalProperties`, `patternProperties`, or nested schemas in
-//! combinators (`allOf`, `anyOf`, `oneOf`), conditionals, and references.
-//!
-//! The implementation eagerly compiles a recursive `PropertyValidators` structure during
-//! schema compilation, using `Arc<OnceLock>` for circular reference handling.
+//! `unevaluatedProperties`. Compilation builds a `PropertyValidators` tree; reference cycles share
+//! one `Arc<OnceLock>` cell.
 use ahash::AHashSet;
 use referencing::Vocabulary;
 use serde_json::{Map, Value};
@@ -20,16 +14,20 @@ use crate::{
     node::SchemaNode,
     paths::{LazyLocation, Location, RefTracker},
     properties::NameSet,
-    regex::{analyze_pattern, Compiled, LiteralMatcher},
+    regex::{Compiled, LazyRegex, LiteralMatcher, SequenceMatcher},
     unfinished_matches::MatchSite,
     validator::{EvaluationResult, Validate, ValidationContext},
     Json, Node, Object, SerdeJson, ValidationError,
 };
 
-use super::{pattern_properties::invalid_regex, CompilationResult};
+use super::{
+    pattern_properties::invalid_regex,
+    properties::{checked_by_unevaluated, SmallPropertiesValidator},
+    unevaluated::{self, Checked, Marking},
+    CompilationResult,
+};
 
-/// Lazy property validators that are compiled on first access.
-/// Used for $recursiveRef and circular references to handle cycles during compilation.
+/// The cell reference cycles share while their target compiles.
 pub(crate) type PendingPropertyValidators<F = SerdeJson> = Arc<OnceLock<PropertyValidators<F>>>;
 
 /// Evaluated properties for a schema whose set cannot depend on the instance.
@@ -41,8 +39,6 @@ struct StaticEvaluated {
     patterns: Patterns,
     /// `additionalProperties` anywhere evaluates everything.
     saturated: bool,
-    /// An `allOf` contributed. The true/false answer matches the walk, the errors may not.
-    verdict_only: bool,
 }
 
 impl StaticEvaluated {
@@ -74,6 +70,56 @@ impl StaticEvaluated {
         site: impl Fn(&Location) -> MatchSite,
     ) -> bool {
         self.lookup.contains(property) || self.patterns.is_match(property, ctx, site)
+    }
+}
+
+impl<F: Json> Contributions<F> {
+    /// The properties of `object` these contributions evaluate. Each part's conditions are
+    /// checked at most once, and only for a property no other source evaluates.
+    fn evaluated<'i>(
+        &self,
+        instance: &F::Node<'i>,
+        object: &<F::Node<'i> as Node<'i, F>>::Object,
+        ctx: &mut ValidationContext,
+        site: impl Fn(&Location) -> MatchSite + Copy,
+    ) -> Evaluated {
+        let mut evaluated = Evaluated::new(object.len());
+        if self.base.saturated {
+            evaluated.insert_all(object.len());
+            return evaluated;
+        }
+        let mut checked = 0u64;
+        let mut holding = 0u64;
+        for (index, (property, _)) in object.members().enumerate() {
+            let property = property.as_ref();
+            if self.base.covers(property, ctx, site) {
+                evaluated.insert(index);
+                continue;
+            }
+            for (position, part) in self.parts.iter().enumerate() {
+                let bit = 1u64 << position;
+                if (checked & bit != 0 && holding & bit == 0)
+                    || !(part.evaluated.saturated || part.evaluated.covers(property, ctx, site))
+                {
+                    continue;
+                }
+                if checked & bit == 0 {
+                    checked |= bit;
+                    if part
+                        .conditions
+                        .iter()
+                        .all(|condition| condition.holds(instance, object, ctx))
+                    {
+                        holding |= bit;
+                    }
+                }
+                if holding & bit != 0 {
+                    evaluated.insert(index);
+                    break;
+                }
+            }
+        }
+        evaluated
     }
 }
 
@@ -137,11 +183,11 @@ const MAX_PARTS: usize = 64;
 #[derive(Clone, Default)]
 struct Patterns {
     literal: Vec<Pattern<LiteralMatcher>>,
+    sequence: Vec<Pattern<SequenceMatcher<LazyRegex>>>,
     fancy: Vec<Pattern<Compiled<fancy_regex::Regex>>>,
     standard: Vec<Pattern<Compiled<regex::Regex>>>,
 }
 
-#[derive(Clone)]
 struct Pattern<R> {
     regex: Arc<R>,
     /// The `patternProperties` subschema for this pattern.
@@ -149,11 +195,30 @@ struct Pattern<R> {
     source: Arc<str>,
 }
 
+// Not derived: that would require `R: Clone`, while only the `Arc` is cloned.
+impl<R> Clone for Pattern<R> {
+    fn clone(&self) -> Self {
+        Pattern {
+            regex: Arc::clone(&self.regex),
+            location: self.location.clone(),
+            source: Arc::clone(&self.source),
+        }
+    }
+}
+
 impl Patterns {
     fn push<F: Json>(&mut self, ctx: &compiler::Context<'_, F>, pattern: &str) -> Result<(), ()> {
-        if let Some(optimization) = analyze_pattern(pattern) {
+        if let Some(optimization) = ctx.analyze_pattern(pattern) {
             self.literal.push(Pattern {
                 regex: Arc::new(LiteralMatcher::from(optimization)),
+                location: ctx.location().clone(),
+                source: pattern.into(),
+            });
+            return Ok(());
+        }
+        if let Some(sequence) = ctx.sequence_without_limits(pattern) {
+            self.sequence.push(Pattern {
+                regex: sequence,
                 location: ctx.location().clone(),
                 source: pattern.into(),
             });
@@ -180,18 +245,23 @@ impl Patterns {
 
     fn extend(&mut self, other: &Patterns) {
         self.literal.extend(other.literal.iter().cloned());
+        self.sequence.extend(other.sequence.iter().cloned());
         self.fancy.extend(other.fancy.iter().cloned());
         self.standard.extend(other.standard.iter().cloned());
     }
 
     fn is_empty(&self) -> bool {
-        self.literal.is_empty() && self.fancy.is_empty() && self.standard.is_empty()
+        self.literal.is_empty()
+            && self.sequence.is_empty()
+            && self.fancy.is_empty()
+            && self.standard.is_empty()
     }
 
     fn sources(&self) -> impl Iterator<Item = &str> {
         self.literal
             .iter()
             .map(|pattern| &*pattern.source)
+            .chain(self.sequence.iter().map(|pattern| &*pattern.source))
             .chain(self.fancy.iter().map(|pattern| &*pattern.source))
             .chain(self.standard.iter().map(|pattern| &*pattern.source))
     }
@@ -207,6 +277,10 @@ impl Patterns {
             .iter()
             .any(|pattern| ctx.is_match(&*pattern.regex, property, || site(&pattern.location)))
             || self
+                .sequence
+                .iter()
+                .any(|pattern| ctx.is_match(&*pattern.regex, property, || site(&pattern.location)))
+            || self
                 .fancy
                 .iter()
                 .any(|pattern| ctx.is_match(&*pattern.regex, property, || site(&pattern.location)))
@@ -217,8 +291,6 @@ impl Patterns {
     }
 }
 
-/// Holds compiled validators for property evaluation in unevaluatedProperties.
-/// This structure is built during schema compilation and used during validation.
 /// Members of one object already evaluated, by their position in it.
 struct Evaluated {
     first: u64,
@@ -271,32 +343,19 @@ impl Evaluated {
 pub(crate) struct PropertyValidators<F: Json = SerdeJson> {
     /// Property names from "properties" keyword for O(1) lookup
     properties: AHashSet<String>,
-    /// Validator from "additionalProperties" keyword
     additional: Option<SchemaNode<F>>,
-    /// Patterns from "patternProperties" keyword
     pattern_properties: Patterns,
-    /// Validator from "unevaluatedProperties" keyword itself
     unevaluated: Option<SchemaNode<F>>,
-    /// Validators from "allOf" keyword - both the schema and its property validators
     all_of: Vec<(SchemaNode<F>, PropertyValidators<F>)>,
-    /// Validators from "anyOf" keyword
     any_of: Vec<(SchemaNode<F>, PropertyValidators<F>)>,
-    /// Validators from "oneOf" keyword
     one_of: Vec<(SchemaNode<F>, PropertyValidators<F>)>,
-    /// Conditional validators from "if/then/else" keywords
     conditional: Option<Box<ConditionalValidators<F>>>,
-    /// Reference validators from "$ref" keyword
-    /// Uses pending pattern to handle circular references
-    ref_: Option<PendingPropertyValidators<F>>,
-    /// Reference validators from "$dynamicRef" keyword
-    /// Uses pending pattern to handle circular references
-    dynamic_ref: Option<PendingPropertyValidators<F>>,
-    /// Validators from "$recursiveRef" keyword (Draft 2019-09 only)
-    /// Uses pending pattern to handle circular references
-    recursive_ref: Option<PendingPropertyValidators<F>>,
+    ref_: Option<Checked<F, PendingPropertyValidators<F>>>,
+    dynamic_ref: Option<Checked<F, PendingPropertyValidators<F>>>,
+    recursive_ref: Option<Checked<F, PendingPropertyValidators<F>>>,
     /// Dependent schema validators from "dependentSchemas" keyword.
     /// `Arc` keeps this struct `Clone` for the pending cell: `F::PreparedKey` itself has no `Clone` bound.
-    dependent: Vec<(Arc<F::PreparedKey>, PropertyValidators<F>)>,
+    dependent: Vec<DependentEntry<F>>,
 }
 
 impl<F: Json> Clone for PropertyValidators<F> {
@@ -329,8 +388,8 @@ struct ConditionalValidators<F: Json = SerdeJson> {
     condition: SchemaNode<F>,
     /// `None` for a boolean `if`, which evaluates nothing.
     if_: Option<PropertyValidators<F>>,
-    then_: Option<PropertyValidators<F>>,
-    else_: Option<PropertyValidators<F>>,
+    then_: Option<Checked<F, PropertyValidators<F>>>,
+    else_: Option<Checked<F, PropertyValidators<F>>>,
 }
 
 impl<F: Json> Clone for ConditionalValidators<F> {
@@ -361,6 +420,7 @@ impl<F: Json> PropertyValidators<F> {
         conditions: &[Condition<F>],
         collected: &mut Collected<F>,
         path: &mut Vec<usize>,
+        marking: Marking,
     ) -> bool {
         if self.dynamic_ref.is_some()
             || self.recursive_ref.is_some()
@@ -374,7 +434,8 @@ impl<F: Json> PropertyValidators<F> {
             return true;
         }
         path.push(id);
-        let collected_all = self.collect_contributions_inner(out, conditions, collected, path);
+        let collected_all =
+            self.collect_contributions_inner(out, conditions, collected, path, marking);
         path.pop();
         collected_all
     }
@@ -385,39 +446,119 @@ impl<F: Json> PropertyValidators<F> {
         conditions: &[Condition<F>],
         collected: &mut Collected<F>,
         path: &mut Vec<usize>,
+        marking: Marking,
     ) -> bool {
         out.names.extend(self.properties.iter().cloned());
         out.patterns.extend(&self.pattern_properties);
         out.saturated |= self.additional.is_some();
-        for (_, branch) in &self.all_of {
-            if !branch.collect_contributions(false, out, conditions, collected, path) {
+        // A subschema that fails evaluates nothing: when reporting, each one this schema applies in
+        // place is a part that holds only where it validates. Below it, the ones they apply in
+        // place validate whenever they do.
+        let report = marking == Marking::Report;
+        let guarded = |check: Condition<F>| {
+            let mut nested = conditions.to_vec();
+            nested.push(check);
+            nested
+        };
+        for (node, branch) in &self.all_of {
+            let collected_all = if report {
+                Self::collect_part(
+                    branch,
+                    guarded(Condition::Valid(node.clone())),
+                    collected,
+                    path,
+                    Marking::Verdict,
+                )
+            } else {
+                branch.collect_contributions(
+                    false,
+                    out,
+                    conditions,
+                    collected,
+                    path,
+                    Marking::Verdict,
+                )
+            };
+            if !collected_all {
                 return false;
             }
         }
         if let Some(ref_) = &self.ref_ {
-            if !initialized(ref_).collect_contributions(false, out, conditions, collected, path) {
+            let target = initialized(&ref_.validators);
+            let collected_all = match ref_.check().filter(|_| report) {
+                Some(check) => Self::collect_part(
+                    target,
+                    guarded(Condition::Valid(check.clone())),
+                    collected,
+                    path,
+                    Marking::Verdict,
+                ),
+                None => target.collect_contributions(
+                    false,
+                    out,
+                    conditions,
+                    collected,
+                    path,
+                    Marking::Verdict,
+                ),
+            };
+            if !collected_all {
                 return false;
             }
         }
         for (key, dependent) in &self.dependent {
-            let mut nested = conditions.to_vec();
-            nested.push(Condition::Present(Arc::clone(key)));
-            if !Self::collect_part(dependent, nested, collected, path) {
+            let mut nested = guarded(Condition::Present(Arc::clone(key)));
+            if let Some(check) = dependent.check().filter(|_| report) {
+                nested.push(Condition::Valid(check.clone()));
+            }
+            if !Self::collect_part(
+                &dependent.validators,
+                nested,
+                collected,
+                path,
+                Marking::Verdict,
+            ) {
                 return false;
             }
         }
         if let Some(conditional) = &self.conditional {
-            let mut when_valid = conditions.to_vec();
-            when_valid.push(Condition::Valid(conditional.condition.clone()));
+            let when_valid = guarded(Condition::Valid(conditional.condition.clone()));
             let mut evaluated = StaticEvaluated::default();
-            for branch in [&conditional.if_, &conditional.then_].into_iter().flatten() {
-                if !branch.collect_contributions(
+            if let Some(if_) = &conditional.if_ {
+                if !if_.collect_contributions(
                     false,
                     &mut evaluated,
                     &when_valid,
                     collected,
                     path,
+                    Marking::Verdict,
                 ) {
+                    return false;
+                }
+            }
+            if let Some(then_) = &conditional.then_ {
+                let collected_all = match then_.check().filter(|_| report) {
+                    Some(check) => {
+                        let mut nested = when_valid.clone();
+                        nested.push(Condition::Valid(check.clone()));
+                        Self::collect_part(
+                            &then_.validators,
+                            nested,
+                            collected,
+                            path,
+                            Marking::Verdict,
+                        )
+                    }
+                    None => then_.validators.collect_contributions(
+                        false,
+                        &mut evaluated,
+                        &when_valid,
+                        collected,
+                        path,
+                        Marking::Verdict,
+                    ),
+                };
+                if !collected_all {
                     return false;
                 }
             }
@@ -426,9 +567,17 @@ impl<F: Json> PropertyValidators<F> {
                 evaluated,
             });
             if let Some(else_) = &conditional.else_ {
-                let mut when_invalid = conditions.to_vec();
-                when_invalid.push(Condition::Invalid(conditional.condition.clone()));
-                if !Self::collect_part(else_, when_invalid, collected, path) {
+                let mut when_invalid = guarded(Condition::Invalid(conditional.condition.clone()));
+                if let Some(check) = else_.check().filter(|_| report) {
+                    when_invalid.push(Condition::Valid(check.clone()));
+                }
+                if !Self::collect_part(
+                    &else_.validators,
+                    when_invalid,
+                    collected,
+                    path,
+                    Marking::Verdict,
+                ) {
                     return false;
                 }
             }
@@ -439,8 +588,14 @@ impl<F: Json> PropertyValidators<F> {
                 parts: Vec::new(),
                 within_base: Vec::new(),
             };
-            if !branch.collect_contributions(false, &mut evaluated, &[], &mut nested, path)
-                || !nested.parts.iter().all(|part| part.evaluated.is_empty())
+            if !branch.collect_contributions(
+                false,
+                &mut evaluated,
+                &[],
+                &mut nested,
+                path,
+                Marking::Verdict,
+            ) || !nested.parts.iter().all(|part| part.evaluated.is_empty())
             {
                 return false;
             }
@@ -455,9 +610,17 @@ impl<F: Json> PropertyValidators<F> {
         conditions: Vec<Condition<F>>,
         collected: &mut Collected<F>,
         path: &mut Vec<usize>,
+        marking: Marking,
     ) -> bool {
         let mut evaluated = StaticEvaluated::default();
-        if !branch.collect_contributions(false, &mut evaluated, &conditions, collected, path) {
+        if !branch.collect_contributions(
+            false,
+            &mut evaluated,
+            &conditions,
+            collected,
+            path,
+            marking,
+        ) {
             return false;
         }
         collected.parts.push(Part {
@@ -497,13 +660,12 @@ impl<F: Json> PropertyValidators<F> {
         out.saturated |= self.additional.is_some();
 
         for (_, branch) in &self.all_of {
-            out.verdict_only = true;
             if !branch.collect_static(false, out, visited) {
                 return false;
             }
         }
         match &self.ref_ {
-            Some(ref_) => initialized(ref_).collect_static(false, out, visited),
+            Some(ref_) => initialized(&ref_.validators).collect_static(false, out, visited),
             None => true,
         }
     }
@@ -520,6 +682,7 @@ impl<F: Json> PropertyValidators<F> {
         properties: &mut Evaluated,
         ctx: &mut ValidationContext,
         include_unevaluated: bool,
+        marking: Marking,
     ) {
         // Break cycles from self-referential `$dynamicRef`/`$recursiveRef` where the
         // pending node resolves back to this same validators for the same instance.
@@ -528,7 +691,13 @@ impl<F: Json> PropertyValidators<F> {
         if ctx.enter_marking(validators_id, identity) {
             return;
         }
-        self.mark_evaluated_properties_inner(instance, properties, ctx, include_unevaluated);
+        self.mark_evaluated_properties_inner(
+            instance,
+            properties,
+            ctx,
+            include_unevaluated,
+            marking,
+        );
         if identity.is_some() {
             ctx.exit_marking();
         }
@@ -540,32 +709,29 @@ impl<F: Json> PropertyValidators<F> {
         properties: &mut Evaluated,
         ctx: &mut ValidationContext,
         include_unevaluated: bool,
+        marking: Marking,
     ) {
-        // Handle $ref first
-        if let Some(ref_) = &self.ref_ {
-            initialized(ref_).mark_evaluated_properties(instance, properties, ctx);
+        for reference in [&self.ref_, &self.recursive_ref, &self.dynamic_ref]
+            .into_iter()
+            .flatten()
+        {
+            if reference.counts(instance, ctx, marking) {
+                initialized(&reference.validators).mark_evaluated_properties(
+                    instance,
+                    properties,
+                    ctx,
+                    Marking::Verdict,
+                );
+            }
         }
 
-        // Handle $recursiveRef (Draft 2019-09 only)
-        if let Some(recursive_ref) = &self.recursive_ref {
-            initialized(recursive_ref).mark_evaluated_properties(instance, properties, ctx);
-        }
-
-        // Handle $dynamicRef (Draft 2020-12+)
-        if let Some(dynamic_ref) = &self.dynamic_ref {
-            initialized(dynamic_ref).mark_evaluated_properties(instance, properties, ctx);
-        }
-
-        // Process properties on the instance
         if let Some(obj) = instance.as_object() {
-            // Mark properties from "properties" keyword (O(1) lookup)
             for (index, (property, _)) in obj.members().enumerate() {
                 if self.properties.contains(property.as_ref()) {
                     properties.insert(index);
                 }
             }
 
-            // Check "patternProperties" keyword - mark if property name matches
             if !self.pattern_properties.is_empty() {
                 for (index, (property, _)) in obj.members().enumerate() {
                     if properties.contains(index) {
@@ -580,20 +746,18 @@ impl<F: Json> PropertyValidators<F> {
                 }
             }
 
-            // Check "additionalProperties" keyword - applies to properties NOT in properties/patternProperties
-            // This must be done after marking all properties/patternProperties to avoid order dependency
+            // `additionalProperties` evaluates what `properties` and `patternProperties` leave, so
+            // every member counts.
             if self.additional.is_some() {
                 properties.insert_all(obj.len());
             }
 
-            // Check "unevaluatedProperties" keyword - marks properties that validate successfully.
-            // This is crucial for nested unevaluatedProperties: a child schema's unevaluatedProperties
-            // can mark properties as evaluated for parent schemas.
-            // Skipped when called from evaluate() so evaluate_instance() can collect annotations.
+            // A nested `unevaluatedProperties` marks the members it accepts for the schemas above
+            // it. Skipped when called from evaluate() so evaluate_instance() can collect
+            // annotations.
             if include_unevaluated {
                 if let Some(unevaluated) = &self.unevaluated {
                     for (index, (_, value)) in obj.members().enumerate() {
-                        // Skip if already marked - avoid redundant validation
                         if properties.contains(index) {
                             continue;
                         }
@@ -604,30 +768,31 @@ impl<F: Json> PropertyValidators<F> {
                 }
             }
 
-            // Check "dependentSchemas" keyword
-            for (dep_property, dep_validators) in &self.dependent {
-                if obj.get(&**dep_property).is_some() {
-                    dep_validators.mark_evaluated_properties(instance, properties, ctx);
+            for (dep_property, dependent) in &self.dependent {
+                if obj.get(&**dep_property).is_some() && dependent.counts(instance, ctx, marking) {
+                    dependent.validators.mark_evaluated_properties(
+                        instance,
+                        properties,
+                        ctx,
+                        Marking::Verdict,
+                    );
                 }
             }
         }
 
-        // Handle "if/then/else" keywords
         if let Some(conditional) = &self.conditional {
-            conditional.mark_evaluated_properties(instance, properties, ctx);
+            conditional.mark_evaluated_properties(instance, properties, ctx, marking);
         }
 
-        // Handle "allOf" keyword
         for (node, validators) in &self.all_of {
             if node.is_valid(instance, ctx) {
-                validators.mark_evaluated_properties(instance, properties, ctx);
+                validators.mark_evaluated_properties(instance, properties, ctx, Marking::Verdict);
             }
         }
 
-        // Handle "anyOf" keyword
         for (node, validators) in &self.any_of {
             if node.is_valid(instance, ctx) {
-                validators.mark_evaluated_properties(instance, properties, ctx);
+                validators.mark_evaluated_properties(instance, properties, ctx, Marking::Verdict);
             }
         }
 
@@ -646,7 +811,7 @@ impl<F: Json> PropertyValidators<F> {
         }
         if match_count == 1 {
             if let Some(validators) = matched_validators {
-                validators.mark_evaluated_properties(instance, properties, ctx);
+                validators.mark_evaluated_properties(instance, properties, ctx, Marking::Verdict);
             }
         }
     }
@@ -657,8 +822,9 @@ impl<F: Json> PropertyValidators<F> {
         instance: &F::Node<'_>,
         properties: &mut Evaluated,
         ctx: &mut ValidationContext,
+        marking: Marking,
     ) {
-        self.mark_evaluated_properties_impl(instance, properties, ctx, true);
+        self.mark_evaluated_properties_impl(instance, properties, ctx, true, marking);
     }
 
     /// Mark properties evaluated by all keywords *except* `unevaluatedProperties` itself.
@@ -671,7 +837,7 @@ impl<F: Json> PropertyValidators<F> {
         properties: &mut Evaluated,
         ctx: &mut ValidationContext,
     ) {
-        self.mark_evaluated_properties_impl(instance, properties, ctx, false);
+        self.mark_evaluated_properties_impl(instance, properties, ctx, false, Marking::Report);
     }
 }
 
@@ -681,16 +847,25 @@ impl<F: Json> ConditionalValidators<F> {
         instance: &F::Node<'_>,
         properties: &mut Evaluated,
         ctx: &mut ValidationContext,
+        marking: Marking,
     ) {
-        if self.condition.is_valid(instance, ctx) {
+        let branch = if self.condition.is_valid(instance, ctx) {
             if let Some(if_) = &self.if_ {
-                if_.mark_evaluated_properties(instance, properties, ctx);
+                if_.mark_evaluated_properties(instance, properties, ctx, Marking::Verdict);
             }
-            if let Some(then_) = &self.then_ {
-                then_.mark_evaluated_properties(instance, properties, ctx);
+            &self.then_
+        } else {
+            &self.else_
+        };
+        if let Some(branch) = branch {
+            if branch.counts(instance, ctx, marking) {
+                branch.validators.mark_evaluated_properties(
+                    instance,
+                    properties,
+                    ctx,
+                    Marking::Verdict,
+                );
             }
-        } else if let Some(else_) = &self.else_ {
-            else_.mark_evaluated_properties(instance, properties, ctx);
         }
     }
 }
@@ -703,8 +878,9 @@ impl<F: Json> ConditionalValidators<F> {
 fn compile_property_validators<'a, F: Json>(
     ctx: &compiler::Context<'_, F>,
     parent: &'a Map<String, Value>,
+    root: bool,
 ) -> Result<PropertyValidators<F>, ValidationError<'a>> {
-    let pending = compile_pending_property_validators(ctx, parent)?;
+    let pending = compile_pending_property_validators(ctx, parent, root)?;
     // Only a reference cycle through this node keeps another handle to the cell
     Ok(match Arc::try_unwrap(pending) {
         Ok(cell) => cell
@@ -715,9 +891,12 @@ fn compile_property_validators<'a, F: Json>(
 }
 
 /// The same compilation, handing back the cell cyclic references share.
+/// `root` is the schema with the keyword, the only one whose subschemas are checked: below it, a
+/// subschema that validates implies every one it applies in place.
 fn compile_pending_property_validators<'a, F: Json>(
     ctx: &compiler::Context<'_, F>,
     parent: &'a Map<String, Value>,
+    root: bool,
 ) -> Result<PendingPropertyValidators<F>, ValidationError<'a>> {
     // Create a pending node and cache it before compiling to handle circular refs
     let pending = Arc::new(OnceLock::new());
@@ -758,21 +937,20 @@ fn compile_pending_property_validators<'a, F: Json>(
             Vec::new()
         },
         conditional: if applicator {
-            compile_conditional(ctx, parent)?
+            compile_conditional(ctx, parent, root)?
         } else {
             None
         },
-        ref_: compile_ref(ctx, parent).map_err(ValidationError::to_owned)?,
-        dynamic_ref: compile_dynamic_ref(ctx, parent).map_err(ValidationError::to_owned)?,
-        recursive_ref: compile_recursive_ref(ctx, parent)?,
+        ref_: compile_ref(ctx, parent, root).map_err(ValidationError::to_owned)?,
+        dynamic_ref: compile_dynamic_ref(ctx, parent, root).map_err(ValidationError::to_owned)?,
+        recursive_ref: compile_recursive_ref(ctx, parent, root)?,
         dependent: if applicator {
-            compile_dependent(ctx, parent)?
+            compile_dependent(ctx, parent, root)?
         } else {
             Vec::new()
         },
     };
 
-    // Initialize the pending node. This should always succeed since we just created it.
     pending
         .set(validators)
         .expect("pending node should not be initialized yet");
@@ -875,7 +1053,7 @@ fn compile_all_of<'a, F: Json>(
             let inner_ctx = subschema_ctx
                 .in_subresource(resource)
                 .map_err(ValidationError::from)?;
-            let validators = compile_property_validators(&inner_ctx, obj)?;
+            let validators = compile_property_validators(&inner_ctx, obj, false)?;
             result.push((node, validators));
         }
     }
@@ -904,7 +1082,7 @@ fn compile_any_of<'a, F: Json>(
             let inner_ctx = subschema_ctx
                 .in_subresource(resource)
                 .map_err(ValidationError::from)?;
-            let validators = compile_property_validators(&inner_ctx, obj)?;
+            let validators = compile_property_validators(&inner_ctx, obj, false)?;
             result.push((node, validators));
         }
     }
@@ -933,7 +1111,7 @@ fn compile_one_of<'a, F: Json>(
             let inner_ctx = subschema_ctx
                 .in_subresource(resource)
                 .map_err(ValidationError::from)?;
-            let validators = compile_property_validators(&inner_ctx, obj)?;
+            let validators = compile_property_validators(&inner_ctx, obj, false)?;
             result.push((node, validators));
         }
     }
@@ -947,7 +1125,8 @@ fn compile_branch<'a, F: Json>(
     ctx: &compiler::Context<'_, F>,
     parent: &'a Map<String, Value>,
     keyword: &'static str,
-) -> Result<Option<PropertyValidators<F>>, ValidationError<'a>> {
+    root: bool,
+) -> Result<Option<Checked<F, PropertyValidators<F>>>, ValidationError<'a>> {
     let Some(value) = parent.get(keyword) else {
         return Ok(None);
     };
@@ -958,12 +1137,21 @@ fn compile_branch<'a, F: Json>(
     let inner_ctx = branch_ctx
         .in_subresource(branch_ctx.as_resource_ref(value))
         .map_err(ValidationError::from)?;
-    Ok(Some(compile_property_validators(&inner_ctx, schema)?))
+    let check = if root {
+        Some(unevaluated::subschema(&branch_ctx, value).map_err(ValidationError::to_owned)?)
+    } else {
+        None
+    };
+    Ok(Some(Checked::new(
+        check,
+        compile_property_validators(&inner_ctx, schema, false)?,
+    )))
 }
 
 fn compile_conditional<'a, F: Json>(
     ctx: &compiler::Context<'_, F>,
     parent: &'a Map<String, Value>,
+    root: bool,
 ) -> Result<Option<Box<ConditionalValidators<F>>>, ValidationError<'a>> {
     let Some(if_value @ (Value::Object(_) | Value::Bool(_))) = parent.get("if") else {
         return Ok(None);
@@ -975,13 +1163,17 @@ fn compile_conditional<'a, F: Json>(
         let if_inner_ctx = if_ctx
             .in_subresource(if_resource)
             .map_err(ValidationError::from)?;
-        Some(compile_property_validators(&if_inner_ctx, if_schema)?)
+        Some(compile_property_validators(
+            &if_inner_ctx,
+            if_schema,
+            false,
+        )?)
     } else {
         None
     };
 
-    let then_ = compile_branch(ctx, parent, "then")?;
-    let else_ = compile_branch(ctx, parent, "else")?;
+    let then_ = compile_branch(ctx, parent, "then", root)?;
+    let else_ = compile_branch(ctx, parent, "else", root)?;
 
     Ok(Some(Box::new(ConditionalValidators {
         condition,
@@ -994,7 +1186,8 @@ fn compile_conditional<'a, F: Json>(
 fn compile_ref<'a, F: Json>(
     ctx: &compiler::Context<'_, F>,
     parent: &Map<String, Value>,
-) -> Result<Option<PendingPropertyValidators<F>>, ValidationError<'a>> {
+    root: bool,
+) -> Result<Option<Checked<F, PendingPropertyValidators<F>>>, ValidationError<'a>> {
     let Some(Value::String(reference)) = parent.get("$ref") else {
         return Ok(None);
     };
@@ -1008,14 +1201,20 @@ fn compile_ref<'a, F: Json>(
             ctx.with_resolver_and_draft(resolver, draft, vocabularies, ctx.location().clone())?;
 
         // Circular reference: the target is already being compiled - return its pending node.
+        let check = if root {
+            unevaluated::reference(ctx, parent, "$ref").map_err(ValidationError::to_owned)?
+        } else {
+            None
+        };
         if let Some(pending) = ref_ctx.get_pending_property_validators_for_schema(subschema) {
-            return Ok(Some(pending));
+            return Ok(Some(Checked::new(check, pending)));
         }
 
-        Ok(Some(
-            compile_pending_property_validators(&ref_ctx, subschema)
+        Ok(Some(Checked::new(
+            check,
+            compile_pending_property_validators(&ref_ctx, subschema, false)
                 .map_err(ValidationError::to_owned)?,
-        ))
+        )))
     } else {
         Ok(None)
     }
@@ -1024,12 +1223,15 @@ fn compile_ref<'a, F: Json>(
 fn compile_dynamic_ref<'a, F: Json>(
     ctx: &compiler::Context<'_, F>,
     parent: &Map<String, Value>,
-) -> Result<Option<PendingPropertyValidators<F>>, ValidationError<'a>> {
+    root: bool,
+) -> Result<Option<Checked<F, PendingPropertyValidators<F>>>, ValidationError<'a>> {
     let Some(Value::String(reference)) = parent.get("$dynamicRef") else {
         return Ok(None);
     };
 
-    let resolved = ctx.lookup(reference).map_err(ValidationError::from)?;
+    let resolved = ctx
+        .lookup_dynamic_ref(reference)
+        .map_err(ValidationError::from)?;
 
     let (contents, resolver, draft) = resolved.into_inner();
     if let Value::Object(subschema) = &contents {
@@ -1038,14 +1240,20 @@ fn compile_dynamic_ref<'a, F: Json>(
             ctx.with_resolver_and_draft(resolver, draft, vocabularies, ctx.location().clone())?;
 
         // Circular reference: the target is already being compiled - return its pending node.
+        let check = if root {
+            unevaluated::reference(ctx, parent, "$dynamicRef").map_err(ValidationError::to_owned)?
+        } else {
+            None
+        };
         if let Some(pending) = ref_ctx.get_pending_property_validators_for_schema(subschema) {
-            return Ok(Some(pending));
+            return Ok(Some(Checked::new(check, pending)));
         }
 
-        Ok(Some(
-            compile_pending_property_validators(&ref_ctx, subschema)
+        Ok(Some(Checked::new(
+            check,
+            compile_pending_property_validators(&ref_ctx, subschema, false)
                 .map_err(ValidationError::to_owned)?,
-        ))
+        )))
     } else {
         Ok(None)
     }
@@ -1054,7 +1262,8 @@ fn compile_dynamic_ref<'a, F: Json>(
 fn compile_recursive_ref<'a, F: Json>(
     ctx: &compiler::Context<'_, F>,
     parent: &Map<String, Value>,
-) -> Result<Option<PendingPropertyValidators<F>>, ValidationError<'a>> {
+    root: bool,
+) -> Result<Option<Checked<F, PendingPropertyValidators<F>>>, ValidationError<'a>> {
     if !parent.contains_key("$recursiveRef") {
         return Ok(None);
     }
@@ -1072,25 +1281,36 @@ fn compile_recursive_ref<'a, F: Json>(
             ctx.with_resolver_and_draft(resolver, draft, vocabularies, ctx.location().clone())?;
 
         // Check if we're already compiling this schema (circular reference)
+        let check = if root {
+            unevaluated::reference(ctx, parent, "$recursiveRef")
+                .map_err(ValidationError::to_owned)?
+        } else {
+            None
+        };
         if let Some(pending) = ref_ctx.get_pending_property_validators_for_schema(subschema) {
-            return Ok(Some(pending));
+            return Ok(Some(Checked::new(check, pending)));
         }
 
         // Not circular, compile normally
-        Ok(Some(
-            compile_pending_property_validators(&ref_ctx, subschema)
+        Ok(Some(Checked::new(
+            check,
+            compile_pending_property_validators(&ref_ctx, subschema, false)
                 .map_err(ValidationError::to_owned)?,
-        ))
+        )))
     } else {
         Ok(None)
     }
 }
 
-type DependentEntry<F> = (Arc<<F as Json>::PreparedKey>, PropertyValidators<F>);
+type DependentEntry<F> = (
+    Arc<<F as Json>::PreparedKey>,
+    Checked<F, PropertyValidators<F>>,
+);
 
 fn compile_dependent<'a, F: Json>(
     ctx: &compiler::Context<'_, F>,
     parent: &'a Map<String, Value>,
+    root: bool,
 ) -> Result<Vec<DependentEntry<F>>, ValidationError<'a>> {
     let Some(Value::Object(map)) = parent.get("dependentSchemas") else {
         return Ok(Vec::new());
@@ -1105,8 +1325,16 @@ fn compile_dependent<'a, F: Json>(
             let inner_ctx = property_ctx
                 .in_subresource(property_ctx.as_resource_ref(subschema))
                 .map_err(ValidationError::from)?;
-            let validators = compile_property_validators(&inner_ctx, obj)?;
-            result.push((Arc::new(F::prepare_key(property)), validators));
+            let check = if root {
+                Some(unevaluated::subschema(&property_ctx, subschema)?)
+            } else {
+                None
+            };
+            let validators = compile_property_validators(&inner_ctx, obj, false)?;
+            result.push((
+                Arc::new(F::prepare_key(property)),
+                Checked::new(check, validators),
+            ));
         }
     }
 
@@ -1117,12 +1345,26 @@ fn compile_dependent<'a, F: Json>(
 pub(crate) struct UnevaluatedPropertiesValidator<F: Json = SerdeJson> {
     location: Location,
     validators: PropertyValidators<F>,
+    /// The sibling `properties`, which `is_valid` checks in its own walk instead of `properties`.
+    own: Option<SmallPropertiesValidator<F>>,
     /// Filled on first use: `$ref` targets are wired up only after compilation.
     static_evaluated: OnceLock<Option<StaticEvaluated>>,
     contributions: OnceLock<Option<Contributions<F>>>,
+    report_contributions: OnceLock<Option<Contributions<F>>>,
 }
 
 impl<F: Json> UnevaluatedPropertiesValidator<F> {
+    #[inline]
+    fn own_node(&self, property: &str) -> Option<&SchemaNode<F>> {
+        self.own.as_ref()?.find(property)
+    }
+
+    fn own_valid(&self, instance: &F::Node<'_>, ctx: &mut ValidationContext) -> bool {
+        self.own
+            .as_ref()
+            .is_none_or(|own| own.is_valid(instance, ctx))
+    }
+
     /// Only for callers that need the true/false answer. A failing `allOf` branch fails the
     /// schema anyway, so including it cannot change that answer, but it can drop errors.
     fn static_evaluated(&self) -> Option<&StaticEvaluated> {
@@ -1139,46 +1381,72 @@ impl<F: Json> UnevaluatedPropertiesValidator<F> {
     /// Only for callers that need the true/false answer, as [`Self::static_evaluated`].
     fn contributions(&self) -> Option<&Contributions<F>> {
         self.contributions
-            .get_or_init(|| {
-                let mut base = StaticEvaluated::default();
-                let mut collected = Collected {
-                    parts: Vec::new(),
-                    within_base: Vec::new(),
-                };
-                if !self.validators.collect_contributions(
-                    true,
-                    &mut base,
-                    &[],
-                    &mut collected,
-                    &mut Vec::new(),
-                ) || !collected
-                    .within_base
-                    .iter()
-                    .all(|evaluated| evaluated.is_within(&base))
-                {
-                    return None;
-                }
-                let parts: Vec<_> = collected
-                    .parts
-                    .into_iter()
-                    .filter(|part| !part.evaluated.is_within(&base))
-                    .map(|part| Part {
-                        evaluated: part.evaluated.freeze(),
-                        ..part
-                    })
-                    .collect();
-                (parts.len() <= MAX_PARTS).then(|| Contributions {
-                    base: base.freeze(),
-                    parts,
-                })
-            })
+            .get_or_init(|| self.collect_contributions(Marking::Verdict))
             .as_ref()
     }
 
-    /// The same set the walk would build, so callers may also report the failing properties.
-    fn static_evaluated_exact(&self) -> Option<&StaticEvaluated> {
-        self.static_evaluated()
-            .filter(|evaluated| !evaluated.verdict_only)
+    /// The properties errors and `evaluate()` report as evaluated: a subschema that fails
+    /// evaluates none of them.
+    fn report_contributions(&self) -> Option<&Contributions<F>> {
+        self.report_contributions
+            .get_or_init(|| self.collect_contributions(Marking::Report))
+            .as_ref()
+    }
+
+    /// The properties keywords other than `unevaluatedProperties` evaluate, as errors and
+    /// `evaluate()` report them.
+    fn reported<'i>(
+        &self,
+        instance: &F::Node<'i>,
+        object: &<F::Node<'i> as Node<'i, F>>::Object,
+        location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
+    ) -> Evaluated {
+        if let Some(contributions) = self.report_contributions() {
+            return contributions.evaluated(instance, object, ctx, |schema_path| {
+                MatchSite::located(schema_path, tracker, location)
+            });
+        }
+        let mut evaluated = Evaluated::new(object.len());
+        self.validators
+            .mark_evaluated_by_other_keywords(instance, &mut evaluated, ctx);
+        evaluated
+    }
+
+    fn collect_contributions(&self, marking: Marking) -> Option<Contributions<F>> {
+        let mut base = StaticEvaluated::default();
+        let mut collected = Collected {
+            parts: Vec::new(),
+            within_base: Vec::new(),
+        };
+        if !self.validators.collect_contributions(
+            true,
+            &mut base,
+            &[],
+            &mut collected,
+            &mut Vec::new(),
+            marking,
+        ) || !collected
+            .within_base
+            .iter()
+            .all(|evaluated| evaluated.is_within(&base))
+        {
+            return None;
+        }
+        let parts: Vec<_> = collected
+            .parts
+            .into_iter()
+            .filter(|part| !part.evaluated.is_within(&base))
+            .map(|part| Part {
+                evaluated: part.evaluated.freeze(),
+                ..part
+            })
+            .collect();
+        (parts.len() <= MAX_PARTS).then(|| Contributions {
+            base: base.freeze(),
+            parts,
+        })
     }
 }
 
@@ -1188,13 +1456,19 @@ impl UnevaluatedPropertiesValidator {
         parent: &'a Map<String, Value>,
     ) -> CompilationResult<'a, F> {
         let validators =
-            compile_property_validators(ctx, parent).map_err(ValidationError::to_owned)?;
+            compile_property_validators(ctx, parent, true).map_err(ValidationError::to_owned)?;
+        let own = checked_by_unevaluated(ctx, parent)
+            .map(|properties| SmallPropertiesValidator::new(ctx, properties))
+            .transpose()
+            .map_err(ValidationError::to_owned)?;
 
         Ok(Box::new(UnevaluatedPropertiesValidator {
             location: ctx.location().join("unevaluatedProperties"),
             validators,
+            own,
             static_evaluated: OnceLock::new(),
             contributions: OnceLock::new(),
+            report_contributions: OnceLock::new(),
         }))
     }
 }
@@ -1208,38 +1482,7 @@ impl<F: Json> Validate<F> for UnevaluatedPropertiesValidator<F> {
         ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
         if let Some(object) = instance.as_object() {
-            if let Some(evaluated) = self.static_evaluated_exact() {
-                if evaluated.saturated {
-                    return Ok(());
-                }
-                let mut unevaluated = Vec::new();
-                for (property, value) in object.members() {
-                    if evaluated.covers(property.as_ref(), ctx, |schema_path| {
-                        MatchSite::located(schema_path, tracker, location)
-                    }) {
-                        continue;
-                    }
-                    match &self.validators.unevaluated {
-                        Some(schema) if schema.is_valid(&value, ctx) => {}
-                        _ => unevaluated.push(property.as_ref().to_owned()),
-                    }
-                }
-                if unevaluated.is_empty() {
-                    return Ok(());
-                }
-                return Err(ValidationError::unevaluated_properties(
-                    self.location.clone(),
-                    crate::paths::capture_evaluation_path(tracker, &self.location),
-                    location.into(),
-                    instance.lazy_value(),
-                    unevaluated,
-                ));
-            }
-            let mut evaluated = Evaluated::new(object.len());
-
-            // Mark all evaluated properties
-            self.validators
-                .mark_evaluated_properties(instance, &mut evaluated, ctx);
+            let evaluated = self.reported(instance, &object, location, tracker, ctx);
 
             // Early return if all properties are evaluated
             if evaluated.count() == object.len() {
@@ -1257,9 +1500,6 @@ impl<F: Json> Validate<F> for UnevaluatedPropertiesValidator<F> {
                     if !unevaluated_schema.is_valid(&value, ctx) {
                         unevaluated.push(property.as_ref().to_owned());
                     }
-                } else {
-                    // No unevaluatedProperties schema means false (reject all)
-                    unevaluated.push(property.as_ref().to_owned());
                 }
             }
 
@@ -1280,7 +1520,7 @@ impl<F: Json> Validate<F> for UnevaluatedPropertiesValidator<F> {
         if let Some(object) = instance.as_object() {
             if let Some(contributions) = self.contributions() {
                 if contributions.base.saturated {
-                    return true;
+                    return self.own_valid(instance, ctx);
                 }
                 let mut active = 0u64;
                 for (index, part) in contributions.parts.iter().enumerate() {
@@ -1290,13 +1530,19 @@ impl<F: Json> Validate<F> for UnevaluatedPropertiesValidator<F> {
                         .all(|condition| condition.holds(instance, &object, ctx))
                     {
                         if part.evaluated.saturated {
-                            return true;
+                            return self.own_valid(instance, ctx);
                         }
                         active |= 1 << index;
                     }
                 }
                 for (property, value) in object.members() {
                     let property = property.as_ref();
+                    if let Some(node) = self.own_node(property) {
+                        if !node.is_valid_child(&value, ctx) {
+                            return false;
+                        }
+                        continue;
+                    }
                     if contributions.base.covers(property, ctx, MatchSite::schema)
                         || contributions.parts.iter().enumerate().any(|(index, part)| {
                             active & (1 << index) != 0
@@ -1314,10 +1560,17 @@ impl<F: Json> Validate<F> for UnevaluatedPropertiesValidator<F> {
             }
             if let Some(evaluated) = self.static_evaluated() {
                 if evaluated.saturated {
-                    return true;
+                    return self.own_valid(instance, ctx);
                 }
                 for (property, value) in object.members() {
-                    if evaluated.covers(property.as_ref(), ctx, MatchSite::schema) {
+                    let property = property.as_ref();
+                    if let Some(node) = self.own_node(property) {
+                        if !node.is_valid_child(&value, ctx) {
+                            return false;
+                        }
+                        continue;
+                    }
+                    if evaluated.covers(property, ctx, MatchSite::schema) {
                         continue;
                     }
                     match &self.validators.unevaluated {
@@ -1327,9 +1580,16 @@ impl<F: Json> Validate<F> for UnevaluatedPropertiesValidator<F> {
                 }
                 return true;
             }
+            if !self.own_valid(instance, ctx) {
+                return false;
+            }
             let mut evaluated = Evaluated::new(object.len());
-            self.validators
-                .mark_evaluated_properties(instance, &mut evaluated, ctx);
+            self.validators.mark_evaluated_properties(
+                instance,
+                &mut evaluated,
+                ctx,
+                Marking::Verdict,
+            );
 
             // Early return if all properties are evaluated
             if evaluated.count() == object.len() {
@@ -1344,8 +1604,6 @@ impl<F: Json> Validate<F> for UnevaluatedPropertiesValidator<F> {
                     if !unevaluated_schema.is_valid(&value, ctx) {
                         return false;
                     }
-                } else {
-                    return false;
                 }
             }
         }
@@ -1360,9 +1618,7 @@ impl<F: Json> Validate<F> for UnevaluatedPropertiesValidator<F> {
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
         if let Some(object) = instance.as_object() {
-            let mut evaluated = Evaluated::new(object.len());
-            self.validators
-                .mark_evaluated_by_other_keywords(instance, &mut evaluated, ctx);
+            let evaluated = self.reported(instance, &object, location, tracker, ctx);
             let mut children = ChildList::default();
             let mut unevaluated = Vec::new();
             let mut invalid = false;
@@ -1383,9 +1639,6 @@ impl<F: Json> Validate<F> for UnevaluatedPropertiesValidator<F> {
                         unevaluated.push(property.as_ref().to_owned());
                     }
                     children.push(ctx.arena(), child);
-                } else {
-                    invalid = true;
-                    unevaluated.push(property.as_ref().to_owned());
                 }
             }
 
@@ -1480,6 +1733,13 @@ mod tests {
         } else {
             tests_util::is_not_valid(schema, instance);
         }
+    }
+
+    // Declared properties stay checked where something else evaluates every name
+    #[test_case(&json!({"properties": {"a": {"type": "string"}}, "allOf": [{"additionalProperties": true}], "unevaluatedProperties": false}), &json!({"a": 1}); "every name evaluated")]
+    #[test_case(&json!({"properties": {"a": {"type": "string"}}, "if": {"required": ["k"]}, "then": {"additionalProperties": true}, "unevaluatedProperties": false}), &json!({"k": 1, "a": 1}); "every name evaluated under a condition")]
+    fn declared_property_checked_when_every_name_is_evaluated(schema: &Value, instance: &Value) {
+        tests_util::is_not_valid(schema, instance);
     }
 
     fn errors(schema: &Value, instance: &Value) -> Vec<(String, String, String)> {
@@ -1669,10 +1929,11 @@ mod tests {
     #[test_case("https://json-schema.org/draft/2019-09/schema", "$recursiveRef", &json!({"child": {"foo": 1}}), &[]; "2019-09 declared property")]
     #[test_case("https://json-schema.org/draft/2019-09/schema", "$recursiveRef", &json!({"child": {"child": {"foo": 1}}}), &[]; "2019-09 nested declared property")]
     #[test_case("https://json-schema.org/draft/2019-09/schema", "$recursiveRef", &json!({"child": {"bar": 1}}), &[("/child", "/$ref/properties/child/unevaluatedProperties", "Unevaluated properties are not allowed ('bar' was unexpected)")]; "2019-09 undeclared property")]
-    #[test_case("https://json-schema.org/draft/2019-09/schema", "$recursiveRef", &json!({"child": {"child": {"bar": 1}}}), &[("/child/child", "/$ref/properties/child/$recursiveRef/$ref/properties/child/unevaluatedProperties", "Unevaluated properties are not allowed ('bar' was unexpected)")]; "2019-09 nested undeclared property")]
-    #[test_case("https://json-schema.org/draft/2019-09/schema", "$recursiveRef", &json!({"child": {"foo": "x"}}), &[("/child/foo", "/$ref/properties/child/$recursiveRef/$ref/properties/foo/type", r#""x" is not of type "integer""#)]; "2019-09 declared property of the wrong type")]
+    #[test_case("https://json-schema.org/draft/2019-09/schema", "$recursiveRef", &json!({"child": {"child": {"bar": 1}}}), &[("/child", "/$ref/properties/child/unevaluatedProperties", "Unevaluated properties are not allowed ('child' was unexpected)"), ("/child/child", "/$ref/properties/child/$recursiveRef/$ref/properties/child/unevaluatedProperties", "Unevaluated properties are not allowed ('bar' was unexpected)")]; "2019-09 nested undeclared property")]
+    #[test_case("https://json-schema.org/draft/2019-09/schema", "$recursiveRef", &json!({"child": {"foo": "x"}}), &[("/child", "/$ref/properties/child/unevaluatedProperties", "Unevaluated properties are not allowed ('foo' was unexpected)"), ("/child/foo", "/$ref/properties/child/$recursiveRef/$ref/properties/foo/type", r#""x" is not of type "integer""#)]; "2019-09 declared property of the wrong type")]
     #[test_case("https://json-schema.org/draft/2020-12/schema", "$dynamicRef", &json!({"child": {"foo": 1}}), &[]; "2020-12 declared property")]
     #[test_case("https://json-schema.org/draft/2020-12/schema", "$dynamicRef", &json!({"child": {"bar": 1}}), &[("/child", "/$ref/properties/child/unevaluatedProperties", "Unevaluated properties are not allowed ('bar' was unexpected)")]; "2020-12 undeclared property")]
+    #[test_case("https://json-schema.org/draft/2020-12/schema", "$dynamicRef", &json!({"child": {"foo": "x"}}), &[("/child", "/$ref/properties/child/unevaluatedProperties", "Unevaluated properties are not allowed ('foo' was unexpected)"), ("/child/foo", "/$ref/properties/child/$dynamicRef/$ref/properties/foo/type", r#""x" is not of type "integer""#)]; "2020-12 declared property of the wrong type")]
     fn reference_to_root_evaluates_the_root_properties(
         draft: &str,
         reference: &str,
@@ -1693,6 +1954,49 @@ mod tests {
             errors(&recursive_child(draft, reference), instance),
             expected
         );
+    }
+
+    /// Names `unevaluatedProperties` reports: through `iter_errors`, and as failing `evaluate()`
+    /// units.
+    fn unevaluated(schema: &Value, instance: &Value) -> (Vec<String>, Vec<String>) {
+        let validator = crate::validator_for(schema).expect("schema compiles");
+        let reported = validator
+            .iter_errors(instance)
+            .find_map(|error| match error.kind() {
+                ValidationErrorKind::UnevaluatedProperties { unexpected } => {
+                    Some(unexpected.clone())
+                }
+                _ => None,
+            })
+            .unwrap_or_default();
+        let units = validator
+            .evaluate(instance)
+            .iter_errors()
+            .filter(|entry| {
+                entry.schema_location == "/unevaluatedProperties"
+                    && !entry.instance_location.as_str().is_empty()
+            })
+            .map(|entry| entry.instance_location.as_str().to_owned())
+            .collect();
+        (reported, units)
+    }
+
+    // A subschema that fails evaluates none of the names; keywords beside `unevaluatedProperties`
+    // evaluate theirs whether they pass or not.
+    #[test_case(&json!({"$defs": {"t": {"properties": {"a": {"type": "string"}}}}, "$ref": "#/$defs/t", "unevaluatedProperties": false}), &json!({"a": 1, "b": 2}), &["a", "b"]; "reference")]
+    #[test_case(&json!({"$defs": {"t": {"properties": {"a": {"type": "string"}}}}, "$ref": "#/$defs/t", "unevaluatedProperties": false}), &json!({"a": 1}), &["a"]; "reference evaluating the only name")]
+    #[test_case(&json!({"$defs": {"t": {"properties": {"a": {"type": "string"}}}}, "$ref": "#/$defs/t", "unevaluatedProperties": false}), &json!({"a": "x", "b": 2}), &["b"]; "valid reference")]
+    #[test_case(&json!({"$defs": {"t": {"$dynamicAnchor": "n", "properties": {"a": {"type": "string"}}}}, "$dynamicRef": "#n", "unevaluatedProperties": false}), &json!({"a": 1, "b": 2}), &["a", "b"]; "dynamic reference")]
+    #[test_case(&json!({"if": true, "then": {"properties": {"a": {"type": "string"}}}, "unevaluatedProperties": false}), &json!({"a": 1, "b": 2}), &["a", "b"]; "then")]
+    #[test_case(&json!({"if": false, "else": {"properties": {"a": {"type": "string"}}}, "unevaluatedProperties": false}), &json!({"a": 1, "b": 2}), &["a", "b"]; "else")]
+    #[test_case(&json!({"dependentSchemas": {"a": {"properties": {"c": {"type": "string"}}}}, "unevaluatedProperties": false}), &json!({"a": 1, "b": 3, "c": 2}), &["a", "b", "c"]; "dependent schema")]
+    #[test_case(&json!({"allOf": [{"properties": {"a": {"type": "string"}}}], "unevaluatedProperties": false}), &json!({"a": 1, "b": 2}), &["a", "b"]; "allOf branch")]
+    #[test_case(&json!({"properties": {"a": {"type": "string"}}, "unevaluatedProperties": false}), &json!({"a": 1, "b": 2}), &["b"]; "properties beside")]
+    fn failing_subschema_evaluates_nothing(schema: &Value, instance: &Value, expected: &[&str]) {
+        let (reported, units) = unevaluated(schema, instance);
+        assert_eq!(reported, expected);
+        let locations: Vec<String> = expected.iter().map(|name| format!("/{name}")).collect();
+        assert_eq!(units, locations);
     }
 
     #[test]
@@ -2006,7 +2310,7 @@ mod tests {
         );
     }
 
-    // Whether the key matches decides the error, except under `allOf`, whose failing branch
+    // Whether the key matches decides the error, except in a subschema that fails, which
     // evaluates nothing either way
     #[test_case(
         "direct",
@@ -2018,11 +2322,11 @@ mod tests {
     )]
     #[test_case(
         "$ref",
-        "Error executing regex: Max limit for backtracking count exceeded"
+        "Unevaluated properties are not allowed ('abc' was unexpected)"
     )]
     #[test_case(
         "then",
-        "Error executing regex: Max limit for backtracking count exceeded"
+        "Unevaluated properties are not allowed ('abc' was unexpected)"
     )]
     fn pattern_properties_use_the_configured_backtrack_limit(wrapping: &str, expected: &str) {
         let schema = beside_unevaluated(wrapping, &json!({"(?<=ab)c": {"type": "integer"}}));

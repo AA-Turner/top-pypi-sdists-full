@@ -11,6 +11,8 @@ from ..core.request_options import RequestOptions
 from ..types.lse_task import LseTask
 from ..types.paginated_role_based_task_list import PaginatedRoleBasedTaskList
 from ..types.role_based_task import RoleBasedTask
+from ..types.task_data_column_result import TaskDataColumnResult
+from ..types.task_data_column_value_type_enum import TaskDataColumnValueTypeEnum
 from ..types.task_event import TaskEvent
 from .raw_client import AsyncRawTasksClient, RawTasksClient
 from .types.list_tasks_request_fields import ListTasksRequestFields
@@ -66,6 +68,62 @@ class TasksClient:
         )
         """
         _response = self._raw_client.delete_all_tasks(id, request_options=request_options)
+        return _response.data
+
+    def set_data_column(
+        self,
+        id: int,
+        *,
+        column_name: str,
+        values: typing.Dict[str, typing.Any],
+        value_type: typing.Optional[TaskDataColumnValueTypeEnum] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> TaskDataColumnResult:
+        """
+        Set one `task.data` key to a different value for each listed task of the project, in one synchronous request. Only that key of the listed tasks is written: other keys and other tasks are not touched, and a new column is created on the listed tasks only (the "Add or Update Columns" Data Manager action, in contrast, writes `null` into every other task when it adds a column). The column then appears in the Data Manager. All values are validated first; if any is invalid, nothing is written. The response lists the tasks that were updated and the requested IDs that are not tasks of this project. Requires the same permission and feature flag as the "Add or Update Columns" action. Values are not checked against the labeling configuration or a custom interface input schema. If an "Add or Update Columns" action that adds the same column is still running in the background, it can overwrite the values with `null`.
+
+        Parameters
+        ----------
+        id : int
+            A unique integer value identifying this project.
+
+        column_name : str
+            Data column to set: the key in `task.data`, used exactly as sent. If no task of the project has it yet, it is created on the listed tasks only. A new column name cannot contain whitespace, quotation marks, brackets, semicolons, hashes, control characters, or SQL comments.
+
+        values : typing.Dict[str, typing.Any]
+            Map of task ID to the value for that task, for example `{"101": "Missing box", "102": "OK"}`. At most `TASK_DATA_COLUMN_MAX_TASKS` tasks per request (1000 by default).
+
+        value_type : typing.Optional[TaskDataColumnValueTypeEnum]
+            How the values are stored: `String` keeps the text exactly as sent; `Number` stores a number.
+
+            * `String` - String
+            * `Number` - Number
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        TaskDataColumnResult
+            Values set
+
+        Examples
+        --------
+        from label_studio_sdk import LabelStudio
+
+        client = LabelStudio(
+            api_key="YOUR_API_KEY",
+        )
+        client.tasks.set_data_column(
+            id=1,
+            column_name="customer_feedback",
+            value_type="String",
+            values={"101": "Box 3 is missing", "102": "OK", "999": "Unknown task"},
+        )
+        """
+        _response = self._raw_client.set_data_column(
+            id, column_name=column_name, values=values, value_type=value_type, request_options=request_options
+        )
         return _response.data
 
     def list(
@@ -178,6 +236,7 @@ class TasksClient:
         comment_authors: typing.Optional[typing.Sequence[int]] = OMIT,
         comment_count: typing.Optional[int] = OMIT,
         file_upload: typing.Optional[int] = OMIT,
+        import_id: typing.Optional[int] = OMIT,
         inner_id: typing.Optional[int] = OMIT,
         is_labeled: typing.Optional[bool] = OMIT,
         last_comment_updated_at: typing.Optional[dt.datetime] = OMIT,
@@ -212,6 +271,9 @@ class TasksClient:
 
         file_upload : typing.Optional[int]
             Uploaded file used as data source for this task
+
+        import_id : typing.Optional[int]
+            Original task ID that was at the import step (the "id" of the task in the imported data, or the source task when tasks are copied between projects), or NULL if there was none. It points one step back, so for a copy of a copy it is the ID of the intermediate copy, not of the first task
 
         inner_id : typing.Optional[int]
             Internal task ID in the project, starts with 1
@@ -270,6 +332,7 @@ class TasksClient:
             comment_authors=comment_authors,
             comment_count=comment_count,
             file_upload=file_upload,
+            import_id=import_id,
             inner_id=inner_id,
             is_labeled=is_labeled,
             last_comment_updated_at=last_comment_updated_at,
@@ -357,6 +420,7 @@ class TasksClient:
         data: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         draft_exists: typing.Optional[bool] = OMIT,
         ground_truth: typing.Optional[bool] = OMIT,
+        import_id: typing.Optional[int] = OMIT,
         inner_id: typing.Optional[int] = OMIT,
         is_labeled: typing.Optional[bool] = OMIT,
         last_comment_updated_at: typing.Optional[dt.datetime] = OMIT,
@@ -400,6 +464,9 @@ class TasksClient:
         draft_exists : typing.Optional[bool]
 
         ground_truth : typing.Optional[bool]
+
+        import_id : typing.Optional[int]
+            Original task ID that was at the import step (the "id" of the task in the imported data, or the source task when tasks are copied between projects), or NULL if there was none. It points one step back, so for a copy of a copy it is the ID of the intermediate copy, not of the first task
 
         inner_id : typing.Optional[int]
 
@@ -467,6 +534,7 @@ class TasksClient:
             data=data,
             draft_exists=draft_exists,
             ground_truth=ground_truth,
+            import_id=import_id,
             inner_id=inner_id,
             is_labeled=is_labeled,
             last_comment_updated_at=last_comment_updated_at,
@@ -678,6 +746,70 @@ class AsyncTasksClient:
         _response = await self._raw_client.delete_all_tasks(id, request_options=request_options)
         return _response.data
 
+    async def set_data_column(
+        self,
+        id: int,
+        *,
+        column_name: str,
+        values: typing.Dict[str, typing.Any],
+        value_type: typing.Optional[TaskDataColumnValueTypeEnum] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> TaskDataColumnResult:
+        """
+        Set one `task.data` key to a different value for each listed task of the project, in one synchronous request. Only that key of the listed tasks is written: other keys and other tasks are not touched, and a new column is created on the listed tasks only (the "Add or Update Columns" Data Manager action, in contrast, writes `null` into every other task when it adds a column). The column then appears in the Data Manager. All values are validated first; if any is invalid, nothing is written. The response lists the tasks that were updated and the requested IDs that are not tasks of this project. Requires the same permission and feature flag as the "Add or Update Columns" action. Values are not checked against the labeling configuration or a custom interface input schema. If an "Add or Update Columns" action that adds the same column is still running in the background, it can overwrite the values with `null`.
+
+        Parameters
+        ----------
+        id : int
+            A unique integer value identifying this project.
+
+        column_name : str
+            Data column to set: the key in `task.data`, used exactly as sent. If no task of the project has it yet, it is created on the listed tasks only. A new column name cannot contain whitespace, quotation marks, brackets, semicolons, hashes, control characters, or SQL comments.
+
+        values : typing.Dict[str, typing.Any]
+            Map of task ID to the value for that task, for example `{"101": "Missing box", "102": "OK"}`. At most `TASK_DATA_COLUMN_MAX_TASKS` tasks per request (1000 by default).
+
+        value_type : typing.Optional[TaskDataColumnValueTypeEnum]
+            How the values are stored: `String` keeps the text exactly as sent; `Number` stores a number.
+
+            * `String` - String
+            * `Number` - Number
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        TaskDataColumnResult
+            Values set
+
+        Examples
+        --------
+        import asyncio
+
+        from label_studio_sdk import AsyncLabelStudio
+
+        client = AsyncLabelStudio(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.tasks.set_data_column(
+                id=1,
+                column_name="customer_feedback",
+                value_type="String",
+                values={"101": "Box 3 is missing", "102": "OK", "999": "Unknown task"},
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.set_data_column(
+            id, column_name=column_name, values=values, value_type=value_type, request_options=request_options
+        )
+        return _response.data
+
     async def list(
         self,
         *,
@@ -797,6 +929,7 @@ class AsyncTasksClient:
         comment_authors: typing.Optional[typing.Sequence[int]] = OMIT,
         comment_count: typing.Optional[int] = OMIT,
         file_upload: typing.Optional[int] = OMIT,
+        import_id: typing.Optional[int] = OMIT,
         inner_id: typing.Optional[int] = OMIT,
         is_labeled: typing.Optional[bool] = OMIT,
         last_comment_updated_at: typing.Optional[dt.datetime] = OMIT,
@@ -831,6 +964,9 @@ class AsyncTasksClient:
 
         file_upload : typing.Optional[int]
             Uploaded file used as data source for this task
+
+        import_id : typing.Optional[int]
+            Original task ID that was at the import step (the "id" of the task in the imported data, or the source task when tasks are copied between projects), or NULL if there was none. It points one step back, so for a copy of a copy it is the ID of the intermediate copy, not of the first task
 
         inner_id : typing.Optional[int]
             Internal task ID in the project, starts with 1
@@ -900,6 +1036,7 @@ class AsyncTasksClient:
             comment_authors=comment_authors,
             comment_count=comment_count,
             file_upload=file_upload,
+            import_id=import_id,
             inner_id=inner_id,
             is_labeled=is_labeled,
             last_comment_updated_at=last_comment_updated_at,
@@ -1003,6 +1140,7 @@ class AsyncTasksClient:
         data: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         draft_exists: typing.Optional[bool] = OMIT,
         ground_truth: typing.Optional[bool] = OMIT,
+        import_id: typing.Optional[int] = OMIT,
         inner_id: typing.Optional[int] = OMIT,
         is_labeled: typing.Optional[bool] = OMIT,
         last_comment_updated_at: typing.Optional[dt.datetime] = OMIT,
@@ -1046,6 +1184,9 @@ class AsyncTasksClient:
         draft_exists : typing.Optional[bool]
 
         ground_truth : typing.Optional[bool]
+
+        import_id : typing.Optional[int]
+            Original task ID that was at the import step (the "id" of the task in the imported data, or the source task when tasks are copied between projects), or NULL if there was none. It points one step back, so for a copy of a copy it is the ID of the intermediate copy, not of the first task
 
         inner_id : typing.Optional[int]
 
@@ -1121,6 +1262,7 @@ class AsyncTasksClient:
             data=data,
             draft_exists=draft_exists,
             ground_truth=ground_truth,
+            import_id=import_id,
             inner_id=inner_id,
             is_labeled=is_labeled,
             last_comment_updated_at=last_comment_updated_at,

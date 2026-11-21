@@ -40,17 +40,39 @@
 # notification type:
 #   pushward://hlk_xxxxxxxxxxxx?level=critical&volume=0.8
 #
+# The title, subtitle, body and url can be end-to-end encrypted with a key of
+# 64 hexadecimal characters that the PushWard app holds as well. This needs
+# the cryptography package:
+#   pushward://hlk_xxxxxxxxxxxx?key=0123456789abcdef...
+#
 # References:
 # - https://pushward.app/docs/api
 
+from __future__ import annotations
+
 from json import dumps
+from os import urandom
+import re
+from typing import Any, Optional, Union
 
 import requests
+
+try:
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+
+    PUSHWARD_E2EE_SUPPORT = True
+
+except ImportError:
+    PUSHWARD_E2EE_SUPPORT = False
 
 from ..common import NotifyImageSize, NotifyType
 from ..exception import AppriseImproperlyConfigured
 from ..locale import gettext_lazy as _
-from ..utils.parse import validate_regex
+from ..url import PrivacyMode
+from ..utils.base64 import base64_urlencode
+from ..utils.parse import parse_bool, parse_choice, parse_list, validate_regex
 from .base import NotifyBase
 
 # Extend HTTP Error Messages
@@ -80,17 +102,28 @@ PUSHWARD_DEFAULT_LEVELS = {
     NotifyType.FAILURE: "time-sensitive",
 }
 
+# An encryption key is 32 bytes written as 64 hexadecimal characters
+VALIDATE_ENCRYPTION_KEY = re.compile(r"^[0-9a-f]{64}$")
+
+# The longest pw1 envelope the server accepts
+PUSHWARD_ENVELOPE_MAXLEN = 3072
+
+# The most plaintext one envelope can hold: the "pw1.<kid>." prefix takes 13
+# characters, and the nonce and tag 28 of the bytes that are base64 encoded
+PUSHWARD_PLAINTEXT_MAXLEN = (PUSHWARD_ENVELOPE_MAXLEN - 13) * 3 // 4 - 28
+
 
 def pushward_level(value):
     """Resolve a full or short-form level (e.g. 'crit', 'c') to a canonical
     PushWard level, or None if it does not match one."""
-    value = str(value).strip().lower()
-    if not value:
-        return None
-    return next(
-        (level for level in PUSHWARD_LEVELS if level.startswith(value)),
-        None,
-    )
+    return parse_choice(str(value), PUSHWARD_LEVELS)
+
+
+def pushward_hkdf(key: bytes, info: bytes, length: int) -> bytes:
+    """Derive pw1 key material with HKDF-SHA256 and an empty salt."""
+    return HKDF(
+        algorithm=hashes.SHA256(), length=length, salt=None, info=info
+    ).derive(key)
 
 
 class NotifyPushWard(NotifyBase):
@@ -98,6 +131,11 @@ class NotifyPushWard(NotifyBase):
 
     # The default descriptive name associated with the Notification
     service_name = "PushWard"
+
+    # Only needed for encryption.  Plaintext notifications work without it.
+    requirements = {
+        "packages_recommended": "cryptography",
+    }
 
     # The services URL
     service_url = "https://pushward.app/"
@@ -185,20 +223,89 @@ class NotifyPushWard(NotifyBase):
                 "min": 0.0,
                 "max": 1.0,
             },
+            "ack": {
+                "name": _("Acknowledge"),
+                "type": "bool",
+                "default": False,
+            },
+            # Seconds between repeats, only sent with ack
+            "repeat": {
+                "name": _("Repeat Interval"),
+                "type": "int",
+                "min": 30,
+                "max": 3600,
+                "default": 60,
+            },
+            # Seconds before repeating gives up, only sent with ack
+            "expire": {
+                "name": _("Expire"),
+                "type": "int",
+                "min": 60,
+                "max": 10800,
+                "default": 3600,
+            },
+            "url": {
+                "name": _("URL"),
+                "type": "string",
+                "map_to": "supplemental_url",
+            },
+            "subtitle": {
+                "name": _("Subtitle"),
+                "type": "string",
+            },
+            "thread": {
+                "name": _("Thread ID"),
+                "type": "string",
+                "map_to": "thread_id",
+            },
+            "collapse": {
+                "name": _("Collapse ID"),
+                "type": "string",
+                "map_to": "collapse_id",
+            },
+            # Up to 3 snooze durations, in minutes
+            "snooze": {
+                "name": _("Snooze"),
+                "type": "list:int",
+            },
+            # Seals the title, subtitle, body and url when set
+            "key": {
+                "name": _("Encryption Key"),
+                "type": "string",
+                "private": True,
+                "map_to": "encryption_key",
+            },
+            # On whenever a key is present.  Set to no to send plaintext
+            # even though a key is set.
+            "e2ee": {
+                "name": _("E2EE"),
+                "type": "bool",
+                "default": True,
+            },
         },
     )
 
     def __init__(
         self,
-        apikey,
-        level=None,
-        info=None,
-        success=None,
-        warning=None,
-        failure=None,
-        volume=None,
-        **kwargs,
-    ):
+        apikey: str,
+        level: Optional[str] = None,
+        info: Optional[str] = None,
+        success: Optional[str] = None,
+        warning: Optional[str] = None,
+        failure: Optional[str] = None,
+        volume: Optional[Union[float, str]] = None,
+        ack: Optional[Union[bool, str]] = None,
+        repeat: Optional[Union[int, str]] = None,
+        expire: Optional[Union[int, str]] = None,
+        supplemental_url: Optional[str] = None,
+        subtitle: Optional[str] = None,
+        thread_id: Optional[str] = None,
+        collapse_id: Optional[str] = None,
+        snooze: Optional[Union[list[int], str]] = None,
+        encryption_key: Optional[str] = None,
+        e2ee: Optional[Union[bool, str]] = None,
+        **kwargs: Any,
+    ) -> None:
         """Initialize PushWard Object."""
         super().__init__(**kwargs)
 
@@ -260,9 +367,149 @@ class NotifyPushWard(NotifyBase):
         else:
             self.volume = None
 
+        # Require the notification to be acknowledged
+        self.ack = (
+            self.template_args["ack"]["default"]
+            if ack is None
+            else parse_bool(ack)
+        )
+
+        # Acquire our repeat interval.  Going through str() makes a float
+        # fail instead of being silently truncated by int().
+        self.repeat = self.template_args["repeat"]["default"]
+        if repeat is not None:
+            try:
+                self.repeat = int(str(repeat))
+
+            except (ValueError, TypeError):
+                msg = f"An invalid PushWard repeat ({repeat}) was specified."
+                self.logger.warning(msg)
+                raise AppriseImproperlyConfigured(msg) from None
+
+            if self.repeat < 30 or self.repeat > 3600:
+                msg = f"An invalid PushWard repeat ({repeat}) was specified."
+                self.logger.warning(msg)
+                raise AppriseImproperlyConfigured(msg)
+
+        # Acquire our expiry
+        self.expire = self.template_args["expire"]["default"]
+        if expire is not None:
+            try:
+                self.expire = int(str(expire))
+
+            except (ValueError, TypeError):
+                msg = f"An invalid PushWard expire ({expire}) was specified."
+                self.logger.warning(msg)
+                raise AppriseImproperlyConfigured(msg) from None
+
+            if self.expire < 60 or self.expire > 10800:
+                msg = f"An invalid PushWard expire ({expire}) was specified."
+                self.logger.warning(msg)
+                raise AppriseImproperlyConfigured(msg)
+
+        # The URL opened from the notification
+        self.supplemental_url = (
+            str(supplemental_url) if supplemental_url else None
+        )
+        if self.supplemental_url and len(self.supplemental_url) > 2048:
+            msg = "A PushWard url cannot exceed 2048 characters."
+            self.logger.warning(msg)
+            raise AppriseImproperlyConfigured(msg)
+
+        # The line shown under the title
+        self.subtitle = str(subtitle) if subtitle else None
+        if self.subtitle and len(self.subtitle) > 256:
+            msg = "A PushWard subtitle cannot exceed 256 characters."
+            self.logger.warning(msg)
+            raise AppriseImproperlyConfigured(msg)
+
+        # Notifications sharing a thread are grouped together
+        self.thread_id = str(thread_id) if thread_id else None
+        if self.thread_id and len(self.thread_id) > 128:
+            msg = "A PushWard thread cannot exceed 128 characters."
+            self.logger.warning(msg)
+            raise AppriseImproperlyConfigured(msg)
+
+        # A later notification with the same collapse id replaces this one
+        self.collapse_id = str(collapse_id) if collapse_id else None
+        if self.collapse_id and len(self.collapse_id) > 64:
+            msg = "A PushWard collapse cannot exceed 64 characters."
+            self.logger.warning(msg)
+            raise AppriseImproperlyConfigured(msg)
+
+        # Acquire our snooze durations.  Order is kept and duplicates are
+        # refused.
+        self.snooze = None
+        if snooze is not None:
+            values = (
+                snooze
+                if isinstance(snooze, (list, tuple))
+                else parse_list(str(snooze), sort=False)
+            )
+            try:
+                self.snooze = [int(str(value)) for value in values]
+
+            except (ValueError, TypeError):
+                msg = f"An invalid PushWard snooze ({snooze}) was specified."
+                self.logger.warning(msg)
+                raise AppriseImproperlyConfigured(msg) from None
+
+            if (
+                not 1 <= len(self.snooze) <= 3
+                or len(set(self.snooze)) != len(self.snooze)
+                or not all(1 <= value <= 1440 for value in self.snooze)
+            ):
+                msg = f"An invalid PushWard snooze ({snooze}) was specified."
+                self.logger.warning(msg)
+                raise AppriseImproperlyConfigured(msg)
+
+        # The server refuses snooze together with acknowledge
+        if self.ack and self.snooze:
+            msg = "A PushWard notification cannot combine ack with snooze."
+            self.logger.warning(msg)
+            raise AppriseImproperlyConfigured(msg)
+
+        # Acquire our encryption key.  Whitespace and case do not matter.
+        # A blank key is refused so that it can never mean plaintext.
+        self.encryption_key = None
+        if encryption_key is not None:
+            key = "".join(str(encryption_key).split()).lower()
+            if not VALIDATE_ENCRYPTION_KEY.match(key):
+                msg = "An invalid PushWard encryption key was specified."
+                self.logger.warning(msg)
+                raise AppriseImproperlyConfigured(msg)
+
+            self.encryption_key = key
+
+        # A value parse_bool() cannot read leaves encryption on
+        default = self.template_args["e2ee"]["default"]
+        self.e2ee = default if e2ee is None else parse_bool(e2ee, default)
+
+        # An explicit request for encryption must not send plaintext
+        if e2ee is not None and self.e2ee and not self.encryption_key:
+            msg = "PushWard e2ee requires an encryption key."
+            self.logger.warning(msg)
+            raise AppriseImproperlyConfigured(msg)
+
+        # Fail closed.  Never fall back to sending plaintext when the
+        # caller asked for encryption but the library isn't available.
+        if self.encryption_key and self.e2ee and not PUSHWARD_E2EE_SUPPORT:
+            msg = (
+                "PushWard encryption requires the 'cryptography' package. "
+                "Install Apprise with the 'all-plugins' extra."
+            )
+            self.logger.warning(msg)
+            raise AppriseImproperlyConfigured(msg)
+
         return
 
-    def send(self, body, title="", notify_type=NotifyType.INFO, **kwargs):
+    def send(
+        self,
+        body: str,
+        title: str = "",
+        notify_type: NotifyType = NotifyType.INFO,
+        **kwargs: Any,
+    ) -> bool:
         """Perform PushWard Notification."""
 
         # Prepare our headers
@@ -288,6 +535,8 @@ class NotifyPushWard(NotifyBase):
             "title": title,
             "body": body,
             "level": level,
+            "source": "apprise",
+            "source_display_name": self.app_id,
         }
 
         # Reference an icon if one is available
@@ -299,12 +548,61 @@ class NotifyPushWard(NotifyBase):
         if level == "critical" and self.volume is not None:
             payload["volume"] = self.volume
 
+        # The server refuses acknowledge at the passive level
+        if self.ack and level != "passive":
+            payload["acknowledge"] = {
+                "repeat_seconds": self.repeat,
+                "expire_seconds": self.expire,
+            }
+
+        # Include our optional fields when they were set
+        if self.supplemental_url:
+            payload["url"] = self.supplemental_url
+
+        if self.subtitle:
+            payload["subtitle"] = self.subtitle
+
+        if self.thread_id:
+            payload["thread_id"] = self.thread_id
+
+        if self.collapse_id:
+            payload["collapse_id"] = self.collapse_id
+
+        if self.snooze:
+            payload["snooze"] = self.snooze
+
+        # Seal the title, subtitle, body and url when encryption is on.
+        # Everything else stays readable because the server needs it.
+        encrypt = bool(self.encryption_key and self.e2ee)
+        if encrypt:
+            try:
+                envelope = self._encrypt_payload(payload)
+
+            except Exception as e:
+                # Fail closed.  Never fall back to sending plaintext.
+                self.logger.warning("Failed to encrypt PushWard notification.")
+                self.logger.debug(
+                    "PushWard encryption failed with %s.", type(e).__name__
+                )
+                return False
+
+            # The server cannot shorten what it cannot read
+            if len(envelope) > PUSHWARD_ENVELOPE_MAXLEN:
+                self.logger.warning(
+                    "The PushWard notification is too long to encrypt."
+                )
+                return False
+
+            payload["encrypted"] = envelope
+
         self.logger.debug(
             "PushWard POST URL: %s (cert_verify=%s)",
             self.notify_url,
             self.verify_certificate,
         )
-        self.logger.debug("PushWard Payload: %s", str(payload))
+        if not encrypt:
+            # A sealed payload is never logged
+            self.logger.debug("PushWard Payload: %s", str(payload))
 
         # Always call throttle before any remote server i/o is made
         self.throttle()
@@ -337,9 +635,11 @@ class NotifyPushWard(NotifyBase):
                     )
                 )
 
-                self.logger.debug(
-                    "Response Details:\r\n%r", (r.content or b"")[:2000]
-                )
+                if not encrypt:
+                    # The response may echo fragments of the request
+                    self.logger.debug(
+                        "Response Details:\r\n%r", (r.content or b"")[:2000]
+                    )
 
                 # Return; we're done
                 return False
@@ -351,10 +651,51 @@ class NotifyPushWard(NotifyBase):
             self.logger.warning(
                 "A Connection error occurred posting to PushWard."
             )
-            self.logger.debug("Socket Exception: %s", str(e))
+            if not encrypt:
+                # The exception text may echo fragments of the request
+                self.logger.debug("Socket Exception: %s", str(e))
             return False
 
         return True
+
+    def _encrypt_payload(self, payload: dict[str, Any]) -> str:
+        """Move the notification text out of payload into a pw1 envelope."""
+
+        # The server refuses any of these beside an envelope.  The app reads
+        # them from the JSON in this order.
+        fields = {
+            field: payload.pop(field)
+            for field in ("title", "subtitle", "body", "url")
+            if field in payload
+        }
+
+        # The app refuses to open these and the server can no longer tell
+        if not (fields["title"] and fields["body"]):
+            raise ValueError("A title and a body are required")
+
+        # Compact UTF-8 JSON is what the app expects to find inside
+        plaintext = dumps(
+            fields,
+            ensure_ascii=False,
+            separators=(",", ":"),
+        ).encode("utf-8")
+
+        # Padding to a multiple of 64 bytes hides the exact length, unless
+        # that alone would push the envelope over its limit
+        padded = plaintext + b" " * (-len(plaintext) % 64)
+        if len(padded) <= PUSHWARD_PLAINTEXT_MAXLEN:
+            plaintext = padded
+
+        # Derive the key id the app shows and the AES key from our key
+        key = bytes.fromhex(self.encryption_key)
+        kid = pushward_hkdf(key, b"pushward/e2e/v1/kid", 4).hex()
+        cipher = AESGCM(pushward_hkdf(key, b"pushward/e2e/v1/enc", 32))
+
+        # A fresh nonce for every send.  The tag also covers the key id.
+        nonce = urandom(12)
+        sealed = cipher.encrypt(nonce, plaintext, f"pw1.{kid}".encode("ascii"))
+
+        return f"pw1.{kid}.{base64_urlencode(nonce + sealed)}"
 
     @property
     def url_identifier(self):
@@ -368,7 +709,7 @@ class NotifyPushWard(NotifyBase):
             self.apikey,
         )
 
-    def url(self, privacy=False, *args, **kwargs):
+    def url(self, privacy: bool = False, *args: Any, **kwargs: Any) -> str:
         """Returns the URL built dynamically based on specified arguments."""
 
         # Define any URL parameters
@@ -389,6 +730,53 @@ class NotifyPushWard(NotifyBase):
         if self.volume is not None:
             params["volume"] = str(self.volume)
 
+        # Only include acknowledge settings that differ from the default
+        if self.ack:
+            params["ack"] = "yes"
+
+        if self.repeat != self.template_args["repeat"]["default"]:
+            params["repeat"] = str(self.repeat)
+
+        if self.expire != self.template_args["expire"]["default"]:
+            params["expire"] = str(self.expire)
+
+        # What is sealed from the server stays out of the logs as well
+        masked = privacy and self.encryption_key and self.e2ee
+
+        # Include our optional fields when they were set
+        if self.supplemental_url:
+            params["url"] = self.pprint(
+                self.supplemental_url,
+                masked,
+                mode=PrivacyMode.Secret,
+                quote=False,
+            )
+
+        if self.subtitle:
+            params["subtitle"] = self.pprint(
+                self.subtitle, masked, mode=PrivacyMode.Secret, quote=False
+            )
+
+        if self.thread_id:
+            params["thread"] = self.thread_id
+
+        if self.collapse_id:
+            params["collapse"] = self.collapse_id
+
+        if self.snooze:
+            params["snooze"] = ",".join(str(value) for value in self.snooze)
+
+        if self.encryption_key:
+            params["key"] = self.pprint(
+                self.encryption_key,
+                privacy,
+                mode=PrivacyMode.Secret,
+                safe="",
+            )
+
+        if not self.e2ee:
+            params["e2ee"] = "no"
+
         # Extend our parameters
         params.update(self.url_parameters(privacy=privacy, *args, **kwargs))
 
@@ -399,7 +787,7 @@ class NotifyPushWard(NotifyBase):
         )
 
     @staticmethod
-    def parse_url(url):
+    def parse_url(url: str) -> Optional[dict[str, Any]]:
         """Parses the URL and returns enough arguments that can allow us to re-
         instantiate this object."""
         results = NotifyBase.parse_url(url, verify_host=False)
@@ -432,4 +820,66 @@ class NotifyPushWard(NotifyBase):
                 results["qsd"]["volume"]
             )
 
+        # Allow an acknowledgement to be required
+        if "ack" in results["qsd"] and results["qsd"]["ack"]:
+            results["ack"] = parse_bool(results["qsd"]["ack"])
+
+        # Seconds between repeats of an acknowledge notification
+        if "repeat" in results["qsd"] and results["qsd"]["repeat"]:
+            results["repeat"] = NotifyPushWard.unquote(
+                results["qsd"]["repeat"]
+            )
+
+        # Seconds before an acknowledge notification stops repeating
+        if "expire" in results["qsd"] and results["qsd"]["expire"]:
+            results["expire"] = NotifyPushWard.unquote(
+                results["qsd"]["expire"]
+            )
+
+        # Stored as supplemental_url because results["url"] already holds
+        # the Apprise URL.  The value is already decoded, so it is not
+        # unquoted again, which would corrupt any escapes in the link.
+        if "url" in results["qsd"] and results["qsd"]["url"]:
+            results["supplemental_url"] = results["qsd"]["url"]
+
+        # The line shown under the title
+        if "subtitle" in results["qsd"] and results["qsd"]["subtitle"]:
+            results["subtitle"] = NotifyPushWard.unquote(
+                results["qsd"]["subtitle"]
+            )
+
+        # Group notifications together
+        if "thread" in results["qsd"] and results["qsd"]["thread"]:
+            results["thread_id"] = NotifyPushWard.unquote(
+                results["qsd"]["thread"]
+            )
+
+        # Replace an earlier notification with the same collapse id
+        if "collapse" in results["qsd"] and results["qsd"]["collapse"]:
+            results["collapse_id"] = NotifyPushWard.unquote(
+                results["qsd"]["collapse"]
+            )
+
+        # Snooze durations in minutes, as a comma separated list
+        if "snooze" in results["qsd"] and results["qsd"]["snooze"]:
+            results["snooze"] = NotifyPushWard.unquote(
+                results["qsd"]["snooze"]
+            )
+
+        # A blank key= is passed on so that it is refused, not ignored
+        if "key" in results["qsd"]:
+            results["encryption_key"] = NotifyPushWard.unquote(
+                results["qsd"]["key"]
+            )
+
+        # Allow encryption to be turned off even though a key is set
+        if "e2ee" in results["qsd"] and results["qsd"]["e2ee"]:
+            results["e2ee"] = NotifyPushWard.unquote(results["qsd"]["e2ee"])
+
         return results
+
+    @staticmethod
+    def runtime_deps() -> tuple[str, ...]:
+        """Return optional runtime dependency package names."""
+        # Only encryption needs it
+        return ("cryptography",)

@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_boto3_compute_optimizer_automation.type_defs import AccountInfoTypeDef
+    from types_boto3_compute_optimizer_automation.type_defs import OrganizationRuleModeSourceTypeDef
 
-    data: AccountInfoTypeDef = ...
+    data: OrganizationRuleModeSourceTypeDef = ...
     ```
 """
 
@@ -22,13 +22,17 @@ from datetime import datetime
 from typing import Union
 
 from .literals import (
+    AutoEnrollMemberAccountsType,
     AutomationEventFilterNameType,
     AutomationRuleFilterNameType,
     ComparisonOperatorType,
     EnrollmentStatusType,
     EventStatusType,
     EventTypeType,
+    OrganizationEnrollmentConfigurationStatusType,
+    OrganizationRuleModeSourceTypeType,
     OrganizationRuleModeType,
+    OrganizationTargetTypeType,
     RecommendedActionFilterNameType,
     RecommendedActionTypeType,
     RuleApplyOrderType,
@@ -59,6 +63,7 @@ __all__ = (
     "CriteriaTypeDef",
     "CriteriaUnionTypeDef",
     "DeleteAutomationRuleRequestTypeDef",
+    "DeleteOrganizationEnrollmentConfigurationRequestTypeDef",
     "DisassociateAccountsRequestTypeDef",
     "DisassociateAccountsResponseTypeDef",
     "DoubleCriteriaConditionOutputTypeDef",
@@ -95,6 +100,12 @@ __all__ = (
     "ListAutomationRulesRequestPaginateTypeDef",
     "ListAutomationRulesRequestTypeDef",
     "ListAutomationRulesResponseTypeDef",
+    "ListOrganizationEnrollmentConfigurationsRequestPaginateTypeDef",
+    "ListOrganizationEnrollmentConfigurationsRequestTypeDef",
+    "ListOrganizationEnrollmentConfigurationsResponseTypeDef",
+    "ListOrganizationalUnitsRequestPaginateTypeDef",
+    "ListOrganizationalUnitsRequestTypeDef",
+    "ListOrganizationalUnitsResponseTypeDef",
     "ListRecommendedActionSummariesRequestPaginateTypeDef",
     "ListRecommendedActionSummariesRequestTypeDef",
     "ListRecommendedActionSummariesResponseTypeDef",
@@ -106,10 +117,15 @@ __all__ = (
     "OrganizationConfigurationOutputTypeDef",
     "OrganizationConfigurationTypeDef",
     "OrganizationConfigurationUnionTypeDef",
+    "OrganizationEnrollmentConfigurationTypeDef",
+    "OrganizationRuleModeSourceTypeDef",
     "OrganizationScopeTypeDef",
+    "OrganizationTargetTypeDef",
+    "OrganizationalUnitInfoTypeDef",
     "PaginatorConfigTypeDef",
     "PreviewResultSummaryTypeDef",
     "PreviewResultTypeDef",
+    "PutOrganizationEnrollmentConfigurationRequestTypeDef",
     "RecommendedActionFilterTypeDef",
     "RecommendedActionSummaryTypeDef",
     "RecommendedActionTotalTypeDef",
@@ -139,12 +155,9 @@ __all__ = (
     "UpdateEnrollmentConfigurationResponseTypeDef",
 )
 
-class AccountInfoTypeDef(TypedDict):
-    accountId: str
-    status: EnrollmentStatusType
-    organizationRuleMode: OrganizationRuleModeType
-    lastUpdatedTimestamp: datetime
-    statusReason: NotRequired[str]
+class OrganizationRuleModeSourceTypeDef(TypedDict):
+    sourceType: OrganizationRuleModeSourceTypeType
+    sourceTargetId: NotRequired[str]
 
 class AssociateAccountsRequestTypeDef(TypedDict):
     accountIds: Sequence[str]
@@ -178,6 +191,9 @@ class TimePeriodTypeDef(TypedDict):
 class OrganizationConfigurationOutputTypeDef(TypedDict):
     ruleApplyOrder: NotRequired[RuleApplyOrderType]
     accountIds: NotRequired[list[str]]
+    organizationalUnitIds: NotRequired[list[str]]
+    excludedOrganizationalUnitIds: NotRequired[list[str]]
+    excludedAccountIds: NotRequired[list[str]]
 
 class ScheduleTypeDef(TypedDict):
     scheduleExpression: NotRequired[str]
@@ -227,6 +243,10 @@ class DeleteAutomationRuleRequestTypeDef(TypedDict):
     ruleRevision: int
     clientToken: NotRequired[str]
 
+class OrganizationTargetTypeDef(TypedDict):
+    accountId: NotRequired[str]
+    organizationalUnitId: NotRequired[str]
+
 class DisassociateAccountsRequestTypeDef(TypedDict):
     accountIds: Sequence[str]
     clientToken: NotRequired[str]
@@ -269,6 +289,24 @@ TimestampTypeDef = Union[datetime, str]
 
 class OrganizationScopeTypeDef(TypedDict):
     accountIds: NotRequired[Sequence[str]]
+    organizationalUnitIds: NotRequired[Sequence[str]]
+    excludedOrganizationalUnitIds: NotRequired[Sequence[str]]
+    excludedAccountIds: NotRequired[Sequence[str]]
+
+class ListOrganizationEnrollmentConfigurationsRequestTypeDef(TypedDict):
+    targetType: NotRequired[OrganizationTargetTypeType]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+class OrganizationEnrollmentConfigurationTypeDef(TypedDict):
+    targetId: str
+    targetType: OrganizationTargetTypeType
+    organizationRuleMode: NotRequired[OrganizationRuleModeType]
+
+class ListOrganizationalUnitsRequestTypeDef(TypedDict):
+    organizationalUnitIds: NotRequired[Sequence[str]]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
 
 class RecommendedActionFilterTypeDef(TypedDict):
     name: RecommendedActionFilterNameType
@@ -280,6 +318,9 @@ class ListTagsForResourceRequestTypeDef(TypedDict):
 class OrganizationConfigurationTypeDef(TypedDict):
     ruleApplyOrder: NotRequired[RuleApplyOrderType]
     accountIds: NotRequired[Sequence[str]]
+    organizationalUnitIds: NotRequired[Sequence[str]]
+    excludedOrganizationalUnitIds: NotRequired[Sequence[str]]
+    excludedAccountIds: NotRequired[Sequence[str]]
 
 class RollbackAutomationEventRequestTypeDef(TypedDict):
     eventId: str
@@ -299,6 +340,20 @@ class UpdateEnrollmentConfigurationRequestTypeDef(TypedDict):
     status: EnrollmentStatusType
     clientToken: NotRequired[str]
 
+class AccountInfoTypeDef(TypedDict):
+    accountId: str
+    status: EnrollmentStatusType
+    organizationRuleMode: OrganizationRuleModeType
+    lastUpdatedTimestamp: datetime
+    organizationRuleModeSource: NotRequired[OrganizationRuleModeSourceTypeDef]
+    statusReason: NotRequired[str]
+
+class OrganizationalUnitInfoTypeDef(TypedDict):
+    organizationalUnitId: str
+    autoEnrollMemberAccounts: AutoEnrollMemberAccountsType
+    organizationRuleMode: OrganizationRuleModeType
+    organizationRuleModeSource: OrganizationRuleModeSourceTypeDef
+
 class AssociateAccountsResponseTypeDef(TypedDict):
     accountIds: list[str]
     errors: list[str]
@@ -314,12 +369,8 @@ class GetEnrollmentConfigurationResponseTypeDef(TypedDict):
     statusReason: str
     organizationRuleMode: OrganizationRuleModeType
     lastUpdatedTimestamp: datetime
+    organizationEnrollmentConfigurationStatus: OrganizationEnrollmentConfigurationStatusType
     ResponseMetadata: ResponseMetadataTypeDef
-
-class ListAccountsResponseTypeDef(TypedDict):
-    accounts: list[AccountInfoTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
 
 class RollbackAutomationEventResponseTypeDef(TypedDict):
     eventId: str
@@ -340,6 +391,7 @@ class UpdateEnrollmentConfigurationResponseTypeDef(TypedDict):
 
 class ListAutomationEventSummariesRequestTypeDef(TypedDict):
     filters: NotRequired[Sequence[AutomationEventFilterTypeDef]]
+    organizationalUnitIds: NotRequired[Sequence[str]]
     startDateInclusive: NotRequired[str]
     endDateExclusive: NotRequired[str]
     maxResults: NotRequired[int]
@@ -448,6 +500,16 @@ class CriteriaTypeDef(TypedDict):
     lookBackPeriodInDays: NotRequired[Sequence[IntegerCriteriaConditionTypeDef]]
     restartNeeded: NotRequired[Sequence[StringCriteriaConditionTypeDef]]
 
+class DeleteOrganizationEnrollmentConfigurationRequestTypeDef(TypedDict):
+    target: OrganizationTargetTypeDef
+    configurationTypes: Sequence[Literal["OrganizationRuleMode"]]
+    clientToken: NotRequired[str]
+
+class PutOrganizationEnrollmentConfigurationRequestTypeDef(TypedDict):
+    target: OrganizationTargetTypeDef
+    organizationRuleMode: NotRequired[OrganizationRuleModeType]
+    clientToken: NotRequired[str]
+
 class EbsVolumeTypeDef(TypedDict):
     configuration: NotRequired[EbsVolumeConfigurationTypeDef]
 
@@ -465,6 +527,7 @@ class ListAutomationEventStepsRequestPaginateTypeDef(TypedDict):
 
 class ListAutomationEventSummariesRequestPaginateTypeDef(TypedDict):
     filters: NotRequired[Sequence[AutomationEventFilterTypeDef]]
+    organizationalUnitIds: NotRequired[Sequence[str]]
     startDateInclusive: NotRequired[str]
     endDateExclusive: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -473,40 +536,69 @@ class ListAutomationRulesRequestPaginateTypeDef(TypedDict):
     filters: NotRequired[Sequence[FilterTypeDef]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListOrganizationEnrollmentConfigurationsRequestPaginateTypeDef(TypedDict):
+    targetType: NotRequired[OrganizationTargetTypeType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListOrganizationalUnitsRequestPaginateTypeDef(TypedDict):
+    organizationalUnitIds: NotRequired[Sequence[str]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListAutomationEventsRequestPaginateTypeDef(TypedDict):
     filters: NotRequired[Sequence[AutomationEventFilterTypeDef]]
+    organizationalUnitIds: NotRequired[Sequence[str]]
     startTimeInclusive: NotRequired[TimestampTypeDef]
     endTimeExclusive: NotRequired[TimestampTypeDef]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListAutomationEventsRequestTypeDef(TypedDict):
     filters: NotRequired[Sequence[AutomationEventFilterTypeDef]]
+    organizationalUnitIds: NotRequired[Sequence[str]]
     startTimeInclusive: NotRequired[TimestampTypeDef]
     endTimeExclusive: NotRequired[TimestampTypeDef]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
 
+class ListOrganizationEnrollmentConfigurationsResponseTypeDef(TypedDict):
+    organizationEnrollmentConfigurations: list[OrganizationEnrollmentConfigurationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
 class ListRecommendedActionSummariesRequestPaginateTypeDef(TypedDict):
     filters: NotRequired[Sequence[RecommendedActionFilterTypeDef]]
+    organizationalUnitIds: NotRequired[Sequence[str]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListRecommendedActionSummariesRequestTypeDef(TypedDict):
     filters: NotRequired[Sequence[RecommendedActionFilterTypeDef]]
+    organizationalUnitIds: NotRequired[Sequence[str]]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
 
 class ListRecommendedActionsRequestPaginateTypeDef(TypedDict):
     filters: NotRequired[Sequence[RecommendedActionFilterTypeDef]]
+    organizationalUnitIds: NotRequired[Sequence[str]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListRecommendedActionsRequestTypeDef(TypedDict):
     filters: NotRequired[Sequence[RecommendedActionFilterTypeDef]]
+    organizationalUnitIds: NotRequired[Sequence[str]]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
 
 OrganizationConfigurationUnionTypeDef = Union[
     OrganizationConfigurationTypeDef, OrganizationConfigurationOutputTypeDef
 ]
+
+class ListAccountsResponseTypeDef(TypedDict):
+    accounts: list[AccountInfoTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class ListOrganizationalUnitsResponseTypeDef(TypedDict):
+    organizationalUnits: list[OrganizationalUnitInfoTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 class ListAutomationEventStepsResponseTypeDef(TypedDict):
     automationEventSteps: list[AutomationEventStepTypeDef]

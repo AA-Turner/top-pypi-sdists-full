@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: socketsecurity
-Version: 2.13.0
+Version: 2.13.2
 Summary: Socket Security CLI for CI/CD
 Project-URL: Homepage, https://socket.dev
 Author-email: Douglas Coburn <douglas@socket.dev>
@@ -44,15 +44,15 @@ Requires-Dist: packaging==26.3
 Requires-Dist: prettytable==3.18.0
 Requires-Dist: python-dotenv==1.2.4
 Requires-Dist: requests==2.34.2
-Requires-Dist: socketdev==3.6.2
+Requires-Dist: socketdev==3.6.3
 Provides-Extra: dev
 Requires-Dist: hatch==1.18.2; extra == 'dev'
 Requires-Dist: pre-commit==4.7.0; extra == 'dev'
-Requires-Dist: ruff==0.17.4; extra == 'dev'
+Requires-Dist: ruff==0.17.5; extra == 'dev'
 Requires-Dist: twine==7.0.0; extra == 'dev'
-Requires-Dist: uv==0.13.7; extra == 'dev'
+Requires-Dist: uv==0.13.8; extra == 'dev'
 Provides-Extra: test
-Requires-Dist: pytest-asyncio==1.4.1.post1; extra == 'test'
+Requires-Dist: pytest-asyncio==1.5.0; extra == 'test'
 Requires-Dist: pytest-cov==7.1.0; extra == 'test'
 Requires-Dist: pytest-mock==3.17.0; extra == 'test'
 Requires-Dist: pytest-watch==4.2.0; extra == 'test'
@@ -78,6 +78,10 @@ pip install socketsecurity
 ```bash
 export SOCKET_SECURITY_API_TOKEN="<token>"
 ```
+
+The token needs more than scan-creation access. Most missing scopes fail the run, and
+a token without the `diff-scans` scopes falls back with only a warning. See
+[`docs/troubleshooting.md#api-token-permissions`](https://github.com/SocketDev/socket-python-cli/blob/main/docs/troubleshooting.md#api-token-permissions).
 
 ### 3) Run a basic scan
 

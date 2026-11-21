@@ -45,6 +45,10 @@ impl Json for Pyo3 {
     type PreparedKey = Py<PyString>;
     type StringBuffer = ();
 
+    // A pass calls into the interpreter for every member and every key's text, while a lookup is
+    // one probe with the key's cached hash.
+    const MEMBERS_PER_PROPERTY: usize = 1;
+
     fn prepare_key(key: &str) -> Py<PyString> {
         Python::attach(|py| PyString::intern(py, key).unbind())
     }
@@ -279,7 +283,7 @@ fn resolved<'py>(node: PyNode<'py>) -> PyNode<'py> {
             None if holding() => current.getattr("value"),
             // A `value` override runs Python code, which may drop what the walk still reads
             None => {
-                NEEDS_HOLDING.with(|needs| needs.set(true));
+                CALL.with(|call| call.needs_holding.set(true));
                 return inert(current.py());
             }
         };
@@ -304,18 +308,38 @@ fn inert(py: Python<'_>) -> PyNode<'_> {
     unsafe { Borrowed::from_ptr(py, ffi::Py_None()) }
 }
 
-thread_local! {
+// What the current call tracks, in one thread-local: each access to one costs a call in an
+// extension module.
+struct CallState {
     // First error raised while inspecting an instance; the binding clears it before a call and
-    // raises it after.
-    static PENDING_ERROR: RefCell<Option<PyErr>> = const { RefCell::new(None) };
+    // raises it after. Boxed, so each call moves a pointer rather than the error.
+    pending: Cell<Option<Box<PyErr>>>,
+    // Strong references to the objects a call reads. Python code the call runs (an `Enum` member's
+    // `value` override, a custom keyword or format) or, without the GIL, another thread can drop a
+    // container's own references mid-call, so nodes keep these until the call's scope ends.
+    held: RefCell<Vec<*mut ffi::PyObject>>,
+    // Whether the current call holds what it reads; calls that run no Python code skip it.
+    holding: Cell<bool>,
+    // Set when a call without holding reached Python code it did not run; the call is redone
+    // holding.
+    needs_holding: Cell<bool>,
+}
+
+thread_local! {
+    static CALL: CallState = const {
+        CallState {
+            pending: Cell::new(None),
+            held: RefCell::new(Vec::new()),
+            holding: Cell::new(false),
+            needs_holding: Cell::new(false),
+        }
+    };
 }
 
 fn record_error(error: PyErr) {
-    PENDING_ERROR.with(|slot| {
-        let mut slot = slot.borrow_mut();
-        if slot.is_none() {
-            *slot = Some(error);
-        }
+    CALL.with(|call| {
+        let first = call.pending.take().unwrap_or_else(|| Box::new(error));
+        call.pending.set(Some(first));
     });
 }
 
@@ -324,9 +348,17 @@ fn record_value_error(message: &str) {
 }
 
 /// Take the error recorded while inspecting an instance, if any.
+#[cfg(test)]
 #[must_use]
 pub(crate) fn take_pending_error() -> Option<PyErr> {
-    PENDING_ERROR.with(|slot| slot.borrow_mut().take())
+    CALL.with(|call| call.pending.take()).map(|error| *error)
+}
+
+// The current thread's call state, looked up once per call: each lookup costs a call in an
+// extension module.
+fn call_state() -> &'static CallState {
+    // The state outlives every call on its thread, and a call never leaves the thread it began on.
+    CALL.with(|call| unsafe { &*std::ptr::from_ref(call) })
 }
 
 /// Run `run` over `instance`.
@@ -343,35 +375,24 @@ pub fn inspect<T>(
     holding: bool,
     mut run: impl FnMut() -> T,
 ) -> PyResult<T> {
+    let call = call_state();
     let mut holding = holding;
     loop {
-        let _scope = PendingErrorScope::enter(holding);
+        let _scope = PendingErrorScope::enter(call, holding);
         probe_root(instance);
-        if let Some(error) = take_pending_error() {
-            return Err(error);
+        if let Some(error) = call.pending.take() {
+            return Err(*error);
         }
         let result = run();
-        if !holding && NEEDS_HOLDING.with(Cell::get) {
+        if !holding && call.needs_holding.get() {
             holding = true;
             continue;
         }
-        if let Some(error) = take_pending_error() {
-            return Err(error);
+        if let Some(error) = call.pending.take() {
+            return Err(*error);
         }
         return Ok(result);
     }
-}
-
-thread_local! {
-    // Strong references to the objects a call reads. Python code the call runs (an `Enum` member's
-    // `value` override, a custom keyword or format) or, without the GIL, another thread can drop a
-    // container's own references mid-call, so nodes keep these until the call's scope ends.
-    static HELD: RefCell<Vec<*mut ffi::PyObject>> = const { RefCell::new(Vec::new()) };
-    // Whether the current call holds what it reads; calls that run no Python code skip it.
-    static HOLDING: Cell<bool> = const { Cell::new(false) };
-    // Set when a call without holding reached Python code it did not run; the call is redone
-    // holding.
-    static NEEDS_HOLDING: Cell<bool> = const { Cell::new(false) };
 }
 
 // Calls in any thread that hold what they read. Reads check it instead of the thread's own mode:
@@ -381,12 +402,12 @@ static HOLDING_CALLS: AtomicUsize = AtomicUsize::new(0);
 
 #[inline]
 fn holding() -> bool {
-    cfg!(Py_GIL_DISABLED) || HOLDING.with(Cell::get)
+    cfg!(Py_GIL_DISABLED) || CALL.with(|call| call.holding.get())
 }
 
 // Takes over the new reference `object` until the enclosing `PendingErrorScope` ends.
 fn hold(object: *mut ffi::PyObject) -> *mut ffi::PyObject {
-    HELD.with(|held| held.borrow_mut().push(object));
+    CALL.with(|call| call.held.borrow_mut().push(object));
     object
 }
 
@@ -407,7 +428,7 @@ fn holds_reads() -> bool {
     HOLDING_CALLS.load(Ordering::Relaxed) != 0
 }
 
-// Out of line, so callers do not look up `HELD` on the path that skips holding.
+// Out of line, so callers do not look up the held objects on the path that skips holding.
 #[cfg(not(Py_GIL_DISABLED))]
 #[cold]
 #[inline(never)]
@@ -420,38 +441,49 @@ fn hold_borrowed(object: *mut ffi::PyObject) -> *mut ffi::PyObject {
 // keyword that re-enters validation cannot consume the outer call's error. Objects the call holds
 // are released when it ends.
 struct PendingErrorScope {
-    saved: Option<PyErr>,
+    call: &'static CallState,
+    saved: Option<Box<PyErr>>,
     held: usize,
     holding: bool,
     needs_holding: bool,
 }
 
 impl PendingErrorScope {
-    fn enter(holding: bool) -> Self {
+    fn enter(call: &'static CallState, holding: bool) -> Self {
         if holding {
             #[cfg(not(Py_GIL_DISABLED))]
             HOLDING_CALLS.fetch_add(1, Ordering::Relaxed);
         }
         Self {
-            saved: take_pending_error(),
-            held: HELD.with(|held| held.borrow().len()),
-            holding: HOLDING.with(|cell| cell.replace(holding)),
-            needs_holding: NEEDS_HOLDING.with(|cell| cell.replace(false)),
+            call,
+            saved: call.pending.take(),
+            held: call.held.borrow().len(),
+            holding: call.holding.replace(holding),
+            needs_holding: call.needs_holding.replace(false),
         }
     }
 }
 
 impl Drop for PendingErrorScope {
     fn drop(&mut self) {
-        let saved = self.saved.take();
-        PENDING_ERROR.with(|slot| *slot.borrow_mut() = saved);
-        if HOLDING.with(|cell| cell.replace(self.holding)) {
+        let call = self.call;
+        call.pending.set(self.saved.take());
+        call.needs_holding.set(self.needs_holding);
+        let released = {
+            let mut held = call.held.borrow_mut();
+            // `split_off` at zero reallocates, so a call that held nothing skips it.
+            if held.len() > self.held {
+                held.split_off(self.held)
+            } else {
+                Vec::new()
+            }
+        };
+        let was_holding = call.holding.replace(self.holding);
+        if was_holding {
             #[cfg(not(Py_GIL_DISABLED))]
             HOLDING_CALLS.fetch_sub(1, Ordering::Relaxed);
         }
-        NEEDS_HOLDING.with(|cell| cell.set(self.needs_holding));
         // Released after the borrow ends: dropping an object can run code that validates again.
-        let released = HELD.with(|held| held.borrow_mut().split_off(self.held));
         for object in released {
             unsafe { ffi::Py_DECREF(object) };
         }
@@ -645,22 +677,6 @@ pub(crate) fn probe_root(node: Borrowed<'_, '_, PyAny>) {
         ObjType::Str => drop(str_ref(node)),
         ObjType::Enum => drop(resolved(node)),
         ObjType::Unknown => record_unsupported(node),
-        // Key types only.
-        ObjType::Dict => {
-            let str_type = types(node.py()).str_;
-            let mut cursor = DictCursor::new(unsafe { node.cast_unchecked::<PyDict>() });
-            while let Some((key, _)) = cursor.next() {
-                // Almost every key is an exact `str`, which needs no further classification.
-                if unsafe { ffi::Py_TYPE(key) } == str_type {
-                    continue;
-                }
-                let key = unsafe { Borrowed::from_ptr(node.py(), key) };
-                if !key_is_usable(key) {
-                    record_unusable_key(key);
-                    break;
-                }
-            }
-        }
         _ => {}
     }
 }

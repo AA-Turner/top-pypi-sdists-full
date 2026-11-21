@@ -66,7 +66,7 @@ fn in_range(
             None => return false,
         };
 
-    let ip = ip.field_by_name("raw").unwrap().type_value.as_string();
+    let ip = ip.field_by_name("raw").unwrap().type_value().as_string();
 
     let ip = match ip.to_str().ok().and_then(|s| s.parse::<IpAddr>().ok()) {
         Some(ip) => ip,
@@ -96,7 +96,7 @@ fn permutations(
     permutation_kinds: i64,
 ) -> bool {
     let scanned_domain =
-        scanned_domain.field_by_name("raw").unwrap().type_value.as_string();
+        scanned_domain.field_by_name("raw").unwrap().type_value().as_string();
 
     let scanned_domain = match parse_domain(scanned_domain.as_bstr()) {
         Some(d) => d,
@@ -160,13 +160,7 @@ fn permutations(
         return true;
     }
 
-    if HYPHENATION.bitand(&permutation_kinds) != 0
-        && interleaved(legit_domain, scanned_domain, '-')
-    {
-        return true;
-    }
-
-    false
+    HYPHENATION.bitand(&permutation_kinds) != 0 && interleaved(legit_domain, scanned_domain, '-')
 }
 
 /// Parses a domain name and returns its parts. For instance,

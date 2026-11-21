@@ -1670,6 +1670,23 @@ const Diagnostics& Compilation::getSemanticDiagnostics() {
     return *cachedSemanticDiagnostics;
 }
 
+Compilation::DiagnosticCapture::DiagnosticCapture(Compilation& compilation) :
+    compilation(compilation), prevCapture(compilation.activeCapture) {
+    compilation.activeCapture = &diagMap;
+}
+
+Compilation::DiagnosticCapture::~DiagnosticCapture() {
+    if (active)
+        compilation.activeCapture = prevCapture;
+}
+
+Diagnostics Compilation::DiagnosticCapture::finish() {
+    SLANG_ASSERT(active);
+    active = false;
+    compilation.activeCapture = prevCapture;
+    return diagMap.coalesce(compilation.sourceManager);
+}
+
 const Diagnostics& Compilation::getAllDiagnostics() {
     if (cachedAllDiagnostics)
         return *cachedAllDiagnostics;
@@ -1745,6 +1762,9 @@ Diagnostic& Compilation::addDiag(Diagnostic diag) {
     const bool isError = diag.isError();
 
     bool isNew;
+    if (activeCapture)
+        return activeCapture->add(std::move(diag), isNew);
+
     auto& result = diagMap.add(std::move(diag), isNew);
     if (isNew && isError)
         numErrors++;
@@ -2361,7 +2381,16 @@ void Compilation::checkVirtualIfaceInstance(const InstanceSymbol& instance) {
         auto& upwardNames = it->second->upwardNames;
         if (!upwardNames.empty()) {
             auto& diag = body->addDiag(diag::VirtualIfaceHierRef, instance.location);
-            diag.addNote(diag::NoteHierarchicalRef, upwardNames[0]->expr->sourceRange);
+
+            // Some upward references have no expression (e.g. implicit references
+            // to a global clocking block) or have an invalid expression with no
+            // source range, so find the first one that can be pointed at.
+            for (auto ref : upwardNames) {
+                if (ref->expr && ref->expr->sourceRange.start()) {
+                    diag.addNote(diag::NoteHierarchicalRef, ref->expr->sourceRange);
+                    break;
+                }
+            }
         }
     }
 
@@ -2506,7 +2535,18 @@ std::pair<Compilation::DefinitionLookupResult, bool> Compilation::resolveConfigR
         if (cellOverride) {
             if (auto it = cellOverride->specificLibRules.find(&targetLib);
                 it != cellOverride->specificLibRules.end()) {
-                return resolveConfigRule(scope, *it->second);
+                auto& specificRule = *it->second;
+                if (!specificRule.useCell.name.empty())
+                    return resolveConfigRule(scope, specificRule);
+
+                // The rule doesn't redirect to another cell (e.g. it only
+                // has parameter overrides) so apply it to the def in this lib.
+                specificRule.isUsed = true;
+                if (auto def = findDefByLib(defList, targetLib)) {
+                    return std::pair<Compilation::DefinitionLookupResult, bool>{
+                        {def, nullptr, &specificRule}, false};
+                }
+                return std::nullopt;
             }
         }
 

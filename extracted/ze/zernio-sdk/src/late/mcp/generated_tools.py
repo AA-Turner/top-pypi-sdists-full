@@ -5604,14 +5604,13 @@ def register_generated_tools(mcp, _get_client):
 
         - `spendCap: null` removes the cap.
         - `resetAmountSpent: true` restarts the amount counted against it from zero.
+        - Meta allows 10 spend cap changes per ad account per day (`spendCap`, `resetAmountSpent` and `spendCap: null` all count). Past that the call answers 429 `spend_cap_change_limit_reached` at once, and retrying fails until Meta's window resets.
 
         When `name`, `spendCap` or `resetAmountSpent` is passed, the response carries `settings`: the account's finances re-read after the write (same shape as `GET /v1/ads/accounts/finance`). The effective cap can be confirmed in one call.
 
         ### DSA defaults
 
-        Sets the default DSA beneficiary and payor on the ad account (EU DSA, Article 26). Set them once and every EU-targeted call to `/v1/ads/create`, `/v1/ads/boost` and `/v1/ads/ctwa` on that ad account can omit `dsaBeneficiary`/`dsaPayor`: Meta applies the defaults automatically.
-
-        The ...
+        Sets the default DSA beneficiary and ...
 
         Platforms: meta, google
 
@@ -8489,6 +8488,7 @@ def register_generated_tools(mcp, _get_client):
         rename_prefix: str | None = None,
         rename_suffix: str | None = None,
         sync_after: bool = True,
+        website_only: bool | None = None,
     ) -> str:
         """Duplicate an ad set
 
@@ -8503,7 +8503,8 @@ def register_generated_tools(mcp, _get_client):
             - So an ad set with any number of ads copies: Meta refuses a single deep copy of 3 or more objects.
             - `statusOption` applies to the ad set and every ad.
             - If an ad copy fails, the partial ad set copy is deleted and the request fails with Meta's error.
-            - A sync discovery starts automatically and runs after the response (`syncAfter: false` to skip). The copy is readable through Zernio once it finishes, usually within a few minutes. Until then, calls that take a copied id return 404, so retry them. ...
+            - A sync discovery starts automatically and runs after the response (`syncAfter: false` to skip). The copy is readable through Zernio once it finishes, usually within a few minutes. Until then, calls that take a copied id return 404, so retry them.
+            - ...
 
             Platforms (the platform parameter takes): facebook, instagram, tiktok
 
@@ -8524,7 +8525,12 @@ def register_generated_tools(mcp, _get_client):
         With no rename option at all, Meta appends its own ` - Copy` suffix. Ignored on TikTok, where `renamePrefix` / `renameSuffix` still apply.
                 rename_prefix: Text prepended to each renamed object's name.
                 rename_suffix: Text appended to each renamed object's name.
-                sync_after"""
+                sync_after
+                website_only: Meta only. Rebuilds each copied ad (new creative and ad) instead of using Meta's native copy, so the creative carries applink_treatment web_only and Ads Manager shows Website as the only destination.
+
+        - Omitted or false: keeps the native copy.
+        - 400 with `deepCopy: false`, and when an ad runs an existing post (its creative cannot be rebuilt).
+        - Meta rejects it when the campaign uses Website and App conversion locations."""
         client = _get_client()
         try:
             response = client.ad_campaigns.duplicate_ad_set(
@@ -8539,6 +8545,7 @@ def register_generated_tools(mcp, _get_client):
                 rename_prefix=rename_prefix,
                 rename_suffix=rename_suffix,
                 sync_after=sync_after,
+                website_only=website_only,
             )
             return _format_response(response)
         except Exception as e:
@@ -58686,6 +58693,205 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.workflows.restore_workflow_version(
                 workflow_id=workflow_id, version=version
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    # WORKSPACES
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List workspaces",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def workspaces_list_workspaces(limit: int = 50, skip: int = 0) -> str:
+        """List workspaces
+
+        Lists every workspace the key's owner belongs to, with their role in each: teams first by name, their Personal workspace last. Any key of the owner lists them all, whatever workspace that key acts in.
+
+        Args:
+            limit: Page size.
+            skip: Number of workspaces to skip."""
+        client = _get_client()
+        try:
+            response = client.workspaces.list_workspaces(limit=limit, skip=skip)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Create workspace",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def workspaces_create_workspace(
+        name: str, api_key: dict[str, Any] | None = None
+    ) -> str:
+        """Create workspace
+
+        Creates a new, empty workspace owned by the key's owner, for example one per client of your product.
+
+        - Send `apiKey` to get the new workspace's first key in the same call. A key only manages its own workspace, so no other key can mint one there later.
+        - The workspace has no billing. Its keys can read, but writes return 402 `workspace_billing_required` until billing is set up at `billing.setupUrl`.
+        - Needs a full-access key. Creation is capped at 5 a day and 20 owned workspaces without billing (429).
+
+        Args:
+            name: The workspace name. "Personal" is reserved (400 reserved_workspace_name). (required)
+            api_key: Mint a key that acts in the new workspace. The response then carries it in `apiKey`, with its full value shown only once. Object with keys: name (string, required); permission (one of: read-write, read); expiresIn (integer) - Days until expiry.; disabledResourceGroups (list of string)"""
+        client = _get_client()
+        try:
+            response = client.workspaces.create_workspace(name=name, api_key=api_key)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get workspace",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def workspaces_get_workspace(workspace_id: str) -> str:
+        """Get workspace
+
+        Returns one workspace the key's owner belongs to, with their role. Owners, admins and billing admins also get `billing` (whether it is set up, and where to set it up); members and viewers do not.
+
+        Args:
+            workspace_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.workspaces.get_workspace(workspace_id=workspace_id)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Rename workspace",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def workspaces_update_workspace(workspace_id: str, name: str) -> str:
+        """Rename workspace
+
+        Renames a workspace. Owner or admin there, with a full-access key of this workspace (a key of another workspace gets 403: rename it from the dashboard). Only a Personal workspace can be called \"Personal\".
+
+        Args:
+            workspace_id: (required)
+            name: The new name. "Personal" is reserved. (required)"""
+        client = _get_client()
+        try:
+            response = client.workspaces.update_workspace(
+                workspace_id=workspace_id, name=name
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Delete workspace",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def workspaces_delete_workspace(
+        workspace_id: str,
+        move_balance_to: str | None = None,
+        forfeit_balance: bool | None = None,
+    ) -> str:
+        """Delete workspace
+
+        Schedules the workspace for deletion 48 hours ahead, as the dashboard does. Members keep working, publishing is paused, and the owner or an admin can cancel from the dashboard until then. Only this workspace's data is deleted, never its members' accounts.
+
+        - Owner only, with a full-access key of this workspace. A key of another workspace gets 403; delete it from the dashboard.
+        - A Personal workspace is never deleted.
+        - Refused while the workspace owes a payment or holds a phone number or carrier registration (409 `deletion_blocked`).
+        - With a balance above $0, send `moveBalanceTo` (another billed workspace you own) or `forfeitBalance=true`. Balances are never refunded. Without either the call returns 422 `deletion_balance_choice`.
+
+        Args:
+            workspace_id: (required)
+            move_balance_to: A billed workspace you own that receives the remaining balance.
+            forfeit_balance: Leave the remaining balance; it is written off when the workspace is deleted."""
+        client = _get_client()
+        try:
+            response = client.workspaces.delete_workspace(
+                workspace_id=workspace_id,
+                move_balance_to=move_balance_to,
+                forfeit_balance=forfeit_balance,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Create workspace key",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def workspaces_create_workspace_api_key(
+        workspace_id: str,
+        name: str,
+        permission: Literal["read-write", "read"] = "read-write",
+        expires_in: int | None = None,
+        disabled_resource_groups: list[
+            Literal[
+                "publishing",
+                "engagement",
+                "messages",
+                "contacts",
+                "analytics",
+                "ads",
+                "telephony",
+                "accounts",
+                "billing",
+                "webhooks",
+                "commerce",
+                "creator_campaigns",
+                "money",
+                "calendar",
+                "files",
+            ]
+        ]
+        | None = None,
+    ) -> str:
+        """Create workspace key
+
+        Creates another API key that acts in this workspace as its creator. It covers every profile, and its full value is returned only once.
+
+        - The caller must be owner or admin there.
+        - The calling credential must be a full-access key of this same workspace. Profile-scoped, restricted and handed-over keys, OAuth tokens and keys of other workspaces get 403.
+        - For another workspace, use the dashboard. For a new one, send `apiKey` on `POST /v1/workspaces`.
+
+        Args:
+            workspace_id: (required)
+            name: (required)
+            permission: 'read' restricts the key to GET requests.
+            expires_in: Days until expiry. Omit for a key that never expires.
+            disabled_resource_groups: Resource groups the key cannot use, as on `POST /v1/api-keys`."""
+        client = _get_client()
+        try:
+            response = client.workspaces.create_workspace_api_key(
+                workspace_id=workspace_id,
+                name=name,
+                permission=permission,
+                expires_in=expires_in,
+                disabled_resource_groups=disabled_resource_groups,
             )
             return _format_response(response)
         except Exception as e:

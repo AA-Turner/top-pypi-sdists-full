@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_boto3_route53.literals import AcceleratedRecoveryStatusType
+    from types_boto3_route53.literals import AZAffinityLocationTypeType
 
-    data: AcceleratedRecoveryStatusType = "DISABLE_FAILED"
+    data: AZAffinityLocationTypeType = "AvailabilityZone"
     ```
 """
 
@@ -22,14 +22,21 @@ else:
     from typing_extensions import Literal
 
 __all__ = (
+    "AZAffinityLocationTypeType",
     "AcceleratedRecoveryStatusType",
     "AccountLimitTypeType",
     "ChangeActionType",
+    "ChangeGuardrailNameType",
+    "ChangeGuardrailStatusType",
+    "ChangeHistoryOperationType",
+    "ChangeHistorySortOrderType",
     "ChangeStatusType",
     "CidrCollectionChangeActionType",
     "CloudWatchRegionType",
     "ComparisonOperatorType",
     "EndpointTypeType",
+    "FeatureEnablementType",
+    "FeatureStatusType",
     "HealthCheckRegionType",
     "HealthCheckSourceCreatedWaiterName",
     "HealthCheckSourceDeletedWaiterName",
@@ -37,6 +44,7 @@ __all__ = (
     "HealthCheckSourceStatusType",
     "HealthCheckTypeType",
     "HostedZoneLimitTypeType",
+    "HostedZoneTierType",
     "HostedZoneTypeType",
     "InsufficientDataHealthStatusType",
     "ListCidrBlocksPaginatorName",
@@ -45,8 +53,10 @@ __all__ = (
     "ListHealthCheckSourcesPaginatorName",
     "ListHealthChecksBySourcePaginatorName",
     "ListHealthChecksPaginatorName",
+    "ListHostedZoneChangeBatchesPaginatorName",
     "ListHostedZonesPaginatorName",
     "ListQueryLoggingConfigsPaginatorName",
+    "ListResourceRecordSetChangesPaginatorName",
     "ListResourceRecordSetProtectionsPaginatorName",
     "ListResourceRecordSetsPaginatorName",
     "ListVPCAssociationAuthorizationsPaginatorName",
@@ -66,6 +76,9 @@ __all__ = (
     "WaiterName",
 )
 
+AZAffinityLocationTypeType = Literal[
+    "AvailabilityZone", "AvailabilityZoneGroup", "Global", "Partition", "Region"
+]
 AcceleratedRecoveryStatusType = Literal[
     "DISABLED",
     "DISABLE_FAILED",
@@ -85,6 +98,19 @@ AccountLimitTypeType = Literal[
     "MAX_TRAFFIC_POLICY_INSTANCES_BY_OWNER",
 ]
 ChangeActionType = Literal["CREATE", "DELETE", "UPSERT"]
+ChangeGuardrailNameType = Literal[
+    "ACTIVE_DELEGATION_CHECK",
+    "ACTIVE_RECORD_CHECK",
+    "ALIAS_TARGET_CHECK",
+    "NS_DELEGATION_AUTHORITY_CHECK",
+    "NS_FORMAT_CHECK",
+    "NS_OCCLUSION_CHECK",
+]
+ChangeGuardrailStatusType = Literal["DISABLED", "ENABLED"]
+ChangeHistoryOperationType = Literal[
+    "ChangeResourceRecordSets", "CreateHostedZone", "DeleteHostedZone"
+]
+ChangeHistorySortOrderType = Literal["ASCENDING", "DESCENDING"]
 ChangeStatusType = Literal["INSYNC", "PENDING"]
 CidrCollectionChangeActionType = Literal["DELETE_IF_EXISTS", "PUT"]
 CloudWatchRegionType = Literal[
@@ -142,6 +168,8 @@ ComparisonOperatorType = Literal[
     "LessThanThreshold",
 ]
 EndpointTypeType = Literal["PRIVATE", "PUBLIC"]
+FeatureEnablementType = Literal["DISABLED", "ENABLED"]
+FeatureStatusType = Literal["DISABLED", "DISABLING", "ENABLED", "ENABLING"]
 HealthCheckRegionType = Literal[
     "ap-northeast-1",
     "ap-southeast-1",
@@ -184,6 +212,7 @@ HealthCheckTypeType = Literal[
     "TCP",
 ]
 HostedZoneLimitTypeType = Literal["MAX_RRSETS_BY_ZONE", "MAX_VPCS_ASSOCIATED_BY_ZONE"]
+HostedZoneTierType = Literal["ADVANCED", "STANDARD"]
 HostedZoneTypeType = Literal["PrivateHostedZone"]
 InsufficientDataHealthStatusType = Literal["Healthy", "LastKnownStatus", "Unhealthy"]
 ListCidrBlocksPaginatorName = Literal["list_cidr_blocks"]
@@ -192,8 +221,10 @@ ListCidrLocationsPaginatorName = Literal["list_cidr_locations"]
 ListHealthCheckSourcesPaginatorName = Literal["list_health_check_sources"]
 ListHealthChecksBySourcePaginatorName = Literal["list_health_checks_by_source"]
 ListHealthChecksPaginatorName = Literal["list_health_checks"]
+ListHostedZoneChangeBatchesPaginatorName = Literal["list_hosted_zone_change_batches"]
 ListHostedZonesPaginatorName = Literal["list_hosted_zones"]
 ListQueryLoggingConfigsPaginatorName = Literal["list_query_logging_configs"]
+ListResourceRecordSetChangesPaginatorName = Literal["list_resource_record_set_changes"]
 ListResourceRecordSetProtectionsPaginatorName = Literal["list_resource_record_set_protections"]
 ListResourceRecordSetsPaginatorName = Literal["list_resource_record_sets"]
 ListVPCAssociationAuthorizationsPaginatorName = Literal["list_vpc_association_authorizations"]
@@ -322,6 +353,7 @@ ServiceName = Literal[
     "account-access-runtime",
     "acm",
     "acm-pca",
+    "agent-discovery",
     "agent-registry",
     "agent-registry-control",
     "aiops",
@@ -332,6 +364,7 @@ ServiceName = Literal[
     "apigateway",
     "apigatewaymanagementapi",
     "apigatewayv2",
+    "apiportal",
     "appconfig",
     "appconfigdata",
     "appfabric",
@@ -622,6 +655,7 @@ ServiceName = Literal[
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
+    "payments",
     "pca-connector-ad",
     "pca-connector-scep",
     "pcs",
@@ -677,6 +711,7 @@ ServiceName = Literal[
     "sagemaker-a2i-runtime",
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
+    "sagemaker-gateway-runtime",
     "sagemaker-geospatial",
     "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
@@ -766,8 +801,10 @@ PaginatorName = Literal[
     "list_health_check_sources",
     "list_health_checks",
     "list_health_checks_by_source",
+    "list_hosted_zone_change_batches",
     "list_hosted_zones",
     "list_query_logging_configs",
+    "list_resource_record_set_changes",
     "list_resource_record_set_protections",
     "list_resource_record_sets",
     "list_vpc_association_authorizations",

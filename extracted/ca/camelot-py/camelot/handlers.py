@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import multiprocessing as mp
 import os
 import tempfile
@@ -38,6 +39,8 @@ PARSERS = {
     "hybrid": Hybrid,
     "ml": MachineLearning,
 }
+
+logger = logging.getLogger("camelot")
 
 
 FilepathOrBuffer = str | Path | bytes | bytearray | memoryview | IO[bytes]
@@ -203,13 +206,30 @@ class PDFHandler:
             for r in pages.split(","):
                 if "-" in r:
                     a, b = r.split("-")
-                    b_int = page_count if b == "end" else int(b)
+                    b_int = page_count if b.strip() == "end" else int(b)
                     page_numbers.append({"start": int(a), "end": b_int})
                 else:
                     page_numbers.append({"start": int(r), "end": int(r)})
         result: list[int] = []
         for p in page_numbers:
             result.extend(range(p["start"], p["end"] + 1))
+        # Pages are 1-based. Page 0 would become index -1 and silently read
+        # the last page; a page past the end fails deep inside playa.
+        bounds = {n for p in page_numbers for n in (p["start"], p["end"])}
+        out_of_range = sorted(
+            n for n in bounds | set(result) if not 1 <= n <= page_count
+        )
+        if out_of_range:
+            raise ValueError(
+                f"Page {out_of_range[0]} is out of range: pages are numbered "
+                f"from 1 and this PDF has {page_count}"
+            )
+        # A reversed range would select no page and return no tables.
+        for p in page_numbers:
+            if p["start"] > p["end"]:
+                raise ValueError(
+                    f"Page range {p['start']}-{p['end']} ends before it starts"
+                )
         return sorted(set(result))
 
     def __enter__(self) -> PDFHandler:
@@ -453,6 +473,7 @@ class PDFHandler:
                         flavor=flavor,
                         base_kwargs=kwargs,
                         per_page=per_page,
+                        suppress_stdout=suppress_stdout,
                     )
                 )
         except PDFPasswordIncorrect as e:
@@ -469,6 +490,7 @@ class PDFHandler:
         flavor: str = "lattice",
         base_kwargs: dict[str, Any] | None = None,
         per_page: dict[int, dict[str, Any]] | None = None,
+        suppress_stdout: bool = False,
     ):
         """Extract tables by calling parser.get_tables on a single page PDF.
 
@@ -489,6 +511,8 @@ class PDFHandler:
             per-page override to construct a fresh parser for that page.
         per_page : dict, optional
             Page-number-keyed kwargs overrides (already validated upstream).
+        suppress_stdout : bool, optional (default: False)
+            Suppress per-page progress logs.
 
         Returns
         -------
@@ -498,6 +522,8 @@ class PDFHandler:
         """
         # playa's page_idx is 0-indexed; user-facing per_page uses 1-indexed.
         page_no = page.page_idx + 1
+        if not suppress_stdout:
+            logger.info("Processing page %d", page_no)
         overrides = (per_page or {}).get(page_no)
         if overrides:
             page_flavor = overrides.get("flavor", flavor)

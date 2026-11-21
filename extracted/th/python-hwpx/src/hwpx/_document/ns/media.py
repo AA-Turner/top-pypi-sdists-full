@@ -11,12 +11,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
+from ...model import Picture
+from ...objects import BinaryItem, PictureReplacement
 from ._base import _Namespace
-
-if TYPE_CHECKING:
-    from ...objects import BinaryItem, PictureRef, PictureReplacement
 
 __all__ = ["MediaNamespace"]
 
@@ -34,10 +31,16 @@ class MediaNamespace(_Namespace):
 
         5.x 는 매니페스트 id 문자열을 돌려줬다. ``str(item)`` 이 여전히 그
         id 라 f-string·경로 조립은 그대로 동작한다(이주 완충).
+
+        *image_format* 은 ``png``·``jpg``(``jpeg``)·``gif``·``bmp``·``tif``(``tiff``)·
+        ``svg``·``wmf``·``emf`` 중 하나이고, *image_data* 의 첫 바이트가 그 형식이어야
+        한다. 아니면 아무것도 넣지 않고 ``HwpxValueError``(``media-image-invalid``)를
+        낸다. 한/글은 그림이 아닌 데이터를 빈 틀로 보여 준다.
         """
 
         from .. import media as _media
 
+        _media.check_image(image_data, image_format)
         return _media.add_image(
             self._doc,
             image_data=image_data,
@@ -84,8 +87,9 @@ class MediaNamespace(_Namespace):
     def remove_unused_images(self) -> "tuple[BinaryItem, ...]":
         """문서가 어디서도 가리키지 않는 이진 항목을 모두 지우고, 지운 항목을 돌려준다.
 
-        한/글은 문서를 저장할 때 쓰지 않는 이진 항목을 지운다. 본문에서 그림을 지우면
-        (``section.clear_body()``, 문단 삭제) 그 그림의 이진 항목은 패키지에 남는다.
+        한/글은 문서를 저장할 때 쓰지 않는 이진 항목을 지운다. 개체의 ``remove()``는 그 개체가
+        보이던 이진 항목만 바로 정리하고, 다른 길로 그림을 지우면(``section.clear_body()``, 문단 삭제,
+        ``remove(remove_orphaned=False)``) 그 이진 항목은 패키지에 남는다. 이것은 그런 항목을 한꺼번에 지운다.
         :meth:`remove_image`가 확인하는 참조(그림, 채우기 그림·그림 글머리표, 바탕쪽,
         동영상, OLE, 내장 글꼴)가 하나라도 있으면 지우지 않는다."""
 
@@ -93,24 +97,37 @@ class MediaNamespace(_Namespace):
 
         return _media.remove_unused_images(self._doc)
 
-    def picture_references(self) -> "tuple[PictureRef, ...]":
-        """본문의 그림 개체가 어떤 이진 항목을 가리키는지의 역참조 표."""
+    @property
+    def pictures(self) -> "tuple[Picture, ...]":
+        """문서 본문의 그림 개체 전부를 문서 순서로 돌려준다.
+
+        표 칸·글상자·각주·묶음 안의 그림도 든다. 하나하나가 ``model.Picture``라 이진 항목
+        (``item_id``)·크기(``width``·``height``, ``resize``)·자르기(``crop``)·설명·위치를 읽고 고치고
+        ``remove()``로 지운다. ``remove()``는 다른 곳에서 쓰지 않게 된 그 그림의 이진 항목도 함께
+        지운다(``remove(remove_orphaned=False)``면 남긴다). 남은 것은 :meth:`remove_unused_images`가 지운다.
+        :meth:`replace_picture` 의 ``index`` 가 이 순서다.
+        """
 
         from .. import media as _media
 
-        return _media.picture_references(self._doc)
+        return _media.pictures(self._doc)
 
     def replace_picture(
         self,
         image_data: bytes,
         image_format: str,
         *,
-        picture_index: int = 0,
-        binary_item_id_ref: str | None = None,
+        index: int = 0,
+        old_item_id: str | None = None,
         remove_orphaned: bool = True,
         item_id: str | None = None,
     ) -> "PictureReplacement":
-        """그림 개체가 가리키는 이진 항목을 새 이미지로 바꾼다."""
+        """그림 개체가 가리키는 이진 항목을 새 이미지로 바꾼다.
+
+        바꿀 그림은 :attr:`pictures` 의 *index* 번째(0부터)다. *old_item_id* 를 주면 그 이진 항목을
+        보이는 그림들 가운데 *index* 번째다. 새 이미지의 항목 id 는 *item_id* (주지 않으면 새로 매긴다),
+        *remove_orphaned* 면 더 쓰이지 않는 옛 항목을 지운다.
+        """
 
         from .. import media as _media
 
@@ -118,8 +135,8 @@ class MediaNamespace(_Namespace):
             self._doc,
             image_data=image_data,
             image_format=image_format,
-            picture_index=picture_index,
-            binary_item_id_ref=binary_item_id_ref,
+            index=index,
+            old_item_id=old_item_id,
             remove_orphaned=remove_orphaned,
             item_id=item_id,
         )

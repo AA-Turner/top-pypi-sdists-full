@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dom-toml
-Version: 2.3.0
+Version: 2.4.0
 Summary: Dom's tools for Tom's Obvious, Minimal Language.
 Keywords: configuration,serialize,toml
 Author-email: Dominic Davis-Foster <dominic@davis-foster.co.uk>
@@ -142,7 +142,7 @@ dom_toml
 .. |language| image:: https://img.shields.io/github/languages/top/domdfcoding/dom_toml
 	:alt: GitHub top language
 
-.. |commits-since| image:: https://img.shields.io/github/commits-since/domdfcoding/dom_toml/v2.3.0
+.. |commits-since| image:: https://img.shields.io/github/commits-since/domdfcoding/dom_toml/v2.4.0
 	:target: https://github.com/domdfcoding/dom_toml/pulse
 	:alt: GitHub commits since tagged version
 

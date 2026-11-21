@@ -14,11 +14,10 @@ from fastapi.dependencies.models import Dependant
 from fastapi.routing import APIRoute
 from pydantic import BaseModel, RootModel
 
-from cadwyn._utils import (
+from cadwyn_core._utils import (
     is_same_value,
 )
-
-from ._core_schema import (
+from cadwyn_core.structure.versions._core_schema import (
     _CORE_SCHEMA_DEFINITIONS,
     _CORE_SCHEMA_ERRORS,
     _UNION_SCHEMA_TYPES,
@@ -29,6 +28,7 @@ from ._core_schema import (
     _is_custom_serialization,
     _register_core_schema_definitions,
 )
+
 from ._dependencies import _get_dependency_overrides, _iter_dependants_that_fastapi_solves
 
 # How the head validates the data of a body schema, as far as the models of the request's version in it go:
@@ -350,6 +350,6 @@ def _has_fields_of_head_model(model: type[BaseModel], head_model: type[BaseModel
 
 def _unwrap_default_factory(factory: object) -> object:
     # Copies of models wrap the default factories of the head's models. `schema_generation` imports this module.
-    from cadwyn.schema_generation._callables import _CallableWrapper
+    from cadwyn_core.schema_generation._callables import _CallableWrapper
 
     return factory._original_callable if isinstance(factory, _CallableWrapper) else factory

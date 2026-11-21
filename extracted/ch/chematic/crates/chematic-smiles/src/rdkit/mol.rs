@@ -574,8 +574,26 @@ impl Mol {
         }
         let dv = periodic::default_valence(eff);
         let valens = periodic::valence_list(eff);
+        let mut minimum_explicit = 0;
         // `unsigned int dv`: -1 never compares below `accum`.
         if dv >= 0 && accum > f64::from(dv) && self.is_aromatic_atom(a) {
+            // Keep the strict lower bound for #9735's exocyclic multiple-bond
+            // overvalence. RDKit does accept aromatic ring triples in the
+            // fingerprint stress corpus, so only that specific bond shape
+            // uses RDKit's corrected valence without the extra floor.
+            let aromatic_triple = self.atom_bonds[a].iter().any(|&b| {
+                let bond = &self.bonds[b];
+                bond.bt == BondType::Triple && self.atoms[bond.other(a)].aromatic
+            }) && !self.atom_bonds[a]
+                .iter()
+                .any(|&b| self.bonds[b].bt == BondType::Double);
+            if strict && !aromatic_triple {
+                minimum_explicit = self.atom_bonds[a]
+                    .iter()
+                    .map(|&b| self.bonds[b].valence_contrib(a).floor() as i32)
+                    .sum::<i32>()
+                    + atom.num_explicit_hs as i32;
+            }
             let mut pval = dv;
             for &val in valens {
                 if val == -1 {
@@ -593,6 +611,7 @@ impl Mol {
         accum += 0.1;
         let res = accum.round() as i32;
         if strict {
+            let checked_valence = res.max(minimum_explicit);
             let mut max_valence = i32::from(*valens.last().unwrap_or(&-1));
             let mut offset = 0;
             if self.can_be_hypervalent(a, eff) {
@@ -602,10 +621,12 @@ impl Mol {
             if atom.anum == 1 && atom.charge == -1 {
                 max_valence = 2;
             }
-            if max_valence >= 0 && *ovalens.last().unwrap_or(&-1) >= 0 && res + offset > max_valence
+            if max_valence >= 0
+                && *ovalens.last().unwrap_or(&-1) >= 0
+                && checked_valence + offset > max_valence
             {
                 return Err(RdkitSmilesError::Sanitization(format!(
-                    "Explicit valence for atom # {a} {}, {res}, is greater than permitted",
+                    "Explicit valence for atom # {a} {}, {checked_valence}, is greater than permitted",
                     periodic::symbol(atom.anum)
                 )));
             }
@@ -865,6 +886,16 @@ impl Mol {
     }
 }
 
+// RDKit 2026.09.2 depiction uses these two axial pairs. The SMILES
+// permutation and across tables use the OpenSMILES pairs instead.
+fn rdkit_tb_axial(permutation: u32) -> Option<[usize; 2]> {
+    match permutation {
+        10 => Some([1, 4]),
+        11 => Some([1, 3]),
+        _ => nontetrahedral::tb_axial(permutation),
+    }
+}
+
 impl Mol {
     /// `Chirality::getChiralAcrossAtom(cen, lig)`.
     pub(crate) fn chiral_across_atom(&self, cen: usize, lig: usize) -> Option<usize> {
@@ -889,7 +920,7 @@ impl Mol {
         if self.atoms[cen].chiral != ChiralTag::TrigonalBipyramidal || self.degree(cen) > 5 {
             return None;
         }
-        let ax = nontetrahedral::tb_axial(self.atoms[cen].chiral_perm)?;
+        let ax = rdkit_tb_axial(self.atoms[cen].chiral_perm)?;
         let idx = if axial != -1 { ax[0] } else { ax[1] };
         self.atom_bonds[cen]
             .get(idx)
@@ -901,7 +932,7 @@ impl Mol {
         if self.atoms[cen].chiral != ChiralTag::TrigonalBipyramidal || self.degree(cen) > 5 {
             return false;
         }
-        let Some(ax) = nontetrahedral::tb_axial(self.atoms[cen].chiral_perm) else {
+        let Some(ax) = rdkit_tb_axial(self.atoms[cen].chiral_perm) else {
             return false;
         };
         match self.atom_bonds[cen]
@@ -1006,6 +1037,44 @@ pub(crate) fn count_swaps(reference: &[usize], probe: &[usize]) -> usize {
 mod primitive_contract_tests {
     use super::*;
 
+    #[test]
+    fn strict_aromatic_valence_keeps_overvalence_guard_and_dative_direction() {
+        let mut center = Atom::new(6);
+        center.aromatic = true;
+        let mol = star(center, 5);
+        assert_eq!(mol.calc_explicit_valence_value(0, false).unwrap(), 4);
+        let error = mol.calc_explicit_valence_value(0, true).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("C, 5, is greater than permitted")
+        );
+        let mut center = Atom::new(6);
+        center.aromatic = true;
+        let mol = star(center, 6);
+        let error = mol.calc_explicit_valence_value(0, true).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("C, 6, is greater than permitted")
+        );
+
+        for donor in [true, false] {
+            let mut mol = Mol::default();
+            let mut carbon = Atom::new(6);
+            carbon.aromatic = true;
+            mol.add_atom(carbon);
+            for _ in 0..2 {
+                let oxygen = mol.add_atom(Atom::new(8));
+                mol.add_bond(Bond::new(0, oxygen, BondType::Double));
+            }
+            let metal = mol.add_atom(Atom::new(26));
+            let (begin, end) = if donor { (0, metal) } else { (metal, 0) };
+            mol.add_bond(Bond::new(begin, end, BondType::Dative));
+            assert_eq!(mol.calc_explicit_valence_value(0, true).is_ok(), donor);
+        }
+    }
+
     fn star(center: Atom, ligands: usize) -> Mol {
         let mut mol = Mol::default();
         mol.add_atom(center);
@@ -1087,6 +1156,18 @@ mod primitive_contract_tests {
         atom.no_implicit = true;
         fixed.add_atom(atom);
         assert_eq!(fixed.calc_implicit_valence_value(0, true).unwrap(), 0);
+    }
+
+    #[test]
+    fn rdkit_depiction_uses_rdkit_axial_positions_for_tb10_and_tb11() {
+        for (tag, second) in [(10, 5), (11, 4)] {
+            let mut center = Atom::new(15);
+            center.chiral = ChiralTag::TrigonalBipyramidal;
+            center.chiral_perm = tag;
+            let mol = star(center, 5);
+            assert_eq!(mol.tb_axial_atom(0, 1), Some(2));
+            assert_eq!(mol.tb_axial_atom(0, -1), Some(second));
+        }
     }
 
     #[test]

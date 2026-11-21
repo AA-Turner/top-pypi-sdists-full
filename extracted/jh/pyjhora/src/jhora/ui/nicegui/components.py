@@ -98,7 +98,7 @@ import sqlite3
 from datetime import datetime
 from nicegui import ui, app, run
 from jhora import const, utils
-from options_dialog import open_options_dialog
+from options_dialog import open_options_dialog, render_header_settings, register_calculate_marker
 import birth_store
 import web_settings
 from row_fit import fit_css, fit_row  # one-line control rows without a scrollbar (see row_fit.py)
@@ -108,6 +108,10 @@ from privacy_notice import show_privacy_notice
 from engine_sync import (  # noqa: F401  (re-exported for convenience)
   calc_lock, apply_current_language, safe_notify, ignore_disconnected_client,
 )
+import os
+_WEB_VERSION_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), '_web_version.txt')
+with open(_WEB_VERSION_PATH, encoding='utf-8') as f:
+    WEB_APP_VERSION = f.read().strip()
 _PRINT_CSS = """
 <style>
   @media print {
@@ -259,6 +263,14 @@ _DEFAULT_LATITUDE = "13.0878"
 _DEFAULT_LONGITUDE = "80.2785"
 _DEFAULT_TIMEZONE = "5.5"
 _MAX_LOCATION_RESOLVE_ATTEMPTS = 3
+_IP_LOCATION_CACHE = {}        # public IP address -> [place, latitude, longitude, time zone]; successful lookups only
+_IP_LOCATION_CACHE_MAX = 500
+_IP_LOCATION_LOGGED = set()     # messages already printed once (keeps the console readable)
+_PLACE_STATE_KEYS = ("place_name", "latitude", "longitude", "timezone")
+_LOC_DONE_KEY = "_loc_ip_done"            # saved with the browser: the IP lookup succeeded
+_LOC_ATTEMPTS_KEY = "_loc_ip_attempts"    # saved with the browser: number of failed tries
+_OLD_LOC_KEYS = ("_location_resolved", "_location_resolve_attempts")
+_LOC_CLOCK_KEY = "_loc_ip_clock_pending"   # saved with the browser: date/time of birth should follow the located place
 def res_str(key, fallback):
   """Returns the language resource string for `key`, or `fallback` if it is not available."""
   try:
@@ -289,6 +301,8 @@ def ensure_default_state():
       "kundali_chart_style_index": (lambda: 0, lambda v: _int(v) and v >= 0),
       "kundali_chart_style": (lambda: "south_indian_regular", _str),
   }
+  place_defaulted = False
+  clock_defaulted = False
   for key, (default, ok) in schema.items():
       try:
           valid = key in s and ok(s[key])
@@ -296,34 +310,207 @@ def ensure_default_state():
           valid = False
       if not valid:
           s[key] = default()
+          if key in _PLACE_STATE_KEYS:
+              place_defaulted = True
+          if key in ("date_dob", "time_tob"):
+              clock_defaulted = True
+  if place_defaulted:
+      # The place fields live in server MEMORY only (birth_store: lost on restart or after the idle
+      # timeout), but the lookup flags below are kept in app.storage.user, which survives. Without this
+      # reset a browser that already had a lookup recorded would stay on the default place for good.
+      for key in (_LOC_DONE_KEY, _LOC_ATTEMPTS_KEY):
+          s.pop(key, None)
+  if clock_defaulted:
+      # date/time of birth now hold the SERVER's clock; replace it by the located place's local time once
+      # the lookup succeeds. Not set when the visitor's own date/time are still in memory (never overwritten).
+      s[_LOC_CLOCK_KEY] = True
+  for key in _OLD_LOC_KEYS:       # flags written by older versions (they marked the lookup done even when it was OFF)
+      s.pop(key, None)
   resolve_initial_location(s)
   return s
+def _location_log(message, once=False):
+  """Prints a '[location]' line to the console so it is visible WHY a place was or was not found."""
+  if once:
+      if message in _IP_LOCATION_LOGGED:
+          return
+      _IP_LOCATION_LOGGED.add(message)
+  print(f"[location] {message}")
+def _visitor_ip_address():
+  """Returns the public IP address of the visitor's BROWSER, read from the current HTTP request (the
+  proxy headers first, then the connection itself).
+  '' means the request came from a private/loopback address, i.e. the browser and the server are on the
+  same machine or network; None means there is no request to read an address from."""
+  import ipaddress
+  try:
+      request = ui.context.client.request
+  except Exception:
+      return None
+  if request is None:
+      return None
+  candidates = []
+  try:
+      headers = request.headers
+      for name in ('cf-connecting-ip', 'x-real-ip'):
+          if headers.get(name):
+              candidates.append(headers.get(name))
+      forwarded = headers.get('x-forwarded-for')
+      if forwarded:
+          candidates.append(forwarded.split(',')[0])      # the first entry is the original client
+      if request.client:
+          candidates.append(request.client.host)
+  except Exception:
+      pass
+  for text in candidates:
+      try:
+          address = ipaddress.ip_address(str(text).strip())
+      except ValueError:
+          continue
+      mapped = getattr(address, 'ipv4_mapped', None)      # ::ffff:a.b.c.d -> a.b.c.d
+      if mapped is not None:
+          address = mapped
+      if address.is_global:
+          return str(address)
+  return ''
+_IP_LOOKUP_TIMEOUT = 4          # seconds to wait for each lookup service
+_IP_LOOKUP_USER_AGENT = "SarvaJyotish/1.0"
+def _ip_lookup_services(ip_address):
+  """Free IP-geolocation services in the order they are tried: [(name, url, extra_headers, parser)].
+  A parser takes the decoded JSON and returns (latitude, longitude, city, country_code), or None when the
+  service has no answer for this address."""
+  import os
+  def _ipinfo(d):
+      latitude, longitude = str(d["loc"]).split(",")
+      return float(latitude), float(longitude), d.get("city", ""), d.get("country", "")
+  def _ipwho(d):
+      if d.get("success") is False:
+          return None
+      return float(d["latitude"]), float(d["longitude"]), d.get("city", ""), d.get("country_code", "")
+  def _geojs(d):
+      return float(d["latitude"]), float(d["longitude"]), d.get("city", ""), d.get("country_code", "")
+  def _ipapi(d):
+      if d.get("error"):
+          return None
+      return float(d["latitude"]), float(d["longitude"]), d.get("city", ""), d.get("country_code", "")
+  def _freeipapi(d):
+      return float(d["latitude"]), float(d["longitude"]), d.get("cityName", ""), d.get("countryCode", "")
+  services = []
+  token = os.environ.get("IPINFO_TOKEN", "").strip()
+  if token:       # sent as a header, never in the URL, so it cannot end up in an error message or log
+      services.append(("ipinfo.io", f"https://ipinfo.io/{ip_address}/json", {"Authorization": f"Bearer {token}"}, _ipinfo))
+  services += [
+      ("ipwho.is", f"https://ipwho.is/{ip_address}", {}, _ipwho),
+      ("geojs.io", f"https://get.geojs.io/v1/ip/geo/{ip_address}.json", {}, _geojs),
+      ("ipapi.co", f"https://ipapi.co/{ip_address}/json/", {}, _ipapi),
+      ("freeipapi.com", f"https://freeipapi.com/api/json/{ip_address}", {}, _freeipapi),
+  ]
+  return services
+def _place_from_ip_address(ip_address):
+  """Returns [place, latitude, longitude, time zone offset] for a public IP address, or [] when it cannot
+  be located. Successful lookups are cached per IP address (failures are not, so a temporary network
+  problem or a throttled service does not stick)."""
+  cached = _IP_LOCATION_CACHE.get(ip_address)
+  if cached:
+      return list(cached)
+  import requests
+  base_headers = {"User-Agent": _IP_LOOKUP_USER_AGENT, "Accept": "application/json"}
+  found = None
+  for name, url, extra_headers, parser in _ip_lookup_services(ip_address):
+      try:
+          response = requests.get(url, headers={**base_headers, **extra_headers}, timeout=_IP_LOOKUP_TIMEOUT)
+          response.raise_for_status()
+          found = parser(response.json())
+          if found is not None:
+              latitude, longitude = found[0], found[1]
+              # a service that does not know the address may answer 0,0 or garbage: treat as "no answer"
+              if not (-90.0 <= latitude <= 90.0 and -180.0 <= longitude <= 180.0) or (latitude == 0.0 and longitude == 0.0):
+                  found = None
+      except requests.HTTPError as e:
+          # only the status code is logged: the exception text contains the URL, i.e. the visitor's IP address
+          _location_log(f"lookup service {name}: HTTP {getattr(e.response, 'status_code', '?')} - trying the next one.", once=True)
+          found = None
+          continue
+      except Exception as e:
+          _location_log(f"lookup service {name}: {type(e).__name__} - trying the next one.", once=True)
+          found = None
+          continue
+      if found is not None:
+          _location_log(f"lookup service {name} answered.", once=True)
+          break
+  if found is None:
+      return []
+  latitude, longitude, city, country = found
+  place = f"{city or ''},{country or ''}".strip(',') or f"{latitude:.4f},{longitude:.4f}"
+  result = [place, latitude, longitude, float(utils.get_place_timezone_offset(latitude, longitude))]
+  if len(_IP_LOCATION_CACHE) >= _IP_LOCATION_CACHE_MAX:
+      _IP_LOCATION_CACHE.clear()
+  _IP_LOCATION_CACHE[ip_address] = result
+  return list(result)
+
 def resolve_initial_location(state):
   """Sets the place fields of `state` from the visitor's IP address when
-  const.use_internet_for_location_check is on."""
-  if state.get("_location_resolved"):
+  const.use_internet_for_location_check is on. When the location cannot be found, the defaults set by
+  ensure_default_state() (Chennai) stay.
+  A visitor on a public IP address is located from THAT address (the browser's). The PyJHora function
+  utils.get_place_from_user_ip_address() looks up the address of the machine running this code, so it is
+  only used when the browser is on the same machine/network as the server (private or loopback address);
+  on a public server it would put every visitor in the server's city."""
+  if state.get(_LOC_DONE_KEY):
       return
-  attempts = state.get("_location_resolve_attempts", 0)
+  attempts = state.get(_LOC_ATTEMPTS_KEY, 0)
   if attempts >= _MAX_LOCATION_RESOLVE_ATTEMPTS:
+      state.pop(_LOC_CLOCK_KEY, None)         # gave up: keep the server clock, stop waiting
       return
   use_internet = getattr(const, 'use_internet_for_location_check', False)
   if not use_internet:
-      state["_location_resolved"] = True
+      # Not remembered in `state`: that is saved with the browser session, and would stop the lookup from
+      # ever running for this browser after the setting is switched on.
+      _location_log("const.use_internet_for_location_check is OFF - keeping the default place. "
+                    "Set it to True to find the visitor's place from the IP address.", once=True)
+      state.pop(_LOC_CLOCK_KEY, None)
       return
-  state["_location_resolve_attempts"] = attempts + 1
+  visitor_ip = _visitor_ip_address()
+  if visitor_ip is None:      # no request to read the address from: keep the defaults, try again later
+      _location_log("no HTTP request available to read the visitor's IP address - keeping the default place.", once=True)
+      return
+  state[_LOC_ATTEMPTS_KEY] = attempts + 1
   try:
-      with calc_lock():
-          loc = utils.get_place_from_user_ip_address()
+      if visitor_ip:
+          #_location_log(f"visitor IP address {visitor_ip} - looking it up (attempt {attempts + 1}/{_MAX_LOCATION_RESOLVE_ATTEMPTS}).")
+          loc = _place_from_ip_address(visitor_ip)
+      else:
+          _location_log(f"browser is on a private/loopback address - using the server machine's own IP address "
+                        f"(attempt {attempts + 1}/{_MAX_LOCATION_RESOLVE_ATTEMPTS}).")
+          with calc_lock():
+              loc = utils.get_place_from_user_ip_address()
+          if not loc:
+              # utils caches even a FAILED lookup (functools.lru_cache), so without this it would stay [] until restart.
+              try:
+                  utils._get_place_from_user_ip_address_cached.cache_clear()
+              except Exception:
+                  pass
       if loc and len(loc) >= 4:
+          #_location_log(f"found: {loc[0]} lat={loc[1]} lon={loc[2]} tz={loc[3]}")
           state.update({
               "place_name": str(loc[0]), "latitude": str(loc[1]),
               "longitude": str(loc[2]), "timezone": str(loc[3]),
           })
-          state["_location_resolved"] = True
+          state[_LOC_DONE_KEY] = True
+          if state.get(_LOC_CLOCK_KEY):
+              # the Time field must be the local time AT the located place, not the server's clock
+              try:
+                  from datetime import timezone as _tz, timedelta as _td
+                  local_now = datetime.now(_tz.utc) + _td(hours=float(loc[3]))
+                  state.update({"date_dob": local_now.strftime('%Y,%m,%d'),
+                                "time_tob": local_now.strftime('%H:%M:%S')})
+                  #_location_log(f"date/time set to the local time at {loc[0]} (UTC{float(loc[3]):+g}): "
+                  #              f"{local_now.strftime('%Y-%m-%d %H:%M:%S')}")
+              except Exception as e:
+                  _location_log(f"could not set the local time: {type(e).__name__}: {e}")
+          state.pop(_LOC_CLOCK_KEY, None)
       else:
-          print(f"resolve_initial_location: no usable result (attempt {attempts + 1}/{_MAX_LOCATION_RESOLVE_ATTEMPTS}).")
+          _location_log(f"no usable result (attempt {attempts + 1}/{_MAX_LOCATION_RESOLVE_ATTEMPTS}) - keeping the default place.")
   except Exception as e:
-      print(f"resolve_initial_location: lookup failed (attempt {attempts + 1}/{_MAX_LOCATION_RESOLVE_ATTEMPTS}): {e}")
+      _location_log(f"lookup failed (attempt {attempts + 1}/{_MAX_LOCATION_RESOLVE_ATTEMPTS}): {type(e).__name__}: {e}")
 def search_places_in_db(query_text: str):
   """Searches the places database for a name (accent- and case-insensitive substring match on the
   place label or its aliases). Returns up to 20 rows; [] on a database error or too-short text."""
@@ -475,6 +662,8 @@ _RTL_HEAD_HTML = r"""
   .q-field__native, .q-field__input { unicode-bidi: plaintext; }
 </style>
 """
+def _get_app_name_version():
+   return res_str('app_version_name_str',const._APP_NAME) + ' V' + WEB_APP_VERSION
 
 def navigation_header():
   """Adds the page CSS, shows the privacy notice and the navigation bar. Call it first on every page.
@@ -484,7 +673,7 @@ def navigation_header():
   if is_rtl_language():
       ui.add_head_html(_RTL_HEAD_HTML)
   show_privacy_notice()
-  _APP_NAME_VERSION = res_str('app_version_name_str',const._APP_NAME) + ' V' + const._APP_VERSION
+  _APP_NAME_VERSION = _get_app_name_version()
   _ydp_nls = res_str('yoga_str',"Yoga") + ' / ' + res_str('dosha_str','Dosha') + ' / ' + res_str('general_prediction_str', 'Prediction')
   with ui.header().classes('bg-green-800 text-white flex items-center px-2 py-0 gap-2 min-h-0 no-print'):
       ui.label(_APP_NAME_VERSION).classes('text-sm font-bold shrink-0')
@@ -526,6 +715,23 @@ def navigation_header():
           _nav_tab_link(res_str('compatibility_str', 'Compatibility'), '/compatibility')
           _nav_tab_link(res_str('pancha_pakshi_sastra_str', 'Pancha Pakshi'), '/pancha_pakshi')
           _nav_tab_link(res_str('about_str', 'About'), '/about')
+
+def render_page_title(title, print_title=False):
+    """Draws the page title row: the page title (e.g. "Panchangam") followed by the Calculation Type /
+    Ayanamsam / Language combos (options_dialog.render_header_settings()). Every page calls this in place of
+    its own title label, so the three controls look the same on every page and can be set from any of them.
+    Returns the row, so a page can add more widgets to it:  `with render_page_title(t): print_button()`.
+    Args:
+        title: page title text.
+        print_title: True keeps the title in print (the combos never print); False hides the whole row for
+            print, as the pages' former 'no-print' title rows did.
+    """
+    with ui.row().classes('w-full items-center gap-x-6 gap-y-1 flex-wrap'
+                          + ('' if print_title else ' no-print')) as row:
+        ui.label(title).classes('text-xl font-bold text-green-700 shrink-0')
+        render_header_settings()
+    return row
+
 
 def _footer_inner_html():
     """The footer's actual content (copyright + download link + visitor badge), as plain HTML -
@@ -728,6 +934,7 @@ def render_control_bar(*, show_dob_tob=True, include_options_button=True, on_opt
   widgets['row2'] = row2
   tz_sync.install(widgets)
   calc_highlight.install(widgets, hint=res_str('inputs_changed_str', 'Inputs changed - click to update the results'))
+  register_calculate_marker(widgets.get('mark_dirty'))  # page-title combos highlight Calculate instead of reloading
   return widgets
 def render_full_panchangam_popup(jd, place_obj, ayanamsa_mode=None):
   """Opens a dialog with the full panchangam, in three columns."""

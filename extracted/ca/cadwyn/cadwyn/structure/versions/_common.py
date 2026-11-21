@@ -1,6 +1,12 @@
-from logging import getLogger
+"""`cadwyn_core.structure.versions._common` under its old name, as the same module object."""
 
-_CADWYN_REQUEST_PARAM_NAME = "cadwyn_request_param"
-_CADWYN_RESPONSE_PARAM_NAME = "cadwyn_response_param"
-_logger = getLogger("cadwyn.structure.versions")
-_RouteId = int
+import sys
+from typing import TYPE_CHECKING
+
+from cadwyn_core.structure.versions import _common
+
+if TYPE_CHECKING:
+    # Type checkers don't see the module that replaces this one in `sys.modules`
+    from cadwyn_core.structure.versions._common import *  # noqa: F403
+
+sys.modules[__name__] = _common

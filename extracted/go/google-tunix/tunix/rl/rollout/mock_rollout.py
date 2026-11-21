@@ -40,9 +40,8 @@ _DUMMY_WORDS = (
 class MockRollout(base_rollout.BaseRollout):
   """Mock rollout worker for testing RL pipelines.
 
-  This engine simulates the behavior of a real LLM rollout worker (like vLLM
-  or SG-Lang) without requiring an actual model, weights, or accelerator
-  resources.
+  This engine simulates the behavior of a real LLM rollout worker (like vLLM)
+  without requiring an actual model, weights, or accelerator resources.
 
   The mock rollout is particularly useful for testing and benchmarking
   performance, especially on the training and communication side, without
@@ -314,7 +313,7 @@ class MockRollout(base_rollout.BaseRollout):
     """
     batch_size, length = completion_tokens.shape
     # Use numpy to keep it on host memory.
-    return np.zeros((batch_size, length), dtype=np.float32)
+    return np.zeros((batch_size, length), dtype=np.float32)  # pyrefly: ignore[bad-return]
 
   def update_params(
       self,

@@ -54,8 +54,8 @@ CLI output:
   590,053, not 619,845.
 
 Lines are counted live the same way, never recorded for the
-canonical list: the as-assembled set runs to 70,909 lines,
-64,272 of them non-blank (AS_ASSEMBLED_LINES and
+canonical list: the as-assembled set runs to 71,134 lines,
+64,459 of them non-blank (AS_ASSEMBLED_LINES and
 AS_ASSEMBLED_NONBLANK_LINES below), and the CLI prints the
 canonical list's own line count beside its token counts.
 
@@ -658,6 +658,20 @@ except ImportError:  # plain script: python3 runner/ops/core.py
 # came to name the machine's CPU beside its memory
 # and its hard drive, growing runner/ops by 33 lines
 # (the setup wizard's system facts).
+# Re-measured on 2026-11-20 after the first slice of
+# the future first option's signup came to stand in
+# runner/cloud (runner/cloud/signup.py, registered in
+# the list below), growing runner/cloud by 222 lines.
+# Re-measured on 2026-11-20 after the signup book
+# came to save through the one atomic writer. That
+# fix landed after the slice's own measure and
+# changed a core file without re-recording it:
+# runner/cloud stands 3 lines taller, the set 3
+# lines taller with 1 more non-blank line, and
+# the as-assembled zip 107 bytes larger. Every
+# head in between built red on the stale figures
+# alone, the shape guard reading the record
+# against the tree.
 # Recorded constants: they describe the as-assembled set (the
 # canonical list as first recorded -- 132 files -- plus the 3 suite runners named in
 # the module docstring; the list itself stands at 137 since
@@ -669,10 +683,10 @@ except ImportError:  # plain script: python3 runner/ops/core.py
 # assembly. The zip size and the estimator counts re-measured
 # here come from this module's own deterministic build and
 # counter over the current tree.
-AS_ASSEMBLED_FILES = 141
-AS_ASSEMBLED_ZIP_BYTES = 914727
-AS_ASSEMBLED_LINES = 70909
-AS_ASSEMBLED_NONBLANK_LINES = 64272
+AS_ASSEMBLED_FILES = 142
+AS_ASSEMBLED_ZIP_BYTES = 917686
+AS_ASSEMBLED_LINES = 71134
+AS_ASSEMBLED_NONBLANK_LINES = 64459
 # The as-assembled set's lines, part by part; the parts sum
 # to AS_ASSEMBLED_LINES. A part is a folder under runner/, or
 # a file standing directly under runner/ as its own part.
@@ -684,7 +698,7 @@ AS_ASSEMBLED_PART_LINES = {
     "runner/oracle": 5423,
     "runner/transport_extensions": 2778,
     "runner/guard": 7660,
-    "runner/cloud": 2125,
+    "runner/cloud": 2350,
     "runner/hosting": 1711,
     "runner/__init__.py": 23,
     "runner/_version.py": 10,
@@ -701,6 +715,7 @@ CORE_FILES = (
     "runner/cloud/__init__.py",
     "runner/cloud/send_dtls.py",
     "runner/cloud/send_job.py",
+    "runner/cloud/signup.py",
     "runner/guard/__init__.py",
     "runner/guard/atomicio.py",
     "runner/guard/confval.py",

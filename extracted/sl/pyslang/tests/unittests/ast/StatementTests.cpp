@@ -3,6 +3,7 @@
 
 #include "Test.h"
 
+#include "slang/ast/ASTVisitor.h"
 #include "slang/ast/statements/ConditionalStatements.h"
 #include "slang/ast/statements/MiscStatements.h"
 #include "slang/ast/symbols/BlockSymbols.h"
@@ -588,11 +589,10 @@ endmodule
     compilation.addSyntaxTree(tree);
 
     auto& diags = compilation.getAllDiagnostics();
-    REQUIRE(diags.size() == 4);
-    CHECK(diags[0].code == diag::ValueOutOfRange);
+    REQUIRE(diags.size() == 3);
+    CHECK(diags[0].code == diag::ConstEvalFunctionIdentifiersMustBeLocal);
     CHECK(diags[1].code == diag::ConstEvalFunctionIdentifiersMustBeLocal);
     CHECK(diags[2].code == diag::ConstEvalFunctionIdentifiersMustBeLocal);
-    CHECK(diags[3].code == diag::ConstEvalFunctionIdentifiersMustBeLocal);
 }
 
 TEST_CASE("Local statement parameter") {
@@ -667,6 +667,117 @@ endmodule
     REQUIRE(diags.size() == 2);
     CHECK(diags[0].code == diag::IndexOOB);
     CHECK(diags[1].code == diag::NotBooleanConvertible);
+}
+
+TEST_CASE("Case statement -- unevaluated items -- valid") {
+    auto tree = SyntaxTree::fromText(R"(
+module m #(parameter int n = 4, parameter type T = logic[3:0]);
+    logic [n:1] v;
+    T t;
+    logic r;
+
+    function automatic logic f(logic [n:1] q);
+        case (n)
+            4: return q[4] ^ q[3];
+            5: return q[5] ^ q[3];
+            default: return q[8] ^ q[6];
+        endcase
+    endfunction
+
+    always_comb begin
+        r = f(v);
+
+        case (n)
+            1, 2, 3: r = v[7];
+            4, 5: r = v[n];
+            default: r = v[8];
+        endcase
+
+        casez (n)
+            32'b???1: r = v[5];
+            default: r = v[4];
+        endcase
+
+        case (n) inside
+            [5:6]: r = v[5];
+            default: r = v[4];
+        endcase
+
+        case (n > 4)
+            1'b1: begin
+                automatic logic [3:0] u;
+                u = v[5:2];
+                r = u[0];
+            end
+            default: ;
+        endcase
+
+        case (type(T))
+            type(logic[7:0]): r = t[7];
+            type(logic[3:0]): r = t[3];
+            default: ;
+        endcase
+    end
+endmodule
+
+module top;
+    m m4();
+    m #(5, logic[7:0]) m5();
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Case statement -- unevaluated items -- invalid") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    localparam int n = 4;
+
+    logic [3:0] v;
+    logic r;
+    int k;
+    initial begin
+        // The selected item is checked as usual.
+        case (n)
+            4: r = v[4];
+            default: r = v[5];
+        endcase
+
+        // A non-constant item in front of the matching one
+        // means that we don't know which item is selected.
+        case (n)
+            k: r = v[6];
+            4: r = |v[5:4];
+            default: ;
+        endcase
+
+        // A non-constant item after the matching one doesn't matter.
+        case (n)
+            4: r = v[3];
+            k: r = v[7];
+            default: ;
+        endcase
+
+        case (k)
+            4: r = v[8];
+            default: r = v[0];
+        endcase
+    end
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 4);
+    CHECK(diags[0].code == diag::IndexOOB);
+    CHECK(diags[1].code == diag::IndexOOB);
+    CHECK(diags[2].code == diag::RangeOOB);
+    CHECK(diags[3].code == diag::IndexOOB);
 }
 
 TEST_CASE("Nonblocking assignment statement") {
@@ -1569,6 +1680,46 @@ endmodule
     NO_COMPILATION_ERRORS;
 }
 
+TEST_CASE("randsequence case items with multiple expressions") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    int x;
+    initial begin
+        randsequence (main)
+            main : case (x) 1, 2: a; 3, 4: b; 5: c; default: a; endcase;
+            a : { };
+            b : { };
+            c : { };
+        endsequence
+    end
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+
+    const RandSeqProductionSymbol* mainProd = nullptr;
+    compilation.getRoot().visit(makeVisitor([&](auto&, const RandSeqProductionSymbol& prod) {
+        if (prod.name == "main")
+            mainProd = &prod;
+    }));
+    REQUIRE(mainProd);
+
+    auto rules = mainProd->getRules();
+    REQUIRE(rules.size() == 1);
+    REQUIRE(rules[0].prods.size() == 1);
+
+    auto& caseProd = rules[0].prods[0]->as<RandSeqProductionSymbol::CaseProd>();
+    REQUIRE(caseProd.items.size() == 3);
+    CHECK(caseProd.items[0].expressions.size() == 2);
+    CHECK(caseProd.items[0].item.target->name == "a");
+    CHECK(caseProd.items[1].expressions.size() == 2);
+    CHECK(caseProd.items[1].item.target->name == "b");
+    CHECK(caseProd.items[2].expressions.size() == 1);
+    CHECK(caseProd.items[2].item.target->name == "c");
+}
+
 TEST_CASE("randsequence errors") {
     auto tree = SyntaxTree::fromText(R"(
 module m;
@@ -1602,6 +1753,32 @@ endmodule
     CHECK(diags[6].code == diag::TooFewArguments);
     CHECK(diags[7].code == diag::IndexOOB);
     CHECK(diags[8].code == diag::TooFewArguments);
+}
+
+TEST_CASE("randsequence weight code blocks") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    int x;
+    initial begin
+        randsequence (A)
+            A : B C := 1 { x++; };
+            B : { x += 10; };
+            C : { x += 100; };
+        endsequence
+
+        randsequence (A)
+            A : rand join := 1 {};
+        endsequence
+    end
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::RandJoinNotEnough);
 }
 
 TEST_CASE("foreach loop non-standard syntax") {
@@ -2674,4 +2851,99 @@ endmodule
     auto& diags = compilation.getAllDiagnostics();
     REQUIRE(diags.size() == 1);
     CHECK(diags[0].code == diag::UndeclaredIdentifier);
+}
+
+TEST_CASE("Disallowed fork-join with nested blocks in multi-statement function") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    int x;
+    function void f1;
+        x = 1;
+        fork
+            begin
+                int l;
+            end
+        join
+    endfunction
+
+    function void f2;
+        fork
+            for (int i = 0; i < 2; i++) x = i;
+        join_any
+        x = 1;
+    endfunction
+
+    function void f3;
+        x = 1;
+        fork
+            begin
+                int l;
+                foo = 1;
+                #1 l = 2;
+            end
+        join
+    endfunction
+
+    always_comb begin
+        x = 1;
+        fork
+            begin
+                int l;
+                bar = 1;
+            end
+        join
+    end
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 7);
+    CHECK(diags[0].code == diag::TimingInFuncNotAllowed);
+    CHECK(diags[1].code == diag::TimingInFuncNotAllowed);
+    CHECK(diags[2].code == diag::UndeclaredIdentifier);
+    CHECK(diags[3].code == diag::TimingInFuncNotAllowed);
+    CHECK(diags[4].code == diag::TimingInFuncNotAllowed);
+    CHECK(diags[5].code == diag::ForkJoinAlwaysComb);
+    CHECK(diags[6].code == diag::UndeclaredIdentifier);
+}
+
+TEST_CASE("Bad statements leaving nested blocks unbound") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    int x;
+    event e;
+    logic clk;
+
+    task t1;
+        x = 1;
+        wait_order(e, foo) begin int l; end
+    endtask
+
+    task t2;
+        x = 1;
+        assert property (@(posedge clk) x) begin int l; end
+    endtask
+
+    task t3;
+        wait_order(e) wait_order(e, bar) begin int l; end
+    endtask
+
+    task t4;
+        wait_order(e) x = 1; else wait_order(e, baz) begin int l; end
+    endtask
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 4);
+    CHECK(diags[0].code == diag::UndeclaredIdentifier);
+    CHECK(diags[1].code == diag::ConcurrentAssertNotInProc);
+    CHECK(diags[2].code == diag::UndeclaredIdentifier);
+    CHECK(diags[3].code == diag::UndeclaredIdentifier);
 }

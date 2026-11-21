@@ -91,13 +91,13 @@ class AhrefsTrafficInput(TypedDict, total=False):
     ignoreSources: NotRequired[list[str]]
     """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the remaining sources. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
     mode: NotRequired[Literal["exact", "subdomains", "prefix", "domain"]]
-    """Analysis scope: subdomains covers the domain and its subdomains, domain covers the root domain only, prefix covers every page under the given path, exact matches only the given URL. Default: subdomains."""
+    """Analysis scope. Only subdomains, the whole website with its subdomains, is served now; a request for domain, prefix or exact is refused. A page URL is analyzed as its whole website. Default: subdomains."""
     preferLatencyUnderMs: NotRequired[int]
     """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
     source: NotRequired[list[str]]
     """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
     url: Required[str]
-    """The domain or page URL to analyze (e.g. ahrefs.com)."""
+    """The website to analyze (e.g. ahrefs.com). A page URL is analyzed as its whole website."""
 
 
 class AhrefsBacklinksData(BaseModel):
@@ -292,16 +292,14 @@ class AhrefsOverviewItem(BaseModel):
 
 class AhrefsTrafficData(BaseModel):
     items: list[AhrefsTrafficItem] = Field(
-        description="Traffic overview records: the requested domain plus its monthly organic traffic, top ranking keywords, top pages, top countries, and traffic history. Populated whenever the provider has data for the entity."
+        description="Traffic overview records: the requested domain plus its monthly organic traffic, top ranking keywords, top countries, and traffic history."
     )
 
 
 class AhrefsTrafficItem(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
 
-    domain: str = Field(
-        description="The domain or URL the metrics are scoped to. Populated whenever the provider has data for the entity."
-    )
+    domain: str = Field(description="The domain or URL the metrics are scoped to.")
     mode: str | None = Field(
         default=None,
         description="Analysis scope used: subdomains, domain, prefix, or exact.",
@@ -309,7 +307,7 @@ class AhrefsTrafficItem(BaseModel):
     monthly_traffic: int | None = Field(
         default=None,
         alias="monthlyTraffic",
-        description="Estimated monthly organic search visits.",
+        description="Estimated monthly organic search visits for the latest month.",
     )
     monthly_traffic_value_usd: float | None = Field(
         default=None,
@@ -324,17 +322,17 @@ class AhrefsTrafficItem(BaseModel):
     top_keywords: list[AhrefsTrafficTopKeyword] | None = Field(
         default=None,
         alias="topKeywords",
-        description="The top organic keywords the domain already ranks for, up to five. Not ordered by traffic. For the full ranked-keyword list, use seo.ranked_keywords. Populated whenever the provider has data for the entity. Present whenever the upstream returns this record.",
+        description="The top organic keywords the domain already ranks for, up to five. Not ordered by traffic. For the full ranked-keyword list, use seo.ranked_keywords.",
     )
     top_pages: list[AhrefsTrafficTopPage] | None = Field(
         default=None,
         alias="topPages",
-        description="The pages receiving the most organic traffic, up to five.",
+        description="The pages receiving the most organic traffic. Currently always null: Ahrefs no longer publishes top pages.",
     )
     traffic_history: list[AhrefsTrafficTrafficHistory] | None = Field(
         default=None,
         alias="trafficHistory",
-        description="Monthly organic traffic estimates for recent months, oldest first.",
+        description="Monthly organic traffic estimates, oldest first, for as many months as Ahrefs publishes for the site.",
     )
 
 
@@ -407,7 +405,7 @@ class AhrefsNamespace:
         Get the referring pages linking to a domain or URL, each with the source
         page, anchor text, linking domain rating, and page title.
 
-        Price: $0.00501 per request plus $0 per result (maximum $0.00501).
+        Price: $0.00546 per request plus $0 per result (maximum $0.00546).
 
         Example:
             res = client.ahrefs.backlinks(mode="exact", url="ahrefs.com")
@@ -428,7 +426,7 @@ class AhrefsNamespace:
         Get related keyword suggestions for any seed term, each with an Ahrefs
         difficulty and search-volume bucket.
 
-        Price: $0.00006 per request plus $0.00495 per result (maximum $0.00501).
+        Price: $0.00006 per request plus $0.0054 per result (maximum $0.00546).
 
         Example:
             res = client.ahrefs.keyword_ideas(country="us", keyword="coffee")
@@ -450,7 +448,7 @@ class AhrefsNamespace:
         difficulty score (0-100) and the number of referring domains a page needs to
         rank in the top 10 - as normalized JSON.
 
-        Price: $0.00006 per request plus $0.00495 per result (maximum $0.00501).
+        Price: $0.00006 per request plus $0.0054 per result (maximum $0.00546).
 
         Example:
             res = client.ahrefs.keywords(country="us", keyword="seo tools")
@@ -472,7 +470,7 @@ class AhrefsNamespace:
         backlinks, and referring domains - as normalized JSON. For the keywords a
         domain ranks for, use seo.ranked_keywords.
 
-        Price: $0.00006 per request plus $0.00495 per result (maximum $0.00501).
+        Price: $0.00006 per request plus $0.0054 per result (maximum $0.00546).
 
         Example:
             res = client.ahrefs.overview(mode="subdomains", url="ahrefs.com")
@@ -490,13 +488,15 @@ class AhrefsNamespace:
     ) -> RunResult[AhrefsTrafficData]:
         """Ahrefs Traffic Overview
 
-        Get the Ahrefs organic traffic overview for any domain or URL: monthly
-        traffic estimate and value, the top 5 keywords it already ranks for with
-        position and traffic, top pages, traffic by country, and a monthly traffic
-        history - as normalized JSON. For a domain's full ranked-keyword list with
-        search volume and difficulty, use seo.ranked_keywords.
+        Get the Ahrefs organic traffic overview for a website Ahrefs publishes
+        traffic for (its Top Websites list, mostly larger sites): monthly organic
+        traffic estimate and value, the top 5 keywords it ranks for with position
+        and traffic, traffic by country, and a monthly traffic history - as
+        normalized JSON. Other websites return not found. Top pages are not
+        available. For a domain's full ranked-keyword list with search volume and
+        difficulty, use seo.ranked_keywords.
 
-        Price: $0.00006 per request plus $0.00495 per result (maximum $0.00501).
+        Price: $0.0012 per request plus $0.00456 per result (maximum $0.00576).
 
         Example:
             res = client.ahrefs.traffic(mode="subdomains", url="ahrefs.com")
@@ -524,7 +524,7 @@ class AsyncAhrefsNamespace:
         Get the referring pages linking to a domain or URL, each with the source
         page, anchor text, linking domain rating, and page title.
 
-        Price: $0.00501 per request plus $0 per result (maximum $0.00501).
+        Price: $0.00546 per request plus $0 per result (maximum $0.00546).
 
         Example:
             res = client.ahrefs.backlinks(mode="exact", url="ahrefs.com")
@@ -545,7 +545,7 @@ class AsyncAhrefsNamespace:
         Get related keyword suggestions for any seed term, each with an Ahrefs
         difficulty and search-volume bucket.
 
-        Price: $0.00006 per request plus $0.00495 per result (maximum $0.00501).
+        Price: $0.00006 per request plus $0.0054 per result (maximum $0.00546).
 
         Example:
             res = client.ahrefs.keyword_ideas(country="us", keyword="coffee")
@@ -567,7 +567,7 @@ class AsyncAhrefsNamespace:
         difficulty score (0-100) and the number of referring domains a page needs to
         rank in the top 10 - as normalized JSON.
 
-        Price: $0.00006 per request plus $0.00495 per result (maximum $0.00501).
+        Price: $0.00006 per request plus $0.0054 per result (maximum $0.00546).
 
         Example:
             res = client.ahrefs.keywords(country="us", keyword="seo tools")
@@ -589,7 +589,7 @@ class AsyncAhrefsNamespace:
         backlinks, and referring domains - as normalized JSON. For the keywords a
         domain ranks for, use seo.ranked_keywords.
 
-        Price: $0.00006 per request plus $0.00495 per result (maximum $0.00501).
+        Price: $0.00006 per request plus $0.0054 per result (maximum $0.00546).
 
         Example:
             res = client.ahrefs.overview(mode="subdomains", url="ahrefs.com")
@@ -607,13 +607,15 @@ class AsyncAhrefsNamespace:
     ) -> RunResult[AhrefsTrafficData]:
         """Ahrefs Traffic Overview
 
-        Get the Ahrefs organic traffic overview for any domain or URL: monthly
-        traffic estimate and value, the top 5 keywords it already ranks for with
-        position and traffic, top pages, traffic by country, and a monthly traffic
-        history - as normalized JSON. For a domain's full ranked-keyword list with
-        search volume and difficulty, use seo.ranked_keywords.
+        Get the Ahrefs organic traffic overview for a website Ahrefs publishes
+        traffic for (its Top Websites list, mostly larger sites): monthly organic
+        traffic estimate and value, the top 5 keywords it ranks for with position
+        and traffic, traffic by country, and a monthly traffic history - as
+        normalized JSON. Other websites return not found. Top pages are not
+        available. For a domain's full ranked-keyword list with search volume and
+        difficulty, use seo.ranked_keywords.
 
-        Price: $0.00006 per request plus $0.00495 per result (maximum $0.00501).
+        Price: $0.0012 per request plus $0.00456 per result (maximum $0.00576).
 
         Example:
             res = client.ahrefs.traffic(mode="subdomains", url="ahrefs.com")

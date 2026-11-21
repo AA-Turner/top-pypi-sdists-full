@@ -32,8 +32,21 @@ class E621Extractor(danbooru.DanbooruExtractor):
         notes = ("notes" in includes)
         pools = ("pools" in includes)
 
+        tags_categories = False
+        if self.config("v1"):
+            # request API responses in the old 'v1' layout
+            self.params_extra = {"v1": "true"}
+        elif self.config("tags", True):
+            # request tags grouped by category
+            self.params_extra = {"mode": "extended"}
+            tags_categories = True
+        else:
+            self.params_extra = None
+
         data = self.metadata()
         for post in self.posts():
+            if "files" in post:
+                self._transform_post_v2(post)
             file = post["file"]
 
             if not file["url"]:
@@ -52,12 +65,14 @@ class E621Extractor(danbooru.DanbooruExtractor):
             post["extension"] = file["ext"]
             post["date"] = self.parse_datetime_iso(post["created_at"])
 
-            tags = []
-            for category, tags_cat in post["tags"].items():
-                post["tags_" + category] = tags_cat
-                tags.extend(tags_cat)
-            tags.sort()
-            post["tags"] = tags
+            if post["tags"].__class__ is dict:
+                tags = []
+                for category, tags_cat in post["tags"].items():
+                    if tags_categories:
+                        post["tags_" + category] = tags_cat
+                    tags.extend(tags_cat)
+                tags.sort()
+                post["tags"] = tags
 
             post.update(data)
             yield Message.Directory, "", post
@@ -72,6 +87,67 @@ class E621Extractor(danbooru.DanbooruExtractor):
     def import_blacklist(self):
         url = f"{self.root}/users/{self._get_auth_info()[0]}.json"
         return self.request_json(url)["blacklisted_tags"].splitlines()
+
+    def _pagination(self, endpoint, params, prefix=None):
+        if self.params_extra:
+            params.update(self.params_extra)
+        return danbooru.DanbooruExtractor._pagination(
+            self, endpoint, params, prefix)
+
+    def _transform_post_v2(self, post):
+        """Convert a post from the 'v2' API layout to the previous one"""
+        files = post.pop("files")
+        has = post.pop("has")
+        meta = files["meta"]
+
+        post["file"] = file = {
+            "md5" : meta["md5"],
+            "ext" : meta["ext"],
+            "size": meta["size"],
+            **files["original"],
+        }
+
+        preview = files["preview"]
+        post["preview"] = {
+            "url"   : preview["jpg"],
+            "alt"   : preview["webp"],
+            "width" : preview["width"],
+            "height": preview["height"],
+        }
+
+        if has.get("sample"):
+            sample = files["sample"]
+            post["sample"] = {
+                "url"       : sample["jpg"],
+                "alt"       : sample["webp"],
+                "width"     : sample["width"],
+                "height"    : sample["height"],
+                "alternates": files.get("video") or {},
+                "has"       : True,
+            }
+        else:
+            post["sample"] = {
+                "url"       : None,
+                "alt"       : None,
+                "width"     : file["width"],
+                "height"    : file["height"],
+                "alternates": {},
+                "has"       : False,
+            }
+
+        stats = post.pop("stats")
+        post["score"] = stats["score"]
+        post["fav_count"] = stats["fav_count"]
+        post["comment_count"] = stats["comment_count"]
+        post["is_favorited"] = stats["is_favorited"]
+        post["vote"] = stats["vote"]
+
+        post["has_notes"] = has.get("notes")
+        post["duration"] = meta.get("duration")
+
+        relationships = post["relationships"]
+        relationships["has_children"] = has.get("children")
+        relationships["has_active_children"] = has.get("active_children")
 
     def _get_notes(self, id):
         return self.request_json(
@@ -93,10 +169,6 @@ BASE_PATTERN = E621Extractor.update({
     "e926": {
         "root": "https://e926.net",
         "pattern": r"e926\.net",
-    },
-    "e6ai": {
-        "root": "https://e6ai.net",
-        "pattern": r"e6ai\.net",
     },
     "blep": {
         "root": "https://blep.art",
@@ -152,7 +224,8 @@ class E621PostExtractor(E621Extractor, danbooru.DanbooruPostExtractor):
     def posts(self):
         pid = self.groups[-2] or int(self.groups[-1], 32)
         url = f"{self.root}/posts/{pid}.json"
-        return (self.request_json(url)["post"],)
+        post = self.request_json(url, params=self.params_extra)
+        return (post["post"] if "post" in post else post,)
 
 
 class E621PopularExtractor(E621Extractor, danbooru.DanbooruPopularExtractor):

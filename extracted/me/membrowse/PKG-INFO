@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: membrowse
-Version: 1.3.2
+Version: 1.3.3
 Summary: Memory footprint analysis tools for embedded firmware
 Author-email: MemBrowse <support@membrowse.com>
 Maintainer-email: MemBrowse <support@membrowse.com>

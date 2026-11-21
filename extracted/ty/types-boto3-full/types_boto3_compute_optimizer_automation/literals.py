@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_boto3_compute_optimizer_automation.literals import AutomationEventFilterNameType
+    from types_boto3_compute_optimizer_automation.literals import AutoEnrollMemberAccountsType
 
-    data: AutomationEventFilterNameType = "AccountId"
+    data: AutoEnrollMemberAccountsType = "All"
     ```
 """
 
@@ -23,6 +23,7 @@ else:
 
 
 __all__ = (
+    "AutoEnrollMemberAccountsType",
     "AutomationEventFilterNameType",
     "AutomationRuleFilterNameType",
     "ComparisonOperatorType",
@@ -37,9 +38,15 @@ __all__ = (
     "ListAutomationRulePreviewPaginatorName",
     "ListAutomationRulePreviewSummariesPaginatorName",
     "ListAutomationRulesPaginatorName",
+    "ListOrganizationEnrollmentConfigurationsPaginatorName",
+    "ListOrganizationalUnitsPaginatorName",
     "ListRecommendedActionSummariesPaginatorName",
     "ListRecommendedActionsPaginatorName",
+    "OrganizationEnrollmentConfigurationStatusType",
+    "OrganizationEnrollmentConfigurationTypeType",
+    "OrganizationRuleModeSourceTypeType",
     "OrganizationRuleModeType",
+    "OrganizationTargetTypeType",
     "PaginatorName",
     "RecommendedActionFilterNameType",
     "RecommendedActionTypeType",
@@ -56,6 +63,7 @@ __all__ = (
 )
 
 
+AutoEnrollMemberAccountsType = Literal["All", "None"]
 AutomationEventFilterNameType = Literal["AccountId", "EventStatus", "EventType", "ResourceType"]
 AutomationRuleFilterNameType = Literal[
     "AccountId",
@@ -111,9 +119,17 @@ ListAutomationEventsPaginatorName = Literal["list_automation_events"]
 ListAutomationRulePreviewPaginatorName = Literal["list_automation_rule_preview"]
 ListAutomationRulePreviewSummariesPaginatorName = Literal["list_automation_rule_preview_summaries"]
 ListAutomationRulesPaginatorName = Literal["list_automation_rules"]
+ListOrganizationEnrollmentConfigurationsPaginatorName = Literal[
+    "list_organization_enrollment_configurations"
+]
+ListOrganizationalUnitsPaginatorName = Literal["list_organizational_units"]
 ListRecommendedActionSummariesPaginatorName = Literal["list_recommended_action_summaries"]
 ListRecommendedActionsPaginatorName = Literal["list_recommended_actions"]
+OrganizationEnrollmentConfigurationStatusType = Literal["Active", "Inactive"]
+OrganizationEnrollmentConfigurationTypeType = Literal["OrganizationRuleMode"]
+OrganizationRuleModeSourceTypeType = Literal["Applied", "Default", "Direct", "Inherited"]
 OrganizationRuleModeType = Literal["AnyAllowed", "NoneAllowed"]
+OrganizationTargetTypeType = Literal["Account", "OrganizationalUnit"]
 RecommendedActionFilterNameType = Literal[
     "AccountId",
     "CurrentResourceDetailsEbsVolumeType",
@@ -143,6 +159,7 @@ ServiceName = Literal[
     "account-access-runtime",
     "acm",
     "acm-pca",
+    "agent-discovery",
     "agent-registry",
     "agent-registry-control",
     "aiops",
@@ -153,6 +170,7 @@ ServiceName = Literal[
     "apigateway",
     "apigatewaymanagementapi",
     "apigatewayv2",
+    "apiportal",
     "appconfig",
     "appconfigdata",
     "appfabric",
@@ -443,6 +461,7 @@ ServiceName = Literal[
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
+    "payments",
     "pca-connector-ad",
     "pca-connector-scep",
     "pcs",
@@ -498,6 +517,7 @@ ServiceName = Literal[
     "sagemaker-a2i-runtime",
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
+    "sagemaker-gateway-runtime",
     "sagemaker-geospatial",
     "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
@@ -588,6 +608,8 @@ PaginatorName = Literal[
     "list_automation_rule_preview",
     "list_automation_rule_preview_summaries",
     "list_automation_rules",
+    "list_organization_enrollment_configurations",
+    "list_organizational_units",
     "list_recommended_action_summaries",
     "list_recommended_actions",
 ]

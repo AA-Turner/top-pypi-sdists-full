@@ -134,10 +134,30 @@ class TestTheGateVerdict:
     def test_the_advice_names_the_command(self) -> None:
         lines = gate._advice("fix/thing", ["ci-test-go-app"])
         assert any(
-            "rehearse-branch.py --branch fix/thing --repo hyperi-io/ci-test-go-app"
-            in line
+            "rehearse-branch.py --branch fix/thing --fixture ci-test-go-app" in line
             for line in lines
         )
+
+    @pytest.mark.parametrize(
+        ("scenario", "records", "found"),
+        [
+            # A repo that is one fixture: any record for the commit counts.
+            (None, [("abc", "")], True),
+            # A scenario needs a record naming it, not a sibling's.
+            ("ci-test-a", [("abc", "ci-test-b")], False),
+            ("ci-test-a", [("abc", "ci-test-b"), ("abc", "ci-test-a")], True),
+            ("ci-test-a", [("abc", "")], False),
+            ("ci-test-a", [("def", "ci-test-a")], False),
+        ],
+    )
+    def test_a_scenario_record_must_name_the_scenario(
+        self, scenario, records, found
+    ) -> None:
+        prs = [
+            {"body": rehearse.record_block(sha, 1, "pass", fixture)}
+            for sha, fixture in records
+        ]
+        assert (gate.find_record(prs, "abc", scenario) is not None) is found
 
 
 class TestACompositeChangeIsUnrehearsed:
@@ -589,15 +609,17 @@ class TestAFixtureARehearsalHolds:
         def read_override(repo):
             raise AssertionError(f"the sweep read {repo}'s install override")
 
-        def run_ids(repo):
+        def run_ids(repo, _workflow):
             name = repo.rsplit("/", 1)[-1]
             return {7} if name in dispatched else set()
 
-        def dispatch(repo):
+        def dispatch(repo, _workflow):
             dispatched[repo.rsplit("/", 1)[-1]] = clock.now
             return ""
 
         monkeypatch.setattr(sweep, "time", clock)
+        # The names here are stand-ins, so each is its own repo.
+        monkeypatch.setattr(sweep, "_fleet_by_name", dict)
         monkeypatch.setattr(sweep, "_run", fake_run)
         monkeypatch.setattr(sweep.rehearse_branch, "_read_override", read_override)
         monkeypatch.setattr(sweep, "_run_ids", run_ids)
@@ -1052,13 +1074,17 @@ class TestTheTokenScope:
 
     def test_the_sweep_reaches_the_whole_fleet(self) -> None:
         fleet = fixture_fleet.load_fleet()
-        assert fixture_fleet.token_scope(fleet) == [e["name"] for e in fleet]
+        scope = fixture_fleet.token_scope(fleet)
+        assert set(scope) == {fixture_fleet.repo_name(e) for e in fleet}
+        assert len(scope) == len(set(scope))
 
     def test_negative_cases_reach_only_their_fixtures(self) -> None:
         fleet = fixture_fleet.load_fleet()
         scope = fixture_fleet.token_scope(fleet, negative_cases_only=True)
         assert scope
-        assert set(scope) == {e["name"] for e in fleet if e.get("negative_cases")}
+        assert set(scope) == {
+            fixture_fleet.repo_name(e) for e in fleet if e.get("negative_cases")
+        }
 
     def test_an_empty_scope_is_refused_not_passed_on(self, monkeypatch, capsys) -> None:
         monkeypatch.setattr(fixture_fleet, "load_fleet", lambda: [])

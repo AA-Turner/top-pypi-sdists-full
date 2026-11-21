@@ -200,24 +200,25 @@ mod tests {
 
     #[test]
     fn test_marker_new() {
-        let timestamp: u64 = Utc::now().timestamp_millis() as u64;
+        let before = Utc::now().timestamp_millis() as u64;
         let marker = Marker::new(
             KeyType::Initialize,
             ActionType::Start,
             Some(StepType::Process),
         );
 
+        let after = Utc::now().timestamp_millis() as u64;
+        assert!((before..=after).contains(&marker.timestamp));
+
         assert_eq!(marker.key, KeyType::Initialize);
         assert_eq!(marker.action, ActionType::Start);
         assert_eq!(marker.step, Some(StepType::Process));
         assert_eq!(marker.success, None);
         assert_eq!(marker.status_code, None);
-        assert_eq!(marker.timestamp, timestamp);
     }
 
     #[test]
     fn test_marker_serialization() {
-        let timestamp: u64 = Utc::now().timestamp_millis() as u64;
         let marker = Marker::new(
             KeyType::Initialize,
             ActionType::Start,
@@ -228,6 +229,7 @@ mod tests {
         .with_attempt(1);
 
         let serialized = serde_json::to_string(&marker).expect("Failed to serialize Marker");
+        let timestamp = marker.timestamp;
         let expected_json = format!(
             r#"{{"key":"initialize","action":"start","timestamp":{timestamp},"attempt":1,"statusCode":200,"step":"network_request","success":true}}"#
         );

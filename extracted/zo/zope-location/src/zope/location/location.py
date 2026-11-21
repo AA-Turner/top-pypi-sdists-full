@@ -116,7 +116,7 @@ class LocationProxy(ProxyBase):
             # ('_wrapped', '__parent__', '__name__'):
             try:
                 return object.__setattr__(self, name, value)
-            except TypeError:  # pragma NO COVER C Optimization
+            except TypeError:  # pragma: no cover C Optimization
                 return ProxyBase.__setattr__(self, name, value)
         return ProxyBase.__setattr__(self, name, value)
 

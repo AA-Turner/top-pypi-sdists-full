@@ -3,7 +3,7 @@ Categorical data.
 
 One-hot encoding a feature creates a sparse matrix that has some special properties:
 All of its nonzero elements are ones, and since each element starts a new row, it's
-``indptr``, which indicates where rows start and end, will increment by 1 every time.
+`indptr`, which indicates where rows start and end, will increment by 1 every time.
 
 Storage
 ^^^^^^^
@@ -28,10 +28,10 @@ csr storage
     array([0, 1, 2, 3], dtype=int32)
 
 
-The size of this matrix, if the original array is of length ``n``, is ``n`` bytes for
-the data (stored as quarter-precision integers), ``4n`` for ``indices``, and ``4(n+1)``
-for ``indptr``. However, if we know the matrix results from one-hot encoding, we only
-need to store the ``indices``, so we can reduce memory usage to slightly less than 4/9
+The size of this matrix, if the original array is of length `n`, is `n` bytes for
+the data (stored as quarter-precision integers), `4n` for `indices`, and `4(n+1)`
+for `indptr`. However, if we know the matrix results from one-hot encoding, we only
+need to store the `indices`, so we can reduce memory usage to slightly less than 4/9
 of the  original.
 
 csc storage
@@ -75,7 +75,7 @@ modeled on [scipy sparse](https://github.com/scipy/scipy/blob/1dc960a33b000b95b\
                 res[i] += mat.data[j] * vec[mat.indices[j]]
         return res
 
-With a CSR categorical matrix, ``data`` is all 1 and ``j`` always equals ``i``, so we
+With a CSR categorical matrix, `data` is all 1 and `j` always equals `i`, so we
 can simplify this function to be
 
 ::
@@ -87,8 +87,8 @@ can simplify this function to be
             res[i] = vec[mat.indices[j]]
         return res
 
-The original function involved ``6N`` lookups, ``N`` multiplications, and ``N``
-additions, while the new function involves only ``3N`` lookups. It thus has the
+The original function involved `6N` lookups, `N` multiplications, and `N`
+additions, while the new function involves only `3N` lookups. It thus has the
 potential to be significantly faster.
 
 sandwich: X.T @ diag(d) @ X
@@ -106,10 +106,10 @@ Sandwich products can be computed very efficiently.
 
     sandwich(X, d)[i, j] = sum_k X[k, i] d[k] X[k, j]
 
-If ``i != j``, ``sum_k X[k, i] d[k] X[k, j]`` = 0. In other words, since
+If `i != j`, `sum_k X[k, i] d[k] X[k, j]` = 0. In other words, since
  categorical matrices have only one nonzero per row, the sandwich product is diagonal.
 
- If ``i = j``,
+ If `i = j`,
 
 ::
 
@@ -118,7 +118,7 @@ If ``i != j``, ``sum_k X[k, i] d[k] X[k, j]`` = 0. In other words, since
     = d[X[:, i]].sum()
     = (X.T @ d)[i]
 
-So ``sandwich(X, d) = diag(X.T @ d)``. This will be especially efficient if ``X`` is
+So `sandwich(X, d) = diag(X.T @ d)`. This will be especially efficient if `X` is
 available in CSC format. Pseudocode for this sandwich product is
 
 ::
@@ -130,7 +130,7 @@ available in CSC format. Pseudocode for this sandwich product is
     return np.diag(res)
 
 
-This function is in ``ext/categorical/sandwich_categorical``
+This function is in `ext/categorical/sandwich_categorical`
 
 Cross-sandwich: X.T @ diag(d) @ Y where Y is categorical
 --------------------------------------------------------
@@ -146,7 +146,7 @@ X.T @ diag(d) @ Y is given by
 
 
 So the result will be sparse with at most N elements.
-This function is given by ``ext/split/_sandwich_cat_cat``.
+This function is given by `ext/split/_sandwich_cat_cat`.
 
 Cross-sandwich: X.T @ diag(d) @ Y where Y is dense
 --------------------------------------------------
@@ -182,7 +182,7 @@ from .ext.categorical import (
     transpose_matvec_complex,
     transpose_matvec_fast,
 )
-from .ext.split import sandwich_cat_cat, sandwich_cat_dense
+from .ext.split import sandwich_cat_cat, sandwich_cat_dense, sandwich_cat_sparse
 from .matrix_base import MatrixBase
 from .sparse_matrix import SparseMatrix
 from .util import (
@@ -191,6 +191,7 @@ from .util import (
     check_matvec_out_shape,
     check_sandwich_compatible,
     check_transpose_matvec_out_shape,
+    prepare_vector,
     set_up_rows_or_cols,
     setup_restrictions,
 )
@@ -335,12 +336,12 @@ class CategoricalMatrix(MatrixBase):
     cat_missing_method: str {'fail'|'zero'|'convert'}, default 'fail'
         - if 'fail', raise an error if there are missing values.
         - if 'zero', missing values will represent all-zero indicator columns.
-        - if 'convert', missing values will be converted to the ``cat_missing_name``
+        - if 'convert', missing values will be converted to the `cat_missing_name`
           category.
 
     cat_missing_name: str, default '(MISSING)'
         Name of the category to which missing values will be converted if
-        ``cat_missing_method='convert'``. If this category already exists, an error
+        `cat_missing_method='convert'`. If this category already exists, an error
         will be raised.
 
     dtype:
@@ -476,7 +477,7 @@ class CategoricalMatrix(MatrixBase):
         other: list | np.ndarray,
         cols: np.ndarray | None = None,
     ) -> tuple[np.ndarray, np.ndarray | None]:
-        other = np.asarray(other)
+        other = prepare_vector(other)
         if other.ndim > 1:
             raise NotImplementedError(
                 """CategoricalMatrix.matvec is only implemented for 1d arrays."""
@@ -580,7 +581,7 @@ class CategoricalMatrix(MatrixBase):
         """
         # TODO: write a function that doesn't reference the data
         # TODO: this should look more like the cat_cat_sandwich
-        vec = np.asarray(vec)
+        vec = prepare_vector(vec)
         check_matvec_dimensions(self, vec, transpose=True)
         if vec.ndim > 1:
             raise NotImplementedError(
@@ -638,7 +639,7 @@ class CategoricalMatrix(MatrixBase):
         The rows and cols parameters allow restricting to a subset of the
         matrix without making a copy.
         """
-        d = np.asarray(d)
+        d = prepare_vector(d)
         check_sandwich_compatible(self, d)
         rows = set_up_rows_or_cols(rows, self.shape[0])
         if self.drop_first or self._has_missings:
@@ -661,10 +662,16 @@ class CategoricalMatrix(MatrixBase):
         rows: np.ndarray | None = None,
         L_cols: np.ndarray | None = None,
         R_cols: np.ndarray | None = None,
+        dense_center: np.ndarray | None = None,
     ) -> np.ndarray:
-        """Perform a sandwich product: X.T @ diag(d) @ Y."""
+        """Perform a sandwich product: X.T @ diag(d) @ Y.
+
+        If `other` is dense, `dense_center` centers it, see `_cross_dense`.
+        """
         if isinstance(other, DenseMatrix):
-            return self._cross_dense(other._array, d, rows, L_cols, R_cols)
+            return self._cross_dense(
+                other._array, d, rows, L_cols, R_cols, dense_center
+            )
         if isinstance(other, SparseMatrix):
             return self._cross_sparse(other.array_csc, d, rows, L_cols, R_cols)
         if isinstance(other, CategoricalMatrix):
@@ -765,7 +772,9 @@ class CategoricalMatrix(MatrixBase):
         rows: np.ndarray | None,
         L_cols: np.ndarray | None,
         R_cols: np.ndarray | None,
+        dense_center: np.ndarray | None = None,
     ) -> np.ndarray:
+        # dense_center (one value per column of other) centers other in the kernel.
         if other.flags["C_CONTIGUOUS"]:
             is_c_contiguous = True
         elif other.flags["F_CONTIGUOUS"]:
@@ -787,6 +796,7 @@ class CategoricalMatrix(MatrixBase):
             is_c_contiguous,
             has_missings=self._has_missings,
             drop_first=self.drop_first,
+            dense_center=dense_center,
         )
 
         res = _row_col_indexing(res, L_cols, None)
@@ -832,17 +842,47 @@ class CategoricalMatrix(MatrixBase):
         L_cols: np.ndarray | None,
         R_cols: np.ndarray | None,
     ) -> np.ndarray:
-        term_1 = self.multiply(d)  # multiply will deal with drop_first
+        # The kernel writes column i of self into column out_pos[i] of the
+        # output and skips columns with out_pos[i] == -1, so it only allocates
+        # the len(L_cols) columns it returns.
+        out_pos = None
+        if d.dtype == other.dtype and d.dtype in (np.float32, np.float64):
+            if L_cols is None:
+                out_pos = np.arange(self.shape[1], dtype=np.int32)
+            else:
+                out_pos = np.full(self.shape[1], -1, dtype=np.int32)
+                out_pos[L_cols] = np.arange(len(L_cols), dtype=np.int32)
+                # A column that appears twice in L_cols would only be filled in
+                # once, so fall back to scipy, which handles duplicates.
+                if np.count_nonzero(out_pos >= 0) < len(L_cols):
+                    out_pos = None
 
-        term_1 = _row_col_indexing(term_1, rows, L_cols)
+        if out_pos is None:
+            term_1 = self.multiply(d)  # multiply will deal with drop_first
+            term_1 = _row_col_indexing(term_1, rows, L_cols)
+            return term_1.T.dot(_row_col_indexing(other, rows, R_cols)).toarray()
 
-        res = term_1.T.dot(_row_col_indexing(other, rows, R_cols)).toarray()
-        return res
+        # The kernel skips negative codes, i.e. missing values and, after
+        # subtracting drop_first, the dropped category.
+        idx_dtype = np.result_type(other.indices.dtype, other.indptr.dtype)
+        R_cols = set_up_rows_or_cols(R_cols, other.shape[1], dtype=idx_dtype)
+        return sandwich_cat_sparse(
+            self.indices,
+            out_pos,
+            self.shape[1] if L_cols is None else len(L_cols),
+            d,
+            other.data,
+            other.indices.astype(idx_dtype, copy=False),
+            other.indptr.astype(idx_dtype, copy=False),
+            rows,
+            R_cols,
+            self.drop_first,
+        )
 
     def multiply(self, other) -> SparseMatrix:
         """Element-wise multiplication.
 
-        This assumes that ``other`` is a vector of size ``self.shape[0]``.
+        This assumes that `other` is a vector of size `self.shape[0]`.
         """
         if self.shape[0] != other.shape[0]:
             raise ValueError(
@@ -889,7 +929,7 @@ class CategoricalMatrix(MatrixBase):
         """Get column names.
 
         For columns that do not have a name, a default name is created using the
-        following pattern: ``"{missing_prefix}{start_index + i}"`` where ``i`` is
+        following pattern: `"{missing_prefix}{start_index + i}"` where `i` is
         the index of the column.
 
         Parameters
@@ -898,13 +938,13 @@ class CategoricalMatrix(MatrixBase):
             Whether to get column names or term names. The main difference is
             that a categorical submatrix counts as one term, but can count as
             multiple columns. Furthermore, matrices created from formulas
-            distinguish between columns and terms (c.f. ``formulaic`` docs).
+            distinguish between columns and terms (c.f. `formulaic` docs).
         missing_prefix: Optional[str], default None
             Prefix to use for columns that do not have a name. If None, then no
             default name is created.
         indices
-            The indices used for columns that do not have a name. If ``None``,
-            then the indices are ``list(range(self.shape[1]))``.
+            The indices used for columns that do not have a name. If `None`,
+            then the indices are `list(range(self.shape[1]))`.
 
         Returns
         -------
@@ -944,7 +984,7 @@ class CategoricalMatrix(MatrixBase):
             Whether to get column names or term names. The main difference is
             that a categorical submatrix counts as one term, but can count as
             multiple columns. Furthermore, matrices created from formulas
-            distinguish between columns and terms (c.f. ``formulaic`` docs).
+            distinguish between columns and terms (c.f. `formulaic` docs).
         """
         if isinstance(names, str):
             names = [names]

@@ -60,6 +60,10 @@ from .type_defs import (
     GenerateMobileSdkReleaseUrlResponseTypeDef,
     GetDecryptedAPIKeyRequestTypeDef,
     GetDecryptedAPIKeyResponseTypeDef,
+    GetEventActorRequestTypeDef,
+    GetEventActorResponseTypeDef,
+    GetEventRequestTypeDef,
+    GetEventResponseTypeDef,
     GetIPSetRequestTypeDef,
     GetIPSetResponseTypeDef,
     GetLoggingConfigurationRequestTypeDef,
@@ -96,6 +100,12 @@ from .type_defs import (
     ListAvailableManagedRuleGroupsResponseTypeDef,
     ListAvailableManagedRuleGroupVersionsRequestTypeDef,
     ListAvailableManagedRuleGroupVersionsResponseTypeDef,
+    ListEventActorsRequestTypeDef,
+    ListEventActorsResponseTypeDef,
+    ListEventsByWebACLRequestTypeDef,
+    ListEventsByWebACLResponseTypeDef,
+    ListEventsRequestTypeDef,
+    ListEventsResponseTypeDef,
     ListIPSetsRequestTypeDef,
     ListIPSetsResponseTypeDef,
     ListLoggingConfigurationsRequestTypeDef,
@@ -412,6 +422,26 @@ class WAFV2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wafv2/client/#get_decrypted_api_key)
         """
 
+    def get_event(self, **kwargs: Unpack[GetEventRequestTypeDef]) -> GetEventResponseTypeDef:
+        """
+        Retrieves the details of the specified event for the specified web ACL,
+        including the event actors that are associated with the event and the event
+        timeline.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wafv2/client/get_event.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wafv2/client/#get_event)
+        """
+
+    def get_event_actor(
+        self, **kwargs: Unpack[GetEventActorRequestTypeDef]
+    ) -> GetEventActorResponseTypeDef:
+        """
+        Retrieves the details of the specified event actor.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wafv2/client/get_event_actor.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wafv2/client/#get_event_actor)
+        """
+
     def get_ip_set(self, **kwargs: Unpack[GetIPSetRequestTypeDef]) -> GetIPSetResponseTypeDef:
         """
         Retrieves the specified <a>IPSet</a>.
@@ -591,6 +621,35 @@ class WAFV2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wafv2/client/list_available_managed_rule_groups.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wafv2/client/#list_available_managed_rule_groups)
+        """
+
+    def list_event_actors(
+        self, **kwargs: Unpack[ListEventActorsRequestTypeDef]
+    ) -> ListEventActorsResponseTypeDef:
+        """
+        Retrieves a paginated list of the event actors in your account that are
+        associated with events in the specified time window.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wafv2/client/list_event_actors.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wafv2/client/#list_event_actors)
+        """
+
+    def list_events(self, **kwargs: Unpack[ListEventsRequestTypeDef]) -> ListEventsResponseTypeDef:
+        """
+        Retrieves a paginated list of event summaries for your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wafv2/client/list_events.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wafv2/client/#list_events)
+        """
+
+    def list_events_by_web_acl(
+        self, **kwargs: Unpack[ListEventsByWebACLRequestTypeDef]
+    ) -> ListEventsByWebACLResponseTypeDef:
+        """
+        Retrieves a paginated list of event summaries for the specified web ACL.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wafv2/client/list_events_by_web_acl.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wafv2/client/#list_events_by_web_acl)
         """
 
     def list_ip_sets(self, **kwargs: Unpack[ListIPSetsRequestTypeDef]) -> ListIPSetsResponseTypeDef:

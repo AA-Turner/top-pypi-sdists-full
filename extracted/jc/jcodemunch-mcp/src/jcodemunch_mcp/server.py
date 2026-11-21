@@ -339,11 +339,51 @@ _MCP_TOOL_PREFIX = "mcp__jcodemunch__"
 _INSTRUCTION_TOOLS_FULL: tuple = (
     ("resolve_repo", "is it indexed? Once, before the first index call."),
     ("get_ranked_context", '"how does X work" in one budgeted call.'),
-    ("search_symbols", "a symbol by name; search_text for strings and config."),
+    ("search_symbols", "a symbol by name."),
     ("get_file_outline", "a file's shape without reading it."),
     ("get_symbol_source", "one id, or an array to batch."),
-    ("find_references", "who imports a name; check_references: where it is used."),
+    ("find_references", "who imports a name."),
 )
+
+# A row's second tool and the clause naming it, said only while that tool is
+# published. `core` serves neither `check_references` nor `get_call_hierarchy`,
+# so a fixed row sent a deferred session to look up a name the lookup cannot
+# find; and where the call graph IS published, nothing here named it, so a
+# "who calls X" question went to Grep with the tool loaded and unused.
+_INSTRUCTION_CLAUSES: dict = {
+    "search_symbols": (("search_text", "; search_text for strings and config"),),
+    "find_references": (
+        ("check_references", "; check_references: where it's used"),
+        ("get_call_hierarchy", "; get_call_hierarchy: who calls it"),
+    ),
+}
+
+
+def _instruction_rows(surface: str, published: "Optional[set]" = None) -> list:
+    """The (name, why) rows the instructions name on `surface`.
+
+    On `full`, a row or clause is kept only for a tool `_build_tools_list`
+    publishes (or `published`, when given), so the string never names a tool the
+    session cannot load. `counter` publishes its three verbs always.
+
+    ⚠ The `counter` return comes BEFORE `_build_tools_list` is called, and it
+    must stay first: `_build_tools_list` -> `_apply_always_load` ->
+    `_instruction_tool_names("counter")` lands here, so a counter branch that
+    read the published list would recurse without end.
+    """
+    if surface == "counter":
+        return list(_INSTRUCTION_TOOLS_COUNTER)
+    if published is None:
+        published = {t.name for t in _build_tools_list(surface_override=surface)}
+    rows = []
+    for name, why in _INSTRUCTION_TOOLS_FULL:
+        if name not in published:
+            continue
+        clauses = _INSTRUCTION_CLAUSES.get(name)
+        if clauses:
+            why = why.rstrip(".") + "".join(c for tool, c in clauses if tool in published) + "."
+        rows.append((name, why))
+    return rows
 
 _INSTRUCTION_TOOLS_COUNTER: tuple = (
     ("route", "start here: the task in plain words, back an action to run."),
@@ -352,15 +392,16 @@ _INSTRUCTION_TOOLS_COUNTER: tuple = (
 )
 
 
-def _instruction_tool_names(surface: str) -> list:
+def _instruction_tool_names(surface: str, published: "Optional[set]" = None) -> list:
     """Tool names named in the instructions for `surface`, in reach-for order."""
-    rows = _INSTRUCTION_TOOLS_COUNTER if surface == "counter" else _INSTRUCTION_TOOLS_FULL
-    return [name for name, _ in rows]
+    return [name for name, _ in _instruction_rows(surface, published)]
 
 
-def _tool_search_query(surface: str, prefix: str = _MCP_TOOL_PREFIX) -> str:
+def _tool_search_query(
+    surface: str, prefix: str = _MCP_TOOL_PREFIX, published: "Optional[set]" = None
+) -> str:
     """The `select:` argument that loads every named tool in one lookup."""
-    names = _instruction_tool_names(surface)
+    names = _instruction_tool_names(surface, published)
     return "select:" + ",".join(prefix + n for n in names)
 
 
@@ -457,8 +498,12 @@ def _mcp_instructions(
     prefix: str = _MCP_TOOL_PREFIX,
     indexed_files: "Optional[int]" = None,
     separate_copy: bool = False,
+    published: "Optional[set]" = None,
 ) -> str:
     """The `instructions` string for the initialize response, surface-aware.
+
+    `published` is the set of tool names the session is served; None asks
+    `_build_tools_list`. A tool that is not published is not named.
 
     `indexed_files` is the working directory's index size when the caller has
     established it (`_indexed_here`); the opening then says the repo IS indexed
@@ -470,7 +515,9 @@ def _mcp_instructions(
     so it keeps its text and the server log carries the sentence.
     """
     surface = surface or _effective_surface()
-    rows = _INSTRUCTION_TOOLS_COUNTER if surface == "counter" else _INSTRUCTION_TOOLS_FULL
+    if surface != "counter" and published is None:
+        published = {t.name for t in _build_tools_list(surface_override=surface)}
+    rows = _instruction_rows(surface, published)
     # (2026-10-14, owner's ruling) The opening said "Prefer it/them over
     # Read/Grep/Glob/Bash" and the first row "Call it first", after the policy
     # (1.108.357) had stopped saying either: on a small repository that steering
@@ -512,11 +559,14 @@ def _mcp_instructions(
     # (tests/test_instructions_first_512.py).
     lines.append("")
     lines += ["- %s: %s" % (name, why) for name, why in rows]
-    lines += [
-        "",
-        "**Tools deferred? Load all in ONE lookup:** ToolSearch "
-        '"%s". One round trip for the session.' % _tool_search_query(surface, prefix),
-    ]
+    # With every row tool unpublished (`disabled_tools`, a custom bundle) the
+    # lookup would read `select:` and load nothing, so the line is left out.
+    if rows:
+        lines += [
+            "",
+            "**Tools deferred? Load all in ONE lookup:** ToolSearch "
+            '"%s".' % _tool_search_query(surface, prefix, published),
+        ]
     return "\n".join(lines)
 
 
@@ -1319,7 +1369,7 @@ _COMPACT_STRIP_PARAMS: dict[str, set[str]] = {
     # params under compact, they're just hidden from the schema to protect the
     # core_compact budget (the body is always callable with them).
     "get_symbol_source": {
-        "source_start_line", "source_end_line", "max_source_lines",
+        "source_start_line", "source_end_line",
         "max_source_bytes", "max_total_source_bytes", "receipt",
         # v1.108.227: `verify_against` joins them, same rule and same reason.
         # Externally-attested verification is an audit workflow, not a core
@@ -1359,6 +1409,17 @@ _COMPACT_STRIP_PARAMS: dict[str, set[str]] = {
     # Honoured under compact all the same; only the schema property is hidden.
     "index_repo": {"extra_ignore_patterns", "incremental", "max_size"},
     "index_folder": {"extra_ignore_patterns", "incremental", "max_size"},
+}
+
+# Params that stay in the compact schema as name and type, with the description
+# stripped. `max_source_lines` is the hidden parameter agents reached for when
+# compact schemas were measured before the default flipped (2026-11-20). With
+# its description core_compact came to 4,027 (capture_schema_baseline.measure()
+# with this table emptied), over the 4,000 ceiling; with name and type alone it
+# fits. The full schema keeps the description.
+# tests/test_compact_schemas_default_on.py pins it.
+_COMPACT_STRIP_DESCRIPTIONS: dict[str, set[str]] = {
+    "get_symbol_source": {"max_source_lines"},
 }
 
 # Params whose enum is demoted to a plain string filter under compact_schemas.
@@ -1742,6 +1803,21 @@ def _coerce_arguments(arguments: dict, schema: dict) -> dict:
 
 
 _TOOL_SCHEMAS: dict[str, dict] | None = None
+
+# The declared schema of each parameter `compact_schemas` hides, by tool. The
+# published schema no longer carries their types, and type coercion read only
+# the published schema, so a hidden boolean sent as the string "false" reached
+# its handler as a string. Coercion reads these too (since compact became the
+# default). Validation still runs against the published schema.
+_COMPACT_HIDDEN_PROPS: dict[str, dict[str, dict]] = {}
+
+
+def _coercion_schema(name: str, schema: dict) -> dict:
+    """`schema` with the declared types of the params compact schemas hid."""
+    hidden = _COMPACT_HIDDEN_PROPS.get(name)
+    if not hidden:
+        return schema
+    return {**schema, "properties": {**hidden, **(schema.get("properties") or {})}}
 
 
 def _build_language_enum() -> list[str]:
@@ -3432,9 +3508,7 @@ def _build_tools_list(
                 "Who calls this function or method, and what does it call: incoming callers and outgoing callees for a symbol, N levels deep. "
                 "Uses AST-derived call detection: callers = symbols in importing files that "
                 "mention this name; callees = imported symbols mentioned in this symbol's body. "
-                "Useful for understanding how a symbol fits into the call graph before refactoring. "
-                "For a 'what breaks if I delete this?' answer, use get_impact_preview instead."
-            
+                "Useful for understanding how a symbol fits into the call graph before refactoring."
                 " Detection is name-based, so same-name symbols in different modules can merge and dynamic dispatch is missed."
                 " Only depth-1 rows are direct callers; on a deeper row, `via` names the row it is reached from. `caller_count` counts every depth, `direct_caller_count` depth 1."
             ),
@@ -3457,8 +3531,8 @@ def _build_tools_list(
                     },
                     "depth": {
                         "type": "integer",
-                        "description": "Maximum hops to traverse (1–5). Default 3.",
-                        "default": 3,
+                        "description": "Maximum hops to traverse (1–5). Default 1: the direct callers and callees.",
+                        "default": 1,
                     },
                 },
                 "required": ["repo", "symbol_id"],
@@ -5156,6 +5230,17 @@ def _build_tools_list(
         for t in all_tools
         if isinstance((props := (t.inputSchema or {}).get("properties")), dict) and props
     }
+    # The declared schema of every param the compact strip can hide, taken from
+    # the same pre-strip catalog, so coercion keeps their types (see
+    # `_COMPACT_HIDDEN_PROPS`). Rebuilt here on every build, never accumulated.
+    _COMPACT_HIDDEN_PROPS.clear()
+    for t in all_tools:
+        props = (t.inputSchema or {}).get("properties")
+        hide = _COMPACT_STRIP_PARAMS.get(t.name)
+        if isinstance(props, dict) and hide:
+            kept = {p: dict(props[p]) for p in hide if isinstance(props.get(p), dict)}
+            if kept:
+                _COMPACT_HIDDEN_PROPS[t.name] = kept
     surface = surface_override or _effective_surface()
     if surface == "counter":
         # Collapse to the front door + always-present controls. Tier filtering
@@ -5203,7 +5288,7 @@ def _build_tools_list(
         tools = [t for t in tools if t.name != "search_columns"]
 
     # --- Compact schemas: strip rarely-used params ---------------------------
-    if config_module.get("compact_schemas", False):
+    if config_module.get("compact_schemas", True):
         for tool in tools:
             if not isinstance(tool.inputSchema, dict):
                 continue
@@ -5214,6 +5299,10 @@ def _build_tools_list(
             if strip_set:
                 for param in strip_set:
                     props.pop(param, None)
+            for param in _COMPACT_STRIP_DESCRIPTIONS.get(tool.name, ()):
+                pschema = props.get(param)
+                if isinstance(pschema, dict) and "description" in pschema:
+                    props[param] = {k: v for k, v in pschema.items() if k != "description"}
             # Demote large mechanical enums to free-string filters (capability
             # preserved; the tool accepts any string for these params).
             for param in _COMPACT_DEMOTE_ENUM_PARAMS:
@@ -5435,8 +5524,8 @@ Goal: Follow a suspected bug from symptom to root cause.
 
 1. **search_symbols** for the function name or error message keyword.
 2. **get_symbol_source** on the suspect symbol → read the implementation.
-3. **get_call_hierarchy** with `direction="callers"`, `depth=3` → who calls this?
-4. **get_call_hierarchy** with `direction="callees"`, `depth=2` → what does it call?
+3. **get_call_hierarchy** with `direction="callers"` → who calls this? Raise `depth` only to follow a chain further.
+4. **get_call_hierarchy** with `direction="callees"` → what does it call?
 5. **get_context_bundle** on the suspect symbol → full source + imports in one call.
 6. **find_references** for the symbol name → all files that reference it.
 7. **get_blast_radius** on the suspect file → what else could be affected?
@@ -6415,7 +6504,7 @@ async def _call_tool_impl(name: str, arguments: dict) -> list[TextContent] | Cal
         # Coerce stringified booleans/integers/numbers before routing
         schema = (await _ensure_tool_schemas()).get(name)
         if schema:
-            arguments = _coerce_arguments(arguments, schema)
+            arguments = _coerce_arguments(arguments, _coercion_schema(name, schema))
             try:
                 jsonschema.validate(instance=arguments, schema=schema)
             except jsonschema.ValidationError as e:
@@ -7145,7 +7234,7 @@ async def _call_tool_impl(name: str, arguments: dict) -> list[TextContent] | Cal
                     repo=arguments["repo"],
                     symbol_id=arguments["symbol_id"],
                     direction=arguments.get("direction", "both"),
-                    depth=arguments.get("depth", 3),
+                    depth=arguments.get("depth", 1),
                     storage_path=storage_path,
                 )
             )
@@ -9533,8 +9622,8 @@ def _run_config(check: bool = False, init: bool = False, upgrade: bool = False) 
     profile = _cfg.get("tool_profile", "full")
     profile_display = {"core": f"{green('core')} (~16 tools)", "standard": f"{yellow('standard')} (~40 tools)", "full": f"{dim('full')} (all tools)"}
     row("tool_profile", profile_display.get(profile, profile), _detect_source("tool_profile", "full"))
-    compact = _cfg.get("compact_schemas", False)
-    row("compact_schemas", green("enabled") if compact else dim("disabled"), _detect_source("compact_schemas", False))
+    compact = _cfg.get("compact_schemas", True)
+    row("compact_schemas", green("enabled") if compact else dim("disabled"), _detect_source("compact_schemas", True))
 
     # ── Disabled Tools ────────────────────────────────────────────────────
     section("Disabled Tools")

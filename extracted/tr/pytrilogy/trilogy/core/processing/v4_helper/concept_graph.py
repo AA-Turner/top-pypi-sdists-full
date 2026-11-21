@@ -36,6 +36,7 @@ from trilogy.core.models.build import (
     BuildFunction,
     BuildRowsetItem,
     BuildRowsetLineage,
+    BuildSubselectComparison,
     BuildWhereClause,
     get_concept_arguments,
     is_grouping_identity,
@@ -1075,6 +1076,37 @@ def _upstream_window(
         + _grain_concepts(concept, environment)
         + _known_concepts(concept.keys or (), environment)
     )
+
+
+def _memberships(expr: object) -> Iterable[BuildSubselectComparison]:
+    if isinstance(expr, BuildSubselectComparison):
+        yield expr
+    elif isinstance(expr, BuildConceptArgs):
+        for child in getattr(expr, "operands", ()) or (getattr(expr, "content", None),):
+            yield from _memberships(child)
+
+
+def _existence_row_pairs(
+    atom: object, atom_row_addrs: list[str]
+) -> list[tuple[str, str]]:
+    """Each set paired with the row arguments its own membership tests. A set
+    in an OR is not read by the atom's other row arguments: pairing it with a
+    WHERE aggregate a sibling set is computed from orders that aggregate after
+    this set, and two such pairings over one aggregate group are a cycle."""
+    pairs: list[tuple[str, str]] = []
+    paired: set[str] = set()
+    for membership in _memberships(atom):
+        own = [c.address for c in membership.row_arguments]
+        for group in membership.existence_arguments:
+            for ec in group:
+                if own:
+                    paired.add(ec.address)
+                pairs += [(ec.address, row) for row in own]
+    for group in getattr(atom, "existence_arguments", None) or ():
+        for ec in group:
+            if ec.address not in paired:
+                pairs += [(ec.address, row) for row in atom_row_addrs]
+    return pairs
 
 
 def _upstream_subselect(
@@ -2764,10 +2796,8 @@ def build_concept_graph(
             atom_row_addrs = [c.address for c in atom.row_arguments]
             row_arg_addresses.update(atom_row_addrs)
             for arg_group in atom.existence_arguments or ():
-                for ec in arg_group:
-                    existence_arg_addresses.add(ec.address)
-                    for row_addr in atom_row_addrs:
-                        existence_arg_pairs.append((ec.address, row_addr))
+                existence_arg_addresses.update(ec.address for ec in arg_group)
+            existence_arg_pairs += _existence_row_pairs(atom, atom_row_addrs)
     # Tag nodes that appear only as existence args (not as row args anywhere)
     # so partition_roots can place them in their own scan buckets; they're
     # side-channel subselect sources, not part of the main row stream
@@ -2889,7 +2919,8 @@ def build_concept_graph(
     #     mandatory walk already produces);
     #   - require the node's address to appear as a row argument (existence
     #     args don't need row-stream consumers);
-    #   - skip nodes that already have any outgoing edge.
+    #   - skip nodes that already have an outgoing edge into the row stream
+    #     (one feeding only a membership subselect's set still needs a host).
     mandatory_blank_ids = dict.fromkeys(node_id("", c.address) for c in mandatory_list)
     outer_condition_nodes = nodes_by_scope_phase.get(("", "condition"), [])
     backfill = [
@@ -2897,7 +2928,7 @@ def build_concept_graph(
         for src in outer_condition_nodes
         if attrs[src].derivation != Derivation.ROOT
         and attrs[src].address in row_arg_addresses
-        and not any(True for _ in graph.successors(src))
+        and all(attrs[succ].existence_only for succ in graph.successors(src))
     ]
     # a constant is the same value on every row: the rowed outputs carry a
     # condition its grain has no key for, which it would join on no key (`4`

@@ -15,8 +15,10 @@ Usage::
         ListAggregateResourceSynchronizationStatusesPaginator,
         ListDeploymentSnapshotsPaginator,
         ListDeploymentsPaginator,
+        ListEntityCoveragesPaginator,
         ListPoliciesPaginator,
         ListPolicySnapshotsPaginator,
+        ListProtectedResourceCoveragesPaginator,
         ListResourceAssociationsPaginator,
         ListResourceSynchronizationStatusesPaginator,
         ListRuleSnapshotsPaginator,
@@ -35,8 +37,10 @@ Usage::
     list_aggregate_resource_synchronization_statuses_paginator: ListAggregateResourceSynchronizationStatusesPaginator = client.get_paginator("list_aggregate_resource_synchronization_statuses")
     list_deployment_snapshots_paginator: ListDeploymentSnapshotsPaginator = client.get_paginator("list_deployment_snapshots")
     list_deployments_paginator: ListDeploymentsPaginator = client.get_paginator("list_deployments")
+    list_entity_coverages_paginator: ListEntityCoveragesPaginator = client.get_paginator("list_entity_coverages")
     list_policies_paginator: ListPoliciesPaginator = client.get_paginator("list_policies")
     list_policy_snapshots_paginator: ListPolicySnapshotsPaginator = client.get_paginator("list_policy_snapshots")
+    list_protected_resource_coverages_paginator: ListProtectedResourceCoveragesPaginator = client.get_paginator("list_protected_resource_coverages")
     list_resource_associations_paginator: ListResourceAssociationsPaginator = client.get_paginator("list_resource_associations")
     list_resource_synchronization_statuses_paginator: ListResourceSynchronizationStatusesPaginator = client.get_paginator("list_resource_synchronization_statuses")
     list_rule_snapshots_paginator: ListRuleSnapshotsPaginator = client.get_paginator("list_rule_snapshots")
@@ -54,8 +58,10 @@ from .paginator import (
     ListAggregateResourceSynchronizationStatusesPaginator,
     ListDeploymentSnapshotsPaginator,
     ListDeploymentsPaginator,
+    ListEntityCoveragesPaginator,
     ListPoliciesPaginator,
     ListPolicySnapshotsPaginator,
+    ListProtectedResourceCoveragesPaginator,
     ListResourceAssociationsPaginator,
     ListResourceSynchronizationStatusesPaginator,
     ListRuleSnapshotsPaginator,
@@ -74,8 +80,10 @@ __all__ = (
     "ListAggregateResourceSynchronizationStatusesPaginator",
     "ListDeploymentSnapshotsPaginator",
     "ListDeploymentsPaginator",
+    "ListEntityCoveragesPaginator",
     "ListPoliciesPaginator",
     "ListPolicySnapshotsPaginator",
+    "ListProtectedResourceCoveragesPaginator",
     "ListResourceAssociationsPaginator",
     "ListResourceSynchronizationStatusesPaginator",
     "ListRuleSnapshotsPaginator",

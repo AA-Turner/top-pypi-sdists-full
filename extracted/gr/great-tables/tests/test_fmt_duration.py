@@ -115,6 +115,53 @@ class TestFmtDurationColonSep:
         )
         assert result == ["1/01:01"]
 
+    @pytest.mark.parametrize("max_output_units", [1, 2, 3])
+    def test_max_output_units_ignored(self, max_output_units: int):
+        result = vals.fmt_duration(
+            [116640, 172808],
+            input_units="seconds",
+            duration_style="colon-sep",
+            max_output_units=max_output_units,
+        )
+        assert result == ["1/08:24:00", "2/00:00:08"]
+
+    # The largest shown unit carries any larger ones (116640 s is 1 day 8 hours 24 minutes)
+    @pytest.mark.parametrize(
+        "output_units, expected",
+        [
+            (["hours", "minutes", "seconds"], ["32:24:00", "1944:26:40"]),
+            (["hours", "minutes"], ["32:24", "1944:26"]),
+            (["minutes", "seconds"], ["1944:00", "116666:40"]),
+            (["days", "hours", "minutes"], ["1/08:24", "81/00:26"]),
+        ],
+    )
+    def test_largest_unit_carries(self, output_units: list[str], expected: list[str]):
+        result = vals.fmt_duration(
+            [116640, 7000000],
+            input_units="seconds",
+            duration_style="colon-sep",
+            output_units=output_units,
+        )
+        assert result == expected
+
+    def test_largest_unit_carries_timedelta(self):
+        result = vals.fmt_duration(
+            [timedelta(days=2, minutes=5)],
+            duration_style="colon-sep",
+            output_units=["hours", "minutes"],
+        )
+        assert result == ["48:05"]
+
+    def test_shown_as_zero_has_no_sign(self):
+        # The seconds aren't shown, so -30 seconds is `00:00` as `HH:MM`
+        result = vals.fmt_duration(
+            [-30, -90],
+            input_units="seconds",
+            duration_style="colon-sep",
+            output_units=["hours", "minutes"],
+        )
+        assert result == ["00:00", "−00:01"]
+
 
 class TestFmtDurationISO:
     """Tests for fmt_duration with ISO 8601 style."""
@@ -177,6 +224,10 @@ class TestFmtDurationTrimZeroUnits:
             [86405], input_units="seconds", trim_zero_units=["leading", "trailing"]
         )
         assert result == ["1d 0h 0m 5s"]
+
+    def test_trim_single_keyword(self):
+        result = vals.fmt_duration([86405], input_units="seconds", trim_zero_units="internal")
+        assert result == ["0w 1d 5s"]
 
 
 class TestFmtDurationOutputUnits:
@@ -300,13 +351,29 @@ class TestFmtDurationValidation:
         with pytest.raises(ValueError, match="duration_style"):
             vals.fmt_duration([100], input_units="seconds", duration_style="invalid")
 
-    def test_invalid_trim_zero_units(self):
+    # The colon-sep and ISO styles override `trim_zero_units=` but should still validate it
+    @pytest.mark.parametrize("duration_style", ["narrow", "wide", "colon-sep", "iso"])
+    @pytest.mark.parametrize("trim_zero_units", [["invalid"], "invalid", 1.5])
+    def test_invalid_trim_zero_units(self, duration_style: str, trim_zero_units: object):
         with pytest.raises(ValueError, match="trim_zero_units"):
-            vals.fmt_duration([100], input_units="seconds", trim_zero_units=["invalid"])
+            vals.fmt_duration(
+                [100],
+                input_units="seconds",
+                duration_style=duration_style,
+                trim_zero_units=trim_zero_units,
+            )
 
-    def test_invalid_max_output_units(self):
+    # The colon-sep and ISO styles ignore `max_output_units=` but should still validate it
+    @pytest.mark.parametrize("duration_style", ["narrow", "wide", "colon-sep", "iso"])
+    @pytest.mark.parametrize("max_output_units", [0, -1, "x"])
+    def test_invalid_max_output_units(self, duration_style: str, max_output_units: object):
         with pytest.raises(ValueError, match="max_output_units"):
-            vals.fmt_duration([100], input_units="seconds", max_output_units=0)
+            vals.fmt_duration(
+                [100],
+                input_units="seconds",
+                duration_style=duration_style,
+                max_output_units=max_output_units,
+            )
 
     def test_missing_input_units_for_numeric(self):
         with pytest.raises(ValueError, match="input_units"):
@@ -336,19 +403,27 @@ class TestFmtDurationGTMethod:
 
 
 class TestFmtDurationSubUnitRemainder:
-    """Tests for values smaller than the smallest output unit."""
+    """Tests for values below the smallest output unit (`vals` give HTML, so `<` is escaped)."""
+
+    def test_sub_unit_is_escaped_in_html(self):
+        df = pd.DataFrame({"dur": [0.1, -0.4, 61.0]})
+        gt = GT(df).fmt_duration(columns="dur", input_units="seconds", output_units="minutes")
+        html = gt.as_raw_html()
+        assert ">&lt;1m</td>" in html and ">−&lt;1m</td>" in html and ">1m</td>" in html
+        assert "<1m" not in html
+        assert "\\textless{}1m" in gt.as_latex()
 
     def test_sub_unit_narrow(self):
         # 30 seconds when output is only days — less than 1 day
         result = vals.fmt_duration([30], input_units="seconds", output_units=["days"])
-        assert result == ["<1d"]
+        assert result == ["&lt;1d"]
 
     def test_sub_unit_wide(self):
         # 30 seconds when output is only hours — less than 1 hour
         result = vals.fmt_duration(
             [30], input_units="seconds", output_units=["hours"], duration_style="wide"
         )
-        assert result == ["<1 hour"]
+        assert result == ["&lt;1 hour"]
 
     def test_sub_unit_not_triggered_when_zero(self):
         # Exact zero should not get the "<" prefix
@@ -378,6 +453,16 @@ class TestFmtDurationColonSepTrimLeading:
             trim_zero_units=["leading"],
         )
         assert result == ["01:01:01"]
+
+    def test_colon_sep_trim_leading_keyword(self):
+        # A single keyword works the same as a one-keyword list
+        result = vals.fmt_duration(
+            [125, 3661],
+            input_units="seconds",
+            duration_style="colon-sep",
+            trim_zero_units="leading",
+        )
+        assert result == ["02:05", "01:01:01"]
 
 
 class TestFmtDurationNAHandling:
@@ -418,7 +503,7 @@ class TestFmtDurationEdgeCases:
     def test_very_small_fractional_seconds(self):
         # 0.5 seconds with output_units=["minutes"] → less than 1 minute
         result = vals.fmt_duration([0.5], input_units="seconds", output_units=["minutes"])
-        assert result == ["<1m"]
+        assert result == ["&lt;1m"]
 
     def test_non_numeric_non_timedelta_passthrough(self):
         # Non-numeric values should be passed through as strings
@@ -579,7 +664,7 @@ class TestFmtDurationLocale:
         result = vals.fmt_duration(
             [30], input_units="seconds", locale="fr", output_units=["minutes"]
         )
-        assert "<1" in result[0]
+        assert "&lt;1" in result[0]
         assert "min" in result[0]
 
     def test_locale_sub_unit_remainder_wide(self):
@@ -590,7 +675,7 @@ class TestFmtDurationLocale:
             locale="de",
             output_units=["minutes"],
         )
-        assert "<1" in result[0]
+        assert "&lt;1" in result[0]
         assert "Minute" in result[0]
 
 

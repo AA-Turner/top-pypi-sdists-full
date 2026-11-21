@@ -16,7 +16,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from apm_cli.core.null_logger import NullCommandLogger
-from apm_cli.deps.lockfile import LockFile, LockfileSymlinkError, get_lockfile_path
+from apm_cli.deps.lockfile import LockFile, LockfileRefusal, get_lockfile_path
+from apm_cli.deps.lockfile_write_authority import lockfile_exists
 from apm_cli.integration._shared import (
     deduplicate_deps,
     resolve_locked_apm_yml_sources,
@@ -120,6 +121,9 @@ class _LSPTargetSpec:
     # Shown once when APM creates the servers key, for a harness where that
     # key has a side effect beyond the servers APM writes.
     servers_key_created_note: str | None = None
+    # Native project-root reference for an authored ${CLAUDE_PLUGIN_ROOT} at
+    # project scope (#3825); None writes the absolute package path.
+    plugin_root_project_reference: str | None = None
 
     def user_root(self) -> Path:
         """Return the runtime's user root through the harness user-root owner."""
@@ -194,6 +198,10 @@ _LSP_TARGET_SPECS: dict[str, _LSPTargetSpec] = {
             ("skills", "apm-lsp", ".claude-plugin"),
             ("skills", "apm-lsp"),
         ),
+        # code.claude.com/docs/en/plugins-reference "Where each variable
+        # resolves": plugin LSP command, args, env and workspaceFolder
+        # substitute ${CLAUDE_PROJECT_DIR}.
+        plugin_root_project_reference="${CLAUDE_PROJECT_DIR}",
     ),
     "copilot": _LSPTargetSpec(
         runtime="copilot",
@@ -242,6 +250,7 @@ class LSPIntegrator:
         lock_path: Path | None = None,
         logger=None,
         diagnostics=None,
+        claude_native_keys: frozenset[str] = frozenset(),
     ) -> list:
         """Collect LSP dependencies from resolved APM packages listed in apm.lock.
 
@@ -250,8 +259,11 @@ class LSPIntegrator:
         Falls back to scanning all apm.yml files if no lock file is available.
 
         Declaring-package provenance is attached so the install pipeline can
-        enforce executable approval before exposing transitive servers.
+        enforce executable approval before exposing transitive servers, with
+        the runtimes that load each server natively from its plugin.
         """
+        from apm_cli.claude_plugins.admission import native_service_runtimes
+
         if logger is None:
             logger = NullCommandLogger()
         if not apm_modules_dir.exists():
@@ -277,6 +289,7 @@ class LSPIntegrator:
                 pkg = APMPackage.from_apm_yml(apm_yml_path)
                 lsp = pkg.get_lsp_dependencies()
                 if lsp:
+                    native_runtimes: frozenset[str] = frozenset()
                     if locked_dependency is None:
                         owner = apm_yml_path.parent.relative_to(apm_modules_dir).as_posix()
                         approval_keys: tuple[str, ...] = ()
@@ -287,11 +300,15 @@ class LSPIntegrator:
 
                         owner = locked_dependency.get_unique_key()
                         approval_keys = locked_dependency_approval_keys(locked_dependency)
+                        native_runtimes = native_service_runtimes(
+                            owner, locked_dependency, claude_native_keys
+                        )
                     collected.extend(
                         replace(
                             dependency,
                             resolved_by=owner,
                             approval_keys=approval_keys,
+                            native_runtimes=native_runtimes,
                         )
                         for dependency in lsp
                     )
@@ -401,6 +418,41 @@ class LSPIntegrator:
         return out
 
     @staticmethod
+    def _render_plugin_roots(
+        servers: dict[str, dict],
+        lsp_deps: list,
+        spec: _LSPTargetSpec,
+        *,
+        project_root: Path,
+        user_scope: bool,
+    ) -> dict[str, dict]:
+        """Expand authored ``${CLAUDE_PLUGIN_ROOT}`` for one target and scope."""
+        from apm_cli.deps.plugin_root_render import (
+            finalize_project_root,
+            plugin_root_of,
+            render_plugin_root,
+        )
+
+        roots: dict[str, str] = {}
+        for dep in lsp_deps:
+            root = plugin_root_of(dep)
+            if root and hasattr(dep, "name"):
+                roots.setdefault(dep.name, root)
+        reference = None if user_scope else spec.plugin_root_project_reference
+        return {
+            name: finalize_project_root(
+                render_plugin_root(
+                    entry,
+                    plugin_root=roots.get(name),
+                    project_root=project_root,
+                    project_relative=reference is not None,
+                ),
+                reference,
+            )
+            for name, entry in servers.items()
+        }
+
+    @staticmethod
     def expressible_server_names(lsp_deps: list, runtime: str) -> builtins.set:
         """Return the names of *lsp_deps* that *runtime* can write.
 
@@ -409,11 +461,18 @@ class LSPIntegrator:
         claimed, and later cleanup cannot delete a same-name user entry.
         """
         servers = LSPIntegrator._servers_for_target(
-            LSPIntegrator._base_server_entries(lsp_deps),
+            LSPIntegrator._base_server_entries(LSPIntegrator.deps_for_runtime(lsp_deps, runtime)),
             _LSP_TARGET_SPECS[runtime],
             warn=lambda _message: None,
         )
         return builtins.set(servers)
+
+    @staticmethod
+    def deps_for_runtime(lsp_deps: list, runtime: str) -> list:
+        """Drop servers *runtime* loads natively from their plugin (never APM's copy)."""
+        from apm_cli.install.mcp.native_runtimes import native_runtimes_of
+
+        return [dep for dep in lsp_deps if runtime not in native_runtimes_of(dep)]
 
     # ------------------------------------------------------------------
     # Target resolution
@@ -490,16 +549,9 @@ class LSPIntegrator:
                 candidates.append("opencode")
 
         if exclude:
-            exclusions = {exclude}
-            try:
-                from apm_cli.core.target_detection import EffectiveTargetDecision
+            from apm_cli.integration.mcp_user_scope_runtimes import filter_excluded_mcp_runtimes
 
-                exclusions.update(
-                    EffectiveTargetDecision(exclude, "--exclude").canonical_targets or ()
-                )
-            except KeyError:
-                pass
-            candidates = [target for target in candidates if target not in exclusions]
+            candidates = filter_excluded_mcp_runtimes(candidates, exclude)
 
         if not candidates:
             return []
@@ -941,7 +993,7 @@ class LSPIntegrator:
         try:
             lockfile = lockfile_state
             if lockfile is None and lock_path is not None:
-                lockfile = LockFile.read(lock_path) if lock_path.exists() else LockFile()
+                lockfile = LockFile.read(lock_path) if lockfile_exists(lock_path) else LockFile()
             if lockfile is None:
                 lockfile = LockFile()
             lockfile.lsp_servers = sorted(lsp_server_names)
@@ -971,7 +1023,7 @@ class LSPIntegrator:
             if fail_on_write_error:
                 from apm_cli.install.errors import RequiredIntegrationError
 
-                if isinstance(exc, LockfileSymlinkError):
+                if isinstance(exc, LockfileRefusal):
                     raise RequiredIntegrationError(str(exc)) from exc
                 raise RequiredIntegrationError(
                     "LSP lockfile update failed. Check apm.lock.yaml permissions, then retry."
@@ -1007,20 +1059,24 @@ class LSPIntegrator:
             logger.warning("No LSP-compatible runtimes detected")
             return 0
 
-        base_servers = LSPIntegrator._base_server_entries(lsp_deps)
-        if not base_servers:
-            return 0
-
         prepared_targets: list[tuple[str, _LSPTargetSpec, _PreparedTargetConfig]] = []
         for runtime in runtimes:
             spec = _LSP_TARGET_SPECS[runtime]
+            runtime_deps = LSPIntegrator.deps_for_runtime(lsp_deps, runtime)
             servers = LSPIntegrator._servers_for_target(
-                base_servers,
+                LSPIntegrator._base_server_entries(runtime_deps),
                 spec,
                 warn=diagnostics.warn if diagnostics is not None else logger.warning,
             )
             if not servers:
                 continue
+            servers = LSPIntegrator._render_plugin_roots(
+                servers,
+                runtime_deps,
+                spec,
+                project_root=project_root_path,
+                user_scope=user_scope,
+            )
             try:
                 managed_names = managed_server_names
                 if managed_target_servers is not None:

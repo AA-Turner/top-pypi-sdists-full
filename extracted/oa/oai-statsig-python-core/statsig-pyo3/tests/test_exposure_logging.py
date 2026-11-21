@@ -348,7 +348,14 @@ def test_callsite_metadata_lookup_is_skipped_without_sdk_config_opt_in(
     statsig.flush_events().wait()
 
     assert calls == []
-    for event in mock_scrapi.get_logged_events():
+    events = mock_scrapi.get_logged_events()
+    assert {
+        ("statsig::config_exposure", "no-callsite-user"),
+        ("statsig::layer_exposure", "no-callsite-user"),
+        ("statsig::config_exposure", "manual-no-callsite-user"),
+        ("statsig::layer_exposure", "manual-no-layer-callsite-user"),
+    } <= {(event["eventName"], event["user"]["userID"]) for event in events}
+    for event in events:
         assert "exposure_source_file" not in event["metadata"]
         assert "exposure_source_function" not in event["metadata"]
         assert "exposure_source_line" not in event["metadata"]

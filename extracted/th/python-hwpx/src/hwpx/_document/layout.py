@@ -3,11 +3,13 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Mapping, Sequence
+from typing import TYPE_CHECKING, Any, Mapping, Sequence, cast
 
 from ..errors import HwpxStateError, HwpxTypeError, HwpxValueError
+from ._resolve import home_paragraph, refused_leaves_no_paragraph
 from ..objects.results import (
     ColumnLayout,
+    LineSpacing,
     ListFormatResult,
     PageMargins,
     PageSetup,
@@ -15,7 +17,12 @@ from ..objects.results import (
     ParagraphFormatResult,
     Units,
 )
-from ..oxml._document_primitives import NEW_NUM_KINDS
+from ..oxml._document_primitives import (
+    NEW_NUM_KINDS,
+    _normalize_border_side_names,
+    _normalize_border_type,
+    _normalize_color,
+)
 from ..oxml.namespaces import HH, HP
 from ..oxml.numbering_kinds import ensure_numbering_levels
 from ..oxml.objects import HwpxOxmlInlineObject
@@ -23,10 +30,12 @@ from ..oxml.section_format import (
     _PAGE_LANDSCAPE, _PAGE_PORTRAIT, _checked, _page_orientation_value, column_shares, validate_column_gap,
 )
 from ..oxml.table_sizes import cell_margins_of
-from ._units import _mm_to_hwp_units, _pt_to_hwp_units
+from ._units import _border_width_mm_text, _mm_to_hwp_units, _pt_to_hwp_units
 
 if TYPE_CHECKING:
     from hwpx.document import HwpxDocument
+    from ..objects.form_field import Bookmark, Hyperlink
+    from ..objects.results import NumberRestart, PageHiding
     from ..oxml import (
         HwpxOxmlParagraph,
         HwpxOxmlSection,
@@ -65,7 +74,7 @@ def _normalize_page_orientation(value: str | None) -> str | None:
 
 #: Keys of ``set_paragraph_format(border=...)``.
 _PARAGRAPH_BORDER_KEYS = frozenset(
-    {"sides", "color", "width", "type", "connect", "offset_mm", "ignore_margin"}
+    {"sides", "color", "width_mm", "type", "connect", "offset_mm", "ignore_margin"}
 )
 _PARAGRAPH_BORDER_SIDES = ("left", "right", "top", "bottom")
 
@@ -75,7 +84,8 @@ def _paragraph_border_problem(
 ) -> str | None:
     unknown = sorted(set(spec) - _PARAGRAPH_BORDER_KEYS)
     if unknown:
-        return f"unknown paragraph border keys: {unknown}"
+        renamed = " — 7.0: 'width': '0.4 mm' is now 'width_mm': 0.4 (mm, a number)" if "width" in unknown else ""
+        return f"unknown paragraph border keys: {unknown}{renamed}"
     if not sides or any(side not in _PARAGRAPH_BORDER_SIDES for side in sides):
         return f"unsupported paragraph border sides: {list(sides)}"
     if len(offsets) != 4 or any(
@@ -85,21 +95,23 @@ def _paragraph_border_problem(
     return None
 
 
-def _paragraph_border_attrs(
+def _checked_paragraph_border(
     header: Any,
     border: Mapping[str, Any] | None,
     *,
     bottom_border: bool,
     border_color: str,
     border_width: str,
-) -> dict[str, str] | None:
-    """``hh:paraPr/hh:border`` attributes for ``border`` (or ``bottom_border``)."""
+) -> dict[str, Any] | None:
+    """What :func:`_paragraph_border_attrs` writes for ``border`` (or ``bottom_border``), checked and
+    not yet written: every refusal of a paragraph border is raised here, before the header gains a
+    definition, so a refused call leaves the document as it was."""
 
     if border is None and not bottom_border:
         return None
     spec: Mapping[str, Any] = (
         border if border is not None
-        else {"sides": ("bottom",), "color": border_color, "width": border_width}
+        else {"sides": ("bottom",), "color": border_color}
     )
     raw_sides = spec.get("sides", _PARAGRAPH_BORDER_SIDES)
     sides = tuple(str(side).strip().lower() for side in ((raw_sides,) if isinstance(raw_sides, str) else raw_sides))
@@ -116,65 +128,47 @@ def _paragraph_border_attrs(
             code="paragraph-border-invalid",
             context={"border": {str(key): str(value) for key, value in spec.items()}},
             suggestion=(
-                "border keys: sides, color, width, type, connect, offset_mm "
-                "(mm, one number or left/right/top/bottom), ignore_margin."
+                "border keys: sides, color, width_mm (a number of mm on Hancom's width list), type, connect, "
+                "offset_mm (mm, one number or left/right/top/bottom), ignore_margin."
             ),
         )
-    border_fill_id = header.ensure_border_fill(
-        border_color=str(spec.get("color", "#000000")),
-        border_width=str(spec.get("width", "0.12 mm")),
-        active_borders=sides,
-        border_type=str(spec.get("type", "SOLID")),
+    width = (
+        _border_width_mm_text(spec["width_mm"], argument="border['width_mm']")
+        if spec.get("width_mm") is not None
+        else (border_width if border is None else "0.12 mm")
     )
+    color, line_type = str(spec.get("color", "#000000")), str(spec.get("type", "SOLID"))
+    fill: dict[str, Any] = {
+        "border_color": color,
+        "border_width": width,
+        "active_borders": sides,
+        "border_type": line_type,
+    }
+    # What header.ensure_border_fill refuses (line type, colour, side names), with its own checks.
+    _normalize_border_type(header._BORDER_LINE_TYPE_ALIASES.get(line_type.upper(), line_type), header._BORDER_LINE_TYPES)
+    _normalize_color(color)
+    _normalize_border_side_names(sides)
     left, right, top, bottom = (str(_mm_to_hwp_units(float(value))) for value in offsets)
     return {
-        "borderFillIDRef": border_fill_id,
-        "offsetLeft": left,
-        "offsetRight": right,
-        "offsetTop": top,
-        "offsetBottom": bottom,
-        "connect": "1" if spec.get("connect") else "0",
-        "ignoreMargin": "1" if spec.get("ignore_margin") else "0",
+        "fill": fill,
+        "attrs": {
+            "offsetLeft": left,
+            "offsetRight": right,
+            "offsetTop": top,
+            "offsetBottom": bottom,
+            "connect": "1" if spec.get("connect") else "0",
+            "ignoreMargin": "1" if spec.get("ignore_margin") else "0",
+        },
     }
 
 
-def _resolve_paragraph_targets(
-    doc: "HwpxDocument",
-    *,
-    paragraph_index: int | None = None,
-    paragraph_indexes: Sequence[int] | None = None,
-) -> list[tuple[int, HwpxOxmlParagraph]]:
-    paragraphs = doc.paragraphs
-    if not paragraphs:
-        raise HwpxValueError(
-            "document does not contain any paragraphs",
-            code="paragraph-missing",
-            suggestion="Call doc.add_paragraph() first.",
-        )
-    if paragraph_index is not None and paragraph_indexes is not None:
-        raise HwpxValueError(
-            "use either paragraph_index or paragraph_indexes, not both",
-            code="paragraph-argument-conflict",
-            suggestion="Pass only one.",
-        )
+def _paragraph_border_attrs(header: Any, checked: dict[str, Any] | None) -> dict[str, str] | None:
+    """``hh:paraPr/hh:border`` attributes for a border :func:`_checked_paragraph_border` passed: the
+    border definition is made (or found) here."""
 
-    if paragraph_indexes is None:
-        indexes = list(range(len(paragraphs))) if paragraph_index is None else [paragraph_index]
-    else:
-        indexes = [int(index) for index in paragraph_indexes]
-        if not indexes:
-            raise HwpxValueError(
-            "paragraph_indexes 가 비어 있습니다.",
-            code="paragraph-indexes-empty",
-            suggestion="서식을 적용할 문단 인덱스를 하나 이상 지정하세요.",
-        )
-
-    targets: list[tuple[int, HwpxOxmlParagraph]] = []
-    for index in indexes:
-        if index < 0 or index >= len(paragraphs):
-            raise IndexError("paragraph index out of range")
-        targets.append((index, paragraphs[index]))
-    return targets
+    if checked is None:
+        return None
+    return {"borderFillIDRef": header.ensure_border_fill(**checked["fill"]), **checked["attrs"]}
 
 
 def _tree_root(element: Any) -> Any:
@@ -184,52 +178,105 @@ def _tree_root(element: Any) -> Any:
     return element
 
 
-def _resolve_paragraph_objects(
-    doc: "HwpxDocument", paragraphs: Sequence[HwpxOxmlParagraph]
-) -> list[HwpxOxmlParagraph]:
-    """Check that every paragraph object belongs to *doc*, before anything changes.
+def _resolve_targets(
+    doc: "HwpxDocument",
+    *,
+    paragraph: "HwpxOxmlParagraph | int | None" = None,
+    paragraphs: "Sequence[HwpxOxmlParagraph | int] | None" = None,
+) -> list[tuple[int | None, HwpxOxmlParagraph]]:
+    """The paragraphs ``apply_paragraph_format``/``apply_list_format`` change, each with its place in
+    ``doc.paragraphs`` (``None`` for one outside the body), checked before anything changes.
 
-    Body, table cell (nested too), header and footer paragraphs all live in a
-    section's XML tree, so a paragraph belongs to the document when its element
-    is inside one of the document's section elements.
+    *paragraph* is one target, *paragraphs* several; neither means every body paragraph. A target is a
+    number (the body paragraph at that place in ``doc.paragraphs``) or a paragraph object of this
+    document: body, table cell (nested too), header and footer paragraphs all live in a section's XML
+    tree, so a paragraph belongs to the document when its element is inside one of the document's
+    section elements. A paragraph object given twice counts once.
     """
 
     from ..oxml import HwpxOxmlParagraph
 
-    items = list(paragraphs)
-    if not items:
+    if paragraph is not None and paragraphs is not None:
         raise HwpxValueError(
-            "paragraphs 가 비어 있습니다.",
-            code="paragraph-indexes-empty",
-            suggestion="서식을 적용할 문단을 하나 이상 지정하세요.",
+            "use either paragraph or paragraphs, not both",
+            code="paragraph-argument-conflict",
+            suggestion="Pass only one.",
         )
-    roots = [section.element for section in doc.sections]
-    resolved: list[HwpxOxmlParagraph] = []
-    for position, paragraph in enumerate(items):
-        if not isinstance(paragraph, HwpxOxmlParagraph):
-            raise HwpxTypeError(
-                f"paragraphs[{position}] 는 문단 객체가 아닙니다 — {type(paragraph).__name__}.",
-                code="paragraph-invalid-type",
-                context={"position": position, "type": type(paragraph).__name__},
-                suggestion="doc.paragraphs, cell.paragraphs, header.paragraphs 의 문단을 넘기세요.",
-            )
-        element = paragraph.element
-        root = _tree_root(element)
-        inside = (
-            any(root is section_root for section_root in roots)
-            if hasattr(element, "getparent")
-            else any(node is element for section_root in roots for node in section_root.iter())
-        )
-        if not inside:
+    # The body list is read only for numbered targets: placing paragraph objects reads no other paragraph.
+    body: Sequence[HwpxOxmlParagraph] = ()
+    if paragraphs is None:
+        if paragraph is None:
+            body = doc.paragraphs
+        items: list[Any] = list(range(len(body))) if paragraph is None else [paragraph]
+        if not items:
             raise HwpxValueError(
-                f"paragraphs[{position}] 는 이 문서에 속한 문단이 아닙니다.",
-                code="paragraph-not-in-document",
-                context={"position": position},
-                suggestion="이 문서에서 얻은 문단(본문·셀·머리말·꼬리말)을 넘기세요. 지운 문단이나 다른 문서의 문단은 받지 않습니다.",
+                "document does not contain any paragraphs",
+                code="paragraph-missing",
+                suggestion="Call doc.add_paragraph() first.",
             )
-        if all(element is not seen.element for seen in resolved):
-            resolved.append(paragraph)
-    return resolved
+    else:
+        items = list(paragraphs)
+        if not items:
+            raise HwpxValueError(
+                "paragraphs 가 비어 있습니다.",
+                code="paragraph-indexes-empty",
+                suggestion="서식을 적용할 문단(번호나 문단 객체)을 하나 이상 지정하세요.",
+            )
+    label = "paragraph" if paragraphs is None else "paragraphs[{}]"
+    roots = [section.element for section in doc.sections]
+    placed: list[tuple[int | None, HwpxOxmlParagraph]] = []
+    objects: list[tuple[int, HwpxOxmlParagraph]] = []  # (position in placed, object)
+    for position, item in enumerate(items):
+        name = label.format(position)
+        if isinstance(item, HwpxOxmlParagraph):
+            element = item.element
+            root = _tree_root(element)
+            inside = (
+                any(root is section_root for section_root in roots)
+                if hasattr(element, "getparent")
+                else any(node is element for section_root in roots for node in section_root.iter())
+            )
+            if not inside:
+                raise HwpxValueError(
+                    f"{name} 는 이 문서에 속한 문단이 아닙니다.",
+                    code="paragraph-not-in-document",
+                    context={"position": position},
+                    suggestion="이 문서에서 얻은 문단(본문·셀·머리말·꼬리말)을 넘기세요. 지운 문단이나 다른 문서의 문단은 받지 않습니다.",
+                )
+            if all(element is not seen.element for _, seen in objects):
+                objects.append((len(placed), item))
+                placed.append((None, item))
+            continue
+        if isinstance(item, bool) or not isinstance(item, int):
+            raise HwpxTypeError(
+                f"{name} 는 문단 번호나 문단 객체가 아닙니다 — {type(item).__name__}.",
+                code="paragraph-invalid-type",
+                context={"position": position, "type": type(item).__name__},
+                suggestion="본문 문단 번호(int)나 doc.paragraphs, cell.paragraphs, header.paragraphs 의 문단을 넘기세요.",
+            )
+        if not body:
+            body = doc.paragraphs
+        if not body:
+            raise HwpxValueError(
+                "document does not contain any paragraphs",
+                code="paragraph-missing",
+                suggestion="Call doc.add_paragraph() first.",
+            )
+        if item < 0 or item >= len(body):
+            from ..errors import HwpxIndexError
+
+            raise HwpxIndexError(
+                f"paragraph index {item} out of range ({len(body)} paragraphs)",
+                code="paragraph-not-found",
+                context={"requested": item, "count": len(body)},
+                suggestion=f"본문 문단 번호는 0..{len(body) - 1} 입니다.",
+            )
+        placed.append((item, body[item]))
+    if objects:
+        indexes = _body_indexes(doc, [item for _, item in objects])
+        for (slot, item), index in zip(objects, indexes):
+            placed[slot] = (index, item)
+    return placed
 
 
 def _body_indexes(
@@ -277,11 +324,10 @@ def _body_indexes(
 def set_paragraph_format(
     doc: "HwpxDocument",
     *,
-    paragraph_index: int | None = None,
-    paragraph_indexes: Sequence[int] | None = None,
-    paragraphs: Sequence[HwpxOxmlParagraph] | None = None,
+    paragraph: "HwpxOxmlParagraph | int | None" = None,
+    paragraphs: "Sequence[HwpxOxmlParagraph | int] | None" = None,
     alignment: str | None = None,
-    line_spacing_percent: int | float | None = None,
+    line_spacing: "LineSpacing | int | float | None" = None,
     indent_left_mm: float | None = None,
     indent_right_mm: float | None = None,
     first_line_indent_mm: float | None = None,
@@ -294,7 +340,7 @@ def set_paragraph_format(
     column_break: bool | None = None,
     bottom_border: bool = False,
     border_color: str = "#BFBFBF",
-    border_width: str = "0.12 mm",
+    border_width_mm: float = 0.12,
     tab_stops: Sequence[Mapping[str, Any]] | None = None,
     auto_tab_left: bool | None = None,
     auto_tab_right: bool | None = None,
@@ -302,14 +348,13 @@ def set_paragraph_format(
 ) -> ParagraphFormatResult:
     """Apply paragraph-level formatting using human units.
 
-    Targets are body paragraphs by index (``paragraph_index`` /
-    ``paragraph_indexes``; neither means every body paragraph) or paragraph
-    objects of this document (``paragraphs``): body, table cell (nested
-    tables too), header and footer paragraphs. The result lists body indexes
-    only; ``formatted`` counts every target.
+    Targets are *paragraph* (one) or *paragraphs* (several), each a body paragraph's place in
+    ``doc.paragraphs`` or a paragraph object of this document: body, table cell (nested tables
+    too), header and footer paragraphs (see :func:`_resolve_targets`); neither means every body
+    paragraph. The result lists body indexes only; ``formatted`` counts every target.
 
     Millimetre inputs are converted to HWP units; paragraph spacing uses
-    points; line spacing is stored as a percent value. ``keep_with_next`` /
+    points; line spacing is a percentage or a ``LineSpacing``. ``keep_with_next`` /
     ``keep_lines`` / ``page_break_before`` set the paragraph's keep-together
     (``<hh:breakSetting>``) flags via a freshly minted paraPr. ``column_break``
     is a different mechanism -- ``hp:p``'s own ``columnBreak`` attribute, a
@@ -344,12 +389,10 @@ def set_paragraph_format(
         )
     header = doc._root.headers[0]
 
-    if line_spacing_percent is not None and float(line_spacing_percent) <= 0:
-        raise HwpxValueError(
-            "line_spacing_percent must be positive",
-            code="paragraph-line-spacing-invalid",
-            suggestion="100 is the default (100%).",
-        )
+    from ..oxml.formatting import line_spacing_value
+
+    # Checked now, so a bad value changes nothing (it is written by ensure_paragraph_format).
+    spacing = None if line_spacing is None else line_spacing_value(line_spacing)
 
     margins: dict[str, int] = {}
     if first_line_indent_mm is not None:
@@ -392,7 +435,7 @@ def set_paragraph_format(
 
     if (
         alignment is None
-        and line_spacing_percent is None
+        and spacing is None
         and not margins
         and heading is None
         and not bottom_border
@@ -404,26 +447,27 @@ def set_paragraph_format(
         raise HwpxValueError(
             "at least one paragraph formatting option is required",
             code="paragraph-format-empty",
-            suggestion="Pass alignment, line_spacing_percent, or another option to change.",
+            suggestion="Pass alignment, line_spacing, or another option to change.",
         )
 
-    # Resolve every target before the header gains tab or border definitions,
-    # so a bad target changes nothing.
-    targets: list[tuple[int | None, HwpxOxmlParagraph]]
-    if paragraphs is not None:
-        if paragraph_index is not None or paragraph_indexes is not None:
-            raise HwpxValueError(
-                "use either paragraphs or paragraph_index/paragraph_indexes, not both",
-                code="paragraph-argument-conflict",
-                suggestion="Pass only one.",
-            )
-        objects = _resolve_paragraph_objects(doc, paragraphs)
-        targets = list(zip(_body_indexes(doc, objects), objects))
-    else:
-        targets = list(_resolve_paragraph_targets(doc,
-            paragraph_index=paragraph_index,
-            paragraph_indexes=paragraph_indexes,
-        ))
+    # Resolve every target (and the border line width) before the header gains tab or border
+    # definitions, so a bad target changes nothing.
+    border_width = _border_width_mm_text(border_width_mm, argument="border_width_mm")
+    if isinstance(border, Mapping) and border.get("width_mm") is not None:
+        _border_width_mm_text(border["width_mm"], argument="border['width_mm']")
+    targets = _resolve_targets(doc, paragraph=paragraph, paragraphs=paragraphs)
+    # The alignment and the border are refused before the header gains a tab or a border definition:
+    # they used to be checked after the tab definition (and the border's own definition) was written,
+    # so a refused call left one behind.
+    if alignment is not None:
+        header._normalize_paragraph_alignment(alignment)
+    checked_border = _checked_paragraph_border(
+        header,
+        border,
+        bottom_border=bottom_border,
+        border_color=border_color,
+        border_width=border_width,
+    )
 
     tab_pr_id: str | None = None
     if wants_tab_definition:
@@ -447,13 +491,7 @@ def set_paragraph_format(
             auto_tab_right=bool(auto_tab_right),
         )
 
-    border_attrs = _paragraph_border_attrs(
-        header,
-        border,
-        bottom_border=bottom_border,
-        border_color=border_color,
-        border_width=border_width,
-    )
+    border_attrs = _paragraph_border_attrs(header, checked_border)
 
     # column_break bypasses paraPr entirely (it's hp:p's own attribute, not
     # a shared style) -- only mint a new paraPr when one of the *other*
@@ -461,7 +499,7 @@ def set_paragraph_format(
     # a needless duplicate paraPr id.
     wants_para_pr_change = (
         alignment is not None
-        or line_spacing_percent is not None
+        or spacing is not None
         or bool(margins)
         or heading is not None
         or border_attrs is not None
@@ -469,21 +507,24 @@ def set_paragraph_format(
         or wants_tab_definition
     )
 
-    for paragraph in (paragraph for _, paragraph in targets):
+    # A percentage is written where 6.x wrote line_spacing_percent=; a LineSpacing as ensure_paragraph_format does.
+    percent = line_spacing if spacing is not None and not isinstance(line_spacing, LineSpacing) else None
+    for target in (target for _, target in targets):
         if wants_para_pr_change:
             para_pr_id = header.ensure_paragraph_format(
-                base_para_pr_id=paragraph.para_pr_id_ref,
+                base_para_pr_id=target.para_pr_id_ref,
                 alignment=alignment,
-                line_spacing_percent=line_spacing_percent,
+                line_spacing_percent=cast("int | float | None", percent),
                 margins=margins,
                 heading=heading,
                 border=border_attrs,
                 break_setting=break_setting or None,
                 tab_pr_id_ref=tab_pr_id,
+                line_spacing=spacing if percent is None else None,
             )
-            paragraph.para_pr_id_ref = para_pr_id
+            target.para_pr_id_ref = para_pr_id
         if column_break is not None:
-            paragraph.column_break = column_break
+            target.column_break = column_break
 
     return ParagraphFormatResult(
         formatted=len(targets),
@@ -535,8 +576,8 @@ def _list_para_pr_id(
 def set_list_format(
     doc: "HwpxDocument",
     *,
-    paragraph_index: int | None = None,
-    paragraph_indexes: Sequence[int] | None = None,
+    paragraph: "HwpxOxmlParagraph | int | None" = None,
+    paragraphs: "Sequence[HwpxOxmlParagraph | int] | None" = None,
     kind: str = "bullet",
     level: int = 1,
     bullet_char: str | None = None,
@@ -544,7 +585,9 @@ def set_list_format(
     start: int | None = None,
     continue_list: bool = False,
 ) -> ListFormatResult:
-    """Apply bullet or numbered-list paragraph properties to paragraphs."""
+    """Apply bullet or numbered-list paragraph properties to paragraphs (targets as
+    :func:`set_paragraph_format` takes them). A continued list numbers on from the list before the
+    first body paragraph among the targets."""
 
     if continue_list and (number_format or start is not None):
         raise HwpxValueError(
@@ -583,16 +626,15 @@ def set_list_format(
     if start is not None:
         level_specs[level - 1]["start"] = str(start)
 
-    targets = _resolve_paragraph_targets(doc,
-        paragraph_index=paragraph_index,
-        paragraph_indexes=paragraph_indexes,
-    )
+    targets = _resolve_targets(doc, paragraph=paragraph, paragraphs=paragraphs)
     list_para_pr_id = _list_para_pr_id(
         doc,
         kind=kind,
         level=level,
         level_specs=level_specs,
-        continue_before=min(index for index, _ in targets) if continue_list else None,
+        continue_before=(
+            min((index for index, _ in targets if index is not None), default=None) if continue_list else None
+        ),
     )
     header = doc._root.headers[0]
     list_para_pr = header.element.find(f".//{_HH}paraPr[@id='{list_para_pr_id}']")
@@ -609,21 +651,19 @@ def set_list_format(
         "level": heading_element.get("level", str(level - 1)),
     }
 
-    formatted: list[int] = []
     first_para_pr_id: str | None = None
-    for index, paragraph in targets:
+    for _, target in targets:
         para_pr_id = header.ensure_paragraph_format(
-            base_para_pr_id=paragraph.para_pr_id_ref,
+            base_para_pr_id=target.para_pr_id_ref,
             heading=heading,
         )
-        paragraph.para_pr_id_ref = para_pr_id
-        formatted.append(index)
+        target.para_pr_id_ref = para_pr_id
         if first_para_pr_id is None:
             first_para_pr_id = para_pr_id
 
     return ListFormatResult(
-        formatted=len(formatted),
-        paragraphs=tuple(formatted),
+        formatted=len(targets),
+        paragraphs=tuple(index for index, _ in targets if index is not None),
         kind=kind,
         level=level,
         para_pr_id_ref=first_para_pr_id if first_para_pr_id is not None else list_para_pr_id,
@@ -648,7 +688,6 @@ def set_page_setup(
     columns: int | None = None,
     column_gap_mm: float | None = None,
     section: HwpxOxmlSection | None = None,
-    section_index: int | None = None,
 ) -> PageSetup:
     """Set page size, margins, orientation, and optional columns in human units.
 
@@ -702,6 +741,19 @@ def set_page_setup(
     for name, value in (("width", width), ("height", height), *hwp_margins.items()):
         if value is not None:  # checked before the page or its margins change
             _checked(name, value, 2**31 - 1, "page-size-value")
+    col_count: int | None = None
+    if columns is not None:
+        # ... and the columns too: a count below 1 was refused after the paper size and the margins
+        # had been written, so the refused call changed the page.
+        col_count = int(columns)
+        if not 1 <= col_count <= 255:  # what set_columns takes: 256 was refused there, after the paper
+            raise HwpxValueError(
+                "columns must be between 1 and 255",
+                code="page-columns-invalid",
+                context={"requested": col_count},
+                suggestion="Use columns=1 to remove columns.",
+            )
+        validate_column_gap(_mm_to_hwp_units(float(column_gap_mm or 0)))
     if width is not None or height is not None or normalized_orientation is not None:
         # Call the local primitives directly rather than `doc.set_page_size`/
         # `doc.set_page_margins`/`doc.set_columns` below — all three names
@@ -715,27 +767,17 @@ def set_page_setup(
             height=height,
             orientation=normalized_orientation,
             section=section,
-            section_index=section_index,
         )
 
     if hwp_margins:
         set_page_margins(
             doc,
             section=section,
-            section_index=section_index,
             **hwp_margins,
         )
 
     column_layout: ColumnLayout | None = None
-    if columns is not None:
-        col_count = int(columns)
-        if col_count < 1:
-            raise HwpxValueError(
-            "columns must be 1 or greater",
-            code="page-columns-invalid",
-            context={"requested": col_count},
-            suggestion="Use columns=1 to remove columns.",
-        )
+    if col_count is not None:
         gap_mm = float(column_gap_mm or 0)
         gap = _mm_to_hwp_units(gap_mm)
         set_columns(
@@ -743,7 +785,6 @@ def set_page_setup(
             col_count=col_count,
             same_gap=gap,
             section=section,
-            section_index=section_index,
         )
         column_layout = ColumnLayout(count=col_count, gap_mm=gap_mm)
 
@@ -759,6 +800,7 @@ def set_page_setup(
     )
 
 
+@refused_leaves_no_paragraph
 def set_columns(
     doc: "HwpxDocument",
     col_count: int = 2,
@@ -769,11 +811,10 @@ def set_columns(
     same_gap: int = 1200,
     column_widths: "Sequence[tuple[int, int]] | None" = None,
     separator_type: str | None = None,
-    separator_width: str | None = None,
+    separator_width_mm: float | None = None,
     separator_color: str | None = None,
     paragraph: HwpxOxmlParagraph | None = None,
     section: HwpxOxmlSection | None = None,
-    section_index: int | None = None,
 ) -> HwpxOxmlInlineObject:
     """Set the columns of a section, or start new columns at a paragraph.
 
@@ -790,10 +831,15 @@ def set_columns(
             column, in HWPUNIT adding up to the text width or in plain
             proportions; Hancom keeps them as shares of 32768 of the text width.
         separator_type: Optional column separator line type (e.g. ``SOLID``).
+        separator_width_mm: The separator's width in mm, written as the nearest of Hancom's widths.
     """
-    if not 1 <= col_count <= 255:
+    separator_width = (
+        None if separator_width_mm is None
+        else _border_width_mm_text(separator_width_mm, argument="separator_width_mm")
+    )
+    if isinstance(col_count, bool) or not isinstance(col_count, int) or not 1 <= col_count <= 255:
         raise HwpxValueError(
-            "col_count must be between 1 and 255",
+            "col_count must be an int between 1 and 255",
             code="page-columns-invalid",
             context={"requested": col_count},
             suggestion="Use columns=1 to remove columns.",
@@ -803,7 +849,7 @@ def set_columns(
     elif column_widths:
         column_shares(column_widths)  # checked before a paragraph is added too
     if paragraph is None:
-        target_section = _resolve_section(doc, section=section, section_index=section_index)
+        target_section = _resolve_section(doc, section=section)
         ctrl = target_section.properties.set_columns(
             col_count,
             col_type=col_type,
@@ -817,8 +863,8 @@ def set_columns(
         )
         if ctrl is not None:
             return HwpxOxmlInlineObject(ctrl, target_section.paragraphs[0])
-        paragraph = doc.add_paragraph(
-            "", section=section, section_index=section_index,
+        paragraph = home_paragraph(
+            doc, "", section=section,
             include_run=False,
         )
     return paragraph.add_column_definition(
@@ -834,26 +880,28 @@ def set_columns(
     )
 
 
+@refused_leaves_no_paragraph
 def add_bookmark(
     doc: "HwpxDocument",
     name: str,
     *,
     paragraph: HwpxOxmlParagraph | None = None,
     section: HwpxOxmlSection | None = None,
-    section_index: int | None = None,
-) -> HwpxOxmlInlineObject:
+    offset: int | None = None,
+) -> "Bookmark":
     """Insert a bookmark marker in the document.
 
-    Returns the ``<hp:ctrl>`` wrapper element.
+    Returns it as :class:`~hwpx.objects.Bookmark` (``paragraph.add_bookmark``'s, 7.0).
     """
     if paragraph is None:
-        paragraph = doc.add_paragraph(
-            "", section=section, section_index=section_index,
+        paragraph = home_paragraph(
+            doc, "", section=section,
             include_run=False,
         )
-    return paragraph.add_bookmark(name)
+    return paragraph.add_bookmark(name, offset=offset)
 
 
+@refused_leaves_no_paragraph
 def add_hyperlink(
     doc: "HwpxDocument",
     url: str,
@@ -861,9 +909,8 @@ def add_hyperlink(
     *,
     paragraph: HwpxOxmlParagraph | None = None,
     section: HwpxOxmlSection | None = None,
-    section_index: int | None = None,
     char_pr_id_ref: str | int | None = None,
-) -> HwpxOxmlInlineObject:
+) -> "Hyperlink":
     """Insert a hyperlink (fieldBegin + text + fieldEnd).
 
     The display text follows the Hancom convention (blue ``#0000FF`` text
@@ -872,11 +919,11 @@ def add_hyperlink(
     ``char_pr_id_ref`` overrides it. ``paragraph.add_hyperlink`` picks that
     style, so a link looks the same whichever way it was added.
 
-    Returns the ``<hp:ctrl>`` wrapper containing the ``<hp:fieldBegin>``.
+    Returns it as :class:`~hwpx.objects.Hyperlink` (``paragraph.add_hyperlink``'s, 7.0).
     """
     if paragraph is None:
-        paragraph = doc.add_paragraph(
-            "", section=section, section_index=section_index,
+        paragraph = home_paragraph(
+            doc, "", section=section,
             include_run=False,
         )
     return paragraph.add_hyperlink(url, display_text, char_pr_id_ref=char_pr_id_ref)
@@ -885,11 +932,8 @@ def add_hyperlink(
 def _resolve_section(
     doc: "HwpxDocument",
     section: HwpxOxmlSection | None = None,
-    section_index: int | None = None,
 ) -> HwpxOxmlSection:
     target_section = section
-    if target_section is None and section_index is not None:
-        target_section = doc._root.sections[section_index]
     if target_section is None:
         if not doc._root.sections:
             raise HwpxValueError(
@@ -909,11 +953,10 @@ def set_page_size(
     orientation: str | None = None,
     gutter_type: str | None = None,
     section: HwpxOxmlSection | None = None,
-    section_index: int | None = None,
 ) -> None:
     """Set page dimensions on the requested section through the public facade."""
 
-    target_section = _resolve_section(doc, section=section, section_index=section_index)
+    target_section = _resolve_section(doc, section=section)
     target_section.properties.set_page_size(
         width=width,
         height=height,
@@ -933,11 +976,10 @@ def set_page_margins(
     footer: int | None = None,
     gutter: int | None = None,
     section: HwpxOxmlSection | None = None,
-    section_index: int | None = None,
 ) -> None:
     """Set page margins on the requested section through the public facade."""
 
-    target_section = _resolve_section(doc, section=section, section_index=section_index)
+    target_section = _resolve_section(doc, section=section)
     target_section.properties.set_page_margins(
         left=left,
         right=right,
@@ -954,12 +996,11 @@ def set_header_text(
     text: str,
     *,
     section: HwpxOxmlSection | None = None,
-    section_index: int | None = None,
     page_type: str = "BOTH",
 ) -> HwpxOxmlSectionHeaderFooter:
     """Ensure the requested section contains a header for *page_type* and set its text."""
 
-    target_section = _resolve_section(doc, section=section, section_index=section_index)
+    target_section = _resolve_section(doc, section=section)
     return target_section.properties.set_header_text(text, page_type=page_type)
 
 
@@ -968,12 +1009,11 @@ def set_footer_text(
     text: str,
     *,
     section: HwpxOxmlSection | None = None,
-    section_index: int | None = None,
     page_type: str = "BOTH",
 ) -> HwpxOxmlSectionHeaderFooter:
     """Ensure the requested section contains a footer for *page_type* and set its text."""
 
-    target_section = _resolve_section(doc, section=section, section_index=section_index)
+    target_section = _resolve_section(doc, section=section)
     return target_section.properties.set_footer_text(text, page_type=page_type)
 
 
@@ -982,12 +1022,11 @@ def set_header_content(
     content: Sequence[Mapping[str, Any]],
     *,
     section: HwpxOxmlSection | None = None,
-    section_index: int | None = None,
     page_type: str = "BOTH",
 ) -> HwpxOxmlSectionHeaderFooter:
     """Ensure the requested section contains a rich header for *page_type*."""
 
-    target_section = _resolve_section(doc, section=section, section_index=section_index)
+    target_section = _resolve_section(doc, section=section)
     return target_section.properties.set_header_content(content, page_type=page_type)
 
 
@@ -996,13 +1035,71 @@ def set_footer_content(
     content: Sequence[Mapping[str, Any]],
     *,
     section: HwpxOxmlSection | None = None,
-    section_index: int | None = None,
     page_type: str = "BOTH",
 ) -> HwpxOxmlSectionHeaderFooter:
     """Ensure the requested section contains a rich footer for *page_type*."""
 
-    target_section = _resolve_section(doc, section=section, section_index=section_index)
+    target_section = _resolve_section(doc, section=section)
     return target_section.properties.set_footer_content(content, page_type=page_type)
+
+
+def _spec_has(content: Sequence[Mapping[str, Any]], want: str) -> bool:
+    """Whether the header/footer *content* specs write a page number (*want* ``"number"``) or
+    visible text (``"text"``)."""
+
+    for paragraph in content:
+        children = paragraph.get("children") or paragraph.get("runs") or ()
+        if want == "text" and str(paragraph.get("text") or "").strip() and not children:
+            return True
+        for child in children:
+            if want == "number" and (child.get("type") == "page_number" or child.get("page_number")):
+                return True
+            if want == "text" and child.get("type", "run") == "run" and str(child.get("text") or "").strip():
+                return True
+    return False
+
+
+def _warn_story_overwrite(
+    section: "HwpxOxmlSection",
+    kind: str,
+    page_type: str,
+    *,
+    text: str | None,
+    content: Sequence[Mapping[str, Any]] | None,
+) -> None:
+    """Warn when setting a header or footer drops a page number or text it held.
+
+    ``set_footer(text=...)`` after ``set_page_number()`` (or the other way round)
+    replaces the footer: the page number (or the text) goes. Both stay when they
+    are set together in one ``content=``.
+    """
+
+    import warnings
+
+    try:
+        existing = section.properties._get_story(kind, page_type)
+    except HwpxValueError:
+        return
+    if existing is None:
+        return
+    element = existing.element
+    had_number = any(node.get("numType") == "PAGE" for node in element.iter(f"{HP}autoNum"))
+    had_text = any((node.text or "").strip() for node in element.iter(f"{HP}t"))
+    specs = content if content is not None else [{"text": text or ""}]
+    lost = [
+        name for name, had, want in (("쪽 번호", had_number, "number"), ("문구", had_text, "text"))
+        if had and not _spec_has(specs, want)
+    ]
+    if not lost:
+        return
+    label = "머리말" if kind == "header" else "꼬리말"
+    warnings.warn(
+        f"{label}을 새로 쓰면서 있던 {'·'.join(lost)}이(가) 지워집니다. 문구와 쪽 번호를 함께 두려면 "
+        f"doc.page.set_{kind}(content=[{{\"align\": \"CENTER\", \"children\": [{{\"type\": \"run\", "
+        f"\"text\": \"대외비 \"}}, {{\"type\": \"page_number\"}}]}}]) 처럼 한 번에 쓰세요.",
+        UserWarning,
+        stacklevel=4,
+    )
 
 
 def set_header_footer(
@@ -1012,7 +1109,6 @@ def set_header_footer(
     text: str | None = None,
     content: Sequence[Mapping[str, Any]] | None = None,
     section: HwpxOxmlSection | None = None,
-    section_index: int | None = None,
     page_type: str = "BOTH",
 ) -> HwpxOxmlSectionHeaderFooter:
     """Set a header or footer using plain text or rich content specs."""
@@ -1031,6 +1127,10 @@ def set_header_footer(
             code="page-argument-conflict",
             suggestion="Use text= for one line, content= for multiple paragraphs.",
         )
+    _warn_story_overwrite(
+        _resolve_section(doc, section=section),
+        normalized, page_type, text=text, content=content,
+    )
     # Call the local primitives directly rather than `doc.set_header_content`/
     # `doc.set_footer_content`/`doc.set_header_text`/`doc.set_footer_text` —
     # all four names moved in 6.0 (design table rows 83-86), and going
@@ -1042,14 +1142,12 @@ def set_header_footer(
                 doc,
                 content,
                 section=section,
-                section_index=section_index,
                 page_type=page_type,
             )
         return set_footer_content(
             doc,
             content,
             section=section,
-            section_index=section_index,
             page_type=page_type,
         )
 
@@ -1059,14 +1157,12 @@ def set_header_footer(
             doc,
             value,
             section=section,
-            section_index=section_index,
             page_type=page_type,
         )
     return set_footer_text(
         doc,
         value,
         section=section,
-        section_index=section_index,
         page_type=page_type,
     )
 
@@ -1083,7 +1179,6 @@ def set_page_number(
     suffix: str = "",
     format_type: str | None = None,
     section: HwpxOxmlSection | None = None,
-    section_index: int | None = None,
 ) -> HwpxOxmlSectionHeaderFooter:
     """Replace header/footer content with an automatic page-number field."""
 
@@ -1110,18 +1205,17 @@ def set_page_number(
         kind=target,
         content=[{"align": align, "children": children}],
         section=section,
-        section_index=section_index,
         page_type=page_type,
     )
 
 
-def restart_page_number(
+def add_number_restart(
     doc: "HwpxDocument",
     paragraph: "HwpxOxmlParagraph",
     *,
     number: int = 1,
     kind: str = "PAGE",
-) -> "HwpxOxmlInlineObject":
+) -> "NumberRestart":
     """Restart *kind*'s running count at *number* from *paragraph* onward.
 
     Inserts ``<hp:ctrl><hp:newNum num="{number}" numType="{kind}"/></hp:ctrl>``
@@ -1140,10 +1234,10 @@ def restart_page_number(
             context={"kind": normalized_kind, "allowed": sorted(NEW_NUM_KINDS)},
             suggestion="Use one of: " + ", ".join(sorted(NEW_NUM_KINDS)),
         )
-    return paragraph.add_new_num(number=number, kind=normalized_kind)
+    return paragraph.add_number_restart(number=number, kind=normalized_kind)
 
 
-def hide_page_elements(
+def add_page_hiding(
     doc: "HwpxDocument",
     paragraph: "HwpxOxmlParagraph",
     *,
@@ -1153,7 +1247,7 @@ def hide_page_elements(
     border: bool = False,
     fill: bool = False,
     page_num: bool = False,
-) -> "HwpxOxmlInlineObject":
+) -> "PageHiding":
     """Hide the named page elements on *paragraph*'s page only.
 
     Inserts ``<hp:ctrl><hp:pageHiding .../></hp:ctrl>`` (``ParaList XML
@@ -1178,14 +1272,11 @@ def remove_header(
     doc: "HwpxDocument",
     *,
     section: HwpxOxmlSection | None = None,
-    section_index: int | None = None,
     page_type: str = "BOTH",
 ) -> None:
     """Remove the header linked to *page_type* from the requested section if present."""
 
     target_section = section
-    if target_section is None and section_index is not None:
-        target_section = doc._root.sections[section_index]
     if target_section is None:
         if not doc._root.sections:
             return
@@ -1197,14 +1288,11 @@ def remove_footer(
     doc: "HwpxDocument",
     *,
     section: HwpxOxmlSection | None = None,
-    section_index: int | None = None,
     page_type: str = "BOTH",
 ) -> None:
     """Remove the footer linked to *page_type* from the requested section if present."""
 
     target_section = section
-    if target_section is None and section_index is not None:
-        target_section = doc._root.sections[section_index]
     if target_section is None:
         if not doc._root.sections:
             return
@@ -1223,7 +1311,8 @@ def flow_table_taller_than_page(doc: "HwpxDocument", table: Any) -> None:
 
     properties = table.paragraph.section.properties
     size, margins = properties.page_size, properties.page_margins
-    body = size.drawn_height - margins.top - margins.bottom - margins.header - margins.footer
+    sizes = (size.drawn_height, margins.top, margins.bottom, margins.header, margins.footer)
+    body = 0 if None in sizes else sizes[0] - sizes[1] - sizes[2] - sizes[3] - sizes[4]  # type: ignore[operator]
     if body > 0 and _table_min_height(doc, table.element) > body:
         table.set_treat_as_char(False)
 

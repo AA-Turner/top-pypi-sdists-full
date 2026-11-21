@@ -31,6 +31,17 @@ records, the ``feedparser.parse`` entry point over :meth:`turbohtml.Document.fee
 
 from __future__ import annotations
 
+__lazy_modules__ = [
+    "itertools",
+    f"{__spec__.parent}._article",  # ty: ignore[missing-union-attribute]  # imported modules have a spec
+    f"{__spec__.parent}._dates",  # ty: ignore[missing-union-attribute]  # imported modules have a spec
+    f"{__spec__.parent}._feed",  # ty: ignore[missing-union-attribute]  # imported modules have a spec
+    f"{__spec__.parent}._links",  # ty: ignore[missing-union-attribute]  # imported modules have a spec
+    f"{__spec__.parent}._native",  # ty: ignore[missing-union-attribute]  # imported modules have a spec
+    f"{__spec__.parent}._structured_data",  # ty: ignore[missing-union-attribute]  # imported modules have a spec
+    f"{__spec__.parent}._urls",  # ty: ignore[missing-union-attribute]  # imported modules have a spec
+]
+
 from dataclasses import dataclass
 from itertools import starmap
 from typing import Final, NamedTuple, cast
@@ -45,7 +56,7 @@ from ._native import (
     parse,
     parse_xml,
 )
-from ._native import boilerplate as _boilerplate
+from ._native import boilerplate as native_boilerplate
 from ._structured_data import MicrodataItem, OpenGraph, RdfaItem, StructuredData
 from ._urls import UrlCleaning, clean_url, extract_links, normalize_url
 
@@ -105,7 +116,7 @@ def boilerplate(html: str, options: Extraction | None = None, /) -> list[Paragra
     """
     thresholds = options or _DEFAULT
     document = parse(html)
-    rows = _boilerplate(
+    rows = native_boilerplate(
         # a parsed document always has an <html> root, though the type admits None
         cast("Element", document.root),
         document.main_content(),

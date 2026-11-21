@@ -35,6 +35,7 @@ import aiohttp
 from unifi_core.auth import AuthenticationStatus, AuthMethod
 from unifi_core.connect_attempt import ConnectAttempt
 from unifi_core.exceptions import UniFiAuthError, UniFiConnectionError, UniFiRateLimitError
+from unifi_core.operation_gate import write_request_bound
 from unifi_core.redaction import (
     append_exception_hint,
     strip_exception_url_origins,
@@ -143,6 +144,10 @@ class AccessConnectionManager:
         Optional API key for the official Access API (port ``api_port``).
     api_port:
         Port for the ``py-unifi-access`` API (default 12445).
+    auth_failure_hint:
+        Fixed text appended to the connection failure when the controller
+        rejected the credentials or none are configured, and to no other
+        failure. It is shown to callers verbatim, so it must not carry a secret.
     """
 
     def __init__(
@@ -157,6 +162,7 @@ class AccessConnectionManager:
         ssl_fingerprint: str | None = None,
         tls_env_prefix: str | None = None,
         api_ssl_fingerprint: str | None = None,
+        auth_failure_hint: str | None = None,
     ) -> None:
         self.host = host
         self.username = username
@@ -166,6 +172,7 @@ class AccessConnectionManager:
         self.ssl_fingerprint = ssl_fingerprint
         self.api_ssl_fingerprint = api_ssl_fingerprint
         self.tls_env_prefix = tls_env_prefix
+        self.auth_failure_hint = auth_failure_hint
         # A malformed pin fails here, not on the first request.
         ssl_setting(verify_ssl, ssl_fingerprint)
         ssl_setting(verify_ssl, api_ssl_fingerprint)
@@ -292,7 +299,9 @@ class AccessConnectionManager:
         self._support_attempt = connection_attempt_started()
         if not self._credentials_configured():
             error = UniFiConnectionError(
-                "No UniFi Access credentials are configured. Set an API key or a username and password."
+                self._with_auth_failure_hint(
+                    "No UniFi Access credentials are configured. Set an API key or a username and password."
+                )
             )
             self._record_connect_failure(error)
             return False
@@ -501,12 +510,16 @@ class AccessConnectionManager:
         return message
 
     def _rejected_message(self) -> str:
-        message = (
+        message = self._with_auth_failure_hint(
             "UniFi Access rejected the configured credentials "
             f"(tried {' and '.join(self._configured_paths())}). Check the username/password or API key."
         )
         note = self._certificate_failure_note()
         return f"{message} {note}" if note else message
+
+    def _with_auth_failure_hint(self, message: str) -> str:
+        """``message`` followed by the configured hint for a credential failure, if any."""
+        return f"{message} {self.auth_failure_hint}" if self.auth_failure_hint else message
 
     @property
     def last_connection_error(self) -> str | None:
@@ -790,6 +803,11 @@ class AccessConnectionManager:
     async def _proxy_request_with_reauth(self, method: str, url: str, label: str, **kwargs: Any) -> Dict[str, Any]:
         """Send one proxy request, re-authenticating once on HTTP 401.
 
+        The proxy session has no request timeout of its own. Inside a held
+        write each request is bounded by what is left of the write's budget;
+        the re-login between them is not, so a timeout never cuts a login off
+        between its cookie and its CSRF token.
+
         Parameters
         ----------
         method:
@@ -804,40 +822,43 @@ class AccessConnectionManager:
         headers = {"X-CSRF-Token": self._csrf_token}
         token_before = self._csrf_token
 
-        async with self._proxy_session.request(method, url, headers=headers, **kwargs) as resp:
-            if resp.status == 401:
-                async with self._auth_lock:
-                    # Double-check: skip re-auth if another coroutine already refreshed
-                    if not self._proxy_available:
-                        raise self.unavailable_error(f"{label} re-authentication failed")
-                    if self._csrf_token == token_before:
-                        logger.info("[access-cm] %s session expired, re-authenticating...", label)
-                        await self._proxy_login()
-
-                retry_headers = {"X-CSRF-Token": self._csrf_token}
-                async with self._proxy_session.request(method, url, headers=retry_headers, **kwargs) as retry_resp:
-                    if retry_resp.status != 200:
+        async with write_request_bound():
+            async with self._proxy_session.request(method, url, headers=headers, **kwargs) as resp:
+                if resp.status != 401:
+                    if resp.status != 200:
+                        body = ""
+                        try:
+                            body = await resp.text()
+                        except Exception:
+                            pass
                         raise self._proxy_status_error(
-                            f"{label} request failed after re-auth: HTTP {retry_resp.status} {method} {url}",
-                            retry_resp.status,
+                            f"{label} request failed: HTTP {resp.status} {method} {url}"
+                            f"{(' — ' + body[:200]) if body else ''}",
+                            resp.status,
                         )
-                    payload = await retry_resp.json()
+                    payload = await resp.json()
                     self._raise_for_api_error(payload, method, self._safe_text(url), label)
                     return payload
 
-            if resp.status != 200:
-                body = ""
-                try:
-                    body = await resp.text()
-                except Exception:
-                    pass
-                raise self._proxy_status_error(
-                    f"{label} request failed: HTTP {resp.status} {method} {url}{(' — ' + body[:200]) if body else ''}",
-                    resp.status,
-                )
-            payload = await resp.json()
-            self._raise_for_api_error(payload, method, self._safe_text(url), label)
-            return payload
+        async with self._auth_lock:
+            # Double-check: skip re-auth if another coroutine already refreshed
+            if not self._proxy_available:
+                raise self.unavailable_error(f"{label} re-authentication failed")
+            if self._csrf_token == token_before:
+                logger.info("[access-cm] %s session expired, re-authenticating...", label)
+                await self._proxy_login()
+
+        retry_headers = {"X-CSRF-Token": self._csrf_token}
+        async with write_request_bound():
+            async with self._proxy_session.request(method, url, headers=retry_headers, **kwargs) as retry_resp:
+                if retry_resp.status != 200:
+                    raise self._proxy_status_error(
+                        f"{label} request failed after re-auth: HTTP {retry_resp.status} {method} {url}",
+                        retry_resp.status,
+                    )
+                payload = await retry_resp.json()
+                self._raise_for_api_error(payload, method, self._safe_text(url), label)
+                return payload
 
     def _hosts(self) -> tuple[str, ...]:
         """The configured console address, as error text may quote it bare."""

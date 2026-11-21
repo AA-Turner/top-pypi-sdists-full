@@ -3,6 +3,7 @@
 import numpy as np
 import pytest
 from phonopy.phonon.degeneracy import get_degenerate_ids
+from phonopy.structure.atoms import PhonopyAtoms
 
 from phono3py import Phono3pyIsotope
 from phono3py.other.isotope import Isotope, get_mass_variances
@@ -77,6 +78,32 @@ def test_get_mass_variances_custom_isotope_data():
     custom = {"Si": [(14, 28.0, 1.0)]}  # single isotope, variance = 0
     mv = get_mass_variances(symbols=["Si"], isotope_data=custom)
     np.testing.assert_allclose(mv, [0.0], atol=1e-10)
+
+
+def test_get_mass_variances_labeled_symbols():
+    """Labeled symbols such as B1 use the isotope data of the element."""
+    mv_label = get_mass_variances(symbols=["B1", "N1", "B2", "N2"])
+    mv_element = get_mass_variances(symbols=["B", "N", "B", "N"])
+    np.testing.assert_allclose(mv_label, mv_element)
+
+    cell = PhonopyAtoms(
+        symbols=["B1", "N1", "B2", "N2"],
+        cell=np.diag([3.0, 3.1, 3.2]),
+        scaled_positions=[[0, 0, 0], [0.5, 0, 0], [0.5, 0.5, 0], [0, 0.5, 0]],
+    )
+    np.testing.assert_allclose(get_mass_variances(primitive=cell), mv_element)
+
+
+def test_get_mass_variances_custom_isotope_data_labeled():
+    """Custom isotope data given by label overrides that given by element."""
+    pure = [(14, 28.0, 1.0)]
+    mv_natural = get_mass_variances(symbols=["Si"])[0]
+    mv = get_mass_variances(symbols=["Si1", "Si2"], isotope_data={"Si1": pure})
+    np.testing.assert_allclose(mv, [0.0, mv_natural], atol=1e-10)
+    mv = get_mass_variances(
+        symbols=["Si1", "Si2"], isotope_data={"Si": pure, "Si2": [(14, 30.0, 1.0)]}
+    )
+    np.testing.assert_allclose(mv, [0.0, 0.0], atol=1e-10)
 
 
 def test_get_mass_variances_no_args_raises():
@@ -275,6 +302,7 @@ def test_Isotope_python_matches_rust(
         )
 
 
+# REMOVE-AT-V5
 def test_Isotope_get_phonons_and_set_phonons_deprecated(si_pbesol):
     """get_phonons and set_phonons of arrays are deprecated but still work."""
     iso = _run_isotope(si_pbesol, "Rust", False, 10)
@@ -356,10 +384,35 @@ def test_Isotope_average_degenerate_weights(si_pbesol, lang):
         np.testing.assert_allclose(iso_ave.gamma, iso.gamma, rtol=1e-8, atol=1e-14)
 
 
+@pytest.mark.parametrize("lang", ["Rust", "Python"])
+def test_Isotope_gamma_averaged_by_degeneracy(si_pbesol, lang):
+    """Gamma is equal among degenerate bands without averaged weights.
+
+    Without average_degenerate_weights, the degenerate bands at q' get
+    different integration weights, and gamma is averaged over each degenerate
+    set at the given grid point afterwards.
+
+    """
+    num_sets = 0
+    for grid_point in (1, 10):
+        iso = _run_isotope(si_pbesol, lang, False, grid_point)
+        ids = iso.phonons.degenerate_ids[grid_point]
+        for start in np.unique(ids):
+            bands = np.flatnonzero(ids == start)
+            if len(bands) == 1:
+                continue
+            num_sets += 1
+            np.testing.assert_allclose(
+                iso.gamma[bands], iso.gamma[bands[0]], rtol=1e-10
+            )
+    assert num_sets > 0
+
+
+@pytest.mark.parametrize("average_degenerate_weights", [False, True])
 @pytest.mark.parametrize("grid_point", [0, 1, 10])
 @pytest.mark.parametrize("band_indices", [[1, 4], [3], [0, 1, 2]])
 def test_Isotope_average_degenerate_weights_band_indices(
-    si_pbesol, grid_point, band_indices
+    si_pbesol, grid_point, band_indices, average_degenerate_weights
 ):
     """Band indices select the averaged gamma of all bands.
 
@@ -373,7 +426,7 @@ def test_Isotope_average_degenerate_weights_band_indices(
             si_pbesol.phonon_primitive,
             symprec=si_pbesol.symmetry.tolerance,
             band_indices=bi,
-            average_degenerate_weights=True,
+            average_degenerate_weights=average_degenerate_weights,
             exclude_gamma_acoustic=True,
         )
         iso.init_dynamical_matrix(

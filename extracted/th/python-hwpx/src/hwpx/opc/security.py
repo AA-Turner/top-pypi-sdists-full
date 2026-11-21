@@ -3,13 +3,62 @@
 
 from __future__ import annotations
 
+import io
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import PurePosixPath, PureWindowsPath
-from typing import Iterable
+from typing import IO, Any, Iterable, Iterator
 from xml.etree import ElementTree as ET
+from xml.parsers import expat
 from zipfile import ZIP_DEFLATED as _ZIP_DEFLATED
 from zipfile import ZIP_STORED as _ZIP_STORED
 from zipfile import ZipFile, ZipInfo
+
+from ..errors import HwpxError
+
+#: The contract (docs/stable-api.md, "입력 방어"): what any reader of HWPX bytes uses to
+#: open them as safely as the engine does. The archive-sharing helpers below these are
+#: the save path's own and are not in it.
+__all__ = [
+    "HwpxSecurityError",
+    "ZipGuardLimits",
+    "guard_zip_file",
+    "read_member",
+    "read_zip_members",
+    "guard_xml_bytes",
+    "guard_xml_depth",
+    "parse_xml_stdlib",
+    "MAX_XML_BYTES",
+    "MAX_XML_DEPTH",
+    "MAX_ZIP_ENTRIES",
+    "MAX_ZIP_MEMBER_BYTES",
+    "MAX_ZIP_TOTAL_UNCOMPRESSED_BYTES",
+    "MAX_ZIP_COMPRESSION_RATIO",
+    "MAX_ZIP_MIMETYPE_BYTES",
+    "MAX_ZIP_SMALL_PART_BYTES",
+]
+
+def _duplicate_entry_notice(names: Iterable[str]) -> str | None:
+    """A sentence saying which names an archive holds more than once and what is read, or ``None``.
+
+    ``zipfile`` (and so the engine, ``hwpx-text-extract`` and the validators) reads the last entry of a
+    name; the earlier contents are not read, and an engine save of such a document is refused
+    (``save-duplicate-entry-names``). Hangul does not write such archives."""
+
+    counts: dict[str, int] = {}
+    for name in names:
+        counts[name] = counts.get(name, 0) + 1
+    repeated = sorted((name, count) for name, count in counts.items() if count > 1)
+    if not repeated:
+        return None
+    listed = ", ".join(f"{name!r} x{count}" for name, count in repeated[:5])
+    more = f" and {len(repeated) - 5} more" if len(repeated) > 5 else ""
+    return (
+        f"the archive holds more than one entry under one name ({listed}{more}); the last of each is read "
+        "and the earlier contents are not, and the engine refuses to save such a document"
+    )
+
 
 MAX_XML_BYTES = 64 * 1024 * 1024
 MAX_XML_DEPTH = 256
@@ -33,8 +82,13 @@ MAX_ZIP_SMALL_PART_BYTES = 4 * 1024 * 1024
 _ALLOWED_METHODS = (_ZIP_STORED, _ZIP_DEFLATED)
 
 
-class HwpxSecurityError(ValueError):
-    """Raised when an HWPX input exceeds safe parsing limits."""
+class HwpxSecurityError(HwpxError, ValueError):
+    """Raised when an HWPX input exceeds safe parsing limits (``code="open-input-unsafe"``).
+
+    A :class:`hwpx.errors.HwpxError` since 7.0, and still a :class:`ValueError`.
+    """
+
+    default_code = "open-input-unsafe"
 
 
 @dataclass(frozen=True)
@@ -100,6 +154,10 @@ def guard_zip_file(
                 "ZIP archive exceeds total uncompressed size limit: "
                 f"{total} > {active_limits.max_total_uncompressed_bytes}"
             )
+        if info.flag_bits & 0x1:
+            # zipfile raises a bare RuntimeError when such a member is read; an HWPX package has none
+            # (a protected document encrypts the parts' content, not the ZIP entries).
+            raise HwpxSecurityError(f"ZIP member is encrypted with a ZIP password: {info.filename}")
         if info.compress_type not in _ALLOWED_METHODS:
             raise HwpxSecurityError(
                 "ZIP member uses an unsupported compression method: "
@@ -199,9 +257,63 @@ def guard_xml_bytes(
         raise HwpxSecurityError(
             f"{part_name} exceeds XML size limit: {len(payload)} > {max_xml_bytes}"
         )
-    lowered = payload[:4096].lower()
-    if b"<!doctype" in lowered or b"<!entity" in lowered:
+    if _declares_dtd(payload):
         raise HwpxSecurityError(f"{part_name} contains a disallowed DTD/entity declaration")
+
+
+def _declares_dtd(payload: bytes) -> bool:
+    """Whether *payload* has a document type declaration.
+
+    Only the prolog can hold one, so the prolog is read to the root element however long it is:
+    the XML declaration, comments and processing instructions may come first, and a declaration
+    pushed past any fixed window is still a declaration. A ``<!`` before the root that is not a
+    comment is refused whatever its spelling. One forward pass.
+    """
+
+    pos = 0
+    while True:
+        at = payload.find(b"<", pos)
+        if at == -1:
+            return False
+        if payload.startswith(b"<?", at):
+            close = payload.find(b"?>", at + 2)
+            pos = close + 2
+        elif payload.startswith(b"<!--", at):
+            close = payload.find(b"-->", at + 4)
+            pos = close + 3
+        else:
+            return payload.startswith(b"<!", at)  # a DOCTYPE, or the root element
+        if close == -1:
+            return False  # a prolog that never ends is not XML; the parser says so
+
+
+class _PrologRead(Exception):
+    """Raised inside expat to stop at the end of the prolog."""
+
+
+def _prolog_has_doctype(payload: bytes) -> bool:
+    """Whether expat meets a document type declaration before the root element. The parse stops at
+    whichever comes first, so its cost is the prolog's size."""
+
+    found: list[bool] = []
+
+    def doctype(*_declaration: object) -> None:
+        found.append(True)
+        raise _PrologRead
+
+    def root(*_element: object) -> None:
+        raise _PrologRead
+
+    parser = expat.ParserCreate()
+    parser.StartDoctypeDeclHandler = doctype
+    parser.StartElementHandler = root
+    try:
+        parser.Parse(payload, True)
+    except _PrologRead:
+        pass
+    except expat.ExpatError:
+        return False  # not XML at all: the parse that follows reports it
+    return bool(found)
 
 
 def guard_xml_depth(
@@ -212,16 +324,17 @@ def guard_xml_depth(
 ) -> None:
     """Reject extremely deep XML trees after parsing."""
 
-    stack: list[tuple[object, int]] = [(root, 1)]
-    while stack:
-        element, depth = stack.pop()
+    # One level at a time: the tree is too deep exactly when a level past
+    # ``max_depth`` has a node in it.
+    level: list[object] = [root]
+    depth = 1
+    while level:
         if depth > max_depth:
             raise HwpxSecurityError(
                 f"{part_name} exceeds XML depth limit: {depth} > {max_depth}"
             )
-        children: Iterable[object] = list(element)  # type: ignore[arg-type]
-        for child in children:
-            stack.append((child, depth + 1))
+        level = [child for element in level for child in element]  # type: ignore[attr-defined]
+        depth += 1
 
 
 def parse_xml_stdlib(
@@ -231,10 +344,159 @@ def parse_xml_stdlib(
 ) -> ET.Element:
     """Parse XML with stdlib ElementTree after applying HWPX safety guards."""
 
+    return _parse_xml_stdlib(payload, part_name=part_name, parse_error=False)
+
+
+def _parse_xml_stdlib(payload: bytes, *, part_name: str = "XML payload", parse_error: bool) -> ET.Element:
+    """:func:`parse_xml_stdlib`. Malformed XML is a ``ValueError``; with *parse_error* it is
+    ElementTree's own ``ParseError``, for the readers that raised that before they came through here."""
+
     guard_xml_bytes(payload, part_name=part_name)
+
+    # The byte check above reads the prolog as UTF-8. expat reads it in whatever encoding the part
+    # declares, so a declaration is refused before the parse that would expand its entities.
+    if _prolog_has_doctype(payload):
+        raise HwpxSecurityError(f"{part_name} contains a disallowed DTD/entity declaration")
     try:
         root = ET.fromstring(payload)
     except ET.ParseError as exc:
+        if parse_error:
+            raise
         raise ValueError(f"malformed XML: {exc}") from exc
     guard_xml_depth(root, part_name=part_name)
     return root
+
+
+# --------------------------------------------------------------------------- #
+# Reading the archive a save has just written once, for every check of that save
+# --------------------------------------------------------------------------- #
+# A save writes the archive and then checks it several times over: the ZIP
+# integrity test, the package check, the reopen, the preservation measurement
+# and the quality gate each open the same bytes and inflate the same members.
+# Inside ``sharing_archive_reads`` the save registers the bytes it wrote, and
+# every check that opens exactly those bytes through ``open_archive`` is handed
+# the members that were already inflated.
+#
+# Nothing is shared by accident: the bytes must equal the registered ones, byte
+# for byte, and the registration ends with the save. Outside a save, and for any
+# other bytes, ``open_archive`` is ``ZipFile(io.BytesIO(data))``.
+
+_SHARED_READ_CHUNK = 1 << 20
+
+
+class _Shared:
+    """The archive of the save in progress and the members read from it so far."""
+
+    __slots__ = ("data", "members", "well_formed")
+
+    def __init__(self) -> None:
+        self.data: bytes | None = None
+        self.members: dict[str, bytes] = {}
+        #: Members ``parse_xml_stdlib`` has already read without an error.
+        self.well_formed: set[str] = set()
+
+
+_ACTIVE: ContextVar[_Shared | None] = ContextVar("hwpx_shared_archive_reads", default=None)
+
+
+class _SharedReadZipFile(ZipFile):
+    """A read-only ``ZipFile`` whose members are inflated once per save.
+
+    The first read of a member goes through ``zipfile`` to the end of the
+    member, so its CRC is checked exactly as before; a member that fails it
+    raises ``BadZipFile`` and is not remembered. Later reads get the same bytes
+    from memory.
+    """
+
+    def __init__(self, data: bytes, members: dict[str, bytes], well_formed: set[str]) -> None:
+        super().__init__(io.BytesIO(data), "r")
+        self._shared_members = members
+        self._shared_well_formed = well_formed
+
+    def open(  # type: ignore[override]
+        self,
+        name: str | ZipInfo,
+        mode: str = "r",
+        pwd: bytes | None = None,
+        *,
+        force_zip64: bool = False,
+    ) -> IO[bytes]:
+        if mode != "r" or pwd is not None:
+            return super().open(name, mode, pwd, force_zip64=force_zip64)
+        filename = name.filename if isinstance(name, ZipInfo) else name
+        payload = self._shared_members.get(filename)
+        if payload is None:
+            chunks: list[bytes] = []
+            with super().open(name, "r") as handle:
+                while True:
+                    block = handle.read(_SHARED_READ_CHUNK)
+                    if not block:
+                        break
+                    chunks.append(block)
+            payload = b"".join(chunks)
+            self._shared_members[filename] = payload
+        return io.BytesIO(payload)
+
+
+@contextmanager
+def sharing_archive_reads() -> Iterator[None]:
+    """Let the checks of one save share what they read from the archive it wrote.
+
+    Nested uses join the outer one, so a package save inside a document save
+    shares with the document's own checks.
+    """
+
+    if _ACTIVE.get() is not None:
+        yield
+        return
+    token = _ACTIVE.set(_Shared())
+    try:
+        yield
+    finally:
+        _ACTIVE.reset(token)
+
+
+def register_written_archive(data: bytes) -> None:
+    """Name *data* as the archive the save in progress wrote; a no-op outside one."""
+
+    shared = _ACTIVE.get()
+    if shared is None:
+        return
+    if shared.data is not None and _same_bytes(shared.data, data):
+        return
+    shared.data = data
+    shared.members = {}
+    shared.well_formed = set()
+
+
+def open_archive(source: Any) -> ZipFile:
+    """Open *source* (bytes, or a ``BytesIO``) for reading.
+
+    Bytes equal to the archive registered by the save in progress share its
+    member reads; anything else opens as ``zipfile`` always did.
+    """
+
+    stream = source if isinstance(source, io.BytesIO) else None
+    shared = _ACTIVE.get()
+    if shared is not None and shared.data is not None:
+        data = stream.getvalue() if stream is not None else source
+        if isinstance(data, bytes) and _same_bytes(shared.data, data):
+            return _SharedReadZipFile(shared.data, shared.members, shared.well_formed)
+    return ZipFile(stream if stream is not None else io.BytesIO(source), "r")
+
+
+def note_well_formed(archive: ZipFile, name: str) -> None:
+    """Record that ``parse_xml_stdlib`` read member *name* of *archive* without an error."""
+
+    if isinstance(archive, _SharedReadZipFile):
+        archive._shared_well_formed.add(name)
+
+
+def is_known_well_formed(archive: ZipFile, name: str) -> bool:
+    """Whether an earlier check of this save already parsed member *name* with ``parse_xml_stdlib``."""
+
+    return isinstance(archive, _SharedReadZipFile) and name in archive._shared_well_formed
+
+
+def _same_bytes(left: bytes, right: bytes) -> bool:
+    return left is right or (len(left) == len(right) and left == right)

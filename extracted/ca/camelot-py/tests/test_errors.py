@@ -7,6 +7,7 @@ import pytest
 from playa.exceptions import PDFTextExtractionNotAllowed
 
 import camelot
+from camelot.backends import pdfium_backend
 from camelot.backends.image_conversion import ImageConversionError
 from camelot.utils import is_url
 from tests.conftest import skip_on_windows
@@ -47,11 +48,8 @@ def test_no_tables_found_logs_suppressed(testdir):
     with warnings.catch_warnings():
         # the test should fail if any warning is thrown
         warnings.simplefilter("error")
-        try:
-            camelot.read_pdf(filename, suppress_stdout=True)
-        except Warning as e:
-            warning_text = str(e)
-            pytest.fail(f"Unexpected warning: {warning_text}")
+        tables = camelot.read_pdf(filename, suppress_stdout=True)
+    assert len(tables) == 1
 
 
 def test_no_tables_found_warnings_suppressed(testdir):
@@ -59,11 +57,8 @@ def test_no_tables_found_warnings_suppressed(testdir):
     with warnings.catch_warnings():
         # the test should fail if any warning is thrown
         warnings.simplefilter("error")
-        try:
-            camelot.read_pdf(filename, suppress_stdout=True)
-        except Warning as e:
-            warning_text = str(e)
-            pytest.fail(f"Unexpected warning: {warning_text}")
+        tables = camelot.read_pdf(filename, suppress_stdout=True)
+    assert len(tables) == 0
 
 
 def test_no_password(testdir):
@@ -139,13 +134,16 @@ def test_lattice_unknown_backend(foo_pdf):
 
 
 def test_lattice_no_convert_method(foo_pdf):
-    class ConversionBackend:
-        pass
+    class BackendWithoutConvert:
+        """Backend that deliberately lacks the required convert() method."""
 
     message = "must implement a 'convert' method"
     with pytest.raises(NotImplementedError, match=message):
         camelot.read_pdf(
-            foo_pdf, flavor="lattice", backend=ConversionBackend(), use_fallback=False
+            foo_pdf,
+            flavor="lattice",
+            backend=BackendWithoutConvert(),
+            use_fallback=False,
         )
 
 
@@ -160,20 +158,18 @@ def test_invalid_url():
         camelot.read_pdf(url)
 
 
-def test_pdfium_backend_import_error(testdir):
+def test_pdfium_backend_import_error(testdir, tmp_path, monkeypatch):
     filename = os.path.join(testdir, "table_region.pdf")
-    with mock.patch.dict(sys.modules, {"pypdfium2": None}):
-        message = "pypdfium2 is not available: "
-        try:
-            tables = camelot.read_pdf(
-                filename,
-                flavor="lattice",
-                backend="pdfium",
-                use_fallback=False,
-            )
-        except Exception as em:
-            print(em)
-            assert message in str(em)
+    # pypdfium2 is imported when camelot loads, so patching sys.modules here
+    # has no effect; simulate the failed import the backend records instead.
+    monkeypatch.setattr(
+        pdfium_backend,
+        "PDFIUM_EXC",
+        ModuleNotFoundError("No module named 'pypdfium2'"),
+    )
+    message = "pypdfium2 is not available: "
+    with pytest.raises(OSError, match=message):
+        pdfium_backend.PdfiumBackend().convert(filename, str(tmp_path / "out.png"))
 
 
 def test_pdfium_backend_import_error_alternative(testdir):
@@ -205,5 +201,7 @@ def test_ghostscript_backend_import_error(testdir):
 
 def test_extraction_not_allowed(testdir):
     filename = os.path.join(testdir, "birdisland.pdf")
-    with pytest.raises(PDFTextExtractionNotAllowed):
+    with pytest.raises(
+        PDFTextExtractionNotAllowed, match="Text extraction is not allowed"
+    ):
         camelot.read_pdf(filename, flavor="stream")

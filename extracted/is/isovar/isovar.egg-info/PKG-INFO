@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: isovar
-Version: 1.90.9
+Version: 1.91.1
 Summary: Determine mutant protein sequences from RNA using assembly around variants
 Author: Alex Rubinsteyn, Arman Aksoy, Julia Kodysh
 License-Expression: Apache-2.0
@@ -29,13 +29,12 @@ Requires-Dist: orfdata<1,>=0.45.0
 Requires-Dist: oncoref<2,>=1.21.0
 Requires-Dist: matplotlib<4,>=3.6
 Requires-Dist: reportlab<6,>=4
-Requires-Dist: pypdf<7,>=5
 Provides-Extra: plot
 Provides-Extra: report
 Provides-Extra: data
 Requires-Dist: biopython<2,>=1.80; extra == "data"
-Provides-Extra: uorf-build
-Requires-Dist: openpyxl<4,>=3.1; extra == "uorf-build"
+Provides-Extra: test
+Requires-Dist: pypdf<7,>=5; extra == "test"
 Dynamic: license-file
 
 [![Tests](https://github.com/openvax/isovar/actions/workflows/tests.yml/badge.svg)](https://github.com/openvax/isovar/actions/workflows/tests.yml)

@@ -60,7 +60,7 @@ class MetricsLoggerOptions:
         "custom_backend" in self.backend_kwargs
         and self.backend_kwargs["custom_backend"]
     ):
-      return [factory() for factory in self.backend_kwargs["custom_backend"]]
+      return [factory() for factory in self.backend_kwargs["custom_backend"]]  # pyrefly: ignore[not-callable]
 
     # Case 2: Defaults.
     active_backends = []
@@ -79,7 +79,7 @@ class MetricsLoggerOptions:
           TensorboardBackend(
               log_dir=self.log_dir,
               flush_every_n_steps=self.flush_every_n_steps,
-              **tb_kwargs,
+              **tb_kwargs,  # pyrefly: ignore[bad-unpacking]
           )
       )
       try:
@@ -88,11 +88,11 @@ class MetricsLoggerOptions:
             WandbBackend(
                 project=self.project_name,
                 name=self.run_name,
-                **wandb_kwargs,
+                **wandb_kwargs,  # pyrefly: ignore[bad-unpacking]
             )
         )
-      except ImportError:
-        logging.info("WandbBackend skipped: 'wandb' library not installed.")
+      except (ImportError, Exception) as e:
+        logging.info("WandbBackend skipped: %s", e)
     return active_backends
 
 
@@ -107,6 +107,36 @@ class Mode(str, enum.Enum):
 def _calculate_geometric_mean(x: np.ndarray) -> np.ndarray:
   """Calculates geometric mean of a batch of values."""
   return np.exp(np.mean(np.log(x)))
+
+
+def extract_scalar(val: Any) -> float | None:
+  """Safely extracts a scalar float from arrays, tensors, or WeightedMetrics."""
+  if val is None:
+    return None
+  if hasattr(val, "compute") and callable(val.compute):
+    try:
+      val = val.compute()
+    except Exception:  # pylint: disable=broad-exception-caught
+      return None
+  if hasattr(val, "unreduced_sum") and hasattr(val, "denominator"):
+    try:
+      denom = float(np.sum(np.asarray(val.denominator)))
+      return (
+          float(np.sum(np.asarray(val.unreduced_sum)) / denom)
+          if denom > 0
+          else 0.0
+      )
+    except Exception:  # pylint: disable=broad-exception-caught
+      return None
+  try:
+    arr = np.asarray(val)
+    if arr.size == 1:
+      return float(arr.item())
+    elif arr.size > 1:
+      return float(np.mean(arr))
+  except Exception:  # pylint: disable=broad-exception-caught
+    return None
+  return None
 
 
 class MetricsLogger:
@@ -146,7 +176,7 @@ class MetricsLogger:
     mode_metrics[metric_name].append(scalar_value)
 
     jax.monitoring.record_scalar(
-        f"{metrics_prefix}/{mode}/{metric_name}", scalar_value, step=step
+        f"{metrics_prefix}/{mode}/{metric_name}", scalar_value, step=step  # pyrefly: ignore[bad-argument-type]
     )
 
   def metric_exists(

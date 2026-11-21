@@ -78,6 +78,37 @@ impl<T> List<T> {
             current: self.head.as_ref(),
         }
     }
+    /// An iterator over the shared pointers to the list elements.
+    pub(crate) fn iter_shared(&self) -> impl Iterator<Item = &Arc<T>> {
+        std::iter::successors(self.head.as_ref(), |node| node.next.as_ref()).map(|node| &node.value)
+    }
+    /// The elements in front of `tail`, when this list continues with the elements of `tail`.
+    pub(crate) fn prefix_before(&self, tail: &List<T>) -> Option<std::iter::Take<Iter<'_, T>>>
+    where
+        T: PartialEq,
+    {
+        // Lists sharing their nodes with `tail` meet at its first node.
+        let mut length = 0;
+        let mut current = self.head.as_ref();
+        loop {
+            match (current, tail.head.as_ref()) {
+                (Some(node), Some(end)) if Arc::ptr_eq(node, end) => {
+                    return Some(self.iter().take(length))
+                }
+                (None, None) => return Some(self.iter().take(length)),
+                (None, Some(_)) => break,
+                (Some(node), _) => {
+                    length += 1;
+                    current = node.next.as_ref();
+                }
+            }
+        }
+        let length = length.checked_sub(tail.iter().count())?;
+        self.iter()
+            .skip(length)
+            .eq(tail.iter())
+            .then(|| self.iter().take(length))
+    }
 }
 
 #[derive(Debug)]

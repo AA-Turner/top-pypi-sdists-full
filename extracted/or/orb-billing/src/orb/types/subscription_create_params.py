@@ -200,6 +200,13 @@ class SubscriptionCreateParams(TypedDict, total=False):
 
     billing_cycle_anchor_configuration: Optional[BillingCycleAnchorConfiguration]
 
+    billing_entity_id: Optional[str]
+    """The id of the active billing entity that issues this subscription's invoices.
+
+    If not specified, falls back to the customer's billing entity, then the plan's,
+    then the account's default. This cannot be changed after creation.
+    """
+
     coupon_redemption_code: Optional[str]
     """Redemption code to be used for this subscription.
 
@@ -225,6 +232,12 @@ class SubscriptionCreateParams(TypedDict, total=False):
     """
 
     end_date: Annotated[Union[str, datetime, None], PropertyInfo(format="iso8601")]
+
+    external_billing_entity_id: Optional[str]
+    """
+    The external id of the active billing entity that issues this subscription's
+    invoices.
+    """
 
     external_customer_id: Optional[str]
 
@@ -271,9 +284,12 @@ class SubscriptionCreateParams(TypedDict, total=False):
 
     net_terms: Optional[int]
     """
-    The net terms determines the difference between the invoice date and the issue
-    date for the invoice. If you intend the invoice to be due on issue, set this
-    to 0. If not provided, this defaults to the value specified in the plan.
+    The number of days until the invoice is due, counting the start date as day 1,
+    so net 30 from October 1 is due October 30. The account's
+    [due date calculation method](/invoicing/payments#configuring-net-terms-and-collection-behavior)
+    sets whether the start date is the invoice date or the issuance date. If you
+    intend the invoice to be due on issue, set this to 0. If not provided, this
+    defaults to the value specified in the plan.
     """
 
     per_credit_overage_amount: Optional[float]

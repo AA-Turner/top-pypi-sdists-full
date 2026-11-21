@@ -79,6 +79,32 @@ def _get_tithi_dict_pair(_tithi, jd):
                  utils.to_dms(_tithi[2])+' '+utils.resource_strings['ends_at_str']+frac_str +
                  after + _name(next_tithi))
     return key, value, _paksha
+def _sunrise_tithi_number(jd_any, place):
+    """ Tithi number (1-30) at the sunrise of the civil day containing jd_any. """
+    y, m, d, _ = utils.jd_to_gregorian(jd_any)
+    srise = drik.sunrise(utils.julian_day_number((y, m, d), (0, 0, 0)), place)[0]
+    return drik.tithi(utils.julian_day_number((y, m, d), (srise, 0, 0)), place)[0]
+def _kshaya_vriddhi_lines(jd, place):
+    """ Returns (vriddhi_line, kshaya_lines) for the civil day of jd - tithis taken at SUNRISE
+        (same rule as drik._get_tithi_type()):
+            Vriddhi: this day's sunrise tithi is the same as the previous day's -> e.g. 'Navami (Vriddhi)'
+            Kshaya: a tithi starts and ends between this day's and the next day's sunrise -> e.g. 'Ashtami (Kshaya)'
+        vriddhi_line is '' when not vriddhi; kshaya_lines is [] when there is no kshaya tithi.
+    """
+    try:
+        t_prev = _sunrise_tithi_number(jd - 1, place)
+        t_today = _sunrise_tithi_number(jd, place)
+        t_next = _sunrise_tithi_number(jd + 1, place)
+    except Exception as e:
+        print(f"info: kshaya/vriddhi tithi - {type(e).__name__}: {e}")
+        return '', []
+    res = utils.resource_strings
+    vriddhi_line = ''
+    if t_today == t_prev:
+        vriddhi_line = utils.TITHI_LIST[t_today-1] + ' (' + res.get('vriddhi_str', 'Vriddhi') + ')'
+    kshaya_lines = [utils.TITHI_LIST[(t_today + k - 1) % 30] + ' (' + res.get('kshaya_str', 'Kshaya') + ')'
+                    for k in range(1, (t_next - t_today) % 30)]
+    return vriddhi_line, kshaya_lines
 def get_panchangam_resources_basic(jd,place,ayanamsa_mode=None):
     results_dict = {}
     utils.profiler.start("BASIC")
@@ -202,7 +228,7 @@ def get_panchangam_resources_basic(jd,place,ayanamsa_mode=None):
         results_dict[key] = value
         if nak[3] < 24:
             _next_nak = (nak[0])%27+1
-            value = utils.NAKSHATRA_LIST[_next_nak-1]+' '+  \
+            value += utils.NAKSHATRA_LIST[_next_nak-1]+' '+  \
                         ' ('+utils.PLANET_SHORT_NAMES[utils.nakshathra_lord(_next_nak)]+') '+ \
                         ' '+ utils.to_dms(nak[3]) + ' ' + utils.resource_strings['starts_at_str']
             results_dict[key] = value
@@ -230,6 +256,11 @@ def get_panchangam_resources_basic(jd,place,ayanamsa_mode=None):
         key = utils.resource_strings['tithi_str']
         _tithi = drik.tithi(jd, place)
         key,value,_paksha = _get_tithi_dict_pair(_tithi,jd)
+        _vriddhi_line, _kshaya_lines = _kshaya_vriddhi_lines(jd, place)
+        if _vriddhi_line:
+            value = _vriddhi_line + '<br>' + value
+        for _line in _kshaya_lines:
+            value += '<br>' + _line
         results_dict[key] = value
         utils.profiler.mark("tithi", "BASIC")
 
@@ -677,16 +708,11 @@ def get_panchangam_resources(jd,place,resource_type=None,ayanamsa_mode=None,engi
         return results_dict
     
 if __name__ == "__main__":
-    const.astrology_model_default = const.ASTROLOGY_MODELS.DRIK
-    jd = utils.julian_day_number(drik.Date(1996,12,7),(10,34,0))
-    place = drik.Place('Chennai, India',13.0878,80.2785,5.5)
     utils.set_language('en')
-    results_dict = get_panchangam_resources(jd, place)
-    for key,value in results_dict.items():
-        print(key,value)
-    asc = drik.ascendant(jd, place)
-    print('ascendant',utils.deg_to_sign_str(asc[0]*30+asc[1]),
-          utils.NAKSHATRA_LIST[asc[2]]+"-Paadham-"+str(asc[3]))
-    pp = drik.dhasavarga(jd, place)
-    for p,(h,long) in pp:
-        print(utils.PLANET_NAMES[p],utils.deg_to_sign_str(h*30+long))
+    dob = drik.Date(1964,12,7); tob = (7,42,8)
+    #dob = drik.Date(1996,12,7); tob = (10,34,8)
+    place = drik.Place('Hyderabad',17.3871,78.4916,5.5)
+    #place = drik.Place('Chennai, India',13.0878,80.2785,5.5)
+    jd = utils.julian_day_number(dob,tob)
+    pb = get_panchangam_resources_basic(jd, place)
+    print(pb)

@@ -56,8 +56,8 @@ def predict_marriage_windows_from_jd_place(jd, place, start_year=None, end_year=
     """
     # ---- Inputs / defaults ----
     # Determine birth year
-    yb, _, _, _ = utils.jd_to_gregorian(jd)
-
+    yb, mb, db,fhb = utils.jd_to_gregorian(jd)
+    dob = drik.Date(yb,mb,db); tob = (fhb,0,0)
     # Compute the **allowed** year window based on marriage-age
     allowed_min_year = yb + _marriage_age_year_range[0]
     allowed_max_year = yb + _marriage_age_year_range[1]
@@ -92,7 +92,7 @@ def predict_marriage_windows_from_jd_place(jd, place, start_year=None, end_year=
         navamsa_planet_positions, chart_1d_d9, p_to_h_d9
     )
 
-    _, vdb_info = vimsottari.get_dhasa_antardhasa(jd, place, divisional_chart_factor=divisional_chart_factor)
+    _, vdb_info = vimsottari.get_dhasa_antardhasa(dob,tob, place, divisional_chart_factor=divisional_chart_factor)
     segments = _expand_to_md_ad_segments(vdb_info)
 
     candidates = []
@@ -229,7 +229,9 @@ def _get_vimsottari_md_ad_pd(jd, place, divisional_chart_factor=1):
     """
     Keep for parity — not used directly anymore. We prepare segments using _expand_to_md_ad_segments().
     """
-    _, vdb_info = vimsottari.get_dhasa_antardhasa(jd, place, divisional_chart_factor=divisional_chart_factor)
+    yb, mb, db,fhb = utils.jd_to_gregorian(jd)
+    dob = drik.Date(yb,mb,db); tob = (fhb,0,0)
+    _, vdb_info = vimsottari.get_dhasa_antardhasa(dob,tob, place, divisional_chart_factor=divisional_chart_factor)
     segments = _expand_to_md_ad_segments(vdb_info)
     return segments
 
@@ -245,11 +247,7 @@ def _expand_to_md_ad_segments(vdb_info):
         return segs
     # Build start datetimes
     starts = []
-    for row in vdb_info:
-        #print('row from vdb_info',row)
-        md, ad, s = row
-        s = s.split()[0].strip()# remove time from vdb_info row 
-        y, m, d = map(int, s.split('-'))
+    for (md,ad),(y,m,d,fh),durn in vdb_info:
         starts.append((md, ad, datetime(y, m, d)))
 
     for i, (md, ad, start_dt) in enumerate(starts):
@@ -508,7 +506,9 @@ def _get_varshaphala_marriage_triggers(jd, place, year, derived):
 
     # --- Patyayini from Varshaphala LOCAL JD ---
     jd_vf_local = _gregorian_to_jd(vf_y_m_d[0], vf_y_m_d[1], vf_y_m_d[2], vf_hours)
-    patyayini_raw = patyayini.get_dhasa_antardhasa(jd_vf_local, place, divisional_chart_factor=1, chart_method=1)
+    yb, mb, db,fhb = utils.jd_to_gregorian(jd_vf_local)
+    dob = drik.Date(yb,mb,db); tob = (fhb,0,0)
+    patyayini_raw = patyayini.get_dhasa_antardhasa(dob,tob, place, divisional_chart_factor=1, chart_method=1)
     patyayini_schedule = _expand_patyayini_schedule(patyayini_raw)
 
     tajaka = {
@@ -1219,7 +1219,9 @@ def _astrological_event_checker(jd, place, gender=0):
     _collect_basic_chart_info()
     _evalulate_lords_and_houses()
     _db_candidates = _get_possible_dhasa_bhukthi_candidates()
-    _, vdb_info = vimsottari.get_dhasa_antardhasa(jd, place,dhasa_level_index=const.MAHA_DHASA_DEPTH.ANTARA)
+    yb, mb, db,fhb = utils.jd_to_gregorian(jd)
+    dob = drik.Date(yb,mb,db); tob = (fhb,0,0)
+    _, vdb_info = vimsottari.get_dhasa_antardhasa(dob,tob, place,dhasa_level_index=const.MAHA_DHASA_DEPTH.ANTARA)
     
     inputs['vimsottari_info'] = vdb_info
     vdb_segs = _expand_vimsottari_db_to_md_ad_segments(vdb_info)

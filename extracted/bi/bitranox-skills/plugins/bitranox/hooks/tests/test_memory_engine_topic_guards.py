@@ -167,6 +167,7 @@ def test_a_set_holding_one_placed_fact_is_refused_whole(tmp_path):
     _anchor, levels = _rendered(tmp_path)
     _fact(levels["a/py"], "feedback-local")
     rep = E.move_entry(levels["a/py"], levels["a"], ["feedback-local", "feedback-py-rule"])
+    assert rep.refused is not None
     assert rep.moved is False and "placed by topic" in rep.refused
     assert _slugs(levels["a/py"]) == ["feedback-local", "feedback-py-rule"]
 
@@ -256,7 +257,7 @@ def test_an_update_at_one_line_refreshes_the_others(tmp_path):
 def test_a_dangling_bound_body_is_still_adopted(tmp_path):
     _anchor, levels = _rendered(tmp_path)
     for rel in ("a/py", "b/py"):
-        E._drop_pointer(levels[rel], "feedback-py-rule")
+        E.drop_pointer(levels[rel], "feedback-py-rule")
     E.add_or_update_entry(levels["a"], title="T feedback-py-rule", hook=HOOK, slug="feedback-py-rule")
     assert _slugs(levels["a"]) == ["feedback-py-rule"]
 
@@ -357,6 +358,7 @@ def test_a_set_names_the_first_placed_member_in_the_order_given(tmp_path):
     _fact(anchor, "feedback-py-two", ("python",))
     E.render_topics(anchor)
     rep = E.move_entry(levels["a/py"], levels["a"], ["feedback-py-two", "feedback-py-rule"])
+    assert rep.refused is not None
     assert rep.refused.startswith("'feedback-py-two' is placed by topic")
 
 

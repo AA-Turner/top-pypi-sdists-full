@@ -896,18 +896,17 @@ namespace sogen
                 }
                 if (auto* event = win_emu.process.get_object_as<sogen::event>(context.event))
                 {
-                    event->set_signaled(true);
+                    win_emu.signal_event(*event);
                 }
                 if (context.apc_routine)
                 {
                     if (auto* thread = win_emu.process.get_object_as<emulator_thread>(read.issuing_thread))
                     {
-                        thread->pending_apcs.push_back({.apc_routine = context.apc_routine,
-                                                        .apc_argument1 = context.apc_context,
-                                                        .apc_argument2 = context.wow64_io_status_block
-                                                                             ? context.wow64_io_status_block.value()
-                                                                             : context.io_status_block.value(),
-                                                        .apc_argument3 = 0});
+                        thread->queue_user_apc({.apc_routine = context.apc_routine,
+                                                .apc_argument1 = context.apc_context,
+                                                .apc_argument2 = context.wow64_io_status_block ? context.wow64_io_status_block.value()
+                                                                                               : context.io_status_block.value(),
+                                                .apc_argument3 = 0});
                     }
                 }
                 else

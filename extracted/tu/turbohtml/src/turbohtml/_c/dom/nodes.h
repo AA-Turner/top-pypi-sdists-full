@@ -931,8 +931,8 @@ char *attr_key_utf8(th_tree *tree, PyObject *key, Py_ssize_t *out_len);
 /* Encode serialized markup under a codec label: PyUnicode_AsEncodedString, strict or (charrefs) "xmlcharrefreplace",
    that keeps content from writing its own ISO-2022 shift codes. Defined in node.c beside encode(); elementtree.c's
    tostring() encodes through it too. */
-PyObject *markup_encode(PyObject *text, const char *encoding, int charrefs);
-int declaration_reads_back(PyObject *text, PyObject *bytes, const char *encoding, const char *charset);
+PyObject *markup_encode(module_state *state, PyObject *text, const char *encoding, int charrefs);
+PyObject *declared_encode(const char *label, PyObject *text, const char *encoding);
 
 /* The name the codec registry gives encoding, as a new reference: None when its CodecInfo carries no name, or NULL with
    the lookup's exception set for an unknown codec. Defined in node.c beside markup_encode. */
@@ -1026,6 +1026,11 @@ extern PyType_Spec serialize_iter_spec;
 extern PyType_Spec node_spec;
 extern PyType_Spec attrs_spec;
 extern PyType_Spec element_spec;
+extern PyType_Spec tag_maker_spec;
+extern PyType_Spec tag_factory_spec;
+/* The _html module definition, for finding its state from a type a Python class derives from. */
+extern struct PyModuleDef htmlmodule;
+PyObject *element_vectorcall(PyObject *type, PyObject *const *args, size_t nargsf, PyObject *kwnames);
 extern PyType_Spec minify_spec;
 extern PyType_Spec indent_spec;
 extern PyType_Spec xpath_compiled_spec;

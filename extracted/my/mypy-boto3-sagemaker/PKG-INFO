@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-sagemaker
-Version: 1.44.4
-Summary: Type annotations for boto3 SageMaker 1.44.4 service generated with mypy-boto3-builder 8.12.0
+Version: 1.44.9
+Summary: Type annotations for boto3 SageMaker 1.44.9 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -42,7 +42,7 @@ Dynamic: license-file
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 SageMaker 1.44.4](https://pypi.org/project/boto3/)
+Type annotations for [boto3 SageMaker 1.44.9](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -105,7 +105,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.44.4' mypy-boto3-builder`
+   `uvx --with 'boto3==1.44.9' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `SageMaker` service.
 4. Use provided commands to install generated packages.
@@ -340,7 +340,9 @@ from boto3.session import Session
 from mypy_boto3_sagemaker import SageMakerClient
 from mypy_boto3_sagemaker.paginator import (
     CreateHubContentPresignedUrlsPaginator,
+    DescribeResourceAssociationsPaginator,
     DescribeTrainingPlanExtensionHistoryPaginator,
+    GetCapacityReservationUsagePaginator,
     ListAIBenchmarkJobsPaginator,
     ListAIRecommendationJobsPaginator,
     ListAIWorkloadConfigsPaginator,
@@ -353,6 +355,7 @@ from mypy_boto3_sagemaker.paginator import (
     ListAssociationsPaginator,
     ListAutoMLJobsPaginator,
     ListCandidatesForAutoMLJobPaginator,
+    ListCapacityReservationsPaginator,
     ListClusterEventsPaginator,
     ListClusterExtensionVersionsPaginator,
     ListClusterExtensionsPaginator,
@@ -375,12 +378,14 @@ from mypy_boto3_sagemaker.paginator import (
     ListExperimentsPaginator,
     ListFeatureGroupsPaginator,
     ListFlowDefinitionsPaginator,
+    ListGlobalInferenceGatewaysPaginator,
     ListHumanTaskUisPaginator,
     ListHyperParameterTuningJobsPaginator,
     ListImageVersionsPaginator,
     ListImagesPaginator,
     ListInferenceComponentsPaginator,
     ListInferenceExperimentsPaginator,
+    ListInferenceGatewaysPaginator,
     ListInferenceRecommendationsJobStepsPaginator,
     ListInferenceRecommendationsJobsPaginator,
     ListInferenceRoutersPaginator,
@@ -443,8 +448,14 @@ client: SageMakerClient = Session().client("sagemaker")
 create_hub_content_presigned_urls_paginator: CreateHubContentPresignedUrlsPaginator = (
     client.get_paginator("create_hub_content_presigned_urls")
 )
+describe_resource_associations_paginator: DescribeResourceAssociationsPaginator = (
+    client.get_paginator("describe_resource_associations")
+)
 describe_training_plan_extension_history_paginator: DescribeTrainingPlanExtensionHistoryPaginator = client.get_paginator(
     "describe_training_plan_extension_history"
+)
+get_capacity_reservation_usage_paginator: GetCapacityReservationUsagePaginator = (
+    client.get_paginator("get_capacity_reservation_usage")
 )
 list_ai_benchmark_jobs_paginator: ListAIBenchmarkJobsPaginator = client.get_paginator(
     "list_ai_benchmark_jobs"
@@ -467,6 +478,9 @@ list_associations_paginator: ListAssociationsPaginator = client.get_paginator("l
 list_auto_ml_jobs_paginator: ListAutoMLJobsPaginator = client.get_paginator("list_auto_ml_jobs")
 list_candidates_for_auto_ml_job_paginator: ListCandidatesForAutoMLJobPaginator = (
     client.get_paginator("list_candidates_for_auto_ml_job")
+)
+list_capacity_reservations_paginator: ListCapacityReservationsPaginator = client.get_paginator(
+    "list_capacity_reservations"
 )
 list_cluster_events_paginator: ListClusterEventsPaginator = client.get_paginator(
     "list_cluster_events"
@@ -518,6 +532,9 @@ list_feature_groups_paginator: ListFeatureGroupsPaginator = client.get_paginator
 list_flow_definitions_paginator: ListFlowDefinitionsPaginator = client.get_paginator(
     "list_flow_definitions"
 )
+list_global_inference_gateways_paginator: ListGlobalInferenceGatewaysPaginator = (
+    client.get_paginator("list_global_inference_gateways")
+)
 list_human_task_uis_paginator: ListHumanTaskUisPaginator = client.get_paginator(
     "list_human_task_uis"
 )
@@ -533,6 +550,9 @@ list_inference_components_paginator: ListInferenceComponentsPaginator = client.g
 )
 list_inference_experiments_paginator: ListInferenceExperimentsPaginator = client.get_paginator(
     "list_inference_experiments"
+)
+list_inference_gateways_paginator: ListInferenceGatewaysPaginator = client.get_paginator(
+    "list_inference_gateways"
 )
 list_inference_recommendations_job_steps_paginator: ListInferenceRecommendationsJobStepsPaginator = client.get_paginator(
     "list_inference_recommendations_job_steps"

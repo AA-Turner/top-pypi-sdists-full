@@ -426,6 +426,7 @@ fn test_override_id_list_download_url_preserves_manifest_path_suffix() {
     let manifest_download_url = "https://fake-id-list-host/v1/download_id_list_file/3wHgh0FhoQH0p";
 
     let actual = adapter
+        .transport
         .get_override_id_list_download_url(manifest_download_url)
         .unwrap();
 
@@ -451,10 +452,10 @@ fn test_normalizes_default_cdn_manifest_url_prefix() {
         let adapter = StatsigHttpIdListsAdapter::new("secret-key", &options);
 
         assert_eq!(
-            adapter.id_lists_manifest_url, DEFAULT_CDN_ID_LISTS_MANIFEST_URL_PREFIX,
+            adapter.transport.id_lists_manifest_url, DEFAULT_CDN_ID_LISTS_MANIFEST_URL_PREFIX,
             "failed to normalize {id_lists_url}"
         );
-        assert!(adapter.is_cdn_url());
+        assert!(adapter.transport.is_cdn_url());
     }
 }
 
@@ -463,10 +464,10 @@ fn test_default_manifest_url_is_keyless() {
     let adapter = StatsigHttpIdListsAdapter::new("secret-key", &StatsigOptions::default());
 
     assert_eq!(
-        adapter.id_lists_manifest_url,
+        adapter.transport.id_lists_manifest_url,
         DEFAULT_CDN_ID_LISTS_MANIFEST_URL_PREFIX
     );
-    assert!(adapter.is_cdn_url());
+    assert!(adapter.transport.is_cdn_url());
 }
 
 #[test]
@@ -487,7 +488,7 @@ fn test_preserves_custom_id_lists_manifest_urls() {
         let adapter = StatsigHttpIdListsAdapter::new("secret-key", &options);
 
         assert_eq!(
-            adapter.id_lists_manifest_url, id_lists_url,
+            adapter.transport.id_lists_manifest_url, id_lists_url,
             "unexpectedly rewrote {id_lists_url}"
         );
     }
@@ -504,9 +505,9 @@ fn test_preserves_custom_proxy_id_lists_fallback_behavior() {
 
     let adapter = StatsigHttpIdListsAdapter::new("secret-key", &options);
 
-    assert_eq!(adapter.id_lists_manifest_url, id_lists_url);
-    assert!(!adapter.is_cdn_url());
-    assert!(adapter.fallback_url.is_none());
+    assert_eq!(adapter.transport.id_lists_manifest_url, id_lists_url);
+    assert!(!adapter.transport.is_cdn_url());
+    assert!(adapter.transport.fallback_url.is_none());
 }
 
 #[test]
@@ -520,7 +521,10 @@ fn test_custom_id_lists_manifest_can_fall_back_to_default_cdn() {
     let adapter = StatsigHttpIdListsAdapter::new("secret-key", &options);
     let expected_fallback = DEFAULT_CDN_ID_LISTS_MANIFEST_URL_PREFIX;
 
-    assert_eq!(adapter.fallback_url.as_deref(), Some(expected_fallback));
+    assert_eq!(
+        adapter.transport.fallback_url.as_deref(),
+        Some(expected_fallback)
+    );
 }
 
 #[tokio::test]
@@ -590,34 +594,31 @@ impl StatsigHttpIdListsAdapter {
         url: &str,
         range_start: u64,
         size: u64,
-        file_id: Option<String>,
     ) -> Result<String, StatsigErr> {
-        let job = IdListDownloadJob {
-            range_start,
-            can_download_snapshots: false,
-            name: "test-list".into(),
-            primary_url: self.get_override_id_list_download_url(url)?,
-            metadata: IdListMetadata {
-                name: "test-list".into(),
-                url: url.into(),
-                size,
-                file_id,
-                creation_time: 0,
+        let manifest: IdListManifest = serde_json::from_value(serde_json::json!({
+            "test-list": { "name": "test-list", "url": url, "size": size, "creationTime": 0 }
+        }))
+        .unwrap();
+        let mut installed = manifest["test-list"].metadata.clone();
+        installed.size = range_start;
+        let mut successful_downloads = 0;
+        let batch = Mutex::new(self.plan_id_list_updates(
+            &HashMap::from([("test-list".into(), installed)]),
+            manifest,
+            &mut successful_downloads,
+            IdListPublicationMode::Replace,
+            BaseSources {
+                snapshots: false,
+                cache: false,
             },
+        )?);
+        self.download_id_lists_with_fallback(&batch, false, None)
+            .await?;
+        let mut updates = batch.into_inner().update_batch.updates;
+        let Some(PreparedIdListUpdate::Raw(update)) = updates.remove("test-list") else {
+            panic!("expected a raw file update");
         };
-        self.network
-            .retry_executor(DEFAULT_RETRY_POLICY)
-            .run(
-                |fallback, index| self.download_id_list(&job, fallback, index, None),
-                |error| retryable_state_error(error).then_some(u32::MAX),
-                |outcome| outcome == PrimaryOutcome::Exhausted && self.file_can_fallback(&job),
-                || StatsigErr::TaskShutdownFailure,
-            )
-            .await
-            .map(|download| match download {
-                DownloadedIdList::Raw { changeset, .. } => changeset,
-                DownloadedIdList::Snapshot(_) => panic!("raw-only request received a snapshot"),
-            })
+        Ok(update.raw_changeset.unwrap())
     }
 }
 
@@ -679,9 +680,7 @@ pub(super) fn with_local_cdn(
         requests: RwLock::new(Vec::new()),
     });
     let network_provider: Arc<dyn crate::networking::NetworkProvider> = provider.clone();
-    adapter
-        .network
-        .set_network_provider_for_test(Arc::downgrade(&network_provider));
+    adapter.set_network_provider_for_test(Arc::downgrade(&network_provider));
     (adapter, provider)
 }
 
@@ -707,7 +706,7 @@ async fn test_id_list_file_fallback_requires_explicit_opt_in() {
         let (adapter, _provider) = with_local_cdn(adapter, &origin);
         assert!(
             adapter
-                .fetch_individual_id_list_changes_from_network(TEST_CDN_FILE, 0, 10, None,)
+                .fetch_individual_id_list_changes_from_network(TEST_CDN_FILE, 0, 10)
                 .await
                 .is_err()
         );
@@ -741,7 +740,7 @@ async fn test_id_list_file_exhausts_primary_before_one_fallback() {
     let (adapter, provider) = with_local_cdn(adapter, &origin);
     assert!(
         adapter
-            .fetch_individual_id_list_changes_from_network(TEST_CDN_FILE, 0, 10, None)
+            .fetch_individual_id_list_changes_from_network(TEST_CDN_FILE, 0, 10)
             .await
             .is_err()
     );
@@ -780,7 +779,7 @@ async fn test_id_list_file_fallback_skips_success_and_terminal_http_statuses() {
         );
         let (adapter, _provider) = with_local_cdn(adapter, &origin);
         let result = adapter
-            .fetch_individual_id_list_changes_from_network(TEST_CDN_FILE, 0, 10, None)
+            .fetch_individual_id_list_changes_from_network(TEST_CDN_FILE, 0, 10)
             .await;
         if status == 200 {
             assert_eq!(result.unwrap(), "+proxy-id\n");
@@ -813,7 +812,7 @@ async fn test_id_list_file_fallback_skips_invalid_response_body() {
     );
     let (adapter, _provider) = with_local_cdn(adapter, &origin);
     let error = adapter
-        .fetch_individual_id_list_changes_from_network(TEST_CDN_FILE, 0, 10, None)
+        .fetch_individual_id_list_changes_from_network(TEST_CDN_FILE, 0, 10)
         .await
         .unwrap_err();
     assert!(matches!(error, StatsigErr::JsonParseError(_, _)));
@@ -842,7 +841,7 @@ async fn test_id_list_file_fallback_does_not_repeat_original_destination() {
         let (adapter, _provider) = with_local_cdn(adapter, &origin);
         assert!(
             adapter
-                .fetch_individual_id_list_changes_from_network(TEST_CDN_FILE, 0, 10, None,)
+                .fetch_individual_id_list_changes_from_network(TEST_CDN_FILE, 0, 10)
                 .await
                 .is_err()
         );
@@ -875,7 +874,7 @@ async fn test_id_list_file_fallback_failure_is_bounded_and_returns_origin_error(
     );
     let (adapter, _provider) = with_local_cdn(adapter, &origin);
     let error = adapter
-        .fetch_individual_id_list_changes_from_network(&url, 0, 10, None)
+        .fetch_individual_id_list_changes_from_network(&url, 0, 10)
         .await
         .unwrap_err();
     assert!(matches!(error,
@@ -920,7 +919,7 @@ async fn test_id_list_file_fallback_does_not_follow_redirects() {
         );
         let (adapter, _provider) = with_local_cdn(adapter, &origin);
         let result = adapter
-            .fetch_individual_id_list_changes_from_network(TEST_CDN_FILE, 17, 42, None)
+            .fetch_individual_id_list_changes_from_network(TEST_CDN_FILE, 17, 42)
             .await;
 
         primary.assert();
@@ -961,7 +960,7 @@ async fn test_id_list_file_primary_keeps_redirect_behavior() {
     );
     let (adapter, _provider) = with_local_cdn(adapter, &origin);
     let body = adapter
-        .fetch_individual_id_list_changes_from_network(TEST_CDN_FILE, 0, 10, None)
+        .fetch_individual_id_list_changes_from_network(TEST_CDN_FILE, 0, 10)
         .await
         .unwrap();
 
@@ -1000,7 +999,7 @@ async fn test_id_list_file_fallback_rejects_untrusted_manifest_destinations() {
         );
         let (adapter, provider) = with_local_cdn(adapter, &foreign);
         let error = adapter
-            .fetch_individual_id_list_changes_from_network(&url, 0, 10, None)
+            .fetch_individual_id_list_changes_from_network(&url, 0, 10)
             .await
             .unwrap_err();
         let proxy_url = format!("{}/file", proxy.url());

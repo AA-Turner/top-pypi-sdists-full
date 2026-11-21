@@ -143,6 +143,19 @@ def test_get_version_raises_api_error() -> None:
     assert exc_info.value.status_code == 500
 
 
+def test_get_version_without_a_session_raises_a_401_api_error() -> None:
+    # /version needs a session and documents a 401 (the spec's Error body).
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(401, json={"error": "unauthorized"}, request=request)
+
+    httpx_client = httpx2.Client(base_url="https://example.test", transport=httpx2.MockTransport(handler))
+    client = ForgeDashboardClient("https://example.test", httpx_client=httpx_client)
+
+    with pytest.raises(APIError) as exc_info:
+        client.get_version()
+    assert exc_info.value.status_code == 401
+
+
 def test_aget_version_raises_api_error() -> None:
     async def handler(request: httpx2.Request) -> httpx2.Response:
         return httpx2.Response(500, json={"error": "boom"}, request=request)

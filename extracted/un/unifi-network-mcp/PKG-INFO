@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: unifi-network-mcp
-Version: 0.48.1
+Version: 0.50.0
 Summary: Unifi Network MCP Server
 Requires-Python: >=3.13
 Requires-Dist: aiohttp==3.14.5
@@ -19,8 +19,8 @@ Requires-Dist: python-multipart>=0.0.31
 Requires-Dist: pyyaml>=6.0
 Requires-Dist: starlette>=1.7.0
 Requires-Dist: typing-extensions>=4.16.0
-Requires-Dist: unifi-core[network]<0.5,>=0.4.97
-Requires-Dist: unifi-mcp-shared<0.7,>=0.6.41
+Requires-Dist: unifi-core[network]<0.5,>=0.4.104
+Requires-Dist: unifi-mcp-shared<0.7,>=0.6.46
 Provides-Extra: otel
 Requires-Dist: unifi-mcp-shared[otel]; extra == 'otel'
 Description-Content-Type: text/markdown
@@ -32,7 +32,7 @@ Description-Content-Type: text/markdown
   <img src="../../assets/hero-network.svg" alt="UniFi Network MCP Server" width="720">
 </p>
 
-MCP server exposing 214 UniFi Network Controller tools for AI assistants and
+MCP server exposing 217 UniFi Network Controller tools for AI assistants and
 other MCP-capable clients. Query clients, devices, firewall rules, VLANs, VPNs,
 Traffic Flows, stats, and more with safe-by-default permissions and
 preview-before-confirm for all mutations.
@@ -165,7 +165,7 @@ UNIFI_NETWORK_PASSWORD=your-password # Admin password
 # UNIFI_NETWORK_EVENT_BUFFER_TTL=300     # Positive lifetime in seconds; invalid values prevent startup
 ```
 
-**Fallback:** Existing `UNIFI_*` variables (e.g., `UNIFI_HOST`) continue to work. The server checks for `UNIFI_NETWORK_*` first and falls back to `UNIFI_*` if the server-specific variable is not set. For single-controller setups, the shared variables are all you need.
+**Fallback:** Existing `UNIFI_*` variables (e.g., `UNIFI_HOST`) continue to work. The server checks for `UNIFI_NETWORK_*` first and falls back to `UNIFI_*` if the server-specific variable is not set. For single-controller setups, the shared variables are all you need. On newer server releases, the shared username, password and API key are used only when `UNIFI_NETWORK_HOST` is unset or names the same console as `UNIFI_HOST`; a server pointed at another console needs its own `UNIFI_NETWORK_*` credentials (see [Configuration](docs/configuration.md)).
 
 ### API-key inventory and session authentication
 
@@ -204,7 +204,7 @@ a configured credential has authenticated successfully.
 
 For tool results that already provide structured output, `adaptive` is the default response mode. It classifies each request by the canonical date-based `protocolVersion` advertised during MCP initialization, not by the client's product name or application version. Requests advertising MCP `2025-06-18` or later receive concise `content` plus the full result once in `structuredContent`; requests advertising an earlier revision (such as `2024-11-05` or `2025-03-26`), or whose revision metadata is missing or malformed, keep full compatibility JSON in `content`. Set `UNIFI_NETWORK_MCP_CONTENT_MODE` to `compat` to force the duplicated compatibility form, or to `compact` to force concise text plus full structured output outside a negotiated request. This server-specific variable overrides `UNIFI_MCP_CONTENT_MODE`; use `compat` for any client that consumes the full result only from `content`, regardless of its advertised revision.
 
-The lazy-loading meta-tools (`*_tool_index`, `*_execute`, `*_batch`, `*_batch_status`, and lazy-only `*_load_tools`) remain content-only; they are not the pre-`2025-06-18` protocol category described above. For structured inner results, `*_execute` and `*_batch_status` expose one normalized JSON payload in `content` rather than a nested transport pair; content-only execute results remain unchanged. Response modes do not convert these meta-tools to `structuredContent`.
+The lazy-loading meta-tools (`*_tool_index`, `*_execute`, `*_batch`, `*_batch_status`, `*_batch_cancel`, and lazy-only `*_load_tools`) remain content-only; they are not the pre-`2025-06-18` protocol category described above. For structured inner results, `*_execute` and `*_batch_status` expose one normalized JSON payload in `content` rather than a nested transport pair; content-only execute results remain unchanged. Response modes do not convert these meta-tools to `structuredContent`.
 
 Network also bounds two large source responses by default: `unifi_get_dashboard` uses `summary=true`, and `unifi_list_rogue_aps` returns a summarized page of at most 100 records. Pass `summary=false` to request the full selected dashboard or rogue-AP data.
 
@@ -344,7 +344,7 @@ Each device record now includes additional fields alongside the existing MAC, na
 
 - [Configuration](docs/configuration.md) — Full env var reference, YAML config, controller type detection
 - [Permissions](docs/permissions.md) — Permission system, category defaults, how to enable high-risk tools
-- [Tool Catalog](docs/tools.md) — All 214 tools organized by category
+- [Tool Catalog](docs/tools.md) — All 217 tools organized by category
 - [Transports](docs/transports.md) — stdio, Streamable HTTP, and SSE setup
 - [Troubleshooting and support bundles](docs/troubleshooting.md) — Reviewed support evidence, connection issues, SSL, missing tools
 

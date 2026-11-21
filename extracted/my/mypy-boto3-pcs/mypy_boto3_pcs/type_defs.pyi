@@ -25,8 +25,12 @@ from .literals import (
     AccountingModeType,
     ClusterStatusType,
     ComputeNodeGroupStatusType,
+    DeepHealthCheckOnStartProfileType,
+    DeepHealthCheckOnStartRepairActionType,
     EndpointTypeType,
     ExecutionPolicyType,
+    HealthMonitoringModeType,
+    HealthMonitoringRepairActionType,
     LaunchTemplateModeType,
     NetworkTypeType,
     OnErrorType,
@@ -63,6 +67,8 @@ __all__ = (
     "CreateQueueRequestTypeDef",
     "CreateQueueResponseTypeDef",
     "CustomLaunchTemplateTypeDef",
+    "DeepHealthCheckOnStartTypeDef",
+    "DeepHealthChecksTypeDef",
     "DeleteClusterRequestTypeDef",
     "DeleteComputeNodeGroupRequestTypeDef",
     "DeleteQueueRequestTypeDef",
@@ -74,7 +80,10 @@ __all__ = (
     "GetComputeNodeGroupResponseTypeDef",
     "GetQueueRequestTypeDef",
     "GetQueueResponseTypeDef",
+    "HealthMonitoringTypeDef",
     "InstanceConfigTypeDef",
+    "InstanceHealthChecksRequestTypeDef",
+    "InstanceHealthChecksTypeDef",
     "JobSubmitPluginTypeDef",
     "JobSubmitScriptSourceTypeDef",
     "JwtAuthTypeDef",
@@ -128,6 +137,7 @@ __all__ = (
     "UpdateComputeNodeGroupRequestTypeDef",
     "UpdateComputeNodeGroupResponseTypeDef",
     "UpdateComputeNodeGroupSlurmConfigurationRequestTypeDef",
+    "UpdateInstanceHealthChecksRequestTypeDef",
     "UpdateNodeLifecycleActionsRequestTypeDef",
     "UpdateQueueRequestTypeDef",
     "UpdateQueueResponseTypeDef",
@@ -262,6 +272,10 @@ class ScalingConfigurationRequestTypeDef(TypedDict):
     minInstanceCount: int
     maxInstanceCount: int
 
+class DeepHealthCheckOnStartTypeDef(TypedDict):
+    profile: NotRequired[DeepHealthCheckOnStartProfileType]
+    repairAction: NotRequired[DeepHealthCheckOnStartRepairActionType]
+
 class DeleteClusterRequestTypeDef(TypedDict):
     clusterIdentifier: str
     clientToken: NotRequired[str]
@@ -286,6 +300,10 @@ class GetComputeNodeGroupRequestTypeDef(TypedDict):
 class GetQueueRequestTypeDef(TypedDict):
     clusterIdentifier: str
     queueIdentifier: str
+
+class HealthMonitoringTypeDef(TypedDict):
+    mode: NotRequired[HealthMonitoringModeType]
+    repairAction: NotRequired[HealthMonitoringRepairActionType]
 
 class JobSubmitScriptSourceTypeDef(TypedDict):
     scriptLocation: str
@@ -396,6 +414,9 @@ class ListTagsForResourceResponseTypeDef(TypedDict):
     tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class DeepHealthChecksTypeDef(TypedDict):
+    onStart: NotRequired[DeepHealthCheckOnStartTypeDef]
+
 JobSubmitPluginTypeDef = TypedDict(
     "JobSubmitPluginTypeDef",
     {
@@ -468,6 +489,18 @@ class UpdateQueueRequestTypeDef(TypedDict):
     computeNodeGroupConfigurations: NotRequired[Sequence[ComputeNodeGroupConfigurationTypeDef]]
     slurmConfiguration: NotRequired[UpdateQueueSlurmConfigurationRequestTypeDef]
     clientToken: NotRequired[str]
+
+class InstanceHealthChecksRequestTypeDef(TypedDict):
+    healthMonitoring: NotRequired[HealthMonitoringTypeDef]
+    deepHealthChecks: NotRequired[DeepHealthChecksTypeDef]
+
+class InstanceHealthChecksTypeDef(TypedDict):
+    healthMonitoring: NotRequired[HealthMonitoringTypeDef]
+    deepHealthChecks: NotRequired[DeepHealthChecksTypeDef]
+
+class UpdateInstanceHealthChecksRequestTypeDef(TypedDict):
+    healthMonitoring: NotRequired[HealthMonitoringTypeDef]
+    deepHealthChecks: NotRequired[DeepHealthChecksTypeDef]
 
 class ClusterSlurmConfigurationRequestTypeDef(TypedDict):
     scaleDownIdleTimeInSeconds: NotRequired[int]
@@ -594,6 +627,7 @@ ComputeNodeGroupTypeDef = TypedDict(
         "spotOptions": NotRequired[SpotOptionsTypeDef],
         "slurmConfiguration": NotRequired[ComputeNodeGroupSlurmConfigurationTypeDef],
         "nodeLifecycleActions": NotRequired[NodeLifecycleActionsTypeDef],
+        "instanceHealthChecks": NotRequired[InstanceHealthChecksTypeDef],
         "errorInfo": NotRequired[list[ErrorInfoTypeDef]],
     },
 )
@@ -607,6 +641,7 @@ class RegisterComputeNodeGroupInstanceResponseTypeDef(TypedDict):
     computeNodeGroupName: str
     nodeLifecycleActions: NodeLifecycleActionsTypeDef
     schedulerVersion: str
+    instanceHealthChecks: InstanceHealthChecksTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 NodeLifecycleStagesUnionTypeDef = Union[
@@ -649,6 +684,7 @@ class CreateComputeNodeGroupRequestTypeDef(TypedDict):
     spotOptions: NotRequired[SpotOptionsTypeDef]
     slurmConfiguration: NotRequired[ComputeNodeGroupSlurmConfigurationRequestTypeDef]
     nodeLifecycleActions: NotRequired[NodeLifecycleActionsRequestTypeDef]
+    instanceHealthChecks: NotRequired[InstanceHealthChecksRequestTypeDef]
     clientToken: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
 
@@ -667,4 +703,5 @@ class UpdateComputeNodeGroupRequestTypeDef(TypedDict):
     iamInstanceProfileArn: NotRequired[str]
     slurmConfiguration: NotRequired[UpdateComputeNodeGroupSlurmConfigurationRequestTypeDef]
     nodeLifecycleActions: NotRequired[UpdateNodeLifecycleActionsRequestTypeDef]
+    instanceHealthChecks: NotRequired[UpdateInstanceHealthChecksRequestTypeDef]
     clientToken: NotRequired[str]

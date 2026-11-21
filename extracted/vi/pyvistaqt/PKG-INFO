@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyvistaqt
-Version: 0.14.0
+Version: 0.14.1
 Summary: pyvista qt plotter
 Author-email: PyVista Developers <info@pyvista.org>
 License-Expression: MIT

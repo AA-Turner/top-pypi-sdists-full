@@ -362,10 +362,12 @@ th_tokenizer *th_tok_new(void) {
     self->capture_attributes = 1;
     th_tok_reset(self);
     /* buf_copy memcpys a start tag's name, and memcpy may not read NULL storage even for zero bytes; with room
-       reserved up front the first name character never fails, so every copied name is non-empty */
-    if (buf_ensure(&self->tok.name, 1) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
-        PyMem_Free(self);                     /* GCOVR_EXCL_LINE: allocation-failure path */
-        return NULL;                          /* GCOVR_EXCL_LINE: allocation-failure path */
+       reserved up front the first name character never fails, so every copied name is non-empty. th_tag_key reads a
+       whole word of the name, so the reservation is that word, not whatever the growth policy starts at: the fuzz
+       build starts every buffer at two bytes */
+    if (buf_ensure(&self->tok.name, (Py_ssize_t)sizeof(uint64_t)) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+        PyMem_Free(self);                                                /* GCOVR_EXCL_LINE: allocation-failure path */
+        return NULL;                                                     /* GCOVR_EXCL_LINE: allocation-failure path */
     }
     return self;
 }
@@ -628,6 +630,56 @@ void th_tok_feed(th_tokenizer *self, int kind, const void *data, Py_ssize_t leng
             return;
         }
     }
+}
+
+int th_tok_scan_cr_nul(int kind, const void *data, Py_ssize_t length, int *has_nul) {
+    if (kind == PyUnicode_1BYTE_KIND) {
+        *has_nul = memchr(data, '\0', (size_t)length) != NULL;
+        return memchr(data, '\r', (size_t)length) != NULL;
+    }
+    int has_cr = 0;
+    int nul = 0;
+    Py_ssize_t index = 0;
+    if (kind == PyUnicode_2BYTE_KIND) {
+        const Py_UCS2 *units = (const Py_UCS2 *)data;
+        /* both bytes are rare, so the vector loop only ors the compares together and the scalar tail reads the rest */
+#if defined(TH_SCAN_NEON)
+        uint16x8_t crv = vdupq_n_u16('\r');
+        uint16x8_t cr_seen = vdupq_n_u16(0);
+        uint16x8_t nul_seen = vdupq_n_u16(0);
+        for (; index + 8 <= length; index += 8) {
+            uint16x8_t block = vld1q_u16(units + index);
+            cr_seen = vorrq_u16(cr_seen, vceqq_u16(block, crv));
+            nul_seen = vorrq_u16(nul_seen, vceqzq_u16(block));
+        }
+        has_cr = vmaxvq_u16(cr_seen) != 0;
+        nul = vmaxvq_u16(nul_seen) != 0;
+#elif defined(TH_SCAN_SSE2)
+        __m128i crv = _mm_set1_epi16('\r');
+        __m128i zerov = _mm_setzero_si128();
+        __m128i cr_seen = zerov;
+        __m128i nul_seen = zerov;
+        for (; index + 8 <= length; index += 8) {
+            __m128i block = _mm_loadu_si128((const __m128i *)(units + index));
+            cr_seen = _mm_or_si128(cr_seen, _mm_cmpeq_epi16(block, crv));
+            nul_seen = _mm_or_si128(nul_seen, _mm_cmpeq_epi16(block, zerov));
+        }
+        has_cr = _mm_movemask_epi8(cr_seen) != 0;
+        nul = _mm_movemask_epi8(nul_seen) != 0;
+#endif
+        for (; index < length; index++) {
+            has_cr |= units[index] == '\r';
+            nul |= units[index] == 0;
+        }
+    } else {
+        const Py_UCS4 *units = (const Py_UCS4 *)data;
+        for (; index < length; index++) {
+            has_cr |= units[index] == '\r';
+            nul |= units[index] == 0;
+        }
+    }
+    *has_nul = nul;
+    return has_cr;
 }
 
 void th_tok_borrow_input(th_tokenizer *self, int kind, const void *data, Py_ssize_t length) {
@@ -1342,10 +1394,28 @@ static Py_ssize_t scan_resume(th_input_scan *scan, Py_UCS4 first) {
     return first == '\n';
 }
 
+#if defined(TH_SCAN_SSE2)
+/* Whether sixteen bytes are all printable ASCII: no control, line break, NUL, or byte at or above 0x80, so each one
+   only advances the column. The signed compares put every high byte below the range, since it reads negative. */
+static int printable_ascii16(const Py_UCS1 *bytes) {
+    __m128i block = _mm_loadu_si128((const __m128i *)bytes);
+    __m128i printable =
+        _mm_and_si128(_mm_cmpgt_epi8(block, _mm_set1_epi8(0x1F)), _mm_cmplt_epi8(block, _mm_set1_epi8(0x7F)));
+    return _mm_movemask_epi8(printable) == 0xFFFF;
+}
+#endif
+
 /* The preprocessing errors over 1-byte input, where the corpora live. */
 static void input_errors_ucs1(th_input_scan *scan, const Py_UCS1 *bytes, Py_ssize_t len, th_error_sink *sink) {
     Py_ssize_t index = scan_resume(scan, bytes[0]);
     while (index < len) {
+#if defined(TH_SCAN_SSE2)
+        if (index + 16 <= len && printable_ascii16(bytes + index)) {
+            index += 16;
+            scan->col += 16;
+            continue;
+        }
+#endif
         if (index + 8 <= len) {
             uint64_t word;
             memcpy(&word, bytes + index, sizeof(word));
@@ -1560,9 +1630,11 @@ static TH_NOINLINE Py_ssize_t scan_data_ucs1_sse2_long(const th_tokenizer *self,
     __m128i amp = _mm_set1_epi8('&'), lt = _mm_set1_epi8('<'), nlv = _mm_set1_epi8('\n');
     __m128i onesv = _mm_set1_epi8(1), zerov = _mm_setzero_si128();
 
+    /* a NUL stops the block as '&' and '<' do: the data state reports it, so it must not be scanned past */
     while (index + 32 <= len) {
         __m128i left = _mm_loadu_si128((const __m128i *)(data + index));
-        __m128i left_hit = _mm_or_si128(_mm_cmpeq_epi8(left, amp), _mm_cmpeq_epi8(left, lt));
+        __m128i left_hit = _mm_or_si128(_mm_or_si128(_mm_cmpeq_epi8(left, amp), _mm_cmpeq_epi8(left, lt)),
+                                        _mm_cmpeq_epi8(left, zerov));
         if (_mm_movemask_epi8(left_hit)) {
             goto scalar_tail;
         }
@@ -1571,7 +1643,8 @@ static TH_NOINLINE Py_ssize_t scan_data_ucs1_sse2_long(const th_tokenizer *self,
         newlines += _mm_cvtsi128_si32(sums) + _mm_extract_epi16(sums, 4);
 
         __m128i right = _mm_loadu_si128((const __m128i *)(data + index + 16));
-        __m128i right_hit = _mm_or_si128(_mm_cmpeq_epi8(right, amp), _mm_cmpeq_epi8(right, lt));
+        __m128i right_hit = _mm_or_si128(_mm_or_si128(_mm_cmpeq_epi8(right, amp), _mm_cmpeq_epi8(right, lt)),
+                                         _mm_cmpeq_epi8(right, zerov));
         if (_mm_movemask_epi8(right_hit)) {
             index += 16;
             goto scalar_tail;
@@ -1677,6 +1750,55 @@ static Py_ssize_t scan_data_ucs1(const th_tokenizer *self, Py_ssize_t index, Py_
     /* newlines > 0 guarantees a '\n' lies in [start, index), so the backward walk
        is bounded by that newline and needs no explicit start guard (the same
        guaranteed-terminator pattern th_node_doctype_ids uses). */
+    Py_ssize_t last_nl = -1;
+    if (newlines > 0) {
+        last_nl = index - 1;
+        while (data[last_nl] != '\n') {
+            last_nl--;
+        }
+    }
+    *out_last_nl = last_nl;
+    return index;
+}
+
+/* The 2-byte twin of scan_data_ucs1. A document turns 2-byte over a single code point past U+00FF, so most of its
+   text is still ASCII prose that wraps over many lines; without the newline folding every wrapped line costs a scan,
+   a text_push for the newline, and a fresh scan. The vector loop tests eight units per block and counts the newlines
+   with the same SAD reduction, as the high byte of each 0/1 unit is zero. */
+static Py_ssize_t scan_data_ucs2(const th_tokenizer *self, Py_ssize_t index, Py_ssize_t *out_newlines,
+                                 Py_ssize_t *out_last_nl) {
+    const Py_UCS2 *data = (const Py_UCS2 *)self->input.data;
+    Py_ssize_t len = self->input.len;
+    Py_ssize_t newlines = 0;
+#if defined(TH_SCAN_NEON)
+    uint16x8_t amp = vdupq_n_u16('&'), lt = vdupq_n_u16('<'), nlv = vdupq_n_u16('\n');
+    while (index + 8 <= len) {
+        uint16x8_t block = vld1q_u16(data + index);
+        if (vmaxvq_u16(vorrq_u16(vorrq_u16(vceqq_u16(block, amp), vceqq_u16(block, lt)), vceqzq_u16(block)))) {
+            break;
+        }
+        newlines += vaddvq_u16(vshrq_n_u16(vceqq_u16(block, nlv), 15));
+        index += 8;
+    }
+#elif defined(TH_SCAN_SSE2)
+    __m128i amp = _mm_set1_epi16('&'), lt = _mm_set1_epi16('<'), nlv = _mm_set1_epi16('\n');
+    __m128i onesv = _mm_set1_epi16(1), zerov = _mm_setzero_si128();
+    while (index + 8 <= len) {
+        __m128i block = _mm_loadu_si128((const __m128i *)(data + index));
+        if (_mm_movemask_epi8(_mm_or_si128(_mm_or_si128(_mm_cmpeq_epi16(block, amp), _mm_cmpeq_epi16(block, lt)),
+                                           _mm_cmpeq_epi16(block, zerov)))) {
+            break;
+        }
+        __m128i sums = _mm_sad_epu8(_mm_and_si128(_mm_cmpeq_epi16(block, nlv), onesv), zerov);
+        newlines += _mm_cvtsi128_si32(sums) + _mm_extract_epi16(sums, 4);
+        index += 8;
+    }
+#endif
+    while (index < len && data[index] != '&' && data[index] != '<' && data[index] != 0) {
+        newlines += data[index] == '\n';
+        index++;
+    }
+    *out_newlines = newlines;
     Py_ssize_t last_nl = -1;
     if (newlines > 0) {
         last_nl = index - 1;
@@ -1871,32 +1993,30 @@ static TH_NOINLINE enum run_result run_pi(th_tokenizer *self) {
 /* Stamp the tokenizer core once per input storage width. */
 #define TH_NAME(name) name##_ucs1
 #define TH_CHAR Py_UCS1
-#define TH_UCS1 1
 #define TH_SCAN scan_stops_ucs1
+#define TH_SCAN_DATA scan_data_ucs1
 #include "tokenizer/statemachine_run.h"
 #undef TH_NAME
 #undef TH_CHAR
-#undef TH_UCS1
 #undef TH_SCAN
+#undef TH_SCAN_DATA
 
 #define TH_NAME(name) name##_ucs2
 #define TH_CHAR Py_UCS2
-#define TH_UCS1 0
 #define TH_SCAN scan_stops_ucs2
+#define TH_SCAN_DATA scan_data_ucs2
 #include "tokenizer/statemachine_run.h"
 #undef TH_NAME
 #undef TH_CHAR
-#undef TH_UCS1
 #undef TH_SCAN
+#undef TH_SCAN_DATA
 
 #define TH_NAME(name) name##_ucs4
 #define TH_CHAR Py_UCS4
-#define TH_UCS1 0
 #define TH_SCAN scan_stops_ucs4
 #include "tokenizer/statemachine_run.h"
 #undef TH_NAME
 #undef TH_CHAR
-#undef TH_UCS1
 #undef TH_SCAN
 
 static enum run_result run(th_tokenizer *self) {

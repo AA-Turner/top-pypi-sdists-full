@@ -27,7 +27,25 @@ from absl import logging
 import jax
 import jaxtyping
 from flax import nnx
-from tunix.rl import utils
+from tunix.utils import sharding_utils
+
+
+def _get_pytree_mesh_info(tree: jaxtyping.PyTree) -> jax.sharding.Mesh | None:
+  """Returns the mesh info for the pytree."""
+  mesh_info = set()
+
+  def _collect(leaf: jaxtyping.PyTree):
+    if isinstance(leaf, jax.Array) and getattr(leaf, 'sharding', None):
+      if isinstance(leaf.sharding, jax.sharding.NamedSharding):
+        mesh_info.add(leaf.sharding.mesh)
+    return leaf
+
+  jax.tree_util.tree_map(_collect, tree)
+  if len(mesh_info) > 1:
+    raise ValueError(
+        f'All leaves of the pytree must have the same mesh. Found: {mesh_info}'
+    )
+  return mesh_info.pop() if mesh_info else None
 
 # TODO(tsbao): move this to util
 def callback_on_ready(
@@ -80,7 +98,7 @@ def _get_reshard_fn_pathwaysutils(
   # This import is expected to fail sometimes internally if pathwaysutils is
   # not linked to the binary.
   try:
-    from pathwaysutils.experimental import reshard as experimental_reshard  # pylint: disable=g-import-not-at-top # pytype: disable=import-error
+    from pathwaysutils.experimental import reshard as experimental_reshard  # pylint: disable=g-import-not-at-top  # pyrefly: ignore[missing-import]
   except ImportError:
     logging.info(
         'Cannot import PathwaysUtils and experimental reshard API.'
@@ -168,7 +186,6 @@ def _get_reshard_fn(
 
   raise ValueError('Could not find a reshard function from {get_reshard_fns=}.')
 
-
 def reshard_pytree(
     source: jaxtyping.PyTree,
     target: jaxtyping.PyTree,
@@ -224,8 +241,33 @@ def reshard_pytree(
   )
 
   start = time.time()
+  def _is_prng_key(x):
+    """Check if an array is a JAX PRNG key."""
+    return hasattr(x, 'dtype') and jax.dtypes.issubdtype(
+        x.dtype, jax.dtypes.prng_key
+    )
 
-  resharded_array = reshard_fn(source, dst_shardings)
+  impl_tree = jax.tree.map(
+      lambda x: jax.random.key_impl(x) if _is_prng_key(x) else None,
+      source,
+  )
+  unwrapped_tree = jax.tree.map(
+      lambda x: jax.random.key_data(x) if _is_prng_key(x) else x,
+      source,
+  )
+
+  resharded_tree = reshard_fn(
+      unwrapped_tree,
+      dst_shardings,
+  )
+
+  resharded_array = jax.tree.map(
+      lambda val, impl: (
+          jax.random.wrap_key_data(val, impl=impl) if impl is not None else val
+      ),
+      resharded_tree,
+      impl_tree,
+  )
 
   callback_on_ready(
       resharded_array,
@@ -237,9 +279,81 @@ def reshard_pytree(
   return resharded_array
 
 
+def get_shardings_on_mesh(
+    state: jaxtyping.PyTree, mesh: jax.sharding.Mesh, memory_kind: str
+) -> jaxtyping.PyTree:
+  """Returns each variable's partition spec in `state` as a sharding on `mesh`.
+
+  Axes that `mesh` does not have are replicated; see
+  `sharding_utils.spec_on_mesh`.
+
+  Args:
+    state: The variables to shard.
+    mesh: The mesh to shard them on.
+    memory_kind: The memory kind to place them in.
+  """
+  return jax.tree.map(
+      lambda spec: jax.sharding.NamedSharding(
+          mesh,
+          sharding_utils.spec_on_mesh(spec, mesh),
+          memory_kind=memory_kind,
+      ),
+      nnx.get_partition_spec(state),
+  )
+
+
+def delete_unaliased(arrays: jaxtyping.PyTree, keep: jaxtyping.PyTree) -> None:
+  """Deletes the buffers of `arrays` that no array in `keep` shares.
+
+  Donation is a hint that backends may ignore, and a reshard may reuse a buffer
+  of its input, e.g. a CPU shard of a replicated array.
+
+  Args:
+    arrays: The arrays to delete.
+    keep: The arrays whose buffers must stay alive.
+  """
+  try:
+    kept_buffers: set[int] = set()
+    for x in jax.tree.leaves(keep):
+      for shard in x.addressable_shards:
+        kept_buffers.add(shard.data.unsafe_buffer_pointer())
+    for x in jax.tree.leaves(arrays):
+      if x.is_deleted():
+        continue
+      if any(
+          shard.data.unsafe_buffer_pointer() in kept_buffers
+          for shard in x.addressable_shards
+      ):
+        continue
+      x.delete()
+  except jax.errors.JaxRuntimeError as e:
+    if 'PjRt-compatible backend only' in str(e):
+      return
+    raise
+
+
+def reshard_in_place(
+    source: jaxtyping.PyTree, target: jaxtyping.PyTree
+) -> jaxtyping.PyTree:
+  """Reshards `source` to the `target` shardings, freeing the buffers of `source`.
+
+  Args:
+    source: The arrays to reshard. Their buffers are freed, except those the
+      result reuses.
+    target: The sharding of each resharded array.
+
+  Returns:
+    The resharded arrays.
+  """
+  resharded = reshard_pytree(source, target, donate_input=True)
+  jax.block_until_ready(resharded)
+  delete_unaliased(source, keep=resharded)
+  return resharded
+
+
 def reshard_model_to_mesh(model: nnx.Module, mesh: jax.sharding.Mesh):
   """Reshard the lora model if the mesh is specified and the lora model mesh is not the same as the input mesh."""
-  model_mesh = utils.get_pytree_mesh_info(nnx.state(model))
+  model_mesh = _get_pytree_mesh_info(nnx.state(model))
   if mesh is not None and model_mesh != mesh:
     with mesh:
       graph_def, state = nnx.split(model)

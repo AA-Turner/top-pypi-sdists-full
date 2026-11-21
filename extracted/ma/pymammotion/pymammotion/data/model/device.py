@@ -48,6 +48,7 @@ _OTA_PUSH_STALE_AFTER: float = 60.0
 
 #: The app's ``SUPPORT_U_TURN_CODE``: shows the U-turn option of the turnaround setting.
 _U_TURN_FUNCTION_CODE = "003.007"
+_CHILD_SAFETY_FUNCTION_CODE = "003.001"
 
 
 @dataclass
@@ -281,9 +282,27 @@ class MowerDevice(Device):
             limits = _device_config.get_best_default(self.mower_state.product_key)
         return limits
 
+    @property
+    def map_sync_due(self) -> bool:
+        """Whether an automatic map sync should run: the map is stale, and no job is active or no map is held.
+
+        A job re-hashes the map as it mows, so syncing waits for it to end (the app suspends its compare
+        while working too); a map never fetched is not left empty for the length of a job.  User-requested
+        syncs do not consult this.
+        """
+        locations = self.report_data.locations
+        job_active = self.report_data.dev.sys_status in MOWING_ACTIVE_MODES
+        return (not job_active or not self.map.area) and not self.map.is_map_synced(
+            locations[0].bol_hash if locations else 0
+        )
+
     def supports_u_turn(self) -> bool:
         """Return True when the cloud lists the U-turn turnaround mode for the current firmware."""
         return self.supports_function_code(_U_TURN_FUNCTION_CODE)
+
+    def supports_child_safety(self) -> bool:
+        """Return True when the cloud lists child safety for the current firmware."""
+        return self.supports_function_code(_CHILD_SAFETY_FUNCTION_CODE)
 
     def clear_version_info(self) -> None:
         """Clear all cached firmware version info so it will be re-fetched after an OTA update."""

@@ -540,8 +540,6 @@ class TableIngestProtocol(Protocol):
             Features that must exist in the mapping.
         column_to_feature
             Explicit mapping of columns to features for names that do not match.
-        cdc
-            Settings for incrementally ingesting the table.
 
         Examples
         --------

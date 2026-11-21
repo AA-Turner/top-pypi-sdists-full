@@ -262,11 +262,11 @@ StatementBlockSymbol& StatementBlockSymbol::fromSyntax(const Scope& scope,
             result->addMember(
                 StatementBlockSymbol::fromSyntax(scope, prod->as<RsCodeBlockSyntax>()));
         }
+    }
 
-        if (syntax.weightClause && syntax.weightClause->codeBlock) {
-            result->addMember(StatementBlockSymbol::fromSyntax(
-                scope, syntax.weightClause->codeBlock->as<RsCodeBlockSyntax>()));
-        }
+    if (syntax.weightClause && syntax.weightClause->codeBlock) {
+        result->addMember(StatementBlockSymbol::fromSyntax(
+            scope, syntax.weightClause->codeBlock->as<RsCodeBlockSyntax>()));
     }
 
     return *result;
@@ -577,7 +577,9 @@ void GenerateBlockSymbol::fromSyntax(Compilation& compilation, const CaseGenerat
     if (!condVal) {
         if (condExpr->kind == ExpressionKind::TypeReference)
             condType = &condExpr->as<TypeReferenceExpression>().targetType;
-        else
+
+        // An error has already been reported if we can't figure out the condition.
+        if (!condType || condType->isError())
             return;
     }
 
@@ -674,8 +676,17 @@ static std::string createGenBlkName(uint32_t constructIndex, const Scope& parent
     std::string base = "genblk";
     std::string index = std::to_string(constructIndex);
     std::string current = base + index;
-    while (auto symbol = parent.find(current)) {
+
+    // Look in the name map directly instead of using find() so that we also
+    // see names that are taken by explicit imports and forwarding typedefs.
+    auto& nameMap = parent.getNameMap();
+    while (true) {
+        auto it = nameMap.find(current);
+        if (it == nameMap.end())
+            break;
+
         // Sibling generate from if or case statement and not actually a name collision
+        auto symbol = it->second;
         if (symbol->kind == SymbolKind::GenerateBlock &&
             symbol->as<GenerateBlockSymbol>().isUnnamed) {
             return current;
@@ -855,7 +866,7 @@ GenerateBlockArraySymbol& GenerateBlockArraySymbol::fromSyntax(Compilation& comp
         return *result;
 
     // Create storage for the iteration variable.
-    EvalContext evalContext(iterContext);
+    EvalContext evalContext(iterContext, EvalFlags::RequireConstant);
     evalContext.pushEmptyFrame();
 
     auto loopVal = evalContext.createLocal(&local, initialVal);

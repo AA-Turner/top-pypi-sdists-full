@@ -51,6 +51,7 @@ from phono3py._lang import (
     c_omp_max_threads,
     have_c_ext,
 )
+from phono3py.conductivity.exceptions import LBTEInputError
 from phono3py.cui.create_force_constants import (
     develop_or_load_pypolymlp,
     generate_displacements_and_evaluate_pypolymlp,
@@ -93,6 +94,7 @@ from phono3py.interface.fc_calculator import (
     get_fc_calculator_params,
 )
 from phono3py.interface.phono3py_yaml import Phono3pyYaml
+from phono3py.other.isotope import get_isotope_symbol
 from phono3py.phonon3.dataset import forces_in_dataset
 from phono3py.phonon3.fc3 import show_drift_fc3
 from phono3py.phonon3.gruneisen import run_gruneisen_parameters
@@ -1226,10 +1228,14 @@ def main(**argparse_control: Any) -> None:
     # is the phonon and thermal-conductivity calculation workflow. When
     # unset (e.g. from pytest harnesses) no mode-based enforcement happens.
     mode: Literal["init", "run"] | None = argparse_control.get("mode")
+    # REMOVE-AT-V5
     deprecated_command = argparse_control.get("deprecated_command")
     if deprecated_command is not None:
         print("")
-        print(f"WARNING: '{deprecated_command}' is deprecated. Use 'phono3py' instead.")
+        print(
+            f"WARNING: '{deprecated_command}' is deprecated and will be removed "
+            "in v5.0. Use 'phono3py' instead."
+        )
         print("")
 
     if "args" in argparse_control:  # This is for pytest.
@@ -1555,10 +1561,10 @@ def main(**argparse_control: Any) -> None:
         symbols = ph3py.phonon_primitive.symbols
         in_database = True
         for s in set(symbols):
-            if s not in isotope_data:
-                print("%s is not in the list of isotope databese" % s)
+            if get_isotope_symbol(s) not in isotope_data:
+                print(f"{s} is not in the list of isotope database")
                 print("(not implemented).")
-                print("Use --mass_variances option.")
+                print("Use --mass-variances option.")
                 in_database = False
         if not in_database:
             if log_level:
@@ -1637,36 +1643,41 @@ def main(**argparse_control: Any) -> None:
     # Run lattice thermal conductivity #
     ####################################
     elif run_mode == "conductivity-RTA" or run_mode == "conductivity-LBTE":
-        ph3py.run_thermal_conductivity(
-            is_LBTE=settings.is_lbte,
-            temperatures=updated_settings["temperatures"],
-            is_isotope=settings.is_isotope,
-            mass_variances=settings.mass_variances,
-            grid_points=grid_points,
-            boundary_mfp=settings.boundary_mfp,
-            solve_collective_phonon=settings.solve_collective_phonon,
-            use_ave_pp=settings.use_ave_pp,
-            is_reducible_collision_matrix=settings.is_reducible_collision_matrix,  # noqa E501
-            is_kappa_star=settings.is_kappa_star,
-            gv_delta_q=settings.group_velocity_delta_q,
-            is_full_pp=(settings.is_full_pp or settings.is_symmetrize_fc3_q),
-            pinv_cutoff=settings.pinv_cutoff,
-            pinv_solver=settings.pinv_solver,
-            pinv_method=settings.pinv_method,
-            write_gamma=settings.write_gamma,
-            read_gamma=settings.read_gamma,
-            write_kappa=True,
-            is_N_U=settings.is_N_U,
-            transport_type=settings.transport_type,
-            write_gamma_detail=settings.write_gamma_detail,
-            write_collision=settings.write_collision,
-            read_collision=settings.read_collision,
-            write_pp=settings.write_pp,
-            read_pp=settings.read_pp,
-            read_elph=settings.read_elph,
-            write_LBTE_solution=settings.write_LBTE_solution,
-            compression=settings.hdf5_compression,
-        )
+        try:
+            ph3py.run_thermal_conductivity(
+                is_LBTE=settings.is_lbte,
+                temperatures=updated_settings["temperatures"],
+                is_isotope=settings.is_isotope,
+                mass_variances=settings.mass_variances,
+                grid_points=grid_points,
+                boundary_mfp=settings.boundary_mfp,
+                use_ave_pp=settings.use_ave_pp,
+                is_reducible_collision_matrix=settings.is_reducible_collision_matrix,  # noqa E501
+                is_kappa_star=settings.is_kappa_star,
+                gv_delta_q=settings.group_velocity_delta_q,
+                is_full_pp=(settings.is_full_pp or settings.is_symmetrize_fc3_q),
+                pinv_cutoff=settings.pinv_cutoff,
+                pinv_solver=settings.pinv_solver,
+                pinv_method=settings.pinv_method,
+                write_gamma=settings.write_gamma,
+                read_gamma=settings.read_gamma,
+                write_kappa=True,
+                is_N_U=settings.is_N_U,
+                transport_type=settings.transport_type,
+                write_gamma_detail=settings.write_gamma_detail,
+                write_collision=settings.write_collision,
+                read_collision=settings.read_collision,
+                write_pp=settings.write_pp,
+                read_pp=settings.read_pp,
+                read_elph=settings.read_elph,
+                write_LBTE_solution=settings.write_LBTE_solution,
+                compression=settings.hdf5_compression,
+            )
+        except LBTEInputError as e:
+            print_error_message(str(e))
+            if log_level:
+                print_error()
+            sys.exit(1)
     else:
         if log_level:
             print(

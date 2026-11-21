@@ -4,7 +4,7 @@ import numbers
 import re
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Callable, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from ._formats import fmt
 from ._gt_data import FormatFns, FormatterSkipElement
@@ -13,6 +13,8 @@ from ._tbl_data import DataFrameLike, SelectExpr, is_na
 from ._text import Text, _process_text
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from ._locations import RowSelectExpr
     from ._types import GTSelf
 
@@ -75,11 +77,11 @@ def sub_missing(
     separate calls of `sub_missing()`).
 
     ```{python}
-    from great_tables import GT, md, html, exibble
+    from great_tables import GT, data, md, html
     import polars as pl
     import polars.selectors as cs
 
-    exibble_mini = pl.from_pandas(exibble).drop("row", "group", "fctr").slice(4, 8)
+    exibble_mini = data.pl.exibble.drop("row", "group", "fctr").slice(4, 8)
 
     (
         GT(exibble_mini)
@@ -217,7 +219,7 @@ def sub_small_vals(
     self: GTSelf,
     columns: SelectExpr = None,
     rows: RowSelectExpr = None,
-    threshold: int | float = 0.01,
+    threshold: float = 0.01,
     small_pattern: str | None = None,
     sign: str = "+",
 ) -> GTSelf:
@@ -307,10 +309,7 @@ def sub_small_vals(
     threshold = abs(threshold)
 
     if small_pattern is None:
-        if sign == "+":
-            small_pattern = "<{x}"
-        else:
-            small_pattern = ">-{x}"
+        small_pattern = "<{x}" if sign == "+" else ">-{x}"
 
     subber = SubSmallVals(threshold=threshold, small_pattern=small_pattern, sign=sign)
     return fmt(self, fns=subber.format_fns(), columns=columns, rows=rows, is_substitution=True)
@@ -320,7 +319,7 @@ def sub_large_vals(
     self: GTSelf,
     columns: SelectExpr = None,
     rows: RowSelectExpr = None,
-    threshold: int | float = 1e12,
+    threshold: float = 1e12,
     large_pattern: str = ">={x}",
     sign: str = "+",
 ) -> GTSelf:
@@ -419,7 +418,7 @@ def sub_values(
     values: list[Any] | Any | None = None,
     pattern: str | None = None,
     fn: Callable[..., bool] | None = None,
-    replacement: str | int | float | None = None,
+    replacement: str | float | None = None,
 ) -> GTSelf:
     """
     Substitute targeted values in the table body.
@@ -439,14 +438,18 @@ def sub_values(
         indices, or (for Polars DataFrames) a Polars expression such as `pl.col("x") > 0`.
     values
         The specific value or values that should be replaced with a `replacement` value. If
-        `pattern` is also supplied then `values` will be ignored.
+        `pattern` is also supplied then `values` will be ignored. Missing values (e.g., `None`,
+        `NaN`, `pd.NA`) are never replaced, even when listed in `values`; use
+        [`sub_missing()`](`great_tables.GT.sub_missing`) to replace them.
     pattern
         A regex pattern that can target solely those values in character-based columns. If `values`
         is also supplied, `pattern` will take precedence.
     fn
         A supplied function that operates on each cell value `x` and should return a boolean
-        indicating whether that value should be replaced. If either of `values` or `pattern` is also
-        supplied, `fn` will take precedence.
+        indicating whether that value should be replaced. It's called on missing values too (e.g.,
+        `None`, `NaN`, `pd.NA`), so it can target them (e.g., `fn=lambda x: x is None`); a value for
+        which `fn` raises a `TypeError` or `ValueError` isn't replaced. If either of `values` or
+        `pattern` is also supplied, `fn` will take precedence.
     replacement
         The replacement value for any cell values matched by either `values`, `pattern`, or `fn`.
         Must be a string or numeric value.
@@ -511,7 +514,9 @@ def sub_values(
     if fn is not None and not callable(fn):
         raise TypeError("A function must be provided to the `fn` argument.")
 
-    subber = SubValues(values=values, pattern=pattern, fn=fn, replacement=replacement)
+    subber = SubValues(
+        self._tbl_data, values=values, pattern=pattern, fn=fn, replacement=replacement
+    )
     return fmt(self, fns=subber.format_fns(), columns=columns, rows=rows, is_substitution=True)
 
 
@@ -617,7 +622,7 @@ class SubLargeVals(Substitution):
         return _process_text(text, context=context)
 
 
-def _format_threshold(threshold: int | float) -> str:
+def _format_threshold(threshold: float) -> str:
     """Write a `sub_small_vals()` / `sub_large_vals()` threshold compactly (e.g., `1e+12`).
 
     As in R's default printing of numbers, exponent notation is used when it's shorter than fixed
@@ -642,6 +647,7 @@ def _context_inequality_mark(mark: str, context: str) -> str:
 
 @dataclass
 class SubValues(Substitution):
+    dispatch_frame: DataFrameLike
     values: list[Any] | Any | None
     pattern: str | None
     fn: Callable[..., bool] | None
@@ -654,17 +660,19 @@ class SubValues(Substitution):
         return FormatterSkipElement()
 
     def _is_match(self, x: Any) -> bool:
-        # Skip NA/None values
-        if x is None:
-            return False
-
-        # Priority: fn > pattern > values
+        # Priority: fn > pattern > values. `fn` is called on every value, missing values (`None`,
+        # `NaN`, `pd.NA`, `NaT`) included, as in R gt, so it can target them
         if self.fn is not None:
             try:
                 result = self.fn(x)
                 return bool(result)
             except (TypeError, ValueError):
                 return False
+
+        # Missing values (`None`, `NaN`, `pd.NA`, `NaT`) are never matched by `pattern` or `values`,
+        # even when listed in `values`, as in R gt; `sub_missing()` replaces them
+        if is_na(self.dispatch_frame, x):
+            return False
 
         if self.pattern is not None:
             # Pattern matching only works on string values
@@ -674,6 +682,15 @@ class SubValues(Substitution):
 
         if self.values is not None:
             match_values = self.values if isinstance(self.values, list) else [self.values]
-            return x in match_values
+            for value in match_values:
+                try:
+                    is_equal = x == value
+                    # An array-like cell is compared element-wise (`np.array([1]) == 1` gives
+                    # `array([True])`), so it doesn't match a single value
+                    if getattr(is_equal, "shape", ()) == () and bool(is_equal):
+                        return True
+                except (TypeError, ValueError):
+                    continue
+            return False
 
         return False

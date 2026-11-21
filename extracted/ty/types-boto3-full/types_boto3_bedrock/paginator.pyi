@@ -29,8 +29,10 @@ Usage::
         ListModelCustomizationJobsPaginator,
         ListModelImportJobsPaginator,
         ListModelInvocationJobsPaginator,
+        ListProjectsPaginator,
         ListPromptRoutersPaginator,
         ListProvisionedModelThroughputsPaginator,
+        ListTrustedAccessProgramsPaginator,
     )
 
     session = Session()
@@ -53,8 +55,10 @@ Usage::
     list_model_customization_jobs_paginator: ListModelCustomizationJobsPaginator = client.get_paginator("list_model_customization_jobs")
     list_model_import_jobs_paginator: ListModelImportJobsPaginator = client.get_paginator("list_model_import_jobs")
     list_model_invocation_jobs_paginator: ListModelInvocationJobsPaginator = client.get_paginator("list_model_invocation_jobs")
+    list_projects_paginator: ListProjectsPaginator = client.get_paginator("list_projects")
     list_prompt_routers_paginator: ListPromptRoutersPaginator = client.get_paginator("list_prompt_routers")
     list_provisioned_model_throughputs_paginator: ListProvisionedModelThroughputsPaginator = client.get_paginator("list_provisioned_model_throughputs")
+    list_trusted_access_programs_paginator: ListTrustedAccessProgramsPaginator = client.get_paginator("list_trusted_access_programs")
     ```
 """
 
@@ -100,10 +104,14 @@ from .type_defs import (
     ListModelImportJobsResponseTypeDef,
     ListModelInvocationJobsRequestPaginateTypeDef,
     ListModelInvocationJobsResponseTypeDef,
+    ListProjectsRequestPaginateTypeDef,
+    ListProjectsResponseTypeDef,
     ListPromptRoutersRequestPaginateTypeDef,
     ListPromptRoutersResponseTypeDef,
     ListProvisionedModelThroughputsRequestPaginateTypeDef,
     ListProvisionedModelThroughputsResponseTypeDef,
+    ListTrustedAccessProgramsRequestPaginateTypeDef,
+    ListTrustedAccessProgramsResponseTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -129,8 +137,10 @@ __all__ = (
     "ListModelCustomizationJobsPaginator",
     "ListModelImportJobsPaginator",
     "ListModelInvocationJobsPaginator",
+    "ListProjectsPaginator",
     "ListPromptRoutersPaginator",
     "ListProvisionedModelThroughputsPaginator",
+    "ListTrustedAccessProgramsPaginator",
 )
 
 if TYPE_CHECKING:
@@ -462,6 +472,24 @@ class ListModelInvocationJobsPaginator(_ListModelInvocationJobsPaginatorBase):
         """
 
 if TYPE_CHECKING:
+    _ListProjectsPaginatorBase = Paginator[ListProjectsResponseTypeDef]
+else:
+    _ListProjectsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListProjectsPaginator(_ListProjectsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/paginator/ListProjects.html#Bedrock.Paginator.ListProjects)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/paginators/#listprojectspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListProjectsRequestPaginateTypeDef]
+    ) -> PageIterator[ListProjectsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/paginator/ListProjects.html#Bedrock.Paginator.ListProjects.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/paginators/#listprojectspaginator)
+        """
+
+if TYPE_CHECKING:
     _ListPromptRoutersPaginatorBase = Paginator[ListPromptRoutersResponseTypeDef]
 else:
     _ListPromptRoutersPaginatorBase = Paginator  # type: ignore[assignment]
@@ -497,4 +525,22 @@ class ListProvisionedModelThroughputsPaginator(_ListProvisionedModelThroughputsP
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/paginator/ListProvisionedModelThroughputs.html#Bedrock.Paginator.ListProvisionedModelThroughputs.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/paginators/#listprovisionedmodelthroughputspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListTrustedAccessProgramsPaginatorBase = Paginator[ListTrustedAccessProgramsResponseTypeDef]
+else:
+    _ListTrustedAccessProgramsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListTrustedAccessProgramsPaginator(_ListTrustedAccessProgramsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/paginator/ListTrustedAccessPrograms.html#Bedrock.Paginator.ListTrustedAccessPrograms)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/paginators/#listtrustedaccessprogramspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListTrustedAccessProgramsRequestPaginateTypeDef]
+    ) -> PageIterator[ListTrustedAccessProgramsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/paginator/ListTrustedAccessPrograms.html#Bedrock.Paginator.ListTrustedAccessPrograms.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/paginators/#listtrustedaccessprogramspaginator)
         """

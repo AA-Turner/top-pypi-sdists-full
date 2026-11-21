@@ -3,13 +3,13 @@
 
 from __future__ import annotations
 
-from copy import deepcopy
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Mapping, Optional, Sequence
 import xml.etree.ElementTree as ET
 
 from ._document_primitives import (
-    _DEFAULT_PARAGRAPH_ATTRS,
+    _require_text,
+    paragraph_attributes,
     _HP,
     _append_child,
     _apply_optional_attrs,
@@ -22,26 +22,29 @@ from ._document_primitives import (
     _optional_int_attr,
     _paragraph_id,
 )
-from .numbering import SectionStartNumbering
+from ..objects.results import StartNumbers
 from .numbering_kinds import number_format
 from .utils import normalize_line_width
 from .section_story import (
     HwpxOxmlSectionHeaderFooter,
     _section_story_elements,
-    remember_story_pair,
     story_control_index,
 )
 
 if TYPE_CHECKING:
     from .section import HwpxOxmlSection
+    from .simple_parts import HwpxOxmlMasterPage
 
 
 #: ``hp:pagePr@landscape`` as Hancom writes it. Both values keep the paper's
 #: portrait size (width <= height): ``WIDELY`` draws the page as stored, so it
 #: is portrait, and ``NARROWLY`` turns it, so it is landscape. ``NARROWLY`` is
 #: also the schema default, which a missing or unknown value falls back to.
-_PAGE_PORTRAIT = "WIDELY"
-_PAGE_LANDSCAPE = "NARROWLY"
+#: ``PageSize.orientation`` is one of the two.
+PAGE_PORTRAIT = "WIDELY"
+PAGE_LANDSCAPE = "NARROWLY"
+_PAGE_PORTRAIT = PAGE_PORTRAIT
+_PAGE_LANDSCAPE = PAGE_LANDSCAPE
 _PAGE_ORIENTATIONS = {
     "PORTRAIT": _PAGE_PORTRAIT,
     "NARROW": _PAGE_PORTRAIT,
@@ -107,33 +110,62 @@ class PageSize:
     ``WIDELY`` for a portrait page and ``NARROWLY`` for a landscape page, and a
     landscape page keeps the paper's portrait width and height.
     ``drawn_width``/``drawn_height`` give the page as Hancom draws it.
+
+    Read as the file has them: an attribute ``hp:pagePr`` leaves out is the schema's
+    default (width 59528, height 84188, ``NARROWLY``, ``LEFT_ONLY``); a size that is
+    not a number, or a section with no ``hp:pagePr``, reads ``None`` (never 0).
     """
 
-    width: int
-    height: int
+    width: int | None
+    height: int | None
     orientation: str
     gutter_type: str
 
     @property
-    def drawn_width(self) -> int:
+    def drawn_width(self) -> int | None:
+        """The page's width as drawn; ``None`` when width or height is not known."""
+        if self.width is None or self.height is None:
+            return None
         return _drawn_page_size(self.width, self.height, self.orientation)[0]
 
     @property
-    def drawn_height(self) -> int:
+    def drawn_height(self) -> int | None:
+        """The page's height as drawn; ``None`` when width or height is not known."""
+        if self.width is None or self.height is None:
+            return None
         return _drawn_page_size(self.width, self.height, self.orientation)[1]
 
 
 @dataclass(slots=True)
 class PageMargins:
-    """Encapsulates page margin values in HWP units."""
+    """Page margins (``hp:pagePr/hp:margin``) in HWP units, as the file has them.
 
-    left: int
-    right: int
-    top: int
-    bottom: int
-    header: int
-    footer: int
-    gutter: int
+    ``header``/``footer``/``gutter`` the file leaves out read the schema's default (4252,
+    4252, 0). ``left``/``right``/``top``/``bottom`` have none (the schema requires them):
+    left out, like a value that is not a number or a section with no ``hp:margin``, they
+    read ``None`` -- never a 0 nobody wrote.
+    """
+
+    left: int | None
+    right: int | None
+    top: int | None
+    bottom: int | None
+    header: int | None
+    footer: int | None
+    gutter: int | None
+
+
+def _stored_length(element: ET.Element, name: str, default: int | None) -> int | None:
+    """The integer attribute *name* of *element*: *default* (the schema's) when left out, ``None``
+    when it is not a number."""
+
+    value = element.get(name)
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except ValueError:
+        return None
 
 
 @dataclass(slots=True)
@@ -143,28 +175,6 @@ class SectionGrid:
     line_grid: int
     char_grid: int
     wonggoji_format: bool
-
-
-@dataclass(slots=True)
-class SectionTextDirection:
-    """Represents ``hp:secPr``'s own ``textDirection``/``textVerticalWidthHead``.
-
-    Unlike every other property in this class, these two live directly on
-    the ``hp:secPr`` element itself (no nested child to find/create) —
-    ``self.element`` *is* the target.
-
-    6.12 트레인㊸ 갭③. 실코퍼스(67파일, 모든 fixture 하위 디렉터리 전수)
-    측정: `hp:secPr` 74건 전부 `textDirection="HORIZONTAL"`·
-    `textVerticalWidthHead="0"` — `VERTICAL`/`VERTICALALL` 실사용 0건. 그래도
-    도형(dropcapstyle)과 달리 이 값은 새 구조를 추측하는 게 아니라 이미
-    실코퍼스 전량에서 정상 파싱·직렬화되는 기존 요소의 스키마 선언 열거값을
-    그대로 쓰는 것뿐이라(어휘 자체는 스키마가 명확히 선언) 구조적 추측
-    위험이 없다 — 미확인인 건 오직 "실한컴이 이 값으로 세로쓰기를 실제로
-    그리는가"라는 렌더링 질문뿐이고, 그건 v16 배치가 답한다.
-    """
-
-    direction: str
-    vertical_header_footer: bool
 
 
 @dataclass(slots=True)
@@ -369,6 +379,17 @@ def _choice(argument: str, value: object, allowed: Sequence[str], code: str) -> 
     return str(value)
 
 
+def _master_page_id(master_page: object) -> str:
+    """The id of *master_page*: a master page id as it is, or a ``MasterPage``'s ``id``."""
+
+    found = master_page if isinstance(master_page, str) else getattr(master_page, "id", None)
+    if not isinstance(found, str):
+        from ..errors import argument_type_error
+
+        raise argument_type_error("master_page_id", master_page, "a master page id (str) or a MasterPage")
+    return found
+
+
 def _check_page_size(width: object, height: object, gutter_type: object) -> None:
     """A page's size (0 to 2**31 - 1) and gutter type, checked before anything changes."""
 
@@ -422,12 +443,13 @@ class HwpxOxmlSectionProperties:
 
     @property
     def page_size(self) -> PageSize:
+        """The page size as the file has it (:class:`PageSize`; ``None`` for a size not written or not a number)."""
         page_pr = self._page_pr_element()
         if page_pr is None:
-            return PageSize(width=0, height=0, orientation=_PAGE_LANDSCAPE, gutter_type="LEFT_ONLY")
+            return PageSize(width=None, height=None, orientation=_PAGE_LANDSCAPE, gutter_type="LEFT_ONLY")
         return PageSize(
-            width=_get_int_attr(page_pr, "width", 0),
-            height=_get_int_attr(page_pr, "height", 0),
+            width=_stored_length(page_pr, "width", 59528),  # the schema's defaults
+            height=_stored_length(page_pr, "height", 84188),
             orientation=page_pr.get("landscape", _PAGE_LANDSCAPE),
             gutter_type=page_pr.get("gutterType", "LEFT_ONLY"),
         )
@@ -476,17 +498,18 @@ class HwpxOxmlSectionProperties:
 
     @property
     def page_margins(self) -> PageMargins:
+        """The page margins as the file has them (:class:`PageMargins`; ``None`` for one not known)."""
         margin = self._margin_element()
         if margin is None:
-            return PageMargins(left=0, right=0, top=0, bottom=0, header=0, footer=0, gutter=0)
+            return PageMargins(left=None, right=None, top=None, bottom=None, header=None, footer=None, gutter=None)
         return PageMargins(
-            left=_get_int_attr(margin, "left", 0),
-            right=_get_int_attr(margin, "right", 0),
-            top=_get_int_attr(margin, "top", 0),
-            bottom=_get_int_attr(margin, "bottom", 0),
-            header=_get_int_attr(margin, "header", 0),
-            footer=_get_int_attr(margin, "footer", 0),
-            gutter=_get_int_attr(margin, "gutter", 0),
+            left=_stored_length(margin, "left", None),  # required by the schema: no default
+            right=_stored_length(margin, "right", None),
+            top=_stored_length(margin, "top", None),
+            bottom=_stored_length(margin, "bottom", None),
+            header=_stored_length(margin, "header", 4252),  # the schema's defaults
+            footer=_stored_length(margin, "footer", 4252),
+            gutter=_stored_length(margin, "gutter", 0),
         )
 
     def set_page_margins(
@@ -597,17 +620,63 @@ class HwpxOxmlSectionProperties:
 
     # -- numbering ----------------------------------------------------------
     @property
-    def start_numbering(self) -> SectionStartNumbering:
+    def outline_shape_id_ref(self) -> str | None:
+        """The id of the numbering this section draws its outline numbers with (개요 번호 모양,
+        ``outlineShapeIDRef``) as written, ``None`` when the section names none. Read the
+        definition with ``doc.styles.numbering(id)``; change a level with
+        ``doc.styles.set_numbering_level(id, level, text=...)``."""
+        value = (self.element.get("outlineShapeIDRef") or "").strip()
+        return value or None
+
+    @property
+    def memo_shape_id_ref(self) -> str | None:
+        """The memo shape (``hh:memoPr``) this section's memos are drawn with (``memoShapeIDRef``),
+        ``None`` for Hancom's built-in one (``0``, or not written). Hancom keeps a memo's shape here, per
+        section: every MEMO field it writes says ``MemoShapeIDRef=65535`` (Hangul 2024; the sections of
+        ``hwpxlib_corpus/error__20251107__test`` point at memo shapes 1 and 2). Read the shape with
+        ``doc.styles.memo_shape(id)``; make one with ``doc.styles.ensure_memo_shape(...)``.
+
+        Set it to a memo shape's id (``None`` or ``"0"``: the built-in one). An id the header does
+        not define is refused (``note-memo-shape-not-found``)."""
+
+        value = (self.element.get("memoShapeIDRef") or "").strip()
+        return None if value in ("", "0") else value
+
+    @memo_shape_id_ref.setter
+    def memo_shape_id_ref(self, value: "str | int | None") -> None:
+        from ..errors import HwpxLookupError, argument_type_error
+
+        if isinstance(value, bool) or not isinstance(value, (str, int, type(None))):
+            raise argument_type_error("memo_shape_id_ref", value, "a memo shape id (str or int) or None")
+        text = "0" if value is None else str(value).strip() or "0"
+        if text != "0":
+            document = getattr(self.section, "document", None)
+            if document is None or document.memo_shape(text) is None:
+                raise HwpxLookupError(
+                    f"the header defines no memo shape {text!r}",
+                    code="note-memo-shape-not-found",
+                    context={"requested": text},
+                    suggestion="Make one with doc.styles.ensure_memo_shape(...) and pass its id.",
+                )
+        if self.element.get("memoShapeIDRef") != text:
+            self.element.set("memoShapeIDRef", text)
+            self.section.mark_dirty()
+
+    @property
+    def start_numbers(self) -> StartNumbers:
+        """Where the section's counts start (``hp:startNum``): pages, pictures, tables and
+        equations, and the kind of page the section starts on; 0 goes on from the section
+        before. The value ``doc.page.start_numbers()`` gives."""
         start_num = self.element.find(f"{_HP}startNum")
         if start_num is None:
-            return SectionStartNumbering(
+            return StartNumbers(
                 page_starts_on="BOTH",
                 page=0,
                 picture=0,
                 table=0,
                 equation=0,
             )
-        return SectionStartNumbering(
+        return StartNumbers(
             page_starts_on=start_num.get("pageStartsOn", "BOTH"),
             page=_get_int_attr(start_num, "page", 0),
             picture=_get_int_attr(start_num, "pic", 0),
@@ -615,7 +684,7 @@ class HwpxOxmlSectionProperties:
             equation=_get_int_attr(start_num, "equation", 0),
         )
 
-    def set_start_numbering(
+    def set_start_numbers(
         self,
         *,
         page_starts_on: str | None = None,
@@ -624,6 +693,8 @@ class HwpxOxmlSectionProperties:
         table: int | None = None,
         equation: int | None = None,
     ) -> None:
+        """Change where the section's counts start (:attr:`start_numbers`); a value left out stays.
+        Numbers are 0..65535 (0: go on from the section before)."""
         numbers = (("page", page), ("pic", picture), ("tbl", table), ("equation", equation))
         for name, value in numbers:  # Hancom keeps each as 16 bits unsigned (0: go on from the section before)
             if value is not None:
@@ -710,13 +781,17 @@ class HwpxOxmlSectionProperties:
             self.section.mark_dirty()
 
     @property
-    def text_direction(self) -> SectionTextDirection:
-        return SectionTextDirection(
-            direction=self.element.get("textDirection", "HORIZONTAL"),
-            vertical_header_footer=_get_bool_attr(
-                self.element, "textVerticalWidthHead", False
-            ),
-        )
+    def text_direction(self) -> str:
+        """How the section's text runs (``hp:secPr/@textDirection``): ``"HORIZONTAL"``, ``"VERTICAL"``
+        or ``"VERTICALALL"`` — the same words a table cell's ``text_direction`` reads."""
+
+        return self.element.get("textDirection", "HORIZONTAL")
+
+    @property
+    def vertical_header_footer(self) -> bool:
+        """Whether headers and footers are written vertically too (``hp:secPr/@textVerticalWidthHead``)."""
+
+        return _get_bool_attr(self.element, "textVerticalWidthHead", False)
 
     def set_text_direction(
         self,
@@ -753,8 +828,8 @@ class HwpxOxmlSectionProperties:
             for child in self.element.findall(f"{_HP}masterPage")
         )
 
-    def add_master_page_reference(self, id_ref: str) -> None:
-        """바탕쪽 파트(``masterPageN``)를 이 절에서 참조하도록 등록한다.
+    def add_master_page_reference(self, master_page_id: "str | HwpxOxmlMasterPage") -> None:
+        """바탕쪽 파트(``masterPageN``, id 나 ``MasterPage``)를 이 절에서 참조하도록 등록한다.
 
         중복 idRef는 다시 추가하지 않는다(멱등). ``masterPageCnt``를
         실제 자식 개수로 동기화한다 -- 실 예시 1건에서 `masterPageCnt="1"`
@@ -764,16 +839,44 @@ class HwpxOxmlSectionProperties:
         이미 바탕쪽을 두고 있으면 ``HwpxValueError``
         (``master-page-pages-taken``)를 낸다.
         """
-        if id_ref in self.master_page_refs:
+        id_ref = self._check_master_page_reference(master_page_id)
+        if id_ref is None:
             return
+        _append_child(self.element, f"{_HP}masterPage", {"idRef": id_ref})
+        self.element.set("masterPageCnt", str(len(self.master_page_refs)))
+        self.section.mark_dirty()
+
+    def _check_master_page_reference(self, master_page_id: "str | HwpxOxmlMasterPage") -> str | None:
+        """What :meth:`add_master_page_reference` refuses, without writing: the id to add, or ``None``
+        when this section uses the master page already. ``doc.page.set_master_page(section="all")``
+        asks every section first, so a section that refuses does not leave the ones before it changed."""
+
+        id_ref = _master_page_id(master_page_id)
+        if id_ref in self.master_page_refs:
+            return None
         document = self.section.document
         if document is not None:
             from .master_page_authoring import refuse_pages_taken
 
             refuse_pages_taken(document, self.master_page_refs, id_ref)
-        _append_child(self.element, f"{_HP}masterPage", {"idRef": id_ref})
-        self.element.set("masterPageCnt", str(len(self.master_page_refs)))
-        self.section.mark_dirty()
+        return id_ref
+
+    def remove_master_page_reference(self, master_page_id: "str | HwpxOxmlMasterPage") -> bool:
+        """이 절이 바탕쪽 *master_page_id* (id 나 ``MasterPage``)를 쓰는 연결(``hp:masterPage/@idRef``)을
+        끊는다. 끊었으면 True.
+
+        바탕쪽 파트는 그대로 둔다. ``masterPageCnt`` 를 남은 개수로 맞춘다.
+        """
+        wanted = _master_page_id(master_page_id)
+        removed = False
+        for child in list(self.element.findall(f"{_HP}masterPage")):
+            if child.get("idRef", "") == wanted:
+                self.element.remove(child)
+                removed = True
+        if removed:
+            self.element.set("masterPageCnt", str(len(self.master_page_refs)))
+            self.section.mark_dirty()
+        return removed
 
     @property
     def visibility(self) -> SectionVisibility:
@@ -1219,6 +1322,10 @@ class HwpxOxmlSectionProperties:
                 changed = True
         if changed:
             self.section.mark_dirty()
+            # the notes of the kind are written with the numbers they have now (they kept the old ones)
+            from .note_authoring import renumber_notes
+
+            renumber_notes(self.section, tag[: -len("Pr")] if tag.endswith("Pr") else tag)
 
     def _set_note_placement(
         self,
@@ -1324,66 +1431,6 @@ class HwpxOxmlSectionProperties:
                 return apply
         return None
 
-    def _set_apply_reference(
-        self,
-        apply: ET.Element,
-        tag: str,
-        new_id: str | None,
-    ) -> bool:
-        candidate_keys = {name.lower(): name for name in self._apply_id_attributes(tag)}
-        existing_attrs = [
-            attr for attr in list(apply.attrib.keys()) if attr.lower() in candidate_keys
-        ]
-
-        changed = False
-        if new_id is None:
-            for attr in existing_attrs:
-                if attr in apply.attrib:
-                    del apply.attrib[attr]
-                    changed = True
-            return changed
-
-        if existing_attrs:
-            target_attr = existing_attrs[0]
-        else:
-            target_attr = self._apply_id_attributes(tag)[0]
-
-        if apply.get(target_attr) != new_id:
-            apply.set(target_attr, new_id)
-            changed = True
-
-        for attr in existing_attrs:
-            if attr != target_attr and attr in apply.attrib:
-                del apply.attrib[attr]
-                changed = True
-
-        return changed
-
-    def _ensure_header_footer_apply(
-        self,
-        tag: str,
-        page_type: str,
-        element: ET.Element,
-    ) -> ET.Element:
-        apply = self._match_apply_for_element(tag, element)
-        header_id = element.get("id")
-        changed = False
-        if apply is None:
-            attrs = {"applyPageType": page_type}
-            if header_id is not None:
-                attrs[self._apply_id_attributes(tag)[0]] = header_id
-            apply = _append_child(self.element, f"{_HP}{tag}Apply", attrs)
-            changed = True
-        else:
-            if apply.get("applyPageType") != page_type:
-                apply.set("applyPageType", page_type)
-                changed = True
-            if self._set_apply_reference(apply, tag, header_id):
-                changed = True
-        if changed:
-            self.section.mark_dirty()
-        return apply
-
     def _remove_header_footer_apply(
         self,
         tag: str,
@@ -1414,26 +1461,95 @@ class HwpxOxmlSectionProperties:
                 return element
         return None
 
-    def _ensure_header_footer(self, tag: str, page_type: str) -> ET.Element:
-        element = self._find_header_footer(tag, page_type)
+    def _first_paragraph_stories(self, tag: str, page_type: str) -> list[tuple[ET.Element, ET.Element, ET.Element]]:
+        """``(run, hp:ctrl, story)`` for each *tag* story of *page_type* in the section's first paragraph.
+
+        Hancom keeps a section's headers and footers there, in a run of their own after the
+        settings. A control later in the body changes the header from its page on; it is not one
+        of these.
+        """
+
+        found = []
+        for run in self._first_paragraph_runs():
+            for ctrl in run.findall(f"{_HP}ctrl"):
+                story = ctrl.find(f"{_HP}{tag}")
+                if story is not None and story.get("applyPageType", "BOTH") == page_type:
+                    found.append((run, ctrl, story))
+        return found
+
+    def _story_to_write(
+        self, tag: str, page_type: str
+    ) -> tuple[ET.Element, tuple[ET.Element, ET.Element] | None]:
+        """The one ``hp:ctrl`` story that *tag* on *page_type* pages is written to, and
+        ``(run, hp:ctrl)`` for the control made for it when there was none (else ``None``).
+
+        Hancom reads a header or footer only from an ``hp:ctrl`` in the body and saves it nowhere
+        else: no story under ``hp:secPr`` and no ``hp:headerApply`` (all 68 Hangul-saved documents
+        with one in the public corpus). python-hwpx up to 6.x also kept a copy under ``hp:secPr``
+        with an ``hp:headerApply`` pointing at it; that copy of this page type goes, and its control
+        copy is the one written. A second control of the same page type in the first paragraph
+        goes too (Hancom draws only the last one on a page). A new control goes in the first run of
+        the first paragraph, ahead of a field that starts there (Hancom drops a header or footer
+        control inside a field's span) and, for ``BOTH``, ahead of the ``ODD``/``EVEN`` ones: Hancom
+        draws the last applicable control on a page, so ``BOTH`` after ``ODD`` would hide it.
+        """
+
+        from .note_authoring import note_kinds_in, renumber_note_kinds
+
         changed = False
-        if element is None:
-            element = _append_child(
-                self.element,
-                f"{_HP}{tag}",
-                {"id": _object_id(), "applyPageType": page_type},
-            )
+        gone: list[ET.Element] = []  # what is tidied away: the notes in it go, and the rest count again
+        legacy = self._find_header_footer(tag, page_type)
+        if legacy is not None:
+            self._remove_header_footer_apply(tag, page_type, legacy)
+            self.element.remove(legacy)
+            gone.append(legacy)
             changed = True
-        else:
-            if element.get("applyPageType") != page_type:
-                element.set("applyPageType", page_type)
+        stories = self._first_paragraph_stories(tag, page_type)
+        for run, ctrl, _story in stories[1:]:
+            if len(ctrl) == 1:
+                run.remove(ctrl)
+                gone.append(ctrl)
                 changed = True
-        if element.get("id") is None:
-            element.set("id", _object_id())
+        renumber_note_kinds(self.section, note_kinds_in(gone))
+        created: tuple[ET.Element, ET.Element] | None = None
+        if stories:
+            story = stories[0][2]
+            if not story.get("id"):
+                story.set("id", _object_id(self.section._ids))
+                changed = True
+        else:
+            run = self._header_footer_control_run()
+            story_id = (legacy.get("id") if legacy is not None else None) or _object_id(self.section._ids)
+            ctrl = run.makeelement(f"{_HP}ctrl", {})
+            story = ctrl.makeelement(f"{_HP}{tag}", {"id": story_id, "applyPageType": page_type})
+            ctrl.append(story)
+            specific = [
+                existing
+                for existing in run.findall(f"{_HP}ctrl")
+                if (other := existing.find(f"{_HP}{tag}")) is not None
+                and other.get("applyPageType", "BOTH") != "BOTH"
+            ]
+            before = specific[0] if page_type == "BOTH" and specific else None
+            run.insert(story_control_index(run, before), ctrl)
+            created = (run, ctrl)
             changed = True
         if changed:
             self.section.mark_dirty()
-        return element
+        return story, created
+
+    def _write_story(self, tag: str, page_type: str, fill: Any) -> HwpxOxmlSectionHeaderFooter:
+        """Write *tag* for *page_type* pages with *fill* (given the story object) in its one place."""
+
+        element, created = self._story_to_write(tag, page_type)
+        wrapper = HwpxOxmlSectionHeaderFooter(element, self)
+        try:
+            fill(wrapper)
+        except Exception:
+            if created is not None and any(child is created[1] for child in created[0]):
+                # a header or footer with no hp:subList keeps Hancom from opening the document
+                created[0].remove(created[1])
+            raise
+        return wrapper
 
     def _header_footer_control_run(self) -> ET.Element:
         paragraph = self.section.element.find(f"{_HP}p")
@@ -1441,46 +1557,16 @@ class HwpxOxmlSectionProperties:
             paragraph = _append_child(
                 self.section.element,
                 f"{_HP}p",
-                {"id": _paragraph_id(), **_DEFAULT_PARAGRAPH_ATTRS},
+                paragraph_attributes(_paragraph_id(self.section._ids)),
             )
         run = paragraph.find(f"{_HP}run")
         if run is None:
             run = _append_child(paragraph, f"{_HP}run", {"charPrIDRef": "0"})
         return run
 
-    def _sync_header_footer_control(self, tag: str, source: ET.Element) -> None:
-        """Mirror *source* into the ``hp:ctrl`` Hancom reads, replacing only the
-        control of the same page type, with ``BOTH`` ahead of ``ODD``/``EVEN``.
-
-        Hancom takes header/footer stories from ``hp:ctrl`` alone and drops the
-        ``hp:secPr`` copies when it saves, and on each page it draws the *last*
-        applicable control in document order. So clearing
-        every control of the tag erased the other page types (an ODD footer
-        followed by a BOTH page-number footer lost the ODD text in Hancom), and
-        a BOTH control placed after an ODD one hid it on every odd page. The
-        ``BOTH`` control therefore goes before the page-specific ones: ODD and
-        EVEN override it on their pages whatever order they were set in. Every
-        control also goes ahead of a field that starts in that run: Hancom drops
-        a header or footer control inside a field's span.
-        """
-        run = self._header_footer_control_run()
-        page_type = source.get("applyPageType", "BOTH")
-        for ctrl in list(run.findall(f"{_HP}ctrl")):
-            story = ctrl.find(f"{_HP}{tag}")
-            if story is not None and story.get("applyPageType", "BOTH") == page_type:
-                run.remove(ctrl)
-        ctrl = run.makeelement(f"{_HP}ctrl", {})
-        ctrl.append(deepcopy(source))
-        specific = [
-            existing
-            for existing in run.findall(f"{_HP}ctrl")
-            if (story := existing.find(f"{_HP}{tag}")) is not None
-            and story.get("applyPageType", "BOTH") != "BOTH"
-        ]
-        before = specific[0] if page_type == "BOTH" and specific else None
-        run.insert(story_control_index(run, before), ctrl)
-        remember_story_pair(self.section, source)
-        self.section.mark_dirty()
+    def _first_paragraph_runs(self) -> list[ET.Element]:
+        paragraph = self.section.element.find(f"{_HP}p")
+        return [] if paragraph is None else paragraph.findall(f"{_HP}run")
 
     def _remove_header_footer_controls(self, tag: str, page_type: str | None = None) -> bool:
         """Remove the ``hp:ctrl`` stories of *tag*; only *page_type*'s when given."""
@@ -1497,25 +1583,29 @@ class HwpxOxmlSectionProperties:
         return removed
 
     @property
-    def headers(self) -> list[HwpxOxmlSectionHeaderFooter]:
-        wrappers: list[HwpxOxmlSectionHeaderFooter] = []
-        for element in _section_story_elements(self, "header"):
-            apply = self._match_apply_for_element("header", element)
-            wrappers.append(HwpxOxmlSectionHeaderFooter(element, self, apply))
-        return wrappers
+    def headers(self) -> tuple[HwpxOxmlSectionHeaderFooter, ...]:
+        """The section's headers, one per page type it has (``doc.page.headers()``'s value)."""
+        return tuple(
+            HwpxOxmlSectionHeaderFooter(element, self, self._match_apply_for_element("header", element))
+            for element in _section_story_elements(self, "header")
+        )
 
     @property
-    def footers(self) -> list[HwpxOxmlSectionHeaderFooter]:
-        wrappers: list[HwpxOxmlSectionHeaderFooter] = []
-        for element in _section_story_elements(self, "footer"):
-            apply = self._match_apply_for_element("footer", element)
-            wrappers.append(HwpxOxmlSectionHeaderFooter(element, self, apply))
-        return wrappers
+    def footers(self) -> tuple[HwpxOxmlSectionHeaderFooter, ...]:
+        """The section's footers, one per page type it has (``doc.page.footers()``'s value)."""
+        return tuple(
+            HwpxOxmlSectionHeaderFooter(element, self, self._match_apply_for_element("footer", element))
+            for element in _section_story_elements(self, "footer")
+        )
 
-    def get_header(self, page_type: str = "BOTH") -> Optional[HwpxOxmlSectionHeaderFooter]:
+    def header(self, page_type: str = "BOTH") -> Optional[HwpxOxmlSectionHeaderFooter]:
+        """The header drawn on *page_type* pages (``BOTH``, ``EVEN``, ``ODD``, ...), or ``None``."""
+
         return self._get_story("header", page_type)
 
-    def get_footer(self, page_type: str = "BOTH") -> Optional[HwpxOxmlSectionHeaderFooter]:
+    def footer(self, page_type: str = "BOTH") -> Optional[HwpxOxmlSectionHeaderFooter]:
+        """The footer drawn on *page_type* pages (``BOTH``, ``EVEN``, ``ODD``, ...), or ``None``."""
+
         return self._get_story("footer", page_type)
 
     def _get_story(self, kind: str, page_type: str) -> Optional[HwpxOxmlSectionHeaderFooter]:
@@ -1533,48 +1623,45 @@ class HwpxOxmlSectionProperties:
         element = matches[0]
         return HwpxOxmlSectionHeaderFooter(element, self, self._match_apply_for_element(kind, element))
 
+    # The header and footer setters write the one ``hp:ctrl`` story Hancom reads and saves
+    # (see :meth:`_story_to_write`); up to 6.x python-hwpx wrote a second copy under ``hp:secPr``.
+
+    # What is to be written is checked before the story is looked for: finding it also tidies the
+    # section (a second header for the same pages goes), and a refused text or content used to leave
+    # the section tidied -- a header gone -- with nothing written.
     def set_header_text(self, text: str, page_type: str = "BOTH") -> HwpxOxmlSectionHeaderFooter:
-        element = self._ensure_header_footer("header", page_type)
-        apply = self._ensure_header_footer_apply("header", page_type, element)
-        wrapper = HwpxOxmlSectionHeaderFooter(element, self, apply)
-        wrapper.text = text
-        self._sync_header_footer_control("header", element)
-        return wrapper
+        _require_text(text)
+        return self._write_story("header", page_type, lambda story: setattr(story, "text", text))
 
     def set_footer_text(self, text: str, page_type: str = "BOTH") -> HwpxOxmlSectionHeaderFooter:
-        element = self._ensure_header_footer("footer", page_type)
-        apply = self._ensure_header_footer_apply("footer", page_type, element)
-        wrapper = HwpxOxmlSectionHeaderFooter(element, self, apply)
-        wrapper.text = text
-        self._sync_header_footer_control("footer", element)
-        return wrapper
+        _require_text(text)
+        return self._write_story("footer", page_type, lambda story: setattr(story, "text", text))
 
     def set_header_content(
         self,
         content: Sequence[Mapping[str, Any]],
         page_type: str = "BOTH",
     ) -> HwpxOxmlSectionHeaderFooter:
-        element = self._ensure_header_footer("header", page_type)
-        apply = self._ensure_header_footer_apply("header", page_type, element)
-        wrapper = HwpxOxmlSectionHeaderFooter(element, self, apply)
-        wrapper.set_content(content)
-        self._sync_header_footer_control("header", element)
-        return wrapper
+        HwpxOxmlSectionHeaderFooter._check_content(content)
+        return self._write_story("header", page_type, lambda story: story.set_content(content))
 
     def set_footer_content(
         self,
         content: Sequence[Mapping[str, Any]],
         page_type: str = "BOTH",
     ) -> HwpxOxmlSectionHeaderFooter:
-        element = self._ensure_header_footer("footer", page_type)
-        apply = self._ensure_header_footer_apply("footer", page_type, element)
-        wrapper = HwpxOxmlSectionHeaderFooter(element, self, apply)
-        wrapper.set_content(content)
-        self._sync_header_footer_control("footer", element)
-        return wrapper
+        HwpxOxmlSectionHeaderFooter._check_content(content)
+        return self._write_story("footer", page_type, lambda story: story.set_content(content))
 
     def remove_header(self, page_type: str = "BOTH") -> None:
+        from .note_authoring import note_kinds_in, renumber_note_kinds
+
         element = self._find_header_footer("header", page_type)
+        # the notes in what goes leave the count: looked for before, counted again after
+        note_kinds = note_kinds_in([
+            story for story in self.section.element.iterfind(f".//{_HP}run/{_HP}ctrl/{_HP}header")
+            if page_type is None or story.get("applyPageType", "BOTH") == page_type
+        ] + ([element] if element is not None else []))
         removed = False
         if element is not None:
             self.element.remove(element)
@@ -1585,9 +1672,17 @@ class HwpxOxmlSectionProperties:
             removed = True
         if removed:
             self.section.mark_dirty()
+            renumber_note_kinds(self.section, note_kinds)
 
     def remove_footer(self, page_type: str = "BOTH") -> None:
+        from .note_authoring import note_kinds_in, renumber_note_kinds
+
         element = self._find_header_footer("footer", page_type)
+        # the notes in what goes leave the count: looked for before, counted again after
+        note_kinds = note_kinds_in([
+            story for story in self.section.element.iterfind(f".//{_HP}run/{_HP}ctrl/{_HP}footer")
+            if page_type is None or story.get("applyPageType", "BOTH") == page_type
+        ] + ([element] if element is not None else []))
         removed = False
         if element is not None:
             self.element.remove(element)
@@ -1598,3 +1693,4 @@ class HwpxOxmlSectionProperties:
             removed = True
         if removed:
             self.section.mark_dirty()
+            renumber_note_kinds(self.section, note_kinds)

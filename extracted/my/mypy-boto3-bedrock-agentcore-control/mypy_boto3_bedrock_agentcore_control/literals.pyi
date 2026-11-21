@@ -174,6 +174,7 @@ __all__ = (
     "RegistryStatusType",
     "ResourceServiceName",
     "ResourceTypeType",
+    "ResponseInterceptionModeType",
     "RestApiMethodType",
     "ResultDestinationType",
     "SchemaTypeType",
@@ -465,6 +466,7 @@ RegistryStatusType = Literal[
     "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "READY", "UPDATE_FAILED", "UPDATING"
 ]
 ResourceTypeType = Literal["CUSTOM", "SYSTEM"]
+ResponseInterceptionModeType = Literal["BUFFERED", "STREAM"]
 RestApiMethodType = Literal["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
 ResultDestinationType = Literal["DEDICATED_LOG_GROUP", "SOURCE_LOG_GROUP"]
 SchemaTypeType = Literal["array", "boolean", "integer", "number", "object", "string"]
@@ -513,6 +515,7 @@ ServiceName = Literal[
     "account-access-runtime",
     "acm",
     "acm-pca",
+    "agent-discovery",
     "agent-registry",
     "agent-registry-control",
     "aiops",
@@ -523,6 +526,7 @@ ServiceName = Literal[
     "apigateway",
     "apigatewaymanagementapi",
     "apigatewayv2",
+    "apiportal",
     "appconfig",
     "appconfigdata",
     "appfabric",
@@ -813,6 +817,7 @@ ServiceName = Literal[
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
+    "payments",
     "pca-connector-ad",
     "pca-connector-scep",
     "pcs",
@@ -868,6 +873,7 @@ ServiceName = Literal[
     "sagemaker-a2i-runtime",
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
+    "sagemaker-gateway-runtime",
     "sagemaker-geospatial",
     "sagemaker-inference-router-runtime",
     "sagemaker-metrics",

@@ -39,6 +39,7 @@ SNAPSHOT = Path(__file__).with_name("api_surface.json")
 MODULES = [
     "ocp_tessellate",
     "ocp_tessellate.cad_objects",
+    "ocp_tessellate.plugin",
     "ocp_tessellate.convert",
     "ocp_tessellate.defaults",
     "ocp_tessellate.ocp_utils",
@@ -86,9 +87,64 @@ _VIEWER_HELPERS = {
     "to_nanocct",
     "to_ocp",
 }
+# members added on purpose: `loc` is a property that accepts a Placement or None only
+DELIBERATE_MEMBER_ADDITIONS = {"OcpGroup.loc", "OcpObject.loc"}
+
+# the tree's locations as plain numbers, for every kernel
+_PLACEMENT_NAMES = (
+    "IDENTITY_PLACEMENT",
+    "Placement",
+    "mul_placements",
+)
 DELIBERATE_ADDITIONS: dict[str, set[str]] = {
-    "ocp_tessellate.ocp_utils": _VIEWER_HELPERS,
-    "ocp_tessellate.convert": _VIEWER_HELPERS,
+    "ocp_tessellate.ocp_utils": _VIEWER_HELPERS | set(_PLACEMENT_NAMES),
+    # objects of another kernel with their own tessellator (branch smlib): the
+    # plugin module is new, so everything public in it is an addition
+    "ocp_tessellate.plugin": {
+        "CURVE_TYPES",
+        "SURFACE_TYPES",
+        "CoordAxis",
+        "CoordSystem",
+        "OcpObject",
+        "Placement",
+        "ShowProtocol",
+        "TessellationProtocol",
+        "object_color",
+        "register_show",
+        "validate_tessellation",
+        # imported names the module exposes
+        "Color",
+    },
+    "ocp_tessellate.convert": _VIEWER_HELPERS
+    | {
+        "show_of",
+        "tessellation_of",
+        "children_of",
+        "kernel_tag_of",
+        "OcctTessellation",
+        "validate_edges",
+        "validate_vertices",
+        *_PLACEMENT_NAMES,
+    },
+    "ocp_tessellate.cad_objects": {
+        "kernel_tag_of",
+        "show_of",
+        "Placement",
+        "IDENTITY_PLACEMENT",
+        "mul_placements",
+    },
+    "ocp_tessellate.tessellator": {
+        "CURVE_TYPES",
+        "SURFACE_TYPES",
+        "OcctTessellation",
+        "TessellationProtocol",
+        "bounding_box",
+        "tessellation_of",
+        "validate_edges",
+        "validate_tessellation",
+        "validate_vertices",
+    },
+
 }
 
 # kinds of entries that are gone everywhere: the bindings are hidden (3.6.0)
@@ -103,6 +159,7 @@ OPTIONAL = {
 FOREIGN_STAR_IMPORTS = {
     "ocp_tessellate.stepreader": "build123d",
 }
+
 
 def _top_package(module_name):
     if module_name is None:
@@ -136,7 +193,10 @@ def _members(cls):
         if name.startswith("_") and name != "__init__":
             continue
         if isinstance(value, (staticmethod, classmethod)):
-            members[name] = {"kind": type(value).__name__, "params": _params(value.__func__)}
+            members[name] = {
+                "kind": type(value).__name__,
+                "params": _params(value.__func__),
+            }
         elif isinstance(value, property):
             members[name] = {"kind": "property"}
         elif inspect.isfunction(value):
@@ -239,17 +299,25 @@ def collect_surface():
 def _compare_params(where, expected, actual, problems):
     if expected == actual:
         return
-    problems.append(f"{where}: parameters changed\n    was {expected}\n    now {actual}")
+    problems.append(
+        f"{where}: parameters changed\n    was {expected}\n    now {actual}"
+    )
 
 
 def _compare_entry(where, expected, actual, problems):
     if expected["kind"] != actual["kind"]:
-        problems.append(f"{where}: kind changed from {expected['kind']} to {actual['kind']}")
+        problems.append(
+            f"{where}: kind changed from {expected['kind']} to {actual['kind']}"
+        )
         return
     if "type" in expected and expected["type"] != actual.get("type"):
-        problems.append(f"{where}: type changed from {expected['type']} to {actual.get('type')}")
+        problems.append(
+            f"{where}: type changed from {expected['type']} to {actual.get('type')}"
+        )
     if "bases" in expected and expected["bases"] != actual.get("bases"):
-        problems.append(f"{where}: bases changed from {expected['bases']} to {actual.get('bases')}")
+        problems.append(
+            f"{where}: bases changed from {expected['bases']} to {actual.get('bases')}"
+        )
     if "params" in expected:
         _compare_params(where, expected["params"], actual.get("params"), problems)
     if "members" in expected:
@@ -258,9 +326,12 @@ def _compare_entry(where, expected, actual, problems):
             if name not in actual_members:
                 problems.append(f"{where}.{name}: removed")
             else:
-                _compare_entry(f"{where}.{name}", member, actual_members[name], problems)
+                _compare_entry(
+                    f"{where}.{name}", member, actual_members[name], problems
+                )
         for name in sorted(set(actual_members) - set(expected["members"])):
-            problems.append(f"{where}.{name}: added")
+            if f"{where.rsplit('.', 1)[-1]}.{name}" not in DELIBERATE_MEMBER_ADDITIONS:
+                problems.append(f"{where}.{name}: added")
 
 
 def compare(expected_surface, actual_surface):
@@ -302,7 +373,9 @@ def test_api_surface():
 
 if __name__ == "__main__":
     if sys.argv[1:] == ["--update"]:
-        SNAPSHOT.write_text(json.dumps(collect_surface(), indent=1, sort_keys=True) + "\n")
+        SNAPSHOT.write_text(
+            json.dumps(collect_surface(), indent=1, sort_keys=True) + "\n"
+        )
         print(f"wrote {SNAPSHOT}")
     else:
         print(__doc__)

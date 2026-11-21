@@ -254,6 +254,55 @@ class HealthCheckReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_route53.HealthCheckSourceReference",
+    jsii_struct_bases=[],
+    name_mapping={"health_check_source_arn": "healthCheckSourceArn"},
+)
+class HealthCheckSourceReference:
+    def __init__(self, *, health_check_source_arn: builtins.str) -> None:
+        '''A reference to a HealthCheckSource resource.
+
+        :param health_check_source_arn: The Arn of the HealthCheckSource resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_route53 as interfaces_route53
+            
+            health_check_source_reference = interfaces_route53.HealthCheckSourceReference(
+                health_check_source_arn="healthCheckSourceArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__21c08bb90c66f3e5cd18bb3017e482abc8a5faecceb26d4ecbe205352dc870df)
+            check_type(argname="argument health_check_source_arn", value=health_check_source_arn, expected_type=type_hints["health_check_source_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "health_check_source_arn": health_check_source_arn,
+        }
+
+    @builtins.property
+    def health_check_source_arn(self) -> builtins.str:
+        '''The Arn of the HealthCheckSource resource.'''
+        result = self._values.get("health_check_source_arn")
+        assert result is not None, "Required property 'health_check_source_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "HealthCheckSourceReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_route53.HostedZoneReference",
     jsii_struct_bases=[],
     name_mapping={"hosted_zone_id": "hostedZoneId"},
@@ -482,6 +531,51 @@ class _IHealthCheckRefProxy(
 typing.cast(typing.Any, IHealthCheckRef).__jsii_proxy_class__ = lambda : _IHealthCheckRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_route53.IHealthCheckSourceRef")
+class IHealthCheckSourceRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a HealthCheckSource.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="healthCheckSourceRef")
+    def health_check_source_ref(self) -> "HealthCheckSourceReference":
+        '''(experimental) A reference to a HealthCheckSource resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IHealthCheckSourceRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a HealthCheckSource.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_route53.IHealthCheckSourceRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="healthCheckSourceRef")
+    def health_check_source_ref(self) -> "HealthCheckSourceReference":
+        '''(experimental) A reference to a HealthCheckSource resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("HealthCheckSourceReference", jsii.get(self, "healthCheckSourceRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IHealthCheckSourceRef).__jsii_proxy_class__ = lambda : _IHealthCheckSourceRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_route53.IHostedZoneRef")
 class IHostedZoneRef(
     _constructs_77d1e7e8.IConstruct,
@@ -660,6 +754,51 @@ class _IRecordSetGroupRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IRecordSetGroupRef).__jsii_proxy_class__ = lambda : _IRecordSetGroupRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_route53.IRecordSetProtectionRef")
+class IRecordSetProtectionRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a RecordSetProtection.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="recordSetProtectionRef")
+    def record_set_protection_ref(self) -> "RecordSetProtectionReference":
+        '''(experimental) A reference to a RecordSetProtection resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IRecordSetProtectionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a RecordSetProtection.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_route53.IRecordSetProtectionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="recordSetProtectionRef")
+    def record_set_protection_ref(self) -> "RecordSetProtectionReference":
+        '''(experimental) A reference to a RecordSetProtection resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("RecordSetProtectionReference", jsii.get(self, "recordSetProtectionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IRecordSetProtectionRef).__jsii_proxy_class__ = lambda : _IRecordSetProtectionRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_route53.IRecordSetRef")
@@ -966,6 +1105,87 @@ class RecordSetGroupReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_route53.RecordSetProtectionReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "hosted_zone_id": "hostedZoneId",
+        "record_name": "recordName",
+        "record_type": "recordType",
+    },
+)
+class RecordSetProtectionReference:
+    def __init__(
+        self,
+        *,
+        hosted_zone_id: builtins.str,
+        record_name: builtins.str,
+        record_type: builtins.str,
+    ) -> None:
+        '''A reference to a RecordSetProtection resource.
+
+        :param hosted_zone_id: The HostedZoneId of the RecordSetProtection resource.
+        :param record_name: The RecordName of the RecordSetProtection resource.
+        :param record_type: The RecordType of the RecordSetProtection resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_route53 as interfaces_route53
+            
+            record_set_protection_reference = interfaces_route53.RecordSetProtectionReference(
+                hosted_zone_id="hostedZoneId",
+                record_name="recordName",
+                record_type="recordType"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b76c62f8fe3d4ca2063789e09c8329ec7d8916d22c5789b10559d6fa40c3b27c)
+            check_type(argname="argument hosted_zone_id", value=hosted_zone_id, expected_type=type_hints["hosted_zone_id"])
+            check_type(argname="argument record_name", value=record_name, expected_type=type_hints["record_name"])
+            check_type(argname="argument record_type", value=record_type, expected_type=type_hints["record_type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "hosted_zone_id": hosted_zone_id,
+            "record_name": record_name,
+            "record_type": record_type,
+        }
+
+    @builtins.property
+    def hosted_zone_id(self) -> builtins.str:
+        '''The HostedZoneId of the RecordSetProtection resource.'''
+        result = self._values.get("hosted_zone_id")
+        assert result is not None, "Required property 'hosted_zone_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def record_name(self) -> builtins.str:
+        '''The RecordName of the RecordSetProtection resource.'''
+        result = self._values.get("record_name")
+        assert result is not None, "Required property 'record_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def record_type(self) -> builtins.str:
+        '''The RecordType of the RecordSetProtection resource.'''
+        result = self._values.get("record_type")
+        assert result is not None, "Required property 'record_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RecordSetProtectionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_route53.RecordSetReference",
     jsii_struct_bases=[],
     name_mapping={"record_set_name": "recordSetName", "type": "type"},
@@ -1128,21 +1348,25 @@ __all__ = [
     "DNSSECReference",
     "DelegationSetReference",
     "HealthCheckReference",
+    "HealthCheckSourceReference",
     "HostedZoneReference",
     "ICidrCollectionRef",
     "IDNSSECRef",
     "IDelegationSetRef",
     "IHealthCheckRef",
+    "IHealthCheckSourceRef",
     "IHostedZoneRef",
     "IKeySigningKeyRef",
     "IQueryLoggingConfigRef",
     "IRecordSetGroupRef",
+    "IRecordSetProtectionRef",
     "IRecordSetRef",
     "ITrafficPolicyInstanceRef",
     "ITrafficPolicyRef",
     "KeySigningKeyReference",
     "QueryLoggingConfigReference",
     "RecordSetGroupReference",
+    "RecordSetProtectionReference",
     "RecordSetReference",
     "TrafficPolicyInstanceReference",
     "TrafficPolicyReference",
@@ -1179,6 +1403,13 @@ def _typecheckingstub__93a61fcf52d45a4375dfb1ae5d0b7b0555ae1091958107075e82bc35c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__21c08bb90c66f3e5cd18bb3017e482abc8a5faecceb26d4ecbe205352dc870df(
+    *,
+    health_check_source_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__3b4ca2affe8c503a8b4867d3e31a36ed15f0aa004cff0a9202da3d2bbbb7fe4c(
     *,
     hosted_zone_id: builtins.str,
@@ -1208,6 +1439,15 @@ def _typecheckingstub__843f82028bf43583ae47be1e10363ba4894e39f9bd7f71769ddfdced4
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b76c62f8fe3d4ca2063789e09c8329ec7d8916d22c5789b10559d6fa40c3b27c(
+    *,
+    hosted_zone_id: builtins.str,
+    record_name: builtins.str,
+    record_type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__309b4ebd3a2bc9de4559b92e46a6d5aa5ef18238d81d559d28fffaf3353eda80(
     *,
     record_set_name: builtins.str,
@@ -1230,5 +1470,5 @@ def _typecheckingstub__a690b715ddb12a54bd81e7afda640cce67b37a1f195ce6890c697023c
     """Type checking stubs"""
     pass
 
-for cls in [ICidrCollectionRef, IDNSSECRef, IDelegationSetRef, IHealthCheckRef, IHostedZoneRef, IKeySigningKeyRef, IQueryLoggingConfigRef, IRecordSetGroupRef, IRecordSetRef, ITrafficPolicyInstanceRef, ITrafficPolicyRef]:
+for cls in [ICidrCollectionRef, IDNSSECRef, IDelegationSetRef, IHealthCheckRef, IHealthCheckSourceRef, IHostedZoneRef, IKeySigningKeyRef, IQueryLoggingConfigRef, IRecordSetGroupRef, IRecordSetProtectionRef, IRecordSetRef, ITrafficPolicyInstanceRef, ITrafficPolicyRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import logging
 from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Sequence, TypeVar, cast
 import xml.etree.ElementTree as ET
@@ -12,20 +12,23 @@ import xml.etree.ElementTree as ET
 from hwpx.opc.relationships import resolve_part_name
 
 from ._document_primitives import (
-    _DEFAULT_PARAGRAPH_ATTRS,
+    paragraph_attributes,
     _FONT_REF_ATTRIBUTES,
     _HH,
     _HP,
     _HS,
+    IdSource,
     _append_child,
     _char_height_from_points,
     _element_local_name,
     _is_integer_literal,
+    _lookup_keys,
     _normalize_color,
     _paragraph_id,
     _serialize_xml,
 )
-from .common import GenericElement
+from ..errors import rejects_removed_arguments
+from .common import GenericElement, parse_generic_element
 from .header import (
     Bullet,
     MemoShape,
@@ -34,11 +37,16 @@ from .header import (
     TabDefinition,
     TrackChange,
     TrackChangeAuthor,
+    parse_bullet,
+    parse_style,
+    parse_tab_definition,
+    parse_track_change,
+    parse_track_change_author,
 )
 from .header_part import HwpxOxmlHeader
 from .namespaces import tag_local_name
 from .paragraph import HwpxOxmlParagraph
-from .run import RunStyle, _char_properties_from_header
+from .run import CharPropertyCache, RunStyle
 from .section import HwpxOxmlSection
 from .section_story import sync_story_mirrors
 from . import section_layout as _section_layout
@@ -72,6 +80,7 @@ class _RunStyleSpec:
     strike_shape: str | None = None
     ratio: int | None = None
     letter_spacing: int | None = None
+    letter_spacing_by_lang: dict[str, int] | None = None
     shadow_color: str | None = None
     script: str | None = None
     outline: str | None = None
@@ -267,8 +276,9 @@ def _run_style_apply_extensions(element: ET.Element, spec: _RunStyleSpec) -> Non
             strike_el.set("color", "#000000")
     if spec.ratio is not None:
         _run_style_set_lang_values(element, "ratio", spec.ratio)
-    if spec.letter_spacing is not None:
-        _run_style_set_lang_values(element, "spacing", spec.letter_spacing)
+    from .header_fonts import set_letter_spacing
+
+    set_letter_spacing(element, spec.letter_spacing, spec.letter_spacing_by_lang)
     if spec.shadow_color is not None:
         shadow_el = element.find(f"{_HH}shadow")
         if shadow_el is None:
@@ -398,10 +408,15 @@ def _run_style_modifier(element: ET.Element, spec: _RunStyleSpec) -> None:
 
 
 _SimplePartT = TypeVar("_SimplePartT", bound=_HwpxOxmlSimplePart)
+_T = TypeVar("_T")
 
 
 class HwpxOxmlDocument:
     """Aggregates the XML parts that make up an HWPX document."""
+
+    # Where this document's new ids and dates come from (HwpxDocument.new/open(seed=, now=)). Every
+    # place that makes an id or a date for this document is handed it; no other document uses it.
+    _id_source: "IdSource | None" = None
 
     def __init__(
         self,
@@ -428,7 +443,7 @@ class HwpxOxmlDocument:
         self._histories = list(histories or [])
         self._version = version
         self._settings = settings
-        self._char_property_cache: dict[str, RunStyle] | None = None
+        self._char_property_cache = CharPropertyCache()
         self._manifest_dirty = False
 
         for section in self._sections:
@@ -463,9 +478,11 @@ class HwpxOxmlDocument:
             )
             return None
         try:
-            return part_cls(path, package.get_xml(path))
+            part = part_cls(path, package.get_xml(path))
+            part._source = package.get_part(path)  # the bytes read, for a change written in place
+            return part
         except Exception:
-            logger.exception("%s 파싱 실패: part_path=%s", label, path)
+            logger.debug("%s 파싱 실패: part_path=%s", label, path, exc_info=True)
             raise
 
     @classmethod
@@ -492,10 +509,11 @@ class HwpxOxmlDocument:
                 section._remember_source(package.read(path))
                 sections.append(section)
             except Exception:
-                logger.exception(
+                logger.debug(
                     "section 파싱 실패: section_index=%d, part_path=%s",
                     section_index,
                     path,
+                    exc_info=True,
                 )
                 raise
 
@@ -504,7 +522,7 @@ class HwpxOxmlDocument:
             try:
                 headers.append(HwpxOxmlHeader(path, package.get_xml(path)))
             except Exception:
-                logger.exception("header 파싱 실패: part_path=%s", path)
+                logger.debug("header 파싱 실패: part_path=%s", path, exc_info=True)
                 raise
 
         master_pages: list[HwpxOxmlMasterPage] = []
@@ -515,7 +533,7 @@ class HwpxOxmlDocument:
             try:
                 master_pages.append(HwpxOxmlMasterPage(path, package.get_xml(path)))
             except Exception:
-                logger.exception("masterPage 파싱 실패: part_path=%s", path)
+                logger.debug("masterPage 파싱 실패: part_path=%s", path, exc_info=True)
                 raise
 
         histories: list[HwpxOxmlHistory] = []
@@ -526,7 +544,7 @@ class HwpxOxmlDocument:
             try:
                 histories.append(HwpxOxmlHistory(path, package.get_xml(path)))
             except Exception:
-                logger.exception("history 파싱 실패: part_path=%s", path)
+                logger.debug("history 파싱 실패: part_path=%s", path, exc_info=True)
                 raise
 
         version = cls._load_optional_simple_part(
@@ -559,16 +577,29 @@ class HwpxOxmlDocument:
         return self._manifest
 
     @property
-    def sections(self) -> list[HwpxOxmlSection]:
-        return list(self._sections)
+    def sections(self) -> tuple[HwpxOxmlSection, ...]:
+        """The document's sections (``Contents/sectionN.xml``), in order."""
+        return tuple(self._sections)
 
     @property
-    def headers(self) -> list[HwpxOxmlHeader]:
-        return list(self._headers)
+    def headers(self) -> tuple[HwpxOxmlHeader, ...]:
+        """The document's header parts (``Contents/header.xml``)."""
+        return tuple(self._headers)
 
     @property
-    def master_pages(self) -> list[HwpxOxmlMasterPage]:
-        return list(self._master_pages)
+    def master_pages(self) -> tuple[HwpxOxmlMasterPage, ...]:
+        """The document's master page parts, in manifest order."""
+        return tuple(self._master_pages)
+
+    def clear_layout_cache(self, *, stale_only: bool = False) -> int:
+        """Remove the line layout caches of every section and master page; return how many.
+
+        See :meth:`HwpxOxmlSection.clear_layout_cache`; ``stale_only`` leaves master pages alone.
+        """
+        from .master_page_authoring import clear_master_page_layout_cache
+
+        removed = sum(section.clear_layout_cache(stale_only=stale_only) for section in self._sections)
+        return removed + (0 if stale_only else sum(map(clear_master_page_layout_cache, self._master_pages)))
 
     def add_master_page(
         self,
@@ -603,8 +634,9 @@ class HwpxOxmlDocument:
         )
 
     @property
-    def histories(self) -> list[HwpxOxmlHistory]:
-        return list(self._histories)
+    def histories(self) -> tuple[HwpxOxmlHistory, ...]:
+        """The document's history parts."""
+        return tuple(self._histories)
 
     @property
     def version(self) -> HwpxOxmlVersion | None:
@@ -614,36 +646,41 @@ class HwpxOxmlDocument:
     def settings(self) -> HwpxOxmlSettings | None:
         return self._settings
 
-    def _ensure_char_property_cache(self) -> dict[str, RunStyle]:
-        if self._char_property_cache is None:
-            mapping: dict[str, RunStyle] = {}
-            for header in self._headers:
-                mapping.update(_char_properties_from_header(header.element))
-            self._char_property_cache = mapping
-        return self._char_property_cache
+    def _header_definition(
+        self,
+        identifier: int | str | None,
+        container: Callable[[HwpxOxmlHeader], ET.Element | None],
+        kind: str,
+        parse: Callable[[Any], _T],
+    ) -> _T | None:
+        """``_lookup_by_id`` over the headers' merged definition dicts (a later header's wins under a
+        key), reading only the definition asked for (``HwpxOxmlHeader._definition_value``): one
+        lookup costs the same however many definitions the headers have."""
+
+        for key in _lookup_keys(identifier):
+            for header in reversed(self._headers):
+                found = header._definition_value(container(header), kind, key, parse)
+                if found is not None:
+                    return found
+        return None
 
     def invalidate_char_property_cache(self) -> None:
-        self._char_property_cache = None
+        """Forget the parsed character shapes. Not needed after an XML edit any more: every read
+        checks the header first (:class:`~hwpx.oxml.run.CharPropertyCache`)."""
+        self._char_property_cache.clear()
 
     @property
-    def char_properties(self) -> dict[str, RunStyle]:
-        return dict(self._ensure_char_property_cache())
+    def char_properties(self) -> Mapping[str, RunStyle]:
+        """Every character shape of the headers by id, as a read-only view that reads them as they
+        are at each access (:class:`~hwpx.oxml.run.CharPropertyView`): one id costs one shape's
+        check, however many the header has. ``dict(...)`` for a copy that stays as it was."""
+        return self._char_property_cache.styles(self._headers)
 
     def char_property(self, char_pr_id_ref: int | str | None) -> RunStyle | None:
-        if char_pr_id_ref is None:
-            return None
-        key = str(char_pr_id_ref).strip()
-        if not key:
-            return None
-        cache = self._ensure_char_property_cache()
-        style = cache.get(key)
-        if style is not None:
-            return style
-        try:
-            normalized = str(int(key))
-        except (TypeError, ValueError):
-            return None
-        return cache.get(normalized)
+        """The character shape *char_pr_id_ref* names, read from the headers as they are now (one
+        added or changed through ``.element`` included); ``None`` when there is none."""
+        key = "" if char_pr_id_ref is None else str(char_pr_id_ref).strip()
+        return self._char_property_cache.get(self._headers, key) if key else None
 
     _UNDERLINE_SHAPES = frozenset({
         "SOLID", "DASH", "DOT", "DASH_DOT", "DASH_DOT_DOT", "LONG_DASH",
@@ -680,6 +717,7 @@ class HwpxOxmlDocument:
         engrave: bool | None = None,
         base_char_pr_id: str | int | None = None,
         font_by_lang: Mapping[str, str] | None = None,
+        letter_spacing_by_lang: Mapping[str, int] | None = None,
     ) -> str:
         """Return the id of a ``hh:charPr`` that is the base with the requested changes.
 
@@ -704,7 +742,8 @@ class HwpxOxmlDocument:
         *font_by_lang* maps a language (``HANGUL``/``LATIN``/``HANJA``/
         ``JAPANESE``/``OTHER``/``SYMBOL``/``USER``) to the face its glyphs use;
         it wins over *font* for the languages it names (see
-        :func:`~.header_fonts.run_style_font_ref`).
+        :func:`~.header_fonts.run_style_font_ref`); *letter_spacing_by_lang*
+        likewise maps a language to its 자간 % and wins over *letter_spacing*.
         """
 
         if not self._headers:
@@ -720,16 +759,9 @@ class HwpxOxmlDocument:
         )
         if normalized_strike_shape is not None:
             strike = True
-        if size is not None and (isinstance(size, bool) or not isinstance(size, (int, float))
-                                 or not 0 <= round(float(size) * 100) < 2**31):
-            from ..errors import HwpxValueError
+        from .header_fonts import check_run_size
 
-            raise HwpxValueError(  # it was written as 0 when negative
-                f"size must be a number of points from 0, below 21474836.48; got {size!r}",
-                code="style-run-size-value",
-                context={"requested": repr(size)},
-                suggestion="Pass the character size in points, e.g. 10.",
-            )
+        check_run_size(size)
         # Hancom keeps a width ratio in one byte: 256 and up come out as ratio - 256.
         if ratio is not None and not 10 <= int(ratio) <= 255:
             raise ValueError("ratio must be a percentage between 10 and 255")
@@ -750,10 +782,12 @@ class HwpxOxmlDocument:
                 )
             normalized_outline = candidate
 
-        from .header_fonts import run_style_font_ref  # off the `import hwpx` path
+        from .header_fonts import _letter_spacing_by_lang, check_run_fonts, run_style_font_ref  # off `import hwpx`
 
+        # Every argument is checked before a font is declared: a refused call leaves the header as it was.
+        spacing_by_lang = _letter_spacing_by_lang(letter_spacing_by_lang)
+        check_run_fonts(font, font_by_lang)
         header = self._headers[0]
-        font_ref = run_style_font_ref(header, font, font_by_lang)
         base = _run_style_base(header, base_char_pr_id)
         spec = _RunStyleSpec(
             flags=_run_style_flags((bold, italic, underline), base, base_char_pr_id is not None),
@@ -761,18 +795,20 @@ class HwpxOxmlDocument:
             highlight=_normalize_color(highlight),
             height=_char_height_from_points(size),
             strike=strike,
-            font_ref=font_ref,
+            font_ref=None,
             underline_shape=normalized_underline_shape,
             underline_color=_normalize_color(underline_color),
             strike_shape=normalized_strike_shape,
             ratio=int(ratio) if ratio is not None else None,
             letter_spacing=int(letter_spacing) if letter_spacing is not None else None,
+            letter_spacing_by_lang=spacing_by_lang,
             shadow_color=_normalize_color(shadow),
             script=script,
             outline=normalized_outline,
             emboss=None if emboss is None else bool(emboss),
             engrave=None if engrave is None else bool(engrave),
         )
+        spec = replace(spec, font_ref=run_style_font_ref(header, font, font_by_lang))  # declares fonts: last
         element = header.ensure_char_property(
             predicate=_run_style_wanted(base, spec),
             modifier=lambda el: _run_style_modifier(el, spec),
@@ -788,13 +824,15 @@ class HwpxOxmlDocument:
     def border_fills(self) -> dict[str, GenericElement]:
         mapping: dict[str, GenericElement] = {}
         for header in self._headers:
-            mapping.update(header.border_fills)
+            mapping.update(header._border_fill_elements())  # the XML; header.border_fills reads values (7.0)
         return mapping
 
     def border_fill(
         self, border_fill_id_ref: int | str | None
     ) -> GenericElement | None:
-        return HwpxOxmlHeader._lookup_by_id(self.border_fills, border_fill_id_ref)
+        return self._header_definition(
+            border_fill_id_ref, lambda header: header._border_fills_element(), "borderFill", parse_generic_element
+        )
 
     def ensure_basic_border_fill(self) -> str:
         if not self._headers:
@@ -817,6 +855,7 @@ class HwpxOxmlDocument:
         fill_gradient: Mapping[str, object] | None = None,
         active_borders: Iterable[str] | None = None,
         border_type: str = "SOLID",
+        sides: "Mapping[str, Mapping[str, str] | None] | None" = None,
     ) -> str:
         if not self._headers:
             return "0"
@@ -828,6 +867,7 @@ class HwpxOxmlDocument:
             fill_gradient=fill_gradient,
             active_borders=active_borders,
             border_type=border_type,
+            sides=sides,
         )
 
     def ensure_font(
@@ -906,7 +946,7 @@ class HwpxOxmlDocument:
         self,
         *,
         width: int = 15591,
-        line_width: int | str = 1,
+        line_width_mm: float = 0.12,
         line_type: str = "SOLID",
         line_color: str = "#000000",
         fill_color: str = "#CCFF99",
@@ -917,7 +957,7 @@ class HwpxOxmlDocument:
             return "0"
         return self._headers[0].ensure_memo_shape(
             width=width,
-            line_width=line_width,
+            line_width_mm=line_width_mm,
             line_type=line_type,
             line_color=line_color,
             fill_color=fill_color,
@@ -933,7 +973,7 @@ class HwpxOxmlDocument:
         return mapping
 
     def bullet(self, bullet_id_ref: int | str | None) -> Bullet | None:
-        return HwpxOxmlHeader._lookup_by_id(self.bullets, bullet_id_ref)
+        return self._header_definition(bullet_id_ref, lambda header: header._bullets_element(), "bullet", parse_bullet)
 
     @property
     def paragraph_properties(self) -> dict[str, ParagraphProperty]:
@@ -961,7 +1001,9 @@ class HwpxOxmlDocument:
         return mapping
 
     def tab_property(self, tab_pr_id_ref: int | str | None) -> TabDefinition | None:
-        return HwpxOxmlHeader._lookup_by_id(self.tab_properties, tab_pr_id_ref)
+        return self._header_definition(
+            tab_pr_id_ref, lambda header: header._tab_properties_element(), "tabPr", parse_tab_definition
+        )
 
     def ensure_tab_definition(
         self,
@@ -1001,7 +1043,7 @@ class HwpxOxmlDocument:
         return mapping
 
     def style(self, style_id_ref: int | str | None) -> Style | None:
-        return HwpxOxmlHeader._lookup_by_id(self.styles, style_id_ref)
+        return self._header_definition(style_id_ref, lambda header: header._styles_element(), "style", parse_style)
 
     def style_name_aliases(self) -> dict[str, tuple[str, ...]]:
         """Map every style ``name``/``engName`` to the numeric ids that carry it.
@@ -1081,7 +1123,9 @@ class HwpxOxmlDocument:
         return mapping
 
     def track_change(self, change_id_ref: int | str | None) -> TrackChange | None:
-        return HwpxOxmlHeader._lookup_by_id(self.track_changes, change_id_ref)
+        return self._header_definition(
+            change_id_ref, lambda header: header._track_changes_element(), "trackChange", parse_track_change
+        )
 
     @property
     def track_change_authors(self) -> dict[str, TrackChangeAuthor]:
@@ -1093,7 +1137,10 @@ class HwpxOxmlDocument:
     def track_change_author(
         self, author_id_ref: int | str | None
     ) -> TrackChangeAuthor | None:
-        return HwpxOxmlHeader._lookup_by_id(self.track_change_authors, author_id_ref)
+        return self._header_definition(
+            author_id_ref, lambda header: header._track_change_authors_element(), "trackChangeAuthor",
+            parse_track_change_author,
+        )
 
     def add_track_change(
         self,
@@ -1101,14 +1148,16 @@ class HwpxOxmlDocument:
         *,
         author_name: str = "AI Agent",
         date: str | None = None,
+        show: bool = True,
     ) -> int:
         if not self._headers:
             raise ValueError("document does not contain any headers")
-        return self._headers[0].add_track_change(
-            change_type,
-            author_name=author_name,
-            date=date,
-        )
+        # A change's id is not given again while the document is open (_document/tracked.py says why).
+        floor = getattr(self, "_track_change_id_floor", 0)
+        change_id = self._headers[0].add_track_change(
+            change_type, author_name=author_name, date=date, minimum_id=floor + 1, show=show)
+        self._track_change_id_floor = max(floor, change_id)
+        return change_id
 
     def next_track_change_mark_id(self) -> int:
         max_id = 0
@@ -1131,50 +1180,79 @@ class HwpxOxmlDocument:
         return max_id + 1
 
     @property
-    def paragraphs(self) -> list[HwpxOxmlParagraph]:
+    def paragraphs(self) -> tuple[HwpxOxmlParagraph, ...]:
+        """The body paragraphs of every section, in document order."""
         paragraphs: list[HwpxOxmlParagraph] = []
         for section in self._sections:
             paragraphs.extend(section.paragraphs)
-        return paragraphs
+        return tuple(paragraphs)
 
+    def _target_section(self, section: "int | HwpxOxmlSection | None") -> HwpxOxmlSection:
+        """*section* as a section: an index into :attr:`sections`, a section, or ``None``
+        for the last one."""
+
+        if section is None:
+            if not self._sections:
+                raise ValueError("document does not contain any sections")
+            return self._sections[-1]
+        if isinstance(section, HwpxOxmlSection):
+            if not any(section is own for own in self._sections):
+                from ..errors import HwpxValueError
+
+                raise HwpxValueError(
+                    "해당 섹션이 이 문서에 속하지 않습니다.",
+                    code="section-not-found",
+                    suggestion="이 문서의 doc.sections[i] 나 정수 인덱스를 넘기세요.",
+                )
+            return section
+        return self._sections[section]
+
+    @rejects_removed_arguments
     def add_paragraph(
         self,
         text: str = "",
         *,
-        section: HwpxOxmlSection | None = None,
-        section_index: int | None = None,
+        section: int | HwpxOxmlSection | None = None,
         para_pr_id_ref: str | int | None = None,
-        style_id_ref: str | int | None = None,
+        style: "int | str | Style | None" = None,
         char_pr_id_ref: str | int | None = None,
-        run_attributes: dict[str, str] | None = None,
         include_run: bool = True,
         inherit_style: bool = True,
-        **extra_attrs: str,
     ) -> HwpxOxmlParagraph:
-        """Append a new paragraph to the requested section."""
-        if section is None and section_index is not None:
-            section = self._sections[section_index]
-        if section is None:
-            if not self._sections:
-                raise ValueError("document does not contain any sections")
-            section = self._sections[-1]
-        return section.add_paragraph(
+        """Append a new paragraph to the requested section (an index or a section;
+        ``None``: the last) and return it, as :meth:`HwpxOxmlSection.add_paragraph`
+        makes it (``style`` is a name, a numeric id or a ``Style``)."""
+        return self._add_paragraph(
             text,
+            section=section,
             para_pr_id_ref=para_pr_id_ref,
-            style_id_ref=style_id_ref,
+            style=style,
             char_pr_id_ref=char_pr_id_ref,
-            run_attributes=run_attributes,
             include_run=include_run,
             inherit_style=inherit_style,
-            **extra_attrs,
         )
 
+    def _add_paragraph(
+        self,
+        text: str = "",
+        *,
+        section: int | HwpxOxmlSection | None = None,
+        inherit_outline: bool = True,
+        xml_attributes: Mapping[str, str] | None = None,
+        **options: Any,
+    ) -> HwpxOxmlParagraph:
+        """:meth:`add_paragraph` with the document layer's own options
+        (:meth:`HwpxOxmlSection._add_paragraph`: *inherit_outline*, raw *xml_attributes*)."""
+        return self._target_section(section)._add_paragraph(
+            text, inherit_outline=inherit_outline, xml_attributes=xml_attributes, **options
+        )
+
+    @rejects_removed_arguments
     def remove_paragraph(
         self,
         paragraph: HwpxOxmlParagraph | int,
         *,
-        section: "HwpxOxmlSection | None" = None,
-        section_index: int | None = None,
+        section: "int | HwpxOxmlSection | None" = None,
     ) -> None:
         """Remove *paragraph* from the document.
 
@@ -1182,51 +1260,33 @@ class HwpxOxmlDocument:
         paragraphs of the specified (or last) section.
         """
         if isinstance(paragraph, int):
-            if section is None and section_index is not None:
-                section = self._sections[section_index]
-            if section is None:
-                if not self._sections:
-                    raise ValueError("document does not contain any sections")
-                section = self._sections[-1]
-            section.remove_paragraph(paragraph)
+            self._target_section(section).remove_paragraph(paragraph)
         else:
             paragraph.remove()
 
+    @rejects_removed_arguments
     def copy_paragraph_range(
         self,
         start: int,
         end: int,
         *,
-        section: HwpxOxmlSection | None = None,
-        section_index: int | None = None,
-    ) -> list[ET.Element]:
-        """Return deep-copied paragraph elements for an inclusive range."""
+        section: int | HwpxOxmlSection | None = None,
+    ) -> tuple[ET.Element, ...]:
+        """Deep copies of the paragraph elements *start* to *end* (both included) of a section."""
 
-        if section is None and section_index is not None:
-            section = self._sections[section_index]
-        if section is None:
-            if not self._sections:
-                raise ValueError("document does not contain any sections")
-            section = self._sections[-1]
-        return section.copy_paragraph_range(start, end)
+        return self._target_section(section).copy_paragraph_range(start, end)
 
+    @rejects_removed_arguments
     def insert_paragraphs(
         self,
         index: int,
         paragraphs: Sequence[HwpxOxmlParagraph | ET.Element],
         *,
-        section: HwpxOxmlSection | None = None,
-        section_index: int | None = None,
-    ) -> list[HwpxOxmlParagraph]:
-        """Insert copied paragraphs into the requested section."""
+        section: int | HwpxOxmlSection | None = None,
+    ) -> tuple[HwpxOxmlParagraph, ...]:
+        """Insert copies of *paragraphs* into the requested section; return the inserted paragraphs."""
 
-        if section is None and section_index is not None:
-            section = self._sections[section_index]
-        if section is None:
-            if not self._sections:
-                raise ValueError("document does not contain any sections")
-            section = self._sections[-1]
-        return section.insert_paragraphs(index, paragraphs)
+        return self._target_section(section).insert_paragraphs(index, paragraphs)
 
     # ------------------------------------------------------------------
     # Section management
@@ -1253,7 +1313,7 @@ class HwpxOxmlDocument:
             key=lambda index: (abs(index - anchor), index),
         )
         for index in candidate_indices:
-            layout = _section_layout.copy_renderable_section_layout(self._sections[index])
+            layout = _section_layout.copy_renderable_section_layout(self._sections[index], ids=self._id_source)
             if layout is not None:
                 return layout
 
@@ -1266,11 +1326,20 @@ class HwpxOxmlDocument:
         """Resolve a Python-style section index without mutating the document."""
         if after is None:
             return None
+        if isinstance(after, bool) or not isinstance(after, int):
+            from ..errors import argument_type_error
+
+            raise argument_type_error("after", after, "an int section index or None")
         section_count = len(self._sections)
         normalized = after if after >= 0 else section_count + after
         if normalized < 0 or normalized >= section_count:
-            raise IndexError(
-                f"section index {after} is out of range ({section_count} sections)"
+            from ..errors import HwpxIndexError
+
+            raise HwpxIndexError(
+                f"section index {after} is out of range ({section_count} sections)",
+                code="section-not-found",
+                context={"requested": after, "count": section_count},
+                suggestion=f"이 문서의 섹션 인덱스는 0..{section_count - 1} 입니다.",
             )
         return normalized
 
@@ -1317,7 +1386,7 @@ class HwpxOxmlDocument:
 
         section_element = cast(Any, section_properties).makeelement(
             f"{_HS}sec", {}, nsmap=HWPML_COMPAT_ROOT_NAMESPACES)
-        para_attrs = {"id": _paragraph_id(), **_DEFAULT_PARAGRAPH_ATTRS}
+        para_attrs = paragraph_attributes(_paragraph_id(self._id_source))
         para = _append_child(section_element, f"{_HP}p", para_attrs)
         run = _append_child(para, f"{_HP}run", {"charPrIDRef": "0"})
         run.append(section_properties)
@@ -1354,9 +1423,28 @@ class HwpxOxmlDocument:
         Accepts either a :class:`HwpxOxmlSection` or an integer index.
         Raises ``ValueError`` if the document would be left with no sections.
         """
-        if len(self._sections) <= 1:
-            raise ValueError(
-                "문서에는 최소 하나의 섹션이 필요합니다. 마지막 섹션은 삭제할 수 없습니다."
+        from ..errors import HwpxValueError
+        from .utils import HwpxIndexError
+
+        count = len(self._sections)
+        if isinstance(section, int) and not isinstance(section, bool) and not 0 <= section < count:
+            raise HwpxIndexError(
+                f"섹션 인덱스 {section}이(가) 범위를 벗어났습니다 (총 {count}개)",
+                code="section-not-found",
+                context={"requested": section, "count": count},
+                suggestion=f"이 문서의 섹션 인덱스는 0..{count - 1} 입니다.",
+            )
+        if not isinstance(section, int) and not any(existing is section for existing in self._sections):
+            raise HwpxValueError(
+                "해당 섹션이 이 문서에 속하지 않습니다.",
+                code="section-not-found",
+                suggestion="이 문서의 doc.sections[i] 나 정수 인덱스를 넘기세요.",
+            )
+        if count <= 1:
+            raise HwpxValueError(
+                "문서에는 최소 하나의 섹션이 필요합니다. 마지막 섹션은 삭제할 수 없습니다.",
+                code="section-remove-last",
+                suggestion="마지막 섹션은 지우지 말고 section.clear_body() 로 본문을 비우세요.",
             )
         if not any(
             _element_local_name(header.element) == "head" for header in self._headers
@@ -1382,6 +1470,12 @@ class HwpxOxmlDocument:
         self._remove_section_from_manifest(removed.part_name)
         _section_layout.number_section_ids(self)
         self._sync_header_section_count()
+        # The notes of the sections left count on without the ones that went (and without a restart
+        # that went with them): they kept the numbers they had, so the file said 3 for the second note.
+        from .note_authoring import renumber_note_kinds
+
+        # both kinds, whatever the section held: one without a note may have started the count again
+        renumber_note_kinds(self._sections[0], {"footNote", "endNote"})
 
     # ------------------------------------------------------------------
     # Manifest helpers (private)
@@ -1508,6 +1602,7 @@ class HwpxOxmlDocument:
         _section_layout.number_section_ids(self)  # files saved with ids out of order are put right
         if self._manifest_dirty:
             updates[self._manifest_path] = _serialize_xml(self._manifest)
+        header_shapes: tuple[frozenset[str], dict[str, float]] | None = None
         for section in self._sections:
             # Edit-scoped invalidation: the mutating APIs (cell/paragraph/run
             # text and style setters) clear the caches of exactly the
@@ -1516,7 +1611,9 @@ class HwpxOxmlDocument:
             # Hancom to re-lay-out untouched pages of multi-page forms, which
             # is what stacked glyphs and shifted page counts in the wild
             # form-fill differential (specs/031 P0 receipt).
-            section.remove_stale_layout_caches()
+            if header_shapes is None:
+                header_shapes = section._header_shapes()
+            section.remove_stale_layout_caches(_header_shapes=header_shapes)
         for section in self._sections:
             if section.dirty:
                 # Header/footer edits land on the secPr story; Hancom reads the control copy.
@@ -1535,9 +1632,20 @@ class HwpxOxmlDocument:
         for history in self._histories:
             if history.dirty:
                 updates[history.part_name] = history.to_bytes()
-        if self._version is not None and self._version.dirty:
-            updates[self._version.part_name] = self._version.to_bytes()
+        self._serialize_simple_parts(updates)
         return updates
+
+    def _serialize_simple_parts(self, updates: dict[str, bytes]) -> None:
+        """``version.xml`` and ``settings.xml`` when changed; a caret pointing at a body paragraph that is
+        gone first goes to the body's start, as Hangul opens it (:mod:`hwpx.oxml.caret`)."""
+
+        if self._settings is not None:
+            from .caret import fix_caret_before_saving
+
+            fix_caret_before_saving(self)
+        for part in (self._version, self._settings):
+            if part is not None and part.dirty:
+                updates[part.part_name] = part.to_bytes()
 
     def reset_dirty(self) -> None:
         """Mark all parts as clean after a successful save."""
@@ -1550,8 +1658,9 @@ class HwpxOxmlDocument:
             master_page.reset_dirty()
         for history in self._histories:
             history.reset_dirty()
-        if self._version is not None:
-            self._version.reset_dirty()
+        for part in (self._version, self._settings):
+            if part is not None:
+                part.reset_dirty()
 
 
 __all__ = ["HwpxOxmlDocument"]

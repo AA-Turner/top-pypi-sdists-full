@@ -14,6 +14,7 @@ pub(crate) mod hybridization;
 pub(crate) mod match_chirality;
 pub mod match_vf2;
 pub mod mcs;
+pub mod mcs_smarts;
 pub mod merge_hydrogens;
 pub mod parser;
 pub mod perceived;
@@ -30,9 +31,11 @@ pub use match_vf2::{
     first_anchored_match_per_atom, for_each_embedding, has_match_bounded, has_match_with_config,
 };
 pub use mcs::{
-    AtomCompare, BondCompare, McsConfig, McsOutcome, find_mcs, find_mcs_with_config,
-    find_mcs_with_config_checked, find_mcs_with_rdkit_any_heavy_checked,
+    AtomCompare, BondCompare, McsConfig, McsObjective, McsOutcome, find_mcs, find_mcs_with_config,
+    find_mcs_with_config_checked, find_mcs_with_objective_checked,
+    find_mcs_with_rdkit_any_heavy_checked, find_mcs_with_rdkit_any_heavy_objective_checked,
 };
+pub use mcs_smarts::{McsSmartsError, mcs_query_to_smarts};
 pub use merge_hydrogens::{QueryHydrogenError, merge_query_hydrogens};
 pub use parser::{SmartsError, parse_smarts};
 pub use perceived::{

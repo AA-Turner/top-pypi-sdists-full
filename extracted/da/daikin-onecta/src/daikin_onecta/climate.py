@@ -78,6 +78,19 @@ class ClimateControlClient:
             path=(f"/operationModes/{operation_mode}/fanDirection/{direction}/currentMode"),
         )
 
+    async def set_fixed_fan_direction(
+        self,
+        operation_mode: str,
+        direction: Literal["vertical", "horizontal"],
+        position: int,
+    ) -> None:
+        """Set the fixed integer louvre position of one fan-direction axis."""
+        await self._patch(
+            "fanControl",
+            position,
+            path=f"/operationModes/{operation_mode}/fanDirection/{direction}/modes/fixed",
+        )
+
     async def set_mode_characteristic(self, characteristic: str, enabled: bool) -> None:
         """Set a named Daikin on/off mode characteristic."""
         await self._patch(characteristic, "on" if enabled else "off")

@@ -1245,7 +1245,7 @@ class RedditNamespace:
 
         Search posts within a single subreddit by query, sort, and timeframe.
 
-        Price: $0.00035 per request.
+        Price: $0.00034 per request.
 
         Example:
             res = client.reddit.subreddit_search(query="push ups", subreddit="Fitness")
@@ -1640,7 +1640,7 @@ class AsyncRedditNamespace:
 
         Search posts within a single subreddit by query, sort, and timeframe.
 
-        Price: $0.00035 per request.
+        Price: $0.00034 per request.
 
         Example:
             res = client.reddit.subreddit_search(query="push ups", subreddit="Fitness")

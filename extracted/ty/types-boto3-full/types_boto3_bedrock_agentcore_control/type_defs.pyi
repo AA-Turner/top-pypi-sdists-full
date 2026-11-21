@@ -117,6 +117,7 @@ from .literals import (
     RegistryRecordStatusType,
     RegistryStatusType,
     ResourceTypeType,
+    ResponseInterceptionModeType,
     RestApiMethodType,
     ResultDestinationType,
     SchemaTypeType,
@@ -959,6 +960,7 @@ __all__ = (
     "ResourceLocationTypeDef",
     "ResourceTypeDef",
     "ResponseMetadataTypeDef",
+    "ResponseStreamingConfigurationTypeDef",
     "RootVolumeConfigurationTypeDef",
     "RotatePaymentConnectorCredentialsRequestTypeDef",
     "RotatePaymentConnectorCredentialsResponseTypeDef",
@@ -1929,6 +1931,9 @@ FindingTypeDef = TypedDict(
         "description": NotRequired[str],
     },
 )
+
+class ResponseStreamingConfigurationTypeDef(TypedDict):
+    maxEventsPerInvocation: NotRequired[int]
 
 class GatewaySummaryTypeDef(TypedDict):
     gatewayId: str
@@ -5643,6 +5648,8 @@ class GatewayInterceptorConfigurationOutputTypeDef(TypedDict):
     interceptor: InterceptorConfigurationTypeDef
     interceptionPoints: list[GatewayInterceptionPointType]
     inputConfiguration: NotRequired[InterceptorInputConfigurationOutputTypeDef]
+    responseInterceptionMode: NotRequired[ResponseInterceptionModeType]
+    responseStreamingConfiguration: NotRequired[ResponseStreamingConfigurationTypeDef]
 
 class InterceptorInputConfigurationTypeDef(TypedDict):
     passRequestHeaders: bool
@@ -6008,6 +6015,8 @@ class GatewayInterceptorConfigurationTypeDef(TypedDict):
     interceptor: InterceptorConfigurationTypeDef
     interceptionPoints: Sequence[GatewayInterceptionPointType]
     inputConfiguration: NotRequired[InterceptorInputConfigurationUnionTypeDef]
+    responseInterceptionMode: NotRequired[ResponseInterceptionModeType]
+    responseStreamingConfiguration: NotRequired[ResponseStreamingConfigurationTypeDef]
 
 PrivateEndpointOverrideUnionTypeDef = Union[
     PrivateEndpointOverrideTypeDef, PrivateEndpointOverrideOutputTypeDef

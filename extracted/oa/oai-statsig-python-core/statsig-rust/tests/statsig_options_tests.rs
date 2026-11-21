@@ -4,8 +4,6 @@ use serial_test::serial;
 use statsig_rust::event_logging::event_logger;
 use statsig_rust::{Statsig, StatsigOptions};
 
-mod utils;
-
 #[test]
 #[serial]
 fn test_statsig_options() {

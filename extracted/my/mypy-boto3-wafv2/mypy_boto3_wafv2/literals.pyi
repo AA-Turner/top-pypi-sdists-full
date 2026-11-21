@@ -28,12 +28,19 @@ __all__ = (
     "BlockchainChainType",
     "BodyParsingFallbackBehaviorType",
     "ComparisonOperatorType",
+    "ConfidenceType",
     "ConnectedAccountChainType",
     "CountryCodeType",
     "CryptoCurrencyType",
     "CurrencyModeType",
     "CurrencyType",
     "DataProtectionActionType",
+    "EventActorSortByType",
+    "EventCategoryType",
+    "EventFilterKeyType",
+    "EventIncludeFieldType",
+    "EventSortByType",
+    "EventStatusType",
     "FailureReasonType",
     "FallbackBehaviorType",
     "FieldToProtectTypeType",
@@ -83,6 +90,7 @@ AnalyticsModeType = Literal["CROSS_REGION", "DISABLED"]
 AssociatedResourceTypeType = Literal[
     "AGENTCORE_GATEWAY",
     "API_GATEWAY",
+    "APPLICATION_LOAD_BALANCER",
     "APP_RUNNER_SERVICE",
     "CLOUDFRONT",
     "COGNITO_USER_POOL",
@@ -91,6 +99,7 @@ AssociatedResourceTypeType = Literal[
 BlockchainChainType = Literal["BASE", "BASE_SEPOLIA", "SOLANA", "SOLANA_DEVNET"]
 BodyParsingFallbackBehaviorType = Literal["EVALUATE_AS_STRING", "MATCH", "NO_MATCH"]
 ComparisonOperatorType = Literal["EQ", "GE", "GT", "LE", "LT", "NE"]
+ConfidenceType = Literal["HIGH", "LOW", "MEDIUM"]
 ConnectedAccountChainType = Literal["BASE", "SOLANA"]
 CountryCodeType = Literal[
     "AD",
@@ -348,6 +357,12 @@ CryptoCurrencyType = Literal["USDC"]
 CurrencyModeType = Literal["REAL", "TEST"]
 CurrencyType = Literal["USDC"]
 DataProtectionActionType = Literal["HASH", "SUBSTITUTION"]
+EventActorSortByType = Literal["EVENT_COUNT"]
+EventCategoryType = Literal["API_SECURITY"]
+EventFilterKeyType = Literal["EVENT_CATEGORY", "RESOURCE_ARN"]
+EventIncludeFieldType = Literal["TIMELINE"]
+EventSortByType = Literal["CONFIDENCE", "END_TIME", "START_TIME"]
+EventStatusType = Literal["EVENT_COMPLETED", "EVENT_ENDED", "EVENT_IN_PROGRESS", "EVENT_STARTED"]
 FailureReasonType = Literal[
     "TOKEN_DOMAIN_MISMATCH", "TOKEN_EXPIRED", "TOKEN_INVALID", "TOKEN_MISSING"
 ]
@@ -402,7 +417,7 @@ SettlementSortByType = Literal["AMOUNT", "NAME", "STATUS", "TIMESTAMP"]
 SettlementStatusType = Literal[
     "DUPLICATE", "FAILED", "PENDING", "SERVICE_ERROR", "SETTLED", "SKIPPED_ORIGIN_ERROR"
 ]
-SizeInspectionLimitType = Literal["KB_16", "KB_32", "KB_48", "KB_64"]
+SizeInspectionLimitType = Literal["KB_16", "KB_32", "KB_48", "KB_64", "KB_8"]
 SortOrderType = Literal["ASC", "DESC"]
 TextTransformationTypeType = Literal[
     "BASE64_DECODE",
@@ -448,6 +463,7 @@ ServiceName = Literal[
     "account-access-runtime",
     "acm",
     "acm-pca",
+    "agent-discovery",
     "agent-registry",
     "agent-registry-control",
     "aiops",
@@ -458,6 +474,7 @@ ServiceName = Literal[
     "apigateway",
     "apigatewaymanagementapi",
     "apigatewayv2",
+    "apiportal",
     "appconfig",
     "appconfigdata",
     "appfabric",
@@ -743,10 +760,12 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-marketing",
     "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
+    "payments",
     "pca-connector-ad",
     "pca-connector-scep",
     "pcs",
@@ -802,6 +821,7 @@ ServiceName = Literal[
     "sagemaker-a2i-runtime",
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
+    "sagemaker-gateway-runtime",
     "sagemaker-geospatial",
     "sagemaker-inference-router-runtime",
     "sagemaker-metrics",

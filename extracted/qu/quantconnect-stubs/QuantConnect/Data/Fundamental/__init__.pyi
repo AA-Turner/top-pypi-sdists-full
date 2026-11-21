@@ -1211,12 +1211,12 @@ class ValuationRatios(QuantConnect.Data.Fundamental.FundamentalTimeDependentProp
 
     @property
     def retention_rate(self) -> float:
-        """This ratio represents the pecentage of net income that the company keeps as retained earnings rather than paying out as dividends. This can be used to indicate whether or not the company is a growth company. This is calculated using 1 minus the Dividend Payout Ratio."""
+        """This ratio represents the percentage of net income that the company keeps as retained earnings rather than paying out as dividends. This can be used to indicate whether or not the company is a growth company. This is calculated using 1 minus the Dividend Payout Ratio."""
         ...
 
     @property
     def normalized_retention_rate(self) -> float:
-        """This ratio represents the pecentage of normalized income that the company keeps as retained earnings rather than paying out as dividends. This can be used to indicate whether or not the company is a growth company. This is calculated using 1 minus the Normalized Dividend Payout Ratio."""
+        """This ratio represents the percentage of normalized income that the company keeps as retained earnings rather than paying out as dividends. This can be used to indicate whether or not the company is a growth company. This is calculated using 1 minus the Normalized Dividend Payout Ratio."""
         ...
 
     @property
@@ -29414,7 +29414,7 @@ class EffectiveTaxRateAsReportedIncomeStatement(QuantConnect.Data.Fundamental.Mu
 
 
 class LitigationIncomeExpenseAdjustmentIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
-    """This data point represents the net gain or loss sustained through legal proceedings after settling controversies or disputes in a court of law. This is reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusal items calculation."""
+    """This data point represents the net gain or loss sustained through legal proceedings after settling controversies or disputes in a court of law. This is reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusual items calculation."""
 
     @property
     def default_period(self) -> str:
@@ -29485,7 +29485,7 @@ class LitigationIncomeExpenseAdjustmentIncomeStatement(QuantConnect.Data.Fundame
 
 
 class GoodwillImpairmentWriteOffAdjustmentIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
-    """This data point represents the goodwill impairment/write-off value reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusal items calculation."""
+    """This data point represents the goodwill impairment/write-off value reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusual items calculation."""
 
     @property
     def default_period(self) -> str:
@@ -29556,7 +29556,7 @@ class GoodwillImpairmentWriteOffAdjustmentIncomeStatement(QuantConnect.Data.Fund
 
 
 class DebtRestructuringAdjustmentIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
-    """This data point represents the costs incurred from negotiating with bankers; creditors; vendors; and tax authorities while restructuring the company's debt in order to restore liquidity and continue its operations. This is reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusal items calculation."""
+    """This data point represents the costs incurred from negotiating with bankers; creditors; vendors; and tax authorities while restructuring the company's debt in order to restore liquidity and continue its operations. This is reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusual items calculation."""
 
     @property
     def default_period(self) -> str:
@@ -29627,7 +29627,7 @@ class DebtRestructuringAdjustmentIncomeStatement(QuantConnect.Data.Fundamental.M
 
 
 class DisposalOfBusinessesAdjustmentIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
-    """This data point represents net gain or loss from disposal or sale of businesses reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusal items calculation."""
+    """This data point represents net gain or loss from disposal or sale of businesses reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusual items calculation."""
 
     @property
     def default_period(self) -> str:
@@ -29698,7 +29698,7 @@ class DisposalOfBusinessesAdjustmentIncomeStatement(QuantConnect.Data.Fundamenta
 
 
 class MergerAndAcquisitionIncomeExpenseAdjustmentIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
-    """This data point represents the costs incurred during merger and acquisition transactions reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusal items calculation."""
+    """This data point represents the costs incurred during merger and acquisition transactions reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusual items calculation."""
 
     @property
     def default_period(self) -> str:
@@ -29769,7 +29769,7 @@ class MergerAndAcquisitionIncomeExpenseAdjustmentIncomeStatement(QuantConnect.Da
 
 
 class DiscontinuedOperationsAdjustmentIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
-    """This data point represents net income or loss from disposal of discontinued operations reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusal items calculation."""
+    """This data point represents net income or loss from disposal of discontinued operations reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusual items calculation."""
 
     @property
     def default_period(self) -> str:
@@ -29911,7 +29911,7 @@ class IrregularIncomeExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiP
 
 
 class OtherIrregularIncomeExpensesAdjustmentIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
-    """This data point represents income or expenses from any other non-recurring activities reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusal items calculation."""
+    """This data point represents income or expenses from any other non-recurring activities reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusual items calculation."""
 
     @property
     def default_period(self) -> str:
@@ -29982,7 +29982,7 @@ class OtherIrregularIncomeExpensesAdjustmentIncomeStatement(QuantConnect.Data.Fu
 
 
 class AssetDisposalsAdjustmentIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
-    """This data point represents net gain or loss due to disposal or sale of assets reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusal items calculation."""
+    """This data point represents net gain or loss due to disposal or sale of assets reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusual items calculation."""
 
     @property
     def default_period(self) -> str:
@@ -30053,7 +30053,7 @@ class AssetDisposalsAdjustmentIncomeStatement(QuantConnect.Data.Fundamental.Mult
 
 
 class RestructuringAndReorganizationExpenseAdjustmentIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
-    """This data point represents costs incurred in the event of a restructuring and/or reorganization with the aim to improve the business operations and/or financial situation of the firm; examples include laying off employees; severance pay; closing manufacturing plants; shifting production to a new location; writing-off assets; and more. This is reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusal items calculation."""
+    """This data point represents costs incurred in the event of a restructuring and/or reorganization with the aim to improve the business operations and/or financial situation of the firm; examples include laying off employees; severance pay; closing manufacturing plants; shifting production to a new location; writing-off assets; and more. This is reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusual items calculation."""
 
     @property
     def default_period(self) -> str:
@@ -30479,7 +30479,7 @@ class NormalizedEBITDARIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriod
 
 
 class ForeignCurrencyExchangeUnrealizedGainsLossesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
-    """This data point represents net amount of foreign exchange gains and losses due to translation to the functional/reporting currency reported in the income statement or cash flow statement and selected for a company's total unusal items calculation."""
+    """This data point represents net amount of foreign exchange gains and losses due to translation to the functional/reporting currency reported in the income statement or cash flow statement and selected for a company's total unusual items calculation."""
 
     @property
     def default_period(self) -> str:
@@ -30550,7 +30550,7 @@ class ForeignCurrencyExchangeUnrealizedGainsLossesIncomeStatement(QuantConnect.D
 
 
 class FinancialAssetsUnrealizedGainsLossesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
-    """This data point represents net unrealized gain or loss due to changes in the fair value of financial assets reported in the income statement or cash flow statement and selected for a company's total unusal items calculation."""
+    """This data point represents net unrealized gain or loss due to changes in the fair value of financial assets reported in the income statement or cash flow statement and selected for a company's total unusual items calculation."""
 
     @property
     def default_period(self) -> str:
@@ -30621,7 +30621,7 @@ class FinancialAssetsUnrealizedGainsLossesIncomeStatement(QuantConnect.Data.Fund
 
 
 class FinancialInstrumentsAndInvestmentsGainsLossesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
-    """This data point represents net gain or loss on disposal or sale of investments; including financial instruments and other investments reported in the income statement or cash flow statement and selected for a company's total unusal items calculation."""
+    """This data point represents net gain or loss on disposal or sale of investments; including financial instruments and other investments reported in the income statement or cash flow statement and selected for a company's total unusual items calculation."""
 
     @property
     def default_period(self) -> str:
@@ -30692,7 +30692,7 @@ class FinancialInstrumentsAndInvestmentsGainsLossesIncomeStatement(QuantConnect.
 
 
 class DerivativesUnrealizedGainsLossesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
-    """This data point represents net gain or loss due to changes in the fair value of derivative financial and hedging instruments reported in the income statement or cash flow statement and selected for a company's total unusal items calculation."""
+    """This data point represents net gain or loss due to changes in the fair value of derivative financial and hedging instruments reported in the income statement or cash flow statement and selected for a company's total unusual items calculation."""
 
     @property
     def default_period(self) -> str:
@@ -32568,32 +32568,32 @@ class IncomeStatement:
 
     @property
     def litigation_income_expense_adjustment(self) -> QuantConnect.Data.Fundamental.LitigationIncomeExpenseAdjustmentIncomeStatement:
-        """This data point represents the net gain or loss sustained through legal proceedings after settling controversies or disputes in a court of law. This is reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusal items calculation."""
+        """This data point represents the net gain or loss sustained through legal proceedings after settling controversies or disputes in a court of law. This is reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusual items calculation."""
         ...
 
     @property
     def goodwill_impairment_write_off_adjustment(self) -> QuantConnect.Data.Fundamental.GoodwillImpairmentWriteOffAdjustmentIncomeStatement:
-        """This data point represents the goodwill impairment/write-off value reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusal items calculation."""
+        """This data point represents the goodwill impairment/write-off value reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusual items calculation."""
         ...
 
     @property
     def debt_restructuring_adjustment(self) -> QuantConnect.Data.Fundamental.DebtRestructuringAdjustmentIncomeStatement:
-        """This data point represents the costs incurred from negotiating with bankers; creditors; vendors; and tax authorities while restructuring the company's debt in order to restore liquidity and continue its operations. This is reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusal items calculation."""
+        """This data point represents the costs incurred from negotiating with bankers; creditors; vendors; and tax authorities while restructuring the company's debt in order to restore liquidity and continue its operations. This is reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusual items calculation."""
         ...
 
     @property
     def disposal_of_businesses_adjustment(self) -> QuantConnect.Data.Fundamental.DisposalOfBusinessesAdjustmentIncomeStatement:
-        """This data point represents net gain or loss from disposal or sale of businesses reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusal items calculation."""
+        """This data point represents net gain or loss from disposal or sale of businesses reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusual items calculation."""
         ...
 
     @property
     def merger_and_acquisition_income_expense_adjustment(self) -> QuantConnect.Data.Fundamental.MergerAndAcquisitionIncomeExpenseAdjustmentIncomeStatement:
-        """This data point represents the costs incurred during merger and acquisition transactions reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusal items calculation."""
+        """This data point represents the costs incurred during merger and acquisition transactions reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusual items calculation."""
         ...
 
     @property
     def discontinued_operations_adjustment(self) -> QuantConnect.Data.Fundamental.DiscontinuedOperationsAdjustmentIncomeStatement:
-        """This data point represents net income or loss from disposal of discontinued operations reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusal items calculation."""
+        """This data point represents net income or loss from disposal of discontinued operations reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusual items calculation."""
         ...
 
     @property
@@ -32603,17 +32603,17 @@ class IncomeStatement:
 
     @property
     def other_irregular_income_expenses_adjustment(self) -> QuantConnect.Data.Fundamental.OtherIrregularIncomeExpensesAdjustmentIncomeStatement:
-        """This data point represents income or expenses from any other non-recurring activities reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusal items calculation."""
+        """This data point represents income or expenses from any other non-recurring activities reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusual items calculation."""
         ...
 
     @property
     def asset_disposals_adjustment(self) -> QuantConnect.Data.Fundamental.AssetDisposalsAdjustmentIncomeStatement:
-        """This data point represents net gain or loss due to disposal or sale of assets reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusal items calculation."""
+        """This data point represents net gain or loss due to disposal or sale of assets reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusual items calculation."""
         ...
 
     @property
     def restructuring_and_reorganization_expense_adjustment(self) -> QuantConnect.Data.Fundamental.RestructuringAndReorganizationExpenseAdjustmentIncomeStatement:
-        """This data point represents costs incurred in the event of a restructuring and/or reorganization with the aim to improve the business operations and/or financial situation of the firm; examples include laying off employees; severance pay; closing manufacturing plants; shifting production to a new location; writing-off assets; and more. This is reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusal items calculation."""
+        """This data point represents costs incurred in the event of a restructuring and/or reorganization with the aim to improve the business operations and/or financial situation of the firm; examples include laying off employees; severance pay; closing manufacturing plants; shifting production to a new location; writing-off assets; and more. This is reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusual items calculation."""
         ...
 
     @property
@@ -32643,22 +32643,22 @@ class IncomeStatement:
 
     @property
     def foreign_currency_exchange_unrealized_gains_losses(self) -> QuantConnect.Data.Fundamental.ForeignCurrencyExchangeUnrealizedGainsLossesIncomeStatement:
-        """This data point represents net amount of foreign exchange gains and losses due to translation to the functional/reporting currency reported in the income statement or cash flow statement and selected for a company's total unusal items calculation."""
+        """This data point represents net amount of foreign exchange gains and losses due to translation to the functional/reporting currency reported in the income statement or cash flow statement and selected for a company's total unusual items calculation."""
         ...
 
     @property
     def financial_assets_unrealized_gains_losses(self) -> QuantConnect.Data.Fundamental.FinancialAssetsUnrealizedGainsLossesIncomeStatement:
-        """This data point represents net unrealized gain or loss due to changes in the fair value of financial assets reported in the income statement or cash flow statement and selected for a company's total unusal items calculation."""
+        """This data point represents net unrealized gain or loss due to changes in the fair value of financial assets reported in the income statement or cash flow statement and selected for a company's total unusual items calculation."""
         ...
 
     @property
     def financial_instruments_and_investments_gains_losses(self) -> QuantConnect.Data.Fundamental.FinancialInstrumentsAndInvestmentsGainsLossesIncomeStatement:
-        """This data point represents net gain or loss on disposal or sale of investments; including financial instruments and other investments reported in the income statement or cash flow statement and selected for a company's total unusal items calculation."""
+        """This data point represents net gain or loss on disposal or sale of investments; including financial instruments and other investments reported in the income statement or cash flow statement and selected for a company's total unusual items calculation."""
         ...
 
     @property
     def derivatives_unrealized_gains_losses(self) -> QuantConnect.Data.Fundamental.DerivativesUnrealizedGainsLossesIncomeStatement:
-        """This data point represents net gain or loss due to changes in the fair value of derivative financial and hedging instruments reported in the income statement or cash flow statement and selected for a company's total unusal items calculation."""
+        """This data point represents net gain or loss due to changes in the fair value of derivative financial and hedging instruments reported in the income statement or cash flow statement and selected for a company's total unusual items calculation."""
         ...
 
     @property
@@ -39086,7 +39086,7 @@ class PolicyholderFundsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFie
 
 
 class PreferredSecuritiesOutsideStockEquityBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
-    """Preferred securities that that firm treats as a liability. It includes convertible preferred stock or redeemable preferred stock."""
+    """Preferred securities that the firm treats as a liability. It includes convertible preferred stock or redeemable preferred stock."""
 
     @property
     def default_period(self) -> str:
@@ -44208,7 +44208,7 @@ class FlightFleetVehicleAndRelatedEquipmentsBalanceSheet(QuantConnect.Data.Funda
 
 
 class ForeclosedAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
-    """The carrying amount as of the balance sheet date of all assets obtained in full or partial satisfaction of a debt arrangement through foreclosure proceedings or defeasance; includes real and personal property; equity interests in corporations, partnerships, and joint ventures; and beneficial interest in trusts. This item is typically typically available for bank industry."""
+    """The carrying amount as of the balance sheet date of all assets obtained in full or partial satisfaction of a debt arrangement through foreclosure proceedings or defeasance; includes real and personal property; equity interests in corporations, partnerships, and joint ventures; and beneficial interest in trusts. This item is typically available for bank industry."""
 
     @property
     def default_period(self) -> str:
@@ -46999,7 +46999,7 @@ class RegulatoryAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
 
 
 class RegulatoryLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
-    """The amount for the individual regulatory noncurrent liability as itemized in a table of regulatory noncurrent liabilities as of the end of the PeriodAsByte. Such things as the costs of energy efficiency programs and low-income energy assistances programs and deferred fuel. This item is usually only available for utility industry."""
+    """The amount for the individual regulatory noncurrent liability as itemized in a table of regulatory noncurrent liabilities as of the end of the PeriodAsByte. Such things as the costs of energy efficiency programs and low-income energy assistance programs and deferred fuel. This item is usually only available for utility industry."""
 
     @property
     def default_period(self) -> str:
@@ -56948,7 +56948,7 @@ class BalanceSheet:
 
     @property
     def preferred_securities_outside_stock_equity(self) -> QuantConnect.Data.Fundamental.PreferredSecuritiesOutsideStockEquityBalanceSheet:
-        """Preferred securities that that firm treats as a liability. It includes convertible preferred stock or redeemable preferred stock."""
+        """Preferred securities that the firm treats as a liability. It includes convertible preferred stock or redeemable preferred stock."""
         ...
 
     @property
@@ -57283,7 +57283,7 @@ class BalanceSheet:
 
     @property
     def foreclosed_assets(self) -> QuantConnect.Data.Fundamental.ForeclosedAssetsBalanceSheet:
-        """The carrying amount as of the balance sheet date of all assets obtained in full or partial satisfaction of a debt arrangement through foreclosure proceedings or defeasance; includes real and personal property; equity interests in corporations, partnerships, and joint ventures; and beneficial interest in trusts. This item is typically typically available for bank industry."""
+        """The carrying amount as of the balance sheet date of all assets obtained in full or partial satisfaction of a debt arrangement through foreclosure proceedings or defeasance; includes real and personal property; equity interests in corporations, partnerships, and joint ventures; and beneficial interest in trusts. This item is typically available for bank industry."""
         ...
 
     @property
@@ -57463,7 +57463,7 @@ class BalanceSheet:
 
     @property
     def regulatory_liabilities(self) -> QuantConnect.Data.Fundamental.RegulatoryLiabilitiesBalanceSheet:
-        """The amount for the individual regulatory noncurrent liability as itemized in a table of regulatory noncurrent liabilities as of the end of the period. Such things as the costs of energy efficiency programs and low-income energy assistances programs and deferred fuel. This item is usually only available for utility industry."""
+        """The amount for the individual regulatory noncurrent liability as itemized in a table of regulatory noncurrent liabilities as of the end of the period. Such things as the costs of energy efficiency programs and low-income energy assistance programs and deferred fuel. This item is usually only available for utility industry."""
         ...
 
     @property

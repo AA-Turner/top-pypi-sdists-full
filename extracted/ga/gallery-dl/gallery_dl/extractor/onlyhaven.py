@@ -9,7 +9,7 @@
 """Extractors for https://cum.st/"""
 
 from .common import Extractor, Message, Dispatch
-from .. import text, util
+from .. import text, util, dt
 
 BASE_PATTERN = r"(?:https?://)?(?:www\.)?cum\.st"
 USER_PATTERN = BASE_PATTERN + r"/creators/([^/?#]+)/([^/?#]+)"
@@ -21,7 +21,8 @@ class OnlyhavenExtractor(Extractor):
     root = "https://cum.st"
     root_dl = "https://cdn.cum.st/media"
     directory_fmt = ("{category}", "{service}", "{user}")
-    filename_fmt = "{id}_{title[:180]}_{num:>02}_{filename[:180]}.{extension}"
+    filename_fmt = ("{id}_{title!W:X64/.../}_{num:>02}_"
+                    "{filename[:180]}.{extension}")
     archive_fmt = "{service}_{user}_{id}_{num}"
     cookies_domain = ".cum.st"
 
@@ -50,17 +51,18 @@ class OnlyhavenExtractor(Extractor):
 
         for post in self.posts():
             post["_http_headers"] = headers
-            post["date"] = self.parse_timestamp(
-                post.get("published") or post.get("added") or 0)
             service = post["service"]
             post["user"] = creator_id = \
                 post.get("creatorId") or self.creator_id
-            if chtml := post.get("captionHtml"):
-                post["title"] = text.unescape(text.remove_html(
-                    chtml.partition("\n")[0]))
+            if ts := post.get("published") or post.get("added"):
+                post["date"] = dt.parse_ts(ts)
             else:
-                post["title"] = (post.get(
-                    "caption") or "").partition("\n")[0].strip()
+                post["date"] = dt.NONE
+            if chtml := post.get("captionHtml"):
+                post["title"] = text.unescape(text.remove_html(chtml))
+            else:
+                post["title"] = \
+                    post.get("caption") or post.get("contentText") or ""
 
             if creator_info is not None:
                 key = f"{service}_{creator_id}"
@@ -92,7 +94,7 @@ class OnlyhavenExtractor(Extractor):
                     else:
                         self.log.warning("%s/%s: General error (%s: %s)",
                                          post["id"], file.get("position"),
-                                         exc.__clasa__.__name__, exc)
+                                         exc.__class__.__name__, exc)
                     continue
                 path = variant["name"]
                 file["url"] = f"{self.root_dl}/{file['storageKey']}/{path}"
@@ -113,22 +115,19 @@ class OnlyhavenExtractor(Extractor):
                 post.update(file)
                 yield Message.Url, file["url"], post
 
-    def _expand(self, posts):
-        if self.config("expand") or \
-                self.config("endpoint") in {"posts+", "legacy+"}:
-            def gen():
-                creator_post = self.api.creator_post
-                creator_id = self.creator_id
-                for post in posts:
-                    yield creator_post(post["service"],
-                                       post.get("creatorId") or creator_id,
-                                       post["id"])
-            return gen()
-        return posts
+    def _expand(self, posts, creator_post):
+        creator_id = self.creator_id
+        self.api.compact = True
+        for post in posts:
+            cid = post.get("creatorId") or creator_id
+            expanded_post = creator_post(
+                post["service"], cid, post["id"])
+            expanded_post["creatorId"] = cid
+            yield expanded_post
 
     def _offset(self, params, key):
         if pnum := params.get(key):
-            return 50 * text.parse_int(pnum)
+            return 50 * (text.parse_int(pnum, 1) - 1)
         return text.parse_int(params.get("o"))
 
 
@@ -161,9 +160,12 @@ class OnlyhavenUserPostsExtractor(OnlyhavenExtractor):
         service, self.creator_id, query = self.groups
         params = text.parse_query(query)
 
-        return self._expand(self.api.creator_posts(
+        posts = self.api.creator_posts(
             service, self.creator_id, self._offset(params, "pppage"),
-            params.get("ppq"), params.get("pptype"), params.get("ppsort")))
+            params.get("ppq"), params.get("pptype"), params.get("ppsort"))
+        if self.config("expand"):
+            posts = self._expand(posts, self.api.creator_post)
+        return posts
 
 
 class OnlyhavenUserDmsExtractor(OnlyhavenExtractor):
@@ -176,9 +178,12 @@ class OnlyhavenUserDmsExtractor(OnlyhavenExtractor):
         service, self.creator_id, query = self.groups
         params = text.parse_query(query)
 
-        return self._expand(self.api.creator_dms(
+        posts = self.api.creator_dms(
             service, self.creator_id, self._offset(params, "mpage"),
-            params.get("mq"), params.get("mtype"), params.get("msort")))
+            params.get("mq"), params.get("mtype"), params.get("msort"))
+        if self.config("expand"):
+            posts = self._expand(posts, self.api.creator_dm)
+        return posts
 
 
 class OnlyhavenPostExtractor(OnlyhavenExtractor):
@@ -212,9 +217,13 @@ class OnlyhavenPostsExtractor(OnlyhavenExtractor):
     def posts(self):
         self.creator_id = 0
         params = text.parse_query(self.groups[1])
-        return self._expand(self.api.posts(
+
+        posts = self.api.posts(
             self._offset(params, "ppage"), params.get("pq"),
-            params.get("pservice"), params.get("ptype"), params.get("psort")))
+            params.get("pservice"), params.get("ptype"), params.get("psort"))
+        if self.config("expand"):
+            posts = self._expand(posts, self.api.creator_post)
+        return posts
 
 
 class OnlyhavenAPI():
@@ -226,6 +235,7 @@ class OnlyhavenAPI():
     def __init__(self, extractor):
         self.extractor = extractor
         self.root = extractor.root + "/api"
+        self.compact = False
 
     def account_favorites(self, type):
         endpoint = "/v1/account/favorites"
@@ -279,6 +289,7 @@ class OnlyhavenAPI():
         offset = text.parse_int(params.get("o"))
         params["o"] = offset - offset % batch
         params["n"] = batch
+        params["compact"] = "1" if self.compact else "0"
 
         while True:
             data = self._call(endpoint, params)

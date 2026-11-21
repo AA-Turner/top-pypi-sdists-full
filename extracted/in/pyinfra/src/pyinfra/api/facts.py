@@ -14,7 +14,6 @@ import inspect
 import re
 from inspect import getcallargs
 from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast
-from collections.abc import Callable
 
 import gevent
 from paramiko import SSHException
@@ -51,7 +50,7 @@ SU_REGEXES = (
 )
 
 
-T = TypeVar("T")
+T = TypeVar("T", covariant=True)
 
 
 class FactBase(Generic[T]):
@@ -61,7 +60,12 @@ class FactBase(Generic[T]):
 
     shell_executable: str | None = None
 
-    command: Callable[..., str | StringCommand]
+    def command(self, *args, **kwargs) -> str | StringCommand:
+        """Return the shell command that collects this fact.
+
+        Implementations declare the fact's own parameters, eg ``(self, path: str) -> str``.
+        """
+        raise NotImplementedError
 
     def requires_command(self, *args, **kwargs) -> str | None:
         """Return the binary name that must exist on the remote host for this fact to run.

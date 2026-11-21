@@ -17,13 +17,12 @@ use crate::evaluation::evaluation_data::{
 };
 use crate::evaluation::evaluation_types::SecondaryExposure;
 use crate::evaluation::evaluator_context::{
-    EvaluatorContext, IdListResolution, NestedExperimentExposure, NestedGateMemoEntry,
-    NestedGateSamplingMetadata,
+    EvaluatorContext, NestedExperimentExposure, NestedGateMemoEntry, NestedGateSamplingMetadata,
 };
 use crate::evaluation::evaluator_value::{EvaluatorValue, EvaluatorValueRef};
 use crate::evaluation::get_unit_id::get_unit_id;
 use crate::evaluation::user_agent_parsing::UserAgentParser;
-use crate::hashing::{IdListFingerprintWidth, hash_one};
+use crate::hashing::hash_one;
 use crate::interned_string::InternedString;
 use crate::spec_store::{ConditionMap, resolve_condition};
 use crate::specs_response::explicit_params::ExplicitParameters;
@@ -577,6 +576,7 @@ fn evaluate_rule<'a>(
                 "Unsupported - Condition not found: {}",
                 condition_hash.as_str()
             );
+            ctx.result.bool_value = false;
             ctx.result.unsupported = true;
             return Ok(());
         };
@@ -734,8 +734,8 @@ fn evaluate_condition<'a>(
         ConditionOperator::Neq => !target_value.is_equal_to_user_value(value),
 
         // id_lists
-        op @ (ConditionOperator::InSegmentList | ConditionOperator::NotInSegmentList) => {
-            evaluate_id_list(ctx, op, target_value, value)
+        ConditionOperator::InSegmentList | ConditionOperator::NotInSegmentList => {
+            evaluate_id_list(ctx, condition, value, target_value)
         }
 
         op @ (ConditionOperator::ArrayContainsAny
@@ -759,11 +759,26 @@ fn evaluate_condition<'a>(
 
 fn evaluate_id_list(
     ctx: &mut EvaluatorContext<'_>,
-    op: ConditionOperator,
-    target_value: EvaluatorValueRef<'_>,
+    condition: &Condition,
     value: UserValueRef<'_>,
+    target_value: EvaluatorValueRef<'_>,
 ) -> bool {
-    let Some(is_in_list) = is_in_id_list(ctx, target_value, value) else {
+    let op = condition.compiled_operator;
+    let (Some(list), Some(id)) = (target_value.string_value(), value.string_value()) else {
+        return apply_id_list_operator(ctx, op, Some(false));
+    };
+    let unit_id_type = matches!(condition.compiled_condition_type, ConditionType::UnitId)
+        .then_some(condition.id_type.value.as_str());
+    let membership = ctx.resolve_id_list_membership(list, id, unit_id_type);
+    apply_id_list_operator(ctx, op, membership)
+}
+
+fn apply_id_list_operator(
+    ctx: &mut EvaluatorContext<'_>,
+    op: ConditionOperator,
+    result: Option<bool>,
+) -> bool {
+    let Some(is_in_list) = result else {
         // A body that remains unavailable after lazy loading is unresolved, not
         // an empty list. Preserve that state so nested gates and the containing
         // rule stop evaluation instead of selecting a later rule.
@@ -783,31 +798,6 @@ fn evaluate_id_list(
     }
 
     is_in_list
-}
-
-fn is_in_id_list(
-    ctx: &mut EvaluatorContext<'_>,
-    target_value: EvaluatorValueRef<'_>,
-    value: UserValueRef<'_>,
-) -> Option<bool> {
-    let Some(list_name) = target_value.string_value() else {
-        return Some(false);
-    };
-    let Some(dyn_str) = value.string_value() else {
-        return Some(false);
-    };
-    let lookup_id = ctx
-        .hashing
-        .id_list_key(dyn_str, IdListFingerprintWidth::Bits48);
-
-    match ctx.id_list_resolver {
-        IdListResolution::MapLookup(id_lists) => {
-            let list = id_lists.get(list_name)?;
-            ctx.id_list_access_recorder.record(list_name);
-            Some(list.ids.contains(&lookup_id))
-        }
-        IdListResolution::Callback(callback) => Some(callback(list_name, lookup_id.as_str())),
-    }
 }
 
 fn evaluate_experiment_group<'a>(

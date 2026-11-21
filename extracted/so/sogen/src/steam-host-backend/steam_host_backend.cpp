@@ -14,15 +14,18 @@
 
 #include <algorithm>
 #include <array>
+#include <charconv>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <mutex>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <unordered_set>
 
 #include "steam_host_runtime.hpp"
+#include "steam_interface_handles.hpp"
 #include "steam_host_backend.h"
 
 #include "steam_tags.generated.hxx"
@@ -40,6 +43,9 @@ namespace
     std::mutex g_mutex;
     bool g_init_attempted = false;
     bool g_connected = false;
+    // The calling emulator's grants for the invocation in progress; the backend lock covers the whole invocation.
+    uint32_t g_call_grants = 0;
+    bool g_game_app_id_configured = false;
 
     void* g_client = nullptr;
     int32_t g_pipe = 0;
@@ -52,14 +58,7 @@ namespace
     void (*g_freelastcallback)(int32_t) = nullptr;
     bool (*g_getapicallresult)(int32_t, uint64_t, void*, int32_t, int32_t, bool*) = nullptr;
 
-    struct entry
-    {
-        std::string version;
-        void* iface;
-    };
-
-    std::unordered_map<uint64_t, entry> g_handles;
-    uint64_t g_next_handle = 1;
+    sogen::steam_host::interface_handles g_handles;
 
 #ifdef _WIN32
     using lib_handle = HMODULE;
@@ -119,6 +118,16 @@ namespace
     }
 #endif
 
+    // The host session takes its app id from SteamAppId. A game's id is a positive number other than the Spacewar
+    // fallback (480).
+    bool is_game_app_id(const std::string_view value)
+    {
+        constexpr uint32_t spacewar_app_id = 480;
+        uint32_t id{};
+        const auto [end, error] = std::from_chars(value.data(), value.data() + value.size(), id);
+        return error == std::errc{} && end == value.data() + value.size() && id != 0 && id != spacewar_app_id;
+    }
+
     bool connect_locked()
     {
         if (g_init_attempted)
@@ -129,6 +138,7 @@ namespace
 
         if (const char* app_id = std::getenv("SteamAppId"))
         {
+            g_game_app_id_configured = is_game_app_id(app_id);
             std::fprintf(stderr, "[steam] host session bound to app %s\n", app_id);
         }
         else
@@ -184,14 +194,20 @@ namespace
             reinterpret_cast<bool (*)(int32_t, uint64_t, void*, int32_t, int32_t, bool*)>(client_symbol(module, "Steam_GetAPICallResult"));
 
         g_connected = (g_pipe != 0 && g_user != 0 && g_get_generic != nullptr);
+        g_handles.set_backend_owner({.pipe = g_pipe, .user = g_user});
         return g_connected;
     }
 }
 
-// Dedupes by pointer, so repeated getters for the same object share one handle.
 namespace sogen::steam_host
 {
-    uint64_t register_returned_interface(const char* version, void* iface)
+    // A ticket for the Spacewar fallback session would authenticate the wrong app, so it needs a game's app id.
+    bool app_tickets_granted()
+    {
+        return (g_call_grants & sogen_steam_grant_app_tickets) != 0 && g_game_app_id_configured;
+    }
+
+    uint64_t register_returned_interface(const char* version, void* iface, const interface_owner owner)
     {
         if (!iface || !version)
         {
@@ -202,21 +218,38 @@ namespace sogen::steam_host
             }
             return 0;
         }
-        for (const auto& [h, e] : g_handles)
-        {
-            if (e.iface == iface)
-            {
-                return h;
-            }
-        }
-        const uint64_t handle = g_next_handle++;
-        g_handles[handle] = {.version = std::string(version), .iface = iface};
+        const uint64_t handle = g_handles.add(version, iface, owner);
         if (std::getenv("SOGEN_STEAM_TRACE"))
         {
             std::fprintf(stderr, "[steam-returned-iface] version=%s -> handle=%llu\n", version, static_cast<unsigned long long>(handle));
             std::fflush(stderr);
         }
         return handle;
+    }
+
+    void release_pipe_interfaces(const int32_t pipe)
+    {
+        g_handles.release_pipe(pipe);
+    }
+
+    interface_owner backend_interface_owner()
+    {
+        return g_handles.backend_owner();
+    }
+
+    bool is_backend_pipe(const int32_t pipe)
+    {
+        return !g_handles.may_release_pipe(pipe);
+    }
+
+    bool is_backend_user(const int32_t pipe, const int32_t user)
+    {
+        return !g_handles.may_release_user(pipe, user);
+    }
+
+    void release_user_interfaces(const int32_t pipe, const int32_t user)
+    {
+        g_handles.release_user(pipe, user);
     }
 
     void* host_resolve_fallback(const char* version)
@@ -316,17 +349,17 @@ extern "C" uint64_t sogen_steam_backend_create_interface(const char* version)
     {
         return 0;
     }
-    return sogen::steam_host::register_returned_interface(safe, iface);
+    return sogen::steam_host::register_returned_interface(safe, iface, sogen::steam_host::backend_interface_owner());
 }
 
 extern "C" void sogen_steam_backend_release(uint64_t handle)
 {
     std::lock_guard lock{g_mutex};
-    g_handles.erase(handle);
+    g_handles.remove(handle);
 }
 
 extern "C" int sogen_steam_backend_invoke(uint64_t handle, uint32_t method, const uint8_t* in, uint32_t in_len, uint8_t* out,
-                                          uint32_t out_cap, uint32_t* out_len, uint64_t* ret)
+                                          uint32_t out_cap, uint32_t* out_len, uint64_t* ret, const uint32_t grants)
 {
     if (out_len)
     {
@@ -338,14 +371,14 @@ extern "C" int sogen_steam_backend_invoke(uint64_t handle, uint32_t method, cons
     }
 
     std::lock_guard lock{g_mutex};
-    const auto it = g_handles.find(handle);
-    if (it == g_handles.end())
+    const auto* registered = g_handles.find(handle);
+    if (!registered)
     {
         return sh::steam_host_unknown_interface;
     }
 
-    const char* version = it->second.version.c_str();
-    void* iface = it->second.iface;
+    const char* version = registered->version.c_str();
+    void* iface = registered->iface;
     const unsigned char* inb = in ? in : reinterpret_cast<const unsigned char*>("");
     const uint32_t inlen = in ? in_len : 0;
 
@@ -371,8 +404,10 @@ extern "C" int sogen_steam_backend_invoke(uint64_t handle, uint32_t method, cons
     SOGEN_STEAM_TAGS(SOGEN_STEAM_PICK_DISPATCH)
 #undef SOGEN_STEAM_PICK_DISPATCH
 
+    g_call_grants = grants;
     const int status =
         dispatch ? dispatch(version, iface, method, inb, inlen, out, out_cap, out_len, ret) : sh::steam_host_unknown_interface;
+    g_call_grants = 0;
     if (std::getenv("SOGEN_STEAM_TRACE"))
     {
         std::fprintf(stderr, "[steam-invoke] version=%s method=%u -> status=%d ret=%llu\n", version, method, status,

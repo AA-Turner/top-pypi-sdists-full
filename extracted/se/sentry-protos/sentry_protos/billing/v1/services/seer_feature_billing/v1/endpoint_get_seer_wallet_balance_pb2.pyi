@@ -6,6 +6,7 @@ isort:skip_file
 import builtins
 import google.protobuf.descriptor
 import google.protobuf.message
+import sentry_protos.billing.v1.date_pb2
 import typing
 
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
@@ -36,6 +37,7 @@ class SeerWallet(google.protobuf.message.Message):
     CREDIT_PRICE_FIELD_NUMBER: builtins.int
     INCLUDED_CREDITS_FIELD_NUMBER: builtins.int
     INCLUDED_CREDITS_USED_FIELD_NUMBER: builtins.int
+    EXPIRES_AT_FIELD_NUMBER: builtins.int
     account_id: builtins.str
     """The ledger account: the uid of the credit-only line item that meters Seer."""
     balance_credits: builtins.int
@@ -54,6 +56,12 @@ class SeerWallet(google.protobuf.message.Message):
     """
     included_credits_used: builtins.int
     """Included credits used this billing period. At most included_credits."""
+    @property
+    def expires_at(self) -> sentry_protos.billing.v1.date_pb2.Date:
+        """Purchased credits expire twelve months after the latest ledger deposit.
+        Unset when the wallet has never received a deposit.
+        """
+
     def __init__(
         self,
         *,
@@ -62,8 +70,11 @@ class SeerWallet(google.protobuf.message.Message):
         credit_price: builtins.int = ...,
         included_credits: builtins.int = ...,
         included_credits_used: builtins.int = ...,
+        expires_at: sentry_protos.billing.v1.date_pb2.Date | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["account_id", b"account_id", "balance_credits", b"balance_credits", "credit_price", b"credit_price", "included_credits", b"included_credits", "included_credits_used", b"included_credits_used"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_expires_at", b"_expires_at", "expires_at", b"expires_at"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_expires_at", b"_expires_at", "account_id", b"account_id", "balance_credits", b"balance_credits", "credit_price", b"credit_price", "expires_at", b"expires_at", "included_credits", b"included_credits", "included_credits_used", b"included_credits_used"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["_expires_at", b"_expires_at"]) -> typing.Literal["expires_at"] | None: ...
 
 global___SeerWallet = SeerWallet
 

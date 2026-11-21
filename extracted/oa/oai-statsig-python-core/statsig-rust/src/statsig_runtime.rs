@@ -8,7 +8,7 @@ use futures::future::join_all;
 use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::future::Future;
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 use tokio::runtime::{Builder, Handle, Runtime};
@@ -27,7 +27,7 @@ pub struct StatsigRuntime {
     output_policy: crate::output_policy::OutputPolicy,
     spawned_tasks: Arc<Mutex<HashMap<TaskId, JoinHandle<()>>>>,
     shutdown_notify: Arc<Notify>,
-    is_shutdown: Arc<AtomicBool>,
+    is_shutdown: AtomicBool,
     sdk_runtime_thread_count: Option<usize>,
     runtime_thread_start_callback: Option<RuntimeThreadStartCallback>,
     prefer_owned_runtime: bool,
@@ -82,7 +82,7 @@ impl StatsigRuntime {
             output_policy: crate::output_policy::OutputPolicy::current(),
             spawned_tasks: Arc::new(Mutex::new(HashMap::new())),
             shutdown_notify: Arc::new(Notify::new()),
-            is_shutdown: Arc::new(AtomicBool::new(false)),
+            is_shutdown: AtomicBool::new(false),
             sdk_runtime_thread_count,
             runtime_thread_start_callback,
             prefer_owned_runtime,
@@ -96,15 +96,18 @@ impl StatsigRuntime {
         }
     }
 
-    pub fn get_handle(&self) -> Result<Handle, StatsigErr> {
-        if let Some(handle) = self.external_runtime.get() {
-            return Ok(handle.clone());
-        }
-
-        if !self.prefer_owned_runtime {
-            if let Ok(handle) = Handle::try_current() {
-                return Ok(handle);
+    fn external_or_current_handle(&self) -> Option<Handle> {
+        self.external_runtime.get().cloned().or_else(|| {
+            if self.prefer_owned_runtime {
+                return None;
             }
+            Handle::try_current().ok()
+        })
+    }
+
+    pub fn get_handle(&self) -> Result<Handle, StatsigErr> {
+        if let Some(handle) = self.external_or_current_handle() {
+            return Ok(handle);
         }
 
         if let Some(handle) = self.get_owned_runtime_handle()? {
@@ -135,6 +138,49 @@ impl StatsigRuntime {
         Ok(None)
     }
 
+    /// Prepare the process-wide SDK runtime before a synchronous evaluation needs it.
+    pub(crate) fn prepare_owned_runtime(&self) {
+        let _ = self.get_owned_runtime_handle();
+    }
+
+    pub(crate) fn try_get_owned_runtime_handle(&self) -> Option<Handle> {
+        let global = StatsigGlobal::get();
+        let runtime = global.tokio_runtime.try_lock()?;
+        runtime.as_ref().map(|runtime| runtime.handle().clone())
+    }
+
+    /// Submit latency-sensitive work only if its shutdown registration is immediately available.
+    pub(crate) fn try_spawn_on<F>(&self, runtime: &Handle, tag: &'static str, task: F) -> bool
+    where
+        F: Future<Output = ()> + Send + 'static,
+    {
+        let Some(mut tasks) = self.spawned_tasks.try_lock() else {
+            return false;
+        };
+        if self.is_shutdown.load(Ordering::Acquire) {
+            return false;
+        }
+
+        let output_policy = crate::output_policy::OutputPolicy::current();
+        let spawned_tasks = self.spawned_tasks.clone();
+        // Hold the registry until insertion so immediate completion cannot leave a stale handle.
+        let handle = runtime.spawn(output_policy.scope(async move {
+            let task_id = tokio::task::id();
+            let _remove = scopeguard::guard((), move |()| {
+                remove_join_handle_with_id(spawned_tasks, tag.to_owned(), &task_id);
+            });
+            task.await;
+        }));
+        tasks.insert(
+            TaskId {
+                tag: tag.to_owned(),
+                tokio_id: handle.id(),
+            },
+            handle,
+        );
+        true
+    }
+
     pub fn get_num_active_tasks(&self) -> usize {
         match self.spawned_tasks.try_lock_for(Duration::from_secs(5)) {
             Some(lock) => lock.len(),
@@ -147,6 +193,7 @@ impl StatsigRuntime {
 
     pub fn shutdown(&self) {
         let _output_scope = self.output_policy.enter();
+        self.is_shutdown.store(true, Ordering::Release);
         self.shutdown_notify.notify_waiters();
 
         match self.spawned_tasks.try_lock_for(Duration::from_secs(5)) {
@@ -169,7 +216,6 @@ impl StatsigRuntime {
         let tag_string = tag.to_string();
         let shutdown_notify = self.shutdown_notify.clone();
         let spawned_tasks = self.spawned_tasks.clone();
-        let is_shutdown = self.is_shutdown.clone();
         // Capture the scheduling client's policy before crossing the task boundary. The
         // wrapper also scopes cancellation cleanup; a shared instance ID cannot supply it.
         let output_policy = crate::output_policy::OutputPolicy::current();
@@ -177,10 +223,6 @@ impl StatsigRuntime {
         log_d!(TAG, "Spawning task {}", tag);
 
         let handle = self.get_handle()?.spawn(output_policy.scope(async move {
-            if is_shutdown.load(std::sync::atomic::Ordering::Relaxed) {
-                return;
-            }
-
             let task_id = tokio::task::id();
             log_d!(TAG, "Executing task {}.{}", tag_string, task_id);
             task(shutdown_notify).await;
@@ -432,6 +474,10 @@ impl Drop for StatsigRuntime {
         // });
     }
 }
+
+#[cfg(test)]
+#[path = "statsig_runtime_nonblocking_tests.rs"]
+mod nonblocking_tests;
 
 #[cfg(test)]
 mod tests {

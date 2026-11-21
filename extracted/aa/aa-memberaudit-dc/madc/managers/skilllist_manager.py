@@ -1,61 +1,64 @@
+# pylint: disable=import-outside-toplevel
+# General is imported locally: models/general.py imports managers (circular import)
+
 # Django
 from django.db import models
 
 # Alliance Auth
 from allianceauth.authentication.models import User
 from allianceauth.eveonline.models import EveCharacter, EveCorporationInfo
-from allianceauth.services.hooks import get_extension_logger
-
-# Alliance Auth (External Libs)
-from app_utils.logging import LoggerAddTag
 
 # AA Memberaudit Doctrine Checker
-from madc import __title__
+from madc.providers import logger
 
-logger = LoggerAddTag(get_extension_logger(__name__), __title__)
+
+def _main_character(user: User) -> EveCharacter | None:
+    """Return the main character of the user or None."""
+    return getattr(getattr(user, "profile", None), "main_character", None)
+
+
+def _visible_characters(user: User):
+    """
+    Characters the user may see.
+
+    Own characters always, characters of the own corporation with corp_access,
+    characters of the own alliance with alliance_access, all with full access.
+    """
+    # AA Memberaudit Doctrine Checker
+    from madc.models.general import General
+
+    qs = EveCharacter.objects.get_queryset()
+    if General.objects.has_full_access(user):
+        logger.debug("Returning all characters for %s.", user)
+        return qs.all()
+
+    char = _main_character(user)
+    if char is None:
+        logger.debug("User %s has no main character. Nothing visible.", user)
+        return qs.none()
+
+    query = models.Q(character_ownership__user=user)
+
+    if General.objects.has_corp_access(user):
+        query |= models.Q(corporation_id=char.corporation_id)
+
+    # A main character without alliance has alliance_id None: comparing with
+    # None would match every character without alliance (IS NULL).
+    if General.objects.has_alliance_access(user) and char.alliance_id:
+        query |= models.Q(alliance_id=char.alliance_id)
+
+    return qs.filter(query)
 
 
 class SkillListQuerySet(models.QuerySet):
     def manage_to(self, user: User):
-        qs = EveCharacter.objects.get_queryset()
-        # superusers get all visible
-        if user.is_superuser:
-            logger.debug("Returning all Data for superuser %s.", user)
-            return qs.all()
+        # AA Memberaudit Doctrine Checker
+        from madc.models.general import General
 
-        if user.has_perm("madc.admin_access"):
-            logger.debug("Returning all Data for %s.", user)
-            return qs.all()
-
-        if user.has_perm("madc.manage_access"):
-            try:
-                char = user.profile.main_character
-                char: EveCharacter
-
-                assert char
-                # build all accepted queries
-                queries = [models.Q(character_ownership__user=user)]
-
-                if user.has_perm("madc.corp_access"):
-                    queries.append(models.Q(corporation_id=char.corporation_id))
-
-                if user.has_perm("madc.alliance_access"):
-                    queries.append(models.Q(alliance_id=char.alliance_id))
-
-                logger.debug(
-                    "%s queries for user %s visible chracters.", len(queries), user
-                )
-                # filter based on queries
-                query = queries.pop()
-                for q in queries:
-                    query |= q
-                return qs.filter(query)
-            except AssertionError:
-                logger.debug("User %s has no main character. Nothing visible.", user)
-                return qs.none()
-
-        logger.debug("User %s has no permission. Nothing visible.", user)
-        return qs.none()
+        if not General.objects.has_management_access(user):
+            logger.debug("User %s has no permission. Nothing visible.", user)
+            return EveCharacter.objects.none()
+        return _visible_characters(user)
 
 
 class SkillListManagerBase(models.Manager):
@@ -64,77 +67,47 @@ class SkillListManagerBase(models.Manager):
 
     @staticmethod
     def visible_eve_characters(user: User):
-        qs = EveCharacter.objects.get_queryset()
-        if user.is_superuser:
-            logger.debug("Returning all characters for superuser %s.", user)
-            return qs.all()
-
-        if user.has_perm("madc.admin_access"):
-            logger.debug("Returning all characters for %s.", user)
-            return qs.all()
-
-        try:
-            char = user.profile.main_character
-            char: EveCharacter
-
-            assert char
-            # build all accepted queries
-            queries = [models.Q(character_ownership__user=user)]
-
-            if user.has_perm("madc.corp_access"):
-                queries.append(models.Q(corporation_id=char.corporation_id))
-
-            if user.has_perm("madc.alliance_access"):
-                queries.append(models.Q(alliance_id=char.alliance_id))
-
-            logger.debug(
-                "%s queries for user %s visible chracters.", len(queries), user
-            )
-            # filter based on queries
-            query = queries.pop()
-            for q in queries:
-                query |= q
-            return qs.filter(query)
-        except AssertionError:
-            logger.debug("User %s has no main character. Nothing visible.", user)
-            return qs.none()
+        return _visible_characters(user)
 
     @staticmethod
     def visible_eve_corporations(user: User):
-        qs = EveCorporationInfo.objects.get_queryset()
-        if user.is_superuser:
-            logger.debug("Returning all corporations for superuser %s.", user)
-            return qs.all()
+        """
+        Corporations the user may see.
 
-        if user.has_perm("madc.admin_access"):
+        The own corporation with corp_access, the corporations of the own
+        alliance with alliance_access, all with full access. Nothing otherwise.
+        """
+        # AA Memberaudit Doctrine Checker
+        from madc.models.general import General
+
+        qs = EveCorporationInfo.objects.get_queryset()
+        if General.objects.has_full_access(user):
             logger.debug("Returning all corporations for %s.", user)
             return qs.all()
 
-        try:
-            char = user.profile.main_character
-            char: EveCharacter
-
-            assert char
-            # build all accepted queries
-            queries = [models.Q(corporation_id=char.corporation_id)]
-
-            if user.has_perm("madc.corp_access"):
-                queries.append(models.Q(corporation_id=char.corporation_id))
-
-            if user.has_perm("madc.alliance_access"):
-                queries.append(models.Q(alliance_id=char.alliance_id))
-
-            logger.debug(
-                "%s queries for user %s visible corporations.", len(queries), user
-            )
-            # filter based on queries
-            query = queries.pop()
-            for q in queries:
-                query |= q
-            return qs.filter(query)
-        except AssertionError:
+        char = _main_character(user)
+        if char is None:
             logger.debug("User %s has no main character. Nothing visible.", user)
             return qs.none()
+
+        queries = []
+
+        if General.objects.has_corp_access(user):
+            queries.append(models.Q(corporation_id=char.corporation_id))
+
+        # Compare the EVE alliance ID: `alliance` is a foreign key, its raw
+        # value is not the EVE ID in every Alliance Auth version.
+        if General.objects.has_alliance_access(user) and char.alliance_id:
+            queries.append(models.Q(alliance__alliance_id=char.alliance_id))
+
+        if not queries:
+            logger.debug("User %s has no permission. Nothing visible.", user)
+            return qs.none()
+
+        query = queries.pop()
+        for q in queries:
+            query |= q
+        return qs.filter(query)
 
     def manage_to(self, user):
         return self.get_queryset().manage_to(user)

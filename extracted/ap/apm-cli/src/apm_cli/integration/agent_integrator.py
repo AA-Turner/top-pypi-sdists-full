@@ -13,6 +13,12 @@ from typing import TYPE_CHECKING
 
 import yaml
 
+from apm_cli.core.remediation import (
+    CODEX_AGENT_CLAUDE_MODEL,
+    CODEX_AGENT_FIELD_NOT_STRING,
+    CODEX_AGENT_FRONTMATTER_INVALID,
+    CODEX_AGENT_FRONTMATTER_NOT_MAPPING,
+)
 from apm_cli.install.primitive_classification import (
     AgentSourceClassification,
     PrimitiveKind,
@@ -28,28 +34,78 @@ from apm_cli.utils.paths import portable_relpath
 from apm_cli.utils.yaml_io import load_yaml_str, yaml_to_str
 
 if TYPE_CHECKING:
+    from apm_cli.integration.cleanup import DeploymentEvidence
     from apm_cli.integration.skill_adoption import ResolveLinks
     from apm_cli.integration.targets import TargetProfile
     from apm_cli.utils.diagnostics import DiagnosticCollector
 
-# Kiro capability tags approved for agent 'tools' frontmatter.
-# Source: https://kiro.dev/docs/custom-agents/ (accessed 2026-08-03)
-# Fail closed: any value not in this set blocks deployment of that agent.
-KIRO_AGENT_ALLOWED_TOOLS: frozenset[str] = frozenset(
+# Kiro agent ``tools`` vocabulary (IDE 1.0 / CLI V3).
+# Sources (accessed 2026-11-19):
+#   https://kiro.dev/docs/custom-agents/configuration-reference/#tools-field
+#   https://kiro.dev/docs/tools/#configuring-tool-access
+# Fail closed: a value outside this vocabulary blocks deployment of that agent
+# only; sibling agents still deploy (req-tg-009).
+KIRO_AGENT_TOOL_TAGS: frozenset[str] = frozenset({"read", "write", "shell", "web", "subagent"})
+KIRO_AGENT_TOOL_SPECIAL_VALUES: frozenset[str] = frozenset({"@builtin", "@mcp", "*"})
+KIRO_AGENT_TOOL_IDS: frozenset[str] = frozenset(
     {
-        "read",
-        "write",
-        "shell",
-        "web",
-        "subagent",
+        "read_file",
+        "list_directory",
+        "file_search",
+        "grep_search",
+        "code",
+        "fs_write",
+        "fs_append",
+        "str_replace",
+        "delete_file",
+        "execute_bash",
+        "execute_pwsh",
+        "control_bash_process",
+        "control_pwsh_process",
+        "get_process_output",
+        "list_processes",
+        "remote_web_search",
+        "web_fetch",
+        "invoke_sub_agent",
+        "disclose_context",
+        "introspect",
         "knowledge",
-        "context",
-        "todo_list",
-        "@mcp",
-        "@builtin",
-        "*",
+        "createHook",
+        "kiro_powers",
     }
 )
+# Accepted by earlier APM releases; kept so agents that deploy today keep deploying.
+KIRO_AGENT_TOOL_COMPAT_VALUES: frozenset[str] = frozenset({"context", "todo_list"})
+KIRO_AGENT_ALLOWED_TOOLS: frozenset[str] = (
+    KIRO_AGENT_TOOL_TAGS
+    | KIRO_AGENT_TOOL_SPECIAL_VALUES
+    | KIRO_AGENT_TOOL_IDS
+    | KIRO_AGENT_TOOL_COMPAT_VALUES
+)
+# ``@server`` or ``@server/tool`` (``@builtin`` and ``@mcp`` take no tool
+# suffix; tool names follow MCP SEP-986), or ``subagent/<agent>`` to limit
+# which sub-agents an agent may start.
+_KIRO_SELECTOR_RE = re.compile(
+    r"@(?!(?:builtin|mcp)/)[A-Za-z0-9][A-Za-z0-9_.-]{0,127}(?:/[A-Za-z0-9_.-]{1,128})?"
+    r"|subagent/[A-Za-z0-9][A-Za-z0-9_.-]{0,127}"
+)
+_KIRO_TOOLS_HINT = (
+    "Approved Kiro tool selectors: category tags ("
+    + ", ".join(sorted(KIRO_AGENT_TOOL_TAGS))
+    + "); built-in tool IDs ("
+    + ", ".join(sorted(KIRO_AGENT_TOOL_IDS))
+    + "); compatibility values ("
+    + ", ".join(sorted(KIRO_AGENT_TOOL_COMPAT_VALUES))
+    + "); @server, @server/tool, or subagent/<agent>; "
+    + ", ".join(sorted(KIRO_AGENT_TOOL_SPECIAL_VALUES))
+    + "."
+)
+
+
+def is_kiro_agent_tool(value: str) -> bool:
+    """Return True when *value* is a valid Kiro agent ``tools`` selector."""
+    return value in KIRO_AGENT_ALLOWED_TOOLS or bool(_KIRO_SELECTOR_RE.fullmatch(value))
+
 
 # Outcomes of :meth:`AgentIntegrator._deploy_rendered_agent`.
 _ADOPTED = "adopted"
@@ -283,6 +339,7 @@ class AgentIntegrator(BaseIntegrator):
         apm_package,
         project_root: Path,
         managed_files: set = None,  # noqa: RUF013
+        evidence: DeploymentEvidence | None = None,
     ) -> dict[str, int]:
         """Remove APM-managed agent files for a single *target*."""
         mapping = target.primitives.get("agents")
@@ -300,6 +357,7 @@ class AgentIntegrator(BaseIntegrator):
             legacy_glob_dir=legacy_dir,
             legacy_glob_pattern=legacy_pattern,
             targets=[target],
+            evidence=evidence,
         )
 
     # ------------------------------------------------------------------
@@ -387,6 +445,7 @@ class AgentIntegrator(BaseIntegrator):
             return _ADOPTED if adopted else _SKIPPED
         target_path.parent.mkdir(parents=True, exist_ok=True)
         write_text_lf(target_path, rendered)
+        self.note_rendered_write(target_path)
         target_paths.append(target_path)
         return _WRITTEN
 
@@ -606,10 +665,7 @@ class AgentIntegrator(BaseIntegrator):
                 "not recognize Claude models."
             ),
             package=printable_ascii_text(package_name),
-            detail=(
-                "Fix: use a Codex model in a Codex-specific agent source, or remove 'model' "
-                "so Codex uses its default; then rerun 'apm install'."
-            ),
+            detail=f"Fix: {CODEX_AGENT_CLAUDE_MODEL.clause()}.",
         )
 
     @staticmethod
@@ -671,8 +727,8 @@ class AgentIntegrator(BaseIntegrator):
                                 ),
                                 package=printable_ascii_text(package_name),
                                 detail=(
-                                    f"Fix: set '{field}' to a string in the source agent, "
-                                    "then rerun 'apm install'."
+                                    "Fix: "
+                                    f"{CODEX_AGENT_FIELD_NOT_STRING.bind(field=field).clause()}."
                                 ),
                             )
                     # Collect only the raw dropped keys here (no formatting)
@@ -716,8 +772,7 @@ class AgentIntegrator(BaseIntegrator):
                         source,
                         package_name,
                         "YAML frontmatter must be a mapping and was ignored",
-                        "fix the source agent frontmatter to a YAML mapping, "
-                        "then rerun 'apm install'",
+                        CODEX_AGENT_FRONTMATTER_NOT_MAPPING.clause(),
                     )
                 if isinstance(fm, dict) and "tools" in fm:
                     AgentIntegrator._warn_codex_tools_dropped(
@@ -734,7 +789,7 @@ class AgentIntegrator(BaseIntegrator):
                     source,
                     package_name,
                     "invalid YAML frontmatter was ignored",
-                    "repair the frontmatter, then rerun 'apm install'",
+                    CODEX_AGENT_FRONTMATTER_INVALID.clause(),
                 )
 
         links_resolved = 0
@@ -827,12 +882,13 @@ class AgentIntegrator(BaseIntegrator):
         fail-closed evaluation runs prior to any content-identity fast-path.
 
         Returns (rendered_str, True) on success or (None, False) if the
-        source declares tools outside KIRO_AGENT_ALLOWED_TOOLS or has an
-        unparseable frontmatter. On failure an actionable diagnostic is
-        emitted via diagnostics.error -- the caller MUST skip all target
-        mutations without writing any bytes.
+        source declares a tool that :func:`is_kiro_agent_tool` rejects. On
+        failure an actionable warning is emitted -- the caller MUST skip all
+        target mutations for this agent without writing any bytes. The
+        warning is non-fatal so conformant sibling agents still deploy and
+        are recorded (req-tg-009).
 
-        Ref: https://kiro.dev/docs/custom-agents/ (accessed 2026-08-03)
+        Ref: https://kiro.dev/docs/tools/ (accessed 2026-11-19)
         """
         if source.is_symlink():
             raise ValueError(f"Refusing to read symlink source: {source}")
@@ -857,19 +913,17 @@ class AgentIntegrator(BaseIntegrator):
                         tools_out = None
                     elif isinstance(tools_raw, list):
                         tools_strs = [str(t).strip() for t in tools_raw]
-                        incompatible = set(tools_strs) - KIRO_AGENT_ALLOWED_TOOLS
+                        incompatible = {t for t in tools_strs if not is_kiro_agent_tool(t)}
                         if incompatible:
                             if diagnostics is not None:
                                 names = ", ".join(sorted(incompatible))
-                                diagnostics.error(
+                                diagnostics.warn(
                                     message=(
                                         f"Kiro agent {printable_ascii_text(source.name)}: "
                                         f"unsupported tool(s) {names!a} -- "
                                         "agent will not be deployed. "
-                                        "Remove or replace with Kiro-approved capability "
-                                        "tags (read, write, shell, web, subagent, knowledge, "
-                                        "context, todo_list, @mcp, @builtin, *). "
-                                        "Ref: https://kiro.dev/docs/custom-agents/"
+                                        f"{_KIRO_TOOLS_HINT} "
+                                        "Ref: https://kiro.dev/docs/tools/"
                                     ),
                                     package=printable_ascii_text(package_name),
                                 )
@@ -877,15 +931,15 @@ class AgentIntegrator(BaseIntegrator):
                         tools_out = tools_strs
                     elif isinstance(tools_raw, str):
                         tool = tools_raw.strip()
-                        if tool not in KIRO_AGENT_ALLOWED_TOOLS:
+                        if not is_kiro_agent_tool(tool):
                             if diagnostics is not None:
-                                diagnostics.error(
+                                diagnostics.warn(
                                     message=(
                                         f"Kiro agent {printable_ascii_text(source.name)}: "
                                         f"unsupported tool {tool!a} -- "
                                         "agent will not be deployed. "
-                                        "Use a Kiro-approved capability tag. "
-                                        "Ref: https://kiro.dev/docs/custom-agents/"
+                                        f"{_KIRO_TOOLS_HINT} "
+                                        "Ref: https://kiro.dev/docs/tools/"
                                     ),
                                     package=printable_ascii_text(package_name),
                                 )
@@ -893,10 +947,10 @@ class AgentIntegrator(BaseIntegrator):
                         tools_out = [tool]
                     else:
                         if diagnostics is not None:
-                            diagnostics.error(
+                            diagnostics.warn(
                                 message=(
                                     f"Kiro agent {printable_ascii_text(source.name)}: "
-                                    "'tools' must be a list of capability tags -- "
+                                    "'tools' must be a list of tool selectors -- "
                                     "agent will not be deployed. "
                                     "Fix: use a YAML list, e.g. 'tools: [read, write]'. "
                                     "Ref: https://kiro.dev/docs/custom-agents/"

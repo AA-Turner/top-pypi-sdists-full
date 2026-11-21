@@ -72,7 +72,6 @@ class Phono3pySettings(Settings):
         self.random_displacements_fc2: int | Literal["auto"] | None = None
         self.scattering_event_class: int | None = None  # scattering event class 1 or 2
         self.sigma_cutoff_width: float | None = None
-        self.solve_collective_phonon: bool = False
         self.show_symfc_memory_usage: bool = False
         self.use_symfc_projector: bool = False
         self.symfc_memory_size: float | None = None
@@ -401,12 +400,6 @@ class Phono3pyConfParser(ConfParser[Phono3pySettings]):
             if args.sigma_cutoff_width is not None:
                 self._confs["sigma_cutoff_width"] = args.sigma_cutoff_width
 
-        if "solve_collective_phonon" in arg_list:
-            if args.solve_collective_phonon:
-                self._confs["collective_phonon"] = ".true."
-            elif args.solve_collective_phonon is False:
-                self._confs["collective_phonon"] = ".false."
-
         if "show_symfc_memory_usage" in arg_list:
             if args.show_symfc_memory_usage:
                 self._confs["show_symfc_memory_usage"] = ".true."
@@ -447,13 +440,14 @@ class Phono3pyConfParser(ConfParser[Phono3pySettings]):
             elif args.use_grg is False:
                 self._confs["use_grg"] = ".false."
 
+        # REMOVE-AT-V5
         if "use_rust" in arg_list and args.use_rust:
             import warnings
 
             warnings.warn(
-                "--rust is a deprecated no-op in phono3py v4; the Rust backend "
-                "is now the default. Pass --legacy-backend to opt back into "
-                "the C extension.",
+                "--rust is a deprecated no-op and will be removed in v5.0. The Rust "
+                "backend is now the default. Pass --legacy-backend to opt back "
+                "into the C extension.",
                 DeprecationWarning,
                 stacklevel=2,
             )
@@ -515,7 +509,6 @@ class Phono3pyConfParser(ConfParser[Phono3pySettings]):
                 "use_ave_pp",
                 "use_grg",
                 "use_legacy_backend",
-                "collective_phonon",
                 "write_gamma_detail",
                 "write_gamma",
                 "write_collision",
@@ -697,10 +690,6 @@ class Phono3pyConfParser(ConfParser[Phono3pySettings]):
         # Choice of thermal conductivity type
         if "transport_type" in params:
             settings.transport_type = params["transport_type"]
-
-        # Solve collective phonons
-        if "collective_phonon" in params:
-            settings.solve_collective_phonon = params["collective_phonon"]
 
         # Compact force constants or full force constants
         if "compact_fc" in params:

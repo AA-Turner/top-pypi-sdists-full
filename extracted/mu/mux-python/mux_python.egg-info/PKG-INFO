@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mux_python
-Version: 5.2.0
+Version: 5.3.0
 Summary: Mux API
 Home-page: https://github.com/muxinc/mux-python
 Author: Mux DevEx
@@ -148,7 +148,7 @@ All exceptions inherit from `ApiException`, you can catch it as in the example a
 
 ### ServiceException
 
-`ServiceException` is thrown when Mux returns a HTTP 5XX Status Code. If you encounter this reproducibly, please get in touch with [support@mux.com](mailto:support@mux.com).
+`ServiceException` is thrown when Mux returns a HTTP 5XX Status Code. If you encounter this reproducibly, please get in touch with us at [mux.com/support](https://www.mux.com/support).
 
 ## Documentation
 

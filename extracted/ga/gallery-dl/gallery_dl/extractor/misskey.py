@@ -93,15 +93,18 @@ BASE_PATTERN = MisskeyExtractor.update({
     },
 })
 
+USER_PATTERN = BASE_PATTERN + r"/(@[^/?#]+|users/[^/?#]+)"
+
 
 class MisskeyUserExtractor(Dispatch, MisskeyExtractor):
     """Extractor for all images of a Misskey user"""
     subcategory = "user"
-    pattern = BASE_PATTERN + r"/@([^/?#]+)/?$"
+    pattern = USER_PATTERN + r"/?$"
     example = "https://misskey.io/@USER"
+    # example = "https://misskey.io/users/98765zwxyv"
 
     def items(self):
-        base = f"{self.root}/@{self.groups[-1]}/"
+        base = f"{self.root}/{self.groups[-1]}/"
         return self._dispatch_extractors((
             (MisskeyInfoExtractor      , base + "info"),
             (MisskeyAvatarExtractor    , base + "avatar"),
@@ -113,33 +116,35 @@ class MisskeyUserExtractor(Dispatch, MisskeyExtractor):
 class MisskeyNotesExtractor(MisskeyExtractor):
     """Extractor for a Misskey user's notes"""
     subcategory = "notes"
-    pattern = BASE_PATTERN + r"/@([^/?#]+)/notes"
+    pattern = USER_PATTERN + r"/notes"
     example = "https://misskey.io/@USER/notes"
+    # example = "https://misskey.io/users/98765zwxyv/notes"
 
     def notes(self):
-        return self.api.users_notes(self.api.user_id_by_username(
-            self.groups[-1]))
+        return self.api.users_notes(self.groups[-1])
 
 
 class MisskeyInfoExtractor(MisskeyExtractor):
     """Extractor for a Misskey user's profile data"""
     subcategory = "info"
-    pattern = BASE_PATTERN + r"/@([^/?#]+)/info"
+    pattern = USER_PATTERN + r"/info"
     example = "https://misskey.io/@USER/info"
+    # example = "https://misskey.io/users/98765zwxyv/info"
 
     def items(self):
-        user = self.api.users_show(self.groups[-1])
+        user = self.api.user(self.groups[-1])
         return iter(((Message.Directory, "", user.copy()),))
 
 
 class MisskeyAvatarExtractor(MisskeyExtractor):
     """Extractor for a Misskey user's avatar"""
     subcategory = "avatar"
-    pattern = BASE_PATTERN + r"/@([^/?#]+)/avatar"
+    pattern = USER_PATTERN + r"/avatar"
     example = "https://misskey.io/@USER/avatar"
+    # example = "https://misskey.io/users/98765zwxyv/avatar"
 
     def notes(self):
-        user = self.api.users_show(self.groups[-1])
+        user = self.api.user(self.groups[-1])
         url = user.get("avatarUrl")
         return (self._make_note("avatar", user, url),) if url else ()
 
@@ -147,11 +152,12 @@ class MisskeyAvatarExtractor(MisskeyExtractor):
 class MisskeyBackgroundExtractor(MisskeyExtractor):
     """Extractor for a Misskey user's banner image"""
     subcategory = "background"
-    pattern = BASE_PATTERN + r"/@([^/?#]+)/ba(?:nner|ckground)"
+    pattern = USER_PATTERN + r"/ba(?:nner|ckground)"
     example = "https://misskey.io/@USER/banner"
+    # example = "https://misskey.io/users/98765zwxyv/background"
 
     def notes(self):
-        user = self.api.users_show(self.groups[-1])
+        user = self.api.user(self.groups[-1])
         url = user.get("bannerUrl")
         return (self._make_note("background", user, url),) if url else ()
 
@@ -159,12 +165,11 @@ class MisskeyBackgroundExtractor(MisskeyExtractor):
 class MisskeyFollowingExtractor(MisskeyExtractor):
     """Extractor for followed Misskey users"""
     subcategory = "following"
-    pattern = BASE_PATTERN + r"/@([^/?#]+)/following"
+    pattern = USER_PATTERN + r"/following"
     example = "https://misskey.io/@USER/following"
 
     def items(self):
-        user_id = self.api.user_id_by_username(self.groups[-1])
-        for user in self.api.users_following(user_id):
+        for user in self.api.users_following(self.groups[-1]):
             user = user["followee"]
             url = f"{self.root}/@{user['username']}"
             if (host := user["host"]) is not None:
@@ -230,26 +235,29 @@ class MisskeyAPI():
         self.extractor = extractor
         self.access_token = extractor.config("access-token")
 
-    def user_id_by_username(self, username):
-        return self.users_show(username)["id"]
-
-    def users_following(self, user_id):
+    def users_following(self, handle):
         endpoint = "/users/following"
-        data = {"userId": user_id}
+        data = {"userId": self.userid(handle)}
         return self._pagination(endpoint, data)
 
-    def users_notes(self, user_id):
+    def users_notes(self, handle):
         endpoint = "/users/notes"
-        data = {"userId": user_id}
+        data = {"userId": self.userid(handle)}
         return self._pagination(endpoint, data)
 
-    def users_show(self, username):
-        return self.extractor.cache(self._users_show_impl, username)
+    def user(self, handle):
+        return self.extractor.cache(self.users_show, handle)
 
-    def _users_show_impl(self, username):
+    def userid(self, handle):
+        return self.user(handle)["id"] if handle[0] == "@" else handle[6:]
+
+    def users_show(self, handle):
         endpoint = "/users/show"
-        username, _, host = username.partition("@")
-        data = {"username": username, "host": host or None}
+        if handle[0] == "@":
+            username, _, host = handle[1:].partition("@")
+            data = {"username": username, "host": host or None}
+        else:
+            data = {"userId": handle[6:]}
         return self._call(endpoint, data)
 
     def emojis(self):

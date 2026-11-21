@@ -36,23 +36,22 @@ Config API:
       ...
     perf_config.custom_export_fn = my_custom_export_fn
 
-    # 3. Pass the PerfMetricsConfig when creating rl cluster.
+    # 3. Pass the PerfMetricsConfig when creating rl engine.
 
-    rl_cluster.RLCluster(..., perf_config=perf_config)
+    rl_engine_lib.RLEngine(..., perf_config=perf_config)
 """
 
 from __future__ import annotations
 
 import dataclasses
-from typing import Any
-from typing import Callable, Dict, Mapping, Tuple
+from typing import Any, Callable, Dict, Mapping, Tuple, TypeAlias
 
 from absl import logging
-from jax import typing
+from tunix.common import datatypes
 from tunix.perf import span
 
 
-ArrayLike = typing.ArrayLike
+ArrayLike: TypeAlias = datatypes.ArrayLike
 Timeline = Any  # tunix.perf.span.Timeline
 Span = span.Span
 SpanGroup = span.SpanGroup

@@ -41,11 +41,11 @@ use crate::compiler::{CompileContext, VarStack};
 use crate::re::hir::{ChainedPattern, ChainedPatternGap};
 use crate::string_pool::{BStringPool, StringPool};
 use crate::symbols::{StackedSymbolTable, Symbol, SymbolLookup, SymbolTable};
-use crate::types::{Func, Struct, TypeValue};
+use crate::types::{Struct, TypeValue};
 use crate::utils::cast;
 use crate::variables::{Variable, VariableError, is_valid_identifier};
 use crate::wasm::builder::WasmModuleBuilder;
-use crate::wasm::{WasmSymbols, wasm_exports};
+use crate::wasm::{WasmExport, WasmSymbols};
 use crate::{re, wasm};
 
 pub(crate) use crate::compiler::atoms::*;
@@ -357,7 +357,7 @@ pub struct Compiler<'a> {
 
     /// Similar to `ident_pool` but for regular expressions found in rule
     /// conditions.
-    regex_pool: StringPool<RegexId>,
+    regex_pool: StringPool<RegExpId>,
 
     /// Similar to `ident_pool` but for string literals found in the source
     /// code. As literal strings in YARA can contain arbitrary bytes, a pool
@@ -474,7 +474,7 @@ pub struct Compiler<'a> {
     linters: Vec<Box<dyn linters::Linter + 'a>>,
 
     /// Grouped RegexSets constructed during IR creation for or-expressions.
-    regex_sets: FxHashMap<RegexSetId, Vec<RegexId>>,
+    regex_sets: FxHashMap<RegExpSetId, Vec<RegExpId>>,
 
     /// Grouped LiteralSets constructed during IR creation for or-expressions.
     literal_sets: FxHashMap<LiteralSetId, Vec<LiteralId>>,
@@ -495,14 +495,10 @@ impl<'a> Compiler<'a> {
         let global_symbols = symbol_table.push_new();
 
         // Add symbols for built-in functions like uint8, uint16, etc.
-        for export in wasm_exports()
-            // Get only the public exports not belonging to a YARA module.
-            .filter(|e| e.public && e.builtin())
-        {
-            let func = Rc::new(Func::from(export.mangled_name));
-            let symbol = Symbol::Func(func);
-
-            global_symbols.borrow_mut().insert(export.name, symbol);
+        for (name, func) in WasmExport::get_functions(|e| e.builtin()) {
+            global_symbols
+                .borrow_mut()
+                .insert(name, Symbol::Func(Rc::new(func)));
         }
 
         // Create the default namespace. Rule identifiers will be added to this
@@ -889,8 +885,10 @@ impl<'a> Compiler<'a> {
                     warnings: this.warnings.into(),
                     filesize_bounds,
                     header_constraints,
-                    regex_sets: this.regex_sets,
+                    regexp_sets: this.regex_sets,
                     literal_sets: this.literal_sets,
+                    compiled_regexps: Vec::new(),
+                    compiled_regexp_sets: Vec::new(),
                     fast_scan_max_matches: this.fast_scan_max_matches,
                     rules_profiling_enabled: cfg!(feature = "rules-profiling"),
                 },
@@ -919,6 +917,7 @@ impl<'a> Compiler<'a> {
         #[cfg(feature = "logging")]
         info!("WASM module build time: {:?}", Instant::elapsed(&start));
 
+        rules.init_regexp_caches();
         rules.build_ac_automaton();
         rules
     }
@@ -1393,17 +1392,50 @@ impl Compiler<'_> {
     /// The function returns both the content and the path of the included file
     /// relative to the current directory, or an error if the included file could
     /// not be read.
+    ///
+    /// The included file must be located inside one of the include directories
+    /// specified with [`Compiler::add_include_dir`] (or inside the current
+    /// working directory if no include directories were specified) after
+    /// resolving `..` components and symbolic links. This prevents `include`
+    /// statements with absolute paths (e.g. `include "/etc/passwd"`) or paths
+    /// containing `..` from reading files outside the allowed directories. In
+    /// all cases, the included file must be a regular file, which prevents
+    /// reading from devices like `/dev/zero` or named pipes.
     fn read_included_file(
         &mut self,
         include: &Include,
     ) -> Result<(Vec<u8>, PathBuf), CompileError> {
+        let cwd = env::current_dir().and_then(|dir| dir.canonicalize()).ok();
+
+        // Canonical form of the include directories (or the current working
+        // directory if no include directories were specified), used for
+        // searching included files and making sure that they don't escape
+        // from the allowed directories.
+        let include_roots: Vec<PathBuf> =
+            if let Some(dirs) = &self.include_dirs {
+                dirs.iter().filter_map(|dir| dir.canonicalize().ok()).collect()
+            } else {
+                cwd.clone().into_iter().collect()
+            };
+
         let read_file =
             |path: PathBuf| -> Result<(Vec<u8>, PathBuf), io::Error> {
                 let mut path = path.canonicalize()?;
+
+                if !include_roots.iter().any(|root| path.starts_with(root)) {
+                    return Err(io::Error::from(io::ErrorKind::NotFound));
+                }
+
+                if !fs::metadata(&path)?.is_file() {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidInput,
+                        "included file is not a regular file",
+                    ));
+                }
+
                 let content = fs::read(&path)?;
 
-                if let Ok(cwd) =
-                    env::current_dir().and_then(|dir| dir.canonicalize())
+                if let Some(cwd) = &cwd
                     && let Ok(relative_path) = path.strip_prefix(cwd)
                 {
                     path = relative_path.to_path_buf();
@@ -1413,47 +1445,34 @@ impl Compiler<'_> {
             };
 
         // Look for the included file in the directory at the top of the
-        // include stack.
-        if let Some(dir) =
-            self.include_stack.last().and_then(|path| path.parent())
-            && let Ok(result) = read_file(dir.join(include.file_name))
-        {
-            return Ok(result);
-        }
+        // include stack first, followed by the include directories (or the
+        // current directory if none were specified), in the order they were
+        // specified.
+        let current_dir =
+            self.include_stack.last().and_then(|path| path.parent());
 
-        // If one or more include directory were specified, try to find the
-        // included file in them, in the order they were specified. Otherwise,
-        // try to find the included file in the current directory.
-        if let Some(include_dirs) = &self.include_dirs {
-            if let Some(result) = include_dirs
-                .iter()
-                .find_map(|dir| read_file(dir.join(include.file_name)).ok())
-            {
-                Ok(result)
-            } else {
-                Err(IncludeNotFound::build(
-                    &self.report_builder,
-                    include.file_name.to_string(),
-                    self.report_builder.span_to_code_loc(include.span()),
-                ))
-            }
-        } else {
-            read_file(PathBuf::from(include.file_name)).map_err(|err| {
-                if err.kind() == io::ErrorKind::NotFound {
-                    IncludeNotFound::build(
-                        &self.report_builder,
-                        include.file_name.to_string(),
-                        self.report_builder.span_to_code_loc(include.span()),
-                    )
-                } else {
-                    IncludeError::build(
+        for dir in current_dir
+            .into_iter()
+            .chain(include_roots.iter().map(PathBuf::as_path))
+        {
+            match read_file(dir.join(include.file_name)) {
+                Ok(result) => return Ok(result),
+                Err(err) if err.kind() == io::ErrorKind::NotFound => continue,
+                Err(err) => {
+                    return Err(IncludeError::build(
                         &self.report_builder,
                         self.report_builder.span_to_code_loc(include.span()),
                         err.to_string(),
-                    )
+                    ));
                 }
-            })
+            }
         }
+
+        Err(IncludeNotFound::build(
+            &self.report_builder,
+            include.file_name.to_string(),
+            self.report_builder.span_to_code_loc(include.span()),
+        ))
     }
 }
 
@@ -1550,7 +1569,7 @@ impl Compiler<'_> {
                         SourceCode::from(included_src.as_slice()).with_origin(
                             // In Windows the paths separators are backslashes, but we
                             // want to use slashes.
-                            included_path.to_str().unwrap().replace("\\", "/"),
+                            included_path.to_string_lossy().replace("\\", "/"),
                         );
 
                     self.include_stack.push(included_path);
@@ -1677,8 +1696,8 @@ impl Compiler<'_> {
             for_of_depth: 0,
             features: &self.features,
             loop_iteration_multiplier: 1,
-            regex_sets: &mut self.regex_sets,
-            regex_pool: &mut self.regex_pool,
+            regexp_set: &mut self.regex_sets,
+            regexp_pool: &mut self.regex_pool,
             literal_sets: &mut self.literal_sets,
             literal_pool: &mut self.literal_pool,
         };
@@ -2031,7 +2050,7 @@ impl Compiler<'_> {
         let mut ctx = EmitContext {
             current_rule: self.rules.last_mut().unwrap(),
             lit_pool: &mut self.literal_pool,
-            regex_pool: &mut self.regex_pool,
+            regexp_pool: &mut self.regex_pool,
             wasm_symbols: &self.wasm_symbols,
             wasm_exports: &self.wasm_exports,
             exception_handler_stack: Vec::new(),
@@ -2983,79 +3002,79 @@ impl From<RuleId> for i32 {
 
 /// ID associated to each regexp used in a rule condition.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub(crate) struct RegexId(i32);
+pub(crate) struct RegExpId(i32);
 
-impl From<i32> for RegexId {
+impl From<i32> for RegExpId {
     #[inline]
     fn from(value: i32) -> Self {
         Self(value)
     }
 }
 
-impl From<u32> for RegexId {
+impl From<u32> for RegExpId {
     #[inline]
     fn from(value: u32) -> Self {
         Self(value.try_into().unwrap())
     }
 }
 
-impl From<i64> for RegexId {
+impl From<i64> for RegExpId {
     #[inline]
     fn from(value: i64) -> Self {
         Self(value.try_into().unwrap())
     }
 }
 
-impl From<RegexId> for usize {
+impl From<RegExpId> for usize {
     #[inline]
-    fn from(value: RegexId) -> Self {
+    fn from(value: RegExpId) -> Self {
         value.0 as usize
     }
 }
 
-impl From<RegexId> for i32 {
+impl From<RegExpId> for i32 {
     #[inline]
-    fn from(value: RegexId) -> Self {
+    fn from(value: RegExpId) -> Self {
         value.0
     }
 }
 
-impl From<RegexId> for u32 {
+impl From<RegExpId> for u32 {
     #[inline]
-    fn from(value: RegexId) -> Self {
+    fn from(value: RegExpId) -> Self {
         value.0.try_into().unwrap()
     }
 }
 
-/// ID associated to each grouped `RegexSet`.
+/// ID associated to each grouped `RegexpSet`.
 ///
 /// When compiling multiple rules, identical string expressions (such as a
 /// specific field access like `vt.net.domain.raw`) are frequently matched
 /// against multiple distinct regular expressions. To optimize these
 /// evaluations, the compiler identifies identical targets, assigns them a
-/// unique `RegexSetId`, and groups all their associated regular expressions
+/// unique `RegExpSetId`, and groups all their associated regular expressions
 /// together. At runtime, the entire set is evaluated simultaneously in a
 /// single pass.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub(crate) struct RegexSetId(i32);
+pub(crate) struct RegExpSetId(i32);
 
-impl From<i32> for RegexSetId {
+impl From<i32> for RegExpSetId {
     #[inline]
     fn from(value: i32) -> Self {
         Self(value)
     }
 }
 
-impl From<RegexSetId> for usize {
+impl From<RegExpSetId> for usize {
     #[inline]
-    fn from(value: RegexSetId) -> Self {
+    fn from(value: RegExpSetId) -> Self {
         value.0 as usize
     }
 }
 
-impl From<RegexSetId> for i32 {
+impl From<RegExpSetId> for i32 {
     #[inline]
-    fn from(value: RegexSetId) -> Self {
+    fn from(value: RegExpSetId) -> Self {
         value.0
     }
 }

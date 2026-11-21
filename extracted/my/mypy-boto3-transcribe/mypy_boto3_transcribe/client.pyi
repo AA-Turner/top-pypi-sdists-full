@@ -94,6 +94,8 @@ from .type_defs import (
     StartTranscriptionJobRequestTypeDef,
     StartTranscriptionJobResponseTypeDef,
     TagResourceRequestTypeDef,
+    TranscribeAudioRequestTypeDef,
+    TranscribeAudioResponseTypeDef,
     UntagResourceRequestTypeDef,
     UpdateCallAnalyticsCategoryRequestTypeDef,
     UpdateCallAnalyticsCategoryResponseTypeDef,
@@ -549,6 +551,16 @@ class TranscribeServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/transcribe/client/tag_resource.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_transcribe/client/#tag_resource)
+        """
+
+    def transcribe_audio(
+        self, **kwargs: Unpack[TranscribeAudioRequestTypeDef]
+    ) -> TranscribeAudioResponseTypeDef:
+        """
+        Transcribes a media file and returns the transcript in the same response.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/transcribe/client/transcribe_audio.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_transcribe/client/#transcribe_audio)
         """
 
     def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:

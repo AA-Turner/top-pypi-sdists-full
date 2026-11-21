@@ -1,17 +1,17 @@
 Metadata-Version: 2.4
 Name: cadgen
-Version: 0.11.13
+Version: 0.11.14
 Summary: Deprecated alias of the text-to-cad library, still published: installs cad at the same release. Import cad.
 Author: earthtojake
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/earthtojake/text-to-cad
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
-Requires-Dist: cad==0.11.13
+Requires-Dist: cad==0.11.14
 Provides-Extra: build123d
-Requires-Dist: cad[build123d]==0.11.13; extra == "build123d"
+Requires-Dist: cad[build123d]==0.11.14; extra == "build123d"
 Provides-Extra: kernel
-Requires-Dist: cad[build123d]==0.11.13; extra == "kernel"
+Requires-Dist: cad[build123d]==0.11.14; extra == "kernel"
 
 # cadgen
 
@@ -24,5 +24,5 @@ process: `CadDeprecationWarning: cadgen is deprecated; use cad`.
 `cadgen[build123d]` installs the library with its CAD kernel, as `cad[build123d]` does;
 `cadgen[kernel]`, its 0.8 spelling, installs the same.
 
-New projects declare `cad`. The CAD server, the CAD Viewer and the `cad` command are `cad`'s too;
+New projects declare `cad`. The CAD server, the viewer and the `cad` command are `cad`'s too;
 the install command at https://texttocad.dev installs them.

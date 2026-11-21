@@ -42,6 +42,7 @@ pub mod pattern;
 pub mod pharmacophore_fp;
 pub mod rdkit_atom_pair;
 pub mod rdkit_avalon;
+mod rdkit_count_simulation;
 mod rdkit_isotope_delta_table;
 pub mod rdkit_layered;
 mod rdkit_morgan_config;
@@ -50,6 +51,7 @@ mod rdkit_morgan_hash;
 pub mod rdkit_pattern;
 pub mod rdkit_rdk;
 pub mod rdkit_torsion;
+mod rdkit_torsion_config;
 pub mod reaction_fp;
 pub mod search;
 pub mod sparse_matrix;
@@ -71,6 +73,7 @@ pub use fold_density::{
     fold_to_target_density,
 };
 pub use rdkit_atom_pair::{
+    RdkitAtomPairConfig, RdkitAtomPairError, RdkitAtomPairResult, rdkit_atom_pair_config,
     rdkit_atom_pair_counts, rdkit_atom_pair_fp, rdkit_atom_pair_sparse_counts,
 };
 pub use rdkit_avalon::{RdkitAvalonError, rdkit_avalon_fp};
@@ -79,12 +82,18 @@ pub use rdkit_layered::{
     rdkit_layered_fp,
 };
 pub use rdkit_pattern::rdkit_pattern_fp;
-pub use rdkit_rdk::{RdkitRdkFingerprintError, rdkit_rdk_fp, rdkit_rdk_fp_ignoring_atoms};
+pub use rdkit_rdk::{
+    RdkitRdkConfig, RdkitRdkConfigError, RdkitRdkConfigResult, RdkitRdkFingerprintError,
+    rdkit_rdk_config, rdkit_rdk_fp, rdkit_rdk_fp_ignoring_atoms,
+};
 pub use rdkit_torsion::{
     RdkitAtomCodeExplanation, RdkitTorsionDiagnosticError, explain_rdkit_atom_code,
     explain_rdkit_topological_torsion_code, rdkit_atom_code, rdkit_legacy_torsion_counts,
     rdkit_topological_torsion_path_code, rdkit_torsion_counts, rdkit_torsion_fp,
     rdkit_torsion_sparse_counts,
+};
+pub use rdkit_torsion_config::{
+    RdkitTorsionConfig, RdkitTorsionError, RdkitTorsionResult, rdkit_torsion_config,
 };
 /// Diagnostic-only APIs, not meant for production use — a per-`(atom,
 /// radius)` trace of chematic's real Morgan expansion, for the RDKit
@@ -160,6 +169,32 @@ pub(crate) fn rdkit_fp_view(
     std::borrow::Cow::Owned(out)
 }
 
+/// A Kekule-written ring can become aromatic during RDKit sanitization even
+/// when the rest of the molecule already contains literal aromatic bonds.
+/// Bond-typed fingerprints must match and hash the sanitized graph in that
+/// case, not the parser's original single/double bond representation.
+pub(crate) fn rdkit_fp_needs_aromatic_view(mol: &chematic_core::Molecule) -> bool {
+    use chematic_core::BondOrder;
+    if chematic_perception::rdkit_model_may_disagree(mol) {
+        return true;
+    }
+    if !mol.bonds().any(|(_, bond)| bond.order == BondOrder::Double) {
+        return false;
+    }
+    let ring_bonds = chematic_perception::ring_bond_flags_shared(mol);
+    mol.bonds()
+        .any(|(idx, bond)| ring_bonds[idx.0 as usize] && bond.order == BondOrder::Double)
+}
+
+#[cfg(test)]
+pub(crate) fn fingerprint_test_digest(fp: &bitvec::BitVec2048) -> u64 {
+    fp.to_le_bytes()
+        .iter()
+        .fold(0xcbf29ce484222325, |hash, byte| {
+            (hash ^ u64::from(*byte)).wrapping_mul(0x100000001b3)
+        })
+}
+
 /// RDKit's atomic number of an atom: 0 for a dummy atom, which chematic
 /// stores with a placeholder element.
 pub(crate) fn rdkit_atomic_num(mol: &chematic_core::Molecule, idx: chematic_core::AtomIdx) -> u32 {
@@ -172,5 +207,8 @@ pub(crate) fn rdkit_atomic_num(mol: &chematic_core::Molecule, idx: chematic_core
 }
 #[cfg(test)]
 mod avalon_boundary_contract_tests;
+
+#[cfg(test)]
+mod rdkit_aromatic_triple_contract_tests;
 
 pub use sparse_matrix::{SparseMatrixError, SparseTanimotoMetric, sparse_tanimoto_matrix_checked};

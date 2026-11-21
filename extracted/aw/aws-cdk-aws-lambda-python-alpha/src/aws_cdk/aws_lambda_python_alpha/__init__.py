@@ -976,6 +976,7 @@ class PythonFunction(
         bundling: typing.Optional[typing.Union["BundlingOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         handler: typing.Optional[builtins.str] = None,
         index: typing.Optional[builtins.str] = None,
+        accelerator_config: typing.Optional[typing.Union["_aws_cdk_aws_lambda_ceddda9d.AcceleratorConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         adot_instrumentation: typing.Optional[typing.Union["_aws_cdk_aws_lambda_ceddda9d.AdotInstrumentationConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         allow_all_ipv6_outbound: typing.Optional[builtins.bool] = None,
         allow_all_outbound: typing.Optional[builtins.bool] = None,
@@ -1037,6 +1038,7 @@ class PythonFunction(
         :param bundling: (experimental) Bundling options to use for this function. Use this to specify custom bundling options like the bundling Docker image, asset hash type, custom hash, architecture, etc. Default: - Use the default bundling Docker image, with x86_64 architecture.
         :param handler: (experimental) The name of the exported handler in the index file. Default: handler
         :param index: (experimental) The path (relative to entry) to the index file containing the exported handler. Default: index.py
+        :param accelerator_config: Accelerator configuration for the function. Configures the accelerator resource settings for the execution environment, including the amount of accelerator memory to allocate. The function must be attached to a capacity provider (``capacityProvider.addFunction(fn)``), use a container image (``Runtime.FROM_IMAGE``) on x86_64, and set ``memorySize`` to at least 2048 MiB. When set, ``ephemeralStorageSize`` may be up to 32 GiB. Default: - No accelerator configuration
         :param adot_instrumentation: Specify the configuration of AWS Distro for OpenTelemetry (ADOT) instrumentation. Default: - No ADOT instrumentation
         :param allow_all_ipv6_outbound: Whether to allow the Lambda to send all ipv6 network traffic. If set to true, there will only be a single egress rule which allows all outbound ipv6 traffic. If set to false, you must individually add traffic rules to allow the Lambda to connect to network targets using ipv6. Do not specify this property if the ``securityGroups`` or ``securityGroup`` property is set. Instead, configure ``allowAllIpv6Outbound`` directly on the security group. Default: false
         :param allow_all_outbound: Whether to allow the Lambda to send all network traffic (except ipv6). If set to false, you must individually add traffic rules to allow the Lambda to connect to network targets. Do not specify this property if the ``securityGroups`` or ``securityGroup`` property is set. Instead, configure ``allowAllOutbound`` directly on the security group. Default: true
@@ -1102,6 +1104,7 @@ class PythonFunction(
             bundling=bundling,
             handler=handler,
             index=index,
+            accelerator_config=accelerator_config,
             adot_instrumentation=adot_instrumentation,
             allow_all_ipv6_outbound=allow_all_ipv6_outbound,
             allow_all_outbound=allow_all_outbound,
@@ -1177,6 +1180,7 @@ class PythonFunction(
         "on_failure": "onFailure",
         "on_success": "onSuccess",
         "retry_attempts": "retryAttempts",
+        "accelerator_config": "acceleratorConfig",
         "adot_instrumentation": "adotInstrumentation",
         "allow_all_ipv6_outbound": "allowAllIpv6Outbound",
         "allow_all_outbound": "allowAllOutbound",
@@ -1240,6 +1244,7 @@ class PythonFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionOptions):
         on_failure: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.IDestination"] = None,
         on_success: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.IDestination"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
+        accelerator_config: typing.Optional[typing.Union["_aws_cdk_aws_lambda_ceddda9d.AcceleratorConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         adot_instrumentation: typing.Optional[typing.Union["_aws_cdk_aws_lambda_ceddda9d.AdotInstrumentationConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         allow_all_ipv6_outbound: typing.Optional[builtins.bool] = None,
         allow_all_outbound: typing.Optional[builtins.bool] = None,
@@ -1300,6 +1305,7 @@ class PythonFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionOptions):
         :param on_failure: The destination for failed invocations. Default: - no destination
         :param on_success: The destination for successful invocations. Default: - no destination
         :param retry_attempts: The maximum number of times to retry when the function returns an error. Minimum: 0 Maximum: 2 Default: 2
+        :param accelerator_config: Accelerator configuration for the function. Configures the accelerator resource settings for the execution environment, including the amount of accelerator memory to allocate. The function must be attached to a capacity provider (``capacityProvider.addFunction(fn)``), use a container image (``Runtime.FROM_IMAGE``) on x86_64, and set ``memorySize`` to at least 2048 MiB. When set, ``ephemeralStorageSize`` may be up to 32 GiB. Default: - No accelerator configuration
         :param adot_instrumentation: Specify the configuration of AWS Distro for OpenTelemetry (ADOT) instrumentation. Default: - No ADOT instrumentation
         :param allow_all_ipv6_outbound: Whether to allow the Lambda to send all ipv6 network traffic. If set to true, there will only be a single egress rule which allows all outbound ipv6 traffic. If set to false, you must individually add traffic rules to allow the Lambda to connect to network targets using ipv6. Do not specify this property if the ``securityGroups`` or ``securityGroup`` property is set. Instead, configure ``allowAllIpv6Outbound`` directly on the security group. Default: false
         :param allow_all_outbound: Whether to allow the Lambda to send all network traffic (except ipv6). If set to false, you must individually add traffic rules to allow the Lambda to connect to network targets. Do not specify this property if the ``securityGroups`` or ``securityGroup`` property is set. Instead, configure ``allowAllOutbound`` directly on the security group. Default: true
@@ -1370,6 +1376,8 @@ class PythonFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionOptions):
                 )
             )
         '''
+        if isinstance(accelerator_config, dict):
+            accelerator_config = _aws_cdk_aws_lambda_ceddda9d.AcceleratorConfig(**accelerator_config)
         if isinstance(adot_instrumentation, dict):
             adot_instrumentation = _aws_cdk_aws_lambda_ceddda9d.AdotInstrumentationConfig(**adot_instrumentation)
         if isinstance(current_version_options, dict):
@@ -1388,6 +1396,7 @@ class PythonFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionOptions):
             check_type(argname="argument on_failure", value=on_failure, expected_type=type_hints["on_failure"])
             check_type(argname="argument on_success", value=on_success, expected_type=type_hints["on_success"])
             check_type(argname="argument retry_attempts", value=retry_attempts, expected_type=type_hints["retry_attempts"])
+            check_type(argname="argument accelerator_config", value=accelerator_config, expected_type=type_hints["accelerator_config"])
             check_type(argname="argument adot_instrumentation", value=adot_instrumentation, expected_type=type_hints["adot_instrumentation"])
             check_type(argname="argument allow_all_ipv6_outbound", value=allow_all_ipv6_outbound, expected_type=type_hints["allow_all_ipv6_outbound"])
             check_type(argname="argument allow_all_outbound", value=allow_all_outbound, expected_type=type_hints["allow_all_outbound"])
@@ -1453,6 +1462,8 @@ class PythonFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionOptions):
             self._values["on_success"] = on_success
         if retry_attempts is not None:
             self._values["retry_attempts"] = retry_attempts
+        if accelerator_config is not None:
+            self._values["accelerator_config"] = accelerator_config
         if adot_instrumentation is not None:
             self._values["adot_instrumentation"] = adot_instrumentation
         if allow_all_ipv6_outbound is not None:
@@ -1601,6 +1612,25 @@ class PythonFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionOptions):
         '''
         result = self._values.get("retry_attempts")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def accelerator_config(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.AcceleratorConfig"]:
+        '''Accelerator configuration for the function.
+
+        Configures the accelerator resource settings for the execution environment, including
+        the amount of accelerator memory to allocate. The function must be attached to a
+        capacity provider (``capacityProvider.addFunction(fn)``), use a container image
+        (``Runtime.FROM_IMAGE``) on x86_64, and set ``memorySize`` to at least 2048 MiB.
+        When set, ``ephemeralStorageSize`` may be up to 32 GiB.
+
+        :default: - No accelerator configuration
+
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-lambda-function-acceleratorconfig.html
+        '''
+        result = self._values.get("accelerator_config")
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.AcceleratorConfig"], result)
 
     @builtins.property
     def adot_instrumentation(
@@ -2619,6 +2649,7 @@ def _typecheckingstub__5537a9d2877d6e8ff1275d2f45fdfd2900b726517ad0fa1c220fba47a
     bundling: typing.Optional[typing.Union[BundlingOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     handler: typing.Optional[builtins.str] = None,
     index: typing.Optional[builtins.str] = None,
+    accelerator_config: typing.Optional[typing.Union[_aws_cdk_aws_lambda_ceddda9d.AcceleratorConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     adot_instrumentation: typing.Optional[typing.Union[_aws_cdk_aws_lambda_ceddda9d.AdotInstrumentationConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     allow_all_ipv6_outbound: typing.Optional[builtins.bool] = None,
     allow_all_outbound: typing.Optional[builtins.bool] = None,
@@ -2681,6 +2712,7 @@ def _typecheckingstub__637cd4e3d3f8768a5067bfaaca86ae334c7670354dabddcb67008214b
     on_failure: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.IDestination] = None,
     on_success: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.IDestination] = None,
     retry_attempts: typing.Optional[jsii.Number] = None,
+    accelerator_config: typing.Optional[typing.Union[_aws_cdk_aws_lambda_ceddda9d.AcceleratorConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     adot_instrumentation: typing.Optional[typing.Union[_aws_cdk_aws_lambda_ceddda9d.AdotInstrumentationConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     allow_all_ipv6_outbound: typing.Optional[builtins.bool] = None,
     allow_all_outbound: typing.Optional[builtins.bool] = None,

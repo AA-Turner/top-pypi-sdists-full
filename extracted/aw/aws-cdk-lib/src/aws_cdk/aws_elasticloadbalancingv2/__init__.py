@@ -77,9 +77,12 @@ lb.add_security_group(security_group2)
 ### Conditions
 
 It's possible to route traffic to targets based on conditions in the incoming
-HTTP request. For example, the following will route requests to the indicated
-AutoScalingGroup only if the requested host in the request is either for
-`example.com/ok` or `example.com/path`:
+HTTP request.
+
+Path patterns, host headers, HTTP headers, query strings, HTTP
+request methods, and source IPs can all be used as conditions. For example, the
+following will route requests to the indicated AutoScalingGroup only if the
+requested host in the request is either for `example.com/ok` or `example.com/path`:
 
 ```python
 # listener: elbv2.ApplicationListener
@@ -97,13 +100,70 @@ listener.add_targets("Example.Com Fleet",
 )
 ```
 
-A target with a condition contains either `pathPatterns` or `hostHeader`, or
-both. If both are specified, both conditions must be met for the requests to
+If multiple conditions are specified, all conditions must be met for the requests to
 be routed to the given target. `priority` is a required field when you add
 targets with conditions. The lowest number wins.
 
 Every listener must have at least one target without conditions, which is
 where all requests that didn't match any of the conditions will be sent.
+
+#### Condition Types
+
+The following condition types are supported:
+
+* **Host headers** (`hostHeaders`) - Match against the host header in the request.
+  Supports wildcards (e.g., `*.example.com`).
+* **Host headers (regex)** (`hostHeadersRegex`) - Match against the host header using
+  regular expressions.
+* **Path patterns** (`pathPatterns`) - Match against the URL path. Supports wildcards
+  (e.g., `/api/*`).
+* **Path patterns (regex)** (`pathPatternsRegex`) - Match against the URL path using
+  regular expressions.
+* **HTTP headers** (`httpHeader`) - Match against a specific HTTP header name and value(s).
+* **HTTP headers (regex)** (`httpHeaderRegex`) - Match against a specific HTTP header
+  name using regular expressions for values.
+* **HTTP request methods** (`httpRequestMethods`) - Match against the HTTP request method
+  (e.g., GET, POST, PUT).
+* **Query strings** (`queryStrings`) - Match against query string key/value pairs.
+* **Source IPs** (`sourceIps`) - Match against the source IP address of the request.
+  Supports CIDR blocks.
+
+A listener rule can hold up to 5 host header, HTTP header and path pattern values in
+total, counting both plain and regex values across all of its conditions. A single
+`pathPatterns`, `pathPatternsRegex`, `hostHeadersRegex` or `httpHeaderRegex` condition
+with more than 5 values throws at synthesis; a rule whose conditions only exceed the limit
+together is rejected by the service at deployment.
+
+Example using multiple condition types:
+
+```python
+# listener: elbv2.ApplicationListener
+# asg: autoscaling.AutoScalingGroup
+
+
+listener.add_targets("API any version",
+    priority=10,
+    conditions=[
+        elbv2.ListenerCondition.path_patterns_regex(["/api/v[0-9]+/.*"]),
+        elbv2.ListenerCondition.http_request_methods(["GET", "POST"]),
+        elbv2.ListenerCondition.source_ips(["192.0.2.0/24", "198.51.100.0/24"])
+    ],
+    port=8080,
+    targets=[asg]
+)
+
+listener.add_targets("API v2 with custom header",
+    priority=20,
+    conditions=[
+        elbv2.ListenerCondition.path_patterns(["/api/v2/*"]),
+        elbv2.ListenerCondition.http_header("X-Custom-Header", ["value1", "value2"]),
+        elbv2.ListenerCondition.query_strings([elbv2.QueryStringCondition(key="version", value="2"), elbv2.QueryStringCondition(value="debug")
+        ])
+    ],
+    port=8080,
+    targets=[asg]
+)
+```
 
 ### Convenience methods and more complex Actions
 
@@ -18735,6 +18795,21 @@ class ListenerCondition(
             check_type(argname="argument values", value=values, expected_type=type_hints["values"])
         return typing.cast("ListenerCondition", jsii.sinvoke(cls, "hostHeaders", [values]))
 
+    @jsii.member(jsii_name="hostHeadersRegex")
+    @builtins.classmethod
+    def host_headers_regex(
+        cls,
+        values: typing.Sequence[builtins.str],
+    ) -> "ListenerCondition":
+        '''Create a host-header listener rule condition using regular expressions.
+
+        :param values: Regular expression patterns to match against the host header.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2dc5d37d31c48c58845db9c771f42dd393bc02b6320743ed08e1ad7c96f0d1d8)
+            check_type(argname="argument values", value=values, expected_type=type_hints["values"])
+        return typing.cast("ListenerCondition", jsii.sinvoke(cls, "hostHeadersRegex", [values]))
+
     @jsii.member(jsii_name="httpHeader")
     @builtins.classmethod
     def http_header(
@@ -18752,6 +18827,24 @@ class ListenerCondition(
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument values", value=values, expected_type=type_hints["values"])
         return typing.cast("ListenerCondition", jsii.sinvoke(cls, "httpHeader", [name, values]))
+
+    @jsii.member(jsii_name="httpHeaderRegex")
+    @builtins.classmethod
+    def http_header_regex(
+        cls,
+        name: builtins.str,
+        values: typing.Sequence[builtins.str],
+    ) -> "ListenerCondition":
+        '''Create a http-header listener rule condition using regular expressions.
+
+        :param name: HTTP header name.
+        :param values: Regular expression patterns to match against the HTTP header value.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3ea80716ef4db8d96942b3fd558f0ce84188e93e1af2b6e17fd76a026621737c)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument values", value=values, expected_type=type_hints["values"])
+        return typing.cast("ListenerCondition", jsii.sinvoke(cls, "httpHeaderRegex", [name, values]))
 
     @jsii.member(jsii_name="httpRequestMethods")
     @builtins.classmethod
@@ -18782,6 +18875,21 @@ class ListenerCondition(
             type_hints = cached_type_hints(_typecheckingstub__8b60d4b54aca477cbf4ac8f902eaced65fbf3aac05d1355958deda3ba12753f5)
             check_type(argname="argument values", value=values, expected_type=type_hints["values"])
         return typing.cast("ListenerCondition", jsii.sinvoke(cls, "pathPatterns", [values]))
+
+    @jsii.member(jsii_name="pathPatternsRegex")
+    @builtins.classmethod
+    def path_patterns_regex(
+        cls,
+        values: typing.Sequence[builtins.str],
+    ) -> "ListenerCondition":
+        '''Create a path-pattern listener rule condition using regular expressions.
+
+        :param values: Regular expression patterns to match against the request URL path.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__98fbff6a9a58a41fa6e35e02c1ce0251cbc80ad6f2116a149aa8db4cd6fc30e5)
+            check_type(argname="argument values", value=values, expected_type=type_hints["values"])
+        return typing.cast("ListenerCondition", jsii.sinvoke(cls, "pathPatternsRegex", [values]))
 
     @jsii.member(jsii_name="queryStrings")
     @builtins.classmethod
@@ -21912,6 +22020,66 @@ class SslPolicy(enum.Enum):
     FIPS-compliant with quantum resistance.
 
     :see: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/describe-ssl-policies.html#fips-security-policies
+    '''
+    RFC9151_TLS13_13 = "RFC9151_TLS13_13"
+    '''TLS 1.3 only, RFC 9151 (CNSA 1.0) strict policy. FIPS-compliant.
+
+    Supports the single cipher TLS_AES_256_GCM_SHA384. Use a strict policy only when all
+    clients can negotiate RFC 9151 algorithms.
+
+    :see: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/describe-ssl-policies.html#rfc9151-security-policies
+    '''
+    RFC9151_TLS13_12 = "RFC9151_TLS13_12"
+    '''TLS 1.2 and 1.3, RFC 9151 (CNSA 1.0) strict policy. FIPS-compliant.
+
+    Adds the ECDHE-ECDSA and ECDHE-RSA AES256-GCM-SHA384 ciphers on top of
+    {@link RFC9151_TLS13_13} for TLS 1.2 clients. Use a strict policy only when all clients
+    can negotiate RFC 9151 algorithms.
+
+    :see: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/describe-ssl-policies.html#rfc9151-security-policies
+    '''
+    RFC9151_TLS13_12_EXT0 = "RFC9151_TLS13_12_EXT0"
+    '''TLS 1.2 and 1.3, RFC 9151 (CNSA 1.0) strict policy. FIPS-compliant.
+
+    Same as {@link RFC9151_TLS13_12} plus the non-ECDHE AES256-GCM-SHA384 cipher (extended
+    cipher suite 0). Use a strict policy only when all clients can negotiate RFC 9151 algorithms.
+
+    :see: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/describe-ssl-policies.html#rfc9151-security-policies
+    '''
+    RFC9151_TLS13_12_INTEROP1 = "RFC9151_TLS13_12_INTEROP1"
+    '''TLS 1.2 and 1.3, RFC 9151 (CNSA 1.0) interoperability policy. FIPS-compliant.
+
+    Interop policies mix RFC 9151 and non-RFC 9151 ciphers so clients can transition gradually.
+    This variant adds the AES128-GCM-SHA256 ciphers (TLS_AES_128_GCM_SHA256,
+    ECDHE-ECDSA-AES128-GCM-SHA256, ECDHE-RSA-AES128-GCM-SHA256) to the RFC 9151 GCM ciphers.
+
+    :see: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/describe-ssl-policies.html#rfc9151-security-policies
+    '''
+    RFC9151_TLS13_12_INTEROP2 = "RFC9151_TLS13_12_INTEROP2"
+    '''TLS 1.2 and 1.3, RFC 9151 (CNSA 1.0) interoperability policy. FIPS-compliant.
+
+    Extends {@link RFC9151_TLS13_12_INTEROP1} with the AES-SHA256 CBC ciphers
+    (ECDHE-ECDSA/RSA-AES256-SHA384 and ECDHE-ECDSA/RSA-AES128-SHA256).
+
+    :see: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/describe-ssl-policies.html#rfc9151-security-policies
+    '''
+    RFC9151_TLS13_12_INTEROP3 = "RFC9151_TLS13_12_INTEROP3"
+    '''TLS 1.2 and 1.3, RFC 9151 (CNSA 1.0) interoperability policy. FIPS-compliant.
+
+    Adds the AES-SHA1 CBC ciphers (ECDHE-ECDSA/RSA-AES256-SHA and ECDHE-ECDSA/RSA-AES128-SHA)
+    on top of the GCM and SHA256 ciphers, for the widest client compatibility of the interop
+    policies.
+
+    :see: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/describe-ssl-policies.html#rfc9151-security-policies
+    '''
+    RFC9151_TLS13_12_INTEROP4 = "RFC9151_TLS13_12_INTEROP4"
+    '''TLS 1.2 and 1.3, RFC 9151 (CNSA 1.0) interoperability policy. FIPS-compliant.
+
+    AWS recommends starting with this policy: it supports clients that negotiate classical
+    TLS 1.3, TLS 1.2, or strict RFC 9151 algorithms, then move to a stricter policy as clients
+    gain RFC 9151 support. Also used for backend connections when any listener uses an RFC 9151 policy.
+
+    :see: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/describe-ssl-policies.html#rfc9151-security-policies
     '''
     FORWARD_SECRECY_TLS12_RES_GCM = "FORWARD_SECRECY_TLS12_RES_GCM"
     '''Strong foward secrecy ciphers and TLV1.2 only (2020 edition). Same as FORWARD_SECRECY_TLS12_RES, but only supports GCM versions of the TLS ciphers.'''
@@ -30996,7 +31164,20 @@ def _typecheckingstub__10d5f07092c3b8888c8d5362b326299d38120e00c976068cb41e6257a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__2dc5d37d31c48c58845db9c771f42dd393bc02b6320743ed08e1ad7c96f0d1d8(
+    values: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__117370ab05489df4cde4ad707add6e39d8b0afa2d50bbd1709a23af3ef982ecf(
+    name: builtins.str,
+    values: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3ea80716ef4db8d96942b3fd558f0ce84188e93e1af2b6e17fd76a026621737c(
     name: builtins.str,
     values: typing.Sequence[builtins.str],
 ) -> None:
@@ -31010,6 +31191,12 @@ def _typecheckingstub__09a6f0b4a54510be266fa4048d1be440f4a20c0f5e4e0ee55b70b8e6e
     pass
 
 def _typecheckingstub__8b60d4b54aca477cbf4ac8f902eaced65fbf3aac05d1355958deda3ba12753f5(
+    values: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__98fbff6a9a58a41fa6e35e02c1ce0251cbc80ad6f2116a149aa8db4cd6fc30e5(
     values: typing.Sequence[builtins.str],
 ) -> None:
     """Type checking stubs"""

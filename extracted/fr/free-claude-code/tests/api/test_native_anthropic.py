@@ -10,21 +10,29 @@ from fastapi.testclient import TestClient
 
 from free_claude_code.config.model_refs import ModelFallback
 from free_claude_code.config.settings import Settings
+from free_claude_code.core.json_types import JsonObject
 from free_claude_code.providers.base import BaseProvider
 from tests.api.support import create_test_app
 from tests.providers.support import without_empty_reasoning
 from tests.providers.test_anthropic_fallback_reasoning import model_metadata
 from tests.providers.test_anthropic_provider import native_body, provider
+from tests.wire_payload import (
+    array_payload,
+    decode_object,
+    object_payload,
+    response_object,
+    string_payload,
+)
 
 
 @pytest.mark.parametrize("effort", ["inherit", "client", "off", "low", "high", "max"])
-def test_native_fallback_applies_selected_effort_after_passthrough_primary(effort):
+def test_native_fallback_applies_selected_effort_after_passthrough_primary(effort: str):
     sent = []
 
-    def handle(request):
+    def handle(request: httpx.Request):
         if request.method == "GET":
             return httpx.Response(200, json=model_metadata() | {"id": "backup"})
-        body = json.loads(request.content)
+        body = decode_object(request.content)
         sent.append(body)
         if body["model"] == "primary":
             return httpx.Response(
@@ -67,14 +75,14 @@ def test_native_fallback_applies_selected_effort_after_passthrough_primary(effor
         assert sent[1]["output_config"] == {"format": {"type": "json_schema"}}
     else:
         assert sent[1]["thinking"] == {"type": "adaptive", "display": "omitted"}
-        assert sent[1]["output_config"]["effort"] == effort
+        assert object_payload(sent[1]["output_config"])["effort"] == effort
 
 
 def test_native_ingress_preserves_extensions_and_bypasses_local_processing():
     sent = []
 
-    def handle(request):
-        sent.append(json.loads(request.content))
+    def handle(request: httpx.Request):
+        sent.append(decode_object(request.content))
         return httpx.Response(
             200,
             json={
@@ -119,8 +127,8 @@ def test_native_ingress_preserves_extensions_and_bypasses_local_processing():
 def test_native_ingress_forwards_system_turns_for_upstream_to_judge():
     sent = []
 
-    def handle(request):
-        sent.append(json.loads(request.content))
+    def handle(request: httpx.Request):
+        sent.append(decode_object(request.content))
         return httpx.Response(
             200,
             json={
@@ -137,7 +145,7 @@ def test_native_ingress_forwards_system_turns_for_upstream_to_judge():
     )
     body = native_body()
     body["messages"] = [
-        *body["messages"],
+        *array_payload(body["messages"]),
         {"role": "system", "content": "reminder", "clear_at": "next_user_message"},
         {"role": "user", "content": "again"},
     ]
@@ -148,14 +156,16 @@ def test_native_ingress_forwards_system_turns_for_upstream_to_judge():
             json=body,
         )
     assert response.status_code == 200, response.text
-    assert without_empty_reasoning(sent[0])["messages"] == body["messages"]
+    assert (
+        object_payload(without_empty_reasoning(sent[0]))["messages"] == body["messages"]
+    )
 
 
 def test_native_fallback_excludes_compatibility_and_preserves_alias():
     sent = []
 
-    def handle(request):
-        body = json.loads(request.content)
+    def handle(request: httpx.Request):
+        body = decode_object(request.content)
         sent.append(body)
         if body["model"] == "primary":
             return httpx.Response(
@@ -207,10 +217,10 @@ def test_leading_pings_allow_exhausted_primary_to_reach_native_fallback():
     calls = []
     wires = []
 
-    def handle(request):
-        model = json.loads(request.content)["model"]
+    def handle(request: httpx.Request):
+        model = decode_object(request.content)["model"]
         calls.append(model)
-        events = (
+        events: list[JsonObject] = (
             [{"type": "error", "error": {"type": "overloaded_error"}}]
             if model == "primary"
             else _events()
@@ -237,7 +247,7 @@ def test_leading_pings_allow_exhausted_primary_to_reach_native_fallback():
     assert response.status_code == 200, response.text
     events = parse_sse_text(response.text)
     assert events[0].event == "message_start"
-    assert events[0].data["message"]["model"] == body["model"]
+    assert object_payload(events[0].data["message"])["model"] == body["model"]
     assert events[-1].event == "message_stop"
     assert calls == ["primary", "primary", "backup"]
     assert all(wire.closed for wire in wires)
@@ -249,7 +259,7 @@ def test_stream_failure_after_metadata_exhausts_then_uses_fallback():
 
     requests = []
 
-    def handle(request):
+    def handle(request: httpx.Request):
         requests.append(request)
         return httpx.Response(
             200,
@@ -279,7 +289,7 @@ def test_stream_failure_after_metadata_exhausts_then_uses_fallback():
     assert len(requests) == 4
     assert json.loads(requests[0].content) == json.loads(requests[1].content)
     assert json.loads(requests[2].content) == json.loads(requests[3].content)
-    assert [json.loads(request.content)["model"] for request in requests] == [
+    assert [decode_object(request.content)["model"] for request in requests] == [
         "primary",
         "primary",
         "backup",
@@ -290,7 +300,7 @@ def test_stream_failure_after_metadata_exhausts_then_uses_fallback():
 @pytest.mark.parametrize("view", ["claude", "claude-desktop", "messages"])
 @pytest.mark.parametrize("thinking", [False, True, None])
 def test_native_model_catalog_does_not_advertise_ignored_thinking_variant(
-    view, thinking
+    view: str, thinking: bool | None
 ):
     from free_claude_code.application.model_metadata import ProviderModelInfo
     from free_claude_code.core.gateway_model_ids import decode_gateway_model_id
@@ -301,10 +311,14 @@ def test_native_model_catalog_does_not_advertise_ignored_thinking_variant(
         "anthropic", [ProviderModelInfo("selected", supports_thinking=thinking)]
     )
     with TestClient(app) as client:
-        rows = client.get(f"/v1/models?view={view}").json()
-    native = [row for row in rows["data"] if "anthropic" in row["display_name"]]
+        rows = response_object(client.get(f"/v1/models?view={view}"))
+    native = [
+        row
+        for row in array_payload(rows["data"])
+        if "anthropic" in string_payload(object_payload(row)["display_name"])
+    ]
     assert len(native) == 1
-    decoded = decode_gateway_model_id(native[0]["id"])
+    decoded = decode_gateway_model_id(string_payload(object_payload(native[0])["id"]))
     assert decoded is None or not decoded.force_reasoning_off
     if view == "messages":
         assert rows["default_model_id"] == "anthropic/selected"
@@ -313,7 +327,7 @@ def test_native_model_catalog_does_not_advertise_ignored_thinking_variant(
 def test_native_proxy_auth_remains_separate_from_upstream_key():
     calls = []
 
-    def handle(request):
+    def handle(request: httpx.Request):
         calls.append(request)
         return httpx.Response(
             200, json={"stop_reason": "end_turn", "type": "message", "content": []}
@@ -351,10 +365,10 @@ def test_compatibility_primary_keeps_conversion_when_anthropic_is_fallback():
 
     sent = []
 
-    def handle(request):
+    def handle(request: httpx.Request):
         if request.method == "GET":
             return httpx.Response(200, json=metadata("backup", True))
-        sent.append(json.loads(request.content))
+        sent.append(decode_object(request.content))
         return httpx.Response(
             200, headers={"content-type": "text/event-stream"}, content=_sse(*_events())
         )

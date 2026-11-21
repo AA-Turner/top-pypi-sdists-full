@@ -19,18 +19,39 @@ from pydantic import BaseModel
 from starlette.datastructures import FormData
 
 from cadwyn._internal.context_vars import CURRENT_DEPENDENCY_SOLVER_VAR
-from cadwyn.exceptions import (
+from cadwyn_core.exceptions import (
     CadwynHeadRequestValidationError,
 )
-from cadwyn.structure.common import VersionType
-from cadwyn.structure.data import (
+from cadwyn_core.structure.common import VersionType
+from cadwyn_core.structure.data import (
     RequestInfo,
 )
+from cadwyn_core.structure.versions._aliases import _rescue_body
+from cadwyn_core.structure.versions._common import _CADWYN_REQUEST_PARAM_NAME
+from cadwyn_core.structure.versions._enums import (
+    _can_body_have_lazy_iterators,
+    _can_lazy_items_be_plain_enum_copies,
+    _get_lazy_item_walker,
+    _to_head_values,
+)
+from cadwyn_core.structure.versions._json import (
+    _ClientJsonStrings,
+    _copy_decoded_json_strings,
+    _encode_planned_json_values,
+    _get_route_json_values_plan,
+)
+from cadwyn_core.structure.versions._migration_targets import (
+    _UNKNOWN_BODY,
+    _get_union_member_of_body,
+    _no_union_member,
+    _raise_unknown_union_member_of_body,
+    _SchemaMigrationTarget,
+)
+from cadwyn_core.structure.versions._migrations import _dump_request_body, _run_request_migrations
 
-from ._aliases import _rescue_body
 from ._body_inputs import _to_head_input
-from ._common import _CADWYN_REQUEST_PARAM_NAME
 from ._compat import _OMITTED_BODY
+from ._dependencies import _has_other_body_readers, _has_several_body_readers
 from ._forms import (
     _body_is_in_kwargs,
     _embed_form_model,
@@ -44,16 +65,7 @@ from ._forms import (
     _migrated_body_supplies_omitted_form_model,
     _unembed_form_model_errors,
 )
-from ._json import _ClientJsonStrings, _copy_decoded_json_strings, _encode_json_values, _get_route_json_values_plan
-from ._migration_targets import (
-    _UNKNOWN_BODY,
-    _get_schema_migrations,
-    _get_union_member_of_body,
-    _no_union_member,
-    _raise_unknown_union_member_of_body,
-    _SchemaMigrationTarget,
-)
-from ._request_body import _dump_request_body, _get_body, _get_strict_content_type, _run_request_migration
+from ._request_body import _get_body, _get_strict_content_type
 from ._uploads import (
     _get_uploads_read_by_fastapi,
     _get_uploads_to_close,
@@ -62,7 +74,7 @@ from ._uploads import (
 )
 
 if TYPE_CHECKING:
-    from ._bundle import VersionBundle
+    from cadwyn_core.structure.versions._bundle import VersionBundle
 
 
 async def _migrate_request(
@@ -86,22 +98,11 @@ async def _migrate_request(
     get_body_union_member: "Callable[[], Union[type[BaseModel], None]]",
     client_json_strings: "_ClientJsonStrings",
 ) -> dict[str, Any]:
-    start = versions.reversed_version_values.index(current_version)
-    head_route_id = id(head_route)
-    has_run_migrations = False
     # Migrations can put new uploads into the form, which FastAPI doesn't know about
     uploads = _get_uploads_to_close(request) if request_info._form is not None else None
-    for v in versions.reversed_versions[start + 1 :]:
-        for version_change in v.changes:
-            for instruction in _get_schema_migrations(
-                version_change.alter_request_by_schema_instructions, body_target, get_body_union_member
-            ):
-                _run_request_migration(instruction, request_info, uploads)
-                has_run_migrations = True
-            if head_route_id in version_change._route_to_request_migration_mapping:
-                for instruction in version_change._route_to_request_migration_mapping[head_route_id]:
-                    _run_request_migration(instruction, request_info, uploads)
-                    has_run_migrations = True
+    has_run_migrations = _run_request_migrations(
+        versions, request_info, current_version, body_target, get_body_union_member, head_route, uploads
+    )
     if has_run_migrations:
         client_json_strings.forget_shared_strings()
 
@@ -113,7 +114,7 @@ async def _migrate_request(
     form_model_lookup = _FormModelLookup(head_dependant)
     # Request migrations got the members of the copies of enums, as they always did, but the head gets its own ones.
     # Each param that reads the body gets its own iterator over each lazy value, as in plain FastAPI.
-    body_with_head_members = versions._to_head_values(request_info.body, route, head_dependant, head_route)
+    body_with_head_members = _get_head_values(versions, request_info.body, route, head_dependant, head_route)
     if request_info._form is not None:
         if uploads_read_by_fastapi:
             await _rewind_uploads_read_by_fastapi(request_info._form, uploads_read_by_fastapi)
@@ -182,7 +183,8 @@ async def _migrate_request(
             head_route,
             route,
             # The models that we replace with data can have members of copies of enums and lazy values too
-            versions._to_head_values(
+            _get_head_values(
+                versions,
                 _to_head_input(
                     route, head_dependant, head_route, request_info.body, embed_body_fields=embed_body_fields
                 ),
@@ -292,7 +294,8 @@ async def _convert_endpoint_kwargs_to_version(
         get_body_union_member = functools.partial(
             _get_union_member_of_body, validated_body, request_target.union_members, head_body_field
         )
-    new_kwargs = await versions._migrate_request(
+    new_kwargs = await _migrate_request(
+        versions,
         request_target,
         head_dependant,
         request,
@@ -316,3 +319,57 @@ async def _convert_endpoint_kwargs_to_version(
         new_kwargs.pop(_CADWYN_REQUEST_PARAM_NAME)
 
     return new_kwargs
+
+
+def _get_head_values(
+    versions: "VersionBundle", body: Any, route: APIRoute, head_dependant: Dependant, head_route: APIRoute
+) -> Any:
+    """Return the migrated body with the values that the head needs (see `_to_head_values`)"""
+    replace_enum_members = versions._has_versioned_plain_enums
+    # A single param can't share the iterators with anyone
+    replay_lazy_iterators = _can_body_have_lazy_iterators(route, in_lazy_items=False) and _has_several_body_readers(
+        head_dependant, head_route
+    )
+    if not replace_enum_members and not replay_lazy_iterators:
+        return body
+    replace_lazy_enum_members = replace_enum_members and _can_lazy_items_be_plain_enum_copies(route)
+    walk_lazy_items = replace_lazy_enum_members or (
+        replay_lazy_iterators and _can_body_have_lazy_iterators(route, in_lazy_items=True)
+    )
+    return _to_head_values(
+        body,
+        replace_enum_members=replace_enum_members,
+        replay_lazy_iterators=replay_lazy_iterators,
+        walk_lazy_item=_get_lazy_item_walker(
+            replace_enum_members=replace_lazy_enum_members, replay_lazy_iterators=replay_lazy_iterators
+        )
+        if walk_lazy_items
+        else None,
+    )
+
+
+async def _encode_json_values(
+    request: FastapiRequest,
+    head_dependant: Dependant,
+    head_route: APIRoute,
+    route: APIRoute,
+    body: Any,
+    client_json_strings: _ClientJsonStrings,
+    *,
+    embed_body_fields: bool,
+) -> Any:
+    """Return a copy of the migrated body with the parsed values of the head's `Json[...]` fields encoded as JSON.
+
+    We dump bodies in Python mode, so `Json[...]` fields get their parsed values, which they reject because they only
+    accept strings and bytes, or decode once more if they are strings. Request migrations see these parsed values,
+    so we encode them only for the head. We only encode the values that we can find for sure: anything else stays as
+    it is and fails as before.
+    """
+    plan = _get_route_json_values_plan(head_dependant, route, embed_body_fields=embed_body_fields)
+    # FastAPI gives the body param its default without validating it if the request has no body, so the values of
+    # the default might not have the types that the request's version validates them into
+    if plan is None or await _fastapi_got_no_body(request, route, embed_body_fields=embed_body_fields):
+        return body
+    return _encode_planned_json_values(
+        plan, body, client_json_strings, functools.partial(_has_other_body_readers, head_dependant, head_route)
+    )

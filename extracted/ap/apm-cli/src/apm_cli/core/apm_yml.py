@@ -20,7 +20,12 @@ from apm_cli.core.errors import (
     render_conflicting_schema_error,
     render_unknown_target_error,
 )
-from apm_cli.core.target_catalog import get_target_capability, manifest_target_names
+from apm_cli.core.target_catalog import (
+    canonical_target_token,
+    get_target_capability,
+    is_vendor_target_id,
+    manifest_target_names,
+)
 
 # Canonical target names accepted by APM.
 CANONICAL_TARGETS: frozenset[str] = manifest_target_names()
@@ -36,7 +41,7 @@ CANONICAL_TARGETS: frozenset[str] = manifest_target_names()
 _legacy_all_warned: bool = False
 _LEGACY_ALL_TARGET_NAME = "all"
 _EMPTY_TARGETS_MESSAGE = (
-    "[x] 'targets:' in apm.yml is empty\n"
+    "'targets:' in apm.yml is empty\n"
     "\n"
     "The targets list must contain at least one target.\n"
     "\n"
@@ -97,6 +102,8 @@ def _warn_legacy_all_once() -> None:
 def _validate_canonical(tokens: list[str]) -> None:
     """Validate every token is in CANONICAL_TARGETS. Raises UnknownTargetError."""
     for token in tokens:
+        if is_vendor_target_id(token):
+            continue
         try:
             capability = get_target_capability(token)
         except KeyError:
@@ -111,7 +118,13 @@ def _validate_canonical(tokens: list[str]) -> None:
 
 
 def _validate_and_fold_legacy_all(tokens: list[str]) -> list[str]:
-    """Validate tokens and fold legacy 'all' to the omitted-field behavior."""
+    """Validate tokens and fold legacy 'all' to the omitted-field behavior.
+
+    Deprecated aliases (``vscode``) are canonicalised to the target they
+    select and deduplicated; the consumer manifest's warning is emitted by
+    the declaration owner (``models/manifest_targets.py``).
+    """
+    tokens = list(dict.fromkeys(canonical_target_token(token) for token in tokens))
     tokens, folded = _fold_legacy_all(tokens)
     _validate_canonical(tokens)
     if folded:

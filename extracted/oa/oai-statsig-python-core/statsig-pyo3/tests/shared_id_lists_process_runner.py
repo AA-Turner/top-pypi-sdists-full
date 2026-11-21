@@ -32,6 +32,7 @@ def _worker(connection, index, config):
 
     def start():
         nonlocal sdk, running
+        flags = config.get("experimental_flags")
         sdk = Statsig(
             config.get("sdk_key", "secret-local-shared-id-lists"),
             StatsigOptions(
@@ -40,6 +41,8 @@ def _worker(connection, index, config):
                 log_event_url=config["log_event_url"],
                 shared_id_lists_dir=config.get("shared_id_lists_dir"),
                 enable_id_list_elias_fano=config.get("enable_id_list_elias_fano"),
+                lazy_load_id_lists=config.get("lazy_load_id_lists"),
+                experimental_flags=set(flags) if flags is not None else None,
                 enable_id_lists=config.get("enable_id_lists", True),
                 disable_disk_access=config.get("disable_disk_access", False),
                 specs_sync_interval_ms=60_000,

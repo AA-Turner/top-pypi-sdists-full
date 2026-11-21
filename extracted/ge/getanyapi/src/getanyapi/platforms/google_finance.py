@@ -140,7 +140,7 @@ class GoogleFinanceNamespace:
         figures (open, day high/low, previous close, volume, market cap, and the
         52-week range).
 
-        Price: $0.00006 per request plus $0.0011 per result (maximum $0.00116).
+        Price: $0.00006 per request plus $0.0012 per result (maximum $0.00126).
 
         Example:
             res = client.google_finance.quote(symbol="AAPL:NASDAQ")
@@ -171,7 +171,7 @@ class AsyncGoogleFinanceNamespace:
         figures (open, day high/low, previous close, volume, market cap, and the
         52-week range).
 
-        Price: $0.00006 per request plus $0.0011 per result (maximum $0.00116).
+        Price: $0.00006 per request plus $0.0012 per result (maximum $0.00126).
 
         Example:
             res = client.google_finance.quote(symbol="AAPL:NASDAQ")

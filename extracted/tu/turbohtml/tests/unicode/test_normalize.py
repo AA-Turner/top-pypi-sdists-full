@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import unicodedata
 from itertools import product
 from typing import Final
@@ -58,10 +59,6 @@ _VECTORS: Final[tuple[tuple[str, str, str, str, str], ...]] = (
     ("\u03d3", "\u03d3", "\u03d2\u0301", "\u038e", "\u03a5\u0301"),
 )
 
-# Combining sequences whose exact output shifts across Unicode versions but whose invariants do not, so they validate
-# the engine's reordering, composition, and blocking on every interpreter. The empty prefix yields mark-leading
-# sequences, so a lower-class mark can bubble to the front during reordering.
-_STARTERS: Final[tuple[str, ...]] = ("", "a", "e", "\u00c5", "\u1100", "\uac00", "\u2126", "\ufb01", "o")
 _MARKS: Final[tuple[str, ...]] = (
     "\u0301",
     "\u0316",
@@ -115,7 +112,9 @@ def test_compose_equals_composing_the_decomposition_over_the_whole_range(
 
 @pytest.mark.parametrize("form", _FORMS)
 def test_two_mark_sequences_hold_the_invariants(form: NormalizationForm) -> None:
-    corpus = [start + first + second for start in _STARTERS for first, second in product(_MARKS, repeat=2)]
+    # Normalized output can vary by Unicode version. An empty starter lets a lower-class mark reorder to the front.
+    starters: tuple[str, ...] = ("", "a", "e", "\u00c5", "\u1100", "\uac00", "\u2126", "\ufb01", "o")
+    corpus = [start + first + second for start in starters for first, second in product(_MARKS, repeat=2)]
     unstable = [text for text in corpus if (once := normalize(form, text)) != normalize(form, once)]
     inconsistent = [text for text in corpus if is_normalized(form, text) is not (normalize(form, text) == text)]
     assert (unstable, inconsistent) == ([], [])
@@ -166,11 +165,36 @@ def test_invalid_form_raises_value_error(bad: str) -> None:
         is_normalized(bad, "x")  # ty: ignore[invalid-argument-type]  # exercises the form guard
 
 
-def test_non_string_text_raises_type_error() -> None:
-    with pytest.raises(TypeError):
-        normalize("NFC", 123)  # ty: ignore[invalid-argument-type]  # exercises the C str guard
-    with pytest.raises(TypeError):
-        is_normalized("NFC", b"bytes")  # ty: ignore[invalid-argument-type]  # exercises the C str guard
+@pytest.mark.parametrize("bad", [pytest.param(1, id="int"), pytest.param(None, id="none")])
+def test_non_string_form_raises_value_error(bad: int | None) -> None:
+    with pytest.raises(ValueError, match="invalid normalization form"):
+        normalize(bad, "x")  # ty: ignore[invalid-argument-type]  # exercises the form lookup
+    with pytest.raises(ValueError, match="invalid normalization form"):
+        is_normalized(bad, "x")  # ty: ignore[invalid-argument-type]  # exercises the form lookup
+
+
+def test_unhashable_form_raises_the_dict_key_type_error() -> None:
+    with pytest.raises(TypeError) as lookup:
+        {}.get(["NFC"])
+    with pytest.raises(TypeError, match=f"^{re.escape(str(lookup.value))}$"):
+        normalize(["NFC"], "x")  # ty: ignore[invalid-argument-type]  # exercises the form lookup
+    with pytest.raises(TypeError, match=f"^{re.escape(str(lookup.value))}$"):
+        is_normalized(["NFC"], "x")  # ty: ignore[invalid-argument-type]  # exercises the form lookup
+
+
+@pytest.mark.parametrize(
+    ("text", "name"),
+    [
+        pytest.param(None, "None", id="none"),
+        pytest.param(123, "int", id="int"),
+        pytest.param(b"bytes", "bytes", id="bytes"),
+    ],
+)
+def test_non_string_text_raises_type_error(text: int | bytes | None, name: str) -> None:
+    with pytest.raises(TypeError, match=f"argument 2 must be str, not {name}"):
+        normalize("NFC", text)  # ty: ignore[invalid-argument-type]  # exercises the C str guard
+    with pytest.raises(TypeError, match=f"argument 2 must be str, not {name}"):
+        is_normalized("NFC", text)  # ty: ignore[invalid-argument-type]  # exercises the C str guard
 
 
 # Extra cross-check against the running interpreter's unicodedata. It runs only where that interpreter's Unicode matches

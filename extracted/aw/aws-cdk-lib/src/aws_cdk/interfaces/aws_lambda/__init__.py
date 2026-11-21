@@ -939,6 +939,141 @@ class _IResourcePolicyRefProxy(
 typing.cast(typing.Any, IResourcePolicyRef).__jsii_proxy_class__ = lambda : _IResourcePolicyRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_lambda.IRuntimeAliasRef")
+class IRuntimeAliasRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a RuntimeAlias.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="runtimeAliasRef")
+    def runtime_alias_ref(self) -> "RuntimeAliasReference":
+        '''(experimental) A reference to a RuntimeAlias resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IRuntimeAliasRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a RuntimeAlias.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_lambda.IRuntimeAliasRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="runtimeAliasRef")
+    def runtime_alias_ref(self) -> "RuntimeAliasReference":
+        '''(experimental) A reference to a RuntimeAlias resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("RuntimeAliasReference", jsii.get(self, "runtimeAliasRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IRuntimeAliasRef).__jsii_proxy_class__ = lambda : _IRuntimeAliasRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_lambda.IRuntimeRef")
+class IRuntimeRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Runtime.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="runtimeRef")
+    def runtime_ref(self) -> "RuntimeReference":
+        '''(experimental) A reference to a Runtime resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IRuntimeRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Runtime.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_lambda.IRuntimeRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="runtimeRef")
+    def runtime_ref(self) -> "RuntimeReference":
+        '''(experimental) A reference to a Runtime resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("RuntimeReference", jsii.get(self, "runtimeRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IRuntimeRef).__jsii_proxy_class__ = lambda : _IRuntimeRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_lambda.IRuntimeVersionRef")
+class IRuntimeVersionRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a RuntimeVersion.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="runtimeVersionRef")
+    def runtime_version_ref(self) -> "RuntimeVersionReference":
+        '''(experimental) A reference to a RuntimeVersion resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IRuntimeVersionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a RuntimeVersion.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_lambda.IRuntimeVersionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="runtimeVersionRef")
+    def runtime_version_ref(self) -> "RuntimeVersionReference":
+        '''(experimental) A reference to a RuntimeVersion resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("RuntimeVersionReference", jsii.get(self, "runtimeVersionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IRuntimeVersionRef).__jsii_proxy_class__ = lambda : _IRuntimeVersionRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_lambda.IUrlRef")
 class IUrlRef(
     _constructs_77d1e7e8.IConstruct,
@@ -1475,6 +1610,153 @@ class ResourcePolicyReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_lambda.RuntimeAliasReference",
+    jsii_struct_bases=[],
+    name_mapping={"runtime_alias_arn": "runtimeAliasArn"},
+)
+class RuntimeAliasReference:
+    def __init__(self, *, runtime_alias_arn: builtins.str) -> None:
+        '''A reference to a RuntimeAlias resource.
+
+        :param runtime_alias_arn: The Arn of the RuntimeAlias resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_lambda as interfaces_lambda
+            
+            runtime_alias_reference = interfaces_lambda.RuntimeAliasReference(
+                runtime_alias_arn="runtimeAliasArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__27662ebc152e10c25eb87f336c5efccb177cb44dca23b8f56a95909949dd3f95)
+            check_type(argname="argument runtime_alias_arn", value=runtime_alias_arn, expected_type=type_hints["runtime_alias_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "runtime_alias_arn": runtime_alias_arn,
+        }
+
+    @builtins.property
+    def runtime_alias_arn(self) -> builtins.str:
+        '''The Arn of the RuntimeAlias resource.'''
+        result = self._values.get("runtime_alias_arn")
+        assert result is not None, "Required property 'runtime_alias_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RuntimeAliasReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_lambda.RuntimeReference",
+    jsii_struct_bases=[],
+    name_mapping={"runtime_arn": "runtimeArn"},
+)
+class RuntimeReference:
+    def __init__(self, *, runtime_arn: builtins.str) -> None:
+        '''A reference to a Runtime resource.
+
+        :param runtime_arn: The Arn of the Runtime resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_lambda as interfaces_lambda
+            
+            runtime_reference = interfaces_lambda.RuntimeReference(
+                runtime_arn="runtimeArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a9ba827410b7b4665a13f7e361bca7a862bbebe754cdd6abf9ccc6d7922ffa56)
+            check_type(argname="argument runtime_arn", value=runtime_arn, expected_type=type_hints["runtime_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "runtime_arn": runtime_arn,
+        }
+
+    @builtins.property
+    def runtime_arn(self) -> builtins.str:
+        '''The Arn of the Runtime resource.'''
+        result = self._values.get("runtime_arn")
+        assert result is not None, "Required property 'runtime_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RuntimeReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_lambda.RuntimeVersionReference",
+    jsii_struct_bases=[],
+    name_mapping={"runtime_version_arn": "runtimeVersionArn"},
+)
+class RuntimeVersionReference:
+    def __init__(self, *, runtime_version_arn: builtins.str) -> None:
+        '''A reference to a RuntimeVersion resource.
+
+        :param runtime_version_arn: The Arn of the RuntimeVersion resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_lambda as interfaces_lambda
+            
+            runtime_version_reference = interfaces_lambda.RuntimeVersionReference(
+                runtime_version_arn="runtimeVersionArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e5bbf3ca712cd9b90d9f61113ba6037b45bbd61d0013af54a7e4a35744723610)
+            check_type(argname="argument runtime_version_arn", value=runtime_version_arn, expected_type=type_hints["runtime_version_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "runtime_version_arn": runtime_version_arn,
+        }
+
+    @builtins.property
+    def runtime_version_arn(self) -> builtins.str:
+        '''The Arn of the RuntimeVersion resource.'''
+        result = self._values.get("runtime_version_arn")
+        assert result is not None, "Required property 'runtime_version_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RuntimeVersionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_lambda.UrlReference",
     jsii_struct_bases=[],
     name_mapping={"function_arn": "functionArn"},
@@ -1754,6 +2036,9 @@ __all__ = [
     "INetworkConnectorRef",
     "IPermissionRef",
     "IResourcePolicyRef",
+    "IRuntimeAliasRef",
+    "IRuntimeRef",
+    "IRuntimeVersionRef",
     "IUrlRef",
     "IVersionRef",
     "IWebFunctionEndpointRef",
@@ -1765,6 +2050,9 @@ __all__ = [
     "NetworkConnectorReference",
     "PermissionReference",
     "ResourcePolicyReference",
+    "RuntimeAliasReference",
+    "RuntimeReference",
+    "RuntimeVersionReference",
     "UrlReference",
     "VersionReference",
     "WebFunctionEndpointReference",
@@ -1863,6 +2151,27 @@ def _typecheckingstub__e4fff31c6055c9ef697bb2ed7e59004d538d89f2ef8bb8951ed19fc54
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__27662ebc152e10c25eb87f336c5efccb177cb44dca23b8f56a95909949dd3f95(
+    *,
+    runtime_alias_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a9ba827410b7b4665a13f7e361bca7a862bbebe754cdd6abf9ccc6d7922ffa56(
+    *,
+    runtime_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e5bbf3ca712cd9b90d9f61113ba6037b45bbd61d0013af54a7e4a35744723610(
+    *,
+    runtime_version_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__7993d40300b6226e3801bcd00ef035491568259a4dee9da3e5a1980adb1133eb(
     *,
     function_arn: builtins.str,
@@ -1899,5 +2208,5 @@ def _typecheckingstub__07297b4f50f251ad77c407dbd8fb66167d358dac1ef6778d68cb3008a
     """Type checking stubs"""
     pass
 
-for cls in [IAliasRef, ICapacityProviderRef, ICodeSigningConfigRef, IEventInvokeConfigRef, IEventSourceMappingRef, IFunctionRef, ILayerVersionPermissionRef, ILayerVersionRef, IMicrovmImageRef, INetworkConnectorRef, IPermissionRef, IResourcePolicyRef, IUrlRef, IVersionRef, IWebFunctionEndpointRef, IWebFunctionRef, IWebFunctionRevisionRef]:
+for cls in [IAliasRef, ICapacityProviderRef, ICodeSigningConfigRef, IEventInvokeConfigRef, IEventSourceMappingRef, IFunctionRef, ILayerVersionPermissionRef, ILayerVersionRef, IMicrovmImageRef, INetworkConnectorRef, IPermissionRef, IResourcePolicyRef, IRuntimeAliasRef, IRuntimeRef, IRuntimeVersionRef, IUrlRef, IVersionRef, IWebFunctionEndpointRef, IWebFunctionRef, IWebFunctionRevisionRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

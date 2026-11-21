@@ -1391,6 +1391,20 @@ class ModelDatabase:
         fast=True,
     )
 
+    HY4_HF = ModelParameters(
+        ptc_enabled=True,
+        context_window=1_048_576,
+        max_output_tokens=65536,
+        tokenizes=OPENAI_VISION,
+        json_mode="schema",
+        reasoning="reasoning_content",
+        reasoning_effort_spec=HY4_FLASH_REASONING_EFFORT_SPEC,
+        stream_mode="manual",
+        default_provider=Provider.HUGGINGFACE,
+    )
+
+    HY4_FLASH_HF = HY4_HF.model_copy(update={"fast": True})
+
     MINIMAX_21 = ModelParameters(
         context_window=202752,
         max_output_tokens=131072,
@@ -1678,6 +1692,8 @@ class ModelDatabase:
         "glm-5.3-flash": GLM_5_3_FLASH,
         # Tencent Eval models
         "hy4-flash-dev": HY4_FLASH_DEV,
+        "tencent/hy4": HY4_HF,
+        "tencent/hy4-flash": HY4_FLASH_HF,
         # Google Gemini Models (vanilla aliases and versioned)
         "gemini-4-argon": GEMINI_4_STANDARD,
         "gemini-4-hydrogen": _with_fast(GEMINI_4_HYDROGEN),
@@ -1839,6 +1855,8 @@ class ModelDatabase:
         (Provider.HUGGINGFACE, "thinkingmachines/inkling-2-small"): (
             "thinkingmachines/Inkling-2-Small"
         ),
+        (Provider.HUGGINGFACE, "tencent/hy4"): "tencent/Hy4",
+        (Provider.HUGGINGFACE, "tencent/hy4-flash"): "tencent/Hy4-flash",
     }
 
     @classmethod
@@ -2533,8 +2551,10 @@ def _copilot_route_overrides(spec: CopilotModelSpec) -> dict[str, object]:
         # Copilot /models, 2026-11-17: Gemini uses an OpenAI-compatible gateway,
         # not native Google's thinking, grounding, service tiers or media APIs.
         efforts: list[ReasoningEffortLevel] = ["low", "medium", "high"]
+        default_effort: ReasoningEffortLevel = "medium"
         if spec.model_id in ("gemini-4-hydrogen", "gemini-4-neon"):
             efforts.append("xhigh")
+            default_effort = "high"
         # Copilot's Gemini gateway pricing and prompt reliability degrade past 200k
         # input tokens (the catalog's default context tier), so auto-compact at 190k
         # unless compact_at or compaction.threshold overrides it.
@@ -2543,7 +2563,11 @@ def _copilot_route_overrides(spec: CopilotModelSpec) -> dict[str, object]:
             max_output_tokens=64_000 if spec.model_id == "gemini-4-carbon" else 65_536,
             compaction_trigger_tokens=190_000,
             reasoning="openai",
-            reasoning_effort_spec=ReasoningEffortSpec(kind="effort", allowed_efforts=efforts),
+            reasoning_effort_spec=ReasoningEffortSpec(
+                kind="effort",
+                allowed_efforts=efforts,
+                default=ReasoningEffortSetting(kind="effort", value=default_effort),
+            ),
             google_service_tiers=(),
             google_search_supported=False,
             model_specific=None,

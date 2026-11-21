@@ -93,9 +93,7 @@ impl Fixture {
         .suppress_diagnostic_output(silent);
         let mut adapter = StatsigHttpIdListsAdapter::new(&sdk_key, &options);
         let dynamic: Arc<dyn NetworkProvider> = provider.clone();
-        adapter
-            .network
-            .set_network_provider_for_test(Arc::downgrade(&dynamic));
+        adapter.set_network_provider_for_test(Arc::downgrade(&dynamic));
         let store = Arc::new(SpecStore::new_with_snapshot_evaluation_session_options(
             &sdk_key,
             "id-list-propagation-test".into(),

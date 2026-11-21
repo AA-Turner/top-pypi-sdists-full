@@ -49,24 +49,30 @@ PyObject *turbohtml_register_xpath_string(PyObject *module, PyObject *type);
    reuses. _detect runs the encoding sniff (BOM, <meta> prescan, content detection)
    over a byte buffer without parsing, narrowed by the host's rightmost DNS label when one
    is given; the turbohtml.detect facade shapes its (winner, certain, ranked scores, bom)
-   tuple into EncodingMatch results. METH_VARARGS. */
+   tuple into EncodingMatch results, or, given a cache dict and a settle callable, takes a
+   settled answer from the cache. METH_FASTCALL. */
 PyObject *turbohtml_extract_boilerplate(PyObject *module, PyObject *args);
-PyObject *turbohtml_detect_encoding(PyObject *module, PyObject *args);
+PyObject *turbohtml_detect_encoding(PyObject *module, PyObject *const *args, Py_ssize_t nargs);
 PyObject *turbohtml_detect_rank(PyObject *module, PyObject *args);
 
 /* The streaming encoding detector type, registered on the module as _DetectStream. */
 extern PyType_Spec detect_stream_spec;
+/* The single-byte detector's derived tables: th_detect_tables_build (dom/document.c) fills them, and
+   th_detect_tables_ensure (core/module.c) runs it once across every interpreter and thread before the first
+   scored detection. */
+void th_detect_tables_build(void);
+void th_detect_tables_ensure(void);
 PyObject *turbohtml_decode(PyObject *module, PyObject *args);
 PyObject *turbohtml_detect_language(PyObject *module, PyObject *args);
 /* _codec_label(name) resolves a whatwg-* codec name to (delegate, label) for the codecs registry, or None when
    the name is not one of ours; the label choice the registry search function used to make. METH_O. */
 PyObject *turbohtml_codec_label(PyObject *module, PyObject *name);
 
-/* Implemented in unicode/normalize.c. _normalize(form, text) applies one of the
-   four Unicode normalization forms (form 0..3 = NFC, NFD, NFKC, NFKD) to text;
-   _is_normalized(form, text) tests membership. Both match METH_VARARGS. */
-PyObject *turbohtml_normalize(PyObject *module, PyObject *args);
-PyObject *turbohtml_is_normalized(PyObject *module, PyObject *args);
+/* Implemented in unicode/normalize.c. normalize(form, text) applies one of the
+   four Unicode normalization forms, named "NFC", "NFD", "NFKC" or "NFKD", to text;
+   is_normalized(form, text) tests membership. Both are METH_FASTCALL | METH_KEYWORDS. */
+PyObject *turbohtml_normalize(PyObject *module, PyObject *const *args, Py_ssize_t count, PyObject *kwnames);
+PyObject *turbohtml_is_normalized(PyObject *module, PyObject *const *args, Py_ssize_t count, PyObject *kwnames);
 /* _collapse_whitespace(text) joins the text's words with single spaces, the str.split() fold (METH_O). */
 PyObject *turbohtml_collapse_whitespace(PyObject *module, PyObject *text);
 
@@ -236,9 +242,9 @@ PyObject *turbohtml_bleach_allow_relative(PyObject *module, PyObject *schemes);
    (METH_VARARGS). */
 PyObject *turbohtml_sanitize_policy(PyObject *module, PyObject *args);
 
-/* Implemented in dom/element.c. _build_element(tag, args, mapping_type) is the turbohtml.build call: a leading
-   mapping sets the attributes, a str argument becomes a Text child, a node passes through (METH_VARARGS). */
-PyObject *turbohtml_build_element(PyObject *module, PyObject *args);
+/* Implemented in dom/element.c. _build_element(tag, mapping_type, *parts) is the turbohtml.build call: a leading
+   mapping sets the attributes, a str argument becomes a Text child, a node passes through (METH_FASTCALL). */
+PyObject *turbohtml_build_element(PyObject *module, PyObject *const *args, Py_ssize_t nargs);
 PyObject *turbohtml_sanitize(PyObject *module, PyObject *args);
 
 /* Implemented in annotation.c, the inscriptis annotation output processors over

@@ -16,18 +16,20 @@ ordinary HWPX reader can open them.
 from __future__ import annotations
 
 import io
+import re
 import struct
 import zipfile
 from dataclasses import dataclass
 
 from lxml import etree  # type: ignore[reportAttributeAccessIssue]
 
+from . import bodytext as bt
 from . import controls as ct
 from . import docinfo as di
 from . import records as rec
 from . import shapes as sh
 from .errors import Hwp5Error, damaged, limit_exceeded
-from .header_xml import build_header, track_changes
+from .header_xml import blank_border_fill_id, build_header, track_changes
 from .owpml import NS, XML_DECLARATION, root, serialize, sub, xml_text
 from .reader import Hwp5File, read_hwp5
 from .section_xml import ConversionReport, build_section, memo_bodies
@@ -123,9 +125,8 @@ def _bin_items(doc: Hwp5File, info: di.DocInfo) -> list[tuple[str, str, bytes, s
         path = f"BinData/{item.stream_name}"
         if not doc.compound.has_stream(path):
             continue
-        raw = doc.compound.read(path)
         compressed = doc.header.compressed if item.compression == 0 else item.compression == 1
-        payload = rec.inflate(raw, path) if compressed else raw
+        payload = rec.inflate_stream(doc.compound, path) if compressed else doc.compound.read(path)
         if item.kind == di.BIN_STORAGE:
             items.append((f"ole{place}", f"BinData/ole{place}.ole", payload, "application/ole", False))
         else:
@@ -226,7 +227,14 @@ def _scripts(doc: Hwp5File, report: ConversionReport) -> list[str] | None:
 
     if not doc.compound.has_stream("Scripts/DefaultJScript"):
         return None
-    scripts = read_scripts(doc.compound.read("Scripts/DefaultJScript"), is_compressed=doc.header.compressed)
+    raw, packed = doc.compound.read("Scripts/DefaultJScript"), doc.header.compressed
+    if packed:
+        try:  # counted against the document's total like every other stream
+            raw, packed = rec.inflate_stream(doc.compound, "Scripts/DefaultJScript", raw), False
+        except Hwp5Error as exc:
+            if exc.code == "hwp5-limit-exceeded":
+                raise
+    scripts = read_scripts(raw, is_compressed=packed)
     if scripts is None:
         report.drop("scripts")
         return None
@@ -276,7 +284,9 @@ def _memo_replies(doc: Hwp5File, report: ConversionReport) -> bytes | None:
         return None
     try:
         records = rec.parse_records(doc.stream("MemoExtended"), "MemoExtended").records
-    except Hwp5Error:  # a damaged optional stream drops only itself
+    except Hwp5Error as exc:  # a damaged optional stream drops only itself
+        if exc.code == "hwp5-limit-exceeded":
+            raise  # the document is past its total: that is not this stream's damage
         records = []
     payload = next((record.payload for record in records if record.tag == rec.MEMO_EXTENDED), b"")
     count = struct.unpack_from("<I", payload)[0] if len(payload) >= 4 else -1
@@ -298,7 +308,9 @@ def _bibliography(doc: Hwp5File, report: ConversionReport) -> bytes | None:
         return None
     try:
         data = doc.stream("Bibliography")
-    except Hwp5Error:
+    except Hwp5Error as exc:
+        if exc.code == "hwp5-limit-exceeded":
+            raise
         data = b""
     if len(data) < 4 or struct.unpack_from("<I", data)[0] != len(data) - 4:
         report.drop("bibliography")
@@ -312,6 +324,25 @@ def _preview_text(doc: Hwp5File) -> bytes:
     text = doc.compound.read("PrvText").decode("utf-16-le", errors="replace").split("\0", 1)[0]
     return text.encode("utf-8")
 
+
+#: A section's reference to border and fill 0 (none), as serialized: pages,
+#: tables, cells and cell zones without a border and fill.
+_NO_BORDER_FILL = b' borderFillIDRef="0"'
+#: A start tag of a serialized part (attribute values keep < and > escaped).
+_START_TAG = re.compile(rb"<[^<>]*>")
+
+
+def _refers_to_no_border_fill(part: bytes) -> bool:
+    return _NO_BORDER_FILL in part and any(_NO_BORDER_FILL in tag.group(0) for tag in _START_TAG.finditer(part))
+
+
+def _to_blank_border_fill(part: bytes, blank: int) -> bytes:
+    """*part* with its references to border and fill 0 made to the blank one."""
+
+    if _NO_BORDER_FILL not in part:
+        return part
+    to = f' borderFillIDRef="{blank}"'.encode()
+    return _START_TAG.sub(lambda tag: tag.group(0).replace(_NO_BORDER_FILL, to), part)
 
 #: The largest ``.hwp`` file that is read (each stream inside is bounded
 #: separately by :data:`hwpx.hwp5.cfb.MAX_STREAM_BYTES`).
@@ -344,8 +375,35 @@ def convert(data: bytes) -> Converted:
         raise damaged("the file holds a value that cannot be read", reason=type(exc).__name__) from exc
 
 
+def _defines_section(paragraph: rec.Record) -> bool:
+    """Whether the paragraph holds a section definition (``secd``)."""
+
+    return any(bt.record_ctrl_id(child) == "secd" for child in paragraph.children)
+
+
+def _sections(doc: Hwp5File) -> list[rec.RecordStream]:
+    """The document's sections. A section stream whose later paragraph
+    defines a section of its own (a file not written by Hancom) holds that
+    many sections: Hancom starts a section at each definition."""
+
+    out: list[rec.RecordStream] = []
+    for stream in doc.sections:
+        groups: list[list[rec.Record]] = [[]]
+        for record in stream.roots:
+            if record.tag == rec.PARA_HEADER and groups[-1] and _defines_section(record):
+                groups.append([])
+            groups[-1].append(record)
+        if len(groups) == 1:
+            out.append(stream)
+            continue
+        for group in groups:
+            out.append(rec.RecordStream([r for top in group for r in top.walk()], group))
+    return out
+
+
 def _convert(data: bytes) -> Converted:
     doc = read_hwp5(data)
+    doc.sections = _sections(doc)
     info = di.decode_docinfo(doc.docinfo)
     report = ConversionReport()
     header = doc.header
@@ -365,9 +423,9 @@ def _convert(data: bytes) -> Converted:
             files[charts[item_id]] = chart
         if href.startswith("BinData/"):
             files[href] = payload
-    files["Contents/header.xml"] = build_header(
-        info, len(doc.sections), link_doc=link_doc, license_mark=license_mark
-    )
+    # The header goes before the sections in the package; it is built after
+    # them, as it lists a border and fill of nothing when they refer to one.
+    files["Contents/header.xml"] = b""
     memos = memo_bodies(doc.sections)
     master_pages: list[bytes] = []
     counts: list[int] = []
@@ -379,6 +437,14 @@ def _convert(data: bytes) -> Converted:
         counts.append(len(master_pages) - before)
     for _ in memos:
         report.skip("memo-body")
+    blank_used = any(_refers_to_no_border_fill(part) for part in parts + master_pages)
+    if blank_used:
+        blank = blank_border_fill_id(info)
+        parts = [_to_blank_border_fill(part, blank) for part in parts]
+        master_pages = [_to_blank_border_fill(page, blank) for page in master_pages]
+    files["Contents/header.xml"] = build_header(
+        info, len(doc.sections), link_doc=link_doc, license_mark=license_mark, blank_border_fill=blank_used
+    )
     # Each section's master pages come just before it, as Hancom stores them.
     first = 0
     for index, (part, count) in enumerate(zip(parts, counts)):
@@ -410,6 +476,10 @@ def _convert(data: bytes) -> Converted:
     # The header leaves out tracked changes it cannot express.
     if track_changes(info) is None:
         report.skip("track-changes")
+    # The document's saved versions (DocHistory), which Hancom's conversion
+    # keeps as DocHistory parts, are not converted.
+    if any(path.startswith("DocHistory/") for path in doc.compound.stream_paths()):
+        report.skip("doc-history")
     return Converted(files, report, doc)
 
 

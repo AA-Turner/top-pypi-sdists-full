@@ -29,6 +29,7 @@ __all__ = [
     "PackResult",
     "pack_hwpx",
     "unpack_hwpx",
+    "input_file_problem",
     "pack_main",
     "unpack_main",
     "main",
@@ -336,7 +337,58 @@ def pack_hwpx(
     )
 
 
+def input_file_problem(path: str | os.PathLike[str], *, tool: str, accepts_hwp: bool = False) -> str | None:
+    """One line saying why a command-line tool cannot read *path*, or ``None`` when it can try.
+
+    Shared by the ``hwpx-*`` commands (and any command built on python-hwpx): a missing
+    path, a folder, an HWP 3.x file, and an HWP 5.0 ``.hwp`` file given to a tool that
+    reads only HWPX (*accepts_hwp* false) get the same short words everywhere. *tool* is
+    the command's name as the message gives it. Only the first bytes are read; ``None``
+    does not promise the file opens.
+    """
+
+    from ..opc.package import HwpxPackage
+
+    target = Path(path)
+    if not target.exists():
+        return f"file not found: {target}"
+    if target.is_dir():
+        return f"{target} is a folder; give the path of an .hwpx file"
+    try:
+        with target.open("rb") as stream:
+            head = stream.read(len(HwpxPackage.HWP3_MAGIC))
+    except OSError as exc:
+        return f"cannot read {target}: {exc.strerror or exc}"
+    if head.startswith(HwpxPackage.HWP3_MAGIC):
+        return f"{target.name} is an HWP 3.x file, which python-hwpx cannot read; open it in Hancom Office and save it as .hwpx"
+    if head.startswith(HwpxPackage.OLE2_MAGIC) and not accepts_hwp:
+        converted = target.with_suffix(".hwpx").name
+        return (
+            f"{target.name} is an HWP 5.0 (.hwp) file and {tool} reads .hwpx files only; convert it first: "
+            f"python -c \"from hwpx import HwpxDocument; HwpxDocument.open(r'{target}').save('{converted}')\""
+        )
+    return None
+
+
+_input_file_problem = input_file_problem
+
+
+def _printable_stdout() -> None:
+    """Let standard output print any character: one it cannot encode (a Korean file name into a cp1252 pipe
+    on an English Windows) comes out as an escape instead of failing the command with UnicodeEncodeError.
+    Output that fits the stream's encoding is unchanged."""
+
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if reconfigure is None:
+        return
+    try:
+        reconfigure(errors="backslashreplace")
+    except (ValueError, OSError):  # a closed or detached stream: nothing to set
+        return
+
+
 def unpack_main(argv: Sequence[str] | None = None) -> int:
+    _printable_stdout()
     parser = argparse.ArgumentParser(
         description="Unpack an HWPX file into a directory (raw XML bytes are preserved by default)"
     )
@@ -350,6 +402,10 @@ def unpack_main(argv: Sequence[str] | None = None) -> int:
     _add_unpack_xml_format_args(parser)
     args = parser.parse_args(argv)
 
+    problem = _input_file_problem(args.input, tool="hwpx-unpack")
+    if problem is not None:
+        print(f"ERROR: {problem}")
+        return 1
     try:
         result = unpack_hwpx(
             args.input,
@@ -363,10 +419,26 @@ def unpack_main(argv: Sequence[str] | None = None) -> int:
 
     print(f"Unpacked {args.input} -> {result.output_dir}")
     print(f"Recorded archive metadata at {result.metadata_path}")
+    _warn_duplicate_entries(args.input, "only the last of each was unpacked")
     return 0
 
 
+def _warn_duplicate_entries(path: str | Path, consequence: str) -> None:
+    from zipfile import BadZipFile, ZipFile
+
+    from ..opc.security import _duplicate_entry_notice
+
+    try:
+        with ZipFile(path) as archive:
+            notice = _duplicate_entry_notice(info.filename for info in archive.infolist())
+    except (OSError, BadZipFile):
+        return
+    if notice is not None:
+        print(f"WARN: {notice}; {consequence}")
+
+
 def pack_main(argv: Sequence[str] | None = None) -> int:
+    _printable_stdout()
     parser = argparse.ArgumentParser(description="Pack a directory into an HWPX archive")
     parser.add_argument("input", help="Input directory")
     parser.add_argument("output", help="Output .hwpx path")
@@ -377,6 +449,9 @@ def pack_main(argv: Sequence[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    if Path(args.input).is_file():
+        print(f"ERROR: {args.input} is a file; hwpx-pack takes the folder hwpx-unpack made")
+        return 1
     try:
         result = pack_hwpx(args.input, args.output, overwrite=args.force)
     except Exception as exc:
@@ -389,6 +464,7 @@ def pack_main(argv: Sequence[str] | None = None) -> int:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    _printable_stdout()
     parser = argparse.ArgumentParser(description="HWPX archive utility helpers")
     subparsers = parser.add_subparsers(dest="command", required=True)
 

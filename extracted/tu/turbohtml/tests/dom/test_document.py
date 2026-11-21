@@ -4,12 +4,14 @@ import copy
 import gc
 import os
 import pickle  # ruff:ignore[suspicious-pickle-import]  # round-tripping our own trusted payloads
+import random
 import subprocess  # ruff:ignore[suspicious-subprocess-import]  # fixed argv, generated child script
 import sys
+import sysconfig
 import textwrap
 import threading
 from functools import partial
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Final, TypeVar
 
 import pytest
 
@@ -123,16 +125,15 @@ def test_str_parse_has_no_encoding() -> None:
     assert parser.close().encoding is None
 
 
-_MULTIBYTE: Final[str] = "<p>café — ☃ — 🦄</p>"  # 2-, 3-, and 4-byte UTF-8 sequences
-
-
 @pytest.mark.parametrize("chunk", [1, 2, 3, 4, 7])
 def test_utf8_chunked_matches_decoded_str(chunk: int) -> None:
-    raw = _MULTIBYTE.encode("utf-8")
+    # 2-, 3-, and 4-byte UTF-8 sequences
+    multibyte: str = "<p>café — ☃ — 🦄</p>"
+    raw = multibyte.encode("utf-8")
     parser = IncrementalParser()
     for start in range(0, len(raw), chunk):
         parser.feed(raw[start : start + chunk])
-    assert parser.close().html == parse(_MULTIBYTE).html
+    assert parser.close().html == parse(multibyte).html
 
 
 def test_bytes_parse_reports_its_encoding() -> None:
@@ -285,7 +286,7 @@ def test_an_escape_that_ends_a_chunk_leaves_room_for_the_error_it_owes() -> None
     # chunk spends a byte: a chunk exactly as long as the decode scratch (64 code points at first) then yields one code
     # point more than it has bytes. A regression writes that one past the scratch and still returns the right text, so
     # the chunks run in a child whose allocator checks the bytes behind a block when the parser frees it
-    script: Final = textwrap.dedent("""
+    script: Final[str] = textwrap.dedent("""
         from turbohtml import IncrementalParser
 
         parser = IncrementalParser(encoding="iso-2022-jp")
@@ -384,8 +385,11 @@ def test_default_encoding_is_utf8() -> None:
     assert parser.close().encoding == "UTF-8"
 
 
-def _roundtrip(node: Node) -> Node:
-    return pickle.loads(pickle.dumps(node))  # ruff:ignore[suspicious-pickle-usage]  # our own trusted payload
+_T = TypeVar("_T")
+
+
+def _roundtrip(value: _T) -> _T:
+    return pickle.loads(pickle.dumps(value))  # ruff:ignore[suspicious-pickle-usage]  # our own trusted payload
 
 
 @pytest.mark.parametrize(
@@ -715,6 +719,66 @@ def _tree_parse_errors_streamed(markup: str, chunk: int = 1) -> list[tuple[str, 
     return [(error.code, error.line, error.col) for error in parser.close().errors]
 
 
+@pytest.mark.parametrize(
+    ("offset", "length"),
+    [
+        pytest.param(16, 48, id="first-32-byte-block"),
+        pytest.param(40, 64, id="second-32-byte-block"),
+        pytest.param(56, 64, id="trailing-16-byte-block"),
+    ],
+)
+def test_a_nul_in_a_long_text_run_is_reported(offset: int, length: int) -> None:
+    # the data state reports a NUL wherever it sits, and the blocks the long text scan skips must stop at it
+    markup = f"{'a' * offset}\x00{'b' * (length - offset - 1)}"
+    assert _whole_errors(markup) == [("unexpected-null-character", 1, offset)]
+
+
+def _whole_errors(markup: str) -> list[tuple[str, int, int]]:
+    return [(error.code, error.line, error.col) for error in parse(markup).errors]
+
+
+@pytest.mark.parametrize("chunk", [1, 2, 3, 7, 4096])
+def test_a_streamed_nul_after_a_long_run_matches_one_shot(chunk: int) -> None:
+    markup = 'ab\x0c>bb>gh">\x0c\r\x01>gg>éé\n"\taf\x01p\x00\n"\tp\t\'\x7f\tgé\n&>\r<\x7f\x85<\x00<'
+    expected = _whole_errors(markup)
+    assert ("unexpected-null-character", 3, 6) in expected
+    assert _tree_parse_errors_streamed(markup, chunk) == expected
+
+
+@pytest.mark.parametrize("chunk", [1, 2, 3, 7, 4096])
+def test_seeded_random_markup_streams_the_errors_parse_reports(chunk: int) -> None:
+    # Latin-1 strings stay on the one-byte scan, where the long blocks are skipped; the wide ones cover the other widths
+    rng = random.Random(20261118)  # ruff:ignore[suspicious-non-cryptographic-random-usage]  # a fixed seed reproduces the sample
+    latin = {
+        "a": 4,
+        "b": 4,
+        " ": 4,
+        "é": 2,
+        "\n": 2,
+        "\r": 1,
+        "\t": 2,
+        ">": 1,
+        "\x01": 1,
+        "\x0c": 1,
+        "\x7f": 1,
+        "\x00": 3,
+        "<": 0.5,
+        "&": 0.5,
+        "=": 1,
+        '"': 1,
+        "'": 1,
+        "\x85": 1,
+    }
+
+    def sample() -> str:
+        weights = latin | {"日": 1, "🎉": 1} if rng.random() < 0.5 else latin
+        population = list(weights)
+        return "".join(rng.choices(population, weights=[weights[char] for char in population], k=rng.randrange(0, 160)))
+
+    markups = [sample() for _ in range(300)]
+    assert [markup for markup in markups if _tree_parse_errors_streamed(markup, chunk) != _whole_errors(markup)] == []
+
+
 def test_a_crlf_split_across_a_feed_counts_one_line_break() -> None:
     # the tokenizer reads a newline-normalized stream: the U+000A that opens the second chunk finishes the break the
     # first chunk's U+000D opened, so the control character that follows is on line 2, not line 3
@@ -914,45 +978,45 @@ def test_parse_error_outlives_its_document() -> None:
 )
 @pytest.mark.parametrize("locations", [pytest.param(False, id="no-locations"), pytest.param(True, id="locations")])
 def test_parser_text_coalescing_keeps_one_node_across_feeds(text: str, *, locations: bool) -> None:
-    parser: Final = IncrementalParser(source_locations=locations)
+    parser: Final[IncrementalParser] = IncrementalParser(source_locations=locations)
     parser.feed("<p>")
     for _ in range(129):
         parser.feed(text)
     parser.feed("</p>")
-    paragraph: Final = parser.close().find("p")
+    paragraph: Final[Element | None] = parser.close().find("p")
     assert paragraph is not None
     assert [node.text for node in paragraph.children] == [text * 129]
 
 
 def test_parser_text_coalescing_switches_between_nodes() -> None:
-    source: Final = f"<p>{'x</missing>' * 40}<i>{'y</missing>' * 40}</i>{'z</missing>' * 40}</p>"
-    paragraph: Final = parse(source).find("p")
+    source: Final[str] = f"<p>{'x</missing>' * 40}<i>{'y</missing>' * 40}</i>{'z</missing>' * 40}</p>"
+    paragraph: Final[Element | None] = parse(source).find("p")
     assert paragraph is not None
     assert [node.text for node in paragraph.children] == ["x" * 40, "y" * 40, "z" * 40]
 
 
 def test_parser_text_coalescing_keeps_fostered_text_before_table() -> None:
-    root: Final = parse(f"<div><table>{'x<tr><td>cell</td></tr>' * 40}</table></div>").find("div")
+    root: Final[Element | None] = parse(f"<div><table>{'x<tr><td>cell</td></tr>' * 40}</table></div>").find("div")
     assert root is not None
     assert [node.text for node in root.children] == ["x" * 40, "cell" * 40]
 
 
 def test_parser_text_coalescing_alternates_between_two_nodes() -> None:
     # an ignored end tag ends each run: "ok" is foster-parented before the table while the space stays inside it
-    root: Final = parse(f"<div><table>{'ok</th> </th>' * 40}</table></div>").find("div")
+    root: Final[Element | None] = parse(f"<div><table>{'ok</th> </th>' * 40}</table></div>").find("div")
     assert root is not None
     assert [node.text for node in root.children] == ["ok" * 40, " " * 40]
 
 
 def test_parser_text_coalescing_between_two_nodes_peak_memory_is_bounded(peak_bytes: PeakBytes) -> None:
     # a text node that loses its spare capacity to the other node copies its whole text on every append
-    script: Final = (
+    script: Final[str] = (
         "import sys, tracemalloc\nfrom turbohtml import parse\n"
         "source = '<table>' + sys.argv[1] * int(sys.argv[2])\n"
         "tracemalloc.start()\nparse(source)\nprint(tracemalloc.get_traced_memory()[1])\n"
     )
-    shape: Final = "ok</th> </th>"
-    count: Final = 4000
+    shape: Final[str] = "ok</th> </th>"
+    count: Final[int] = 4000
     assert peak_bytes(script, (shape, str(count))) < 64 * len(shape) * count
 
 
@@ -961,21 +1025,21 @@ def test_parser_text_coalescing_between_two_nodes_stays_linear(work_steps: WorkS
 
 
 def test_independent_parsers_in_parallel_each_build_correctly() -> None:
-    document: Final = f"<html><body>{''.join(f'<div><p>x{index}</p></div>' for index in range(200))}</body></html>"
-    expected: Final = parse(document).html
+    document: Final[str] = f"<html><body>{''.join(f'<div><p>x{index}</p></div>' for index in range(200))}</body></html>"
+    expected: Final[str] = parse(document).html
     results: Final[list[str]] = []
-    lock: Final = threading.Lock()
-    start: Final = threading.Barrier(4)
+    lock: Final[lock] = threading.Lock()
+    start: Final[threading.Barrier] = threading.Barrier(4)
 
     def worker() -> None:
         start.wait()
-        parser: Final = IncrementalParser()
+        parser: Final[IncrementalParser] = IncrementalParser()
         for position in range(0, len(document), 4):
             parser.feed(document[position : position + 4])
         with lock:
             results.append(parser.close().html)
 
-    threads: Final = [threading.Thread(target=worker) for _ in range(4)]
+    threads: Final[list[threading.Thread]] = [threading.Thread(target=worker) for _ in range(4)]
     for thread in threads:
         thread.start()
     for thread in threads:
@@ -984,15 +1048,15 @@ def test_independent_parsers_in_parallel_each_build_correctly() -> None:
 
 
 def test_concurrent_feeds_on_one_parser_are_memory_safe() -> None:
-    parser: Final = IncrementalParser()
-    start: Final = threading.Barrier(2)
+    parser: Final[IncrementalParser] = IncrementalParser()
+    start: Final[threading.Barrier] = threading.Barrier(2)
 
     def feeder(tag: str) -> None:
         start.wait()
         for index in range(200):
             parser.feed(f"<{tag}>{index}</{tag}>")
 
-    threads: Final = [threading.Thread(target=feeder, args=(tag,)) for tag in ("p", "span")]
+    threads: Final[list[threading.Thread]] = [threading.Thread(target=feeder, args=(tag,)) for tag in ("p", "span")]
     for thread in threads:
         thread.start()
     for thread in threads:
@@ -1161,6 +1225,41 @@ def test_pickled_xml_document_round_trips() -> None:
     assert _roundtrip(document).equals(document)
 
 
+_SHARES_WRAPPERS: Final[bool] = not sysconfig.get_config_var("Py_GIL_DISABLED")
+
+
+@pytest.mark.parametrize("order", [pytest.param((0, 1), id="document-first"), pytest.param((1, 0), id="node-first")])
+def test_pickling_a_document_with_a_node_inside_keeps_the_node_inside(order: tuple[int, int]) -> None:
+    document = parse("<p>x</p>")
+    pair = (document, _element(document.select_one("p")))
+    clone = dict(zip(order, _roundtrip([pair[index] for index in order]), strict=True))
+    assert isinstance(clone[0], Document)
+    # a free-threaded build gives each lookup its own wrapper, so the pickle has no shared one to link
+    assert (clone[1] is clone[0].select_one("p")) is _SHARES_WRAPPERS
+
+
+def test_pickled_wide_subtree_keeps_its_children_in_order() -> None:
+    element = Element("ol", children=[Element("li", children=[Text(str(index))]) for index in range(40)])
+    clone = _roundtrip(element)
+    assert clone.equals(element)
+    assert clone.html == element.html
+
+
+def test_pickled_tree_at_the_depth_cap_round_trips_on_a_small_thread_stack() -> None:
+    document = parse(f"{'<div>' * 510}t")
+    clones: list[Node] = []
+    # a pickle that nests per tree level overflowed a 512 KiB stack at about 300 levels on Python 3.11 to 3.13
+    previous = threading.stack_size(512 * 1024)
+    try:
+        worker = threading.Thread(target=lambda: clones.append(_roundtrip(document)))
+        worker.start()
+    finally:
+        threading.stack_size(previous)
+    worker.join()
+    assert len(clones) == 1
+    assert clones[0].equals(document)
+
+
 @pytest.mark.parametrize(
     ("select", "expected"),
     [
@@ -1171,10 +1270,10 @@ def test_pickled_xml_document_round_trips() -> None:
     ],
 )
 def test_pickled_fragment_transform_document_context(select: str, expected: str) -> None:
-    source: Final = DocumentFragment()
+    source: Final[DocumentFragment] = DocumentFragment()
     source.append(Element("b", children=[Text("hello")]))
     source.append(Text("world"))
-    convert: Final = Transform(
+    convert: Final[Transform] = Transform(
         parse_xml(
             '<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">'
             '<xsl:output method="text"/>'
@@ -1182,3 +1281,35 @@ def test_pickled_fragment_transform_document_context(select: str, expected: str)
         )
     )
     assert convert(_roundtrip(source)) == expected
+
+
+@pytest.mark.parametrize("offset", range(40), ids=lambda value: f"at-{value}")
+def test_control_after_a_printable_run_reports_its_column(offset: int) -> None:
+    # printable ASCII is skipped sixteen bytes at a time; the control must stop the skip and report its own column
+    markup = f"{'a' * offset}\x0b{'b' * 23}"
+    assert [(error.code, error.line, error.col) for error in parse(markup).errors] == [
+        ("control-character-in-input-stream", 1, offset)
+    ]
+
+
+@pytest.mark.parametrize("chunk", [pytest.param(size, id=f"chunk-{size}") for size in (5, 16, 17)])
+@pytest.mark.parametrize("offset", range(0, 40, 3), ids=lambda value: f"at-{value}")
+def test_control_in_a_fed_printable_run_reports_the_same_error(offset: int, chunk: int) -> None:
+    markup = f"{'a' * offset}\x0b{'b' * 23}"
+    with IncrementalParser() as parser:
+        for start in range(0, len(markup), chunk):
+            parser.feed(markup[start : start + chunk])
+        streamed = parser.close()
+    assert [(error.code, error.line, error.col) for error in streamed.errors] == [
+        (error.code, error.line, error.col) for error in parse(markup).errors
+    ]
+
+
+@pytest.mark.parametrize("filler", [pytest.param("a", id="bmp"), pytest.param("😀", id="astral")])
+@pytest.mark.parametrize("position", range(19), ids=lambda value: f"nul-at-{value}")
+def test_nul_at_every_position_of_a_later_text_run_is_dropped(filler: str, position: int) -> None:
+    # the attribute NUL makes the document flag NULs, so each text run is scanned for them; the run is longer than a
+    # vector step and the NUL lands in every lane and in the scalar tail
+    run = f"{filler * position}\x00{filler * (18 - position)}"
+    paragraph = parse(f"<p data-x='\x00'></p><p>{run}</p>").find_all("p")[1]
+    assert paragraph.text == filler * 18

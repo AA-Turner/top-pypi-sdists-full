@@ -217,6 +217,12 @@ class Connection(metaclass=CantTouchThis):
         self._sessions: dict[str, Connection] = {}
         self._inbox: asyncio.Queue[dict[str, Any]] | None = None
         self._attach_lock = asyncio.Lock()
+        # handlers of zendriver itself, kept apart from the user's handlers so that
+        # they neither show up in them nor go away with remove_handlers()
+        self._internal_handlers: dict[Any, list[Callable[..., Any]]] = (
+            collections.defaultdict(list)
+        )
+        self._child_session_ids: set[str] = set()
         self.__dict__.update(**kwargs)
 
     @property
@@ -464,20 +470,33 @@ class Connection(metaclass=CantTouchThis):
                 cdp.target.attach_to_target(self.target_id, flatten=True),
                 _is_update=True,
             )
-            self.session_id = session_id
-            self._session_parent = browser_connection
-            self._inbox = asyncio.Queue()
-            browser_connection._sessions[session_id] = self
-            self.websocket = browser_connection.websocket
-            self.listener = Listener(self)
+            self._bind_session(browser_connection, session_id)
             logger.debug(
                 "attached to target %s (session %s)", self.target_id, session_id
             )
+
+    def _bind_session(self, browser_connection: Connection, session_id: str) -> None:
+        """
+        use the given flat session of the browser connection for this target, whether
+        it was attached on request or by chrome itself (see _auto_attach_children)
+        """
+        self.session_id = session_id
+        self._session_parent = browser_connection
+        self._inbox = asyncio.Queue()
+        browser_connection._sessions[session_id] = self
+        self.websocket = browser_connection.websocket
+        self.listener = Listener(self)
 
     def _detach_session(self) -> None:
         """
         forgets the flat session locally. the browser side session is not touched.
         """
+        if self._session_parent is not None:
+            for child_session_id in self._child_session_ids:
+                child = self._session_parent._sessions.get(child_session_id)
+                if child is not None:
+                    child._detach_session()
+        self._child_session_ids.clear()
         if self._session_parent is not None and self.session_id is not None:
             self._session_parent._sessions.pop(self.session_id, None)
         self.session_id = None
@@ -746,25 +765,120 @@ class Connection(metaclass=CantTouchThis):
             self.manually_enabled_domains.append(domain_mod)
 
     async def _prepare_headless(self) -> None:
+        """
+        remove the "HeadlessChrome" token from the user agent of this target, with the
+        client hint metadata the browser built at startup (see
+        :py:meth:`Browser._read_headless_user_agent`): an override without it makes
+        the target drop its client hints, which no real chrome does
+        """
         if getattr(self, "_prep_headless_done", None):
             return
-        response = await self._send_oneshot(
-            cdp.runtime.evaluate(
-                expression="navigator.userAgent",
-                user_gesture=True,
-                await_promise=True,
-                return_by_value=True,
-                allow_unsafe_eval_blocked_by_csp=True,
-            )
-        )
-        if response and response[0].value:
-            ua = response[0].value
+        headless_user_agent = self._owner._headless_user_agent if self._owner else None
+        if headless_user_agent is not None:
+            user_agent, metadata = headless_user_agent
             await self._send_oneshot(
                 cdp.network.set_user_agent_override(
-                    user_agent=ua.replace("Headless", ""),
+                    user_agent=user_agent,
+                    user_agent_metadata=metadata,
                 )
             )
+        else:
+            response = await self._send_oneshot(
+                cdp.runtime.evaluate(
+                    expression="navigator.userAgent",
+                    user_gesture=True,
+                    await_promise=True,
+                    return_by_value=True,
+                    allow_unsafe_eval_blocked_by_csp=True,
+                )
+            )
+            if response and response[0].value:
+                ua = response[0].value
+                await self._send_oneshot(
+                    cdp.network.set_user_agent_override(
+                        user_agent=ua.replace("Headless", ""),
+                    )
+                )
+        if self.target is not None and self.target.type_ in ("page", "iframe"):
+            await self._auto_attach_children()
         setattr(self, "_prep_headless_done", True)
+
+    async def _auto_attach_children(self) -> None:
+        """
+        have chrome attach a session to every target this one creates (cross-site
+        iframes, workers) as soon as it exists, paused until the browser has prepared
+        it. a target prepared any later, when a command is first sent to it, runs its
+        first scripts with the native "HeadlessChrome" user agent, which the scripts of
+        a cross-site iframe (an anti-bot challenge, typically) do look at
+        """
+        attached_handlers = self._internal_handlers[cdp.target.AttachedToTarget]
+        if self._on_child_attached not in attached_handlers:
+            attached_handlers.append(self._on_child_attached)
+            self._internal_handlers[cdp.target.DetachedFromTarget].append(
+                self._on_child_detached
+            )
+        await self._send_oneshot(
+            cdp.target.set_auto_attach(
+                auto_attach=True, wait_for_debugger_on_start=True, flatten=True
+            )
+        )
+
+    async def _on_child_attached(self, event: cdp.target.AttachedToTarget) -> None:
+        bound = False
+        try:
+            browser = self._owner
+            browser_connection = self._browser_connection
+            if browser is not None and browser_connection is not None:
+                child = await browser._adopt_target(event.target_info)
+                bound = await self._bind_child_session(
+                    child, browser_connection, event.session_id
+                )
+                await child._prepare_headless()
+        except Exception:
+            logger.debug(
+                "could not prepare target %s",
+                event.target_info.target_id,
+                exc_info=True,
+            )
+
+        try:
+            if event.waiting_for_debugger:
+                await self._send_without_response(
+                    cdp.runtime.run_if_waiting_for_debugger(), event.session_id
+                )
+            if not bound:
+                await self._send_without_response(
+                    cdp.target.detach_from_target(session_id=event.session_id),
+                    self.session_id,
+                )
+        except Exception:
+            logger.debug(
+                "could not resume target %s",
+                event.target_info.target_id,
+                exc_info=True,
+            )
+
+    async def _bind_child_session(
+        self, child: Connection, browser_connection: Connection, session_id: str
+    ) -> bool:
+        async with child._attach_lock:
+            if child.session_id is not None:
+                return False
+            child._bind_session(browser_connection, session_id)
+        self._child_session_ids.add(session_id)
+        return True
+
+    async def _on_child_detached(self, event: cdp.target.DetachedFromTarget) -> None:
+        self._child_session_ids.discard(event.session_id)
+        browser_connection = self._browser_connection
+        if browser_connection is None:
+            return
+        session = browser_connection._sessions.get(event.session_id)
+        if session is None:
+            return
+        session._detach_session()
+        if self._owner is not None and session.target_id is not None:
+            await self._owner._remove_target(session.target_id)
 
     async def _prepare_expert(self) -> None:
         if getattr(self, "_prep_expert_done", None):
@@ -826,6 +940,16 @@ class Connection(metaclass=CantTouchThis):
             if session is not None:
                 session._detach_session()
         return message
+
+    async def _send_without_response(
+        self, cdp_obj: Any, session_id: str | None
+    ) -> None:
+        if self.websocket is None:
+            raise ProtocolException("connection was closed")
+        tx = Transaction(cdp_obj)
+        tx.id = self._next_message_id()
+        tx.session_id = session_id
+        await self.websocket.send(tx.message)
 
     async def _send_oneshot(self, cdp_obj: Any) -> Any:
         if self.websocket is None:
@@ -963,10 +1087,9 @@ class Listener:
                     )
                     continue
                 try:
-                    if type(event) in self.connection.handlers:
-                        callbacks = self.connection.handlers[type(event)]
-                    else:
-                        continue
+                    callbacks = list(
+                        self.connection._internal_handlers.get(type(event), [])
+                    ) + list(self.connection.handlers.get(type(event), []))
                     if not len(callbacks):
                         continue
                     for callback in callbacks:

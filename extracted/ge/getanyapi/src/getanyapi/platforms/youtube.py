@@ -67,7 +67,7 @@ class YoutubeChannelContactInput(TypedDict, total=False):
     channelId: NotRequired[str]
     """YouTube channel ID (UC...)."""
     fresh: NotRequired[bool]
-    """Optional, and it costs more. Set true to have the address read from YouTube now instead of one a source already holds, for a channel that may have changed its email. With it on, the price is $0.44 per email found instead of this API's normal $0.11 or $0.132; a channel with no email is still free. Only one source offers it, so leave `source` out or name that source (the lane whose offer lists the `fresh` add-on); naming another source is refused with no charge. A lookup that is not ready inside the call is charged $0.44 when it starts and refunded if no email is found within 48 hours. Leave it out and nothing changes. Default: false."""
+    """Optional, and it costs more. Set true to have the address read from YouTube now instead of one a source already holds, for a channel that may have changed its email. With it on, the price is $0.452 per email found instead of this API's normal $0.11 or $0.144; a channel with no email is still free. Only one source offers it, so leave `source` out or name that source (the lane whose offer lists the `fresh` add-on); naming another source is refused with no charge. A lookup that is not ready inside the call is charged $0.452 when it starts and refunded if no email is found within 48 hours. Leave it out and nothing changes. Default: false."""
     handle: NotRequired[str]
     """YouTube channel handle, with or without the leading @."""
     ignoreSources: NotRequired[list[str]]
@@ -1360,7 +1360,7 @@ class YoutubeNamespace:
         Fetch a YouTube channel's stats (subscribers, video count, total views,
         description) and the links on its About page, by handle or channel ID.
 
-        Price: $0.00045 per request.
+        Price: $0.00044 per request.
 
         Example:
             res = client.youtube.channel(handle="@mkbhd")
@@ -1434,8 +1434,8 @@ class YoutubeNamespace:
         with a link that collects the answer later with no API key. A finished
         answer stays readable for 3 days after it is found. Set `fresh` to true to
         have the address read from YouTube now instead of one a source already
-        holds: that costs more, $0.44 per email found instead of the normal $0.11 or
-        $0.132, and it runs only on the source that offers it.
+        holds: that costs more, $0.452 per email found instead of the normal $0.11
+        or $0.144, and it runs only on the source that offers it.
 
         Price: $0.11 per request.
 
@@ -1569,7 +1569,7 @@ class YoutubeNamespace:
         List a YouTube channel's Shorts by handle or channel ID with cursor
         pagination, views, and publish timestamps.
 
-        Price: $0.001 per request.
+        Price: $0.0012 per request.
 
         Example:
             res = client.youtube.channel_shorts(handle="@zachking", sort="latest")
@@ -1613,7 +1613,7 @@ class YoutubeNamespace:
         List a YouTube channel's videos by handle or channel ID with cursor
         pagination (title, views, length, publish time).
 
-        Price: $0.0008 per request.
+        Price: $0.00079 per request.
 
         Example:
             res = client.youtube.channel_videos(handle="@mkbhd")
@@ -1743,7 +1743,7 @@ class YoutubeNamespace:
         Search YouTube and get matching videos (title, channel, views, length,
         publish time) as normalized JSON.
 
-        Price: $0.00044 per request.
+        Price: $0.00043 per request.
 
         Example:
             res = client.youtube.search(query="how to cook rice")
@@ -1896,7 +1896,7 @@ class YoutubeNamespace:
         Fetch a YouTube video or Short's metadata (title, channel, views, likes,
         duration, publish date) by URL or ID.
 
-        Price: $0.00072 per request.
+        Price: $0.0007 per request.
 
         Example:
             res = client.youtube.video(url="https://www.youtube.com/watch?v=dQw4w9WgXcQ")
@@ -1981,7 +1981,7 @@ class YoutubeNamespace:
 
         Fetch the transcript/captions of a YouTube video or Short by URL or ID.
 
-        Price: $0.0009 per request.
+        Price: $0.00089 per request.
 
         Example:
             res = client.youtube.video_transcript(url="https://www.youtube.com/watch?v=dQw4w9WgXcQ")
@@ -2031,7 +2031,7 @@ class AsyncYoutubeNamespace:
         Fetch a YouTube channel's stats (subscribers, video count, total views,
         description) and the links on its About page, by handle or channel ID.
 
-        Price: $0.00045 per request.
+        Price: $0.00044 per request.
 
         Example:
             res = client.youtube.channel(handle="@mkbhd")
@@ -2107,8 +2107,8 @@ class AsyncYoutubeNamespace:
         with a link that collects the answer later with no API key. A finished
         answer stays readable for 3 days after it is found. Set `fresh` to true to
         have the address read from YouTube now instead of one a source already
-        holds: that costs more, $0.44 per email found instead of the normal $0.11 or
-        $0.132, and it runs only on the source that offers it.
+        holds: that costs more, $0.452 per email found instead of the normal $0.11
+        or $0.144, and it runs only on the source that offers it.
 
         Price: $0.11 per request.
 
@@ -2242,7 +2242,7 @@ class AsyncYoutubeNamespace:
         List a YouTube channel's Shorts by handle or channel ID with cursor
         pagination, views, and publish timestamps.
 
-        Price: $0.001 per request.
+        Price: $0.0012 per request.
 
         Example:
             res = client.youtube.channel_shorts(handle="@zachking", sort="latest")
@@ -2286,7 +2286,7 @@ class AsyncYoutubeNamespace:
         List a YouTube channel's videos by handle or channel ID with cursor
         pagination (title, views, length, publish time).
 
-        Price: $0.0008 per request.
+        Price: $0.00079 per request.
 
         Example:
             res = client.youtube.channel_videos(handle="@mkbhd")
@@ -2416,7 +2416,7 @@ class AsyncYoutubeNamespace:
         Search YouTube and get matching videos (title, channel, views, length,
         publish time) as normalized JSON.
 
-        Price: $0.00044 per request.
+        Price: $0.00043 per request.
 
         Example:
             res = client.youtube.search(query="how to cook rice")
@@ -2569,7 +2569,7 @@ class AsyncYoutubeNamespace:
         Fetch a YouTube video or Short's metadata (title, channel, views, likes,
         duration, publish date) by URL or ID.
 
-        Price: $0.00072 per request.
+        Price: $0.0007 per request.
 
         Example:
             res = client.youtube.video(url="https://www.youtube.com/watch?v=dQw4w9WgXcQ")
@@ -2654,7 +2654,7 @@ class AsyncYoutubeNamespace:
 
         Fetch the transcript/captions of a YouTube video or Short by URL or ID.
 
-        Price: $0.0009 per request.
+        Price: $0.00089 per request.
 
         Example:
             res = client.youtube.video_transcript(url="https://www.youtube.com/watch?v=dQw4w9WgXcQ")

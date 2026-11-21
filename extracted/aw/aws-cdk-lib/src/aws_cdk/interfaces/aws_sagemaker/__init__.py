@@ -1077,6 +1077,55 @@ class ExperimentTrialComponentReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_sagemaker.ExtensionReference",
+    jsii_struct_bases=[],
+    name_mapping={"extension_arn": "extensionArn"},
+)
+class ExtensionReference:
+    def __init__(self, *, extension_arn: builtins.str) -> None:
+        '''A reference to a Extension resource.
+
+        :param extension_arn: The ExtensionArn of the Extension resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_sagemaker as interfaces_sagemaker
+            
+            extension_reference = interfaces_sagemaker.ExtensionReference(
+                extension_arn="extensionArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__64da1f5f95fb5ea4156410799425ddf763d631639970df28cba7456c6790227d)
+            check_type(argname="argument extension_arn", value=extension_arn, expected_type=type_hints["extension_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "extension_arn": extension_arn,
+        }
+
+    @builtins.property
+    def extension_arn(self) -> builtins.str:
+        '''The ExtensionArn of the Extension resource.'''
+        result = self._values.get("extension_arn")
+        assert result is not None, "Required property 'extension_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ExtensionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_sagemaker.FeatureGroupReference",
     jsii_struct_bases=[],
     name_mapping={"feature_group_name": "featureGroupName"},
@@ -2082,6 +2131,51 @@ class _IExperimentTrialComponentRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IExperimentTrialComponentRef).__jsii_proxy_class__ = lambda : _IExperimentTrialComponentRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_sagemaker.IExtensionRef")
+class IExtensionRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Extension.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="extensionRef")
+    def extension_ref(self) -> "ExtensionReference":
+        '''(experimental) A reference to a Extension resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IExtensionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Extension.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_sagemaker.IExtensionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="extensionRef")
+    def extension_ref(self) -> "ExtensionReference":
+        '''(experimental) A reference to a Extension resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ExtensionReference", jsii.get(self, "extensionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IExtensionRef).__jsii_proxy_class__ = lambda : _IExtensionRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_sagemaker.IFeatureGroupRef")
@@ -4832,6 +4926,7 @@ __all__ = [
     "EndpointReference",
     "ExperimentReference",
     "ExperimentTrialComponentReference",
+    "ExtensionReference",
     "FeatureGroupReference",
     "HubReference",
     "HumanTaskUiReference",
@@ -4854,6 +4949,7 @@ __all__ = [
     "IEndpointRef",
     "IExperimentRef",
     "IExperimentTrialComponentRef",
+    "IExtensionRef",
     "IFeatureGroupRef",
     "IHubRef",
     "IHumanTaskUiRef",
@@ -5049,6 +5145,13 @@ def _typecheckingstub__1de4d9e2671da84ed4d2a29d5e17d17850701d1e2df8869490bb63c94
     *,
     experiment_trial_component_arn: builtins.str,
     experiment_trial_component_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__64da1f5f95fb5ea4156410799425ddf763d631639970df28cba7456c6790227d(
+    *,
+    extension_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5263,5 +5366,5 @@ def _typecheckingstub__57fcc1ca690db91207cd9de5695c57ca45d13772e64730ab43c815d17
     """Type checking stubs"""
     pass
 
-for cls in [IAIWorkloadConfigRef, IActionRef, IAlgorithmRef, IAppImageConfigRef, IAppRef, IArtifactRef, IClusterRef, IClusterSchedulerConfigRef, ICodeRepositoryRef, IComputeQuotaRef, IContextRef, IDataQualityJobDefinitionRef, IDeviceFleetRef, IDeviceRef, IDomainRef, IEndpointConfigRef, IEndpointRef, IExperimentRef, IExperimentTrialComponentRef, IFeatureGroupRef, IHubRef, IHumanTaskUiRef, IImageRef, IImageVersionRef, IInferenceComponentRef, IInferenceExperimentRef, IMlflowAppRef, IMlflowTrackingServerRef, IModelBiasJobDefinitionRef, IModelCardRef, IModelExplainabilityJobDefinitionRef, IModelPackageGroupRef, IModelPackageRef, IModelQualityJobDefinitionRef, IModelRef, IMonitoringScheduleRef, INotebookInstanceLifecycleConfigRef, INotebookInstanceRef, IPartnerAppRef, IPipelineRef, IProcessingJobRef, IProjectRef, ISpaceRef, IStudioLifecycleConfigRef, ITrialComponentRef, IUserProfileRef, IWorkforceRef, IWorkteamRef]:
+for cls in [IAIWorkloadConfigRef, IActionRef, IAlgorithmRef, IAppImageConfigRef, IAppRef, IArtifactRef, IClusterRef, IClusterSchedulerConfigRef, ICodeRepositoryRef, IComputeQuotaRef, IContextRef, IDataQualityJobDefinitionRef, IDeviceFleetRef, IDeviceRef, IDomainRef, IEndpointConfigRef, IEndpointRef, IExperimentRef, IExperimentTrialComponentRef, IExtensionRef, IFeatureGroupRef, IHubRef, IHumanTaskUiRef, IImageRef, IImageVersionRef, IInferenceComponentRef, IInferenceExperimentRef, IMlflowAppRef, IMlflowTrackingServerRef, IModelBiasJobDefinitionRef, IModelCardRef, IModelExplainabilityJobDefinitionRef, IModelPackageGroupRef, IModelPackageRef, IModelQualityJobDefinitionRef, IModelRef, IMonitoringScheduleRef, INotebookInstanceLifecycleConfigRef, INotebookInstanceRef, IPartnerAppRef, IPipelineRef, IProcessingJobRef, IProjectRef, ISpaceRef, IStudioLifecycleConfigRef, ITrialComponentRef, IUserProfileRef, IWorkforceRef, IWorkteamRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

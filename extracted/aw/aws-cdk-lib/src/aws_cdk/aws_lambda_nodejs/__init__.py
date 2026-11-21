@@ -1618,6 +1618,7 @@ class NodejsFunction(
         handler: typing.Optional[builtins.str] = None,
         project_root: typing.Optional[builtins.str] = None,
         runtime: typing.Optional["_aws_lambda_b8f2f472.Runtime"] = None,
+        accelerator_config: typing.Optional[typing.Union["_aws_lambda_b8f2f472.AcceleratorConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         adot_instrumentation: typing.Optional[typing.Union["_aws_lambda_b8f2f472.AdotInstrumentationConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         allow_all_ipv6_outbound: typing.Optional[builtins.bool] = None,
         allow_all_outbound: typing.Optional[builtins.bool] = None,
@@ -1682,6 +1683,7 @@ class NodejsFunction(
         :param handler: The name of the exported handler in the entry file. - If the ``code`` property is supplied, then you must include the ``handler`` property. The handler should be the name of the file that contains the exported handler and the function that should be called when the AWS Lambda is invoked. For example, if you had a file called ``myLambda.js`` and the function to be invoked was ``myHandler``, then you should input ``handler`` property as ``myLambda.myHandler``. - If the ``code`` property is not supplied and the handler input does not contain a ``.``, then the handler is prefixed with ``index.`` (index period). Otherwise, the handler property is not modified. Default: handler
         :param project_root: The path to the directory containing project config files (``package.json`` or ``tsconfig.json``). Default: - the directory containing the ``depsLockFilePath``
         :param runtime: The runtime environment. Only runtimes of the Node.js family are supported. Default: ``Runtime.NODEJS_LATEST`` if the ``@aws-cdk/aws-lambda-nodejs:useLatestRuntimeVersion`` feature flag is enabled, otherwise ``Runtime.NODEJS_16_X``
+        :param accelerator_config: Accelerator configuration for the function. Configures the accelerator resource settings for the execution environment, including the amount of accelerator memory to allocate. The function must be attached to a capacity provider (``capacityProvider.addFunction(fn)``), use a container image (``Runtime.FROM_IMAGE``) on x86_64, and set ``memorySize`` to at least 2048 MiB. When set, ``ephemeralStorageSize`` may be up to 32 GiB. Default: - No accelerator configuration
         :param adot_instrumentation: Specify the configuration of AWS Distro for OpenTelemetry (ADOT) instrumentation. Default: - No ADOT instrumentation
         :param allow_all_ipv6_outbound: Whether to allow the Lambda to send all ipv6 network traffic. If set to true, there will only be a single egress rule which allows all outbound ipv6 traffic. If set to false, you must individually add traffic rules to allow the Lambda to connect to network targets using ipv6. Do not specify this property if the ``securityGroups`` or ``securityGroup`` property is set. Instead, configure ``allowAllIpv6Outbound`` directly on the security group. Default: false
         :param allow_all_outbound: Whether to allow the Lambda to send all network traffic (except ipv6). If set to false, you must individually add traffic rules to allow the Lambda to connect to network targets. Do not specify this property if the ``securityGroups`` or ``securityGroup`` property is set. Instead, configure ``allowAllOutbound`` directly on the security group. Default: true
@@ -1748,6 +1750,7 @@ class NodejsFunction(
             handler=handler,
             project_root=project_root,
             runtime=runtime,
+            accelerator_config=accelerator_config,
             adot_instrumentation=adot_instrumentation,
             allow_all_ipv6_outbound=allow_all_ipv6_outbound,
             allow_all_outbound=allow_all_outbound,
@@ -1813,6 +1816,7 @@ class NodejsFunction(
         "on_failure": "onFailure",
         "on_success": "onSuccess",
         "retry_attempts": "retryAttempts",
+        "accelerator_config": "acceleratorConfig",
         "adot_instrumentation": "adotInstrumentation",
         "allow_all_ipv6_outbound": "allowAllIpv6Outbound",
         "allow_all_outbound": "allowAllOutbound",
@@ -1879,6 +1883,7 @@ class NodejsFunctionProps(_aws_lambda_b8f2f472.FunctionOptions):
         on_failure: typing.Optional["_aws_lambda_b8f2f472.IDestination"] = None,
         on_success: typing.Optional["_aws_lambda_b8f2f472.IDestination"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
+        accelerator_config: typing.Optional[typing.Union["_aws_lambda_b8f2f472.AcceleratorConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         adot_instrumentation: typing.Optional[typing.Union["_aws_lambda_b8f2f472.AdotInstrumentationConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         allow_all_ipv6_outbound: typing.Optional[builtins.bool] = None,
         allow_all_outbound: typing.Optional[builtins.bool] = None,
@@ -1942,6 +1947,7 @@ class NodejsFunctionProps(_aws_lambda_b8f2f472.FunctionOptions):
         :param on_failure: The destination for failed invocations. Default: - no destination
         :param on_success: The destination for successful invocations. Default: - no destination
         :param retry_attempts: The maximum number of times to retry when the function returns an error. Minimum: 0 Maximum: 2 Default: 2
+        :param accelerator_config: Accelerator configuration for the function. Configures the accelerator resource settings for the execution environment, including the amount of accelerator memory to allocate. The function must be attached to a capacity provider (``capacityProvider.addFunction(fn)``), use a container image (``Runtime.FROM_IMAGE``) on x86_64, and set ``memorySize`` to at least 2048 MiB. When set, ``ephemeralStorageSize`` may be up to 32 GiB. Default: - No accelerator configuration
         :param adot_instrumentation: Specify the configuration of AWS Distro for OpenTelemetry (ADOT) instrumentation. Default: - No ADOT instrumentation
         :param allow_all_ipv6_outbound: Whether to allow the Lambda to send all ipv6 network traffic. If set to true, there will only be a single egress rule which allows all outbound ipv6 traffic. If set to false, you must individually add traffic rules to allow the Lambda to connect to network targets using ipv6. Do not specify this property if the ``securityGroups`` or ``securityGroup`` property is set. Instead, configure ``allowAllIpv6Outbound`` directly on the security group. Default: false
         :param allow_all_outbound: Whether to allow the Lambda to send all network traffic (except ipv6). If set to false, you must individually add traffic rules to allow the Lambda to connect to network targets. Do not specify this property if the ``securityGroups`` or ``securityGroup`` property is set. Instead, configure ``allowAllOutbound`` directly on the security group. Default: true
@@ -2014,6 +2020,8 @@ class NodejsFunctionProps(_aws_lambda_b8f2f472.FunctionOptions):
                 )
             )
         '''
+        if isinstance(accelerator_config, dict):
+            accelerator_config = _aws_lambda_b8f2f472.AcceleratorConfig(**accelerator_config)
         if isinstance(adot_instrumentation, dict):
             adot_instrumentation = _aws_lambda_b8f2f472.AdotInstrumentationConfig(**adot_instrumentation)
         if isinstance(current_version_options, dict):
@@ -2032,6 +2040,7 @@ class NodejsFunctionProps(_aws_lambda_b8f2f472.FunctionOptions):
             check_type(argname="argument on_failure", value=on_failure, expected_type=type_hints["on_failure"])
             check_type(argname="argument on_success", value=on_success, expected_type=type_hints["on_success"])
             check_type(argname="argument retry_attempts", value=retry_attempts, expected_type=type_hints["retry_attempts"])
+            check_type(argname="argument accelerator_config", value=accelerator_config, expected_type=type_hints["accelerator_config"])
             check_type(argname="argument adot_instrumentation", value=adot_instrumentation, expected_type=type_hints["adot_instrumentation"])
             check_type(argname="argument allow_all_ipv6_outbound", value=allow_all_ipv6_outbound, expected_type=type_hints["allow_all_ipv6_outbound"])
             check_type(argname="argument allow_all_outbound", value=allow_all_outbound, expected_type=type_hints["allow_all_outbound"])
@@ -2097,6 +2106,8 @@ class NodejsFunctionProps(_aws_lambda_b8f2f472.FunctionOptions):
             self._values["on_success"] = on_success
         if retry_attempts is not None:
             self._values["retry_attempts"] = retry_attempts
+        if accelerator_config is not None:
+            self._values["accelerator_config"] = accelerator_config
         if adot_instrumentation is not None:
             self._values["adot_instrumentation"] = adot_instrumentation
         if allow_all_ipv6_outbound is not None:
@@ -2251,6 +2262,25 @@ class NodejsFunctionProps(_aws_lambda_b8f2f472.FunctionOptions):
         '''
         result = self._values.get("retry_attempts")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def accelerator_config(
+        self,
+    ) -> typing.Optional["_aws_lambda_b8f2f472.AcceleratorConfig"]:
+        '''Accelerator configuration for the function.
+
+        Configures the accelerator resource settings for the execution environment, including
+        the amount of accelerator memory to allocate. The function must be attached to a
+        capacity provider (``capacityProvider.addFunction(fn)``), use a container image
+        (``Runtime.FROM_IMAGE``) on x86_64, and set ``memorySize`` to at least 2048 MiB.
+        When set, ``ephemeralStorageSize`` may be up to 32 GiB.
+
+        :default: - No accelerator configuration
+
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-lambda-function-acceleratorconfig.html
+        '''
+        result = self._values.get("accelerator_config")
+        return typing.cast(typing.Optional["_aws_lambda_b8f2f472.AcceleratorConfig"], result)
 
     @builtins.property
     def adot_instrumentation(
@@ -3204,6 +3234,7 @@ def _typecheckingstub__ece177829b26ef102d4080d730f168e29d7d310d1518738839cd3fc82
     handler: typing.Optional[builtins.str] = None,
     project_root: typing.Optional[builtins.str] = None,
     runtime: typing.Optional[_aws_lambda_b8f2f472.Runtime] = None,
+    accelerator_config: typing.Optional[typing.Union[_aws_lambda_b8f2f472.AcceleratorConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     adot_instrumentation: typing.Optional[typing.Union[_aws_lambda_b8f2f472.AdotInstrumentationConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     allow_all_ipv6_outbound: typing.Optional[builtins.bool] = None,
     allow_all_outbound: typing.Optional[builtins.bool] = None,
@@ -3266,6 +3297,7 @@ def _typecheckingstub__2da45b394f0332be0f6d6b7468d9fb54961953d56265da69955d36ffa
     on_failure: typing.Optional[_aws_lambda_b8f2f472.IDestination] = None,
     on_success: typing.Optional[_aws_lambda_b8f2f472.IDestination] = None,
     retry_attempts: typing.Optional[jsii.Number] = None,
+    accelerator_config: typing.Optional[typing.Union[_aws_lambda_b8f2f472.AcceleratorConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     adot_instrumentation: typing.Optional[typing.Union[_aws_lambda_b8f2f472.AdotInstrumentationConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     allow_all_ipv6_outbound: typing.Optional[builtins.bool] = None,
     allow_all_outbound: typing.Optional[builtins.bool] = None,

@@ -567,6 +567,27 @@ namespace sogen
             return true;
         }
 
+        // AlpcpExposeAttributes starts every receive with no valid attributes, and each attribute the message exposes sets
+        // its own bit. Callers usually receive the reply into the attributes they sent the request with, so keeping the
+        // request's bits would report a view or handles the reply does not carry (rpcrt4 then reads a reply without a view
+        // as a malformed small response).
+        NTSTATUS reset_reply_attributes(const emulator_object<ALPC_MESSAGE_ATTRIBUTES>& attributes)
+        {
+            if (!attributes)
+            {
+                return STATUS_SUCCESS;
+            }
+
+            auto header = attributes.try_read();
+            if (!header)
+            {
+                return STATUS_ACCESS_VIOLATION;
+            }
+
+            header->ValidAttributes = 0;
+            return attributes.try_write(*header) ? STATUS_SUCCESS : STATUS_ACCESS_VIOLATION;
+        }
+
         // Deliver reply handles (e.g. the shared render section in an audio Initialize reply) to the receiver via
         // an ALPC HANDLE message attribute. We only emit a single attribute (the common case for NDR system
         // handles).
@@ -736,6 +757,17 @@ namespace sogen
                 return context_attribute_status;
             }
 
+            // AlpcpReceiveMessage checks the receive attributes before it takes a message.
+            if (receive_message && receive_message_attributes)
+            {
+                if (const auto status = probe_range(c.win_emu, receive_message_attributes.value(), sizeof(ALPC_MESSAGE_ATTRIBUTES),
+                                                    memory_permission::write);
+                    status != STATUS_SUCCESS)
+                {
+                    return status;
+                }
+            }
+
             auto result = port->handle_message(c.win_emu, context);
 
             if (receive_message && NT_SUCCESS(result.status))
@@ -746,6 +778,13 @@ namespace sogen
                     // so if we still got a message that doesn't fit in the receive buffer, something
                     // has gone wrong.
                     throw std::runtime_error("Unexpected success result returned by port handler");
+                }
+
+                // The send attributes were read before the request was handled, so the receive buffer, which may be the
+                // same one, can be rebuilt now.
+                if (const auto status = reset_reply_attributes(receive_message_attributes); status != STATUS_SUCCESS)
+                {
+                    return status;
                 }
 
                 if (!result.view_payload.empty())
@@ -962,6 +1001,83 @@ namespace sogen
 
             attribute.ContextHandle = internal_port->create_security_context();
             security_attribute.write(attribute);
+            return STATUS_SUCCESS;
+        }
+
+        // NtAlpcCreateResourceReserve hands out the reserve's handle with this bit set, and NtAlpcDeleteResourceReserve rejects
+        // an identifier without it (ntoskrnl.exe 10.0.19041).
+        constexpr ULONG resource_reserve_id_bit = 0x80000000;
+
+        // A reserve guarantees the kernel can deliver the reply to an asynchronous request. Replies here are queued without a
+        // memory budget, so a reserve only has to be a valid identifier on its port.
+        NTSTATUS handle_NtAlpcCreateResourceReserve(const syscall_context& c, const handle port_handle, const ULONG flags,
+                                                    const uint64_t message_size, const emulator_object<ULONG> resource_id)
+        {
+            // AlpcpCreateReserve: a reserve holds at least a PORT_MESSAGE header and at most the largest ALPC message.
+            constexpr uint64_t minimum_message_size = 0x28;
+            constexpr uint64_t maximum_message_size = 0xFFD7;
+
+            if (flags != 0)
+            {
+                return STATUS_INVALID_PARAMETER;
+            }
+
+            if (const auto status = probe_range(c.win_emu, resource_id.value(), sizeof(ULONG), memory_permission::write);
+                status != STATUS_SUCCESS)
+            {
+                return status;
+            }
+
+            auto* port = c.proc.ports.get(port_handle);
+            if (!port)
+            {
+                return STATUS_INVALID_HANDLE;
+            }
+
+            if (message_size > maximum_message_size)
+            {
+                return STATUS_BUFFER_OVERFLOW;
+            }
+
+            if (message_size < minimum_message_size)
+            {
+                return STATUS_INVALID_PARAMETER;
+            }
+
+            auto* internal_port = port->get_internal_port();
+            if (internal_port->disconnected)
+            {
+                return STATUS_PORT_DISCONNECTED;
+            }
+
+            const auto reserve = internal_port->next_resource_reserve;
+            internal_port->next_resource_reserve += 4;
+            internal_port->resource_reserves.push_back(reserve);
+            resource_id.write(static_cast<ULONG>(reserve) | resource_reserve_id_bit);
+            return STATUS_SUCCESS;
+        }
+
+        NTSTATUS handle_NtAlpcDeleteResourceReserve(const syscall_context& c, const handle port_handle, const ULONG flags,
+                                                    const ULONG resource_id)
+        {
+            if (flags != 0 || (resource_id & resource_reserve_id_bit) == 0)
+            {
+                return STATUS_INVALID_PARAMETER;
+            }
+
+            auto* port = c.proc.ports.get(port_handle);
+            if (!port)
+            {
+                return STATUS_INVALID_HANDLE;
+            }
+
+            auto& reserves = port->get_internal_port()->resource_reserves;
+            const auto reserve = std::ranges::find(reserves, static_cast<uint64_t>(resource_id & ~resource_reserve_id_bit));
+            if (reserve == reserves.end())
+            {
+                return STATUS_INVALID_HANDLE;
+            }
+            reserves.erase(reserve);
             return STATUS_SUCCESS;
         }
 

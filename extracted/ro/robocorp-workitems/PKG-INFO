@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: robocorp-workitems
-Version: 1.5.1
+Version: 1.6.0
 Summary: Robocorp Work Items library
 License: Apache-2.0
 Author: Sema4.ai
@@ -13,6 +13,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Requires-Dist: dataclasses-json (>=0.6.7,<0.7.0)
 Requires-Dist: python-dateutil (>=2.8.2,<3.0.0)
 Requires-Dist: requests (>=2.28.2)
@@ -70,6 +71,7 @@ In addition to the payload section, a work item can also contain files, which ar
 - [Collecting all inputs](https://github.com/robocorp/robocorp/blob/master/workitems/docs/guides/04-collecting-inputs.md)
 - [Flow control with exceptions](https://github.com/robocorp/robocorp/blob/master/workitems/docs/guides/05-input-exceptions.md)
 - [Modifying inputs](https://github.com/robocorp/robocorp/blob/master/workitems/docs/guides/06-modifying-inputs.md)
+- [Control Room connection settings](https://github.com/robocorp/robocorp/blob/master/workitems/docs/guides/07-control-room-connection.md)
 
 Further user guides and tutorials can be found in [Robocorp Docs](https://robocorp.com/docs).
 

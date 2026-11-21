@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pytapo
-Version: 3.4.32
+Version: 3.4.35
 Summary: Python library for communication with Tapo Cameras
 Home-page: https://github.com/JurajNyiri/pytapo
 Author: Juraj Nyíri
@@ -16,6 +16,8 @@ Requires-Dist: urllib3
 Requires-Dist: pycryptodome
 Requires-Dist: rtp
 Requires-Dist: python-kasa
+Provides-Extra: webrtc
+Requires-Dist: aiortc<2,>=1.16.0; extra == "webrtc"
 
 # PyTapo
 
@@ -95,10 +97,6 @@ You need to call it with following ENV values:
 
 You also need to have ffmpeg installed as that is used for converting the streams to watchable file.
 
-Recording conversion passes filenames to FFmpeg as literal arguments. If FFmpeg fails, `Convert.save` raises `subprocess.CalledProcessError` and removes its temporary input files.
-
-The `fileName` argument to `Downloader`, `DownloaderV2`, and file-producing `Streamer` modes must be a single filename inside `outputDirectory`. Put the directory in `outputDirectory`; a trailing slash is optional. Absolute paths, path separators, and existing symlinks escaping that directory are rejected. FFmpeg receives absolute local paths; `Downloader` continues to return paths relative to `outputDirectory` when it is relative. Conversion and duration probing accept MPEG-TS input and use only local file protocols. Temporary conversion inputs are created in a private directory beside the output.
-
 ### Performance notes
 
 Recordings are downloaded through the camera's encrypted streaming protocol (`/stream`). The camera does not expose the raw MP4 files directly, so a true "file copy" is not possible; the stream is AES-decrypted and the resulting MPEG-TS data is remuxed into an MP4 container by ffmpeg (the video track is copied as-is, the audio track is re-encoded to AAC).
@@ -132,6 +130,12 @@ You can tune the download behavior with the following `Downloader` parameters:
 - `window_size`: Affects throughput and stability. Higher values usually download faster but can cause some cameras to stop responding. Common values are `50` (stable) or `200` (default).
 - `progressInterval`: Minimum time in seconds between progress updates (default `1.0`). Increasing this value reduces CPU overhead because the library no longer runs an `ffprobe` subprocess on every chunk just to report progress. Use `progressInterval=0` to restore the previous per-chunk behavior.
 - `stall_timeout`: Seconds to wait for data before treating the stream as stalled and retrying (default `120`).
+
+## Two-way audio and native WebRTC
+
+Use `pytapo.media_stream.talk.Talk` as an async context manager and call `await talk.write(audio)` with paced mono G.711 A-law audio at 8 kHz. A configured cloud password is required.
+
+For native WebRTC, install `pytapo[webrtc]` and use `pytapo.media_stream.webrtc.WebRTCSession`: call `answer(offer_sdp)`, forward ICE candidates with `add_candidate(candidate)`, and call `close()` when the viewer leaves. Direct streaming requires FFmpeg.
 
 ## Contributions:
 

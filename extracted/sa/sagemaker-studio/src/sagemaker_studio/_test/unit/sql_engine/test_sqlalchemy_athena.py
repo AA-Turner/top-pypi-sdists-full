@@ -189,7 +189,7 @@ class TestExecutorConstruction(unittest.TestCase):
         self.client.get_work_group.return_value = {
             "WorkGroup": {
                 "Configuration": {
-                    "EngineVersion": {"EffectiveEngineVersion": "Athena DuckDB"},
+                    "EngineVersion": {"EffectiveEngineVersion": "DuckDB"},
                     "ManagedQueryResultsConfiguration": {"Enabled": True},
                 }
             }

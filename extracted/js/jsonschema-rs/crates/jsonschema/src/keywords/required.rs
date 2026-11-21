@@ -82,13 +82,14 @@ impl<F: Json> Validate<F> for EveryDeclaredRequiredValidator<F> {
     }
 }
 
-/// `required` checked by the walk of a closed object's `additionalProperties: false`, which visits
-/// every member anyway; only `is_valid` leans on it.
-struct CheckedByClosedObjectValidator<F: Json> {
-    inner: BoxedValidator<F>,
+/// A keyword checked by the walk of a sibling that visits every member anyway: `required` under a
+/// closed object's `additionalProperties: false`, `properties` under `unevaluatedProperties`. Only
+/// `is_valid` leans on that walk.
+pub(crate) struct CheckedBySiblingValidator<F: Json> {
+    pub(crate) inner: BoxedValidator<F>,
 }
 
-impl<F: Json> Validate<F> for CheckedByClosedObjectValidator<F> {
+impl<F: Json> Validate<F> for CheckedBySiblingValidator<F> {
     fn is_valid(&self, _instance: &F::Node<'_>, _ctx: &mut ValidationContext) -> bool {
         true
     }
@@ -144,7 +145,7 @@ impl<F: Json> Validate<F> for CheckedByClosedObjectValidator<F> {
 
 /// The `required` names that the walk of a closed object checks in its own pass: all declared, at
 /// least two and no more than bits in a word. `additionalProperties` and `required` both compile
-/// from this, so one never skips what the other does not check.
+/// from this, so `required` skips a name only where `additionalProperties` checks it.
 pub(crate) fn checked_by_closed_object<'a, F: Json>(
     ctx: &compiler::Context<F>,
     parent: &'a Map<String, Value>,
@@ -401,7 +402,7 @@ impl<F: Json> Validate<F> for SingleItemRequiredValidator<F> {
 }
 
 /// Specialized validator for exactly 2 required properties.
-/// Uses fixed-size array and unrolled checks to avoid Vec/iterator overhead.
+/// Two fields and unrolled checks, no `Vec`.
 pub(crate) struct Required2Validator<F: Json = SerdeJson> {
     first: String,
     first_key: F::PreparedKey,
@@ -666,21 +667,25 @@ pub(crate) fn compile<'a, F: Json>(
         let additional_props_false =
             matches!(parent.get("additionalProperties"), Some(Value::Bool(false)));
 
-        // Case 1: properties + additionalProperties: false + required: [1 item], no patternProperties
-        // Handled by AdditionalPropertiesNotEmptyFalseWithRequired1Validator
+        // Case 1: properties + additionalProperties: false + required: [1 item], no patternProperties.
+        // `AdditionalPropertiesNotEmptyFalseWithRequired1Validator` checks it for `is_valid`.
         if items.len() == 1
             && additional_props_false
             && has_properties
             && !has_pattern_properties
             && !ctx.is_keyword_overridden("additionalProperties")
         {
-            return None;
+            return Some(
+                compile_with_path(schema, ctx.location().join("required"))?.map(|inner| {
+                    Box::new(CheckedBySiblingValidator { inner }) as BoxedValidator<F>
+                }),
+            );
         }
 
         if checked_by_closed_object(ctx, parent).is_some() {
             return Some(
                 compile_with_path(schema, ctx.location().join("required"))?.map(|inner| {
-                    Box::new(CheckedByClosedObjectValidator { inner }) as BoxedValidator<F>
+                    Box::new(CheckedBySiblingValidator { inner }) as BoxedValidator<F>
                 }),
             );
         }
@@ -704,12 +709,8 @@ pub(crate) fn compile<'a, F: Json>(
             }
         }
 
-        // Case 2: properties + required: [2 items], no additionalProperties, no patternProperties
-        // Handled by SmallPropertiesWithRequired2Validator — only when the map is below the
-        // threshold; above it BigPropertiesValidator is used and does not include required checks.
-        // Must NOT skip when additionalProperties is a schema object: properties::compile returns
-        // None in that case (AdditionalPropertiesNotEmptyValidator takes over), so
-        // SmallPropertiesWithRequired2Validator is never created — required would be silently dropped.
+        // `SmallPropertiesWithRequired2Validator` checks these names; keep the conditions in step
+        // with `properties::extract_required2`.
         let additional_props_is_schema =
             matches!(parent.get("additionalProperties"), Some(Value::Object(_)));
         let properties_below_threshold = parent
@@ -723,6 +724,7 @@ pub(crate) fn compile<'a, F: Json>(
             && !additional_props_false
             && !additional_props_is_schema
             && !has_pattern_properties
+            && !super::properties::has_keyword_between_required_and_properties(parent)
         {
             return None;
         }
@@ -895,17 +897,20 @@ mod tests {
     #[test]
     fn every_declared_name_count_matches_with_undeclared_member() {
         let schema = closed(&["a", "b", "c"], 3, &json!({}));
-        let expected = errors(&[
-            ("/required", MISSING_C),
-            ("/additionalProperties", UNEXPECTED_Z),
-        ]);
         assert_eq!(
             outcome(&schema, &json!({"a": 1, "b": 2, "z": 3})),
             (
                 false,
                 Some(MISSING_C.to_owned()),
-                expected.clone(),
-                expected
+                errors(&[
+                    ("/required", MISSING_C),
+                    ("/additionalProperties", UNEXPECTED_Z),
+                ]),
+                // `evaluate` fails the false schema at each rejected member.
+                errors(&[
+                    ("/required", MISSING_C),
+                    ("/additionalProperties", "False schema does not allow 3"),
+                ])
             )
         );
     }
@@ -920,7 +925,7 @@ mod tests {
         assert_eq!(outcome(&schema, instance).0, expected);
     }
 
-    // `patternProperties` admits undeclared members, so the count says nothing
+    // `patternProperties` accepts undeclared members, so the count says nothing
     #[test]
     fn every_declared_name_beside_pattern_properties() {
         let schema = closed(&["a", "b"], 2, &json!({"patternProperties": {"^x-": {}}}));
@@ -1056,17 +1061,14 @@ mod tests {
         let schema = json!({"required": ["a", "b"]});
         let validator = crate::validator_for(&schema).unwrap();
 
-        // Missing both
         let instance = json!({});
         let errors: Vec<_> = validator.iter_errors(&instance).collect();
         assert_eq!(errors.len(), 2);
 
-        // Missing one
         let instance = json!({"a": 1});
         let errors: Vec<_> = validator.iter_errors(&instance).collect();
         assert_eq!(errors.len(), 1);
 
-        // All present
         let instance = json!({"a": 1, "b": 2});
         let errors: Vec<_> = validator.iter_errors(&instance).collect();
         assert!(errors.is_empty());
@@ -1077,22 +1079,18 @@ mod tests {
         let schema = json!({"required": ["a", "b", "c"]});
         let validator = crate::validator_for(&schema).unwrap();
 
-        // Missing all
         let instance = json!({});
         let errors: Vec<_> = validator.iter_errors(&instance).collect();
         assert_eq!(errors.len(), 3);
 
-        // Missing two
         let instance = json!({"a": 1});
         let errors: Vec<_> = validator.iter_errors(&instance).collect();
         assert_eq!(errors.len(), 2);
 
-        // Missing one
         let instance = json!({"a": 1, "b": 2});
         let errors: Vec<_> = validator.iter_errors(&instance).collect();
         assert_eq!(errors.len(), 1);
 
-        // All present
         let instance = json!({"a": 1, "b": 2, "c": 3});
         let errors: Vec<_> = validator.iter_errors(&instance).collect();
         assert!(errors.is_empty());

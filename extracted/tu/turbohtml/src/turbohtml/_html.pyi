@@ -60,6 +60,12 @@ from ._stubs.dom import (
     StaticRange as StaticRange,
 )
 from ._stubs.dom import (
+    TagFactory as TagFactory,
+)
+from ._stubs.dom import (
+    TagMaker as TagMaker,
+)
+from ._stubs.dom import (
     Text as Text,
 )
 from ._stubs.dom import (
@@ -79,6 +85,9 @@ from ._stubs.dom import (
 )
 from ._stubs.dom import (
     _reconstruct as _reconstruct,
+)
+from ._stubs.dom import (
+    _reconstruct_tree as _reconstruct_tree,
 )
 from ._stubs.dom import (
     _tree_verify as _tree_verify,

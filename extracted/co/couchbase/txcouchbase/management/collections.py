@@ -1,4 +1,4 @@
-#  Copyright 2016-2022. Couchbase, Inc.
+#  Copyright 2016-2026. Couchbase, Inc.
 #  All Rights Reserved.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License")
@@ -15,56 +15,64 @@
 
 from __future__ import annotations
 
+__all__ = [
+    'CollectionManager',
+    'CollectionSpec',
+    'CreateCollectionSettings',
+    'ScopeSpec',
+    'UpdateCollectionSettings',
+]
+
 import sys
-from typing import (TYPE_CHECKING,
-                    Any,
-                    Iterable,
-                    Optional,
-                    overload)
+from collections.abc import Iterable
+from typing import TYPE_CHECKING, overload
 
 if sys.version_info >= (3, 13):
     from warnings import deprecated
 else:
     from typing_extensions import deprecated
 
-from twisted.internet.defer import Deferred
-
-from couchbase.logic.observability import ObservableRequestHandler
-from couchbase.logic.operation_types import CollectionMgmtOperationType
-from couchbase.management.logic.collection_mgmt_req_types import (CollectionSpec,
-                                                                  CreateCollectionSettings,
-                                                                  ScopeSpec,
-                                                                  UpdateCollectionSettings)
+from couchbase.common.management.collections import (CollectionSpec,
+                                                     CreateCollectionSettings,
+                                                     ScopeSpec,
+                                                     UpdateCollectionSettings)
 from couchbase.management.options import (CreateCollectionOptions,
                                           CreateScopeOptions,
                                           DropCollectionOptions,
                                           DropScopeOptions,
                                           GetAllScopesOptions,
                                           UpdateCollectionOptions)
-from txcouchbase.management.logic.collection_mgmt_impl import TxCollectionMgmtImpl
 
 if TYPE_CHECKING:
-    from acouchbase.logic.client_adapter import AsyncClientAdapter
-    from couchbase.logic.observability import ObservabilityInstruments
+    from twisted.internet.defer import Deferred
+    from typing_extensions import Unpack
+
+    from couchbase.common._interfaces._collection_mgmt import TxCollectionMgmtInterface
+    from couchbase.common.management.options import (CreateCollectionOptionsKwargs,
+                                                     CreateScopeOptionsKwargs,
+                                                     DropCollectionOptionsKwargs,
+                                                     DropScopeOptionsKwargs,
+                                                     GetAllScopesOptionsKwargs,
+                                                     UpdateCollectionOptionsKwargs)
 
 
 class CollectionManager:
+    """Performs management operations on a bucket's scopes and collections."""
 
-    def __init__(self,
-                 client_adapter: AsyncClientAdapter,
-                 bucket_name: str,
-                 observability_instruments: ObservabilityInstruments) -> None:
-        self._bucket_name = bucket_name
-        self._impl = TxCollectionMgmtImpl(client_adapter, observability_instruments)
+    def __init__(self, impl: TxCollectionMgmtInterface) -> None:
+        self._impl = impl
 
-    def create_scope(self, scope_name: str, *options: CreateScopeOptions, **kwargs: Any) -> Deferred[None]:
+    def create_scope(self,
+                     scope_name: str,
+                     options: CreateScopeOptions | None = None,
+                     **kwargs: Unpack[CreateScopeOptionsKwargs]) -> Deferred[None]:
         """Creates a new scope.
 
         Args:
             scope_name (str): The name of the scope.
             options (:class:`~couchbase.management.options.CreateScopeOptions`): Optional parameters for this
                 operation.
-            **kwargs (Dict[str, Any]): keyword arguments that can be used as optional parameters
+            **kwargs: keyword arguments that can be used as optional parameters
                 for this operation.
 
         Returns:
@@ -73,30 +81,19 @@ class CollectionManager:
         Raises:
             :class:`~couchbase.exceptions.ScopeAlreadyExistsException`: If the scope already exists.
         """
-        op_type = CollectionMgmtOperationType.ScopeCreate
-        obs_handler = ObservableRequestHandler(op_type, self._impl.observability_instruments)
-        obs_handler.__enter__()
-        try:
-            req = self._impl.request_builder.build_create_scope_request(self._bucket_name,
-                                                                        scope_name,
-                                                                        obs_handler,
-                                                                        *options,
-                                                                        **kwargs)
-            d = self._impl.create_scope_deferred(req, obs_handler)
-            d.addBoth(self._impl._finish_span, obs_handler)
-            return d
-        except Exception as e:
-            obs_handler.__exit__(type(e), e, e.__traceback__)
-            raise
+        return self._impl.create_scope_deferred(scope_name, options, **kwargs)
 
-    def drop_scope(self, scope_name: str, *options: DropScopeOptions, **kwargs: Any) -> Deferred[None]:
+    def drop_scope(self,
+                   scope_name: str,
+                   options: DropScopeOptions | None = None,
+                   **kwargs: Unpack[DropScopeOptionsKwargs]) -> Deferred[None]:
         """Drops an existing scope.
 
         Args:
             scope_name (str): The name of the scope.
             options (:class:`~couchbase.management.options.DropScopeOptions`): Optional parameters for this
                 operation.
-            **kwargs (Dict[str, Any]): keyword arguments that can be used as optional parameters
+            **kwargs: keyword arguments that can be used as optional parameters
                 for this operation.
 
         Returns:
@@ -105,56 +102,31 @@ class CollectionManager:
         Raises:
             :class:`~couchbase.exceptions.ScopeNotFoundException`: If the scope does not exist.
         """
-        op_type = CollectionMgmtOperationType.ScopeDrop
-        obs_handler = ObservableRequestHandler(op_type, self._impl.observability_instruments)
-        obs_handler.__enter__()
-        try:
-            req = self._impl.request_builder.build_drop_scope_request(self._bucket_name,
-                                                                      scope_name,
-                                                                      obs_handler,
-                                                                      *options,
-                                                                      **kwargs)
-            d = self._impl.drop_scope_deferred(req, obs_handler)
-            d.addBoth(self._impl._finish_span, obs_handler)
-            return d
-        except Exception as e:
-            obs_handler.__exit__(type(e), e, e.__traceback__)
-            raise
+        return self._impl.drop_scope_deferred(scope_name, options, **kwargs)
 
-    def get_all_scopes(self, *options: GetAllScopesOptions, **kwargs: Any) -> Deferred[Iterable[ScopeSpec]]:
+    def get_all_scopes(self,
+                       options: GetAllScopesOptions | None = None,
+                       **kwargs: Unpack[GetAllScopesOptionsKwargs]) -> Deferred[Iterable[ScopeSpec]]:
         """Returns all configured scopes along with their collections.
 
         Args:
-            scope_name (str): The name of the scope.
             options (:class:`~couchbase.management.options.GetAllScopesOptions`): Optional parameters for this
                 operation.
-            **kwargs (Dict[str, Any]): keyword arguments that can be used as optional parameters
+            **kwargs: keyword arguments that can be used as optional parameters
                 for this operation.
 
         Returns:
             Deferred[Iterable[:class:`.ScopeSpec`]]: A list of all configured scopes.
         """
-        op_type = CollectionMgmtOperationType.ScopeGetAll
-        obs_handler = ObservableRequestHandler(op_type, self._impl.observability_instruments)
-        obs_handler.__enter__()
-        try:
-            req = self._impl.request_builder.build_get_all_scopes_request(self._bucket_name,
-                                                                          obs_handler,
-                                                                          *options,
-                                                                          **kwargs)
-            d = self._impl.get_all_scopes_deferred(req, obs_handler)
-            d.addBoth(self._impl._finish_span, obs_handler)
-            return d
-        except Exception as e:
-            obs_handler.__exit__(type(e), e, e.__traceback__)
-            raise
+        return self._impl.get_all_scopes_deferred(options, **kwargs)
 
     @overload
-    @deprecated("Use ``create_collection(scope_name, collection_name, settings=None, *options, **kwargs)`` instead.")
+    @deprecated("Use ``create_collection(scope_name, collection_name, settings=None, options=None, **kwargs)`` "
+                "instead.")
     def create_collection(self,
                           collection: CollectionSpec,
-                          *options: CreateCollectionOptions,
-                          **kwargs: Any
+                          options: CreateCollectionOptions | None = None,
+                          **kwargs: Unpack[CreateCollectionOptionsKwargs]
                           ) -> Deferred[None]:
         ...
 
@@ -162,18 +134,18 @@ class CollectionManager:
     def create_collection(self,
                           scope_name: str,
                           collection_name: str,
-                          settings: Optional[CreateCollectionSettings] = None,
-                          *options: CreateCollectionOptions,
-                          **kwargs: Any
+                          settings: CreateCollectionSettings | None = None,
+                          options: CreateCollectionOptions | None = None,
+                          **kwargs: Unpack[CreateCollectionOptionsKwargs]
                           ) -> Deferred[None]:
         ...
 
-    def create_collection(self, *args: object, **kwargs: object) -> Deferred[None]:
+    def create_collection(self, *args: object, **kwargs: object) -> Deferred[None]:  # noqa: D417
         """Creates a new collection in a specified scope.
 
-        .. note::
-            The overloaded create_collection method that takes a CollectionSpec is deprecated as of v4.1.9
-            and will be removed in a future version.
+        .. deprecated:: 4.1.9
+            The overload that takes a :class:`~couchbase.management.collections.CollectionSpec` is deprecated; pass
+            ``scope_name`` and ``collection_name`` instead.
 
         Args:
             scope_name (str): The name of the scope the collection will be created in.
@@ -181,7 +153,7 @@ class CollectionManager:
             settings (:class:`~.CreateCollectionSettings`, optional): Settings to apply for the collection
             options (:class:`~couchbase.management.options.CreateCollectionOptions`): Optional parameters for this
                 operation.
-            **kwargs (Dict[str, Any]): keyword arguments that can be used as optional parameters
+            **kwargs: keyword arguments that can be used as optional parameters
                 for this operation.
 
         Returns:
@@ -191,34 +163,23 @@ class CollectionManager:
             :class:`~couchbase.exceptions.CollectionAlreadyExistsException`: If the collection already exists.
             :class:`~couchbase.exceptions.ScopeNotFoundException`: If the scope does not exist.
         """
-        op_type = CollectionMgmtOperationType.CollectionCreate
-        obs_handler = ObservableRequestHandler(op_type, self._impl.observability_instruments)
-        obs_handler.__enter__()
-        try:
-            kwargs['obs_handler'] = obs_handler
-            req = self._impl.request_builder.build_create_collection_request(self._bucket_name, *args, **kwargs)
-            d = self._impl.create_collection_deferred(req, obs_handler)
-            d.addBoth(self._impl._finish_span, obs_handler)
-            return d
-        except Exception as e:
-            obs_handler.__exit__(type(e), e, e.__traceback__)
-            raise
+        return self._impl.create_collection_deferred(*args, **kwargs)
 
     def update_collection(self,
                           scope_name: str,
                           collection_name: str,
                           settings: UpdateCollectionSettings,
-                          *options: UpdateCollectionOptions,
-                          **kwargs: Any
-                          ) -> Deferred[None]:
+                          options: UpdateCollectionOptions | None = None,
+                          **kwargs: Unpack[UpdateCollectionOptionsKwargs]) -> Deferred[None]:
         """Updates a collection in a specified scope.
 
         Args:
             scope_name (str): The name of the scope the collection is in.
             collection_name (str): The name of the collection that will be updated
-            settings (:class:`~.UpdateCollectionSettings`, optional): Settings to apply for the collection
-            options (:class:`~couchbase.management.options.UpdateCollectionOptions`): Optional parameters for this operation.
-            **kwargs (Dict[str, Any]): keyword arguments that can be used as optional parameters for this operation.
+            settings (:class:`~.UpdateCollectionSettings`): Settings to apply for the collection
+            options (:class:`~couchbase.management.options.UpdateCollectionOptions`): Optional parameters for this
+                operation.
+            **kwargs: keyword arguments that can be used as optional parameters for this operation.
 
         Returns:
             `Deferred`: An empty `Deferred` instance.
@@ -226,31 +187,15 @@ class CollectionManager:
         Raises:
             :class:`~couchbase.exceptions.CollectionNotFoundException`: If the collection does not exist.
             :class:`~couchbase.exceptions.ScopeNotFoundException`: If the scope does not exist.
-        """  # noqa: E501
-        op_type = CollectionMgmtOperationType.CollectionUpdate
-        obs_handler = ObservableRequestHandler(op_type, self._impl.observability_instruments)
-        obs_handler.__enter__()
-        try:
-            req = self._impl.request_builder.build_update_collection_request(self._bucket_name,
-                                                                             scope_name,
-                                                                             collection_name,
-                                                                             settings,
-                                                                             obs_handler,
-                                                                             *options,
-                                                                             **kwargs)
-            d = self._impl.update_collection_deferred(req, obs_handler)
-            d.addBoth(self._impl._finish_span, obs_handler)
-            return d
-        except Exception as e:
-            obs_handler.__exit__(type(e), e, e.__traceback__)
-            raise
+        """
+        return self._impl.update_collection_deferred(scope_name, collection_name, settings, options, **kwargs)
 
     @overload
-    @deprecated("Use ``drop_collection(scope_name, collection_name, *options, **kwargs)`` instead.")
+    @deprecated("Use ``drop_collection(scope_name, collection_name, options=None, **kwargs)`` instead.")
     def drop_collection(self,
                         collection: CollectionSpec,
-                        *options: DropCollectionOptions,
-                        **kwargs: Any
+                        options: DropCollectionOptions | None = None,
+                        **kwargs: Unpack[DropCollectionOptionsKwargs]
                         ) -> Deferred[None]:
         ...
 
@@ -258,23 +203,23 @@ class CollectionManager:
     def drop_collection(self,
                         scope_name: str,
                         collection_name: str,
-                        *options: DropCollectionOptions,
-                        **kwargs: Any) -> None:
+                        options: DropCollectionOptions | None = None,
+                        **kwargs: Unpack[DropCollectionOptionsKwargs]) -> Deferred[None]:
         ...
 
-    def drop_collection(self, *args: object, **kwargs: object) -> None:
+    def drop_collection(self, *args: object, **kwargs: object) -> Deferred[None]:  # noqa: D417
         """Drops a collection from a scope.
 
-        .. note::
-            The overloaded drop_collection method that takes a CollectionSpec is deprecated as of v4.1.9
-            and will be removed in a future version.
+        .. deprecated:: 4.1.9
+            The overload that takes a :class:`~couchbase.management.collections.CollectionSpec` is deprecated; pass
+            ``scope_name`` and ``collection_name`` instead.
 
         Args:
             scope_name (str): The name of the scope the collection is in.
             collection_name (str): The name of the collection to be dropped.
             options (:class:`~couchbase.management.options.DropCollectionOptions`): Optional parameters for this
                 operation.
-            **kwargs (Dict[str, Any]): keyword arguments that can be used as optional parameters
+            **kwargs: keyword arguments that can be used as optional parameters
                 for this operation.
 
         Returns:
@@ -283,15 +228,4 @@ class CollectionManager:
         Raises:
             :class:`~couchbase.exceptions.CollectionNotFoundException`: If the collection does not exist.
         """
-        op_type = CollectionMgmtOperationType.CollectionDrop
-        obs_handler = ObservableRequestHandler(op_type, self._impl.observability_instruments)
-        obs_handler.__enter__()
-        try:
-            kwargs['obs_handler'] = obs_handler
-            req = self._impl.request_builder.build_drop_collection_request(self._bucket_name, *args, **kwargs)
-            d = self._impl.drop_collection_deferred(req, obs_handler)
-            d.addBoth(self._impl._finish_span, obs_handler)
-            return d
-        except Exception as e:
-            obs_handler.__exit__(type(e), e, e.__traceback__)
-            raise
+        return self._impl.drop_collection_deferred(*args, **kwargs)

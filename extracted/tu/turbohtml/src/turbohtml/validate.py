@@ -13,11 +13,15 @@ derivative check runs in the extension.
 
 from __future__ import annotations
 
+__lazy_modules__ = [
+    "itertools",
+    f"{__spec__.parent}._html",  # ty: ignore[missing-union-attribute]  # imported modules have a spec
+]
+
 from itertools import starmap
 from typing import TYPE_CHECKING, Final, NamedTuple
 
-from ._html import schema_compile as _schema_compile
-from ._html import schema_validate as _schema_validate
+from ._html import schema_compile, schema_validate
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -39,7 +43,7 @@ class _Schema:
         :raises TypeError: if the document is neither a document nor an element, such as a ``Text`` child.
         :raises ValueError: if a RELAX NG content model is too ambiguous to validate.
         """
-        return _schema_validate(self._compiled, document, collect_errors=False)[0]
+        return schema_validate(self._compiled, document, collect_errors=False)[0]
 
     def assert_valid(self, document: Document | Node) -> None:
         """
@@ -63,7 +67,7 @@ class _Schema:
         :raises TypeError: if the document is neither a document nor an element, such as a ``Text`` child.
         :raises ValueError: if a RELAX NG content model is too ambiguous to validate.
         """
-        valid, errors = _schema_validate(self._compiled, document)
+        valid, errors = schema_validate(self._compiled, document)
         return ValidationResult(valid, tuple(starmap(ValidationError, errors)))
 
 
@@ -137,7 +141,7 @@ class XMLSchema(_Schema):
 
         :param source: the schema as XSD text, or a schema document parsed with :func:`turbohtml.parse_xml`.
         """
-        super().__init__(_schema_compile(0, _text(source)))
+        super().__init__(schema_compile(0, _text(source)))
 
 
 def _text(source: str | Node) -> str:
@@ -168,7 +172,7 @@ class RelaxNG(_Schema):
         :param include_root: when set, referenced files must resolve inside this directory, including through nested
             references.
         """
-        super().__init__(_schema_compile(1, _text(source), base_url, include_root))
+        super().__init__(schema_compile(1, _text(source), base_url, include_root))
 
 
 __all__ = [

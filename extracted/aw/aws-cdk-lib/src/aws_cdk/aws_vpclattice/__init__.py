@@ -2148,8 +2148,11 @@ class CfnResourceConfiguration(
     )
     class CidrResourceProperty:
         def __init__(self, *, cidr_ranges: typing.Sequence[builtins.str]) -> None:
-            '''
-            :param cidr_ranges: 
+            '''The CIDR ranges that make up a CIDR resource configuration.
+
+            Only valid when ResourceConfigurationType is CIDR, and the resource gateway must have ResourceConfigDnsResolution set to IN_VPC.
+
+            :param cidr_ranges: The IPv4 CIDR ranges reachable through this resource configuration, in CIDR notation (for example, 10.0.0.0/24).
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-vpclattice-resourceconfiguration-cidrresource.html
             :exampleMetadata: fixture=_generated
@@ -2173,7 +2176,8 @@ class CfnResourceConfiguration(
 
         @builtins.property
         def cidr_ranges(self) -> typing.List[builtins.str]:
-            '''
+            '''The IPv4 CIDR ranges reachable through this resource configuration, in CIDR notation (for example, 10.0.0.0/24).
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-vpclattice-resourceconfiguration-cidrresource.html#cfn-vpclattice-resourceconfiguration-cidrresource-cidrranges
             '''
             result = self._values.get("cidr_ranges")
@@ -2290,7 +2294,7 @@ class CfnResourceConfiguration(
             - *IP address* - For IPv4 and IPv6, only IP addresses in the VPC are supported.
 
             :param arn_resource: The Amazon Resource Name (ARN) of the resource configuration. For the ARN syntax and format, see `ARN format <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference-arns.html#arns-syntax>`_ in the *AWS Identity and Access Management user guide* .
-            :param cidr_resource: 
+            :param cidr_resource: The CIDR ranges that make up a CIDR resource configuration. Only valid when ResourceConfigurationType is CIDR, and the resource gateway must have ResourceConfigDnsResolution set to IN_VPC.
             :param dns_resource: The DNS name of the resource configuration.
             :param ip_resource: The IP address of the resource configuration.
 
@@ -2346,7 +2350,10 @@ class CfnResourceConfiguration(
         def cidr_resource(
             self,
         ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceConfiguration.CidrResourceProperty"]]:
-            '''
+            '''The CIDR ranges that make up a CIDR resource configuration.
+
+            Only valid when ResourceConfigurationType is CIDR, and the resource gateway must have ResourceConfigDnsResolution set to IN_VPC.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-vpclattice-resourceconfiguration-resourceconfigurationdefinition.html#cfn-vpclattice-resourceconfiguration-resourceconfigurationdefinition-cidrresource
             '''
             result = self._values.get("cidr_resource")

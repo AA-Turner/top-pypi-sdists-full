@@ -693,8 +693,15 @@ ConstantValue RangeSelectExpression::evalImpl(EvalContext& context) const {
         return value().type->getDefaultValue();
     }
 
-    return cv.getSlice(range->upper(), range->lower(),
-                       type->getArrayElementType()->getDefaultValue());
+    auto result = cv.getSlice(range->upper(), range->lower(),
+                              type->getArrayElementType()->getDefaultValue());
+
+    // Out of bounds bits are sliced out as X, so for two-state
+    // types we need to convert them to zero.
+    if (result.isInteger() && !type->isFourState())
+        result.integer().flattenUnknowns();
+
+    return result;
 }
 
 LValue RangeSelectExpression::evalLValueImpl(EvalContext& context) const {
@@ -995,6 +1002,16 @@ Expression& MemberAccessExpression::fromSelector(
         return badExpr(comp, &expr);
     }
 
+    // The member's type might still be in the process of being resolved,
+    // if it's being accessed from within its own definition.
+    if (auto declaredType = member->getDeclaredType();
+        declaredType && declaredType->isEvaluating()) {
+        auto& diag = context.addDiag(diag::RecursiveDefinition, selector.nameRange);
+        diag << member->name;
+        diag.addNote(diag::NoteDeclarationHere, member->location);
+        return badExpr(comp, &expr);
+    }
+
     switch (member->kind) {
         case SymbolKind::Field: {
             auto& field = member->as<FieldSymbol>();
@@ -1259,7 +1276,9 @@ ConstantValue MemberAccessExpression::evalImpl(EvalContext& context) const {
             return nullptr;
         }
 
-        return cvi.slice(int32_t(type->getBitWidth() - 1), 0);
+        // Make sure sign and four-statedness are correct.
+        ConstantValue slice = cvi.slice(int32_t(type->getBitWidth() - 1), 0);
+        return slice.convertToInt(type->getBitWidth(), type->isSigned(), type->isFourState());
     }
     else {
         int32_t io = (int32_t)field.bitOffset;

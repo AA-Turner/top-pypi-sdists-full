@@ -31,8 +31,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from ..slurm.collect import stale_reason
 from ..slurm.manifest import (
     BatchLayout,
+    CaseOutcome,
     Manifest,
     SubmissionRecord,
     TaskStatus,
@@ -211,7 +213,11 @@ def _now_iso() -> str:
     from :func:`time.gmtime`'s fields, as Codon's datetime holds no timezone
     (no ``timezone.utc``, no aware ``now()``) and the check compiles this.
     """
-    now = time.gmtime()
+    # Not a bare time.gmtime(): with no argument it reads time(NULL), the
+    # coarse clock (the seconds at the last kernel tick), which can lag the
+    # CLOCK_REALTIME that datetime.now() and time.time() read just after a
+    # second ticks over (#2257).
+    now = time.gmtime(time.time_ns() // 1_000_000_000)
     date = f"{now.tm_year:04d}-{now.tm_mon:02d}-{now.tm_mday:02d}"
     clock = f"{now.tm_hour:02d}:{now.tm_min:02d}:{now.tm_sec:02d}"
     return f"{date}T{clock}+00:00"
@@ -464,6 +470,14 @@ def _case_states(
     for case in manifest.listed_cases():
         index = case.index()
         record = layout.read_result(index)
+        if record is not None:
+            # Typed through a local: Codon 0.19 keeps the Optional otherwise.
+            outcome: CaseOutcome = record
+            if stale_reason(layout, index, outcome) is not None:
+                # An earlier submission's outcome, which the last one to give
+                # the case stopped before replacing (#2247): shown as without
+                # one, where its task is, as `status` counts it.
+                record = None
         label_json = case.value_json("label")
         stem_json = case.value_json("stem")
         overrides_json = case.value_json("case_overrides")

@@ -1,22 +1,22 @@
 use crate::{
-    compiler::{self, DeferredAbsoluteLocation},
+    compiler,
     evaluation::{
-        format_keyword_location, Annotations, ChildList, ErrorDescription, EvaluationNode,
-        InstancePosition,
+        Annotations, ChildList, ErrorDescription, EvaluationNode, InstancePosition, PendingRun,
+        RunUnit, RunUnits,
     },
-    keywords::{BoxedValidator, CompilationResult},
+    keywords::{
+        helpers::{unit, SchemaSite},
+        BoxedValidator, CompilationResult,
+    },
     node::SchemaNode,
     paths::{LazyLocation, Location, RefTracker},
     types::JsonType,
     validator::{EvaluationResult, Validate, ValidationContext},
     Array, Draft, Json, Node, SerdeJson, ValidationError,
 };
-use referencing::{Uri, Vocabulary};
+use referencing::Vocabulary;
 use serde_json::{Map, Value};
-use std::{
-    marker::PhantomData,
-    sync::{Arc, OnceLock},
-};
+use std::{marker::PhantomData, sync::Arc};
 
 pub(crate) struct ItemsArrayValidator<F: Json = SerdeJson> {
     items: Vec<SchemaNode<F>>,
@@ -89,16 +89,23 @@ impl<F: Json> Validate<F> for ItemsArrayValidator<F> {
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
-        if let Some(array) = instance.as_array() {
-            let mut children = ChildList::default();
-            for (idx, (item, node)) in array.elements().zip(self.items.iter()).enumerate() {
-                let child = node.evaluate_instance_below(&item, &location.push(idx), tracker, ctx);
-                children.push(ctx.arena(), child);
-            }
-            EvaluationResult::from_children(children)
-        } else {
-            EvaluationResult::valid_empty()
+        let Some(array) = instance.as_array().filter(|array| array.len() != 0) else {
+            return EvaluationResult::valid_empty();
+        };
+        let mut children = ChildList::default();
+        for (idx, (item, node)) in array.elements().zip(self.items.iter()).enumerate() {
+            let child = node.evaluate_instance_below(&item, &location.push(idx), tracker, ctx);
+            children.push(ctx.arena(), child);
         }
+        // As `prefixItems`: every item, or the largest index applied.
+        let annotation = if children.len() == array.len() {
+            Value::Bool(true)
+        } else {
+            Value::from(children.len() - 1)
+        };
+        let mut result = EvaluationResult::from_children(children);
+        result.annotate(Annotations::new(annotation));
+        result
     }
 }
 
@@ -119,7 +126,7 @@ fn evaluate_each_item<F: Json>(
         children.push(ctx.arena(), child);
     }
     let mut result = EvaluationResult::from_children(children);
-    result.annotate(Annotations::new(serde_json::json!(array.len() != 0)));
+    result.annotate(Annotations::boolean(array.len() != 0));
     result
 }
 
@@ -285,7 +292,7 @@ impl<F: Json> Validate<F> for ItemsObjectSkipPrefixValidator<F> {
             }
             let schema_was_applied = array.len() > self.skip_prefix;
             let mut result = EvaluationResult::from_children(children);
-            result.annotate(Annotations::new(serde_json::json!(schema_was_applied)));
+            result.annotate(Annotations::boolean(schema_was_applied));
             result
         } else {
             EvaluationResult::valid_empty()
@@ -361,38 +368,6 @@ impl ItemType for IntegerItemsDraft4 {
 
     fn compile_type<F: Json>(location: Location) -> CompilationResult<'static, F> {
         super::legacy::type_draft_4::IntegerTypeValidator::compile(location)
-    }
-}
-
-/// A schema position with the locations its output reports, rendered on first use.
-struct SchemaSite {
-    location: Location,
-    base: Option<DeferredAbsoluteLocation>,
-    absolute_location: OnceLock<Option<Arc<Uri<String>>>>,
-    schema_location: OnceLock<Arc<str>>,
-}
-
-impl SchemaSite {
-    fn new<F: Json>(ctx: &compiler::Context<F>, location: Location) -> Self {
-        SchemaSite {
-            location,
-            base: ctx.deferred_absolute_location(),
-            absolute_location: OnceLock::new(),
-            schema_location: OnceLock::new(),
-        }
-    }
-
-    fn absolute_location(&self) -> Option<&Arc<Uri<String>>> {
-        self.absolute_location
-            .get_or_init(|| self.base.as_ref().map(|base| base.resolve(&self.location)))
-            .as_ref()
-    }
-
-    fn schema_location(&self) -> Arc<str> {
-        Arc::clone(
-            self.schema_location
-                .get_or_init(|| format_keyword_location(&self.location, self.absolute_location())),
-        )
     }
 }
 
@@ -556,10 +531,9 @@ impl<T: ItemType, F: Json> Validate<F> for ItemsTypeValidator<T, F> {
                     ctx,
                     errors,
                 );
-                if let Some(uri) = self.type_.absolute_location() {
-                    for error in &mut errors[start..] {
-                        error.set_absolute_keyword_location(uri);
-                    }
+                let uri = self.type_.absolute_location();
+                for error in &mut errors[start..] {
+                    error.set_absolute_keyword_location(uri);
                 }
             }
         }
@@ -575,14 +549,82 @@ impl<T: ItemType, F: Json> Validate<F> for ItemsTypeValidator<T, F> {
         let Some(array) = instance.as_array() else {
             return EvaluationResult::valid_empty();
         };
+        let parent = ctx.current_instance_position();
         let mut children = ChildList::default();
+        // A matching element reports nothing in either unit, so it joins a run.
+        let mut run = PendingRun::default();
+        let mut units = None;
         for (idx, item) in array.elements().enumerate() {
-            let child = self.evaluate_item(&item, &location.push(idx), tracker, ctx);
-            children.push(ctx.arena(), child);
+            if T::matches::<F>(&item) {
+                run.add(idx);
+            } else {
+                self.end_run(&mut run, &mut units, parent, &mut children, tracker, ctx);
+                let child = self.evaluate_item(&item, &location.push(idx), tracker, ctx);
+                children.push(ctx.arena(), child);
+            }
         }
+        self.end_run(&mut run, &mut units, parent, &mut children, tracker, ctx);
         let mut result = EvaluationResult::from_children(children);
-        result.annotate(Annotations::new(serde_json::json!(array.len() != 0)));
+        result.annotate(Annotations::boolean(array.len() != 0));
         result
+    }
+}
+
+impl<T: ItemType, F: Json> ItemsTypeValidator<T, F> {
+    /// Moves the items `run` holds onto `children`, as one run over the array at `parent`.
+    #[inline]
+    fn end_run(
+        &self,
+        run: &mut PendingRun,
+        units: &mut Option<RunUnits>,
+        parent: InstancePosition,
+        children: &mut ChildList,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
+    ) {
+        if run.is_empty() {
+            return;
+        }
+        let units = *units.get_or_insert_with(|| self.run_units(tracker, ctx));
+        children.push_run(ctx.arena(), parent, run, units);
+    }
+
+    /// The subschema and `type` units each matching element reports.
+    #[inline]
+    fn run_units(&self, tracker: Option<&RefTracker>, ctx: &mut ValidationContext) -> RunUnits {
+        let owner = std::ptr::from_ref(self).addr();
+        let latest = match tracker {
+            None => ctx.arena().latest_run_units(owner, &self.items.location),
+            Some(tracker) => {
+                let evaluation_path = ctx.evaluation_path(tracker, &self.items.location);
+                ctx.arena().latest_run_units(owner, &evaluation_path)
+            }
+        };
+        latest.unwrap_or_else(|| self.add_run_units(owner, tracker, ctx))
+    }
+
+    /// Records the units [`Self::run_units`] finds no latest ones for.
+    #[cold]
+    #[inline(never)]
+    fn add_run_units(
+        &self,
+        owner: usize,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
+    ) -> RunUnits {
+        let evaluation_path = crate::paths::evaluation_path(tracker, &self.items.location, ctx);
+        let type_path = crate::paths::evaluation_path(tracker, &self.type_.location, ctx);
+        let shared = [
+            RunUnit {
+                evaluation_path,
+                schema_location: self.items.schema_location(),
+            },
+            RunUnit {
+                evaluation_path: type_path,
+                schema_location: self.type_.schema_location(),
+            },
+        ];
+        ctx.arena().add_run_units(owner, shared)
     }
 }
 
@@ -796,36 +838,6 @@ impl AbsorbedKeywords {
             let node = unit(&constraint.site, error, instance_location, tracker, ctx);
             children.push(ctx.arena(), node);
         }
-    }
-}
-
-/// A leaf keyword's output unit: valid and empty, or failing with `error`.
-fn unit(
-    site: &SchemaSite,
-    error: Option<ErrorDescription>,
-    instance_location: InstancePosition,
-    tracker: Option<&RefTracker>,
-    ctx: &mut ValidationContext,
-) -> EvaluationNode {
-    let evaluation_path = crate::paths::evaluation_path(tracker, &site.location, ctx);
-    match error {
-        None => EvaluationNode::valid(
-            evaluation_path,
-            site.absolute_location().cloned(),
-            site.schema_location(),
-            instance_location,
-            None,
-            ChildList::default(),
-        ),
-        Some(error) => EvaluationNode::invalid(
-            evaluation_path,
-            site.absolute_location().cloned(),
-            site.schema_location(),
-            instance_location,
-            None,
-            vec![error],
-            ChildList::default(),
-        ),
     }
 }
 

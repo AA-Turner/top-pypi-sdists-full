@@ -174,9 +174,7 @@ fn setup_with_options(
     let store = Arc::new(store);
     let mut adapter = StatsigHttpIdListsAdapter::new(&sdk_key, &options);
     let dynamic: Arc<dyn NetworkProvider> = provider.clone();
-    adapter
-        .network
-        .set_network_provider_for_test(Arc::downgrade(&dynamic));
+    adapter.set_network_provider_for_test(Arc::downgrade(&dynamic));
     adapter.set_listener(store.clone());
     (provider, Arc::new(adapter), store)
 }
@@ -551,7 +549,14 @@ async fn eager_hash_build_yields_to_the_runtime_and_fences_force_shutdown() {
         let adapter = adapter.clone();
         move || adapter.force_shutdown()
     });
-    until(|| adapter.network.shutdown_flag().load(Ordering::SeqCst)).await;
+    until(|| {
+        adapter
+            .transport
+            .network
+            .shutdown_flag()
+            .load(Ordering::SeqCst)
+    })
+    .await;
     assert!(
         tokio::time::timeout(Duration::from_millis(20), &mut stopping)
             .await

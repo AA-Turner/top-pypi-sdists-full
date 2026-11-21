@@ -31,7 +31,7 @@ from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, Sequence
 
 from .errors import HwpxError, HwpxTypeError
-from .oxml.table_sizes import COLUMN_FLOOR_EXTRA, effective_cell_margin_source
+from .oxml.table_sizes import COLUMN_FLOOR_EXTRA, GridPositions, effective_cell_margin_source
 from .opc.security import guard_zip_file, read_member, read_zip_members
 from .mutation_report import MutationReport, project_byte_splice
 from .patch import (
@@ -133,6 +133,7 @@ def _direct_cells(table: bytes) -> list[_Cell]:
     body = table[body_start:]
     masked = _mask_nested_tables(body)
     cells: list[_Cell] = []
+    positions = GridPositions()
     for m in re.finditer(rb"<(?:[A-Za-z_][\w.-]*:)?tc\b.*?</(?:[A-Za-z_][\w.-]*:)?tc>", masked, re.DOTALL):
         own = m.group(0)  # nested tables stay masked during metadata lookup too
         col = _iattr(own, "cellAddr", "colAddr")
@@ -141,6 +142,7 @@ def _direct_cells(table: bytes) -> list[_Cell]:
         rspan = _iattr(own, "cellSpan", "rowSpan") or 1
         if row is None or col is None:
             continue
+        positions.take(rspan, cspan)  # what the spans in the file may cover in all
         cells.append(_Cell(body_start + m.start(), body_start + m.end(), row, col, rspan, cspan))
     return cells
 
@@ -1152,7 +1154,10 @@ def _delete_columns(table: str, del_cols: Iterable[int]) -> str:
     survivors = [c for c in range(ncol) if c not in del_cols]
     if not survivors:
         raise TableStructureError(
-            "delete_column: deleting every column would leave no table -- delete the table instead (delete_table)"
+            "delete_column: deleting every column would leave no table -- delete the table instead "
+            "(table.remove(), or the delete_table op of apply_table_ops)",
+            suggestion="표를 통째로 지우려면 table.remove() 를 쓰세요(바이트 편집은 apply_table_ops 의 "
+            "{'op': 'delete_table'}).",
         )
     targets = [c for c in survivors if c > dmax and c != survivors[-1]] or survivors
     add, rem = divmod(freed, len(targets))
@@ -1258,7 +1263,10 @@ def _delete_rows(table: str, del_rows: Iterable[int]) -> str:
     prefix, rows, suffix = _parse_table(table)
     if set(range(len(rows))) <= set(del_rows):
         raise TableStructureError(
-            "delete_row: deleting every row would leave no table -- delete the table instead (delete_table)"
+            "delete_row: deleting every row would leave no table -- delete the table instead "
+            "(table.remove(), or the delete_table op of apply_table_ops)",
+            suggestion="표를 통째로 지우려면 table.remove() 를 쓰세요(바이트 편집은 apply_table_ops 의 "
+            "{'op': 'delete_table'}).",
         )
     for empty in del_rows:
         if empty >= len(rows):
@@ -1556,11 +1564,11 @@ def _empty_cell_like(tc: str) -> str:
     paragraph's paragraph shape and the first run's character shape kept."""
     p_open = re.search(r"<hp:p\b[^>]*>", tc)
     char = re.search(r'<hp:run\b[^>]*\bcharPrIDRef="(\d+)"', tc)
-    paragraph = (
-        (p_open.group(0) if p_open else '<hp:p id="0" paraPrIDRef="0" styleIDRef="0" pageBreak="0" '
-         'columnBreak="0" merged="0">')
-        + f'<hp:run charPrIDRef="{char.group(1) if char else 0}"><hp:t/></hp:run></hp:p>'
-    )
+    opening = p_open.group(0) if p_open else (
+        '<hp:p id="0" paraPrIDRef="0" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0">')
+    if opening.endswith("/>"):  # a paragraph with no run, as Hancom saves an empty cell: open it
+        opening = opening[:-2].rstrip() + ">"
+    paragraph = opening + f'<hp:run charPrIDRef="{char.group(1) if char else 0}"><hp:t/></hp:run></hp:p>'
     return re.sub(r"(<hp:subList\b[^>]*>).*(</hp:subList>)", lambda m: m.group(1) + paragraph + m.group(2),
                   tc, count=1, flags=re.S)
 
@@ -1639,7 +1647,10 @@ def _clone_content(content: str, fresh_id: Callable[[re.Match[str]], str]) -> st
         linked = any(attrs.get(name) not in (None, "", "0") for name in ("linkListIDRef", "linkListNextIDRef"))
         if linked or "chartIDRef" in attrs or tag in ("hp:header", "hp:footer"):
             raise TableStructureError(
-                "cannot clone content with local identities or references; use empty-cell insertion"
+                "cannot copy cell content with local identities or references (a header, footer, chart "
+                "or linked text box); insert blank cells instead",
+                suggestion="빈 칸으로 넣으세요: table.insert_rows(...) / table.insert_columns(...)는 기본이 빈 칸이다"
+                "(copy_content=True 를 빼세요). apply_table_ops 는 \"blank\": True.",
             )
         if tag == "hp:p":
             return match.group(0)

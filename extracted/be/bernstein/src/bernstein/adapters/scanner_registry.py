@@ -15,6 +15,7 @@ from bernstein.adapters.bandit import BanditAdapter
 from bernstein.adapters.checkov import CheckovAdapter
 from bernstein.adapters.gitleaks import GitleaksAdapter
 from bernstein.adapters.nmap import NmapAdapter
+from bernstein.adapters.osv_scanner import OsvScannerAdapter
 from bernstein.adapters.scanner import ScannerAdapter
 from bernstein.adapters.semgrep import SemgrepAdapter
 from bernstein.adapters.trivy import TrivyAdapter
@@ -139,14 +140,6 @@ def selectable_scanner_names() -> frozenset[str]:
     return frozenset(name for name, _ in iter_scanner_specs() if name not in _NON_ANALYZER_STUBS)
 
 
-def _registered_scanner_name(name: str) -> str | None:
-    """Return *name* if it is a scanner registry key, else ``None``."""
-    _load_entrypoint_scanners()
-    if name in _SCANNERS:
-        return name
-    return None
-
-
 def scanner_name_for_provider(provider_name: str | None, model: str) -> str | None:
     """Resolve a scanner registry name from a provider name and/or model string.
 
@@ -160,5 +153,6 @@ register_scanner(BanditAdapter.registry_name, BanditAdapter)
 register_scanner(CheckovAdapter.registry_name, CheckovAdapter)
 register_scanner(GitleaksAdapter.registry_name, GitleaksAdapter)
 register_scanner(NmapAdapter.registry_name, NmapAdapter)
+register_scanner(OsvScannerAdapter.registry_name, OsvScannerAdapter)
 register_scanner(SemgrepAdapter.registry_name, SemgrepAdapter)
 register_scanner(TrivyAdapter.registry_name, TrivyAdapter)

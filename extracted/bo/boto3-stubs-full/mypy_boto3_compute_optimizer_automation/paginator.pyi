@@ -19,6 +19,8 @@ Usage::
         ListAutomationRulePreviewPaginator,
         ListAutomationRulePreviewSummariesPaginator,
         ListAutomationRulesPaginator,
+        ListOrganizationEnrollmentConfigurationsPaginator,
+        ListOrganizationalUnitsPaginator,
         ListRecommendedActionSummariesPaginator,
         ListRecommendedActionsPaginator,
     )
@@ -33,6 +35,8 @@ Usage::
     list_automation_rule_preview_paginator: ListAutomationRulePreviewPaginator = client.get_paginator("list_automation_rule_preview")
     list_automation_rule_preview_summaries_paginator: ListAutomationRulePreviewSummariesPaginator = client.get_paginator("list_automation_rule_preview_summaries")
     list_automation_rules_paginator: ListAutomationRulesPaginator = client.get_paginator("list_automation_rules")
+    list_organization_enrollment_configurations_paginator: ListOrganizationEnrollmentConfigurationsPaginator = client.get_paginator("list_organization_enrollment_configurations")
+    list_organizational_units_paginator: ListOrganizationalUnitsPaginator = client.get_paginator("list_organizational_units")
     list_recommended_action_summaries_paginator: ListRecommendedActionSummariesPaginator = client.get_paginator("list_recommended_action_summaries")
     list_recommended_actions_paginator: ListRecommendedActionsPaginator = client.get_paginator("list_recommended_actions")
     ```
@@ -60,6 +64,10 @@ from .type_defs import (
     ListAutomationRulePreviewSummariesResponseTypeDef,
     ListAutomationRulesRequestPaginateTypeDef,
     ListAutomationRulesResponseTypeDef,
+    ListOrganizationalUnitsRequestPaginateTypeDef,
+    ListOrganizationalUnitsResponseTypeDef,
+    ListOrganizationEnrollmentConfigurationsRequestPaginateTypeDef,
+    ListOrganizationEnrollmentConfigurationsResponseTypeDef,
     ListRecommendedActionsRequestPaginateTypeDef,
     ListRecommendedActionsResponseTypeDef,
     ListRecommendedActionSummariesRequestPaginateTypeDef,
@@ -79,6 +87,8 @@ __all__ = (
     "ListAutomationRulePreviewPaginator",
     "ListAutomationRulePreviewSummariesPaginator",
     "ListAutomationRulesPaginator",
+    "ListOrganizationEnrollmentConfigurationsPaginator",
+    "ListOrganizationalUnitsPaginator",
     "ListRecommendedActionSummariesPaginator",
     "ListRecommendedActionsPaginator",
 )
@@ -211,6 +221,46 @@ class ListAutomationRulesPaginator(_ListAutomationRulesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/compute-optimizer-automation/paginator/ListAutomationRules.html#ComputeOptimizerAutomation.Paginator.ListAutomationRules.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_compute_optimizer_automation/paginators/#listautomationrulespaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListOrganizationEnrollmentConfigurationsPaginatorBase = Paginator[
+        ListOrganizationEnrollmentConfigurationsResponseTypeDef
+    ]
+else:
+    _ListOrganizationEnrollmentConfigurationsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListOrganizationEnrollmentConfigurationsPaginator(
+    _ListOrganizationEnrollmentConfigurationsPaginatorBase
+):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/compute-optimizer-automation/paginator/ListOrganizationEnrollmentConfigurations.html#ComputeOptimizerAutomation.Paginator.ListOrganizationEnrollmentConfigurations)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_compute_optimizer_automation/paginators/#listorganizationenrollmentconfigurationspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListOrganizationEnrollmentConfigurationsRequestPaginateTypeDef]
+    ) -> PageIterator[ListOrganizationEnrollmentConfigurationsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/compute-optimizer-automation/paginator/ListOrganizationEnrollmentConfigurations.html#ComputeOptimizerAutomation.Paginator.ListOrganizationEnrollmentConfigurations.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_compute_optimizer_automation/paginators/#listorganizationenrollmentconfigurationspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListOrganizationalUnitsPaginatorBase = Paginator[ListOrganizationalUnitsResponseTypeDef]
+else:
+    _ListOrganizationalUnitsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListOrganizationalUnitsPaginator(_ListOrganizationalUnitsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/compute-optimizer-automation/paginator/ListOrganizationalUnits.html#ComputeOptimizerAutomation.Paginator.ListOrganizationalUnits)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_compute_optimizer_automation/paginators/#listorganizationalunitspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListOrganizationalUnitsRequestPaginateTypeDef]
+    ) -> PageIterator[ListOrganizationalUnitsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/compute-optimizer-automation/paginator/ListOrganizationalUnits.html#ComputeOptimizerAutomation.Paginator.ListOrganizationalUnits.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_compute_optimizer_automation/paginators/#listorganizationalunitspaginator)
         """
 
 if TYPE_CHECKING:

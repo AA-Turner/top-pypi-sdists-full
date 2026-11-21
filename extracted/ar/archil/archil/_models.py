@@ -267,6 +267,7 @@ SandboxProcessStatus = Literal["running", "completed", "failed", "cancelled", "t
 SandboxProcessStream = Literal["stdout", "stderr"]
 SandboxPlatform = Literal["arm64", "amd64"]
 SandboxNetworkAction = Literal["allow", "deny"]
+SandboxTimeoutAction = Literal["pause", "delete"]
 ImageStatus = Literal["building", "ready", "failed"]
 # invalid_source: the registry reported the image missing or denied access. interrupted: the build did not finish.
 ImageFailureReason = Literal["invalid_source", "interrupted"]
@@ -488,8 +489,10 @@ class SandboxData:
     finished_at: Optional[datetime] = None
     exit_reason: Optional[str] = None
     idle_ttl_seconds: int = 0
+    on_timeout: SandboxTimeoutAction = "pause"
     checkpoint: Optional[str] = None
     image_digest: str = ""
+    labels: dict[str, str] = field(default_factory=dict)
 
     @classmethod
     def from_json(cls, d: dict) -> "SandboxData":
@@ -501,6 +504,7 @@ class SandboxData:
             mem_size_mib=d["mem_size_mib"],
             max_ttl_seconds=d["max_ttl_seconds"],
             idle_ttl_seconds=d.get("idle_ttl_seconds", 0),
+            on_timeout=d.get("on_timeout", "pause"),
             max_concurrent_execs=d["max_concurrent_execs"],
             base_image=d["base_image"],
             platform=d.get("platform"),
@@ -513,6 +517,7 @@ class SandboxData:
             exit_reason=d.get("exit_reason"),
             checkpoint=d.get("checkpoint"),
             image_digest=d.get("image_digest", ""),
+            labels=dict(d.get("labels") or {}),
         )
 
 
@@ -535,6 +540,8 @@ class Image:
     digest: Optional[str] = None
     canonical_source: Optional[str] = None
     failure_reason: Optional[ImageFailureReason] = None
+    vcpu_count: Optional[int] = None
+    mem_size_mib: Optional[int] = None
 
     @classmethod
     def from_json(cls, d: dict) -> "Image":
@@ -548,6 +555,8 @@ class Image:
             digest=d.get("digest"),
             canonical_source=d.get("canonical_source"),
             failure_reason=d.get("failure_reason"),
+            vcpu_count=d.get("vcpu_count"),
+            mem_size_mib=d.get("mem_size_mib"),
         )
 
 

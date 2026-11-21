@@ -1,6 +1,5 @@
-//! Building a JSON Schema validator.
-//! The main idea is to create a tree from the input JSON Schema. This tree will contain
-//! everything needed to perform such validation in runtime.
+//! The compiled `Validator`, the `Validate` trait its keywords implement, and the per-call
+//! `ValidationContext`.
 use std::{collections::hash_map::Entry, mem::ManuallyDrop, sync::Arc};
 
 use crate::{
@@ -15,11 +14,10 @@ use crate::{
     unfinished_matches::{self, assume_each_outcome, MatchAssumptions, MatchSite},
     Draft, Json, Node, NodeIdentity, SerdeJson, ValidationError, ValidationOptions,
 };
-use ahash::AHashMap;
+use ahash::{AHashMap, AHashSet};
 use referencing::Uri;
 use serde_json::Value;
 
-// Re-export LazyEvaluationPath from paths module
 pub(crate) use crate::paths::LazyEvaluationPath;
 
 #[derive(Default)]
@@ -49,7 +47,7 @@ impl EvaluationPathCache {
         let parent_identifier = tracker
             .parent()
             .map_or(0, |parent| self.prefix_identifier(parent));
-        let key = (parent_identifier, tracker.suffix().as_ptr());
+        let key = (parent_identifier, tracker.location().as_ptr());
         let next_identifier = self.prefix_identifiers.len() + 1;
         let identifier = match self.prefix_identifiers.entry(key) {
             Entry::Occupied(entry) => *entry.get(),
@@ -76,6 +74,9 @@ pub struct ValidationContext {
     is_valid_cache: Option<AHashMap<(usize, NodeIdentity), bool>>,
     /// Visits to `$ref` targets so far; a visit's share of it decides whether its result is cached.
     ref_visits: u32,
+    /// The lowest guard entry whose walk depends on more than its target and instance, among the
+    /// entries above the innermost errors-path visit, which starts it at `usize::MAX`.
+    lowest_entangled: usize,
     evaluation_path_calls: u32,
     /// Instance location of the node being evaluated; only the `evaluate` path sets it.
     instance_location: Option<InstancePosition>,
@@ -88,7 +89,15 @@ pub struct ValidationContext {
 }
 
 #[cfg(all(target_arch = "x86_64", target_pointer_width = "64"))]
-const _: () = assert!(std::mem::size_of::<ValidationContext>() == 144);
+const _: () = assert!(std::mem::size_of::<ValidationContext>() == 152);
+
+/// An errors-path visit of a `$ref` target, from [`ValidationContext::start_errors_visit`] to
+/// [`ValidationContext::finish_errors_visit`].
+#[derive(Clone, Copy)]
+pub(crate) struct ErrorsVisit {
+    visit: u32,
+    outer_entangled: usize,
+}
 
 /// Checks for the state inline when dropped: the drop glue of a plain `Option<Box<_>>` is an
 /// out-of-line call even when there is nothing to free.
@@ -112,7 +121,7 @@ fn release(state: Box<LazyState>) {
 #[derive(Default)]
 struct LazyState {
     /// Cache for ECMA regex transformation results during format "regex" validation.
-    ecma_regex_cache: Option<AHashMap<String, bool>>,
+    regex_validity_cache: Option<AHashMap<String, bool>>,
     evaluation_path_cache: Option<EvaluationPathCache>,
     /// Holds every node of the tree the `evaluate` path builds.
     arena: EvaluationArena,
@@ -120,6 +129,9 @@ struct LazyState {
     /// path: from when the guard outgrows `SCANNED_GUARD_ENTRIES` until it shrinks to
     /// `COUNTED_GUARD_FLOOR`.
     guarded_instances: Option<AHashMap<NodeIdentity, u32>>,
+    /// `$ref` targets and containers for which `validate` and `iter_errors` report nothing,
+    /// wherever the target is entered from.
+    reports_nothing: Option<AHashSet<(usize, NodeIdentity)>>,
 }
 
 /// Runs `run` in a fresh context that assumes the outcomes in `matches`.
@@ -141,12 +153,12 @@ fn in_context<T>(
 ///
 /// Cheaper results cost less to recompute than to store, and a subtree that is validated again and
 /// again reaches the threshold within a few levels, so repeated work stays bounded.
-const MEMO_MIN_VISITS: u32 = 16;
+pub(crate) const MEMO_MIN_VISITS: u32 = 16;
 
 /// Evaluation paths are only cached once this many have been built.
 ///
 /// Small evaluations show little path reuse, so below this threshold the map costs more than it saves.
-const EVALUATION_PATH_CACHE_THRESHOLD: u32 = 4096;
+pub(crate) const EVALUATION_PATH_CACHE_THRESHOLD: u32 = 4096;
 
 /// Cycle-guard entries scanned before per-instance counts replace the scan, where nodes can repeat
 /// on their own path.
@@ -258,6 +270,13 @@ impl ValidationContext {
         self.arena().rendered_position(location.into())
     }
 
+    /// The position being evaluated: a keyword runs inside its schema node's evaluation, which
+    /// records it.
+    pub(crate) fn current_instance_position(&self) -> InstancePosition {
+        self.instance_location
+            .expect("keywords are evaluated inside their schema node")
+    }
+
     /// The position one segment below the one being evaluated, rendered only when read.
     pub(crate) fn instance_position_below(&mut self, location: &LazyLocation) -> InstancePosition {
         match self.instance_location {
@@ -278,8 +297,21 @@ impl ValidationContext {
         };
         let key = (node_id, identity);
         if F::ACYCLIC {
-            if self.topmost_entries(key).is_none() {
-                return true;
+            // Validation only descends, so the entries for this instance are the topmost.
+            let mut entries = self.validating.iter().rev();
+            if let Some(&(entered, instance)) = entries.next() {
+                if instance == identity {
+                    if entered == node_id {
+                        return true;
+                    }
+                    let cycle = entries
+                        .take_while(|entry| entry.1 == identity)
+                        .any(|entry| entry.0 == node_id);
+                    self.entangle_top();
+                    if cycle {
+                        return true;
+                    }
+                }
             }
             self.validating.push(key);
             return false;
@@ -297,6 +329,13 @@ impl ValidationContext {
             self.count_guarded_instances();
         }
         false
+    }
+
+    /// The top entry's walk enters another target at its own instance.
+    #[inline]
+    fn entangle_top(&mut self) {
+        let top = self.validating.len() - 1;
+        self.lowest_entangled = self.lowest_entangled.min(top);
     }
 
     /// How many entries on top of the guard hold `key`'s instance, or `None` if one of them is
@@ -454,17 +493,68 @@ impl ValidationContext {
             return;
         };
         if self.ref_visits.wrapping_sub(visit) < MEMO_MIN_VISITS {
+            // Another context may cache this result later, and a repeated walk would read that
+            // one instead, so no errors-path visit around this one records.
+            self.lowest_entangled = 0;
             return;
         }
         self.is_valid_cache
             .get_or_insert_with(AHashMap::new)
             .insert((node_id, identity), result);
     }
+
+    /// Whether an earlier errors-path visit of `node_id` showed it reports nothing for the
+    /// container, wherever it is entered from.
+    #[inline]
+    pub(crate) fn reports_nothing(&self, node_id: usize, identity: NodeIdentity) -> bool {
+        self.lazy
+            .0
+            .as_ref()
+            .and_then(|state| state.reports_nothing.as_ref())
+            .is_some_and(|targets| targets.contains(&(node_id, identity)))
+    }
+
+    /// Starts an errors-path visit of a `$ref` target whose guard entry is on top.
+    #[inline]
+    pub(crate) fn start_errors_visit(&mut self) -> ErrorsVisit {
+        ErrorsVisit {
+            visit: self.start_ref_visit(),
+            outer_entangled: std::mem::replace(&mut self.lowest_entangled, usize::MAX),
+        }
+    }
+
+    /// Ends `visit`, whose guard entry is back on top, recording a walk that reported nothing.
+    ///
+    /// Only for representations where no node is its own descendant: there a walk meets guard
+    /// entries only at its own instance, so one that entered no other target there neither
+    /// depended on the entries it was entered under nor meets any it is entered under later.
+    /// Every container result it took from `is_valid` stays cached, so walking it again reads
+    /// the same ones.
+    #[inline]
+    pub(crate) fn finish_errors_visit(
+        &mut self,
+        visit: ErrorsVisit,
+        node_id: usize,
+        identity: NodeIdentity,
+        reported_nothing: bool,
+    ) {
+        let isolated = self.lowest_entangled >= self.validating.len();
+        self.lowest_entangled = visit.outer_entangled;
+        if reported_nothing
+            && isolated
+            && self.ref_visits.wrapping_sub(visit.visit) >= MEMO_MIN_VISITS
+        {
+            self.lazy()
+                .reports_nothing
+                .get_or_insert_with(AHashSet::default)
+                .insert((node_id, identity));
+        }
+    }
     /// Evaluation path for `location` under `tracker`, cached across instance nodes.
     ///
-    /// Keying on addresses is sound because none of them can be freed and reused mid-run:
-    /// keyword locations and `$ref` suffixes live in the compiled schema, and cached prefixes
-    /// are owned by `eval_prefix_cache`.
+    /// Keying on addresses is sound because none of them can be freed and reused mid-run: keyword
+    /// locations live in the compiled schema, and a `$ref` keyword's location belongs to one
+    /// validator, which fixes the target below it.
     pub(crate) fn evaluation_path(
         &mut self,
         tracker: &RefTracker<'_>,
@@ -480,46 +570,39 @@ impl ValidationContext {
             .evaluation_path(tracker, location)
     }
 
-    /// Check if an ECMA regex pattern is valid.
-    pub(crate) fn is_valid_ecma_regex(&mut self, pattern: &str) -> bool {
+    /// Whether `pattern` is a valid regex as `check` reads it. One validator always passes the
+    /// same `check`.
+    pub(crate) fn is_valid_regex(
+        &mut self,
+        pattern: &str,
+        check: impl FnOnce(&str) -> bool,
+    ) -> bool {
         if let Some(cache) = self
             .lazy
             .0
             .as_ref()
-            .and_then(|lazy| lazy.ecma_regex_cache.as_ref())
+            .and_then(|lazy| lazy.regex_validity_cache.as_ref())
         {
             if let Some(&result) = cache.get(pattern) {
                 return result;
             }
         }
-        let result = jsonschema_regex::is_valid_ecma_regex(pattern);
+        let result = check(pattern);
         self.lazy()
-            .ecma_regex_cache
+            .regex_validity_cache
             .get_or_insert_with(AHashMap::new)
             .insert(pattern.to_owned(), result);
         result
     }
 }
 
-/// The Validate trait represents a predicate over some JSON value. Some validators are very simple
-/// predicates such as "a value which is a string", whereas others may be much more complex,
-/// consisting of several other validators composed together in various ways.
+/// A compiled validator: a predicate over an instance that also reports errors and output units.
 ///
-/// Much of the time all an application cares about is whether the predicate returns true or false,
-/// in that case the `is_valid` function is sufficient. Sometimes applications will want more
-/// detail about why a schema has failed, in which case the `validate` method can be used to
-/// iterate over the errors produced by this validator. Finally, applications may be interested in
-/// annotations produced by schemas over valid results, in this case the `evaluate` method can be used
-/// to obtain this information.
+/// `is_valid` answers whether the instance is valid, `validate` returns the first error,
+/// `collect_errors` every error, and `evaluate` the output units with their annotations.
 ///
 /// If you are implementing `Validate` it is often sufficient to implement `validate` and
-/// `is_valid`. `evaluate` is only necessary for validators which compose other validators. See the
-/// documentation for `evaluate` for more information.
-///
-/// # Context Types
-///
-/// - `is_valid` takes `LightweightContext`: Only cycle detection, zero path tracking overhead.
-/// - `validate`, `collect_errors`, `evaluate` take `ValidationContext`: Cycle detection + evaluation path tracking.
+/// `is_valid`. `evaluate` is only necessary for validators which compose other validators.
 pub(crate) trait Validate<F: Json = SerdeJson>: Send + Sync {
     fn collect_errors<'i>(
         &self,
@@ -602,6 +685,26 @@ pub(crate) trait Validate<F: Json = SerdeJson>: Send + Sync {
         true
     }
 
+    /// Whether this validator checks keywords beside its own and reports every unit itself,
+    /// through [`Self::evaluate_units`]. Asked once, when the schema node is built.
+    fn reports_units(&self) -> bool {
+        false
+    }
+
+    /// The output units of the keywords this validator checks, its own included, in priority
+    /// order; returns whether any of them fails.
+    fn evaluate_units(
+        &self,
+        _instance: &F::Node<'_>,
+        _location: &LazyLocation,
+        _instance_location: InstancePosition,
+        _tracker: Option<&RefTracker>,
+        _ctx: &mut ValidationContext,
+        _children: &mut ChildList,
+    ) -> bool {
+        false
+    }
+
     /// The types this validator accepts when all it checks is `type`.
     fn accepted_types(&self) -> Option<crate::types::JsonTypeSet> {
         None
@@ -647,20 +750,17 @@ pub(crate) fn evaluate_assertion<F: Json, V: Validate<F>>(
     }
 }
 
-/// The result of evaluating a validator against an instance. This is a "partial" result because it does not include information about
-/// where the error or annotation occurred.
+/// The result of evaluating a validator, without the locations its node adds.
 #[derive(PartialEq)]
 pub(crate) enum EvaluationResult {
     Valid {
         /// Annotations produced by this validator
         annotations: Option<Annotations>,
-        /// Children evaluation nodes
         children: ChildList,
     },
     Invalid {
         /// Errors which caused this schema to be invalid
         errors: Vec<ErrorDescription>,
-        /// Children evaluation nodes
         children: ChildList,
         /// Potential annotations that should be reported as dropped on failure
         annotations: Option<Annotations>,
@@ -668,7 +768,6 @@ pub(crate) enum EvaluationResult {
 }
 
 impl EvaluationResult {
-    /// Create an empty `EvaluationResult` which is valid
     pub(crate) fn valid_empty() -> EvaluationResult {
         EvaluationResult::Valid {
             annotations: None,
@@ -676,7 +775,6 @@ impl EvaluationResult {
         }
     }
 
-    /// Create an empty `EvaluationResult` which is invalid
     pub(crate) fn invalid_empty(errors: Vec<ErrorDescription>) -> EvaluationResult {
         EvaluationResult::Invalid {
             errors,
@@ -685,31 +783,11 @@ impl EvaluationResult {
         }
     }
 
-    /// Set the annotation that will be returned for the current validator. If this
-    /// `EvaluationResult` is invalid then this method does nothing
+    /// Sets the annotation; an invalid result reports it as dropped.
     pub(crate) fn annotate(&mut self, new_annotations: Annotations) {
         match self {
             Self::Valid { annotations, .. } | Self::Invalid { annotations, .. } => {
                 *annotations = Some(new_annotations);
-            }
-        }
-    }
-
-    /// Set the error that will be returned for the current validator. If this
-    /// `EvaluationResult` is valid then this method converts this application into
-    /// `EvaluationResult::Invalid`
-    pub(crate) fn mark_errored(&mut self, error: ErrorDescription) {
-        match self {
-            Self::Invalid { errors, .. } => errors.push(error),
-            Self::Valid {
-                annotations,
-                children,
-            } => {
-                *self = Self::Invalid {
-                    errors: vec![error],
-                    children: std::mem::take(children),
-                    annotations: annotations.take(),
-                }
             }
         }
     }
@@ -750,10 +828,6 @@ impl EvaluationResult {
 }
 
 /// A compiled JSON Schema validator.
-///
-/// This structure represents a JSON Schema that has been parsed and compiled into
-/// an efficient internal representation for validation. It contains the root node
-/// of the schema tree and the configuration options used during compilation.
 pub struct Validator<F: Json = SerdeJson> {
     pub(crate) root: SchemaNode<F>,
     /// `$ref` targets compiled off the call stack. Owning them here drops a long `$ref` chain
@@ -852,7 +926,7 @@ impl Validator<SerdeJson> {
 // call ergonomics (`&Value`, not `&&Value`) across every representation.
 #[allow(clippy::needless_pass_by_value)]
 impl<F: Json> Validator<F> {
-    /// Validate `instance` against `schema` and return the first error if any.
+    /// Validate `instance` and return the first error, if any.
     ///
     /// # Errors
     ///
@@ -860,9 +934,10 @@ impl<F: Json> Validator<F> {
     #[inline]
     pub fn validate<'i>(&self, instance: F::Node<'i>) -> Result<(), ValidationError<'i>> {
         let mut ctx = ValidationContext::new();
+        let entry = self.entry();
         let result = self
             .root
-            .validate(&instance, &LazyLocation::new(), None, &mut ctx);
+            .validate(&instance, &LazyLocation::new(), entry.as_ref(), &mut ctx);
         match ctx.matches {
             None => result,
             Some(first) => self
@@ -878,16 +953,21 @@ impl<F: Json> Validator<F> {
     pub fn iter_errors<'i>(&'i self, instance: F::Node<'i>) -> ErrorIterator<'i> {
         let mut ctx = ValidationContext::new();
         let mut errors = Vec::new();
-        self.root
-            .collect_errors(&instance, &LazyLocation::new(), None, &mut ctx, &mut errors);
+        let entry = self.entry();
+        self.root.collect_errors(
+            &instance,
+            &LazyLocation::new(),
+            entry.as_ref(),
+            &mut ctx,
+            &mut errors,
+        );
         if let Some(first) = ctx.matches {
             errors = self.errors_under_every_outcome(&instance, *first);
         }
         ErrorIterator::from_iterator(errors.into_iter())
     }
-    /// Run validation against `instance` but return a boolean result instead of an iterator.
-    /// It is useful for cases, where it is important to only know the fact if the data is valid or not.
-    /// This approach is much faster, than [`Validator::validate`].
+    /// Whether `instance` is valid; builds no errors, so it is cheaper than
+    /// [`Validator::validate`].
     #[must_use]
     #[inline]
     pub fn is_valid(&self, instance: F::Node<'_>) -> bool {
@@ -913,6 +993,7 @@ impl<F: Json> Validator<F> {
         instance: &F::Node<'i>,
         first: MatchAssumptions,
     ) -> Vec<ValidationError<'i>> {
+        let entry = self.entry();
         let outcomes = assume_each_outcome(
             |matches| {
                 in_context(matches, |ctx| {
@@ -920,7 +1001,7 @@ impl<F: Json> Validator<F> {
                     self.root.collect_errors(
                         instance,
                         &LazyLocation::new(),
-                        None,
+                        entry.as_ref(),
                         ctx,
                         &mut errors,
                     );
@@ -936,9 +1017,10 @@ impl<F: Json> Validator<F> {
     #[inline]
     pub fn evaluate(&self, instance: F::Node<'_>) -> Evaluation {
         let mut ctx = ValidationContext::new();
-        let root = self
-            .root
-            .evaluate_instance(&instance, &LazyLocation::new(), None, &mut ctx);
+        let entry = self.entry();
+        let root =
+            self.root
+                .evaluate_instance(&instance, &LazyLocation::new(), entry.as_ref(), &mut ctx);
         match ctx.matches.take() {
             None => {
                 let arena = ctx.arena();
@@ -947,16 +1029,17 @@ impl<F: Json> Validator<F> {
             }
             // What the instance evaluates to depends on the unfinished matches; only the errors
             // shared by every outcome are known.
-            Some(first) => {
-                Self::evaluation_from_errors(self.errors_under_every_outcome(&instance, *first))
-            }
+            Some(first) => Self::evaluation_from_errors(
+                self.root.location(),
+                self.errors_under_every_outcome(&instance, *first),
+            ),
         }
     }
 
-    /// A root with one child per error and no annotations.
+    /// A root at `location` with one child per error and no annotations.
     #[cold]
-    fn evaluation_from_errors(errors: Vec<ValidationError<'_>>) -> Evaluation {
-        let root_location = crate::evaluation::format_keyword_location(&Location::new(), None);
+    fn evaluation_from_errors(location: &Location, errors: Vec<ValidationError<'_>>) -> Evaluation {
+        let root_location = crate::evaluation::format_keyword_location(location, None);
         let mut arena = EvaluationArena::default();
         let root = arena.rendered_position(Location::new());
         if errors.is_empty() {
@@ -1001,6 +1084,13 @@ impl<F: Json> Validator<F> {
             ),
         )
     }
+    /// The `$ref` a validator for a subschema below the document root stands for, so its
+    /// evaluation paths start at that subschema.
+    #[inline]
+    fn entry(&self) -> Option<RefTracker<'_>> {
+        let location = self.root.location();
+        (!location.is_empty()).then(|| RefTracker::new(Location::empty(), location, None))
+    }
     /// The [`Draft`] this validator applies: the one set via `with_draft`, else the one `$schema`
     /// declares, else the default.
     #[must_use]
@@ -1016,6 +1106,10 @@ impl<F: Json> Validator<F> {
 ///
 /// Each key is a URI-fragment JSON pointer (e.g. `"#"`, `"#/$defs/User"`).
 /// The root schema is always present under the key `"#"`.
+///
+/// A validator below the root validates as a `$ref` from the root to its pointer: its errors
+/// report schema locations in the document, such as `/$defs/User/required`, and evaluation paths
+/// from the subschema, such as `/required`.
 pub struct ValidatorMap<F: Json = SerdeJson> {
     pub(crate) validators: AHashMap<String, Validator<F>>,
 }
@@ -1075,8 +1169,8 @@ impl<F: Json> std::ops::Index<&str> for ValidatorMap<F> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        error::ValidationError, keywords::custom::Keyword, paths::Location, Draft, Validator,
-        ValidatorMap,
+        error::ValidationError, keywords::custom::Keyword, paths::Location, Draft, PatternOptions,
+        Validator, ValidatorMap,
     };
     use fancy_regex::Regex;
     use num_cmp::NumCmp;
@@ -1084,21 +1178,9 @@ mod tests {
     use std::sync::LazyLock;
     use test_case::test_case;
 
-    #[cfg(not(target_arch = "wasm32"))]
-    fn load(path: &str, idx: usize) -> Value {
-        use std::{fs::File, io::Read, path::Path};
-        let path = Path::new(path);
-        let mut file = File::open(path).unwrap();
-        let mut content = String::new();
-        file.read_to_string(&mut content).ok().unwrap();
-        let data: Value = serde_json::from_str(&content).unwrap();
-        let case = &data.as_array().unwrap()[idx];
-        case.get("schema").unwrap().clone()
-    }
-
-    /// Large enough that early paths are built directly and later ones come from the cache.
     #[test]
     fn evaluation_paths_match_across_cache_threshold() {
+        // Large enough that early paths are built directly and later ones come from the cache.
         const ELEMENTS: usize = 5000;
 
         let schema = json!({
@@ -1133,6 +1215,42 @@ mod tests {
             assert_eq!(unit["instanceLocation"], format!("/{idx}/value"));
             assert_eq!(unit["schemaLocation"], "/$defs/leaf/type");
         }
+    }
+
+    // Two `$ref`s to one target keep their own evaluation paths past the cache threshold.
+    #[test]
+    fn cached_evaluation_paths_keep_each_reference() {
+        const ELEMENTS: usize = 5000;
+
+        let schema = json!({
+            "items": {"properties": {"a": {"$ref": "#/$defs/leaf"}, "b": {"$ref": "#/$defs/leaf"}}},
+            "$defs": {"leaf": {"type": "integer"}}
+        });
+        let validator = crate::validator_for(&schema).expect("Valid schema");
+        let instance = Value::Array(
+            (0..ELEMENTS)
+                .map(|_| json!({"a": "no", "b": "no"}))
+                .collect(),
+        );
+
+        let list =
+            serde_json::to_value(validator.evaluate(&instance).list()).expect("Serializable");
+        let paths: Vec<Value> = list["details"]
+            .as_array()
+            .expect("`details` is an array")
+            .iter()
+            .filter(|unit| unit.get("errors").is_some())
+            .map(|unit| unit["evaluationPath"].clone())
+            .collect();
+        let expected: Vec<Value> = (0..ELEMENTS)
+            .flat_map(|_| {
+                [
+                    json!("/items/properties/a/$ref/type"),
+                    json!("/items/properties/b/$ref/type"),
+                ]
+            })
+            .collect();
+        assert_eq!(paths, expected);
     }
 
     #[test]
@@ -1267,21 +1385,20 @@ mod tests {
 
     #[test]
     fn only_keyword() {
-        // When only one keyword is specified
         let schema = json!({"type": "string"});
         let validator = crate::validator_for(&schema).unwrap();
         let value1 = json!("AB");
         let value2 = json!(1);
-        // And only this validator
         assert_eq!(validator.root.validators().len(), 1);
         assert!(validator.validate(&value1).is_ok());
         assert!(validator.validate(&value2).is_err());
     }
 
     #[test]
-    #[cfg(not(target_arch = "wasm32"))]
     fn validate_ref() {
-        let schema = load("tests/suite/tests/draft7/ref.json", 1);
+        let schema = json!({
+            "properties": {"foo": {"type": "integer"}, "bar": {"$ref": "#/properties/foo"}}
+        });
         let value = json!({"bar": 3});
         let validator = crate::validator_for(&schema).unwrap();
         assert!(validator.validate(&value).is_ok());
@@ -1360,17 +1477,14 @@ mod tests {
             .build(&schema)
             .unwrap();
 
-        // Verify schema validation detects object with too few properties
         let instance = json!({});
         assert!(validator.validate(&instance).is_err());
         assert!(!validator.is_valid(&instance));
 
-        // Verify validator succeeds on a valid custom-object-type
         let instance = json!({ "a" : 1 });
         assert!(validator.validate(&instance).is_ok());
         assert!(validator.is_valid(&instance));
 
-        // Verify validator detects invalid custom-object-type
         let instance = json!({ "å" : 1 });
         let error = validator.validate(&instance).expect_err("Should fail");
         assert_eq!(error.to_string(), "Key is not ASCII");
@@ -1510,7 +1624,7 @@ mod tests {
 
             fn is_valid(&self, instance: &'i Value) -> bool {
                 match instance {
-                    // Numeric comparison should happen just like original behavior
+                    // Numbers compare as the built-in `minimum` does
                     Value::Number(instance) => {
                         if let Some(item) = instance.as_u64() {
                             !NumCmp::num_lt(item, self.limit)
@@ -1567,27 +1681,23 @@ mod tests {
             .build(&schema)
             .expect("Invalid schema");
 
-        // Control: verify schema validation rejects non-string types
         let instance = json!(15);
         assert!(validator.validate(&instance).is_err());
         assert!(!validator.is_valid(&instance));
 
-        // Control: verify validator rejects ill-formatted strings
         let instance = json!("not a currency");
         assert!(validator.validate(&instance).is_err());
         assert!(!validator.is_valid(&instance));
 
-        // Verify validator allows properly formatted strings that conform to custom keyword
         let instance = json!("3.00");
         assert!(validator.validate(&instance).is_ok());
         assert!(validator.is_valid(&instance));
 
-        // Verify validator rejects properly formatted strings that do not conform to custom keyword
         let instance = json!("1.99");
         assert!(validator.validate(&instance).is_err());
         assert!(!validator.is_valid(&instance));
 
-        // Define another schema that applies "minimum" to an integer to ensure original behavior
+        // Applied to an integer, `minimum` behaves as the built-in keyword does
         let schema = json!({ "minimum": 2, "type": "integer" });
         let validator = crate::options()
             .with_format("currency", currency_format_checker)
@@ -1595,12 +1705,10 @@ mod tests {
             .build(&schema)
             .expect("Invalid schema");
 
-        // Verify schema allows integers greater than 2
         let instance = json!(3);
         assert!(validator.validate(&instance).is_ok());
         assert!(validator.is_valid(&instance));
 
-        // Verify schema rejects integers less than 2
         let instance = json!(1);
         assert!(validator.validate(&instance).is_err());
         assert!(!validator.is_valid(&instance));
@@ -1611,7 +1719,6 @@ mod tests {
             .with_keyword("minimum", custom_minimum_factory)
             .build(&schema)
             .expect_err("Should fail");
-        // The meta-schema validates before our factory runs, so we get a type error
         assert_eq!(error.to_string(), "\"foo\" is not of type \"number\"");
     }
 
@@ -1635,8 +1742,41 @@ mod tests {
         assert_eq!(messages, vec![expected.as_str()]);
     }
 
-    #[test]
-    fn custom_keyword_validation_error_paths() {
+    // Expected paths are those a built-in keyword such as `minimum` reports in the same place.
+    #[test_case(
+        &json!({"properties": {"name": {"alwaysFail": true}}}),
+        &json!({"name": "test"}),
+        "/name",
+        "/properties/name/alwaysFail",
+        "/properties/name/alwaysFail";
+        "in place"
+    )]
+    #[test_case(
+        &json!({"$ref": "#/$defs/x", "$defs": {"x": {"alwaysFail": true}}}),
+        &json!("test"),
+        "",
+        "/$defs/x/alwaysFail",
+        "/$ref/alwaysFail";
+        "through a reference"
+    )]
+    #[test_case(
+        &json!({
+            "properties": {"name": {"$ref": "#/$defs/x"}},
+            "$defs": {"x": {"$ref": "#/$defs/y"}, "y": {"alwaysFail": true}}
+        }),
+        &json!({"name": "test"}),
+        "/name",
+        "/$defs/y/alwaysFail",
+        "/properties/name/$ref/$ref/alwaysFail";
+        "through two references"
+    )]
+    fn custom_keyword_validation_error_paths(
+        schema: &Value,
+        instance: &Value,
+        instance_path: &str,
+        schema_path: &str,
+        evaluation_path: &str,
+    ) {
         struct AlwaysFailValidator;
         impl<'i> Keyword<'i> for AlwaysFailValidator {
             fn validate(&self, _instance: &'i Value) -> Result<(), ValidationError<'i>> {
@@ -1655,27 +1795,27 @@ mod tests {
             Ok(Box::new(AlwaysFailValidator))
         }
 
-        let schema = json!({
-            "properties": {
-                "name": { "alwaysFail": true }
-            }
-        });
+        fn paths<'e>(error: &'e ValidationError<'_>) -> (&'e str, &'e str, &'e str, &'e str) {
+            (
+                error.kind().keyword(),
+                error.instance_path().as_str(),
+                error.schema_path().as_str(),
+                error.evaluation_path().as_str(),
+            )
+        }
+
         let validator = crate::options()
             .with_keyword("alwaysFail", always_fail_factory)
-            .build(&schema)
+            .build(schema)
             .expect("Valid schema");
 
-        let instance = json!({"name": "test"});
-        let error = validator.validate(&instance).expect_err("Should fail");
-        assert_eq!(error.instance_path().as_str(), "/name");
-        assert_eq!(error.schema_path().as_str(), "/properties/name/alwaysFail");
-        assert_eq!(
-            error.evaluation_path().as_str(),
-            "/properties/name/alwaysFail"
-        );
-        assert_eq!(error.kind().keyword(), "alwaysFail");
+        let expected = ("alwaysFail", instance_path, schema_path, evaluation_path);
+        let error = validator.validate(instance).expect_err("Should fail");
+        assert_eq!(paths(&error), expected);
+        let errors: Vec<_> = validator.iter_errors(instance).collect();
+        assert_eq!(errors.iter().map(paths).collect::<Vec<_>>(), vec![expected]);
 
-        let evaluation = validator.evaluate(&instance);
+        let evaluation = validator.evaluate(instance);
         let descriptions: Vec<_> = evaluation
             .iter_errors()
             .map(|entry| (entry.error.keyword(), entry.error.message()))
@@ -1839,7 +1979,6 @@ mod tests {
         let schema = json!({"type": "string", "minLength": 3});
         let validator = crate::validator_for(&schema).expect("Valid schema");
 
-        // Clone the validator
         let cloned = validator.clone();
 
         // Both validators should work independently
@@ -2003,6 +2142,269 @@ mod tests {
         let map = crate::validator_map_for(&schema).unwrap();
         assert!(map["#/properties/name"].is_valid(&json!("Al")));
         assert!(!map["#/properties/name"].is_valid(&json!("A")));
+    }
+
+    // Message, schema path, evaluation path without `prefix`, and absolute location of each error.
+    fn located_errors<'i>(
+        errors: impl Iterator<Item = ValidationError<'i>>,
+        prefix: &str,
+    ) -> Vec<(String, String, String, Option<String>)> {
+        errors
+            .map(|error| {
+                let evaluation_path = error
+                    .evaluation_path()
+                    .as_str()
+                    .strip_prefix(prefix)
+                    .expect("Evaluation path starts with the prefix")
+                    .to_owned();
+                (
+                    error.to_string(),
+                    error.schema_path().as_str().to_owned(),
+                    evaluation_path,
+                    error.absolute_keyword_location().map(ToString::to_string),
+                )
+            })
+            .collect()
+    }
+
+    // The document with a root `$ref` to `pointer`.
+    fn via_ref(document: &Value, pointer: &str) -> Validator {
+        let mut document = document.clone();
+        document
+            .as_object_mut()
+            .expect("Document is an object")
+            .insert("$ref".to_owned(), json!(pointer));
+        crate::validator_for(&document).expect("Valid schema")
+    }
+
+    #[test_case(
+        &json!({"$defs": {"x": {"not": {"$ref": "#/$defs/x"}}}}),
+        "#/$defs/x",
+        &json!(1) ;
+        "not over a self reference"
+    )]
+    #[test_case(
+        &json!({"$defs": {"x": {"minimum": 5, "allOf": [{"$ref": "#/$defs/x"}]}}}),
+        "#/$defs/x",
+        &json!(1) ;
+        "allOf over a self reference"
+    )]
+    #[test_case(
+        &json!({"$id": "https://example.com/doc", "$defs": {"x": {"minimum": 5}}}),
+        "#/$defs/x",
+        &json!(1) ;
+        "document with a base URI"
+    )]
+    #[test_case(
+        &json!({
+            "$id": "https://example.com/doc",
+            "$defs": {"x": {"minimum": 5, "allOf": [{"$ref": "#/$defs/x"}]}}
+        }),
+        "#/$defs/x",
+        &json!(1) ;
+        "self reference in a document with a base URI"
+    )]
+    #[test_case(
+        &json!({"$defs": {"r": {"$id": "http://example.com/r", "properties": {"a": {"type": "integer"}}}}}),
+        "#/$defs/r/properties/a",
+        &json!("s") ;
+        "keyword in an embedded resource"
+    )]
+    #[test_case(
+        &json!({"$defs": {"r": {
+            "$id": "http://example.com/r",
+            "properties": {"a": {"$ref": "#/$defs/y"}},
+            "$defs": {"y": {"type": "integer"}}
+        }}}),
+        "#/$defs/r/properties/a",
+        &json!("s") ;
+        "pointer reference in an embedded resource"
+    )]
+    #[test_case(
+        &json!({"$defs": {"r": {
+            "$id": "http://example.com/r",
+            "properties": {"a": {"$ref": "#y"}},
+            "$defs": {"y": {"$anchor": "y", "type": "integer"}}
+        }}}),
+        "#/$defs/r/properties/a",
+        &json!("s") ;
+        "anchor reference in an embedded resource"
+    )]
+    fn test_validator_map_entry_matches_ref(document: &Value, pointer: &str, instance: &Value) {
+        let map = crate::validator_map_for(document).expect("Valid schema");
+        let entry = &map[pointer];
+        let reference = via_ref(document, pointer);
+        assert_eq!(entry.is_valid(instance), reference.is_valid(instance));
+        assert_eq!(
+            located_errors(entry.validate(instance).err().into_iter(), ""),
+            located_errors(reference.validate(instance).err().into_iter(), "/$ref"),
+        );
+        assert_eq!(
+            located_errors(entry.iter_errors(instance), ""),
+            located_errors(reference.iter_errors(instance), "/$ref"),
+        );
+    }
+
+    #[test]
+    fn test_validator_map_entry_under_a_key_with_uri_delimiters() {
+        let document = json!({"$defs": {"a b%/c": {"minimum": 5}}});
+        let map = crate::validator_map_for(&document).expect("Valid schema");
+        assert_eq!(
+            located_errors(map["#/$defs/a b%~1c"].iter_errors(&json!(1)), ""),
+            vec![(
+                "1 is less than the minimum of 5".to_owned(),
+                "/$defs/a b%~1c/minimum".to_owned(),
+                "/minimum".to_owned(),
+                None
+            )]
+        );
+    }
+
+    #[test]
+    fn test_validator_map_entry_evaluate_locations() {
+        let document = json!({"$id": "https://example.com/doc", "$defs": {"x": {"minimum": 5}}});
+        let map = crate::validator_map_for(&document).expect("Valid schema");
+        let evaluation = map["#/$defs/x"].evaluate(&json!(1));
+        assert_eq!(
+            serde_json::to_value(evaluation.list()).expect("Serializable"),
+            json!({"valid": false, "details": [
+                {
+                    "valid": false,
+                    "evaluationPath": "",
+                    "schemaLocation": "https://example.com/doc#/$defs/x",
+                    "instanceLocation": ""
+                },
+                {
+                    "valid": false,
+                    "evaluationPath": "/minimum",
+                    "schemaLocation": "https://example.com/doc#/$defs/x/minimum",
+                    "instanceLocation": "",
+                    "errors": {"minimum": "1 is less than the minimum of 5"}
+                }
+            ]})
+        );
+    }
+
+    // With `backtrack_limit(1)` the engine cannot finish matching `(?<=ab)c` against "abc", so the
+    // `maxLength` error is the one either outcome reports.
+    #[test]
+    fn test_validator_map_entry_unfinished_match_locations() {
+        let document = json!({"$defs": {"x": {"pattern": "(?<=ab)c", "maxLength": 1}}});
+        let map = crate::options()
+            .with_pattern_options(PatternOptions::fancy_regex().backtrack_limit(1))
+            .build_map(&document)
+            .expect("Valid schema");
+        let entry = &map["#/$defs/x"];
+        let instance = json!("abc");
+        let expected = vec![(
+            r#""abc" is longer than 1 character"#.to_owned(),
+            "/$defs/x/maxLength".to_owned(),
+            "/maxLength".to_owned(),
+            None,
+        )];
+        assert_eq!(
+            located_errors(entry.validate(&instance).err().into_iter(), ""),
+            expected
+        );
+        assert_eq!(located_errors(entry.iter_errors(&instance), ""), expected);
+        assert_eq!(
+            serde_json::to_value(entry.evaluate(&instance).list()).expect("Serializable"),
+            json!({"valid": false, "details": [
+                {"valid": false, "evaluationPath": "", "schemaLocation": "/$defs/x", "instanceLocation": ""},
+                {
+                    "valid": false,
+                    "evaluationPath": "/maxLength",
+                    "schemaLocation": "/$defs/x/maxLength",
+                    "instanceLocation": "",
+                    "errors": {"maxLength": r#""abc" is longer than 1 character"#}
+                }
+            ]})
+        );
+    }
+
+    const DRAFT4: &str = "http://json-schema.org/draft-04/schema#";
+    const DRAFT6: &str = "http://json-schema.org/draft-06/schema#";
+    const DRAFT7: &str = "http://json-schema.org/draft-07/schema#";
+    const DRAFT201909: &str = "https://json-schema.org/draft/2019-09/schema";
+    const DRAFT202012: &str = "https://json-schema.org/draft/2020-12/schema";
+
+    // An entry below a subschema keeps the vocabularies its `$schema` declares: `minimum` is off.
+    #[test_case("#/$defs/x" ; "subschema")]
+    #[test_case("#/$defs/x/allOf/0" ; "child")]
+    #[test_case("#/properties/a" ; "child through anchor")]
+    fn test_validator_map_entry_in_the_vocabularies_its_schema_declares(pointer: &str) {
+        let meta_schema = json!({
+            "$id": "json-schema:///meta/no-validation",
+            "$schema": DRAFT202012,
+            "$vocabulary": {
+                "https://json-schema.org/draft/2020-12/vocab/core": true,
+                "https://json-schema.org/draft/2020-12/vocab/applicator": true,
+                "https://json-schema.org/draft/2020-12/vocab/validation": false
+            }
+        });
+        let registry = crate::Registry::new()
+            .add("json-schema:///meta/no-validation", &meta_schema)
+            .expect("Valid resource")
+            .prepare()
+            .expect("Registry builds");
+        let document = json!({
+            "properties": {"a": {"$ref": "#c"}},
+            "$defs": {"x": {
+                "$schema": "json-schema:///meta/no-validation",
+                "allOf": [{"$anchor": "c", "minimum": 5}]
+            }}
+        });
+        let map = crate::options()
+            .with_registry(&registry)
+            .build_map(&document)
+            .expect("Valid schema");
+        assert!(map[pointer].is_valid(&json!(1)));
+    }
+
+    // An entry is in the draft its subschema's `$schema` names, as a `$ref` to it is.
+    #[test_case(DRAFT202012, &json!({"$schema": DRAFT4, "type": "integer"}), &json!(1.0), false ; "draft 4 type under 2020-12")]
+    #[test_case(DRAFT201909, &json!({"$schema": DRAFT4, "type": "integer"}), &json!(1.0), false ; "draft 4 type under 2019-09")]
+    #[test_case(DRAFT7, &json!({"$schema": DRAFT4, "type": "integer"}), &json!(1.0), false ; "draft 4 type under draft 7")]
+    #[test_case(DRAFT202012, &json!({"$schema": DRAFT4, "maximum": 5, "exclusiveMaximum": true}), &json!(5), false ; "draft 4 boolean exclusiveMaximum under 2020-12")]
+    #[test_case(DRAFT201909, &json!({"$schema": DRAFT4, "maximum": 5, "exclusiveMaximum": true}), &json!(5), false ; "draft 4 boolean exclusiveMaximum under 2019-09")]
+    #[test_case(DRAFT7, &json!({"$schema": DRAFT4, "maximum": 5, "exclusiveMaximum": true}), &json!(5), false ; "draft 4 boolean exclusiveMaximum under draft 7")]
+    #[test_case(DRAFT7, &json!({"$schema": DRAFT201909, "dependentRequired": {"foo": ["bar"]}}), &json!({"foo": 1}), false ; "2019-09 dependentRequired under draft 7")]
+    #[test_case(DRAFT202012, &json!({"$schema": DRAFT201909, "prefixItems": [{"type": "string"}]}), &json!([1]), true ; "2019-09 prefixItems under 2020-12")]
+    #[test_case(DRAFT202012, &json!({"$schema": DRAFT7, "prefixItems": [{"type": "string"}]}), &json!([1]), true ; "draft 7 prefixItems under 2020-12")]
+    #[test_case(DRAFT201909, &json!({"$schema": DRAFT202012, "prefixItems": [{"type": "string"}]}), &json!([1]), false ; "2020-12 prefixItems under 2019-09")]
+    #[test_case(DRAFT7, &json!({"$schema": DRAFT202012, "prefixItems": [{"type": "string"}]}), &json!([1]), false ; "2020-12 prefixItems under draft 7")]
+    #[test_case(DRAFT202012, &json!({"$schema": DRAFT201909, "items": [{"type": "string"}]}), &json!([1]), false ; "2019-09 array items under 2020-12")]
+    #[test_case(DRAFT202012, &json!({"$schema": DRAFT7, "items": [{"type": "string"}]}), &json!([1]), false ; "draft 7 array items under 2020-12")]
+    #[test_case(DRAFT202012, &json!({"$schema": DRAFT7, "allOf": [{"$ref": "#/definitions/any", "type": "integer"}]}), &json!("x"), true ; "draft 7 keyword beside ref under 2020-12")]
+    #[test_case(DRAFT201909, &json!({"$schema": DRAFT7, "allOf": [{"$ref": "#/definitions/any", "type": "integer"}]}), &json!("x"), true ; "draft 7 keyword beside ref under 2019-09")]
+    #[test_case(DRAFT7, &json!({"$schema": DRAFT201909, "allOf": [{"$ref": "#/definitions/any", "type": "integer"}]}), &json!("x"), false ; "2019-09 keyword beside ref under draft 7")]
+    #[test_case(DRAFT7, &json!({"$schema": DRAFT202012, "allOf": [{"$ref": "#/definitions/any", "type": "integer"}]}), &json!("x"), false ; "2020-12 keyword beside ref under draft 7")]
+    #[test_case(DRAFT7, &json!({"$schema": DRAFT201909, "type": "string"}), &json!(1), false ; "2019-09 type under draft 7")]
+    #[test_case(DRAFT6, &json!({"$schema": DRAFT202012, "type": "string"}), &json!(1), false ; "2020-12 type under draft 6")]
+    #[test_case(DRAFT4, &json!({"$schema": DRAFT202012, "type": "string"}), &json!(1), false ; "2020-12 type under draft 4")]
+    #[test_case(DRAFT202012, &json!({"$id": "https://example.com/x", "id": "https://example.com/x", "$schema": DRAFT4, "type": "integer"}), &json!(1.0), false ; "draft 4 resource under 2020-12")]
+    #[test_case(DRAFT7, &json!({"$id": "https://example.com/x", "$schema": DRAFT201909, "dependentRequired": {"foo": ["bar"]}}), &json!({"foo": 1}), false ; "2019-09 resource under draft 7")]
+    #[test_case(DRAFT7, &json!({"$id": "https://example.com/x", "$schema": DRAFT202012, "prefixItems": [{"type": "string"}]}), &json!([1]), false ; "2020-12 resource under draft 7")]
+    fn test_validator_map_entry_in_the_draft_its_schema_names(
+        root: &str,
+        body: &Value,
+        instance: &Value,
+        expected: bool,
+    ) {
+        let inline =
+            json!({"$schema": root, "properties": {"a": body}, "definitions": {"any": {}}});
+        let target = json!({"$schema": root, "definitions": {"x": body, "any": {}}});
+        let inline_map = crate::validator_map_for(&inline).expect("Valid schema");
+        let target_map = crate::validator_map_for(&target).expect("Valid schema");
+        assert_eq!(
+            [
+                inline_map["#/properties/a"].is_valid(instance),
+                via_ref(&inline, "#/properties/a").is_valid(instance),
+                target_map["#/definitions/x"].is_valid(instance),
+                via_ref(&target, "#/definitions/x").is_valid(instance),
+            ],
+            [expected; 4]
+        );
     }
 
     #[test]

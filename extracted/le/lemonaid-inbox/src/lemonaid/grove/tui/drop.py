@@ -64,10 +64,32 @@ def _placed(grove: Grove, drag: Drag, aim: Aim) -> Grove:
     )
 
 
+def _sized(grove: Grove, drag: Drag, placed: Grove, aim: tuple[int, int]) -> Grove:
+    """*placed* with its block's trees at the sizes the grove gives them once the dragged tree
+    stands at *aim*: a tree near another shrinks, and its neighbor may too, so a drag shows what
+    dropping it does.
+    """
+    name = drag.block.name
+    lead = next(t for t in drag.block.trees if t.key == drag.tree).lead
+    laid_out = arrange.arrange(
+        grove.blocks, edit.place_tree(grove.saved, name, drag.tree, lead, *aim)
+    )[0]
+    trees = {
+        key: dataclasses.replace(s, size=laid_out.trees[key].size) if key[0] == name else s
+        for key, s in placed.arrangement.trees.items()
+    }
+    return dataclasses.replace(
+        placed, arrangement=dataclasses.replace(placed.arrangement, trees=trees)
+    )
+
+
 def dragged(grove: Grove, drag: Drag) -> Grove:
     if drag.stump:
         return stump_drag.dragged(grove, drag)
-    return _placed(grove, drag, _aim(grove, drag))
+
+    aim = _aim(grove, drag)
+    placed = _placed(grove, drag, aim)
+    return _sized(grove, drag, placed, aim) if isinstance(aim, tuple) else placed
 
 
 def _crowded(grove: Grove, block: Block, plot: Plot) -> bool:
@@ -116,10 +138,7 @@ def _refused(grove: Grove, drag: Drag, aim: Aim) -> str:
     after = _placed(grove, drag, aim).arrangement
     plot = after.plots[name]
     if drag.tree:
-        s = after.trees[(name, drag.tree)]
-        if not ground.inside(plot, plot.x + s.cx, plot.y + s.cy):
-            return "a tree stays on its block's ground"
-        return "another tree stands there" if tangles.tangled(drag.block, after) else ""
+        return tangles.refusal(drag.block, after, drag.tree)
 
     if plot.w < 12 or plot.h < 5:
         return "a block needs at least 12 columns and 5 rows"
@@ -249,7 +268,7 @@ def drop(
 
         changed = _edit(drag, aim)(saved)
         if _stands(arrange.arrange(grove.blocks, changed, now)[0], drag) != aim:
-            raise edit.EditError("the grove would move it from there; try farther from the rest")
+            raise edit.EditError("the grove would move it from there")
         return changed
 
     return apply

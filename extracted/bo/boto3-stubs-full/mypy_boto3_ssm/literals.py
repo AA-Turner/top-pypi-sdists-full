@@ -40,6 +40,7 @@ __all__ = (
     "AutomationTypeType",
     "CalendarStateType",
     "CloudConnectorFilterKeyType",
+    "CloudProviderType",
     "CommandExecutedWaiterName",
     "CommandFilterKeyType",
     "CommandInvocationStatusType",
@@ -250,6 +251,7 @@ AutomationSubtypeType = Literal["AccessRequest", "ChangeRequest"]
 AutomationTypeType = Literal["CrossAccount", "Local"]
 CalendarStateType = Literal["CLOSED", "OPEN"]
 CloudConnectorFilterKeyType = Literal["OrganizationId", "ProjectId", "SubscriptionId", "TenantId"]
+CloudProviderType = Literal["AWS", "Azure", "GCP"]
 CommandExecutedWaiterName = Literal["command_executed"]
 CommandFilterKeyType = Literal[
     "DocumentName", "ExecutionStage", "InvokedAfter", "InvokedBefore", "Status"
@@ -661,6 +663,7 @@ ServiceName = Literal[
     "account-access-runtime",
     "acm",
     "acm-pca",
+    "agent-discovery",
     "agent-registry",
     "agent-registry-control",
     "aiops",
@@ -671,6 +674,7 @@ ServiceName = Literal[
     "apigateway",
     "apigatewaymanagementapi",
     "apigatewayv2",
+    "apiportal",
     "appconfig",
     "appconfigdata",
     "appfabric",
@@ -961,6 +965,7 @@ ServiceName = Literal[
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
+    "payments",
     "pca-connector-ad",
     "pca-connector-scep",
     "pcs",
@@ -1016,6 +1021,7 @@ ServiceName = Literal[
     "sagemaker-a2i-runtime",
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
+    "sagemaker-gateway-runtime",
     "sagemaker-geospatial",
     "sagemaker-inference-router-runtime",
     "sagemaker-metrics",

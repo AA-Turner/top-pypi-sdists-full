@@ -13,10 +13,6 @@ static inline void TH_NAME(charref_push)(th_tokenizer *self, th_buf *dest, Py_UC
     }
 }
 
-/* Text a named reference past its longest name has gathered before it is emitted as a token. The run is text either
-   way, so the limit only bounds how much of it a streamed reference holds: one feed plus this many code points. */
-#define TH_CHARREF_TEXT_FLUSH 4096
-
 /* Resolve a character reference starting at the '&' under self->pos, appending
    the decoded code points to dest. in_attr selects the legacy attribute rule
    (a named reference without a trailing ';' is left literal when followed by
@@ -41,11 +37,6 @@ static Py_ssize_t TH_NAME(consume_charref)(th_tokenizer *self, th_buf *dest, int
            that follow are text: they go out as they arrive, and a ';' that ends them is reported here */
         Py_ssize_t from = amp + self->ref_scanned;
         Py_ssize_t tail_end = from;
-        if (dest == &self->text && self->text.len == 0) {
-            self->text_open = 1;
-            self->text_line = self->line;
-            self->text_col = self->col + self->ref_dropped + self->ref_scanned;
-        }
         while (tail_end < len &&
                (is_ascii_alpha(TH_READ(tail_end)) || (TH_READ(tail_end) >= '0' && TH_READ(tail_end) <= '9'))) {
             TH_WORK_STEP();
@@ -55,9 +46,6 @@ static Py_ssize_t TH_NAME(consume_charref)(th_tokenizer *self, th_buf *dest, int
         if (tail_end >= len && !self->eof) {
             self->ref_dropped += tail_end - from;
             self->input.len = from;
-            if (dest == &self->text && self->text.len >= TH_CHARREF_TEXT_FLUSH) {
-                flush_text(self);
-            }
             return -1;
         }
         if (self->ref_decided == 1 && tail_end < len && TH_READ(tail_end) == ';') {
@@ -299,9 +287,6 @@ static Py_ssize_t TH_NAME(consume_charref)(th_tokenizer *self, th_buf *dest, int
             TH_WORK_STEP();
             TH_NAME(charref_push)(self, dest, TH_READ(index));
         }
-        if (dest == &self->text && self->text.len >= TH_CHARREF_TEXT_FLUSH) {
-            flush_text(self);
-        }
         self->ref_dropped += len - (amp + 1);
         self->input.len = amp + 1;
         self->ref_scanned = 1;
@@ -391,18 +376,17 @@ static enum run_result TH_NAME(run)(th_tokenizer *self) {
             if (at_eof) {
                 EOF_FLUSH();
             }
-#if TH_UCS1
+#if defined(TH_SCAN_DATA)
             /* '\n' is ordinary text in DATA -- the only per-newline work is
                line/column tracking, so a single SIMD pass runs straight through
                newlines to the next markup (a paragraph between tags becomes one
                sweep, not one per wrapped line) and folds the newline count and
-               last-newline column in along the way. The wider widths keep the
-               generic newline-stopping scan: they are rarer and the dedicated
-               1-byte pass is where real documents live. */
+               last-newline column in along the way. The 4-byte width keeps the
+               generic newline-stopping scan: astral text is rare. */
             if (ch != '&' && ch != '<' && ch != 0) {
                 Py_ssize_t newlines;
                 Py_ssize_t last_nl;
-                Py_ssize_t stop = scan_data_ucs1(self, self->pos, &newlines, &last_nl);
+                Py_ssize_t stop = TH_SCAN_DATA(self, self->pos, &newlines, &last_nl);
                 text_append_run_lc(self, stop, newlines, last_nl < 0 ? 0 : stop - last_nl - 1);
                 continue;
             }
@@ -442,10 +426,10 @@ static enum run_result TH_NAME(run)(th_tokenizer *self) {
                     continue;
                 }
             }
-#if TH_UCS1
+#if defined(TH_SCAN_DATA)
             /* the run branch consumed every character but '&' and '<', and '&' is
                handled above, so ch is '<' here: open a tag with no further test
-               (the wider widths still fall through a bare-newline text_push) */
+               (the 4-byte width still falls through a bare-newline text_push) */
             MARK();
             CONSUME();
             self->state = ST_TAG_OPEN;

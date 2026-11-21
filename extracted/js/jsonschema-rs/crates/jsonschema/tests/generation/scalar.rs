@@ -58,8 +58,8 @@ pub(crate) fn draw_integer(tc: &TestCase, view: &IntegerView) -> Option<Value> {
             return None;
         }
     }
-    // Integer multiples of a reduced `p/q` grid are exactly the multiples of `p`, and several
-    // divisors admit the multiples of their least common multiple.
+    // Integer multiples of a reduced `p/q` grid are exactly the multiples of `p`, and the multiples
+    // of several divisors are the multiples of their least common multiple.
     let mut stride = Fraction::ONE;
     for divisor in multiple_of {
         let each = Fraction::divisor(divisor)?;
@@ -133,7 +133,7 @@ pub(crate) fn draw_number(tc: &TestCase, view: &NumberView) -> Option<Value> {
         }
     }
     let barred = excluded_divisors(not_multiple_of)?;
-    // Several divisors admit exactly the multiples of their least common multiple.
+    // The multiples of several divisors are exactly the multiples of their least common multiple.
     let mut combined: Option<Fraction> = None;
     for divisor in multiple_of {
         let each = Fraction::divisor(divisor)?;
@@ -256,7 +256,7 @@ pub(crate) fn draw_string(tc: &TestCase, view: &StringView) -> Option<Value> {
     if ceiling < floor {
         return None;
     }
-    let admitted = |value: String| -> Option<Value> {
+    let accepted = |value: String| -> Option<Value> {
         if excluded.contains(&value) {
             return None;
         }
@@ -293,15 +293,15 @@ pub(crate) fn draw_string(tc: &TestCase, view: &StringView) -> Option<Value> {
         if length < floor || length > ceiling {
             return None;
         }
-        return admitted(value);
+        return accepted(value);
     }
     // A format with a generator behind it drives the draw; one without a checker constrains
-    // nothing and falls through. Remaining facets are the wrapper's net.
+    // nothing and falls through. `draw_valid_instance` checks the remaining keywords.
     for format in formats {
         match format.as_str() {
-            "email" | "idn-email" => return admitted(tc.draw(gs::emails())),
+            "email" | "idn-email" => return accepted(tc.draw(gs::emails())),
             "date" => {
-                return admitted(
+                return accepted(
                     tc.draw(gs::sampled_from(vec![
                         "2024-01-15",
                         "1999-12-31",
@@ -311,7 +311,7 @@ pub(crate) fn draw_string(tc: &TestCase, view: &StringView) -> Option<Value> {
                 );
             }
             "date-time" => {
-                return admitted(
+                return accepted(
                     tc.draw(gs::sampled_from(vec![
                         "2024-01-15T10:30:00Z",
                         "1999-12-31T23:59:59.999Z",
@@ -320,13 +320,13 @@ pub(crate) fn draw_string(tc: &TestCase, view: &StringView) -> Option<Value> {
                 );
             }
             "time" => {
-                return admitted(
+                return accepted(
                     tc.draw(gs::sampled_from(vec!["10:30:00Z", "23:59:59+01:00"]))
                         .to_owned(),
                 );
             }
             "uuid" => {
-                return admitted(
+                return accepted(
                     tc.draw(gs::sampled_from(vec![
                         "550e8400-e29b-41d4-a716-446655440000",
                         "00000000-0000-0000-0000-000000000000",
@@ -335,41 +335,41 @@ pub(crate) fn draw_string(tc: &TestCase, view: &StringView) -> Option<Value> {
                 );
             }
             "ipv4" => {
-                return admitted(
+                return accepted(
                     tc.draw(gs::sampled_from(vec!["127.0.0.1", "255.255.255.255"]))
                         .to_owned(),
                 );
             }
             "ipv6" => {
-                return admitted(
+                return accepted(
                     tc.draw(gs::sampled_from(vec!["::1", "2001:db8::8a2e:370:7334"]))
                         .to_owned(),
                 );
             }
             "hostname" | "idn-hostname" => {
-                return admitted(
+                return accepted(
                     tc.draw(gs::sampled_from(vec!["example.com", "localhost"]))
                         .to_owned(),
                 );
             }
             "uri" | "iri" => {
-                return admitted(
+                return accepted(
                     tc.draw(gs::sampled_from(vec!["https://example.com/a", "urn:x:y"]))
                         .to_owned(),
                 );
             }
             "json-pointer" => {
-                return admitted(tc.draw(gs::sampled_from(vec!["", "/a/0"])).to_owned());
+                return accepted(tc.draw(gs::sampled_from(vec!["", "/a/0"])).to_owned());
             }
             "regex" => {
-                return admitted(tc.draw(gs::sampled_from(vec!["^a", "[0-9]+"])).to_owned());
+                return accepted(tc.draw(gs::sampled_from(vec!["^a", "[0-9]+"])).to_owned());
             }
             _ => {}
         }
     }
     if !patterns.is_empty() {
-        // One pattern drives the draw; the length window and the remaining patterns are the
-        // wrapper's net. The validator's ECMA engine accepts patterns the draw engine cannot
+        // One pattern drives the draw; `draw_valid_instance` checks `minLength`, `maxLength` and
+        // the other patterns. The validator's ECMA engine accepts patterns the draw engine cannot
         // parse, and those decline.
         let index = tc.draw(
             gs::integers::<usize>()
@@ -380,14 +380,14 @@ pub(crate) fn draw_string(tc: &TestCase, view: &StringView) -> Option<Value> {
         if regex::Regex::new(pattern).is_err() {
             return None;
         }
-        return admitted(tc.draw(gs::from_regex(pattern)));
+        return accepted(tc.draw(gs::from_regex(pattern)));
     }
     let length = tc.draw(
         gs::integers::<u64>()
             .min_value(floor)
             .max_value(ceiling.min(floor + 3)),
     );
-    admitted(
+    accepted(
         tc.draw(
             gs::text()
                 .min_size(length as usize)

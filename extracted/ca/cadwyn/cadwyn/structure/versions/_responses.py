@@ -1,9 +1,6 @@
 import functools
 import http
 import json
-from collections.abc import (
-    Callable,  # noqa: TC003 # Needed by runtime annotation introspection.
-)
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -22,64 +19,22 @@ from fastapi.routing import APIRoute
 from pydantic import BaseModel
 from starlette._utils import is_async_callable
 
-from cadwyn.structure.common import Endpoint, VersionType
-from cadwyn.structure.data import (
+from cadwyn_core.exceptions import CadwynError
+from cadwyn_core.structure.common import Endpoint
+from cadwyn_core.structure.data import (
     ResponseInfo,
-    _BaseAlterResponseInstruction,
 )
-
-from ._aliases import _get_restorer_spec, _is_dumped_from_models, _rescue_body
-from ._common import _CADWYN_RESPONSE_PARAM_NAME
-from ._migration_targets import (
-    _get_schema_migrations,
-    _get_union_member_of_response,
+from cadwyn_core.structure.versions._aliases import _rescue_body
+from cadwyn_core.structure.versions._common import _CADWYN_RESPONSE_PARAM_NAME
+from cadwyn_core.structure.versions._migration_targets import (
+    _get_closest_union_member,
     _no_union_member,
     _SchemaMigrationTarget,
 )
+from cadwyn_core.structure.versions._migrations import _keep_restored_dumps_of_head_models, _prepare_response_content
 
 if TYPE_CHECKING:
-    from ._bundle import VersionBundle
-
-
-def _prepare_response_content(
-    res: Any,
-    *,
-    exclude_unset: bool,
-    exclude_defaults: bool = False,
-    exclude_none: bool = False,
-) -> Any:
-    """Serialize Pydantic models to dicts for response processing.
-
-    It is much easier to alter dicts and lists than Pydantic models in request/response migrations
-    """
-    if isinstance(res, BaseModel):
-        return res.model_dump(
-            by_alias=True,
-            exclude_unset=exclude_unset,
-            exclude_defaults=exclude_defaults,
-            exclude_none=exclude_none,
-        )
-    elif isinstance(res, list):
-        return [
-            _prepare_response_content(
-                item,
-                exclude_unset=exclude_unset,
-                exclude_defaults=exclude_defaults,
-                exclude_none=exclude_none,
-            )
-            for item in res
-        ]
-    elif isinstance(res, dict):
-        return {
-            k: _prepare_response_content(
-                v,
-                exclude_unset=exclude_unset,
-                exclude_defaults=exclude_defaults,
-                exclude_none=exclude_none,
-            )
-            for k, v in res.items()
-        }
-    return res
+    from cadwyn_core.structure.versions._bundle import VersionBundle
 
 
 def _rescue_response(response_field: ModelField, head_response_model: object, content: Any, data: Any) -> Any:
@@ -93,48 +48,7 @@ def _rescue_response(response_field: ModelField, head_response_model: object, co
     as it always did, and responses that pass stay exactly as they are, even if a field gets its default instead
     of its value.
     """
-    restored = _rescue_body(response_field, data)
-    if restored is data:
-        return data
-    # We only restore the dumps of the models of the head response model that the endpoint returned. FastAPI validates
-    # the dicts that the endpoint returns as they are, and the dump of another model can have the dumped keys of
-    # a response model with values that it doesn't accept.
-    head_spec = _get_restorer_spec(head_response_model)
-    if head_spec is None or not _is_dumped_from_models(content, head_spec):
-        return data
-    return restored
-
-
-def _migrate_response(
-    versions: "VersionBundle",
-    response_info: ResponseInfo,
-    current_version: VersionType,
-    head_route: Union[APIRoute, None],
-    response_target: "_SchemaMigrationTarget",
-    get_response_union_member: "Union[Callable[[], Union[type[BaseModel], None]], None]" = None,
-) -> ResponseInfo:
-    if get_response_union_member is None:
-        get_response_union_member = _no_union_member
-    head_route_id = id(head_route)
-    end = versions.version_values.index(current_version)
-    for v in versions.versions[:end]:
-        for version_change in v.changes:
-            migrations_to_apply: list[_BaseAlterResponseInstruction] = list(
-                _get_schema_migrations(
-                    version_change.alter_response_by_schema_instructions,
-                    # Route generation makes sure that the migrations of the members don't migrate HTTP errors
-                    response_target if response_info.status_code < 300 else response_target._replace(union_members=()),
-                    get_response_union_member,
-                )
-            )
-
-            if head_route_id in version_change._route_to_response_migration_mapping:
-                migrations_to_apply.extend(version_change._route_to_response_migration_mapping[head_route_id])
-
-            for migration in migrations_to_apply:
-                if response_info.status_code < 300 or migration.migrate_http_errors:
-                    migration(response_info)
-    return response_info
+    return _keep_restored_dumps_of_head_models(_rescue_body(response_field, data), data, head_response_model, content)
 
 
 async def _convert_endpoint_response_to_version(  # noqa: C901
@@ -283,4 +197,34 @@ async def _convert_endpoint_response_to_version(  # noqa: C901
         return response_info.body
     return _rescue_response(
         route.response_field, head_route.response_model, response_or_response_body, response_info.body
+    )
+
+
+def _get_union_member_of_response(
+    returned: object, members: tuple[type[BaseModel], ...], route: APIRoute, head_route: APIRoute
+) -> Union[type[BaseModel], None]:
+    """Return the member of the union that the endpoint has returned.
+
+    FastAPI validates the response after the migrations, with the models of the client's version, so we can't reuse
+    that validation. Validating the response before the migrations would run the validators of its models twice, so
+    we only tell the member by the type of what the endpoint returns: a model object (or None, which is no member).
+    """
+    if returned is None:
+        return None
+    if isinstance(returned, BaseModel):
+        member = _get_closest_union_member(returned, members, head_route.response_model)
+        if member is not None:
+            return member
+    if isinstance(returned, FastapiResponse):
+        reason = f"has returned a {type(returned).__name__}, which FastAPI doesn't validate"
+    else:
+        reason = (
+            f"has returned a {type(returned).__name__} object instead of an object of a member, and Cadwyn would have "
+            "to validate it to find out which member it becomes, which would run its validators twice"
+        )
+    raise CadwynError(
+        f"Cadwyn can't tell which member of {head_route.response_model!r} the response of "
+        f"{sorted(route.methods or ())} {route.path} is because the endpoint {reason}. So it can't tell which of "
+        "their schema migrations to run. Return an object of the member's model instead, or migrate this endpoint "
+        "by its path instead."
     )

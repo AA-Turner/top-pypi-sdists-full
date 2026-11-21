@@ -1,5 +1,4 @@
-use base64::Engine;
-use base64::prelude::BASE64_STANDARD;
+use base64::{Engine, prelude::BASE64_STANDARD};
 use serde::{Deserialize, Deserializer, de::Error};
 use sha2::{Digest, Sha256};
 
@@ -60,6 +59,24 @@ pub enum IdListFingerprintWidth {
     Bits48 = 48,
 }
 
+/// Encode the same fingerprint as the ID-list files into a stack buffer.
+pub fn with_id_list_fingerprint<T>(
+    unit_id: &str,
+    width: IdListFingerprintWidth,
+    read: impl FnOnce(&str) -> T,
+) -> T {
+    match width {
+        IdListFingerprintWidth::Bits48 => {
+            let digest = Sha256::digest(unit_id.as_bytes());
+            let mut fingerprint = [0; 8];
+            BASE64_STANDARD
+                .encode_slice(&digest[..6], &mut fingerprint)
+                .expect("six digest bytes encode to eight base64 bytes");
+            read(std::str::from_utf8(&fingerprint).expect("base64 is ASCII"))
+        }
+    }
+}
+
 pub struct HashUtil {
     sha_hasher: MemoSha256,
 }
@@ -92,13 +109,7 @@ impl HashUtil {
 
     /// Derive the lookup key for the list's fingerprint width.
     pub fn id_list_key(&self, unit_id: &str, width: IdListFingerprintWidth) -> String {
-        match width {
-            IdListFingerprintWidth::Bits48 => {
-                let mut key = self.sha256(unit_id);
-                key.truncate(8);
-                key
-            }
-        }
+        with_id_list_fingerprint(unit_id, width, str::to_owned)
     }
 
     pub fn sha256_to_u64(&self, input: &str) -> u64 {

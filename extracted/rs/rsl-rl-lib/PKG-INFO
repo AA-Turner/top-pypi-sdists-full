@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rsl-rl-lib
-Version: 5.5.2
+Version: 6.0.0
 Summary: Fast and simple RL algorithms implemented in PyTorch
 Author-email: Clemens Schwarke <cschwarke@ethz.ch>, Mayank Mittal <mittalma@ethz.ch>, Nikita Rudin <rudinn@ethz.ch>, David Hoeller <holler.david78@gmail.com>
 Maintainer-email: Clemens Schwarke <cschwarke@ethz.ch>, Mayank Mittal <mittalma@ethz.ch>
@@ -62,7 +62,7 @@ and features common algorithms for robot learning.
 ## Key Features
 
 - **Minimal, readable codebase** with clear extension points for rapid prototyping.
-- **Robotics-first methods** including PPO and Student-Teacher Distillation.
+- **Robotics-first methods** including PPO, SAC, and Student-Teacher Distillation.
 - **High-throughput training** with native Multi-GPU support.
 - **Proven performance** in numerous research publications.
 

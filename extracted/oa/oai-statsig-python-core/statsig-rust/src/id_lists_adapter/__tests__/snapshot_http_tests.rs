@@ -1,6 +1,7 @@
 use super::*;
 use crate::SpecStore;
 use crate::id_lists_adapter::shared_id_list_format::{digest, hex};
+use crate::networking::Response;
 use crate::portable_id_list_ef::{MEDIA_TYPE, encode_prefix_v1};
 use crate::sdk_event_emitter::SdkEventEmitter;
 use mockito::{Matcher, Mock, Server};
@@ -366,12 +367,14 @@ async fn id_list_snapshot_validates_the_same_image_when_provider_leaves_encoding
                 data: Some(body),
             };
             let permit = adapter
+                .transport
                 .download_permits
                 .clone()
                 .acquire_owned()
                 .await
                 .unwrap();
             let result = adapter
+                .transport
                 .validate_snapshot(&job, response, permit, None)
                 .await;
             if valid_digest {
@@ -615,7 +618,9 @@ fn id_list_snapshot_requires_private_ef_and_an_explicit_file_endpoint() {
             ..Default::default()
         };
         assert_eq!(
-            StatsigHttpIdListsAdapter::new(KEY, &options).snapshot_enabled,
+            StatsigHttpIdListsAdapter::new(KEY, &options)
+                .transport
+                .snapshot_enabled,
             enabled
         );
     }
@@ -795,7 +800,7 @@ async fn id_list_snapshot_empty_and_removal_only_replacements_check_concurrent_c
         }
         let staged = adapter
             .fetch_id_list_updates(
-                store.as_ref(),
+                adapter.base_sources(&adapter.current_listener().unwrap()),
                 FetchReason::Refresh(RefreshTrigger::PrivateInitialize),
                 &store.get_current_id_list_metadata(),
                 HashMap::new(),
@@ -809,7 +814,13 @@ async fn id_list_snapshot_empty_and_removal_only_replacements_check_concurrent_c
         );
         assert!(
             adapter
-                .publish_id_list_updates(store.clone(), staged, None, None, None)
+                .publish_id_list_updates(
+                    HttpIdListsListener::Store(store.clone()),
+                    staged,
+                    None,
+                    None,
+                    None
+                )
                 .await
                 .unwrap_err()
                 .to_string()
@@ -901,7 +912,12 @@ async fn id_list_snapshot_gateway_allows_legacy_encoded_percent_and_rejects_enco
     raw.assert();
     assert!(store.load_data().id_lists["users"].ids.contains("AAAAAAAA"));
     for path in ["/x%2f..%2fv1", "/x%252f%252e%252e%252fv1"] {
-        assert!(adapter.get_override_id_list_download_url(path).is_err());
+        assert!(
+            adapter
+                .transport
+                .get_override_id_list_download_url(path)
+                .is_err()
+        );
     }
 }
 
@@ -991,9 +1007,7 @@ async fn id_list_snapshot_decoder_limits_only_the_encoded_response() {
         let _row = manifest(&mut server, GEN, size);
         let provider: Arc<dyn NetworkProvider> = Arc::new(FixedLimitProvider(Default::default()));
         let raw = if fixed_limit_only {
-            adapter
-                .network
-                .set_network_provider_for_test(Arc::downgrade(&provider));
+            adapter.set_network_provider_for_test(Arc::downgrade(&provider));
             raw_request(&mut server, RAW, 0)
         } else {
             let encoded = image_headers(offer(&mut server, RAW), b"", size)
@@ -1149,7 +1163,11 @@ async fn id_list_snapshot_stale_source_switch_skips_downloads() {
     }
     initial.assert();
     skipped.assert();
-    assert!(adapter.lazy_list_ready(store.as_ref(), Some(&installed), &stale));
+    assert!(adapter.lazy_list_ready(
+        adapter.base_sources(&adapter.current_listener().unwrap()),
+        Some(&installed),
+        &stale
+    ));
 }
 
 #[tokio::test]
@@ -1170,4 +1188,104 @@ async fn id_list_snapshot_query_gateway_preserves_raw_routing() {
     adapter.sync_id_lists().await.unwrap();
     raw.assert();
     assert!(store.load_data().id_lists["users"].ids.contains("AAAAAAAA"));
+}
+
+#[tokio::test]
+async fn initial_base_skips_body_on_late_start_and_resumes_at_covered_end() {
+    for (ef, packed) in [(false, false), (true, false), (true, true)] {
+        for lazy in [false, true] {
+            let root = tempfile::tempdir().unwrap();
+            let mut server = Server::new_async().await;
+            let url = server.url();
+            let options = StatsigOptions {
+                id_lists_url: Some(format!("{url}/manifest")),
+                download_id_list_file_api: (packed || !ef).then_some(url.clone()),
+                enable_id_list_elias_fano: Some(ef),
+                shared_id_lists_dir: Some(root.path().display().to_string()),
+                experimental_flags: Some(["shared_initial_id_list_base".into()].into()),
+                lazy_load_id_lists: Some(lazy),
+                ..Default::default()
+            };
+            let client = || {
+                let cache = SharedInitialBaseCache::from_options(KEY, &options);
+                let (adapter, store) = store_client(options.clone());
+                (Arc::new(adapter.with_initial_base_cache(cache)), store)
+            };
+            let prefix = "+AAAAAAAA\n+CCCCCCCC\n";
+            let _row = manifest_at(&mut server, &format!("{url}{RAW}"), GEN, 1, 40);
+            let first = if packed {
+                let (end, bytes) = encode_prefix_v1(prefix.as_bytes(), 0).unwrap().unwrap();
+                image_headers(offer(&mut server, RAW), &bytes, end).with_body(bytes)
+            } else {
+                raw_request(&mut server, RAW, 0).with_body(prefix)
+            }
+            .expect(1)
+            .create();
+            let tail = raw_request(&mut server, RAW, 20)
+                .with_status(206)
+                .with_header("content-range", "bytes 20-39/40")
+                .with_body("-AAAAAAAA\n+BBBBBBBB\n")
+                .expect(1)
+                .create();
+            let (early, shared) = client();
+            let (late, worker) = client();
+            for (adapter, store) in [(&early, &shared), (&late, &worker)] {
+                adapter.sync_id_lists().await.unwrap();
+                if lazy {
+                    assert!(store.load_data().id_lists.is_empty());
+                    adapter.process_id_list("users").await.unwrap();
+                    adapter.process_id_list("users").await.unwrap();
+                }
+                let current = store.load_data();
+                let list = &current.id_lists["users"];
+                assert_eq!(list.metadata.size, 20);
+                assert!(list.ids.is_mapped());
+                assert!(list.ids.contains("AAAAAAAA"));
+            }
+            first.assert();
+            late.sync_id_lists().await.unwrap();
+            tail.assert();
+            let early = shared.load_data();
+            let late = worker.load_data();
+            let list = &late.id_lists["users"];
+            assert_eq!(list.metadata.size, 40);
+            assert_eq!(
+                list.ids.base_file(),
+                early.id_lists["users"].ids.base_file()
+            );
+            assert!(!list.ids.contains("AAAAAAAA"));
+            assert!(list.ids.contains("BBBBBBBB"));
+            assert!(early.id_lists["users"].ids.contains("AAAAAAAA"));
+        }
+    }
+}
+
+#[test]
+fn initial_base_keeps_unverified_raw_responses_private() {
+    let root = tempfile::tempdir().unwrap();
+    let options = StatsigOptions {
+        enable_id_list_elias_fano: Some(true),
+        shared_id_lists_dir: Some(root.path().display().to_string()),
+        experimental_flags: Some(["shared_initial_id_list_base".into()].into()),
+        ..Default::default()
+    };
+    let cache = SharedInitialBaseCache::from_options(KEY, &options).unwrap();
+    let metadata = IdListMetadata {
+        name: "users".into(),
+        file_id: Some(GEN.into()),
+        creation_time: 1,
+        size: 10,
+        url: RAW.into(),
+    };
+    for body in ["+AAAAAAAA", "invalid\n", "+ \n", "+AAAAAAAA\n+B\n"] {
+        let raw = DownloadedIdList::Raw {
+            changeset: body.to_owned(),
+            range: 0..body.len() as u64,
+        };
+        assert!(matches!(
+            raw.prepare(metadata.clone()).offer(&cache).update,
+            PreparedIdListUpdate::Raw(_)
+        ));
+    }
+    assert!(std::fs::read_dir(root.path()).unwrap().next().is_none());
 }

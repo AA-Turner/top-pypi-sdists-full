@@ -110,6 +110,7 @@ class EdgeFunction(
         code: "_aws_lambda_b8f2f472.Code",
         handler: builtins.str,
         runtime: "_aws_lambda_b8f2f472.Runtime",
+        accelerator_config: typing.Optional[typing.Union["_aws_lambda_b8f2f472.AcceleratorConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         adot_instrumentation: typing.Optional[typing.Union["_aws_lambda_b8f2f472.AdotInstrumentationConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         allow_all_ipv6_outbound: typing.Optional[builtins.bool] = None,
         allow_all_outbound: typing.Optional[builtins.bool] = None,
@@ -170,6 +171,7 @@ class EdgeFunction(
         :param code: The source code of your Lambda function. You can point to a file in an Amazon Simple Storage Service (Amazon S3) bucket or specify your source code as inline text.
         :param handler: The name of the method within your code that Lambda calls to execute your function. The format includes the file name. It can also include namespaces and other qualifiers, depending on the runtime. For more information, see https://docs.aws.amazon.com/lambda/latest/dg/foundation-progmodel.html. Use ``Handler.FROM_IMAGE`` when defining a function from a Docker image. NOTE: If you specify your source code as inline text by specifying the ZipFile property within the Code property, specify index.function_name as the handler.
         :param runtime: The runtime environment for the Lambda function that you are uploading. For valid values, see the Runtime property in the AWS Lambda Developer Guide. Use ``Runtime.FROM_IMAGE`` when defining a function from a Docker image.
+        :param accelerator_config: Accelerator configuration for the function. Configures the accelerator resource settings for the execution environment, including the amount of accelerator memory to allocate. The function must be attached to a capacity provider (``capacityProvider.addFunction(fn)``), use a container image (``Runtime.FROM_IMAGE``) on x86_64, and set ``memorySize`` to at least 2048 MiB. When set, ``ephemeralStorageSize`` may be up to 32 GiB. Default: - No accelerator configuration
         :param adot_instrumentation: Specify the configuration of AWS Distro for OpenTelemetry (ADOT) instrumentation. Default: - No ADOT instrumentation
         :param allow_all_ipv6_outbound: Whether to allow the Lambda to send all ipv6 network traffic. If set to true, there will only be a single egress rule which allows all outbound ipv6 traffic. If set to false, you must individually add traffic rules to allow the Lambda to connect to network targets using ipv6. Do not specify this property if the ``securityGroups`` or ``securityGroup`` property is set. Instead, configure ``allowAllIpv6Outbound`` directly on the security group. Default: false
         :param allow_all_outbound: Whether to allow the Lambda to send all network traffic (except ipv6). If set to false, you must individually add traffic rules to allow the Lambda to connect to network targets. Do not specify this property if the ``securityGroups`` or ``securityGroup`` property is set. Instead, configure ``allowAllOutbound`` directly on the security group. Default: true
@@ -232,6 +234,7 @@ class EdgeFunction(
             code=code,
             handler=handler,
             runtime=runtime,
+            accelerator_config=accelerator_config,
             adot_instrumentation=adot_instrumentation,
             allow_all_ipv6_outbound=allow_all_ipv6_outbound,
             allow_all_outbound=allow_all_outbound,
@@ -351,6 +354,7 @@ class EdgeFunction(
         filters: typing.Optional[typing.Sequence[typing.Mapping[builtins.str, typing.Any]]] = None,
         kafka_bootstrap_servers: typing.Optional[typing.Sequence[builtins.str]] = None,
         kafka_consumer_group_id: typing.Optional[builtins.str] = None,
+        kafka_consumption_mode: typing.Optional["_aws_lambda_b8f2f472.KafkaConsumptionMode"] = None,
         kafka_topic: typing.Optional[builtins.str] = None,
         log_level: typing.Optional["_aws_lambda_b8f2f472.EventSourceMappingLogLevel"] = None,
         max_batching_window: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
@@ -380,6 +384,7 @@ class EdgeFunction(
         :param filters: Add filter criteria to Event Source. Default: - none
         :param kafka_bootstrap_servers: A list of host and port pairs that are the addresses of the Kafka brokers in a self managed "bootstrap" Kafka cluster that a Kafka client connects to initially to bootstrap itself. They are in the format ``abc.example.com:9096``. Default: - none
         :param kafka_consumer_group_id: The identifier for the Kafka consumer group to join. The consumer group ID must be unique among all your Kafka event sources. After creating a Kafka event source mapping with the consumer group ID specified, you cannot update this value. The value must have a length between 1 and 200 and full the pattern '[a-zA-Z0-9-/*:_+=.@-]*'. For more information, see `Customizable consumer group ID <https://docs.aws.amazon.com/lambda/latest/dg/with-msk.html#services-msk-consumer-group-id>`_. Default: - none
+        :param kafka_consumption_mode: How Lambda reads records from the Kafka topic. Only supported for self-managed Kafka event sources (``kafkaBootstrapServers``). **Queue mode requires Kafka 4.2.0 or later.** In queue mode, ``startingPosition``, ``startingPositionTimestamp`` and ``maxBatchingWindow`` are not supported, and ``retryAttempts`` must be between 0 and 10000 and defaults to 0 (and, as in stream mode, requires ``provisionedPollerConfig``). The consumption mode can't be changed after the event source mapping is created. Default: - Lambda reads the topic in stream mode (``KafkaConsumptionMode.STREAM``)
         :param kafka_topic: The name of the Kafka topic. Default: - no topic
         :param log_level: Configuration for logging verbosity from the event source mapping poller. This configuration controls the verbosity of the logs generated by the polling infrastructure that reads events from the event source. The logs provide insights into the internal operations of the event source mapping, including connection status, polling behavior, and error conditions. Default: - No logging
         :param max_batching_window: The maximum amount of time to gather records before invoking the function. Maximum of Duration.minutes(5) Default: Duration.seconds(0)
@@ -390,7 +395,7 @@ class EdgeFunction(
         :param parallelization_factor: The number of batches to process from each shard concurrently. Valid Range: - Minimum value of 1 - Maximum value of 10 Default: 1
         :param provisioned_poller_config: Configuration for provisioned pollers that read from the event source. When specified, allows control over the minimum and maximum number of pollers that can be provisioned to process events from the source. Default: - no provisioned pollers
         :param report_batch_item_failures: Allow functions to return partially successful responses for a batch of records. Default: false
-        :param retry_attempts: The maximum number of times to retry when the function returns an error. Set to ``undefined`` if you want lambda to keep retrying infinitely or until the record expires. Valid Range: - Minimum value of 0 - Maximum value of 10000 Default: - infinite or until the record expires.
+        :param retry_attempts: The maximum number of times to retry when the function returns an error. Set to ``undefined`` if you want lambda to keep retrying infinitely or until the record expires. Valid Range: - Minimum value of 0 - Maximum value of 10000 Default: - infinite or until the record expires; 0 when ``kafkaConsumptionMode`` is ``KafkaConsumptionMode.QUEUE``
         :param schema_registry_config: Specific configuration settings for a Kafka schema registry. Default: - none
         :param source_access_configurations: Specific settings like the authentication protocol or the VPC components to secure access to your event source. Default: - none
         :param starting_position: The position in the DynamoDB, Kinesis or MSK stream where AWS Lambda should start reading. Default: - no starting position
@@ -410,6 +415,7 @@ class EdgeFunction(
             filters=filters,
             kafka_bootstrap_servers=kafka_bootstrap_servers,
             kafka_consumer_group_id=kafka_consumer_group_id,
+            kafka_consumption_mode=kafka_consumption_mode,
             kafka_topic=kafka_topic,
             log_level=log_level,
             max_batching_window=max_batching_window,
@@ -996,6 +1002,7 @@ class EdgeFunction(
         "on_failure": "onFailure",
         "on_success": "onSuccess",
         "retry_attempts": "retryAttempts",
+        "accelerator_config": "acceleratorConfig",
         "adot_instrumentation": "adotInstrumentation",
         "allow_all_ipv6_outbound": "allowAllIpv6Outbound",
         "allow_all_outbound": "allowAllOutbound",
@@ -1058,6 +1065,7 @@ class EdgeFunctionProps(_aws_lambda_b8f2f472.FunctionProps):
         on_failure: typing.Optional["_aws_lambda_b8f2f472.IDestination"] = None,
         on_success: typing.Optional["_aws_lambda_b8f2f472.IDestination"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
+        accelerator_config: typing.Optional[typing.Union["_aws_lambda_b8f2f472.AcceleratorConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         adot_instrumentation: typing.Optional[typing.Union["_aws_lambda_b8f2f472.AdotInstrumentationConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         allow_all_ipv6_outbound: typing.Optional[builtins.bool] = None,
         allow_all_outbound: typing.Optional[builtins.bool] = None,
@@ -1117,6 +1125,7 @@ class EdgeFunctionProps(_aws_lambda_b8f2f472.FunctionProps):
         :param on_failure: The destination for failed invocations. Default: - no destination
         :param on_success: The destination for successful invocations. Default: - no destination
         :param retry_attempts: The maximum number of times to retry when the function returns an error. Minimum: 0 Maximum: 2 Default: 2
+        :param accelerator_config: Accelerator configuration for the function. Configures the accelerator resource settings for the execution environment, including the amount of accelerator memory to allocate. The function must be attached to a capacity provider (``capacityProvider.addFunction(fn)``), use a container image (``Runtime.FROM_IMAGE``) on x86_64, and set ``memorySize`` to at least 2048 MiB. When set, ``ephemeralStorageSize`` may be up to 32 GiB. Default: - No accelerator configuration
         :param adot_instrumentation: Specify the configuration of AWS Distro for OpenTelemetry (ADOT) instrumentation. Default: - No ADOT instrumentation
         :param allow_all_ipv6_outbound: Whether to allow the Lambda to send all ipv6 network traffic. If set to true, there will only be a single egress rule which allows all outbound ipv6 traffic. If set to false, you must individually add traffic rules to allow the Lambda to connect to network targets using ipv6. Do not specify this property if the ``securityGroups`` or ``securityGroup`` property is set. Instead, configure ``allowAllIpv6Outbound`` directly on the security group. Default: false
         :param allow_all_outbound: Whether to allow the Lambda to send all network traffic (except ipv6). If set to false, you must individually add traffic rules to allow the Lambda to connect to network targets. Do not specify this property if the ``securityGroups`` or ``securityGroup`` property is set. Instead, configure ``allowAllOutbound`` directly on the security group. Default: true
@@ -1193,6 +1202,8 @@ class EdgeFunctionProps(_aws_lambda_b8f2f472.FunctionProps):
                 )
             )
         '''
+        if isinstance(accelerator_config, dict):
+            accelerator_config = _aws_lambda_b8f2f472.AcceleratorConfig(**accelerator_config)
         if isinstance(adot_instrumentation, dict):
             adot_instrumentation = _aws_lambda_b8f2f472.AdotInstrumentationConfig(**adot_instrumentation)
         if isinstance(current_version_options, dict):
@@ -1209,6 +1220,7 @@ class EdgeFunctionProps(_aws_lambda_b8f2f472.FunctionProps):
             check_type(argname="argument on_failure", value=on_failure, expected_type=type_hints["on_failure"])
             check_type(argname="argument on_success", value=on_success, expected_type=type_hints["on_success"])
             check_type(argname="argument retry_attempts", value=retry_attempts, expected_type=type_hints["retry_attempts"])
+            check_type(argname="argument accelerator_config", value=accelerator_config, expected_type=type_hints["accelerator_config"])
             check_type(argname="argument adot_instrumentation", value=adot_instrumentation, expected_type=type_hints["adot_instrumentation"])
             check_type(argname="argument allow_all_ipv6_outbound", value=allow_all_ipv6_outbound, expected_type=type_hints["allow_all_ipv6_outbound"])
             check_type(argname="argument allow_all_outbound", value=allow_all_outbound, expected_type=type_hints["allow_all_outbound"])
@@ -1274,6 +1286,8 @@ class EdgeFunctionProps(_aws_lambda_b8f2f472.FunctionProps):
             self._values["on_success"] = on_success
         if retry_attempts is not None:
             self._values["retry_attempts"] = retry_attempts
+        if accelerator_config is not None:
+            self._values["accelerator_config"] = accelerator_config
         if adot_instrumentation is not None:
             self._values["adot_instrumentation"] = adot_instrumentation
         if allow_all_ipv6_outbound is not None:
@@ -1414,6 +1428,25 @@ class EdgeFunctionProps(_aws_lambda_b8f2f472.FunctionProps):
         '''
         result = self._values.get("retry_attempts")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def accelerator_config(
+        self,
+    ) -> typing.Optional["_aws_lambda_b8f2f472.AcceleratorConfig"]:
+        '''Accelerator configuration for the function.
+
+        Configures the accelerator resource settings for the execution environment, including
+        the amount of accelerator memory to allocate. The function must be attached to a
+        capacity provider (``capacityProvider.addFunction(fn)``), use a container image
+        (``Runtime.FROM_IMAGE``) on x86_64, and set ``memorySize`` to at least 2048 MiB.
+        When set, ``ephemeralStorageSize`` may be up to 32 GiB.
+
+        :default: - No accelerator configuration
+
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-lambda-function-acceleratorconfig.html
+        '''
+        result = self._values.get("accelerator_config")
+        return typing.cast(typing.Optional["_aws_lambda_b8f2f472.AcceleratorConfig"], result)
 
     @builtins.property
     def adot_instrumentation(
@@ -2112,6 +2145,7 @@ def _typecheckingstub__b2f96e5632f259adb036f7aba2bbc7c19fd9840c647d67a10a8135cb3
     code: _aws_lambda_b8f2f472.Code,
     handler: builtins.str,
     runtime: _aws_lambda_b8f2f472.Runtime,
+    accelerator_config: typing.Optional[typing.Union[_aws_lambda_b8f2f472.AcceleratorConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     adot_instrumentation: typing.Optional[typing.Union[_aws_lambda_b8f2f472.AdotInstrumentationConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     allow_all_ipv6_outbound: typing.Optional[builtins.bool] = None,
     allow_all_outbound: typing.Optional[builtins.bool] = None,
@@ -2199,6 +2233,7 @@ def _typecheckingstub__e3a2f6769309cd3c52da869813738e2d4a94d233e574ada7ebba1654d
     filters: typing.Optional[typing.Sequence[typing.Mapping[builtins.str, typing.Any]]] = None,
     kafka_bootstrap_servers: typing.Optional[typing.Sequence[builtins.str]] = None,
     kafka_consumer_group_id: typing.Optional[builtins.str] = None,
+    kafka_consumption_mode: typing.Optional[_aws_lambda_b8f2f472.KafkaConsumptionMode] = None,
     kafka_topic: typing.Optional[builtins.str] = None,
     log_level: typing.Optional[_aws_lambda_b8f2f472.EventSourceMappingLogLevel] = None,
     max_batching_window: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
@@ -2298,6 +2333,7 @@ def _typecheckingstub__709cdcb05c7a5fc7f7bcd1d72557097c39c5c534076a00b6b8db807bd
     on_failure: typing.Optional[_aws_lambda_b8f2f472.IDestination] = None,
     on_success: typing.Optional[_aws_lambda_b8f2f472.IDestination] = None,
     retry_attempts: typing.Optional[jsii.Number] = None,
+    accelerator_config: typing.Optional[typing.Union[_aws_lambda_b8f2f472.AcceleratorConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     adot_instrumentation: typing.Optional[typing.Union[_aws_lambda_b8f2f472.AdotInstrumentationConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     allow_all_ipv6_outbound: typing.Optional[builtins.bool] = None,
     allow_all_outbound: typing.Optional[builtins.bool] = None,

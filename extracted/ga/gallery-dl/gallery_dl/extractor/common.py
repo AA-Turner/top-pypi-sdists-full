@@ -1096,12 +1096,17 @@ class Dispatch():
                 for data in extractor_data
             }
 
-        include = self.config("include", default) or ()
+        include = self.config("include")
         if include == "all":
             include = extractors
         else:
-            if include.__class__ is str:
+            if include is None:
+                include = default
+            elif not include:
+                include = ()
+            elif include.__class__ is str:
                 include = include.replace(" ", "").split(",")
+
             if alt is not None:
                 for sub, sub_alt, url in alt:
                     extractors[sub_alt] = (extractors[sub] if url is None else

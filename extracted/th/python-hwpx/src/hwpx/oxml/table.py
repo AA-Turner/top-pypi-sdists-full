@@ -10,10 +10,12 @@ from typing import TYPE_CHECKING, Any, Iterator, NoReturn, Sequence, cast
 import xml.etree.ElementTree as ET
 
 from ._document_primitives import (
+    _require_text,
+    SameElement,
     _DEFAULT_CELL_HEIGHT,
     _DEFAULT_CELL_WIDTH,
     _default_cell_inner_margin_attributes,
-    _DEFAULT_PARAGRAPH_ATTRS,
+    paragraph_attributes,
     _HP,
     _append_child,
     _append_text_with_tabs,
@@ -24,25 +26,34 @@ from ._document_primitives import (
     _default_sublist_attributes,
     _distribute_size,
     _element_local_name,
+    _normalize_color,
     _object_id,
     _paragraph_id,
     FILL_GRADIENT_TYPES,
     FILL_IMAGE_MODES,
 )
 from ._paragraph_text_edit import clear_text_element, sanitize_keeping_tabs, set_text_with_tabs
-from ._paragraph_text_edit import new_own_text_node, own_text_nodes
+from ._paragraph_text_edit import live_paragraph, new_own_text_node, own_text_nodes
 from . import table_sizes as _table_sizes
+from .table_format import (
+    TableCellFormat, TableFormat, TableRowFormat, _BorderFills, _set_fill, refuse_cell_without_sublist,
+)
 from .table_structure import TableStructureEdits
+from .utils import HwpxIndexError
+from ..errors import rejects_removed_arguments
 
 from .body import Label, parse_label_element
 from .objects import Caption, _read_caption, _remove_caption, _write_caption
 from .table_merge import TableGridCache as _TableGridCache, collapse_merged_grid
+from .table_merge import bad_spreadsheet_range, cell_out_of_range, cell_remove_refused, check_merge_range
 
 if TYPE_CHECKING:
+    from ._document_primitives import IdSource
     from hwpx.form_fit.policy import FitPolicy
     from ..objects.binary_item import BinaryItem
     from hwpx.form_fit.report import FitResult
     from .paragraph import HwpxOxmlParagraph
+    from .header import Style
     from .section import HwpxOxmlSection
 
 
@@ -76,18 +87,13 @@ def _set_cell_borders_preserving(table: Any, cell: Any, color: str, line_type: s
     matches = [n for n in container if n.tag == HH + "borderFill" and n.get("id") == reference]
     if len(matches) != 1:
         refuse("existing cell border style is missing or ambiguous")
-    candidate = deepcopy(matches[0])
-    _color_existing_borders(candidate, color, line_type)
-    key = _border_edit_signature(candidate, root=True)
-    for existing in container:
-        if existing.tag == HH + "borderFill" and _border_edit_signature(existing, root=True) == key:
-            table.set_cell_border_fill(cell.address[0], cell.address[1], existing.get("id"))
-            return
-    candidate.set("id", header._allocate_border_fill_id(container))
-    container.append(candidate)
-    container.set("itemCnt", str(len(container.findall(HH + "borderFill"))))
-    header.mark_dirty()
-    cell.element.set("borderFillIDRef", candidate.get("id"))
+    _color_existing_borders(deepcopy(matches[0]), color, line_type)  # refuses before anything changes
+    from .formatting import derive_definition
+
+    derived = derive_definition(
+        header, "borderFill", reference, lambda candidate: _color_existing_borders(candidate, color, line_type)
+    )
+    cell.element.set("borderFillIDRef", derived)
     table.mark_dirty()
     _match_touching_edges(table, cell)
 
@@ -140,26 +146,19 @@ def _match_touching_edges(table: Any, cell: Any) -> None:
 def _set_shared_side(table: Any, header: Any, container: Any, fills: dict, other: Any, line: Any, side: str) -> None:
     from .namespaces import HH
 
-    base = fills.get(other.element.get("borderFillIDRef") or table.element.get("borderFillIDRef"))
-    if base is None or line is None:
+    from .formatting import derive_definition
+
+    reference = other.element.get("borderFillIDRef") or table.element.get("borderFillIDRef")
+    base = fills.get(reference)
+    if base is None or line is None or base.find(HH + side) is None:
         return
-    candidate = deepcopy(base)
-    target = candidate.find(HH + side)
-    if target is None:
-        return
-    for key, value in line.attrib.items():
-        target.set(key, value)
-    key = _border_edit_signature(candidate, root=True)
-    for existing in container:
-        if existing.tag == HH + "borderFill" and _border_edit_signature(existing, root=True) == key:
-            other.element.set("borderFillIDRef", existing.get("id"))
-            return
-    candidate.set("id", header._allocate_border_fill_id(container))
-    container.append(candidate)
-    container.set("itemCnt", str(len(container.findall(HH + "borderFill"))))
-    fills[candidate.get("id")] = candidate
-    header.mark_dirty()
-    other.element.set("borderFillIDRef", candidate.get("id"))
+
+    def change(candidate: Any) -> None:
+        target = candidate.find(HH + side)
+        for key, value in line.attrib.items():
+            target.set(key, value)
+
+    other.element.set("borderFillIDRef", derive_definition(header, "borderFill", reference, change))
 
 
 def _color_existing_borders(candidate: Any, color: str, line_type: str) -> None:
@@ -176,11 +175,6 @@ def _color_existing_borders(candidate: Any, color: str, line_type: str) -> None:
             )
         sides[0].set("color", color.upper())
         sides[0].set("type", line_type)
-
-
-def _border_edit_signature(node: Any, *, root: bool = False) -> tuple[Any, ...]:
-    attributes = tuple(sorted((k, v) for k, v in node.attrib.items() if not (root and k == "id")))
-    return node.tag, attributes, node.text, node.tail, tuple(_border_edit_signature(c) for c in node)
 
 
 def _wrap_paragraph(
@@ -214,7 +208,7 @@ def _is_blank_cell(element: ET.Element) -> bool:
 
 
 
-class HwpxOxmlTableCell:
+class HwpxOxmlTableCell(SameElement, TableCellFormat):
     """Represents an individual table cell."""
 
     def __init__(
@@ -243,15 +237,11 @@ class HwpxOxmlTableCell:
         return size
 
     def _ensure_text_element(self) -> ET.Element:
-        sublist = self.element.find(f"{_HP}subList")
-        if sublist is None:
-            sublist = _append_child(
-                self.element, f"{_HP}subList", _default_sublist_attributes()
-            )
+        sublist = self._ensure_sublist()
         paragraph = sublist.find(f"{_HP}p")
         if paragraph is None:
             paragraph = _append_child(
-                sublist, f"{_HP}p", _default_cell_paragraph_attributes()
+                sublist, f"{_HP}p", _default_cell_paragraph_attributes(self.table.paragraph.section._ids)
             )
         _clear_paragraph_layout_cache(paragraph)
         run = paragraph.find(f"{_HP}run")
@@ -273,7 +263,10 @@ class HwpxOxmlTableCell:
 
     @property
     def span(self) -> tuple[int, int]:
-        span = self._span_element()
+        # Reading never writes: a cell without ``hp:cellSpan`` spans one row and one column.
+        span = self.element.find(f"{_HP}cellSpan")
+        if span is None:
+            return (1, 1)
         row_span = int(span.get("rowSpan", "1"))
         col_span = int(span.get("colSpan", "1"))
         return (row_span, col_span)
@@ -298,15 +291,21 @@ class HwpxOxmlTableCell:
 
     @property
     def width(self) -> int:
-        size = self._size_element()
-        return int(size.get("width", "0"))
+        # Reading never writes: a cell without ``hp:cellSz`` reads as 0, as an empty one does.
+        size = self.element.find(f"{_HP}cellSz")
+        return int(size.get("width", "0")) if size is not None else 0
 
     @property
     def height(self) -> int:
-        size = self._size_element()
-        return int(size.get("height", "0"))
+        size = self.element.find(f"{_HP}cellSz")
+        return int(size.get("height", "0")) if size is not None else 0
 
     def set_size(self, width: int | None = None, height: int | None = None) -> None:
+        for argument, value in (("width", width), ("height", height)):
+            if value is not None and (isinstance(value, bool) or not isinstance(value, int)):
+                from ..errors import argument_type_error
+
+                raise argument_type_error(argument, value, "an int (HWPUNIT) or None")
         size = self._size_element()
         if width is not None:
             size.set("width", str(max(width, 0)))
@@ -342,13 +341,14 @@ class HwpxOxmlTableCell:
 
     def _paragraph_format_attrs(self, paragraph: "HwpxOxmlParagraph" | None = None) -> dict[str, str]:  # type: ignore[reportGeneralTypeIssues]  # frozen public annotation
         source = paragraph.element if paragraph is not None else None
-        attrs = dict(_default_cell_paragraph_attributes())
+        ids = self.table.paragraph.section._ids
+        attrs = dict(_default_cell_paragraph_attributes(ids))
         if source is not None:
             for key in ("paraPrIDRef", "styleIDRef", "pageBreak", "columnBreak", "merged"):
                 value = source.get(key)
                 if value is not None:
                     attrs[key] = value
-        attrs["id"] = _paragraph_id()
+        attrs["id"] = _paragraph_id(ids)
         return attrs
 
     def _run_char_pr_for_line(self, paragraphs: Sequence["HwpxOxmlParagraph"], index: int) -> str:
@@ -470,8 +470,14 @@ class HwpxOxmlTableCell:
                 _clear_paragraph_layout_cache(node)
 
     def remove(self) -> None:
-        self._row_element.remove(self.element)
-        self.table.mark_dirty()
+        """Refused: taking one cell out of the grid leaves a hole Hancom cannot lay out.
+
+        Raises :class:`~hwpx.errors.HwpxValueError` (``code="table-cell-remove-unsupported"``).
+        Delete the whole row or column (``table.delete_rows``, ``table.delete_columns``), merge
+        the cell into its neighbour (``table.merge_cells``), or empty it (``cell.text = ""``).
+        """
+
+        raise cell_remove_refused()
 
     # ------------------------------------------------------------------
     # Nested content helpers
@@ -481,30 +487,46 @@ class HwpxOxmlTableCell:
         """Return (or lazily create) the ``<hp:subList>`` container."""
         sublist = self.element.find(f"{_HP}subList")
         if sublist is None:
+            refuse_cell_without_sublist(self.element)  # its paragraphs are the cell's own children
             sublist = _append_child(self.element, f"{_HP}subList", _default_sublist_attributes())
         return sublist
 
     @property
-    def paragraphs(self) -> list["HwpxOxmlParagraph"]:
-        """Return paragraphs inside this cell's ``<hp:subList>``."""
+    def paragraphs(self) -> tuple["HwpxOxmlParagraph", ...]:
+        """The paragraphs inside this cell's ``<hp:subList>``, in order -- or, in a cell some writer gave its
+        paragraphs as its own children (no ``hp:subList``, :attr:`has_sub_list` ``False``), those."""
         sublist = self.element.find(f"{_HP}subList")
-        if sublist is None:
-            return []
-        section = self.table.paragraph.section
-        return [_wrap_paragraph(p, section) for p in sublist.findall(f"{_HP}p")]
+        holder = sublist if sublist is not None else self.element
+        # a table some writer left outside any paragraph has no section: its paragraphs are read only
+        section = cast("HwpxOxmlSection", getattr(self.table.paragraph, "section", None))
+        return tuple(_wrap_paragraph(p, section) for p in holder.findall(f"{_HP}p"))
 
+    @rejects_removed_arguments
     def add_paragraph(
         self,
         text: str = "",
         *,
         para_pr_id_ref: str | int | None = None,
-        style_id_ref: str | int | None = None,
+        style: "int | str | Style | None" = None,
         char_pr_id_ref: str | int | None = None,
     ) -> "HwpxOxmlParagraph":
-        """Append a paragraph to this cell and return it."""
+        """Append a paragraph to this cell and return it.
+
+        ``style`` (a name, a numeric id or a ``Style``) also gives the paragraph that
+        style's paragraph and character shapes unless they are passed. To set the style
+        reference alone (7.0 removed ``style_id_ref=``), set ``paragraph.style_id_ref``.
+        """
+        _require_text(text)  # not text: refused before anything is written
+        style_id_ref: str | int | None = None
+        if style is not None:
+            from .section import style_shape_refs
+
+            style_id_ref, para_pr_id_ref, char_pr_id_ref = style_shape_refs(
+                self.table.paragraph.section.document, style, para_pr_id_ref, char_pr_id_ref
+            )
         sublist = self._ensure_sublist()
 
-        attrs = {"id": _paragraph_id(), **_DEFAULT_PARAGRAPH_ATTRS}
+        attrs = paragraph_attributes(_paragraph_id(self.table.paragraph.section._ids))
         if para_pr_id_ref is not None:
             attrs["paraPrIDRef"] = str(para_pr_id_ref)
         if style_id_ref is not None:
@@ -526,12 +548,12 @@ class HwpxOxmlTableCell:
         return _wrap_paragraph(paragraph, section)
 
     @property
-    def tables(self) -> list["HwpxOxmlTable"]:
-        """Return nested tables inside this cell."""
+    def tables(self) -> tuple["HwpxOxmlTable", ...]:
+        """The tables nested inside this cell, in order."""
         result: list["HwpxOxmlTable"] = []
         for para in self.paragraphs:
             result.extend(para.tables)
-        return result
+        return tuple(result)
 
     def add_table(
         self,
@@ -547,6 +569,8 @@ class HwpxOxmlTableCell:
         The table is created inside a new paragraph within the cell's
         ``<hp:subList>``.
         """
+        _table_sizes.validate_table_size(rows, cols)  # before a border fill is declared or a paragraph added
+        height = _table_sizes.check_new_table_height(height)
         _table_sizes.new_table_width(width, cols)  # checked before a paragraph is added
         # Resolve border fill ID
         if border_fill_id_ref is None:
@@ -558,13 +582,22 @@ class HwpxOxmlTableCell:
 
         # Create a host paragraph for the nested table
         para = self.add_paragraph("")
-        return para.add_table(
-            rows,
-            cols,
-            width=width,
-            height=height,
-            border_fill_id_ref=border_fill_id_ref,
-        )
+        try:
+            return para.add_table(
+                rows,
+                cols,
+                width=width,
+                height=height,
+                border_fill_id_ref=border_fill_id_ref,
+            )
+        except BaseException:
+            # refused after all (a height, a border fill id): the paragraph made for the table goes again
+            from ._paragraph_text_edit import paragraph_container
+
+            holder = paragraph_container(para.element, para.section.element)
+            if holder is not None:
+                holder.remove(para.element)
+            raise
 
 
 @dataclass(frozen=True)
@@ -591,7 +624,7 @@ class HwpxTableGridPosition:
 
 
 
-class HwpxOxmlTableRow:
+class HwpxOxmlTableRow(SameElement, TableRowFormat):
     """Represents a table row."""
 
     def __init__(self, element: ET.Element, table: "HwpxOxmlTable"):
@@ -599,15 +632,24 @@ class HwpxOxmlTableRow:
         self.table = table
 
     @property
-    def cells(self) -> list[HwpxOxmlTableCell]:
-        return [
+    def cells(self) -> tuple[HwpxOxmlTableCell, ...]:
+        """The row's cells (its ``hp:tc``), left to right."""
+        return tuple(
             HwpxOxmlTableCell(cell_element, self.table, self.element)
             for cell_element in self.element.findall(f"{_HP}tc")
-        ]
+        )
 
 
-class HwpxOxmlTable(TableStructureEdits):
+class HwpxOxmlTable(SameElement, TableStructureEdits, TableFormat):
     """Representation of an ``<hp:tbl>`` inline object."""
+
+    #: The section of a table placed right in it (``section.blocks``), which has no paragraph.
+    _section: "HwpxOxmlSection | None" = None
+
+    if TYPE_CHECKING:
+        paragraph: "HwpxOxmlParagraph"
+    else:
+        paragraph = live_paragraph  # the paragraph holding it now, also after a move
 
     def __init__(self, element: ET.Element, paragraph: "HwpxOxmlParagraph"):
         self.element = element
@@ -637,6 +679,9 @@ class HwpxOxmlTable(TableStructureEdits):
         position = self.element.find(f"{_HP}pos")
         return position is not None and position.get("treatAsChar", "1") == "1"
 
+    out_margins = property(_table_sizes.table_out_margins)
+    set_out_margins = _table_sizes.set_table_out_margins
+
     def set_treat_as_char(self, value: bool) -> None:
         """Choose inline layout or flowing table layout across pages."""
         position = self.element.find(f"{_HP}pos")
@@ -647,6 +692,7 @@ class HwpxOxmlTable(TableStructureEdits):
         desired = "1" if value else "0"
         if position.get("treatAsChar") != desired:
             position.set("treatAsChar", desired)
+            _clear_paragraph_layout_cache(self.paragraph.element)  # the table leaves (or joins) its line
             self.mark_dirty()
 
     # --- caption (hp:caption) -----------------------------------------
@@ -655,28 +701,31 @@ class HwpxOxmlTable(TableStructureEdits):
     def caption(self) -> "Caption | None":
         """This table's ``hp:caption``, or ``None`` if it doesn't have one."""
 
-        return _read_caption(self.element, self.paragraph.section)
+        # A table placed right in a section (``section.blocks``) has no paragraph; it knows its section.
+        section = self.paragraph.section if self.paragraph is not None else self._section
+        return _read_caption(self.element, section)  # type: ignore[arg-type]
 
     def set_caption(
         self,
         text: str,
         *,
         side: str = "TOP",
-        full_sz: bool = False,
+        full_size: bool = False,
         width: int | None = None,
         gap: int = 850,
         char_pr_id_ref: str | int | None = None,
     ) -> "Caption":
-        """Create (or replace the text of) this table's ``hp:caption``.
+        """Create (or replace the text of) this table's ``hp:caption`` (*full_size*: ``fullSz``).
 
         실코퍼스 15건 전수 관행(93%가 표 캡션): ``side="TOP"``·``fullSz=False``
         가 사실상 유일한 조합, ``gap`` 은 850(다수) 또는 566. See
         ``hwpx.oxml.objects`` 모듈 상단 주석의 실측 근거.
         """
 
+        _require_text(text)  # not text: refused before anything is written
         return _write_caption(
             self.element, text, section=self.paragraph.section,
-            side=side, full_sz=full_sz, width=width, gap=gap,
+            side=side, full_sz=full_size, width=width, gap=gap,
             char_pr_id_ref=char_pr_id_ref,
         )
 
@@ -776,7 +825,9 @@ class HwpxOxmlTable(TableStructureEdits):
         width: int | None = None,
         height: int | None = None,
         border_fill_id_ref: str | int | None = None,
+        ids: "IdSource | None",
     ) -> ET.Element:
+        """A new ``hp:tbl`` element; *ids* is the id source of the document it is made for."""
         if rows <= 0 or cols <= 0:
             raise ValueError("rows and cols must be positive integers")
 
@@ -787,7 +838,7 @@ class HwpxOxmlTable(TableStructureEdits):
         border_fill = str(border_fill_id_ref)
 
         table_attrs = {
-            "id": _object_id(),
+            "id": _object_id(ids),
             "zOrder": "0",
             "numberingType": "TABLE",
             "textWrap": "TOP_AND_BOTTOM",
@@ -843,7 +894,7 @@ class HwpxOxmlTable(TableStructureEdits):
             for col_index in range(cols):
                 cell = ET.SubElement(row, f"{_HP}tc", _default_cell_attributes(border_fill))
                 sublist = ET.SubElement(cell, f"{_HP}subList", _default_sublist_attributes())
-                paragraph = ET.SubElement(sublist, f"{_HP}p", _default_cell_paragraph_attributes())
+                paragraph = ET.SubElement(sublist, f"{_HP}p", _default_cell_paragraph_attributes(ids))
                 run = ET.SubElement(paragraph, f"{_HP}run", {"charPrIDRef": "0"})
                 ET.SubElement(run, f"{_HP}t")
                 ET.SubElement(
@@ -870,22 +921,23 @@ class HwpxOxmlTable(TableStructureEdits):
     def row_count(self) -> int:
         value = self.element.get("rowCnt")
         if value is not None and value.isdigit():
-            return int(value)
+            return _table_sizes.declared_count(value)
         return len(self.element.findall(f"{_HP}tr"))
 
     @property
     def column_count(self) -> int:
         value = self.element.get("colCnt")
         if value is not None and value.isdigit():
-            return int(value)
+            return _table_sizes.declared_count(value)
         first_row = self.element.find(f"{_HP}tr")
         if first_row is None:
             return 0
         return len(first_row.findall(f"{_HP}tc"))
 
     @property
-    def rows(self) -> list[HwpxOxmlTableRow]:
-        return [HwpxOxmlTableRow(row, self) for row in self.element.findall(f"{_HP}tr")]
+    def rows(self) -> tuple[HwpxOxmlTableRow, ...]:
+        """The table's rows (its ``hp:tr``), top to bottom."""
+        return tuple(HwpxOxmlTableRow(row, self) for row in self.element.findall(f"{_HP}tr"))
 
     def _invalidate_grid(self) -> None:
         """Forget the built grid.  Every edit that moves, adds, removes, merges or resizes cells calls this."""
@@ -907,6 +959,7 @@ class HwpxOxmlTable(TableStructureEdits):
 
     def _build_cell_grid(self) -> dict[tuple[int, int], HwpxTableGridPosition]:
         mapping: dict[tuple[int, int], HwpxTableGridPosition] = {}
+        positions = _table_sizes.GridPositions()  # what the spans in the file may cover in all
 
         def _is_deactivated_cell(
             cell: HwpxOxmlTableCell, span: tuple[int, int]
@@ -927,6 +980,7 @@ class HwpxOxmlTable(TableStructureEdits):
                 start_row, start_col = wrapper.address
                 span_row, span_col = wrapper.span
                 wrapper_span = (span_row, span_col)
+                positions.take(span_row, span_col)
                 wrapper_is_deactivated = _is_deactivated_cell(wrapper, wrapper_span)
                 for logical_row in range(start_row, start_row + span_row):
                     for logical_col in range(start_col, start_col + span_col):
@@ -972,16 +1026,15 @@ class HwpxOxmlTable(TableStructureEdits):
         return mapping
 
     def _grid_entry(self, row_index: int, col_index: int) -> HwpxTableGridPosition:
-        if row_index < 0 or col_index < 0:
-            raise IndexError("row_index and col_index must be non-negative")
+        for argument, value in (("row", row_index), ("col", col_index)):
+            if isinstance(value, bool) or not isinstance(value, int):
+                from ..errors import argument_type_error
 
+                raise argument_type_error(argument, value, "int", suggestion="칸은 table.cell(0, 1) 처럼 행·열 번호로 고르세요.")
         row_count = self.row_count
         col_count = self.column_count
-        if row_index >= row_count or col_index >= col_count:
-            raise IndexError(
-                "cell coordinates (%d, %d) exceed table bounds %dx%d"
-                % (row_index, col_index, row_count, col_count)
-            )
+        if row_index < 0 or col_index < 0 or row_index >= row_count or col_index >= col_count:
+            raise cell_out_of_range(row_index, col_index, row_count, col_count)
 
         entry = None
         cache = getattr(self, "_grid_cache", None)
@@ -994,10 +1047,13 @@ class HwpxOxmlTable(TableStructureEdits):
         if entry is None:
             entry = self._cell_grid().get((row_index, col_index))
         if entry is None:
-            raise IndexError(
+            raise HwpxIndexError(
                 "cell coordinates (%d, %d) are covered by a merged cell"
                 " without an accessible anchor; inspect iter_grid() for details"
-                % (row_index, col_index)
+                % (row_index, col_index),
+                code="table-cell-not-found",
+                context={"row": row_index, "col": col_index},
+                suggestion="table.iter_grid() 로 병합된 칸의 위치를 확인하세요.",
             )
         return entry
 
@@ -1017,11 +1073,14 @@ class HwpxOxmlTable(TableStructureEdits):
                     )
                 yield entry
 
-    def get_cell_map(self) -> list[list[HwpxTableGridPosition]]:
-        """Return a 2D list mapping logical positions to physical cells."""
+    @property
+    def cell_map(self) -> tuple[tuple[HwpxTableGridPosition, ...], ...]:
+        """The table's grid: ``cell_map[row][col]`` is the grid position at that row and column,
+        naming the cell that covers it (a merged cell covers several)."""
 
         row_count = self.row_count
         col_count = self.column_count
+        _table_sizes.check_grid(row_count, col_count)  # rowCnt/colCnt are what the file says
         grid: list[list[HwpxTableGridPosition | None]] = [
             [None for _ in range(col_count)] for _ in range(row_count)
         ]
@@ -1036,20 +1095,21 @@ class HwpxOxmlTable(TableStructureEdits):
                         % (row_index, col_index)
                     )
 
-        return [
-            [
+        return tuple(
+            tuple(
                 cast(HwpxTableGridPosition, grid[row_index][col_index])
                 for col_index in range(col_count)
-            ]
+            )
             for row_index in range(row_count)
-        ]
+        )
 
-    def cell(self, row_index: int, col_index: int) -> HwpxOxmlTableCell:
-        entry = self._grid_entry(row_index, col_index)
+    def cell(self, row: int, col: int) -> HwpxOxmlTableCell:
+        """The cell covering grid position (*row*, *col*), from 0 (a merged cell's anchor)."""
+        entry = self._grid_entry(row, col)
         return entry.cell
 
     def set_cell_border_fill(
-        self, row_index: int, col_index: int, border_fill_id_ref: str | int
+        self, row: int, col: int, border_fill_id_ref: str | int
     ) -> None:
         """Point one cell at a header ``borderFill`` definition.
 
@@ -1058,12 +1118,12 @@ class HwpxOxmlTable(TableStructureEdits):
         this cell changes; :meth:`set_cell_borders` also sets the edges the
         neighbouring cells share with it.
         """
-        cell = self.cell(row_index, col_index)
+        cell = self.cell(row, col)
         cell.element.set("borderFillIDRef", str(border_fill_id_ref))
         self.mark_dirty()
 
     def set_cell_borders(
-        self, row_index: int, col_index: int, *, color: str, line_type: str = "SOLID"
+        self, row: int, col: int, *, color: str, line_type: str = "SOLID"
     ) -> None:
         """Change four existing border colors/types, preserving fill and widths.
 
@@ -1072,25 +1132,24 @@ class HwpxOxmlTable(TableStructureEdits):
         same line on the edge they share with this cell, as in Hancom. Missing
         or ambiguous style definitions refuse.
         """
-        cell = self.cell(row_index, col_index)
+        cell = self.cell(row, col)
         _set_cell_borders_preserving(self, cell, color, line_type)
 
-    def set_cell_shading(self, row_index: int, col_index: int, color: str) -> None:
-        cell = self.cell(row_index, col_index)
-        document = self.paragraph.section.document
-        if document is None:
+    def set_cell_shading(self, row: int, col: int, color: str) -> None:
+        """Fill one cell with *color*; its lines stay (a fill derived from its own, as ``set_shading``)."""
+        cell = self.cell(row, col)
+        if self.paragraph.section.document is None:
             raise ValueError("table is not attached to a document")
-        border_fill_id = document.ensure_shading_border_fill(
-            color,
-            base_border_fill_id=cell.element.get("borderFillIDRef") or self.element.get("borderFillIDRef"),
-        )
-        cell.element.set("borderFillIDRef", border_fill_id)
+        fills = _BorderFills(self)
+        value = _normalize_color(color)
+        cell.element.set("borderFillIDRef", fills.derive(fills.base_id(cell), ("fill", value),
+                                                         lambda candidate: _set_fill(candidate, value)))
         self.mark_dirty()
 
     def set_cell_fill_image(
         self,
-        row_index: int,
-        col_index: int,
+        row: int,
+        col: int,
         image: "str | BinaryItem",
         *,
         mode: str = "TOTAL",
@@ -1104,7 +1163,7 @@ class HwpxOxmlTable(TableStructureEdits):
         (scale-to-fit), the default here.
         """
 
-        cell = self.cell(row_index, col_index)
+        cell = self.cell(row, col)
         document = self.paragraph.section.document
         if document is None:
             raise ValueError("table is not attached to a document")
@@ -1133,8 +1192,8 @@ class HwpxOxmlTable(TableStructureEdits):
 
     def set_cell_fill_gradient(
         self,
-        row_index: int,
-        col_index: int,
+        row: int,
+        col: int,
         colors: Sequence[str],
         *,
         gradient_type: str = "LINEAR",
@@ -1146,7 +1205,7 @@ class HwpxOxmlTable(TableStructureEdits):
         ``gradient_type="LINEAR"``, the default here.
         """
 
-        cell = self.cell(row_index, col_index)
+        cell = self.cell(row, col)
         document = self.paragraph.section.document
         if document is None:
             raise ValueError("table is not attached to a document")
@@ -1210,10 +1269,19 @@ class HwpxOxmlTable(TableStructureEdits):
         """
         _table_sizes.equalize_row_heights(self)
 
+    def set_row_heights(self, heights: Sequence[int]) -> None:
+        """행마다 높이(HWPUNIT)를 주고 표 높이를 그 합으로 맞춘다.
+
+        한/글은 행을 이 높이보다 낮게 그리지 않고, 글이 더 길면 그만큼 늘린다. 여러 행에
+        걸친 칸은 걸친 행 높이의 합을 받는다. 행 수와 개수가 다르거나 양의 정수가 아니면
+        ``table-row-heights-value``로 거부한다.
+        """
+        _table_sizes.set_row_heights(self, heights)
+
     def set_cell_text(
         self,
-        row_index: int,
-        col_index: int,
+        row: int,
+        col: int,
         text: str,
         *,
         logical: bool = False,
@@ -1235,13 +1303,13 @@ class HwpxOxmlTable(TableStructureEdits):
         """
 
         if logical:
-            entry = self._grid_entry(row_index, col_index)
+            entry = self._grid_entry(row, col)
             if split_merged and not entry.is_anchor:
-                cell = self.split_merged_cell(row_index, col_index)
+                cell = self.split_merged_cell(row, col)
             else:
                 cell = entry.cell
         else:
-            cell = self.cell(row_index, col_index)
+            cell = self.cell(row, col)
 
         if fit is not None:
             from hwpx.form_fit.apply import fit_cell_text
@@ -1254,7 +1322,7 @@ class HwpxOxmlTable(TableStructureEdits):
                 document=getattr(section, "document", None),
                 ledger=ledger,
                 part_name=getattr(section, "part_name", None),
-                field_id=f"r{row_index}c{col_index}",
+                field_id=f"r{row}c{col}",
                 preserve_format=preserve_format,
             )
 
@@ -1334,6 +1402,7 @@ class HwpxOxmlTable(TableStructureEdits):
         logical_col: int,
         col_width: int,
         row_height: int,
+        ids: "IdSource | None",
     ) -> Any:
         # Use makeelement() so the new cell matches the XML engine
         # of the existing tree (stdlib ET or lxml).  ET.Element()
@@ -1351,7 +1420,7 @@ class HwpxOxmlTable(TableStructureEdits):
             template_para = template_sublist.find(f"{_HP}p")
 
         sublist = _append_child(new_cell_element, f"{_HP}subList", sublist_attrs)
-        paragraph_attrs = _default_cell_paragraph_attributes()
+        paragraph_attrs = _default_cell_paragraph_attributes(ids)
         run_attrs = {"charPrIDRef": "0"}
         if template_para is not None:
             HwpxOxmlTable._copy_attrs_excluding_id(template_para.attrib, paragraph_attrs)
@@ -1367,12 +1436,12 @@ class HwpxOxmlTable(TableStructureEdits):
         _append_child(
             new_cell_element,
             f"{_HP}cellAddr",
-            {"rowAddr": str(logical_row), "colAddr": str(logical_col)},
+            {"colAddr": str(logical_col), "rowAddr": str(logical_row)},  # Hancom's order
         )
         _append_child(
             new_cell_element,
             f"{_HP}cellSpan",
-            {"rowSpan": "1", "colSpan": "1"},
+            {"colSpan": "1", "rowSpan": "1"},
         )
         _append_child(
             new_cell_element,
@@ -1432,14 +1501,16 @@ class HwpxOxmlTable(TableStructureEdits):
 
         new_cell_element = self._build_split_cell_element(
             row_element, template_attrs, preserved_children, template_sublist, template_margin,
-            logical_row, logical_col, col_width, row_height,
+            logical_row, logical_col, col_width, row_height, self.paragraph.section._ids,
         )
         self._insert_split_cell_at_position(row_element, new_cell_element, logical_col)
 
     def split_merged_cell(
-        self, row_index: int, col_index: int
+        self, row: int, col: int
     ) -> HwpxOxmlTableCell:
-        entry = self._grid_entry(row_index, col_index)
+        """Split the merged cell covering (*row*, *col*) back into single cells; return the one at
+        (*row*, *col*). A cell that is not merged is returned as it is."""
+        entry = self._grid_entry(row, col)
         cell = entry.cell
         start_row, start_col = entry.anchor
         span_row, span_col = entry.span
@@ -1482,7 +1553,7 @@ class HwpxOxmlTable(TableStructureEdits):
 
         self._invalidate_grid()
         self.mark_dirty()
-        return self.cell(row_index, col_index)
+        return self.cell(row, col)
 
     @staticmethod
     def _spreadsheet_column_index(value: str) -> int:
@@ -1498,7 +1569,7 @@ class HwpxOxmlTable(TableStructureEdits):
     def _parse_spreadsheet_range(cls, value: str) -> tuple[int, int, int, int]:
         match = _re.fullmatch(r"\s*([A-Za-z]+)([0-9]+)\s*:\s*([A-Za-z]+)([0-9]+)\s*", value)
         if match is None:
-            raise ValueError(f"invalid spreadsheet range: {value!r}")
+            raise bad_spreadsheet_range(value)
         start_col_label, start_row_label, end_col_label, end_row_label = match.groups()
         start_row = int(start_row_label) - 1
         end_row = int(end_row_label) - 1
@@ -1509,12 +1580,7 @@ class HwpxOxmlTable(TableStructureEdits):
     def _resolve_merge_target(
         self, start_row: int, start_col: int, end_row: int, end_col: int
     ) -> HwpxOxmlTableCell:
-        if start_row > end_row or start_col > end_col:
-            raise ValueError("merge coordinates must describe a valid rectangle")
-        if start_row < 0 or start_col < 0:
-            raise IndexError("merge coordinates must be non-negative")
-        if end_row >= self.row_count or end_col >= self.column_count:
-            raise IndexError("merge coordinates exceed table bounds")
+        check_merge_range(start_row, start_col, end_row, end_col, self.row_count, self.column_count)
 
         target = self.cell(start_row, start_col)
         addr_row, addr_col = target.address

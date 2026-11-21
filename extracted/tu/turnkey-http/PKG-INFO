@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: turnkey-http
-Version: 0.2.2
+Version: 0.2.3
 Summary: HTTP client for Turnkey API
 Author-email: Turnkey <hello@turnkey.com>
 License-Expression: Apache-2.0
@@ -98,6 +98,12 @@ except TurnkeyActivityAuthenticatorsNeededError as err:
 except TurnkeyActivityError as err:
     print(err.activity_status, err.failure)
 ```
+
+## Faster imports (optional)
+
+Set `TURNKEY_SDK_DEFER_BUILD=1` to build each model on first use instead of at import. Requires `turnkey-sdk-types` 0.3.0+ and Pydantic 2.5+. It's read once at first import, so set it in your environment or before any Turnkey import.
+
+When enabled, each model's first use is a little slower, and a process that uses nearly every model can use more memory than the default. On Pydantic 2.5–2.10, call `Model.model_rebuild()` before inspecting `model_fields[...].annotation`.
 
 ## Code Generation
 

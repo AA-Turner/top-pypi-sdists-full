@@ -63,6 +63,23 @@ pub(crate) async fn dereference_with_options_async<F: Json>(
     dereference_from_registry(schema, draft, &registry, &base_uri)
 }
 
+// `$ref` siblings that neither validate nor change how adjacent keywords apply
+const MERGEABLE_SIBLINGS: &[&str] = &[
+    "$schema",
+    "$id",
+    "$anchor",
+    "$comment",
+    "$defs",
+    "definitions",
+    "title",
+    "description",
+    "default",
+    "examples",
+    "deprecated",
+    "readOnly",
+    "writeOnly",
+];
+
 fn walk(
     value: &Value,
     draft: Draft,
@@ -81,10 +98,8 @@ fn walk(
                 let resolved = resolver.lookup(ref_str)?;
                 let (contents, inner_resolver, inner_draft) = resolved.into_inner();
 
-                // Build a cycle-detection key that uniquely identifies the resolved
-                // location. We extract the fragment from ref_str itself so that refs
-                // like "./other.json#/$defs/Foo" and "./other.json#/$defs/Bar" — both
-                // resolving to the same document URI — are treated as distinct nodes.
+                // Key cycles by resolved document URI plus the reference's fragment, so
+                // `./other.json#/$defs/Foo` and `./other.json#/$defs/Bar` stay distinct
                 let visited_key = match ref_str.split_once('#') {
                     Some((_, fragment)) => {
                         format!("{}#{}", inner_resolver.base_uri().as_str(), fragment)
@@ -101,18 +116,50 @@ fn walk(
                 let inlined = walk(contents, inner_draft, &inner_resolver, visited)?;
                 visited.remove(&visited_key);
 
-                // Merge non-$ref siblings into inlined result
-                if let Value::Object(mut merged) = inlined {
-                    for (k, v) in obj {
-                        if k != "$ref" && !merged.contains_key(k.as_str()) {
-                            // walk sibling values so nested $refs within siblings are also resolved
-                            let walked = walk_keyword(v, &subschemas, draft, &resolver, visited)?;
-                            merged.insert(k.clone(), walked);
+                // Since 2019-09 `$ref` applies next to its siblings; earlier drafts ignore them
+                let ignores_siblings = draft < Draft::Draft201909;
+                let keep_siblings = !ignores_siblings && obj.len() > 1;
+                match inlined {
+                    Value::Object(mut merged)
+                        if !keep_siblings
+                            || obj.iter().all(|(k, v)| {
+                                k == "$ref"
+                                    || (MERGEABLE_SIBLINGS.contains(&k.as_str())
+                                        && merged.get(k.as_str()).is_none_or(|t| t == v))
+                            }) =>
+                    {
+                        for (k, v) in obj {
+                            // Earlier drafts keep only siblings that neither validate nor set the base URI
+                            if MERGEABLE_SIBLINGS.contains(&k.as_str())
+                                && !(ignores_siblings && k == "$id")
+                                && !merged.contains_key(k.as_str())
+                            {
+                                // walk sibling values so nested $refs within siblings are also resolved
+                                let walked =
+                                    walk_keyword(v, &subschemas, draft, &resolver, visited)?;
+                                merged.insert(k.clone(), walked);
+                            }
                         }
+                        Ok(Value::Object(merged))
                     }
-                    Ok(Value::Object(merged))
-                } else {
-                    Ok(inlined)
+                    target if !keep_siblings => Ok(target),
+                    // Merging could lose a sibling or change what it accepts, so the target goes under `allOf`
+                    target => {
+                        let mut siblings = Map::with_capacity(obj.len());
+                        for (k, v) in obj {
+                            if k != "$ref" {
+                                let walked =
+                                    walk_keyword(v, &subschemas, draft, &resolver, visited)?;
+                                siblings.insert(k.clone(), walked);
+                            }
+                        }
+                        if let Some(Value::Array(all_of)) = siblings.get_mut("allOf") {
+                            all_of.insert(0, target);
+                        } else {
+                            siblings.insert("allOf".to_string(), Value::Array(vec![target]));
+                        }
+                        Ok(Value::Object(siblings))
+                    }
                 }
             } else {
                 walk_keyword(value, &subschemas, draft, &resolver, visited)

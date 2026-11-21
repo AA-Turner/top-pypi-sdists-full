@@ -241,31 +241,37 @@ class Images:
     get: __get_spec
 
     class __build_spec(typing_extensions.Protocol):
-        def __call__(self, /, *, source: str, registry_auth: archil._models.RegistryAuth | None = None, timeout: float = 1800.0) -> archil._models.Image:
+        def __call__(self, /, *, source: str, registry_auth: archil._models.RegistryAuth | None = None, vcpu_count: int | None = None, mem_size_mib: int | None = None, timeout: float = 1800.0) -> archil._models.Image:
             """Build a sandbox image from an OCI reference and wait until it is ready.
 
             Returns at once when the image is already built from a digest reference
             and joins a build that is already running. A tag is rebuilt on each
             call in case it moved, so call this once and reuse ``image_id``.
             ``registry_auth`` is required for private images on every call; without
-            it ``source`` names the public image. Interrupted builds are requested
-            again up to three times; other failures raise ``ImageBuildError``, and
-            ``TimeoutError`` is raised if the image is not ready within ``timeout``
-            seconds.
+            it ``source`` names the public image. ``vcpu_count`` and
+            ``mem_size_mib`` (default 1 and 2048) are the size the build prepares
+            sandboxes to start at from a snapshot; each size of a source is its own
+            image, and a sandbox created from it at another size boots cold.
+            Interrupted builds are requested again up to three times; other
+            failures raise ``ImageBuildError``, and ``TimeoutError`` is raised if
+            the image is not ready within ``timeout`` seconds.
             """
             ...
 
-        async def aio(self, /, *, source: str, registry_auth: archil._models.RegistryAuth | None = None, timeout: float = 1800.0) -> archil._models.Image:
+        async def aio(self, /, *, source: str, registry_auth: archil._models.RegistryAuth | None = None, vcpu_count: int | None = None, mem_size_mib: int | None = None, timeout: float = 1800.0) -> archil._models.Image:
             """Build a sandbox image from an OCI reference and wait until it is ready.
 
             Returns at once when the image is already built from a digest reference
             and joins a build that is already running. A tag is rebuilt on each
             call in case it moved, so call this once and reuse ``image_id``.
             ``registry_auth`` is required for private images on every call; without
-            it ``source`` names the public image. Interrupted builds are requested
-            again up to three times; other failures raise ``ImageBuildError``, and
-            ``TimeoutError`` is raised if the image is not ready within ``timeout``
-            seconds.
+            it ``source`` names the public image. ``vcpu_count`` and
+            ``mem_size_mib`` (default 1 and 2048) are the size the build prepares
+            sandboxes to start at from a snapshot; each size of a source is its own
+            image, and a sandbox created from it at another size boots cold.
+            Interrupted builds are requested again up to three times; other
+            failures raise ``ImageBuildError``, and ``TimeoutError`` is raised if
+            the image is not ready within ``timeout`` seconds.
             """
             ...
 
@@ -1334,6 +1340,10 @@ class Sandbox:
         ...
 
     @property
+    def labels(self) -> dict[str, str]:
+        ...
+
+    @property
     def status(self) -> typing.Literal['pending', 'running', 'pausing', 'paused', 'stopping', 'stopped', 'exited', 'failed', 'deleting', 'deleted']:
         ...
 
@@ -1351,6 +1361,10 @@ class Sandbox:
 
     @property
     def idle_ttl_seconds(self) -> int:
+        ...
+
+    @property
+    def on_timeout(self) -> typing.Literal['pause', 'delete']:
         ...
 
     @property
@@ -1535,25 +1549,27 @@ class Sandbox:
     resume: __resume_spec
 
     class __fork_spec(typing_extensions.Protocol):
-        def __call__(self, /, *, name: str | None = None, wait: bool = True) -> Sandbox:
+        def __call__(self, /, *, name: str | None = None, labels: dict[str, str] | None = None, wait: bool = True) -> Sandbox:
             """Fork this sandbox's current state. A running sandbox is paused for the
             snapshot and resumed once the fork is accepted; a paused or stopped
             sandbox is left as it is. The fork names the checkpoint the pause
             returned, so it does not depend on the source still being paused when
             the request lands. Resuming the source is best effort: the child is
             returned even if the source could not be resumed, and this sandbox is
-            updated in place with the source's state after the fork.
+            updated in place with the source's state after the fork. The fork keeps
+            this sandbox's labels unless ``labels`` replaces them; ``{}`` clears them.
             """
             ...
 
-        async def aio(self, /, *, name: str | None = None, wait: bool = True) -> Sandbox:
+        async def aio(self, /, *, name: str | None = None, labels: dict[str, str] | None = None, wait: bool = True) -> Sandbox:
             """Fork this sandbox's current state. A running sandbox is paused for the
             snapshot and resumed once the fork is accepted; a paused or stopped
             sandbox is left as it is. The fork names the checkpoint the pause
             returned, so it does not depend on the source still being paused when
             the request lands. Resuming the source is best effort: the child is
             returned even if the source could not be resumed, and this sandbox is
-            updated in place with the source's state after the fork.
+            updated in place with the source's state after the fork. The fork keeps
+            this sandbox's labels unless ``labels`` replaces them; ``{}`` clears them.
             """
             ...
 
@@ -1715,10 +1731,20 @@ class Sandboxes:
         ...
 
     class __list_spec(typing_extensions.Protocol):
-        def __call__(self, /, *, disk: object | str | None = None) -> list[Sandbox]:
+        def __call__(self, /, *, disk: object | str | None = None, labels: dict[str, str] | None = None, name: str | None = None, name_prefix: str | None = None) -> list[Sandbox]:
+            """List the account's sandboxes that match every filter given: mounting
+            ``disk``, carrying each of ``labels``, named ``name``, or with a name
+            starting with ``name_prefix``. Follows the server's pages until none
+            remain.
+            """
             ...
 
-        async def aio(self, /, *, disk: object | str | None = None) -> list[Sandbox]:
+        async def aio(self, /, *, disk: object | str | None = None, labels: dict[str, str] | None = None, name: str | None = None, name_prefix: str | None = None) -> list[Sandbox]:
+            """List the account's sandboxes that match every filter given: mounting
+            ``disk``, carrying each of ``labels``, named ``name``, or with a name
+            starting with ``name_prefix``. Follows the server's pages until none
+            remain.
+            """
             ...
 
     list: __list_spec
@@ -1733,10 +1759,10 @@ class Sandboxes:
     get: __get_spec
 
     class __create_spec(typing_extensions.Protocol):
-        def __call__(self, /, *, name: str | None = None, vcpu_count: int | None = None, mem_size_mib: int | None = None, base_image: str | None = None, image_id: str | None = None, env: dict[str, str] | None = None, max_ttl_seconds: int | None = None, idle_ttl_seconds: int | None = None, max_concurrent_execs: int | None = None, network: archil._models.SandboxNetwork | None = None, ports: list[int] | None = None, mounts: list[archil._models.SandboxMountSpec] | None = None, wait: bool = True) -> Sandbox:
+        def __call__(self, /, *, name: str | None = None, vcpu_count: int | None = None, mem_size_mib: int | None = None, base_image: str | None = None, image_id: str | None = None, env: dict[str, str] | None = None, max_ttl_seconds: int | None = None, idle_ttl_seconds: int | None = None, on_timeout: typing.Literal['pause', 'delete'] | None = None, max_concurrent_execs: int | None = None, network: archil._models.SandboxNetwork | None = None, ports: list[int] | None = None, mounts: list[archil._models.SandboxMountSpec] | None = None, labels: dict[str, str] | None = None, wait: bool = True) -> Sandbox:
             ...
 
-        async def aio(self, /, *, name: str | None = None, vcpu_count: int | None = None, mem_size_mib: int | None = None, base_image: str | None = None, image_id: str | None = None, env: dict[str, str] | None = None, max_ttl_seconds: int | None = None, idle_ttl_seconds: int | None = None, max_concurrent_execs: int | None = None, network: archil._models.SandboxNetwork | None = None, ports: list[int] | None = None, mounts: list[archil._models.SandboxMountSpec] | None = None, wait: bool = True) -> Sandbox:
+        async def aio(self, /, *, name: str | None = None, vcpu_count: int | None = None, mem_size_mib: int | None = None, base_image: str | None = None, image_id: str | None = None, env: dict[str, str] | None = None, max_ttl_seconds: int | None = None, idle_ttl_seconds: int | None = None, on_timeout: typing.Literal['pause', 'delete'] | None = None, max_concurrent_execs: int | None = None, network: archil._models.SandboxNetwork | None = None, ports: list[int] | None = None, mounts: list[archil._models.SandboxMountSpec] | None = None, labels: dict[str, str] | None = None, wait: bool = True) -> Sandbox:
             ...
 
     create: __create_spec

@@ -404,6 +404,7 @@ class TriggerFunction(
         execute_after: typing.Optional[typing.Sequence["_constructs_77d1e7e8.Construct"]] = None,
         execute_before: typing.Optional[typing.Sequence["_constructs_77d1e7e8.Construct"]] = None,
         execute_on_handler_change: typing.Optional[builtins.bool] = None,
+        accelerator_config: typing.Optional[typing.Union["_aws_lambda_b8f2f472.AcceleratorConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         adot_instrumentation: typing.Optional[typing.Union["_aws_lambda_b8f2f472.AdotInstrumentationConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         allow_all_ipv6_outbound: typing.Optional[builtins.bool] = None,
         allow_all_outbound: typing.Optional[builtins.bool] = None,
@@ -466,6 +467,7 @@ class TriggerFunction(
         :param execute_after: Adds trigger dependencies. Execute this trigger only after these construct scopes have been provisioned. You can also use ``trigger.executeAfter()`` to add additional dependencies. Default: []
         :param execute_before: Adds this trigger as a dependency on other constructs. This means that this trigger will get executed *before* the given construct(s). You can also use ``trigger.executeBefore()`` to add additional dependents. Default: []
         :param execute_on_handler_change: Re-executes the trigger every time the handler changes. This implies that the trigger is associated with the ``currentVersion`` of the handler, which gets recreated every time the handler or its configuration is updated. Default: true
+        :param accelerator_config: Accelerator configuration for the function. Configures the accelerator resource settings for the execution environment, including the amount of accelerator memory to allocate. The function must be attached to a capacity provider (``capacityProvider.addFunction(fn)``), use a container image (``Runtime.FROM_IMAGE``) on x86_64, and set ``memorySize`` to at least 2048 MiB. When set, ``ephemeralStorageSize`` may be up to 32 GiB. Default: - No accelerator configuration
         :param adot_instrumentation: Specify the configuration of AWS Distro for OpenTelemetry (ADOT) instrumentation. Default: - No ADOT instrumentation
         :param allow_all_ipv6_outbound: Whether to allow the Lambda to send all ipv6 network traffic. If set to true, there will only be a single egress rule which allows all outbound ipv6 traffic. If set to false, you must individually add traffic rules to allow the Lambda to connect to network targets using ipv6. Do not specify this property if the ``securityGroups`` or ``securityGroup`` property is set. Instead, configure ``allowAllIpv6Outbound`` directly on the security group. Default: false
         :param allow_all_outbound: Whether to allow the Lambda to send all network traffic (except ipv6). If set to false, you must individually add traffic rules to allow the Lambda to connect to network targets. Do not specify this property if the ``securityGroups`` or ``securityGroup`` property is set. Instead, configure ``allowAllOutbound`` directly on the security group. Default: true
@@ -530,6 +532,7 @@ class TriggerFunction(
             execute_after=execute_after,
             execute_before=execute_before,
             execute_on_handler_change=execute_on_handler_change,
+            accelerator_config=accelerator_config,
             adot_instrumentation=adot_instrumentation,
             allow_all_ipv6_outbound=allow_all_ipv6_outbound,
             allow_all_outbound=allow_all_outbound,
@@ -907,6 +910,7 @@ class TriggerProps(TriggerOptions):
         "on_failure": "onFailure",
         "on_success": "onSuccess",
         "retry_attempts": "retryAttempts",
+        "accelerator_config": "acceleratorConfig",
         "adot_instrumentation": "adotInstrumentation",
         "allow_all_ipv6_outbound": "allowAllIpv6Outbound",
         "allow_all_outbound": "allowAllOutbound",
@@ -971,6 +975,7 @@ class TriggerFunctionProps(_aws_lambda_b8f2f472.FunctionProps, TriggerOptions):
         on_failure: typing.Optional["_aws_lambda_b8f2f472.IDestination"] = None,
         on_success: typing.Optional["_aws_lambda_b8f2f472.IDestination"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
+        accelerator_config: typing.Optional[typing.Union["_aws_lambda_b8f2f472.AcceleratorConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         adot_instrumentation: typing.Optional[typing.Union["_aws_lambda_b8f2f472.AdotInstrumentationConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         allow_all_ipv6_outbound: typing.Optional[builtins.bool] = None,
         allow_all_outbound: typing.Optional[builtins.bool] = None,
@@ -1032,6 +1037,7 @@ class TriggerFunctionProps(_aws_lambda_b8f2f472.FunctionProps, TriggerOptions):
         :param on_failure: The destination for failed invocations. Default: - no destination
         :param on_success: The destination for successful invocations. Default: - no destination
         :param retry_attempts: The maximum number of times to retry when the function returns an error. Minimum: 0 Maximum: 2 Default: 2
+        :param accelerator_config: Accelerator configuration for the function. Configures the accelerator resource settings for the execution environment, including the amount of accelerator memory to allocate. The function must be attached to a capacity provider (``capacityProvider.addFunction(fn)``), use a container image (``Runtime.FROM_IMAGE``) on x86_64, and set ``memorySize`` to at least 2048 MiB. When set, ``ephemeralStorageSize`` may be up to 32 GiB. Default: - No accelerator configuration
         :param adot_instrumentation: Specify the configuration of AWS Distro for OpenTelemetry (ADOT) instrumentation. Default: - No ADOT instrumentation
         :param allow_all_ipv6_outbound: Whether to allow the Lambda to send all ipv6 network traffic. If set to true, there will only be a single egress rule which allows all outbound ipv6 traffic. If set to false, you must individually add traffic rules to allow the Lambda to connect to network targets using ipv6. Do not specify this property if the ``securityGroups`` or ``securityGroup`` property is set. Instead, configure ``allowAllIpv6Outbound`` directly on the security group. Default: false
         :param allow_all_outbound: Whether to allow the Lambda to send all network traffic (except ipv6). If set to false, you must individually add traffic rules to allow the Lambda to connect to network targets. Do not specify this property if the ``securityGroups`` or ``securityGroup`` property is set. Instead, configure ``allowAllOutbound`` directly on the security group. Default: true
@@ -1100,6 +1106,8 @@ class TriggerFunctionProps(_aws_lambda_b8f2f472.FunctionProps, TriggerOptions):
                 code=lambda_.Code.from_asset(__dirname + "/my-trigger")
             )
         '''
+        if isinstance(accelerator_config, dict):
+            accelerator_config = _aws_lambda_b8f2f472.AcceleratorConfig(**accelerator_config)
         if isinstance(adot_instrumentation, dict):
             adot_instrumentation = _aws_lambda_b8f2f472.AdotInstrumentationConfig(**adot_instrumentation)
         if isinstance(current_version_options, dict):
@@ -1116,6 +1124,7 @@ class TriggerFunctionProps(_aws_lambda_b8f2f472.FunctionProps, TriggerOptions):
             check_type(argname="argument on_failure", value=on_failure, expected_type=type_hints["on_failure"])
             check_type(argname="argument on_success", value=on_success, expected_type=type_hints["on_success"])
             check_type(argname="argument retry_attempts", value=retry_attempts, expected_type=type_hints["retry_attempts"])
+            check_type(argname="argument accelerator_config", value=accelerator_config, expected_type=type_hints["accelerator_config"])
             check_type(argname="argument adot_instrumentation", value=adot_instrumentation, expected_type=type_hints["adot_instrumentation"])
             check_type(argname="argument allow_all_ipv6_outbound", value=allow_all_ipv6_outbound, expected_type=type_hints["allow_all_ipv6_outbound"])
             check_type(argname="argument allow_all_outbound", value=allow_all_outbound, expected_type=type_hints["allow_all_outbound"])
@@ -1183,6 +1192,8 @@ class TriggerFunctionProps(_aws_lambda_b8f2f472.FunctionProps, TriggerOptions):
             self._values["on_success"] = on_success
         if retry_attempts is not None:
             self._values["retry_attempts"] = retry_attempts
+        if accelerator_config is not None:
+            self._values["accelerator_config"] = accelerator_config
         if adot_instrumentation is not None:
             self._values["adot_instrumentation"] = adot_instrumentation
         if allow_all_ipv6_outbound is not None:
@@ -1327,6 +1338,25 @@ class TriggerFunctionProps(_aws_lambda_b8f2f472.FunctionProps, TriggerOptions):
         '''
         result = self._values.get("retry_attempts")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def accelerator_config(
+        self,
+    ) -> typing.Optional["_aws_lambda_b8f2f472.AcceleratorConfig"]:
+        '''Accelerator configuration for the function.
+
+        Configures the accelerator resource settings for the execution environment, including
+        the amount of accelerator memory to allocate. The function must be attached to a
+        capacity provider (``capacityProvider.addFunction(fn)``), use a container image
+        (``Runtime.FROM_IMAGE``) on x86_64, and set ``memorySize`` to at least 2048 MiB.
+        When set, ``ephemeralStorageSize`` may be up to 32 GiB.
+
+        :default: - No accelerator configuration
+
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-lambda-function-acceleratorconfig.html
+        '''
+        result = self._values.get("accelerator_config")
+        return typing.cast(typing.Optional["_aws_lambda_b8f2f472.AcceleratorConfig"], result)
 
     @builtins.property
     def adot_instrumentation(
@@ -2104,6 +2134,7 @@ def _typecheckingstub__6f34c5ba084706d20d6ef37a7f59673b20ed3425ffc7035fc8ea888e9
     execute_after: typing.Optional[typing.Sequence[_constructs_77d1e7e8.Construct]] = None,
     execute_before: typing.Optional[typing.Sequence[_constructs_77d1e7e8.Construct]] = None,
     execute_on_handler_change: typing.Optional[builtins.bool] = None,
+    accelerator_config: typing.Optional[typing.Union[_aws_lambda_b8f2f472.AcceleratorConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     adot_instrumentation: typing.Optional[typing.Union[_aws_lambda_b8f2f472.AdotInstrumentationConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     allow_all_ipv6_outbound: typing.Optional[builtins.bool] = None,
     allow_all_outbound: typing.Optional[builtins.bool] = None,
@@ -2199,6 +2230,7 @@ def _typecheckingstub__b2f4b009b0160d566d798bfa6d813ccc8440e1a9e0f75c99449184a2f
     on_failure: typing.Optional[_aws_lambda_b8f2f472.IDestination] = None,
     on_success: typing.Optional[_aws_lambda_b8f2f472.IDestination] = None,
     retry_attempts: typing.Optional[jsii.Number] = None,
+    accelerator_config: typing.Optional[typing.Union[_aws_lambda_b8f2f472.AcceleratorConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     adot_instrumentation: typing.Optional[typing.Union[_aws_lambda_b8f2f472.AdotInstrumentationConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     allow_all_ipv6_outbound: typing.Optional[builtins.bool] = None,
     allow_all_outbound: typing.Optional[builtins.bool] = None,

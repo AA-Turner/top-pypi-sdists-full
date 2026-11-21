@@ -1510,6 +1510,142 @@ static int set_has_same_node(const xp_result *args, xp_result *out) {
 
 static int concat_item_view(th_tree *tree, xp_item item, const Py_UCS4 **part, Py_ssize_t *len, Py_UCS4 **owned);
 
+/* The distinct string-values of set:distinct, each kept once in one arena at its narrowest width (1, 2 or 4 bytes a
+   code point), found through an open-addressing table. The table is keyed on th_name_hash (core/hash.h) from its first
+   fill, since the document picks the values and a fixed hash would let it choose ones that share a home. A value's
+   width follows from the bits of its code points, so equal values always share a width and their bytes compare equal.
+ */
+typedef struct {
+    size_t offset;
+    Py_ssize_t len;
+    uint32_t hash;
+    unsigned char width;
+} distinct_slot;
+
+typedef struct {
+    distinct_slot *slots;
+    size_t capacity;
+    size_t count;
+    unsigned char *arena;
+    size_t arena_len;
+    size_t arena_cap;
+} distinct_set;
+
+/* The bytes per code point of text: 1 when every code point fits in a byte, 2 when each fits in 16 bits, else 4.
+   The OR of the code points reaches 0x100 (or 0x10000) exactly when some code point does. */
+static unsigned char distinct_width(const Py_UCS4 *text, Py_ssize_t len) {
+    Py_UCS4 bits = 0;
+    for (Py_ssize_t index = 0; index < len; index++) {
+        bits |= text[index];
+    }
+    return bits < 0x100 ? 1 : bits < 0x10000 ? 2 : 4;
+}
+
+static void distinct_narrow(unsigned char *dest, const Py_UCS4 *text, Py_ssize_t len, unsigned char width) {
+    switch (width) {
+    case 1:
+        for (Py_ssize_t index = 0; index < len; index++) {
+            dest[index] = (unsigned char)text[index];
+        }
+        break;
+    case 2:
+        for (Py_ssize_t index = 0; index < len; index++) {
+            const uint16_t narrow = (uint16_t)text[index];
+            memcpy(dest + 2 * index, &narrow, sizeof(narrow));
+        }
+        break;
+    default:
+        memcpy(dest, text, (size_t)len * sizeof(Py_UCS4));
+        break;
+    }
+}
+
+/* Whether the slot holds the value just written at candidate. The hash settles most probes, and the bytes are compared
+   only once it agrees: a 32-bit collision between distinct values cannot be forced from a test. */
+static int distinct_matches(const distinct_set *set, const distinct_slot *slot, const unsigned char *candidate,
+                            uint32_t hash, unsigned char width, Py_ssize_t len) {
+    if (slot->hash != hash) {
+        return 0;
+    }
+    /* GCOVR_EXCL_BR_START: a 32-bit collision between distinct values cannot be forced from a test */
+    const int same = slot->width == width && slot->len == len &&
+                     (len == 0 || memcmp(set->arena + slot->offset, candidate, (size_t)len * width) == 0);
+    /* GCOVR_EXCL_BR_STOP */
+    return same;
+}
+
+/* Double the table and seat every value again under its stored hash. */
+static int distinct_grow(distinct_set *set) {
+    size_t cap;
+    size_t bytes;
+    const int grew = th_grow_cap((set->count + 1) * 2, set->capacity, 16, sizeof(distinct_slot), &cap, &bytes);
+    if (!grew) {   /* GCOVR_EXCL_BR_LINE: the count cannot overflow */
+        return -1; /* GCOVR_EXCL_LINE */
+    }
+    distinct_slot *slots = PyMem_Calloc(1, bytes);
+    if (slots == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced */
+        return -1;       /* GCOVR_EXCL_LINE: allocation failure */
+    }
+    const size_t mask = cap - 1;
+    for (size_t index = 0; index < set->capacity; index++) {
+        const distinct_slot *entry = &set->slots[index];
+        if (entry->width == 0) {
+            continue;
+        }
+        size_t slot = entry->hash & mask;
+        while (slots[slot].width != 0) {
+            slot = (slot + 1) & mask;
+        }
+        slots[slot] = *entry;
+    }
+    PyMem_Free(set->slots);
+    set->slots = slots;
+    set->capacity = cap;
+    return 0;
+}
+
+/* 1 when text joins the set, 0 when an equal value is already in it, -1 on allocation failure. The value is written to
+   the end of the arena first, hashed there, and left out of the set when an equal value is found. */
+static int distinct_add(distinct_set *set, const Py_UCS4 *text, Py_ssize_t len) {
+    if ((set->count + 1) * 2 > set->capacity && distinct_grow(set) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+        return -1;                                                        /* GCOVR_EXCL_LINE: allocation failure */
+    }
+    const unsigned char width = distinct_width(text, len);
+    const size_t bytes = (size_t)len * width;
+    if (set->arena_len + bytes > set->arena_cap) {
+        size_t cap;
+        size_t arena_bytes;
+        const int grew = th_grow_cap(set->arena_len + bytes, set->arena_cap, 1024, 1, &cap, &arena_bytes);
+        if (!grew) {   /* GCOVR_EXCL_BR_LINE: the arena cannot overflow */
+            return -1; /* GCOVR_EXCL_LINE */
+        }
+        unsigned char *arena = PyMem_Realloc(set->arena, arena_bytes);
+        if (arena == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced */
+            return -1;       /* GCOVR_EXCL_LINE: allocation failure */
+        }
+        set->arena = arena;
+        set->arena_cap = cap;
+    }
+    const size_t at = set->arena_len;
+    if (len > 0) {
+        distinct_narrow(set->arena + at, text, len, width);
+    }
+    const unsigned char *key = len > 0 ? set->arena + at : NULL;
+    const uint32_t hash = th_name_hash(key, (Py_ssize_t)bytes);
+    const size_t mask = set->capacity - 1;
+    size_t slot = hash & mask;
+    while (set->slots[slot].width != 0 && !distinct_matches(set, &set->slots[slot], key, hash, width, len)) {
+        slot = (slot + 1) & mask;
+    }
+    if (set->slots[slot].width != 0) {
+        return 0;
+    }
+    set->slots[slot] = (distinct_slot){at, len, hash, width};
+    set->arena_len += bytes;
+    set->count++;
+    return 1;
+}
+
 /* set:distinct: the first member, in document order, of every distinct string-value. */
 static int set_distinct(xp_ctx *ctx, const xp_result *arg, xp_result *out) {
     memset(out, 0, sizeof(*out));
@@ -1521,10 +1657,7 @@ static int set_distinct(xp_ctx *ctx, const xp_result *arg, xp_result *out) {
     if (nodes->len == 1) {
         return ns_push(&out->nodes, nodes->items[0].node, nodes->items[0].attr);
     }
-    PyObject *seen = PySet_New(NULL);
-    if (seen == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure */
-        return -1;      /* GCOVR_EXCL_LINE: allocation failure */
-    }
+    distinct_set seen = {0};
     struct th_tree *tree = ctx->tree;
     int rc = 0;
     xp_gather walk;
@@ -1539,19 +1672,13 @@ static int set_distinct(xp_ctx *ctx, const xp_result *arg, xp_result *out) {
             break;   /* GCOVR_EXCL_LINE: allocation failure */
         }
         /* GCOVR_EXCL_BR_STOP */
-        PyObject *text = PyUnicode_FromKindAndData(PyUnicode_4BYTE_KIND, candidate, candidate_len);
+        const int added = distinct_add(&seen, candidate, candidate_len);
         PyMem_Free(owned);
-        if (text == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure */
-            rc = -1;        /* GCOVR_EXCL_LINE: allocation failure */
-            break;          /* GCOVR_EXCL_LINE: allocation failure */
+        if (added < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+            rc = -1;     /* GCOVR_EXCL_LINE: allocation failure */
+            break;       /* GCOVR_EXCL_LINE: allocation failure */
         }
-        const Py_ssize_t previous = PySet_GET_SIZE(seen);
-        rc = PySet_Add(seen, text);
-        Py_DECREF(text);
-        if (rc < 0) { /* GCOVR_EXCL_BR_LINE: alloc */
-            break;    /* GCOVR_EXCL_LINE */
-        }
-        if (PySet_GET_SIZE(seen) != previous) {
+        if (added) {
             xp_item member = nodes->items[index];
             if (ns_push(&out->nodes, member.node, member.attr) < 0) { /* GCOVR_EXCL_BR_LINE: alloc */
                 rc = -1;                                              /* GCOVR_EXCL_LINE */
@@ -1566,7 +1693,8 @@ static int set_distinct(xp_ctx *ctx, const xp_result *arg, xp_result *out) {
             }
         }
     }
-    Py_DECREF(seen);
+    PyMem_Free(seen.slots);
+    PyMem_Free(seen.arena);
     if (rc < 0) {
         xp_nodeset_free(&out->nodes);
     }
@@ -1616,6 +1744,24 @@ static int set_split(const xp_result *args, int want_before, xp_result *out) {
 
 /* The EXSLT string functions (str:). */
 
+/* The text node ending the single-child chain below node, or NULL when that chain ends in another node. Out of line:
+   only nested chains reach it, and inlining it would change the code of the flat case. */
+static TH_NOINLINE th_node *concat_chain_text(th_node *node) {
+    while (node->type == TH_NODE_ELEMENT && node->first_child != NULL && node->first_child->next_sibling == NULL) {
+        node = node->first_child;
+    }
+    return node->type == TH_NODE_TEXT ? node : NULL;
+}
+
+static inline int concat_text_view(th_tree *tree, th_node *node, const Py_UCS4 **part, Py_ssize_t *len) {
+    *len = node->text_len;
+    *part = *len == 0 ? NULL : th_node_realize_text(tree, node);
+    if (*len != 0 && *part == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced */
+        return -1;                    /* GCOVR_EXCL_LINE: allocation failure */
+    }
+    return 0;
+}
+
 static int concat_item_view(th_tree *tree, xp_item item, const Py_UCS4 **part, Py_ssize_t *len, Py_UCS4 **owned) {
     *owned = NULL;
     if (item.attr == -2) {
@@ -1632,12 +1778,11 @@ static int concat_item_view(th_tree *tree, xp_item item, const Py_UCS4 **part, P
             node = node->first_child;
         }
         if (node->type == TH_NODE_TEXT || node->type == TH_NODE_COMMENT) {
-            *len = node->text_len;
-            *part = *len == 0 ? NULL : th_node_realize_text(tree, node);
-            if (*len != 0 && *part == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced */
-                return -1;                    /* GCOVR_EXCL_LINE: allocation failure */
-            }
-            return 0;
+            return concat_text_view(tree, node, part, len);
+        }
+        th_node *leaf = concat_chain_text(node);
+        if (leaf != NULL) {
+            return concat_text_view(tree, leaf, part, len);
         }
         *owned = th_node_text(tree, node, len);
     }
@@ -1706,6 +1851,89 @@ static int str_concat(xp_ctx *ctx, const xp_result *arg, xp_result *out) {
         }
     }
     result_string(out, buf, total);
+    return 0;
+}
+
+/* A member's string-value where it already sits, in the width it is stored at: a text or comment, the text a
+   single-child chain of elements ends in, or an attribute value. 0 when it has to be built. */
+static inline int concat_item_chars(th_tree *tree, xp_item item, const void **chars, int *kind, Py_ssize_t *len) {
+    *chars = NULL;
+    *kind = PyUnicode_4BYTE_KIND;
+    *len = 0;
+    if (item.attr == -2) {
+        return 0;
+    }
+    if (xp_is_attribute(item.attr)) {
+        const th_node_attr *attr = xp_item_attribute(tree, item);
+        *chars = attr->value;
+        *len = attr->value == NULL ? 0 : attr->value_len;
+        return 1;
+    }
+    th_node *leaf = item.node;
+    if (leaf->type == TH_NODE_ELEMENT) {
+        th_node *child = leaf->first_child;
+        leaf = child != NULL && child->next_sibling == NULL && child->type == TH_NODE_TEXT ? child
+                                                                                           : concat_chain_text(leaf);
+        if (leaf == NULL) {
+            return 0;
+        }
+    } else if (leaf->type != TH_NODE_TEXT && leaf->type != TH_NODE_COMMENT) {
+        return 0;
+    }
+    *len = leaf->text_len;
+    *chars = *len == 0 ? NULL : th_node_chars(tree, leaf, kind);
+    return 1;
+}
+
+/* str:concat at the root of an evaluation for Python, when every member's string-value sits in place: the str is
+   sized, its width found, and the characters copied in, each pass reading the members where they sit, so the text
+   is neither widened to a UCS-4 buffer nor scanned and narrowed back, and source spans stay unrealized. Spans of an
+   ASCII input skip the width scan. 1 without touching out when a member's string-value has to be built, which
+   str_concat then does. */
+static int concat_object(xp_ctx *ctx, const xp_nodeset *nodes, xp_result *out) {
+    struct th_tree *tree = ctx->tree;
+    const void *chars;
+    int kind;
+    Py_ssize_t len;
+    Py_ssize_t total = 0;
+    int wide = 0;
+    xp_gather seen;
+    for (Py_ssize_t index = 0; index < nodes->len; index++) {
+        if (!concat_item_chars(tree, nodes->items[index], &chars, &kind, &len)) {
+            return 1;
+        }
+        wide |= kind != PyUnicode_1BYTE_KIND && len > 0;
+        /* members repeat at most the allowance, so the total stays within the text the tree holds */
+        if (len > XP_GATHER_ALLOWANCE - total &&
+            charge_repeated(&seen, ctx, nodes, NULL, index, len, total <= XP_GATHER_ALLOWANCE) < 0) {
+            return -1;
+        }
+        total += len;
+    }
+    Py_UCS4 bits = 0;
+    /* only spans are stored a byte a character, all in the tree's input */
+    int scan = wide || !th_tree_input_ascii(tree, total);
+    for (Py_ssize_t index = 0; scan && index < nodes->len && bits <= 0xFFFF; index++) {
+        concat_item_chars(tree, nodes->items[index], &chars, &kind, &len);
+        bits |= th_chars_width_bits(chars, kind, len);
+    }
+    Py_UCS4 maxchar = bits <= 0x7F ? 0x7F : bits <= 0xFF ? 0xFF : bits <= 0xFFFF ? 0xFFFF : 0x10FFFF;
+    PyObject *object = PyUnicode_New(total, th_str_maxchar(maxchar));
+    if (object == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced */
+        return -1;        /* GCOVR_EXCL_LINE */
+    }
+    int object_kind = PyUnicode_KIND(object);
+    char *destination = PyUnicode_DATA(object);
+    for (Py_ssize_t index = 0; index < nodes->len; index++) {
+        concat_item_chars(tree, nodes->items[index], &chars, &kind, &len);
+        if (len > 0) {
+            th_chars_copy(destination, object_kind, chars, kind, len);
+            destination += len * object_kind;
+        }
+    }
+    memset(out, 0, sizeof(*out));
+    out->kind = XP_PYSTRING;
+    out->object = object;
     return 0;
 }
 
@@ -2359,7 +2587,10 @@ int eval_function(const xp_program *prog, int32_t idx, xp_ctx *ctx, xp_result *o
             *ctx->feature = "str:concat on a non-node-set";
             rc = -4;
         } else {
-            rc = str_concat(ctx, &args[0], out);
+            rc = ctx->root->want_object && idx == prog->root ? concat_object(ctx, &args[0].nodes, out) : 1;
+            if (rc > 0) {
+                rc = str_concat(ctx, &args[0], out);
+            }
         }
     } else if (func_is(fn, "str:replace")) {
         rc = str_replace(ctx, args, out);

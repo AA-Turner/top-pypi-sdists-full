@@ -26,8 +26,12 @@ __all__ = (
     "AccountingModeType",
     "ClusterStatusType",
     "ComputeNodeGroupStatusType",
+    "DeepHealthCheckOnStartProfileType",
+    "DeepHealthCheckOnStartRepairActionType",
     "EndpointTypeType",
     "ExecutionPolicyType",
+    "HealthMonitoringModeType",
+    "HealthMonitoringRepairActionType",
     "JobSubmitPluginTypeType",
     "LaunchTemplateModeType",
     "ListClustersPaginatorName",
@@ -75,8 +79,12 @@ ComputeNodeGroupStatusType = Literal[
     "UPDATE_FAILED",
     "UPDATING",
 ]
+DeepHealthCheckOnStartProfileType = Literal["LONG", "MEDIUM", "NONE", "QUICK"]
+DeepHealthCheckOnStartRepairActionType = Literal["AUTO", "ISOLATE", "NONE", "REPLACE"]
 EndpointTypeType = Literal["SLURMCTLD", "SLURMDBD", "SLURMRESTD"]
 ExecutionPolicyType = Literal["EVERY_BOOT", "FIRST_BOOT_ONLY"]
+HealthMonitoringModeType = Literal["NONE", "STANDARD"]
+HealthMonitoringRepairActionType = Literal["AUTO", "ISOLATE", "NONE", "REPLACE"]
 JobSubmitPluginTypeType = Literal["STARLARK"]
 LaunchTemplateModeType = Literal["CUSTOM", "MANAGED"]
 ListClustersPaginatorName = Literal["list_clusters"]
@@ -115,6 +123,7 @@ ServiceName = Literal[
     "account-access-runtime",
     "acm",
     "acm-pca",
+    "agent-discovery",
     "agent-registry",
     "agent-registry-control",
     "aiops",
@@ -125,6 +134,7 @@ ServiceName = Literal[
     "apigateway",
     "apigatewaymanagementapi",
     "apigatewayv2",
+    "apiportal",
     "appconfig",
     "appconfigdata",
     "appfabric",
@@ -415,6 +425,7 @@ ServiceName = Literal[
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
+    "payments",
     "pca-connector-ad",
     "pca-connector-scep",
     "pcs",
@@ -470,6 +481,7 @@ ServiceName = Literal[
     "sagemaker-a2i-runtime",
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
+    "sagemaker-gateway-runtime",
     "sagemaker-geospatial",
     "sagemaker-inference-router-runtime",
     "sagemaker-metrics",

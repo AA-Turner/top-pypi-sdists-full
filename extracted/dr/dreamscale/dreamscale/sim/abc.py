@@ -24,6 +24,7 @@ left and right cameras and 14 joint values in, 14 absolute joint targets out.
 from __future__ import annotations
 
 import json
+import math
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -31,6 +32,11 @@ from pathlib import Path
 from typing import Any
 
 from dreamscale import errors
+from dreamscale.constants import (
+    CAMERA_KEY_BIMANUAL_YAM_LEFT,
+    CAMERA_KEY_BIMANUAL_YAM_RIGHT,
+    CAMERA_KEY_BIMANUAL_YAM_TOP,
+)
 from dreamscale.model_names import internal_model, public_model
 
 from .abc_catalog import (
@@ -50,6 +56,12 @@ SLOW_CAMERA_FPS = 10.0
 # Below this share of the model's rate the world ran slow enough to change what the model
 # sees of its own latency: the machine is too busy to pace the episode.
 SLOW_WORLD = 0.75
+_YAM_ACTION_DIM = 14
+_YAM_CAMERA_KEYS = (
+    CAMERA_KEY_BIMANUAL_YAM_TOP,
+    CAMERA_KEY_BIMANUAL_YAM_LEFT,
+    CAMERA_KEY_BIMANUAL_YAM_RIGHT,
+)
 
 
 @dataclass
@@ -142,12 +154,13 @@ def run_abc(*, model: str, task_suite: str = DEFAULT_TASK, task_id: str | int = 
     """
     model = internal_model(model)
     if model not in MODELS:
-        raise ValueError(f"{public_model(model)} doesn't run on abc. {errors.SEE_MODELS}")
+        from dreamscale.checkpoints_cmd import may_name_deployment
+
+        if not may_name_deployment(model):
+            raise ValueError(f"{public_model(model)} doesn't run on abc. {errors.SEE_MODELS}")
     first = resolve_task(task_suite, task_id)
     if type(episodes) is not int or episodes < 1:
         raise ValueError("episodes must be a positive integer")
-    horizon = (max(1, int(max_duration * CONTROL_HZ + 0.999999)) if max_duration
-               else max_steps or HORIZON_STEPS)
     root = Path(output_root).expanduser().resolve() if output_root is not None else None
     if root is not None:
         root.mkdir(parents=True, exist_ok=True)
@@ -179,6 +192,9 @@ def run_abc(*, model: str, task_suite: str = DEFAULT_TASK, task_id: str | int = 
         policy = connect(model, **_connect_options(
             model, region=region, keep_warm=keep_warm, transport=transport,
             steady_send=steady_send))
+        action_hz = _validate_contract(model, policy)
+        horizon = (max(1, int(max_duration * action_hz + 0.999999)) if max_duration
+                   else max_steps or HORIZON_STEPS)
         summary["connect_s"] = round(time.monotonic() - began, 1)
         for index in range(first, first + episodes):
             env.reset(SEED + task_seed + index)
@@ -205,7 +221,7 @@ def run_abc(*, model: str, task_suite: str = DEFAULT_TASK, task_id: str | int = 
             if root is not None:
                 video = root / f"abc_{task_suite}_{index:03d}_{'ok' if success else 'fail'}.mp4"
                 try:  # the video is a by-product: a writer that fails costs it, not the run
-                    if env.write_video(video, CONTROL_HZ / FRAME_EVERY):
+                    if env.write_video(video, action_hz / FRAME_EVERY):
                         row.video = str(video)
                 except RuntimeError:
                     pass
@@ -222,9 +238,9 @@ def run_abc(*, model: str, task_suite: str = DEFAULT_TASK, task_id: str | int = 
                         f"second (a robot's run at {CONTROL_HZ}): the model planned on old "
                         "frames, so this score is not the model's.")
             elif (real_time and row.actions_per_s is not None
-                  and row.actions_per_s < SLOW_WORLD * CONTROL_HZ):
+                  and row.actions_per_s < SLOW_WORLD * action_hz):
                 on_line(f"The world ran at {row.actions_per_s:g} actions a second, well under "
-                        f"the model's {CONTROL_HZ}: each plan had more time than a robot gives "
+                        f"the model's {action_hz:g}: each plan had more time than a robot gives "
                         "it. Close other work on this machine and run again.")
     finally:
         try:
@@ -244,6 +260,35 @@ def run_abc(*, model: str, task_suite: str = DEFAULT_TASK, task_id: str | int = 
     return summary
 
 
+def _validate_contract(model: str, policy: Any) -> float:
+    """Verify the connected session speaks the 14-DoF YAM wire and return its action rate."""
+    contract = getattr(policy, "contract", None)
+    if contract is None:
+        return float(CONTROL_HZ)
+    name = public_model(model)
+    if contract.action_dim != _YAM_ACTION_DIM:
+        raise ValueError(
+            f"{name} doesn't run on abc: expected {_YAM_ACTION_DIM}-DoF YAM actions, "
+            f"got action_dim={contract.action_dim}."
+        )
+    if contract.state_dim not in (None, _YAM_ACTION_DIM):
+        raise ValueError(
+            f"{name} doesn't run on abc: expected {_YAM_ACTION_DIM}-DoF YAM state, "
+            f"got state_dim={contract.state_dim}."
+        )
+    cameras = tuple(contract.camera_keys or ())
+    if cameras and cameras != _YAM_CAMERA_KEYS:
+        raise ValueError(
+            f"{name} doesn't run on abc: expected YAM cameras "
+            f"{', '.join(_YAM_CAMERA_KEYS)}, got {', '.join(cameras)}."
+        )
+    action_hz = getattr(contract, "action_hz", None)
+    if (isinstance(action_hz, (int, float)) and not isinstance(action_hz, bool)
+            and math.isfinite(action_hz) and action_hz > 0):
+        return float(action_hz)
+    return float(CONTROL_HZ)
+
+
 def _action_rate(result: Any) -> float | None:
     """Actions a second once the first plan had arrived: 30 when the world kept real time."""
     moving_s = result.elapsed_s - result.startup_wait_ms / 1000.0
@@ -253,13 +298,15 @@ def _action_rate(result: Any) -> float | None:
 def _connect_options(model: str, *, region: str | None, keep_warm: int, transport: str,
                      steady_send: bool | int | None) -> dict:
     """What `dreamscale run yam` asks of its session, for the same model."""
+    from dreamscale.checkpoints_cmd import may_name_deployment
     from dreamscale.policy.deployment import follows_session_contract
     from dreamscale.policy.runtime.contract import runtime_contract_for_model
 
+    session_paced = follows_session_contract(model) or may_name_deployment(model)
     options: dict[str, Any] = {
         "region": region or "available", "keep_warm": keep_warm, "transport": transport,
-        # A catalog model on its owner's deployments runs at the rate its session says.
-        "control_hz": (None if follows_session_contract(model)
+        # A deployment or session-contract catalog model runs at the rate its session says.
+        "control_hz": (None if session_paced
                        else int(runtime_contract_for_model(model).action_hz)),
     }
     if steady_send:

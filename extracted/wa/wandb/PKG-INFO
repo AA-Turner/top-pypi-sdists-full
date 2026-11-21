@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: wandb
-Version: 0.31.1
+Version: 0.31.2
 Summary: A CLI and library for interacting with the Weights & Biases API.
 Project-URL: Source, https://github.com/wandb/wandb
 Project-URL: Bug Reports, https://github.com/wandb/wandb/issues
@@ -49,6 +49,7 @@ Classifier: Topic :: System :: Logging
 Classifier: Topic :: System :: Monitoring
 Requires-Python: >=3.10
 Requires-Dist: click>=8.2.0
+Requires-Dist: cwevals==0.0.1b3
 Requires-Dist: opentelemetry-api>=1.43.0
 Requires-Dist: opentelemetry-exporter-otlp-proto-common>=1.43.0
 Requires-Dist: opentelemetry-sdk>=1.43.0

@@ -121,13 +121,12 @@ fn given_run_context_when_rendering_then_sanitizes_and_groups_counts() {
                 command: "sqb build".to_owned(),
                 run_id: Some("run\u{1b}1".to_owned()),
                 concurrency: 4,
-                concurrency_source: "targets.prod.concurrency".to_owned(),
                 selected_count: 1200,
                 total_count: 1_234_567,
                 date_vars: (Some("2026-01-01".to_owned()), Some("2026-01-31".to_owned())),
                 ..RunContextFacts::default()
             },
-            expected_text: "Execution\n  command      sqb build\n  run_id       run\\x1b1\n  target       not set\n  database     not set\n  schema       not set\n  warehouse    not set\n  concurrency  4 configured limit (targets.prod.concurrency)\n  full_refresh false\n  selected     1,200 of 1,234,567 build resources\n  date vars    2026-01-01 to 2026-01-31\n\n",
+            expected_text: "Execution\n  command      sqb build\n  run_id       run\\x1b1\n  target       not set\n  database     not set\n  schema       not set\n  warehouse    not set\n  concurrency  4 configured limit\n  full_refresh false\n  selected     1,200 of 1,234,567 build resources\n  date vars    2026-01-01 to 2026-01-31\n\n",
         },
         ContextTestCase {
             description: "a warehouse, one date and selector files",
@@ -183,7 +182,7 @@ fn given_python_node_results_when_rendering_then_shows_status_and_detail() {
             description: "success, skip reason and failure message",
             rows: vec![
                 PythonNodeRow {
-                    kind: "task".to_owned(),
+                    kind: "asset".to_owned(),
                     node_name: "count_orders".to_owned(),
                     status: "success".to_owned(),
                     ..PythonNodeRow::default()
@@ -196,7 +195,7 @@ fn given_python_node_results_when_rendering_then_shows_status_and_detail() {
                     ..PythonNodeRow::default()
                 },
                 PythonNodeRow {
-                    kind: "task".to_owned(),
+                    kind: "asset".to_owned(),
                     node_name: "boom".to_owned(),
                     status: "failed".to_owned(),
                     error_message: Some("boom".to_owned()),
@@ -205,9 +204,9 @@ fn given_python_node_results_when_rendering_then_shows_status_and_detail() {
             ],
             expected_failed: true,
             expected_text: concat!(
-                "  python    task      count_orders                                       OK\n",
+                "  python    asset     count_orders                                       OK\n",
                 "  python    asset     extract                                            SKIP  upstream failed\n",
-                "  python    task      boom                                               FAIL  boom\n",
+                "  python    asset     boom                                               FAIL  boom\n",
             ),
         },
         PythonRowsTestCase {

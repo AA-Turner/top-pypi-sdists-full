@@ -31,8 +31,10 @@ from .paginator import (
     ListAggregateResourceSynchronizationStatusesPaginator,
     ListDeploymentSnapshotsPaginator,
     ListDeploymentsPaginator,
+    ListEntityCoveragesPaginator,
     ListPoliciesPaginator,
     ListPolicySnapshotsPaginator,
+    ListProtectedResourceCoveragesPaginator,
     ListResourceAssociationsPaginator,
     ListResourceSynchronizationStatusesPaginator,
     ListRuleSnapshotsPaginator,
@@ -92,10 +94,14 @@ from .type_defs import (
     ListDeploymentSnapshotsInputTypeDef,
     ListDeploymentSnapshotsOutputTypeDef,
     ListDeploymentsOutputTypeDef,
+    ListEntityCoveragesInputTypeDef,
+    ListEntityCoveragesOutputTypeDef,
     ListPoliciesInputTypeDef,
     ListPoliciesOutputTypeDef,
     ListPolicySnapshotsInputTypeDef,
     ListPolicySnapshotsOutputTypeDef,
+    ListProtectedResourceCoveragesInputTypeDef,
+    ListProtectedResourceCoveragesOutputTypeDef,
     ListResourceAssociationsInputTypeDef,
     ListResourceAssociationsOutputTypeDef,
     ListResourceSynchronizationStatusesInputTypeDef,
@@ -447,6 +453,17 @@ class NetworkSecurityManagerCustomerAPIClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_security_manager/client/#list_deployments)
         """
 
+    def list_entity_coverages(
+        self, **kwargs: Unpack[ListEntityCoveragesInputTypeDef]
+    ) -> ListEntityCoveragesOutputTypeDef:
+        """
+        Lists the protected resources that the specified Network Security Manager
+        entity covers.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-security-manager/client/list_entity_coverages.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_security_manager/client/#list_entity_coverages)
+        """
+
     def list_policies(
         self, **kwargs: Unpack[ListPoliciesInputTypeDef]
     ) -> ListPoliciesOutputTypeDef:
@@ -465,6 +482,17 @@ class NetworkSecurityManagerCustomerAPIClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-security-manager/client/list_policy_snapshots.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_security_manager/client/#list_policy_snapshots)
+        """
+
+    def list_protected_resource_coverages(
+        self, **kwargs: Unpack[ListProtectedResourceCoveragesInputTypeDef]
+    ) -> ListProtectedResourceCoveragesOutputTypeDef:
+        """
+        Lists the AWS Network Security Manager entities that cover the specified
+        protected resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-security-manager/client/list_protected_resource_coverages.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_security_manager/client/#list_protected_resource_coverages)
         """
 
     def list_resource_associations(
@@ -674,6 +702,17 @@ class NetworkSecurityManagerCustomerAPIClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_entity_coverages"]
+    ) -> ListEntityCoveragesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-security-manager/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_security_manager/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_policies"]
     ) -> ListPoliciesPaginator:
         """
@@ -687,6 +726,17 @@ class NetworkSecurityManagerCustomerAPIClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_policy_snapshots"]
     ) -> ListPolicySnapshotsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-security-manager/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_security_manager/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_protected_resource_coverages"]
+    ) -> ListProtectedResourceCoveragesPaginator:
         """
         Create a paginator for an operation.
 

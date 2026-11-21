@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import math
+import operator
+import random
 import re
 import string
 import subprocess  # ruff:ignore[suspicious-subprocess-import]  # the test runs a fixed command in a subprocess
@@ -23,6 +25,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Mapping, Sequence
     from types import ModuleType, SimpleNamespace
 
+    from bench.operations import Case
     from pytest_mock import MockerFixture
     from work_steps import WorkSteps
 
@@ -218,6 +221,68 @@ def doc() -> turbohtml.Node:
 )
 def test_scalar_and_boolean(doc: turbohtml.Node, expr: str, *, expected: float | str | bool) -> None:
     assert doc.xpath(expr) == expected
+
+
+_XPATH_NUMBER: Final[re.Pattern[str]] = re.compile(
+    r"""
+    [ \t\r\n]*                           # XML whitespace around the number
+    -?                                     # an optional sign
+    (?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)       # digits with an optional fraction, or a bare fraction
+    [ \t\r\n]*                           # XML whitespace around the number
+    """,
+    re.VERBOSE,
+)
+_RELATIONAL: Final[Mapping[str, Callable[[float, float], bool]]] = MappingProxyType({
+    "<": operator.lt,
+    "<=": operator.le,
+    ">": operator.gt,
+    ">=": operator.ge,
+})
+_NODE_SET_SIZES: Final[tuple[int, ...]] = (0, 1, 2, 15, 16, 17)
+
+
+@pytest.mark.parametrize("right_size", _NODE_SET_SIZES)
+@pytest.mark.parametrize("left_size", _NODE_SET_SIZES)
+@pytest.mark.parametrize("op", ["<", "<=", ">", ">="])
+def test_node_set_relational_comparison_is_existential(left_size: int, right_size: int, op: str) -> None:
+    texts: Final[tuple[str, ...]] = ("1", "2", "-1", "0.5", " 3 ", "x", "", "NaN")
+    rng = random.Random(f"{op}-{left_size}-{right_size}")  # ruff:ignore[suspicious-non-cryptographic-random-usage]  # a fixed corpus
+    left: Final[list[str]] = [rng.choice(texts) for _ in range(left_size)]
+    right: Final[list[str]] = [rng.choice(texts) for _ in range(right_size)]
+    expected: Final[bool] = any(_RELATIONAL[op](_xpath_number(a), _xpath_number(b)) for a in left for b in right)
+    assert _node_set_document(left, right).xpath(f"//li {op} //b") is expected
+
+
+def _xpath_number(text: str) -> float:
+    return float(text) if _XPATH_NUMBER.fullmatch(text) else math.nan
+
+
+def _node_set_document(left: list[str], right: list[str]) -> turbohtml.Node:
+    left_items: Final[str] = "".join(f"<li>{text}</li>" for text in left)
+    right_items: Final[str] = "".join(f"<b>{text}</b>" for text in right)
+    return parse(f"<main><ul>{left_items}</ul><section>{right_items}</section></main>")
+
+
+@pytest.mark.parametrize("size", [1, 2, 15, 16, 17])
+@pytest.mark.parametrize(
+    ("op", "fillers", "lasts", "expected"),
+    [
+        pytest.param("<", ("9", "0"), ("1", "2"), True, id="lt-match"),
+        pytest.param("<", ("9", "0"), ("2", "1"), False, id="lt-miss"),
+        pytest.param("<=", ("9", "0"), ("1", "2"), True, id="le-match"),
+        pytest.param("<=", ("9", "0"), ("2", "1"), False, id="le-miss"),
+        pytest.param(">", ("0", "9"), ("2", "1"), True, id="gt-match"),
+        pytest.param(">", ("0", "9"), ("1", "2"), False, id="gt-miss"),
+        pytest.param(">=", ("0", "9"), ("2", "1"), True, id="ge-match"),
+        pytest.param(">=", ("0", "9"), ("1", "2"), False, id="ge-miss"),
+    ],
+)
+def test_node_set_relational_comparison_checks_past_the_first_pair(
+    size: int, op: str, fillers: tuple[str, str], lasts: tuple[str, str], *, expected: bool
+) -> None:
+    left: Final[list[str]] = [fillers[0]] * (size - 1) + [lasts[0]]
+    right: Final[list[str]] = [fillers[1]] * (size - 1) + [lasts[1]]
+    assert _node_set_document(left, right).xpath(f"//li {op} //b") is expected
 
 
 @pytest.mark.parametrize("function", ["name", "local-name"])
@@ -505,7 +570,7 @@ def test_number_to_string_round_trips(value: float) -> None:
     ],
 )
 def test_string_functions_agree_with_elementpath(expr: str) -> None:
-    elementpath = pytest.importorskip("elementpath")
+    elementpath: Final[ModuleType] = pytest.importorskip("elementpath")
     markup = "<div><p>One</p><p>Two</p><p>Three</p></div>"
     root = ET.fromstring(markup)  # ruff:ignore[suspicious-xml-element-tree-usage]  # parses fixed markup from the test corpus, not untrusted input
     want = elementpath.select(root, expr, parser=elementpath.XPath2Parser)
@@ -531,12 +596,12 @@ def test_string_functions_agree_with_elementpath(expr: str) -> None:
     ],
 )
 def test_translate_deferred_index(text: str, source: str, target: str, expected: str) -> None:
-    document: Final = parse("<p></p>")
+    document: Final[Document] = parse("<p></p>")
     assert document.xpath(f"translate('{text}', '{source}', '{target}')") == expected
 
 
 def test_translate_nul_mapping() -> None:
-    document: Final = parse("<p></p>")
+    document: Final[Document] = parse("<p></p>")
     assert (
         document.xpath(
             "translate($text, $source, $target)",
@@ -584,7 +649,7 @@ def test_translate_coerced_arguments(expression: str, expected: str) -> None:
     ],
 )
 def test_translate_character_map(source: str, target: str, text: str, expected: str) -> None:
-    document: Final = parse_xml(f"<root>{text}</root>")
+    document: Final[Document] = parse_xml(f"<root>{text}</root>")
     assert document.xpath(f"translate(string(/root), '{source}', '{target}')") == expected
 
 
@@ -603,8 +668,6 @@ _ID_LOOKUPS: Final[list[pytest.ParameterSet]] = [
     pytest.param("{}", id="walk"),
     pytest.param("id('-') | {}", id="index"),
 ]
-# core/hash.h: the longest run of slots an FNV-1a table walks before it rehashes under the keyed hash
-_TH_FAST_PROBE_LIMIT: Final[int] = 64
 
 
 @pytest.mark.parametrize(
@@ -658,13 +721,15 @@ def test_id_rekeyed_walk_keeps_the_first_element_sharing_an_id() -> None:
     by_home: Final[dict[int, str]] = {}
     for index in range(20_000):
         by_home.setdefault(_fnv_home(f"k{index}"), f"k{index}")
-    run: Final = [by_home[home] for home in range(_TH_FAST_PROBE_LIMIT + 1)]
-    early: Final = [by_home[150], by_home[160]]
-    stray: Final = next(f"m{index}" for index in range(20_000) if _fnv_home(f"m{index}") == 0)
+    # core/hash.h: the longest run of slots an FNV-1a table walks before it rehashes under the keyed hash
+    th_fast_probe_limit: int = 64
+    run: Final[list[str]] = [by_home[home] for home in range(th_fast_probe_limit + 1)]
+    early: Final[list[str]] = [by_home[150], by_home[160]]
+    stray: Final[str] = next(f"m{index}" for index in range(20_000) if _fnv_home(f"m{index}") == 0)
     # the run tokens fill homes 0 to 64, as long a run as the fill allows, and the stray id walks all of it, so the walk
     # starts over keyed after it has claimed the two early tokens; their second elements must stay unclaimed
-    elements: Final = "".join(f"<i id={name}></i>" for name in run)
-    document: Final = parse(
+    elements: Final[str] = "".join(f"<i id={name}></i>" for name in run)
+    document: Final[Document] = parse(
         f"<p id={early[0]}></p><b id={early[1]}></b><q id={stray}></q><s id={early[0]}></s><u id={early[1]}></u>"
         f"{elements}"
     )
@@ -685,20 +750,20 @@ def test_id_in_a_document_without_ids(lookup: str) -> None:
 
 
 def test_id_resolves_a_reference_per_node() -> None:
-    names: Final = [f"n{index}" * (index % 3 + 1) for index in range(200)]
-    rows: Final = "".join(f'<sec id="{name}"/><xref to="none {name}"/><xref to="{name}none"/>' for name in names)
-    document: Final = parse_xml(f"<book>{rows}</book>")
+    names: Final[list[str]] = [f"n{index}" * (index % 3 + 1) for index in range(200)]
+    rows: Final[str] = "".join(f'<sec id="{name}"/><xref to="none {name}"/><xref to="{name}none"/>' for name in names)
+    document: Final[Document] = parse_xml(f"<book>{rows}</book>")
     assert len(node_list(document.xpath("//xref[id(@to)]"))) == len(names)
     assert document.xpath("(id('') | id(//xref/@to))/@id") == names
 
 
 def test_id_follows_the_root_of_each_context_node() -> None:
-    document: Final = parse(f"<p id=x></p><i id=y></i><div><b id=x></b></div>{_ID_PADDING}")
-    detached: Final = document.xpath_one("//div")
+    document: Final[Document] = parse(f"<p id=x></p><i id=y></i><div><b id=x></b></div>{_ID_PADDING}")
+    detached: Final[turbohtml.Node | str | float | None] = document.xpath_one("//div")
     assert isinstance(detached, Element)
     detached.extract()
     # each root is walked by its first lookup and indexed by its second, the detached one in place of the document's
-    expression: Final = (
+    expression: Final[str] = (
         "count(id('x')) + count(id('y')) + count($other[id('x')]/b) + count($other[id('y')]) + count($other[id('x')])"
         " + count(id('y'))"
     )
@@ -813,7 +878,7 @@ def _link_with_id(candidate: LinkCandidate) -> LinkCandidate:
     ],
 )
 def test_id_sees_an_edit_an_extension_makes(edit: Callable[[turbohtml.Node], object], expected: str) -> None:
-    document: Final = parse(
+    document: Final[Document] = parse(
         '<section><a href="http://example.com/">x</a> see http://example.org</section>'
         f"<div><p id=t n=1>one</p><p id=t n=2>two</p></div>{_ID_PADDING}"
     )
@@ -823,23 +888,23 @@ def test_id_sees_an_edit_an_extension_makes(edit: Callable[[turbohtml.Node], obj
         return ""
 
     # the first lookup walks the tree and the second indexes it, which the edit between the second and third outdates
-    lookup: Final = "string(id('t')/@n)"
-    found: Final = document.xpath(
+    lookup: Final[str] = "string(id('t')/@n)"
+    found: Final[list[turbohtml.Node | str] | float | str] = document.xpath(
         f"concat({lookup}, {lookup}, change(), '>', {lookup})", extensions={(None, "change"): change}
     )
     assert (found, document.xpath(lookup)) == (f"11>{expected}", expected)
 
 
 def test_id_sees_an_anchor_linkify_unwraps() -> None:
-    document: Final = parse(f'<a id=t n=1 href="http://example.com/">x</a><p id=t n=2></p>{_ID_PADDING}')
-    veto: Final = Linkify(callbacks=[lambda _candidate: None], process_existing=True)
+    document: Final[Document] = parse(f'<a id=t n=1 href="http://example.com/">x</a><p id=t n=2></p>{_ID_PADDING}')
+    veto: Final[Linkify] = Linkify(callbacks=[lambda _candidate: None], process_existing=True)
 
     def change(_context: SimpleNamespace) -> str:
         linkify_node(document, veto)
         return ""
 
-    lookup: Final = "string(id('t')/@n)"
-    found: Final = document.xpath(
+    lookup: Final[str] = "string(id('t')/@n)"
+    found: Final[list[turbohtml.Node | str] | float | str] = document.xpath(
         f"concat({lookup}, {lookup}, change(), '>', {lookup})", extensions={(None, "change"): change}
     )
     assert found == "11>2"
@@ -991,7 +1056,7 @@ def _levels(result: XPathResult) -> list[int]:
 
 def _lang_chain(declared: Mapping[int, str], depth: int = 150) -> turbohtml.Node:
     # deeper than the nodes and attributes lang() reads before it climbs through the evaluation's memo
-    opened: Final = "".join(f"<d{level}{declared.get(level, '')}>" for level in range(depth))
+    opened: Final[str] = "".join(f"<d{level}{declared.get(level, '')}>" for level in range(depth))
     return parse_xml(opened + "".join(f"</d{level}>" for level in reversed(range(depth))))
 
 
@@ -1007,8 +1072,8 @@ def _lang_chain(declared: Mapping[int, str], depth: int = 150) -> turbohtml.Node
     ],
 )
 def test_lang_below_an_element_with_many_attributes(lang: str, expr: str, expected: list[str]) -> None:
-    names: Final = " ".join(f"data-n{index}" for index in range(90))
-    document: Final = parse(f"<ul {names}{lang}><li>a<li>b<li><em lang=de>c</em></ul>")
+    names: Final[str] = " ".join(f"data-n{index}" for index in range(90))
+    document: Final[Document] = parse(f"<ul {names}{lang}><li>a<li>b<li><em lang=de>c</em></ul>")
     assert tags(document.xpath(expr)) == expected
 
 
@@ -1030,7 +1095,7 @@ def _deep_lang(size: int) -> turbohtml.Node:
 
 
 def _wide_lang(size: int) -> turbohtml.Node:
-    names: Final = " ".join(f"data-w{index}" for index in range(size))
+    names: Final[str] = " ".join(f"data-w{index}" for index in range(size))
     return parse(f"<div lang=de {names}>{'<i></i>' * size}</div>")
 
 
@@ -1063,8 +1128,8 @@ def test_lang_grows_linearly(
     ],
 )
 def test_lang_reads_a_declaration_an_extension_changed(expr: str, flips: int, expected: list[int]) -> None:
-    document: Final = _lang_chain({0: " xml:lang='en'"})
-    top: Final = cast("Element", document.xpath_one("/*"))
+    document: Final[turbohtml.Node] = _lang_chain({0: " xml:lang='en'"})
+    top: Final[Element] = cast("Element", document.xpath_one("/*"))
     calls: Final[list[str]] = []
 
     def flip(_context: SimpleNamespace) -> bool:
@@ -1079,34 +1144,34 @@ def test_lang_reads_a_declaration_an_extension_changed(expr: str, flips: int, ex
 
 
 def test_lang_reads_a_subtree_an_extension_moved() -> None:
-    document: Final = parse_xml(f"<r><a xml:lang='en'>{'<x>' * 100}{'</x>' * 100}</a><b xml:lang='fr'/></r>")
-    moved: Final = cast("Element", document.xpath_one("//a/x"))
-    target: Final = cast("Element", document.xpath_one("//b"))
+    document: Final[Document] = parse_xml(f"<r><a xml:lang='en'>{'<x>' * 100}{'</x>' * 100}</a><b xml:lang='fr'/></r>")
+    moved: Final[Element] = cast("Element", document.xpath_one("//a/x"))
+    target: Final[Element] = cast("Element", document.xpath_one("//b"))
 
     def move(_context: SimpleNamespace) -> str:
         target.append(moved)
         return "/"
 
-    expr: Final = "concat(count(//x[lang('en')]), move(), count(//x[lang('en')]), '/', count(//x[lang('fr')]))"
+    expr: Final[str] = "concat(count(//x[lang('en')]), move(), count(//x[lang('en')]), '/', count(//x[lang('fr')]))"
     assert document.xpath(expr, extensions={(None, "move"): move}) == "100/0/100"
 
 
 def test_lang_reads_a_detached_subtree_an_extension_attached() -> None:
-    document: Final = parse_xml(f"<r><a xml:lang='en'/><o>{'<x>' * 100}{'</x>' * 100}</o></r>")
-    detached: Final = cast("Element", document.xpath_one("//o")).extract()
-    target: Final = cast("Element", document.xpath_one("//a"))
+    document: Final[Document] = parse_xml(f"<r><a xml:lang='en'/><o>{'<x>' * 100}{'</x>' * 100}</o></r>")
+    detached: Final[Element] = cast("Element", document.xpath_one("//o")).extract()
+    target: Final[Element] = cast("Element", document.xpath_one("//a"))
 
     def attach(_context: SimpleNamespace) -> str:
         # the subtree's top had no parent when lang() climbed to it, and gains a declaring one without leaving a parent
         target.append(detached)
         return "/"
 
-    expr: Final = "concat(count($o//x[lang('en')]), attach(), count($o//x[lang('en')]))"
+    expr: Final[str] = "concat(count($o//x[lang('en')]), attach(), count($o//x[lang('en')]))"
     assert document.xpath(expr, o=detached, extensions={(None, "attach"): attach}) == "0/100"
 
 
 def test_lang_reads_an_anchor_linkify_cleared() -> None:
-    document: Final = parse(f"<a href='http://example.com' lang=en>{'<span>' * 80}s{'</span>' * 80}</a>")
+    document: Final[Document] = parse(f"<a href='http://example.com' lang=en>{'<span>' * 80}s{'</span>' * 80}</a>")
 
     def strip(link: LinkCandidate) -> LinkCandidate:
         link.url = ""
@@ -1117,13 +1182,13 @@ def test_lang_reads_an_anchor_linkify_cleared() -> None:
         linkify_node(document, Linkify(callbacks=[strip], process_existing=True))
         return "/"
 
-    expr: Final = "concat(count(//span[lang('en')]), relink(), count(//span[lang('en')]))"
+    expr: Final[str] = "concat(count(//span[lang('en')]), relink(), count(//span[lang('en')]))"
     assert document.xpath(expr, extensions={(None, "relink"): relink}) == "80/0"
 
 
 @pytest.mark.parametrize("count", [pytest.param(1, id="one"), pytest.param(1000, id="many")])
 def test_id_node_values_preserve_order(count: int) -> None:
-    document: Final = parse(
+    document: Final[Document] = parse(
         f'<main><b id="first"></b><b id="second"></b>{"<i> second  first second </i>" * count}</main>'
     )
     assert document.xpath("id(//i)/@id") == ["first", "second"]
@@ -1159,7 +1224,7 @@ def test_id_nodes_benchmark_output(name: str) -> None:
 )
 def test_translate_benchmark_result(case: int, expected: str) -> None:
     expression, source = cast("tuple[str, ...]", INPUTS["xpath-translate"]()[case][1])[:2]
-    document: Final = parse(source)
+    document: Final[Document] = parse(source)
     assert document.xpath(expression) == expected
 
 
@@ -1176,7 +1241,7 @@ def test_translate_benchmark_result(case: int, expected: str) -> None:
     ],
 )
 def test_codspeed_translate_result(name: str, expected: str) -> None:
-    load: Final = next(load for identity, _, load in benchmarks() if identity == name)
+    load: Final[Callable[[], Case]] = next(load for identity, _, load in benchmarks() if identity == name)
     expression, source = cast("tuple[str, str]", load())
     assert parse(source).xpath(expression) == expected
 
@@ -1539,6 +1604,26 @@ def test_distinct_attribute_values(content: str, expected: list[str]) -> None:
     assert parse_xml(f"<root>{content}</root>").xpath("set:distinct(//item/@*)") == expected
 
 
+@pytest.mark.parametrize("count", [pytest.param(3, id="few"), pytest.param(300, id="many")])
+def test_distinct_keeps_the_first_node_of_each_value(count: int) -> None:
+    pool: Final[tuple[str, str, str, str, str, str, str, str, *tuple[str, ...]]] = (
+        "",
+        "é",
+        "界",
+        "😀",
+        "😀😀",
+        "a",
+        "aa",
+        "界界",
+        *(f"{'x' * (number % 5)}{number}" for number in range(40)),
+    )
+    rng = random.Random(count)  # ruff:ignore[suspicious-non-cryptographic-random-usage]  # a fixed corpus
+    values: Final[list[str]] = [rng.choice(pool) for _ in range(count)]
+    items: Final[str] = "".join(f'<item id="{index}">{value}</item>' for index, value in enumerate(values))
+    expected: Final[list[str]] = [str(index) for index, value in enumerate(values) if values.index(value) == index]
+    assert parse_xml(f"<root>{items}</root>").xpath("set:distinct(//item)/@id") == expected
+
+
 @pytest.mark.parametrize(
     "count", [pytest.param(0, id="empty"), pytest.param(1, id="one"), pytest.param(1000, id="many")]
 )
@@ -1547,7 +1632,7 @@ def test_distinct_attribute_values(content: str, expected: list[str]) -> None:
     [pytest.param("", "", id="empty-values"), pytest.param("é<b>界</b>😀", "é界😀", id="descendant-text")],
 )
 def test_concat_node_strings(count: int, markup: str, text: str) -> None:
-    document: Final = parse(f"<main>{f'<i>{markup}</i>' * count}</main>")
+    document: Final[Document] = parse(f"<main>{f'<i>{markup}</i>' * count}</main>")
     assert document.xpath("str:concat(//i)") == text * count
 
 
@@ -1557,7 +1642,7 @@ def test_concat_valueless_attribute() -> None:
 
 @pytest.mark.parametrize("text", [pytest.param("", id="empty"), pytest.param("é界😀", id="nonempty")])
 def test_concat_constructed_text_child(text: str) -> None:
-    element: Final = Element("i", None, [Text(text)])
+    element: Final[Element] = Element("i", None, [Text(text)])
     assert element.xpath("str:concat(.)") == text
 
 
@@ -1584,6 +1669,95 @@ def test_concat_constructed_text_child(text: str) -> None:
 )
 def test_concat_item_string_values(markup: str, expression: str, expected: str) -> None:
     assert parse_xml(markup).xpath(expression) == expected
+
+
+@pytest.mark.parametrize("depth", [pytest.param(depth, id=f"depth-{depth}") for depth in range(4)])
+def test_concat_follows_single_child_chains_to_their_text(depth: int) -> None:
+    chain: Final[str] = "<s>" * depth
+    close: Final[str] = "</s>" * depth
+    document: Final[Document] = parse_xml(f"<root><i>{chain}é界😀{close}</i><i>{chain}second{close}</i></root>")
+    assert document.xpath("str:concat(//i)") == "é界😀second"
+
+
+@pytest.mark.parametrize(
+    ("markup", "expected"),
+    [
+        pytest.param("<i><s>é</s><b>界</b></i>", "é界", id="chain-ends-in-several-children"),
+        pytest.param("<i><s><!--c-->界</s></i>", "界", id="chain-ends-in-comment-and-text"),
+        pytest.param("<i><s><!--c--></s></i>", "", id="chain-ends-in-comment"),
+        pytest.param("<i><s><t>é</t></s><!--c--></i>", "é", id="descendant-then-comment"),
+        pytest.param("<i><s/><b/></i>", "", id="several-empty-children"),
+        pytest.param("<i><!--c--><s/></i>", "", id="comment-then-empty-element"),
+        pytest.param("<i><s>é</s><b/></i><i>z</i>", "éz", id="built-then-borrowed"),
+        pytest.param("<i><s>é</s><b/></i><i><b>y</b><!--c--></i>", "éy", id="built-then-built"),
+        pytest.param(
+            f"<i><s>{'x' * 300}</s><!--c--></i><i><b>y</b><!--c--></i>", f"{'x' * 300}y", id="built-past-scratch"
+        ),
+        pytest.param("<i>abc</i><i>é😀</i><i>def</i>", "abcé😀def", id="wide-in-one-member"),
+        pytest.param("<i>x</i><i><s>😀</s></i><i>y</i>", "x😀y", id="wide-in-one-built-member"),
+        pytest.param("<i/><i></i><i><s/></i>", "", id="empty-members"),
+        pytest.param("<i></i><i>é</i><i/>", "é", id="empty-members-around-text"),
+    ],
+)
+def test_concat_member_values(markup: str, expected: str) -> None:
+    assert parse_xml(f"<root>{markup}</root>").xpath("str:concat(//i)") == expected
+
+
+@pytest.mark.parametrize(
+    ("markup", "expression", "expected"),
+    [
+        pytest.param("<root><i>x<b></b></i><!----></root>", "str:concat(//i | //comment())", "x", id="empty-comment"),
+        pytest.param('<root><i a b="value">x<b></b></i></root>', "str:concat(//i | //i/@*)", "xvalue", id="valueless"),
+    ],
+)
+def test_concat_builds_beside_empty_and_valueless_members(markup: str, expression: str, expected: str) -> None:
+    assert parse(markup).xpath(expression) == expected
+
+
+def test_concat_of_a_chain_emptied_by_set_text() -> None:
+    document = parse("<root><i><s>x</s></i><i><s>é</s></i></root>")
+    cast("Element", document.xpath_one("//s")).set_text("")
+    assert document.xpath("str:concat(//i)") == "é"
+
+
+@pytest.mark.parametrize(
+    ("markup", "expression", "expected"),
+    [
+        pytest.param("<i>abc</i><i>def</i>", "str:concat(//i)", "abcdef", id="ascii-input"),
+        pytest.param(f"<i>ab</i><p>{'x' * 400}</p>", "str:concat(//i)", "ab", id="short-read-of-ascii-input"),
+        pytest.param("<i>é</i><i>a</i>", "str:concat(//i)", "éa", id="latin1-input"),
+        pytest.param("<i>é</i><p>界</p>", "str:concat(//i)", "é", id="latin1-text-of-bmp-input"),
+        pytest.param("<i>界</i><i>a</i>", "str:concat(//i)", "界a", id="bmp-text"),
+        pytest.param("<i>😀</i><i>界</i><i>a</i>", "str:concat(//i)", "😀界a", id="astral-first"),
+        pytest.param('<i a="é">b</i>', "str:concat(//i | //i/@a)", "bé", id="latin1-attribute"),
+        pytest.param('<i a="界">b</i>', "str:concat(//i | //i/@a)", "b界", id="bmp-attribute"),
+        pytest.param("<i>a</i><!--c-->", "str:concat(//i | //comment())", "ac", id="comment"),
+        pytest.param("<i>a</i>", "str:concat(/)", "a", id="document-is-built"),
+        pytest.param("<i>a<b>c</b></i>", "str:concat(//i)", "ac", id="element-is-built"),
+    ],
+)
+def test_concat_at_the_root_takes_the_narrowest_width(markup: str, expression: str, expected: str) -> None:
+    document: Final[Document] = parse(markup)
+    result: Final[str] = cast("str", document.xpath(expression))
+    assert (result, XPath(expression)(document)) == (expected, expected)
+    # a str stored wider than its characters need compares unequal to the same characters
+    assert result == "".join(list(result))
+
+
+@pytest.mark.parametrize(
+    ("markup", "text", "expected"),
+    [
+        pytest.param("<i>a</i><b>x</b>", "界", "a界", id="ascii-span-beside-bmp-text"),
+        pytest.param("<i>a</i><b>x</b>", "😀", "a😀", id="ascii-span-beside-astral-text"),
+        pytest.param("<i>界</i><b>x</b>", "😀", "界😀", id="bmp-span-beside-astral-text"),
+        pytest.param("<i>a</i><b>x</b>", "y", "ay", id="ascii-span-beside-set-text"),
+    ],
+)
+def test_concat_at_the_root_widens_spans_beside_set_text(markup: str, text: str, expected: str) -> None:
+    document: Final[Document] = parse(markup)
+    cast("Element", document.xpath_one("//b")).set_text(text)
+    result: Final[str] = cast("str", document.xpath("str:concat(//i | //b)"))
+    assert (result, "".join(list(result))) == (expected, expected)
 
 
 def _reversed(_context: SimpleNamespace, nodes: list[Element]) -> list[Element]:
@@ -1643,7 +1817,7 @@ _OUT_OF_ORDER: Final[dict[tuple[str | None, str], _Extension]] = {
     ],
 )
 def test_gathering_nested_members_is_bounded_per_call(expression: str, *, numbered: bool) -> None:
-    expected: Final = re.compile(
+    expected: Final[re.Pattern[str]] = re.compile(
         re.escape(
             "xpath: node-set members inside one another repeat more than 2621440 characters (10 MiB) of text;"
             " select nodes that do not contain one another"
@@ -1655,8 +1829,13 @@ def test_gathering_nested_members_is_bounded_per_call(expression: str, *, number
 
 def _nested(depth: int, *, numbered: bool = False) -> Document:
     # every <a> has the million characters as its string-value, so each one below the first repeats them
-    opened: Final = "".join(f"<a>{index}" if numbered else "<a>" for index in range(depth))
+    opened: Final[str] = "".join(f"<a>{index}" if numbered else "<a>" for index in range(depth))
     return parse_xml(f"<r>{opened}{'x' * 1_000_000}{'</a>' * depth}<b/></r>")
+
+
+def test_concat_at_the_root_bounds_nested_members() -> None:
+    with pytest.raises(ValueError, match="repeat more than 2621440 characters"):
+        _nested(4).xpath("str:concat(//a)")
 
 
 @pytest.mark.parametrize(
@@ -1755,7 +1934,7 @@ def test_gathering_members_ranked_in_order_is_not_limited(expression: str, expec
 
 def _apart(count: int, *, depth: int = 1000, text: str = "x" * 1_000_000) -> Document:
     # every <a> ends its own chain, so placing one after another climbs further than a sort of the set may walk
-    chain: Final = f"{'<c>' * depth}<a k='v'>{text}</a>{'</c>' * depth}"
+    chain: Final[str] = f"{'<c>' * depth}<a k='v'>{text}</a>{'</c>' * depth}"
     return parse_xml(f"<r>{chain * count}</r>")
 
 
@@ -1818,7 +1997,7 @@ def test_gathering_members_grows_linearly(markup: Callable[[int], str], expressi
     ],
 )
 def test_replace_bound_literals(text: str, search: str, replacement: str, expected: str) -> None:
-    document: Final = parse("<p></p>")
+    document: Final[Document] = parse("<p></p>")
     assert (
         document.xpath("str:replace($text, $search, $replacement)", text=text, search=search, replacement=replacement)
         == expected
@@ -1852,7 +2031,7 @@ def test_replace_benchmark_output(name: str) -> None:
 
 @pytest.mark.parametrize("function", [pytest.param("re:test", id="exslt"), pytest.param("matches", id="xpath2")])
 def test_regex_dynamic_patterns(function: str) -> None:
-    document: Final = parse_xml(
+    document: Final[Document] = parse_xml(
         "<root>"
         f"""{"".join(f'<n pattern="^{index}$">{index}</n><n pattern="^{index}$">miss</n>' for index in range(160))}"""
         "</root>"
@@ -1868,13 +2047,13 @@ def test_regex_dynamic_patterns(function: str) -> None:
     ],
 )
 def test_regex_evaluations_keep_flags_separate(flags: str, expected: list[int]) -> None:
-    expression: Final = XPath("count(//n[re:test(., $pattern, $flags)])")
-    document: Final = parse_xml("<root><n>CAFÉ</n><n>café</n><n>tea</n></root>")
+    expression: Final[XPath] = XPath("count(//n[re:test(., $pattern, $flags)])")
+    document: Final[Document] = parse_xml("<root><n>CAFÉ</n><n>café</n><n>tea</n></root>")
     assert [expression(document, pattern=pattern, flags=flags) for pattern in ("café", "tea", "café")] == expected
 
 
 def test_regex_dynamic_flags_keep_patterns_separate() -> None:
-    document: Final = parse_xml('<root><n flags="i">CAFÉ</n><n flags="">CAFÉ</n><n flags="i">CAFÉ</n></root>')
+    document: Final[Document] = parse_xml('<root><n flags="i">CAFÉ</n><n flags="">CAFÉ</n><n flags="i">CAFÉ</n></root>')
     assert document.xpath("count(//n[re:test(., 'café', @flags)])") == 2
 
 
@@ -1948,7 +2127,7 @@ def test_regex_backreference_backtracking_is_bounded() -> None:
     result = subprocess.run(  # ruff:ignore[subprocess-without-shell-equals-true]  # argv is a fixed list, so no shell is involved
         [sys.executable, "-c", code], capture_output=True, text=True, timeout=60, check=False
     )
-    expected: Final = (
+    expected: Final[str] = (
         "regular expression back-references need more than 10006100 backtracking steps (10000000 plus 100 per"
         " character searched in this XPath evaluation); simplify the pattern or drop the back-reference\n"
     )
@@ -2031,8 +2210,8 @@ def test_regex_nesting_needs_no_c_stack(shape: str, expected: str) -> None:
 def test_regex_backreference_backtracking_limit_raises(
     mocker: MockerFixture, body: str, expression: str, message: str
 ) -> None:
-    document: Final = parse_xml(f"<r>{body}</r>")
-    expected: Final = re.compile(message)
+    document: Final[Document] = parse_xml(f"<r>{body}</r>")
+    expected: Final[re.Pattern[str]] = re.compile(message)
     _forbid_python_re(mocker)
     with pytest.raises(ValueError, match=expected):
         document.xpath(expression)
@@ -2148,8 +2327,8 @@ def test_regex_backreference_backtracking_limit_raises(
     ],
 )
 def test_regex_matches_like_python_re(mocker: MockerFixture, pattern: str, flags: str) -> None:
-    compiled: Final = _python_regex(pattern, flags)
-    template: Final = "<" + "".join(f"\\g<{index}>|" for index in range(1, compiled.groups + 1)) + "\\g<0>>"
+    compiled: Final[re.Pattern[str]] = _python_regex(pattern, flags)
+    template: Final[str] = "<" + "".join(f"\\g<{index}>|" for index in range(1, compiled.groups + 1)) + "\\g<0>>"
     regex_texts = (
         "",
         "abc",
@@ -2174,9 +2353,11 @@ def test_regex_matches_like_python_re(mocker: MockerFixture, pattern: str, flags
         "the the quick quick fox",
         "12,345.67 and 8",
     )
-    expected: Final = [(compiled.search(text) is not None, compiled.sub(template, text)) for text in regex_texts]
+    expected: Final[list[tuple[bool, str]]] = [
+        (compiled.search(text) is not None, compiled.sub(template, text)) for text in regex_texts
+    ]
     _forbid_python_re(mocker)
-    document: Final = parse_xml("<r/>")
+    document: Final[Document] = parse_xml("<r/>")
     assert [
         (
             _REGEX_TEST(document, text=text, pattern=pattern, flags=flags),
@@ -2267,10 +2448,10 @@ _FOLD_TEXTS: Final[tuple[str, ...]] = tuple(
     ],
 )
 def test_regex_ignore_case_matches_like_python_re(mocker: MockerFixture, pattern: str) -> None:
-    compiled: Final = re.compile(pattern, re.IGNORECASE)
-    expected: Final = [compiled.search(char) is not None for char in _FOLD_TEXTS]
+    compiled: Final[re.Pattern[str]] = re.compile(pattern, re.IGNORECASE)
+    expected: Final[list[bool]] = [compiled.search(char) is not None for char in _FOLD_TEXTS]
     _forbid_python_re(mocker)
-    document: Final = parse_xml("<r/>")
+    document: Final[Document] = parse_xml("<r/>")
     assert [_REGEX_TEST(document, text=char, pattern=pattern, flags="i") for char in _FOLD_TEXTS] == expected
 
 
@@ -2307,7 +2488,7 @@ _EXPECTED_PATTERN: Final[re.Pattern[str]] = re.compile(r"unsupported regular exp
     ],
 )
 def test_regex_syntax_beyond_the_linear_engine_raises_value_error(mocker: MockerFixture, pattern: str) -> None:
-    expected: Final = _EXPECTED_PATTERN
+    expected: Final[re.Pattern[str]] = _EXPECTED_PATTERN
     _forbid_python_re(mocker)
     with pytest.raises(ValueError, match=expected):
         _REGEX_TEST(parse_xml("<r/>"), text="ab", pattern=pattern, flags="")
@@ -2370,7 +2551,7 @@ def test_regex_syntax_beyond_the_linear_engine_raises_value_error(mocker: Mocker
     ],
 )
 def test_regex_malformed_pattern_raises_re_error(mocker: MockerFixture, pattern: str, message: str) -> None:
-    expected: Final = re.compile(re.escape(message))
+    expected: Final[re.Pattern[str]] = re.compile(re.escape(message))
     _forbid_python_re(mocker)
     with pytest.raises(re.error, match=expected):
         _REGEX_TEST(parse_xml("<r/>"), text="ab", pattern=pattern, flags="")
@@ -2386,7 +2567,7 @@ def test_regex_malformed_pattern_raises_re_error(mocker: MockerFixture, pattern:
     ],
 )
 def test_regex_oversized_pattern_raises_value_error(mocker: MockerFixture, pattern: str) -> None:
-    expected: Final = re.compile(
+    expected: Final[re.Pattern[str]] = re.compile(
         re.escape(
             "regular expression compiles to more than 655360 instructions (10 MiB); lower its repetition counts or"
             " split it into several patterns"
@@ -2410,7 +2591,7 @@ def test_regex_oversized_pattern_raises_value_error(mocker: MockerFixture, patte
 def test_regex_matching_is_bounded(
     mocker: MockerFixture, expression: XPath, text: str, pattern: str, allowance: int
 ) -> None:
-    expected: Final = re.compile(
+    expected: Final[re.Pattern[str]] = re.compile(
         re.escape(
             f"regular expression needs more than {allowance} matching steps (10000000 plus 100 per character searched"
             " in this XPath evaluation); simplify the pattern or search a shorter string"
@@ -2444,9 +2625,11 @@ def test_regex_matching_within_the_budget(mocker: MockerFixture, text: str, patt
 
 
 def test_regex_matching_budget_is_shared_by_the_evaluation(mocker: MockerFixture) -> None:
-    expression: Final = "count(//p[replace(., 'a(?:a|x)*c|a', '') != ''])"
-    paragraph: Final = f"<p>{'a' * 4000}</p>"
-    expected: Final = re.compile(re.escape("regular expression needs more than 10800000 matching steps"))
+    expression: Final[str] = "count(//p[replace(., 'a(?:a|x)*c|a', '') != ''])"
+    paragraph: Final[str] = f"<p>{'a' * 4000}</p>"
+    expected: Final[re.Pattern[str]] = re.compile(
+        re.escape("regular expression needs more than 10800000 matching steps")
+    )
     _forbid_python_re(mocker)
     assert parse_xml(f"<r>{paragraph}</r>").xpath(expression) == 0
     with pytest.raises(ValueError, match=expected):
@@ -2509,7 +2692,7 @@ def test_regex_cache_bounds_what_its_programs_hold_together(
     tracing.start()
     try:
         assert parse_xml("<r/>").xpath(expression, text=text) == expected
-        peak: Final = tracing.get_traced_memory()[1]
+        peak: Final[int] = tracing.get_traced_memory()[1]
     finally:
         tracing.stop()
     assert peak < limit << 20
@@ -2520,12 +2703,12 @@ def test_regex_backreference_search_grows_linearly(work_steps: WorkSteps) -> Non
 
 
 def _padded_backreference(size: int) -> Callable[[], object]:
-    expression: Final = f"matches(str:padding({size}, 'x'), concat('x(y)\\1', str:padding({size}, '(){{0}}')))"
+    expression: Final[str] = f"matches(str:padding({size}, 'x'), concat('x(y)\\1', str:padding({size}, '(){{0}}')))"
     return partial(parse_xml("<r/>").xpath, expression)
 
 
 def test_regex_replace_with_too_many_groups_raises_value_error(mocker: MockerFixture) -> None:
-    expected: Final = re.compile(
+    expected: Final[re.Pattern[str]] = re.compile(
         re.escape(
             "replacing needs more than 10 MiB of capture slots for this regular expression (3303 instructions times"
             " 1100 groups); make groups the replacement does not use non-capturing with (?:...)"
@@ -2558,16 +2741,16 @@ def test_regex_replace_with_too_many_groups_raises_value_error(mocker: MockerFix
 def test_re_replace_template_matches_python_re(
     mocker: MockerFixture, pattern: str, replacement: str, text: str
 ) -> None:
-    expected: Final = re.sub(pattern, replacement, text)
+    expected: Final[str] = re.sub(pattern, replacement, text)
     _forbid_python_re(mocker)
     assert _REGEX_REPLACE(parse_xml("<r/>"), text=text, pattern=pattern, flags="g", replacement=replacement) == expected
 
 
 @pytest.mark.usefixtures("native_regex")
 def test_regex_resolves_each_of_many_group_names() -> None:
-    digits: Final = "".join(str(index % 10) for index in range(150))
-    groups: Final = "".join(f"(?P<n{index}>{index % 10})" for index in range(150))
-    pattern: Final = f"{groups}(?P=n7)(?P=n148)"
+    digits: Final[str] = "".join(str(index % 10) for index in range(150))
+    groups: Final[str] = "".join(f"(?P<n{index}>{index % 10})" for index in range(150))
+    pattern: Final[str] = f"{groups}(?P=n7)(?P=n148)"
     replaced = _REGEX_REPLACE(
         parse_xml("<r/>"), text=f"{digits}78", pattern=pattern, flags="", replacement="\\g<n149>\\g<n3>\\g<n42>"
     )
@@ -2576,7 +2759,7 @@ def test_regex_resolves_each_of_many_group_names() -> None:
 
 @pytest.mark.usefixtures("native_regex")
 def test_regex_compiles_many_named_groups_in_linear_time(work_steps: WorkSteps) -> None:
-    document: Final = parse_xml("<r/>")
+    document: Final[Document] = parse_xml("<r/>")
     work_steps.assert_linear(
         lambda count: partial(_REGEX_TEST, document, text="x", pattern=_named_groups(count), flags=""),
         (1000, 4000),
@@ -2611,7 +2794,7 @@ def _named_groups(count: int) -> str:
 def test_re_replace_malformed_template_raises(
     mocker: MockerFixture, replacement: str, error: type[Exception], message: str
 ) -> None:
-    expected: Final = re.compile(re.escape(message))
+    expected: Final[re.Pattern[str]] = re.compile(re.escape(message))
     _forbid_python_re(mocker)
     with pytest.raises(error, match=expected):
         _REGEX_REPLACE(parse_xml("<r/>"), text="ab", pattern="(?P<name>a)", flags="", replacement=replacement)
@@ -2845,6 +3028,6 @@ def test_predicate_gets_back_the_growth_it_spent_on_each_node(markup: str, expre
 
 
 def test_each_evaluation_has_its_own_allowance() -> None:
-    document: Final = parse_xml("<r/>")
-    expression: Final = "string-length(replace(str:padding(1000, 'a'), 'a', str:padding(16700, 'b')))"
+    document: Final[Document] = parse_xml("<r/>")
+    expression: Final[str] = "string-length(replace(str:padding(1000, 'a'), 'a', str:padding(16700, 'b')))"
     assert document.xpath(expression) == document.xpath(expression) == 16_700_000

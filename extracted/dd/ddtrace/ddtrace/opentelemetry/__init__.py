@@ -1,0 +1,249 @@
+"""
+OpenTelemetry API
+=================
+
+The ``dd-trace-py`` library provides an implementation of the
+`OpenTelemetry API <https://opentelemetry-python.readthedocs.io/en/latest/api/index.html>`_
+for distributed tracing, metrics, and logs.
+
+**Note:** Datadog-specific configurations take precedence over OpenTelemetry settings.
+By default, telemetry data is routed to a Datadog Agent.
+The minimum supported Datadog Agent version is ``v7.33.0`` (but recommended to use ``>=7.66`` for best performance).
+
+**Note:** OpenTelemetry support is lazily loaded when the ``opentelemetry`` package is first imported. Ensure
+``import opentelemetry...`` or ``from opentelemetry....`` is present in your code.
+
+
+Tracing
+-------
+
+``dd-trace-py`` supports OpenTelemetry tracing by mapping OpenTelemetry spans to Datadog spans.
+The ``TracerProvider`` sends Datadog-formatted payloads and is compatible only with the Datadog Agent
+(it does not emit OTLP).
+
+Enable OpenTelemetry tracing support by setting ``DD_TRACE_OTEL_ENABLED=true`` and using ``ddtrace.auto``
+or ``ddtrace-run``. Manual configuration is also supported through ``ddtrace.opentelemetry.TracerProvider``.
+
+For supported configurations, see `OpenTelemetry Tracing Configuration <https://docs.datadoghq.com/tracing/trace_collection/library_config/>`_.
+
+Consistent sampling in mixed environments
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When W3C Trace Context propagation is enabled, ``dd-trace-py`` preserves OpenTelemetry's
+consistent probability sampling fields and emits them when Datadog makes a probability-based
+sampling decision. This allows downstream OpenTelemetry services to follow the same decision
+and derive the effective sampling probability for accurate count estimates.
+
+An inherited sampling decision remains authoritative. If an application or security product
+overrides the decision, or if the Datadog rate limiter drops the trace, ``dd-trace-py`` removes
+the probability threshold because the resulting decision no longer represents probability
+sampling. Inherited trace randomness is preserved across these overrides.
+
+Usage example::
+
+    import os
+    os.environ["DD_TRACE_OTEL_ENABLED"] = "true"
+
+    import ddtrace.auto
+
+    from opentelemetry import trace
+
+    # Use tracing
+    tracer = trace.get_tracer(__name__)
+    with tracer.start_as_current_span("operation") as span:
+        span.set_attribute("key", "value")
+        # Your code here
+
+OpenTelemetry HTTP semantics
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Setting ``DD_TRACE_OTEL_SEMANTICS_ENABLED=true`` makes HTTP spans follow the OpenTelemetry HTTP
+semantic conventions:
+
+- Request methods are normalized (for example, ``get`` becomes ``GET`` and unknown methods become
+  ``_OTHER``), and the original value is kept in ``http.request.method_original``.
+- Client and server spans record URL, address, port, and status attributes. URL credentials are
+  redacted, captured query values are obfuscated, and ports and status codes stay numeric.
+- Server spans record ``url.scheme``, ``url.path``, and ``url.query`` instead of a full URL. When
+  client IP collection is enabled (``DD_TRACE_CLIENT_IP_ENABLED`` or AppSec), the caller is reported
+  in ``client.address`` and ``network.peer.address``.
+- Client spans treat status codes of 400 and above as errors unless
+  ``DD_TRACE_HTTP_CLIENT_ERROR_STATUSES`` is set; server spans treat 500 and above as errors unless
+  ``DD_TRACE_HTTP_SERVER_ERROR_STATUSES`` is set.
+- Resource names are built from the method and route template, and a resource set by application
+  code is never overwritten.
+- Traces are exported over OTLP with native span events, span attribute schema ``v0`` is used, and
+  automatic peer-service names are disabled. Conflicting schema and peer-service settings are
+  overridden and reported through logs and telemetry.
+
+
+Metrics
+-------
+
+``dd-trace-py`` supports OpenTelemetry metrics. Metrics are emitted in OTLP format and can be routed
+to any OTLP-compatible receiver (Datadog Agent, OpenTelemetry Collector, or directly to the Datadog intake).
+
+Enable metrics support by setting ``DD_METRICS_OTEL_ENABLED=true`` and using ``ddtrace.auto`` or ``ddtrace-run``.
+``ddtrace`` automatically configures the appropriate providers and exporters.
+
+You must install an OTLP exporter (minimum supported version: ``v1.15.0``)::
+
+    pip install opentelemetry-exporter-otlp>=1.15.0
+
+For supported configurations, see `OpenTelemetry Metrics Configuration <https://docs.datadoghq.com/tracing/trace_collection/library_config/>`_.
+
+Usage example::
+
+    import os
+    os.environ["DD_METRICS_OTEL_ENABLED"] = "true"
+    import ddtrace.auto
+
+    from opentelemetry import metrics
+
+    # ddtrace automatically configures the MeterProvider
+    meter = metrics.get_meter(__name__)
+    counter = meter.create_counter("requests_total")
+    counter.add(1, {"method": "GET"})
+
+
+Logs
+----
+
+``dd-trace-py`` supports OpenTelemetry logs. Logs are emitted in OTLP format and can be routed
+to any OTLP-compatible receiver (Datadog Agent, OpenTelemetry Collector, or directly to the Datadog intake).
+
+Enable logs support by setting ``DD_LOGS_OTEL_ENABLED=true`` and using ``ddtrace.auto`` or ``ddtrace-run``.
+``ddtrace`` automatically configures the appropriate providers and exporters.
+
+You must install an OTLP exporter (minimum supported version: ``v1.15.0``)::
+
+    pip install opentelemetry-exporter-otlp>=1.15.0
+
+For supported configurations, see `OpenTelemetry Logs Configuration <https://docs.datadoghq.com/tracing/trace_collection/library_config/>`_.
+
+Usage example::
+
+    import os
+    import logging
+    os.environ["DD_LOGS_OTEL_ENABLED"] = "true"
+    os.environ["DD_TRACE_OTEL_ENABLED"] = "true"
+    import ddtrace.auto
+
+    from opentelemetry import trace
+    tracer = trace.get_tracer(__name__)
+
+    # Logs within a trace context are automatically correlated
+    with tracer.start_as_current_span("user_operation") as span:
+        span.set_attribute("user.id", "12345")
+        logging.info("User operation started", extra={"operation": "login"})
+        # Your business logic here
+        logging.info("User operation completed", extra={"status": "success"})
+
+
+Supported Configuration
+-----------------------
+
+The Datadog SDK supports many of the configurations available in the OpenTelemetry SDK.
+The following environment variables are supported:
+
+- ``DD_{LOGS,TRACE,METRICS}_OTEL_ENABLED``
+  Enable OpenTelemetry logs, metrics, or traces (default: ``false``).
+  These features are off by default, allowing Datadog to track adoption by customer or service when the configuration is set to ``true``.
+
+- ``OTEL_{METRICS,LOGS}_EXPORTER``
+  This value defaults to ``otlp``. We can gauge the prevalence of other exporters by observing other values, such as ``prometheus``, ``console``, or ``none``.
+
+- ``OTEL_TRACES_EXPORTER``
+  Set this to ``otlp`` to export traces using OTLP instead of the Datadog Agent protocol.
+
+- ``OTEL_METRIC_EXPORT_INTERVAL``
+  Interval (in milliseconds) between metric exports.
+
+- ``OTEL_METRIC_EXPORT_TIMEOUT``
+  Timeout (in milliseconds) for metric export requests.
+
+- ``OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE``
+  For the best Datadog experience, we encourage customers to use **delta temporality** for monotonic sums, histograms, and exponential histograms.
+  The default value in the Datadog SDKs is ``delta``, which differs from the OpenTelemetry specified default of ``cumulative``.
+  Tracking this configuration helps understand how many customers prefer Cumulative Temporality and why.
+
+- ``OTEL_EXPORTER_OTLP_{METRICS,LOGS}_ENDPOINT``
+  Defines the target endpoint for the corresponding OTLP signal (default: ``http://<agent_hostname>:4317``).
+
+- ``OTEL_EXPORTER_OTLP_TRACES_ENDPOINT``
+  Defines the target endpoint for OTLP traces. The default is ``http://<agent_hostname>:4317``
+  for gRPC and ``http://<agent_hostname>:4318/v1/traces`` for HTTP.
+
+- ``OTEL_EXPORTER_OTLP_{METRICS,LOGS,TRACES}_HEADERS``
+  Optional comma-separated key-value pairs for OTLP export (default: empty).
+
+- ``OTEL_EXPORTER_OTLP_{METRICS,LOGS,TRACES}_TIMEOUT``
+  Request timeout in milliseconds for OTLP export (default: ``10000``).
+
+- ``OTEL_EXPORTER_OTLP_{METRICS,LOGS,TRACES}_PROTOCOL``
+  OTLP protocol used for export. Metrics and logs support ``grpc`` (default) and ``http/protobuf``.
+  Traces support ``grpc``, ``http/protobuf`` (default), and ``http/json``. Trace-specific protocol
+  configuration takes precedence over the global ``OTEL_EXPORTER_OTLP_PROTOCOL`` setting. gRPC
+  trace export currently requires an ``http://`` endpoint; ``https://`` is not supported.
+
+OTLP signals can be routed to any compatible receiver. See `Send OpenTelemetry Data to Datadog <https://docs.datadoghq.com/opentelemetry/setup/>`_ for more details.
+
+
+Trace Mapping
+-------------
+
+OpenTelemetry spans are mapped to Datadog spans. This mapping is described by the following table, using the protocol buffer field names used in `OpenTelemetry <https://github.com/open-telemetry/opentelemetry-proto/blob/724e427879e3d2bae2edc0218fff06e37b9eb46e/opentelemetry/proto/trace/v1/trace.proto#L80>`_ and `Datadog <https://github.com/DataDog/datadog-agent/blob/dc4958d9bf9f0e286a0854569012a3bd3e33e968/pkg/proto/datadog/trace/span.proto#L7>`_.
+
+
+.. list-table::
+    :header-rows: 1
+    :widths: 30, 30, 40
+
+    * - OpenTelemetry
+      - Datadog
+      - Description
+    * - ``trace_id``
+      - ``traceID``
+      -
+    * - ``span_id``
+      - ``spanID``
+      -
+    * - ``trace_state``
+      - ``meta["tracestate"]``
+      - Datadog-specific data is stored in the trace state using the ``dd=`` prefix
+    * - ``parent_span_id``
+      - ``parentID``
+      -
+    * - ``name``
+      - ``resource``
+      -
+    * - ``kind``
+      - ``meta["span.kind"]``
+      -
+    * - ``start_time_unix_nano``
+      - ``start``
+      -
+    * - ``end_time_unix_nano``
+      - ``duration``
+      - Derived from the start and end times
+    * - ``attributes[<key>]``
+      - ``meta[<key>]``
+      - Each OpenTelemetry attribute is stored as a Datadog tag (``meta``)
+    * - ``links[]``
+      - ``meta["_dd.span_links"]``
+      -
+    * - ``status``
+      - ``error``
+      - Derived from span status
+    * - ``events[]``
+      - ``meta["events"]``
+      - If the v0.4 API is used, span events are stored as ``Span.span_events``
+
+"""  # noqa: E501
+
+from ddtrace.internal.opentelemetry.trace import TracerProvider
+
+
+__all__ = [
+    "TracerProvider",
+]

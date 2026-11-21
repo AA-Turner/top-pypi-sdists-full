@@ -4,6 +4,8 @@ from pydantic import AliasPath, BaseModel, Field
 class Place(BaseModel):
     locationId: int
     locationType: str
+    label: str | None = None
+    stateName: str | None = None
 
 
 class AdjustedPay(BaseModel):
@@ -24,6 +26,7 @@ class Header(BaseModel):
     jobTypeKeys: list[str] | None = None
     rating: float | None = None
     remoteWorkTypes: list[str] | None = None
+    salarySource: str | None = None
 
 
 class Overview(BaseModel):

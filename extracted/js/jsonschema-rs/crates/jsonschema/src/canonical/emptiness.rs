@@ -1,4 +1,4 @@
-//! Deciding which `$ref` targets denote the empty set, and which constrain nothing at all.
+//! Deciding which `$ref` targets accept no value, and which accept every value.
 //!
 //! `$ref` stays symbolic, so what sits behind one is invisible to leaf normalization. Settling a
 //! target lets `parse` substitute `False` or `True` and the existing pipeline fold.
@@ -20,8 +20,8 @@ use crate::canonical::{
 
 /// Where a reference sits relative to the instance being validated.
 ///
-/// A purely [`Position::InPlace`] cycle is ill-founded - the validator accepts every value against
-/// it - so it must never be assumed empty.
+/// A purely [`Position::InPlace`] cycle is ill-founded: what it accepts is the validator's answer,
+/// so it must never be assumed empty.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub(crate) enum Position {
     /// Evaluated against the same instance: `allOf`, `anyOf`, `oneOf`, `not`, a bare `$ref`.
@@ -30,7 +30,7 @@ pub(crate) enum Position {
     Consuming,
 }
 
-/// Every reference reachable from `schema`, paired with the position it occupies.
+/// Every reference written inside `schema`, paired with the position it occupies.
 ///
 /// `position` is `schema`'s own; once a walk enters a leaf's children it stays
 /// [`Position::Consuming`].
@@ -153,7 +153,7 @@ pub(crate) type ReferenceEdges = AHashMap<Arc<str>, Vec<(Arc<str>, Position)>>;
 
 /// Build the reference graph over the root and every definition.
 ///
-/// The root is the node [`ROOT_DEFINITION_KEY`]: a self-reference is never keyed.
+/// The root is the node [`ROOT_DEFINITION_KEY`], since the definition map holds no entry for it.
 pub(crate) fn reference_edges(root: &Schema, definitions: &DefinitionMap) -> ReferenceEdges {
     let mut edges = ReferenceEdges::default();
     let mut record = |key: Arc<str>, body: &Schema| {
@@ -165,7 +165,7 @@ pub(crate) fn reference_edges(root: &Schema, definitions: &DefinitionMap) -> Ref
             .map(|(uri, position)| (Arc::clone(uri), position))
             .collect();
         // Over the whole pair: a body reaching one target both in place and under a consuming
-        // keyword must keep both edges, or `guarded_components` qualifies an ill-founded cycle.
+        // keyword must keep both edges, or `guarded_members` qualifies an ill-founded cycle.
         targets.sort();
         targets.dedup();
         edges.insert(key, targets);
@@ -180,9 +180,8 @@ pub(crate) fn reference_edges(root: &Schema, definitions: &DefinitionMap) -> Ref
 /// Every definition key on a reference cycle. Following one leads back to where it started and
 /// never finishes, so callers leave these unresolved.
 ///
-/// Built on the same [`strongly_connected`] pass the folding proofs use: a depth-first walk would
-/// finish with a key before another on the same cycle had been reached, missing keys that are on
-/// one - and which it missed would depend on the order it visited them in.
+/// Built on the same [`strongly_connected`] pass the folding proofs use, so the keys found do not
+/// depend on visit order.
 pub(crate) fn cyclic_definition_keys(
     definitions: &DefinitionMap,
     within: &BTreeSet<Arc<str>>,
@@ -209,7 +208,7 @@ pub(crate) fn cyclic_definition_keys(
 }
 
 /// Every definition key, ordered so a body comes after every body it reads. `None` where the map
-/// holds a cycle, which admits no such order.
+/// holds a cycle, which allows no such order.
 pub(crate) fn settling_order(definitions: &DefinitionMap) -> Option<Vec<Arc<str>>> {
     // `#` is not a key of the map, so nothing resolves through it: the graph covers the definitions
     // alone, against a root that references nothing.
@@ -287,6 +286,71 @@ pub(crate) fn in_place_cycle_keys(
         .collect()
 }
 
+/// Whether `root` reads itself back on the same value through a body that inverts its operand.
+///
+/// The root is the target of its own `#`. The validator answers a cycle through `not` or `oneOf`
+/// by where it enters the cycle, so on such a cycle a copy of the root's body accepts other values
+/// than the root does.
+pub(crate) fn root_inverts_on_an_in_place_cycle(
+    root: &Schema,
+    definitions: &DefinitionMap,
+) -> bool {
+    // A way back to the root on one value passes only bodies the root reaches on that value.
+    let mut bodies = DefinitionMap::new();
+    let mut reaches_root = false;
+    let mut pending = Vec::new();
+    collect_in_place_references(root, &mut pending);
+    while let Some(uri) = pending.pop() {
+        if uri.as_ref() == ROOT_DEFINITION_KEY {
+            reaches_root = true;
+            continue;
+        }
+        let Some((uri, body)) = definitions.get_key_value(uri.as_ref()) else {
+            continue;
+        };
+        if bodies.insert(Arc::clone(uri), body.clone()).is_none() {
+            collect_in_place_references(body, &mut pending);
+        }
+    }
+    if !reaches_root {
+        return false;
+    }
+    let edges = reference_edges(root, &bodies);
+    let nodes: Vec<Arc<str>> = edges.keys().cloned().collect();
+    let in_place = restrict(&nodes, &edges, Edges::InPlaceOnly);
+    strongly_connected(&in_place)
+        .into_iter()
+        .find(|component| {
+            component
+                .iter()
+                .any(|key| key.as_ref() == ROOT_DEFINITION_KEY)
+        })
+        .is_some_and(|component| {
+            is_cyclic(&component, &in_place)
+                && component.iter().any(|key| {
+                    // The graph's nodes are the root and the bodies it was built over.
+                    let body = if key.as_ref() == ROOT_DEFINITION_KEY {
+                        root
+                    } else {
+                        &bodies[key]
+                    };
+                    inverts(body)
+                })
+        })
+}
+
+/// The pointers `schema` reads against the value it is itself read on.
+fn collect_in_place_references(schema: &Schema, out: &mut Vec<Arc<str>>) {
+    let mut found = Vec::new();
+    collect_classified_references(schema, Position::InPlace, &mut found);
+    out.extend(
+        found
+            .into_iter()
+            .filter(|(_, position)| *position == Position::InPlace)
+            .map(|(uri, _)| Arc::clone(uri)),
+    );
+}
+
 /// Which edges a restricted subgraph keeps.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Edges {
@@ -295,7 +359,7 @@ enum Edges {
 }
 
 /// `component`'s own subgraph, dropping edges to non-members and, for [`Edges::InPlaceOnly`],
-/// consuming ones. Filtering here is what lets the walk itself stay filter-free.
+/// consuming ones.
 fn restrict(component: &[Arc<str>], edges: &ReferenceEdges, keep: Edges) -> ReferenceEdges {
     let members: AHashSet<&Arc<str>> = component.iter().collect();
     component
@@ -406,10 +470,9 @@ fn strongly_connected(edges: &ReferenceEdges) -> Vec<Vec<Arc<str>>> {
 
 /// `value`'s canonical form with every settled target folded away.
 ///
-/// The whole pass behind one signature: applying a proof folds definitions it did not name, which
-/// can expose a cycle the previous round could not see, so this repeats until nothing new is
-/// settled. That makes the result a fixed point of the pass rather than a document whose own
-/// re-canonicalization folds further.
+/// Applying a proof folds definitions it did not name, which can expose a cycle the previous round
+/// missed, so this repeats until nothing new settles and re-canonicalizing the result folds nothing
+/// further.
 pub(crate) fn fold_definitions<'a>(
     mut parsed: ParseOutput,
     value: &'a Value,
@@ -429,11 +492,11 @@ pub(crate) fn fold_definitions<'a>(
         // under `allOf` or `anyOf` - the only operators a qualifying body is built from - puts an
         // inversion anywhere.
         debug_assert!(
-            !inverts_on_a_cycle(&parsed, &edges) || assumptions.admits_all.is_empty(),
+            !inverts_on_a_cycle(&parsed, &edges) || assumptions.accepts_all.is_empty(),
             "resolving a target as `true` never puts an inversion over a later round"
         );
         for uri in unconstrained_members(&parsed, &edges) {
-            grew |= assumptions.admits_all.insert(uri);
+            grew |= assumptions.accepts_all.insert(uri);
         }
         for uri in resolve_empty_definitions(&parsed, &edges, value, ctx, resolver, &assumptions)? {
             grew |= assumptions.empty.insert(uri);
@@ -565,10 +628,11 @@ fn names_only(schema: &Schema, members: &AHashSet<Arc<str>>) -> bool {
     }
 }
 
-/// Definitions proven to denote the empty set, given `parsed` is `value`'s current canonical form.
+/// Definitions proven to accept no value, given `parsed` is `value`'s current canonical form.
 ///
 /// Assume every guarded member empty at once, re-parse under that hypothesis, drop the members that
-/// did not come back `false`, repeat. The design spec proves the survivors.
+/// did not come back `false`, repeat. Every cycle through a survivor consumes part of the
+/// instance, so the assumption is well-founded and the survivors accept no value.
 ///
 /// One parse per round, not one per member: the hypothesis is the same for all of them.
 ///
@@ -582,21 +646,21 @@ fn resolve_empty_definitions<'a>(
     resolver: &Resolver<'a>,
     proven: &Assumptions,
 ) -> Result<AHashSet<Arc<str>>, CanonicalizationError> {
-    // `resolve_reference` is the only producer of `Reference`, so without one there is no graph,
-    // no cycle, and nothing to prove.
+    // `reference_to_definition` is the only producer of `Reference`, so without one there is no
+    // graph, no cycle, and nothing to prove.
     if !parsed.has_references {
         return Ok(AHashSet::default());
     }
     let mut assumed = guarded_members(edges);
     // A target resolved as `true` cannot also be resolved as `false`: `reference_to_definition`
     // reads one set before the other, so an overlap would silently pick a winner.
-    assumed.retain(|key| !proven.admits_all.contains(key));
+    assumed.retain(|key| !proven.accepts_all.contains(key));
     let mut assumed = plausible_assumptions(parsed, assumed);
     // Terminates because a continuing round drops at least one assumption.
     while !assumed.is_empty() {
         let hypothesis = Assumptions {
             empty: proven.empty.union(&assumed).cloned().collect(),
-            admits_all: proven.admits_all.clone(),
+            accepts_all: proven.accepts_all.clone(),
             finished: proven.finished.clone(),
         };
         // A hypothesis that keeps the document `Raw` proves nothing; giving up is an under-claim.
@@ -619,8 +683,7 @@ fn resolve_empty_definitions<'a>(
 /// Whether substituting `False` for `assumed` could make `schema` itself `False`.
 ///
 /// A necessary condition checked on the built IR, so cycles recursing only through optional
-/// positions - the common shape, and every cycle in FHIR - never pay for a hypothesis parse.
-/// Saying yes only costs one; the parse still decides.
+/// positions never pay for a hypothesis parse. Saying yes only costs one; the parse still decides.
 fn may_fold(schema: &Schema, assumed: &AHashSet<Arc<str>>) -> bool {
     match schema.kind() {
         SchemaKind::False => true,
@@ -657,7 +720,7 @@ fn may_fold(schema: &Schema, assumed: &AHashSet<Arc<str>>) -> bool {
         }
         SchemaKind::Object(leaf) => {
             let leaf = leaf.get();
-            // An object owing at least one key, none of which can be named, admits nothing.
+            // An object owing at least one key, none of which can be named, accepts nothing.
             let demands_a_key = !leaf.required.is_empty()
                 || leaf
                     .sizes
@@ -675,10 +738,11 @@ fn may_fold(schema: &Schema, assumed: &AHashSet<Arc<str>>) -> bool {
                         | ObjectViolation::UndeclaredValueFails { .. }
                         | ObjectViolation::PatternValueFails { .. } => false,
                     }));
-            // A key must come from the catch-all when nothing names one, so `minProperties` alone
-            // demands it. Deciding which pattern claims a key needs the pattern engine, so any of
-            // them counts - and left tight deliberately: widening this to named properties would
-            // put every `required` object with an optional recursive property back on the slow path.
+            // With no `required` key and no `properties`, a key `minProperties` demands answers to
+            // `patternProperties` or `additionalProperties`. Deciding which pattern claims a key
+            // needs the pattern engine, so any of them counts. Widening this to named properties
+            // would send every `required` object with an optional recursive property through a
+            // hypothesis parse.
             let demanded_catch_all = demands_a_key
                 && leaf.required.is_empty()
                 && leaf.properties.is_empty()
@@ -690,7 +754,7 @@ fn may_fold(schema: &Schema, assumed: &AHashSet<Arc<str>>) -> bool {
                         .additional
                         .as_ref()
                         .is_some_and(|schema| may_fold(schema, assumed)));
-            // A required key is demanded; an optional one admitting nothing just forbids its key.
+            // A required key is demanded; an optional one accepting nothing just forbids its key.
             let demanded_required =
                 leaf.required
                     .iter()
@@ -785,7 +849,7 @@ mod tests {
 
     use super::*;
 
-    /// The parse output for `schema`, which is what the pass actually consumes.
+    // The parse output for `schema`, which is what the pass consumes.
     fn parsed_of(schema: &Value) -> ParseOutput {
         let registry = referencing::Registry::new()
             .add(
@@ -809,7 +873,7 @@ mod tests {
             .expect("the fixture is modeled")
     }
 
-    /// The position of `schema`'s single `#` self-reference.
+    // The position of `schema`'s single `#` self-reference.
     fn self_reference_position(schema: &Value) -> Position {
         let parsed = parsed_of(schema);
         let mut found = Vec::new();
@@ -847,8 +911,8 @@ mod tests {
         assert_eq!(self_reference_position(&schema), Position::Consuming);
     }
 
-    /// The graph the pass sees, built from the parse rather than the emitted form - so a fixture
-    /// does not have to be one the pass leaves alone.
+    // The graph the pass sees, built from the parse rather than the emitted form, so a fixture
+    // does not have to be one the pass leaves alone.
     fn edges_of(schema: &Value) -> ReferenceEdges {
         let parsed = parsed_of(schema);
         reference_edges(&parsed.root, &parsed.definitions)
@@ -869,8 +933,8 @@ mod tests {
         assert_eq!(guarded(&schema), vec!["#".to_string()]);
     }
 
-    /// The cycle the pass actually decides. Reachable only because the graph is built from the
-    /// parse: the emitted form of this document is `false`, with no graph left to inspect.
+    // The cycle the pass decides. Reachable only because the graph is built from the parse: the
+    // emitted form of this document is `false`, with no graph left to inspect.
     #[test]
     fn a_required_consuming_self_cycle_qualifies() {
         let schema =
@@ -884,7 +948,7 @@ mod tests {
         assert_eq!(guarded(&schema), Vec::<String>::new());
     }
 
-    /// Every cycle here passes through the consuming edge.
+    // Every cycle here passes through the consuming edge.
     #[test]
     fn a_mixed_cycle_qualifies() {
         let schema = json!({
@@ -900,8 +964,8 @@ mod tests {
         );
     }
 
-    /// A member keeping a consuming cycle of its own stays guarded when an ill-founded member
-    /// shares its component; one whose only cycle ran through the excluded member does not.
+    // A member keeping a consuming cycle of its own stays guarded when an ill-founded member
+    // shares its component; one whose only cycle ran through the excluded member does not.
     #[test]
     fn only_the_ill_founded_member_is_excluded() {
         let schema = json!({

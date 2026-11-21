@@ -112,8 +112,18 @@ class MotorWiring(_message.Message):
     MOTOR_ADDRESS_FIELD_NUMBER: _builtins.int
     ACTUATOR_NAME_FIELD_NUMBER: _builtins.int
     NO_JOINT_FIELD_NUMBER: _builtins.int
+    HOME_SENSOR_ID_FIELD_NUMBER: _builtins.int
+    END_SENSOR_ID_FIELD_NUMBER: _builtins.int
     actuator_name: _builtins.str
     """The MJCF name of the motor actuator through which the motor of the drive actuates its joint."""
+    home_sensor_id: _builtins.str
+    """The id of the part config sensor the drive homes on. A drive with none refuses a homing move.
+    Initialize refuses an id that names no part config sensor.
+    """
+    end_sensor_id: _builtins.str
+    """The id of the part config sensor at the other end of the drive's travel.
+    Initialize refuses an id that names no part config sensor.
+    """
     @_builtins.property
     def motor_address(self) -> _ethercat_address_pb2.EthercatAddress:
         """The EtherCAT address of the drive. Initialize refuses a wiring without one."""
@@ -128,13 +138,24 @@ class MotorWiring(_message.Message):
         motor_address: _ethercat_address_pb2.EthercatAddress | None = ...,
         actuator_name: _builtins.str = ...,
         no_joint: Global___NoJoint | None = ...,
+        home_sensor_id: _builtins.str | None = ...,
+        end_sensor_id: _builtins.str | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["actuator_name", b"actuator_name", "joint", b"joint", "motor_address", b"motor_address", "no_joint", b"no_joint"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_end_sensor_id", b"_end_sensor_id", "_home_sensor_id", b"_home_sensor_id", "actuator_name", b"actuator_name", "end_sensor_id", b"end_sensor_id", "home_sensor_id", b"home_sensor_id", "joint", b"joint", "motor_address", b"motor_address", "no_joint", b"no_joint"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["actuator_name", b"actuator_name", "joint", b"joint", "motor_address", b"motor_address", "no_joint", b"no_joint"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_end_sensor_id", b"_end_sensor_id", "_home_sensor_id", b"_home_sensor_id", "actuator_name", b"actuator_name", "end_sensor_id", b"end_sensor_id", "home_sensor_id", b"home_sensor_id", "joint", b"joint", "motor_address", b"motor_address", "no_joint", b"no_joint"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    _WhichOneofReturnType__end_sensor_id: _TypeAlias = _typing.Literal["end_sensor_id"]  # noqa: Y015
+    _WhichOneofArgType__end_sensor_id: _TypeAlias = _typing.Literal["_end_sensor_id", b"_end_sensor_id"]  # noqa: Y015
+    _WhichOneofReturnType__home_sensor_id: _TypeAlias = _typing.Literal["home_sensor_id"]  # noqa: Y015
+    _WhichOneofArgType__home_sensor_id: _TypeAlias = _typing.Literal["_home_sensor_id", b"_home_sensor_id"]  # noqa: Y015
     _WhichOneofReturnType_joint: _TypeAlias = _typing.Literal["actuator_name", "no_joint"]  # noqa: Y015
     _WhichOneofArgType_joint: _TypeAlias = _typing.Literal["joint", b"joint"]  # noqa: Y015
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__end_sensor_id) -> _WhichOneofReturnType__end_sensor_id | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__home_sensor_id) -> _WhichOneofReturnType__home_sensor_id | None: ...
+    @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType_joint) -> _WhichOneofReturnType_joint | None: ...
 
 Global___MotorWiring: _TypeAlias = MotorWiring  # noqa: Y015

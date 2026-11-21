@@ -58,6 +58,7 @@ __all__ = (
     "ListAutonomousDatabaseCharacterSetsPaginatorName",
     "ListAutonomousDatabaseClonesPaginatorName",
     "ListAutonomousDatabasePeersPaginatorName",
+    "ListAutonomousDatabaseRefreshableClonesPaginatorName",
     "ListAutonomousDatabaseVersionsPaginatorName",
     "ListAutonomousDatabasesPaginatorName",
     "ListAutonomousVirtualMachinesPaginatorName",
@@ -202,6 +203,9 @@ ListAutonomousDatabaseCharacterSetsPaginatorName = Literal[
 ]
 ListAutonomousDatabaseClonesPaginatorName = Literal["list_autonomous_database_clones"]
 ListAutonomousDatabasePeersPaginatorName = Literal["list_autonomous_database_peers"]
+ListAutonomousDatabaseRefreshableClonesPaginatorName = Literal[
+    "list_autonomous_database_refreshable_clones"
+]
 ListAutonomousDatabaseVersionsPaginatorName = Literal["list_autonomous_database_versions"]
 ListAutonomousDatabasesPaginatorName = Literal["list_autonomous_databases"]
 ListAutonomousVirtualMachinesPaginatorName = Literal["list_autonomous_virtual_machines"]
@@ -294,12 +298,14 @@ WalletPasswordSourceType = Literal["API_REQUEST_PARAMETER", "CUSTOMER_MANAGED_AW
 WalletTypeType = Literal["INSTANCE", "REGIONAL"]
 OdbServiceName = Literal["odb"]
 ServiceName = Literal[
+    "abuse-signal",
     "accessanalyzer",
     "account",
     "account-access",
     "account-access-runtime",
     "acm",
     "acm-pca",
+    "agent-discovery",
     "agent-registry",
     "agent-registry-control",
     "aiops",
@@ -310,6 +316,7 @@ ServiceName = Literal[
     "apigateway",
     "apigatewaymanagementapi",
     "apigatewayv2",
+    "apiportal",
     "appconfig",
     "appconfigdata",
     "appfabric",
@@ -402,6 +409,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -586,6 +594,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -593,10 +602,12 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-marketing",
     "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
+    "payments",
     "pca-connector-ad",
     "pca-connector-scep",
     "pcs",
@@ -652,7 +663,9 @@ ServiceName = Literal[
     "sagemaker-a2i-runtime",
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
+    "sagemaker-gateway-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
@@ -738,6 +751,7 @@ PaginatorName = Literal[
     "list_autonomous_database_character_sets",
     "list_autonomous_database_clones",
     "list_autonomous_database_peers",
+    "list_autonomous_database_refreshable_clones",
     "list_autonomous_database_versions",
     "list_autonomous_databases",
     "list_autonomous_virtual_machines",

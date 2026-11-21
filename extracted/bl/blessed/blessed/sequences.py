@@ -86,8 +86,7 @@ class Termcap():
             return 0
 
         if self.nparams:
-            match = self.re_compiled.match(text)
-            if match:
+            if (match := self.re_compiled.match(text)):
                 return value * int(match.group(1))
             raise ValueError(f'Invalid parameters for termccap {self.name}: {text!r}')
 
@@ -179,7 +178,7 @@ class Sequence(str):
         """
         return wcwidth_ljust(self, width.__index__(), fillchar, control_codes='ignore',
                              ambiguous_width=self._term.ambiguous_width,
-                             term_program=self._term.term_program)
+                             term_program=(self._term.term_program or True))
 
     def rjust(self, width: SupportsIndex, fillchar: str = ' ') -> str:
         """
@@ -192,7 +191,7 @@ class Sequence(str):
         """
         return wcwidth_rjust(self, width.__index__(), fillchar, control_codes='ignore',
                              ambiguous_width=self._term.ambiguous_width,
-                             term_program=self._term.term_program)
+                             term_program=(self._term.term_program or True))
 
     def center(self, width: SupportsIndex, fillchar: str = ' ') -> str:
         """
@@ -205,7 +204,7 @@ class Sequence(str):
         """
         return wcwidth_center(self, width.__index__(), fillchar, control_codes='ignore',
                               ambiguous_width=self._term.ambiguous_width,
-                              term_program=self._term.term_program)
+                              term_program=(self._term.term_program or True))
 
     def clip(self, start: SupportsIndex = 0, end: SupportsIndex = -1, *,
              fillchar: str = ' ', tabsize: int = 8,
@@ -215,27 +214,27 @@ class Sequence(str):
         """
         Return a window of this string spanning display columns ``start`` to ``end``.
 
-        Like :meth:`~.Terminal.clip`, which documents the arguments. Horizontal cursor
-        movement is expanded by :meth:`padd` first, and the terminal's detected
+        Like :meth:`~.Terminal.clip`, which documents the arguments. Cursor movement
+        is interpreted by :func:`wcwidth.clip`, and the terminal's detected
         ``ambiguous_width`` and ``term_program`` are applied.
 
         :rtype: str
         :returns: This string clipped to display columns (start, end)
         """
         return wcwidth_clip(
-            self.padd(), start.__index__(), end.__index__(),
+            self, start.__index__(), end.__index__(),
             fillchar=fillchar, tabsize=tabsize,
             ambiguous_width=self._term.ambiguous_width,
             propagate_sgr=propagate_sgr, control_codes=control_codes,
-            overtyping=overtyping, term_program=self._term.term_program)
+            overtyping=overtyping, term_program=(self._term.term_program or True))
 
     def truncate(self, width: SupportsIndex) -> str:
         """
         Truncate a string in a sequence-aware manner.
 
         Any printable characters beyond ``width`` are removed, while all
-        sequences remain in place. Horizontal sequences are first expanded
-        by :meth:`padd`.
+        sequences remain in place. Horizontal cursor movement is interpreted
+        by :func:`wcwidth.clip`.
 
         Wide characters (such as CJK or emoji) that would partially exceed
         ``width`` are replaced with space padding to maintain exact width.
@@ -275,7 +274,7 @@ class Sequence(str):
             considered lengthy (a length of 0).
         """
         return wcwidth_width(self, ambiguous_width=self._term.ambiguous_width,
-                             term_program=self._term.term_program)
+                             term_program=(self._term.term_program or True))
 
     def strip(self, chars: Optional[str] = None) -> str:
         """

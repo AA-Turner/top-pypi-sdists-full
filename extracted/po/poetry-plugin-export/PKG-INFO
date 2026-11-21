@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: poetry-plugin-export
-Version: 1.10.1
+Version: 1.10.2
 Summary: Poetry plugin to export the dependencies to various formats
 License-Expression: MIT
 License-File: LICENSE

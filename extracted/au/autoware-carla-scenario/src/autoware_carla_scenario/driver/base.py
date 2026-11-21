@@ -26,6 +26,7 @@ from ..seed import check_seed, check_whole_number
 from ..sensor.carla_camera import CarlaCameraSensorConfig
 from ..sensor.carla_lidar import CarlaLidarSensorConfig
 from .geometry import Pose, Trajectory
+from .hdmap_files import MAP_FORMATS
 
 
 __all__ = [
@@ -70,6 +71,18 @@ def _number(key: str, value: float) -> float:
         number = float(value)
     except TypeError:
         raise ValueError(f"{key} must be a number, got {value!r}")
+    return number
+
+
+def _finite_number(key: str, value: float) -> float:
+    """*value*, checked as :func:`_number` does, and finite.
+
+    Raises:
+        ValueError: naming *key*.
+    """
+    number = _number(key, value)
+    if not math.isfinite(number):
+        raise ValueError(f"{key} must be finite, got {value!r}")
     return number
 
 
@@ -129,16 +142,17 @@ class DriverCameraLens:
     reference_poly: str = "pixeldist_to_angle"
 
     def __post_init__(self) -> None:
-        # Not coerced: a bool would be read as 1.0 (#1506).
-        _number("lens.max_angle", self.max_angle)
+        # Not coerced: a bool would be read as 1.0 (#1506).  Finite: a NaN or
+        # an infinity would reach the policy and the T4 fit (#2277).
+        _finite_number("lens.max_angle", self.max_angle)
         for value in self.principal_point:
-            _number("lens.principal_point", value)
+            _finite_number("lens.principal_point", value)
         for value in self.pixeldist_to_angle_poly:
-            _number("lens.pixeldist_to_angle_poly", value)
+            _finite_number("lens.pixeldist_to_angle_poly", value)
         for value in self.angle_to_pixeldist_poly:
-            _number("lens.angle_to_pixeldist_poly", value)
+            _finite_number("lens.angle_to_pixeldist_poly", value)
         for value in self.linear_cde:
-            _number("lens.linear_cde", value)
+            _finite_number("lens.linear_cde", value)
         if self.model not in CAMERA_LENS_MODELS:
             raise ValueError(
                 f"lens.model must be one of {CAMERA_LENS_MODELS}, got {self.model!r}"
@@ -456,7 +470,8 @@ class DriverClientConfig:
     """
 
     warmup_s: float = 0.0
-    """Length of a run-up onto the scenario's first frame, or 0 for none.
+    """Length of a run-up onto the scenario's first frame, or 0 for none (not
+    negative).
 
     A policy that reads a history (past LiDAR maps, past poses) has none at the
     first step and plans as if the ego had stood still.  With a run-up, the
@@ -469,10 +484,10 @@ class DriverClientConfig:
 
     route_horizon_m: float = 80.0
     """How far ahead the route sent to the policy extends, from its first
-    waypoint, which is level with the rig (the rear axle)."""
+    waypoint, which is level with the rig (the rear axle); positive."""
 
     route_resolution_m: float = 2.0
-    """Spacing between route waypoints."""
+    """Spacing between route waypoints; positive."""
 
     rear_axle_offset_m: Optional[float] = None
     """Distance from the CARLA actor origin back to the rig origin.
@@ -515,12 +530,13 @@ class DriverClientConfig:
 
     0 falls back to CARLA's ``is_at_traffic_light()``, whose trigger volumes are
     about a metre thick -- a policy learns of a red light on arrival, too late to
-    stop from any ordinary speed.
+    stop from any ordinary speed.  Not negative.
     """
 
     actor_horizon_m: float = 150.0
     """Radius within which other vehicles, pedestrians and props are reported to
-    the policy (``renderer_data.actors``), measured in 3D from the ego."""
+    the policy (``renderer_data.actors``), measured in 3D from the ego; not
+    negative (0 reports none)."""
 
     random_seed: Optional[int] = None
     """Seed handed to the policy in ``start_session``; ``None`` hands it the run's
@@ -573,8 +589,8 @@ class DriverClientConfig:
     apart. A run younger than this sends the rows it has."""
 
     t4_scene_wheel_base_m: Optional[float] = None
-    """The ego's wheel base, written in the scenes' ego shape; ``None`` leaves
-    it out (CARLA 0.10 reports no wheel positions)."""
+    """The ego's wheel base (positive), written in the scenes' ego shape;
+    ``None`` leaves it out (CARLA 0.10 reports no wheel positions)."""
 
     t4_scene_goal: str = "scenario"
     """The scenes' goal: ``scenario``, where the scenario routes the ego
@@ -693,6 +709,19 @@ class DriverClientConfig:
                 "unix:///path/policy.sock); leave it out for the default "
                 f"localhost:50051, got {self.address!r}"
             )
+        # Null keeps its meaning (no policy served, no map written); an
+        # empty string or false is no name: policy '' failed at session
+        # start, map_dir '' wrote the map set into the working directory and
+        # map_dir false reached the export (#2241).
+        for key, optional in (("policy", self.policy), ("map_dir", self.map_dir)):
+            if optional is not None and (
+                not isinstance(optional, str) or not optional.strip()
+            ):
+                raise ValueError(
+                    f"driver.{key} must be a non-empty string, or null, "
+                    f"got {optional!r}"
+                )
+        self._check_map_formats()
         for key, value in (
             ("timeout_s", self.timeout_s),
             ("policy_timestep_s", self.policy_timestep_s),
@@ -714,6 +743,29 @@ class DriverClientConfig:
         if not 1 <= quality <= 100:
             raise ValueError(f"driver.image_quality must be 1-100, got {quality}")
         object.__setattr__(self, "image_quality", quality)
+
+    def _check_map_formats(self) -> None:
+        """Refuse a :attr:`map_formats` the map set cannot be written in, as
+        the config is read rather than at scenario start, where the export
+        named no ``driver.`` key (#2241).
+
+        Each format is a name of :data:`~.hdmap_files.MAP_FORMATS`; ``t4``,
+        the run's Lanelet2 map as the T4Scenes reference it, is never
+        converted, so it needs :attr:`t4_scene`, which writes it.
+        """
+        for index, name in enumerate(self.map_formats):
+            if not isinstance(name, str) or name not in MAP_FORMATS:
+                raise ValueError(
+                    f"driver.map_formats[{index}] must be one of "
+                    f"{sorted(MAP_FORMATS)}, got {name!r}"
+                )
+        if "t4" in self.map_formats and not self.t4_scene:
+            raise ValueError(
+                "driver.map_formats names t4, the run's Lanelet2 map as the "
+                "T4Scenes reference it, which only driver.t4_scene writes; set "
+                "driver.t4_scene=true, or leave t4 out, got "
+                f"{list(self.map_formats)!r}"
+            )
 
     def _check_numbers(self) -> None:
         """Refuse the numbers a NaN or an infinity would silently break.
@@ -756,6 +808,37 @@ class DriverClientConfig:
         ):
             if math.isnan(distance):
                 raise ValueError(f"driver.{key} must be a number, got {distance}")
+        self._check_ranges()
+
+    def _check_ranges(self) -> None:
+        """Refuse the lengths and durations out of their domain (#2277).
+
+        0 keeps its documented meaning where it has one: no run-up
+        (``warmup_s``), CARLA's own light trigger (``traffic_light_sight_distance_m``),
+        no road user reported (``actor_horizon_m``); a negative one has none.
+        A route that reaches no way ahead, or whose waypoints are no distance
+        apart, would send the policy an empty route every step, and a wheel
+        base is a length.
+        """
+        for key, value in (
+            ("warmup_s", self.warmup_s),
+            ("traffic_light_sight_distance_m", self.traffic_light_sight_distance_m),
+            ("actor_horizon_m", self.actor_horizon_m),
+        ):
+            if value < 0.0:
+                raise ValueError(f"driver.{key} must not be negative, got {value!r}")
+        for key, value in (
+            ("route_horizon_m", self.route_horizon_m),
+            ("route_resolution_m", self.route_resolution_m),
+        ):
+            if not value > 0.0:
+                raise ValueError(f"driver.{key} must be positive, got {value!r}")
+        wheel_base = self.t4_scene_wheel_base_m
+        if wheel_base is not None and not wheel_base > 0.0:
+            raise ValueError(
+                "driver.t4_scene_wheel_base_m must be positive, or null to leave "
+                f"it out, got {wheel_base!r}"
+            )
 
     @classmethod
     def from_mapping(cls, mapping: Mapping[str, Any]) -> "DriverClientConfig":
@@ -772,6 +855,7 @@ class DriverClientConfig:
         # Imported here: the Codon check does not compile this method, and
         # utils.config reads a dataclass's fields from its class (docs/typecheck.md).
         from ..utils.config import checked_mapping_list  # noqa: PLC0415
+        from ..utils.config import checked_str_list  # noqa: PLC0415
         from ..utils.config import checked_options as _checked  # noqa: PLC0415
 
         values = _checked(cls, mapping, ignore={"control", "bridge"})
@@ -791,9 +875,13 @@ class DriverClientConfig:
                     checked_mapping_list("driver.lidars", lidars)
                 )
             )
+        # A list of strings: a bare string would be read as its characters
+        # (driver.map_formats=lanelet2 as l, a, n, ...; #2241).
         formats = values.pop("map_formats", None)
         if formats is not None:
-            values["map_formats"] = tuple(formats)
+            values["map_formats"] = tuple(
+                checked_str_list("driver.map_formats", formats)
+            )
         return cls(**values)
 
 

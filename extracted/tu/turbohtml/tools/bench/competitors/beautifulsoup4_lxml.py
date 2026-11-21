@@ -21,6 +21,7 @@ from bench._beautifulsoup import (  # simplint: ignore[private-import-path]  # s
     serialize_inner_indent,
     socialcard,
 )
+from bench.link_attributes import element_links
 from bench.timing import Mutating
 
 if TYPE_CHECKING:
@@ -74,7 +75,7 @@ def _find_attr_presence(case: tuple[str, bool]) -> None:
 
 def _select_default(case: tuple[str, str, int]) -> None:
     if case[0] == ":default" and "<button>" in case[1]:
-        unsupported: Final = "SoupSieve requires explicit type=submit for default buttons"
+        unsupported: Final[str] = "SoupSieve requires explicit type=submit for default buttons"
         raise NotImplementedError(unsupported)
     _select_relative(case)
 
@@ -84,6 +85,11 @@ def _select_relative(case: tuple[str, str, int]) -> None:
     document = parsed(_BACKEND, text)
     for _ in range(repeats):
         document.select(selector)
+
+
+def _select_scaling(case: tuple[str, str]) -> None:
+    selector, text = case
+    parsed(_BACKEND, text).select(selector)
 
 
 def text_content(text: str) -> None:
@@ -180,9 +186,17 @@ def match(text: str) -> None:
         anchor.css.match("div a[href]")
 
 
+def link_urls(text: str) -> list[str]:
+    # Collect every link-bearing attribute and <style> url() with BeautifulSoup, the set turbohtml's links() reads.
+    return [
+        link
+        for tag in parsed(_BACKEND, text).find_all(name=True)
+        for link in element_links(tag.name, tag.attrs.items(), tag.get_text() if tag.name == "style" else None)
+    ]
+
+
 def links_extract(text: str) -> None:
-    # Collect every anchor's href with BeautifulSoup, the shape a scraper reads links in.
-    _ = [anchor.get("href") for anchor in parsed(_BACKEND, text).find_all("a")]
+    _ = link_urls(text)
 
 
 def links_rewrite(text: str) -> None:
@@ -253,7 +267,7 @@ OPERATIONS: Final[dict[str, tuple[Timed, str]]] = {
     "parse-scope": (parse, "BeautifulSoup (lxml)"),
     "find": (functools.partial(find, _BACKEND), "BeautifulSoup (lxml)"),
     "select": (select, "BeautifulSoup (lxml)"),
-    "select-nth": (_select_relative, "BeautifulSoup (lxml)"),
+    "select-nth": (_select_scaling, "BeautifulSoup (lxml)"),
     "select-relative": (_select_relative, "BeautifulSoup (lxml)"),
     "select-default": (_select_default, "BeautifulSoup (lxml)"),
     "select-has": (select_has, "BeautifulSoup (lxml)"),

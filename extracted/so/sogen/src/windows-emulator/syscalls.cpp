@@ -305,6 +305,9 @@ namespace sogen
         NTSTATUS handle_NtAlpcCreateSecurityContext(const syscall_context& c, handle port_handle, ULONG flags,
                                                     emulator_object<ALPC_SECURITY_ATTR<EmulatorTraits<Emu64>>> security_attribute);
         NTSTATUS handle_NtAlpcDeleteSecurityContext(const syscall_context& c, handle port_handle, ULONG flags, handle context_handle);
+        NTSTATUS handle_NtAlpcCreateResourceReserve(const syscall_context& c, handle port_handle, ULONG flags, uint64_t message_size,
+                                                    emulator_object<ULONG> resource_id);
+        NTSTATUS handle_NtAlpcDeleteResourceReserve(const syscall_context& c, handle port_handle, ULONG flags, ULONG resource_id);
         NTSTATUS handle_NtAlpcCreatePortSection(const syscall_context& c, handle port_handle, ULONG flags, handle section_handle,
                                                 uint64_t section_size, emulator_object<handle> alpc_section_handle,
                                                 emulator_object<uint64_t> actual_section_size);
@@ -456,6 +459,7 @@ namespace sogen
                                             BOOLEAN open_as_self, ULONG /*handle_attributes*/, emulator_object<handle> token_handle);
         NTSTATUS handle_NtTerminateThread(const syscall_context& c, handle thread_handle, NTSTATUS exit_status);
         NTSTATUS handle_NtDelayExecution(const syscall_context& c, BOOLEAN alertable, emulator_object<LARGE_INTEGER> delay_interval);
+        NTSTATUS handle_NtAlertThread(const syscall_context& c, handle thread_handle);
         NTSTATUS handle_NtAlertThreadByThreadId(const syscall_context& c, uint64_t thread_id);
         NTSTATUS handle_NtAlertThreadByThreadIdEx(const syscall_context& c, uint64_t thread_id,
                                                   emulator_object<EMU_RTL_SRWLOCK<EmulatorTraits<Emu64>>> lock);
@@ -1323,8 +1327,15 @@ namespace sogen
             return STATUS_SUCCESS;
         }
 
+        // KeTestAlertThread: a pending user-mode alert is taken (STATUS_ALERTED); without one, queued user APCs are delivered.
         NTSTATUS handle_NtTestAlert(const syscall_context& c)
         {
+            if (auto& thread = c.thread(); thread.user_alerted)
+            {
+                thread.user_alerted = false;
+                return STATUS_ALERTED;
+            }
+
             c.win_emu.yield_thread(c.vcpu, true);
             return STATUS_SUCCESS;
         }
@@ -2003,6 +2014,7 @@ namespace sogen
         add_handler(NtWaitForAlertByThreadId);
         add_handler(NtAlertThreadByThreadIdEx);
         add_handler(NtAlertThreadByThreadId);
+        add_handler(NtAlertThread);
         add_handler(NtReadFile);
         add_handler(NtSetInformationFile);
         add_handler(NtUserRegisterWindowMessage);
@@ -2220,6 +2232,8 @@ namespace sogen
         add_handler(NtCreateDebugObject);
         add_handler(NtReleaseWorkerFactoryWorker);
         add_handler(NtAlpcCreateSecurityContext);
+        add_handler(NtAlpcCreateResourceReserve);
+        add_handler(NtAlpcDeleteResourceReserve);
         add_handler(NtAlpcCreatePortSection);
         add_handler(NtAlpcDeletePortSection);
         add_handler(NtAlpcCreateSectionView);

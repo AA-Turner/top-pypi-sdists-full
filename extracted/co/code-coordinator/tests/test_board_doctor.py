@@ -21,6 +21,7 @@ import pytest
 from coord import queue_diagnose, state
 from coord import board_doctor_followthrough as ft
 from coord.board_doctor import (
+    ACTION_BRANCH_MERGED_GUARD_FALSE_POSITIVE_REQUEUED,
     ALERT_SKIPPED,
     CAUSE_BASELINE_RED,
     CAUSE_BRANCH_MERGED_GUARD,
@@ -7973,6 +7974,18 @@ class TestRunRefileSweep:
     `branch-merged-guard` :class:`StuckRow` and
     :func:`coord.board_doctor_followthrough.run_refile` (#4038)."""
 
+    @pytest.fixture(autouse=True)
+    def _default_still_merged(self, monkeypatch):
+        """#4061: `run_refile_sweep` re-checks liveness
+        (`coord.claim.any_matching_branch_merged`) before refiling anything
+        — every test in this class except the dedicated false-positive one
+        below exercises the ordinary "genuinely merged" shape, so default
+        the live recheck to `True` here rather than repeating this stub in
+        every single test."""
+        monkeypatch.setattr(
+            "coord.claim.any_matching_branch_merged", lambda *a, **k: True
+        )
+
     @staticmethod
     def _config(*, opted_in: bool = True) -> Config:
         repo = Repo(
@@ -8085,6 +8098,182 @@ class TestRunRefileSweep:
             [self._row()], config=self._config(), issue_open=lambda r, n: True,
         )
         assert dispositions == []
+
+    def test_a_row_matched_twice_in_one_sweep_refiles_only_once(
+        self, monkeypatch,
+    ) -> None:
+        """The same key reaching *rows* twice in one call (e.g. a
+        `premise-refusal` episode history reclassified to
+        `branch-merged-guard` AND the orphan belt-and-braces scan both
+        surfacing it) must file exactly one replacement, not one per
+        occurrence — `entries_by_key` is one snapshot read ONCE before the
+        loop, so the second occurrence still finds the stale, not-yet-
+        dequeued original entry."""
+        self._stub_get_issue(monkeypatch)
+        state.enqueue_drive_queue("quadraui", 2467)
+        writer = _FakeRefileWriter(new_number=2739)
+
+        dispositions = run_refile_sweep(
+            [self._row(), self._row()], config=self._config(),
+            plan_leg_dispatcher=self._fake_plan_leg(False, "B is not on develop"),
+            writer=writer, issue_open=lambda repo, number: True,
+        )
+
+        assert len(dispositions) == 2
+        assert dispositions[0].action == ft.ACTION_REFILE_FILED
+        assert dispositions[0].follow_ups == [2739]
+        assert dispositions[1].action == ft.ACTION_REFILE_ALREADY_FILED
+        assert dispositions[1].follow_ups == [2739]
+        assert len(writer.created) == 1
+
+        rows = state.list_drive_queue()
+        by_issue = {r["issue_number"]: r for r in rows}
+        assert 2467 not in by_issue
+        assert 2739 in by_issue
+
+    def test_a_row_whose_write_fails_after_minting_is_not_refiled_again(
+        self, monkeypatch,
+    ) -> None:
+        """`run_refile` sets `follow_up_keys["refile"]` the moment the
+        replacement issue is created, before `comment_issue` runs — so a
+        `comment_issue` failure still leaves a real, already-created issue
+        number behind even though the action comes back
+        `ACTION_REFILE_WRITE_FAILED`. A second occurrence of the same key
+        in this same sweep must reuse that number, not mint another one."""
+        self._stub_get_issue(monkeypatch)
+        state.enqueue_drive_queue("quadraui", 2467)
+
+        class _FailCommentWriter(_FakeRefileWriter):
+            def comment_issue(self, repo_name, number, *, body):
+                raise RuntimeError("transient GitHub write failure")
+
+        writer = _FailCommentWriter(new_number=2739)
+
+        dispositions = run_refile_sweep(
+            [self._row(), self._row()], config=self._config(),
+            plan_leg_dispatcher=self._fake_plan_leg(False, "B is not on develop"),
+            writer=writer, issue_open=lambda repo, number: True,
+        )
+
+        assert len(dispositions) == 2
+        assert dispositions[0].action == ft.ACTION_REFILE_WRITE_FAILED
+        assert dispositions[0].follow_ups == [2739]
+        assert dispositions[1].action == ft.ACTION_REFILE_ALREADY_FILED
+        assert dispositions[1].follow_ups == [2739]
+        assert len(writer.created) == 1
+
+    def test_a_later_sweep_does_not_refile_the_same_row_again(
+        self, monkeypatch,
+    ) -> None:
+        """Once a key's refile is recorded as
+        :data:`ft.ACTION_REFILE_FILED`, a SEPARATE, later call to
+        :func:`run_refile_sweep` (the durable decision log, not this
+        call's own in-memory state) must still reuse it rather than
+        filing a second one."""
+        self._stub_get_issue(monkeypatch)
+        state.enqueue_drive_queue("quadraui", 2467)
+        writer = _FakeRefileWriter(new_number=2739)
+
+        first = run_refile_sweep(
+            [self._row()], config=self._config(),
+            plan_leg_dispatcher=self._fake_plan_leg(False, "B is not on develop"),
+            writer=writer, issue_open=lambda repo, number: True,
+        )
+        assert first[0].action == ft.ACTION_REFILE_FILED
+
+        # Simulate the row reappearing in a later sweep's own fresh
+        # `rows`/`entries_by_key` (a re-diagnosis pass surfacing the same
+        # key again before the original issue is observed closed).
+        state.enqueue_drive_queue("quadraui", 2467)
+        second = run_refile_sweep(
+            [self._row()], config=self._config(),
+            plan_leg_dispatcher=self._fake_plan_leg(False, "B is not on develop"),
+            writer=writer, issue_open=lambda repo, number: True,
+        )
+
+        assert len(second) == 1
+        assert second[0].action == ft.ACTION_REFILE_ALREADY_FILED
+        assert second[0].follow_ups == [2739]
+        assert len(writer.created) == 1
+
+        # No second replacement issue was filed, but the manual
+        # re-`enqueue_drive_queue("quadraui", 2467)` above (standing in for
+        # a re-diagnosis pass finding the original row again) is itself
+        # outside `run_refile_sweep`'s control — it leaves both the
+        # original row and the one refile queued, which is the correct
+        # "exactly one refile issue, one queue row per issue" end state.
+        rows = state.list_drive_queue()
+        by_issue = {r["issue_number"]: r for r in rows}
+        assert sorted(by_issue) == [2467, 2739]
+
+    def test_live_recheck_false_positive_requeues_instead_of_refiling(
+        self, monkeypatch,
+    ) -> None:
+        """#4061: quadraui#2539's exact shape — a `branch-merged-guard` row
+        whose stored refusal is now a false positive (a zero-commit work
+        leg's own residue branch, never a real merge) must be requeued,
+        not refiled: there is no remainder to split off when nothing ever
+        landed on the original issue."""
+        self._stub_get_issue(monkeypatch)
+        monkeypatch.setattr(
+            "coord.claim.any_matching_branch_merged", lambda *a, **k: False
+        )
+        state.enqueue_drive_queue("quadraui", 2467)
+        writer = _FakeRefileWriter(new_number=2739)
+
+        def _leg(prompt, *, partial, config):
+            raise AssertionError(
+                "must not dispatch a plan leg for a false-positive row"
+            )
+
+        dispositions = run_refile_sweep(
+            [self._row()], config=self._config(),
+            plan_leg_dispatcher=_leg,
+            writer=writer, issue_open=lambda repo, number: True,
+        )
+
+        assert len(dispositions) == 1
+        disposition = dispositions[0]
+        assert disposition.action == ACTION_BRANCH_MERGED_GUARD_FALSE_POSITIVE_REQUEUED
+        assert disposition.follow_ups == []
+        assert not writer.created
+
+        # The original issue stayed queued (requeued, not replaced) — no
+        # refile issue was ever minted.
+        rows = state.list_drive_queue()
+        by_issue = {r["issue_number"]: r for r in rows}
+        assert sorted(by_issue) == [2467]
+
+    def test_live_recheck_false_positive_dry_run_does_not_mutate_the_queue(
+        self, monkeypatch,
+    ) -> None:
+        """#4061: `dry_run=True` must report the same false-positive verdict
+        without actually touching the drive queue — same contract
+        `run_refile`'s own dry-run path gives for an ordinary refile."""
+        self._stub_get_issue(monkeypatch)
+        monkeypatch.setattr(
+            "coord.claim.any_matching_branch_merged", lambda *a, **k: False
+        )
+        state.enqueue_drive_queue("quadraui", 2467)
+        writer = _FakeRefileWriter(new_number=2739)
+
+        dispositions = run_refile_sweep(
+            [self._row()], config=self._config(),
+            plan_leg_dispatcher=self._fake_plan_leg(False, "unused"),
+            writer=writer, issue_open=lambda repo, number: True,
+            dry_run=True,
+        )
+
+        assert len(dispositions) == 1
+        assert (
+            dispositions[0].action
+            == ACTION_BRANCH_MERGED_GUARD_FALSE_POSITIVE_REQUEUED
+        )
+        assert dispositions[0].dry_run is True
+        assert not writer.created
+        rows = state.list_drive_queue()
+        by_issue = {r["issue_number"]: r for r in rows}
+        assert sorted(by_issue) == [2467]
 
 
 class TestRunPendingRefileCloseSweep:

@@ -31,7 +31,9 @@ the transcript records real per-request usage, so the last record carrying `mess
     input_tokens + cache_creation_input_tokens + cache_read_input_tokens
 
 which is the context that request actually carried - a measurement, not a bytes/4 proxy. It also
-self-corrects after a compaction, because the next request's usage drops on its own.
+self-corrects after a compaction, because the next request's usage drops on its own. A record that
+carried no request is skipped: an API error the harness logs as a `<synthetic>` assistant record
+with every usage field 0 would otherwise read as a compaction.
 
 THE WINDOW comes from the model FAMILY, which `message.model` carries on every assistant record.
 That id never includes Claude Code's `[1m]` suffix, and it does not need to: measured across 1485
@@ -88,7 +90,8 @@ on past the rot onset - and the knob exists to move it.
 
 A REPEAT request is spaced by 10% of the window. A reading back below the save point means the
 harness compacted, so the request re-arms and the next crossing asks for a fresh checkpoint; above
-it, a repeat refreshes the checkpoint only when the harness is not compacting. A Stop yields entirely
+it, a repeat refreshes the checkpoint only when the harness is not compacting. A request earned by
+the checkpoint's own write is answered by it and stays unsaid. A Stop yields entirely
 when a post-compaction nap is already owed: the Stop gate refuses to stop on that obligation and
 stacking a second block would make the two fight over the same turn. Fail-open on every error path -
 a broken watcher must never wedge a turn.
@@ -101,10 +104,46 @@ import os
 import pathlib
 import subprocess
 import sys
+from collections.abc import Callable, Mapping
 from enum import StrEnum
 from types import MappingProxyType
+from typing import Literal, TypeIs, cast
 
+import checkpoint_names
 import self_improve_signals as sig
+
+# One decoded JSON object: a hook event, a transcript record, its `message` or `usage` block. The
+# values are whatever the harness wrote, so each reader narrows the field it uses.
+type _JsonRecord = dict[str, object]
+# A path argument as os.path.getsize and open take it, a file descriptor included.
+type _PathArg = str | bytes | int | os.PathLike[str] | os.PathLike[bytes]
+# What compact_verdict decides for one reading.
+type Verdict = Literal["quiet", "save", "misconfigured"]
+
+# int() refuses what it cannot convert with TypeError or ValueError, and every caller here catches
+# both: a knob, an environment value or a usage field is whatever was stored, so the conversion IS
+# the check. Typed as taking `object` because that is what those callers hold.
+_coerce_int = cast("Callable[[object], int]", int)
+
+
+def _is_record(value: object) -> TypeIs[_JsonRecord]:
+    """True for a decoded JSON object. Its keys are str for anything json.loads produced."""
+    return isinstance(value, dict)
+
+
+def _is_path_arg(value: object) -> TypeIs[_PathArg]:
+    """True for anything os.path.getsize and open accept as a path, a file descriptor included."""
+    return isinstance(value, (str, bytes, int, os.PathLike))
+
+
+def _is_environment(value: object) -> TypeIs[Mapping[str, object]]:
+    """True for an environment mapping: os.environ itself (a Mapping, not a dict) or a plain dict."""
+    return isinstance(value, Mapping)
+
+
+def _is_str_path(value: object) -> TypeIs[str | os.PathLike[str]]:
+    """True for a str or path object, the shapes a project directory arrives in."""
+    return isinstance(value, (str, os.PathLike))
 
 # Enough tail to reach a recent assistant record even when the last turn wrote a large tool result,
 # while staying a single bounded read on a multi-megabyte transcript.
@@ -143,7 +182,7 @@ _HARNESS_RESERVE = 33_000
 _SAVE_MARGIN_MIN = 40_000
 
 
-def window_for_model(model_id, environ=None) -> int:
+def window_for_model(model_id: object, environ: Mapping[str, object] | None = None) -> int:
     """The context window this model family runs. PURE.
 
     A family the table knows answers from the table alone - the environment is not consulted for
@@ -168,71 +207,65 @@ def window_for_model(model_id, environ=None) -> int:
     return _DEFAULT_WINDOW
 
 
-def _env_max_context(environ) -> int:
+def _env_max_context(environ: object) -> int:
     """The window a launcher declared for a custom model, or 0 when it declared none. PURE.
 
-    `None` (no environment passed at all) counts as no declaration, not an error.
+    `None` (no environment passed at all) counts as no declaration, not an error. Any mapping is
+    read, os.environ included: decide() passes that one, and a dict-only check never saw it.
     """
-    if not isinstance(environ, dict):
+    if not _is_environment(environ):
         return 0
     try:
-        value = int(environ.get(_ENV_MAX_CONTEXT) or 0)
+        value = _coerce_int(environ.get(_ENV_MAX_CONTEXT) or 0)
     except (TypeError, ValueError):
         return 0
     return value if value > 0 else 0
 
 
-def read_session(transcript_path, tail_bytes=_TAIL_BYTES):
-    """(current_tokens, family_model) from ONE tail read. IMPURE.
+# The harness logs an API error reply (a 429, an overload) as an assistant record of its own, with
+# model "<synthetic>", `isApiErrorMessage` set and every usage field 0; all 213 such records in the
+# local transcripts carried a 0 total. Read as a measurement it says the session holds 0 tokens,
+# which is exactly what a compaction looks like, so the request re-armed and the checkpoint's own
+# Write was asked again and stamped after the file, and the resume reported no checkpoint (one
+# measured miss). A real request always carries its system prompt, so a 0 total measures nothing
+# either; two such records with a real model id turned up in a 600-transcript sample.
+_SYNTHETIC_MODEL = "<synthetic>"
+_CONTEXT_LEGS = ("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens")
 
-    Both come from the same records, so reading them together avoids a second pass over a
-    multi-megabyte transcript on every turn.
+
+class _Unreadable(ValueError):
+    """A usage block whose fields are not numbers; each reader keeps its own policy for it."""
+
+
+def _reading(record: object) -> tuple[int, object] | None:
+    """(context tokens, model id) a transcript record measured, or None when it measured none. PURE.
+
+    None for anything but a real request's usage: no usage block, an API-error or `<synthetic>`
+    record, or a 0 total. Raises _Unreadable for a usage block whose fields are not numbers.
     """
+    if not _is_record(record) or record.get("isApiErrorMessage"):
+        return None
+    message = record.get("message")
+    if not _is_record(message) or message.get("model") == _SYNTHETIC_MODEL:
+        return None                           # a string or list message carries no usage
+    usage = message.get("usage")
+    if not _is_record(usage):
+        return None
     try:
-        size = os.path.getsize(transcript_path)
-        with open(transcript_path, "rb") as handle:
-            if size > tail_bytes:
-                handle.seek(size - tail_bytes)
-                handle.readline()
-            data = handle.read()
-    except (OSError, TypeError, ValueError):
-        return None, None
-    current, model = None, None
-    for raw in data.splitlines():
-        try:
-            record = json.loads(raw.strip().decode("utf-8", "replace"))
-        except (ValueError, AttributeError):
-            continue
-        if not isinstance(record, dict):
-            continue
-        message = record.get("message")
-        if not isinstance(message, dict):
-            continue                          # a string or list message carries no usage
-        usage = message.get("usage")
-        if not isinstance(usage, dict):
-            continue
-        try:
-            total = (int(usage.get("input_tokens") or 0)
-                     + int(usage.get("cache_creation_input_tokens") or 0)
-                     + int(usage.get("cache_read_input_tokens") or 0))
-        except (TypeError, ValueError):
-            continue
-        current = total                       # the LAST one wins; the loop runs forward
-        if message.get("model"):
-            model = message["model"]
-    return current, model
+        total = sum(_coerce_int(usage.get(leg) or 0) for leg in _CONTEXT_LEGS)
+    except (TypeError, ValueError) as exc:
+        raise _Unreadable(str(exc)) from None
+    return (total, message.get("model")) if total > 0 else None
 
 
-def context_tokens(transcript_path, tail_bytes=_TAIL_BYTES):
-    """Context carried by the most recent request, or None when it cannot be read. IMPURE (reads).
+def _tail_records(transcript_path: object, tail_bytes: int) -> list[object] | None:
+    """The JSON records in the transcript's last `tail_bytes`, oldest first, or None. IMPURE.
 
-    The three fields sum to what the request actually sent: fresh input, whatever was written to
-    cache this turn, and whatever was read from cache. Omitting the cache legs would report a
-    handful of tokens on a session hundreds of thousands deep, because almost all of a long
-    session's context arrives as a cache read.
-
-    Scans the tail BACKWARDS and stops at the first usage record, so the answer is the latest one.
+    A line that does not parse is skipped: the seek can land mid-line, and that partial line is
+    dropped before the read anyway. A path of a type the file calls refuse reads as unreadable.
     """
+    if not _is_path_arg(transcript_path):
+        return None
     try:
         size = os.path.getsize(transcript_path)
         with open(transcript_path, "rb") as handle:
@@ -242,32 +275,67 @@ def context_tokens(transcript_path, tail_bytes=_TAIL_BYTES):
             data = handle.read()
     except (OSError, TypeError, ValueError):
         return None
-    for raw in reversed(data.splitlines()):
+    records: list[object] = []
+    for raw in data.splitlines():
         line = raw.strip()
         if not line:
             continue
         try:
-            record = json.loads(line.decode("utf-8", "replace"))
+            records.append(json.loads(line.decode("utf-8", "replace")))
         except ValueError:
-            continue                          # a tail read can start mid-line
-        if not isinstance(record, dict):
             continue
-        message = record.get("message")
-        if not isinstance(message, dict):
-            continue                          # a string or list message carries no usage
-        usage = message.get("usage")
-        if not isinstance(usage, dict):
-            continue
+    return records
+
+
+def read_session(transcript_path: object,
+                 tail_bytes: int = _TAIL_BYTES) -> tuple[int | None, object]:
+    """(current_tokens, family_model) from ONE tail read. IMPURE.
+
+    Both come from the same records, so reading them together avoids a second pass over a
+    multi-megabyte transcript on every turn. A record that measured nothing (see _reading) moves
+    neither, so an API error neither reads as 0 tokens nor names the window by `<synthetic>`.
+    """
+    records = _tail_records(transcript_path, tail_bytes)
+    if records is None:
+        return None, None
+    current: int | None = None
+    model: object = None
+    for record in records:
         try:
-            return (int(usage.get("input_tokens") or 0)
-                    + int(usage.get("cache_creation_input_tokens") or 0)
-                    + int(usage.get("cache_read_input_tokens") or 0))
-        except (TypeError, ValueError):
+            reading = _reading(record)
+        except _Unreadable:
+            continue
+        if reading is None:
+            continue
+        current = reading[0]                  # the LAST one wins; the loop runs forward
+        if reading[1]:
+            model = reading[1]
+    return current, model
+
+
+def context_tokens(transcript_path: object, tail_bytes: int = _TAIL_BYTES) -> int | None:
+    """Context carried by the most recent request, or None when it cannot be read. IMPURE (reads).
+
+    The three fields sum to what the request actually sent: fresh input, whatever was written to
+    cache this turn, and whatever was read from cache. Omitting the cache legs would report a
+    handful of tokens on a session hundreds of thousands deep, because almost all of a long
+    session's context arrives as a cache read.
+
+    Scans the tail BACKWARDS and stops at the first record that measured a request, so the answer
+    is the latest one; an unreadable usage block there answers None.
+    """
+    records = _tail_records(transcript_path, tail_bytes)
+    for record in reversed(records or ()):
+        try:
+            reading = _reading(record)
+        except _Unreadable:
             return None
+        if reading is not None:
+            return reading[0]
     return None
 
 
-def threshold(window, pct, cap):
+def threshold(window: object, pct: object, cap: object) -> int | None:
     """The context limit: the token count the harness should compact at. PURE.
 
     Whichever leg bites first. The result is floored at 1 so a zero or negative knob cannot make a
@@ -277,24 +345,24 @@ def threshold(window, pct, cap):
     higher clamp here would silently override a value that tool accepted.
     """
     try:
-        by_pct = int(window) * int(pct) // 100
-        return max(1, min(by_pct, int(cap)))
+        by_pct = _coerce_int(window) * _coerce_int(pct) // 100
+        return max(1, min(by_pct, _coerce_int(cap)))
     except (TypeError, ValueError):
         return None
 
 
-def harness_window(environ) -> int:
+def harness_window(environ: object) -> int:
     """The auto-compact window the harness was given, or 0 when none is visible. PURE."""
-    if not isinstance(environ, dict):
+    if not _is_environment(environ):
         return 0
     try:
-        value = int(environ.get(_ENV_COMPACT_WINDOW) or 0)
+        value = _coerce_int(environ.get(_ENV_COMPACT_WINDOW) or 0)
     except (TypeError, ValueError):
         return 0
     return value if value > 0 else 0
 
 
-def compaction_point(limit, harness) -> int:
+def compaction_point(limit: int, harness: int) -> int:
     """Where the harness will compact, in tokens. PURE.
 
     A harness window SMALLER than the limit compacts earlier, so it wins. An unset or larger one
@@ -305,12 +373,13 @@ def compaction_point(limit, harness) -> int:
     return max(1, int(window) - _HARNESS_RESERVE)
 
 
-def save_point(compact_at) -> int:
+def save_point(compact_at: int) -> int:
     """The context at which the checkpoint is requested: room for the save before the compaction."""
     return max(1, int(compact_at) - max(_SAVE_MARGIN_MIN, int(compact_at) // 10))
 
 
-def compact_verdict(tokens, window, pct, cap, harness):
+def compact_verdict(tokens: int | None, window: object, pct: object, cap: object,
+                    harness: int) -> tuple[Verdict, dict[str, int]]:
     """('quiet'|'save'|'misconfigured', detail dict). PURE - all the arithmetic, no IO.
 
     `misconfigured` is a real answer, not an error: measuring more context than the window is
@@ -321,22 +390,23 @@ def compact_verdict(tokens, window, pct, cap, harness):
     if tokens is None or limit is None:
         return "quiet", {}
     compact_at = compaction_point(limit, harness)
-    detail = {"tokens": tokens, "window": int(window), "limit": limit, "pct": int(pct),
-              "cap": int(cap), "harness": harness, "compact_at": compact_at,
-              "save_at": save_point(compact_at)}
-    if tokens > int(window):
+    save_at = save_point(compact_at)
+    detail = {"tokens": tokens, "window": _coerce_int(window), "limit": limit,
+              "pct": _coerce_int(pct), "cap": _coerce_int(cap), "harness": harness,
+              "compact_at": compact_at, "save_at": save_at}
+    if tokens > _coerce_int(window):
         return "misconfigured", detail
-    if tokens >= detail["save_at"]:
+    if tokens >= save_at:
         return "save", detail
     return "quiet", detail
 
 
-def _asked_flag(session):
+def _asked_flag(session: object) -> pathlib.Path:
     """Session-keyed state, so one left by an older session can never suppress this one."""
     return sig.touched_file(session).with_suffix(".handover-asked")
 
 
-def _misconfigured_flag(session):
+def _misconfigured_flag(session: object) -> pathlib.Path:
     """The misconfigured notice's OWN once-per-session latch.
 
     Kept apart from `_asked_flag` because the two answer different questions: reading "has this
@@ -347,7 +417,7 @@ def _misconfigured_flag(session):
     return sig.touched_file(session).with_suffix(".handover-misconfigured")
 
 
-def already_reported(session) -> bool:
+def already_reported(session: object) -> bool:
     """True once this session has seen the misconfigured notice - it says itself once."""
     try:
         return _misconfigured_flag(session).is_file()
@@ -355,7 +425,7 @@ def already_reported(session) -> bool:
         return False
 
 
-def mark_reported(session) -> None:
+def mark_reported(session: object) -> None:
     try:
         flag = _misconfigured_flag(session)
         flag.parent.mkdir(parents=True, exist_ok=True)
@@ -364,7 +434,7 @@ def mark_reported(session) -> None:
         pass                                  # an unwritable latch means it may say it twice
 
 
-def asked_at(session) -> int:
+def asked_at(session: object) -> int:
     """Context level of the last ask, or 0 when this session has not been asked. IMPURE (reads)."""
     try:
         return int(_asked_flag(session).read_text(encoding="utf-8").strip() or 0)
@@ -372,7 +442,7 @@ def asked_at(session) -> int:
         return 0
 
 
-def mark_asked(session, tokens) -> None:
+def mark_asked(session: object, tokens: int) -> None:
     try:
         flag = _asked_flag(session)
         flag.parent.mkdir(parents=True, exist_ok=True)
@@ -381,7 +451,7 @@ def mark_asked(session, tokens) -> None:
         pass                                  # an unwritable flag means it may ask twice, not wedge
 
 
-def due(tokens, limit, window, last_asked) -> bool:
+def due(tokens: int, limit: int, window: int, last_asked: int) -> bool:
     """True when this reading earns an ask. PURE.
 
     The first ask is the threshold. After that, a reading still above it asks again only once
@@ -402,7 +472,7 @@ _GIT_SCOPE_VARS = ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_OBJECT_DIR
                    "GIT_PREFIX", "GIT_QUARANTINE_PATH")
 
 
-def _git(proj, *args):
+def _git(proj: object, *args: str) -> tuple[int, str]:
     """(returncode, stdout) of a read-only git call in `proj`. Raises OSError/SubprocessError."""
     env = {k: v for k, v in os.environ.items() if k not in _GIT_SCOPE_VARS}
     env["LC_ALL"] = "C"
@@ -420,7 +490,7 @@ class HandoverTracking(StrEnum):
     UNKNOWN = "unknown"          # git could not be asked
 
 
-def handover_tracking(proj) -> HandoverTracking:
+def handover_tracking(proj: object) -> HandoverTracking:
     """Whether the handover.md a session would overwrite has earlier versions in git. IMPURE.
 
     It is a per-repo fact - some repos gitignore the file, others commit it - so the save request
@@ -429,6 +499,8 @@ def handover_tracking(proj) -> HandoverTracking:
     try:
         rc, top = _git(proj, "rev-parse", "--show-toplevel")
         if rc != 0:
+            if not _is_str_path(proj):
+                raise TypeError(proj)         # what pathlib.Path raises for it: the answer is unknown
             return _present_or_absent(pathlib.Path(proj))
         root = top.strip()
         rc, _out = _git(root, "ls-files", "--error-unmatch", "--", "handover.md")
@@ -439,7 +511,7 @@ def handover_tracking(proj) -> HandoverTracking:
         return HandoverTracking.UNKNOWN
 
 
-def _present_or_absent(root) -> HandoverTracking:
+def _present_or_absent(root: pathlib.Path) -> HandoverTracking:
     return HandoverTracking.UNTRACKED if (root / "handover.md").exists() else HandoverTracking.ABSENT
 
 
@@ -477,7 +549,9 @@ _PLAN_MODE_NOTE = (
     "unfinished items into `OPEN-WORK.md` once plan mode ends.")
 
 
-def _save(detail, tracking=HandoverTracking.UNKNOWN, *, plan_mode: bool = False) -> str:
+def _save(detail: Mapping[str, int | str],
+          tracking: HandoverTracking | str = HandoverTracking.UNKNOWN, *,
+          plan_mode: bool = False) -> str:
     fill = {k: format(v, ",") if isinstance(v, int) and k != "pct" else v for k, v in detail.items()}
     text = (
         "This session is carrying %(tokens)s tokens of context. The harness auto-compacts at about "
@@ -496,7 +570,8 @@ def _save(detail, tracking=HandoverTracking.UNKNOWN, *, plan_mode: bool = False)
         "them to /clear: the compaction follows automatically, and the checkpoint is handed back "
         "to you right after it."
     ) % fill
-    if not detail.get("harness") or detail["harness"] > detail["limit"]:
+    harness, limit = detail.get("harness"), detail["limit"]
+    if not harness or (isinstance(harness, int) and isinstance(limit, int) and harness > limit):
         text += (
             "\n\nThe harness is not set to compact at the %(limit)s limit (%(env)s is %(now)s), so "
             "nothing will compact until its own default, far later, and this checkpoint goes stale "
@@ -510,7 +585,7 @@ def _save(detail, tracking=HandoverTracking.UNKNOWN, *, plan_mode: bool = False)
     return text + "\n\n" + warning if warning else text
 
 
-def _misconfigured(detail) -> str:
+def _misconfigured(detail: Mapping[str, int | str]) -> str:
     return (
         "The context watcher measured %(tokens)s tokens, which is MORE than the %(window)s window "
         "it was measuring against (%(source)s) - so the threshold can never be reached. This is "
@@ -523,7 +598,8 @@ def _misconfigured(detail) -> str:
     ) % {k: format(v, ",") if isinstance(v, int) and k != "pct" else v for k, v in detail.items()}
 
 
-def resolve_window(cfg, model=None, environ=None):
+def resolve_window(cfg: Mapping[str, object], model: object = None,
+                   environ: Mapping[str, object] | None = None) -> tuple[int, str]:
     """(window, how it was established). PURE.
 
     An explicit `context_window` wins - the escape hatch for a model the table has not met.
@@ -533,8 +609,8 @@ def resolve_window(cfg, model=None, environ=None):
     """
     explicit = cfg.get("context_window") or 0
     try:
-        if int(explicit) > 0:
-            return int(explicit), "configured"
+        if _coerce_int(explicit) > 0:
+            return _coerce_int(explicit), "configured"
     except (TypeError, ValueError):
         pass
     if model:
@@ -546,7 +622,7 @@ def resolve_window(cfg, model=None, environ=None):
     return _DEFAULT_WINDOW, "assumed"
 
 
-def _family_known(model_id) -> bool:
+def _family_known(model_id: object) -> bool:
     """True when the family table has a window for this model id. PURE."""
     mid = str(model_id or "").lower()
     if mid.endswith("[1m]"):
@@ -554,7 +630,7 @@ def _family_known(model_id) -> bool:
     return any(mid.startswith(prefix) for prefix, _window in _FAMILY_WINDOWS)
 
 
-def is_subagent_event(event) -> bool:
+def is_subagent_event(event: Mapping[str, object]) -> bool:
     """True when a subagent fired this event: it names an `agent_id`, or its transcript is one. PURE.
 
     The second form covers an event whose `transcript_path` already points at a subagent's own
@@ -565,7 +641,7 @@ def is_subagent_event(event) -> bool:
     return pathlib.Path(str(event.get("transcript_path") or "")).name.startswith("agent-")
 
 
-def decide(event, cfg):
+def decide(event: Mapping[str, object], cfg: Mapping[str, object]) -> str | None:
     """The text for this Stop or PostToolUse event, or None to stay quiet. IMPURE (reads).
 
     On Stop the caller turns it into a block reason, on PostToolUse into additionalContext. Both
@@ -604,7 +680,7 @@ def decide(event, cfg):
     proj = event.get("cwd") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
     if on_stop:
         try:
-            if sig.nap_owed_blocks(proj, event.get("session_id") or ""):
+            if _is_str_path(proj) and sig.nap_owed_blocks(proj, session):
                 return None
         except Exception:                     # noqa: BLE001 - a missing helper must not wedge a turn
             pass
@@ -612,25 +688,67 @@ def decide(event, cfg):
     window, source = resolve_window(cfg, model, os.environ)
     pct, cap = cfg.get("context_handover_pct", 70), cfg.get("context_handover_cap", 400000)
     plan_mode: bool = event.get("permission_mode") == "plan"
-    return _decide_compact(session, proj, tokens, window, source, pct, cap, plan_mode=plan_mode)
+    return _decide_compact(session, proj, tokens, window, source, pct, cap, plan_mode=plan_mode,
+                           wrote=checkpoint_write(event, plan_mode=plan_mode))
 
 
-def _decide_compact(session, proj, tokens, window, source, pct, cap, *, plan_mode: bool = False):
+_WRITE_TOOLS = frozenset({"Write", "Edit", "MultiEdit"})
+
+
+def checkpoint_write(event: Mapping[str, object], *, plan_mode: bool = False) -> str | None:
+    """The checkpoint file the tool call behind this PostToolUse wrote, or None. PURE.
+
+    A Write, Edit or MultiEdit of a checkpoint-named file (the rule compact-resume hands back by,
+    from `checkpoint_names`); in plan mode any of them, because the
+    plan file is the only file such a session may write and the request sends the checkpoint there.
+    PostToolUse fires only for a call that succeeded.
+    """
+    if event.get("hook_event_name") != "PostToolUse" or event.get("tool_name") not in _WRITE_TOOLS:
+        return None
+    tool_input = event.get("tool_input")
+    path = tool_input.get("file_path") if _is_record(tool_input) else None
+    if not isinstance(path, str) or not path:
+        return None
+    if plan_mode or checkpoint_names.is_checkpoint_name(pathlib.PurePath(path).name):
+        return path
+    return None
+
+
+def _stamp_before(path: str) -> float | None:
+    """A checkpoint-asked stamp before `path`'s mtime, or None when it cannot be read. IMPURE.
+
+    One millisecond under the mtime, because the stamp is stored to three decimals and a value
+    rounded up past the mtime would make compact-resume reject the very file it describes.
+    """
+    try:
+        return os.path.getmtime(path) - 0.001
+    except (OSError, TypeError, ValueError):
+        return None
+
+
+def _decide_compact(session: str, proj: object, tokens: int | None, window: int, source: str,
+                    pct: object, cap: object, *, plan_mode: bool = False,
+                    wrote: str | None = None) -> str | None:
     """Request a checkpoint once per crossing of the save point. IMPURE.
 
     A reading back BELOW the save point after a request means the harness compacted, so the request
     re-arms and the next crossing asks for a fresh checkpoint. Above it, `due` spaces repeats by a
     tenth of the window, which refreshes a checkpoint only when the harness is not compacting.
+
+    When the call that earned the request is itself the checkpoint's write (`wrote`), that write
+    answers it: the request is latched at this level and stamped just before the file, and nothing
+    is said. Asking would stamp the moment AFTER the write, and compact-resume, which accepts only
+    a checkpoint written after the request, would then report that none was saved - measured once
+    on a first crossing after a compaction, where the session wrote handover.md on its own.
     """
     state, detail = compact_verdict(tokens, window, pct, cap, harness_window(dict(os.environ)))
-    if not detail:
+    if tokens is None or not detail:      # an empty detail is exactly a reading of nothing
         return None
-    detail["source"] = source
     if state == "misconfigured":
         if already_reported(session):
             return None
         mark_reported(session)
-        return _misconfigured(detail)
+        return _misconfigured({**detail, "source": source})
     last = asked_at(session)
     if state != "save":
         if last:
@@ -638,7 +756,11 @@ def _decide_compact(session, proj, tokens, window, source, pct, cap, *, plan_mod
         return None
     if not due(tokens, detail["save_at"], window, last):
         return None
+    answered_at = _stamp_before(wrote) if wrote else None
     mark_asked(session, tokens)
+    if answered_at is not None:
+        sig.mark_checkpoint_asked(session, now=answered_at)
+        return None
     sig.mark_checkpoint_asked(session)
     # Asked only here, on the rare turn that requests a save, so an ordinary turn never pays for git.
     return _save(detail, handover_tracking(proj), plan_mode=plan_mode)
@@ -646,10 +768,10 @@ def _decide_compact(session, proj, tokens, window, source, pct, cap, *, plan_mod
 
 def main() -> int:
     try:
-        event = json.load(sys.stdin)
+        event: object = json.load(sys.stdin)
     except Exception:                         # noqa: BLE001 - no/invalid stdin: do nothing
         return 0
-    if not isinstance(event, dict):
+    if not _is_record(event):
         return 0
     try:
         reason = decide(event, sig.load_config())

@@ -225,8 +225,7 @@ namespace sogen
         {
             if (auto* e = win_emu.process.get_object_as<sogen::event>(request.event); e)
             {
-                e->set_signaled(true);
-                win_emu.wake_idle_vcpu();
+                win_emu.signal_event(*e);
             }
         }
 
@@ -412,6 +411,12 @@ namespace sogen
     {
         this->assert_validity();
         this->file_->device->work(win_emu);
+    }
+
+    void io_device_container::prepare_for_state_restore(windows_emulator& win_emu)
+    {
+        this->assert_validity();
+        this->file_->device->prepare_for_state_restore(win_emu);
     }
 
     void io_device_container::restore_after_state_restore(windows_emulator& win_emu)

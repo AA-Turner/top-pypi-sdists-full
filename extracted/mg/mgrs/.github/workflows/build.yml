@@ -7,7 +7,7 @@ on:
     - '*'
   push:
     branches:
-    - '*'
+    - '**'
   release:
     types:
       - published
@@ -17,8 +17,8 @@ jobs:
     name: black
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v7
-    - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+    - uses: actions/checkout@v7.0.1
+    - uses: astral-sh/setup-uv@v10.3.3
       with:
         version-file: ci/requirements.txt
         python-version: '3.13'
@@ -30,8 +30,8 @@ jobs:
     name: flake8
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v7
-    - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+    - uses: actions/checkout@v7.0.1
+    - uses: astral-sh/setup-uv@v10.3.3
       with:
         version-file: ci/requirements.txt
         python-version: '3.13'
@@ -43,8 +43,8 @@ jobs:
     name: isort
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v7
-    - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+    - uses: actions/checkout@v7.0.1
+    - uses: astral-sh/setup-uv@v10.3.3
       with:
         version-file: ci/requirements.txt
         python-version: '3.13'
@@ -61,8 +61,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, windows-11-arm, macos-14]
-        python-version: ['3.11', '3.12', '3.13', '3.14', '3.15']
+        os: [ubuntu-latest, windows-latest, windows-11-arm, macos-latest]
+        python-version: ['3.11', '3.12', '3.13', '3.14', '3.15', '3.15t']
         include:
           - os: ubuntu-latest
             platform: Ubuntu
@@ -73,14 +73,14 @@ jobs:
           - os: windows-11-arm
             platform: Windows ARM64
             python-arch: aarch64
-          - os: macos-14
+          - os: macos-latest
             platform: macOS ARM64
             python-arch: aarch64
 
     steps:
-    - uses: actions/checkout@v7
+    - uses: actions/checkout@v7.0.1
     - name: Set up uv and Python
-      uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      uses: astral-sh/setup-uv@v10.3.3
       with:
         version-file: ci/requirements.txt
         python-version: ${{ matrix.python-version }}
@@ -95,5 +95,47 @@ jobs:
         fi
     - name: Build and install test dependencies
       run: uv pip install -e . pytest
+    - name: Verify free-threaded import
+      if: matrix.python-version == '3.15t'
+      run: python -I -W error -c "import sys, sysconfig; assert sysconfig.get_config_var('Py_GIL_DISABLED'); assert not sys._is_gil_enabled(); import mgrs; assert not sys._is_gil_enabled()"
     - name: Test with pytest
       run: python -m pytest tests --doctest-glob='*.txt'
+
+  test_windows_conda:
+    name: Conda ${{ matrix.os }} Python 3.15 (${{ matrix.python-variant }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: pwsh
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, windows-11-arm]
+        python-variant: [python-gil, python-freethreading]
+    steps:
+    - uses: actions/checkout@v7.0.1
+    - uses: conda-incubator/setup-miniconda@v4.1.0
+      with:
+        miniforge-version: latest
+        activate-environment: ''
+        auto-activate: false
+    # Exercise the feedstock's toolchain independently of the pinned Rust
+    # version used by our wheel builds, including its Windows system imports.
+    - name: Install conda build and test dependencies
+      run: >-
+        conda create -y -n mgrs-test --override-channels -c conda-forge
+        python=3.15 ${{ matrix.python-variant }} rust cxx-compiler
+        cmake ninja pip scikit-build-core pybind11 pytest
+    - name: Verify Python variant and Rust toolchain
+      run: |
+        conda run -n mgrs-test --no-capture-output rustc -vV
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        conda run -n mgrs-test --no-capture-output python -c "import sysconfig; assert bool(sysconfig.get_config_var('Py_GIL_DISABLED')) == ('${{ matrix.python-variant }}' == 'python-freethreading')"
+    - name: Build with conda dependencies
+      run: conda run -n mgrs-test --no-capture-output python -m pip install -e . -v --no-deps --no-build-isolation
+    - name: Verify free-threaded import
+      if: matrix.python-variant == 'python-freethreading'
+      run: conda run -n mgrs-test --no-capture-output python -I -W error -c "import sys; assert not sys._is_gil_enabled(); import mgrs; assert not sys._is_gil_enabled()"
+    - name: Test with pytest
+      run: conda run -n mgrs-test --no-capture-output python -m pytest tests --doctest-glob='*.txt'

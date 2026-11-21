@@ -24,7 +24,7 @@
 요소를 더해야 하는 포맷 깊이 작업이 멈춘다.
 
 그래서 **계약은 클래스가 아니라 멤버 allowlist다.**
-`tests/data/model_surface.json`이 클래스별 stable 멤버를 정확히 나열한다.
+공개 표면 잠금 `tests/data/public_surface.json`의 `model` 층이 클래스별 stable 멤버를 정확히 나열한다.
 
 - allowlist **안**의 멤버 → stable. major 경계에서만 바뀐다.
 - allowlist **밖**의 멤버(`apply_model`·`mark_dirty`·`remove_stale_layout_caches` …)
@@ -43,7 +43,9 @@ from .oxml.memo import HwpxOxmlMemo as Memo
 from .oxml.memo import HwpxOxmlMemoGroup as MemoGroup
 from .oxml.memo import HwpxOxmlNote as Note
 from .oxml.objects import DrawText as DrawText
+from .oxml.objects import HwpxOxmlEquation as Equation
 from .oxml.objects import HwpxOxmlInlineObject as InlineObject
+from .oxml.objects import HwpxOxmlPicture as Picture
 from .oxml.objects import HwpxOxmlShape as Shape
 from .oxml.paragraph import HwpxOxmlParagraph as Paragraph
 from .oxml.run import HwpxOxmlRun as Run
@@ -56,10 +58,12 @@ from .oxml.simple_parts import HwpxOxmlVersion as Version
 from .oxml.table import HwpxOxmlTable as Table
 from .oxml.table import HwpxOxmlTableCell as TableCell
 from .oxml.table import HwpxOxmlTableRow as TableRow
+from .oxml.table_format import HwpxOxmlTableColumn as TableColumn
 
 __all__ = [
     "Document",
     "DrawText",
+    "Equation",
     "HeaderFooter",
     "HeaderPart",
     "History",
@@ -69,12 +73,14 @@ __all__ = [
     "MemoGroup",
     "Note",
     "Paragraph",
+    "Picture",
     "Run",
     "Section",
     "SectionProperties",
     "Shape",
     "Table",
     "TableCell",
+    "TableColumn",
     "TableRow",
     "Version",
 ]

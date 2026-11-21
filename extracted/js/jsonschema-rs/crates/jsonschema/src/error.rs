@@ -2,8 +2,8 @@
 //!
 //! ## Masking Sensitive Data
 //!
-//! When working with sensitive data, you might want to hide actual values from error messages.
-//! The `ValidationError` type provides methods to mask instance values while preserving the error context:
+//! [`ValidationError::masked`] and [`ValidationError::masked_with`] hide instance values in error
+//! messages:
 //!
 //! ```rust
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -23,8 +23,9 @@
 //! # }
 //! ```
 //!
-//! The masked error messages will replace instance values with placeholders while maintaining
-//! schema-related information like property names, limits, and types.
+//! Masked messages replace instance values with the placeholder and keep limits, types and
+//! property names, including the instance's own names in `additionalProperties` and
+//! `unevaluatedProperties` errors.
 //!
 //! Original error:
 //! ```text
@@ -53,7 +54,7 @@ use std::{
     vec,
 };
 
-/// An error that can occur during validation.
+/// An error from validating an instance or from building a validator.
 #[derive(Debug)]
 pub struct ValidationError<'a> {
     repr: Box<ValidationErrorRepr<'a>>,
@@ -66,15 +67,41 @@ struct ValidationErrorRepr<'a> {
     instance: LazyInstance<'a>,
     kind: ValidationErrorKind,
     instance_path: Location,
-    /// Canonical schema location without $ref traversals (JSON Schema "keywordLocation")
+    /// Canonical schema location without `$ref` traversals (`schemaLocation` in evaluation output)
     schema_path: Location,
-    /// Dynamic path including $ref traversals.
+    /// Evaluation path, including `$ref` traversals.
     tracker: LazyEvaluationPath,
-    /// Absolute keyword location: full URI including JSON Pointer fragment.
-    /// E.g. `https://example.com/schema.json#/properties/name/type`.
-    /// Set when the schema has a real base URI (via `$id` or `with_base_uri()`).
-    /// `None` for schemas using the internal `json-schema:///` default.
-    absolute_keyword_location: Option<Arc<Uri<String>>>,
+    absolute_keyword_location: AbsoluteKeywordLocation,
+}
+
+/// Where the schema node that ran the failing keyword located it.
+#[derive(Clone)]
+enum AbsoluteKeywordLocation {
+    /// No schema node did yet.
+    Unlocated,
+    /// In a resource under the internal `json-schema:///` default base, which has no absolute
+    /// location.
+    DefaultBase,
+    /// Full URI including JSON Pointer fragment, e.g.
+    /// `https://example.com/schema.json#/properties/name/type`, for a resource with a real base
+    /// URI (via `$id` or `with_base_uri()`).
+    Uri(Arc<Uri<String>>),
+}
+
+impl AbsoluteKeywordLocation {
+    fn uri(&self) -> Option<&Arc<Uri<String>>> {
+        match self {
+            AbsoluteKeywordLocation::Uri(uri) => Some(uri),
+            AbsoluteKeywordLocation::Unlocated | AbsoluteKeywordLocation::DefaultBase => None,
+        }
+    }
+
+    fn into_uri(self) -> Option<Arc<Uri<String>>> {
+        match self {
+            AbsoluteKeywordLocation::Uri(uri) => Some(uri),
+            AbsoluteKeywordLocation::Unlocated | AbsoluteKeywordLocation::DefaultBase => None,
+        }
+    }
 }
 
 impl fmt::Debug for ValidationErrorRepr<'_> {
@@ -84,28 +111,14 @@ impl fmt::Debug for ValidationErrorRepr<'_> {
             .field("kind", &self.kind)
             .field("instance_path", &self.instance_path)
             .field("schema_path", &self.schema_path)
-            .field("absolute_keyword_location", &self.absolute_keyword_location)
+            .field(
+                "absolute_keyword_location",
+                &self.absolute_keyword_location.uri(),
+            )
             .finish_non_exhaustive()
     }
 }
 
-/// An iterator over instances of [`ValidationError`] that represent validation error for the
-/// input instance.
-///
-/// # Examples
-///
-/// ```rust
-/// use serde_json::json;
-///
-/// let schema = json!({"maxLength": 5});
-/// let instance = json!("foo");
-/// if let Ok(validator) = jsonschema::validator_for(&schema) {
-///     let errors = validator.iter_errors(&instance);
-///     for error in errors {
-///         println!("Validation error: {}", error)
-///     }
-/// }
-/// ```
 #[doc(hidden)]
 pub trait ValidationErrorIterator<'a>: Iterator<Item = ValidationError<'a>> + Send + Sync {}
 
@@ -262,11 +275,9 @@ pub enum ValidationErrorKind {
     AnyOf {
         context: Vec<Vec<ValidationError<'static>>>,
     },
-    /// Results from a [`fancy_regex::RuntimeError::BacktrackLimitExceeded`] variant when matching
+    /// A regex match exceeded the backtrack limit
+    /// ([`fancy_regex::RuntimeError::BacktrackLimitExceeded`]).
     BacktrackLimitExceeded { error: fancy_regex::Error },
-    /// The regex engine failed to evaluate a `pattern` (e.g. recovered panic from
-    /// [`regex-automata`](https://github.com/rust-lang/regex/issues/1344)).
-    RegexEngineFailure { message: String },
     /// The input value doesn't match expected constant.
     Constant { expected_value: Arc<Value> },
     /// The input array doesn't contain items conforming to the specified schema.
@@ -287,8 +298,10 @@ pub enum ValidationErrorKind {
     FalseSchema,
     /// When the input doesn't match to the specified format.
     Format { format: String },
-    /// May happen in `contentEncoding` validation if `base64` encoded data is invalid.
+    /// `contentEncoding` decoded the string to bytes that are not UTF-8.
     FromUtf8 { error: FromUtf8Error },
+    /// More items than `maxContains` are valid under the `contains` subschema.
+    MaxContains { limit: u64 },
     /// Too many items in an array.
     MaxItems { limit: u64 },
     /// Value is too large.
@@ -297,6 +310,8 @@ pub enum ValidationErrorKind {
     MaxLength { limit: u64 },
     /// Too many properties in an object.
     MaxProperties { limit: u64 },
+    /// Fewer items than `minContains` are valid under the `contains` subschema.
+    MinContains { limit: u64 },
     /// Too few items in an array.
     MinItems { limit: u64 },
     /// Value is too small.
@@ -312,13 +327,13 @@ pub enum ValidationErrorKind {
         #[cfg(not(feature = "arbitrary-precision"))]
         multiple_of: f64,
     },
-    /// Negated schema failed validation.
+    /// The instance is valid under the `not` subschema.
     Not { schema: Value },
-    /// The given schema is valid under more than one of the schemas listed in the 'oneOf' keyword.
+    /// The instance is valid under more than one `oneOf` branch.
     OneOfMultipleValid {
         context: Vec<Vec<ValidationError<'static>>>,
     },
-    /// The given schema is not valid under any of the schemas listed in the 'oneOf' keyword.
+    /// The instance is valid under no `oneOf` branch.
     OneOfNotValid {
         context: Vec<Vec<ValidationError<'static>>>,
     },
@@ -356,7 +371,6 @@ impl ValidationErrorKind {
             ValidationErrorKind::AdditionalProperties { .. } => "additionalProperties",
             ValidationErrorKind::AnyOf { .. } => "anyOf",
             ValidationErrorKind::BacktrackLimitExceeded { .. }
-            | ValidationErrorKind::RegexEngineFailure { .. }
             | ValidationErrorKind::Pattern { .. } => "pattern",
             ValidationErrorKind::Constant { .. } => "const",
             ValidationErrorKind::Contains => "contains",
@@ -370,10 +384,12 @@ impl ValidationErrorKind {
             ValidationErrorKind::ExclusiveMinimum { .. } => "exclusiveMinimum",
             ValidationErrorKind::FalseSchema => "falseSchema",
             ValidationErrorKind::Format { .. } => "format",
+            ValidationErrorKind::MaxContains { .. } => "maxContains",
             ValidationErrorKind::MaxItems { .. } => "maxItems",
             ValidationErrorKind::Maximum { .. } => "maximum",
             ValidationErrorKind::MaxLength { .. } => "maxLength",
             ValidationErrorKind::MaxProperties { .. } => "maxProperties",
+            ValidationErrorKind::MinContains { .. } => "minContains",
             ValidationErrorKind::MinItems { .. } => "minItems",
             ValidationErrorKind::Minimum { .. } => "minimum",
             ValidationErrorKind::MinLength { .. } => "minLength",
@@ -412,7 +428,6 @@ pub struct ValidationErrorParts<'a> {
     pub absolute_keyword_location: Option<Arc<Uri<String>>>,
 }
 
-/// Shortcuts for creation of specific error kinds.
 impl<'a> ValidationError<'a> {
     /// Creates a new validation error from parts.
     #[inline]
@@ -431,7 +446,7 @@ impl<'a> ValidationError<'a> {
                 instance_path,
                 schema_path,
                 tracker: tracker.into(),
-                absolute_keyword_location: None,
+                absolute_keyword_location: AbsoluteKeywordLocation::Unlocated,
             }),
         }
     }
@@ -459,8 +474,7 @@ impl<'a> ValidationError<'a> {
 
     /// Returns the canonical schema location without `$ref` traversals.
     ///
-    /// This corresponds to JSON Schema's "keywordLocation" in output formats.
-    /// See JSON Schema 2020-12 Core, Section 12.4.2.
+    /// Evaluation output reports it as `schemaLocation` when the keyword has no absolute URI.
     #[inline]
     #[must_use]
     pub fn schema_path(&self) -> &Location {
@@ -469,9 +483,8 @@ impl<'a> ValidationError<'a> {
 
     /// Returns the dynamic evaluation path including `$ref` traversals.
     ///
-    /// This corresponds to JSON Schema's "evaluationPath" - the actual path taken
-    /// through the schema including by-reference applicators (`$ref`, `$dynamicRef`).
-    /// See JSON Schema 2020-12 Core, Section 12.4.2.
+    /// Evaluation output reports it as `evaluationPath`; JSON Schema 2020-12 Core calls it
+    /// `keywordLocation`.
     #[inline]
     #[must_use]
     pub fn evaluation_path(&self) -> &Location {
@@ -483,23 +496,96 @@ impl<'a> ValidationError<'a> {
     /// This corresponds to JSON Schema's "absoluteKeywordLocation" (e.g.
     /// `https://example.com/schema.json#/properties/name/type`).
     ///
-    /// Present when the schema has a real base URI set via `$id` or [`crate::options::ValidationOptions::with_base_uri`].
-    /// `None` for schemas without an explicit base URI.
+    /// Present when the resource the keyword sits in has a real base URI set via `$id` or [`crate::options::ValidationOptions::with_base_uri`].
+    /// `None` for keywords of a resource without an explicit base URI, such as one registered
+    /// under a `json-schema:///` URI.
     #[inline]
     #[must_use]
     pub fn absolute_keyword_location(&self) -> Option<&Uri<String>> {
-        self.repr.absolute_keyword_location.as_deref()
+        self.repr.absolute_keyword_location.uri().map(Arc::as_ref)
     }
 
-    /// Attach an absolute keyword location if one is not already set.
-    ///
-    /// Uses "set if not already set" semantics so inner `SchemaNode` calls win over outer ones.
+    /// Locates the error at `uri`, or under the default base for `None`, unless a node closer to
+    /// the failing keyword located it already: an enclosing node's keyword is another one.
     #[inline]
     pub(crate) fn with_absolute_keyword_location(mut self, uri: Option<Arc<Uri<String>>>) -> Self {
-        if self.repr.absolute_keyword_location.is_none() {
-            self.repr.absolute_keyword_location = uri;
+        if matches!(
+            self.repr.absolute_keyword_location,
+            AbsoluteKeywordLocation::Unlocated
+        ) {
+            self.repr.absolute_keyword_location = uri.map_or(
+                AbsoluteKeywordLocation::DefaultBase,
+                AbsoluteKeywordLocation::Uri,
+            );
         }
         self
+    }
+
+    /// Applies `edit` to this error and to each error it holds.
+    #[cfg(feature = "macros")]
+    pub(crate) fn edit_all(&mut self, edit: &mut impl FnMut(&mut ValidationError<'_>)) {
+        edit(self);
+        match &mut self.repr.kind {
+            ValidationErrorKind::AnyOf { context }
+            | ValidationErrorKind::OneOfNotValid { context }
+            | ValidationErrorKind::OneOfMultipleValid { context } => {
+                for error in context.iter_mut().flatten() {
+                    error.edit_all(edit);
+                }
+            }
+            ValidationErrorKind::PropertyNames { error } => error.edit_all(edit),
+            _ => {}
+        }
+    }
+
+    /// Replaces the evaluation path: `prefix`, then the path past `strip`.
+    #[cfg(feature = "macros")]
+    pub(crate) fn move_evaluation_path(&mut self, strip: &str, prefix: &str) {
+        let path = self.evaluation_path().as_str();
+        let rest = path.strip_prefix(strip).unwrap_or(path);
+        self.repr.tracker = LazyEvaluationPath::Computed(Location::concat(prefix, rest));
+    }
+
+    /// Places the error below `site`. Its schema path moves too unless a reference moved its
+    /// evaluation path: the schema path of an error reached through a reference starts at the
+    /// target.
+    #[cfg(feature = "macros")]
+    pub(crate) fn nest_under(&mut self, site: &str) {
+        if matches!(self.repr.tracker, LazyEvaluationPath::SameAsSchemaPath) {
+            self.repr.schema_path = Location::concat(site, self.repr.schema_path.as_str());
+        } else {
+            self.move_evaluation_path("", site);
+        }
+    }
+
+    /// No `$ref` moved its evaluation path and no resource located it yet.
+    #[cfg(feature = "macros")]
+    pub(crate) fn is_unlocated(&self) -> bool {
+        matches!(self.repr.tracker, LazyEvaluationPath::SameAsSchemaPath)
+            && matches!(
+                self.repr.absolute_keyword_location,
+                AbsoluteKeywordLocation::Unlocated
+            )
+    }
+
+    /// Locates the keyword in the resource at `base`, which starts `start` bytes into its schema
+    /// path, or under the default base for `None`.
+    #[cfg(feature = "macros")]
+    pub(crate) fn locate_in(
+        &mut self,
+        base: Option<&Uri<String>>,
+        start: usize,
+        buffer: &mut referencing::uri::EncodedBuffer,
+    ) {
+        self.repr.absolute_keyword_location = match base {
+            Some(base) => {
+                let pointer = &self.repr.schema_path.as_str()[start..];
+                AbsoluteKeywordLocation::Uri(Arc::new(crate::compiler::resolve_absolute_location(
+                    base, pointer, buffer,
+                )))
+            }
+            None => AbsoluteKeywordLocation::DefaultBase,
+        };
     }
 
     /// Place the instance location under `prefix`, for an error raised on a part of a document.
@@ -508,9 +594,16 @@ impl<'a> ValidationError<'a> {
         self
     }
 
-    pub(crate) fn set_absolute_keyword_location(&mut self, uri: &Arc<Uri<String>>) {
-        if self.repr.absolute_keyword_location.is_none() {
-            self.repr.absolute_keyword_location = Some(Arc::clone(uri));
+    /// [`Self::with_absolute_keyword_location`] in place.
+    pub(crate) fn set_absolute_keyword_location(&mut self, uri: Option<&Arc<Uri<String>>>) {
+        if matches!(
+            self.repr.absolute_keyword_location,
+            AbsoluteKeywordLocation::Unlocated
+        ) {
+            self.repr.absolute_keyword_location = uri
+                .map_or(AbsoluteKeywordLocation::DefaultBase, |uri| {
+                    AbsoluteKeywordLocation::Uri(Arc::clone(uri))
+                });
         }
     }
 
@@ -526,7 +619,7 @@ impl<'a> ValidationError<'a> {
             instance_path: repr.instance_path,
             schema_path: repr.schema_path,
             evaluation_path,
-            absolute_keyword_location: repr.absolute_keyword_location,
+            absolute_keyword_location: repr.absolute_keyword_location.into_uri(),
         }
     }
 
@@ -561,15 +654,19 @@ impl<'a> ValidationError<'a> {
     /// Converts the `ValidationError` into an owned version with `'static` lifetime.
     #[must_use]
     pub fn to_owned(self) -> ValidationError<'static> {
-        let parts = self.into_parts();
-        ValidationError::new(
-            LazyInstance::Ready(Cow::Owned(parts.instance.into_owned())),
-            parts.kind,
-            parts.instance_path,
-            parts.schema_path,
-            parts.evaluation_path,
-        )
-        .with_absolute_keyword_location(parts.absolute_keyword_location)
+        let repr = *self.repr;
+        ValidationError {
+            repr: Box::new(ValidationErrorRepr {
+                instance: LazyInstance::Ready(Cow::Owned(repr.instance.into_cow().into_owned())),
+                kind: repr.kind,
+                instance_path: repr.instance_path,
+                schema_path: repr.schema_path,
+                // Copied as is: `is_unlocated` reads it, since generated validators locate only
+                // errors whose evaluation path no `$ref` moved.
+                tracker: repr.tracker,
+                absolute_keyword_location: repr.absolute_keyword_location,
+            }),
+        }
     }
 
     /// Restates a compile-time failure as a judgement on the schema: the location that failed
@@ -646,21 +743,6 @@ impl<'a> ValidationError<'a> {
         Self::borrowed(
             instance,
             ValidationErrorKind::BacktrackLimitExceeded { error },
-            instance_path,
-            schema_path,
-            tracker,
-        )
-    }
-    pub(crate) fn regex_engine_failure(
-        schema_path: Location,
-        tracker: impl Into<LazyEvaluationPath>,
-        instance_path: Location,
-        instance: LazyInstance<'a>,
-        message: String,
-    ) -> ValidationError<'a> {
-        Self::borrowed(
-            instance,
-            ValidationErrorKind::RegexEngineFailure { message },
             instance_path,
             schema_path,
             tracker,
@@ -878,6 +960,36 @@ impl<'a> ValidationError<'a> {
             tracker,
         )
     }
+    pub(crate) fn min_contains(
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
+        instance_path: Location,
+        instance: LazyInstance<'a>,
+        limit: u64,
+    ) -> ValidationError<'a> {
+        Self::borrowed(
+            instance,
+            ValidationErrorKind::MinContains { limit },
+            instance_path,
+            schema_path,
+            tracker,
+        )
+    }
+    pub(crate) fn max_contains(
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
+        instance_path: Location,
+        instance: LazyInstance<'a>,
+        limit: u64,
+    ) -> ValidationError<'a> {
+        Self::borrowed(
+            instance,
+            ValidationErrorKind::MaxContains { limit },
+            instance_path,
+            schema_path,
+            tracker,
+        )
+    }
     pub(crate) fn min_items(
         schema_path: Location,
         tracker: impl Into<LazyEvaluationPath>,
@@ -1041,22 +1153,26 @@ impl<'a> ValidationError<'a> {
             tracker,
         )
     }
+    /// The object's error for a name that `error` rejects, located where `error` is.
     pub(crate) fn property_names(
-        schema_path: Location,
-        tracker: impl Into<LazyEvaluationPath>,
         instance_path: Location,
         instance: LazyInstance<'a>,
-        error: ValidationError<'a>,
+        error: ValidationError<'static>,
     ) -> ValidationError<'a> {
-        Self::borrowed(
+        let schema_path = error.repr.schema_path.clone();
+        let tracker = error.repr.tracker.clone();
+        let absolute_keyword_location = error.repr.absolute_keyword_location.clone();
+        let mut wrapper = Self::borrowed(
             instance,
             ValidationErrorKind::PropertyNames {
-                error: Box::new(error.to_owned()),
+                error: Box::new(error),
             },
             instance_path,
             schema_path,
             tracker,
-        )
+        );
+        wrapper.repr.absolute_keyword_location = absolute_keyword_location;
+        wrapper
     }
     pub(crate) fn required(
         schema_path: Location,
@@ -1199,15 +1315,13 @@ impl<'a> ValidationError<'a> {
         )
     }
 
-    /// Fill in context for a placeholder validation error.
-    ///
-    /// Used by custom keywords, which never involve `$ref` traversal,
-    /// so evaluation path equals schema path.
+    /// Fill in context for a placeholder validation error from a custom keyword.
     pub(crate) fn with_context<'i>(
         self,
         instance: &'i Value,
         instance_path: &LazyLocation,
         schema_path: &Location,
+        evaluation_path: LazyEvaluationPath,
         keyword: &str,
     ) -> ValidationError<'i> {
         let kind = match self.repr.kind {
@@ -1222,12 +1336,13 @@ impl<'a> ValidationError<'a> {
             kind,
             instance_path.into(),
             schema_path.clone(),
-            // Custom keywords are never reached via $ref, so evaluation path = schema path
-            LazyEvaluationPath::SameAsSchemaPath,
+            evaluation_path,
         )
     }
 
     /// [`Self::with_context`] variant for macro-generated code, which tracks the instance path as an owned [`Location`].
+    /// The evaluation path starts as the schema path; the generated code moves it for every
+    /// `$ref` the error was reached through.
     #[cfg(feature = "macros")]
     pub(crate) fn with_generated_context<'i>(
         self,
@@ -1503,6 +1618,20 @@ impl fmt::Display for ValidationError<'_> {
                 limit,
                 if *limit == 1 { "" } else { "s" }
             ),
+            ValidationErrorKind::MaxContains { limit } => write!(
+                f,
+                "{} has more than {} item{} valid under the given schema",
+                self.instance(),
+                limit,
+                if *limit == 1 { "" } else { "s" }
+            ),
+            ValidationErrorKind::MinContains { limit } => write!(
+                f,
+                "{} has less than {} item{} valid under the given schema",
+                self.instance(),
+                limit,
+                if *limit == 1 { "" } else { "s" }
+            ),
             ValidationErrorKind::MinItems { limit } => write!(
                 f,
                 "{} has less than {} item{}",
@@ -1581,8 +1710,7 @@ impl fmt::Display for ValidationError<'_> {
                 }
                 Ok(())
             }
-            ValidationErrorKind::Custom { message, .. }
-            | ValidationErrorKind::RegexEngineFailure { message } => f.write_str(message),
+            ValidationErrorKind::Custom { message, .. } => f.write_str(message),
         }
     }
 }
@@ -1699,6 +1827,20 @@ impl fmt::Display for MaskedValidationError<'_, '_, '_> {
                 limit,
                 if *limit == 1 { "" } else { "s" }
             ),
+            ValidationErrorKind::MaxContains { limit } => write!(
+                f,
+                "{} has more than {} item{} valid under the given schema",
+                self.placeholder,
+                limit,
+                if *limit == 1 { "" } else { "s" }
+            ),
+            ValidationErrorKind::MinContains { limit } => write!(
+                f,
+                "{} has less than {} item{} valid under the given schema",
+                self.placeholder,
+                limit,
+                if *limit == 1 { "" } else { "s" }
+            ),
             ValidationErrorKind::MinItems { limit } => write!(
                 f,
                 "{} has less than {} item{}",
@@ -1775,8 +1917,7 @@ impl fmt::Display for MaskedValidationError<'_, '_, '_> {
                 }
                 Ok(())
             }
-            ValidationErrorKind::Custom { message, .. }
-            | ValidationErrorKind::RegexEngineFailure { message } => f.write_str(message),
+            ValidationErrorKind::Custom { message, .. } => f.write_str(message),
         }
     }
 }
@@ -1789,9 +1930,8 @@ mod tests {
 
     use test_case::test_case;
 
-    // `ValidationErrorIterator` requires `Send + Sync` (see its definition above); `LazyInstance`
-    // uses `OnceLock` rather than `OnceCell` specifically to keep this holding once the repr can
-    // carry a `Deferred` closure.
+    // `ValidationErrorIterator` requires `Send + Sync` (see its definition above);
+    // `LazyInstance::Deferred` caches in a `OnceLock`, not a `OnceCell`, to keep this holding.
     const _: fn() = || {
         fn assert_send_sync<T: Send + Sync>() {}
         assert_send_sync::<ValidationError<'static>>();
@@ -2379,6 +2519,31 @@ mod tests {
             absolute_location.as_str(),
             "https://example.com/schema.json#/type"
         );
+    }
+
+    #[test_case(json!({"dependentRequired": {"foo": ["bar"]}}), "dependentRequired" ; "dependentRequired")]
+    #[test_case(
+        json!({"$schema": "http://json-schema.org/draft-07/schema#", "dependencies": {"foo": ["bar"]}}),
+        "dependencies" ; "dependencies"
+    )]
+    fn test_absolute_keyword_location_of_dependent_names(mut schema: Value, keyword: &str) {
+        schema["$id"] = json!("https://example.com/schema.json");
+        let validator = crate::validator_for(&schema).expect("schema should compile");
+        let instance = json!({"foo": 1});
+        let expected = format!("https://example.com/schema.json#/{keyword}");
+        let err = validator.validate(&instance).unwrap_err();
+        assert_eq!(
+            err.absolute_keyword_location().map(Uri::as_str),
+            Some(expected.as_str())
+        );
+        let locations: Vec<_> = validator
+            .iter_errors(&instance)
+            .map(|err| {
+                err.absolute_keyword_location()
+                    .map(|uri| uri.as_str().to_string())
+            })
+            .collect();
+        assert_eq!(locations, [Some(expected)]);
     }
 
     #[test]

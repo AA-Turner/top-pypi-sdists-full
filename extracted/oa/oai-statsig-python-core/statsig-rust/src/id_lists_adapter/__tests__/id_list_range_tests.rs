@@ -1,7 +1,8 @@
-use super::tests::TestIdListsUpdateListener;
+use super::super::tests::TestIdListsUpdateListener;
 #[cfg(not(feature = "custom_network_provider"))]
-use super::tests::with_local_cdn;
-use super::*;
+use super::super::tests::with_local_cdn;
+use super::super::*;
+use super::{PartialIdListRecord, RawIdListChunk, Response, normalize_id_list_download};
 #[cfg(not(feature = "custom_network_provider"))]
 use mockito::Server;
 
@@ -557,9 +558,7 @@ async fn id_list_range_retries_changed_etag_with_mixed_case_headers() {
             ..Default::default()
         },
     );
-    adapter
-        .network
-        .set_network_provider_for_test(Arc::downgrade(&network_provider));
+    adapter.set_network_provider_for_test(Arc::downgrade(&network_provider));
     let listener = Arc::new(TestIdListsUpdateListener {
         id_lists: RwLock::new(HashMap::new()),
     });

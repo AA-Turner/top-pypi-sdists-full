@@ -314,6 +314,21 @@ async def test_patch_characteristic(path: str | None, expected: dict[str, object
 
 
 @pytest.mark.asyncio
+async def test_patch_characteristic_ignores_malformed_success_body() -> None:
+    """Treat a successful PATCH as successful without parsing its unused body."""
+    async with aiohttp.ClientSession() as session:
+        with aioresponses() as mocked:
+            url = (
+                f"{BASE_URL}/v1/gateway-devices/gateway-1/management-points/climateControl"
+                "/characteristics/operationMode"
+            )
+            mocked.patch(url, status=200, body="not-json")
+            client = OnectaClient(session, token_provider)
+
+            await client.patch_characteristic("gateway-1", "climateControl", "operationMode", "heating")
+
+
+@pytest.mark.asyncio
 async def test_post_management_point() -> None:
     """Return JSON data from a management-point POST."""
     async with aiohttp.ClientSession() as session:

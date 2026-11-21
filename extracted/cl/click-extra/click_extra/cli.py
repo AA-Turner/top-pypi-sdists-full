@@ -40,6 +40,7 @@ from click import (
 from cloup import Color, dir_path, file_path
 
 from . import context
+from ._utils import REPOSITORY_URL
 from .ansi import nearest_256
 from .cli_wrapper import WrapperGroup, wrap as wrap_cmd
 from .color import is_a_tty
@@ -236,6 +237,10 @@ it. A Nuitka build sees no import of these modules, so `[tool.nuitka]` of
     # option instances, as default_params documents. See click_extra.logo.
     params=partial(default_params, screen=BRAND_SCREEN),
     version_fields={"prog_name": "Click Extra"},
+    # A crash of Click Extra's own code ends with a report for its issue form.
+    # `wrap` and `refresh-directives` opt out, as the code they run belongs to
+    # another project.
+    report_url=f"{REPOSITORY_URL}/issues/new?template=bug-report.yml",
     config_schema=ClickExtraConfig,
     schema_strict=False,
     epilog=DEMO_EPILOG,
@@ -502,6 +507,10 @@ def refresh_directives_cmd(
     Python executed with the privileges of this process, so only refresh
     documentation you trust, exactly as you would only build trusted docs.
     """
+    # A mirror block runs the Python of the page it refreshes: a bug report of
+    # Click Extra would send the author of a crashing block to the wrong project.
+    context.set(ctx, context._NO_BUG_REPORT, True)
+
     # Deferred import: keeps the optional sphinx extra off the startup path, so
     # the rest of the CLI works without it.
     try:
@@ -860,8 +869,8 @@ _TRAIL_BATCH = (
 
 Each entry is one operation. Durations are a few seconds each and staggered, so
 the live spinner, bar and streaming outcomes stay watchable, and the leeks scorch
-to leave a `✘` in the trail. Tests stub `time.sleep`, so these never slow the
-suite.
+to leave a `✘` in the trail. Tests stub the `sleep` this module calls, so these
+never slow the suite.
 """
 
 

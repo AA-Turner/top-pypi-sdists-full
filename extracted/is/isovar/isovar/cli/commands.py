@@ -27,8 +27,6 @@ COMMANDS = {
     "calibrate-phasing": ("isovar_calibrate_phasing", "Calibrate phasing error bounds from truth-labeled control BAMs"),
     "viral": ("isovar_viral", "Recover observed viral RNA from combined-reference alignments without a GTF"),
     "isoforms": ("isovar_isoforms", "Reconstruct and quantify CTA or other targeted antigen isoforms"),
-    "uorf-evidence": ("isovar_uorf_evidence", "Query and export the offline human uORF evidence reference"),
-    "audit-bundle": ("isovar_audit_bundle", "Create, verify, archive and replay portable offline audit inputs"),
     "run": ("isovar_main", "Run the complete RNA-to-protein pipeline and result filters"),
     "protein-sequences": ("isovar_protein_sequences", "Export candidate protein sequences"),
     "protein-hypotheses": ("isovar_protein_hypotheses",
@@ -61,10 +59,10 @@ COMMAND_GROUPS = (
     ("RNA hypotheses and interpretation", (
         "protein-hypotheses", "variant-rna-paths", "allele-interpretations", "rna-features", "rna-origin")),
     ("Structural variants and fusions", ("sv-source", "sv-rna", "sv-audit", "fusion")),
-    ("Viral, isoform and uORF evidence", ("viral", "isoforms", "uorf-evidence")),
+    ("Viral and isoform evidence", ("viral", "isoforms")),
     ("Proteome and patient background", ("proteome", "patient-background-pairs", "normal-evidence")),
     ("Reports and figures", ("plot", "evidence-report", "antigen-report", "cohort")),
-    ("Audit and calibration", ("audit-bundle", "calibrate-phasing")),
+    ("Calibration", ("calibrate-phasing",)),
 )
 
 
@@ -82,8 +80,7 @@ def command_listing():
             lines.extend(" " * name_width + line for line in wrapped[1:])
         lines.append("")
     lines.append(textwrap.fill(
-        "Use 'isovar COMMAND --help' for options. 'isovar --vcf ... --bam ...' runs the "
-        "pipeline, and table/plot commands also install as isovar-COMMAND scripts.", columns))
+        "Use 'isovar COMMAND --help' for options. 'isovar --vcf ... --bam ...' runs the pipeline.", columns))
     return "\n".join(lines)
 
 
@@ -145,7 +142,7 @@ def run(args=None):
     # Parse only the command; its existing parser owns every remaining option.
     selected = parser.parse_args(args[:1]).command
     if selected not in COMMANDS:
-        # Not argparse's `choices`, which would print all 27 names on one line.
+        # Not argparse's `choices`, which would print every command name on one line.
         close = get_close_matches(selected, COMMANDS, n=1)
         hint = " (did you mean '%s'?)" % close[0] if close else ""
         parser.error("argument COMMAND: invalid choice: '%s'%s. Run 'isovar --help' to list "

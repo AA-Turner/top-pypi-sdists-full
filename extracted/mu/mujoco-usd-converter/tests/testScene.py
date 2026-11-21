@@ -97,6 +97,7 @@ class TestScene(ConverterTestCase):
             "mjc:flag:fwdinv",
             "mjc:flag:invdiscrete",
             "mjc:flag:override",
+            "mjc:flag:sleep",
         ]
 
         for attr_name in enable_flag_attrs:
@@ -125,6 +126,7 @@ class TestScene(ConverterTestCase):
         self.assertAlmostEqual(list(scene.GetAttribute("mjc:option:o_solref").Get()), [0.01, 0.8])
         self.assertEqual(scene.GetAttribute("mjc:option:sdf_initpoints").Get(), 60)
         self.assertEqual(scene.GetAttribute("mjc:option:sdf_iterations").Get(), 20)
+        self.assertAlmostEqual(scene.GetAttribute("mjc:option:sleep_tolerance").Get(), 0.005)
         self.assertEqual(scene.GetAttribute("mjc:option:solver").Get(), "cg")
         self.assertFalse(scene.GetAttribute("mjc:option:timestep").HasAuthoredValue())
         self.assertAlmostEqual(scene.GetAttribute("mjc:option:timestep").Get(), 0.002)
@@ -211,6 +213,7 @@ class TestScene(ConverterTestCase):
             "mjc:flag:fwdinv",
             "mjc:flag:invdiscrete",
             "mjc:flag:override",
+            "mjc:flag:sleep",
         ]
 
         for attr_name in default_disabled_flags:
@@ -238,6 +241,7 @@ class TestScene(ConverterTestCase):
         self.assertAlmostEqual(list(scene.GetAttribute("mjc:option:o_solref").Get()), [0.02, 1])
         self.assertEqual(scene.GetAttribute("mjc:option:sdf_initpoints").Get(), 40)
         self.assertEqual(scene.GetAttribute("mjc:option:sdf_iterations").Get(), 10)
+        self.assertAlmostEqual(scene.GetAttribute("mjc:option:sleep_tolerance").Get(), 0.001)
         self.assertEqual(scene.GetAttribute("mjc:option:solver").Get(), "newton")
         self.assertFalse(scene.GetAttribute("mjc:option:timestep").HasAuthoredValue())
         self.assertAlmostEqual(scene.GetAttribute("mjc:option:timestep").Get(), 0.002)
@@ -260,6 +264,27 @@ class TestScene(ConverterTestCase):
         self.assertEqual(scene.GetAttribute("mjc:compiler:saveInertial").Get(), False)
         self.assertAlmostEqual(scene.GetAttribute("mjc:compiler:setTotalMass").Get(), -1)
         self.assertEqual(scene.GetAttribute("mjc:compiler:useThread").Get(), True)
+
+    def test_inertia_group_range_authors_both_ends(self):
+        """Author both ends of a non-default inertiaGroupRange, even one matching its schema default.
+
+        MuJoCo's USD decoder ignores the range unless both of its ends are authored.
+        """
+        for model, expected in (
+            (pathlib.Path("./tests/data/mass_bake_inertiagrouprange.xml"), (0, 1)),
+            (pathlib.Path("./tests/data/bodies.xml"), None),
+        ):
+            with self.subTest(model=model.stem):
+                asset: Sdf.AssetPath = mujoco_usd_converter.Converter().convert(model, self.tmpDir(model.stem))
+                stage: Usd.Stage = Usd.Stage.Open(asset.path)
+                self.assertIsValidUsd(stage)
+                scene: Usd.Prim = stage.GetPseudoRoot().GetChild("PhysicsScene")
+                range_attrs = [scene.GetAttribute(f"mjc:compiler:inertiaGroupRange:{end}") for end in ("min", "max")]
+                if expected is None:
+                    self.assertFalse(any(attr.HasAuthoredValue() for attr in range_attrs))
+                else:
+                    self.assertTrue(all(attr.HasAuthoredValue() for attr in range_attrs))
+                    self.assertEqual(tuple(attr.Get() for attr in range_attrs), expected)
 
     def test_scene_discrete_integrator(self):
         model = pathlib.Path("./tests/data/scene_discrete_integrator.xml")

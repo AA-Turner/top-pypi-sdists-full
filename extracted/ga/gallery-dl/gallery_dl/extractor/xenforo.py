@@ -35,7 +35,7 @@ class XenforoExtractor(BaseExtractor):
             r'href="([^"]*?/(?:index\.php\?)?attachments/[^"]+".*?)</a>'
             r'|<div class="bb(?:Image|Media)Wrapper[^>]*?'
             r'data-src="([^"]+".*?) />'
-            r'|(?:<a [^>]*?href="|<iframe [^>]*?src="|'
+            r'''|(?:<a [^>]*?href=["']|<iframe [^>]*?src=["']|'''
             r'''onclick="loadMedia\(this, ')([^"']+[^<]*?<)'''
             r')'
         ).findall
@@ -328,6 +328,10 @@ class XenforoExtractor(BaseExtractor):
         main = data.get("mainEntity", data)
         url = main.get("url") or main.get("@id") or ""
 
+        section = main.get("articleSection")
+        if section is None and (part := main.get("isPartOf")):
+            section = part["name"]
+
         self.kwdict["thread"] = thread = self._parse_author(main["author"], {
             "id"   : url[url.rfind(".")+1:-1],
             "url"  : url,
@@ -335,7 +339,7 @@ class XenforoExtractor(BaseExtractor):
             "date" : self.parse_datetime_iso(main["datePublished"]),
             "tags" : (main["keywords"].split(", ")
                       if "keywords" in main else ()),
-            "section": main["articleSection"],
+            "section": section,
             "path" : path,
         })
 
@@ -544,7 +548,7 @@ BASE_PATTERN = XenforoExtractor.update({
 
 class XenforoPostExtractor(XenforoExtractor):
     subcategory = "post"
-    pattern = (BASE_PATTERN + r"(/(?:index\.php\?)?th(?:reads|ema)"
+    pattern = (BASE_PATTERN + r"(/(?:index\.php\?)?th(?:reads?|ema)"
                r"/[^/?#]+/(?:page-\d+)?#?post-|/posts/)(\d+)")
     example = "https://simpcity.cr/threads/TITLE.12345/post-54321"
 
@@ -565,7 +569,7 @@ class XenforoPostExtractor(XenforoExtractor):
 
 class XenforoThreadExtractor(XenforoExtractor):
     subcategory = "thread"
-    pattern = (BASE_PATTERN + r"(/(?:index\.php\?)?th(?:reads|ema)"
+    pattern = (BASE_PATTERN + r"(/(?:index\.php\?)?th(?:reads?|ema)"
                r"/(?:[^/?#]+\.)?\d+)(?:/page-(\d+))?")
     example = "https://simpcity.cr/threads/TITLE.12345/"
 
@@ -605,7 +609,8 @@ class XenforoForumExtractor(XenforoExtractor):
 
     def items(self):
         extract_threads = text.re(
-            r'(/(?:index\.php\?)?threads/[^"]+)"[^>]+data-xf-init=').findall
+            r'(/(?:index\.php\?)?th(?:reads?|ema)/[^"]+)'
+            r'"[^>]+data-xf-init=').findall
 
         data = {"_extractor": XenforoThreadExtractor}
         path = self.groups[-2]

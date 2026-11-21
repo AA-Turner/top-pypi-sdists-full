@@ -25,9 +25,10 @@ async fn test_get_experiment() {
         }
     });
 
-    if let Err(_e) = time::timeout(Duration::from_secs(10), task).await {
-        panic!("Timeout on get experiment, potential deadlock!!");
-    }
+    time::timeout(Duration::from_secs(10), task)
+        .await
+        .expect("Timeout on get experiment, potential deadlock!!")
+        .expect("get_experiment task failed");
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -41,9 +42,10 @@ async fn test_check_gate() {
         }
     });
 
-    if let Err(_e) = time::timeout(Duration::from_secs(10), task).await {
-        panic!("Timeout on get gate, potential deadlock");
-    }
+    time::timeout(Duration::from_secs(10), task)
+        .await
+        .expect("Timeout on get gate, potential deadlock")
+        .expect("get_feature_gate task failed");
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -57,9 +59,10 @@ async fn test_get_layer() {
         }
     });
 
-    if let Err(_e) = time::timeout(Duration::from_secs(10), task).await {
-        panic!("Timeout on get layer, potential deadlock");
-    }
+    time::timeout(Duration::from_secs(10), task)
+        .await
+        .expect("Timeout on get layer, potential deadlock")
+        .expect("get_layer task failed");
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -73,9 +76,10 @@ async fn test_gcir() {
         }
     });
 
-    if let Err(_e) = time::timeout(Duration::from_secs(10), task).await {
-        panic!("Timeout on gcir, potential deadlock");
-    }
+    time::timeout(Duration::from_secs(10), task)
+        .await
+        .expect("Timeout on gcir, potential deadlock")
+        .expect("get_client_init_response task failed");
 }
 
 async fn setup_and_init_statsig() -> Statsig {

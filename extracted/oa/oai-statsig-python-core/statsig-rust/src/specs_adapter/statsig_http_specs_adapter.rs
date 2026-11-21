@@ -245,6 +245,10 @@ impl StatsigHttpSpecsAdapter {
         }
     }
 
+    pub(crate) fn network(&self) -> Arc<NetworkClient> {
+        Arc::clone(&self.network)
+    }
+
     pub fn force_shutdown(&self) {
         let _output_scope = self.output_policy.enter();
         self.network.shutdown();

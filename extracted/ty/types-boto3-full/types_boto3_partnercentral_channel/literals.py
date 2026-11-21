@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_boto3_partnercentral_channel.literals import AssociationTypeType
+    from types_boto3_partnercentral_channel.literals import AccountScopeType
 
-    data: AssociationTypeType = "DOWNSTREAM_SELLER"
+    data: AccountScopeType = "ENTIRE_ORGANIZATION"
     ```
 """
 
@@ -23,20 +23,27 @@ else:
 
 
 __all__ = (
+    "AccountScopeType",
     "AssociationTypeType",
+    "ChannelContractStatusType",
+    "ChannelContractTypeType",
     "CoverageType",
     "HandshakeStatusType",
     "HandshakeTypeType",
+    "ListChannelContractsPaginatorName",
     "ListChannelHandshakesPaginatorName",
     "ListProgramManagementAccountsPaginatorName",
     "ListProgramManagementAccountsSortNameType",
     "ListRelationshipsPaginatorName",
     "ListRelationshipsSortNameType",
+    "ManagedServicesAttestationTypeSortNameType",
+    "ManagedServicesSupportedServiceType",
     "PaginatorName",
     "ParticipantTypeType",
     "PartnerCentralChannelAPIServiceName",
     "ProgramManagementAccountStatusType",
     "ProgramManagementAccountTypeSortNameType",
+    "ProgramManagementAccountTypeType",
     "ProgramType",
     "ProviderType",
     "RegionName",
@@ -51,21 +58,41 @@ __all__ = (
 )
 
 
-AssociationTypeType = Literal["DOWNSTREAM_SELLER", "END_CUSTOMER", "INTERNAL"]
+AccountScopeType = Literal["ENTIRE_ORGANIZATION", "SPECIFIC_MEMBER_ACCOUNTS"]
+AssociationTypeType = Literal[
+    "DOWNSTREAM_SELLER", "END_CUSTOMER", "INTERNAL", "MANAGED_SERVICES_END_CUSTOMER"
+]
+ChannelContractStatusType = Literal["ACCEPTED", "CANCELED", "EXPIRED", "INACTIVE", "PENDING"]
+ChannelContractTypeType = Literal["MANAGED_SERVICES_ATTESTATION"]
 CoverageType = Literal["ENTIRE_ORGANIZATION", "MANAGEMENT_ACCOUNT_ONLY"]
 HandshakeStatusType = Literal["ACCEPTED", "CANCELED", "EXPIRED", "PENDING", "REJECTED"]
 HandshakeTypeType = Literal[
     "PROGRAM_MANAGEMENT_ACCOUNT", "REVOKE_SERVICE_PERIOD", "START_SERVICE_PERIOD"
 ]
+ListChannelContractsPaginatorName = Literal["list_channel_contracts"]
 ListChannelHandshakesPaginatorName = Literal["list_channel_handshakes"]
 ListProgramManagementAccountsPaginatorName = Literal["list_program_management_accounts"]
 ListProgramManagementAccountsSortNameType = Literal["UpdatedAt"]
 ListRelationshipsPaginatorName = Literal["list_relationships"]
 ListRelationshipsSortNameType = Literal["UpdatedAt"]
+ManagedServicesAttestationTypeSortNameType = Literal["UpdatedAt"]
+ManagedServicesSupportedServiceType = Literal[
+    "ARTIFICIAL_INTELLIGENCE_AND_MACHINE_LEARNING_OPERATIONS",
+    "BACKUP_AND_DISASTER_RECOVERY",
+    "FINANCIAL_OPERATIONS",
+    "INFRASTRUCTURE_AS_CODE_AND_AUTOMATION",
+    "MONITORING",
+    "PATCHING",
+    "SECURITY",
+    "WELL_ARCHITECTED",
+]
 ParticipantTypeType = Literal["RECEIVER", "SENDER"]
 ProgramManagementAccountStatusType = Literal["ACTIVE", "INACTIVE", "PENDING"]
 ProgramManagementAccountTypeSortNameType = Literal["UpdatedAt"]
-ProgramType = Literal["DISTRIBUTION", "DISTRIBUTION_SELLER", "SOLUTION_PROVIDER"]
+ProgramManagementAccountTypeType = Literal["MANAGED_SERVICES", "RESALE_BILLING_TRANSFER"]
+ProgramType = Literal[
+    "DISTRIBUTION", "DISTRIBUTION_SELLER", "MANAGED_SERVICES_PROVIDER", "SOLUTION_PROVIDER"
+]
 ProviderType = Literal["DISTRIBUTION_SELLER", "DISTRIBUTOR"]
 ResaleAccountModelType = Literal["DISTRIBUTOR", "END_CUSTOMER", "SOLUTION_PROVIDER"]
 RevokeServicePeriodTypeSortNameType = Literal["UpdatedAt"]
@@ -82,6 +109,7 @@ ServiceName = Literal[
     "account-access-runtime",
     "acm",
     "acm-pca",
+    "agent-discovery",
     "agent-registry",
     "agent-registry-control",
     "aiops",
@@ -92,6 +120,7 @@ ServiceName = Literal[
     "apigateway",
     "apigatewaymanagementapi",
     "apigatewayv2",
+    "apiportal",
     "appconfig",
     "appconfigdata",
     "appfabric",
@@ -382,6 +411,7 @@ ServiceName = Literal[
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
+    "payments",
     "pca-connector-ad",
     "pca-connector-scep",
     "pcs",
@@ -437,6 +467,7 @@ ServiceName = Literal[
     "sagemaker-a2i-runtime",
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
+    "sagemaker-gateway-runtime",
     "sagemaker-geospatial",
     "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
@@ -520,6 +551,9 @@ ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
-    "list_channel_handshakes", "list_program_management_accounts", "list_relationships"
+    "list_channel_contracts",
+    "list_channel_handshakes",
+    "list_program_management_accounts",
+    "list_relationships",
 ]
 RegionName = Literal["us-east-1"]

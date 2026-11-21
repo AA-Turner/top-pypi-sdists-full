@@ -46,6 +46,7 @@ from click_extra.bug_report import (
     option_words,
     report_form_url,
 )
+from click_extra.cli import demo
 
 REPORT_URL = "https://github.com/orchard/harvest/issues/new?template=bug.yml"
 
@@ -188,6 +189,29 @@ def test_subcommand_error_reports_once(invoke):
     assert (
         report_block(result.stderr)[1] == "Options: --season autumn pick --fruit plum"
     )
+
+
+def test_click_extra_cli_reports_its_own_error(invoke, monkeypatch, tmp_path):
+    """An error of a `click-extra` subcommand gets a report for its issue form.
+
+    The code of this CLI is in the Click ecosystem, like the frames that run it. Its
+    frames start at the function of the subcommand, which the title names.
+    """
+
+    def convert_directory(root):
+        raise ZeroDivisionError("no basket for the plums")
+
+    monkeypatch.setattr("click_extra.cli.convert_directory", convert_directory)
+    result = invoke(demo, "convert-to-myst", str(tmp_path))
+
+    assert result.exit_code == 1
+    assert result.stderr.count(REPORT_START) == 1
+    form = "https://github.com/kdeldycke/click-extra/issues/new?template=bug-report.yml"
+    title = "ZeroDivisionError in convert_to_myst_cmd"
+    assert report_form_url(form, title) in result.stderr
+    callback, raiser = report_block(result.stderr)[4:]
+    assert re.fullmatch(r"  click_extra\.cli:\d+ in convert_to_myst_cmd", callback)
+    assert raiser.endswith(".<locals>.convert_directory")
 
 
 def test_report_survives_a_missing_version(invoke, monkeypatch):

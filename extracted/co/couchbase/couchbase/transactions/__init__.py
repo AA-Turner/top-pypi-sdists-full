@@ -1,4 +1,4 @@
-#  Copyright 2016-2022. Couchbase, Inc.
+#  Copyright 2016-2026. Couchbase, Inc.
 #  All Rights Reserved.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License")
@@ -12,6 +12,21 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+
+__all__ = [
+    'AttemptContext',
+    'TransactionGetMultiMode',
+    'TransactionGetMultiReplicasFromPreferredServerGroupMode',
+    'TransactionGetMultiReplicasFromPreferredServerGroupResult',
+    'TransactionGetMultiReplicasFromPreferredServerGroupSpec',
+    'TransactionGetMultiResult',
+    'TransactionGetMultiSpec',
+    'TransactionGetResult',
+    'TransactionKeyspace',
+    'TransactionQueryResults',
+    'TransactionResult',
+    'Transactions',
+]
 
 from .transaction_get_result import TransactionGetResult  # noqa: F401
 from .transaction_keyspace import TransactionKeyspace  # noqa: F401

@@ -15,7 +15,7 @@ from typing import Any, NamedTuple
 
 from apm_cli.install import registry_wiring
 from apm_cli.install.gitlab_resolver import _GITLAB_DIRECT_SHORTHAND_UNRESOLVED
-from apm_cli.models.dependency.subsets import union_selection_names
+from apm_cli.models.dependency.subsets import SkillTargetSelection, union_selection_names
 from apm_cli.utils.github_host import build_ssh_url
 
 GIT_PARENT_USER_SCOPE_ERROR = (
@@ -122,20 +122,19 @@ def user_scope_rejection_reason(dep_ref: Any, scope: Any) -> str | None:
     """
     if scope is None:
         return None
-    from pathlib import Path
-
     from apm_cli.core.scope import InstallScope
+    from apm_cli.deps.path_anchoring import USER_SCOPE_RELATIVE_PATH_ERROR, local_dep_base_dir
 
-    if dep_ref.is_local and scope is InstallScope.USER:
-        local_path = dep_ref.local_path or ""
-        # Match the rest of the install pipeline (sources.py, phases/resolve.py)
-        # which expanduser()s local paths before consuming them: `~/pkg` is
-        # absolute after expansion and must NOT be rejected here.
-        if not Path(local_path).expanduser().is_absolute():
-            return (
-                "relative local paths are not supported at user scope (--global). "
-                "Use an absolute path or a remote reference (owner/repo) instead"
-            )
+    # A CLI argument is root-declared: the anchor owner decides (#4153).
+    if (
+        dep_ref.is_local
+        and scope is InstallScope.USER
+        and local_dep_base_dir(
+            dep_ref.local_path or "", declaring_dir=None, source_root=None, user_scope=True
+        )
+        is None
+    ):
+        return USER_SCOPE_RELATIVE_PATH_ERROR
     if dep_ref.is_parent_repo_inheritance and scope is InstallScope.USER:
         return GIT_PARENT_USER_SCOPE_ERROR
     return None
@@ -266,10 +265,27 @@ def effective_deploy_skill_subset(
 
 
 class EffectiveDependencySelection(NamedTuple):
-    """Skill and target selection one package deployment must honor."""
+    """Skill and target selection one package deployment must honor.
+
+    ``skill_pairing`` narrows ``skill_subset`` per target when the flat
+    ``skill_subset x target_subset`` product would over-select (req-rs-018);
+    ``None`` means every selected target receives every selected skill.
+    """
 
     skill_subset: builtins.tuple[str, ...] | None
     target_subset: builtins.list[str] | None
+    skill_pairing: SkillTargetSelection | None = None
+
+
+def is_implicit_local(dep_ref: Any, ctx: Any | None) -> bool:
+    """Return True for a local dep a partial install adds only for lock coverage."""
+    implicit = getattr(ctx, "implicit_local_keys", None)
+    if not implicit:
+        return False
+    try:
+        return dep_ref.get_unique_key() in implicit
+    except (AttributeError, TypeError):
+        return False
 
 
 def effective_dependency_selection(
@@ -290,15 +306,28 @@ def effective_dependency_selection(
     """
     if dep_ref is None:
         return EffectiveDependencySelection(None, None)
+    if is_implicit_local(dep_ref, ctx):
+        ctx = None  # #4198: the CLI --skill overlay targets the named packages only
     skill_subset = effective_deploy_skill_subset(
         skill_subset_from_cli=bool(getattr(ctx, "skill_subset_from_cli", False)),
         cli_subset=getattr(ctx, "skill_subset", None),
         persisted_subset=getattr(dep_ref, "skill_subset", None),
     )
     target_subset = getattr(dep_ref, "target_subset", None)
+    pairing = getattr(dep_ref, "subset_pairings", None)
+    if not isinstance(pairing, SkillTargetSelection):
+        pairing = None  # raw lock records are decoded via LockedDependency.selection()
+    cli_subset = getattr(ctx, "skill_subset", None)
+    if pairing is not None and getattr(ctx, "skill_subset_from_cli", False) and not cli_subset:
+        pairing = None  # --skill '*': every skill on every selected target
+    elif pairing is not None and cli_subset:
+        # The CLI overlay acts as one more edge over the dependency's targets.
+        pairing = pairing.with_edge(cli_subset, target_subset)
+        pairing = None if pairing.is_product else pairing
     return EffectiveDependencySelection(
         skill_subset,
         builtins.list(target_subset) if target_subset else None,
+        pairing,
     )
 
 

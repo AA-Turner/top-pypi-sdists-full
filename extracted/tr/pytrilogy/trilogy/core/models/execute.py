@@ -14,6 +14,7 @@ from trilogy.constants import (
 )
 from trilogy.core.constants import CONSTANT_DATASET
 from trilogy.core.enums import (
+    BooleanOperator,
     ComparisonOperator,
     Derivation,
     FunctionClass,
@@ -37,6 +38,7 @@ from trilogy.core.models.build import (
     BuildComparison,
     BuildConcept,
     BuildConceptArgs,
+    BuildConditional,
     BuildDatasource,
     BuildFilterItem,
     BuildFunction,
@@ -146,6 +148,23 @@ def _computed_over(
         )
         for arg in concept.concept_arguments
     )
+
+
+def _and_atoms(condition: object) -> list:
+    if isinstance(condition, BuildConditional) and (
+        condition.operator == BooleanOperator.AND
+    ):
+        return _and_atoms(condition.left) + _and_atoms(condition.right)
+    return [condition]
+
+
+def _same_conjunction(left: object, right: object) -> bool:
+    """One AND of the same atoms, however it nests: two plans of one CTE can
+    group `a and b and c` differently."""
+    if left == right:
+        return True
+    a, b = _and_atoms(left), _and_atoms(right)
+    return len(a) == len(b) and all(x in b for x in a) and all(y in a for y in b)
 
 
 @dataclass
@@ -346,7 +365,7 @@ class CTE:
                 f" {self.name} {other.name} grains {self.grain} {other.grain}| {self.group_to_grain} {other.group_to_grain}| {self.output_lcl} {other.output_lcl}"
             )
             raise ValueError(error)
-        if self.condition != other.condition:
+        if not _same_conjunction(self.condition, other.condition):
             error = (
                 "Attempting to merge two ctes with different conditions"
                 f" {self.name} {other.name} conditions {self.condition} {other.condition}"
@@ -1301,6 +1320,10 @@ class Join(Generic[NodeT]):
     # planning only: the type the join had before an earlier join's padding
     # widened it (`join_resolution.restore_unpadded_joins`)
     own_type: JoinType | None = None
+    # planning only: the sides every row of which has a partner, so the join
+    # drops none of their rows whatever its type (`join_resolution._narrow_covered`)
+    matched_left: bool = False
+    matched_right: bool = False
 
     def __post_init__(self):
         key = _node_key(self.right)
@@ -1342,6 +1365,8 @@ class Join(Generic[NodeT]):
             guard=_bind_guard(self.guard, node_for),
             condition=self.condition,
             own_type=self.own_type,
+            matched_left=self.matched_left,
+            matched_right=self.matched_right,
         )
 
     def repoint(self, node_for: Callable[[NodeT], NodeT]) -> None:
@@ -1637,12 +1662,14 @@ class QueryDatasource:
 
     def __setattr__(self, name: str, value: object) -> None:
         # ``identifier`` is an expensive recursive property memoized in
-        # ``_identifier_cache``. Optimization passes mutate QDS fields after
-        # construction (datasources/condition/source_type/...), so drop the
-        # cache on any field write to keep the memo correct.
-        if name not in ("_identifier_cache", "_shape_cache"):
+        # ``_identifier_cache``, and ``null_provenance.provenance`` stamps its
+        # answers in ``_provenance_cache``. Optimization passes mutate QDS
+        # fields after construction (datasources/joins/condition/...), so drop
+        # the caches on any field write to keep them correct.
+        if name not in ("_identifier_cache", "_shape_cache", "_provenance_cache"):
             self.__dict__["_identifier_cache"] = None
             self.__dict__["_shape_cache"] = None
+            self.__dict__["_provenance_cache"] = None
         object.__setattr__(self, name, value)
 
     def __repr__(self):

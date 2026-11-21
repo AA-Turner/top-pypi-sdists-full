@@ -31,6 +31,7 @@ from .literals import (
     DeviceFormFactorType,
     DevicePlatformType,
     DevicePoolTypeType,
+    DeviceTypeType,
     ExecutionResultCodeType,
     ExecutionResultType,
     ExecutionStatusType,
@@ -1408,28 +1409,33 @@ class UpdateDevicePoolResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class DeviceTypeDef(TypedDict):
-    arn: NotRequired[str]
-    name: NotRequired[str]
-    manufacturer: NotRequired[str]
-    model: NotRequired[str]
-    modelId: NotRequired[str]
-    formFactor: NotRequired[DeviceFormFactorType]
-    platform: NotRequired[DevicePlatformType]
-    os: NotRequired[str]
-    cpu: NotRequired[CPUTypeDef]
-    resolution: NotRequired[ResolutionTypeDef]
-    heapSize: NotRequired[int]
-    memory: NotRequired[int]
-    image: NotRequired[str]
-    carrier: NotRequired[str]
-    radio: NotRequired[str]
-    remoteAccessEnabled: NotRequired[bool]
-    remoteDebugEnabled: NotRequired[bool]
-    fleetType: NotRequired[str]
-    fleetName: NotRequired[str]
-    instances: NotRequired[list[DeviceInstanceTypeDef]]
-    availability: NotRequired[DeviceAvailabilityType]
+DeviceTypeDef = TypedDict(
+    "DeviceTypeDef",
+    {
+        "arn": NotRequired[str],
+        "name": NotRequired[str],
+        "manufacturer": NotRequired[str],
+        "model": NotRequired[str],
+        "modelId": NotRequired[str],
+        "formFactor": NotRequired[DeviceFormFactorType],
+        "platform": NotRequired[DevicePlatformType],
+        "type": NotRequired[DeviceTypeType],
+        "os": NotRequired[str],
+        "cpu": NotRequired[CPUTypeDef],
+        "resolution": NotRequired[ResolutionTypeDef],
+        "heapSize": NotRequired[int],
+        "memory": NotRequired[int],
+        "image": NotRequired[str],
+        "carrier": NotRequired[str],
+        "radio": NotRequired[str],
+        "remoteAccessEnabled": NotRequired[bool],
+        "remoteDebugEnabled": NotRequired[bool],
+        "fleetType": NotRequired[str],
+        "fleetName": NotRequired[str],
+        "instances": NotRequired[list[DeviceInstanceTypeDef]],
+        "availability": NotRequired[DeviceAvailabilityType],
+    },
+)
 
 
 class GetDeviceInstanceResultTypeDef(TypedDict):

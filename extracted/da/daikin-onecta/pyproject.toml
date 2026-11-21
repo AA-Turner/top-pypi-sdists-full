@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "daikin-onecta"
-version = "0.6.2"
+version = "0.7.3"
 description = "Async Python client for the Daikin Onecta cloud API"
 readme = "README.md"
 requires-python = ">=3.14"

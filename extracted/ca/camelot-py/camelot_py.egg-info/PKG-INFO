@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: camelot-py
-Version: 2.0.0
+Version: 2.1.0
 Summary: PDF Table Extraction for Humans.
 Author-email: Vinayak Mehta <vmehta94@gmail.com>
 License: MIT
@@ -33,7 +33,7 @@ Requires-Dist: matplotlib>=3.7.5; python_version < "3.12" and extra == "plot"
 Requires-Dist: matplotlib>=3.8.0; python_version >= "3.12" and extra == "plot"
 Provides-Extra: ml
 Requires-Dist: torch>=2.0; extra == "ml"
-Requires-Dist: transformers<5,>=4.40; extra == "ml"
+Requires-Dist: transformers<6,>=4.40; extra == "ml"
 Requires-Dist: timm>=0.9; extra == "ml"
 Requires-Dist: pillow>=10.4.0; extra == "ml"
 Provides-Extra: ocr
@@ -211,6 +211,11 @@ pip install "camelot-py[plot]"    # matplotlib debug plots
 The core install stays light: `[ml]`/`[ocr]` are imported lazily, so a plain
 `import camelot` never loads PyTorch or OCR.
 
+> **Note** — `[ocr]` pulls `rapidocr-onnxruntime`, which hard-requires the full
+> `opencv-python` even though Camelot itself uses `opencv-python-headless`. See
+> [the install docs](https://camelot-py.readthedocs.io/en/latest/user/install.html#the-ocr-extra-and-opencv-python)
+> for how to keep the headless build only.
+
 ## Documentation
 
 The documentation is available at [http://camelot-py.readthedocs.io/](http://camelot-py.readthedocs.io/).
@@ -227,4 +232,4 @@ Camelot uses [Semantic Versioning](https://semver.org/). For the available versi
 
 This project is licensed under the MIT License, see the [LICENSE](https://github.com/camelot-dev/camelot/blob/master/LICENSE) file for details.
 
-The documentation theme is licensed under a seperate BSD-like License, see the [LICENSE](https://github.com/camelot-dev/camelot/blob/master/docs/_themes/LICENSE) file for details.
+The documentation theme is licensed under a separate BSD-like License, see the [LICENSE](https://github.com/camelot-dev/camelot/blob/master/docs/_themes/LICENSE) file for details.

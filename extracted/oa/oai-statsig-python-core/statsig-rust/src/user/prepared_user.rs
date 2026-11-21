@@ -10,7 +10,7 @@ use std::{
 
 use super::{
     fast_statsig_user::{FastStatsigUser, FastUserCustomMap, FastUserData, FastUserUnitIDMap},
-    unit_id::UnitID,
+    unit_id::{UnitID, is_user_id_type, resolve_unit_id},
     user_value::UserValue,
 };
 use crate::hashing;
@@ -136,13 +136,6 @@ impl<'a> PreparedCustomIDs<'a> {
         self.overlay
             .and_then(|ids| ids.get(id_type))
             .or_else(|| self.base?.get(id_type))
-    }
-
-    fn get(&self, id_type: &str, lowercased_id_type: &str) -> Option<&'a UserValue> {
-        // Exact context keys precede alternate-case overlay keys, just as they
-        // do after an ordinary map merge.
-        self.get_exact(id_type)
-            .or_else(|| self.get_exact(lowercased_id_type))
     }
 
     pub(crate) fn iter(&self) -> impl Iterator<Item = (&'a String, &'a UserValue)> + '_ {
@@ -282,10 +275,12 @@ impl PreparedUser {
         id_type: &str,
         lowercased_id_type: &str,
     ) -> Option<&UserValue> {
-        if lowercased_id_type == "userid" {
-            return self.input.user_id.as_ref();
-        }
-        self.custom_ids()?.get(id_type, lowercased_id_type)
+        resolve_unit_id(
+            id_type,
+            lowercased_id_type,
+            self.input.user_id.as_ref(),
+            |key| self.custom_ids()?.get_exact(key),
+        )
     }
 
     pub(crate) fn custom_ids(&self) -> Option<PreparedCustomIDs<'_>> {
@@ -403,7 +398,7 @@ fn exposure_hash(
     if input.custom_ids.is_some() {
         let ids = custom_ids(input, base).expect("custom ID overlay is present");
         let unit_id_hash = |id_type: &str| {
-            if id_type.eq_ignore_ascii_case("userid") {
+            if is_user_id_type(id_type) {
                 user_id_hash
             } else {
                 ids.get_exact(id_type)
@@ -420,7 +415,7 @@ fn exposure_hash(
         ]);
     }
     let unit_id_hash = |id_type: &str| {
-        if id_type.eq_ignore_ascii_case("userid") {
+        if is_user_id_type(id_type) {
             user_id_hash
         } else {
             base.map_or(0, |base| base.get_unit_id_hash(id_type))
@@ -554,7 +549,7 @@ mod tests {
             owned
                 .custom_ids()
                 .unwrap()
-                .get("device", "device")
+                .get_exact("device")
                 .and_then(UserValue::string_value),
             Some("one")
         );

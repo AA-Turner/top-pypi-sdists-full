@@ -163,8 +163,9 @@ class AuthenticatedClient(Client):
 
     @property
     def token(self) -> str:
-        if self.fixed_token:
-            return self.fixed_token
+        if self.fixed_token is not None:
+            # An empty caller token must fail, never fall back to the pod's OS_JWT.
+            return _require_token(self.fixed_token)
 
         token = fetch_token_from_file()
         if token and is_valid_jwt(token):
@@ -266,6 +267,14 @@ def check_required_env_vars(required_vars: List[str]):
         )
 
 
+def _require_token(token: str) -> str:
+    if not token.strip():
+        raise ValueError(
+            "The JWT is empty: pass a user token, or None for the app's own"
+        )
+    return token
+
+
 def make_client(
     fixed_jwt=None,
     api_endpoint=None,
@@ -279,6 +288,8 @@ def make_client(
     if api_endpoint:
         local_vars.append("OS_API_ENDPOINT")
 
+    if fixed_jwt is not None:
+        _require_token(fixed_jwt)
     required_env_vars = list(set(REQUIRED_ENV_VARS).difference(set(local_vars)))
     check_required_env_vars(required_env_vars)
 

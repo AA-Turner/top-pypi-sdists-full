@@ -18,7 +18,8 @@
 #pragma once
 
 #include "Python.h"
-#include "structmember.h"
+#include "pycbc_dict_keys.hxx"
+#include "pytype_utils.hxx"
 #include <core/error_context/analytics.hxx>
 #include <core/error_context/http.hxx>
 #include <core/error_context/key_value_error_context.hxx>
@@ -47,7 +48,7 @@ struct pycbc_exception {
   PyObject* end_time;   // For metrics support
 };
 
-extern PyTypeObject pycbc_exception_type;
+extern PyObject* pycbc_exception_type_obj;
 
 PyObject*
 add_exception_objects(PyObject* pyObj_module);
@@ -60,6 +61,39 @@ add_exception_objects(PyObject* pyObj_module);
  */
 int
 cache_exception_classes();
+
+/**
+ * Accessors for the exception classes cache_exception_classes() resolves at module init.
+ * Each returns a borrowed reference to the cached class, valid for the lifetime of the
+ * module once cache_exception_classes() has succeeded.
+ */
+PyObject*
+cached_feature_unavailable_exception();
+PyObject*
+cached_transaction_failed_exception();
+PyObject*
+cached_transaction_expired_exception();
+PyObject*
+cached_transaction_commit_ambiguous_exception();
+PyObject*
+cached_transaction_operation_failed_exception();
+PyObject*
+cached_document_exists_exception();
+PyObject*
+cached_document_not_found_exception();
+PyObject*
+cached_query_parsing_failure_exception();
+PyObject*
+cached_couchbase_exception();
+PyObject*
+cached_document_unretrievable_exception();
+
+/**
+ * Returns a new reference to a MemoryError instance, falling back to the class itself if
+ * even that allocation fails.
+ */
+PyObject*
+memory_error_fallback();
 
 /**
  * Set a RuntimeError carrying message, but only if no Python exception is already pending.
@@ -75,6 +109,12 @@ set_runtime_error_if_unset(const char* message)
     PyErr_SetString(PyExc_RuntimeError, message);
   }
 }
+
+/**
+ * Get the exception base type object.
+ */
+PyObject*
+get_pycbc_exception_type();
 
 /**
  * Create a new exception base object.
@@ -185,7 +225,7 @@ build_exc_info_dict(const char* file, int line, const char* message)
     Py_DECREF(exc_info);
     return nullptr;
   }
-  int rv = PyDict_SetItemString(exc_info, "cinfo", pyObj_cinfo);
+  int rv = PyDict_SetItem(exc_info, pycbc::keys::cinfo, pyObj_cinfo);
   Py_DECREF(pyObj_cinfo);
   if (rv < 0) {
     Py_DECREF(exc_info);
@@ -198,7 +238,7 @@ build_exc_info_dict(const char* file, int line, const char* message)
       Py_DECREF(exc_info);
       return nullptr;
     }
-    rv = PyDict_SetItemString(exc_info, "message", msg_str);
+    rv = PyDict_SetItem(exc_info, pycbc::keys::message, msg_str);
     Py_DECREF(msg_str);
     if (rv < 0) {
       Py_DECREF(exc_info);

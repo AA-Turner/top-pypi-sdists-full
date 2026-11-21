@@ -19,7 +19,9 @@ from __future__ import annotations
 import sys
 from collections.abc import Mapping, Sequence
 from datetime import datetime
-from typing import Union
+from typing import IO, Any, Union
+
+from botocore.response import StreamingBody
 
 from .literals import (
     BaseModelNameType,
@@ -40,6 +42,8 @@ from .literals import (
     RedactionOutputType,
     SentimentValueType,
     SubtitleFormatType,
+    SyncLanguageCodeType,
+    SyncLanguageType,
     TranscriptionJobStatusType,
     TypeType,
     VocabularyFilterMethodType,
@@ -54,6 +58,7 @@ else:
 
 __all__ = (
     "AbsoluteTimeRangeTypeDef",
+    "BlobTypeDef",
     "CallAnalyticsJobDetailsTypeDef",
     "CallAnalyticsJobSettingsOutputTypeDef",
     "CallAnalyticsJobSettingsTypeDef",
@@ -175,14 +180,24 @@ __all__ = (
     "SubtitlesOutputTypeDef",
     "SubtitlesTypeDef",
     "SummarizationTypeDef",
+    "SyncItemTypeDef",
+    "SyncLanguageCodeItemTypeDef",
+    "SyncMediaTypeDef",
+    "SyncOutputConfigurationTypeDef",
+    "SyncRedactionTypeDef",
     "TagResourceRequestTypeDef",
     "TagTypeDef",
     "ToxicityDetectionSettingsOutputTypeDef",
     "ToxicityDetectionSettingsTypeDef",
     "ToxicityDetectionSettingsUnionTypeDef",
+    "TranscribeAudioMetadataTypeDef",
+    "TranscribeAudioRequestTypeDef",
+    "TranscribeAudioResponseTypeDef",
+    "TranscribeAudioResultsTypeDef",
     "TranscriptFilterOutputTypeDef",
     "TranscriptFilterTypeDef",
     "TranscriptFilterUnionTypeDef",
+    "TranscriptResponseTypeDef",
     "TranscriptTypeDef",
     "TranscriptionJobSummaryTypeDef",
     "TranscriptionJobTypeDef",
@@ -197,8 +212,12 @@ __all__ = (
     "UpdateVocabularyFilterResponseTypeDef",
     "UpdateVocabularyRequestTypeDef",
     "UpdateVocabularyResponseTypeDef",
+    "VocabularyFilterEntryTypeDef",
     "VocabularyFilterInfoTypeDef",
+    "VocabularyFilterSettingsTypeDef",
     "VocabularyInfoTypeDef",
+    "VocabularyPhraseTypeDef",
+    "VocabularySettingsEntryTypeDef",
     "WaiterConfigTypeDef",
 )
 
@@ -208,6 +227,9 @@ class AbsoluteTimeRangeTypeDef(TypedDict):
     EndTime: NotRequired[int]
     First: NotRequired[int]
     Last: NotRequired[int]
+
+
+BlobTypeDef = Union[str, bytes, IO[Any], StreamingBody]
 
 
 class CallAnalyticsSkippedFeatureTypeDef(TypedDict):
@@ -538,6 +560,23 @@ class SubtitlesOutputTypeDef(TypedDict):
     OutputStartIndex: NotRequired[int]
 
 
+SyncRedactionTypeDef = TypedDict(
+    "SyncRedactionTypeDef",
+    {
+        "Type": NotRequired[PiiEntityTypeType],
+    },
+)
+
+
+class SyncLanguageCodeItemTypeDef(TypedDict):
+    LanguageCode: NotRequired[SyncLanguageCodeType]
+    DurationInSeconds: NotRequired[float]
+
+
+class SyncOutputConfigurationTypeDef(TypedDict):
+    OutputMediaFileUri: str
+
+
 class ToxicityDetectionSettingsOutputTypeDef(TypedDict):
     ToxicityCategories: list[Literal["ALL"]]
 
@@ -555,6 +594,26 @@ class UpdateMedicalVocabularyRequestTypeDef(TypedDict):
     VocabularyName: str
     LanguageCode: LanguageCodeType
     VocabularyFileUri: str
+
+
+class VocabularyFilterEntryTypeDef(TypedDict):
+    Language: SyncLanguageType
+    VocabularyFilterName: NotRequired[str]
+    Words: NotRequired[Sequence[str]]
+
+
+VocabularyPhraseTypeDef = TypedDict(
+    "VocabularyPhraseTypeDef",
+    {
+        "Text": str,
+        "DisplayAs": NotRequired[str],
+    },
+)
+
+
+class SyncMediaTypeDef(TypedDict):
+    MediaBytes: NotRequired[BlobTypeDef]
+    MediaFileUri: NotRequired[str]
 
 
 class CallAnalyticsJobDetailsTypeDef(TypedDict):
@@ -896,6 +955,27 @@ StartMedicalTranscriptionJobRequestTypeDef = TypedDict(
 )
 
 
+class SyncItemTypeDef(TypedDict):
+    Id: NotRequired[int]
+    Content: NotRequired[str]
+    StartTime: NotRequired[float]
+    EndTime: NotRequired[float]
+    LanguageCode: NotRequired[SyncLanguageCodeType]
+    ChannelLabel: NotRequired[str]
+    SpeakerLabel: NotRequired[str]
+    VocabularyFilterMatch: NotRequired[bool]
+    Redactions: NotRequired[list[SyncRedactionTypeDef]]
+
+
+class TranscribeAudioMetadataTypeDef(TypedDict):
+    LanguageCode: NotRequired[SyncLanguageCodeType]
+    LanguageCodes: NotRequired[list[SyncLanguageCodeItemTypeDef]]
+    MediaFormat: NotRequired[MediaFormatType]
+    MediaSampleRateHertz: NotRequired[int]
+    SpeakersCount: NotRequired[int]
+    NumberOfChannels: NotRequired[int]
+
+
 class TranscriptionJobSummaryTypeDef(TypedDict):
     TranscriptionJobName: NotRequired[str]
     CreationTime: NotRequired[datetime]
@@ -944,6 +1024,17 @@ class TranscriptionJobTypeDef(TypedDict):
 ToxicityDetectionSettingsUnionTypeDef = Union[
     ToxicityDetectionSettingsTypeDef, ToxicityDetectionSettingsOutputTypeDef
 ]
+
+
+class VocabularyFilterSettingsTypeDef(TypedDict):
+    VocabularyFilterMethod: VocabularyFilterMethodType
+    Filters: Sequence[VocabularyFilterEntryTypeDef]
+
+
+class VocabularySettingsEntryTypeDef(TypedDict):
+    Language: SyncLanguageType
+    VocabularyName: NotRequired[str]
+    Phrases: NotRequired[Sequence[VocabularyPhraseTypeDef]]
 
 
 class CallAnalyticsJobSummaryTypeDef(TypedDict):
@@ -1098,6 +1189,11 @@ class StartMedicalTranscriptionJobResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class TranscribeAudioResultsTypeDef(TypedDict):
+    Transcript: NotRequired[str]
+    Items: NotRequired[list[SyncItemTypeDef]]
+
+
 class ListTranscriptionJobsResponseTypeDef(TypedDict):
     Status: TranscriptionJobStatusType
     TranscriptionJobSummaries: list[TranscriptionJobSummaryTypeDef]
@@ -1136,6 +1232,20 @@ class StartTranscriptionJobRequestTypeDef(TypedDict):
     Tags: NotRequired[Sequence[TagTypeDef]]
     LanguageIdSettings: NotRequired[Mapping[LanguageCodeType, LanguageIdSettingsTypeDef]]
     ToxicityDetection: NotRequired[Sequence[ToxicityDetectionSettingsUnionTypeDef]]
+
+
+class TranscribeAudioRequestTypeDef(TypedDict):
+    Media: SyncMediaTypeDef
+    Language: NotRequired[SyncLanguageType]
+    LanguageDetectionMode: NotRequired[Literal["IDENTIFY_LANGUAGE"]]
+    LanguageOptions: NotRequired[Sequence[SyncLanguageType]]
+    ChannelIdentification: NotRequired[bool]
+    ShowSpeakerLabels: NotRequired[bool]
+    MaxSpeakerLabels: NotRequired[int]
+    VocabularySettings: NotRequired[Sequence[VocabularySettingsEntryTypeDef]]
+    VocabularyFilterSettings: NotRequired[VocabularyFilterSettingsTypeDef]
+    ContentRedaction: NotRequired[ContentRedactionUnionTypeDef]
+    OutputConfiguration: NotRequired[SyncOutputConfigurationTypeDef]
 
 
 class ListCallAnalyticsJobsResponseTypeDef(TypedDict):
@@ -1192,6 +1302,12 @@ class RuleTypeDef(TypedDict):
     SentimentFilter: NotRequired[SentimentFilterUnionTypeDef]
 
 
+class TranscriptResponseTypeDef(TypedDict):
+    Metadata: NotRequired[TranscribeAudioMetadataTypeDef]
+    Results: NotRequired[TranscribeAudioResultsTypeDef]
+    RedactedResults: NotRequired[TranscribeAudioResultsTypeDef]
+
+
 class CreateCallAnalyticsCategoryResponseTypeDef(TypedDict):
     CategoryProperties: CategoryPropertiesTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1214,6 +1330,12 @@ class UpdateCallAnalyticsCategoryResponseTypeDef(TypedDict):
 
 
 RuleUnionTypeDef = Union[RuleTypeDef, RuleOutputTypeDef]
+
+
+class TranscribeAudioResponseTypeDef(TypedDict):
+    OutputConfiguration: SyncOutputConfigurationTypeDef
+    TranscriptResponse: TranscriptResponseTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class CreateCallAnalyticsCategoryRequestTypeDef(TypedDict):

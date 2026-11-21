@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import argparse
-import io
 import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
@@ -16,6 +15,7 @@ from lxml import etree as LET  # type: ignore[reportMissingImports]
 from ..oxml.namespaces import HWPML_COMPAT_ROOT_NAMESPACES
 from ..oxml.objects import _REQUIRED_SHAPE_CHILD_NAMES
 from ..oxml.utils import hancom_text_length, line_seg_past_text
+from ..opc.security import _duplicate_entry_notice, note_well_formed, open_archive
 from ..opc.security import HwpxSecurityError, MAX_ZIP_MEMBER_BYTES, MAX_ZIP_MIMETYPE_BYTES, MAX_ZIP_SMALL_PART_BYTES, read_member
 from ..opc.relationships import (
     MAIN_ROOTFILE_MEDIA_TYPE,
@@ -67,7 +67,21 @@ __all__ = [
     "main",
 ]
 
+#: The error for a section whose ``hp:secPr`` sits in a later paragraph than its first one.
+SECTION_PROPERTIES_NOT_FIRST_MESSAGE = (
+    "hp:secPr is not in the section's first paragraph (section-properties-not-first): Hancom reads "
+    "a section's settings only from its first paragraph and gives the section default paper and margins"
+)
+
+#: The error for a section whose first paragraph holds its ``hp:secPr`` but no column definition.
+SECTION_COLUMNS_MISSING_MESSAGE = (
+    "the section's first paragraph holds hp:secPr but no column definition (hp:ctrl/hp:colPr) "
+    "(section-columns-missing): Hancom opens the section with default paper and margins; "
+    "`hwpx-repair` writes the one-column definition Hancom writes"
+)
+
 EDITOR_OPEN_ADVISORY_ERROR_MARKERS = (
+    "(section-columns-missing)",  # reported, not refused on saving: a document read that way still saves
     'missing XML declaration with standalone="yes"',
     "missing Hancom-compatible HWPML root namespace declarations",
     "manifest href missing from archive",
@@ -213,27 +227,33 @@ def validate_editor_open_safety(source: str | Path | bytes) -> EditorOpenSafetyR
         issue for issue in package_report.errors if is_editor_open_blocking_issue(issue)
     )
 
-    document_report: Any | None = None
-    document_error: str | None = None
-    try:
-        from .validator import validate_document
-
-        document_report = validate_document(source)
-    except Exception as exc:  # noqa: BLE001 - reported as evidence, not hidden
-        document_error = f"{type(exc).__name__}: {exc}"
-
+    # The document is opened once: that open is the reopen evidence, and the
+    # document check reads the same open document instead of opening it again.
+    reopened: Any | None = None
     reopen_ok = False
     reopen_error: str | None = None
     try:
         from ..document import HwpxDocument
 
         reopened = HwpxDocument.open(source)
-        try:
-            reopen_ok = True
-        finally:
-            reopened.close()
+        reopen_ok = True
     except Exception as exc:  # noqa: BLE001 - reported as evidence, not hidden
         reopen_error = f"{type(exc).__name__}: {exc}"
+
+    document_report: Any | None = None
+    document_error: str | None = None
+    if reopened is None:
+        # The document check opens the document first, so it stops on the same error.
+        document_error = reopen_error
+    else:
+        try:
+            from .validator import validate_document
+
+            document_report = validate_document(reopened)
+        except Exception as exc:  # noqa: BLE001 - reported as evidence, not hidden
+            document_error = f"{type(exc).__name__}: {exc}"
+        finally:
+            reopened.close()
 
     return EditorOpenSafetyReport(
         validate_package=package_report,
@@ -249,7 +269,7 @@ def _open_zip(source: str | Path | bytes | BinaryIO) -> ZipFile:
     if isinstance(source, (str, Path)):
         return ZipFile(source, "r")
     if isinstance(source, bytes):
-        return ZipFile(io.BytesIO(source), "r")
+        return open_archive(source)
     return ZipFile(source, "r")
 
 
@@ -315,15 +335,25 @@ def _check_hwpml_compat_root(
         )
 
 
+#: Local names by tag. Every check walks the parts and asks for the same few
+#: hundred tags again; the cap keeps a hostile document from growing the table.
+_LOCAL_NAMES: dict[str, str] = {}
+_LOCAL_NAMES_LIMIT = 4096
+
+
 def _local_name(element: ET.Element) -> str:
     tag = element.tag
+    known = _LOCAL_NAMES.get(tag)
+    if known is not None:
+        return known
     if not isinstance(tag, str):
         # A comment or processing instruction: its ``tag`` is a function, not
         # a name. ``""`` matches no element, so every check passes over it.
         return ""
-    if "}" in tag:
-        return tag.rsplit("}", 1)[1]
-    return tag
+    name = tag.rsplit("}", 1)[1] if "}" in tag else tag
+    if len(_LOCAL_NAMES) < _LOCAL_NAMES_LIMIT:
+        _LOCAL_NAMES[tag] = name
+    return name
 
 
 def _children_by_local(element: ET.Element, name: str) -> list[ET.Element]:
@@ -674,6 +704,18 @@ def _check_section_properties_location(
         if first_paragraph is not None
         else None
     )
+    in_later_paragraph = any(
+        _first_child_by_local(run, "secPr") is section_properties
+        for paragraph in _children_by_local(root, "p")[1:]
+        for run in _children_by_local(paragraph, "run")
+    )
+    if in_later_paragraph:
+        # Hancom reads a section's settings only from its first paragraph: Hangul 2024 opens such a
+        # part with default paper and margins and saves a default hp:secPr in the first paragraph
+        # (out/move8/sync/check/secpr_second_paragraph*.hwpx). None of 1,717 sections with a hp:secPr
+        # in tests/fixtures, the rhwp/kordoc samples and 250 Hangul 2024 conversions has it there.
+        _error(issues, part_name, SECTION_PROPERTIES_NOT_FIRST_MESSAGE)
+        return
     if (
         first_run is None
         or _first_child_by_local(first_run, "secPr") is not section_properties
@@ -683,6 +725,21 @@ def _check_section_properties_location(
             part_name,
             "hp:secPr must be carried by the first paragraph's first hp:run",
         )
+    if first_paragraph is not None and not _holds_column_definition(first_paragraph):
+        # Hangul 2024 opened a section with hp:secPr and no hp:colPr beside it with default margins and saved
+        # a one-column definition (out/preview9/colpr); every one of the 1,271 sections of
+        # tests/fixtures/hancom_saved has its hp:colPr in the first paragraph.
+        _error(issues, part_name, SECTION_COLUMNS_MISSING_MESSAGE)
+
+
+def _holds_column_definition(paragraph: ET.Element) -> bool:
+    return any(
+        _local_name(control) == "colPr"
+        for run in _children_by_local(paragraph, "run")
+        for child in run
+        if _local_name(child) == "ctrl"
+        for control in child
+    )
 
 
 def _check_header_editor_acceptance(
@@ -767,14 +824,20 @@ _RENDERING_MATRICES = ("transMatrix", "scaMatrix", "rotMatrix")
 #: (the control id's four characters read as a big-endian 32-bit integer).
 #: Hancom opens a field when either one is recognised and refuses it when both
 #: are unknown (e.g. ``type="ClickHere"`` with ``fieldid="field-date"``).
+#: Hancom 2024 writes a date code as ``SUMMERY`` (its spelling, also the OWPML
+#: schema's) with ``%smr``, and the proofreading marks other than the sign and
+#: delete marks as ``PROOFREADING_MARKS_LINEATTACH``/``_ATTACH``/``_CLIPPING``
+#: with ``%%*A``/``%%*a``/``%%*C``.
 _HANCOM_FIELD_TYPES = frozenset({
-    "CLICK_HERE", "HYPERLINK", "BOOKMARK", "FORMULA", "SUMMARY", "USER_INFO", "DATE", "DOC_DATE",
+    "CLICK_HERE", "HYPERLINK", "BOOKMARK", "FORMULA", "SUMMARY", "SUMMERY", "USER_INFO", "DATE", "DOC_DATE",
     "PATH", "CROSSREF", "MAILMERGE", "MEMO", "PROOFREADING_MARKS", "PROOFREADING_MARKS_SIGN",
-    "PROOFREADING_MARKS_DELETE", "PRIVATE_INFO", "METADATA", "CITATION", "BIBLIOGRAPHY", "TABLEOFCONTENTS",
+    "PROOFREADING_MARKS_DELETE", "PROOFREADING_MARKS_LINEATTACH", "PROOFREADING_MARKS_ATTACH",
+    "PROOFREADING_MARKS_CLIPPING", "PRIVATE_INFO", "METADATA", "CITATION", "BIBLIOGRAPHY", "TABLEOFCONTENTS",
 })
 _HANCOM_FIELD_IDS = frozenset({
     "627600491", "627272811", "623209829", "627207531", "627469685", "627340389", "628650598",
     "628387683", "627928423", "628121972", "628320615", "623192676",
+    "628321650", "623192641", "623192673", "623192643",  # %smr, %%*A, %%*a, %%*C
 })
 _RECT_CORNERS = ("pt0", "pt1", "pt2", "pt3")
 
@@ -911,6 +974,15 @@ def _check_required_drawing_structure(
                 _error(issues, part_name, f"hp:{name} missing hp:renderingInfo matrices; Hancom crashes on the document")
             if name == "pic" and _first_child_by_local(element, "img") is None:
                 _error(issues, part_name, "hp:pic missing hc:img; Hancom refuses to open the document")
+        if name == "connectLine":
+            original = _first_child_by_local(element, "orgSz")
+            if original is not None and "0" in (original.get("width"), original.get("height")):
+                # Hancom 2024 divides by it when it redraws the connector from its shapes, saves its scaMatrix
+                # as -nan(ind) and draws it nowhere (objlim keepsrc, grpconn); it opens the document all the
+                # same, so this warns and does not block.
+                _warning(issues, part_name, "hp:connectLine has an orgSz side of 0; Hancom draws such a connector "
+                                            "nowhere (python-hwpx before 7.0 wrote horizontal and vertical "
+                                            "connectors so: make it again with doc.shapes.add_connector)")
         if name == "rect" and any(_first_child_by_local(element, pt) is None for pt in _RECT_CORNERS):
             _error(issues, part_name, "hp:rect missing a corner point (hc:pt0..pt3); Hancom refuses to open the document")
         for child in element:
@@ -1081,6 +1153,8 @@ def _parse_all_xml(
     xml_roots: dict[str, ET.Element] = {}
     squeezed: frozenset[str] = frozenset()
     narrowed: dict[str, float] = {}
+    header_payload: bytes | None = None
+    header_root: ET.Element | None = None
     if HEADER_PATH in names:
         header_payload = _safe_read(zf, HEADER_PATH)
         try:
@@ -1088,7 +1162,7 @@ def _parse_all_xml(
             squeezed = squeezed_paragraph_shapes(header_root)
             narrowed = narrowed_char_shapes(header_root)
         except ValueError:
-            pass  # reported when the header is parsed below
+            header_root = None  # reported when the header is parsed below
     for name in names:
         if not (name.endswith(".xml") or name.endswith(".hpf")):
             continue
@@ -1097,7 +1171,11 @@ def _parse_all_xml(
             _error(issues, name, "unable to read entry for XML parsing")
             continue
         try:
-            root = _parse_xml(payload)
+            if name == HEADER_PATH and header_root is not None and payload == header_payload:
+                root = header_root  # the same bytes were parsed for the shapes above
+            else:
+                root = _parse_xml(payload)
+            note_well_formed(zf, name)
             xml_roots[name] = root
             _check_hwpml_compat_root(issues, name, payload, root)
             _check_line_seg_text_positions(issues, name, root, squeezed, narrowed)
@@ -1119,7 +1197,9 @@ def _check_rootfile_parts(
 ) -> None:
     for rootfile in rootfiles:
         if rootfile.full_path not in name_set:
-            _error(
+            # Hancom opens a document whose declared preview is absent; any other missing root is an error.
+            report = _warning if rootfile.full_path.startswith("Preview/") else _error
+            report(
                 issues,
                 CONTAINER_PATH,
                 f"rootfile points to missing part {rootfile.full_path!r}",
@@ -1399,14 +1479,10 @@ def _check_version_part(
     selected_rootfile: RootFileRef,
     issues: list[PackageValidationIssue],
 ) -> None:
-    if relationships.version_path is None and VERSION_PATH in name_set:
-        _warning(
-            issues,
-            selected_rootfile.full_path,
-            "manifest does not reference a version part; engine will fall back to "
-            f"{VERSION_PATH!r}",
-        )
-    elif (
+    # Hancom does not list version.xml in the manifest: it sits at the fixed path. Every
+    # Hancom-saved HWPX checked (96 public, 1,127 in tests/fixtures/hancom_saved) has it there and
+    # none references it, so a missing reference is the normal state, not a warning.
+    if (
         relationships.version_path is not None
         and relationships.version_path not in name_set
     ):
@@ -1434,6 +1510,9 @@ def validate_package(source: str | Path | bytes | BinaryIO) -> PackageValidation
         names = [info.filename for info in infos]
         name_set = set(names)
         checked_parts.extend(names)
+        duplicates = _duplicate_entry_notice(names)
+        if duplicates is not None:
+            _warning(issues, "archive", duplicates)
         try:
             guard_zip_file(zf)
         except HwpxSecurityError as exc:
@@ -1513,13 +1592,25 @@ def validate_package(source: str | Path | bytes | BinaryIO) -> PackageValidation
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    from .archive_cli import _printable_stdout
+    _printable_stdout()
     parser = argparse.ArgumentParser(
         description="Validate HWPX package structure using engine-aligned ZIP/container/manifest checks"
     )
     parser.add_argument("source", help="Path to the HWPX file")
     args = parser.parse_args(argv)
 
-    report = validate_package(args.source)
+    from .archive_cli import _input_file_problem
+
+    problem = _input_file_problem(args.source, tool="hwpx-validate-package")
+    if problem is not None:
+        print(f"ERROR: {problem}")
+        return 1
+    try:
+        report = validate_package(args.source)
+    except Exception as exc:  # noqa: BLE001 - one line for the person at the terminal
+        print(f"ERROR: cannot read {args.source}: {exc}")
+        return 1
     for issue in report.issues:
         prefix = "ERROR" if issue.is_error else "WARN"
         print(f"{prefix}: {issue}")

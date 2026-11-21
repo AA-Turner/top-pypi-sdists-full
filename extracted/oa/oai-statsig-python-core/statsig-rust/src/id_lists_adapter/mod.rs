@@ -6,11 +6,12 @@ pub use id_lists_adapter_trait::*;
 pub use statsig_http_id_lists_adapter::*;
 
 mod id_list;
+mod id_list_updates;
+pub(crate) use id_list_updates::{IdListUpdateBatch, PreparedIdListUpdate};
 mod id_list_ids;
 pub(crate) mod id_list_load_timing;
 mod id_list_propagation;
 mod id_lists_adapter_trait;
-#[cfg(all(test, feature = "reqwest", not(feature = "custom_network_provider")))]
 pub(crate) mod membership_client;
 mod statsig_http_id_lists_adapter;
 
@@ -38,3 +39,6 @@ mod shared_id_lists_adapter_tests;
 #[cfg(test)]
 mod shared_id_lists_freshness_tests;
 mod statsig_shared_id_lists_adapter;
+
+mod shared_initial_base_cache;
+pub(crate) use shared_initial_base_cache::SharedInitialBaseCache;

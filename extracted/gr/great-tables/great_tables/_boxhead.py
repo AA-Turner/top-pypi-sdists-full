@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from functools import partial
-from typing import Callable, TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal
 
 from ._locations import LocBody, LocColumnLabels, resolve_cols_c
 from ._styles import CellStyleCss
@@ -11,6 +11,8 @@ from ._text import BaseText
 from ._utils import _assert_list_is_subset
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from ._types import GTSelf
 
 
@@ -96,12 +98,11 @@ def cols_label(
     `{{cm^3 molecules^-1 s^-1}}` for part of the label for the `OH_k298` column.
 
     ```{python}
-    from great_tables import GT
-    from great_tables.data import reactions
+    from great_tables import GT, data
     import polars as pl
 
     reactions_mini = (
-        pl.from_pandas(reactions)
+        data.pl.reactions
         .filter(pl.col("cmpd_type") == "mercaptan")
         .select(["cmpd_name", "OH_k298"])
     )
@@ -384,7 +385,7 @@ def cols_align_decimal(
         fn=partial(_align_to_char, align_at=dec_mark),
         per_column=True,
     )
-    return res._replace(_transforms=res._transforms + [transform])
+    return res._replace(_transforms=[*res._transforms, transform])
 
 
 FIGURE_SPACE = "\u2007"
@@ -615,10 +616,7 @@ def cols_label_rotate(
     # If user doesn't set an align value then align to the bottom, which is left in the case of
     # "sideways-lr" and right in all other cases
     if not align:
-        if dir == "sideways-lr":
-            align = "left"
-        else:
-            align = "right"
+        align = "left" if dir == "sideways-lr" else "right"
 
     res = self.tab_style(
         style=CellStyleCss(

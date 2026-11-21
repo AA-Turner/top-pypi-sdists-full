@@ -2866,7 +2866,7 @@ class FacebookNamespace:
         Pull one Meta Ad Library ad with its creative: every carousel variant, image
         and video URL, headline, body, and call to action.
 
-        Price: $0.00374 per request plus $0 per result (maximum $0.00374).
+        Price: $0.00408 per request plus $0 per result (maximum $0.00408).
 
         Example:
             res = client.facebook.ad_details_full(id="962050096457659")
@@ -3390,7 +3390,7 @@ class FacebookNamespace:
         Fetch a single Facebook post by URL with its text and engagement counts
         (likes, comments, shares, views).
 
-        Price: $0.0012 per request.
+        Price: $0.00072 per request.
 
         Example:
             res = client.facebook.post(url="https://www.facebook.com/reel/2166091230582141/")
@@ -3651,7 +3651,7 @@ class FacebookNamespace:
         Search Facebook Pages by keyword, optionally narrowed to a location, and get
         structured page profiles (name, category, followers, contact details).
 
-        Price: $0.0011 per request plus $0.0099 per result (maximum $0.101).
+        Price: $0.0012 per request plus $0.0108 per result (maximum $0.11).
 
         Example:
             res = client.facebook.search_pages(limit=3, query="nike")
@@ -3721,7 +3721,7 @@ class AsyncFacebookNamespace:
         Pull one Meta Ad Library ad with its creative: every carousel variant, image
         and video URL, headline, body, and call to action.
 
-        Price: $0.00374 per request plus $0 per result (maximum $0.00374).
+        Price: $0.00408 per request plus $0 per result (maximum $0.00408).
 
         Example:
             res = client.facebook.ad_details_full(id="962050096457659")
@@ -4245,7 +4245,7 @@ class AsyncFacebookNamespace:
         Fetch a single Facebook post by URL with its text and engagement counts
         (likes, comments, shares, views).
 
-        Price: $0.0012 per request.
+        Price: $0.00072 per request.
 
         Example:
             res = client.facebook.post(url="https://www.facebook.com/reel/2166091230582141/")
@@ -4506,7 +4506,7 @@ class AsyncFacebookNamespace:
         Search Facebook Pages by keyword, optionally narrowed to a location, and get
         structured page profiles (name, category, followers, contact details).
 
-        Price: $0.0011 per request plus $0.0099 per result (maximum $0.101).
+        Price: $0.0012 per request plus $0.0108 per result (maximum $0.11).
 
         Example:
             res = client.facebook.search_pages(limit=3, query="nike")

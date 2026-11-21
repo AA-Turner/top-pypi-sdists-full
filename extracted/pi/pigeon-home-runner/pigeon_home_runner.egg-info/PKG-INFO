@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pigeon-home-runner
-Version: 3.17.32.2
+Version: 3.17.32.8
 Summary: Self-hosted, email-driven agent: tell your cloud SI to send signed jobs via email that execute on your machine.
 Author: Pigeon-Home
 License: Apache-2.0
@@ -30,7 +30,6 @@ Install the runner and try this careful prompt with Grok for example, after you 
 ```
 Run a pigeon-home.ai job
 Runner mailbox is your@email.com
-Find the Shared Secret in my mailbox and reply_to self
 Retrieve the system clock and display it
 ```
 
@@ -471,7 +470,7 @@ The runner is fully inspectable, so audit what it would do before it does it, an
   [the statistics record](docs/infrastructure-documents/project/statistics.md);
   the chart itself:
 
-![What the security-token count is made of: one fuzz run log and everything else](assets/security-tokens-split-2026-11-19.svg)
+![The owner's drawing of 20 November 2026, with numbers: a ceiling for the run log at 21.0 million closing by 0.61 a week onto the line of everything else at 17.6 million, the gap of 3,393,230 between them closing to 0 in 30 weeks, and the whole tree at 35.2 million where the 2 lines meet](assets/security-tokens-2-lines-that-close-2026-11-20.svg)
 
 ## Questions people ask
 

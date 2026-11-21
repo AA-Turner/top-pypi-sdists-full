@@ -194,11 +194,12 @@ impl<'a> RegistryBuilder<'a> {
         Ok(builder)
     }
 
-    /// Prepare the registry for reuse.
+    /// Retrieve every external resource the added ones reference and build the registry.
     ///
     /// # Errors
     ///
-    /// Returns an error if URI processing, retrieval, or custom meta-schema validation fails.
+    /// Returns an error if a URI is invalid, a `$ref` target cannot be retrieved, or a custom
+    /// `$schema` is not in the registry.
     pub fn prepare(self) -> Result<Registry<'a>, Error> {
         // When extending an existing registry, seed known resources from the baseline so the
         // retriever skips URIs already owned by the parent.
@@ -227,11 +228,13 @@ impl<'a> RegistryBuilder<'a> {
     }
 
     #[cfg(feature = "retrieve-async")]
-    /// Prepare the registry for reuse with async retrieval.
+    /// Retrieve every external resource the added ones reference, asynchronously, and build
+    /// the registry.
     ///
     /// # Errors
     ///
-    /// Returns an error if URI processing, retrieval, or custom meta-schema validation fails.
+    /// Returns an error if a URI is invalid, a `$ref` target cannot be retrieved, or a custom
+    /// `$schema` is not in the registry.
     pub async fn async_prepare(self) -> Result<Registry<'a>, Error> {
         let retriever = self
             .async_retriever
@@ -300,7 +303,7 @@ impl<'a> Registry<'a> {
         RegistryBuilder::from_registry(self).extend(pairs)
     }
 
-    /// Build a registry with all the given meta-schemas from specs.
+    /// Build a registry of the given meta-schemas.
     pub(crate) fn from_meta_schemas(schemas: &[(&'static str, &'static Value)]) -> Self {
         let mut documents = ResourceStore::with_capacity(schemas.len());
         let mut known_resources = KnownResources::with_capacity(schemas.len());
@@ -347,19 +350,27 @@ impl<'a> Registry<'a> {
     /// Returns the vocabulary set `draft` puts in effect for a schema with the given `contents`.
     ///
     /// A `$schema` naming a custom meta-schema is the one case where `contents` decides: its
-    /// `$vocabulary` is read from the registry. Never errors.
+    /// `$vocabulary` is read from the registry.
     #[must_use]
     pub fn find_vocabularies(&self, draft: Draft, contents: &Value) -> VocabularySet {
-        // Detection answers one question: whether `$schema` names a custom meta-schema, the
-        // only kind that declares vocabularies of its own. Every other schema takes them from
-        // `draft`, which `with_draft` may have set over the `$schema` declaration.
-        match draft.detect(contents) {
+        let declared = contents
+            .as_object()
+            .and_then(|obj| obj.get("$schema"))
+            .and_then(Value::as_str);
+        self.vocabularies_declared(draft, declared)
+    }
+
+    /// The vocabulary set `draft` puts in effect under a `$schema` of `declared`.
+    pub(crate) fn vocabularies_declared(
+        &self,
+        draft: Draft,
+        declared: Option<&str>,
+    ) -> VocabularySet {
+        // Only a custom meta-schema declares vocabularies of its own; every other schema takes
+        // them from `draft`, which the caller may have chosen over the `$schema` declaration.
+        match declared.map_or(draft, Draft::from_schema_uri) {
             Draft::Unknown => {
-                if let Some(specification) = contents
-                    .as_object()
-                    .and_then(|obj| obj.get("$schema"))
-                    .and_then(|s| s.as_str())
-                {
+                if let Some(specification) = declared {
                     if let Ok(mut uri) = uri::from_str(specification) {
                         uri.set_fragment(None);
                         if let Some(resource) = self.resource_by_uri(&uri) {
@@ -378,17 +389,28 @@ impl<'a> Registry<'a> {
 
     /// Resolves `uri` against `base` and returns the resulting absolute URI.
     ///
-    /// Results are cached. Returns an error if `base` has no scheme or if
-    /// resolution fails.
+    /// Results are cached.
     ///
     /// # Errors
     ///
-    /// Returns an error if base has no schema or there is a fragment.
+    /// Returns an error if `uri` is not a URI reference or cannot be resolved against `base`.
     pub fn resolve_uri(&self, base: &Uri<&str>, uri: &str) -> Result<Arc<Uri<String>>, Error> {
         self.resolution_cache.resolve_against(base, uri)
     }
 
     #[inline]
+    /// The `$schema` above `contents` its vocabularies come from, when its resource root does not
+    /// settle them.
+    pub(crate) fn nested_dialect(&self, contents: &Value) -> Option<&str> {
+        if !self.index.nested_dialects.is_empty() {
+            if let Some(dialect) = self.index.nested_dialects.get(&build::schema_ptr(contents)) {
+                return Some(dialect);
+            }
+        }
+        self.baseline
+            .and_then(|baseline| baseline.nested_dialect(contents))
+    }
+
     pub(crate) fn resource_by_uri(&self, uri: &Uri<String>) -> Option<ResourceRef<'_>> {
         self.index
             .resources
@@ -418,6 +440,41 @@ impl<'a> Registry<'a> {
             Err(Error::invalid_anchor(name.to_string()))
         } else {
             Err(Error::no_such_anchor(name.to_string()))
+        }
+    }
+
+    /// Visit the name of every `$dynamicAnchor` that [`Registry::anchor`] finds at `uri`.
+    pub(crate) fn for_each_dynamic_anchor<'s>(
+        &'s self,
+        uri: &Uri<String>,
+        mut visit: impl FnMut(&'s str),
+    ) {
+        let mut visit_dynamic = |name: &'s str| {
+            if matches!(self.anchor(uri, name), Ok(Anchor::Dynamic { .. })) {
+                visit(name);
+            }
+        };
+        self.for_each_anchor_name(uri, &mut visit_dynamic);
+        if let Some(resource) = self.resource_by_uri(uri) {
+            // An `$id` equal to `uri` indexes no other anchors
+            if let Some(Ok(canonical)) = resource
+                .id()
+                .filter(|id| *id != uri.as_str())
+                .map(uri::from_str)
+            {
+                self.for_each_anchor_name(&canonical, &mut visit_dynamic);
+            }
+        }
+    }
+
+    fn for_each_anchor_name<'s>(&'s self, uri: &Uri<String>, visit: &mut impl FnMut(&'s str)) {
+        if let Some(entries) = self.index.anchors.get(uri) {
+            for name in entries.keys() {
+                visit(name);
+            }
+        }
+        if let Some(baseline) = self.baseline {
+            baseline.for_each_anchor_name(uri, visit);
         }
     }
 

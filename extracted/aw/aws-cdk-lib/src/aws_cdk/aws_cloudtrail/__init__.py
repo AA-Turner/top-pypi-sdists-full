@@ -157,10 +157,10 @@ import aws_cdk.aws_s3 as s3
 trail = cloudtrail.Trail(self, "MyAmazingCloudTrail")
 
 # Adds an event selector to the bucket foo
-trail.add_s3_event_selector([
+trail.add_s3_event_selector([cloudtrail.S3EventSelector(
     bucket=bucket,
     object_prefix="bar/"
-])
+)])
 ```
 
 Similarly, the `logAllLambdaDataEvents()` configures the trail to log all Lambda data events while the

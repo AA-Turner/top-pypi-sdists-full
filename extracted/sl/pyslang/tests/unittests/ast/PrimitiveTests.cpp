@@ -409,6 +409,38 @@ endprimitive
     NO_COMPILATION_ERRORS;
 }
 
+TEST_CASE("UDP table rows with no input fields") {
+    auto tree = SyntaxTree::fromText(R"(
+primitive p1(output o, input a);
+  table
+    : 1 ;
+  endtable
+endprimitive
+
+primitive p2(output reg o, input a);
+  table
+    : 0 : 1 ;
+  endtable
+endprimitive
+
+primitive p3(output o, input a);
+  table
+    0 : 0 ;:
+  endtable
+endprimitive
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 4);
+    CHECK(diags[0].code == diag::ExpectedUdpSymbol);
+    CHECK(diags[1].code == diag::ExpectedUdpSymbol);
+    CHECK(diags[2].code == diag::ExpectedUdpSymbol);
+    CHECK(diags[3].code == diag::ExpectedToken);
+}
+
 TEST_CASE("Primitive with large number of inputs") {
     auto tree = SyntaxTree::fromText(R"(
  primitive p(output o, input i0, i1, i2, i3, i4, i5, i6, i7,
@@ -761,6 +793,62 @@ endprimitive
     CHECK(diags[0].code == diag::UdpCoverage);
 }
 
+TEST_CASE("UDP coverage checking with many inputs fully covered") {
+    // This used to take exponential time in the number of inputs.
+    auto tree = SyntaxTree::fromText(R"(
+primitive p13 (output reg a, input b, c, d, e, f, g, h, i, j, k, l, m, n);
+    table
+        * ? ? ? ? ? ? ? ? ? ? ? ? : ? : - ;
+        ? * ? ? ? ? ? ? ? ? ? ? ? : ? : - ;
+        ? ? * ? ? ? ? ? ? ? ? ? ? : ? : - ;
+        ? ? ? * ? ? ? ? ? ? ? ? ? : ? : - ;
+        ? ? ? ? * ? ? ? ? ? ? ? ? : ? : - ;
+        ? ? ? ? ? * ? ? ? ? ? ? ? : ? : - ;
+        ? ? ? ? ? ? * ? ? ? ? ? ? : ? : - ;
+        ? ? ? ? ? ? ? * ? ? ? ? ? : ? : - ;
+        ? ? ? ? ? ? ? ? * ? ? ? ? : ? : - ;
+        ? ? ? ? ? ? ? ? ? * ? ? ? : ? : - ;
+        ? ? ? ? ? ? ? ? ? ? * ? ? : ? : - ;
+        ? ? ? ? ? ? ? ? ? ? ? * ? : ? : - ;
+        ? ? ? ? ? ? ? ? ? ? ? ? * : ? : - ;
+    endtable
+endprimitive
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("UDP coverage notes list every missing row") {
+    auto tree = SyntaxTree::fromText(R"(
+primitive p(q, clock, j, k, preset, clear);
+    output q; reg q;
+    input clock, j, k, preset, clear;
+    table
+        0 0 0 0 1 : 0 : 1;
+        f 0 0 0 1 : 0 : 0;
+    endtable
+endprimitive
+)");
+
+    CompilationOptions options;
+    options.maxUDPCoverageNotes = 10000;
+
+    Compilation compilation(options);
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::UdpCoverage);
+    REQUIRE(diags[0].notes.size() == 1);
+
+    // 5 inputs, one of which has one of 6 edges and the rest are 0, 1, or x,
+    // minus the single row that is covered.
+    auto& noteStr = std::get<std::string>(diags[0].notes[0].args[0]);
+    CHECK(std::ranges::count(noteStr, '\n') + 1 == 5 * 6 * 81 - 1);
+}
+
 TEST_CASE("N-input gate requires at least two connections") {
     auto tree = SyntaxTree::fromText(R"(
 module m;
@@ -829,4 +917,28 @@ endmodule
     auto& diags = compilation.getAllDiagnostics();
     REQUIRE(diags.size() == 1);
     CHECK(diags[0].code == diag::ExpectedNetDelay);
+}
+
+TEST_CASE("User-defined primitive with undeclared identifier in delay") {
+    auto tree = SyntaxTree::fromText(R"(
+primitive p(o, a);
+    output o;
+    input a;
+    table 0 : 1; 1 : 0; endtable
+endprimitive
+
+module m;
+    wire x, y;
+    p #(foo) i1(x, y);
+    p #(1, bar) i2(x, y);
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 2);
+    CHECK(diags[0].code == diag::UndeclaredIdentifier);
+    CHECK(diags[1].code == diag::UndeclaredIdentifier);
 }

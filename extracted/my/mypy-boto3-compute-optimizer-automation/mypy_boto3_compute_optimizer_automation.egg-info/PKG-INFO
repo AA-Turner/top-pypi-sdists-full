@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-compute-optimizer-automation
-Version: 1.44.0
-Summary: Type annotations for boto3 ComputeOptimizerAutomation 1.44.0 service generated with mypy-boto3-builder 8.12.0
+Version: 1.44.8
+Summary: Type annotations for boto3 ComputeOptimizerAutomation 1.44.8 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -43,7 +43,7 @@ Dynamic: license-file
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[boto3 ComputeOptimizerAutomation 1.44.0](https://pypi.org/project/boto3/)
+[boto3 ComputeOptimizerAutomation 1.44.8](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -105,7 +105,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.44.0' mypy-boto3-builder`
+   `uvx --with 'boto3==1.44.8' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `ComputeOptimizerAutomation` service.
 4. Use provided commands to install generated packages.
@@ -348,6 +348,8 @@ from mypy_boto3_compute_optimizer_automation.paginator import (
     ListAutomationRulePreviewPaginator,
     ListAutomationRulePreviewSummariesPaginator,
     ListAutomationRulesPaginator,
+    ListOrganizationEnrollmentConfigurationsPaginator,
+    ListOrganizationalUnitsPaginator,
     ListRecommendedActionSummariesPaginator,
     ListRecommendedActionsPaginator,
 )
@@ -375,6 +377,12 @@ list_automation_rule_preview_summaries_paginator: ListAutomationRulePreviewSumma
 list_automation_rules_paginator: ListAutomationRulesPaginator = client.get_paginator(
     "list_automation_rules"
 )
+list_organization_enrollment_configurations_paginator: ListOrganizationEnrollmentConfigurationsPaginator = client.get_paginator(
+    "list_organization_enrollment_configurations"
+)
+list_organizational_units_paginator: ListOrganizationalUnitsPaginator = client.get_paginator(
+    "list_organizational_units"
+)
 list_recommended_action_summaries_paginator: ListRecommendedActionSummariesPaginator = (
     client.get_paginator("list_recommended_action_summaries")
 )
@@ -394,10 +402,10 @@ Full list of `ComputeOptimizerAutomation` Literals can be found in
 [docs](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_compute_optimizer_automation/literals/).
 
 ```python
-from mypy_boto3_compute_optimizer_automation.literals import AutomationEventFilterNameType
+from mypy_boto3_compute_optimizer_automation.literals import AutoEnrollMemberAccountsType
 
 
-def check_value(value: AutomationEventFilterNameType) -> bool: ...
+def check_value(value: AutoEnrollMemberAccountsType) -> bool: ...
 ```
 
 <a id="type-definitions"></a>
@@ -413,12 +421,12 @@ Full list of `ComputeOptimizerAutomation` TypeDefs can be found in
 
 ```python
 # TypedDict usage example
-from mypy_boto3_compute_optimizer_automation.type_defs import AccountInfoTypeDef
+from mypy_boto3_compute_optimizer_automation.type_defs import OrganizationRuleModeSourceTypeDef
 
 
-def get_value() -> AccountInfoTypeDef:
+def get_value() -> OrganizationRuleModeSourceTypeDef:
     return {
-        "accountId": ...,
+        "sourceType": ...,
     }
 ```
 

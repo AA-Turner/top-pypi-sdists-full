@@ -17,7 +17,6 @@ structural pass (``visual_complete_status == "unverified"``), never a silent pas
 """
 from __future__ import annotations
 
-import io
 import os
 import tempfile
 import zipfile
@@ -48,12 +47,19 @@ from .report import (
     VisualCompleteReport,
     VisualCompleteStatus,
 )
-from ..opc.security import guard_zip_file, parse_xml_stdlib, read_member
+from ..opc.security import guard_zip_file, is_known_well_formed, open_archive, parse_xml_stdlib, read_member
 
 PublishMode = Literal["on_pass", "always", "never"]
 
 _XML_SUFFIXES = (".xml", ".rels")
 _XML_NAMES = ("[Content_Types].xml",)
+
+#: The warning a save adds to its report when the stream it wrote to could not be read back, so the
+#: bytes it holds were not checked (only that it ends where the document does).
+STREAM_NOT_READ_BACK = (
+    "output-stream-not-read-back: the stream refused to be read, so what it holds was not checked "
+    "against the document written (only its length was); save to a path or a readable stream to have it checked"
+)
 
 
 # --------------------------------------------------------------------------- #
@@ -76,7 +82,13 @@ def write_bytes_atomically(path: str | PathLike[str], data: bytes) -> None:
         raise
 
 
-def _capture_stream_checkpoint(stream: BinaryIO) -> tuple[int, bytes] | None:
+def _capture_stream_checkpoint(stream: BinaryIO) -> tuple[int, bytes, int | None] | None:
+    """Where the stream stands, what it holds from there, and where it ends: what a failed save puts
+    back. The end is its own value: a stream standing past its end (``seek(6)`` on three bytes) holds
+    nothing from there, and putting it back by its position alone left it three zero bytes longer.
+    ``None`` for an end that cannot be known: a stream that does not seek to its end and reads nothing
+    from where it stands may end there or before."""
+
     try:
         position = stream.tell()
     except (AttributeError, OSError):
@@ -93,50 +105,155 @@ def _capture_stream_checkpoint(stream: BinaryIO) -> tuple[int, bytes] | None:
         except (AttributeError, OSError):
             return None
         if end_position == position:
-            return position, b""
+            return position, b"", end_position
         return None
+    end: int | None
+    try:
+        end = stream.seek(0, os.SEEK_END)
+    except (AttributeError, OSError, ValueError):
+        # A stream that seeks to a position and not to its end: it ends after what was read, and at 0
+        # when it stands there. Otherwise where it ends is not known.
+        end = position + len(tail) if tail or position == 0 else None
     try:
         stream.seek(position)
-    except (AttributeError, OSError):
+    except (AttributeError, OSError, ValueError):
         return None
-    return position, tail
+    return position, tail, end
 
 
-def _rollback_stream(stream: BinaryIO, checkpoint: tuple[int, bytes] | None) -> None:
+def _rollback_stream(stream: BinaryIO, checkpoint: tuple[int, bytes, int | None] | None) -> bool:
+    """Put back what *checkpoint* holds. False when the stream could not be put back (it refused the
+    write, the cut or the seek): the caller says so on the error it raises."""
+
     if checkpoint is None:
-        return
-    position, tail = checkpoint
+        return False
+    position, tail, end = checkpoint
     try:
         stream.seek(position)
+        counted = True  # every write said how much it took
         if tail:
-            stream.write(tail)
-            stream.truncate(position + len(tail))
-        else:
-            stream.truncate(position)
+            offset = 0
+            while offset < len(tail):  # a stream that takes a part of what it is given is given the rest
+                chunk = tail if offset == 0 else tail[offset:offset + 65536]
+                taken = stream.write(chunk)
+                if taken is None:
+                    counted = False
+                    taken = len(chunk)
+                if taken <= 0:
+                    return False
+                offset += min(taken, len(chunk))  # a count past what it was given is the chunk
+        # where it ended: before the position when the stream stood past its end; at the position when
+        # the end is not known (what the stream held before it cannot then be told from what it holds)
+        stream.truncate(position if end is None else end)
         stream.seek(position)
-    except (AttributeError, OSError):
+    except (AttributeError, OSError, ValueError):  # ValueError: the stream closed itself when it failed
+        return False
+    if end is None:
+        return False  # cut where it stood; whether it ended there before is not known
+    # What it holds now, read back where it can be: a write that reports nothing (``None``) may have
+    # taken nothing, and "put back" was said over a stream that still held a part of the new document.
+    try:
+        held = stream.read()
+    except (AttributeError, OSError, ValueError):
+        # Not readable: the cut went through, and the writes when each said what it took. A write that
+        # said nothing cannot be taken for done without reading back. The read may have moved the
+        # stream before it failed: it is put back where it stood, or the restore is not called done.
+        try:
+            stream.seek(position)
+        except (AttributeError, OSError, ValueError):
+            return False
+        return counted
+    try:
+        stream.seek(position)
+    except (AttributeError, OSError, ValueError):
+        return False  # its content is back, and it does not stand where it stood
+    return held == tail
+
+
+def _rollback_or_say_so(
+    stream: BinaryIO, checkpoint: tuple[int, bytes, int | None] | None, error: BaseException
+) -> None:
+    """Put the stream back after *error*; when that fails too, *error* says so: ``stream_restored`` is
+    ``False`` on it, and its notes tell what the stream may hold. The failed restore used to be silent."""
+
+    restored = _rollback_stream(stream, checkpoint)
+    try:
+        error.stream_restored = restored  # type: ignore[attr-defined]
+    except AttributeError:  # an exception type with __slots__: nowhere to say it
         return
+    if not restored and hasattr(error, "add_note"):  # Python 3.11+
+        error.add_note(
+            "the stream could not be put back as it was: it may hold a part of the new document "
+            "(stream_restored is False on this error)"
+        )
 
 
-def write_stream_or_rollback(stream: BinaryIO, data: bytes) -> None:
-    """Write *data* to *stream*, restoring the prior tail on failure."""
+def settle_written_stream(stream: BinaryIO, position: int, data: bytes, tail: bytes) -> bool:
+    """After *data* was written at *position* over *tail* (what the stream held from there), make the
+    stream hold exactly *data* from *position* to its end and check that it does.
+
+    Bytes of the old content past the new end are cut off (``truncate``): a shorter document saved into a
+    stream that held a longer one must not keep the old archive's end after it -- the stream would not
+    open. A stream that cannot be cut short is refused (``OSError``; the caller puts the old content
+    back). The check reads back what the stream now holds from *position*; a stream that cannot be read
+    back must at least end where the document does. Returns whether the stream was read back (``False``:
+    only where it ends was checked)."""
+
+    end = position + len(data)
+    if len(tail) > len(data):
+        try:
+            stream.truncate(end)
+        except (AttributeError, OSError) as exc:
+            raise OSError(
+                "the stream held more bytes than the saved document and cannot be cut short "
+                f"(truncate failed: {exc}); save to a path, or to an empty stream"
+            ) from exc
+    try:
+        stream.seek(position)
+        held: bytes | None = stream.read()
+    except (AttributeError, OSError):
+        held = None
+    if held is None:
+        try:
+            stream_end = stream.seek(0, os.SEEK_END)
+        except (AttributeError, OSError):
+            stream_end = end
+        if stream_end != end:
+            raise OSError(
+                f"after the save the stream ends at {stream_end}, not at the document's end {end}"
+            )
+    elif held != data:
+        raise OSError(
+            "after the save the stream does not hold the document that was written "
+            f"({len(held)} bytes from position {position}, the document is {len(data)})"
+        )
+    stream.seek(end)
+    return held is not None
+
+
+def write_stream_or_rollback(stream: BinaryIO, data: bytes) -> bool:
+    """Write *data* to *stream* and make the stream end with it (:func:`settle_written_stream`),
+    restoring the prior tail on failure. Returns whether what the stream holds was read back and
+    checked."""
 
     checkpoint = _capture_stream_checkpoint(stream)
     if checkpoint is None:
         raise OSError(
-            "HWPX stream save requires a checkpointable stream; "
-            "use save_to_path() for non-seekable outputs"
+            "stream save requires a checkpointable stream; "
+            "save to a path (doc.save(path)) for non-seekable outputs"
         )
     try:
         written = stream.write(data)
         if written is not None and written != len(data):
             raise OSError(
-                "short write while saving HWPX stream: "
+                "short write while saving to a stream: "
                 f"wrote {written} of {len(data)} bytes"
             )
-    except BaseException:
-        _rollback_stream(stream, checkpoint)
+        read_back = settle_written_stream(stream, checkpoint[0], data, checkpoint[1])
+    except BaseException as error:
+        _rollback_or_say_so(stream, checkpoint, error)
         raise
+    return read_back
 
 
 class SavePipeline:
@@ -245,7 +362,9 @@ class SavePipeline:
         debug_path: str | None = None
         should_publish = publish == "always" or (publish == "on_pass" and ok)
         if should_publish and (output_path is not None or output_stream is not None):
-            written_path = self._publish(data, output_path, output_stream)
+            written_path, read_back = self._publish(data, output_path, output_stream)
+            if not read_back:
+                warnings.append(STREAM_NOT_READ_BACK)
         elif not ok and debug_dir is not None:
             debug_path = self._write_debug(data, debug_dir, source_label)
             warnings.append(
@@ -277,12 +396,14 @@ class SavePipeline:
         """Integrity floor: the archive opens and every XML part parses."""
 
         try:
-            with zipfile.ZipFile(io.BytesIO(data)) as archive:
+            with open_archive(data) as archive:
                 guard_zip_file(archive)
                 names = [info.filename for info in archive.infolist() if not info.is_dir()]
                 for name in names:
                     base = os.path.basename(name)
                     if name.endswith(_XML_SUFFIXES) or base in _XML_NAMES:
+                        if is_known_well_formed(archive, name):
+                            continue  # the save's package check parsed these same bytes
                         try:
                             parse_xml_stdlib(read_member(archive, name), part_name=name)
                         except ET.ParseError as exc:
@@ -539,15 +660,19 @@ class SavePipeline:
         data: bytes,
         output_path: str | PathLike[str] | None,
         output_stream: BinaryIO | None,
-    ) -> str | None:
+    ) -> tuple[str | None, bool]:
+        """Write *data*; returns the path written (``None`` for a stream) and whether a stream written
+        was read back (a path is written through the file system and counts as checked)."""
+
+        read_back = True
         if output_stream is not None:
-            write_stream_or_rollback(output_stream, data)
+            read_back = write_stream_or_rollback(output_stream, data)
             if output_path is None:
-                return None
+                return None, read_back
         if output_path is not None:
             write_bytes_atomically(output_path, data)
-            return str(output_path)
-        return None
+            return str(output_path), read_back
+        return None, read_back
 
     def _write_debug(
         self, data: bytes, debug_dir: str | PathLike[str], source_label: str
@@ -575,6 +700,8 @@ class SavePipeline:
 __all__ = [
     "SavePipeline",
     "PublishMode",
+    "STREAM_NOT_READ_BACK",
     "write_bytes_atomically",
+    "settle_written_stream",
     "write_stream_or_rollback",
 ]

@@ -33,8 +33,10 @@ from .paginator import (
     ListHealthChecksBySourcePaginator,
     ListHealthCheckSourcesPaginator,
     ListHealthChecksPaginator,
+    ListHostedZoneChangeBatchesPaginator,
     ListHostedZonesPaginator,
     ListQueryLoggingConfigsPaginator,
+    ListResourceRecordSetChangesPaginator,
     ListResourceRecordSetProtectionsPaginator,
     ListResourceRecordSetsPaginator,
     ListVPCAssociationAuthorizationsPaginator,
@@ -112,6 +114,8 @@ from .type_defs import (
     GetHealthCheckSourceResponseTypeDef,
     GetHealthCheckStatusRequestTypeDef,
     GetHealthCheckStatusResponseTypeDef,
+    GetHostedZoneChangeBatchRequestTypeDef,
+    GetHostedZoneChangeBatchResponseTypeDef,
     GetHostedZoneCountResponseTypeDef,
     GetHostedZoneLimitRequestTypeDef,
     GetHostedZoneLimitResponseTypeDef,
@@ -142,6 +146,8 @@ from .type_defs import (
     ListHealthCheckSourcesResponseTypeDef,
     ListHealthChecksRequestTypeDef,
     ListHealthChecksResponseTypeDef,
+    ListHostedZoneChangeBatchesRequestTypeDef,
+    ListHostedZoneChangeBatchesResponseTypeDef,
     ListHostedZonesByNameRequestTypeDef,
     ListHostedZonesByNameResponseTypeDef,
     ListHostedZonesByVPCRequestTypeDef,
@@ -150,6 +156,8 @@ from .type_defs import (
     ListHostedZonesResponseTypeDef,
     ListQueryLoggingConfigsRequestTypeDef,
     ListQueryLoggingConfigsResponseTypeDef,
+    ListResourceRecordSetChangesRequestTypeDef,
+    ListResourceRecordSetChangesResponseTypeDef,
     ListResourceRecordSetProtectionsRequestTypeDef,
     ListResourceRecordSetProtectionsResponseTypeDef,
     ListResourceRecordSetsRequestTypeDef,
@@ -179,6 +187,7 @@ from .type_defs import (
     UpdateHostedZoneCommentRequestTypeDef,
     UpdateHostedZoneCommentResponseTypeDef,
     UpdateHostedZoneFeaturesRequestTypeDef,
+    UpdateHostedZoneTierRequestTypeDef,
     UpdateTrafficPolicyCommentRequestTypeDef,
     UpdateTrafficPolicyCommentResponseTypeDef,
     UpdateTrafficPolicyInstanceRequestTypeDef,
@@ -214,6 +223,7 @@ class Exceptions(BaseClientExceptions):
     DelegationSetInUse: type[BotocoreClientError]
     DelegationSetNotAvailable: type[BotocoreClientError]
     DelegationSetNotReusable: type[BotocoreClientError]
+    FeatureNotEnabled: type[BotocoreClientError]
     HealthCheckAlreadyExists: type[BotocoreClientError]
     HealthCheckInUse: type[BotocoreClientError]
     HealthCheckSourceAlreadyExists: type[BotocoreClientError]
@@ -757,6 +767,17 @@ class Route53Client(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_route53/client/#get_hosted_zone)
         """
 
+    def get_hosted_zone_change_batch(
+        self, **kwargs: Unpack[GetHostedZoneChangeBatchRequestTypeDef]
+    ) -> GetHostedZoneChangeBatchResponseTypeDef:
+        """
+        Returns one change batch from the change history of a hosted zone, including
+        every change in the batch.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53/client/get_hosted_zone_change_batch.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_route53/client/#get_hosted_zone_change_batch)
+        """
+
     def get_hosted_zone_count(self) -> GetHostedZoneCountResponseTypeDef:
         """
         Retrieves the number of hosted zones that are associated with the current
@@ -912,6 +933,16 @@ class Route53Client(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_route53/client/#list_health_checks_by_source)
         """
 
+    def list_hosted_zone_change_batches(
+        self, **kwargs: Unpack[ListHostedZoneChangeBatchesRequestTypeDef]
+    ) -> ListHostedZoneChangeBatchesResponseTypeDef:
+        """
+        Lists the change batches in an Amazon Route 53 hosted zone.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53/client/list_hosted_zone_change_batches.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_route53/client/#list_hosted_zone_change_batches)
+        """
+
     def list_hosted_zones(
         self, **kwargs: Unpack[ListHostedZonesRequestTypeDef]
     ) -> ListHostedZonesResponseTypeDef:
@@ -955,6 +986,16 @@ class Route53Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53/client/list_query_logging_configs.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_route53/client/#list_query_logging_configs)
+        """
+
+    def list_resource_record_set_changes(
+        self, **kwargs: Unpack[ListResourceRecordSetChangesRequestTypeDef]
+    ) -> ListResourceRecordSetChangesResponseTypeDef:
+        """
+        Lists the individual changes in the change history of a hosted zone.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53/client/list_resource_record_set_changes.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_route53/client/#list_resource_record_set_changes)
         """
 
     def list_resource_record_set_protections(
@@ -1115,6 +1156,16 @@ class Route53Client(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_route53/client/#update_hosted_zone_features)
         """
 
+    def update_hosted_zone_tier(
+        self, **kwargs: Unpack[UpdateHostedZoneTierRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Changes the tier of a hosted zone.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53/client/update_hosted_zone_tier.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_route53/client/#update_hosted_zone_tier)
+        """
+
     def update_traffic_policy_comment(
         self, **kwargs: Unpack[UpdateTrafficPolicyCommentRequestTypeDef]
     ) -> UpdateTrafficPolicyCommentResponseTypeDef:
@@ -1205,6 +1256,17 @@ class Route53Client(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_hosted_zone_change_batches"]
+    ) -> ListHostedZoneChangeBatchesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_route53/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_hosted_zones"]
     ) -> ListHostedZonesPaginator:
         """
@@ -1218,6 +1280,17 @@ class Route53Client(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_query_logging_configs"]
     ) -> ListQueryLoggingConfigsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_route53/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_resource_record_set_changes"]
+    ) -> ListResourceRecordSetChangesPaginator:
         """
         Create a paginator for an operation.
 

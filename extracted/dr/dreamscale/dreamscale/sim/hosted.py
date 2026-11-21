@@ -32,7 +32,7 @@ from dreamscale.control import (
     user_agent,
 )
 
-# Hidden until launch: accepted when typed, never listed (`dreamscale sim --list`, help).
+# Benchmarks that run on Dreamscale's simulators, not this computer.
 HOSTED_BENCHMARKS = {"robolab": "RoboLab"}
 DEFAULT_SUITE = "smoke10"
 DEFAULT_EPISODES = 4

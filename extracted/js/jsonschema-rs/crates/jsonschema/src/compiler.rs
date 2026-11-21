@@ -1,6 +1,7 @@
 use crate::{
     content_encoding::{ContentEncodingCheckType, ContentEncodingConverterType},
     content_media_type::ContentMediaTypeCheckType,
+    evaluation::Annotations,
     keywords::{
         self,
         custom::{CustomKeyword, KeywordFactory},
@@ -10,9 +11,9 @@ use crate::{
         BoxedValidator, BuiltinKeyword, Keyword,
     },
     node::{PendingSchemaNode, SchemaNode},
-    options::{PatternCache, PatternEngineOptions, ValidationOptions},
+    options::{PatternCache, PatternEngineOptions, PatternSyntax, ValidationOptions},
     paths::{Location, LocationSegment},
-    regex::{Compiled, LazyRegex, SequenceMatcher},
+    regex::{Compiled, LazyRegex, PatternOptimization, SequenceMatcher},
     types::{JsonType, JsonTypeSet},
     validator::Validate,
     Json, LazyInstance, SerdeJson, ValidationError, Validator, ValidatorMap,
@@ -26,7 +27,7 @@ use serde_json::{Map, Value};
 use std::{
     borrow::Cow,
     cell::{Cell, RefCell},
-    collections::VecDeque,
+    collections::{hash_map::Entry, VecDeque},
     fmt,
     rc::Rc,
     sync::{Arc, LazyLock},
@@ -36,7 +37,7 @@ pub(crate) const DEFAULT_SCHEME: &str = "json-schema";
 pub(crate) const DEFAULT_BASE_URI: &str = "json-schema:///";
 
 /// `base` with `pointer` as its fragment.
-fn resolve_absolute_location(
+pub(crate) fn resolve_absolute_location(
     base: &Uri<String>,
     pointer: &str,
     buffer: &mut uri::EncodedBuffer,
@@ -69,9 +70,7 @@ pub(crate) const fn formats_are_assertions_by_default(draft: Draft) -> bool {
     matches!(draft, Draft::Draft4 | Draft::Draft6 | Draft::Draft7)
 }
 
-/// Type alias for shared cache maps in compiler state.
 type SharedCache<K, V> = RefCell<AHashMap<K, V>>;
-/// Type alias for shared sets in compiler state.
 type SharedSet<T> = RefCell<AHashSet<T>>;
 
 pub(crate) trait CompilationOptions<F: Json> {
@@ -189,16 +188,42 @@ impl ItemsValidatorsPendingKey {
     }
 }
 
+/// Identifies a `$ref` target: its address and its JSON Pointer from the root of the document the
+/// reference names, or of the resource holding the anchor it names. A pointer from an outer
+/// document into an embedded resource is another identity than the resource's own URI, as the
+/// locations of errors below them differ. Like [`NodeCacheKey`], the address is never dereferenced.
 #[derive(PartialEq, Eq, Clone, Debug)]
-pub(crate) struct AliasCacheKey {
-    uri: Arc<Uri<String>>,
+pub(crate) struct TargetIdentity {
+    schema_ptr: usize,
+    location: Location,
+}
+
+impl TargetIdentity {
+    pub(crate) fn new(schema: &Value, location: Location) -> Self {
+        TargetIdentity {
+            schema_ptr: std::ptr::from_ref(schema) as usize,
+            location,
+        }
+    }
+}
+
+/// The schema address almost always tells identities apart on its own; equality compares the rest.
+impl std::hash::Hash for TargetIdentity {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.schema_ptr.hash(state);
+    }
+}
+
+#[derive(PartialEq, Eq, Clone, Debug)]
+pub(crate) struct TargetCacheKey {
+    identity: TargetIdentity,
     dynamic_scope: List<Uri<String>>,
 }
 
-/// Keys for one URI differ only by dynamic scope, which equality compares.
-impl std::hash::Hash for AliasCacheKey {
+/// Keys for one target differ only by dynamic scope, which equality compares.
+impl std::hash::Hash for TargetCacheKey {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.uri.hash(state);
+        self.identity.hash(state);
     }
 }
 
@@ -241,12 +266,31 @@ struct DeferredTarget<'a, F: Json> {
     resolver: Resolver<'a>,
     draft: Draft,
     resource_base: Location,
-    alias: Arc<Uri<String>>,
-    key: AliasCacheKey,
+    identity: TargetIdentity,
+    key: TargetCacheKey,
     placeholder: PendingSchemaNode<F>,
     /// Placeholders in progress when this target was deferred, restored while it compiles so cycles
     /// through them close as on the call stack.
-    in_progress: AHashMap<Arc<Uri<String>>, PendingSchemaNode<F>>,
+    in_progress: AHashMap<TargetIdentity, InProgressTarget<F>>,
+}
+
+/// The placeholder of a `$ref` target being compiled; `shadowed` holds the same target compiling
+/// further out, where `$dynamicRef` binds differently.
+struct InProgressTarget<F: Json> {
+    /// The dynamic scope the target compiles in.
+    dynamic_scope: List<Uri<String>>,
+    placeholder: PendingSchemaNode<F>,
+    shadowed: Option<Box<InProgressTarget<F>>>,
+}
+
+impl<F: Json> Clone for InProgressTarget<F> {
+    fn clone(&self) -> Self {
+        InProgressTarget {
+            dynamic_scope: self.dynamic_scope.clone(),
+            placeholder: self.placeholder.clone(),
+            shadowed: self.shadowed.clone(),
+        }
+    }
 }
 
 /// A cached node, the round that compiled it, and whether it is settled.
@@ -271,7 +315,6 @@ impl<F: Json> Clone for CachedNode<F> {
     }
 }
 
-/// A node found for a `$ref` target and whether its referrer may own it.
 /// A reference target found by `lookup_cached_target`.
 pub(crate) enum CachedTarget<F: Json> {
     Node(TargetNode<F>),
@@ -279,6 +322,7 @@ pub(crate) enum CachedTarget<F: Json> {
     Placeholder(PendingSchemaNode<F>),
 }
 
+/// A node found for a `$ref` target and whether its referrer may own it.
 pub(crate) enum TargetNode<F: Json> {
     /// Compiled in the current round, or settled.
     Owned(SchemaNode<F>),
@@ -303,21 +347,21 @@ impl<F: Json> TargetNode<F> {
 }
 
 /// Keyed by dynamic scope, since `$dynamicRef` resolves per scope.
-fn deferred_key(resolved: &Resolved<'_>, alias: &Arc<Uri<String>>) -> AliasCacheKey {
-    AliasCacheKey {
-        uri: Arc::clone(alias),
+fn deferred_key(resolved: &Resolved<'_>, identity: &TargetIdentity) -> TargetCacheKey {
+    TargetCacheKey {
+        identity: identity.clone(),
         dynamic_scope: resolved.resolver().dynamic_scope(),
     }
 }
 
 /// Shared caches reused across every `Context` derived from a schema root.
 struct SharedContextState<'a, F: Json = SerdeJson> {
-    seen: SharedSet<Arc<Uri<String>>>,
+    seen: SharedSet<TargetIdentity>,
     location_nodes: SharedCache<NodeCacheKey, CachedNode<F>>,
-    alias_nodes: SharedCache<AliasCacheKey, CachedNode<F>>,
-    alias_placeholders: SharedCache<Arc<Uri<String>>, PendingSchemaNode<F>>,
+    target_nodes: SharedCache<TargetCacheKey, CachedNode<F>>,
+    target_placeholders: SharedCache<TargetIdentity, InProgressTarget<F>>,
     /// Deferred targets whose round has not started, one per dynamic scope.
-    deferred_placeholders: SharedCache<AliasCacheKey, PendingSchemaNode<F>>,
+    deferred_placeholders: SharedCache<TargetCacheKey, PendingSchemaNode<F>>,
     pending_property_validators_by_schema:
         SharedCache<PropertyValidatorsPendingKey, PendingPropertyValidators<F>>,
     pending_items_validators_by_schema:
@@ -332,7 +376,6 @@ struct SharedContextState<'a, F: Json = SerdeJson> {
     nested_ref_compilations: Cell<usize>,
     /// Deferred targets, in the order found.
     deferred_targets: RefCell<VecDeque<DeferredTarget<'a, F>>>,
-    /// The current round.
     round: Cell<usize>,
     /// The node compiling now reaches a node not yet compiled or a deferred target.
     reaches_unsettled: Cell<bool>,
@@ -359,8 +402,8 @@ impl<F: Json> SharedContextState<'_, F> {
         Self {
             seen: RefCell::new(AHashSet::new()),
             location_nodes: RefCell::new(AHashMap::with_capacity(capacity)),
-            alias_nodes: RefCell::new(AHashMap::new()),
-            alias_placeholders: RefCell::new(AHashMap::new()),
+            target_nodes: RefCell::new(AHashMap::new()),
+            target_placeholders: RefCell::new(AHashMap::new()),
             deferred_placeholders: RefCell::new(AHashMap::new()),
             pending_property_validators_by_schema: RefCell::new(AHashMap::new()),
             pending_items_validators_by_schema: RefCell::new(AHashMap::new()),
@@ -382,22 +425,6 @@ pub(crate) struct Context<'a, F: Json = SerdeJson> {
     resolver: Resolver<'a>,
     vocabularies: VocabularySet,
     location: Location,
-    /// The location where the current resource starts.
-    ///
-    /// When compiling a schema reached via `$ref`, this is set to the `$ref` target location.
-    /// Used to compute the "suffix" (path relative to resource root) for evaluation paths.
-    ///
-    /// # Example
-    ///
-    /// ```text
-    /// Schema: { "$ref": "#/$defs/Item", "$defs": { "Item": { "type": "string" } } }
-    ///
-    /// When compiling the "type" keyword inside "Item":
-    ///   location      = /$defs/Item/type
-    ///   resource_base = /$defs/Item
-    ///   suffix()      = /type
-    /// ```
-    resource_base: Location,
     /// Length of the `location` prefix outside the resource the base URI names.
     ///
     /// Absolute locations count their JSON Pointer from that resource's root, which a
@@ -414,7 +441,6 @@ impl<F: Json> Clone for Context<'_, F> {
             resolver: self.resolver.clone(),
             vocabularies: self.vocabularies.clone(),
             location: self.location.clone(),
-            resource_base: self.resource_base.clone(),
             resource_start: self.resource_start,
             draft: self.draft,
             shared: Rc::clone(&self.shared),
@@ -434,7 +460,6 @@ impl<'a, F: Json> Context<'a, F> {
         Context {
             config,
             resolver,
-            resource_base: location.clone(),
             resource_start: 0,
             location,
             vocabularies,
@@ -452,12 +477,28 @@ impl<'a, F: Json> Context<'a, F> {
         self.config
     }
 
-    /// Create a context for this schema.
+    /// Create a context for `resource`, a subschema evaluation descends into.
     pub(crate) fn in_subresource(
         &self,
         resource: ResourceRef<'_>,
     ) -> Result<Context<'a, F>, referencing::Error> {
-        let resolver = self.resolver.in_subresource(resource)?;
+        self.entering(resource, Resolver::descend_into)
+    }
+    /// Create a context for the root schema, which no resource encloses.
+    fn at_root(&self, resource: ResourceRef<'_>) -> Result<Context<'a, F>, referencing::Error> {
+        self.entering(resource, Resolver::in_subresource)
+    }
+    /// A context for `resource`, with the resolver `resolve` gives for it.
+    #[inline]
+    fn entering<R>(
+        &self,
+        resource: ResourceRef<'_>,
+        resolve: R,
+    ) -> Result<Context<'a, F>, referencing::Error>
+    where
+        R: FnOnce(&Resolver<'a>, ResourceRef<'_>) -> Result<Resolver<'a>, referencing::Error>,
+    {
+        let resolver = resolve(&self.resolver, resource)?;
         let draft = resource.draft();
         // A `$schema` below the root switches the draft, and its vocabularies with it: Draft 4-7
         // roots have none, so a nested Draft 2019-09+ subschema would compile no keywords.
@@ -476,11 +517,15 @@ impl<'a, F: Json> Context<'a, F> {
             resolver,
             vocabularies,
             draft,
-            resource_base: self.resource_base.clone(),
             resource_start,
             location: self.location.clone(),
             shared: Rc::clone(&self.shared),
         })
+    }
+    /// This context as entered by a `$ref` to its own resource, which joins the dynamic scope.
+    fn in_dynamic_scope(mut self) -> Context<'a, F> {
+        self.resolver = self.resolver.in_dynamic_scope();
+        self
     }
     pub(crate) fn as_resource_ref<'r>(&self, contents: &'r Value) -> ResourceRef<'r> {
         self.draft.detect(contents).create_resource_ref(contents)
@@ -493,7 +538,6 @@ impl<'a, F: Json> Context<'a, F> {
             config: self.config,
             resolver: self.resolver.clone(),
             vocabularies: self.vocabularies.clone(),
-            resource_base: self.resource_base.clone(),
             resource_start: self.resource_start,
             location,
             draft: self.draft,
@@ -504,6 +548,13 @@ impl<'a, F: Json> Context<'a, F> {
         self.resolver.lookup(reference)
     }
 
+    pub(crate) fn lookup_dynamic_ref(
+        &self,
+        reference: &str,
+    ) -> Result<Resolved<'a>, referencing::Error> {
+        self.resolver.lookup_dynamic_ref(reference)
+    }
+
     pub(crate) fn location_cache_key(&self) -> LocationCacheKey {
         LocationCacheKey {
             base_uri: self.resolver.base_uri(),
@@ -512,9 +563,9 @@ impl<'a, F: Json> Context<'a, F> {
         }
     }
 
-    fn alias_cache_key(&self, alias: Arc<Uri<String>>) -> AliasCacheKey {
-        AliasCacheKey {
-            uri: alias,
+    fn target_cache_key(&self, identity: TargetIdentity) -> TargetCacheKey {
+        TargetCacheKey {
+            identity,
             dynamic_scope: self.resolver.dynamic_scope(),
         }
     }
@@ -551,7 +602,10 @@ impl<'a, F: Json> Context<'a, F> {
         if let Some(entry) = self.shared.pattern_cache.borrow().get(pattern) {
             return Ok(Arc::clone(&entry.translated));
         }
-        let translated = Arc::<str>::from(jsonschema_regex::to_rust_regex(pattern)?);
+        let translated = match self.config.pattern_options().syntax() {
+            PatternSyntax::Ecma262 => Arc::<str>::from(jsonschema_regex::to_rust_regex(pattern)?),
+            PatternSyntax::Engine => Arc::from(pattern),
+        };
         self.shared.pattern_cache.borrow_mut().insert(
             Arc::from(pattern),
             PatternCacheEntry {
@@ -592,7 +646,8 @@ impl<'a, F: Json> Context<'a, F> {
     ///
     /// # Errors
     ///
-    /// That meta-schema requires a vocabulary this crate does not implement.
+    /// Returns an error if that meta-schema requires a vocabulary neither built in nor declared
+    /// with `with_vocabulary`.
     pub(crate) fn with_resolver_and_draft(
         &self,
         resolver: Resolver<'a>,
@@ -606,8 +661,7 @@ impl<'a, F: Json> Context<'a, F> {
             resolver,
             draft,
             vocabularies,
-            location: resource_base.clone(),
-            resource_base,
+            location: resource_base,
             resource_start: 0,
             shared: Rc::clone(&self.shared),
         })
@@ -647,8 +701,8 @@ impl<'a, F: Json> Context<'a, F> {
     pub(crate) fn get_format(&self, format: &str) -> Option<(&String, &Arc<dyn Format>)> {
         self.config.get_format(format)
     }
-    pub(crate) fn mark_seen(&self, alias: &Arc<Uri<String>>) {
-        self.shared.seen.borrow_mut().insert(Arc::clone(alias));
+    pub(crate) fn mark_seen(&self, identity: &TargetIdentity) {
+        self.shared.seen.borrow_mut().insert(identity.clone());
     }
 
     pub(crate) fn lookup_recursive_reference(&self) -> Result<Resolved<'a>, referencing::Error> {
@@ -713,12 +767,21 @@ impl<'a, F: Json> Context<'a, F> {
         Ok(target)
     }
 
-    /// [`Context::ref_target`] together with what `reference` resolves to.
+    /// [`Context::ref_target`] together with what `reference` resolves to, as `$dynamicRef` when
+    /// `dynamic`.
     pub(crate) fn resolve_ref_target(
         &self,
         reference: &str,
+        dynamic: bool,
         target_base: impl FnOnce(&Uri<String>) -> Location,
     ) -> Result<(RefTarget, Resolved<'a>), referencing::Error> {
+        let enter = |lookup: &referencing::Target<'a>| {
+            if dynamic {
+                self.resolver.enter_dynamic_ref(lookup)
+            } else {
+                Ok(self.resolver.enter(lookup))
+            }
+        };
         let base_uri = BaseUriKey(self.resolver.base_uri());
         if let Some(entry) = self
             .shared
@@ -728,12 +791,12 @@ impl<'a, F: Json> Context<'a, F> {
             .and_then(|by_reference| by_reference.get(reference))
         {
             if let Some(lookup) = &entry.lookup {
-                return Ok((entry.target.clone(), self.resolver.enter(lookup)?));
+                return Ok((entry.target.clone(), enter(lookup)?));
             }
         }
         let target = self.ref_target(reference, target_base)?;
         let lookup = self.resolver.lookup_target(reference)?;
-        let resolved = self.resolver.enter(&lookup)?;
+        let resolved = enter(&lookup)?;
         if let Some(entry) = self
             .shared
             .ref_targets
@@ -790,12 +853,12 @@ impl<'a, F: Json> Context<'a, F> {
         self.shared.location_nodes.borrow_mut().insert(key, node);
     }
 
-    fn cached_alias_node(&self, key: &AliasCacheKey) -> Option<CachedNode<F>> {
-        self.shared.alias_nodes.borrow().get(key).cloned()
+    fn cached_target_node(&self, key: &TargetCacheKey) -> Option<CachedNode<F>> {
+        self.shared.target_nodes.borrow().get(key).cloned()
     }
 
-    fn cache_alias_node(&self, key: AliasCacheKey, node: CachedNode<F>) {
-        self.shared.alias_nodes.borrow_mut().insert(key, node);
+    fn cache_target_node(&self, key: TargetCacheKey, node: CachedNode<F>) {
+        self.shared.target_nodes.borrow_mut().insert(key, node);
     }
 
     fn property_schema_key(schema: &Map<String, Value>) -> PropertyValidatorsPendingKey {
@@ -905,26 +968,106 @@ impl<'a, F: Json> Context<'a, F> {
         pending
     }
 
-    pub(crate) fn cached_alias_placeholder(
+    /// The placeholder of `identity` compiling under a dynamic scope where `$dynamicRef` resolves as
+    /// under `target`'s.
+    ///
+    /// A target compiled under a scope that binds `$dynamicRef` differently is another node, so
+    /// such a `$ref` cycle closes only once the bindings repeat.
+    fn in_progress_placeholder(
         &self,
-        alias: &Arc<Uri<String>>,
+        identity: &TargetIdentity,
+        target: &Resolver<'_>,
     ) -> Option<PendingSchemaNode<F>> {
-        self.shared.alias_placeholders.borrow().get(alias).cloned()
+        let placeholders = self.shared.target_placeholders.borrow();
+        let mut in_progress = placeholders.get(identity);
+        while let Some(compiling) = in_progress {
+            if target.binds_dynamic_anchors_like(&compiling.dynamic_scope) {
+                return Some(compiling.placeholder.clone());
+            }
+            in_progress = compiling.shadowed.as_deref();
+        }
+        None
     }
 
-    pub(crate) fn set_alias_placeholder(
-        &self,
-        alias: Arc<Uri<String>>,
-        node: PendingSchemaNode<F>,
-    ) {
-        self.shared
-            .alias_placeholders
+    /// Register `placeholder` for `identity` compiling under this context's dynamic scope.
+    fn set_target_placeholder(&self, identity: &TargetIdentity, placeholder: PendingSchemaNode<F>) {
+        let compiling = InProgressTarget {
+            dynamic_scope: self.resolver.dynamic_scope(),
+            placeholder,
+            shadowed: None,
+        };
+        match self
+            .shared
+            .target_placeholders
             .borrow_mut()
-            .insert(alias, node);
+            .entry(identity.clone())
+        {
+            Entry::Occupied(mut entry) => {
+                let shadowed = std::mem::replace(entry.get_mut(), compiling);
+                entry.get_mut().shadowed = Some(Box::new(shadowed));
+            }
+            Entry::Vacant(entry) => {
+                entry.insert(compiling);
+            }
+        }
     }
 
-    pub(crate) fn remove_alias_placeholder(&self, alias: &Arc<Uri<String>>) {
-        self.shared.alias_placeholders.borrow_mut().remove(alias);
+    /// Make `placeholder` the target of `$ref`s naming the root by `identity` in this context's
+    /// dynamic scope while the root compiles. Kept apart from the helpers every `$ref` target
+    /// compiles through, which stay inlined there.
+    fn start_root(&self, identity: &TargetIdentity, placeholder: PendingSchemaNode<F>) {
+        self.shared.seen.borrow_mut().insert(identity.clone());
+        self.shared.target_placeholders.borrow_mut().insert(
+            identity.clone(),
+            InProgressTarget {
+                dynamic_scope: self.resolver.dynamic_scope(),
+                placeholder,
+                shadowed: None,
+            },
+        );
+    }
+
+    /// Make the compiled root `node` the target of `$ref`s naming it by `identity` in this
+    /// context's dynamic scope.
+    fn finish_root(&self, identity: TargetIdentity, node: &SchemaNode<F>, settled: bool) {
+        self.shared
+            .target_placeholders
+            .borrow_mut()
+            .remove(&identity);
+        self.shared.target_nodes.borrow_mut().insert(
+            TargetCacheKey {
+                identity,
+                dynamic_scope: self.resolver.dynamic_scope(),
+            },
+            CachedNode {
+                node: node.clone(),
+                round: self.shared.round.get(),
+                settled,
+            },
+        );
+    }
+
+    /// Drop the innermost placeholder of `identity`, restoring the one it shadows.
+    fn remove_target_placeholder(&self, identity: &TargetIdentity) {
+        let mut placeholders = self.shared.target_placeholders.borrow_mut();
+        if let Some(InProgressTarget {
+            shadowed: Some(shadowed),
+            ..
+        }) = placeholders.remove(identity)
+        {
+            placeholders.insert(identity.clone(), *shadowed);
+        }
+    }
+
+    /// `Some` when patterns are ECMA 262, which every engine-free matcher reads them as.
+    pub(crate) fn ecma_262(&self) -> Option<()> {
+        (self.config.pattern_options().syntax() == PatternSyntax::Ecma262).then_some(())
+    }
+
+    /// The [`PatternOptimization`] that decides `pattern` without a regex, if any.
+    pub(crate) fn analyze_pattern(&self, pattern: &str) -> Option<PatternOptimization> {
+        self.ecma_262()?;
+        crate::regex::analyze_pattern(pattern)
     }
 
     /// Get a cached compiled regex, or compile and cache it if not present.
@@ -952,6 +1095,7 @@ impl<'a, F: Json> Context<'a, F> {
                     backtrack_limit,
                     size_limit,
                     dfa_size_limit,
+                    ..
                 } => (backtrack_limit, size_limit, dfa_size_limit),
                 PatternEngineOptions::Regex { .. } => (None, None, None),
             };
@@ -961,6 +1105,7 @@ impl<'a, F: Json> Context<'a, F> {
                 backtrack_limit,
                 size_limit,
                 dfa_size_limit,
+                options.syntax(),
             )
             .map(Arc::new);
             if let Some(cache) = shared {
@@ -981,6 +1126,7 @@ impl<'a, F: Json> Context<'a, F> {
         &self,
         pattern: &str,
     ) -> Option<Arc<SequenceMatcher<LazyRegex>>> {
+        self.ecma_262()?;
         let translated = self.translated_pattern(pattern).ok()?;
         let cache = self.shared.pattern_cache.borrow();
         let entry = cache.get(pattern)?;
@@ -1042,6 +1188,7 @@ impl<'a, F: Json> Context<'a, F> {
                 PatternEngineOptions::Regex {
                     size_limit,
                     dfa_size_limit,
+                    ..
                 } => (size_limit, dfa_size_limit),
                 PatternEngineOptions::FancyRegex { .. } => (None, None),
             };
@@ -1050,6 +1197,7 @@ impl<'a, F: Json> Context<'a, F> {
                 translated.as_ref(),
                 size_limit,
                 dfa_size_limit,
+                options.syntax(),
             )
             .map(Arc::new);
             if let Some(cache) = shared {
@@ -1072,31 +1220,31 @@ impl<'a, F: Json> Context<'a, F> {
     /// scope it was compiled in, which is the target's, not this context's.
     pub(crate) fn lookup_maybe_recursive(
         &self,
-        alias: &Arc<Uri<String>>,
+        identity: &TargetIdentity,
         target: &Resolver<'_>,
     ) -> Option<Box<dyn Validate<F>>> {
-        self.lookup_cached_target(alias, target)
+        self.lookup_cached_target(identity, target)
             .map(|target| match target {
                 CachedTarget::Node(node) => node.into_validator(),
                 CachedTarget::Placeholder(placeholder) => Box::new(placeholder),
             })
     }
 
-    /// The target of `alias` among the nodes compiled or deferred so far.
+    /// The target `identity` names among the nodes compiled or deferred so far.
     pub(crate) fn lookup_cached_target(
         &self,
-        alias: &Arc<Uri<String>>,
+        identity: &TargetIdentity,
         target: &Resolver<'_>,
     ) -> Option<CachedTarget<F>> {
-        if self.shared.seen.borrow().contains(alias) {
-            let key = AliasCacheKey {
-                uri: Arc::clone(alias),
+        if self.shared.seen.borrow().contains(identity) {
+            let key = TargetCacheKey {
+                identity: identity.clone(),
                 dynamic_scope: target.dynamic_scope(),
             };
-            if let Some(node) = self.cached_alias_node(&key) {
+            if let Some(node) = self.cached_target_node(&key) {
                 return Some(CachedTarget::Node(self.reuse(node)));
             }
-            if let Some(node) = self.cached_alias_placeholder(alias) {
+            if let Some(node) = self.in_progress_placeholder(identity, target) {
                 self.reach_unsettled();
                 return Some(CachedTarget::Placeholder(node));
             }
@@ -1104,18 +1252,18 @@ impl<'a, F: Json> Context<'a, F> {
         None
     }
 
-    /// Whether the target of `alias` goes to the worklist: the call stack holds too many `$ref`
-    /// targets, or the target is deferred already.
+    /// Whether the target `identity` names goes to the worklist: the call stack holds too many
+    /// `$ref` targets, or the target is deferred already.
     pub(crate) fn defers_ref_target(
         &self,
         resolved: &Resolved<'a>,
-        alias: &Arc<Uri<String>>,
+        identity: &TargetIdentity,
     ) -> bool {
         if self.shared.nested_ref_compilations.get() >= MAX_NESTED_REF_COMPILATIONS {
             return true;
         }
         let deferred = self.shared.deferred_placeholders.borrow();
-        !deferred.is_empty() && deferred.contains_key(&deferred_key(resolved, alias))
+        !deferred.is_empty() && deferred.contains_key(&deferred_key(resolved, identity))
     }
 
     /// Run `compile` for a `$ref` target on the call stack.
@@ -1127,15 +1275,15 @@ impl<'a, F: Json> Context<'a, F> {
         result
     }
 
-    /// Defer the target of `alias`; later `$ref`s to it get the returned placeholder.
+    /// Defer the target `identity` names; later `$ref`s to it get the returned placeholder.
     pub(crate) fn defer_ref_target(
         &self,
         resolved: Resolved<'a>,
         resource_base: Location,
-        alias: Arc<Uri<String>>,
+        identity: TargetIdentity,
     ) -> PendingSchemaNode<F> {
         self.reach_unsettled();
-        let key = deferred_key(&resolved, &alias);
+        let key = deferred_key(&resolved, &identity);
         let existing = self
             .shared
             .deferred_placeholders
@@ -1151,7 +1299,7 @@ impl<'a, F: Json> Context<'a, F> {
             .deferred_placeholders
             .borrow_mut()
             .insert(key.clone(), placeholder.clone());
-        let in_progress = self.shared.alias_placeholders.borrow().clone();
+        let in_progress = self.shared.target_placeholders.borrow().clone();
         self.shared
             .deferred_targets
             .borrow_mut()
@@ -1160,7 +1308,7 @@ impl<'a, F: Json> Context<'a, F> {
                 resolver,
                 draft,
                 resource_base,
-                alias,
+                identity,
                 key,
                 placeholder: placeholder.clone(),
                 in_progress,
@@ -1181,56 +1329,15 @@ impl<'a, F: Json> Context<'a, F> {
         Some(target)
     }
 
-    fn replace_alias_placeholders(
+    fn replace_target_placeholders(
         &self,
-        placeholders: AHashMap<Arc<Uri<String>>, PendingSchemaNode<F>>,
+        placeholders: AHashMap<TargetIdentity, InProgressTarget<F>>,
     ) {
-        *self.shared.alias_placeholders.borrow_mut() = placeholders;
+        *self.shared.target_placeholders.borrow_mut() = placeholders;
     }
 
     pub(crate) fn location(&self) -> &Location {
         &self.location
-    }
-
-    /// Returns the current location relative to the resource base.
-    ///
-    /// This "suffix" is used for evaluation path computation. When an error occurs
-    /// inside a `$ref` target, we combine the `$ref` traversal chain (prefix) with
-    /// this suffix to form the complete evaluation path.
-    ///
-    /// # Example
-    ///
-    /// ```text
-    /// Schema:
-    /// {
-    ///   "properties": {
-    ///     "user": { "$ref": "#/$defs/Person" }
-    ///   },
-    ///   "$defs": {
-    ///     "Person": {
-    ///       "properties": {
-    ///         "age": { "type": "integer" }
-    ///       }
-    ///     }
-    ///   }
-    /// }
-    ///
-    /// When compiling the "type" keyword inside "Person":
-    ///   location()      = /$defs/Person/properties/age/type
-    ///   resource_base   = /$defs/Person
-    ///   suffix()        = /properties/age/type
-    ///
-    /// At validation time, if reached via /properties/user/$ref:
-    ///   tracker = /properties/user/$ref + /properties/age/type
-    ///                   = /properties/user/$ref/properties/age/type
-    /// ```
-    pub(crate) fn suffix(&self) -> Location {
-        let suffix = self
-            .location
-            .as_str()
-            .strip_prefix(self.resource_base.as_str())
-            .expect("location must start with resource_base");
-        Location::from_escaped(suffix)
     }
 
     pub(crate) fn has_vocabulary(&self, vocabulary: &Vocabulary) -> bool {
@@ -1308,7 +1415,7 @@ pub(crate) async fn build_validator_async<F: Json>(
     schema: &Value,
 ) -> Result<Validator<F>, ValidationError<'static>> {
     let draft = config.draft_for(schema).await?;
-    let resource_ref = draft.create_resource_ref(schema); // single computation
+    let resource_ref = draft.create_resource_ref(schema);
 
     if config.validate_schema {
         validate_schema(draft, schema)?;
@@ -1334,7 +1441,7 @@ pub(crate) async fn build_validator_async<F: Json>(
 /// Upper-bound object-node count in `schema`, used to pre-size the per-location node cache.
 ///
 /// Over-counts (data objects in `enum`/`const` are not subschemas), but it only sizes a transient
-/// build cache, so over-provisioning is cheap and under-provisioning would reintroduce rehashing.
+/// build cache, so over-provisioning is cheap and under-provisioning rehashes.
 fn estimate_subschema_count(schema: &Value) -> usize {
     match schema {
         Value::Object(map) => 1 + map.values().map(estimate_subschema_count).sum::<usize>(),
@@ -1343,8 +1450,8 @@ fn estimate_subschema_count(schema: &Value) -> usize {
     }
 }
 
-/// A meta-schema that requires a vocabulary this crate does not implement cannot be honored,
-/// so the schemas written against it are refused.
+/// Refuses a meta-schema that requires a vocabulary neither built in nor declared with
+/// `with_vocabulary`.
 fn ensure_vocabularies_supported<F: Json>(
     config: &dyn CompilationOptions<F>,
     vocabularies: &VocabularySet,
@@ -1389,13 +1496,13 @@ fn build_validator_with_registry<R, F: Json>(
 
 /// Compile `resource`, then the `$ref` targets it deferred.
 ///
-/// Deferred targets compile from the top of the stack, so long `$ref` chains keep the stack flat.
+/// Deferred targets compile in a loop at this frame, so long `$ref` chains do not deepen the stack.
 fn compile_validator<F: Json>(
     ctx: &Context<'_, F>,
     resource: ResourceRef<'_>,
     draft: Draft,
 ) -> Result<Validator<F>, ValidationError<'static>> {
-    let root = compile(ctx, resource).map_err(ValidationError::into_build_error)?;
+    let root = compile_root(ctx, resource).map_err(ValidationError::into_build_error)?;
     let targets = compile_deferred_targets(ctx)?;
     Ok(Validator {
         root,
@@ -1413,7 +1520,7 @@ fn compile_deferred_targets<F: Json>(
 ) -> Result<Vec<SchemaNode<F>>, ValidationError<'static>> {
     let mut targets = Vec::new();
     while let Some(target) = ctx.next_deferred_target() {
-        ctx.replace_alias_placeholders(target.in_progress);
+        ctx.replace_target_placeholders(target.in_progress);
         let vocabularies = target
             .resolver
             .find_vocabularies(target.draft, target.contents);
@@ -1426,7 +1533,7 @@ fn compile_deferred_targets<F: Json>(
                 target.resource_base,
             )
             .map_err(ValidationError::into_build_error)?;
-        match compile_with_alias(&target_ctx, resource, target.alias)
+        match compile_with_identity(&target_ctx, resource, &target.identity)
             .map_err(ValidationError::into_build_error)?
         {
             TargetNode::Owned(node) => {
@@ -1435,7 +1542,7 @@ fn compile_deferred_targets<F: Json>(
             }
             TargetNode::Shared(node) => target.placeholder.initialize(&node),
         }
-        ctx.replace_alias_placeholders(AHashMap::new());
+        ctx.replace_target_placeholders(AHashMap::new());
     }
     Ok(targets)
 }
@@ -1479,40 +1586,49 @@ pub(crate) fn validate_schema(
     draft: Draft,
     schema: &Value,
 ) -> Result<(), ValidationError<'static>> {
-    // Boolean schemas are always valid per the spec, skip validation
+    // Boolean schemas skip meta-validation, though the Draft 4 meta-schema rejects them
     if schema.is_boolean() {
         return Ok(());
     }
 
-    // For objects, we can skip validation if they're empty (always valid)
     if let Some(obj) = schema.as_object() {
         if obj.is_empty() {
             return Ok(());
         }
     }
 
-    let mut embedded = Vec::new();
+    let mut nested = Vec::new();
     if declares_nested_schema(schema) {
-        collect_embedded_resources(draft, draft, schema, &mut embedded);
+        collect_nested_dialects(draft, draft, schema, &mut nested);
     }
     let validator = crate::meta::validator_for_draft(draft);
-    if embedded.is_empty() {
-        return validator
-            .validate(schema)
-            .map_err(ValidationError::to_owned);
+    if nested.is_empty() {
+        return check_against_meta_schema(&validator, schema);
     }
-    // Each embedded resource with its own dialect is validated against its own meta-schema
-    // (JSON Schema 2020-12 Core, Section 9.3.3), so the enclosing one sees it as `{}`.
-    let mut resources = Vec::with_capacity(embedded.len());
-    let enclosing = without_embedded_resources(schema, &embedded, &Location::new(), &mut resources);
-    validator
-        .validate(&enclosing)
-        .map_err(ValidationError::to_owned)?;
-    for (location, draft, contents) in resources {
+    // Each subschema whose `$schema` names another draft is validated against that draft's
+    // meta-schema, so the enclosing one sees it as `{}`.
+    let mut subschemas = Vec::with_capacity(nested.len());
+    let enclosing = without_nested_dialects(schema, &nested, &Location::new(), &mut subschemas);
+    check_against_meta_schema(&validator, &enclosing)?;
+    for (location, draft, contents) in subschemas {
         validate_schema(draft, contents)
             .map_err(|error| error.with_instance_path_prefix(&location))?;
     }
     Ok(())
+}
+
+/// The first error `validator` reports for `schema`. Most schemas are accepted, and `is_valid`
+/// reaches that verdict without the error-path bookkeeping of `validate`.
+fn check_against_meta_schema(
+    validator: &crate::meta::MetaValidator<'_>,
+    schema: &Value,
+) -> Result<(), ValidationError<'static>> {
+    if validator.is_valid(schema) {
+        return Ok(());
+    }
+    validator
+        .validate(schema)
+        .map_err(ValidationError::to_owned)
 }
 
 /// Whether `$schema` appears anywhere below the root. This structural scan is several times
@@ -1532,46 +1648,35 @@ fn declares_nested_schema(schema: &Value) -> bool {
         .is_some_and(|map| map.values().any(contains_schema_keyword))
 }
 
-/// Embedded resources below `schema` whose `$schema` names a draft other than `meta_draft`, the
-/// draft whose meta-schema the enclosing resource is validated against.
-///
-/// Only a resource root may declare `$schema` (2019-09 and 2020-12 Core, Section 8.1.1), so a
-/// subschema without an identifier stays under the enclosing meta-schema.
-fn collect_embedded_resources<'a>(
+/// Subschemas below `schema` whose `$schema` names a draft other than `meta_draft`, the draft whose
+/// meta-schema the enclosing schema is validated against.
+fn collect_nested_dialects<'a>(
     draft: Draft,
     meta_draft: Draft,
     schema: &'a Value,
-    embedded: &mut Vec<(&'a Value, Draft)>,
+    nested: &mut Vec<(&'a Value, Draft)>,
 ) {
-    for subresource in draft.subresources_of(schema) {
-        let subresource_draft = draft.detect(subresource);
-        let own_dialect = subresource_draft != meta_draft && subresource_draft != Draft::Unknown;
-        // A resource written against an older draft may name itself with that draft's `id`.
-        if own_dialect
-            && (draft.create_resource_ref(subresource).id().is_some()
-                || subresource_draft
-                    .create_resource_ref(subresource)
-                    .id()
-                    .is_some())
-        {
-            embedded.push((subresource, subresource_draft));
+    for subschema in draft.subresources_of(schema) {
+        let subschema_draft = draft.detect(subschema);
+        if subschema_draft != meta_draft && subschema_draft != Draft::Unknown {
+            nested.push((subschema, subschema_draft));
         } else {
-            collect_embedded_resources(subresource_draft, meta_draft, subresource, embedded);
+            collect_nested_dialects(subschema_draft, meta_draft, subschema, nested);
         }
     }
 }
 
-/// Copy of `value` with every `embedded` resource replaced by `{}`, which every draft accepts.
-/// The replaced resources are recorded with their location.
-fn without_embedded_resources<'a>(
+/// Copy of `value` with every `nested` subschema replaced by `{}`, which every draft accepts.
+/// The replaced subschemas are recorded with their location.
+fn without_nested_dialects<'a>(
     value: &'a Value,
-    embedded: &[(&'a Value, Draft)],
+    nested: &[(&'a Value, Draft)],
     location: &Location,
     replaced: &mut Vec<(Location, Draft, &'a Value)>,
 ) -> Value {
-    if let Some((_, draft)) = embedded
+    if let Some((_, draft)) = nested
         .iter()
-        .find(|(resource, _)| std::ptr::eq(*resource, value))
+        .find(|(subschema, _)| std::ptr::eq(*subschema, value))
     {
         replaced.push((location.clone(), *draft, value));
         return Value::Object(Map::new());
@@ -1581,7 +1686,7 @@ fn without_embedded_resources<'a>(
             map.iter()
                 .map(|(key, child)| {
                     let child =
-                        without_embedded_resources(child, embedded, &location.join(key), replaced);
+                        without_nested_dialects(child, nested, &location.join(key), replaced);
                     (key.clone(), child)
                 })
                 .collect(),
@@ -1591,7 +1696,7 @@ fn without_embedded_resources<'a>(
                 .iter()
                 .enumerate()
                 .map(|(idx, child)| {
-                    without_embedded_resources(child, embedded, &location.join(idx), replaced)
+                    without_nested_dialects(child, nested, &location.join(idx), replaced)
                 })
                 .collect(),
         ),
@@ -1635,7 +1740,7 @@ fn index_anchors<'v>(
     }
 }
 
-/// Compile a JSON Schema instance to a tree of nodes.
+/// Compile `resource` into a tree of nodes.
 pub(crate) fn compile<'a, F: Json>(
     ctx: &Context<F>,
     resource: ResourceRef<'a>,
@@ -1644,18 +1749,40 @@ pub(crate) fn compile<'a, F: Json>(
     compile_with_internal(&ctx, resource, None).map(TargetNode::into_node)
 }
 
-/// Compile the target of `alias`, or reuse the compiled one.
-pub(crate) fn compile_with_alias<'a, F: Json>(
+/// Compile the root as the target of a `$ref` naming it by `#`, so such a reference in it closes a
+/// cycle on the root itself.
+///
+/// The root compiles in its starting dynamic scope and is cached as the target under the scope a
+/// `$ref` to it enters.
+fn compile_root<'a, F: Json>(
     ctx: &Context<F>,
     resource: ResourceRef<'a>,
-    alias: Arc<Uri<String>>,
+) -> Result<SchemaNode<F>, ValidationError<'a>> {
+    let ctx = ctx.at_root(resource)?;
+    let referenced = ctx.clone().in_dynamic_scope();
+    let identity = TargetIdentity::new(resource.contents(), Location::new());
+    let placeholder = PendingSchemaNode::new();
+    referenced.start_root(&identity, placeholder.clone());
+    let outer = ctx.start_node();
+    let node = compile_with_internal(&ctx, resource, None)?.into_node();
+    let settled = ctx.finish_node(outer);
+    placeholder.initialize(&node);
+    referenced.finish_root(identity, &node, settled);
+    Ok(node)
+}
+
+/// Compile the `$ref` target `identity` names, or reuse the compiled one.
+pub(crate) fn compile_with_identity<'a, F: Json>(
+    ctx: &Context<F>,
+    resource: ResourceRef<'a>,
+    identity: &TargetIdentity,
 ) -> Result<TargetNode<F>, ValidationError<'a>> {
-    compile_with_internal(ctx, resource, Some(alias))
+    compile_with_internal(ctx, resource, Some(identity))
 }
 
 /// The cached node for `resource`, or the key to cache a new one under.
 ///
-/// `$ref` targets already compiled under their alias are found before compilation reaches here.
+/// `$ref` targets already compiled under their identity are found before compilation reaches here.
 fn find_compiled<F: Json>(
     ctx: &Context<F>,
     resource: ResourceRef<'_>,
@@ -1674,10 +1801,10 @@ fn find_compiled<F: Json>(
     Err(key)
 }
 
-/// The placeholder `$ref` cycles to `alias` use until its node compiles.
-fn start_compiling<F: Json>(ctx: &Context<F>, alias: &Arc<Uri<String>>) -> PendingSchemaNode<F> {
+/// The placeholder `$ref` cycles to `identity` use until its node compiles.
+fn start_compiling<F: Json>(ctx: &Context<F>, identity: &TargetIdentity) -> PendingSchemaNode<F> {
     let placeholder = PendingSchemaNode::new();
-    ctx.set_alias_placeholder(Arc::clone(alias), placeholder.clone());
+    ctx.set_target_placeholder(identity, placeholder.clone());
     placeholder
 }
 
@@ -1685,7 +1812,7 @@ fn start_compiling<F: Json>(ctx: &Context<F>, alias: &Arc<Uri<String>>) -> Pendi
 fn finish_compiling<F: Json>(
     ctx: &Context<F>,
     key: NodeCacheKey,
-    target: Option<(&Arc<Uri<String>>, PendingSchemaNode<F>)>,
+    target: Option<(&TargetIdentity, PendingSchemaNode<F>)>,
     node: &SchemaNode<F>,
     settled: bool,
 ) {
@@ -1694,29 +1821,26 @@ fn finish_compiling<F: Json>(
         round: ctx.shared.round.get(),
         settled,
     };
-    if let Some((alias, placeholder)) = target {
+    if let Some((identity, placeholder)) = target {
         placeholder.initialize(node);
-        ctx.remove_alias_placeholder(alias);
-        ctx.cache_alias_node(ctx.alias_cache_key(Arc::clone(alias)), cached.clone());
+        ctx.remove_target_placeholder(identity);
+        ctx.cache_target_node(ctx.target_cache_key(identity.clone()), cached.clone());
     }
     ctx.cache_location_node(key, cached);
 }
 
 /// Lookups and bookkeeping live in separate functions to keep each nested frame small.
-#[allow(clippy::needless_pass_by_value)]
 fn compile_with_internal<'a, F: Json>(
     ctx: &Context<F>,
     resource: ResourceRef<'a>,
-    alias: Option<Arc<Uri<String>>>,
+    identity: Option<&TargetIdentity>,
 ) -> Result<TargetNode<F>, ValidationError<'a>> {
-    let key = match find_compiled(ctx, resource, alias.is_some()) {
+    let key = match find_compiled(ctx, resource, identity.is_some()) {
         Ok(existing) => return Ok(existing),
         Err(key) => key,
     };
     let outer = ctx.start_node();
-    let target = alias
-        .as_ref()
-        .map(|alias| (alias, start_compiling(ctx, alias)));
+    let target = identity.map(|identity| (identity, start_compiling(ctx, identity)));
     let node = compile_without_cache(ctx, resource);
     let settled = ctx.finish_node(outer);
     let node = node?;
@@ -1746,10 +1870,11 @@ fn compile_without_cache<'a, F: Json>(
                     return if let Some(validator) =
                         keywords::ref_::compile_ref(ctx, schema, reference)
                     {
-                        let validators = vec![(BuiltinKeyword::Ref.into(), validator?)];
+                        let validators = [(BuiltinKeyword::Ref.into(), validator?)];
                         Ok(SchemaNode::from_keywords(ctx, validators, None, None))
                     } else {
-                        // Infinite reference to the same location
+                        // `$ref: ""` names the enclosing resource and compiles to `true` to stop
+                        // the recursion
                         Ok(SchemaNode::from_boolean(ctx, None))
                     };
                 }
@@ -1775,7 +1900,6 @@ fn compile_without_cache<'a, F: Json>(
                         _ => {}
                     }
                 }
-                // Check if this keyword is overridden, then check the standard definitions
                 if let Some(factory) = ctx.get_keyword_factory(keyword) {
                     let path = ctx.location().join(keyword);
                     let validator = CustomKeyword::new(
@@ -1790,14 +1914,14 @@ fn compile_without_cache<'a, F: Json>(
                 {
                     validators.push((keyword, validator.map_err(ValidationError::to_owned)?));
                 } else if !ctx.is_known_keyword(keyword) {
-                    // Treat all non-validation keywords as annotations
+                    // Keywords the draft does not define are kept as annotations
                     annotations.insert(keyword.clone(), value.clone());
                 }
             }
             let annotations = if annotations.is_empty() {
                 None
             } else {
-                Some(Arc::new(Value::Object(annotations)))
+                Some(Annotations::new(Value::Object(annotations)))
             };
             Ok(SchemaNode::from_keywords(
                 ctx,
@@ -1823,8 +1947,9 @@ fn compile_without_cache<'a, F: Json>(
 /// reachable subschema, keyed by URI-fragment JSON pointer.
 ///
 /// Each subschema is compiled with its own fresh [`Context`] so that caches from
-/// sibling compilations do not interfere. Nodes that fail to compile (e.g.
-/// unresolvable `$ref`) are silently skipped.
+/// sibling compilations do not interfere, and below the root as a `$ref` from the root to its
+/// pointer compiles it. Nodes that fail to compile (e.g. unresolvable `$ref`) are silently
+/// skipped.
 fn collect_validators<'a, F: Json>(
     config: &'a dyn CompilationOptions<F>,
     resolver: &Resolver<'a>,
@@ -1844,8 +1969,12 @@ fn collect_validators<'a, F: Json>(
                 Location::new(),
                 estimate_subschema_count(current),
             );
-            let resource_ref = ctx.as_resource_ref(current);
-            if let Ok(validator) = compile_validator(&ctx, resource_ref, draft) {
+            let document = ctx.as_resource_ref(schema);
+            let compiled = match &pointer[1..] {
+                "" => compile_validator(&ctx, document, draft),
+                location => compile_entry(&ctx, document, location, draft),
+            };
+            if let Ok(validator) = compiled {
                 validators.insert(pointer.clone(), validator);
             }
         }
@@ -1866,6 +1995,24 @@ fn collect_validators<'a, F: Json>(
         }
     }
     validators
+}
+
+/// Compile the subschema at the escaped JSON Pointer `pointer` in `document`, then the `$ref`
+/// targets it deferred.
+fn compile_entry<F: Json>(
+    ctx: &Context<'_, F>,
+    document: ResourceRef<'_>,
+    pointer: &str,
+    draft: Draft,
+) -> Result<Validator<F>, ValidationError<'static>> {
+    let at_root = ctx.at_root(document)?;
+    let root = keywords::ref_::compile_pointer_target(&at_root, pointer)?;
+    let targets = compile_deferred_targets(ctx)?;
+    Ok(Validator {
+        root,
+        targets,
+        draft,
+    })
 }
 
 fn build_validator_map_with_registry<R, F: Json>(

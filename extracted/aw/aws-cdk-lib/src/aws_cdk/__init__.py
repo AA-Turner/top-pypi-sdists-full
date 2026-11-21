@@ -1576,6 +1576,42 @@ the context key setting.
 
 Similarly, to do this for a specific nested stack, add a `suppressTemplateIndentation: true` property to its `NestedStackProps` parameter. You can also set this property to `false` to override the context key setting.
 
+## Metadata Context
+
+CDK offers structured APIs to populate the [CloudFormation Metadata Context attribute](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-attribute-metadata.html#aws-attribute-metadata-context-schema).
+
+### Resource-level context
+
+Use `CfnResourceMetadataContext` to add context to a CloudFormation resource:
+
+```python
+# queue: sqs.Queue
+
+
+CfnResourceMetadataContext.of(queue).set(
+    why="buffers order events for asynchronous processing",
+    must=["VisibilityTimeout must be at least six times the consumer timeout"]
+)
+```
+
+By default, the API targets a `CfnResource` scope or its immediate `CfnResource`
+`defaultChild`. Set `selector` to target other resources, including resources
+owned by L2 and L3 constructs.
+
+### Template-level context
+
+Use `CfnTemplateMetadataContext` to add context to a CloudFormation template:
+
+```python
+# stack: Stack
+
+
+CfnTemplateMetadataContext.of(stack).set(
+    arch="SQS buffer -> Lambda -> DynamoDB",
+    owner="order-processing-team"
+)
+```
+
 ## App Context
 
 [Context values](https://docs.aws.amazon.com/cdk/v2/guide/context.html) are key-value pairs that can be associated with an app, stack, or construct.
@@ -3892,19 +3928,55 @@ class AssetHashType(enum.Enum):
     '''
 
     SOURCE = "SOURCE"
-    '''Based on the content of the source path.
+    '''Base the asset hash on the contents of the source path.
 
-    When bundling, use ``SOURCE`` when the content of the bundling output is not
-    stable across repeated bundling operations.
+
+
+    Without bundling
+
+    When used without the ``bundling`` property, and the asset is just a regular file
+    copy operation: the hash will be based on the files in the source path
+    respecting the ``exclude`` patterns given (i.e., excluded files will not be
+    included in the hash). This matches the files that are actually copied by the
+    copy operation.
+
+
+    With bundling
+
+    When used with the ``bundling`` property, and the asset is produced by a
+    bundling operation: the hash will still be based on the files in the source
+    path while respecting the ``exclude`` patterns given. If those given files
+    did not change since the last bundling operation, the hash will remain the same
+    and the bundling operation itself will be skipped. However, do note the following
+    important caveat:
+
+    - The bundling operation has access to all files in the source path, regardless
+      of the ``exclude`` pattern you configure. It is your responsibility to ensure
+      the ``exclude`` pattern accurately matches the files the bundling operation
+      will *actually* access and base its final output on.
+
+    It is always safe to fingerprint more files than strictly necessary. This will
+    potentially reduce the efficiency of cache hits, but not affect correctness.
     '''
     OUTPUT = "OUTPUT"
-    '''Based on the content of the bundling output.
+    '''Base the asset hash on the contents of the bundling output.
 
-    Use ``OUTPUT`` when the source of the asset is a top level folder containing
-    code and/or dependencies that are not directly linked to the asset.
+    Use ``OUTPUT`` when it is hard to isolate the full set of source files that
+    contribute to the final asset. Instead, the files produced by the ``bundling`` step
+    will be fingerprinted to produce the asset hash.
+
+    Use of this value precludes caching of the transform operation: since the
+    asset hash can only be calculated *after* the asset is bundled, the asset must
+    be bundled on every synthesis.
+
+    This option can only be used in combination with the ``bundling`` property.
     '''
     CUSTOM = "CUSTOM"
-    '''Use a custom hash.'''
+    '''Use a custom hash.
+
+    The ``AssetStaging`` construct will not calculate the asset hash; instead, it
+    will use the asset hash given in the ``assetHash`` property.
+    '''
 
 
 class AssetManifestBuilder(
@@ -4430,11 +4502,62 @@ class AssetStaging(
 ):
     '''Stages a file or directory from a location on the file system into a staging directory.
 
-    This is controlled by the context key 'aws:cdk:asset-staging' and enabled
-    by the CLI by default in order to ensure that when the CDK app exists, all
-    assets are available for deployment. Otherwise, if an app references assets
-    in temporary locations, those will not be available when it exists (see
-    https://github.com/aws/aws-cdk/issues/1716).
+    This construct can operate in two modes: without and with "bundling". Bundling
+    means that an additional command is run to transform the source files into
+    a final asset that will be used for deployment.
+
+
+    Without bundling
+
+    Without the ``bundling`` property, the asset is just a regular file copy
+    operation.
+
+    - ``exclude`` and ``ignoreMode`` control which files are excluded from the copy operation.
+    - ``follow`` controls how symlinks are handled during the copy operation:
+      the symlink can be copied, the file the symlink points to can be copied,
+      or symlinks pointing outside the source tree can be blocked.
+    - The asset hash is calculated based on the files that are copied into the asset,
+      unless the hash is overridden entirely by the ``assetHash`` property.
+
+    The copy-staging operation can be disabled by setting the context
+    key ``'aws:cdk:asset-staging': false``. This can be useful for local
+    development tools like SAM CLI, so that you can update the source files
+    directly and immediately see the result in a local emulator without needing
+    to run ``cdk synth`` every time to stage the assets. Note that in this mode,
+    since there is no copying, ``exclude`` and ``follow`` settings have no effect,
+    including ``BLOCK_EXTERNAL`` which will not be applied.
+
+
+    With bundling
+
+    With the ``bundling`` property, the transformation of source files to a final asset
+    is done through bundling operation specified in the ``bundling`` property.
+
+    The behavior of the construct depends on the ``assetHashType`` selected:
+
+    - ``AssetHashType.SOURCE``: the asset hash will be based on the source files
+      after applying the ``exclude``, ``ignoreMode`` and ``follow`` settings. That hash
+      will be used to skip the bundling command entirely if an asset with the given
+      hash already exists in the assembly directory. This requires that those
+      settings accurately model the dependencies used by the bundling operation to
+      produce the final asset.
+    - ``AssetHashType.OUTPUT``: the asset hash will be based on the output of the
+      bundling operation. ``exclude``/``ignoreMode`` are not used, and no attempt
+      is made to materialize any symlinks that bundling may have written.
+    - ``AssetHashType.CUSTOM``: the asset hash will be taken from the ``assetHash``
+      property. ``exclude``/``ignoreMode`` are not used, and no attempt is made to
+      materialize any symlinks that bundling may have written.
+
+    For all three modes, if ``follow`` is set to ``SymlinkFollowMode.BLOCK_EXTERNAL``,
+    any symlinks written by bundling that point outside the output directory
+    will be blocked.
+
+    For bundled assets, staging can not be disabled for the benefit of local
+    development. If you are iterating against a local emulator, you will need to
+    run ``cdk synth`` for every asset change.
+
+
+    Other behavior
 
     The ``stagedPath`` property is a stringified token that represents the location
     of the file or directory after staging. It will be resolved only during the
@@ -4443,6 +4566,16 @@ class AssetStaging(
 
     The file/directory are staged based on their content hash (fingerprint). This
     means that only if content was changed, copy will happen.
+
+
+    Security notes on BLOCK_EXTERNAL symlinks
+
+    If a bundled asset is being reused from the ``cdk.out`` cache, the BLOCK_EXTERNAL
+    symlink check is not re-run, and on an asset hash collission (made more likely
+    in the case of a chosen ``CUSTOM`` hash) external symlinks left over from a
+    previous unchecked synth can persist. This is unlikely to be a problem in
+    practice, but to prevent this from happening to you, delete the ``cdk.out``
+    directory whenever you switch from non-``BLOCK_EXTERNAL`` to ``BLOCK_EXTERNAL`` follow mode.
 
     :exampleMetadata: fixture=_generated
 
@@ -4512,13 +4645,13 @@ class AssetStaging(
         :param scope: -
         :param id: -
         :param source_path: The source file or directory to copy from.
-        :param extra_hash: Extra information to encode into the fingerprint (e.g. build instructions and other inputs). Default: - hash is only based on source content
+        :param extra_hash: Extra information to encode into the fingerprint (e.g. build instructions and other inputs). Default: - hash is only based on the file fingerprint
         :param asset_hash: Specify a custom hash for this asset. If ``assetHashType`` is set it must be set to ``AssetHashType.CUSTOM``. For consistency, this custom hash will be SHA256 hashed and encoded as hex. The resulting hash will be the asset hash. NOTE: the hash is used in order to identify a specific revision of the asset, and used for optimizing and caching deployment activities related to this asset such as packaging, uploading to Amazon S3, etc. If you chose to customize the hash, you will need to make sure it is updated every time the asset changes, or otherwise it is possible that some deployments will not be invalidated. Default: - based on ``assetHashType``
         :param asset_hash_type: Specifies the type of hash to calculate for this asset. If ``assetHash`` is configured, this option must be ``undefined`` or ``AssetHashType.CUSTOM``. Default: - the default is ``AssetHashType.SOURCE``, but if ``assetHash`` is explicitly specified this value defaults to ``AssetHashType.CUSTOM``.
         :param bundling: Bundle the asset by executing a command in a Docker container or a custom bundling provider. The asset path will be mounted at ``/asset-input``. The Docker container is responsible for putting content at ``/asset-output``. The content at ``/asset-output`` will be zipped and used as the final asset. Default: - uploaded as-is to S3 if the asset is a regular file or a .zip file, archived into a .zip file and uploaded to S3 otherwise
-        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Has no effect on Assets bundled using the ``bundling`` property. Default: - nothing is excluded
-        :param follow: A strategy for how to handle symlinks. Default: SymlinkFollowMode.NEVER
-        :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
+        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, this controls the files that will be included in the copy. Files matching the ``exclude`` patterns will not be included in the copy. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the value of ``exclude`` is only meaningful if the ``assetHashType`` is set to ``AssetHashType.SOURCE``, and ignored for other asset hash types. The ``exclude`` patterns will be used to determine which files contribute to the asset, and the bundling command is skipped if the source files have not changed since the last bundling operation. **NOTE:** The bundling operation still has access to all files in the source path, regardless of the ``exclude`` patterns. It is your responsibility to ensure the ``exclude`` pattern accurately matches the files the bundling operation will *actually* access and base its final output on. For ``OUTPUT`` or ``CUSTOM`` asset hash types, the ``exclude`` pattern is ignored. Default: - nothing is excluded
+        :param follow: A strategy for how to handle symlinks. Symlinks may be copied, materialized or rejected. Note that if symlinks are copied they should be relative; absolute symlinks will lose their meaning if the cloud assembly is moved to another machine. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, symlinks are materialized or blocked with respect to the source path root as they are being copied. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the bundling command is fully in charge of producing a set of files in an output directory, and the ``AssetStaging`` construct will never affect symlink materialization. If the ``assetHashType`` is ``AssetHashType.SOURCE``, this flag affects what the source hash is based on, and the recommended value is one of ``SymlinkFollowMode.EXTERNAL`` or ``SymlinkFollowMode.BLOCK_EXTERNAL``. If the ``SymlinkFollowMode.BLOCK_EXTERNAL`` mode is used: - Symlinks pointing outside the source tree will be blocked, but only if using ``AssetHashType.SOURCE`` (not for any of the other asset hash types). - Symlinks pointing outside the bundle output will be blocked. Default: SymlinkFollowMode.EXTERNAL
+        :param ignore_mode: What syntax the ``exclude`` patterns are written in. Default: - IgnoreMode.GLOB for file assets, ``IgnoreMode.DOCKER`` for image assets (requires that the ``@aws-cdk/aws-ecr-assets:dockerIgnoreSupport`` feature flag is set, which is recommended)
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0f053317f7c7fa8d5fea51d4f55642f8c1c852f5f6a55a582cd7d0a4bc1a77c1)
@@ -4609,7 +4742,11 @@ class AssetStaging(
     @builtins.property
     @jsii.member(jsii_name="isArchive")
     def is_archive(self) -> builtins.bool:
-        '''Whether this asset is an archive (zip or jar).'''
+        '''Whether this asset will ultimately end up in S3 as an archive.
+
+        It will end up as an archive either if it's a directory (which
+        the CDK will ZIP) or if it's a file that's an archive.
+        '''
         return typing.cast(builtins.bool, jsii.get(self, "isArchive"))
 
     @builtins.property
@@ -4970,16 +5107,16 @@ class BundlingOptions:
 
         Example::
 
-            import aws_cdk as cdk
-            
-            
-            asset = Asset(self, "BundledAsset",
-                path="/path/to/asset",
-                bundling=cdk.BundlingOptions(
-                    image=cdk.DockerImage.from_registry("alpine"),
-                    command=["command-that-produces-an-archive.sh"],
-                    output_type=cdk.BundlingOutput.NOT_ARCHIVED
-                )
+            from aws_cdk import BundlingOptions
+            lambda_.Function(self, "JavaFunction",
+                code=lambda_.Code.from_asset(path.join(__dirname, "my-java-handler"),
+                    bundling=BundlingOptions(
+                        image=DockerImage.from_registry("public.ecr.aws/sam/build-java21:1.153"),  # example: the last image with Gradle 8.x
+                        command=["bash", "-c", "gradle build && cp build/distributions/*.zip /asset-output/"]
+                    )
+                ),
+                runtime=lambda_.Runtime.JAVA_21,
+                handler="com.example.Handler::handleRequest"
             )
         '''
         if __debug__:
@@ -6970,6 +7107,239 @@ class CfnConditionProps:
         return "CfnConditionProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.CfnContextMutability")
+class CfnContextMutability(enum.Enum):
+    '''Change-safety level for a resource or resource property.
+
+    :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-attribute-metadata.html#aws-attribute-metadata-context-schema
+    '''
+
+    MUST_NEVER_CHANGE = "MUST_NEVER_CHANGE"
+    '''The value must never change.'''
+    CHANGE_WITH_CONSTRAINTS = "CHANGE_WITH_CONSTRAINTS"
+    '''The value can change within stated constraints.'''
+    REVIEW_REQUIRED = "REVIEW_REQUIRED"
+    '''The value requires review before it changes.'''
+    FREE_TO_TUNE = "FREE_TO_TUNE"
+    '''The value can change without coordination.'''
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.CfnContextRef",
+    jsii_struct_bases=[],
+    name_mapping={"at": "at", "has": "has", "scope": "scope"},
+)
+class CfnContextRef:
+    def __init__(
+        self,
+        *,
+        at: builtins.str,
+        has: typing.Optional[builtins.str] = None,
+        scope: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Reference to supporting context.
+
+        :param at: Location of the supporting context.
+        :param has: Summary of the referenced context. Default: - no summary
+        :param scope: Scope of the referenced context. Default: - no scope
+
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-attribute-metadata.html#aws-attribute-metadata-context-schema
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk as cdk
+            
+            cfn_context_ref = cdk.CfnContextRef(
+                at="at",
+            
+                # the properties below are optional
+                has="has",
+                scope="scope"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3afcec43c8c56ef4346610eaad64bfb8c37cfa8cbd0735dfa3df5377a559ff31)
+            check_type(argname="argument at", value=at, expected_type=type_hints["at"])
+            check_type(argname="argument has", value=has, expected_type=type_hints["has"])
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "at": at,
+        }
+        if has is not None:
+            self._values["has"] = has
+        if scope is not None:
+            self._values["scope"] = scope
+
+    @builtins.property
+    def at(self) -> builtins.str:
+        '''Location of the supporting context.'''
+        result = self._values.get("at")
+        assert result is not None, "Required property 'at' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def has(self) -> typing.Optional[builtins.str]:
+        '''Summary of the referenced context.
+
+        :default: - no summary
+        '''
+        result = self._values.get("has")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def scope(self) -> typing.Optional[builtins.str]:
+        '''Scope of the referenced context.
+
+        :default: - no scope
+        '''
+        result = self._values.get("scope")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnContextRef(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.CfnContextTrust",
+    jsii_struct_bases=[],
+    name_mapping={"conf": "conf", "src": "src", "cite": "cite", "note": "note"},
+)
+class CfnContextTrust:
+    def __init__(
+        self,
+        *,
+        conf: "CfnContextTrustConfidence",
+        src: "CfnContextTrustSource",
+        cite: typing.Optional[builtins.str] = None,
+        note: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Provenance and confidence for context.
+
+        :param conf: Confidence in the context.
+        :param src: How the context was produced.
+        :param cite: Reference to the source of the context. Default: - no citation
+        :param note: Additional provenance details. Default: - no note
+
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-attribute-metadata.html#aws-attribute-metadata-context-schema
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk as cdk
+            
+            cfn_context_trust = cdk.CfnContextTrust(
+                conf=cdk.CfnContextTrustConfidence.HIGH,
+                src=cdk.CfnContextTrustSource.AUTHORED,
+            
+                # the properties below are optional
+                cite="cite",
+                note="note"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a30b9e12a8f881592b2eb46041bd92422f59fad2b03d237e9e4e0dce56daeadd)
+            check_type(argname="argument conf", value=conf, expected_type=type_hints["conf"])
+            check_type(argname="argument src", value=src, expected_type=type_hints["src"])
+            check_type(argname="argument cite", value=cite, expected_type=type_hints["cite"])
+            check_type(argname="argument note", value=note, expected_type=type_hints["note"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "conf": conf,
+            "src": src,
+        }
+        if cite is not None:
+            self._values["cite"] = cite
+        if note is not None:
+            self._values["note"] = note
+
+    @builtins.property
+    def conf(self) -> "CfnContextTrustConfidence":
+        '''Confidence in the context.'''
+        result = self._values.get("conf")
+        assert result is not None, "Required property 'conf' is missing"
+        return typing.cast("CfnContextTrustConfidence", result)
+
+    @builtins.property
+    def src(self) -> "CfnContextTrustSource":
+        '''How the context was produced.'''
+        result = self._values.get("src")
+        assert result is not None, "Required property 'src' is missing"
+        return typing.cast("CfnContextTrustSource", result)
+
+    @builtins.property
+    def cite(self) -> typing.Optional[builtins.str]:
+        '''Reference to the source of the context.
+
+        :default: - no citation
+        '''
+        result = self._values.get("cite")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def note(self) -> typing.Optional[builtins.str]:
+        '''Additional provenance details.
+
+        :default: - no note
+        '''
+        result = self._values.get("note")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnContextTrust(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.CfnContextTrustConfidence")
+class CfnContextTrustConfidence(enum.Enum):
+    '''Confidence in the accuracy of context.
+
+    :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-attribute-metadata.html#aws-attribute-metadata-context-schema
+    '''
+
+    HIGH = "HIGH"
+    '''High confidence.'''
+    MEDIUM = "MEDIUM"
+    '''Medium confidence.'''
+    LOW = "LOW"
+    '''Low confidence.'''
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.CfnContextTrustSource")
+class CfnContextTrustSource(enum.Enum):
+    '''How context was produced.
+
+    :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-attribute-metadata.html#aws-attribute-metadata-context-schema
+    '''
+
+    AUTHORED = "AUTHORED"
+    '''Human-authored or human-confirmed context.'''
+    COMMENT = "COMMENT"
+    '''Context derived from a code comment.'''
+    COMMIT = "COMMIT"
+    '''Context derived from a commit message.'''
+    INFER = "INFER"
+    '''Context inferred by a tool.'''
 
 
 @jsii.data_type(
@@ -10716,6 +11086,285 @@ class CfnResourceDefaultVersionProps:
         )
 
 
+class CfnResourceMetadataContext(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.CfnResourceMetadataContext",
+):
+    '''Manages resource-level CloudFormation Metadata Context.
+
+    :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-attribute-metadata.html#aws-attribute-metadata-context-schema
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        import aws_cdk as cdk
+        
+        # construct_selector: cdk.IConstructSelector
+        
+        cfn_resource_metadata_context = cdk.CfnResourceMetadataContext.of(self,
+            selector=construct_selector
+        )
+    '''
+
+    @jsii.member(jsii_name="of")
+    @builtins.classmethod
+    def of(
+        cls,
+        scope: "_constructs_77d1e7e8.IConstruct",
+        *,
+        selector: typing.Optional["IConstructSelector"] = None,
+    ) -> "CfnResourceMetadataContext":
+        '''Returns the resource context API for a construct scope.
+
+        :param scope: The scope whose resources receive the context.
+        :param selector: Selects the constructs targeted by ``set()`` or ``clear()``. Selection runs during synthesis and only selected ``CfnResource`` constructs are updated. Synthesis fails when no ``CfnResource`` is selected. The default selects a ``CfnResource`` scope or its immediate ``CfnResource`` default child. Default: ConstructSelector.cfnResource()
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ce2b8dbbfc6c2fa0ae8f430ddfaec33ebdfd9cd888663e81537317bc09d94f18)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+        options = CfnResourceMetadataContextOptions(selector=selector)
+
+        return typing.cast("CfnResourceMetadataContext", jsii.sinvoke(cls, "of", [scope, options]))
+
+    @jsii.member(jsii_name="clear")
+    def clear(self) -> None:
+        '''Removes Context from the selected resources.'''
+        return typing.cast(None, jsii.invoke(self, "clear", []))
+
+    @jsii.member(jsii_name="set")
+    def set(
+        self,
+        *,
+        deps: typing.Optional[typing.Sequence[builtins.str]] = None,
+        must: typing.Optional[typing.Sequence[builtins.str]] = None,
+        mutability: typing.Optional[typing.Mapping[builtins.str, "CfnContextMutability"]] = None,
+        mutable: typing.Optional["CfnContextMutability"] = None,
+        trust: typing.Optional[typing.Union["CfnContextTrust", typing.Dict[builtins.str, typing.Any]]] = None,
+        why: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Replaces the complete Context value on the selected resources.
+
+        Includes resources added after this call.
+
+        :param deps: Dependencies of the resource. Default: - no dependencies
+        :param must: Constraints that must remain true. Default: - no constraints
+        :param mutability: Mutability by CloudFormation property name. Default: - no property mutability
+        :param mutable: Default mutability of the resource. Default: - no default mutability
+        :param trust: Provenance and confidence for the context. Default: - no trust information
+        :param why: Rationale for the resource. Default: - no rationale
+        '''
+        context = CfnResourceMetadataContextProps(
+            deps=deps,
+            must=must,
+            mutability=mutability,
+            mutable=mutable,
+            trust=trust,
+            why=why,
+        )
+
+        return typing.cast(None, jsii.invoke(self, "set", [context]))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.CfnResourceMetadataContextOptions",
+    jsii_struct_bases=[],
+    name_mapping={"selector": "selector"},
+)
+class CfnResourceMetadataContextOptions:
+    def __init__(
+        self,
+        *,
+        selector: typing.Optional["IConstructSelector"] = None,
+    ) -> None:
+        '''Options for ``CfnResourceMetadataContext.of()``.
+
+        :param selector: Selects the constructs targeted by ``set()`` or ``clear()``. Selection runs during synthesis and only selected ``CfnResource`` constructs are updated. Synthesis fails when no ``CfnResource`` is selected. The default selects a ``CfnResource`` scope or its immediate ``CfnResource`` default child. Default: ConstructSelector.cfnResource()
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk as cdk
+            
+            # construct_selector: cdk.IConstructSelector
+            
+            cfn_resource_metadata_context_options = cdk.CfnResourceMetadataContextOptions(
+                selector=construct_selector
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__dd7ab60cdc9784c562c9ddac40c66f231f4c62fbbf780344731ae5e3f009583f)
+            check_type(argname="argument selector", value=selector, expected_type=type_hints["selector"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if selector is not None:
+            self._values["selector"] = selector
+
+    @builtins.property
+    def selector(self) -> typing.Optional["IConstructSelector"]:
+        '''Selects the constructs targeted by ``set()`` or ``clear()``.
+
+        Selection runs during synthesis and only selected ``CfnResource`` constructs
+        are updated. Synthesis fails when no ``CfnResource`` is selected. The default
+        selects a ``CfnResource`` scope or its immediate ``CfnResource`` default child.
+
+        :default: ConstructSelector.cfnResource()
+        '''
+        result = self._values.get("selector")
+        return typing.cast(typing.Optional["IConstructSelector"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnResourceMetadataContextOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.CfnResourceMetadataContextProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "deps": "deps",
+        "must": "must",
+        "mutability": "mutability",
+        "mutable": "mutable",
+        "trust": "trust",
+        "why": "why",
+    },
+)
+class CfnResourceMetadataContextProps:
+    def __init__(
+        self,
+        *,
+        deps: typing.Optional[typing.Sequence[builtins.str]] = None,
+        must: typing.Optional[typing.Sequence[builtins.str]] = None,
+        mutability: typing.Optional[typing.Mapping[builtins.str, "CfnContextMutability"]] = None,
+        mutable: typing.Optional["CfnContextMutability"] = None,
+        trust: typing.Optional[typing.Union["CfnContextTrust", typing.Dict[builtins.str, typing.Any]]] = None,
+        why: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Resource-level CloudFormation Metadata Context.
+
+        :param deps: Dependencies of the resource. Default: - no dependencies
+        :param must: Constraints that must remain true. Default: - no constraints
+        :param mutability: Mutability by CloudFormation property name. Default: - no property mutability
+        :param mutable: Default mutability of the resource. Default: - no default mutability
+        :param trust: Provenance and confidence for the context. Default: - no trust information
+        :param why: Rationale for the resource. Default: - no rationale
+
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-attribute-metadata.html#aws-attribute-metadata-context-schema
+        :exampleMetadata: infused
+
+        Example::
+
+            # queue: sqs.Queue
+            
+            
+            CfnResourceMetadataContext.of(queue).set(
+                why="buffers order events for asynchronous processing",
+                must=["VisibilityTimeout must be at least six times the consumer timeout"]
+            )
+        '''
+        if isinstance(trust, dict):
+            trust = CfnContextTrust(**trust)
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b8be7a217bd96b2e079db99adc7fd080956f4bae986c53714797bae37f9a65aa)
+            check_type(argname="argument deps", value=deps, expected_type=type_hints["deps"])
+            check_type(argname="argument must", value=must, expected_type=type_hints["must"])
+            check_type(argname="argument mutability", value=mutability, expected_type=type_hints["mutability"])
+            check_type(argname="argument mutable", value=mutable, expected_type=type_hints["mutable"])
+            check_type(argname="argument trust", value=trust, expected_type=type_hints["trust"])
+            check_type(argname="argument why", value=why, expected_type=type_hints["why"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if deps is not None:
+            self._values["deps"] = deps
+        if must is not None:
+            self._values["must"] = must
+        if mutability is not None:
+            self._values["mutability"] = mutability
+        if mutable is not None:
+            self._values["mutable"] = mutable
+        if trust is not None:
+            self._values["trust"] = trust
+        if why is not None:
+            self._values["why"] = why
+
+    @builtins.property
+    def deps(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Dependencies of the resource.
+
+        :default: - no dependencies
+        '''
+        result = self._values.get("deps")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def must(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Constraints that must remain true.
+
+        :default: - no constraints
+        '''
+        result = self._values.get("must")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def mutability(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, "CfnContextMutability"]]:
+        '''Mutability by CloudFormation property name.
+
+        :default: - no property mutability
+        '''
+        result = self._values.get("mutability")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "CfnContextMutability"]], result)
+
+    @builtins.property
+    def mutable(self) -> typing.Optional["CfnContextMutability"]:
+        '''Default mutability of the resource.
+
+        :default: - no default mutability
+        '''
+        result = self._values.get("mutable")
+        return typing.cast(typing.Optional["CfnContextMutability"], result)
+
+    @builtins.property
+    def trust(self) -> typing.Optional["CfnContextTrust"]:
+        '''Provenance and confidence for the context.
+
+        :default: - no trust information
+        '''
+        result = self._values.get("trust")
+        return typing.cast(typing.Optional["CfnContextTrust"], result)
+
+    @builtins.property
+    def why(self) -> typing.Optional[builtins.str]:
+        '''Rationale for the resource.
+
+        :default: - no rationale
+        '''
+        result = self._values.get("why")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnResourceMetadataContextProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.CfnResourceProps",
     jsii_struct_bases=[],
@@ -11820,6 +12469,167 @@ class CfnTag:
 
     def __repr__(self) -> str:
         return "CfnTag(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class CfnTemplateMetadataContext(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.CfnTemplateMetadataContext",
+):
+    '''Manages template-level CloudFormation Metadata Context.
+
+    :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-attribute-metadata.html#aws-attribute-metadata-context-schema
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        import aws_cdk as cdk
+        
+        # stack: cdk.Stack
+        
+        cfn_template_metadata_context = cdk.CfnTemplateMetadataContext.of(stack)
+    '''
+
+    @jsii.member(jsii_name="of")
+    @builtins.classmethod
+    def of(cls, stack: "Stack") -> "CfnTemplateMetadataContext":
+        '''Returns the template context API for a stack.
+
+        :param stack: The stack whose template receives the context.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__00b9a13eeb1b28f96daf1155f5f7f4763540676df32697e93c6e0ee4c7fa45d0)
+            check_type(argname="argument stack", value=stack, expected_type=type_hints["stack"])
+        return typing.cast("CfnTemplateMetadataContext", jsii.sinvoke(cls, "of", [stack]))
+
+    @jsii.member(jsii_name="clear")
+    def clear(self) -> None:
+        '''Removes the template Context value.'''
+        return typing.cast(None, jsii.invoke(self, "clear", []))
+
+    @jsii.member(jsii_name="set")
+    def set(
+        self,
+        *,
+        arch: typing.Optional[builtins.str] = None,
+        must: typing.Optional[typing.Sequence[builtins.str]] = None,
+        owner: typing.Optional[builtins.str] = None,
+        ref: typing.Optional[typing.Sequence[typing.Union["CfnContextRef", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Replaces the complete template Context value.
+
+        Values must be concrete because CloudFormation does not resolve intrinsic
+        functions in template metadata.
+
+        :param arch: High-level architecture of the template. Default: - no architecture overview
+        :param must: Constraints that apply across the template. Default: - no constraints
+        :param owner: Owner of the template. Default: - no owner
+        :param ref: References to supporting context. Default: - no references
+        '''
+        context = CfnTemplateMetadataContextProps(
+            arch=arch, must=must, owner=owner, ref=ref
+        )
+
+        return typing.cast(None, jsii.invoke(self, "set", [context]))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.CfnTemplateMetadataContextProps",
+    jsii_struct_bases=[],
+    name_mapping={"arch": "arch", "must": "must", "owner": "owner", "ref": "ref"},
+)
+class CfnTemplateMetadataContextProps:
+    def __init__(
+        self,
+        *,
+        arch: typing.Optional[builtins.str] = None,
+        must: typing.Optional[typing.Sequence[builtins.str]] = None,
+        owner: typing.Optional[builtins.str] = None,
+        ref: typing.Optional[typing.Sequence[typing.Union["CfnContextRef", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Template-level CloudFormation Metadata Context.
+
+        :param arch: High-level architecture of the template. Default: - no architecture overview
+        :param must: Constraints that apply across the template. Default: - no constraints
+        :param owner: Owner of the template. Default: - no owner
+        :param ref: References to supporting context. Default: - no references
+
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-attribute-metadata.html#aws-attribute-metadata-context-schema
+        :exampleMetadata: infused
+
+        Example::
+
+            # stack: Stack
+            
+            
+            CfnTemplateMetadataContext.of(stack).set(
+                arch="SQS buffer -> Lambda -> DynamoDB",
+                owner="order-processing-team"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__67086f70ba9d5d42607f04b1018a3a631e0a423cb73584a5237857fc7a5b0b19)
+            check_type(argname="argument arch", value=arch, expected_type=type_hints["arch"])
+            check_type(argname="argument must", value=must, expected_type=type_hints["must"])
+            check_type(argname="argument owner", value=owner, expected_type=type_hints["owner"])
+            check_type(argname="argument ref", value=ref, expected_type=type_hints["ref"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if arch is not None:
+            self._values["arch"] = arch
+        if must is not None:
+            self._values["must"] = must
+        if owner is not None:
+            self._values["owner"] = owner
+        if ref is not None:
+            self._values["ref"] = ref
+
+    @builtins.property
+    def arch(self) -> typing.Optional[builtins.str]:
+        '''High-level architecture of the template.
+
+        :default: - no architecture overview
+        '''
+        result = self._values.get("arch")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def must(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Constraints that apply across the template.
+
+        :default: - no constraints
+        '''
+        result = self._values.get("must")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def owner(self) -> typing.Optional[builtins.str]:
+        '''Owner of the template.
+
+        :default: - no owner
+        '''
+        result = self._values.get("owner")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def ref(self) -> typing.Optional[typing.List["CfnContextRef"]]:
+        '''References to supporting context.
+
+        :default: - no references
+        '''
+        result = self._values.get("ref")
+        return typing.cast(typing.Optional[typing.List["CfnContextRef"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnTemplateMetadataContextProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -13301,9 +14111,9 @@ class CopyOptions:
     ) -> None:
         '''Options applied when copying directories.
 
-        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Has no effect on Assets bundled using the ``bundling`` property. Default: - nothing is excluded
-        :param follow: A strategy for how to handle symlinks. Default: SymlinkFollowMode.NEVER
-        :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
+        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, this controls the files that will be included in the copy. Files matching the ``exclude`` patterns will not be included in the copy. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the value of ``exclude`` is only meaningful if the ``assetHashType`` is set to ``AssetHashType.SOURCE``, and ignored for other asset hash types. The ``exclude`` patterns will be used to determine which files contribute to the asset, and the bundling command is skipped if the source files have not changed since the last bundling operation. **NOTE:** The bundling operation still has access to all files in the source path, regardless of the ``exclude`` patterns. It is your responsibility to ensure the ``exclude`` pattern accurately matches the files the bundling operation will *actually* access and base its final output on. For ``OUTPUT`` or ``CUSTOM`` asset hash types, the ``exclude`` pattern is ignored. Default: - nothing is excluded
+        :param follow: A strategy for how to handle symlinks. Symlinks may be copied, materialized or rejected. Note that if symlinks are copied they should be relative; absolute symlinks will lose their meaning if the cloud assembly is moved to another machine. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, symlinks are materialized or blocked with respect to the source path root as they are being copied. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the bundling command is fully in charge of producing a set of files in an output directory, and the ``AssetStaging`` construct will never affect symlink materialization. If the ``assetHashType`` is ``AssetHashType.SOURCE``, this flag affects what the source hash is based on, and the recommended value is one of ``SymlinkFollowMode.EXTERNAL`` or ``SymlinkFollowMode.BLOCK_EXTERNAL``. If the ``SymlinkFollowMode.BLOCK_EXTERNAL`` mode is used: - Symlinks pointing outside the source tree will be blocked, but only if using ``AssetHashType.SOURCE`` (not for any of the other asset hash types). - Symlinks pointing outside the bundle output will be blocked. Default: SymlinkFollowMode.EXTERNAL
+        :param ignore_mode: What syntax the ``exclude`` patterns are written in. Default: - IgnoreMode.GLOB for file assets, ``IgnoreMode.DOCKER`` for image assets (requires that the ``@aws-cdk/aws-ecr-assets:dockerIgnoreSupport`` feature flag is set, which is recommended)
 
         :exampleMetadata: fixture=_generated
 
@@ -13334,10 +14144,33 @@ class CopyOptions:
 
     @builtins.property
     def exclude(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''File paths matching the patterns will be excluded.
+        '''File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior.
 
-        See ``ignoreMode`` to set the matching behavior.
-        Has no effect on Assets bundled using the ``bundling`` property.
+
+
+        Without bundling
+
+        When used without the ``bundling`` property, the asset is just a regular file
+        copy operation. In that case, this controls the files that will be included
+        in the copy. Files matching the ``exclude`` patterns will not be included in
+        the copy.
+
+
+        With bundling
+
+        When used with the ``bundling`` property, the asset is produced by a
+        bundling operation. In that case, the value of ``exclude`` is only meaningful
+        if the ``assetHashType`` is set to ``AssetHashType.SOURCE``, and ignored for
+        other asset hash types. The ``exclude`` patterns will be used to determine
+        which files contribute to the asset, and the bundling command is skipped
+        if the source files have not changed since the last bundling operation.
+
+        **NOTE:** The bundling operation still has access to all files in the source path,
+        regardless of the ``exclude`` patterns. It is your responsibility to ensure
+        the ``exclude`` pattern accurately matches the files the bundling operation
+        will *actually* access and base its final output on.
+
+        For ``OUTPUT`` or ``CUSTOM`` asset hash types, the ``exclude`` pattern is ignored.
 
         :default: - nothing is excluded
         '''
@@ -13348,16 +14181,45 @@ class CopyOptions:
     def follow(self) -> typing.Optional["SymlinkFollowMode"]:
         '''A strategy for how to handle symlinks.
 
-        :default: SymlinkFollowMode.NEVER
+        Symlinks may be copied, materialized or rejected. Note that if symlinks are
+        copied they should be relative; absolute symlinks will lose their
+        meaning if the cloud assembly is moved to another machine.
+
+
+        Without bundling
+
+        When used without the ``bundling`` property, the asset is just a regular file
+        copy operation. In that case, symlinks are materialized or blocked with respect
+        to the source path root as they are being copied.
+
+
+        With bundling
+
+        When used with the ``bundling`` property, the asset is produced by a
+        bundling operation. In that case, the bundling command is fully
+        in charge of producing a set of files in an output directory, and
+        the ``AssetStaging`` construct will never affect symlink materialization.
+
+        If the ``assetHashType`` is ``AssetHashType.SOURCE``, this flag affects what
+        the source hash is based on, and the recommended value is one of
+        ``SymlinkFollowMode.EXTERNAL`` or ``SymlinkFollowMode.BLOCK_EXTERNAL``.
+
+        If the ``SymlinkFollowMode.BLOCK_EXTERNAL`` mode is used:
+
+        - Symlinks pointing outside the source tree will be blocked, but only
+          if using ``AssetHashType.SOURCE`` (not for any of the other asset hash types).
+        - Symlinks pointing outside the bundle output will be blocked.
+
+        :default: SymlinkFollowMode.EXTERNAL
         '''
         result = self._values.get("follow")
         return typing.cast(typing.Optional["SymlinkFollowMode"], result)
 
     @builtins.property
     def ignore_mode(self) -> typing.Optional["IgnoreMode"]:
-        '''The ignore behavior to use for ``exclude`` patterns.
+        '''What syntax the ``exclude`` patterns are written in.
 
-        :default: IgnoreMode.GLOB
+        :default: - IgnoreMode.GLOB for file assets, ``IgnoreMode.DOCKER`` for image assets (requires that the ``@aws-cdk/aws-ecr-assets:dockerIgnoreSupport`` feature flag is set, which is recommended)
         '''
         result = self._values.get("ignore_mode")
         return typing.cast(typing.Optional["IgnoreMode"], result)
@@ -14646,7 +15508,7 @@ class DockerBuildOptions:
             lambda_.Function(self, "Function",
                 code=lambda_.Code.from_asset("/path/to/handler",
                     bundling=BundlingOptions(
-                        image=DockerImage.from_build("/path/to/dir/with/DockerFile",
+                        image=DockerImage.from_build_v2("/path/to/dir/with/DockerFile",
                             build_args={
                                 "ARG1": "value1"
                             }
@@ -14979,6 +15841,13 @@ class DockerImage(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.DockerImage"):
     ) -> "DockerImage":
         '''Builds a Docker image.
 
+        The image is built right away, even if it is never used.
+
+        Use ``DockerImage.fromBuildV2()`` instead. It builds the same image under the
+        same tag, but only when the image is first needed, so assets whose bundled
+        output already exists, or that skip bundling, never pay for the build. If
+        you need the image right away, call ``buildImage()`` on it.
+
         :param path: The path to the directory containing the Docker file.
         :param build_args: Build args. Default: - no build args
         :param build_contexts: Build contexts to pass to the ``docker build`` command. Build contexts can be used to specify additional directories or images to use during the build. Each entry specifies a named build context and its source (a directory path, a URL, or a docker image). Default: - no additional build contexts
@@ -15007,6 +15876,75 @@ class DockerImage(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.DockerImage"):
 
         return typing.cast("DockerImage", jsii.sinvoke(cls, "fromBuild", [path, options]))
 
+    @jsii.member(jsii_name="fromBuildV2")
+    @builtins.classmethod
+    def from_build_v2(
+        cls,
+        path: builtins.str,
+        *,
+        build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        build_contexts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        cache_disabled: typing.Optional[builtins.bool] = None,
+        cache_from: typing.Optional[typing.Sequence[typing.Union["DockerCacheOption", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cache_to: typing.Optional[typing.Union["DockerCacheOption", typing.Dict[builtins.str, typing.Any]]] = None,
+        file: typing.Optional[builtins.str] = None,
+        network: typing.Optional[builtins.str] = None,
+        platform: typing.Optional[builtins.str] = None,
+        target_stage: typing.Optional[builtins.str] = None,
+    ) -> "DockerImage":
+        '''Reference a Docker image that is built from a Docker file when it is first needed.
+
+        The image is built when ``buildImage()`` is called, when it first runs, or when
+        files are first copied out of it. Asset bundling builds the image right
+        before it runs the bundling container, so assets whose bundled output
+        already exists, or that skip bundling, never build it.
+
+        Until the image is built, ``image`` names a tag that may not exist in the
+        local Docker daemon yet. Call ``buildImage()`` before you pass the tag to
+        your own ``docker`` commands. Errors in the Docker file are reported when the
+        image is built, for example while an asset is bundled, not when this
+        method is called.
+
+        The tag and the ``docker build`` command are computed from the Docker file
+        directory and the build options when this method is called, so later
+        changes to the options have no effect. Don't change the Docker file
+        directory afterwards, because the image would no longer match its tag.
+
+        Images with the same tag are only built or checked once until the next
+        ``App`` is created, unless they use ``buildContexts``. After that, the local
+        Docker daemon is checked again.
+
+        The image has the same tag and hash as one built with ``DockerImage.fromBuild()``
+        from the same arguments, so switching between the two doesn't change asset hashes.
+
+        :param path: The path to the directory containing the Docker file.
+        :param build_args: Build args. Default: - no build args
+        :param build_contexts: Build contexts to pass to the ``docker build`` command. Build contexts can be used to specify additional directories or images to use during the build. Each entry specifies a named build context and its source (a directory path, a URL, or a docker image). Default: - no additional build contexts
+        :param cache_disabled: Disable the cache and pass ``--no-cache`` to the ``docker build`` command. Default: - cache is used
+        :param cache_from: Cache from options to pass to the ``docker build`` command. Default: - no cache from args are passed
+        :param cache_to: Cache to options to pass to the ``docker build`` command. Default: - no cache to args are passed
+        :param file: Name of the Dockerfile, must relative to the docker build path. Default: ``Dockerfile``
+        :param network: Docker `Networking options <https://docs.docker.com/reference/cli/docker/buildx/build/#network>`_. Default: - no networking options
+        :param platform: Set platform if server is multi-platform capable. *Requires Docker Engine API v1.38+*. Example value: ``linux/amd64`` Default: - no platform specified
+        :param target_stage: Set build target for multi-stage container builds. Any stage defined afterwards will be ignored. Example value: ``build-env`` Default: - Build all stages defined in the Dockerfile
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a025373c16bed1f841d79f66bfe12098d348c5e4abd1f49f1b7cf528258aea89)
+            check_type(argname="argument path", value=path, expected_type=type_hints["path"])
+        options = DockerBuildOptions(
+            build_args=build_args,
+            build_contexts=build_contexts,
+            cache_disabled=cache_disabled,
+            cache_from=cache_from,
+            cache_to=cache_to,
+            file=file,
+            network=network,
+            platform=platform,
+            target_stage=target_stage,
+        )
+
+        return typing.cast("DockerImage", jsii.sinvoke(cls, "fromBuildV2", [path, options]))
+
     @jsii.member(jsii_name="fromRegistry")
     @builtins.classmethod
     def from_registry(cls, image: builtins.str) -> "DockerImage":
@@ -15019,6 +15957,16 @@ class DockerImage(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.DockerImage"):
             check_type(argname="argument image", value=image, expected_type=type_hints["image"])
         return typing.cast("DockerImage", jsii.sinvoke(cls, "fromRegistry", [image]))
 
+    @jsii.member(jsii_name="buildImage")
+    def build_image(self) -> None:
+        '''Build the image, if it is built from a Docker file and hasn't been built yet.
+
+        Does nothing for other images, such as images from a registry. Running the
+        image or copying files out of it calls this automatically. Call it yourself
+        before you pass ``image`` to your own ``docker`` commands.
+        '''
+        return typing.cast(None, jsii.invoke(self, "buildImage", []))
+
     @jsii.member(jsii_name="cp")
     def cp(
         self,
@@ -15028,6 +15976,8 @@ class DockerImage(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.DockerImage"):
         '''Copies a file or directory out of the Docker image to the local filesystem.
 
         If ``outputPath`` is omitted the destination path is a temporary directory.
+
+        Builds the image first if it is built on demand and hasn't been built yet.
 
         :param image_path: the path in the Docker image.
         :param output_path: the destination path for the copy operation.
@@ -15056,6 +16006,8 @@ class DockerImage(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.DockerImage"):
         working_directory: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Runs a Docker image.
+
+        Builds the image first if it is built on demand and hasn't been built yet.
 
         :param command: The command to run in the container. Default: - run the command defined in the image
         :param entrypoint: The entrypoint to run in the container. Default: - run the entrypoint defined in the image
@@ -16963,9 +17915,9 @@ class FileCopyOptions:
     ) -> None:
         '''Options applied when copying directories into the staging location.
 
-        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Has no effect on Assets bundled using the ``bundling`` property. Default: - nothing is excluded
-        :param follow_symlinks: A strategy for how to handle symlinks. Default: SymlinkFollowMode.NEVER
-        :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
+        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, this controls the files that will be included in the copy. Files matching the ``exclude`` patterns will not be included in the copy. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the value of ``exclude`` is only meaningful if the ``assetHashType`` is set to ``AssetHashType.SOURCE``, and ignored for other asset hash types. The ``exclude`` patterns will be used to determine which files contribute to the asset, and the bundling command is skipped if the source files have not changed since the last bundling operation. **NOTE:** The bundling operation still has access to all files in the source path, regardless of the ``exclude`` patterns. It is your responsibility to ensure the ``exclude`` pattern accurately matches the files the bundling operation will *actually* access and base its final output on. For ``OUTPUT`` or ``CUSTOM`` asset hash types, the ``exclude`` pattern is ignored. Default: - nothing is excluded
+        :param follow_symlinks: A strategy for how to handle symlinks. Symlinks may be copied, materialized or rejected. Note that if symlinks are copied they should be relative; absolute symlinks will lose their meaning if the cloud assembly is moved to another machine. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, symlinks are materialized or blocked with respect to the ``sourcePath`` directory as they are being copied. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the bundling command is fully in charge of producing a set of files in an output directory, and the ``AssetStaging`` construct will never affect symlink materialization. If the ``assetHashType`` is ``AssetHashType.SOURCE``, this flag affects what the source hash is based on, and the recommended value is one of ``SymlinkFollowMode.EXTERNAL`` or ``SymlinkFollowMode.BLOCK_EXTERNAL``. If the ``SymlinkFollowMode.BLOCK_EXTERNAL`` mode is used: - symlinks pointing outside the source tree will be blocked if using ``AssetHashType.SOURCE``. - symlinks pointing outside the bundle output will be blocked. Default: SymlinkFollowMode.EXTERNAL
+        :param ignore_mode: What syntax the ``exclude`` patterns are written in. Default: - IgnoreMode.GLOB for file assets, ``IgnoreMode.DOCKER`` for image assets (requires that the ``@aws-cdk/aws-ecr-assets:dockerIgnoreSupport`` feature flag is set, which is recommended)
 
         :exampleMetadata: fixture=_generated
 
@@ -16996,10 +17948,33 @@ class FileCopyOptions:
 
     @builtins.property
     def exclude(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''File paths matching the patterns will be excluded.
+        '''File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior.
 
-        See ``ignoreMode`` to set the matching behavior.
-        Has no effect on Assets bundled using the ``bundling`` property.
+
+
+        Without bundling
+
+        When used without the ``bundling`` property, the asset is just a regular file
+        copy operation. In that case, this controls the files that will be included
+        in the copy. Files matching the ``exclude`` patterns will not be included in
+        the copy.
+
+
+        With bundling
+
+        When used with the ``bundling`` property, the asset is produced by a
+        bundling operation. In that case, the value of ``exclude`` is only meaningful
+        if the ``assetHashType`` is set to ``AssetHashType.SOURCE``, and ignored for
+        other asset hash types. The ``exclude`` patterns will be used to determine
+        which files contribute to the asset, and the bundling command is skipped
+        if the source files have not changed since the last bundling operation.
+
+        **NOTE:** The bundling operation still has access to all files in the source path,
+        regardless of the ``exclude`` patterns. It is your responsibility to ensure
+        the ``exclude`` pattern accurately matches the files the bundling operation
+        will *actually* access and base its final output on.
+
+        For ``OUTPUT`` or ``CUSTOM`` asset hash types, the ``exclude`` pattern is ignored.
 
         :default: - nothing is excluded
         '''
@@ -17010,16 +17985,44 @@ class FileCopyOptions:
     def follow_symlinks(self) -> typing.Optional["SymlinkFollowMode"]:
         '''A strategy for how to handle symlinks.
 
-        :default: SymlinkFollowMode.NEVER
+        Symlinks may be copied, materialized or rejected. Note that if symlinks are
+        copied they should be relative; absolute symlinks will lose their
+        meaning if the cloud assembly is moved to another machine.
+
+
+        Without bundling
+
+        When used without the ``bundling`` property, the asset is just a regular file
+        copy operation. In that case, symlinks are materialized or blocked with respect
+        to the ``sourcePath`` directory as they are being copied.
+
+
+        With bundling
+
+        When used with the ``bundling`` property, the asset is produced by a
+        bundling operation. In that case, the bundling command is fully
+        in charge of producing a set of files in an output directory, and
+        the ``AssetStaging`` construct will never affect symlink materialization.
+
+        If the ``assetHashType`` is ``AssetHashType.SOURCE``, this flag affects what
+        the source hash is based on, and the recommended value is one of
+        ``SymlinkFollowMode.EXTERNAL`` or ``SymlinkFollowMode.BLOCK_EXTERNAL``.
+
+        If the ``SymlinkFollowMode.BLOCK_EXTERNAL`` mode is used:
+
+        - symlinks pointing outside the source tree will be blocked if using ``AssetHashType.SOURCE``.
+        - symlinks pointing outside the bundle output will be blocked.
+
+        :default: SymlinkFollowMode.EXTERNAL
         '''
         result = self._values.get("follow_symlinks")
         return typing.cast(typing.Optional["SymlinkFollowMode"], result)
 
     @builtins.property
     def ignore_mode(self) -> typing.Optional["IgnoreMode"]:
-        '''The ignore behavior to use for ``exclude`` patterns.
+        '''What syntax the ``exclude`` patterns are written in.
 
-        :default: IgnoreMode.GLOB
+        :default: - IgnoreMode.GLOB for file assets, ``IgnoreMode.DOCKER`` for image assets (requires that the ``@aws-cdk/aws-ecr-assets:dockerIgnoreSupport`` feature flag is set, which is recommended)
         '''
         result = self._values.get("ignore_mode")
         return typing.cast(typing.Optional["IgnoreMode"], result)
@@ -17057,10 +18060,10 @@ class FileFingerprintOptions(FileCopyOptions):
     ) -> None:
         '''Options related to calculating source hash.
 
-        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Has no effect on Assets bundled using the ``bundling`` property. Default: - nothing is excluded
-        :param follow_symlinks: A strategy for how to handle symlinks. Default: SymlinkFollowMode.NEVER
-        :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
-        :param extra_hash: Extra information to encode into the fingerprint (e.g. build instructions and other inputs). Default: - hash is only based on source content
+        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, this controls the files that will be included in the copy. Files matching the ``exclude`` patterns will not be included in the copy. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the value of ``exclude`` is only meaningful if the ``assetHashType`` is set to ``AssetHashType.SOURCE``, and ignored for other asset hash types. The ``exclude`` patterns will be used to determine which files contribute to the asset, and the bundling command is skipped if the source files have not changed since the last bundling operation. **NOTE:** The bundling operation still has access to all files in the source path, regardless of the ``exclude`` patterns. It is your responsibility to ensure the ``exclude`` pattern accurately matches the files the bundling operation will *actually* access and base its final output on. For ``OUTPUT`` or ``CUSTOM`` asset hash types, the ``exclude`` pattern is ignored. Default: - nothing is excluded
+        :param follow_symlinks: A strategy for how to handle symlinks. Symlinks may be copied, materialized or rejected. Note that if symlinks are copied they should be relative; absolute symlinks will lose their meaning if the cloud assembly is moved to another machine. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, symlinks are materialized or blocked with respect to the ``sourcePath`` directory as they are being copied. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the bundling command is fully in charge of producing a set of files in an output directory, and the ``AssetStaging`` construct will never affect symlink materialization. If the ``assetHashType`` is ``AssetHashType.SOURCE``, this flag affects what the source hash is based on, and the recommended value is one of ``SymlinkFollowMode.EXTERNAL`` or ``SymlinkFollowMode.BLOCK_EXTERNAL``. If the ``SymlinkFollowMode.BLOCK_EXTERNAL`` mode is used: - symlinks pointing outside the source tree will be blocked if using ``AssetHashType.SOURCE``. - symlinks pointing outside the bundle output will be blocked. Default: SymlinkFollowMode.EXTERNAL
+        :param ignore_mode: What syntax the ``exclude`` patterns are written in. Default: - IgnoreMode.GLOB for file assets, ``IgnoreMode.DOCKER`` for image assets (requires that the ``@aws-cdk/aws-ecr-assets:dockerIgnoreSupport`` feature flag is set, which is recommended)
+        :param extra_hash: Extra information to encode into the fingerprint (e.g. build instructions and other inputs). Default: - hash is only based on the file fingerprint
 
         :exampleMetadata: fixture=_generated
 
@@ -17095,10 +18098,33 @@ class FileFingerprintOptions(FileCopyOptions):
 
     @builtins.property
     def exclude(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''File paths matching the patterns will be excluded.
+        '''File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior.
 
-        See ``ignoreMode`` to set the matching behavior.
-        Has no effect on Assets bundled using the ``bundling`` property.
+
+
+        Without bundling
+
+        When used without the ``bundling`` property, the asset is just a regular file
+        copy operation. In that case, this controls the files that will be included
+        in the copy. Files matching the ``exclude`` patterns will not be included in
+        the copy.
+
+
+        With bundling
+
+        When used with the ``bundling`` property, the asset is produced by a
+        bundling operation. In that case, the value of ``exclude`` is only meaningful
+        if the ``assetHashType`` is set to ``AssetHashType.SOURCE``, and ignored for
+        other asset hash types. The ``exclude`` patterns will be used to determine
+        which files contribute to the asset, and the bundling command is skipped
+        if the source files have not changed since the last bundling operation.
+
+        **NOTE:** The bundling operation still has access to all files in the source path,
+        regardless of the ``exclude`` patterns. It is your responsibility to ensure
+        the ``exclude`` pattern accurately matches the files the bundling operation
+        will *actually* access and base its final output on.
+
+        For ``OUTPUT`` or ``CUSTOM`` asset hash types, the ``exclude`` pattern is ignored.
 
         :default: - nothing is excluded
         '''
@@ -17109,16 +18135,44 @@ class FileFingerprintOptions(FileCopyOptions):
     def follow_symlinks(self) -> typing.Optional["SymlinkFollowMode"]:
         '''A strategy for how to handle symlinks.
 
-        :default: SymlinkFollowMode.NEVER
+        Symlinks may be copied, materialized or rejected. Note that if symlinks are
+        copied they should be relative; absolute symlinks will lose their
+        meaning if the cloud assembly is moved to another machine.
+
+
+        Without bundling
+
+        When used without the ``bundling`` property, the asset is just a regular file
+        copy operation. In that case, symlinks are materialized or blocked with respect
+        to the ``sourcePath`` directory as they are being copied.
+
+
+        With bundling
+
+        When used with the ``bundling`` property, the asset is produced by a
+        bundling operation. In that case, the bundling command is fully
+        in charge of producing a set of files in an output directory, and
+        the ``AssetStaging`` construct will never affect symlink materialization.
+
+        If the ``assetHashType`` is ``AssetHashType.SOURCE``, this flag affects what
+        the source hash is based on, and the recommended value is one of
+        ``SymlinkFollowMode.EXTERNAL`` or ``SymlinkFollowMode.BLOCK_EXTERNAL``.
+
+        If the ``SymlinkFollowMode.BLOCK_EXTERNAL`` mode is used:
+
+        - symlinks pointing outside the source tree will be blocked if using ``AssetHashType.SOURCE``.
+        - symlinks pointing outside the bundle output will be blocked.
+
+        :default: SymlinkFollowMode.EXTERNAL
         '''
         result = self._values.get("follow_symlinks")
         return typing.cast(typing.Optional["SymlinkFollowMode"], result)
 
     @builtins.property
     def ignore_mode(self) -> typing.Optional["IgnoreMode"]:
-        '''The ignore behavior to use for ``exclude`` patterns.
+        '''What syntax the ``exclude`` patterns are written in.
 
-        :default: IgnoreMode.GLOB
+        :default: - IgnoreMode.GLOB for file assets, ``IgnoreMode.DOCKER`` for image assets (requires that the ``@aws-cdk/aws-ecr-assets:dockerIgnoreSupport`` feature flag is set, which is recommended)
         '''
         result = self._values.get("ignore_mode")
         return typing.cast(typing.Optional["IgnoreMode"], result)
@@ -17127,7 +18181,7 @@ class FileFingerprintOptions(FileCopyOptions):
     def extra_hash(self) -> typing.Optional[builtins.str]:
         '''Extra information to encode into the fingerprint (e.g. build instructions and other inputs).
 
-        :default: - hash is only based on source content
+        :default: - hash is only based on the file fingerprint
         '''
         result = self._values.get("extra_hash")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -17185,6 +18239,38 @@ class FileSystem(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.FileSystem"):
             check_type(argname="argument root_dir", value=root_dir, expected_type=type_hints["root_dir"])
         return typing.cast(None, jsii.sinvoke(cls, "copyDirectory", [src_dir, dest_dir, options, root_dir]))
 
+    @jsii.member(jsii_name="copyDirectoryAtomic")
+    @builtins.classmethod
+    def copy_directory_atomic(
+        cls,
+        src_dir: builtins.str,
+        dest_dir: builtins.str,
+        *,
+        exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
+        follow: typing.Optional["SymlinkFollowMode"] = None,
+        ignore_mode: typing.Optional["IgnoreMode"] = None,
+    ) -> None:
+        '''Copies an entire directory structure.
+
+        Protects against interruption by copying to a temporary directory first and then renaming the directory into place.
+        Both the target directory and the temporary directory will be overwritten if they already exist.
+
+        The temporary directory is deleted if an error occurs.
+
+        :param src_dir: -
+        :param dest_dir: -
+        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, this controls the files that will be included in the copy. Files matching the ``exclude`` patterns will not be included in the copy. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the value of ``exclude`` is only meaningful if the ``assetHashType`` is set to ``AssetHashType.SOURCE``, and ignored for other asset hash types. The ``exclude`` patterns will be used to determine which files contribute to the asset, and the bundling command is skipped if the source files have not changed since the last bundling operation. **NOTE:** The bundling operation still has access to all files in the source path, regardless of the ``exclude`` patterns. It is your responsibility to ensure the ``exclude`` pattern accurately matches the files the bundling operation will *actually* access and base its final output on. For ``OUTPUT`` or ``CUSTOM`` asset hash types, the ``exclude`` pattern is ignored. Default: - nothing is excluded
+        :param follow: A strategy for how to handle symlinks. Symlinks may be copied, materialized or rejected. Note that if symlinks are copied they should be relative; absolute symlinks will lose their meaning if the cloud assembly is moved to another machine. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, symlinks are materialized or blocked with respect to the source path root as they are being copied. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the bundling command is fully in charge of producing a set of files in an output directory, and the ``AssetStaging`` construct will never affect symlink materialization. If the ``assetHashType`` is ``AssetHashType.SOURCE``, this flag affects what the source hash is based on, and the recommended value is one of ``SymlinkFollowMode.EXTERNAL`` or ``SymlinkFollowMode.BLOCK_EXTERNAL``. If the ``SymlinkFollowMode.BLOCK_EXTERNAL`` mode is used: - Symlinks pointing outside the source tree will be blocked, but only if using ``AssetHashType.SOURCE`` (not for any of the other asset hash types). - Symlinks pointing outside the bundle output will be blocked. Default: SymlinkFollowMode.EXTERNAL
+        :param ignore_mode: What syntax the ``exclude`` patterns are written in. Default: - IgnoreMode.GLOB for file assets, ``IgnoreMode.DOCKER`` for image assets (requires that the ``@aws-cdk/aws-ecr-assets:dockerIgnoreSupport`` feature flag is set, which is recommended)
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__23fe2ba3313ffc7dfd68b55bfe5070eebd1e9897a17eef43148ef993a88543a1)
+            check_type(argname="argument src_dir", value=src_dir, expected_type=type_hints["src_dir"])
+            check_type(argname="argument dest_dir", value=dest_dir, expected_type=type_hints["dest_dir"])
+        options = CopyOptions(exclude=exclude, follow=follow, ignore_mode=ignore_mode)
+
+        return typing.cast(None, jsii.sinvoke(cls, "copyDirectoryAtomic", [src_dir, dest_dir, options]))
+
     @jsii.member(jsii_name="fingerprint")
     @builtins.classmethod
     def fingerprint(
@@ -17206,10 +18292,10 @@ class FileSystem(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.FileSystem"):
         2. The symlink follow mode value.
 
         :param file_or_directory: The directory or file to fingerprint.
-        :param extra_hash: Extra information to encode into the fingerprint (e.g. build instructions and other inputs). Default: - hash is only based on source content
-        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Has no effect on Assets bundled using the ``bundling`` property. Default: - nothing is excluded
-        :param follow: A strategy for how to handle symlinks. Default: SymlinkFollowMode.NEVER
-        :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
+        :param extra_hash: Extra information to encode into the fingerprint (e.g. build instructions and other inputs). Default: - hash is only based on the file fingerprint
+        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, this controls the files that will be included in the copy. Files matching the ``exclude`` patterns will not be included in the copy. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the value of ``exclude`` is only meaningful if the ``assetHashType`` is set to ``AssetHashType.SOURCE``, and ignored for other asset hash types. The ``exclude`` patterns will be used to determine which files contribute to the asset, and the bundling command is skipped if the source files have not changed since the last bundling operation. **NOTE:** The bundling operation still has access to all files in the source path, regardless of the ``exclude`` patterns. It is your responsibility to ensure the ``exclude`` pattern accurately matches the files the bundling operation will *actually* access and base its final output on. For ``OUTPUT`` or ``CUSTOM`` asset hash types, the ``exclude`` pattern is ignored. Default: - nothing is excluded
+        :param follow: A strategy for how to handle symlinks. Symlinks may be copied, materialized or rejected. Note that if symlinks are copied they should be relative; absolute symlinks will lose their meaning if the cloud assembly is moved to another machine. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, symlinks are materialized or blocked with respect to the source path root as they are being copied. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the bundling command is fully in charge of producing a set of files in an output directory, and the ``AssetStaging`` construct will never affect symlink materialization. If the ``assetHashType`` is ``AssetHashType.SOURCE``, this flag affects what the source hash is based on, and the recommended value is one of ``SymlinkFollowMode.EXTERNAL`` or ``SymlinkFollowMode.BLOCK_EXTERNAL``. If the ``SymlinkFollowMode.BLOCK_EXTERNAL`` mode is used: - Symlinks pointing outside the source tree will be blocked, but only if using ``AssetHashType.SOURCE`` (not for any of the other asset hash types). - Symlinks pointing outside the bundle output will be blocked. Default: SymlinkFollowMode.EXTERNAL
+        :param ignore_mode: What syntax the ``exclude`` patterns are written in. Default: - IgnoreMode.GLOB for file assets, ``IgnoreMode.DOCKER`` for image assets (requires that the ``@aws-cdk/aws-ecr-assets:dockerIgnoreSupport`` feature flag is set, which is recommended)
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a37ffb2c9d929a5fa20dfdff77d653bb37d3d4eb85e896171ee214f5e7a08fae)
@@ -17288,10 +18374,10 @@ class FingerprintOptions(CopyOptions):
     ) -> None:
         '''Options related to calculating source hash.
 
-        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Has no effect on Assets bundled using the ``bundling`` property. Default: - nothing is excluded
-        :param follow: A strategy for how to handle symlinks. Default: SymlinkFollowMode.NEVER
-        :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
-        :param extra_hash: Extra information to encode into the fingerprint (e.g. build instructions and other inputs). Default: - hash is only based on source content
+        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, this controls the files that will be included in the copy. Files matching the ``exclude`` patterns will not be included in the copy. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the value of ``exclude`` is only meaningful if the ``assetHashType`` is set to ``AssetHashType.SOURCE``, and ignored for other asset hash types. The ``exclude`` patterns will be used to determine which files contribute to the asset, and the bundling command is skipped if the source files have not changed since the last bundling operation. **NOTE:** The bundling operation still has access to all files in the source path, regardless of the ``exclude`` patterns. It is your responsibility to ensure the ``exclude`` pattern accurately matches the files the bundling operation will *actually* access and base its final output on. For ``OUTPUT`` or ``CUSTOM`` asset hash types, the ``exclude`` pattern is ignored. Default: - nothing is excluded
+        :param follow: A strategy for how to handle symlinks. Symlinks may be copied, materialized or rejected. Note that if symlinks are copied they should be relative; absolute symlinks will lose their meaning if the cloud assembly is moved to another machine. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, symlinks are materialized or blocked with respect to the source path root as they are being copied. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the bundling command is fully in charge of producing a set of files in an output directory, and the ``AssetStaging`` construct will never affect symlink materialization. If the ``assetHashType`` is ``AssetHashType.SOURCE``, this flag affects what the source hash is based on, and the recommended value is one of ``SymlinkFollowMode.EXTERNAL`` or ``SymlinkFollowMode.BLOCK_EXTERNAL``. If the ``SymlinkFollowMode.BLOCK_EXTERNAL`` mode is used: - Symlinks pointing outside the source tree will be blocked, but only if using ``AssetHashType.SOURCE`` (not for any of the other asset hash types). - Symlinks pointing outside the bundle output will be blocked. Default: SymlinkFollowMode.EXTERNAL
+        :param ignore_mode: What syntax the ``exclude`` patterns are written in. Default: - IgnoreMode.GLOB for file assets, ``IgnoreMode.DOCKER`` for image assets (requires that the ``@aws-cdk/aws-ecr-assets:dockerIgnoreSupport`` feature flag is set, which is recommended)
+        :param extra_hash: Extra information to encode into the fingerprint (e.g. build instructions and other inputs). Default: - hash is only based on the file fingerprint
 
         :exampleMetadata: fixture=_generated
 
@@ -17326,10 +18412,33 @@ class FingerprintOptions(CopyOptions):
 
     @builtins.property
     def exclude(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''File paths matching the patterns will be excluded.
+        '''File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior.
 
-        See ``ignoreMode`` to set the matching behavior.
-        Has no effect on Assets bundled using the ``bundling`` property.
+
+
+        Without bundling
+
+        When used without the ``bundling`` property, the asset is just a regular file
+        copy operation. In that case, this controls the files that will be included
+        in the copy. Files matching the ``exclude`` patterns will not be included in
+        the copy.
+
+
+        With bundling
+
+        When used with the ``bundling`` property, the asset is produced by a
+        bundling operation. In that case, the value of ``exclude`` is only meaningful
+        if the ``assetHashType`` is set to ``AssetHashType.SOURCE``, and ignored for
+        other asset hash types. The ``exclude`` patterns will be used to determine
+        which files contribute to the asset, and the bundling command is skipped
+        if the source files have not changed since the last bundling operation.
+
+        **NOTE:** The bundling operation still has access to all files in the source path,
+        regardless of the ``exclude`` patterns. It is your responsibility to ensure
+        the ``exclude`` pattern accurately matches the files the bundling operation
+        will *actually* access and base its final output on.
+
+        For ``OUTPUT`` or ``CUSTOM`` asset hash types, the ``exclude`` pattern is ignored.
 
         :default: - nothing is excluded
         '''
@@ -17340,16 +18449,45 @@ class FingerprintOptions(CopyOptions):
     def follow(self) -> typing.Optional["SymlinkFollowMode"]:
         '''A strategy for how to handle symlinks.
 
-        :default: SymlinkFollowMode.NEVER
+        Symlinks may be copied, materialized or rejected. Note that if symlinks are
+        copied they should be relative; absolute symlinks will lose their
+        meaning if the cloud assembly is moved to another machine.
+
+
+        Without bundling
+
+        When used without the ``bundling`` property, the asset is just a regular file
+        copy operation. In that case, symlinks are materialized or blocked with respect
+        to the source path root as they are being copied.
+
+
+        With bundling
+
+        When used with the ``bundling`` property, the asset is produced by a
+        bundling operation. In that case, the bundling command is fully
+        in charge of producing a set of files in an output directory, and
+        the ``AssetStaging`` construct will never affect symlink materialization.
+
+        If the ``assetHashType`` is ``AssetHashType.SOURCE``, this flag affects what
+        the source hash is based on, and the recommended value is one of
+        ``SymlinkFollowMode.EXTERNAL`` or ``SymlinkFollowMode.BLOCK_EXTERNAL``.
+
+        If the ``SymlinkFollowMode.BLOCK_EXTERNAL`` mode is used:
+
+        - Symlinks pointing outside the source tree will be blocked, but only
+          if using ``AssetHashType.SOURCE`` (not for any of the other asset hash types).
+        - Symlinks pointing outside the bundle output will be blocked.
+
+        :default: SymlinkFollowMode.EXTERNAL
         '''
         result = self._values.get("follow")
         return typing.cast(typing.Optional["SymlinkFollowMode"], result)
 
     @builtins.property
     def ignore_mode(self) -> typing.Optional["IgnoreMode"]:
-        '''The ignore behavior to use for ``exclude`` patterns.
+        '''What syntax the ``exclude`` patterns are written in.
 
-        :default: IgnoreMode.GLOB
+        :default: - IgnoreMode.GLOB for file assets, ``IgnoreMode.DOCKER`` for image assets (requires that the ``@aws-cdk/aws-ecr-assets:dockerIgnoreSupport`` feature flag is set, which is recommended)
         '''
         result = self._values.get("ignore_mode")
         return typing.cast(typing.Optional["IgnoreMode"], result)
@@ -17358,7 +18496,7 @@ class FingerprintOptions(CopyOptions):
     def extra_hash(self) -> typing.Optional[builtins.str]:
         '''Extra information to encode into the fingerprint (e.g. build instructions and other inputs).
 
-        :default: - hash is only based on source content
+        :default: - hash is only based on the file fingerprint
         '''
         result = self._values.get("extra_hash")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -21017,6 +22155,12 @@ class IgnoreStrategy(
             check_type(argname="argument absolute_root_path", value=absolute_root_path, expected_type=type_hints["absolute_root_path"])
             check_type(argname="argument patterns", value=patterns, expected_type=type_hints["patterns"])
         return typing.cast("GlobIgnoreStrategy", jsii.sinvoke(cls, "glob", [absolute_root_path, patterns]))
+
+    @jsii.member(jsii_name="none")
+    @builtins.classmethod
+    def none(cls) -> "IgnoreStrategy":
+        '''Return an IgnoreStrategy that does not ignore any files.'''
+        return typing.cast("IgnoreStrategy", jsii.sinvoke(cls, "none", []))
 
     @jsii.member(jsii_name="add")
     @abc.abstractmethod
@@ -33933,10 +35077,10 @@ class AssetStagingProps(FingerprintOptions, AssetOptions):
     ) -> None:
         '''Initialization properties for ``AssetStaging``.
 
-        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Has no effect on Assets bundled using the ``bundling`` property. Default: - nothing is excluded
-        :param follow: A strategy for how to handle symlinks. Default: SymlinkFollowMode.NEVER
-        :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
-        :param extra_hash: Extra information to encode into the fingerprint (e.g. build instructions and other inputs). Default: - hash is only based on source content
+        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, this controls the files that will be included in the copy. Files matching the ``exclude`` patterns will not be included in the copy. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the value of ``exclude`` is only meaningful if the ``assetHashType`` is set to ``AssetHashType.SOURCE``, and ignored for other asset hash types. The ``exclude`` patterns will be used to determine which files contribute to the asset, and the bundling command is skipped if the source files have not changed since the last bundling operation. **NOTE:** The bundling operation still has access to all files in the source path, regardless of the ``exclude`` patterns. It is your responsibility to ensure the ``exclude`` pattern accurately matches the files the bundling operation will *actually* access and base its final output on. For ``OUTPUT`` or ``CUSTOM`` asset hash types, the ``exclude`` pattern is ignored. Default: - nothing is excluded
+        :param follow: A strategy for how to handle symlinks. Symlinks may be copied, materialized or rejected. Note that if symlinks are copied they should be relative; absolute symlinks will lose their meaning if the cloud assembly is moved to another machine. Without bundling When used without the ``bundling`` property, the asset is just a regular file copy operation. In that case, symlinks are materialized or blocked with respect to the source path root as they are being copied. With bundling When used with the ``bundling`` property, the asset is produced by a bundling operation. In that case, the bundling command is fully in charge of producing a set of files in an output directory, and the ``AssetStaging`` construct will never affect symlink materialization. If the ``assetHashType`` is ``AssetHashType.SOURCE``, this flag affects what the source hash is based on, and the recommended value is one of ``SymlinkFollowMode.EXTERNAL`` or ``SymlinkFollowMode.BLOCK_EXTERNAL``. If the ``SymlinkFollowMode.BLOCK_EXTERNAL`` mode is used: - Symlinks pointing outside the source tree will be blocked, but only if using ``AssetHashType.SOURCE`` (not for any of the other asset hash types). - Symlinks pointing outside the bundle output will be blocked. Default: SymlinkFollowMode.EXTERNAL
+        :param ignore_mode: What syntax the ``exclude`` patterns are written in. Default: - IgnoreMode.GLOB for file assets, ``IgnoreMode.DOCKER`` for image assets (requires that the ``@aws-cdk/aws-ecr-assets:dockerIgnoreSupport`` feature flag is set, which is recommended)
+        :param extra_hash: Extra information to encode into the fingerprint (e.g. build instructions and other inputs). Default: - hash is only based on the file fingerprint
         :param asset_hash: Specify a custom hash for this asset. If ``assetHashType`` is set it must be set to ``AssetHashType.CUSTOM``. For consistency, this custom hash will be SHA256 hashed and encoded as hex. The resulting hash will be the asset hash. NOTE: the hash is used in order to identify a specific revision of the asset, and used for optimizing and caching deployment activities related to this asset such as packaging, uploading to Amazon S3, etc. If you chose to customize the hash, you will need to make sure it is updated every time the asset changes, or otherwise it is possible that some deployments will not be invalidated. Default: - based on ``assetHashType``
         :param asset_hash_type: Specifies the type of hash to calculate for this asset. If ``assetHash`` is configured, this option must be ``undefined`` or ``AssetHashType.CUSTOM``. Default: - the default is ``AssetHashType.SOURCE``, but if ``assetHash`` is explicitly specified this value defaults to ``AssetHashType.CUSTOM``.
         :param bundling: Bundle the asset by executing a command in a Docker container or a custom bundling provider. The asset path will be mounted at ``/asset-input``. The Docker container is responsible for putting content at ``/asset-output``. The content at ``/asset-output`` will be zipped and used as the final asset. Default: - uploaded as-is to S3 if the asset is a regular file or a .zip file, archived into a .zip file and uploaded to S3 otherwise
@@ -34023,10 +35167,33 @@ class AssetStagingProps(FingerprintOptions, AssetOptions):
 
     @builtins.property
     def exclude(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''File paths matching the patterns will be excluded.
+        '''File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior.
 
-        See ``ignoreMode`` to set the matching behavior.
-        Has no effect on Assets bundled using the ``bundling`` property.
+
+
+        Without bundling
+
+        When used without the ``bundling`` property, the asset is just a regular file
+        copy operation. In that case, this controls the files that will be included
+        in the copy. Files matching the ``exclude`` patterns will not be included in
+        the copy.
+
+
+        With bundling
+
+        When used with the ``bundling`` property, the asset is produced by a
+        bundling operation. In that case, the value of ``exclude`` is only meaningful
+        if the ``assetHashType`` is set to ``AssetHashType.SOURCE``, and ignored for
+        other asset hash types. The ``exclude`` patterns will be used to determine
+        which files contribute to the asset, and the bundling command is skipped
+        if the source files have not changed since the last bundling operation.
+
+        **NOTE:** The bundling operation still has access to all files in the source path,
+        regardless of the ``exclude`` patterns. It is your responsibility to ensure
+        the ``exclude`` pattern accurately matches the files the bundling operation
+        will *actually* access and base its final output on.
+
+        For ``OUTPUT`` or ``CUSTOM`` asset hash types, the ``exclude`` pattern is ignored.
 
         :default: - nothing is excluded
         '''
@@ -34037,16 +35204,45 @@ class AssetStagingProps(FingerprintOptions, AssetOptions):
     def follow(self) -> typing.Optional["SymlinkFollowMode"]:
         '''A strategy for how to handle symlinks.
 
-        :default: SymlinkFollowMode.NEVER
+        Symlinks may be copied, materialized or rejected. Note that if symlinks are
+        copied they should be relative; absolute symlinks will lose their
+        meaning if the cloud assembly is moved to another machine.
+
+
+        Without bundling
+
+        When used without the ``bundling`` property, the asset is just a regular file
+        copy operation. In that case, symlinks are materialized or blocked with respect
+        to the source path root as they are being copied.
+
+
+        With bundling
+
+        When used with the ``bundling`` property, the asset is produced by a
+        bundling operation. In that case, the bundling command is fully
+        in charge of producing a set of files in an output directory, and
+        the ``AssetStaging`` construct will never affect symlink materialization.
+
+        If the ``assetHashType`` is ``AssetHashType.SOURCE``, this flag affects what
+        the source hash is based on, and the recommended value is one of
+        ``SymlinkFollowMode.EXTERNAL`` or ``SymlinkFollowMode.BLOCK_EXTERNAL``.
+
+        If the ``SymlinkFollowMode.BLOCK_EXTERNAL`` mode is used:
+
+        - Symlinks pointing outside the source tree will be blocked, but only
+          if using ``AssetHashType.SOURCE`` (not for any of the other asset hash types).
+        - Symlinks pointing outside the bundle output will be blocked.
+
+        :default: SymlinkFollowMode.EXTERNAL
         '''
         result = self._values.get("follow")
         return typing.cast(typing.Optional["SymlinkFollowMode"], result)
 
     @builtins.property
     def ignore_mode(self) -> typing.Optional["IgnoreMode"]:
-        '''The ignore behavior to use for ``exclude`` patterns.
+        '''What syntax the ``exclude`` patterns are written in.
 
-        :default: IgnoreMode.GLOB
+        :default: - IgnoreMode.GLOB for file assets, ``IgnoreMode.DOCKER`` for image assets (requires that the ``@aws-cdk/aws-ecr-assets:dockerIgnoreSupport`` feature flag is set, which is recommended)
         '''
         result = self._values.get("ignore_mode")
         return typing.cast(typing.Optional["IgnoreMode"], result)
@@ -34055,7 +35251,7 @@ class AssetStagingProps(FingerprintOptions, AssetOptions):
     def extra_hash(self) -> typing.Optional[builtins.str]:
         '''Extra information to encode into the fingerprint (e.g. build instructions and other inputs).
 
-        :default: - hash is only based on source content
+        :default: - hash is only based on the file fingerprint
         '''
         result = self._values.get("extra_hash")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -42499,7 +43695,7 @@ class DockerIgnoreStrategy(
         # The values are placeholders you should change.
         import aws_cdk as cdk
         
-        docker_ignore_strategy = cdk.DockerIgnoreStrategy("absoluteRootPath", ["patterns"])
+        docker_ignore_strategy = cdk.DockerIgnoreStrategy.docker("absoluteRootPath", ["patterns"])
     '''
 
     def __init__(
@@ -42645,7 +43841,11 @@ class GitIgnoreStrategy(
         # The values are placeholders you should change.
         import aws_cdk as cdk
         
-        git_ignore_strategy = cdk.GitIgnoreStrategy("absoluteRootPath", ["patterns"])
+        git_ignore_strategy = cdk.GitIgnoreStrategy.from_copy_options(cdk.CopyOptions(
+            exclude=["exclude"],
+            follow=cdk.SymlinkFollowMode.NEVER,
+            ignore_mode=cdk.IgnoreMode.GLOB
+        ), "absoluteRootPath")
     '''
 
     def __init__(
@@ -42721,7 +43921,11 @@ class GlobIgnoreStrategy(
         # The values are placeholders you should change.
         import aws_cdk as cdk
         
-        glob_ignore_strategy = cdk.GlobIgnoreStrategy("absoluteRootPath", ["patterns"])
+        glob_ignore_strategy = cdk.GlobIgnoreStrategy.from_copy_options(cdk.CopyOptions(
+            exclude=["exclude"],
+            follow=cdk.SymlinkFollowMode.NEVER,
+            ignore_mode=cdk.IgnoreMode.GLOB
+        ), "absoluteRootPath")
     '''
 
     def __init__(
@@ -44404,6 +45608,11 @@ __all__ = [
     "CfnCodeDeployLambdaAliasUpdate",
     "CfnCondition",
     "CfnConditionProps",
+    "CfnContextMutability",
+    "CfnContextRef",
+    "CfnContextTrust",
+    "CfnContextTrustConfidence",
+    "CfnContextTrustSource",
     "CfnCreationPolicy",
     "CfnCustomResource",
     "CfnCustomResourceProps",
@@ -44449,6 +45658,9 @@ __all__ = [
     "CfnResourceAutoScalingCreationPolicy",
     "CfnResourceDefaultVersion",
     "CfnResourceDefaultVersionProps",
+    "CfnResourceMetadataContext",
+    "CfnResourceMetadataContextOptions",
+    "CfnResourceMetadataContextProps",
     "CfnResourceProps",
     "CfnResourceSignal",
     "CfnResourceVersion",
@@ -44461,6 +45673,8 @@ __all__ = [
     "CfnStackSet",
     "CfnStackSetProps",
     "CfnTag",
+    "CfnTemplateMetadataContext",
+    "CfnTemplateMetadataContextProps",
     "CfnTrafficRoute",
     "CfnTrafficRouting",
     "CfnTrafficRoutingConfig",
@@ -46219,6 +47433,25 @@ def _typecheckingstub__e026e929ab1906fd8853f6cfbb0702ce18fcc0611e2a3155d3b01dd55
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__3afcec43c8c56ef4346610eaad64bfb8c37cfa8cbd0735dfa3df5377a559ff31(
+    *,
+    at: builtins.str,
+    has: typing.Optional[builtins.str] = None,
+    scope: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a30b9e12a8f881592b2eb46041bd92422f59fad2b03d237e9e4e0dce56daeadd(
+    *,
+    conf: CfnContextTrustConfidence,
+    src: CfnContextTrustSource,
+    cite: typing.Optional[builtins.str] = None,
+    note: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__8a7bc9de19fa72830b6b21a2c610a2f683c09b0624641711adebeb123578a5f6(
     *,
     auto_scaling_creation_policy: typing.Optional[typing.Union[CfnResourceAutoScalingCreationPolicy, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -46736,6 +47969,33 @@ def _typecheckingstub__3f1523608cf6fe45952d0f5d1f32008dd9f0562a1c719af62d043d6a7
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ce2b8dbbfc6c2fa0ae8f430ddfaec33ebdfd9cd888663e81537317bc09d94f18(
+    scope: _constructs_77d1e7e8.IConstruct,
+    *,
+    selector: typing.Optional[IConstructSelector] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dd7ab60cdc9784c562c9ddac40c66f231f4c62fbbf780344731ae5e3f009583f(
+    *,
+    selector: typing.Optional[IConstructSelector] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b8be7a217bd96b2e079db99adc7fd080956f4bae986c53714797bae37f9a65aa(
+    *,
+    deps: typing.Optional[typing.Sequence[builtins.str]] = None,
+    must: typing.Optional[typing.Sequence[builtins.str]] = None,
+    mutability: typing.Optional[typing.Mapping[builtins.str, CfnContextMutability]] = None,
+    mutable: typing.Optional[CfnContextMutability] = None,
+    trust: typing.Optional[typing.Union[CfnContextTrust, typing.Dict[builtins.str, typing.Any]]] = None,
+    why: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__4d1b62b09ffbab6ff0f59d664e89ba6054339a477f55c26bf979a6779e45c976(
     *,
     type: builtins.str,
@@ -46831,6 +48091,22 @@ def _typecheckingstub__b6c1d7ff52297a62b95240cca6767683e442ad58822715479502fcdab
     *,
     key: builtins.str,
     value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__00b9a13eeb1b28f96daf1155f5f7f4763540676df32697e93c6e0ee4c7fa45d0(
+    stack: Stack,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__67086f70ba9d5d42607f04b1018a3a631e0a423cb73584a5237857fc7a5b0b19(
+    *,
+    arch: typing.Optional[builtins.str] = None,
+    must: typing.Optional[typing.Sequence[builtins.str]] = None,
+    owner: typing.Optional[builtins.str] = None,
+    ref: typing.Optional[typing.Sequence[typing.Union[CfnContextRef, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -47151,6 +48427,22 @@ def _typecheckingstub__ee160dc0667b6e8f45df2c2f176a77d9d6a3ece4b83cdf7804625adf8
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__a025373c16bed1f841d79f66bfe12098d348c5e4abd1f49f1b7cf528258aea89(
+    path: builtins.str,
+    *,
+    build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    build_contexts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    cache_disabled: typing.Optional[builtins.bool] = None,
+    cache_from: typing.Optional[typing.Sequence[typing.Union[DockerCacheOption, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cache_to: typing.Optional[typing.Union[DockerCacheOption, typing.Dict[builtins.str, typing.Any]]] = None,
+    file: typing.Optional[builtins.str] = None,
+    network: typing.Optional[builtins.str] = None,
+    platform: typing.Optional[builtins.str] = None,
+    target_stage: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__834262a369d8f018a0ee1c55f041b796b1abf0ba5ed44798aa1dec1ec75d2a4c(
     image: builtins.str,
 ) -> None:
@@ -47424,6 +48716,17 @@ def _typecheckingstub__9bbb07c71d69293035ba08bc48c15ea77be881a28d5910fe8216bad50
     dest_dir: builtins.str,
     options: typing.Optional[typing.Union[CopyOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     root_dir: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__23fe2ba3313ffc7dfd68b55bfe5070eebd1e9897a17eef43148ef993a88543a1(
+    src_dir: builtins.str,
+    dest_dir: builtins.str,
+    *,
+    exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
+    follow: typing.Optional[SymlinkFollowMode] = None,
+    ignore_mode: typing.Optional[IgnoreMode] = None,
 ) -> None:
     """Type checking stubs"""
     pass

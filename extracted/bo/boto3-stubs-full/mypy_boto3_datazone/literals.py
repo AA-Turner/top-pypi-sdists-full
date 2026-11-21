@@ -24,6 +24,7 @@ else:
 
 __all__ = (
     "AcceptRuleBehaviorType",
+    "AssetOwnershipTransferStatusType",
     "AttributeEntityTypeType",
     "AuthTypeType",
     "AuthenticationTypeType",
@@ -131,6 +132,7 @@ __all__ = (
     "PackageManagerType",
     "PaginatorName",
     "ProjectDesignationType",
+    "ProjectProfileActionType",
     "ProjectStatusType",
     "ProtocolType",
     "QueryGraphPaginatorName",
@@ -181,6 +183,7 @@ __all__ = (
 
 
 AcceptRuleBehaviorType = Literal["ALL", "NONE"]
+AssetOwnershipTransferStatusType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDED"]
 AttributeEntityTypeType = Literal["ASSET", "LISTING"]
 AuthTypeType = Literal["DISABLED", "IAM_IDC"]
 AuthenticationTypeType = Literal["BASIC", "CUSTOM", "OAUTH2"]
@@ -428,6 +431,7 @@ PackageManagerType = Literal["UV"]
 ProjectDesignationType = Literal[
     "CONTRIBUTOR", "OWNER", "PROJECT_CATALOG_STEWARD", "USER_CREATED_DESIGNATION"
 ]
+ProjectProfileActionType = Literal["DISASSOCIATE"]
 ProjectStatusType = Literal[
     "ACTIVE", "DELETE_FAILED", "DELETING", "MOVING", "UPDATE_FAILED", "UPDATING"
 ]
@@ -585,6 +589,7 @@ ServiceName = Literal[
     "account-access-runtime",
     "acm",
     "acm-pca",
+    "agent-discovery",
     "agent-registry",
     "agent-registry-control",
     "aiops",
@@ -595,6 +600,7 @@ ServiceName = Literal[
     "apigateway",
     "apigatewaymanagementapi",
     "apigatewayv2",
+    "apiportal",
     "appconfig",
     "appconfigdata",
     "appfabric",
@@ -885,6 +891,7 @@ ServiceName = Literal[
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
+    "payments",
     "pca-connector-ad",
     "pca-connector-scep",
     "pcs",
@@ -940,6 +947,7 @@ ServiceName = Literal[
     "sagemaker-a2i-runtime",
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
+    "sagemaker-gateway-runtime",
     "sagemaker-geospatial",
     "sagemaker-inference-router-runtime",
     "sagemaker-metrics",

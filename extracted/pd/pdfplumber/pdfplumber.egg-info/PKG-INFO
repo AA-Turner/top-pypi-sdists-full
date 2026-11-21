@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pdfplumber
-Version: 0.11.10
+Version: 0.11.11
 Summary: Plumb a PDF for detailed information about each char, rectangle, and line.
 Home-page: https://github.com/jsvine/pdfplumber
 Author: Jeremy Singer-Vine
@@ -17,8 +17,8 @@ Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: pdfminer.six==20260107
-Requires-Dist: Pillow>=12.2.0
-Requires-Dist: pypdfium2>=5.9.0
+Requires-Dist: Pillow>=13.0.0
+Requires-Dist: pypdfium2>=5.15.2
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -224,7 +224,7 @@ my_char_rotation = my_char_ctm.skew_x
 |`x0`| Distance of left-side extremity from left side of page.|
 |`x1`| Distance of right-side extremity from left side of page.|
 |`y0`| Distance of bottom extremity from bottom of page.|
-|`y1`| Distance of top extremity bottom of page.|
+|`y1`| Distance of top extremity from bottom of page.|
 |`top`| Distance of top of line from top of page.|
 |`bottom`| Distance of bottom of the line from top of page.|
 |`doctop`| Distance of top of line from top of document.|
@@ -378,7 +378,7 @@ Note: The methods above are built on Pillow's [`ImageDraw` methods](http://pillo
 
 | Method | Description |
 |--------|-------------|
-|`.extract_text(x_tolerance=3, x_tolerance_ratio=None, y_tolerance=3, layout=False, x_density=7.25, y_density=13, line_dir_render=None, char_dir_render=None, **kwargs)`| Collates all of the page's character objects into a single string.<ul><li><p>When `layout=False`: Adds spaces where the difference between the `x1` of one character and the `x0` of the next is greater than `x_tolerance`. (If `x_tolerance_ratio` is not `None`, the extractor uses a dynamic `x_tolerance` equal to `x_tolerance_ratio * previous_character["size"]`.) Adds newline characters where the difference between the `doctop` of one character and the `doctop` of the next is greater than `y_tolerance`.</p></li><li><p>When `layout=True` (*experimental feature*): Attempts to mimic the structural layout of the text on the page(s), using `x_density` and `y_density` to determine the minimum number of characters/newlines per "point," the PDF unit of measurement. Passing `line_dir_render="ttb"/"btt"/"ltr"/"rtl"` and/or `char_dir_render="ttb"/"btt"/"ltr"/"rtl"` will output the the lines/characters in a different direction than the default. All remaining `**kwargs` are passed to `.extract_words(...)` (see below), the first step in calculating the layout.</p></li></ul>|
+|`.extract_text(x_tolerance=3, x_tolerance_ratio=None, y_tolerance=3, layout=False, x_density=7.25, y_density=13, line_dir_render=None, char_dir_render=None, **kwargs)`| Collates all of the page's character objects into a single string.<ul><li><p>When `layout=False`: Adds spaces where the difference between the `x1` of one character and the `x0` of the next is greater than `x_tolerance`. (If `x_tolerance_ratio` is not `None`, the extractor uses a dynamic `x_tolerance` equal to `x_tolerance_ratio * previous_character["size"]`.) Adds newline characters where the difference between the `doctop` of one character and the `doctop` of the next is greater than `y_tolerance`.</p></li><li><p>When `layout=True` (*experimental feature*): Attempts to mimic the structural layout of the text on the page(s), using `x_density` and `y_density` to determine the minimum number of characters/newlines per "point," the PDF unit of measurement. Passing `line_dir_render="ttb"/"btt"/"ltr"/"rtl"` and/or `char_dir_render="ttb"/"btt"/"ltr"/"rtl"` will output the lines/characters in a different direction than the default. All remaining `**kwargs` are passed to `.extract_words(...)` (see below), the first step in calculating the layout.</p></li></ul>|
 |`.extract_text_simple(x_tolerance=3, y_tolerance=3)`| A slightly faster but less flexible version of `.extract_text(...)`, using a simpler logic.|
 |`.extract_words(x_tolerance=3, x_tolerance_ratio=None, y_tolerance=3, keep_blank_chars=False, use_text_flow=False, line_dir="ttb", char_dir="ltr", line_dir_rotated="ttb", char_dir_rotated="ltr", extra_attrs=[], split_at_punctuation=False, expand_ligatures=True, return_chars=False)`| Returns a list of all word-looking things and their bounding boxes. Words are considered to be sequences of characters where (for "upright" characters) the difference between the `x1` of one character and the `x0` of the next is less than or equal to `x_tolerance` *and* where the `doctop` of one character and the `doctop` of the next is less than or equal to `y_tolerance`. (If `x_tolerance_ratio` is not `None`, the extractor uses a dynamic `x_tolerance` equal to `x_tolerance_ratio * previous_character["size"]`.) A similar approach is taken for non-upright characters, but instead measuring the vertical, rather than horizontal, distances between them. Changing `keep_blank_chars` to `True` will mean that blank characters are treated as part of a word, not as a space between words. Changing `use_text_flow` to `True` will use the PDF's underlying flow of characters as a guide for ordering and segmenting the words, rather than presorting the characters by x/y position. (This mimics how dragging a cursor highlights text in a PDF; as with that, the order does not always appear to be logical.) The arguments `line_dir` and `char_dir` tell this method the direction in which lines/characters are expected to be read; valid options are "ttb" (top-to-bottom), "btt" (bottom-to-top), "ltr" (left-to-right), and "rtl" (right-to-left). The `line_dir_rotated` and `char_dir_rotated` arguments are similar, but for text that has been rotated. Passing a list of `extra_attrs`  (e.g., `["fontname", "size"]` will restrict each words to characters that share exactly the same value for each of those [attributes](#char-properties), and the resulting word dicts will indicate those attributes. Setting `split_at_punctuation` to `True` will enforce breaking tokens at punctuations specified by `string.punctuation`; or you can specify the list of separating punctuation by pass a string, e.g., <code>split_at_punctuation='!"&\'()*+,.:;<=>?@[\]^\`\{\|\}~'</code>. Unless you set `expand_ligatures=False`, ligatures such as `ﬁ` will be expanded into their constituent letters (e.g., `fi`). Passing `return_chars=True` will add, to each word dictionary, a list of its constituent characters, as a list in the `"chars"` field.|
 |`.extract_text_lines(layout=False, strip=True, return_chars=True, **kwargs)`|*Experimental feature* that returns a list of dictionaries representing the lines of text on the page. The `strip` parameter works analogously to Python's `str.strip()` method, and returns `text` attributes without their surrounding whitespace. (Only relevant when `layout = True`.) Setting `return_chars` to `False` will exclude the individual character objects from the returned text-line dicts. The remaining `**kwargs` are those you would pass to `.extract_text(layout=True, ...)`.|
@@ -561,7 +561,7 @@ It's also helpful to know what features `pdfplumber` does __not__ provide:
 
 - [`PyPDF2`](https://github.com/mstamy2/PyPDF2) is a pure-Python library "capable of splitting, merging, cropping, and transforming the pages of PDF files. It can also add custom data, viewing options, and passwords to PDF files." It can extract page text, but does not provide easy access to shape objects (rectangles, lines, etc.), table-extraction, or visually debugging tools. License: [BSD](https://github.com/py-pdf/pypdf?tab=License-1-ov-file#readme).
 
-- [`pymupdf`](https://pymupdf.readthedocs.io/) is substantially faster than `pdfminer.six` (and thus also `pdfplumber`) and can generate and modify PDFs, but the library requires installation of non-Python software (MuPDF). It also does not enable easy access to shape objects (rectangles, lines, etc.), and does not provide table-extraction or visual debugging tools. License: [AGPL](https://pymupdf.readthedocs.io/en/latest/about.html#license-and-copyright).
+- [`pymupdf`](https://pymupdf.readthedocs.io/) is substantially faster than `pdfminer.six` (and thus also `pdfplumber`) and can generate and modify PDFs, but the library requires installation of non-Python software (MuPDF). It also does not provide visual debugging tools. License: [AGPL](https://pymupdf.readthedocs.io/en/latest/about.html#license-and-copyright).
 
 - [`camelot`](https://github.com/camelot-dev/camelot), [`tabula-py`](https://github.com/chezou/tabula-py), and [`pdftables`](https://github.com/drj11/pdftables) all focus primarily on extracting tables. In some cases, they may be better suited to the particular tables you are trying to extract. License: [MIT](https://github.com/camelot-dev/camelot?tab=MIT-1-ov-file#readme) (`camelot`), [MIT](https://github.com/chezou/tabula-py?tab=MIT-1-ov-file#readme) (`tabula-py`), [BSD](https://github.com/drj11/pdftables?tab=BSD-2-Clause-1-ov-file#readme) (`pdftables`).
 
@@ -606,6 +606,9 @@ Many thanks to the following users who've contributed ideas, features, and fixes
 - [Brandon Roberts](https://github.com/brandonrobertz)
 - [@ennamarie19](https://github.com/ennamarie19)
 - [Anton Ilin](https://github.com/bronislav)
+- [Sebastian Cao](https://github.com/cycsmail)
+- [Kaspar Naraghi](https://github.com/kaninaba94)
+- [Siddharth Gaur](https://github.com/siddharthgaur1)
 
 ## Contributing
 

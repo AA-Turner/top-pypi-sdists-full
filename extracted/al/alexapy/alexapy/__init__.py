@@ -16,7 +16,7 @@ except ModuleNotFoundError:
 import logging
 from pathlib import Path
 
-from .alexaapi import AlexaAPI
+from .alexaapi import AlexaAPI, HistoryContinuation, HistoryPage
 from .alexahttp2 import HTTP2EchoClient
 from .alexalogin import AlexaLogin
 from .alexaproxy import AlexaProxy
@@ -67,6 +67,8 @@ __all__ = [
     "EnrollmentError",
     "EnrollmentFlow",
     "HTTP2EchoClient",
+    "HistoryContinuation",
+    "HistoryPage",
     "TokenManager",
     "WebsocketEchoClient",
     "hide_email",

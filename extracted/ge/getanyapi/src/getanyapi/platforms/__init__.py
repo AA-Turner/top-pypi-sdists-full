@@ -22,6 +22,7 @@ REGISTRY: dict[str, tuple[str, str, str]] = {
     "booking": ("booking", "BookingNamespace", "AsyncBookingNamespace"),
     "brave": ("brave", "BraveNamespace", "AsyncBraveNamespace"),
     "capterra": ("capterra", "CapterraNamespace", "AsyncCapterraNamespace"),
+    "cards": ("cards", "CardsNamespace", "AsyncCardsNamespace"),
     "chatgpt": ("chatgpt", "ChatgptNamespace", "AsyncChatgptNamespace"),
     "coinmarketcap": (
         "coinmarketcap",

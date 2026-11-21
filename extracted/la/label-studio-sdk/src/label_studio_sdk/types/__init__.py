@@ -80,7 +80,6 @@ if typing.TYPE_CHECKING:
     from .file_upload import FileUpload
     from .filter import Filter
     from .filter_group import FilterGroup
-    from .filtered_label_distribution_unavailable import FilteredLabelDistributionUnavailable
     from .flex_active_block import FlexActiveBlock
     from .flex_checks import FlexChecks
     from .fsm_backfill_job_status_enum import FsmBackfillJobStatusEnum
@@ -98,6 +97,8 @@ if typing.TYPE_CHECKING:
     from .hotkeys import Hotkeys
     from .import_api_request import ImportApiRequest
     from .inference_run_cost_estimate import InferenceRunCostEstimate
+    from .interface_compatibility_error import InterfaceCompatibilityError
+    from .interface_compatibility_response import InterfaceCompatibilityResponse
     from .interface_move_blocker_enum import InterfaceMoveBlockerEnum
     from .interface_move_blocking_reason_enum import InterfaceMoveBlockingReasonEnum
     from .interface_move_code_enum import InterfaceMoveCodeEnum
@@ -332,6 +333,8 @@ if typing.TYPE_CHECKING:
     from .storage_status_enum import StorageStatusEnum
     from .task_agreement_matrix_response import TaskAgreementMatrixResponse
     from .task_assignment import TaskAssignment
+    from .task_data_column_result import TaskDataColumnResult
+    from .task_data_column_value_type_enum import TaskDataColumnValueTypeEnum
     from .task_event import TaskEvent
     from .third_party_model_version import ThirdPartyModelVersion
     from .third_party_model_version_request import ThirdPartyModelVersionRequest
@@ -431,7 +434,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "FileUpload": ".file_upload",
     "Filter": ".filter",
     "FilterGroup": ".filter_group",
-    "FilteredLabelDistributionUnavailable": ".filtered_label_distribution_unavailable",
     "FlexActiveBlock": ".flex_active_block",
     "FlexChecks": ".flex_checks",
     "FsmBackfillJobStatusEnum": ".fsm_backfill_job_status_enum",
@@ -449,6 +451,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "Hotkeys": ".hotkeys",
     "ImportApiRequest": ".import_api_request",
     "InferenceRunCostEstimate": ".inference_run_cost_estimate",
+    "InterfaceCompatibilityError": ".interface_compatibility_error",
+    "InterfaceCompatibilityResponse": ".interface_compatibility_response",
     "InterfaceMoveBlockerEnum": ".interface_move_blocker_enum",
     "InterfaceMoveBlockingReasonEnum": ".interface_move_blocking_reason_enum",
     "InterfaceMoveCodeEnum": ".interface_move_code_enum",
@@ -667,6 +671,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "StorageStatusEnum": ".storage_status_enum",
     "TaskAgreementMatrixResponse": ".task_agreement_matrix_response",
     "TaskAssignment": ".task_assignment",
+    "TaskDataColumnResult": ".task_data_column_result",
+    "TaskDataColumnValueTypeEnum": ".task_data_column_value_type_enum",
     "TaskEvent": ".task_event",
     "ThirdPartyModelVersion": ".third_party_model_version",
     "ThirdPartyModelVersionRequest": ".third_party_model_version_request",
@@ -790,7 +796,6 @@ __all__ = [
     "FileUpload",
     "Filter",
     "FilterGroup",
-    "FilteredLabelDistributionUnavailable",
     "FlexActiveBlock",
     "FlexChecks",
     "FsmBackfillJobStatusEnum",
@@ -808,6 +813,8 @@ __all__ = [
     "Hotkeys",
     "ImportApiRequest",
     "InferenceRunCostEstimate",
+    "InterfaceCompatibilityError",
+    "InterfaceCompatibilityResponse",
     "InterfaceMoveBlockerEnum",
     "InterfaceMoveBlockingReasonEnum",
     "InterfaceMoveCodeEnum",
@@ -1026,6 +1033,8 @@ __all__ = [
     "StorageStatusEnum",
     "TaskAgreementMatrixResponse",
     "TaskAssignment",
+    "TaskDataColumnResult",
+    "TaskDataColumnValueTypeEnum",
     "TaskEvent",
     "ThirdPartyModelVersion",
     "ThirdPartyModelVersionRequest",

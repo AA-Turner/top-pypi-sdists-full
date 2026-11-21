@@ -44,14 +44,53 @@ class FinalizeInvoiceGlobals(BaseModel):
         return m
 
 
+FinalizeInvoiceIssueMethodRequest = Literal[
+    "finalize",
+    "send",
+    "charge_automatically",
+]
+r"""finalize opens the invoice without Stripe emailing, reminding or charging. send opens it and Stripe emails it for the customer to pay (send_invoice). charge_automatically charges the customer's payment method on file right away, and is refused when there is none. Omitted, the draft is issued the way it is set up: emailed if it is send_invoice, charged if it is charge_automatically."""
+
+
 class FinalizeInvoiceParamsTypedDict(TypedDict):
     invoice_id: str
     r"""The Autumn invoice ID to finalize."""
+    issue_method: NotRequired[FinalizeInvoiceIssueMethodRequest]
+    r"""finalize opens the invoice without Stripe emailing, reminding or charging. send opens it and Stripe emails it for the customer to pay (send_invoice). charge_automatically charges the customer's payment method on file right away, and is refused when there is none. Omitted, the draft is issued the way it is set up: emailed if it is send_invoice, charged if it is charge_automatically."""
+    net_terms_days: NotRequired[int]
+    r"""Days the customer has to pay an emailed invoice. Omitted, the draft keeps its due date, falling back to the org default. Only valid with issue_method send."""
+    preview: NotRequired[bool]
+    r"""If true, returns exactly what finalizing would issue (lines, discounts, tax, credits, amount due) and how it is issued, without changing anything."""
 
 
 class FinalizeInvoiceParams(BaseModel):
     invoice_id: str
     r"""The Autumn invoice ID to finalize."""
+
+    issue_method: Optional[FinalizeInvoiceIssueMethodRequest] = None
+    r"""finalize opens the invoice without Stripe emailing, reminding or charging. send opens it and Stripe emails it for the customer to pay (send_invoice). charge_automatically charges the customer's payment method on file right away, and is refused when there is none. Omitted, the draft is issued the way it is set up: emailed if it is send_invoice, charged if it is charge_automatically."""
+
+    net_terms_days: Optional[int] = None
+    r"""Days the customer has to pay an emailed invoice. Omitted, the draft keeps its due date, falling back to the org default. Only valid with issue_method send."""
+
+    preview: Optional[bool] = None
+    r"""If true, returns exactly what finalizing would issue (lines, discounts, tax, credits, amount due) and how it is issued, without changing anything."""
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["issue_method", "net_terms_days", "preview"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k, serialized.get(n))
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
 
 
 FinalizeInvoiceProcessorType = Union[
@@ -168,6 +207,8 @@ class FinalizeInvoiceItem(BaseModel):
 
 
 class FinalizeInvoiceInvoiceTypedDict(TypedDict):
+    r"""The invoice. Unchanged when preview is true."""
+
     id: str
     r"""The Autumn invoice ID"""
     plan_ids: List[str]
@@ -203,6 +244,8 @@ class FinalizeInvoiceInvoiceTypedDict(TypedDict):
 
 
 class FinalizeInvoiceInvoice(BaseModel):
+    r"""The invoice. Unchanged when preview is true."""
+
     id: str
     r"""The Autumn invoice ID"""
 
@@ -281,13 +324,327 @@ class FinalizeInvoiceInvoice(BaseModel):
         return m
 
 
+class FinalizeInvoiceLineTypedDict(TypedDict):
+    plan_id: Nullable[str]
+    feature_id: Nullable[str]
+    entity_id: Nullable[str]
+    r"""The entity this line is billed to. Null for customer-level lines."""
+    description: str
+    amount: float
+    amount_after_discounts: float
+    quantity: Nullable[float]
+    prorated: bool
+    period_start: Nullable[float]
+    period_end: Nullable[float]
+
+
+class FinalizeInvoiceLine(BaseModel):
+    plan_id: Nullable[str]
+
+    feature_id: Nullable[str]
+
+    entity_id: Nullable[str]
+    r"""The entity this line is billed to. Null for customer-level lines."""
+
+    description: str
+
+    amount: float
+
+    amount_after_discounts: float
+
+    quantity: Nullable[float]
+
+    prorated: bool
+
+    period_start: Nullable[float]
+
+    period_end: Nullable[float]
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k, serialized.get(n))
+
+            if val != UNSET_SENTINEL:
+                m[k] = val
+
+        return m
+
+
+FinalizeInvoiceStatus = Union[
+    Literal[
+        "complete",
+        "incomplete",
+        "requires_location",
+    ],
+    UnrecognizedStr,
+]
+
+
+class FinalizeInvoiceTaxTypedDict(TypedDict):
+    total: float
+    amount_inclusive: float
+    amount_exclusive: float
+    status: FinalizeInvoiceStatus
+
+
+class FinalizeInvoiceTax(BaseModel):
+    total: float
+
+    amount_inclusive: float
+
+    amount_exclusive: float
+
+    status: FinalizeInvoiceStatus
+
+
+class FinalizeInvoiceInvoiceCreditsTypedDict(TypedDict):
+    r"""The customer's Stripe credit balance and how much of it this invoice consumes."""
+
+    balance: float
+    r"""Stripe customer credit balance available, expressed as a positive number in major currency units."""
+    currency: str
+    r"""Three-letter currency code."""
+    applied: NotRequired[float]
+    r"""How much of that balance this invoice consumes, capped at its total. The rest stays on the customer."""
+
+
+class FinalizeInvoiceInvoiceCredits(BaseModel):
+    r"""The customer's Stripe credit balance and how much of it this invoice consumes."""
+
+    balance: float
+    r"""Stripe customer credit balance available, expressed as a positive number in major currency units."""
+
+    currency: str
+    r"""Three-letter currency code."""
+
+    applied: Optional[float] = None
+    r"""How much of that balance this invoice consumes, capped at its total. The rest stays on the customer."""
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["applied"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k, serialized.get(n))
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
+
+
+FinalizeInvoicePreviewIssueMethod = Union[
+    Literal[
+        "finalize",
+        "send",
+        "charge_automatically",
+    ],
+    UnrecognizedStr,
+]
+r"""How the invoice is issued on approval: finalize (opened, not emailed or charged), send (emailed) or charge_automatically (charged to the payment method on file)."""
+
+
+class PaymentMethodTypedDict(TypedDict):
+    id: str
+    type: str
+    r"""Stripe payment method type, e.g. card."""
+    brand: Nullable[str]
+    last4: Nullable[str]
+
+
+class PaymentMethod(BaseModel):
+    id: str
+
+    type: str
+    r"""Stripe payment method type, e.g. card."""
+
+    brand: Nullable[str]
+
+    last4: Nullable[str]
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k, serialized.get(n))
+
+            if val != UNSET_SENTINEL:
+                m[k] = val
+
+        return m
+
+
+class FinalizeInvoicePreviewTypedDict(TypedDict):
+    r"""What finalizing issues. Returned when preview is true."""
+
+    currency: str
+    lines: List[FinalizeInvoiceLineTypedDict]
+    subtotal: float
+    discount_total: float
+    tax: Nullable[FinalizeInvoiceTaxTypedDict]
+    total: float
+    amount_due: float
+    r"""What the customer pays: the total less any credit applied."""
+    issue_date: float
+    due_date: Nullable[float]
+    issue_method: FinalizeInvoicePreviewIssueMethod
+    r"""How the invoice is issued on approval: finalize (opened, not emailed or charged), send (emailed) or charge_automatically (charged to the payment method on file)."""
+    payment_method: Nullable[PaymentMethodTypedDict]
+    r"""The payment method charged when issue_method is charge_automatically. Null otherwise, or when the customer has none."""
+    requires_payment_method: bool
+    r"""True when issue_method is charge_automatically but the customer has no payment method, so finalizing is refused. Add one, or use send."""
+    customer_email: Nullable[str]
+    r"""Where Stripe emails the invoice when issue_method is send."""
+    already_finalized: bool
+    r"""True when the invoice is already open or paid, so finalizing changes nothing."""
+    invoice_credits: NotRequired[FinalizeInvoiceInvoiceCreditsTypedDict]
+    r"""The customer's Stripe credit balance and how much of it this invoice consumes."""
+
+
+class FinalizeInvoicePreview(BaseModel):
+    r"""What finalizing issues. Returned when preview is true."""
+
+    currency: str
+
+    lines: List[FinalizeInvoiceLine]
+
+    subtotal: float
+
+    discount_total: float
+
+    tax: Nullable[FinalizeInvoiceTax]
+
+    total: float
+
+    amount_due: float
+    r"""What the customer pays: the total less any credit applied."""
+
+    issue_date: float
+
+    due_date: Nullable[float]
+
+    issue_method: FinalizeInvoicePreviewIssueMethod
+    r"""How the invoice is issued on approval: finalize (opened, not emailed or charged), send (emailed) or charge_automatically (charged to the payment method on file)."""
+
+    payment_method: Nullable[PaymentMethod]
+    r"""The payment method charged when issue_method is charge_automatically. Null otherwise, or when the customer has none."""
+
+    requires_payment_method: bool
+    r"""True when issue_method is charge_automatically but the customer has no payment method, so finalizing is refused. Add one, or use send."""
+
+    customer_email: Nullable[str]
+    r"""Where Stripe emails the invoice when issue_method is send."""
+
+    already_finalized: bool
+    r"""True when the invoice is already open or paid, so finalizing changes nothing."""
+
+    invoice_credits: Optional[FinalizeInvoiceInvoiceCredits] = None
+    r"""The customer's Stripe credit balance and how much of it this invoice consumes."""
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["invoice_credits"])
+        nullable_fields = set(["tax", "due_date", "payment_method", "customer_email"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k, serialized.get(n))
+            is_nullable_and_explicitly_set = (
+                k in nullable_fields
+                and (self.__pydantic_fields_set__.intersection({n}))  # pylint: disable=no-member
+            )
+
+            if val != UNSET_SENTINEL:
+                if (
+                    val is not None
+                    or k not in optional_fields
+                    or is_nullable_and_explicitly_set
+                ):
+                    m[k] = val
+
+        return m
+
+
+FinalizeInvoiceCode = Union[
+    Literal[
+        "3ds_required",
+        "payment_method_required",
+        "payment_failed",
+        "payment_processing",
+    ],
+    UnrecognizedStr,
+]
+r"""The type of action required to complete the payment."""
+
+
+class FinalizeInvoiceRequiredActionTypedDict(TypedDict):
+    r"""Set when issue_method charge_automatically finalized the invoice but the charge failed (payment_failed). The invoice stays open and unpaid, and Stripe retries it."""
+
+    code: FinalizeInvoiceCode
+    r"""The type of action required to complete the payment."""
+    reason: str
+    r"""A human-readable explanation of why this action is required."""
+
+
+class FinalizeInvoiceRequiredAction(BaseModel):
+    r"""Set when issue_method charge_automatically finalized the invoice but the charge failed (payment_failed). The invoice stays open and unpaid, and Stripe retries it."""
+
+    code: FinalizeInvoiceCode
+    r"""The type of action required to complete the payment."""
+
+    reason: str
+    r"""A human-readable explanation of why this action is required."""
+
+
 class FinalizeInvoiceResponseTypedDict(TypedDict):
     r"""OK"""
 
     invoice: FinalizeInvoiceInvoiceTypedDict
+    r"""The invoice. Unchanged when preview is true."""
+    preview: NotRequired[FinalizeInvoicePreviewTypedDict]
+    r"""What finalizing issues. Returned when preview is true."""
+    required_action: NotRequired[FinalizeInvoiceRequiredActionTypedDict]
+    r"""Set when issue_method charge_automatically finalized the invoice but the charge failed (payment_failed). The invoice stays open and unpaid, and Stripe retries it."""
 
 
 class FinalizeInvoiceResponse(BaseModel):
     r"""OK"""
 
     invoice: FinalizeInvoiceInvoice
+    r"""The invoice. Unchanged when preview is true."""
+
+    preview: Optional[FinalizeInvoicePreview] = None
+    r"""What finalizing issues. Returned when preview is true."""
+
+    required_action: Optional[FinalizeInvoiceRequiredAction] = None
+    r"""Set when issue_method charge_automatically finalized the invoice but the charge failed (payment_failed). The invoice stays open and unpaid, and Stripe retries it."""
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["preview", "required_action"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k, serialized.get(n))
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m

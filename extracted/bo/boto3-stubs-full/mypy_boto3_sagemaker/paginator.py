@@ -13,7 +13,9 @@ Usage::
     from mypy_boto3_sagemaker.client import SageMakerClient
     from mypy_boto3_sagemaker.paginator import (
         CreateHubContentPresignedUrlsPaginator,
+        DescribeResourceAssociationsPaginator,
         DescribeTrainingPlanExtensionHistoryPaginator,
+        GetCapacityReservationUsagePaginator,
         ListAIBenchmarkJobsPaginator,
         ListAIRecommendationJobsPaginator,
         ListAIWorkloadConfigsPaginator,
@@ -26,6 +28,7 @@ Usage::
         ListAssociationsPaginator,
         ListAutoMLJobsPaginator,
         ListCandidatesForAutoMLJobPaginator,
+        ListCapacityReservationsPaginator,
         ListClusterEventsPaginator,
         ListClusterExtensionVersionsPaginator,
         ListClusterExtensionsPaginator,
@@ -48,12 +51,14 @@ Usage::
         ListExperimentsPaginator,
         ListFeatureGroupsPaginator,
         ListFlowDefinitionsPaginator,
+        ListGlobalInferenceGatewaysPaginator,
         ListHumanTaskUisPaginator,
         ListHyperParameterTuningJobsPaginator,
         ListImageVersionsPaginator,
         ListImagesPaginator,
         ListInferenceComponentsPaginator,
         ListInferenceExperimentsPaginator,
+        ListInferenceGatewaysPaginator,
         ListInferenceRecommendationsJobStepsPaginator,
         ListInferenceRecommendationsJobsPaginator,
         ListInferenceRoutersPaginator,
@@ -113,7 +118,9 @@ Usage::
     client: SageMakerClient = session.client("sagemaker")
 
     create_hub_content_presigned_urls_paginator: CreateHubContentPresignedUrlsPaginator = client.get_paginator("create_hub_content_presigned_urls")
+    describe_resource_associations_paginator: DescribeResourceAssociationsPaginator = client.get_paginator("describe_resource_associations")
     describe_training_plan_extension_history_paginator: DescribeTrainingPlanExtensionHistoryPaginator = client.get_paginator("describe_training_plan_extension_history")
+    get_capacity_reservation_usage_paginator: GetCapacityReservationUsagePaginator = client.get_paginator("get_capacity_reservation_usage")
     list_ai_benchmark_jobs_paginator: ListAIBenchmarkJobsPaginator = client.get_paginator("list_ai_benchmark_jobs")
     list_ai_recommendation_jobs_paginator: ListAIRecommendationJobsPaginator = client.get_paginator("list_ai_recommendation_jobs")
     list_ai_workload_configs_paginator: ListAIWorkloadConfigsPaginator = client.get_paginator("list_ai_workload_configs")
@@ -126,6 +133,7 @@ Usage::
     list_associations_paginator: ListAssociationsPaginator = client.get_paginator("list_associations")
     list_auto_ml_jobs_paginator: ListAutoMLJobsPaginator = client.get_paginator("list_auto_ml_jobs")
     list_candidates_for_auto_ml_job_paginator: ListCandidatesForAutoMLJobPaginator = client.get_paginator("list_candidates_for_auto_ml_job")
+    list_capacity_reservations_paginator: ListCapacityReservationsPaginator = client.get_paginator("list_capacity_reservations")
     list_cluster_events_paginator: ListClusterEventsPaginator = client.get_paginator("list_cluster_events")
     list_cluster_extension_versions_paginator: ListClusterExtensionVersionsPaginator = client.get_paginator("list_cluster_extension_versions")
     list_cluster_extensions_paginator: ListClusterExtensionsPaginator = client.get_paginator("list_cluster_extensions")
@@ -148,12 +156,14 @@ Usage::
     list_experiments_paginator: ListExperimentsPaginator = client.get_paginator("list_experiments")
     list_feature_groups_paginator: ListFeatureGroupsPaginator = client.get_paginator("list_feature_groups")
     list_flow_definitions_paginator: ListFlowDefinitionsPaginator = client.get_paginator("list_flow_definitions")
+    list_global_inference_gateways_paginator: ListGlobalInferenceGatewaysPaginator = client.get_paginator("list_global_inference_gateways")
     list_human_task_uis_paginator: ListHumanTaskUisPaginator = client.get_paginator("list_human_task_uis")
     list_hyper_parameter_tuning_jobs_paginator: ListHyperParameterTuningJobsPaginator = client.get_paginator("list_hyper_parameter_tuning_jobs")
     list_image_versions_paginator: ListImageVersionsPaginator = client.get_paginator("list_image_versions")
     list_images_paginator: ListImagesPaginator = client.get_paginator("list_images")
     list_inference_components_paginator: ListInferenceComponentsPaginator = client.get_paginator("list_inference_components")
     list_inference_experiments_paginator: ListInferenceExperimentsPaginator = client.get_paginator("list_inference_experiments")
+    list_inference_gateways_paginator: ListInferenceGatewaysPaginator = client.get_paginator("list_inference_gateways")
     list_inference_recommendations_job_steps_paginator: ListInferenceRecommendationsJobStepsPaginator = client.get_paginator("list_inference_recommendations_job_steps")
     list_inference_recommendations_jobs_paginator: ListInferenceRecommendationsJobsPaginator = client.get_paginator("list_inference_recommendations_jobs")
     list_inference_routers_paginator: ListInferenceRoutersPaginator = client.get_paginator("list_inference_routers")
@@ -220,8 +230,12 @@ from botocore.paginate import PageIterator, Paginator
 from .type_defs import (
     CreateHubContentPresignedUrlsRequestPaginateTypeDef,
     CreateHubContentPresignedUrlsResponseTypeDef,
+    DescribeResourceAssociationsRequestPaginateTypeDef,
+    DescribeResourceAssociationsResponseTypeDef,
     DescribeTrainingPlanExtensionHistoryRequestPaginateTypeDef,
     DescribeTrainingPlanExtensionHistoryResponseTypeDef,
+    GetCapacityReservationUsageRequestPaginateTypeDef,
+    GetCapacityReservationUsageResponseTypeDef,
     ListActionsRequestPaginateTypeDef,
     ListActionsResponseTypeDef,
     ListAIBenchmarkJobsRequestPaginateTypeDef,
@@ -246,6 +260,8 @@ from .type_defs import (
     ListAutoMLJobsResponseTypeDef,
     ListCandidatesForAutoMLJobRequestPaginateTypeDef,
     ListCandidatesForAutoMLJobResponseTypeDef,
+    ListCapacityReservationsRequestPaginateTypeDef,
+    ListCapacityReservationsResponseTypeDef,
     ListClusterEventsRequestPaginateTypeDef,
     ListClusterEventsResponseTypeDef,
     ListClusterExtensionsRequestPaginateTypeDef,
@@ -290,6 +306,8 @@ from .type_defs import (
     ListFeatureGroupsResponseTypeDef,
     ListFlowDefinitionsRequestPaginateTypeDef,
     ListFlowDefinitionsResponseTypeDef,
+    ListGlobalInferenceGatewaysRequestPaginateTypeDef,
+    ListGlobalInferenceGatewaysResponseTypeDef,
     ListHumanTaskUisRequestPaginateTypeDef,
     ListHumanTaskUisResponseTypeDef,
     ListHyperParameterTuningJobsRequestPaginateTypeDef,
@@ -302,6 +320,8 @@ from .type_defs import (
     ListInferenceComponentsOutputTypeDef,
     ListInferenceExperimentsRequestPaginateTypeDef,
     ListInferenceExperimentsResponseTypeDef,
+    ListInferenceGatewaysRequestPaginateTypeDef,
+    ListInferenceGatewaysResponseTypeDef,
     ListInferenceRecommendationsJobsRequestPaginateTypeDef,
     ListInferenceRecommendationsJobsResponseTypeDef,
     ListInferenceRecommendationsJobStepsRequestPaginateTypeDef,
@@ -418,7 +438,9 @@ else:
 
 __all__ = (
     "CreateHubContentPresignedUrlsPaginator",
+    "DescribeResourceAssociationsPaginator",
     "DescribeTrainingPlanExtensionHistoryPaginator",
+    "GetCapacityReservationUsagePaginator",
     "ListAIBenchmarkJobsPaginator",
     "ListAIRecommendationJobsPaginator",
     "ListAIWorkloadConfigsPaginator",
@@ -431,6 +453,7 @@ __all__ = (
     "ListAssociationsPaginator",
     "ListAutoMLJobsPaginator",
     "ListCandidatesForAutoMLJobPaginator",
+    "ListCapacityReservationsPaginator",
     "ListClusterEventsPaginator",
     "ListClusterExtensionVersionsPaginator",
     "ListClusterExtensionsPaginator",
@@ -453,12 +476,14 @@ __all__ = (
     "ListExperimentsPaginator",
     "ListFeatureGroupsPaginator",
     "ListFlowDefinitionsPaginator",
+    "ListGlobalInferenceGatewaysPaginator",
     "ListHumanTaskUisPaginator",
     "ListHyperParameterTuningJobsPaginator",
     "ListImageVersionsPaginator",
     "ListImagesPaginator",
     "ListInferenceComponentsPaginator",
     "ListInferenceExperimentsPaginator",
+    "ListInferenceGatewaysPaginator",
     "ListInferenceRecommendationsJobStepsPaginator",
     "ListInferenceRecommendationsJobsPaginator",
     "ListInferenceRoutersPaginator",
@@ -539,6 +564,29 @@ class CreateHubContentPresignedUrlsPaginator(_CreateHubContentPresignedUrlsPagin
 
 
 if TYPE_CHECKING:
+    _DescribeResourceAssociationsPaginatorBase = Paginator[
+        DescribeResourceAssociationsResponseTypeDef
+    ]
+else:
+    _DescribeResourceAssociationsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class DescribeResourceAssociationsPaginator(_DescribeResourceAssociationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/DescribeResourceAssociations.html#SageMaker.Paginator.DescribeResourceAssociations)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/paginators/#describeresourceassociationspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeResourceAssociationsRequestPaginateTypeDef]
+    ) -> PageIterator[DescribeResourceAssociationsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/DescribeResourceAssociations.html#SageMaker.Paginator.DescribeResourceAssociations.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/paginators/#describeresourceassociationspaginator)
+        """
+
+
+if TYPE_CHECKING:
     _DescribeTrainingPlanExtensionHistoryPaginatorBase = Paginator[
         DescribeTrainingPlanExtensionHistoryResponseTypeDef
     ]
@@ -560,6 +608,29 @@ class DescribeTrainingPlanExtensionHistoryPaginator(
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/DescribeTrainingPlanExtensionHistory.html#SageMaker.Paginator.DescribeTrainingPlanExtensionHistory.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/paginators/#describetrainingplanextensionhistorypaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _GetCapacityReservationUsagePaginatorBase = Paginator[
+        GetCapacityReservationUsageResponseTypeDef
+    ]
+else:
+    _GetCapacityReservationUsagePaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class GetCapacityReservationUsagePaginator(_GetCapacityReservationUsagePaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/GetCapacityReservationUsage.html#SageMaker.Paginator.GetCapacityReservationUsage)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/paginators/#getcapacityreservationusagepaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[GetCapacityReservationUsageRequestPaginateTypeDef]
+    ) -> PageIterator[GetCapacityReservationUsageResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/GetCapacityReservationUsage.html#SageMaker.Paginator.GetCapacityReservationUsage.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/paginators/#getcapacityreservationusagepaginator)
         """
 
 
@@ -812,6 +883,27 @@ class ListCandidatesForAutoMLJobPaginator(_ListCandidatesForAutoMLJobPaginatorBa
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListCandidatesForAutoMLJob.html#SageMaker.Paginator.ListCandidatesForAutoMLJob.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/paginators/#listcandidatesforautomljobpaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListCapacityReservationsPaginatorBase = Paginator[ListCapacityReservationsResponseTypeDef]
+else:
+    _ListCapacityReservationsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListCapacityReservationsPaginator(_ListCapacityReservationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListCapacityReservations.html#SageMaker.Paginator.ListCapacityReservations)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/paginators/#listcapacityreservationspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListCapacityReservationsRequestPaginateTypeDef]
+    ) -> PageIterator[ListCapacityReservationsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListCapacityReservations.html#SageMaker.Paginator.ListCapacityReservations.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/paginators/#listcapacityreservationspaginator)
         """
 
 
@@ -1284,6 +1376,29 @@ class ListFlowDefinitionsPaginator(_ListFlowDefinitionsPaginatorBase):
 
 
 if TYPE_CHECKING:
+    _ListGlobalInferenceGatewaysPaginatorBase = Paginator[
+        ListGlobalInferenceGatewaysResponseTypeDef
+    ]
+else:
+    _ListGlobalInferenceGatewaysPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListGlobalInferenceGatewaysPaginator(_ListGlobalInferenceGatewaysPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListGlobalInferenceGateways.html#SageMaker.Paginator.ListGlobalInferenceGateways)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/paginators/#listglobalinferencegatewayspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListGlobalInferenceGatewaysRequestPaginateTypeDef]
+    ) -> PageIterator[ListGlobalInferenceGatewaysResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListGlobalInferenceGateways.html#SageMaker.Paginator.ListGlobalInferenceGateways.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/paginators/#listglobalinferencegatewayspaginator)
+        """
+
+
+if TYPE_CHECKING:
     _ListHumanTaskUisPaginatorBase = Paginator[ListHumanTaskUisResponseTypeDef]
 else:
     _ListHumanTaskUisPaginatorBase = Paginator  # type: ignore[assignment]
@@ -1408,6 +1523,27 @@ class ListInferenceExperimentsPaginator(_ListInferenceExperimentsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListInferenceExperiments.html#SageMaker.Paginator.ListInferenceExperiments.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/paginators/#listinferenceexperimentspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListInferenceGatewaysPaginatorBase = Paginator[ListInferenceGatewaysResponseTypeDef]
+else:
+    _ListInferenceGatewaysPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListInferenceGatewaysPaginator(_ListInferenceGatewaysPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListInferenceGateways.html#SageMaker.Paginator.ListInferenceGateways)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/paginators/#listinferencegatewayspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListInferenceGatewaysRequestPaginateTypeDef]
+    ) -> PageIterator[ListInferenceGatewaysResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListInferenceGateways.html#SageMaker.Paginator.ListInferenceGateways.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/paginators/#listinferencegatewayspaginator)
         """
 
 

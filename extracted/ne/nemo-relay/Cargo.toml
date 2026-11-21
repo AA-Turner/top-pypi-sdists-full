@@ -7,7 +7,7 @@ exclude = [".tmp", ".uv-cache"]
 resolver = "2"
 
 [workspace.package]
-version = "0.11.1"
+version = "0.11.2"
 edition = "2024"
 license = "Apache-2.0"
 repository = "https://github.com/NVIDIA/NeMo-Relay"
@@ -17,15 +17,15 @@ repository = "https://github.com/NVIDIA/NeMo-Relay"
 # dependencies in each member to avoid enabling capabilities for unrelated crates.
 
 # First-party crates (versions are updated by `just set-version`).
-nemo-relay = { version = "0.11.1", path = "crates/core", default-features = false }
-nemo-relay-adaptive = { version = "0.11.1", path = "crates/adaptive" }
-nemo-relay-cli = { version = "0.11.1", path = "crates/cli" }
-nemo-relay-ffi = { version = "0.11.1", path = "crates/ffi" }
-nemo-relay-pii-redaction = { version = "0.11.1", path = "crates/pii-redaction" }
-nemo-relay-plugin = { version = "0.11.1", path = "crates/plugin" }
-nemo-relay-types = { version = "0.11.1", path = "crates/types" }
-nemo-relay-worker = { version = "0.11.1", path = "crates/worker" }
-nemo-relay-worker-proto = { version = "0.11.1", path = "crates/worker-proto" }
+nemo-relay = { version = "0.11.2", path = "crates/core", default-features = false }
+nemo-relay-adaptive = { version = "0.11.2", path = "crates/adaptive" }
+nemo-relay-cli = { version = "0.11.2", path = "crates/cli" }
+nemo-relay-ffi = { version = "0.11.2", path = "crates/ffi" }
+nemo-relay-pii-redaction = { version = "0.11.2", path = "crates/pii-redaction" }
+nemo-relay-plugin = { version = "0.11.2", path = "crates/plugin" }
+nemo-relay-types = { version = "0.11.2", path = "crates/types" }
+nemo-relay-worker = { version = "0.11.2", path = "crates/worker" }
+nemo-relay-worker-proto = { version = "0.11.2", path = "crates/worker-proto" }
 
 # Async runtime and concurrency.
 async-stream = "0.3"
@@ -40,6 +40,7 @@ tokio-util = "0.7"
 # HTTP, gRPC, networking, and TLS.
 axum = "0.8"
 bytes = "1"
+h2 = "0.4"
 http = "1"
 http-body = "1"
 http-body-util = "0.1"

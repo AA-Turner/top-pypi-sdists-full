@@ -1393,7 +1393,11 @@ static const Pattern* createPattern(Compilation& comp, ASTContext& context,
             }
 
             // We just created this pattern var so the const_cast is safe.
-            const_cast<PatternVarSymbol*>(var)->nextTemp = std::exchange(context.firstTempVar, var);
+            // Like iterators, it isn't a member of the scope but it is parented
+            // there so that things like constant function checks can see where it lives.
+            auto mutVar = const_cast<PatternVarSymbol*>(var);
+            mutVar->nextTemp = std::exchange(context.firstTempVar, var);
+            mutVar->setParent(*context.scope);
 
             // We need to force resolution here because the pattern variable doesn't
             // live in a scope and so later attempts at touching it could cause normal
@@ -1839,6 +1843,37 @@ void InsideExpression::serializeTo(ASTSerializer& serializer) const {
     }
 }
 
+// Returns true if the given concatenation consists of a single element and is
+// used (possibly nested within other single-element concatenations) as the
+// count of a replication, as in `{{4}{foo}}`. The width of the unsized integer
+// is irrelevant in that case so there's no reason to warn about it.
+static bool isReplicationCount(const ConcatenationExpressionSyntax& syntax) {
+    const SyntaxNode* node = &syntax;
+    while (true) {
+        auto& concat = node->as<ConcatenationExpressionSyntax>();
+        if (concat.expressions.size() != 1)
+            return false;
+
+        // Skip over any parentheses wrapping the concatenation.
+        auto parent = node->parent;
+        while (parent && parent->kind == SyntaxKind::ParenthesizedExpression) {
+            node = parent;
+            parent = node->parent;
+        }
+
+        if (!parent)
+            return false;
+
+        if (parent->kind == SyntaxKind::MultipleConcatenationExpression)
+            return parent->as<MultipleConcatenationExpressionSyntax>().expression == node;
+
+        if (parent->kind != SyntaxKind::ConcatenationExpression)
+            return false;
+
+        node = parent;
+    }
+}
+
 Expression& ConcatenationExpression::fromSyntax(Compilation& comp,
                                                 const ConcatenationExpressionSyntax& syntax,
                                                 const ASTContext& context,
@@ -1969,7 +2004,7 @@ Expression& ConcatenationExpression::fromSyntax(Compilation& comp,
             break;
         }
 
-        if (arg->isUnsizedInteger() && !unsizedWarned) {
+        if (arg->isUnsizedInteger() && !unsizedWarned && !isReplicationCount(syntax)) {
             context.addDiag(diag::UnsizedInConcat, arg->sourceRange) << type.getBitWidth();
             unsizedWarned = true;
         }
@@ -2203,7 +2238,7 @@ Expression& ReplicationExpression::fromSyntax(Compilation& compilation,
     };
 
     // If the multiplier isn't constant this must be a string replication.
-    EvalContext evalCtx(context, EvalFlags::CacheResults);
+    EvalContext evalCtx(context, EvalFlags::CacheResults | EvalFlags::RequireConstant);
     if (ConstantValue leftVal = left.eval(evalCtx); !leftVal) {
         // Parameters in an uninstantiated body have no values (they are forced
         // invalid), so a multiplier that names one cannot be evaluated, and an
@@ -2260,8 +2295,9 @@ Expression& ReplicationExpression::fromSyntax(Compilation& compilation,
     selfDetermined(context, right);
     result->concat_ = right;
 
+    // Compute in 64 bits; a 32-bit product can wrap around and slip past the width check.
     auto width = context.requireValidBitWidth(
-        SVInt(32, uint64_t(*count), true) * right->type->getBitWidth(), syntax.sourceRange());
+        SVInt(64, uint64_t(*count) * right->type->getBitWidth(), false), syntax.sourceRange());
     if (!width)
         return badExpr(compilation, result);
 
@@ -2629,8 +2665,16 @@ bool ValueRangeExpression::isEquivalentImpl(const ValueRangeExpression& rhs) con
 
 ConstantValue ValueRangeExpression::checkInside(EvalContext& context,
                                                 const ConstantValue& val) const {
-    ConstantValue cvl = left().eval(context);
-    ConstantValue cvr = right().eval(context);
+    // An unbounded literal as a bound leaves that side of the range open. It has no
+    // value of its own to evaluate to here since there is no queue target.
+    auto evalBound = [&](const Expression& expr) -> ConstantValue {
+        if (expr.unwrapImplicitConversions().kind == ExpressionKind::UnboundedLiteral)
+            return ConstantValue::UnboundedPlaceholder{};
+        return expr.eval(context);
+    };
+
+    ConstantValue cvl = evalBound(left());
+    ConstantValue cvr = evalBound(right());
     if (!cvl || !cvr)
         return nullptr;
 
@@ -2665,8 +2709,16 @@ ConstantValue ValueRangeExpression::checkInside(EvalContext& context,
             }
         }
         else {
-            // Convert the rhs to the lhs type.
-            cvr = convert(*right().type, *left().type, right().sourceRange, std::move(cvr));
+            // Convert the rhs to the lhs type. As for relative tolerances,
+            // real to integral conversions truncate instead of rounding.
+            auto& lt = *left().type;
+            if (lt.isIntegral() && right().type->isFloating()) {
+                cvr = SVInt::fromDouble(lt.getBitWidth(), cvr.convertToReal().real(), lt.isSigned(),
+                                        /* round */ false);
+            }
+            else {
+                cvr = convert(*right().type, lt, right().sourceRange, std::move(cvr));
+            }
         }
 
         // Form the range, [A - B : A + B], swapping A and B if needed

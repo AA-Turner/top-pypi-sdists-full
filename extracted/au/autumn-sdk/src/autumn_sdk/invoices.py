@@ -321,6 +321,9 @@ class Invoices(BaseSDK):
         self,
         *,
         invoice_id: str,
+        issue_method: Optional[models.FinalizeInvoiceIssueMethodRequest] = None,
+        net_terms_days: Optional[int] = None,
+        preview: Optional[bool] = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
@@ -329,6 +332,9 @@ class Invoices(BaseSDK):
         r"""Finalizes a draft Stripe invoice, such as one left in draft by invoice mode with finalize set to false. Stripe then collects it: a send-invoice invoice is emailed and an automatically-charged one is charged. Any plan still waiting on the invoice to be paid expires at its due date. Already open or paid invoices are returned unchanged.
 
         :param invoice_id: The Autumn invoice ID to finalize.
+        :param issue_method: finalize opens the invoice without Stripe emailing, reminding or charging. send opens it and Stripe emails it for the customer to pay (send_invoice). charge_automatically charges the customer's payment method on file right away, and is refused when there is none. Omitted, the draft is issued the way it is set up: emailed if it is send_invoice, charged if it is charge_automatically.
+        :param net_terms_days: Days the customer has to pay an emailed invoice. Omitted, the draft keeps its due date, falling back to the org default. Only valid with issue_method send.
+        :param preview: If true, returns exactly what finalizing would issue (lines, discounts, tax, credits, amount due) and how it is issued, without changing anything.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -346,6 +352,9 @@ class Invoices(BaseSDK):
 
         request = models.FinalizeInvoiceParams(
             invoice_id=invoice_id,
+            issue_method=issue_method,
+            net_terms_days=net_terms_days,
+            preview=preview,
         )
 
         req = self._build_request(
@@ -411,6 +420,9 @@ class Invoices(BaseSDK):
         self,
         *,
         invoice_id: str,
+        issue_method: Optional[models.FinalizeInvoiceIssueMethodRequest] = None,
+        net_terms_days: Optional[int] = None,
+        preview: Optional[bool] = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
@@ -419,6 +431,9 @@ class Invoices(BaseSDK):
         r"""Finalizes a draft Stripe invoice, such as one left in draft by invoice mode with finalize set to false. Stripe then collects it: a send-invoice invoice is emailed and an automatically-charged one is charged. Any plan still waiting on the invoice to be paid expires at its due date. Already open or paid invoices are returned unchanged.
 
         :param invoice_id: The Autumn invoice ID to finalize.
+        :param issue_method: finalize opens the invoice without Stripe emailing, reminding or charging. send opens it and Stripe emails it for the customer to pay (send_invoice). charge_automatically charges the customer's payment method on file right away, and is refused when there is none. Omitted, the draft is issued the way it is set up: emailed if it is send_invoice, charged if it is charge_automatically.
+        :param net_terms_days: Days the customer has to pay an emailed invoice. Omitted, the draft keeps its due date, falling back to the org default. Only valid with issue_method send.
+        :param preview: If true, returns exactly what finalizing would issue (lines, discounts, tax, credits, amount due) and how it is issued, without changing anything.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -436,6 +451,9 @@ class Invoices(BaseSDK):
 
         request = models.FinalizeInvoiceParams(
             invoice_id=invoice_id,
+            issue_method=issue_method,
+            net_terms_days=net_terms_days,
+            preview=preview,
         )
 
         req = self._build_request_async(

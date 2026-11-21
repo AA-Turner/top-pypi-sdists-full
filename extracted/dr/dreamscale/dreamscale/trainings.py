@@ -66,7 +66,7 @@ _SUPPORT_FIX = "retry; if it keeps failing, email team@dreamscalelabs.com"
 
 @dataclass(frozen=True)
 class DatasetSource:
-    # "dataset" (kept on Dreamscale), "huggingface", or "several" (Hugging Face datasets, ``parts``)
+    # "dataset" (kept on Dreamscale), "huggingface", or "several" (datasets trained together)
     kind: str
     label: str  # as the user named it
     repo: str | None = None
@@ -134,27 +134,21 @@ def parse_dataset(value: str) -> DatasetSource:
 
 
 def parse_datasets(values: list[str]) -> DatasetSource:
-    """One dataset (``parse_dataset``), or several Hugging Face datasets trained together, each
-    read as it is (nothing merged): they must match after the column mapping."""
+    """One dataset (``parse_dataset``), or several datasets trained together (Dreamscale datasets,
+    Hugging Face datasets, or both), each read as it is (nothing merged): they must match after
+    the column mapping."""
     if len(values) == 1:
         return parse_dataset(values[0])
     parts = tuple(parse_dataset(value) for value in values)
-    if any(part.kind != "huggingface" for part in parts):
-        raise errors.DreamscaleError(
-            errors.ErrorInfo(
-                code="invalid_datasets",
-                problem="several datasets train together from Hugging Face only",
-                cause="a dataset kept on Dreamscale trains by itself, for now",
-                fix="upload them as one dataset (a folder of datasets combines the ones inside), "
-                "or name each as hf://owner/name",
-            )
-        )
     return DatasetSource("several", " + ".join(part.label for part in parts), parts=parts)
 
 
 def resolve_source(source: DatasetSource, client_factory: Callable[..., Any]) -> DatasetSource:
     """A dataset's id and the version a run trains on (its latest unless pinned), and whether an
     ``owner/name`` is your account's dataset or Hugging Face's."""
+    if source.kind == "several":
+        resolved = tuple(resolve_source(part, client_factory) for part in source.parts)
+        return DatasetSource("several", " + ".join(part.label for part in resolved), parts=resolved)
     if source.kind != "dataset" and not source.ambiguous:
         return source
     try:
@@ -462,14 +456,18 @@ def check_estimate(estimate: dict, cause: str) -> None:
         raise problem_error(problems[0] if problems else {}, cause)
 
 
+def _part_identity(part: DatasetSource) -> list[Any]:
+    if part.kind == "huggingface":
+        return [part.repo, part.revision]
+    return [part.dataset_id or part.name, part.version]
+
+
 # Idempotency: one key per (dataset, settings), kept until a run of them is finished.
 def fingerprint(source: DatasetSource, body: dict[str, Any]) -> str:
-    if source.kind == "huggingface":
-        identity: Any = [source.repo, source.revision]
-    elif source.kind == "several":
-        identity = [[part.repo, part.revision] for part in source.parts]
+    if source.kind == "several":
+        identity: Any = [_part_identity(part) for part in source.parts]
     else:  # a new upload followed by the same command starts a new run
-        identity = [source.dataset_id or source.name, source.version]
+        identity = _part_identity(source)
     settings = {k: v for k, v in body.items() if k not in ("dataset", "hf_token", "accept_usd")}
     blob = json.dumps([identity, settings], sort_keys=True, default=str)
     return hashlib.sha256(blob.encode()).hexdigest()
@@ -1104,10 +1102,19 @@ def create(
     (``parse_mapping``'s); each sent only when given."""
     if not base:
         raise errors.catalog("base_required")
-    pinned = getattr(dataset, "ref", None)
-    source = resolve_source(
-        parse_dataset(pinned if pinned is not None else os.fspath(dataset)), client_factory
-    )
+    if isinstance(dataset, list | tuple):
+        if not dataset:
+            raise _not_a_dataset("")
+        refs = [
+            pinned if (pinned := getattr(item, "ref", None)) is not None else os.fspath(item)
+            for item in dataset
+        ]
+        source = resolve_source(parse_datasets(refs), client_factory)
+    else:
+        pinned = getattr(dataset, "ref", None)
+        source = resolve_source(
+            parse_dataset(pinned if pinned is not None else os.fspath(dataset)), client_factory
+        )
     limit = Decimal(str(max_usd))
     body = run_settings(
         base=base, steps=steps, max_usd=None, rtc=rtc, name=name or default_name(source),

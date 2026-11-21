@@ -19,6 +19,9 @@ from virtualenv.run import cli_run
 if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
+    from subprocess import CompletedProcess
+
+    from virtualenv.run.session import Session
 
 _TCSH: Final[str | None] = which("tcsh")
 
@@ -57,9 +60,9 @@ def test_cshell_prompt_collapses_line_boundaries(
     boundary: str,
 ) -> None:
     dest, content = csh_venv("ordinary", prompt=f"first{boundary}second")
-    script: Final = tmp_path / "activate.csh"
+    script: Final[Path] = tmp_path / "activate.csh"
     script.write_text(content, encoding="utf-8")
-    result: Final = run(
+    result: Final[CompletedProcess[str]] = run(
         [shell, "-f"],
         input=f'set prompt = "> "\nsource {script}\nprintf "%s\\n" "$VIRTUAL_ENV:q" "$VIRTUAL_ENV_PROMPT:q" "$prompt:q"\n',
         capture_output=True,
@@ -118,8 +121,8 @@ def test_cshell_tkinter_generation(tmp_path, tcl_lib, tk_lib, activate_lines) ->
 
     # PKG_CONFIG_PATH is always saved on activation
     assert 'set _OLD_PKG_CONFIG_PATH="$PKG_CONFIG_PATH"' in activate
-    assert 'setenv PKG_CONFIG_PATH "${VIRTUAL_ENV}/lib/pkgconfig:${PKG_CONFIG_PATH}"' in activate
-    assert 'setenv PKG_CONFIG_PATH "${VIRTUAL_ENV}/lib/pkgconfig"' in activate
+    assert 'setenv PKG_CONFIG_PATH "$_virtualenv_dir:q/lib/pkgconfig:${PKG_CONFIG_PATH}"' in activate
+    assert 'setenv PKG_CONFIG_PATH "$_virtualenv_dir:q/lib/pkgconfig"' in activate
 
     assert [line for line in activate_lines if line not in activate] == []
 
@@ -159,7 +162,7 @@ def _create_csh_venv(dest: Path, current_fastest: str, prompt: str | None = None
     if prompt is not None:
         cmd += ["--prompt", prompt]
     cli_run(cmd)
-    return (dest / "bin" / "activate.csh").read_text(encoding="utf-8")
+    return (dest / "bin" / "activate.csh").read_text(encoding="utf-8", errors="surrogateescape")
 
 
 # the deactivate tests only source the script, so they share one environment
@@ -238,9 +241,9 @@ def test_cshell_activates_path_with_special_characters(
 )
 def test_cshell_prompt_preserves_quoting_mode(csh_venv: _CshVenv, tmp_path: Path, value: str, option: str) -> None:
     dest, content = csh_venv("ordinary", prompt=value)
-    script: Final = tmp_path / "activate.csh"
+    script: Final[Path] = tmp_path / "activate.csh"
     script.write_text(content, encoding="utf-8")
-    result: Final = run(
+    result: Final[CompletedProcess[str]] = run(
         [_TCSH, "-f"],
         input=f'{option}set prompt = "> "\nsource {script}\nprintf "%s\\n" "$VIRTUAL_ENV:q" "$VIRTUAL_ENV_PROMPT:q" "$prompt:q"\n',
         capture_output=True,
@@ -249,7 +252,7 @@ def test_cshell_prompt_preserves_quoting_mode(csh_venv: _CshVenv, tmp_path: Path
         timeout=30,
         check=True,
     )
-    display: Final = value.replace("\\", "\\\\").replace("!", "\\!")
+    display: Final[str] = value.replace("\\", "\\\\").replace("!", "\\!")
     assert result.stdout == f"{dest}\n{value}\n({display}) > \n"
 
 
@@ -262,7 +265,7 @@ def test_cshell_renders_prompt_literally(csh_venv: _CshVenv, tmp_path: Path, pro
 def _assert_prompt_drawn(csh_venv: _CshVenv, tmp_path: Path, prompt: str, env: dict[str, str]) -> None:
     _, content = csh_venv("plain", prompt=prompt)
     script = tmp_path / "activate.csh"
-    script.write_text(content, encoding="utf-8")
+    script.write_text(content, encoding="utf-8", errors="surrogateescape")
 
     # only an interactive shell draws the prompt, which is where tcsh turns ^c into a control character
     result = run(
@@ -277,6 +280,120 @@ def _assert_prompt_drawn(csh_venv: _CshVenv, tmp_path: Path, prompt: str, env: d
     assert f"({prompt}) ".encode() in result.stdout + result.stderr
 
 
+@pytest.mark.skipif(IS_WIN or _TCSH is None, reason="requires tcsh")
+@pytest.mark.parametrize(
+    "prompt",
+    [
+        pytest.param("é", id="latin"),
+        pytest.param("別", id="stateful"),
+        pytest.param("別%ny", id="percent"),
+        pytest.param("別^b", id="caret"),
+        pytest.param("別!", id="history"),
+        pytest.param(r"別\p", id="backslash"),
+        pytest.param("別'quote", id="quote"),
+    ],
+)
+def test_cshell_renders_utf8_prompt(csh_venv: _CshVenv, tmp_path: Path, prompt: str) -> None:
+    _assert_prompt_drawn(csh_venv, tmp_path, prompt, {**os.environ, "LC_ALL": "C.UTF-8"})
+
+
+@pytest.mark.skipif(IS_WIN, reason="csh is not supported on Windows")
+@pytest.mark.parametrize(
+    "shell",
+    [
+        pytest.param(shell, id=shell, marks=pytest.mark.skipif(which(shell) is None, reason=f"{shell} is unavailable"))
+        for shell in ("tcsh", "csh")
+    ],
+)
+@pytest.mark.parametrize(
+    "prompt", [pytest.param("別 [nomatch]", id="stateful"), pytest.param("🚒 [nomatch]", id="non-bmp")]
+)
+def test_cshell_unicode_prompt_keeps_glob_literal(csh_venv: _CshVenv, shell: str, prompt: str) -> None:
+    dest, _ = csh_venv("plain", prompt=prompt)
+    expected = run(
+        [shell, "-f"],
+        input=f'set prompt = "({prompt}) > "\necho "$#prompt"\nprintf "%s\\n" "$prompt:q"\n'.encode(),
+        env={**os.environ, "LC_ALL": "C.UTF-8"},
+        capture_output=True,
+        timeout=30,
+        check=False,
+    )
+    result = run(
+        [shell, "-f"],
+        input=(
+            f'set prompt = "> "\nsource {dest / "bin" / "activate.csh"}\necho "$#prompt"\nprintf "%s\\n" "$prompt:q"\n'
+        ).encode(),
+        env={**os.environ, "LC_ALL": "C.UTF-8"},
+        capture_output=True,
+        timeout=30,
+        check=False,
+    )
+
+    assert (expected.returncode, expected.stdout[:2], expected.stderr) == (0, b"1\n", b"")
+    assert (result.returncode, result.stdout, result.stderr) == (0, expected.stdout, b"")
+
+
+@pytest.mark.skipif(IS_WIN or _TCSH is None, reason="requires tcsh")
+def test_cshell_prompt_ignores_printf_alias(csh_venv: _CshVenv) -> None:
+    dest, _ = csh_venv("plain", prompt="別")
+    result = run(
+        [_TCSH, "-f", "-i"],
+        input=f"alias printf echo altered\nsource {dest / 'bin' / 'activate.csh'}\nexit\n".encode(),
+        env={**os.environ, "LC_ALL": "C.UTF-8"},
+        capture_output=True,
+        timeout=30,
+        check=False,
+    )
+
+    assert (result.returncode, "(別) ".encode() in result.stdout, result.stderr) == (0, True, b"")
+
+
+@pytest.mark.skipif(IS_WIN or _TCSH is None, reason="requires tcsh")
+def test_cshell_prompt_ignores_printf_on_path(csh_venv: _CshVenv) -> None:
+    dest, _ = csh_venv("plain", prompt="別")
+    fake = dest / "bin" / "printf"
+    fake.write_text("#!/bin/sh\necho altered\n", encoding="utf-8")
+    fake.chmod(0o755)
+    result = run(
+        [_TCSH, "-f", "-i"],
+        input=f"source {dest / 'bin' / 'activate.csh'}\nexit\n".encode(),
+        env={**os.environ, "LC_ALL": "C.UTF-8"},
+        capture_output=True,
+        timeout=30,
+        check=False,
+    )
+
+    assert (result.returncode, "(別) ".encode() in result.stdout, result.stderr) == (0, True, b"")
+
+
+@pytest.mark.skipif(IS_WIN or _TCSH is None, reason="requires tcsh")
+def test_cshell_prompt_uses_printf_fallback(csh_venv: _CshVenv, tmp_path: Path) -> None:
+    _, content = csh_venv("plain", prompt="別")
+    fallback = tmp_path / "printf"
+    target = which("printf")
+    assert target is not None
+    fallback.symlink_to(target)
+    script = tmp_path / "activate.csh"
+    script.write_text(
+        content
+        .replace("set _virtualenv_printf=/usr/bin/printf", "set _virtualenv_printf=/nonexistent/printf")
+        .replace("set _virtualenv_printf=/bin/printf", "set _virtualenv_printf=/nonexistent/printf")
+        .replace("set _virtualenv_printf=/run/current-system/sw/bin/printf", f"set _virtualenv_printf={fallback}"),
+        encoding="utf-8",
+        errors="surrogateescape",
+    )
+    result = run(
+        [_TCSH, "-f", "-i"],
+        input=f"source {script}\nexit\n".encode(),
+        env={**os.environ, "LC_ALL": "C.UTF-8"},
+        capture_output=True,
+        timeout=30,
+        check=False,
+    )
+
+    assert (result.returncode, "(別) ".encode() in result.stdout, result.stderr) == (0, True, b"")
+
+
 @pytest.fixture
 def gbk_env() -> dict[str, str]:
     # a legacy double-byte locale reads the last UTF-8 byte of 中 and the ASCII byte after it as one character
@@ -284,6 +401,40 @@ def gbk_env() -> dict[str, str]:
     if (locale := next((i for i in locales if i.lower().replace("-", "").endswith(".gbk")), None)) is None:
         pytest.skip("no gbk locale is installed")
     return {**os.environ, "LC_ALL": locale}
+
+
+@pytest.fixture
+def big5_hkscs_env() -> dict[str, str]:
+    locales = check_output(["locale", "-a"], text=True, encoding="utf-8").splitlines()
+    if (locale := next((name for name in locales if "big5hkscs" in name.lower().replace("-", "")), None)) is None:
+        pytest.skip("no Big5-HKSCS locale is installed")
+    return {**os.environ, "LC_ALL": locale}
+
+
+@pytest.mark.skipif(IS_WIN or _TCSH is None, reason="requires tcsh")
+@pytest.mark.parametrize(
+    "prompt",
+    [
+        pytest.param("送別", id="closing-quote"),
+        pytest.param("別^b", id="prompt-display"),
+        pytest.param("x別y", id="interior-text"),
+        pytest.param("別x", id="leading-text"),
+    ],
+)
+def test_cshell_keeps_prompt_literal_in_big5_hkscs(
+    csh_venv: _CshVenv, big5_hkscs_env: dict[str, str], prompt: str
+) -> None:
+    dest, _ = csh_venv("plain", prompt=prompt)
+    result = run(
+        [_TCSH, "-f"],
+        input=f"source {dest / 'bin' / 'activate.csh'}\nprintenv VIRTUAL_ENV_PROMPT\n".encode(),
+        env=big5_hkscs_env,
+        capture_output=True,
+        timeout=30,
+        check=False,
+    )
+
+    assert (result.returncode, result.stdout, result.stderr) == (0, f"{prompt}\n".encode(), b"")
 
 
 @pytest.mark.skipif(IS_WIN or _TCSH is None, reason="requires tcsh")
@@ -441,7 +592,7 @@ def test_csh(activation_tester_class, activation_tester) -> None:
 @pytest.mark.skipif(IS_WIN or which("csh") is None, reason="requires csh")
 def test_cshell_disabled_prompt_preserves_existing_value(csh_venv: _CshVenv) -> None:
     dest, _ = csh_venv("plain", prompt="owner's prompt")
-    result: Final = run(
+    result: Final[CompletedProcess[str]] = run(
         ["csh", "-f"],
         input=f"set prompt = original\nsetenv VIRTUAL_ENV_DISABLE_PROMPT 1\nsource {dest / 'bin' / 'activate.csh'}\necho $prompt\n",
         capture_output=True,
@@ -452,11 +603,32 @@ def test_cshell_disabled_prompt_preserves_existing_value(csh_venv: _CshVenv) -> 
     assert result.stdout == "original\n"
 
 
+@pytest.mark.skipif(IS_WIN or _TCSH is None, reason="requires tcsh")
+def test_cshell_disabled_prompt_skips_legacy_literal(csh_venv: _CshVenv, big5_hkscs_env: dict[str, str]) -> None:
+    dest, _ = csh_venv("plain", prompt="別^b")
+    result = run(
+        [_TCSH, "-f"],
+        input=(
+            "set prompt = original\n"
+            "setenv VIRTUAL_ENV_DISABLE_PROMPT 1\n"
+            f"source {dest / 'bin' / 'activate.csh'}\n"
+            "echo $prompt\n"
+        ).encode(),
+        env=big5_hkscs_env,
+        capture_output=True,
+        timeout=30,
+        check=False,
+    )
+
+    assert (result.returncode, result.stdout, result.stderr) == (0, b"original\n", b"")
+
+
 @pytest.mark.skipif(IS_WIN or not _is_bsd_csh(), reason="requires bsd-csh")
-def test_bsd_cshell_displays_one_backslash(csh_venv: _CshVenv) -> None:
-    shell: Final = which("bsd-csh") or which("csh")
-    dest, _ = csh_venv("plain", prompt="a\\b")
-    result: Final = run(
+@pytest.mark.parametrize("prompt", [pytest.param(r"a\b", id="ascii"), pytest.param(r"別\p", id="stateful")])
+def test_bsd_cshell_displays_one_backslash(csh_venv: _CshVenv, prompt: str) -> None:
+    shell: Final[str | None] = which("bsd-csh") or which("csh")
+    dest, _ = csh_venv("plain", prompt=prompt)
+    result: Final[CompletedProcess[str]] = run(
         [shell, "-f", "-i"],
         input=f"source {dest / 'bin' / 'activate.csh'}\nexit\n",
         capture_output=True,
@@ -464,7 +636,7 @@ def test_bsd_cshell_displays_one_backslash(csh_venv: _CshVenv) -> None:
         encoding="utf-8",
         check=True,
     )
-    assert "(a\\b) " in result.stdout + result.stderr
+    assert f"({prompt}) " in result.stdout + result.stderr
 
 
 @pytest.mark.skipif(IS_WIN, reason="csh is not supported on Windows")
@@ -473,7 +645,7 @@ def test_cshell_skips_multiline_destination(tmp_path: Path) -> None:
     scripts = destination / "bin"
     scripts.mkdir(parents=True)
     (scripts / "activate.csh").write_text("old", encoding="utf-8")
-    session: Final = cli_run([str(destination), "--no-seed", "--activators", "cshell"])
+    session: Final[Session] = cli_run([str(destination), "--no-seed", "--activators", "cshell"])
     assert (list(scripts.glob("*.csh")), session.activators) == ([], [])
 
 
@@ -503,14 +675,122 @@ def test_cshell_preserves_non_newline_path(csh_venv: _CshVenv, tmp_path: Path, b
     assert result.stdout == str(dest).encode()
 
 
+@pytest.mark.skipif(IS_WIN or _TCSH is None, reason="requires tcsh")
+@pytest.mark.parametrize(
+    "name",
+    [
+        pytest.param("stĺp", id="separator-low-byte"),
+        pytest.param("demoįevil", id="slash-low-byte"),
+        pytest.param("demoĀevil", id="nul-low-byte"),
+    ],
+)
+def test_cshell_keeps_destination_after_locale_change(csh_venv: _CshVenv, name: str) -> None:
+    dest, _ = csh_venv(name)
+    result = run(
+        [_TCSH, "-f"],
+        input=(
+            'setenv PATH "/usr/bin:/bin"\n'
+            f"source {dest / 'bin' / 'activate.csh'}\n"
+            "setenv LC_ALL C\ncd /\n"
+            "/usr/bin/printenv VIRTUAL_ENV\n"
+            "/usr/bin/printenv PATH\n"
+            "/usr/bin/printenv PKG_CONFIG_PATH\n"
+            "deactivate\n/usr/bin/printenv PATH\n"
+        ).encode(),
+        env={**os.environ, "LC_ALL": "C.UTF-8"},
+        capture_output=True,
+        timeout=30,
+        check=False,
+    )
+
+    expected = f"{dest}\n{dest}/bin:/usr/bin:/bin\n{dest}/lib/pkgconfig\n/usr/bin:/bin\n".encode()
+    assert (result.returncode, result.stdout, result.stderr) == (0, expected, b"")
+
+
+@pytest.mark.skipif(IS_WIN or _TCSH is None, reason="requires tcsh")
+def test_cshell_keeps_values_with_custom_histchars_and_locale_change(
+    csh_venv: _CshVenv, big5_hkscs_env: dict[str, str]
+) -> None:
+    prompt = "送別@missing"
+    dest, _ = csh_venv("stĺp", prompt=prompt)
+    result = run(
+        [_TCSH, "-f"],
+        input=(
+            "set histchars = '@^'\n"
+            'setenv PATH "/usr/bin:/bin"\n'
+            f"source {dest / 'bin' / 'activate.csh'}\n"
+            "setenv LC_ALL C\ncd /\n"
+            "/usr/bin/printenv VIRTUAL_ENV\n"
+            "/usr/bin/printenv VIRTUAL_ENV_PROMPT\n"
+            "/usr/bin/printenv PATH\n"
+            "echo $histchars:q\n"
+            "deactivate\n/usr/bin/printenv PATH\n"
+        ).encode(),
+        env=big5_hkscs_env,
+        capture_output=True,
+        timeout=30,
+        check=False,
+    )
+
+    expected = f"{dest}\n{prompt}\n{dest}/bin:/usr/bin:/bin\n@^\n/usr/bin:/bin\n".encode()
+    assert (result.returncode, result.stdout, result.stderr) == (0, expected, b"")
+
+
 _TEST_CSHELL_HISTCHARS_REPLACES_HASH_IN_PROMPT_PATTERN: Final[re.Pattern[str]] = re.compile(r"\(a%\d+b\) __END__")
 
 
 @pytest.mark.skipif(IS_WIN or _TCSH is None, reason="requires tcsh")
 @pytest.mark.parametrize("state", list(SHELLS["cshell"].states))
 def test_cshell_histchars_replaces_hash_in_prompt(tmp_path: Path, state: str) -> None:
-    result: Final = run_prompt(
+    result: Final[CompletedProcess[str]] = run_prompt(
         "cshell", generate_script("cshell", tmp_path / "env", "a%#b"), state, "histchars", tmp_path
     )
 
     assert _TEST_CSHELL_HISTCHARS_REPLACES_HASH_IN_PROMPT_PATTERN.fullmatch(drawn_prompt("cshell", result))
+
+
+@pytest.mark.skipif(IS_WIN, reason="csh is not supported on Windows")
+@pytest.mark.parametrize(
+    "shell",
+    [
+        pytest.param(shell, id=shell, marks=pytest.mark.skipif(which(shell) is None, reason=f"{shell} is unavailable"))
+        for shell in ("tcsh", "csh")
+    ],
+)
+def test_cshell_custom_histchars_keeps_prompt_as_data(csh_venv: _CshVenv, shell: str) -> None:
+    prompt = "prefix@missing"
+    dest, _ = csh_venv("plain", prompt=prompt)
+    result = run(
+        [shell, "-f"],
+        input=(
+            f"set histchars = '@^'\nsource {dest / 'bin' / 'activate.csh'}\n"
+            'printf "%s\\n" "$VIRTUAL_ENV:q" "$VIRTUAL_ENV_PROMPT:q" "$histchars:q"\n'
+        ),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=30,
+        check=False,
+    )
+
+    assert (result.returncode, result.stdout, result.stderr) == (0, f"{dest}\n{prompt}\n@^\n", "")
+
+
+@pytest.mark.skipif(IS_WIN or _TCSH is None, reason="requires tcsh")
+def test_cshell_unset_histchars_ignores_stale_save(csh_venv: _CshVenv) -> None:
+    dest, _ = csh_venv("plain")
+    result = run(
+        [_TCSH, "-f"],
+        input=(
+            "set _virtualenv_histchars = '@^'\n"
+            f"source {dest / 'bin' / 'activate.csh'}\n"
+            'printenv VIRTUAL_ENV\necho "$?histchars"\n'
+        ),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=30,
+        check=False,
+    )
+
+    assert (result.returncode, result.stdout, result.stderr) == (0, f"{dest}\n0\n", "")

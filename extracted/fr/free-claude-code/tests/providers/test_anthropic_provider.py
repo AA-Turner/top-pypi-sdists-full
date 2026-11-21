@@ -1,4 +1,5 @@
 import json
+from collections.abc import Callable, Coroutine
 
 import httpx
 import pytest
@@ -6,6 +7,7 @@ import pytest
 from free_claude_code.config.provider_catalog import PROVIDER_CATALOG
 from free_claude_code.core.anthropic.passthrough import NativeMessagesRequest
 from free_claude_code.core.failures import ExecutionFailure
+from free_claude_code.core.json_types import JsonObject, load_json_value
 from free_claude_code.core.stream_delivery import current_stream_delivery
 from free_claude_code.providers.anthropic import AnthropicProvider
 from tests.providers.support import (
@@ -13,19 +15,24 @@ from tests.providers.support import (
     make_provider_config,
     without_empty_reasoning,
 )
+from tests.wire_payload import decode_object, object_array, object_payload
 
 
-def provider(handler, *, max_attempts=2, **kwargs):
+def provider(
+    handler: Callable[[httpx.Request], httpx.Response]
+    | Callable[[httpx.Request], Coroutine[None, None, httpx.Response]],
+    *,
+    max_attempts: int = 2,
+):
     return AnthropicProvider(
         make_provider_config("upstream-secret", "https://api.anthropic.com/v1"),
         workspace_id="wrkspc_test",
         admission=immediate_admission(max_attempts=max_attempts),
         transport=httpx.MockTransport(handler),
-        **kwargs,
     )
 
 
-def native_body(stream=False):
+def native_body(stream: bool = False) -> JsonObject:
     return {
         "model": "claude-test",
         "stream": stream,
@@ -47,7 +54,7 @@ async def test_native_json_preserves_body_and_owns_auth():
     body = native_body()
     received = []
 
-    def handle(request):
+    def handle(request: httpx.Request):
         received.append(request)
         return httpx.Response(
             200,
@@ -80,11 +87,16 @@ async def test_native_json_preserves_body_and_owns_auth():
             )
             for frame in x.frames
         ]
-        message = json.loads("".join(result))
+        message = decode_object("".join(result))
         assert message["model"] == "public"
-        assert message["content"][0]["opaque"] == "kept"
-        assert message["usage"]["server_tool_use"]["web_search_requests"] == 1
-        assert without_empty_reasoning(json.loads(received[0].content)) == body
+        assert object_array(message["content"])[0]["opaque"] == "kept"
+        assert (
+            object_payload(object_payload(message["usage"])["server_tool_use"])[
+                "web_search_requests"
+            ]
+            == 1
+        )
+        assert without_empty_reasoning(load_json_value(received[0].content)) == body
         assert received[0].headers["authorization"] == "Bearer upstream-secret"
         assert received[0].headers["anthropic-workspace-id"] == "wrkspc_test"
         assert received[0].headers["anthropic-beta"] == "test-beta"
@@ -98,7 +110,7 @@ async def test_native_json_preserves_body_and_owns_auth():
 @pytest.mark.asyncio
 async def test_native_sse_relays_unknown_tool_events_without_replay():
     calls = []
-    events = [
+    events: list[JsonObject] = [
         {"type": "message_start", "message": {"id": "m", "model": "claude-test"}},
         {
             "type": "content_block_start",
@@ -119,7 +131,7 @@ async def test_native_sse_relays_unknown_tool_events_without_replay():
         {"type": "error", "error": {"type": "overloaded_error", "message": "busy"}},
     ]
 
-    def handle(request):
+    def handle(request: httpx.Request):
         calls.append(request)
         return httpx.Response(
             200,
@@ -155,7 +167,7 @@ async def test_native_sse_relays_unknown_tool_events_without_replay():
 async def test_model_discovery_is_atomic_and_retains_thinking_types():
     fail = False
 
-    def handle(request):
+    def handle(request: httpx.Request):
         if "after_id" not in request.url.params:
             return httpx.Response(
                 200,

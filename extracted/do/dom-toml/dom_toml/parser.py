@@ -30,7 +30,22 @@ Abstract base class for TOML configuration parsers.
 
 # stdlib
 from abc import ABC, abstractmethod
-from typing import Any, Callable, ClassVar, Dict, Iterable, List, Optional, Tuple, Type, TypeVar, Union
+from typing import (
+		Any,
+		Callable,
+		ClassVar,
+		Dict,
+		Generic,
+		Iterable,
+		List,
+		Mapping,
+		Optional,
+		Tuple,
+		Type,
+		TypeVar,
+		Union,
+		cast
+		)
 
 # this package
 import dom_toml
@@ -69,10 +84,10 @@ def construct_path(path: Iterable[str]) -> str:
 	return '.'.join([dom_toml.dumps({elem: 0})[:-5] for elem in path])
 
 
-_C = TypeVar("_C", bound=Callable)
+_M = TypeVar("_M", bound=Mapping[str, Any])
 
 
-class AbstractConfigParser(ABC):
+class AbstractConfigParser(ABC, Generic[_M]):
 	"""
 	Abstract base class for TOML configuration parsers.
 
@@ -189,7 +204,7 @@ class AbstractConfigParser(ABC):
 			self,
 			config: Dict[str, TOML_TYPES],
 			set_defaults: bool = False,
-			) -> Dict[str, TOML_TYPES]:
+			) -> _M:
 		r"""
 		Parse the TOML configuration.
 
@@ -243,4 +258,4 @@ class AbstractConfigParser(ABC):
 				value = factory()
 				parsed_config.setdefault(key, value)
 
-		return parsed_config
+		return cast(_M, parsed_config)

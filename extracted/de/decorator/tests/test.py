@@ -1,19 +1,21 @@
 import sys
 import doctest
 import unittest
+import enum
 import decimal
 import inspect
 import functools
 import asyncio
 from collections import defaultdict, ChainMap, abc as c
-from decorator import dispatch_on, contextmanager, decorator
+from decorator import (dispatch_on, contextmanager, decorator, decoratorx,
+                       FunctionMaker, getfullargspec)
 try:
     from . import documentation as doc  # good with pytest
 except ImportError:
     import documentation as doc  # good with `python src/tests/test.py`
 from typing import TYPE_CHECKING  # introduced in 3.5
 if TYPE_CHECKING:  # only inside mypy
-    from datetime import date
+    from collections.abc import Sequence
 PYVER = sys.version_info[:2]
 
 
@@ -71,6 +73,22 @@ class GeneratorCallerTestCase(unittest.TestCase):
         self.assertTrue(inspect.isgeneratorfunction(new))
         self.assertEqual(list(new()), [1, 4, 9])
 
+    def test_generator_return_value(self):
+        @decorator
+        def identity(func, *args, **kw):
+            return (yield from func(*args, **kw))
+
+        @identity
+        def numbers():
+            yield 1
+            return 42
+
+        gen = numbers()
+        self.assertEqual(next(gen), 1)
+        with self.assertRaises(StopIteration) as caught:
+            next(gen)
+        self.assertEqual(caught.exception.value, 42)
+
 
 class DocumentationTestCase(unittest.TestCase):
     def test(self):
@@ -107,12 +125,118 @@ class DocumentationTestCase(unittest.TestCase):
 
 
 class ExtraTestCase(unittest.TestCase):
+    def test_stacked_wrapped(self):
+        @decorator
+        def increment(func, *args, **kwargs):
+            return func(*args, **kwargs) + 1
+
+        def original(value):
+            return value
+
+        first = increment(original)
+        second = increment(first)
+        self.assertEqual(second(3), 5)
+        self.assertIs(second.__wrapped__, first)
+        self.assertEqual(second.__wrapped__(3), 4)
+        self.assertIs(inspect.unwrap(second, stop=lambda f: f is first), first)
+        self.assertIs(inspect.unwrap(second), original)
+
+    def test_wrapped_caller(self):
+        def caller(func, *args, **kwargs):
+            return func(*args, **kwargs)
+
+        @functools.wraps(caller)
+        def wrapped_caller(*args, **kwargs):
+            return caller(*args, **kwargs)
+
+        dec = decorator(wrapped_caller)
+        self.assertIs(dec.__wrapped__, wrapped_caller)
+        self.assertIs(dec.__wrapped__.__wrapped__, caller)
+
     def test_qualname(self):
         self.assertEqual(doc.operation1.__qualname__, 'operation1')
 
     def test_signature(self):
         sig = inspect.signature(doc.f1)
         self.assertEqual(str(sig), '(x)')
+
+    def test_return_annotation(self):
+        # see https://github.com/micheles/decorator/issues/138
+        def add(a, b):
+            return a + b
+
+        # a signature string without a return annotation still works
+        add2 = FunctionMaker.create(
+            'add2(a: int, b: int)', 'return add(a, b)',
+            evaldict={'add': add})
+        self.assertEqual(add2(6, 8), 14)
+
+        # a signature string with a return annotation must not raise
+        add3 = FunctionMaker.create(
+            'add3(a: int, b: int) -> int', 'return add(a, b)',
+            evaldict={'add': add})
+        self.assertEqual(add3(6, 8), 14)
+
+    def test_decoratorx_positional_only_parameters(self):
+        @decoratorx
+        def identity(func, *args, **kwargs):
+            return func(*args, **kwargs)
+
+        @identity
+        def target(a, /, b=2, *, c=3):
+            return a + b + c
+
+        self.assertEqual(target.__code__.co_posonlyargcount, 1)
+        self.assertEqual(target(1), 6)
+        self.assertEqual(target(1, b=4, c=5), 10)
+        with self.assertRaises(TypeError):
+            target(a=1)
+
+        @identity
+        def kwtarget(a, /, **kw):
+            return a, kw
+
+        # a positional-only name can also be passed in **kw
+        self.assertEqual(kwtarget(1, a=2), (1, {'a': 2}))
+
+    def test_getfullargspec_does_not_follow_wrapped(self):
+        # see https://github.com/micheles/decorator/pull/197
+        def original(hidden):
+            return hidden
+
+        @functools.wraps(original)
+        def wrapper(actual, optional=3, *items, flag=True, **options):
+            return actual, optional, items, flag, options
+
+        self.assertEqual(getfullargspec(wrapper),
+                         inspect.getfullargspec(wrapper))
+        wrapper.__wrapped__ = wrapper  # a cycle is not a problem
+        self.assertEqual(getfullargspec(wrapper),
+                         inspect.getfullargspec(wrapper))
+
+    def test_wrapped_functions_keep_their_signature(self):
+        def original(hidden):
+            return hidden
+
+        @functools.wraps(original)
+        def wrapper(actual, optional=3):
+            return actual + optional
+
+        @decoratorx
+        def double(func, *args, **kw):
+            return func(*args, **kw) * 2
+
+        self.assertEqual(double(wrapper)(actual=2), 10)
+        self.assertEqual(double(wrapper)(2, 5), 14)
+
+        generic = dispatch_on('actual')(wrapper)
+
+        @generic.register(str)
+        def generic_str(actual, optional=3):
+            return actual * optional
+
+        self.assertEqual(generic(1), 4)
+        self.assertEqual(generic('x'), 'xxx')
 
     def test_unique_filenames(self):
         @decorator
@@ -205,6 +329,109 @@ singledispatch = dispatch_on('obj')
 
 
 class TestSingleDispatch(unittest.TestCase):
+    def test_object_uses_default(self):
+        @singledispatch
+        def g(obj):
+            return "base"
+
+        self.assertEqual(g(object()), "base")
+
+        @g.register(object)
+        def g_object(obj):
+            return "object"
+
+        self.assertEqual(g(object()), "object")
+
+    def test_object_uses_default_in_multiple_dispatch(self):
+        @dispatch_on('left', 'right')
+        def g(left, right):
+            return "base"
+
+        self.assertEqual(g(object(), 1), "base")
+        self.assertEqual(g(1, object()), "base")
+        self.assertEqual(g(object(), object()), "base")
+
+    def test_virtual_ancestor_of_final_types(self):
+        # see https://github.com/micheles/decorator/issues/198
+        @singledispatch
+        def g(obj):
+            return "base"
+
+        @g.register(c.Sequence)
+        def g_sequence(obj):
+            return "sequence"
+
+        self.assertEqual(g([1, 2]), "sequence")
+        self.assertEqual(g(range(3)), "sequence")
+        self.assertEqual(g(memoryview(b"abc")), "sequence")
+        self.assertEqual(g.dispatch_info(range)[:2],
+                         [('range',), ('Sequence',)])
+
+        class Color(enum.Enum):  # final, with a metaclass other than ABCMeta
+            RED = 1
+
+        @singledispatch
+        def h(obj):
+            return "base"
+
+        @h.register(c.Hashable)
+        def h_hashable(obj):
+            return "hashable"
+
+        for obj in (True, None, Ellipsis, NotImplemented, Color.RED):
+            self.assertEqual(h(obj), "hashable")
+
+    def test_virtual_ancestor_of_final_types_in_multiple_dispatch(self):
+        @dispatch_on('left', 'right')
+        def g(left, right):
+            return "base"
+
+        @g.register(c.Sequence, c.Sequence)
+        def g_sequences(left, right):
+            return "sequences"
+
+        for left in (range(2), memoryview(b"ab")):
+            for right in (range(2), memoryview(b"ab")):
+                self.assertEqual(g(left, right), "sequences")
+        self.assertEqual(g(range(2), 1), "base")
+
+    def test_virtual_ancestor_without_subclassing(self):
+        # computing the virtual MRO must not create subclasses of the type
+        subclasses = []
+
+        class Base(object):
+            def __init_subclass__(cls, **kw):
+                super().__init_subclass__(**kw)
+                subclasses.append(cls)
+
+            def __len__(self):  # implicitly a Sized
+                return 0
+
+        @singledispatch
+        def g(obj):
+            return "base"
+
+        @g.register(c.Sized)
+        def g_sized(obj):
+            return "sized"
+
+        self.assertEqual(g(Base()), "sized")
+        self.assertEqual(subclasses, [])
+
+    def test_class_arguments(self):
+        # type(int) is type, and type.mro() is an unbound method
+        @singledispatch
+        def g(obj):
+            return "base"
+
+        @g.register(c.Sized)
+        def g_sized(obj):
+            return "sized"
+
+        self.assertEqual(g(int), "base")
+        self.assertEqual(g(list), "base")  # the class is not Sized
+        self.assertEqual(g(c.Sized), "base")  # type is ABCMeta
+
     def test_simple_overloads(self):
         @singledispatch
         def g(obj):
@@ -528,11 +755,147 @@ class PartialTestCase(unittest.TestCase):
         out = partial_func("y")
         self.assertEqual(out, '<before>xy<after>')
 
+    def test_decorating_partial_does_not_change_its_signature(self):
+        def origin_func(x, y):
+            return x + y
+        original = functools.partial(origin_func, "x")
+        original.custom = "preserved"
+        signature = inspect.signature(original)
+
+        first = partial_before_after(original)
+        self.assertEqual(inspect.signature(original), signature)
+        self.assertFalse(hasattr(original, '__wrapped__'))
+        self.assertEqual(first.custom, "preserved")
+
+        second = partial_before_after(original)
+        self.assertEqual(inspect.signature(first), signature)
+        self.assertEqual(inspect.signature(second), signature)
+        self.assertEqual(first("y"), '<before>xy<after>')
+        self.assertEqual(second("z"), '<before>xz<after>')
+
+
+class FunctionMakerAnnotationsTestCase(unittest.TestCase):
+    @staticmethod
+    def identity(func, *args, **kwargs):
+        return func(*args, **kwargs)
+
+    def test_concrete_annotations_are_preserved(self):
+        def original(value: int) -> str:
+            return str(value)
+
+        wrapped = decoratorx(self.identity)(original)
+        self.assertEqual(wrapped(3), '3')
+        self.assertEqual(wrapped.__annotations__, original.__annotations__)
+
+    def test_string_annotations_are_preserved(self):
+        namespace = {}
+        exec('from __future__ import annotations\n'
+             'def original(value: Undefined) -> Undefined: return value', namespace)
+        original = namespace['original']
+        wrapped = decoratorx(self.identity)(original)
+        self.assertEqual(wrapped(3), 3)
+        self.assertEqual(wrapped.__annotations__, original.__annotations__)
+        self.assertEqual(wrapped.__annotations__,
+                         {'value': 'Undefined', 'return': 'Undefined'})
+
+    @unittest.skipIf(PYVER < (3, 14), 'requires deferred annotations')
+    def test_failing_annotations_are_not_lost(self):
+        import annotationlib
+
+        namespace = {}
+        exec('import types\n'
+             'def original(value: types.NotThere) -> int: return value', namespace)
+        wrapped = decoratorx(self.identity)(namespace['original'])
+        self.assertEqual(wrapped(3), 3)
+        self.assertEqual(annotationlib.get_annotations(
+            wrapped, format=annotationlib.Format.STRING),
+            {'value': 'types.NotThere', 'return': 'int'})
+
+    @unittest.skipIf(PYVER < (3, 14), 'requires deferred annotations')
+    def test_type_checking_only_annotations_do_not_prevent_decoration(self):
+        import annotationlib
+
+        namespace = {}
+        exec('from typing import TYPE_CHECKING\n'
+             'if TYPE_CHECKING:\n'
+             '    from collections.abc import Sequence\n'
+             'def original(values: Sequence[int], *, factor: int = 2) -> int:\n'
+             '    return len(values) * factor', namespace)
+        original = namespace['original']
+        wrapped = decoratorx(self.identity)(original)
+        self.assertEqual(wrapped([1, 2], factor=3), 6)
+        self.assertEqual(wrapped.__code__.co_argcount, 1)
+        self.assertEqual(wrapped.__code__.co_kwonlyargcount, 1)
+        self.assertEqual(wrapped.__kwdefaults__, {'factor': 2})
+        annotations = annotationlib.get_annotations(
+            wrapped, format=annotationlib.Format.FORWARDREF)
+        self.assertIsInstance(annotations['values'], annotationlib.ForwardRef)
+        original_annotations = annotationlib.get_annotations(
+            original, format=annotationlib.Format.FORWARDREF)
+        self.assertEqual(annotations['values'].__forward_arg__,
+                         original_annotations['values'].__forward_arg__)
+        namespace['Sequence'] = c.Sequence
+        self.assertEqual(wrapped.__annotations__['values'], c.Sequence[int])
+        self.assertIs(annotations['return'], int)
+
+    @unittest.skipIf(PYVER < (3, 14), 'requires deferred annotations')
+    def test_annotations_resolve_after_a_later_definition(self):
+        namespace = {}
+        exec('def original(value: Later) -> Later: return value', namespace)
+        original = namespace['original']
+        wrapped = decoratorx(self.identity)(original)
+        second = decoratorx(self.identity)(wrapped)
+        self.assertEqual(second(3), 3)
+        with self.assertRaises(NameError):
+            second.__annotations__
+        namespace['Later'] = int
+        expected = {'value': int, 'return': int}
+        self.assertEqual(second.__annotations__, expected)
+        self.assertEqual(wrapped.__annotations__, expected)
+        self.assertEqual(original.__annotations__, expected)
+
+    @unittest.skipIf(PYVER < (3, 14), 'requires deferred annotations')
+    def test_annotations_keep_the_original_closure(self):
+        namespace = {}
+        exec('def factory():\n'
+             '    class Local: pass\n'
+             '    def original(value: Local, other: Later) -> Local:\n'
+             '        return value\n'
+             '    return original, Local\n'
+             'original, Local = factory()', namespace)
+        original = namespace['original']
+        generated = FunctionMaker.create(
+            original, 'return target(value, other)', {'target': original})
+        namespace['Later'] = str
+        local = namespace['Local']
+        value = local()
+        self.assertIs(generated(value, 'text'), value)
+        self.assertEqual(generated.__annotations__,
+                         {'value': local, 'other': str, 'return': local})
+
+    @unittest.skipIf(PYVER < (3, 14), 'requires deferred annotations')
+    def test_async_wrapper_keeps_deferred_annotations(self):
+        async def caller(func, *args, **kwargs):
+            return await func(*args, **kwargs)
+
+        namespace = {}
+        exec('async def original(value: Later) -> Later: return value', namespace)
+        wrapped = decoratorx(caller)(namespace['original'])
+        self.assertTrue(inspect.iscoroutinefunction(wrapped))
+        self.assertEqual(asyncio.run(wrapped(3)), 3)
+        namespace['Later'] = int
+        self.assertEqual(wrapped.__annotations__, {'value': int, 'return': int})
+
 
 if PYVER >= (3, 14):
-    # testing forward references in python 3.14+
+    # testing forward references in python 3.14+, see
+    # https://github.com/micheles/decorator/issues/177#issuecomment-4471451108
     @decorator
-    def get_dob() -> date:
+    def identity(func, *args, **kwargs):
+        return func(*args, **kwargs)
+
+    @identity
+    def foo(ints: Sequence[int]) -> None:
         pass
 
 

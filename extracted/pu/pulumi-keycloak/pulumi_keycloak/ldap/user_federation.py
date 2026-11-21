@@ -23,7 +23,6 @@ class UserFederationArgs:
     def __init__(__self__, *,
                  connection_url: pulumi.Input[_builtins.str],
                  rdn_ldap_attribute: pulumi.Input[_builtins.str],
-                 realm_id: pulumi.Input[_builtins.str],
                  user_object_classes: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]],
                  username_ldap_attribute: pulumi.Input[_builtins.str],
                  users_dn: pulumi.Input[_builtins.str],
@@ -50,6 +49,9 @@ class UserFederationArgs:
                  pagination: pulumi.Input[Optional[_builtins.bool]] = None,
                  priority: pulumi.Input[Optional[_builtins.int]] = None,
                  read_timeout: pulumi.Input[Optional[_builtins.str]] = None,
+                 realm_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 realm_internal_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 referral: pulumi.Input[Optional[_builtins.str]] = None,
                  relative_create_dn: pulumi.Input[Optional[_builtins.str]] = None,
                  search_scope: pulumi.Input[Optional[_builtins.str]] = None,
                  start_tls: pulumi.Input[Optional[_builtins.bool]] = None,
@@ -64,7 +66,6 @@ class UserFederationArgs:
 
         :param pulumi.Input[_builtins.str] connection_url: Connection URL to the LDAP server.
         :param pulumi.Input[_builtins.str] rdn_ldap_attribute: Name of the LDAP attribute to use as the relative distinguished name.
-        :param pulumi.Input[_builtins.str] realm_id: The realm that this provider will provide user federation for.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] user_object_classes: Array of all values of LDAP objectClass attribute for users in LDAP. Must contain at least one.
         :param pulumi.Input[_builtins.str] username_ldap_attribute: Name of the LDAP attribute to use as the Keycloak username.
         :param pulumi.Input[_builtins.str] users_dn: Full DN of LDAP tree where your users are.
@@ -92,6 +93,9 @@ class UserFederationArgs:
         :param pulumi.Input[_builtins.bool] pagination: When true, Keycloak assumes the LDAP server supports pagination. Defaults to `true`.
         :param pulumi.Input[_builtins.int] priority: Priority of this provider when looking up users. Lower values are first. Defaults to `0`.
         :param pulumi.Input[_builtins.str] read_timeout: LDAP read timeout in the format of a [Go duration string](https://golang.org/pkg/time/#Duration.String).
+        :param pulumi.Input[_builtins.str] realm_id: The realm that this provider will provide user federation for.
+        :param pulumi.Input[_builtins.str] realm_internal_id: The internal id of the realm, as an alternative to realm_id. Unlike the realm name, it does not change when the realm is renamed.
+        :param pulumi.Input[_builtins.str] referral: Specifies if LDAP referrals should be followed or ignored. Can be one of `ignore` or `follow`:
         :param pulumi.Input[_builtins.str] relative_create_dn: Relative DN of LDAP tree where new users will be created. Keycloak will use the Users DN as the base for the new user's DN.
         :param pulumi.Input[_builtins.str] search_scope: Can be one of `ONE_LEVEL` or `SUBTREE`:
                - `ONE_LEVEL`: Only search for users in the DN specified by `user_dn`.
@@ -109,7 +113,6 @@ class UserFederationArgs:
         """
         pulumi.set(__self__, "connection_url", connection_url)
         pulumi.set(__self__, "rdn_ldap_attribute", rdn_ldap_attribute)
-        pulumi.set(__self__, "realm_id", realm_id)
         pulumi.set(__self__, "user_object_classes", user_object_classes)
         pulumi.set(__self__, "username_ldap_attribute", username_ldap_attribute)
         pulumi.set(__self__, "users_dn", users_dn)
@@ -158,6 +161,12 @@ class UserFederationArgs:
             pulumi.set(__self__, "priority", priority)
         if read_timeout is not None:
             pulumi.set(__self__, "read_timeout", read_timeout)
+        if realm_id is not None:
+            pulumi.set(__self__, "realm_id", realm_id)
+        if realm_internal_id is not None:
+            pulumi.set(__self__, "realm_internal_id", realm_internal_id)
+        if referral is not None:
+            pulumi.set(__self__, "referral", referral)
         if relative_create_dn is not None:
             pulumi.set(__self__, "relative_create_dn", relative_create_dn)
         if search_scope is not None:
@@ -200,18 +209,6 @@ class UserFederationArgs:
     @rdn_ldap_attribute.setter
     def rdn_ldap_attribute(self, value: pulumi.Input[_builtins.str]):
         pulumi.set(self, "rdn_ldap_attribute", value)
-
-    @_builtins.property
-    @pulumi.getter(name="realmId")
-    def realm_id(self) -> pulumi.Input[_builtins.str]:
-        """
-        The realm that this provider will provide user federation for.
-        """
-        return pulumi.get(self, "realm_id")
-
-    @realm_id.setter
-    def realm_id(self, value: pulumi.Input[_builtins.str]):
-        pulumi.set(self, "realm_id", value)
 
     @_builtins.property
     @pulumi.getter(name="userObjectClasses")
@@ -527,6 +524,42 @@ class UserFederationArgs:
         pulumi.set(self, "read_timeout", value)
 
     @_builtins.property
+    @pulumi.getter(name="realmId")
+    def realm_id(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The realm that this provider will provide user federation for.
+        """
+        return pulumi.get(self, "realm_id")
+
+    @realm_id.setter
+    def realm_id(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "realm_id", value)
+
+    @_builtins.property
+    @pulumi.getter(name="realmInternalId")
+    def realm_internal_id(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The internal id of the realm, as an alternative to realm_id. Unlike the realm name, it does not change when the realm is renamed.
+        """
+        return pulumi.get(self, "realm_internal_id")
+
+    @realm_internal_id.setter
+    def realm_internal_id(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "realm_internal_id", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def referral(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Specifies if LDAP referrals should be followed or ignored. Can be one of `ignore` or `follow`:
+        """
+        return pulumi.get(self, "referral")
+
+    @referral.setter
+    def referral(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "referral", value)
+
+    @_builtins.property
     @pulumi.getter(name="relativeCreateDn")
     def relative_create_dn(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
@@ -668,6 +701,8 @@ class _UserFederationState:
                  rdn_ldap_attribute: pulumi.Input[Optional[_builtins.str]] = None,
                  read_timeout: pulumi.Input[Optional[_builtins.str]] = None,
                  realm_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 realm_internal_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 referral: pulumi.Input[Optional[_builtins.str]] = None,
                  relative_create_dn: pulumi.Input[Optional[_builtins.str]] = None,
                  search_scope: pulumi.Input[Optional[_builtins.str]] = None,
                  start_tls: pulumi.Input[Optional[_builtins.bool]] = None,
@@ -710,6 +745,8 @@ class _UserFederationState:
         :param pulumi.Input[_builtins.str] rdn_ldap_attribute: Name of the LDAP attribute to use as the relative distinguished name.
         :param pulumi.Input[_builtins.str] read_timeout: LDAP read timeout in the format of a [Go duration string](https://golang.org/pkg/time/#Duration.String).
         :param pulumi.Input[_builtins.str] realm_id: The realm that this provider will provide user federation for.
+        :param pulumi.Input[_builtins.str] realm_internal_id: The internal id of the realm, as an alternative to realm_id. Unlike the realm name, it does not change when the realm is renamed.
+        :param pulumi.Input[_builtins.str] referral: Specifies if LDAP referrals should be followed or ignored. Can be one of `ignore` or `follow`:
         :param pulumi.Input[_builtins.str] relative_create_dn: Relative DN of LDAP tree where new users will be created. Keycloak will use the Users DN as the base for the new user's DN.
         :param pulumi.Input[_builtins.str] search_scope: Can be one of `ONE_LEVEL` or `SUBTREE`:
                - `ONE_LEVEL`: Only search for users in the DN specified by `user_dn`.
@@ -779,6 +816,10 @@ class _UserFederationState:
             pulumi.set(__self__, "read_timeout", read_timeout)
         if realm_id is not None:
             pulumi.set(__self__, "realm_id", realm_id)
+        if realm_internal_id is not None:
+            pulumi.set(__self__, "realm_internal_id", realm_internal_id)
+        if referral is not None:
+            pulumi.set(__self__, "referral", referral)
         if relative_create_dn is not None:
             pulumi.set(__self__, "relative_create_dn", relative_create_dn)
         if search_scope is not None:
@@ -1108,6 +1149,30 @@ class _UserFederationState:
         pulumi.set(self, "realm_id", value)
 
     @_builtins.property
+    @pulumi.getter(name="realmInternalId")
+    def realm_internal_id(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The internal id of the realm, as an alternative to realm_id. Unlike the realm name, it does not change when the realm is renamed.
+        """
+        return pulumi.get(self, "realm_internal_id")
+
+    @realm_internal_id.setter
+    def realm_internal_id(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "realm_internal_id", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def referral(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Specifies if LDAP referrals should be followed or ignored. Can be one of `ignore` or `follow`:
+        """
+        return pulumi.get(self, "referral")
+
+    @referral.setter
+    def referral(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "referral", value)
+
+    @_builtins.property
     @pulumi.getter(name="relativeCreateDn")
     def relative_create_dn(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
@@ -1300,6 +1365,8 @@ class UserFederation(pulumi.CustomResource):
                  rdn_ldap_attribute: pulumi.Input[Optional[_builtins.str]] = None,
                  read_timeout: pulumi.Input[Optional[_builtins.str]] = None,
                  realm_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 realm_internal_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 referral: pulumi.Input[Optional[_builtins.str]] = None,
                  relative_create_dn: pulumi.Input[Optional[_builtins.str]] = None,
                  search_scope: pulumi.Input[Optional[_builtins.str]] = None,
                  start_tls: pulumi.Input[Optional[_builtins.bool]] = None,
@@ -1398,6 +1465,8 @@ class UserFederation(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] rdn_ldap_attribute: Name of the LDAP attribute to use as the relative distinguished name.
         :param pulumi.Input[_builtins.str] read_timeout: LDAP read timeout in the format of a [Go duration string](https://golang.org/pkg/time/#Duration.String).
         :param pulumi.Input[_builtins.str] realm_id: The realm that this provider will provide user federation for.
+        :param pulumi.Input[_builtins.str] realm_internal_id: The internal id of the realm, as an alternative to realm_id. Unlike the realm name, it does not change when the realm is renamed.
+        :param pulumi.Input[_builtins.str] referral: Specifies if LDAP referrals should be followed or ignored. Can be one of `ignore` or `follow`:
         :param pulumi.Input[_builtins.str] relative_create_dn: Relative DN of LDAP tree where new users will be created. Keycloak will use the Users DN as the base for the new user's DN.
         :param pulumi.Input[_builtins.str] search_scope: Can be one of `ONE_LEVEL` or `SUBTREE`:
                - `ONE_LEVEL`: Only search for users in the DN specified by `user_dn`.
@@ -1519,6 +1588,8 @@ class UserFederation(pulumi.CustomResource):
                  rdn_ldap_attribute: pulumi.Input[Optional[_builtins.str]] = None,
                  read_timeout: pulumi.Input[Optional[_builtins.str]] = None,
                  realm_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 realm_internal_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 referral: pulumi.Input[Optional[_builtins.str]] = None,
                  relative_create_dn: pulumi.Input[Optional[_builtins.str]] = None,
                  search_scope: pulumi.Input[Optional[_builtins.str]] = None,
                  start_tls: pulumi.Input[Optional[_builtins.bool]] = None,
@@ -1569,9 +1640,9 @@ class UserFederation(pulumi.CustomResource):
                 raise TypeError("Missing required property 'rdn_ldap_attribute'")
             __props__.__dict__["rdn_ldap_attribute"] = rdn_ldap_attribute
             __props__.__dict__["read_timeout"] = read_timeout
-            if realm_id is None and not opts.urn:
-                raise TypeError("Missing required property 'realm_id'")
             __props__.__dict__["realm_id"] = realm_id
+            __props__.__dict__["realm_internal_id"] = realm_internal_id
+            __props__.__dict__["referral"] = referral
             __props__.__dict__["relative_create_dn"] = relative_create_dn
             __props__.__dict__["search_scope"] = search_scope
             __props__.__dict__["start_tls"] = start_tls
@@ -1630,6 +1701,8 @@ class UserFederation(pulumi.CustomResource):
             rdn_ldap_attribute: pulumi.Input[Optional[_builtins.str]] = None,
             read_timeout: pulumi.Input[Optional[_builtins.str]] = None,
             realm_id: pulumi.Input[Optional[_builtins.str]] = None,
+            realm_internal_id: pulumi.Input[Optional[_builtins.str]] = None,
+            referral: pulumi.Input[Optional[_builtins.str]] = None,
             relative_create_dn: pulumi.Input[Optional[_builtins.str]] = None,
             search_scope: pulumi.Input[Optional[_builtins.str]] = None,
             start_tls: pulumi.Input[Optional[_builtins.bool]] = None,
@@ -1676,6 +1749,8 @@ class UserFederation(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] rdn_ldap_attribute: Name of the LDAP attribute to use as the relative distinguished name.
         :param pulumi.Input[_builtins.str] read_timeout: LDAP read timeout in the format of a [Go duration string](https://golang.org/pkg/time/#Duration.String).
         :param pulumi.Input[_builtins.str] realm_id: The realm that this provider will provide user federation for.
+        :param pulumi.Input[_builtins.str] realm_internal_id: The internal id of the realm, as an alternative to realm_id. Unlike the realm name, it does not change when the realm is renamed.
+        :param pulumi.Input[_builtins.str] referral: Specifies if LDAP referrals should be followed or ignored. Can be one of `ignore` or `follow`:
         :param pulumi.Input[_builtins.str] relative_create_dn: Relative DN of LDAP tree where new users will be created. Keycloak will use the Users DN as the base for the new user's DN.
         :param pulumi.Input[_builtins.str] search_scope: Can be one of `ONE_LEVEL` or `SUBTREE`:
                - `ONE_LEVEL`: Only search for users in the DN specified by `user_dn`.
@@ -1724,6 +1799,8 @@ class UserFederation(pulumi.CustomResource):
         __props__.__dict__["rdn_ldap_attribute"] = rdn_ldap_attribute
         __props__.__dict__["read_timeout"] = read_timeout
         __props__.__dict__["realm_id"] = realm_id
+        __props__.__dict__["realm_internal_id"] = realm_internal_id
+        __props__.__dict__["referral"] = referral
         __props__.__dict__["relative_create_dn"] = relative_create_dn
         __props__.__dict__["search_scope"] = search_scope
         __props__.__dict__["start_tls"] = start_tls
@@ -1738,6 +1815,92 @@ class UserFederation(pulumi.CustomResource):
         __props__.__dict__["validate_password_policy"] = validate_password_policy
         __props__.__dict__["vendor"] = vendor
         return UserFederation(resource_name, opts=opts, __props__=__props__)
+
+    @staticmethod
+    def exists(id: pulumi.Input[str],
+            opts: Optional[pulumi.ResourceOptions] = None,
+            batch_size_for_sync: pulumi.Input[Optional[_builtins.int]] = None,
+            bind_credential: pulumi.Input[Optional[_builtins.str]] = None,
+            bind_credential_wo: pulumi.Input[Optional[_builtins.str]] = None,
+            bind_credential_wo_version: pulumi.Input[Optional[_builtins.str]] = None,
+            bind_dn: pulumi.Input[Optional[_builtins.str]] = None,
+            cache: pulumi.Input[Optional[Union['UserFederationCacheArgs', 'UserFederationCacheArgsDict', 'outputs.UserFederationCache']]] = None,
+            changed_sync_period: pulumi.Input[Optional[_builtins.int]] = None,
+            connection_pooling: pulumi.Input[Optional[_builtins.bool]] = None,
+            connection_timeout: pulumi.Input[Optional[_builtins.str]] = None,
+            connection_url: pulumi.Input[Optional[_builtins.str]] = None,
+            custom_user_search_filter: pulumi.Input[Optional[_builtins.str]] = None,
+            debug: pulumi.Input[Optional[_builtins.str]] = None,
+            delete_default_mappers: pulumi.Input[Optional[_builtins.bool]] = None,
+            edit_mode: pulumi.Input[Optional[_builtins.str]] = None,
+            enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+            full_sync_period: pulumi.Input[Optional[_builtins.int]] = None,
+            import_enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+            kerberos: pulumi.Input[Optional[Union['UserFederationKerberosArgs', 'UserFederationKerberosArgsDict', 'outputs.UserFederationKerberos']]] = None,
+            krb_principal_attribute: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            pagination: pulumi.Input[Optional[_builtins.bool]] = None,
+            priority: pulumi.Input[Optional[_builtins.int]] = None,
+            rdn_ldap_attribute: pulumi.Input[Optional[_builtins.str]] = None,
+            read_timeout: pulumi.Input[Optional[_builtins.str]] = None,
+            realm_id: pulumi.Input[Optional[_builtins.str]] = None,
+            realm_internal_id: pulumi.Input[Optional[_builtins.str]] = None,
+            referral: pulumi.Input[Optional[_builtins.str]] = None,
+            relative_create_dn: pulumi.Input[Optional[_builtins.str]] = None,
+            search_scope: pulumi.Input[Optional[_builtins.str]] = None,
+            start_tls: pulumi.Input[Optional[_builtins.bool]] = None,
+            sync_registrations: pulumi.Input[Optional[_builtins.bool]] = None,
+            trust_email: pulumi.Input[Optional[_builtins.bool]] = None,
+            use_password_modify_extended_op: pulumi.Input[Optional[_builtins.bool]] = None,
+            use_truststore_spi: pulumi.Input[Optional[_builtins.str]] = None,
+            user_object_classes: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+            username_ldap_attribute: pulumi.Input[Optional[_builtins.str]] = None,
+            users_dn: pulumi.Input[Optional[_builtins.str]] = None,
+            uuid_ldap_attribute: pulumi.Input[Optional[_builtins.str]] = None,
+            validate_password_policy: pulumi.Input[Optional[_builtins.bool]] = None,
+            vendor: pulumi.Input[Optional[_builtins.str]] = None) -> pulumi.Output[bool]:
+        __props__: dict = {}
+        __props__["batchSizeForSync"] = batch_size_for_sync
+        __props__["bindCredential"] = bind_credential
+        __props__["bindCredentialWo"] = bind_credential_wo
+        __props__["bindCredentialWoVersion"] = bind_credential_wo_version
+        __props__["bindDn"] = bind_dn
+        __props__["cache"] = cache
+        __props__["changedSyncPeriod"] = changed_sync_period
+        __props__["connectionPooling"] = connection_pooling
+        __props__["connectionTimeout"] = connection_timeout
+        __props__["connectionUrl"] = connection_url
+        __props__["customUserSearchFilter"] = custom_user_search_filter
+        __props__["debug"] = debug
+        __props__["deleteDefaultMappers"] = delete_default_mappers
+        __props__["editMode"] = edit_mode
+        __props__["enabled"] = enabled
+        __props__["fullSyncPeriod"] = full_sync_period
+        __props__["importEnabled"] = import_enabled
+        __props__["kerberos"] = kerberos
+        __props__["krbPrincipalAttribute"] = krb_principal_attribute
+        __props__["name"] = name
+        __props__["pagination"] = pagination
+        __props__["priority"] = priority
+        __props__["rdnLdapAttribute"] = rdn_ldap_attribute
+        __props__["readTimeout"] = read_timeout
+        __props__["realmId"] = realm_id
+        __props__["realmInternalId"] = realm_internal_id
+        __props__["referral"] = referral
+        __props__["relativeCreateDn"] = relative_create_dn
+        __props__["searchScope"] = search_scope
+        __props__["startTls"] = start_tls
+        __props__["syncRegistrations"] = sync_registrations
+        __props__["trustEmail"] = trust_email
+        __props__["usePasswordModifyExtendedOp"] = use_password_modify_extended_op
+        __props__["useTruststoreSpi"] = use_truststore_spi
+        __props__["userObjectClasses"] = user_object_classes
+        __props__["usernameLdapAttribute"] = username_ldap_attribute
+        __props__["usersDn"] = users_dn
+        __props__["uuidLdapAttribute"] = uuid_ldap_attribute
+        __props__["validatePasswordPolicy"] = validate_password_policy
+        __props__["vendor"] = vendor
+        return pulumi.runtime.exists_resource(None, 'keycloak:ldap/userFederation:UserFederation', id, __props__, opts or pulumi.ResourceOptions())
 
     @_builtins.property
     @pulumi.getter(name="batchSizeForSync")
@@ -1939,6 +2102,22 @@ class UserFederation(pulumi.CustomResource):
         The realm that this provider will provide user federation for.
         """
         return pulumi.get(self, "realm_id")
+
+    @_builtins.property
+    @pulumi.getter(name="realmInternalId")
+    def realm_internal_id(self) -> pulumi.Output[_builtins.str]:
+        """
+        The internal id of the realm, as an alternative to realm_id. Unlike the realm name, it does not change when the realm is renamed.
+        """
+        return pulumi.get(self, "realm_internal_id")
+
+    @_builtins.property
+    @pulumi.getter
+    def referral(self) -> pulumi.Output[Optional[_builtins.str]]:
+        """
+        Specifies if LDAP referrals should be followed or ignored. Can be one of `ignore` or `follow`:
+        """
+        return pulumi.get(self, "referral")
 
     @_builtins.property
     @pulumi.getter(name="relativeCreateDn")

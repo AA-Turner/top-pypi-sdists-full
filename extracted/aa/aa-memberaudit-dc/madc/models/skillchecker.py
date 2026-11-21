@@ -7,18 +7,11 @@ from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-# Alliance Auth
-from allianceauth.services.hooks import get_extension_logger
-
 # Alliance Auth (External Libs)
-from app_utils.logging import LoggerAddTag
 from eveuniverse.models import EveType
 
 # AA Memberaudit Doctrine Checker
-from madc import __title__
 from madc.managers.skilllist_manager import SkillListManager
-
-logger = LoggerAddTag(get_extension_logger(__name__), __title__)
 
 
 def skillvalidator(value):
@@ -78,8 +71,17 @@ class SkillList(models.Model):
         return f"{self.name} ({self.ordering})"
 
     def get_skills(self):
-        """Return the skills in the skill list as a dictionary."""
-        return json.loads(self.skill_list)
+        """
+        Return the skills in the skill list as a dictionary.
+
+        A skill list without skills (empty text, the default of the field)
+        or with anything but a JSON object has no skills.
+        """
+        try:
+            skills = json.loads(self.skill_list or "{}")
+        except ValueError:
+            return {}
+        return skills if isinstance(skills, dict) else {}
 
     class Meta:
         default_permissions = ()

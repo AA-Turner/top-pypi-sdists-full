@@ -9,7 +9,7 @@ readme_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "README.m
 
 setup(
     name="multiprocessing-logging",
-    version="0.4.0",
+    version="0.4.1",
     description="Logger for multiprocessing applications",
     long_description_content_type="text/markdown",
     long_description=io.open(readme_file, "rt", encoding="utf-8").read(),
@@ -25,6 +25,7 @@ setup(
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Programming Language :: Python :: 2",
         "Programming Language :: Python :: 2.7",
         "Programming Language :: Python :: Implementation :: CPython",

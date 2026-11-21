@@ -93,6 +93,10 @@ class ScalarValue(Generic[_ScalarT]):
     def render(self) -> str:
         return self.lexeme
 
+    def render_into(self, out: list[str]) -> None:
+        # Honor formatting hooks on lexeme subclasses.
+        out.append(f"{self.lexeme}")
+
     @property
     def is_shareable(self) -> bool:
         """Whether both fields are known to be transitively immutable.
@@ -189,7 +193,7 @@ del _c
 
 def quote_basic_key(s: str) -> str:
     """Encode ``s`` as a basic-quoted TOML key (escaping where required)."""
-    return f'"{s.translate(_KEY_ESCAPES)}"'
+    return f'"{str.translate(s, _KEY_ESCAPES)}"'
 
 
 _RE_BARE_KEY_FULL = re.compile(r"\A[A-Za-z0-9_\-]+\Z")
@@ -262,8 +266,9 @@ class CommaItem:
             return f"{self.before},{self.after}{self.following}"
         return f"{self.before}{self.following}"
 
-    def render(self) -> str:
-        return f"{self.value.render()}{self.render_tail()}"
+    def render_into(self, out: list[str]) -> None:
+        self.value.render_into(out)
+        out.append(self.render_tail())
 
 
 class ArrayItem(CommaItem):
@@ -323,12 +328,13 @@ class InlineTableEntry(CommaItem):
         return new
 
     @override
-    def render(self) -> str:
-        return (
+    def render_into(self, out: list[str]) -> None:
+        out.append(
             f"{render_dotted(self.key_parts, self.key_seps)}"
             f"{self.pre_eq}={self.post_eq}"
-            f"{self.value.render()}{self.render_tail()}"
         )
+        self.value.render_into(out)
+        out.append(self.render_tail())
 
 
 _ItemT = TypeVar("_ItemT", bound=CommaItem)
@@ -376,8 +382,15 @@ class CommaValue(Generic[_ItemT]):
         return new
 
     def render(self) -> str:
-        body = "".join([item.render() for item in self.items])
-        return f"{self._open}{self.opening}{body}{self._close}"
+        out: list[str] = []
+        self.render_into(out)
+        return "".join(out)
+
+    def render_into(self, out: list[str]) -> None:
+        out.append(f"{self._open}{self.opening}")
+        for item in self.items:
+            item.render_into(out)
+        out.append(f"{self._close}")
 
     def is_multiline(self) -> bool:
         """Whether this value's own trivia contains a row break.
@@ -478,6 +491,31 @@ class InlineTableValue(CommaValue[InlineTableEntry]):
         position = bisect.bisect_left(self.items, entry._order, key=_entry_order)  # noqa: SLF001
         assert self.items[position] is entry, "inline entry index is stale"
         return position, entry
+
+    def entry_indices(self, entries: list[InlineTableEntry]) -> list[int]:
+        """Locate indexed entries, skipping unrelated gaps by exponential search."""
+        items = self.items
+        indices: list[int] = []
+        position = 0
+        for entry in sorted(entries, key=_entry_order):
+            step = 1
+            while items[position] is not entry:
+                hi = min(position + step, len(items) - 1)
+                if items[hi]._order >= entry._order:  # noqa: SLF001
+                    position = bisect.bisect_left(
+                        items,
+                        entry._order,  # noqa: SLF001
+                        position + 1,
+                        hi + 1,
+                        key=_entry_order,
+                    )
+                    assert items[position] is entry, "inline entry index is stale"
+                    break
+                position = hi
+                step *= 2
+            indices.append(position)
+            position += 1
+        return indices
 
     def record_entry(self, entry: InlineTableEntry) -> None:
         """Index an entry just appended to ``items``."""

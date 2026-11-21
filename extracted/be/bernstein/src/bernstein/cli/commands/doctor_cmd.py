@@ -977,6 +977,70 @@ def check_audit_anchoring(workdir: Path | None = None) -> dict[str, Any]:
     }
 
 
+def check_leaked_lanes(
+    workdir: Path | None = None,
+    *,
+    max_age_seconds: float | None = None,
+    now: float | None = None,
+) -> dict[str, Any]:
+    """Report confirmed aged leaks, distinguishing unavailable evidence (#6572)."""
+    import math
+
+    from bernstein.cli.commands.worktrees_cmd import format_age
+    from bernstein.core.sandbox.leak_sweep import sweep_leaked_lanes
+
+    name = "Leaked lanes"
+    fix = "Preview: bernstein worktrees sweep (or bernstein sandbox sweep)"
+    try:
+        threshold = (
+            float(os.environ.get("BERNSTEIN_LEAK_MAX_AGE_SECONDS", "86400"))
+            if max_age_seconds is None
+            else max_age_seconds
+        )
+        if not math.isfinite(threshold) or threshold < 0:
+            raise ValueError("leak age must be finite and non-negative")
+        lanes = sweep_leaked_lanes(workdir or Path.cwd(), now=now, require_verified_audit=True)
+    except (OSError, RuntimeError, ValueError) as exc:
+        return {
+            "name": name,
+            "status": _CHECK_FAIL,
+            "detail": f"leak check unavailable: {exc}",
+            "fix": fix,
+            "findings": [],
+        }
+    findings: list[dict[str, Any]] = []
+    details: list[str] = []
+    for lane in lanes:
+        age = lane.age_seconds
+        known_age = age is not None and math.isfinite(age) and age >= 0
+        if known_age and age <= threshold:
+            continue
+        source = "directory_birthtime_or_ctime" if lane.kind == "worktree" else "audit_session_create"
+        statuses = dict(lane.task_statuses)
+        findings.append(
+            {
+                "kind": lane.kind,
+                "resource_id": lane.resource_id,
+                "task_ids": list(lane.task_ids),
+                "task_statuses": statuses,
+                "age_seconds": age if known_age else None,
+                "age_source": source,
+                "max_age_seconds": threshold,
+                "reason": "age_exceeded" if known_age else "age_unavailable",
+            }
+        )
+        owners = ", ".join(f"{task_id}={statuses.get(task_id, 'unknown')}" for task_id in lane.task_ids)
+        age_text = format_age(age) if known_age else "unknown age"
+        details.append(f"{lane.kind} {lane.resource_id} ({owners}, {age_text}; {source})")
+    return {
+        "name": name,
+        "status": _CHECK_WARN if findings else _CHECK_PASS,
+        "detail": "; ".join(details) if findings else "no aged task-terminal lanes",
+        "fix": fix if findings else "",
+        "findings": findings,
+    }
+
+
 def run_all_checks() -> list[dict[str, Any]]:
     """Run all health checks and return results."""
     checks: list[dict[str, Any]] = []
@@ -988,6 +1052,7 @@ def run_all_checks() -> list[dict[str, Any]]:
     checks.extend(check_skill_revocations())
     checks.append(check_eval_gate_min_n_advisory())
     checks.append(check_audit_anchoring())
+    checks.append(check_leaked_lanes())
     checks.extend(check_api_keys())
     checks.extend(
         (
@@ -1222,7 +1287,7 @@ def _run_endpoint_certification(
     "--unattended",
     is_flag=True,
     default=False,
-    help="Run probes through spawner environment (unattended parity).",
+    help="Run probes through the spawner environment (unattended parity).",
 )
 @click.pass_context
 def doctor_cmd(

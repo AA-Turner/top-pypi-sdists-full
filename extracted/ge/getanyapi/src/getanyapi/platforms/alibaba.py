@@ -129,7 +129,7 @@ class AlibabaNamespace:
         Search Alibaba by keyword and get up to 25 wholesale listings (title, price
         range, minimum order, and supplier) in one normalized response.
 
-        Price: $0 per request plus $0.00077 per result (maximum $0.0193).
+        Price: $0 per request plus $0.00084 per result (maximum $0.021).
 
         Example:
             res = client.alibaba.search(limit=3, query="bluetooth speaker")
@@ -157,7 +157,7 @@ class AsyncAlibabaNamespace:
         Search Alibaba by keyword and get up to 25 wholesale listings (title, price
         range, minimum order, and supplier) in one normalized response.
 
-        Price: $0 per request plus $0.00077 per result (maximum $0.0193).
+        Price: $0 per request plus $0.00084 per result (maximum $0.021).
 
         Example:
             res = client.alibaba.search(limit=3, query="bluetooth speaker")

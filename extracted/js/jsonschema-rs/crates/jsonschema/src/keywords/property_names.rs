@@ -1,10 +1,13 @@
 use crate::{
     compiler,
     error::ValidationError,
-    evaluation::ChildList,
-    keywords::CompilationResult,
+    evaluation::{ChildList, ErrorDescription},
+    keywords::{
+        helpers::{unit_over, SchemaSite},
+        CompilationResult,
+    },
     node::SchemaNode,
-    paths::{LazyLocation, Location, RefTracker},
+    paths::{LazyLocation, RefTracker},
     validator::{EvaluationResult, Validate, ValidationContext},
     Json, Node, Object,
 };
@@ -61,10 +64,7 @@ impl<F: Json> Validate<F> for PropertyNamesObjectValidator<F> {
                 }
             });
             if let ControlFlow::Break(error) = flow {
-                let schema_path = error.schema_path().clone();
                 return Err(ValidationError::property_names(
-                    schema_path.clone(),
-                    crate::paths::capture_evaluation_path(tracker, &schema_path),
                     location.into(),
                     instance.lazy_value(),
                     error,
@@ -92,14 +92,10 @@ impl<F: Json> Validate<F> for PropertyNamesObjectValidator<F> {
                 self.node
                     .collect_errors(&node, location, tracker, ctx, &mut collected);
                 for error in collected {
-                    let error = error.to_owned();
-                    let schema_path = error.schema_path().clone();
                     errors.push(ValidationError::property_names(
-                        schema_path.clone(),
-                        crate::paths::capture_evaluation_path(tracker, &schema_path),
                         location.into(),
                         instance.lazy_value(),
-                        error,
+                        error.to_owned(),
                     ));
                 }
                 ControlFlow::Continue(())
@@ -130,14 +126,16 @@ impl<F: Json> Validate<F> for PropertyNamesObjectValidator<F> {
 }
 
 pub(crate) struct PropertyNamesBooleanValidator {
-    location: Location,
+    site: SchemaSite,
 }
 
 impl PropertyNamesBooleanValidator {
     #[inline]
     pub(crate) fn compile<'a, F: Json>(ctx: &compiler::Context<F>) -> CompilationResult<'a, F> {
         let location = ctx.location().join("propertyNames");
-        Ok(Box::new(PropertyNamesBooleanValidator { location }))
+        Ok(Box::new(PropertyNamesBooleanValidator {
+            site: SchemaSite::new(ctx, location),
+        }))
     }
 }
 
@@ -162,12 +160,50 @@ impl<F: Json> Validate<F> for PropertyNamesBooleanValidator {
             Ok(())
         } else {
             Err(ValidationError::false_schema(
-                self.location.clone(),
-                crate::paths::capture_evaluation_path(tracker, &self.location),
+                self.site.location.clone(),
+                crate::paths::capture_evaluation_path(tracker, &self.site.location),
                 location.into(),
                 instance.lazy_value(),
             ))
         }
+    }
+
+    fn evaluate(
+        &self,
+        instance: &F::Node<'_>,
+        location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
+    ) -> EvaluationResult {
+        let Some(object) = instance.as_object() else {
+            return EvaluationResult::valid_empty();
+        };
+        // The false schema fails each name, at the object's location.
+        let position = ctx.instance_position(location);
+        let mut children = ChildList::default();
+        let mut buffer = F::StringBuffer::default();
+        let ControlFlow::Continue(()) =
+            object.try_for_each_name_node::<Infallible>(&mut buffer, |name| {
+                let error =
+                    ErrorDescription::from_validation_error(&ValidationError::false_schema(
+                        self.site.location.clone(),
+                        crate::paths::capture_evaluation_path(tracker, &self.site.location),
+                        location.into(),
+                        name.lazy_value(),
+                    ));
+                let node = unit_over(
+                    &self.site,
+                    vec![error],
+                    None,
+                    ChildList::default(),
+                    position,
+                    tracker,
+                    ctx,
+                );
+                children.push(ctx.arena(), node);
+                ControlFlow::Continue(())
+            });
+        EvaluationResult::from_children(children)
     }
 }
 
@@ -186,9 +222,108 @@ pub(crate) fn compile<'a, F: Json>(
 
 #[cfg(test)]
 mod tests {
-    use crate::tests_util;
+    use crate::{error::ValidationErrorKind, tests_util, ValidationError};
     use serde_json::{json, Value};
     use test_case::test_case;
+
+    // The `propertyNames` error and the error it wraps, outermost first.
+    fn absolute_locations(error: &ValidationError<'_>) -> Vec<Option<String>> {
+        let mut locations = vec![error.absolute_keyword_location().map(ToString::to_string)];
+        if let ValidationErrorKind::PropertyNames { error } = error.kind() {
+            locations.extend(absolute_locations(error));
+        }
+        locations
+    }
+
+    // A name's error is located at the keyword that rejected it, in that keyword's resource.
+    #[test_case(
+        &json!({"$id": "http://example.com/root", "propertyNames": {"maxLength": 0}}),
+        "http://example.com/root#/propertyNames/maxLength" ; "in place"
+    )]
+    #[test_case(
+        &json!({"$id": "http://example.com/root", "$defs": {"s": {"maxLength": 0}}, "propertyNames": {"$ref": "#/$defs/s"}}),
+        "http://example.com/root#/$defs/s/maxLength" ; "ref in the same resource"
+    )]
+    #[test_case(
+        &json!({"$id": "http://example.com/root", "$defs": {"other": {"$id": "http://example.com/other", "maxLength": 0}}, "propertyNames": {"$ref": "http://example.com/other"}}),
+        "http://example.com/other#/maxLength" ; "ref into another resource"
+    )]
+    fn absolute_keyword_location(schema: &Value, expected: &str) {
+        let validator = crate::validator_for(schema).expect("valid schema");
+        let instance = json!({"a": 1});
+        let expected = vec![Some(expected.to_string()), Some(expected.to_string())];
+        let error = validator.validate(&instance).expect_err("invalid");
+        assert_eq!(absolute_locations(&error), expected);
+        let locations: Vec<_> = validator
+            .iter_errors(&instance)
+            .map(|error| absolute_locations(&error))
+            .collect();
+        assert_eq!(locations, [expected]);
+    }
+
+    // A name's error is reported along the path that reached it, `$ref`s included.
+    #[test_case(
+        &json!({"$defs": {"s": {"pattern": "^a"}}, "propertyNames": {"$ref": "#/$defs/s"}}),
+        "/propertyNames/$ref/pattern" ; "ref below propertyNames"
+    )]
+    #[test_case(
+        &json!({"$defs": {"o": {"propertyNames": {"pattern": "^a"}}}, "$ref": "#/$defs/o"}),
+        "/$ref/propertyNames/pattern" ; "propertyNames below ref"
+    )]
+    #[test_case(
+        &json!({"propertyNames": {"pattern": "^a"}}),
+        "/propertyNames/pattern" ; "no ref"
+    )]
+    fn evaluation_path(schema: &Value, expected: &str) {
+        let validator = crate::validator_for(schema).expect("valid schema");
+        let instance = json!({"bx": 1});
+        let error = validator.validate(&instance).expect_err("invalid");
+        assert_eq!(error.evaluation_path().as_str(), expected);
+        let paths: Vec<_> = validator
+            .iter_errors(&instance)
+            .map(|error| error.evaluation_path().as_str().to_string())
+            .collect();
+        assert_eq!(paths, [expected]);
+    }
+
+    // Each name gets a unit of its own at the object's location; `false` fails each.
+    #[test_case(
+        &json!({"propertyNames": {"maxLength": 1}}),
+        &json!({"a": 1, "bb": 2}),
+        &[
+            " @ FAIL",
+            "  /propertyNames @ FAIL",
+            "    /propertyNames @ ok",
+            "      /propertyNames/maxLength @ ok",
+            "    /propertyNames @ FAIL",
+            "      /propertyNames/maxLength @ FAIL err=maxLength",
+        ] ; "schema"
+    )]
+    #[test_case(
+        &json!({"propertyNames": false}),
+        &json!({"a": 1, "b": 2}),
+        &[
+            " @ FAIL",
+            "  /propertyNames @ FAIL",
+            "    /propertyNames @ FAIL err=falseSchema",
+            "    /propertyNames @ FAIL err=falseSchema",
+        ] ; "false"
+    )]
+    #[test_case(
+        &json!({"properties": {"a": {"propertyNames": false}}}),
+        &json!({"a": {"b": 1}}),
+        &[
+            " @ FAIL",
+            "  /properties @ FAIL dropped=[\"a\"]",
+            "    /properties/a @/a FAIL",
+            "      /properties/a/propertyNames @/a FAIL",
+            "        /properties/a/propertyNames @/a FAIL err=falseSchema",
+        ] ; "false below the root"
+    )]
+    #[test_case(&json!({"propertyNames": false}), &json!({}), &[" @ ok", "  /propertyNames @ ok"] ; "false on an empty object")]
+    fn evaluate_reports_each_name(schema: &Value, instance: &Value, expected: &[&str]) {
+        assert_eq!(tests_util::evaluation_outline(schema, instance), expected);
+    }
 
     // Each key is validated on its own, not concatenated with the ones before it
     #[test_case(&json!({"propertyNames": {"maxLength": 3}}), &json!({"abc": 1, "de": 1}))]

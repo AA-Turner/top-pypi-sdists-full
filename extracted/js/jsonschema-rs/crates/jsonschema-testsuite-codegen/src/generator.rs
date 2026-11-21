@@ -10,10 +10,9 @@ pub(crate) fn generate_modules(
     functions: &mut HashSet<String>,
     xfail: &[String],
     draft: &str,
-    remote_resources: &[(String, String)],
 ) -> TokenStream {
     let root_path = vec![draft.to_string()];
-    generate_nested_structure(tree, functions, &root_path, xfail, draft, remote_resources)
+    generate_nested_structure(tree, functions, &root_path, xfail, draft)
 }
 
 fn generate_nested_structure(
@@ -22,7 +21,6 @@ fn generate_nested_structure(
     current_path: &[String],
     xfail: &[String],
     draft: &str,
-    remote_resources: &[(String, String)],
 ) -> TokenStream {
     let modules = tree.iter().map(|(name, node)| {
         let module_name = testsuite::sanitize_name(name.to_snake_case());
@@ -32,14 +30,8 @@ fn generate_nested_structure(
 
         match node {
             loader::TestCaseNode::Submodule(subtree) => {
-                let submodules = generate_nested_structure(
-                    subtree,
-                    functions,
-                    &new_path,
-                    xfail,
-                    draft,
-                    remote_resources,
-                );
+                let submodules =
+                    generate_nested_structure(subtree, functions, &new_path, xfail, draft);
                 quote! {
                     mod #module_ident {
                         use super::*;
@@ -48,7 +40,9 @@ fn generate_nested_structure(
                     }
                 }
             }
-            loader::TestCaseNode::TestFile(cases) => {
+            loader::TestCaseNode::TestFile(file) => {
+                let cases = &file.cases;
+                let relative = &file.relative;
                 let mut modules = HashSet::with_capacity(cases.len());
                 let case_modules = cases.iter().map(|case| {
                     let base_module_name = testsuite::sanitize_name(case.description.to_snake_case());
@@ -60,16 +54,41 @@ fn generate_nested_structure(
                     let schema = serde_json::to_string(&case.schema).expect("Can't serialize JSON");
                     let case_description = &case.description;
 
-                    // Build the resources attribute fragment for schemas that reference localhost:1234.
-                    let resources_attr = if schema.contains("localhost:1234") {
-                        let resource_entries = remote_resources
-                            .iter()
-                            .map(|(uri, contents)| {
-                                quote! { #uri => { schema = #contents } }
-                            });
-                        quote! { , resources = { #(#resource_entries),* } }
-                    } else {
+                    let externals: Vec<(&String, String)> = case
+                        .external_schemas
+                        .iter()
+                        .map(|(uri, schema)| {
+                            (uri, serde_json::to_string(schema).expect("Can't serialize JSON"))
+                        })
+                        .collect();
+                    let resources_attr = if externals.is_empty() {
                         quote! {}
+                    } else {
+                        let entries = externals
+                            .iter()
+                            .map(|(uri, contents)| quote! { #uri => { schema = #contents } });
+                        quote! { , resources = { #(#entries),* } }
+                    };
+                    let external_schemas = externals.iter().map(|(uri, contents)| {
+                        quote! { (#uri, serde_json::from_str(#contents).expect("Failed to load JSON")) }
+                    });
+                    let external_schemas = quote! { vec![#(#external_schemas),*] };
+
+                    let (validate_formats_attr, validate_formats) =
+                        match loader::validate_formats(case) {
+                            Some(value) => (
+                                quote! { , validate_formats = #value },
+                                quote! { Some(#value) },
+                            ),
+                            None => (quote! {}, quote! { None }),
+                        };
+
+                    let draft_variant = match draft {
+                        "draft4" => quote! { referencing::Draft::Draft4 },
+                        "draft6" => quote! { referencing::Draft::Draft6 },
+                        "draft7" => quote! { referencing::Draft::Draft7 },
+                        "draft2019-09" => quote! { referencing::Draft::Draft201909 },
+                        _ => quote! { referencing::Draft::Draft202012 },
                     };
 
                     let test_functions = case.tests.iter().map(|test| {
@@ -79,7 +98,6 @@ fn generate_nested_structure(
                         case_path.push(test_name.clone());
 
                         let full_test_path = case_path.join("::");
-                        let is_optional = case_path.iter().any(|segment| segment == "optional");
                         let should_ignore = xfail.iter().any(|x| full_test_path.starts_with(x));
                         let ignore_attr = if should_ignore {
                             quote! { #[ignore = "known failure listed in xfail"] }
@@ -91,20 +109,6 @@ fn generate_nested_structure(
                         let test_description = &test.description;
                         let data = serde_json::to_string(&test.data).expect("Can't serialize JSON");
                         let valid = test.valid;
-                        let validate_formats_attr = if is_optional {
-                            quote! { , validate_formats = true }
-                        } else {
-                            quote! {}
-                        };
-
-                        // Convert draft string to Draft enum variant
-                        let draft_variant = match draft {
-                            "draft4" => quote! { referencing::Draft::Draft4 },
-                            "draft6" => quote! { referencing::Draft::Draft6 },
-                            "draft7" => quote! { referencing::Draft::Draft7 },
-                            "draft2019-09" => quote! { referencing::Draft::Draft201909 },
-                            _ => quote! { referencing::Draft::Draft202012 },
-                        };
 
                         quote! {
                             #ignore_attr
@@ -113,61 +117,22 @@ fn generate_nested_structure(
                             fn #test_ident() {
                                 let test = testsuite::Test {
                                     draft: #draft,
+                                    file: #relative,
                                     schema: serde_json::from_str(#schema).expect("Failed to load JSON"),
-                                    is_optional: #is_optional,
+                                    external_schemas: #external_schemas,
+                                    validate_formats: #validate_formats,
                                     case: #case_description,
                                     description: #test_description,
                                     data: serde_json::from_str(#data).expect("Failed to load JSON"),
                                     valid: #valid,
                                 };
 
-                                // One generated validator per suite test is more than rustc can
-                                // hold on a hosted runner for this target; the generated code is
-                                // target-independent and compared on every other one.
                                 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
                                 let validator: Option<Box<dyn testsuite::CodegenValidator>> = None;
 
                                 #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
-                                let validator: Option<Box<dyn testsuite::CodegenValidator>> = {
-                                    #[jsonschema::validator(
-                                        schema = #schema,
-                                        draft = #draft_variant
-                                        #resources_attr
-                                        #validate_formats_attr
-                                    )]
-                                    struct Validator;
-
-                                    impl testsuite::CodegenValidator for Validator {
-                                        fn is_valid(&self, instance: &serde_json::Value) -> bool {
-                                            Self::is_valid(instance)
-                                        }
-                                        fn validate(
-                                            &self,
-                                            instance: &serde_json::Value,
-                                        ) -> Result<(), Box<dyn std::any::Any + Send + Sync>> {
-                                            Self::validate(instance).map_err(|e| {
-                                                Box::new(e.to_owned())
-                                                    as Box<dyn std::any::Any + Send + Sync>
-                                            })
-                                        }
-                                        fn iter_errors(
-                                            &self,
-                                            instance: &serde_json::Value,
-                                        ) -> Vec<(String, String, String)> {
-                                            Self::iter_errors(instance)
-                                                .map(|e| {
-                                                    (
-                                                        e.to_string(),
-                                                        e.schema_path().to_string(),
-                                                        e.instance_path().to_string(),
-                                                    )
-                                                })
-                                                .collect()
-                                        }
-                                    }
-
-                                    Some(Box::new(Validator))
-                                };
+                                let validator: Option<Box<dyn testsuite::CodegenValidator>> =
+                                    Some(Box::new(Validator));
 
                                 inner_test(&test, validator);
                             }
@@ -177,6 +142,62 @@ fn generate_nested_structure(
                     quote! {
                         mod #module_ident {
                             use super::*;
+
+                            // The generated validators are more than rustc can hold on a hosted
+                            // runner for this target; the generated code is target-independent
+                            // and compared on every other one.
+                            #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
+                            #[jsonschema::validator(
+                                schema = #schema,
+                                draft = #draft_variant
+                                #resources_attr
+                                #validate_formats_attr
+                            )]
+                            struct Validator;
+
+                            #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
+                            impl testsuite::CodegenValidator for Validator {
+                                fn is_valid(&self, instance: &serde_json::Value) -> bool {
+                                    Self::is_valid(instance)
+                                }
+                                fn validate(
+                                    &self,
+                                    instance: &serde_json::Value,
+                                ) -> Result<(), Box<dyn std::any::Any + Send + Sync>> {
+                                    Self::validate(instance).map_err(|e| {
+                                        Box::new(e.to_owned())
+                                            as Box<dyn std::any::Any + Send + Sync>
+                                    })
+                                }
+                                fn iter_errors(
+                                    &self,
+                                    instance: &serde_json::Value,
+                                ) -> Vec<testsuite::ErrorReport> {
+                                    Self::iter_errors(instance)
+                                        .map(|e| testsuite::ErrorReport {
+                                            message: e.to_string(),
+                                            schema_path: e.schema_path().to_string(),
+                                            evaluation_path: e.evaluation_path().to_string(),
+                                            absolute_keyword_location: e
+                                                .absolute_keyword_location()
+                                                .map(|uri| uri.as_str().to_string()),
+                                            instance_path: e.instance_path().to_string(),
+                                        })
+                                        .collect()
+                                }
+                                fn evaluate(
+                                    &self,
+                                    instance: &serde_json::Value,
+                                ) -> (serde_json::Value, serde_json::Value) {
+                                    let evaluation = Self::evaluate(instance);
+                                    (
+                                        serde_json::to_value(evaluation.list())
+                                            .expect("List output should serialize"),
+                                        serde_json::to_value(evaluation.hierarchical())
+                                            .expect("Hierarchical output should serialize"),
+                                    )
+                                }
+                            }
 
                             #(#test_functions)*
                         }

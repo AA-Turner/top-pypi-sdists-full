@@ -5,6 +5,7 @@ from trilogy.core.models.build import (
     BuildWhereClause,
 )
 from trilogy.core.models.build_environment import BuildEnvironment
+from trilogy.core.processing.aggregate_rollup import reads_partial_coarser
 from trilogy.core.processing.nodes import (
     ConstantNode,
     MergeNode,
@@ -100,9 +101,12 @@ def _grain_claim_needs_group(
     grain-less branch, which is a plan change for nodes this has no business
     touching.
     """
-    parent_grain = set(parent.resolve().grain.components)
+    resolved = parent.resolve()
+    parent_grain = set(resolved.grain.components)
     if not parent_grain or parent_grain.issubset({c.address for c in outputs}):
         return False
+    if reads_partial_coarser(outputs, resolved.rollup_concepts, resolved.grain):
+        return True
     _expose_parent_grain(parent, parent_grain, environment)
     return grain_claim_unheld(
         outputs,
@@ -110,6 +114,54 @@ def _grain_claim_needs_group(
         {c.address for c in parent.output_concepts},
         environment,
     )
+
+
+def _keys_beside_resums(
+    outputs: list[BuildConcept],
+    widened: list[BuildConcept],
+    parents: list[StrategyNode],
+) -> list[BuildConcept]:
+    """`widened` without the grain keys a value re-summing a parent's partial
+    is not grouped by: a derived key's own grain (`species` of `fc`) beside
+    `sum(h)` at `fc` would split each re-sum into one row per species."""
+    resolved = [p.resolve() for p in parents]
+    readers = [
+        o
+        for r in resolved
+        for o in outputs
+        if o.grain is not None
+        and reads_partial_coarser([o], r.rollup_concepts, r.grain)
+    ]
+    if not readers:
+        return widened
+    keys = {
+        k
+        for o in outputs
+        if o.lineage is not None and o.grain is not None
+        for k in o.grain.components
+        if k != o.address
+    }
+    kept = set().union(*(r.grain.components for r in readers if r.grain))
+    return [c for c in widened if c.address not in keys - kept]
+
+
+def _keys_of_sibling_keys(
+    outputs: list[BuildConcept], widened: list[BuildConcept]
+) -> list[BuildConcept]:
+    """`widened` without the grain keys of an output a sibling is grouped by:
+    `fc` keys `v0` at `(city, fc)`, so the projection's rows are its `fc`s,
+    and `species`, the grain `fc` is computed at, would repeat each one per
+    species."""
+    keys = {
+        o.address: set(o.grain.components) - {o.address}
+        for o in outputs
+        if o.lineage is not None and o.grain is not None
+    }
+    keyed = set().union(*keys.values())
+    top = set().union(*(k for a, k in keys.items() if a not in keyed))
+    own = set().union(*(keys.get(a, set()) for a in top))
+    drop = own - top - {o.address for o in outputs}
+    return [c for c in widened if c.address not in drop]
 
 
 def grain_claim_unheld(
@@ -155,7 +207,13 @@ def gen_basic(
             conditions=conditions.conditional if conditions else None,
             preexisting_conditions=pre,
         )
-    full_outputs = outputs_with_parent_grain_keys(outputs, parents)
+    full_outputs = _keys_beside_resums(
+        outputs,
+        _keys_of_sibling_keys(
+            outputs, outputs_with_parent_grain_keys(outputs, parents)
+        ),
+        parents,
+    )
     inputs = parent_outputs_needed(full_outputs, parents, conditions)
     if len(parents) == 1:
         return SelectNode(

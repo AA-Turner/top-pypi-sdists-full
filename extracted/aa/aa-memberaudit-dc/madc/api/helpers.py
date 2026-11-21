@@ -1,71 +1,32 @@
 # Django
 from django.core.exceptions import ObjectDoesNotExist
-from django.template.loader import render_to_string
-from django.utils.html import format_html
-from django.utils.safestring import mark_safe
-from django.utils.translation import gettext_lazy as _
 
 # Alliance Auth
 from allianceauth.eveonline.models import EveCharacter, EveCorporationInfo
-from allianceauth.services.hooks import get_extension_logger
-
-# Alliance Auth (External Libs)
-from app_utils.logging import LoggerAddTag
 
 # AA Memberaudit Doctrine Checker
-from madc import __title__, models
-
-logger = LoggerAddTag(get_extension_logger(__name__), __title__)
-
-
-def get_manage_permission(request, character_id):
-    """Check if the user has permission to manage."""
-    perms = True
-    main_char = EveCharacter.objects.select_related(
-        "character_ownership",
-        "character_ownership__user__profile",
-        "character_ownership__user__profile__main_character",
-    ).get(character_id=character_id)
-    try:
-        main_char = main_char.character_ownership.user.profile.main_character
-    except ObjectDoesNotExist:
-        pass
-
-    # check access
-    visible = models.SkillList.objects.manage_to(request.user)
-    if main_char not in visible:
-        account_chars = (
-            request.user.profile.main_character.character_ownership.user.character_ownerships.all()
-        )
-        if main_char in account_chars:
-            pass
-        else:
-            perms = False
-    return perms, main_char
+from madc import models
 
 
 def get_main_character(request, character_id) -> tuple[bool, EveCharacter | None]:
     perms = True
-    main_char = EveCharacter.objects.select_related(
-        "character_ownership",
-        "character_ownership__user__profile",
-        "character_ownership__user__profile__main_character",
-    ).get(character_id=character_id)
+    try:
+        main_char = EveCharacter.objects.select_related(
+            "character_ownership",
+            "character_ownership__user__profile",
+            "character_ownership__user__profile__main_character",
+        ).get(character_id=character_id)
+    except EveCharacter.DoesNotExist:
+        return False, None
     try:
         main_char = main_char.character_ownership.user.profile.main_character
     except ObjectDoesNotExist:
         pass
 
-    # check access
+    # check access: the own characters are always part of the visible ones
     visible = models.SkillList.objects.visible_eve_characters(request.user)
-    if main_char not in visible:
-        account_chars = (
-            request.user.profile.main_character.character_ownership.user.character_ownerships.all()
-        )
-        if main_char in account_chars:
-            pass
-        else:
-            perms = False
+    if not visible.filter(pk=main_char.pk).exists():
+        perms = False
     return perms, main_char
 
 
@@ -78,7 +39,7 @@ def get_corporation(request, corporation_id) -> tuple[bool, EveCorporationInfo |
 
     # check access
     visible = models.SkillList.objects.visible_eve_corporations(request.user)
-    if corporation not in visible:
+    if not visible.filter(pk=corporation.pk).exists():
         perms = False
     return perms, corporation
 
@@ -94,48 +55,6 @@ def get_alts_queryset(main_char):
         return EveCharacter.objects.filter(id__in=linked_characters)
     except ObjectDoesNotExist:
         return EveCharacter.objects.filter(pk=main_char.pk)
-
-
-def generate_button(pk: int, template, queryset, settings, request) -> mark_safe:
-    """Generate a html button with the given template and queryset."""
-    return format_html(
-        render_to_string(
-            template,
-            {
-                "pk": pk,
-                "queryset": queryset,
-                "settings": settings,
-            },
-            request=request,
-        )
-    )
-
-
-def generate_editable_html(
-    skill_list: models.SkillList,
-    field_name: str,
-    name: str,
-    url: str,
-    title: str = "",
-) -> str:
-    """Generate HTML for an editable field."""
-    html = f"<a class='editable' href='#' data-type='text' data-pk='{skill_list.pk}' data-name='{field_name}' data-url='{url}' data-title='{str(title)}'>{name}</a>"
-    return format_html(html)
-
-
-def generate_editable_bool_html(
-    skill_list: models.SkillList, name: str, url: str, title: str = ""
-) -> str:
-    """Generate HTML for a boolean field with editable functionality."""
-    active_text = _("Active")
-    inactive_text = _("Inactive")
-    if skill_list.active:
-        button_html = f"<button class='btn btn-success btn-sm'>{active_text}</button>"
-    else:
-        button_html = f"<button class='btn btn-danger btn-sm'>{inactive_text}</button>"
-
-    html = f"<a class='editable-boolean no_underline' data-type='select' data-pk='{skill_list.pk}' data-name='{name}' data-url='{url}' data-title='{str(title)}' data-source='[{{\"value\": true, \"text\": \"{active_text}\"}}, {{\"value\": false, \"text\": \"{inactive_text}\"}}]' data-value='{str(skill_list.active).lower()}'>{button_html}</a>"
-    return mark_safe(html)
 
 
 def _collect_user_doctrines(skills_list: dict, active_skilllists: list) -> dict:
@@ -167,3 +86,19 @@ def _collect_user_doctrines(skills_list: dict, active_skilllists: list) -> dict:
                     user_doctrines[doctrine_key] = doctrine_data
 
     return user_doctrines
+
+
+def get_skill_list(pk: int) -> models.SkillList | None:
+    """Return the skill list or None if it does not exist."""
+    return models.SkillList.objects.filter(pk=pk).first()
+
+
+def skill_list_fields(skill_list: models.SkillList) -> dict:
+    """Common fields of a skill list in the API responses."""
+    return {
+        "id": skill_list.pk,
+        "name": skill_list.name,
+        "category": skill_list.category,
+        "ordering": skill_list.ordering,
+        "active": skill_list.active,
+    }

@@ -1,4 +1,4 @@
-#  Copyright 2016-2023. Couchbase, Inc.
+#  Copyright 2016-2026. Couchbase, Inc.
 #  All Rights Reserved.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License")
@@ -47,12 +47,21 @@ if(WIN32)
   # MultiThreaded$<$<CONFIG:Debug>:Debug> for /MT compile flag
   # cmake-format: on
   set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
-  add_definitions(/bigobj)
   add_definitions(-D_WIN32_WINNT=0x0601)
 endif()
 
 project(couchbase_client)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+if(WIN32)
+  # /bigobj is only meaningful to the C and C++ compilers, so it goes on the per-language flags
+  # rather than the directory scope. A directory-scope compile option is also handed to
+  # boringssl's ASM_NASM sources, and nasm has no "/" option syntax: it reads the flag as a
+  # second input file and fails with "more than one input file specified". These must be
+  # appended after project(), which initializes CMAKE_<LANG>_FLAGS from the cache.
+  string(APPEND CMAKE_C_FLAGS " /bigobj")
+  string(APPEND CMAKE_CXX_FLAGS " /bigobj")
+endif()
 
 get_python_version()
 message(STATUS "LOCAL_PYTHON_VERSION=${LOCAL_PYTHON_VERSION}")
@@ -67,10 +76,15 @@ endif()
 
 
 if(WIN32)
-  set(PYCBC_C_MOD_SUFFIX ".pyd")
+  set(PYCBC_C_MOD_SUFFIX_DEFAULT ".pyd")
 else()
-  set(PYCBC_C_MOD_SUFFIX ".so")
+  set(PYCBC_C_MOD_SUFFIX_DEFAULT ".so")
 endif()
+# Normally set by pycbc_build_setup.py to the building interpreter's own
+# sysconfig EXT_SUFFIX (e.g. .cpython-310-darwin.so). This is what makes a
+# version-specific (non-abi3) build loadable only by a matching interpreter;
+# the plain fallback below is for a raw `cmake` invocation outside setup.py.
+set(PYCBC_C_MOD_SUFFIX "${PYCBC_C_MOD_SUFFIX_DEFAULT}" CACHE STRING "Compiled extension module suffix, including any interpreter tag")
 
 file(READ "${PROJECT_SOURCE_DIR}/couchbase/_version.py" PYCBC_VERSION_CONTENTS)
 string(REGEX MATCH "__version__.*([0-9]+\\.[0-9]+\\.[0-9]+)(\\.?[+a-z0-9]*)" PYCBC_FOUND_VERSION ${PYCBC_VERSION_CONTENTS})
@@ -204,7 +218,10 @@ endif()
 message(STATUS "USE_STATIC_STDLIB=${USE_STATIC_STDLIB}")
 
 option(DOWNLOAD_MOZILLA_CA_BUNDLE "Allow C++ client to download and embed Mozilla certificates" TRUE)
-if(DOWNLOAD_MOZILLA_CA_BUNDLE)
+# OFF still embeds a bundle already in EMBED_MOZILLA_CA_BUNDLE_ROOT (the sdist's CPM cache).
+set(_pycbc_ca_root "${COUCHBASE_CXX_CLIENT_EMBED_MOZILLA_CA_BUNDLE_ROOT}")
+if(DOWNLOAD_MOZILLA_CA_BUNDLE
+   OR (EXISTS "${_pycbc_ca_root}/mozilla-ca-bundle.crt" AND EXISTS "${_pycbc_ca_root}/mozilla-ca-bundle.sha256"))
   set(COUCHBASE_CXX_CLIENT_EMBED_MOZILLA_CA_BUNDLE
       ON
       CACHE BOOL "" FORCE)
@@ -254,6 +271,36 @@ add_library(pycbc_core SHARED ${SOURCE_FILES})
 
 target_compile_definitions(pycbc_core PRIVATE COUCHBASE_CXX_CLIENT_IGNORE_CORE_DEPRECATIONS)
 
+# PYCBC-1854: Build against the Python Stable ABI (abi3) by default so a single
+# wheel can target every supported CPython. Power users can opt out via the
+# PYCBC_PY_LIMITED_API env var (handled in pycbc_build_setup.py) which passes
+# -DPYCBC_PY_LIMITED_API:BOOL=OFF here, producing a version-specific build.
+option(PYCBC_PY_LIMITED_API "Build the C extension against Py_LIMITED_API (abi3)" ON)
+# PYCBC_PY_LIMITED_API_HEX is the lowest CPython release this binary will load on.
+# Driven by PYCBC_PY_LIMITED_API_VERSION in pycbc_build_setup.py so it stays in
+# lockstep with the bdist_wheel --py-limited-api tag. 0x030B0000 == CPython 3.11,
+# the oldest CPython pycbc supports.
+set(PYCBC_PY_LIMITED_API_HEX "0x030B0000" CACHE STRING "Py_LIMITED_API hex (e.g. 0x030B0000 for CPython 3.11)")
+message(STATUS "PYCBC_PY_LIMITED_API=${PYCBC_PY_LIMITED_API}")
+set(PYCBC_C_MOD_OUTPUT_NAME "_core")
+if(PYCBC_PY_LIMITED_API)
+  message(STATUS "PYCBC_PY_LIMITED_API_HEX=${PYCBC_PY_LIMITED_API_HEX}")
+  target_compile_definitions(pycbc_core PRIVATE Py_LIMITED_API=${PYCBC_PY_LIMITED_API_HEX})
+  # abi3 tag goes on the suffix (_core.abi3.so), not the output name. The
+  # interpreter tag in PYCBC_C_MOD_SUFFIX is dropped here so the filename matches
+  # CMakeBuildExt.get_ext_filename(), which pairs ".abi3" with the bare .so.
+  string(REGEX REPLACE "^.*(\\.[^.]+)$" "\\1" PYCBC_C_MOD_SHARED_LIB_EXT "${PYCBC_C_MOD_SUFFIX}")
+  if(WIN32)
+    # Windows has no ".abi3" import suffix: importlib only recognizes
+    # ".cp3XY-win_amd64.pyd" and a bare ".pyd", so the stable-ABI module is _core.pyd.
+    set(PYCBC_C_MOD_FULL_SUFFIX "${PYCBC_C_MOD_SHARED_LIB_EXT}")
+  else()
+    set(PYCBC_C_MOD_FULL_SUFFIX ".abi3${PYCBC_C_MOD_SHARED_LIB_EXT}")
+  endif()
+else()
+  set(PYCBC_C_MOD_FULL_SUFFIX "${PYCBC_C_MOD_SUFFIX}")
+endif()
+
 target_include_directories(
   pycbc_core PRIVATE SYSTEM
   "${COUCHBASE_CXX_BINARY_DIR}/generated"
@@ -264,15 +311,39 @@ target_include_directories(
 set(COUCHBASE_CXX_CLIENT_TARGET couchbase_cxx_client_static_intermediate)
 
 if(WIN32)
+  # Python3_LIBRARIES is the version-specific python3XY.lib. Linking it in a stable-ABI
+  # build takes precedence over the python3.lib that pyconfig.h's MSVC auto-link pragma
+  # selects under Py_LIMITED_API, which would bind an abi3-tagged .pyd to one interpreter
+  # version. Prefer python3.lib explicitly, and fall back to the pragma if it isn't found.
+  if(PYCBC_PY_LIMITED_API)
+    find_library(
+      PYCBC_PYTHON3_SABI_LIBRARY
+      NAMES python3
+      HINTS ${Python3_LIBRARY_DIRS}
+      NO_DEFAULT_PATH)
+    set(PYCBC_PYTHON_LINK_LIBRARIES "")
+    if(PYCBC_PYTHON3_SABI_LIBRARY)
+      set(PYCBC_PYTHON_LINK_LIBRARIES ${PYCBC_PYTHON3_SABI_LIBRARY})
+    endif()
+    message(STATUS "PYCBC_PYTHON3_SABI_LIBRARY=${PYCBC_PYTHON3_SABI_LIBRARY}")
+  else()
+    set(PYCBC_PYTHON_LINK_LIBRARIES ${Python3_LIBRARIES})
+  endif()
   target_link_libraries(
     pycbc_core PRIVATE
     ${COUCHBASE_CXX_CLIENT_TARGET}
-    ${Python3_LIBRARIES}
+    ${PYCBC_PYTHON_LINK_LIBRARIES}
     asio
     Microsoft.GSL::GSL
     taocpp::json
     spdlog::spdlog
     hdr_histogram_static)
+
+  # RelWithDebInfo links incrementally by CMake's MSVC defaults, and link.exe writes the
+  # incremental database beside its output, which is the Python package directory and
+  # therefore the wheel. Since nothing in a release build reuses it, lets not keep it.
+  # The .pdb is unaffected: /debug produces it, independently of /INCREMENTAL.
+  target_link_options(pycbc_core PRIVATE /INCREMENTAL:NO)
 else()
   target_link_libraries(
     pycbc_core PRIVATE
@@ -299,32 +370,55 @@ if(NOT USE_STATIC_BORINGSSL)
   target_link_libraries(pycbc_core PUBLIC ${OPENSSL_LIBRARIES})
 endif()
 
+# PyInit__core carries its own visibility("default") via PyMODINIT_FUNC, so hiding
+# everything else keeps the module's exported surface to the one symbol CPython needs.
+# No-op on MSVC, which exports nothing without __declspec(dllexport).
 set_target_properties(
   pycbc_core
   PROPERTIES PREFIX ""
-             OUTPUT_NAME _core
-             SUFFIX ${PYCBC_C_MOD_SUFFIX})
+             OUTPUT_NAME ${PYCBC_C_MOD_OUTPUT_NAME}
+             SUFFIX ${PYCBC_C_MOD_FULL_SUFFIX}
+             C_VISIBILITY_PRESET hidden
+             CXX_VISIBILITY_PRESET hidden
+             VISIBILITY_INLINES_HIDDEN ON)
 
 # The extension module is the only build artifact that belongs in the Python package
-# directory, so the directory is set on the target: a global CMAKE_RUNTIME_OUTPUT_DIRECTORY
-# applies to every target in the build tree, and on Windows the RUNTIME category covers
-# executables as well as DLLs (PYCBC-1878).  PDB_OUTPUT_DIRECTORY otherwise follows the
-# target's own output directory.  Windows only: elsewhere the extension is a LIBRARY artifact
-# and CMAKE_LIBRARY_OUTPUT_DIRECTORY does not apply to executables.
-# The path is used as passed: file(TO_CMAKE_PATH) treats ':' as a path-list separator and
-# would turn "C:/pkg" into "C;/pkg".
-if(WIN32 AND PYCBC_MODULE_OUTPUT_DIRECTORY)
+# directory, so the directory is set on the target rather than through a global
+# CMAKE_<category>_OUTPUT_DIRECTORY, which applies to every target in the build tree
+# (PYCBC-1878).  The category differs by platform: on Windows a DLL is RUNTIME, which also
+# covers executables, and everywhere else the module is LIBRARY.  PDB_OUTPUT_DIRECTORY
+# otherwise follows the target's own output directory, which would put the symbols back into
+# the package directory and therefore into the wheel.
+#
+# The path is used as passed.  These properties accept native separators, and
+# file(TO_CMAKE_PATH) splits on the host's path-list separator, so it is not a safe
+# normalizer for a single path.
+if(PYCBC_MODULE_OUTPUT_DIRECTORY)
+  message(STATUS "PYCBC_MODULE_OUTPUT_DIRECTORY=${PYCBC_MODULE_OUTPUT_DIRECTORY}")
+  if(WIN32)
+    set(PYCBC_MOD_DIR_CATEGORY RUNTIME)
+  else()
+    set(PYCBC_MOD_DIR_CATEGORY LIBRARY)
+  endif()
   set_target_properties(
     pycbc_core
-    PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PYCBC_MODULE_OUTPUT_DIRECTORY}"
+    PROPERTIES ${PYCBC_MOD_DIR_CATEGORY}_OUTPUT_DIRECTORY "${PYCBC_MODULE_OUTPUT_DIRECTORY}"
                PDB_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
-  # Multi-config generators (Visual Studio) append the configuration name unless the
-  # per-config property is set; single-config generators (Ninja) use the plain property.
+  # Multi-config generators (Visual Studio, Xcode) append the configuration name unless the
+  # per-config property is set.  Single-config generators leave CMAKE_CONFIGURATION_TYPES
+  # empty, so this loop is a no-op there and the plain property above applies.
   foreach(pycbc_config IN LISTS CMAKE_CONFIGURATION_TYPES)
     string(TOUPPER "${pycbc_config}" pycbc_config_uc)
     set_target_properties(
       pycbc_core
-      PROPERTIES RUNTIME_OUTPUT_DIRECTORY_${pycbc_config_uc} "${PYCBC_MODULE_OUTPUT_DIRECTORY}"
+      PROPERTIES ${PYCBC_MOD_DIR_CATEGORY}_OUTPUT_DIRECTORY_${pycbc_config_uc} "${PYCBC_MODULE_OUTPUT_DIRECTORY}"
                  PDB_OUTPUT_DIRECTORY_${pycbc_config_uc} "${CMAKE_BINARY_DIR}")
   endforeach()
+else()
+  # Nothing else places the module, and the CMake-driven build_ext does not check, so the
+  # wheel would be packed without an extension and fail at import instead of here.
+  message(
+    WARNING
+      "PYCBC_MODULE_OUTPUT_DIRECTORY is not set: ${PYCBC_C_MOD_OUTPUT_NAME}${PYCBC_C_MOD_FULL_SUFFIX} will be left in the build tree, not the package directory"
+  )
 endif()

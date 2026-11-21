@@ -72,6 +72,7 @@ async def test_set_fan_commands(client: AsyncMock, climate_control: ClimateContr
     await climate_control.set_fixed_fan_speed("cooling", 3)
     await climate_control.set_fan_direction("cooling", "vertical", "swing")
     await climate_control.set_fan_direction("cooling", "horizontal", "stop")
+    await climate_control.set_fixed_fan_direction("cooling", "vertical", 2)
 
     assert client.patch_characteristic.await_args_list == [
         call(
@@ -101,6 +102,13 @@ async def test_set_fan_commands(client: AsyncMock, climate_control: ClimateContr
             "fanControl",
             "stop",
             path="/operationModes/cooling/fanDirection/horizontal/currentMode",
+        ),
+        call(
+            "gateway-1",
+            "climateControl",
+            "fanControl",
+            2,
+            path="/operationModes/cooling/fanDirection/vertical/modes/fixed",
         ),
     ]
 

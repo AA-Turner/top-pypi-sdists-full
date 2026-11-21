@@ -94,15 +94,19 @@ mail_merge``가 치환 대상으로 인식하는 세 문법 중 하나) -- DATE/
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from lxml import etree as LET  # type: ignore[reportAttributeAccessIssue]  # lxml has no complete bundled typing
 
 from ._document_primitives import _HP, _append_child, _object_id, _sanitize_text
 
 if TYPE_CHECKING:
+    from ._document_primitives import IdSource
+    from ..objects.checkbox import CheckBox
+    from ..objects.form_field import Bookmark, FormField
     from .objects import HwpxOxmlInlineObject
     from .paragraph import HwpxOxmlParagraph
+    from .section import HwpxOxmlSection
 
 __all__ = [
     "DATE_FORMATS",
@@ -113,7 +117,11 @@ __all__ = [
     "create_proofreading_mark_field",
     "create_path_field",
     "FIELD_TYPE_CONTROL_IDS",
+    "bookmark_for",
+    "check_box_for",
     "field_type_id",
+    "form_field_for",
+    "paragraph_bookmarks",
 ]
 
 #: The control id of each field type (``hp:fieldBegin/@type``): four ASCII characters
@@ -131,18 +139,23 @@ FIELD_TYPE_CONTROL_IDS: dict[str, str] = {
     "MAILMERGE": "%mmg",
     "CROSSREF": "%xrf",
     "SUMMARY": "%sum",
+    "SUMMERY": "%smr",  # a date code, as Hancom 2024 spells and writes it
     "USER_INFO": "%usr",
     "MEMO": "%%me",
     "PROOFREADING_MARKS_SIGN": "%sig",
+    "PROOFREADING_MARKS_DELETE": "%%*d",
+    "PROOFREADING_MARKS_LINEATTACH": "%%*A",
+    "PROOFREADING_MARKS_ATTACH": "%%*a",
+    "PROOFREADING_MARKS_CLIPPING": "%%*C",
 }
 
 
-def field_type_id(field_type: str | None) -> str:
-    """The ``fieldid`` Hancom writes for a field of *field_type*, or a new id for a
-    type without a known control id."""
+def field_type_id(field_type: str | None, *, ids: "IdSource | None") -> str:
+    """The ``fieldid`` Hancom writes for a field of *field_type*, or a new id (from *ids*, the
+    source of the document the field is for) for a type without a known control id."""
 
     control = FIELD_TYPE_CONTROL_IDS.get((field_type or "").upper())
-    return str(int.from_bytes(control.encode("ascii"), "big")) if control else _object_id()
+    return str(int.from_bytes(control.encode("ascii"), "big")) if control else _object_id(ids)
 
 
 #: 실측된 유일한 (date_format -> command 미리보기 문자열) 매핑. 다른
@@ -166,7 +179,7 @@ PATH_FORMATS: dict[str, str] = {
 
 
 def _field_begin(
-    field_type: str, *, meta_tag: bool = True
+    field_type: str, *, ids: "IdSource | None", meta_tag: bool = True
 ) -> tuple[ET.Element, ET.Element, str, str]:
     """``hp:ctrl > hp:fieldBegin`` -- 관측된 고정 속성 그대로.
 
@@ -180,8 +193,8 @@ def _field_begin(
     달고 있고 MAILMERGE gold는 없다 -- 필드 종류마다 실측이 갈리는
     유일한 속성이라 여기서만 분기한다(모듈 독스트링 참조).
     """
-    field_id = _object_id()
-    field_ref_id = field_type_id(field_type)
+    field_id = _object_id(ids)
+    field_ref_id = field_type_id(field_type, ids=ids)
     ctrl = ET.Element(f"{_HP}ctrl")
     attributes = {
         "id": field_id,
@@ -207,6 +220,7 @@ def _field_end(field_id: str, field_ref_id: str) -> ET.Element:
 def create_date_field(
     cached_text: str,
     *,
+    ids: "IdSource | None",
     date_format: str = "YYYY년 M월 D일",
     date_nation: str = "KOR",
 ) -> list[ET.Element]:
@@ -226,7 +240,7 @@ def create_date_field(
             suggestion=f"Supported: {', '.join(sorted(DATE_FORMATS))}",
         )
 
-    ctrl_begin, begin, field_id, field_ref_id = _field_begin("DATE")
+    ctrl_begin, begin, field_id, field_ref_id = _field_begin("DATE", ids=ids)
     params = _append_child(begin, f"{_HP}parameters", {"cnt": "4", "name": ""})
     prop = _append_child(params, f"{_HP}integerParam", {"name": "Prop"})
     prop.text = "8"
@@ -244,7 +258,7 @@ def create_date_field(
     return [ctrl_begin, text_el, ctrl_end]
 
 
-def create_proofreading_mark_field(mark: str = "space") -> list[ET.Element]:
+def create_proofreading_mark_field(mark: str = "space", *, ids: "IdSource | None") -> list[ET.Element]:
     """교정 부호 표시 필드(``type="PROOFREADING_MARKS_SIGN"``) 요소열을
     만든다. 캐시 텍스트 없음(순수 마크) -- 반환값은
     ``[ctrl(begin), ctrl(end)]``."""
@@ -262,7 +276,7 @@ def create_proofreading_mark_field(mark: str = "space") -> list[ET.Element]:
             ),
         )
 
-    ctrl_begin, begin, field_id, field_ref_id = _field_begin("PROOFREADING_MARKS_SIGN")
+    ctrl_begin, begin, field_id, field_ref_id = _field_begin("PROOFREADING_MARKS_SIGN", ids=ids)
     params = _append_child(begin, f"{_HP}parameters", {"cnt": "2", "name": ""})
     prop = _append_child(params, f"{_HP}integerParam", {"name": "Prop"})
     prop.text = "0"
@@ -276,6 +290,7 @@ def create_proofreading_mark_field(mark: str = "space") -> list[ET.Element]:
 def create_path_field(
     cached_text: str,
     *,
+    ids: "IdSource | None",
     path_format: str = "filename",
 ) -> list[ET.Element]:
     """파일 이름 필드(``type="PATH"``) 요소열을 만든다.
@@ -295,7 +310,7 @@ def create_path_field(
         )
 
     literal = PATH_FORMATS[path_format]
-    ctrl_begin, begin, field_id, field_ref_id = _field_begin("PATH")
+    ctrl_begin, begin, field_id, field_ref_id = _field_begin("PATH", ids=ids)
     params = _append_child(begin, f"{_HP}parameters", {"cnt": "3", "name": ""})
     prop = _append_child(params, f"{_HP}integerParam", {"name": "Prop"})
     prop.text = "8"
@@ -314,6 +329,7 @@ def create_path_field(
 def create_mail_merge_field(
     name: str,
     *,
+    ids: "IdSource | None",
     cached_text: str | None = None,
 ) -> list[ET.Element]:
     """메일머지 표시 필드(``type="MAILMERGE"``) 요소열을 만든다.
@@ -321,7 +337,8 @@ def create_mail_merge_field(
     *name*은 데이터 열 이름("도구 > 메일 머지 > 메일 머지 표시 달기"
     대화상자의 필드 이름)이고, ``Command``/``FieldValue`` 두 파라미터에
     그대로 실린다. *cached_text*를 생략하면 ``"{{name}}"`` --
-    ``hwpx.tools.mail_merge.merge_template_rows``가 치환 대상으로 인식하는
+    메일 머지 배치 생성기(7.0부터 python-hwpx-automation의
+    ``hwpx_automation.mail_merge.merge_template_rows``)가 치환 대상으로 인식하는
     플레이스홀더 문법이라, 이 필드로 저작한 템플릿이 그 배치 생성기에
     그대로 물린다.
 
@@ -339,7 +356,7 @@ def create_mail_merge_field(
             suggestion='데이터 열 이름을 주세요 -- 예: add_mail_merge_field("name").',
         )
 
-    ctrl_begin, begin, field_id, field_ref_id = _field_begin("MAILMERGE", meta_tag=False)
+    ctrl_begin, begin, field_id, field_ref_id = _field_begin("MAILMERGE", ids=ids, meta_tag=False)
     params = _append_child(begin, f"{_HP}parameters", {"cnt": "5", "name": ""})
     # "Fiexde"는 실물·한컴 공식 문서 공통의 오타 철자다 -- 고치지 않는다.
     fixed = _append_child(params, f"{_HP}booleanParam", {"name": "Fiexde"})
@@ -401,7 +418,7 @@ def _paragraph_add_date_field(
     붙는다(``paragraph.py``의 ``add_date_field = _paragraph_add_date_field``
     참조) -- ``paragraph``가 아니라 ``self``인 것도 그 관행 그대로.
     """
-    elements = create_date_field(cached_text, date_format=date_format, date_nation=date_nation)
+    elements = create_date_field(cached_text, ids=self.section._ids, date_format=date_format, date_nation=date_nation)
     return _append_field_elements(self, elements, char_pr_id_ref=char_pr_id_ref)
 
 
@@ -412,7 +429,7 @@ def _paragraph_add_proofreading_mark(
     char_pr_id_ref: str | int | None = None,
 ) -> "HwpxOxmlInlineObject":
     """교정 부호 표시 필드를 이 문단에 삽입한다."""
-    elements = create_proofreading_mark_field(mark)
+    elements = create_proofreading_mark_field(mark, ids=self.section._ids)
     return _append_field_elements(self, elements, char_pr_id_ref=char_pr_id_ref)
 
 
@@ -424,7 +441,7 @@ def _paragraph_add_path_field(
     char_pr_id_ref: str | int | None = None,
 ) -> "HwpxOxmlInlineObject":
     """파일 이름 필드를 이 문단에 삽입한다."""
-    elements = create_path_field(cached_text, path_format=path_format)
+    elements = create_path_field(cached_text, ids=self.section._ids, path_format=path_format)
     return _append_field_elements(self, elements, char_pr_id_ref=char_pr_id_ref)
 
 
@@ -436,5 +453,151 @@ def _paragraph_add_mail_merge_field(
     char_pr_id_ref: str | int | None = None,
 ) -> "HwpxOxmlInlineObject":
     """메일머지 표시 필드를 이 문단에 삽입한다."""
-    elements = create_mail_merge_field(name, cached_text=cached_text)
+    elements = create_mail_merge_field(name, ids=self.section._ids, cached_text=cached_text)
     return _append_field_elements(self, elements, char_pr_id_ref=char_pr_id_ref)
+
+# --------------------------------------------------------------------------
+# The value types ``paragraph.add_*`` hands back (7.0): the form a mark is read in.
+#
+# ``paragraph.add_bookmark()`` returns the :class:`~hwpx.objects.Bookmark` ``doc.refs.bookmarks`` lists,
+# ``add_form_field()`` the :class:`~hwpx.objects.FormField` ``doc.fields.all`` lists, ``add_check_box()``
+# the :class:`~hwpx.objects.CheckBox` ``doc.fields.check_boxes`` lists, and ``paragraph.bookmarks`` the
+# bookmarks themselves. Those readers number a mark among the whole document's (``FieldLocation``, a check
+# box's ``index``), so building one walks the document the paragraph is in, through the same readers
+# (:mod:`hwpx._document.fields`); a paragraph in no document is numbered within its section.
+
+
+class _DocumentScope:
+    """What :mod:`hwpx._document.fields` reads of a document -- ``sections`` and the ``_root`` model
+    document -- for a model paragraph: its section's document, or the section alone when in none."""
+
+    __slots__ = ("_section",)
+
+    def __init__(self, section: "HwpxOxmlSection") -> None:
+        self._section = section
+
+    @property
+    def _root(self) -> Any:
+        return self._section.document
+
+    @property
+    def sections(self) -> list[Any]:
+        document = self._section.document
+        return list(document.sections) if document is not None else [self._section]
+
+
+def _source(paragraph: "HwpxOxmlParagraph") -> tuple[_DocumentScope, tuple[Any, ...]]:
+    """The document scope and the reader's row for *paragraph*: its section's number, its number among
+    the document's paragraphs (cells and objects included), its number among its section's own (-1 for
+    a nested one), its element, itself and its runs. -1 throughout where the readers do not reach it."""
+
+    from .._document.fields import _iter_content_paragraphs, _local_name
+
+    scope = _DocumentScope(paragraph.section)
+    runs = [child for child in paragraph.element if _local_name(child) == "run"]
+    for section_index, index, in_section, element, _view, _runs in _iter_content_paragraphs(scope):  # type: ignore[arg-type]
+        if element is paragraph.element:
+            return scope, (section_index, index, in_section, element, paragraph, runs)
+    return scope, (-1, -1, -1, paragraph.element, paragraph, runs)
+
+
+def _field_text(scope: _DocumentScope, source: tuple[Any, ...], begin: Any) -> str:
+    from .._document.fields import _field_matches_in
+
+    found = _field_matches_in(scope, lambda _ctrl, field_begin: field_begin is begin, iter((source,)))  # type: ignore[arg-type]
+    return str(found[0]["current_value"]) if found else ""
+
+
+def _bookmarks_in(paragraph: "HwpxOxmlParagraph", wanted: Any = None) -> tuple["Bookmark", ...]:
+    from ..objects.form_field import Bookmark, FieldLocation
+
+    marks: list[tuple[int, int, Any, str]] = []
+    for run_index, run in enumerate(paragraph._run_elements()):
+        for child_index, child in enumerate(run):
+            if child.tag != f"{_HP}ctrl":
+                continue
+            for mark in child:
+                if wanted is not None and mark is not wanted:
+                    continue
+                if mark.tag == f"{_HP}bookmark" and mark.get("name"):
+                    marks.append((run_index, child_index, mark, "point"))
+                elif (mark.tag == f"{_HP}fieldBegin" and (mark.get("type") or "").strip().upper() == "BOOKMARK"
+                      and (mark.get("name") or "").strip()):
+                    marks.append((run_index, child_index, mark, "field"))
+    if not marks:
+        return ()
+    scope, source = _source(paragraph)
+    section_index, index, in_section = source[:3]
+    bookmarks = []
+    for run_index, child_index, mark, kind in marks:
+        location = FieldLocation(
+            section_index=section_index,
+            paragraph_index=index,
+            paragraph_index_in_section=in_section,
+            run_index=run_index,
+            child_index=child_index,
+        )
+        if kind == "point":
+            bookmarks.append(Bookmark(mark.get("name", ""), "point", "", location, mark, paragraph.section))
+        else:
+            name = (mark.get("name") or "").strip()
+            text = _field_text(scope, source, mark)
+            bookmarks.append(Bookmark(name, "field", text, location, mark, paragraph.section))
+    return tuple(bookmarks)
+
+
+def paragraph_bookmarks(paragraph: "HwpxOxmlParagraph") -> tuple["Bookmark", ...]:
+    """The bookmarks that start in *paragraph*'s own runs, in order, in either form Hancom saves one
+    (``<hp:bookmark>`` and ``<hp:fieldBegin type="BOOKMARK">``), as ``doc.refs.bookmarks`` gives them."""
+
+    return _bookmarks_in(paragraph)
+
+
+def bookmark_for(paragraph: "HwpxOxmlParagraph", mark: Any) -> "Bookmark":
+    """The :class:`~hwpx.objects.Bookmark` for the ``<hp:bookmark>`` *mark* just added to *paragraph*."""
+
+    return _bookmarks_in(paragraph, mark)[0]
+
+
+def check_click_here_text(**texts: object) -> None:
+    """Refuse (``field-text-control-unsupported``) a click-here field's 안내문 (*argument* ``prompt``, its
+    ``Direction``) or memo (``memo``, its ``HelpState``) holding a tab or a line break. None of the 35
+    ``Direction`` parameters of the click-here fields in tests/fixtures/hancom_saved holds one (and no file
+    there has a ``HelpState``), so how Hancom keeps one is not known; making a field and changing its prompt
+    afterwards used to differ (the first dropped a tab, the second kept it)."""
+
+    for argument, value in texts.items():
+        if not isinstance(value, str) or not any(mark in value for mark in ("\t", "\n", "\r")):
+            continue
+        from ..errors import HwpxValueError
+
+        raise HwpxValueError(
+            f"a click-here field's {argument} cannot hold a tab or a line break",
+            code="field-text-control-unsupported",
+            context={"argument": argument},
+            suggestion=f"Pass the {argument} without tabs and line breaks (a space instead).",
+        )
+
+
+def form_field_for(paragraph: "HwpxOxmlParagraph", field_begin: Any) -> "FormField":
+    """The :class:`~hwpx.objects.FormField` for the ``<hp:fieldBegin>`` *field_begin* just added to
+    *paragraph*, read as ``doc.fields.all`` reads it (its value, prompt and place)."""
+
+    from .._document.fields import _field_matches_in, _form_field_from_match
+
+    scope, source = _source(paragraph)
+    match = _field_matches_in(scope, lambda _ctrl, begin: begin is field_begin, iter((source,)))[0]  # type: ignore[arg-type]
+    return _form_field_from_match(scope, match)  # type: ignore[arg-type]
+
+
+def check_box_for(paragraph: "HwpxOxmlParagraph", element: Any) -> "CheckBox":
+    """The :class:`~hwpx.objects.CheckBox` for the ``<hp:checkBtn>`` *element* just added to *paragraph*,
+    numbered among the document's check boxes as ``doc.fields.check_boxes`` numbers it."""
+
+    from .._document.fields import _iter_check_boxes
+    from ..objects.checkbox import CheckBox
+
+    for match in _iter_check_boxes(_DocumentScope(paragraph.section)):  # type: ignore[arg-type]
+        if match["_element"] is element:
+            return CheckBox(element, match["_section"], paragraph, index=match["index"])
+    return CheckBox(element, paragraph.section, paragraph, index=-1)

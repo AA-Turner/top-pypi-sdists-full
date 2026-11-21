@@ -130,6 +130,9 @@ class CfnCluster(
         cfn_cluster = dsql.CfnCluster(self, "MyCfnCluster",
             deletion_protection_enabled=False,
             kms_encryption_key="kmsEncryptionKey",
+            metric_groups=[dsql.CfnCluster.MetricGroupProperty(
+                metric_group="metricGroup"
+            )],
             multi_region_properties=dsql.CfnCluster.MultiRegionPropertiesProperty(
                 clusters=["clusters"],
                 witness_region="witnessRegion"
@@ -149,6 +152,7 @@ class CfnCluster(
         *,
         deletion_protection_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         kms_encryption_key: typing.Optional[builtins.str] = None,
+        metric_groups: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.MetricGroupProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         multi_region_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.MultiRegionPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         policy_document: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -159,6 +163,7 @@ class CfnCluster(
         :param id: Construct identifier for this resource (unique in its scope).
         :param deletion_protection_enabled: Whether deletion protection is enabled on this cluster.
         :param kms_encryption_key: The KMS key that encrypts data on the cluster.
+        :param metric_groups: The Advanced monitoring metric groups to enable on the cluster. Omit to enable none.
         :param multi_region_properties: Defines the structure for multi-Region cluster configurations, containing the witness Region and peered cluster settings.
         :param policy_document: A resource-based policy document in JSON format. Length constraints: Minimum length of 1. Maximum length of 20480 characters (approximately 20KB).
         :param tags: A map of key and value pairs this cluster is tagged with.
@@ -170,6 +175,7 @@ class CfnCluster(
         props = CfnClusterProps(
             deletion_protection_enabled=deletion_protection_enabled,
             kms_encryption_key=kms_encryption_key,
+            metric_groups=metric_groups,
             multi_region_properties=multi_region_properties,
             policy_document=policy_document,
             tags=tags,
@@ -402,6 +408,24 @@ class CfnCluster(
         jsii.set(self, "kmsEncryptionKey", value)
 
     @builtins.property
+    @jsii.member(jsii_name="metricGroups")
+    def metric_groups(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.MetricGroupProperty"]]]]:
+        '''The Advanced monitoring metric groups to enable on the cluster.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.MetricGroupProperty"]]]], jsii.get(self, "metricGroups"))
+
+    @metric_groups.setter
+    def metric_groups(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.MetricGroupProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__189538f08ea75721ba8a20a2b36117cf807f0e9146dca45ecf9a0b64b0a45080)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "metricGroups", value)
+
+    @builtins.property
     @jsii.member(jsii_name="multiRegionProperties")
     def multi_region_properties(
         self,
@@ -538,6 +562,60 @@ class CfnCluster(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dsql.CfnCluster.MetricGroupProperty",
+        jsii_struct_bases=[],
+        name_mapping={"metric_group": "metricGroup"},
+    )
+    class MetricGroupProperty:
+        def __init__(self, *, metric_group: builtins.str) -> None:
+            '''An Advanced monitoring metric group.
+
+            :param metric_group: The name of the metric group. Valid values: STATEMENT_STATISTICS.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dsql-cluster-metricgroup.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dsql as dsql
+                
+                metric_group_property = dsql.CfnCluster.MetricGroupProperty(
+                    metric_group="metricGroup"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__2f0bd0a6e333eb9eee72c092a3b69c0d9121194c79d613a07aef77da7a517161)
+                check_type(argname="argument metric_group", value=metric_group, expected_type=type_hints["metric_group"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "metric_group": metric_group,
+            }
+
+        @builtins.property
+        def metric_group(self) -> builtins.str:
+            '''The name of the metric group.
+
+            Valid values: STATEMENT_STATISTICS.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dsql-cluster-metricgroup.html#cfn-dsql-cluster-metricgroup-metricgroup
+            '''
+            result = self._values.get("metric_group")
+            assert result is not None, "Required property 'metric_group' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MetricGroupProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_dsql.CfnCluster.MultiRegionPropertiesProperty",
         jsii_struct_bases=[],
         name_mapping={"clusters": "clusters", "witness_region": "witnessRegion"},
@@ -618,6 +696,7 @@ class CfnCluster(
     name_mapping={
         "deletion_protection_enabled": "deletionProtectionEnabled",
         "kms_encryption_key": "kmsEncryptionKey",
+        "metric_groups": "metricGroups",
         "multi_region_properties": "multiRegionProperties",
         "policy_document": "policyDocument",
         "tags": "tags",
@@ -629,6 +708,7 @@ class CfnClusterProps:
         *,
         deletion_protection_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         kms_encryption_key: typing.Optional[builtins.str] = None,
+        metric_groups: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.MetricGroupProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         multi_region_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.MultiRegionPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         policy_document: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -637,6 +717,7 @@ class CfnClusterProps:
 
         :param deletion_protection_enabled: Whether deletion protection is enabled on this cluster.
         :param kms_encryption_key: The KMS key that encrypts data on the cluster.
+        :param metric_groups: The Advanced monitoring metric groups to enable on the cluster. Omit to enable none.
         :param multi_region_properties: Defines the structure for multi-Region cluster configurations, containing the witness Region and peered cluster settings.
         :param policy_document: A resource-based policy document in JSON format. Length constraints: Minimum length of 1. Maximum length of 20480 characters (approximately 20KB).
         :param tags: A map of key and value pairs this cluster is tagged with.
@@ -654,6 +735,9 @@ class CfnClusterProps:
             cfn_cluster_props = dsql.CfnClusterProps(
                 deletion_protection_enabled=False,
                 kms_encryption_key="kmsEncryptionKey",
+                metric_groups=[dsql.CfnCluster.MetricGroupProperty(
+                    metric_group="metricGroup"
+                )],
                 multi_region_properties=dsql.CfnCluster.MultiRegionPropertiesProperty(
                     clusters=["clusters"],
                     witness_region="witnessRegion"
@@ -669,6 +753,7 @@ class CfnClusterProps:
             type_hints = cached_type_hints(_typecheckingstub__c99b78beafe41f2e25cbcc0b8a8aff58ff66a77464bef06dbf9128ff75ebd08c)
             check_type(argname="argument deletion_protection_enabled", value=deletion_protection_enabled, expected_type=type_hints["deletion_protection_enabled"])
             check_type(argname="argument kms_encryption_key", value=kms_encryption_key, expected_type=type_hints["kms_encryption_key"])
+            check_type(argname="argument metric_groups", value=metric_groups, expected_type=type_hints["metric_groups"])
             check_type(argname="argument multi_region_properties", value=multi_region_properties, expected_type=type_hints["multi_region_properties"])
             check_type(argname="argument policy_document", value=policy_document, expected_type=type_hints["policy_document"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -677,6 +762,8 @@ class CfnClusterProps:
             self._values["deletion_protection_enabled"] = deletion_protection_enabled
         if kms_encryption_key is not None:
             self._values["kms_encryption_key"] = kms_encryption_key
+        if metric_groups is not None:
+            self._values["metric_groups"] = metric_groups
         if multi_region_properties is not None:
             self._values["multi_region_properties"] = multi_region_properties
         if policy_document is not None:
@@ -703,6 +790,19 @@ class CfnClusterProps:
         '''
         result = self._values.get("kms_encryption_key")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def metric_groups(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.MetricGroupProperty"]]]]:
+        '''The Advanced monitoring metric groups to enable on the cluster.
+
+        Omit to enable none.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dsql-cluster.html#cfn-dsql-cluster-metricgroups
+        '''
+        result = self._values.get("metric_groups")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.MetricGroupProperty"]]]], result)
 
     @builtins.property
     def multi_region_properties(
@@ -760,6 +860,7 @@ def _typecheckingstub__b82b76673b1942e60f823768c857e13a61b0491cdd1ca21c1f2a574e9
     *,
     deletion_protection_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     kms_encryption_key: typing.Optional[builtins.str] = None,
+    metric_groups: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.MetricGroupProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     multi_region_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.MultiRegionPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     policy_document: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -811,6 +912,12 @@ def _typecheckingstub__8ae716ffcdd031c28de520d863a21a8cc04056fe6c3c1a6e658dd02ea
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__189538f08ea75721ba8a20a2b36117cf807f0e9146dca45ecf9a0b64b0a45080(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCluster.MetricGroupProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d1cd42de6387e3057eda85830c6674c4cac74a5be160e21869cc4c1b3274381c(
     value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCluster.MultiRegionPropertiesProperty]],
 ) -> None:
@@ -838,6 +945,13 @@ def _typecheckingstub__dd4156a8f1ca33d4dc585a1af5623fff8b945e08734aa29b92ad1fc93
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__2f0bd0a6e333eb9eee72c092a3b69c0d9121194c79d613a07aef77da7a517161(
+    *,
+    metric_group: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__b9a11b947e8fa036630c80e949e1619ff609036ee5de58658c8157988d8c212f(
     *,
     clusters: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -850,6 +964,7 @@ def _typecheckingstub__c99b78beafe41f2e25cbcc0b8a8aff58ff66a77464bef06dbf9128ff7
     *,
     deletion_protection_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     kms_encryption_key: typing.Optional[builtins.str] = None,
+    metric_groups: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.MetricGroupProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     multi_region_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.MultiRegionPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     policy_document: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,

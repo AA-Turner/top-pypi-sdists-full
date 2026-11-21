@@ -10,17 +10,19 @@ from dataclasses import dataclass
 from html.entities import codepoint2name
 from itertools import combinations_with_replacement, product
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Final, Protocol, cast
+from typing import TYPE_CHECKING, Final, NoReturn, Protocol, cast
 from xml.etree import (  # ruff:ignore[suspicious-xml-etree-import]  # parsing turbohtml's own output, not untrusted input
     ElementTree as ET,
 )
 
 import pytest
 
+import turbohtml.detect  # ruff:ignore[unused-import]  # importing registers the whatwg-* codecs the sampled round trip decodes through
 from turbohtml import (
     Canonical,
     CData,
     Comment,
+    Document,
     Element,
     Formatter,
     Html,
@@ -30,16 +32,20 @@ from turbohtml import (
     Node,
     PlainText,
     ProcessingInstruction,
+    ShadowRoot,
     Text,
     parse,
     parse_fragment,
     parse_xml,
 )
+from turbohtml.etree import ElementView, fragment_fromstring, tostring
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterator
 
     from wpt_tree_corpus import WptHtmlTreeCorpus
+
+    _CodecSearch = Callable[[str], codecs.CodecInfo | None]
 
 _PRETTY: Final[Html] = Html(layout=Indent())
 
@@ -119,12 +125,12 @@ def _pretty(html: str, selector: str) -> str:
     ],
 )
 def test_indent_keeps_inline_text(html: str, selector: str) -> None:
-    reparsed: Final = parse(_pretty(html, selector)).select(selector)
+    reparsed: Final[list[Element]] = parse(_pretty(html, selector)).select(selector)
     assert [node.text for node in reparsed] == [node.text for node in parse(html).select(selector)]
 
 
 def test_indent_document() -> None:
-    source: Final = "<!DOCTYPE html><title>t</title><h1>T</h1><p>a <b>b</b></p><script>x</script>"
+    source: Final[str] = "<!DOCTYPE html><title>t</title><h1>T</h1><p>a <b>b</b></p><script>x</script>"
     assert parse(source).serialize(_PRETTY) == (
         "<!DOCTYPE html>\n<html>\n  <head>\n    <title>t</title>\n  </head>\n  <body>\n    <h1>T</h1>\n"
         "    <p>a <b>b</b></p>\n    <script>x</script>\n  </body>\n</html>"
@@ -140,7 +146,7 @@ def test_indent_body_with_only_inline_content() -> None:
 
 def test_indent_reindent_is_fixpoint(wpt_html_tree_corpus: WptHtmlTreeCorpus) -> None:
     # only markup the compact serializer round-trips can be asked to reindent stably
-    unstable: Final = [
+    unstable: Final[list[str]] = [
         case["data"]
         for case in wpt_html_tree_corpus["cases"]
         if _compact_roundtrips(case["data"]) and not _pretty_is_fixpoint(case["data"])
@@ -159,12 +165,16 @@ def _pretty_is_fixpoint(source: str) -> bool:
 
 
 def test_indent_drops_empty_and_blank_text_nodes() -> None:
-    root: Final = Element("div", children=[Text(""), Element("p", children=[Text("x")]), Text(""), Text(" \n")])
+    root: Final[Element] = Element(
+        "div", children=[Text(""), Element("p", children=[Text("x")]), Text(""), Text(" \n")]
+    )
     assert root.serialize(_PRETTY) == "<div>\n  <p>x</p>\n</div>"
 
 
 def test_indent_keeps_blank_text_inside_a_run() -> None:
-    root: Final = Element("p", children=[Element("b", children=[Text("a")]), Text(""), Text(" "), Element("i")])
+    root: Final[Element] = Element(
+        "p", children=[Element("b", children=[Text("a")]), Text(""), Text(" "), Element("i")]
+    )
     assert root.serialize(_PRETTY) == "<p><b>a</b> <i></i></p>"
 
 
@@ -177,39 +187,39 @@ def test_indent_text_root() -> None:
 
 
 def test_indent_shadow_root() -> None:
-    shadow: Final = Element("div").attach_shadow()
+    shadow: Final[ShadowRoot] = Element("div").attach_shadow()
     shadow.set_inner_html(" a <p>x</p><b>y</b> ")
     assert shadow.serialize(_PRETTY) == "a\n<p>x</p>\n<b>y</b>"
 
 
 def test_indent_inline_inner_root_is_verbatim() -> None:
-    root: Final = parse_fragment("<span> a <b>b</b> </span>").children[0]
+    root: Final[Node] = parse_fragment("<span> a <b>b</b> </span>").children[0]
     assert root.serialize(_PRETTY, inner=True) == " a <b>b</b> "
 
 
 def test_indent_xml_syntax_empties_blank_block() -> None:
-    root: Final = parse_fragment("<div> </div>").children[0]
+    root: Final[Node] = parse_fragment("<div> </div>").children[0]
     assert root.serialize(Html(xml=True, layout=Indent())) == "<div/>"
 
 
 def test_indent_xml_syntax_trims_run_text() -> None:
-    root: Final = parse_fragment("<div> a&lt; <p>x</p></div>").children[0]
+    root: Final[Node] = parse_fragment("<div> a&lt; <p>x</p></div>").children[0]
     assert root.serialize(Html(xml=True, layout=Indent())) == "<div>\n  a&lt;\n  <p>x</p>\n</div>"
 
 
 def test_indent_xml_tree() -> None:
-    document: Final = parse_xml("<root><a>x</a><b><c/></b></root>")
+    document: Final[Document] = parse_xml("<root><a>x</a><b><c/></b></root>")
     assert document.serialize(Html(xml=True, layout=Indent())) == "<root>\n  <a>x</a>\n  <b>\n    <c/>\n  </b>\n</root>"
 
 
 def test_indent_xml_tree_is_fixpoint() -> None:
-    options: Final = Html(xml=True, layout=Indent())
-    pretty: Final = parse_xml("<root><a>x</a><b><c/></b></root>").serialize(options)
+    options: Final[Html] = Html(xml=True, layout=Indent())
+    pretty: Final[str] = parse_xml("<root><a>x</a><b><c/></b></root>").serialize(options)
     assert parse_xml(pretty).serialize(options) == pretty
 
 
 def test_indent_meta_charset_skips_foreign_root() -> None:
-    root: Final = parse("<svg><g></g></svg>").select_one("svg")
+    root: Final[Element | None] = parse("<svg><g></g></svg>").select_one("svg")
     assert root is not None
     assert root.serialize(Html(layout=Indent(), meta_charset=True)) == "<svg>\n  <g></g>\n</svg>"
 
@@ -339,7 +349,7 @@ def test_xml_serialization_keeps_doctype_external_ids(source: str, expected: str
     ],
 )
 def test_xml_serialization_omits_invalid_public_id(source: str, expected: str) -> None:
-    serialized: Final = parse(source).serialize(Html(xml=True))
+    serialized: Final[str] = parse(source).serialize(Html(xml=True))
     assert parse_xml(serialized).serialize(Html(xml=True)) == f"{expected}<html><head/><body><r/></body></html>"
 
 
@@ -480,7 +490,7 @@ for edit_name, edit in EDITS.items():
 def test_serialize_iter_raises_when_a_versionless_edit_detaches_the_cursor() -> None:
     # normalize unlinks the resume node without bumping the version, so serialize_iter must notice the broken parent
     # chain rather than the version counter; a regression serializes a detached node and kills the interpreter.
-    script: Final = textwrap.dedent("""
+    script: Final[str] = textwrap.dedent("""
         from turbohtml import Element, Text
 
         root = Element("div", children=[Text("x" * 200000), Text("y"), Element("p", children=[Text("z" * 200000)])])
@@ -621,7 +631,7 @@ def test_serialize_empty_run(html: str, expected: str) -> None:
 )
 @pytest.mark.parametrize("inner", [pytest.param(False, id="outer"), pytest.param(True, id="inner")])
 def test_encode_unicode(text: str, encoding: str, options: Html, *, inner: bool) -> None:
-    root: Final = Element("p", children=[Text(text)])
+    root: Final[Element] = Element("p", children=[Text(text)])
     assert root.encode(encoding, options, inner=inner) == root.serialize(options, inner=inner).encode(encoding)
 
 
@@ -635,7 +645,7 @@ def test_encode_unicode(text: str, encoding: str, options: Html, *, inner: bool)
 )
 @pytest.mark.parametrize("inner", [pytest.param(False, id="outer"), pytest.param(True, id="inner")])
 def test_encode_surrogate_error(text: str, *, inner: bool) -> None:
-    root: Final = Element("p", children=[Text(text)])
+    root: Final[Element] = Element("p", children=[Text(text)])
     with pytest.raises(UnicodeEncodeError) as expected:
         root.serialize(inner=inner).encode()
     with pytest.raises(UnicodeEncodeError) as actual:
@@ -666,7 +676,7 @@ _INDENT_RENDERS: Final[MappingProxyType[str, _Render]] = MappingProxyType({
 )
 @pytest.mark.parametrize("method", list(_INDENT_RENDERS))
 def test_indent_repetition_inner(unit: str, method: str) -> None:
-    root: Final = parse_fragment("<section><p>x</p></section>")
+    root: Final[Element] = parse_fragment("<section><p>x</p></section>")
     output = _INDENT_RENDERS[method](root, Html(layout=Indent(unit)), inner=True)
     assert output == f"<section>\n{unit}<p>x</p>\n</section>"
 
@@ -683,7 +693,7 @@ def test_indent_repetition_inner(unit: str, method: str) -> None:
 )
 @pytest.mark.parametrize("method", list(_INDENT_RENDERS))
 def test_indent_repetition_outer(unit: str, method: str) -> None:
-    root: Final = parse_fragment("<section><p>x</p></section>")
+    root: Final[Element] = parse_fragment("<section><p>x</p></section>")
     output = _INDENT_RENDERS[method](root, Html(layout=Indent(unit)), inner=False)
     assert output == f"<div>\n{unit}<section>\n{unit * 2}<p>x</p>\n{unit}</section>\n</div>"
 
@@ -701,7 +711,7 @@ def test_indent_repetition_outer(unit: str, method: str) -> None:
     ],
 )
 def test_inner_compact(source: str, expected: str) -> None:
-    root: Final = parse_fragment(source).children[0]
+    root: Final[Node] = parse_fragment(source).children[0]
     assert root.serialize(inner=True) == expected
 
 
@@ -727,8 +737,8 @@ def test_inner_empty(layout: Indent | Minify | None, node: Node) -> None:
 
 @pytest.mark.parametrize("layout", _LAYOUTS)
 def test_inner_document(layout: Indent | Minify | None) -> None:
-    root: Final = parse("<p>a</p>")
-    options: Final = Html(layout=layout)
+    root: Final[Document] = parse("<p>a</p>")
+    options: Final[Html] = Html(layout=layout)
     assert root.serialize(options, inner=True) == root.serialize(options)
 
 
@@ -744,22 +754,22 @@ def test_inner_document(layout: Indent | Minify | None) -> None:
 )
 @pytest.mark.parametrize("layout", [pytest.param(Indent(), id="indent"), pytest.param(Minify(), id="minify")])
 def test_inner_preserve(tag: str, layout: Indent | Minify) -> None:
-    root: Final = Element(tag, children=[Text("  a\n b  ")])
+    root: Final[Element] = Element(tag, children=[Text("  a\n b  ")])
     assert root.serialize(Html(layout=layout), inner=True) == "  a\n b  "
 
 
 def test_inner_indent() -> None:
-    root: Final = parse_fragment("<div><p>a</p><p>b</p></div>").children[0]
+    root: Final[Node] = parse_fragment("<div><p>a</p><p>b</p></div>").children[0]
     assert root.serialize(Html(layout=Indent()), inner=True) == "<p>a</p>\n<p>b</p>"
 
 
 def test_inner_minify_state() -> None:
-    root: Final = Element("div", children=[Text("a "), Comment("x"), Text(" b")])
+    root: Final[Element] = Element("div", children=[Text("a "), Comment("x"), Text(" b")])
     assert root.serialize(Html(layout=Minify()), inner=True) == "a b"
 
 
 def test_inner_xml() -> None:
-    root: Final = parse_fragment("<p>a<br>b</p>").children[0]
+    root: Final[Node] = parse_fragment("<p>a<br>b</p>").children[0]
     assert root.serialize(Html(xml=True), inner=True) == "a<br/>b"
 
 
@@ -774,14 +784,14 @@ def test_inner_xml() -> None:
     ],
 )
 def test_inner_iterator(layout: Indent | None, source: str) -> None:
-    root: Final = parse_fragment(source).children[0]
-    options: Final = Html(layout=layout)
+    root: Final[Node] = parse_fragment(source).children[0]
+    options: Final[Html] = Html(layout=layout)
     assert "".join(root.serialize_iter(options, inner=True)) == root.serialize(options, inner=True)
 
 
 def test_inner_iterator_chunks() -> None:
-    root: Final = parse_fragment(f"<div>{'<p>abcdefgh</p>' * 3000}</div>").children[0]
-    chunks: Final = tuple(root.serialize_iter(inner=True))
+    root: Final[Node] = parse_fragment(f"<div>{'<p>abcdefgh</p>' * 3000}</div>").children[0]
+    chunks: Final[tuple[str, ...]] = tuple(root.serialize_iter(inner=True))
     assert (len(chunks) > 1, "".join(chunks)) == (True, "<p>abcdefgh</p>" * 3000)
 
 
@@ -792,7 +802,7 @@ def test_inner_iterator_rejects_minify() -> None:
 
 @pytest.mark.parametrize("encoding", ["utf-8", "utf-16", "iso-8859-1"])
 def test_inner_encode(encoding: str) -> None:
-    root: Final = Element("p", children=[Text("café")])
+    root: Final[Element] = Element("p", children=[Text("café")])
     assert root.encode(encoding, inner=True) == "café".encode(encoding)
 
 
@@ -806,7 +816,7 @@ def test_inner_default_unchanged() -> None:
 
 
 def test_inner_indent_nested_preserve() -> None:
-    root: Final = Element("div", children=[Element("pre", children=[Element("b", children=[Text(" a ")])])])
+    root: Final[Element] = Element("div", children=[Element("pre", children=[Element("b", children=[Text(" a ")])])])
     assert root.serialize(Html(layout=Indent()), inner=True) == "<pre><b> a </b></pre>"
 
 
@@ -866,15 +876,15 @@ def _one(html: str, selector: str) -> Node:
     ],
 )
 def test_inner_meta_charset(layout: Indent | Minify | None, content: str) -> None:
-    root: Final = parse(f"<head>{content}</head>").find_all("head")[0]
-    result: Final = root.serialize(Html(layout=layout, meta_charset=True), inner=True)
+    root: Final[Element] = parse(f"<head>{content}</head>").find_all("head")[0]
+    result: Final[str] = root.serialize(Html(layout=layout, meta_charset=True), inner=True)
     assert result.count("charset") == 1
     assert "<head>" not in result
 
 
 def test_inner_xml_indent() -> None:
-    root: Final = Element("p", children=[Element("br")])
-    options: Final = Html(xml=True, layout=Indent())
+    root: Final[Element] = Element("p", children=[Element("br")])
+    options: Final[Html] = Html(xml=True, layout=Indent())
     assert (root.serialize(options, inner=True), "".join(root.serialize_iter(options, inner=True))) == (
         "<br/>",
         "<br/>",
@@ -883,30 +893,30 @@ def test_inner_xml_indent() -> None:
 
 @pytest.mark.parametrize("layout", _LAYOUTS)
 def test_inner_foreign_context(layout: Indent | Minify | None) -> None:
-    root: Final = parse_fragment("<svg><g></g></svg>").children[0]
+    root: Final[Node] = parse_fragment("<svg><g></g></svg>").children[0]
     assert root.serialize(Html(layout=layout), inner=True) == "<g></g>"
 
 
 def test_inner_metadata_on_other_context() -> None:
-    root: Final = Element("div", children=[Text("x")])
+    root: Final[Element] = Element("div", children=[Text("x")])
     assert root.serialize(Html(layout=Indent(), meta_charset=True), inner=True) == "x"
 
 
 def test_inner_minify_nested_raw_text() -> None:
-    root: Final = parse_fragment("<div><script>a < b</script></div>").children[0]
+    root: Final[Node] = parse_fragment("<div><script>a < b</script></div>").children[0]
     assert root.serialize(Html(layout=Minify()), inner=True) == "<script>a < b</script>"
 
 
 def test_inner_shadow_root() -> None:
-    root: Final = Element("div")
-    shadow: Final = root.attach_shadow()
+    root: Final[Element] = Element("div")
+    shadow: Final[ShadowRoot] = root.attach_shadow()
     shadow.set_inner_html("<b>  x  </b>")
     assert shadow.serialize(Html(layout=Minify()), inner=True) == "<b> x </b>"
 
 
 @pytest.mark.parametrize("layout", [pytest.param(None, id="none"), pytest.param(Indent(), id="indent")])
 def test_inner_raw_context_only_applies_to_direct_text(layout: Indent | None) -> None:
-    root: Final = Element("script", children=[Element("b", children=[Text("<&")])])
+    root: Final[Element] = Element("script", children=[Element("b", children=[Text("<&")])])
     assert root.serialize(Html(layout=layout), inner=True) == "<b>&lt;&amp;</b>"
 
 
@@ -1118,7 +1128,7 @@ def test_xml_processing_instruction_closes_with_question_mark() -> None:
     [pytest.param("\x00", id="nul"), pytest.param("\x0c", id="form-feed"), pytest.param("\uffff", id="noncharacter")],
 )
 def test_xml_processing_instruction_drops_forbidden_characters(invalid: str) -> None:
-    output: Final = Element("doc", children=[ProcessingInstruction("t", f"a{invalid}b")]).serialize(_XML)
+    output: Final[str] = Element("doc", children=[ProcessingInstruction("t", f"a{invalid}b")]).serialize(_XML)
     assert output == "<doc><?t ab?></doc>"
     ET.fromstring(output)  # ruff:ignore[suspicious-xml-element-tree-usage]  # the assertion checks our own XML output
 
@@ -1377,7 +1387,7 @@ def test_serialize_xml_keeps_bound_attribute_prefix() -> None:
     [pytest.param(Html(xml=True), id="plain"), pytest.param(Html(xml=True, layout=Indent()), id="indent")],
 )
 def test_serialize_iter_xml_drops_invalid_element_wrapper(options: Html) -> None:
-    document: Final = parse("<d<>x<p>y</p>")
+    document: Final[Document] = parse("<d<>x<p>y</p>")
     assert "".join(document.serialize_iter(options)) == document.serialize(options)
 
 
@@ -1660,13 +1670,16 @@ _QUOTED_TITLE_LINK: Final[str] = '<a title="x&quot; data-y=&quot;1" href="/">hi<
 
 
 @pytest.mark.parametrize(
-    "layout",
-    [pytest.param(Indent(), id="indent"), pytest.param(Minify(), id="minify")],
+    ("layout", "expected"),
+    [
+        pytest.param(Indent(), _QUOTED_TITLE_LINK, id="indent"),
+        # minify picks the quote the value lacks, so the double quotes stay literal
+        pytest.param(Minify(), "<a title='x\" data-y=\"1' href=/>hi</a>", id="minify"),
+    ],
 )
-def test_minimal_formatter_escapes_quote_in_attribute_under_layout(layout: Indent | Minify) -> None:
-    # every layout wraps attribute values in double quotes, so a literal one would end the value early
+def test_minimal_formatter_escapes_quote_in_attribute_under_layout(layout: Indent | Minify, expected: str) -> None:
     link = _one(_QUOTED_TITLE_LINK, "a")
-    assert link.serialize(Html(layout=layout, formatter=Formatter.MINIMAL)) == _QUOTED_TITLE_LINK
+    assert link.serialize(Html(layout=layout, formatter=Formatter.MINIMAL)) == expected
 
 
 def test_minimal_formatter_stream_escapes_quote_in_attribute() -> None:
@@ -1674,10 +1687,27 @@ def test_minimal_formatter_stream_escapes_quote_in_attribute() -> None:
     assert "".join(link.serialize_iter(Html(formatter=Formatter.MINIMAL))) == _QUOTED_TITLE_LINK
 
 
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        pytest.param("ab", "ab", id="ascii"),
+        pytest.param("caf\xe9 " * 64, "caf&eacute; " * 64, id="latin1-outgrows-twice-the-input"),
+        pytest.param("\u03b1\u2211" * 64, "&alpha;&sum;" * 64, id="wide"),
+    ],
+)
+@pytest.mark.parametrize(
+    ("layout", "tail"),
+    [pytest.param(None, "</p></body></html>", id="compact"), pytest.param(Minify(), "", id="minify")],
+)
+def test_named_entities_serialize_whole_document(text: str, expected: str, layout: Minify | None, tail: str) -> None:
+    html = parse(f"<p>{text}</p>").serialize(Html(layout=layout, formatter=Formatter.NAMED_ENTITIES))
+    assert html.endswith(f"<p>{expected}{tail}")
+
+
 def test_named_entities_reparse_to_the_same_text() -> None:
-    text: Final = f"{''.join(chr(codepoint) for codepoint in sorted(codepoint2name))}⟨⟩"
-    node: Final = Element("p", children=[Text(text)])
-    reparsed: Final = parse(node.serialize(Html(formatter=Formatter.NAMED_ENTITIES))).select("p")
+    text: Final[str] = f"{''.join(chr(codepoint) for codepoint in sorted(codepoint2name))}⟨⟩"
+    node: Final[Element] = Element("p", children=[Text(text)])
+    reparsed: Final[list[Element]] = parse(node.serialize(Html(formatter=Formatter.NAMED_ENTITIES))).select("p")
     assert [paragraph.text for paragraph in reparsed] == [text]
 
 
@@ -1941,27 +1971,27 @@ def test_formatter_members(member: Formatter, value: str) -> None:
     ],
 )
 def test_sort_attributes_orders_by_name(markup: str, selector: str, expected: str) -> None:
-    node: Final = parse(markup).select_one(selector)
+    node: Final[Element | None] = parse(markup).select_one(selector)
     assert node is not None
     assert node.serialize(Html(sort_attributes=True)) == expected
 
 
 def test_sort_attributes_off_keeps_source_order() -> None:
-    node: Final = parse("<p z=1 a=2>x").select_one("p")
+    node: Final[Element | None] = parse("<p z=1 a=2>x").select_one("p")
     assert node is not None
     assert node.serialize() == '<p z="1" a="2">x</p>'
 
 
 @pytest.mark.parametrize("tag", ["pre", "textarea", "listing"])
 def test_serialize_empty_leading_text(tag: str) -> None:
-    element: Final = Element(tag, children=[Text("")])
+    element: Final[Element] = Element(tag, children=[Text("")])
     assert element.serialize() == f"<{tag}></{tag}>"
 
 
 @pytest.mark.parametrize("tag", ["pre", "textarea", "listing"])
 def test_serialize_cleared_leading_text(tag: str) -> None:
-    text: Final = Text("x")
-    element: Final = Element(tag, children=[text])
+    text: Final[Text] = Text("x")
+    element: Final[Element] = Element(tag, children=[text])
     text.data = ""
     assert element.serialize() == f"<{tag}></{tag}>"
 
@@ -1993,69 +2023,69 @@ def test_sort_attributes_orders_prefix_names(attrs: dict[str, str], expected: st
 def test_sort_attributes_by_width(
     count: int, ordered: Callable[[list[str]], list[str]], *, xml: bool, render: Callable[[Element, Html], str]
 ) -> None:
-    names: Final = sorted(f"a{index}" for index in range(count))
-    element: Final = Element("x", dict.fromkeys(ordered(names), ""), children=[Text("x")])
-    result: Final = render(element, Html(xml=xml, sort_attributes=True))
+    names: Final[list[str]] = sorted(f"a{index}" for index in range(count))
+    element: Final[Element] = Element("x", dict.fromkeys(ordered(names), ""), children=[Text("x")])
+    result: Final[str] = render(element, Html(xml=xml, sort_attributes=True))
     assert result == f"""<x {" ".join(f'{name}=""' for name in names)}>x</x>"""
 
 
 def test_sort_attributes_composes_with_indent() -> None:
-    node: Final = parse("<p z=1 a=2>x").select_one("p")
+    node: Final[Element | None] = parse("<p z=1 a=2>x").select_one("p")
     assert node is not None
     assert node.serialize(Html(layout=Indent(2), sort_attributes=True)) == '<p a="2" z="1">x</p>'
 
 
 def test_sort_attributes_composes_with_minify() -> None:
-    node: Final = parse("<p z=1 a=2>x").select_one("p")
+    node: Final[Element | None] = parse("<p z=1 a=2>x").select_one("p")
     assert node is not None
     assert node.serialize(Html(layout=Minify(), sort_attributes=True)) == "<p a=2 z=1>x</p>"
 
 
 def test_meta_charset_injects_into_empty_head() -> None:
-    out: Final = parse("<p>x").serialize(Html(meta_charset=True))
+    out: Final[str] = parse("<p>x").serialize(Html(meta_charset=True))
     assert out == '<html><head><meta charset="utf-8"></head><body><p>x</p></body></html>'
 
 
 def test_meta_charset_injects_before_existing_head_content() -> None:
-    out: Final = parse("<link rel=icon>").serialize(Html(meta_charset=True))
+    out: Final[str] = parse("<link rel=icon>").serialize(Html(meta_charset=True))
     assert out == '<html><head><meta charset="utf-8"><link rel="icon"></head><body></body></html>'
 
 
 def test_meta_charset_normalizes_existing_charset_meta() -> None:
-    out: Final = parse("<meta charset=ascii>").serialize(Html(meta_charset=True))
+    out: Final[str] = parse("<meta charset=ascii>").serialize(Html(meta_charset=True))
     assert out == '<html><head><meta charset="utf-8"></head><body></body></html>'
 
 
 def test_meta_charset_keeps_other_attributes_on_charset_meta() -> None:
-    out: Final = parse("<meta charset=ascii id=enc>").serialize(Html(meta_charset=True))
+    out: Final[str] = parse("<meta charset=ascii id=enc>").serialize(Html(meta_charset=True))
     assert out == '<html><head><meta charset="utf-8" id="enc"></head><body></body></html>'
 
 
 def test_meta_charset_normalizes_http_equiv_content_type() -> None:
-    out: Final = parse('<meta http-equiv=content-type content="text/html; charset=ascii">').serialize(
+    out: Final[str] = parse('<meta http-equiv=content-type content="text/html; charset=ascii">').serialize(
         Html(meta_charset=True)
     )
-    expected: Final = '<html><head><meta http-equiv="content-type" content="text/html; charset=utf-8">'
+    expected: Final[str] = '<html><head><meta http-equiv="content-type" content="text/html; charset=utf-8">'
     assert out.startswith(expected)
     assert out.count("charset=") == 1
 
 
 def test_meta_charset_matches_mixed_case_http_equiv_value() -> None:
-    out: Final = parse('<meta http-equiv="Content-Type" content="text/html; charset=ascii">').serialize(
+    out: Final[str] = parse('<meta http-equiv="Content-Type" content="text/html; charset=ascii">').serialize(
         Html(meta_charset=True)
     )
-    expected: Final = '<html><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8">'
+    expected: Final[str] = '<html><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8">'
     assert out.startswith(expected)
     assert out.count("charset=") == 1
 
 
 def test_meta_charset_ignores_unrelated_http_equiv() -> None:
-    out: Final = parse('<meta http-equiv=refresh content="5">').serialize(Html(meta_charset=True))
+    out: Final[str] = parse('<meta http-equiv=refresh content="5">').serialize(Html(meta_charset=True))
     assert out.startswith('<html><head><meta charset="utf-8"><meta http-equiv="refresh" content="5">')
 
 
 def test_meta_charset_ignores_http_equiv_content_type_without_content() -> None:
-    out: Final = parse("<meta http-equiv=content-type>").serialize(Html(meta_charset=True))
+    out: Final[str] = parse("<meta http-equiv=content-type>").serialize(Html(meta_charset=True))
     assert out.startswith('<html><head><meta charset="utf-8"><meta http-equiv="content-type">')
 
 
@@ -2067,35 +2097,35 @@ def test_meta_charset_ignores_http_equiv_content_type_without_content() -> None:
     ],
 )
 def test_meta_charset_http_equiv_label_mismatch_injects(equiv: str) -> None:
-    out: Final = parse(f'<meta http-equiv="{equiv}" content="x">').serialize(Html(meta_charset=True))
+    out: Final[str] = parse(f'<meta http-equiv="{equiv}" content="x">').serialize(Html(meta_charset=True))
     assert out.startswith('<html><head><meta charset="utf-8">')
 
 
 def test_meta_charset_ignores_meta_without_charset_or_http_equiv() -> None:
-    out: Final = parse('<meta name=viewport content="width=1">').serialize(Html(meta_charset=True))
+    out: Final[str] = parse('<meta name=viewport content="width=1">').serialize(Html(meta_charset=True))
     assert out.startswith('<html><head><meta charset="utf-8"><meta name="viewport" content="width=1">')
 
 
 def test_meta_charset_keeps_seven_char_attr_on_charset_meta() -> None:
-    out: Final = parse('<meta charset=ascii content="x">').serialize(Html(meta_charset=True))
+    out: Final[str] = parse('<meta charset=ascii content="x">').serialize(Html(meta_charset=True))
     assert out.startswith('<html><head><meta charset="utf-8" content="x">')
 
 
 def test_meta_charset_keeps_seven_char_attr_on_content_type_meta() -> None:
-    out: Final = parse('<meta http-equiv=content-type content="text/html" enabled="x">').serialize(
+    out: Final[str] = parse('<meta http-equiv=content-type content="text/html" enabled="x">').serialize(
         Html(meta_charset=True)
     )
     assert out.startswith('<html><head><meta http-equiv="content-type" content="text/html; charset=utf-8" enabled="x">')
 
 
 def test_meta_charset_with_indent_leaves_foreign_element() -> None:
-    out: Final = parse("<svg></svg>").serialize(Html(layout=Indent(2), meta_charset=True))
+    out: Final[str] = parse("<svg></svg>").serialize(Html(layout=Indent(2), meta_charset=True))
     assert '<meta charset="utf-8">' in out
     assert "<svg></svg>" in out
 
 
 def test_meta_charset_skips_non_element_head_children() -> None:
-    out: Final = parse("<head><!--note--><title>t").serialize(Html(meta_charset=True))
+    out: Final[str] = parse("<head><!--note--><title>t").serialize(Html(meta_charset=True))
     assert out == ('<html><head><meta charset="utf-8"><!--note--><title>t</title></head><body></body></html>')
 
 
@@ -2104,61 +2134,61 @@ def test_meta_charset_off_injects_nothing() -> None:
 
 
 def test_meta_charset_no_head_is_a_no_op() -> None:
-    node: Final = parse("<p id=a>x").select_one("p")
+    node: Final[Element | None] = parse("<p id=a>x").select_one("p")
     assert node is not None
     assert node.serialize(Html(meta_charset=True)) == '<p id="a">x</p>'
 
 
 def test_meta_charset_leaves_foreign_elements_untouched() -> None:
-    node: Final = parse("<svg><circle r=5></circle></svg>").select_one("svg")
+    node: Final[Element | None] = parse("<svg><circle r=5></circle></svg>").select_one("svg")
     assert node is not None
     assert node.serialize(Html(meta_charset=True)) == '<svg><circle r="5"></circle></svg>'
 
 
 def test_meta_charset_reparses_to_one_declaration() -> None:
-    out: Final = parse("<title>t").serialize(Html(meta_charset=True))
-    metas: Final = parse(out).select("meta")
+    out: Final[str] = parse("<title>t").serialize(Html(meta_charset=True))
+    metas: Final[list[Element]] = parse(out).select("meta")
     assert len(metas) == 1
     assert metas[0].attrs["charset"] == "utf-8"
 
 
 def test_meta_charset_with_indent_indents_injected_meta() -> None:
-    out: Final = parse("<p>x").serialize(Html(layout=Indent(2), meta_charset=True))
+    out: Final[str] = parse("<p>x").serialize(Html(layout=Indent(2), meta_charset=True))
     assert out == (
         '<html>\n  <head>\n    <meta charset="utf-8">\n  </head>\n  <body>\n    <p>x</p>\n  </body>\n</html>'
     )
 
 
 def test_meta_charset_with_indent_non_empty_head() -> None:
-    out: Final = parse("<link rel=icon>").serialize(Html(layout=Indent(2), meta_charset=True))
+    out: Final[str] = parse("<link rel=icon>").serialize(Html(layout=Indent(2), meta_charset=True))
     assert out == (
         '<html>\n  <head>\n    <meta charset="utf-8">\n    <link rel="icon">\n  </head>\n  <body></body>\n</html>'
     )
 
 
 def test_meta_charset_with_indent_normalizes_existing_meta() -> None:
-    out: Final = parse("<meta charset=ascii>").serialize(Html(layout=Indent(2), meta_charset=True))
+    out: Final[str] = parse("<meta charset=ascii>").serialize(Html(layout=Indent(2), meta_charset=True))
     assert out == ('<html>\n  <head>\n    <meta charset="utf-8">\n  </head>\n  <body></body>\n</html>')
 
 
 def test_meta_charset_with_minify_injects() -> None:
-    out: Final = parse("<title>t").serialize(Html(layout=Minify(), meta_charset=True))
+    out: Final[str] = parse("<title>t").serialize(Html(layout=Minify(), meta_charset=True))
     assert out.startswith('<meta charset="utf-8">')
-    metas: Final = parse(out).select("meta")
+    metas: Final[list[Element]] = parse(out).select("meta")
     assert len(metas) == 1
     assert metas[0].attrs["charset"] == "utf-8"
 
 
 def test_meta_charset_with_minify_normalizes_existing_meta() -> None:
-    out: Final = parse("<meta charset=ascii><title>t").serialize(Html(layout=Minify(), meta_charset=True))
-    metas: Final = parse(out).select("meta")
+    out: Final[str] = parse("<meta charset=ascii><title>t").serialize(Html(layout=Minify(), meta_charset=True))
+    metas: Final[list[Element]] = parse(out).select("meta")
     assert len(metas) == 1
     assert metas[0].attrs["charset"] == "utf-8"
     assert 'charset="utf-8"' in out
 
 
 def test_encode_meta_charset_uses_target_encoding() -> None:
-    out: Final = parse("<p>x").encode("iso-8859-1", Html(meta_charset=True))
+    out: Final[bytes] = parse("<p>x").encode("iso-8859-1", Html(meta_charset=True))
     assert out == ('<html><head><meta charset="windows-1252"></head><body><p>x</p></body></html>'.encode("latin-1"))
 
 
@@ -2190,7 +2220,7 @@ def test_encode_meta_charset_refuses_c1_controls_under_windows_1252(markup: str,
 )
 def test_encode_meta_charset_keeps_c1_windows_1252_reads_back(character: str) -> None:
     # windows-1252 maps these five bytes to the same C1 code points, so the declared label reads them back as written
-    out: Final = parse(f"<p>{character}</p>").encode("latin-1", Html(meta_charset=True))
+    out: Final[bytes] = parse(f"<p>{character}</p>").encode("latin-1", Html(meta_charset=True))
     assert out == f'<html><head><meta charset="windows-1252"></head><body><p>{character}</p></body></html>'.encode(
         "latin-1"
     )
@@ -2208,27 +2238,145 @@ def test_encode_meta_charset_refuses_c1_under_windows_1254(encoding: str) -> Non
     [
         pytest.param("koi8-u", "\u255d", "KOI8-U", id="koi8-u-box-drawing"),
         pytest.param("tis-620", "\x80", "windows-874", id="tis-620-windows-874"),
-        pytest.param("big5", "\u0430", "Big5", id="big5-cyrillic"),
+        pytest.param("big5", "\u3040", "Big5", id="big5-hiragana"),
         pytest.param("cp932", "\uf8f1", "Shift_JIS", id="cp932-user-defined"),
     ],
 )
-def test_encode_meta_charset_refuses_text_the_declared_label_misreads(
+def test_encode_meta_charset_refuses_a_character_the_declared_label_has_no_byte_for(
     encoding: str, character: str, label: str
 ) -> None:
-    # Python's codec writes bytes that the WHATWG decoder of the declared label reads as other characters
     with pytest.raises(ValueError, match=re.escape(f"meta_charset cannot declare {label}")):
         parse(f"<p>{character}</p>").encode(encoding, Html(meta_charset=True))
 
 
-def test_encode_meta_charset_iso2022_shift_code_raises_the_codec_error() -> None:
-    # the declared ISO-2022-JP label is valid, but its codec refuses the shift code the text holds
-    with pytest.raises(UnicodeEncodeError, match="iso2022_jp"):
-        parse("<p>\x1b</p>").encode("iso2022_jp", Html(meta_charset=True))
+@pytest.mark.parametrize(
+    ("codec", "character", "label"),
+    [
+        pytest.param("big5", "\u0401", "Big5", id="big5-cyrillic"),
+        pytest.param("big5", "\U00020021", "Big5", id="big5-plane-two"),
+        pytest.param("euc_kr", "\uac02", "EUC-KR", id="euc-kr-hangul"),
+        pytest.param("gb18030", "\u1e3f", "gb18030", id="gb18030-four-byte"),
+        pytest.param("gb18030", "\U0001f600", "gb18030", id="gb18030-astral"),
+        pytest.param("gb2312", "\u20ac", "GBK", id="gbk-euro"),
+        pytest.param("shift_jis", "\ue000", "Shift_JIS", id="shift-jis-private-use"),
+        pytest.param("shift_jis", "\uff61", "Shift_JIS", id="shift-jis-half-width-katakana"),
+        pytest.param("euc_jp", "\u01ce", "EUC-JP", id="euc-jp-jis0212"),
+        pytest.param("euc_jp", "\uff61", "EUC-JP", id="euc-jp-half-width-katakana"),
+    ],
+)
+def test_encode_meta_charset_writes_bytes_the_declared_label_reads_back(codec: str, character: str, label: str) -> None:
+    doc: Final[Document] = parse(parse(f"<p>{character}</p>").encode(codec, Html(meta_charset=True)))
+    paragraph: Final[Element | None] = doc.find("p")
+    assert paragraph is not None
+    assert (doc.encoding, paragraph.text) == (label, character)
+
+
+_TWO_BYTE_SEQUENCES: Final[list[bytes]] = [
+    bytes([lead, trail]) for lead in range(0x81, 0xFF) for trail in range(0x40, 0xFF, 5)
+]
+_ISO_2022_JP_SEQUENCES: Final[list[bytes]] = [
+    b"\x1b$B" + bytes([lead, trail]) + b"\x1b(B" for lead in range(0x21, 0x7F, 3) for trail in range(0x21, 0x7F, 3)
+]
+_SINGLE_BYTE_SEQUENCES: Final[list[bytes]] = [bytes([byte]) for byte in range(0x80, 0x100)]
+
+
+@pytest.mark.parametrize(
+    ("codec", "decoder", "label", "sequences"),
+    [
+        pytest.param("big5", "whatwg-big5", "Big5", _TWO_BYTE_SEQUENCES, id="big5"),
+        pytest.param("euc_kr", "whatwg-euc-kr", "EUC-KR", _TWO_BYTE_SEQUENCES, id="euc-kr"),
+        pytest.param("gb18030", "whatwg-gb18030", "gb18030", _TWO_BYTE_SEQUENCES, id="gb18030"),
+        pytest.param("gb2312", "whatwg-gbk", "GBK", _TWO_BYTE_SEQUENCES, id="gbk"),
+        pytest.param("shift_jis", "whatwg-shift_jis", "Shift_JIS", _TWO_BYTE_SEQUENCES, id="shift-jis"),
+        pytest.param("euc_jp", "whatwg-euc-jp", "EUC-JP", _TWO_BYTE_SEQUENCES, id="euc-jp"),
+        pytest.param("iso2022_jp", "whatwg-iso-2022-jp", "ISO-2022-JP", _ISO_2022_JP_SEQUENCES, id="iso-2022-jp"),
+        pytest.param("latin_1", "whatwg-iso-8859-1", "windows-1252", _SINGLE_BYTE_SEQUENCES, id="latin-1"),
+        pytest.param("koi8_u", "whatwg-koi8-u", "KOI8-U", _SINGLE_BYTE_SEQUENCES, id="koi8-u"),
+    ],
+)
+def test_encode_meta_charset_round_trips_sampled_index_characters(
+    codec: str, decoder: str, label: str, sequences: list[bytes]
+) -> None:
+    text: Final[str] = _sampled_index_text(decoder, sequences)
+    doc: Final[Document] = parse(parse(f"<p>{text}</p>").encode(codec, Html(meta_charset=True)))
+    paragraph: Final[Element | None] = doc.find("p")
+    assert paragraph is not None
+    assert (doc.encoding, paragraph.text) == (label, text)
+
+
+def _sampled_index_text(decoder: str, sequences: list[bytes]) -> str:
+    chars: Final[list[str]] = []
+    for sequence in sequences:
+        text: Final[str] = sequence.decode(decoder, "replace")
+        if len(text) == 1 and text != "\ufffd" and text.isprintable():
+            chars.append(text)
+    return "".join(chars)
+
+
+@pytest.mark.parametrize(
+    ("codec", "character"),
+    [
+        pytest.param("euc_kr", "\U0001f600", id="euc-kr-plane-one"),
+        pytest.param("euc_kr", "\U00020021", id="euc-kr-plane-two"),
+        pytest.param("big5", "\U0001f600", id="big5-plane-one"),
+        pytest.param("shift_jis", "\U0001f600", id="shift-jis-astral"),
+    ],
+)
+def test_encode_meta_charset_refuses_only_characters_with_no_byte(codec: str, character: str) -> None:
+    with pytest.raises(ValueError, match=r"\(U\+[0-9A-F]{4,6}\) at position \d+ has no byte in"):
+        parse(f"<p>{character}</p>").encode(codec, Html(meta_charset=True))
+
+
+def test_encode_meta_charset_names_the_refused_character_and_its_position() -> None:
+    prefix: Final[str] = '<html><head><meta charset="windows-1252"></head><body><p>'
+    position: Final[int] = len(prefix) + 1
+    message: Final[str] = (
+        f"meta_charset cannot declare windows-1252 for latin-1: '\\x80' (U+0080) at position {position} "
+        "has no byte in windows-1252"
+    )
+    with pytest.raises(ValueError, match=f"^{re.escape(message)}$"):
+        parse("<p>a\x80</p>").encode("latin-1", Html(meta_charset=True))
+
+
+def test_encode_meta_charset_writes_euro_as_the_windows_1252_byte() -> None:
+    out: Final[bytes] = parse("<p>\u20ac</p>").encode("latin-1", Html(meta_charset=True))
+    assert out == b'<html><head><meta charset="windows-1252"></head><body><p>\x80</p></body></html>'
+
+
+def test_encode_meta_charset_iso2022_jp_writes_roman_escapes_for_yen_and_overline() -> None:
+    out: Final[bytes] = parse("<p>\u00a5\u203e</p>").encode("iso2022_jp", Html(meta_charset=True))
+    assert b"<p>\x1b(J\\~\x1b(B</p>" in out
+    paragraph: Final[Element | None] = parse(out).find("p")
+    assert paragraph is not None
+    assert paragraph.text == "\u00a5\u203e"
+
+
+def test_encode_meta_charset_iso2022_jp_switches_between_ascii_and_jis0208() -> None:
+    out: Final[bytes] = parse("<p>a\u65e5b</p>").encode("iso2022_jp", Html(meta_charset=True))
+    assert b"<p>a\x1b$BF|\x1b(Bb</p>" in out
+    paragraph: Final[Element | None] = parse(out).find("p")
+    assert paragraph is not None
+    assert paragraph.text == "a\u65e5b"
+
+
+@pytest.mark.parametrize(
+    "character",
+    [
+        pytest.param("\x0e", id="shift-out"),
+        pytest.param("\x0f", id="shift-in"),
+        pytest.param("\x1b", id="escape"),
+        pytest.param("\uff61", id="half-width-katakana"),
+        pytest.param("\U0001f600", id="astral"),
+    ],
+)
+def test_encode_meta_charset_iso2022_jp_refuses_a_character_with_no_byte(character: str) -> None:
+    with pytest.raises(ValueError, match=re.escape("meta_charset cannot declare ISO-2022-JP for iso2022_jp")):
+        parse(f"<p>{character}</p>").encode("iso2022_jp", Html(meta_charset=True))
 
 
 @pytest.mark.parametrize("encoding", [pytest.param("latin-1", id="first"), pytest.param("latin-1", id="repeat")])
 def test_encode_meta_charset_refuses_c1_on_every_call(encoding: str) -> None:
-    # the per-codec byte range is cached, so the second and later calls must still refuse the misread bytes
+    # the reverse map is cached per label, so the second and later calls must still refuse the character
     for _ in range(2):
         with pytest.raises(ValueError, match="windows-1252"):
             parse("<p>\x85</p>").encode(encoding, Html(meta_charset=True))
@@ -2241,25 +2389,24 @@ def test_encode_meta_charset_refuses_c1_on_every_call(encoding: str) -> None:
 
 
 @pytest.mark.parametrize(
-    "offset", [pytest.param(0, id="first"), pytest.param(37, id="vector-block"), pytest.param(390, id="scalar-tail")]
+    "offset", [pytest.param(0, id="first"), pytest.param(37, id="middle"), pytest.param(390, id="last")]
 )
 def test_encode_meta_charset_finds_c1_at_any_offset_of_long_output(offset: int) -> None:
-    # the byte scan works in 64-byte blocks and then a scalar tail, so a long output is checked at every position
-    filler: Final = "a" * 400
-    markup: Final = f"<p>{filler[:offset]}\x85{filler[offset:]}</p>"
+    filler: Final[str] = "a" * 400
+    markup: Final[str] = f"<p>{filler[:offset]}\x85{filler[offset:]}</p>"
     with pytest.raises(ValueError, match="windows-1252"):
         parse(markup).encode("latin-1", Html(meta_charset=True))
 
 
 def test_encode_meta_charset_long_latin1_output_without_c1_is_kept() -> None:
-    body: Final = "".join(f"<p>caf\u00e9 {index} \u00fc</p>" for index in range(200))
-    out: Final = parse(body).encode("latin-1", Html(meta_charset=True)).decode("latin-1")
+    body: Final[str] = "".join(f"<p>caf\u00e9 {index} \u00fc</p>" for index in range(200))
+    out: Final[str] = parse(body).encode("latin-1", Html(meta_charset=True)).decode("latin-1")
     assert out.startswith('<html><head><meta charset="windows-1252"></head>')
     assert "<p>caf\u00e9 199 \u00fc</p></body></html>" in out
 
 
 def test_encode_meta_charset_utf8_keeps_c1_controls() -> None:
-    out: Final = parse("<p>\x85</p>").encode("utf-8", Html(meta_charset=True))
+    out: Final[bytes] = parse("<p>\x85</p>").encode("utf-8", Html(meta_charset=True))
     assert out.decode("utf-8").endswith("<p>\x85</p></body></html>")
 
 
@@ -2272,7 +2419,7 @@ def test_encode_meta_charset_utf8_keeps_c1_controls() -> None:
     ],
 )
 def test_encode_meta_charset_keeps_latin1_outside_c1(markup: str, body: str) -> None:
-    out: Final = parse(markup).encode("latin-1", Html(meta_charset=True))
+    out: Final[bytes] = parse(markup).encode("latin-1", Html(meta_charset=True))
     assert out == f'<html><head><meta charset="windows-1252"></head><body>{body}</body></html>'.encode("latin-1")
 
 
@@ -2281,7 +2428,7 @@ def test_encode_without_meta_charset_writes_c1_bytes_unchanged() -> None:
 
 
 def test_encode_meta_charset_inner_writes_no_declaration_so_c1_is_kept() -> None:
-    element: Final = parse("<p>\x85</p>").find("p")
+    element: Final[Element | None] = parse("<p>\x85</p>").find("p")
     assert element is not None
     assert element.encode("latin-1", Html(meta_charset=True), inner=True) == b"\x85"
 
@@ -2307,14 +2454,14 @@ def test_encode_meta_charset_inner_writes_no_declaration_so_c1_is_kept() -> None
     ],
 )
 def test_encode_meta_charset_declares_the_whatwg_label(codec: str, text: str, label: str) -> None:
-    doc: Final = parse(parse(f"<p>{text}</p>").encode(codec, Html(meta_charset=True)))
-    paragraph: Final = doc.find("p")
+    doc: Final[Document] = parse(parse(f"<p>{text}</p>").encode(codec, Html(meta_charset=True)))
+    paragraph: Final[Element | None] = doc.find("p")
     assert paragraph is not None
     assert (doc.encoding, paragraph.text) == (label, text)
 
 
 def test_encode_meta_charset_declares_utf_8_for_the_bom_codec() -> None:
-    out: Final = parse("<p>x").encode("utf-8-sig", Html(meta_charset=True))
+    out: Final[bytes] = parse("<p>x").encode("utf-8-sig", Html(meta_charset=True))
     assert out == b'\xef\xbb\xbf<html><head><meta charset="utf-8"></head><body><p>x</p></body></html>'
 
 
@@ -2341,14 +2488,14 @@ def test_encode_meta_charset_refuses_an_existing_charset_meta() -> None:
 
 @pytest.mark.parametrize("codec", ["iso2022_jp_2", "utf-16", "hz"])
 def test_encode_meta_charset_declares_nothing_for_an_element(codec: str) -> None:
-    element: Final = parse("<p>x").select_one("p")
+    element: Final[Element | None] = parse("<p>x").select_one("p")
     assert element is not None
     assert element.encode(codec, Html(meta_charset=True)) == element.encode(codec)
 
 
 @pytest.mark.parametrize("codec", ["iso2022_jp_2", "utf-16", "hz"])
 def test_encode_meta_charset_declares_nothing_for_a_fragment(codec: str) -> None:
-    fragment: Final = parse_fragment("<p>x")
+    fragment: Final[Element] = parse_fragment("<p>x")
     assert fragment.encode(codec, Html(meta_charset=True)) == fragment.encode(codec)
 
 
@@ -2380,7 +2527,7 @@ _ISO_2022_CODECS: Final[list[str]] = [
 )
 def test_encode_iso_2022_refuses_a_shift_code(label: str, shift: str) -> None:
     # CPython's encoder would write it as a byte, which a decoder reads as a shift code
-    doc: Final = parse(f'<a title="{shift}x">y</a>{shift}z')
+    doc: Final[Document] = parse(f'<a title="{shift}x">y</a>{shift}z')
     with pytest.raises(UnicodeEncodeError, match="shift code") as refused:
         doc.encode(label)
     assert refused.value.start == doc.serialize().index(shift)
@@ -2388,9 +2535,9 @@ def test_encode_iso_2022_refuses_a_shift_code(label: str, shift: str) -> None:
 
 @pytest.mark.parametrize("codec", _ISO_2022_CODECS)
 def test_encode_refuses_a_shift_code_in_an_iso_2022_codec_under_another_name(codec: str) -> None:
-    info: Final = codecs.lookup(codec)
-    renamed: Final = codecs.CodecInfo(info.encode, info.decode, name="turbohtml_renamed_iso")
-    search: Final = {"turbohtml_renamed_iso": renamed}.get
+    info: Final[codecs.CodecInfo] = codecs.lookup(codec)
+    renamed: Final[codecs.CodecInfo] = codecs.CodecInfo(info.encode, info.decode, name="turbohtml_renamed_iso")
+    search: Final[_CodecSearch] = {"turbohtml_renamed_iso": renamed}.get
     codecs.register(search)
     try:
         with pytest.raises(UnicodeEncodeError, match="shift code") as refused:
@@ -2406,8 +2553,10 @@ def test_encode_refuses_a_shift_code_under_a_codec_that_switches_on_one_byte(shi
     def encode(text: str, errors: str = "strict") -> tuple[bytes, int]:
         return shift + text.encode("ascii", errors), len(text)
 
-    info: Final = codecs.CodecInfo(encode, codecs.lookup("ascii").decode, name="turbohtml_one_byte_switch")
-    search: Final = {"turbohtml_one_byte_switch": info}.get
+    info: Final[codecs.CodecInfo] = codecs.CodecInfo(
+        encode, codecs.lookup("ascii").decode, name="turbohtml_one_byte_switch"
+    )
+    search: Final[_CodecSearch] = {"turbohtml_one_byte_switch": info}.get
     codecs.register(search)
     try:
         with pytest.raises(UnicodeEncodeError, match="shift code"):
@@ -2423,8 +2572,10 @@ def test_encode_keeps_markup_under_a_codec_that_refuses_the_probe_text() -> None
             raise ValueError(msg)
         return text.encode("ascii", errors), len(text)
 
-    info: Final = codecs.CodecInfo(encode, codecs.lookup("ascii").decode, name="turbohtml_refuses_probe")
-    search: Final = {"turbohtml_refuses_probe": info}.get
+    info: Final[codecs.CodecInfo] = codecs.CodecInfo(
+        encode, codecs.lookup("ascii").decode, name="turbohtml_refuses_probe"
+    )
+    search: Final[_CodecSearch] = {"turbohtml_refuses_probe": info}.get
     codecs.register(search)
     try:
         assert parse("<p>x</p>").select("p")[0].encode("turbohtml_refuses_probe") == b"<p>x</p>"
@@ -2432,9 +2583,254 @@ def test_encode_keeps_markup_under_a_codec_that_refuses_the_probe_text() -> None
         codecs.unregister(search)
 
 
+@pytest.fixture
+def register_codec() -> Iterator[Callable[[str, codecs.CodecInfo], None]]:
+    searches: Final[list[_CodecSearch]] = []
+
+    def register(name: str, info: codecs.CodecInfo) -> None:
+        search: Final[_CodecSearch] = {name: info}.get
+        codecs.register(search)
+        searches.append(search)
+
+    yield register
+    for search in searches:
+        codecs.unregister(search)
+
+
+def test_encode_refuses_a_shift_code_past_a_codec_switch_for_a_later_character(
+    register_codec: Callable[[str, codecs.CodecInfo], None],
+) -> None:
+    # the CJK samples are outside the codec's repertoire, so only the sweep reaches U+0100 and its switch
+    register_codec("turbohtml_esc_latin", _codec_info(_EscLatinEncoder))
+    doc: Final[Document] = parse("<p>a\x1b</p>")
+    with pytest.raises(UnicodeEncodeError, match="shift code") as refused:
+        doc.encode("turbohtml_esc_latin")
+    assert refused.value.start == doc.serialize().index("\x1b")
+
+
+def _codec_info(encoder: type[codecs.IncrementalEncoder]) -> codecs.CodecInfo:
+    def encode(text: str, errors: str = "strict") -> tuple[bytes, int]:
+        return encoder(errors).encode(text, final=True), len(text)
+
+    return codecs.CodecInfo(
+        encode=encode,
+        decode=codecs.lookup("ascii").decode,
+        incrementalencoder=encoder,
+        incrementaldecoder=codecs.IncrementalDecoder,
+    )
+
+
+class _EscLatinEncoder(codecs.IncrementalEncoder):
+    def __init__(self, errors: str = "strict") -> None:
+        super().__init__(errors)
+        self.extended = False
+
+    def encode(self, input: str, final: bool = False) -> bytes:  # ruff:ignore[builtin-argument-shadowing, boolean-type-hint-positional-argument, boolean-default-value-positional-argument]  # the codecs API passes final positionally
+        out = bytearray()
+        for character in input:
+            if (code := ord(character)) < 0x80:
+                if self.extended:
+                    out += b"\x1b(B"
+                    self.extended = False
+                out += character.encode("ascii")
+            elif 0x100 <= code <= 0x17F:
+                if not self.extended:
+                    out += b"\x1b$B"
+                    self.extended = True
+                out.append(code - 0x100 + 0x21)
+            else:
+                msg = "esc-latin"
+                raise UnicodeEncodeError(msg, input, 0, 1, "unsupported")
+        if final and self.extended:
+            out += b"\x1b(B"
+            self.extended = False
+        return bytes(out)
+
+
+def test_element_tree_writes_a_shift_code_as_a_reference_under_a_stateful_codec(
+    register_codec: Callable[[str, codecs.CodecInfo], None],
+) -> None:
+    register_codec("turbohtml_esc_latin_etree", _codec_info(_EscLatinEncoder))
+    tree: Final[ElementView] = fragment_fromstring("<p>Āāa\x1b</p>")
+    assert tostring(tree, encoding="turbohtml_esc_latin_etree", method="text") == b'\x1b$B!"\x1b(Ba&#27;'
+
+
+def test_encode_keeps_a_shift_code_under_a_stateless_codec_with_a_narrow_repertoire(
+    register_codec: Callable[[str, codecs.CodecInfo], None],
+) -> None:
+    register_codec("turbohtml_narrow_latin", _codec_info(_NarrowEncoder))
+    assert parse("<p>\x1bĀ</p>").select("p")[0].encode("turbohtml_narrow_latin") == b"<p>\x1b\x80</p>"
+
+
+class _NarrowEncoder(codecs.IncrementalEncoder):
+    def encode(self, input: str, final: bool = False) -> bytes:  # ruff:ignore[builtin-argument-shadowing, boolean-type-hint-positional-argument, boolean-default-value-positional-argument, unused-method-argument, no-self-use]  # the codecs API passes final positionally
+        return codecs.charmap_encode(input, "strict", _NARROW_TABLE)[0]
+
+
+_NARROW_TABLE: Final[dict[int, int]] = {code: code for code in range(0x80)} | {
+    0x100 + offset: 0x80 + offset for offset in range(0x80)
+}
+
+
+def test_encode_refuses_a_shift_code_under_a_codec_that_switches_only_in_its_final_flush(
+    register_codec: Callable[[str, codecs.CodecInfo], None],
+) -> None:
+    # the body writes no escape, so the switch is the flush after a character of the narrow repertoire
+    register_codec("turbohtml_flush_latin", _codec_info(_FlushShiftEncoder))
+    with pytest.raises(UnicodeEncodeError, match="shift code"):
+        parse("<p>\x1b</p>").select("p")[0].encode("turbohtml_flush_latin")
+
+
+class _FlushShiftEncoder(_NarrowEncoder):
+    def __init__(self, errors: str = "strict") -> None:
+        super().__init__(errors)
+        self.wide = False
+
+    def encode(self, input: str, final: bool = False) -> bytes:  # ruff:ignore[builtin-argument-shadowing, boolean-type-hint-positional-argument, boolean-default-value-positional-argument]  # the codecs API passes final positionally
+        self.wide = self.wide or any(0x100 <= ord(character) <= 0x17F for character in input)
+        out = super().encode(input, final)
+        if final and self.wide:
+            out += b"\x1b(B"
+            self.wide = False
+        return out
+
+
+def test_encode_probes_a_codec_once(register_codec: Callable[[str, codecs.CodecInfo], None]) -> None:
+    created: list[str] = []
+
+    class CountingEncoder(_NarrowEncoder):
+        def __init__(self, errors: str = "strict") -> None:
+            created.append(errors)
+            super().__init__(errors)
+
+    info: Final[codecs.CodecInfo] = codecs.CodecInfo(
+        encode=lambda text, errors="strict": codecs.charmap_encode(text, errors, _NARROW_TABLE),
+        decode=codecs.lookup("ascii").decode,
+        incrementalencoder=CountingEncoder,
+    )
+    register_codec("turbohtml_counted_latin", info)
+    first: Final[bytes] = parse("<p>x</p>").encode("turbohtml_counted_latin")
+    probes: Final[int] = len(created)
+    assert probes > 0
+    assert parse("<p>x</p>").encode("turbohtml_counted_latin") == first
+    assert len(created) == probes
+
+
+def test_encode_probes_a_codec_again_after_it_is_re_registered() -> None:
+    narrow: Final[_CodecSearch] = {"turbohtml_swapped_latin": _codec_info(_NarrowEncoder)}.get
+    codecs.register(narrow)
+    try:
+        assert parse("<p>\x1b</p>").select("p")[0].encode("turbohtml_swapped_latin") == b"<p>\x1b</p>"
+    finally:
+        codecs.unregister(narrow)
+    swapped: Final[_CodecSearch] = {"turbohtml_swapped_latin": _codec_info(_EscLatinEncoder)}.get
+    codecs.register(swapped)
+    try:
+        with pytest.raises(UnicodeEncodeError, match="shift code"):
+            parse("<p>aĀ\x1b</p>").select("p")[0].encode("turbohtml_swapped_latin")
+    finally:
+        codecs.unregister(swapped)
+
+
+def test_encode_probes_codec_infos_that_compare_equal_separately() -> None:
+    # CodecInfo compares as its four functions and streams, so these two are equal but for their incremental encoders
+    def encode(text: str, errors: str = "strict") -> tuple[bytes, int]:
+        return codecs.charmap_encode(text, errors, _NARROW_TABLE)
+
+    plain: Final[codecs.CodecInfo] = codecs.CodecInfo(
+        encode, codecs.lookup("ascii").decode, incrementalencoder=_NarrowEncoder
+    )
+    flushing: Final[codecs.CodecInfo] = codecs.CodecInfo(
+        encode, codecs.lookup("ascii").decode, incrementalencoder=_FlushShiftEncoder
+    )
+    assert plain == flushing
+    plain_search: Final[_CodecSearch] = {"turbohtml_equal_plain": plain}.get
+    codecs.register(plain_search)
+    try:
+        assert parse("<p>\x1b</p>").select("p")[0].encode("turbohtml_equal_plain") == b"<p>\x1b</p>"
+    finally:
+        codecs.unregister(plain_search)
+    flushing_search: Final[_CodecSearch] = {"turbohtml_equal_flushing": flushing}.get
+    codecs.register(flushing_search)
+    try:
+        with pytest.raises(UnicodeEncodeError, match="shift code"):
+            parse("<p>\x1b</p>").select("p")[0].encode("turbohtml_equal_flushing")
+    finally:
+        codecs.unregister(flushing_search)
+
+
+def test_encode_refuses_a_shift_code_under_a_plain_tuple_codec_info(
+    register_codec: Callable[[str, codecs.CodecInfo], None],
+) -> None:
+    # a search function may return a bare 4-tuple, which has no incremental encoder attribute
+    def encode(text: str, errors: str = "strict") -> tuple[bytes, int]:
+        return _EscLatinEncoder(errors).encode(text, final=True), len(text)
+
+    register_codec("turbohtml_plain_esc", cast("codecs.CodecInfo", (encode, codecs.lookup("ascii").decode, None, None)))
+    with pytest.raises(UnicodeEncodeError, match="shift code"):
+        parse("<p>a\x1b</p>").select("p")[0].encode("turbohtml_plain_esc")
+
+
+@pytest.mark.parametrize("kind", ["constructor-fails", "flush-fails", "returns-text"])
+def test_encode_keeps_a_shift_code_when_the_incremental_encoder_fails(
+    kind: str, register_codec: Callable[[str, codecs.CodecInfo], None]
+) -> None:
+    # a probe that cannot run is not one that writes shift codes, as with a one-shot encode that refuses the sample text
+    encoder: Final[type[codecs.IncrementalEncoder]] = {
+        "constructor-fails": _StartFailsEncoder,
+        "flush-fails": _FlushFailsEncoder,
+        "returns-text": _TextEncoder,
+    }[kind]
+    info: Final[codecs.CodecInfo] = codecs.CodecInfo(
+        encode=lambda text, errors="strict": codecs.charmap_encode(text, errors, _NARROW_TABLE),
+        decode=codecs.lookup("ascii").decode,
+        incrementalencoder=encoder,
+    )
+    register_codec("turbohtml_broken_incremental", info)
+    assert parse("<p>\x1b</p>").select("p")[0].encode("turbohtml_broken_incremental") == b"<p>\x1b</p>"
+
+
+class _StartFailsEncoder(codecs.IncrementalEncoder):
+    def __init__(self, errors: str = "strict") -> None:  # ruff:ignore[unused-method-argument]  # the constructor is what fails
+        msg = "cannot start"
+        raise ValueError(msg)
+
+
+class _FlushFailsEncoder(_NarrowEncoder):
+    def encode(self, input: str, final: bool = False) -> bytes:  # ruff:ignore[builtin-argument-shadowing, boolean-type-hint-positional-argument, boolean-default-value-positional-argument]  # the codecs API passes final positionally
+        if final:
+            msg = "flush refused"
+            raise ValueError(msg)
+        return super().encode(input, final)
+
+
+class _TextEncoder(_NarrowEncoder):
+    def encode(self, input: str, final: bool = False) -> bytes:  # ruff:ignore[builtin-argument-shadowing, boolean-type-hint-positional-argument, boolean-default-value-positional-argument, unused-method-argument, no-self-use]  # the codecs API passes final positionally
+        return cast("bytes", input)
+
+
+def test_encode_keeps_a_shift_code_when_a_codec_info_attribute_lookup_fails(
+    register_codec: Callable[[str, codecs.CodecInfo], None],
+) -> None:
+    # the lookup error is an exception from the probe, so it is cleared and the codec is not flagged
+    info: Final[_BrokenInfo] = _BrokenInfo((codecs.lookup("ascii").encode, codecs.lookup("ascii").decode, None, None))
+    register_codec("turbohtml_broken_info", cast("codecs.CodecInfo", info))
+    assert parse("<p>\x1b</p>").select("p")[0].encode("turbohtml_broken_info") == b"<p>\x1b</p>"
+
+
+class _BrokenInfo(tuple):
+    __slots__ = ()
+
+    def __getattr__(self, name: str) -> NoReturn:
+        if name == "incrementalencoder":
+            msg = "broken codec"
+            raise RuntimeError(msg)
+        raise AttributeError(name)
+
+
 @pytest.mark.parametrize("codec", ["hz", "utf-7"])
 def test_encode_writes_shift_codes_that_a_stateful_codec_reads_back(codec: str) -> None:
-    doc: Final = parse("<p>\x0e\x0f\x1b~{+</p>")
+    doc: Final[Document] = parse("<p>\x0e\x0f\x1b~{+</p>")
     assert doc.encode(codec).decode(codec) == doc.serialize()
 
 
@@ -2458,7 +2854,7 @@ def test_encode_iso_2022_reports_the_first_shift_code(text: str) -> None:
 
 
 def test_encode_iso_2022_jp_round_trips_without_a_shift_code() -> None:
-    doc: Final = parse("<p>日本語</p><p>tail</p>")
+    doc: Final[Document] = parse("<p>日本語</p><p>tail</p>")
     assert parse(doc.encode("iso-2022-jp"), encoding="iso-2022-jp").serialize() == doc.serialize()
 
 
@@ -2479,7 +2875,7 @@ _UTF8: Final[codecs.CodecInfo] = codecs.lookup("utf-8")
     ],
 )
 def test_encode_keeps_a_shift_code_in_a_codec_that_is_not_iso_2022(info: codecs.CodecInfo) -> None:
-    search: Final = {"turbohtml_2022_nameless": info}.get
+    search: Final[_CodecSearch] = {"turbohtml_2022_nameless": info}.get
     codecs.register(search)
     try:
         assert parse("<p>\x1b").select("p")[0].encode("turbohtml_2022_nameless") == b"<p>\x1b</p>"
@@ -2489,13 +2885,13 @@ def test_encode_keeps_a_shift_code_in_a_codec_that_is_not_iso_2022(info: codecs.
 
 @pytest.mark.parametrize("kind", ["plain-tuple", "nameless-codec-info", "lone-surrogate-name", "name-too-long"])
 def test_encode_meta_charset_refuses_a_registered_codec_without_a_label(kind: str) -> None:
-    info: Final = {
+    info: Final[codecs.CodecInfo] = {
         "plain-tuple": cast("codecs.CodecInfo", tuple(_UTF8)),
         "nameless-codec-info": codecs.CodecInfo(*_UTF8, name=None),
         "lone-surrogate-name": codecs.CodecInfo(*_UTF8, name="\udc80"),
         "name-too-long": codecs.CodecInfo(*_UTF8, name="x" * 64),
     }[kind]
-    search: Final = {"turbohtml_meta_unlabelled": info}.get
+    search: Final[_CodecSearch] = {"turbohtml_meta_unlabelled": info}.get
     codecs.register(search)
     try:
         with pytest.raises(ValueError, match="no WHATWG encoding label"):
@@ -2505,7 +2901,7 @@ def test_encode_meta_charset_refuses_a_registered_codec_without_a_label(kind: st
 
 
 def test_encode_sort_attributes() -> None:
-    node: Final = parse("<p z=1 a=2>x").select_one("p")
+    node: Final[Element | None] = parse("<p z=1 a=2>x").select_one("p")
     assert node is not None
     assert node.encode(options=Html(sort_attributes=True)) == b'<p a="2" z="1">x</p>'
 
@@ -2567,7 +2963,7 @@ def test_render_options_preserve_subclass_defaults(
 
 
 def _render(options: Html | PlainText | Canonical) -> str | bytes:
-    document: Final = parse('<p z="1" a="2"><img alt="picture"><!--note--></p>').select("p")[0]
+    document: Final[Element] = parse('<p z="1" a="2"><img alt="picture"><!--note--></p>').select("p")[0]
     if isinstance(options, Html):
         return document.serialize(options)
     if isinstance(options, PlainText):

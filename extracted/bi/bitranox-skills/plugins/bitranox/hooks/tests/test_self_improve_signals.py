@@ -8,6 +8,7 @@ import inspect
 import sys
 import json
 import os
+import subprocess
 import threading
 import time
 from collections.abc import Callable
@@ -356,7 +357,7 @@ def test_save_config_roundtrip_and_ignores_unknown(home):
 
 
 def test_load_config_corrupt_file_returns_defaults(home):
-    S._config_path().write_text("{not json", encoding="utf-8")
+    S.config_path().write_text("{not json", encoding="utf-8")
     assert S.load_config()["dream_mode"] == "propose"
 
 
@@ -365,7 +366,7 @@ def test_load_config_corrupt_file_returns_defaults(home):
 def test_save_config_never_overwrites_a_config_it_could_not_read(home):
     """load_config answers the DEFAULTS for an unreadable file, which is right for a reader; the
     save built on it then replaced every knob the user had set with its default."""
-    p = S._config_path()
+    p = S.config_path()
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps({"dream_mode": "off", "promotion": "eager"}), encoding="utf-8")
     p.chmod(0o200)                                          # writable, not readable
@@ -391,7 +392,7 @@ def test_save_config_never_writes_over_a_config_it_could_not_parse(home, raw):
     """load_config answers the defaults for a config it can read but not parse, so a save built
     on that answer wrote the defaults over every choice the file still held. Only the settings
     CLI guarded against it; any other caller - a hook - would have clobbered the file."""
-    p = S._config_path()
+    p = S.config_path()
     p.write_bytes(raw)
     assert S.save_config({"privacy": "walled"})["privacy"] == "walled"   # best-effort: no raise
     with pytest.raises(OSError):
@@ -401,7 +402,7 @@ def test_save_config_never_writes_over_a_config_it_could_not_parse(home, raw):
 
 def test_save_config_still_writes_over_a_parseable_config(home):
     """Control: a BOM-prefixed UTF-8 object is a readable config and is updated in place."""
-    p = S._config_path()
+    p = S.config_path()
     p.write_bytes(b'\xef\xbb\xbf{"dream_mode": "off"}')
     S.save_config({"privacy": "walled"}, strict=True)
     got = json.loads(p.read_text(encoding="utf-8"))
@@ -902,7 +903,7 @@ def test_a_legacy_marker_under_the_raw_cwd_key_still_blocks_and_is_cleared(home,
     repo = _git_repo(tmp_path / "repo")
     sub = repo / "sub"
     sub.mkdir()
-    legacy = S._audit_dir() / (S.proj_key(str(sub)) + ".nap-owed")
+    legacy = S.audit_dir() / (S.proj_key(str(sub)) + ".nap-owed")
     legacy.parent.mkdir(parents=True, exist_ok=True)
     legacy.write_text(json.dumps({"ts": 1.0, "session_id": "old"}), encoding="utf-8")
     assert S.nap_owed_blocks(str(sub)) is True
@@ -1395,6 +1396,34 @@ def test_ensure_gitignored_asks_git_whether_a_pattern_is_already_ignored(home, t
     assert exclude.read_bytes() == before
 
 
+@pytest.mark.skipif(os.name == "nt", reason="the counting git stand-in is a POSIX shell script")
+def test_ensure_gitignored_asks_git_once_per_level_and_pattern_in_a_process(home, tmp_path,
+                                                                        monkeypatch):
+    """Every add re-checks its level's private files, and each check spawned git twice under the
+    level lock (about 250 ms an add on Windows, most of a bulk add loop's hold time). A pattern git
+    ignored once is remembered, so the next add of the process asks git nothing."""
+    import shlex
+    import shutil
+    repo = tmp_path / "repo"
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    real, log = shutil.which("git"), tmp_path / "git-calls.log"
+    shim = tmp_path / "bin" / "git"
+    shim.parent.mkdir()
+    shim.write_text(f'#!/bin/sh\necho "$*" >> {shlex.quote(str(log))}\n'
+                    f'exec {shlex.quote(str(real))} "$@"\n', encoding="utf-8")
+    shim.chmod(0o755)
+    monkeypatch.setenv("PATH", str(shim.parent) + os.pathsep + os.environ.get("PATH", ""))
+    assert S.ensure_gitignored(str(repo), "CLAUDE.local.md") is True       # writes the exclude
+    asked = len(log.read_text(encoding="utf-8").splitlines())
+    assert asked >= 2                                # the first call did ask git
+    assert S.ensure_gitignored(str(repo), "CLAUDE.local.md") is True
+    assert len(log.read_text(encoding="utf-8").splitlines()) == asked     # no git at all
+    assert S.ensure_gitignored(str(repo), "CLAUDE.local.md", S.CURATED_DIRNAME + "/") is True
+    later = log.read_text(encoding="utf-8").splitlines()[asked:]
+    assert any(S.CURATED_DIRNAME in c for c in later)                     # the new one is asked
+    assert not any("CLAUDE.local.md" in c for c in later)                 # the known one is not
+
+
 def test_ensure_gitignored_in_a_linked_worktree_uses_the_shared_exclude(home, tmp_path):
     """A linked worktree has no info/ of its own; git reads the main checkout's exclude file."""
     import subprocess
@@ -1557,12 +1586,37 @@ def test_memory_lock_reclaims_stale(tmp_path):
     target = tmp_path / "m3"
     stale = tmp_path / "m3.lock"
     stale.write_text("", encoding="utf-8")
-    import os as _os
-    old = time.time() - (S._LOCK_STALE_S + 10)
-    _os.utime(stale, (old, old))                      # make the lock look stale (crashed holder)
+    old = time.time() - (S.LOCK_STALE_S + 10)
+    os.utime(stale, (old, old))                       # make the lock look stale (crashed holder)
     with S.memory_lock(target, timeout=0.05):         # reclaims it instead of timing out
         assert stale.exists()
     assert not stale.exists()
+
+
+def test_a_waiter_looks_for_a_stale_lock_at_most_once_a_second(tmp_path):
+    """The head of the queue tries the lock every 5 ms and looked at its age on every try. On
+    Windows each look holds a handle on the lock file, and one that lands as the holder deletes it
+    refuses the next create. Counted, not timed: the looks over the wait may not exceed one per
+    _STALE_CHECK_S of the time it actually waited, plus the first."""
+    target = tmp_path / "m4"
+    (tmp_path / "m4.lock").write_text("", encoding="utf-8")     # held, and fresh
+    looks: list[float] = []
+
+    def profile(frame, event, _arg):
+        if event == "call" and frame.f_code.co_name == "_reclaim_stale_lock":
+            looks.append(time.monotonic())
+
+    start = time.monotonic()
+    previous = sys.getprofile()
+    sys.setprofile(profile)
+    try:
+        with pytest.raises(TimeoutError), S.memory_lock(target, timeout=1.5):
+            pass
+    finally:
+        sys.setprofile(previous)
+    waited = time.monotonic() - start
+    assert looks, "the waiter never looked for a stale lock"
+    assert len(looks) <= 1 + int(waited / S._STALE_CHECK_S), (len(looks), waited)
 
 
 def test_a_permission_error_is_transient_only_on_windows():
@@ -2461,3 +2515,136 @@ def test_has_any_facts_does_not_count_the_index_or_an_unreadable_entry(home):
     assert S.has_any_facts("/p/few") is False
     (d / "real.md").write_text("", encoding="utf-8")   # an empty fact still exists
     assert S.has_any_facts("/p/few") is True
+
+
+# ---- a value of the wrong type is reported and read as nothing, never raised or split ----------
+
+def test_proj_key_reads_a_bytes_path_as_the_same_project():
+    """The docstring promises a non-string argument is coerced, never raised on: a bytes path
+    raised AttributeError (bytes has no .encode). The path is absolute on this host (C:\\opt\\...
+    on Windows); the historical key of the POSIX spelling is pinned in
+    test_proj_key_is_stable_for_an_already_absolute_path."""
+    path = os.path.abspath("/opt/project-x")
+    assert S.proj_key(os.fsencode(path)) == S.proj_key(path)
+
+
+@pytest.mark.parametrize("raw", ["/opt/one-root", 5, {"a": "/opt/x"}], ids=["str", "int", "object"])
+def test_discovery_roots_reads_a_non_list_value_as_unconfigured(home, capsys, raw):
+    """A hand edit left something other than a list: a string was walked per character (one
+    root per letter, each relative to the cwd), a number raised TypeError in the recall hook. It
+    is reported on stderr and the derived default applies, as for an unset value."""
+    S.save_config({"discovery_roots": raw})
+    roots = [str(r) for r in S.discovery_roots()]
+    assert roots == [str(home)]
+    err = capsys.readouterr().err
+    assert "discovery_roots" in err and type(raw).__name__ in err
+
+
+def test_discovery_roots_skips_an_entry_that_is_not_a_path_string(home, capsys):
+    extra = home / "elsewhere"
+    extra.mkdir()
+    S.save_config({"discovery_roots": [str(extra), 7, None]})
+    assert [str(r) for r in S.discovery_roots()] == [str(extra)]
+    assert "2 entries" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("doc", [{"filler": "frobnicate"}, {"words": 5}, "frobnicate", 5],
+                         ids=["keyed-str", "keyed-int", "bare-str", "bare-int"])
+def test_a_word_list_of_the_wrong_type_reads_as_no_words(home, capsys, doc):
+    """A keyed string was read per character (one filler word per letter), a number raised
+    TypeError. Either is reported naming the file and holds no words, like a file that is not
+    JSON at all."""
+    p = S._filler_local_path(_PROJ)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(doc), encoding="utf-8")
+    assert S.load_filler_words(_PROJ) == S.load_filler_words()
+    assert str(p) in capsys.readouterr().err
+    S.add_filler_words(["alpha"], _PROJ)                 # a read-modify-write replaces it
+    assert "alpha" in S.load_filler_words(_PROJ)
+
+
+# ---- a polling waiter is let in by a holder that re-takes the lock at once ---------------------
+
+_HOLDER = r'''
+import os, sys, time
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+import self_improve_signals as S
+target, started, stop = sys.argv[2], Path(sys.argv[3]), Path(sys.argv[4])
+holds = 0
+while not stop.exists():
+    with S.memory_lock(target, timeout=60.0):
+        holds += 1
+        Path(started).write_text(str(holds), encoding="utf-8")
+        time.sleep(0.02)                 # a write that takes a while, then the lock again AT ONCE
+print(holds)
+'''
+
+
+def _holds(path):
+    try:
+        return int(path.read_text(encoding="utf-8") or 0)
+    except (OSError, ValueError):
+        return 0
+
+
+def test_a_waiter_is_let_in_by_a_holder_that_retakes_the_lock_at_once(tmp_path):
+    """The lock was a bare O_EXCL create polled every 50 ms: a holder that re-took it the moment it
+    let go left the poller a gap of microseconds, and the waiter timed out behind a holder that
+    was making progress the whole time. A waiter that has been refused once now queues, and a
+    holder coming back for the lock waits behind it. Counted, not timed: the waiter must get in
+    within a few of the holder's holds, whatever the runner's speed."""
+    hooks = str(Path(S.__file__).resolve().parent)
+    target = tmp_path / "level" / "CLAUDE.local.md"
+    target.parent.mkdir()
+    started, stop, holder = tmp_path / "started", tmp_path / "stop", tmp_path / "holder.py"
+    holder.write_text(_HOLDER, encoding="utf-8")
+    proc = subprocess.Popen([sys.executable, str(holder), hooks, str(target), str(started),
+                             str(stop)], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                            encoding="utf-8")
+    try:
+        while _holds(started) < 3:
+            assert proc.poll() is None, proc.communicate()
+            time.sleep(0.005)
+        before = _holds(started)
+        with S.memory_lock(target, timeout=60.0):
+            during = _holds(started)
+        stop.write_text("x", encoding="utf-8")
+        out, err = proc.communicate(timeout=60)
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+            proc.communicate()
+    assert proc.returncode == 0, err
+    assert int(out.strip()) > during                 # the holder went on after the waiter
+    assert during - before <= 3, "the waiter waited out %d holds" % (during - before)
+    assert sorted(p.name for p in target.parent.iterdir()) == []   # no lock, no queue left
+
+
+def test_a_queue_place_whose_waiter_stopped_polling_does_not_hold_up_the_line(tmp_path):
+    """A waiter that crashed (or stalls) leaves its place behind; once it has gone quiet for the
+    freshness window it no longer blocks a caller, and once it is as old as a stale lock it is
+    removed."""
+    target = tmp_path / "m6"
+    quiet = tmp_path / "m6.lock.q00000000000000000001-1-1"
+    gone = tmp_path / "m6.lock.q00000000000000000002-1-1"
+    for place, age in ((quiet, S._QUEUE_PLACE_FRESH_S + 5), (gone, S.LOCK_STALE_S + 10)):
+        place.write_text("", encoding="utf-8")
+        old = time.time() - age
+        os.utime(place, (old, old))
+    with S.memory_lock(target, timeout=0.2):
+        pass
+    assert quiet.exists() and not gone.exists()
+
+
+def test_a_live_queue_place_taken_earlier_is_served_first(tmp_path):
+    """A caller arriving while an earlier waiter's place is live waits its turn even though the
+    lock itself is free, and times out if that waiter never takes it."""
+    target = tmp_path / "m7"
+    earlier = tmp_path / "m7.lock.q00000000000000000001-1-1"
+    earlier.write_text("", encoding="utf-8")         # fresh: its waiter is polling
+    with pytest.raises(TimeoutError):
+        with S.memory_lock(target, timeout=0.2):
+            pass
+    assert not (tmp_path / "m7.lock").exists()
+    assert sorted(p.name for p in tmp_path.iterdir()) == [earlier.name]   # its own place is gone

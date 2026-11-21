@@ -21,7 +21,6 @@ from pydantic import BaseModel
 from starlette.routing import BaseRoute, compile_path
 from typing_extensions import TypeVar
 
-from cadwyn._utils import DATACLASS_SLOTS, Sentinel, _callable_name, is_same_value, lenient_issubclass
 from cadwyn.exceptions import (
     CadwynError,
     RouteAlreadyExistsError,
@@ -32,22 +31,25 @@ from cadwyn.exceptions import (
     RouterPathParamsModifiedError,
 )
 from cadwyn.middleware import APIVersionLocation  # noqa: TC001 # Needed by runtime annotation introspection.
-from cadwyn.schema_generation import generate_versioned_models, get_models_that_routes_request
-from cadwyn.schema_generation._callables import _add_request_and_response_params
-from cadwyn.structure import Version, VersionBundle
-from cadwyn.structure.common import Endpoint, VersionType
-from cadwyn.structure.data import _AlterRequestByPathInstruction, _AlterResponseByPathInstruction
-from cadwyn.structure.endpoints import (
-    EndpointDidntExistInstruction,
-    EndpointExistedInstruction,
-    EndpointHadInstruction,
-)
-from cadwyn.structure.versions import VersionChange
 from cadwyn.structure.versions._background import (
     _DroppedBackgroundTasksWarning,
     _get_hidden_background_tasks_param_name,
 )
-from cadwyn.structure.versions._migration_targets import _get_request_body_target, _get_schema_migration_target
+from cadwyn.structure.versions._versioned_endpoints import _versioned
+from cadwyn_core._utils import DATACLASS_SLOTS, Sentinel, _callable_name, is_same_value, lenient_issubclass
+from cadwyn_core.schema_generation import generate_versioned_models, get_models_that_routes_request
+from cadwyn_core.schema_generation._callables import _add_request_and_response_params
+from cadwyn_core.structure import Version, VersionBundle
+from cadwyn_core.structure.common import Endpoint, VersionType
+from cadwyn_core.structure.data import _AlterRequestByPathInstruction, _AlterResponseByPathInstruction
+from cadwyn_core.structure.endpoints import (
+    EndpointDidntExistInstruction,
+    EndpointExistedInstruction,
+    EndpointHadInstruction,
+)
+from cadwyn_core.structure.versions import VersionChange
+from cadwyn_core.structure.versions._common import _DELETED_ROUTE_TAG
+from cadwyn_core.structure.versions._migration_targets import _get_request_body_target, _get_schema_migration_target
 
 if TYPE_CHECKING:
     from fastapi.dependencies.models import Dependant
@@ -58,7 +60,6 @@ _R = TypeVar("_R", bound=APIRouter)
 _WR = TypeVar("_WR", bound=APIRouter, default=APIRouter)
 _RouteT = TypeVar("_RouteT", bound=BaseRoute)
 # This is a hack we do because we can't guarantee how the user will use the router.
-_DELETED_ROUTE_TAG = "_CADWYN_DELETED_ROUTE"
 _FLAT_DEPENDANT_ATTR: Final = "_flat_dependant"
 _RoutePath = str
 _RouteMethod = str
@@ -601,7 +602,8 @@ def _add_data_migrations_to_route(
         hidden_background_tasks_param_name = _get_hidden_background_tasks_param_name(route.endpoint)
         route.dependant.background_tasks_param_name = hidden_background_tasks_param_name
 
-    route.endpoint = versions._versioned(
+    route.endpoint = _versioned(
+        versions,
         template_body_field,
         template_body_field_name,
         route,

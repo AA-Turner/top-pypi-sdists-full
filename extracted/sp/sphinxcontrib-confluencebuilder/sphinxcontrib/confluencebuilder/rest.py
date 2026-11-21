@@ -5,6 +5,7 @@ from email.utils import mktime_tz
 from email.utils import parsedate_tz
 from functools import wraps
 from requests.adapters import HTTPAdapter
+from requests.exceptions import RequestException
 from sphinxcontrib.confluencebuilder.debug import FILTERED_HEADERS
 from sphinxcontrib.confluencebuilder.debug import PublishDebug
 from sphinxcontrib.confluencebuilder.exceptions import ConfluenceAuthenticationFailedUrlError
@@ -43,7 +44,7 @@ RATE_LIMITED_MAX_RETRY_DURATION = 30
 REMOTE_ERR_MAX_RETRIES = 2
 
 # the maximum duration (in seconds) a retry on a erred request can be delayed
-REMOTE_ERR_MAX_RETRY_DURATION = 4
+REMOTE_ERR_MAX_RETRY_DURATION = 10
 
 
 class SslAdapter(HTTPAdapter):
@@ -110,7 +111,9 @@ def confluence_error_retries():
             while True:
                 try:
                     return func(self, *args, **kwargs)
-                except ConfluenceBadApiError as ex:  # noqa: PERF203
+                # if an api failure has occurred, check status codes and
+                # messages to see if we should retry the request
+                except ConfluenceBadApiError as ex:
                     # if max attempts have been reached, stop any more attempts
                     if attempt > retry_attempts:
                         raise
@@ -135,19 +138,27 @@ def confluence_error_retries():
                     # state.
                     elif not any(x in ex_str for x in API_RETRY_ERRORS):
                         raise
+                # if a bad server scenario happens after we already performed
+                # an initial connection test, there may be an availability
+                # issue with the configured confluence instance (server busy,
+                # proxy issues, etc.); perform a generic retry
+                except ConfluenceBadServerUrlError:
+                    # if max attempts have been reached, stop any more attempts
+                    if attempt > retry_attempts:
+                        raise
 
-                    # configure the delay
-                    delay = retry_duration
+                # configure the delay
+                delay = retry_duration
 
-                    # add jitter
-                    delay += random.uniform(0.0, 0.5)  # noqa: S311
+                # add jitter
+                delay += random.uniform(0.0, 0.5)  # noqa: S311
 
-                    # wait the calculated delay before retrying again
-                    reported_delay = math.ceil(delay)
-                    logger.info('unexpected rest response detected; '
-                                f'retrying in {reported_delay} seconds...')
-                    time.sleep(delay)
-                    attempt += 1
+                # wait the calculated delay before retrying again
+                reported_delay = math.ceil(delay)
+                logger.info('unexpected rest response detected; '
+                            f'retrying in {reported_delay} seconds...')
+                time.sleep(delay)
+                attempt += 1
 
         return _wrapper
     return _decorator
@@ -188,7 +199,7 @@ def rate_limited_retries():
             while True:
                 try:
                     return func(self, *args, **kwargs)
-                except ConfluenceRateLimitedError:  # noqa: PERF203
+                except ConfluenceRateLimitedError:
                     # if max attempts have been reached, stop any more attempts
                     if attempt > RATE_LIMITED_MAX_RETRIES:
                         raise
@@ -405,15 +416,33 @@ class Rest:
         self.session.close()
 
     def _format_error(self, rsp, path):
-        err = ""
-        err += f"REQ: {rsp.request.method}\n"
-        err += "RSP: " + str(rsp.status_code) + "\n"
-        err += "URL: " + self.url + "\n"
-        err += "API: " + path + "\n"
-        try:
-            err += f'DATA: {json.dumps(rsp.json(), indent=2)}'
-        except:  # noqa: E722
-            err += 'DATA: <not-or-invalid-json>'
+        err = ''
+        err += f'REQ: {rsp.request.method}\n'
+        err += f'RSP: {rsp.status_code}\n'
+        err += f'URL: {self.url}\n'
+        err += f'API: {path}\n'
+
+        if rsp.content:
+            try:
+                data = rsp.json()
+            except (RequestException, ValueError):
+                try:
+                    LIMIT_TEXT = 5000
+                    text = rsp.content.decode('utf-8')[:LIMIT_TEXT].strip()
+                except UnicodeDecodeError:
+                    err += 'DATA: <binary-or-non-utf8>'
+                else:
+                    if not text:
+                        err += 'DATA: (empty)'
+                    elif '\x00' in text:
+                        err += 'DATA: <binary-content>'
+                    else:
+                        err += f'DATA: {" ".join(text.split())}'
+            else:
+                err += f'DATA: {json.dumps(data, indent=2)}'
+        else:
+            err += 'DATA: (empty)'
+
         return err
 
     def _process_request(self, method, path, url=None, *args, **kwargs):
@@ -448,6 +477,11 @@ class Rest:
             print(f'(debug) Request: {origin}]')
             print(f'{req.method} {req.url}')
             print('\n'.join(f'{k}: {v}' for k, v in filtered_headers.items()))
+            if base_req.files:
+                print('--- (files) ---')
+                for file_info in base_req.files.values():
+                    file_name, _, file_mime = file_info
+                    print(f'File: {file_name} ({file_mime})')
             print(flush=True)
 
             if dump_body and req.body:
@@ -476,6 +510,8 @@ class Rest:
 
             print('(debug) Response]')
             print(f'Code: {rsp.status_code}')
+            if rsp.reason.strip():
+                print(f'Reason: {rsp.reason.strip()}')
             print('\n'.join(f'{k}: {v}' for k, v in filtered_headers.items()))
             print(flush=True)
 

@@ -149,6 +149,28 @@ endmodule
     CHECK(diags[20].code == diag::ExpectedExpression);
 }
 
+TEST_CASE("Sequence ranges with lower bounds that fail to evaluate") {
+    auto tree = SyntaxTree::fromText(R"(
+module m(input clk, a, b);
+    property p(x); @(posedge clk) a ##[x:2] b; endproperty
+    sequence s(x); a [*x:2] ##1 b; endsequence
+
+    assert property (p(1));
+    assert property (@(posedge clk) s(2));
+    assert property (p(3));
+    assert property (@(posedge clk) a ##[$:2] b);
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 2);
+    CHECK(diags[0].code == diag::SeqRangeMinMax);
+    CHECK(diags[1].code == diag::UnboundedNotAllowed);
+}
+
 TEST_CASE("Sequence & property instances") {
     auto tree = SyntaxTree::fromText(R"(
 module m;
@@ -792,6 +814,30 @@ endmodule
     CHECK(diags[6].code == diag::InvalidSyntaxInEventExpr);
     CHECK(diags[7].code == diag::InvalidSyntaxInEventExpr);
     CHECK(diags[8].code == diag::InvalidSyntaxInEventExpr);
+}
+
+TEST_CASE("Parenthesized sequence and property operators in event expr args") {
+    auto tree = SyntaxTree::fromText(R"(
+logic x,y,clk;
+sequence s1 (event ev);
+    @(ev) x ##1 y;
+endsequence
+
+module m;
+    assert property (@(posedge clk) s1((x and y)));
+    assert property (@(posedge clk) s1((x ##1 y)));
+    assert property (@(posedge clk) s1((not x)));
+    assert property (@(posedge clk) s1(((x |-> y) or y)));
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 4);
+    for (auto& diag : diags)
+        CHECK(diag.code == diag::InvalidSyntaxInEventExpr);
 }
 
 TEST_CASE("Restrict / expect / cover statements") {
@@ -1976,6 +2022,49 @@ module m;
     endproperty
 
     let l1(untyped a) = a;
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Checker formal defaults used via wildcard connections bind in the checker") {
+    auto tree = SyntaxTree::fromText(R"(
+checker chk1(logic a, event e = $inferred_clock);
+endchecker
+
+checker chk2(logic x, logic c = x);
+endchecker
+
+module m(input clk, a, sig);
+    default clocking @(posedge clk); endclocking
+    chk1 c1(.*);
+    chk2 c2(.x(sig), .*);
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("$past_gclk and $future_gclk return the argument type") {
+    auto tree = SyntaxTree::fromText(R"(
+module m(input clk);
+    logic [7:0] d;
+    global clocking @(posedge clk); endclocking
+
+    localparam string t1 = $typename($past_gclk(d));
+    localparam string t2 = $typename($past(d,,,@$global_clock));
+    localparam int b1 = $bits($past_gclk(d));
+    localparam int b2 = $bits($changed_gclk(d));
+    if (t1 != t2 || b1 != 8 || b2 != 1) $error("wrong types");
+
+    logic [7:0] q;
+    always @(posedge clk) q <= $past_gclk(d);
+    assert property (@(posedge clk) $future_gclk(d) == 8'h80);
 endmodule
 )");
 

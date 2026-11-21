@@ -26,35 +26,56 @@ from botocore.client import BaseClient, ClientMeta
 from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
-from .paginator import ListRegistriesPaginator, ListRegistryRecordsPaginator
+from .paginator import (
+    ListPublisherAssociationsPaginator,
+    ListPublishersPaginator,
+    ListRegistriesPaginator,
+    ListRegistryRecordsPaginator,
+)
 from .type_defs import (
+    AssociatePublisherRequestTypeDef,
+    AssociatePublisherResponseTypeDef,
+    CreatePublisherRequestTypeDef,
+    CreatePublisherResponseTypeDef,
     CreateRegistryRecordRequestTypeDef,
     CreateRegistryRecordResponseTypeDef,
     CreateRegistryRequestTypeDef,
     CreateRegistryResponseTypeDef,
+    DeletePublisherRequestTypeDef,
     DeleteRegistryRecordRequestTypeDef,
     DeleteRegistryRequestTypeDef,
     DeleteRegistryResponseTypeDef,
+    DisassociatePublisherRequestTypeDef,
+    EmptyResponseMetadataTypeDef,
+    GetPublisherRequestTypeDef,
     GetRegistryRecordRequestTypeDef,
     GetRegistryRecordResponseTypeDef,
     GetRegistryRequestTypeDef,
     GetRegistryResponseTypeDef,
+    ListPublisherAssociationsRequestTypeDef,
+    ListPublisherAssociationsResponseTypeDef,
+    ListPublishersRequestTypeDef,
+    ListPublishersResponseTypeDef,
     ListRegistriesRequestTypeDef,
     ListRegistriesResponseTypeDef,
     ListRegistryRecordsRequestTypeDef,
     ListRegistryRecordsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
+    PublisherTypeDef,
     SubmitRegistryRecordForApprovalRequestTypeDef,
     SubmitRegistryRecordForApprovalResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
+    UpdatePublisherAssociationApprovalStatusRequestTypeDef,
     UpdateRegistryRecordRequestTypeDef,
     UpdateRegistryRecordResponseTypeDef,
     UpdateRegistryRecordStatusRequestTypeDef,
     UpdateRegistryRecordStatusResponseTypeDef,
     UpdateRegistryRequestTypeDef,
     UpdateRegistryResponseTypeDef,
+    ValidatePublisherRequestTypeDef,
+    ValidatePublisherResponseTypeDef,
 )
 from .waiter import RegistryReadyWaiter, RegistryRecordApprovedWaiter
 
@@ -69,6 +90,7 @@ class Exceptions(BaseClientExceptions):
     AccessDeniedException: type[BotocoreClientError]
     ClientError: type[BotocoreClientError]
     ConflictException: type[BotocoreClientError]
+    DependencyException: type[BotocoreClientError]
     InternalServerException: type[BotocoreClientError]
     ResourceNotFoundException: type[BotocoreClientError]
     ServiceQuotaExceededException: type[BotocoreClientError]
@@ -110,6 +132,27 @@ class AgentRegistryControlClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_agent_registry_control/client/#generate_presigned_url)
         """
 
+    def associate_publisher(
+        self, **kwargs: Unpack[AssociatePublisherRequestTypeDef]
+    ) -> AssociatePublisherResponseTypeDef:
+        """
+        Associate a registry record with a publisher and assign the record a public
+        identifier under the publisher's domain.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/agent-registry-control/client/associate_publisher.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_agent_registry_control/client/#associate_publisher)
+        """
+
+    def create_publisher(
+        self, **kwargs: Unpack[CreatePublisherRequestTypeDef]
+    ) -> CreatePublisherResponseTypeDef:
+        """
+        Create a publisher for a domain you control.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/agent-registry-control/client/create_publisher.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_agent_registry_control/client/#create_publisher)
+        """
+
     def create_registry(
         self, **kwargs: Unpack[CreateRegistryRequestTypeDef]
     ) -> CreateRegistryResponseTypeDef:
@@ -129,6 +172,16 @@ class AgentRegistryControlClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/agent-registry-control/client/create_registry_record.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_agent_registry_control/client/#create_registry_record)
+        """
+
+    def delete_publisher(
+        self, **kwargs: Unpack[DeletePublisherRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Delete a publisher.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/agent-registry-control/client/delete_publisher.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_agent_registry_control/client/#delete_publisher)
         """
 
     def delete_registry(
@@ -151,6 +204,26 @@ class AgentRegistryControlClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_agent_registry_control/client/#delete_registry_record)
         """
 
+    def disassociate_publisher(
+        self, **kwargs: Unpack[DisassociatePublisherRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Remove a registry record's publisher association and release its public
+        identifier.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/agent-registry-control/client/disassociate_publisher.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_agent_registry_control/client/#disassociate_publisher)
+        """
+
+    def get_publisher(self, **kwargs: Unpack[GetPublisherRequestTypeDef]) -> PublisherTypeDef:
+        """
+        Get a publisher, including its verification status and the DNS challenge for
+        its domain.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/agent-registry-control/client/get_publisher.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_agent_registry_control/client/#get_publisher)
+        """
+
     def get_registry(
         self, **kwargs: Unpack[GetRegistryRequestTypeDef]
     ) -> GetRegistryResponseTypeDef:
@@ -169,6 +242,27 @@ class AgentRegistryControlClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/agent-registry-control/client/get_registry_record.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_agent_registry_control/client/#get_registry_record)
+        """
+
+    def list_publisher_associations(
+        self, **kwargs: Unpack[ListPublisherAssociationsRequestTypeDef]
+    ) -> ListPublisherAssociationsResponseTypeDef:
+        """
+        List the registry record associations your account created.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/agent-registry-control/client/list_publisher_associations.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_agent_registry_control/client/#list_publisher_associations)
+        """
+
+    def list_publishers(
+        self, **kwargs: Unpack[ListPublishersRequestTypeDef]
+    ) -> ListPublishersResponseTypeDef:
+        """
+        List the publishers your account owns, followed by the ACTIVE publishers shared
+        with your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/agent-registry-control/client/list_publishers.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_agent_registry_control/client/#list_publishers)
         """
 
     def list_registries(
@@ -233,6 +327,17 @@ class AgentRegistryControlClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_agent_registry_control/client/#untag_resource)
         """
 
+    def update_publisher_association_approval_status(
+        self, **kwargs: Unpack[UpdatePublisherAssociationApprovalStatusRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Record the curator's decision (APPROVED or REJECTED) on a registry record's
+        publisher association.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/agent-registry-control/client/update_publisher_association_approval_status.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_agent_registry_control/client/#update_publisher_association_approval_status)
+        """
+
     def update_registry(
         self, **kwargs: Unpack[UpdateRegistryRequestTypeDef]
     ) -> UpdateRegistryResponseTypeDef:
@@ -263,6 +368,38 @@ class AgentRegistryControlClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/agent-registry-control/client/update_registry_record_status.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_agent_registry_control/client/#update_registry_record_status)
+        """
+
+    def validate_publisher(
+        self, **kwargs: Unpack[ValidatePublisherRequestTypeDef]
+    ) -> ValidatePublisherResponseTypeDef:
+        """
+        Restart domain verification for a publisher in FAILED or SUSPENDED.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/agent-registry-control/client/validate_publisher.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_agent_registry_control/client/#validate_publisher)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_publisher_associations"]
+    ) -> ListPublisherAssociationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/agent-registry-control/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_agent_registry_control/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_publishers"]
+    ) -> ListPublishersPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/agent-registry-control/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_agent_registry_control/client/#get_paginator)
         """
 
     @overload  # type: ignore[override]

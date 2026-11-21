@@ -140,6 +140,10 @@ struct th_node {
        space of each run, and the scan's answer depends on whitespace only as a tag-name end and a break in a "-" run,
        which one space still is. */
     uint8_t script_text_closes : 1;
+    /* Tree builder state: the depth cap sent an append meant for this element to its parent instead. A later append
+       keeps going there even once the adoption agency has moved the element shallower, or it would land before the
+       nodes already sent after it. */
+    uint8_t cap_refused : 1;
     /* An attribute value buffer of this element is also the value of another element: a clone takes its source's
        slots, values included, rather than copy them. A value is never written in place, and a deep copy into another
        tree looks these up in its th_copy_memo instead of copying each one again. */
@@ -324,6 +328,7 @@ int th_validate_markup_name(PyObject *name, int is_attr);
 /* Create an empty tree to own programmatically constructed nodes. Returns NULL on
    allocation failure (no Python error is set). */
 th_tree *th_tree_new(void);
+th_tree *th_tree_new_small(void);
 
 /* Whether the tree was parsed under XML rules, so name lookups are case-sensitive
    rather than folded to the HTML parser's lowercased names. */
@@ -346,6 +351,9 @@ extern const Py_UCS4 th_empty_text[1];
 /* Construct a text/comment/doctype/cdata node (by enum th_node_type) owning a copy
    of the data code points in the tree's arena. NULL on allocation failure. */
 th_node *th_tree_make_data_node(th_tree *tree, int type, const Py_UCS4 *data, Py_ssize_t len);
+
+/* th_tree_make_data_node for a Text node holding the code points of the str text, widened straight into the arena. */
+th_node *th_tree_make_text_str(th_tree *tree, PyObject *text);
 
 /* Construct an empty document-fragment node (a TH_NODE_CONTENT) in the tree's
    arena: the container the Range content operations fill. NULL on allocation
@@ -413,9 +421,10 @@ int th_node_attr_set(th_tree *tree, th_node *node, const char *name, Py_ssize_t 
    is never written in place and the arena keeps it until the tree is freed, so the holders need no bookkeeping. */
 int th_node_attr_set_shared(th_tree *tree, th_node *node, const char *name, Py_ssize_t name_len, const Py_UCS4 *value,
                             Py_ssize_t value_len);
-/* The caller has already established that this attribute name is absent. */
-int th_node_attr_append(th_tree *tree, th_node *node, const char *name, Py_ssize_t name_len, const Py_UCS4 *value,
-                        Py_ssize_t value_len);
+/* The caller has already established that this attribute name is absent. The slot takes owned, a buffer of this tree's
+   arena that the caller has filled with value_len code points. */
+int th_node_attr_adopt(th_tree *tree, th_node *node, const char *name, Py_ssize_t name_len, Py_UCS4 *owned,
+                       Py_ssize_t value_len);
 
 /* An element's attribute array and count; (NULL, 0) for every non-element node. */
 static inline Py_ssize_t th_node_attributes(const th_node *node, th_node_attr **attrs) {
@@ -818,7 +827,36 @@ Py_UCS4 *th_node_text(th_tree *tree, th_node *node, Py_ssize_t *out_len);
    each element of a walk stays linear, where th_node_text on nested elements
    reads the innermost text once per ancestor. */
 Py_UCS4 *th_node_child_text(th_tree *tree, th_node *node, Py_ssize_t *out_len);
+PyObject *th_markup_string(const Py_UCS4 *data, Py_ssize_t length);
 PyObject *th_node_text_string(th_tree *tree, th_node *node);
+
+/* A Text or Comment node's characters where they already sit, with their width in *kind: a source span's in the
+   input's own width, an owned node's as UCS-4. Reading a span in place leaves it unrealized. */
+const void *th_node_chars(th_tree *tree, th_node *node, int *kind);
+
+/* The OR of characters stored at `kind`, stopping once it holds a bit past the narrower widths: enough to pick the
+   narrowest str width that holds them all. */
+Py_UCS4 th_chars_width_bits_long(const void *data, int kind, Py_ssize_t length);
+static inline Py_UCS4 th_chars_width_bits(const void *data, int kind, Py_ssize_t length) {
+    /* most texts are a few characters, where a call and the setup of the vector loops cost more than the scan */
+    if (length >= 32) {
+        return th_chars_width_bits_long(data, kind, length);
+    }
+    Py_UCS4 bits = 0;
+    for (Py_ssize_t index = 0; index < length; index++) {
+        bits |= PyUnicode_READ(kind, data, index);
+    }
+    return bits;
+}
+
+/* Whether the 1-byte input the tree's source spans index is ASCII, from a check of the whole input made once per tree,
+   the first time a read of `reading` of its characters is at least a quarter of it; 0 for a shorter read before then,
+   which scans its own characters instead. Every tree whose spans reach a node's text records its input's length: the
+   parse entry points set it, and a normalized input replaces it with its own. */
+int th_tree_input_ascii(th_tree *tree, Py_ssize_t reading);
+
+/* Copy characters between str widths; narrowing assumes every character fits the destination's. */
+void th_chars_copy(void *destination, int destination_kind, const void *source, int source_kind, Py_ssize_t length);
 
 /* An element's attributes as a tuple of (name, value) pairs, shared by the clones of one start tag within a walk.
    *shared is that walk's cache: NULL before the first call, released by the caller when the walk ends. A new

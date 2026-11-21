@@ -38,7 +38,7 @@ from dreamscale import deploy_bases, errors, local_checkpoint, tables
 from dreamscale.config import load_config
 from dreamscale.control import ControlPlaneClient
 from dreamscale.deploy_bases import Base  # noqa: F401 - its CLI name
-from dreamscale.deploy_bases.isaac05 import CLI_ALIAS
+from dreamscale.deploy_bases.isaac05_legacy import CLI_ALIAS
 from dreamscale.integrations import hugging_face
 from dreamscale.model_names import internal_model, is_account_ref, public_model
 from dreamscale.policy.deployment import joint_actions

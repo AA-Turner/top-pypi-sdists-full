@@ -359,9 +359,19 @@ const Symbol* PackageSymbol::findForImport(std::string_view lookupName) const {
             return it->second;
 
         if (exportData && exportData->wildcardExportPackages) {
+            // The name is exported if it was imported through one of the wildcard
+            // exported packages, which isn't necessarily the package that declares
+            // it, since that package may itself have imported and exported it [26.6].
             auto& owningPackage = findOwningPackage(*it->second);
             if (exportData->wildcardExportPackages->contains(owningPackage.name))
                 return it->second;
+
+            for (auto [_, pkg] : *exportData->wildcardExportPackages) {
+                if (pkg && pkg->kind == SymbolKind::Package &&
+                    pkg->as<PackageSymbol>().findForImport(lookupName) == it->second) {
+                    return it->second;
+                }
+            }
         }
     }
 
@@ -482,6 +492,25 @@ DefinitionSymbol::DefinitionSymbol(const Scope& scope, LookupLocation lookupLoca
     std::optional<SourceRange> unitsRange;
     std::optional<SourceRange> precisionRange;
 
+    // Generate regions have no semantic meaning, so parameters
+    // declared within them are just like body parameters.
+    auto addBodyParam = [&](const MemberSyntax& member) {
+        auto declaration = member.as<ParameterDeclarationStatementSyntax>().parameter;
+        bool isLocal = hasPortParams || declaration->keyword.kind == TokenKind::LocalParamKeyword;
+
+        ParameterBuilder::createDecls(scope, *declaration, isLocal, /* isPort */ false,
+                                      member.attributes, parameters);
+    };
+
+    auto addRegionParams = [&](auto& self, const GenerateRegionSyntax& region) -> void {
+        for (auto member : region.members) {
+            if (member->kind == SyntaxKind::ParameterDeclarationStatement)
+                addBodyParam(*member);
+            else if (member->kind == SyntaxKind::GenerateRegion)
+                self(self, member->as<GenerateRegionSyntax>());
+        }
+    };
+
     for (auto member : syntax.members) {
         if (member->kind == SyntaxKind::TimeUnitsDeclaration) {
             if (!timeScale)
@@ -499,12 +528,10 @@ DefinitionSymbol::DefinitionSymbol(const Scope& scope, LookupLocation lookupLoca
                 modports.emplace(item->name.valueText());
         }
         else if (member->kind == SyntaxKind::ParameterDeclarationStatement) {
-            auto declaration = member->as<ParameterDeclarationStatementSyntax>().parameter;
-            bool isLocal = hasPortParams ||
-                           declaration->keyword.kind == TokenKind::LocalParamKeyword;
-
-            ParameterBuilder::createDecls(scope, *declaration, isLocal, /* isPort */ false,
-                                          member->attributes, parameters);
+            addBodyParam(*member);
+        }
+        else if (member->kind == SyntaxKind::GenerateRegion) {
+            addRegionParams(addRegionParams, member->as<GenerateRegionSyntax>());
         }
     }
 

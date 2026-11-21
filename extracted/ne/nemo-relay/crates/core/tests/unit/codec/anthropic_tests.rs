@@ -388,6 +388,18 @@ fn test_decode_response_finish_reason_stop_sequence() {
 }
 
 #[test]
+fn test_decode_response_finish_reason_refusal() {
+    let codec = AnthropicMessagesCodec;
+    let response = json!({
+        "content": [],
+        "stop_reason": "refusal",
+        "usage": { "input_tokens": 1, "output_tokens": 1 }
+    });
+    let resp = codec.decode_response(&response).unwrap();
+    assert_eq!(resp.finish_reason, Some(FinishReason::ContentFilter));
+}
+
+#[test]
 fn test_decode_response_usage_mapping() {
     let codec = AnthropicMessagesCodec;
     let response = json!({
@@ -2181,4 +2193,46 @@ fn response_decode_preserves_retained_array_validation_and_unknown_fields() {
         other => panic!("unexpected response: {other:?}"),
     };
     assert_eq!(retained.as_ref(), response["content"].as_array());
+}
+
+#[test]
+fn anthropic_streaming_codec_keeps_message_start_usage_when_delta_reports_null() {
+    let codec = AnthropicMessagesStreamingCodec::new();
+    let mut collector = codec.collector();
+    collector(json!({
+        "type": "message_start",
+        "message": {
+            "id": "msg_1",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-sonnet-4-20250514",
+            "content": [],
+            "stop_reason": null,
+            "stop_sequence": null,
+            "usage": {
+                "input_tokens": 10,
+                "cache_creation_input_tokens": 200,
+                "cache_read_input_tokens": 900,
+                "output_tokens": 1
+            }
+        }
+    }))
+    .unwrap();
+    collector(json!({
+        "type": "message_delta",
+        "delta": {"stop_reason": "end_turn", "stop_sequence": null},
+        "usage": {
+            "input_tokens": null,
+            "cache_creation_input_tokens": null,
+            "cache_read_input_tokens": null,
+            "output_tokens": 15
+        }
+    }))
+    .unwrap();
+
+    let usage = &codec.finalizer()()["usage"];
+    assert_eq!(usage["input_tokens"], json!(10));
+    assert_eq!(usage["cache_creation_input_tokens"], json!(200));
+    assert_eq!(usage["cache_read_input_tokens"], json!(900));
+    assert_eq!(usage["output_tokens"], json!(15));
 }

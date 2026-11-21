@@ -97,14 +97,16 @@ class CfnAccessSource(
         from aws_cdk import aws_route53globalresolver as route53globalresolver
         
         cfn_access_source = route53globalresolver.CfnAccessSource(self, "MyCfnAccessSource",
-            cidr="cidr",
             dns_view_id="dnsViewId",
             protocol="protocol",
         
             # the properties below are optional
+            cidr="cidr",
             client_token="clientToken",
+            core_network_endpoint_id="coreNetworkEndpointId",
             ip_address_type="ipAddressType",
             name="name",
+            segment="segment",
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -117,24 +119,28 @@ class CfnAccessSource(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        cidr: builtins.str,
         dns_view_id: builtins.str,
         protocol: builtins.str,
+        cidr: typing.Optional[builtins.str] = None,
         client_token: typing.Optional[builtins.str] = None,
+        core_network_endpoint_id: typing.Optional[builtins.str] = None,
         ip_address_type: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
+        segment: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Route53GlobalResolver::AccessSource``.
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param cidr: 
         :param dns_view_id: 
         :param protocol: 
+        :param cidr: 
         :param client_token: 
+        :param core_network_endpoint_id: 
         :param ip_address_type: 
         :param name: 
+        :param segment: 
         :param tags: 
         '''
         if __debug__:
@@ -142,12 +148,14 @@ class CfnAccessSource(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnAccessSourceProps(
-            cidr=cidr,
             dns_view_id=dns_view_id,
             protocol=protocol,
+            cidr=cidr,
             client_token=client_token,
+            core_network_endpoint_id=core_network_endpoint_id,
             ip_address_type=ip_address_type,
             name=name,
+            segment=segment,
             tags=tags,
         )
 
@@ -275,18 +283,6 @@ class CfnAccessSource(
         return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
 
     @builtins.property
-    @jsii.member(jsii_name="cidr")
-    def cidr(self) -> builtins.str:
-        return typing.cast(builtins.str, jsii.get(self, "cidr"))
-
-    @cidr.setter
-    def cidr(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__adc669c1f788dfe513d35b84e76f6ab663967b55f657ce94818e351138c4e9dc)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "cidr", value)
-
-    @builtins.property
     @jsii.member(jsii_name="dnsViewId")
     def dns_view_id(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "dnsViewId"))
@@ -311,6 +307,18 @@ class CfnAccessSource(
         jsii.set(self, "protocol", value)
 
     @builtins.property
+    @jsii.member(jsii_name="cidr")
+    def cidr(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "cidr"))
+
+    @cidr.setter
+    def cidr(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__adc669c1f788dfe513d35b84e76f6ab663967b55f657ce94818e351138c4e9dc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "cidr", value)
+
+    @builtins.property
     @jsii.member(jsii_name="clientToken")
     def client_token(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "clientToken"))
@@ -321,6 +329,18 @@ class CfnAccessSource(
             type_hints = cached_type_hints(_typecheckingstub__96ff0bae281a0a2532fce6d0ea5b7198a748c1e755f444a05f921f6932093028)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "clientToken", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="coreNetworkEndpointId")
+    def core_network_endpoint_id(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "coreNetworkEndpointId"))
+
+    @core_network_endpoint_id.setter
+    def core_network_endpoint_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b0781a599cfbb13fda5413a7893a412f46ab966ba2cfe0b768152c1f1b0cd742)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "coreNetworkEndpointId", value)
 
     @builtins.property
     @jsii.member(jsii_name="ipAddressType")
@@ -347,6 +367,18 @@ class CfnAccessSource(
         jsii.set(self, "name", value)
 
     @builtins.property
+    @jsii.member(jsii_name="segment")
+    def segment(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "segment"))
+
+    @segment.setter
+    def segment(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2d98e5b7286420b82356071fccb84e255c8055be1879fe5707e9ce6505fd81d5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "segment", value)
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
@@ -366,12 +398,14 @@ class CfnAccessSource(
     jsii_type="aws-cdk-lib.aws_route53globalresolver.CfnAccessSourceProps",
     jsii_struct_bases=[],
     name_mapping={
-        "cidr": "cidr",
         "dns_view_id": "dnsViewId",
         "protocol": "protocol",
+        "cidr": "cidr",
         "client_token": "clientToken",
+        "core_network_endpoint_id": "coreNetworkEndpointId",
         "ip_address_type": "ipAddressType",
         "name": "name",
+        "segment": "segment",
         "tags": "tags",
     },
 )
@@ -379,22 +413,26 @@ class CfnAccessSourceProps:
     def __init__(
         self,
         *,
-        cidr: builtins.str,
         dns_view_id: builtins.str,
         protocol: builtins.str,
+        cidr: typing.Optional[builtins.str] = None,
         client_token: typing.Optional[builtins.str] = None,
+        core_network_endpoint_id: typing.Optional[builtins.str] = None,
         ip_address_type: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
+        segment: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnAccessSource``.
 
-        :param cidr: 
         :param dns_view_id: 
         :param protocol: 
+        :param cidr: 
         :param client_token: 
+        :param core_network_endpoint_id: 
         :param ip_address_type: 
         :param name: 
+        :param segment: 
         :param tags: 
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53globalresolver-accesssource.html
@@ -408,14 +446,16 @@ class CfnAccessSourceProps:
             from aws_cdk import aws_route53globalresolver as route53globalresolver
             
             cfn_access_source_props = route53globalresolver.CfnAccessSourceProps(
-                cidr="cidr",
                 dns_view_id="dnsViewId",
                 protocol="protocol",
             
                 # the properties below are optional
+                cidr="cidr",
                 client_token="clientToken",
+                core_network_endpoint_id="coreNetworkEndpointId",
                 ip_address_type="ipAddressType",
                 name="name",
+                segment="segment",
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -424,35 +464,33 @@ class CfnAccessSourceProps:
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3e2356855e49ab75da15cc0328069114313fafa0ff86a20d803b7c2be30c7b45)
-            check_type(argname="argument cidr", value=cidr, expected_type=type_hints["cidr"])
             check_type(argname="argument dns_view_id", value=dns_view_id, expected_type=type_hints["dns_view_id"])
             check_type(argname="argument protocol", value=protocol, expected_type=type_hints["protocol"])
+            check_type(argname="argument cidr", value=cidr, expected_type=type_hints["cidr"])
             check_type(argname="argument client_token", value=client_token, expected_type=type_hints["client_token"])
+            check_type(argname="argument core_network_endpoint_id", value=core_network_endpoint_id, expected_type=type_hints["core_network_endpoint_id"])
             check_type(argname="argument ip_address_type", value=ip_address_type, expected_type=type_hints["ip_address_type"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument segment", value=segment, expected_type=type_hints["segment"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "cidr": cidr,
             "dns_view_id": dns_view_id,
             "protocol": protocol,
         }
+        if cidr is not None:
+            self._values["cidr"] = cidr
         if client_token is not None:
             self._values["client_token"] = client_token
+        if core_network_endpoint_id is not None:
+            self._values["core_network_endpoint_id"] = core_network_endpoint_id
         if ip_address_type is not None:
             self._values["ip_address_type"] = ip_address_type
         if name is not None:
             self._values["name"] = name
+        if segment is not None:
+            self._values["segment"] = segment
         if tags is not None:
             self._values["tags"] = tags
-
-    @builtins.property
-    def cidr(self) -> builtins.str:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53globalresolver-accesssource.html#cfn-route53globalresolver-accesssource-cidr
-        '''
-        result = self._values.get("cidr")
-        assert result is not None, "Required property 'cidr' is missing"
-        return typing.cast(builtins.str, result)
 
     @builtins.property
     def dns_view_id(self) -> builtins.str:
@@ -473,11 +511,27 @@ class CfnAccessSourceProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
+    def cidr(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53globalresolver-accesssource.html#cfn-route53globalresolver-accesssource-cidr
+        '''
+        result = self._values.get("cidr")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def client_token(self) -> typing.Optional[builtins.str]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53globalresolver-accesssource.html#cfn-route53globalresolver-accesssource-clienttoken
         '''
         result = self._values.get("client_token")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def core_network_endpoint_id(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53globalresolver-accesssource.html#cfn-route53globalresolver-accesssource-corenetworkendpointid
+        '''
+        result = self._values.get("core_network_endpoint_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -494,6 +548,14 @@ class CfnAccessSourceProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53globalresolver-accesssource.html#cfn-route53globalresolver-accesssource-name
         '''
         result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def segment(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53globalresolver-accesssource.html#cfn-route53globalresolver-accesssource-segment
+        '''
+        result = self._values.get("segment")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -2489,6 +2551,7 @@ class CfnGlobalResolver(
             description="description",
             ip_address_type="ipAddressType",
             observability_region="observabilityRegion",
+            public_ip_status="publicIpStatus",
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -2507,6 +2570,7 @@ class CfnGlobalResolver(
         description: typing.Optional[builtins.str] = None,
         ip_address_type: typing.Optional[builtins.str] = None,
         observability_region: typing.Optional[builtins.str] = None,
+        public_ip_status: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Route53GlobalResolver::GlobalResolver``.
@@ -2519,6 +2583,7 @@ class CfnGlobalResolver(
         :param description: 
         :param ip_address_type: 
         :param observability_region: 
+        :param public_ip_status: 
         :param tags: 
         '''
         if __debug__:
@@ -2532,6 +2597,7 @@ class CfnGlobalResolver(
             description=description,
             ip_address_type=ip_address_type,
             observability_region=observability_region,
+            public_ip_status=public_ip_status,
             tags=tags,
         )
 
@@ -2756,6 +2822,18 @@ class CfnGlobalResolver(
         jsii.set(self, "observabilityRegion", value)
 
     @builtins.property
+    @jsii.member(jsii_name="publicIpStatus")
+    def public_ip_status(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "publicIpStatus"))
+
+    @public_ip_status.setter
+    def public_ip_status(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__53ec3ed560cc8141cc9560753c58274f1df7e2f6d02bc98a9bddb6df949571a9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "publicIpStatus", value)
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
@@ -2781,6 +2859,7 @@ class CfnGlobalResolver(
         "description": "description",
         "ip_address_type": "ipAddressType",
         "observability_region": "observabilityRegion",
+        "public_ip_status": "publicIpStatus",
         "tags": "tags",
     },
 )
@@ -2794,6 +2873,7 @@ class CfnGlobalResolverProps:
         description: typing.Optional[builtins.str] = None,
         ip_address_type: typing.Optional[builtins.str] = None,
         observability_region: typing.Optional[builtins.str] = None,
+        public_ip_status: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnGlobalResolver``.
@@ -2804,6 +2884,7 @@ class CfnGlobalResolverProps:
         :param description: 
         :param ip_address_type: 
         :param observability_region: 
+        :param public_ip_status: 
         :param tags: 
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53globalresolver-globalresolver.html
@@ -2825,6 +2906,7 @@ class CfnGlobalResolverProps:
                 description="description",
                 ip_address_type="ipAddressType",
                 observability_region="observabilityRegion",
+                public_ip_status="publicIpStatus",
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -2839,6 +2921,7 @@ class CfnGlobalResolverProps:
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument ip_address_type", value=ip_address_type, expected_type=type_hints["ip_address_type"])
             check_type(argname="argument observability_region", value=observability_region, expected_type=type_hints["observability_region"])
+            check_type(argname="argument public_ip_status", value=public_ip_status, expected_type=type_hints["public_ip_status"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
@@ -2852,6 +2935,8 @@ class CfnGlobalResolverProps:
             self._values["ip_address_type"] = ip_address_type
         if observability_region is not None:
             self._values["observability_region"] = observability_region
+        if public_ip_status is not None:
+            self._values["public_ip_status"] = public_ip_status
         if tags is not None:
             self._values["tags"] = tags
 
@@ -2906,6 +2991,14 @@ class CfnGlobalResolverProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53globalresolver-globalresolver.html#cfn-route53globalresolver-globalresolver-observabilityregion
         '''
         result = self._values.get("observability_region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def public_ip_status(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53globalresolver-globalresolver.html#cfn-route53globalresolver-globalresolver-publicipstatus
+        '''
+        result = self._values.get("public_ip_status")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -3229,12 +3322,14 @@ def _typecheckingstub__1e26e227e8b54f12cab6d99359743bad21bc5f9bb5d04e4c30fc1b3de
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    cidr: builtins.str,
     dns_view_id: builtins.str,
     protocol: builtins.str,
+    cidr: typing.Optional[builtins.str] = None,
     client_token: typing.Optional[builtins.str] = None,
+    core_network_endpoint_id: typing.Optional[builtins.str] = None,
     ip_address_type: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
+    segment: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -3264,12 +3359,6 @@ def _typecheckingstub__7123f2aaf7effe01c513196a1156c24fcfd15a53b9d6db929d6bc3a36
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__adc669c1f788dfe513d35b84e76f6ab663967b55f657ce94818e351138c4e9dc(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__95b8ccb772e4fc895f76707e5058eeed752ae1f36d776224e2363c15bd318c2a(
     value: builtins.str,
 ) -> None:
@@ -3282,7 +3371,19 @@ def _typecheckingstub__dde1a183981630a3fffc38ddff8a3f6febb6937b3c5949799453e30cb
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__adc669c1f788dfe513d35b84e76f6ab663967b55f657ce94818e351138c4e9dc(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__96ff0bae281a0a2532fce6d0ea5b7198a748c1e755f444a05f921f6932093028(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b0781a599cfbb13fda5413a7893a412f46ab966ba2cfe0b768152c1f1b0cd742(
     value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
@@ -3300,6 +3401,12 @@ def _typecheckingstub__a41c9d2a0bbfe1d84266d379f49840e2dab332041118d9c1df05a2b45
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__2d98e5b7286420b82356071fccb84e255c8055be1879fe5707e9ce6505fd81d5(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__9d0ecd9ff59b993b152a551949ae0b2ad042a6ef742c7fab5e74e60e49795dfd(
     value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
@@ -3308,12 +3415,14 @@ def _typecheckingstub__9d0ecd9ff59b993b152a551949ae0b2ad042a6ef742c7fab5e74e60e4
 
 def _typecheckingstub__3e2356855e49ab75da15cc0328069114313fafa0ff86a20d803b7c2be30c7b45(
     *,
-    cidr: builtins.str,
     dns_view_id: builtins.str,
     protocol: builtins.str,
+    cidr: typing.Optional[builtins.str] = None,
     client_token: typing.Optional[builtins.str] = None,
+    core_network_endpoint_id: typing.Optional[builtins.str] = None,
     ip_address_type: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
+    segment: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -3747,6 +3856,7 @@ def _typecheckingstub__da7e79855025c0b30f6623575b9427a70db31e48fe2bbbcb7afe98543
     description: typing.Optional[builtins.str] = None,
     ip_address_type: typing.Optional[builtins.str] = None,
     observability_region: typing.Optional[builtins.str] = None,
+    public_ip_status: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -3812,6 +3922,12 @@ def _typecheckingstub__1883445fceb6de947e1368c84caea5d6c108abbb4e30a6ac67ca90321
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__53ec3ed560cc8141cc9560753c58274f1df7e2f6d02bc98a9bddb6df949571a9(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__5d6cd6a2341e5166e822efce47afc74733f3e9cc782b993eb7d84b7f054a88d7(
     value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
@@ -3826,6 +3942,7 @@ def _typecheckingstub__4d94144306c30ab10b09fa1fa56f25eff66f288d01a5a061658e60076
     description: typing.Optional[builtins.str] = None,
     ip_address_type: typing.Optional[builtins.str] = None,
     observability_region: typing.Optional[builtins.str] = None,
+    public_ip_status: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

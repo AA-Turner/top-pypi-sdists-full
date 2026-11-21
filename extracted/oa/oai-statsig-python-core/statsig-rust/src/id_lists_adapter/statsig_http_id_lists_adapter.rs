@@ -1,26 +1,32 @@
+#[path = "http_transport.rs"]
+mod http_transport;
+use http_transport::IdListHttpTransport;
 #[path = "snapshot_http.rs"]
 mod snapshot_http;
 use super::id_list_load_timing::{self, Phase};
-use super::id_list_propagation::downloaded_range;
-use super::{IdList, IdListManifest, IdListManifestEntry, IdListMetadata, IdListUpdateBase};
-use crate::id_lists_adapter::{
-    IdListPropagationUpdate, IdListPublicationMode, IdListUpdate, IdListsAdapter,
-    IdListsUpdateListener,
+use super::id_list_updates::id_list_range_start;
+use super::statsig_shared_id_lists_adapter::PublishingListener;
+use super::{
+    IdList, IdListManifest, IdListManifestEntry, IdListMetadata, IdListUpdateBatch,
+    PreparedIdListUpdate,
 };
-use crate::networking::HttpMethod;
+use super::{SharedInitialBaseCache, UpdateMode};
+use crate::id_lists_adapter::{
+    IdListPublicationMode, IdListUpdate, IdListsAdapter, IdListsUpdateListener,
+};
 use crate::networking::retry::{
     PrimaryOutcome, RefreshFailureTracker, RetryPolicy, retryable_state_error,
 };
+#[cfg(test)]
 use crate::networking::{
-    DEFAULT_CDN_ID_LISTS_MANIFEST_URL_PREFIX, NetworkClient, NetworkError, RequestArgs, Response,
-    ResponseData, default_cdn_id_lists_manifest_url, is_default_cdn_id_lists_manifest_url,
-    is_default_cdn_url, normalize_default_cdn_id_lists_manifest_url, replace_url_base,
+    DEFAULT_CDN_ID_LISTS_MANIFEST_URL_PREFIX, HttpMethod, RequestArgs, ResponseData,
 };
+use crate::networking::{NetworkClient, NetworkError};
 use crate::observability::observability_client_adapter::{MetricType, ObservabilityEvent};
 use crate::observability::ops_stats::{OPS_STATS, OpsStatsForInstance};
-use crate::portable_id_list_ef;
 use crate::sdk_diagnostics::diagnostics::ContextType;
-use crate::sdk_diagnostics::marker::{ActionType, KeyType, Marker, StepType};
+use crate::sdk_diagnostics::marker::KeyType;
+use crate::statsig::remote_id_lists::RemoteIdListResolver;
 use crate::{SpecStore, StatsigErr, StatsigOptions, StatsigRuntime, log_d, log_e};
 use async_trait::async_trait;
 use chrono::Utc;
@@ -29,27 +35,18 @@ use futures::{StreamExt, stream};
 use parking_lot::{Mutex, ReentrantMutex, RwLock};
 use std::collections::HashMap;
 use std::future::Future;
-use std::io::Read;
 use std::ops::{ControlFlow, Range};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::{Arc, OnceLock, Weak};
 use std::time::Duration;
 use tokio::sync::{
     Notify, OnceCell, OwnedMutexGuard, OwnedRwLockWriteGuard, RwLock as AsyncRwLock, Semaphore,
 };
 use tokio::time::sleep;
 
-const DEFAULT_RETRY_POLICY: RetryPolicy = RetryPolicy {
-    attempts: 2,
-    jitter: true,
-};
-
 const DEFAULT_ID_LIST_SYNC_INTERVAL_MS: u32 = 60_000;
 const ID_LIST_DOWNLOAD_CONCURRENCY: usize = 4;
 const PRIVATE_INDEX_BUILD_CONCURRENCY: usize = 2;
-// Canonical records need ten bytes including LF, even with one-byte responses.
-const MAX_ID_LIST_RECORD_CONTINUATIONS: usize = 64;
-const MAX_UNFINISHED_ID_LIST_RECORD_BYTES: usize = 64 * 1024;
 
 type IdListsResponse = HashMap<String, IdListMetadata>;
 
@@ -61,7 +58,7 @@ const ID_LISTS_SYNC_OVERALL_SUCCEED_SINGLE_ID_LIST_NUMBER_TAG: &str =
 
 #[cfg(test)]
 tokio::task_local! {
-    pub(super) static TEST_CDN_MANIFEST_URL: String;
+    pub(crate) static TEST_CDN_MANIFEST_URL: String;
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -80,15 +77,37 @@ struct AdapterShutdown {
 
 #[derive(Clone)]
 enum HttpIdListsListener {
+    Publisher(Arc<PublishingListener>),
     Store(Arc<SpecStore>),
     External(Arc<dyn IdListsUpdateListener>),
 }
 
+#[derive(Clone, Copy)]
+struct BaseSources {
+    snapshots: bool,
+    cache: bool,
+}
+
 impl HttpIdListsListener {
-    fn into_listener(self) -> Arc<dyn IdListsUpdateListener> {
+    fn as_ref(&self) -> &dyn IdListsUpdateListener {
         match self {
-            Self::Store(store) => store,
-            Self::External(listener) => listener,
+            Self::Store(store) => store.as_ref(),
+            Self::Publisher(publisher) => publisher.as_ref(),
+            Self::External(listener) => listener.as_ref(),
+        }
+    }
+
+    fn publish(
+        &self,
+        batch: IdListUpdateBatch,
+        eager_downloads: Option<u64>,
+    ) -> Result<(), StatsigErr> {
+        match self {
+            Self::Store(store) => store.publish_prepared_id_lists(batch, eager_downloads),
+            Self::Publisher(publisher) => publisher.publish_prepared_id_lists(batch),
+            Self::External(listener) => {
+                batch.publish_to_listener(listener.as_ref(), eager_downloads)
+            }
         }
     }
 }
@@ -96,29 +115,25 @@ impl HttpIdListsListener {
 pub struct StatsigHttpIdListsAdapter {
     output_policy: crate::output_policy::OutputPolicy,
     partial_refresh: bool,
-    manifest_retry_policy: RetryPolicy,
-    file_retry_policy: RetryPolicy,
-    id_lists_manifest_url: String,
-    download_id_list_file_api: Option<Result<url::Url, url::ParseError>>,
-    snapshot_enabled: bool,
-    fallback_url: Option<String>,
-    fallback_to_statsig_api: bool,
+    initial_base_cache: Option<Arc<SharedInitialBaseCache>>,
     listener: RwLock<Option<HttpIdListsListener>>,
+    pub(crate) membership_resolver: OnceLock<Weak<RemoteIdListResolver>>,
+    pub(super) membership_publisher: Option<Arc<PublishingListener>>,
     pub(super) refresh_gate: Arc<tokio::sync::Mutex<()>>,
-    network: NetworkClient,
+    transport: IdListHttpTransport,
     sync_interval_duration: Duration,
     ops_stats: Arc<OpsStatsForInstance>,
     pub(crate) load_timings_enabled: bool,
     shutdown: Arc<AdapterShutdown>,
-    manifest_failures: RefreshFailureTracker,
     file_failures: RefreshFailureTracker,
     /// Temporary per-list singleflight entries. Concurrent callers for the same
     /// name await one shared load instead of scheduling duplicate body requests.
     in_flight_loads: DashMap<String, Arc<SharedIdListLoad>>,
-    /// Caps body downloads across distinct list names. This bounds network work
-    /// but does not replace the same-name singleflight above.
-    download_permits: Arc<Semaphore>,
     lazy_id_lists: Option<LazyIdLists>,
+}
+
+fn publication_stopped() -> StatsigErr {
+    StatsigErr::ShutdownFailure("ID-list publication stopped".into())
 }
 
 impl StatsigHttpIdListsAdapter {
@@ -157,6 +172,11 @@ impl StatsigHttpIdListsAdapter {
         adapter
     }
 
+    pub(crate) fn with_initial_base_cache(mut self, cache: Option<SharedInitialBaseCache>) -> Self {
+        self.initial_base_cache = cache.map(Arc::new);
+        self
+    }
+
     pub(super) fn with_partial_refresh(
         sdk_key: &str,
         options: &StatsigOptions,
@@ -164,55 +184,28 @@ impl StatsigHttpIdListsAdapter {
     ) -> Self {
         let output_policy = crate::output_policy::OutputPolicy::from_options(Some(options));
         let _output_scope = output_policy.enter();
-        let id_lists_manifest_url =
-            normalize_default_cdn_id_lists_manifest_url(options.id_lists_url.as_deref());
-
-        let mut fallback_url = None;
-        if options.fallback_to_statsig_api == Some(true)
-            && !id_lists_manifest_url.contains(DEFAULT_CDN_ID_LISTS_MANIFEST_URL_PREFIX)
-        {
-            let url = default_cdn_id_lists_manifest_url();
-            #[cfg(test)]
-            let url = TEST_CDN_MANIFEST_URL.try_with(Clone::clone).unwrap_or(url);
-            fallback_url = Some(url);
-        }
-
         let sync_interval_duration = Duration::from_millis(u64::from(
             options
                 .id_lists_sync_interval_ms
                 .unwrap_or(DEFAULT_ID_LIST_SYNC_INTERVAL_MS),
         ));
 
-        let network = NetworkClient::with_sdk_headers(sdk_key, options);
-
         let sdk_instance_id = options.get_sdk_instance_id(sdk_key);
-        let retry_override = RetryPolicy::state_read_override(options.state_read_primary_attempts);
-
-        let download_id_list_file_api = options
-            .download_id_list_file_api
-            .as_deref()
-            .map(url::Url::parse);
-        let snapshot_enabled = options.enable_id_list_elias_fano == Some(true)
-            && matches!(&download_id_list_file_api, Some(Ok(endpoint)) if snapshot_http::supports_snapshots(endpoint));
+        let ops_stats = OPS_STATS.get_for_instance_with_options(sdk_instance_id, Some(options));
 
         Self {
             output_policy,
             partial_refresh,
-            manifest_retry_policy: retry_override.unwrap_or(DEFAULT_RETRY_POLICY),
-            file_retry_policy: retry_override.unwrap_or(DEFAULT_RETRY_POLICY),
-            id_lists_manifest_url,
-            download_id_list_file_api,
-            snapshot_enabled,
-            fallback_url,
-            fallback_to_statsig_api: options.fallback_to_statsig_api == Some(true),
+            initial_base_cache: None,
             listener: RwLock::new(None),
+            membership_resolver: OnceLock::new(),
+            membership_publisher: None,
             refresh_gate: Default::default(),
-            network,
+            transport: IdListHttpTransport::new(sdk_key, options, ops_stats.clone()),
             sync_interval_duration,
-            ops_stats: OPS_STATS.get_for_instance_with_options(sdk_instance_id, Some(options)),
+            ops_stats,
             load_timings_enabled: id_list_load_timing::collection_enabled(Some(options)),
             shutdown: Arc::default(),
-            manifest_failures: RefreshFailureTracker::default(),
             file_failures: RefreshFailureTracker::default(),
             lazy_id_lists: (options.lazy_load_id_lists == Some(true)).then(|| LazyIdLists {
                 manifest: Default::default(),
@@ -221,8 +214,11 @@ impl StatsigHttpIdListsAdapter {
                 before_build: None,
             }),
             in_flight_loads: DashMap::new(),
-            download_permits: Arc::new(Semaphore::new(ID_LIST_DOWNLOAD_CONCURRENCY)),
         }
+    }
+
+    pub(crate) fn network(&self) -> Arc<NetworkClient> {
+        Arc::clone(&self.transport.network)
     }
 
     pub fn force_shutdown(&self) {
@@ -233,7 +229,7 @@ impl StatsigHttpIdListsAdapter {
 
     pub(super) fn signal_shutdown(&self) {
         let _output_scope = self.output_policy.enter();
-        self.network.shutdown();
+        self.transport.network.shutdown();
         self.shutdown.notify.notify_waiters();
     }
 
@@ -242,307 +238,16 @@ impl StatsigHttpIdListsAdapter {
         &mut self,
         provider: std::sync::Weak<dyn crate::networking::NetworkProvider>,
     ) {
-        self.network.set_network_provider_for_test(provider);
+        Arc::get_mut(&mut self.transport.network)
+            .expect("network provider must be set before sharing the client")
+            .set_network_provider_for_test(provider);
     }
 
-    async fn fetch_id_list_manifests_from_network(
-        &self,
-        background: bool,
-    ) -> Result<IdListManifest, StatsigErr> {
-        let result = self
-            .network
-            .retry_executor(self.manifest_retry_policy)
-            .run(
-                |fallback, index| async move {
-                    let url = if fallback {
-                        self.network.log_fallback("id_list_manifest", true);
-                        self.fallback_url.as_ref().unwrap()
-                    } else {
-                        &self.id_lists_manifest_url
-                    };
-                    let method = if fallback || self.is_cdn_url() {
-                        HttpMethod::GET
-                    } else {
-                        HttpMethod::POST
-                    };
-                    let response = self
-                        .network
-                        .request_once(
-                            method,
-                            RequestArgs {
-                                url: url.clone(),
-                                accept_gzip_response: true,
-                                diagnostics_key: Some(KeyType::GetIDListSources),
-                                retries: self.manifest_retry_policy.attempts - 1,
-                                ..RequestArgs::new()
-                            },
-                            None,
-                            false,
-                            true,
-                            index,
-                        )
-                        .await
-                        .map_err(StatsigErr::NetworkError)?;
-                    self.parse_response(response.data)
-                },
-                |error| retryable_state_error(error).then_some(u32::MAX),
-                |outcome| {
-                    let eligible = self.manifest_failures.record(outcome, background);
-                    if outcome == PrimaryOutcome::Exhausted
-                        && self.fallback_url.is_some()
-                        && !eligible
-                    {
-                        self.network.log_fallback("id_list_manifest", false);
-                    }
-                    eligible && self.fallback_url.is_some()
-                },
-                || {
-                    StatsigErr::NetworkError(NetworkError::ShutdownError(
-                        self.id_lists_manifest_url.clone(),
-                    ))
-                },
-            )
-            .await;
-
-        let (metric_name, metric_value) = if result.is_ok() {
-            ("id_list_manifest_download_success", 1.0)
-        } else {
-            ("id_list_manifest_download_failure", 1.0)
-        };
-        self.ops_stats.log(ObservabilityEvent::new_event(
-            MetricType::Increment,
-            metric_name.to_string(),
-            metric_value,
-            None,
-        ));
-
-        result
-    }
-
-    async fn download_job(
-        &self,
-        job: &IdListDownloadJob,
-        is_fallback: bool,
-        build: Option<&PrivateBuildAttempt>,
-    ) -> Result<DownloadedIdList, StatsigErr> {
-        if is_fallback && !self.file_can_fallback(job) {
-            return Err(StatsigErr::NetworkError(NetworkError::RequestNotRetryable(
-                job.primary_url.clone(),
-                None,
-                "No trusted fallback destination".into(),
-            )));
-        }
-        self.network
-            .retry_executor(if is_fallback {
-                RetryPolicy {
-                    attempts: 1,
-                    jitter: false,
-                }
-            } else {
-                self.file_retry_policy
-            })
-            .run(
-                |_, index| {
-                    self.download_id_list(
-                        job,
-                        is_fallback,
-                        if is_fallback {
-                            self.file_retry_policy.attempts
-                        } else {
-                            index
-                        },
-                        build,
-                    )
-                },
-                |error| retryable_state_error(error).then_some(u32::MAX),
-                |_| false,
-                || StatsigErr::NetworkError(NetworkError::ShutdownError(job.primary_url.clone())),
-            )
-            .await
-    }
-
-    async fn download_id_list(
-        &self,
-        job: &IdListDownloadJob,
-        is_fallback: bool,
-        index: u32,
-        build: Option<&PrivateBuildAttempt>,
-    ) -> Result<DownloadedIdList, StatsigErr> {
-        let started = id_list_load_timing::start_phase();
-        let download_permit = self.download_permits.clone().acquire_owned().await;
-        id_list_load_timing::end_phase(Phase::DownloadPermitWait, started);
-        let download_permit = download_permit.map_err(|_| Self::publication_stopped())?;
-        let download_url = if is_fallback {
-            self.network.log_fallback("id_list_file", true);
-            &job.metadata.url
-        } else {
-            &job.primary_url
-        };
-        // Only carry a fragment when this attempt has yet to receive a whole record.
-        // A retry, fallback, or new manifest starts from the listener's committed cursor.
-        let mut pending = PartialIdListRecord::default();
-        for _ in 0..=MAX_ID_LIST_RECORD_CONTINUATIONS {
-            let start = job.range_start + pending.bytes.len() as u64;
-            let offer_snapshot =
-                job.can_download_snapshots && !is_fallback && index == 0 && start == 0;
-            let request =
-                self.id_list_file_request_args(download_url, job, start, &pending, offer_snapshot);
-            let started = id_list_load_timing::start_phase();
-            let response = self
-                .network
-                .request_once(
-                    HttpMethod::GET,
-                    request,
-                    None,
-                    is_fallback || job.can_download_snapshots,
-                    true,
-                    index,
-                )
-                .await;
-            id_list_load_timing::end_phase(Phase::HttpBody, started);
-            let response = response.map_err(StatsigErr::NetworkError)?;
-            if response
-                .data
-                .as_ref()
-                .is_some_and(snapshot_http::is_snapshot_response)
-            {
-                if !offer_snapshot {
-                    return Err(StatsigErr::InvalidOperation(
-                        "unsolicited ID-list snapshot".into(),
-                    ));
-                }
-                let list = self
-                    .validate_snapshot(job, response, download_permit, build)
-                    .await?;
-                return Ok(DownloadedIdList::Snapshot(list));
-            }
-            self.add_diagnostics_start_marker(
-                KeyType::GetIDList,
-                StepType::Process,
-                None,
-                Some(download_url),
-            );
-            let started = id_list_load_timing::start_phase();
-            let chunk = normalize_id_list_download(
-                response,
-                download_url,
-                job.range_start,
-                job.metadata.size,
-                job.can_download_snapshots,
-                pending,
-            );
-            id_list_load_timing::end_phase(Phase::Decode, started);
-            self.add_diagnostics_end_marker(
-                KeyType::GetIDList,
-                StepType::Process,
-                chunk.is_ok(),
-                None,
-                Some(download_url),
-            );
-            match chunk? {
-                RawIdListChunk::Complete(changeset, range) => {
-                    return Ok(DownloadedIdList::Raw { changeset, range });
-                }
-                RawIdListChunk::Incomplete(record) => pending = record,
-            }
-        }
-        Err(StatsigErr::CustomError(
-            "Too many partial responses for one ID-list record".into(),
-        ))
-    }
-
-    fn file_can_fallback(&self, job: &IdListDownloadJob) -> bool {
-        self.fallback_to_statsig_api
-            && job.primary_url != job.metadata.url
-            && is_default_cdn_url(&job.metadata.url)
-    }
-
-    fn id_list_file_request_args(
-        &self,
-        list_url: &str,
-        job: &IdListDownloadJob,
-        start: u64,
-        pending: &PartialIdListRecord,
-        offer_snapshot: bool,
-    ) -> RequestArgs {
-        let mut request_url = list_url.to_string();
-        // A manifest may contain a legacy query range. Every destination uses
-        // one representation URL and the HTTP Range header to slice it.
-        if let Ok(mut url) = url::Url::parse(list_url) {
-            if url
-                .query_pairs()
-                .any(|(key, _)| key.eq_ignore_ascii_case("range"))
-            {
-                let params: Vec<_> = url
-                    .query_pairs()
-                    .filter(|(key, _)| !key.eq_ignore_ascii_case("range"))
-                    .map(|(key, value)| (key.into_owned(), value.into_owned()))
-                    .collect();
-                url.set_query(None);
-                if !params.is_empty() {
-                    url.query_pairs_mut().extend_pairs(params);
-                }
-                request_url = url.to_string();
-            }
-        }
-
-        let range = format!("bytes={start}-");
-        let mut headers = HashMap::from([
-            ("Range".into(), range),
-            (
-                "statsig-id-list-file-size".into(),
-                job.metadata.size.to_string(),
-            ),
-            // Byte offsets refer to the unencoded append log.
-            ("Accept-Encoding".into(), "identity".into()),
-        ]);
-        if offer_snapshot {
-            headers.insert("Accept".into(), portable_id_list_ef::MEDIA_TYPE.into());
-        }
-        if let Some(etag) = pending
-            .etag
-            .as_ref()
-            .filter(|tag| tag.starts_with('"') && tag.ends_with('"'))
-        {
-            headers.insert("If-Range".into(), etag.clone());
-        }
-        RequestArgs {
-            url: request_url,
-            headers: Some(headers),
-            id_list_file_id: job.metadata.file_id.clone(),
-            diagnostics_key: Some(KeyType::GetIDList),
-            retries: self.file_retry_policy.attempts - 1,
-            ..RequestArgs::new()
-        }
-    }
-
-    fn get_override_id_list_download_url(&self, list_url: &str) -> Result<String, StatsigErr> {
-        match &self.download_id_list_file_api {
-            None => Ok(list_url.to_string()),
-            Some(Ok(endpoint)) => replace_url_base(endpoint, list_url).map(Into::into),
-            Some(Err(_)) => Err(StatsigErr::InvalidOperation(
-                "invalid ID-list file endpoint".into(),
-            )),
-        }
-    }
-
-    fn is_cdn_url(&self) -> bool {
-        is_default_cdn_id_lists_manifest_url(&self.id_lists_manifest_url)
-    }
-
-    fn parse_response(&self, response: Option<ResponseData>) -> Result<IdListManifest, StatsigErr> {
-        let mut data = match response {
-            Some(r) => r,
-            None => {
-                let msg = "No ID List results from network".to_string();
-                return Err(StatsigErr::JsonParseError(
-                    "IdListsResponse".to_owned(),
-                    msg,
-                ));
-            }
-        };
-
-        data.deserialize_into::<IdListManifest>()
+    pub(super) fn set_publisher(&self, publisher: Arc<PublishingListener>) {
+        let _old = self
+            .listener
+            .write()
+            .replace(HttpIdListsListener::Publisher(publisher));
     }
 
     pub(crate) fn set_listener(&self, listener: Arc<dyn IdListsUpdateListener>) {
@@ -552,11 +257,11 @@ impl StatsigHttpIdListsAdapter {
             .replace(HttpIdListsListener::External(listener));
     }
 
-    fn is_current_listener(&self, listener: &Arc<dyn IdListsUpdateListener>) -> bool {
+    fn is_current_listener(&self, listener: &dyn IdListsUpdateListener) -> bool {
         self.listener
             .read()
-            .clone()
-            .is_some_and(|current| Arc::ptr_eq(&current.into_listener(), listener))
+            .as_ref()
+            .is_some_and(|current| std::ptr::addr_eq(current.as_ref(), listener))
     }
 
     fn current_listener(&self) -> Result<HttpIdListsListener, StatsigErr> {
@@ -566,18 +271,24 @@ impl StatsigHttpIdListsAdapter {
             .ok_or_else(|| StatsigErr::UnstartedAdapter("Listener not set".to_string()))
     }
 
-    fn publication_stopped() -> StatsigErr {
-        StatsigErr::ShutdownFailure("ID-list publication stopped".into())
+    fn ensure_running(&self) -> Result<(), StatsigErr> {
+        if self
+            .transport
+            .network
+            .shutdown_flag()
+            .load(Ordering::SeqCst)
+        {
+            return Err(publication_stopped());
+        }
+        Ok(())
     }
 
     async fn while_running<T>(&self, work: impl Future<Output = T>) -> Result<T, StatsigErr> {
         let stopped = self.shutdown.notify.notified();
-        if self.network.shutdown_flag().load(Ordering::SeqCst) {
-            return Err(Self::publication_stopped());
-        }
+        self.ensure_running()?;
         tokio::select! {
             biased;
-            () = stopped => Err(Self::publication_stopped()),
+            () = stopped => Err(publication_stopped()),
             result = work => Ok(result),
         }
     }
@@ -596,7 +307,9 @@ impl StatsigHttpIdListsAdapter {
             self.while_running(self.refresh_gate.clone().lock_owned())
                 .await?,
         );
-        if let Some(listener) = listener.filter(|listener| !self.is_current_listener(listener)) {
+        if let Some(listener) =
+            listener.filter(|listener| !self.is_current_listener(listener.as_ref()))
+        {
             if let Some(lazy) = &self.lazy_id_lists {
                 let mut manifest = self.while_running(lazy.manifest.write()).await?;
                 *manifest = None;
@@ -642,11 +355,9 @@ impl StatsigHttpIdListsAdapter {
         let sync_start_ms = Utc::now().timestamp_millis() as u64;
         let mut summary = scopeguard::guard(RefreshSummary::default(), |summary| {
             if summary.manifest_success {
-                self.add_diagnostics_end_marker(
+                self.transport.add_process_end_marker(
                     KeyType::GetIDListSources,
-                    StepType::Process,
                     summary.success,
-                    None,
                     None,
                 );
             }
@@ -658,11 +369,19 @@ impl StatsigHttpIdListsAdapter {
             );
         });
         let new_manifest = self
+            .transport
             .fetch_id_list_manifests_from_network(background)
             .await?;
-        self.add_diagnostics_start_marker(
+        if let Some(resolver) = self.membership_resolver.get().and_then(Weak::upgrade) {
+            let _handoff = self.shutdown.handoff.lock();
+            self.ensure_running()?;
+            resolver.observe_manifest(&new_manifest);
+        }
+        if let Some(publisher) = &self.membership_publisher {
+            publisher.stage_manifest_revisions(&new_manifest);
+        }
+        self.transport.add_process_start_marker(
             KeyType::GetIDListSources,
-            StepType::Process,
             Some(new_manifest.len()),
             None,
         );
@@ -686,12 +405,12 @@ impl StatsigHttpIdListsAdapter {
         trigger: RefreshTrigger,
         refresh_guard: &Arc<OwnedMutexGuard<()>>,
     ) -> Result<(), StatsigErr> {
-        let listener = self.current_listener()?.into_listener();
+        let listener = self.current_listener()?;
         let Some(lazy) = &self.lazy_id_lists else {
-            let current = listener.get_current_id_list_metadata();
+            let current = listener.as_ref().get_current_id_list_metadata();
             let update_batch = self
                 .fetch_id_list_updates(
-                    listener.as_ref(),
+                    self.base_sources(&listener),
                     FetchReason::Refresh(trigger),
                     &current,
                     new_manifest,
@@ -700,7 +419,7 @@ impl StatsigHttpIdListsAdapter {
                 .await?;
             let eager_downloads = (trigger == RefreshTrigger::PrivateInitialize
                 && *successful_downloads > 0
-                && listener.uses_parallel_id_list_init())
+                && listener.as_ref().uses_parallel_id_list_init())
             .then_some(*successful_downloads);
             return self
                 .publish_id_list_updates(
@@ -715,7 +434,7 @@ impl StatsigHttpIdListsAdapter {
         loop {
             let curr_manifest = {
                 let _manifest = self.while_running(lazy.manifest.read()).await?;
-                listener.get_current_id_list_metadata()
+                listener.as_ref().get_current_id_list_metadata()
             };
             let active_manifest = new_manifest
                 .iter()
@@ -724,7 +443,7 @@ impl StatsigHttpIdListsAdapter {
                 .collect();
             let mut update_batch = self
                 .fetch_id_list_updates(
-                    listener.as_ref(),
+                    self.base_sources(&listener),
                     FetchReason::Refresh(trigger),
                     &curr_manifest,
                     active_manifest,
@@ -737,40 +456,13 @@ impl StatsigHttpIdListsAdapter {
             let mut manifest = self
                 .while_running(lazy.manifest.clone().write_owned())
                 .await?;
-            let current = listener.get_current_id_list_metadata();
+            let current = listener.as_ref().get_current_id_list_metadata();
             if !update_batch.matches_cursors(&curr_manifest, &current) {
                 continue;
             }
-            // A cold load can install a valid prefix while this poll downloads another list.
-            // Compare its advertised targets. The installed size is a consumed byte offset.
-            for (name, current) in current {
-                let previous = manifest.as_ref().and_then(|cached| cached.get(&name));
-                if previous
-                    .zip(new_manifest.get(&name))
-                    .is_some_and(|(old, new)| {
-                        old.metadata.file_version() == new.metadata.file_version()
-                    })
-                    && !update_batch.updates.contains_key(&name)
-                {
-                    if let Some(bases) = &mut update_batch.bases {
-                        bases
-                            .entry(name.clone())
-                            .or_insert_with(|| IdListUpdateBase {
-                                previous: Some(current.clone()),
-                                list: None,
-                            });
-                    }
-                    update_batch.updates.insert(
-                        name,
-                        IdListUpdate {
-                            raw_changeset: None,
-                            new_metadata: current,
-                        },
-                    );
-                }
-            }
+            update_batch.preserve_concurrent_loads(current, manifest.as_ref(), &new_manifest);
 
-            let next_manifest = if update_batch.bases.is_some() {
+            let next_manifest = if update_batch.expected.is_some() {
                 Some(new_manifest)
             } else {
                 *manifest = Some(new_manifest);
@@ -791,9 +483,18 @@ impl StatsigHttpIdListsAdapter {
         }
     }
 
+    fn base_sources(&self, listener: &HttpIdListsListener) -> BaseSources {
+        BaseSources {
+            snapshots: self.transport.snapshot_enabled
+                && listener.as_ref().supports_id_list_snapshot_updates(),
+            cache: self.initial_base_cache.is_some()
+                && matches!(listener, HttpIdListsListener::Store(_)),
+        }
+    }
+
     async fn fetch_id_list_updates(
         &self,
-        listener: &dyn IdListsUpdateListener,
+        sources: BaseSources,
         reason: FetchReason<'_>,
         curr_manifest: &IdListsResponse,
         new_manifest: IdListManifest,
@@ -807,14 +508,12 @@ impl StatsigHttpIdListsAdapter {
             ),
             FetchReason::Lazy(build) => (IdListPublicationMode::Merge, false, build),
         };
-        let allow_snapshot_updates =
-            self.snapshot_enabled && listener.supports_id_list_snapshot_updates();
         let batch = self.plan_id_list_updates(
             curr_manifest,
             new_manifest,
             successful_downloads,
             publication_mode,
-            allow_snapshot_updates,
+            sources,
         )?;
         if batch.pending.is_empty() {
             return Ok(batch.update_batch);
@@ -844,15 +543,14 @@ impl StatsigHttpIdListsAdapter {
         new_manifest: IdListManifest,
         successful_downloads: &'a mut u64,
         publication_mode: IdListPublicationMode,
-        allow_snapshot_updates: bool,
+        sources: BaseSources,
     ) -> Result<IdListDownloadBatch<'a>, StatsigErr> {
-        let can_download_snapshots =
-            allow_snapshot_updates && self.network.supports_response_headers_without_redirects();
+        let can_download_snapshots = sources.snapshots && self.transport.can_download_snapshots();
         let mut update_batch = IdListUpdateBatch::new(
             curr_manifest,
             &new_manifest,
             publication_mode,
-            allow_snapshot_updates,
+            sources.snapshots || sources.cache,
         );
         let mut jobs = Vec::new();
         let mut name_mismatches = 0usize;
@@ -868,16 +566,13 @@ impl StatsigHttpIdListsAdapter {
             let metadata = entry.metadata;
             let current = curr_manifest.get(&name);
             let Some(range_start) = id_list_range_start(current, &metadata) else {
-                update_batch.updates.insert(
-                    name,
-                    IdListUpdate {
-                        raw_changeset: None,
-                        new_metadata: metadata,
-                    },
-                );
+                update_batch.keep(name, metadata);
                 continue;
             };
-            match self.get_override_id_list_download_url(&metadata.url) {
+            match self
+                .transport
+                .get_override_id_list_download_url(&metadata.url)
+            {
                 Ok(primary_url) => jobs.push(IdListDownloadJob {
                     name,
                     primary_url,
@@ -903,6 +598,7 @@ impl StatsigHttpIdListsAdapter {
         // Stable launch order also makes failures reproducible across manifest map orderings.
         jobs.sort_by(|a, b| a.name.cmp(&b.name));
         Ok(IdListDownloadBatch {
+            use_base_cache: sources.cache,
             pending: jobs,
             update_batch,
             successful_downloads,
@@ -915,7 +611,8 @@ impl StatsigHttpIdListsAdapter {
         background: bool,
         build: Option<&PrivateBuildAttempt>,
     ) -> Result<(), StatsigErr> {
-        self.network
+        self.transport
+            .network
             .retry_executor(RetryPolicy {
                 attempts: 1,
                 jitter: false,
@@ -929,15 +626,15 @@ impl StatsigHttpIdListsAdapter {
                         .lock()
                         .pending
                         .iter()
-                        .any(|job| self.file_can_fallback(job));
+                        .any(|job| self.transport.file_can_fallback(job));
                     if outcome == PrimaryOutcome::Exhausted && has_fallback && !eligible {
-                        self.network.log_fallback("id_list_file", false);
+                        self.transport.network.log_fallback("id_list_file", false);
                     }
                     eligible && has_fallback
                 },
                 || {
                     StatsigErr::NetworkError(NetworkError::ShutdownError(
-                        self.id_lists_manifest_url.clone(),
+                        self.transport.id_lists_manifest_url.clone(),
                     ))
                 },
             )
@@ -950,18 +647,28 @@ impl StatsigHttpIdListsAdapter {
         is_fallback: bool,
         build: Option<&PrivateBuildAttempt>,
     ) -> Result<(), StatsigErr> {
-        let jobs = std::mem::take(&mut batch.lock().pending);
-        let mut downloads = stream::iter(jobs.into_iter().map(|job| async move {
-            let result = self.download_job(&job, is_fallback, build).await;
-            (job, result)
-        }))
+        let (jobs, cache) = {
+            let mut batch = batch.lock();
+            let cache = self
+                .initial_base_cache
+                .as_ref()
+                .filter(|_| !is_fallback && batch.use_base_cache);
+            (std::mem::take(&mut batch.pending), cache)
+        };
+        let mut downloads = stream::iter(
+            jobs.into_iter()
+                .map(|job| self.materialize_job(job, cache, is_fallback, build)),
+        )
         .buffer_unordered(ID_LIST_DOWNLOAD_CONCURRENCY);
         let mut failure = None;
-        while let Some((job, result)) = downloads.next().await {
+        while let Some(result) = downloads.next().await {
             let mut batch = batch.lock();
             match result {
-                Ok(download) => batch.record_download(job, download),
-                Err(error) => {
+                Ok((name, body)) => {
+                    *batch.successful_downloads += u64::from(body.downloaded);
+                    batch.update_batch.record(name, body.update, body.range);
+                }
+                Err((job, error)) => {
                     // A terminal error takes precedence over exhausted retryable files.
                     if failure.as_ref().is_none_or(retryable_state_error) {
                         failure = Some(error);
@@ -973,45 +680,106 @@ impl StatsigHttpIdListsAdapter {
         failure.map_or(Ok(()), Err)
     }
 
+    async fn materialize_job(
+        &self,
+        job: IdListDownloadJob,
+        cache: Option<&Arc<SharedInitialBaseCache>>,
+        is_fallback: bool,
+        build: Option<&PrivateBuildAttempt>,
+    ) -> Result<(String, MaterializedIdList), (IdListDownloadJob, StatsigErr)> {
+        let cache = cache.filter(|_| {
+            job.range_start == 0
+                && job.name == job.metadata.name
+                && SharedInitialBaseCache::eligible(&job.metadata)
+        });
+
+        if let Some(cache) = cache {
+            let target = job.metadata.clone();
+            match self
+                .run_cache_task(cache, None, move |cache| cache.lookup(&target))
+                .await
+            {
+                Ok(Some(list)) => return Ok((job.name, MaterializedIdList::base(list, false))),
+                Ok(None) => {}
+                Err(error) => return Err((job, error)),
+            }
+        }
+
+        let download = match self.transport.download_job(&job, is_fallback, build).await {
+            Ok(download) => download,
+            Err(error) => return Err((job, error)),
+        };
+        let Some(cache) = cache else {
+            return Ok((job.name, download.prepare(job.metadata)));
+        };
+        let body = download.prepare(job.metadata.clone());
+        match self
+            .run_cache_task(cache, build, move |cache| body.offer(cache))
+            .await
+        {
+            Ok(body) => Ok((job.name, body)),
+            Err(error) => Err((job, error)),
+        }
+    }
+
+    async fn run_cache_task<T: Send + 'static>(
+        &self,
+        cache: &Arc<SharedInitialBaseCache>,
+        build: Option<&PrivateBuildAttempt>,
+        task: impl FnOnce(&SharedInitialBaseCache) -> T + Send + 'static,
+    ) -> Result<T, StatsigErr> {
+        let cache = Arc::clone(cache);
+        let permit = cache
+            .permits
+            .clone()
+            .acquire_owned()
+            .await
+            .map_err(|_| publication_stopped())?;
+        let build_permit = match build {
+            Some(build) => Some(build.admit_worker().await),
+            None => None,
+        };
+        let stopped = Arc::clone(self.transport.network.shutdown_flag());
+        tokio::task::spawn_blocking(id_list_load_timing::with_current_timings(
+            Phase::BuildWorkerWait,
+            move || {
+                let _permits = (permit, build_permit);
+                if stopped.load(Ordering::SeqCst) {
+                    return Err(publication_stopped());
+                }
+                Ok(id_list_load_timing::measure(Phase::Processing, || {
+                    task(&cache)
+                }))
+            },
+        ))
+        .await
+        .map_err(|e| StatsigErr::ThreadFailure(e.to_string()))?
+    }
+
     async fn publish_id_list_updates(
         &self,
-        listener: Arc<dyn IdListsUpdateListener>,
-        update_batch: IdListUpdateBatch,
+        listener: HttpIdListsListener,
+        mut update_batch: IdListUpdateBatch,
         refresh_guard: Option<&Arc<OwnedMutexGuard<()>>>,
         manifest_guard: Option<LazyManifestPublication>,
         eager_downloads: Option<u64>,
     ) -> Result<(), StatsigErr> {
-        let IdListUpdateBatch {
-            publication_mode,
-            bases,
-            updates,
-            propagation,
-            file_failure,
-        } = update_batch;
-        let incomplete = file_failure.is_some();
-        let blocking_listener = listener.requires_blocking_id_list_publication();
-        let offload = blocking_listener || eager_downloads.is_some();
-        let stopped = self.network.shutdown_flag();
+        let file_failure = update_batch.file_failure.take();
+        if file_failure.is_some() {
+            update_batch.mode = IdListPublicationMode::IncompleteRefresh;
+        }
+        let blocking_listener = listener.as_ref().requires_blocking_id_list_publication();
+        let offload =
+            blocking_listener || eager_downloads.is_some() || self.initial_base_cache.is_some();
+        let stopped = self.transport.network.shutdown_flag();
         // Keep the elected listener (and its lease) through installation, even if
         // the refresh future is cancelled while a blocking publication is running.
         let publish = move |stopped: &AtomicBool| {
             id_list_load_timing::measure(Phase::ParsePublish, || {
                 if stopped.load(Ordering::SeqCst) {
-                    return Err(Self::publication_stopped());
+                    return Err(publication_stopped());
                 }
-                let mode = if incomplete {
-                    IdListPublicationMode::IncompleteRefresh
-                } else {
-                    publication_mode
-                };
-                publish_id_list_batch(
-                    listener.as_ref(),
-                    bases,
-                    updates,
-                    propagation,
-                    mode,
-                    eager_downloads,
-                )?;
+                listener.publish(update_batch, eager_downloads)?;
                 if let Some(LazyManifestPublication {
                     mut guard,
                     next: Some(next),
@@ -1068,15 +836,13 @@ impl StatsigHttpIdListsAdapter {
             attempted = true;
             let mut successful_downloads = 0;
             let target = load.entry.metadata.clone();
-            let (listener, build): (&dyn IdListsUpdateListener, _) = match &load.destination {
-                LazyLoadDestination::Store(private) => {
-                    (private.store.as_ref(), Some(private.build))
-                }
-                LazyLoadDestination::Listener(listener) => (listener.as_ref(), None),
+            let build = match &load.destination {
+                LazyLoadDestination::Store(private) => Some(private.build),
+                LazyLoadDestination::Listener(_) => None,
             };
             let update_batch = self
                 .fetch_id_list_updates(
-                    listener,
+                    load.sources,
                     FetchReason::Lazy(build),
                     &load.installed_metadata,
                     HashMap::from([(name.to_owned(), load.entry)]),
@@ -1123,7 +889,9 @@ impl StatsigHttpIdListsAdapter {
         let entry = manifest.get(name).ok_or_else(|| {
             StatsigErr::CustomError(format!("ID list {name} is missing from the manifest"))
         })?;
-        let (destination, installed_metadata) = match (self.current_listener()?, parallel) {
+        let listener = self.current_listener()?;
+        let sources = self.base_sources(&listener);
+        let (destination, installed_metadata) = match (listener, parallel) {
             (HttpIdListsListener::Store(store), Some(build)) => {
                 let installed_list = store.load_data().id_lists.get(name).cloned();
                 let metadata = installed_list
@@ -1140,19 +908,15 @@ impl StatsigHttpIdListsAdapter {
                 )
             }
             (listener, _) => {
-                let listener = listener.into_listener();
-                let metadata = listener.get_current_id_list_metadata();
+                let metadata = listener.as_ref().get_current_id_list_metadata();
                 (LazyLoadDestination::Listener(listener), metadata)
             }
         };
-        let listener: &dyn IdListsUpdateListener = match &destination {
-            LazyLoadDestination::Store(private) => private.store.as_ref(),
-            LazyLoadDestination::Listener(listener) => listener.as_ref(),
-        };
-        if self.lazy_list_ready(listener, installed_metadata.get(name), &entry.metadata) {
+        if self.lazy_list_ready(sources, installed_metadata.get(name), &entry.metadata) {
             return Ok(None);
         }
         Ok(Some(LazyIdListLoad {
+            sources,
             entry: entry.clone(),
             installed_metadata,
             destination,
@@ -1175,34 +939,21 @@ impl StatsigHttpIdListsAdapter {
             installed_list,
             build,
         } = private;
-        let image = update_batch
-            .bases
-            .and_then(|mut bases| bases.remove(name)?.list);
         let (base, list) = lazy
-            .build_index(
-                Arc::clone(&store),
-                installed_list,
-                image,
-                update,
-                build,
-                self,
-            )
+            .build_index(Arc::clone(&store), installed_list, update, build, self)
             .await?;
 
         let adapter = Arc::clone(self);
         let name = name.to_owned();
-        let listener: Arc<dyn IdListsUpdateListener> = store.clone();
         Self::with_manifest_for_private_commit(&lazy.manifest, move |manifest| {
             let _output_scope = adapter.output_policy.enter();
-            if !adapter.is_current_lazy_target(manifest, &name, &target, &listener)? {
+            if !adapter.is_current_lazy_target(manifest, &name, &target, store.as_ref())? {
                 return Ok(LazyLoadOutcome::Retry);
             }
             // force_shutdown waits for an in-progress hash handoff.
             let _handoff = (!store.requires_blocking_id_list_publication())
                 .then(|| adapter.shutdown.handoff.lock());
-            if adapter.network.shutdown_flag().load(Ordering::SeqCst) {
-                return Err(Self::publication_stopped());
-            }
+            adapter.ensure_running()?;
             if store.commit_lazy_id_list(&name, base.as_ref(), list, update_batch.propagation)? {
                 Ok(LazyLoadOutcome::Complete)
             } else {
@@ -1217,18 +968,18 @@ impl StatsigHttpIdListsAdapter {
         lazy: &LazyIdLists,
         name: &str,
         target: &IdListMetadata,
-        listener: Arc<dyn IdListsUpdateListener>,
+        listener: HttpIdListsListener,
         planned_metadata: &IdListsResponse,
         update_batch: IdListUpdateBatch,
     ) -> Result<LazyLoadOutcome, StatsigErr> {
         let started = id_list_load_timing::start_phase();
         let manifest = lazy.manifest.clone().write_owned().await;
         id_list_load_timing::end_phase(Phase::AdapterLockWait, started);
-        if !self.is_current_lazy_target(manifest.as_ref(), name, target, &listener)? {
+        if !self.is_current_lazy_target(manifest.as_ref(), name, target, listener.as_ref())? {
             return Ok(LazyLoadOutcome::Retry);
         }
-        let installed = listener.get_current_id_list_metadata();
-        if self.lazy_list_ready(listener.as_ref(), installed.get(name), target) {
+        let installed = listener.as_ref().get_current_id_list_metadata();
+        if self.lazy_list_ready(self.base_sources(&listener), installed.get(name), target) {
             return Ok(LazyLoadOutcome::Complete);
         }
         if !update_batch.matches_cursors(planned_metadata, &installed) {
@@ -1250,7 +1001,7 @@ impl StatsigHttpIdListsAdapter {
 
     fn lazy_list_ready(
         &self,
-        listener: &dyn IdListsUpdateListener,
+        sources: BaseSources,
         installed: Option<&IdListMetadata>,
         target: &IdListMetadata,
     ) -> bool {
@@ -1260,11 +1011,9 @@ impl StatsigHttpIdListsAdapter {
         else {
             return true;
         };
-        // An installed prefix can serve evaluations while polling catches it up.
         update.start > 0
-            && self.snapshot_enabled
-            && listener.supports_id_list_snapshot_updates()
-            && self.network.supports_response_headers_without_redirects()
+            && ((sources.cache && SharedInitialBaseCache::eligible(target))
+                || (sources.snapshots && self.transport.can_download_snapshots()))
     }
 
     fn is_current_lazy_target(
@@ -1272,7 +1021,7 @@ impl StatsigHttpIdListsAdapter {
         manifest: Option<&IdListManifest>,
         name: &str,
         target: &IdListMetadata,
-        listener: &Arc<dyn IdListsUpdateListener>,
+        listener: &dyn IdListsUpdateListener,
     ) -> Result<bool, StatsigErr> {
         let latest = manifest
             .and_then(|entries| entries.get(name))
@@ -1385,48 +1134,6 @@ impl StatsigHttpIdListsAdapter {
             .await
     }
 
-    // ---- Helper functions for monioring ID List ----
-    fn add_diagnostics_start_marker(
-        &self,
-        key: KeyType,
-        step: StepType,
-        id_list_count: Option<usize>,
-        url: Option<&str>,
-    ) {
-        if self.ops_stats.remote_telemetry_disabled() {
-            return;
-        }
-        let mut marker = Marker::new(key, ActionType::Start, Some(step));
-        if let Some(count) = id_list_count {
-            marker = marker.with_id_list_count(count);
-        }
-        if let Some(url) = url {
-            marker = marker.with_url(url.to_string());
-        }
-        self.ops_stats.add_marker(marker, None);
-    }
-
-    fn add_diagnostics_end_marker(
-        &self,
-        key: KeyType,
-        step: StepType,
-        success: bool,
-        status_code: Option<u16>,
-        url: Option<&str>,
-    ) {
-        if self.ops_stats.remote_telemetry_disabled() {
-            return;
-        }
-        let mut marker = Marker::new(key, ActionType::End, Some(step)).with_is_success(success);
-        if let Some(status_code) = status_code {
-            marker = marker.with_status_code(status_code);
-        }
-        if let Some(url) = url {
-            marker = marker.with_url(url.to_string());
-        }
-        self.ops_stats.add_marker(marker, None);
-    }
-
     fn log_id_lists_sync_overall_latency(
         &self,
         sync_start_ms: u64,
@@ -1478,43 +1185,61 @@ enum DownloadedIdList {
     Snapshot(IdList),
 }
 
+impl DownloadedIdList {
+    fn prepare(self, metadata: IdListMetadata) -> MaterializedIdList {
+        match self {
+            Self::Raw { changeset, range } => MaterializedIdList {
+                update: PreparedIdListUpdate::Raw(IdListUpdate {
+                    raw_changeset: Some(changeset),
+                    new_metadata: metadata,
+                }),
+                range,
+                downloaded: true,
+            },
+            Self::Snapshot(list) => MaterializedIdList::base(list, true),
+        }
+    }
+}
+
+struct MaterializedIdList {
+    update: PreparedIdListUpdate,
+    range: Range<u64>,
+    downloaded: bool,
+}
+
+impl MaterializedIdList {
+    fn base(list: IdList, downloaded: bool) -> Self {
+        Self {
+            range: 0..list.metadata.size,
+            update: PreparedIdListUpdate::Base(list),
+            downloaded,
+        }
+    }
+
+    fn offer(self, cache: &SharedInitialBaseCache) -> Self {
+        if let PreparedIdListUpdate::Raw(raw) = &self.update {
+            if self.range.end > raw.new_metadata.size
+                || !raw
+                    .raw_changeset
+                    .as_deref()
+                    .is_some_and(super::id_list::is_complete_record_prefix)
+            {
+                return self;
+            }
+        }
+        let list = IdList::build(None, self.update, UpdateMode::Private(cache.encoding));
+        Self::base(cache.offer(list), self.downloaded)
+    }
+}
+
 struct IdListDownloadBatch<'a> {
+    use_base_cache: bool,
     pending: Vec<IdListDownloadJob>,
     update_batch: IdListUpdateBatch,
     successful_downloads: &'a mut u64,
 }
 
 impl IdListDownloadBatch<'_> {
-    fn record_download(&mut self, job: IdListDownloadJob, download: DownloadedIdList) {
-        // Count each completion even if the refresh is cancelled while peers are pending.
-        *self.successful_downloads += 1;
-        let mut metadata = job.metadata;
-        let (changeset, range, list) = match download {
-            DownloadedIdList::Raw { changeset, range } => (changeset, range, None),
-            DownloadedIdList::Snapshot(list) => {
-                metadata.size = list.metadata.size;
-                (String::new(), 0..metadata.size, Some(list))
-            }
-        };
-        if let Some(bases) = &mut self.update_batch.bases {
-            let base = bases.entry(job.name.clone()).or_insert(IdListUpdateBase {
-                previous: None,
-                list: None,
-            });
-            base.list = list;
-        }
-        if let Some(observation) = self.update_batch.propagation.get_mut(&job.name) {
-            observation.applied_range = Some(range);
-        }
-        self.update_batch.updates.insert(
-            job.name,
-            IdListUpdate {
-                raw_changeset: Some(changeset),
-                new_metadata: metadata,
-            },
-        );
-    }
-
     fn retain_failed_lists(&mut self, installed: &IdListsResponse, error: StatsigErr) {
         // Failed warm downloads retain their installed generation and byte offset.
         for job in self.pending.drain(..) {
@@ -1525,279 +1250,9 @@ impl IdListDownloadBatch<'_> {
     }
 }
 
-#[derive(Debug, PartialEq)]
-enum RawIdListChunk {
-    Complete(String, Range<u64>),
-    Incomplete(PartialIdListRecord),
-}
-
-#[derive(Default, Debug, PartialEq)]
-struct PartialIdListRecord {
-    bytes: Vec<u8>,
-    total: u64,
-    etag: Option<String>,
-}
-
-fn normalize_id_list_download(
-    response: Response,
-    download_url: &str,
-    committed_start: u64,
-    manifest_size: u64,
-    check_snapshot_body: bool,
-    mut pending: PartialIdListRecord,
-) -> Result<RawIdListChunk, StatsigErr> {
-    let status = response.status_code;
-    let request_failed = |msg: &str| {
-        StatsigErr::NetworkError(NetworkError::RequestFailed(
-            download_url.into(),
-            status,
-            msg.into(),
-        ))
-    };
-    let stale = || request_failed("ID-list response is stale or changed during download");
-    let invalid = |msg: &str| StatsigErr::CustomError(msg.into());
-    let decode = |bytes| {
-        String::from_utf8(bytes)
-            .map_err(|err| StatsigErr::JsonParseError("ResponseData".into(), err.to_string()))
-    };
-    let mut body = response
-        .data
-        .ok_or_else(|| request_failed("Missing ID list body"))?;
-    let mut bytes = if body
-        .get_header_ignore_ascii_case("content-encoding")
-        .is_some_and(|encoding| encoding.trim().eq_ignore_ascii_case("gzip"))
-    {
-        // A server that ignores Accept-Encoding: identity can gzip raw records too.
-        body.rewind()?;
-        let mut bytes = Vec::new();
-        flate2::read::MultiGzDecoder::new(body.get_stream_mut())
-            .read_to_end(&mut bytes)
-            .map_err(|err| request_failed(&err.to_string()))?;
-        bytes
-    } else {
-        body.read_to_bytes()?
-    };
-    // A proxy can strip the snapshot headers even when the body is valid UTF-8.
-    let reject_snapshot = |prefix: &[u8], total| {
-        if portable_id_list_ef::matches_v1_prefix(prefix, total) {
-            return Err(request_failed(
-                "Received a binary ID-list snapshot as raw data",
-            ));
-        }
-        Ok(())
-    };
-    if check_snapshot_body {
-        reject_snapshot(&bytes, bytes.len() as u64)?;
-    }
-    let content_range = body.get_header_ignore_ascii_case("content-range");
-    if status == Some(200) && content_range.is_none() {
-        let mut text = decode(bytes)?;
-        let end = text.len() as u64;
-        // SFP may have useful bytes without having reached the manifest size yet.
-        if end < committed_start || (end == committed_start && end < manifest_size) {
-            return Err(stale());
-        }
-        // A whole response also supplies any in-flight fragment. Replay from
-        // the committed record boundary using only this representation.
-        let start = committed_start as usize; // bounded by the body length above
-        if !text.is_char_boundary(start) {
-            return Err(invalid("ID-list download offset splits a UTF-8 character"));
-        }
-        if start != 0 {
-            text = text.split_off(start);
-        }
-        return Ok(RawIdListChunk::Complete(text, committed_start..end));
-    }
-    if !matches!(status, Some(200 | 206)) {
-        return Err(invalid(
-            "ID-list download returned an unexpected response status or Content-Range",
-        ));
-    }
-    let (range, total) = content_range
-        .and_then(|header| downloaded_range(header, bytes.len()))
-        .ok_or_else(|| invalid("ID-list download returned an invalid Content-Range"))?;
-    if range.start != committed_start + pending.bytes.len() as u64 || range.is_empty() {
-        return Err(invalid(
-            "ID-list download returned an unexpected or empty byte range",
-        ));
-    }
-
-    // Unversioned responses rely on the append-only file named in the manifest.
-    // Retry from the committed boundary if the server identifies a different object.
-    let etag = || body.get_header_ignore_ascii_case("etag");
-    if total < pending.total
-        || pending
-            .etag
-            .as_ref()
-            .is_some_and(|old| etag().is_some_and(|new| new != old))
-    {
-        return Err(stale());
-    }
-
-    // A range can split the count itself, which can contain an LF. Inspect the
-    // prefix against the whole representation before publishing a line.
-    if check_snapshot_body && committed_start == 0 {
-        if !pending.bytes.is_empty() && pending.bytes.len() < portable_id_list_ef::V1_COUNT_BYTES {
-            bytes.splice(..0, pending.bytes.drain(..));
-        }
-        let prefix = if pending.bytes.is_empty() {
-            &bytes
-        } else {
-            &pending.bytes
-        };
-        reject_snapshot(prefix, total)?;
-    }
-
-    // A record without LF is complete only at the representation's EOF. Return
-    // complete lines now and ask for any trailing fragment again next refresh.
-    let complete_len = if range.end == total {
-        Some(bytes.len())
-    } else {
-        memchr::memrchr(b'\n', &bytes)
-            .filter(|_| {
-                !(check_snapshot_body
-                    && committed_start == 0
-                    && range.end < portable_id_list_ef::V1_COUNT_BYTES as u64
-                    && portable_id_list_ef::matches_partial_v1_count(&bytes, total))
-            })
-            .map(|i| i + 1)
-    };
-    if let Some(len) = complete_len {
-        bytes.truncate(len);
-    } else if pending.bytes.len() + bytes.len() > MAX_UNFINISHED_ID_LIST_RECORD_BYTES {
-        return Err(invalid("Unterminated ID-list record is too large"));
-    }
-    if !pending.bytes.is_empty() {
-        pending.bytes.extend_from_slice(&bytes);
-        bytes = pending.bytes;
-    }
-    if complete_len.is_none() {
-        return Ok(RawIdListChunk::Incomplete(PartialIdListRecord {
-            bytes,
-            total,
-            etag: pending.etag.or_else(|| etag().cloned()),
-        }));
-    }
-    let end = committed_start + bytes.len() as u64;
-    let text = decode(bytes)?;
-    Ok(RawIdListChunk::Complete(text, committed_start..end))
-}
-
 struct LazyManifestPublication {
     guard: OwnedRwLockWriteGuard<Option<IdListManifest>>,
     next: Option<IdListManifest>,
-}
-
-struct IdListUpdateBatch {
-    publication_mode: IdListPublicationMode,
-    bases: Option<HashMap<String, IdListUpdateBase>>,
-    file_failure: Option<StatsigErr>,
-    updates: HashMap<String, IdListUpdate>,
-    propagation: HashMap<String, IdListPropagationUpdate>,
-}
-
-impl IdListUpdateBatch {
-    fn new(
-        curr_manifest: &IdListsResponse,
-        new_manifest: &IdListManifest,
-        publication_mode: IdListPublicationMode,
-        allow_snapshot_updates: bool,
-    ) -> Self {
-        // A replacement can remove installed names, so their cursors must also
-        // be captured before downloading and checked at publication.
-        let bases = allow_snapshot_updates.then(|| {
-            curr_manifest
-                .iter()
-                .filter(|(name, _)| {
-                    publication_mode != IdListPublicationMode::Merge
-                        || new_manifest.contains_key(*name)
-                })
-                .map(|(name, metadata)| {
-                    (
-                        name.clone(),
-                        IdListUpdateBase {
-                            previous: Some(metadata.clone()),
-                            list: None,
-                        },
-                    )
-                })
-                .collect::<HashMap<_, _>>()
-        });
-        Self {
-            publication_mode,
-            bases,
-            file_failure: None,
-            updates: HashMap::new(),
-            propagation: HashMap::with_capacity(new_manifest.len()),
-        }
-    }
-
-    fn retain_failed_list(&mut self, name: String, installed: Option<&IdListMetadata>) {
-        self.propagation.remove(&name);
-        if let Some(metadata) = installed {
-            self.updates.insert(
-                name,
-                IdListUpdate {
-                    raw_changeset: None,
-                    new_metadata: metadata.clone(),
-                },
-            );
-        }
-    }
-
-    // A poll and a cold load can download from the same partial cursor. Only the
-    // first may apply that range. The other prepares again at the committed end.
-    fn matches_cursors(&self, planned: &IdListsResponse, installed: &IdListsResponse) -> bool {
-        self.updates.iter().all(|(name, update)| {
-            id_list_range_start(planned.get(name), &update.new_metadata)
-                == id_list_range_start(installed.get(name), &update.new_metadata)
-        })
-    }
-}
-
-fn id_list_range_start(current: Option<&IdListMetadata>, target: &IdListMetadata) -> Option<u64> {
-    target
-        .file_version()
-        .download_from(current.map(IdListMetadata::file_version))
-        .map(|update| update.start)
-}
-
-fn publish_id_list_batch(
-    listener: &dyn IdListsUpdateListener,
-    bases: Option<HashMap<String, IdListUpdateBase>>,
-    updates: HashMap<String, IdListUpdate>,
-    propagation: HashMap<String, IdListPropagationUpdate>,
-    publication_mode: IdListPublicationMode,
-    eager_downloads: Option<u64>,
-) -> Result<(), StatsigErr> {
-    if let Some(bases) = bases {
-        return listener.try_receive_id_list_snapshot_updates(
-            updates,
-            bases,
-            propagation,
-            publication_mode,
-            eager_downloads,
-        );
-    }
-    if let Some(downloads) = eager_downloads {
-        return listener.try_receive_eager_id_list_updates(
-            updates,
-            propagation,
-            publication_mode == IdListPublicationMode::IncompleteRefresh,
-            downloads,
-        );
-    }
-    match publication_mode {
-        IdListPublicationMode::Replace => {
-            listener.try_receive_id_list_updates_with_propagation(updates, propagation)
-        }
-        IdListPublicationMode::IncompleteRefresh => {
-            listener.try_receive_incomplete_id_list_refresh(updates, propagation)
-        }
-        IdListPublicationMode::Merge => {
-            listener.try_receive_partial_id_list_updates_with_propagation(updates, propagation)
-        }
-    }
 }
 
 #[derive(Default)]
@@ -1865,6 +1320,7 @@ impl PrivateBuildAttempt {
 }
 
 struct LazyIdListLoad<'a> {
+    sources: BaseSources,
     entry: IdListManifestEntry,
     installed_metadata: IdListsResponse,
     destination: LazyLoadDestination<'a>,
@@ -1872,7 +1328,7 @@ struct LazyIdListLoad<'a> {
 
 enum LazyLoadDestination<'a> {
     Store(PrivateIdListLoad<'a>),
-    Listener(Arc<dyn IdListsUpdateListener>),
+    Listener(HttpIdListsListener),
 }
 
 enum LazyLoadOutcome {
@@ -1900,19 +1356,18 @@ impl LazyIdLists {
         &self,
         store: Arc<SpecStore>,
         base: Option<IdList>,
-        image: Option<IdList>,
-        update: IdListUpdate,
+        update: PreparedIdListUpdate,
         build: &PrivateBuildAttempt,
         adapter: &StatsigHttpIdListsAdapter,
     ) -> Result<(Option<IdList>, IdList), StatsigErr> {
         // A full snapshot already completed its index work in the validator.
-        if image.is_some() && update.raw_changeset.as_deref() == Some("") {
-            let list = store.updated_id_list(base.as_ref(), image, update);
+        if matches!(update, PreparedIdListUpdate::Base(_)) {
+            let list = store.updated_id_list(base.as_ref(), update);
             return Ok((base, list));
         }
         let permit = build.admit_worker().await;
         let output_policy = adapter.output_policy;
-        let stopped = Arc::clone(adapter.network.shutdown_flag());
+        let stopped = Arc::clone(adapter.transport.network.shutdown_flag());
         #[cfg(test)]
         let before_build = self.before_build.clone();
         tokio::task::spawn_blocking(id_list_load_timing::with_current_timings(
@@ -1921,15 +1376,15 @@ impl LazyIdLists {
                 let _output_scope = output_policy.enter();
                 let _permit = permit;
                 if stopped.load(Ordering::SeqCst) {
-                    return Err(StatsigHttpIdListsAdapter::publication_stopped());
+                    return Err(publication_stopped());
                 }
                 #[cfg(test)]
                 if let Some(before_build) = before_build {
-                    before_build(&update.new_metadata.name);
+                    before_build(&update.metadata().name);
                 }
                 let list = id_list_load_timing::measure(Phase::ParsePublish, || {
                     id_list_load_timing::measure(Phase::Processing, || {
-                        store.updated_id_list(base.as_ref(), image, update)
+                        store.updated_id_list(base.as_ref(), update)
                     })
                 });
                 Ok((base, list))
@@ -1958,6 +1413,9 @@ impl IdListsAdapter for StatsigHttpIdListsAdapter {
                 self.signal_shutdown();
                 tokio::time::timeout(timeout, async {
                     let _refresh = self.refresh_gate.lock().await;
+                    if let Some(cache) = &self.initial_base_cache {
+                        cache.drain().await;
+                    }
                     if let Some(lazy) = &self.lazy_id_lists {
                         // Blocking builds already in progress finish before graceful shutdown.
                         if let Some(permits) = &lazy.build_permits {
@@ -1987,7 +1445,7 @@ impl IdListsAdapter for StatsigHttpIdListsAdapter {
                 let interval_duration = self.sync_interval_duration;
 
                 let shutdown = self.shutdown.clone();
-                let stopped = self.network.shutdown_flag().clone();
+                let stopped = self.transport.network.shutdown_flag().clone();
                 statsig_runtime.spawn(
                     "http_id_list_bg_sync",
                     move |runtime_shutdown| async move {
@@ -2056,10 +1514,6 @@ mod lazy_id_list_tests;
 #[cfg(test)]
 #[path = "__tests__/id_list_cursor_tests.rs"]
 mod cursor_tests;
-
-#[cfg(test)]
-#[path = "__tests__/id_list_range_tests.rs"]
-mod range_tests;
 
 #[cfg(test)]
 #[path = "__tests__/state_read_retry_tests.rs"]

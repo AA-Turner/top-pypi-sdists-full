@@ -3,14 +3,14 @@
 mod tests {
     #[cfg(feature = "jsonb")]
     use jsonschema::json::Jsonb;
-    use jsonschema::{canonical::CanonicalKind, Draft, PatternOptions, Registry};
+    use jsonschema::{canonical::CanonicalKind, Draft, PatternOptions, Registry, Retrieve, Uri};
     #[cfg(feature = "jsonb")]
     use jsonschema_value::jsonb::encode::encode;
     #[cfg(not(target_arch = "wasm32"))]
     use std::env;
     #[cfg(not(target_arch = "wasm32"))]
     use std::fs;
-    use testsuite::{suite, CodegenValidator, Test};
+    use testsuite::{suite, CodegenValidator, ErrorReport, Test};
 
     #[suite(
     path = "crates/jsonschema/tests/suite",
@@ -20,15 +20,6 @@ mod tests {
         "draft7",
         "draft2019-09",
         "draft2020-12",
-    ],
-    xfail = [
-        "draft4::optional::bignum::integer::a_bignum_is_an_integer",
-        "draft4::optional::bignum::integer::a_negative_bignum_is_an_integer",
-        // Lone surrogate: unrepresentable as a Rust string; the loader rewrites it to
-        // U+FFFD, a valid idn-email local part, so the rejection can't be exercised.
-        "draft7::optional::format::idn_email::validation_of_an_internationalized_e_mail_addresses::a_local_part_with_a_lone_utf_16_surrogate_is_invalid",
-        "draft2019-09::optional::format::idn_email::validation_of_an_internationalized_e_mail_addresses::a_local_part_with_a_lone_utf_16_surrogate_is_invalid",
-        "draft2020-12::optional::format::idn_email::validation_of_an_internationalized_e_mail_addresses::a_local_part_with_a_lone_utf_16_surrogate_is_invalid",
     ]
 )]
     fn test_suite(test: &Test, codegen_validator: Option<Box<dyn CodegenValidator>>) {
@@ -48,6 +39,11 @@ mod tests {
         if should_skip_draft(test.draft) {
             return;
         }
+        // Literals past `f64` precision survive only with `arbitrary-precision`.
+        #[cfg(not(feature = "arbitrary-precision"))]
+        if test.file == "optional/bignum.json" {
+            return;
+        }
         // Without `idna` these are unknown formats, so the suite's expectations no longer hold.
         #[cfg(not(feature = "idna"))]
         if matches!(
@@ -62,7 +58,7 @@ mod tests {
             .as_str()
             .unwrap_or("json-schema:///");
         let registry = Registry::new()
-            .retriever(testsuite_retriever())
+            .retriever(ExternalSchemas(test.external_schemas.clone()))
             .draft(draft)
             .add(root_uri, &test.schema)
             .expect("Failed to add the test schema to the registry")
@@ -71,8 +67,8 @@ mod tests {
         let mut options = jsonschema::options()
             .with_draft(draft)
             .with_registry(&registry);
-        if test.is_optional {
-            options = options.should_validate_formats(true);
+        if let Some(validate_formats) = test.validate_formats {
+            options = options.should_validate_formats(validate_formats);
         }
 
         #[cfg(feature = "jsonb")]
@@ -80,8 +76,8 @@ mod tests {
             let mut options = jsonschema::options_for::<Jsonb>()
                 .with_draft(draft)
                 .with_registry(&registry);
-            if test.is_optional {
-                options = options.should_validate_formats(true);
+            if let Some(validate_formats) = test.validate_formats {
+                options = options.should_validate_formats(validate_formats);
             }
             let validator = options
                 .build(&test.schema)
@@ -132,8 +128,9 @@ mod tests {
                         canonicalize_options.with_pattern_options(PatternOptions::fancy_regex());
                 }
             }
-            if test.is_optional {
-                canonicalize_options = canonicalize_options.should_validate_formats(true);
+            if let Some(validate_formats) = test.validate_formats {
+                canonicalize_options =
+                    canonicalize_options.should_validate_formats(validate_formats);
             }
             // Unsupported constructs come back as `Raw`, never as an error, so any error is a regression.
             let canonical = canonicalize_options
@@ -150,9 +147,9 @@ mod tests {
                 let canonical_value = canonical.to_json_schema();
                 let mut canonical_options = jsonschema::options()
                     .with_draft(canonical.draft())
-                    .with_retriever(testsuite_retriever());
-                if test.is_optional {
-                    canonical_options = canonical_options.should_validate_formats(true);
+                    .with_retriever(ExternalSchemas(test.external_schemas.clone()));
+                if let Some(validate_formats) = test.validate_formats {
+                    canonical_options = canonical_options.should_validate_formats(validate_formats);
                 }
                 match engine {
                     RegexEngine::Regex => {
@@ -330,7 +327,7 @@ mod tests {
             );
                 let runtime_message = error.to_string();
                 let error_parts = error.into_parts();
-                let evaluation_path = error_parts.evaluation_path;
+                let evaluation_path = &error_parts.evaluation_path;
                 assert!(
                     evaluation_path.as_str().is_empty()
                         || evaluation_path.as_str().starts_with('/'),
@@ -365,6 +362,18 @@ mod tests {
                         pretty_json(&test.schema), pretty_json(&test.data),
                     );
                     assert_eq!(
+                        codegen_parts.evaluation_path, error_parts.evaluation_path,
+                        "codegen validate() evaluation_path mismatch:\nCase: {}\nTest: {}\nSchema: {}\nInstance: {}",
+                        test.case, test.description,
+                        pretty_json(&test.schema), pretty_json(&test.data),
+                    );
+                    assert_eq!(
+                        codegen_parts.absolute_keyword_location, error_parts.absolute_keyword_location,
+                        "codegen validate() absolute_keyword_location mismatch:\nCase: {}\nTest: {}\nSchema: {}\nInstance: {}",
+                        test.case, test.description,
+                        pretty_json(&test.schema), pretty_json(&test.data),
+                    );
+                    assert_eq!(
                         codegen_message, runtime_message,
                         "codegen validate() message mismatch:\nCase: {}\nTest: {}\nSchema: {}\nInstance: {}",
                         test.case, test.description,
@@ -372,14 +381,16 @@ mod tests {
                     );
 
                     // Compare codegen iter_errors() against runtime iter_errors()
-                    let runtime_iter: Vec<(String, String, String)> = validator
+                    let runtime_iter: Vec<ErrorReport> = validator
                         .iter_errors(&test.data)
-                        .map(|e| {
-                            (
-                                e.to_string(),
-                                e.schema_path().to_string(),
-                                e.instance_path().to_string(),
-                            )
+                        .map(|e| ErrorReport {
+                            message: e.to_string(),
+                            schema_path: e.schema_path().to_string(),
+                            evaluation_path: e.evaluation_path().to_string(),
+                            absolute_keyword_location: e
+                                .absolute_keyword_location()
+                                .map(|uri| uri.as_str().to_string()),
+                            instance_path: e.instance_path().to_string(),
                         })
                         .collect();
                     let codegen_iter = codegen_validator.iter_errors(&test.data);
@@ -408,6 +419,40 @@ mod tests {
                 let _ = serde_json::to_value(evaluation.hierarchical())
                     .expect("Hierarchical output should serialize");
             }
+            if let Some(codegen_validator) = codegen_validator.as_ref() {
+                let generated = codegen_validator.evaluate(&test.data);
+                let evaluation = validator.evaluate(&test.data);
+                assert_eq!(
+                    generated,
+                    (
+                        serde_json::to_value(evaluation.list())
+                            .expect("List output should serialize"),
+                        serde_json::to_value(evaluation.hierarchical())
+                            .expect("Hierarchical output should serialize"),
+                    ),
+                    "codegen evaluate() mismatch:\nCase: {}\nTest: {}\nSchema: {}\nInstance: {}",
+                    test.case,
+                    test.description,
+                    pretty_json(&test.schema),
+                    pretty_json(&test.data),
+                );
+            }
+        }
+    }
+
+    // A case's `externalSchemas`, served at their retrieval URIs.
+    struct ExternalSchemas(Vec<(&'static str, serde_json::Value)>);
+
+    impl Retrieve for ExternalSchemas {
+        fn retrieve(
+            &self,
+            uri: &Uri<String>,
+        ) -> Result<serde_json::Value, Box<dyn std::error::Error + Send + Sync>> {
+            self.0
+                .iter()
+                .find(|(known, _)| *known == uri.as_str())
+                .map(|(_, schema)| schema.clone())
+                .ok_or_else(|| format!("Unknown remote: {uri}").into())
         }
     }
 
@@ -421,16 +466,23 @@ mod tests {
         let expectations: serde_json::Value =
             serde_json::from_str(include_str!("draft7_instance_paths.json")).expect("Valid JSON");
         for (filename, expected) in expectations.as_object().expect("Is object") {
-            let test_file = fs::read_to_string(format!("tests/suite/tests/draft7/{filename}"))
+            let test_file = fs::read_to_string(format!("tests/suite/validation/tests/{filename}"))
                 .unwrap_or_else(|_| panic!("Valid file: {filename}"));
-            let data: serde_json::Value = serde_json::from_str(&test_file).expect("Valid JSON");
+            let file: serde_json::Value = serde_json::from_str(&test_file).expect("Valid JSON");
+            let data = &file["tests"];
             for item in expected.as_array().expect("Is array") {
                 let suite_id = usize::try_from(item["suite_id"].as_u64().expect("Is integer"))
                     .expect("suite_id fits in usize");
                 let schema = &data[suite_id]["schema"];
+                let external_schemas = data[suite_id]["externalSchemas"]
+                    .as_object()
+                    .into_iter()
+                    .flatten()
+                    .map(|(uri, schema)| (&*uri.clone().leak(), schema.clone()))
+                    .collect();
                 let validator = jsonschema::options()
                     .with_draft(Draft::Draft7)
-                    .with_retriever(testsuite_retriever())
+                    .with_retriever(ExternalSchemas(external_schemas))
                     .build(schema)
                     .unwrap_or_else(|_| {
                         panic!(

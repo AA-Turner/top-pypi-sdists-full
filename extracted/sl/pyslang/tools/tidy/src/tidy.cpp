@@ -199,14 +199,12 @@ int main(int argc, char** argv) {
     }
 
     for (const auto& path : skippedPaths) {
-        // For skip-path, suppress warnings from files in the parent directory
-        auto parentDir = std::filesystem::path(path).parent_path().string();
-        if (!parentDir.empty()) {
-            if (auto ec = driver.diagEngine.addIgnorePaths(parentDir)) {
-                if (!superQuiet) {
-                    OS::printE(fmt::format("Warning: Failed to add ignore path for '{}': {}\n",
-                                           parentDir, ec.message()));
-                }
+        // For skip-path, suppress warnings from all files under the given directory
+        auto pattern = (TidyConfig::canonicalizeSkipPath(path) / "...").string();
+        if (auto ec = driver.diagEngine.addIgnorePaths(pattern)) {
+            if (!superQuiet) {
+                OS::printE(fmt::format("Warning: Failed to add ignore path for '{}': {}\n", path,
+                                       ec.message()));
             }
         }
     }
@@ -254,6 +252,11 @@ int main(int argc, char** argv) {
 
         auto checkOk = check->check(compilation->getRoot(), *analysisManager);
         if (!checkOk) {
+            // Any errors are propagated to the return code, regardless of verbosity.
+            if (check->diagSeverity() == DiagnosticSeverity::Error ||
+                check->diagSeverity() == DiagnosticSeverity::Fatal) {
+                retCode = 1;
+            }
 
             if (!quiet) {
                 if (check->diagSeverity() == DiagnosticSeverity::Ignored) {
@@ -274,8 +277,6 @@ int main(int argc, char** argv) {
                     OS::print(TextEmphasis::Bold |
                                   fg(tdc.getSeverityColor(DiagnosticSeverity::Error)),
                               " FAIL\n");
-                    // Any errors are propagated to the return code.
-                    retCode = 1;
                 }
                 else {
                     SLANG_UNREACHABLE;

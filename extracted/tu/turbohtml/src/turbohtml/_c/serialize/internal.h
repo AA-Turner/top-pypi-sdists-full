@@ -46,24 +46,22 @@ static inline int sbuf_named_special(Py_UCS4 character) {
     return th_entity_name(character) != NULL;
 }
 
-/* The WHATWG/MINIMAL special set tested over a 64-bit word of two UCS-4 code
-   points: & < > and CR always, and the no-break space WHATWG folds. CR must be
-   written as &#13; in every formatter: input preprocessing folds a raw CR to LF
-   on reparse, so the output would read back as a different tree. Each probe sets
-   the matching lane's high bit; a nonzero result means a special is in the pair. */
-static inline uint64_t sbuf_special_mask(uint64_t word, int escape_nbsp) {
-    uint64_t mask =
-        swar_haslane32(word, '&') | swar_haslane32(word, '<') | swar_haslane32(word, '>') | swar_haslane32(word, '\r');
+/* The structural special set tested over a 64-bit word of two UCS-4 code points: & < > and CR.
+   CR must be written as &#13; in every formatter: input preprocessing folds a raw CR to LF on
+   reparse, so the output would read back as a different tree. Each probe sets the matching lane's
+   high bit; a nonzero result means a special is in the pair. */
+static inline uint64_t sbuf_special_mask(uint64_t word) {
+    return swar_haslane32(word, '&') | swar_haslane32(word, '<') | swar_haslane32(word, '>') |
+           swar_haslane32(word, '\r');
+}
+
+/* The special set plus the no-break space WHATWG folds and the " that ends an attribute value.
+   Only the NEON and scalar text scans use it; the SSE2 scan tests both in its vector block. */
+static inline uint64_t sbuf_value_mask(uint64_t word, int escape_quote, int escape_nbsp) {
+    uint64_t mask = sbuf_special_mask(word);
     if (escape_nbsp) {
         mask |= swar_haslane32(word, 0xA0);
     }
-    return mask;
-}
-
-/* The special set plus the " that ends an attribute value. Only the NEON and scalar text scans
-   use it; the SSE2 scan tests the quote in its vector block, and minify never scans a value. */
-static inline uint64_t sbuf_value_mask(uint64_t word, int escape_quote, int escape_nbsp) {
-    uint64_t mask = sbuf_special_mask(word, escape_nbsp);
     if (escape_quote) {
         mask |= swar_haslane32(word, '"');
     }
@@ -1812,10 +1810,23 @@ static inline Py_UCS4 *sbuf_finish(sbuf *out, Py_ssize_t *out_len) {
    the input length would wildly over-reserve. */
 static inline void sbuf_presize_for_root(sbuf *out, th_tree *tree, th_node *node) {
     if (node == th_tree_document(tree)) {
-        /* reserving the input length is a no-op for an empty or programmatic
-           tree (length 0), so no separate guard is needed */
-        sbuf_reserve(out, tree->length);
+        /* the end tags, quotes and escapes the serializer adds can run the output a little past the input; that
+           overshoot would double the buffer through one realloc whose copy depends on whether the heap happens to
+           leave room to grow in place, so the headroom keeps the common case to the one allocation */
+        sbuf_reserve(out, tree->length + tree->length / 16 + 64);
     }
+}
+
+/* The NAMED formatter writes most non-ASCII characters as a reference several times their length, so its output
+   from non-ASCII input usually outgrows the input; reserving twice the input costs no more peak memory than the
+   doubling that overshoot triggers, and skips its copy. */
+static inline void sbuf_presize_for_markup(sbuf *out, th_tree *tree, th_node *node, int formatter) {
+    if (formatter == TH_FMT_NAMED && node == th_tree_document(tree) &&
+        (tree->kind != PyUnicode_1BYTE_KIND || !th_tree_input_ascii(tree, tree->length))) {
+        sbuf_reserve(out, 2 * tree->length + 64);
+        return;
+    }
+    sbuf_presize_for_root(out, tree, node);
 }
 
 static inline void sbuf_presize_for_c14n(sbuf *out, th_tree *tree) {

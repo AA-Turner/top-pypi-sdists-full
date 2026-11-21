@@ -105,6 +105,13 @@ class CfnApplication(
                 )
             ),
             application_type="applicationType",
+            auth_config=appintegrations.CfnApplication.AuthConfigProperty(
+                auth_type="authType",
+        
+                # the properties below are optional
+                audience_override="audienceOverride",
+                credential_provider_identifier="credentialProviderIdentifier"
+            ),
             description="description",
             iframe_config=appintegrations.CfnApplication.IframeConfigProperty(
                 allow=["allow"],
@@ -130,6 +137,7 @@ class CfnApplication(
         namespace: builtins.str,
         application_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.ApplicationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         application_type: typing.Optional[builtins.str] = None,
+        auth_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.AuthConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
         iframe_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.IframeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         initialization_timeout: typing.Optional[jsii.Number] = None,
@@ -146,6 +154,7 @@ class CfnApplication(
         :param namespace: The namespace of the application.
         :param application_config: 
         :param application_type: The type of application.
+        :param auth_config: 
         :param description: The description of the application.
         :param iframe_config: 
         :param initialization_timeout: The initialization timeout in milliseconds. Required when IsService is true.
@@ -163,6 +172,7 @@ class CfnApplication(
             namespace=namespace,
             application_config=application_config,
             application_type=application_type,
+            auth_config=auth_config,
             description=description,
             iframe_config=iframe_config,
             initialization_timeout=initialization_timeout,
@@ -255,6 +265,24 @@ class CfnApplication(
         return typing.cast(builtins.str, jsii.get(self, "attrId"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrLastModifiedRegion")
+    def attr_last_modified_region(self) -> builtins.str:
+        '''The region in which the application was last modified.
+
+        :cloudformationAttribute: LastModifiedRegion
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedRegion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastModifiedTime")
+    def attr_last_modified_time(self) -> builtins.str:
+        '''The time when the application was last modified.
+
+        :cloudformationAttribute: LastModifiedTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedTime"))
+
+    @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
     def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
@@ -343,6 +371,23 @@ class CfnApplication(
             type_hints = cached_type_hints(_typecheckingstub__ff0b1b75808885a4f334f5f84d807773cd77be8f49c2b5fe7f8fd827680a2605)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "applicationType", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="authConfig")
+    def auth_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.AuthConfigProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.AuthConfigProperty"]], jsii.get(self, "authConfig"))
+
+    @auth_config.setter
+    def auth_config(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.AuthConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__635caebf7d2f84364134ff4d2bbd5a5b43cd95f505457ab83feeb74bc756d4d1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "authConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -500,7 +545,7 @@ class CfnApplication(
         def __init__(
             self,
             *,
-            external_url_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.ExternalUrlConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+            external_url_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.ExternalUrlConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The configuration for where the application should be loaded from.
 
@@ -527,21 +572,20 @@ class CfnApplication(
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__599151bfc17f24879de38cf44b4a12c218d6b40ffaf8a24fc33beaa3691268b7)
                 check_type(argname="argument external_url_config", value=external_url_config, expected_type=type_hints["external_url_config"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "external_url_config": external_url_config,
-            }
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if external_url_config is not None:
+                self._values["external_url_config"] = external_url_config
 
         @builtins.property
         def external_url_config(
             self,
-        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.ExternalUrlConfigProperty"]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.ExternalUrlConfigProperty"]]:
             '''The external URL source for the application.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appintegrations-application-applicationsourceconfig.html#cfn-appintegrations-application-applicationsourceconfig-externalurlconfig
             '''
             result = self._values.get("external_url_config")
-            assert result is not None, "Required property 'external_url_config' is missing"
-            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.ExternalUrlConfigProperty"], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.ExternalUrlConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -555,12 +599,100 @@ class CfnApplication(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_appintegrations.CfnApplication.AuthConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "auth_type": "authType",
+            "audience_override": "audienceOverride",
+            "credential_provider_identifier": "credentialProviderIdentifier",
+        },
+    )
+    class AuthConfigProperty:
+        def __init__(
+            self,
+            *,
+            auth_type: builtins.str,
+            audience_override: typing.Optional[builtins.str] = None,
+            credential_provider_identifier: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param auth_type: 
+            :param audience_override: 
+            :param credential_provider_identifier: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appintegrations-application-authconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_appintegrations as appintegrations
+                
+                auth_config_property = appintegrations.CfnApplication.AuthConfigProperty(
+                    auth_type="authType",
+                
+                    # the properties below are optional
+                    audience_override="audienceOverride",
+                    credential_provider_identifier="credentialProviderIdentifier"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__dfd5e8f3f947497096c60cff51ef7ed124aad50756c1cde022adbd49a0ac2da8)
+                check_type(argname="argument auth_type", value=auth_type, expected_type=type_hints["auth_type"])
+                check_type(argname="argument audience_override", value=audience_override, expected_type=type_hints["audience_override"])
+                check_type(argname="argument credential_provider_identifier", value=credential_provider_identifier, expected_type=type_hints["credential_provider_identifier"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "auth_type": auth_type,
+            }
+            if audience_override is not None:
+                self._values["audience_override"] = audience_override
+            if credential_provider_identifier is not None:
+                self._values["credential_provider_identifier"] = credential_provider_identifier
+
+        @builtins.property
+        def auth_type(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appintegrations-application-authconfig.html#cfn-appintegrations-application-authconfig-authtype
+            '''
+            result = self._values.get("auth_type")
+            assert result is not None, "Required property 'auth_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def audience_override(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appintegrations-application-authconfig.html#cfn-appintegrations-application-authconfig-audienceoverride
+            '''
+            result = self._values.get("audience_override")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def credential_provider_identifier(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appintegrations-application-authconfig.html#cfn-appintegrations-application-authconfig-credentialprovideridentifier
+            '''
+            result = self._values.get("credential_provider_identifier")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AuthConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_appintegrations.CfnApplication.ContactHandlingProperty",
         jsii_struct_bases=[],
         name_mapping={"scope": "scope"},
     )
     class ContactHandlingProperty:
-        def __init__(self, *, scope: builtins.str) -> None:
+        def __init__(self, *, scope: typing.Optional[builtins.str] = None) -> None:
             '''
             :param scope: 
 
@@ -580,18 +712,17 @@ class CfnApplication(
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__b220c6975b2fa737bd89eee1ab6f116e5ebe4d905d6233b53e35f5b0b40f162e)
                 check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "scope": scope,
-            }
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if scope is not None:
+                self._values["scope"] = scope
 
         @builtins.property
-        def scope(self) -> builtins.str:
+        def scope(self) -> typing.Optional[builtins.str]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appintegrations-application-contacthandling.html#cfn-appintegrations-application-contacthandling-scope
             '''
             result = self._values.get("scope")
-            assert result is not None, "Required property 'scope' is missing"
-            return typing.cast(builtins.str, result)
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -757,6 +888,7 @@ class CfnApplication(
         "namespace": "namespace",
         "application_config": "applicationConfig",
         "application_type": "applicationType",
+        "auth_config": "authConfig",
         "description": "description",
         "iframe_config": "iframeConfig",
         "initialization_timeout": "initializationTimeout",
@@ -774,6 +906,7 @@ class CfnApplicationProps:
         namespace: builtins.str,
         application_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.ApplicationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         application_type: typing.Optional[builtins.str] = None,
+        auth_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.AuthConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
         iframe_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplication.IframeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         initialization_timeout: typing.Optional[jsii.Number] = None,
@@ -788,6 +921,7 @@ class CfnApplicationProps:
         :param namespace: The namespace of the application.
         :param application_config: 
         :param application_type: The type of application.
+        :param auth_config: 
         :param description: The description of the application.
         :param iframe_config: 
         :param initialization_timeout: The initialization timeout in milliseconds. Required when IsService is true.
@@ -824,6 +958,13 @@ class CfnApplicationProps:
                     )
                 ),
                 application_type="applicationType",
+                auth_config=appintegrations.CfnApplication.AuthConfigProperty(
+                    auth_type="authType",
+            
+                    # the properties below are optional
+                    audience_override="audienceOverride",
+                    credential_provider_identifier="credentialProviderIdentifier"
+                ),
                 description="description",
                 iframe_config=appintegrations.CfnApplication.IframeConfigProperty(
                     allow=["allow"],
@@ -845,6 +986,7 @@ class CfnApplicationProps:
             check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
             check_type(argname="argument application_config", value=application_config, expected_type=type_hints["application_config"])
             check_type(argname="argument application_type", value=application_type, expected_type=type_hints["application_type"])
+            check_type(argname="argument auth_config", value=auth_config, expected_type=type_hints["auth_config"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument iframe_config", value=iframe_config, expected_type=type_hints["iframe_config"])
             check_type(argname="argument initialization_timeout", value=initialization_timeout, expected_type=type_hints["initialization_timeout"])
@@ -860,6 +1002,8 @@ class CfnApplicationProps:
             self._values["application_config"] = application_config
         if application_type is not None:
             self._values["application_type"] = application_type
+        if auth_config is not None:
+            self._values["auth_config"] = auth_config
         if description is not None:
             self._values["description"] = description
         if iframe_config is not None:
@@ -923,6 +1067,16 @@ class CfnApplicationProps:
         '''
         result = self._values.get("application_type")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def auth_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.AuthConfigProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appintegrations-application.html#cfn-appintegrations-application-authconfig
+        '''
+        result = self._values.get("auth_config")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplication.AuthConfigProperty"]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -2201,6 +2355,7 @@ def _typecheckingstub__2c1bbb1e03e672595eb80bdb7dcb70bb6e71fccf39633133ee8a5b86b
     namespace: builtins.str,
     application_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.ApplicationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     application_type: typing.Optional[builtins.str] = None,
+    auth_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.AuthConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     iframe_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.IframeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     initialization_timeout: typing.Optional[jsii.Number] = None,
@@ -2265,6 +2420,12 @@ def _typecheckingstub__ff0b1b75808885a4f334f5f84d807773cd77be8f49c2b5fe7f8fd8276
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__635caebf7d2f84364134ff4d2bbd5a5b43cd95f505457ab83feeb74bc756d4d1(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnApplication.AuthConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__87943d6227ebd97ed6b280da7778e22bd3c7bef93cf9ab4a400fe6c9240847b1(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -2310,14 +2471,23 @@ def _typecheckingstub__7a200fd881a848470f5631cfc744a53d5588ec7b4c6cf9b16ad4a194b
 
 def _typecheckingstub__599151bfc17f24879de38cf44b4a12c218d6b40ffaf8a24fc33beaa3691268b7(
     *,
-    external_url_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.ExternalUrlConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    external_url_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.ExternalUrlConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dfd5e8f3f947497096c60cff51ef7ed124aad50756c1cde022adbd49a0ac2da8(
+    *,
+    auth_type: builtins.str,
+    audience_override: typing.Optional[builtins.str] = None,
+    credential_provider_identifier: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__b220c6975b2fa737bd89eee1ab6f116e5ebe4d905d6233b53e35f5b0b40f162e(
     *,
-    scope: builtins.str,
+    scope: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2345,6 +2515,7 @@ def _typecheckingstub__7d2c7ce5dfd3af1b41c02f961c30070527579ac243574e11a9dfe26cc
     namespace: builtins.str,
     application_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.ApplicationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     application_type: typing.Optional[builtins.str] = None,
+    auth_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.AuthConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     iframe_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplication.IframeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     initialization_timeout: typing.Optional[jsii.Number] = None,

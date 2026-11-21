@@ -24,7 +24,8 @@ use crate::compiler::errors::{
     InvalidBase64Alphabet, InvalidModifier, InvalidModifierCombination,
     InvalidPattern, InvalidRange, InvalidRegexp, MismatchingTypes,
     MixedGreediness, NumberOutOfRange, SyntaxError, TooManyPatterns,
-    TooManyVariables, UnexpectedNegativeNumber, WrongArguments, WrongType,
+    TooManyVariables, UnexpectedNegativeNumber, UnknownField, WrongArguments,
+    WrongType,
 };
 use crate::compiler::ir::hex2hir::hex_pattern_hir_from_ast;
 use crate::compiler::ir::{
@@ -34,7 +35,7 @@ use crate::compiler::ir::{
 use crate::compiler::report::{Level, ReportBuilder};
 use crate::compiler::{
     CompileContext, CompileError, FilesizeBounds, ForVars, HeaderConstraint,
-    LiteralSetId, PatternIdx, RegexSetId, TextPatternAsHex, warnings,
+    LiteralSetId, PatternIdx, RegExpSetId, TextPatternAsHex, warnings,
 };
 use crate::errors::CustomError;
 use crate::errors::{MethodNotAllowedInWith, PotentiallySlowLoop};
@@ -2422,9 +2423,19 @@ fn func_call_from_ast<'src>(
     let mut object = if let Some(obj) = &func_call.object {
         let expr = expr_from_ast(ctx, obj)?;
         // The one-shot symbol table is set according to the type of the object
-        // associated to the function call, so that methods can be resolved.
-        ctx.one_shot_symbol_table =
-            ctx.ir.get(expr).type_value().symbol_table();
+        // associated to the function call, so that methods can be resolved. If
+        // the object's type doesn't have an associated symbol table it can't
+        // have any fields or methods.
+        ctx.one_shot_symbol_table = Some(
+            ctx.ir.get(expr).type_value().symbol_table().ok_or_else(|| {
+                UnknownField::build(
+                    ctx.report_builder,
+                    func_call.identifier.name.to_string(),
+                    ctx.report_builder
+                        .span_to_code_loc(func_call.identifier.span()),
+                )
+            })?,
+        );
         Some(expr)
     } else {
         None
@@ -3188,7 +3199,7 @@ fn collapse_or_operands(
                     // `ast::Expr::Regexp` operand that was already parsed and
                     // validated with the same `relaxed_re_syntax` setting.
                     hirs.push(parser.parse(re).unwrap());
-                    re_ids.push(ctx.regex_pool.get_or_intern(re.as_str()));
+                    re_ids.push(ctx.regexp_pool.get_or_intern(re.as_str()));
                 }
 
                 // Skip collapsing into `MatchesMany` if the combined NFA would
@@ -3198,8 +3209,8 @@ fn collapse_or_operands(
                     continue;
                 }
 
-                let set_id = RegexSetId::from(ctx.regex_sets.len() as i32);
-                ctx.regex_sets.insert(set_id, re_ids);
+                let set_id = RegExpSetId::from(ctx.regexp_set.len() as i32);
+                ctx.regexp_set.insert(set_id, re_ids);
                 ctx.ir.matches_regex_set(first_lhs, set_id)
             } else {
                 let set_id = LiteralSetId::from(ctx.literal_sets.len() as i32);
@@ -3448,7 +3459,7 @@ fn eq_check(
         |ctx: &mut CompileContext,
          const_string: Rc<BString>,
          const_string_span: Span,
-         constraints: Box<[StringConstraint]>,
+         constraints: Vec<StringConstraint>,
          constrained_string_span: Span| {
             for constraint in constraints {
                 match constraint {

@@ -732,7 +732,7 @@ class TiktokShopNamespace:
         count, brand collaborations, follower age/gender/location demographics,
         category GMV split, and video versus live engagement.
 
-        Price: $0.0055 per request plus $0 per result (maximum $0.0055).
+        Price: $0.006 per request plus $0 per result (maximum $0.006).
 
         Example:
             res = client.tiktok_shop.creator(handle="golinutrition")
@@ -954,7 +954,7 @@ class AsyncTiktokShopNamespace:
         count, brand collaborations, follower age/gender/location demographics,
         category GMV split, and video versus live engagement.
 
-        Price: $0.0055 per request plus $0 per result (maximum $0.0055).
+        Price: $0.006 per request plus $0 per result (maximum $0.006).
 
         Example:
             res = client.tiktok_shop.creator(handle="golinutrition")

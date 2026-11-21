@@ -12,6 +12,8 @@ Usage::
     from types_boto3_agent_registry_control import (
         AgentRegistryControlClient,
         Client,
+        ListPublisherAssociationsPaginator,
+        ListPublishersPaginator,
         ListRegistriesPaginator,
         ListRegistryRecordsPaginator,
         RegistryReadyWaiter,
@@ -24,13 +26,20 @@ Usage::
     registry_ready_waiter: RegistryReadyWaiter = client.get_waiter("registry_ready")
     registry_record_approved_waiter: RegistryRecordApprovedWaiter = client.get_waiter("registry_record_approved")
 
+    list_publisher_associations_paginator: ListPublisherAssociationsPaginator = client.get_paginator("list_publisher_associations")
+    list_publishers_paginator: ListPublishersPaginator = client.get_paginator("list_publishers")
     list_registries_paginator: ListRegistriesPaginator = client.get_paginator("list_registries")
     list_registry_records_paginator: ListRegistryRecordsPaginator = client.get_paginator("list_registry_records")
     ```
 """
 
 from .client import AgentRegistryControlClient
-from .paginator import ListRegistriesPaginator, ListRegistryRecordsPaginator
+from .paginator import (
+    ListPublisherAssociationsPaginator,
+    ListPublishersPaginator,
+    ListRegistriesPaginator,
+    ListRegistryRecordsPaginator,
+)
 from .waiter import RegistryReadyWaiter, RegistryRecordApprovedWaiter
 
 Client = AgentRegistryControlClient
@@ -38,6 +47,8 @@ Client = AgentRegistryControlClient
 __all__ = (
     "AgentRegistryControlClient",
     "Client",
+    "ListPublisherAssociationsPaginator",
+    "ListPublishersPaginator",
     "ListRegistriesPaginator",
     "ListRegistryRecordsPaginator",
     "RegistryReadyWaiter",
