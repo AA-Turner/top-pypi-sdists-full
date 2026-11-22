@@ -14,13 +14,13 @@ from datamodel_code_generator._format_types import PythonVersion as PythonVersio
 from datamodel_code_generator._option_rules import implied_options as implied_options
 from datamodel_code_generator._requirements import pydantic_target_meets as pydantic_target_meets
 from datamodel_code_generator._requirements import python_target_meets as python_target_meets
+from datamodel_code_generator.enums import _PYDANTIC_MODEL_TYPES, DataModelType
 
 from .base import UNDEFINED, ConstraintsBase, DataModel, DataModelFieldBase, _rebuild_model_with_datamodel_namespace
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
 
-    from datamodel_code_generator import DataModelType
     from datamodel_code_generator.enums import TargetPydanticVersion
     from datamodel_code_generator.types import DataTypeManager as DataTypeManagerABC
 
@@ -43,7 +43,7 @@ class DataModelSet(NamedTuple):
     known_third_party: list[str] | None = None
 
 
-def get_data_model_types(  # noqa: PLR0912, PLR0913, PLR0917
+def get_data_model_types(  # noqa: PLR0912, PLR0917
     data_model_type: DataModelType,
     target_python_version: PythonVersion = DEFAULT_TARGET_PYTHON_VERSION,
     use_type_alias: bool = False,  # noqa: FBT001, FBT002
@@ -53,8 +53,6 @@ def get_data_model_types(  # noqa: PLR0912, PLR0913, PLR0917
     target_pydantic_version: TargetPydanticVersion | None = None,
 ) -> DataModelSet:
     """Get the model types for the output format, target Python version, and target Pydantic version."""
-    from datamodel_code_generator import DataModelType  # noqa: PLC0415
-    from datamodel_code_generator.enums import _PYDANTIC_MODEL_TYPES  # noqa: PLC0415
 
     def get_auxiliary_model_types() -> tuple[type[DataModel], type[DataModel], type[DataModel]]:
         from . import scalar, type_alias, union  # noqa: PLC0415
@@ -150,8 +148,8 @@ def get_data_model_types(  # noqa: PLR0912, PLR0913, PLR0917
             return aliased_model_set(
                 msgspec.Struct, msgspec.DataModelField, msgspec.DataTypeManager, known_third_party=["msgspec"]
             )
-    msg = f"{data_model_type} is unsupported data model type"  # pragma: no cover
-    raise ValueError(msg)  # pragma: no cover
+    msg = f"{data_model_type} is unsupported data model type"
+    raise ValueError(msg)
 
 
 __all__ = [

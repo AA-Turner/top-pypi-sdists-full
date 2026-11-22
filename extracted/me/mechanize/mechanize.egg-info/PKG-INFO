@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: mechanize
-Version: 0.4.10
+Version: 0.4.11
 Summary: Stateful, programmatic web browsing
 Home-page: https://github.com/python-mechanize/mechanize
 Author: Kovid Goyal
@@ -44,6 +44,7 @@ Requires-Dist: html5lib; extra == "test"
 Provides-Extra: binarytest
 Requires-Dist: lxml; extra == "binarytest"
 Requires-Dist: html5-parser; extra == "binarytest"
+Dynamic: license-file
 
 mechanize - Automate interaction with HTTP web servers
 ##########################################################

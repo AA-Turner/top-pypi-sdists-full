@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import inspect
 import json
+import os
 import py_compile
 import re
 import shutil
+import subprocess
 import sys
 import warnings
 from pathlib import Path
@@ -17,6 +20,7 @@ from graphql import GraphQLSyntaxError
 from graphql import Source as GraphQLSource
 
 from datamodel_code_generator import (
+    ClassNameAffixScope,
     DanglingRefWarning,
     DataModelType,
     Error,
@@ -28,7 +32,7 @@ from datamodel_code_generator import (
     generate,
     snooper_to_methods,
 )
-from datamodel_code_generator.__main__ import Exit
+from datamodel_code_generator.__main__ import Config, Exit
 from datamodel_code_generator.config import GenerateConfig
 from datamodel_code_generator.format import Formatter
 from datamodel_code_generator.parser.base import Source, dump_templates
@@ -40,7 +44,6 @@ from tests.conftest import (
     assert_output,
     assert_warnings_contain,
     assert_warnings_do_not_contain,
-    create_assert_file_content,
     stored_expected,
 )
 from tests.main.conftest import (
@@ -61,8 +64,6 @@ if TYPE_CHECKING:
 
 
 MALFORMED_DATA_PATH = DATA_PATH / "malformed"
-EXPECTED_MALFORMED_PATH = DATA_PATH / "expected" / "main" / "malformed"
-assert_file_content = create_assert_file_content(EXPECTED_MALFORMED_PATH)
 TRACEBACK_HEADER = "Traceback (most recent call last)"
 ISSUE_SCHEMA = '{"type": "object", "title": "Pet", "properties": {"name": {"type": "string"}}}\n'
 UNENCODABLE_HEADER = "# Café 漢"
@@ -237,6 +238,33 @@ def test_generate_list_input_does_not_overwrite_input(tmp_path: Path) -> None:
     )
 
 
+@pytest.mark.parametrize(
+    "input_",
+    [pytest.param([], id="empty"), pytest.param(["person.json"], id="strings")],
+)
+def test_generate_list_input_that_is_no_path_list_is_refused(input_: list[str]) -> None:
+    """Refuse a list input that is empty or holds anything but paths."""
+    with pytest.raises(Error, match="List input is only supported for file path lists"):
+        generate(input_, input_file_type=InputFileType.JsonSchema)
+
+
+def test_json_input_directory_is_a_clean_cli_error(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """A directory given with ``--input-file-type json`` is refused: the sample has to be a file."""
+    source_path = tmp_path / "samples"
+    source_path.mkdir()
+    (source_path / "sample.json").write_text('{"name": "dcg"}\n', encoding="utf-8")
+
+    run_main_and_assert(
+        input_path=source_path,
+        output_path=tmp_path / "output.py",
+        input_file_type="json",
+        expected_exit=Exit.ERROR,
+        capsys=capsys,
+        expected_stderr_contains="Input must be a file for InputFileType.Json",
+        output_should_not_exist=True,
+    )
+
+
 @pytest.mark.parametrize(("entrypoint", "update_lock"), [("api", False), ("cli", False), ("api", True), ("cli", True)])
 @pytest.mark.parametrize("layout", ["sibling", "child", "same"])
 @pytest.mark.parametrize("metadata_location", [None, "inside", "outside"])
@@ -259,7 +287,6 @@ def test_output_path_can_write_inside_input_directory(
     metadata = None
     if metadata_location is not None:
         metadata = (input_path if metadata_location == "inside" else tmp_path) / "model_map.json"
-    expected_directory = EXPECTED_MALFORMED_PATH / "directory_input"
     for run in range(2):
         match entrypoint:
             case "api":
@@ -272,7 +299,7 @@ def test_output_path_can_write_inside_input_directory(
                     emit_model_metadata=metadata,
                     update_lock=update_lock,
                     lockfile=tmp_path / "refs.lock",
-                    expected_directory=expected_directory,
+                    name="tree",
                 )
             case _:
                 extra_args = ["--disable-timestamp", "--formatters", "builtin"]
@@ -285,7 +312,7 @@ def test_output_path_can_write_inside_input_directory(
                     output_path=output_path,
                     input_file_type="jsonschema" if input_file_type == InputFileType.JsonSchema else None,
                     extra_args=extra_args,
-                    expected_directory=expected_directory,
+                    name="tree",
                     capsys=capsys,
                     assert_no_stderr=input_file_type == InputFileType.JsonSchema,
                 )
@@ -345,6 +372,48 @@ def test_pyproject_http_pairs_that_are_no_list_are_a_clean_cli_error(
     run_main_with_args([], expected_exit=Exit.ERROR, capsys=capsys, expected_stderr_contains=message)
 
 
+def test_http_header_without_a_colon_is_a_clean_cli_error(capsys: pytest.CaptureFixture[str]) -> None:
+    """A ``--http-headers`` value without the separator is refused, naming the value."""
+    run_main_with_args(
+        ["--http-headers", "NoColon"],
+        expected_exit=Exit.ERROR,
+        capsys=capsys,
+        expected_stderr_contains="Invalid http header: 'NoColon'",
+    )
+
+
+def test_pyproject_http_pairs_may_be_written_as_arrays(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A header of pyproject.toml written as a ``[name, value]`` array is taken as the pair it is."""
+    (tmp_path / "pyproject.toml").write_text(
+        '[tool.datamodel-codegen]\nhttp-headers = [["X-Token", "secret"]]\nhttp-query-parameters = [["page", "1"]]\n',
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+
+    input_path = tmp_path / "pet.json"
+    input_path.write_text(
+        '{"title": "Pet", "type": "object", "properties": {"name": {"type": "string"}}}\n', encoding="utf-8"
+    )
+
+    run_main_and_assert(
+        input_path=input_path,
+        output_path=tmp_path / "o.py",
+        input_file_type="jsonschema",
+        extra_args=["--disable-timestamp", "--formatters", "builtin"],
+    )
+
+
+@pytest.mark.allow_direct_assert("states the facts of the public Config class, which writes no output")
+def test_config_takes_unset_values_and_item_access() -> None:
+    """The public ``Config`` keeps ``None`` for its optional settings and reads settings by item or ``get``."""
+    config = Config(http_headers=None, url=None, class_name_affix_scope=None)
+
+    assert config.http_headers is None
+    assert config["url"] is None
+    assert config.get("class_name_affix_scope") is ClassNameAffixScope.All
+    assert Config(class_name_affix_scope=ClassNameAffixScope.Enums).class_name_affix_scope is ClassNameAffixScope.Enums
+
+
 @pytest.mark.parametrize(
     ("suffix", "inside_output", "input_file_type", "header", "yaml_key"),
     [
@@ -393,6 +462,7 @@ def test_directory_input_preserves_nonstandard_schema_files(
             extra_args=extra_args,
             # The output tree also contains the intentionally non-Python .py input.
             skip_code_validation=yaml_key is not None,
+            name="tree",
         )
         generated = module_path.read_text(encoding="utf-8")
         if header is not None:
@@ -403,8 +473,9 @@ def test_directory_input_preserves_nonstandard_schema_files(
             generated = generated.replace(
                 f"#   filename:  {source_path.relative_to(input_path).as_posix()}", "#   filename:  person.json"
             )
-        assert_output(generated, DATA_PATH / "expected" / "main" / "person.py")
-    assert_output(source_path.read_text(encoding="utf-8"), original_source)
+        assert_output(generated, name="model", suffix=".py")
+    assert_output(original_source.read_text(encoding="utf-8"), name="source")
+    assert_output(source_path.read_text(encoding="utf-8"), name="source")
 
 
 @pytest.mark.parametrize(("mode", "trailing"), [("prepend", "\n\n"), ("prepend", "\r\n\r\n"), ("replace", "\n\n")])
@@ -432,6 +503,7 @@ def test_directory_input_custom_header_trailing_newlines(
                 "--custom-file-header-mode",
                 mode,
             ],
+            name="tree",
         )
         generated = (output_path / "person.py").read_text(encoding="utf-8")
         if mode == "prepend":
@@ -439,7 +511,7 @@ def test_directory_input_custom_header_trailing_newlines(
         else:
             generated = generated.removeprefix(header + "\n\n")
             generated = f"# generated by datamodel-codegen:\n#   filename:  person.json\n\n{generated}"
-        assert_output(generated, DATA_PATH / "expected" / "main" / "person.py")
+        assert_output(generated, name="model", suffix=".py")
 
 
 @needs("symlinks")
@@ -452,14 +524,13 @@ def test_directory_input_excludes_metadata_symlink_spellings(tmp_path: Path, tar
     output_path = tmp_path / "generated"
     metadata = input_path / "model_map.json"
     metadata.symlink_to((input_path if target_inside else tmp_path) / "metadata.json")
-    expected_directory = EXPECTED_MALFORMED_PATH / "directory_input"
     for _ in range(2):
         run_main_and_assert(
             input_path=input_path,
             output_path=output_path,
             input_file_type="jsonschema",
             extra_args=["--disable-timestamp", "--formatters", "builtin", "--emit-model-metadata", str(metadata)],
-            expected_directory=expected_directory,
+            name="tree",
         )
 
 
@@ -501,8 +572,7 @@ def test_directory_input_retains_type_aliases_without_future_imports(tmp_path: P
                 "3.12",
                 "--disable-future-imports",
             ],
-            assert_func=assert_file_content,
-            output_to_expected=[("child.py", "directory_input_alias.py")],
+            name="tree",
             skip_code_validation=sys.version_info < (3, 12),
         )
         if run == 0:
@@ -587,7 +657,7 @@ def test_modular_output_file_is_a_clean_cli_error(tmp_path: Path, capsys: pytest
         expected_stderr="Modular references require an output directory, not a file\n",
         copy_files=[(stored_expected(existing_file), output_path)],
     )
-    assert_output(output_path.read_text(encoding="utf-8"), existing_file)
+    assert_output(output_path.read_text(encoding="utf-8"), suffix=".py")
 
 
 def test_modular_output_below_a_file_names_the_file(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -2116,6 +2186,36 @@ def test_dangling_local_ref_warns_and_preserves_generated_output(
     )
 
 
+def test_dangling_local_ref_warning_is_filtered_as_the_package(tmp_path: Path) -> None:
+    """`PYTHONWARNINGS=error:::datamodel_code_generator` makes the dangling `$ref` warning an error, as before."""
+    package = Path(inspect.getfile(generate)).parent
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "datamodel_code_generator",
+            "--input",
+            str(MALFORMED_DATA_PATH / "dangling_local_ref.json"),
+            "--input-file-type",
+            "jsonschema",
+            "--formatters",
+            "builtin",
+        ],
+        capture_output=True,
+        check=False,
+        cwd=tmp_path,
+        env={**os.environ, "PYTHONPATH": str(package.parent), "PYTHONWARNINGS": "error:::datamodel_code_generator"},
+        text=True,
+        timeout=120,
+    )
+    assert_output(
+        f"exit status: {result.returncode}\n"
+        + "".join(
+            line[:60] + "\n" for line in result.stderr.splitlines() if line.startswith("datamodel_code_generator.")
+        )
+    )
+
+
 def test_dangling_component_ref_warning_names_the_parse_caller(output_file: Path) -> None:
     """The diagnostics warnings of an OpenAPI document name ``OpenAPIParser.parse()``, which calls the base one."""
     with pytest.warns(DanglingRefWarning) as warning_records:
@@ -2141,15 +2241,17 @@ def test_dangling_component_ref_warning_names_the_parse_caller(output_file: Path
 def debug_tracing(monkeypatch: pytest.MonkeyPatch) -> Iterator[ModuleType]:
     """Turn on the tracing of ``--debug`` and leave the process as it was found when the test ends.
 
-    The tracing state, and the namespaces of the package and of the parser's modules, whose functions the decoration
-    of ``snooper_to_methods`` wraps, come back afterwards, so no wrapper changes a frame a later test's warnings name.
+    The tracing state, and the namespaces of the package, of its tracing module and of the parser's modules, whose
+    functions the decoration of ``snooper_to_methods`` wraps, come back afterwards, so no wrapper changes a frame a
+    later test's warnings name.
     """
     pysnooper = pytest.importorskip("pysnooper")
     monkeypatch.setattr(pysnooper.tracer, "DISABLED", pysnooper.tracer.DISABLED)
     namespaces = [
         (vars(module), dict(vars(module)))
         for module_name, module in [*sys.modules.items()]
-        if module_name == "datamodel_code_generator" or module_name.startswith("datamodel_code_generator.parser._")
+        if module_name in {"datamodel_code_generator", "datamodel_code_generator._debug"}
+        or module_name.startswith("datamodel_code_generator.parser._")
     ]
     enable_debug_message()
     yield pysnooper
@@ -2380,7 +2482,7 @@ fallback `Any` model. Enable this option in validation-sensitive workflows to st
 generation instead. Existing empty schemas remain valid references.""",
     input_schema="malformed/empty_local_ref.json",
     cli_args=["--strict-refs"],
-    golden_output="main/malformed/empty_local_ref.py",
+    golden_output="main/error_messages/empty_local_ref_is_valid_in_strict_mode.py",
 )
 def test_empty_local_ref_is_valid_in_strict_mode(
     output_file: Path,
@@ -2397,8 +2499,6 @@ def test_empty_local_ref_is_valid_in_strict_mode(
         output_path=output_file,
         input_file_type="jsonschema",
         extra_args=["--strict-refs", "--disable-timestamp"],
-        assert_func=assert_file_content,
-        expected_file=EXPECTED_MALFORMED_PATH / "empty_local_ref.py",
         capsys=capsys,
         assert_no_stderr=True,
         importable_module_name="generated_empty_local_ref",
@@ -2416,25 +2516,23 @@ def test_cross_file_empty_ref_is_valid_in_strict_mode(
         output_path=output_dir,
         input_file_type="jsonschema",
         extra_args=["--strict-refs", "--disable-timestamp"],
-        expected_directory=EXPECTED_MALFORMED_PATH / "cross_file_empty_ref",
         capsys=capsys,
         assert_no_stderr=True,
     )
 
 
 @pytest.mark.parametrize(
-    ("raw", "ref", "expected_file", "expected_warning"),
+    ("raw", "ref", "expected_warning"),
     [
-        ({"$defs": {"Empty": {}}}, "#/$defs/Empty", "parsed_empty_pointer.py", None),
-        ({"$defs": {}}, "#/$defs/Missing", "parsed_missing_pointer.py", r"Unresolved local \$ref"),
-        ({"items": [{}]}, "#/items/0", "parsed_array_pointer.py", None),
+        ({"$defs": {"Empty": {}}}, "#/$defs/Empty", None),
+        ({"$defs": {}}, "#/$defs/Missing", r"Unresolved local \$ref"),
+        ({"items": [{}]}, "#/items/0", None),
     ],
     ids=("empty", "missing", "array"),
 )
 def test_parse_deferred_json_pointer(
     raw: dict[str, YamlValue],
     ref: str,
-    expected_file: str,
     expected_warning: str | None,
 ) -> None:
     """Resolve deferred JSON pointers without conflating missing and empty schemas."""
@@ -2445,7 +2543,7 @@ def test_parse_deferred_json_pointer(
     else:
         with pytest.warns(DanglingRefWarning, match=expected_warning):
             parser._report_parse_diagnostics()
-    assert_output(f"{dump_templates(list(parser.results))}\n", EXPECTED_MALFORMED_PATH / expected_file)
+    assert_output(f"{dump_templates(list(parser.results))}\n", suffix=".py")
 
 
 def test_parse_file_object_path_without_resolved_ref() -> None:
@@ -2454,7 +2552,7 @@ def test_parse_file_object_path_without_resolved_ref() -> None:
     parser._parse_file({"$defs": {"Empty": {}}}, "Empty", [], ["$defs", "Empty"])
     assert_output(
         f"{dump_templates(list(parser.results))}\n",
-        EXPECTED_MALFORMED_PATH / "parsed_empty_pointer.py",
+        suffix=".py",
     )
 
 

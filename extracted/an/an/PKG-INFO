@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: an
-Version: 0.1.398
+Version: 0.1.412
 Summary: AI-driven structured animation in Python: scene.md to rendered video.
 Project-URL: Homepage, https://github.com/thorwhalen/an
 Project-URL: Repository, https://github.com/thorwhalen/an
@@ -27,6 +27,7 @@ Requires-Dist: pydantic
 Requires-Dist: pyyaml
 Requires-Dist: tituli
 Requires-Dist: typer
+Requires-Dist: voxy
 Provides-Extra: cutout
 Requires-Dist: cutan; extra == 'cutout'
 Requires-Dist: ffmpeg-python; extra == 'cutout'

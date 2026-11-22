@@ -23,8 +23,8 @@ class Model:
     kind="model"    — a model the platform serves itself, called with a key (GET /v1/models): `endpoint` is "chat"
                       or "decide", the rest of the row (pricing, supported_parameters, ...) is in `raw`.
     kind="template" — a starting point for `seq init <name>` (GET /v1/templates): `template_kind` is "policy",
-                      "benchmark" or "adapter", `stable` / `beta` the version each channel points at, `usage` the
-                      command; it has no endpoint.
+                      "benchmark" or "adapter", `version` its one version, `usage` the command; it has no
+                      endpoint.
 
     A robot policy has no entry: it runs as its own deployment, and what it reads and returns is its own, not a
     catalogue row.
@@ -36,8 +36,8 @@ class Model:
     raw: dict[str, Any] = field(default_factory=dict)
     kind: str = "model"
     template_kind: str | None = None
-    stable: str | None = None
-    beta: str | None = None
+
+    version: str | None = None
     usage: str | None = None
 
     @property

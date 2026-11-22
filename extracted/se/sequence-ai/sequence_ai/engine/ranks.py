@@ -72,6 +72,30 @@ def from_env(environ: Mapping[str, str] = os.environ) -> Optional["Group"]:
     return Group(rank, world, environ.get("MASTER_ADDR") or "127.0.0.1", port)
 
 
+def own_card(environ: Any = os.environ) -> Optional[str]:
+    """Where this process is one rank of several on its machine (a launcher's LOCAL_RANK, WORLD_SIZE above 1), its own
+    card alone in sight, as its cuda:0 - CUDA_VISIBLE_DEVICES set to the LOCAL_RANK-th of the cards it saw, or to
+    LOCAL_RANK where none were named - before a policy is built, as each copy of a worker sees its own card
+    (engine.replicas). The card, or None where nothing was set: one process, or no LOCAL_RANK.
+    WHY: a policy's .cuda() puts its model on the first card it sees, so every rank's model would land on that one card,
+    where NCCL cannot connect two ranks and the other cards stay idle: on a machine of two L4s, both ranks' models sat
+    on card 0 (5890 MiB, card 1 308 MiB) and cfg_parallel's warm-up never got past its first call."""
+    try:
+        world = int(environ.get("WORLD_SIZE") or 1)
+        local = int(environ["LOCAL_RANK"])
+    except (KeyError, ValueError):
+        return None
+    if world < 2:
+        return None
+    seen = [card.strip() for card in str(environ.get("CUDA_VISIBLE_DEVICES") or "").split(",") if card.strip()]
+    if seen and local >= len(seen):
+        raise ValueError(f"LOCAL_RANK {local} has no card of its own: CUDA_VISIBLE_DEVICES names {len(seen)} "
+                         f"({','.join(seen)}), one a rank")
+    card = seen[local] if seen else str(local)
+    environ["CUDA_VISIBLE_DEVICES"] = card
+    return card
+
+
 class Group:
     """
     This process's rank in a group of `size` (from_env), rank 0 reached at `host`:`port`.

@@ -85,9 +85,28 @@ mod text {
         text
     }
 
+    #[divan::bench]
+    fn mixed_line_breaks(bencher: Bencher<'_, '_>) {
+        let text = "first line\nsecond line\r\nthird line\r\r\n\n".repeat(10_000);
+        let splitter = TextSplitter::new(512);
+        bencher
+            .counter(BytesCount::of_str(&text))
+            .bench(|| splitter.chunks(&text).for_each(black_box_drop));
+    }
+
     #[divan::bench(args = TEXT_FILENAMES, consts = CHUNK_SIZES)]
     fn characters<const N: usize>(bencher: Bencher<'_, '_>, filename: &str) {
         bench(bencher, filename, || TextSplitter::new(N));
+    }
+
+    #[divan::bench(args = [2_000, 4_000, 8_000, 16_000], consts = [0, 24])]
+    fn distant_sentence_boundary<const OVERLAP: usize>(bencher: Bencher<'_, '_>, words: usize) {
+        let text = "alpha beta gamma delta ".repeat(words / 4);
+        let config = ChunkConfig::new(64).with_overlap(OVERLAP).unwrap();
+        let splitter = TextSplitter::new(config.with_trim(false));
+        bencher
+            .counter(BytesCount::of_str(&text))
+            .bench(|| splitter.chunks(&text).for_each(black_box_drop));
     }
 
     #[divan::bench(consts = DISTANT_BOUNDARY_CHUNK_SIZES)]
@@ -103,6 +122,15 @@ mod text {
             .bench_values(|(splitter, text)| {
                 splitter.chunks(&text).for_each(black_box_drop);
             });
+    }
+
+    #[divan::bench(args = ["日本語の長い文章に句読点がない", "ภาษาไทยไม่มีเว้นวรรคระหว่างคำ"])]
+    fn dictionary_word_fallback(bencher: Bencher<'_, '_>, phrase: &str) {
+        let text = phrase.repeat(500);
+        let splitter = TextSplitter::new(64);
+        bencher
+            .counter(BytesCount::of_str(&text))
+            .bench(|| splitter.chunks(&text).for_each(black_box_drop));
     }
 
     #[cfg(feature = "tiktoken-rs")]
@@ -152,6 +180,16 @@ mod markdown {
         bench(bencher, filename, || MarkdownSplitter::new(N));
     }
 
+    #[divan::bench(args = [true, false])]
+    fn single_line_distant_emphasis(bencher: Bencher<'_, '_>, trim: bool) {
+        let mut text = "alpha beta gamma delta ".repeat(8_000);
+        text.push_str("**end**");
+        let splitter = MarkdownSplitter::new(ChunkConfig::new(64).with_trim(trim));
+        bencher
+            .counter(BytesCount::of_str(&text))
+            .bench(|| splitter.chunks(&text).for_each(black_box_drop));
+    }
+
     #[cfg(feature = "tiktoken-rs")]
     #[divan::bench(args = MARKDOWN_FILENAMES, consts = CHUNK_SIZES)]
     fn tiktoken<const N: usize>(bencher: Bencher<'_, '_>, filename: &str) {
@@ -199,6 +237,32 @@ mod code {
         bench(bencher, filename, || {
             CodeSplitter::new(tree_sitter_rust::LANGUAGE, N).unwrap()
         });
+    }
+
+    #[divan::bench(args = [1_000, 2_000, 4_000, 8_000])]
+    fn repeated_functions(bencher: Bencher<'_, '_>, count: usize) {
+        let function = "fn f(x: i32) -> i32 { if x > 0 { x + 1 } else { -x } }\n";
+        let source = function.repeat(count);
+        let config = ChunkConfig::new(function.len()); // One chunk per function.
+        let splitter = CodeSplitter::new(tree_sitter_rust::LANGUAGE, config).unwrap();
+        bencher
+            .counter(BytesCount::of_str(&source))
+            .bench(|| splitter.chunks(&source).for_each(black_box_drop));
+    }
+
+    #[divan::bench(args = [2_000, 4_000, 8_000], consts = [6, 160])]
+    fn distant_nested_call<const DEPTH: usize>(bencher: Bencher<'_, '_>, count: usize) {
+        // The deepest levels occur only at the end, after many chunks of shallow code.
+        let source = format!(
+            "{}fn g() {{ {}x{}; }}\n",
+            "fn f() { a(); }\n".repeat(count),
+            "f(".repeat(DEPTH),
+            ")".repeat(DEPTH)
+        );
+        let splitter = CodeSplitter::new(tree_sitter_rust::LANGUAGE, 64).unwrap();
+        bencher
+            .counter(BytesCount::of_str(&source))
+            .bench(|| splitter.chunks(&source).for_each(black_box_drop));
     }
 
     #[cfg(feature = "tiktoken-rs")]

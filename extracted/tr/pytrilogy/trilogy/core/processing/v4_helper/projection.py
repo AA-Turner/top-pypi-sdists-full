@@ -4,7 +4,6 @@ from collections.abc import Collection, Iterable, Iterator, Mapping
 from types import MappingProxyType
 
 from trilogy.core.enums import Derivation
-from trilogy.core.models.author import SelectLineage
 from trilogy.core.models.build import (
     BoolExpr,
     BuildConcept,
@@ -340,9 +339,11 @@ def widen_projection(
         # the boundary computes its handles off their content, its inputs
         output_concepts = list(output_concepts)
         bounded = {h.address for h in _bounded_handles(node)}
+        # a constant renders inline: no parent supplies it
         input_candidates = [
             content
             for c in [*input_candidates, *output_concepts]
+            if c.derivation != Derivation.CONSTANT
             for content in (
                 iter_row_lineage(c.lineage.content)
                 if c.address in bounded and isinstance(c.lineage, BuildRowsetItem)
@@ -389,21 +390,23 @@ def decided_at_output_grain(
     return True
 
 
-def _has_concept_existence(where: BuildWhereClause) -> bool:
-    """True only for a REAL subselect arg (`x in <other column/select>`), one
-    whose existence side carries concepts. A literal IN-list (`month in (1,2,3,4)`)
-    is also modeled as a subselect comparison but has no existence concepts, so it
-    is a plain scalar predicate safe to push into a WHERE."""
+def _reads_a_set(where: BuildWhereClause) -> bool:
+    """A REAL membership (`x in <other column/select>`), whose existence side
+    carries concepts. A literal IN-list (`month in (1,2,3,4)`) is also
+    modeled as a subselect comparison but has none: a plain scalar predicate."""
     return any(arg for tup in (where.existence_arguments or ()) for arg in tup)
 
 
-def shared_filter_predicate(concepts: list[BuildConcept]) -> BuildWhereClause | None:
+def shared_filter_predicate(
+    concepts: list[BuildConcept], sets: bool = False
+) -> BuildWhereClause | None:
     """The one predicate every filter concept among `concepts` is gated on, or
     None. Distinct predicates are fused conditional columns (`price ? channel =
     'STORE'`, `price ? channel = 'WEB'`), each its own CASE over the shared
     scan: AND-ing them into one WHERE would null out every row. A predicate
-    with an existence arg needs its subselect source wired as a side parent,
-    which no WHERE push does."""
+    reading a set is one only under `sets`: the statement's own filter values,
+    whose node the set is wired to either way
+    (`Filters.alone_keeps_passing_rows`)."""
     distinct: dict[str, BuildWhereClause] = {}
     for c in concepts:
         if isinstance(c.lineage, BuildFilterItem):
@@ -411,17 +414,18 @@ def shared_filter_predicate(concepts: list[BuildConcept]) -> BuildWhereClause | 
     if len(distinct) != 1:
         return None
     where = next(iter(distinct.values()))
-    return None if _has_concept_existence(where) else where
+    return None if _reads_a_set(where) and not sets else where
 
 
 def filter_row_predicate(
     outputs: list[BuildConcept],
     parent_outputs: set[str],
     may_narrow: bool,
+    sets: bool = False,
 ) -> BoolExpr | None:
     """The predicate a filter group's node takes into its WHERE, when its rows
     may narrow: scalar, or over aggregates its parents already emit."""
-    where = shared_filter_predicate(outputs) if may_narrow else None
+    where = shared_filter_predicate(outputs, sets) if may_narrow else None
     if where is None:
         return None
     agg_args = [r for r in where.row_arguments if r.derivation == Derivation.AGGREGATE]
@@ -435,6 +439,7 @@ def filter_row_predicate(
 def statement_filter_population(
     mandatory_list: list[BuildConcept],
     hidden: set[str] | None,
+    sets: bool = False,
 ) -> BuildWhereClause | None:
     """When every output a statement shows is a filter value over one
     predicate, a NULL row is one nothing would keep: `gen_filter` pushes the
@@ -446,7 +451,7 @@ def statement_filter_population(
     shown = [c for c in mandatory_list if not hidden or c.address not in hidden]
     if not all(isinstance(c.lineage, BuildFilterItem) for c in shown):
         return None
-    return shared_filter_predicate(shown)
+    return shared_filter_predicate(shown, sets)
 
 
 def rollup_padded_keys(environment: BuildEnvironment) -> frozenset[str]:
@@ -464,15 +469,6 @@ def rollup_padded_keys(environment: BuildEnvironment) -> frozenset[str]:
         wrapper = get_grouped_aggregate_wrapper(concept)
         if wrapper is not None and wrapper.grouping.nulls_grouping_keys:
             padded |= {c.address for c in wrapper.by}
-        # A rowset carries the spec on the SELECT it wraps, not on the
-        # aggregate: at demand time the members are still plain STANDARD
-        # aggregates and only `select.grouping` says the pass NULL-pads.
-        if isinstance(concept.lineage, BuildRowsetItem):
-            select = concept.lineage.rowset.select
-            if isinstance(select, SelectLineage):
-                grouping = select.grouping
-                if grouping is not None and grouping.mode.nulls_grouping_keys:
-                    padded |= {ref.address for ref in grouping.by}
     return frozenset(padded)
 
 

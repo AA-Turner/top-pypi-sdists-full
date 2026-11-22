@@ -45,10 +45,12 @@ _DECLARED = ("hz", "action_chunk_valid_len", "action_chunk_replan_at", "max_wait
 class OwnGateway:
     """The control plane a DirectConnection asks, for a server at `url` (module docstring). `token`: serve()'s token,
     sent as the worker's secret (None: the server asks for none); `fingerprint`: the SHA-256 of the certificate an
-    https:// server serves (serve(tls=...)), which the connection pins."""
+    https:// server serves (serve(tls=...)), which the connection pins. `pinged`: the server's GET /ping as connect()
+    asked it, to know what it serves - its word on how its robots play kept, and not asked again where it gave it."""
 
     def __init__(self, url: str, *, token: Optional[str] = None, fingerprint: Optional[str] = None,
-                 timeout_s: float = 10.0, on_reconnect: Optional[Callable[[Any], bool]] = None) -> None:
+                 timeout_s: float = 10.0, on_reconnect: Optional[Callable[[Any], bool]] = None,
+                 pinged: Any = None) -> None:
         self.base_url = url.rstrip("/")
         self._token, self._fingerprint, self._timeout_s = token, fingerprint, timeout_s
 
@@ -60,6 +62,10 @@ class OwnGateway:
         self._heard = False
         self._plays: dict = {}
         self._asked = False
+        if pinged is not None:
+            self._heard = True
+            self._take_play(pinged)
+            self._asked = pinged.status_code == 200
 
     def post(self, path: str, body: Any = None, **_: Any) -> dict:
         """The control plane's answers: a connect - the server at the address, and how its robots play an answer where
@@ -84,8 +90,13 @@ class OwnGateway:
             self._on_reconnect(_ByLine(name))
 
     def get(self, path: str, **_: Any) -> dict:
-        """A ready poll (/v1/act/ready): the server's GET /ping - 200 ready, 503 while it warms up. Its 401 or 403 is
-        raised (AuthError, PermissionDenied): asking again changes nothing, and the token is the robot's to give."""
+        """A ready poll (/v1/act/ready): the server's GET /ping - 200 ready, 503 while it warms up. Nothing listening
+        there is not ready either: not yet (`unreached`), or no longer, where it has answered before (`stopped`) - a
+        server restarting, or loading its model before it listens again - which wait_until_ready() waits out to its
+        bound, and says once that bound has passed with the server still away. Its 401 or 403 is raised (AuthError,
+        PermissionDenied): asking again changes nothing, and the token is the robot's to give.
+        
+"""
         if not path.startswith("/v1/act/ready"):
             raise NotFound(f"{path} is the platform's: a server of your own at {self.base_url} has no such thing")
         headers = {"Authorization": f"Bearer {self._token}"} if self._token else {}
@@ -94,12 +105,12 @@ class OwnGateway:
         try:
             r = httpx.get(f"{self.base_url}/ping", headers=headers, timeout=self._timeout_s, verify=verify)
         except httpx.HTTPError as exc:
-            if self._heard and _refused(exc):
 
 
-                raise Unavailable(f"the server at {self.base_url} stopped: it answered, and now nothing listens there",
-                                  retryable=False) from None
-            return {"ready": False, "status": "unreached", "eta_s": None, "address": self.base_url}
+
+            stopped = self._heard and _refused(exc)
+            return {"ready": False, "status": "stopped" if stopped else "unreached", "eta_s": None,
+                    "address": self.base_url}
         self._heard = True
         self._take_play(r)
         serve_said = "x-seq-server" in r.headers
@@ -110,6 +121,11 @@ class OwnGateway:
             raise refused(f"the server at {self.base_url} refused this robot's ping ({r.status_code})",
                           status=r.status_code, retryable=False,
                           hint=None if self._token else "it asks for its token: connect(url, token=...)")
+        if "x-seq-teleop" in r.headers:
+
+            raise InvalidRequest(f"the server at {self.base_url} is a teleop server (seq teleop serve), which had not "
+                                 "answered when connect() asked what it serves: connect() to it again, now that it "
+                                 "answers")
         if not serve_said:
             raise InvalidRequest(f"the server at {self.base_url} is not one serve() runs: its /ping answered "
                                  f"{r.status_code} without saying what it is (X-Seq-Server) - connect() takes the address "

@@ -580,8 +580,8 @@ def _set_pi05_rtc(row, checkpoint_id, method, max_delay, client_factory, print_f
 
 async def inspect(client, repo: str, revision: str | None, token: str | None, base: str,
                   path: str | None) -> tuple[str, dict]:
-    """Detect as π0.5 (`--base pi0.5`, or auto): a repo π0.5 can't read, or an older control
-    plane's answer (it ignores ``model``), is read as Isaac 0.5's."""
+    """Detect as π0.5 (`--base pi0.5`, or auto). An older control plane's answer (it ignores
+    ``model``) is refused: it never reads the repo as π0.5."""
     try:
         found = await client.inspect_endpoint_repo(
             repo, revision=revision, hf_token=token, model=NAME,
@@ -590,22 +590,10 @@ async def inspect(client, repo: str, revision: str | None, token: str | None, ba
     except errors.DreamscaleError as error:
         if base == NAME and error.code == "invalid_request" and "model" in str(error):
             raise errors.catalog("pi05_deployments_unavailable") from None
-        if base == NAME or not cmd._may_be_another_base(error):
-            raise
-        pi05_error = error
-    else:
-        if is_pi05_inspect(found):
-            return NAME, found
-        if base == NAME:
-            raise errors.catalog("pi05_deployments_unavailable")
-        # An older control plane read it as Isaac 0.5 (it ignores `model`).
-        return cmd.BASE_MODEL, found
-    try:
-        return cmd.BASE_MODEL, await client.inspect_endpoint_repo(
-            repo, revision=revision, hf_token=token
-        )
-    except errors.DreamscaleError:
-        raise pi05_error from None
+        raise
+    if not is_pi05_inspect(found):
+        raise errors.catalog("pi05_deployments_unavailable")
+    return NAME, found
 
 
 def create(*, repo, given, preset, camera, hz, path, executed, steps, joint_unit, rtc,
@@ -626,6 +614,10 @@ def create(*, repo, given, preset, camera, hz, path, executed, steps, joint_unit
         if given[field] is not None:
             raise cli.typer.BadParameter(
                 f"{cli._flag(field)} applies to Isaac 0.5 deployments only.")
+    for field in cli._NO_BASE:
+        if given[field] is not None:
+            raise cli.typer.BadParameter(
+                f"{cli._flag(field)} doesn't apply to {BASE.label} deployments.")
     try:
         region = cmd.parse_region(region)
         if preset is not None and preset not in (*PI05_PRESET_CHOICES, "custom"):

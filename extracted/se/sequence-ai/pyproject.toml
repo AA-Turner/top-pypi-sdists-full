@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sequence-ai"
-version = "0.65.0"
+version = "0.66.1"
 description = "SequenceLink is an open-source framework for serving robot policies from remote GPUs over wide-area networks (WANs)."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -42,6 +42,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+teleop = ["aiortc>=1.16,<1.17; python_version >= '3.11'", "aioice>=0.13,<0.14; python_version >= '3.11'"]
+moq = ["moq-rs==0.5.2; python_version >= '3.10'", "moq-ffi==0.4.27; python_version >= '3.10'"]
+data = ["pyarrow>=14"]
 dev = [
     "pytest>=7",
     "sequence-base>=0.8.15,<0.9; python_version >= '3.10'",
@@ -55,6 +58,13 @@ dev = [
     "torch>=2.4,<3",
     "jax>=0.4.30; python_version >= '3.10'",
     "eclipse-zenoh>=1.10,<2",
+    "ruff>=0.6,<1",
+    "aiortc>=1.16,<1.17; python_version >= '3.11'",
+    "aioice>=0.13,<0.14; python_version >= '3.11'",
+    "opencv-python-headless>=4.8",
+    "pyarrow>=14",
+    "moq-rs==0.5.2; python_version >= '3.10'",
+    "moq-ffi==0.4.27; python_version >= '3.10'",
 ]
 
 [project.scripts]

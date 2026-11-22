@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: py-multicodec
-Version: 1.0.0
+Version: 1.1.0
 Summary: Multicodec implementation in Python
 Author-email: Dhruv Baldawa <dhruv@dhruvb.com>
 License: MIT
 Project-URL: Homepage, https://github.com/multiformats/py-multicodec
-Project-URL: Download, https://github.com/multiformats/py-multicodec/tarball/1.0.0
+Project-URL: Download, https://github.com/multiformats/py-multicodec/tarball/1.1.0
 Keywords: multicodec,multiformats,CID,IPFS,IPLD
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
@@ -28,7 +28,9 @@ Requires-Dist: build>=0.9.0; extra == "dev"
 Requires-Dist: bump-my-version>=1.2.0; extra == "dev"
 Requires-Dist: mypy; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: hypothesis; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-benchmark; extra == "dev"
 Requires-Dist: pytest-runner; extra == "dev"
 Requires-Dist: ruff; extra == "dev"
 Requires-Dist: towncrier<25,>=24; extra == "dev"
@@ -120,10 +122,25 @@ management functionality:
 Updating the lookup table
 ==========================
 
-Updating the lookup table is done with a script. The source of truth is the
-`multicodec default table <https://github.com/multiformats/multicodec/blob/master/table.csv>`_.
-Update the table with running:
+Updating the lookup table is done with a script. The authoritative table is vendored
+in the ``multicodec-spec`` git submodule (``table.csv``). After a fresh clone, run
+``git submodule update --init --recursive`` so the submodule and spec compliance test
+are available.
+
+To refresh the registry from upstream, bump the submodule pin and regenerate
+``multicodec/constants.py``:
+
+.. code-block:: shell
+
+    $ git -C multicodec-spec fetch origin
+    $ git -C multicodec-spec checkout origin/master
+    $ git add multicodec-spec
+    $ ./tools/update-table.py < multicodec-spec/table.csv
+
+Alternatively, pipe the latest upstream CSV directly:
 
 .. code-block:: shell
 
     $ curl -X GET https://raw.githubusercontent.com/multiformats/multicodec/master/table.csv | ./tools/update-table.py
+
+Commit the updated ``constants.py`` together with the new submodule commit SHA.

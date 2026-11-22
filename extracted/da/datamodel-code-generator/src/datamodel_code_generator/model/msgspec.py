@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING, Any, ClassVar, Literal, NamedTuple, Optional, 
 
 from typing_extensions import Sentinel, final, override
 
-from datamodel_code_generator import Error
 from datamodel_code_generator import _constraint_applicability as _applicability
 from datamodel_code_generator._container_kinds import ARRAYS, MAPPINGS
 from datamodel_code_generator._document_reader import as_mapping
@@ -24,6 +23,7 @@ from datamodel_code_generator._mro import resolve_members
 from datamodel_code_generator._python_syntax import holds_lone_surrogate, keyword_argument, subscript_text
 from datamodel_code_generator._records import record
 from datamodel_code_generator._reference_graph import EdgeKind
+from datamodel_code_generator._shared_types import Error
 from datamodel_code_generator._target_unicode import is_identifier
 from datamodel_code_generator.imports import IMPORT_UNION, Import
 from datamodel_code_generator.model import DataModel, DataModelFieldBase, _rebuild_model_with_datamodel_namespace
@@ -740,7 +740,7 @@ class Struct(DataModel):
         ("use_attribute_docstrings", True): None,
     }
 
-    def __init__(  # noqa: PLR0913
+    def __init__(
         self,
         *,
         reference: Reference,
@@ -867,7 +867,7 @@ class Struct(DataModel):
         return None
 
     @staticmethod
-    def _select_layout_conflict(  # noqa: PLR0913, PLR0917
+    def _select_layout_conflict(  # noqa: PLR0917
         conflict: tuple[DataModel, DataModel],
         pending: list[tuple[DataModel, bool]],
         owners: list[DataModel],
@@ -1174,7 +1174,7 @@ class DataModelField(_FieldCallWriter, DataModelFieldBase):
     }
     _PARSE_METHOD = "convert"
     _COMPARE_EXPRESSIONS: ClassVar[set[str]] = set(_applicability.NUMBER_FIELD_KEYWORDS)
-    constraints: Optional[Constraints] = None  # noqa: UP045
+    constraints: Optional[Constraints] = None
 
     @override
     def process_const(self) -> None:
@@ -1184,7 +1184,7 @@ class DataModelField(_FieldCallWriter, DataModelFieldBase):
         self.const = True
         const = self.extras["const"]
         _apply_literal_default(self, decide_literal_default("msgspec-const", const, required=self.required))
-        if self.data_type.type == "str" and isinstance(const, str):  # pragma: no cover
+        if self.data_type.type == "str" and isinstance(const, str):  # pragma: no cover - not proven unreachable
             self.replace_data_type(self.data_type.__class__(literals=[const]), clear_old_parent=False)
 
     def _unset_type_data_type(self) -> DataType:
@@ -2131,7 +2131,7 @@ class DataModelField(_FieldCallWriter, DataModelFieldBase):
         For ClassVar fields (discriminator tag_field), ClassVar is required
         regardless of use_annotated setting.
         """
-        if self.extras.get("is_classvar"):  # pragma: no cover
+        if self.extras.get("is_classvar"):  # pragma: no cover - the template renders ClassVar tag fields itself
             meta = self._get_meta_string()
             if self.use_annotated and meta:
                 return subscript_text("ClassVar", (subscript_text("Annotated", (self.type_hint, meta)),))

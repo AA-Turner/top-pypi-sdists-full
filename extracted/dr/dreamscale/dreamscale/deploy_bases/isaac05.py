@@ -6,12 +6,10 @@ create; `dreamscale run yam` and `dreamscale run so101` drive the presets."""
 from __future__ import annotations
 
 import time
-from dataclasses import replace
 from typing import Any
 
 from dreamscale.control import ControlPlaneClient
 from dreamscale.deploy_bases import Base, DeployBase, ExportedBase, cli, cmd
-from dreamscale.deploy_bases.isaac05_legacy import BASE as LEGACY
 
 NAME = "isaac05-base"
 PUBLIC = "isaac0.5"
@@ -316,7 +314,3 @@ BASE = DeployBase(
     catalog_exports={"isaac05-yam": CATALOG_EXPORTED, "isaac05-so101": CATALOG_EXPORTED,
                      "isaac05-libero": CATALOG_EXPORTED},
 )
-
-# The units adapter owns both historical CLI shorthands. Explicit
-# endpoint and deployment IDs continue to select the original request shape.
-LEGACY_BASES = (replace(LEGACY, aliases=()),)

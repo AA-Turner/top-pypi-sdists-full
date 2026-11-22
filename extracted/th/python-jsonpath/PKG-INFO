@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: python-jsonpath
-Version: 2.2.2
+Version: 2.3.0
 Summary: JSONPath, JSON Pointer and JSON Patch for Python.
 Project-URL: Documentation, https://jg-rp.github.io/python-jsonpath/
 Project-URL: Issues, https://github.com/jg-rp/python-jsonpath/issues
@@ -25,7 +25,6 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.8
 Provides-Extra: strict
-Requires-Dist: iregexp-check>=0.1.4; extra == 'strict'
 Requires-Dist: regex; extra == 'strict'
 Description-Content-Type: text/markdown
 

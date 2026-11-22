@@ -342,6 +342,43 @@ impl Validator {
         )
     }
 
+    /// Refuse to open or close a schema holding a `recursive` placeholder.
+    ///
+    /// Both operations reach a fixpoint's records through the reference to its
+    /// definition, and a placeholder names a definition its builder has not
+    /// returned, so there is nothing behind it to rewrite. Read instead as a
+    /// term declaring no record, the placeholder would come out of the rewrite
+    /// as it went in, and the fixpoint built from the body would not be that
+    /// body written out around it: `open(t)` would be `t` inside the builder and
+    /// the definition opened after it. The definitions are asked too, because
+    /// an inner `recursive` naming the outer placeholder holds it in one.
+    fn refuse_a_placeholder(&self, openness: Openness) -> PyResult<()> {
+        let holds = std::iter::once(&self.schema)
+            .chain(&self.definitions)
+            .any(Schema::holds_a_self_ref);
+        if !holds {
+            return Ok(());
+        }
+        let (operation, instead) = match openness {
+            Openness::Open => (
+                "open",
+                "Open the validator recursive(...) returns, or write the clause \
+                 `anything: anything` into the record to open.",
+            ),
+            Openness::Closed => (
+                "close",
+                "Close the validator recursive(...) returns, or declare the record \
+                 with no clause beside its fields.",
+            ),
+        };
+        Err(PyValueError::new_err(format!(
+            "{operation}() rewrites the records a schema declares, those of its \
+             recursive definitions included, and this schema holds a recursive(...) \
+             placeholder, whose definition is not built until its builder returns. \
+             {instead}"
+        )))
+    }
+
     /// The precompute, built once from this validator's schema, definitions, and
     /// constants pool.
     ///
@@ -964,15 +1001,24 @@ impl Validator {
     /// opened where it is written beside a clause that frees the rest, as
     /// `{"a?": nothing, str: anything}` is.
     ///
+    /// **Not inside a `recursive` builder.** A fixpoint's records are reached
+    /// through the reference to its definition, and the placeholder a builder
+    /// is handed names a definition not built until the builder returns, so a
+    /// schema holding one has nothing there to open and is refused. Open the
+    /// validator `recursive` returns, or write `anything: anything` into the
+    /// record you mean to open.
+    ///
     /// Returns:
     ///     A validator whose every record and mapping admits the keys no clause
     ///     claims.
     ///
     /// Raises:
-    ///     ValueError: If admitting undeclared keys expands the schema past the
-    ///         size bound; opening a record adds a catch-all clause, so a
-    ///         validator near the limit can cross it.
+    ///     ValueError: If the schema holds a `recursive` placeholder, or if
+    ///         admitting undeclared keys expands the schema past the size
+    ///         bound; opening a record adds a catch-all clause, so a validator
+    ///         near the limit can cross it.
     fn open(&self, py: Python<'_>) -> PyResult<Validator> {
+        self.refuse_a_placeholder(Openness::Open)?;
         self.map_schemas(py, |schema| schema.with_records_open(Openness::Open))
     }
 
@@ -987,13 +1033,17 @@ impl Validator {
     /// mapped to an `int`, and `Validator(dict[str, int]).close()` is the
     /// mapping it was asked of.
     ///
-    /// Reads the schema rather than the set, for the reason
-    /// [`open`](Self::open) gives.
+    /// Reads the schema rather than the set, and refuses a schema holding a
+    /// `recursive` placeholder, for the reasons [`open`](Self::open) gives.
     ///
     /// Returns:
     ///     A validator whose every record and mapping refuses the keys no clause
     ///     claims.
+    ///
+    /// Raises:
+    ///     ValueError: If the schema holds a `recursive` placeholder.
     fn close(&self, py: Python<'_>) -> PyResult<Validator> {
+        self.refuse_a_placeholder(Openness::Closed)?;
         self.map_schemas(py, |schema| schema.with_records_open(Openness::Closed))
     }
 
@@ -1103,12 +1153,17 @@ mod tests;
 /// The inclusion of `subject` in `supertype` over the pool and the definitions
 /// the oracle reads, in three answers: the deciders', and where both decline, the
 /// membership of each value of a subject of finitely many
-/// ([`finite`](crate::finite)).
+/// ([`finite`](crate::finite)), and failing that, a value guessed from the
+/// subject's spelling or aimed outside the supertype's that the subject admits
+/// and the supertype refuses ([`witness`](crate::witness)), which refutes and
+/// proves nothing.
 ///
-/// The value reading asks the walk of the supertype, which runs in Python and
-/// spends no decision step, so it is asked only of a subject of at most
+/// The value readings ask the walks, which run in Python and spend no decision
+/// step, so the finite one is asked only of a subject of at most
 /// [`FINITE_VALUES`](crate::finite::FINITE_VALUES) constants each its whole
-/// set, and of a supertype whose walk reads every atom as the relation would.
+/// set, the guessing one of at most
+/// [`WITNESS_VALUES`](crate::witness::WITNESS_VALUES) guesses, and both only
+/// where every walk they ask reads every atom as the relation would.
 /// Each value is asked in three answers, as a literal's membership is: a walk
 /// that stopped on one -- past the depth bound, say -- has not put it outside
 /// the supertype, and read as a refusal it would refute an inclusion that
@@ -1128,14 +1183,24 @@ fn relation_between(
     {
         return Ok(relation);
     }
-    let Some(values) = crate::finite::values_of(py, subject, literals)? else {
+    if let Some(values) = crate::finite::values_of(py, subject, literals)? {
+        let admitted = oracle.admits_every(supertype, &values);
+        oracle.answer(())?;
+        return Ok(match admitted {
+            Some(true) => Relation::Holds,
+            Some(false) => Relation::Fails,
+            None => Relation::Unknown,
+        });
+    }
+    // A subject of more values than the finite reading builds is guessed at
+    // instead, from its own spelling and from the supertype's negation: a value
+    // it admits and the supertype refuses refutes the pair, and a pair no guess
+    // refutes stays undecided.
+    if !crate::finite::walked_alike(py, subject, literals, definitions) {
         return Ok(relation);
-    };
-    let admitted = oracle.admits_every(supertype, &values);
+    }
+    let guesses = crate::witness::guesses_against(py, subject, supertype, literals, definitions)?;
+    let found = oracle.finds_outside(subject, supertype, &guesses);
     oracle.answer(())?;
-    Ok(match admitted {
-        Some(true) => Relation::Holds,
-        Some(false) => Relation::Fails,
-        None => Relation::Unknown,
-    })
+    Ok(if found { Relation::Fails } else { relation })
 }

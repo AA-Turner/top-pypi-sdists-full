@@ -16,10 +16,11 @@ from typing import TYPE_CHECKING, Any, cast
 
 from typing_extensions import Protocol
 
-from datamodel_code_generator import AllExportsScope, Error, ModuleSplitMode
 from datamodel_code_generator._free_names import first_free
 from datamodel_code_generator._model_keys import model_key_of
 from datamodel_code_generator._parse_memo import MemoTable
+from datamodel_code_generator._shared_types import Error
+from datamodel_code_generator.enums import AllExportsScope, ModuleSplitMode
 from datamodel_code_generator.model.base import (
     DataModel,
     forget_model_memos,
@@ -379,7 +380,7 @@ def delete_duplicate_models(parser: StructureHost, models: list[DataModel]) -> N
         shapes = parser._model_shapes(COLLAPSE_REUSE)
         while True:
             iteration += 1
-            if iteration > max_iterations:  # pragma: no cover
+            if iteration > max_iterations:  # pragma: no cover - guards the collapse fixpoint against an endless loop
                 msg = f"Deduplication exceeded max iterations ({max_iterations})"
                 raise RuntimeError(msg)
 
@@ -606,7 +607,8 @@ def create_shared_module_from_duplicates(  # noqa: PLR0912
         return [*shared_models, *(model for _, listed in module_models for model in listed)]
 
     for duplicate_module, duplicate_model, _, canonical_model in duplicates:
-        if duplicate_model not in module_models_sets.get(duplicate_module, ()):  # pragma: no cover
+        listed_models = module_models_sets.get(duplicate_module, ())
+        if duplicate_model not in listed_models:  # pragma: no cover - invariant: a duplicate is listed in its module
             msg = f"Duplicate model {duplicate_model.name} not found in module {duplicate_module}"
             raise RuntimeError(msg)
 
@@ -626,7 +628,7 @@ def create_shared_module_from_duplicates(  # noqa: PLR0912
             if canonical in models_set:
                 models_to_remove[module].add(canonical)
                 break
-        else:  # pragma: no cover
+        else:  # pragma: no cover - invariant: a canonical model is listed in a module
             msg = f"Canonical model {canonical.name} not found in any module"
             raise RuntimeError(msg)
 
@@ -830,7 +832,7 @@ def _released_internal_modules(
     return paths
 
 
-def _released_internal_forwarder(  # noqa: PLR0913, PLR0917
+def _released_internal_forwarder(  # noqa: PLR0917
     parser: StructureHost,
     merge: set[tuple[str, ...]],
     grown_models: list[DataModel],

@@ -23,8 +23,9 @@ from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypeAlias, cast
 
 from typing_extensions import Protocol
 
-from datamodel_code_generator import AllOfMergeMode, Error, ReadOnlyWriteOnlyModelType
 from datamodel_code_generator._graph_links import drop_tree
+from datamodel_code_generator._shared_types import Error
+from datamodel_code_generator.enums import AllOfMergeMode, ReadOnlyWriteOnlyModelType
 from datamodel_code_generator.model import DataModel
 from datamodel_code_generator.model.base import _field_source_name
 from datamodel_code_generator.model.runtime_validation import _is_internal_schema_runtime_validation
@@ -292,7 +293,7 @@ class RwSplitHost(AllOfValuesHost, Protocol):
         """Resolve an inherited schema default in the derived class scope."""
 
     @staticmethod
-    def _copy_inherited_field(  # noqa: PLR0913
+    def _copy_inherited_field(
         field: DataModelFieldBase,
         inherited_field: DataModelFieldBase,
         *,
@@ -314,7 +315,7 @@ class RwSplitHost(AllOfValuesHost, Protocol):
     ) -> DataModelFieldBase:
         """Copy a field and its mutable state without copying model references, made with ``identity`` and ``facts``."""
 
-    def _copy_schema_runtime_validation_for_variant(  # noqa: PLR0913
+    def _copy_schema_runtime_validation_for_variant(
         self,
         source_path: str,
         target_path: str,
@@ -330,7 +331,7 @@ class RwSplitHost(AllOfValuesHost, Protocol):
     def _create_data_model(self, model_type: type[DataModel] | None = None, **kwargs: Any) -> DataModel:
         """Create data model instance with dataclass_arguments support for DataClass."""
 
-    def _create_variant_model(  # noqa: PLR0913
+    def _create_variant_model(
         self,
         base_reference: Reference,
         suffix: Literal["Request", "Response"],
@@ -1510,7 +1511,7 @@ def store_extra_items_type(
     )
 
 
-def create_variant_model(  # noqa: PLR0913, PLR0917
+def create_variant_model(  # noqa: PLR0917
     parser: RwSplitHost,
     base_reference: Reference,
     suffix: Literal["Request", "Response"],
@@ -1529,7 +1530,7 @@ def create_variant_model(  # noqa: PLR0913, PLR0917
     create_object_model(parser, reference, obj, model_fields, model_type=data_model_type_class)
 
 
-def prepare_rw_model_variant(  # noqa: PLR0913
+def prepare_rw_model_variant(
     parser: RwSplitHost,
     base_reference: Reference,
     suffix: Literal["Request", "Response"],
@@ -1561,7 +1562,7 @@ def prepare_rw_model_variant(  # noqa: PLR0913
     return reference, variant_fields
 
 
-def create_object_model(  # noqa: PLR0913
+def create_object_model(
     parser: RwSplitHost,
     reference: Reference,
     obj: JsonSchemaObject,
@@ -1593,7 +1594,7 @@ def create_object_model(  # noqa: PLR0913
     return model
 
 
-def register_object_model(  # noqa: PLR0913
+def register_object_model(
     parser: RwSplitHost,
     reference: Reference,
     obj: JsonSchemaObject,
@@ -1624,7 +1625,7 @@ def register_object_model(  # noqa: PLR0913
     )
 
 
-def create_request_response_models(  # noqa: PLR0913, PLR0917
+def create_request_response_models(  # noqa: PLR0917
     parser: RwSplitHost,
     reference: Reference,
     obj: JsonSchemaObject,

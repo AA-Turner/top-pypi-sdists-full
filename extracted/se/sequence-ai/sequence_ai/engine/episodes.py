@@ -8,7 +8,7 @@ order by the data plane (engine.data_plane), each act, each episode's end, and i
     adapter = RegisteredAdapter(cls, registered)      # engine.adapter: registered.registration, @seq.policy's
     adapter.load(weights_dir)
     copy = PolicyCopy(adapter)
-    sequence_ai.serve(copy.call, batch=copy.batch, copy=copy)
+    serve(copy.call, batch=copy.batch, copy=copy)        # engine.serve, as `seq serve` runs it
 
 In one sentence: the data plane hands an episode's frames in order (observe) → each goes to the adapter on the policy's
 thread - kept as the episode's latest observation, handed to its observe function - and each it took tells the plan
@@ -70,14 +70,24 @@ class _Act:
 class PolicyCopy:
     """A loaded adapter as serve()'s copy of the policy (the module's docstring): the data plane's
     observe(episode_id, frames, handed), latest(episode_id), end(episode_id) and close(); call(), the function serve()
-    calls on its policy thread; and `batch`, the sizes it is called with.
+    calls on its policy thread; `batch`, the sizes it is called with; and `checked`, what serve() tries its speed-ups
+    on.
 
     adapter    a loaded engine.adapter.RegisteredAdapter
-    executor   the server's policy thread (serve() attaches it: attach); every call of the policy's code goes there"""
+    executor   the server's policy thread (serve() attaches it: attach); every call of the policy's code goes there
+    checked    the call serve() tries its speed-ups on (engine.optimize), taking what `call` takes: the policy's act
+               function called directly, as the platform tries a version's (seq serve's: seq.serve_local.checked_call);
+               None: `call`. engine.optimize looks for a policy's torch modules a few attributes down from what its
+               call holds, and `call` holds this copy, which holds the adapter, which holds the policy: a model the
+               policy keeps two attributes down (self.policy.model) is beyond its reach from `call`"""
 
-    def __init__(self, adapter: Any, *, executor: Optional[concurrent.futures.Executor] = None) -> None:
+    def __init__(self, adapter: Any, *, executor: Optional[concurrent.futures.Executor] = None,
+                 checked: Optional[Callable[..., Any]] = None) -> None:
         self._adapter = adapter
         self._executor = executor
+        # what serve()'s speed-ups are tried on, where not `call`; they change the policy's modules in place, so `call`
+        # then runs what they kept
+        self.checked: Optional[Callable[..., Any]] = checked
         self.on_frame: Optional[Callable[[str, int, Any], None]] = None   # each frame as sent, in order: a recorder
         self._once = itertools.count()
         sizes = (adapter.batch or {}).get("sizes")

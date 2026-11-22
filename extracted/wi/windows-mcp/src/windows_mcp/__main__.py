@@ -70,10 +70,29 @@ _mcp: FastMCP | None = None
 _control_config = ControlConfig()
 _control_notifier: Any | None = None
 
+# Clients with deferred tool loading (Claude Code's tool search) show the model only
+# tool names plus this text at session start, and cut it at 4,096 characters. Keep it
+# short, and lead with when to reach for this server.
 instructions = dedent("""
-Windows MCP server provides tools to interact directly with the Windows desktop,
-thus enabling to operate the desktop on the user's behalf.
-""")
+Use Windows-MCP to see and operate the user's Windows desktop: native apps, windows,
+dialogs, and browser pages, through screenshots, the UI Automation tree, and real mouse
+and keyboard input. Prefer a shell, file, or API tool when one can do the job without the GUI.
+
+Workflow:
+- Screenshot first for fast visual context. Use Snapshot when you need element ids,
+  scrollable areas, or browser DOM text (use_dom=True); it is slower and its output is larger.
+- Act with Click, Type, Scroll, or Move, by loc=[x, y] or label=<element id> from the last
+  Snapshot; use Shortcut for key combinations. Convert image pixels to screen coordinates with the scale and origin
+  printed in the capture response.
+- Use WaitFor instead of repeated Snapshots when waiting for text, a window, or an element.
+- Pass display=[i] or region=[l, t, r, b] to capture less and save tokens.
+- AI control lasts until released: call ControlStatus with release=true when the desktop
+  work is done or before waiting on the user. If the user takes back control, stop and
+  check ControlStatus; do not fight the user for the mouse or keyboard.
+
+PowerShell, FileSystem, Registry, and Process act on the real system with no undo. Confirm
+destructive changes with the user first.
+""").strip()
 
 
 def _get_desktop():
@@ -466,7 +485,12 @@ class _LegacyAwareGroup(click.Group):
 def _apply_tool_filter(
     mcp, explicit_tools: list[str] | None, exclude_tools: list[str] | None
 ) -> None:
-    """Remove disabled tools from the MCP registry."""
+    """Remove disabled tools from the MCP registry.
+
+    Names match registered tool names ignoring case. A name that matches none
+    raises ``click.ClickException`` instead of being skipped, which would leave
+    an excluded tool enabled or drop a requested one.
+    """
     tool_mgr = getattr(mcp, "_tool_manager", None)
     tools_dict = getattr(tool_mgr, "_tools", None)
     if tools_dict is None:
@@ -500,15 +524,22 @@ def _apply_tool_filter(
 
         registered = set(tools_dict.keys())
 
+    by_name = {name.lower(): name for name in registered}
+    requested = explicit_tools or exclude_tools or []
+    unknown = [t for t in requested if t.lower() not in by_name]
+    if unknown:
+        raise click.ClickException(
+            f"Unknown tools: {', '.join(unknown)}. Allowed: {', '.join(sorted(registered))}"
+        )
+
     if explicit_tools:
-        keep = {t for t in explicit_tools if t in registered}
+        keep = {by_name[t.lower()] for t in explicit_tools}
         keep.add("ControlStatus")
         for name in registered - keep:
             _remove(name)
     elif exclude_tools:
-        for name in exclude_tools:
-            if name in registered and name != "ControlStatus":
-                _remove(name)
+        for name in {by_name[t.lower()] for t in exclude_tools} - {"ControlStatus"}:
+            _remove(name)
     logger.debug("Tool filter applied: explicit=%s exclude=%s", explicit_tools, exclude_tools)
 
 
@@ -903,6 +934,8 @@ def serve(
             stateless_http=stateless_http,
         )
         logger.debug("Server shut down normally")
+    except click.ClickException:
+        raise
     except Exception:
         logger.error("Server exiting due to unhandled exception", exc_info=True)
         raise

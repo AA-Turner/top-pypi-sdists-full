@@ -51,6 +51,7 @@ class SupportedRelations(Enum):
     WRITE = "WRITE"
     DDL = "DDL"
     UPDATE = "UPDATE"
+    TABLE_FUNCTION = "TABLE_FUNCTION"
     HASH_JOIN = "HASH_JOIN"
     MERGE_JOIN = "MERGE_JOIN"
     NESTED_LOOP_JOIN = "NESTED_LOOP_JOIN"
@@ -517,6 +518,12 @@ class UpdateRelation:
 
 
 @dataclass
+class TableFunctionRelation:
+    relation: Literal["TABLE_FUNCTION"]
+    metadata: dict[str, Any] | None = None
+
+
+@dataclass
 class HashJoinRelation:
     relation: Literal["HASH_JOIN"]
     metadata: dict[str, Any] | None = None
@@ -757,6 +764,7 @@ class Dialect:
             | WriteRelation
             | DdlRelation
             | UpdateRelation
+            | TableFunctionRelation
             | HashJoinRelation
             | MergeJoinRelation
             | NestedLoopJoinRelation
@@ -792,4 +800,5 @@ class Dialect:
     supported_scalar_functions: list[DialectFunction] | None = None
     supported_aggregate_functions: list[DialectFunction] | None = None
     supported_window_functions: list[DialectFunction] | None = None
+    supported_table_functions: list[DialectFunction] | None = None
     supported_execution_behavior: SupportedExecutionBehavior | None = None

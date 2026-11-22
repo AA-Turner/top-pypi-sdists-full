@@ -202,6 +202,7 @@ class Transport:
         login: bool = False,
         person: bool = False,
         robot_of: str | None = None,
+        own: bool = False,
         ipv4: bool = False,
         local_address: str | None = None,
         interface: str | None = None,
@@ -213,8 +214,11 @@ class Transport:
 
         from sequence_ai._core.signin import PERSON_REFUSAL, auth_of, login_for
 
-        key = None if person else (api_key or os.environ.get("SEQUENCES_API_KEY"))
-        signed_in = login_for(self._base) if (person or (login and not key)) else None
+
+
+
+        key = api_key if own else None if person else (api_key or os.environ.get("SEQUENCES_API_KEY"))
+        signed_in = login_for(self._base) if not own and (person or (login and not key)) else None
         if person and signed_in is None:
             raise AuthError(PERSON_REFUSAL, details={"reason": "person_only"})
 
@@ -225,12 +229,13 @@ class Transport:
 
 
 
-        if not key and signed_in is None and require_key:
+        if not key and signed_in is None and require_key and not own:
             raise AuthError(_no_key(login, robot_of))
 
 
 
         self.answered = False
+        self.own = own
         self._client = httpx.Client(
             base_url=self._base,
 

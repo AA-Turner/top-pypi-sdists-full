@@ -121,6 +121,7 @@ mod date_arithmetic_ops;
 mod date_function_duration_cells;
 mod date_math_parity;
 mod date_text_arithmetic;
+mod date_text_functions;
 mod edate_eomonth_engine;
 
 mod hardening_503;
@@ -161,6 +162,7 @@ mod criteria_mask_oob_column;
 mod criteria_mask_text_chunked;
 mod criteria_ne_blank_extra;
 mod criteria_overlay_parity;
+mod criteria_text_fold;
 mod criteria_wildcard_ingest;
 mod custom_function_registry_compat;
 mod diagnostics_corrections;
@@ -280,3 +282,6 @@ mod snapshot_evaluation;
 mod stats_excel_compat;
 
 mod review_fn_table;
+mod structural_dirty_scaling;
+mod tailed_array_ranges;
+mod whole_row_families;

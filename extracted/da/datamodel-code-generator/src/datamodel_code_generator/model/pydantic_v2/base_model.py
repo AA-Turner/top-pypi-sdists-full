@@ -20,7 +20,6 @@ from warnings import warn
 from pydantic import Field, ValidationError, field_validator, model_validator
 from typing_extensions import override
 
-from datamodel_code_generator import Error
 from datamodel_code_generator import _constraint_applicability as _applicability
 from datamodel_code_generator._alias_generators import generate_alias as _generate_alias
 from datamodel_code_generator._container_kinds import CONTAINERS, UNHASHABLE_CONTAINERS
@@ -40,6 +39,7 @@ from datamodel_code_generator._regex_syntax import (
     selects_python_engine,
 )
 from datamodel_code_generator._requirements import CONFIG_KEY_REQUIREMENTS, REQUIREMENTS, form_path
+from datamodel_code_generator._shared_types import Error
 from datamodel_code_generator.enums import AliasGenerator, DataModelType
 from datamodel_code_generator.imports import (
     IMPORT_ANNOTATED,
@@ -51,7 +51,7 @@ from datamodel_code_generator.imports import (
     _import_bindings,
     _import_key,
 )
-from datamodel_code_generator.model import _rebuild_model_with_datamodel_namespace
+from datamodel_code_generator.model import _rebuild_model_with_datamodel_namespace, get_data_model_types
 from datamodel_code_generator.model._decisions.hashability import (
     HashClassFacts,
     ValueHashFacts,
@@ -289,13 +289,13 @@ class Constraints(_Constraints):
     """Pydantic v2 field constraints with pattern support."""
 
     # To override existing pattern alias
-    regex: Optional[str] = Field(None, alias="regex")  # noqa: UP045
-    pattern: Optional[str] = Field(None, alias="pattern")  # noqa: UP045
+    regex: Optional[str] = Field(None, alias="regex")
+    pattern: Optional[str] = Field(None, alias="pattern")
 
     @model_validator(mode="before")
     def validate_min_max_items(cls, values: Any) -> dict[str, Any]:  # noqa: N805
         """Validate and convert minItems/maxItems to minLength/maxLength."""
-        if not isinstance(values, dict):  # pragma: no cover
+        if not isinstance(values, dict):
             return values
         min_items = values.pop("minItems", None)
         if min_items is not None:
@@ -812,7 +812,7 @@ class DataModelField(_PydanticBaseDataModelField):
         "pattern",
     }
     _DEFAULT_FIELD_KEYS: ClassVar[frozenset[str]] = _PYDANTIC_V2_DEFAULT_FIELD_KEYS
-    constraints: Optional[Constraints] = None  # noqa: UP045  # ty: ignore[invalid-mutable-override]
+    constraints: Optional[Constraints] = None  # ty: ignore[invalid-mutable-override]
     can_have_extra_keys: ClassVar[bool] = False
     _PYDANTIC_EXTRA_FIELD_NAME: ClassVar[str] = "__pydantic_extra__"
     _PYDANTIC_EXTRA_PLAIN_ANNOTATION_KEY: ClassVar[str] = "pydantic_extra_plain_annotation"
@@ -891,7 +891,7 @@ class DataModelField(_PydanticBaseDataModelField):
     @field_validator("extras")
     def validate_extras(cls, values: Any) -> dict[str, Any]:  # noqa: N805
         """Validate and convert example to examples list."""
-        if not isinstance(values, dict):  # pragma: no cover
+        if not isinstance(values, dict):  # pragma: no cover - pydantic validates extras to a dict first
             return values
         if "examples" in values:
             return values
@@ -2157,7 +2157,6 @@ class BaseModel(_PydanticV2Model, BaseModelBase):
         """Replace a RootModel wrapper with the alias form that --use-type-alias selects."""
         if not configured_root_model_type.IS_ROOT_MODEL:
             return configured_root_model_type
-        from datamodel_code_generator.model import get_data_model_types  # noqa: PLC0415
 
         return get_data_model_types(
             DataModelType.PydanticV2BaseModel, target_python_version, use_type_alias=True
@@ -2707,7 +2706,7 @@ class BaseModel(_PydanticV2Model, BaseModelBase):
             original_name=cls.TYPED_EXTRA_FIELD_NAME,
         )
 
-    def __init__(  # noqa: PLR0913
+    def __init__(
         self,
         *,
         reference: Reference,

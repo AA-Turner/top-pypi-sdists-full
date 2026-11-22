@@ -3,7 +3,7 @@
  *
  * Internal header: static inline predicates used by wcswidth.c, wcstwidth.c,
  * width.c, terminal_override.c, and grapheme.c.  All codepoint data comes
- * from the generated tables, never hand-maintained copies.
+ * from the generated tables alone.
  */
 #ifndef WCWIDTH_UNICODE_H
 #define WCWIDTH_UNICODE_H
@@ -40,10 +40,9 @@ wcwidth_is_regional_indicator(uint32_t ucs)
 static inline bool
 wcwidth_is_extended_pictographic(uint32_t ucs)
 {
-    return wcwidth_bitset_get(ucs, WCWIDTH_EXTENDED_PICTOGRAPHIC_MIN,
-                              WCWIDTH_EXTENDED_PICTOGRAPHIC_MAX,
-                              WCWIDTH_EXTENDED_PICTOGRAPHIC_INDEX,
-                              WCWIDTH_EXTENDED_PICTOGRAPHIC_POOL);
+    return wcwidth_bitset_get(
+        ucs, WCWIDTH_EXTENDED_PICTOGRAPHIC_MIN, WCWIDTH_EXTENDED_PICTOGRAPHIC_MAX,
+        WCWIDTH_EXTENDED_PICTOGRAPHIC_INDEX, WCWIDTH_EXTENDED_PICTOGRAPHIC_POOL);
 }
 
 /* Base character eligible for ZWJ grapheme overrides: ExtPict or RI. */

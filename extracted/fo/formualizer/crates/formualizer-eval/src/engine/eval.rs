@@ -1048,6 +1048,8 @@ pub struct Engine<R> {
     /// one recalc — including SCC iteration passes — agree (spec §7.11).
     clock: crate::timezone::SnapshotClock,
     thread_pool: Option<Arc<rayon::ThreadPool>>,
+    /// The host's workbook path, for `CELL("filename")`.
+    workbook_path: Option<String>,
     pub recalc_epoch: u64,
     resumable: Option<super::resumable::LogicalRecalculation>,
     resumable_call: bool,
@@ -1091,6 +1093,8 @@ pub struct Engine<R> {
     chained_members_for_test: std::sync::atomic::AtomicU64,
     #[cfg(test)]
     lane_clean_reads_for_test: std::sync::atomic::AtomicU64,
+    #[cfg(test)]
+    aggregate_kernel_members_for_test: std::sync::atomic::AtomicU64,
     #[cfg(test)]
     criteria_kernel_members_for_test: std::sync::atomic::AtomicU64,
     #[cfg(test)]
@@ -2011,6 +2015,23 @@ impl<'a, R> Drop for ActionDepthGuard<'a, R> {
     }
 }
 
+struct DeferredDirtyGuard<'a, R> {
+    engine: *mut Engine<R>,
+    _marker: std::marker::PhantomData<&'a mut Engine<R>>,
+}
+
+impl<'a, R> Drop for DeferredDirtyGuard<'a, R> {
+    fn drop(&mut self) {
+        // Safety: created from a unique `&mut Engine` borrow for the duration
+        // of the enclosing call and dropped after any inner reborrow ends.
+        // Call `graph.end_deferred_dirty()` directly rather than `Engine::end_deferred_dirty()`
+        // so unwinding on a poisoned engine cannot double-panic.
+        unsafe {
+            let _ = (&mut *self.engine).graph.end_deferred_dirty();
+        }
+    }
+}
+
 #[derive(Default)]
 struct SourceCache {
     scalars: FxHashMap<(String, Option<u64>), LiteralValue>,
@@ -2675,16 +2696,16 @@ pub(crate) mod visibility_mask_test_hooks {
 fn is_numeric_text_equality(pred: &crate::args::CriteriaPredicate) -> bool {
     match pred {
         crate::args::CriteriaPredicate::Eq(formualizer_common::LiteralValue::Text(text)) => {
-            text.trim().parse::<f64>().is_ok_and(f64::is_finite)
+            crate::builtins::utils::criteria_numeric_text_target(text).is_some()
         }
         _ => false,
     }
 }
 
 /// Resolve the null (non-number) rows of an `=n` / `<>n` criteria mask over
-/// one row segment: numeric text compares by value, every other non-number
-/// cell (blank, boolean, error) is unequal. Segments without text stay
-/// vectorized.
+/// one row segment: numeric text compares by value, and for `=n` so does date
+/// text; every other non-number cell (blank, boolean, error) is unequal.
+/// Segments without text stay vectorized.
 fn fill_numeric_equality_nulls(
     view: &RangeView<'_>,
     row_start: usize,
@@ -2703,7 +2724,7 @@ fn fill_numeric_equality_nulls(
                 // Nulls are already "no match".
                 return Some(mask.clone());
             }
-            let nulls = arrow::compute::is_null(mask).ok()?;
+            let nulls = arrow_arith::boolean::is_null(mask).ok()?;
             crate::compute_prelude::boolean::or_kleene(mask, &nulls).ok()
         }
         Some(text) => {
@@ -2715,9 +2736,16 @@ fn fill_numeric_equality_nulls(
                 if mask.is_valid(i) {
                     out.append_value(mask.value(i));
                 } else if text.is_valid(i) {
-                    let equal = crate::locale::Locale::invariant()
-                        .parse_number_invariant(text.value(i))
-                        .is_some_and(|x| (x - n).abs() < 1e-12);
+                    // `=n` reads date text too; `<>n` reads numeric text only.
+                    let number = if ne {
+                        crate::builtins::utils::criteria_numeric_text(text.value(i))
+                    } else {
+                        crate::builtins::utils::criteria_text_number(
+                            text.value(i),
+                            view.sheet().date_system,
+                        )
+                    };
+                    let equal = number.is_some_and(|x| (x - n).abs() < 1e-12);
                     out.append_value(equal != ne);
                 } else {
                     out.append_value(ne);
@@ -2728,16 +2756,50 @@ fn fill_numeric_equality_nulls(
     }
 }
 
+/// A criterion's text as an Arrow LIKE pattern. Arrow LIKE uses backslash
+/// escapes, and `%`, `_` and `\` are literal in Excel, so they are escaped;
+/// with `wildcards`, Excel's `*` and `?` become `%` and `_`. Every criteria
+/// kernel that compares text with `ilike`/`nilike` builds its pattern here.
+fn like_pattern(text: &str, wildcards: bool) -> String {
+    let mut pattern = String::with_capacity(text.len());
+    for ch in text.chars() {
+        match ch {
+            '%' | '_' | '\\' => {
+                pattern.push('\\');
+                pattern.push(ch);
+            }
+            '*' if wildcards => pattern.push('%'),
+            '?' if wildcards => pattern.push('_'),
+            _ => pattern.push(ch),
+        }
+    }
+    pattern
+}
+
 fn compute_criteria_mask(
     view: &RangeView<'_>,
     col_in_view: usize,
     pred: &crate::args::CriteriaPredicate,
 ) -> Option<std::sync::Arc<arrow_array::BooleanArray>> {
-    use crate::compute_prelude::{boolean, cmp, concat_arrays};
-    use arrow::compute::kernels::comparison::{ilike, nilike};
+    // The mask is for one column: build it from that column alone. Slicing the whole view for
+    // each of its columns made a criteria range along a row cost the square of its width. Only
+    // a column inside a nonempty view without a tail is narrowed: a column past the view's
+    // width (another range of the formula may be wider) keeps the old answer, as `sub_view`
+    // does not clip to its parent.
+    let narrowed;
+    let (rows, cols) = view.dims();
+    let (view, col_in_view) = if rows > 0 && cols > 1 && col_in_view < cols && view.tail().is_none()
+    {
+        narrowed = view.sub_view(0, col_in_view, rows, 1);
+        (&narrowed, 0usize)
+    } else {
+        (view, col_in_view)
+    };
+    use crate::compute_prelude::{boolean, cmp, concat_engine_arrays as concat_arrays};
     use arrow_array::{
         Array as _, ArrayRef, BooleanArray, Float64Array, StringArray, builder::BooleanBuilder,
     };
+    use arrow_string::like::{ilike, nilike};
 
     // Helper: apply a numeric predicate to a single Float64Array chunk
     fn apply_numeric_pred(
@@ -2799,7 +2861,8 @@ fn compute_criteria_mask(
         let mut bool_parts: Vec<BooleanArray> = Vec::new();
         // `=n` / `<>n`: the number lane is null for blank, text, boolean and
         // error cells. Blanks, booleans and errors never equal a number;
-        // numeric text does (`5` matches "5"), as in `criteria_match`.
+        // numeric text does (`5` matches "5"), and so does date text for `=n`,
+        // as in `criteria_match`.
         let number = |v: &formualizer_common::LiteralValue| match v {
             formualizer_common::LiteralValue::Number(n) => Some(*n),
             formualizer_common::LiteralValue::Int(i) => Some(*i as f64),
@@ -2843,9 +2906,11 @@ fn compute_criteria_mask(
     // Wildcards and numeric text equality can match non-text cells. The lowered
     // base lane is text-only, unlike the scalar matcher. Keep the vectorized
     // path for text-only data, but cache a scalar-equivalent mask for mixed data.
-    if is_numeric_text_equality(pred)
-        || matches!(pred, crate::args::CriteriaPredicate::TextLike { .. })
-    {
+    // Numeric text equality (`"36459"`) also matches date text by serial, which
+    // the text lane cannot express, so a column with date text is mixed too.
+    let numeric_text_equality = is_numeric_text_equality(pred);
+    if numeric_text_equality || matches!(pred, crate::args::CriteriaPredicate::TextLike { .. }) {
+        let mut mixed = false;
         for tags in view.type_tags_slices() {
             let (_, _, cols) = tags.ok()?;
             let tags = cols.get(col_in_view)?;
@@ -2854,18 +2919,38 @@ fn compute_criteria_mask(
                     || *tag == crate::arrow_store::TypeTag::Number as u8
                     || *tag == crate::arrow_store::TypeTag::Boolean as u8
             }) {
-                let mut mask = BooleanBuilder::new();
-                for chunk in view.iter_row_chunks() {
-                    let chunk = chunk.ok()?;
-                    for row in chunk.row_start..chunk.row_start + chunk.row_len {
-                        mask.append_value(crate::builtins::criteria_match(
-                            pred,
-                            &view.get_cell(row, col_in_view),
-                        ));
-                    }
-                }
-                return Some(std::sync::Arc::new(mask.finish()));
+                mixed = true;
+                break;
             }
+        }
+        let date_text = || {
+            view.lowered_text_slices().any(|slice| {
+                slice.is_ok_and(|(_, _, cols)| {
+                    cols.get(col_in_view).is_some_and(|text| {
+                        text.iter().flatten().any(|t| {
+                            crate::builtins::utils::criteria_date_text_serial(
+                                t,
+                                view.sheet().date_system,
+                            )
+                            .is_some()
+                        })
+                    })
+                })
+            })
+        };
+        if mixed || (numeric_text_equality && date_text()) {
+            let mut mask = BooleanBuilder::new();
+            for chunk in view.iter_row_chunks() {
+                let chunk = chunk.ok()?;
+                for row in chunk.row_start..chunk.row_start + chunk.row_len {
+                    mask.append_value(crate::builtins::utils::criteria_match_for(
+                        pred,
+                        &view.get_cell(row, col_in_view),
+                        view.sheet().date_system,
+                    ));
+                }
+            }
+            return Some(std::sync::Arc::new(mask.finish()));
         }
     }
 
@@ -2910,22 +2995,6 @@ fn compute_criteria_mask(
         };
     }
 
-    // Arrow LIKE uses backslash escapes; SQL punctuation is literal in Excel.
-    let like_pattern = |text: &str, wildcards: bool| {
-        let mut pattern = String::with_capacity(text.len());
-        for ch in text.chars() {
-            match ch {
-                '%' | '_' | '\\' => {
-                    pattern.push('\\');
-                    pattern.push(ch);
-                }
-                '*' if wildcards => pattern.push('%'),
-                '?' if wildcards => pattern.push('_'),
-                _ => pattern.push(ch),
-            }
-        }
-        pattern
-    };
     let (text_kind, text_pat, empty_special) = match pred {
         crate::args::CriteriaPredicate::Eq(formualizer_common::LiteralValue::Text(t)) => {
             (0u8, like_pattern(&t.to_lowercase(), false), t.is_empty())
@@ -3084,6 +3153,31 @@ pub fn formula_plane_mode_ignored_for_test() -> bool {
     plane_mode_ignored()
 }
 
+/// Whether `ast` calls `CELL` with `filename`, or an info type only known when
+/// it is evaluated.
+fn reads_workbook_identity(ast: &ASTNode) -> bool {
+    match &ast.node_type {
+        ASTNodeType::Function { name, args } => {
+            (name.eq_ignore_ascii_case("CELL")
+                && !matches!(
+                    args.first().map(|info| &info.node_type),
+                    Some(ASTNodeType::Literal(LiteralValue::Text(info)))
+                        if !info.eq_ignore_ascii_case("filename")
+                ))
+                || args.iter().any(reads_workbook_identity)
+        }
+        ASTNodeType::Call { callee, args } => {
+            reads_workbook_identity(callee) || args.iter().any(reads_workbook_identity)
+        }
+        ASTNodeType::UnaryOp { expr, .. } => reads_workbook_identity(expr),
+        ASTNodeType::BinaryOp { left, right, .. } => {
+            reads_workbook_identity(left) || reads_workbook_identity(right)
+        }
+        ASTNodeType::Array(rows) => rows.iter().flatten().any(reads_workbook_identity),
+        ASTNodeType::Literal(_) | ASTNodeType::Reference { .. } | ASTNodeType::Omitted => false,
+    }
+}
+
 impl<R> Engine<R>
 where
     R: EvaluationContext,
@@ -3157,6 +3251,7 @@ where
         let lookup_cache_max_bytes = config.lookup_index_cache_max_bytes;
         let function_provider_revision_seen = resolver.planning_semantic_revision();
         let mut engine = Self {
+            workbook_path: None,
             criteria_mask_cache: Default::default(),
             graph: DependencyGraph::new_with_config(config.clone()),
             resolver,
@@ -3201,6 +3296,8 @@ where
             chained_members_for_test: std::sync::atomic::AtomicU64::new(0),
             #[cfg(test)]
             lane_clean_reads_for_test: std::sync::atomic::AtomicU64::new(0),
+            #[cfg(test)]
+            aggregate_kernel_members_for_test: std::sync::atomic::AtomicU64::new(0),
             #[cfg(test)]
             criteria_kernel_members_for_test: std::sync::atomic::AtomicU64::new(0),
             #[cfg(test)]
@@ -3345,6 +3442,7 @@ where
         let lookup_cache_max_bytes = config.lookup_index_cache_max_bytes;
         let function_provider_revision_seen = resolver.planning_semantic_revision();
         let mut engine = Self {
+            workbook_path: None,
             criteria_mask_cache: Default::default(),
             graph: DependencyGraph::new_with_config(config.clone()),
             resolver,
@@ -3389,6 +3487,8 @@ where
             chained_members_for_test: std::sync::atomic::AtomicU64::new(0),
             #[cfg(test)]
             lane_clean_reads_for_test: std::sync::atomic::AtomicU64::new(0),
+            #[cfg(test)]
+            aggregate_kernel_members_for_test: std::sync::atomic::AtomicU64::new(0),
             #[cfg(test)]
             criteria_kernel_members_for_test: std::sync::atomic::AtomicU64::new(0),
             #[cfg(test)]
@@ -4462,29 +4562,13 @@ where
     }
 
     fn lookup_view_contains_volatile(&self, view: &RangeView<'_>, sheet_id: SheetId) -> bool {
-        let start_row = view.start_row();
-        let end_row = view.end_row();
-        let start_col = view.start_col();
-        let end_col = view.end_col();
-        for row in start_row..=end_row {
-            let Ok(row_u32) = u32::try_from(row) else {
-                return true;
-            };
-            for col in start_col..=end_col {
-                let Ok(col_u32) = u32::try_from(col) else {
-                    return true;
-                };
-                let cell_ref = self
-                    .graph
-                    .make_cell_ref_internal(sheet_id, row_u32, col_u32);
-                if let Some(vertex_id) = self.graph.get_vertex_id_for_address(&cell_ref)
-                    && self.graph.is_volatile(vertex_id)
-                {
-                    return true;
-                }
-            }
-        }
-        false
+        self.graph.has_volatile_in_range(
+            sheet_id,
+            view.start_row(),
+            view.end_row(),
+            view.start_col(),
+            view.end_col(),
+        )
     }
 
     fn build_lookup_index_impl(
@@ -4492,6 +4576,9 @@ where
         view: &RangeView<'_>,
         axis: LookupAxis,
     ) -> Option<Arc<LookupIndex>> {
+        if view.tail().is_some() {
+            return None;
+        }
         let (rows, cols) = view.dims();
         if rows == 0 || cols == 0 {
             self.lookup_index_cache.note_skipped_tiny();
@@ -4852,6 +4939,52 @@ where
         self.graph.sheet_name(id)
     }
 
+    /// Give the workbook the path `CELL("filename")` reports. It need not be a
+    /// location on this machine: the host chooses what results may disclose,
+    /// and the engine never takes it from the file it was loaded from. An
+    /// empty path means a workbook never saved; `None` means unknown. A change
+    /// marks the formulas that read it, and their dependents, dirty.
+    ///
+    /// # Panics
+    /// See [Engine::is_poisoned] for the permanent poison refusal contract.
+    pub fn set_workbook_path(&mut self, path: Option<String>) {
+        self.assert_not_poisoned();
+        if self.workbook_path != path {
+            self.workbook_path = path;
+            self.mark_workbook_identity_readers_dirty();
+        }
+    }
+
+    /// The path recorded by [`Self::set_workbook_path`].
+    pub fn workbook_path(&self) -> Option<&str> {
+        self.workbook_path.as_deref()
+    }
+
+    /// Formulas and defined names that call `CELL("filename")` answer from
+    /// the workbook path and sheet names, which no dependency edge tracks.
+    fn mark_workbook_identity_readers_dirty(&mut self) {
+        let formulas = self.graph.vertices_with_formulas().filter(|vertex| {
+            self.graph
+                .get_formula(*vertex)
+                .is_some_and(|ast| reads_workbook_identity(&ast))
+        });
+        let names = self
+            .graph
+            .named_ranges_iter()
+            .map(|(_, named)| named)
+            .chain(self.graph.sheet_named_ranges_iter().map(|(_, named)| named))
+            .filter(|named| {
+                matches!(
+                    &named.definition,
+                    crate::engine::named_range::NamedDefinition::Formula { ast, .. }
+                        if reads_workbook_identity(ast)
+                )
+            })
+            .map(|named| named.vertex);
+        let readers: Vec<VertexId> = formulas.chain(names).collect();
+        self.graph.mark_dirty_many(&readers);
+    }
+
     fn arrow_sheet_position(&self, id: SheetId) -> Option<usize> {
         let index = self.arrow_sheet_index.get_or_init(|| {
             let mut index = Vec::new();
@@ -5020,6 +5153,7 @@ where
                 for v_id in sheet_vertices {
                     self.graph.mark_vertex_dirty(v_id);
                 }
+                self.mark_workbook_identity_readers_dirty();
                 // Sheet rename preserves SheetId and therefore formula dependencies.
                 self.mark_topology_edited();
                 Ok(())
@@ -5519,14 +5653,19 @@ where
         }
 
         self.action_depth = 1;
+        self.begin_deferred_dirty();
         let engine_ptr: *mut Engine<R> = self;
         let _guard = ActionDepthGuard {
             engine: engine_ptr,
             _marker: std::marker::PhantomData,
         };
+        let _dirty_guard = DeferredDirtyGuard {
+            engine: engine_ptr,
+            _marker: std::marker::PhantomData,
+        };
 
         let mut tx = EngineAction {
-            engine: self,
+            engine: unsafe { &mut *engine_ptr },
             name: name.as_ref().to_string(),
             capture: None,
             arrow_undo: None,
@@ -5584,6 +5723,29 @@ where
         name: String,
         f: impl FnOnce(&mut EngineAction<'_, R>) -> Result<T, crate::engine::EditorError>,
     ) -> Result<(T, crate::engine::ActionJournal), crate::engine::EditorError> {
+        self.begin_deferred_dirty();
+        let engine_ptr: *mut Engine<R> = self;
+        let _dirty_guard = DeferredDirtyGuard {
+            engine: engine_ptr,
+            _marker: std::marker::PhantomData,
+        };
+        unsafe { &mut *engine_ptr }.action_atomic_impl_inner(
+            capture,
+            start_len,
+            expand_runs,
+            name,
+            f,
+        )
+    }
+
+    fn action_atomic_impl_inner<T>(
+        &mut self,
+        capture: &mut MutationCapture,
+        start_len: usize,
+        expand_runs: bool,
+        name: String,
+        f: impl FnOnce(&mut EngineAction<'_, R>) -> Result<T, crate::engine::EditorError>,
+    ) -> Result<(T, crate::engine::ActionJournal), crate::engine::EditorError> {
         let invalidation_baseline = self.invalidation_baseline();
         let mut arrow_undo = crate::engine::ArrowUndoBatch::default();
         let arrow_ptr: *mut crate::engine::ArrowUndoBatch = &mut arrow_undo;
@@ -5627,9 +5789,7 @@ where
         match res {
             Ok(v) => {
                 if !journal.graph.is_empty() || !journal.arrow.is_empty() || has_runs {
-                    for event in &journal.graph.events {
-                        self.record_change_for_event(event);
-                    }
+                    self.record_changes_for_events(&journal.graph.events);
                     let mut impact = Self::classify_change_events(
                         &journal.graph.events,
                         LoggedEditDirection::Original,
@@ -5652,12 +5812,10 @@ where
                     });
                 }
                 if !journal.graph.is_empty() || !journal.arrow.is_empty() {
-                    for event in &journal.graph.events {
-                        // Rollback restored projection ownership just like undo.
-                        // Notify dependents without treating restored cells as
-                        // new user writes that release that ownership again.
-                        self.record_inverse_change_for_event(event);
-                    }
+                    // Rollback restored projection ownership just like undo.
+                    // Notify dependents without treating restored cells as
+                    // new user writes that release that ownership again.
+                    self.record_inverse_changes_for_events(&journal.graph.events);
                 }
                 Err(e)
             }
@@ -5751,6 +5909,7 @@ where
         );
 
         // 1) Roll back the dependency graph.
+        self.graph.begin_deferred_dirty();
         self.graph
             .authority_set_replay(crate::engine::authority::history::Replay::Undo);
         let rolled_back = (|| {
@@ -5787,6 +5946,7 @@ where
         })();
         self.graph
             .authority_set_replay(crate::engine::authority::history::Replay::Forward);
+        let _ = self.graph.end_deferred_dirty();
         rolled_back?;
 
         // 2) Roll back engine row-visibility metadata.
@@ -5902,6 +6062,20 @@ where
         capture: &mut MutationCapture,
         f: impl FnOnce(&mut crate::engine::VertexEditor) -> T,
     ) -> Result<T, crate::engine::EditorError> {
+        self.begin_deferred_dirty();
+        let engine_ptr: *mut Engine<R> = self;
+        let _dirty_guard = DeferredDirtyGuard {
+            engine: engine_ptr,
+            _marker: std::marker::PhantomData,
+        };
+        unsafe { &mut *engine_ptr }.edit_with_capture_inner(capture, f)
+    }
+
+    fn edit_with_capture_inner<T>(
+        &mut self,
+        capture: &mut MutationCapture,
+        f: impl FnOnce(&mut crate::engine::VertexEditor) -> T,
+    ) -> Result<T, crate::engine::EditorError> {
         let invalidation_baseline = self.invalidation_baseline();
         let start_len = capture.len();
         let lazy_start = capture.lazy_len();
@@ -5969,9 +6143,7 @@ where
         for ev in &new_events {
             self.mirror_forward_change_to_arrow(ev);
         }
-        for ev in &new_events {
-            self.record_change_for_event(ev);
-        }
+        self.record_changes_for_events(&new_events);
 
         // Atomic EngineAction calls publish one invalidation for their complete
         // journal at commit/rollback. Direct logged edits publish here.
@@ -6111,33 +6283,36 @@ where
             LoggedEditDirection::InverseReplay,
             invalidation_baseline,
         );
-        let batch = undo.undo(&mut self.graph, log)?;
-        for item in batch.iter().rev() {
-            self.apply_inverse_row_visibility_event(&item.event);
-            self.apply_inverse_staged_formula_event(&item.event);
-        }
-        if !batch.is_empty() {
-            let events = batch
-                .iter()
-                .map(|item| item.event.clone())
-                .collect::<Vec<_>>();
-            self.clear_logged_cell_format_states(&events);
-        }
-        self.mirror_undo_batch_to_arrow(&batch);
-        if !batch.is_empty() {
-            for item in &batch {
-                self.record_inverse_change_for_event(&item.event);
+        self.begin_deferred_dirty();
+        let res = (|| {
+            let batch = undo.undo(&mut self.graph, log)?;
+            for item in batch.iter().rev() {
+                self.apply_inverse_row_visibility_event(&item.event);
+                self.apply_inverse_staged_formula_event(&item.event);
             }
-        }
-        crate::engine::trace::fz_event!(
-            tracing::Level::INFO,
-            "history",
-            "history.replay",
-            op = "undo",
-            events_replayed = batch.len(),
-            ownership_resyncs = batch.len()
-        );
-        Ok(())
+            if !batch.is_empty() {
+                let events = batch
+                    .iter()
+                    .map(|item| item.event.clone())
+                    .collect::<Vec<_>>();
+                self.clear_logged_cell_format_states(&events);
+            }
+            self.mirror_undo_batch_to_arrow(&batch);
+            if !batch.is_empty() {
+                self.record_inverse_changes_for_events(batch.iter().map(|item| &item.event));
+            }
+            crate::engine::trace::fz_event!(
+                tracing::Level::INFO,
+                "history",
+                "history.replay",
+                op = "undo",
+                events_replayed = batch.len(),
+                ownership_resyncs = batch.len()
+            );
+            Ok(())
+        })();
+        self.end_deferred_dirty();
+        res
     }
 
     pub fn redo_logged(
@@ -6146,7 +6321,7 @@ where
         log: &mut crate::engine::ChangeLog,
     ) -> Result<(), crate::engine::EditorError> {
         self.ensure_not_poisoned()?;
-        let pending_events = undo.pending_redo_events();
+        let pending_events = undo.pending_redo_events_for_log(log);
         self.preflight_replay_admission(&pending_events, true)?;
         let invalidation_baseline = self.invalidation_baseline();
         self.invalidate_for_change_events(
@@ -6154,33 +6329,36 @@ where
             LoggedEditDirection::ForwardReplay,
             invalidation_baseline,
         );
-        let batch = undo.redo(&mut self.graph, log)?;
-        for item in &batch {
-            self.apply_forward_row_visibility_event(&item.event);
-            self.apply_forward_staged_formula_event(&item.event);
-        }
-        if !batch.is_empty() {
-            let events = batch
-                .iter()
-                .map(|item| item.event.clone())
-                .collect::<Vec<_>>();
-            self.clear_logged_cell_format_states(&events);
-        }
-        self.mirror_redo_batch_to_arrow(&batch);
-        if !batch.is_empty() {
+        self.begin_deferred_dirty();
+        let res = (|| {
+            let batch = undo.redo(&mut self.graph, log)?;
             for item in &batch {
-                self.record_change_for_event(&item.event);
+                self.apply_forward_row_visibility_event(&item.event);
+                self.apply_forward_staged_formula_event(&item.event);
             }
-        }
-        crate::engine::trace::fz_event!(
-            tracing::Level::INFO,
-            "history",
-            "history.replay",
-            op = "redo",
-            events_replayed = batch.len(),
-            ownership_resyncs = batch.len()
-        );
-        Ok(())
+            if !batch.is_empty() {
+                let events = batch
+                    .iter()
+                    .map(|item| item.event.clone())
+                    .collect::<Vec<_>>();
+                self.clear_logged_cell_format_states(&events);
+            }
+            self.mirror_redo_batch_to_arrow(&batch);
+            if !batch.is_empty() {
+                self.record_changes_for_events(batch.iter().map(|item| &item.event));
+            }
+            crate::engine::trace::fz_event!(
+                tracing::Level::INFO,
+                "history",
+                "history.replay",
+                op = "redo",
+                events_replayed = batch.len(),
+                ownership_resyncs = batch.len()
+            );
+            Ok(())
+        })();
+        self.end_deferred_dirty();
+        res
     }
 
     /// Undo the last committed atomic action using the journal stack.
@@ -6205,14 +6383,18 @@ where
             LoggedEditDirection::InverseReplay,
             invalidation_baseline,
         );
-        journal.graph.undo(&mut self.graph)?;
-        self.apply_inverse_row_visibility_events(&journal.graph.events);
-        self.apply_arrow_undo_batch(&journal.arrow, /*undo=*/ true);
-        if !journal.graph.is_empty() || !journal.arrow.is_empty() {
-            for event in &journal.graph.events {
-                self.record_inverse_change_for_event(event);
+        self.begin_deferred_dirty();
+        let res = (|| {
+            journal.graph.undo(&mut self.graph)?;
+            self.apply_inverse_row_visibility_events(&journal.graph.events);
+            self.apply_arrow_undo_batch(&journal.arrow, /*undo=*/ true);
+            if !journal.graph.is_empty() || !journal.arrow.is_empty() {
+                self.record_inverse_changes_for_events(&journal.graph.events);
             }
-        }
+            Ok::<(), crate::engine::EditorError>(())
+        })();
+        self.end_deferred_dirty();
+        res?;
 
         #[cfg(feature = "tracing")]
         let events_replayed = journal.graph.events.len();
@@ -6249,14 +6431,18 @@ where
             LoggedEditDirection::ForwardReplay,
             invalidation_baseline,
         );
-        journal.graph.redo(&mut self.graph)?;
-        self.apply_forward_row_visibility_events(&journal.graph.events);
-        self.apply_arrow_undo_batch(&journal.arrow, /*undo=*/ false);
-        if !journal.graph.is_empty() || !journal.arrow.is_empty() {
-            for event in &journal.graph.events {
-                self.record_change_for_event(event);
+        self.begin_deferred_dirty();
+        let res = (|| {
+            journal.graph.redo(&mut self.graph)?;
+            self.apply_forward_row_visibility_events(&journal.graph.events);
+            self.apply_arrow_undo_batch(&journal.arrow, /*undo=*/ false);
+            if !journal.graph.is_empty() || !journal.arrow.is_empty() {
+                self.record_changes_for_events(&journal.graph.events);
             }
-        }
+            Ok::<(), crate::engine::EditorError>(())
+        })();
+        self.end_deferred_dirty();
+        res?;
 
         #[cfg(feature = "tracing")]
         let events_replayed = journal.graph.events.len();
@@ -6392,6 +6578,9 @@ where
         let Some(first) = snap.target_cells.first() else {
             return;
         };
+        if !clear_only && self.config.arrow_storage_enabled && self.config.delta_overlay_enabled {
+            self.clear_delta_overlays_for_spill_restore(&snap.target_cells);
+        }
         for cell in &snap.target_cells {
             let r_off = cell.coord.row().saturating_sub(first.coord.row()) as usize;
             let c_off = cell.coord.col().saturating_sub(first.coord.col()) as usize;
@@ -11918,23 +12107,28 @@ where
             .iter()
             .flat_map(|&anchor| self.graph.spill_cells_to_clear(anchor))
             .collect();
-        if let Some(capture) = capture {
-            let start_len = capture.len();
-            self.edit_with_capture(capture, |editor| {
-                for &anchor in &anchors {
-                    editor.clear_spill_region(anchor);
+        self.begin_deferred_dirty();
+        let res = (|| {
+            if let Some(capture) = capture {
+                let start_len = capture.len();
+                self.edit_with_capture(capture, |editor| {
+                    for &anchor in &anchors {
+                        editor.clear_spill_region(anchor);
+                    }
+                })?;
+                if let Some(undo) = undo {
+                    self.record_spill_ops_into_arrow_undo(undo, &capture.events()[start_len..]);
                 }
-            })?;
-            if let Some(undo) = undo {
-                self.record_spill_ops_into_arrow_undo(undo, &capture.events()[start_len..]);
+            } else {
+                for &anchor in &anchors {
+                    self.clear_spill_projection_and_mirror(anchor, None);
+                }
             }
-        } else {
-            for &anchor in &anchors {
-                self.clear_spill_projection_and_mirror(anchor, None);
-            }
-        }
-        self.graph.mark_dirty_many(&anchors);
-        Ok(cells)
+            self.graph.mark_dirty_many(&anchors);
+            Ok(cells)
+        })();
+        self.end_deferred_dirty();
+        res
     }
 
     /// Empty overlays mask old outputs compacted into base storage. Structural
@@ -12396,7 +12590,7 @@ where
         end_row: u32,
     ) -> Option<(u32, u32)> {
         let a = self.sheet_store().sheet(sheet)?;
-        if a.columns.is_empty() {
+        if a.columns.is_empty() || a.chunk_starts.is_empty() {
             return None;
         }
         let sr0 = start_row.saturating_sub(1) as usize;
@@ -12404,26 +12598,31 @@ where
         if sr0 > er0 {
             return None;
         }
-        // Map start/end rows into chunk ranges
-        // We will scan each column for any non-empty within [sr0..=er0]
-        let mut min_c0: Option<usize> = None;
-        let mut max_c0: Option<usize> = None;
-        // Precompute chunk bounds for row range
-        for (ci, col) in a.columns.iter().enumerate() {
-            let mut any_in_range = false;
+        // Binary-search the chunk index range that can intersect [sr0..=er0].
+        let first_ci = a
+            .chunk_starts
+            .partition_point(|&s| s <= sr0)
+            .saturating_sub(1);
+        let end_ci = a.chunk_starts.partition_point(|&s| s <= er0);
+        if first_ci >= end_ci {
+            return None;
+        }
 
-            let scan_chunk = |chunk_idx: usize, chunk: &crate::arrow_store::ColumnChunk| -> bool {
+        let col_has_any = |col: &crate::arrow_store::ArrowColumn| -> bool {
+            for chunk_idx in first_ci..end_ci {
+                let Some(chunk) = col.chunk(chunk_idx) else {
+                    continue;
+                };
                 let Some(&chunk_start) = a.chunk_starts.get(chunk_idx) else {
-                    return false;
+                    continue;
                 };
                 let chunk_len = chunk.type_tag.len();
                 if chunk_len == 0 {
-                    return false;
+                    continue;
                 }
                 let chunk_end = chunk_start + chunk_len.saturating_sub(1);
-                // check intersection
                 if sr0 > chunk_end || er0 < chunk_start {
-                    return false;
+                    continue;
                 }
                 let start_off = sr0.max(chunk_start) - chunk_start;
                 let end_off = er0.min(chunk_end) - chunk_start;
@@ -12443,34 +12642,17 @@ where
                         return true;
                     }
                 }
-                false
-            };
-
-            for (chunk_idx, chunk) in col.chunks.iter().enumerate() {
-                if scan_chunk(chunk_idx, chunk) {
-                    any_in_range = true;
-                    break;
-                }
             }
+            false
+        };
 
-            if !any_in_range && !col.sparse_chunks.is_empty() {
-                for (&chunk_idx, chunk) in col.sparse_chunks.iter() {
-                    if scan_chunk(chunk_idx, chunk) {
-                        any_in_range = true;
-                        break;
-                    }
-                }
-            }
-
-            if any_in_range {
-                min_c0 = Some(min_c0.map(|m| m.min(ci)).unwrap_or(ci));
-                max_c0 = Some(max_c0.map(|m| m.max(ci)).unwrap_or(ci));
-            }
-        }
-        match (min_c0, max_c0) {
-            (Some(a0), Some(b0)) => Some(((a0 as u32) + 1, (b0 as u32) + 1)),
-            _ => None,
-        }
+        // Scan inward from both ends so dense wide sheets touch only 2 columns.
+        let min_c0 = (0..a.columns.len()).find(|&ci| col_has_any(&a.columns[ci]))?;
+        let max_c0 = (min_c0..a.columns.len())
+            .rev()
+            .find(|&ci| col_has_any(&a.columns[ci]))
+            .unwrap_or(min_c0);
+        Some(((min_c0 as u32) + 1, (max_c0 as u32) + 1))
     }
 
     fn formula_row_bounds_for_columns(
@@ -12678,6 +12860,104 @@ where
         };
         if let Some(ch) = asheet.columns[col0].chunk_mut(ch_idx) {
             let _ = ch.overlay.remove(in_off);
+        }
+    }
+
+    /// Clear an explicit `Empty` delta-overlay tombstone for a cell about to
+    /// receive a spilled computed value without resurrecting a deleted base
+    /// Arrow value if the computed overlay is later cleared (e.g. `remove_sheet`
+    /// or post-shrink `insert_rows`).
+    ///
+    /// - Leaves non-empty user values in the delta overlay untouched.
+    /// - If the base lane is already `Empty`, removes the redundant overlay
+    ///   entry in O(1).
+    /// - If the base lane is non-empty, compacts the chunk's delta overlay into
+    ///   base storage so the `Empty` deletion persists in base Arrow.
+    fn clear_empty_delta_overlay_cell(&mut self, sheet: &str, row: u32, col: u32) {
+        if !(self.config.arrow_storage_enabled && self.config.delta_overlay_enabled) {
+            return;
+        }
+        let Some(asheet) = self.arrow_sheets.sheet_mut(sheet) else {
+            return;
+        };
+        let row0 = row.saturating_sub(1) as usize;
+        let col0 = col.saturating_sub(1) as usize;
+        if row0 >= asheet.nrows as usize || col0 >= asheet.columns.len() {
+            return;
+        }
+        let Some((ch_idx, in_off)) = asheet.chunk_of_row(row0) else {
+            return;
+        };
+        let needs_compact = {
+            let Some(ch) = asheet.columns[col0].chunk_mut(ch_idx) else {
+                return;
+            };
+            let Some(ov) = ch.overlay.get_scalar(in_off) else {
+                return;
+            };
+            if ov.type_tag() != crate::arrow_store::TypeTag::Empty {
+                return;
+            }
+            if crate::arrow_store::TypeTag::from_u8(ch.type_tag.value(in_off))
+                == crate::arrow_store::TypeTag::Empty
+            {
+                let _ = ch.overlay.remove(in_off);
+                false
+            } else {
+                true
+            }
+        };
+        if needs_compact {
+            let freed = asheet.maybe_compact_chunk(col0, ch_idx, 0, usize::MAX);
+            if freed > 0 {
+                self.overlay_compactions = self.overlay_compactions.saturating_add(1);
+            }
+        }
+    }
+
+    /// Clear delta-overlay entries for spill-owned cells being restored from a
+    /// `SpillSnapshot` (undo/redo), compacting any chunks where a restored cell
+    /// still has a non-empty base lane so subsequent computed-overlay clears
+    /// cannot resurrect stale base values.
+    fn clear_delta_overlays_for_spill_restore(&mut self, cells: &[CellRef]) {
+        let mut to_compact: rustc_hash::FxHashSet<(SheetId, usize, usize)> =
+            rustc_hash::FxHashSet::default();
+        for cell in cells {
+            let sheet_name = self.graph.sheet_name(cell.sheet_id).to_string();
+            let Some(asheet) = self.arrow_sheets.sheet_mut(&sheet_name) else {
+                continue;
+            };
+            let row0 = cell.coord.row() as usize;
+            let col0 = cell.coord.col() as usize;
+            if row0 >= asheet.nrows as usize || col0 >= asheet.columns.len() {
+                continue;
+            }
+            let Some((ch_idx, in_off)) = asheet.chunk_of_row(row0) else {
+                continue;
+            };
+            let Some(ch) = asheet.columns[col0].chunk_mut(ch_idx) else {
+                continue;
+            };
+            if crate::arrow_store::TypeTag::from_u8(ch.type_tag.value(in_off))
+                == crate::arrow_store::TypeTag::Empty
+            {
+                let _ = ch.overlay.remove(in_off);
+            } else {
+                let _ = ch
+                    .overlay
+                    .set(in_off, crate::arrow_store::OverlayValue::Empty);
+                ch.overlay.set_format(in_off, None);
+                to_compact.insert((cell.sheet_id, col0, ch_idx));
+            }
+        }
+        for (sheet_id, col0, ch_idx) in to_compact {
+            let sheet_name = self.graph.sheet_name(sheet_id).to_string();
+            if let Some(asheet) = self.arrow_sheets.sheet_mut(&sheet_name) {
+                let freed = asheet.maybe_compact_chunk(col0, ch_idx, 0, usize::MAX);
+                if freed > 0 {
+                    self.overlay_compactions = self.overlay_compactions.saturating_add(1);
+                }
+            }
         }
     }
 
@@ -14333,6 +14613,25 @@ where
         });
     }
 
+    fn record_changes_for_events<'a>(&mut self, events: impl IntoIterator<Item = &'a ChangeEvent>) {
+        self.begin_deferred_dirty();
+        for event in events {
+            self.record_change_for_event(event);
+        }
+        self.end_deferred_dirty();
+    }
+
+    fn record_inverse_changes_for_events<'a>(
+        &mut self,
+        events: impl IntoIterator<Item = &'a ChangeEvent>,
+    ) {
+        self.begin_deferred_dirty();
+        for event in events {
+            self.record_inverse_change_for_event(event);
+        }
+        self.end_deferred_dirty();
+    }
+
     fn record_inverse_change_for_event(&mut self, event: &ChangeEvent) {
         if let ChangeEvent::SetValue { addr, .. } | ChangeEvent::SetFormula { addr, .. } = event {
             // Replay already restored any spill snapshot's ownership. This
@@ -14620,14 +14919,20 @@ where
             })
             .collect();
         let n = self.graph.bulk_set_formulas_with_plans(sheet, planned)?;
-        for (row, col) in edited_cells {
-            let cell = CellRef::new(sheet_id, Coord::from_excel(row, col, true, true));
-            for table in self.graph.empty_tables_at(cell) {
-                self.graph.resize_table(&table.name, table.range)?;
+        self.begin_deferred_dirty();
+        let post_res = (|| {
+            for (row, col) in edited_cells {
+                let cell = CellRef::new(sheet_id, Coord::from_excel(row, col, true, true));
+                for table in self.graph.empty_tables_at(cell) {
+                    self.graph.resize_table(&table.name, table.range)?;
+                }
+                self.clear_cell_format_state(sheet, cell);
+                self.record_changed_cell(sheet, row, col);
             }
-            self.clear_cell_format_state(sheet, cell);
-            self.record_changed_cell(sheet, row, col);
-        }
+            Ok::<_, ExcelError>(())
+        })();
+        self.end_deferred_dirty();
+        post_res?;
         // Single topology bump after batch
         if n > 0 {
             self.mark_topology_edited();
@@ -19164,12 +19469,13 @@ impl ShimSpillManager {
                     .cloned()
                     .unwrap_or(LiteralValue::Empty);
                 let sheet_name = engine.graph.sheet_name(cell.sheet_id).to_string();
-                engine.mirror_value_to_computed_overlay(
-                    &sheet_name,
-                    cell.coord.row() + 1,
-                    cell.coord.col() + 1,
-                    &v,
-                );
+                let row = cell.coord.row() + 1;
+                let col = cell.coord.col() + 1;
+                // A cleared cell may retain an explicit Empty entry in the delta overlay
+                // (when compaction did not run); clear or compact it so the spilled computed
+                // value is visible without resurrecting a non-empty base lane on later clears.
+                engine.clear_empty_delta_overlay_cell(&sheet_name, row, col);
+                engine.mirror_value_to_computed_overlay(&sheet_name, row, col, &v);
             }
         }
         Ok(())
@@ -19719,6 +20025,14 @@ where
 
     fn current_sheet_index(&self, current_sheet: &str) -> Option<usize> {
         self.sheet_index_by_name(current_sheet)
+    }
+
+    fn workbook_path(&self) -> Option<&str> {
+        self.workbook_path.as_deref()
+    }
+
+    fn sheet_name_by_id(&self, sheet: SheetId) -> Option<&str> {
+        Some(self.graph.sheet_name(sheet))
     }
 
     fn inspect_reference(
@@ -20608,10 +20922,10 @@ where
         if view.dims().1 == 0 {
             return None;
         }
-        // If the view is logically open-ended but the backing sheet has no physical rows,
-        // treat the mask as empty (0-len) rather than attempting to build a huge mask.
+        // If the view is logically open-ended without a synthetic tail and the backing sheet has
+        // no physical rows, treat the mask as empty (0-len) rather than building a huge mask.
         let sheet_rows = view.sheet().nrows as usize;
-        if sheet_rows == 0 || view.start_row() >= sheet_rows {
+        if view.tail().is_none() && (sheet_rows == 0 || view.start_row() >= sheet_rows) {
             return Some(std::sync::Arc::new(arrow_array::BooleanArray::new_null(0)));
         }
         self.criteria_mask_cache.get_or_build(
@@ -20780,8 +21094,8 @@ where
 
     /// Dispatch point for one `ScheduleUnit::Cycle` (RFC #112, Stage 2).
     ///
-    /// * `CycleDetection::Static` — today's behavior, byte-for-byte: stamp
-    ///   `#CIRC!` on the (optionally dirty-filtered) members.
+    /// * `CycleDetection::Static` — the behavior before #570, byte-for-byte:
+    ///   stamp `#CIRC!` on the (optionally dirty-filtered) members.
     /// * `CycleDetection::Runtime` — evaluate the SCC via
     ///   [`Self::evaluate_scc_unit`]. The recalc-plan dirty quirk maps to:
     ///   no dirty member → skip the task entirely (values stand); any dirty
@@ -20790,6 +21104,10 @@ where
     ///
     /// Returns the number of `#CIRC!`-stamped vertices, so call sites can
     /// keep their `cycle_errors` accounting (`> 0` ⇒ count the unit).
+    ///
+    /// In an armed pass the members are committed together once the unit
+    /// has run ([`Self::freshness_cycle_unit_committed`]); a skipped unit
+    /// commits nothing.
     fn handle_cycle_unit(
         &mut self,
         cycle: &[VertexId],
@@ -20798,22 +21116,26 @@ where
         cancel_flag: Option<&AtomicBool>,
     ) -> Result<usize, ExcelError> {
         self.resource_checkpoint(cycle.len() as u64)?;
-        match self.config.cycle.detection {
+        // No dirty member: the unit is skipped (Static would stamp nothing,
+        // Runtime would not evaluate) and commits nothing.
+        if let Some(filter) = dirty_filter
+            && !cycle.iter().any(|v| filter.contains(v))
+        {
+            return Ok(0);
+        }
+        let stamped = match self.config.cycle.detection {
             CycleDetection::Static => {
-                Ok(self.apply_cycle_outcome(cycle, delta.as_deref_mut(), dirty_filter))
+                self.apply_cycle_outcome(cycle, delta.as_deref_mut(), dirty_filter)
             }
             CycleDetection::Runtime => {
-                if let Some(filter) = dirty_filter
-                    && !cycle.iter().any(|v| filter.contains(v))
-                {
-                    return Ok(0);
-                }
                 // Both policies share `evaluate_scc_unit`; they differ only
                 // in the settle loop's live-cycle arm (Error stamps,
                 // Iterate keeps passing — RFC #113).
-                self.evaluate_scc_unit(cycle, delta, cancel_flag)
+                self.evaluate_scc_unit(cycle, delta, cancel_flag)?
             }
-        }
+        };
+        self.freshness_cycle_unit_committed(cycle);
+        Ok(stamped)
     }
 
     /// Evaluate one statically-cyclic SCC under `CycleDetection::Runtime`
@@ -21015,21 +21337,32 @@ where
 
         let collector = LiveEdgeCollector::new_with_names(&cell_refs, &name_keys);
 
-        // Per-member live out-edges, refreshed whenever a member re-runs.
+        // Per-member sorted, deduplicated live out-edges, refreshed whenever a
+        // member re-runs. Excluded members have empty out-edges.
         let mut out_edges: Vec<Vec<u32>> = vec![Vec::new(); n];
+        // Reusable flat edge buffer for `analyze_live_graph` (already strictly
+        // sorted and deduplicated by construction).
+        let mut edges_buf: Vec<(u32, u32)> = Vec::new();
+        // Cached live-graph classification; recomputed on Pass 1 and whenever
+        // any member's live out-edge set changes (or a member becomes excluded).
+        let mut cached_analysis: Option<crate::engine::live_graph::LiveGraphAnalysis> = None;
+        let mut edges_changed = true;
         // Position of each member in the most recent pass (-1 = did not run).
         let mut pos: Vec<i64> = vec![-1; n];
         // Whether each member's committed value changed in the most recent pass.
         let mut changed = vec![false; n];
 
-        // Evaluate-and-commit one member; returns Ok(true) when the member was
-        // stamped `#CIRC!` (array result — would-be spill anchor, spec §7.9).
+        // Evaluate-and-commit one member; records its live out-edges and
+        // returns `true` if the member's edge set changed relative to the
+        // previous pass.
         macro_rules! run_member {
             ($i:expr) => {{
                 let i: usize = $i;
                 let m = &members[i];
                 if i < recordable {
-                    collector.set_current(i as u32);
+                    collector.begin_member(i as u32);
+                } else {
+                    collector.clear_current();
                 }
                 let value = {
                     let ctx = RecordingContext::new(&*self, &collector);
@@ -21039,17 +21372,28 @@ where
                     }
                 };
                 let is_cell_formula = m.cell.is_some();
+                let mut member_edges_changed = false;
                 if is_cell_formula && matches!(value, LiteralValue::Array(_)) {
                     // A member that *would* spill inside an SCC gets the
                     // conservative §7.9 verdict. It has never spilled before
                     // (a prior spill would make it FormulaArray, pre-stamped
                     // above), so there is no projection to tear down.
+                    if i < recordable {
+                        collector.discard_current_edges();
+                    }
+                    if !out_edges[i].is_empty() {
+                        out_edges[i].clear();
+                        member_edges_changed = true;
+                    }
                     self.stamp_cycle_error(m.vertex, &circ_error, None);
                     excluded[i] = true;
                     stamped += 1;
                     changed[i] = last_value[i] != circ_error;
                     last_value[i] = circ_error.clone();
                 } else {
+                    if i < recordable && collector.finish_member_targets(&mut out_edges[i]) {
+                        member_edges_changed = true;
+                    }
                     self.graph.update_vertex_value_ref(m.vertex, &value);
                     self.mirror_vertex_value_to_overlay(m.vertex, &value);
                     // §7.14 invariant (G2): a formula member must never be
@@ -21073,6 +21417,7 @@ where
                     changed[i] = last_value[i] != value;
                     last_value[i] = value;
                 }
+                member_edges_changed
             }};
         }
 
@@ -21095,7 +21440,7 @@ where
                 if excluded[i] {
                     continue;
                 }
-                run_member!(i);
+                edges_changed |= run_member!(i);
                 pos[i] = p;
                 p += 1;
             }
@@ -21124,10 +21469,14 @@ where
         let mut iterating = false;
         let mut converged = false;
         let mut exact_fixed_point = false;
-        // Values committed by the last *full* pass; `None` until the first
-        // iteration pass runs (pass 1 has no predecessor to compare against)
-        // and reset when a settle pass runs (no cross-kind comparisons).
-        let mut prev_pass: Option<Vec<LiteralValue>> = None;
+        // Values committed by the last *full* pass (reused buffer across
+        // passes); `has_prev_pass` is `false` until the first iteration pass
+        // runs (pass 1 has no predecessor to compare against) and reset when a
+        // settle pass runs (no cross-kind comparisons).
+        let mut prev_pass: Vec<LiteralValue> = Vec::new();
+        let mut has_prev_pass = false;
+        // Reusable buffer for acyclic stale-reader selection.
+        let mut stale: Vec<usize> = Vec::new();
         // Final-round convergence stats (overwritten per round so the values
         // reported are the ones observed at stop).
         let mut iter_max_delta = 0f64;
@@ -21137,37 +21486,32 @@ where
         // behavior exactly).
         let mut settle_passes = 0usize;
         loop {
-            // Drain this pass's recordings; members that ran replace their
-            // out-edge set, members that didn't keep last-known edges.
-            let drained = collector.take_edges();
-            for i in 0..n {
-                if pos[i] >= 0 {
-                    out_edges[i].clear();
+            // Re-run Tarjan only on Pass 1 or when at least one member's live
+            // out-edge set changed (or a member was excluded). Stable-edge
+            // iteration passes reuse the previous classification in O(1).
+            if edges_changed || cached_analysis.is_none() {
+                edges_buf.clear();
+                for (i, outs) in out_edges.iter().enumerate() {
+                    if excluded[i] {
+                        continue;
+                    }
+                    for &t in outs {
+                        edges_buf.push((i as u32, t));
+                    }
                 }
-            }
-            for (from, to) in drained {
                 debug_assert!(
-                    pos[from as usize] >= 0,
-                    "edge from a member that did not run"
+                    edges_buf.windows(2).all(|w| w[0] < w[1]),
+                    "live edges must be strictly sorted and deduplicated"
                 );
-                out_edges[from as usize].push(to);
+                cached_analysis = Some(analyze_live_graph(n, &edges_buf));
+                edges_changed = false;
             }
-            let mut edges: Vec<(u32, u32)> = Vec::new();
-            for (i, outs) in out_edges.iter().enumerate() {
-                if excluded[i] {
-                    continue;
-                }
-                for &t in outs {
-                    edges.push((i as u32, t));
-                }
-            }
-            edges.sort_unstable();
-            edges.dedup();
-
-            let analysis = analyze_live_graph(n, &edges);
+            let analysis = cached_analysis
+                .as_ref()
+                .expect("live graph analysis initialized");
 
             if analysis.cycle_count > 0 {
-                // Classification repeats every iteration pass under
+                // Classification repeats whenever edges change under
                 // `Iterate`; record the widest single witness instead of
                 // accumulating so the count stays "distinct live cycles".
                 witnessed_cycles = witnessed_cycles.max(analysis.cycle_count);
@@ -21196,7 +21540,7 @@ where
                         if !order.is_empty() {
                             passes += 1;
                             for i in order {
-                                run_member!(i);
+                                let _ = run_member!(i);
                             }
                         }
                         break;
@@ -21210,10 +21554,10 @@ where
 
                         // Convergence test: the full pass that just completed
                         // vs the previous full pass, per the spec-§6 rules.
-                        // `prev_pass` is `None` until an iteration pass has
-                        // run — pass 1 has no predecessor, so no convergence
-                        // test occurs before the second pass (spec §6).
-                        if let Some(prev) = &prev_pass {
+                        // `has_prev_pass` is `false` until an iteration pass
+                        // has run — pass 1 has no predecessor, so no
+                        // convergence test occurs before the second pass.
+                        if has_prev_pass {
                             let mut round_max_delta = 0f64;
                             let mut round_nan = 0usize;
                             let mut all_converged = true;
@@ -21226,7 +21570,7 @@ where
                                     continue;
                                 }
                                 let out = crate::engine::convergence::values_converged(
-                                    &prev[i],
+                                    &prev_pass[i],
                                     &last_value[i],
                                     max_change,
                                     self.config.date_system,
@@ -21263,7 +21607,7 @@ where
                         // with `max_iterations: 1` we stop right here — each
                         // member was evaluated exactly once this recalc (the
                         // Excel accumulator contract) and no convergence test
-                        // ran (`prev_pass` is still `None`). Capping keeps
+                        // ran (`has_prev_pass` is still `false`). Capping keeps
                         // the last committed values and is NOT an error
                         // (Excel parity); telemetry records it.
                         if passes >= max_iterations as usize {
@@ -21276,13 +21620,13 @@ where
                         // member order (Gauss–Seidel: each commit is visible
                         // to later members within the pass). Live edges
                         // re-record — guards can flip near convergence
-                        // (§7.3) — so classification repeats next time
-                        // around, and a cycle that dissolves drops back to
-                        // the exact acyclic settle below.
-                        prev_pass = Some(last_value.clone());
-                        for x in pos.iter_mut() {
-                            *x = -1;
-                        }
+                        // (§7.3) — so any edge-set change triggers
+                        // re-classification next time around, and a cycle that
+                        // dissolves drops back to the exact acyclic settle
+                        // below.
+                        prev_pass.clone_from(&last_value);
+                        has_prev_pass = true;
+                        pos.fill(-1);
                         changed.fill(false);
                         passes += 1;
                         let mut p = 0i64;
@@ -21290,7 +21634,7 @@ where
                             if excluded[i] {
                                 continue;
                             }
-                            run_member!(i);
+                            edges_changed |= run_member!(i);
                             pos[i] = p;
                             p += 1;
                         }
@@ -21301,7 +21645,7 @@ where
 
             // Acyclic: find stale readers — members whose live read of `to`
             // happened before `to`'s value changed in the pass that just ran.
-            let mut stale: Vec<usize> = Vec::new();
+            stale.clear();
             for i in 0..n {
                 if excluded[i] {
                     continue;
@@ -21333,22 +21677,20 @@ where
 
             check_cancel(cancel_flag)?;
             // Re-evaluate stale readers in live-topo order, recording fresh
-            // edges (branches may flip on re-eval — spec §7.3 — which is why
-            // classification repeats).
+            // edges (branches may flip on re-eval — spec §7.3 — which triggers
+            // re-classification if any edge changes).
             // A settle pass is a partial sweep: drop the full-pass baseline
             // so a live cycle (re)appearing afterwards never compares values
             // across mixed pass kinds.
-            prev_pass = None;
+            has_prev_pass = false;
             let topo_pos = analysis.topo_positions();
             stale.sort_unstable_by_key(|&i| topo_pos[i]);
-            for x in pos.iter_mut() {
-                *x = -1;
-            }
+            pos.fill(-1);
             changed.fill(false);
             passes += 1;
             settle_passes += 1;
-            for (p, i) in stale.into_iter().enumerate() {
-                run_member!(i);
+            for (p, &i) in stale.iter().enumerate() {
+                edges_changed |= run_member!(i);
                 pos[i] = p as i64;
             }
         }
@@ -21859,12 +22201,13 @@ where
                 let c_off = idx % width;
                 let v = rows[r_off][c_off].clone();
                 let sheet_name = self.graph.sheet_name(cell.sheet_id).to_string();
-                self.mirror_value_to_computed_overlay(
-                    &sheet_name,
-                    cell.coord.row() + 1,
-                    cell.coord.col() + 1,
-                    &v,
-                );
+                let row = cell.coord.row() + 1;
+                let col = cell.coord.col() + 1;
+                // A cleared cell may retain an explicit Empty entry in the delta overlay
+                // (when compaction did not run); clear or compact it so the spilled computed
+                // value is visible without resurrecting a non-empty base lane on later clears.
+                self.clear_empty_delta_overlay_cell(&sheet_name, row, col);
+                self.mirror_value_to_computed_overlay(&sheet_name, row, col, &v);
             }
         }
         Ok(())

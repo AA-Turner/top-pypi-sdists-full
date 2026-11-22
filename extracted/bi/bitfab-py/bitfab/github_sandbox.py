@@ -1788,4 +1788,5 @@ def github_sandbox(
         handle=lambda state, call: answer_github_call(state, call, upstream),
         start=lambda ctx: state_from_snapshot(chosen(ctx)),
         integration="github",
+        load=lambda _ctx, value: state_from_snapshot(value),
     )

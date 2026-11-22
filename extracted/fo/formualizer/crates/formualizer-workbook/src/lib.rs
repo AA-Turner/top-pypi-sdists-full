@@ -11,6 +11,8 @@ pub mod source_calculation;
 pub mod source_limits;
 #[cfg(feature = "xlsx-recalc")]
 pub mod source_outcome;
+#[cfg(any(feature = "xlsx-recalc", feature = "umya", feature = "umya3"))]
+mod xml_compat;
 #[cfg(feature = "xlsx-recalc")]
 pub use source_calculation::{
     CalculationSettingOrigin, ResolvedSourceCalculation, SourceCalculationPolicy,
@@ -29,6 +31,8 @@ mod xlsx;
 #[cfg(feature = "xlsx-recalc")]
 pub use cached_external_links::CachedExternalLinkValues;
 pub mod error;
+#[cfg(any(feature = "xlsx-recalc", feature = "umya", feature = "umya3"))]
+mod legacy_formula;
 #[cfg(any(
     feature = "xlsx-recalc",
     feature = "json",

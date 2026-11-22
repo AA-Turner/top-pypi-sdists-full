@@ -28,6 +28,7 @@ budget and collects the replay. Every other 409 is terminal.
 from __future__ import annotations
 
 import email.utils
+import math
 import random
 import time
 from datetime import datetime, timezone
@@ -56,6 +57,7 @@ __all__ = [
     "validate_run_result",
     "compute_delay",
     "retry_after_seconds",
+    "whole_retry_after",
     "RetryState",
     "error_message",
     "error_details",
@@ -216,7 +218,11 @@ def parse_raw(response: httpx.Response) -> dict[str, Any]:
         err_body = None
     message, code = error_details(err_body, response.status_code)
     raise error_for_status(
-        response.status_code, message, request_id=request_id, code=code
+        response.status_code,
+        message,
+        request_id=request_id,
+        code=code,
+        retry_after_seconds=whole_retry_after(response),
     )
 
 
@@ -236,9 +242,9 @@ def validate_run_result(raw: dict[str, Any]) -> RunResult[Any]:
 def retry_after_seconds(response: httpx.Response) -> float | None:
     """Parse a Retry-After header (seconds or HTTP-date) into non-negative seconds.
 
-    The value is NOT capped here: each caller applies its own ceiling. Ordinary
-    backoff clamps to ``_MAX_DELAY``; the in-progress path measures the raw value
-    against its wait budget.
+    The value is NOT capped here: each caller applies its own ceiling. A 429 longer
+    than ``_MAX_DELAY`` is raised rather than retried; the in-progress path measures
+    the raw value against its wait budget.
     """
     raw = response.headers.get("retry-after")
     if not raw:
@@ -258,6 +264,12 @@ def retry_after_seconds(response: httpx.Response) -> float | None:
         parsed = parsed.replace(tzinfo=timezone.utc)
     delta = (parsed - datetime.now(timezone.utc)).total_seconds()
     return max(delta, 0.0)
+
+
+def whole_retry_after(response: httpx.Response) -> int | None:
+    """Retry-After in whole seconds, rounded up, as a RateLimitedError carries it."""
+    secs = retry_after_seconds(response)
+    return None if secs is None else math.ceil(secs)
 
 
 def compute_delay(attempt: int, rng: random.Random | None = None) -> float:
@@ -293,15 +305,15 @@ class RetryState:
     def next_delay(self, response: httpx.Response | None) -> float:
         """Delay before the next retry; honors Retry-After on a 429 response.
 
-        A server-sent Retry-After is clamped to the ordinary backoff ceiling
-        (8s), which is what every retryable path except the in-progress 409
-        wants; that path uses :meth:`in_progress_delay` instead.
+        :func:`is_retryable_error` admits only a 429 whose Retry-After fits the
+        ordinary backoff ceiling (8s), so the server's delay is waited in full;
+        the in-progress 409 uses :meth:`in_progress_delay` instead.
         """
         delay = compute_delay(self.attempt)
         if response is not None:
             retry_after = retry_after_seconds(response)
             if retry_after is not None:
-                delay = min(retry_after, _MAX_DELAY)
+                delay = retry_after
         self.attempt += 1
         return delay
 
@@ -331,6 +343,8 @@ def is_retryable_error(
 ) -> bool:
     """Retry 429s and transport failures that are safe for this request shape.
 
+    A 429 retries only when its Retry-After is absent or fits the 8s ceiling.
+
     Idempotent or bodyless requests retry any non-timeout transport failure.
     A billed request retries only ``httpx.ConnectError``, the reliable pre-send
     signal. ``httpx.ReadError`` does not establish that bytes were delivered:
@@ -346,7 +360,10 @@ def is_retryable_error(
     if isinstance(exc, (TimeoutError, httpx.TimeoutException)):
         return False
     if isinstance(exc, RateLimitedError):
-        return True
+        # Wait the server's Retry-After in full or not at all: a shorter wait (the
+        # account's per-minute limit sends up to 60s) is certain to be refused again,
+        # so a delay past the ordinary ceiling is raised with the error instead.
+        return exc.retry_after_seconds is None or exc.retry_after_seconds <= _MAX_DELAY
     if isinstance(exc, ConnectionError):
         return not request_may_be_billed
     if isinstance(exc, httpx.HTTPError):

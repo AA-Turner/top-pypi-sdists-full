@@ -107,9 +107,22 @@ pub enum NoticeKind {
         variable: &'static str,
         limit: usize,
     },
+    /// A page of a multi-page source could not be read and was left out
+    /// (#1147: a METS-GBS page whose image does not decode, or whose image
+    /// or hOCR size is over the image cap); the other pages convert. The
+    /// page keeps its number, so the pages after it keep theirs.
+    PageSkipped { page_no: usize },
 }
 
 impl Notice {
+    /// A [`NoticeKind::PageSkipped`] notice: page `page_no` left out, and why.
+    pub fn page_skipped(page_no: usize, reason: impl Into<String>) -> Self {
+        Notice {
+            kind: NoticeKind::PageSkipped { page_no },
+            message: format!("Page {page_no} failed to parse: {}", reason.into()),
+        }
+    }
+
     /// A [`NoticeKind::DepthLimit`] notice for `what` (the format read).
     pub fn depth_limit(what: &str, variable: &'static str, limit: usize) -> Self {
         Notice {
@@ -512,6 +525,12 @@ pub enum Node {
         /// — nothing a later pass inserts can come between them — so its page
         /// is counted rather than implied by position.
         page_skip: usize,
+        /// The fragment's provenance as read, when it is known exactly — a
+        /// docling-JSON input's further `prov` entries (#1207): the JSON
+        /// export writes it verbatim, at once (`page_skip` is then unused),
+        /// and DocLang knows the fragment's page. `None` from the PDF
+        /// assembler, whose box is the grid `location` on a counted page.
+        exact: Option<ContinuationProv>,
     },
     /// A node docling keeps in the document model (and DocLang) but leaves out
     /// of the Markdown and JSON exports — e.g. an ODF *presentation*'s pictures
@@ -550,6 +569,18 @@ pub struct ScriptRunProv {
     pub bbox: [f32; 4],
     /// The run's characters on this page, as a span of its `text`.
     pub charspan: [usize; 2],
+}
+
+/// A [`Node::ProvContinuation`] fragment's provenance as a docling-JSON
+/// input carries it (#1207): docling's `ProvenanceItem` verbatim.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ContinuationProv {
+    /// 1-based page number.
+    pub page_no: usize,
+    /// `[l, t, r, b]` in page units.
+    pub bbox: [f32; 4],
+    /// The box's origin: docling's `BOTTOMLEFT`, else `TOPLEFT`.
+    pub bottom_left: bool,
 }
 
 /// Vertical text position of an [`InlineRun`] — docling's `Script`.
@@ -1165,6 +1196,12 @@ pub struct Table {
     /// the grid, one paragraph each; JSON emits `footnote` text items under
     /// the table that its `footnotes` list references (docling-core#675).
     pub footnotes: Vec<String>,
+    /// The footnotes are docling's empty `footnote` items holding an inline
+    /// group of runs (the JATS table notes, docling#4818) rather than items
+    /// with their own text. docling-core's LaTeX footnote pass serializes a
+    /// note's text inside the table's float (docling-core#897), so it skips
+    /// these and its walk writes their runs after the table — LaTeX only.
+    pub footnotes_as_runs: bool,
     /// Optional per-cell bounding boxes, same shape as [`Self::rows`]: `[l, t,
     /// r, b]` in page points with a **top-left** origin (the PDF pipeline's
     /// native space). Set by the ML pipeline's TableFormer paths — a spanned
@@ -1800,7 +1837,8 @@ impl DoclingDocument {
         let mut out = Vec::new();
         self.write_json_pretty(&mut out)
             .expect("DoclingDocument JSON is always serializable");
-        String::from_utf8(out).expect("serde_json writes UTF-8")
+        // The Markdown-fallback marks (#1205) are Markdown's alone.
+        crate::fallback::strip_owned(String::from_utf8(out).expect("serde_json writes UTF-8"))
     }
 
     /// The same JSON wire format as [`Self::export_to_json`], as a
@@ -1810,7 +1848,12 @@ impl DoclingDocument {
     /// The `Value` is large — ~2.7 KB per text item — so on a long document
     /// prefer [`Self::write_json`], which writes the same JSON without it.
     pub fn export_to_json_value(&self) -> serde_json::Value {
-        crate::json::to_json(self)
+        let mut v = crate::json::to_json(self);
+        // The Markdown-fallback marks (#1205) are Markdown's alone.
+        if crate::fallback::any_marks() {
+            crate::fallback::strip_value(&mut v);
+        }
+        v
     }
 
     /// Write the JSON of [`Self::export_to_json_value`] to `writer`, compact
@@ -1819,11 +1862,19 @@ impl DoclingDocument {
     /// compact form and serializes them straight to the writer. Wrap a file
     /// or socket in a `BufWriter`.
     pub fn write_json<W: std::io::Write>(&self, writer: W) -> std::io::Result<()> {
+        if crate::fallback::any_marks() {
+            let w = crate::fallback::MarkFilter::new(writer);
+            return crate::json::write_json(self, w, false).map_err(std::io::Error::from);
+        }
         crate::json::write_json(self, writer, false).map_err(std::io::Error::from)
     }
 
     /// [`Self::write_json`], indented as [`Self::export_to_json`] is.
     pub fn write_json_pretty<W: std::io::Write>(&self, writer: W) -> std::io::Result<()> {
+        if crate::fallback::any_marks() {
+            let w = crate::fallback::MarkFilter::new(writer);
+            return crate::json::write_json(self, w, true).map_err(std::io::Error::from);
+        }
         crate::json::write_json(self, writer, true).map_err(std::io::Error::from)
     }
 
@@ -1837,6 +1888,11 @@ impl DoclingDocument {
         writer: W,
         extras: &[(&str, &serde_json::Value)],
     ) -> std::io::Result<()> {
+        if crate::fallback::any_marks() {
+            let w = crate::fallback::MarkFilter::new(writer);
+            return crate::json::write_json_with(self, w, true, extras)
+                .map_err(std::io::Error::from);
+        }
         crate::json::write_json_with(self, writer, true, extras).map_err(std::io::Error::from)
     }
 
@@ -1845,7 +1901,7 @@ impl DoclingDocument {
     /// 2.124's `--to latex`, #317). No trailing newline, like the upstream
     /// CLI's `<stem>.tex`.
     pub fn export_to_latex(&self) -> String {
-        crate::latex::to_latex(self)
+        crate::fallback::strip_owned(crate::latex::to_latex(self))
     }
 
     /// Serialize to Pandoc's AST as JSON (`pandoc -f json`, #515) with the
@@ -1853,9 +1909,11 @@ impl DoclingDocument {
     /// body layer only, the [`PANDOC_API_VERSION`](crate::pandoc::PANDOC_API_VERSION)
     /// API. One line, no trailing newline. See [`crate::pandoc`].
     pub fn export_to_pandoc_json(&self) -> String {
-        crate::pandoc::to_pandoc(self, &crate::pandoc::PandocExportOptions::default())
-            .expect("the default Pandoc API version is always supported")
-            .0
+        crate::fallback::strip_owned(
+            crate::pandoc::to_pandoc(self, &crate::pandoc::PandocExportOptions::default())
+                .expect("the default Pandoc API version is always supported")
+                .0,
+        )
     }
 
     /// Pandoc JSON per `options` (image mode, artifacts directory, content
@@ -1867,6 +1925,7 @@ impl DoclingDocument {
         options: &crate::pandoc::PandocExportOptions,
     ) -> Result<crate::pandoc::PandocOutput, crate::pandoc::PandocError> {
         crate::pandoc::to_pandoc(self, options)
+            .map(|(json, files)| (crate::fallback::strip_owned(json), files))
     }
 
     /// Serialize to DocLang XML (`<doclang version="0.7">…`), the markup that
@@ -1916,11 +1975,13 @@ impl DoclingDocument {
         &self,
         pictures: crate::doclang::Pictures,
     ) -> (String, Vec<(String, Vec<u8>)>) {
-        self.tree
+        let (xml, assets) = self
+            .tree
             .as_ref()
             .filter(|t| !t.doclang_nodes)
             .and_then(|t| crate::doclang_tree::export(t, pictures))
-            .unwrap_or_else(|| crate::doclang::render(&self.nodes, pictures))
+            .unwrap_or_else(|| crate::doclang::render(&self.nodes, pictures));
+        (crate::fallback::strip_owned(xml), assets)
     }
 
     /// Serialize to Markdown with an explicit picture [`ImageMode`] (mirrors
@@ -1959,13 +2020,16 @@ impl DoclingDocument {
     /// written, the `</v>` of a lone voice span omitted. A document without
     /// timed text is the bare `WEBVTT` header. No trailing newline.
     pub fn export_to_vtt(&self) -> String {
-        crate::vtt::to_vtt(self, &crate::vtt::VttExportOptions::default())
+        crate::fallback::strip_owned(crate::vtt::to_vtt(
+            self,
+            &crate::vtt::VttExportOptions::default(),
+        ))
     }
 
     /// [`Self::export_to_vtt`] with docling-core's `WebVTTParams`
     /// (`omit_hours_if_zero`, `omit_voice_end`).
     pub fn export_to_vtt_with_options(&self, options: &crate::vtt::VttExportOptions) -> String {
-        crate::vtt::to_vtt(self, options)
+        crate::fallback::strip_owned(crate::vtt::to_vtt(self, options))
     }
 
     /// Plain text — docling-core's `DoclingDocument.export_to_text()` with
@@ -1994,7 +2058,7 @@ impl DoclingDocument {
     ///
     /// [`export_to_html_with_images`]: Self::export_to_html_with_images
     pub fn export_to_html(&self) -> String {
-        crate::html::to_html(self, &HtmlExportOptions::default()).0
+        self.export_to_html_with(&HtmlExportOptions::default()).0
     }
 
     /// HTML with pictures per `image_mode`: `data:` URIs when embedded, and
@@ -2006,14 +2070,11 @@ impl DoclingDocument {
         image_mode: ImageMode,
         artifacts_dir: &str,
     ) -> (String, Vec<(String, Vec<u8>)>) {
-        crate::html::to_html(
-            self,
-            &HtmlExportOptions {
-                image_mode,
-                artifacts_dir: artifacts_dir.to_string(),
-                ..HtmlExportOptions::default()
-            },
-        )
+        self.export_to_html_with(&HtmlExportOptions {
+            image_mode,
+            artifacts_dir: artifacts_dir.to_string(),
+            ..HtmlExportOptions::default()
+        })
     }
 
     /// HTML rendering the content `layers` — docling-core's
@@ -2029,13 +2090,10 @@ impl DoclingDocument {
     ///
     /// [`export_to_html_with`]: Self::export_to_html_with
     pub fn export_to_html_with_layers(&self, layers: ContentLayers) -> String {
-        crate::html::to_html(
-            self,
-            &HtmlExportOptions {
-                layers,
-                ..HtmlExportOptions::default()
-            },
-        )
+        self.export_to_html_with(&HtmlExportOptions {
+            layers,
+            ..HtmlExportOptions::default()
+        })
         .0
     }
 
@@ -2047,7 +2105,8 @@ impl DoclingDocument {
         &self,
         options: &HtmlExportOptions,
     ) -> (String, Vec<(String, Vec<u8>)>) {
-        crate::html::to_html(self, options)
+        let (html, files) = crate::html::to_html(self, options);
+        (crate::fallback::strip_owned(html), files)
     }
 }
 

@@ -1,5 +1,7 @@
-import functools
+import importlib.util
 from pyramid import testing
+from pyramid.request import Request
+import pytest
 import transaction
 from transaction import TransactionManager
 import unittest
@@ -419,37 +421,15 @@ class Test_includeme(unittest.TestCase):
             testing.tearDown()
 
 
-def skip_if_missing(module):  # pragma: no cover
-    def wrapper(fn):
-        try:
-            __import__(module)
-        except ImportError:
-            return
+requires_pyramid_retry = pytest.mark.skipif(
+    importlib.util.find_spec('pyramid_retry') is None,
+    reason='requires pyramid_retry',
+)
 
-        @functools.wraps(fn)
-        def wrapped(*args, **kwargs):
-            return fn(*args, **kwargs)
-
-        return wrapped
-
-    return wrapper
-
-
-def skip_if_package_lt(pkg, version):  # pragma: no cover
-    import pkg_resources
-
-    def wrapper(fn):
-        dist = pkg_resources.get_distribution(pkg)
-        if dist.parsed_version < pkg_resources.parse_version(version):
-            return
-
-        @functools.wraps(fn)
-        def wrapped(*args, **kwargs):
-            return fn(*args, **kwargs)
-
-        return wrapped
-
-    return wrapper
+requires_invoke_exception_view = pytest.mark.skipif(
+    not hasattr(Request, 'invoke_exception_view'),
+    reason='requires request.invoke_exception_view (pyramid >= 1.7)',
+)
 
 
 class TestIntegration(unittest.TestCase):
@@ -478,7 +458,7 @@ class TestIntegration(unittest.TestCase):
         self.assertEqual(resp.body, b'ok')
         self.assertEqual(dm.action, 'commit')
 
-    @skip_if_missing('pyramid_retry')
+    @requires_pyramid_retry
     def test_transient_error_is_retried(self):
         from transaction.interfaces import TransientError
 
@@ -506,7 +486,7 @@ class TestIntegration(unittest.TestCase):
         self.assertEqual(calls, ['fail', 'ok'])
         self.assertEqual(result.body, b'ok')
 
-    @skip_if_missing('pyramid_retry')
+    @requires_pyramid_retry
     def test_error_is_retried_with_commit_veto_and_error_view_and_retry_data_manager(
         self,
     ):
@@ -703,7 +683,7 @@ class TestIntegration(unittest.TestCase):
         else:  # pragma: no cover
             raise AssertionError
 
-    @skip_if_package_lt('pyramid', '1.7')
+    @requires_invoke_exception_view
     def test_excview_rendered_after_failed_commit(self):
         config = self.config
         tm = DummyTransaction(finish_with_exc=ValueError)
@@ -718,7 +698,7 @@ class TestIntegration(unittest.TestCase):
         resp = app.get('/')
         self.assertEqual(resp.body, b'failure')
 
-    @skip_if_package_lt('pyramid', '1.7')
+    @requires_invoke_exception_view
     def test_excview_rendered_after_failed_abort(self):
         config = self.config
         tm = DummyTransaction(finish_with_exc=ValueError)
@@ -734,7 +714,7 @@ class TestIntegration(unittest.TestCase):
         resp = app.get('/')
         self.assertEqual(resp.body, b'failure')
 
-    @skip_if_package_lt('pyramid', '1.7')
+    @requires_invoke_exception_view
     def test_excview_rendered_after_failed_abort_from_uncaught_exc(self):
         config = self.config
         tm = DummyTransaction(finish_with_exc=ValueError)

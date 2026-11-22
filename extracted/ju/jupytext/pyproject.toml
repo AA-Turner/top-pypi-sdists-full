@@ -9,7 +9,6 @@ license = { file = "LICENSE" }
 authors = [
     { name = "Marc Wouts", email = "marc.wouts@gmail.com" },
 ]
-readme = "build/README_with_absolute_links.md"
 requires-python = ">=3.9"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -39,7 +38,7 @@ dependencies = [
     "pyyaml",
     "tomli;python_version<\"3.11\"",
 ]
-dynamic = ["version"]
+dynamic = ["version", "readme"]
 
 [project.urls]
 Homepage = "https://github.com/jupytext/jupytext"
@@ -78,7 +77,7 @@ test-external = [
   "gitpython",
   "pre-commit",
   # Marimo notebooks
-  "marimo>=0.17.6,<=0.19.4", #1485
+  "marimo==0.25.2;python_version>=\"3.10\"",
   # Interaction with other contents managers
   "jupyter-fs[fs]>=1.0"  # 1398
 ]
@@ -285,6 +284,9 @@ channels = ["conda-forge"]
 platforms = ["linux-64", "osx-64", "osx-arm64", "win-64"]
 
 [tool.pixi.dependencies]
+# jupyter-fs[fs] pulls in boto3 through fs-s3fs. Resolve it with Conda so its
+# python-dateutil constraint is considered before PyPI dependencies are solved.
+boto3 = "*"
 python = "3.13.13.*" # One test involving Black fails on the CI
 jupyterlab = ">=4.6.1,<5"
 nbformat = ">=5.1.2"
@@ -302,7 +304,11 @@ sphinx-rtd-theme = "*"
 myst-parser = "*"
 
 [tool.pixi.feature.dev.dependencies]
-pandoc = ">=3.0,<3.10"  # 1545
+pandoc = ">=3.0,!=3.10"  # Pandoc 3.10 can truncate the format version (#1545)
+
+[tool.pixi.feature.dev.pypi-dependencies]
+# The Collaboration load tests use the server component directly.
+jupyter-server-ydoc = ">=3.0.2,<4"
 
 # Dedicated environment for building the JupyterLab extension.
 [tool.pixi.feature.build.dependencies]
@@ -322,7 +328,8 @@ quarto = ">=1.9.38,<2"
 default = { features = ["dev"], solve-group = "default" }
 docs = { features = ["docs"], solve-group = "default" }
 build = { features = ["build"] }
-quarto = { features = ["dev", "quarto"], solve-group = "default" }
+# Quarto pins Pandoc, so resolve it separately from the default environment.
+quarto = { features = ["dev", "quarto"] }
 
 [tool.pixi.pypi-dependencies]
 # Note: this does not build the jupyterlab-jupytext extension

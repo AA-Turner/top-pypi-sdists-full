@@ -23,13 +23,10 @@ from tests import conftest as shared_conftest
 from tests import units
 from tests.capabilities import needs
 from tests.conftest import (
-    _infer_expected_file,
     _refuse_home_directory,
     assert_exact_directory_content,
     assert_inputs_not_mutated,
     assert_output,
-    assert_parser_modules,
-    assert_parser_results,
     home_directory_in,
     slow_test_durations,
     worksteal_chunk_sizes,
@@ -49,19 +46,6 @@ SLOWEST_NODEID = (
 
 
 @pytest.mark.parametrize(
-    ("function_name", "expected_file"),
-    [
-        ("test_main_pet", "pet.py"),
-        ("test_pet", "pet.py"),
-        ("helper", "helper.py"),
-    ],
-)
-def test_infer_expected_file(function_name: str, expected_file: str) -> None:
-    """Expected filenames are inferred consistently from test function names."""
-    assert _infer_expected_file(function_name) == expected_file
-
-
-@pytest.mark.parametrize(
     ("stem", "limit", "expected"),
     [
         ("short", 40, "short.part1.py"),
@@ -73,60 +57,98 @@ def test_split_name(stem: str, limit: int, expected: str) -> None:
     assert units.split_name(stem, ".part1", ".py", limit) == expected
 
 
-def test_assert_exact_directory_content_reports_diff(tmp_path: Path) -> None:
-    """Test exact directory comparison reports the mismatched file path."""
-    output_dir = tmp_path / "output"
-    expected_dir = tmp_path / "expected"
-    output_dir.mkdir()
-    expected_dir.mkdir()
+def _runtime_copy(root: Path, files: dict[str, str]) -> Path:
+    """Write files into a ``_runtime`` directory below a root, as generation copies the package runtime."""
+    copy = root / "_runtime"
+    copy.mkdir(parents=True)
+    for name, text in files.items():
+        (copy / name).write_text(text, encoding="utf-8")
+    return copy
 
-    (output_dir / "sample.py").write_text("value = 1\n", encoding="utf-8")
-    (expected_dir / "sample.py").write_text("value = 2\n", encoding="utf-8")
+
+def test_assert_exact_directory_content_reports_diff(tmp_path: Path) -> None:
+    """A comparison with another copy of the runtime names each changed, missing and extra file."""
+    output_dir = _runtime_copy(tmp_path / "output", {"sample.py": "value = 1\n", "extra.py": "value = 2\n"})
+    other = _runtime_copy(tmp_path / "other", {"sample.py": "value = 2\n", "missing.py": "value = 3\n"})
 
     with pytest.raises(pytest.fail.Exception, match="Content mismatch") as exc_info:
-        assert_exact_directory_content(output_dir, expected_dir)
+        assert_exact_directory_content(output_dir, against=other)
 
-    assert "sample.py" in str(exc_info.value)
-
-
-def test_assert_parser_results_rejects_unexpected_result(tmp_path: Path) -> None:
-    """Parser result assertions fail when generated output has no expected file."""
-    expected_dir = tmp_path / "expected"
-    expected_dir.mkdir()
-    (expected_dir / "sample.py").write_text("value = 1\n", encoding="utf-8")
-
-    with pytest.raises(pytest.fail.Exception, match=r"new: extra\.py"):
-        assert_parser_results({"sample.py": "value = 1\n", "extra.py": "value = 2\n"}, expected_dir)
+    message = str(exc_info.value)
+    assert "missing: missing.py\nnew: extra.py\nsample.py:" in message
 
 
-def test_assert_parser_results_rejects_missing_result(tmp_path: Path) -> None:
-    """Parser result assertions fail when an expected file is not generated."""
-    expected_dir = tmp_path / "expected"
-    expected_dir.mkdir()
-    (expected_dir / "sample.py").write_text("value = 1\n", encoding="utf-8")
-    (expected_dir / "missing.py").write_text("value = 2\n", encoding="utf-8")
+def test_against_compares_runtime_copies_and_tracked_documents(tmp_path: Path) -> None:
+    """Equal copies of the runtime pass, and a value that differs from a tracked document names that document."""
+    files = {"sample.py": "value = 1\n", "notes.md": "skip\n"}
+    assert_exact_directory_content(
+        _runtime_copy(tmp_path / "output", files), pattern="*", against=_runtime_copy(tmp_path / "other", files)
+    )
+    document = Path(__file__).parents[1] / "skills" / "datamodel-code-generator" / "SKILL.md"
 
-    with pytest.raises(pytest.fail.Exception, match=r"missing: missing\.py"):
-        assert_parser_results({"sample.py": "value = 1\n"}, expected_dir)
+    with pytest.raises(pytest.fail.Exception, match="Content mismatch for") as exc_info:
+        assert_output("changed\n", against=document)
 
-
-def test_assert_parser_modules_rejects_missing_expected_module(tmp_path: Path) -> None:
-    """Parser module assertions fail when an expected module is not generated."""
-    expected_dir = tmp_path / "expected"
-    expected_dir.mkdir()
-    (expected_dir / "sample.py").write_text("value = 1\n", encoding="utf-8")
-
-    with pytest.raises(pytest.fail.Exception, match=r"missing: sample\.py"):
-        assert_parser_modules({}, expected_dir)
+    assert str(document) in str(exc_info.value)
 
 
-def test_assert_parser_modules_rejects_unexpected_module(tmp_path: Path) -> None:
-    """Parser module assertions fail when generated output has no expected file."""
-    expected_dir = tmp_path / "expected"
-    expected_dir.mkdir()
+@pytest.mark.parametrize("case", ["untracked-file", "untracked-tree", "one-runtime-copy", "tests-root"])
+def test_against_refuses_what_is_not_a_document_or_runtime_copy(case: str, tmp_path: Path) -> None:
+    """A run's output, a tree beside one runtime copy, or a file below the tests root is compared under a name."""
+    output_dir = _runtime_copy(tmp_path / "output", {"a.py": "A = 1\n"})
+    other = tmp_path / "other"
+    other.mkdir()
+    (other / "a.py").write_text("A = 1\n", encoding="utf-8")
 
-    with pytest.raises(pytest.fail.Exception, match=r"new: sample\.py"):
-        assert_parser_modules({("sample.py",): "value = 1\n"}, expected_dir.parent / "absent")
+    compare = {
+        "untracked-file": lambda: assert_output("A = 1\n", against=other / "a.py"),
+        "untracked-tree": lambda: assert_exact_directory_content(other, against=other),
+        "one-runtime-copy": lambda: assert_exact_directory_content(other, against=output_dir),
+        "tests-root": lambda: assert_output("x\n", against=Path(__file__)),
+    }[case]
+
+    with pytest.raises(pytest.fail.Exception, match="against= compares with a tracked document or another copy"):
+        compare()
+
+
+def test_against_without_git_compares_documents_on_disk(ledger: LedgerProject, tmp_path: Path) -> None:
+    """Where git cannot tell, as in a source distribution, an existing file below the root is a document.
+
+    Once the root is a git checkout, only a file git tracks is one.
+    """
+    (ledger.pytester.path / "doc.md").write_text("doc\n", encoding="utf-8")
+    outside = tmp_path / "doc.md"
+    outside.write_text("doc\n", encoding="utf-8")
+    ledger.write(
+        "test_m.py",
+        f"""
+        from pathlib import Path
+
+        import pytest
+
+        from tests.conftest import assert_output
+
+        ROOT = Path(__file__).parents[1]
+
+
+        def test_document():
+            assert_output("doc\\n", against=ROOT / "doc.md")
+
+
+        def test_refused():
+            for path in (ROOT / "missing.md", Path({str(outside)!r})):
+                with pytest.raises(pytest.fail.Exception, match="against= compares with a tracked document"):
+                    assert_output("doc\\n", against=path)
+        """,
+    )
+    ledger.run("suite").assert_outcomes(passed=2)
+    subprocess.run(["git", "init", "-q"], cwd=ledger.pytester.path, check=True)
+    untracked = ledger.run("suite")
+    untracked.assert_outcomes(failed=1, passed=1)
+    assert "against= compares with a tracked document or another copy of the package runtime" in untracked.stdout.str()
+    subprocess.run(["git", "add", "doc.md"], cwd=ledger.pytester.path, check=True)
+    ledger.run("suite").assert_outcomes(passed=2)
+    assert ledger.files() == {}
 
 
 def test_assert_inputs_not_mutated_allows_unchanged_nested_values() -> None:
@@ -510,8 +532,7 @@ def test_collection_runs_measured_slow_tests_first(request: pytest.FixtureReques
             },
             sort_keys=True,
         )
-        + "\n",
-        Path(__file__).parent / "data/expected/ci_shards/slow-first.txt",
+        + "\n"
     )
 
 
@@ -1191,7 +1212,6 @@ def test_ledger_compares_trees(ledger: LedgerProject) -> None:
 
         from tests.conftest import (
             assert_directory_content,
-            assert_exact_directory_content,
             assert_generated_modules_output,
         )
 
@@ -1213,7 +1233,7 @@ def test_ledger_compares_trees(ledger: LedgerProject) -> None:
 
 
         def test_empty(tmp_path):
-            assert_exact_directory_content(tmp_path, EXPECTED / "empty", "*.md")
+            assert_directory_content(tmp_path, EXPECTED / "empty", pattern="*.md")
         """,
     )
     ledger.run("suite").assert_outcomes(passed=3)
@@ -1981,7 +2001,6 @@ GENERATION_TESTS = """
 from pathlib import Path
 
 from datamodel_code_generator import InputFileType
-from tests.conftest import create_assert_file_content
 from tests.main.conftest import run_generate_and_assert, run_generate_file_and_assert, run_main_and_assert
 
 SCHEMA = Path(__file__).parent / "schema.json"
@@ -1999,13 +2018,7 @@ def test_directory(tmp_path):
     )
 
 
-def test_named(tmp_path):
-    run_main_and_assert(
-        input_path=SCHEMA, output_path=tmp_path / "model.py", extra_args=ARGS, expected_file="named.py"
-    )
-    run_main_and_assert(
-        input_path=MODULAR, output_path=tmp_path / "out", extra_args=["--disable-timestamp"], expected_file="tree"
-    )
+def test_unwritten(tmp_path):
     run_main_and_assert(input_path=SCHEMA, output_path=tmp_path / "unwritten.py", extra_args=["--generate-prompt"])
 
 
@@ -2032,19 +2045,6 @@ def test_stdout_twice(capsys):
     run_main_and_assert(input_path=SCHEMA, extra_args=[*ARGS, "--class-name", "B"], capsys=capsys)
 
 
-def test_explicit(tmp_path):
-    expected = Path(__file__).parent / "data" / "expected"
-    options = {"input_file_type": InputFileType.JsonSchema, "disable_timestamp": True}
-    run_generate_file_and_assert(
-        input_path=SCHEMA,
-        output_path=tmp_path / "m.py",
-        assert_func=create_assert_file_content(expected),
-        expected_file="e.py",
-        **options,
-    )
-    run_generate_and_assert(input_=SCHEMA, expected_file=expected / "e2.py", **options)
-
-
 def test_generate_file(tmp_path):
     run_generate_file_and_assert(
         input_path=SCHEMA,
@@ -2060,30 +2060,164 @@ def test_ledger_generation_helpers_name_outputs(ledger: LedgerProject) -> None:
     ledger.write("schema.json", '{"title": "A", "type": "object", "properties": {"x": {"type": "string"}}}')
     modular = Path(__file__).parent / "data" / "openapi" / "modular.yaml"
     ledger.write("test_main.py", GENERATION_TESTS.replace("SCHEMA = ", f"MODULAR = Path({str(modular)!r})\nSCHEMA = "))
-    ledger.store("named.py", "stale\n")
     first = ledger.run("suite", "--inline-snapshot=fix")
-    first.assert_outcomes(passed=10)
+    first.assert_outcomes(passed=9)
     files = ledger.files()
-    assert "tree/models.py" in files
-    assert sorted(name for name in files if not name.startswith(("main/directory/", "tree/"))) == [
-        "e.py",
-        "e2.py",
+    assert sorted(name for name in files if not name.startswith("main/directory/")) == [
         "main/file.2.py",
+        "main/file.py",
+        "main/generate.py",
         "main/generate_twice.2.py",
         "main/stdout.stdout.txt",
         "main/stdout_twice.2.stdout.txt",
     ]
     refs = ledger.refs("test_main")
-    assert "[test_file]\n\tmain/file.2.py\n\tmain/file.py\t= e.py\n" in refs
-    assert "[test_generate]\n\tmain/generate.py\t= e2.py\n" in refs
-    assert "[test_generate_file]\n\tmain/generate_file.py\t= e.py\n" in refs
-    assert "[test_generate_twice]\n\tmain/generate_twice.2.py\n\tmain/generate_twice.py\t= e2.py\n" in refs
-    assert "[test_named]\n\tnamed.py\t= e.py\n\ttree/\n" in refs
+    assert "[test_file]\n\tmain/file.2.py\n\tmain/file.py\n[" in refs
+    assert "[test_generate]\n\tmain/generate.py\n[" in refs
+    assert "[test_generate_file]\n\tmain/generate_file.py\t= main/file.py\n" in refs
+    assert "[test_generate_twice]\n\tmain/generate_twice.2.py\n\tmain/generate_twice.py\t= main/generate.py\n" in refs
     assert "[test_stdout_capsys]\n\tmain/stdout_capsys.stdout.txt\t= main/stdout.stdout.txt\n" in refs
     assert "\tmain/stdout_twice.2.stdout.txt\n\tmain/stdout_twice.stdout.txt\t= main/stdout.stdout.txt\n" in refs
-    assert "expected: test_named now has the same output as e.py; it uses that file" in first.stdout.str()
+    assert "test_unwritten" not in refs
     assert "CLASS PET(BASEMODEL)" in files["main/directory/models.py"]
-    ledger.run("suite", "--inline-snapshot=disable").assert_outcomes(passed=10)
+    ledger.run("suite", "--inline-snapshot=disable").assert_outcomes(passed=9)
+
+
+NAMED_OUTPUT_TESTS = """
+from pathlib import Path
+
+from datamodel_code_generator import Error, InputFileType
+from tests.conftest import (
+    MockHttpxResponse,
+    assert_directory_content,
+    assert_exact_directory_content,
+    assert_generated_modules_output,
+    assert_output,
+    assert_parser_modules,
+    assert_parser_results,
+)
+from tests.main.conftest import (
+    run_generate_and_assert,
+    run_generate_file_and_assert,
+    run_main_and_assert,
+    run_main_url_and_assert,
+    run_main_with_args,
+)
+
+SCHEMA = Path(__file__).parent / "schema.json"
+ARGS = ["--disable-timestamp", "--input-file-type", "jsonschema"]
+OPTIONS = {"input_file_type": InputFileType.JsonSchema, "disable_timestamp": True}
+MODULES = {("pkg", "__init__.py"): "", ("pkg", "a.py"): "A = 1\\n", ("README.md",): "# pkg\\n"}
+MISSING = '{"type": "object", "properties": {"a": {"$ref": "#/definitions/missing"}}}'
+
+
+def test_runs(tmp_path):
+    run_main_and_assert(input_path=SCHEMA, output_path=tmp_path / "a.py", extra_args=ARGS, name="model")
+    run_generate_file_and_assert(input_path=SCHEMA, output_path=tmp_path / "b.py", name="model", **OPTIONS)
+    run_generate_and_assert(input_=SCHEMA, name="returned", **OPTIONS)
+
+
+def test_runs_differ(tmp_path):
+    run_main_and_assert(input_path=SCHEMA, output_path=tmp_path / "a.py", extra_args=ARGS, name="model")
+    run_main_and_assert(
+        input_path=SCHEMA, output_path=tmp_path / "b.py", extra_args=[*ARGS, "--class-name", "B"], name="model"
+    )
+
+
+def test_error():
+    run_generate_and_assert(input_=MISSING, expected_error=Error, strict_refs=True, **OPTIONS)
+
+
+def test_url(mock_httpx_get, tmp_path):
+    mock_httpx_get(*(MockHttpxResponse("https://example.com/schema.json", SCHEMA) for _ in range(2)))
+    run_main_url_and_assert(
+        url="https://example.com/schema.json",
+        output_path=tmp_path / "m.py",
+        input_file_type="jsonschema",
+        extra_args=["--disable-timestamp"],
+    )
+    run_main_url_and_assert(
+        url="https://example.com/schema.json",
+        output_path=tmp_path / "n.py",
+        input_file_type="jsonschema",
+        extra_args=["--disable-timestamp", "--class-name", "B"],
+        name="renamed",
+    )
+
+
+def test_stdout_beside_file(tmp_path, capsys):
+    run_main_and_assert(
+        input_path=SCHEMA, output_path=tmp_path / "m.py", extra_args=ARGS, capsys=capsys, derived_stdout=True
+    )
+
+
+def test_stdout_suffix(capsys):
+    run_main_and_assert(input_path=SCHEMA, extra_args=ARGS, stdout_suffix=".py")
+    run_main_and_assert(input_path=SCHEMA, extra_args=ARGS, capsys=capsys, stdout_suffix=".py", name="captured")
+    run_main_with_args(["--input", str(SCHEMA), *ARGS], capsys=capsys, derived_stdout=True, stdout_suffix=".py")
+
+
+def test_suffix():
+    assert_output("A = 1\\n", suffix=".py")
+    assert_output({"b": [1, "x"]}, name="value", suffix=".json")
+
+
+def test_trees(tmp_path):
+    for name, text in {"a.py": "A = 1\\n", "notes.txt": "skip\\n"}.items():
+        (tmp_path / name).write_text(text)
+    assert_directory_content(tmp_path)
+    assert_exact_directory_content(tmp_path, pattern="*.txt", name="notes")
+    assert_generated_modules_output(MODULES, pattern="*", name="whole")
+    assert_parser_modules(MODULES, name="modules")
+    assert_parser_results({"pkg/a.py": "A = 1\\n", "README.md": "# pkg\\n"}, name="results")
+"""
+
+
+def test_ledger_helpers_store_named_outputs_without_paths(ledger: LedgerProject) -> None:
+    """Helpers without an expected path store outputs under ``name``, ``suffix`` and stdout roles of their own.
+
+    Two runs under one name compare one stored output and must be equal; an expected error without a match pattern
+    stores its text, and a tree helper without a directory stores the files its pattern selects as the test's tree.
+    """
+    ledger.write("schema.json", '{"title": "A", "type": "object", "properties": {"x": {"type": "string"}}}')
+    ledger.write("test_named.py", NAMED_OUTPUT_TESTS)
+    first = ledger.run("suite", "--inline-snapshot=fix")
+    first.assert_outcomes(passed=7, failed=1)
+    assert "test_runs_differ compares two different outputs against named/runs_differ.model.py" in first.stdout.str()
+    files = ledger.files()
+    assert files["named/error.txt"] == "Unresolved local $ref targets:\n- <input>: #/definitions/missing\n"
+    assert files["named/suffix.py"] == "A = 1\n"
+    assert files["named/suffix.value.json"] == '{\n  "b": [\n    1,\n    "x"\n  ]\n}'
+    assert not files["named/stdout_beside_file.stdout.txt"]
+    assert "class B(BaseModel)" in files["named/url.renamed.py"]
+    assert {name: text for name, text in files.items() if name.startswith("named/trees")} == {
+        "named/trees.modules/pkg/__init__.py": "",
+        "named/trees.modules/pkg/a.py": "A = 1\n",
+        "named/trees.notes/notes.txt": "skip\n",
+        "named/trees.results/pkg/a.py": "A = 1\n",
+        "named/trees.whole/README.md": "# pkg\n",
+        "named/trees.whole/pkg/__init__.py": "",
+        "named/trees.whole/pkg/a.py": "A = 1\n",
+        "named/trees/a.py": "A = 1\n",
+    }
+    refs = ledger.refs("test_named")
+    assert "[test_runs]\n\tnamed/runs.model.py\n\tnamed/runs.returned.py\n" in refs
+    assert (
+        "[test_stdout_beside_file]\n\tnamed/stdout_beside_file.py\t= named/runs.model.py\n"
+        "\tnamed/stdout_beside_file.stdout.txt\n"
+    ) in refs
+    assert (
+        "[test_stdout_suffix]\n\tnamed/stdout_suffix.2.stdout.py\t= named/runs.model.py\n"
+        "\tnamed/stdout_suffix.captured.stdout.py\t= named/runs.model.py\n"
+        "\tnamed/stdout_suffix.stdout.py\t= named/runs.model.py\n"
+    ) in refs
+    assert (
+        "[test_trees]\n\tnamed/trees.modules/\n\tnamed/trees.notes/\n\tnamed/trees.results/\n\tnamed/trees.whole/\n"
+        "\tnamed/trees/\n"
+    ) in refs
+    assert "[test_url]\n\tnamed/url.py\n\tnamed/url.renamed.py\n" in refs
+    again = ledger.run("suite", "--inline-snapshot=disable", "--deselect", "suite/test_named.py::test_runs_differ")
+    again.assert_outcomes(passed=7)
 
 
 KEPT_MODULE_TESTS = """
@@ -3293,7 +3427,6 @@ import pytest
 from tests.conftest import assert_generated_modules_output, assert_output, stored_expected
 
 EXPECTED = Path(__file__).parent / "data" / "expected"
-OUTSIDE_A_TEST = stored_expected(EXPECTED / "m" / "a.txt")
 
 
 def test_a():
@@ -3316,7 +3449,6 @@ def test_reader(tmp_path):
     assert stored_expected(EXPECTED / "tree" / "notes.txt") == EXPECTED / "tree" / "notes.txt"
     assert stored_expected(EXPECTED / "unknown.txt") == EXPECTED / "unknown.txt"
     assert stored_expected(tmp_path) == tmp_path
-    assert OUTSIDE_A_TEST == EXPECTED / "m" / "a.txt"
     assert stored_expected(EXPECTED / "o.txt").read_text() == "base\\n"
     assert stored_expected(EXPECTED / "mixed" / "r.md") == EXPECTED / "mixed" / "r.md"
     assert stored_expected(EXPECTED / "mixed" / "a.py") == EXPECTED / "pyfiles" / "a.py"

@@ -2,7 +2,7 @@
 
 __author__ = """Dhruv Baldawa"""
 __email__ = "dhruv@dhruvb.com"
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 # Core Code type
 from .code import (
@@ -11,6 +11,28 @@ from .code import (
     Code,
     is_reserved,
     known_codes,
+)
+
+# Curated named codec constants (full set: multicodec.code_table)
+from .code_table import (
+    CIDV1,
+    DAG_CBOR,
+    DAG_JSON,
+    DAG_PB,
+    ED25519_PUB,
+    IDENTITY,
+    IP4,
+    IP6,
+    LIBP2P_PEER_RECORD,
+    RAW,
+    SECP256K1_PUB,
+    SHA1,
+    SHA2_256,
+    SHA2_512,
+    SHA3_256,
+    SHA3_512,
+    TCP,
+    UDP,
 )
 
 # Exceptions
@@ -42,9 +64,28 @@ from .serialization import (
 )
 
 __all__ = [
+    # Named codec constants (curated)
+    "CIDV1",
+    "DAG_CBOR",
+    "DAG_JSON",
+    "DAG_PB",
+    "ED25519_PUB",
+    "IDENTITY",
+    "IP4",
+    "IP6",
+    "LIBP2P_PEER_RECORD",
+    "RAW",
     # Constants
     "RESERVED_END",
     "RESERVED_START",
+    "SECP256K1_PUB",
+    "SHA1",
+    "SHA2_256",
+    "SHA2_512",
+    "SHA3_256",
+    "SHA3_512",
+    "TCP",
+    "UDP",
     # Code type
     "Code",
     # Serialization base classes

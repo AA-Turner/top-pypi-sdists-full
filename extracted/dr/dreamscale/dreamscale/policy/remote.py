@@ -212,12 +212,9 @@ _AUTO_QUIC_RESULT_TIMEOUT_S = 10.0
 # all runtime code uses the shared public conversion helper.
 _result_from_chunk = result_from_chunk
 
-# Perceptron Isaac 0.5 endpoints: tasks are prepared before the first observation.
-ISAAC05_MODELS = frozenset({
-    "perceptron-isaac05", "perceptron-isaac05-yam", "perceptron-isaac05-so101",
-})
-# Models whose observation window a session can switch (3 frames on, 1 frame off).
-CONTEXT_MODELS = ISAAC05_MODELS
+# Models whose observation window a session can switch (3 frames on, 1 frame off): none since
+# Isaac 0.5's per-robot deployments retired (DSL-461); a deployment seals its own window.
+CONTEXT_MODELS: frozenset[str] = frozenset()
 Context = Literal["auto", "on", "off"]
 
 
@@ -388,8 +385,7 @@ class AsyncRemotePolicy:
 
     @property
     def requires_task_preparation(self) -> bool:
-        return (self.model in ISAAC05_MODELS
-                or "task_prepare_v1" in getattr(self._connection.transport, "capabilities", ()))
+        return "task_prepare_v1" in getattr(self._connection.transport, "capabilities", ())
 
     async def prepare(self, *, instruction: str, timeout_s: float | None = None) -> None:
         """Warm the task and reset its episode before capturing an observation.
@@ -800,7 +796,9 @@ class AsyncRemotePolicy:
         action_history: Sequence[Sequence[float]] = (),
     ) -> ActionChunkResult:
         async with self._predict_lock:
-            observation = _prepared_for_session(observation, model=self.model)
+            observation = _prepared_for_session(
+                observation, model=self.model, deployment=self.deployment
+            )
             if not is_calibration:
                 self._emit_ready_for_inference()
                 if not self._inference_announced:
@@ -1166,9 +1164,7 @@ class AsyncRemotePolicy:
         strategy: RunStrategy | None = None,
         hooks: RunHooks | None = None,
     ) -> RunResult:
-        prepare_task = getattr(
-            self, "requires_task_preparation", self.model in ISAAC05_MODELS,
-        )
+        prepare_task = getattr(self, "requires_task_preparation", False)
         if prepare_task:
             await self._prepare_task(instruction=instruction, managed=True)
         try:
@@ -1426,9 +1422,7 @@ def _sync_run(
     """The synchronous managed loop, shared by ``RemotePolicy`` and the public ``Policy``:
     ``policy`` exposes ``_runner`` and ``_async_policy`` (the open session)."""
     async_policy = policy._async_policy
-    prepare_task = getattr(
-        async_policy, "requires_task_preparation", policy.model in ISAAC05_MODELS,
-    )
+    prepare_task = getattr(async_policy, "requires_task_preparation", False)
     if prepare_task:
         policy._runner.run(async_policy._prepare_task(instruction=instruction, managed=True))
     try:
@@ -1724,7 +1718,7 @@ def _raise_if_awaitable(value: Any, callback_name: str) -> None:
         )
 
 
-def _prepared_for_session(observation: Any, *, model: str) -> Any:
+def _prepared_for_session(observation: Any, *, model: str, deployment: Any = None) -> Any:
     """A LIBERO observation built without ``model=`` takes the session's model here, at
     the one place every path sends from (predict, next_action, run, step, the CLI), so
     pi05-libero always gets 256 px frames and a 20-action chunk. A ``model=`` that names
@@ -1733,11 +1727,17 @@ def _prepared_for_session(observation: Any, *, model: str) -> Any:
     A generic ``dreamscale.robot`` observation on a catalog model with a robot helper of
     its own (the catalog's ``robot_helper``) raises here, before anything is sent: that
     model's wire wants its robot's typed state, and the server would only answer
-    INVALID_OBSERVATION."""
-    from dreamscale.libero import LiberoObservation, stamped_for_model
+    INVALID_OBSERVATION.
+
+    Isaac 0.5 LIBERO reads LIBERO under its deployment's own camera keys: a LIBERO
+    observation goes as ``dreamscale sim libero`` sends it (``libero.on_camera_views``)."""
+    from dreamscale.libero import LiberoObservation, on_camera_views, stamped_for_model
     from dreamscale.robot import RobotObservation
+    from dreamscale.sim.isaac_libero import is_isaac_libero
 
     if isinstance(observation, LiberoObservation):
+        if is_isaac_libero(model) and getattr(deployment, "cameras", None):
+            return on_camera_views(observation, deployment.cameras)
         return stamped_for_model(observation, model)
     if isinstance(observation, RobotObservation):
         helper = _robot_helper(model)

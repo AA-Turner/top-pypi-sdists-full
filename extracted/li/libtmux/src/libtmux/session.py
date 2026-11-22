@@ -14,7 +14,12 @@ import typing as t
 import warnings
 
 from libtmux._internal.query_list import QueryList
-from libtmux.common import has_gte_version, raise_if_stderr, tmux_cmd
+from libtmux.common import (
+    escape_trailing_separator,
+    has_gte_version,
+    raise_if_stderr,
+    tmux_cmd,
+)
 from libtmux.constants import WINDOW_DIRECTION_FLAG_MAP, OptionScope, WindowDirection
 from libtmux.formats import FORMAT_SEPARATOR
 from libtmux.hooks import HooksMixin
@@ -31,16 +36,11 @@ from .common import (
 )
 
 if t.TYPE_CHECKING:
-    import sys
     import types
+    from typing import Self
 
     from libtmux._internal.types import StrPath
     from libtmux.common import tmux_cmd
-
-    if sys.version_info >= (3, 11):
-        from typing import Self
-    else:
-        from typing_extensions import Self
 
     from .server import Server
 
@@ -59,9 +59,109 @@ class Session(
 
     Holds :class:`Window` objects.
 
+    **Reading it.** Every field is a tmux format token read when the session was
+    listed or last refreshed, and is ``None`` when tmux gave no value.
+    :meth:`~libtmux.Session.refresh` rewrites the fields in place and returns
+    ``None``.
+
+    - Identity: :attr:`~libtmux.Session.session_id`,
+      :attr:`~libtmux.Session.id`
+    - Name: :attr:`~libtmux.Session.session_name`, :attr:`~libtmux.Session.name`
+    - Re-read from tmux: :meth:`~libtmux.Session.refresh`
+
+    **Finding it.** :meth:`~libtmux.Session.from_session_id` asks tmux for one
+    session and raises :exc:`~libtmux.exc.TmuxObjectDoesNotExist` when it is gone.
+    :meth:`~libtmux.Session.from_env` resolves the session of the pane this
+    process runs inside, through ``$TMUX_PANE``, and raises
+    :exc:`~libtmux.exc.NotInsideTmux` outside one.
+
+    - By ID: :meth:`~libtmux.Session.from_session_id`
+    - The session you run inside: :meth:`~libtmux.Session.from_env`
+    - From a listing: :attr:`~libtmux.Server.sessions`
+    - By name, without returning it: :meth:`~libtmux.Server.has_session`
+
+    **Finding what is inside.** Each access reads tmux again and returns a
+    :class:`~libtmux._internal.query_list.QueryList`. Unlike
+    :attr:`~libtmux.Server.sessions`, these raise
+    :exc:`~libtmux.exc.LibTmuxException` when tmux writes to stderr.
+    :attr:`~libtmux.Session.active_window` raises
+    :exc:`~libtmux.exc.NoActiveWindow` or
+    :exc:`~libtmux.exc.MultipleActiveWindows` unless exactly one window is active.
+    :attr:`~libtmux.Session.active_pane` is the active window's active pane, or
+    ``None``.
+
+    - Windows and panes: :attr:`~libtmux.Session.windows`,
+      :attr:`~libtmux.Session.panes`
+    - The active ones: :attr:`~libtmux.Session.active_window`,
+      :attr:`~libtmux.Session.active_pane`
+    - Filtered by tmux: :meth:`~libtmux.Session.search_windows`,
+      :meth:`~libtmux.Session.search_panes`
+
+    **Moving the selection.** Each returns the window that is now active and
+    raises :exc:`~libtmux.exc.LibTmuxException` when tmux refuses.
+
+    - Relative: :meth:`~libtmux.Session.next_window`,
+      :meth:`~libtmux.Session.previous_window`,
+      :meth:`~libtmux.Session.last_window`
+    - A named window: :meth:`~libtmux.Session.select_window`
+
+    **Adding windows.** :meth:`~libtmux.Session.new_window` returns the new
+    :class:`~libtmux.Window`. It is created detached unless ``attach=True``, and
+    it takes the next free index unless ``window_index`` names one.
+
+    - New window: :meth:`~libtmux.Session.new_window`
+    - Next to a window you hold: :meth:`~libtmux.Window.new_window`
+
+    **Changing it.** :meth:`~libtmux.Session.rename_session` raises
+    :exc:`~libtmux.exc.BadSessionName` for an empty name or one holding a period
+    or colon, refreshes the session and returns it.
+    :meth:`~libtmux.Session.kill` closes the linked windows and detaches every
+    client, and ``group=True`` needs tmux 3.7 or later, below which it warns and is
+    ignored.
+
+    - Rename: :meth:`~libtmux.Session.rename_session`
+    - Destroy it: :meth:`~libtmux.Session.kill`
+    - Close one window: :meth:`~libtmux.Session.kill_window`
+    - Detach its clients: :meth:`~libtmux.Session.detach_client`
+    - Attach a terminal or switch to it: :meth:`~libtmux.Session.attach`,
+      :meth:`~libtmux.Session.switch_client`
+
+    **Options, hooks and environment.** An option or hook call leaves the scope
+    flag off by default, which tmux resolves as session scope. The setters return
+    the session, so calls chain, and an unknown or invalid name raises
+    :exc:`~libtmux.exc.OptionError` or one of its subclasses. The environment
+    calls act on this session and raise :exc:`ValueError` when tmux reports an
+    error.
+
+    - Options: :meth:`~libtmux.Session.show_options`,
+      :meth:`~libtmux.Session.show_option`, :meth:`~libtmux.Session.set_option`,
+      :meth:`~libtmux.Session.unset_option`
+    - Hooks: :meth:`~libtmux.Session.show_hooks`,
+      :meth:`~libtmux.Session.show_hook`, :meth:`~libtmux.Session.set_hook`,
+      :meth:`~libtmux.Session.unset_hook`, :meth:`~libtmux.Session.run_hook`
+    - Environment: :meth:`~libtmux.Session.show_environment`,
+      :meth:`~libtmux.Session.getenv`, :meth:`~libtmux.Session.set_environment`,
+      :meth:`~libtmux.Session.unset_environment`,
+      :meth:`~libtmux.Session.remove_environment`
+
     Parameters
     ----------
     server : :class:`Server`
+        Server the session was queried from, and the connection every command
+        and refresh runs over.
+
+    Attributes
+    ----------
+    default_option_scope : OptionScope | None
+        Scope :class:`~libtmux.options.OptionsMixin` falls back to when an
+        option call leaves ``scope`` unset. ``None`` sends ``set-option`` and
+        ``show-options`` with no scope flag, which tmux resolves as session
+        scope; ``OptionScope.Session`` maps to that same empty flag.
+    default_hook_scope : OptionScope | None
+        Scope :class:`~libtmux.hooks.HooksMixin` falls back to when a hook
+        call leaves ``scope`` unset. ``None`` sends ``set-hook`` and
+        ``show-hooks`` with no scope flag, which tmux resolves as session
+        scope.
 
     Examples
     --------
@@ -217,7 +317,7 @@ class Session(
 
         Examples
         --------
-        >>> socket_path = server.cmd(
+        >>> socket_path = server.cmd(  # doctest: +HIDE
         ...     "display-message", "-p", "-t", pane.pane_id, "#{socket_path}"
         ... ).stdout[0]
 
@@ -760,7 +860,7 @@ class Session(
         """
         session_check_name(new_name)
 
-        proc = self.cmd("rename-session", new_name)
+        proc = self.cmd("rename-session", "--", escape_trailing_separator(new_name))
 
         raise_if_stderr(proc, "rename-session")
 
@@ -880,15 +980,15 @@ class Session(
         # Catch empty string and default (`None`)
         if start_directory:
             start_directory = pathlib.Path(start_directory).expanduser()
-            window_args += (f"-c{start_directory}",)
+            window_args += (escape_trailing_separator(f"-c{start_directory}"),)
 
         window_args += ("-F#{window_id}",)  # output
         if window_name is not None and isinstance(window_name, str):
-            window_args += ("-n", window_name)
+            window_args += ("-n", escape_trailing_separator(window_name))
 
         if environment:
             for k, v in environment.items():
-                window_args += (f"-e{k}={v}",)
+                window_args += (escape_trailing_separator(f"-e{k}={v}"),)
 
         if direction is not None:
             window_args += (WINDOW_DIRECTION_FLAG_MAP[direction],)
@@ -910,7 +1010,7 @@ class Session(
             window_args += (f"-t{self.session_id}:{window_index}",)
 
         if window_shell:
-            window_args += (window_shell,)
+            window_args += (escape_trailing_separator(window_shell),)
 
         cmd = self.cmd("new-window", *window_args, target=target)
 
@@ -950,7 +1050,9 @@ class Session(
         Parameters
         ----------
         target_window : str | int, optional
-            Window to kill.
+            Window to kill. An index or a name is resolved within this
+            session; a window id (``@1``) or a target that names a session
+            (``other:1``) is passed to tmux as given.
 
         Raises
         ------
@@ -959,10 +1061,10 @@ class Session(
         """
         target: str | int | None = target_window
         if target_window is not None:
-            if isinstance(target_window, int):
-                target = f"{self.session_name}:{target_window}"
-            else:
-                target = f"{target_window}"
+            target = str(target_window)
+            if not target.startswith("@") and ":" not in target:
+                # tmux resolves a bare index or name in its own current session.
+                target = f"{self.session_id}:{target}"
 
         proc = self.cmd("kill-window", target=target)
 

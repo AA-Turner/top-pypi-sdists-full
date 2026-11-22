@@ -104,12 +104,19 @@ def test_a_promoted_feature_is_turned_off_by_the_keyword_or_the_variable(
 
 
 def test_a_promoted_feature_is_off_by_default_outside_its_reach(no_features):
-    # The nec42-sinusoidal executable's level is past reach 9: no default
-    # there, and asking still refuses (a native feature).
-    assert F.current_level("exe", basis="nec42-sinusoidal") == len(F.LEVELS)
+    # The nec42-sinusoidal executable's level (10) is past reach 9: no
+    # default there, and asking still refuses (a native feature). The
+    # nec2c-sinusoidal one (momwire#2065) is deeper still, the deepest.
+    assert F.current_level("exe", basis="nec42-sinusoidal") == F._level(
+        "exe-nec42-sinusoidal"
+    )
+    assert F.current_level("exe", basis="nec2c-sinusoidal") == len(F.LEVELS)
     f = F.FEATURES["factored_columns"]
-    assert f.default and f.reach < len(F.LEVELS) and f.kind == "native"
-    assert F.certified("factored_columns", "exe", basis="nec42-sinusoidal") is False
+    assert (
+        f.default and f.reach < F._level("exe-nec42-sinusoidal") and f.kind == "native"
+    )
+    for basis in ("nec42-sinusoidal", "nec2c-sinusoidal"):
+        assert F.certified("factored_columns", "exe", basis=basis) is False
 
 
 def test_the_env_names_follow_the_pattern():
@@ -158,6 +165,24 @@ def _exe_table():
 def _exe_features():
     """`EXE_FEATURES` in the executables' main: {name: reach}."""
     return {n: r for n, (r, _d) in _exe_table().items()}
+
+
+def test_a_launcher_default_exception_is_the_registrys_and_only_that():
+    """The executables' main runs a feature past its reach only where
+    `EXE_LAUNCHER_DEFAULTS` names it (momwire#2065): today NEC-2's end cap,
+    on the nec2c-sinusoidal executable alone, under its dialect's guard."""
+    src = EXE_SOURCE.read_text(encoding="utf-8")
+    body = re.search(r"bool feature_runs_here\(.*?\n\}", src, re.S)
+    assert body is not None
+    carved = set(re.findall(r'if \(name == "([a-z0-9_]+)"\) return true;', body[0]))
+    assert carved == set(F.EXE_LAUNCHER_DEFAULTS)
+    assert "#if MW_EXE_DIALECT_NEC2" in body[0]
+    ids = [lvl.id for lvl in F.LEVELS]
+    for name, level in F.EXE_LAUNCHER_DEFAULTS.items():
+        assert level in ids
+        # an exception, not a reach: the level lies past the feature's reach
+        assert ids.index(level) + 1 > F.FEATURES[name].reach
+        assert name not in _exe_table()
 
 
 def test_the_executables_defaults_are_the_registrys():

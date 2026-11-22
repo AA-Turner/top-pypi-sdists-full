@@ -20,6 +20,10 @@ def _action_for(control_type: str) -> str:
     return _ACTION_MAP.get(control_type.lower(), "click")
 
 
+def _escape_line_breaks(text: str) -> str:
+    return text.replace("\r", "\\r").replace("\n", "\\n")
+
+
 # Same preview length as the Clipboard tool's confirmation. The walk stores the whole
 # selection, so without a cap a long one would be printed into the tree in full.
 _SELECTION_PREVIEW_CHARS = 100
@@ -29,7 +33,7 @@ def _selection_preview(text: str) -> str:
     if len(text) > _SELECTION_PREVIEW_CHARS:
         text = text[:_SELECTION_PREVIEW_CHARS] + "..."
     # A selection can span lines; escape the breaks so it stays on its element's tree line.
-    return text.replace("\r", "\\r").replace("\n", "\\n")
+    return _escape_line_breaks(text)
 
 
 def _node_meta_str(metadata: dict[str, Any]) -> str:
@@ -142,12 +146,17 @@ class SemanticNode:
     bounding_box: Optional["BoundingBox"] = None
     metadata: dict[str, Any] = field(default_factory=dict)
     children: list["SemanticNode"] = field(default_factory=list)
+    # The interactive_nodes or scrollable_nodes entry this node stands for: its place in
+    # those lists is the label the tree shows.
+    element: "TreeElementNode | ScrollElementNode | None" = field(
+        default=None, repr=False, compare=False
+    )
 
     def add_child(self, child: "SemanticNode") -> None:
         self.children.append(child)
 
 
-def _format_semantic_node(node: SemanticNode) -> str:
+def _format_semantic_node(node: SemanticNode, label: int | None = None) -> str:
     ctrl = node.control_type.lower()
     name = node.name
     if node.element_type == "window":
@@ -158,16 +167,24 @@ def _format_semantic_node(node: SemanticNode) -> str:
         coords = node.center.to_string() if node.center else "(?)"
         action = _action_for(ctrl)
         meta = _node_meta_str(node.metadata) if node.element_type == "interactive" else _scroll_meta_str(node.metadata)
-        return f'{coords} {ctrl} "{name}"  [action: {action}]{meta}'
+        label_str = f"[#{label}] " if label is not None else ""
+        return f'{label_str}{coords} {ctrl} "{name}"  [action: {action}]{meta}'
     return f'{ctrl} "{name}"'
 
 
-def _render_semantic_node(node: SemanticNode, lines: list[str], prefix: str, is_last: bool) -> None:
+def _render_semantic_node(
+    node: SemanticNode, lines: list[str], prefix: str, is_last: bool, labels: dict[int, int]
+) -> None:
     if node.element_type == "desktop":
         lines.append("desktop")
     else:
         connector = "└── " if is_last else "├── "
-        lines.append(f"{prefix}{connector}{_format_semantic_node(node)}")
+        label = labels.get(id(node.element)) if node.element is not None else None
+        # A name or value can span lines too (a multi-line field's text, say); escape the
+        # breaks so each element keeps one tree line.
+        lines.append(
+            f"{prefix}{connector}{_escape_line_breaks(_format_semantic_node(node, label))}"
+        )
 
     if not node.children:
         return
@@ -175,7 +192,7 @@ def _render_semantic_node(node: SemanticNode, lines: list[str], prefix: str, is_
     extension = "    " if is_last else "│   "
     new_prefix = prefix + extension
     for i, child in enumerate(node.children):
-        _render_semantic_node(child, lines, new_prefix, i == len(node.children) - 1)
+        _render_semantic_node(child, lines, new_prefix, i == len(node.children) - 1, labels)
 
 
 def _prune_structural(node: SemanticNode) -> bool:
@@ -209,8 +226,13 @@ class TreeState:
     def semantic_tree_to_string(self) -> str:
         if not self.semantic_tree_root:
             return "No elements"
+        # Label N is interactive_nodes[N], and the scrollable nodes are numbered on after
+        # them (Desktop.get_coordinates_from_label); the annotated screenshot draws the
+        # same numbers on the interactive nodes. The tree lists elements in another order.
+        elements = [*self.interactive_nodes, *self.scrollable_nodes]
+        labels = {id(element): label for label, element in enumerate(elements)}
         lines: list[str] = []
-        _render_semantic_node(self.semantic_tree_root, lines, "", is_last=True)
+        _render_semantic_node(self.semantic_tree_root, lines, "", is_last=True, labels=labels)
         text = "\n".join(lines)
         if self.truncated:
             text += "\n\n" + _truncation_note(self.element_limit)

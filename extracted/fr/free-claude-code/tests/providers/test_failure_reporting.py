@@ -742,7 +742,7 @@ def test_auth_failure_preserves_model_error_body_instead_of_masking_it() -> None
 
     assert failure.kind is FailureKind.AUTHENTICATION
     assert failure.status_code == 401
-    assert "Category: ModelError" in failure.message
+    assert "Category: authentication" in failure.message
     assert "Provider authentication failed. Check API key." in failure.message
     assert "Model qwen3.7-max is not supported for format oa-compat" in failure.message
     assert "Request ID: req_model" in failure.message
@@ -887,7 +887,9 @@ def test_shared_recovery_exhaustion_preserves_last_provider_failure() -> None:
 
 
 @pytest.mark.parametrize("deadline", [None, 1234.0])
-def test_recovery_rewrap_preserves_selected_cause_and_deadline(deadline: float | None):
+def test_recovery_rewrap_preserves_selected_cause_and_deadline(
+    deadline: float | None,
+) -> None:
     cause = RuntimeError("selected upstream error")
     first = ProviderRecoveryExhausted(cause, retry_not_before=deadline)
     copied = ProviderRecoveryExhausted(first)

@@ -1,9 +1,11 @@
+import asyncio
 import ipaddress
 import logging
+from collections.abc import Awaitable, Callable
 from types import SimpleNamespace
 from typing import Any, List, Optional
 
-from aiounifi.models.api import ApiRequest
+from aiounifi.models.api import ApiRequest, ApiRequestV2
 from aiounifi.models.client import Client
 
 from unifi_core.exceptions import UniFiAuthError, UniFiNotFoundError, UniFiOperationError
@@ -15,10 +17,30 @@ from unifi_core.network.managers.connection_manager import (
     response_status,
 )
 from unifi_core.request_paths import object_id
+from unifi_core.write_verification import settle_readback
 
 logger = logging.getLogger("unifi-network-mcp")
 
 CACHE_PREFIX_CLIENTS = "clients"
+
+# V2 active-client list as the Network UI requests it to include Thread end devices.
+MATTER_THREAD_ACTIVE_CLIENTS_PATH = "/clients/active?includeMatterThreadClients=true"
+MATTER_THREAD_CLIENT_TYPE = "MATTER_THREAD"
+
+
+def _matter_thread_session_required(env_prefix: str | None) -> str:
+    """Fixed text naming where the session credentials go.
+
+    The ``UNIFI_*`` variables are named only for a caller that reads them (an
+    MCP server passes its prefix); the API server keeps credentials on the
+    controller record instead.
+    """
+    if isinstance(env_prefix, str) and env_prefix:
+        where = f"Configure UNIFI_{env_prefix}_USERNAME and UNIFI_{env_prefix}_PASSWORD."
+    else:
+        where = "Add a username and password to this controller's configuration."
+    return f"Matter/Thread client inventory requires Network session authentication. {where}"
+
 
 UNKNOWN_USER_CODE = "api.err.UnknownUser"
 
@@ -42,13 +64,21 @@ class FixedApOperationError(UniFiOperationError):
 class ClientManager:
     """Manages client-related operations on the Unifi Controller."""
 
-    def __init__(self, connection_manager: ConnectionManager):
+    def __init__(
+        self,
+        connection_manager: ConnectionManager,
+        *,
+        readback_sleep: Callable[[float], Awaitable[Any]] = asyncio.sleep,
+    ):
         """Initialize the Client Manager.
 
         Args:
             connection_manager: The shared ConnectionManager instance.
+            readback_sleep: How to wait between read-backs while a write
+                settles; tests pass a fake so they never sleep.
         """
         self._connection = connection_manager
+        self._readback_sleep = readback_sleep
 
     async def get_clients(self, include_offline: bool = False) -> List[Client | dict[str, Any]]:
         """Get clients for the current site.
@@ -486,7 +516,7 @@ class ClientManager:
             UniFiNotFoundError: The controller has no known-client record for
                 the MAC, so nothing was sent.
             UniFiOperationError: The controller still lists the client after
-                accepting the command.
+                accepting the command and a short settle wait.
         """
         client_mac = normalize_mac(client_mac) or client_mac
         path_mac = canonical_mac(client_mac)
@@ -509,9 +539,19 @@ class ClientManager:
         except Exception as e:
             logger.error("Error forgetting client [redacted]: %s", type(e).__name__)
             raise
-        if await self._is_known_client(path_mac):
+        settled = await settle_readback(
+            lambda: self._user_record(path_mac), lambda record: record is None, sleep=self._readback_sleep
+        )
+        if not settled.matched:
+            logger.warning(
+                "Forget read-back still listed the client after %d reads over %.1fs",
+                settled.reads,
+                settled.waited_seconds,
+            )
             raise UniFiOperationError(
-                f"the controller accepted the forget command but still lists client '{client_mac}'"
+                f"the controller accepted the forget command but still lists client '{client_mac}' after "
+                f"waiting {settled.waited_seconds:.1f}s; the forget may not have applied. "
+                "Re-read the client before retrying."
             )
         return True
 
@@ -547,6 +587,73 @@ class ClientManager:
     async def _is_known_client(self, path_mac: str) -> bool:
         """Whether the controller has a user-table record for the MAC, read per MAC."""
         return await self._user_record(path_mac) is not None
+
+    async def get_matter_thread_clients(self) -> List[dict[str, Any]]:
+        """Get connected Matter-over-Thread clients for the current site.
+
+        Thread end devices never appear in ``/stat/sta`` or ``/rest/user``. The
+        Network UI (verified on Network 11.0) reads them from the V2 active-client
+        list with ``includeMatterThreadClients=true``, where they carry
+        ``type == "MATTER_THREAD"`` and no MAC address. Only those records are
+        returned; the wired/Wi-Fi records in the same response stay with
+        :meth:`get_clients`. Requires a Network session (V2 API); an API-key
+        route is never used for this session-only endpoint.
+
+        Errors carry fixed text and the exception class only, so controller
+        response text (device names, addresses) never reaches the caller.
+        """
+        if not await self._connection.ensure_session_connected():
+            raise UniFiAuthError(_matter_thread_session_required(getattr(self._connection, "tls_env_prefix", None)))
+        cache_key = f"{CACHE_PREFIX_CLIENTS}_matter_thread_{self._connection.site}"
+        cached_data: Optional[List[dict[str, Any]]] = self._connection.get_cached(cache_key)
+        if cached_data is not None:
+            return cached_data
+        try:
+            response = await self._connection.request(
+                ApiRequestV2(method="get", path=MATTER_THREAD_ACTIVE_CLIENTS_PATH)
+            )
+        except Exception as e:
+            logger.error("Error getting Matter/Thread clients: %s", type(e).__name__)
+            raise UniFiOperationError(
+                f"Failed to list Matter/Thread clients ({type(e).__name__}). "
+                "Verify controller availability and Network session permissions."
+            ) from None
+        if not isinstance(response, list):
+            logger.warning("Matter/Thread client list returned an unexpected response shape")
+            raise UniFiOperationError(
+                "Failed to list Matter/Thread clients: the controller returned an unexpected response shape. "
+                "Verify that this Network version supports Matter/Thread client inventory."
+            )
+        thread_clients = [
+            record
+            for record in response
+            if isinstance(record, dict) and record.get("type") == MATTER_THREAD_CLIENT_TYPE
+        ]
+        self._connection._update_cache(cache_key, thread_clients)
+        return thread_clients
+
+    async def get_client_inventory(self, filter_type: str = "all", include_offline: bool = False) -> dict[str, Any]:
+        """Client records for a public client list, by connection type.
+
+        ``filter_type="thread"`` reads only the Matter/Thread end devices.
+        Otherwise the wired/Wi-Fi records come from :meth:`get_clients`; for
+        ``"all"`` the Thread end devices are also read, best effort, so the list
+        can report how many there are without mixing MAC-less records into a
+        MAC-keyed list. ``thread_clients`` is ``None`` when they were not read.
+        """
+        if filter_type == "thread":
+            return {"clients": [], "thread_clients": await self.get_matter_thread_clients()}
+        clients = await self.get_clients(include_offline=include_offline)
+        thread_clients: Optional[List[dict[str, Any]]] = None
+        if filter_type == "all" and not (
+            getattr(self._connection, "has_api_key", False) is True
+            and getattr(self._connection, "integration_inventory_only", False) is True
+        ):
+            try:
+                thread_clients = await self.get_matter_thread_clients()
+            except Exception as thread_e:
+                logger.debug("Matter/Thread client count skipped: %s", type(thread_e).__name__)
+        return {"clients": clients, "thread_clients": thread_clients}
 
     async def get_blocked_clients(self) -> List[Client]:
         """Get a list of currently blocked clients."""
@@ -853,7 +960,9 @@ class ClientManager:
         The controller accepts this only through the session-authenticated
         ``/rest/user/{id}`` surface. The write starts from a freshly read user
         record, preserving unrelated settings, and verifies the persisted
-        fixed-AP state rather than trusting the PUT acknowledgement.
+        fixed-AP state rather than trusting the PUT acknowledgement. The
+        read-back is retried for a few seconds before a mismatch is reported,
+        because a read made right after the PUT can still show the old record.
         """
         client_mac = canonical_mac(client_mac)
         ap_mac = canonical_mac(fixed_ap_mac) if fixed_ap_mac is not None else None
@@ -899,17 +1008,24 @@ class ClientManager:
             # Mark a not-yet-noted client as known first, best effort: Network
             # 10.6 keeps the record unnoted yet still honours the fixed AP, and
             # the read-back below is what verifies the outcome. Re-read before
-            # the final full-record PUT so that it cannot undo the note.
+            # the final full-record PUT so that it cannot undo the note; a read
+            # made right after the PUT can still show the old record, so give
+            # it a short settle wait.
             if not persisted.get("noted"):
                 noted = dict(persisted)
                 noted["noted"] = True
                 await self._connection.request(
                     ApiRequest(method="put", path=f"/rest/user/{object_id(client_id, 'client')}", data=noted)
                 )
-                persisted = await self._get_user_by_mac(client_mac)
+                settled_note = await settle_readback(
+                    lambda: self._get_user_by_mac(client_mac),
+                    lambda record: record is not None and bool(record.get("noted")),
+                    sleep=self._readback_sleep,
+                )
+                persisted = settled_note.value
                 if persisted is None:
                     raise FixedApOperationError("Controller did not return the client before fixed AP update")
-                if not persisted.get("noted"):
+                if not settled_note.matched:
                     logger.info("Controller kept client [redacted] unnoted; continuing with the fixed AP update")
 
             update = dict(persisted)
@@ -923,13 +1039,28 @@ class ClientManager:
             )
             self._connection._invalidate_cache(f"{CACHE_PREFIX_CLIENTS}")
 
-            readback = await self._get_user_by_mac(client_mac)
-            if readback is None:
-                raise FixedApOperationError("Controller did not return the client after fixed AP update")
-            enabled_matches = readback.get("fixed_ap_enabled") is fixed_ap_enabled
-            ap_matches = not fixed_ap_enabled or mac_equal(readback.get("fixed_ap_mac"), ap_mac)
-            if not enabled_matches or not ap_matches:
-                raise FixedApOperationError("Controller did not persist the requested fixed AP settings")
+            def applied(record: Optional[dict]) -> bool:
+                if record is None or record.get("fixed_ap_enabled") is not fixed_ap_enabled:
+                    return False
+                return not fixed_ap_enabled or mac_equal(record.get("fixed_ap_mac"), ap_mac)
+
+            # A read made right after the PUT can still show the old record
+            # (seen on Network 11.0), so the read-back gets a short settle wait.
+            settled = await settle_readback(
+                lambda: self._get_user_by_mac(client_mac), applied, sleep=self._readback_sleep
+            )
+            readback = settled.value
+            if not settled.matched:
+                logger.warning(
+                    "Fixed AP read-back did not match after %d reads over %.1fs", settled.reads, settled.waited_seconds
+                )
+                if readback is None:
+                    raise FixedApOperationError("Controller did not return the client after fixed AP update")
+                raise FixedApOperationError(
+                    "Controller accepted the fixed AP update, but the client read back after waiting "
+                    f"{settled.waited_seconds:.1f}s did not show the requested settings; the update may not have "
+                    "applied. Re-read the client before retrying."
+                )
             logger.info("Fixed AP setting updated for client [redacted]")
             return {
                 "success": True,

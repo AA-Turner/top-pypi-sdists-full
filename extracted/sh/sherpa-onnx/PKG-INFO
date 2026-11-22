@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sherpa_onnx
-Version: 2.0.2
+Version: 2.0.3
 Home-page: https://github.com/k2-fsa/sherpa-onnx
 Author: The sherpa-onnx development team
 Author-email: dpovey@gmail.com
@@ -11,7 +11,7 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: sherpa-onnx-core==2.0.2
+Requires-Dist: sherpa-onnx-core==2.0.3
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

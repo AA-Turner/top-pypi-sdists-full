@@ -1,0 +1,84 @@
+import base64
+import struct
+
+from flask import Flask, request
+
+from tests.test_utils import domain, password, username
+
+
+app = Flask(__name__)
+
+
+@app.route("/ntlm")
+def ntlm_auth():
+    return get_auth_response("NTLM")
+
+
+@app.route("/negotiate")
+def negotiate_auth():
+    return get_auth_response("Negotiate")
+
+
+@app.route("/both")
+def negotiate_and_ntlm_auth():
+    return get_auth_response("NTLM", advertise_nego_and_ntlm=True)
+
+
+def get_auth_response(auth_type, advertise_nego_and_ntlm=False):
+    # Get the actual header that is returned by requests_ntlm
+    actual_header = request.headers.get("Authorization", "")
+
+    # Check what the message type is from the header
+    if actual_header == "":
+        # This is the initial connection, need to return a 401
+        response_headers = {
+            "WWW-Authenticate": auth_type
+            if not advertise_nego_and_ntlm
+            else "Negotiate, NTLM"
+        }
+        status_code = 401
+        response = f"auth with '{domain}\\{username}':'{password}'"
+    else:
+        # Set human-readable names for message types
+        # see https://msdn.microsoft.com/en-us/library/cc236639.aspx
+        expected_signature = b"NTLMSSP\x00"
+        negotiate_message_type = 1
+        authenticate_message_type = 3
+
+        msg = base64.b64decode(actual_header[len(auth_type):])
+        signature = msg[0:8]
+        if signature != expected_signature:
+            raise ValueError(
+                "Mismatch on NTLM message signature,"
+                f" expecting: {expected_signature}, actual: {signature}"
+            )
+        # Get the NTLM version number (bytes 9 - 12)
+        message_type = struct.unpack("<I", msg[8:12])[0]
+
+        if message_type == negotiate_message_type:
+            # Initial NTLM message from client, attach challenge token
+            challenge_response = (
+                "TlRMTVNTUAACAAAAAwAMADgAAAAzgoriASNFZ4mrze8AAAA"
+                "AAAAAACQAJABEAAAABgBwFwAAAA9TAGUAcgB2AGUAcgACAA"
+                "wARABvAG0AYQBpAG4AAQAMAFMAZQByAHYAZQByAAAAAAA="
+            )
+            challenge_header = auth_type + " " + challenge_response
+            response_headers = {"WWW-Authenticate": challenge_header}
+            response = f"auth with '{domain}\\{username}':'{password}'"
+            status_code = 401
+        elif message_type == authenticate_message_type:
+            # Received final NTLM message, return 200
+            response_headers = {}
+            status_code = 200
+            response = "authed"
+        else:
+            # Should only receive a Negotiate (1) or Auth (3) message from requests_ntlm
+            raise ValueError(
+                f"Mismatch on NTLM message type, expecting: 1 or 3, got: {message_type}"
+            )
+
+    return response, status_code, response_headers
+
+
+if __name__ == "__main__":
+    app.run()

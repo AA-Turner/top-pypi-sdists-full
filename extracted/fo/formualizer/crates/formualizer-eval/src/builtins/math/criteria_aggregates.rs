@@ -1,4 +1,4 @@
-use super::super::utils::{ARG_ANY_ONE, EqualityCounts, coerce_num, criteria_match};
+use super::super::utils::{ARG_ANY_ONE, EqualityCounts, coerce_num, criteria_match_for};
 use super::{AggregateArgument, resolve_aggregate_argument};
 use crate::args::ArgSchema;
 use crate::compute_prelude::{boolean, cmp};
@@ -154,6 +154,9 @@ fn resolve_count_argument<'a, 'b>(
                 );
             }
         }
+        if view.tail().is_some() {
+            return Ok((AggregateArgument::Range(view), Some(logical_cells)));
+        }
         let (rows, cols) = view.dims();
         let physical_rows =
             rows.min((view.sheet().nrows as usize).saturating_sub(view.start_row()));
@@ -258,7 +261,7 @@ fn count_argument_equalities<'a, 'b>(
     else {
         return None;
     };
-    let mut counts = EqualityCounts::default();
+    let mut counts = EqualityCounts::new(ctx.date_system());
     view.for_each_cell(&mut |cell| {
         counts.add(cell);
         Ok(())
@@ -291,7 +294,10 @@ fn eval_if_family<'a, 'b>(
         values.push(args[i].value()?.into_literal());
     }
     if !values.iter().any(|v| lifting_shape(v).is_some()) {
-        let preds: Vec<_> = values.iter().map(crate::args::parse_criteria).collect();
+        let preds: Vec<_> = values
+            .iter()
+            .map(|v| crate::args::parse_criteria_for(v, ctx.date_system()))
+            .collect();
         return eval_if_core(args, ctx, agg_type, multi, &preds);
     }
 
@@ -319,7 +325,7 @@ fn eval_if_family<'a, 'b>(
                 .zip(&shapes)
                 .map(|(value, shape)| {
                     let (LiteralValue::Array(arr), Some((ar, ac))) = (value, shape) else {
-                        return crate::args::parse_criteria(value);
+                        return crate::args::parse_criteria_for(value, ctx.date_system());
                     };
                     let rr = if *ar == 1 { 0 } else { r };
                     let cc = if *ac == 1 { 0 } else { c };
@@ -330,7 +336,9 @@ fn eval_if_family<'a, 'b>(
                         Some(LiteralValue::Error(e)) => Ok(crate::args::CriteriaPredicate::Eq(
                             LiteralValue::Error(e.clone()),
                         )),
-                        Some(element) => crate::args::parse_criteria(element),
+                        Some(element) => {
+                            crate::args::parse_criteria_for(element, ctx.date_system())
+                        }
                         None => Ok(crate::args::CriteriaPredicate::Eq(LiteralValue::Error(
                             ExcelError::new(formualizer_common::ExcelErrorKind::Na),
                         ))),
@@ -368,6 +376,7 @@ fn eval_if_core<'a, 'b>(
     multi: bool,
     preds: &[Result<crate::args::CriteriaPredicate, ExcelError>],
 ) -> Result<crate::traits::CalcValue<'b>, ExcelError> {
+    let date_system = ctx.date_system();
     let mut sum_view: Option<crate::engine::range_view::RangeView<'_>> = None;
     let mut sum_scalar: Option<LiteralValue> = None;
     let mut crit_specs = Vec::new();
@@ -501,22 +510,45 @@ fn eval_if_core<'a, 'b>(
     let mut total_sum = 0.0f64;
     let mut total_count = 0i64;
 
-    // Use a driver view for chunked iteration. Prefer sum_view, else first criteria range.
-    let driver = sum_view
-        .as_ref()
-        .or_else(|| crit_specs.iter().find_map(|(rv, _, _)| rv.as_ref()));
-
-    if let Some(drv) = driver {
-        // We can't easily iterate over union dims if they are larger than driver.
-        // But for most cases they are same.
-        // If driver is smaller, we'll miss some rows.
-        // Actually, if it's SUMIF, we want to iterate over criteria range dims.
-        let driver = if !multi && crit_specs[0].0.is_some() {
-            crit_specs[0].0.as_ref().unwrap()
+    // Use a driver view for chunked iteration. Prefer the default range, then upgrade
+    // to any participating view with greater row coverage (such as a tailed view whose
+    // synthetic tail extends beyond physically stored sheet rows).
+    let effective_row_coverage = |v: &crate::engine::range_view::RangeView<'_>| -> usize {
+        if v.tail().is_some() {
+            v.dims().0
         } else {
-            drv
-        };
+            (v.sheet().nrows as usize)
+                .saturating_sub(v.start_row())
+                .min(v.dims().0)
+        }
+    };
+    let mut driver = if !multi && crit_specs[0].0.is_some() {
+        crit_specs[0].0.as_ref()
+    } else {
+        sum_view
+            .as_ref()
+            .or_else(|| crit_specs.iter().find_map(|(rv, _, _)| rv.as_ref()))
+    };
+    if let Some(mut best) = driver {
+        let mut best_cov = effective_row_coverage(best);
+        let mut best_tailed = best.tail().is_some();
+        for candidate in sum_view
+            .as_ref()
+            .into_iter()
+            .chain(crit_specs.iter().filter_map(|(rv, _, _)| rv.as_ref()))
+        {
+            let cov = effective_row_coverage(candidate);
+            let tailed = candidate.tail().is_some();
+            if cov > best_cov || (tailed && !best_tailed && cov == best_cov) {
+                best = candidate;
+                best_cov = cov;
+                best_tailed = tailed;
+            }
+        }
+        driver = Some(best);
+    }
 
+    if let Some(driver) = driver {
         let mut criteria_masks = CriteriaMaskMemo::default();
         let mut visited_rows = 0usize;
         for res in driver.iter_row_chunks() {
@@ -551,13 +583,13 @@ fn eval_if_core<'a, 'b>(
                 for (j, (_, pred, scalar_val)) in crit_specs.iter().enumerate() {
                     if crit_specs[j].0.is_none() {
                         if let Some(sv) = scalar_val {
-                            if !criteria_match(pred, sv) {
+                            if !criteria_match_for(pred, sv, date_system) {
                                 impossible = true;
                                 break;
                             }
                             continue;
                         }
-                        if !criteria_match(pred, &LiteralValue::Empty) {
+                        if !criteria_match_for(pred, &LiteralValue::Empty, date_system) {
                             impossible = true;
                             break;
                         }
@@ -569,7 +601,8 @@ fn eval_if_core<'a, 'b>(
                         criteria_masks
                             .get_or_build((j, c), || ctx.get_criteria_mask(view, c, pred))
                             .map(|m| {
-                                let fill = criteria_match(pred, &LiteralValue::Empty);
+                                let fill =
+                                    criteria_match_for(pred, &LiteralValue::Empty, date_system);
                                 let m_len = m.len();
 
                                 // The cached mask may be shorter than the current driver's chunk
@@ -678,9 +711,10 @@ fn eval_if_core<'a, 'b>(
                                                 if m0.is_valid(i) {
                                                     bb.append_value(m0.value(i));
                                                 } else {
-                                                    bb.append_value(criteria_match(
+                                                    bb.append_value(criteria_match_for(
                                                         pred,
                                                         &view.get_cell(row_start + i, c),
+                                                        date_system,
                                                     ));
                                                 }
                                             }
@@ -696,9 +730,10 @@ fn eval_if_core<'a, 'b>(
                                             );
                                         let view = crit_specs[j].0.as_ref().unwrap();
                                         for i in 0..row_len {
-                                            bb.append_value(criteria_match(
+                                            bb.append_value(criteria_match_for(
                                                 pred,
                                                 &view.get_cell(row_start + i, c),
+                                                date_system,
                                             ));
                                         }
                                         bb.finish()
@@ -722,9 +757,10 @@ fn eval_if_core<'a, 'b>(
                                                 if m0.is_valid(i) {
                                                     bb.append_value(m0.value(i));
                                                 } else {
-                                                    bb.append_value(criteria_match(
+                                                    bb.append_value(criteria_match_for(
                                                         pred,
                                                         &view.get_cell(row_start + i, c),
+                                                        date_system,
                                                     ));
                                                 }
                                             }
@@ -737,9 +773,10 @@ fn eval_if_core<'a, 'b>(
                                             );
                                         let view = crit_specs[j].0.as_ref().unwrap();
                                         for i in 0..row_len {
-                                            bb.append_value(criteria_match(
+                                            bb.append_value(criteria_match_for(
                                                 pred,
                                                 &view.get_cell(row_start + i, c),
+                                                date_system,
                                             ));
                                         }
                                         bb.finish()
@@ -753,9 +790,10 @@ fn eval_if_core<'a, 'b>(
                                         );
                                     let view = crit_specs[j].0.as_ref().unwrap();
                                     for i in 0..row_len {
-                                        bb.append_value(criteria_match(
+                                        bb.append_value(criteria_match_for(
                                             pred,
                                             &view.get_cell(row_start + i, c),
+                                            date_system,
                                         ));
                                     }
                                     bb.finish()
@@ -780,9 +818,10 @@ fn eval_if_core<'a, 'b>(
                                             if m0.is_valid(i) {
                                                 bb.append_value(m0.value(i));
                                             } else {
-                                                bb.append_value(criteria_match(
+                                                bb.append_value(criteria_match_for(
                                                     pred,
                                                     &view.get_cell(row_start + i, c),
+                                                    date_system,
                                                 ));
                                             }
                                         }
@@ -795,9 +834,10 @@ fn eval_if_core<'a, 'b>(
                                         );
                                     let view = crit_specs[j].0.as_ref().unwrap();
                                     for i in 0..row_len {
-                                        bb.append_value(criteria_match(
+                                        bb.append_value(criteria_match_for(
                                             pred,
                                             &view.get_cell(row_start + i, c),
+                                            date_system,
                                         ));
                                     }
                                     bb.finish()
@@ -820,9 +860,10 @@ fn eval_if_core<'a, 'b>(
                                             if m0.is_valid(i) {
                                                 bb.append_value(m0.value(i));
                                             } else {
-                                                bb.append_value(criteria_match(
+                                                bb.append_value(criteria_match_for(
                                                     pred,
                                                     &view.get_cell(row_start + i, c),
+                                                    date_system,
                                                 ));
                                             }
                                         }
@@ -835,9 +876,10 @@ fn eval_if_core<'a, 'b>(
                                         );
                                     let view = crit_specs[j].0.as_ref().unwrap();
                                     for i in 0..row_len {
-                                        bb.append_value(criteria_match(
+                                        bb.append_value(criteria_match_for(
                                             pred,
                                             &view.get_cell(row_start + i, c),
+                                            date_system,
                                         ));
                                     }
                                     bb.finish()
@@ -848,9 +890,10 @@ fn eval_if_core<'a, 'b>(
                                     arrow_array::builder::BooleanBuilder::with_capacity(row_len);
                                 let view = crit_specs[j].0.as_ref().unwrap();
                                 for i in 0..row_len {
-                                    bb.append_value(criteria_match(
+                                    bb.append_value(criteria_match_for(
                                         pred,
                                         &view.get_cell(row_start + i, c),
+                                        date_system,
                                     ));
                                 }
                                 bb.finish()
@@ -861,9 +904,10 @@ fn eval_if_core<'a, 'b>(
                                 arrow_array::builder::BooleanBuilder::with_capacity(row_len);
                             let view = crit_specs[j].0.as_ref().unwrap();
                             for i in 0..row_len {
-                                bb.append_value(criteria_match(
+                                bb.append_value(criteria_match_for(
                                     pred,
                                     &view.get_cell(row_start + i, c),
+                                    date_system,
                                 ));
                             }
                             bb.finish()
@@ -874,14 +918,15 @@ fn eval_if_core<'a, 'b>(
                                 arrow_array::builder::BooleanBuilder::with_capacity(row_len);
                             if let Some(ref view) = crit_specs[j].0 {
                                 for i in 0..row_len {
-                                    bb.append_value(criteria_match(
+                                    bb.append_value(criteria_match_for(
                                         pred,
                                         &view.get_cell(row_start + i, c),
+                                        date_system,
                                     ));
                                 }
                             } else {
                                 let val = scalar_val.as_ref().unwrap_or(&LiteralValue::Empty);
-                                let matches = criteria_match(pred, val);
+                                let matches = criteria_match_for(pred, val, date_system);
                                 for _ in 0..row_len {
                                     bb.append_value(matches);
                                 }
@@ -970,7 +1015,7 @@ fn eval_if_core<'a, 'b>(
         // without allocating masks or iterating a million empty cells.
         if !multi
             && agg_type == AggregationType::Count
-            && criteria_match(&crit_specs[0].1, &LiteralValue::Empty)
+            && criteria_match_for(&crit_specs[0].1, &LiteralValue::Empty, date_system)
         {
             let logical_cells = logical_count_cells.unwrap_or(dims.0 as u64 * dims.1 as u64);
             total_count += logical_cells.saturating_sub(visited_rows as u64 * dims.1 as u64) as i64;
@@ -980,7 +1025,7 @@ fn eval_if_core<'a, 'b>(
         let mut all_match = true;
         for (_, pred, scalar_val) in &crit_specs {
             let val = scalar_val.as_ref().unwrap_or(&LiteralValue::Empty);
-            if !criteria_match(pred, val) {
+            if !criteria_match_for(pred, val, date_system) {
                 all_match = false;
                 break;
             }
@@ -1030,6 +1075,8 @@ pub struct AverageIfFn;
 /// (or from `range` when `average_range` is omitted).
 ///
 /// # Remarks
+/// - An equality criterion for a date or number (`"10/26/1999"`, `"36459"`, `36459`) also
+///   matches text cells holding that date; `<>` and ordering criteria do not read date text.
 /// - Criteria support comparison operators and wildcard text patterns.
 /// - Non-numeric values in the averaged cells are ignored.
 /// - If no cells match, `AVERAGEIF` returns `#DIV/0!`.
@@ -1140,6 +1187,8 @@ pub struct SumIfFn;
 /// `SUMIF` evaluates each cell in `range` against `criteria`, then sums corresponding values.
 ///
 /// # Remarks
+/// - An equality criterion for a date or number (`"10/26/1999"`, `"36459"`, `36459`) also
+///   matches text cells holding that date; `<>` and ordering criteria do not read date text.
 /// - If `sum_range` is omitted, matching cells from `range` are summed.
 /// - Criteria support operators like `">10"` and wildcard text patterns.
 /// - Cells that do not coerce to numbers in the sum target contribute `0`.
@@ -1250,6 +1299,8 @@ pub struct CountIfFn;
 /// `COUNTIF` evaluates each candidate cell against one criteria expression.
 ///
 /// # Remarks
+/// - An equality criterion for a date or number (`"10/26/1999"`, `"36459"`, `36459`) also
+///   matches text cells holding that date; `<>` and ordering criteria do not read date text.
 /// - Criteria support numeric comparisons and wildcard text matching.
 /// - Matching is case-insensitive for text criteria.
 /// - Non-matching or blank cells are not counted.
@@ -1275,6 +1326,16 @@ pub struct CountIfFn;
 /// ```yaml,sandbox
 /// title: "Exact-match criterion"
 /// formula: "=COUNTIF({1,2,2,3}, \"=2\")"
+/// expected: 2
+/// ```
+///
+/// ```yaml,sandbox
+/// title: "Date criterion matches date text"
+/// grid:
+///   A1: "10/26/1999"
+///   A2: "1999-10-27"
+///   A3: 36459
+/// formula: "=COUNTIF(A1:A3, \"10/26/1999\")"
 /// expected: 2
 /// ```
 ///
@@ -1350,6 +1411,8 @@ pub struct SumIfsFn; // SUMIFS(sum_range, criteria_range1, criteria1, ...)
 /// `SUMIFS` applies all criteria pairs with logical AND and sums the matching cells.
 ///
 /// # Remarks
+/// - An equality criterion for a date or number (`"10/26/1999"`, `"36459"`, `36459`) also
+///   matches text cells holding that date; `<>` and ordering criteria do not read date text.
 /// - The first argument is always the sum target range.
 /// - Criteria are supplied in `(criteria_range, criteria)` pairs.
 /// - Criteria ranges are broadcast/padded according to engine matching rules.
@@ -1456,6 +1519,8 @@ pub struct CountIfsFn; // COUNTIFS(criteria_range1, criteria1, ...)
 /// `COUNTIFS` applies each `(criteria_range, criteria)` pair and counts rows where all tests pass.
 ///
 /// # Remarks
+/// - An equality criterion for a date or number (`"10/26/1999"`, `"36459"`, `36459`) also
+///   matches text cells holding that date; `<>` and ordering criteria do not read date text.
 /// - Requires one or more criteria pairs.
 /// - Criteria support operators and wildcard matching.
 /// - A row contributes to the result only when every criterion evaluates true.
@@ -1559,6 +1624,8 @@ pub struct AverageIfsFn;
 /// `AVERAGEIFS` filters by all criteria pairs, then averages matching numeric values.
 ///
 /// # Remarks
+/// - An equality criterion for a date or number (`"10/26/1999"`, `"36459"`, `36459`) also
+///   matches text cells holding that date; `<>` and ordering criteria do not read date text.
 /// - The first argument is the average target range.
 /// - Criteria are supplied in `(criteria_range, criteria)` pairs.
 /// - If no numeric cells match, the function returns `#DIV/0!`.
@@ -1740,7 +1807,8 @@ impl Function for CountAFn {
         for a in args {
             match resolve_aggregate_argument(a, ctx)? {
                 AggregateArgument::Range(view) => {
-                    for res in view.type_tags_slices() {
+                    let core = view.core_sub_view();
+                    for res in core.type_tags_slices() {
                         let (_, _, tag_cols) = res?;
                         for col in tag_cols {
                             for i in 0..col.len() {
@@ -1750,6 +1818,12 @@ impl Function for CountAFn {
                             }
                         }
                     }
+                    view.for_each_tail_entry(|val, cell_count| {
+                        if !matches!(val, LiteralValue::Empty) {
+                            cnt += cell_count as i64;
+                        }
+                        Ok(())
+                    })?;
                 }
                 AggregateArgument::ReferenceError(error) => {
                     return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(error)));
@@ -1848,36 +1922,72 @@ impl Function for CountBlankFn {
             let (argument, logical_cells) = resolve_count_argument(a, ctx)?;
             match argument {
                 AggregateArgument::Range(view) => {
-                    let mut tag_it = view.type_tags_slices();
-                    let mut text_it = view.text_slices();
-                    let mut visited_cells = 0u64;
-
-                    while let (Some(tag_res), Some(text_res)) = (tag_it.next(), text_it.next()) {
-                        let (_, _, tag_cols) = tag_res?;
-                        let (_, _, text_cols) = text_res?;
-
-                        for (tc, xc) in tag_cols.into_iter().zip(text_cols) {
-                            visited_cells += tc.len() as u64;
-                            let text_arr = xc
-                                .as_any()
-                                .downcast_ref::<arrow_array::StringArray>()
-                                .unwrap();
-                            for i in 0..tc.len() {
-                                let is_blank = tc.value(i)
-                                    == crate::arrow_store::TypeTag::Empty as u8
-                                    || (tc.value(i) == crate::arrow_store::TypeTag::Text as u8
-                                        && !text_arr.is_null(i)
-                                        && text_arr.value(i).is_empty());
-                                if is_blank {
-                                    cnt += 1;
+                    if view.tail().is_some() {
+                        let core = view.core_sub_view();
+                        let mut tag_it = core.type_tags_slices();
+                        let mut text_it = core.text_slices();
+                        while let (Some(tag_res), Some(text_res)) = (tag_it.next(), text_it.next())
+                        {
+                            let (_, _, tag_cols) = tag_res?;
+                            let (_, _, text_cols) = text_res?;
+                            for (tc, xc) in tag_cols.into_iter().zip(text_cols) {
+                                let text_arr = xc
+                                    .as_any()
+                                    .downcast_ref::<arrow_array::StringArray>()
+                                    .unwrap();
+                                for i in 0..tc.len() {
+                                    let is_blank = tc.value(i)
+                                        == crate::arrow_store::TypeTag::Empty as u8
+                                        || (tc.value(i) == crate::arrow_store::TypeTag::Text as u8
+                                            && !text_arr.is_null(i)
+                                            && text_arr.value(i).is_empty());
+                                    if is_blank {
+                                        cnt += 1;
+                                    }
                                 }
                             }
                         }
+                        view.for_each_tail_entry(|val, cell_count| {
+                            let is_blank = matches!(val, LiteralValue::Empty)
+                                || matches!(val, LiteralValue::Text(s) if s.is_empty());
+                            if is_blank {
+                                cnt += cell_count as i64;
+                            }
+                            Ok(())
+                        })?;
+                    } else {
+                        let mut tag_it = view.type_tags_slices();
+                        let mut text_it = view.text_slices();
+                        let mut visited_cells = 0u64;
+
+                        while let (Some(tag_res), Some(text_res)) = (tag_it.next(), text_it.next())
+                        {
+                            let (_, _, tag_cols) = tag_res?;
+                            let (_, _, text_cols) = text_res?;
+
+                            for (tc, xc) in tag_cols.into_iter().zip(text_cols) {
+                                visited_cells += tc.len() as u64;
+                                let text_arr = xc
+                                    .as_any()
+                                    .downcast_ref::<arrow_array::StringArray>()
+                                    .unwrap();
+                                for i in 0..tc.len() {
+                                    let is_blank = tc.value(i)
+                                        == crate::arrow_store::TypeTag::Empty as u8
+                                        || (tc.value(i) == crate::arrow_store::TypeTag::Text as u8
+                                            && !text_arr.is_null(i)
+                                            && text_arr.value(i).is_empty());
+                                    if is_blank {
+                                        cnt += 1;
+                                    }
+                                }
+                            }
+                        }
+                        let (rows, cols) = view.dims();
+                        cnt += logical_cells
+                            .unwrap_or(rows as u64 * cols as u64)
+                            .saturating_sub(visited_cells) as i64;
                     }
-                    let (rows, cols) = view.dims();
-                    cnt += logical_cells
-                        .unwrap_or(rows as u64 * cols as u64)
-                        .saturating_sub(visited_cells) as i64;
                 }
                 AggregateArgument::ReferenceError(error) => {
                     return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(error)));

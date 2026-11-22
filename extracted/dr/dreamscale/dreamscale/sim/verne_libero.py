@@ -179,8 +179,10 @@ class EpisodeResult:
 
 def run_episode(env: Any, policy: Any, *, instruction: str, max_steps: int,
                 real_time: bool = True, frames: list | None = None,
+                show: Callable[[dict], None] | None = None,
                 sleep: Callable[[float], None] = time.sleep) -> tuple[bool, int, int]:
-    """One episode on a reset env: (success, env steps, model steps)."""
+    """One episode on a reset env: (success, env steps, model steps). ``show`` gets each
+    observation the episode reaches (the viewer's frame)."""
     obs = env.reset()
     controller = Controller(obs)
     cameras = policy.deployment.cameras
@@ -190,6 +192,8 @@ def run_episode(env: Any, policy: Any, *, instruction: str, max_steps: int,
         model_obs = observation(env, obs, controller, cameras)
         if frames is not None:
             frames.append(np.asarray(env.agent_frame(obs))[::-1])
+        if show is not None:
+            show(obs)
         pose, jaw = clock.target(step, model_obs)
         action = controller.action(obs, pose, jaw)
         obs, done = env.step(action.tolist())
@@ -203,10 +207,14 @@ def run_episode(env: Any, policy: Any, *, instruction: str, max_steps: int,
 def run_verne_libero(*, model: str, task_suite: str, task_id: int, task_seed: int = 0,
                      max_steps: int | None = None, region: str | None = None,
                      real_time: bool = True, json_output: bool = False,
-                     output_root: str | None = None, env_factory: Callable[..., Any] | None = None,
+                     output_root: str | None = None, view: bool = False,
+                     env_factory: Callable[..., Any] | None = None,
                      connect: Callable[..., Any] | None = None,
+                     preview: Callable[[Any], tuple[Callable, Callable]] | None = None,
                      print_fn: Callable[[str], None] = print, **_ignored: Any) -> EpisodeResult:
-    """One LIBERO episode of the Verne V0.5 LIBERO catalog model, upstream's protocol."""
+    """One LIBERO episode of the Verne V0.5 LIBERO catalog model, upstream's protocol.
+    ``view`` shows it in the local LIBERO viewer window (``preview(env)``: its show and close;
+    by default run_sim's window)."""
     if env_factory is None:
         from dreamscale.sim.sim_arm import _default_env_factory as env_factory
     if connect is None:
@@ -222,18 +230,24 @@ def run_verne_libero(*, model: str, task_suite: str, task_id: int, task_seed: in
                      **({"region": region} if region else {"region": "available"}))
     connect_s = time.monotonic() - began
     frames: list | None = [] if output_root else None
+    from dreamscale.sim.sim_arm import libero_viewer
+
+    show, close_view = libero_viewer(env, view and not json_output, preview, print_fn)
     try:
         began = time.monotonic()
         success, steps, model_steps = run_episode(env, policy, instruction=instruction,
                                                   max_steps=steps_limit, real_time=real_time,
-                                                  frames=frames)
+                                                  frames=frames, show=show)
         seconds = time.monotonic() - began
         stats = getattr(policy, "runtime_stats", None)
     finally:
         try:
             policy.close()
         finally:
-            env.close()
+            try:
+                env.close()
+            finally:
+                close_view()
     video = None
     if frames:
         video = _write_video(Path(output_root), task_suite, int(task_id), success, frames)

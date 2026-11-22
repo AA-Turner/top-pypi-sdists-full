@@ -69,7 +69,7 @@ from ..ui import UiChoice, ui_choices_problems
 _ROOT = Path(__file__).parent.parent
 
 #: The version of the spec itself. A reader refuses one it does not know.
-APP_SCHEMA = "loop.app/v1"
+APP_SCHEMA = "agent.app/v1"
 
 #: Every version of the spec this package reads.
 KNOWN_SCHEMAS = (APP_SCHEMA,)
@@ -192,6 +192,14 @@ DEFAULT_LAYOUTS = {
 
 #: The media type of an answer drawn as A2UI surfaces.
 A2UI_OUTPUT = "application/json+a2ui"
+
+#: The UI plugin every application's chat has in its toolbar without listing it in `ui`, unless it
+#: leaves it out (`interface.composer_portal_disabled`): the Composer button, how it is built, read only.
+COMPOSER_PORTAL = "composer-portal"
+
+#: The UI plugin every application has in its chat's footer without listing it in `ui`, unless it leaves
+#: it out (`interface.plugin_manager_disabled`): the plug button that opens the plugins manager.
+PLUGIN_MANAGER = "plugin-manager"
 
 
 def ui_for(
@@ -1626,7 +1634,7 @@ CUSTOM_SOURCE = re.compile(r"(?:https://[A-Za-z0-9.-]+(?::\d+)?|http://(?:localh
 
 #: A custom component's module as a file of the application's folder:
 #: its path in the folder, a `.js` or `.mjs` file inside it — no
-#: absolute path, no `..`. Packaged with the application (`loop apps
+#: absolute path, no `..`. Packaged with the application (`agent apps
 #: package`), it is served by the server its package is installed beside.
 CUSTOM_FILE = re.compile(r"(?:\./)?(?:[A-Za-z0-9_][A-Za-z0-9_.-]*/)*[A-Za-z0-9_][A-Za-z0-9_.-]*\.m?js")
 
@@ -1983,7 +1991,7 @@ class ThemeVariant(str, Enum):
     SAND = "sand"
     IVORY = "ivory"
     SUN = "sun"
-    LOOP = "loop"
+    AGENT = "agent"
     VSCODE = "vscode"
 
 
@@ -2000,7 +2008,7 @@ class AppTheme(_Strict):
 
     variant: ThemeVariant = Field(
         description=(
-            "The theme: `datalayer`, `spatial`, `lovely`, `matrix`, `earth`, `sand`, `ivory`, `sun`, `loop` or `vscode`"
+            "The theme: `datalayer`, `spatial`, `lovely`, `matrix`, `earth`, `sand`, `ivory`, `sun`, `agent` or `vscode`"
         ),
     )
     mode: Optional[ThemeMode] = Field(
@@ -2392,6 +2400,24 @@ class AppInterface(_Strict):
             "then `application/x-ipynb+json` for a Jupyter notebook. Over A2A, its agent "
             "card's output modes; a caller asks for some of them (`acceptedOutputModes`). "
             "Plain text alone when unsaid"
+        ),
+    )
+    composer_portal_disabled: bool = Field(
+        default=False,
+        description=(
+            "Whether its chat leaves out the Composer button (the `composer-portal` UI plugin), which every "
+            "application's chat has in its toolbar otherwise, without listing it in `ui`: how it is built (its "
+            "Canvas, its spec, its Python) is then not shown from its chat. An application that sets it does not "
+            "list `composer-portal` in `ui`"
+        ),
+    )
+    plugin_manager_disabled: bool = Field(
+        default=False,
+        description=(
+            "Whether it leaves out the plugins manager's button (the `plugin-manager` UI plugin), which every "
+            "application has in its chat's footer otherwise, without listing it in `ui`: its plugins are then not "
+            "listed nor switched on and off from its page. An application that sets it does not list "
+            "`plugin-manager` in `ui`"
         ),
     )
 
@@ -3557,7 +3583,10 @@ class AppSpec(_Strict):
         description=(
             "Its UI plugins, each `{plugin, renderer}`: a plugin of `agentspecs/ui`, each once, "
             "and the renderer of `agentspecs/ui-renderers` it is exposed through, when it is — one the plugin "
-            "may be exposed through, and one that is not enabled only while the application is not offered"
+            "may be exposed through, and one that is not enabled only while the application is not offered. "
+            "Its chat has the Composer button (`composer-portal`) in its toolbar besides, listed or not, unless "
+            "`interface.composer_portal_disabled` leaves it out; and the plugins manager's button "
+            "(`plugin-manager`) in its footer, listed or not, unless `interface.plugin_manager_disabled` leaves it out"
         ),
     )
     pap: AppPap = Field(
@@ -3883,6 +3912,18 @@ class AppSpec(_Strict):
                     f"add {protocol_id!r} to `protocols`."
                 )
         problems += ui_choices_problems([choice.model_dump(exclude_none=True) for choice in self.ui], to_ship=self.enabled)
+        # The Composer button is every chat's unless the application leaves it out: never both.
+        if self.interface.composer_portal_disabled and any(choice.plugin == COMPOSER_PORTAL for choice in self.ui):
+            problems.append(
+                f"It lists the UI plugin {COMPOSER_PORTAL!r} and leaves it out "
+                "(`interface.composer_portal_disabled`): say one."
+            )
+        # The plugins manager's button is every application's unless it leaves it out: never both.
+        if self.interface.plugin_manager_disabled and any(choice.plugin == PLUGIN_MANAGER for choice in self.ui):
+            problems.append(
+                f"It lists the UI plugin {PLUGIN_MANAGER!r} and leaves it out "
+                "(`interface.plugin_manager_disabled`): say one."
+            )
         if problems:
             raise ValueError(" ".join(problems))
 
@@ -4580,6 +4621,8 @@ def list_apps(kind: Optional[AppKind] = None) -> List[AppSpec]:
 
 __all__ = [
     "A2UI_OUTPUT",
+    "COMPOSER_PORTAL",
+    "PLUGIN_MANAGER",
     "agent_voice_problems",
     "APP_CATALOGUE",
     "APP_SCHEMA",

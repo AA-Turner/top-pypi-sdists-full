@@ -100,10 +100,19 @@ class UnzipWrapper:
                 tail = self.__decoder.unused_data
                 if len(tail) < 8:
                     tail += read_amt(self.__fp, 8 - len(tail))
-                # ignore any extra bytes after end of compressed stream
-                self.__fp.read()
+                # Allow zero padding after the trailer, as the gzip module
+                # does. Other data, such as further gzip members, is not
+                # supported, so fail rather than silently truncate.
+                extra = tail[8:]
+                while True:
+                    if extra.strip(b'\0'):
+                        raise ValueError(
+                            'unsupported trailing data after gzip stream')
+                    extra = self.__fp.read(DEFAULT_BUFFER_SIZE)
+                    if not extra:
+                        break
                 # check CRC, ignore size mismatch
-                crc, size = struct.unpack(b'<LL', tail)
+                crc, size = struct.unpack(b'<LL', tail[:8])
                 if (crc & CRC_MASK) != (self.__crc & CRC_MASK):
                     raise ValueError(
                         'gzip stream is corrupted, CRC does not match')
@@ -158,8 +167,7 @@ def create_gzip_decompressor(zipped_file):
                          prefix[2])
     flag = ord(prefix[3:4])
     if flag & 4:  # extra
-        extra_amt = read_amt(zipped_file, 2)
-        extra_amt = ord(extra_amt[0]) + 256 * ord(extra_amt[1])
+        extra_amt = struct.unpack(b'<H', read_amt(zipped_file, 2))[0]
         if extra_amt:
             read_amt(zipped_file, extra_amt)
     if flag & 8:  # filename

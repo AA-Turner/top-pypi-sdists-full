@@ -1141,6 +1141,8 @@ def register_generated_tools(mcp, _get_client):
 
         Returns health status of all connected accounts including token validity, permissions, and issues needing attention. A failing or stalled analytics sync (see `analyticsSync`) raises a healthy account to at least warning.
 
+        An account the platform has restricted or banned (for example a WhatsApp number Meta reports as BANNED) is `error`, with the platform's reason in `issues`. `needsReconnect` stays false, since reconnecting does not lift it.
+
         Args:
             profile_id: Filter by profile ID
             platform: Filter by platform
@@ -1169,6 +1171,8 @@ def register_generated_tools(mcp, _get_client):
 
         A failing or stalled analytics sync (see `analyticsSync`) raises a healthy account to at least `warning`.
 
+        An account the platform has restricted or banned is `error`, with the platform's reason in `issues` and a recommendation that says reconnecting does not lift it.
+
         ### Facebook, Instagram and Threads
 
         The token is also probed live. A probe Meta refuses with a dead-token error sets `tokenStatus.valid` to `false` and names Meta's code, subcode and fbtrace in `issues`.
@@ -1179,9 +1183,7 @@ def register_generated_tools(mcp, _get_client):
 
         ### WhatsApp
 
-        The response also includes `platformConnection`, a live probe of the Meta link behind the channel (the same read as `GET /v1/whatsapp/number-info`).
-
-        The OAuth token can be perfectly valid while Meta refuses to ...
+        The response also includes `platformConnection`, a ...
 
         Args:
             account_id: The account ID to check (required)"""
@@ -2411,6 +2413,263 @@ def register_generated_tools(mcp, _get_client):
         client = _get_client()
         try:
             response = client.accounts.list_hub_spot_contact_properties(
+                account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get HighLevel account settings",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def accounts_get_gohighlevel_settings(account_id: str) -> str:
+        """Get HighLevel account settings
+
+        Read a connected HighLevel sub-account and what Zernio relays from it and writes back to it.
+
+        Platforms: gohighlevel
+
+        Args:
+            account_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.accounts.get_gohighlevel_settings(account_id=account_id)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Update HighLevel account settings",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def accounts_update_gohighlevel_settings(
+        account_id: str,
+        relay_conversions: bool | None = None,
+        write_back_attribution: bool | None = None,
+        report_to_ads: bool | None = None,
+        sync_contacts: bool | None = None,
+        log_messages: bool | None = None,
+        log_delivery_status: bool | None = None,
+        sync_ad_leads: bool | None = None,
+        mirror_conversations: bool | None = None,
+    ) -> str:
+        """Update HighLevel account settings
+
+        Turn the conversion relay, the write-back to HighLevel contacts, forwarding to the profile's ad platforms, contact sync, conversation logging, delivery marks or the ad lead sync on or off for a connected HighLevel sub-account. Send at least one field; omitted fields keep their value. Settings survive reconnecting the same sub-account.
+
+        Platforms: gohighlevel
+
+        Args:
+            account_id: (required)
+            relay_conversions: Relay HighLevel CRM events (new contacts, won opportunities, appointments, paid invoices and orders) as conversions with `source` `gohighlevel`.
+            write_back_attribution: Write each relayed conversion onto the `Zernio Conversions` custom field of the HighLevel contact.
+            report_to_ads: Also forward relayed conversions to the profile's ad platform destinations. Off stores them only.
+            sync_contacts: Match inbox contacts to HighLevel contacts (phone, then email) and create the ones that do not exist.
+            log_messages: Log inbox messages from every channel on the matched HighLevel contact, one note per channel and UTC day.
+            log_delivery_status: Mark sent, delivered, read and failed on logged outgoing messages.
+            sync_ad_leads: Create or update a HighLevel contact for every lead from the profile's ad network lead forms (Meta, TikTok, LinkedIn, Google), tagged with the network, campaign and form.
+            mirror_conversations: Put Telegram, LINE, WeChat, iMessage and RCS messages into the contact's Conversations thread under the Zernio channel, so a HighLevel user reads and answers them there. Off logs them as notes."""
+        client = _get_client()
+        try:
+            response = client.accounts.update_gohighlevel_settings(
+                account_id=account_id,
+                relay_conversions=relay_conversions,
+                write_back_attribution=write_back_attribution,
+                report_to_ads=report_to_ads,
+                sync_contacts=sync_contacts,
+                log_messages=log_messages,
+                log_delivery_status=log_delivery_status,
+                sync_ad_leads=sync_ad_leads,
+                mirror_conversations=mirror_conversations,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List HighLevel tag audience syncs",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def accounts_list_gohighlevel_audience_syncs(account_id: str) -> str:
+        """List HighLevel tag audience syncs
+
+        List the tags of a connected HighLevel sub-account that Zernio keeps as customer list audiences on Meta and Reddit ad accounts, the ad accounts a tag can sync to (`targetChoices`), and the sub-account's tags. Pass a `targetChoices` entry to `startGohighlevelAudienceSync` to start a sync.
+
+        Platforms: gohighlevel
+
+        Args:
+            account_id: The HighLevel account id from `listAccounts`. (required)"""
+        client = _get_client()
+        try:
+            response = client.accounts.list_gohighlevel_audience_syncs(
+                account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Sync a HighLevel tag to ad audiences",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def accounts_start_gohighlevel_audience_sync(
+        account_id: str,
+        tag: str,
+        targets: list[dict[str, Any]] | None,
+        audience_name: str | None = None,
+    ) -> str:
+        """Sync a HighLevel tag to ad audiences
+
+        Keep every HighLevel contact with a tag as a customer list audience on one or more Meta or Reddit ad accounts of the profile. Take `targets` from `targetChoices` of `listGohighlevelAudienceSyncs`.
+
+        Zernio creates one audience per ad account and fills it within a few minutes. A contact joins or leaves as soon as the tag is added to or removed from it, and every 6 hours Zernio re-reads the tag. Emails and phones are hashed before upload.
+
+        A tag syncs once per sub-account; stop it to change its ad accounts. Needs a read-write key.
+
+        Platforms: gohighlevel
+
+        Args:
+            account_id: The HighLevel account id from `listAccounts`. (required)
+            tag: The HighLevel tag, matched case-insensitively. (required)
+            targets: The ad accounts to keep the audience on, each one of `targetChoices`. Each item is an object with keys: accountId (string, required) - The Zernio ads connection id (`targetChoices[].accountId`).; adAccountId (string, required) - The ad account on that connection, such as `act_123456789` for Meta. (required)
+            audience_name: The audience name on the ad accounts. Default `CRM tag: <tag>`."""
+        client = _get_client()
+        try:
+            response = client.accounts.start_gohighlevel_audience_sync(
+                account_id=account_id,
+                tag=tag,
+                targets=targets,
+                audience_name=audience_name,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Stop a HighLevel tag audience sync",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def accounts_stop_gohighlevel_audience_sync(account_id: str, sync_id: str) -> str:
+        """Stop a HighLevel tag audience sync
+
+        Stop keeping a tag in sync. Its audiences stay on the ad accounts with their current members, so running ads keep their targeting; delete an audience with `deleteAdAudience`. Needs a read-write key.
+
+        Platforms: gohighlevel
+
+        Args:
+            account_id: The HighLevel account id from `listAccounts`. (required)
+            sync_id: The sync id from `listGohighlevelAudienceSyncs`. (required)"""
+        client = _get_client()
+        try:
+            response = client.accounts.stop_gohighlevel_audience_sync(
+                account_id=account_id, sync_id=sync_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get HighLevel funnel tracking",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def accounts_get_gohighlevel_funnel_tracking(account_id: str) -> str:
+        """Get HighLevel funnel tracking
+
+        Get the Zernio tag for a connected HighLevel sub-account's funnels and websites, created on the first call, and the line to paste into each funnel's tracking code (the funnel's Settings, then Head tracking code).
+
+        Each funnel and website says whether it already carries the tag, and `live` whether the tag has sent its first visit. Visits on tagged pages tie ad clicks to the leads and sales HighLevel records.
+
+        Platforms: gohighlevel
+
+        Args:
+            account_id: The HighLevel account id from `listAccounts`. (required)"""
+        client = _get_client()
+        try:
+            response = client.accounts.get_gohighlevel_funnel_tracking(
+                account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Check the Zernio tag on a HighLevel funnel page",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def accounts_verify_gohighlevel_funnel_tracking(account_id: str, url: str) -> str:
+        """Check the Zernio tag on a HighLevel funnel page
+
+        Load a live funnel or website page and report whether it carries the sub-account's Zernio tag. A page that does adds its domain to the tag's domains, so visits there are tied to the contacts who fill its forms.
+
+        Returns the same funnel tracking state as `getGohighlevelFunnelTracking`, with `verified` set. Needs a read-write key.
+
+        Platforms: gohighlevel
+
+        Args:
+            account_id: The HighLevel account id from `listAccounts`. (required)
+            url: The full address of a live funnel or website page (http or https). (required)"""
+        client = _get_client()
+        try:
+            response = client.accounts.verify_gohighlevel_funnel_tracking(
+                account_id=account_id, url=url
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Send past HighLevel won deals as conversions",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def accounts_send_gohighlevel_past_won_deals(account_id: str) -> str:
+        """Send past HighLevel won deals as conversions
+
+        Send the opportunities a connected HighLevel sub-account won in the last 90 days through the conversion relay. Each is stored as a Purchase conversion and forwarded to the profile's ad platforms when `reportToAds` is on.
+
+        Each call sends up to 50 and skips deals Zernio already holds, so calling again goes on with the rest. `remaining` says how many are left. A deal that fails is picked again on the next call, so stop when a call sends none.
+
+        Returns `relay_off` when the conversion relay is off (`updateGohighlevelSettings`). Needs a read-write key.
+
+        Platforms: gohighlevel
+
+        Args:
+            account_id: The HighLevel account id from `listAccounts`. (required)"""
+        client = _get_client()
+        try:
+            response = client.accounts.send_gohighlevel_past_won_deals(
                 account_id=account_id
             )
             return _format_response(response)
@@ -4305,6 +4564,71 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Add or remove negative list keywords",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_accounts_edit_ad_negative_keyword_list_keywords(
+        list_id: str,
+        account_id: str,
+        ad_account_id: str | None = None,
+        customer_id: str | None = None,
+        platform: Literal[
+            "facebook",
+            "instagram",
+            "tiktok",
+            "linkedin",
+            "pinterest",
+            "google",
+            "twitter",
+            "openai",
+            "reddit",
+        ]
+        | None = None,
+        add: list[Any] | None = None,
+        remove: list[Any] | None = None,
+    ) -> str:
+        """Add or remove negative list keywords
+
+        Adds and removes single keywords in a shared Google Ads negative keyword list without resending the full set, affecting every campaign that uses the list.
+
+        - `remove` matches by normalized text and match type, and wins over `add` for the same keyword.
+        - Keywords already in the list are not added twice; keywords not in it are skipped on remove.
+        - Creates and removals are applied atomically in one mutation.
+
+        ### Quota
+
+        Each create or removal consumes one daily operation; the entire batch must fit the remaining quota.
+
+        Platforms: google
+
+        Args:
+            list_id: (required)
+            account_id: Zernio SocialAccount id. (required)
+            ad_account_id: Platform ad account ID (Google customer ID, digits only). Required when the connection has multiple customers.
+            customer_id: Alias of adAccountId, kept for existing callers
+            platform: Optional courtesy field. The resolved account or campaign determines support; other platforms return 501.
+            add: Keywords to add. Send at least one entry in add or remove.
+            remove: Keywords to remove. Bare strings mean broad match."""
+        client = _get_client()
+        try:
+            response = client.ad_accounts.edit_ad_negative_keyword_list_keywords(
+                list_id=list_id,
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                customer_id=customer_id,
+                platform=platform,
+                add=add,
+                remove=remove,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="List account callouts",
             readOnlyHint=True,
             destructiveHint=False,
@@ -5985,7 +6309,7 @@ def register_generated_tools(mcp, _get_client):
             audience_id: (required)
             name
             description
-            spec: Full replacement for the stored targeting spec. Object with keys: userOs (list of string) - Meta only. Operating systems and version ranges, such as iOS_ver_14.0_and_above or Android. Emitted as user_os. May also be supplied inside targeting.; userDevice (list of string) - Meta only. Device models such as iPhone. Emitted as user_device. May also be supplied inside targeting.; countries (list of string) - ISO 3166-1 alpha-2 country codes (e.g. ['US']).; regions (list of any) - Region/state targeting. `key` is the platform location ID from /v1/ads/targeting/search?dimension=geo&geoType=region. An entry may also be that id as a plain ...; cities (list of any) - City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits; both must be set together or both omitted. `radius` is only honoured on ...; zips (list of objects with keys key, name) - Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`). Supported on Meta, Google, TikTok, Pinterest, X.; metros (list of objects with keys key, name) - DMA / metro-area targeting. `key` is the platform's metro ID (e.g. Meta `DMA:807`).; countryGroups (list of string) - Meta only. Continents and trade blocs (`geo_locations.country_groups`), for targeting a whole region without listing its countries. Combines with `countries` ...; customLocations (list of objects with keys latitude, longitude, radius, distanceUnit, name, address) - Point-radius (lat/lng) targeting (Meta custom_locations / Google proximity). Honoured on Meta and Google; ignored on platforms without radius support.; excludedLocations (object with keys countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations) - Geo to exclude from the audience. Mirrors the inclusion geo shape. - Meta (excluded_geo_locations): excluded cities can carry a radius catchment, and excluded ...; ageMin (integer) - Minimum age. - Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the age ranges outside the request). - Rejected with ...; ageMax (integer) - Maximum age. Same per-platform application and clamping as ageMin.; gender (one of: all, male, female) - Restrict by gender. 'all' (default) targets everyone. Applied on Meta, TikTok, Pinterest, LinkedIn, X, Reddit and Google Search/Display (Google excludes the ...; incomeTier (one of: top_5, top_10, top_10_25, top_25_50) - Normalized household-income tier (ZIP/percentile based). Meta and TikTok express all four. Google maps only `top_10` (its INCOME_RANGE_90_UP); other tiers on ...; languages (list of string) - Language codes restricting the audience by language. Applied on Meta, Google, TikTok, LinkedIn, X, Pinterest and Reddit; rejected with 400 on OpenAI. A code ...; interests (list of objects with keys id, name) - Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id. - Google: applied as ad-group interest criteria ...; behaviors (list of objects with keys id, name) - Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). **On TikTok** they target people who, in the picked ...; workPositions (list of objects with keys id, name) - Meta only. Job title entities from /v1/ads/targeting/search?dimension=workPosition. Not interchangeable with the LinkedIn `jobTitles` URN fragments.; workEmployers (list of objects with keys id, name) - Meta only. Employer entities from /v1/ads/targeting/search?dimension=workEmployer.; workIndustries (list of objects with keys id, name) - Meta only. Work-industry entities from /v1/ads/targeting/search?dimension=workIndustry. Not interchangeable with the LinkedIn `industries` URN fragments.; industries (list of string) - LinkedIn B2B only. Industry URN id fragments, or the full urn:li:industry:* URN from /v1/ads/targeting/search?dimension=industry.; companySizes (list of string) - LinkedIn B2B only. Single-letter size codes (A to I), or the full urn:li:staffCountRange:* URN from /v1/ads/targeting/search?dimension=companySize.; seniorities (list of string) - LinkedIn B2B only. Seniority URN id fragments, or the full urn:li:seniority:* URN from /v1/ads/targeting/search?dimension=seniority.; jobFunctions (list of string) - LinkedIn B2B only. Function URN id fragments, or the full urn:li:function:* URN from /v1/ads/targeting/search?dimension=jobFunction.; skills (list of string) - LinkedIn B2B only. Member skills (e.g. Python, Recruiting): skill URN id fragments, or the full urn:li:skill:* URN from ...; audienceInclude (list of string) - Platform audience IDs to include, as returned by GET /v1/ads/audiences: - Meta: custom audience ids. - TikTok: audience ids. - Pinterest: customer list ids. - ...; audienceExclude (list of string) - Platform audience IDs to exclude; same ID formats as audienceInclude. Not supported on OpenAI (400).; communities (list of string) - Reddit only (400 elsewhere). Subreddits to target, by name, with or without the `r/` prefix (e.g. `['marketing', 'r/startups']`), as returned by ...; excludedCommunities (list of string) - Reddit only (400 elsewhere). Subreddits to exclude, named like `communities`.; conversationKeywords (list of string) - Reddit only (400 elsewhere). Keywords that place the ad in Reddit conversations about them, as returned by ...; excludedConversationKeywords (list of string) - Reddit only (400 elsewhere). Conversation keywords to keep the ad away from."""
+            spec: Full replacement for the stored targeting spec. Object with keys: userOs (list of string) - Meta only. Operating systems and version ranges, such as iOS_ver_14.0_and_above or Android. Emitted as user_os. May also be supplied inside targeting.; userDevice (list of string) - Meta only. Device models such as iPhone. Emitted as user_device. May also be supplied inside targeting.; countries (list of string) - ISO 3166-1 alpha-2 country codes (e.g. ['US']).; regions (list of any) - Region/state targeting. `key` is the platform location ID from /v1/ads/targeting/search?dimension=geo&geoType=region. An entry may also be that id as a plain ...; cities (list of any) - City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits; both must be set together or both omitted. `radius` is only honoured on ...; zips (list of objects with keys key, name) - Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`). Supported on Meta, Google, TikTok, Pinterest, X.; metros (list of objects with keys key, name) - DMA / metro-area targeting. `key` is the platform's metro ID (e.g. Meta `DMA:807`).; countryGroups (list of string) - Meta only. Continents and trade blocs (`geo_locations.country_groups`), for targeting a whole region without listing its countries. Combines with `countries` ...; places (list of objects with keys key) - Meta only. Named points of interest to target. `key` from /v1/ads/targeting/search.; neighborhoods (list of objects with keys key) - Meta only. Named neighbourhood areas to target. `key` from /v1/ads/targeting/search.; customLocations (list of objects with keys latitude, longitude, radius, distanceUnit, name, address) - Point-radius (lat/lng) targeting (Meta custom_locations / Google proximity). Honoured on Meta and Google; ignored on platforms without radius support.; excludedLocations (object with keys countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations) - Geo to exclude from the audience. Mirrors the inclusion geo shape. - Meta (excluded_geo_locations): excluded cities can carry a radius catchment, and excluded ...; ageMin (integer) - Minimum age. - Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the age ranges outside the request). - Rejected with ...; ageMax (integer) - Maximum age. Same per-platform application and clamping as ageMin.; gender (one of: all, male, female) - Restrict by gender. 'all' (default) targets everyone. Applied on Meta, TikTok, Pinterest, LinkedIn, X, Reddit and Google Search/Display (Google excludes the ...; incomeTier (one of: top_5, top_10, top_10_25, top_25_50) - Normalized household-income tier (ZIP/percentile based). Meta and TikTok express all four. Google maps only `top_10` (its INCOME_RANGE_90_UP); other tiers on ...; languages (list of string) - Language codes restricting the audience by language. Applied on Meta, Google, TikTok, LinkedIn, X, Pinterest and Reddit; rejected with 400 on OpenAI. A code ...; interests (list of objects with keys id, name) - Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id. - Google: applied as ad-group interest criteria ...; behaviors (list of objects with keys id, name) - Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). **On TikTok** they target people who, in the picked ...; workPositions (list of objects with keys id, name) - Meta only. Job title entities from /v1/ads/targeting/search?dimension=workPosition. Not interchangeable with the LinkedIn `jobTitles` URN fragments.; workEmployers (list of objects with keys id, name) - Meta only. Employer entities from /v1/ads/targeting/search?dimension=workEmployer.; workIndustries (list of objects with keys id, name) - Meta only. Work-industry entities from /v1/ads/targeting/search?dimension=workIndustry. Not interchangeable with the LinkedIn `industries` URN fragments.; industries (list of string) - LinkedIn B2B only. Industry URN id fragments, or the full urn:li:industry:* URN from /v1/ads/targeting/search?dimension=industry.; companySizes (list of string) - LinkedIn B2B only. Single-letter size codes (A to I), or the full urn:li:staffCountRange:* URN from /v1/ads/targeting/search?dimension=companySize.; seniorities (list of string) - LinkedIn B2B only. Seniority URN id fragments, or the full urn:li:seniority:* URN from /v1/ads/targeting/search?dimension=seniority.; jobFunctions (list of string) - LinkedIn B2B only. Function URN id fragments, or the full urn:li:function:* URN from /v1/ads/targeting/search?dimension=jobFunction.; skills (list of string) - LinkedIn B2B only. Member skills (e.g. Python, Recruiting): skill URN id fragments, or the full urn:li:skill:* URN from ...; audienceInclude (list of string) - Platform audience IDs to include, as returned by GET /v1/ads/audiences: - Meta: custom audience ids. - TikTok: audience ids. - Pinterest: customer list ids. - ...; audienceExclude (list of string) - Platform audience IDs to exclude; same ID formats as audienceInclude. Not supported on OpenAI (400).; communities (list of string) - Reddit only (400 elsewhere). Subreddits to target, by name, with or without the `r/` prefix (e.g. `['marketing', 'r/startups']`), as returned by ...; excludedCommunities (list of string) - Reddit only (400 elsewhere). Subreddits to exclude, named like `communities`.; conversationKeywords (list of string) - Reddit only (400 elsewhere). Keywords that place the ad in Reddit conversations about them, as returned by ...; excludedConversationKeywords (list of string) - Reddit only (400 elsewhere). Conversation keywords to keep the ad away from."""
         client = _get_client()
         try:
             response = client.ad_audiences.update_ad_audience(
@@ -6046,32 +6370,26 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Add users to audience
 
-        Uploads customer emails (and phone numbers on Meta) to a customer list audience, hashed before they are sent.
+        Uploads people to a customer list audience. Send each match key in plaintext or already SHA-256 hashed (64 hex characters): plaintext is normalized and hashed server-side, a hash is sent as is. Max 10,000 users per request.
 
-        Data is SHA256-hashed server-side before sending to the platform. Max 10,000 users per request.
+        ### Hashing it yourself
 
-        ### Per-platform behavior
+        Hash the normalized value, or it will not match: email trimmed and lowercased; first and last name lowercased without punctuation; `birthYear` as `YYYY`, `birthMonth` and `birthDay` as two digits; `gender` as `m` or `f`; `country` as a lowercase ISO 3166-1 alpha-2 code.
 
-        - **All platforms**: email is used everywhere. Phone is used on Meta only (other platforms ignore it).
-        - **TikTok and Pinterest**: the first upload also provisions the audience (deferred create).
-        - **LinkedIn**: uploads are full-replace.
-        - **Reddit**: see below.
+        Phone is the one key the platforms disagree on: Meta hashes the digits with the country code and no `+` (`14155551234`), Google wants E.164 with the `+` (`+14155551234`). Send phones in plaintext to match on both; a hashed phone is sent unchanged to each platform.
 
-        ### Reddit
+        ### Which keys each platform uses
 
-        - Emails are lowercased and trimmed before hashing, duplicates are sent once, and the upload goes out in batches of 2,500.
-        - Reddit matches by email only: rows without a valid email count in `numInvalid`, and a request where no row has one is a 400.
-        - Reddit audiences need the `redditads` connection, not the Reddit posting account (422).
-
-        ### Audience types
-
-        customer_list only. A LinkedIn `company_list` audience takes company rows, not people: send those to `POST ...
+        | Platform | Keys used |
+        |---|---|
+        | Meta | every key |
+        | Google | `email`, `phone`, and the address (`firstName`, `lastName`, `country`, `zip`) when all four are present with ...
 
         Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
 
         Args:
             audience_id: The Zernio audience id (the id field of GET /v1/ads/audiences), not the platform segment id. (required)
-            users: Each item is an object with keys: email (string); phone (string) (required)"""
+            users: Each item is an object with keys: email (string) - Email, or SHA-256 of it trimmed and lowercased.; phone (string) - Phone with country code. Plaintext matches on Meta and Google; see the endpoint description before sending it hashed.; firstName (string); lastName (string); birthYear (string) - YYYY. Meta only.; birthMonth (string) - MM (01-12). Meta only.; birthDay (string) - DD (01-31). Meta only.; gender (string) - m or f. Meta only.; city (string) - Meta only.; state (string) - Meta only.; zip (string); country (string) - ISO 3166-1 alpha-2 code.; externalId (string) - Your own id for the person. Meta only.; region (string) - Where the person is (ISO country, or US-CA). With no granted consent, EEA, UK and CH people are dropped before upload.; consent (object with keys adUserData, adPersonalization) (required)"""
         client = _get_client()
         try:
             response = client.ad_audiences.add_users_to_ad_audience(
@@ -6094,9 +6412,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Remove users from audience
 
-        Removes customer emails (and phone numbers on Meta) from a Meta or Reddit customer list audience. Same body as
-        `POST /v1/ads/audiences/{audienceId}/users`: send plaintext rows, they are normalized and
-        SHA256-hashed server-side exactly like an upload, so a row removes the person it added.
+        Removes people from a Meta or Reddit customer list audience. Same body as
+        `POST /v1/ads/audiences/{audienceId}/users`: plaintext keys are normalized and SHA-256 hashed
+        exactly like an upload and hashed keys are sent as is, so a row removes the person it added.
 
         Meta and Reddit only, customer_list only. Every other platform returns 422 with code `feature_not_available`,
         and every other audience type returns 422. Max 10,000 users per request. The platform applies the removal
@@ -6106,7 +6424,7 @@ def register_generated_tools(mcp, _get_client):
 
         Args:
             audience_id: The Zernio audience id (the id field of GET /v1/ads/audiences), not the platform segment id. (required)
-            users: Each item is an object with keys: email (string); phone (string) (required)"""
+            users: Each item is an object with keys: email (string) - Email, or SHA-256 of it trimmed and lowercased.; phone (string) - Phone with country code. Plaintext matches on Meta and Google; see the endpoint description before sending it hashed.; firstName (string); lastName (string); birthYear (string) - YYYY. Meta only.; birthMonth (string) - MM (01-12). Meta only.; birthDay (string) - DD (01-31). Meta only.; gender (string) - m or f. Meta only.; city (string) - Meta only.; state (string) - Meta only.; zip (string); country (string) - ISO 3166-1 alpha-2 code.; externalId (string) - Your own id for the person. Meta only.; region (string) - Where the person is (ISO country, or US-CA). With no granted consent, EEA, UK and CH people are dropped before upload.; consent (object with keys adUserData, adPersonalization) (required)"""
         client = _get_client()
         try:
             response = client.ad_audiences.remove_users_from_ad_audience(
@@ -8037,10 +8355,14 @@ def register_generated_tools(mcp, _get_client):
 
         Replaces a Google campaign's full list of campaign-level negative keywords, or clears it.
 
-        Replaces the FULL set of campaign-level negative keywords (C.270): the desired
+        Replaces the FULL set of campaign-level negative keywords (C.270). The desired
         list is diffed against what Google already has, and the difference is applied
-        as one `create`/`remove` mutate. Send an empty array to clear every campaign
-        negative.
+        in `create`/`remove` mutates of up to 5,000 operations.
+
+        - Creates run first, so a failed batch leaves extra negatives rather than missing ones.
+        - When the old and new sets together would pass Google's 10,000 cap, removes run first.
+        - Send the same request again to finish a failed replace.
+        - Send an empty array to clear every campaign negative.
 
         The platform is always discovered from the campaign itself; a non-Google
         campaign returns 501 rather than 404, whether or not `platform` was sent.
@@ -8055,6 +8377,58 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.ad_campaigns.replace_campaign_negative_keywords(
                 campaign_id=campaign_id, platform=platform, keywords=keywords
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Add or remove campaign-level negative keywords",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_campaigns_edit_campaign_negative_keywords(
+        campaign_id: str,
+        platform: Literal[
+            "facebook",
+            "instagram",
+            "tiktok",
+            "linkedin",
+            "pinterest",
+            "google",
+            "twitter",
+            "openai",
+            "reddit",
+        ]
+        | None = None,
+        add: list[Any] | None = None,
+        remove: list[Any] | None = None,
+    ) -> str:
+        """Add or remove campaign-level negative keywords
+
+        Adds and removes single campaign-level negative keywords on a Google campaign without resending the full set.
+
+        - `remove` matches by text (any case) and match type, and wins over `add` for the same keyword.
+        - Keywords already on the campaign are not added twice; keywords not on it are skipped on remove.
+        - Changes go to Google in `create`/`remove` mutates of up to 5,000 operations, like the full replace.
+
+        The platform is always discovered from the campaign itself; a non-Google
+        campaign returns 501 rather than 404, whether or not `platform` was sent.
+
+        Platforms: google
+
+        Args:
+            campaign_id: Platform campaign ID (required)
+            platform: Optional and NOT authoritative: the resolved campaign's own platform decides 200 vs 501, never this hint.
+            add: Negative keywords to add. Send at least one entry in add or remove.
+            remove: Negative keywords to remove. Bare strings mean broad match."""
+        client = _get_client()
+        try:
+            response = client.ad_campaigns.edit_campaign_negative_keywords(
+                campaign_id=campaign_id, platform=platform, add=add, remove=remove
             )
             return _format_response(response)
         except Exception as e:
@@ -8437,7 +8811,7 @@ def register_generated_tools(mcp, _get_client):
             budget_type: Reddit only. Sent together with budgetAmount.
             start_date: Reddit only. ISO 8601 start of the ad group. Defaults to now, or to the campaign start when it is in the future.
             end_date: Reddit only. ISO 8601 end of the ad group. Defaults to the campaign end.
-            targeting: Reddit: the full targeting object. Google: locations and languages only, on a Demand Gen campaign. Object with keys: userOs (list of string) - Meta only. Operating systems and version ranges, such as iOS_ver_14.0_and_above or Android. Emitted as user_os. May also be supplied inside targeting.; userDevice (list of string) - Meta only. Device models such as iPhone. Emitted as user_device. May also be supplied inside targeting.; countries (list of string) - ISO 3166-1 alpha-2 country codes (e.g. ['US']).; regions (list of any) - Region/state targeting. `key` is the platform location ID from /v1/ads/targeting/search?dimension=geo&geoType=region. An entry may also be that id as a plain ...; cities (list of any) - City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits; both must be set together or both omitted. `radius` is only honoured on ...; zips (list of objects with keys key, name) - Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`). Supported on Meta, Google, TikTok, Pinterest, X.; metros (list of objects with keys key, name) - DMA / metro-area targeting. `key` is the platform's metro ID (e.g. Meta `DMA:807`).; countryGroups (list of string) - Meta only. Continents and trade blocs (`geo_locations.country_groups`), for targeting a whole region without listing its countries. Combines with `countries` ...; customLocations (list of objects with keys latitude, longitude, radius, distanceUnit, name, address) - Point-radius (lat/lng) targeting (Meta custom_locations / Google proximity). Honoured on Meta and Google; ignored on platforms without radius support.; excludedLocations (object with keys countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations) - Geo to exclude from the audience. Mirrors the inclusion geo shape. - Meta (excluded_geo_locations): excluded cities can carry a radius catchment, and excluded ...; ageMin (integer) - Minimum age. - Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the age ranges outside the request). - Rejected with ...; ageMax (integer) - Maximum age. Same per-platform application and clamping as ageMin.; gender (one of: all, male, female) - Restrict by gender. 'all' (default) targets everyone. Applied on Meta, TikTok, Pinterest, LinkedIn, X, Reddit and Google Search/Display (Google excludes the ...; incomeTier (one of: top_5, top_10, top_10_25, top_25_50) - Normalized household-income tier (ZIP/percentile based). Meta and TikTok express all four. Google maps only `top_10` (its INCOME_RANGE_90_UP); other tiers on ...; languages (list of string) - Language codes restricting the audience by language. Applied on Meta, Google, TikTok, LinkedIn, X, Pinterest and Reddit; rejected with 400 on OpenAI. A code ...; interests (list of objects with keys id, name) - Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id. - Google: applied as ad-group interest criteria ...; behaviors (list of objects with keys id, name) - Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). **On TikTok** they target people who, in the picked ...; workPositions (list of objects with keys id, name) - Meta only. Job title entities from /v1/ads/targeting/search?dimension=workPosition. Not interchangeable with the LinkedIn `jobTitles` URN fragments.; workEmployers (list of objects with keys id, name) - Meta only. Employer entities from /v1/ads/targeting/search?dimension=workEmployer.; workIndustries (list of objects with keys id, name) - Meta only. Work-industry entities from /v1/ads/targeting/search?dimension=workIndustry. Not interchangeable with the LinkedIn `industries` URN fragments.; industries (list of string) - LinkedIn B2B only. Industry URN id fragments, or the full urn:li:industry:* URN from /v1/ads/targeting/search?dimension=industry.; companySizes (list of string) - LinkedIn B2B only. Single-letter size codes (A to I), or the full urn:li:staffCountRange:* URN from /v1/ads/targeting/search?dimension=companySize.; seniorities (list of string) - LinkedIn B2B only. Seniority URN id fragments, or the full urn:li:seniority:* URN from /v1/ads/targeting/search?dimension=seniority.; jobFunctions (list of string) - LinkedIn B2B only. Function URN id fragments, or the full urn:li:function:* URN from /v1/ads/targeting/search?dimension=jobFunction.; skills (list of string) - LinkedIn B2B only. Member skills (e.g. Python, Recruiting): skill URN id fragments, or the full urn:li:skill:* URN from ...; audienceInclude (list of string) - Platform audience IDs to include, as returned by GET /v1/ads/audiences: - Meta: custom audience ids. - TikTok: audience ids. - Pinterest: customer list ids. - ...; audienceExclude (list of string) - Platform audience IDs to exclude; same ID formats as audienceInclude. Not supported on OpenAI (400).; communities (list of string) - Reddit only (400 elsewhere). Subreddits to target, by name, with or without the `r/` prefix (e.g. `['marketing', 'r/startups']`), as returned by ...; excludedCommunities (list of string) - Reddit only (400 elsewhere). Subreddits to exclude, named like `communities`.; conversationKeywords (list of string) - Reddit only (400 elsewhere). Keywords that place the ad in Reddit conversations about them, as returned by ...; excludedConversationKeywords (list of string) - Reddit only (400 elsewhere). Conversation keywords to keep the ad away from.
+            targeting: Reddit: the full targeting object. Google: locations and languages only, on a Demand Gen campaign. Object with keys: userOs (list of string) - Meta only. Operating systems and version ranges, such as iOS_ver_14.0_and_above or Android. Emitted as user_os. May also be supplied inside targeting.; userDevice (list of string) - Meta only. Device models such as iPhone. Emitted as user_device. May also be supplied inside targeting.; countries (list of string) - ISO 3166-1 alpha-2 country codes (e.g. ['US']).; regions (list of any) - Region/state targeting. `key` is the platform location ID from /v1/ads/targeting/search?dimension=geo&geoType=region. An entry may also be that id as a plain ...; cities (list of any) - City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits; both must be set together or both omitted. `radius` is only honoured on ...; zips (list of objects with keys key, name) - Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`). Supported on Meta, Google, TikTok, Pinterest, X.; metros (list of objects with keys key, name) - DMA / metro-area targeting. `key` is the platform's metro ID (e.g. Meta `DMA:807`).; countryGroups (list of string) - Meta only. Continents and trade blocs (`geo_locations.country_groups`), for targeting a whole region without listing its countries. Combines with `countries` ...; places (list of objects with keys key) - Meta only. Named points of interest to target. `key` from /v1/ads/targeting/search.; neighborhoods (list of objects with keys key) - Meta only. Named neighbourhood areas to target. `key` from /v1/ads/targeting/search.; customLocations (list of objects with keys latitude, longitude, radius, distanceUnit, name, address) - Point-radius (lat/lng) targeting (Meta custom_locations / Google proximity). Honoured on Meta and Google; ignored on platforms without radius support.; excludedLocations (object with keys countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations) - Geo to exclude from the audience. Mirrors the inclusion geo shape. - Meta (excluded_geo_locations): excluded cities can carry a radius catchment, and excluded ...; ageMin (integer) - Minimum age. - Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the age ranges outside the request). - Rejected with ...; ageMax (integer) - Maximum age. Same per-platform application and clamping as ageMin.; gender (one of: all, male, female) - Restrict by gender. 'all' (default) targets everyone. Applied on Meta, TikTok, Pinterest, LinkedIn, X, Reddit and Google Search/Display (Google excludes the ...; incomeTier (one of: top_5, top_10, top_10_25, top_25_50) - Normalized household-income tier (ZIP/percentile based). Meta and TikTok express all four. Google maps only `top_10` (its INCOME_RANGE_90_UP); other tiers on ...; languages (list of string) - Language codes restricting the audience by language. Applied on Meta, Google, TikTok, LinkedIn, X, Pinterest and Reddit; rejected with 400 on OpenAI. A code ...; interests (list of objects with keys id, name) - Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id. - Google: applied as ad-group interest criteria ...; behaviors (list of objects with keys id, name) - Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). **On TikTok** they target people who, in the picked ...; workPositions (list of objects with keys id, name) - Meta only. Job title entities from /v1/ads/targeting/search?dimension=workPosition. Not interchangeable with the LinkedIn `jobTitles` URN fragments.; workEmployers (list of objects with keys id, name) - Meta only. Employer entities from /v1/ads/targeting/search?dimension=workEmployer.; workIndustries (list of objects with keys id, name) - Meta only. Work-industry entities from /v1/ads/targeting/search?dimension=workIndustry. Not interchangeable with the LinkedIn `industries` URN fragments.; industries (list of string) - LinkedIn B2B only. Industry URN id fragments, or the full urn:li:industry:* URN from /v1/ads/targeting/search?dimension=industry.; companySizes (list of string) - LinkedIn B2B only. Single-letter size codes (A to I), or the full urn:li:staffCountRange:* URN from /v1/ads/targeting/search?dimension=companySize.; seniorities (list of string) - LinkedIn B2B only. Seniority URN id fragments, or the full urn:li:seniority:* URN from /v1/ads/targeting/search?dimension=seniority.; jobFunctions (list of string) - LinkedIn B2B only. Function URN id fragments, or the full urn:li:function:* URN from /v1/ads/targeting/search?dimension=jobFunction.; skills (list of string) - LinkedIn B2B only. Member skills (e.g. Python, Recruiting): skill URN id fragments, or the full urn:li:skill:* URN from ...; audienceInclude (list of string) - Platform audience IDs to include, as returned by GET /v1/ads/audiences: - Meta: custom audience ids. - TikTok: audience ids. - Pinterest: customer list ids. - ...; audienceExclude (list of string) - Platform audience IDs to exclude; same ID formats as audienceInclude. Not supported on OpenAI (400).; communities (list of string) - Reddit only (400 elsewhere). Subreddits to target, by name, with or without the `r/` prefix (e.g. `['marketing', 'r/startups']`), as returned by ...; excludedCommunities (list of string) - Reddit only (400 elsewhere). Subreddits to exclude, named like `communities`.; conversationKeywords (list of string) - Reddit only (400 elsewhere). Keywords that place the ad in Reddit conversations about them, as returned by ...; excludedConversationKeywords (list of string) - Reddit only (400 elsewhere). Conversation keywords to keep the ad away from.
             promoted_object: Reddit only. The pixel and the conversion event the ad group optimizes toward. Object with keys: pixelId (string) - Reddit pixel id. Defaults to the ad account's first pixel.; customEventType (string) - Conversion event (PURCHASE, LEAD, SIGN_UP, ADD_TO_CART, PAGE_VISIT). Required on a conversions campaign.
             optimization_goal: Reddit only. VIDEO_VIEW_6S (default) or VIDEO_VIEW_15S on a video views campaign.
             bid_strategy: Reddit only. Defaults to LOWEST_COST_WITHOUT_CAP. Not accepted under campaign budget optimization.
@@ -8785,7 +9159,7 @@ def register_generated_tools(mcp, _get_client):
         - the campaign uses campaign budget optimization with no end date (Reddit then takes no end date on its ad groups)
         - `null` would outlive a campaign budget campaign that ends
         - `null` is sent for an ad group with a lifetime budget
-                targeting: Targeting fields to change. Meta and Reddit (400 elsewhere). **Reddit** (see the description above): - `languages` must be among Reddit's ISO 639-1 codes (AR, CS, DA, DE, EL, EN, ES, FI, FR, HU, IT, JA, KO, NL, NO, PL, PT, RO, SV, VI, ZH, any case). - Emptying every included location is a 400 with `param: targeting.countries`. - Fields Reddit ad groups cannot take (age, income, devices, behaviors, B2B, `places`) return 400 with `param: targeting.<field>`. **Meta**: same shape as the `targeting` object on POST /v1/ads/create. - Only the keys you send change. Zernio reads the ad set's live targeting, merges your keys over it and writes the full spec back, so everything else (custom audiences, geo, age, interest groups, `targeting_automation`) is kept. - Setting any location replaces every location list. An empty list or `gender: all` clears that key. - `incomeTier` is resolved to Meta's income segment first (422 when Meta has none). - Fields Meta cannot target (LinkedIn B2B, Google `devices`, Reddit communities and keywords) return 400 with `param: targeting.<field>`. - An empty object is a 400, as is a `targeting.placements` object with no non-empty list (`param: targeting.placements`). - When the live targeting cannot be read, the request returns 502 and nothing is written. Object with keys: userOs (list of string) - Meta only. Operating systems and version ranges, such as iOS_ver_14.0_and_above or Android. Emitted as user_os. May also be supplied inside targeting.; userDevice (list of string) - Meta only. Device models such as iPhone. Emitted as user_device. May also be supplied inside targeting.; countries (list of string) - ISO 3166-1 alpha-2 country codes (e.g. ['US']).; regions (list of any) - Region/state targeting. `key` is the platform location ID from /v1/ads/targeting/search?dimension=geo&geoType=region. An entry may also be that id as a plain ...; cities (list of any) - City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits; both must be set together or both omitted. `radius` is only honoured on ...; zips (list of objects with keys key, name) - Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`). Supported on Meta, Google, TikTok, Pinterest, X.; metros (list of objects with keys key, name) - DMA / metro-area targeting. `key` is the platform's metro ID (e.g. Meta `DMA:807`).; countryGroups (list of string) - Meta only. Continents and trade blocs (`geo_locations.country_groups`), for targeting a whole region without listing its countries. Combines with `countries` ...; customLocations (list of objects with keys latitude, longitude, radius, distanceUnit, name, address) - Point-radius (lat/lng) targeting (Meta custom_locations / Google proximity). Honoured on Meta and Google; ignored on platforms without radius support.; excludedLocations (object with keys countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations) - Geo to exclude from the audience. Mirrors the inclusion geo shape. - Meta (excluded_geo_locations): excluded cities can carry a radius catchment, and excluded ...; ageMin (integer) - Minimum age. - Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the age ranges outside the request). - Rejected with ...; ageMax (integer) - Maximum age. Same per-platform application and clamping as ageMin.; gender (one of: all, male, female) - Restrict by gender. 'all' (default) targets everyone. Applied on Meta, TikTok, Pinterest, LinkedIn, X, Reddit and Google Search/Display (Google excludes the ...; incomeTier (one of: top_5, top_10, top_10_25, top_25_50) - Normalized household-income tier (ZIP/percentile based). Meta and TikTok express all four. Google maps only `top_10` (its INCOME_RANGE_90_UP); other tiers on ...; languages (list of string) - Language codes restricting the audience by language. Applied on Meta, Google, TikTok, LinkedIn, X, Pinterest and Reddit; rejected with 400 on OpenAI. A code ...; interests (list of objects with keys id, name) - Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id. - Google: applied as ad-group interest criteria ...; behaviors (list of objects with keys id, name) - Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). **On TikTok** they target people who, in the picked ...; workPositions (list of objects with keys id, name) - Meta only. Job title entities from /v1/ads/targeting/search?dimension=workPosition. Not interchangeable with the LinkedIn `jobTitles` URN fragments.; workEmployers (list of objects with keys id, name) - Meta only. Employer entities from /v1/ads/targeting/search?dimension=workEmployer.; workIndustries (list of objects with keys id, name) - Meta only. Work-industry entities from /v1/ads/targeting/search?dimension=workIndustry. Not interchangeable with the LinkedIn `industries` URN fragments.; industries (list of string) - LinkedIn B2B only. Industry URN id fragments, or the full urn:li:industry:* URN from /v1/ads/targeting/search?dimension=industry.; companySizes (list of string) - LinkedIn B2B only. Single-letter size codes (A to I), or the full urn:li:staffCountRange:* URN from /v1/ads/targeting/search?dimension=companySize.; seniorities (list of string) - LinkedIn B2B only. Seniority URN id fragments, or the full urn:li:seniority:* URN from /v1/ads/targeting/search?dimension=seniority.; jobFunctions (list of string) - LinkedIn B2B only. Function URN id fragments, or the full urn:li:function:* URN from /v1/ads/targeting/search?dimension=jobFunction.; skills (list of string) - LinkedIn B2B only. Member skills (e.g. Python, Recruiting): skill URN id fragments, or the full urn:li:skill:* URN from ...; audienceInclude (list of string) - Platform audience IDs to include, as returned by GET /v1/ads/audiences: - Meta: custom audience ids. - TikTok: audience ids. - Pinterest: customer list ids. - ...; audienceExclude (list of string) - Platform audience IDs to exclude; same ID formats as audienceInclude. Not supported on OpenAI (400).; communities (list of string) - Reddit only (400 elsewhere). Subreddits to target, by name, with or without the `r/` prefix (e.g. `['marketing', 'r/startups']`), as returned by ...; excludedCommunities (list of string) - Reddit only (400 elsewhere). Subreddits to exclude, named like `communities`.; conversationKeywords (list of string) - Reddit only (400 elsewhere). Keywords that place the ad in Reddit conversations about them, as returned by ...; excludedConversationKeywords (list of string) - Reddit only (400 elsewhere). Conversation keywords to keep the ad away from.
+                targeting: Targeting fields to change. Meta and Reddit (400 elsewhere). **Reddit** (see the description above): - `languages` must be among Reddit's ISO 639-1 codes (AR, CS, DA, DE, EL, EN, ES, FI, FR, HU, IT, JA, KO, NL, NO, PL, PT, RO, SV, VI, ZH, any case). - Emptying every included location is a 400 with `param: targeting.countries`. - Fields Reddit ad groups cannot take (age, income, devices, behaviors, B2B, `places`) return 400 with `param: targeting.<field>`. **Meta**: same shape as the `targeting` object on POST /v1/ads/create. - Only the keys you send change. Zernio reads the ad set's live targeting, merges your keys over it and writes the full spec back, so everything else (custom audiences, geo, age, interest groups, `targeting_automation`) is kept. - Setting any location replaces every location list. An empty list or `gender: all` clears that key. - `incomeTier` is resolved to Meta's income segment first (422 when Meta has none). - Fields Meta cannot target (LinkedIn B2B, Google `devices`, Reddit communities and keywords) return 400 with `param: targeting.<field>`. - An empty object is a 400, as is a `targeting.placements` object with no non-empty list (`param: targeting.placements`). - When the live targeting cannot be read, the request returns 502 and nothing is written. Object with keys: userOs (list of string) - Meta only. Operating systems and version ranges, such as iOS_ver_14.0_and_above or Android. Emitted as user_os. May also be supplied inside targeting.; userDevice (list of string) - Meta only. Device models such as iPhone. Emitted as user_device. May also be supplied inside targeting.; countries (list of string) - ISO 3166-1 alpha-2 country codes (e.g. ['US']).; regions (list of any) - Region/state targeting. `key` is the platform location ID from /v1/ads/targeting/search?dimension=geo&geoType=region. An entry may also be that id as a plain ...; cities (list of any) - City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits; both must be set together or both omitted. `radius` is only honoured on ...; zips (list of objects with keys key, name) - Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`). Supported on Meta, Google, TikTok, Pinterest, X.; metros (list of objects with keys key, name) - DMA / metro-area targeting. `key` is the platform's metro ID (e.g. Meta `DMA:807`).; countryGroups (list of string) - Meta only. Continents and trade blocs (`geo_locations.country_groups`), for targeting a whole region without listing its countries. Combines with `countries` ...; places (list of objects with keys key) - Meta only. Named points of interest to target. `key` from /v1/ads/targeting/search.; neighborhoods (list of objects with keys key) - Meta only. Named neighbourhood areas to target. `key` from /v1/ads/targeting/search.; customLocations (list of objects with keys latitude, longitude, radius, distanceUnit, name, address) - Point-radius (lat/lng) targeting (Meta custom_locations / Google proximity). Honoured on Meta and Google; ignored on platforms without radius support.; excludedLocations (object with keys countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations) - Geo to exclude from the audience. Mirrors the inclusion geo shape. - Meta (excluded_geo_locations): excluded cities can carry a radius catchment, and excluded ...; ageMin (integer) - Minimum age. - Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the age ranges outside the request). - Rejected with ...; ageMax (integer) - Maximum age. Same per-platform application and clamping as ageMin.; gender (one of: all, male, female) - Restrict by gender. 'all' (default) targets everyone. Applied on Meta, TikTok, Pinterest, LinkedIn, X, Reddit and Google Search/Display (Google excludes the ...; incomeTier (one of: top_5, top_10, top_10_25, top_25_50) - Normalized household-income tier (ZIP/percentile based). Meta and TikTok express all four. Google maps only `top_10` (its INCOME_RANGE_90_UP); other tiers on ...; languages (list of string) - Language codes restricting the audience by language. Applied on Meta, Google, TikTok, LinkedIn, X, Pinterest and Reddit; rejected with 400 on OpenAI. A code ...; interests (list of objects with keys id, name) - Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id. - Google: applied as ad-group interest criteria ...; behaviors (list of objects with keys id, name) - Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). **On TikTok** they target people who, in the picked ...; workPositions (list of objects with keys id, name) - Meta only. Job title entities from /v1/ads/targeting/search?dimension=workPosition. Not interchangeable with the LinkedIn `jobTitles` URN fragments.; workEmployers (list of objects with keys id, name) - Meta only. Employer entities from /v1/ads/targeting/search?dimension=workEmployer.; workIndustries (list of objects with keys id, name) - Meta only. Work-industry entities from /v1/ads/targeting/search?dimension=workIndustry. Not interchangeable with the LinkedIn `industries` URN fragments.; industries (list of string) - LinkedIn B2B only. Industry URN id fragments, or the full urn:li:industry:* URN from /v1/ads/targeting/search?dimension=industry.; companySizes (list of string) - LinkedIn B2B only. Single-letter size codes (A to I), or the full urn:li:staffCountRange:* URN from /v1/ads/targeting/search?dimension=companySize.; seniorities (list of string) - LinkedIn B2B only. Seniority URN id fragments, or the full urn:li:seniority:* URN from /v1/ads/targeting/search?dimension=seniority.; jobFunctions (list of string) - LinkedIn B2B only. Function URN id fragments, or the full urn:li:function:* URN from /v1/ads/targeting/search?dimension=jobFunction.; skills (list of string) - LinkedIn B2B only. Member skills (e.g. Python, Recruiting): skill URN id fragments, or the full urn:li:skill:* URN from ...; audienceInclude (list of string) - Platform audience IDs to include, as returned by GET /v1/ads/audiences: - Meta: custom audience ids. - TikTok: audience ids. - Pinterest: customer list ids. - ...; audienceExclude (list of string) - Platform audience IDs to exclude; same ID formats as audienceInclude. Not supported on OpenAI (400).; communities (list of string) - Reddit only (400 elsewhere). Subreddits to target, by name, with or without the `r/` prefix (e.g. `['marketing', 'r/startups']`), as returned by ...; excludedCommunities (list of string) - Reddit only (400 elsewhere). Subreddits to exclude, named like `communities`.; conversationKeywords (list of string) - Reddit only (400 elsewhere). Keywords that place the ad in Reddit conversations about them, as returned by ...; excludedConversationKeywords (list of string) - Reddit only (400 elsewhere). Conversation keywords to keep the ad away from.
                 bid_amount: Bid cap in WHOLE currency units (USD: 5 = $5.00; JPY: 100 = ¥100). Required when bidStrategy is LOWEST_COST_WITH_BID_CAP or COST_CAP.
 
         Internally converted to Meta's smallest-denomination integer, or (on OpenAI and X) to micros (× 1,000,000).
@@ -9242,12 +9616,9 @@ def register_generated_tools(mcp, _get_client):
         ### Parameters
 
         - `accountId` is required. The lookup is sibling-expanded, so passing the `metaads` ID also includes ads under the linked `facebook` / `instagram` posting account (and vice-versa), the same convention as `/v1/ads/tree` and `/v1/ads`.
+        - Without `adAccountId` the timeline sums only the ad accounts the connection reaches: its `scopedAdAccountIds` when it selects some, every reachable one otherwise.
         - Date range defaults to the last 90 days. Capped at 730 days.
-        - With adAccountId set to a Google customer id this is the customer-level performance report (clicks, cost, impressions, conversions, all conversions per day).
-
-        ### History
-
-        When an ad account connects, Zernio ...
+        - With adAccountId set to a Google customer id ...
 
         Platforms (the platform parameter takes): facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, microsoft
 
@@ -9289,7 +9660,7 @@ def register_generated_tools(mcp, _get_client):
 
             ### Google Search ads
 
-            Google Search ads include current creative.headlines, creative.descriptions and creative.finalUrls, preserving pinnedField. Top-level cachedAt and stale report cache freshness. Google mutations invalidate this read.
+            Google Search ads include current creative.headlines, creative.descriptions, creative.finalUrls and, when set, creative.path1 and creative.path2, preserving pinnedField. Top-level cachedAt and stale report cache freshness. Google mutations invalidate this read.
 
             RSA enrichment requires a stored advertisingChannelType of SEARCH. Ads with an unknown or other channel return their stored details without a Google read. If RSA enrichment fails, the stored ad is returned with HTTP 200 and without cache metadata.
 
@@ -9300,8 +9671,7 @@ def register_generated_tools(mcp, _get_client):
             - the Zernio internal `_id` (24-char hex)
             - Meta's numeric `platformAdId` (the value shipped in `comment.received` webhooks as `comment.ad.id`)
             - the creative's `effective_object_story_id` (`{pageId}_{postId}` shape, Facebook side)
-            - the creative's `effective_instagram_media_id` (Instagram side)
-            - an Instagram media id an ad ...
+            - the creative's `effective_instagram_media_id` ...
 
             Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft
 
@@ -9354,6 +9724,8 @@ def register_generated_tools(mcp, _get_client):
         headlines: list[dict[str, Any]] | None = None,
         descriptions: list[dict[str, Any]] | None = None,
         final_urls: list[str] | None = None,
+        path1: str | None = None,
+        path2: str | None = None,
         asset_group: dict[str, Any] | None = None,
         demand_gen: dict[str, Any] | None = None,
         status: Literal["active", "paused"] | None = None,
@@ -9390,12 +9762,14 @@ def register_generated_tools(mcp, _get_client):
             headlines: Google Search and Display only. Replaces the complete headline list. Search takes 3-15, Display 1-5 and rejects pinnedField; the count is checked once the ad's channel is known. No padding or truncation on update. Each item is an object with keys: text (string, required); pinnedField (one of: HEADLINE_1, HEADLINE_2, HEADLINE_3) - Optional fixed headline position. Omit to leave the asset unpinned.
             descriptions: Google Search and Display only. Replaces the complete description list. Search takes 2-4, Display 1-5 and rejects pinnedField. No padding or truncation on update. Each item is an object with keys: text (string, required); pinnedField (one of: DESCRIPTION_1, DESCRIPTION_2) - Optional fixed description position. Omit to leave the asset unpinned.
             final_urls: Google Search and Display only. Replaces final URLs. Omitted lists stay unchanged. For Performance Max use assetGroup.finalUrl.
+            path1: Google Search only. First display path shown after the domain in the ad URL. Send an empty string to clear it.
+            path2: Google Search only. Second display path, shown after path1. Google requires path1 when path2 is set. Send an empty string to clear it.
             asset_group: Google Performance Max only. Replaces whole asset roles on the ad's asset group. Returns 422 on any other platform or channel. Object with keys: finalUrl (string) - Replaces the asset group's final URL.; headlines (list of string) - Replaces every HEADLINE asset on the group.; longHeadline (string) - Replaces the LONG_HEADLINE asset.; descriptions (list of string) - Replaces every DESCRIPTION asset. At least one must be 60 characters or fewer.; businessName (string) - Replaces the BUSINESS_NAME asset.; images (object with keys landscape, square, logo) - Public HTTP(S) image URLs. Each role you send replaces that role's images; roles you omit stay. GIF, JPEG or PNG, at most 5120 KB per image.; youtubeVideoIds (list of string) - Replaces YOUTUBE_VIDEO assets with existing YouTube video ids. Video uploads and arbitrary video URLs are not supported.
             demand_gen: Google Demand Gen only. Returns 422 on any other platform or channel. Object with keys: finalUrl (string); businessName (string); headlines (list of string); longHeadlines (list of string) - Video ads only.; descriptions (list of string); callToAction (string) - Image and carousel ads only.; images (object with keys landscape, square, portrait, logo); youtubeVideoIds (list of string) - Video ads only.; channels (list of string) - Replaces the ad group's channel controls. Only the listed channels serve; Google Maps, which this list cannot select, is turned off. Omit to leave the ad ...; audience (object with keys userLists, userInterests, customAudiences, ageRanges, genders); audienceId (string) - Attach an existing Google Audience by numeric id instead of audience.
             status
             budget: Object with keys: amount (number) - Minimum varies by platform: TikTok=$20, Pinterest=$5, others=$1; type (one of: daily, lifetime) - OpenAI Ads accepts both and sets the campaign's single spend cap, replacing the previous daily or lifetime cap. A daily cap cannot go back to lifetime (422).
             targeting: Targeting update. - Meta + TikTok: demographics/interests. - Google: keyword and device bid adjustment edits only. - LinkedIn: locations, B2B facets, audiences. - Pinterest / X: return 501. **Partial update** on Meta, TikTok and LinkedIn: every targeting setting you do not send is preserved. - Meta: Advantage+ audience, placements, custom audiences, exclusions, interests, languages. - TikTok: languages, interest keywords, devices, behaviours. - LinkedIn: skills, member traits, interface locales, and any facet set in Campaign Manager. A field you send replaces its platform counterpart, and an empty or null value (for example `audienceInclude: []`, `industries: []` or `gender: "all"`) clears only that field. Any location field (countries, regions, cities, zips, ...) replaces the whole included location set; an update with no location keeps the current locations. Object with keys: keywords (list of any) - Google only. The FULL desired set of positive keywords for the entire ad group. Omit to leave positives unchanged; [] removes all positives. Negatives are ...; negativeKeywords (list of any) - Google only. The FULL desired set of negative keywords for the entire ad group, independent of positives. - Omit to leave negatives unchanged; [] removes all ...; devices (list of any) - Google only. The FULL new set of device bid modifiers for the campaign. Entries are a device name alone (targeted, bid modifier reset to 1) or { device, ...; ageMin (integer); ageMax (integer); countries (list of string) - ISO 3166-1 alpha-2 codes. On Google this is the FULL new country set for the campaign (same contract as `locations`); on LinkedIn it replaces the campaign's ...; locations (any) - Google and LinkedIn. The FULL new location set for the campaign. Bare country-code array, or an object with countries/regions/cities/zips/metros key lists ...; languages (list of string) - Google only. The FULL new language set for the campaign, as Google language codes (ISO 639-1, plus variants such as `zh_CN`). An unknown code returns 400.; interests (list of objects with keys id, name) - Interest objects from /v1/ads/interests. Each must include id and name.; advantage_audience (one of: 0, 1) - Meta only. Omit to preserve the existing setting on update. 0 = disabled, 1 = enabled.
-            creative: Replace or patch the ad's creative. Meta, TikTok, and LinkedIn. **Meta**: patch-style. - Pass any subset: omitted fields are preserved from the live creative, including media (`image_hash`/`video_id` reused, no re-upload) and `url_tags`. Sending the full set (`headline`, `body`, `callToAction`, `linkUrl`, `imageUrl`) rebuilds the creative from scratch. - Partial patching reads the live `object_story_spec`, which Meta strips on SHARE / page-post / dark post creatives; those return 422 asking for the full set. A `videoUrl`/`videoId` on an image creative is a type change and also needs the full set. - Creatives with an `asset_feed_spec` (several text options, placement or language rules) take text, link, tracking and enhancement edits in place. The new creative is built from the live asset feed with the edited text, and every video, image, label and rule is kept. - On those, `body`, `headline` and `description` replace the one option of that kind. When the feed has several, send `bodies`, `headlines` or `descriptions` with one text per option, in order. `linkUrl` replaces the feed's only destination link. - Image, video and call-to-action changes on asset_feed creatives apply to the story spec (Multiple Text Options creatives). They return 422 when the feed itself holds the images, videos or call-to-action options. - The live creative's deprecated `standard_enhancements` setting (Meta subcode 3858504) is never sent back; every other enhancement setting is kept. - `existingCreativeId` repoints the ad at a creative from GET /v1/ads/creatives and ignores every other field. - Meta creatives are immutable: any change creates a new creative and repoints the ad. The old creative stays on the ad account for historical reporting. - `creativeFeatures` is Meta-only. Omitted settings are preserved from the live creative, including on full rebuilds; a supplied creativeFeatures map overrides individual existing keys. - A `creative` object with no recognised field (`promotion` alone does not count) is a 400 `missing_required_field` when it is the only update, and is ignored (no creative rebuild) next to another updatable field. **TikTok**: patch-style. Pass any subset. - `headline` is ignored (no headline slot). - `body` becomes the in-feed `ad_text`; `linkUrl` becomes `landing_page_url`; `videoUrl` triggers a fresh upload. - `description`, `videoId` and `existingCreativeId` are Meta-only and return 400. **LinkedIn**: requires new media (image via `imageUrl` or video via `videoUrl`); a text-only update returns 400. - Uploads the media, creates a new inline media creative on the same campaign, and removes the old creative. `platformAdId` and `creative.creativeId` move to the new one. - The new creative keeps the old one's state. A `DRAFT` or `PAUSED` creative is re-created `DRAFT`, because LinkedIn refuses `PAUSED` before review is `APPROVED`. - If the old creative cannot be removed, the new one is deleted and the LinkedIn error is returned. - `videoId` and `existingCreativeId` are Meta-only and return 400. Object with keys: promotion (object) - Not supported. Send null or omit the field, and set the Promotion on the ad in Ads Manager. Any object is rejected with 400 invalid_field_value. Meta ...; creativeFeatures (object); catalogFormat (one of: single_image, carousel_images_multi_items, carousel_images_single_item, carousel_slideshows) - Meta catalog template ads only. Rebuilds the creative with this `template_data.format_option` (same mapping as on create) and repoints the ad at the new ...; headline (string) - Meta and LinkedIn (TikTok has no headline slot); longHeadline (string) - Google Display only. Replaces the responsive display ad's long headline.; businessName (string) - Google Display only. Replaces the responsive display ad's business name.; squareImageUrl (string) - Google Display only. Uploaded as a new square (1:1) marketing image asset that replaces the current one.; body (string) - Primary text. On a Meta asset_feed creative it replaces the feed's only body option (422 when it has several: send `bodies`).; bodies (list of string) - Meta only. The primary text options of an asset_feed creative, one text per option in the order GET /v1/ads/{adId} returns them. Each replaces the option in ...; headlines (list of string) - Meta only. Same as `bodies`, for the headline options (Meta `asset_feed_spec.titles`). Cannot be sent with `headline`. Not the top-level Google `headlines`.; description (string) - Link description slot (Meta `link_data.description` / `video_data.link_description`, LinkedIn creative description).; descriptions (list of string) - Meta only. Same as `bodies`, for the description options. Cannot be sent with `description`. Not the top-level Google `descriptions`.; callToAction (string); linkUrl (string); imageUrl (string); videoUrl (string); videoId (string) - Meta only. Reuse an already-uploaded ad video (from POST /v1/ads/videos or GET /v1/ads/videos) instead of re-uploading via videoUrl.; existingCreativeId (string) - Meta only. Repoint the ad at an existing library creative (from GET /v1/ads/creatives); all other creative fields are ignored.
+            creative: Replace or patch the ad's creative. Meta, TikTok, and LinkedIn. **Meta**: patch-style. - Pass any subset: omitted fields are preserved from the live creative, including media (`image_hash`/`video_id` reused, no re-upload) and `url_tags`. Sending the full set (`headline`, `body`, `callToAction`, `linkUrl`, `imageUrl`) rebuilds the creative from scratch. - On lead ads, the instant form is kept through every edit, and `linkUrl` is ignored: Meta requires a lead ad's links to stay on its instant-form link. An edit that changes only `linkUrl` leaves the ad's creative as it is. - Partial patching reads the live `object_story_spec`, which Meta strips on SHARE / page-post / dark post creatives; those return 422 asking for the full set. A `videoUrl`/`videoId` on an image creative is a type change and also needs the full set. - Creatives with an `asset_feed_spec` (several text options, placement or language rules) take text, link, tracking and enhancement edits in place. The new creative is built from the live asset feed with the edited text, and every video, image, label and rule is kept. - On those, `body`, `headline` and `description` replace the one option of that kind. When the feed has several, send `bodies`, `headlines` or `descriptions` with one text per option, in order. `linkUrl` replaces the feed's only destination link. - Image, video and call-to-action changes on asset_feed creatives apply to the story spec (Multiple Text Options creatives). They return 422 when the feed itself holds the images, videos or call-to-action options. - The live creative's deprecated `standard_enhancements` setting (Meta subcode 3858504) is never sent back; every other enhancement setting is kept. - `existingCreativeId` repoints the ad at a creative from GET /v1/ads/creatives and ignores every other field. - `leadGenFormId` moves a lead ad to another instant form. `caption` sets the display link of a link ad. - In a dynamic creative ad set (`is_dynamic_creative`), only asset feed creatives run: a full rebuild, or `existingCreativeId` pointing at a creative without an asset feed, returns 422. Text edits update the feed. - Meta creatives are immutable: any change creates a new creative and repoints the ad. The old creative stays on the ad account for historical reporting. - `creativeFeatures` is Meta-only. Omitted settings are preserved from the live creative, including on full rebuilds; a supplied creativeFeatures map overrides individual existing keys. - A `creative` object with no recognised field (`promotion` alone does not count) is a 400 `missing_required_field` when it is the only update, and is ignored (no creative rebuild) next to another updatable field. **TikTok**: patch-style. Pass any subset. - `headline` is ignored (no headline slot). - `body` becomes the in-feed `ad_text`; `linkUrl` becomes `landing_page_url`; `videoUrl` triggers a fresh upload. - `description`, `videoId` and `existingCreativeId` are Meta-only and return 400. **LinkedIn**: requires new media (image via `imageUrl` or video via `videoUrl`); a text-only update returns 400. - Uploads the media, creates a new inline media creative on the same campaign, and removes the old creative. `platformAdId` and `creative.creativeId` move to the new one. - The new creative keeps the old one's state. A `DRAFT` or `PAUSED` creative is re-created `DRAFT`, because LinkedIn refuses `PAUSED` before review is `APPROVED`. - If the old creative cannot be removed, the new one is deleted and the LinkedIn error is returned. - `videoId` and `existingCreativeId` are Meta-only and return 400. Object with keys: promotion (object) - Not supported. Send null or omit the field, and set the Promotion on the ad in Ads Manager. Any object is rejected with 400 invalid_field_value. Meta ...; creativeFeatures (object); catalogFormat (one of: single_image, carousel_images_multi_items, carousel_images_single_item, carousel_slideshows) - Meta catalog template ads only. Rebuilds the creative with this `template_data.format_option` (same mapping as on create) and repoints the ad at the new ...; headline (string) - Meta and LinkedIn (TikTok has no headline slot); longHeadline (string) - Google Display only. Replaces the responsive display ad's long headline.; businessName (string) - Google Display only. Replaces the responsive display ad's business name.; squareImageUrl (string) - Google Display only. Uploaded as a new square (1:1) marketing image asset that replaces the current one.; body (string) - Primary text. On a Meta asset_feed creative it replaces the feed's only body option (422 when it has several: send `bodies`).; bodies (list of string) - Meta only. The primary text options of an asset_feed creative, one text per option in the order GET /v1/ads/{adId} returns them. Each replaces the option in ...; headlines (list of string) - Meta only. Same as `bodies`, for the headline options (Meta `asset_feed_spec.titles`). Cannot be sent with `headline`. Not the top-level Google `headlines`.; description (string) - Link description slot (Meta `link_data.description` / `video_data.link_description`, LinkedIn creative description).; descriptions (list of string) - Meta only. Same as `bodies`, for the description options. Cannot be sent with `description`. Not the top-level Google `descriptions`.; callToAction (string); linkUrl (string); imageUrl (string); videoUrl (string); videoId (string) - Meta only. Reuse an already-uploaded ad video (from POST /v1/ads/videos or GET /v1/ads/videos) instead of re-uploading via videoUrl.; existingCreativeId (string) - Meta only. Repoint the ad at an existing library creative (from GET /v1/ads/creatives); all other creative fields are ignored.; leadGenFormId (string) - Meta only. Moves a lead ad to another instant form (from GET /v1/ads/lead-forms), keeping the rest of the creative. Returns 422 on an ad that does not open an ...; caption (string) - Meta only. The display link shown on link (image) ads, Meta link_data.caption. Returns 422 on video creatives and on asset feeds without a link.
             name: Rename the ad. Now propagated to Meta (POST /{ad-id}); non-Meta platforms return 501."""
         client = _get_client()
         try:
@@ -9404,6 +9778,8 @@ def register_generated_tools(mcp, _get_client):
                 headlines=headlines,
                 descriptions=descriptions,
                 final_urls=final_urls,
+                path1=path1,
+                path2=path2,
                 asset_group=asset_group,
                 demand_gen=demand_gen,
                 status=status,
@@ -10160,6 +10536,55 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.ad_campaigns.replace_campaign_negative_keyword_lists(
                 campaign_id=campaign_id, platform=platform, list_ids=list_ids
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Attach or detach campaign negative lists",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_campaigns_edit_campaign_negative_keyword_lists(
+        campaign_id: str,
+        platform: Literal[
+            "facebook",
+            "instagram",
+            "tiktok",
+            "linkedin",
+            "pinterest",
+            "google",
+            "twitter",
+            "openai",
+            "reddit",
+        ]
+        | None = None,
+        add: list[str] | None = None,
+        remove: list[str] | None = None,
+    ) -> str:
+        """Attach or detach campaign negative lists
+
+        Attaches and detaches single shared negative keyword lists on a Google campaign without resending the full set. The lists and their keywords are not changed.
+
+        - `remove` wins over `add` for the same list.
+        - A list already attached is not attached twice; a list not attached is skipped on remove.
+        - Every list in `add` must belong to the campaign customer and have type NEGATIVE_KEYWORDS.
+
+        Platforms: google
+
+        Args:
+            campaign_id: (required)
+            platform: Optional courtesy field. The resolved account or campaign determines support; other platforms return 501.
+            add: Shared negative keyword list ids to attach. Send at least one entry in add or remove.
+            remove: Shared negative keyword list ids to detach."""
+        client = _get_client()
+        try:
+            response = client.ad_campaigns.edit_campaign_negative_keyword_lists(
+                campaign_id=campaign_id, platform=platform, add=add, remove=remove
             )
             return _format_response(response)
         except Exception as e:
@@ -11555,7 +11980,7 @@ def register_generated_tools(mcp, _get_client):
         - to the owning organization, when the LinkedIn ad account is org-owned.
 
         The authenticated member must be an ADMINISTRATOR or DIRECT_SPONSORED_CONTENT_POSTER of this page, and the page must be associated with the ad account, or LinkedIn returns 403.
-                targeting: Nested targeting object: the same TargetingSpec shape as `POST /v1/ads/boost`, `POST /v1/ads/targeting/reach-estimate`, and `saved_targeting` audiences. Merged UNDER the flat inline targeting fields below: `savedTargetingId` < `targeting` < flat fields (a flat field present on the body replaces the nested value entirely). Both forms are equivalent; use whichever your integration already builds. Reddit-only targeting (`communities`, `excludedCommunities`, `conversationKeywords`, `excludedConversationKeywords`) is sent here. Object with keys: userOs (list of string) - Meta only. Operating systems and version ranges, such as iOS_ver_14.0_and_above or Android. Emitted as user_os. May also be supplied inside targeting.; userDevice (list of string) - Meta only. Device models such as iPhone. Emitted as user_device. May also be supplied inside targeting.; countries (list of string) - ISO 3166-1 alpha-2 country codes (e.g. ['US']).; regions (list of any) - Region/state targeting. `key` is the platform location ID from /v1/ads/targeting/search?dimension=geo&geoType=region. An entry may also be that id as a plain ...; cities (list of any) - City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits; both must be set together or both omitted. `radius` is only honoured on ...; zips (list of objects with keys key, name) - Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`). Supported on Meta, Google, TikTok, Pinterest, X.; metros (list of objects with keys key, name) - DMA / metro-area targeting. `key` is the platform's metro ID (e.g. Meta `DMA:807`).; countryGroups (list of string) - Meta only. Continents and trade blocs (`geo_locations.country_groups`), for targeting a whole region without listing its countries. Combines with `countries` ...; customLocations (list of objects with keys latitude, longitude, radius, distanceUnit, name, address) - Point-radius (lat/lng) targeting (Meta custom_locations / Google proximity). Honoured on Meta and Google; ignored on platforms without radius support.; excludedLocations (object with keys countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations) - Geo to exclude from the audience. Mirrors the inclusion geo shape. - Meta (excluded_geo_locations): excluded cities can carry a radius catchment, and excluded ...; ageMin (integer) - Minimum age. - Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the age ranges outside the request). - Rejected with ...; ageMax (integer) - Maximum age. Same per-platform application and clamping as ageMin.; gender (one of: all, male, female) - Restrict by gender. 'all' (default) targets everyone. Applied on Meta, TikTok, Pinterest, LinkedIn, X, Reddit and Google Search/Display (Google excludes the ...; incomeTier (one of: top_5, top_10, top_10_25, top_25_50) - Normalized household-income tier (ZIP/percentile based). Meta and TikTok express all four. Google maps only `top_10` (its INCOME_RANGE_90_UP); other tiers on ...; languages (list of string) - Language codes restricting the audience by language. Applied on Meta, Google, TikTok, LinkedIn, X, Pinterest and Reddit; rejected with 400 on OpenAI. A code ...; interests (list of objects with keys id, name) - Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id. - Google: applied as ad-group interest criteria ...; behaviors (list of objects with keys id, name) - Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). **On TikTok** they target people who, in the picked ...; workPositions (list of objects with keys id, name) - Meta only. Job title entities from /v1/ads/targeting/search?dimension=workPosition. Not interchangeable with the LinkedIn `jobTitles` URN fragments.; workEmployers (list of objects with keys id, name) - Meta only. Employer entities from /v1/ads/targeting/search?dimension=workEmployer.; workIndustries (list of objects with keys id, name) - Meta only. Work-industry entities from /v1/ads/targeting/search?dimension=workIndustry. Not interchangeable with the LinkedIn `industries` URN fragments.; industries (list of string) - LinkedIn B2B only. Industry URN id fragments, or the full urn:li:industry:* URN from /v1/ads/targeting/search?dimension=industry.; companySizes (list of string) - LinkedIn B2B only. Single-letter size codes (A to I), or the full urn:li:staffCountRange:* URN from /v1/ads/targeting/search?dimension=companySize.; seniorities (list of string) - LinkedIn B2B only. Seniority URN id fragments, or the full urn:li:seniority:* URN from /v1/ads/targeting/search?dimension=seniority.; jobFunctions (list of string) - LinkedIn B2B only. Function URN id fragments, or the full urn:li:function:* URN from /v1/ads/targeting/search?dimension=jobFunction.; skills (list of string) - LinkedIn B2B only. Member skills (e.g. Python, Recruiting): skill URN id fragments, or the full urn:li:skill:* URN from ...; audienceInclude (list of string) - Platform audience IDs to include, as returned by GET /v1/ads/audiences: - Meta: custom audience ids. - TikTok: audience ids. - Pinterest: customer list ids. - ...; audienceExclude (list of string) - Platform audience IDs to exclude; same ID formats as audienceInclude. Not supported on OpenAI (400).; communities (list of string) - Reddit only (400 elsewhere). Subreddits to target, by name, with or without the `r/` prefix (e.g. `['marketing', 'r/startups']`), as returned by ...; excludedCommunities (list of string) - Reddit only (400 elsewhere). Subreddits to exclude, named like `communities`.; conversationKeywords (list of string) - Reddit only (400 elsewhere). Keywords that place the ad in Reddit conversations about them, as returned by ...; excludedConversationKeywords (list of string) - Reddit only (400 elsewhere). Conversation keywords to keep the ad away from.
+                targeting: Nested targeting object: the same TargetingSpec shape as `POST /v1/ads/boost`, `POST /v1/ads/targeting/reach-estimate`, and `saved_targeting` audiences. Merged UNDER the flat inline targeting fields below: `savedTargetingId` < `targeting` < flat fields (a flat field present on the body replaces the nested value entirely). Both forms are equivalent; use whichever your integration already builds. Reddit-only targeting (`communities`, `excludedCommunities`, `conversationKeywords`, `excludedConversationKeywords`) is sent here. Object with keys: userOs (list of string) - Meta only. Operating systems and version ranges, such as iOS_ver_14.0_and_above or Android. Emitted as user_os. May also be supplied inside targeting.; userDevice (list of string) - Meta only. Device models such as iPhone. Emitted as user_device. May also be supplied inside targeting.; countries (list of string) - ISO 3166-1 alpha-2 country codes (e.g. ['US']).; regions (list of any) - Region/state targeting. `key` is the platform location ID from /v1/ads/targeting/search?dimension=geo&geoType=region. An entry may also be that id as a plain ...; cities (list of any) - City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits; both must be set together or both omitted. `radius` is only honoured on ...; zips (list of objects with keys key, name) - Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`). Supported on Meta, Google, TikTok, Pinterest, X.; metros (list of objects with keys key, name) - DMA / metro-area targeting. `key` is the platform's metro ID (e.g. Meta `DMA:807`).; countryGroups (list of string) - Meta only. Continents and trade blocs (`geo_locations.country_groups`), for targeting a whole region without listing its countries. Combines with `countries` ...; places (list of objects with keys key) - Meta only. Named points of interest to target. `key` from /v1/ads/targeting/search.; neighborhoods (list of objects with keys key) - Meta only. Named neighbourhood areas to target. `key` from /v1/ads/targeting/search.; customLocations (list of objects with keys latitude, longitude, radius, distanceUnit, name, address) - Point-radius (lat/lng) targeting (Meta custom_locations / Google proximity). Honoured on Meta and Google; ignored on platforms without radius support.; excludedLocations (object with keys countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations) - Geo to exclude from the audience. Mirrors the inclusion geo shape. - Meta (excluded_geo_locations): excluded cities can carry a radius catchment, and excluded ...; ageMin (integer) - Minimum age. - Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the age ranges outside the request). - Rejected with ...; ageMax (integer) - Maximum age. Same per-platform application and clamping as ageMin.; gender (one of: all, male, female) - Restrict by gender. 'all' (default) targets everyone. Applied on Meta, TikTok, Pinterest, LinkedIn, X, Reddit and Google Search/Display (Google excludes the ...; incomeTier (one of: top_5, top_10, top_10_25, top_25_50) - Normalized household-income tier (ZIP/percentile based). Meta and TikTok express all four. Google maps only `top_10` (its INCOME_RANGE_90_UP); other tiers on ...; languages (list of string) - Language codes restricting the audience by language. Applied on Meta, Google, TikTok, LinkedIn, X, Pinterest and Reddit; rejected with 400 on OpenAI. A code ...; interests (list of objects with keys id, name) - Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id. - Google: applied as ad-group interest criteria ...; behaviors (list of objects with keys id, name) - Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). **On TikTok** they target people who, in the picked ...; workPositions (list of objects with keys id, name) - Meta only. Job title entities from /v1/ads/targeting/search?dimension=workPosition. Not interchangeable with the LinkedIn `jobTitles` URN fragments.; workEmployers (list of objects with keys id, name) - Meta only. Employer entities from /v1/ads/targeting/search?dimension=workEmployer.; workIndustries (list of objects with keys id, name) - Meta only. Work-industry entities from /v1/ads/targeting/search?dimension=workIndustry. Not interchangeable with the LinkedIn `industries` URN fragments.; industries (list of string) - LinkedIn B2B only. Industry URN id fragments, or the full urn:li:industry:* URN from /v1/ads/targeting/search?dimension=industry.; companySizes (list of string) - LinkedIn B2B only. Single-letter size codes (A to I), or the full urn:li:staffCountRange:* URN from /v1/ads/targeting/search?dimension=companySize.; seniorities (list of string) - LinkedIn B2B only. Seniority URN id fragments, or the full urn:li:seniority:* URN from /v1/ads/targeting/search?dimension=seniority.; jobFunctions (list of string) - LinkedIn B2B only. Function URN id fragments, or the full urn:li:function:* URN from /v1/ads/targeting/search?dimension=jobFunction.; skills (list of string) - LinkedIn B2B only. Member skills (e.g. Python, Recruiting): skill URN id fragments, or the full urn:li:skill:* URN from ...; audienceInclude (list of string) - Platform audience IDs to include, as returned by GET /v1/ads/audiences: - Meta: custom audience ids. - TikTok: audience ids. - Pinterest: customer list ids. - ...; audienceExclude (list of string) - Platform audience IDs to exclude; same ID formats as audienceInclude. Not supported on OpenAI (400).; communities (list of string) - Reddit only (400 elsewhere). Subreddits to target, by name, with or without the `r/` prefix (e.g. `['marketing', 'r/startups']`), as returned by ...; excludedCommunities (list of string) - Reddit only (400 elsewhere). Subreddits to exclude, named like `communities`.; conversationKeywords (list of string) - Reddit only (400 elsewhere). Keywords that place the ad in Reddit conversations about them, as returned by ...; excludedConversationKeywords (list of string) - Reddit only (400 elsewhere). Conversation keywords to keep the ad away from.
                 countries: ISO 3166-1 alpha-2 country codes (e.g. ['NL']). Defaults to ['US'] when no other geo targeting (flat or nested `targeting`) is provided. (LinkedIn and OpenAI Ads currently honour country-level targeting only; any other targeting field returns 400 for OpenAI Ads.)
                 country_groups: Meta only. Continents and trade blocs (`geo_locations.country_groups`),
         for targeting a whole region without listing its countries. Combines with
@@ -14533,7 +14958,7 @@ def register_generated_tools(mcp, _get_client):
             Args:
                 account_id: Zernio account ID on the target ad platform (the estimate runs against its platform). (required)
                 ad_account_id: Required. The platform ad-account ID the reach call runs against (Meta act_..., LinkedIn numeric sponsoredAccount ID, Pinterest ad-account ID, X account ID) - every backing reach API is scoped to one ad account. Get it from GET /v1/ads/accounts. (required)
-                spec: The targeting spec to estimate. Same shape used by POST /v1/ads/create. Required unless `rawTargeting` is sent; with `rawTargeting` it can be omitted or minimal. Object with keys: userOs (list of string) - Meta only. Operating systems and version ranges, such as iOS_ver_14.0_and_above or Android. Emitted as user_os. May also be supplied inside targeting.; userDevice (list of string) - Meta only. Device models such as iPhone. Emitted as user_device. May also be supplied inside targeting.; countries (list of string) - ISO 3166-1 alpha-2 country codes (e.g. ['US']).; regions (list of any) - Region/state targeting. `key` is the platform location ID from /v1/ads/targeting/search?dimension=geo&geoType=region. An entry may also be that id as a plain ...; cities (list of any) - City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits; both must be set together or both omitted. `radius` is only honoured on ...; zips (list of objects with keys key, name) - Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`). Supported on Meta, Google, TikTok, Pinterest, X.; metros (list of objects with keys key, name) - DMA / metro-area targeting. `key` is the platform's metro ID (e.g. Meta `DMA:807`).; countryGroups (list of string) - Meta only. Continents and trade blocs (`geo_locations.country_groups`), for targeting a whole region without listing its countries. Combines with `countries` ...; customLocations (list of objects with keys latitude, longitude, radius, distanceUnit, name, address) - Point-radius (lat/lng) targeting (Meta custom_locations / Google proximity). Honoured on Meta and Google; ignored on platforms without radius support.; excludedLocations (object with keys countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations) - Geo to exclude from the audience. Mirrors the inclusion geo shape. - Meta (excluded_geo_locations): excluded cities can carry a radius catchment, and excluded ...; ageMin (integer) - Minimum age. - Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the age ranges outside the request). - Rejected with ...; ageMax (integer) - Maximum age. Same per-platform application and clamping as ageMin.; gender (one of: all, male, female) - Restrict by gender. 'all' (default) targets everyone. Applied on Meta, TikTok, Pinterest, LinkedIn, X, Reddit and Google Search/Display (Google excludes the ...; incomeTier (one of: top_5, top_10, top_10_25, top_25_50) - Normalized household-income tier (ZIP/percentile based). Meta and TikTok express all four. Google maps only `top_10` (its INCOME_RANGE_90_UP); other tiers on ...; languages (list of string) - Language codes restricting the audience by language. Applied on Meta, Google, TikTok, LinkedIn, X, Pinterest and Reddit; rejected with 400 on OpenAI. A code ...; interests (list of objects with keys id, name) - Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id. - Google: applied as ad-group interest criteria ...; behaviors (list of objects with keys id, name) - Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). **On TikTok** they target people who, in the picked ...; workPositions (list of objects with keys id, name) - Meta only. Job title entities from /v1/ads/targeting/search?dimension=workPosition. Not interchangeable with the LinkedIn `jobTitles` URN fragments.; workEmployers (list of objects with keys id, name) - Meta only. Employer entities from /v1/ads/targeting/search?dimension=workEmployer.; workIndustries (list of objects with keys id, name) - Meta only. Work-industry entities from /v1/ads/targeting/search?dimension=workIndustry. Not interchangeable with the LinkedIn `industries` URN fragments.; industries (list of string) - LinkedIn B2B only. Industry URN id fragments, or the full urn:li:industry:* URN from /v1/ads/targeting/search?dimension=industry.; companySizes (list of string) - LinkedIn B2B only. Single-letter size codes (A to I), or the full urn:li:staffCountRange:* URN from /v1/ads/targeting/search?dimension=companySize.; seniorities (list of string) - LinkedIn B2B only. Seniority URN id fragments, or the full urn:li:seniority:* URN from /v1/ads/targeting/search?dimension=seniority.; jobFunctions (list of string) - LinkedIn B2B only. Function URN id fragments, or the full urn:li:function:* URN from /v1/ads/targeting/search?dimension=jobFunction.; skills (list of string) - LinkedIn B2B only. Member skills (e.g. Python, Recruiting): skill URN id fragments, or the full urn:li:skill:* URN from ...; audienceInclude (list of string) - Platform audience IDs to include, as returned by GET /v1/ads/audiences: - Meta: custom audience ids. - TikTok: audience ids. - Pinterest: customer list ids. - ...; audienceExclude (list of string) - Platform audience IDs to exclude; same ID formats as audienceInclude. Not supported on OpenAI (400).; communities (list of string) - Reddit only (400 elsewhere). Subreddits to target, by name, with or without the `r/` prefix (e.g. `['marketing', 'r/startups']`), as returned by ...; excludedCommunities (list of string) - Reddit only (400 elsewhere). Subreddits to exclude, named like `communities`.; conversationKeywords (list of string) - Reddit only (400 elsewhere). Keywords that place the ad in Reddit conversations about them, as returned by ...; excludedConversationKeywords (list of string) - Reddit only (400 elsewhere). Conversation keywords to keep the ad away from.
+                spec: The targeting spec to estimate. Same shape used by POST /v1/ads/create. Required unless `rawTargeting` is sent; with `rawTargeting` it can be omitted or minimal. Object with keys: userOs (list of string) - Meta only. Operating systems and version ranges, such as iOS_ver_14.0_and_above or Android. Emitted as user_os. May also be supplied inside targeting.; userDevice (list of string) - Meta only. Device models such as iPhone. Emitted as user_device. May also be supplied inside targeting.; countries (list of string) - ISO 3166-1 alpha-2 country codes (e.g. ['US']).; regions (list of any) - Region/state targeting. `key` is the platform location ID from /v1/ads/targeting/search?dimension=geo&geoType=region. An entry may also be that id as a plain ...; cities (list of any) - City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits; both must be set together or both omitted. `radius` is only honoured on ...; zips (list of objects with keys key, name) - Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`). Supported on Meta, Google, TikTok, Pinterest, X.; metros (list of objects with keys key, name) - DMA / metro-area targeting. `key` is the platform's metro ID (e.g. Meta `DMA:807`).; countryGroups (list of string) - Meta only. Continents and trade blocs (`geo_locations.country_groups`), for targeting a whole region without listing its countries. Combines with `countries` ...; places (list of objects with keys key) - Meta only. Named points of interest to target. `key` from /v1/ads/targeting/search.; neighborhoods (list of objects with keys key) - Meta only. Named neighbourhood areas to target. `key` from /v1/ads/targeting/search.; customLocations (list of objects with keys latitude, longitude, radius, distanceUnit, name, address) - Point-radius (lat/lng) targeting (Meta custom_locations / Google proximity). Honoured on Meta and Google; ignored on platforms without radius support.; excludedLocations (object with keys countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations) - Geo to exclude from the audience. Mirrors the inclusion geo shape. - Meta (excluded_geo_locations): excluded cities can carry a radius catchment, and excluded ...; ageMin (integer) - Minimum age. - Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the age ranges outside the request). - Rejected with ...; ageMax (integer) - Maximum age. Same per-platform application and clamping as ageMin.; gender (one of: all, male, female) - Restrict by gender. 'all' (default) targets everyone. Applied on Meta, TikTok, Pinterest, LinkedIn, X, Reddit and Google Search/Display (Google excludes the ...; incomeTier (one of: top_5, top_10, top_10_25, top_25_50) - Normalized household-income tier (ZIP/percentile based). Meta and TikTok express all four. Google maps only `top_10` (its INCOME_RANGE_90_UP); other tiers on ...; languages (list of string) - Language codes restricting the audience by language. Applied on Meta, Google, TikTok, LinkedIn, X, Pinterest and Reddit; rejected with 400 on OpenAI. A code ...; interests (list of objects with keys id, name) - Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id. - Google: applied as ad-group interest criteria ...; behaviors (list of objects with keys id, name) - Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). **On TikTok** they target people who, in the picked ...; workPositions (list of objects with keys id, name) - Meta only. Job title entities from /v1/ads/targeting/search?dimension=workPosition. Not interchangeable with the LinkedIn `jobTitles` URN fragments.; workEmployers (list of objects with keys id, name) - Meta only. Employer entities from /v1/ads/targeting/search?dimension=workEmployer.; workIndustries (list of objects with keys id, name) - Meta only. Work-industry entities from /v1/ads/targeting/search?dimension=workIndustry. Not interchangeable with the LinkedIn `industries` URN fragments.; industries (list of string) - LinkedIn B2B only. Industry URN id fragments, or the full urn:li:industry:* URN from /v1/ads/targeting/search?dimension=industry.; companySizes (list of string) - LinkedIn B2B only. Single-letter size codes (A to I), or the full urn:li:staffCountRange:* URN from /v1/ads/targeting/search?dimension=companySize.; seniorities (list of string) - LinkedIn B2B only. Seniority URN id fragments, or the full urn:li:seniority:* URN from /v1/ads/targeting/search?dimension=seniority.; jobFunctions (list of string) - LinkedIn B2B only. Function URN id fragments, or the full urn:li:function:* URN from /v1/ads/targeting/search?dimension=jobFunction.; skills (list of string) - LinkedIn B2B only. Member skills (e.g. Python, Recruiting): skill URN id fragments, or the full urn:li:skill:* URN from ...; audienceInclude (list of string) - Platform audience IDs to include, as returned by GET /v1/ads/audiences: - Meta: custom audience ids. - TikTok: audience ids. - Pinterest: customer list ids. - ...; audienceExclude (list of string) - Platform audience IDs to exclude; same ID formats as audienceInclude. Not supported on OpenAI (400).; communities (list of string) - Reddit only (400 elsewhere). Subreddits to target, by name, with or without the `r/` prefix (e.g. `['marketing', 'r/startups']`), as returned by ...; excludedCommunities (list of string) - Reddit only (400 elsewhere). Subreddits to exclude, named like `communities`.; conversationKeywords (list of string) - Reddit only (400 elsewhere). Keywords that place the ad in Reddit conversations about them, as returned by ...; excludedConversationKeywords (list of string) - Reddit only (400 elsewhere). Conversation keywords to keep the ad away from.
                 raw_targeting: Meta only. A Meta-native targeting spec (snake_case: `geo_locations`, `age_min`, `flexible_spec`, `excluded_custom_audiences`, `user_os`, ...), the same field `POST /v1/ads/create` accepts, so the estimate covers the exact audience the ad set will use. Sending it for an account on another platform returns 400 naming `rawTargeting`.
 
         For layered targeting, send `flexible_spec` here: entries AND together, ids inside one entry OR.
@@ -14598,7 +15023,7 @@ def register_generated_tools(mcp, _get_client):
         Args:
             account_id: Zernio account ID (LinkedIn). (required)
             ad_account_id: LinkedIn ad account ID (numeric). (required)
-            spec: Same targeting spec used by POST /v1/ads/create. Object with keys: userOs (list of string) - Meta only. Operating systems and version ranges, such as iOS_ver_14.0_and_above or Android. Emitted as user_os. May also be supplied inside targeting.; userDevice (list of string) - Meta only. Device models such as iPhone. Emitted as user_device. May also be supplied inside targeting.; countries (list of string) - ISO 3166-1 alpha-2 country codes (e.g. ['US']).; regions (list of any) - Region/state targeting. `key` is the platform location ID from /v1/ads/targeting/search?dimension=geo&geoType=region. An entry may also be that id as a plain ...; cities (list of any) - City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits; both must be set together or both omitted. `radius` is only honoured on ...; zips (list of objects with keys key, name) - Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`). Supported on Meta, Google, TikTok, Pinterest, X.; metros (list of objects with keys key, name) - DMA / metro-area targeting. `key` is the platform's metro ID (e.g. Meta `DMA:807`).; countryGroups (list of string) - Meta only. Continents and trade blocs (`geo_locations.country_groups`), for targeting a whole region without listing its countries. Combines with `countries` ...; customLocations (list of objects with keys latitude, longitude, radius, distanceUnit, name, address) - Point-radius (lat/lng) targeting (Meta custom_locations / Google proximity). Honoured on Meta and Google; ignored on platforms without radius support.; excludedLocations (object with keys countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations) - Geo to exclude from the audience. Mirrors the inclusion geo shape. - Meta (excluded_geo_locations): excluded cities can carry a radius catchment, and excluded ...; ageMin (integer) - Minimum age. - Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the age ranges outside the request). - Rejected with ...; ageMax (integer) - Maximum age. Same per-platform application and clamping as ageMin.; gender (one of: all, male, female) - Restrict by gender. 'all' (default) targets everyone. Applied on Meta, TikTok, Pinterest, LinkedIn, X, Reddit and Google Search/Display (Google excludes the ...; incomeTier (one of: top_5, top_10, top_10_25, top_25_50) - Normalized household-income tier (ZIP/percentile based). Meta and TikTok express all four. Google maps only `top_10` (its INCOME_RANGE_90_UP); other tiers on ...; languages (list of string) - Language codes restricting the audience by language. Applied on Meta, Google, TikTok, LinkedIn, X, Pinterest and Reddit; rejected with 400 on OpenAI. A code ...; interests (list of objects with keys id, name) - Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id. - Google: applied as ad-group interest criteria ...; behaviors (list of objects with keys id, name) - Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). **On TikTok** they target people who, in the picked ...; workPositions (list of objects with keys id, name) - Meta only. Job title entities from /v1/ads/targeting/search?dimension=workPosition. Not interchangeable with the LinkedIn `jobTitles` URN fragments.; workEmployers (list of objects with keys id, name) - Meta only. Employer entities from /v1/ads/targeting/search?dimension=workEmployer.; workIndustries (list of objects with keys id, name) - Meta only. Work-industry entities from /v1/ads/targeting/search?dimension=workIndustry. Not interchangeable with the LinkedIn `industries` URN fragments.; industries (list of string) - LinkedIn B2B only. Industry URN id fragments, or the full urn:li:industry:* URN from /v1/ads/targeting/search?dimension=industry.; companySizes (list of string) - LinkedIn B2B only. Single-letter size codes (A to I), or the full urn:li:staffCountRange:* URN from /v1/ads/targeting/search?dimension=companySize.; seniorities (list of string) - LinkedIn B2B only. Seniority URN id fragments, or the full urn:li:seniority:* URN from /v1/ads/targeting/search?dimension=seniority.; jobFunctions (list of string) - LinkedIn B2B only. Function URN id fragments, or the full urn:li:function:* URN from /v1/ads/targeting/search?dimension=jobFunction.; skills (list of string) - LinkedIn B2B only. Member skills (e.g. Python, Recruiting): skill URN id fragments, or the full urn:li:skill:* URN from ...; audienceInclude (list of string) - Platform audience IDs to include, as returned by GET /v1/ads/audiences: - Meta: custom audience ids. - TikTok: audience ids. - Pinterest: customer list ids. - ...; audienceExclude (list of string) - Platform audience IDs to exclude; same ID formats as audienceInclude. Not supported on OpenAI (400).; communities (list of string) - Reddit only (400 elsewhere). Subreddits to target, by name, with or without the `r/` prefix (e.g. `['marketing', 'r/startups']`), as returned by ...; excludedCommunities (list of string) - Reddit only (400 elsewhere). Subreddits to exclude, named like `communities`.; conversationKeywords (list of string) - Reddit only (400 elsewhere). Keywords that place the ad in Reddit conversations about them, as returned by ...; excludedConversationKeywords (list of string) - Reddit only (400 elsewhere). Conversation keywords to keep the ad away from. (required)
+            spec: Same targeting spec used by POST /v1/ads/create. Object with keys: userOs (list of string) - Meta only. Operating systems and version ranges, such as iOS_ver_14.0_and_above or Android. Emitted as user_os. May also be supplied inside targeting.; userDevice (list of string) - Meta only. Device models such as iPhone. Emitted as user_device. May also be supplied inside targeting.; countries (list of string) - ISO 3166-1 alpha-2 country codes (e.g. ['US']).; regions (list of any) - Region/state targeting. `key` is the platform location ID from /v1/ads/targeting/search?dimension=geo&geoType=region. An entry may also be that id as a plain ...; cities (list of any) - City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits; both must be set together or both omitted. `radius` is only honoured on ...; zips (list of objects with keys key, name) - Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`). Supported on Meta, Google, TikTok, Pinterest, X.; metros (list of objects with keys key, name) - DMA / metro-area targeting. `key` is the platform's metro ID (e.g. Meta `DMA:807`).; countryGroups (list of string) - Meta only. Continents and trade blocs (`geo_locations.country_groups`), for targeting a whole region without listing its countries. Combines with `countries` ...; places (list of objects with keys key) - Meta only. Named points of interest to target. `key` from /v1/ads/targeting/search.; neighborhoods (list of objects with keys key) - Meta only. Named neighbourhood areas to target. `key` from /v1/ads/targeting/search.; customLocations (list of objects with keys latitude, longitude, radius, distanceUnit, name, address) - Point-radius (lat/lng) targeting (Meta custom_locations / Google proximity). Honoured on Meta and Google; ignored on platforms without radius support.; excludedLocations (object with keys countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations) - Geo to exclude from the audience. Mirrors the inclusion geo shape. - Meta (excluded_geo_locations): excluded cities can carry a radius catchment, and excluded ...; ageMin (integer) - Minimum age. - Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the age ranges outside the request). - Rejected with ...; ageMax (integer) - Maximum age. Same per-platform application and clamping as ageMin.; gender (one of: all, male, female) - Restrict by gender. 'all' (default) targets everyone. Applied on Meta, TikTok, Pinterest, LinkedIn, X, Reddit and Google Search/Display (Google excludes the ...; incomeTier (one of: top_5, top_10, top_10_25, top_25_50) - Normalized household-income tier (ZIP/percentile based). Meta and TikTok express all four. Google maps only `top_10` (its INCOME_RANGE_90_UP); other tiers on ...; languages (list of string) - Language codes restricting the audience by language. Applied on Meta, Google, TikTok, LinkedIn, X, Pinterest and Reddit; rejected with 400 on OpenAI. A code ...; interests (list of objects with keys id, name) - Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id. - Google: applied as ad-group interest criteria ...; behaviors (list of objects with keys id, name) - Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). **On TikTok** they target people who, in the picked ...; workPositions (list of objects with keys id, name) - Meta only. Job title entities from /v1/ads/targeting/search?dimension=workPosition. Not interchangeable with the LinkedIn `jobTitles` URN fragments.; workEmployers (list of objects with keys id, name) - Meta only. Employer entities from /v1/ads/targeting/search?dimension=workEmployer.; workIndustries (list of objects with keys id, name) - Meta only. Work-industry entities from /v1/ads/targeting/search?dimension=workIndustry. Not interchangeable with the LinkedIn `industries` URN fragments.; industries (list of string) - LinkedIn B2B only. Industry URN id fragments, or the full urn:li:industry:* URN from /v1/ads/targeting/search?dimension=industry.; companySizes (list of string) - LinkedIn B2B only. Single-letter size codes (A to I), or the full urn:li:staffCountRange:* URN from /v1/ads/targeting/search?dimension=companySize.; seniorities (list of string) - LinkedIn B2B only. Seniority URN id fragments, or the full urn:li:seniority:* URN from /v1/ads/targeting/search?dimension=seniority.; jobFunctions (list of string) - LinkedIn B2B only. Function URN id fragments, or the full urn:li:function:* URN from /v1/ads/targeting/search?dimension=jobFunction.; skills (list of string) - LinkedIn B2B only. Member skills (e.g. Python, Recruiting): skill URN id fragments, or the full urn:li:skill:* URN from ...; audienceInclude (list of string) - Platform audience IDs to include, as returned by GET /v1/ads/audiences: - Meta: custom audience ids. - TikTok: audience ids. - Pinterest: customer list ids. - ...; audienceExclude (list of string) - Platform audience IDs to exclude; same ID formats as audienceInclude. Not supported on OpenAI (400).; communities (list of string) - Reddit only (400 elsewhere). Subreddits to target, by name, with or without the `r/` prefix (e.g. `['marketing', 'r/startups']`), as returned by ...; excludedCommunities (list of string) - Reddit only (400 elsewhere). Subreddits to exclude, named like `communities`.; conversationKeywords (list of string) - Reddit only (400 elsewhere). Keywords that place the ad in Reddit conversations about them, as returned by ...; excludedConversationKeywords (list of string) - Reddit only (400 elsewhere). Conversation keywords to keep the ad away from. (required)
             campaign_type: Defaults to SPONSORED_UPDATES.
             bid_type: Defaults to CPM.
             match_type: Defaults to EXACT.
@@ -14669,7 +15094,7 @@ def register_generated_tools(mcp, _get_client):
         Args:
             account_id: (required)
             ad_account_id: (required)
-            spec: Object with keys: userOs (list of string) - Meta only. Operating systems and version ranges, such as iOS_ver_14.0_and_above or Android. Emitted as user_os. May also be supplied inside targeting.; userDevice (list of string) - Meta only. Device models such as iPhone. Emitted as user_device. May also be supplied inside targeting.; countries (list of string) - ISO 3166-1 alpha-2 country codes (e.g. ['US']).; regions (list of any) - Region/state targeting. `key` is the platform location ID from /v1/ads/targeting/search?dimension=geo&geoType=region. An entry may also be that id as a plain ...; cities (list of any) - City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits; both must be set together or both omitted. `radius` is only honoured on ...; zips (list of objects with keys key, name) - Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`). Supported on Meta, Google, TikTok, Pinterest, X.; metros (list of objects with keys key, name) - DMA / metro-area targeting. `key` is the platform's metro ID (e.g. Meta `DMA:807`).; countryGroups (list of string) - Meta only. Continents and trade blocs (`geo_locations.country_groups`), for targeting a whole region without listing its countries. Combines with `countries` ...; customLocations (list of objects with keys latitude, longitude, radius, distanceUnit, name, address) - Point-radius (lat/lng) targeting (Meta custom_locations / Google proximity). Honoured on Meta and Google; ignored on platforms without radius support.; excludedLocations (object with keys countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations) - Geo to exclude from the audience. Mirrors the inclusion geo shape. - Meta (excluded_geo_locations): excluded cities can carry a radius catchment, and excluded ...; ageMin (integer) - Minimum age. - Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the age ranges outside the request). - Rejected with ...; ageMax (integer) - Maximum age. Same per-platform application and clamping as ageMin.; gender (one of: all, male, female) - Restrict by gender. 'all' (default) targets everyone. Applied on Meta, TikTok, Pinterest, LinkedIn, X, Reddit and Google Search/Display (Google excludes the ...; incomeTier (one of: top_5, top_10, top_10_25, top_25_50) - Normalized household-income tier (ZIP/percentile based). Meta and TikTok express all four. Google maps only `top_10` (its INCOME_RANGE_90_UP); other tiers on ...; languages (list of string) - Language codes restricting the audience by language. Applied on Meta, Google, TikTok, LinkedIn, X, Pinterest and Reddit; rejected with 400 on OpenAI. A code ...; interests (list of objects with keys id, name) - Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id. - Google: applied as ad-group interest criteria ...; behaviors (list of objects with keys id, name) - Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). **On TikTok** they target people who, in the picked ...; workPositions (list of objects with keys id, name) - Meta only. Job title entities from /v1/ads/targeting/search?dimension=workPosition. Not interchangeable with the LinkedIn `jobTitles` URN fragments.; workEmployers (list of objects with keys id, name) - Meta only. Employer entities from /v1/ads/targeting/search?dimension=workEmployer.; workIndustries (list of objects with keys id, name) - Meta only. Work-industry entities from /v1/ads/targeting/search?dimension=workIndustry. Not interchangeable with the LinkedIn `industries` URN fragments.; industries (list of string) - LinkedIn B2B only. Industry URN id fragments, or the full urn:li:industry:* URN from /v1/ads/targeting/search?dimension=industry.; companySizes (list of string) - LinkedIn B2B only. Single-letter size codes (A to I), or the full urn:li:staffCountRange:* URN from /v1/ads/targeting/search?dimension=companySize.; seniorities (list of string) - LinkedIn B2B only. Seniority URN id fragments, or the full urn:li:seniority:* URN from /v1/ads/targeting/search?dimension=seniority.; jobFunctions (list of string) - LinkedIn B2B only. Function URN id fragments, or the full urn:li:function:* URN from /v1/ads/targeting/search?dimension=jobFunction.; skills (list of string) - LinkedIn B2B only. Member skills (e.g. Python, Recruiting): skill URN id fragments, or the full urn:li:skill:* URN from ...; audienceInclude (list of string) - Platform audience IDs to include, as returned by GET /v1/ads/audiences: - Meta: custom audience ids. - TikTok: audience ids. - Pinterest: customer list ids. - ...; audienceExclude (list of string) - Platform audience IDs to exclude; same ID formats as audienceInclude. Not supported on OpenAI (400).; communities (list of string) - Reddit only (400 elsewhere). Subreddits to target, by name, with or without the `r/` prefix (e.g. `['marketing', 'r/startups']`), as returned by ...; excludedCommunities (list of string) - Reddit only (400 elsewhere). Subreddits to exclude, named like `communities`.; conversationKeywords (list of string) - Reddit only (400 elsewhere). Keywords that place the ad in Reddit conversations about them, as returned by ...; excludedConversationKeywords (list of string) - Reddit only (400 elsewhere). Conversation keywords to keep the ad away from. (required)
+            spec: Object with keys: userOs (list of string) - Meta only. Operating systems and version ranges, such as iOS_ver_14.0_and_above or Android. Emitted as user_os. May also be supplied inside targeting.; userDevice (list of string) - Meta only. Device models such as iPhone. Emitted as user_device. May also be supplied inside targeting.; countries (list of string) - ISO 3166-1 alpha-2 country codes (e.g. ['US']).; regions (list of any) - Region/state targeting. `key` is the platform location ID from /v1/ads/targeting/search?dimension=geo&geoType=region. An entry may also be that id as a plain ...; cities (list of any) - City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits; both must be set together or both omitted. `radius` is only honoured on ...; zips (list of objects with keys key, name) - Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`). Supported on Meta, Google, TikTok, Pinterest, X.; metros (list of objects with keys key, name) - DMA / metro-area targeting. `key` is the platform's metro ID (e.g. Meta `DMA:807`).; countryGroups (list of string) - Meta only. Continents and trade blocs (`geo_locations.country_groups`), for targeting a whole region without listing its countries. Combines with `countries` ...; places (list of objects with keys key) - Meta only. Named points of interest to target. `key` from /v1/ads/targeting/search.; neighborhoods (list of objects with keys key) - Meta only. Named neighbourhood areas to target. `key` from /v1/ads/targeting/search.; customLocations (list of objects with keys latitude, longitude, radius, distanceUnit, name, address) - Point-radius (lat/lng) targeting (Meta custom_locations / Google proximity). Honoured on Meta and Google; ignored on platforms without radius support.; excludedLocations (object with keys countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations) - Geo to exclude from the audience. Mirrors the inclusion geo shape. - Meta (excluded_geo_locations): excluded cities can carry a radius catchment, and excluded ...; ageMin (integer) - Minimum age. - Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the age ranges outside the request). - Rejected with ...; ageMax (integer) - Maximum age. Same per-platform application and clamping as ageMin.; gender (one of: all, male, female) - Restrict by gender. 'all' (default) targets everyone. Applied on Meta, TikTok, Pinterest, LinkedIn, X, Reddit and Google Search/Display (Google excludes the ...; incomeTier (one of: top_5, top_10, top_10_25, top_25_50) - Normalized household-income tier (ZIP/percentile based). Meta and TikTok express all four. Google maps only `top_10` (its INCOME_RANGE_90_UP); other tiers on ...; languages (list of string) - Language codes restricting the audience by language. Applied on Meta, Google, TikTok, LinkedIn, X, Pinterest and Reddit; rejected with 400 on OpenAI. A code ...; interests (list of objects with keys id, name) - Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id. - Google: applied as ad-group interest criteria ...; behaviors (list of objects with keys id, name) - Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). **On TikTok** they target people who, in the picked ...; workPositions (list of objects with keys id, name) - Meta only. Job title entities from /v1/ads/targeting/search?dimension=workPosition. Not interchangeable with the LinkedIn `jobTitles` URN fragments.; workEmployers (list of objects with keys id, name) - Meta only. Employer entities from /v1/ads/targeting/search?dimension=workEmployer.; workIndustries (list of objects with keys id, name) - Meta only. Work-industry entities from /v1/ads/targeting/search?dimension=workIndustry. Not interchangeable with the LinkedIn `industries` URN fragments.; industries (list of string) - LinkedIn B2B only. Industry URN id fragments, or the full urn:li:industry:* URN from /v1/ads/targeting/search?dimension=industry.; companySizes (list of string) - LinkedIn B2B only. Single-letter size codes (A to I), or the full urn:li:staffCountRange:* URN from /v1/ads/targeting/search?dimension=companySize.; seniorities (list of string) - LinkedIn B2B only. Seniority URN id fragments, or the full urn:li:seniority:* URN from /v1/ads/targeting/search?dimension=seniority.; jobFunctions (list of string) - LinkedIn B2B only. Function URN id fragments, or the full urn:li:function:* URN from /v1/ads/targeting/search?dimension=jobFunction.; skills (list of string) - LinkedIn B2B only. Member skills (e.g. Python, Recruiting): skill URN id fragments, or the full urn:li:skill:* URN from ...; audienceInclude (list of string) - Platform audience IDs to include, as returned by GET /v1/ads/audiences: - Meta: custom audience ids. - TikTok: audience ids. - Pinterest: customer list ids. - ...; audienceExclude (list of string) - Platform audience IDs to exclude; same ID formats as audienceInclude. Not supported on OpenAI (400).; communities (list of string) - Reddit only (400 elsewhere). Subreddits to target, by name, with or without the `r/` prefix (e.g. `['marketing', 'r/startups']`), as returned by ...; excludedCommunities (list of string) - Reddit only (400 elsewhere). Subreddits to exclude, named like `communities`.; conversationKeywords (list of string) - Reddit only (400 elsewhere). Keywords that place the ad in Reddit conversations about them, as returned by ...; excludedConversationKeywords (list of string) - Reddit only (400 elsewhere). Conversation keywords to keep the ad away from. (required)
             campaign_type: Defaults to SPONSORED_UPDATES.
             time_range_start: Unix ms. Must be in the future. (required)
             time_range_end: Unix ms. Must be after start and within LinkedIn's max horizon. (required)
@@ -17057,16 +17482,20 @@ def register_generated_tools(mcp, _get_client):
     def automations_list_automations(
         account_id: str | None = None,
         ad_account_id: str | None = None,
+        kind: str | None = None,
         limit: int = 50,
         cursor: str | None = None,
     ) -> str:
         """List automations
 
-        Lists the automations on the profiles your key can reach, newest first, across every kind: ad rules, event automations and scheduled automations.
+        Lists the automations on the profiles your key can reach, newest first, across every kind: ad rules, event automations, scheduled automations, sequences and comment to DM.
+
+        Sequences and comment to DM need what `/v1/sequences` and `/v1/comment-automations` need: the inbox add-on, and a key with the `messages` group; without them they are left out.
 
         Args:
             account_id: Only automations on this account: the ads connection of an ad rule, or one of the `accountIds` of an event or scheduled automation.
             ad_account_id: Only ad rules checking this platform ad account.
+            kind: Only these kinds, comma separated: `ad_rule`, `event`, `scheduled`, `sequence`, `comment`.
             limit
             cursor: `nextCursor` from the previous page."""
         client = _get_client()
@@ -17074,6 +17503,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.automations.list_automations(
                 account_id=account_id,
                 ad_account_id=ad_account_id,
+                kind=kind,
                 limit=limit,
                 cursor=cursor,
             )
@@ -17097,8 +17527,8 @@ def register_generated_tools(mcp, _get_client):
         - **Ad rule**: a `schedule` over campaigns, ad sets, ads, Google keywords or Google search terms, with metric `conditions` and ad `steps`. It stays paused unless `status` is `active`; preview it first with `POST /v1/automations/preview`.
         - **Event**: a Zernio event in `trigger.type`, such as `post.failed`, with notify steps. It is on unless `status` is `paused`.
         - **Scheduled**: a `schedule` over a profile's posts, with notify steps and an optional boost. It is on unless `status` is `paused`.
-
-        Everything an automation cannot hold is refused at once: the 400 lists every problem with its JSON path in `details.problems`.
+        - **Sequence**: an `enrollment` trigger on one messaging account, with message steps sent over time. It is on unless `status` is `draft`. It needs what `/v1/sequences` needs: the inbox add-on and a key with the `messages` group.
+        - **Comment to DM**: a comment door in `trigger.type`, such as `comment.keyword`, with a `graph` of the shapes `/v1/comment-automations` holds. It is on unless `status` is `paused`, and needs what ...
 
         Args:
             body: Full request body as documented in the API reference. (required)"""
@@ -22669,23 +23099,22 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Like comment
 
-        Like or upvote a comment on a post. Supported platforms: Facebook, X, Bluesky, Reddit, LinkedIn, and Instagram in limited release (see below).
+        Like or upvote a comment on a post. Supported platforms: Facebook, X, Bluesky, Reddit, LinkedIn, TikTok, and Instagram in limited release (see below).
 
         ### Platform notes
 
         - Bluesky: the cid (content identifier) is required in the request body.
         - LinkedIn: pass the composite comment URN returned by the comments endpoints as commentId. An optional reactionType picks the reaction (defaults to LIKE).
         - LinkedIn: accounts connected before the social-feed scopes were requested get a 403 with code `linkedin_reconnect_required`.
+        - TikTok: works only on accounts connected through the TikTok Business (Accounts API) connection. An account on the older developer-app connection gets a 400 with code `PLATFORM_LIMITATION`.
 
         ### Instagram (limited release)
 
         Instagram is in LIMITED RELEASE and not generally available. The call needs `instagram_manage_engagement`, which Meta has so far granted this app only under Standard Access.
 
-        It works for app admins, developers and testers of our Meta app, and returns a 403 with code `PLATFORM_BETA_RESTRICTED` for every other account. That restriction lifts when Meta App Review grants Advanced Access; the constraints below apply once it does.
+        It works for app admins, developers and testers of our Meta app, and ...
 
-        Instagram ...
-
-        Platforms: facebook, twitter, bluesky, reddit, linkedin, instagram
+        Platforms: facebook, twitter, bluesky, reddit, linkedin, instagram, tiktok
 
         Args:
             post_id: (required)
@@ -22720,11 +23149,13 @@ def register_generated_tools(mcp, _get_client):
         """Unlike comment
 
         Remove a like from a comment. Supported platforms: Facebook, X, Bluesky,
-        Reddit, LinkedIn, and Instagram in limited release. For Bluesky, the likeUri query
-        parameter is required. Instagram has the same limited release, Facebook Login,
-        `instagram_manage_engagement` and burst-limit constraints as liking.
+        Reddit, LinkedIn, TikTok, and Instagram in limited release.
 
-        Platforms: facebook, twitter, bluesky, reddit, linkedin, instagram
+        - Bluesky: the likeUri query parameter is required.
+        - TikTok: works only on accounts connected through the TikTok Business (Accounts API) connection. An account on the older developer-app connection gets a 400 with code `PLATFORM_LIMITATION`.
+        - Instagram: the same limited release, Facebook Login, `instagram_manage_engagement` and burst-limit constraints as liking.
+
+        Platforms: facebook, twitter, bluesky, reddit, linkedin, instagram, tiktok
 
         Args:
             post_id: (required)
@@ -27041,6 +27472,45 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Get HighLevel OAuth connect URL",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def connect_get_gohighlevel_connect_url(
+        profile_id: str, redirect_url: str | None = None
+    ) -> str:
+        """Get HighLevel OAuth connect URL
+
+        Initiates OAuth (authorization code, no PKCE) for the Zernio HighLevel Marketplace app. Each HighLevel sub-account (location) becomes one connected account with `platform: gohighlevel`. An agency that installs the app across its sub-accounts gets one connected account per installed sub-account.
+
+        ### Flow
+
+        1. Redirect the user to `authUrl` (HighLevel's install screen).
+        2. After the install, HighLevel returns the browser to Zernio's callback.
+        3. Zernio redirects to `redirect_url` (or the dashboard when omitted).
+
+        On success the redirect carries `connected=gohighlevel`, `profileId` and `accountId`. On failure it carries `error` (`gohighlevel_access_denied`, `gohighlevel_invalid_state` or `gohighlevel_connection_failed`), `platform=gohighlevel` and `error_message`.
+
+        Reconnecting the same sub-account on the same profile updates the stored connection in place and keeps its settings.
+
+        Platforms: gohighlevel
+
+        Args:
+            profile_id: Your Zernio profile ID (get from /v1/profiles). (required)
+            redirect_url: Custom redirect after connection. Must be an absolute http(s) URL or custom app scheme such as `myapp://callback`; relative and unsafe URLs return 400."""
+        client = _get_client()
+        try:
+            response = client.connect.get_gohighlevel_connect_url(
+                profile_id=profile_id, redirect_url=redirect_url
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Get Salesforce OAuth connect URL",
             readOnlyHint=True,
             destructiveHint=False,
@@ -30677,6 +31147,187 @@ def register_generated_tools(mcp, _get_client):
         except Exception as e:
             raise ToolError(f"Error: {e}") from e
 
+    # CONVERSION_AUDIT
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Audit a site's ad conversion tracking",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def conversion_audit_audit_conversion_tracking(url: str) -> str:
+        """Audit a site's ad conversion tracking
+
+        Scan any public URL for ad-platform conversion tracking, score how much conversion signal it leaks before the ad platforms see it, and get a fix prompt to hand to a coding agent.
+
+        The API key is optional. Without one, a caller's IP address gets 20 scans a minute. The Zernio MCP server always needs a key, because its sign-in covers the whole connection.
+
+        The scan fetches the page (SSRF-guarded) and its Google Tag Manager containers, and can render it in a headless browser. It finds every ad platform's browser pixel, checks for visible server-side (Conversions API) tracking, and estimates the signal lost to ad blockers, browser limits and short cookie windows.
+
+        Visitors who decline consent are never counted as lost.
+
+        The scan reads the page only and changes nothing on the site. Like the free page, it publishes the result as the host's public report.
+
+        Reading the result:
+
+        - `report.visibility: \"limited\"` means some pixels load through a tag manager or a store platform, so only part of ...
+
+        Args:
+            url: The website address to audit. A bare domain is accepted and normalized to https. (required)"""
+        client = _get_client()
+        try:
+            response = client.conversion_audit.audit_conversion_tracking(url=url)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get a host's latest stored conversion audit",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def conversion_audit_get_latest_conversion_audit(host: str) -> str:
+        """Get a host's latest stored conversion audit
+
+        Read the latest stored Conversion Leak Report for a host without running a new scan. Each homepage scan on is-bleeding.com that could read the site's pixels replaces that host's stored report. Scans made with `auditConversionTracking` are stored the same way.
+
+        The API key is optional. Without one, a caller's IP address gets 60 requests a minute. The Zernio MCP server always needs a key.
+
+        Returns `404` when the host has no stored report. Run `auditConversionTracking` to scan it now.
+
+        Args:
+            host: The host to look up. A full URL is reduced to its host; `www.` and letter case are ignored. (required)"""
+        client = _get_client()
+        try:
+            response = client.conversion_audit.get_latest_conversion_audit(host=host)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Audit a connected Meta pixel from inside Events Manager",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def conversion_audit_get_meta_conversion_audit(
+        account_id: str, ad_account_id: str | None = None, pixel_id: str | None = None
+    ) -> str:
+        """Audit a connected Meta pixel from inside Events Manager
+
+        The connected follow-up to the Conversion Leak Report. A page scan only sees the browser; this reads what Meta itself recorded for the ad account's pixel (dataset) with the connection's own token, over the last 7 days.
+
+        ### What it reads
+
+        - each event's volume per day, its last 24 hours and the last hour Meta counted it in
+        - the share of each event that arrived through the Conversions API (server) rather than the browser pixel
+        - Event Match Quality per event, with the coverage of every customer-information key Meta matched on (email, phone, external id, IP address, user agent, `fbp`, `fbc`, name and address fields)
+        - the event_id, external_id and fbp deduplication coverage of browser and server copies, where an event has both
+        - Meta's diagnostics for the dataset and its failed dataset checks
+        - whether automatic advanced matching and first-party cookies are on
+
+        Each `findings` entry is a problem one of those numbers shows, with its fix and who makes it (`fix.by`):
+
+        - `zernio`: turning ...
+
+        Platforms: meta
+
+        Args:
+            account_id: The Meta ads connection to read with. (required)
+            ad_account_id: The ad account whose pixel is audited. Must be selected on the connection.
+            pixel_id: One of the ad account's pixels (`datasets[].id`)."""
+        client = _get_client()
+        try:
+            response = client.conversion_audit.get_meta_conversion_audit(
+                account_id=account_id, ad_account_id=ad_account_id, pixel_id=pixel_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List watched domains",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def conversion_audit_list_conversion_audit_monitors() -> str:
+        """List watched domains
+
+        The domains you watch with the Conversion Leak Report, each with its last score and the score of each daily check.
+
+        Zernio rescans every watched domain once a day. When tracking breaks, it emails you what changed and the fix prompt. `createConversionAuditMonitor` lists what counts as a break."""
+        client = _get_client()
+        try:
+            response = client.conversion_audit.list_conversion_audit_monitors()
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Watch a domain",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def conversion_audit_create_conversion_audit_monitor(url: str) -> str:
+        """Watch a domain
+
+        Watch a domain's conversion tracking. Zernio rescans its homepage once a day and emails the account's address when tracking breaks, with what changed and the fix prompt for a coding agent. A break is:
+
+        - a score drop of 5 points or more
+        - an ad network that stops tracking or stops firing
+        - a pixel that starts firing before the cookie banner is answered
+        - a server-side path that disappears
+
+        A break is confirmed by a second scan before any email goes out. The first check compares against the host's stored report when it has one, so run `auditConversionTracking` first to start from today's state.
+
+        Watching a domain you already watch returns it with `created: false` and status `200`. An account can watch up to 25 domains.
+
+        Args:
+            url: The domain to watch. A full URL is reduced to its host; `www.` and letter case are ignored. (required)"""
+        client = _get_client()
+        try:
+            response = client.conversion_audit.create_conversion_audit_monitor(url=url)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Stop watching a domain",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def conversion_audit_delete_conversion_audit_monitor(monitor_id: str) -> str:
+        """Stop watching a domain
+
+        Stops the daily checks and alert emails for this domain. The host's public report stays.
+
+        Args:
+            monitor_id: The monitor's `id`, from `listConversionAuditMonitors` or `createConversionAuditMonitor`. (required)"""
+        client = _get_client()
+        try:
+            response = client.conversion_audit.delete_conversion_audit_monitor(
+                monitor_id=monitor_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
     # CONVERSIONS
 
     @mcp.tool(
@@ -30761,14 +31412,14 @@ def register_generated_tools(mcp, _get_client):
         pixel wire id. For Pinterest, the numeric ad account id. For
         Reddit, the pixel id (`a2_...`).
          (required)
-                events: Each item is an object with keys: eventName (string, required) - Standard event name (Purchase, Lead, CompleteRegistration, AddToCart, InitiateCheckout, AddPaymentInfo, Subscribe, StartTrial, ViewContent, Search, Contact, ...; eventTime (integer, required) - When the conversion happened, in unix seconds.; eventId (string, required) - Unique dedup key. Use the same eventId on pixel + CAPI to prevent double-counting. Mapped to: - Meta: event_id. - Google: transactionId. - LinkedIn: eventId. ...; value (number) - Conversion value in the specified currency.; currency (string) - ISO 4217 currency code.; user (object with keys email, phone, firstName, lastName, externalId, ipAddress, userAgent, country, city, state, zip, dob, gender, leadId, visitorId, clickIds, required) - User identity fields. More signals mean higher match rates.; items (list of objects with keys id, name, price, quantity, category) - Item-level detail for ecommerce events.; sourceUrl (string) - URL where the conversion originated (used by Meta).; campaign (object with keys id, name) - The ad campaign behind the event, when you know it. Read only by `POST /v1/events`, which ties the event to the campaign named by `campaign.id`, then by the ...; actionSource (one of: web, app, offline, crm, phone_call, system_generated, business_messaging) - Where the conversion happened. Used by Meta. Google also requires an event source internally; omitting this field sends OTHER to Google. Send an explicit ...; messaging (object with keys channel, wabaId, ctwaClid, pageId, instagramBusinessAccountId, pageScopedUserId, instagramScopedUserId) - Meta only, read when `actionSource` is `business_messaging` (Conversions API for Business Messaging). - `channel` is sent as the event's `messaging_channel` ...; platformData (object) - Escape hatch for platform-specific fields we haven't normalized. On Meta, keys are shallow-merged into `custom_data` only: fields Zernio already builds ... (required)
+                events: Each item is an object with keys: eventName (string, required) - Standard event name (Purchase, Lead, CompleteRegistration, AddToCart, InitiateCheckout, AddPaymentInfo, Subscribe, StartTrial, ViewContent, Search, Contact, ...; eventTime (integer, required) - When the conversion happened, in unix seconds.; eventId (string, required) - Unique dedup key. Use the same eventId on pixel + CAPI to prevent double-counting. Mapped to: - Meta: event_id. - Google: transactionId. - LinkedIn: eventId. ...; value (number) - Conversion value in the specified currency.; currency (string) - ISO 4217 currency code.; user (object with keys email, phone, firstName, lastName, externalId, ipAddress, userAgent, country, city, state, zip, dob, gender, leadId, visitorId, clickIds, required) - User identity fields. More signals mean higher match rates.; items (list of objects with keys id, name, price, quantity, category) - Item-level detail for ecommerce events.; sourceUrl (string) - URL where the conversion originated (used by Meta).; campaign (object with keys id, name) - The ad campaign behind the event, when you know it. Read only by `POST /v1/events`, which ties the event to the campaign named by `campaign.id`, then by the ...; consent (object with keys adStorage, adUserData, adPersonalization, analyticsStorage) - This event's consent. Each signal given here wins over the request's `consent`.; actionSource (one of: web, app, offline, crm, phone_call, system_generated, business_messaging) - Where the conversion happened. Used by Meta. Google also requires an event source internally; omitting this field sends OTHER to Google. Send an explicit ...; messaging (object with keys channel, wabaId, ctwaClid, pageId, instagramBusinessAccountId, pageScopedUserId, instagramScopedUserId) - Meta only, read when `actionSource` is `business_messaging` (Conversions API for Business Messaging). - `channel` is sent as the event's `messaging_channel` ...; platformData (object) - Escape hatch for platform-specific fields we haven't normalized. On Meta, keys are shallow-merged into `custom_data` only: fields Zernio already builds ... (required)
                 test_code: Test event code. Send it at the request root, never inside an event. A root-level `test_event_code` (Meta's own name) is accepted as an alias and must be a non-empty string; sending both with different values is a 400.
 
         - Meta: sent as `test_event_code`. Events show in Events Manager's Test Events tab for the pixel whose current test code matches (Meta rotates the code, so copy it again from that tab). Meta still processes them like any other event, so remove it in production.
         - Pinterest: any value sends the batch with `test=true` (validated, not recorded).
         - Reddit: sent as `test_id`, so the events show in the pixel's test view.
         - Google, LinkedIn and OpenAI Ads: ignored.
-                consent: Batch-level user consent. Required by Google for EEA/UK events under the Feb 2026 restrictions. - **Meta:** any DENIED flag enables Limited Data Use on every event in the batch (data_processing_options ["LDU"] with geolocation, country 0 / state 0). GRANTED or absent consent sends events with Meta's default processing. - **Reddit:** `adUserData: DENIED` drops every user field from the events. - **LinkedIn:** ignored. Object with keys: adUserData (one of: GRANTED, DENIED); adPersonalization (one of: GRANTED, DENIED)"""
+                consent: Every event's consent, unless the event sets its own. For visitors in the EEA, UK and CH it decides whether the destination gets the event at all, as described under Consent on `POST /v1/events`; events left out are listed in `drops`. How the platforms read the signals of the events they get: - **Google:** sent as the request's consent. Google does not use EEA, UK or CH conversions without `adUserData: GRANTED`. - **Meta:** any `DENIED` flag enables Limited Data Use on the events (data_processing_options ["LDU"] with geolocation, country 0 / state 0). LDU applies to US state privacy laws, not to the EEA, UK or CH. - **Reddit:** `adUserData: DENIED` drops every user field from the events. - **LinkedIn:** the signals are not sent; LinkedIn matches only members who allow it in their own LinkedIn settings. Object with keys: adStorage (one of: GRANTED, DENIED) - Ad cookies and click ids (`ad_storage`).; adUserData (one of: GRANTED, DENIED) - Sending personal data to ad platforms (`ad_user_data`).; adPersonalization (one of: GRANTED, DENIED) - Personalized advertising and remarketing (`ad_personalization`).; analyticsStorage (one of: GRANTED, DENIED) - Analytics cookies (`analytics_storage`): Google Analytics only."""
         client = _get_client()
         try:
             response = client.conversions.send_conversions(
@@ -31348,6 +31999,7 @@ def register_generated_tools(mcp, _get_client):
             "stripe",
             "web",
             "salesforce",
+            "gohighlevel",
             "postback",
             "form_leads",
         ]
@@ -31368,7 +32020,7 @@ def register_generated_tools(mcp, _get_client):
 
         Paginate with `cursor`: pass the `nextCursor` of the previous page until it comes back `null`.
 
-        Platforms: meta, google, tiktok, linkedin, microsoft, x, pinterest, reddit, openai, applovinads, snapchatads, googleanalytics, stripe, hubspot, salesforce
+        Platforms: meta, google, tiktok, linkedin, microsoft, x, pinterest, reddit, openai, applovinads, snapchatads, googleanalytics, stripe, hubspot, salesforce, gohighlevel
 
         Args:
             profile_id: The profile to list. Omit to cover every profile you can access.
@@ -31427,20 +32079,19 @@ def register_generated_tools(mcp, _get_client):
         - A destination saved with `eventNames` only receives events with those names.
         - One destination failing never blocks the others: each one reports its own result.
 
-        ### Storage
+        ### Consent
 
-        Zernio also stores each event for the profile's reporting.
+        Send each visitor's consent on the event (`events[].consent`) or for the whole request (`consent`), as Google Consent Mode's four signals. Zernio applies it per destination for visitors in the EEA, the UK and Switzerland, read from `user.country` (website events use the visitor's country):
 
-        - Email, phone and `externalId` are stored only as SHA-256 hashes.
-        - `sourceUrl` keeps only its origin, path and attribution parameters (`utm_*`, `zrn`, `zcid`, `gclid`, `gbraid`, `wbraid`, `fbclid`, `ttclid`, `twclid`, `msclkid`, `li_fat_id`, `epik`, `rdt_cid`, `oppref`, `aleid`, ...
+        - A signal left out counts as `DENIED`. Zernio has no ...
 
-        Platforms: meta, google, tiktok, linkedin, microsoft, x, pinterest, reddit, openai, applovinads, snapchatads, googleanalytics
+        Platforms: meta, google, tiktok, linkedin, microsoft, x, pinterest, reddit, openai, applovinads, snapchatads, googleanalytics, gohighlevel
 
         Args:
             profile_id: Profile the events belong to. Its saved destinations receive the events. (required)
-            events: Each item is an object with keys: eventName (string, required) - Standard event name (Purchase, Lead, CompleteRegistration, AddToCart, InitiateCheckout, AddPaymentInfo, Subscribe, StartTrial, ViewContent, Search, Contact, ...; eventTime (integer, required) - When the conversion happened, in unix seconds.; eventId (string, required) - Unique dedup key. Use the same eventId on pixel + CAPI to prevent double-counting. Mapped to: - Meta: event_id. - Google: transactionId. - LinkedIn: eventId. ...; value (number) - Conversion value in the specified currency.; currency (string) - ISO 4217 currency code.; user (object with keys email, phone, firstName, lastName, externalId, ipAddress, userAgent, country, city, state, zip, dob, gender, leadId, visitorId, clickIds, required) - User identity fields. More signals mean higher match rates.; items (list of objects with keys id, name, price, quantity, category) - Item-level detail for ecommerce events.; sourceUrl (string) - URL where the conversion originated (used by Meta).; campaign (object with keys id, name) - The ad campaign behind the event, when you know it. Read only by `POST /v1/events`, which ties the event to the campaign named by `campaign.id`, then by the ...; actionSource (one of: web, app, offline, crm, phone_call, system_generated, business_messaging) - Where the conversion happened. Used by Meta. Google also requires an event source internally; omitting this field sends OTHER to Google. Send an explicit ...; messaging (object with keys channel, wabaId, ctwaClid, pageId, instagramBusinessAccountId, pageScopedUserId, instagramScopedUserId) - Meta only, read when `actionSource` is `business_messaging` (Conversions API for Business Messaging). - `channel` is sent as the event's `messaging_channel` ...; platformData (object) - Escape hatch for platform-specific fields we haven't normalized. On Meta, keys are shallow-merged into `custom_data` only: fields Zernio already builds ... (required)
+            events: Each item is an object with keys: eventName (string, required) - Standard event name (Purchase, Lead, CompleteRegistration, AddToCart, InitiateCheckout, AddPaymentInfo, Subscribe, StartTrial, ViewContent, Search, Contact, ...; eventTime (integer, required) - When the conversion happened, in unix seconds.; eventId (string, required) - Unique dedup key. Use the same eventId on pixel + CAPI to prevent double-counting. Mapped to: - Meta: event_id. - Google: transactionId. - LinkedIn: eventId. ...; value (number) - Conversion value in the specified currency.; currency (string) - ISO 4217 currency code.; user (object with keys email, phone, firstName, lastName, externalId, ipAddress, userAgent, country, city, state, zip, dob, gender, leadId, visitorId, clickIds, required) - User identity fields. More signals mean higher match rates.; items (list of objects with keys id, name, price, quantity, category) - Item-level detail for ecommerce events.; sourceUrl (string) - URL where the conversion originated (used by Meta).; campaign (object with keys id, name) - The ad campaign behind the event, when you know it. Read only by `POST /v1/events`, which ties the event to the campaign named by `campaign.id`, then by the ...; consent (object with keys adStorage, adUserData, adPersonalization, analyticsStorage) - This event's consent. Each signal given here wins over the request's `consent`.; actionSource (one of: web, app, offline, crm, phone_call, system_generated, business_messaging) - Where the conversion happened. Used by Meta. Google also requires an event source internally; omitting this field sends OTHER to Google. Send an explicit ...; messaging (object with keys channel, wabaId, ctwaClid, pageId, instagramBusinessAccountId, pageScopedUserId, instagramScopedUserId) - Meta only, read when `actionSource` is `business_messaging` (Conversions API for Business Messaging). - `channel` is sent as the event's `messaging_channel` ...; platformData (object) - Escape hatch for platform-specific fields we haven't normalized. On Meta, keys are shallow-merged into `custom_data` only: fields Zernio already builds ... (required)
             destinations: Send to these destinations instead of the saved ones (every event goes to each). Each item is an object with keys: accountId (string, required) - Connected ads account ID (metaads, googleads, linkedinads, tiktokads, openaiads, pinterestads or redditads).; destinationId (string, required) - Platform destination, as listed by GET /v1/ads/conversions/destinations.
-            consent: Batch-level user consent, forwarded to every destination (see POST /v1/ads/conversions). Object with keys: adUserData (one of: GRANTED, DENIED); adPersonalization (one of: GRANTED, DENIED)
+            consent: Every event's consent, unless the event sets its own (see Consent above). Object with keys: adStorage (one of: GRANTED, DENIED) - Ad cookies and click ids (`ad_storage`).; adUserData (one of: GRANTED, DENIED) - Sending personal data to ad platforms (`ad_user_data`).; adPersonalization (one of: GRANTED, DENIED) - Personalized advertising and remarketing (`ad_personalization`).; analyticsStorage (one of: GRANTED, DENIED) - Analytics cookies (`analytics_storage`): Google Analytics only.
             test_code: Forwarded as each platform test code (see POST /v1/ads/conversions). A root-level `test_event_code` is accepted as an alias. Test events are not stored.
             mode: `sync` sends to every destination before answering (200, per-destination results). `async` stores and queues the sends, then answers 202 at once; each send is retried while the platform fails for now, and its outcome shows on GET /v1/events/{eventId}. Requests with `testCode` always send now."""
         client = _get_client()
@@ -31896,7 +32547,7 @@ def register_generated_tools(mcp, _get_client):
 
         Pick `destinationId` from `GET /v1/ads/conversions/destinations`. Set `eventNames` to forward only those events, such as only `Purchase`; leave it out to forward every event.
 
-        Platforms: meta, google, tiktok, linkedin, microsoft, x, pinterest, reddit, openai, applovinads, snapchatads, googleanalytics, hubspot, salesforce
+        Platforms: meta, google, tiktok, linkedin, microsoft, x, pinterest, reddit, openai, applovinads, snapchatads, googleanalytics, hubspot, salesforce, gohighlevel
 
         Args:
             profile_id: (required)
@@ -32007,7 +32658,7 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Turn on server-side tracking for a website
 
-        Creates a tracking site. With `storeAccountId`, Zernio installs its tag on the connected Shopify, WordPress (WooCommerce), Wix or Webflow store. With only `url`, paste the returned `install.snippet` into the site.
+        Creates a tracking site. With `storeAccountId`, Zernio installs its tag on the connected Shopify, WordPress (WooCommerce), Wix or Webflow store. With only `url`, paste the returned `install.snippet` into the site. Adding a `url` the profile already tracks returns that site and its snippet instead of creating a second one.
 
         The ad accounts you picked for each connection get a forwarding rule, so website conversions reach them at once. `checks` shows each step; `setup.status` turns `ready` when all have passed.
 
@@ -35282,20 +35933,21 @@ def register_generated_tools(mcp, _get_client):
 
         Find people in the connected CRM by free text, email or phone. Send exactly one of `q`, `email` or `phone`.
 
-        HubSpot searches contacts. Salesforce searches Contacts and Leads that are not converted (`objectType` tells which), newest change first.
+        HubSpot searches contacts. Salesforce searches Contacts and Leads that are not converted (`objectType` tells which), newest change first. HighLevel searches the location's contacts.
 
         - `email` is an exact match.
         - `phone` takes an international number and matches it however the CRM stored it (\"+44 7911 123456\", \"07911 123456\").
         - `q` searches names, emails, phones and company. On Salesforce, `q` and `phone` use the search index, so a record saved in the last few minutes may not show yet; `email` never lags.
+        - On HighLevel, `email` and `phone` use the location's duplicate check: at most one contact, with no next page.
 
-        Platforms: hubspot, salesforce
+        Platforms: hubspot, salesforce, gohighlevel
 
         Args:
-            account_id: The connected HubSpot or Salesforce account (`GET /v1/accounts?platform=hubspot` or `salesforce`). (required)
+            account_id: The connected HubSpot, Salesforce or HighLevel account (`GET /v1/accounts?platform=hubspot`, `salesforce` or `gohighlevel`). (required)
             q: Free text, at least 2 characters.
             email
             phone: International number with its country code, for example `+14155550100`.
-            properties: Comma-separated native field names to return in `properties` (at most 50), for example `lifecyclestage,hs_lead_status` or `LeadSource,Industry__c`.
+            properties: Comma-separated native field names to return in `properties` (at most 50), for example `lifecyclestage,hs_lead_status` or `LeadSource,Industry__c`. On HighLevel, a field of the record (`source`, `status`), or a custom field by id or key.
             include_raw: Also return the CRM's own record as `raw`.
             limit
             cursor: The `nextCursor` of the previous page, unchanged."""
@@ -35340,12 +35992,14 @@ def register_generated_tools(mcp, _get_client):
 
         Salesforce requires `lastName` on both, and `company` on a Lead (`[not provided]` when you send none). A Contact takes its company from its Account: set `properties.AccountId` instead.
 
+        HighLevel creates a contact in the connected location. A location that does not allow duplicates answers 409 with the existing contact.
+
         Anything the CRM refuses (a required field, a validation rule, a duplicate rule) comes back as 422 or 409 with the CRM's own errors in `details.errors`.
 
-        Platforms: hubspot, salesforce
+        Platforms: hubspot, salesforce, gohighlevel
 
         Args:
-            account_id: The connected HubSpot or Salesforce account (`GET /v1/accounts?platform=hubspot` or `salesforce`). (required)
+            account_id: The connected HubSpot, Salesforce or HighLevel account (`GET /v1/accounts?platform=hubspot`, `salesforce` or `gohighlevel`). (required)
             first_name
             last_name
             email
@@ -35353,7 +36007,7 @@ def register_generated_tools(mcp, _get_client):
             company
             owner_id: An id from `GET /v1/crm/{accountId}/owners`.
             properties
-            create_as: Salesforce only. Defaults to the connection's `createAs` setting. Ignored on HubSpot."""
+            create_as: Salesforce only. Defaults to the connection's `createAs` setting. Ignored on HubSpot and HighLevel."""
         client = _get_client()
         try:
             response = client.crm.create_crm_contact(
@@ -35389,12 +36043,12 @@ def register_generated_tools(mcp, _get_client):
 
         Read one person from the connected CRM. On Salesforce the id can be a Contact (`003...`) or a Lead (`00Q...`).
 
-        Platforms: hubspot, salesforce
+        Platforms: hubspot, salesforce, gohighlevel
 
         Args:
-            account_id: The connected HubSpot or Salesforce account (`GET /v1/accounts?platform=hubspot` or `salesforce`). (required)
-            contact_id: The CRM's own id. HubSpot contact id, or Salesforce Contact (`003...`) or Lead (`00Q...`) id. (required)
-            properties: Comma-separated native field names to return in `properties` (at most 50), for example `lifecyclestage,hs_lead_status` or `LeadSource,Industry__c`.
+            account_id: The connected HubSpot, Salesforce or HighLevel account (`GET /v1/accounts?platform=hubspot`, `salesforce` or `gohighlevel`). (required)
+            contact_id: The CRM's own id. HubSpot contact id, Salesforce Contact (`003...`) or Lead (`00Q...`) id, or HighLevel contact id. (required)
+            properties: Comma-separated native field names to return in `properties` (at most 50), for example `lifecyclestage,hs_lead_status` or `LeadSource,Industry__c`. On HighLevel, a field of the record (`source`, `status`), or a custom field by id or key.
             include_raw: Also return the CRM's own record as `raw`."""
         client = _get_client()
         try:
@@ -35433,11 +36087,11 @@ def register_generated_tools(mcp, _get_client):
 
         On Salesforce, `company` applies to Leads only (400 on a Contact).
 
-        Platforms: hubspot, salesforce
+        Platforms: hubspot, salesforce, gohighlevel
 
         Args:
-            account_id: The connected HubSpot or Salesforce account (`GET /v1/accounts?platform=hubspot` or `salesforce`). (required)
-            contact_id: The CRM's own id. HubSpot contact id, or Salesforce Contact (`003...`) or Lead (`00Q...`) id. (required)
+            account_id: The connected HubSpot, Salesforce or HighLevel account (`GET /v1/accounts?platform=hubspot`, `salesforce` or `gohighlevel`). (required)
+            contact_id: The CRM's own id. HubSpot contact id, Salesforce Contact (`003...`) or Lead (`00Q...`) id, or HighLevel contact id. (required)
             first_name
             last_name
             email
@@ -35495,16 +36149,17 @@ def register_generated_tools(mcp, _get_client):
 
         - HubSpot: a Communication on the contact's timeline for `channel` `whatsapp` or `sms`, otherwise a Note. The subject and direction lead the text.
         - Salesforce: a completed Task on the Contact or Lead (`WhoId`), dated `occurredAt`, with `body` as its comments. `channel: call` logs a call.
+        - HighLevel: a plain-text note on the contact. HighLevel dates a note when it is logged, so the subject (or channel), direction and `occurredAt` lead its text.
 
         To log inbox conversations automatically instead, turn on `logMessages` in the CRM settings.
 
-        Platforms: hubspot, salesforce
+        Platforms: hubspot, salesforce, gohighlevel
 
         Args:
-            account_id: The connected HubSpot or Salesforce account (`GET /v1/accounts?platform=hubspot` or `salesforce`). (required)
-            contact_id: The CRM's own id. HubSpot contact id, or Salesforce Contact (`003...`) or Lead (`00Q...`) id. (required)
+            account_id: The connected HubSpot, Salesforce or HighLevel account (`GET /v1/accounts?platform=hubspot`, `salesforce` or `gohighlevel`). (required)
+            contact_id: The CRM's own id. HubSpot contact id, Salesforce Contact (`003...`) or Lead (`00Q...`) id, or HighLevel contact id. (required)
             body: The text to log. (required)
-            subject: Salesforce Task subject (default `<Channel> activity (<direction>)`); on HubSpot, the bold first line.
+            subject: Salesforce Task subject (default `<Channel> activity (<direction>)`); on HubSpot, the bold first line; on HighLevel, the note's first line.
             channel
             direction
             occurred_at: When it happened. Defaults to now."""
@@ -35542,17 +36197,17 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """List CRM deals
 
-        List deals (HubSpot) or Opportunities (Salesforce), most recently changed first.
+        List deals (HubSpot) or Opportunities (Salesforce), most recently changed first, or a HighLevel location's opportunities in HighLevel's own order.
 
-        HubSpot needs the portal to have granted `crm.objects.deals.read`; otherwise 403 `crm_scope_missing`.
+        HubSpot needs the portal to have granted `crm.objects.deals.read`; otherwise 403 `crm_scope_missing`. HighLevel cannot filter by update time: `updatedSince` answers 400 there.
 
-        Platforms: hubspot, salesforce
+        Platforms: hubspot, salesforce, gohighlevel
 
         Args:
-            account_id: The connected HubSpot or Salesforce account (`GET /v1/accounts?platform=hubspot` or `salesforce`). (required)
-            stage: Only deals in this stage. HubSpot takes the stage's internal id (`closedwon`, `appointmentscheduled`); Salesforce the `StageName` (`Closed Won`).
-            updated_since: Only deals changed at or after this time.
-            properties: Comma-separated native field names to return in `properties` (at most 50), for example `lifecyclestage,hs_lead_status` or `LeadSource,Industry__c`.
+            account_id: The connected HubSpot, Salesforce or HighLevel account (`GET /v1/accounts?platform=hubspot`, `salesforce` or `gohighlevel`). (required)
+            stage: Only deals in this stage. HubSpot takes the stage's internal id (`closedwon`, `appointmentscheduled`); Salesforce the `StageName` (`Closed Won`); HighLevel the pipeline stage id.
+            updated_since: Only deals changed at or after this time. HubSpot and Salesforce only.
+            properties: Comma-separated native field names to return in `properties` (at most 50), for example `lifecyclestage,hs_lead_status` or `LeadSource,Industry__c`. On HighLevel, a field of the record (`source`, `status`), or a custom field by id or key.
             include_raw: Also return the CRM's own record as `raw`.
             limit
             cursor: The `nextCursor` of the previous page, unchanged."""
@@ -35587,14 +36242,14 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Get a CRM deal
 
-        Read one deal (HubSpot) or Opportunity (Salesforce) with its contacts.
+        Read one deal (HubSpot), Opportunity (Salesforce) or opportunity (HighLevel) with its contacts.
 
-        Platforms: hubspot, salesforce
+        Platforms: hubspot, salesforce, gohighlevel
 
         Args:
-            account_id: The connected HubSpot or Salesforce account (`GET /v1/accounts?platform=hubspot` or `salesforce`). (required)
-            deal_id: HubSpot deal id or Salesforce Opportunity id (`006...`). (required)
-            properties: Comma-separated native field names to return in `properties` (at most 50), for example `lifecyclestage,hs_lead_status` or `LeadSource,Industry__c`.
+            account_id: The connected HubSpot, Salesforce or HighLevel account (`GET /v1/accounts?platform=hubspot`, `salesforce` or `gohighlevel`). (required)
+            deal_id: HubSpot deal id, Salesforce Opportunity id (`006...`) or HighLevel opportunity id. (required)
+            properties: Comma-separated native field names to return in `properties` (at most 50), for example `lifecyclestage,hs_lead_status` or `LeadSource,Industry__c`. On HighLevel, a field of the record (`source`, `status`), or a custom field by id or key.
             include_raw: Also return the CRM's own record as `raw`."""
         client = _get_client()
         try:
@@ -35633,15 +36288,19 @@ def register_generated_tools(mcp, _get_client):
 
         HubSpot needs `crm.objects.deals.write`, an optional scope portals approve when they connect; without it, 403 `crm_scope_missing` asks to reconnect HubSpot. `currency` only works on multi-currency HubSpot portals and Salesforce orgs.
 
-        Platforms: hubspot, salesforce
+        HighLevel: `stage` is the pipeline stage id, `amount` the opportunity value, and `properties.status` (`open`, `won`, `lost`, `abandoned`) marks it won or lost. Its opportunities have no close date or currency of their own: `closeDate` and `currency` answer 400.
+
+        Updating needs `opportunities.write`, which the Zernio HighLevel app does not request yet, so this call answers 403 `crm_scope_missing` on HighLevel for now.
+
+        Platforms: hubspot, salesforce, gohighlevel
 
         Args:
-            account_id: The connected HubSpot or Salesforce account (`GET /v1/accounts?platform=hubspot` or `salesforce`). (required)
-            deal_id: HubSpot deal id or Salesforce Opportunity id (`006...`). (required)
+            account_id: The connected HubSpot, Salesforce or HighLevel account (`GET /v1/accounts?platform=hubspot`, `salesforce` or `gohighlevel`). (required)
+            deal_id: HubSpot deal id, Salesforce Opportunity id (`006...`) or HighLevel opportunity id. (required)
             name
-            stage: HubSpot stage id or Salesforce `StageName`.
+            stage: HubSpot stage id, Salesforce `StageName` or HighLevel pipeline stage id.
             amount
-            currency: ISO 4217 code. Multi-currency portals and orgs only.
+            currency: ISO 4217 code. Multi-currency HubSpot portals and Salesforce orgs only.
             close_date
             owner_id: An id from `GET /v1/crm/{accountId}/owners`.
             properties"""
@@ -35678,14 +36337,14 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """List CRM owners
 
-        List the users records can be assigned to: HubSpot owners, or active standard Salesforce users. Use an `id` as `ownerId` on contacts and deals.
+        List the users records can be assigned to: HubSpot owners, active standard Salesforce users, or the HighLevel location's users. Use an `id` as `ownerId` on contacts and deals.
 
-        HubSpot needs `crm.objects.owners.read`, an optional scope portals approve when they connect; without it, 403 `crm_scope_missing` asks to reconnect HubSpot.
+        HubSpot needs `crm.objects.owners.read`, an optional scope portals approve when they connect; without it, 403 `crm_scope_missing` asks to reconnect HubSpot. HighLevel needs `users.readonly`: a location installed before Zernio asked for it answers 403 `crm_scope_missing` until it reconnects.
 
-        Platforms: hubspot, salesforce
+        Platforms: hubspot, salesforce, gohighlevel
 
         Args:
-            account_id: The connected HubSpot or Salesforce account (`GET /v1/accounts?platform=hubspot` or `salesforce`). (required)
+            account_id: The connected HubSpot, Salesforce or HighLevel account (`GET /v1/accounts?platform=hubspot`, `salesforce` or `gohighlevel`). (required)
             include_raw: Also return the CRM's own record as `raw`.
             limit
             cursor: The `nextCursor` of the previous page, unchanged."""
@@ -42670,7 +43329,7 @@ def register_generated_tools(mcp, _get_client):
                 audience_include: Custom or lookalike audience ids to include.
                 audience_exclude: Custom or lookalike audience ids to exclude.
                 saved_targeting_id: ID of a saved_targeting audience (POST /v1/ads/audiences), expanded as the base targeting. Precedence: savedTargetingId, then `targeting`, then the flat fields.
-                targeting: Nested targeting object, same contract as POST /v1/ads/create and boost. Flat fields win per key. Object with keys: userOs (list of string) - Meta only. Operating systems and version ranges, such as iOS_ver_14.0_and_above or Android. Emitted as user_os. May also be supplied inside targeting.; userDevice (list of string) - Meta only. Device models such as iPhone. Emitted as user_device. May also be supplied inside targeting.; countries (list of string) - ISO 3166-1 alpha-2 country codes (e.g. ['US']).; regions (list of any) - Region/state targeting. `key` is the platform location ID from /v1/ads/targeting/search?dimension=geo&geoType=region. An entry may also be that id as a plain ...; cities (list of any) - City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits; both must be set together or both omitted. `radius` is only honoured on ...; zips (list of objects with keys key, name) - Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`). Supported on Meta, Google, TikTok, Pinterest, X.; metros (list of objects with keys key, name) - DMA / metro-area targeting. `key` is the platform's metro ID (e.g. Meta `DMA:807`).; countryGroups (list of string) - Meta only. Continents and trade blocs (`geo_locations.country_groups`), for targeting a whole region without listing its countries. Combines with `countries` ...; customLocations (list of objects with keys latitude, longitude, radius, distanceUnit, name, address) - Point-radius (lat/lng) targeting (Meta custom_locations / Google proximity). Honoured on Meta and Google; ignored on platforms without radius support.; excludedLocations (object with keys countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations) - Geo to exclude from the audience. Mirrors the inclusion geo shape. - Meta (excluded_geo_locations): excluded cities can carry a radius catchment, and excluded ...; ageMin (integer) - Minimum age. - Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the age ranges outside the request). - Rejected with ...; ageMax (integer) - Maximum age. Same per-platform application and clamping as ageMin.; gender (one of: all, male, female) - Restrict by gender. 'all' (default) targets everyone. Applied on Meta, TikTok, Pinterest, LinkedIn, X, Reddit and Google Search/Display (Google excludes the ...; incomeTier (one of: top_5, top_10, top_10_25, top_25_50) - Normalized household-income tier (ZIP/percentile based). Meta and TikTok express all four. Google maps only `top_10` (its INCOME_RANGE_90_UP); other tiers on ...; languages (list of string) - Language codes restricting the audience by language. Applied on Meta, Google, TikTok, LinkedIn, X, Pinterest and Reddit; rejected with 400 on OpenAI. A code ...; interests (list of objects with keys id, name) - Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id. - Google: applied as ad-group interest criteria ...; behaviors (list of objects with keys id, name) - Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). **On TikTok** they target people who, in the picked ...; workPositions (list of objects with keys id, name) - Meta only. Job title entities from /v1/ads/targeting/search?dimension=workPosition. Not interchangeable with the LinkedIn `jobTitles` URN fragments.; workEmployers (list of objects with keys id, name) - Meta only. Employer entities from /v1/ads/targeting/search?dimension=workEmployer.; workIndustries (list of objects with keys id, name) - Meta only. Work-industry entities from /v1/ads/targeting/search?dimension=workIndustry. Not interchangeable with the LinkedIn `industries` URN fragments.; industries (list of string) - LinkedIn B2B only. Industry URN id fragments, or the full urn:li:industry:* URN from /v1/ads/targeting/search?dimension=industry.; companySizes (list of string) - LinkedIn B2B only. Single-letter size codes (A to I), or the full urn:li:staffCountRange:* URN from /v1/ads/targeting/search?dimension=companySize.; seniorities (list of string) - LinkedIn B2B only. Seniority URN id fragments, or the full urn:li:seniority:* URN from /v1/ads/targeting/search?dimension=seniority.; jobFunctions (list of string) - LinkedIn B2B only. Function URN id fragments, or the full urn:li:function:* URN from /v1/ads/targeting/search?dimension=jobFunction.; skills (list of string) - LinkedIn B2B only. Member skills (e.g. Python, Recruiting): skill URN id fragments, or the full urn:li:skill:* URN from ...; audienceInclude (list of string) - Platform audience IDs to include, as returned by GET /v1/ads/audiences: - Meta: custom audience ids. - TikTok: audience ids. - Pinterest: customer list ids. - ...; audienceExclude (list of string) - Platform audience IDs to exclude; same ID formats as audienceInclude. Not supported on OpenAI (400).; communities (list of string) - Reddit only (400 elsewhere). Subreddits to target, by name, with or without the `r/` prefix (e.g. `['marketing', 'r/startups']`), as returned by ...; excludedCommunities (list of string) - Reddit only (400 elsewhere). Subreddits to exclude, named like `communities`.; conversationKeywords (list of string) - Reddit only (400 elsewhere). Keywords that place the ad in Reddit conversations about them, as returned by ...; excludedConversationKeywords (list of string) - Reddit only (400 elsewhere). Conversation keywords to keep the ad away from.
+                targeting: Nested targeting object, same contract as POST /v1/ads/create and boost. Flat fields win per key. Object with keys: userOs (list of string) - Meta only. Operating systems and version ranges, such as iOS_ver_14.0_and_above or Android. Emitted as user_os. May also be supplied inside targeting.; userDevice (list of string) - Meta only. Device models such as iPhone. Emitted as user_device. May also be supplied inside targeting.; countries (list of string) - ISO 3166-1 alpha-2 country codes (e.g. ['US']).; regions (list of any) - Region/state targeting. `key` is the platform location ID from /v1/ads/targeting/search?dimension=geo&geoType=region. An entry may also be that id as a plain ...; cities (list of any) - City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits; both must be set together or both omitted. `radius` is only honoured on ...; zips (list of objects with keys key, name) - Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`). Supported on Meta, Google, TikTok, Pinterest, X.; metros (list of objects with keys key, name) - DMA / metro-area targeting. `key` is the platform's metro ID (e.g. Meta `DMA:807`).; countryGroups (list of string) - Meta only. Continents and trade blocs (`geo_locations.country_groups`), for targeting a whole region without listing its countries. Combines with `countries` ...; places (list of objects with keys key) - Meta only. Named points of interest to target. `key` from /v1/ads/targeting/search.; neighborhoods (list of objects with keys key) - Meta only. Named neighbourhood areas to target. `key` from /v1/ads/targeting/search.; customLocations (list of objects with keys latitude, longitude, radius, distanceUnit, name, address) - Point-radius (lat/lng) targeting (Meta custom_locations / Google proximity). Honoured on Meta and Google; ignored on platforms without radius support.; excludedLocations (object with keys countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations) - Geo to exclude from the audience. Mirrors the inclusion geo shape. - Meta (excluded_geo_locations): excluded cities can carry a radius catchment, and excluded ...; ageMin (integer) - Minimum age. - Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the age ranges outside the request). - Rejected with ...; ageMax (integer) - Maximum age. Same per-platform application and clamping as ageMin.; gender (one of: all, male, female) - Restrict by gender. 'all' (default) targets everyone. Applied on Meta, TikTok, Pinterest, LinkedIn, X, Reddit and Google Search/Display (Google excludes the ...; incomeTier (one of: top_5, top_10, top_10_25, top_25_50) - Normalized household-income tier (ZIP/percentile based). Meta and TikTok express all four. Google maps only `top_10` (its INCOME_RANGE_90_UP); other tiers on ...; languages (list of string) - Language codes restricting the audience by language. Applied on Meta, Google, TikTok, LinkedIn, X, Pinterest and Reddit; rejected with 400 on OpenAI. A code ...; interests (list of objects with keys id, name) - Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id. - Google: applied as ad-group interest criteria ...; behaviors (list of objects with keys id, name) - Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). **On TikTok** they target people who, in the picked ...; workPositions (list of objects with keys id, name) - Meta only. Job title entities from /v1/ads/targeting/search?dimension=workPosition. Not interchangeable with the LinkedIn `jobTitles` URN fragments.; workEmployers (list of objects with keys id, name) - Meta only. Employer entities from /v1/ads/targeting/search?dimension=workEmployer.; workIndustries (list of objects with keys id, name) - Meta only. Work-industry entities from /v1/ads/targeting/search?dimension=workIndustry. Not interchangeable with the LinkedIn `industries` URN fragments.; industries (list of string) - LinkedIn B2B only. Industry URN id fragments, or the full urn:li:industry:* URN from /v1/ads/targeting/search?dimension=industry.; companySizes (list of string) - LinkedIn B2B only. Single-letter size codes (A to I), or the full urn:li:staffCountRange:* URN from /v1/ads/targeting/search?dimension=companySize.; seniorities (list of string) - LinkedIn B2B only. Seniority URN id fragments, or the full urn:li:seniority:* URN from /v1/ads/targeting/search?dimension=seniority.; jobFunctions (list of string) - LinkedIn B2B only. Function URN id fragments, or the full urn:li:function:* URN from /v1/ads/targeting/search?dimension=jobFunction.; skills (list of string) - LinkedIn B2B only. Member skills (e.g. Python, Recruiting): skill URN id fragments, or the full urn:li:skill:* URN from ...; audienceInclude (list of string) - Platform audience IDs to include, as returned by GET /v1/ads/audiences: - Meta: custom audience ids. - TikTok: audience ids. - Pinterest: customer list ids. - ...; audienceExclude (list of string) - Platform audience IDs to exclude; same ID formats as audienceInclude. Not supported on OpenAI (400).; communities (list of string) - Reddit only (400 elsewhere). Subreddits to target, by name, with or without the `r/` prefix (e.g. `['marketing', 'r/startups']`), as returned by ...; excludedCommunities (list of string) - Reddit only (400 elsewhere). Subreddits to exclude, named like `communities`.; conversationKeywords (list of string) - Reddit only (400 elsewhere). Keywords that place the ad in Reddit conversations about them, as returned by ...; excludedConversationKeywords (list of string) - Reddit only (400 elsewhere). Conversation keywords to keep the ad away from.
                 raw_targeting: Meta targeting spec sent as the BASE layer of the ad set's `targeting`, exactly as POST /v1/ads/create does. Use it for anything the flat fields cannot express, such as a layered `flexible_spec` (entries AND together, ids inside one entry OR).
 
         Flat fields you also send are layered on top and win per key.
@@ -43197,7 +43856,7 @@ def register_generated_tools(mcp, _get_client):
                 audience_include: Custom or lookalike audience ids to include.
                 audience_exclude: Custom or lookalike audience ids to exclude.
                 saved_targeting_id: ID of a saved_targeting audience (POST /v1/ads/audiences), expanded as the base targeting. Precedence: savedTargetingId, then `targeting`, then the flat fields.
-                targeting: Nested targeting object, same contract as POST /v1/ads/create and boost. Flat fields win per key. Object with keys: userOs (list of string) - Meta only. Operating systems and version ranges, such as iOS_ver_14.0_and_above or Android. Emitted as user_os. May also be supplied inside targeting.; userDevice (list of string) - Meta only. Device models such as iPhone. Emitted as user_device. May also be supplied inside targeting.; countries (list of string) - ISO 3166-1 alpha-2 country codes (e.g. ['US']).; regions (list of any) - Region/state targeting. `key` is the platform location ID from /v1/ads/targeting/search?dimension=geo&geoType=region. An entry may also be that id as a plain ...; cities (list of any) - City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits; both must be set together or both omitted. `radius` is only honoured on ...; zips (list of objects with keys key, name) - Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`). Supported on Meta, Google, TikTok, Pinterest, X.; metros (list of objects with keys key, name) - DMA / metro-area targeting. `key` is the platform's metro ID (e.g. Meta `DMA:807`).; countryGroups (list of string) - Meta only. Continents and trade blocs (`geo_locations.country_groups`), for targeting a whole region without listing its countries. Combines with `countries` ...; customLocations (list of objects with keys latitude, longitude, radius, distanceUnit, name, address) - Point-radius (lat/lng) targeting (Meta custom_locations / Google proximity). Honoured on Meta and Google; ignored on platforms without radius support.; excludedLocations (object with keys countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations) - Geo to exclude from the audience. Mirrors the inclusion geo shape. - Meta (excluded_geo_locations): excluded cities can carry a radius catchment, and excluded ...; ageMin (integer) - Minimum age. - Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the age ranges outside the request). - Rejected with ...; ageMax (integer) - Maximum age. Same per-platform application and clamping as ageMin.; gender (one of: all, male, female) - Restrict by gender. 'all' (default) targets everyone. Applied on Meta, TikTok, Pinterest, LinkedIn, X, Reddit and Google Search/Display (Google excludes the ...; incomeTier (one of: top_5, top_10, top_10_25, top_25_50) - Normalized household-income tier (ZIP/percentile based). Meta and TikTok express all four. Google maps only `top_10` (its INCOME_RANGE_90_UP); other tiers on ...; languages (list of string) - Language codes restricting the audience by language. Applied on Meta, Google, TikTok, LinkedIn, X, Pinterest and Reddit; rejected with 400 on OpenAI. A code ...; interests (list of objects with keys id, name) - Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id. - Google: applied as ad-group interest criteria ...; behaviors (list of objects with keys id, name) - Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). **On TikTok** they target people who, in the picked ...; workPositions (list of objects with keys id, name) - Meta only. Job title entities from /v1/ads/targeting/search?dimension=workPosition. Not interchangeable with the LinkedIn `jobTitles` URN fragments.; workEmployers (list of objects with keys id, name) - Meta only. Employer entities from /v1/ads/targeting/search?dimension=workEmployer.; workIndustries (list of objects with keys id, name) - Meta only. Work-industry entities from /v1/ads/targeting/search?dimension=workIndustry. Not interchangeable with the LinkedIn `industries` URN fragments.; industries (list of string) - LinkedIn B2B only. Industry URN id fragments, or the full urn:li:industry:* URN from /v1/ads/targeting/search?dimension=industry.; companySizes (list of string) - LinkedIn B2B only. Single-letter size codes (A to I), or the full urn:li:staffCountRange:* URN from /v1/ads/targeting/search?dimension=companySize.; seniorities (list of string) - LinkedIn B2B only. Seniority URN id fragments, or the full urn:li:seniority:* URN from /v1/ads/targeting/search?dimension=seniority.; jobFunctions (list of string) - LinkedIn B2B only. Function URN id fragments, or the full urn:li:function:* URN from /v1/ads/targeting/search?dimension=jobFunction.; skills (list of string) - LinkedIn B2B only. Member skills (e.g. Python, Recruiting): skill URN id fragments, or the full urn:li:skill:* URN from ...; audienceInclude (list of string) - Platform audience IDs to include, as returned by GET /v1/ads/audiences: - Meta: custom audience ids. - TikTok: audience ids. - Pinterest: customer list ids. - ...; audienceExclude (list of string) - Platform audience IDs to exclude; same ID formats as audienceInclude. Not supported on OpenAI (400).; communities (list of string) - Reddit only (400 elsewhere). Subreddits to target, by name, with or without the `r/` prefix (e.g. `['marketing', 'r/startups']`), as returned by ...; excludedCommunities (list of string) - Reddit only (400 elsewhere). Subreddits to exclude, named like `communities`.; conversationKeywords (list of string) - Reddit only (400 elsewhere). Keywords that place the ad in Reddit conversations about them, as returned by ...; excludedConversationKeywords (list of string) - Reddit only (400 elsewhere). Conversation keywords to keep the ad away from.
+                targeting: Nested targeting object, same contract as POST /v1/ads/create and boost. Flat fields win per key. Object with keys: userOs (list of string) - Meta only. Operating systems and version ranges, such as iOS_ver_14.0_and_above or Android. Emitted as user_os. May also be supplied inside targeting.; userDevice (list of string) - Meta only. Device models such as iPhone. Emitted as user_device. May also be supplied inside targeting.; countries (list of string) - ISO 3166-1 alpha-2 country codes (e.g. ['US']).; regions (list of any) - Region/state targeting. `key` is the platform location ID from /v1/ads/targeting/search?dimension=geo&geoType=region. An entry may also be that id as a plain ...; cities (list of any) - City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits; both must be set together or both omitted. `radius` is only honoured on ...; zips (list of objects with keys key, name) - Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`). Supported on Meta, Google, TikTok, Pinterest, X.; metros (list of objects with keys key, name) - DMA / metro-area targeting. `key` is the platform's metro ID (e.g. Meta `DMA:807`).; countryGroups (list of string) - Meta only. Continents and trade blocs (`geo_locations.country_groups`), for targeting a whole region without listing its countries. Combines with `countries` ...; places (list of objects with keys key) - Meta only. Named points of interest to target. `key` from /v1/ads/targeting/search.; neighborhoods (list of objects with keys key) - Meta only. Named neighbourhood areas to target. `key` from /v1/ads/targeting/search.; customLocations (list of objects with keys latitude, longitude, radius, distanceUnit, name, address) - Point-radius (lat/lng) targeting (Meta custom_locations / Google proximity). Honoured on Meta and Google; ignored on platforms without radius support.; excludedLocations (object with keys countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations) - Geo to exclude from the audience. Mirrors the inclusion geo shape. - Meta (excluded_geo_locations): excluded cities can carry a radius catchment, and excluded ...; ageMin (integer) - Minimum age. - Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the age ranges outside the request). - Rejected with ...; ageMax (integer) - Maximum age. Same per-platform application and clamping as ageMin.; gender (one of: all, male, female) - Restrict by gender. 'all' (default) targets everyone. Applied on Meta, TikTok, Pinterest, LinkedIn, X, Reddit and Google Search/Display (Google excludes the ...; incomeTier (one of: top_5, top_10, top_10_25, top_25_50) - Normalized household-income tier (ZIP/percentile based). Meta and TikTok express all four. Google maps only `top_10` (its INCOME_RANGE_90_UP); other tiers on ...; languages (list of string) - Language codes restricting the audience by language. Applied on Meta, Google, TikTok, LinkedIn, X, Pinterest and Reddit; rejected with 400 on OpenAI. A code ...; interests (list of objects with keys id, name) - Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id. - Google: applied as ad-group interest criteria ...; behaviors (list of objects with keys id, name) - Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). **On TikTok** they target people who, in the picked ...; workPositions (list of objects with keys id, name) - Meta only. Job title entities from /v1/ads/targeting/search?dimension=workPosition. Not interchangeable with the LinkedIn `jobTitles` URN fragments.; workEmployers (list of objects with keys id, name) - Meta only. Employer entities from /v1/ads/targeting/search?dimension=workEmployer.; workIndustries (list of objects with keys id, name) - Meta only. Work-industry entities from /v1/ads/targeting/search?dimension=workIndustry. Not interchangeable with the LinkedIn `industries` URN fragments.; industries (list of string) - LinkedIn B2B only. Industry URN id fragments, or the full urn:li:industry:* URN from /v1/ads/targeting/search?dimension=industry.; companySizes (list of string) - LinkedIn B2B only. Single-letter size codes (A to I), or the full urn:li:staffCountRange:* URN from /v1/ads/targeting/search?dimension=companySize.; seniorities (list of string) - LinkedIn B2B only. Seniority URN id fragments, or the full urn:li:seniority:* URN from /v1/ads/targeting/search?dimension=seniority.; jobFunctions (list of string) - LinkedIn B2B only. Function URN id fragments, or the full urn:li:function:* URN from /v1/ads/targeting/search?dimension=jobFunction.; skills (list of string) - LinkedIn B2B only. Member skills (e.g. Python, Recruiting): skill URN id fragments, or the full urn:li:skill:* URN from ...; audienceInclude (list of string) - Platform audience IDs to include, as returned by GET /v1/ads/audiences: - Meta: custom audience ids. - TikTok: audience ids. - Pinterest: customer list ids. - ...; audienceExclude (list of string) - Platform audience IDs to exclude; same ID formats as audienceInclude. Not supported on OpenAI (400).; communities (list of string) - Reddit only (400 elsewhere). Subreddits to target, by name, with or without the `r/` prefix (e.g. `['marketing', 'r/startups']`), as returned by ...; excludedCommunities (list of string) - Reddit only (400 elsewhere). Subreddits to exclude, named like `communities`.; conversationKeywords (list of string) - Reddit only (400 elsewhere). Keywords that place the ad in Reddit conversations about them, as returned by ...; excludedConversationKeywords (list of string) - Reddit only (400 elsewhere). Conversation keywords to keep the ad away from.
                 raw_targeting: Meta targeting spec sent as the BASE layer of the ad set's `targeting`, exactly as POST /v1/ads/create does. Use it for anything the flat fields cannot express, such as a layered `flexible_spec` (entries AND together, ids inside one entry OR).
 
         Flat fields you also send are layered on top and win per key.
@@ -43697,7 +44356,7 @@ def register_generated_tools(mcp, _get_client):
                 audience_include: Custom or lookalike audience ids to include.
                 audience_exclude: Custom or lookalike audience ids to exclude.
                 saved_targeting_id: ID of a saved_targeting audience (POST /v1/ads/audiences), expanded as the base targeting. Precedence: savedTargetingId, then `targeting`, then the flat fields.
-                targeting: Nested targeting object, same contract as POST /v1/ads/create and boost. Flat fields win per key. Object with keys: userOs (list of string) - Meta only. Operating systems and version ranges, such as iOS_ver_14.0_and_above or Android. Emitted as user_os. May also be supplied inside targeting.; userDevice (list of string) - Meta only. Device models such as iPhone. Emitted as user_device. May also be supplied inside targeting.; countries (list of string) - ISO 3166-1 alpha-2 country codes (e.g. ['US']).; regions (list of any) - Region/state targeting. `key` is the platform location ID from /v1/ads/targeting/search?dimension=geo&geoType=region. An entry may also be that id as a plain ...; cities (list of any) - City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits; both must be set together or both omitted. `radius` is only honoured on ...; zips (list of objects with keys key, name) - Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`). Supported on Meta, Google, TikTok, Pinterest, X.; metros (list of objects with keys key, name) - DMA / metro-area targeting. `key` is the platform's metro ID (e.g. Meta `DMA:807`).; countryGroups (list of string) - Meta only. Continents and trade blocs (`geo_locations.country_groups`), for targeting a whole region without listing its countries. Combines with `countries` ...; customLocations (list of objects with keys latitude, longitude, radius, distanceUnit, name, address) - Point-radius (lat/lng) targeting (Meta custom_locations / Google proximity). Honoured on Meta and Google; ignored on platforms without radius support.; excludedLocations (object with keys countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations) - Geo to exclude from the audience. Mirrors the inclusion geo shape. - Meta (excluded_geo_locations): excluded cities can carry a radius catchment, and excluded ...; ageMin (integer) - Minimum age. - Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the age ranges outside the request). - Rejected with ...; ageMax (integer) - Maximum age. Same per-platform application and clamping as ageMin.; gender (one of: all, male, female) - Restrict by gender. 'all' (default) targets everyone. Applied on Meta, TikTok, Pinterest, LinkedIn, X, Reddit and Google Search/Display (Google excludes the ...; incomeTier (one of: top_5, top_10, top_10_25, top_25_50) - Normalized household-income tier (ZIP/percentile based). Meta and TikTok express all four. Google maps only `top_10` (its INCOME_RANGE_90_UP); other tiers on ...; languages (list of string) - Language codes restricting the audience by language. Applied on Meta, Google, TikTok, LinkedIn, X, Pinterest and Reddit; rejected with 400 on OpenAI. A code ...; interests (list of objects with keys id, name) - Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id. - Google: applied as ad-group interest criteria ...; behaviors (list of objects with keys id, name) - Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). **On TikTok** they target people who, in the picked ...; workPositions (list of objects with keys id, name) - Meta only. Job title entities from /v1/ads/targeting/search?dimension=workPosition. Not interchangeable with the LinkedIn `jobTitles` URN fragments.; workEmployers (list of objects with keys id, name) - Meta only. Employer entities from /v1/ads/targeting/search?dimension=workEmployer.; workIndustries (list of objects with keys id, name) - Meta only. Work-industry entities from /v1/ads/targeting/search?dimension=workIndustry. Not interchangeable with the LinkedIn `industries` URN fragments.; industries (list of string) - LinkedIn B2B only. Industry URN id fragments, or the full urn:li:industry:* URN from /v1/ads/targeting/search?dimension=industry.; companySizes (list of string) - LinkedIn B2B only. Single-letter size codes (A to I), or the full urn:li:staffCountRange:* URN from /v1/ads/targeting/search?dimension=companySize.; seniorities (list of string) - LinkedIn B2B only. Seniority URN id fragments, or the full urn:li:seniority:* URN from /v1/ads/targeting/search?dimension=seniority.; jobFunctions (list of string) - LinkedIn B2B only. Function URN id fragments, or the full urn:li:function:* URN from /v1/ads/targeting/search?dimension=jobFunction.; skills (list of string) - LinkedIn B2B only. Member skills (e.g. Python, Recruiting): skill URN id fragments, or the full urn:li:skill:* URN from ...; audienceInclude (list of string) - Platform audience IDs to include, as returned by GET /v1/ads/audiences: - Meta: custom audience ids. - TikTok: audience ids. - Pinterest: customer list ids. - ...; audienceExclude (list of string) - Platform audience IDs to exclude; same ID formats as audienceInclude. Not supported on OpenAI (400).; communities (list of string) - Reddit only (400 elsewhere). Subreddits to target, by name, with or without the `r/` prefix (e.g. `['marketing', 'r/startups']`), as returned by ...; excludedCommunities (list of string) - Reddit only (400 elsewhere). Subreddits to exclude, named like `communities`.; conversationKeywords (list of string) - Reddit only (400 elsewhere). Keywords that place the ad in Reddit conversations about them, as returned by ...; excludedConversationKeywords (list of string) - Reddit only (400 elsewhere). Conversation keywords to keep the ad away from.
+                targeting: Nested targeting object, same contract as POST /v1/ads/create and boost. Flat fields win per key. Object with keys: userOs (list of string) - Meta only. Operating systems and version ranges, such as iOS_ver_14.0_and_above or Android. Emitted as user_os. May also be supplied inside targeting.; userDevice (list of string) - Meta only. Device models such as iPhone. Emitted as user_device. May also be supplied inside targeting.; countries (list of string) - ISO 3166-1 alpha-2 country codes (e.g. ['US']).; regions (list of any) - Region/state targeting. `key` is the platform location ID from /v1/ads/targeting/search?dimension=geo&geoType=region. An entry may also be that id as a plain ...; cities (list of any) - City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits; both must be set together or both omitted. `radius` is only honoured on ...; zips (list of objects with keys key, name) - Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`). Supported on Meta, Google, TikTok, Pinterest, X.; metros (list of objects with keys key, name) - DMA / metro-area targeting. `key` is the platform's metro ID (e.g. Meta `DMA:807`).; countryGroups (list of string) - Meta only. Continents and trade blocs (`geo_locations.country_groups`), for targeting a whole region without listing its countries. Combines with `countries` ...; places (list of objects with keys key) - Meta only. Named points of interest to target. `key` from /v1/ads/targeting/search.; neighborhoods (list of objects with keys key) - Meta only. Named neighbourhood areas to target. `key` from /v1/ads/targeting/search.; customLocations (list of objects with keys latitude, longitude, radius, distanceUnit, name, address) - Point-radius (lat/lng) targeting (Meta custom_locations / Google proximity). Honoured on Meta and Google; ignored on platforms without radius support.; excludedLocations (object with keys countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations) - Geo to exclude from the audience. Mirrors the inclusion geo shape. - Meta (excluded_geo_locations): excluded cities can carry a radius catchment, and excluded ...; ageMin (integer) - Minimum age. - Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the age ranges outside the request). - Rejected with ...; ageMax (integer) - Maximum age. Same per-platform application and clamping as ageMin.; gender (one of: all, male, female) - Restrict by gender. 'all' (default) targets everyone. Applied on Meta, TikTok, Pinterest, LinkedIn, X, Reddit and Google Search/Display (Google excludes the ...; incomeTier (one of: top_5, top_10, top_10_25, top_25_50) - Normalized household-income tier (ZIP/percentile based). Meta and TikTok express all four. Google maps only `top_10` (its INCOME_RANGE_90_UP); other tiers on ...; languages (list of string) - Language codes restricting the audience by language. Applied on Meta, Google, TikTok, LinkedIn, X, Pinterest and Reddit; rejected with 400 on OpenAI. A code ...; interests (list of objects with keys id, name) - Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id. - Google: applied as ad-group interest criteria ...; behaviors (list of objects with keys id, name) - Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). **On TikTok** they target people who, in the picked ...; workPositions (list of objects with keys id, name) - Meta only. Job title entities from /v1/ads/targeting/search?dimension=workPosition. Not interchangeable with the LinkedIn `jobTitles` URN fragments.; workEmployers (list of objects with keys id, name) - Meta only. Employer entities from /v1/ads/targeting/search?dimension=workEmployer.; workIndustries (list of objects with keys id, name) - Meta only. Work-industry entities from /v1/ads/targeting/search?dimension=workIndustry. Not interchangeable with the LinkedIn `industries` URN fragments.; industries (list of string) - LinkedIn B2B only. Industry URN id fragments, or the full urn:li:industry:* URN from /v1/ads/targeting/search?dimension=industry.; companySizes (list of string) - LinkedIn B2B only. Single-letter size codes (A to I), or the full urn:li:staffCountRange:* URN from /v1/ads/targeting/search?dimension=companySize.; seniorities (list of string) - LinkedIn B2B only. Seniority URN id fragments, or the full urn:li:seniority:* URN from /v1/ads/targeting/search?dimension=seniority.; jobFunctions (list of string) - LinkedIn B2B only. Function URN id fragments, or the full urn:li:function:* URN from /v1/ads/targeting/search?dimension=jobFunction.; skills (list of string) - LinkedIn B2B only. Member skills (e.g. Python, Recruiting): skill URN id fragments, or the full urn:li:skill:* URN from ...; audienceInclude (list of string) - Platform audience IDs to include, as returned by GET /v1/ads/audiences: - Meta: custom audience ids. - TikTok: audience ids. - Pinterest: customer list ids. - ...; audienceExclude (list of string) - Platform audience IDs to exclude; same ID formats as audienceInclude. Not supported on OpenAI (400).; communities (list of string) - Reddit only (400 elsewhere). Subreddits to target, by name, with or without the `r/` prefix (e.g. `['marketing', 'r/startups']`), as returned by ...; excludedCommunities (list of string) - Reddit only (400 elsewhere). Subreddits to exclude, named like `communities`.; conversationKeywords (list of string) - Reddit only (400 elsewhere). Keywords that place the ad in Reddit conversations about them, as returned by ...; excludedConversationKeywords (list of string) - Reddit only (400 elsewhere). Conversation keywords to keep the ad away from.
                 raw_targeting: Meta targeting spec sent as the BASE layer of the ad set's `targeting`, exactly as POST /v1/ads/create does. Use it for anything the flat fields cannot express, such as a layered `flexible_spec` (entries AND together, ids inside one entry OR).
 
         Flat fields you also send are layered on top and win per key.
@@ -58265,7 +58924,7 @@ def register_generated_tools(mcp, _get_client):
             platform
             name: (required)
             description
-            nodes: Each item is an object with keys: id (string, required) - Stable node id referenced by edges; type (one of: trigger, send_message, wait_for_reply, condition, set_variable, delay, webhook, hubspot_upsert_contact, salesforce_upsert_contact, ai, handoff, start_call, a_b_split, set_field, enroll_sequence, add_tag, remove_tag, end; required) - Node kind. The 18 supported types break into four groups: messaging (send_message), control flow (trigger, condition, delay, wait_for_reply, a_b_split, end), ...; config (object) - Type-specific settings. Every string field supports `{{variable}}` interpolation against the run's variable bag, resolved at execution time. **trigger**: `{ ...; position (object with keys x, y) - Canvas coordinates (ignored by the executor; used by the visual builder).; label (string) - Optional display name shown on the builder canvas and inspector, falling back to the node type when absent. The nodes array is replaced wholesale on update, ...
+            nodes: Each item is an object with keys: id (string, required) - Stable node id referenced by edges; type (one of: trigger, send_message, wait_for_reply, condition, set_variable, delay, webhook, hubspot_upsert_contact, salesforce_upsert_contact, gohighlevel_upsert_contact, ai, handoff, start_call, a_b_split, set_field, enroll_sequence, add_tag, remove_tag, end; required) - Node kind. The 19 supported types break into four groups: messaging (send_message), control flow (trigger, condition, delay, wait_for_reply, a_b_split, end), ...; config (object) - Type-specific settings. Every string field supports `{{variable}}` interpolation against the run's variable bag, resolved at execution time. **trigger**: `{ ...; position (object with keys x, y) - Canvas coordinates (ignored by the executor; used by the visual builder).; label (string) - Optional display name shown on the builder canvas and inspector, falling back to the node type when absent. The nodes array is replaced wholesale on update, ...
             edges: Each item is an object with keys: id (string, required); source (string, required) - Source node id; target (string, required) - Target node id; sourceHandle (string) - Selects a branch output of a multi-output node. Null (or omitted) = the node's single/default output. Known handles per node type: - **condition**: a rule's ...
             entry_node_id: The trigger node id; derived from the single trigger node if omitted"""
         client = _get_client()
@@ -58342,13 +59001,13 @@ def register_generated_tools(mcp, _get_client):
 
             Account swaps re-validate the graph against the new platform. For example, moving from WhatsApp to Facebook surfaces a `start_call` node as an error instead of silently saving an unrunnable graph.
 
-            Platforms: hubspot, salesforce
+            Platforms: hubspot, salesforce, gohighlevel
 
             Args:
                 workflow_id: (required)
                 name
                 description
-                nodes: Each item is an object with keys: id (string, required) - Stable node id referenced by edges; type (one of: trigger, send_message, wait_for_reply, condition, set_variable, delay, webhook, hubspot_upsert_contact, salesforce_upsert_contact, ai, handoff, start_call, a_b_split, set_field, enroll_sequence, add_tag, remove_tag, end; required) - Node kind. The 18 supported types break into four groups: messaging (send_message), control flow (trigger, condition, delay, wait_for_reply, a_b_split, end), ...; config (object) - Type-specific settings. Every string field supports `{{variable}}` interpolation against the run's variable bag, resolved at execution time. **trigger**: `{ ...; position (object with keys x, y) - Canvas coordinates (ignored by the executor; used by the visual builder).; label (string) - Optional display name shown on the builder canvas and inspector, falling back to the node type when absent. The nodes array is replaced wholesale on update, ...
+                nodes: Each item is an object with keys: id (string, required) - Stable node id referenced by edges; type (one of: trigger, send_message, wait_for_reply, condition, set_variable, delay, webhook, hubspot_upsert_contact, salesforce_upsert_contact, gohighlevel_upsert_contact, ai, handoff, start_call, a_b_split, set_field, enroll_sequence, add_tag, remove_tag, end; required) - Node kind. The 19 supported types break into four groups: messaging (send_message), control flow (trigger, condition, delay, wait_for_reply, a_b_split, end), ...; config (object) - Type-specific settings. Every string field supports `{{variable}}` interpolation against the run's variable bag, resolved at execution time. **trigger**: `{ ...; position (object with keys x, y) - Canvas coordinates (ignored by the executor; used by the visual builder).; label (string) - Optional display name shown on the builder canvas and inspector, falling back to the node type when absent. The nodes array is replaced wholesale on update, ...
                 edges: Each item is an object with keys: id (string, required); source (string, required) - Source node id; target (string, required) - Target node id; sourceHandle (string) - Selects a branch output of a multi-output node. Null (or omitted) = the node's single/default output. Known handles per node type: - **condition**: a rule's ...
                 entry_node_id
                 account_id: Reassign the workflow to a different `SocialAccount`. Changing this triggers a graph revalidation against the new platform.

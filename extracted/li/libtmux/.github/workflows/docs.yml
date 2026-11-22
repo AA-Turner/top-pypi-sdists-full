@@ -17,10 +17,10 @@ jobs:
       matrix:
         python-version: ['3.14']
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Filter changed file paths to outputs
-        uses: dorny/paths-filter@v4.0.1
+        uses: dorny/paths-filter@v4
         id: changes
         with:
           filters: |
@@ -41,7 +41,7 @@ jobs:
 
       - name: Install uv
         if: env.PUBLISH == 'true'
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@v10.2.0
         with:
           enable-cache: true
 
@@ -65,7 +65,7 @@ jobs:
 
       - name: Cache sphinx fonts
         if: env.PUBLISH == 'true'
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.cache/sphinx-fonts
           key: sphinx-fonts-${{ hashFiles('docs/conf.py') }}

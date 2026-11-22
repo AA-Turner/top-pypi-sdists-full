@@ -8,10 +8,11 @@ last minute. A policy reads its own robot's recent history there; a frame of it 
 sequence_base.codec.marked.frames. A deployment's worker and a policy server of your own keep it alike, this one module
 in both.
 
-In one sentence: a frame reaches the server (an observation streamed) → frame() keeps it at its step and notes when →
-an act's answer → answer() keeps it at the step of the newest observation before it → trim() lets the steps kept longer than RECORD_S go, oldest first, and the steps after them up to their video's next
-keyframe (a frame there has nothing to decode from) → what a server saves of an episode takes the rest of
-episode.state as state_of() makes it storable - what the policy kept, and seq.plans, neither of them cut.
+In one sentence: a frame reaches the server (an observation streamed) → frame() keeps it at its step and notes when → an
+act's answer → answer() keeps it at the step of the newest observation before it → trim() lets the steps kept longer
+than RECORD_S go, oldest first, and the steps after them up to their video's next keyframe (a frame there has nothing to
+decode from) → what a server saves of an episode takes the rest of episode.state as state_of() makes it storable - what
+the policy kept, and seq.plans, neither of them cut.
 
 WHY the record lives in episode.state: the observations are the robot's state, and each answer is appended to it as it
 leaves, so a policy and its plan read the robot's recent history where they read everything else of the episode.

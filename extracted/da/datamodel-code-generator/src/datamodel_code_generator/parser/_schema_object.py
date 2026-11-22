@@ -23,6 +23,7 @@ from pydantic import (
 from pydantic_core import core_schema
 from typing_extensions import override
 
+from datamodel_code_generator._format_types import NEWEST_TARGET
 from datamodel_code_generator._json_schema import DEFINITION_KEYS, non_null_types, schema_positions
 from datamodel_code_generator._regex_syntax import read_pattern
 from datamodel_code_generator.parser._null_facts import null_sources, resolve_null_facts
@@ -59,7 +60,7 @@ __all__ = [
     "reads_ref_alone",
 ]
 
-JsonSchemaLiteral = Union[bool, int, str]  # noqa: UP007
+JsonSchemaLiteral = Union[bool, int, str]
 
 _MODELED_POSITIONS = frozenset(schema_positions("modeled"))
 """The subschema keywords ``JsonSchemaObject`` holds as fields."""
@@ -258,7 +259,7 @@ class Discriminator(BaseModel):
     """
 
     propertyName: str  # noqa: N815
-    mapping: Optional[dict[str, str]] = None  # noqa: UP045
+    mapping: Optional[dict[str, str]] = None
 
 
 _REF_KEYWORDS: Final = ("$ref", "$dynamicRef", "$recursiveRef")
@@ -577,60 +578,60 @@ class JsonSchemaObject(BaseModel):  # noqa: PLR0904
             value = [v if v is not None else "null" for v in value]
         return value
 
-    items: Optional[Union[list[Union[JsonSchemaObject, bool]], JsonSchemaObject, bool]] = None  # noqa: UP007, UP045
-    additionalItems: Optional[Union[JsonSchemaObject, bool]] = None  # noqa: N815, UP007, UP045
-    prefixItems: Optional[list[Union[JsonSchemaObject, bool]]] = None  # noqa: N815, UP007, UP045
-    uniqueItems: Optional[bool] = None  # noqa: N815, UP045
-    type: Optional[Union[str, list[str]]] = None  # noqa: UP007, UP045
-    format: Optional[str] = None  # noqa: UP045
-    pattern: Optional[str] = None  # noqa: UP045
-    minLength: Optional[int] = None  # noqa:  N815,UP045
-    maxLength: Optional[int] = None  # noqa:  N815,UP045
-    minimum: Optional[UnionIntFloat] = None  # noqa:  UP045
-    maximum: Optional[UnionIntFloat] = None  # noqa:  UP045
-    minItems: Optional[int] = None  # noqa:  N815,UP045
-    maxItems: Optional[int] = None  # noqa:  N815,UP045
-    minProperties: Optional[int] = None  # noqa: N815, UP045
-    maxProperties: Optional[int] = None  # noqa: N815, UP045
-    multipleOf: Optional[FloatConstraint] = None  # noqa: N815, UP045
-    exclusiveMaximum: Optional[Union[FloatConstraint, bool]] = None  # noqa: N815, UP007, UP045
-    exclusiveMinimum: Optional[Union[FloatConstraint, bool]] = None  # noqa: N815, UP007, UP045
-    additionalProperties: Optional[Union[JsonSchemaObject, bool]] = None  # noqa: N815, UP007, UP045
-    unevaluatedProperties: Optional[Union[JsonSchemaObject, bool]] = None  # noqa: N815, UP007, UP045
-    unevaluatedItems: Optional[Union[JsonSchemaObject, bool]] = None  # noqa: N815, UP007, UP045
-    patternProperties: Optional[dict[str, Union[JsonSchemaObject, bool]]] = None  # noqa: N815, UP007, UP045
-    propertyNames: Optional[Union[JsonSchemaObject, bool]] = None  # noqa: N815, UP007, UP045
-    oneOf: list[Union[JsonSchemaObject, bool]] = Field(default_factory=list)  # noqa: N815, UP007
-    anyOf: list[Union[JsonSchemaObject, bool]] = Field(default_factory=list)  # noqa: N815, UP007
-    allOf: list[Union[JsonSchemaObject, bool]] = Field(default_factory=list)  # noqa: N815, UP007
+    items: Optional[Union[list[Union[JsonSchemaObject, bool]], JsonSchemaObject, bool]] = None
+    additionalItems: Optional[Union[JsonSchemaObject, bool]] = None  # noqa: N815
+    prefixItems: Optional[list[Union[JsonSchemaObject, bool]]] = None  # noqa: N815
+    uniqueItems: Optional[bool] = None  # noqa: N815
+    type: Optional[Union[str, list[str]]] = None
+    format: Optional[str] = None
+    pattern: Optional[str] = None
+    minLength: Optional[int] = None  # noqa: N815
+    maxLength: Optional[int] = None  # noqa: N815
+    minimum: Optional[UnionIntFloat] = None
+    maximum: Optional[UnionIntFloat] = None
+    minItems: Optional[int] = None  # noqa: N815
+    maxItems: Optional[int] = None  # noqa: N815
+    minProperties: Optional[int] = None  # noqa: N815
+    maxProperties: Optional[int] = None  # noqa: N815
+    multipleOf: Optional[FloatConstraint] = None  # noqa: N815
+    exclusiveMaximum: Optional[Union[FloatConstraint, bool]] = None  # noqa: N815
+    exclusiveMinimum: Optional[Union[FloatConstraint, bool]] = None  # noqa: N815
+    additionalProperties: Optional[Union[JsonSchemaObject, bool]] = None  # noqa: N815
+    unevaluatedProperties: Optional[Union[JsonSchemaObject, bool]] = None  # noqa: N815
+    unevaluatedItems: Optional[Union[JsonSchemaObject, bool]] = None  # noqa: N815
+    patternProperties: Optional[dict[str, Union[JsonSchemaObject, bool]]] = None  # noqa: N815
+    propertyNames: Optional[Union[JsonSchemaObject, bool]] = None  # noqa: N815
+    oneOf: list[Union[JsonSchemaObject, bool]] = Field(default_factory=list)  # noqa: N815
+    anyOf: list[Union[JsonSchemaObject, bool]] = Field(default_factory=list)  # noqa: N815
+    allOf: list[Union[JsonSchemaObject, bool]] = Field(default_factory=list)  # noqa: N815
     enum: list[Any] = Field(default_factory=list)
-    writeOnly: Optional[bool] = None  # noqa: N815, UP045
-    readOnly: Optional[bool] = None  # noqa: N815, UP045
-    properties: Optional[dict[str, Union[JsonSchemaObject, bool]]] = None  # noqa: UP007, UP045
+    writeOnly: Optional[bool] = None  # noqa: N815
+    readOnly: Optional[bool] = None  # noqa: N815
+    properties: Optional[dict[str, Union[JsonSchemaObject, bool]]] = None
     required: list[str] = Field(default_factory=list)
-    ref: Optional[str] = Field(default=None, alias="$ref")  # noqa: UP045
-    recursiveRef: Optional[str] = Field(default=None, alias="$recursiveRef")  # noqa: N815, UP045
-    recursiveAnchor: Optional[bool] = Field(default=None, alias="$recursiveAnchor")  # noqa: N815, UP045
-    dynamicRef: Optional[str] = Field(default=None, alias="$dynamicRef")  # noqa: N815, UP045
-    dynamicAnchor: Optional[str] = Field(default=None, alias="$dynamicAnchor")  # noqa: N815, UP045
-    nullable: Optional[bool] = None  # noqa: UP045
+    ref: Optional[str] = Field(default=None, alias="$ref")
+    recursiveRef: Optional[str] = Field(default=None, alias="$recursiveRef")  # noqa: N815
+    recursiveAnchor: Optional[bool] = Field(default=None, alias="$recursiveAnchor")  # noqa: N815
+    dynamicRef: Optional[str] = Field(default=None, alias="$dynamicRef")  # noqa: N815
+    dynamicAnchor: Optional[str] = Field(default=None, alias="$dynamicAnchor")  # noqa: N815
+    nullable: Optional[bool] = None
     x_enum_varnames: list[str | None] = Field(default_factory=list, alias="x-enum-varnames")
     x_enum_descriptions: list[str | None] = Field(default_factory=list, alias="x-enum-descriptions")
     x_enum_names: list[str | None] = Field(default_factory=list, alias="x-enumNames")
-    x_enum_field_as_literal: Optional[bool] = Field(default=None, alias="x-enum-field-as-literal")  # noqa: UP045
-    description: Optional[str] = None  # noqa: UP045
-    title: Optional[str] = None  # noqa: UP045
+    x_enum_field_as_literal: Optional[bool] = Field(default=None, alias="x-enum-field-as-literal")
+    description: Optional[str] = None
+    title: Optional[str] = None
     example: Any = None
     examples: Any = None
     default: Any = None
-    id: Optional[str] = Field(default=None, alias="$id")  # noqa: UP045
-    anchor: Optional[str] = Field(default=None, alias="$anchor")  # noqa: UP045
-    custom_type_path: Optional[str] = Field(default=None, alias="customTypePath")  # noqa: UP045
+    id: Optional[str] = Field(default=None, alias="$id")
+    anchor: Optional[str] = Field(default=None, alias="$anchor")
+    custom_type_path: Optional[str] = Field(default=None, alias="customTypePath")
     custom_base_path: str | list[str] | None = Field(default=None, alias="customBasePath")
     is_boolean_schema_false: bool = Field(default=False, exclude=True)
     read_as_const: bool = Field(default=False, alias=_READ_AS_CONST_KEY)
     extras: dict[str, Any] = Field(alias=__extra_key__, default_factory=dict)
-    discriminator: Optional[Union[Discriminator, str]] = None  # noqa: UP007, UP045
+    discriminator: Optional[Union[Discriminator, str]] = None
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
         ignored_types=(cached_property,),
@@ -696,7 +697,7 @@ class JsonSchemaObject(BaseModel):  # noqa: PLR0904
         return has_items and "array" in self.type
 
     @cached_property
-    def ref_object_name(self) -> str:  # pragma: no cover
+    def ref_object_name(self) -> str:
         """Extract the object name from the reference path."""
         return (self.ref or "").rsplit("/", 1)[-1]
 
@@ -714,7 +715,6 @@ class JsonSchemaObject(BaseModel):  # noqa: PLR0904
 
         The parser checks a path again for the run's target where a model takes it as its base class.
         """
-        from datamodel_code_generator._format_types import NEWEST_TARGET  # noqa: PLC0415
         from datamodel_code_generator.validators import _validate_schema_python_import_path  # noqa: PLC0415
 
         match value:

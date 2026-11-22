@@ -38,6 +38,7 @@ Scope (deliberately narrow):
 import cmath
 import contextlib
 import math
+import time
 import warnings
 from collections import namedtuple
 from dataclasses import dataclass
@@ -59,6 +60,7 @@ from . import (
     _medium_spec,
     _near_interface,
     _nec2_end_cap,
+    _nec2_far_approx,
     _near_surface,
     _rotational_symmetry,
     _schedule,
@@ -90,6 +92,12 @@ from ._stable import expm1_neg_j_from_half as _expm1_neg_j_from_half
 from ._vec3 import norm3
 
 _HAVE_FIELD_TENSOR = _acc is not None and hasattr(_acc, "sinusoidal_field_tensor")
+# The opt-in `nec2_far_approx` (NEC-2's interaction approximation): the
+# reduced kernels with the far pairs lumped, and the overlay every other
+# kernel's tensors take (`_sinusoidal_far_core.cpp`).
+_HAVE_FIELD_TENSOR_FAR = _acc is not None and hasattr(
+    _acc, "sinusoidal_field_tensor_far"
+)
 # momwire#1222: the complex-k twin of `sinusoidal_field_tensor`, both shape
 # sets, per-observer radius. What the point-matched buried serve fills with.
 _HAVE_FIELD_TENSOR_CPLX = _acc is not None and hasattr(
@@ -432,6 +440,19 @@ _PHI_REDUCE_ACCEL = True
 _HAVE_PHI_REDUCE_ACCEL = _acc is not None and bool(
     getattr(_acc, "phi_reduce_1905", False)
 )
+
+
+# momwire#2069: the fill's rows with the contraction fused into the kernel
+# (`_acc.sinusoidal_fill_rows`), where the band would take the real-k C++
+# kernel at the literal shapes and `reduce_phi_band`'s sparse route: free
+# space or a PEC image, either kernel. Each observer row's Φ is computed into
+# one thread's buffer and contracted there, in `reduce_phi_band`'s order, so
+# no Φ band exists and Z's bits are the two-pass fill's
+# (`SinusoidalSolver._fused_fill_rows`). False takes the two-pass fill, the
+# reference the fused one is gated against bit for bit
+# (tests/test_sin_fill_rows_2069.py).
+_FILL_ROWS_ACCEL = True
+_HAVE_FILL_ROWS = _acc is not None and bool(getattr(_acc, "sin_fill_rows_2069", False))
 
 
 def _phi_reduce_takes(Phi, Ms, out):
@@ -1274,6 +1295,8 @@ class SinusoidalSolver(
         pair_reuse=None,
         rotational_symmetry=False,
         nec2_end_cap=None,
+        nec2_far_approx=None,
+        nec2_far_approx_range=None,
     ):
         # momwire#1644: which condition on charge a junction's basis functions
         # take. "nec2" (the default) is NEC-2's log rule at every segment end,
@@ -1383,6 +1406,7 @@ class SinusoidalSolver(
             point_cplx_staged=point_cplx_staged,
             pair_reuse=None if pair_reuse is None else bool(pair_reuse),
             nec2_end_cap=nec2_end_cap,
+            nec2_far_approx=nec2_far_approx,
         )
         # momwire#2033: NEC-2's free-end condition, a compatibility option
         # that changes the answer on purpose. None defers to
@@ -1422,6 +1446,24 @@ class SinusoidalSolver(
             pair_reuse == "verify"
         )
         self._pair_reuse_on = bound["pair_reuse"]
+        # NEC-2's interaction approximation (`_nec2_far_approx`): an
+        # approximate, opt-in fill. None defers to MOMWIRE_X_NEC2_FAR_APPROX
+        # (`_features`, reach 1, native); off is the fill, bit for bit, and
+        # `nec2_far_approx_range` (wavelengths; a deck's KH card) is then
+        # unread. On, the range defaults to NEC-2's own, 1 wavelength.
+        self._nec2_far_approx = bound["nec2_far_approx"]
+        self._far_suspended = False
+        self.nec2_far_approx_range = (
+            _nec2_far_approx.check_range(
+                _nec2_far_approx.DEFAULT_RANGE
+                if nec2_far_approx_range is None
+                else nec2_far_approx_range
+            )
+            if self._nec2_far_approx
+            else None
+        )
+        if self._nec2_far_approx and self.junction_rule != "nec2":
+            raise ValueError(_nec2_far_approx.NEC4_RULE_REFUSAL)
         self._sin_reuse_plans: dict = {}
         # Why the last fill did not reuse (None when it did, or was not asked),
         # the last fill's census per block, and verify's worst agreement.
@@ -3342,6 +3384,13 @@ class SinusoidalSolver(
         if self._nec4_live(geom):
             return self._nec4_field_tensor(geom, k, src_c, src_t, win, eta)
 
+        # The opt-in `nec2_far_approx`: its own branch, before any shipped
+        # one, so that with it off nothing below is touched.
+        if self._nec2_far_approx and not self._far_suspended:
+            return self._far_field_tensor(
+                geom, k, src_c, src_t, obs_rows, cos_shape, eta
+            )
+
         # `extended_kernel=True` has had its own C++ entry point since
         # momwire#245 — EKSCX rather than EKSC, taking the SOURCE radius and
         # the per-end gating codes as (N,) tables alongside the observer-side
@@ -3502,6 +3551,132 @@ class SinusoidalSolver(
         Phi_sin = td * cm["Ez_sin"] + rho_proj_factor * cm["Erho_sin"]
         Phi_cos = td * cm["Ez_cos"] + rho_proj_factor * cm["Erho_cos"]
         return Phi_const, Phi_sin, Phi_cos
+
+    def _far_range_m(self, k):
+        """`nec2_far_approx`'s range in metres at the fill's k: NEC-2's
+        wavelengths are the operating frequency's free-space ones."""
+        if _complex_k(k):
+            raise ValueError(_nec2_far_approx.BELOW_INTERFACE_REFUSAL)
+        return _nec2_far_approx.range_metres(self.nec2_far_approx_range, k)
+
+    def _shipped_tensor(self, fn, *args, **kwargs):
+        """`fn` (a field-tensor method) as the shipped fill computes it, with
+        `nec2_far_approx` held off for the call."""
+        self._far_suspended = True
+        try:
+            return fn(*args, **kwargs)
+        finally:
+            self._far_suspended = False
+
+    def _far_field_tensor(self, geom, k, src_c, src_t, obs_rows, cos_shape, eta):
+        """`_field_tensor` with NEC-2's interaction approximation
+        (`_nec2_far_approx`): a pair whose segment centres are more than the
+        range apart takes the lumped source's field. The reduced kernel at
+        the literal shapes has its own C++ twin, which skips the far pairs'
+        integrals (the speed); every other kernel's tensors are computed as
+        shipped and their far pairs overwritten (`_far_overlay`)."""
+        far_r = self._far_range_m(k)
+        if _HAVE_FIELD_TENSOR_FAR and not self.extended_kernel and cos_shape == "cos":
+            seg_c = geom["seg_centers"]
+            seg_t = geom["seg_tangents"]
+            seg_h = geom["seg_h"]
+            win = slice(None) if obs_rows is None else slice(*obs_rows)
+            gx, gw = self._leggauss_cached(self.n_qp_const)
+
+            def _call(rows, a):
+                return _acc.sinusoidal_field_tensor_far(
+                    np.ascontiguousarray(seg_c[rows], dtype=np.float64),
+                    np.ascontiguousarray(seg_t[rows], dtype=np.float64),
+                    np.ascontiguousarray(src_c, dtype=np.float64),
+                    np.ascontiguousarray(src_t, dtype=np.float64),
+                    np.ascontiguousarray(seg_h, dtype=np.float64),
+                    float(a),
+                    float(k),
+                    float(eta),
+                    np.ascontiguousarray(gx, dtype=np.float64),
+                    np.ascontiguousarray(gw, dtype=np.float64),
+                    far_r,
+                    self._cancel_flag,
+                )
+
+            if self._uniform_radius is not None:
+                return _call(win, self._uniform_radius)
+            parts = [
+                _call(slice(s, e), a) for s, e, a in self._radius_runs(geom, obs_rows)
+            ]
+            return tuple(
+                np.concatenate([p[i] for p in parts], axis=0) for i in range(3)
+            )
+        base = self._shipped_tensor(
+            self._field_tensor,
+            geom,
+            k,
+            src_centers=src_c,
+            src_tangents=src_t,
+            obs_rows=obs_rows,
+            cos_shape=cos_shape,
+            eta=eta,
+        )
+        return self._far_overlay(
+            base, geom, k, eta, src_c, src_t, obs_rows, cos_shape, far_r
+        )
+
+    def _far_overlay(
+        self, base, geom, k, eta, src_c, src_t, obs_rows, cos_shape, far_r, refl=None
+    ):
+        """`base`, a shipped kernel's three tensors on observer rows
+        `obs_rows` against sources `src_c`/`src_t`, with the far pairs'
+        lumped values written over them (`sinusoidal_far_overlay`). `refl`
+        is a reflection-coefficient image's (tables, eps_t): the lumped field
+        then takes the same Fresnel dyad."""
+        if not _HAVE_FIELD_TENSOR_FAR:
+            raise RuntimeError(
+                "nec2_far_approx needs the C++ accelerator, which is not loaded"
+            )
+        seg_c = geom["seg_centers"]
+        seg_t = geom["seg_tangents"]
+        seg_h = np.ascontiguousarray(geom["seg_h"], dtype=np.float64)
+        win = slice(None) if obs_rows is None else slice(*obs_rows)
+        obs_c = seg_c[win]
+        obs_t = seg_t[win]
+        i0 = 0 if obs_rows is None else obs_rows[0]
+        empty = np.zeros((0, 0))
+        if refl is None:
+            tabs, eps_t = None, 0j
+        else:
+            tabs, eps_t = refl
+
+        def _call(rel, a):
+            t = (
+                (empty,) * 5
+                if tabs is None
+                else tuple(np.ascontiguousarray(x[rel], dtype=np.float64) for x in tabs)
+            )
+            return _acc.sinusoidal_far_overlay(
+                *(np.ascontiguousarray(p[rel]) for p in base),
+                np.ascontiguousarray(obs_c[rel], dtype=np.float64),
+                np.ascontiguousarray(obs_t[rel], dtype=np.float64),
+                np.ascontiguousarray(src_c, dtype=np.float64),
+                np.ascontiguousarray(src_t, dtype=np.float64),
+                seg_h,
+                float(a),
+                float(k),
+                float(eta),
+                tabs is not None,
+                cos_shape == "cos-1",
+                *t,
+                complex(eps_t),
+                far_r,
+                self._cancel_flag,
+            )
+
+        if self._uniform_radius is not None:
+            return _call(slice(None), self._uniform_radius)
+        parts = [
+            _call(slice(s - i0, e - i0), a)
+            for s, e, a in self._radius_runs(geom, obs_rows)
+        ]
+        return tuple(np.concatenate([p[i] for p in parts], axis=0) for i in range(3))
 
     def _nec4_field_tensor(self, geom, k, src_c, src_t, win, eta):
         """`_field_tensor` under the NEC-4 kernel (momwire#1644), on the
@@ -5160,6 +5335,73 @@ class SinusoidalSolver(
         # so a banded fill pays it once rather than once per band.
         eps_t = ground.eps_tilde
 
+        # The opt-in `nec2_far_approx`, before any shipped branch: the
+        # reduced kernel's lumped twin, or the shipped tensors overlaid.
+        if self._nec2_far_approx and not self._far_suspended:
+            if not ground.standard_fresnel:
+                raise ValueError(_nec2_far_approx.NONSTANDARD_GROUND_REFUSAL)
+            far_r = self._far_range_m(k)
+            refl_tabs = (cos_th, px, py, tm_p, tn_p)
+            if (
+                _HAVE_FIELD_TENSOR_FAR
+                and not self.extended_kernel
+                and cos_shape == "cos"
+            ):
+                seg_h = geom["seg_h"]
+                gx, gw = self._leggauss_cached(self.n_qp_const)
+
+                def _call_far(rel_rows, a):
+                    return _acc.sinusoidal_field_tensor_refl_far(
+                        np.ascontiguousarray(obs_c[rel_rows], dtype=np.float64),
+                        np.ascontiguousarray(obs_t[rel_rows], dtype=np.float64),
+                        np.ascontiguousarray(src_c_img, dtype=np.float64),
+                        np.ascontiguousarray(src_t_img, dtype=np.float64),
+                        np.ascontiguousarray(seg_h, dtype=np.float64),
+                        float(a),
+                        float(k),
+                        float(eta),
+                        np.ascontiguousarray(gx, dtype=np.float64),
+                        np.ascontiguousarray(gw, dtype=np.float64),
+                        *(
+                            np.ascontiguousarray(x[rel_rows], dtype=np.float64)
+                            for x in refl_tabs
+                        ),
+                        complex(eps_t),
+                        far_r,
+                        self._cancel_flag,
+                    )
+
+                if self._uniform_radius is not None:
+                    return _call_far(slice(None), self._uniform_radius)
+                parts = [
+                    _call_far(slice(s - i0, e - i0), a)
+                    for s, e, a in self._radius_runs(geom, obs_rows)
+                ]
+                return tuple(
+                    np.concatenate([p[i] for p in parts], axis=0) for i in range(3)
+                )
+            base = self._shipped_tensor(
+                self._field_tensor_image_refl,
+                geom,
+                k,
+                obs_rows=obs_rows,
+                ground=ground,
+                cos_shape=cos_shape,
+                eta=eta,
+            )
+            return self._far_overlay(
+                base,
+                geom,
+                k,
+                eta,
+                src_c_img,
+                src_t_img,
+                obs_rows,
+                cos_shape,
+                far_r,
+                refl=(refl_tabs, eps_t),
+            )
+
         # `extended_kernel=True` has its own fused Fresnel kernel since
         # momwire#259 — EKSCX's E_z/E_ρ tables under the SAME dyad tail, which
         # is all the extended variant ever was: the Fresnel weighting rides on
@@ -6681,6 +6923,10 @@ class SinusoidalSolver(
         """
         # The operating point is (k, eta), both arguments (momwire#995).
         eta = self._fill_eta(k, eta)
+        if self._nec2_far_approx and (
+            self._is_mixed(geom) or self._active_medium is not None
+        ):
+            raise ValueError(_nec2_far_approx.BELOW_INTERFACE_REFUSAL)
         if self._is_mixed(geom):
             # Two media, three pair classes (momwire#1222) — the SG D2 shape
             # at one observer per segment.
@@ -6814,6 +7060,12 @@ class SinusoidalSolver(
         # Its plans cover the rows this fill fills and no others (the sector
         # route's are a 1/N subset), numbered as the row-compact G is.
         reuse = self._sin_pair_reuse_route(geom, k, cos_shape, fg, eta, obs_rows)
+        # momwire#2069: the band's kernel and reduction in one pass, or None.
+        fused = (
+            None
+            if reuse is not None
+            else self._fused_fill_rows(geom, k, eta, cos_shape, fg, (M_A, M_B, M_C))
+        )
 
         if obs_rows is None:
             spans = [(0, N)]
@@ -6838,6 +7090,12 @@ class SinusoidalSolver(
             ):
                 # momwire#1916: the classes gathered inside the reduction,
                 # the bits of the band below, no per-pair Φ materialised.
+                if obs_rows is not None:
+                    at += i1 - i0
+                continue
+            if fused is not None:
+                # The band below, fused: no Φ band (momwire#2069).
+                fused(i0, i1, G[local[0] : local[1]])
                 if obs_rows is not None:
                     at += i1 - i0
                 continue
@@ -6931,6 +7189,112 @@ class SinusoidalSolver(
         self._apply_loading(G, geom, seg_view, k, obs_rows=obs_rows)
         return G, seg_view
 
+    def _fused_fill_rows(self, geom, k, eta, cos_shape, fg, Ms):
+        """The band of `_assemble_Z_filled` with the reduction fused into the
+        kernel (momwire#2069): a callable `(i0, i1, out)` writing observer
+        rows `i0:i1` of Z into `out`, or None, the two-pass band.
+
+        Served exactly where the band would run the real-k C++ kernel at the
+        literal shapes (`_field_tensor`'s first two branches, either kernel)
+        and reduce through `_acc.reduce_phi_band` (sparse CSC `Ms`), in free
+        space or over a PEC image. A finite ground keeps the two-pass band:
+        its image term comes from the Fresnel tables or the Sommerfeld
+        remainder, built per band in numpy.
+
+        The bits are the band's. Its Φ entries are those kernels' own tile
+        functions at the observer's radius (the scalar `_field_tensor`
+        passes per radius run, here per row), the image is subtracted as
+        `Phi_c -= Phi_i[0]` subtracts it, and each Z element is then
+        `reduce_phi_band`'s chain over its column's stored entries. Since an
+        output element reads only its own observer row of Φ, holding one
+        row per thread is all the fusion changes: where Φ lives, not the
+        order anything is summed in.
+        """
+        if not (
+            _FILL_ROWS_ACCEL
+            and _HAVE_FILL_ROWS
+            and _PHI_REDUCE_ACCEL
+            and _HAVE_PHI_REDUCE_ACCEL
+        ):
+            return None
+        if self._nec4_live(geom) or cos_shape != "cos" or _complex_k(k):
+            return None
+        # `nec2_far_approx` lumps the far pairs inside `_field_tensor`, which
+        # the fused pass does not call: the two-pass band carries it.
+        if self._nec2_far_approx and not self._far_suspended:
+            return None
+        ek = bool(self.extended_kernel)
+        if not (_HAVE_FIELD_TENSOR_EK if ek else _HAVE_FIELD_TENSOR):
+            return None
+        for M in Ms:
+            if not isinstance(M, scipy.sparse.csc_matrix) or M.dtype != np.complex128:
+                return None
+        # Free space, or the plain mirrored image (PEC): `fg.image_field`'s
+        # unweighted arm, which `fold` alone does not tell from refl-coef.
+        if fg is not None and not (fg.mode == "fold" and not fg._weighted):
+            return None
+        N = geom["n_segs"]
+        if any(M.shape != (N, N) for M in Ms):
+            return None
+        eta = float(self._fill_eta(k, eta))
+        seg_c = np.ascontiguousarray(geom["seg_centers"], dtype=np.float64)
+        seg_t = np.ascontiguousarray(geom["seg_tangents"], dtype=np.float64)
+        seg_h = np.ascontiguousarray(geom["seg_h"], dtype=np.float64)
+        gx, gw = self._leggauss_cached(self.n_qp_const)
+        gx = np.ascontiguousarray(gx, dtype=np.float64)
+        gw = np.ascontiguousarray(gw, dtype=np.float64)
+        # The observer radius per row: the scalar `_field_tensor` hands each
+        # call, the uniform one or its constant-radius run's.
+        if self._uniform_radius is not None:
+            a_rows = np.full(N, float(self._uniform_radius))
+        else:
+            a_rows = np.empty(N, dtype=np.float64)
+            for s, e, a in self._radius_runs(geom):
+                a_rows[s:e] = a
+        if ek:
+            ind1, ind2 = self._ek_gating(geom)
+            src_a = np.ascontiguousarray(self._seg_radius(geom), dtype=np.float64)
+            ind1 = np.ascontiguousarray(ind1, dtype=np.int8)
+            ind2 = np.ascontiguousarray(ind2, dtype=np.int8)
+        else:
+            src_a = ind1 = ind2 = None
+        if fg is None:
+            img_c = img_t = None
+        else:
+            img_c, img_t = (
+                np.ascontiguousarray(x, dtype=np.float64)
+                for x in self._image_source_centers_tangents(geom)
+            )
+        csc = []
+        for M in Ms:
+            csc += [M.indptr, M.indices, M.data]
+        k = float(k)
+
+        def fill(i0, i1, out):
+            _acc.sinusoidal_fill_rows(
+                out,
+                seg_c[i0:i1],
+                seg_t[i0:i1],
+                a_rows[i0:i1],
+                seg_c,
+                seg_t,
+                img_c,
+                img_t,
+                seg_h,
+                k,
+                eta,
+                gx,
+                gw,
+                src_a,
+                ind1,
+                ind2,
+                *csc,
+                0,
+                self._cancel_flag,
+            )
+
+        return fill
+
     def _sin_pair_reuse_route(self, geom, k, cos_shape, fg, eta, obs_rows=None):
         """`pair_reuse` for one `_assemble_Z` fill (momwire#1911): a callable
         `(block, rows) -> (Φ_c, Φ_s, Φ_co)` serving the band from each
@@ -6979,7 +7343,10 @@ class SinusoidalSolver(
             reason = "the folded cos-1 shapes (k*delta below the well-scaled bound)"
         elif _complex_k(k) or self._active_medium is not None:
             reason = "a fill inside a ground medium"
-        elif not (_HAVE_FIELD_TENSOR_EK if ek else _HAVE_FIELD_TENSOR):
+        elif (
+            not (_HAVE_FIELD_TENSOR_EK if ek else _HAVE_FIELD_TENSOR)
+            or not _pr.HAVE_PLAN
+        ):
             reason = "no C++ field-tensor kernel"
         elif finite and fg.mode == "fold" and not fg.standard_fresnel:
             reason = "a reflection coefficient other than Fresnel's"
@@ -6999,6 +7366,8 @@ class SinusoidalSolver(
             )
         ):
             reason = f"too few segments to repay the plan (N < {small})"
+        elif self._nec2_far_approx and self._far_range_ties(geom, k, fg):
+            reason = _nec2_far_approx.TIES_DECLINE
         else:
             reason = None
         self.pair_reuse_declined = reason
@@ -7047,6 +7416,13 @@ class SinusoidalSolver(
             def glob(m):
                 return int(obs_rows[m])
 
+        # `nec2_far_approx`: the kernels below take its far pairs as the band
+        # path does (`_far_field_tensor`), decided on the pair the kernel is
+        # shown, so a class takes its representative's side of the range;
+        # `_far_range_ties` declined a deck where a member could differ.
+        far_r = self._far_range_m(k) if self._nec2_far_approx else None
+        no_tabs = (np.zeros((0, 0)),) * 5
+
         def kernel(obs_c, obs_t, src_c, src_t, h, a, ns=None):
             """The shipped kernel this fill would call, on given arrays;
             `ns` the source segments they stand for (EK's per-source
@@ -7065,21 +7441,36 @@ class SinusoidalSolver(
                 gw,
             )
             if ek:
-                return _acc.sinusoidal_field_tensor_ek(
+                phis = _acc.sinusoidal_field_tensor_ek(
                     *args,
                     np.ascontiguousarray(src_a[ns]),
                     np.ascontiguousarray(ind1[ns]),
                     np.ascontiguousarray(ind2[ns]),
                     self._cancel_flag,
                 )
+                if far_r is None:
+                    return phis
+                return _acc.sinusoidal_far_overlay(
+                    *phis,
+                    *args[:8],
+                    False,
+                    False,
+                    *no_tabs,
+                    0j,
+                    far_r,
+                    self._cancel_flag,
+                )
+            if far_r is not None:
+                return _acc.sinusoidal_field_tensor_far(*args, far_r, self._cancel_flag)
             return _acc.sinusoidal_field_tensor(*args, self._cancel_flag)
 
         origin = np.zeros((1, 3))
         axis = np.array([[0.0, 0.0, 1.0]])
 
         def canonical(src_c, src_t, ns, g_obs):
-            # One observer row at the origin along +z (`_sin_pair_reuse.
-            # canonical_sources`), each source its class representative's.
+            # One observer row at the origin along +z (the plan's canonical
+            # sources, `_sin_pair_reuse_core.cpp`), each source its class
+            # representative's.
             return kernel(origin, axis, src_c, src_t, seg_h[ns], ob_a[g_obs], ns)
 
         # The census transient: ~20 float64/int64 per pair in a band.
@@ -7138,48 +7529,31 @@ class SinusoidalSolver(
                 plan = held[1]
             else:
                 # The process's cache, not only this solver's: a solver per
-                # frequency (the portal) finds the first one's classes. The
-                # band height is in the key because the class numbering
-                # follows the bands, and a renumbered plan can move Z an ulp.
+                # frequency (the portal) finds the first one's classes. Its
+                # key is every array the census reads, the band height
+                # included, because the class numbering follows the bands
+                # and a renumbered plan can move Z an ulp.
                 if block == "reflected":
-
-                    def build():
-                        return _pr.build_ground_plan(
-                            ob_c,
-                            ob_t,
-                            src_c,
-                            src_t,
-                            gz,
-                            seg_h,
-                            ob_a,
-                            g_src_type,
-                            g_obs_type,
-                            census_rows,
-                            src_rev=g_src_rev,
-                            obs_rev=g_obs_rev,
-                            budget=budget,
-                        )
-
+                    args = (
+                        ob_c,
+                        ob_t,
+                        src_c,
+                        src_t,
+                        seg_h,
+                        ob_a,
+                        g_src_type,
+                        g_obs_type,
+                    )
+                    revs = dict(src_rev=g_src_rev, obs_rev=g_obs_rev, ground_z=gz)
                 else:
-
-                    def build():
-                        return _pr.build_plan(
-                            ob_c,
-                            ob_t,
-                            src_c,
-                            src_t,
-                            seg_h,
-                            ob_a,
-                            src_type,
-                            ob_type,
-                            census_rows,
-                            src_rev=src_rev,
-                            budget=budget,
-                        )
-
-                plan = _pr.shared_plan(
-                    (*key, census_rows), _fill_report.timed_census(self, build)
+                    args = (ob_c, ob_t, src_c, src_t, seg_h, ob_a, src_type, ob_type)
+                    revs = dict(src_rev=src_rev)
+                t0 = time.perf_counter()
+                plan, built = _pr.shared(
+                    block, *args, census_rows, budget=budget, **revs
                 )
+                if built:
+                    _fill_report.ledger_of(self).census_s += time.perf_counter() - t0
                 self._sin_reuse_plans[block] = (key, plan)
             if plan is _pr.OVER_BUDGET:
                 return plan, src_c, src_t
@@ -7250,7 +7624,7 @@ class SinusoidalSolver(
                 )
                 tabs = (cos_th, px, py, tm_p, tn_p)
                 if ek:
-                    return _acc.sinusoidal_field_tensor_ek_refl(
+                    phis = _acc.sinusoidal_field_tensor_ek_refl(
                         *args,
                         src_a[ns],
                         ind1[ns],
@@ -7258,6 +7632,23 @@ class SinusoidalSolver(
                         *tabs,
                         complex(fg.eps_tilde),
                         self._cancel_flag,
+                    )
+                    if far_r is None:
+                        return phis
+                    return _acc.sinusoidal_far_overlay(
+                        *phis,
+                        *(np.ascontiguousarray(x) for x in args[:5]),
+                        *args[5:8],
+                        True,
+                        False,
+                        *(np.ascontiguousarray(x) for x in tabs),
+                        complex(fg.eps_tilde),
+                        far_r,
+                        self._cancel_flag,
+                    )
+                if far_r is not None:
+                    return _acc.sinusoidal_field_tensor_refl_far(
+                        *args, *tabs, complex(fg.eps_tilde), far_r, self._cancel_flag
                     )
                 return _acc.sinusoidal_field_tensor_refl(
                     *args, *tabs, complex(fg.eps_tilde), self._cancel_flag
@@ -7359,6 +7750,21 @@ class SinusoidalSolver(
         )
         return serve
 
+    def _far_range_ties(self, geom, k, fg):
+        """Whether any pair this fill's reuse would class has a centre
+        distance equal to `nec2_far_approx`'s range to rounding
+        (`_nec2_far_approx.TIE_REL`), direct or, over a ground, image: the
+        pairs whose side of the range a class representative could decide
+        for a member that the band path decides the other way."""
+        far_r = self._far_range_m(k)
+        seg_c = geom["seg_centers"]
+        if _nec2_far_approx.ties(_acc, seg_c, seg_c, far_r):
+            return True
+        if fg is None:
+            return False
+        img_c, _ = self._image_source_centers_tangents(geom)
+        return bool(_nec2_far_approx.ties(_acc, seg_c, img_c, far_r))
+
     def _fill_report_end(self, ledger):
         """What the fill that just ended served of `pair_reuse`
         (momwire#2016): the plans `_sin_pair_reuse_route` handed it, or the
@@ -7388,7 +7794,7 @@ class SinusoidalSolver(
             census_peak_bytes=max((p.census_peak_bytes or 0) for p in plans.values()),
         )
         ledger.last = (
-            {block: _fill_report.plan_ref(p) for block, p in plans.items()},
+            {block: p.handle.ref() for block, p in plans.items()},
             obs_rows,
         )
 
@@ -7398,24 +7804,18 @@ class SinusoidalSolver(
         if ledger.last is None or _acc is None:
             return {"unavailable": _fill_report.PLAN_GONE}
         refs, obs_rows = ledger.last
-        plans = [ref() for ref in refs.values()]
-        if any(plan is None for plan in plans):
+        if not all(ref.alive for ref in refs.values()):
             return {"unavailable": _fill_report.PLAN_GONE}
         sizes = np.diff(self._seg_offsets(self._build_geometry()))
         n_wires = int(sizes.size)
         wire_of = np.repeat(np.arange(n_wires, dtype=np.int32), sizes)
         wire_of_row = wire_of if obs_rows is None else wire_of[obs_rows]
         counts = np.zeros((n_wires, n_wires, 3), dtype=np.int64)
-        for plan in plans:
-            counts += _acc.fill_report_wire_map(
-                plan.cls,
-                plan.code_bits,
-                plan.near_flat,
-                wire_of_row,
-                wire_of,
-                plan.n_classes,
-                n_wires,
-            )
+        for ref in refs.values():
+            got = ref.wire_map(wire_of_row, wire_of, n_wires)
+            if got is None:
+                return {"unavailable": _fill_report.PLAN_GONE}
+            counts += got
         dedup = getattr(self, "_wire_dedup", None)
         labels = _fill_report.wire_labels(
             n_wires, None if dedup is None else dedup.kept

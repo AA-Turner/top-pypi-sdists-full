@@ -116,10 +116,12 @@ Decisions:
       USER-DECISIONS.jsonl answer; on a miss the project's earlier transcripts are searched (64 MiB,
       newest first). Why: a teammate or task message reads like the user and is not; handovers cite
       approvals from the session before. With no transcript and no decision log readable a quote
-      passes unverified. Pinned by: tests/test_approval_claim_guard.py::test_a_quote_only_a_teammate_sent_is_not_the_users_words,
+      passes unchecked, with an advisory saying so (user decision 2026-11-21: let it through with a
+      notice, not a refusal). Pinned by: tests/test_approval_claim_guard.py::test_a_quote_only_a_teammate_sent_is_not_the_users_words,
       tests/test_approval_claim_guard.py::test_a_quote_typed_in_an_earlier_session_of_the_project_passes,
       tests/test_approval_claim_guard.py::test_an_unchosen_ask_user_question_option_is_not_the_users_words,
-      tests/test_approval_claim_guard.py::test_a_quote_passes_unverified_when_no_transcript_is_readable
+      tests/test_approval_claim_guard.py::test_an_unchecked_quote_passes_with_a_notice_naming_both_missing_sources,
+      tests/test_approval_claim_guard.py::test_backlog_add_passes_an_unchecked_quote_with_the_notice
     - A plan approved in plan mode (ExitPlanMode's success result) counts when the entry names the
       plan's file. Why: the approval is a click, so there are no words to quote. Pinned by:
       tests/test_approval_claim_guard.py::test_a_plan_approved_in_plan_mode_passes_when_the_entry_names_its_file,
@@ -143,9 +145,13 @@ Decisions:
       tests/test_approval_claim_guard.py::test_a_commit_message_file_with_a_paraphrase_is_refused_without_echoing_it
     - The backlog_add tool is judged in mod_bridge.py. Why: probed 2026-11-20 on CLI 2.1.329, a
       settings PreToolUse/PostToolUse hook matching mcp__bitranox__backlog_list never fired while a
-      Bash hook in the same settings did. The bridge finds the transcript by CLAUDE_CODE_SESSION_ID;
-      whether the mod process inherits it was not measured, and without it a quote passes
-      unverified. Pinned by: tests/test_approval_claim_guard.py::test_backlog_add_refuses_a_bare_paraphrase
+      Bash hook in the same settings did. The bridge finds the transcript by the session id the
+      mod passes on stdin beside the input (`$.session.id()`). Why: the claude process carries no
+      CLAUDE_CODE_SESSION_ID (only its Bash-tool children do; measured 2026-11-21), so the bridge
+      it starts never had one, and with a decision log readable but no transcript a quote the user
+      typed was refused as never typed. Pinned by:
+      tests/test_approval_claim_guard.py::test_backlog_add_refuses_a_bare_paraphrase,
+      tests/test_approval_claim_guard.py::test_backlog_add_finds_the_typed_quote_through_the_session_id_on_stdin
     - A shell command's OPEN-WORK.md and handover.md candidates come from their own function,
       `approval_candidates`, and `candidates` keeps finding review logs only; `shell_candidates`
       joins the two for the Bash snapshot and judge. A path the command names goes through
@@ -172,8 +178,10 @@ import json
 import os
 import re
 import sys
+from collections.abc import Sequence
 from pathlib import Path
 
+from hook_event import EditEntry, PostToolUseEvent, ToolInput, parse_post_tool_use
 import approval_claims
 import claude_paths
 import shell_text
@@ -290,7 +298,7 @@ def _read(path: Path) -> str | None:
         return None
 
 
-def _apply_edits(text: str, edits: list[dict]) -> tuple[str, str]:
+def _apply_edits(text: str, edits: Sequence[EditEntry]) -> tuple[str, str]:
     """(old text, new text) for the edits; an edit whose old_string is absent judges new_string alone."""
     new = text
     for edit in edits:
@@ -302,11 +310,12 @@ def _apply_edits(text: str, edits: list[dict]) -> tuple[str, str]:
     return text, new
 
 
-def _proposed(tool_input: dict, current: str, tool: str) -> tuple[str, str]:
+def _proposed(tool_input: ToolInput, current: str, tool: str | None) -> tuple[str, str]:
     if tool == "Write":
         return current, str(tool_input.get("content") or "")
-    edits = tool_input.get("edits") if tool == "MultiEdit" else [tool_input]
-    return _apply_edits(current, [e for e in edits or [] if isinstance(e, dict)])
+    # parse_tool_input already dropped every `edits` element that is not an object
+    edits: Sequence[EditEntry] = (tool_input.get("edits") or []) if tool == "MultiEdit" else [tool_input]
+    return _apply_edits(current, edits)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -317,11 +326,12 @@ class Outcome:
     advice: str | None = None
 
 
-def _event_cwd(event: dict) -> Path | None:
-    return Path(event["cwd"]) if isinstance(event.get("cwd"), str) else None
+def _event_cwd(event: PostToolUseEvent) -> Path | None:
+    cwd = event.get("cwd")
+    return Path(cwd) if cwd is not None else None
 
 
-def _words(event: dict, logs: list[Path]) -> approval_claims.WordSource:
+def _words(event: PostToolUseEvent, logs: list[Path]) -> approval_claims.WordSource:
     raw = event.get("transcript_path")
     return approval_claims.WordSource(Path(raw) if isinstance(raw, str) and raw else None, logs)
 
@@ -348,7 +358,7 @@ def _judge_review(text: str, before: collections.Counter[str], path: Path, cwd: 
     return [explain(p, logs, str(path)) for p in problems]
 
 
-def _judge_target(text: str, before: collections.Counter[str], path: Path, event: dict) -> Outcome:
+def _judge_target(text: str, before: collections.Counter[str], path: Path, event: PostToolUseEvent) -> Outcome:
     flagged = triggered_entries(text, before, approval_claims.APPROVAL)
     if not flagged:
         return Outcome()
@@ -356,7 +366,7 @@ def _judge_target(text: str, before: collections.Counter[str], path: Path, event
     return judge_approvals(flagged, logs, _words(event, logs), str(path))
 
 
-def on_write(event: dict) -> Outcome:
+def on_write(event: PostToolUseEvent) -> Outcome:
     tool_input = event.get("tool_input") or {}
     raw = tool_input.get("file_path")
     if not isinstance(raw, str) or not (_is_review(raw) or approval_claims.is_target(raw)):
@@ -385,7 +395,7 @@ def _commit_sweep():
     return sys.modules[name]
 
 
-def on_commit(event: dict) -> Outcome:
+def on_commit(event: PostToolUseEvent) -> Outcome:
     """Judge the approval claims in the messages a git command passes inline or by -F file."""
     command = (event.get("tool_input") or {}).get("command")
     if not isinstance(command, str) or not _GIT_MESSAGE.search(command):
@@ -434,7 +444,7 @@ def _work_roots(cwd: Path) -> list[Path]:
     return [cwd]
 
 
-def candidates(event: dict, *, os_name: str = os.name) -> list[Path]:
+def candidates(event: PostToolUseEvent, *, os_name: str = os.name) -> list[Path]:
     """Review logs a shell command may have written: at the work roots and any path it names.
 
     A path the command names is a word of its shell, so it is read the way that shell reads it
@@ -461,7 +471,7 @@ def candidates(event: dict, *, os_name: str = os.name) -> list[Path]:
     return unique[:8]
 
 
-def approval_candidates(event: dict, *, os_name: str = os.name) -> list[Path]:
+def approval_candidates(event: PostToolUseEvent, *, os_name: str = os.name) -> list[Path]:
     """Backlogs and handovers a shell command may have written: at the work roots and any it names.
 
     Kept apart from `candidates` (the review-log reader) so the two rules can change separately.
@@ -483,7 +493,7 @@ def approval_candidates(event: dict, *, os_name: str = os.name) -> list[Path]:
     return list(dict.fromkeys(found))[:8]
 
 
-def shell_candidates(event: dict) -> list[Path]:
+def shell_candidates(event: PostToolUseEvent) -> list[Path]:
     """Every watched file a shell command may have written: review logs, then approval files."""
     return list(dict.fromkeys(candidates(event) + approval_candidates(event)))
 
@@ -521,7 +531,7 @@ def _save_state(path: Path, signature: list[int] | None, text: str) -> None:
         pass
 
 
-def on_shell_pre(event: dict) -> None:
+def on_shell_pre(event: PostToolUseEvent) -> None:
     """Record each candidate log as it is before the command runs (re-read only when it changed)."""
     for path in shell_candidates(event):
         signature = _signature(path)
@@ -533,7 +543,7 @@ def on_shell_pre(event: dict) -> None:
             _save_state(path, signature, text)
 
 
-def on_shell_post(event: dict) -> Outcome:
+def on_shell_post(event: PostToolUseEvent) -> Outcome:
     """Judge the lines the command added to each candidate file; store the new state either way."""
     cwd = _event_cwd(event)
     messages, advice = [], []
@@ -564,10 +574,10 @@ def on_shell_post(event: dict) -> Outcome:
 
 def main() -> int:
     try:
-        event = json.load(sys.stdin)
+        event = parse_post_tool_use(json.load(sys.stdin))
     except Exception:  # noqa: BLE001 - no or invalid stdin: nothing to judge
         return 0
-    if not isinstance(event, dict):
+    if event is None:
         return 0
     tool, hook = event.get("tool_name"), event.get("hook_event_name")
     if hook == "PreToolUse" and tool in _WRITE_TOOLS:

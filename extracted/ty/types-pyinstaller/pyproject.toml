@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-pyinstaller"
-version = "6.22.1.20260827"
+version = "6.22.1.20261122"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for pyinstaller"
@@ -29,13 +29,13 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://www.mypy-lang.org/) 2.3.0
-* [pyrefly](https://pyrefly.org/) 1.3.0.dev1
-* [pyright](https://microsoft.github.io/pyright/) 1.1.411
-* [ty](https://docs.astral.sh/ty/) 0.0.59
+* [mypy](https://www.mypy-lang.org/) 2.4.1
+* [pyrefly](https://pyrefly.org/) 1.4.1
+* [pyright](https://microsoft.github.io/pyright/) 1.1.414
+* [ty](https://docs.astral.sh/ty/) 0.0.104
 
 It was generated from typeshed commit
-[`c10142fb9463b1dd0c581d3f08f4c01c5c08a09e`](https://github.com/python/typeshed/commit/c10142fb9463b1dd0c581d3f08f4c01c5c08a09e).
+[`567e5e3e4276a6b05127b6347d80f809d123e35e`](https://github.com/python/typeshed/commit/567e5e3e4276a6b05127b6347d80f809d123e35e).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
@@ -54,9 +54,9 @@ dependencies = []
 "Chat" = "https://gitter.im/python/typing"
 
 [tool.setuptools]
-packages = ['PyInstaller-stubs', 'pyi_splash-stubs']
+packages = ['pyi_splash-stubs', 'PyInstaller-stubs']
 include-package-data = false
 
 [tool.setuptools.package-data]
-'PyInstaller-stubs' = ['__init__.pyi', '__main__.pyi', 'building/__init__.pyi', 'building/api.pyi', 'building/build_main.pyi', 'building/datastruct.pyi', 'building/splash.pyi', 'compat.pyi', 'depend/__init__.pyi', 'depend/analysis.pyi', 'depend/imphookapi.pyi', 'isolated/__init__.pyi', 'isolated/_parent.pyi', 'lib/__init__.pyi', 'lib/modulegraph/__init__.pyi', 'lib/modulegraph/modulegraph.pyi', 'utils/__init__.pyi', 'utils/hooks/__init__.pyi', 'utils/hooks/conda.pyi', 'utils/hooks/tcl_tk.pyi', 'utils/win32/versioninfo.pyi', 'METADATA.toml', 'py.typed']
 'pyi_splash-stubs' = ['__init__.pyi', 'METADATA.toml', 'py.typed']
+'PyInstaller-stubs' = ['__init__.pyi', '__main__.pyi', 'building/__init__.pyi', 'building/api.pyi', 'building/build_main.pyi', 'building/datastruct.pyi', 'building/splash.pyi', 'compat.pyi', 'depend/__init__.pyi', 'depend/analysis.pyi', 'depend/imphookapi.pyi', 'isolated/__init__.pyi', 'isolated/_parent.pyi', 'lib/__init__.pyi', 'lib/modulegraph/__init__.pyi', 'lib/modulegraph/modulegraph.pyi', 'utils/__init__.pyi', 'utils/hooks/__init__.pyi', 'utils/hooks/conda.pyi', 'utils/hooks/tcl_tk.pyi', 'utils/win32/versioninfo.pyi', 'METADATA.toml', 'py.typed']

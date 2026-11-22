@@ -13,6 +13,8 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  merge_group:
+    types: [ checks_requested ]
   schedule:
     - cron: "0 11 * * 4"
 
@@ -33,6 +35,7 @@ jobs:
       security-events: write
 
   pre-commit:
+    needs: [ zizmor ]
     uses: ./.github/workflows/step_pre-commit.yml
 
   static-analysis:
@@ -47,19 +50,19 @@ jobs:
     uses: ./.github/workflows/step_coverage.yml
 
   test-pip:
-    needs: [ zizmor, pre-commit, coverage ]
+    needs: [ zizmor, pre-commit ]
     uses: ./.github/workflows/step_tests-pip.yml
 
   test-conda:
-    needs: [ zizmor, pre-commit, coverage ]
+    needs: [ zizmor, pre-commit ]
     uses: ./.github/workflows/step_tests-conda.yml
 
   test-ui:
-    needs: [ zizmor, pre-commit, coverage ]
+    needs: [ zizmor, pre-commit ]
     uses: ./.github/workflows/step_tests-ui.yml
 
   build:
-    needs: [ zizmor, pre-commit, coverage ]
+    needs: [ zizmor, pre-commit ]
     uses: ./.github/workflows/step_build.yml
     with:
       upload: ${{ inputs.upload-build-artifacts || false }}
@@ -76,5 +79,4 @@ jobs:
       - uses: re-actors/alls-green@b5b5b37504aa4183270bd3d855c52a67f212be35 # v1.3.0
         with:
           jobs: ${{ toJSON(needs) }}
-          allowed-skips: coverage
     if: always()

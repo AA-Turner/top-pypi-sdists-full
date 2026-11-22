@@ -1,6 +1,6 @@
 [project]
 name = "autoware-carla-scenario"
-version = "28.1.47"
+version = "28.3.5"
 description = "CARLA scenario testing framework for Autoware"
 readme = "README.md"
 license = "Apache-2.0"
@@ -42,6 +42,7 @@ dependencies = [
     "grpcio>=1.60",
     "protobuf>=4.25.0,<8",
     "orjson>=3.13.0",
+    "sentry-sdk>=2.20",
 ]
 
 [[project.authors]]
@@ -61,9 +62,9 @@ sumo = [
     "libsumo>=1.23",
     "sumolib>=1.23",
     "traci>=1.23",
-    "roadgen>=0.42.0",
+    "roadgen>=0.45.0",
 ]
-map = ["roadgen>=0.42.0"]
+map = ["roadgen>=0.45.0"]
 ros2 = ["cyclonedds>=11.0.1; sys_platform == 'linux' and platform_machine == 'x86_64' and python_version < '3.14'"]
 rerun = [
     "autoware-carla-scenario-rerun>=0.3,<0.4",

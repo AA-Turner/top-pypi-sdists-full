@@ -354,7 +354,12 @@ class AsyncAnyAPI:
         except ValueError:
             body = None
         if response.status_code != 200:
-            raise _account.map_error(response.status_code, body, request_id)
+            raise _account.map_error(
+                response.status_code,
+                body,
+                request_id,
+                _transport.whole_retry_after(response),
+            )
         return body
 
     async def balance(self) -> Balance:

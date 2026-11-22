@@ -129,8 +129,19 @@ LEVELS: tuple[Level, ...] = (
     ),
     Level("exe-nec42-bspline", "the nec42-bspline executable, all platforms"),
     Level("exe-nec42-sinusoidal", "the nec42-sinusoidal executable, all platforms"),
+    Level(
+        "exe-nec2c-sinusoidal",
+        "the nec2c-sinusoidal executable (the NEC-2 portal), all platforms",
+    ),
 )
 DEEPEST = len(LEVELS)
+
+# Features an executable runs as its launcher's own default although the
+# feature's reach is short of that executable's level: {feature: level id}.
+# Each is a maintainer's named exception, recorded in the feature's entry
+# with the gate that certifies it on that executable; the executables' main
+# (`feature_runs_here`, under its dialect) carries exactly these.
+EXE_LAUNCHER_DEFAULTS: dict[str, str] = {"nec2_end_cap": "exe-nec2c-sinusoidal"}
 
 
 def _level(level_id: str) -> int:
@@ -236,11 +247,12 @@ FEATURES: dict[str, Feature] = {
         # takes `pair_reuse=` and MOMWIRE_X_PAIR_REUSE turns on the reuse it
         # supports. Their own keywords and variables are kept as aliases.
         #
-        # The sinusoidal part is ported to the C++ fill
-        # (`_sin_pair_reuse_core.h`), which the nec42-sinusoidal executable
-        # runs: Python's plan to the byte. It has no EXE_FEATURES row, so the
-        # shipped executables refuse it; a certification build
-        # (MW_EXE_CERTIFY=pair_reuse) runs it for the gates.
+        # The sinusoidal part's plan is one C++ copy on the common reuse core
+        # (`_sin_pair_reuse_core.h`, momwire#2063), which the Python route
+        # and the C++ fill (the nec42-sinusoidal executable) both run. It has
+        # no EXE_FEATURES row, so the shipped executables refuse it; a
+        # certification build (MW_EXE_CERTIFY=pair_reuse) runs it for the
+        # gates.
         #
         # Reach 4, `dropin-linux-windows` (Steve, 2026-11-19; it was reach 1,
         # the hosted app only, from 11-04): certified for every Python route
@@ -707,6 +719,8 @@ FEATURES: dict[str, Feature] = {
             paths=(
                 "src/momwire/_razor_pair_reuse_core.cpp",
                 "src/momwire/_razor_pair_reuse_core.h",
+                "src/momwire/_pair_reuse_core.cpp",
+                "src/momwire/_pair_reuse_core.h",
                 "tests/test_razor_pair_reuse_1971.py",
             ),
             label="razor pair reuse",
@@ -848,8 +862,17 @@ FEATURES: dict[str, Feature] = {
         # default identical to =1; the synthetic decks above at nec2c's five
         # printed figures) and the W8IO whip and log-periodic Yagi (the
         # default's Z identical to =1, timing unchanged). Python-kind, so the
-        # macOS drop-in (level 5) still runs it, uncertified. No executable
-        # carries it: reach 4 is short of the first executable level.
+        # macOS drop-in (level 5) still runs it, uncertified.
+        #
+        # One executable carries it by NAMED EXCEPTION (Steve, 2026-11-20,
+        # momwire#2065): the nec2c-sinusoidal executable (level 11) runs it as
+        # its launcher's own default, as the Python launcher does, certified
+        # by the same corpus gate run against that launcher (the 71 nec_portal
+        # decks: 69 byte-identical with the cap at its default, =0 and =1, the
+        # 2 GN 0 decks refused by name, 0 differing; tests/test_standalone_
+        # nec2c.py). Reach stays 4: reach is one number, so raising it to 11
+        # would certify levels 5..10 (the macOS drop-in among them) on no
+        # evidence. :data:`EXE_LAUNCHER_DEFAULTS` records the exception.
         Feature(
             name="nec2_end_cap",
             reach=4,
@@ -871,6 +894,59 @@ FEATURES: dict[str, Feature] = {
                 "model of a real wire end."
             ),
             drift=1.0,
+            offer=True,
+        ),
+        # NEC-2's interaction approximation (`_nec2_far_approx`): a pair whose
+        # segment centres are more than the range apart (1 wavelength, NEC-2's
+        # default, or a deck's KH card, which the NEC-2 reader accepts only
+        # with this on) takes the source segment's current lumped into a
+        # dipole at its centre. APPROXIMATE, so never on by default anywhere:
+        # it trades the answer's last digits for a cheaper fill
+        # (`_sinusoidal_far_core.cpp`), and moves momwire-nec2c-sinusoidal
+        # toward NEC-2 engines on the decks where they apply it. NEC-2
+        # dialect only: the NEC-4 junction rule and buried or crossing wires
+        # refuse. Native (a new C++ kernel), reach 1: certified on Linux avx2
+        # Python only, so the drop-in route (level 4) refuses it.
+        #
+        # `drift` 1e-3, a declared bound above everything measured
+        # (2026-11-20, Linux avx2, the port admittances on against off at
+        # NEC-2's 1 wavelength): 1.3e-4 at most, on a 1049-segment raised
+        # whip with radials over a Fresnel ground; 2e-5 to 9e-5 on the same
+        # family at 1049-4387 segments in free space, over PEC and over
+        # Sommerfeld; 5.4e-5 at most over the 71 nec_portal decks, 13 of
+        # which have a pair beyond the range; 1.2e-6 on a 688-segment
+        # log-periodic. OpenNEC's own approximation moved a 5,000-segment
+        # whip's Z by 5.1e-4. On those decks, with the NEC-2 launcher's
+        # settings, momwire then reads nec2c's five printed figures.
+        #
+        # Stage 1 of momwire#2082: the Python route at reach 1. Its follow-ups
+        # (reach, the nec2c executable, the EK and folded speed-ups,
+        # antennaknobs' importer) are listed there.
+        Feature(
+            name="nec2_far_approx",
+            reach=1,
+            env="MOMWIRE_X_NEC2_FAR_APPROX",
+            solvers=("sinusoidal",),
+            kind="native",
+            issue=2082,
+            since="2026-11-20",
+            kwarg="nec2_far_approx",
+            paths=(
+                "src/momwire/_nec2_far_approx.py",
+                "src/momwire/_sinusoidal_far_core.cpp",
+                "src/momwire/_sinusoidal_far_core.h",
+                "src/momwire/_accel_sinusoidal_far.cpp",
+                "tests/test_nec2_far_approx.py",
+            ),
+            label="NEC-2 far-pair approximation",
+            summary=(
+                "Uses NEC-2's interaction approximation: segment pairs more "
+                "than a wavelength apart (or a deck's KH range) are filled "
+                "from a lumped current, as NEC-2 does. A faster fill on large "
+                "decks, and closer to NEC-2 engines there, at the cost of the "
+                "answer's last digits."
+            ),
+            drift=1e-3,
             offer=True,
         ),
     )
@@ -1119,6 +1195,8 @@ _EXE_BASES = {
     "bspline_nec42": "nec42-bspline",
     "nec42-sinusoidal": "nec42-sinusoidal",
     "sin42": "nec42-sinusoidal",
+    "nec2c-sinusoidal": "nec2c-sinusoidal",
+    "nec2c_sin": "nec2c-sinusoidal",
 }
 
 
@@ -1158,6 +1236,8 @@ _BASIS_SOLVERS = {
     "sinusoidal": "sinusoidal",
     "nec42-sinusoidal": "sinusoidal",
     "sin42": "sinusoidal",
+    "nec2c-sinusoidal": "sinusoidal",
+    "nec2c_sin": "sinusoidal",
     "sinusoidal-galerkin": "sinusoidal_galerkin",
     "pulse": "",
 }

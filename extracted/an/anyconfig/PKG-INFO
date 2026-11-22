@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: anyconfig
-Version: 0.16.0
+Version: 0.16.1
 Summary: Library provides common APIs to load and dump configuration files in various formats
 Author-email: Satoru SATOH <satoru.satoh@gmail.com>
 Maintainer-email: Satoru SATOH <satoru.satoh@gmail.com>
@@ -17,11 +17,12 @@ Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Environment :: Console
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development :: Libraries :: Python Modules

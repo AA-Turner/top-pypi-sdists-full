@@ -44,12 +44,16 @@ mod docx;
 mod docx_chain_parity;
 mod docx_drawingml;
 mod docx_hidden;
+#[cfg(test)]
+mod docx_sync_tests;
 mod docx_tree;
 #[cfg(test)]
 mod docx_upstream_unit;
 mod dos_codepage;
 mod ebcdic;
 mod email;
+#[cfg(test)]
+mod email_sync_tests;
 pub(crate) mod epub;
 pub mod feed;
 mod html;
@@ -62,6 +66,8 @@ pub(crate) mod iwork;
 mod iwork_cells;
 mod iwork_charts;
 pub(crate) mod jats;
+#[cfg(test)]
+mod jats_sync_tests;
 mod keynote;
 mod keynote_iwa;
 mod keynote_xml;
@@ -93,6 +99,9 @@ mod palmdoc;
 mod ppt;
 mod pptx;
 mod pptx_chart;
+mod pptx_chartex;
+#[cfg(test)]
+mod pptx_sync_tests;
 #[cfg(test)]
 mod pptx_upstream_unit;
 mod print_file;
@@ -120,6 +129,8 @@ mod wpd;
 mod wps;
 pub(crate) mod xbrl;
 mod xbrl_dts;
+mod xbrl_inline;
+pub(crate) use xbrl_inline::is_ixbrl;
 mod xls;
 mod xlsx;
 mod xlsx_drawings;

@@ -174,10 +174,44 @@ def test_a_quote_typed_in_an_earlier_session_of_the_project_passes(repo, transcr
     assert (r.returncode, r.stderr) == (0, ""), r
 
 
-def test_a_quote_passes_unverified_when_no_transcript_is_readable(repo, tmp_path):
+# With neither a transcript nor a decision log readable the quote cannot be checked. It still
+# passes (user decision 2026-11-21: let it through, with a notice), but the reader is told so.
+_UNCHECKED = "passed unchecked"
+
+
+def _says_unchecked(text):
+    """True when `text` carries the notice naming both sources that could not be read."""
+    return _UNCHECKED in text and "session transcript" in text and "USER-DECISIONS.jsonl" in text
+
+
+def test_an_unchecked_quote_passes_with_a_notice_naming_both_missing_sources(repo, tmp_path):
     entry = _ITEM % 'the user approved the merge ("anything at all")'
     r = _run(_write(repo / "OPEN-WORK.md", entry, tmp_path / "missing.jsonl"), tmp_path)
     assert (r.returncode, r.stderr) == (0, ""), r
+    assert _says_unchecked(_advice(r)), r
+
+
+def test_an_unchecked_quote_in_a_commit_message_passes_with_the_notice(repo, tmp_path):
+    msg = repo / "msg.txt"
+    msg.write_text('Merge topic\n\nThe user approved the merge ("anything at all").\n', encoding="utf-8")
+    r = _run(_bash("PreToolUse", repo, _commit_f(msg), tmp_path / "missing.jsonl"), tmp_path)
+    assert (r.returncode, r.stderr) == (0, ""), r
+    assert _says_unchecked(_advice(r)), r
+
+
+def test_a_quote_checked_against_the_decision_log_alone_carries_no_notice(repo, tmp_path):
+    _log(repo)
+    entry = _ITEM % 'the user approved the layout ("%s")' % _CHOSEN["label"]
+    r = _run(_write(repo / "OPEN-WORK.md", entry, tmp_path / "missing.jsonl"), tmp_path)
+    assert (r.returncode, r.stdout, r.stderr) == (0, "", ""), r
+
+
+def test_a_bare_paraphrase_with_nothing_readable_is_still_refused(repo, tmp_path):
+    r = _run(_write(repo / "OPEN-WORK.md", _ITEM % "the user approved the merge",
+                    tmp_path / "missing.jsonl"), tmp_path)
+    assert r.returncode == 2, r
+    assert "quote the user's own words" in r.stderr
+    assert _UNCHECKED not in r.stderr + r.stdout
 
 
 def test_a_resolving_decision_check_marker_passes(repo, transcript, tmp_path):
@@ -432,8 +466,111 @@ def test_backlog_add_accepts_a_real_quote_and_carries_the_advisory(repo, bridge_
 def test_backlog_add_refuses_a_fabricated_quote_found_through_the_session_id(repo, bridge_env):
     rc, out = _bridge(repo, bridge_env, {**_BRIDGE_ITEM, "open": 'the user approved it ("ship all of it")'})
     assert (rc, out["ok"]) == (1, False), out
-    assert (rc, out["error"]["kind"]) == (1, "ApprovalClaimRefused"), out
+    assert (rc, out.get("error", {}).get("kind")) == (1, "ApprovalClaimRefused"), out
     assert "never typed" in out["error"]["message"]
+
+
+# The claude process itself does not carry CLAUDE_CODE_SESSION_ID (only its Bash-tool children do),
+# so the mod hands the bridge the session id on stdin, beside the tool's input. The fixture lays a
+# decision log in the repo: with neither a transcript nor a log readable a quote passes unchecked
+# by design (with a notice), so a lost session id would pass for the wrong reason. With the log readable and no
+# transcript found, a typed quote is refused as never typed: the false refusal seen live.
+
+
+@pytest.fixture
+def no_session_env(tmp_path, transcript, repo):
+    _log(repo)
+    home = tmp_path / "home"
+    (home / ".claude").mkdir(parents=True)
+    return _env(tmp_path, HOME=str(home), USERPROFILE=str(home))
+
+
+def _bridge_request(cwd, env, request):
+    p = subprocess.run([sys.executable, str(_BRIDGE)], input=json.dumps(request).encode("utf-8"),
+                       capture_output=True, cwd=cwd, env=env, check=False)
+    return p.returncode, json.loads(p.stdout.decode("ascii"))
+
+
+_TYPED_CLAIM = {**_BRIDGE_ITEM, "open": 'the user approved the release as is ("%s")' % _TYPED}
+
+
+def test_backlog_add_finds_the_typed_quote_through_the_session_id_on_stdin(repo, no_session_env):
+    assert "CLAUDE_CODE_SESSION_ID" not in no_session_env
+    request = {"tool": "backlog_add", "input": _TYPED_CLAIM, "session_id": "sess-1"}
+    rc, out = _bridge_request(repo, no_session_env, request)
+    assert (rc, out["ok"]) == (0, True), out
+    assert (repo / "OPEN-WORK.md").is_file()
+
+
+def test_the_stdin_session_id_wins_over_a_different_env_one(repo, no_session_env):
+    env = {**no_session_env, "CLAUDE_CODE_SESSION_ID": "sess-other"}
+    request = {"tool": "backlog_add", "input": _TYPED_CLAIM, "session_id": "sess-1"}
+    rc, out = _bridge_request(repo, env, request)
+    assert (rc, out["ok"]) == (0, True), out
+
+
+def test_backlog_add_with_a_session_id_neither_way_refuses_a_typed_quote(repo, no_session_env):
+    rc, out = _bridge_request(repo, no_session_env, {"tool": "backlog_add", "input": _TYPED_CLAIM})
+    assert (rc, out.get("error", {}).get("kind")) == (1, "ApprovalClaimRefused"), out
+    assert "never typed" in out["error"]["message"]
+    assert not (repo / "OPEN-WORK.md").exists()
+
+
+@pytest.mark.parametrize("sid", ["*", "../-x/sess-1", "sess-1\n", "", 7, None, ["sess-1"]])
+def test_a_malformed_stdin_session_id_finds_no_transcript_and_refuses(repo, no_session_env, sid):
+    request = {"tool": "backlog_add", "input": _TYPED_CLAIM, "session_id": sid}
+    rc, out = _bridge_request(repo, no_session_env, request)
+    assert (rc, out.get("error", {}).get("kind")) == (1, "ApprovalClaimRefused"), out
+    assert not (repo / "OPEN-WORK.md").exists()
+
+
+def test_a_bare_paraphrase_is_refused_with_no_session_id_either_way(repo, no_session_env):
+    item = {**_BRIDGE_ITEM, "open": "the user approved the release as is"}
+    rc, out = _bridge_request(repo, no_session_env, {"tool": "backlog_add", "input": item})
+    assert (rc, out.get("error", {}).get("kind")) == (1, "ApprovalClaimRefused"), out
+    assert "quote the user's own words" in out["error"]["message"]
+    assert not (repo / "OPEN-WORK.md").exists()
+
+
+@pytest.fixture
+def nothing_readable_env(tmp_path, repo):
+    """No session id either way, no transcript and no decision log: nothing to check a quote against."""
+    home = tmp_path / "home"
+    (home / ".claude").mkdir(parents=True)
+    env = _env(tmp_path, HOME=str(home), USERPROFILE=str(home))
+    assert "CLAUDE_CODE_SESSION_ID" not in env
+    assert not (repo / "USER-DECISIONS.jsonl").exists()
+    return env
+
+
+def test_backlog_add_passes_an_unchecked_quote_with_the_notice(repo, nothing_readable_env):
+    item = {**_BRIDGE_ITEM, "open": 'the user approved the merge ("anything at all")'}
+    rc, out = _bridge_request(repo, nothing_readable_env, {"tool": "backlog_add", "input": item})
+    assert (rc, out["ok"]) == (0, True), out
+    assert _says_unchecked(out["data"].get("advice", "")), out
+    assert (repo / "OPEN-WORK.md").is_file()
+
+
+def test_backlog_add_refuses_a_bare_paraphrase_with_nothing_readable(repo, nothing_readable_env):
+    item = {**_BRIDGE_ITEM, "open": "the user approved the merge"}
+    rc, out = _bridge_request(repo, nothing_readable_env, {"tool": "backlog_add", "input": item})
+    assert (rc, out.get("error", {}).get("kind")) == (1, "ApprovalClaimRefused"), out
+    assert "quote the user's own words" in out["error"]["message"]
+    assert not (repo / "OPEN-WORK.md").exists()
+
+
+def test_backlog_add_with_a_checked_quote_carries_no_notice(repo, bridge_env):
+    item = {**_BRIDGE_ITEM, "open": 'the user approved the merge and the push ("%s")' % _TYPED}
+    rc, out = _bridge(repo, bridge_env, item)
+    assert (rc, out["ok"]) == (0, True), out
+    assert "advice" not in out["data"], out
+
+
+def test_a_session_id_inside_the_tool_input_is_not_trusted(repo, no_session_env):
+    # The input is the model's to fill; only the mod, outside it, may name the session.
+    request = {"tool": "backlog_add", "input": {**_TYPED_CLAIM, "session_id": "sess-1"}}
+    rc, out = _bridge_request(repo, no_session_env, request)
+    assert (rc, out.get("error", {}).get("kind")) == (1, "ApprovalClaimRefused"), out
 
 
 def test_a_quoted_span_without_a_word_is_no_quote():

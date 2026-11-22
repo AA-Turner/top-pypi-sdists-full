@@ -1,11 +1,13 @@
 # pyright: reportPrivateUsage=false
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 from pytest_django import Settings
 from pytest_mock import MockerFixture
 
 from django_tailwind_cli.config import get_config, get_version
+from tests.helpers import answer_release_lookup
 
 
 pytestmark = pytest.mark.usefixtures("fake_project_settings")
@@ -823,3 +825,152 @@ def test_css_map_source_expands_a_leading_tilde(settings: Settings):
     config = get_config()
 
     assert config.css_entries[0].src_css == Path.home() / "styles/admin.css"
+
+
+class TestDaisyUiPluginSource:
+    """TAILWIND_CLI_DAISY_UI_SOURCE = "plugin": the official CLI plus daisyUI's .mjs bundle."""
+
+    @pytest.fixture(autouse=True)
+    def answer_both_lookups(self, mocker: MockerFixture) -> MagicMock:
+        """Answer the latest-release lookup per repository, as GitHub does."""
+        return mocker.patch(
+            "django_tailwind_cli.utils.http.fetch_redirect_location",
+            side_effect=answer_release_lookup(tailwind="4.1.3", daisy_ui="5.8.2"),
+        )
+
+    @pytest.fixture(autouse=True)
+    def plugin_mode(self, settings: Settings):
+        settings.TAILWIND_CLI_USE_DAISY_UI = True
+        settings.TAILWIND_CLI_DAISY_UI_SOURCE = "plugin"
+
+    def test_downloads_the_official_cli(self):
+        c = get_config()
+
+        assert c.download_url.startswith("https://github.com/tailwindlabs/tailwindcss/releases/download/v4.1.3/")
+        assert c.cli_path.name.startswith("tailwindcss-")
+        assert "extra" not in str(c.cli_path)
+
+    def test_resolves_the_latest_daisy_ui_release(self):
+        c = get_config()
+
+        assert c.daisy_ui_version_str == "5.8.2"
+
+    def test_uses_a_pinned_daisy_ui_version(self, settings: Settings, answer_both_lookups: MagicMock):
+        settings.TAILWIND_CLI_VERSION = "4.1.3"
+        settings.TAILWIND_CLI_DAISY_UI_VERSION = "5.7.0"
+
+        c = get_config()
+
+        assert c.daisy_ui_version_str == "5.7.0"
+        answer_both_lookups.assert_not_called()
+
+    def test_rejects_an_invalid_daisy_ui_version(self, settings: Settings):
+        settings.TAILWIND_CLI_DAISY_UI_VERSION = "5.x"
+
+        with pytest.raises(ValueError, match="TAILWIND_CLI_DAISY_UI_VERSION"):
+            get_config()
+
+    def test_keeps_the_plugin_files_in_the_managed_directory(self):
+        c = get_config()
+
+        assert c.daisy_ui_plugin_files == {
+            "daisyui.mjs": Path("/home/user/project/.django_tailwind_cli/daisyui.mjs"),
+            "daisyui-theme.mjs": Path("/home/user/project/.django_tailwind_cli/daisyui-theme.mjs"),
+        }
+
+    def test_download_url_of_a_plugin_file(self):
+        c = get_config()
+
+        assert (
+            c.daisy_ui_download_url("daisyui.mjs")
+            == "https://github.com/saadeghi/daisyui/releases/download/v5.8.2/daisyui.mjs"
+        )
+
+    def test_caches_both_latest_versions_side_by_side(self, answer_both_lookups: MagicMock):
+        get_config()
+        get_config()
+
+        assert answer_both_lookups.call_count == 2
+
+    def test_system_binary_defaults_to_the_official_name(self, settings: Settings, mocker: MockerFixture):
+        settings.TAILWIND_CLI_USE_SYSTEM_BINARY = True
+        which_mock = mocker.patch("shutil.which", return_value="/opt/homebrew/bin/tailwindcss")
+
+        get_config()
+
+        which_mock.assert_called_once_with("tailwindcss")
+
+
+def test_daisy_ui_source_defaults_to_extra(settings: Settings):
+    settings.TAILWIND_CLI_USE_DAISY_UI = True
+
+    c = get_config()
+
+    assert c.daisy_ui_source == "extra"
+    assert c.daisy_ui_plugin_files == {}
+
+
+def test_daisy_ui_source_rejects_an_unknown_value(settings: Settings):
+    settings.TAILWIND_CLI_DAISY_UI_SOURCE = "npm"
+
+    with pytest.raises(ValueError, match="TAILWIND_CLI_DAISY_UI_SOURCE"):
+        get_config()
+
+
+def test_plugin_source_without_daisy_ui_downloads_no_plugin(settings: Settings):
+    settings.TAILWIND_CLI_DAISY_UI_SOURCE = "plugin"
+
+    c = get_config()
+
+    assert c.daisy_ui_plugin_files == {}
+
+
+def test_a_malformed_cache_record_drops_only_the_records_after_it(version_cache_path: Path):
+    from django_tailwind_cli.config import _read_cache_records
+
+    version_cache_path.write_text("a/repo\n1.0.0\n12.5\n\nb/repo\n2.0.0\n13.5\n")
+
+    assert _read_cache_records() == {"a/repo": ("1.0.0", "12.5")}
+
+
+class TestReleaseLookupCache:
+    def test_an_answer_from_this_process_does_not_refresh_the_file_cache(
+        self, settings: Settings, version_cache_path: Path
+    ):
+        """Another process must not read an old answer as fresh."""
+        settings.TAILWIND_CLI_VERSION = "latest"
+        get_version()
+        expired = "tailwindlabs/tailwindcss\n4.1.3\n0\n"
+        version_cache_path.write_text(expired)
+
+        get_version()
+
+        assert version_cache_path.read_text() == expired
+
+    def test_only_the_leading_v_is_stripped_from_a_tag(self, settings: Settings, mocker: MockerFixture):
+        settings.TAILWIND_CLI_SRC_REPO = "someone/tailwind-fork"
+        mocker.patch(
+            "django_tailwind_cli.utils.http.fetch_redirect_location",
+            return_value=(True, "https://github.com/someone/tailwind-fork/releases/tag/v4.1.0-dev.v2"),
+        )
+
+        assert get_version()[0] == "4.1.0-dev.v2"
+
+
+def test_extra_source_rejects_the_official_repository(settings: Settings):
+    settings.TAILWIND_CLI_USE_DAISY_UI = True
+    settings.TAILWIND_CLI_SRC_REPO = "tailwindlabs/tailwindcss"
+
+    with pytest.raises(ValueError, match='TAILWIND_CLI_DAISY_UI_SOURCE = "plugin"'):
+        get_config()
+
+
+def test_extra_source_with_a_system_binary_ignores_the_repository(settings: Settings, mocker: MockerFixture):
+    settings.TAILWIND_CLI_USE_DAISY_UI = True
+    settings.TAILWIND_CLI_SRC_REPO = "tailwindlabs/tailwindcss"
+    settings.TAILWIND_CLI_USE_SYSTEM_BINARY = True
+    mocker.patch("shutil.which", return_value="/opt/homebrew/bin/tailwindcss-extra")
+
+    c = get_config()
+
+    assert c.daisy_ui_source == "extra"

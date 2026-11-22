@@ -2321,6 +2321,10 @@ std::string dump_model(const Model &m, const std::string &p) {
     for (std::size_t k = 0; k < m.current_feeds.size(); k++) o.i(at(p + ".current_feeds", k), m.current_feeds[k]);
     o.b(p + ".extended_kernel_default", m.extended_kernel_default);
     o.str(p + ".junction_rule", m.junction_rule);
+    // KH's range (`DeckModel.interaction_range`): read only with the opt-in
+    // `nec2_far_approx` on, which no C++ route carries, so this reader
+    // refuses KH always and the field is always None here.
+    o.none(p + ".interaction_range");
     return o.s;
 }
 
@@ -2402,8 +2406,8 @@ void catenary_lengths(const nec5::Card &card, double *length, double *chord_leng
     *chord_length = py_sum(d.data(), static_cast<int>(d.size()));
 }
 
-Geometry geometry_of(const std::vector<Card> &cards) {
-    Structure st = build_geometry(cards, Dialect::nec4);
+Geometry geometry_of(const std::vector<Card> &cards, Dialect dialect) {
+    Structure st = build_geometry(cards, dialect);
     Geometry g;
     for (const FlatWire &w : st.wires) {
         GeometryWire v;

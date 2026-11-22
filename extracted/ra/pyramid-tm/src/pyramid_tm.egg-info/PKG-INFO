@@ -1,44 +1,34 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pyramid_tm
-Version: 2.6
+Version: 2.7
 Summary: A package which allows Pyramid requests to join the active transaction
-Home-page: https://github.com/Pylons/pyramid_tm
-Author: Rocky Burt, Chris McDonough
-Author-email: pylons-discuss@googlegroups.com
-Maintainer: Pylons Project
-Maintainer-email: pylons-discuss@googlegroups.com
-License: BSD-derived (Repoze)
-Project-URL: Documentation, https://docs.pylonsproject.org/projects/pyramid-tm/en/latest/index.html
-Project-URL: Changelog, https://docs.pylonsproject.org/projects/pyramid-tm/en/latest/changes.html
+Author-email: "Rocky Burt, Chris McDonough, Michael Merickel" <pylons-discuss@googlegroups.com>
+Maintainer-email: Pylons Project <pylons-discuss@googlegroups.com>
+License-Expression: LicenseRef-Repoze-BSD-derived
+Project-URL: Changelog, https://docs.pylonsproject.org/projects/pyramid_tm/en/latest/changes.html
+Project-URL: Documentation, https://docs.pylonsproject.org/projects/pyramid_tm/en/latest/index.html
+Project-URL: Homepage, https://github.com/Pylons/pyramid_tm
 Project-URL: Issue Tracker, https://github.com/Pylons/pyramid_tm/issues
-Keywords: wsgi pylons pyramid transaction
+Keywords: pylons,pyramid,transaction,wsgi
 Classifier: Development Status :: 6 - Mature
+Classifier: Framework :: Pyramid
 Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Classifier: Operating System :: OS Independent
-Classifier: Framework :: Pyramid
-Classifier: License :: Repoze Public License
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 Requires-Dist: pyramid>=1.5
 Requires-Dist: transaction>=2.0
-Provides-Extra: testing
-Requires-Dist: WebTest; extra == "testing"
-Requires-Dist: pytest; extra == "testing"
-Requires-Dist: pytest-cov; extra == "testing"
-Requires-Dist: coverage>=5.0; extra == "testing"
-Provides-Extra: docs
-Requires-Dist: Sphinx>=1.8.1; extra == "docs"
-Requires-Dist: pylons-sphinx-themes>=1.0.9; extra == "docs"
+Dynamic: license-file
 
 ``pyramid_tm``
 ==============
@@ -49,7 +39,7 @@ Requires-Dist: pylons-sphinx-themes>=1.0.9; extra == "docs"
 
 
 .. image:: https://readthedocs.org/projects/pyramid-tm/badge/?version=latest
-        :target: https://docs.pylonsproject.org/projects/pyramid-tm/en/latest/
+        :target: https://docs.pylonsproject.org/projects/pyramid_tm/en/latest/
         :alt: Documentation Status
 
 ``pyramid_tm`` is a package which allows Pyramid requests to join
@@ -63,6 +53,22 @@ documentation.
 
 Changes
 -------
+
+2.7 (2026-11-21)
+^^^^^^^^^^^^^^^^
+
+- Drop support for Python 3.9 and 3.10.
+
+- Add support for Python 3.14 and 3.15.
+
+- Avoid deprecation warnings by using the public api for
+  `pyramid.path.DottedNameResolver`.
+  See https://github.com/Pylons/pyramid_tm/pull/95
+
+- Switch packaging metadata from ``setup.cfg`` to ``pyproject.toml`` and use
+  an SPDX license expression. The ``testing`` and ``docs`` extras are replaced
+  by dependency groups.
+  See https://github.com/Pylons/pyramid_tm/pull/96
 
 2.6 (2024-11-14)
 ^^^^^^^^^^^^^^^^

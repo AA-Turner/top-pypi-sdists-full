@@ -319,6 +319,7 @@ class ParserConfig(BaseModel):
     use_encoded_str_for_constrained_base64: bool = False
     use_strict_str_for_base64: bool = False
     use_msgspec_meta_for_map_keys: bool = False
+    merge_msgspec_str_like_union_members: bool = False
     omit_redundant_constraints: bool = False
     read_length_keywords_by_type: bool = False
     read_object_keywords_by_type: bool = False
@@ -377,6 +378,7 @@ class ParserConfig(BaseModel):
     use_single_value_enum_as_const: bool = False
     read_const_beside_enum: bool = False
     read_format_as_annotation: bool = False
+    read_uuid6_uuid7_uuid8_formats: bool = False
     filter_literal_values: bool = False
     intersect_allof_keywords: bool = False
     intersect_combined_schema_keywords: bool = False

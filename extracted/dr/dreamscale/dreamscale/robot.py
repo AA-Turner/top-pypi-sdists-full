@@ -1,6 +1,6 @@
 """Any robot: named cameras and one state vector, for deployments with their own
-embodiment (``dreamscale.connect("perceptron-isaac05", deployment="ckpt_…")``) and for
-models served from a stock LeRobot checkpoint.
+embodiment (``dreamscale.connect("isaac0.5", deployment="ckpt_…")``) and for models served
+from a stock LeRobot checkpoint.
 
 The deployment or checkpoint names the cameras (in order) and the state width; values are
 sent in the units the checkpoint was trained on, and actions come back the same way::

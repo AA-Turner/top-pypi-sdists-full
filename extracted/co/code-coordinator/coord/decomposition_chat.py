@@ -49,6 +49,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from coord.config import Config
     from coord.milestone_order import WorkOrderNode
     from coord.models import Assignment, Board, Machine, Repo, SplitProposal
+    from coord.parentage import ParentRef
     from coord.preflight_size import SplitVerification
 
 _log = logging.getLogger(__name__)
@@ -1241,7 +1242,12 @@ def build_size_triage_briefing(
         "can never see: it consumes a type, API, or other seam an earlier "
         "child adds, even though the two children's `## Files` are "
         "disjoint. Omit it when there is no such dependency — most splits "
-        "need no `After:` line at all."
+        "need no `After:` line at all. If you DO state a dependency on an "
+        "earlier child — in prose, e.g. \"Depends on Child 1\", \"once "
+        "Child 2 merges\", \"after Child 1 lands\" — it MUST be backed by a "
+        "matching `After:` line: a prose-only dependency with no `After:` "
+        "line is a verification failure, and the whole split is rejected, "
+        "nothing filed."
     )
     lines.append("")
 
@@ -1544,6 +1550,224 @@ def _repoint_queued_dependents_at_split(
             )
 
 
+def _original_milestone_title(repo: "Repo", issue_number: int) -> str | None:
+    """The milestone title *issue_number* already carries, or ``None``.
+
+    #4064: a split's children (and its tracker epic, when one is filed)
+    must land on the SAME milestone as the issue being split — otherwise
+    they're invisible in the Plans panel and ``coord milestone
+    write-order`` refuses them outright (it requires every node to share
+    one milestone). :func:`coord.github_ops.get_issue`'s own ``milestone``
+    field is already ``None``/``{"number": ..., "title": ...}`` — the exact
+    shape ``coord milestone order`` resolves a tracking issue's milestone
+    from — so this re-fetches through that one answer rather than deriving
+    a second notion of "this issue's milestone" (#2096).
+    """
+    from coord import github_ops  # noqa: PLC0415
+
+    milestone = github_ops.get_issue(repo.github, issue_number).get("milestone")
+    if isinstance(milestone, dict):
+        title = milestone.get("title")
+        if title:
+            return str(title)
+    return None
+
+
+def _find_parent_epic(repo: "Repo", issue_number: int) -> "ParentRef | None":
+    """The open epic whose `## Sub-issues`/`## Work order` already lists
+    *issue_number* as a node, if any (#4064).
+
+    "Is issue N a child of an open epic" is already fully answered by
+    :class:`coord.parentage.MarkdownParentage`'s ``parent()`` method — this
+    just supplies it the one input it needs (every open, ``epic``-labelled
+    issue in *repo*, body included) rather than re-deriving its own
+    "which issues are epics" notion. ``fallback_to_work_order=True`` since
+    an epic that carries only a `## Work order` block (no separately
+    maintained `## Sub-issues`) is the dominant shape, not an edge case —
+    ``coord milestone write-order`` only ever writes `## Work order`, and
+    ``coord milestone sync`` removes `## Sub-issues` once it has folded it
+    in.
+    """
+    from coord import github_ops  # noqa: PLC0415
+    from coord.milestone_order import TRACKING_ISSUE_LABEL  # noqa: PLC0415
+    from coord.parentage import MarkdownParentage  # noqa: PLC0415
+
+    open_issues = github_ops.get_open_issues(repo.github)
+    candidate_epics = [
+        issue
+        for issue in open_issues
+        if TRACKING_ISSUE_LABEL
+        in {str(label.get("name") or "") for label in (issue.get("labels") or [])}
+    ]
+    return MarkdownParentage().parent(
+        repo.github, issue_number, epics=candidate_epics,
+        fallback_to_work_order=True,
+    )
+
+
+def _mark_split_in_progress_on_parent_epic(
+    *, repo: "Repo", parent_number: int, marker: str
+) -> None:
+    """Prepend *marker* (the same ``"Split from #N by ..."`` text
+    :func:`find_filed_split_epic` scans for) onto the open parent epic
+    BEFORE any child is filed.
+
+    Mirrors the ordering the brand-new-tracker path already gets for free
+    by creating that issue with the marker baked into its very first body:
+    a crash partway through filing children leaves the marker already
+    visible, so a retry's :func:`find_filed_split_epic` check stops a
+    blind second attempt rather than filing a duplicate set of children —
+    the exact recovery contract `coord.board_doctor_policy` already
+    depends on for the brand-new-tracker path.
+
+    PREPENDED, not appended: the real epic's `## Sub-issues`/`## Work
+    order` section is often the last thing in its body, and
+    :func:`_splice_split_into_parent_epic`'s own later write only edits
+    the one line naming the original issue within that section — an
+    appended marker landing inside the section would be indistinguishable
+    from a free-text checklist annotation. Prepending keeps it strictly
+    before any heading, outside every section a splice ever touches.
+
+    No-ops when *marker* is already present — this can legitimately run
+    more than once across a crash + retry, and a second identical marker
+    line would be pure body clutter. Confirms the write landed with a
+    readback — ``update_issue_body`` returning without raising only
+    proves the PATCH request was issued, not that GitHub persisted it.
+    """
+    from coord import github_ops  # noqa: PLC0415
+
+    body = github_ops.get_issue(repo.github, parent_number).get("body") or ""
+    if marker in body:
+        return
+    new_body = f"{marker}\n\n{body}" if body.strip() else f"{marker}\n"
+    github_ops.update_issue_body(repo.github, parent_number, new_body)
+    confirmed = github_ops.get_issue(repo.github, parent_number).get("body") or ""
+    if marker not in confirmed:
+        raise RuntimeError(
+            f"wrote the in-progress split marker onto parent epic "
+            f"#{parent_number}, but re-reading it back did not confirm it"
+        )
+
+
+def _splice_split_into_parent_epic(
+    *,
+    repo: "Repo",
+    parent_number: int,
+    original_issue: int,
+    remapped_nodes: tuple["WorkOrderNode", ...],
+) -> None:
+    """Replace *original_issue*'s node in epic *parent_number*'s
+    `## Sub-issues` and/or `## Work order` sections with *remapped_nodes*
+    — instead of filing a second tracker when the original was already a
+    child of a real epic.
+
+    Mirrors what :func:`_repoint_queued_dependents_at_split` already does
+    for drive-queue rows, one level up: the original's own ``after``
+    predecessors (whatever had to land before it could start) become the
+    predecessors of the split's own ROOTS (the children with no internal
+    dependency on another child of this same split — see
+    :func:`coord.drive_queue.sink_children`'s sibling concept, computed the
+    same way at the other end), and any OTHER node in the epic that named
+    the original in its own ``after`` is re-pointed at the split's SINKS
+    (the children nothing else in the split depends on) — a dependent
+    re-pointed at only the first-filed child would be allowed to launch the
+    moment that one lands, while a sibling chain is still mid-flight.
+
+    Splices line-wise via :func:`coord.milestone_order.
+    splice_replace_sub_issues_node` / :func:`coord.milestone_order.
+    splice_replace_work_order_node` — not the whole-section
+    parse-then-render those functions' own docstrings describe as lossy for
+    a hand-written row's free-text suffix. Edits whichever of `##
+    Sub-issues` / `## Work order` actually lists *original_issue* (an epic
+    may carry either, or — mid #1061 migration — both); raises
+    :class:`RuntimeError` when NEITHER does, since the caller only reaches
+    here because :func:`coord.parentage.MarkdownParentage` already found
+    *original_issue* listed in one of them. Re-parses the computed body
+    under the exact same grammar before writing it (never trusting the
+    splice step blindly) and reads the epic back afterwards to confirm the
+    write actually landed — ``update_issue_body`` returning without
+    raising only proves the PATCH request was issued, never that GitHub
+    actually persisted it.
+    """
+    from coord import github_ops  # noqa: PLC0415
+    from coord.drive_queue import sink_children  # noqa: PLC0415
+    from coord.milestone_order import (  # noqa: PLC0415
+        parse_sub_issues,
+        parse_work_order,
+        splice_replace_sub_issues_node,
+        splice_replace_work_order_node,
+    )
+
+    sinks = tuple(sink_children(remapped_nodes))
+
+    epic = github_ops.get_issue(repo.github, parent_number)
+    body = epic.get("body") or ""
+
+    new_body = body
+    spliced_any = False
+    for splice_fn in (splice_replace_sub_issues_node, splice_replace_work_order_node):
+        spliced = splice_fn(
+            new_body,
+            original_issue=original_issue,
+            replacement_nodes=remapped_nodes,
+            repoint_after_to=sinks,
+        )
+        if spliced is not None:
+            new_body = spliced
+            spliced_any = True
+
+    if not spliced_any:
+        raise RuntimeError(
+            f"epic #{parent_number} was found to parent #{original_issue}, "
+            "but re-parsing its '## Sub-issues'/'## Work order' sections no "
+            "longer lists it — nothing to splice"
+        )
+
+    # Verify the computed splice round-trips under the real grammar BEFORE
+    # sending it — never trust the splice step blindly.
+    reparsed_sub = parse_sub_issues(new_body)
+    reparsed_work = parse_work_order(new_body)
+    expected_numbers = {n.issue_number for n in remapped_nodes}
+    still_lists_original = (
+        original_issue in reparsed_sub.issue_numbers
+        or original_issue in reparsed_work.issue_numbers
+    )
+    missing_expected = expected_numbers - (
+        set(reparsed_sub.issue_numbers) | set(reparsed_work.issue_numbers)
+    )
+    if still_lists_original or missing_expected:
+        raise RuntimeError(
+            f"computed splice for epic #{parent_number} does not round-trip "
+            "as expected — refusing to write it (still lists original: "
+            f"{still_lists_original}, missing children: "
+            f"{sorted(missing_expected)})"
+        )
+
+    github_ops.update_issue_body(repo.github, parent_number, new_body)
+
+    # `update_issue_body()` returning without raising only proves the PATCH
+    # REQUEST was issued, not that GitHub actually ended up with the new
+    # body (#2096) — read it back before trusting the splice happened.
+    confirmed_body = github_ops.get_issue(repo.github, parent_number).get("body") or ""
+    confirmed_sub = parse_sub_issues(confirmed_body)
+    confirmed_work = parse_work_order(confirmed_body)
+    still_lists_original = (
+        original_issue in confirmed_sub.issue_numbers
+        or original_issue in confirmed_work.issue_numbers
+    )
+    missing_children = [
+        n for n in expected_numbers
+        if n not in confirmed_sub.issue_numbers and n not in confirmed_work.issue_numbers
+    ]
+    if still_lists_original or missing_children:
+        raise RuntimeError(
+            f"spliced epic #{parent_number} for the #4064 split of "
+            f"#{original_issue}, but re-reading it back did not confirm "
+            f"the change (still lists original: {still_lists_original}, "
+            f"missing children: {sorted(missing_children)})"
+        )
+
+
 def file_and_queue_split_proposal(
     *,
     proposal: "SplitProposal",
@@ -1551,10 +1775,11 @@ def file_and_queue_split_proposal(
     repo: "Repo",
     origin: str = "preflight size-triage review",
 ) -> int:
-    """File *proposal*'s chunks as a real epic + children and queue them.
+    """File *proposal*'s chunks as real child issues and queue them (#4064).
 
     *origin* names what proposed the split; it is quoted in the epic body
-    and in the comment closing the superseded original.
+    (when a new tracker is filed) and in the comment closing the
+    superseded original.
 
     Called only after :func:`coord.preflight_size.verify_split_proposal` has
     returned ``ok=True`` for *verification* — this function trusts
@@ -1565,23 +1790,32 @@ def file_and_queue_split_proposal(
     numbers — filing each child in order and remapping those positions to
     the real numbers it gets back is this function's own job.
 
-    Order of operations: file the epic, file each child in
-    ``proposal.chunks`` order, remap the placeholder work order onto the
-    real numbers and splice it into the epic body, queue each child
-    (confirming every queue write with a readback — an unconfirmed queue
-    insert is not a queued child), re-point every ALREADY-queued entry
-    whose ``after=`` names the original onto the split's sink children
-    (:func:`_repoint_queued_dependents_at_split`, #3984 — otherwise
-    ``drive_queue._resolve_prereqs``'s ``live_prereq_terminal`` recovery
-    reads the original's close as "pre-req satisfied" and launches every
-    dependent before any child has landed), then close the original issue
-    pointing at the new epic — forcing past the "open children" guard (the
-    original's own body is exactly the shape expected to trip it once it
-    already carries a ``## Sub-issues``/``## Work order`` block, e.g. from
-    a prior triage pass) and confirming the close itself with a readback,
-    since `close_issue()` returning without raising only proves the close
-    *request* was issued, not that GitHub actually ended up with the issue
-    closed (#2096). Returns the new epic's issue number.
+    Order of operations: resolve the original's own milestone (#4064 —
+    every child, and a new tracker if one is filed, inherits it so none of
+    them vanish from the Plans panel / ``coord milestone write-order``'s
+    one-shared-milestone requirement) and look for an open epic that
+    already parents the original (:func:`_find_parent_epic`); file each
+    child in ``proposal.chunks`` order on that milestone; either splice the
+    remapped work order into that parent epic
+    (:func:`_splice_split_into_parent_epic`) or, when the original has no
+    parent, file a brand-new tracker epic and splice into THAT instead
+    (never both — #4064's whole point is one parent, not two); queue each
+    child (confirming every queue write with a readback — an unconfirmed
+    queue insert is not a queued child); re-point every ALREADY-queued
+    entry whose ``after=`` names the original onto the split's sink
+    children (:func:`_repoint_queued_dependents_at_split`, #3984 —
+    otherwise ``drive_queue._resolve_prereqs``'s ``live_prereq_terminal``
+    recovery reads the original's close as "pre-req satisfied" and
+    launches every dependent before any child has landed); then close the
+    original issue pointing at the new epic — forcing past the "open
+    children" guard (the original's own body is exactly the shape expected
+    to trip it once it already carries a ``## Sub-issues``/``## Work
+    order`` block, e.g. from a prior triage pass) and confirming the close
+    itself with a readback, since `close_issue()` returning without
+    raising only proves the close *request* was issued, not that GitHub
+    actually ended up with the issue closed (#2096). Returns the epic's
+    issue number — the real parent's, when one was spliced into, else the
+    freshly filed tracker's.
 
     A failure partway through (a `gh` call failing, a queue write or close
     that doesn't read back) is allowed to raise — by that point real
@@ -1602,39 +1836,73 @@ def file_and_queue_split_proposal(
 
     assert verification.work_order is not None  # guaranteed by ok=True
 
-    epic_body = (
-        f"{proposal.rationale}\n\n"
-        f"Split from #{proposal.issue_number} by the {origin}. Children "
-        "are filed below and queued in overlap order."
-    )
-    epic = github_ops.create_issue(
-        repo.github,
-        title=f"{proposal.issue_title} (split)",
-        body=epic_body,
-        labels=[TRACKING_ISSUE_LABEL],
-    )
-    epic_number = epic["number"]
+    milestone_title = _original_milestone_title(repo, proposal.issue_number)
+    parent = _find_parent_epic(repo, proposal.issue_number)
+
+    split_marker_prefix = f"Split from #{proposal.issue_number} by the {origin}."
+
+    # Mark intent BEFORE filing any child — matches the ordering the
+    # brand-new-tracker path below already has for free (the marker is
+    # baked into that issue's very first body) — see
+    # `_mark_split_in_progress_on_parent_epic`'s own docstring for why.
+    if parent is not None:
+        epic_number = parent.number
+        split_marker = (
+            f"{split_marker_prefix} Children are spliced into this epic's "
+            "own '## Sub-issues'/'## Work order' below and queued in "
+            "overlap order."
+        )
+        _mark_split_in_progress_on_parent_epic(
+            repo=repo, parent_number=epic_number, marker=split_marker
+        )
+    else:
+        split_marker = (
+            f"{split_marker_prefix} Children are filed below and queued "
+            "in overlap order."
+        )
+        epic_body = f"{proposal.rationale}\n\n{split_marker}"
+        epic = github_ops.create_issue(
+            repo.github,
+            title=f"{proposal.issue_title} (split)",
+            body=epic_body,
+            labels=[TRACKING_ISSUE_LABEL],
+            milestone=milestone_title,
+        )
+        epic_number = epic["number"]
 
     position_to_real: dict[int, int] = {}
     for position, chunk in enumerate(proposal.chunks, start=1):
         files_block = "\n".join(f"- {f}" for f in chunk.files_likely)
         child_body = f"{chunk.scope}\n\n## Files\n{files_block}\n"
-        child = github_ops.create_issue(repo.github, title=chunk.title, body=child_body)
+        child = github_ops.create_issue(
+            repo.github, title=chunk.title, body=child_body,
+            milestone=milestone_title,
+        )
         position_to_real[position] = child["number"]
 
     remapped_nodes = tuple(
         WorkOrderNode(
             issue_number=position_to_real[node.issue_number],
+            group=node.group,
             after=tuple(sorted(position_to_real[a] for a in node.after)),
         )
         for node in verification.work_order.nodes
     )
-    new_block = render_sub_issues(WorkOrder(nodes=remapped_nodes))
-    github_ops.update_issue_body(
-        repo.github,
-        epic_number,
-        replace_sub_issues_section(epic_body, new_block),
-    )
+
+    if parent is not None:
+        _splice_split_into_parent_epic(
+            repo=repo,
+            parent_number=epic_number,
+            original_issue=proposal.issue_number,
+            remapped_nodes=remapped_nodes,
+        )
+    else:
+        new_block = render_sub_issues(WorkOrder(nodes=remapped_nodes))
+        github_ops.update_issue_body(
+            repo.github,
+            epic_number,
+            replace_sub_issues_section(epic_body, new_block),
+        )
 
     for node in remapped_nodes:
         after_keys = [f"{repo.name}#{a}" for a in node.after] or None
@@ -1720,14 +1988,17 @@ def find_filed_split_epic(repo: "Repo", issue_number: int) -> int | None:
     original is still open.
 
     :func:`file_and_queue_split_proposal` writes the literal body text
-    ``f"Split from #{issue_number} by "`` into the epic it creates before
-    doing anything else that can fail (re-pointing queued dependents,
-    closing the original) — so a caller that wants to know "did an
-    earlier attempt already get far enough to create the epic, even if it
-    never finished superseding the original" can answer from that marker
-    alone, without needing its own separate bookkeeping. The trailing
-    ``" by "`` anchors the match so issue ``#397`` can never match a
-    marker actually written for ``#3979``.
+    ``f"Split from #{issue_number} by "`` onto the epic BEFORE doing
+    anything else that can fail (filing children, re-pointing queued
+    dependents, closing the original) — into the body of the epic it
+    creates when the original has no parent, or appended onto the real
+    parent epic's own body (#4064) when it is spliced into one instead —
+    so a caller that wants to know "did an earlier attempt already get far
+    enough to start this split, even if it never finished superseding the
+    original" can answer from that marker alone, without needing its own
+    separate bookkeeping. The trailing ``" by "`` anchors the match so
+    issue ``#397`` can never match a marker actually written for
+    ``#3979``.
 
     Scans *repo*'s OPEN issues only — a split epic is itself an open
     tracking issue the moment it is filed, and the original being

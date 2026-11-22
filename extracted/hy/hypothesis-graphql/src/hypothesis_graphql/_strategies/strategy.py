@@ -112,32 +112,53 @@ class GraphQLStrategy:
         default: graphql.ValueNode | None = None,
     ) -> st.SearchStrategy[graphql.ValueNode]:
         """Generate a `graphql.ObjectValueNode`."""
+        strategy = self.object_fields(type_).map(nodes.Object)
+        return primitives.maybe_default(primitives.maybe_null(strategy, nullable), default=default)
+
+    @instance_cache(lambda type_: type_.name)
+    def object_fields(self, type_: graphql.GraphQLInputObjectType) -> st.SearchStrategy[list[graphql.ObjectFieldNode]]:
+        build: Callable[[str, graphql.GraphQLInputField], st.SearchStrategy[graphql.ObjectFieldNode]]
+        selection: st.SearchStrategy[list[tuple[str, graphql.GraphQLInputField]]]
         # graphql-core 3.2.7+ marks `@oneOf` inputs, which take exactly one field with a non-null value
         if getattr(type_, "is_one_of", False):
             one_of_fields = [(name, field) for name, field in type_.fields.items() if self.can_generate_field(field)]
             if not one_of_fields:
                 # An empty object is invalid here; building a field raises the same error an unknown scalar gives
-                self.one_of_field(next(iter(type_.fields.items())))
-            one_of = st.sampled_from(one_of_fields).flatmap(self.one_of_field)
-            return primitives.maybe_default(primitives.maybe_null(one_of.map(nodes.Object), nullable), default=default)
-        # Generate optional fields that are possible to generate and all required fields.
-        # If a required field is not possible to generate, then it will fail deeper anyway
-        fields = {
-            name: field
-            for name, field in type_.fields.items()
-            if self.can_generate_field(field) or graphql.is_required_input_field(field)
-        }
+                self.one_of_field(*next(iter(type_.fields.items())))
+            selection = st.sampled_from([[item] for item in one_of_fields])
+            build = self.one_of_field
+        else:
+            # Generate optional fields that are possible to generate and all required fields.
+            # If a required field is not possible to generate, then it will fail deeper anyway
+            fields = {
+                name: field
+                for name, field in type_.fields.items()
+                if self.can_generate_field(field) or graphql.is_required_input_field(field)
+            }
+            selection = subset_of_fields(fields, force_required=True)
+            build = self.object_field
+        # Built on first use: input types can be recursive, and strategies created per draw are re-validated each time
+        strategies: dict[str, st.SearchStrategy[graphql.ObjectFieldNode]] = {}
 
-        strategy = subset_of_fields(fields, force_required=True).flatmap(self.lists_of_object_fields)
-        return primitives.maybe_default(primitives.maybe_null(strategy.map(nodes.Object), nullable), default=default)
+        def draw_fields(draw: st.DrawFn) -> list[graphql.ObjectFieldNode]:
+            output = []
+            for name, field in draw(selection):
+                strategy = strategies.get(name)
+                if strategy is None:
+                    strategy = strategies[name] = build(name, field)
+                output.append(draw(strategy))
+            return output
 
-    def one_of_field(
-        self, item: tuple[str, graphql.GraphQLInputField]
-    ) -> st.SearchStrategy[list[graphql.ObjectFieldNode]]:
-        name, field = item
+        return st.composite(draw_fields)()
+
+    def object_field(self, name: str, field: graphql.GraphQLInputField) -> st.SearchStrategy[graphql.ObjectFieldNode]:
+        default = field.ast_node.default_value if field.ast_node is not None else None
+        return self.values(field.type, default).map(factories.object_field(name))
+
+    def one_of_field(self, name: str, field: graphql.GraphQLInputField) -> st.SearchStrategy[graphql.ObjectFieldNode]:
         # Schema validation rejects non-null `@oneOf` fields, and an explicit `null` is not allowed either
         type_ = graphql.GraphQLNonNull(cast("graphql.GraphQLNullableInputType", field.type))
-        return self.values(type_).map(factories.object_field(name)).map(lambda node: [node])
+        return self.values(type_).map(factories.object_field(name))
 
     def can_generate_field(self, field: graphql.GraphQLInputField) -> bool:
         """Whether it is possible to generate values for the given field."""
@@ -151,44 +172,28 @@ class GraphQLStrategy:
             or type_.name in self.custom_scalars
         )
 
-    def lists_of_object_fields(
-        self, items: list[tuple[str, graphql.GraphQLInputField]]
-    ) -> st.SearchStrategy[list[graphql.ObjectFieldNode]]:
-        return st.tuples(
-            *(
-                self.values(
-                    field.type,
-                    field.ast_node.default_value if field.ast_node is not None else None,
-                ).map(factories.object_field(name))
-                for name, field in items
-            )
-        ).map(list)
-
+    @instance_cache(lambda arguments: tuple((name, id(argument)) for name, argument in arguments.items()))
     def list_of_arguments(
         self, arguments: dict[str, graphql.GraphQLArgument]
     ) -> st.SearchStrategy[list[graphql.ArgumentNode]]:
         """Generate a list `graphql.ArgumentNode` for a field."""
         if not arguments:
             return st.just([])
-
-        @st.composite
-        def inner(draw: st.DrawFn) -> list[graphql.ArgumentNode]:
-            args = []
-            for name, argument in arguments.items():
-                default = argument.ast_node.default_value if argument.ast_node is not None else None
-                try:
-                    argument_strategy = self.values(argument.type, default=default)
-                except InvalidArgument:
-                    if not isinstance(argument.type, graphql.GraphQLNonNull):
-                        # If the type is nullable, then either generate `null` or skip it completely
-                        if draw(st.booleans()):
-                            args.append(graphql.ArgumentNode(name=graphql.NameNode(value=name), value=nodes.Null))
-                        continue
+        strategies: list[st.SearchStrategy[graphql.ArgumentNode | None]] = []
+        for name, argument in arguments.items():
+            default = argument.ast_node.default_value if argument.ast_node is not None else None
+            try:
+                strategies.append(self.values(argument.type, default=default).map(factories.argument(name)))
+            except InvalidArgument:
+                if isinstance(argument.type, graphql.GraphQLNonNull):
                     raise
-                args.append(draw(argument_strategy.map(factories.argument(name))))
-            return args
+                # If the type is nullable, then either generate `null` or skip it completely
+                strategies.append(st.booleans().map(factories.null_or_missing_argument(name)))
+        return st.tuples(*strategies).map(_present)
 
-        return inner()
+
+def _present(arguments: tuple[graphql.ArgumentNode | None, ...]) -> list[graphql.ArgumentNode]:
+    return [argument for argument in arguments if argument is not None]
 
 
 def check_nullable(type_: graphql.GraphQLInputType) -> tuple[graphql.GraphQLInputType, bool]:

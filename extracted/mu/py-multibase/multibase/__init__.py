@@ -2,7 +2,7 @@
 
 __author__ = """Dhruv Baldawa"""
 __email__ = "dhruv@dhruvb.com"
-__version__ = "2.0.0"
+__version__ = "2.1.0"
 
 from .exceptions import (  # noqa: F401
     DecodingError,
@@ -18,6 +18,7 @@ from .multibase import (  # noqa: F401
     Encoding,
     decode,
     encode,
+    encoder_by_name,
     get_codec,
     get_encoding_info,
     is_encoded,

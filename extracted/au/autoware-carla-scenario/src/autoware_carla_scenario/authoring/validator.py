@@ -45,6 +45,7 @@ from ._builders_generated import (
     FAILURE_ONLY_CONDITIONS,
     ONCE_ACTIONS,
     OVERRIDING_ACTIONS,
+    POST_RUN_CONDITIONS,
 )
 from .registry import (
     EQUAL_TO_DEFAULT_TOLERANCE,
@@ -522,6 +523,7 @@ def _check_condition(
     owner: str | None = None,
     *,
     departure: bool = False,
+    verdict: str | None = None,
 ) -> None:
     """Validate one condition subtree.
 
@@ -533,6 +535,15 @@ def _check_condition(
     one place a ``trajectory_time`` means the trajectory's clock: anywhere
     else -- inside a composition, a trigger, an assertion -- it would quietly
     read the scenario clock instead, so it is refused there.
+
+    *verdict* is ``"pass"`` or ``"fail"`` when the subtree is a whole pass or
+    fail condition.  A whole fail condition is the one place a condition
+    judged once the run is over (a Metric) means something: a trigger, a
+    waypoint condition or a composition reads its conditions every tick,
+    where such a one reads nothing, and ``register_pass_condition`` refuses
+    one as well -- the runtime refuses all of these
+    (:func:`~..conditions.base.refuse_post_run`, ``TrajectoryVertex``), but
+    only once the scenario is built (#2316).
     """
     spec: ConditionSpec | None = get_condition_spec(node.type)
     if spec is None:
@@ -545,6 +556,21 @@ def _check_condition(
             "Set Goal card's waypoint condition, as the whole of it.",
             node.id,
         )
+    if node.type in POST_RUN_CONDITIONS and verdict != "fail":
+        if verdict == "pass":
+            message = (
+                f"{spec.title} is judged once the run is over: it can fail a "
+                "run, never pass one. Use it as a fail condition."
+            )
+        else:
+            message = (
+                f"{spec.title} is judged once the run is over, not every tick: "
+                "it reads nothing while the run goes on, so it is no trigger, "
+                "waypoint condition or child of a composition (all, any, not, "
+                "sticky, persistent), which are read every tick. Use it on its "
+                "own as a fail condition."
+            )
+        out.error(path, message, node.id)
 
     for field_spec in spec.fields:
         _check_field(out, path, field_spec, node.params, refs, node.id)
@@ -577,6 +603,7 @@ def _check_condition(
     _check_collision_names_one_target(out, path, node)
     _check_persistent_child(out, path, node)
     _check_filter_ranges(out, path, node)
+    _check_map_area(out, path, node)
     _check_condition_frame(out, path, node)
     _check_equal_tolerance(out, path, spec, node)
 
@@ -646,6 +673,29 @@ def _check_persistent_child(out: _Collector, path: str, node: ConditionNode) -> 
 #: An entity filter's bounds, in pairs: the runtime's EntityFilter refuses a
 #: lower bound above its upper one.
 _FILTER_RANGES = ("distance", "ahead", "left")
+
+
+def _check_map_area(out: _Collector, path: str, node: ConditionNode) -> None:
+    """An area card names an area some map could hold, as
+    :func:`~..conditions.map_area_from_fields` asks (#1111): its rules, read
+    from the one place they are written (:meth:`~..conditions.MapArea.validate`).
+    Whether the map holds it -- a picked lanelet of another ground, a ground
+    the map has none of -- is the map's to say: the places panel outlines
+    the area, and the run says so once and does not hold."""
+    if node.type != "area_distance":
+        return
+    from ..conditions.map_area import map_area_from_fields  # noqa: PLC0415
+
+    params = node.params
+    try:
+        map_area_from_fields(
+            str(params.get("ground") or "CROSSWALK"),
+            params.get("lanelet_ids") or None,
+            str(params.get("attributes") or ""),
+            params.get("relief_m"),
+        )
+    except (TypeError, ValueError) as exc:
+        out.error(path, f"Area: {exc}.", node.id)
 
 
 def _check_filter_ranges(out: _Collector, path: str, node: ConditionNode) -> None:
@@ -1900,9 +1950,13 @@ def validate_document(document: ScenarioDocument) -> ValidationReport:
     _check_declared_spawns(out, document)
 
     for index, condition in enumerate(document.assertions.pass_conditions):
-        _check_condition(out, f"assertions.pass[{index}]", condition, refs)
+        _check_condition(
+            out, f"assertions.pass[{index}]", condition, refs, verdict="pass"
+        )
     for index, condition in enumerate(document.assertions.fail_conditions):
-        _check_condition(out, f"assertions.fail[{index}]", condition, refs)
+        _check_condition(
+            out, f"assertions.fail[{index}]", condition, refs, verdict="fail"
+        )
 
     if not document.assertions.pass_conditions:
         out.error(

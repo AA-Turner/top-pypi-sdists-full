@@ -63,7 +63,7 @@ from . import marked_observe as _marked
 from . import observe_stream as _observe
 from .notice_words import _moving_words
 from .worker_transport import _RESENDS, _STILL_OPENING, _WorkerGone, _WorkerTransport, _wait_set
-from .direct_episode import _EPISODE_LOST, _STATE_GONE, _Episodes
+from .direct_episode import _EPISODE_LOST, _ONTO_STANDBY, _STATE_GONE, _Episodes
 
 
 
@@ -242,6 +242,9 @@ class DirectConnection(_ObservationStream, _Episodes, _seat._KeptSeat):
         self._standby_retry_s = 0.0
         self._switched = False
         self._stuck = False
+
+
+        self._lost_why: Optional[str] = None
         self._lease_deadline: Optional[float] = None
         self._lease_ttl_s: float = 0.0
         self._renew_again_at = 0.0
@@ -386,6 +389,10 @@ class DirectConnection(_ObservationStream, _Episodes, _seat._KeptSeat):
                               answer_s=None if timeout_s is not None else act_s)
                 if self._resumed is not None:
                     self._resumed_answered()
+                if worker.resumes and not self._keep.s:
+
+
+                    self._keep.s = _observe.KEEP_SERVED_S
                 if own is not None and payload.get("seq") is not None and self._stream is not None:
 
                     self._stream.served(payload["episode_id"], payload["seq"] - 1)
@@ -431,9 +438,9 @@ class DirectConnection(_ObservationStream, _Episodes, _seat._KeptSeat):
                 if (exc.details.get("reason") == _observe.FRAMES_MISSING and self._resumed is not None
                         and own is not None and self._unkept(payload["episode_id"], exc.details.get("from"), own)):
                     with self._lock:
-                        why = self._drop_resumed()
-                        if why is not None:
-                            self._rotate_episode(standby=why)
+                        went = self._drop_resumed()
+                        if went is not None:
+                            self._rotate_episode(standby=went)
                     continue
 
 
@@ -915,6 +922,10 @@ When the answer asks it (`keepalive`), the place is kept alive while the Policy
     def _connect_answer(self, body: Any, *, renew: bool, move: bool, connect_ms: float) -> None:
         """What a connect answered (_connect), taken: its contracts, its word that the worker is leaving, its parameters,
         the seat's keepalive - and the worker connection, kept on an unchanged secret, else built anew. Under _lock."""
+
+        lost = None
+        if not renew:
+            lost, self._lost_why = self._lost_why, None
         self._take_contract(body)
         was = self._rotate
         self._rotate = body.get("rotate") if isinstance(body, dict) else None
@@ -979,7 +990,8 @@ When the answer asks it (`keepalive`), the place is kept alive while the Policy
             self._say_where(body.get("where"))
         if old is not None:
 
-            if not kept:
+
+            if not kept and not self._carried_on(old, new_worker, lost):
                 self._rotate_episode(was if isinstance(was, dict) else None)
             try:
                 old.close()
@@ -1086,7 +1098,7 @@ When the answer asks it (`keepalive`), the place is kept alive while the Policy
             if self._resumes_on(standby):
                 self._resume_episode(standby, why)
             else:
-                self._rotate_episode(standby=why)
+                self._rotate_episode(standby=f"{_ONTO_STANDBY} {why}")
             _marked.force(self)
         try:
             stale.close()
@@ -1280,6 +1292,8 @@ When the answer asks it (`keepalive`), the place is kept alive while the Policy
             if self._worker is not stale:
                 return
             self._stuck = self._stuck or stuck
+            if standby is not None:
+                self._lost_why = standby
             try:
                 self._connect(renew=False)
                 _marked.force(self)

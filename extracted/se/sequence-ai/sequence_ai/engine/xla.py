@@ -7,7 +7,7 @@ A JAX policy's counterparts of optimize()'s switches, for a policy whose model j
                      down to the smallest stretch of it: XLA's own defaults already put its fusions, cuBLAS and cuDNN
                      calls and custom calls in them, from a few operations up
     whole_graph      its loops in command buffers too (a denoising loop), so a run is about one graph
-                     (both tried on a JAX policy only when asked: optimize.JAX_GRAPHS)
+                     (both tried on a JAX policy only when turned on: optimize.JAX_GRAPHS)
     precision        the floating-point parameters its jitted functions are given, in that dtype ("fp16", "fp32")
     torch_compile, fused_kernels    XLA compiles each jitted function whole and fuses its kernels already
     tensorrt         none: TensorRT builds torch modules
@@ -69,7 +69,8 @@ def _buffers_loops(options: dict) -> bool:
         return jax.lax.fori_loop(0, 10, lambda i, h: jnp.tanh(h @ w + 0.01 * i), x)
 
     try:
-        text = jax.jit(loop, compiler_options=options).lower(jnp.ones((256, 256)), jnp.ones((1, 256))).compile().as_text()
+        lowered = jax.jit(loop, compiler_options=options).lower(jnp.ones((256, 256)), jnp.ones((1, 256)))
+        text = lowered.compile().as_text()
     except Exception as exc:  # noqa: BLE001 (XLA says which option it refuses in its message alone)
         if "is not a valid enum value" in str(exc):
             return False
@@ -224,7 +225,7 @@ def find(names: dict, *, depth: int = 3) -> Found:
             else:
                 walk(item, left - 1)
 
-    for name, value in names.items():
+    for value in names.values():
         if _jitted(value) or _key(value):
             continue                                   # held by the policy's code module: not its to replace here
         walk(value, depth)

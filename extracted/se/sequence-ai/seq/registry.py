@@ -104,6 +104,7 @@ def _register(cls: type, policy_kwargs: dict[str, Any], bindings: dict[SeqFlags,
 
 
 
+
     constructor = named.constructor(cls, policy_kwargs)
 
     named.check(cls, bindings)
@@ -162,16 +163,46 @@ def registration(cls: type) -> PolicyRegistration:
     return reg
 
 
+
+
+
+
+
+
+_BY_NAME = ((SeqFlags.INFER, "infer"), (SeqFlags.SAMPLE, "sample"))
+
+
 def _collect_bindings(cls: type) -> tuple[dict[SeqFlags, str], float | None]:
     """Every lifecycle hook of the class - its own decorated methods, and those it inherits from a policy or a mixin
-    it is built on - as flag→method-name bindings, the raw functions restored. Returns (bindings, plan_every_s).
+    it is built on - as flag→method-name bindings, the raw functions restored; then its act function and its sample,
+    where none is marked, by their names (_BY_NAME). Returns (bindings, plan_every_s).
 
     WHY along the MRO (seq._partial.hooks_along), where only the class's own attributes were read: a subclass of a
     policy had none of its parent's hooks ("has no @seq.infer method"). Restoring raw functions still never mutates a
     shared base class: a base is read, `cls` alone is written. Two methods of one class claiming one flag are refused,
     as before.
     """
-    return hooks_along(cls, _REG_ATTR, PolicyDefinitionError)
+    bindings, every_s = hooks_along(cls, _REG_ATTR, PolicyDefinitionError)
+    for flag, name in _BY_NAME:
+        method = inspect.getattr_static(cls, name, None)
+
+        if flag in bindings or name in bindings.values() or not inspect.isfunction(method):
+            continue
+
+
+        if flag is SeqFlags.SAMPLE and not _takes_nothing(method):
+            continue
+        bindings[flag] = name
+    return bindings, every_s
+
+
+def _takes_nothing(fn: Any) -> bool:
+    """Whether `fn`, a method, can be called with its instance alone, as the worker calls a sample."""
+    try:
+        inspect.signature(fn).bind(None)
+    except (TypeError, ValueError):
+        return False
+    return True
 
 
 
@@ -540,10 +571,11 @@ def _validate(cls: type, spec: PolicySpec, bindings: dict[SeqFlags, str]) -> Non
     @seq.concurrent. Raises a readable error rather than producing an unservable registration."""
 
 
+
+
     if SeqFlags.INFER not in bindings:
-        raise PolicyDefinitionError(
-            f"{cls.__name__} has no @seq.infer method; a policy needs a per-step entrypoint"
-        )
+        raise PolicyDefinitionError(f"{cls.__name__} has no @seq.infer method, and no method named infer: mark the "
+                                    "method that answers each act with @seq.infer")
 
 
 

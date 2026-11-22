@@ -10,6 +10,7 @@ from itertools import product
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from datamodel_code_generator import DataModelType, Formatter, PythonVersion
 from datamodel_code_generator.config import JSONSchemaParserConfig
@@ -40,7 +41,6 @@ from datamodel_code_generator.reference import Reference
 from datamodel_code_generator.types import DataType
 from tests.conftest import assert_output
 
-EXPECTED_PYDANTIC_V2_MODEL_PATH = Path(__file__).parents[2] / "data" / "expected" / "model" / "pydantic_v2"
 JSON_SCHEMA_DATA_PATH = Path(__file__).parents[2] / "data" / "jsonschema"
 
 
@@ -76,7 +76,6 @@ def test_base_model_methods_render_once_after_all_fields() -> None:
 
     assert_output(
         f"method count: {rendered.count('def generated_method(')}\n\n{rendered}\n",
-        EXPECTED_PYDANTIC_V2_MODEL_PATH / "base_model_methods_once.txt",
     )
 
 
@@ -98,13 +97,12 @@ def test_schema_runtime_validation_unique_items_follows_model_description() -> N
         ),
     )
 
-    expected = EXPECTED_PYDANTIC_V2_MODEL_PATH / "schema_runtime_unique_items_description.txt"
-    assert_output(model.render(), expected)
+    assert_output(model.render(), name="model")
 
     model._process_schema_runtime_validation()
     model.invalidate_render_caches()
 
-    assert_output(model.render(), expected)
+    assert_output(model.render(), name="model")
 
 
 @pytest.mark.allow_direct_assert
@@ -501,6 +499,19 @@ def test_parser_simple_field_preserves_parent_and_fresh_extras() -> None:
     assert first.extras is not second.extras
 
 
+def test_constraints_validation_refuses_a_value_that_is_no_mapping() -> None:
+    """``Constraints`` leaves a value that is no mapping to Pydantic, which refuses it."""
+    with pytest.raises(ValidationError, match="Input should be a valid dictionary or instance of Constraints"):
+        Constraints.model_validate(["minItems", 1])
+
+
+def test_get_data_model_types_refuses_a_value_that_is_no_model_type() -> None:
+    """``get_data_model_types`` takes the enum member, not its string value."""
+    not_a_member: object = "pydantic_v2.BaseModel"
+    with pytest.raises(ValueError, match=r"pydantic_v2\.BaseModel is unsupported data model type"):
+        get_data_model_types(not_a_member)
+
+
 @pytest.mark.allow_direct_assert
 def test_parser_simple_field_falls_back_for_processed_values() -> None:
     """Retain Pydantic validation for constraints, extras, and const fields."""
@@ -614,16 +625,15 @@ def test_parser_simple_field_call_keywords_match_model_fields() -> None:
 
 
 @pytest.mark.parametrize(
-    ("use_missing_sentinel", "expected_file"),
+    "use_missing_sentinel",
     [
-        pytest.param(False, "simple_pydantic_v2_field_states.snapshot", id="standard-default"),
-        pytest.param(True, "simple_pydantic_v2_field_states_missing.snapshot", id="missing-sentinel"),
+        pytest.param(False, id="standard-default"),
+        pytest.param(True, id="missing-sentinel"),
     ],
 )
 @pytest.mark.allow_direct_assert
 def test_parser_simple_field_matches_public_constructor_for_schema_states(
     use_missing_sentinel: bool,
-    expected_file: str,
 ) -> None:
     """Compare actual parser states with public validation across field-state pairs."""
 
@@ -646,9 +656,8 @@ def test_parser_simple_field_matches_public_constructor_for_schema_states(
     fast_parser = JsonSchemaParser(data_model_field_type=DataModelField, **parser_kwargs)
     public_parser = JsonSchemaParser(data_model_field_type=PublicDataModelField, **parser_kwargs)
 
-    expected_path = EXPECTED_PYDANTIC_V2_MODEL_PATH / expected_file
-    assert_output(fast_parser.parse(), expected_path)
-    assert_output(public_parser.parse(), expected_path)
+    assert_output(fast_parser.parse(), name="model", suffix=".snapshot")
+    assert_output(public_parser.parse(), name="model", suffix=".snapshot")
 
     fast_fields = {field.name: field for model in fast_parser.results for field in model.fields}
     public_fields = {field.name: field for model in public_parser.results for field in model.fields}

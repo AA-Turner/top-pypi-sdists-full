@@ -105,8 +105,9 @@ def _local(uri: str, part: str | None, *, api_key: str | None, base_url: str | N
 
 def build(folder: str | os.PathLike, name: str | None = None, *, weights: list[str] | None = None,
           api_key: str | None = None, base_url: str | None = None, say: Callable[[str], Any] = print) -> Served:
-    """The folder's @seq.policy, built here as the platform builds it - by the platform worker's own adapter - and the
-    copy and call that serve it."""
+    """The folder's @seq.policy, built here as the platform builds it - by the platform worker's own adapter - the copy
+    and call that serve it, and the call its speed-ups are tried on, as the platform tries a version's
+    (checked_call)."""
     from types import SimpleNamespace
 
     from sequence_base.contract import SeqFlags
@@ -141,7 +142,13 @@ def build(folder: str | os.PathLike, name: str | None = None, *, weights: list[s
 
     adapter = RegisteredAdapter(cls, SimpleNamespace(registration=reg, cls=cls))
     adapter.load(dirs)
-    copy = PolicyCopy(adapter)
+
+
+
+
+
+
+    copy = PolicyCopy(adapter, checked=_checked(adapter._inst)[0])
     examples = _observed(adapter.sample())
     return Served(spec.name, copy.call, copy.batch, examples[0] if examples else None, adapter.shutdown, copy,
                   examples, _plays(spec))
@@ -180,6 +187,17 @@ def checked_call(instance: Any) -> tuple[Callable[[Any], Any], list[int] | None,
 
     from seq.registry import registration
 
+    call, sizes = _checked(instance)
+    return call, sizes, _examples(instance, registration(type(instance)).bindings.get(SeqFlags.SAMPLE))
+
+
+def _checked(instance: Any) -> tuple[Callable[[Any], Any], list[int] | None]:
+    """checked_call's call and batch sizes, its sample episode left unread: seq serve's copy is handed the call
+    (PolicyCopy's `checked`), and has read its observations through its adapter already."""
+    from sequence_base.contract import SeqFlags
+
+    from seq.registry import registration
+
     reg = registration(type(instance))
     spec = reg.spec
     infer = getattr(instance, reg.bindings[SeqFlags.INFER])
@@ -187,18 +205,18 @@ def checked_call(instance: Any) -> tuple[Callable[[Any], Any], list[int] | None,
     sizes = list(spec.concurrency.sizes) if spec.concurrency and spec.concurrency.sizes else None
     parameters = inspect.signature(infer).parameters
     call = _call(infer, sizes, bool(declared.get("collate", True)), "seed" in parameters, "episode" in parameters)
-    return call, sizes, _examples(instance, reg.bindings.get(SeqFlags.SAMPLE))
+    return call, sizes
 
 
 def _call(infer: Callable, sizes: list[int] | None, collate: bool, seeded: bool,
           episodic: bool = False) -> Callable[[Any], Any]:
-    """What sequence_ai.serve calls: one act's observation in, its answer out; or, with batch sizes, the acts that run
-    together - stacked into one batch the platform's way (collate), or as a list (collate=False) - their answers out
-    one an act. A robot's act has no seed, as on the platform; a policy whose infer takes one is also given `seed=`
-    when sequence_ai.engine.optimize checks its speed-ups, so its noise is the same from one run to the next. A policy
-    whose infer takes `episode` is given none - None, or None for each act - since an act served here belongs to no
-    episode the platform keeps.
-    
+    """What serve() calls (sequence_ai.engine.serve): one act's observation in, its answer out; or, with batch sizes,
+    the acts that run together - stacked into one batch the platform's way (collate), or as a list (collate=False) -
+    their answers out one an act. A robot's act has no seed, as on the platform; a policy whose infer takes one is also
+    given `seed=` when sequence_ai.engine.optimize checks its speed-ups, so its noise is the same from one run to the
+    next. A policy whose infer takes `episode` is given none - None, or None for each act - since an act served here
+    belongs to no episode the platform keeps.
+
 """
     extra = {"episode": None} if episodic else {}
     if sizes is None:
@@ -242,24 +260,28 @@ def serve(folder: str | os.PathLike, name: str | None = None, *, host: str | Non
           weights: list[str] | None = None, token: str | None = None, api_key: str | None = None,
           base_url: str | None = None, cuda_graphs: bool | None = None, whole_graph: bool | None = None,
           torch_compile: bool = False, fused_kernels: bool = False, tensorrt: bool = False,
-          precision: str | None = None, tolerance: Any = None) -> int:
+          precision: str | None = None, tolerance: Any = None, cfg_parallel: bool = False,
+          pipeline_parallel: bool = False) -> int:
     """`seq serve`: build the folder's policy and serve it until stopped (Ctrl-C), then run its @seq.shutdown. Before it
     says it is ready, the speed-ups that keep its answers the same are tried on its sample episode's observations and
     kept where they are faster (sequence_ai.engine.optimize); `cuda_graphs`, `whole_graph` False leave one untried.
-    torch_compile, fused_kernels, tensorrt and precision change the answers, and are tried only with `tolerance`."""
-    import sequence_ai
+    torch_compile, fused_kernels, tensorrt, precision, cfg_parallel (two processes, torchrun --nproc-per-node 2) and
+    pipeline_parallel (two or more) change the answers, and are tried only with `tolerance`."""
     from sequence_ai.engine.optimize import check_switches
     from sequence_ai.engine import ranks as _ranks
-    from sequence_ai.engine.serve import answered_at
+    from sequence_ai.engine.serve import answered_at, serve as engine_serve
     from sequence_ai.errors import Conflict
 
     check_switches(cuda_graphs=cuda_graphs, whole_graph=whole_graph, torch_compile=torch_compile,
-                   fused_kernels=fused_kernels, tensorrt=tensorrt, precision=precision, tolerance=tolerance)
+                   fused_kernels=fused_kernels, tensorrt=tensorrt, precision=precision, tolerance=tolerance,
+                   cfg_parallel=cfg_parallel, pipeline_parallel=pipeline_parallel)
 
 
 
 
     group = _ranks.from_env()
+    if group is not None:
+        _ranks.own_card()
     if group is None or group.leads:
         try:
             answered_at(host, port)
@@ -278,10 +300,11 @@ def serve(folder: str | os.PathLike, name: str | None = None, *, host: str | Non
           + (f", each robot held and seated by its time at {plays['hz']:g} Hz" if plays else "")
           + f": a robot connects with sequence_ai.connect(\"http://<this machine>:{port}\")")
     try:
-        sequence_ai.serve(served.call, host=host, port=port, batch=served.batch, example=served.example, token=token,
-                          examples=served.examples, cuda_graphs=cuda_graphs, whole_graph=whole_graph,
-                          torch_compile=torch_compile, fused_kernels=fused_kernels, tensorrt=tensorrt,
-                          precision=precision, tolerance=tolerance, copy=served.copy, **plays)
+        engine_serve(served.call, host=host, port=port, batch=served.batch, example=served.example, token=token,
+                     examples=served.examples, cuda_graphs=cuda_graphs, whole_graph=whole_graph,
+                     torch_compile=torch_compile, fused_kernels=fused_kernels, tensorrt=tensorrt,
+                     precision=precision, tolerance=tolerance, cfg_parallel=cfg_parallel,
+                     pipeline_parallel=pipeline_parallel, copy=served.copy, **plays)
     except OSError as failed:
         if failed.errno != errno.EADDRINUSE:
             raise

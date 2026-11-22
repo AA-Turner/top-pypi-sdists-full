@@ -242,6 +242,14 @@ class ProjectConfig:
         self.project_title: str = project_title
         self.dir_for_sdoc_assets: str = dir_for_sdoc_assets
 
+        # Whether the cache folder is StrictDoc's default, i.e. neither the
+        # project config nor STRICTDOC_CACHE_DIR chose one.
+        self.is_default_dir_for_sdoc_cache: bool = (
+            dir_for_sdoc_cache
+            == ProjectConfigDefault.DEFAULT_DIR_FOR_SDOC_CACHE
+            and not os.environ.get("STRICTDOC_CACHE_DIR")
+        )
+
         if env_cache_dir := os.environ.get("STRICTDOC_CACHE_DIR"):
             # The only use case for STRICTDOC_CACHE_DIR is to make the cache
             # local to an itest folder.
@@ -964,7 +972,10 @@ class ProjectConfig:
         if os.path.isfile(path_to_gitignore):
             patterns = ["/.git/"]
 
-            with open(path_to_gitignore, encoding="utf-8") as f:
+            # utf-8-sig strips the UTF-8 BOM that some editors write at the
+            # start of the file. Without it, the first pattern starts with an
+            # invisible \ufeff and fails the path mask validation.
+            with open(path_to_gitignore, encoding="utf-8-sig") as f:
                 for line_ in f:
                     line = line_.strip()
                     if not line or line.startswith("#"):

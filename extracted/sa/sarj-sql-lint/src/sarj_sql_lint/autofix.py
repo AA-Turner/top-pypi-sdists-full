@@ -27,6 +27,7 @@ from sarj_sql_lint.rule_base import (
 )
 from sarj_sql_lint.rules import REGISTRY
 from sarj_sql_lint.rules._copy_input import sql_before_copy_input
+from sarj_sql_lint.rules.combine_alter_table import combine_alter_table
 from sarj_sql_lint.rules.idempotent_ddl import ddl_checks
 from sarj_sql_lint.rules.no_comment_cruft import (
     COMMENT_DIRECTIVE_RE,
@@ -36,6 +37,7 @@ from sarj_sql_lint.rules.no_comment_cruft import (
     is_supported_disabled_statement,
     split_disabled_statements,
 )
+from sarj_sql_lint.rules.no_redundant_nullability import nullability_edits
 
 
 if TYPE_CHECKING:
@@ -63,18 +65,24 @@ def fix_source(path: Path, source: str, *, rule_ids: Sequence[str] | None = None
         return source
     if "invalid-postgres-ddl" in selected:
         source = repair_index_name(path, source)
-    if not _parseable(source):
-        return source
-    edits = _selected_edits(path, source, selected)
-    if not edits:
-        return source
-    fixed = apply_edits(source, edits)
-    return fixed if _parseable(fixed) else source
+    if _parseable(source):
+        edits = _selected_edits(path, source, selected)
+        if edits:
+            fixed = apply_edits(source, edits)
+            if _parseable(fixed):
+                source = fixed
+    if "combine-alter-table" in selected:
+        # The rule proves its supported actions directly; SQLGlot treats REPLICA IDENTITY as an opaque command.
+        source = combine_alter_table(path, source)
+    return source
 
 
 def _selected_edits(path: Path, source: str, selected: Sequence[RuleId]) -> list[TextEdit]:
     edits: list[TextEdit] = []
     for rule_id in selected:
+        if rule_id == "no-redundant-nullability":
+            edits.extend(nullability_edits(path, source))
+            continue
         if rule_id not in {
             "idempotent-ddl",
             "no-migration-comment-cruft",

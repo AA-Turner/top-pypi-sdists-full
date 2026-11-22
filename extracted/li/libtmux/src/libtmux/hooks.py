@@ -5,13 +5,11 @@ tmux Hook Features
 Hooks are array options (e.g., ``session-renamed[0]``, ``session-renamed[1]``)
 with sparse index support (can have gaps: ``[0]``, ``[5]``, ``[10]``).
 
-All features available in libtmux's minimum supported version (tmux 3.2+):
+All features available in libtmux's minimum supported version (tmux 3.3a):
 
 - Session, window, and pane-level hooks
 - Window hooks via ``-w`` flag, pane hooks via ``-p`` flag
 - Hook scope separation (session vs window vs pane)
-
-**tmux 3.3+**:
 - ``client-active`` hook
 - ``window-resized`` hook
 
@@ -38,7 +36,7 @@ from libtmux._internal.constants import (
     Hooks,
 )
 from libtmux._internal.sparse_array import SparseArray
-from libtmux.common import CmdMixin, has_lt_version
+from libtmux.common import CmdMixin
 from libtmux.constants import (
     DEFAULT_OPTION_SCOPE,
     HOOK_SCOPE_FLAG_MAP,
@@ -48,7 +46,7 @@ from libtmux.constants import (
 from libtmux.options import handle_option_error
 
 if t.TYPE_CHECKING:
-    from typing_extensions import Self
+    from typing import Self
 
 HookDict = dict[str, t.Any]
 HookValues = dict[int, str] | SparseArray[str] | list[str]
@@ -70,13 +68,6 @@ class HooksMixin(CmdMixin):
         self.default_hook_scope = default_hook_scope
         self.hooks = Hooks()
 
-    @property
-    def _tmux_bin(self) -> str | None:
-        """Resolve tmux_bin from self (Server) or self.server (Session/Window/Pane)."""
-        return getattr(self, "tmux_bin", None) or getattr(
-            getattr(self, "server", None), "tmux_bin", None
-        )
-
     def run_hook(
         self,
         hook: str,
@@ -95,14 +86,7 @@ class HooksMixin(CmdMixin):
         if scope is not None and not isinstance(scope, _DefaultOptionScope):
             assert scope in HOOK_SCOPE_FLAG_MAP
 
-            flag = HOOK_SCOPE_FLAG_MAP[scope]
-            if flag in {"-p", "-w"} and has_lt_version("3.2", tmux_bin=self._tmux_bin):
-                warnings.warn(
-                    "Scope flag '-w' and '-p' requires tmux 3.2+. Ignoring.",
-                    stacklevel=2,
-                )
-            else:
-                flags += (flag,)
+            flags += (HOOK_SCOPE_FLAG_MAP[scope],)
 
         cmd = self.cmd(
             "set-hook",
@@ -174,14 +158,7 @@ class HooksMixin(CmdMixin):
         if scope is not None and not isinstance(scope, _DefaultOptionScope):
             assert scope in HOOK_SCOPE_FLAG_MAP
 
-            flag = HOOK_SCOPE_FLAG_MAP[scope]
-            if flag in {"-p", "-w"} and has_lt_version("3.2", tmux_bin=self._tmux_bin):
-                warnings.warn(
-                    "Scope flag '-w' and '-p' requires tmux 3.2+. Ignoring.",
-                    stacklevel=2,
-                )
-            else:
-                flags += (flag,)
+            flags += (HOOK_SCOPE_FLAG_MAP[scope],)
 
         cmd = self.cmd(
             "set-hook",
@@ -227,14 +204,7 @@ class HooksMixin(CmdMixin):
         if scope is not None and not isinstance(scope, _DefaultOptionScope):
             assert scope in HOOK_SCOPE_FLAG_MAP
 
-            flag = HOOK_SCOPE_FLAG_MAP[scope]
-            if flag in {"-p", "-w"} and has_lt_version("3.2", tmux_bin=self._tmux_bin):
-                warnings.warn(
-                    "Scope flag '-w' and '-p' requires tmux 3.2+. Ignoring.",
-                    stacklevel=2,
-                )
-            else:
-                flags += (flag,)
+            flags += (HOOK_SCOPE_FLAG_MAP[scope],)
 
         cmd = self.cmd(
             "set-hook",
@@ -292,14 +262,7 @@ class HooksMixin(CmdMixin):
         if scope is not None and not isinstance(scope, _DefaultOptionScope):
             assert scope in HOOK_SCOPE_FLAG_MAP
 
-            flag = HOOK_SCOPE_FLAG_MAP[scope]
-            if flag in {"-p", "-w"} and has_lt_version("3.2", tmux_bin=self._tmux_bin):
-                warnings.warn(
-                    "Scope flag '-w' and '-p' requires tmux 3.2+. Ignoring.",
-                    stacklevel=2,
-                )
-            else:
-                flags += (flag,)
+            flags += (HOOK_SCOPE_FLAG_MAP[scope],)
 
         cmd = self.cmd("show-hooks", *flags)
         output = cmd.stdout
@@ -350,14 +313,7 @@ class HooksMixin(CmdMixin):
         if scope is not None and not isinstance(scope, _DefaultOptionScope):
             assert scope in HOOK_SCOPE_FLAG_MAP
 
-            flag = HOOK_SCOPE_FLAG_MAP[scope]
-            if flag in {"-p", "-w"} and has_lt_version("3.2", tmux_bin=self._tmux_bin):
-                warnings.warn(
-                    "Scope flag '-w' and '-p' requires tmux 3.2+. Ignoring.",
-                    stacklevel=2,
-                )
-            else:
-                flags += (flag,)
+            flags += (HOOK_SCOPE_FLAG_MAP[scope],)
 
         flags += (hook,)
 

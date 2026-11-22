@@ -4,10 +4,11 @@
 A policy made faster on its own GPU, each speed-up turned on only once it is checked on observations of yours.
 
     import sequence_ai
+    from sequence_ai.engine.serve import serve
 
     fast = sequence_ai.engine.optimize(policy, examples)     # 32 or more of your robot's own observations
     print(fast.report["on"])                                 # ["cuda_graphs", "whole_graph"]
-    sequence_ai.serve(fast, example=examples[0])
+    serve(fast, example=examples[0])
 
 serve() and `seq serve` run it by default, on the observations they warm up on (serve(examples=...) takes more).
 
@@ -22,7 +23,7 @@ Off unless you turn them on, the four that change the outputs - each needs `tole
 
     torch_compile  the modules the act spends its time in, compiled by torch.compile (compiled.py)
     fused_kernels  their norms, gated activations and rotary embeddings, each one kernel (fused.py)
-    tensorrt       those modules built by TensorRT, TF32 off (compiled.py; pip install sequence-ai[tensorrt])
+    tensorrt       those modules built by TensorRT, TF32 off (compiled.py; the torch-tensorrt of your torch's version)
     precision      "fp16" or "fp32": those modules in that dtype (with tensorrt, its engines); "fp8": their linear
                    layers in 8-bit floating point, on a GPU of compute capability 8.9 or later (fp8.py); None, the
                    default: the model's own dtype, whatever it is
@@ -34,8 +35,9 @@ Off unless you turn them on, the four that change the outputs - each needs `tole
 largest absolute difference of any value), or a dict of max_abs, mean_abs and cosine (the least cosine similarity).
 
 A JAX policy (one whose model jax.jit compiles) gets each switch's counterpart in XLA (xla.py):
-cuda_graphs and whole_graph are XLA's command buffers, for straight-line work and for loops too - tried only when asked
-(True), as they saved about nothing on the JAX models measured and a try compiles the model again for each;
+cuda_graphs and whole_graph are XLA's command buffers, for straight-line work and for loops too - tried only when turned
+on (cuda_graphs=True, whole_graph=True), as they saved about nothing on the JAX models measured and a try compiles the
+model again for each;
 precision is the dtype of the parameters its jitted functions are given; torch_compile and fused_kernels are what XLA
 does already; tensorrt has none. Each is judged the same way.
 
@@ -136,8 +138,9 @@ class _Run(NamedTuple):
 
 
 def check_switches(*, cuda_graphs: Optional[bool] = None, whole_graph: Optional[bool] = None,
-                   torch_compile: bool = False, fused_kernels: bool = False, tensorrt: bool = False, precision: Optional[str] = None,
-                   tolerance: Any = None) -> dict:
+                   torch_compile: bool = False, fused_kernels: bool = False, tensorrt: bool = False,
+                   precision: Optional[str] = None, tolerance: Any = None, cfg_parallel: bool = False,
+                   pipeline_parallel: bool = False) -> dict:
     """The switches asked for, as optimize() takes them, and `tolerance` as a dict of its limits; ValueError naming
     what is wrong: a switch that changes the outputs without `tolerance`, a precision that is none of None, "fp32",
     "fp16", "fp8", or fp8 with tensorrt. serve() checks them before it starts, so a mistake is said at once."""
@@ -145,7 +148,9 @@ def check_switches(*, cuda_graphs: Optional[bool] = None, whole_graph: Optional[
         raise ValueError(f"precision={precision!r}: it is None (the model's own dtype), \"fp32\", \"fp16\" or "
                          "\"fp8\"")
     changing = [name for name, on in (("torch_compile", torch_compile), ("fused_kernels", fused_kernels),
-                                      ("tensorrt", tensorrt), (f"precision={precision!r}", precision is not None))
+                                      ("tensorrt", tensorrt), ("cfg_parallel", cfg_parallel),
+                                      ("pipeline_parallel", pipeline_parallel),
+                                      (f"precision={precision!r}", precision is not None))
                 if on]
     limits = _tolerance(tolerance)
     if changing and limits is None:
@@ -159,7 +164,7 @@ def check_switches(*, cuda_graphs: Optional[bool] = None, whole_graph: Optional[
     return {"cuda_graphs": None if cuda_graphs is None else bool(cuda_graphs),
             "whole_graph": None if whole_graph is None else bool(whole_graph), "torch_compile": bool(torch_compile),
             "fused_kernels": bool(fused_kernels), "tensorrt": bool(tensorrt), "precision": precision,
-            "tolerance": limits}
+            "cfg_parallel": bool(cfg_parallel), "pipeline_parallel": bool(pipeline_parallel), "tolerance": limits}
 
 
 def _tolerance(tolerance: Any) -> Optional[dict]:
@@ -262,8 +267,9 @@ def optimize(policy: Callable[..., Any], examples: Any = None, *, batch: Optiona
     runs = _runs(examples, sizes, seed)
     report["runs"] = len(runs)
     if len(examples) < FEW:
-        report["note"] = (f"checked on {len(examples)} observation{'s' if len(examples) != 1 else ''}, each with "
-                          f"several random states; {FEW} or more of your robot's own check more")
+        report["note"] = (f"checked on {len(examples)} observation{'s' if len(examples) != 1 else ''}"
+                          + (", each with several random states" if len(examples) < MIN_RUNS else "")
+                          + f"; {FEW} or more of your robot's own check more")
     kept_rng = _states()
     try:
         trial = _Trial(policy, runs, budget_s, min_speedup, say, limits, _digest(examples))
@@ -306,10 +312,12 @@ def optimize(policy: Callable[..., Any], examples: Any = None, *, batch: Optiona
 
 
 # What a JAX policy's switches that have no counterpart in XLA say (xla.py)
-# Why the exact two are not tried on a JAX policy unless asked (True): on the JAX models measured, XLA's own programs
-# left its command buffers about nothing to save, and a try compiles the model again for each switch - minutes
-JAX_GRAPHS = ("a JAX policy: tried only when asked (True) - XLA's own programs leave its command buffers little to "
-              "save, and a try compiles the model again")
+# Why the exact two are not tried on a JAX policy unless turned on: on the JAX models measured, XLA's own programs left
+# its command buffers about nothing to save, and a try compiles the model again for each switch - minutes. The words
+# name no way of turning them on: a server that runs optimize() for its user (a platform's) may offer none; optimize()
+# says the way after them (_jax)
+JAX_GRAPHS = ("not tried on a JAX policy: XLA already puts most of its work in command buffers, and a try compiles "
+              "the model again")
 _JAX_NONE = {"torch_compile": "a JAX model: XLA compiles each jitted function whole already",
              "fused_kernels": "a JAX model: XLA fuses its kernels already",
              "tensorrt": "a JAX model: TensorRT builds torch modules, and has no counterpart for JAX"}
@@ -338,14 +346,15 @@ def apply(policy: Callable[..., Any], report: dict, *, say: Callable[[str], Any]
     out: dict = {"on": [], "switches": {}, "applied": True}
     for name in SWITCHES:
         kept = switches.get(name) or {}
-        why = "turned off" if not kept.get("on") else "it changes the outputs: optimize() turns it on where it checks it"
+        why = ("turned off" if not kept.get("on")
+               else "it changes the outputs: optimize() turns it on where it checks it")
         out["switches"][name] = {"on": False, "why": why}
     wanted = [name for name in EXACT if (switches.get(name) or {}).get("on")]
     if not wanted:
         return Optimized(policy, out)
     names = _namespace(policy)
-    options = next((switches[name].get("xla_options") for name in reversed(wanted) if switches[name].get("xla_options")),
-                   None)
+    options = next((switches[name].get("xla_options") for name in reversed(wanted)
+                    if switches[name].get("xla_options")), None)
     if options is not None:
         from . import xla
 
@@ -396,8 +405,10 @@ def _jax(policy, found, examples: list, sizes, on: dict, asked: dict, limits, re
     for name in ("tensorrt", "fused_kernels", "torch_compile"):
         report["switches"][name] = off(name, _JAX_NONE[name]) if on[name] else {"on": False, "why": "turned off"}
     for name in EXACT:
-        if on[name] is None:                     # not asked for: left off, and said why (JAX_GRAPHS)
-            report["switches"][name] = off(name, JAX_GRAPHS)
+        if on[name] is None:                     # not asked for: left off, and said why (JAX_GRAPHS) and how to
+            say(f"optimize: {name} off - {JAX_GRAPHS}; turn it on to try it: {name}=True, "
+                f"seq serve --{name.replace('_', '-')}")
+            report["switches"][name] = {"on": False, "why": JAX_GRAPHS}
             on[name] = False
     cast = on["precision"] and asked["precision"] != "fp8"
     if on["precision"] and not cast:
@@ -418,8 +429,9 @@ def _jax(policy, found, examples: list, sizes, on: dict, asked: dict, limits, re
     runs = _runs(examples, sizes, options["seed"])
     report["runs"] = len(runs)
     if len(examples) < FEW:
-        report["note"] = (f"checked on {len(examples)} observation{'s' if len(examples) != 1 else ''}, each with "
-                          f"several random states; {FEW} or more of your robot's own check more")
+        report["note"] = (f"checked on {len(examples)} observation{'s' if len(examples) != 1 else ''}"
+                          + (", each with several random states" if len(examples) < MIN_RUNS else "")
+                          + f"; {FEW} or more of your robot's own check more")
     kept = _states()
     trial = _Trial(policy, runs, options["budget_s"], options["min_speedup"], say, limits, _digest(examples),
                    seed_with=found.seed)
@@ -573,8 +585,8 @@ class _Trial:
             where = f"on run {i + 1} of {len(self.runs)}"
             if exact:
                 if not _same(got, want, self.skip):
-                    return f"its outputs differed from {'eager mode' if not self.changed else 'what ran before it'}'s " \
-                           f"{where}{_largest(want, got, self.skip)}", None
+                    before = "eager mode" if not self.changed else "what ran before it"
+                    return f"its outputs differed from {before}'s {where}{_largest(want, got, self.skip)}", None
                 continue
             found = differences(want, got, self.skip)
             if found is None:
@@ -1065,7 +1077,8 @@ def _takes_seed(policy: Any) -> bool:
 
 
 def _examples(examples: Any) -> list:
-    """The examples as a list: None as none, one observation (a dict, or anything but a list or tuple) as a list of it."""
+    """The examples as a list: None as none, one observation (a dict, or anything but a list or tuple) as a list of
+    it."""
     if examples is None:
         return []
     if isinstance(examples, (list, tuple)):

@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Optional, TypeAlias, Union, cast
 from urllib.parse import ParseResult, urlparse
 
-from datamodel_code_generator import Error, _validate_alias_generator, _validate_output_datetime_class
 from datamodel_code_generator._config_fields import (
     CLI_RESOLVED_PATH_FIELDS,
     DEFAULT_WATCH_DELAY,
@@ -19,6 +18,7 @@ from datamodel_code_generator._config_fields import (
 from datamodel_code_generator._json_config_fields import JSON_CONFIG_FIELDS
 from datamodel_code_generator._option_names import split_external_ref_mapping
 from datamodel_code_generator._paths import resolved
+from datamodel_code_generator._shared_types import Error
 from datamodel_code_generator._url_redaction import is_url, redact_url
 from datamodel_code_generator.deprecations import warn_deprecated
 from datamodel_code_generator.enums import (
@@ -40,6 +40,7 @@ if TYPE_CHECKING:
     from datamodel_code_generator.validators import ModelValidators
 
     ValidatorsConfigValue: TypeAlias = Mapping[str, ModelValidators]
+    Config: TypeAlias = Any
 else:
     ValidatorsConfigValue: TypeAlias = Mapping[str, Any]
 
@@ -109,11 +110,11 @@ def _validate_http_key_value_options(
     item_error_name: _HttpItemErrorName,
     value_error_name: _HttpValueErrorName,
 ) -> list[_HttpKeyValuePair] | None:
-    if value is None:  # pragma: no cover
+    if value is None:
         return None
 
     def validate_each_item(each_item: _HttpKeyValueInput) -> _HttpKeyValuePair:
-        if isinstance(each_item, str):  # pragma: no cover
+        if isinstance(each_item, str):
             try:
                 field_name, field_value = each_item.split(separator, maxsplit=1)
                 return field_name, field_value.lstrip()
@@ -122,7 +123,7 @@ def _validate_http_key_value_options(
 
                 msg = f"Invalid {item_error_name}: {stable_repr(each_item)}"
                 raise Error(msg) from exc
-        return each_item  # pragma: no cover
+        return each_item
 
     if isinstance(value, list):
         return [validate_each_item(cast("_HttpKeyValueInput", each_item)) for each_item in value]
@@ -160,11 +161,11 @@ def _get_config_class() -> type[Config]:
         # Where the values of the run came from and what its option stages gave: the copies of a config share it.
         _run_options: RunOptions = PrivateAttr(default_factory=RunOptions)
 
-        def get(self, item: str) -> Any:  # pragma: no cover
+        def get(self, item: str) -> Any:
             """Get attribute value by name."""
             return getattr(self, item)
 
-        def __getitem__(self, item: str) -> Any:  # pragma: no cover
+        def __getitem__(self, item: str) -> Any:
             """Get item by key."""
             return self.get(item)
 
@@ -207,7 +208,7 @@ def _get_config_class() -> type[Config]:
         @classmethod
         def validate_url(cls, value: Any) -> ParseResult | None:
             """Validate and parse URL."""
-            if value is None:  # pragma: no cover
+            if value is None:
                 return None
             if not isinstance(value, str) or not is_url(value):
                 msg = f"Unsupported URL scheme. Supported: http, https, file. --input={redact_url(str(value))}"
@@ -309,12 +310,16 @@ def _get_config_class() -> type[Config]:
         @model_validator(mode="after")
         def validate_output_datetime_class(self: Self) -> Self:
             """Validate output datetime class compatibility."""
+            from datamodel_code_generator._option_rules import _validate_output_datetime_class  # noqa: PLC0415
+
             _validate_output_datetime_class(self.output_model_type, self.output_datetime_class)
             return self
 
         @model_validator(mode="after")
         def validate_alias_generator(self: Self) -> Self:
             """Validate alias generator compatibility."""
+            from datamodel_code_generator._option_rules import _validate_alias_generator  # noqa: PLC0415
+
             _validate_alias_generator(self.output_model_type, self.alias_generator)
             return self
 
@@ -346,11 +351,11 @@ def _get_config_class() -> type[Config]:
         @classmethod
         def validate_class_name_affix_scope(cls, v: str | ClassNameAffixScope | None) -> ClassNameAffixScope:
             """Convert string to ClassNameAffixScope enum."""
-            if v is None:  # pragma: no cover
+            if v is None:
                 return ClassNameAffixScope.All
             if isinstance(v, str):
                 return ClassNameAffixScope(v)
-            return v  # pragma: no cover
+            return v
 
         @field_validator("schema_validator_base_class_name")
         @classmethod
@@ -363,33 +368,33 @@ def _get_config_class() -> type[Config]:
                 raise Error(msg)
             return v
 
-        input: Optional[Union[Path, str]] = None  # noqa: UP007, UP045
-        input_model: Optional[list[str]] = None  # noqa: UP045
-        input_model_ref_strategy: Optional[InputModelRefStrategy] = None  # noqa: UP045
+        input: Optional[Union[Path, str]] = None
+        input_model: Optional[list[str]] = None
+        input_model_ref_strategy: Optional[InputModelRefStrategy] = None
         input_file_type: InputFileType = InputFileType.Auto
         output_model_type: DataModelType = DataModelType.PydanticV2BaseModel
-        output: Optional[Path] = None  # noqa: UP045
+        output: Optional[Path] = None
         check: bool = False
-        diff_against: Optional[Path] = None  # noqa: UP045
+        diff_against: Optional[Path] = None
         repair_invalid_dotted_stdout: bool = Field(default=False, exclude=True)
         forced_invalid_dotted_stdout_repair_modules: tuple[tuple[str, ...], ...] = Field(default=(), exclude=True)
         debug: bool = False
         disable_warnings: bool = False
         extra_template_data: Mapping[str, dict[str, Any]] | None = None
-        validators: Optional[ValidatorsConfigValue] = None  # noqa: UP045
-        aliases: Optional[Mapping[str, str | list[str]]] = None  # noqa: UP045
-        serialization_aliases: Optional[Mapping[str, str]] = None  # noqa: UP045
-        default_values: Optional[Mapping[str, Any]] = None  # noqa: UP045
+        validators: Optional[ValidatorsConfigValue] = None
+        aliases: Optional[Mapping[str, str | list[str]]] = None
+        serialization_aliases: Optional[Mapping[str, str]] = None
+        default_values: Optional[Mapping[str, Any]] = None
         use_default: bool = False
         force_optional: bool = False
-        url: Optional[ParseResult] = None  # noqa: UP045
+        url: Optional[ParseResult] = None
         strict_types: list[StrictTypes] = Field(default_factory=list)
-        openapi_scopes: Optional[list[OpenAPIScope]] = Field(default_factory=lambda: _openapi_scopes_or_default(None))  # noqa: UP045
-        custom_formatters_kwargs: Optional[dict[str, str]] = None  # noqa: UP045
+        openapi_scopes: Optional[list[OpenAPIScope]] = Field(default_factory=lambda: _openapi_scopes_or_default(None))
+        custom_formatters_kwargs: Optional[dict[str, str]] = None
         watch: bool = False
         watch_delay: float = DEFAULT_WATCH_DELAY
-        list_deprecations: Optional[str] = None  # noqa: UP045
-        list_experimental: Optional[str] = None  # noqa: UP045
+        list_deprecations: Optional[str] = None
+        list_experimental: Optional[str] = None
 
         def merge_args(self, args: Namespace) -> None:
             """Merge command-line arguments into config."""

@@ -1,8 +1,8 @@
 [project]
 name = "tmuxp"
-version = "1.76.0"
+version = "1.78.0"
 description = "Session manager for tmux, which allows users to save and load tmux sessions through simple configuration files."
-requires-python = ">=3.10,<4.0"
+requires-python = ">=3.11,<4.0"
 authors = [
   {name = "Tony Narlock", email = "tony@git-pull.com"}
 ]
@@ -15,7 +15,6 @@ classifiers = [
   "Environment :: Web Environment",
   "Intended Audience :: Developers",
   "Programming Language :: Python",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
@@ -39,7 +38,7 @@ include = [
   { path = "conftest.py", format = "sdist" },
 ]
 dependencies = [
-  "libtmux~=0.62.0",
+  "libtmux~=0.64.0",
   "PyYAML>=6.0"
 ]
 
@@ -77,7 +76,7 @@ dev = [
   "coverage",
   "pytest-cov",
   # Lint
-  "ruff>=0.16.1",
+  "ruff>=0.17.1",
   "mypy",
   "types-docutils",
   "types-Pygments",
@@ -107,7 +106,7 @@ coverage =[
   "pytest-cov",
 ]
 lint = [
-  "ruff>=0.16.1",
+  "ruff>=0.17.1",
   "mypy",
   "types-docutils",
   "types-Pygments",
@@ -183,7 +182,7 @@ exclude_lines = [
 
 [tool.mypy]
 strict = true
-python_version = "3.10"
+python_version = "3.11"
 files = [
   "src/",
   "tests/",
@@ -202,7 +201,7 @@ module = [
 ignore_missing_imports = true
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py311"
 
 [tool.ruff.lint]
 # `select` is deliberately unset: ruff 0.16 enables a curated default rule

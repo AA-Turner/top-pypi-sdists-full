@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-shapely
-Version: 2.2.0.20261117
+Version: 2.2.0.20261122
 Summary: Typing stubs for shapely
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -35,7 +35,7 @@ This package was tested with the following type checkers:
 * [mypy](https://www.mypy-lang.org/) 2.4.1
 * [pyrefly](https://pyrefly.org/) 1.4.1
 * [pyright](https://microsoft.github.io/pyright/) 1.1.414
-* [ty](https://docs.astral.sh/ty/) 0.0.99
+* [ty](https://docs.astral.sh/ty/) 0.0.104
 
 It was generated from typeshed commit
-[`f0512c2d5d5d319570d2517d74419633c0174ec2`](https://github.com/python/typeshed/commit/f0512c2d5d5d319570d2517d74419633c0174ec2).
+[`567e5e3e4276a6b05127b6347d80f809d123e35e`](https://github.com/python/typeshed/commit/567e5e3e4276a6b05127b6347d80f809d123e35e).

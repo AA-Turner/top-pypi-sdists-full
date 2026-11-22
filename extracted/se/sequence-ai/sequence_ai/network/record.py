@@ -166,7 +166,8 @@ def video(path: str, key: str, out: str, *, robot: Optional[str] = None, fps: fl
     try:
         import av
     except ImportError:
-        raise ImportError("video() writes an MP4 with PyAV: pip install -U sequence-ai, on Python 3.10 or later (3.11 or later on Windows on ARM)") from None
+        raise ImportError("video() writes an MP4 with PyAV: pip install -U sequence-ai, on Python 3.10 or later "
+                          "(3.11 or later on Windows on ARM)") from None
     import io
 
     units = []

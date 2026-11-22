@@ -412,7 +412,7 @@ class TiktokSearchPhotosInput(TypedDict, total=False):
     ignoreSources: NotRequired[list[str]]
     """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the remaining sources. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
     limit: NotRequired[int]
-    """Maximum items to return in one page. Range: 1 to 30. Default: 30."""
+    """How many posts to ask for per page (1-30, default 30). This is a request, not a cap: a page can hold more or fewer posts than this, depending on the source that serves it. Follow nextCursor for more. Range: 1 to 30. Default: 30."""
     preferLatencyUnderMs: NotRequired[int]
     """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
     query: Required[str]
@@ -4217,7 +4217,7 @@ class TiktokNamespace:
         Fetch a single TikTok video by URL with its caption and engagement counts
         (views, likes, comments, shares, saves).
 
-        Price: $0.0004 per request.
+        Price: $0.00039 per request.
 
         Example:
             res = client.tiktok.video(url="https://www.tiktok.com/@mrbeast/video/7654638524729216287?_r=1&u_code=elgjf3ff8cajhk&preview_pb=0&sharer_language=en&_d=elh6737j6kjl71&share_item_id=7654638524729216287&source=h5_m")
@@ -5348,7 +5348,7 @@ class AsyncTiktokNamespace:
         Fetch a single TikTok video by URL with its caption and engagement counts
         (views, likes, comments, shares, saves).
 
-        Price: $0.0004 per request.
+        Price: $0.00039 per request.
 
         Example:
             res = client.tiktok.video(url="https://www.tiktok.com/@mrbeast/video/7654638524729216287?_r=1&u_code=elgjf3ff8cajhk&preview_pb=0&sharer_language=en&_d=elh6737j6kjl71&share_item_id=7654638524729216287&source=h5_m")

@@ -25,20 +25,22 @@ EXPECTED_INPUT_MODEL = TEST_DATA / "expected" / "input_model"
 EXPECTED_JSON_SCHEMA = EXPECTED_MAIN / "jsonschema"
 EXPECTED_OPENAPI = EXPECTED_MAIN / "openapi"
 INPUT_MODEL_DATA = TEST_DATA / "python" / "input_model"
-EXPECTED_CLIENT = EXPECTED_MAIN / "generation_platform" / "client"
+EXPECTED_CLIENT_GENERATION = TEST_DATA / "expected" / "api_generation" / "client_generation"
 CLIENT_DATA = TEST_DATA / "generation_platform" / "client"
 FASTAPI_CLI_DATA = TEST_DATA / "generation_platform" / "fastapi" / "cli"
 JSON_SCHEMA_DATA = TEST_DATA / "jsonschema"
 OPENAPI_DATA = TEST_DATA / "openapi"
 DOCS_PROJECTS = TEST_DATA / "docs"
-EXPECTED_DOCS_PROJECTS = TEST_DATA / "expected" / "docs"
+EXPECTED_FASTAPI_SERVER = TEST_DATA / "expected" / "api_generation" / "fastapi_server"
+EXPECTED_STRUCTURAL_CODECS = TEST_DATA / "expected" / "model_codecs" / "structural_codecs"
 TUTORIAL = DOCS_PROJECTS / "tutorial"
-EXPECTED_TUTORIAL = EXPECTED_DOCS_PROJECTS / "tutorial"
+TUTORIAL_TEST = "docs_project[tutorial]"
+TUTORIAL_CLIENT_TEST = "docs_tutorial_client"
 TUTORIAL_SERVICE = TUTORIAL / "implementation" / "app" / "services" / "pets.py"
 HOWTO = DOCS_PROJECTS / "howto"
-EXPECTED_HOWTO = EXPECTED_DOCS_PROJECTS / "howto"
+HOWTO_TEST = "docs_project[howto]"
 CLIENT_HOWTO = DOCS_PROJECTS / "client-howto"
-EXPECTED_CLIENT_HOWTO = EXPECTED_DOCS_PROJECTS / "client-howto"
+CLIENT_HOWTO_TEST = "docs_client_howto"
 SNIPPETS = DOCS_PROJECTS / "snippets"
 PRESET_PLACEHOLDER = "<newest-standard-py312-preset>"
 CLIENT_HOWTO_SCRIPTS = ("calls", "responses", "options", "retries", "auth", "oauth", "signing", "errors")
@@ -129,6 +131,11 @@ def expected_index() -> RefsIndex:
 def stored(path: Path) -> Path:
     """Return where the expected output a path names is stored, following the index."""
     return expected_index().stored_path(path)
+
+
+def docs_output(test: str, name: str) -> Path:
+    """Return the expected output a documentation project test of test_fastapi_server.py stores as ``name``."""
+    return EXPECTED_FASTAPI_SERVER / f"{test}.{name}"
 
 
 def read_text(path: Path) -> str:
@@ -366,7 +373,7 @@ def directory_tree(path: Path, *, root_name: str) -> str:
 
 def render_reuse_scope_tree_example() -> str:
     """Render tested reuse-scope tree output with representative files."""
-    output_path = EXPECTED_MAIN / "jsonschema" / "reuse_scope_tree"
+    output_path = EXPECTED_MAIN / "jsonschema" / "main_jsonschema" / "reuse_scope_tree"
     lines = [
         "",
         "**Output with `--reuse-scope tree`:**",
@@ -475,7 +482,9 @@ def api_overview_examples(page: str, path: Path) -> tuple[DocsExample, ...]:
                 "notice",
                 lambda: fenced(
                     "text",
-                    "\n".join(read_text(EXPECTED_TUTORIAL / name) for name in ("notice.txt", "client-notice.txt")),
+                    "\n".join(
+                        read_text(docs_output(test, "notice.txt")) for test in (TUTORIAL_TEST, TUTORIAL_CLIENT_TEST)
+                    ),
                 ),
             ),
             (
@@ -486,8 +495,8 @@ def api_overview_examples(page: str, path: Path) -> tuple[DocsExample, ...]:
                         "\n".join(
                             dict.fromkeys(
                                 line
-                                for name in ("files.txt", "client-files.txt")
-                                for line in read_text(EXPECTED_TUTORIAL / name).splitlines()
+                                for test in (TUTORIAL_TEST, TUTORIAL_CLIENT_TEST)
+                                for line in read_text(docs_output(test, "files.txt")).splitlines()
                             )
                         ),
                         depth=1,
@@ -496,7 +505,12 @@ def api_overview_examples(page: str, path: Path) -> tuple[DocsExample, ...]:
             ),
             ("app", lambda: fenced("python", read_text(TUTORIAL_SERVICE))),
             ("call", lambda: fenced("python", read_text(TUTORIAL / "call.py"))),
-            ("output", lambda: fenced("text", read_text(EXPECTED_TUTORIAL / "call.txt").removeprefix("exit 0\n"))),
+            (
+                "output",
+                lambda: fenced(
+                    "text", read_text(docs_output(TUTORIAL_CLIENT_TEST, "call.txt")).removeprefix("exit 0\n")
+                ),
+            ),
         )
     )
 
@@ -513,23 +527,23 @@ def fastapi_server_examples() -> tuple[DocsExample, ...]:
                 lambda: indented(fenced("toml", pyproject_table(docs_project_arguments("tutorial")))),
             ),
             ("tutorial.command", lambda: indented(fenced("bash", command(docs_project_arguments("tutorial"))))),
-            ("tutorial.notice", lambda: fenced("text", read_text(EXPECTED_TUTORIAL / "notice.txt"))),
-            ("tutorial.tree", lambda: fenced("text", file_tree(read_text(EXPECTED_TUTORIAL / "files.txt")))),
+            ("tutorial.notice", lambda: fenced("text", read_text(docs_output(TUTORIAL_TEST, "notice.txt")))),
+            ("tutorial.tree", lambda: fenced("text", file_tree(read_text(docs_output(TUTORIAL_TEST, "files.txt"))))),
             (
                 "tutorial.services",
-                lambda: fenced("python", read_python_output(EXPECTED_TUTORIAL / "app/server/services.py")),
+                lambda: fenced("python", read_python_output(docs_output(TUTORIAL_TEST, "services.py"))),
             ),
             ("tutorial.app", lambda: fenced("python", read_text(TUTORIAL_SERVICE))),
             ("tutorial.test", lambda: fenced("python", read_text(TUTORIAL / "test_app.py"))),
             (
                 "tutorial.inline-names",
                 lambda: fenced(
-                    "python", excerpt(EXPECTED_TUTORIAL / "app/models.py", "type PetsGetQuery", "type PetsPetIdGet")
+                    "python", excerpt(docs_output(TUTORIAL_TEST, "models.py"), "type PetsGetQuery", "type PetsPetIdGet")
                 ),
             ),
             ("howto.openapi", lambda: details("openapi.yaml", "yaml", read_text(HOWTO / "openapi.yaml"))),
             ("howto.pyproject", lambda: fenced("toml", pyproject_table(DOCS_PROJECT_OPTIONS["howto"][1]))),
-            ("howto.services", lambda: fenced("python", read_python_output(EXPECTED_HOWTO / "app/server/services.py"))),
+            ("howto.services", lambda: fenced("python", read_python_output(docs_output(HOWTO_TEST, "services.py")))),
             ("howto.errors", lambda: fenced("python", blocks(app, "    def get_photo("))),
             ("howto.async", lambda: fenced("python", blocks(app, "    async def upload_photo("))),
             (
@@ -544,8 +558,11 @@ def fastapi_server_examples() -> tuple[DocsExample, ...]:
                     f"{blocks(app, 'from fastapi import', 'from app.server import')}\n\n\n{excerpt(app, 'app = ')}",
                 ),
             ),
-            ("howto.notice", lambda: fenced("text", read_text(EXPECTED_HOWTO / "notice.txt"))),
-            ("howto.models", lambda: fenced("python", excerpt(EXPECTED_HOWTO / "app/models.py", "class PhotoUpload("))),
+            ("howto.notice", lambda: fenced("text", read_text(docs_output(HOWTO_TEST, "notice.txt")))),
+            (
+                "howto.models",
+                lambda: fenced("python", excerpt(docs_output(HOWTO_TEST, "models.py"), "class PhotoUpload(")),
+            ),
             (
                 "howto.tests",
                 lambda: fenced("python", excerpt(test, "def test_upload_and_get_photo(", "def test_credentials(")),
@@ -577,7 +594,10 @@ def client_script_examples(script: str) -> tuple[tuple[str, Callable[[], str]], 
     """Return a client how-to script and what it printed, as rendered example sections."""
     return (
         (f"howto.{script}", lambda: fenced("python", read_text(CLIENT_HOWTO / f"{script}.py"))),
-        (f"howto.{script}-output", lambda: fenced("text", script_output(EXPECTED_CLIENT_HOWTO / f"{script}.txt"))),
+        (
+            f"howto.{script}-output",
+            lambda: fenced("text", script_output(docs_output(CLIENT_HOWTO_TEST, f"{script}.txt"))),
+        ),
     )
 
 
@@ -590,19 +610,28 @@ def python_client_examples() -> tuple[DocsExample, ...]:
             ("tutorial.openapi", lambda: details("openapi.yaml", "yaml", read_text(TUTORIAL / "openapi.yaml"))),
             ("tutorial.pyproject", lambda: indented(fenced("toml", pyproject_table(arguments)))),
             ("tutorial.command", lambda: indented(fenced("bash", command(arguments)))),
-            ("tutorial.notice", lambda: fenced("text", read_text(EXPECTED_TUTORIAL / "client-notice.txt"))),
-            ("tutorial.tree", lambda: fenced("text", file_tree(read_text(EXPECTED_TUTORIAL / "client-files.txt")))),
+            ("tutorial.notice", lambda: fenced("text", read_text(docs_output(TUTORIAL_CLIENT_TEST, "notice.txt")))),
+            (
+                "tutorial.tree",
+                lambda: fenced("text", file_tree(read_text(docs_output(TUTORIAL_CLIENT_TEST, "files.txt")))),
+            ),
             (
                 "tutorial.method",
                 lambda: fenced(
                     "python",
-                    blocks(EXPECTED_TUTORIAL / "app/client/resources/pets/_sync.py", "    def get_pet(", limit=1),
+                    blocks(docs_output(TUTORIAL_CLIENT_TEST, "sync.py"), "    def get_pet(", limit=1),
                 ),
             ),
             ("tutorial.call", lambda: fenced("python", read_text(TUTORIAL / "call.py"))),
-            ("tutorial.call-output", lambda: fenced("text", script_output(EXPECTED_TUTORIAL / "call.txt"))),
+            (
+                "tutorial.call-output",
+                lambda: fenced("text", script_output(docs_output(TUTORIAL_CLIENT_TEST, "call.txt"))),
+            ),
             ("tutorial.async", lambda: fenced("python", read_text(TUTORIAL / "call_async.py"))),
-            ("tutorial.async-output", lambda: fenced("text", script_output(EXPECTED_TUTORIAL / "call_async.txt"))),
+            (
+                "tutorial.async-output",
+                lambda: fenced("text", script_output(docs_output(TUTORIAL_CLIENT_TEST, "call_async.txt"))),
+            ),
             ("howto.openapi", lambda: details("openapi.yaml", "yaml", read_text(CLIENT_HOWTO / "openapi.yaml"))),
             ("howto.pyproject", lambda: fenced("toml", pyproject_table(DOCS_PROJECT_OPTIONS["client-howto"][1]))),
             ("howto.fake", lambda: details("fake.py", "python", read_text(CLIENT_HOWTO / "fake.py"))),
@@ -660,7 +689,7 @@ def docs_examples() -> tuple[DocsExample, ...]:
             "openapi.read-only-write-only.output",
             "openapi.md",
             language="python",
-            path=EXPECTED_OPENAPI / "read_only_write_only_all.py",
+            path=EXPECTED_OPENAPI / "main_openapi/read_only_write_only_all.py",
             strip_python_header=True,
         ),
         _file_example(
@@ -685,7 +714,7 @@ def docs_examples() -> tuple[DocsExample, ...]:
             "model-reuse.reuse-model.output",
             "model-reuse.md",
             language="python",
-            path=EXPECTED_JSON_SCHEMA / "json_reuse_enum.py",
+            path=EXPECTED_JSON_SCHEMA / "main_jsonschema" / "main_json_reuse_enum.py",
             strip_python_header=True,
         ),
         DocsExample(
@@ -721,7 +750,7 @@ def docs_examples() -> tuple[DocsExample, ...]:
             "model-reuse.use-type-alias.output",
             "model-reuse.md",
             language="python",
-            path=EXPECTED_JSON_SCHEMA / "reduce_duplicate_field_types.py",
+            path=EXPECTED_JSON_SCHEMA / "main_jsonschema/reduce_duplicate_field_types.py",
             strip_python_header=True,
         ),
         DocsExample(
@@ -789,7 +818,7 @@ def docs_examples() -> tuple[DocsExample, ...]:
                 MarkdownCodeBlock(
                     "Output",
                     "python",
-                    path=EXPECTED_OPENAPI / "custom_template_dir.py",
+                    path=EXPECTED_OPENAPI / "main_openapi/custom_template_dir.stdout.py",
                     strip_python_header=True,
                 ),
             ),
@@ -814,8 +843,8 @@ def docs_examples() -> tuple[DocsExample, ...]:
                 "text",
                 error_findings(
                     *(
-                        EXPECTED_CLIENT / "protocols" / name
-                        for name in ("protocols-unsupported.txt", "protocols-references.txt")
+                        EXPECTED_CLIENT_GENERATION / f"client_protocols[{name}].txt"
+                        for name in ("protocols-unsupported", "protocols-references")
                     ),
                     keep=lambda finding: "reserves the argument" in finding,
                 ),
@@ -931,10 +960,8 @@ def docs_examples() -> tuple[DocsExample, ...]:
             render=lambda: (
                 "\n"
                 + blocks(
-                    EXPECTED_CLIENT
-                    / "packages"
-                    / "caching"
-                    / "pydantic_v2_BaseModel"
+                    EXPECTED_CLIENT_GENERATION
+                    / "client_documentation[caching]"
                     / "client"
                     / "_generated_docs"
                     / "runtime.md",
@@ -1103,7 +1130,7 @@ def docs_examples() -> tuple[DocsExample, ...]:
             path=DOCS / "python-client-reference.md",
             render=lambda: fenced(
                 "text",
-                error_findings(EXPECTED_CLIENT / "fields-errors.txt"),
+                error_findings(EXPECTED_CLIENT_GENERATION / "client_render[fields-errors].txt"),
             ),
         ),
         DocsExample(
@@ -1125,7 +1152,7 @@ def docs_examples() -> tuple[DocsExample, ...]:
             render=lambda: fenced(
                 "text",
                 error_findings(
-                    EXPECTED_MAIN / "generation_platform/codecs/structural/shapes-dataclass.txt",
+                    EXPECTED_STRUCTURAL_CODECS / "structural_codecs[structural_shapes-shapes-dataclass].txt",
                     keep=lambda finding: "needs a declared discriminator" in finding,
                 ),
             ),

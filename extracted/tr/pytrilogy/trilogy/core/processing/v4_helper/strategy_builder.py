@@ -112,6 +112,7 @@ from trilogy.utility import unique
 from .concept_graph import (
     _function_of,
     _relation_mates,
+    _scope_and_phase,
     _statement_scoped_relation_members,
     renamed_coalescing_relation,
     through_renames,
@@ -144,6 +145,7 @@ from .edges import (
     existence_predecessors,
     feeds_existence,
     lineage_predecessors,
+    only_a_set,
     remove_edge,
 )
 from .extent_ownership import takes_a_value_on_padding
@@ -473,27 +475,55 @@ class _CleanFeederCache:
 
     A multi-component group is searched as one unit, so the feeder is the
     tuple's co-occurrence island (as `search_parent(existence_args)` builds on
-    the plain-`where` path) rather than a per-component source."""
+    the plain-`where` path) rather than a per-component source.
+
+    A set written in the select (`count(id ? k in <set>)`) is the other case:
+    it reads the rows the WHERE kept, as an aggregate there does
+    (`SelectGrain.select_set_reads_kept_rows`), so `kept` plans it under the
+    statement's WHERE."""
 
     def __init__(
         self,
         environment: BuildEnvironment,
         g: ReferenceGraph,
         history: V4History,
+        conditions: list[BuildWhereClause] | None = None,
     ) -> None:
         self._environment = environment
         self._g = g
         self._history = history
-        self._cache: dict[tuple[str, ...], StrategyNode | None] = {}
+        self._conditions = conditions or []
+        self._cache: dict[tuple[tuple[str, ...], bool], StrategyNode | None] = {}
 
-    def get(self, group: tuple[BuildConcept, ...]) -> StrategyNode | None:
-        key = tuple(sorted({concept.address for concept in group}))
+    @property
+    def gated(self) -> bool:
+        """Whether the WHERE reads an aggregate: an atom no scan carries, so
+        a set the group graph built off the scans has not passed it."""
+        return any(
+            c.is_aggregate for where in self._conditions for c in where.row_arguments
+        )
+
+    def in_where(self, addresses: set[str]) -> bool:
+        """A set the WHERE itself reads defines the kept rows."""
+        return any(
+            addresses & {c.address for c in group}
+            for where in self._conditions
+            for group in where.existence_arguments
+        )
+
+    def get(
+        self, group: tuple[BuildConcept, ...], kept: bool = False
+    ) -> StrategyNode | None:
+        kept = kept and bool(self._conditions)
+        key = (tuple(sorted({concept.address for concept in group})), kept)
         if key not in self._cache:
-            self._cache[key] = self._build(group)
+            self._cache[key] = self._build(group, kept)
         node = self._cache[key]
         return node.copy() if node is not None else None
 
-    def _build(self, group: tuple[BuildConcept, ...]) -> StrategyNode | None:
+    def _build(
+        self, group: tuple[BuildConcept, ...], kept: bool = False
+    ) -> StrategyNode | None:
         # Imported lazily: `concept_strategies_v4` imports this module's package.
         from trilogy.core.processing.concept_strategies_v4 import (
             lineage_sourceable,
@@ -533,9 +563,13 @@ class _CleanFeederCache:
             environment=self._environment,
             depth=1,
             g=self._g,
-            conditions=[],
+            conditions=self._conditions if kept else [],
         )
         node = info.strategy_node
+        if node is not None and kept:
+            # planned under the WHERE, it carries the WHERE's columns too:
+            # none is a column of the set
+            return _feeder_at_set_grain(node, group)
         if node is not None and len(group) > 1:
             # Side-channel-only: slice to the subselect's columns so a shared
             # extra output can't promote the feeder to a row-join candidate
@@ -595,10 +629,23 @@ def _existence_parents_for(
     skip: StrategyNode | None = None,
     feeder_cache: "_CleanFeederCache | None" = None,
     preferred: Sequence[str] = (),
+    kept: Collection[frozenset[str]] = (),
 ) -> list[StrategyNode]:
+    """`kept` are the sets written in the select: each reads the rows the
+    WHERE kept, so under a WHERE no scan carries it is planned beneath it."""
     existence_parents: list[StrategyNode] = []
     for group in arg_groups:
         addresses = {concept.address for concept in group}
+        under_where = (
+            frozenset(addresses) in kept
+            and feeder_cache is not None
+            and not feeder_cache.in_where(addresses)
+        )
+        if under_where and feeder_cache is not None and feeder_cache.gated:
+            feeder = feeder_cache.get(group, kept=True)
+            if feeder is not None:
+                existence_parents.append(feeder)
+                continue
         source_node = _covering_built_node(addresses, built, skip, preferred)
         if source_node is None:
             # No built provider: a tuple whose components only exist on
@@ -607,7 +654,7 @@ def _existence_parents_for(
             # pairs present on the fact), or a set the graph never built for
             # this host. The standalone feeder is the source.
             if feeder_cache is not None:
-                feeder = feeder_cache.get(group)
+                feeder = feeder_cache.get(group, kept=under_where)
                 if feeder is not None:
                     existence_parents.append(feeder)
             continue
@@ -622,7 +669,7 @@ def _existence_parents_for(
             n is skip for n in _strategy_nodes(source_node)
         )
         if is_cyclic and feeder_cache is not None:
-            feeder = feeder_cache.get(group)
+            feeder = feeder_cache.get(group, kept=under_where)
             if feeder is not None:
                 existence_parents.append(feeder)
                 continue
@@ -713,12 +760,26 @@ def _strict_leaf_subset_binds(node: StrategyNode, addresses: set[str]) -> bool:
     return essential < set(leaves)
 
 
+def _filter_predicate_sets(node: StrategyNode) -> set[frozenset[str]]:
+    """The sets the conditions of `node`'s own filtered outputs read."""
+    if not isinstance(node, FilterNode):
+        return set()
+    return {
+        frozenset(c.address for c in group)
+        for output in node.output_concepts
+        if isinstance(output.lineage, BuildFilterItem)
+        for group in output.lineage.where.existence_arguments or ()
+        if group
+    }
+
+
 def _attach_existence_to_node(
     node: StrategyNode,
     arg_groups: list[tuple[BuildConcept, ...]],
     built: dict[str, StrategyNode],
     feeder_cache: "_CleanFeederCache | None" = None,
     preferred: Sequence[str] = (),
+    select_phase: bool = False,
 ) -> None:
     """Wire the SubselectComparison right sides as `existence_concepts` plus
     extra parents, rendered as a subselect lookup, not joined into the row
@@ -750,8 +811,31 @@ def _attach_existence_to_node(
         for concept in _flatten_arg_groups(arg_groups)
         if concept.address not in existing_concepts
     ]
+    # a set a select-phase output's own lineage reads, not one a WHERE atom
+    # the node hosts does; a filter's own predicate moved into its node's
+    # WHERE is still the output's lineage
+    own = _filter_predicate_sets(node)
+    hosted = {
+        key
+        for group in _condition_existence_arg_groups(node.conditions)
+        if (key := frozenset(c.address for c in group)) not in own
+    }
+    kept = (
+        {
+            key
+            for group in _lineage_existence_arg_groups(list(node.output_concepts))
+            if (key := frozenset(c.address for c in group)) not in hosted
+        }
+        if select_phase
+        else set()
+    )
     node.parents = list(node.parents) + _existence_parents_for(
-        arg_groups, built, skip=node, feeder_cache=feeder_cache, preferred=preferred
+        arg_groups,
+        built,
+        skip=node,
+        feeder_cache=feeder_cache,
+        preferred=preferred,
+        kept=kept,
     )
     node.rebuild_cache()
 
@@ -761,6 +845,7 @@ def _wire_existence(
     built: dict[str, StrategyNode],
     feeder_cache: "_CleanFeederCache | None",
     preferred: Sequence[str] = (),
+    select_phase: bool = False,
 ) -> None:
     """Wire the subselect feeder of every membership hosted in `node`'s
     subtree. Generators host an `IN <set>` atom but never plan the set: the
@@ -775,6 +860,7 @@ def _wire_existence(
             built,
             feeder_cache,
             preferred,
+            select_phase,
         )
 
 
@@ -996,7 +1082,8 @@ def _projects_parent_rows(
         narrows = _filter_intrinsic_pushdown_safe(
             group_graph, plan.attrs, gid, outputs, reads.mandatory_list, environment
         )
-        return filter_row_predicate(outputs, available, narrows) is None
+        sets = _shown_by_statement(reads.mandatory_list, environment)
+        return filter_row_predicate(outputs, available, narrows, sets) is None
     return not reads.regroups(outputs, parents)
 
 
@@ -2452,6 +2539,31 @@ def _subtree_pinned_addresses(
     return pinned
 
 
+def _keyed_finer(
+    concept: BuildConcept, grain: set[str], environment: BuildEnvironment
+) -> bool:
+    """A filtered column claims the select's grain and holds a value per row
+    it filters: its keys say so (`Windows.filtered_passenger_repeats_groups`)."""
+    keys = concept.keys or set()
+    return (
+        concept.derivation == Derivation.FILTER
+        and bool(keys)
+        and not build_fd_determines_all(environment, grain, keys)
+    )
+
+
+def _at_or_above(
+    concept: BuildConcept, grain: set[str], environment: BuildEnvironment
+) -> bool:
+    """A value the window's grain determines rides through its group:
+    `max(height) by tree_form` beside a window over `species` is one value
+    per species, though `tree_form` is no component of that grain."""
+    components = concept.grain.components
+    return components <= grain or build_fd_determines_all(
+        environment, grain, components
+    )
+
+
 def _window_rows_at_grain(
     outputs: list[BuildConcept],
     parents: list[StrategyNode],
@@ -2463,8 +2575,12 @@ def _window_rows_at_grain(
     is grouped first. The group keeps every parent column at or above that
     grain, which a later pass may carry through the window."""
     needed = {c.address: c for c in outputs}
+    supplied = _output_addresses(parents)
     for concept in outputs:
-        if concept.lineage is not None:
+        # a value a parent hands over is read as itself: the column a
+        # filtered or derived key was read off is no key of the window's rows
+        # (`Filters.source_column_splits_null_group`)
+        if concept.lineage is not None and concept.address not in supplied:
             needed |= {a.address: a for a in concept.lineage.concept_arguments}
     # the window's own grain: `rank(g)` ranks the distinct `g`, though `g`
     # (a property of `id`) sits at `id`
@@ -2486,7 +2602,10 @@ def _window_rows_at_grain(
             for concept in parent.output_concepts
             if concept.address in needed
             or concept.grain.abstract
-            or concept.grain.components <= grain
+            or (
+                _at_or_above(concept, grain, environment)
+                and not _keyed_finer(concept, grain, environment)
+            )
         ],
         "address",
     )
@@ -2638,11 +2757,12 @@ def _widen_scan_chain(
         # grouping key.
         if isinstance(node, UnionNode):
             return False
-        if isinstance(node, (SelectNode, FilterNode)) and len(node.parents) != 1:
+        # A set a membership reads is no stream of this node's rows.
+        rows = _row_source_parents(node)
+        if isinstance(node, (SelectNode, FilterNode)) and len(rows) != 1:
             return False
         if not any(
-            _widen_below(below, concept, depth + 1, environment)
-            for below in node.parents
+            _widen_below(below, concept, depth + 1, environment) for below in rows
         ) and not _widen_inputs_below(node, concept, available, depth):
             return False
         available = renderable_addresses(node)
@@ -3413,7 +3533,10 @@ def _fold_covered_contributors(
         shared = visible[idx] & set().union(*(visible[j] for j in others))
         if _resolved_grain(parent) != shared:
             continue
-        if not _restrictions_survive(parent, [parents[j] for j in others]):
+        # a survivor sharing none of its columns pairs with it on nothing
+        # (a one-row total): its filter restricts no key of these rows
+        paired = [parents[j] for j in others if visible[j] & visible[idx]]
+        if not _restrictions_survive(parent, paired):
             continue
         logger.info(
             f"[v4] folding invisible FINAL contributor {type(parent).__name__} "
@@ -3696,6 +3819,18 @@ def _group_span_scope(
     )
 
 
+def _shown_by_statement(
+    mandatory_list: list[BuildConcept], environment: BuildEnvironment
+) -> bool:
+    """The plan's outputs are the statement's own, not a sub-plan's (a set's
+    feeder, a HAVING's semijoin): only there does a predicate reading a set
+    narrow the rows."""
+    shown = environment.statement_output_addresses
+    return shown is not None and all(
+        {c.address, *c.pseudonyms} & shown for c in mandatory_list
+    )
+
+
 def _filter_intrinsic_pushdown_safe(
     group_graph: nx.DiGraph,
     attrs: dict[str, GroupAttrs],
@@ -3711,7 +3846,9 @@ def _filter_intrinsic_pushdown_safe(
     CASE."""
     if (
         statement_filter_population(
-            mandatory_list, environment.statement_hidden_addresses
+            mandatory_list,
+            environment.statement_hidden_addresses,
+            _shown_by_statement(mandatory_list, environment),
         )
         is None
     ):
@@ -4164,7 +4301,11 @@ def _plan_group_bridges(
         # a bridge elected to key a pairing joins no islands and repeats a row
         # its keys do not identify: a BASIC's repeats dedup away, an
         # aggregate would count them, so its merge never joins one
-        basic = attrs[gid].derivation == Derivation.BASIC
+        basic = attrs[gid].derivation in (
+            Derivation.BASIC,
+            Derivation.WINDOW,
+            Derivation.FILTER,
+        )
         if basic:
             attrs[gid].keying_bridges = bridged.keying
         attrs[gid].joined_bridges = tuple(
@@ -5508,7 +5649,7 @@ def _bridge_candidates(
         for gid in decided
         if gid in group_graph
         and gid != FINAL_NODE_ID
-        and not _only_a_set(group_graph, group_edges, gid)
+        and not only_a_set(group_graph, group_edges, gid)
     }
     outer = attrs[consumer].depth_label not in NESTED_DEPTHS
     return sorted(
@@ -5520,15 +5661,6 @@ def _bridge_candidates(
         ),
         reverse=True,
     )
-
-
-def _only_a_set(group_graph: nx.DiGraph, group_edges: EdgeMap, gid: str) -> bool:
-    kinds = {
-        edge_kind(group_edges, gid, succ)
-        for succ in group_graph.successors(gid)
-        if succ != FINAL_NODE_ID
-    }
-    return kinds == {EdgeKind.EXISTENCE}
 
 
 def _final_gate_keys(
@@ -5718,7 +5850,7 @@ def _final_extra_sides(
     side does: it carries that through its wrap rather than joining again. A
     set produces no argument: it carries one only for the rows its own
     condition kept."""
-    candidates = [g for g in candidates if not _only_a_set(group_graph, group_edges, g)]
+    candidates = [g for g in candidates if not only_a_set(group_graph, group_edges, g)]
     sides = [*per_group, *bridges]
     roots = [g for g in per_group if attrs[g].derivation == Derivation.ROOT]
     available = set().union(
@@ -6446,6 +6578,7 @@ def _assemble_sole_contributor(
     built: dict[str, StrategyNode],
     cover: "_FinalCover",
     environment: BuildEnvironment,
+    arg_candidates: Sequence[str],
 ) -> StrategyNode:
     """FINAL when one group covers every output: that group's node, deduped
     to the output grain, under the WHERE deferred onto FINAL."""
@@ -6510,7 +6643,7 @@ def _assemble_sole_contributor(
         feeder_outs = [
             carries(attrs[feeder], frozenset(), frozenset(), environment)
             for feeder in _filter_arg_producers(
-                group_graph, attrs, cover.groups, filter_only_addrs - sole_avail
+                group_graph, attrs, arg_candidates, filter_only_addrs - sole_avail
             ).values()
         ]
         scoped_addrs = environment.all_scoped_join_group_members()
@@ -6625,6 +6758,10 @@ def _apply_final_conditions(
     row_concepts = [
         concept for concept in node.output_concepts if concept.address in row_arg_addrs
     ]
+    # a WHERE argument the contributor carries hidden is read by the WHERE
+    if hidden := [c for c in row_concepts if c.address in node.hidden_concepts]:
+        node = node.copy()
+        node.unhide_output_concepts(hidden)
     # A membership (`x in <set>`) deferred onto FINAL is hosted on a merge
     # built here, so its subselect feeder is wired here too.
     ex_groups = _condition_existence_arg_groups(final_conditions.conditional)
@@ -6887,6 +7024,10 @@ def _assemble_final_node(
         - mandatory_addresses
     )
 
+    # a set produces no argument: it holds only the rows its own condition kept
+    arg_candidates = [
+        g for g in cover.groups if not only_a_set(group_graph, group_edges, g)
+    ]
     apply_final_conditions = partial(
         _apply_final_conditions,
         final_conditions=final_conditions,
@@ -6895,7 +7036,7 @@ def _assemble_final_node(
         group_graph=group_graph,
         attrs=attrs,
         built=built,
-        candidates=cover.groups,
+        candidates=arg_candidates,
         environment=environment,
         feeder_cache=feeder_cache,
     )
@@ -6939,6 +7080,7 @@ def _assemble_final_node(
             built,
             cover,
             environment,
+            arg_candidates,
         )
 
     # The join plan states, from stage-2 facts over the cover, what identifies
@@ -7140,6 +7282,8 @@ def _assemble_final_node(
         [side_cols(p) for p in parents],
         _planned_region_reads(group_graph, attrs, parents, origin),
     )
+    unbridged = len(parents)
+    looked_up = [gid for gid in bridges if plan.carry_demands.get(gid)]
     parents = _join_elected_bridges(
         parents,
         [(_planned_side(built, gid), plan.keys_for(gid)) for gid in bridges],
@@ -7148,6 +7292,27 @@ def _assemble_final_node(
             id(_planned_side(built, gid))
             for gid in bridged.keying | _sole_partners(plan, contributing)
         ),
+    )
+    # a bridge over grouped rows takes the keys widening could not as a lookup
+    widened = {id(_planned_side(built, gid)) for gid in looked_up}
+    parents = (
+        parents[:unbridged]
+        + [p for p in parents[unbridged:] if id(p) not in widened]
+        + _project_planned_keys(
+            [p for p in parents[unbridged:] if id(p) in widened],
+            origin,
+            plan,
+            environment,
+            list(built.values()),
+            lambda outputs: plan_source(
+                SourceRequest(
+                    outputs=outputs,
+                    environment=environment,
+                    graph=graph,
+                    history=history,
+                )
+            ),
+        )
     )
     parents = _pair_inside_padding_streams(
         parents,
@@ -7247,9 +7412,11 @@ def _assemble_final_node(
             environment,
         )
         _carry_asked_keys([*parents, *arg_nodes], origin, asks, environment)
+        # a demand counts once delivered: a side over grouped rows can hold none
         carried = frozenset().union(
             *(
                 asks.carry_demands.get(gid, frozenset())
+                & {o.address for o in parent.output_concepts}
                 for parent in parents
                 for gid in side_members(parent, origin) or ()
             )
@@ -7611,6 +7778,9 @@ class _GroupBuild:
     # the plan before any fold: a group's build reads its readers there
     readers: "_Plan"
     folds: "_FoldPlan"
+    # columns the FINAL reads through a group off an ancestor
+    # (`_FinalCover.passthroughs`): a slice of its parents keeps them
+    passthroughs: dict[str, list[BuildConcept]]
 
 
 def _merge_origin_intermediates(
@@ -7689,7 +7859,7 @@ def _build_group(gid: str, ctx: _GroupBuild) -> StrategyNode | None:
     preexisting = _wrap_atoms(accumulated_atoms_above(group_graph, attrs, gid))
     needed = _group_needed(
         group_graph, group_edges, attrs, gid, outputs, injected, environment
-    )
+    ) | {c.address for c in ctx.passthroughs.get(gid, ())}
     parent_builds = _parent_nodes_for(
         group_graph,
         group_edges,
@@ -8088,6 +8258,7 @@ def _build_group(gid: str, ctx: _GroupBuild) -> StrategyNode | None:
                 mandatory_list,
                 environment,
             ),
+            set_filter_pushdown=_shown_by_statement(mandatory_list, environment),
             existence_source=feeds_existence(
                 unfolded.group_graph, unfolded.group_edges, gid
             ),
@@ -8176,6 +8347,7 @@ def _build_group(gid: str, ctx: _GroupBuild) -> StrategyNode | None:
         built,
         feeder_cache,
         preferred=existence_predecessors(group_graph, group_edges, gid),
+        select_phase=_scope_and_phase(a.label)[1] == "blank",
     )
     return node
 
@@ -8384,6 +8556,7 @@ def build_strategy_node(
     complete_partials: bool = True,
     staged_conditions: list[BuildWhereClause] | None = None,
     depth: int = 0,
+    conditions: list[BuildWhereClause] | None = None,
 ) -> StrategyNode | None:
     """Walk groups in topological order, dispatching each to its v4 generator
     with explicit parent nodes. Returns the most-downstream built node, or
@@ -8459,11 +8632,12 @@ def build_strategy_node(
         arms_delivered,
         built,
         {},
-        _CleanFeederCache(environment, g, history),
+        _CleanFeederCache(environment, g, history, conditions),
         unbuilt,
         cover.groups,
         readers,
         folds,
+        cover.passthroughs,
     )
     for gid in order:
         if gid == FINAL_NODE_ID or gid in folds.inlined:

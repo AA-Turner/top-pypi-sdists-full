@@ -67,6 +67,12 @@ pub struct ConvertOptions {
     /// spelling `md_page_break_placeholder` is accepted as an alias.
     #[serde(alias = "md_page_break_placeholder")]
     pub page_break_placeholder: Option<String>,
+    /// How the Markdown export renders underline and sub/superscript
+    /// (docling-core's `MarkdownParams.formatting_fallback_mode`, #1205):
+    /// `none` (default) drops them, `html` writes `<u>` / `<sub>` / `<sup>`
+    /// ([`DocumentConverter::markdown_formatting_fallback`]).
+    #[serde(alias = "md_formatting_fallback_mode")]
+    pub formatting_fallback_mode: Option<String>,
 
     // --- declarative formats -------------------------------------------------
     /// Resolve external `<img src>` for HTML/EPUB/MHTML/JATS (network access)
@@ -99,6 +105,9 @@ pub struct ConvertOptions {
     pub min_image_bytes: Option<u64>,
     /// Email (.eml/.msg): append an Attachments section (#251).
     pub list_attachments: Option<bool>,
+    /// Email (.eml): append the events of its calendar invitations as a
+    /// Calendar section (docling#5357; default `true`).
+    pub parse_calendar_invitations: Option<bool>,
     /// Omit empty cells from sparse XLSX/XLS table grids (#271).
     pub skip_empty_cells: Option<bool>,
     /// EBCDIC copybook layout (#252): inline JSON or a file path.
@@ -194,7 +203,8 @@ pub struct ConvertOptions {
     pub force_full_page_ocr: Option<bool>,
     /// OCR only the pages whose text layer is broken (#1006).
     pub replace_broken_text_layer: Option<bool>,
-    /// Skip TableFormer (geometric tables instead).
+    /// Skip table structure (`do_table_structure=False`). docling 2.150
+    /// emits an empty table; the words stay text, each with its own box.
     pub no_table_former: Option<bool>,
     /// Disable the text-panel heuristic (#173).
     pub no_text_panels: Option<bool>,
@@ -244,8 +254,9 @@ pub struct ConvertOptions {
     pub do_code_enrichment: Option<bool>,
     /// Enrichment: decode display formulas to LaTeX with CodeFormulaV2 (#423).
     pub do_formula_enrichment: Option<bool>,
-    /// Enrichment: OCR the embedded pictures of non-PDF documents (#645);
-    /// the text becomes the picture's description annotation.
+    /// Enrichment: OCR the embedded pictures of non-PDF documents (#645)
+    /// and the pictures of text-layer PDF pages (#1219); the text becomes
+    /// the picture's description annotation.
     pub do_picture_ocr: Option<bool>,
     /// Comma-separated DocumentFigureClassifier labels a picture must be
     /// classified as to be OCR'd (#645); unset/empty = every picture.
@@ -587,6 +598,13 @@ pub const OPTIONS: &[OptionInfo] = &[
         python: Some(""),
         ..row("page_break_placeholder")
     },
+    // Python: `export_to_markdown(formatting_fallback_mode=…)`, docling-
+    // core's own signature, not a converter kwarg.
+    OptionInfo {
+        aliases: &["md_formatting_fallback_mode"],
+        python: Some(""),
+        ..row("formatting_fallback_mode")
+    },
     row("fetch_images"),
     row("image_sources"),
     row("image_hosts"),
@@ -595,6 +613,10 @@ pub const OPTIONS: &[OptionInfo] = &[
     row("max_image_total_mb"),
     row("min_image_bytes"),
     row("list_attachments"),
+    OptionInfo {
+        cli: Some("--no-calendar-invitations"),
+        ..row("parse_calendar_invitations")
+    },
     row("skip_empty_cells"),
     row("ebcdic_layout"),
     row("encoding"),
@@ -823,6 +845,21 @@ impl ConvertOptions {
             .transpose()
     }
 
+    /// The Markdown formatting fallback `formatting_fallback_mode` names
+    /// (#1205); `None` when unset (the converter's default, `none`).
+    pub fn formatting_fallback_mode(
+        &self,
+    ) -> Result<Option<docling_core::FormattingFallback>, OptionsError> {
+        self.formatting_fallback_mode
+            .as_deref()
+            .filter(|s| !s.trim().is_empty())
+            .map(|s| {
+                s.parse::<docling_core::FormattingFallback>()
+                    .map_err(|e| OptionsError::new("formatting_fallback_mode", e))
+            })
+            .transpose()
+    }
+
     /// The notebook outputs `ipynb_outputs` names (#673); `None` when unset
     /// (the converter's default, `none`).
     pub fn ipynb_outputs(&self) -> Result<Option<crate::IpynbOutputs>, OptionsError> {
@@ -1036,6 +1073,7 @@ impl ConvertOptions {
         self.page_range()?;
         self.document_timeout()?;
         self.ipynb_outputs()?;
+        self.formatting_fallback_mode()?;
         self.track_changes()?;
         self.extract_diagrams()?;
         self.metadata_output()?;
@@ -1313,6 +1351,9 @@ impl ConvertOptions {
         if self.page_break_placeholder.is_some() {
             c = c.page_break_placeholder(self.page_break_placeholder.clone());
         }
+        if let Some(mode) = self.formatting_fallback_mode()? {
+            c = c.markdown_formatting_fallback(mode);
+        }
         if let Some(v) = self.fetch_images {
             c = c.fetch_images(v);
         }
@@ -1336,6 +1377,9 @@ impl ConvertOptions {
         }
         if let Some(v) = self.list_attachments {
             c = c.list_attachments(v);
+        }
+        if let Some(v) = self.parse_calendar_invitations {
+            c = c.parse_calendar_invitations(v);
         }
         if let Some(v) = self.skip_empty_cells {
             c = c.skip_empty_cells(v);

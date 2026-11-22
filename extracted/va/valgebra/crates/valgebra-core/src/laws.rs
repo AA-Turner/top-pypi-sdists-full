@@ -2824,6 +2824,110 @@ proptest! {
         prop_assert_eq!(met.verdict_under_defs(&defs), Verdict::Empty);
     }
 
+    // THEORY: a-refinement-narrows-its-base
+    /// The record a length bound leaves beside a record holds every value the
+    /// meet holds. Over a drawn record of up to three fields, closed or open, met
+    /// with a bound over every mapping that counts all its names or its required
+    /// ones, every sampled value of the meet is a value of the record read.
+    #[test]
+    fn the_record_a_length_bound_leaves_holds_the_values_of_its_meet(
+        fields in proptest::collection::vec((decidable_schema(), proptest::bool::ANY), 1..4),
+        open in proptest::bool::ANY,
+        least in proptest::bool::ANY,
+    ) {
+        let pool = const_pool();
+        let named: Vec<Field> = ["a", "b", "c"]
+            .iter()
+            .zip(&fields)
+            .map(|(name, (schema, required))| Field {
+                name: (*name).into(),
+                schema: built(schema),
+                required: *required,
+            })
+            .collect();
+        let required = named.iter().filter(|field| field.required).count();
+        let count = named.len();
+        let clauses = if open {
+            vec![MapClause { key: Schema::Str, value: Schema::ANYTHING }]
+        } else {
+            Vec::new()
+        };
+        let record = Schema::keyed_map(named, clauses);
+        let bound = if least { Constraint::MinLen(count) } else { Constraint::MaxLen(required) };
+        let every = Schema::keyed_map(
+            Vec::new(),
+            vec![MapClause { key: Schema::Str, value: Schema::ANYTHING }],
+        );
+        let members = vec![record.clone(), Schema::refine(every, vec![bound])];
+        if let Some(read) = crate::decision::the_record_a_length_leaves_of(&members) {
+            let meet = Schema::Intersection(members.into());
+            for value in boundary_values(&[&record, &read]) {
+                prop_assert!(
+                    !member_full(&meet, &value, &pool) || member_full(&read, &value, &pool),
+                    "{:?} holds {:?} and {:?} does not",
+                    meet,
+                    value,
+                    read
+                );
+            }
+        }
+    }
+
+    // THEORY: lattice-theory
+    /// A narrowed meet holds the values its meet holds. Over drawn `x`, `y`, `z`
+    /// and `w`, built as a caller builds them, four meets each narrow by one of
+    /// the readings: a complement of a meet pushed in, `x ∩ ¬(¬y ∩ x)`; one of a
+    /// union, `x ∩ ¬((¬y ∩ x) ∪ z)`; a branch read in its clause, `x ∩ ((¬(x ∪ z)
+    /// ∩ w) ∪ y)`; and a guard in a branch's union, `list[x] ∩ (((list[y] ∪
+    /// ¬list[Any]) ∩ w) ∪ z)`. Wherever the narrowing reads one, every sampled
+    /// value is a member of both or of neither.
+    #[test]
+    fn a_narrowed_meet_holds_the_values_its_meet_holds(
+        x in decidable_schema(),
+        y in decidable_schema(),
+        z in decidable_schema(),
+        w in decidable_schema(),
+    ) {
+        let pool = const_pool();
+        let (x, y, z, w) = (built(&x), built(&y), built(&z), built(&w));
+        let list = |item: Schema| Schema::list(SeqShape::homogeneous(item));
+        let meets = [
+            vec![x.clone(), not(intersection(not(y.clone()), x.clone()))],
+            vec![
+                x.clone(),
+                not(union(intersection(not(y.clone()), x.clone()), z.clone())),
+            ],
+            vec![
+                x.clone(),
+                union(intersection(not(union(x.clone(), z.clone())), w.clone()), y.clone()),
+            ],
+            vec![
+                list(x.clone()),
+                union(
+                    intersection(union(list(y.clone()), not(list(Schema::ANYTHING))), w.clone()),
+                    z.clone(),
+                ),
+            ],
+        ];
+        for members in meets {
+            let Some(narrowed) = crate::decision::narrowed_meet_of(&members) else {
+                continue;
+            };
+            let meet = Schema::Intersection(members.clone().into());
+            let parts: Vec<&Schema> = members.iter().collect();
+            for value in boundary_values(&parts) {
+                prop_assert_eq!(
+                    member_full(&meet, &value, &pool),
+                    member_full(&narrowed, &value, &pool),
+                    "{:?} narrowed to {:?} at {:?}",
+                    meet,
+                    narrowed,
+                    value
+                );
+            }
+        }
+    }
+
     // THEORY: lattice-theory
     /// A meet of a set and three guards over it reads as the meet of the set
     /// and the guards' branches: `k ∩ (¬k ∪ x₁) ∩ (¬k ∪ x₂) ∩ (¬k ∪ x₃)` is
@@ -4126,17 +4230,93 @@ fn crossed_sequences(schemas: &[&Schema], out: &mut Vec<Obj>) -> Vec<Obj> {
 /// set of two integers, and neither side spells one. The members come from
 /// [`sized_like`], so a set's are distinct, and each value is kept only where
 /// it is a member of `mine`, since a value of `mine` is the one a refutation
-/// stands on.
+/// stands on. A bound on a set's element is told the same way a level in, by a
+/// set holding a value of `mine`'s element at a width the bound refuses:
+/// `frozenset[set[float]]` below `frozenset[Any]` of members of at most one is
+/// refuted by a frozenset holding a set of two floats, whose class hashes.
 fn sized_past(mine: &Schema, theirs: &Schema) -> Vec<Obj> {
     let pool = const_pool();
     let mut widths = Vec::new();
     every_bound_width(theirs, &mut widths);
-    widths
+    let mut values: Vec<Obj> = widths
         .into_iter()
         .flat_map(|len| len.saturating_sub(EDGE_SPAN)..=(len + EDGE_SPAN))
         .flat_map(|width| sized_like(mine, width, MEMBER_FUEL))
         .filter(|value| member_full(mine, value, &pool))
-        .collect()
+        .collect();
+    if let (
+        Schema::Coll { container, element },
+        Schema::Coll {
+            container: other,
+            element: bounded,
+        },
+    ) = (unrefined(mine), unrefined(theirs))
+        && container == other
+    {
+        values.extend(
+            sized_past(element, bounded)
+                .into_iter()
+                .map(|value| gather(*container, vec![value]))
+                .filter(|value| member_full(mine, value, &pool)),
+        );
+    }
+    if let (
+        Schema::KeyedMap { fields, .. },
+        Schema::KeyedMap {
+            fields: named,
+            defaults,
+        },
+    ) = (unrefined(mine), unrefined(theirs))
+    {
+        values.extend(sized_past_a_field(fields, named, defaults, mine));
+    }
+    values
+}
+
+/// Each record of `fields` holding, under one of its names, a value past a
+/// bound the other record reads that name with -- by its field of that name
+/// or by a clause holding it -- and a member of its own under each other name
+/// it requires: `{"a?": tuple[float, ...]}` below a record reading `a` as
+/// anything of at most two items is refuted by `{"a": (0.0, 0.0, 0.0)}`, which
+/// only the field's own bound-crossing values build.
+fn sized_past_a_field(
+    fields: &Fields,
+    named: &Fields,
+    defaults: &Clauses,
+    mine: &Schema,
+) -> Vec<Obj> {
+    let pool = const_pool();
+    let mut values = Vec::new();
+    for field in fields.iter() {
+        let Some(name) = static_name(&field.name) else {
+            continue;
+        };
+        let Some(theirs) = schema_at(named, defaults, name) else {
+            continue;
+        };
+        let Some(rest): Option<Vec<(Key, Obj)>> = fields
+            .iter()
+            .filter(|other| other.required && other.name != field.name)
+            .map(|other| {
+                Some((
+                    Key::Exact(static_name(&other.name)?),
+                    a_member(&other.schema, MEMBER_FUEL)?,
+                ))
+            })
+            .collect()
+        else {
+            continue; // a required name with no member of its own builds no record
+        };
+        for value in sized_past(&field.schema, &theirs) {
+            let mut entries = rest.clone();
+            entries.push((Key::Exact(name), value));
+            let record = Obj::Map(entries);
+            if member_full(mine, &record, &pool) {
+                values.push(record);
+            }
+        }
+    }
+    values
 }
 
 /// Every length bound a schema names, over any base, through the wrappers
@@ -8072,6 +8252,75 @@ fn a_length_bound_at_a_position_is_probed_one_past_it() {
     let subject = unfold_for_oracle(&a, &defs, ORACLE_UNFOLDS);
     let other = unfold_for_oracle(&b, &defs, ORACLE_UNFOLDS);
     assert!(a_value_parts(&subject, &other));
+}
+
+// THEORY: subtyping-is-inclusion
+/// A length bound on a set's element is probed one past it, a level in.
+///
+/// `list[frozenset[set[float]], D1]` below `list[frozenset[Any of at most one],
+/// D1]`, with `D1` the fixpoint `int | list[not D1]`, is refuted: a set whose
+/// class hashes is a member of a frozenset, and one holding two floats lies
+/// outside the bound. The universe builds the bound's widths inside the
+/// frozenset as well as at it ([`sized_past`]); built at the frozenset alone,
+/// the refutation reads as one with no value under it.
+#[test]
+fn a_length_bound_on_a_set_s_element_is_probed_one_past_it() {
+    let defs = fixpoint_defs();
+    let list = |head: Schema| {
+        Schema::list(SeqShape::fixed([
+            Schema::frozen_set(head),
+            Schema::Ref(DefIx::new(1)),
+        ]))
+    };
+    let a = list(Schema::set(Schema::Float));
+    let b = list(Schema::refine(
+        Schema::ANYTHING,
+        vec![Constraint::MaxLen(1)],
+    ));
+    assert_eq!(
+        a.subtype_relation_under(&b, &NoLeafRelations, &defs),
+        Relation::Fails
+    );
+    let subject = unfold_for_oracle(&a, &defs, ORACLE_UNFOLDS);
+    let other = unfold_for_oracle(&b, &defs, ORACLE_UNFOLDS);
+    assert!(a_value_parts(&subject, &other));
+}
+
+// THEORY: subtyping-is-inclusion
+/// A length bound on a record's field is probed one past it.
+///
+/// `{"a?": tuple[float, ...]}` below `{"a?": Annotated[Any, MaxLen(2)], str:
+/// Any}` is refuted on `{"a": (0.0, 0.0, 0.0)}`: the field the other record
+/// reads `a` with admits nothing of three items. The universe builds the bound's
+/// widths at the field ([`sized_past_a_field`]) as well as at the records, which
+/// count their keys.
+#[test]
+fn a_length_bound_on_a_record_s_field_is_probed_one_past_it() {
+    let record = |schema: Schema, defaults: Vec<MapClause>| Schema::KeyedMap {
+        fields: vec![Field {
+            name: "a".into(),
+            schema,
+            required: false,
+        }]
+        .into(),
+        defaults: defaults.into(),
+    };
+    let a = record(
+        Schema::tuple(SeqShape::homogeneous(Schema::Float)),
+        Vec::new(),
+    );
+    let b = record(
+        Schema::refine(Schema::ANYTHING, vec![Constraint::MaxLen(2)]),
+        vec![MapClause {
+            key: Schema::Str,
+            value: Schema::Anything(Spelling::Any),
+        }],
+    );
+    assert_eq!(
+        a.subtype_relation_under(&b, &NoLeafRelations, &[]),
+        Relation::Fails
+    );
+    assert!(a_value_parts(&a, &b));
 }
 
 // THEORY: subtyping-is-inclusion

@@ -49,7 +49,12 @@ def _parser_pins(root: Path) -> _ParserPins:
         )
         package = _LockedParserPackage.model_validate(locked.packages["node_modules/typescript"])
         runtime = _LockedParserPackage.model_validate(locked.packages["node_modules/@typescript/old"])
-    except (OSError, UnicodeError, ValueError, KeyError) as error:
+    except (
+        OSError,
+        UnicodeError,
+        ValueError,
+        KeyError,
+    ) as error:  # sarj-noqa: SARJ585 -- Comparison setup must reject incomplete installed compiler closure as ValueError.
         msg = "rule comparison requires preinstalled Node/compiler matching authoring .node-version and package-lock.json; use documented repository setup"
         raise ValueError(msg) from error
     if package.name != "@typescript/typescript6" or runtime.name != "typescript":
@@ -101,7 +106,7 @@ class RuleDependencies:
         for path in snapshot.modules:
             if not path.endswith(".py"):
                 continue
-            name = (path.split("/src/", 1)[1] if "/src/" in path else path)[:-3].replace("/", ".")
+            name = (path.split("/src/", 1)[1] if "/src/" in path else path)[: -len(".py")].replace("/", ".")
             name = name.removesuffix(".__init__")
             if name in self.modules:
                 msg = f"ambiguous immutable Python module: {name}"
@@ -145,7 +150,7 @@ class RuleDependencies:
             if current in seen:
                 continue
             if current.startswith("<missing>"):
-                msg = f"missing immutable local import: {current[9:]}"
+                msg = f"missing immutable local import: {current[len('<missing>') :]}"
                 raise ValueError(msg)
             if current in self.errors:
                 raise ValueError(self.errors[current])

@@ -20,8 +20,9 @@ pings makes the robot send a few bytes each interval, and its kernel never count
 program does not change, and neither does its library.
 
 WHY 100 ms: the robot's silence must stay shorter than its retransmission timeout, which is about its RTT plus 200 ms. A
-WebSocket server sends its next ping one interval after the last one's pong came back, so the robot is silent for the
-interval plus one RTT: an interval under 200 ms is sufficient on a link of any length, and at 100 ms a ping that is lost
+WebSocket server sends its next ping one interval after the last one (after its pong, in websockets' legacy
+implementation), so the robot is silent for the interval plus one RTT at most: an interval under 200 ms is sufficient
+on a link of any length, and at 100 ms a ping that is lost
 still leaves the next one inside the limit. Measured between machines of one cloud provider at an RTT of 11.7 ms: pings
 190 ms apart still kept the window (an upload after a pause took 1.18 round trips) and pings 250 ms apart did not
 (2.04); 25 to 190 ms apart measured the same.

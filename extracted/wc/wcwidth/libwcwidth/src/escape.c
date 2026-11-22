@@ -4,6 +4,8 @@
 #include "wcwidth/escape.h"
 #include "wcwidth/utf8.h"
 
+#include "wcwidth_assert.h"
+
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
@@ -514,16 +516,12 @@ wcwidth_escape_strip_u32(const uint32_t *codepoints, size_t n, size_t *out_len)
     char *utf8;
     uint32_t *result;
 
-    if (out_len != NULL) {
-        *out_len = 0;
-    }
-
     utf8 = wcwidth_encode_u32(codepoints, n, enc_stack, sizeof(enc_stack), &enc_len);
     if (utf8 == NULL) {
         return NULL;
     }
     {
-        /* The stripped output is never longer than the input. */
+        /* The stripped output is at most as long as the input. */
         char strip_stack[256];
         size_t byte_len = 0;
         size_t needed =
@@ -564,15 +562,11 @@ wcwidth_escape_iter(const char *text, size_t text_len, wcwidth_escape_iter_fn fn
                 fn(text + seg_start, idx - seg_start, false, userdata);
             }
 
-            if (wcwidth_escape_classify(text, text_len, idx, &result)) {
-                fn(result.start, result.length, true, userdata);
-                idx = (size_t) (result.start - text) + result.length;
-            }
-            else {
-                /* shouldn't happen since text[idx] == ESC */
-                fn(text + idx, 1, true, userdata);
-                idx++;
-            }
+            esc_result_init(&result, WCWIDTH_ESC_UNRECOGNIZED, text + idx, 1);
+            bool ok = wcwidth_escape_classify(text, text_len, idx, &result);
+            WCWIDTH_ASSERT(ok);
+            fn(result.start, result.length, true, userdata);
+            idx = (size_t) (result.start - text) + result.length;
             seg_start = idx;
         }
         else {

@@ -1,19 +1,29 @@
 [project]
 name = "odata-query"
-version = "0.11.0"
-description = "An OData query parser and transpiler."
+version = "1.0.1"
+description = "Parse OData v4 query options ($filter, $orderby, $top, $skip) and transpile them to Django, SQLAlchemy or raw SQL queries."
 readme = "README.rst"
 license = "MIT"
 license-files = ["LICENSE"]
 keywords = [
-    "OData",
-    "Query",
-    "Parser",
+    "odata",
+    "odata-v4",
+    "filter",
+    "query",
+    "parser",
+    "transpiler",
+    "django",
+    "sqlalchemy",
+    "sql",
+    "rest",
+    "api",
 ]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Web Environment",
     "Framework :: Django",
+    "Framework :: Django :: 5.2",
+    "Framework :: Django :: 6.0",
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
@@ -28,6 +38,8 @@ classifiers = [
     "Topic :: Internet :: WWW/HTTP",
     "Topic :: Internet :: WWW/HTTP :: Indexing/Search",
     "Topic :: Software Development :: Compilers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
 ]
 requires-python = ">=3.11"
 dependencies = [
@@ -38,6 +50,12 @@ dependencies = [
 [[project.authors]]
 name = "Oliver Hofkens"
 email = "oliver@gorilla.co"
+
+[project.urls]
+Documentation = "https://odata-query.readthedocs.io"
+Source = "https://github.com/gorilla-co/odata-query"
+Issues = "https://github.com/gorilla-co/odata-query/issues"
+Changelog = "https://odata-query.readthedocs.io/en/latest/changelog.html"
 
 [project.optional-dependencies]
 django = ["django>=5.2"]

@@ -1933,6 +1933,20 @@ class TestReleaseTailDecoupling:
             ), f"{name} must gate on the plan's resolve output (issue #33)."
 
 
+class TestCallerSeesTheRelease:
+    """A caller's own post-release job reads whether the run released, and at what version."""
+
+    @pytest.mark.parametrize("workflow_name", LANGUAGE_WORKFLOWS)
+    @pytest.mark.parametrize("output", ["will-release", "next-version"])
+    def test_the_plan_output_is_a_workflow_output(
+        self, workflow_name: str, output: str
+    ) -> None:
+        wf = _load_workflow(workflow_name)
+        exported = wf[True]["workflow_call"]["outputs"][output]["value"]
+        assert exported == f"${{{{ jobs.plan.outputs.{output} }}}}"
+        assert output in wf["jobs"]["plan"]["outputs"]
+
+
 class TestCommitCheckJob:
     """The commit-check job is the landing gate for conventional-commit
     messages: it validates what actually reaches main (push) and gives
@@ -2100,19 +2114,19 @@ class TestRunnerSelection:
     payload's visibility themselves. A fork PR runs free, whatever the mode.
     """
 
-    TAIL = "vars.GH_RUNNER_DEFAULT || 'ubuntu-latest' }}"
+    TAIL = "inputs.runner-default || vars.GH_RUNNER_DEFAULT || 'ubuntu-latest' }}"
     EXPLICIT = "(inputs.runner-mode || vars.GH_RUNNER_MODE)"
     PRE_PLAN_CHAIN = (
         "${{ (github.event.pull_request.head.repo.fork || "
         "(inputs.runner-mode || vars.GH_RUNNER_MODE) == 'free' || "
         "!(inputs.runner-mode || vars.GH_RUNNER_MODE) && "
         "github.event.repository.visibility == 'public') && 'ubuntu-latest' || "
-        "vars.GH_RUNNER_DEFAULT || 'ubuntu-latest' }}"
+        "inputs.runner-default || vars.GH_RUNNER_DEFAULT || 'ubuntu-latest' }}"
     )
     FREE_AFTER_PLAN = "needs.plan.outputs.runner-mode == 'free' && "
     GATE_CHAIN = (
         "${{ needs.plan.outputs.runner-mode == 'free' && 'ubuntu-latest' || "
-        "vars.GH_RUNNER_DEFAULT || 'ubuntu-latest' }}"
+        "inputs.runner-default || vars.GH_RUNNER_DEFAULT || 'ubuntu-latest' }}"
     )
     RETIRED = (
         "renovate/",
@@ -2178,6 +2192,21 @@ class TestRunnerSelection:
                 },
                 "arc",
             ),
+            # The runner-image canary names each scenario's scale set this way.
+            (
+                {
+                    "inputs.runner-mode": "self-hosted",
+                    "inputs.runner-default": "arc-native-16cpu-canary",
+                },
+                "arc-native-16cpu-canary",
+            ),
+            (
+                {
+                    "inputs.runner-mode": "free",
+                    "inputs.runner-default": "arc-native-16cpu-canary",
+                },
+                "ubuntu-latest",
+            ),
         ],
         ids=[
             "public",
@@ -2188,6 +2217,8 @@ class TestRunnerSelection:
             "input-free",
             "var-self-hosted-beats-public",
             "input-beats-var",
+            "runner-default-beats-var",
+            "free-ignores-runner-default",
         ],
     )
     def test_the_pre_plan_chain_routes(
@@ -2198,6 +2229,18 @@ class TestRunnerSelection:
             self.PRE_PLAN_CHAIN, {"vars.GH_RUNNER_DEFAULT": "arc", **context}
         )
         assert rendered == runner
+
+    @pytest.mark.parametrize("workflow_name", [*LANGUAGE_WORKFLOWS, "iac-ci.yml"])
+    def test_runner_default_is_declared_and_reaches_the_tail(
+        self, workflow_name: str
+    ) -> None:
+        # The release tail's jobs read GH_RUNNER_DEFAULT too, so a caller's
+        # runner-default that stopped at the language workflow would miss them.
+        wf = _load_workflow(workflow_name)
+        assert wf[True]["workflow_call"]["inputs"]["runner-default"]["default"] == ""
+        tail = wf["jobs"].get("release-tail")
+        if tail is not None:
+            assert tail["with"]["runner-default"] == "${{ inputs.runner-default }}"
 
     @pytest.mark.parametrize("workflow_name", LANGUAGE_WORKFLOWS)
     def test_the_gate_reads_plans_mode(self, workflow_name: str) -> None:
@@ -2219,7 +2262,10 @@ class TestRunnerSelection:
             assert self.EXPLICIT not in runs_on, (job, runs_on)
             assert f"vars.{mine}" in runs_on, (job, runs_on)
             assert not any(f"vars.{other}" in runs_on for other in theirs)
-            assert "vars.GH_RUNNER_DEFAULT || 'ubuntu-latest'" in runs_on
+            assert (
+                "inputs.runner-default || vars.GH_RUNNER_DEFAULT || 'ubuntu-latest'"
+                in runs_on
+            )
 
     @pytest.mark.parametrize("workflow_name", LANGUAGE_WORKFLOWS)
     def test_build_matrix_runners_read_the_resolved_mode(
@@ -2304,7 +2350,7 @@ class TestReleaseTailRunnerMode:
     FORWARD = "${{ needs.plan.outputs.runner-mode }}"
     CHAIN = (
         "${{ inputs.runner-mode == 'free' && 'ubuntu-latest' || "
-        "vars.GH_RUNNER_DEFAULT || 'ubuntu-latest' }}"
+        "inputs.runner-default || vars.GH_RUNNER_DEFAULT || 'ubuntu-latest' }}"
     )
 
     def test_the_tail_declares_an_optional_runner_mode_input(self) -> None:
@@ -2790,6 +2836,22 @@ class TestTestTierThreading:
             "${{ needs.plan.outputs.has-os-legs == 'true' "
             "&& needs.build-os.result || '' }}"
         )
+
+    @pytest.mark.parametrize(
+        "workflow_name", [*LANGUAGE_WORKFLOWS, "iac-ci.yml", "_release-tail.yml"]
+    )
+    def test_no_shell_step_runs_in_the_project_dir_before_checkout(
+        self, workflow_name: str
+    ) -> None:
+        # The directory only exists once the checkout has run, so bash fails to start.
+        for name, job in _load_workflow(workflow_name)["jobs"].items():
+            if not (job.get("defaults") or {}).get("run", {}).get("working-directory"):
+                continue
+            for step in job.get("steps") or []:
+                if "actions/checkout" in str(step.get("uses", "")):
+                    break
+                if "run" in step:
+                    assert step.get("working-directory"), (name, step.get("name"))
 
     @pytest.mark.parametrize(
         "workflow_name", [*LANGUAGE_WORKFLOWS, "iac-ci.yml", "_release-tail.yml"]

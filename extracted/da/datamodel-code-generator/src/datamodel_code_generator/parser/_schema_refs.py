@@ -34,13 +34,14 @@ from urllib.parse import unquote, urljoin
 
 from typing_extensions import Protocol, final
 
-from datamodel_code_generator import Error, ReadOnlyWriteOnlyModelType
 from datamodel_code_generator._graph import reach
 from datamodel_code_generator._json_pointer import document_part, join_pointer
 from datamodel_code_generator._json_schema import REF_PRE_PASS_FIELDS, REF_PRE_PASS_POSITIONS, subschema_entries
 from datamodel_code_generator._records import record
 from datamodel_code_generator._scc import find_circular_sccs, strongly_connected_components
+from datamodel_code_generator._shared_types import Error
 from datamodel_code_generator._url_redaction import named_location
+from datamodel_code_generator.enums import ReadOnlyWriteOnlyModelType
 from datamodel_code_generator.parser._intersection import concatenating_row
 from datamodel_code_generator.parser._schema_dispatch import SchemaSite
 from datamodel_code_generator.parser._schema_documents import (
@@ -455,7 +456,7 @@ def ref_file_document(parser: SchemaRefsHost, file_part: str, role: str | None =
     return parser._get_ref_body(file_part)
 
 
-def read_ref_value(  # noqa: PLR0913
+def read_ref_value(
     parser: SchemaRefsHost,
     resolved_ref: str,
     *,
@@ -724,7 +725,7 @@ def resolve_recursive_ref(parser: SchemaRefsHost, item: JsonSchemaObject, path: 
     For standalone JSON Schema files, this is the root "#".
     For OpenAPI, this is the component schema definition path.
     """
-    if item.recursiveRef != "#":  # pragma: no cover
+    if item.recursiveRef != "#":
         return None
     if (resource := enclosing_unanchored_resource_ref(parser)) is not None:
         return resource
@@ -1221,7 +1222,7 @@ def ref_target_dump(parser: SchemaRefsHost, ref: str, resolved_ref: str) -> tupl
     return deepcopy(cached[0]), cached[1]
 
 
-def intersect_ref_siblings(  # noqa: PLR0913
+def intersect_ref_siblings(
     parser: SchemaRefsHost,
     target: dict[str, Any],
     siblings: dict[str, Any],
@@ -1250,7 +1251,7 @@ def intersect_ref_siblings(  # noqa: PLR0913
     return intersection.keywords, intersection.unsatisfiable
 
 
-def intersect_ref_siblings_schema(  # noqa: PLR0913
+def intersect_ref_siblings_schema(
     parser: SchemaRefsHost,
     target: dict[str, Any],
     siblings: dict[str, Any],

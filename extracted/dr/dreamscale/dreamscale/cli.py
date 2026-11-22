@@ -893,7 +893,7 @@ def sim(
             model=model, task_suite=task_suite, task_id=int(task_id), task_seed=task_seed,
             max_steps=max_steps if max_duration is None else max(1, ceil(max_duration * 20)),
             region=region, real_time=True, json_output=non_interactive,
-            output_root=output_root,
+            output_root=output_root, view=view,
         )
         return
     from dreamscale.sim.isaac_libero import is_isaac_libero
@@ -909,7 +909,7 @@ def sim(
             run_isaac_libero,
             model=model, task_suite=task_suite, task_id=int(task_id), task_seed=task_seed,
             max_steps=max_steps if max_duration is None else max(1, ceil(max_duration * 20)),
-            region=region, json_output=non_interactive, output_root=output_root,
+            region=region, json_output=non_interactive, output_root=output_root, view=view,
         )
         return
     if benchmark == "abc":
@@ -1024,12 +1024,6 @@ def stop(
     _run(run_stop, session_id=session_id, stop_all=all)
 
 
-_MODEL_OPTION = typer.Option(
-    "perceptron-isaac05-yam", "--model", help="Base model the weights fine-tune.",
-    callback=_model_name,
-)
-
-
 _CAMERA_OPTION = typer.Option(
     None,
     "--camera",
@@ -1038,7 +1032,9 @@ _CAMERA_OPTION = typer.Option(
 )
 # Flags each base takes; the other base's are refused by name. Isaac 0.5 and InternW0-Δ
 # are unlisted for now: their --base still works, the flags only they take are hidden.
-_ISAAC_ONLY = ("image_size", "action_dim", "state_dim", "chunk", "dataset", "context")
+_ISAAC_ONLY = ("chunk", "dataset", "context")
+# Hidden flags of Isaac 0.5's retired per-robot deployments (DSL-461): no base takes them.
+_NO_BASE = ("image_size", "action_dim", "state_dim")
 _DEFAULT_BASE_ONLY = (
     "path", "horizon", "executed", "token_length", "no_state_in_prompt", "delta_mask", "rtc",
     "rtc_max_delay",
@@ -1195,18 +1191,7 @@ def deployments_create(
     ),
 ) -> None:
     """Deploy fine-tuned weights (``_CREATE_HELP``: every registered deployment base)."""
-    from dreamscale.checkpoints_cmd import (
-        BASE_LABELS,
-        BASE_MODEL,
-        build_embodiment,
-        detect_embodiment,
-        downloaded_base,
-        parse_base,
-        parse_cameras,
-        parse_image_size,
-        parse_region,
-        run_add,
-    )
+    from dreamscale.checkpoints_cmd import BASE_LABELS, downloaded_base, parse_base
 
     given = {
         "image_size": image_size, "action_dim": action_dim, "state_dim": state_dim,
@@ -1216,7 +1201,6 @@ def deployments_create(
         "rtc_max_delay": rtc_max_delay, "arm": arm,
     }
     from dreamscale import deploy_bases
-    from dreamscale.local_checkpoint import is_local_folder
 
     _note_engine_ignored(engine)
     if official is not None:
@@ -1246,77 +1230,23 @@ def deployments_create(
     if repo is None:
         raise typer.BadParameter("a repo or local folder is required (or --official)",
                                  param_hint="'repo'")
-    local = is_local_folder(repo)
     try:
         chosen = parse_base(base or downloaded_base(repo, path))
     except ValueError as error:
         raise typer.BadParameter(str(error), param_hint="'--base'") from None
 
-    # A base with its own create (every base but Isaac 0.5's legacy path) takes every option;
-    # Isaac 0.5 follows.
+    # Every base has its own create, which takes every option.
     create = deploy_bases.named(chosen).create
-    if create is not None:
-        create(
-            repo=repo, given=given, preset=preset, camera=camera, hz=hz, path=path,
-            executed=executed, steps=steps, joint_unit=joint_unit, rtc=rtc,
-            rtc_prefix=rtc_prefix, revision=revision, name=name, hf_token=hf_token,
-            region=region, wait=not no_wait, keep_warm=keep_warm, slug=slug,
-            region_fallback=region_fallback,
-        )
-        return
-    for flag, value in (("--rtc-prefix", rtc_prefix), ("--steps", steps),
-                        ("--joint-unit", joint_unit)):
-        if value is not None:
-            raise typer.BadParameter(f"{flag} doesn't apply to {BASE_LABELS[chosen]} "
-                                     "deployments.", param_hint=f"'{flag}'")
-    default = deploy_bases.default()
-    if local:
-        raise typer.BadParameter(
-            f"a local folder deploys on {default.label} only (Isaac 0.5 deploys from Hugging "
-            "Face).",
-            param_hint="'--base'",
-        )
-    from dreamscale.checkpoints_cmd import KEEP_WARM_VALUES
-
-    if keep_warm is not None and keep_warm not in KEEP_WARM_VALUES:
-        raise typer.BadParameter(
-            f"use one of {', '.join(KEEP_WARM_VALUES)}", param_hint="'--keep-warm'"
-        )
-    for field in _DEFAULT_BASE_ONLY:
-        if given[field] is not None:
-            raise typer.BadParameter(f"{_flag(field)} applies to {default.label} (--base "
-                                     f"{default.listed_as}) deployments only.")
-    try:
-        region = parse_region(region)
-        detected = (
-            detect_embodiment(repo=repo, revision=revision, hf_token=hf_token)
-            if preset is None
-            else None
-        )
-        embodiment = build_embodiment(
-            preset=preset, detected=detected, cameras=parse_cameras(camera),
-            image_size=parse_image_size(image_size), action_dim=action_dim,
-            state_dim=state_dim, chunk=chunk, hz=hz, dataset=dataset, context=context,
-        )
-    except ValueError as error:
-        raise typer.BadParameter(str(error)) from None
-    result: dict = {}
-    _run(
-        lambda **kwargs: result.update(run_add(**kwargs)),
-        repo=repo,
-        model=BASE_MODEL,
-        revision=revision,
-        name=name,
-        hf_token=hf_token,
-        embodiment=embodiment,
-        region=region,
-        wait=not no_wait,
-        **({"keep_warm": keep_warm} if keep_warm is not None else {}),
-        **({"slug": slug} if slug is not None else {}),
-        **({"region_fallback": region_fallback} if region_fallback is not None else {}),
+    if create is None:
+        raise typer.BadParameter(f"{BASE_LABELS.get(chosen, chosen)} deployments can't be "
+                                 "created with this dreamscale", param_hint="'--base'")
+    create(
+        repo=repo, given=given, preset=preset, camera=camera, hz=hz, path=path,
+        executed=executed, steps=steps, joint_unit=joint_unit, rtc=rtc,
+        rtc_prefix=rtc_prefix, revision=revision, name=name, hf_token=hf_token,
+        region=region, wait=not no_wait, keep_warm=keep_warm, slug=slug,
+        region_fallback=region_fallback,
     )
-    if result.get("status") == "failed":
-        raise typer.Exit(code=1)
 
 
 @deployments_app.command("inspect")
@@ -1353,32 +1283,6 @@ def deployments_inspect(
         run_inspect, repo=repo, revision=revision, hf_token=hf_token, json_output=json_output,
         base=chosen, path=path,
     )
-
-
-@checkpoints_app.command("add")
-def checkpoints_add(
-    repo: str = typer.Argument(..., help="Hugging Face repo: hf://owner/name or owner/name."),
-    model: str = _MODEL_OPTION,
-    revision: str | None = typer.Option(None, "--revision", help="Branch, tag or commit."),
-    name: str | None = typer.Option(None, "--name", help="Display name."),
-    hf_token: str | None = typer.Option(None, "--hf-token", help=_HF_TOKEN_HELP),
-    no_wait: bool = typer.Option(False, "--no-wait", help="Return once the build starts."),
-) -> None:
-    """Import fine-tuned weights from Hugging Face."""
-    from dreamscale.checkpoints_cmd import run_add
-
-    result: dict = {}
-    _run(
-        lambda **kwargs: result.update(run_add(**kwargs)),
-        repo=repo,
-        model=model,
-        revision=revision,
-        name=name,
-        hf_token=hf_token,
-        wait=not no_wait,
-    )
-    if result.get("status") == "failed":
-        raise typer.Exit(code=1)
 
 
 @deployments_app.command("list")
@@ -1418,8 +1322,7 @@ def deployments_default(
         None,
         "--model",
         callback=_model_name,
-        help="Model to set it for (default: the deployment's model, or "
-        "perceptron-isaac05-yam for base).",
+        help="Model to set it for (default: the deployment's model; required for base).",
     ),
 ) -> None:
     """Make a deployment (or base) the default for its model."""

@@ -33,7 +33,6 @@ from datamodel_code_generator.model.base import (
     DataModel,
     DataModelFieldBase,
     TemplateBase,
-    _annotation_typing_import_names,
     _clear_custom_template_caches,
     _get_custom_template_signature,
     _get_environment,
@@ -1007,7 +1006,6 @@ def test_direct_data_models_reuse_bounded_custom_template_cache(tmp_path: Path) 
             _refresh_custom_template_paths(tmp_path / f"signature-{index}")
         assert_output(
             f"{len(_missing_custom_template_state.signatures)}\n",
-            Path(__file__).parent.parent / "data/expected/model/custom_template_signature_cache_size.txt",
         )
     finally:
         _clear_custom_template_caches()
@@ -1065,13 +1063,6 @@ def test_custom_template_signature_tolerates_stat_errors(
 
     assert_output(
         _get_custom_template_signature(tmp_path).hex() + "\n",
-        Path(__file__).parent.parent
-        / "data/expected/model"
-        / (
-            "custom_template_signature_dangling_link.txt"
-            if failed_path_kind == "file"
-            else "custom_template_signature_empty.txt"
-        ),
     )
 
 
@@ -1084,7 +1075,6 @@ def test_custom_template_signature_tracks_root_directory_symlink(tmp_path: Path)
 
     assert_output(
         _get_custom_template_signature(template_directory).hex() + "\n",
-        Path(__file__).parent.parent / "data/expected/model/custom_template_signature_root_link.txt",
     )
 
 
@@ -3335,24 +3325,28 @@ def test_field_import_fallback_keeps_union_operator_optional_in_forward_ref_mode
     assert field.imports == ()
 
 
-def test_annotation_typing_import_names_ignores_invalid_annotation() -> None:
+def test_field_imports_ignore_invalid_explicit_type_text() -> None:
     """Test invalid explicit type strings do not fall back to ad hoc string matching."""
-    assert _annotation_typing_import_names("List[") == frozenset()
+    field = DataModelFieldBase(name="a", data_type=DataType(type="List["), required=True)
+
+    assert field.imports == ()
 
 
 @pytest.mark.parametrize(
-    ("annotation", "expected_names"),
+    ("type_name", "expected_imports"),
     [
-        ("str", frozenset()),
-        ("Optional", frozenset({IMPORT_OPTIONAL.import_})),
+        ("str", ()),
+        ("Optional", (IMPORT_OPTIONAL,)),
     ],
 )
-def test_annotation_typing_import_names_handles_identifier_fast_path(
-    annotation: str,
-    expected_names: frozenset[str],
+def test_field_imports_handle_identifier_type_text(
+    type_name: str,
+    expected_imports: tuple[Import, ...],
 ) -> None:
-    """Test identifier annotations skip AST parsing unless they are typing imports."""
-    assert _annotation_typing_import_names(annotation) == expected_names
+    """Test identifier type texts skip AST parsing unless they are typing imports."""
+    field = DataModelFieldBase(name="a", data_type=DataType(type=type_name), required=True)
+
+    assert field.imports == expected_imports
 
 
 @pytest.mark.parametrize(

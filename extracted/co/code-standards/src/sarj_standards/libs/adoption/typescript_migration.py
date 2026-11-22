@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from dataclasses import dataclass, field
 from functools import cache
 import json
@@ -482,13 +483,13 @@ def _renamed_rules() -> dict[str, tuple[str, ...]]:
 
 def _plan_tsconfig_references(typescript_root: Path, sources: Sequence[Path], changes: _Changes) -> None:
     documents = tsconfigs.read(sources)
-    additions: dict[Path, list[Path]] = {}
+    additions: dict[Path, list[Path]] = defaultdict(list)
     for path in tsconfigs.unreferenced_projects(documents):
         owner = path.parent / tsconfigs.TSCONFIG_JSON
         if path.name == _ESLINT_TSCONFIG:
             changes.notes.append(f"{_relative(path, typescript_root)} only served ESLint's typed rules; delete it")
         elif owner in documents and tsconfigs.can_reference(documents[owner], documents[path]):
-            additions.setdefault(owner, []).append(path)
+            additions[owner].append(path)
         else:
             changes.notes.append(_reference_by_hand(typescript_root, owner, [path]))
     for owner, projects in sorted(additions.items()):
@@ -533,10 +534,8 @@ def _with_references(owner: Path, names: Sequence[str]) -> str | None:
 def _retired_dependencies(
     sources: Sequence[Path], deletes: Collection[Path], *, replace_eslint: bool
 ) -> frozenset[str]:
-    # Existing native configs may load legacy plugins through jsPlugins specifiers
-    # or computed helpers. Import scanning cannot prove those dependencies unused.
-    # Retire the old compiler alias independently; its imports and commands below
-    # still keep it when a consumer uses it beyond migrated type checking.
+    # Static imports cannot prove native-config plugin dependencies unused. Retire the compiler alias independently
+    # while preserving demonstrated consumers.
     candidates = _dependency_candidates(sources)
     if any(path.name in OXLINT_CONFIG_NAMES and path not in deletes for path in sources):
         candidates.intersection_update({"@typescript/native"})
@@ -680,9 +679,8 @@ def _commands(path: Path, typescript_root: Path) -> str:
 
 
 def _migrated_script(command: JsonValue, *, lint: str, replace_eslint: bool) -> JsonValue:
-    # Only plain invocations move: `eslint [.] [--fix]`, and a `format` script's `prettier --write|--check [.]`
-    # or `biome format [--write] [.]`. A warning budget goes too: Standards owns warning promotion. Anything
-    # with other arguments stays, and a remaining ESLint call is reported.
+    # Migrate only plain known linter/formatter invocations and their warning budgets; preserve additional arguments and
+    # report remaining ESLint calls.
     if not isinstance(command, str):
         return command
     if _consumer_biome_lint(command):

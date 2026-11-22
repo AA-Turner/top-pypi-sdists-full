@@ -9,6 +9,9 @@ from vercel._internal.core.byte_stream import (
     StagingFileRuntime,
 )
 from vercel._internal.core.http import StreamingResponse
+from vercel._internal.core.region import ResolvedRegion
+from vercel.drives import DriveCredentials
+from vercel.drives._internal.service import DriveService, create_drive_service
 from vercel.sandbox._internal.api_client import (
     SandboxApiClient,
     _completed_process_state,
@@ -16,11 +19,14 @@ from vercel.sandbox._internal.api_client import (
 )
 from vercel.sandbox._internal.errors import (
     SandboxApiError,
+    SandboxDriveApiError,
+    SandboxDriveResponseError,
     SandboxFilesystemCommandError,
     SandboxFilesystemWriteError,
     SandboxPathNotFoundError,
     SandboxResponseError,
     SandboxUploadSizeMismatchError,
+    _output_text,
 )
 from vercel.sandbox._internal.log_stream import (
     AsyncSleep,
@@ -31,10 +37,6 @@ from vercel.sandbox._internal.models import (
     NO_PRIVATE_PARAMETERS,
     DirectoryEntry,
     DriveMountsInput,
-    DriveQuery,
-    DriveQueryByCreatedAt,
-    DriveQueryByName,
-    DriveQueryByUpdatedAt,
     NetworkIdUpdate,
     NetworkPolicy,
     PrivateSandboxParameters,
@@ -64,14 +66,11 @@ from vercel.sandbox._internal.options import (
 from vercel.sandbox._internal.process_output import ProcessOutputRouter
 from vercel.sandbox._internal.process_stdin import feed_process_input
 from vercel.sandbox._internal.recovery import _lifecycle_stream_error
-from vercel.sandbox._internal.region import ResolvedRegion
 from vercel.sandbox._internal.runtime_common import (
     _StreamUploadFileEntry,
 )
 from vercel.sandbox._internal.state import (
     CompletedProcessState,
-    DrivesPageState,
-    DriveState,
     InteractiveSessionState,
     ProcessState,
     RuntimeSessionsPageState,
@@ -101,7 +100,7 @@ _SESSION_STATUSES_WITHOUT_LIVE_POLICY = frozenset(
     {SandboxStatus.STOPPED, SandboxStatus.STOPPING, SandboxStatus.ABORTED, SandboxStatus.FAILED}
 )
 _READY_POLL_INTERVAL_SECONDS = 0.5
-ProcessOutputCollector = Callable[[ProcessState], Awaitable[tuple[str, str]]]
+ProcessOutputCollector = Callable[[ProcessState], Awaitable[tuple[bytes, bytes]]]
 _MISSING_PATH_ERROR_CODES = frozenset({"not_found", "path_not_found", "file_not_found", "ENOENT"})
 _PREDICATE_SCRIPT = """\
 case "$1" in
@@ -168,12 +167,6 @@ class _SandboxQueryCriteria(SandboxValueModel):
     tag: TagFilter | None = None
 
 
-class _DriveQueryCriteria(SandboxValueModel):
-    sort_by: str | None = None
-    sort_order: str | None = None
-    name_prefix: str | None = None
-
-
 class _SandboxTerminalState(Exception):
     def __init__(self, *, status: SandboxStatus, sandbox: SandboxState) -> None:
         self.status = status
@@ -199,22 +192,6 @@ def _compile_sandbox_query(query: SandboxQuery | None) -> _SandboxQueryCriteria:
     if isinstance(query, SandboxQueryByCurrentSnapshotId):
         return _SandboxQueryCriteria(sort_by="currentSnapshotId", sort_order=query.sort_order)
     raise TypeError(f"Unsupported sandbox query type: {type(query)!r}")
-
-
-def _compile_drive_query(query: DriveQuery | None) -> _DriveQueryCriteria:
-    if query is None:
-        return _DriveQueryCriteria()
-    if isinstance(query, DriveQueryByCreatedAt):
-        return _DriveQueryCriteria(sort_by="createdAt", sort_order=query.sort_order)
-    if isinstance(query, DriveQueryByUpdatedAt):
-        return _DriveQueryCriteria(sort_by="updatedAt", sort_order=query.sort_order)
-    if isinstance(query, DriveQueryByName):
-        return _DriveQueryCriteria(
-            sort_by="name",
-            sort_order=query.sort_order,
-            name_prefix=query.name_prefix,
-        )
-    raise TypeError(f"Unsupported drive query type: {type(query)!r}")
 
 
 def _sandbox_status(sandbox: SandboxState) -> SandboxStatus | None:
@@ -278,8 +255,10 @@ class SandboxService:
         ensure_open: Callable[[], None],
         sleep: AsyncSleep,
         staging_file_runtime: StagingFileRuntime,
+        drive_service: DriveService,
     ) -> None:
         self._api_client = api_client
+        self._drive_service = drive_service
         self._options = options
         self._ensure_open = ensure_open
         self._sleep = sleep
@@ -288,6 +267,11 @@ class SandboxService:
     @property
     def api_client(self) -> SandboxApiClient:
         return self._api_client
+
+    @property
+    def drive_service(self) -> DriveService:
+        """Drive operations configured by this service's Sandbox options."""
+        return self._drive_service
 
     @property
     def options(self) -> SandboxServiceOptions:
@@ -701,49 +685,6 @@ class SandboxService:
         self._ensure_open()
         return await self._api_client.create_snapshot(session_id=session_id, expiration=expiration)
 
-    async def fork_drive(self, *, name: str, fork_name: str) -> DriveState:
-        self._ensure_open()
-        return await self._api_client.fork_drive(name=name, fork_name=fork_name)
-
-    async def get_drive(self, *, name_or_id: str) -> DriveState:
-        self._ensure_open()
-        return await self._api_client.get_drive(name_or_id=name_or_id)
-
-    async def get_or_create_drive(
-        self,
-        *,
-        name: str,
-        max_size_bytes: int | None = None,
-        region: ResolvedRegion | None = None,
-    ) -> tuple[DriveState, bool]:
-        self._ensure_open()
-        return await self._api_client.get_or_create_drive(
-            name=name,
-            max_size_bytes=max_size_bytes,
-            region=region,
-        )
-
-    async def query_drives_page(
-        self,
-        *,
-        query: DriveQuery | None = None,
-        page_size: int | None = None,
-        cursor: str | None = None,
-    ) -> DrivesPageState:
-        self._ensure_open()
-        criteria = _compile_drive_query(query)
-        return await self._api_client.query_drives(
-            limit=page_size,
-            cursor=cursor,
-            sort_by=criteria.sort_by,
-            sort_order=criteria.sort_order,
-            name_prefix=criteria.name_prefix,
-        )
-
-    async def delete_drive(self, *, name: str) -> DriveState:
-        self._ensure_open()
-        return await self._api_client.delete_drive(name=name)
-
     async def query_snapshots_page(
         self,
         *,
@@ -1049,7 +990,7 @@ class SandboxService:
         args: list[str],
         cwd: str | None,
         collect_output: ProcessOutputCollector,
-    ) -> tuple[ProcessState, str, str]:
+    ) -> tuple[ProcessState, bytes, bytes]:
         command = await self._wait_process(
             session_id=session_id,
             command="sh",
@@ -1085,8 +1026,8 @@ class SandboxService:
             operation,
             paths=(path,),
             exit_code=command.returncode,
-            stdout=stdout,
-            stderr=stderr,
+            stdout=_output_text(stdout),
+            stderr=_output_text(stderr),
         )
 
     async def exists(
@@ -1161,10 +1102,10 @@ class SandboxService:
                 "listdir",
                 paths=(path,),
                 exit_code=command.returncode,
-                stdout=stdout,
-                stderr=stderr,
+                stdout=_output_text(stdout),
+                stderr=_output_text(stderr),
             )
-        return _listdir_entries(stdout)
+        return _listdir_entries(stdout.decode("utf-8", "surrogateescape"))
 
     async def remove(
         self,
@@ -1189,8 +1130,8 @@ class SandboxService:
                 "remove",
                 paths=(path,),
                 exit_code=command.returncode,
-                stdout=stdout,
-                stderr=stderr,
+                stdout=_output_text(stdout),
+                stderr=_output_text(stderr),
             )
 
     async def rename(
@@ -1215,8 +1156,8 @@ class SandboxService:
                 "rename",
                 paths=(source, destination),
                 exit_code=command.returncode,
-                stdout=stdout,
-                stderr=stderr,
+                stdout=_output_text(stdout),
+                stderr=_output_text(stderr),
             )
 
     async def send_process_signal(
@@ -1352,6 +1293,35 @@ def _adapt_sync_credentials_factory(
     return credentials_factory
 
 
+def _sandbox_drive_service(
+    session: "SdkSession | SyncSdkSession", options: SandboxServiceOptions
+) -> DriveService:
+    """Run `vercel-drives` with this session's Sandbox configuration.
+
+    The Drive functions on `vercel.sandbox` predate `vercel-drives`, so they keep
+    the Sandbox credentials, base URL, timeout, region, and error types instead
+    of reading `DriveServiceOptions`.
+    """
+
+    async def credentials_factory() -> DriveCredentials:
+        credentials = await options.credentials_factory()
+        return DriveCredentials(
+            token=credentials.token,
+            team_id=credentials.team_id,
+            project_id=credentials.project_id,
+        )
+
+    return create_drive_service(
+        session,
+        base_url=options.base_url,
+        credentials_factory=credentials_factory,
+        request_timeout=options.request_timeout,
+        region=options.region,
+        api_error=SandboxDriveApiError,
+        response_error=SandboxDriveResponseError,
+    )
+
+
 def get_sandbox_service(session: "SdkSession") -> SandboxService:
     def factory() -> SandboxService:
         options = session.get_service_option(SandboxServiceOptions) or SandboxServiceOptions()
@@ -1368,6 +1338,7 @@ def get_sandbox_service(session: "SdkSession") -> SandboxService:
             ensure_open=session.check_open,
             sleep=session.sleep,
             staging_file_runtime=session.get_staging_file_runtime(),
+            drive_service=_sandbox_drive_service(session, options),
         )
 
     return session.get_or_create_service(SandboxService, factory)
@@ -1398,6 +1369,7 @@ def get_sync_sandbox_service(session: "SyncSdkSession") -> SandboxService:
             ensure_open=session.check_open,
             sleep=session.sleep,
             staging_file_runtime=session.get_staging_file_runtime(),
+            drive_service=_sandbox_drive_service(session, options),
         )
 
     return session.get_or_create_service(SandboxService, factory)

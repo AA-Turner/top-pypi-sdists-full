@@ -10,11 +10,12 @@
 # iterator interface by Gustavo Niemeyer, April 2003.
 # changes to tokenize more like Posix shells by Vinay Sajip, July 2016.
 
+from __future__ import annotations
+
 import os
 import sys
 from collections import deque
 from io import StringIO
-from typing import Optional
 
 
 class shlex:
@@ -46,7 +47,7 @@ class shlex:
         self.quotes = '\'"'
         self.escape = '\\'
         self.escapedquotes = '"'
-        self.state: Optional[str] = ' '
+        self.state: str | None = ' '
         self.pushback: deque = deque()
         self.lineno = 1
         self.debug = 0
@@ -88,9 +89,9 @@ class shlex:
         self.lineno = 1
         if self.debug:
             if newfile is not None:
-                print('shlex: pushing to file %s' % (self.infile,))
+                print(f'shlex: pushing to file {self.infile}')
             else:
-                print('shlex: pushing to stream %s' % (self.instream,))
+                print(f'shlex: pushing to stream {self.instream}')
 
     def pop_source(self):
         "Pop the input source stack."
@@ -133,6 +134,8 @@ class shlex:
         return raw
 
     def read_token(self):
+        # Modified by argcomplete: Remember the parsed prefix before a mid-word quote.
+        self.word_before_quote = ''
         quoted = False
         escapedstate = ' '
         while True:
@@ -143,7 +146,7 @@ class shlex:
             if nextchar == '\n':
                 self.lineno += 1
             if self.debug >= 3:
-                print("shlex: in state %r I see character: %r" % (self.state, nextchar))
+                print(f"shlex: in state {self.state!r} I see character: {nextchar!r}")
             if self.state is None:
                 self.token = ''  # past end of file
                 break
@@ -239,6 +242,7 @@ class shlex:
                         else:
                             continue
                 elif self.posix and nextchar in self.quotes:
+                    self.word_before_quote = self.token
                     self.state = nextchar
                 elif self.posix and nextchar in self.escape:
                     escapedstate = 'a'
@@ -268,7 +272,7 @@ class shlex:
                         break  # emit current token
                     else:
                         continue
-        result: Optional[str] = self.token
+        result: str | None = self.token
         self.token = ''
         if self.posix and not quoted and result == '':
             result = None

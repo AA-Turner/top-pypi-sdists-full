@@ -3,6 +3,7 @@
 import httpx2 as httpx
 
 from vercel._internal.core.errors import VercelError
+from vercel.drives import DriveApiError, DriveResponseError
 from vercel.sandbox._internal.models import SandboxStatus
 
 
@@ -79,6 +80,29 @@ class SandboxResponseError(SandboxError):
         self.data = data
 
 
+class SandboxDriveApiError(SandboxApiError, DriveApiError):
+    """A Drives API error raised through `vercel.sandbox`.
+
+    Drive operations moved to `vercel-drives`, so this is both the
+    `SandboxApiError` existing callers catch and a `DriveApiError`.
+    """
+
+    def __init__(
+        self,
+        response: httpx.Response,
+        message: str,
+        *,
+        data: object | None = None,
+    ) -> None:
+        # Both bases take the same arguments and set the same attributes, so
+        # one of them initializes the instance for both.
+        DriveApiError.__init__(self, response, message, data=data)
+
+
+class SandboxDriveResponseError(SandboxResponseError, DriveResponseError):
+    """A malformed Drives API response received through `vercel.sandbox`."""
+
+
 class SandboxTimeoutError(SandboxError):
     """Raised when a Sandbox lifecycle transition exceeds its deadline."""
 
@@ -135,6 +159,11 @@ class SandboxFilesystemCommandError(SandboxFilesystemError):
         self.exit_code = exit_code
         self.stdout = stdout
         self.stderr = stderr
+
+
+def _output_text(data: bytes) -> str:
+    """Decode command output for an error message, which must not fail to decode."""
+    return data.decode("utf-8", "replace")
 
 
 class SandboxFilesystemWriteError(SandboxFilesystemError):

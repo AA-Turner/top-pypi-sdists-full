@@ -50,10 +50,16 @@ not check joint limits, reachability, collisions, velocity, or anything else. Bo
 checking and an e-stop belong between this library and your motors. connect(on_stale=) is told
 the moment the arm runs out of answer, so that you can hold it; it is no emergency stop, which stays physical.
 
+Teleoperation
+A person drives a robot from a console, straight to it: `seq teleop serve` pairs the two, on the robot's machine or one
+both can reach - the robot connects to its address, connect("http://<that machine>:8200", token=...), and a console
+with teleop("http://<that machine>:8200", token=...) or the page it serves. Needs sequence-ai[teleop].
+
 ── On GS's platform ──────────────────────────────────────────────────
-A deployment by its name - connect("my_policy_user") - teleop, the platform's recorder, models, your account, GPUs,
-billing and usage are sequence-cloud's, GS's client for its platform, which adds them here once installed, with
-your key in SEQUENCES_API_KEY:
+A deployment by its name - connect("my_policy_user") - a robot paired through the platform by its key
+(connect("teleop"), teleop(key=...)), the platform's recorder, models, your account, GPUs, billing and usage are
+sequence-cloud's, GS's client for its platform, which adds them here once installed, with your key in
+SEQUENCES_API_KEY:
 pip install sequence-cloud --extra-index-url "https://$SEQUENCES_API_KEY@api.generalsequences.com/simple"
 """
 
@@ -79,7 +85,9 @@ from .chat import ChatResult, ChatStream, Conversation, cached, chat, image
 from .markers import Depth, Tactile, Video
 
 if TYPE_CHECKING:
-    from .engine.serve import serve
+    from ._core.teleop import Teleop
+    from .act.teleop_handle import TeleopHandle
+
 from .errors import (
     AuthError,
     CertPinError,
@@ -101,7 +109,9 @@ from .errors import (
 
 __all__ = [
     "connect",
-    "serve",
+    "teleop",
+    "Teleop",
+    "TeleopHandle",
     "read_record",
     "Recorder",
     "Video",
@@ -140,10 +150,12 @@ __all__ = [
 ]
 
 
-_CLOUD_NAMES = frozenset((        "teleop", "Teleop", "TeleopHandle", "record", "models", "account", "gpu", "gpus",
-        "billing", "usage", "fleet", "decide", "DecideResult", "Model", "GpuBadRequest", "GpuOverLimit",
-        "GpuNoCard", "DEFAULT_BASE_URL", "Transport",
+_CLOUD_NAMES = frozenset((
+        "record", "models", "account", "gpu", "gpus", "billing", "usage", "fleet", "decide", "DecideResult", "Model",
+        "GpuBadRequest", "GpuOverLimit", "GpuNoCard", "DEFAULT_BASE_URL", "Transport",
 ))
+
+_ASK_S = 3.0
 
 
 
@@ -183,7 +195,7 @@ def connect(
     pictures: str = "keyframes",
 ) -> Policy | Any:
     """
-    Open the robot's connection to a policy server of your own - serve(), `seq serve` - by its address:
+    Open the robot's connection to a policy server of your own - `seq serve` - by its address:
     connect("http://your-gpu:8000"). What comes back is a Policy: observe() hands it what the robot observes as it makes
     it, a sequence_ai.Video item as video, and act() asks what to do when your code says so - on one stream straight to
     that server, nothing in between: no key, no account, nothing billed.
@@ -193,9 +205,13 @@ def connect(
 
 
     model       the server's address, http:// or https:// (an address written without it is refused: as a name, it would
-                go to GS's platform)
-    token       the server's token (serve(token=...)), sent with each request to it; only as given here: nothing reads
-                it from the environment
+                go to GS's platform) - a policy server's (seq serve), or a teleop server's (seq teleop serve): asked
+                which as connect() is called (its GET /ping, 3 s at most), and taken for a policy server's while it
+                does not answer
+    token       the server's token (seq serve --token, seq teleop serve --token), sent with each request to it; only as
+                given here: nothing reads it from the environment
+    hold        a teleop server's robot: what act() hands back while no person drives it, or one stopped it (None
+                unset); a policy server's has no use for it
     timeout_s   how long one request waits for its answer, in seconds
     startup_timeout_s, on_warming, on_stale, on_resume
                 how long an act waits for a server that is starting, and what it is told as it waits or as the answer the
@@ -213,7 +229,7 @@ def connect(
                 (3.11 on Windows ARM64), and without it it goes as it is, said once
     follow, base_url
                 a GPU rented on GS's platform: its follow token and the platform's address (sequence-cloud's)
-    *more, api_key, on_queue, hold
+    *more, api_key, on_queue
                 a deployment on GS's platform by its name, connect("my_policy_user"), and its options: with
                 sequence-cloud installed (sequence_cloud.api.by_name says them all); without it, a name raises
                 MissingPackage, its hint how to install it
@@ -224,10 +240,21 @@ def connect(
             policy_user.observe(frame_user)
             actions_user = policy_user.act()
 
-    Nothing is sent at connect time: the first observe() or act() opens the stream, and wait_until_ready() waits for a
-    server that is still starting. A robot names nothing of the policy's: its control rate, how many steps of an answer
-    are valid and when the next is asked for are the policy's to declare (@seq.policy(hz=, action_chunk_valid_len=,
-    action_chunk_replan_at=)), and what differs between robots goes in their observations.
+    connect() asks the address what it serves, and nothing more: the first observe() or act() opens the stream, and
+    wait_until_ready() waits for a server that is still starting. A robot names nothing of the policy's: its control
+    rate, how many steps of an answer are valid and when the next is asked for are the policy's to declare
+    (@seq.policy(hz=, action_chunk_valid_len=, action_chunk_replan_at=)), and what differs between robots goes in their
+    observations.
+
+    At a teleop server's address, what comes back is a TeleopHandle - the robot's own handle while a person drives it,
+    with no policy behind it: observe() sends each step to the consoles connected, and act() hands back the newest chunk
+    its person sent, once, or `hold`. The same robot code runs paired through GS's platform, connect("teleop",
+    api_key=...) with sequence-cloud, this one line changed.
+
+        with sequence_ai.connect("http://robot-box_user:8200", token=TOKEN_user) as robot_user:
+            robot_user.wait_until_ready()
+            robot_user.observe(frame_user)
+            chunk_user = robot_user.act()          # a person's newest chunk, or None while no one drives it
     """
     for name in (model, *more):
         _not_an_address(name)
@@ -239,15 +266,13 @@ def connect(
         raise InvalidRequest(f"pictures= is one of {', '.join(map(repr, PICTURES))}, not {pictures!r}")
     if "://" in model:
 
-        unused = [name for name, given in (("api_key", api_key), ("hold", hold), ("on_queue", on_queue))
-                  if given is not None]
+        unused = [name for name, given in (("api_key", api_key), ("on_queue", on_queue)) if given is not None]
         if unused:
             raise InvalidRequest(f"{unused[0]}= is the platform's, and {model} is a server of your own: it is reached "
-                                 "with its token= (serve(token=...)), it has no line to wait in, and a robot a person "
-                                 "drives connects by the policy's name with \"teleop\"")
+                                 "with its token= (seq serve --token), and it has no line to wait in")
         return _own_server(model, more, timeout_s, token, follow=follow, base_url=base_url, lines=lines,
                            pictures=pictures, startup_timeout_s=startup_timeout_s, on_warming=on_warming,
-                           on_stale=on_stale, on_resume=on_resume)
+                           on_stale=on_stale, on_resume=on_resume, hold=hold)
     api = first("sequence_ai.api")
     if api is None:
         raise MissingPackage(f"connect({model!r}) names a deployment on GS's platform: an address of a server of your "
@@ -264,8 +289,9 @@ def _own_server(url: str, more: tuple, timeout_s: float | None, token: str | Non
                 lines: list[str] | dict[str, str] | None = None, pictures: str = "keyframes",
                 startup_timeout_s: float | None = None, on_warming: Callable[[float, float], None] | None = None,
                 on_stale: Callable[[Stale], None] | None = None,
-                on_resume: Callable[[Stale], None] | None = None) -> Policy:
-    """connect()'s way to a policy server of your own: the platform's own Policy on its address - the same robot's stream,
+                on_resume: Callable[[Stale], None] | None = None, hold: Any = None) -> Policy | Any:
+    """connect()'s way to a server of your own - a teleop server's address, what it says it is (_served), to
+    _own_teleop - and to a policy server of your own: the platform's own Policy on its address - the same robot's stream,
     its control plane answered here (_core/own_server.OwnGateway) - and nothing of the platform asked or told: `token`,
     given, is sent to it (serve(token=...)), never an api_key - a script whose address is changed to another's server
     would hand that server the account's key. Its follow token (`follow`, else $SEQUENCES_FOLLOW_TOKEN), where it has
@@ -285,6 +311,16 @@ def _own_server(url: str, more: tuple, timeout_s: float | None, token: str | Non
         bare = urlunsplit((parts.scheme, parts.netloc, "", "", ""))
         warn(f"connect(): {url} has a path, which a server's address does not take: connecting to {bare}")
         url = bare
+    teleop_server, pinged = _served(url, token, timeout_s)
+    if teleop_server:
+        if lines is not None or follow:
+            what = "lines=" if lines is not None else "follow="
+            raise InvalidRequest(f"{what} goes with a policy server: {url} is a teleop server's (seq teleop serve), "
+                                 "whose robot is reached on one line, as its console reaches it")
+        return _own_teleop(url, token, hold)
+    if hold is not None:
+        raise InvalidRequest(f"hold= is what act() hands back while no person drives the robot: it goes with a teleop "
+                             f"server's address (seq teleop serve), and {url} is a policy server's")
     from ._core.own_server import OwnGateway
 
 
@@ -295,10 +331,127 @@ def _own_server(url: str, more: tuple, timeout_s: float | None, token: str | Non
                              "GS's client for its platform", hint=INSTALL)
     on_reconnect = api.follow(follow, url, base_url, lines) if api is not None else None
     name = _name_of(url)
-    gateway = OwnGateway(url, token=token, on_reconnect=on_reconnect)
+    gateway = OwnGateway(url, token=token, on_reconnect=on_reconnect, pinged=pinged)
     return Policy(DirectConnection(gateway, model=name, timeout_s=timeout_s, lines=lines, pictures=pictures),
                   model=name, startup_timeout_s=startup_timeout_s, on_warming=on_warming, on_stale=on_stale,
                   on_resume=on_resume)
+
+
+def _served(url: str, token: str | None, timeout_s: float | None) -> tuple[bool, Any]:
+    """What the server at `url` serves, as its GET /ping says it within _ASK_S: (True, None) for a teleop server's (seq
+    teleop serve says X-Seq-Teleop), else (False, the answer) - a policy server's, or None where nothing answered:
+    taken for a policy server that is starting, as connect() always took an address."""
+    import httpx
+
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
+    try:
+        answer = httpx.get(f"{url}/ping", headers=headers, timeout=min(_ASK_S, timeout_s or _ASK_S))
+    except httpx.HTTPError:
+        return False, None
+    return ("x-seq-teleop" in answer.headers), (None if "x-seq-teleop" in answer.headers else answer)
+
+
+def _own_teleop(url: str, token: str | None, hold: Any) -> Any:
+    """connect()'s way to a teleop server of your own (seq teleop serve): the robot's handle while a person drives it,
+    its link to the server the one the platform's pairing takes (teleop_link.RobotLink), its token as given and nothing
+    of an account's."""
+    from ._core import teleop_direct, teleop_link, teleop_robot
+    from .act.teleop_handle import TeleopHandle
+
+    teleop_direct.require()
+    driven = teleop_robot.Driven() if hold is None else teleop_robot.Driven(hold)
+    link = teleop_link.RobotLink(token, url, driven, own=True)
+    handle = TeleopHandle(driven, link)
+    link.start()
+    return handle
+
+
+def teleop(url: str | None = None, *, token: str | None = None, key: str | None = None, operator: str | None = None,
+           base_url: str | None = None, timeout_s: float | None = None, direct_only: bool = False,
+           via: str = "webrtc") -> "Teleop":
+    """
+    A person's console for one robot: watch it, take it, drive it with action chunks, hand it back, stop it - connected
+    straight to the robot, its pictures and commands reaching no server.
+
+        with sequence_ai.teleop("http://robot-box_user:8200", token=TOKEN_user, operator="alice_user") as op_user:
+            for step_user in op_user.stream():     # the robot's newest view: {"episode", "seq", "observation", "t_us"}
+                ...
+            op_user.take()                         # one person at a time: Conflict while another drives it
+            op_user.send({"actions": chunk_user})  # the robot's next act() hands it back, at once
+            op_user.release()                      # back to its model; op_user.stop() stops it where it is
+
+    url         the teleop server the robot connected to (seq teleop serve): `token` its token, as given
+    key, base_url
+                a robot paired through GS's platform instead, by its own key (sequence-cloud's): `key` defaults to
+                $SEQUENCES_API_KEY, `base_url` to $SEQUENCES_BASE_URL, then the platform's
+    operator    the name this console goes by: who drives, in the robot's audit trail
+    timeout_s   how long its server's answers may take, 10 s unset; meeting the robot takes 15 s at least
+    direct_only no relay: where the two cannot meet directly, Unavailable rather than through a TURN server its teleop
+                server names (seq teleop serve --turn); op.path says which way a connection went, "direct" or "relay"
+    via         "webrtc" (the default): straight to the robot, to watch it and drive it. "moq": to watch it alone,
+                through the MoQ relay its teleop server names (seq teleop serve --moq-port), the robot uploading once
+                however many watch - stream(), states() and metrics() as below, and nothing to take or send;
+                sequence-ai[moq], Python 3.10 or later
+
+    It needs sequence-ai[teleop] (Python 3.11 or later): pip install 'sequence-ai[teleop]'. Conflict while the robot is
+    not connected (details.reason "robot_not_connected"); Unavailable, saying why, where the two cannot reach each other
+    (details.reason "direct_failed": both behind symmetric NAT, a network that lets no UDP out...): nothing goes any
+    other way in its place. A console that drives the robot and goes - closed, or silent for 3 s - stops it; one that
+    only watches changes nothing by going. stream() hands on the robot's newest view each time something new comes: at
+    most 8 cameras are sent, in the order the robot first observes them, and a camera's frame may be a few steps from the
+    arrays beside it, behind them or ahead. op.driver is who drives as the robot last said it - {"driver": "model",
+    "human" or "stopped", "by": who, "since": its epoch second}. metrics() says how late its commands and the robot's
+    steps were: p50, p95 and p99 of each, in microseconds.
+    """
+    if via not in ("webrtc", "moq"):
+        raise InvalidRequest(f"via= is \"webrtc\" (straight to the robot) or \"moq\" (watching through a relay), not "
+                             f"{via!r}")
+    if via == "moq":
+        unused = [name for name, given in (("operator", operator), ("direct_only", direct_only or None)) if given]
+        if url is None:
+            raise InvalidRequest("via=\"moq\" watches through the MoQ relay a teleop server of your own names (seq "
+                                 "teleop serve --moq-port): teleop(\"http://ADDRESS:8200\", token=..., via=\"moq\")")
+        if unused:
+            raise InvalidRequest(f"{unused[0]}= is a driving console's: one watching through the relay is told to no "
+                                 "one and goes no way but the relay's")
+    if url is None:
+        if token is not None:
+            raise InvalidRequest("token= is a teleop server of your own's, given with its address: "
+                                 "teleop(\"http://ADDRESS:8200\", token=...)")
+        api = first("sequence_ai.api")
+        if api is None:
+            raise MissingPackage("teleop() with no address pairs through GS's platform, by the robot's key: "
+                                 "sequence-cloud's, GS's client for its platform; a teleop server of your own is "
+                                 "teleop(\"http://ADDRESS:8200\", token=...)", hint=INSTALL)
+        return api.teleop_console(key=key, operator=operator, base_url=base_url, timeout_s=timeout_s,
+                                  **({"direct_only": True} if direct_only else {}))
+    if key is not None or base_url is not None:
+        raise InvalidRequest(f"{'key=' if key is not None else 'base_url='} is the platform's, and {url} is a teleop "
+                             "server of your own: it is reached with its token= (seq teleop serve --token)")
+    _not_an_address(url)
+    if "://" not in url:
+        raise InvalidRequest(f"teleop() takes a teleop server's URL, http://... or https://..., not {url!r}")
+    from ._core import teleop as _teleop
+    from ._core import teleop_direct
+    from ._core.transport import Transport
+
+    if via == "moq":
+        from ._core import teleop_moq
+
+        teleop_moq.require()
+        gateway = Transport(api_key=token, base_url=url.rstrip("/"), own=True, timeout_s=timeout_s or 10.0)
+        try:
+            return teleop_moq.Watch(gateway, timeout_s=timeout_s or 10.0)
+        finally:
+            gateway.close()
+    teleop_direct.require()
+
+    gateway = Transport(api_key=token, base_url=url.rstrip("/"), own=True,
+                        timeout_s=max(timeout_s or 10.0, _teleop.PAIRING_WAIT_S + 10.0))
+    try:
+        return _teleop.Teleop(gateway, operator=operator, timeout_s=timeout_s or 10.0, direct_only=direct_only)
+    finally:
+        gateway.close()
 
 
 
@@ -361,14 +514,17 @@ def read_record(path: str) -> Iterator[dict[str, Any]]:
 
 
 def __getattr__(name: str) -> Any:
-    """`sequence_ai.serve`, `sequence_ai.network` and `sequence_ai.engine` are imported when first used, so a robot that
-    only connects loads none of them; and the platform's names (models, account, teleop, ...) are sequence-cloud's,
-    there once it is installed."""
-    if name == "serve":
-        from .engine.serve import serve
-        return serve
+    """`sequence_ai.network` and `sequence_ai.engine` are imported when first used, so a robot that only connects loads
+    neither; Teleop and TeleopHandle are loaded as first used too; and the platform's names (models, account, gpu, ...)
+    are sequence-cloud's, there once it is installed.
+    `serve` is none of them: `seq serve` serves a @seq.policy class, and runs sequence_ai.engine.serve to do it.
+    """
     if name in ("network", "engine"):
         return importlib.import_module(f".{name}", __name__)
+    if name == "Teleop":
+        return importlib.import_module("._core.teleop", __name__).Teleop
+    if name == "TeleopHandle":
+        return importlib.import_module(".act.teleop_handle", __name__).TeleopHandle
 
 
 
@@ -384,9 +540,8 @@ def __getattr__(name: str) -> Any:
 
 
 def __dir__() -> list[str]:
-    """What `dir(sequence_ai)` lists: the names it exports (`serve` too, imported when first used) and its
-    subpackages - with sequence-cloud installed, the platform's names it adds.
-"""
+    """What `dir(sequence_ai)` lists: the names it exports and its subpackages - with sequence-cloud installed, the
+    platform's names it adds."""
     api = first("sequence_ai.api")
     modules = {n for n, v in globals().items() if isinstance(v, types.ModuleType) and not n.startswith("_")}
     added = set(getattr(api, "__all__", ())) if api is not None else set()

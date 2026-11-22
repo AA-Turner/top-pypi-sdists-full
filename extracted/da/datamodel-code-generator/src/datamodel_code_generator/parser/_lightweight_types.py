@@ -121,7 +121,7 @@ def _intersect_constraint(parser: LightweightTypesHost, field: str, val1: Any, v
     if field == "multipleOf":
         with suppress(TypeError, ValueError, ZeroDivisionError):
             return intersect_multiple_of(val1, val2)
-        return val1  # pragma: no cover
+        return val1  # pragma: no cover - not proven unreachable: a multipleOf pair no intersection takes
     v1 = val1.value if isinstance(val1, UnionIntFloat) else val1
     v2 = val2.value if isinstance(val2, UnionIntFloat) else val2
     return val1 if intersect_constraint(field, v1, v2) is v1 else val2
@@ -168,7 +168,7 @@ def merge_schema_constraints(
             base_dict.pop(field, None)
 
 
-def build_lightweight_array_type(  # noqa: PLR0913, PLR0917
+def build_lightweight_array_type(  # noqa: PLR0917
     parser: LightweightTypesHost,
     schema: JsonSchemaObject,
     depth: int,
@@ -211,7 +211,7 @@ def build_lightweight_array_type(  # noqa: PLR0913, PLR0917
             is_tuple=is_homogeneous_tuple,
             tuple_item_count=tuple_item_count if is_homogeneous_tuple else None,
         ),
-        schema.uniqueItems,
+        unique_items=schema.uniqueItems,
     )
     other_types = [
         parser._get_format_data_type(schema, type_) for type_ in parser._get_array_union_non_array_types(schema)
@@ -233,11 +233,8 @@ def contains_false_schema(parser: LightweightTypesHost, items: Iterable[JsonSche
     return any(is_false_schema_item(parser, item) for item in items)
 
 
-def is_list_with_any_item_type(parser: LightweightTypesHost, data_type: DataType | None) -> bool:  # noqa: ARG001
+def is_list_with_any_item_type(parser: LightweightTypesHost, data_type: DataType) -> bool:  # noqa: ARG001
     """Return True when data_type represents List[Any] (including nested lists)."""
-    if not data_type:  # pragma: no cover
-        return False
-
     candidate = data_type
     if candidate._wraps_one_list:
         candidate = candidate.data_types[0]

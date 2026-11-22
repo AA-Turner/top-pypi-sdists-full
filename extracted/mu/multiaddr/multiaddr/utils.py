@@ -1,9 +1,111 @@
+import ipaddress
 import socket
 from typing import Any
 
 import psutil
 
 from .multiaddr import Multiaddr
+from .protocols import P_IP4, P_IP6, P_TCP, P_UDP, Protocol
+
+IP4_LOOPBACK = Multiaddr("/ip4/127.0.0.1")
+IP6_LOOPBACK = Multiaddr("/ip6/::1")
+IP4_UNSPECIFIED = Multiaddr("/ip4/0.0.0.0")
+IP6_UNSPECIFIED = Multiaddr("/ip6/::")
+
+PRIVATE4 = [
+    ipaddress.ip_network(cidr)
+    for cidr in [
+        "127.0.0.0/8",
+        "10.0.0.0/8",
+        "100.64.0.0/10",
+        "172.16.0.0/12",
+        "192.168.0.0/16",
+        "169.254.0.0/16",
+    ]
+]
+
+PRIVATE6 = [
+    ipaddress.ip_network(cidr)
+    for cidr in [
+        "::1/128",
+        "fc00::/7",
+        "fe80::/10",
+    ]
+]
+
+
+def _get_ip(ma: Multiaddr) -> ipaddress.IPv4Address | ipaddress.IPv6Address | None:
+    protos: list[Protocol] = list(ma.protocols())
+    if not protos:
+        return None
+    first = protos[0]
+    if first.code in (P_IP4, P_IP6):
+        val = ma.value_for_protocol(first.code)
+        if val:
+            try:
+                return ipaddress.ip_address(val)
+            except ValueError:
+                pass
+    return None
+
+
+def is_thin_waist(ma: Multiaddr) -> bool:
+    """Check if a multiaddr is a thin waist address (ip4/ip6 optionally followed by tcp/udp)."""
+    protos: list[Protocol] = list(ma.protocols())
+    if not protos:
+        return False
+    if protos[0].code not in (P_IP4, P_IP6):
+        return False
+    if len(protos) == 1:
+        return True
+    if len(protos) == 2 and protos[1].code in (P_TCP, P_UDP):
+        return True
+    return False
+
+
+def is_ip_loopback(ma: Multiaddr) -> bool:
+    """Check if a multiaddr is a loopback IP address."""
+    ip = _get_ip(ma)
+    return ip.is_loopback if ip else False
+
+
+def is_ip_unspecified(ma: Multiaddr) -> bool:
+    """Check if a multiaddr is an unspecified IP address."""
+    ip = _get_ip(ma)
+    return ip.is_unspecified if ip else False
+
+
+def is_ip6_link_local(ma: Multiaddr) -> bool:
+    """Check if a multiaddr is an IPv6 link-local address."""
+    ip = _get_ip(ma)
+    return bool(ip and ip.version == 6 and ip.is_link_local)
+
+
+def is_private_addr(ma: Multiaddr) -> bool:
+    """Check if a multiaddr is a private IP address."""
+    ip = _get_ip(ma)
+    if not ip:
+        return False
+    if ip.version == 4:
+        return any(ip in net for net in PRIVATE4)
+    else:
+        return any(ip in net for net in PRIVATE6)
+
+
+def is_public_addr(ma: Multiaddr) -> bool:
+    """Check if a multiaddr is a public IP address."""
+    ip = _get_ip(ma)
+    if not ip:
+        return False
+    return not is_ip_unspecified(ma) and not is_private_addr(ma)
+
+
+def is_nat64_ipv4_converted_ipv6_addr(ma: Multiaddr) -> bool:
+    """Check if a multiaddr is a NAT64 converted IPv6 address."""
+    ip = _get_ip(ma)
+    if not ip or ip.version != 6:
+        return False
+    return ip in ipaddress.ip_network("64:ff9b::/96")
 
 
 def is_wildcard(ip: str) -> bool:
@@ -117,3 +219,95 @@ def get_thin_waist_addresses(
         # Return the specific address
         addr_str = f"/{ip_proto}/{options['host']}/{options['transport']}/{target_port}"
         return [Multiaddr(addr_str)]
+
+
+def interface_multiaddrs() -> list[Multiaddr]:
+    """Return local interface addresses as Multiaddr objects.
+
+    Uses :func:`get_network_addrs` for IPv4 and IPv6. Loopback and link-local
+    addresses are excluded (same filtering as ``get_network_addrs``).
+    """
+    result: list[Multiaddr] = []
+    for host in get_network_addrs(4):
+        result.append(Multiaddr(f"/ip4/{host}"))
+    for host in get_network_addrs(6):
+        result.append(Multiaddr(f"/ip6/{host}"))
+    return result
+
+
+def dial_args(ma: Multiaddr) -> tuple[str, str]:
+    """Convert a multiaddr to ``(network, address)`` for ``socket.connect()``.
+
+    Examples:
+        >>> dial_args(Multiaddr("/ip4/1.2.3.4/tcp/80"))
+        ('tcp4', '1.2.3.4:80')
+        >>> dial_args(Multiaddr("/ip6/::1/tcp/80"))
+        ('tcp6', '[::1]:80')
+        >>> dial_args(Multiaddr("/unix/var/run/docker.sock"))
+        ('unix', '/var/run/docker.sock')
+    """
+    opts = get_multiaddr_options(ma)
+    if opts is None:
+        protos = list(ma.protocols())
+        if protos and protos[0].name == "unix":
+            path = ma.value_for_protocol("unix")
+            if path is None:
+                raise ValueError(f"{ma} is missing a unix path")
+            return ("unix", path if path.startswith("/") else f"/{path}")
+        raise ValueError(f"{ma} is not a 'thin waist' address")
+
+    family_suffix = "4" if opts["family"] == 4 else "6"
+    network = f"{opts['transport']}{family_suffix}"
+
+    if opts["family"] == 6:
+        address = f"[{opts['host']}]:{opts['port']}"
+    else:
+        address = f"{opts['host']}:{opts['port']}"
+
+    return (network, address)
+
+
+def from_net_addr(
+    addr: tuple[Any, ...],
+    *,
+    transport: str = "tcp",
+) -> Multiaddr:
+    """Convert a socket address tuple to a Multiaddr.
+
+    Args:
+        addr: Socket address tuple ``(host, port)`` or IPv6 ``(host, port, ...)``.
+        transport: ``"tcp"`` or ``"udp"`` (default ``"tcp"``).
+
+    Examples:
+        >>> from_net_addr(("1.2.3.4", 80))
+        Multiaddr('/ip4/1.2.3.4/tcp/80')
+        >>> from_net_addr(("::1", 53), transport="udp")
+        Multiaddr('/ip6/::1/udp/53')
+    """
+    if transport not in ("tcp", "udp"):
+        raise ValueError(f"unsupported transport: {transport!r}")
+    if not addr or len(addr) < 2:
+        raise ValueError("addr must be a (host, port[, ...]) tuple")
+
+    host, port = addr[0], addr[1]
+    if not isinstance(host, str):
+        raise TypeError("host must be a string")
+    if not isinstance(port, int):
+        raise TypeError("port must be an integer")
+
+    ip = ipaddress.ip_address(host)
+    ip_proto = "ip4" if isinstance(ip, ipaddress.IPv4Address) else "ip6"
+    return Multiaddr(f"/{ip_proto}/{host}/{transport}/{port}")
+
+
+def to_net_addr(ma: Multiaddr) -> tuple[str, int]:
+    """Convert a thin-waist Multiaddr to a ``(host, port)`` socket address tuple.
+
+    Examples:
+        >>> to_net_addr(Multiaddr("/ip4/1.2.3.4/tcp/80"))
+        ('1.2.3.4', 80)
+    """
+    opts = get_multiaddr_options(ma)
+    if opts is None:
+        raise ValueError(f"{ma} is not a thin waist address")
+    return (opts["host"], opts["port"])

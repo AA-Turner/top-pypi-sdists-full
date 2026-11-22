@@ -137,6 +137,62 @@ def test_occurrences_with_specific_include_dates():
     assert 2 == pattern.count()
 
 
+def test_occurrences_with_include_date_on_dtend():
+    # A date that is listed explicitly is an occurrence, also when it
+    # falls on dtend and dtend itself is not included.
+    for include_dtend in (True, False):
+        pattern = Recurrence(
+            rdates=[
+                datetime(2014, 1, 2, 0, 0, 0),
+                datetime(2014, 1, 4, 0, 0, 0),
+            ],
+            include_dtstart=False,
+            include_dtend=include_dtend,
+        )
+
+        occurrences = [
+            instance for instance in
+            pattern.occurrences(
+                dtstart=datetime(2014, 1, 1, 0, 0, 0),
+                dtend=datetime(2014, 1, 4, 0, 0, 0),
+            )
+        ]
+
+        assert occurrences == [
+            datetime(2014, 1, 2, 0, 0, 0),
+            datetime(2014, 1, 4, 0, 0, 0),
+        ]
+
+
+def test_occurrences_with_exclude_date_on_dtend():
+    def occurrences(include_dtend):
+        pattern = Recurrence(
+            rrules=[Rule(recurrence.DAILY)],
+            exdates=[datetime(2014, 1, 3, 0, 0, 0)],
+            include_dtend=include_dtend,
+        )
+        return [
+            instance for instance in
+            pattern.occurrences(
+                dtstart=datetime(2014, 1, 1, 0, 0, 0),
+                dtend=datetime(2014, 1, 3, 0, 0, 0),
+            )
+        ]
+
+    # An included dtend is always an occurrence
+    assert occurrences(include_dtend=True) == [
+        datetime(2014, 1, 1, 0, 0, 0),
+        datetime(2014, 1, 2, 0, 0, 0),
+        datetime(2014, 1, 3, 0, 0, 0),
+    ]
+
+    # Without it, an exclusion on dtend applies like any other
+    assert occurrences(include_dtend=False) == [
+        datetime(2014, 1, 1, 0, 0, 0),
+        datetime(2014, 1, 2, 0, 0, 0),
+    ]
+
+
 def test_occurrences_until():
     rule = Rule(
         recurrence.DAILY,

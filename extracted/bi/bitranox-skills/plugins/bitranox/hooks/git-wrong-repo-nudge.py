@@ -57,6 +57,7 @@ import os
 import re
 import sys
 
+from hook_event import parse_pre_tool_use
 from shell_text import (
     blank_heredoc_bodies,
     commands_only_aligned,
@@ -182,13 +183,16 @@ def _multi_cd_notice(where):
 
 def main() -> int:
     try:
-        event = json.load(sys.stdin)
+        event = parse_pre_tool_use(json.load(sys.stdin))
     except Exception:  # noqa: BLE001 - no/invalid stdin: do nothing
         return 0
-    if not isinstance(event, dict) or not is_shell_tool(event.get("tool_name")):
+    if event is None:
+        return 0
+    tool_name = event.get("tool_name")
+    if not is_shell_tool(tool_name):
         return 0
     cwd = event.get("cwd") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
-    message = notice((event.get("tool_input") or {}).get("command"), cwd, event.get("tool_name"))
+    message = notice((event.get("tool_input") or {}).get("command"), cwd, tool_name)
     if message:
         sys.stdout.write(json.dumps({"hookSpecificOutput": {
             "hookEventName": "PreToolUse",

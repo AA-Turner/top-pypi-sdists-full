@@ -187,7 +187,7 @@ def test_retry_after_header_honored(monkeypatch: pytest.MonkeyPatch) -> None:
     assert slept == [2.0]
 
 
-def test_retry_after_capped_at_max_delay(
+def test_retry_after_past_max_delay_raises_with_delay(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     import getanyapi._transport as transport
@@ -201,13 +201,19 @@ def test_retry_after_capped_at_max_delay(
         calls["n"] += 1
         if calls["n"] == 1:
             return json_response(
-                429, {"error": "wait"}, headers={"retry-after": "9999"}
+                429,
+                {"error": "limit reached", "code": "rate_limited"},
+                headers={"retry-after": "42"},
             )
         return json_response(200, run_envelope({"ok": True}))
 
     client, _ = make_sync_client(respond, max_retries=1)
-    client.run("x.y", {})
-    assert slept == [8.0]  # capped at maxDelay
+    with pytest.raises(RateLimitedError) as exc:
+        client.run("x.y", {})
+    assert exc.value.code == "rate_limited"
+    assert exc.value.retry_after_seconds == 42
+    assert slept == []  # a wait shorter than Retry-After is never taken
+    assert calls["n"] == 1
 
 
 def test_timeout_not_retried() -> None:

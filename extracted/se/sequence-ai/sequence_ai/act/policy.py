@@ -715,14 +715,19 @@ class Policy(_Waits):
 
                          else (f"had no answer from {body.get('address') or 'its address'} (nothing listens there, or "
                                "this machine's network does not reach it)") if status == "unreached"
+
+                         else f"had no answer from {body.get('address') or 'its address'}" if status == "stopped"
                          else f"was still {_STAGE_WORDS.get(body.get('stage'), 'loading')}"
 
                               + (f"; it reports about {eta:.0f}s to go" if eta is not None else ""))
 
 
                 gpu = _gpu_said(body.get("gpu"))
+
+
+                stopped = ": the server stopped: it answered, and now nothing listens there" if status == "stopped" else ""
                 raise Unavailable(
-                    f"{self._model} {doing} after {wait_for.after():.0f}s ({wait_for.why()})"
+                    f"{self._model} {doing} after {wait_for.after():.0f}s ({wait_for.why()})" + stopped
                     + (f"; {gpu}" if gpu else ""),
                     status=503, body={}, retry_after_s=eta, warming=True,
                     details={"gpu": body["gpu"]} if gpu else None,

@@ -11,8 +11,9 @@ are accepted for API compatibility. See the crate README for the support matrix.
 from __future__ import annotations
 
 import enum
+import os
 from dataclasses import dataclass, field
-from typing import Any, BinaryIO, Dict, Optional
+from typing import Any, BinaryIO, Dict, Optional, Union
 
 
 class InputFormat(str, enum.Enum):
@@ -140,6 +141,11 @@ class HeadingHierarchyOptions:
     max_level: int = 6
     bookmark_match_threshold: float = 0.8
     numbering_schemes: Optional[list] = None
+    # docling#5474 (#1145): keyword markers of other languages
+    # (family -> words) and extra number words; accepted like the fields
+    # above, honoured by the Rust library's `heading_hierarchy_options`.
+    numbering_keywords: dict = field(default_factory=dict)
+    numbering_number_words: list = field(default_factory=list)
 
 
 @dataclass
@@ -270,8 +276,14 @@ class DocumentStream:
     object (e.g. ``io.BytesIO``). ``format`` (a docling.rs extension, #564)
     names the :class:`InputFormat` outright when the name cannot — an email
     attachment called ``scan.bin`` sent as ``application/pdf``; ``None``
-    keeps the extension-based detection."""
+    keeps the extension-based detection. ``source_uri`` — a path or a
+    ``file:`` URI (``file://localhost/…`` too) — names where the bytes live
+    on disk, as docling's backend ``source_uri`` does (docling#5017): a JATS
+    figure or an HTML image next to the original resolves under
+    ``image_sources="local"``; the file itself need not exist, and a
+    root-only ``file:///`` is refused with a warning."""
 
     name: str
     stream: BinaryIO
     format: Optional["InputFormat"] = None
+    source_uri: Optional[Union[str, "os.PathLike[str]"]] = None

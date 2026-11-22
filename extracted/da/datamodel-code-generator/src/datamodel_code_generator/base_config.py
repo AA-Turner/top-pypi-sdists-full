@@ -33,8 +33,10 @@ from datamodel_code_generator._option_rules import (
     implied_option_sources,
     implied_options,
 )
-from datamodel_code_generator._shared_types import LiteralType  # noqa: TC001 - used at runtime by Pydantic
+from datamodel_code_generator._requirements import REQUIREMENTS, python_target_meets
+from datamodel_code_generator._shared_types import Error, LiteralType
 from datamodel_code_generator.enums import (
+    _PYDANTIC_MODEL_TYPES,
     DEFAULT_SHARED_MODULE_NAME,
     AliasGenerator,
     AllExportsCollisionStrategy,
@@ -58,6 +60,7 @@ from datamodel_code_generator.enums import (
     ModuleSplitMode,
     NamingStrategy,
     OpenAPIAsDefinitions,
+    OpenAPIScope,
     OpenEnums,
     ReadOnlyWriteOnlyModelType,
     ReuseScope,
@@ -69,6 +72,7 @@ from datamodel_code_generator.enums import (
     TargetPydanticVersion,
     UnionMode,
     VersionMode,
+    _openapi_scopes_or_default,
 )
 
 if TYPE_CHECKING:
@@ -87,7 +91,6 @@ def _import_paths(field: str, paths: Iterable[object], target: PythonVersion, *,
     Each path is read by ``validators._validate_python_import_path``: names of the target Python joined by dots, after
     the dots of a relative import with ``relative``.
     """
-    from datamodel_code_generator import Error  # noqa: PLC0415
     from datamodel_code_generator.validators import _validate_python_import_path  # noqa: PLC0415
 
     try:
@@ -142,8 +145,6 @@ OPEN_ENUM_BASE_CLASS_KEYS: Final = ("Enum", "StrEnum", "IntEnum")
 def _open_enum_base_paths(base_map: Mapping[str, str]) -> list[str]:
     """Return the paths of the ``--open-enum-base-class-map`` entries, refusing a key no enum class is written on."""
     if unknown := [key for key in base_map if key not in OPEN_ENUM_BASE_CLASS_KEYS]:
-        from datamodel_code_generator import Error  # noqa: PLC0415
-
         msg = (
             f"open_enum_base_class_map keys must be {', '.join(OPEN_ENUM_BASE_CLASS_KEYS)}, "
             f"not {', '.join(map(repr, unknown))}"
@@ -204,7 +205,6 @@ def validate_untyped_value_type(value: str | None) -> str | None:
     """Refuse a value of --untyped-value-type other than ``Any``, ``object`` or a dotted import path of Python names."""
     if value is None or value in {"Any", "object"}:
         return value
-    from datamodel_code_generator import Error  # noqa: PLC0415
     from datamodel_code_generator.python_literal import message_repr  # noqa: PLC0415
     from datamodel_code_generator.validators import _validate_dotted_python_identifier_path  # noqa: PLC0415
 
@@ -288,15 +288,6 @@ def implied_target_settings(config: Any, explicit: AbstractSet[str]) -> dict[str
     decodable unions and enums of msgspec. A setting that was set keeps its value, which the target refuses when it
     cannot use it.
     """
-    from datamodel_code_generator._requirements import REQUIREMENTS, python_target_meets  # noqa: PLC0415
-    from datamodel_code_generator.enums import (  # noqa: PLC0415
-        _PYDANTIC_MODEL_TYPES,
-        DataModelType,
-        OpenAPIScope,
-        TargetPydanticVersion,
-        _openapi_scopes_or_default,
-    )
-
     implied: dict[str, Any] = {}
     scopes = _openapi_scopes_or_default(config.openapi_scopes)
     if (
@@ -426,6 +417,7 @@ class BaseGenerateConfig(BaseModel):
     use_single_value_enum_as_const: bool = False
     read_const_beside_enum: bool = False
     read_format_as_annotation: bool = False
+    read_uuid6_uuid7_uuid8_formats: bool = False
     filter_literal_values: bool = False
     intersect_allof_keywords: bool = False
     intersect_combined_schema_keywords: bool = False
@@ -511,6 +503,7 @@ class BaseGenerateConfig(BaseModel):
     use_encoded_str_for_constrained_base64: bool = False
     use_strict_str_for_base64: bool = False
     use_msgspec_meta_for_map_keys: bool = False
+    merge_msgspec_str_like_union_members: bool = False
     omit_redundant_constraints: bool = False
     read_length_keywords_by_type: bool = False
     read_object_keywords_by_type: bool = False

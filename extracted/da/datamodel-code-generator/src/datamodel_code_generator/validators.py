@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, RootModel, ValidationError, Validati
 
 from datamodel_code_generator._format_types import NEWEST_TARGET
 from datamodel_code_generator._free_names import first_free
+from datamodel_code_generator._shared_types import Error
 from datamodel_code_generator.python_literal import (
     _normalize_string,
     _normalized_safe_python_name,
@@ -81,8 +82,6 @@ def _validate_python_import_path(value: object, target: PythonVersion, *, relati
 
 def _validate_schema_python_import_path(value: Any, field_name: str, target: PythonVersion) -> str:
     """Return the dotted import path a schema keyword names, refusing one whose names are no names of the target."""
-    from datamodel_code_generator import Error  # noqa: PLC0415
-
     try:
         return _validate_dotted_python_identifier_path(value, target)
     except ValueError as exc:
@@ -156,7 +155,7 @@ def format_validation_error(error: ValidationError) -> str:
     """Format the first Pydantic validation error as a concise, stable message."""
     errors = error.errors()
     if not errors:
-        return str(error)  # pragma: no cover
+        return str(error)  # pragma: no cover - pydantic never raises a ValidationError without errors
 
     first_error = errors[0]
     location = ".".join(str(part) for part in first_error.get("loc", ()))

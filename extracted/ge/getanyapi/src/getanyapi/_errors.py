@@ -84,7 +84,26 @@ class ResultNotFoundError(NotFoundError):
 
 
 class RateLimitedError(AnyAPIError):
-    """HTTP 429: too many requests. Retried automatically."""
+    """HTTP 429: too many requests.
+
+    ``retry_after_seconds`` is the response's ``Retry-After`` when it carried one:
+    wait that long before sending again. Code ``rate_limited`` on a run means the
+    account reached its limit of new requests a minute to that API; nothing was run
+    or charged. Retried automatically only when the delay fits the ordinary backoff
+    ceiling (SPEC 2.8).
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        status: int,
+        request_id: str | None = None,
+        code: str | None = None,
+        retry_after_seconds: int | None = None,
+    ) -> None:
+        super().__init__(message, status=status, request_id=request_id, code=code)
+        self.retry_after_seconds = retry_after_seconds
 
 
 class UpstreamError(AnyAPIError):
@@ -135,7 +154,16 @@ def error_for_status(
     *,
     request_id: str | None = None,
     code: str | None = None,
+    retry_after_seconds: int | None = None,
 ) -> AnyAPIError:
     """Build the mapped error for a non-2xx HTTP status (SPEC 3.6)."""
+    if status == 429:
+        return RateLimitedError(
+            message,
+            status=status,
+            request_id=request_id,
+            code=code,
+            retry_after_seconds=retry_after_seconds,
+        )
     cls = _STATUS_MAP.get(status, AnyAPIError)
     return cls(message, status=status, request_id=request_id, code=code)

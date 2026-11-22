@@ -13,6 +13,7 @@ import argparse
 from typing import Any
 
 from sequence_ai._core.plugins import INSTALL, loaded, needs_cloud
+from sequence_ai.engine.compiled import tensorrt_install as _tensorrt_install
 
 
 class _DescFromHelp(argparse._SubParsersAction):
@@ -110,6 +111,8 @@ connect("http://<this machine>:8000").
   serve [folder]            serve the folder's @seq.policy from this machine's GPU, a template's weights downloaded
                             with your key
   weights get <template>    download one version of a template's weights, with your key
+  teleop serve              pair a robot and the consoles that drive it, from this machine
+  data export <recording>   a robot's recordings as a LeRobot v3.0 dataset, or JSON lines
 
 Deploying to the platform, evals, GPUs and your account are sequence-cloud's, GS's client for its platform:
 """ + "  " + INSTALL + """
@@ -142,12 +145,14 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--json", action="store_true", help="print what the command read as JSON, for scripts")
     sub = ap.add_subparsers(dest="cmd", metavar="<command>", help="one of the commands above", action=_DescFromHelp)
 
+
+
+
     p = sub.add_parser("init", description="Start from a template: a policy, a benchmark or an adapter, from the "
-                                           "platform, by channel or version.")
+                                           "platform.")
     p.add_argument("template", nargs="?",
-                   help="a template, optionally with a channel or a version (pi05-droid, pi05-droid@stable, "
-                        "pi05-droid@beta, or @vN of a version `seq init --list` shows); without one, its stable "
-                        "version when this sequence-ai can deploy it, else the newest version it can")
+                   help="a template, its version the one `seq init --list` shows (pi05-droid), or an exact version "
+                        "(pi05-droid@v12)")
     p.add_argument("dest", nargs="?", default=None,
                    help="the directory to create (default: the template's name): a policy deploys under it; a "
                         "benchmark or an adapter keeps the name its file gives, which the next step names")
@@ -156,15 +161,20 @@ def build_parser() -> argparse.ArgumentParser:
                    help="do not download a template's large upstream sources (third_party/SOURCES.json) - the image "
                         "installs them from their official packages either way")
 
-    p = sub.add_parser("serve", description="Serve a folder's @seq.policy from this machine until Ctrl-C: the class "
+    p = sub.add_parser("serve", description="Serve a folder's @seq.policy, or an official template's by its name, from "
+                                            "this machine until Ctrl-C: the class "
                                             "built as the platform builds it - its init= filled, a template's weights "
                                             "downloaded with your key into ~/.cache/sequence-ai/weights and checked by "
                                             "their sha256 - a @seq.concurrent policy's acts batched in its sizes as the "
                                             "platform batches them. A robot connects with sequence_ai.connect("
                                             "\"http://<this machine>:<port>\"). What the folder's code imports must be "
                                             "installed here, as its image installs it (requirements-policy.lock).")
+
+
     p.add_argument("folder", nargs="?", default=".",
-                   help="the folder `seq init` made, or one .py file holding the policy (default: this folder)")
+                   help="the folder `seq init` made, one .py file holding the policy, or an official template's name "
+                        "(pi05-droid, pi05-droid@v12), whose code is kept in ~/.cache/sequence-ai/templates as `seq "
+                        "init` writes it; a folder here of that name is served instead (default: this folder)")
     p.add_argument("--name", default=None, help="the policy to serve, when the folder holds several")
     p.add_argument("--port", type=int, default=8000, help="the port it listens on (default 8000)")
     p.add_argument("--host", default=None,
@@ -192,10 +202,18 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--fused-kernels", action="store_true", dest="fused_kernels",
                    help="try fused kernels for their norms, gated activations and rotary embeddings (needs --tolerance)")
     p.add_argument("--tensorrt", action="store_true",
-                   help="try TensorRT on those modules, TF32 off (pip install sequence-ai[tensorrt]; needs --tolerance)")
+                   help="try TensorRT on those modules, TF32 off; needs --tolerance, and TensorRT: "
+                        + _tensorrt_install())
     p.add_argument("--precision", choices=["fp32", "fp16", "fp8"], default=None,
                    help="try those modules in float16 or float32, or their linear layers in fp8 on a GPU of compute "
                         "capability 8.9 or later (needs --tolerance; by default the model keeps its own dtype)")
+    p.add_argument("--cfg-parallel", action="store_true", dest="cfg_parallel",
+                   help="on a server of two processes (torchrun --nproc-per-node 2), try running the half of each "
+                        "guidance batch on each (needs --tolerance)")
+    p.add_argument("--pipeline-parallel", action="store_true", dest="pipeline_parallel",
+                   help="on a server of two processes or more (torchrun --nproc-per-node N), try splitting the "
+                        "model's blocks into one stage each, its calls passed through them in parts (needs "
+                        "--tolerance)")
     p.add_argument("--tolerance", type=_tolerance, default=None, metavar="LIMIT",
                    help="the difference from eager mode's answers you accept for the switches above: a number (the "
                         "largest absolute difference), or max_abs=...,mean_abs=...,cosine=...")
@@ -209,6 +227,56 @@ def build_parser() -> argparse.ArgumentParser:
                                     "so a run again downloads what is missing alone. Prints the folder.")
     p.add_argument("template", help="the template, and a version if you name one (pi05-libero, pi05-libero@v1)")
     p.add_argument("--dir", default=None, help="the folder to download into")
+
+    tsub = _group(ap, sub, "teleop", "A person drives a robot from a console, connected straight to it: this machine "
+                                     "pairs the two.")
+    p = tsub.add_parser("serve", help="pair a robot and the consoles that drive it, from this machine, until Ctrl-C",
+                        description="Pair a robot and the consoles that drive it, from this machine, until Ctrl-C - "
+                                    "the platform's pairing, with no account. The robot connects with "
+                                    "sequence_ai.connect(\"http://<this machine>:8200\", token=...), a console with "
+                                    "sequence_ai.teleop(\"http://<this machine>:8200\", token=...) or the page served "
+                                    "at that address; then the two talk to each other straight, past this machine. "
+                                    "Needs sequence-ai[teleop] on the robot and on a Python console.")
+    p.add_argument("--port", type=int, default=8200, help="the port it listens on (default 8200)")
+    p.add_argument("--host", default=None,
+                   help="the address it listens on (default: every address of this machine; 127.0.0.1: this one only)")
+    p.add_argument("--token", default=None,
+                   help="the token the robot and each console must send (default: $SEQ_TELEOP_TOKEN, else one made "
+                        "for this run and printed once; \"\" for none)")
+    p.add_argument("--robot", default=None, help="the name its robot goes by (default: this machine's name)")
+    p.add_argument("--record", action="store_true",
+                   help="turn the robot's Record on: it writes its steps to a file on its own machine, which "
+                        "`seq data export` turns into a dataset")
+    p.add_argument("--turn", action="append", default=None, metavar="URL",
+                   help="a TURN server the robot and its consoles may relay through where they cannot meet directly "
+                        "(turn:host:3478); repeat it for each")
+    p.add_argument("--turn-secret", default=None,
+                   help="that server's shared secret (coturn's static-auth-secret), which each side's credentials "
+                        "are made with (default: $SEQ_TELEOP_TURN_SECRET)")
+    p.add_argument("--turn-ttl", type=float, default=None, metavar="SECONDS",
+                   help="how long each side's credentials are good for (default 12 hours)")
+    p.add_argument("--moq-port", type=int, default=None, metavar="PORT",
+                   help="serve a MoQ relay on this UDP port for the people watching the robot: it uploads once, "
+                        "however many watch with sequence_ai.teleop(..., via=\"moq\"); needs sequence-ai[moq] here "
+                        "and on the robot")
+    p.add_argument("--moq", default=None, metavar="URL",
+                   help="a MoQ relay of your own for them instead (moq-relay 0.17): https://HOST:PORT/, or http:// "
+                        "for one that made its own certificate")
+
+    dsub = _group(ap, sub, "data", "A robot's recordings on this machine as a dataset.")
+    p = dsub.add_parser("export", help="a robot's recordings as a LeRobot v3.0 dataset, or JSON lines",
+                        description="Write the recordings named - .msgpack files, or folders of them, that a robot's "
+                                    "Record wrote (seq teleop serve --record) or `seq robot record` wrote - as one "
+                                    "LeRobot v3.0 dataset: a frame for every step observed, each camera an image "
+                                    "column, every other number an array, the action each step was given, who drove "
+                                    "it, each episode's instruction its task and its label next.success. --format "
+                                    "jsonl writes every item as a line of JSON instead, a file a recording. The "
+                                    "LeRobot format needs pyarrow: pip install 'sequence-ai[data]'.")
+    p.add_argument("recordings", nargs="+", help="the recordings: .msgpack files, or folders holding them")
+    p.add_argument("-o", "--out", required=True, help="the folder to write the dataset to")
+    p.add_argument("--format", choices=["lerobot", "jsonl"], default="lerobot", help="lerobot (default) or jsonl")
+    p.add_argument("--fps", type=float, default=None,
+                   help="the dataset's frame rate (default: the pace its robots observed at)")
 
 
     for plugin in loaded("seq.commands"):

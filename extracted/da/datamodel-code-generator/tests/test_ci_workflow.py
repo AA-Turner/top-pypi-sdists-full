@@ -18,7 +18,6 @@ from scripts.select_ci_test_shard import PROFILES
 from tests.conftest import assert_output
 
 ROOT = Path(__file__).resolve().parents[1]
-EXPECTED = ROOT / "tests/data/expected/ci_coverage"
 MAIN_ONLY_IF = "github.event_name != 'pull_request'"
 TEST_TARGET = re.compile(r"(?<![\w/.\-])(?:\./)?tests/[\w/.\-]*(?:::[\w:]+)?")
 ANY_MEMBER = "::*"
@@ -110,7 +109,7 @@ def test_workflow_matrix_and_coverage_contract() -> None:
             if "checkout@" in step.get("uses", "")
         }),
     }
-    assert_output(json.dumps(output, sort_keys=True, indent=2) + "\n", EXPECTED / "workflow.txt")
+    assert_output(json.dumps(output, sort_keys=True, indent=2) + "\n")
 
 
 def test_gate_rejects_every_unsuccessful_group() -> None:
@@ -170,7 +169,7 @@ def test_gate_rejects_every_unsuccessful_group() -> None:
             "results_match": json.loads(result.stdout) == {group: value["result"] for group, value in needs.items()},
             "stderr": result.stderr,
         }
-    assert_output(json.dumps(outputs, sort_keys=True, indent=2) + "\n", EXPECTED / "gate.txt")
+    assert_output(json.dumps(outputs, sort_keys=True, indent=2) + "\n")
 
 
 def defined_tests(model: SourceModule) -> set[str]:

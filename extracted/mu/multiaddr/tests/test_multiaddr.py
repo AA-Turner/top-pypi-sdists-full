@@ -20,6 +20,7 @@ from multiaddr.protocols import (
     protocol_with_name,
     protocols_with_string,
 )
+from multiaddr.transforms import string_to_bytes
 
 
 @pytest.mark.parametrize(
@@ -83,6 +84,10 @@ from multiaddr.protocols import (
         "/dns4",
         "/dns6",
         "/cancer",
+        "/wg",
+        "/wg/not-valid-base64",
+        "/wg/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        "/ip4/1.2.3.4/udp/51820/wg",
     ],
 )
 def test_invalid(addr_str):
@@ -139,6 +144,8 @@ def test_invalid(addr_str):
         "/ip4/127.0.0.1/tcp/9090/http/p2p-webrtc-direct",
         "/ip4/127.0.0.1/tcp/127/webrtc-direct",
         "/ip4/127.0.0.1/tcp/127/webrtc",
+        "/ip4/1.2.3.4/udp/51820/wg/uAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "/ip6/::1/udp/51820/wg/uAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
         "/certhash/uEiDDq4_xNyDorZBH3TlGazyJdOWSwvo4PUo5YHFMrvDE8g"
         "/ip4/127.0.0.1/udp/9090/webrtc-direct/certhash/uEiDDq4_xNyDorZBH3TlGazyJdOWSwvo4PUo5YHFMrvDE8g",
         "/ip4/127.0.0.1/udp/1234/quic-v1/webtransport/certhash/u1QEQOFj2IjCsPJFfMAxmQxLGPw",
@@ -167,9 +174,9 @@ def test_valid(addr_str):
         # QUIC with WebTransport
         "/ip6/2001:8a0:7ac5:4201:3ac9:86ff:fe31:7095/udp/4001/quic-v1/webtransport",
         "/ip4/1.2.3.4/udp/4001/quic-v1/webtransport",
-        # QUIC with IPv6 zones (removed due to binary encoding issues in Python implementation)
-        # "/ip6zone/x/ip6/fe80::1/udp/1234/quic",
-        # "/ip6zone/x%y/ip6/fe80::1/udp/1234/quic-v1",
+        # QUIC with IPv6 zones
+        "/ip6zone/x/ip6/fe80::1/udp/1234/quic",
+        "/ip6zone/x%y/ip6/fe80::1/udp/1234/quic-v1",
         # QUIC with different ports
         "/ip4/192.168.1.1/udp/4001/quic",
         "/ip4/10.0.0.1/udp/4001/quic-v1",
@@ -588,7 +595,19 @@ def test_bad_initialization_too_many_params():
 
 def test_bad_initialization_wrong_type():
     with pytest.raises(TypeError):
-        Multiaddr(42)  # type: ignore
+        Multiaddr(1)  # type: ignore
+
+
+def test_invalid_bytes():
+    # These all should fail immediately when initializing from bytes:
+    with pytest.raises(BinaryParseError):
+        Multiaddr(b"\xff\xff\xff")  # Invalid varint
+    with pytest.raises(BinaryParseError):
+        Multiaddr(b"\x99\x01\x00")  # Unknown protocol code 0x99
+    with pytest.raises(BinaryParseError):
+        Multiaddr(b"\x04\x04\x01\x02")  # ip4 with only 3 bytes of address (needs 4)
+    with pytest.raises(BinaryParseError):
+        Multiaddr(Multiaddr("/ip4/127.0.0.1")._bytes + b"\xff")  # trailing bytes
 
 
 def test_value_for_protocol_argument_wrong_type():
@@ -612,6 +631,28 @@ def test_decapsulate():
     a = Multiaddr("/ip4/127.0.0.1/udp/1234")
     u = Multiaddr("/udp/1234")
     assert a.decapsulate(u) == Multiaddr("/ip4/127.0.0.1")
+
+    # Issue #109 Case 1 — Repeated protocol
+    ma1 = Multiaddr("/ip4/1.2.3.4/tcp/80/ip4/5.6.7.8/tcp/443")
+    assert ma1.decapsulate("/ip4/5.6.7.8") == Multiaddr("/ip4/1.2.3.4/tcp/80")
+
+    # Issue #109 Case 2 — Substring collision
+    ma2 = Multiaddr("/dns4/example.com/tcp/80")
+    with pytest.raises(ValueError, match="does not contain subaddress"):
+        ma2.decapsulate("/tcp/8")
+
+    # Issue #109 Case 3 — Value contains protocol name
+    ma3 = Multiaddr("/dns4/tcp.example.com/tcp/80")
+    assert ma3.decapsulate("/tcp/80") == Multiaddr("/dns4/tcp.example.com")
+
+    # Empty other is a no-op (go-multiaddr parity)
+    ma4 = Multiaddr("/ip4/1.2.3.4/tcp/80")
+    assert ma4.decapsulate("") == ma4
+    assert ma4.decapsulate(Multiaddr("")) == ma4
+
+    # Last occurrence wins for a repeated trailing suffix
+    ma5 = Multiaddr("/ip4/1.1.1.1/tcp/80/ip4/2.2.2.2/tcp/80")
+    assert ma5.decapsulate("/tcp/80") == Multiaddr("/ip4/1.1.1.1/tcp/80/ip4/2.2.2.2")
 
 
 def test__repr():
@@ -1103,3 +1144,35 @@ def test_tag_only_protocol_error_message_format():
     error_msg = str(exc_info.value)
     assert "does not take an argument" in error_msg
     assert "webrtc" in error_msg
+
+
+@pytest.mark.parametrize("zone", ["en0", "eth0", "wlan0"])
+def test_ip6zone_value_is_length_prefixed(zone: str) -> None:
+    """Regression for #147: ip6zone was decoded as a value-less protocol.
+
+    Zones whose length byte collided with a real protocol code (eth0 -> 4 -> ip4)
+    produced phantom protocols; other lengths (en0, wlan0) failed binary parsing.
+    """
+    ma = Multiaddr(f"/ip6zone/{zone}/ip6/fe80::1/tcp/4001")
+    assert Multiaddr(ma.to_bytes()) == ma
+    assert [p.name for p in ma.protocols()] == ["ip6zone", "ip6", "tcp"]
+    assert ma.value_for_protocol("ip6zone") == zone
+    assert [(p.name, v) for p, v in ma.items()] == [
+        ("ip6zone", zone),
+        ("ip6", "fe80::1"),
+        ("tcp", "4001"),
+    ]
+    assert [str(part) for part in ma.split()] == [
+        f"/ip6zone/{zone}",
+        "/ip6/fe80::1",
+        "/tcp/4001",
+    ]
+    assert string_to_bytes(str(ma)) == ma.to_bytes()
+
+
+def test_ip6zone_rejects_slash_in_binary_zone() -> None:
+    """A zone containing '/' has no parseable text form (go-multiaddr rejects it too)."""
+    ip6 = Multiaddr("/ip6/fe80::1").to_bytes()
+    ma = Multiaddr(b"\x2a\x03a/b" + ip6)
+    with pytest.raises(BinaryParseError):
+        str(ma)

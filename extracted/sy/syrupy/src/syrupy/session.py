@@ -421,7 +421,7 @@ class SnapshotSession:
             expected_workers = xdist_numprocesses(self.pytest_session.config)
             if (
                 expected_workers is not None
-                and expected_workers > 1
+                and expected_workers > 0
                 and len(self._worker_reports) < expected_workers
             ):
                 warn_incomplete_worker_reports(

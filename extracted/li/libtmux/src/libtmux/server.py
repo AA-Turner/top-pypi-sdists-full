@@ -16,8 +16,12 @@ import typing as t
 import warnings
 
 from libtmux import exc
-from libtmux._internal.env import socket_path_from_env
+from libtmux._internal.env import (
+    resolve_ambient_socket_path,
+    socket_path_from_env,
+)
 from libtmux._internal.query_list import QueryList
+from libtmux._internal.support.capabilities import capability_since
 from libtmux.client import Client
 from libtmux.common import get_version, has_gte_version, raise_if_stderr, tmux_cmd
 from libtmux.constants import OptionScope
@@ -32,15 +36,14 @@ from .common import (
     PaneDict,
     SessionDict,
     WindowDict,
+    escape_trailing_separator,
     session_check_name,
 )
 from .options import OptionsMixin
 
 if t.TYPE_CHECKING:
     import types
-    from typing import TypeAlias
-
-    from typing_extensions import Self
+    from typing import Self, TypeAlias
 
     from libtmux._internal.types import StrPath
 
@@ -98,6 +101,122 @@ class Server(
           - :class:`Pane`
 
     When instantiated stores information on live, running tmux server.
+
+    **Connecting.** Constructing a :class:`~libtmux.Server` runs no tmux command
+    of its own; it records the socket and settings every later call uses.
+    :meth:`~libtmux.Server.from_env` reads ``$TMUX`` without a subprocess, raises
+    :exc:`~libtmux.exc.NotInsideTmux` when it is unset, and does not check that the
+    server is alive. :meth:`~libtmux.Server.is_alive` answers a bool and never
+    raises, where :meth:`~libtmux.Server.raise_if_dead` raises
+    :exc:`~libtmux.exc.TmuxCommandNotFound` or
+    :class:`subprocess.CalledProcessError`.
+
+    - Name a server: :class:`~libtmux.Server`, :meth:`~libtmux.Server.from_env`
+    - Is anything listening: :meth:`~libtmux.Server.is_alive`,
+      :meth:`~libtmux.Server.raise_if_dead`
+    - Start the daemon: :meth:`~libtmux.Server.start_server`
+
+    **Finding one thing.** Each ``from_*_id`` constructor asks tmux for one object
+    and raises :exc:`~libtmux.exc.TmuxObjectDoesNotExist` when it is not there.
+    ``get`` on a listing returns exactly one match, and raises
+    :exc:`~libtmux.exc.ObjectDoesNotExist` for none unless a default is passed,
+    and :exc:`~libtmux.exc.MultipleObjectsReturned` for several.
+    :meth:`~libtmux.Server.has_session` answers a bool, matches the name exactly
+    unless ``exact=False``, and raises :exc:`~libtmux.exc.BadSessionName` for an
+    empty name or one holding a period or colon.
+
+    - By ID: :meth:`~libtmux.Session.from_session_id`,
+      :meth:`~libtmux.Window.from_window_id`, :meth:`~libtmux.Pane.from_pane_id`
+    - One match from a listing:
+      :meth:`~libtmux._internal.query_list.QueryList.get`
+    - Exists, without returning it: :meth:`~libtmux.Server.has_session`
+
+    **Listing everything.** Each access reads tmux again and returns a
+    :class:`~libtmux._internal.query_list.QueryList`, so a list you keep is a
+    snapshot. :attr:`~libtmux.Server.sessions` and :attr:`~libtmux.Server.clients`
+    answer an empty list when the tmux command fails for any reason, so tell "no
+    sessions" from "tmux unreachable" with :meth:`~libtmux.Server.is_alive`.
+    :attr:`~libtmux.Server.windows` and :attr:`~libtmux.Server.panes` answer empty
+    only while the daemon is not up and raise on other tmux errors. Windows and
+    panes span every session.
+
+    - Listings: :attr:`~libtmux.Server.sessions`, :attr:`~libtmux.Server.windows`,
+      :attr:`~libtmux.Server.panes`, :attr:`~libtmux.Server.clients`
+    - With a client attached: :attr:`~libtmux.Server.attached_sessions`
+
+    **Filtering.** ``filter`` on a listing runs in Python against the full list.
+    The ``search_*`` methods hand tmux a ``-f`` format expression instead, and tmux
+    drops rows before any object is built. A malformed expression expands to empty
+    and hides every row without an error.
+
+    - In Python: :meth:`~libtmux._internal.query_list.QueryList.filter`
+    - In tmux: :meth:`~libtmux.Server.search_sessions`,
+      :meth:`~libtmux.Server.search_windows`, :meth:`~libtmux.Server.search_panes`
+
+    **Creating and destroying.** :meth:`~libtmux.Server.new_session` creates a
+    detached session and returns it. A name already in use raises
+    :exc:`~libtmux.exc.TmuxSessionExists` unless ``kill_session=True``.
+    :meth:`~libtmux.Server.kill_session` passes its target to tmux, which matches
+    it with ``fnmatch(3)``, so ``asdf`` also kills ``asdfasd``.
+    :meth:`~libtmux.Server.kill` stops the server and returns quietly when no
+    daemon is running.
+
+    - New session: :meth:`~libtmux.Server.new_session`
+    - Kill one session: :meth:`~libtmux.Server.kill_session`
+    - Stop the server: :meth:`~libtmux.Server.kill`
+
+    **Clients.** :attr:`~libtmux.Server.clients` returns typed
+    :class:`~libtmux.Client` objects and :meth:`~libtmux.Server.list_clients`
+    returns tmux's raw lines. Switching and attaching take a session name, which
+    raises :exc:`~libtmux.exc.BadSessionName` when it is empty or holds a period
+    or colon.
+
+    - Listing: :attr:`~libtmux.Server.clients`,
+      :meth:`~libtmux.Server.list_clients`
+    - Move one: :meth:`~libtmux.Server.switch_client`,
+      :meth:`~libtmux.Server.attach_session`
+    - Detach: :meth:`~libtmux.Server.detach_client`,
+      :meth:`~libtmux.Server.detach_all_clients`
+
+    **Options, hooks and environment.** These calls come from mixins and act on
+    the server scope by default. The option and hook setters return the object, so
+    calls chain, and an unknown or invalid option or hook name raises
+    :exc:`~libtmux.exc.OptionError` or one of its subclasses. The environment
+    calls act on the server's global environment, and the setters raise
+    :exc:`ValueError` when tmux reports an error.
+
+    - Options: :meth:`~libtmux.Server.show_options`,
+      :meth:`~libtmux.Server.show_option`, :meth:`~libtmux.Server.set_option`,
+      :meth:`~libtmux.Server.unset_option`
+    - Hooks: :meth:`~libtmux.Server.show_hooks`,
+      :meth:`~libtmux.Server.show_hook`, :meth:`~libtmux.Server.set_hook`,
+      :meth:`~libtmux.Server.set_hooks`, :meth:`~libtmux.Server.unset_hook`,
+      :meth:`~libtmux.Server.run_hook`
+    - Environment: :meth:`~libtmux.Server.show_environment`,
+      :meth:`~libtmux.Server.getenv`, :meth:`~libtmux.Server.set_environment`,
+      :meth:`~libtmux.Server.unset_environment`,
+      :meth:`~libtmux.Server.remove_environment`
+
+    **Buffers and key bindings.** Each wraps the tmux command of the same name and
+    raises :exc:`~libtmux.exc.LibTmuxException` when tmux writes to stderr.
+
+    - Buffers: :meth:`~libtmux.Server.list_buffers`,
+      :meth:`~libtmux.Server.show_buffer`, :meth:`~libtmux.Server.set_buffer`,
+      :meth:`~libtmux.Server.delete_buffer`, :meth:`~libtmux.Server.save_buffer`,
+      :meth:`~libtmux.Server.load_buffer`
+    - Key bindings: :meth:`~libtmux.Server.list_keys`,
+      :meth:`~libtmux.Server.bind_key`, :meth:`~libtmux.Server.unbind_key`
+
+    **Running a command.** Anything tmux can do that has no method here goes
+    through :meth:`~libtmux.Server.cmd`, which adds the socket, config file and
+    color flags and returns a :class:`~libtmux.common.tmux_cmd` holding the
+    return code, stdout and stderr. It does not check them. The shell and sourcing
+    helpers do, and raise :exc:`~libtmux.exc.LibTmuxException`.
+
+    - One command: :meth:`~libtmux.Server.cmd`
+    - Shell and conditionals: :meth:`~libtmux.Server.run_shell`,
+      :meth:`~libtmux.Server.if_shell`, :meth:`~libtmux.Server.wait_for`
+    - Configuration: :meth:`~libtmux.Server.source_file`
 
     Parameters
     ----------
@@ -230,11 +349,14 @@ class Server(
 
         Examples
         --------
-        >>> from libtmux.server import Server as TmuxServer
-        >>> socket_path = server.cmd(
+        >>> from libtmux.server import Server as TmuxServer  # doctest: +HIDE
+        >>> socket_path = server.cmd(  # doctest: +HIDE
         ...     "display-message", "-p", "-t", pane.pane_id, "#{socket_path}"
         ... ).stdout[0]
-        >>> env = {"TMUX": f"{socket_path},1,0", "TMUX_PANE": pane.pane_id}
+        >>> env = {  # doctest: +HIDE
+        ...     "TMUX": f"{socket_path},1,0",
+        ...     "TMUX_PANE": pane.pane_id,
+        ... }
 
         >>> TmuxServer.from_env(env)
         Server(socket_path=...)
@@ -383,6 +505,17 @@ class Server(
 
         Notes
         -----
+        Arguments reach tmux unchanged. tmux ends a command at an argument
+        whose last character is ``;`` and runs the following arguments as the
+        next command, so ``server.cmd("display-message", "-p", "a", ";",
+        "display-message", "-p", "b")`` runs two commands. To pass a value
+        that ends in ``;`` as data, escape it with
+        :func:`~libtmux.common.escape_trailing_separator`. The typed methods
+        (:meth:`new_session`, :meth:`Pane.send_keys`, ``set_option`` and
+        others) escape the values they receive. Arguments that are tmux
+        commands (hook commands, menu item commands, ``command-prompt``
+        templates) pass through as given.
+
         .. versionchanged:: 0.8
 
             Renamed from ``.tmux`` to ``.cmd``.
@@ -578,7 +711,9 @@ class Server(
             tmux_args += ("-t", target_pane)
 
         if cwd is not None:
-            if has_gte_version("3.4", tmux_bin=self.tmux_bin):
+            if has_gte_version(
+                capability_since("run-shell-start-directory"), tmux_bin=self.tmux_bin
+            ):
                 tmux_args += ("-c", str(cwd))
             else:
                 warnings.warn(
@@ -587,7 +722,9 @@ class Server(
                 )
 
         if show_stderr:
-            if has_gte_version("3.6", tmux_bin=self.tmux_bin):
+            if has_gte_version(
+                capability_since("run-shell-show-stderr"), tmux_bin=self.tmux_bin
+            ):
                 tmux_args += ("-E",)
             else:
                 warnings.warn(
@@ -595,10 +732,12 @@ class Server(
                     stacklevel=2,
                 )
 
-        tmux_args += (command,)
+        tmux_args += ("--", command)
 
         if args:
-            if has_gte_version("3.7", tmux_bin=self.tmux_bin):
+            if has_gte_version(
+                capability_since("run-shell-args"), tmux_bin=self.tmux_bin
+            ):
                 tmux_args += tuple(args)
             else:
                 warnings.warn(
@@ -781,7 +920,9 @@ class Server(
             tmux_args += ("-T", key_table)
 
         if format_ is not None:
-            if has_gte_version("3.7", tmux_bin=self.tmux_bin):
+            if has_gte_version(
+                capability_since("list-keys-format"), tmux_bin=self.tmux_bin
+            ):
                 tmux_args += ("-F", format_)
             else:
                 warnings.warn(
@@ -848,8 +989,6 @@ class Server(
     ) -> list[str] | None:
         """Manage server access control via ``$ tmux server-access``.
 
-        Requires tmux 3.3+ (introduced in 3.3).
-
         Parameters
         ----------
         allow : str, optional
@@ -874,15 +1013,9 @@ class Server(
 
         Examples
         --------
-        >>> from libtmux.common import has_gte_version
-        >>> if has_gte_version("3.3"):
-        ...     result = server.server_access(list_access=True)
-        ...     assert isinstance(result, list)
+        >>> isinstance(server.server_access(list_access=True), list)
+        True
         """
-        if not has_gte_version("3.3", tmux_bin=self.tmux_bin):
-            msg = "server_access requires tmux 3.3+"
-            raise exc.LibTmuxException(msg)
-
         if read_only and write:
             msg = "read_only and write are mutually exclusive (tmux rejects -r -w)"
             raise ValueError(msg)
@@ -1113,8 +1246,6 @@ class Server(
         Always uses ``-b`` (background) to avoid blocking the command queue.
         Use ``send-keys -K -c <client>`` to provide the confirmation key.
 
-        Requires tmux 3.3+ for ``-b`` flag support.
-
         Parameters
         ----------
         command : str
@@ -1149,10 +1280,6 @@ class Server(
         >>> result
         'yes'
         """
-        if not has_gte_version("3.3", tmux_bin=self.tmux_bin):
-            msg = "confirm_before requires tmux 3.3+"
-            raise exc.LibTmuxException(msg)
-
         tmux_args: tuple[str, ...] = ("-b",)
 
         if prompt is not None:
@@ -1208,8 +1335,6 @@ class Server(
         Always uses ``-b`` (background) to avoid blocking the command queue.
         Use ``send-keys -K -c <client>`` to type into the prompt and submit.
 
-        Requires tmux 3.3+ for ``-b`` flag support.
-
         Parameters
         ----------
         template : str
@@ -1232,7 +1357,7 @@ class Server(
             Prompt type (``-T`` flag).
         expand_format : bool, optional
             Pass the template through ``args_make_commands_prepare``
-            (``-F`` flag) so format strings expand. Requires tmux 3.3+.
+            (``-F`` flag) so format strings expand.
         literal : bool, optional
             Disable splitting *prompt* on commas — treat it as a single
             prompt (``-l`` flag). Requires tmux 3.6+.
@@ -1265,10 +1390,6 @@ class Server(
         >>> result
         'hi'
         """
-        if not has_gte_version("3.3", tmux_bin=self.tmux_bin):
-            msg = "command_prompt requires tmux 3.3+"
-            raise exc.LibTmuxException(msg)
-
         tmux_args: tuple[str, ...] = ("-b",)
 
         if one_key:
@@ -1386,7 +1507,6 @@ class Server(
             Requires tmux 3.5+.
         stay_open : bool, optional
             Keep the menu open when the mouse is released (``-O`` flag).
-            Requires tmux 3.2+.
 
         Examples
         --------
@@ -1406,7 +1526,7 @@ class Server(
         tmux_args: tuple[str, ...] = ()
 
         if title is not None:
-            tmux_args += ("-T", title)
+            tmux_args += ("-T", escape_trailing_separator(title))
 
         if target_client is not None:
             tmux_args += ("-c", target_client)
@@ -1431,7 +1551,7 @@ class Server(
 
         if border_lines is not None:
             if has_gte_version("3.4", tmux_bin=self.tmux_bin):
-                tmux_args += ("-b", border_lines)
+                tmux_args += ("-b", escape_trailing_separator(border_lines))
             else:
                 warnings.warn(
                     "border_lines requires tmux 3.4+, ignoring",
@@ -1440,7 +1560,7 @@ class Server(
 
         if style is not None:
             if has_gte_version("3.4", tmux_bin=self.tmux_bin):
-                tmux_args += ("-s", style)
+                tmux_args += ("-s", escape_trailing_separator(style))
             else:
                 warnings.warn(
                     "style requires tmux 3.4+, ignoring",
@@ -1449,7 +1569,7 @@ class Server(
 
         if border_style is not None:
             if has_gte_version("3.4", tmux_bin=self.tmux_bin):
-                tmux_args += ("-S", border_style)
+                tmux_args += ("-S", escape_trailing_separator(border_style))
             else:
                 warnings.warn(
                     "border_style requires tmux 3.4+, ignoring",
@@ -1458,7 +1578,7 @@ class Server(
 
         if selected_style is not None:
             if has_gte_version("3.4", tmux_bin=self.tmux_bin):
-                tmux_args += ("-H", selected_style)
+                tmux_args += ("-H", escape_trailing_separator(selected_style))
             else:
                 warnings.warn(
                     "selected_style requires tmux 3.4+, ignoring",
@@ -1477,7 +1597,12 @@ class Server(
         if stay_open:
             tmux_args += ("-O",)
 
-        tmux_args += items
+        # Items are (name, key, command) triples. A command is a tmux command
+        # string and passes through; the name and key are labels.
+        tmux_args += tuple(
+            escape_trailing_separator(item) if index % 3 != 2 else item
+            for index, item in enumerate(items)
+        )
 
         proc = self.cmd("display-menu", *tmux_args)
 
@@ -1710,10 +1835,10 @@ class Server(
             tmux_args += ("-d", str(delay))
 
         if format_string is not None:
-            tmux_args += ("-F", format_string)
+            tmux_args += ("-F", escape_trailing_separator(format_string))
 
         if cmd:
-            tmux_args += (cmd,)
+            tmux_args += ("--", escape_trailing_separator(cmd))
 
         proc = self.cmd("display-message", *tmux_args)
         if proc.stderr:
@@ -1747,18 +1872,9 @@ class Server(
 
         Examples
         --------
-        >>> from libtmux.common import has_gte_version
-        >>> if has_gte_version("3.3"):
-        ...     result = server.show_prompt_history()
-        ... else:
-        ...     result = []
-        >>> isinstance(result, list)
+        >>> isinstance(server.show_prompt_history(), list)
         True
         """
-        if not has_gte_version("3.3", tmux_bin=self.tmux_bin):
-            msg = "show_prompt_history requires tmux 3.3+"
-            raise exc.LibTmuxException(msg)
-
         tmux_args: tuple[str, ...] = ()
 
         if prompt_type is not None:
@@ -1785,14 +1901,8 @@ class Server(
 
         Examples
         --------
-        >>> from libtmux.common import has_gte_version
-        >>> if has_gte_version("3.3"):
-        ...     server.clear_prompt_history()
+        >>> server.clear_prompt_history()
         """
-        if not has_gte_version("3.3", tmux_bin=self.tmux_bin):
-            msg = "clear_prompt_history requires tmux 3.3+"
-            raise exc.LibTmuxException(msg)
-
         tmux_args: tuple[str, ...] = ()
 
         if prompt_type is not None:
@@ -1834,7 +1944,7 @@ class Server(
         if buffer_name is not None:
             tmux_args += ("-b", buffer_name)
 
-        tmux_args += (data,)
+        tmux_args += ("--", data)
 
         proc = self.cmd("set-buffer", *tmux_args)
 
@@ -2037,7 +2147,7 @@ class Server(
         tmux_args: tuple[str, ...] = ()
 
         if format_string is not None:
-            tmux_args += ("-F", format_string)
+            tmux_args += ("-F", escape_trailing_separator(format_string))
 
         if filter is not None:
             tmux_args += ("-f", filter)
@@ -2265,7 +2375,7 @@ class Server(
             .. versionadded:: 0.56
         client_flags : str, optional
             Set client flags (``-f`` flag), e.g. ``no-output``,
-            ``read-only``. Requires tmux 3.2+.
+            ``read-only``.
 
             .. versionadded:: 0.56
 
@@ -2345,17 +2455,20 @@ class Server(
                 tmux_args += ("-f", client_flags)
 
             if session_name is not None:
-                tmux_args += (f"-s{session_name}",)
+                tmux_args += (escape_trailing_separator(f"-s{session_name}"),)
 
             if not attach:
                 tmux_args += ("-d",)
 
             if start_directory:
                 start_directory = pathlib.Path(start_directory).expanduser()
-                tmux_args += ("-c", str(start_directory))
+                tmux_args += (
+                    "-c",
+                    escape_trailing_separator(str(start_directory)),
+                )
 
             if window_name:
-                tmux_args += ("-n", window_name)
+                tmux_args += ("-n", escape_trailing_separator(window_name))
 
             if x is not None:
                 tmux_args += ("-x", x)
@@ -2365,10 +2478,10 @@ class Server(
 
             if environment:
                 for k, v in environment.items():
-                    tmux_args += (f"-e{k}={v}",)
+                    tmux_args += (escape_trailing_separator(f"-e{k}={v}"),)
 
             if window_command:
-                tmux_args += (window_command,)
+                tmux_args += (escape_trailing_separator(window_command),)
 
             proc = self.cmd("new-session", *tmux_args)
 
@@ -2679,17 +2792,45 @@ class Server(
         return False
 
     def __repr__(self) -> str:
-        """Representation of :class:`Server` object."""
+        """Representation of :class:`Server` object.
+
+        A server given neither ``socket_name`` nor ``socket_path`` talks to
+        whichever socket a bare tmux client would: ``$TMUX`` when it runs
+        inside a pane, and the path resolved from ``$TMUX_TMPDIR`` otherwise.
+        That is the path shown, so the repr names the server the object will
+        actually reach.
+
+        Examples
+        --------
+        >>> from libtmux.server import Server
+        >>> Server(socket_name="libtmux_repr_demo")
+        Server(socket_name=libtmux_repr_demo)
+
+        >>> Server(socket_path="/run/user/1000/tmux-1000/demo")
+        Server(socket_path=/run/user/1000/tmux-1000/demo)
+
+        Outside a pane the socket directory is the one ``$TMUX_TMPDIR`` names:
+
+        >>> with monkeypatch.context() as m:
+        ...     m.delenv("TMUX", raising=False)
+        ...     m.setenv("TMUX_TMPDIR", "/run/user/1000")
+        ...     Server()
+        Server(socket_path=/run/user/1000/tmux-.../default)
+
+        Inside one, ``$TMUX`` names the socket outright and the directory is
+        not consulted:
+
+        >>> with monkeypatch.context() as m:
+        ...     m.setenv("TMUX", "/tmp/tmux-1000/inherited,8421,0")
+        ...     m.setenv("TMUX_TMPDIR", "/run/user/1000")
+        ...     Server()
+        Server(socket_path=/tmp/tmux-1000/inherited)
+        """
         if self.socket_name is not None:
-            return (
-                f"{self.__class__.__name__}"
-                f"(socket_name={getattr(self, 'socket_name', 'default')})"
-            )
+            return f"{self.__class__.__name__}(socket_name={self.socket_name})"
         if self.socket_path is not None:
             return f"{self.__class__.__name__}(socket_path={self.socket_path})"
-        return (
-            f"{self.__class__.__name__}(socket_path=/tmp/tmux-{os.geteuid()}/default)"
-        )
+        return f"{self.__class__.__name__}(socket_path={resolve_ambient_socket_path()})"
 
     #
     # Legacy: Redundant stuff we want to remove

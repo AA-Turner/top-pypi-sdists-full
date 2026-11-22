@@ -1,0 +1,154 @@
+from __future__ import annotations
+
+import copy
+import pickle  # ruff:ignore[suspicious-pickle-import]  # round-trips exceptions created in these tests
+from functools import partial
+from typing import TYPE_CHECKING, Final
+
+import pytest
+
+from filelock import SoftFileLockProtocolError, Timeout
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+
+@pytest.mark.parametrize(
+    ("extract", "expected"),
+    [
+        pytest.param(str, "The file lock '/path/to/lock' could not be acquired.", id="str"),
+        pytest.param(repr, "Timeout('/path/to/lock')", id="repr"),
+        pytest.param(lambda error: error.lock_file, "/path/to/lock", id="lock_file"),
+    ],
+)
+def test_timeout_attribute(extract: Callable[[Timeout], str], expected: str) -> None:
+    assert extract(Timeout("/path/to/lock")) == expected
+
+
+def test_timeout_names_a_holder_it_cannot_probe() -> None:
+    assert str(Timeout("/path/to/lock", "pid 7 on build-host")) == (
+        "The file lock '/path/to/lock' could not be acquired. It is held by pid 7 on build-host, which this host cannot"
+        " probe."
+    )
+
+
+def test_timeout_subclass_taking_only_the_lock_file_pickles() -> None:
+    restored: Final[Timeout | SoftFileLockProtocolError] = _pickle_round_trip(
+        _LockFileOnlyTimeout("/path/to/lock"), protocol=pickle.DEFAULT_PROTOCOL
+    )
+    assert (type(restored), restored.lock_file) == (_LockFileOnlyTimeout, "/path/to/lock")
+
+
+class _LockFileOnlyTimeout(Timeout):
+    def __init__(self, lock_file: str) -> None:
+        super().__init__(lock_file)
+
+
+def test_exception_serialization_preserves_diagnostics(
+    error: Timeout | SoftFileLockProtocolError,
+    clone: Callable[[Timeout | SoftFileLockProtocolError], Timeout | SoftFileLockProtocolError],
+) -> None:
+    error.add_note("while acquiring the build cache")
+    error.__dict__["request_id"] = "request-1"
+    restored: Final[Timeout | SoftFileLockProtocolError] = clone(error)
+    assert (
+        type(restored),
+        str(restored),
+        repr(restored),
+        restored.args,
+        restored.lock_file,
+        restored.__notes__,
+        restored.__dict__["request_id"],
+    ) == (
+        type(error),
+        str(error),
+        repr(error),
+        error.args,
+        error.lock_file,
+        ["while acquiring the build cache"],
+        "request-1",
+    )
+
+
+def test_exception_serialization_creates_distinct_instance(
+    error: Timeout | SoftFileLockProtocolError,
+    clone: Callable[[Timeout | SoftFileLockProtocolError], Timeout | SoftFileLockProtocolError],
+) -> None:
+    assert clone(error) is not error
+
+
+def test_exception_serialization_preserves_note_alias(
+    error: Timeout | SoftFileLockProtocolError,
+    clone: Callable[[Timeout | SoftFileLockProtocolError], Timeout | SoftFileLockProtocolError],
+) -> None:
+    error.__notes__ = ["original"]
+    error.__dict__["diagnostics"] = error.__notes__
+    restored: Final[Timeout | SoftFileLockProtocolError] = clone(error)
+    assert restored.__dict__["diagnostics"] is restored.__notes__
+
+
+def test_exception_copy_shares_notes(error: Timeout | SoftFileLockProtocolError) -> None:
+    error.__notes__ = ["original"]
+    copy.copy(error).__notes__.append("copy")
+    assert error.__notes__ == ["original", "copy"]
+
+
+def test_exception_deepcopy_isolates_notes(error: Timeout | SoftFileLockProtocolError) -> None:
+    error.__notes__ = ["original"]
+    copy.deepcopy(error).__notes__.append("copy")
+    assert error.__notes__ == ["original"]
+
+
+def test_exception_serialization_preserves_cycle(
+    error: Timeout | SoftFileLockProtocolError,
+    clone: Callable[[Timeout | SoftFileLockProtocolError], Timeout | SoftFileLockProtocolError],
+) -> None:
+    error.__dict__["related"] = error
+    restored: Final[Timeout | SoftFileLockProtocolError] = clone(error)
+    related_after_clone = {copy.copy: error}.get(clone, restored)
+    assert restored.__dict__["related"] is related_after_clone
+
+
+def test_protocol_error_serialization_preserves_claim(
+    clone: Callable[[Timeout | SoftFileLockProtocolError], Timeout | SoftFileLockProtocolError],
+) -> None:
+    restored: Final[Timeout | SoftFileLockProtocolError] = clone(
+        SoftFileLockProtocolError("/lock", "claim", "invalid marker")
+    )
+    assert isinstance(restored, SoftFileLockProtocolError)
+    assert (restored.claim_name, restored.reason) == ("claim", "invalid marker")
+
+
+@pytest.fixture(
+    params=[
+        pytest.param("timeout", id="timeout"),
+        pytest.param("holder", id="timeout-holder"),
+        pytest.param("claim", id="claim"),
+        pytest.param(None, id="no-claim"),
+    ]
+)
+def error(request: pytest.FixtureRequest) -> Timeout | SoftFileLockProtocolError:
+    if request.param == "timeout":
+        return Timeout("/path/to/lock")
+    if request.param == "holder":
+        return Timeout("/path/to/lock", "pid 7 on build-host")
+    return SoftFileLockProtocolError("/path/to/lock", request.param, "invalid marker")
+
+
+def _pickle_round_trip(
+    error: Timeout | SoftFileLockProtocolError, *, protocol: int
+) -> Timeout | SoftFileLockProtocolError:
+    return pickle.loads(pickle.dumps(error, protocol=protocol))  # ruff:ignore[suspicious-pickle-usage]  # input is created by these tests
+
+
+@pytest.fixture(
+    params=[pytest.param(copy.copy, id="copy"), pytest.param(copy.deepcopy, id="deepcopy")]
+    + [
+        pytest.param(partial(_pickle_round_trip, protocol=p), id=f"pickle-{p}")
+        for p in range(pickle.HIGHEST_PROTOCOL + 1)
+    ],
+)
+def clone(
+    request: pytest.FixtureRequest,
+) -> Callable[[Timeout | SoftFileLockProtocolError], Timeout | SoftFileLockProtocolError]:
+    return request.param

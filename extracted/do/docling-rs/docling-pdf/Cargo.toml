@@ -1,7 +1,7 @@
 [package]
 name = "docling-pdf"
 description = "PDF/image backend for docling.rs: pure-Rust text layer and page renderer + ONNX layout/table/OCR pipeline."
-version = "2.85.0"
+version = "2.86.14"
 edition = "2021"
 # Adobe's CID -> Unicode tables in data/mapping-resources-pdf/ and its glyph
 # list in data/adobe-glyph-list/ are BSD-3-Clause.
@@ -59,7 +59,6 @@ render = [
     "dep:image",
     "dep:fast_image_resize",
     "dep:weezl",
-    "dep:flate2",
     "dep:regex",
     "dep:libloading",
     "dep:tiny-skia",
@@ -99,10 +98,10 @@ serde_json = { version = "1", optional = true }
 # what current LTS distros ship (Ubuntu 24.04 = 1.17). Newer libheif-rs
 # requires libheif >= 1.18 and can be selected once baselines move.
 libheif-rs = { version = "~1.0", default-features = false, optional = true }
-docling-core = { path = "../docling-core", version = "2.85.0", default-features = false }
+docling-core = { path = "../docling-core", version = "2.86.14", default-features = false }
 # Shared ONNX execution-provider selection (DOCLING_RS_EP, #74/#288);
 # re-exported as `docling_pdf::ep`.
-docling-onnx = { path = "../docling-onnx", version = "2.85.0", optional = true }
+docling-onnx = { path = "../docling-onnx", version = "2.86.14", optional = true }
 pdfium-render = { version = "0.8", optional = true }
 # Runtime loading of the opt-in docling-parse renderer plugin (#478,
 # `dparse_render.rs`) — the same mechanism pdfium-render uses for libpdfium.
@@ -114,7 +113,9 @@ ort = { version = "2.0.0-rc.14", default-features = false, features = ["std", "d
 # routes to the unmaintained `paste` proc-macro (RUSTSEC-2024-0436, #952) and
 # rav1e's minutes of compile time, for formats nothing here decodes.
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "bmp", "tiff", "webp"], optional = true }
-flate2 = { version = "1", optional = true }
+# Content streams' lenient decode (`textparse::content_stream_bytes`, #1154)
+# in every build, wasm included; lopdf depends on it already.
+flate2 = "1"
 tar = { version = "0.4", optional = true }
 regex = { version = "1.11", optional = true }
 lopdf = "0.45"

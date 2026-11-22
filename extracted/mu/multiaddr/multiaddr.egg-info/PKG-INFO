@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: multiaddr
-Version: 0.2.0
+Version: 0.3.1
 Summary: Python implementation of jbenet's multiaddr
 Author-email: Steven Buss <steven.buss@gmail.com>
 Maintainer: acul71
 Maintainer-email: pacrob <pacrob@protonmail.com>, Manu Sheel Gupta <manu@seeta.in>
 License: MIT License
 Project-URL: Homepage, https://github.com/multiformats/py-multiaddr
-Project-URL: Download, https://github.com/multiformats/py-multiaddr/tarball/0.2.0
+Project-URL: Download, https://github.com/multiformats/py-multiaddr/tarball/0.3.1
 Keywords: multiaddr
 Classifier: Development Status :: 2 - Pre-Alpha
 Classifier: Intended Audience :: Developers
@@ -28,10 +28,10 @@ Requires-Dist: dnspython>=2.7.0
 Requires-Dist: idna
 Requires-Dist: netaddr
 Requires-Dist: psutil
-Requires-Dist: py-cid>=0.3.1
-Requires-Dist: py-multicodec>=0.2.0
-Requires-Dist: py-multibase
-Requires-Dist: py-multihash
+Requires-Dist: py-cid>=0.6.0
+Requires-Dist: py-multicodec>=1.1.0
+Requires-Dist: py-multibase>=2.1.0
+Requires-Dist: py-multihash>=4.0.0
 Requires-Dist: trio-typing>=0.0.4
 Requires-Dist: trio>=0.26.0
 Requires-Dist: varint
@@ -42,9 +42,10 @@ Requires-Dist: bump_my_version>=1.2.0; extra == "dev"
 Requires-Dist: coverage>=6.5.0; extra == "dev"
 Requires-Dist: mypy; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
-Requires-Dist: pyrefly; extra == "dev"
+Requires-Dist: pyrefly==1.2.0; extra == "dev"
 Requires-Dist: pyright; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-benchmark; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: pytest-runner; extra == "dev"
 Requires-Dist: pytest-trio>=0.5.2; extra == "dev"
@@ -64,8 +65,8 @@ py-multiaddr
 .. image:: https://img.shields.io/pypi/v/multiaddr.svg
         :target: https://pypi.python.org/pypi/multiaddr
 
-.. image:: https://github.com/multiformats/py-multiaddr/actions/workflows/ci.yml/badge.svg
-        :target: https://github.com/multiformats/py-multiaddr/actions
+.. image:: https://github.com/multiformats/py-multiaddr/actions/workflows/tox.yml/badge.svg
+        :target: https://github.com/multiformats/py-multiaddr/actions/workflows/tox.yml
 
 .. image:: https://codecov.io/github/multiformats/py-multiaddr/coverage.svg?branch=master
         :target: https://codecov.io/github/multiformats/py-multiaddr?branch=master
@@ -99,6 +100,60 @@ Requirements
 
 Usage
 =====
+
+CLI Tool
+--------
+
+py-multiaddr provides a command line interface to inspect multiaddrs and decode them into structured JSON.
+
+.. code-block:: bash
+
+    $ multiaddr /ip4/1.2.3.4/tcp/80
+    {
+      "string": "/ip4/1.2.3.4/tcp/80",
+      "packed": "0x0401020304060050",
+      "packedSize": 8,
+      "components": [
+        {
+          "protocol": "ip4",
+          "code": 4,
+          "value": "1.2.3.4",
+          "rawValue": "0x01020304"
+        },
+        {
+          "protocol": "tcp",
+          "code": 6,
+          "value": "80",
+          "rawValue": "0x0050"
+        }
+      ]
+    }
+
+You can also pass a hex-encoded multiaddr prefixed with ``0x``, e.g.
+``multiaddr 0x0401020304060050``. Use the ``-c`` or ``--compact`` flag to
+output on a single line.
+
+IP Classification
+-----------------
+
+You can easily classify the IP components of multiaddrs (e.g. check for loopback, private networks, or NAT64):
+
+.. code-block:: python
+
+    from multiaddr import Multiaddr, is_private_addr, is_ip_loopback
+
+    ma1 = Multiaddr("/ip4/192.168.1.1/tcp/80")
+    print(is_private_addr(ma1))  # True
+    print(is_ip_loopback(ma1))   # False
+
+    ma2 = Multiaddr("/ip4/127.0.0.1")
+    print(is_private_addr(ma2))  # True
+    print(is_ip_loopback(ma2))   # True
+
+Other available helpers include ``is_public_addr``, ``is_ip_unspecified``,
+``is_ip6_link_local``, ``is_thin_waist``, and ``is_nat64_ipv4_converted_ipv6_addr``.
+These operate on ``Multiaddr`` objects; ``is_wildcard`` / ``is_link_local_ip``
+remain available for raw IP strings.
 
 Simple
 ------
@@ -232,16 +287,77 @@ Multiaddr supports DNS-based address resolution using the DNSADDR protocol. This
 
 For comprehensive examples including bootstrap node resolution, protocol comparison, and py-libp2p integration, see the `DNS examples <https://github.com/multiformats/py-multiaddr/tree/master/examples/dns>`_ in the examples directory.
 
+IP Filtering
+------------
+
+Accept/deny IP ranges for multiaddrs, similar to go-multiaddr ``Filters``:
+
+
+.. code-block:: python
+
+    from multiaddr import Action, Filters, Multiaddr
+
+    filters = Filters()
+    filters.add_filter("10.0.0.0/8", Action.DENY)
+    assert filters.addr_blocked(Multiaddr("/ip4/10.1.2.3/tcp/80"))
+    assert not filters.addr_blocked(Multiaddr("/ip4/8.8.8.8/tcp/53"))
+
+See ``examples/filters/filters_example.py`` for a printable demo.
+
+Socket dial arguments
+---------------------
+
+Convert thin-waist and unix multiaddrs to ``(network, address)`` pairs suitable
+for ``socket.connect()``:
+
+
+.. code-block:: python
+
+    from multiaddr import Multiaddr, dial_args
+
+    print(dial_args(Multiaddr("/ip4/1.2.3.4/tcp/80")))
+    # ('tcp4', '1.2.3.4:80')
+    print(dial_args(Multiaddr("/ip6/::1/tcp/80")))
+    # ('tcp6', '[::1]:80')
+    print(dial_args(Multiaddr("/unix/var/run/docker.sock")))
+    # ('unix', '/var/run/docker.sock')
+
+See ``examples/dial_args/dial_args_example.py`` for a printable demo.
+
+Socket address conversion
+-------------------------
+
+Convert between Python socket address tuples and multiaddrs:
+
+
+.. code-block:: python
+
+    from multiaddr import from_net_addr, to_net_addr
+
+    ma = from_net_addr(("1.2.3.4", 80))
+    print(ma)
+    # /ip4/1.2.3.4/tcp/80
+    print(to_net_addr(ma))
+    # ('1.2.3.4', 80)
+    print(from_net_addr(("::1", 53), transport="udp"))
+    # /ip6/::1/udp/53
+
+See ``examples/net_addr/net_addr_example.py`` for a printable demo.
+
 Thin Waist Address Validation
 -----------------------------
 
-Multiaddr provides thin waist address validation functionality to process multiaddrs and expand wildcard addresses to all available network interfaces. This is particularly useful for server configuration, network discovery, and dynamic port management.
 
 
 .. code-block:: python
 
     from multiaddr import Multiaddr
-    from multiaddr.utils import get_thin_waist_addresses, get_network_addrs
+    from multiaddr.utils import get_thin_waist_addresses, get_network_addrs, interface_multiaddrs
+
+    # List local interfaces as Multiaddr objects
+    for ma in interface_multiaddrs():
+        print(ma)
+        # Multiaddr('/ip4/192.168.1.10'), ...
 
     # Network interface discovery
     ipv4_addrs = get_network_addrs(4)

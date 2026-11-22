@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "agilicus"
-version = "1.451.16"
+version = "1.451.17"
 description = "Agilicus SDK"
 license = "MIT"
 homepage = "https://www.agilicus.com/"
@@ -21,7 +21,7 @@ click = ">=8.5.1"
 six = ">=1.17.0"
 cryptography = ">=50.0.2"
 keyring = ">=25.7.0"
-pyyaml = ">=6.0.3"
+pyyaml = ">=6.0.4"
 stripe = { version = ">=2.60,<15.0", optional = true }
 prometheus_client = ">=0.26.0"
 paho-mqtt = ">=2.2.0,<3.0.0"

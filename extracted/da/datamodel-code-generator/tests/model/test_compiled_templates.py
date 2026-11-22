@@ -74,7 +74,6 @@ from tests.capabilities import needs
 from tests.conftest import assert_output
 
 ROOT = Path(__file__).parents[2]
-EXPECTED_PATH = ROOT / "tests/data/expected/model/compiled_templates"
 TEMPLATE_SETS = dict(zip(("model", "fastapi", "client"), template_sets(), strict=True))
 
 
@@ -769,10 +768,10 @@ def _runtime_edge_output() -> str:
 
 
 @pytest.mark.parametrize(
-    ("template_set", "expected"),
-    [("model", "inventory.txt"), ("fastapi", "fastapi_inventory.txt"), ("client", "client_inventory.txt")],
+    "template_set",
+    ["model", "fastapi", "client"],
 )
-def test_template_inventory_is_derived_from_all_builtin_sources(template_set: str, expected: str) -> None:
+def test_template_inventory_is_derived_from_all_builtin_sources(template_set: str) -> None:
     """The checked-in inventory records every currently supported template feature."""
     template_dir = TEMPLATE_SETS[template_set][0]
     inventory = template_compiler_inventory.inventory_templates(template_dir)
@@ -788,7 +787,7 @@ def test_template_inventory_is_derived_from_all_builtin_sources(template_set: st
         f"template count: {len(template_compiler_inventory.iter_template_paths(template_dir))}\n"
         f"{template_paths}\n\n{features}\n"
     )
-    assert_output(output, EXPECTED_PATH / expected)
+    assert_output(output)
 
 
 def test_inventory_rejects_new_features_with_path_line_and_compiler_guidance(tmp_path: Path) -> None:
@@ -939,16 +938,14 @@ def test_inventory_rejects_broken_template_source_symlink(tmp_path: Path) -> Non
 
 
 @pytest.mark.parametrize(
-    ("error", "expected_name"),
+    "error",
     [
         pytest.param(
             PermissionError(13, "permission denied"),
-            "template_source_permission_error.txt",
             id="os-error",
         ),
         pytest.param(
             RuntimeError("symlink loop"),
-            "template_source_runtime_error.txt",
             id="runtime-error",
         ),
     ],
@@ -957,7 +954,6 @@ def test_inventory_normalizes_template_source_resolution_errors(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     error: OSError | RuntimeError,
-    expected_name: str,
 ) -> None:
     """Resolution failures retain the source location and compiler guidance."""
     tmp_path.joinpath("template.jinja2").write_text("safe\n", encoding="utf-8")
@@ -972,7 +968,7 @@ def test_inventory_normalizes_template_source_resolution_errors(
             match=r"template\.jinja2: template source cannot be resolved",
         ) as exc_info:
             template_compiler_inventory.inventory_templates(tmp_path)
-    assert_output(f"{exc_info.value}\n", EXPECTED_PATH / expected_name)
+    assert_output(f"{exc_info.value}\n")
 
 
 def test_inventory_rejects_template_source_directory(tmp_path: Path) -> None:
@@ -1014,7 +1010,6 @@ def test_template_source_read_keeps_the_verified_descriptor_after_symlink_swap(
     content = template_compiler_inventory._read_template_source(tmp_path, template)
     assert_output(
         f"content: {content!r}\nswapped: {swapped}\n",
-        EXPECTED_PATH / "template_source_verified_descriptor.txt",
     )
 
 
@@ -1043,7 +1038,7 @@ def test_template_source_read_rejects_symlink_swapped_after_validation(
 
     with pytest.raises(ValueError, match=r"template source changed during validation; retry"):
         template_compiler_inventory._read_template_source(tmp_path, template)
-    assert_output(f"swapped: {swapped}\n", EXPECTED_PATH / "template_source_swap_rejected.txt")
+    assert_output(f"swapped: {swapped}\n")
 
 
 def test_compile_template_rejects_static_include_outside_template_root(tmp_path: Path) -> None:
@@ -1116,7 +1111,7 @@ def test_compile_check_detects_missing_and_stale_generated_files(
 
     assert_output(
         f"status: {status}\n{stderr.getvalue()}",
-        EXPECTED_PATH / "compile_check_stale.txt",
+        name="compile_check_stale",
     )
 
     generation_status = compile_builtin_templates.main([])
@@ -1127,7 +1122,7 @@ def test_compile_check_detects_missing_and_stale_generated_files(
             f"check status: {check_status}\n",
             f"orphan exists: {orphan_path.exists()}\n",
         ]),
-        EXPECTED_PATH / "compile_generation_cleanup.txt",
+        name="compile_generation_cleanup",
     )
 
 
@@ -1139,14 +1134,13 @@ def test_compile_check_matches_checked_in_generated_artifacts() -> None:
     with contextlib.redirect_stderr(stderr):
         status = compile_builtin_templates.main(["--check"])
 
-    assert_output(f"status: {status}\n{stderr.getvalue()}", EXPECTED_PATH / "compile_check_current.txt")
+    assert_output(f"status: {status}\n{stderr.getvalue()}")
 
 
 def test_every_built_in_template_matches_its_jinja_oracle() -> None:
     """Every generated root/include/macro renderer remains byte-for-byte Jinja-compatible."""
-    expected = EXPECTED_PATH / "all_templates_parity.txt"
-    assert_output(_render_all_builtin_templates(compiled=False), expected)
-    assert_output(_render_all_builtin_templates(compiled=True), expected)
+    assert_output(_render_all_builtin_templates(compiled=False), name="rendered")
+    assert_output(_render_all_builtin_templates(compiled=True), name="rendered")
 
 
 @pytest.mark.parametrize("target", ["fastapi", "client"])
@@ -1170,28 +1164,25 @@ def test_target_templates_match_jinja_oracle(target: str) -> None:
             label = f"=== {relative_path.as_posix()} / {name}\n"
             compiled_output.append(f"{label}{render(**context)}\n")
             jinja_output.append(f"{label}{template.render(**context)}\n")
-    expected = EXPECTED_PATH / f"{target}_templates_parity.txt"
-    assert_output("\n".join(jinja_output), expected)
-    assert_output("\n".join(compiled_output), expected)
+    assert_output("\n".join(jinja_output), name="rendered")
+    assert_output("\n".join(compiled_output), name="rendered")
 
 
 def test_branch_variants_match_jinja_for_models_macros_and_namespace_state() -> None:
     """Optional contexts and output branches retain their exact Jinja whitespace and values."""
-    expected = EXPECTED_PATH / "branch_variants_parity.txt"
-    assert_output(_render_template_branch_cases(compiled=False), expected)
-    assert_output(_render_template_branch_cases(compiled=True), expected)
+    assert_output(_render_template_branch_cases(compiled=False), name="rendered")
+    assert_output(_render_template_branch_cases(compiled=True), name="rendered")
 
 
 def test_runtime_subset_matches_jinja_for_missing_filters_loops_and_namespace() -> None:
     """The compact standalone runtime preserves exactly the built-in Jinja subset."""
-    expected = EXPECTED_PATH / "runtime_subset_parity.txt"
-    assert_output(_render_runtime_subset(compiled=False), expected)
-    assert_output(_render_runtime_subset(compiled=True), expected)
+    assert_output(_render_runtime_subset(compiled=False), name="rendered")
+    assert_output(_render_runtime_subset(compiled=True), name="rendered")
 
 
 def test_runtime_edge_and_error_paths_remain_explicit() -> None:
     """Unsupported runtime operations fail loudly and non-template helpers stay deterministic."""
-    assert_output(_runtime_edge_output(), EXPECTED_PATH / "runtime_edges.txt")
+    assert_output(_runtime_edge_output())
 
     with pytest.raises(TypeError, match="cannot assign attribute on a non-namespace object"):
         setattr_("not a namespace", "value", "new")
@@ -1273,9 +1264,8 @@ def test_model_rendering_uses_generated_renderers_with_real_model_objects() -> N
     jinja = (
         "\n\n".join(get_template(model.template_file_path).render(**_model_context(model)) for model in models) + "\n"
     )
-    expected = EXPECTED_PATH / "real_model_parity.txt"
-    assert_output(jinja, expected)
-    assert_output(generated, expected)
+    assert_output(jinja, name="rendered")
+    assert_output(generated, name="rendered")
 
 
 def test_template_base_extension_seams_and_unknown_templates_stay_on_jinja(tmp_path: Path) -> None:
@@ -1356,7 +1346,7 @@ def test_template_base_extension_seams_and_unknown_templates_stay_on_jinja(tmp_p
         absolute.render(),
         positional._render(positional_context),
     ))
-    assert_output(output + "\n", EXPECTED_PATH / "extension_seams.txt")
+    assert_output(output + "\n")
 
 
 def test_external_base_model_module_helper_stays_on_jinja(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1393,9 +1383,8 @@ def test_external_base_model_module_helper_stays_on_jinja(monkeypatch: pytest.Mo
     rendered = ExternalBaseModel.render_module_code([model])
     compiled_lookup.assert_not_called()
 
-    expected = EXPECTED_PATH / "module_helper_parity.txt"
-    assert_output(f"{jinja!r}\n", expected)
-    assert_output(f"{rendered!r}\n", expected)
+    assert_output(f"{jinja!r}\n", name="rendered")
+    assert_output(f"{rendered!r}\n", name="rendered")
 
 
 def test_module_runtime_validation_helper_uses_generated_or_custom_jinja_renderer(
@@ -1424,16 +1413,15 @@ def test_module_runtime_validation_helper_uses_generated_or_custom_jinja_rendere
         has_required_groups=True,
         has_conditional_required=False,
     )
-    expected = EXPECTED_PATH / "module_helper_parity.txt"
-    assert_output(f"{jinja!r}\n", expected)
-    assert_output(f"{generated!r}\n", expected)
+    assert_output(f"{jinja!r}\n", name="rendered")
+    assert_output(f"{generated!r}\n", name="rendered")
 
     from datamodel_code_generator.model import _compiled_templates
 
     with monkeypatch.context() as patch_context:
         patch_context.setattr(_compiled_templates, "get_builtin_renderer", lambda _: None)
         fallback = BaseModel.render_module_code([model])
-    assert_output(f"{fallback!r}\n", expected)
+    assert_output(f"{fallback!r}\n", name="rendered")
 
     custom_dir = tmp_path / "pydantic_v2"
     custom_dir.mkdir()
@@ -1457,7 +1445,7 @@ def test_module_runtime_validation_helper_uses_generated_or_custom_jinja_rendere
         ),
     )
     custom = BaseModel.render_module_code([custom_model])
-    assert_output(f"{custom}\n", EXPECTED_PATH / "module_helper_custom_template.txt")
+    assert_output(f"{custom}\n", name="custom")
 
 
 def test_module_property_count_runtime_validation_helper_uses_custom_jinja_renderer(tmp_path: Path) -> None:
@@ -1486,7 +1474,6 @@ def test_module_property_count_runtime_validation_helper_uses_custom_jinja_rende
     property_count_custom = BaseModel.render_module_code([property_count_model])
     assert_output(
         property_count_custom,
-        EXPECTED_PATH / "module_helper_property_count_custom_template.txt",
     )
 
 
@@ -1511,7 +1498,6 @@ def test_module_unique_items_runtime_validation_requires_supported_custom_helper
     )
     assert_output(
         f"{BaseModel.SCHEMA_RUNTIME_VALIDATION_BASE_CLASS_NAME in BaseModel.render_module_code([no_override_model])}\n",
-        EXPECTED_PATH / "module_helper_unique_items_no_custom_override.txt",
     )
 
     custom_dir = tmp_path / "pydantic_v2"
@@ -1559,4 +1545,4 @@ def test_module_runtime_validation_helper_gates() -> None:
         repr(BaseModel.render_module_code([disabled_model])),
         repr(BaseModel.render_module_code([enabled_without_runtime_model])),
     ))
-    assert_output(gates + "\n", EXPECTED_PATH / "module_helper_gates.txt")
+    assert_output(gates + "\n")

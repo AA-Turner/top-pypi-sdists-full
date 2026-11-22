@@ -25,7 +25,6 @@ from tests.main.conftest import (
     run_generate_file_and_assert,
     run_main_and_assert,
 )
-from tests.main.jsonschema.conftest import assert_file_content
 from tests.main.payload_validation.constants import ALLOF_REF_SIBLING_DIAGNOSTICS
 
 if TYPE_CHECKING:
@@ -50,7 +49,6 @@ def test_allof_ref_siblings(
     """Preserve modern sibling constraints and ignore them in older reference drafts."""
     data = JSON_SCHEMA_DATA_PATH / "allof_ref_siblings"
     schema_path = data / f"{case['name']}.json"
-    expected = f"allof_ref_siblings/{case['name']}_{field_constraints}_{schema_validators}.py"
     if entrypoint == "cli":
         run_main_and_assert(
             input_path=schema_path,
@@ -67,8 +65,6 @@ def test_allof_ref_siblings(
                 *(["--generate-schema-validators"] if schema_validators else []),
                 *(["--use-tuple-for-fixed-items"] if case.get("use_tuple") else []),
             ],
-            assert_func=assert_file_content,
-            expected_file=expected,
             force_exec_validation=True,
         )
     else:
@@ -83,8 +79,6 @@ def test_allof_ref_siblings(
             field_constraints=field_constraints,
             generate_schema_validators=schema_validators,
             use_tuple_for_fixed_items=case.get("use_tuple", False),
-            assert_func=assert_file_content,
-            expected_file=expected,
         )
     schema = json.loads(schema_path.read_text())
     registry = Registry().with_resource(
@@ -118,7 +112,7 @@ def test_allof_ref_siblings(
                     actual.append({"accepted": False})
             assert_output(
                 json.dumps(actual, indent=2) + "\n",
-                DATA_PATH / "expected" / expected.relative_to(DATA_PATH),
+                name="values",
             )
             code = output_file.read_text(encoding="utf-8")
             assert_output(
@@ -133,7 +127,7 @@ def test_allof_ref_siblings(
                     )
                 })
                 + "\n",
-                DATA_PATH / "expected/payloads/allof_ref_sibling_outputs/without_validators.txt",
+                name="custom_validator",
             )
             return
         actual = []
@@ -143,7 +137,7 @@ def test_allof_ref_siblings(
             actual.append(json.loads(adapter.dump_json(adapter.validate_json(json.dumps(value)))))
         assert_output(
             json.dumps(actual, indent=2) + "\n",
-            DATA_PATH / "expected" / "payloads" / "allof_ref_sibling_outputs" / f"{case['name']}.txt",
+            name="values",
         )
         if case["name"].startswith(("enum_", "const_")):
             base = vars(sys.modules[model.__module__])["Base"]
@@ -153,7 +147,7 @@ def test_allof_ref_siblings(
                 parsed_inputs.append(json.loads(adapter.dump_json(adapter.validate_python(base_value))))
             assert_output(
                 json.dumps(parsed_inputs, indent=2) + "\n",
-                DATA_PATH / "expected" / "payloads" / "allof_ref_sibling_outputs" / f"{case['name']}.txt",
+                name="values",
             )
         for value in case["invalid"]:
             with pytest.raises(JsonSchemaValidationError):
@@ -192,8 +186,6 @@ def test_allof_literal_custom_template(output_file: Path, entrypoint: str) -> No
                 "--custom-template-dir",
                 str(template_dir),
             ],
-            assert_func=assert_file_content,
-            expected_file="allof_ref_siblings/enum_length_False_True.py",
             force_exec_validation=True,
         )
     else:
@@ -204,8 +196,6 @@ def test_allof_literal_custom_template(output_file: Path, entrypoint: str) -> No
             disable_timestamp=True,
             generate_schema_validators=True,
             custom_template_dir=template_dir,
-            assert_func=assert_file_content,
-            expected_file="allof_ref_siblings/enum_length_False_True.py",
         )
     case = next(
         case
@@ -221,7 +211,7 @@ def test_allof_literal_custom_template(output_file: Path, entrypoint: str) -> No
             actual.append(model.model_validate_json(json.dumps(value)).root)
         assert_output(
             json.dumps(actual, indent=2) + "\n",
-            DATA_PATH / "expected/payloads/allof_ref_sibling_outputs/enum_length.txt",
+            name="enum_length",
         )
         for value in case["invalid"]:
             with pytest.raises(JsonSchemaValidationError):
@@ -255,14 +245,11 @@ def test_allof_literal_validated_model_items(output_file: Path, entrypoint: str)
     from tests.data.python.allof_literal_model_inputs import model_inputs
 
     schema_path = JSON_SCHEMA_DATA_PATH / "allof_ref_siblings/enum_model_items.json"
-    expected = "allof_ref_siblings/enum_model_items_False_True.py"
     if entrypoint == "cli":
         run_main_and_assert(
             input_path=schema_path,
             output_path=output_file,
             extra_args=["--generate-schema-validators", "--disable-timestamp"],
-            assert_func=assert_file_content,
-            expected_file=expected,
         )
     else:
         run_generate_file_and_assert(
@@ -271,8 +258,6 @@ def test_allof_literal_validated_model_items(output_file: Path, entrypoint: str)
             input_file_type=InputFileType.JsonSchema,
             disable_timestamp=True,
             generate_schema_validators=True,
-            assert_func=assert_file_content,
-            expected_file=expected,
         )
     schema = json.loads(schema_path.read_text())
     validator = validator_for(schema)(schema)
@@ -316,7 +301,7 @@ def test_allof_literal_validated_model_items(output_file: Path, entrypoint: str)
         actual.append(["own-root-identity", model.model_validate(instance) is instance])
     assert_output(
         json.dumps(actual, indent=2) + "\n",
-        DATA_PATH / "expected/payloads/allof_ref_sibling_outputs/validated_model_items.txt",
+        name="validated_model_items",
     )
 
 
@@ -325,7 +310,6 @@ def test_allof_literal_validated_model_items(output_file: Path, entrypoint: str)
 def test_allof_literal_options_without_validators(output_file: Path, entrypoint: str, option: str) -> None:
     """Respect normal enum options without injecting runtime validator methods."""
     schema_path = JSON_SCHEMA_DATA_PATH / "allof_ref_siblings/enum_sibling.json"
-    expected = f"allof_ref_siblings/without_validators_{option}.py"
     if entrypoint == "cli":
         run_main_and_assert(
             input_path=schema_path,
@@ -335,8 +319,6 @@ def test_allof_literal_options_without_validators(output_file: Path, entrypoint:
                 "--" + option.replace("_", "-"),
                 *(["all"] if option == "enum_field_as_literal" else []),
             ],
-            assert_func=assert_file_content,
-            expected_file=expected,
         )
     else:
         run_generate_file_and_assert(
@@ -345,8 +327,6 @@ def test_allof_literal_options_without_validators(output_file: Path, entrypoint:
             input_file_type=InputFileType.JsonSchema,
             disable_timestamp=True,
             **{option: "all" if option == "enum_field_as_literal" else True},
-            assert_func=assert_file_content,
-            expected_file=expected,
         )
 
 
@@ -357,7 +337,6 @@ def test_allof_ref_siblings_root_config(output_file: Path, entrypoint: str, outp
     validators = output_model_type == DataModelType.PydanticV2BaseModel
     case = "enum_sibling" if validators else "string_2019-09"
     schema_path = JSON_SCHEMA_DATA_PATH / f"allof_ref_siblings/{case}.json"
-    expected = f"allof_ref_siblings/root_config_{output_model_type.name}.py"
     if entrypoint == "cli":
         run_main_and_assert(
             input_path=schema_path,
@@ -368,8 +347,6 @@ def test_allof_ref_siblings_root_config(output_file: Path, entrypoint: str, outp
                 output_model_type.value,
                 *(["--generate-schema-validators", "--enable-faux-immutability"] if validators else []),
             ],
-            assert_func=assert_file_content,
-            expected_file=expected,
         )
     else:
         run_generate_file_and_assert(
@@ -380,8 +357,6 @@ def test_allof_ref_siblings_root_config(output_file: Path, entrypoint: str, outp
             output_model_type=output_model_type,
             generate_schema_validators=validators,
             enable_faux_immutability=validators,
-            assert_func=assert_file_content,
-            expected_file=expected,
         )
 
 
@@ -391,8 +366,6 @@ def test_allof_ref_siblings_pattern_properties(output_file: Path) -> None:
         input_path=JSON_SCHEMA_DATA_PATH / "allof_ref_siblings/items_pattern.json",
         output_path=output_file,
         extra_args=["--disable-timestamp", "--generate-schema-validators"],
-        assert_func=assert_file_content,
-        expected_file="allof_ref_siblings/items_pattern.py",
         force_exec_validation=True,
     )
 

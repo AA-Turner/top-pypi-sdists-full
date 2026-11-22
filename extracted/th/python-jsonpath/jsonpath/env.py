@@ -9,13 +9,6 @@ try:
 except ImportError:
     REGEX_AVAILABLE = False  # type: ignore
 
-try:
-    import iregexp_check  # type: ignore # noqa: F401
-
-    IREGEXP_AVAILABLE = True
-except ImportError:
-    IREGEXP_AVAILABLE = False  # type: ignore
-
 from decimal import Decimal
 from operator import getitem
 from typing import TYPE_CHECKING
@@ -184,12 +177,8 @@ class JSONPathEnvironment:
         self.regex_available: bool = REGEX_AVAILABLE
         """When `True`, the third party `regex` package is available."""
 
-        self.iregexp_available: bool = IREGEXP_AVAILABLE
-        """When `True`, the iregexp_check package is available.
-        
-        iregexp_check will be used to validate regular expressions against RFC 9485,
-        if available.
-        """
+        self.iregexp_available: bool = True
+        """Always True since version 2.3.0. I-Regexp validation is now built-in."""
 
         self.lexer: Lexer = self.lexer_class(env=self)
         """The lexer bound to this environment."""
@@ -642,7 +631,7 @@ class JSONPathEnvironment:
             return right in left
         if operator == "=~" and hasattr(right, "fullmatch") and isinstance(left, str):
             # Right should be a regex.Pattern or an re.Pattern.
-            return bool(right.fullmatch(left))
+            return bool(right.fullmatch(left))  # pyright: ignore[reportAttributeAccessIssue]
         return False
 
     def _eq(self, left: object, right: object) -> bool:  # noqa: PLR0911
@@ -662,15 +651,15 @@ class JSONPathEnvironment:
             return True
 
         # Remember 1 == True and 0 == False in Python
-        if isinstance(right, bool):
-            left, right = right, left
-
-        if isinstance(left, bool):
-            return isinstance(right, bool) and left == right
+        if type(left) is bool or type(right) is bool:
+            return left is right
 
         return left == right
 
     def _lt(self, left: object, right: object) -> bool:
+        if type(left) is bool or type(right) is bool:
+            return False
+
         if isinstance(left, str) and isinstance(right, str):
             return left < right
 

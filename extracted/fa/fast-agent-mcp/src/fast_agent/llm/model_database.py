@@ -1731,6 +1731,7 @@ class ModelDatabase:
         "meta-models/muse-glimmer-30b": MUSE_GLIMMER_HF,
         "reflection/beam-1.0-501b-a23b": BEAM_1_HF,
         "thinkingmachines/inkling-2-small": INKLING_2_SMALL_HF,
+        "thinkingmachines/inkling-2-mini": INKLING_2_SMALL_HF,
         "kimi-k3": KIMI_K3,
         "kimi-k3.1-pro": KIMI_K31,
         "qwen/qwen3-32b": QWEN3_REASONER,
@@ -1764,6 +1765,7 @@ class ModelDatabase:
         "qwen/qwen3.6-27b": GROQ_QWEN36_27B,
         "qwen/qwen3.8-27b": HF_PROVIDER_QWEN38,
         "google/gemma-4-31b-it": HF_PROVIDER_GEMMA4_31B,
+        "google/gemma-4-26b-a4b-it": HF_PROVIDER_GEMMA4_31B,
         "deepseek-ai/deepseek-v3.1": HF_PROVIDER_DEEPSEEK31,
         "deepseek-ai/deepseek-v3.2": HF_PROVIDER_DEEPSEEK32,
         "deepseek-ai/deepseek-v4-pro": HF_PROVIDER_DEEPSEEK4_PRO,
@@ -1852,6 +1854,9 @@ class ModelDatabase:
             "deepseek-ai/DeepSeek-V4.1-Flash-1017"
         ),
         (Provider.HUGGINGFACE, "qwen/qwen3.8-27b"): "Qwen/Qwen3.8-27B",
+        (Provider.HUGGINGFACE, "thinkingmachines/inkling-2-mini"): (
+            "thinkingmachines/Inkling-2-Mini"
+        ),
         (Provider.HUGGINGFACE, "thinkingmachines/inkling-2-small"): (
             "thinkingmachines/Inkling-2-Small"
         ),
@@ -1888,6 +1893,23 @@ class ModelDatabase:
         if params is not None:
             return params
         return cls._RUNTIME_MODEL_PARAMS.get(normalized)
+
+    @classmethod
+    def get_static_model_params(
+        cls,
+        model_key: str,
+        *,
+        provider: Provider | None = None,
+    ) -> ModelParameters | None:
+        """Look up static ModelDatabase parameters without invoking ModelFactory or overlays."""
+        normalized = strip_casefold(model_key)
+        if not normalized or normalized in cls.REMOVED_MODEL_NAMES:
+            return None
+        if provider is not None:
+            provider_override = cls._PROVIDER_MODEL_OVERRIDES.get((provider, normalized))
+            if provider_override is not None:
+                return provider_override
+        return cls.MODELS.get(normalized)
 
     @classmethod
     def get_request_model_params(

@@ -22,17 +22,12 @@ from warnings import warn
 from pydantic import Field, StrictBool, ValidationError, WrapValidator, field_validator
 from typing_extensions import Unpack, override
 
-from datamodel_code_generator import (
-    Error,
-    InputFileType,
-    OpenAPIScope,
-    SchemaParseError,
-    is_swagger_2,
-    snooper_to_methods,
-)
+from datamodel_code_generator._debug import snooper_to_methods
 from datamodel_code_generator._document_reader import as_mapping as _as_mapping
 from datamodel_code_generator._document_reader import discriminator_mapping_ref, string_key, string_keys
+from datamodel_code_generator._graph import reach
 from datamodel_code_generator._json_pointer import document_part
+from datamodel_code_generator._message_text import install_command
 from datamodel_code_generator._openapi_objects import OBJECT_MEMBERS as _OBJECT_MEMBERS
 from datamodel_code_generator._openapi_paths import (
     OPERATION_METHODS,
@@ -47,10 +42,18 @@ from datamodel_code_generator._openapi_paths import (
 )
 from datamodel_code_generator._records import record
 from datamodel_code_generator._runtime.model_codecs.parameters import parameter_key
-from datamodel_code_generator._source import YamlValue
+from datamodel_code_generator._shared_types import Error, SchemaParseError
+from datamodel_code_generator._source import YamlValue, is_swagger_2
 from datamodel_code_generator._user_keys import ClassScope, class_key
 from datamodel_code_generator.deprecations import warn_deprecated
-from datamodel_code_generator.enums import OpenAPIAsDefinitions, OpenAPIVersion, VersionMode, _openapi_scopes_or_default
+from datamodel_code_generator.enums import (
+    InputFileType,
+    OpenAPIAsDefinitions,
+    OpenAPIScope,
+    OpenAPIVersion,
+    VersionMode,
+    _openapi_scopes_or_default,
+)
 from datamodel_code_generator.parser import _schema_documents, _schema_refs, _union_tags
 from datamodel_code_generator.parser._api_reference import pointer_fragment as _pointer_fragment
 from datamodel_code_generator.parser._naming import composed_name
@@ -156,26 +159,26 @@ def _reference_first(value: Any, handler: ValidatorFunctionWrapHandler) -> Any:
 
 
 _ObjectT = TypeVar("_ObjectT")
-OrReference = Annotated[Union[ReferenceObject, _ObjectT], WrapValidator(_reference_first)]  # noqa: UP007
+OrReference = Annotated[Union[ReferenceObject, _ObjectT], WrapValidator(_reference_first)]
 """An OpenAPI object or a Reference Object, the reference for a mapping whose ``$ref`` is a string."""
 
 
 class ExampleObject(BaseModel):
     """Represent an OpenAPI example object."""
 
-    summary: Optional[str] = None  # noqa: UP045
-    description: Optional[str] = None  # noqa: UP045
+    summary: Optional[str] = None
+    description: Optional[str] = None
     value: YamlValue = None
-    externalValue: Optional[str] = None  # noqa: N815, UP045
+    externalValue: Optional[str] = None  # noqa: N815
 
 
 class MediaObject(BaseModel):
     """Represent an OpenAPI media type object."""
 
-    schema_: Optional[Union[ReferenceObject, JsonSchemaObject, bool]] = Field(None, alias="schema")  # noqa: UP007, UP045
-    itemSchema: Optional[Union[ReferenceObject, JsonSchemaObject, bool]] = None  # noqa: N815, UP007, UP045
+    schema_: Optional[Union[ReferenceObject, JsonSchemaObject, bool]] = Field(None, alias="schema")
+    itemSchema: Optional[Union[ReferenceObject, JsonSchemaObject, bool]] = None  # noqa: N815
     example: YamlValue = None
-    examples: Optional[Union[str, OrReference[ExampleObject]]] = None  # noqa: UP007, UP045
+    examples: Optional[Union[str, OrReference[ExampleObject]]] = None
 
     @classmethod
     @override
@@ -228,33 +231,33 @@ class RawMediaObject(BaseModel):
 class ParameterObject(BaseModel):
     """Represent an OpenAPI parameter object."""
 
-    name: Optional[str] = None  # noqa: UP045
-    in_: Optional[ParameterLocation] = Field(None, alias="in")  # noqa: UP045
-    description: Optional[str] = None  # noqa: UP045
+    name: Optional[str] = None
+    in_: Optional[ParameterLocation] = Field(None, alias="in")
+    description: Optional[str] = None
     required: bool = False
     deprecated: bool = False
-    schema_: Optional[JsonSchemaObject] = Field(None, alias="schema")  # noqa: UP045
+    schema_: Optional[JsonSchemaObject] = Field(None, alias="schema")
     example: YamlValue = None
-    examples: Optional[Union[str, OrReference[ExampleObject]]] = None  # noqa: UP007, UP045
+    examples: Optional[Union[str, OrReference[ExampleObject]]] = None
     content: dict[str, MediaObject] = Field(default_factory=dict)
 
 
 class HeaderObject(BaseModel):
     """Represent an OpenAPI header object."""
 
-    description: Optional[str] = None  # noqa: UP045
+    description: Optional[str] = None
     required: bool = False
     deprecated: bool = False
-    schema_: Optional[JsonSchemaObject] = Field(None, alias="schema")  # noqa: UP045
+    schema_: Optional[JsonSchemaObject] = Field(None, alias="schema")
     example: YamlValue = None
-    examples: Optional[Union[str, OrReference[ExampleObject]]] = None  # noqa: UP007, UP045
+    examples: Optional[Union[str, OrReference[ExampleObject]]] = None
     content: dict[str, MediaObject] = Field(default_factory=dict)
 
 
 class RequestBodyObject(BaseModel):
     """Represent an OpenAPI request body object."""
 
-    description: Optional[str] = None  # noqa: UP045
+    description: Optional[str] = None
     content: dict[str, MediaObject] = Field(default_factory=dict)
     required: bool = False
 
@@ -262,21 +265,21 @@ class RequestBodyObject(BaseModel):
 class ResponseObject(BaseModel):
     """Represent an OpenAPI response object."""
 
-    description: Optional[str] = None  # noqa: UP045
+    description: Optional[str] = None
     headers: dict[str, ParameterObject] = Field(default_factory=dict)
-    content: dict[Union[str, int], MediaObject] = Field(default_factory=dict)  # noqa: UP007
+    content: dict[Union[str, int], MediaObject] = Field(default_factory=dict)
 
 
 class Operation(BaseModel):
     """Represent an OpenAPI operation object."""
 
     tags: list[str] = Field(default_factory=list)
-    summary: Optional[str] = None  # noqa: UP045
-    description: Optional[str] = None  # noqa: UP045
-    operationId: Optional[str] = None  # noqa: N815, UP045
+    summary: Optional[str] = None
+    description: Optional[str] = None
+    operationId: Optional[str] = None  # noqa: N815
     parameters: list[OrReference[ParameterObject]] = Field(default_factory=list)
-    requestBody: Optional[OrReference[RequestBodyObject]] = None  # noqa: N815, UP045
-    responses: dict[Union[str, int], OrReference[ResponseObject]] = Field(default_factory=dict)  # noqa: UP007
+    requestBody: Optional[OrReference[RequestBodyObject]] = None  # noqa: N815
+    responses: dict[Union[str, int], OrReference[ResponseObject]] = Field(default_factory=dict)
     deprecated: bool = False
 
     @field_validator("responses", mode="before")
@@ -289,7 +292,7 @@ class Operation(BaseModel):
 class ComponentsObject(BaseModel):
     """Represent an OpenAPI components object."""
 
-    schemas: dict[str, Union[ReferenceObject, JsonSchemaObject]] = Field(default_factory=dict)  # noqa: UP007
+    schemas: dict[str, Union[ReferenceObject, JsonSchemaObject]] = Field(default_factory=dict)
     responses: dict[str, OrReference[ResponseObject]] = Field(default_factory=dict)
     examples: dict[str, OrReference[ExampleObject]] = Field(default_factory=dict)
     requestBodies: dict[str, OrReference[RequestBodyObject]] = Field(default_factory=dict)  # noqa: N815
@@ -934,8 +937,8 @@ class OpenAPIParser(JsonSchemaParser):
         self,
         obj: JsonSchemaObject,
         path: list[str],
-        module_name: Optional[str] = None,  # noqa: UP045
-        class_name: Optional[str] = None,  # noqa: UP045
+        module_name: Optional[str] = None,
+        class_name: Optional[str] = None,
         *,
         output_names: tuple[str, ...] = (),
     ) -> list[DataModelFieldBase]:
@@ -1080,7 +1083,7 @@ class OpenAPIParser(JsonSchemaParser):
         """Return raw schema data from an OpenAPI media type object."""
         try:
             RawMediaObject.model_validate(media_obj)
-        except ValidationError:  # pragma: no cover
+        except ValidationError:  # pragma: no cover - not proven unreachable: a media object refused earlier
             return None
 
         raw_media_obj = cast("dict[str, RawSchema | None]", media_obj)
@@ -1112,7 +1115,7 @@ class OpenAPIParser(JsonSchemaParser):
         """Check if path matches any of the include patterns."""
         return path_selected(path, self.openapi_include_paths, self._normalize_path)
 
-    def _process_path_items(  # noqa: PLR0913
+    def _process_path_items(
         self,
         items: dict[str, dict[str, Any]],
         base_path: list[str],
@@ -1189,7 +1192,7 @@ class OpenAPIParser(JsonSchemaParser):
     def _parameter_key(self, parameter: Any) -> tuple[str, str] | None:
         """Return the name and location a parameter declares, its reference resolved, or None without both."""
         if not isinstance(parameter, dict):
-            return None  # pragma: no cover - OpenAPI validation rejects malformed parameters
+            return None
         if isinstance(ref := parameter.get("$ref"), str):
             parameter = self.get_ref_model(ref, "parameter")
         if not isinstance(name := parameter.get("name"), str) or not isinstance(location := parameter.get("in"), str):
@@ -1327,7 +1330,7 @@ class OpenAPIParser(JsonSchemaParser):
             )
 
             if isinstance(detail, ReferenceObject):
-                if not detail.ref:  # pragma: no cover
+                if not detail.ref:  # pragma: no cover - not proven unreachable: a response reference with an empty $ref
                     continue
                 ref_model = self.get_ref_model(detail.ref, "response")
                 content = {k: self._validated_target(v, MediaObject) for k, v in ref_model.get("content", {}).items()}
@@ -1583,9 +1586,7 @@ class OpenAPIParser(JsonSchemaParser):
                                 backend="openapi-spec-validator",
                                 encoding=self.encoding,
                             )
-                        except ImportError:  # pragma: no cover
-                            from datamodel_code_generator._message_text import install_command  # noqa: PLC0415
-
+                        except ImportError:  # pragma: no cover - the prance extra is not installed
                             warn(
                                 "Warning: Validation was skipped for OpenAPI. "
                                 "`prance` or `openapi-spec-validator` are not installed.\n"
@@ -1639,8 +1640,6 @@ class OpenAPIParser(JsonSchemaParser):
 
     def _missing_references_of_parameter_models(self) -> set[str]:
         """Return the paths of the models that parameter models use, directly or through others, but lack."""
-        from datamodel_code_generator._graph import reach  # noqa: PLC0415
-
         models = {model.path: model for model in self.results}
         parameter_models = [model for model, _ in self._parameter_models]
         walked = {model.path for model in parameter_models}

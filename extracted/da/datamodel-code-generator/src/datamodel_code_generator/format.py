@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import os
 import shutil
-import subprocess  # noqa: S404
 import sys
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -26,7 +25,11 @@ from weakref import ReferenceType, WeakKeyDictionary, ref
 from typing_extensions import Sentinel
 
 from datamodel_code_generator import _format_types
+from datamodel_code_generator._message_text import install_command
 from datamodel_code_generator._module_paths import is_below_name, is_within_name
+from datamodel_code_generator._process import run_captured
+from datamodel_code_generator._process_state import PROCESS_STATE_LOCK
+from datamodel_code_generator._shared_types import Error
 from datamodel_code_generator.deprecations import warn_deprecated, warn_legacy_dependency
 from datamodel_code_generator.python_literal import stable_repr
 from datamodel_code_generator.util import _load_config_toml
@@ -34,6 +37,8 @@ from datamodel_code_generator.util import _load_config_toml
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterable, Sequence
     from types import CodeType
+
+    from datamodel_code_generator._process import ProcessResult
 
 DEFAULT_FORMATTERS = _format_types.DEFAULT_FORMATTERS
 EXTERNAL_FORMATTERS = _format_types.EXTERNAL_FORMATTERS
@@ -183,8 +188,6 @@ def _fresh_watch_module(module: ModuleType) -> ModuleType:
         return module
     replacement, code = prepared
 
-    from datamodel_code_generator import PROCESS_STATE_LOCK  # noqa: PLC0415
-
     with PROCESS_STATE_LOCK:
         exec(code, replacement.__dict__)  # noqa: S102
         sys.modules[module.__name__] = replacement
@@ -228,8 +231,6 @@ def _fresh_watch_package(module: ModuleType) -> ModuleType:
     if (prepared := _prepare_watch_module(module)) is None:
         return module
     replacement, code = prepared
-
-    from datamodel_code_generator import PROCESS_STATE_LOCK  # noqa: PLC0415
 
     with PROCESS_STATE_LOCK:
         loaded_modules = sys.modules.copy()
@@ -275,8 +276,6 @@ def _load_watch_formatter_module(module_name: str, watch_dependencies: Any) -> M
     """Load or source-refresh a formatter once per watch generation."""
     _record_watch_module_candidates(module_name, watch_dependencies)
     generation = watch_dependencies.collector_identity()
-
-    from datamodel_code_generator import PROCESS_STATE_LOCK  # noqa: PLC0415
 
     with PROCESS_STATE_LOCK:
         module = sys.modules.get(module_name)
@@ -370,11 +369,11 @@ def _get_black() -> Any:
 
 
 @lru_cache(maxsize=1)
-def _get_black_mode() -> Any:  # pragma: no cover
+def _get_black_mode() -> Any:
     black = _get_black()
     try:
         import black.mode  # noqa: PLC0415
-    except ImportError:
+    except ImportError:  # pragma: no cover - black before 20.8b0 has no black.mode (floor black>=19.10b0)
         return None
     else:
         return black.mode
@@ -398,7 +397,7 @@ def _is_formatter_available(formatter: Formatter) -> bool:
     return True
 
 
-def apply_builtin_formatter(  # noqa: PLR0913
+def apply_builtin_formatter(
     code: str,
     *,
     line_length: int = DEFAULT_LINE_LENGTH,
@@ -459,7 +458,7 @@ def black_find_project_root(sources: Sequence[Path]) -> Path:
     if isinstance(project_root, tuple):
         # Black types the root as optional for sources without a common parent; one source always has one.
         return cast("Path", project_root[0])
-    return project_root  # pragma: no cover
+    return project_root  # pragma: no cover - black before 22.1 returns the root as a bare Path
 
 
 def resolve_use_type_checking_imports(
@@ -480,7 +479,7 @@ def resolve_use_type_checking_imports(
 class CodeFormatter:
     """Formats generated code using black, isort, ruff, and custom formatters."""
 
-    def __init__(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915, PLR0917
+    def __init__(  # noqa: PLR0912, PLR0914, PLR0915, PLR0917
         self,
         python_version: PythonVersion,
         settings_path: Path | None = None,
@@ -513,7 +512,7 @@ class CodeFormatter:
                     settings_path = parent
                     break
             else:
-                settings_path = Path.cwd()  # pragma: no cover
+                settings_path = Path.cwd()  # pragma: no cover - the parents of a missing path end at one that exists
 
         self.settings_path: str = str(settings_path)
         self.defer_formatting = defer_formatting
@@ -598,8 +597,6 @@ class CodeFormatter:
 
         if use_black:
             if (black_target_version := _get_black_python_version_map().get(python_version)) is None:
-                from datamodel_code_generator import Error  # noqa: PLC0415
-
                 raise Error(unsupported_black_message(python_version))
             root = black_find_project_root((settings_path,))
             path = root / "pyproject.toml"
@@ -623,8 +620,8 @@ class CodeFormatter:
                     config.get("unstable", False) or "string_processing" in config.get("enable-unstable-feature", [])
                 )
 
-            if experimental_string_processing is not None:  # pragma: no cover
-                if black.__version__.startswith("19."):
+            if experimental_string_processing is not None:
+                if black.__version__.startswith("19."):  # pragma: no cover - black 19 is not in CI
                     warn(
                         f"black doesn't support `experimental-string-processing` option"
                         f" for wrapping string literal in {black.__version__}",
@@ -655,7 +652,7 @@ class CodeFormatter:
             if formatter_cwd is not None:
                 self.isort_config_kwargs["directory"] = str(formatter_cwd)
 
-            if isort.__version__.startswith("4."):  # pragma: no cover
+            if isort.__version__.startswith("4."):  # pragma: no cover - isort 4 (floor isort>=4.3.21) is not in CI
                 self.isort_config = None
             else:
                 self.isort_config = isort.Config(settings_path=self.settings_path, **self.isort_config_kwargs)
@@ -676,8 +673,6 @@ class CodeFormatter:
             else:
                 import_ = import_module(custom_formatter_import)
         except ImportError as e:
-            from datamodel_code_generator import Error  # noqa: PLC0415
-
             msg = f"Unable to import custom formatter {stable_repr(custom_formatter_import)}: {e}"
             raise Error(msg) from e
 
@@ -760,7 +755,7 @@ class CodeFormatter:
         )
 
     @staticmethod
-    def apply_builtin_formatter(  # noqa: PLR0913
+    def apply_builtin_formatter(
         code: str,
         *,
         line_length: int = DEFAULT_LINE_LENGTH,
@@ -805,17 +800,8 @@ class CodeFormatter:
         *,
         stdin: bytes | None = None,
         allow_stdout_on_error: bool = False,
-    ) -> subprocess.CompletedProcess[bytes]:
-        kwargs: dict[str, Any] = {}
-        if stdin is not None:
-            kwargs["input"] = stdin
-        result = subprocess.run(  # noqa: S603
-            command,
-            capture_output=True,
-            check=False,
-            cwd=self.settings_path,
-            **kwargs,
-        )
+    ) -> ProcessResult:
+        result = run_captured(command, cwd=self.settings_path, stdin=stdin)
         if result.returncode == 0 or (allow_stdout_on_error and result.returncode == 1 and result.stdout):
             return result
         if (message := result.stderr.decode(_RUFF_ENCODING, errors="replace").strip()) or (
@@ -846,7 +832,6 @@ class CodeFormatter:
             return str(ruff_in_venv)
         if ruff_path := shutil.which("ruff"):
             return ruff_path
-        from datamodel_code_generator._message_text import install_command  # noqa: PLC0415
 
         msg = f"Ruff executable was not found. Install it with {install_command('ruff')}."
         raise RuntimeError(msg)
@@ -854,7 +839,7 @@ class CodeFormatter:
     def apply_isort(self, code: str) -> str:
         """Sort imports using isort."""
         isort = _get_isort()
-        if self.isort_config is None:  # pragma: no cover
+        if self.isort_config is None:  # pragma: no cover - isort 4 (floor isort>=4.3.21) is not in CI
             return isort.SortImports(
                 file_contents=code,
                 settings_path=self.settings_path,

@@ -97,9 +97,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from statusrot import (  # noqa: E402
     LevelUnreadable,
     TreeUnusable,
-    _read_level,
     chain_levels,
     parse_pointers,
+    read_level,
     tree_levels,
 )
 from tree_support import store_anchor, utf8_stdio  # noqa: E402
@@ -502,7 +502,7 @@ def scan_facts(levels: list[Path], store: Path | None, reg: Registry,
     seen: dict[str, FactReport] = {}
     asked: set[str] = set()
     for path in levels:
-        for ptr in parse_pointers(_read_level(path), level=str(Path(path).parent)):
+        for ptr in parse_pointers(read_level(path), level=str(Path(path).parent)):
             if ptr.slug in seen:
                 seen[ptr.slug].levels.append(ptr.level)
                 continue
@@ -627,7 +627,8 @@ def _levels(args: argparse.Namespace) -> list[Path] | str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
+    # `python -OO` strips docstrings: "" has no first line to take, so the fallback is a word.
+    ap = argparse.ArgumentParser(description=(__doc__ or "versionrot").splitlines()[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
     sc = sub.add_parser("scan", help="list facts naming a superseded version")
     sc.add_argument("--level", action="append", default=[], type=Path,

@@ -5,8 +5,9 @@ Provides Enum, StrEnum, and specialized enum classes for code generation.
 
 from __future__ import annotations
 
+from ast import literal_eval
 from functools import lru_cache, partial
-from typing import TYPE_CHECKING, Any, ClassVar, Final, Literal, Optional, TypeAlias
+from typing import TYPE_CHECKING, Any, ClassVar, Final, Literal, TypeAlias
 
 from typing_extensions import override
 
@@ -94,8 +95,6 @@ NULL_ENUM_MEMBER_VALUE = _NullEnumMemberValue()
 @lru_cache(maxsize=4096)
 def _get_legacy_raw_enum_member_value(default: str) -> Any:
     """Decode a rendered default supplied by a third-party parser subclass."""
-    from ast import literal_eval  # noqa: PLC0415
-
     try:
         return literal_eval(default)
     except (SyntaxError, ValueError):
@@ -176,7 +175,7 @@ class Enum(DataModel):
         """
         return self._compared_class_hash(frozen=True)
 
-    def __init__(  # noqa: PLR0913
+    def __init__(
         self,
         *,
         reference: Reference,
@@ -370,7 +369,7 @@ class Member:
         """Initialize enum member."""
         self.enum: Enum = enum
         self.field: DataModelFieldBase = field
-        self.alias: Optional[str] = None  # noqa: UP045
+        self.alias: str | None = None
 
     @override
     def __repr__(self) -> str:

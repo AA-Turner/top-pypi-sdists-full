@@ -79,7 +79,8 @@ SPARE = 1 << 30               # memory left over once the cache holds what a fil
 SAMPLE_BYTES = 16 << 20       # each sampled read, when the kernel says nothing is cached
 HOT_GBPS = 5.0                # a sampled read faster than this is from memory
 
-_DTYPES = {                   # a dtype's name in the header: its element's bytes and numpy's name for it, where it has one
+# a dtype's name in the header: its element's bytes and numpy's name for it, where it has one
+_DTYPES = {
     "float64": (8, "float64"), "float32": (4, "float32"), "float16": (2, "float16"), "bfloat16": (2, None),
     "int64": (8, "int64"), "int32": (4, "int32"), "int16": (2, "int16"), "int8": (1, "int8"), "uint8": (1, "uint8"),
     "bool": (1, "bool"), "float8_e4m3fn": (1, None), "float8_e5m2": (1, None), "uint16": (2, "uint16"),
@@ -442,7 +443,8 @@ def _read_torch(path: str, head: dict, device: str, threads: int, chunk: int) ->
         _parallel(path, chunks, cached, threads, lambda: None,
                   lambda state, k, item, direct: _read_into(state["direct"], state["plain"],
                                                             views[item[0]][item[2]:item[2] + item[3]], item[1],
-                                                            item[3], direct and blocks[item[0]].data_ptr() % ALIGN == 0))
+                                                            item[3],
+                                                            direct and blocks[item[0]].data_ptr() % ALIGN == 0))
         return _views(head, blocks, torch), _share(chunks, cached)
     ready = torch.cuda.Event()
     ready.record(torch.cuda.current_stream(device))

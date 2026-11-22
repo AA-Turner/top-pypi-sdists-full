@@ -10,7 +10,13 @@ from windows_mcp.vdm.core import (
     is_window_on_current_desktop,
 )
 from windows_mcp.desktop.views import DesktopState, Window, Browser, Status, Size, Display
-from windows_mcp.tree.views import BoundingBox, TreeElementNode, TreeState, SemanticNode
+from windows_mcp.tree.views import (
+    BoundingBox,
+    TreeElementNode,
+    TreeState,
+    SemanticNode,
+    ScrollElementNode,
+)
 from PIL import ImageFont, ImageDraw, Image
 from windows_mcp.tree.service import Tree, _excluded_process_names, _window_process_name
 from windows_mcp.desktop import screenshot as screenshot_capture
@@ -518,8 +524,10 @@ class Desktop:
             if target_window is None:
                 return error, 1
         else:
-            # If no name provided, try to resize the active window
-            target_window = self.desktop_state.active_window if self.desktop_state else None
+            # No name: resize the window in front now. The last capture's active window
+            # is out of date after a switch or launch, and before any capture or after a
+            # Screenshot (which does not list windows) there is none.
+            target_window = self.get_active_window()
 
             if target_window is None:
                 return "No active window found", 1
@@ -1335,9 +1343,12 @@ class Desktop:
                 owner.input_ledger.release("key:ctrl")
 
     def multi_edit(self, locs: list[tuple[int, int, str]]) -> list[str]:
-        # Check every point first. Type checks its own point too, but only after
-        # the fields before it have been cleared and retyped.
-        for x, y, _ in locs:
+        # Check every field first. Type checks its own point too, but only after
+        # the fields before it have been cleared and retyped, and it fails on a
+        # text that is not a string only after clicking and clearing its field.
+        for x, y, text in locs:
+            if not isinstance(text, str):
+                raise ValueError(f"Text for the field at ({x},{y}) must be a string, not {text!r}")
             self._validate_screen_point(x, y)
         notes = []
         for loc in locs:
@@ -1556,34 +1567,33 @@ class Desktop:
                     if window_pattern is None:
                         continue
 
-                    if window_pattern.CanMinimize and window_pattern.CanMaximize:
-                        status = self.get_window_status(child)
+                    status = self.get_window_status(child)
 
-                        bounding_rect = child.BoundingRectangle
-                        if bounding_rect.isempty() and status != Status.MINIMIZED:
-                            continue
+                    bounding_rect = child.BoundingRectangle
+                    if bounding_rect.isempty() and status != Status.MINIMIZED:
+                        continue
 
-                        windows.append(
-                            Window(
-                                **{
-                                    "name": child.Name,
-                                    "depth": depth,
-                                    "status": status,
-                                    "bounding_box": BoundingBox(
-                                        left=bounding_rect.left,
-                                        top=bounding_rect.top,
-                                        right=bounding_rect.right,
-                                        bottom=bounding_rect.bottom,
-                                        width=bounding_rect.width(),
-                                        height=bounding_rect.height(),
-                                    ),
-                                    "handle": child.NativeWindowHandle,
-                                    "process_id": child.ProcessId,
-                                    "is_browser": self.is_window_browser(child),
-                                }
-                            )
+                    windows.append(
+                        Window(
+                            **{
+                                "name": child.Name,
+                                "depth": depth,
+                                "status": status,
+                                "bounding_box": BoundingBox(
+                                    left=bounding_rect.left,
+                                    top=bounding_rect.top,
+                                    right=bounding_rect.right,
+                                    bottom=bounding_rect.bottom,
+                                    width=bounding_rect.width(),
+                                    height=bounding_rect.height(),
+                                ),
+                                "handle": child.NativeWindowHandle,
+                                "process_id": child.ProcessId,
+                                "is_browser": self.is_window_browser(child),
+                            }
                         )
-                        window_handles.add(child.NativeWindowHandle)
+                    )
+                    window_handles.add(child.NativeWindowHandle)
         except Exception as ex:
             logger.error(f"Error in get_windows: {ex}")
             windows = []
@@ -1627,7 +1637,7 @@ class Desktop:
 
         unique_values: list[int] = []
         for value in values:
-            if not isinstance(value, int) or value < 0:
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
                 raise ValueError("display must contain only zero-based active display indices")
             if value not in unique_values:
                 unique_values.append(value)
@@ -1932,6 +1942,7 @@ class Desktop:
         self,
         node: SemanticNode | None,
         region: BoundingBox,
+        clipped_elements: dict[int, TreeElementNode | ScrollElementNode],
     ) -> SemanticNode | None:
         if node is None:
             return None
@@ -1944,7 +1955,7 @@ class Desktop:
 
         filtered_children = []
         for child in node.children:
-            filtered_child = self._filter_semantic_node_to_region(child, region)
+            filtered_child = self._filter_semantic_node_to_region(child, region, clipped_elements)
             if filtered_child is not None:
                 filtered_children.append(filtered_child)
 
@@ -1960,21 +1971,28 @@ class Desktop:
             bounding_box=clipped_box,
             metadata=dict(node.metadata),
         )
+        if node.element is not None:
+            # Its element's clipped copy, whose place in the filtered lists is its label.
+            filtered_node.element = clipped_elements.get(id(node.element))
         filtered_node.children = filtered_children
         return filtered_node
 
     def _filter_tree_state_to_region(self, tree_state, region: BoundingBox):
+        # Each kept element's clipped copy, by the original's id(), for the filtered UI tree.
+        clipped_elements = {}
         filtered_interactive_nodes = []
         for node in tree_state.interactive_nodes:
             filtered_node = self._filter_tree_node_to_region(node, region)
             if filtered_node is not None:
                 filtered_interactive_nodes.append(filtered_node)
+                clipped_elements[id(node)] = filtered_node
 
         filtered_scrollable_nodes = []
         for node in tree_state.scrollable_nodes:
             filtered_node = self._filter_scroll_node_to_region(node, region)
             if filtered_node is not None:
                 filtered_scrollable_nodes.append(filtered_node)
+                clipped_elements[id(node)] = filtered_node
 
         filtered_dom_node = None
         if tree_state.dom_node is not None:
@@ -1983,6 +2001,7 @@ class Desktop:
         filtered_semantic_root = self._filter_semantic_node_to_region(
             tree_state.semantic_tree_root,
             region,
+            clipped_elements,
         )
         if filtered_semantic_root is not None:
             filtered_semantic_root.bounding_box = region

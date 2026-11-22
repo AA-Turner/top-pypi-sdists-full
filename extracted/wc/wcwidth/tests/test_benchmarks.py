@@ -318,6 +318,35 @@ def test_wrap_long_text(benchmark):
     benchmark(wcwidth.wrap, text, 40)
 
 
+def test_wrap_long_text_ascii_mode(benchmark):
+    """Benchmark wrap() with long text and ASCII-only break rules."""
+    text = 'The quick brown fox jumps over the lazy dog. ' * 20
+    benchmark(wcwidth.wrap, text, 40, line_break='ascii')
+
+
+def test_iter_line_breaks_ascii(benchmark):
+    """Benchmark iter_line_breaks() with ASCII text."""
+    text = 'The quick brown fox jumps over the lazy dog. ' * 20
+    benchmark(lambda: list(wcwidth.iter_line_breaks(text)))
+
+
+def test_iter_line_breaks_long_text(benchmark):
+    """Benchmark iter_line_breaks() over mixed UAX #14 break classes."""
+    text = (
+        'The quick brown fox jumps over the lazy dog.\n'
+        '日本語のテキストは、単語の間に空白を置かない。'
+        'foo\u200bbar foo\u00a0bar foo\u3000bar foo\u2014bar '
+        '\U0001f1fa\U0001f1f8 cafe\u0301 hyph\u00aden. '
+    ) * 20
+    benchmark(lambda: list(wcwidth.iter_line_breaks(text)))
+
+
+def test_wrap_regional_indicators(benchmark):
+    """Benchmark wrap() with a run of regional indicator pairs."""
+    text = '\U0001f1fa\U0001f1f8' * 50
+    benchmark(wcwidth.wrap, text, 40)
+
+
 def test_wrap_japanese(benchmark):
     """Benchmark wrap() with Japanese text."""
     text = 'コンニチハ、セカイ！これは日本語のテキストです。' * 5
@@ -499,6 +528,39 @@ def test_clip_long_cjk_overtype(benchmark):
     """Benchmark clip() with long CJK, overtyping forced (painter path)."""
     text = '中文测试字符串' * 100
     benchmark(wcwidth.clip, text, 0, 50, overtyping=True)
+
+
+def test_clip_overtyping_styled_overwrite(benchmark):
+    """Benchmark clip() repainting a styled line after carriage return."""
+    text = ('\x1b[31m' + 'x' * 80 + '\x1b[0m\r'
+            '\x1b[32m' + 'y' * 80 + '\x1b[0m')
+    benchmark(wcwidth.clip, text, 0, 80, overtyping=True)
+
+
+def test_clip_overtyping_many_styles(benchmark):
+    """Benchmark clip() with a style sequence before nearly every cell."""
+    palette = ['\x1b[31m', '\x1b[32m', '\x1b[1m', '\x1b[44m', '\x1b[0m']
+    text = ''.join(f'{palette[i % 5]}{chr(97 + i % 26)}' for i in range(200))
+    text += '\x1b[0m\r' + 'X' * 200
+    benchmark(wcwidth.clip, text, 0, 120, overtyping=True)
+
+
+def test_clip_overtyping_style_churn(benchmark):
+    """Benchmark clip() where the foreground colour changes on every cell."""
+    text = ''.join(f'\x1b[{31 + i % 7}m{chr(97 + i % 26)}' for i in range(200))
+    benchmark(wcwidth.clip, text, 0, 120, overtyping=True)
+
+
+def test_clip_overtyping_plain_overwrite(benchmark):
+    """Benchmark clip() repainting a plain line after carriage return."""
+    text = 'x' * 400 + '\r' + 'X' * 400
+    benchmark(wcwidth.clip, text, 0, 200, overtyping=True)
+
+
+def test_propagate_sgr_repeated_styles(benchmark):
+    """Benchmark propagate_sgr() over many lines sharing one style."""
+    lines = [f'\x1b[1;3;38;5;208mline {i}\x1b[0m' for i in range(20)]
+    benchmark(wcwidth.propagate_sgr, lines)
 
 
 def test_width_dense_ansi_control_codes_ignore(benchmark):

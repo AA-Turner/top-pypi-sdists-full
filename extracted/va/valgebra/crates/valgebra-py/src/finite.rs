@@ -13,12 +13,17 @@
 //! `==`"): an exact `int`, `bool`, `str`, `bytes`, `None`, or a nonzero finite
 //! `float`; a float zero is read as its two values. And the walk reads the supertype as the relation would only where
 //! no atom of it runs code a second call may answer differently: no
-//! predicate, no class, no attribute, and no constant past those types. A pair
-//! holding either is left to the deciders, which decline it.
+//! predicate, no class, no attribute, no constant past those types, and no
+//! bound or step but an exact `int`, `bool` or `float` or the standard
+//! library's `Fraction` or `Decimal`, since another number's comparison runs
+//! code of its own. A pair holding either is left to the deciders, which
+//! decline it.
 
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyBytes, PyDict, PyFloat, PyInt, PyList, PyString, PyTuple};
 use valgebra_core::{Constraint, Field, Schema, SeqKind};
+
+use crate::oracle::is_exact_rational;
 
 /// The values a subject may hold for this reading to enumerate them.
 ///
@@ -282,9 +287,24 @@ fn a_whole_set(constant: &Bound<'_, PyAny>) -> bool {
     })
 }
 
+/// Whether `operand` is a bound or a step a walk compares every value with
+/// alike on every call: an exact `int`, `bool` or `float`, or the standard
+/// library's `Fraction` or `Decimal`, which the walk compares a float with as
+/// the `Decimal` it equals rather than through the thread's context. Another
+/// class compares by code of its own, which a second call may answer
+/// differently, and so may a class a program's own `fractions` or `decimal`
+/// binds under the standard library's name.
+fn a_number_read_alike(operand: &Bound<'_, PyAny>) -> bool {
+    operand.is_exact_instance_of::<PyInt>()
+        || operand.is_exact_instance_of::<PyBool>()
+        || operand.is_exact_instance_of::<PyFloat>()
+        || is_exact_rational(&operand.get_type()).unwrap_or(false)
+}
+
 /// Whether a walk of `schema` reads every atom as a proof through it would:
-/// no predicate, no class, no attribute, and no constant but one that is its
-/// whole set, through every definition a reference reaches.
+/// no predicate, no class, no attribute, no constant but one that is its whole
+/// set, and no bound or step but a number read alike ([`a_number_read_alike`]), through
+/// every definition a reference reaches.
 pub(crate) fn walked_alike(
     py: Python<'_>,
     schema: &Schema,
@@ -304,12 +324,25 @@ pub(crate) fn walked_alike(
                     return false;
                 }
             }
-            Schema::Refine { constraints, .. }
-                if constraints
-                    .iter()
-                    .any(|constraint| matches!(constraint, Constraint::Predicate(_))) =>
-            {
-                return false;
+            Schema::Refine { constraints, .. } => {
+                for constraint in constraints.iter() {
+                    match constraint {
+                        Constraint::Predicate(_) => return false,
+                        Constraint::Ge(at)
+                        | Constraint::Gt(at)
+                        | Constraint::Le(at)
+                        | Constraint::Lt(at)
+                        | Constraint::MultipleOf(at) => {
+                            let plain = literals
+                                .get(at.get())
+                                .is_some_and(|operand| a_number_read_alike(operand.bind(py)));
+                            if !plain {
+                                return false;
+                            }
+                        }
+                        _ => {}
+                    }
+                }
             }
             Schema::Ref(at) => {
                 let Some(slot) = seen.get_mut(at.get()) else {

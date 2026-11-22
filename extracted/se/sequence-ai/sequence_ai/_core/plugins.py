@@ -29,7 +29,7 @@ INSTALL = 'pip install sequence-cloud --extra-index-url "https://$SEQUENCES_API_
 def loaded(group: str) -> tuple[Any, ...]:
     """Every entry point of `group` loaded, in their names' order; one that does not load is said once and passed by."""
     out = []
-    for ep in sorted(metadata.entry_points(group=group), key=lambda e: e.name):
+    for ep in sorted(_points(group), key=lambda e: e.name):
         try:
             out.append(ep.load())
         except Exception as exc:
@@ -37,6 +37,15 @@ def loaded(group: str) -> tuple[Any, ...]:
 
             warn(f"{ep.value} did not load ({type(exc).__name__}: {exc}); sequence-ai goes on without it")
     return tuple(out)
+
+
+def _points(group: str) -> tuple[Any, ...]:
+    """The entry points of `group` on every Python the package runs on: 3.10 and later select them by group; 3.9's
+    entry_points() takes no group and answers a dict of every group's, read here by its name.
+    
+"""
+    every = metadata.entry_points()
+    return tuple(every.select(group=group)) if hasattr(every, "select") else tuple(every.get(group, ()))
 
 
 def first(group: str) -> Any | None:

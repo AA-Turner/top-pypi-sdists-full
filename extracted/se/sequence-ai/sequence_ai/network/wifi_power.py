@@ -125,9 +125,9 @@ def mac_wifi_iface(run: Callable[..., subprocess.CompletedProcess] = subprocess.
 
 def mac_words(iface: str) -> str:
     """What a robot on macOS is told when its requests go over Wi-Fi (`iface`)."""
-    return (f"this robot's requests go over Wi-Fi ({iface}), and whether Wi-Fi saves power - which can hold its packets "
-            "back - is read on Linux only, so it was not checked on this Mac; a wired connection takes the question "
-            "away")
+    return (f"this robot's requests go over Wi-Fi ({iface}), and whether Wi-Fi saves power - which can hold its "
+            "packets back - is read on Linux only, so it was not checked on this Mac; a wired connection takes the "
+            "question away")
 
 
 def check_once(*, linux: bool = sys.platform.startswith("linux"),

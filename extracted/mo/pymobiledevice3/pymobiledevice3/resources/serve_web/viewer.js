@@ -1019,63 +1019,18 @@ function drawPending() {
     lastFrame = f;
 }
 
-// ----- Offline overlay + auto-recovery: show a banner if frames stop
-// flowing for ~3 s, then nudge the server back to life on a tiered
-// schedule so the viewer resumes "automatically" when the device wakes
-// or its daemon comes back. We sample frameCount once a second; if it
-// hasn't moved for OFFLINE_GRACE_SECS AND the stream has actually
-// started (>=1 drawn frame), reveal the overlay. The moment a new
-// frame lands, hide it again and reset the recovery timers.
-//
-// Recovery ladder, measured in seconds without frames once the
-// overlay is showing:
-//   +PLI_AFTER_SECS -- POST /pli (one RTCP packet, ~100-300 ms IDR)
-//   then every PLI_REPEAT_SECS -- another /pli
-//   +RESTART_AFTER_SECS -- POST /restart (no page reload). The server
-//     preserves the live /stream.bin subscriber across the restart and
-//     emits a type=2 (key-with-reset) IDR onto the existing connection;
-//     the in-page decoder rebuild path picks it up. Crucially we do NOT
-//     location.reload() here -- a reload would resuspend the
-//     AudioContext (browsers require a user gesture to play audio after
-//     navigation) and the user would silently lose sound.
+// ----- Offline overlay: the server says when the device stopped sending
+// anything at all (framing type 5), and when it is back. Frames stopping is
+// NOT that: an unchanged screen makes the device send no frames for as long
+// as it stays unchanged, and the stream resumes by itself. The server also
+// does the recovering (session restart, reconnect), so nothing is asked of it
+// from here.
 const offlineOverlay = document.getElementById('offline-overlay');
-const OFFLINE_GRACE_SECS = 3;
-const PLI_AFTER_SECS = 8;        // first PLI nudge once we've been offline this long
-const PLI_REPEAT_SECS = 6;       // keep pinging while still offline
-const RESTART_AFTER_SECS = 25;   // give up on PLI; full session restart (no reload)
-const RESTART_REPEAT_SECS = 30;  // if still offline after this much more, restart again
-let _lastFc = -1, _stableSec = 0, _nextPliSec = 0, _nextRestartSec = 0;
-setInterval(() => {
-    if (frameCount === 0) {
-        offlineOverlay.classList.add('hidden');
-        _lastFc = 0; _stableSec = 0; _nextPliSec = 0; _nextRestartSec = 0;
-        return;
-    }
-    if (frameCount === _lastFc) {
-        _stableSec += 1;
-        if (_stableSec >= OFFLINE_GRACE_SECS) {
-            offlineOverlay.classList.remove('hidden');
-            if (_stableSec >= RESTART_AFTER_SECS && _stableSec >= _nextRestartSec) {
-                _nextRestartSec = _stableSec + RESTART_REPEAT_SECS;
-                log('auto-recover: /restart (offline ' + _stableSec + 's, no reload — audio stays attached)');
-                fetch('/restart', {method: 'POST', cache: 'no-store'})
-                    .catch(err => log('auto restart err: ' + (err.message || err)));
-            } else if (_stableSec >= PLI_AFTER_SECS && _stableSec >= _nextPliSec) {
-                _nextPliSec = _stableSec + PLI_REPEAT_SECS;
-                log('auto-recover: /pli (offline ' + _stableSec + 's)');
-                fetch('/pli', {method: 'POST', cache: 'no-store'})
-                    .catch(err => log('auto pli err: ' + (err.message || err)));
-            }
-        }
-    } else {
-        if (_stableSec >= OFFLINE_GRACE_SECS) log('stream resumed after ' + _stableSec + 's');
-        _stableSec = 0;
-        _nextPliSec = 0;
-        _nextRestartSec = 0;
-        offlineOverlay.classList.add('hidden');
-    }
-    _lastFc = frameCount;
-}, 1000);
+let deviceDisconnected = false;
+function setDeviceOnline(online) {
+    offlineOverlay.classList.toggle('hidden', online);
+    log(online ? 'device is back' : 'device stopped responding');
+}
 
 // ----- Collapse recovery is SERVER-side, not here.
 // Recovery from the collapse (the device re-emitting a full-res IDR) is driven
@@ -1508,8 +1463,13 @@ async function run() {
     let gotKey = false;
     let sentCount = 0;
     while (true) {
-        const { value, done } = await reader.read();
-        if (done) { log('stream ended'); break; }
+        let value, done;
+        try {
+            ({ value, done } = await reader.read());
+        } catch (e) {
+            log('stream read err: ' + (e.message || e)); return 'ended';
+        }
+        if (done) { log('stream ended'); return 'ended'; }
         const merged = new Uint8Array(buf.length + value.length);
         merged.set(buf); merged.set(value, buf.length);
         buf = merged;
@@ -1530,6 +1490,18 @@ async function run() {
             //       -- the stream switched displays (a foldable's panels), so
             //       the next key has another resolution and parameter sets.
             //   4 = the display turned: JSON {rotation} (see displayRotation)
+            //   5 = the device went silent or came back: JSON {online}
+            if (type === 5) {
+                try {
+                    const state = JSON.parse(new TextDecoder().decode(data));
+                    // The server's last word before it stops over a device that is gone.
+                    if (state.disconnected) deviceDisconnected = true;
+                    setDeviceOnline(state.online);
+                } catch (e) {
+                    log('bad online state: ' + e.message);
+                }
+                continue;
+            }
             if (type === 4) {
                 try {
                     displayRotation = JSON.parse(new TextDecoder().decode(data)).rotation;
@@ -1601,4 +1573,22 @@ async function run() {
         }
     }
 }
-run().catch(e => log('fatal: ' + e.message));
+// A stream that was running ended: the server stopped, over a device that is gone
+// or because it was told to. Say which, and nothing about what happens next: only a
+// server run with --reconnect comes back by itself, which is not known from here.
+// If it does (on the same address), start over. Asking for the page itself starts
+// nothing on the device, unlike /codec. (Any other way run() ends would end the same
+// way again, so it stays as it is.)
+async function waitForServerAndReload() {
+    offlineOverlay.querySelector('span').textContent =
+        deviceDisconnected ? 'The device disconnected' : 'The server stopped';
+    offlineOverlay.classList.remove('hidden');
+    for (;;) {
+        await new Promise(r => setTimeout(r, 2000));
+        try {
+            if ((await fetch('/', {cache: 'no-store'})).ok) break;
+        } catch (e) {}
+    }
+    location.reload();
+}
+run().catch(e => log('fatal: ' + e.message)).then(r => { if (r === 'ended') waitForServerAndReload(); });

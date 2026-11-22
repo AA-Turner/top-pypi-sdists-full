@@ -100,6 +100,7 @@ class MapManager:
     _mgrs_offset: Optional[tuple[float, float]]
     _z_offset: Optional[float]
     _carla_map: Optional[carla.Map]
+    _xodr_path: Optional[Path]
 
     def __new__(cls) -> "MapManager":
         if cls._instance is None:
@@ -111,6 +112,7 @@ class MapManager:
             cls._instance._mgrs_offset = None
             cls._instance._z_offset = None
             cls._instance._carla_map = None
+            cls._instance._xodr_path = None
         return cls._instance
 
     def __init__(self) -> None:
@@ -153,9 +155,12 @@ class MapManager:
             Path to the Lanelet2 map file (.osm or .xml).
         carla_world:
             Optional CARLA ``carla.World`` instance.  When provided, the
-            vertical offset (z_offset) is computed by averaging the
-            difference between Lanelet2 elevation and CARLA spawn-point
-            elevation across all map spawn points.  When ``None``, a
+            vertical offset (z_offset) is the mean difference between the
+            Lanelet2 elevation and the CARLA road's elevation at the map's
+            spawn points, over those whose difference is within
+            :data:`_Z_OFFSET_SAME_LEVEL_M` of the median (a spawn point
+            matched to a lanelet on another level is left out, #1874;
+            :meth:`_z_offset_from_spawn_points`).  When ``None``, a
             single-point fallback using the XODR reference line is used.
         projector_type:
             Which projection to read the Lanelet2 map with -- ``"mgrs"``,
@@ -222,6 +227,7 @@ class MapManager:
         from ..maps.road_network_cache import open_road_network  # noqa: PLC0415
 
         self._road_network = open_road_network(xodr_path)
+        self._xodr_path = xodr_path
 
         # Build carla.Map for waypoint-based road/lane lookups (optional).
         # First, so the z offset below reads its spawn points off this map
@@ -305,12 +311,24 @@ class MapManager:
 
     @property
     def geo_origin(self) -> tuple[float, float, float]:
-        """The (lat, lon, alt) origin parsed from the XODR geoReference."""
+        """The (lat, lon, alt) origin the map is anchored at: the Lanelet2
+        map's ``map_projector_info.yaml`` origin where it gives one, else the
+        XODR geoReference's (:func:`~.projection.map_origin`)."""
         if self._geo_origin is None:
             raise RuntimeError(
                 "MapManager is not initialized. Call initialize() first."
             )
         return self._geo_origin
+
+    @property
+    def xodr_path(self) -> Path:
+        """The OpenDRIVE file the map was initialised with: what the files a
+        road refers to beside it (OpenCRG surfaces) are relative to."""
+        if self._xodr_path is None:
+            raise RuntimeError(
+                "MapManager is not initialized. Call initialize() first."
+            )
+        return self._xodr_path
 
     @property
     def mgrs_offset(self) -> tuple[float, float]:
@@ -519,12 +537,9 @@ class MapManager:
             dist = float(dists[min_idx])
             if dist < best_dist:
                 best_dist = dist
-                z_coords = road.z_coordinates
-                deltas = np.diff(ref_line, axis=0)
-                seg_lengths = np.linalg.norm(deltas, axis=1)
-                arc = np.zeros(len(ref_line))
-                arc[1:] = np.cumsum(seg_lengths)
-                best_z = float(np.interp(arc[min_idx], arc, z_coords))
+                # The elevation at that vertex: interpolating it at the
+                # vertex's own arc length gave the same (#2296).
+                best_z = float(road.z_coordinates[min_idx])
 
         return ll2_z - best_z
 

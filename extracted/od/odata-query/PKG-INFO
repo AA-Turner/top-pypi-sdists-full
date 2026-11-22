@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: odata-query
-Version: 0.11.0
-Summary: An OData query parser and transpiler.
-Keywords: OData,Query,Parser
+Version: 1.0.1
+Summary: Parse OData v4 query options ($filter, $orderby, $top, $skip) and transpile them to Django, SQLAlchemy or raw SQL queries.
+Keywords: odata,odata-v4,filter,query,parser,transpiler,django,sqlalchemy,sql,rest,api
 Author: Oliver Hofkens
 Author-email: Oliver Hofkens <oliver@gorilla.co>
 License-Expression: MIT
@@ -10,6 +10,8 @@ License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
+Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
@@ -24,11 +26,17 @@ Classifier: Topic :: Database
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Internet :: WWW/HTTP :: Indexing/Search
 Classifier: Topic :: Software Development :: Compilers
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Typing :: Typed
 Requires-Dist: python-dateutil>=2.8.1
 Requires-Dist: sly>=0.4,<0.5
 Requires-Dist: django>=5.2 ; extra == 'django'
 Requires-Dist: sqlalchemy>=1.4,<2 ; extra == 'sqlalchemy'
 Requires-Python: >=3.11
+Project-URL: Documentation, https://odata-query.readthedocs.io
+Project-URL: Source, https://github.com/gorilla-co/odata-query
+Project-URL: Issues, https://github.com/gorilla-co/odata-query/issues
+Project-URL: Changelog, https://odata-query.readthedocs.io/en/latest/changelog.html
 Provides-Extra: django
 Provides-Extra: sqlalchemy
 Description-Content-Type: text/x-rst
@@ -48,6 +56,12 @@ OData-Query
 ``odata-query`` is a library that parses `OData v4`_ filter strings, and can
 convert them to other forms such as `Django Queries`_, `SQLAlchemy Queries`_,
 or just plain SQL.
+
+* Django (including GeoDjango ``geo.*`` functions), SQLAlchemy Core and ORM,
+  and raw SQL for generic databases, SQLite and Athena.
+* Supports ``$filter``, ``$orderby``, ``$top`` and ``$skip``.
+* Parses to an AST that you can inspect, rewrite and turn into your own target
+  with visitors.
 
 
 Installation
@@ -125,6 +139,13 @@ Example for SQLAlchemy Core:
     query = apply_odata_core(core_query, odata_query)
     results = session.execute(query).scalars().all()
 
+``apply_odata_query`` also takes the ``$orderby``, ``$top`` and ``$skip`` query
+options, as the keyword arguments ``orderby``, ``top`` and ``skip``:
+
+.. code-block:: python
+
+    query = apply_odata_query(orm_query, "name eq 'test'", orderby="age desc", top=10, skip=20)
+
 .. splitinclude-1
 
 Advanced Usage
@@ -154,7 +175,7 @@ Licensed under the MIT License.
 
 
 .. _odata v4: https://www.odata.org/
-.. _django queries: https://docs.djangoproject.com/en/3.2/topics/db/queries/
+.. _django queries: https://docs.djangoproject.com/en/stable/topics/db/queries/
 .. _sqlalchemy queries: https://docs.sqlalchemy.org/en/14/orm/loading_objects.html
 .. _documentation: https://odata-query.readthedocs.io/en/latest
 .. _Gorillini NV: https://gorilla.co/

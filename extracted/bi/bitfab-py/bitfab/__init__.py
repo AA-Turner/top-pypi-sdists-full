@@ -163,6 +163,12 @@ from bitfab.sandbox import (
     without_sandbox,
 )
 from bitfab.sandbox_modes import gmail_sandbox
+from bitfab.sandbox_stores import (
+    SandboxStore,
+    SandboxStoreEntry,
+    SandboxStoreLink,
+    SandboxStoresClient,
+)
 from bitfab.selective_replay import ReplayNodeIdentity, SelectiveReplayOptions
 from bitfab.spans import (
     ListedSpan,
@@ -379,6 +385,10 @@ __all__ = [
     "ReseedResult",
     "Sandbox",
     "SandboxStartCtx",
+    "SandboxStore",
+    "SandboxStoreEntry",
+    "SandboxStoreLink",
+    "SandboxStoresClient",
     "SaveAssertion",
     "SaveDatasetResult",
     "SaveScenarioData",

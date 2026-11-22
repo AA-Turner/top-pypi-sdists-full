@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING, Any, ClassVar, NamedTuple, cast
 
 from typing_extensions import Unpack
 
-from datamodel_code_generator import Error
 from datamodel_code_generator._avro_detection import COMPLEX_TYPES as _COMPLEX_TYPES
 from datamodel_code_generator._avro_detection import JSON_SCHEMA_MARKER_KEYS as _JSON_SCHEMA_MARKER_KEYS
 from datamodel_code_generator._avro_detection import NAMED_TYPES, PRIMITIVE_TYPES
@@ -22,6 +21,7 @@ from datamodel_code_generator._json_pointer import document_part
 from datamodel_code_generator._json_schema import definition_ref
 from datamodel_code_generator._lazy_exports import module_hooks as _module_hooks
 from datamodel_code_generator._name_words import first_upper
+from datamodel_code_generator._shared_types import Error
 from datamodel_code_generator._source import YamlValue, load_yaml
 from datamodel_code_generator._user_keys import class_field_key, class_key, model_type_override
 from datamodel_code_generator.imports import Import
@@ -30,6 +30,7 @@ from datamodel_code_generator.parser._convert_common import _copy_schema, _name_
 from datamodel_code_generator.parser._null_facts import null_schema
 from datamodel_code_generator.parser._type_overrides import override_spells_builtin
 from datamodel_code_generator.parser.jsonschema import JsonSchemaParser
+from datamodel_code_generator.python_literal import stable_repr
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -248,8 +249,6 @@ class _AvroSchemaConverter:
             case dict() as schema:
                 return self._convert_schema_dict(schema, namespace, root=root)
 
-        from datamodel_code_generator.python_literal import stable_repr  # noqa: PLC0415
-
         msg = f"Unsupported Avro schema value: {stable_repr(schema)}"
         raise Error(msg)
 
@@ -272,8 +271,6 @@ class _AvroSchemaConverter:
             case str() as type_name:
                 return self._convert_schema_object(schema, type_name, namespace, root=root)
             case _:
-                from datamodel_code_generator.python_literal import stable_repr  # noqa: PLC0415
-
                 msg = f"Avro schema object requires a string, object, or union type: {stable_repr(schema)}"
                 raise Error(msg)
 
@@ -336,8 +333,6 @@ class _AvroSchemaConverter:
                     raise Error(msg)
                 union_type = type_value if isinstance(type_value, str) and type_value not in NAMED_TYPES else None
             else:
-                from datamodel_code_generator.python_literal import stable_repr  # noqa: PLC0415
-
                 msg = f"Unsupported Avro union value: {stable_repr(item)}"
                 raise Error(msg)
 
@@ -370,9 +365,7 @@ class _AvroSchemaConverter:
             converted = self._convert_enum(raw_schema, fullname)
         elif type_value == "fixed":
             converted = self._convert_fixed(raw_schema, fullname)
-        else:  # pragma: no cover
-            from datamodel_code_generator.python_literal import stable_repr  # noqa: PLC0415
-
+        else:  # pragma: no cover - not proven unreachable
             msg = f"Unsupported Avro named type: {stable_repr(type_value)}"
             raise Error(msg)
         converted.setdefault("title", definition_key)
@@ -539,8 +532,11 @@ class _AvroSchemaConverter:
     def _convert_default_type(
         self, value: Any, schema: Any, namespace: str | None, type_override: Import | None = None
     ) -> Any:
-        """Resolve named defaults in their record scope and decode bytes leaves."""
-        if not isinstance(schema, str):  # pragma: no cover - rejected while converting the field schema
+        """Resolve named defaults in their record scope and decode bytes leaves.
+
+        A key of a record default that the record does not declare has no schema: its value is kept as written.
+        """
+        if not isinstance(schema, str):
             return value
         if schema not in {"bytes", "fixed"}:
             fullname = self._resolve_fullname(schema, namespace)

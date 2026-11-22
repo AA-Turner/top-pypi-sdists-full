@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: py-cid
-Version: 0.5.0
+Version: 0.6.0
 Summary: Self-describing content-addressed identifiers for distributed systems
 Author-email: Dhruv Baldawa <dhruv@dhruvb.com>
 Maintainer: acul71
@@ -24,10 +24,10 @@ Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: AUTHORS.rst
-Requires-Dist: py-multibase>=1.0.0
-Requires-Dist: py-multicodec>=1.0.0
+Requires-Dist: py-multibase>=2.1.0
+Requires-Dist: py-multicodec>=1.1.0
 Requires-Dist: morphys<2.0,>=1.0
-Requires-Dist: py-multihash>=3.0.0
+Requires-Dist: py-multihash>=4.0.0
 Provides-Extra: dev
 Requires-Dist: pytest>=7.0.0; extra == "dev"
 Requires-Dist: pytest-cov>=4.0.0; extra == "dev"
@@ -48,6 +48,7 @@ Requires-Dist: mypy>=1.5.0; extra == "dev"
 Requires-Dist: pre-commit>=3.0.0; extra == "dev"
 Requires-Dist: towncrier<25,>=24; extra == "dev"
 Requires-Dist: pyrefly<0.18.0,>=0.17.1; extra == "dev"
+Requires-Dist: pytest-benchmark>=4.0.0; extra == "dev"
 Dynamic: license-file
 
 CID (Content IDentifier)

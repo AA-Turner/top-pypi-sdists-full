@@ -93,12 +93,15 @@ class EpisodeResult:
 
 
 def run_episode(env: Any, policy: Any, *, instruction: str, max_steps: int,
-                frames: list | None = None,
+                frames: list | None = None, show: Callable[[dict], None] | None = None,
                 clock: Callable[[], int] = time.time_ns) -> tuple[bool, int, list[float]]:
-    """One episode: (success, env steps, each chunk's round trip in ms)."""
+    """One episode: (success, env steps, each chunk's round trip in ms). ``show`` gets each
+    observation the episode reaches (the viewer's frame)."""
     from dreamscale import robot
 
     obs = settle(env)
+    if show is not None:
+        show(obs)
     cameras = policy.deployment.cameras
     # The episode's sim clock, its origin early enough that no step's stamp is in the future.
     t0 = clock() - max_steps * STEP_NS
@@ -115,6 +118,8 @@ def run_episode(env: Any, policy: Any, *, instruction: str, max_steps: int,
                 frames.append(upright(env.agent_frame(obs)))
             obs, done = env.step([float(v) for v in action])
             step += 1
+            if show is not None:
+                show(obs)
             if done:
                 return True, step, trips
             if step >= max_steps:
@@ -125,10 +130,13 @@ def run_episode(env: Any, policy: Any, *, instruction: str, max_steps: int,
 def run_isaac_libero(*, model: str, task_suite: str, task_id: int, task_seed: int = 0,
                      max_steps: int | None = None, region: str | None = None,
                      json_output: bool = False, output_root: str | None = None,
-                     env_factory: Callable[..., Any] | None = None,
+                     view: bool = False, env_factory: Callable[..., Any] | None = None,
                      connect: Callable[..., Any] | None = None,
+                     preview: Callable[[Any], tuple[Callable, Callable]] | None = None,
                      print_fn: Callable[[str], None] = print, **_ignored: Any) -> EpisodeResult:
-    """One LIBERO episode of the Isaac 0.5 LIBERO catalog model, Perceptron's protocol."""
+    """One LIBERO episode of the Isaac 0.5 LIBERO catalog model, Perceptron's protocol.
+    ``view`` shows it in the local LIBERO viewer window (``preview(env)``: its show and close;
+    by default run_sim's window)."""
     if env_factory is None:
         from dreamscale.sim.sim_arm import _default_env_factory as env_factory
     if connect is None:
@@ -144,16 +152,22 @@ def run_isaac_libero(*, model: str, task_suite: str, task_id: int, task_seed: in
                      **({"region": region} if region else {"region": "available"}))
     connect_s = time.monotonic() - began
     frames: list | None = [] if output_root else None
+    from dreamscale.sim.sim_arm import libero_viewer
+
+    show, close_view = libero_viewer(env, view and not json_output, preview, print_fn)
     try:
         began = time.monotonic()
         success, steps, trips = run_episode(env, policy, instruction=instruction,
-                                            max_steps=steps_limit, frames=frames)
+                                            max_steps=steps_limit, frames=frames, show=show)
         seconds = time.monotonic() - began
     finally:
         try:
             policy.close()
         finally:
-            env.close()
+            try:
+                env.close()
+            finally:
+                close_view()
     video = None
     if frames:
         video = _write_video(Path(output_root), task_suite, int(task_id), success, frames)

@@ -58,6 +58,7 @@ from coord.drive_queue import (
     describe_unreachable_wait,
     detect_unreachable_waits,
     is_benign_queue_alert_command,
+    is_unreachable_wait_shape,
     compute_leg_counts,
     dispatch_type_for_labels,
     effective_max_fix_rounds,
@@ -4336,6 +4337,52 @@ def test_a_parked_entry_never_reaches_blocked_even_deep_into_the_attempt_budget(
     assert plan.reconciles[0].outcome == "parked"
     assert plan.blocked == ()
     assert plan.alert is None
+
+
+def test_an_honest_ci_pending_park_still_says_no_operator_needed():
+    """Regression for #4072: an ordinary, self-refreshing "still running"
+    park must keep its original #1891 wording — only the #4070 stuck
+    shape below gets the sharper copy."""
+    entries = [entry(1650, position=3, state=STATE_RUNNING, attempts=0)]
+    plan = plan_tick(entries, board(ci_pending=(1650,)), capacity=1)
+    reason = plan.reconciles[0].reason
+    assert "no operator needed" in reason
+    assert "coord ci rerun" not in reason
+
+
+def test_a_checks_jobs_desync_park_names_the_manual_rerun_command_not_no_operator_needed():
+    """#4072: a #4070 checks/jobs-desync park (`CI stuck:` in the board's
+    own `merge_ci_pending_reason`) is NOT a self-refreshing "still running"
+    read — GitHub's checks surface being wedged does not clear on its own
+    the way an honest pending check does, and the merge-queue sweep's own
+    bounded auto-heal (`coord.merge_queue.MAX_CI_STUCK_RERUNS`) hands a
+    human the exact `coord ci rerun ... --stuck` command once its budget is
+    exhausted. The #1891 park's "no operator needed" claim must not survive
+    next to that — it must name the manual command instead."""
+    entries = [entry(1650, position=3, state=STATE_RUNNING, attempts=0)]
+    stuck_board = BoardView(
+        issues={
+            entry_key(REPO, 1650): IssueFacts(
+                known=True,
+                merge_ci_pending=True,
+                merge_ci_pending_reason=(
+                    "CI stuck: build — auto-rerun budget exhausted (1/1); "
+                    "needs a human — `coord ci rerun claude-coordinator 99 "
+                    "--run 1 --job 2 --stuck`"
+                ),
+            )
+        }
+    )
+    plan = plan_tick(entries, stuck_board, capacity=1)
+    reconcile = plan.reconciles[0]
+    assert reconcile.outcome == "parked"
+    assert reconcile.updates["state"] == "parked"
+    assert "attempts" not in reconcile.updates
+    reason = reconcile.reason
+    assert "no operator needed" not in reason
+    assert "coord ci rerun" in reason
+    assert "--stuck" in reason
+    assert reason.startswith("CI stuck:")
 
 
 # ── #3254: `checks_absent` blocks (not parks), and never spends an attempt ─
@@ -9531,6 +9578,27 @@ def test_detect_unreachable_waits_flags_a_never_dispatched_parked_entry():
     assert [w.key for w in waits] == [entry_key(REPO, 2907)]
 
 
+@pytest.mark.parametrize(
+    "last_reason",
+    ["CI running: build, lint", "CI stuck: build — auto-rerun 1/1 triggered"],
+)
+def test_detect_unreachable_waits_excludes_a_live_ci_pending_park(last_reason):
+    """#4072: a row parked on `CI running:`/`CI stuck:` has, by
+    construction, a real branch/PR/merge-queue row behind it
+    (`coord.drive_queue._reconcile_running`'s #1891/#4070 park never fires
+    without one) — so it fails `is_unreachable_wait_shape`'s own invariant
+    even though `attempts == 0` still reads True (the park never spends an
+    attempt). Must not surface on `coord drive-queue status`'s alert, `coord
+    doctor`'s WARN or the notifier's `HaltedDrive`, all of which key off
+    `detect_unreachable_waits`/`describe_unreachable_wait` with no
+    pre-filter of their own."""
+    stuck = entry(
+        2908, state=STATE_PARKED, attempts=0, deferrals=186,
+        last_reason=last_reason,
+    )
+    assert detect_unreachable_waits([stuck]) == []
+
+
 def test_detect_unreachable_waits_does_not_trip_below_the_grace_threshold():
     """A genuinely transient block — freshly blocked, few deferrals — must
     not trip: that would false-positive on the very first tick a `waiting`
@@ -9744,6 +9812,20 @@ def test_detect_unreachable_waits_does_not_claim_a_chain_with_no_dependents():
 # generic (never-dispatched / exhausted-dispatch-layer) shapes keep the
 # original remedy — only a row whose OWN `last_reason` already asserts no
 # relaunch can resolve it gets routed to the read-only fallback.
+
+
+@pytest.mark.parametrize(
+    "last_reason",
+    ["CI running: build, lint", "CI stuck: build — auto-rerun 1/1 triggered"],
+)
+def test_is_unreachable_wait_shape_excludes_a_live_ci_pending_park(last_reason):
+    """#4072: direct unit coverage of the predicate the review asked for —
+    `attempts == 0` alone would otherwise still read True for this row (the
+    CI-pending park never spends an attempt), so the explicit
+    `is_ci_pending_reason` exclusion is load-bearing, not redundant with
+    the attempts check above it."""
+    stuck = entry(2909, state=STATE_PARKED, attempts=0, last_reason=last_reason)
+    assert is_unreachable_wait_shape(stuck) is False
 
 
 def test_classify_unreachable_wait_cause_recognises_all_three_terminal_parks():

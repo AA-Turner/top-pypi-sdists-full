@@ -26,7 +26,8 @@ the generator where eager mode left it.
 WHY captured from its own kernels, never compiled: a graph replays the same kernels that eager mode ran, so its outputs
 are eager mode's; torch.compile's fusion changes the order of the arithmetic and so the outputs (GR00T N1.7 on an L4:
 inductor 1.45x faster, its outputs 0.0051 apart on average), and its own graph mode did not help (1.00x). Measured on
-that model and GPU: its DiT captured this way, 224 -> 146 ms per run, the same outputs on inputs it was not captured on;
+that model and GPU: its DiT captured this way, 224 -> 146 ms an act (2026-11-01), the same outputs on inputs it was
+not captured on;
 torch.compile(backend="cudagraphs") 225 ms.
 WHY every new shape is checked against eager mode where it is captured: a graph is correct for the inputs it was
 captured on, and may not be for others; and a shape first seen while serving (a new prompt's length, another batch size)
@@ -532,7 +533,8 @@ def install(inst: Any, paths: list[str], *, say: Callable[[str], Any] = print,
     graphed the same way: an instance attribute in front of its class's. A path that names neither is reported and
     skipped; a module named twice is graphed once. `whole`: each is a whole call, whose graphs draw from the GPU's
     generator itself (Graphed's `bound`). On a machine with no CUDA GPU nothing is graphed, which is reported once, and
-    {} is returned; each path is still looked up, so a mistyped path is reported on a laptop and not first on the GPU."""
+    {} is returned; each path is still looked up, so a mistyped path is reported on a laptop and not first on the
+    GPU."""
     import torch
 
     has_gpu = capture is not None or torch.cuda.is_available()

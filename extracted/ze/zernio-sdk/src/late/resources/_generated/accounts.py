@@ -776,6 +776,98 @@ class AccountsResource:
             f"/v1/accounts/{account_id}/hubspot-settings/contact-properties"
         )
 
+    def get_gohighlevel_settings(self, account_id: str) -> dict[str, Any]:
+        """Get HighLevel account settings"""
+        return self._client._get(f"/v1/accounts/{account_id}/gohighlevel-settings")
+
+    def update_gohighlevel_settings(
+        self,
+        account_id: str,
+        *,
+        relay_conversions: bool | None = None,
+        write_back_attribution: bool | None = None,
+        report_to_ads: bool | None = None,
+        sync_contacts: bool | None = None,
+        log_messages: bool | None = None,
+        log_delivery_status: bool | None = None,
+        sync_ad_leads: bool | None = None,
+        mirror_conversations: bool | None = None,
+    ) -> dict[str, Any]:
+        """Update HighLevel account settings"""
+        payload = self._build_body(
+            {
+                "relayConversions": relay_conversions,
+                "writeBackAttribution": write_back_attribution,
+                "reportToAds": report_to_ads,
+                "syncContacts": sync_contacts,
+                "logMessages": log_messages,
+                "logDeliveryStatus": log_delivery_status,
+                "syncAdLeads": sync_ad_leads,
+                "mirrorConversations": mirror_conversations,
+            }
+        )
+        return self._client._patch(
+            f"/v1/accounts/{account_id}/gohighlevel-settings", data=payload
+        )
+
+    def list_gohighlevel_audience_syncs(self, account_id: str) -> dict[str, Any]:
+        """List HighLevel tag audience syncs"""
+        return self._client._get(f"/v1/accounts/{account_id}/gohighlevel-audiences")
+
+    def start_gohighlevel_audience_sync(
+        self,
+        account_id: str,
+        tag: str,
+        targets: list[dict[str, Any]],
+        *,
+        audience_name: str | None = None,
+    ) -> dict[str, Any]:
+        """Sync a HighLevel tag to ad audiences"""
+        payload = self._build_body(
+            {
+                "tag": tag,
+                "targets": targets,
+                "audienceName": audience_name,
+            }
+        )
+        return self._client._post(
+            f"/v1/accounts/{account_id}/gohighlevel-audiences", data=payload
+        )
+
+    def stop_gohighlevel_audience_sync(
+        self, account_id: str, sync_id: str
+    ) -> dict[str, Any]:
+        """Stop a HighLevel tag audience sync"""
+        return self._client._delete(
+            f"/v1/accounts/{account_id}/gohighlevel-audiences/{sync_id}"
+        )
+
+    def get_gohighlevel_funnel_tracking(self, account_id: str) -> dict[str, Any]:
+        """Get HighLevel funnel tracking"""
+        return self._client._get(
+            f"/v1/accounts/{account_id}/gohighlevel-funnel-tracking"
+        )
+
+    def verify_gohighlevel_funnel_tracking(
+        self, account_id: str, url: str
+    ) -> dict[str, Any]:
+        """Check the Zernio tag on a HighLevel funnel page"""
+        payload = self._build_body(
+            {
+                "url": url,
+            }
+        )
+        return self._client._post(
+            f"/v1/accounts/{account_id}/gohighlevel-funnel-tracking/verify",
+            data=payload,
+        )
+
+    def send_gohighlevel_past_won_deals(self, account_id: str) -> dict[str, Any]:
+        """Send past HighLevel won deals as conversions"""
+        return self._client._post(
+            f"/v1/accounts/{account_id}/gohighlevel-won-deals-backfill"
+        )
+
     def get_salesforce_settings(self, account_id: str) -> dict[str, Any]:
         """Get Salesforce account settings"""
         return self._client._get(f"/v1/accounts/{account_id}/salesforce-settings")
@@ -1547,6 +1639,102 @@ class AccountsResource:
         """List HubSpot contact properties (async)"""
         return await self._client._aget(
             f"/v1/accounts/{account_id}/hubspot-settings/contact-properties"
+        )
+
+    async def aget_gohighlevel_settings(self, account_id: str) -> dict[str, Any]:
+        """Get HighLevel account settings (async)"""
+        return await self._client._aget(
+            f"/v1/accounts/{account_id}/gohighlevel-settings"
+        )
+
+    async def aupdate_gohighlevel_settings(
+        self,
+        account_id: str,
+        *,
+        relay_conversions: bool | None = None,
+        write_back_attribution: bool | None = None,
+        report_to_ads: bool | None = None,
+        sync_contacts: bool | None = None,
+        log_messages: bool | None = None,
+        log_delivery_status: bool | None = None,
+        sync_ad_leads: bool | None = None,
+        mirror_conversations: bool | None = None,
+    ) -> dict[str, Any]:
+        """Update HighLevel account settings (async)"""
+        payload = self._build_body(
+            {
+                "relayConversions": relay_conversions,
+                "writeBackAttribution": write_back_attribution,
+                "reportToAds": report_to_ads,
+                "syncContacts": sync_contacts,
+                "logMessages": log_messages,
+                "logDeliveryStatus": log_delivery_status,
+                "syncAdLeads": sync_ad_leads,
+                "mirrorConversations": mirror_conversations,
+            }
+        )
+        return await self._client._apatch(
+            f"/v1/accounts/{account_id}/gohighlevel-settings", data=payload
+        )
+
+    async def alist_gohighlevel_audience_syncs(self, account_id: str) -> dict[str, Any]:
+        """List HighLevel tag audience syncs (async)"""
+        return await self._client._aget(
+            f"/v1/accounts/{account_id}/gohighlevel-audiences"
+        )
+
+    async def astart_gohighlevel_audience_sync(
+        self,
+        account_id: str,
+        tag: str,
+        targets: list[dict[str, Any]],
+        *,
+        audience_name: str | None = None,
+    ) -> dict[str, Any]:
+        """Sync a HighLevel tag to ad audiences (async)"""
+        payload = self._build_body(
+            {
+                "tag": tag,
+                "targets": targets,
+                "audienceName": audience_name,
+            }
+        )
+        return await self._client._apost(
+            f"/v1/accounts/{account_id}/gohighlevel-audiences", data=payload
+        )
+
+    async def astop_gohighlevel_audience_sync(
+        self, account_id: str, sync_id: str
+    ) -> dict[str, Any]:
+        """Stop a HighLevel tag audience sync (async)"""
+        return await self._client._adelete(
+            f"/v1/accounts/{account_id}/gohighlevel-audiences/{sync_id}"
+        )
+
+    async def aget_gohighlevel_funnel_tracking(self, account_id: str) -> dict[str, Any]:
+        """Get HighLevel funnel tracking (async)"""
+        return await self._client._aget(
+            f"/v1/accounts/{account_id}/gohighlevel-funnel-tracking"
+        )
+
+    async def averify_gohighlevel_funnel_tracking(
+        self, account_id: str, url: str
+    ) -> dict[str, Any]:
+        """Check the Zernio tag on a HighLevel funnel page (async)"""
+        payload = self._build_body(
+            {
+                "url": url,
+            }
+        )
+        return await self._client._apost(
+            f"/v1/accounts/{account_id}/gohighlevel-funnel-tracking/verify",
+            data=payload,
+        )
+
+    async def asend_gohighlevel_past_won_deals(self, account_id: str) -> dict[str, Any]:
+        """Send past HighLevel won deals as conversions (async)"""
+        return await self._client._apost(
+            f"/v1/accounts/{account_id}/gohighlevel-won-deals-backfill"
         )
 
     async def aget_salesforce_settings(self, account_id: str) -> dict[str, Any]:

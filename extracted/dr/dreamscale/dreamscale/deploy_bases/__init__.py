@@ -176,8 +176,6 @@ class DeployBase:
     # robot -> ``module:function(rig, runner)`` returning the rig's observe for its deployments
     # (their cameras under the deployment's own names; ``runner``: () -> the task runner).
     robot_observe: Mapping[str, str] = field(default_factory=dict)
-    # Serving model IDs identifying deployments created before rows had a base model.
-    row_models: tuple[str, ...] = ()
 
 
 def _load_bases() -> tuple[DeployBase, ...]:
@@ -191,8 +189,6 @@ def _load_bases() -> tuple[DeployBase, ...]:
         if not isinstance(base, DeployBase) or base.family != family.id:
             raise RuntimeError(f"{path}.BASE is not its DeployBase")
         out.append(base)
-        # Previously deployed rows and clients keep their own host and request contract.
-        out.extend(getattr(module, "LEGACY_BASES", ()))
     aliases = [alias for base in out for alias in (base.name, *base.aliases)]
     if len(set(aliases)) != len(aliases):
         raise RuntimeError("two deployment bases share a name")

@@ -1074,7 +1074,20 @@ def diagnose(
     # either, so a row with a real, in-flight branch could misreport.  A row
     # already excluded there — a permanent block, or `_resolve_prereqs`'s
     # own unsatisfiable `after=` verdict, which `_reconcile_blocked_after`
-    # alone resolves — is excluded here too.
+    # alone resolves — is excluded here too. A row parked on a "CI
+    # running:"/"CI stuck:" reason (`coord.merge_queue.is_ci_pending_reason`)
+    # is excluded there too (#4072): that text is written only by
+    # `coord.drive_queue._reconcile_running`'s CI-pending park, which by
+    # construction never fires without a real branch/PR to park ON — direct,
+    # current proof a dispatch happened, which must outrank
+    # `_probe_confirms_never_dispatched`'s `no_assignment_ever` reading: that
+    # board scan (`coord.gates.assignments_for_issue`) only covers
+    # `board.active`/`board.completed`, so a dispatch whose assignment has
+    # since aged into the drive-queue's own archive reads identically to
+    # "never happened" there even though the PR it opened is still live and
+    # CI is still (or again) working through it. No separate conjunct is
+    # needed here to re-derive that: `is_unreachable_wait_shape` already
+    # returns `False` for such a row, so this branch never reaches it.
     if (
         cause == CAUSE_UNKNOWN
         and is_unreachable_wait_shape(entry)

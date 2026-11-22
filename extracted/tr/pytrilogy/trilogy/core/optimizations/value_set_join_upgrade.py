@@ -47,7 +47,6 @@ from trilogy.core.models.execute import (
     Join,
     RecursiveCTE,
     UnionCTE,
-    UnnestJoin,
 )
 from trilogy.core.optimizations.base_optimization import MergedCTEMap, OptimizationRule
 from trilogy.core.processing.condition_utility import (
@@ -57,6 +56,7 @@ from trilogy.core.processing.condition_utility import (
 from trilogy.core.processing.join_resolution import (
     DIRECTIONAL_OUTER_JOIN_TYPES,
     OUTER_JOIN_TYPES,
+    leaf_tables,
     same_rows,
 )
 from trilogy.core.processing.null_provenance import (
@@ -428,13 +428,8 @@ def _unpaired_guest_padding(
     found no partner: the guest sale's description) and the sup side does
     not. Null-safe equality pairs that NULL only with a NULL member the sup
     side happens to hold, so the sub side's preservation stays load-bearing."""
-    if not isinstance(sub_cte, CTE):
-        return False
-    if not sub_concept.all_spellings & provenance(sub_cte.source).guest:
-        return False
-    return not (
-        isinstance(sup_cte, CTE)
-        and sup_concept.all_spellings & provenance(sup_cte.source).guest
+    return _guest_padded(sub_concept, sub_cte) and not _guest_padded(
+        sup_concept, sup_cte
     )
 
 
@@ -443,16 +438,41 @@ def _null_groups_differ(
     left_cte: CTE | UnionCTE,
     right: BuildConcept,
     right_cte: CTE | UnionCTE,
+    declared: bool = False,
 ) -> bool:
     """A side can NULL the key and the two do not read the same rows
     (`same_rows`): whether either holds a NULL group is data, so null-safe
-    equality may find it no partner. NULL is no member of a complete domain."""
+    equality may find it no partner. NULL is no member of a complete domain.
+    A `declared` relation speaks for its keys' value NULLs, never for a guest
+    (a fact row whose key found no dimension row: an undated sale)."""
+    if declared:
+        if not (_guest_padded(left, left_cte) or _guest_padded(right, right_cte)):
+            return False
+        return not _same_filtered_rows(left_cte, right_cte)
     if not (_key_nullable(left, left_cte) or _key_nullable(right, right_cte)):
         return False
     return not (
         isinstance(left_cte, CTE)
         and isinstance(right_cte, CTE)
         and same_rows(left_cte.source, right_cte.source)
+    )
+
+
+def _same_filtered_rows(left_cte: CTE | UnionCTE, right_cte: CTE | UnionCTE) -> bool:
+    """`same_rows` as the CTEs stand: a filter pushed down after planning
+    reaches one side's plan only through its CTE chain."""
+    if not (isinstance(left_cte, CTE) and isinstance(right_cte, CTE)):
+        return False
+    if same_rows(left_cte.source, right_cte.source):
+        return True
+    return leaf_tables(left_cte.source) == leaf_tables(right_cte.source) and (
+        _same_filter_chain(left_cte, right_cte)
+    )
+
+
+def _guest_padded(concept: BuildConcept, cte: CTE | UnionCTE) -> bool:
+    return isinstance(cte, CTE) and bool(
+        concept.all_spellings & provenance(cte.source).guest
     )
 
 
@@ -592,17 +612,7 @@ def _complete_values(
         return bool(args) and all(
             _complete_values(arg, side_cte, graph) for arg in args
         )
-    if _joined_complete(concept, side_cte, graph):
-        return True
-    if concept.derivation == Derivation.UNNEST:
-        # Every element of every list read comes out, so the elements are
-        # complete when the lists are, over the rows the unnest reads.
-        sides = [side_cte, *_unnested_parent(side_cte)]
-        return bool(concept.concept_arguments) and all(
-            any(_complete_values(arg, side, graph) for side in sides)
-            for arg in concept.concept_arguments
-        )
-    return False
+    return _joined_complete(concept, side_cte, graph)
 
 
 def _joined_complete(concept: BuildConcept, side_cte: CTE, graph: DomainGraph) -> bool:
@@ -643,19 +653,6 @@ def _subset_first(
     if right_is_subset:
         return pair.right, right_cte, pair.left, pair.node
     return pair.left, pair.node, pair.right, right_cte
-
-
-def _unnested_parent(side_cte: CTE) -> list[CTE]:
-    """The single parent a CTE unnests with no WHERE and no other join."""
-    if (
-        side_cte.condition is not None
-        or not side_cte.joins
-        or not all(isinstance(j, UnnestJoin) for j in side_cte.joins)
-        or len(side_cte.parent_ctes) != 1
-        or not isinstance(side_cte.parent_ctes[0], CTE)
-    ):
-        return []
-    return [side_cte.parent_ctes[0]]
 
 
 def _declared_partial(concept: BuildConcept, side_cte: CTE | UnionCTE) -> bool:
@@ -981,8 +978,12 @@ class UpgradeOuterFromKeySetEquivalence(OptimizationRule):
                 witness, right_cte
             ):
                 return False
-            if not self._pair_declared(witness) and _null_groups_differ(
-                witness.left, witness.node, pair.right, right_cte
+            if _null_groups_differ(
+                witness.left,
+                witness.node,
+                pair.right,
+                right_cte,
+                self._pair_declared(witness),
             ):
                 return False
             if pair.is_nullable:

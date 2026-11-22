@@ -5,7 +5,6 @@ Semantic splitting of text documents.
 
 use std::ops::Range;
 
-use itertools::Itertools;
 use memchr::memchr2_iter;
 
 use crate::{
@@ -13,7 +12,7 @@ use crate::{
     ChunkConfig, ChunkSizer, TryChunkSizer,
 };
 
-use super::{fallback::GRAPHEME_SEGMENTER, ChunkCharIndex};
+use super::ChunkCharIndex;
 
 /// Default plain-text splitter. Recursively splits chunks into the largest
 /// semantic units that fit within the chunk size. Also will attempt to merge
@@ -179,29 +178,21 @@ where
     }
 
     fn parse(&self, text: &str) -> Vec<(Self::Level, Range<usize>)> {
-        memchr2_iter(b'\n', b'\r', text.as_bytes())
-            .map(|i| i..i + 1)
-            .coalesce(|a, b| {
-                if a.end == b.start {
-                    Ok(a.start..b.end)
-                } else {
-                    Err((a, b))
+        let bytes = text.as_bytes();
+        let mut runs: Vec<(LineBreaks, Range<usize>)> = Vec::new();
+        for i in memchr2_iter(b'\n', b'\r', bytes) {
+            match runs.last_mut() {
+                Some((LineBreaks(count), range)) if range.end == i => {
+                    // CRLF extends the current break; every other CR or LF starts another.
+                    if (bytes[i - 1], bytes[i]) != (b'\r', b'\n') {
+                        *count += 1;
+                    }
+                    range.end = i + 1;
                 }
-            })
-            .map(|range| {
-                let level = GRAPHEME_SEGMENTER
-                    .segment_str(text.get(range.start..range.end).unwrap())
-                    .tuple_windows::<(usize, usize)>()
-                    .count();
-                (
-                    match level {
-                        0 => unreachable!("regex should always match at least one newline"),
-                        n => LineBreaks(n),
-                    },
-                    range,
-                )
-            })
-            .collect()
+                _ => runs.push((LineBreaks(1), i..i + 1)),
+            }
+        }
+        runs
     }
 }
 
@@ -418,6 +409,44 @@ mod tests {
     }
 
     #[test]
+    fn sentence_probing_does_not_consume_dictionary_words_from_the_output() {
+        let splitter = TextSplitter::new(ChunkConfig::new(8).with_trim(false));
+        assert_eq!(
+            splitter
+                .chunk_indices("ภาษาไทยเป็นภาษาที่สวยงามมาก")
+                .collect::<Vec<_>>(),
+            [
+                (0, "ภาษาไทย"),
+                (21, "เป็นภาษา"),
+                (45, "ที่"),
+                (54, "สวยงาม"),
+                (72, "มาก")
+            ]
+        );
+    }
+
+    #[test]
+    fn dictionary_word_chunks_restart_at_the_overlap_cursor() {
+        let splitter = TextSplitter::new(
+            ChunkConfig::new(7)
+                .with_overlap(4)
+                .unwrap()
+                .with_trim(false),
+        );
+        assert_eq!(
+            splitter
+                .chunk_indices("日本語の長い文章に句読点がない")
+                .collect::<Vec<_>>(),
+            [
+                (0, "日本語の長い"),
+                (9, "の長い文章に"),
+                (18, "文章に句読点が"),
+                (27, "句読点がない")
+            ]
+        );
+    }
+
+    #[test]
     fn words_fallback_to_graphemes() {
         let text = "Thé quick\r\n";
         let chunks = TextSplitter::new(ChunkConfig::new(2).with_trim(false))
@@ -495,5 +524,29 @@ mod tests {
             vec![(LineBreaks(2), 0..4), (LineBreaks(3), 8..11)],
             linebreaks.ranges
         );
+    }
+
+    #[test]
+    fn cr_lf_runs_match_grapheme_counts() {
+        use crate::splitter::fallback::GRAPHEME_SEGMENTER;
+
+        let splitter = TextSplitter::new(10);
+        for len in 1..=13 {
+            for mask in 0..(1_usize << len) {
+                let run: String = (0..len)
+                    .map(|i| if mask & (1 << i) == 0 { '\r' } else { '\n' })
+                    .collect();
+                let level = LineBreaks(GRAPHEME_SEGMENTER.segment_str(&run).count() - 1);
+                // The Unicode line separator isn't part of either ASCII run.
+                let text = format!("é{run}\u{2028}{run}");
+                let first = "é".len();
+                let second = first + len + '\u{2028}'.len_utf8();
+                assert_eq!(
+                    splitter.parse(&text),
+                    [(level, first..first + len), (level, second..second + len)],
+                    "{run:?}"
+                );
+            }
+        }
     }
 }

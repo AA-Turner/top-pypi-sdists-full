@@ -13,7 +13,7 @@ use formualizer_macros::func_caps;
 pub struct TrueFn;
 /// Returns the logical constant TRUE.
 ///
-/// Use `TRUE()` when you want an explicit boolean value in formulas.
+/// Use `TRUE` for the logical value true in formulas.
 ///
 /// # Remarks
 /// - `TRUE` takes no arguments and always returns the boolean value `TRUE`.
@@ -79,7 +79,7 @@ impl Function for TrueFn {
 pub struct FalseFn;
 /// Returns the logical constant FALSE.
 ///
-/// Use `FALSE()` when you want an explicit boolean false value in formulas.
+/// Use `FALSE` for the logical value false in formulas.
 ///
 /// # Remarks
 /// - `FALSE` takes no arguments and always returns the boolean value `FALSE`.
@@ -213,7 +213,7 @@ impl Function for AndFn {
         _ctx: &dyn FunctionContext<'b>,
     ) -> Result<crate::traits::CalcValue<'b>, ExcelError> {
         let mut all_true = true;
-        let outcome = scan_logical_args(args, "AND", |b| all_true &= b)?;
+        let outcome = scan_logical_args(args, "AND", |b, _| all_true &= b)?;
         Ok(crate::traits::CalcValue::Scalar(
             outcome.unwrap_or(LiteralValue::Boolean(all_true)),
         ))
@@ -294,7 +294,7 @@ impl Function for OrFn {
         _ctx: &dyn FunctionContext<'b>,
     ) -> Result<crate::traits::CalcValue<'b>, ExcelError> {
         let mut any_true = false;
-        let outcome = scan_logical_args(args, "OR", |b| any_true |= b)?;
+        let outcome = scan_logical_args(args, "OR", |b, _| any_true |= b)?;
         Ok(crate::traits::CalcValue::Scalar(
             outcome.unwrap_or(LiteralValue::Boolean(any_true)),
         ))
@@ -318,7 +318,7 @@ impl Function for OrFn {
 pub(crate) fn scan_logical_args(
     args: &[ArgumentHandle<'_, '_>],
     name: &'static str,
-    mut on_logical: impl FnMut(bool),
+    mut on_logical: impl FnMut(bool, u64),
 ) -> Result<Option<LiteralValue>, ExcelError> {
     use crate::traits::{CalcValue, ResolvedArgument};
 
@@ -332,19 +332,22 @@ pub(crate) fn scan_logical_args(
         };
         match resolved {
             ResolvedArgument::Range(view) => {
-                view.for_each_cell(&mut |cell| {
+                let mut visit = |cell: &LiteralValue, count: u64| {
+                    if count == 0 {
+                        return;
+                    }
                     match cell {
                         LiteralValue::Boolean(b) => {
                             seen_logical = true;
-                            on_logical(*b);
+                            on_logical(*b, count);
                         }
                         LiteralValue::Number(n) => {
                             seen_logical = true;
-                            on_logical(*n != 0.0);
+                            on_logical(*n != 0.0, count);
                         }
                         LiteralValue::Int(i) => {
                             seen_logical = true;
-                            on_logical(*i != 0);
+                            on_logical(*i != 0, count);
                         }
                         LiteralValue::Error(error) if first_error.is_none() => {
                             first_error = Some(error.clone());
@@ -352,8 +355,55 @@ pub(crate) fn scan_logical_args(
                         // Text, blanks and other non-logical cells are ignored.
                         _ => {}
                     }
-                    Ok(())
-                })?;
+                };
+                let (rows, cols) = view.dims();
+                let (ar, ac) = view.active_dims();
+                let tail_rows = (rows - ar) as u64;
+                let tail_cols = (cols - ac) as u64;
+                if tail_cols == 0 {
+                    view.core_sub_view().for_each_cell(&mut |cell| {
+                        visit(cell, 1);
+                        Ok(())
+                    })?;
+                } else {
+                    let mut since_poll = 4096usize;
+                    for r in 0..ar {
+                        for c in 0..ac {
+                            if since_poll >= 4096 {
+                                since_poll = 0;
+                                if view.criteria_cache_cancelled() {
+                                    return Err(ExcelError::new(
+                                        formualizer_common::ExcelErrorKind::Cancelled,
+                                    ));
+                                }
+                            }
+                            since_poll += 1;
+                            let cell = view.get_cell(r, c);
+                            visit(&cell, 1);
+                        }
+                        if since_poll >= 4096 {
+                            since_poll = 0;
+                            if view.criteria_cache_cancelled() {
+                                return Err(ExcelError::new(
+                                    formualizer_common::ExcelErrorKind::Cancelled,
+                                ));
+                            }
+                        }
+                        since_poll += 1;
+                        let tail_cell = view.right_tail_cell(r);
+                        visit(&tail_cell, tail_cols);
+                    }
+                }
+                if tail_rows > 0 {
+                    for c in 0..ac {
+                        let tail_cell = view.bottom_tail_cell(c);
+                        visit(&tail_cell, tail_rows);
+                    }
+                    if tail_cols > 0 {
+                        let corner = view.corner_tail_cell();
+                        visit(&corner, tail_rows.saturating_mul(tail_cols));
+                    }
+                }
             }
             ResolvedArgument::ReferenceError(error) => {
                 if super::logical_ext::is_live_fault(&error) {
@@ -374,15 +424,15 @@ pub(crate) fn scan_logical_args(
                 match value {
                     LiteralValue::Boolean(b) => {
                         seen_logical = true;
-                        on_logical(b);
+                        on_logical(b, 1);
                     }
                     LiteralValue::Number(n) => {
                         seen_logical = true;
-                        on_logical(n != 0.0);
+                        on_logical(n != 0.0, 1);
                     }
                     LiteralValue::Int(i) => {
                         seen_logical = true;
-                        on_logical(i != 0);
+                        on_logical(i != 0, 1);
                     }
                     LiteralValue::Empty => {}
                     LiteralValue::Error(error) => {
@@ -653,18 +703,11 @@ fn eval_array_if<'b>(
     ctx: &dyn FunctionContext<'b>,
     condition: crate::traits::CalcValue<'b>,
 ) -> Result<crate::traits::CalcValue<'b>, ExcelError> {
-    use super::utils::{CancelPoll, Grid, materialized_shape_too_large};
-    use crate::broadcast::{broadcast_shape, project_index};
+    use super::utils::{CancelPoll, materialized_shape_too_large};
+    use crate::broadcast::broadcast_shape;
+    use crate::engine::range_view::{TailedOperand, build_tailed_range_view, combined_active_dims};
     use crate::traits::CalcValue;
 
-    fn grid(value: CalcValue<'_>) -> Grid<'_> {
-        match value {
-            CalcValue::Range(view) => Grid::Range(view),
-            CalcValue::Scalar(LiteralValue::Array(rows))
-            | CalcValue::AnnotatedScalar(LiteralValue::Array(rows), _) => Grid::Array(rows),
-            other => Grid::Scalar(other.into_literal()),
-        }
-    }
     fn truth(cell: LiteralValue) -> Result<bool, ExcelError> {
         match cell {
             LiteralValue::Boolean(b) => Ok(b),
@@ -684,21 +727,21 @@ fn eval_array_if<'b>(
             .is_some_and(crate::engine::CancelToken::is_cancelled)
     };
     let mut poll = CancelPoll::new(&is_cancelled);
-    let condition = grid(condition);
-    let condition_shape = condition.shape();
+    let condition = TailedOperand::from_calc_value(condition);
+    let condition_shape = condition.dims();
     poll.advance(0)?;
     if let Some(error) =
         materialized_shape_too_large(condition_shape, ctx.materialized_array_cells())
     {
         return Ok(CalcValue::Scalar(LiteralValue::Error(error)));
     }
-    // Scan without allocating a mask. Invalid conditions select neither arm.
-    // A view stays a view; no owned copy is needed for probing or selection.
+    // Scan without allocating a mask, visiting only active core + uniform tails.
     let (mut needs_true, mut needs_false) = (false, false);
-    'scan: for r in 0..condition_shape.0 {
-        for c in 0..condition_shape.1 {
+    let (cond_ar, cond_ac) = condition.active_dims();
+    'scan: for r in 0..cond_ar {
+        for c in 0..cond_ac {
             poll.advance(1)?;
-            match truth(condition.get(r, c)) {
+            match truth(condition.get_core(r, c)) {
                 Ok(true) => needs_true = true,
                 Ok(false) => needs_false = true,
                 Err(error) if super::logical_ext::is_live_fault(&error) => return Err(error),
@@ -709,29 +752,46 @@ fn eval_array_if<'b>(
             }
         }
     }
+    if !(needs_true && needs_false)
+        && let TailedOperand::Range(ref rv) = condition
+    {
+        rv.for_each_tail_entry(|cell, _| {
+            if needs_true && needs_false {
+                return Ok(());
+            }
+            poll.advance(1)?;
+            match truth(cell.clone()) {
+                Ok(true) => needs_true = true,
+                Ok(false) => needs_false = true,
+                Err(error) if super::logical_ext::is_live_fault(&error) => return Err(error),
+                Err(_) => {}
+            }
+            Ok(())
+        })?;
+    }
     // An unused branch contributes only a singleton shape, and is not evaluated.
     let yes = if needs_true {
         report_if_selected_function_reference(&args[1], ctx);
-        grid(args[1].value()?)
+        TailedOperand::from_calc_value(args[1].value()?)
     } else {
-        Grid::Scalar(LiteralValue::Empty)
+        TailedOperand::Scalar(LiteralValue::Empty)
     };
     let no = if needs_false {
         match args.get(2) {
             Some(arg) => {
                 report_if_selected_function_reference(arg, ctx);
-                grid(arg.value()?)
+                TailedOperand::from_calc_value(arg.value()?)
             }
-            None => Grid::Scalar(LiteralValue::Boolean(false)),
+            None => TailedOperand::Scalar(LiteralValue::Boolean(false)),
         }
     } else {
-        Grid::Scalar(LiteralValue::Empty)
+        TailedOperand::Scalar(LiteralValue::Empty)
     };
     // Branch evaluation may have cancelled since the scan's last poll.
     let mut poll = CancelPoll::new(&is_cancelled);
     poll.advance(0)?;
-    let yes_shape = yes.shape();
-    let no_shape = no.shape();
+    let yes_shape = yes.dims();
+    let no_shape = no.dims();
     let shape = match broadcast_shape(&[condition_shape, yes_shape, no_shape]) {
         Ok(shape) => shape,
         Err(error) => return Ok(CalcValue::Scalar(LiteralValue::Error(error))),
@@ -739,30 +799,70 @@ fn eval_array_if<'b>(
     if let Some(error) = materialized_shape_too_large(shape, ctx.materialized_array_cells()) {
         return Ok(CalcValue::Scalar(LiteralValue::Error(error)));
     }
+
+    fn select_cell(
+        cond_val: LiteralValue,
+        yes_val: impl FnOnce() -> LiteralValue,
+        no_val: impl FnOnce() -> LiteralValue,
+    ) -> Result<LiteralValue, ExcelError> {
+        let selected = match truth(cond_val) {
+            Ok(true) => yes_val(),
+            Ok(false) => no_val(),
+            Err(error) if super::logical_ext::is_live_fault(&error) => return Err(error),
+            Err(error) => LiteralValue::Error(error),
+        };
+        if let LiteralValue::Error(ref error) = selected
+            && super::logical_ext::is_live_fault(error)
+        {
+            return Err(error.clone());
+        }
+        Ok(selected)
+    }
+
+    let active = combined_active_dims(shape, &[&condition, &yes, &no]);
+    if active != shape {
+        let view = build_tailed_range_view(
+            shape,
+            active,
+            ctx.date_system(),
+            token,
+            ctx.materialized_array_cells(),
+            |pos| match pos {
+                crate::engine::range_view::TailPos::Core(r, c) => select_cell(
+                    condition.get_core(r, c),
+                    || yes.get_core(r, c),
+                    || no.get_core(r, c),
+                ),
+                crate::engine::range_view::TailPos::Right(r) => select_cell(
+                    condition.get_right_tail(r),
+                    || yes.get_right_tail(r),
+                    || no.get_right_tail(r),
+                ),
+                crate::engine::range_view::TailPos::Bottom(c) => select_cell(
+                    condition.get_bottom_tail(c),
+                    || yes.get_bottom_tail(c),
+                    || no.get_bottom_tail(c),
+                ),
+                crate::engine::range_view::TailPos::Corner => select_cell(
+                    condition.get_corner_tail(),
+                    || yes.get_corner_tail(),
+                    || no.get_corner_tail(),
+                ),
+            },
+        )?;
+        return Ok(CalcValue::Range(view));
+    }
+
     let mut output = Vec::with_capacity(shape.0);
     for r in 0..shape.0 {
         let mut row = Vec::with_capacity(shape.1);
         for c in 0..shape.1 {
             poll.advance(1)?;
-            let (cr, cc) = project_index((r, c), condition_shape);
-            let selected = match truth(condition.get(cr, cc)) {
-                Ok(true) => {
-                    let (r, c) = project_index((r, c), yes_shape);
-                    yes.get(r, c)
-                }
-                Ok(false) => {
-                    let (r, c) = project_index((r, c), no_shape);
-                    no.get(r, c)
-                }
-                Err(error) if super::logical_ext::is_live_fault(&error) => return Err(error),
-                Err(error) => LiteralValue::Error(error),
-            };
-            if let LiteralValue::Error(ref error) = selected
-                && super::logical_ext::is_live_fault(error)
-            {
-                return Err(error.clone());
-            }
-            row.push(selected);
+            row.push(select_cell(
+                condition.get_core(r, c),
+                || yes.get_core(r, c),
+                || no.get_core(r, c),
+            )?);
         }
         output.push(row);
     }

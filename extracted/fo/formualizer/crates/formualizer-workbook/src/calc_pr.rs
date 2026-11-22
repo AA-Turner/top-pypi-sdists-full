@@ -22,7 +22,7 @@
 //! ## Detection-handling decision (spec §9 implication)
 //!
 //! Spec §9 says "Loading never changes `detection`". Taken literally that would
-//! produce `CyclePolicy::Iterate` with the *default* `CycleDetection::Static`,
+//! produce `CyclePolicy::Iterate` with a caller's `CycleDetection::Static`,
 //! which is a config error that panics at engine construction
 //! ([`CycleConfig::validate`]). To keep `Workbook::from_reader` ergonomic and
 //! non-panicking we resolve the implication per the task's first option: when a
@@ -33,6 +33,8 @@
 //! `detection` (including a deliberate `Static` compat switch) is preserved.
 
 use crate::traits::CalcSettings;
+#[cfg(any(feature = "xlsx-recalc", feature = "umya", feature = "umya3"))]
+use crate::xml_compat::AttributeExt as _;
 use formualizer_eval::engine::{CycleConfig, CyclePolicy};
 
 /// Decoded values shared by lenient loading and validated source admission.
@@ -159,7 +161,7 @@ pub(crate) fn read_source_calc_properties(
                         let key = std::str::from_utf8(attribute.key.as_ref())
                             .map_err(|error| bad(&error.to_string()))?;
                         let value = attribute
-                            .decode_and_unescape_value(reader.decoder())
+                            .decoded_without_normalization(reader.decoder())
                             .map_err(|error| bad(&error.to_string()))?;
                         // Validate namespace values like other XML attributes,
                         // but do not interpret bindings as calculation properties.
@@ -242,7 +244,7 @@ pub fn parse_calc_pr(workbook_xml: &[u8]) -> Option<CalcSettings> {
                     .filter_map(|attribute| {
                         let key = std::str::from_utf8(attribute.key.as_ref()).ok()?.to_owned();
                         let value = attribute
-                            .decode_and_unescape_value(decoder)
+                            .decoded_without_normalization(decoder)
                             .ok()?
                             .into_owned();
                         Some((key, value))
@@ -451,7 +453,7 @@ pub fn rewrite_calc_pr_in_zip(
             let mut entry = archive
                 .by_index(i)
                 .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
-            let name = entry.name().to_string();
+            let name = entry.name().map_err(std::io::Error::other)?.into_owned();
             let options = SimpleFileOptions::default()
                 .compression_method(entry.compression())
                 .last_modified_time(entry.last_modified().unwrap_or_default());
@@ -644,7 +646,11 @@ mod tests {
             iterate_delta: Some(0.5),
             ..Default::default()
         };
-        let cfg = apply_calc_settings_to_cycle(&s, CycleConfig::default());
+        let base = CycleConfig {
+            detection: CycleDetection::Static,
+            policy: CyclePolicy::Error,
+        };
+        let cfg = apply_calc_settings_to_cycle(&s, base);
         assert_eq!(cfg.detection, CycleDetection::Runtime);
         assert_eq!(
             cfg.policy,

@@ -19,7 +19,7 @@
 //! the same name): one identifier per line, sorted, for scripts that ask the
 //! binary what it converts instead of hard-coding a list.
 //!
-//! Usage: docling-rs [--strict] [--page-break-placeholder TEXT] [--layers body|all|LIST] [--traverse-pictures] [--to md|json|html|text|dclx|chunks|images|latex|pandoc|vtt] [--pages A-B] [--scale X] [--images MODE] [--input GLOB --output DIR [--jobs N]] [--output-file PATH] [--fetch-images] [--image-sources none|embedded|local|remote] [--image-hosts LIST] [--max-images N] [--max-image-bytes N] [--max-image-total-mb N] [--min-image-bytes N] [--list-attachments] [--skip-empty-cells] [--compact-tables] [--picture-alt-text] [--ebcdic-layout JSON|PATH] [--encoding LABEL] [--ipynb-outputs none|text] [--metadata none|json|frontmatter] [--track-changes accept|reject|all] [--extract-diagrams mermaid|none] [--no-outline-level-headings] [--from FORMAT] [--mime-type TYPE] [--no-url-fetch] [--no-stream] [--progress|--no-progress] [--no-table-former] [--no-ocr] [--text-layer-only] [--password PASSWORD | --password-file PATH] [--force-full-page-ocr] [--replace-broken-text-layer] [--no-text-panels] [--heading-hierarchy] [--script-positions] [--ocr-lang LANG] [--ocr-engine ppocr|tesseract] [--ocr-mode MODE] [--ocr-scale X] [--pdf-word-gap adaptive|legacy|F] [--pdf-keep-typography] [--pdf-report-repairs] [--ocr-textline-orientation] [--images-scale X] [--page-images] [--chunker hierarchical|hybrid] [--chunk-tokenizer PATH] [--chunk-max-tokens N] [--no-chunk-merge-peers] [--pipeline standard|vlm] [--vlm-endpoint URL] [--vlm-model NAME] [--vlm-api-key TOKEN] [--vlm-prompt TEXT] [--vlm-max-tokens N] [--asr-model PRESET] [--asr-lang CODE] [--video-frames N|all] [--video-scene-threshold X] [--video-frame-max-side PX] [--video-frame-dedupe N] [--xbrl-taxonomy DIR] [--use-web-browser] [--enrich-picture-classes] [--enrich-code] [--enrich-formula] [--picture-ocr] [--picture-ocr-classes LABELS] [--picture-ocr-min-side N] [--picture-ocr-scale X] [--no-picture-images] [--picture-description] [--picture-description-endpoint URL] [--picture-description-model NAME] [--picture-description-api-key TOKEN] [--picture-description-prompt TEXT] [--picture-description-mode caption|ocr] [--picture-description-concurrency N] [--redact-pii] [--redact-mode label|pseudonym|fixed:TEXT] [--redact-kinds LIST] [--redact-pattern NAME=REGEX]... [--redact-images drop|box_out|keep] [--redact-allow-terms LIST] [--redact-deny-terms LIST] [--redact-allow-pattern REGEX]... [--redact-ner-min-score X] [--document-timeout SECONDS] [--abort-on-error] [--output-dirs auto|flat|mirror] [--archive-merge|--no-archive-merge] <input-file> | - | URL | SOURCE...
+//! Usage: docling-rs [--strict] [--page-break-placeholder TEXT] [--layers body|all|LIST] [--traverse-pictures] [--to md|json|html|text|dclx|chunks|images|latex|pandoc|vtt] [--pages A-B] [--scale X] [--images MODE] [--input GLOB --output DIR [--jobs N]] [--output-file PATH] [--fetch-images] [--image-sources none|embedded|local|remote] [--image-hosts LIST] [--max-images N] [--max-image-bytes N] [--max-image-total-mb N] [--min-image-bytes N] [--list-attachments] [--no-calendar-invitations] [--skip-empty-cells] [--compact-tables] [--picture-alt-text] [--ebcdic-layout JSON|PATH] [--encoding LABEL] [--ipynb-outputs none|text] [--metadata none|json|frontmatter] [--track-changes accept|reject|all] [--extract-diagrams mermaid|none] [--no-outline-level-headings] [--from FORMAT] [--mime-type TYPE] [--no-url-fetch] [--no-stream] [--progress|--no-progress] [--no-table-former] [--no-ocr] [--text-layer-only] [--password PASSWORD | --password-file PATH] [--force-full-page-ocr] [--replace-broken-text-layer] [--no-text-panels] [--heading-hierarchy] [--script-positions] [--ocr-lang LANG] [--ocr-engine ppocr|tesseract] [--ocr-mode MODE] [--ocr-scale X] [--pdf-word-gap adaptive|legacy|F] [--pdf-keep-typography] [--pdf-report-repairs] [--ocr-textline-orientation] [--images-scale X] [--page-images] [--chunker hierarchical|hybrid] [--chunk-tokenizer PATH] [--chunk-max-tokens N] [--no-chunk-merge-peers] [--pipeline standard|vlm] [--vlm-endpoint URL] [--vlm-model NAME] [--vlm-api-key TOKEN] [--vlm-prompt TEXT] [--vlm-max-tokens N] [--asr-model PRESET] [--asr-lang CODE] [--video-frames N|all] [--video-scene-threshold X] [--video-frame-max-side PX] [--video-frame-dedupe N] [--xbrl-taxonomy DIR] [--use-web-browser] [--enrich-picture-classes] [--enrich-code] [--enrich-formula] [--picture-ocr] [--picture-ocr-classes LABELS] [--picture-ocr-min-side N] [--picture-ocr-scale X] [--no-picture-images] [--picture-description] [--picture-description-endpoint URL] [--picture-description-model NAME] [--picture-description-api-key TOKEN] [--picture-description-prompt TEXT] [--picture-description-mode caption|ocr] [--picture-description-concurrency N] [--redact-pii] [--redact-mode label|pseudonym|fixed:TEXT] [--redact-kinds LIST] [--redact-pattern NAME=REGEX]... [--redact-images drop|box_out|keep] [--redact-allow-terms LIST] [--redact-deny-terms LIST] [--redact-allow-pattern REGEX]... [--redact-ner-min-score X] [--document-timeout SECONDS] [--abort-on-error] [--output-dirs auto|flat|mirror] [--archive-merge|--no-archive-merge] <input-file> | - | URL | SOURCE...
 //!   --to FORMAT        repeatable (#491, like Python's `docling convert --to
 //!                      md --to json`): each document converts once and is
 //!                      written in every format named, `<stem>.md` +
@@ -187,6 +187,11 @@
 //!                      lands only between two rendered blocks on different
 //!                      pages — never first or last, empty pages collapse. Off
 //!                      by default: docling's Markdown carries no page breaks.
+//!   --formatting-fallback-mode none|html
+//!                      how the Markdown renders underline and sub/superscript
+//!                      (docling-core's `formatting_fallback_mode`): none
+//!                      (default) drops them, html writes <u>, <sub>, <sup>.
+//!                      Markdown only; the plain text drops them still.
 //!   --layers body|all|LIST, --traverse-pictures
 //!                      docling's `export_to_markdown(included_content_layers=…,
 //!                      traverse_pictures=…)`: layers for md/text/html (default
@@ -203,11 +208,12 @@
 //!                      pipe, a log); --progress forces the plain `done/total`
 //!                      counts there. A batch logs its `start:` / `ok:` lines
 //!                      as before and shows the bars between them.
-//!   --no-table-former  skip loading/running the TableFormer table-structure
-//!                      model for PDF/image input; tables fall back to simple
-//!                      geometric reconstruction from cell positions. Faster
-//!                      (no model load, no per-table inference) at the cost of
-//!                      table fidelity — helps most in streaming mode.
+//!   --no-table-former  skip table structure for PDF/image input (docling's
+//!                      `--no-tables`, `do_table_structure=False`). Layout
+//!                      still runs. docling 2.150 emits an empty table;
+//!                      the words stay text, each with its own box. The
+//!                      geometric grid is only the fallback when TableFormer
+//!                      was requested and its model files are missing.
 //!   --video-frames N|all
 //!                      Max frames sampled from a video input as timestamped
 //!                      pictures (needs the ffmpeg binary; 0 = transcript
@@ -341,8 +347,10 @@
 //!                      meta.description. Needs the OCR models (.models/ocr_rec*,
 //!                      ocr_det.onnx for line detection; --ocr-engine tesseract
 //!                      works too); under --no-ocr / --text-layer-only it warns
-//!                      and reads nothing. PDF/image pages are OCR'd by the
-//!                      pipeline already and are left alone.
+//!                      and reads nothing. A PDF page with a text layer reads
+//!                      the text inside its pictures too (#1219: a seal, a
+//!                      photo's label); scanned PDF pages and images are OCR'd
+//!                      by the pipeline already and are left alone.
 //!   --picture-ocr-classes LABELS
 //!                      only read the pictures the DocumentFigureClassifier
 //!                      labels as one of these (comma-separated, e.g.
@@ -612,6 +620,8 @@ FORMAT OPTIONS
   --max-image-total-mb N  total resolved image bytes per document (default unlimited)
   --min-image-bytes N     smallest image that resolves (default 0)
   --list-attachments      append an Attachments section for .eml/.msg
+  --no-calendar-invitations  keep an email's calendar parts as text instead of a
+                          Calendar section of their events (docling#5357)
   --skip-empty-cells      omit empty cells from XLSX/XLS grids
   --ebcdic-layout JSON|PATH   EBCDIC copybook layout
   --encoding LABEL        character encoding of text inputs (shift_jis, koi8-r,
@@ -640,8 +650,9 @@ FORMAT OPTIONS
 
 PDF / IMAGE PIPELINE
   --ocr-engine ppocr|tesseract   OCR engine (default: ppocr; tesseract = the system binary)
-  --no-table-former       skip the TableFormer model (geometric tables instead;
-                          docling's --no-tables)
+  --no-table-former       skip table structure (docling's --no-tables).
+                          Layout still runs. docling emits an empty table;
+                          the words stay text, each with its own box
   --no-ocr                never run OCR, keep layout + tables (docling's --no-ocr;
                           --skip-ocr is the same)
   --text-layer-only       no models at all: the embedded text layer as flat
@@ -910,6 +921,9 @@ fn main() -> ExitCode {
             // #251: append an Attachments section to converted emails
             // (.eml/.msg) — names and content types only.
             "--list-attachments" => opts.list_attachments = Some(true),
+            // docling#5357: the events of an email's calendar invitations
+            // are a Calendar section by default; this keeps them as text.
+            "--no-calendar-invitations" => opts.parse_calendar_invitations = Some(false),
             // Sparse-spreadsheet compaction (#271, docling.rs extensions):
             // omit empty cells from XLSX/XLS table grids, and/or render all
             // Markdown tables compact (no width padding).
@@ -923,6 +937,15 @@ fn main() -> ExitCode {
                 Some(v) => opts.page_break_placeholder = Some(v),
                 None => {
                     eprintln!("error: --page-break-placeholder needs the text to insert");
+                    return ExitCode::from(2);
+                }
+            },
+            // docling-core#661 (#1205): underline and sub/superscript in the
+            // Markdown as HTML tags.
+            "--formatting-fallback-mode" => match args.next() {
+                Some(v) => opts.formatting_fallback_mode = Some(v),
+                None => {
+                    eprintln!("error: --formatting-fallback-mode needs none or html");
                     return ExitCode::from(2);
                 }
             },
@@ -2824,6 +2847,7 @@ fn batch_pipeline<'a>(
             .skip_ocr(o.ocr_disabled())
             .force_full_page_ocr(o.force_full_page_ocr.unwrap_or(false))
             .replace_broken_text_layer(o.replace_broken_text_layer.unwrap_or(false))
+            .picture_ocr(o.do_picture_ocr.unwrap_or(false))
             .no_text_panels(o.no_text_panels.unwrap_or(false))
             .heading_hierarchy(docling::HeadingHierarchyOptions::enabled(
                 o.heading_hierarchy.unwrap_or(false),
@@ -2991,6 +3015,10 @@ fn batch_convert_one(
     // itself; the VLM and warm-pipeline branches bypass `convert`, so it
     // is applied to their document below.
     let mut redaction = None;
+    // Whether the document had the OCR it asked for (#1210): the engine's
+    // own warning prints once per process, so a batch of scans names each
+    // one that came back without it.
+    let mut ocr_status = None;
     let bypasses_converter =
         cfg.vlm.is_some() || matches!(source.format, InputFormat::Pdf | InputFormat::Image);
     let mut document = if let Some(vlm) = &cfg.vlm {
@@ -3009,6 +3037,8 @@ fn batch_convert_one(
         let reporter = std::sync::Arc::new(converter.reporter(document_index, &source.name, None));
         reporter.document_started();
         p.set_progress(reporter.page_hook());
+        // What an earlier document that failed half-way left (#1210).
+        let _ = p.take_ocr_status();
         let converted = match source.format {
             InputFormat::Pdf => p
                 .convert_outcome(&source.bytes, cfg.opts.password.as_deref(), &source.name)
@@ -3025,6 +3055,7 @@ fn batch_convert_one(
             _ => p.convert_image(&source.bytes, &source.name),
         };
         p.set_progress(None);
+        ocr_status = p.take_ocr_status();
         match converted {
             Ok(mut document) => {
                 // The picture enrichment `convert` runs (#896): without it
@@ -3049,8 +3080,15 @@ fn batch_convert_one(
             .map_err(|e| e.to_string())?;
         partial.extend(result.errors.iter().map(docling::ErrorItem::describe));
         redaction = result.redaction;
+        ocr_status = result.ocr_status;
         result.document
     };
+    if let Some(docling::OcrStatus::Unavailable { .. }) = &ocr_status {
+        eprintln!(
+            "warning: {label}: OCR unavailable; text on scanned pages and inside images is \
+             missing"
+        );
+    }
     if bypasses_converter {
         redaction = converter.redact(&mut document).map_err(|e| e.to_string())?;
         // The document-level settings `convert` ends with: without them a

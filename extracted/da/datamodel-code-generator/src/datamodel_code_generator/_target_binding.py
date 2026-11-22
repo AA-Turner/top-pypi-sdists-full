@@ -10,6 +10,7 @@ documents.
 
 from __future__ import annotations
 
+from ast import literal_eval
 from contextlib import contextmanager, suppress
 from dataclasses import dataclass, replace
 from decimal import Decimal
@@ -24,7 +25,6 @@ from urllib.parse import ParseResult
 from pydantic import ValidationError
 from typing_extensions import override
 
-from datamodel_code_generator import Error, SchemaParseError
 from datamodel_code_generator._asyncapi_connections import ReadMember, Walk, WalkedMessage, read
 from datamodel_code_generator._container_kinds import (
     CONTAINER_FLAGS,
@@ -38,6 +38,7 @@ from datamodel_code_generator._container_kinds import (
 )
 from datamodel_code_generator._document_reader import MISSING, as_mapping, descend, document_statuses, string_key
 from datamodel_code_generator._generation_contract import AttemptId
+from datamodel_code_generator._graph_links import drop_tree
 from datamodel_code_generator._json_pointer import document_part, pointer_tokens, reference_tokens
 from datamodel_code_generator._module_paths import written_path
 from datamodel_code_generator._mro import collect_members
@@ -46,6 +47,7 @@ from datamodel_code_generator._openapi_wire_plan import EVENT_STREAM, FORMS, mes
 from datamodel_code_generator._paths import file_uri
 from datamodel_code_generator._python_syntax import subscript_text
 from datamodel_code_generator._runtime.model_codecs.media import media_kind, normalized
+from datamodel_code_generator._shared_types import Error, SchemaParseError
 from datamodel_code_generator._site_facts import ANNOTATION_KEYWORDS, site_facts_of
 from datamodel_code_generator._target_contract import (
     WRAPPER_KINDS,
@@ -528,7 +530,7 @@ class _TargetRecording(OpenAPIParser):
             self.copies[id(copied)] = (copied, inherited_field)
         return copied
 
-    def _create_variant_model(  # noqa: PLR0913
+    def _create_variant_model(
         self,
         base_reference: Reference,
         suffix: Literal["Request", "Response"],
@@ -569,7 +571,7 @@ class _TargetRecording(OpenAPIParser):
         ):
             self.free_schemas[declaration] = self._validate_schema_object(raw, path)
 
-    def _generate_module_output(  # noqa: PLR0913, PLR0917
+    def _generate_module_output(  # noqa: PLR0917
         self,
         ctx: ModuleContext,
         config: ParseConfig,
@@ -765,7 +767,7 @@ class TargetApiOpenAPIParser(_TargetRecording, ApiOpenAPIParser):
         if declaration not in self._declaration_types:
             self._free(declaration, "value", raw, path)
 
-    def _acquire_item_schema(  # ruff: ignore[too-many-arguments]
+    def _acquire_item_schema(
         self,
         name: str,
         item: YamlValue,
@@ -1194,7 +1196,6 @@ def _backend_value(value: object) -> KnownBackendValue:
 
 
 def _syntax_value(value: str) -> KnownBackendValue:
-    from ast import literal_eval  # noqa: PLC0415
 
     try:
         literal = _literal_scalar(literal_eval(value))
@@ -1876,7 +1877,14 @@ class _Projector:
             hint = ModelHint(HintText(annotation.parts, (*annotation.imports, IMPORT_FIELD)), hints.of(union).static)
             hints.fixed[IMPORT_FIELD] = None
             schema = union.discriminator if isinstance(union, UnionType) else None
-            return UnionType(parts, preserve_order, schema, hint, discriminator)
+            union = UnionType(parts, preserve_order, schema, hint, discriminator)
+        if data_type.items_admit_none and union != ImportedType(IMPORT_ANY):
+            items = union
+            union = _ordered_union(
+                (items, NoneType()),
+                preserve_order=preserve_order,
+                hint=lambda _: hints.composed(data_type, base=items, is_optional=True),
+            )
         return union
 
     def selector(self, data_type: DataType) -> UnionDiscriminator | None:
@@ -2178,7 +2186,7 @@ def _applied_configuration(model: DataModel) -> tuple[Literal["allow", "forbid",
     return extra, "validate_by_alias" in items and _syntax_value(items["validate_by_alias"]).value == _FALSE
 
 
-def _field_facts(  # noqa: PLR0913
+def _field_facts(
     field: DataModelFieldBase,
     type_value: TypeView,
     backend: BackendName,
@@ -2392,7 +2400,6 @@ class _Models:
             return
         with parser.model_resolver.current_root_context(declaration.document.split("/")):
             data_type = parser._build_lightweight_type(schema)  # noqa: SLF001
-        from datamodel_code_generator._graph_links import drop_tree  # noqa: PLC0415
 
         try:
             yield data_type
@@ -2893,7 +2900,7 @@ class _SchemaUses(_Models):
             members.append(replace(member, direction=direction) if direction != member.direction else member)
         return tuple(members)
 
-    def use_id(  # ruff: ignore[too-many-arguments]
+    def use_id(
         self,
         owner: OperationId | SourceLocation,
         role: TypeUseRole,
@@ -3210,7 +3217,7 @@ class _UseFacts(_SchemaUses):
         """Return what the class a type holds takes of the other properties its schema gives (``_held``)."""
         return _held(others, self.applied_extra(value))
 
-    def member_shape(  # noqa: PLR0913
+    def member_shape(
         self,
         name: str,
         value: TypeView | None,
@@ -3249,7 +3256,7 @@ class _UseFacts(_SchemaUses):
         """Return where the schema of the items of a form member's values is, its own where it does not repeat."""
         return source if self.tables.contained(value, "items") is None else self.holder(value, source).child("items")
 
-    def shape(  # noqa: PLR0911, PLR0913
+    def shape(  # noqa: PLR0911
         self,
         value: TypeView | None,
         source: SourceLocation,
@@ -3925,7 +3932,7 @@ class _Contracts(_Octets):
             )
         return uses
 
-    def media(  # noqa: PLR0913
+    def media(
         self,
         holder: _WalkedObject,
         use_site: SchemaLocation,
@@ -4012,7 +4019,7 @@ class _Contracts(_Octets):
             )
         return tuple(values)
 
-    def parameter(  # noqa: PLR0913
+    def parameter(
         self,
         walked: _WalkedObject,
         use_site: SchemaLocation,
@@ -4060,7 +4067,7 @@ class _Contracts(_Octets):
             children,
         )
 
-    def headers(  # noqa: PLR0913
+    def headers(
         self,
         holder: _WalkedObject,
         use_site: SchemaLocation,

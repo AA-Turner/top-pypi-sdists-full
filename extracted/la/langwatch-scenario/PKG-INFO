@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langwatch-scenario
-Version: 1.6.1
+Version: 1.7.1
 Summary: The end-to-end agent testing library
 Author-email: LangWatch Team <support@langwatch.ai>
 License: Apache-2.0
@@ -52,6 +52,7 @@ Requires-Dist: pydantic-ai-slim[openai]<2.0.0,>=1.102.0; extra == "dev"
 Requires-Dist: function-schema; extra == "dev"
 Requires-Dist: pdoc3; extra == "dev"
 Requires-Dist: respx; extra == "dev"
+Requires-Dist: aiohttp; extra == "dev"
 Provides-Extra: report
 Requires-Dist: streamlit>=1.30; extra == "report"
 Requires-Dist: plotly>=5.0; extra == "report"

@@ -25,7 +25,7 @@ from sequence_ai._core.plugins import first, needs_cloud
 from sequence_ai.errors import InvalidRequest, NotFound, SequencesError
 
 
-_OWN = ("init", "serve", "weights")
+_OWN = ("init", "serve", "weights", "teleop", "data")
 
 
 _OPEN_FLAGS = {"unauthenticated": "set SEQUENCES_API_KEY"}
@@ -153,17 +153,79 @@ def _dispatch(args: argparse.Namespace) -> int:
     if args.cmd == "serve":
         from seq import serve_local
 
-        return serve_local.serve(args.folder, args.name, host=args.host, port=args.port, weights=args.weights,
+
+        folder = _served(args.folder, args.base_url)
+        return serve_local.serve(folder, args.name, host=args.host, port=args.port, weights=args.weights,
                                  token=args.token, base_url=args.base_url, cuda_graphs=args.cuda_graphs,
                                  whole_graph=args.whole_graph, torch_compile=args.torch_compile,
                                  fused_kernels=args.fused_kernels, tensorrt=args.tensorrt, precision=args.precision,
-                                 tolerance=args.tolerance)
+                                 tolerance=args.tolerance, cfg_parallel=args.cfg_parallel,
+                                 pipeline_parallel=args.pipeline_parallel)
+    if args.cmd == "teleop":
+        import os
+
+        from sequence_ai._core import teleop_serve
+
+        token = args.token if args.token is not None else os.environ.get(teleop_serve.TOKEN_ENV)
+        secret = args.turn_secret or os.environ.get(teleop_serve.TURN_SECRET_ENV)
+        if args.turn and not secret:
+            raise InvalidRequest(f"--turn needs its server's shared secret: --turn-secret, or ${teleop_serve.TURN_SECRET_ENV}")
+        if args.moq and args.moq_port is not None:
+            raise InvalidRequest("--moq names a MoQ relay of your own and --moq-port serves one here: one of the two")
+        return teleop_serve.serve(args.host, args.port, token=token, robot=args.robot, record=args.record,
+                                  turn=args.turn or (), turn_secret=secret,
+                                  turn_ttl_s=args.turn_ttl or teleop_serve.TURN_TTL_S, moq=args.moq,
+                                  moq_port=args.moq_port)
+    if args.cmd == "data":
+        from sequence_ai._core import dataset
+
+        dataset.export(args.recordings, args.out, fmt=args.format, fps=args.fps)
+        return 0
     return _cmd_weights(args)
 
 
 def _command(args: argparse.Namespace) -> str:
     sub = getattr(args, f"{args.cmd}_cmd", None)
     return f"{args.cmd} {sub}" if sub else args.cmd
+
+
+def _served(given: str, base_url: str | None) -> str:
+    """
+    What `seq serve <given>` serves: the folder or .py file of that name here, as before - or, where there is none and
+    the name is a template's (pi05-droid, pi05-droid@v12), that template's code as `seq init` writes it, kept on this
+    machine (template_fetch.keep), whose weights `seq serve` then downloads with your key as it does for any folder.
+
+    In one sentence: a path here, or a name in no template's form → as given → a version named that is kept here → its
+    folder, the platform asked nothing → else the template's one version, or the one named, fetched → kept here
+    already: its folder → else kept, and its folder.
+
+    WHY a folder here wins: `seq serve pi05-droid` in the folder `seq init pi05-droid` made serves what was written and
+    perhaps edited there, as it did before a name could mean the template.
+    WHY no check of whether it deploys (seq init's _say_undeployable): serving it here is no deploy.
+    WHY no third_party sources (`seq init --no-source`): they are the upstream's code to read, which its image installs
+    from the official package; what serves here is what this machine has installed (requirements-policy.lock).
+    
+
+
+
+
+    """
+    from seq import template_fetch
+
+    if Path(given).exists() or not template_fetch.names_a_template(given):
+        return given
+    name, ref = template_fetch.split_ref(given)
+
+    kept = template_fetch.held(name, ref) if ref else None
+    if kept is None:
+        got = template_fetch.fetch(name, ref, base_url)
+        if got is None:
+            raise NotFound(f"{given}: no such folder, and no template by that name",
+                           hint="seq init --list shows the templates")
+        archive, version = got
+        kept = template_fetch.held(name, version) or template_fetch.keep(archive, name, version)
+    print(f"{name} {kept.name}: the template's code, in {kept}")
+    return str(kept)
 
 
 
@@ -182,7 +244,7 @@ def _print_templates(base_url: str | None) -> None:
     if _plugin() is None:
         rows = [r for r in rows if r.get("kind") == "policy"]
     print("\n".join(template_fetch.lines_by_kind(rows)))
-    print("\nseq init <template>[@stable|@beta|@vN] [directory]")
+    print("\nseq init <template>[@vN] [directory]")
 
 
 
@@ -199,9 +261,9 @@ def _cmd_weights(args: argparse.Namespace) -> int:
 
 def _cmd_init(template: str | None, dest: str | None, list_only: bool, base_url: str | None, *,
               no_source: bool = False) -> int:
-    """`seq init <template> [directory]`: one version of a template from the platform, by channel or version, unpacked
-    into the directory, with the large upstream sources its image installs unless `--no-source`. `--list` shows them
-    all."""
+    """`seq init <template> [directory]`: a template's one version from the platform, or the version named (@vN),
+    unpacked into the directory, with the large upstream sources its image installs unless `--no-source`. `--list`
+    shows them all."""
     if list_only or not template:
         _print_templates(base_url)
         return 0 if list_only else 2
@@ -212,18 +274,26 @@ def _cmd_init(template: str | None, dest: str | None, list_only: bool, base_url:
 
 
 def _init_official(spec: str, target: str | None, base_url: str | None, *, no_source: bool = False) -> int | None:
-    """Fetch the template from the platform and unpack it; None when the platform has no template by that name. With no
-    channel named, the version written is one this sequence-ai deploys (_deployable_version)."""
+    """Fetch the template's one version, or the one named, from the platform and unpack it; None when the platform has
+    no template by that name. With sequence-cloud installed, a version this sequence-ai cannot deploy is said
+    (_say_undeployable)."""
     from seq import template_fetch
 
     name, ref = template_fetch.split_ref(spec)
     dest = Path(target or name)
 
     template_fetch.refuse_occupied(dest)
-    got = template_fetch.fetch(name, ref or "stable", base_url)
+    got = template_fetch.fetch(name, ref, base_url)
     if got is None:
         return None
-    archive, version = _deployable_version(name, ref, *got, base_url=base_url)
+    archive, version = got
+
+
+
+
+    cloud = _plugin() is not None
+    if cloud:
+        _say_undeployable(name, archive, version)
 
 
 
@@ -236,9 +306,6 @@ def _init_official(spec: str, target: str | None, base_url: str | None, *, no_so
 
     pick = template_fetch.entry_name(dest, entry) if entry else None
     deploy = f"seq deploy {dest}" + (f" --name {pick}" if pick else "")
-
-
-    cloud = _plugin() is not None
     if entry and entry != "policy.py" and not cloud:
         print(f"next: {needs_cloud('registering it on the platform')}" + (f"; see {readme}" if readme else ""))
         return 0
@@ -268,21 +335,14 @@ def _init_official(spec: str, target: str | None, base_url: str | None, *, no_so
     return 0
 
 
-def _deployable_version(name: str, ref: str | None, archive: bytes, version: str, *,
-                        base_url: str | None) -> tuple[bytes, str]:
+def _say_undeployable(name: str, archive: bytes, version: str) -> None:
     """
-    The version `seq init` writes, and a line when it is not simply the one fetched.
+    A warning when this sequence-ai cannot deploy the version `seq init` writes: the version read as `seq deploy` reads
+    it (template_fetch.check_archive), its refusal said under the warning; nothing when it deploys.
 
-    In one sentence: the version fetched (the stable, with no channel named) is read as `seq deploy` reads it
-    (template_fetch.check_archive) → it deploys: written as it is → it does not and no channel was named: the newest
-    version this sequence-ai deploys is written instead, said in a line with why the stable is refused → a channel or
-    version was named: written as named, with a warning that says which version deploys → none does: the version
-    fetched, with a warning.
-
-    WHY: a template's stable moves only on its end-to-end check, so it can stay on a version the SDK has since stopped
-    reading - the five pi05 stables use @seq.batched, which 0.35.0 removed - and every `seq init pi05-droid` in the docs
-    then wrote files `seq deploy` refused.
-
+    WHY a warning and nothing written instead: a template has one version, so there is none to write in its place - the
+    newest-that-deploys choice went with the stable and beta channels - and what is left to say, before a `seq deploy`
+    finds it out, is that this sequence-ai cannot deploy it.
 
     """
     from seq import template_fetch
@@ -290,24 +350,10 @@ def _deployable_version(name: str, ref: str | None, archive: bytes, version: str
 
     why = template_fetch.check_archive(archive, name)
     if why is None:
-        return archive, version
-    sdk = _version()
-    other = template_fetch.newest_deployable(name, besides=version, base_url=base_url)
-    found = None
-    if other is not None:
-        found = other[1] + (f" ({other[2]})" if other[2] else "")
-    if ref is None and other is not None:
-        print(f"{name}'s stable, {version}, does not deploy with this sequence-ai ({sdk}), so this is {found}, the "
-              f"newest version that does. {version} is refused with:")
-        print(f"  {why}")
-        return other[0], other[1]
-    asked = f"{name}'s stable, {version}," if ref is None else f"{name} {version}"
-    tail = (f"; {found} does: seq init {name}@{other[1]}" if other is not None
-            else ", and no newer version of it does either")
-    print(f"warning: {asked} does not deploy with this sequence-ai ({sdk}){tail}. {version} is refused with:",
-          file=sys.stderr)
+        return
+    print(f"warning: {name} {version} does not deploy with this sequence-ai ({_version()}). {version} is refused "
+          "with:", file=sys.stderr)
     print(f"  {why}", file=sys.stderr)
-    return archive, version
 
 
 

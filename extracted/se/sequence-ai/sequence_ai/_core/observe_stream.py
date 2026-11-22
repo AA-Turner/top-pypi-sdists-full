@@ -86,9 +86,10 @@ KEEP_SERVED_S = 5.0
 
 
 class Keep:
-    """How long more what a worker was served is kept - KEEP_SERVED_S once the robot has a standby, else 0: forgotten at
-    once - shared by a connection with its streams, and holding nothing of the connection: a stream's
-    thread holds it, and a connection the robot dropped must still be collected."""
+    """How long more what a worker was served is kept - KEEP_SERVED_S once the robot has a standby, or its worker says it
+    reads an episode back (RESUME_FORMAT: a worker whose robots may carry their episodes on to another, a spot machine's
+    or one beside it), else 0: forgotten at once - shared by a connection with its streams, and holding nothing of the
+    connection: a stream's thread holds it, and a connection the robot dropped must still be collected."""
 
     __slots__ = ("s",)
 

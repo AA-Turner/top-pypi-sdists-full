@@ -1,13 +1,12 @@
 """Combine source and outputs from two notebooks"""
 
 import re
-from copy import copy
 
 from nbformat import NotebookNode
 
 from .cell_metadata import _IGNORE_CELL_METADATA
 from .formats import long_form_one_format
-from .header import _DEFAULT_NOTEBOOK_METADATA
+from .header import _DEFAULT_NOTEBOOK_METADATA, FrontMatterCell
 from .metadata_filter import restore_filtered_metadata
 
 _BLANK_LINE = re.compile(r"^\s*$")
@@ -87,18 +86,26 @@ def combine_inputs_with_outputs(nb_source, nb_outputs, fmt=None):
 
         output_cell = nb_outputs.cells[j]
 
-        # Outputs and optional attributes are taken from the notebook with outputs
-        cell = copy(output_cell)
+        # Keep the stored outputs and attributes, and use the source cell's origin.
+        is_frontmatter_cell = isinstance(source_cell, FrontMatterCell)
+        cell_cls = FrontMatterCell if is_frontmatter_cell else NotebookNode
+        cell = cell_cls(output_cell)
 
         # Cell text is taken from the source notebook
         cell.source = source_cell.source
 
         # We also restore the cell metadata that has been filtered
+        if is_frontmatter_cell:
+            source_cell_metadata_filter = "-all"
+        elif format_name == "spin" and source_cell.cell_type != "code":
+            # The 'spin' format does not allow metadata on non-code cells
+            source_cell_metadata_filter = "-all"
+        else:
+            source_cell_metadata_filter = cell_metadata_filter
         cell.metadata = restore_filtered_metadata(
             source_cell.metadata,
             output_cell.metadata,
-            # The 'spin' format does not allow metadata on non-code cells
-            ("-all" if format_name == "spin" and source_cell.cell_type != "code" else cell_metadata_filter),
+            source_cell_metadata_filter,
             _IGNORE_CELL_METADATA,
         )
 

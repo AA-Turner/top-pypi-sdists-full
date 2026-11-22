@@ -83,6 +83,17 @@ except PackageNotFoundError:
     # Running from a source checkout with no install record at all.
     __install_record_version__ = ""
 
+# `InputLatency` is public but loaded on first use (PEP 562). Its module sits in
+# the Juggler client, and importing that package pulls in asyncio and the whole
+# client (55 modules); `import invisible_core` stays as light as it was.
+# `invisible_core.InputLatency` is the very object `juggler._behaviour` defines.
+def __getattr__(name):
+    if name == "InputLatency":
+        from .juggler import InputLatency
+        return InputLatency
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 __all__ = [
     "record_session_seed",
     "resolve_session_seed",
@@ -142,6 +153,8 @@ __all__ = [
     "active_seal",
     "verify_engine",
     "write_user_js",
+    # the delay between an input event's birth and its arrival at a page's handler, drawn from the session seed
+    "InputLatency",
     # constants
     "BINARY_VERSION",
     "FIREFOX_UPSTREAM_VERSION",

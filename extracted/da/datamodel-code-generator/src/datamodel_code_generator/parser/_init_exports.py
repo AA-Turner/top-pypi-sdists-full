@@ -17,9 +17,9 @@ from typing import TYPE_CHECKING, TypeAlias, TypeVar
 
 from typing_extensions import Protocol
 
-from datamodel_code_generator import Error
 from datamodel_code_generator._free_names import first_free
 from datamodel_code_generator._module_paths import is_package_init, module_parts, written_names
+from datamodel_code_generator._shared_types import Error
 from datamodel_code_generator.enums import AllExportsCollisionStrategy, AllExportsScope
 from datamodel_code_generator.imports import Import, Imports
 
@@ -205,7 +205,7 @@ def build_all_exports_code(
     return export_imports
 
 
-def init_export_imports(  # noqa: PLR0913, PLR0917
+def init_export_imports(  # noqa: PLR0917
     parser: InitExportsHost,
     module: ModulePath,
     contexts: Sequence[_ModuleContextRow],

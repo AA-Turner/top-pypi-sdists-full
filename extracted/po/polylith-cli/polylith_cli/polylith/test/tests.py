@@ -1,7 +1,7 @@
 from pathlib import Path
+from polylith_cli.polylith import configuration
 from polylith_cli.polylith.dirs import create_dir
 from polylith_cli.polylith.files import create_file
-from polylith_cli.polylith import configuration
 template = 'from {namespace}.{package} import {modulename}\n\n\ndef test_sample():\n    assert {modulename} is not None\n'
 
 def create_test(root: Path, options: dict) -> None:

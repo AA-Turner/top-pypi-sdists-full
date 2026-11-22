@@ -90,6 +90,7 @@ from trilogy.core.models.author import (
     OrderBy,
     OrderItem,
     Parenthetical,
+    RollupSelectLineage,
     RowsetItem,
     RowsetLineage,
     SelectLineage,
@@ -2124,9 +2125,14 @@ class BuildMultiSelectLineage(BuildConceptArgs):
     def find_source(self, concept: BuildConcept, cte: CTE | UnionCTE) -> BuildConcept:
         for x in self.align.items:
             if concept.name == x.alias:
+                # the CTE's own column: its lineage is what this CTE renders
+                # (a pass rewrites its aggregates' arguments in place)
                 for c in x.concepts:
                     if c.address in cte.output_lcl:
-                        return c
+                        return next(
+                            (o for o in cte.output_columns if o.address == c.address),
+                            c,
+                        )
                 # A scoped join inside an arm can canonicalize an authored
                 # member onto its join partner's address (`wr.order_number`
                 # emitted as `ws.order_number`), so the arm CTE carries only
@@ -2146,6 +2152,22 @@ class BuildMultiSelectLineage(BuildConceptArgs):
                             or c.address in out.pseudonyms
                         ):
                             return out
+
+                # a consumer folded into this CTE reads the arm column off the
+                # parent it came from, where the CTE itself no longer projects it
+                for c in x.concepts:
+                    if cte.source_map.get(c.address):
+                        return c
+                # ... under its join partner's address there too
+                for c in x.concepts:
+                    for parent in cte.parent_ctes:
+                        for out in parent.output_columns:
+                            if cte.source_map.get(out.address) and (
+                                frozenset((c.address, out.address)) in joined
+                                or out.address in c.pseudonyms
+                                or c.address in out.pseudonyms
+                            ):
+                                return out
 
         # Reaching here means this CTE can't source the column directly
         # (typically an outer aggregate grouped it away before a projection
@@ -2172,6 +2194,12 @@ class BuildUnionSelectLineage(BuildMultiSelectLineage):
     For EXCEPT the arm order is semantic (left-fold)."""
 
     operator: SetOperator = SetOperator.UNION_ALL
+
+
+@dataclass(slots=True)
+class BuildRollupSelectLineage(BuildUnionSelectLineage):
+    """Build form of a relational `rollup`/`cube`/`grouping sets` TVF: one arm
+    select, its columns re-exposed as this relation's own outputs."""
 
 
 @dataclass(slots=True)
@@ -4883,7 +4911,11 @@ class Factory:
     def _(self, base: UnionSelectLineage) -> BuildMultiSelectLineage:
         return self._build_multi_select_lineage(
             base,
-            build_cls=BuildUnionSelectLineage,
+            build_cls=(
+                BuildRollupSelectLineage
+                if isinstance(base, RollupSelectLineage)
+                else BuildUnionSelectLineage
+            ),
             derivation=Derivation.TVF_UNION,
             outputs_only=True,
             extra_lineage_kwargs={"operator": base.operator},
@@ -4953,6 +4985,11 @@ class Factory:
         env_scoped_joins = [
             j for j in self.scoped_joins if j in self.environment.merges
         ]
+        if build_cls is BuildRollupSelectLineage:
+            # the arm's columns as its own pass built them: only that factory
+            # carries the grouping spec its aggregates and flags resolve under
+            for built in all_input:
+                local_build_cache.setdefault(built.address, built)
         factory = Factory(
             grain=base.grain,
             environment=self.environment,

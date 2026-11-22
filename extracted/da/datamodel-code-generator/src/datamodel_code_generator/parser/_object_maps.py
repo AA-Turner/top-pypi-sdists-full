@@ -94,7 +94,7 @@ class ObjectMapsHost(AllOfValuesHost, Protocol):
     def _types_nullable_map_values(self) -> bool:
         """Whether this run types the values of nullable maps."""
 
-    def get_object_field(  # noqa: PLR0913
+    def get_object_field(
         self,
         *,
         field_name: str | None,
@@ -278,7 +278,11 @@ def get_typed_additional_properties_field(
 def flatten_additional_properties_all_of(
     parser: ObjectMapsHost, obj: JsonSchemaObject
 ) -> list[JsonSchemaObject] | None:
-    """Resolve and flatten an additionalProperties allOf schema."""
+    """Resolve and flatten an additionalProperties allOf schema.
+
+    None where a member is not one primitive value, such as a reference to a schema with a cycle, which the merge
+    leaves a reference.
+    """
     schemas: list[JsonSchemaObject] = []
     pending = [obj]
     while pending:
@@ -287,8 +291,8 @@ def flatten_additional_properties_all_of(
             if parser._load_ref_schema_object(schema.ref).is_boolean_schema_false:
                 return None
             schema = parser._merge_ref_with_schema(schema)
-            if schema.ref:  # pragma: no cover
-                return None  # pragma: no cover
+            if schema.ref:
+                return None
         if schema.title:
             schema = parser._schema_object(schema.model_dump(exclude={"title"}, exclude_unset=True, by_alias=True))
         if schema.allOf:
@@ -301,7 +305,7 @@ def flatten_additional_properties_all_of(
                         return None
                     case True:
                         continue
-                    case JsonSchemaObject():  # pragma: no branch
+                    case _:
                         pending.append(item)
             continue
         if (
@@ -323,10 +327,11 @@ def _merge_additional_properties_all_of(parser: ObjectMapsHost, obj: JsonSchemaO
     schema_types = {schema.type for schema in schemas if schema.type}
     if not schema_types or not schema_types <= {"integer", "number", "string"}:
         return None
-    if len(schema_types) > 1 and schema_types != {"integer", "number"}:  # pragma: no cover
-        return None  # pragma: no cover
-    if (merged_schema := parser._merge_primitive_schemas_for_allof(schemas)) is None:  # pragma: no cover
-        return None  # pragma: no cover
+    if len(schema_types) > 1 and schema_types != {"integer", "number"}:
+        return None
+    merged_schema = parser._merge_primitive_schemas_for_allof(schemas)
+    if merged_schema is None:  # pragma: no cover - not proven unreachable: members the merge refuses
+        return None  # pragma: no cover - not proven unreachable: members the merge refuses
 
     metadata = {field: getattr(obj, field) for field in _ALL_OF_METADATA_FIELDS if field in obj.model_fields_set}
     if obj.extras:
@@ -508,7 +513,7 @@ def _pattern_keys_checked(
     return _property_name_key_row(parser, schema) == "string"
 
 
-def parse_pattern_map(  # noqa: PLR0913, PLR0917
+def parse_pattern_map(  # noqa: PLR0917
     parser: ObjectMapsHost,
     name: str,
     pattern_properties: dict[str, JsonSchemaObject | bool],
@@ -760,7 +765,7 @@ def parse_string_property_name_union(
     return build_union(parser.data_type, data_types), False
 
 
-def parse_property_names(  # noqa: PLR0913, PLR0917
+def parse_property_names(  # noqa: PLR0917
     parser: ObjectMapsHost,
     name: str,
     property_names: JsonSchemaObject | bool,  # noqa: FBT001
@@ -868,7 +873,7 @@ def get_additional_properties_root_field(
     return field
 
 
-def object_map_key_type(  # noqa: PLR0913
+def object_map_key_type(
     parser: ObjectMapsHost,
     property_names: JsonSchemaObject | bool | None,  # ruff: ignore[boolean-type-hint-positional-argument]
     row: Literal["pattern-map", "property-names-map", "extra-field"],

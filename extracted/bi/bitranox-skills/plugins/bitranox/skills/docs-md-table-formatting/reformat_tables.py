@@ -42,6 +42,7 @@ turns that report into a non-zero exit for CI; the default stays a warning so ex
 keep their exit codes.
 """
 
+import io
 import re
 import shutil
 import sys
@@ -563,6 +564,8 @@ def _reconfigure_stdio():
     file had already been rewritten, and every later file was skipped.
     """
     for stream in (sys.stdout, sys.stderr):
+        if not isinstance(stream, io.TextIOWrapper):
+            continue
         try:
             stream.reconfigure(errors="backslashreplace")
         except (AttributeError, ValueError, OSError):
@@ -583,7 +586,7 @@ def _parse_args(args):
         elif arg == "--strict":
             options["strict"] = True
         elif arg in ("--help", "-h"):
-            print(__doc__.strip())
+            print((__doc__ or USAGE).strip())
             sys.exit(EXIT_OK)
         elif arg.startswith("-"):
             print(f"Unknown option: {arg}", file=sys.stderr)

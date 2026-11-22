@@ -24,11 +24,18 @@ mod input;
 mod oracle;
 mod render;
 mod validator;
+mod witness;
 pub mod workload;
 
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyModule, PyTuple, PyType};
+// The thread's stack bounds are read on `CPython` before 3.14 alone, off musl
+// (`room_for_python` in `check/ctx.rs`), where no interpreter check stops a
+// predicate re-entering its validator; elsewhere the crate is linked and
+// nothing of it read.
+#[cfg(any(PyPy, Py_3_14, target_env = "musl"))]
+use stacker as _;
 use valgebra_core::{DefIx, Guarded, Schema, fresh_self_token};
 
 use crate::errors::install_lazy_attributes;
@@ -45,8 +52,11 @@ use crate::build::{Pool, build_instances, build_root, combine};
 /// defined and returns its body. The placeholder's self-reference is resolved
 /// to a back edge, and a non-contractive body — one whose recursive reference
 /// is not under a structural constructor — is rejected. Until the builder
-/// returns, the placeholder denotes no set: a relation to it is
-/// `"undecided"`, and a walk that meets it stops with `unresolved_recursion`.
+/// returns, the placeholder denotes no set yet: a question asked of it is
+/// answered only where the answer holds whatever set it comes to denote, and is
+/// `"undecided"` where the answer turns on that set; a walk that meets it stops
+/// with `unresolved_recursion`; and `open()` and `close()` refuse a schema
+/// holding it, since the definition they would rewrite is not built.
 ///
 /// Args:
 ///     builder: Called with a placeholder validator, and returns the body of

@@ -28,14 +28,14 @@ use docling_core::{ContentLayer, PictureDescription, PictureImage, Script, Table
 use roxmltree::Node as XmlNode;
 
 use super::odf::{
-    attr, cell_has_image, collect_runs, comment_threads, element_has_text, image_can_be_bitmap,
-    in_text_box, inline_chart, is_list_tag, is_rich_cell, is_slide_title_element,
-    is_transparent_container, item_has_content, item_headings, level_is_enumerated, level_start,
-    list_has_direct_text, list_has_renderable, list_items, list_level,
-    list_starts_with_empty_nested, odf_item_content, odf_marker, ods_cell_text, para_plain_text,
-    paragraph_list_style, paragraph_style_names, repeat, section_is_hidden,
+    attr, cell_has_image, collect_runs, comment_threads, dense_table_width, element_has_text,
+    fit_repeats, image_can_be_bitmap, in_text_box, inline_chart, is_list_tag, is_rich_cell,
+    is_slide_title_element, is_transparent_container, item_has_content, item_headings,
+    level_is_enumerated, level_start, list_has_direct_text, list_has_renderable, list_items,
+    list_level, list_starts_with_empty_nested, max_repeated_cells, odf_item_content, odf_marker,
+    ods_cell_text, para_plain_text, paragraph_list_style, paragraph_style_names, section_is_hidden,
     slide_has_visible_title, slide_is_hidden, text_boxes, Annotation, Fmt, MasterPart, OdfLevel,
-    Run, Styles,
+    Repeats, Run, Styles,
 };
 
 /// The tree plus the spreadsheet pages docling adds (`page_no`, width,
@@ -88,6 +88,10 @@ struct Walker<'s> {
     /// The body's reviewer comments and their threads (#829).
     annotations: Vec<Annotation>,
     threads: Vec<CommentThread>,
+    /// The workbook's repeat budget, spent sheet by sheet in order, and the
+    /// current sheet's kept repetitions (#1172).
+    repeat_budget: usize,
+    sheet_repeats: Option<Repeats>,
 }
 
 /// `<office:text>` body children.
@@ -249,19 +253,23 @@ pub(super) fn build_spreadsheet(sheet: XmlNode, styles: &Styles) -> Built {
         );
         let first = w.tree.items.len();
         w.convert_sheet(table, group, page_no, layer);
-        // `_find_page_size`: the extent of the page's items in cell units
-        // (`right − left`, `bottom − top`; 0×0 for a sheet without any).
-        let mut ext: Option<(f64, f64, f64, f64)> = None;
+        w.sheet_repeats = None;
+        // `_find_page_size` (docling#5300, #1173): the largest right and
+        // bottom edge of the page's items, every content layer, in cell
+        // units — 0×0 for a sheet without any. It used to be the extent
+        // (`right − left`, `bottom − top`), which made the page smaller than
+        // an offset table, and docling-core's clamp then cut the table's box.
+        let mut ext: Option<(f64, f64)> = None;
         for item in &w.tree.items[first..] {
             if let Some(p) = &item.prov {
-                let [l, t, r, b] = p.bbox;
+                let [_, _, r, b] = p.bbox;
                 ext = Some(match ext {
-                    None => (l, t, r, b),
-                    Some((el, et, er, eb)) => (el.min(l), et.min(t), er.max(r), eb.max(b)),
+                    None => (r, b),
+                    Some((er, eb)) => (er.max(r), eb.max(b)),
                 });
             }
         }
-        let (w_, h_) = ext.map_or((0.0, 0.0), |(l, t, r, b)| (r - l, b - t));
+        let (w_, h_) = ext.unwrap_or((0.0, 0.0));
         pages.push((page_no, w_, h_));
     }
     Built {
@@ -383,11 +391,12 @@ struct Grid<'a, 'i> {
 /// empty repeated stretch (a sheet padded to a million blank rows) only
 /// advances the index; with `within` bounds every anchor inside them is
 /// recorded, empty ones included, as docling records a `TableCell` for each.
-/// A cell is materialised at most 1024 times, as the flat spreadsheet walk
-/// does.
+/// A repetition expands to the copies `repeats` keeps — the workbook's
+/// repeat budget (#1172), as the flat spreadsheet walk reads it.
 fn grid_of<'a, 'i>(
     table: XmlNode<'a, 'i>,
     within: Option<(usize, usize, usize, usize)>,
+    repeats: &Repeats,
 ) -> Grid<'a, 'i> {
     let mut anchors = HashMap::new();
     let mut covered = HashSet::new();
@@ -400,7 +409,7 @@ fn grid_of<'a, 'i>(
     };
     let mut r = 0usize;
     for row in rows {
-        let rrep = repeat(row, "number-rows-repeated");
+        let rrep = repeats.get(row, "number-rows-repeated");
         if let Some((_, r1, _, _)) = within {
             if r > r1 {
                 break;
@@ -412,17 +421,17 @@ fn grid_of<'a, 'i>(
             .children()
             .filter(|n| n.has_tag_name("table-cell") || n.has_tag_name("covered-table-cell"))
         {
-            let crep = repeat(cell, "number-columns-repeated");
+            let crep = repeats.get(cell, "number-columns-repeated");
             let is_covered = cell.has_tag_name("covered-table-cell");
             if is_covered || within.is_some() || cell_has_content(cell) {
-                for k in 0..crep.min(1024) {
+                for k in 0..crep {
                     row_cells.push((c + k, cell, is_covered));
                 }
             }
             c += crep;
         }
         if !row_cells.is_empty() {
-            for k in 0..rrep.min(1024) {
+            for k in 0..rrep {
                 for (cc, cell, is_covered) in &row_cells {
                     if !inside(r + k, *cc) {
                         continue;
@@ -453,10 +462,11 @@ fn cell_has_content(cell: XmlNode) -> bool {
 }
 
 /// `_odf_cell_text`: a rich cell's child lines (image placeholders
-/// stripped); a typed cell's `str(cell.value)` — a string cell's paragraph
-/// text as written, a number/percentage/currency's `office:value`, a date or
-/// time's value attribute, a boolean as Python spells it; otherwise the
-/// cell's child lines, or nothing.
+/// stripped); else the cell's child lines — the text the application
+/// displays, a rounded number, a percentage, a currency or date format
+/// (docling#5232, #1171) — then, for a cell storing no text, its typed
+/// value as `str(cell.value)` ([`super::odf::typed_value_text`]);
+/// otherwise nothing.
 fn cell_text(cell: XmlNode) -> String {
     let lines: Vec<String> = cell
         .children()
@@ -471,33 +481,11 @@ fn cell_text(cell: XmlNode) -> String {
             .collect();
         return strip_image_refs(&child_text, &images);
     }
-    if let Some(value_type) = attr(cell, "value-type") {
-        let value = match value_type {
-            "string" => Some(
-                cell.children()
-                    .filter(|c| c.has_tag_name("p") || c.has_tag_name("h"))
-                    .map(para_plain_text)
-                    .collect::<Vec<_>>()
-                    .join("\n"),
-            ),
-            "float" | "percentage" | "currency" => attr(cell, "value").map(str::to_string),
-            "date" => attr(cell, "date-value").map(str::to_string),
-            "time" => attr(cell, "time-value").map(str::to_string),
-            "boolean" => attr(cell, "boolean-value").map(|b| {
-                if b == "true" {
-                    "True".to_string()
-                } else {
-                    "False".to_string()
-                }
-            }),
-            _ => None,
-        };
-        if let Some(v) = value {
-            return v;
-        }
-    }
     if !child_text.is_empty() {
         return child_text;
+    }
+    if let Some(value) = super::odf::typed_value_text(cell) {
+        return value;
     }
     if cell.children().any(|c| c.is_element()) {
         return String::new();
@@ -601,6 +589,8 @@ impl<'s> Walker<'s> {
             note_calls: Vec::new(),
             annotations: Vec::new(),
             threads: Vec::new(),
+            repeat_budget: max_repeated_cells(),
+            sheet_repeats: None,
         }
     }
 
@@ -1324,10 +1314,23 @@ impl<'s> Walker<'s> {
         bounds: Option<(usize, usize, usize, usize)>,
         prov: Option<TreeProv>,
     ) -> Option<usize> {
-        let bounds = bounds.unwrap_or_else(|| data_bounds(&grid_of(table, None)));
-        let (min_r, max_r, min_c, max_c) = bounds;
-        let grid = grid_of(table, Some(bounds));
-        let (height, width) = (max_r - min_r + 1, max_c - min_c + 1);
+        // A sheet region reads through its sheet's repetitions; any other
+        // table (a text document's, a slide's) through its own (#1172).
+        let own;
+        let repeats = match &self.sheet_repeats {
+            Some(r) => r,
+            None => {
+                own = fit_repeats(table, &mut max_repeated_cells()).0;
+                &own
+            }
+        };
+        let bounds = bounds.unwrap_or_else(|| data_bounds(&grid_of(table, None, repeats)));
+        let (min_r, max_r, min_c, mut max_c) = bounds;
+        // The table's grid is dense; it stays within docling-core's cell cap.
+        let height = max_r - min_r + 1;
+        max_c = min_c + dense_table_width(max_c - min_c + 1, height) - 1;
+        let grid = grid_of(table, Some((min_r, max_r, min_c, max_c)), repeats);
+        let width = max_c - min_c + 1;
         if width == 0 || height == 0 {
             return None;
         }
@@ -1466,16 +1469,27 @@ impl<'s> Walker<'s> {
             if has_text {
                 seen_text = true;
             }
-            if tag == "frame" {
-                self.walk_slide_frame(el, slide, is_title);
-            } else {
-                self.walk_textbox_children(
-                    el.children().filter(XmlNode::is_element),
-                    slide,
-                    is_title,
-                    None,
-                );
+            self.walk_slide_element(el, slide, is_title);
+        }
+    }
+
+    /// `_walk_slide_element` (docling#4747, #1170): a `draw:g` group's
+    /// shapes, frames and nested groups are walked like the slide's own
+    /// children, never as a title.
+    fn walk_slide_element(&mut self, el: XmlNode, slide: usize, is_title: bool) {
+        match el.tag_name().name() {
+            "g" => {
+                for child in el.children().filter(XmlNode::is_element) {
+                    self.walk_slide_element(child, slide, false);
+                }
             }
+            "frame" => self.walk_slide_frame(el, slide, is_title),
+            _ => self.walk_textbox_children(
+                el.children().filter(XmlNode::is_element),
+                slide,
+                is_title,
+                None,
+            ),
         }
     }
 
@@ -1588,7 +1602,11 @@ impl<'s> Walker<'s> {
         page_no: usize,
         layer: Option<ContentLayer>,
     ) {
-        let grid = grid_of(table, None);
+        // The workbook's repeat budget, spent in sheet order (#1172); the
+        // flat walk warns about what it cut.
+        let (repeats, _) = fit_repeats(table, &mut self.repeat_budget);
+        let grid = grid_of(table, None, &repeats);
+        self.sheet_repeats = Some(repeats);
         let (min_r, max_r, min_c, max_c) = data_bounds(&grid);
         let has_any = !grid.anchors.is_empty() || !grid.covered.is_empty();
         if has_any {
@@ -2127,6 +2145,201 @@ mod tests {
         assert_eq!(t.body, vec![0, 3]);
     }
 
+    /// docling#4747 (#1170, `test_odp_grouped_shapes_keep_their_text`): a
+    /// `draw:g` group's shapes, frames and nested groups keep their text, in
+    /// document order, in both walks.
+    #[test]
+    fn odp_grouped_shapes_keep_their_text() {
+        let shape = |t: &str| {
+            format!(
+                r#"<draw:custom-shape><text:p>{t}</text:p><draw:enhanced-geometry draw:type="rectangle"/></draw:custom-shape>"#
+            )
+        };
+        let frame = |t: &str| {
+            format!(
+                r#"<draw:frame><draw:text-box><text:p>{t}</text:p></draw:text-box></draw:frame>"#
+            )
+        };
+        let xml = format!(
+            r#"<office:document {NS}><office:body><office:presentation>
+              <draw:page draw:name="Slide One">{}<draw:g>{}{}<draw:g>{}</draw:g></draw:g>{}</draw:page>
+            </office:presentation></office:body></office:document>"#,
+            frame("Before"),
+            shape("Grouped shape"),
+            frame("Grouped frame"),
+            shape("Nested group"),
+            shape("After"),
+        );
+        let doc = convert(&xml, InputFormat::Odp);
+        let t = doc.tree.as_ref().expect("tree");
+        let texts: Vec<&str> = t
+            .items
+            .iter()
+            .filter(|it| label(it) == "text")
+            .map(text)
+            .collect();
+        assert_eq!(
+            texts,
+            [
+                "Before",
+                "Grouped shape",
+                "Grouped frame",
+                "Nested group",
+                "After"
+            ]
+        );
+        let md = doc.export_to_markdown();
+        let blocks: Vec<&str> = md.split("\n\n").map(str::trim).collect();
+        assert_eq!(
+            blocks,
+            [
+                "# Slide One",
+                "Before",
+                "Grouped shape",
+                "Grouped frame",
+                "Nested group",
+                "After"
+            ]
+        );
+    }
+
+    /// docling#5232 (#1171, `test_ods_typed_cells_keep_their_displayed_text`):
+    /// a typed cell shows its `text:p`, the typed value only as the fallback
+    /// of a cell that stores no text — spelled as odfdo's `str(cell.value)`.
+    #[test]
+    fn ods_typed_cells_keep_their_displayed_text() {
+        let typed = |ty: &str, value: &str, text: Option<&str>| {
+            let body = text.map_or(String::new(), |t| format!("<text:p>{t}</text:p>"));
+            format!(
+                r#"<table:table-cell office:value-type="{ty}" {value}>{body}</table:table-cell>"#
+            )
+        };
+        let shown = [
+            typed(
+                "float",
+                r#"office:value="0.3333333333333333""#,
+                Some("0.33"),
+            ),
+            typed("percentage", r#"office:value="0.125""#, Some("12.50%")),
+            typed(
+                "currency",
+                r#"office:value="1234.5" office:currency="USD""#,
+                Some("$1,234.50"),
+            ),
+            typed("boolean", r#"office:boolean-value="true""#, Some("TRUE")),
+            typed(
+                "date",
+                r#"office:date-value="2024-03-05T00:00:00""#,
+                Some("03/05/24"),
+            ),
+        ]
+        .concat();
+        let bare = [
+            typed("float", r#"office:value="7.25""#, None),
+            typed("float", r#"office:value="1e3""#, None),
+            typed("date", r#"office:date-value="2024-03-05""#, None),
+            typed("date", r#"office:date-value="2024-03-05T10:30:00""#, None),
+            typed("time", r#"office:time-value="PT10H30M00S""#, None),
+        ]
+        .concat();
+        let xml = format!(
+            r#"<office:document {NS}><office:body><office:spreadsheet>
+              <table:table table:name="S"><table:table-row>{shown}</table:table-row><table:table-row>{bare}</table:table-row></table:table>
+            </office:spreadsheet></office:body></office:document>"#
+        );
+        let doc = convert(&xml, InputFormat::Ods);
+        let v: serde_json::Value = serde_json::from_str(&doc.export_to_json()).unwrap();
+        let cells: Vec<&str> = v["tables"][0]["data"]["table_cells"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|c| c["text"].as_str().unwrap())
+            .collect();
+        let want = [
+            "0.33",
+            "12.50%",
+            "$1,234.50",
+            "TRUE",
+            "03/05/24",
+            "7.25",
+            "1000",
+            "2024-03-05",
+            "2024-03-05 10:30:00",
+            "10:30:00",
+        ];
+        assert_eq!(cells, want);
+        let md = doc.export_to_markdown();
+        for text in want {
+            assert!(md.contains(text), "{text} missing from {md}");
+        }
+    }
+
+    /// docling#5300 (#1173, `test_ods_offset_table_keeps_unclamped_page_size`,
+    /// visible and hidden): an offset table's page reaches its right and
+    /// bottom edge, so the exported box is not clamped.
+    #[test]
+    fn ods_offset_table_keeps_unclamped_page_size() {
+        for hidden in [false, true] {
+            let display = if hidden {
+                r#" table:display="false""#
+            } else {
+                ""
+            };
+            let cell = |t: &str| {
+                format!(
+                    r#"<table:table-cell office:value-type="string"><text:p>{t}</text:p></table:table-cell>"#
+                )
+            };
+            let xml = format!(
+                r#"<office:document {NS}><office:body><office:spreadsheet>
+                  <table:table table:name="Sheet"{display}>
+                    <table:table-row><table:table-cell table:number-columns-repeated="3"/></table:table-row>
+                    <table:table-row><table:table-cell/>{}{}</table:table-row>
+                    <table:table-row><table:table-cell/>{}{}</table:table-row>
+                  </table:table>
+                </office:spreadsheet></office:body></office:document>"#,
+                cell("a"),
+                cell("b"),
+                cell("1"),
+                cell("2"),
+            );
+            let doc = convert(&xml, InputFormat::Ods);
+            let v: serde_json::Value = serde_json::from_str(&doc.export_to_json()).unwrap();
+            let size = &v["pages"]["1"]["size"];
+            assert_eq!(
+                (size["width"].as_f64(), size["height"].as_f64()),
+                (Some(3.0), Some(3.0)),
+                "hidden={hidden}"
+            );
+            let tables = v["tables"].as_array().unwrap();
+            assert_eq!(tables.len(), 1, "hidden={hidden}");
+            let bbox = &tables[0]["prov"][0]["bbox"];
+            let edges: Vec<f64> = ["l", "t", "r", "b"]
+                .iter()
+                .map(|k| bbox[k].as_f64().unwrap())
+                .collect();
+            assert_eq!(edges, [1.0, 1.0, 3.0, 3.0], "hidden={hidden}");
+        }
+    }
+
+    #[test]
+    fn typed_values_are_spelled_as_odfdo_does() {
+        let durations = [
+            ("PT10H30M00S", "10:30:00"),
+            ("PT0S", "0:00:00"),
+            ("PT25H", "1 day, 1:00:00"),
+            ("P2DT1H", "2 days, 1:00:00"),
+            ("PT1.5S", "0:00:01.500000"),
+        ];
+        for (iso, want) in durations {
+            assert_eq!(
+                super::super::odf::iso_duration_as_timedelta(iso).as_deref(),
+                Some(want),
+                "{iso}"
+            );
+        }
+    }
+
     /// A spreadsheet: a `section` group `sheet: {name}` per sheet, each
     /// disconnected data region a table with its cell-range provenance
     /// (top-left origin, `charspan [0, 0]`), typed numbers as their
@@ -2175,7 +2388,11 @@ mod tests {
             } => Some((*page_no, *width, *height)),
             _ => None,
         });
-        assert_eq!(page, Some((1, 2.0, 3.0)), "right − left, bottom − top");
+        assert_eq!(
+            page,
+            Some((1, 3.0, 3.0)),
+            "the largest right and bottom edge"
+        );
     }
 
     /// The tree items of the rich cell group `g`: its runs, flattening an

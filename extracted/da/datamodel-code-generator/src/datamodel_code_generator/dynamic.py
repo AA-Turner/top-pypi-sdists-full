@@ -24,23 +24,18 @@ from importlib.util import find_spec
 from pathlib import Path, PurePath
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 
-import pydantic
 from pydantic import BaseModel
 
-from datamodel_code_generator import (
-    Error,
-    _prepare_generate_facade_config,
-    _resolve_run_options,
-    _run_generation_with_metadata,
-    generate,
-    is_asyncapi,
-    is_openapi,
-)
 from datamodel_code_generator._document_reader import refuse_oversized_document
+from datamodel_code_generator._facade import generate
+from datamodel_code_generator._generation import _prepare_generate_facade_config, _run_generation_with_metadata
 from datamodel_code_generator._graph import stable_toposort
 from datamodel_code_generator._message_text import english_list
 from datamodel_code_generator._module_paths import dotted_module, is_package_init, module_parts
+from datamodel_code_generator._option_stages import _resolve_run_options
 from datamodel_code_generator._process_state import ABSENT, PROCESS_STATE_LOCK, restore_entry
+from datamodel_code_generator._shared_types import Error
+from datamodel_code_generator._source import is_asyncapi, is_openapi
 from datamodel_code_generator.config import GenerateConfig, _rebuild_generate_config
 from datamodel_code_generator.enums import DataModelType, InputFileType
 from datamodel_code_generator.python_literal import stable_repr
@@ -49,7 +44,7 @@ from datamodel_code_generator.reference import _is_special_path
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Mapping, Sequence
 
-    from datamodel_code_generator import GeneratedModules
+    from datamodel_code_generator._shared_types import GeneratedModules
     from datamodel_code_generator.model_metadata import ModelMetadata
 
     _GeneratedCode = tuple[str | GeneratedModules | None, ModelMetadata | None, tuple[str, ...]]
@@ -556,7 +551,7 @@ def _models_by_source_ref(entries: Iterable[tuple[str, str, type | None]]) -> di
     return models
 
 
-def _build_dynamic_module(  # noqa: PLR0913
+def _build_dynamic_module(
     input_: Mapping[str, Any],
     config: GenerateConfig,
     *,
@@ -576,7 +571,7 @@ def _build_dynamic_module(  # noqa: PLR0913
     result, metadata, identities = generated or _generate_code(
         input_, config, collect_model_metadata=collect_model_metadata
     )
-    if result is None:  # pragma: no cover
+    if result is None:
         msg = "generate() returned None"
         raise Error(msg)
     include_private_models = config.allow_leading_underscore_class_name
@@ -621,10 +616,6 @@ def _dynamic_generate_config(input_: Mapping[str, Any], config: GenerateConfig |
 
     Without ``config``, the defaults with Pydantic v2 models.
     """
-    if pydantic.VERSION < "2.0.0":  # pragma: no cover
-        msg = f"generate_dynamic_models requires Pydantic v2, found v{pydantic.VERSION}"
-        raise Error(msg)
-
     _rebuild_generate_config()
 
     if config is None:
@@ -867,7 +858,7 @@ def _register_dynamic_module(
         )
 
 
-def _register_new_module(  # noqa: PLR0913
+def _register_new_module(
     input_: Mapping[str, Any],
     config: GenerateConfig,
     name: str,

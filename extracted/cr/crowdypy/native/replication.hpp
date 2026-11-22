@@ -394,6 +394,7 @@ struct ConnectionOptions {
   bool verifyNotifications = true;
   bool advertiseCapabilities = true;
   std::int64_t advertiseIntervalMs = 15 * 1000;
+  bool ownMediaEcho = false;
   std::int64_t watchdogSilenceMs = 0;
   std::int64_t idleReleaseGuardMs = 60 * 1000;
   std::int64_t legacyReconnectWindowMs = 30 * 1000;
@@ -431,6 +432,7 @@ class PyConnection {
     config.verifyNotifications = options.verifyNotifications;
     config.advertiseCapabilities = options.advertiseCapabilities;
     config.advertiseIntervalMs = options.advertiseIntervalMs;
+    config.ownMediaEcho = options.ownMediaEcho;
     config.watchdogSilenceMs = options.watchdogSilenceMs;
     config.idleReleaseGuardMs = options.idleReleaseGuardMs;
     config.legacyReconnectWindowMs = options.legacyReconnectWindowMs;
@@ -687,6 +689,36 @@ class PyConnection {
     if (failure != Errc::Ok)
       raise(failure, "batch stopped after " + std::to_string(accepted) + " send(s)");
     return accepted;
+  }
+
+  void setOwnMediaEcho(bool on) {
+    nb::gil_scoped_release release;
+    connection_->setOwnMediaEcho(on);
+  }
+
+  /// Modes are wire::SpeakerMode (0 keep, 1 only, 2 everyone); names are 32-character actor uuids.
+  void setSpeakers(int voiceMode, const std::vector<std::string>& voice, int videoMode,
+                   const std::vector<std::string>& video) {
+    const auto list = [](int mode, const std::vector<std::string>& names) {
+      if (mode < 0 || mode > 2) raise(Errc::InvalidArgument, "a speaker list mode is 0, 1 or 2");
+      replication::SpeakerList out;
+      out.mode = static_cast<wire::SpeakerMode>(mode);
+      for (const std::string& name : names) {
+        core::ActorUuid id{};
+        if (name.size() != id.size()) raise(Errc::InvalidArgument, "an actor uuid is 32 characters");
+        std::memcpy(id.data(), name.data(), id.size());
+        out.names.push_back(id);
+      }
+      return out;
+    };
+    replication::SpeakerList v = list(voiceMode, voice);
+    replication::SpeakerList w = list(videoMode, video);
+    Status status;
+    {
+      nb::gil_scoped_release release;
+      status = connection_->setSpeakers(std::move(v), std::move(w));
+    }
+    if (!status.ok()) raise(status.code, "setSpeakers");
   }
 
   void flushSends() {

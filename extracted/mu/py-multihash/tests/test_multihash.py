@@ -4,9 +4,9 @@
 
 from binascii import hexlify
 
-import base58
 import pytest
 
+import multihash.base58 as base58
 from multihash import (
     coerce_code,
     decode,
@@ -233,6 +233,27 @@ class DecodeTestCase:
             decode(value)
         assert "should be bytes" in str(excinfo.value)
 
+    def test_decode_type_error_message_interpolates_type(self):
+        """decode: TypeError message must include the actual type, not a literal {}
+
+        Regression test for issue #47: the previous code used
+        ``TypeError("multihash should be bytes, not {}", type(multihash))`` without
+        an ``f`` prefix, so the ``{}`` placeholder was rendered literally and the
+        user saw ``"multihash should be bytes, not {}"`` instead of the offending
+        type.
+        """
+        with pytest.raises(TypeError) as excinfo:
+            decode("not bytes")
+        message = str(excinfo.value)
+        assert "should be bytes, not" in message
+        assert "{}" not in message
+        assert "<class 'str'>" in message
+
+        with pytest.raises(TypeError) as excinfo:
+            decode(["a", "b"])
+        assert "{}" not in str(excinfo.value)
+        assert "<class 'list'>" in str(excinfo.value)
+
     @pytest.mark.parametrize("value", (b"", b"a", b"aa"))
     def test_decode_less_length(self, value):
         """decode: raises ValueError if the length is less than 3"""
@@ -328,3 +349,31 @@ class GetPrefixTestCase:
         """get_prefix: raises ValueError for invalid cases"""
         with pytest.raises(ValueError):
             get_prefix(b"foobar")
+
+    def test_get_prefix_multi_byte_code(self):
+        """get_prefix: correctly parses multi-byte varints"""
+        from multihash.funcs import Func
+        from multihash.multihash import sum as mh_sum
+
+        # sha2_224 code is 0x1013, which takes 2 bytes for the varint.
+        # Length 28 takes 1 byte. Total prefix = 3 bytes.
+        mh = mh_sum(b"test", Func.sha2_224)
+        prefix = get_prefix(mh.encode())
+        assert prefix == mh.encode()[:3]
+
+    def test_get_prefix_three_byte_code(self):
+        """get_prefix: correctly parses 3-byte code varints (blake2b-256)"""
+        from multihash.funcs import Func
+        from multihash.multihash import sum as mh_sum
+
+        # blake2b-256 code is 0xB220 (3-byte varint); length 32 is 1 byte.
+        mh = mh_sum(b"test", Func.blake2b_256)
+        encoded = mh.encode()
+        prefix = get_prefix(encoded)
+        assert prefix == encoded[:4]
+        assert len(prefix) == 4
+
+    def test_get_prefix_type_error(self):
+        """get_prefix: raises TypeError when not passed bytes"""
+        with pytest.raises(TypeError, match="multihash should be bytes"):
+            get_prefix("not bytes")

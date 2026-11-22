@@ -116,8 +116,8 @@ def test_wrap_long_words(text, w, break_long, expected):
     ('a-b-c-d', 3, False, True, ['a-b', '-c-', 'd']),
     ('---', 2, True, True, ['--', '-']),
     ('a---b', 2, True, True, ['a-', '--', 'b']),
-    ('a-\x1b[31mb', 2, True, True, ['a-\x1b[31m\x1b[0m', '\x1b[31mb\x1b[0m']),
-    ('a-\x1b[31mb', 2, True, False, ['a-\x1b[31m', 'b']),
+    ('a-\x1b[31mb', 2, True, True, ['a-', '\x1b[31mb\x1b[0m']),
+    ('a-\x1b[31mb', 2, True, False, ['a-', '\x1b[31mb']),
     ('古古-1abcdef', 3, True, True, ['古', '古-', '1ab', 'cde', 'f']),
     ('古古-1abcdef', 4, True, True, ['古古', '-1ab', 'cdef']),
     ('古古-1abcdef', 5, True, True, ['古古-', '1abcd', 'ef']),
@@ -126,8 +126,8 @@ def test_wrap_long_words(text, w, break_long, expected):
     ('\x1b[31m漢漢漢-é', 3, True, False, ['\x1b[31m漢', '漢', '漢-', 'é']),
     ('\x1b[31m漢漢漢-é', 3, True, True,
      ['\x1b[31m漢\x1b[0m', '\x1b[31m漢\x1b[0m', '\x1b[31m漢-\x1b[0m', '\x1b[31mé\x1b[0m']),
-    ('a-古古古', 6, True, False, ['a-', '古古古']),
-    ('a-古古古', 5, True, False, ['a-', '古古', '古']),
+    ('a-古古古', 6, True, False, ['a-古古', '古']),
+    ('a-古古古', 5, True, False, ['a-古', '古古']),
 ])
 def test_wrap_hyphen_long_words(text, w, break_hyphens, propagate, expected):
     assert wrap(text, w, break_on_hyphens=break_hyphens, propagate_sgr=propagate) == expected
@@ -166,7 +166,7 @@ def test_wrap_hyphen_long_words(text, w, break_hyphens, propagate, expected):
      ['You should use the -n option, or --dry-run', 'in its long form.']),
 ])
 def test_wrap_hyphen_breaks(text, w, break_hyphens, expected):
-    assert wrap(text, w, break_on_hyphens=break_hyphens) == expected
+    assert wrap(text, w, break_on_hyphens=break_hyphens, line_break='ascii') == expected
 
 
 @pytest.mark.parametrize('text,w,expected', [
@@ -177,6 +177,13 @@ def test_wrap_hyphen_breaks(text, w, break_hyphens, expected):
 ])
 def test_wrap_hyphenated_words(text, w, expected):
     assert wrap(text, w) == expected
+
+
+def test_wrap_hyphen_break_maps_past_sequences():
+    """A hyphen break after a leading sequence maps back to the original position."""
+    text = f'succinyl-{SGR_RED}6-hydroxy-2,4-cyclohexadiene-1-carboxylate'
+    assert wrap(text, 10, propagate_sgr=False) == [
+        f'succinyl-{SGR_RED}', '6-hydroxy-', '2,4-cycloh', 'exadiene-', '1-carboxyl', 'ate']
 
 
 LONG_WORD_TEXT = (
@@ -229,7 +236,7 @@ LONG_OPTION_TEXT = '1234567890-1234567890--this_is_a_very_long_option_indeed-goo
      ['1234567890-1234567890--this_is_a_very_long_option_indeed-good-bye"']),
 ])
 def test_wrap_long_hyphenated_words(text, w, kwargs, expected):
-    assert wrap(text, w, **kwargs) == expected
+    assert wrap(text, w, line_break='ascii', **kwargs) == expected
 
 
 @pytest.mark.parametrize('text,w,expected', [
@@ -318,6 +325,68 @@ def test_wrap_unicode(benchmark, text, w, expected):
     kwargs = {'break_on_hyphens': False} if '-' in text else {}
     result = benchmark(wrap, text, w, **kwargs)
     assert result == expected
+
+
+@pytest.mark.parametrize('text,expected', [
+    ('foo\u200bbar', ['foo\u200b', 'bar']),
+    ('aaa\u3000bbb', ['aaa', 'bbb']),
+    ('aaa\u1680bbb', ['aaa', 'bbb']),
+    ('aaa\u2000bbb', ['aaa', 'bbb']),
+    ('aaa\u200abbb', ['aaa', 'bbb']),
+    ('aaa\u2010bbb', ['aaa\u2010', 'bbb']),
+])
+def test_wrap_uax14_break_opportunities(text, expected):
+    assert wrap(text, 4) == expected
+
+
+@pytest.mark.parametrize('text', [
+    'aaa\u00a0bbb',
+    'aaa\u202fbbb',
+    'aaa\u2007bbb',
+    'aaa\u2060bbb',
+    'aaa\ufeffbbb',
+])
+def test_wrap_uax14_no_break(text):
+    assert wrap(text, 4, break_long_words=False) == [text]
+
+
+def test_wrap_soft_hyphen_break_opportunity():
+    assert wrap('aaa\u00adbbb', 4) == ['aaa\u00ad', 'bbb']
+    assert wrap('aaaaaaaaaa\u00adbbbbbbbbbb', 8, break_on_hyphens=False) == [
+        'aaaaaaaa', 'aa\u00adbbbbb', 'bbbbb']
+
+
+def test_wrap_line_break_ascii_opt_out():
+    assert wrap('foo\u200bbar', 4, line_break='ascii') == ['foo\u200bb', 'ar']
+    assert wrap('aaa\u3000bbb', 4, line_break='ascii') == ['aaa', '\u3000bb', 'b']
+
+
+def test_wrap_invalid_line_break():
+    with pytest.raises(ValueError, match='invalid line_break'):
+        wrap('x', 5, line_break='bogus')
+
+
+@pytest.mark.parametrize('text,expected', [
+    ('a\nb', ['a', 'b']),
+    ('a\r\nb', ['a', 'b']),
+    ('a\rb', ['a', 'b']),
+    ('a\n\nb', ['a', 'b']),
+    ('a\u2028b', ['a', 'b']),
+    ('a\u2029b', ['a', 'b']),
+    ('\n', []),
+    ('\r\n', []),
+])
+def test_wrap_mandatory_breaks(text, expected):
+    assert wrap(text, 10, replace_whitespace=False) == expected
+
+
+@pytest.mark.parametrize('text,expected', [
+    ('a\u0085b', ['a b']),
+    ('a\u2028b', ['a b']),
+    ('a\u2029b', ['a b']),
+])
+def test_wrap_unicode_mandatory_breaks_collapse_by_default(text, expected):
+    assert wrap(text, 10) == expected
 
 
 @pytest.mark.parametrize('text,w,expected', [
@@ -524,6 +593,22 @@ OSC_END_BEL = '\x1b]8;;\x07'
             '\x1b]8;foo=bar:id=mylink;http://example.com\x1b\\here\x1b]8;;\x1b\\',
         ],
     ),
+    (
+        '\x1b]8;other_id=label;http://example.com\x1b\\Click here\x1b]8;;\x1b\\',
+        6,
+        [
+            '\x1b]8;id=00000001:other_id=label;http://example.com\x1b\\Click\x1b]8;;\x1b\\',
+            '\x1b]8;id=00000001:other_id=label;http://example.com\x1b\\here\x1b]8;;\x1b\\',
+        ],
+    ),
+    (
+        '\x1b]8;custom=id=value;http://example.com\x07Click here\x1b]8;;\x07',
+        6,
+        [
+            '\x1b]8;id=00000001:custom=id=value;http://example.com\x07Click\x1b]8;;\x07',
+            '\x1b]8;id=00000001:custom=id=value;http://example.com\x07here\x1b]8;;\x07',
+        ],
+    ),
     (   # wide grapheme after OSC 8 open at width 1 (must not hang)
         '\x1b]8;;u\x07😀',
         1,
@@ -618,7 +703,7 @@ def test_wrap_max_lines_hyperlink_close_on_prev_line():
     ('Dr. Smith went to Washington. He left.', {'width': 20, 'fix_sentence_endings': True}),
 ])
 def test_wrap_stdlib_params(text, kwargs):
-    assert wrap(text, **kwargs) == textwrap.wrap(text, **kwargs)
+    assert wrap(text, line_break='ascii', **kwargs) == textwrap.wrap(text, **kwargs)
 
 
 def test_wrap_expand_tabs_false_with_sequences():
@@ -627,10 +712,10 @@ def test_wrap_expand_tabs_false_with_sequences():
     assert '\t' in _strip(result[0])
 
 
-def test_wrap_replace_whitespace_false_newlines_zero_width():
-    """Newlines have zero display width, so more text fits per line than stdlib."""
+def test_wrap_replace_whitespace_false_newlines_are_mandatory():
+    """Newlines are mandatory breaks when replace_whitespace is False."""
     assert wrap('hello\nworld foo\nbar', 10, replace_whitespace=False) == [
-        'hello\nworld', 'foo\nbar']
+        'hello', 'world foo', 'bar']
 
 
 def test_wrap_bare_esc():
@@ -639,14 +724,14 @@ def test_wrap_bare_esc():
     assert wrap('ab\x1b\x00cdef', 3) == ['ab\x1b\x00c', 'def']
 
 
-def test_wrap_bare_esc_at_line_start():
-    """
-    Exercises the bare-ESC safety break in _find_first_visible_break.
+def test_wrap_bare_esc_before_wide_char():
+    """A bare ESC and the zero-width NUL that follows it precede the wide character."""
+    assert wrap('\x1b\x00あ', 1) == ['\x1b\x00', 'あ']
 
-    A bare \\x1b that does not match ZERO_WIDTH_PATTERN triggers a safety 'break' statement but is
-    not found in any practical terminal sequence or string (ESC followed by NUL).
-    """
-    assert wrap('\x1b\x00あ', 1) == ['\x1b', '\x00', 'あ']
+
+def test_wrap_bare_esc_starts_no_sequence():
+    """A bare ESC that starts no sequence is the unit kept when the wide character cannot fit."""
+    assert wrap('\x1bあ', 1) == ['\x1b', 'あ']
 
 
 def test_wrap_embedded_nul():
@@ -695,7 +780,7 @@ def test_wrap_virama_conjunct_known_limitation(text):
 
 @pytest.mark.parametrize('text', [' hello', '  hello', '    hello'])
 def test_wrap_drops_leading_whitespace_only_lines(text):
-    """Discard all-whitespace first lines rather than emitting empty lines."""
+    """All-whitespace first lines are discarded."""
     assert wrap(text, width=1) == list('hello')
     assert wrap(text, width=1, drop_whitespace=False) == list(text)
 
@@ -710,3 +795,47 @@ def test_iter_graphemes_import_error_fallback():
     finally:
         del sys.modules['wcwidth._wcwidth_c']
         importlib.reload(module)
+
+
+@pytest.mark.parametrize('text', [
+    f'{SGR_RED} a{SGR_RESET}',
+    f'{SGR_RED} a-b{SGR_RESET}',
+    f' {SGR_RED}a-b{SGR_RESET}',
+])
+@pytest.mark.parametrize('propagate_sgr', [True, False])
+def test_wrap_preserves_color_after_dropped_leading_space(text, propagate_sgr):
+    """Dropping a whitespace-only line must retain the active color."""
+    chars = list(_strip(text).strip())
+    if propagate_sgr:
+        expected = [f'{SGR_RED}{char}{SGR_RESET}' for char in chars]
+    else:
+        expected = chars
+        expected[0] = SGR_RED + expected[0]
+        expected[-1] += SGR_RESET
+    assert wrap(text, width=1, propagate_sgr=propagate_sgr) == expected
+    preserved = wrap(text, width=1, drop_whitespace=False, propagate_sgr=propagate_sgr)
+    assert [_strip(line) for line in preserved] == list(_strip(text))
+
+
+def test_wrap_dropped_styled_space_keeps_initial_indent():
+    """The first visible line retains initial indentation."""
+    result = wrap(f'{SGR_RED} a-b{SGR_RESET}', width=2, initial_indent='>')
+    assert [_strip(line) for line in result] == ['>a', '-b']
+
+
+@pytest.mark.parametrize('width', [2, 3, 5, 10, 20])
+@pytest.mark.parametrize('propagate_sgr', [True, False])
+def test_wrap_dropped_leading_space_retains_color_at_wider_widths(width, propagate_sgr):
+    """Color retention is not limited to width one."""
+    text = SGR_RED + ' ' * width + 'a' + SGR_RESET
+    assert wrap(text, width, propagate_sgr=propagate_sgr) == [SGR_RED + 'a' + SGR_RESET]
+
+
+@pytest.mark.parametrize('width', [2, 3, 5, 10, 20])
+def test_wrap_drops_styled_blank_line_at_wider_widths(width):
+    """Leading whitespace filling a wider line must not emit a blank line."""
+    text = 'a' * (width + 1)
+    assert wrap(SGR_RED + ' ' * width + text + SGR_RESET, width) == [
+        SGR_RED + text[:width] + SGR_RESET,
+        SGR_RED + text[width:] + SGR_RESET,
+    ]

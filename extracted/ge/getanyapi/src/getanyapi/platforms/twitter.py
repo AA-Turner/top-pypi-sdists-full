@@ -1882,7 +1882,7 @@ class TwitterNamespace:
         Fetch a single Twitter/X tweet by URL with its full text and engagement
         counts (likes, retweets, replies, quotes, bookmarks, views).
 
-        Price: $0.00022 per request.
+        Price: $0.00021 per request.
 
         Example:
             res = client.twitter.tweet(url="https://x.com/SpaceX/status/1732824684683784516")
@@ -2423,7 +2423,7 @@ class AsyncTwitterNamespace:
         Fetch a single Twitter/X tweet by URL with its full text and engagement
         counts (likes, retweets, replies, quotes, bookmarks, views).
 
-        Price: $0.00022 per request.
+        Price: $0.00021 per request.
 
         Example:
             res = client.twitter.tweet(url="https://x.com/SpaceX/status/1732824684683784516")

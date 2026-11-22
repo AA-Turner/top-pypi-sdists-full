@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
 import types
 from collections import ChainMap, Counter, OrderedDict, defaultdict, deque
@@ -29,11 +30,13 @@ from contextvars import ContextVar
 from copy import deepcopy
 from dataclasses import is_dataclass
 from enum import Enum as PyEnum
+from hashlib import sha256
 from operator import itemgetter, methodcaller
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Union, cast, get_args, get_origin, get_type_hints
 
 from pydantic import BaseModel
+from pydantic.json_schema import GenerateJsonSchema
 from typing_extensions import Self, Sentinel, TypeIs
 
 from datamodel_code_generator._all_or_none import all_or_none
@@ -45,6 +48,7 @@ from datamodel_code_generator._json_schema import (
     MODEL_VALUE_POSITIONS,
     SCHEMA_MAP_KEYS,
     SCHEMA_VALUE_KEYS,
+    _rewrite_schema_refs,
     definition_ref,
 )
 from datamodel_code_generator._process_state import ABSENT, PROCESS_STATE_LOCK, restore_entry
@@ -60,20 +64,20 @@ from datamodel_code_generator._python_type_annotation import (
     render_python_type_expr,
     rewrite_python_type_expr,
 )
+from datamodel_code_generator._shared_types import Error as GenerationError
 from datamodel_code_generator.enums import (
     InputFileType,
     InputModelRefStrategy,
     _get_output_model_family,
     _OutputModelFamily,
 )
+from datamodel_code_generator.input_model_result import PythonModelBases
 from datamodel_code_generator.python_literal import stable_repr
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterable, Iterator, Sequence
 
-    from pydantic.json_schema import GenerateJsonSchema
-
-    from datamodel_code_generator import DataModelType
+    from datamodel_code_generator.enums import DataModelType
     from datamodel_code_generator.input_model_result import LoadedInputModelSchema
 
 
@@ -165,7 +169,7 @@ None without the option; the descent of reuse follows the fields of every model 
 """
 
 
-def _load_model_schema_isolated(  # ruff: ignore[too-many-arguments]
+def _load_model_schema_isolated(
     input_models: list[str],
     input_file_type: InputFileType,
     ref_strategy: InputModelRefStrategy | None,
@@ -208,8 +212,6 @@ def _get_path_module_name(file_path: Path) -> str:
         return module_name
     if previous_file == file_path:
         return module_name
-
-    from hashlib import sha256  # noqa: PLC0415
 
     digest = sha256(str(file_path).encode()).hexdigest()[:16]
     return f"_datamodel_code_generator_input_model_{digest}"
@@ -413,7 +415,6 @@ def _get_input_model_json_schema_class(
     use_standard_schema: bool = False,
 ) -> type[GenerateJsonSchema]:
     """Get the InputModelJsonSchema class lazily."""
-    from pydantic.json_schema import GenerateJsonSchema  # noqa: PLC0415
 
     class InputModelJsonSchema(GenerateJsonSchema):
         """Custom schema generator that handles ALL unserializable types."""
@@ -802,7 +803,7 @@ def _add_python_type_for_unserializable(
         if model_name:  # pragma: no branch
             nested_models[model_name] = model
         for def_name, def_schema in schema["$defs"].items():
-            if def_name in visited_defs:  # pragma: no cover
+            if def_name in visited_defs:  # pragma: no cover - not proven unreachable
                 continue
             visited_defs.add(def_name)
             if def_name in nested_models:  # pragma: no branch
@@ -854,17 +855,17 @@ def _preserved_python_type_expr(tp: type, generic_names: dict[type, str] | None 
     if origin is Annotated:
         if args:
             return _preserved_python_type_expr(args[0], generic_names) or _imported_python_type_expr(args[0])
-        return None  # pragma: no cover
+        return None  # pragma: no cover - not proven unreachable
 
     type_name: str | None = None
     if origin is not None:
         type_name = _PRESERVED_TYPE_ORIGINS.get(origin)
-        if type_name is None and getattr(origin, "__module__", None) == "collections":  # pragma: no cover
+        if type_name is None and getattr(origin, "__module__", None) == "collections":
             type_name = _simple_type_name(origin)
     if type_name is not None:
         if arguments := _with_full_fallback(args, generic_names, optional=False):
             return PythonTypeSubscript(PythonTypeName(type_name), arguments)
-        return PythonTypeName(type_name)  # pragma: no cover
+        return PythonTypeName(type_name)
 
     if arguments := _with_full_fallback(args, generic_names):
         return PythonTypeSubscript(PythonTypeName(_simple_type_name(origin or tp)), arguments)
@@ -905,7 +906,7 @@ def _simple_type_name(tp: type) -> str:
         return str(tp).replace("typing.", "")
     if hasattr(tp, "__name__"):
         return tp.__name__
-    return str(tp).replace("typing.", "")  # pragma: no cover
+    return str(tp).replace("typing.", "")  # pragma: no cover - not proven unreachable
 
 
 def _full_type_name(tp: type) -> str:
@@ -940,7 +941,7 @@ def _get_type_hints_safe(obj: type) -> dict[str, Any]:
     """Safely get type hints from a class, handling forward references."""
     try:
         return get_type_hints(obj)
-    except Exception:  # noqa: BLE001  # pragma: no cover
+    except Exception:  # noqa: BLE001  # pragma: no cover - get_type_hints of a class whose hints do not resolve
         return getattr(obj, "__annotations__", {})
 
 
@@ -1020,7 +1021,7 @@ def _add_python_type_to_model_properties(
             prop["x-python-type"] = serialized
 
 
-def _add_python_type_info(  # ruff: ignore[too-many-arguments]
+def _add_python_type_info(
     schema: dict[str, Any],
     model: type,
     expression_collector: PythonTypeExpressionCollector | None = None,
@@ -1312,7 +1313,7 @@ def _reused_generic_definition(
     )
 
 
-def _filter_defs_by_strategy(  # ruff: ignore[too-many-arguments, too-many-positional-arguments]
+def _filter_defs_by_strategy(  # ruff: ignore[too-many-positional-arguments]
     schema: dict[str, Any],
     nested_models: dict[str, type],
     output_family: _OutputModelFamily | None,
@@ -1457,7 +1458,7 @@ def _partition_inherited_fields(
     )
 
 
-def _transform_single_model_to_inheritance(  # noqa: PLR0913, PLR0917
+def _transform_single_model_to_inheritance(  # noqa: PLR0917
     schema: dict[str, object],
     model_class: type[BaseModel],
     schema_generator: type[GenerateJsonSchema],
@@ -1525,8 +1526,6 @@ def _transform_single_model_to_inheritance(  # noqa: PLR0913, PLR0917
     new_schema["title"] = schema.get("title")
     new_schema["type"] = "object"
     if overrides:
-        from datamodel_code_generator.input_model_result import PythonModelBases  # noqa: PLC0415
-
         new_schema["allOf"] = PythonModelBases(definition_ref("$defs", parent_name), overrides)
 
     new_schema.update({
@@ -1589,7 +1588,6 @@ class _InputModelDefinitions:
                     renames[old_name] = name
         if renames:
             # Only schema positions contain references: defaults/examples are user data.
-            from datamodel_code_generator._json_schema import _rewrite_schema_refs  # noqa: PLC0415
 
             schema = _rewrite_schema_refs(schema, renames, set())
             schema["$defs"] = {renames.get(name, name): value for name, value in schema["$defs"].items()}
@@ -1603,7 +1601,7 @@ class _InputModelDefinitions:
         return schema
 
 
-def load_model_schema(  # ruff: ignore[too-many-arguments]
+def load_model_schema(
     input_models: list[str],
     input_file_type: InputFileType,
     ref_strategy: InputModelRefStrategy | None = None,
@@ -1629,7 +1627,7 @@ def load_model_schema(  # ruff: ignore[too-many-arguments]
     )
 
 
-def _load_model_schema_with_python_type_expressions(  # ruff: ignore[too-many-arguments]
+def _load_model_schema_with_python_type_expressions(
     input_models: list[str],
     input_file_type: InputFileType,
     ref_strategy: InputModelRefStrategy | None = None,
@@ -1657,8 +1655,6 @@ def _load_config_input_model(config: Any) -> LoadedInputModelSchema:
 
     An error loading it is a ``datamodel_code_generator.Error``.
     """
-    from datamodel_code_generator import Error as GenerationError  # noqa: PLC0415
-
     try:
         return _load_model_schema_with_python_type_expressions(
             config.input_model,
@@ -1786,7 +1782,6 @@ def _load_single_model_schema(
             # Dict schemas contain no runtime IR. Preserve the former CLI JSON
             # round trip exactly: it both isolates module state and performs
             # JSON key coercion/validation before parser construction.
-            import json  # noqa: PLC0415
 
             return cast("dict[str, object]", json.loads(json.dumps(obj)))
 
@@ -1839,7 +1834,8 @@ def _load_single_model_schema(
 
         if ref_strategy and nested_models is not None:
             model_name = getattr(obj, "__name__", None)
-            if model_name and model_name in cast("dict[str, object]", schema.get("$defs", {})):  # pragma: no cover
+            defs = cast("dict[str, object]", schema.get("$defs", {}))
+            if model_name and model_name in defs:
                 nested_models[model_name] = model
             schema = _filter_defs_by_strategy(
                 schema, nested_models, output_family, ref_strategy, expression_collector, [model]

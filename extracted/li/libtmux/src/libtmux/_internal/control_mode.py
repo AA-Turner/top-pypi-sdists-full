@@ -1,8 +1,8 @@
 """Control-mode client context manager for tmux testing.
 
 Provides a context manager that spawns a ``tmux -C attach-session``
-subprocess, creating a real tmux client that satisfies commands
-requiring an attached client (e.g. ``display-popup``, ``detach-client``).
+subprocess, creating a real tmux client for commands such as ``detach-client``.
+Popup execution requires a terminal client on tmux 3.8+.
 """
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ from libtmux.test.retry import retry_until
 
 if t.TYPE_CHECKING:
     import types
+    from typing import Self
 
     from libtmux.server import Server
     from libtmux.session import Session
@@ -56,7 +57,7 @@ class ControlMode:
         self.server = server
         self.session = session
 
-    def __enter__(self) -> ControlMode:
+    def __enter__(self) -> Self:
         """Spawn control-mode client and wait for registration."""
         read_fd, self._write_fd = os.pipe()
 

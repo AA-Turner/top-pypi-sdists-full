@@ -52,6 +52,11 @@ struct PictureReader {
 
 #[cfg(feature = "pdf")]
 impl PictureReader {
+    /// What the reads so far asked of the OCR engine (#1210), cleared.
+    fn take_ocr_status(&mut self) -> Option<docling_core::OcrStatus> {
+        self.pipeline.take_ocr_status()
+    }
+
     /// The text read off `img`, as the picture's description annotation;
     /// `None` when the picture is skipped (too small, filtered out by its
     /// class) or carries no text.
@@ -121,6 +126,10 @@ struct PictureReader;
 
 #[cfg(not(feature = "pdf"))]
 impl PictureReader {
+    fn take_ocr_status(&mut self) -> Option<docling_core::OcrStatus> {
+        None
+    }
+
     fn read(
         &mut self,
         _img: &docling_core::PictureImage,
@@ -272,6 +281,8 @@ pub struct DocumentConverter {
     image_hosts: Vec<String>,
     image_limits: ImageLimitOverrides,
     list_attachments: bool,
+    /// See [`Self::parse_calendar_invitations`].
+    parse_calendar_invitations: bool,
     /// Omit empty cells from sparse spreadsheet table grids (#271, XLSX/XLS
     /// family; opt-in docling.rs extension).
     skip_empty_cells: bool,
@@ -287,6 +298,9 @@ pub struct DocumentConverter {
     /// docling-core's `MarkdownParams.page_break_placeholder`: text inserted
     /// between pages in the Markdown export; `None` (default) omits breaks.
     page_break_placeholder: Option<String>,
+    /// docling-core's `MarkdownParams.formatting_fallback_mode` (#1205). See
+    /// [`Self::markdown_formatting_fallback`].
+    formatting_fallback: docling_core::FormattingFallback,
     /// EBCDIC copybook layout (#252): inline JSON or a file path. `None`
     /// falls back to the `<stem>.layout.json` sidecar.
     ebcdic_layout: Option<String>,
@@ -339,6 +353,12 @@ pub struct DocumentConverter {
     /// `HeadingHierarchyModel`): bookmarks > numbering > font style. Off by
     /// default — heading levels then stay exactly as detected.
     heading_hierarchy: bool,
+    /// The stage's sub-options (#1145: `numbering_schemes`,
+    /// `numbering_keywords`, `numbering_number_words`, …) — see
+    /// [`Self::heading_hierarchy_options`]; `None` = docling's defaults.
+    /// Only the ML pipeline reads it, so only a `pdf` build carries it.
+    #[cfg(feature = "pdf")]
+    heading_hierarchy_options: Option<docling_pdf::HeadingHierarchyOptions>,
     use_web_browser: bool,
     /// Named Whisper model preset for audio sources (docling's ASR model
     /// specs, PR #3741): English-only / Distil-Whisper variants under
@@ -608,6 +628,40 @@ impl std::ops::DerefMut for PipelineLease<'_> {
     }
 }
 
+/// A [`PipelineLease`] that reports what its OCR requests met to the
+/// conversion's reporter when it is given back (#1210) — every ML-pipeline
+/// stage of [`DocumentConverter::convert`] leases one, so none can forget
+/// to. The status is cleared on the lease too: a warm pipeline may still
+/// hold what a conversion that failed half-way left behind.
+#[cfg(feature = "pdf")]
+struct ReportingLease<'a, 'r> {
+    lease: PipelineLease<'a>,
+    reporter: &'r ProgressReporter,
+}
+
+#[cfg(feature = "pdf")]
+impl std::ops::Deref for ReportingLease<'_, '_> {
+    type Target = docling_pdf::Pipeline;
+
+    fn deref(&self) -> &Self::Target {
+        &self.lease
+    }
+}
+
+#[cfg(feature = "pdf")]
+impl std::ops::DerefMut for ReportingLease<'_, '_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.lease
+    }
+}
+
+#[cfg(feature = "pdf")]
+impl Drop for ReportingLease<'_, '_> {
+    fn drop(&mut self) {
+        self.reporter.note_ocr_status(self.lease.take_ocr_status());
+    }
+}
+
 impl Default for DocumentConverter {
     fn default() -> Self {
         Self {
@@ -617,11 +671,13 @@ impl Default for DocumentConverter {
             image_hosts: Vec::new(),
             image_limits: ImageLimitOverrides::default(),
             list_attachments: false,
+            parse_calendar_invitations: true,
             skip_empty_cells: false,
             compact_tables: false,
             picture_alt_text: false,
             metadata_output: Default::default(),
             page_break_placeholder: None,
+            formatting_fallback: docling_core::FormattingFallback::None,
             ebcdic_layout: None,
             no_table_former: false,
             no_text_panels: false,
@@ -642,6 +698,8 @@ impl Default for DocumentConverter {
             generate_page_images: false,
             use_embedded_picture_images: false,
             heading_hierarchy: false,
+            #[cfg(feature = "pdf")]
+            heading_hierarchy_options: None,
             use_web_browser: false,
             asr_model: None,
             asr_lang: None,
@@ -801,17 +859,24 @@ impl DocumentConverter {
     /// converter was lent. Both are configured by the same setters, so the
     /// warm path cannot drift from the cold one.
     #[cfg(feature = "pdf")]
-    fn ml_pipeline(
+    fn ml_pipeline<'r>(
         &self,
-        progress: Option<docling_pdf::PageProgressHook>,
-    ) -> Result<PipelineLease<'_>, docling_pdf::PdfError> {
+        reporter: &'r std::sync::Arc<ProgressReporter>,
+    ) -> Result<ReportingLease<'_, 'r>, docling_pdf::PdfError> {
+        if let Some(options) = &self.heading_hierarchy_options {
+            options
+                .validate()
+                .map_err(|e| docling_pdf::PdfError::Document(format!("heading hierarchy: {e}")))?;
+        }
         let switches = PipelineSwitches::of(self);
         let mut lease = match &self.warm {
             None => PipelineLease::Fresh(Box::new(switches.build()?)),
             Some(warm) => PipelineLease::Warm(warm.lease(switches)?),
         };
-        self.configure_pipeline(&mut lease, progress);
-        Ok(lease)
+        self.configure_pipeline(&mut lease, reporter.page_hook());
+        // Stale state from an earlier holder of a warm pipeline (#1210).
+        let _ = lease.take_ocr_status();
+        Ok(ReportingLease { lease, reporter })
     }
 
     /// Every per-conversion setting, set unconditionally — on a warm
@@ -835,15 +900,19 @@ impl DocumentConverter {
         p.set_word_gap(self.pdf_word_gap_choice());
         p.set_keep_typography(self.pdf_keep_typography);
         p.set_replace_broken_text_layer(self.replace_broken_text_layer);
+        // The PDF side of picture OCR (#1219): a text-layer page reads the
+        // text inside its pictures; `ocr_pictures` leaves PDFs to it.
+        p.set_picture_ocr(self.picture_ocr);
         p.set_script_positions(self.script_positions);
         p.set_images(docling_pdf::ImageOutput {
             scale: self.images_scale,
             page_images: self.generate_page_images,
             embedded_pictures: self.use_embedded_picture_images,
         });
-        p.set_heading_hierarchy(docling_pdf::HeadingHierarchyOptions::enabled(
-            self.heading_hierarchy,
-        ));
+        p.set_heading_hierarchy(docling_pdf::HeadingHierarchyOptions {
+            enabled: self.heading_hierarchy,
+            ..self.heading_hierarchy_options.clone().unwrap_or_default()
+        });
         p.set_document_timeout(self.document_timeout);
         // The PDF route sets these two for itself; every other route reads
         // the whole input with OCR left to the layout.
@@ -873,7 +942,7 @@ impl DocumentConverter {
         if self.text_layer_only != TextLayerOnly::On && !self.no_ocr {
             let pngs = djvu::rasterize_pages(&source.bytes, self.page_range)?;
             let mut pipeline = self
-                .ml_pipeline(reporter.page_hook())
+                .ml_pipeline(reporter)
                 .map_err(|e| ConversionError::with_source("djvu", e))?;
             let mut doc = docling_core::DoclingDocument::new(&source.name);
             for (i, (page_no, png)) in pngs.iter().enumerate() {
@@ -1525,6 +1594,19 @@ impl DocumentConverter {
         self
     }
 
+    /// Append the events of an email's calendar invitations (`.eml`): every
+    /// `text/calendar` / `application/ics` part, or `.ics`-named attachment,
+    /// inline or attached, as a `Calendar` section after the body — entries
+    /// de-duplicated by UID, RECURRENCE-ID and SEQUENCE (Gmail sends the
+    /// invitation twice), a description the body repeats left out. docling's
+    /// `EmailBackendOptions.parse_calendar_invitations` (docling#5357,
+    /// docling#5455); **on** by default. Off, a calendar body is kept as
+    /// text, as before. The CLI's `--no-calendar-invitations`.
+    pub fn parse_calendar_invitations(mut self, on: bool) -> Self {
+        self.parse_calendar_invitations = on;
+        self
+    }
+
     /// Omit empty cells from sparse spreadsheet table grids (#271; XLSX/XLS
     /// family, opt-in — a docling.rs extension, docling materialises the full
     /// bounding box). A ragged region's box is mostly padding on sparse
@@ -1598,6 +1680,25 @@ impl DocumentConverter {
     /// default export is. Markdown only; JSON carries pages in `prov`.
     pub fn page_break_placeholder(mut self, placeholder: Option<String>) -> Self {
         self.page_break_placeholder = placeholder;
+        self
+    }
+
+    /// How the Markdown export renders the formatting Markdown has no syntax
+    /// for — docling-core's `MarkdownParams.formatting_fallback_mode`
+    /// (docling-core#661, #1205): [`FormattingFallback::None`] (the default,
+    /// docling's) drops underline and sub/superscript;
+    /// [`FormattingFallback::Html`] writes them as `<u>`, `<sub>` and
+    /// `<sup>` (`Water is H<sub>2</sub>O`). Markdown only — the plain-text
+    /// export drops them still, and every other export is unchanged. Decided
+    /// at conversion time: the Markdown the backends render (HTML, MHTML,
+    /// EPUB and email bodies, DOCX, ODF, JATS, WebVTT, docling JSON) has no
+    /// other record of a run's underline or script (see
+    /// [`docling_core::fallback`]).
+    ///
+    /// [`FormattingFallback::None`]: docling_core::FormattingFallback::None
+    /// [`FormattingFallback::Html`]: docling_core::FormattingFallback::Html
+    pub fn markdown_formatting_fallback(mut self, mode: docling_core::FormattingFallback) -> Self {
+        self.formatting_fallback = mode;
         self
     }
 
@@ -1676,7 +1777,8 @@ impl DocumentConverter {
     }
 
     /// The picture-OCR pass itself: PDF, image and METS pages already went
-    /// through the OCR pipeline, so their pictures are left alone, and a
+    /// through the OCR pipeline — a text-layer PDF page read its pictures
+    /// there (`Pipeline::picture_ocr`, #1219) — so they are left alone, and a
     /// video's frames were read as they were decoded
     /// ([`convert_video`](Self::convert_video)); with OCR disabled, or
     /// without the recognizer, the pictures keep no text and one warning
@@ -1770,6 +1872,8 @@ impl DocumentConverter {
                 }
             }
         }
+        // What the picture reads asked of the OCR engine (#1210).
+        reporter.note_ocr_status(reader.take_ocr_status());
     }
 
     /// The picture-description pass (#670). Two walks over the document:
@@ -2119,6 +2223,7 @@ impl DocumentConverter {
     fn convert_video(
         &self,
         source: &SourceDocument,
+        reporter: &ProgressReporter,
     ) -> Result<docling_core::DoclingDocument, String> {
         use docling_core::Node;
         let opts = self.frame_options();
@@ -2146,14 +2251,19 @@ impl DocumentConverter {
                 }
             }
         };
-        crate::video::convert_video(
+        let converted = crate::video::convert_video(
             &source.bytes,
             &source.name,
             self.asr_model.as_deref(),
             self.asr_lang.as_deref(),
             &opts,
             &mut on_frame,
-        )
+        );
+        // The frames' picture OCR (#1210): what its requests met.
+        if let Some(Some(reader)) = reader.as_mut() {
+            reporter.note_ocr_status(reader.take_ocr_status());
+        }
+        converted
     }
 
     /// The copybook layout for EBCDIC sources (#252): docling's
@@ -2207,6 +2317,26 @@ impl DocumentConverter {
     /// ignore it (their backends carry real heading levels already).
     pub fn heading_hierarchy(mut self, enable: bool) -> Self {
         self.heading_hierarchy = enable;
+        self
+    }
+
+    /// The heading-hierarchy stage with all of docling's
+    /// `HeadingHierarchyOptions` — the switch (`enabled`, as
+    /// [`Self::heading_hierarchy`] sets it) and the sub-options, among them
+    /// keyword markers of other languages (#1145, docling#5474):
+    /// `numbering_keywords` (family → words; a new family must be listed in
+    /// `numbering_schemes`) and `numbering_number_words`. Options that fail
+    /// [`docling_pdf::HeadingHierarchyOptions::validate`] fail the PDF /
+    /// image conversion with the reason. The CLI, serve and the bindings
+    /// set only the switch. A `pdf` build only: without the ML pipeline
+    /// there is no stage to configure.
+    #[cfg(feature = "pdf")]
+    pub fn heading_hierarchy_options(
+        mut self,
+        options: docling_pdf::HeadingHierarchyOptions,
+    ) -> Self {
+        self.heading_hierarchy = options.enabled;
+        self.heading_hierarchy_options = Some(options);
         self
     }
 
@@ -2510,8 +2640,12 @@ impl DocumentConverter {
     /// puts it in the picture's chunk. Off by default — every default export
     /// is unchanged. Nothing is attached to a picture the engine reads no
     /// text from (lines under `DOCLING_RS_OCR_TEXT_SCORE` are dropped as on a
-    /// scanned page). PDF, image and METS inputs are untouched: their pages
-    /// go through the OCR pipeline already. With [`no_ocr`](Self::no_ocr) /
+    /// scanned page). A PDF page with a text layer reads its pictures too
+    /// (#1219): every picture that stays a picture is OCR'd from the page
+    /// render and gets the same annotation (`docling_pdf::Pipeline::picture_ocr`)
+    /// — the classifier and size filters below apply to embedded images
+    /// only. Scanned PDF pages, image and METS inputs are untouched: their
+    /// pages go through the OCR pipeline already. With [`no_ocr`](Self::no_ocr) /
     /// [`text_layer_only`](Self::text_layer_only), or without the OCR model
     /// (or the `pdf` feature), one warning and no text. See also
     /// [`picture_ocr_classes`](Self::picture_ocr_classes),
@@ -2830,6 +2964,7 @@ impl DocumentConverter {
             password: self.password.clone(),
             force_full_page_ocr: self.force_full_page_ocr,
             replace_broken_text_layer: self.replace_broken_text_layer,
+            picture_ocr: self.picture_ocr,
             enrich: self.enrich,
             page_range: self.page_range,
             ocr_lang: self.ocr_lang_choice(),
@@ -2888,6 +3023,17 @@ impl DocumentConverter {
         result
     }
 
+    /// [`Self::convert_as`] with the Markdown formatting fallback's marks on
+    /// when it is asked for (#1205): the backends' run renderers consult it.
+    fn convert_marked(
+        &self,
+        source: &SourceDocument,
+        reporter: &std::sync::Arc<ProgressReporter>,
+    ) -> Result<ConversionResult, ConversionError> {
+        let on = self.formatting_fallback == docling_core::FormattingFallback::Html;
+        docling_core::fallback::with_fallback(on, || self.convert_as(source, reporter))
+    }
+
     fn convert_reporting(
         &self,
         source: SourceDocument,
@@ -2902,9 +3048,9 @@ impl DocumentConverter {
         // A source a registered backend claims (#680) is that backend's:
         // its failure is not retried as the content's built-in format.
         if self.claims(&source) {
-            return self.convert_as(&source, reporter);
+            return self.convert_marked(&source, reporter);
         }
-        let err = match self.convert_as(&source, reporter) {
+        let err = match self.convert_marked(&source, reporter) {
             Ok(result) => return Ok(result),
             Err(err) => err,
         };
@@ -2922,7 +3068,7 @@ impl DocumentConverter {
         // The retry's error replaces the first one only when it says the
         // file is encrypted (#624) — an encrypted `.ppt` named `.pptx` is
         // better reported as encrypted than as a bad ZIP.
-        let result = self.convert_as(&retry, reporter).map_err(|e| {
+        let result = self.convert_marked(&retry, reporter).map_err(|e| {
             if crate::backend::offcrypto::is_encryption_error(&e) {
                 e
             } else {
@@ -2996,6 +3142,9 @@ impl DocumentConverter {
         // today the PDF pipeline's spent document budget (#497).
         #[cfg_attr(not(feature = "pdf"), allow(unused_mut))]
         let mut errors: Vec<crate::ErrorItem> = Vec::new();
+        // A retried attempt (a sniffed format) starts its OCR status afresh
+        // (#1210): only the attempt that produced the document reports.
+        let _ = reporter.take_ocr_status();
         // An encrypted Office document (#624/#625) is decrypted with the
         // converter's password (or the format's default password) into the
         // file the backend reads; without a key that opens it, the error
@@ -3061,6 +3210,11 @@ impl DocumentConverter {
                 // from, as MarkItDown's `accepts` does — its title, metadata and
                 // caption transcript, not the page's markup.
                 InputFormat::Html if Self::is_youtube_page(source) => self.youtube_page(source)?,
+                // An inline XBRL report that reached here typed as HTML (a
+                // source built with an explicit format) is still a filing.
+                InputFormat::Html if crate::backend::is_ixbrl(&source.bytes) => {
+                    crate::backend::xbrl::convert_xbrl(source, self.xbrl_taxonomy.as_deref())?
+                }
                 InputFormat::Html => {
                     // Optionally resolve the CSS cascade in a headless browser first
                     // (strips computed-hidden elements); everything else stays in the
@@ -3170,6 +3324,7 @@ impl DocumentConverter {
                 InputFormat::Email => EmailBackend {
                     list_attachments: self.list_attachments,
                     images: self.image_policy(),
+                    parse_calendar_invitations: self.parse_calendar_invitations,
                 }
                 .convert(source)?,
                 InputFormat::Mhtml => MhtmlBackend {
@@ -3266,7 +3421,7 @@ impl DocumentConverter {
                 #[cfg(feature = "pdf")]
                 InputFormat::Pdf => {
                     let converted = self
-                        .ml_pipeline(reporter.page_hook())
+                        .ml_pipeline(reporter)
                         .and_then(|mut p| {
                             p.set_force_full_page_ocr(self.force_full_page_ocr);
                             p.set_pages(self.page_range);
@@ -3296,7 +3451,7 @@ impl DocumentConverter {
                 #[cfg(feature = "pdf")]
                 InputFormat::Svg if self.text_layer_only == TextLayerOnly::Off && !self.no_ocr => {
                     let png = crate::backend::svg::rasterize_png(&source.bytes)?;
-                    self.ml_pipeline(reporter.page_hook())
+                    self.ml_pipeline(reporter)
                         .and_then(|mut p| p.convert_image(&png, &source.name))
                         .map_err(|e| ConversionError::with_source("svg", e))?
                 }
@@ -3310,7 +3465,7 @@ impl DocumentConverter {
                         Ok(doc) => doc,
                         Err(_) => {
                             let png = crate::backend::svg::rasterize_png(&source.bytes)?;
-                            self.ml_pipeline(reporter.page_hook())
+                            self.ml_pipeline(reporter)
                                 .and_then(|mut p| p.convert_image(&png, &source.name))
                                 .map_err(|e| ConversionError::with_source("svg", e))?
                         }
@@ -3331,12 +3486,12 @@ impl DocumentConverter {
                 }
                 #[cfg(feature = "pdf")]
                 InputFormat::Image => self
-                    .ml_pipeline(reporter.page_hook())
+                    .ml_pipeline(reporter)
                     .and_then(|mut p| p.convert_image(&source.bytes, &source.name))
                     .map_err(|e| ConversionError::with_source("image", e))?,
                 #[cfg(feature = "pdf")]
                 InputFormat::MetsGbs => self
-                    .ml_pipeline(reporter.page_hook())
+                    .ml_pipeline(reporter)
                     .and_then(|mut p| {
                         docling_pdf::convert_mets_gbs_with_pipeline(
                             &source.bytes,
@@ -3361,7 +3516,7 @@ impl DocumentConverter {
                 // pictures (Phase 2). Without ffmpeg: transcript only.
                 #[cfg(feature = "asr")]
                 InputFormat::Video => self
-                    .convert_video(source)
+                    .convert_video(source, reporter)
                     .map_err(|e| ConversionError::with_source(source.format.as_str(), e))?,
                 // Without the full ML pipeline, `pdf-text` still converts a PDF's
                 // embedded text layer (pure Rust — the wasm32 path), equivalent to
@@ -3460,6 +3615,7 @@ impl DocumentConverter {
             format: source.format,
             redaction,
             pdf_repairs,
+            ocr_status: reporter.take_ocr_status(),
             errors,
         })
     }
@@ -3499,7 +3655,15 @@ mod tests {
         assert_eq!(built(&warm), Some(text));
         // Converters share the handle.
         let converter = DocumentConverter::new().warm_pipeline(&warm);
-        drop(converter.ml_pipeline(None).unwrap());
+        drop(
+            converter
+                .ml_pipeline(&std::sync::Arc::new(ProgressReporter::new(
+                    Vec::new(),
+                    0,
+                    "t",
+                )))
+                .unwrap(),
+        );
         assert_eq!(built(&warm), Some(full));
     }
 

@@ -35,22 +35,23 @@ from typing import (
 from urllib.parse import ParseResult, urlparse
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from typing_extensions import TypeIs, override
+from typing_extensions import override
 
-from datamodel_code_generator import Error, NamingStrategy, _model_keys
+from datamodel_code_generator import _model_keys
 from datamodel_code_generator._context_scope import context_values
 from datamodel_code_generator._format_types import PythonVersion as PythonVersion
 from datamodel_code_generator._format_types import (
     PythonVersionMin,
 )
 from datamodel_code_generator._free_names import Numbering, candidate_at, first_free, is_numbered
-from datamodel_code_generator._graph_links import data_type_children
+from datamodel_code_generator._graph_links import data_model_children, data_type_children
 from datamodel_code_generator._json_pointer import document_part, is_pointer_fragment, join_pointer
 from datamodel_code_generator._lazy_exports import module_hooks as _module_hooks
 from datamodel_code_generator._message_text import printable_text
 from datamodel_code_generator._model_keys import MODEL_KEY_ATTRIBUTE
 from datamodel_code_generator._python_target_names import target_builtin_type_attributes
 from datamodel_code_generator._records import record
+from datamodel_code_generator._shared_types import Error
 from datamodel_code_generator._target_unicode import (
     is_identifier,
     is_nfkc,
@@ -71,7 +72,7 @@ from datamodel_code_generator._user_keys import (
     first_present,
     model_name_path_keys,
 )
-from datamodel_code_generator.enums import ClassNameAffixScope, HTTPBackend
+from datamodel_code_generator.enums import ClassNameAffixScope, HTTPBackend, NamingStrategy
 from datamodel_code_generator.python_literal import stable_repr
 from datamodel_code_generator.util import camel_to_snake, last_camel_word
 
@@ -83,7 +84,6 @@ if TYPE_CHECKING:
     import inflect
 
     from datamodel_code_generator._user_keys import ClassKeyRow, ModelNameKeys, ModelNames
-    from datamodel_code_generator.model import base as model_base
 
     DEFAULT_FIELD_NAME_RESOLVERS: dict[ModelType, type[FieldNameResolver]]
     _RwDirection: TypeAlias = Literal["request", "response"]
@@ -102,7 +102,38 @@ model_key_of = _model_keys.model_key_of
 _MODEL_KEYS: Final = count()
 
 
-def _wire_name(field: model_base.DataModelFieldBase) -> str | None:
+class _AliasFieldModel(Protocol):
+    """The model of a field as the explicit alias checks read it (``model.base.DataModel``)."""
+
+    EXPLICIT_ALIAS_CONFLICT_CHECKER: ClassVar[Callable[[_AliasField, str], bool] | None]
+    """The check of whether a field's explicit alias collides with a name of the output model, if any."""
+
+
+class _AliasField(Protocol):
+    """A field as the explicit alias checks read it (``model.base.DataModelFieldBase``)."""
+
+    @property
+    def name(self) -> str | None:
+        """Return the field name in the output."""
+        raise NotImplementedError
+
+    @property
+    def alias(self) -> str | None:
+        """Return the alias the field is given in the output."""
+        raise NotImplementedError
+
+    @property
+    def original_name(self) -> str | None:
+        """Return the field name the schema gives."""
+        raise NotImplementedError
+
+    @property
+    def parent(self) -> object:
+        """Return the model that holds the field: an ``_AliasFieldModel`` once the field has one."""
+        raise NotImplementedError
+
+
+def _wire_name(field: _AliasField) -> str | None:
     return field.alias if field.alias is not None else field.original_name
 
 
@@ -162,20 +193,13 @@ def get_inferred_module_name(
     return ".".join(parts[:-1])
 
 
-def _is_data_model(value: object) -> TypeIs[model_base.DataModel]:
-    """Check if value is a DataModel instance."""
-    from datamodel_code_generator.model.base import DataModel as DataModel_  # noqa: PLC0415
-
-    return isinstance(value, DataModel_)
-
-
 @runtime_checkable
 class ReferenceChild(Protocol):
     """Protocol for objects that can be stored in Reference.children.
 
-    This is a minimal protocol: `_graph_links.py` tells a DataType child by its replace_reference method, and
-    `Reference.iter_data_model_children` checks isinstance for DataModel. Using a property makes the type covariant,
-    allowing both DataModel (Reference) and DataType (Reference | None) to satisfy this protocol.
+    This is a minimal protocol: `_graph_links.py` tells a DataType child by its replace_reference method, and every
+    other child is a DataModel, which `Reference.iter_data_model_children` yields. Using a property makes the type
+    covariant, allowing both DataModel (Reference) and DataType (Reference | None) to satisfy this protocol.
     """
 
     @property
@@ -228,7 +252,7 @@ class _BaseModel(BaseModel):
 
     if not TYPE_CHECKING:  # pragma: no branch
 
-        def dict(  # noqa: PLR0913  # pragma: no cover
+        def dict(
             self,
             *,
             include: AbstractSet[int | str] | Mapping[int | str, Any] | None = None,
@@ -257,16 +281,16 @@ class Reference(_BaseModel):
     path: str
     original_name: str = ""
     name: str
-    duplicate_name: Optional[str] = None  # noqa: UP045
+    duplicate_name: Optional[str] = None
     loaded: bool = True
-    source: Optional[_ReferenceSource] = None  # noqa: UP045
+    source: Optional[_ReferenceSource] = None
     children: list[ReferenceChild] = Field(default_factory=list)
     _exclude_fields: ClassVar[set[str]] = {"children"}
 
     @model_validator(mode="before")
     def validate_original_name(cls, values: Any) -> Any:  # noqa: N805
         """Assign name to original_name if original_name is empty."""
-        if not isinstance(values, dict):  # pragma: no cover
+        if not isinstance(values, dict):
             return values
         original_name = values.get("original_name")
         if original_name:
@@ -305,9 +329,7 @@ class Reference(_BaseModel):
 
     def iter_data_model_children(self) -> Iterator[Any]:
         """Yield all DataModel children."""
-        for child in self.children:
-            if _is_data_model(child):
-                yield child
+        yield from data_model_children(self.children)
 
 
 SINGULAR_NAME_SUFFIX: str = "Item"
@@ -372,6 +394,7 @@ TYPE_ORIGIN_KEY: Final = "_type_origin"
 BINARY_CONTENT_KEY: Final = "_binary_content"
 UNIQUE_ITEMS_KEY: Final = "_unique_items"
 ENUM_LITERAL_KEY: Final = "_enum_literal"
+_JSON_NUMBER_KEY: Final = "_json_number"
 SUBTYPE_REF_KEY: Final = "_subtype_ref"
 
 
@@ -429,6 +452,18 @@ def binary_content_of(data_type: object) -> bool:
     return BINARY_CONTENT_KEY in data_type.__dict__
 
 
+def _json_number_of(data_type: object) -> bool:
+    """Return whether the parser built a type node for a JSON number: an ``integer`` or ``number`` schema (L1).
+
+    The type mapping records it when it builds the node, from the schema type, whatever the model type and
+    ``--type-mappings`` write for it (a ``number`` of ``format: decimal`` is ``Decimal``, msgspec's ``number`` of
+    ``format: time`` is ``str``). A copy of a node keeps it; an enum or const of numbers, and a node a later pass
+    builds, has none. ``--merge-msgspec-str-like-union-members`` reads it: such a str-like member decodes a JSON
+    number, which one ``str`` refuses.
+    """
+    return _JSON_NUMBER_KEY in data_type.__dict__
+
+
 def unique_items_of(data_type: object) -> bool:
     """Return whether the schema the parser built a type node from declares ``uniqueItems: true`` (UNIQUE_ITEMS, L1).
 
@@ -458,13 +493,13 @@ def subtype_ref_of(data_type: object) -> str | None:
     return data_type.__dict__.get(SUBTYPE_REF_KEY)
 
 
-_NODE_RECORDS: Final = (TYPE_ORIGIN_KEY, BINARY_CONTENT_KEY, UNIQUE_ITEMS_KEY, ENUM_LITERAL_KEY)
+_NODE_RECORDS: Final = (TYPE_ORIGIN_KEY, BINARY_CONTENT_KEY, _JSON_NUMBER_KEY, UNIQUE_ITEMS_KEY, ENUM_LITERAL_KEY)
 
 
 def keep_node_records(copy: object, source: object) -> None:
     """Give a copy of a type node the records the parser keeps on the node it copies.
 
-    They are TYPE_ORIGIN, BINARY_CONTENT, UNIQUE_ITEMS and ENUM_LITERAL.
+    They are TYPE_ORIGIN, BINARY_CONTENT, JSON_NUMBER, UNIQUE_ITEMS and ENUM_LITERAL.
     """
     copy.__dict__.update((key, source.__dict__[key]) for key in _NODE_RECORDS if key in source.__dict__)
 
@@ -556,7 +591,7 @@ class FieldNameResolver:
     capitalise_numbered_enum_members: bool = False
     """Set by ``__init__``; a resolver unpickled from 0.89.0, whose state lacks it, reads it off."""
 
-    def __init__(  # noqa: PLR0913, PLR0917
+    def __init__(  # noqa: PLR0917
         self,
         aliases: Mapping[str, str | list[str]] | None = None,
         snake_case_field: bool = False,  # noqa: FBT001, FBT002
@@ -598,7 +633,7 @@ class FieldNameResolver:
 
     def prepare_explicit_field_aliases(
         self,
-        fields: list[model_base.DataModelFieldBase],
+        fields: Sequence[_AliasField],
         reference: Reference,
         *,
         output_names: tuple[str, ...] = (),
@@ -619,7 +654,7 @@ class FieldNameResolver:
 
     def explicit_field_alias(
         self,
-        field: model_base.DataModelFieldBase,
+        field: _AliasField,
         reference: Reference,
         *,
         output_names: tuple[str, ...] = (),
@@ -642,7 +677,7 @@ class FieldNameResolver:
     @classmethod
     def validate_explicit_field_aliases(
         cls,
-        fields: list[model_base.DataModelFieldBase],
+        fields: Sequence[_AliasField],
         *,
         final: bool,
         target_python_version: PythonVersion | None = None,
@@ -654,8 +689,8 @@ class FieldNameResolver:
         if not any(_EXPLICIT_FIELD_ALIAS_KEY in field.__dict__ for field in fields):
             return
         helper_name = cls.FIELD_ASSIGNMENT_HELPER if final else None
-        names: dict[str, model_base.DataModelFieldBase] = {}
-        field_helper: model_base.DataModelFieldBase | None = None
+        names: dict[str, _AliasField] = {}
+        field_helper: _AliasField | None = None
         for field in fields:
             name = cast("str", field.name)
             if final:
@@ -677,7 +712,7 @@ class FieldNameResolver:
             invalid = explicit and not is_python_name(cast("str", field.name), target_python_version)
             if (
                 explicit
-                and (conflicts_with_alias := cast("model_base.DataModel", field.parent).EXPLICIT_ALIAS_CONFLICT_CHECKER)
+                and (conflicts_with_alias := cast("_AliasFieldModel", field.parent).EXPLICIT_ALIAS_CONFLICT_CHECKER)
                 is not None
             ):
                 invalid |= conflicts_with_alias(field, name)
@@ -1125,7 +1160,7 @@ class ModelResolver:  # noqa: PLR0904
     _MIN_STATEFUL_REDUCE_ITEMS: ClassVar[int] = 3
     _SLOTTED_STATE_ITEMS: ClassVar[int] = 2
 
-    def __init__(  # noqa: PLR0913, PLR0915, PLR0917
+    def __init__(  # noqa: PLR0915, PLR0917
         self,
         exclude_names: set[str] | None = None,
         duplicate_name_suffix: str | None = None,
@@ -1467,7 +1502,7 @@ class ModelResolver:  # noqa: PLR0904
             )
             raise Error(msg)
 
-    def _apply_model_name_map(  # noqa: PLR0913
+    def _apply_model_name_map(
         self,
         path: str,
         original_name: str,
@@ -1938,7 +1973,7 @@ class ModelResolver:  # noqa: PLR0904
         absolute_path = Path(self._base_path, file_part).resolve().as_posix()
         if self.is_external_root_ref(ref) or self.is_external_ref(ref):
             return absolute_path in self.after_load_files
-        return False  # pragma: no cover
+        return False
 
     @staticmethod
     def is_external_ref(ref: str) -> bool:
@@ -2136,7 +2171,7 @@ class ModelResolver:  # noqa: PLR0904
                     self._rename_reference(ref, new_name, name)
                     break
 
-    def add(  # noqa: PLR0913
+    def add(
         self,
         path: Sequence[str],
         original_name: str,
@@ -2216,7 +2251,7 @@ class ModelResolver:  # noqa: PLR0904
         else:
             # TODO: create a validate for module name
             name = self.get_valid_field_name(name, model_type=ModelType.CLASS)
-            if singular_name:  # pragma: no cover
+            if singular_name:
                 name = self._singular_name(name, singular_name_suffix)
             elif unique:
                 unique_name = self._get_unique_name(name, path=joined_path)
@@ -2284,7 +2319,7 @@ class ModelResolver:  # noqa: PLR0904
         )
         return allocated, yields and allocated is generated
 
-    def _register_reference(  # noqa: PLR0913
+    def _register_reference(
         self,
         path: str,
         original_name: str,
@@ -2379,7 +2414,8 @@ class ModelResolver:  # noqa: PLR0904
         self,
         name: str,
         model_type: str = "model",
-        is_root: bool = False,  # noqa: FBT001, FBT002
+        *,
+        is_root: bool = False,
     ) -> str:
         """Apply prefix/suffix based on scope.
 
@@ -2430,7 +2466,7 @@ class ModelResolver:  # noqa: PLR0904
             return name
         return self.class_name_generator(name)
 
-    def get_class_name(  # noqa: PLR0913, PLR0917
+    def get_class_name(  # noqa: PLR0917
         self,
         name: str,
         unique: bool = True,  # noqa: FBT001, FBT002
@@ -2502,12 +2538,12 @@ class ModelResolver:  # noqa: PLR0904
             return get_last_word_singular_name(name, suffix)
         return get_singular_name(name, suffix)
 
-    def _get_unique_name(  # noqa: PLR0913
+    def _get_unique_name(
         self,
         name: str,
-        camel: bool = False,  # noqa: FBT001, FBT002
-        model_type: str = "model",
         *,
+        camel: bool = False,
+        model_type: str = "model",
         prefix: str = "",
         yields: bool = False,
         path: str | None = None,
@@ -2619,7 +2655,7 @@ class ModelResolver:  # noqa: PLR0904
         return self._field_name_resolvers[model_type].get_valid_name(name, excludes)
 
     def prepare_explicit_field_aliases(
-        self, fields: list[model_base.DataModelFieldBase], reference: Reference, model_type: ModelType
+        self, fields: Sequence[_AliasField], reference: Reference, model_type: ModelType
     ) -> None:
         """Record explicit choices before model transforms can combine fields."""
         self._field_name_resolvers[model_type].prepare_explicit_field_aliases(
@@ -2627,7 +2663,7 @@ class ModelResolver:  # noqa: PLR0904
         )
 
     def explicit_field_alias(
-        self, field: model_base.DataModelFieldBase, reference: Reference, model_type: ModelType
+        self, field: _AliasField, reference: Reference, model_type: ModelType
     ) -> tuple[str, str] | None:
         """Return the ``--aliases`` entry that names a field of the model of ``reference`` as is, with its wire name."""
         return self._field_name_resolvers[model_type].explicit_field_alias(
@@ -2636,7 +2672,7 @@ class ModelResolver:  # noqa: PLR0904
 
     @staticmethod
     def validate_explicit_field_aliases(
-        fields: list[model_base.DataModelFieldBase],
+        fields: Sequence[_AliasField],
         model_type: ModelType,
         target_python_version: PythonVersion | None = None,
     ) -> None:
@@ -2649,7 +2685,7 @@ class ModelResolver:  # noqa: PLR0904
         """Return a unique class field name without creating a Reference."""
         return self._get_unique_name(self.get_valid_field_name(name, model_type=ModelType.CLASS))
 
-    def get_valid_field_name_and_alias(  # noqa: PLR0913
+    def get_valid_field_name_and_alias(
         self,
         field_name: str,
         excludes: set[str] | None = None,

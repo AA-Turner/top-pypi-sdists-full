@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import shlex
 import subprocess
+import sys
 from itertools import takewhile
 from typing import TYPE_CHECKING, Any
 
@@ -19,6 +20,7 @@ from tests.conftest import assert_output
 from tests.units import REFS_HEADER
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
     from pathlib import Path
 
 GIT = ["git", "-c", "user.name=CI", "-c", "user.email=ci@example.com", "-c", "commit.gpgsign=false"]
@@ -78,7 +80,7 @@ def _commit(repository: Path, message: str) -> None:
         subprocess.run([*GIT, *command], cwd=repository, check=True)
 
 
-def _repository(tmp_path: Path, spec: dict[str, Any]) -> Path:
+def _repository(tmp_path: Path, spec: Mapping[str, Any]) -> Path:
     """Commit the release and tag it, commit the base on branch `base`, then the head on branch `fix-the-thing`.
 
     The `steps` are commits of main between the release and the base. With `origin`, origin/main points at the base,
@@ -126,6 +128,57 @@ RENAMED_OUTPUT = {
     f"{EXPECTED}/models/renamed.py": "N = 1\n",
 }
 COVERS_B = 'covers = [\n    "models/b.py",\n]\n'
+SHARED_B = {
+    "tests/test_models.refs": _sidecar(
+        REFS
+        | {
+            "test_model": [
+                line if line != "b\tmodels/b.py" else "b\tmodels/b.py\t= models/a.py" for line in REFS["test_model"]
+            ]
+        }
+    ),
+    f"{EXPECTED}/models/b.py": None,
+}
+"""The output of `b` is now the stored file of `a`."""
+OWN_C = {
+    "tests/test_models.refs": _sidecar(
+        REFS | {"test_model": [line if not line.startswith("c\t") else "c\tmodels/c.py" for line in REFS["test_model"]]}
+    ),
+    f"{EXPECTED}/models/c.py": "C = 9\n",
+}
+"""The output of `c` was the stored file of `a`; it is now a file of its own with other content."""
+VARIANTS_B = {
+    "tests/test_models.refs": _sidecar(
+        REFS
+        | {
+            "test_model": [
+                line
+                if line != "b\tmodels/b.py"
+                else "\tmodels/b.py\t@python=3.14\n\tmodels/b.py\t@python=3.15\t= models/a.py"
+                for line in REFS["test_model"]
+            ]
+        }
+    ),
+}
+"""The output of `b` is its own file under one Python and the stored file of `a` under another."""
+TWO_UNITS_A = {
+    "tests/test_models.refs": _sidecar(REFS | {"test_model": [*REFS["test_model"], "e\tmodels/a.py\t= models/b.py"]})
+}
+"""A second test item compares the label `models/a.py` with the stored file of `b`, under the same predicate."""
+SWAPPED_A_B = {f"{EXPECTED}/models/a.py": "B = 1\n", f"{EXPECTED}/models/b.py": "A = 1\n"}
+"""The stored files of `a` and `b` swap their contents: each test item of `models/a.py` compares the other one."""
+FAST_PATHS = "main/cli_fast_paths"
+FAST_PATH_LIST = f"{FAST_PATHS}/fast_paths_load_these_modules[help].txt"
+FAST_PATH_REFUSAL = f"{FAST_PATHS}/parsed_fast_paths_refuse_the_options_of_the_skill_installer.result.txt"
+FAST_PATH = {
+    "tests/main/test_cli_fast_paths.refs": _sidecar({
+        "test_fast_paths_load_these_modules": [f"help\t{FAST_PATH_LIST}"],
+        "test_parsed_fast_paths_refuse_the_options_of_the_skill_installer": [f"\t{FAST_PATH_REFUSAL}"],
+    }),
+    f"{EXPECTED}/{FAST_PATH_LIST}": "pkg\npkg.arguments\n",
+    f"{EXPECTED}/{FAST_PATH_REFUSAL}": "2\nError: --skill-scope requires --install-skill\n",
+}
+"""The stored module list of a CLI fast path (internal output) and the exit code and message of one of its refusals."""
 CASES: dict[str, dict[str, Any]] = {
     "changed without a record": {"head": SRC | {f"{EXPECTED}/models/b.py": "B = 2\n"}, "origin": True},
     "changed with a record": {
@@ -380,6 +433,65 @@ CASES: dict[str, dict[str, Any]] = {
     "harness on a src change": {
         "head": SRC | {f"{EXPECTED}/models/b.py": "B = 2\n"} | _record("same-output", ["models/b.py"]),
     },
+    "harness on a src change the gate admits": {
+        "head": SRC | {f"{EXPECTED}/models/b.py": "B = 2\n"} | _record("same-output", ["models/b.py"]),
+        "verdicts": {"models/b.py": None},
+    },
+    "harness on a src change the gate refuses": {
+        "head": SRC | {f"{EXPECTED}/models/b.py": "B = 2\n"} | _record("same-output", ["models/b.py"]),
+        "verdicts": {"models/b.py": "models/b.py: [type] B: int -> float"},
+    },
+    "harness on a src change the gate judged for other contents": {
+        "head": SRC | {f"{EXPECTED}/models/b.py": "B = 2\n"} | _record("same-output", ["models/b.py"]),
+        "verdicts": {"models/b.py": None},
+        "verdicts_head": "0.1.0",
+    },
+    "harness on a src change covers internal and added outputs": {
+        "release": FAST_PATH,
+        "head": SRC
+        | NEW_OUTPUT
+        | {f"{EXPECTED}/{FAST_PATH_LIST}": "pkg\n"}
+        | _record("same-output", [FAST_PATH_LIST, "models/new.py"]),
+    },
+    "an internal record covers a changed refusal of a CLI fast path": {
+        "release": FAST_PATH,
+        "head": SRC
+        | {f"{EXPECTED}/{FAST_PATH_REFUSAL}": "0\n\n"}
+        | _record("same-output", [FAST_PATH_REFUSAL], category="internal"),
+    },
+    "a harness record covers a changed refusal of a CLI fast path": {
+        "release": FAST_PATH,
+        "head": SRC | {f"{EXPECTED}/{FAST_PATH_REFUSAL}": "0\n\n"} | _record("same-output", [FAST_PATH_REFUSAL]),
+    },
+    "harness on a change of uv.lock alone": {
+        "head": {"uv.lock": "locked\n", f"{EXPECTED}/models/b.py": "B = 2\n"} | _record("same-output", ["models/b.py"]),
+    },
+    "harness on a src change that makes a label share another's output": {
+        "head": SRC | SHARED_B | _record("same-output", ["models/b.py"]),
+    },
+    "harness on a src change that makes a label share another's output, the gate admits": {
+        "head": SRC | SHARED_B | _record("same-output", ["models/b.py"]),
+        "verdicts": {"models/b.py": None},
+    },
+    "harness on a src change that gives a label several stored outputs": {
+        "head": SRC | VARIANTS_B | _record("same-output", ["models/b.py"]),
+    },
+    "harness on a src change that gives a label several stored outputs, the gate admits": {
+        "head": SRC | VARIANTS_B | _record("same-output", ["models/b.py"]),
+        "verdicts": {"models/b.py": None},
+    },
+    "harness on a src change that swaps the stored outputs of one label's test items": {
+        "release": TWO_UNITS_A,
+        "head": SRC | SWAPPED_A_B | _record("same-output", ["models/a.py", "models/b.py", "models/c.py"]),
+        "verdicts": {"models/b.py": None, "models/c.py": None},
+    },
+    "harness on a src change that gives a shared label its own output": {
+        "head": SRC | OWN_C | _record("same-output", ["models/c.py"]),
+    },
+    "harness on a src change that gives a shared label its own output, the gate admits": {
+        "head": SRC | OWN_C | _record("same-output", ["models/c.py"]),
+        "verdicts": {"models/c.py": None},
+    },
     "report only": {"head": SRC | {f"{EXPECTED}/models/b.py": "B = 2\n"}, "args": ["--report-only"]},
     "a test-only change adds an output after a src change": {
         "base": SRC,
@@ -468,10 +580,23 @@ CASES: dict[str, dict[str, Any]] = {
 
 @pytest.mark.parametrize("case", sorted(CASES))
 def test_declared_changes_check(case: str, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    """The static rules over references: changes, splits, moves, removals, additions, layers, records, the release."""
+    """The static rules over references: changes, splits, moves, removals, additions, layers, records, the release.
+
+    `verdicts` are the gate's on the labels a `harness` record covers in a src change, by the label's contents at the
+    base and at `verdicts_head` (default the head).
+    """
     spec = CASES[case]
     repository = _repository(tmp_path, spec)
-    code = declared_changes.main(["check", "--base", "base", "--head", "HEAD", *spec.get("args", [])], repository)
+    args = ["check", "--base", "base", "--head", "HEAD", *spec.get("args", [])]
+    if "verdicts" in spec:
+        base, head = (declared_changes.Side(repository, rev) for rev in ("base", spec.get("verdicts_head", "HEAD")))
+        rows = [
+            {"label": label, "base": base.content(label), "head": head.content(label), "problem": problem}
+            for label, problem in spec["verdicts"].items()
+        ]
+        (verdicts := tmp_path / "verdicts.json").write_text(json.dumps({"verdicts": rows}), encoding="utf-8")
+        args += ["--verdicts", str(verdicts)]
+    code = declared_changes.main(args, repository)
     assert_output(f"exit {code}\n{capsys.readouterr().out}")
 
 
@@ -706,6 +831,7 @@ def test_declared_changes_errors(tmp_path: Path, capsys: pytest.CaptureFixture[s
             text=True,
         ).stdout.strip()
         subprocess.run([*GIT, "update-ref", f"refs/heads/{name}", commit], cwd=repository, check=True)
+    (repository / "malformed-verdicts.json").write_text('{"verdicts": [{"label": "models/b.py"}]}', encoding="utf-8")
     output = [
         _run(repository, capsys, ["check", "--base", "nothing"]),
         _run(repository, capsys, ["check", "--base", "base", "--head", "nothing"]),
@@ -716,7 +842,125 @@ def test_declared_changes_errors(tmp_path: Path, capsys: pytest.CaptureFixture[s
         _run(repository, capsys, ["check", "--base", "0.1.0", "--head", "base", "--tag", "base"]),
         _run(shallow, capsys, ["check", "--base", "HEAD", "--tag", "HEAD"]),
         _run(repository, capsys, ["status"]),
+        _run(repository, capsys, ["check", "--base", "base", "--verdicts", "no-verdicts.json"]),
+        _run(repository, capsys, ["check", "--base", "base", "--verdicts", "malformed-verdicts.json"]),
     ]
     subprocess.run([*GIT, "tag", "-d", "0.1.0"], cwd=repository, check=True, capture_output=True)
     output.append(_run(repository, capsys, ["check", "--base", "base"]))
     assert_output("\n".join(output))
+
+
+CHECK_TREE = {
+    name: (declared_changes.ROOT / name).read_text(encoding="utf-8")
+    for name in (
+        "scripts/__init__.py",
+        "scripts/declared_changes.py",
+        "scripts/_change_records.py",
+        "scripts/compare_release.py",
+        "tests/__init__.py",
+        "tests/units.py",
+    )
+}
+"""The check and the modules it imports as the repository has them, so that a temporary repository has a copy to run."""
+UNDECLARED_B = SRC | {f"{EXPECTED}/models/b.py": "B = 2\n"}
+"""A change of a stored output that no record covers."""
+
+
+WEAKENED = {
+    "scripts/declared_changes.py": CHECK_TREE["scripts/declared_changes.py"].replace(
+        "        return bool(\n            self.undeclared",
+        "        return False and bool(\n            self.undeclared",
+        1,
+    )
+}
+"""A change of the check that makes it pass every change (the head's own copy then passes the undeclared output)."""
+CI_CASES: dict[str, Mapping[str, Mapping[str, str | None] | Sequence[str] | str]] = {
+    "the verdicts file is missing where the gate wrote none": {
+        "release": CHECK_TREE,
+        "head": UNDECLARED_B | _record("same-output", ["models/b.py"]),
+        "verdicts": "missing",
+    },
+    "the verdicts file is there": {
+        "release": CHECK_TREE,
+        "head": UNDECLARED_B | _record("same-output", ["models/b.py"]),
+        "verdicts": "admit",
+    },
+    "no file of the check changes": {"release": CHECK_TREE, "head": UNDECLARED_B},
+    "the check passes every change in the head": {"release": CHECK_TREE, "head": UNDECLARED_B | WEAKENED},
+    "the check changes and the change is declared": {
+        "release": CHECK_TREE,
+        "head": UNDECLARED_B
+        | _record("b-two", ["models/b.py"], **OUTPUT_TEXT)
+        | {"tests/units.py": CHECK_TREE["tests/units.py"] + "\n"},
+        "args": ["--main"],
+    },
+    "the check is judged by its base without a verdicts file": {
+        "release": CHECK_TREE,
+        "head": UNDECLARED_B | WEAKENED | _record("same-output", ["models/b.py"]),
+        "verdicts": "missing",
+    },
+    "the base has no copy of the check": {"head": UNDECLARED_B | CHECK_TREE | WEAKENED},
+    "the head adds a module to the check and weakens it": {
+        "release": CHECK_TREE,
+        "head": UNDECLARED_B | WEAKENED | {"scripts/_added.py": "VALUE = 1\n"},
+    },
+    "the head drops a module the base's check imports": {
+        "release": CHECK_TREE
+        | {
+            "scripts/_dropped.py": "VALUE = 1\n",
+            "scripts/_change_records.py": CHECK_TREE["scripts/_change_records.py"]
+            + "\nfrom scripts._dropped import VALUE\n",
+        },
+        "head": UNDECLARED_B
+        | _record("b-two", ["models/b.py"], **OUTPUT_TEXT)
+        | {"scripts/_dropped.py": None, "scripts/_change_records.py": CHECK_TREE["scripts/_change_records.py"]},
+    },
+    "the head tightens the check and the base's copy passes": {
+        "release": CHECK_TREE,
+        "head": UNDECLARED_B
+        | _record("b-two", ["models/b.py"], **OUTPUT_TEXT)
+        | {
+            "scripts/declared_changes.py": CHECK_TREE["scripts/declared_changes.py"].replace(
+                "        return bool(\n            self.undeclared",
+                "        return True or bool(\n            self.undeclared",
+                1,
+            )
+        },
+    },
+    "the verdicts reach the base's copy": {
+        "release": CHECK_TREE,
+        "head": UNDECLARED_B
+        | _record("same-output", ["models/b.py"])
+        | {"tests/units.py": CHECK_TREE["tests/units.py"] + "\n"},
+        "verdicts": "admit",
+    },
+}
+
+
+@pytest.mark.parametrize("case", sorted(CI_CASES))
+def test_declared_changes_check_in_ci(case: str, tmp_path: Path) -> None:
+    """`check --ci` reads the gate's verdicts if there are some; the base's copy of the check judges a change of it.
+
+    The head's own script runs, as it does in CI: with the base's copy of the check first and its own judgement after
+    it, either of which fails the step. A base without the check has no copy, so the head's script judges alone.
+    """
+    spec = CI_CASES[case]
+    repository = _repository(tmp_path, spec)
+    args = ["check", "--base", "base", "--head", "HEAD", *spec.get("args", [])]
+    if "verdicts" in spec:
+        base, head = (declared_changes.Side(repository, rev) for rev in ("base", "HEAD"))
+        rows = [{"label": "models/b.py", "base": base.content("models/b.py"), "head": head.content("models/b.py")}]
+        (tmp_path / "verdicts.json").write_text(
+            json.dumps({"verdicts": [row | {"problem": None} for row in rows]}), encoding="utf-8"
+        )
+        name = "verdicts.json" if spec["verdicts"] == "admit" else "missing.json"
+        args += ["--verdicts", (tmp_path / name).as_posix()]
+    run = subprocess.run(
+        [sys.executable, str(repository / declared_changes.SCRIPT), args[0], "--ci", *args[1:]],
+        cwd=repository,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    shown = f"$ {args[0]} --ci {' '.join(args[1:])}\nexit {run.returncode}\n{run.stdout}{run.stderr}"
+    assert_output(shown.replace(tmp_path.as_posix(), "TMP"))

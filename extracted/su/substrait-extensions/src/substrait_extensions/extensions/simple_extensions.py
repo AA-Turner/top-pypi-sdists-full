@@ -199,6 +199,25 @@ class WindowFunction:
 
 
 @dataclass
+class Impl3:
+    deprecated: DeprecationStatus | None = None
+    description: str | None = None
+    args: Arguments | None = None
+    variadic: VariadicBehavior | None = None
+    options: Options | None = None
+    schema: ReturnValue | None = None
+
+
+@dataclass
+class TableFunction:
+    name: str
+    impls: list[Impl3]
+    deprecated: DeprecationStatus | None = None
+    description: str | None = None
+    metadata: dict[str, Any] | None = None
+
+
+@dataclass
 class TypeVariation:
     parent: Type
     name: str
@@ -243,3 +262,4 @@ class SimpleExtensions:
     scalar_functions: list[ScalarFunction] | None = None
     aggregate_functions: list[AggregateFunction] | None = None
     window_functions: list[WindowFunction] | None = None
+    table_functions: list[TableFunction] | None = None

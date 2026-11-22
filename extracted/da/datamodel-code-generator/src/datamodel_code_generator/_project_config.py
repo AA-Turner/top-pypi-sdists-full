@@ -6,7 +6,6 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeGuard, cast
 
-from datamodel_code_generator import Error
 from datamodel_code_generator._config_fields import (
     PYPROJECT_API_PATH_FIELDS,
     PYPROJECT_PATH_FIELDS,
@@ -15,7 +14,10 @@ from datamodel_code_generator._config_fields import (
     option_path,
 )
 from datamodel_code_generator._option_names import FIELD_ALIASES, GENERATE_FIELD_NAMES, field_name
+from datamodel_code_generator._option_stages import _run_option_stages
 from datamodel_code_generator._paths import resolved
+from datamodel_code_generator._shared_types import Error
+from datamodel_code_generator.enums import DataModelType
 from datamodel_code_generator.util import _load_config_toml
 
 if TYPE_CHECKING:
@@ -220,7 +222,6 @@ def load_pyproject_config(
     if not options:
         return _loaded_from(GenerateConfig.model_validate(explicit), pyproject_path)
 
-    from datamodel_code_generator import _run_option_stages  # ruff: ignore[import-outside-top-level]
     from datamodel_code_generator._cli_config import (  # ruff: ignore[import-outside-top-level]
         _get_config_class,
         _template_data,
@@ -230,8 +231,6 @@ def load_pyproject_config(
     options = _resolve_pyproject_relative_paths(options, pyproject_path, PYPROJECT_API_PATH_FIELDS)
     config = _get_config_class().model_validate(options)
     if "output_model_type" in explicit:
-        from datamodel_code_generator.enums import DataModelType  # noqa: PLC0415
-
         config.output_model_type = DataModelType(explicit["output_model_type"])
     for field in ("use_annotated", "field_constraints"):
         if field in explicit:

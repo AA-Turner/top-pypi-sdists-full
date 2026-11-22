@@ -652,21 +652,20 @@ class ControlPlaneClient:
         *,
         revision: str | None = None,
         hf_token: str | None = None,
-        model: str | None = None,
+        model: str,
         path: str | None = None,
         local: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """The embodiment a repo declares and the training datasets its stats cover.
-
-        ``model="pi0.5"`` reads it as a π0.5 checkpoint instead (its format, checkpoints,
-        detected fields and RTC); ``path`` picks one checkpoint inside the repo. ``local``
-        (π0.5, no repo): a local folder's listing (``dreamscale.local_checkpoint``); the
-        answer's ``upload`` names the files a build reads.
+        """What a repo holds, read as the deployment base ``model`` names (``pi0.5``: its
+        format, checkpoints, detected fields and RTC); ``path`` picks one checkpoint inside
+        the repo. ``local`` (no repo): a local folder's listing
+        (``dreamscale.local_checkpoint``); the answer's ``upload`` names the files a build
+        reads. The base is always named: the server has no default base.
         """
-        body: dict[str, Any] = {}
+        body: dict[str, Any] = {"model": model}
         for key, value in (
             ("repo", repo), ("local", local), ("revision", revision), ("hf_token", hf_token),
-            ("model", model), ("source_path", path),
+            ("source_path", path),
         ):
             if value is not None:
                 body[key] = value

@@ -37,6 +37,21 @@ _STATE_GONE = _COPY_STOPPED | {_BATCH_FAILED}
 
 
 _MOVE_HOLD_S = 15.0
+
+
+
+_ONTO_STANDBY = "its standby copy: the copy it was on"
+_ONTO_ANOTHER = "another worker: the one it was on"
+
+
+_CARRY_ASK_S = 3.0
+
+
+
+
+
+_CARRY_WAIT_S = 8.0
+_CARRY_ASK_EVERY_S = 0.25
 _MOVE_HOLD_GRACE_S = 5.0
 _MOVE_HOLD_ASK_S = 1.0
 
@@ -201,13 +216,13 @@ class _Episodes:
         (its cause, _COPY_STOPPED), or ended it for a batch that raised (_BATCH_FAILED), on the same worker. The new
         episode is handed none of the old one's observations and counts its steps from 0 - the act on its way its first
         (Window.restart, post) - as the policy's Episode does; a run's counts go on. Returns the worker-side id it leaves,
-        None on a stateless path. `standby`: why the worker the robot was on failed when its act went to its standby
-        copy (_switch), said once a switch, an episode or none.
+        None on a stateless path. `standby`: where its act went when the worker the robot was on failed, and why, in
+        words (_ONTO_STANDBY or _ONTO_ANOTHER, then why), said once a switch, an episode or none.
 """
         self._drop_resumed()
         if self._caller_episode is None:
             if standby is not None:
-                warn(f"this robot's act went to its standby copy: the copy it was on {standby}")
+                warn(f"this robot's act went to {standby}")
             return None
         left = self._worker_episode
         self._worker_episode = uuid.uuid4().hex
@@ -218,8 +233,8 @@ class _Episodes:
         if self._caller_episode in self._numbers:
             self._number_anew(self._caller_episode)
         if standby is not None:
-            warn(f"this robot's act went to its standby copy: the copy it was on {standby}; its episode goes on there as "
-                 "a new one, and what the policy kept of the last one did not carry over")
+            warn(f"this robot's act went to {standby}; its episode goes on there as a new one, and what the policy kept "
+                 "of the last one did not carry over")
             return left
         if stopped == _BATCH_FAILED:
             warn("episode was reset: a batch it was in failed, so what the policy kept of it may be half changed and was "
@@ -241,35 +256,64 @@ class _Episodes:
         stream), starts it anew."""
         return standby.resumes is True and self._caller_episode is not None
 
-    def _resume_episode(self, standby: "_WorkerTransport", why: str) -> None:
-        """The robot's act went to its standby copy (_switch), which reads its episode back from its state as saved, at
-        most 2 s before (plan 99 U6, U8): the episode goes on there under the same id. The observations kept go to it
-        again first - a stream to it posts what this one kept - and it takes those after that state. Each post and act of it there says it switched (SWITCHED_HEADER) - read back even
-        from its 0, its every frame kept - until one is answered, and then it is said, once (_resumed_answered): one
-        that read back less than is kept starts the episode anew instead, said so (_rotate_episode) - one word a
-        switch, and a true one. Under _lock.
+    def _resume_episode(self, standby: "_WorkerTransport", why: str, onto: str = _ONTO_STANDBY) -> None:
+        """The robot's act went to its standby copy (_switch) - or to another worker its reconnect reached (`onto`,
+        _carried_on) - which reads its episode back from its state as saved, at most 2 s before (plan 99 U6, U8): the
+        episode goes on there under the same id. The observations kept go to it again first - a stream to it posts what
+        this one kept - and it takes those after that state. Each post and act of it there says it switched
+        (SWITCHED_HEADER) - read back even from its 0, its every frame kept - until one is answered, and then it is said,
+        once (_resumed_answered): one that read back less than is kept starts the episode anew instead, said so
+        (_rotate_episode) - one word a switch, and a true one. Under _lock.
         """
         standby.switched = self._worker_episode
-        self._resumed = (why, standby)
+        self._resumed = (f"{onto} {why}", standby)
+
+    def _carried_on(self, old: "_WorkerTransport", new: "_WorkerTransport", why: Optional[str]) -> bool:
+        """Whether the robot's episode goes on under its id on `new`, the worker its reconnect through the platform
+        reached once the one it was on (`old`) failed mid-episode (`why`, _reconnect's words): `old` said it reads an
+        episode back - a worker whose robots may carry their episodes on, a spot machine's or one beside it, which saves
+        them as they go - and so does `new`, asked again until it says so for _CARRY_WAIT_S (its checkpoint form comes with
+        its first log post's answer, a moment after it is up). Its posts and act there then
+        say the robot switched (_resume_episode), as on a standby; a worker that has nothing saved of it answers the act
+        episode_lost, and it goes on as a new one then (_lose_episode). Else a new episode at once, as before
+        (_rotate_episode). Under _lock.
+        WHY: a spot machine its cloud takes back leaves its robots no standby unless the deployment keeps spare workers -
+        the worker each goes on to is one started cold.
+"""
+        if why is None or old.resumes is not True or self._caller_episode is None:
+            return False
+        until = time.monotonic() + _CARRY_WAIT_S
+        while new.resumes is not True and not new.gone:
+
+            if not new.alive(timeout_s=_CARRY_ASK_S) or new.resumes is True:
+                break
+            left = until - time.monotonic()
+            if left <= 0:
+                break
+            time.sleep(min(_CARRY_ASK_EVERY_S, left))
+        if not self._resumes_on(new):
+            return False
+        self._resume_episode(new, why, onto=_ONTO_ANOTHER)
+        return True
 
     def _resumed_answered(self) -> None:
-        """An act answered on the standby the robot's episode went on on (_resume_episode): said once, in U8's words."""
+        """An act answered on the worker the robot's episode went on on (_resume_episode): said once, in U8's words."""
         with self._lock:
-            why = self._drop_resumed()
-        if why is not None:
-            warn(f"this robot's act went to its standby copy: the copy it was on {why}; its episode goes on there from "
-                 "its state as saved, at most 2 s before")
+            went = self._drop_resumed()
+        if went is not None:
+            warn(f"this robot's act went to {went}; its episode goes on there from its state as saved, at most 2 s "
+                 "before")
 
     def _drop_resumed(self) -> Optional[str]:
-        """The robot's episode is no longer one going on on a standby that reads it back (_resume_episode) - an act of it
-        answered there, a new episode, its end: why its worker failed, else None, and its posts and acts say nothing of
-        a switch from here - a new episode under the same name ("ep-1" each time) is never read back as the last.
-        Under _lock."""
+        """The robot's episode is no longer one going on on a worker that reads it back (_resume_episode) - an act of it
+        answered there, a new episode, its end: where it went and why its worker failed, in words, else None - and its
+        posts and acts say nothing of a switch from here: a new episode under the same name ("ep-1" each time) is never
+        read back as the last. Under _lock."""
         if self._resumed is None:
             return None
-        (why, standby), self._resumed = self._resumed, None
+        (went, standby), self._resumed = self._resumed, None
         standby.switched = None
-        return why
+        return went
 
     def _lose_episode(self, worker: "_WorkerTransport", cause: Optional[str]) -> None:
         """The copy that held the caller's episode stopped, or ended it for a batch that raised (_STATE_GONE): a new

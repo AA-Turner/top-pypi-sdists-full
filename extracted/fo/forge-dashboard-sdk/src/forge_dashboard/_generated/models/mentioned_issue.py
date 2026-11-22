@@ -9,6 +9,7 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 from ..models.issue_relation import IssueRelation
+from ..types import UNSET, Unset
 
 
 
@@ -41,6 +42,10 @@ class MentionedIssue:
                 `pageUrl` opens its pop-up. False for a pull request, a closed
                 issue, an issue the user's settings hide and anything in a repo
                 the dashboard does not track; a client then links to `url`.
+            title (str | Unset): The title of the issue or pull request as the board holds it, so
+                a client can show it on hover. Left out when the dashboard does
+                not hold it, and a client then words the pill without it. Text,
+                never markup.
      """
 
     relation: IssueRelation
@@ -49,6 +54,7 @@ class MentionedIssue:
     url: str
     page_url: str
     tracked: bool
+    title: str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -68,6 +74,8 @@ class MentionedIssue:
 
         tracked = self.tracked
 
+        title = self.title
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -79,6 +87,8 @@ class MentionedIssue:
             "pageUrl": page_url,
             "tracked": tracked,
         })
+        if title is not UNSET:
+            field_dict["title"] = title
 
         return field_dict
 
@@ -102,6 +112,8 @@ class MentionedIssue:
 
         tracked = d.pop("tracked")
 
+        title = d.pop("title", UNSET)
+
         mentioned_issue = cls(
             relation=relation,
             repo=repo,
@@ -109,6 +121,7 @@ class MentionedIssue:
             url=url,
             page_url=page_url,
             tracked=tracked,
+            title=title,
         )
 
 

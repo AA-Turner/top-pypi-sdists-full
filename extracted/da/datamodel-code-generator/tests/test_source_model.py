@@ -22,6 +22,8 @@ import tomllib
 from coverage.config import DEFAULT_EXCLUDE
 from coverage.python import PythonParser
 
+from scripts import _behaviour_classify as behaviour_classify
+from scripts import _decision_home_reads as home_callers
 from scripts import _import_cycles as import_cycles
 from scripts import _source_model as source_model
 from scripts import (
@@ -34,6 +36,7 @@ from scripts import (
     legacy_row_reads,
     where,
 )
+from scripts.decision_homes import DecisionHome, Home
 from tests import expected_access
 from tests import test_assert_helper_usage as assert_helper_usage
 from tests import test_checks_are_run as checks_are_run
@@ -42,6 +45,8 @@ from tests import test_generated_import_closure as import_closure
 from tests import test_pre_commit_hooks as pre_commit_hooks
 from tests.checks.template_assignments import field_lines
 from tests.conftest import assert_output
+from tests.main import public_api_record
+from tests.main.shape_families import relations as shape_relations
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -1023,6 +1028,18 @@ def _defined_tests(form: Path) -> list[Finding]:
     ]
 
 
+def _rule_b_of_unparsed_text(form: Path) -> list[Finding]:
+    """Return the modules of a form that rule (b) does not hold between: the text and its unparsed form.
+
+    Unparsing drops the comments and the layout and keeps the tree, so rule (b) holds by its first clause.
+    """
+    return [
+        Finding("rule-b", _site(form, name, 1), f"{name}: rule (b) refuses the module's unparsed text")
+        for name, text in _form_files(form)
+        if not behaviour_classify.rule_b(text, ast.unparse(ast.parse(text)), signature_equal=False)
+    ]
+
+
 def _typing_only_parts(form: Path) -> list[Finding]:
     """Return the code tokens of a form that `scripts/_change_units.py` gives no unit: those only type checkers read.
 
@@ -1061,6 +1078,94 @@ def _legacy_row_reads(form: Path) -> list[Finding]:
             for filename, line in sorted(lines)
             for place in [Path(filename).relative_to(package).as_posix()]
             for kinds in [sorted(kind for kind, held in sites[row].items() if (filename, line) in held)]
+        ]
+
+
+def _client_reads(form: Path) -> list[Finding]:
+    """Return what the shape families' client relation reads of each module of a form, as it reads a generated client.
+
+    That is each annotated parameter of a function, with the function's qualified name and the annotation's text, and
+    each name a module-level ``from`` import binds, with the module it is read from.
+    """
+    found: list[Finding] = []
+    for name, text in _form_files(form):
+        module = source_model.SourceModule(text, name, "forms.form", verify=False)
+        found += [
+            Finding("parameter", _site(form, name, line), f"{name}:{line}: {function.qualname}({parameter}: {written})")
+            for function, parameter, written, line in shape_relations.parameter_annotations(module)
+        ]
+        found += [
+            Finding("import", _site(form, name, line), f"{name}:{line}: {bound} = {source}.{imported}")
+            for bound, source, imported, line in shape_relations.imported_names(module)
+        ]
+    return found
+
+
+def _public_api_record(form: Path) -> list[Finding]:
+    """Return the lines the public API record writes for each public name of a form, and what it refuses.
+
+    The form stands as a module of the package ``form`` (a package form as its subpackage).
+    """
+    with tempfile.TemporaryDirectory() as folder:
+        package = Path(folder) / "form"
+        package.mkdir()
+        for path in sorted(form.rglob("*.py")) if form.is_dir() else [form]:
+            target = package / (form.name / path.relative_to(form) if form.is_dir() else path.name.removesuffix(".txt"))
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(path.read_text(encoding="utf-8"), encoding="utf-8")
+        (package / "__init__.py").touch()
+        api = public_api_record.read(Path(folder), "form")
+        recorded = [
+            Finding("recorded", _site(form, place, entry.line), f"{place}:{entry.line}: " + "\n    ".join(entry.lines))
+            for entry in api.entries
+            if entry.lines
+            for place in [api.place(entry.module)]
+        ]
+        return recorded + [
+            Finding("refused", _site(form, place, refusal.line), f"{place}:{refusal.line}: {refusal.reason}")
+            for refusal in api.refusals
+            for place in [api.place(refusal.module)]
+        ]
+
+
+def _decision_home_callers(form: Path) -> list[Finding]:
+    """Return the callers the decision-home guard finds when each module-level def or class of a form is a home.
+
+    The form keeps its layout under ``scripts/`` (as `_where_disagreements` places it), which stands as the package:
+    each module is a row of its own definitions with no adapter site, so a read of a definition from another module of
+    the form is a caller and one from its own module is none.
+    """
+    with tempfile.TemporaryDirectory() as folder:
+        root = Path(folder)
+        (root / "src" / where.PACKAGE).mkdir(parents=True)
+        for path in sorted(form.rglob("*.py")) if form.is_dir() else [form]:
+            target = (
+                root
+                / "scripts"
+                / (form.name / path.relative_to(form) if form.is_dir() else path.name.removesuffix(".txt"))
+            )
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(path.read_text(encoding="utf-8"), encoding="utf-8")
+        repo = where.Repo(root, where.Page([], [], [], []))
+        records = [
+            DecisionHome(
+                place,
+                homes=tuple(
+                    Home(place, scope.qualname)
+                    for scope in repo.model(path).scopes
+                    if scope.kind in where.DEFS and scope.parent is not None and scope.parent.kind == "module"
+                ),
+                core="",
+                adapters="",
+                sites=(),
+            )
+            for path in sorted(repo.names)
+            for place in [path.removeprefix("scripts/")]
+        ]
+        return [
+            Finding("caller", _site(form, module, caller.line), f"{caller.caller}:{caller.line}: calls {caller.home}")
+            for caller in home_callers.unlisted_callers(repo, records, "scripts/")
+            for module in [caller.caller.partition(":")[0]]
         ]
 
 
@@ -1112,6 +1217,22 @@ RULES: dict[str, RuleRun] = {
     ),
     "change-units-typing-only": RuleRun(
         "scripts._change_units", frozenset({"references", "extents"}), _typing_only_parts
+    ),
+    "public-api-record": RuleRun(
+        "tests.main.public_api_record",
+        frozenset({"bindings", "references", "imports", "extents"}),
+        _public_api_record,
+    ),
+    "rule-b": RuleRun(
+        "scripts._behaviour_classify", frozenset({"bindings", "imports", "references"}), _rule_b_of_unparsed_text
+    ),
+    "decision-home-callers": RuleRun(
+        "scripts._decision_home_reads",
+        frozenset({"bindings", "references", "imports", "extents"}),
+        _decision_home_callers,
+    ),
+    "shape-family-client-reads": RuleRun(
+        "tests.main.shape_families.relations", frozenset({"references", "imports", "extents"}), _client_reads
     ),
 }
 """Every rule that reads Python through the model; `verdicts.toml` states its verdict on each form of its questions."""

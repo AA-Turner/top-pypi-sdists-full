@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: dreamscale
-Version: 0.1.0a361
+Version: 0.1.0a365
 Summary: Cloud robot policy inference — one function call.
 Project-URL: Homepage, https://app.dreamscalelabs.com
 Project-URL: Documentation, https://docs.dreamscalelabs.com
@@ -18,8 +18,8 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <3.15,>=3.11
 Requires-Dist: click<8.5,>=8.1.7
-Requires-Dist: dreamscale-core==0.1.0a13
-Requires-Dist: dreamscale-transport==0.1.1a163
+Requires-Dist: dreamscale-core==0.1.0a15
+Requires-Dist: dreamscale-transport==0.1.1a164
 Requires-Dist: httpx<1,>=0.27
 Requires-Dist: jsonschema<5,>=4.23
 Requires-Dist: numpy<3,>=1.26
@@ -87,7 +87,7 @@ Cloud robot policy inference — one function call.
 Add Dreamscale to a Python 3.11–3.14 project:
 
 ```bash
-uv add "dreamscale==0.1.0a361"
+uv add "dreamscale==0.1.0a365"
 ```
 
 Install the CLI as a standalone tool:
@@ -116,10 +116,10 @@ or 3.13 when a stack needs it.
 To add a stack to your own project for use from Python:
 
 ```bash
-uv add "dreamscale[so101]==0.1.0a361"
-uv add "dreamscale[sim]==0.1.0a361"
-uv add "dreamscale[yam,cameras,realsense]==0.1.0a361"
-uv add "dreamscale[hud]==0.1.0a361"
+uv add "dreamscale[so101]==0.1.0a365"
+uv add "dreamscale[sim]==0.1.0a365"
+uv add "dreamscale[yam,cameras,realsense]==0.1.0a365"
+uv add "dreamscale[hud]==0.1.0a365"
 ```
 
 The base SDK supports Python 3.11 through 3.14. The `so101` extra currently
@@ -295,8 +295,8 @@ the pose saved with `dreamscale robots so101 home --set`, previews one plan with
 moving, runs on Enter until Ctrl+C, holds, and returns home. Without a saved home the arm
 starts and ends each task where it is. When the command exits the arm keeps holding its
 pose; support it, then run `dreamscale robots so101 release`. It supports
-`flux-3-action-so101`, `molmoact2-so101`, `perceptron-isaac05-so101`, `pi0.5-so101` and
-`praxis-1-so101`, for organizations with access. The side camera is the policy's
+`flux-3-action-so101`, `molmoact2-so101`, `pi0.5-so101` and `praxis-1-so101`, for
+organizations with access. The side camera is the policy's
 scene view: mount it fixed,
 side-on, 60–80 cm from the arm with the lens just above prop height, so the whole arm
 and workspace are in frame ([placement guide](https://docs.dreamscalelabs.com/robots/so101)).
@@ -541,26 +541,22 @@ contract's action dimension as finite real numeric scalars; invalid output raise
 
 ### Deployments: your own fine-tunes
 
-A deployment is your Isaac 0.5 fine-tune from Hugging Face, shaped to your robot and
-deployed in a region. It is serverless: a GPU starts when a robot connects, and you pay per
-session.
+A deployment is your fine-tune from Hugging Face (or a local folder) on one of the
+deployment bases, shaped to your robot and deployed in a region. It is serverless: a GPU
+starts when a robot connects, and you pay per session.
 
 ```bash
-dreamscale deployments create hf://owner/repo --preset bimanual_yam   # or so101, or detected
-dreamscale deployments create hf://owner/repo --preset so101 --region us-east
+dreamscale deployments create hf://owner/repo --base isaac0.5 --preset bimanual_yam   # or so101
+dreamscale deployments create hf://owner/repo --base isaac0.5 --preset so101 --region us-east
 dreamscale deployments list
 ```
 
-Without `--preset`, `create` takes the robot from the repo's deployment adapter;
-`--camera key=view`, `--image-size HxW`, `--chunk` and `--hz` describe another robot. The
-build checks the architecture, converts the weights and runs them once on a GPU (usually
-about 15 minutes). `--region` is `us-west` (the default) or `us-east`; pick the one nearest
+The build checks the architecture, converts the weights and runs them once on a GPU (usually
+about 15 minutes). `--region` names a region from the server's list; pick the one nearest
 your robot. Then:
 
 ```python
-with dreamscale.connect(
-    "perceptron-isaac05", deployment="ckpt_…", region="available"
-) as policy:
+with dreamscale.connect("isaac0.5", deployment="ckpt_…") as policy:
     ...
 ```
 

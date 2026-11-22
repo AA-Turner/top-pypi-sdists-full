@@ -13,6 +13,8 @@
 #include "_sinusoidal_nec4_core.h"
 #include "_fma_inline.h"
 #include "_somm_below_grid_core.h"
+#include "xsf/cephes/j0.h"
+#include "xsf/cephes/j1.h"
 
 #include <algorithm>
 #include <array>
@@ -30,6 +32,14 @@
 
 namespace mw {
 namespace sinusoidal {
+
+// `_nec2_end_cap.BELOW_INTERFACE_REFUSAL` / `NEC4_JUNCTION_REFUSAL`
+const char *const kNec2CapBelowInterface =
+    "nec2_end_cap is NEC-2's free-end condition and NEC-2 has no buried or "
+    "ground-crossing wires; turn it off for this deck";
+const char *const kNec2CapNec4Junction =
+    "nec2_end_cap cannot act on a deck the NEC-4 junction rule solves, whose "
+    "route carries its own end cap; turn it off for this deck";
 
 namespace {
 
@@ -203,6 +213,9 @@ std::vector<std::size_t> nec4_solved_nodes(const Front &f) {
     return out;
 }
 
+void per_end_basis(Front &f, const std::vector<double> &am, const std::vector<double> &ap,
+                   const std::vector<double> &X);
+
 // `SinusoidalSolver._nec4_end_factors` + `_sinusoidal_nec4.end_cap_x` +
 // `_sinusoidal_nec4.basis_coefs_per_end`, numpy's elementwise order.
 void nec4_basis(Front &f, const std::vector<double> &a, const std::vector<std::size_t> &nodes) {
@@ -245,12 +258,27 @@ void nec4_basis(Front &f, const std::vector<double> &a, const std::vector<std::s
         for (std::size_t q = 0; q < segs.size(); q++) (segs[q].second ? am : ap)[segs[q].first] = fac[q];
     }
     // end_cap_x
-    std::vector<double> X(n), kd(n), sin_kd(n), cos_kd(n), s2(n), c2(n), s4(n), recip(n), tanh_(n);
+    std::vector<double> X(n);
     const double half_k = 0.5 * k;
     for (std::size_t i = 0; i < n; i++) {
         const bool free_m = g.nm_count[i] == 0 && !g.ground_minus[i] && !g.crossing_minus[i];
         const bool free_p = g.np_count[i] == 0 && !g.ground_plus[i] && !g.crossing_plus[i];
         X[i] = (free_m || free_p) ? half_k * a[i] : 0.0;
+    }
+    per_end_basis(f, am, ap, X);
+    f.nec4 = true;
+}
+
+// `_sinusoidal_nec4.basis_coefs_per_end(geom, k, a_minus, a_plus, x_end)` at
+// the front's real k, numpy's elementwise order: the NEC-4 junction's basis
+// (`nec4_basis`) and NEC-2's free-end cap (`nec2_cap_basis`, momwire#2033).
+void per_end_basis(Front &f, const std::vector<double> &am, const std::vector<double> &ap,
+                   const std::vector<double> &X) {
+    const Geometry &g = f.geometry;
+    const double k = f.k;
+    const std::size_t n = static_cast<std::size_t>(g.n_segs);
+    std::vector<double> kd(n), sin_kd(n), cos_kd(n), s2(n), c2(n), s4(n), recip(n), tanh_(n);
+    for (std::size_t i = 0; i < n; i++) {
         kd[i] = k * g.seg_h[i];
         sin_kd[i] = mw_libm_c::rsin(kd[i]);
         cos_kd[i] = mw_libm_c::rcos(kd[i]);
@@ -413,7 +441,39 @@ void nec4_basis(Front &f, const std::vector<double> &a, const std::vector<std::s
         v.AC.push_back(cd(all_AC[o], 0.0));
         v.sigma.push_back(all_sigma[o]);
     }
-    f.nec4 = true;
+}
+
+// --- NEC-2's free-end cap (momwire#2033, `_nec2_end_cap`) ---------------------
+
+// `_nec2_end_cap.has_free_end(geom)`: a segment end in free space
+bool has_free_end(const Geometry &g) {
+    const std::size_t n = static_cast<std::size_t>(g.n_segs);
+    for (std::size_t i = 0; i < n; i++) {
+        if (g.nm_count[i] == 0 && !g.ground_minus[i] && !g.crossing_minus[i]) return true;
+        if (g.np_count[i] == 0 && !g.ground_plus[i] && !g.crossing_plus[i]) return true;
+    }
+    return false;
+}
+
+// `_nec2_end_cap.basis_view(geom, k, a_const, seg_radius)`: the log rule's
+// factor at both ends of every segment, and NEC-2's X = J1(ka)/J0(ka) at a
+// segment with a free end (scipy's j0 / j1, cephes', as xsf vendors them).
+void nec2_cap_basis(Front &f, const std::vector<double> &a) {
+    const Geometry &g = f.geometry;
+    const double k = f.k;
+    const std::size_t n = static_cast<std::size_t>(g.n_segs);
+    std::vector<double> base(n), X(n);
+    for (std::size_t i = 0; i < n; i++) {
+        const double ka = k * a[i];
+        base[i] = 1.0 / (std::log(2.0 / ka) - kEulerGamma);
+    }
+    for (std::size_t i = 0; i < n; i++) {
+        const bool free_m = g.nm_count[i] == 0 && !g.ground_minus[i] && !g.crossing_minus[i];
+        const bool free_p = g.np_count[i] == 0 && !g.ground_plus[i] && !g.crossing_plus[i];
+        const double ka = k * a[i];
+        X[i] = (free_m || free_p) ? xsf::cephes::j1(ka) / xsf::cephes::j0(ka) : 0.0;
+    }
+    per_end_basis(f, base, base, X);
 }
 
 
@@ -479,6 +539,27 @@ const char *const kCrossingTwoRadiusRefusal =
     "n in free space (momwire#1632). Solve it with SinusoidalGalerkinSolver or BSplineSolver, which"
     " serve the two-radius node and track NEC-5's radius response to under 0.5 ohm, or give every w"
     "ire one radius";
+
+// `_ground_spec.CONTACT_UNDER_REFL_COEF_REFUSAL` (UTF-8)
+const char *const kRefuseContactReflCoef =
+    "ground CONTACT under ground_model='refl-coef' is refused (momwire#282 stage 1, 2026-08-18): "
+    "the reflection-coefficient ground's Phi-term weight is a specular-angle approximation with n"
+    "o validity at zero clearance (momwire#153), and at contact it does not approximate the answe"
+    "r at all. Measured on a base-fed quarter-wave vertical over average soil (eps_r 13, sigma 0."
+    "005 S/m) at 14 MHz, N=41: refl-coef gives 27.0+12.6j ohm against this solver's own sommerfel"
+    "d answer of 51.5+23.2j ohm on the same deck and the NEC-5 binary's printed 52.4+22.7j ohm "
+    "\xe2\x80\x94"
+    " 27 ohm out, and on the WRONG SIDE of the 40.7+23.3j ohm PEC answer, so it is not a degraded"
+    " approximation but a different number. This row was served and silently wrong; docs/design/c"
+    "ontact-over-finite-ground.md 3.6 has the measurement. The MODEL is what has no story at the "
+    "plane, not momwire's implementation of it: NEC-2's own reflection-coefficient ground (nec2c,"
+    " GN 0) prints 175-779j ohm over average soil and 155-1248j ohm over poor soil on the same co"
+    "ntact monopole, against a sane 39.4+22.1j ohm over GN 1 ""\xe2\x80\x94"
+    " a reflection coefficient is a plane-wave object evaluated on a specular ray, and at zero cl"
+    "earance there is no such ray. Use ground_model='sommerfeld', which is contact-capable (momwi"
+    "re#151) and gated there against the binary, or raise the wire clear of the plane ""\xe2\x80\x94"
+    " refl-coef stays served, and stays the default, for wires standing clear in its 0.1-0.5 lamb"
+    "da validity window";
 
 // `_medium_spec._REFUSE_BURIED_PEC`
 const char *const kRefuseBuriedPec =
@@ -1644,7 +1725,18 @@ Front front(const nec4::SolverArgs &in, bool galerkin) {
     f.dedup = drop_duplicated_wires(in, f.args, galerkin);
     const nec4::SolverArgs &args = f.args;
     const auto &pls = args.wires;
-    if (args.ground.kind == nec4::Ground::finite_fast) decline("a reflection-coefficient ground");
+    // momwire#282 stage 1: ground CONTACT under the reflection-coefficient
+    // ground (GN 0) is refused at construction, every touching end named
+    if (args.ground.kind == nec4::Ground::finite_fast) {
+        const std::vector<std::pair<ll, bool>> touching = contact_ends(pls, 0.0);
+        if (!touching.empty()) {
+            std::string where;
+            for (std::size_t i = 0; i < touching.size(); i++)
+                where += (i ? ", wire " : "wire ") + std::to_string(touching[i].first) +
+                         (touching[i].second ? " start" : " end");
+            refuse_ni(where + " lies in the ground plane: " + kRefuseContactReflCoef);
+        }
+    }
     const bool has_ground = args.ground.kind != nec4::Ground::none;
     const bool lower_medium = args.ground.kind == nec4::Ground::finite;  // the Sommerfeld half-space
     const double gz = 0.0;
@@ -1914,6 +2006,33 @@ Front front(const nec4::SolverArgs &in, bool galerkin) {
         for (std::size_t w = 0; w < n_w; w++)
             for (ll s = g.wire_first[w]; s <= g.wire_last[w]; s++) a[static_cast<std::size_t>(s)] = f.radius_per_wire[w];
     }
+    // momwire#2033: NEC-2's free-end cap, where it is asked for (or is the
+    // NEC-2 launcher's default) and the deck has a free end. A deck with no
+    // free end falls through, bit for bit. The launcher's default settles
+    // first (`SinusoidalSolver._settle_nec2_end_cap`): off, with the reason
+    // kept, on a deck the NEC-4 junction solves or with a wire below the
+    // interface, where an explicit request refuses (`_basis_coefs`).
+    if (args.nec2_end_cap != 0 && has_free_end(g)) {
+        const bool below_any = std::find(f.below_wire.begin(), f.below_wire.end(), true) != f.below_wire.end();
+        const bool nec4_live = args.junction_rule_nec42 && !below_any && !nec4_solved_nodes(f).empty();
+        if (args.nec2_end_cap == 2) {
+            if (nec4_live) {
+                f.nec2_end_cap_withdrawn = kNec2CapNec4Junction;
+            } else if (below_any) {
+                f.nec2_end_cap_withdrawn = kNec2CapBelowInterface;
+            } else {
+                nec2_cap_basis(f, a);
+                f.nec2_end_cap = true;
+                return f;
+            }
+        } else {
+            if (nec4_live) fail(kNec2CapNec4Junction);
+            if (below_any) fail(kNec2CapBelowInterface);
+            nec2_cap_basis(f, a);
+            f.nec2_end_cap = true;
+            return f;
+        }
+    }
     if (f.buried) {
         // `_operating_medium`: a wholly-buried deck is solved in the lower
         // medium, its basis at k_m (`_readout_view`); `_nec4_live` is false
@@ -1979,9 +2098,10 @@ Front front(const nec4::SolverArgs &in, bool galerkin) {
         basis_coefs_complex(f, a, kseg, true);
         return f;
     }
-    if (args.junction_rule_nec42) {
-        // momwire#1644: `_nec4_live` -- the deck has a node the rule solves
-        // (a refl-coef ground or a buried wire is declined above).
+    if (args.junction_rule_nec42 && args.ground.kind != nec4::Ground::finite_fast) {
+        // momwire#1644: `_nec4_live` -- the deck has a node the rule solves,
+        // and its ground is not the reflection-coefficient one (which keeps
+        // NEC-2's basis and kernel); a buried wire is declined above.
         const std::vector<std::size_t> nodes = nec4_solved_nodes(f);
         if (!nodes.empty()) {
             nec4_basis(f, a, nodes);
@@ -2135,6 +2255,14 @@ SegView basis_coefs(const Front &fr, double k) {
     } else {
         for (std::size_t w = 0; w < g.wire_first.size(); w++)
             for (long long s = g.wire_first[w]; s <= g.wire_last[w]; s++) a[static_cast<std::size_t>(s)] = fr.radius_per_wire[w];
+    }
+    if (fr.nec2_end_cap) {
+        // `_basis_coefs(geom, k)` takes the cap at any real k (momwire#2033)
+        Front at_k;
+        at_k.geometry = fr.geometry;
+        at_k.k = k;
+        nec2_cap_basis(at_k, a);
+        return at_k.basis;
     }
     return basis_coefs_at(g, a, k);
 }

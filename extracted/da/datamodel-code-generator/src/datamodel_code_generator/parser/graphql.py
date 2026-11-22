@@ -16,17 +16,15 @@ from typing import (
 
 from typing_extensions import Unpack, override
 
-from datamodel_code_generator import (
-    InputFileType,
-    InvalidFileFormatError,
-    snooper_to_methods,
-)
+from datamodel_code_generator._debug import snooper_to_methods
 from datamodel_code_generator._format_types import DatetimeClassType
 from datamodel_code_generator._graph import reach
 from datamodel_code_generator._message_text import install_command
 from datamodel_code_generator._requirements import python_target_meets
+from datamodel_code_generator._shared_types import InvalidFileFormatError
 from datamodel_code_generator._user_keys import ClassScope
 from datamodel_code_generator._user_keys import class_scope as _class_scope_of
+from datamodel_code_generator.enums import InputFileType, JsonSchemaVersion
 from datamodel_code_generator.model._decisions.enum_kind import decide_enum_kind, enum_as_literal
 from datamodel_code_generator.model._decisions.union_assembly import MEMBER, UnionPolicy, assemble_union
 from datamodel_code_generator.model.base import TYPENAME_PROPERTY_KEY, _find_base_classes, get_inherited_fields
@@ -36,6 +34,7 @@ from datamodel_code_generator.parser.base import (
     DataType,
     Parser,
 )
+from datamodel_code_generator.parser.schema_version import JsonSchemaFeatures
 from datamodel_code_generator.reference import ModelType, Reference
 from datamodel_code_generator.types import Types, build_union
 
@@ -55,7 +54,6 @@ if TYPE_CHECKING:
     from datamodel_code_generator.config import GraphQLParserConfig
     from datamodel_code_generator.model import DataModel, DataModelFieldBase
     from datamodel_code_generator.model._decisions.enum_kind import EnumKind
-    from datamodel_code_generator.parser.schema_version import JsonSchemaFeatures
 
 # graphql-core >=3.2.7 removed TypeResolvers in favor of TypeFields.kind.
 # Normalize to a single callable for resolving type kinds.
@@ -105,9 +103,6 @@ class GraphQLParser(Parser["GraphQLParserConfig", "JsonSchemaFeatures"]):
     @override
     def schema_features(self) -> JsonSchemaFeatures:
         """Get schema features for GraphQL (uses default JSON Schema features)."""
-        from datamodel_code_generator.enums import JsonSchemaVersion  # noqa: PLC0415
-        from datamodel_code_generator.parser.schema_version import JsonSchemaFeatures  # noqa: PLC0415
-
         return JsonSchemaFeatures.from_version(JsonSchemaVersion.Draft202012)
 
     # all processed graphql objects
@@ -173,7 +168,7 @@ class GraphQLParser(Parser["GraphQLParserConfig", "JsonSchemaFeatures"]):
 
             resolved_type = graphql_resolver_kind(type_, None)
 
-            if resolved_type in self.support_graphql_types:  # pragma: no cover
+            if resolved_type in self.support_graphql_types:  # pragma: no cover - not proven unreachable
                 self.all_graphql_objects[type_.name] = type_
                 self.references[type_.name] = self.model_resolver._add_affixed(  # noqa: SLF001
                     f"{paths!s}/{resolved_type.value}/{type_.name}",
@@ -338,7 +333,7 @@ class GraphQLParser(Parser["GraphQLParserConfig", "JsonSchemaFeatures"]):
         )
         self._graph_builder.register_model(enum)
 
-    def parse_field(  # noqa: PLR0913
+    def parse_field(
         self,
         field_name: str,
         alias: str | list[str] | None,
@@ -357,8 +352,8 @@ class GraphQLParser(Parser["GraphQLParserConfig", "JsonSchemaFeatures"]):
         data_type = final_data_type
         obj = field.type
 
-        while graphql.is_list_type(obj) or graphql.is_non_null_type(obj):
-            if graphql.is_list_type(obj):
+        while isinstance(obj, (graphql.GraphQLList, graphql.GraphQLNonNull)):
+            if isinstance(obj, graphql.GraphQLList):
                 data_type.is_list = True
 
                 new_data_type = self._graphql_data_type(is_optional=True)
@@ -366,10 +361,9 @@ class GraphQLParser(Parser["GraphQLParserConfig", "JsonSchemaFeatures"]):
                 new_data_type.parent = data_type
 
                 data_type = new_data_type
-            elif graphql.is_non_null_type(obj):  # pragma: no cover
+            else:
                 data_type.is_optional = False
 
-            obj = graphql.assert_wrapping_type(obj)
             obj = obj.of_type
 
         obj = graphql.assert_named_type(obj)

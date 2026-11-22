@@ -3,16 +3,18 @@
 # files with source copies of this package and derivative works is **REQUIRED** as specified by the Apache License.
 # See https://github.com/kislyuk/argcomplete for more info.
 
+from __future__ import annotations
+
 import argparse
 import os
 import sys
-from collections.abc import Container, Mapping
-from typing import Callable, Literal, TextIO
+from collections.abc import Callable, Container, Mapping
+from typing import Literal, TextIO
 
 from . import io as _io
 from .completers import BaseCompleter, ChoicesCompleter, FilesCompleter, SuppressCompleter
 from .io import debug, mute_stderr
-from .lexers import split_line
+from .lexers import _split_line, split_line
 from .packages._argparse import IntrospectiveArgumentParser, action_is_greedy, action_is_open, action_is_satisfied
 
 safe_actions = {
@@ -137,8 +139,9 @@ class CompletionFinder:
         if output_stream is None:
             filename = os.environ.get("_ARGCOMPLETE_STDOUT_FILENAME")
             if filename is not None:
-                debug("Using output file {}".format(filename))
-                output_stream = open(filename, "w")
+                debug(f"Using output file {filename}")
+                encoding = "utf-8" if os.environ.get("_ARGCOMPLETE_SHELL") == "powershell" else None
+                output_stream = open(filename, "w", encoding=encoding)
 
         if output_stream is None:
             try:
@@ -151,18 +154,25 @@ class CompletionFinder:
 
         ifs = os.environ.get("_ARGCOMPLETE_IFS", "\013")
         if len(ifs) != 1:
-            debug("Invalid value for IFS, quitting [{v}]".format(v=ifs))
+            debug(f"Invalid value for IFS, quitting [{ifs}]")
             exit_method(1)
 
         dfs = os.environ.get("_ARGCOMPLETE_DFS")
         if dfs and len(dfs) != 1:
-            debug("Invalid value for DFS, quitting [{v}]".format(v=dfs))
+            debug(f"Invalid value for DFS, quitting [{dfs}]")
             exit_method(1)
 
         comp_line = os.environ["COMP_LINE"]
-        comp_point = int(os.environ["COMP_POINT"])
+        try:
+            comp_point = int(os.environ["COMP_POINT"])
+        except ValueError:
+            debug("Invalid value for COMP_POINT, quitting [{v}]".format(v=os.environ["COMP_POINT"]))
+            exit_method(1)
+            return
 
-        cword_prequote, cword_prefix, cword_suffix, comp_words, last_wordbreak_pos = split_line(comp_line, comp_point)
+        cword_prequote, cword_prefix, cword_suffix, comp_words, last_wordbreak_pos, word_before_quote = _split_line(
+            comp_line, comp_point
+        )
 
         # _ARGCOMPLETE is set by the shell script to tell us where comp_words
         # should start, based on what we're completing.
@@ -172,31 +182,31 @@ class CompletionFinder:
         start = int(os.environ["_ARGCOMPLETE"]) - 1
         comp_words = comp_words[start:]
 
-        assert self._parser is not None
-        if cword_prefix and cword_prefix[0] in self._parser.prefix_chars and "=" in cword_prefix:
-            # Special case for when the current word is "--optional=PARTIAL_VALUE". Give the optional to the parser.
-            comp_words.append(cword_prefix.split("=", 1)[0])
-
         debug(
-            "\nLINE: {!r}".format(comp_line),
-            "\nPOINT: {!r}".format(comp_point),
-            "\nPREQUOTE: {!r}".format(cword_prequote),
-            "\nPREFIX: {!r}".format(cword_prefix),
-            "\nSUFFIX: {!r}".format(cword_suffix),
+            f"\nLINE: {comp_line!r}",
+            f"\nPOINT: {comp_point!r}",
+            f"\nPREQUOTE: {cword_prequote!r}",
+            f"\nPREFIX: {cword_prefix!r}",
+            f"\nSUFFIX: {cword_suffix!r}",
             "\nWORDS:",
             comp_words,
         )
 
-        completions = self._get_completions(comp_words, cword_prefix, cword_prequote, last_wordbreak_pos)
+        completions = self._get_completions(
+            comp_words, cword_prefix, cword_prequote, last_wordbreak_pos, word_before_quote
+        )
+
+        def description(completion: str) -> str:
+            help_text = self._display_completions.get(completion)
+            if help_text is None and self.append_space and len(completions) == 1:
+                help_text = self._display_completions.get(completion.removesuffix(" "))
+            return (help_text or "").replace(ifs, " ")
 
         if dfs:
-            display_completions = {
-                key: value.replace(ifs, " ") if value else "" for key, value in self._display_completions.items()
-            }
-            completions = [dfs.join((key, display_completions.get(key) or "")) for key in completions]
+            completions = [dfs.join((c, description(c))) for c in completions]
 
         if os.environ.get("_ARGCOMPLETE_SHELL") == "zsh":
-            completions = [f"{c}:{self._display_completions.get(c)}" for c in completions]
+            completions = [f"{c}:{description(c)}" for c in completions]
 
         debug("\nReturning completions:", completions)
         output_stream.write(ifs.join(completions))
@@ -217,8 +227,13 @@ class CompletionFinder:
             _io.debug_stream = sys.stderr
         debug()
 
-    def _get_completions(self, comp_words, cword_prefix, cword_prequote, last_wordbreak_pos):
+    def _get_completions(self, comp_words, cword_prefix, cword_prequote, last_wordbreak_pos, word_before_quote=""):
         active_parsers = self._patch_argument_parser()
+
+        assert self._parser is not None
+        if cword_prefix and cword_prefix[0] in self._parser.prefix_chars and "=" in cword_prefix:
+            # Let argparse resolve the option in --option=PARTIAL, including abbreviations and aliases.
+            comp_words = [*comp_words, cword_prefix.split("=", 1)[0]]
 
         parsed_args = argparse.Namespace()
         self.completing = True
@@ -226,7 +241,6 @@ class CompletionFinder:
         try:
             debug("invoking parser with", comp_words[1:])
             with mute_stderr():
-                assert self._parser is not None
                 a = self._parser.parse_known_args(comp_words[1:], namespace=parsed_args)
             debug("parsed args:", a)
         except BaseException as e:
@@ -239,8 +253,31 @@ class CompletionFinder:
 
         completions = self.collect_completions(active_parsers, parsed_args, cword_prefix)
         completions = self.filter_completions(completions)
-        completions = self.quote_completions(completions, cword_prequote, last_wordbreak_pos)
-        return completions
+        if (
+            word_before_quote
+            and os.environ.get("_ARGCOMPLETE_SHELL") == "bash"
+            and (cword_prefix[0] not in active_parsers[-1].prefix_chars or cword_prefix.startswith(cword_prefix[0] * 2))
+        ):
+            # Bash keeps the part of the word before its open quote. Only matching suffixes can be inserted.
+            suffixes = {
+                c[len(word_before_quote) :]: self._display_completions.get(c, "")
+                for c in completions
+                if c.startswith(word_before_quote)
+            }
+            self._display_completions.update(suffixes)
+            completions = self.quote_completions(list(suffixes), cword_prequote, last_wordbreak_pos)
+            # Readline supplies the outer quotes unless the reply already starts or ends with that quote.
+            # An empty suffix needs both quotes to survive the shell's reply splitting.
+            replies = {}
+            for suffix in completions:
+                reply = (cword_prequote if not suffix or suffix.startswith(cword_prequote) else "") + suffix
+                if reply.endswith(cword_prequote):
+                    reply += cword_prequote
+                replies[reply] = self._display_completions.get(suffix, "")
+            self._display_completions.update(replies)
+            return list(replies)
+
+        return self.quote_completions(completions, cword_prequote, last_wordbreak_pos)
 
     def _patch_argument_parser(self):
         """
@@ -313,7 +350,7 @@ class CompletionFinder:
 
     def _get_subparser_completions(self, parser, cword_prefix):
         aliases_by_parser: dict[argparse.ArgumentParser, list[str]] = {}
-        for key in parser.choices.keys():
+        for key in parser.choices:
             p = parser.choices[key]
             aliases_by_parser.setdefault(p, []).append(key)
 
@@ -322,7 +359,7 @@ class CompletionFinder:
                 if alias.startswith(cword_prefix):
                     self._display_completions[alias] = self._get_action_help(action)
 
-        completions = [subcmd for subcmd in parser.choices.keys() if subcmd.startswith(cword_prefix)]
+        completions = [subcmd for subcmd in parser.choices if subcmd.startswith(cword_prefix)]
         return completions
 
     def _include_options(self, action, cword_prefix):
@@ -367,13 +404,15 @@ class CompletionFinder:
         return True
 
     def _complete_active_option(self, parser, next_positional, cword_prefix, parsed_args, completions):
-        debug("Active actions (L={l}): {a}".format(l=len(parser.active_actions), a=parser.active_actions))
+        debug(f"Active actions (L={len(parser.active_actions)}): {parser.active_actions}")
 
         isoptional = cword_prefix and cword_prefix[0] in parser.prefix_chars
         optional_prefix = ""
-        greedy_actions = [x for x in parser.active_actions if action_is_greedy(x, isoptional)]
+        active_actions = parser.active_actions
+        greedy_actions = [x for x in active_actions if action_is_greedy(x, isoptional)]
         if greedy_actions:
             assert len(greedy_actions) == 1, "expect at most 1 greedy action"
+            active_actions = greedy_actions
             # This means the action will fail to parse if the word under the cursor is not given
             # to it, so give it exclusive control over completions (flush previous completions)
             debug("Resetting completions because", greedy_actions[0], "must consume the next argument")
@@ -385,13 +424,20 @@ class CompletionFinder:
                 # The completer runs on PARTIAL_VALUE. The prefix is added back to the completions
                 # (and chopped back off later in quote_completions() by the COMP_WORDBREAKS logic).
                 optional_prefix, _, cword_prefix = cword_prefix.partition("=")
+                if parser.final_option is not None:
+                    # Only this option can consume a value attached to its token.
+                    active_actions = [parser.final_option]
             else:
                 # Only run completers if current word does not start with - (is not an optional)
                 return completions
 
+        def add_completion(value: str, description: str) -> None:
+            candidate = f"{optional_prefix}={value}" if optional_prefix else value
+            completions.append(candidate)
+            self._display_completions[candidate] = description
+
         complete_remaining_positionals = False
-        # Use the single greedy action (if there is one) or all active actions.
-        for active_action in greedy_actions or parser.active_actions:
+        for active_action in active_actions:
             if not active_action.option_strings:  # action is a positional
                 if action_is_open(active_action):
                     # Any positional arguments after this may slide down into this action
@@ -426,16 +472,14 @@ class CompletionFinder:
                     if isinstance(completer_output, Mapping):
                         for completion, description in completer_output.items():
                             if self.validator(completion, cword_prefix):
-                                completions.append(completion)
-                                self._display_completions[completion] = description
+                                add_completion(completion, description)
                     else:
                         for completion in completer_output:
                             if self.validator(completion, cword_prefix):
-                                completions.append(completion)
                                 if isinstance(completer, ChoicesCompleter):
-                                    self._display_completions[completion] = self._get_action_help(active_action)
+                                    add_completion(completion, self._get_action_help(active_action))
                                 else:
-                                    self._display_completions[completion] = ""
+                                    add_completion(completion, "")
                 else:
                     debug("Completer is not callable, trying the readline completer protocol instead")
                     for i in range(9999):
@@ -443,10 +487,7 @@ class CompletionFinder:
                         if next_completion is None:
                             break
                         if self.validator(next_completion, cword_prefix):
-                            self._display_completions[next_completion] = ""
-                            completions.append(next_completion)
-                if optional_prefix:
-                    completions = [optional_prefix + "=" + completion for completion in completions]
+                            add_completion(next_completion, "")
                 debug("Completions:", completions)
         return completions
 
@@ -515,9 +556,8 @@ class CompletionFinder:
         """
         filtered_completions = []
         for completion in completions:
-            if self.exclude is not None:
-                if completion in self.exclude:
-                    continue
+            if self.exclude is not None and completion in self.exclude:
+                continue
             if completion not in filtered_completions:
                 filtered_completions.append(completion)
         return filtered_completions
@@ -536,6 +576,12 @@ class CompletionFinder:
 
         This method is exposed for overriding in subclasses; there is no need to use it directly.
         """
+        if os.environ.get("_ARGCOMPLETE_SHELL") == "powershell":
+            # PowerShell replaces the whole token, including any opening quote.
+            # Its shell integration quotes these raw values with PowerShell's own escaping API.
+            return completions
+
+        original_completions = completions
         special_chars = "\\"
         # If the word under the cursor was quoted, escape the quote char.
         # Otherwise, escape all special characters and specially handle all COMP_WORDBREAKS chars.
@@ -558,15 +604,10 @@ class CompletionFinder:
             special_chars = ""
             completions = [c.replace("'", r"'\''") for c in completions]
 
-        # PowerShell uses ` as escape character.
-        if os.environ.get("_ARGCOMPLETE_SHELL") == "powershell":
-            escape_char = '`'
-            special_chars = special_chars.replace('`', '')
-        else:
-            escape_char = "\\"
-            if os.environ.get("_ARGCOMPLETE_SHELL") == "zsh":
-                # zsh uses colon as a separator between a completion and its description.
-                special_chars += ":"
+        escape_char = "\\"
+        if os.environ.get("_ARGCOMPLETE_SHELL") == "zsh":
+            # zsh uses colon as a separator between a completion and its description.
+            special_chars += ":"
 
         escaped_completions = []
         for completion in completions:
@@ -574,15 +615,24 @@ class CompletionFinder:
             for char in special_chars:
                 escaped_completion = escaped_completion.replace(char, escape_char + char)
             escaped_completions.append(escaped_completion)
-            if completion in self._display_completions:
-                self._display_completions[escaped_completion] = self._display_completions[completion]
 
+        self._display_completions.update(
+            {
+                quoted: self._display_completions[original]
+                for original, quoted in zip(original_completions, escaped_completions)
+                if quoted != original and original in self._display_completions
+            }
+        )
         if self.append_space:
             # Similar functionality in bash was previously turned off by supplying the "-o nospace" option to complete.
             # Now it is conditionally disabled using "compopt -o nospace" if the match ends in a continuation character.
             # This code is retained for environments where this isn't done natively.
             continuation_chars = "=/:"
-            if len(escaped_completions) == 1 and escaped_completions[0][-1] not in continuation_chars:
+            if (
+                len(escaped_completions) == 1
+                and escaped_completions[0]
+                and escaped_completions[0][-1] not in continuation_chars
+            ):
                 if cword_prequote == "":
                     escaped_completions[0] += " "
 
@@ -606,7 +656,7 @@ class CompletionFinder:
             result = input("prompt> ")
         """
         if state == 0:
-            cword_prequote, cword_prefix, cword_suffix, comp_words, first_colon_pos = split_line(text)
+            cword_prequote, cword_prefix, _cword_suffix, comp_words, first_colon_pos = split_line(text)
             comp_words.insert(0, sys.argv[0])
             matches = self._get_completions(comp_words, cword_prefix, cword_prequote, first_colon_pos)
             self._rl_matches = [text + match[len(cword_prefix) :] for match in matches]
@@ -633,7 +683,4 @@ class ExclusiveCompletionFinder(CompletionFinder):
         if action._orig_class in append_classes:
             return True
 
-        if action not in parser._seen_non_default_actions:
-            return True
-
-        return False
+        return action not in parser._seen_non_default_actions

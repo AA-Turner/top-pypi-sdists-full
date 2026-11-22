@@ -6,7 +6,7 @@ import hashlib
 
 import pytest
 
-from multihash import Func, FuncReg, IdentityHash, Multihash, digest
+from multihash import Func, FuncReg, HashComputationError, IdentityHash, Multihash, digest
 from multihash.constants import HASH_CODES
 
 
@@ -15,7 +15,7 @@ class FuncTestCase:
 
     def test_values_match_constants(self):
         assert Func.sha2_256 == HASH_CODES["sha2-256"]
-        assert Func.identity == HASH_CODES["id"]
+        assert Func.identity == HASH_CODES["identity"]
 
     def test_is_int_enum(self):
         assert isinstance(Func.sha2_256, int)
@@ -84,13 +84,9 @@ class DigestTestCase:
         assert mh.verify(b"other") is False
 
     def test_multihash_construction_styles(self):
-        # pymultihash style
-        mh1 = Multihash(func=Func.sha2_256, digest=b"x" * 32)
-        assert mh1.code == 0x12
-
         # py-multihash style
-        mh2 = Multihash(code=0x12, name="sha2-256", length=32, digest=b"x" * 32)
-        assert mh2.code == 0x12
+        mh = Multihash(code=0x12, name="sha2-256", length=32, digest=b"x" * 32)
+        assert mh.code == 0x12
 
 
 class NewHashFunctionsTestCase:
@@ -103,6 +99,43 @@ class NewHashFunctionsTestCase:
         mh = digest(b"hello world", "blake3")
         assert mh.code == Func.blake3
         assert len(mh.digest) == 32  # Blake3 default is 32 bytes
+
+    def test_blake3_variable_lengths(self):
+        """BLAKE3 supports variable output up to 128 bytes."""
+        import blake3 as blake3_mod
+
+        data = b"foo"
+        for length in (32, 64, 128):
+            mh = digest(data, Func.blake3, length=length)
+            assert len(mh.digest) == length
+            expected = blake3_mod.blake3(data).digest(length)
+            assert mh.digest == expected
+
+        assert FuncReg.is_variable_size(Func.blake3) is True
+        assert FuncReg.default_lengths[Func.blake3] == 32
+
+        with pytest.raises(HashComputationError):
+            digest(data, Func.blake3, length=129)
+
+    def test_keccak_available(self):
+        """Legacy Keccak hashes register when pycryptodome is installed."""
+        pytest.importorskip("Crypto.Hash.keccak")
+        from Crypto.Hash import keccak
+
+        mh = digest(b"hello", Func.keccak_256)
+        assert mh.code == Func.keccak_256
+        assert len(mh.digest) == 32
+        expected = keccak.new(digest_bits=256)
+        expected.update(b"hello")
+        assert mh.digest == expected.digest()
+
+        for func, bits in (
+            (Func.keccak_224, 224),
+            (Func.keccak_384, 384),
+            (Func.keccak_512, 512),
+        ):
+            mh_v = digest(b"hello", func)
+            assert len(mh_v.digest) == bits // 8
 
     def test_murmur3_128_available(self):
         """Test that MurmurHash3-128 is available and works."""
@@ -205,3 +238,47 @@ class NewHashFunctionsTestCase:
         mh1 = digest(data, "murmur3-128")
         mh2 = digest(data, "murmur3-128")
         assert mh1.digest == mh2.digest
+
+
+class VariableSizeRegistryTestCase:
+    """Tests for FuncReg.register_variable_size and default_lengths."""
+
+    def test_shake_defaults_in_default_lengths(self):
+        assert FuncReg.default_lengths[Func.shake_128] == 32
+        assert FuncReg.default_lengths[Func.shake_256] == 64
+        assert FuncReg.is_variable_size(Func.shake_128) is True
+        assert FuncReg.is_variable_size(Func.sha2_256) is False
+
+    def test_fixed_hash_default_length(self):
+        assert FuncReg.default_lengths[Func.sha2_256] == 32
+
+    def test_register_variable_size_custom(self):
+        def factory(size_hint: int):
+            length = 16 if size_hint < 0 else size_hint
+            if length <= 0 or length > 32:
+                return None
+
+            class H:
+                name = "test-var"
+                digest_size = length
+
+                def __init__(self):
+                    self._data = b""
+
+                def update(self, data):
+                    self._data += data
+
+                def digest(self):
+                    return (self._data + b"\x00" * length)[:length]
+
+            return H()
+
+        code = 0x07
+        try:
+            FuncReg.register_variable_size(code, "test-var", factory, "test-var")
+            assert FuncReg.default_lengths[code] == 16
+            assert FuncReg.is_variable_size(code) is True
+            h = FuncReg.hash_from_func(code, length=8)
+            assert h.digest_size == 8
+        finally:
+            FuncReg.unregister(code)

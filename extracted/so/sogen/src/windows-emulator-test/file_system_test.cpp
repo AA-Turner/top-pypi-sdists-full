@@ -6,7 +6,12 @@ namespace sogen
     {
         static std::filesystem::path translate(const file_system& fs, const windows_path& path)
         {
-            return fs.translate(path);
+            if (!path.is_absolute())
+            {
+                throw std::runtime_error("Only absolute paths can be translated: " + path.string());
+            }
+
+            return fs.translate(path).value_or(std::filesystem::path{});
         }
     };
 } // namespace sogen
@@ -264,6 +269,35 @@ namespace sogen::test
         EXPECT_EQ("root", read_host_file(this->root / "c" / "x.txt"));
         EXPECT_EQ("deleted", read_host_file(this->root / "c" / "deleted.txt"));
         EXPECT_EQ(contents, read_host_file(layer / "c" / "upper" / "x.txt"));
+    }
+
+    TEST_F(FileSystemTest, ReadOnlyFileMountOverridesDownloadedAndCopyOnWriteVersions)
+    {
+        const auto layer = this->root / "layer";
+        const windows_path path{'c', {u"x.txt"}};
+        {
+            file_system fs{this->root, filesystem_mode::copy_on_write, layer};
+            guest_file file{fs, path, u"wb", fs.open(path, u"wb").file};
+            ASSERT_TRUE(file);
+            constexpr std::string_view contents = "game-layer";
+            ASSERT_EQ(contents.size(), file.write(std::as_bytes(std::span(contents))));
+            ASSERT_TRUE(file.flush());
+        }
+
+        const auto bundled = this->root / "bundled.dll";
+        write_host_file(bundled, "apk-version");
+        file_system fs{this->root, filesystem_mode::copy_on_write, layer};
+        fs.map(path, bundled, filesystem_mode::read_only);
+        write_host_file(this->root / "c" / "x.txt", "new-download");
+
+        guest_file file{fs, path, u"rb", fs.open_read(path).file};
+        ASSERT_TRUE(file);
+        EXPECT_EQ("apk-version", read_guest_file(file, 32));
+        EXPECT_EQ(STATUS_ACCESS_DENIED, fs.open(path, u"wb").status);
+        EXPECT_EQ(STATUS_ACCESS_DENIED, fs.remove(path));
+        EXPECT_EQ("game-layer", read_host_file(layer / "c" / "upper" / "x.txt"));
+        EXPECT_EQ("new-download", read_host_file(this->root / "c" / "x.txt"));
+        EXPECT_EQ("apk-version", read_host_file(bundled));
     }
 
     TEST_F(FileSystemTest, RootLayerRequiresCopyOnWriteRoot)

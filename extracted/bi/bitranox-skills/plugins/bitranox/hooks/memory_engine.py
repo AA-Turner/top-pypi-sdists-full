@@ -31,6 +31,7 @@ Pure standard library; cross-platform (pathlib, UTF-8, the O_EXCL lock in self_i
 
 import argparse
 import contextlib
+import hashlib
 import json
 import os
 import re
@@ -137,6 +138,13 @@ class LevelReason(NamedTuple):
     reason: str
 
 
+class SlugReason(NamedTuple):
+    """A fact slug with why it was left as it is: a retired body still in `facts/`."""
+
+    slug: str
+    reason: str
+
+
 class RefSite(StrEnum):
     """Where a repointed [[ref]] sat in the citing fact."""
 
@@ -231,6 +239,8 @@ class HealReport:
     invalid_pointers: list[LevelLine] = field(default_factory=list[LevelLine])
     unreadable: list[LevelReason] = field(default_factory=list[LevelReason])
     refused_levels: list[LevelReason] = field(default_factory=list[LevelReason])
+    retirements_finished: list[str] = field(default_factory=list[str])
+    retirements_held: list[SlugReason] = field(default_factory=list[SlugReason])
     levels: int = 0
     skipped: str | None = None
 
@@ -441,6 +451,21 @@ class EmptyBody(ValueError):
                          "**Why:** and **How to apply:** lines" % slug)
 
 
+class RetiredBodyHeld(OSError):
+    """Raised by an `add` of a slug whose body a rename or relocate retired but could not archive
+    (on Windows, a reader held it open past the archive's wait). That body is the OLD fact: adopted
+    as this slug's body, the old fact would come back under its old name. Only a message
+    (strerror None), so the CLI prints it as `! error: <message>` and exits 2; nothing is written."""
+
+    def __init__(self, slug: str, record: Path, why: str) -> None:
+        super().__init__(
+            "%s is the slug of a retired fact whose body could not be archived yet (%s); the "
+            "retirement record is %s. Another process still holds that body open: run the add "
+            "again once it lets go, and the body is archived first. Nothing was written"
+            % (slug, why, record))
+        self.slug, self.record = slug, record
+
+
 class TopicsOnCreate(ValueError):
     """Raised when a NEW fact's body brings a frontmatter `topics:` line. Only `set-topics` changes
     a fact's topics: it checks each name against the tree's closed list and records the tagging,
@@ -578,6 +603,16 @@ class UnknownSlug(ValueError):
         self.slug = slug
         super().__init__("%r has no existing entry at this level to amend; use "
                          "'add --pin' to create it first" % slug)
+
+
+class BodyChanged(ValueError):
+    """Raised by an upsert given `expect_body` when the stored body, read under the level lock,
+    is no longer the one its caller read: the caller derived its write from a body a concurrent
+    writer has changed since. Nothing is written; read again and decide again."""
+
+    def __init__(self, slug: str) -> None:
+        self.slug = slug
+        super().__init__("%s's body changed since it was read; read it again and retry" % slug)
 
 
 # ---- store IO (pointer block in CLAUDE.local.md + central bodies), locked + mtime-neutral --------
@@ -969,7 +1004,7 @@ def add_or_update_entry(proj: _StrPath, title: str, hook: str | None, body: str 
 def upsert_entry(proj: _StrPath, title: str, hook: str | None, body: str = "", type_: str | None = None, pin: bool = False,
                  scope_default: str = "", slug: str | None = None, allow_over_cap_hook: bool = False,
                  allow_pinned_overwrite: bool = False, skill: str | None = None, *,
-                 must_exist: bool = False) -> tuple[str, bool]:
+                 must_exist: bool = False, expect_body: str | None = None) -> tuple[str, bool]:
     """Upsert a curated fact into `<proj>`'s pointer block + the anchor's central store (the single write
     path). Ensures the level's pointer block + scope, and writes under a lock, mtime-neutral.
     Returns (slug, created): `created` is True when this call made a new fact, decided under the
@@ -995,7 +1030,9 @@ def upsert_entry(proj: _StrPath, title: str, hook: str | None, body: str = "", t
     raises `NonLevelDir`. All three before any write. A slug whose pointer another level of the
     tree holds (a sibling, an ancestor or a child of the owner), while this level holds none,
     raises `SlugOwnedElsewhere` naming the owning level(s), before any write; a body no level
-    points at is adopted. A fact whose body is bound to a topic is
+    points at is adopted, except one a rename or relocate retired and could not archive (its
+    record in `.retiring/`, see `_retire_body`): that body is archived first, and while it still
+    cannot be, RetiredBodyHeld is raised before any write. A fact whose body is bound to a topic is
     decided and written under the tree's placement lock (`_placement_lock_if_bound`), so its
     lines change with no render or set-topics half done; PlacementLockBusy when it stays held.
 
@@ -1006,6 +1043,12 @@ def upsert_entry(proj: _StrPath, title: str, hook: str | None, body: str = "", t
     `must_exist` is `amend_pinned_entry`'s: the write only UPDATES. A slug this level holds no line
     of, decided under the level lock, raises `UnknownSlug` before any write (never a create, never
     an adopted dangling body), and an empty `title` keeps the stored one, read under that lock.
+
+    `expect_body` is for a caller that DERIVES its write (the body, the kind) from a body it read
+    before this call: the stored body, read under the level lock, must still be exactly that
+    text (as `read_store_text` returns it; "" for no body), else `BodyChanged` is raised before
+    any write. Without it a body amend landing between the caller's read and this write was
+    overwritten with text derived from the older body.
 
     Under BITRANOX_MEMORY_WRITES=off it raises `sig.MemoryWritesOff` as its first statement, before
     the lock is taken and before anything is read: this is the entry write path the skill scripts
@@ -1034,6 +1077,9 @@ def upsert_entry(proj: _StrPath, title: str, hook: str | None, body: str = "", t
     pruned = _pruned_part(anchor, proj)
     if pruned is not None:
         raise NonLevelDir(proj, *pruned)
+    # A body a rename or relocate retired but could not archive is the OLD fact: archived here,
+    # before any check below reads it as this slug's body, or RetiredBodyHeld while still held.
+    _finish_retirement(anchor, slug)
     # An empty body is the documented UPDATE path ("keep the stored one"), but on a CREATE there is
     # nothing to keep: it writes the frontmatter frame and stops, leaving a convincing always-loaded
     # hook with nothing behind it. Nothing downstream reports that - heal normalizes grammar, --check
@@ -1048,17 +1094,22 @@ def upsert_entry(proj: _StrPath, title: str, hook: str | None, body: str = "", t
     # the refusal writes nothing at all.
     if _body_topics_line(body) is not None and not us.body_path(anchor, slug).is_file():
         raise TopicsOnCreate(slug)
+    # git first: below, a bound fact's write holds the placement lock, then the level lock.
+    asked = _ask_git_first(proj)
     # A write to a fact bound to a topic holds the tree's placement lock from here on, so the
     # placed decision below and every line it rewrites see no render or set-topics half done.
     with _placement_lock_if_bound(anchor, slug, "add"):
-        return _upsert_checked(proj, anchor, slug, title, hook, body, type_, pin, scope_default,
-                               allow_pinned_overwrite, skill, must_exist)
+        return _upsert_checked(asked, anchor, slug, title, hook, body, type_, pin, scope_default,
+                               allow_pinned_overwrite, skill, must_exist, expect_body)
 
 
-def _upsert_checked(proj: str, anchor: _StrPath, slug: str, title: str, hook: str, body: str, type_: str | None, pin: bool, scope_default: str,
-                    allow_pinned_overwrite: bool, skill: str | None, must_exist: bool) -> tuple[str, bool]:
+def _upsert_checked(asked: _GitAsked, anchor: _StrPath, slug: str, title: str, hook: str, body: str, type_: str | None, pin: bool, scope_default: str,
+                    allow_pinned_overwrite: bool, skill: str | None, must_exist: bool,
+                    expect_body: str | None) -> tuple[str, bool]:
     """The writing half of `upsert_entry`, from the placed-by-topic checks on: its caller has
-    validated every argument and holds the placement lock when the fact is bound."""
+    validated every argument, asked git about the level (`asked`, whose level is the write's)
+    and holds the placement lock when the fact is bound."""
+    proj = asked.level
     # A fact placed by topic (see `_placed_slugs`) has a line at each level its topics place it
     # at. Checked here, before the level is scaffolded, so each refusal writes nothing: it is not
     # pinned (a pinned fact is never placed by topic), and it is written from a level that holds
@@ -1074,19 +1125,23 @@ def _upsert_checked(proj: str, anchor: _StrPath, slug: str, title: str, hook: st
         raise PlacedElsewhere(slug, [level for level, _ptr in copies])
     store_dir = us.central_facts_dir(anchor).parent   # the `.claude-memory` store dir for this tree
     store_existed = store_dir.exists()
-    lock_target = sig.claude_local_md_path(proj)
-    with sig.memory_lock(lock_target):
+    with _hold_level_for_setup(asked) as held:
         # An amend decides "this level holds the fact" here, under the lock: decided on an
         # earlier read, a fact moved or archived since was created anew (or its dangling body
         # adopted) by a verb that never creates.
         if must_exist and _current_line(proj, slug) is None:
             raise UnknownSlug(slug)
+        # Compared under the lock the write below holds (and the placement lock, for a fact
+        # bound to a topic), which every engine writer of this body takes, so the body that
+        # matched is the one the write replaces.
+        if expect_body is not None and read_store_text(us.body_path(anchor, slug)) != expect_body:
+            raise BodyChanged(slug)
         # Before the level is scaffolded, so the refusal writes nothing: a slug another level of
         # the tree points at is that level's fact, wherever the level sits.
         owners = _slug_owned_elsewhere(anchor, proj, slug)
         if owners:
             raise SlugOwnedElsewhere(slug, owners, _free_slug(anchor, slug))
-        ensure_level(proj, scope_default=scope_default, _locked=True)
+        ensure_level(proj, scope_default=scope_default, _held=held)
         scope, entries, _bodies = read_store(proj)
         by_slug = {e.slug: e for e in entries}
         if slug not in by_slug and us.body_path(anchor, slug).is_file():
@@ -2240,7 +2295,61 @@ def _move_cap_refusal(src: _StrPath, dst: _StrPath, plan: Sequence[tuple[str, tu
 
 
 
-def ensure_level(proj: _StrPath, scope_default: str = "", _locked: bool = False) -> None:
+@dataclass(frozen=True)
+class _GitAsked:
+    """What `_ask_git_first` returns: git was asked about `level`'s private files. Only
+    `_hold_level_for_setup` takes one, so the level lock that setup holds is taken after it."""
+
+    level: str
+
+
+@dataclass(frozen=True)
+class _HeldLevel:
+    """What `_hold_level_for_setup` yields: `level`'s lock is held, and git was already asked
+    about the level's private files before it was taken. `ensure_level(..., _held=...)` takes
+    one in place of asking git itself, so a caller holding the lock cannot reach its locked path
+    without that check having run outside the lock."""
+
+    level: str
+
+
+def _ask_git_first(proj: _StrPath) -> _GitAsked:
+    """Ask git whether `proj`'s private files are ignored, BEFORE the caller takes any lock
+    (the placement lock as well as the level lock): every git call is a subprocess (about 250 ms
+    for the first check of a process on Windows, cached per process after it), and under a lock
+    every other writer waits it out. Skipped when ensure_level is going to refuse anyway (writes
+    off, an excluded level), so a refused call still asks git nothing."""
+    proj = os.path.abspath(str(proj))
+    if not sig.memory_writes_off() and not _is_excluded_level(proj):
+        _ignore_level_private(proj)
+    return _GitAsked(proj)
+
+
+@contextlib.contextmanager
+def _hold_level_for_setup(asked: _GitAsked) -> Generator[_HeldLevel]:
+    """Hold the level lock of `asked.level` for a caller that sets the level up under it
+    (`ensure_level` with `_held`). It takes the `_GitAsked` of `_ask_git_first`, so git has
+    been asked before this lock, and before any lock the caller took ahead of it."""
+    with sig.memory_lock(sig.claude_local_md_path(asked.level)):
+        yield _HeldLevel(asked.level)
+
+
+def _ignore_level_private(proj: str) -> None:
+    """Best-effort: make git ignore `proj`'s `CLAUDE.local.md` and its anchor's store when
+    `track_private` is off, warning on stderr for a pattern git could not confirm. Runs git:
+    never call it while holding a lock (see `_ask_git_first`)."""
+    if sig.load_config().get("track_private"):     # the user wants memory committed
+        return
+    for where, pattern in ((proj, "CLAUDE.local.md"),
+                           (str(anchor_dir(proj)), us.STORE_DIRNAME + "/")):
+        if not sig.ensure_gitignored(where, pattern):
+            sys.stderr.write("~ warning: could not make sure git ignores %s in %s (git did not "
+                             "answer, or its exclude file could not be read or written) - "
+                             "check `git status` there before staging anything\n"
+                             % (pattern, where))
+
+
+def ensure_level(proj: _StrPath, scope_default: str = "", _held: _HeldLevel | None = None) -> None:
     """Ensure this level can carry curated memory: (1) its `CLAUDE.local.md` holds a managed pointer
     block with a scope descriptor (created if absent; an existing scope is kept, else a legacy scope
     harvested from `CLAUDE.md`, else `scope_default`), and (2) any LEGACY `<!-- bitranox:self-learning
@@ -2248,6 +2357,10 @@ def ensure_level(proj: _StrPath, scope_default: str = "", _locked: bool = False)
     the markers). Best-effort gitignore of `CLAUDE.local.md` + the anchor's `.claude-memory/` when not
     `track_private`; when git cannot confirm a pattern is ignored, a warning on stderr names it
     (the level is still set up). Idempotent + mtime-neutral. No `@import`, no `index.md`.
+
+    git runs outside the level lock: after releasing it here, or, for a caller that holds the
+    lock already and passes the `_HeldLevel` it got from `_hold_level_for_setup`, before that
+    caller took it (`_ask_git_first`) (`_held` must name this level; another level's raises ValueError).
 
     REFUSES an excluded altitude (home, the system temp dir, the filesystem root): those dirs are
     never a memory level, and scaffolding them turns e.g. all of /tmp into a fake knowledge tree
@@ -2285,23 +2398,14 @@ def ensure_level(proj: _StrPath, scope_default: str = "", _locked: bool = False)
         if us.INDEX_BEGIN not in text or want_scope != scope:
             us.write_if_changed(local, us.upsert_pointer_block(text, want_scope, pointers))
 
-    def _ignore() -> None:
-        if not sig.load_config().get("track_private"):     # keep local wiring + central store unpushed
-            for where, pattern in ((proj, "CLAUDE.local.md"),
-                                   (str(anchor_dir(proj)), us.STORE_DIRNAME + "/")):
-                if not sig.ensure_gitignored(where, pattern):
-                    sys.stderr.write("~ warning: could not make sure git ignores %s in %s (git did not "
-                                     "answer, or its exclude file could not be read or written) - "
-                                     "check `git status` there before staging anything\n"
-                                     % (pattern, where))
-
-    if _locked:
+    if _held is not None:
+        if not same_level(_held.level, proj):
+            raise ValueError("ensure_level(%s) was handed the lock of %s" % (proj, _held.level))
+        _do()          # its holder asked git before taking the lock
+        return
+    with sig.memory_lock(sig.claude_local_md_path(proj)):
         _do()
-        _ignore()
-    else:
-        with sig.memory_lock(sig.claude_local_md_path(proj)):
-            _do()
-        _ignore()      # git writes only its own exclude file: no reason to hold the level lock
+    _ignore_level_private(proj)   # git writes only its own exclude file: no reason to hold the lock
 
 
 def _is_excluded_level(proj: _StrPath) -> bool:
@@ -2373,11 +2477,11 @@ def _heal_level(proj: _StrPath, report: HealReport) -> None:
     """Repair one altitude in place (locked): ensure the CLAUDE.md marker + the CLAUDE.local.md pointer
     block + scope exist, and re-render the pointer block to canonical (heals a malformed SCOPE block or
     drifted grammar). Idempotent + mtime-neutral."""
-    with sig.memory_lock(sig.claude_local_md_path(proj)):
+    with _hold_level_for_setup(_ask_git_first(proj)) as held:
         made = _ensure_claude_md(proj)
         if made:
             report.healed.append(made)
-        ensure_level(proj, _locked=True)
+        ensure_level(proj, _held=held)
         local = sig.claude_local_md_path(proj)
         text = read_store_text(local)
         scope, pointers = us.parse_pointer_index(text)
@@ -2401,6 +2505,11 @@ def heal(proj: _StrPath) -> HealReport:
     'unreadable' - skipping it without a word read exactly like a healthy level. A level whose
     legacy CLAUDE.md scope block has a TOPICS line that does not parse is left untouched and
     REPORTED under 'refused' with the refusal, which names the file to fix by hand.
+    Every retirement the tree's store records (`_retire_body`: a renamed or relocated body that
+    could not be archived) is finished: the body is archived, or a stale record dropped, and the
+    slug listed under 'retirements_finished'; one it still cannot finish is REPORTED under
+    'retirements_held' with why. Without this a retired body whose slug no add ever names again
+    would sit in `facts/` for good.
     FAIL-OPEN (never raises). Returns a `HealReport`.
     Under BITRANOX_MEMORY_WRITES=off it touches nothing and returns every list empty, with
     `skipped` holding the refusal line (SessionStart calls it on every start, so it must not
@@ -2423,7 +2532,20 @@ def heal(proj: _StrPath) -> HealReport:
             report.refused_levels.append(LevelReason(level, str(exc)))
         except Exception:                            # noqa: BLE001 - one bad level never blocks the rest
             continue
+    if levels:                                       # the same anchor an add of the slug uses
+        _heal_retirements(anchor_dir(os.path.abspath(str(proj))), report)
     return report
+
+
+def _heal_retirements(anchor: _StrPath, report: HealReport) -> None:
+    """Finish the store's recorded retirements into `report` (see `heal`). Fail-open like heal:
+    a store it cannot list or lock is left for the next heal or add of the slug."""
+    try:
+        done, held = finish_retirements(anchor)
+    except OSError:                                  # TimeoutError (a held lock) included
+        return
+    report.retirements_finished.extend(done)
+    report.retirements_held.extend(SlugReason(slug, why) for slug, why in held)
 
 
 @dataclass
@@ -2609,6 +2731,10 @@ def relocate_entry(from_level: _StrPath, to_level: _StrPath, slug: str, force: b
     A cross-tree copy drops the body's frontmatter `topics:` line (topics are tagged against one
     tree's closed list) and says so in `notes`; a same-tree move leaves the body untouched. A fact
     placed by topic is refused across trees: its other lines would stay behind in the source tree.
+    In a source tree with a topic list the cross-tree half, checks and writes, runs under that
+    tree's placement lock (`placement_lock_if_listed`), raising PlacementLockBusy past its wait:
+    read without it, a set-topics binding the fact after that read met a relocate that carried
+    the fact out of the tree the binding places it in. A same-tree call takes it in `move_entry`.
     A target level whose path below its anchor crosses a directory the level walk prunes is
     refused (see `NonLevelDir`), and a cross-tree line that would leave the target's block past
     MAX_RENDER_BLOCK_BYTES is refused as `move` refuses it (see `_move_cap_refusal`); both before
@@ -2632,6 +2758,19 @@ def relocate_entry(from_level: _StrPath, to_level: _StrPath, slug: str, force: b
         rep.relocated, rep.refused, rep.warnings = m.moved, m.refused, m.warnings
         return rep
     rep.cross_tree = True
+    # The placed-by-topic decision below must stay true until the writes are done, so the whole
+    # cross-tree half holds the source tree's placement lock: taken here, before any level lock,
+    # as every holder takes it (the lock order above `placement_lock`). Only the source tree's:
+    # the copy lands without a topics line, so nothing in the target tree places it.
+    with placement_lock_if_listed(a_from, "relocate"):
+        return _relocate_across(rep, src, dst, a_from, a_to, force)
+
+
+def _relocate_across(rep: RelocateReport, src: Path, dst: Path, a_from: Path, a_to: Path,
+                     force: bool) -> RelocateReport:
+    """The cross-tree half of `relocate_entry`, filling `rep`; its caller holds the source tree's
+    placement lock when that tree has a topic list."""
+    slug = rep.slug
     if not us.is_valid_slug(slug):
         rep.refused = str(InvalidSlug(slug))
         return rep
@@ -2706,18 +2845,10 @@ def relocate_entry(from_level: _StrPath, to_level: _StrPath, slug: str, force: b
             archive_warning = ("source body kept: another level in the source tree still points "
                                "at it")
         else:
-            try:
-                archive = us.central_facts_dir(a_from).parent / ".archive"
-                archive.mkdir(parents=True, exist_ok=True)
-                if src_body.is_file():
-                    # Another session's unlocked read of the body (an `add`'s placement check,
-                    # a recall) holds it open for a moment, and Windows refuses to rename an open
-                    # file. Left in place, the body is one no level points at, and the next `add`
-                    # of the slug in this tree adopts it back.
-                    sig.retry_while_shared(src_body.rename,
-                                           us.free_archive_path(archive, slug + ".md"))
-            except OSError as exc:
-                archive_warning = "source body left in place (archive failed: %s)" % exc
+            failure = _retire_body(a_from, slug, "relocated to %s" % dst)
+            if failure is not None:
+                archive_warning = ("source body left in place, recorded as retired: the next add "
+                                   "of %s in this tree archives it first (%s)" % (slug, failure))
     if dropped_topics:
         rep.notes.append("dropped the topics: line of %s - topics are tagged against one tree's "
                          "list; tag it in the target tree with set-topics" % slug)
@@ -2725,6 +2856,152 @@ def relocate_entry(from_level: _StrPath, to_level: _StrPath, slug: str, force: b
         rep.warnings.append(archive_warning)
     rep.relocated = True
     return rep
+
+
+RETIRING_DIRNAME = ".retiring"
+"""The store subdir holding one record per retired body not yet archived (see `_retire_body`)."""
+
+
+def _retiring_record(anchor: _StrPath, slug: str) -> Path:
+    """`<store>/.retiring/<slug>.json`: present while `slug`'s retired body may sit in `facts/`."""
+    return us.central_facts_dir(anchor).parent / RETIRING_DIRNAME / (slug + ".json")
+
+
+def _retiring_lock(anchor: _StrPath, slug: str) -> Path:
+    """What `sig.memory_lock` locks for `slug`'s retirement: `<store>/.retiring/locks/<slug>`.
+    A dir of its own, so a lock file is never read as a record."""
+    return us.central_facts_dir(anchor).parent / RETIRING_DIRNAME / "locks" / slug
+
+
+def _body_digest(body: Path) -> str | None:
+    """sha256 of the body file's bytes, read with the store's retry while Windows refuses it;
+    None when the body is gone."""
+    try:
+        return hashlib.sha256(sig.retry_while_shared(body.read_bytes)).hexdigest()
+    except FileNotFoundError:
+        return None
+
+
+def _write_retiring_record(record: Path, digest: str, why: str) -> str:
+    """Write `record`; '' when written, else why not (what the caller's failure text adds)."""
+    try:
+        record.parent.mkdir(parents=True, exist_ok=True)
+        us.write_if_changed(record, json.dumps({"sha256": digest, "why": why}) + "\n")
+    except OSError as exc:
+        return ("; its retirement record could not be written either (%s), so the next add of "
+                "the slug adopts it as that fact's body" % exc)
+    return ""
+
+
+def _retire_body(anchor: _StrPath, slug: str, why: str) -> str | None:
+    """Move `slug`'s body, which no level points at any more, into `<store>/.archive/`. Returns
+    None when it is archived (or already gone), else why it is still in `facts/`.
+
+    A record naming the body (its sha256) and `why` is written to `.retiring/` FIRST and removed
+    once the body is gone, so there is no moment at which a retired body sits in `facts/` with
+    nothing saying so. While it stays (on Windows a reader holding the body open past the
+    archive's wait refuses the rename), the next `add` of the slug finishes the archive before
+    it reads the body (`_finish_retirement`) instead of adopting the old fact as a dangling body.
+
+    Every step on the record and the body runs under the slug's retirement lock, which
+    `_finish_retirement` takes too: without it a finisher that had matched the record against
+    the old body could rename a NEW body of the slug, written once another add finished the
+    retirement first. It is the innermost lock (the verbs hold level locks when they call this;
+    nothing holding it takes another), so it adds no cycle."""
+    try:
+        with sig.memory_lock(_retiring_lock(anchor, slug)):
+            return _retire_body_locked(anchor, slug, why)
+    except TimeoutError as exc:
+        # A finisher holds it for at most one archive's wait. Past ours, the body is still
+        # recorded, unlocked, so no add adopts it.
+        digest = _body_digest(us.body_path(anchor, slug))
+        if digest is None:
+            return None
+        return "archive skipped: %s%s" % (exc, _write_retiring_record(
+            _retiring_record(anchor, slug), digest, why))
+
+
+def _retire_body_locked(anchor: _StrPath, slug: str, why: str) -> str | None:
+    """`_retire_body` for a caller that holds the slug's retirement lock."""
+    body, record = us.body_path(anchor, slug), _retiring_record(anchor, slug)
+    digest = _body_digest(body)
+    if digest is None:
+        with contextlib.suppress(OSError):
+            record.unlink(missing_ok=True)
+        return None
+    unrecorded = _write_retiring_record(record, digest, why)
+    try:
+        archive = us.central_facts_dir(anchor).parent / ".archive"
+        archive.mkdir(parents=True, exist_ok=True)
+        # A reader holding the body open for a moment (another session's unlocked read: an
+        # `add`'s placement check, a recall) is waited out: Windows refuses to rename an open file.
+        sig.retry_while_shared(body.rename, us.free_archive_path(archive, slug + ".md"))
+    except OSError as exc:
+        if _body_digest(body) == digest:     # this body is still there: not archived
+            return "archive failed: %s%s" % (exc, unrecorded)
+    with contextlib.suppress(OSError):
+        record.unlink(missing_ok=True)
+    return None
+
+
+def _finish_retirement(anchor: _StrPath, slug: str) -> None:
+    """Archive `slug`'s retired body before an `add` of `slug` reads it, when `_retire_body` left
+    a record of it. A record whose digest no longer matches the body is stale (the slug was
+    reused since) and is dropped, leaving the body alone. Raises RetiredBodyHeld when the body
+    still cannot be archived, and for a record it cannot read (it then cannot tell the old fact
+    from a new one). Runs under the slug's retirement lock (see `_retire_body`)."""
+    record = _retiring_record(anchor, slug)
+    if not record.is_file():
+        return
+    with sig.memory_lock(_retiring_lock(anchor, slug)):
+        failure = _finish_retirement_locked(anchor, slug)
+    if failure is not None:
+        raise RetiredBodyHeld(slug, record, failure)
+
+
+def _finish_retirement_locked(anchor: _StrPath, slug: str) -> str | None:
+    """The step of `_finish_retirement` under the lock: None when nothing is left to do (no
+    record, a stale one, the body archived now), else why the body is still in `facts/`."""
+    record = _retiring_record(anchor, slug)
+    try:
+        data = json.loads(sig.retry_while_shared(record.read_bytes).decode("utf-8"))
+        digest, why = str(data["sha256"]), str(data["why"])
+    except FileNotFoundError:
+        return None                          # finished since the caller looked
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        return ("the record cannot be read: %s; delete it if %s is the live fact"
+                % (exc, us.body_path(anchor, slug)))
+    now = _body_digest(us.body_path(anchor, slug))
+    if now is not None and now != digest:
+        with contextlib.suppress(OSError):
+            record.unlink(missing_ok=True)
+        return None
+    failure = _retire_body_locked(anchor, slug, why)
+    return None if failure is None else "%s; %s" % (why, failure)
+
+
+def finish_retirements(anchor: _StrPath) -> tuple[list[str], list[tuple[str, str]]]:
+    """Finish every retirement `anchor`'s store records (see `_retire_body`): (the slugs whose
+    record is now gone: body archived, or the record stale, [(slug, why its body is still in
+    facts/)]). heal calls it; an `add` finishes only its own slug's. Holds one record at a time."""
+    done: list[str] = []
+    held: list[tuple[str, str]] = []
+    folder = us.central_facts_dir(anchor).parent / RETIRING_DIRNAME
+    try:
+        names = sorted(e.name for e in os.scandir(folder) if e.is_file())
+    except OSError:
+        return done, held
+    for name in names:
+        slug = name.removesuffix(".json")
+        if slug == name or not us.is_valid_slug(slug):
+            continue
+        with sig.memory_lock(_retiring_lock(anchor, slug)):
+            failure = _finish_retirement_locked(anchor, slug)
+        if failure is None:
+            done.append(slug)
+        else:
+            held.append((slug, failure))
+    return done, held
 
 
 def _relocate_line_refusal(dst_entry: Entry | us.Pointer | None, entry: Entry | us.Pointer) -> str | None:
@@ -3060,16 +3337,10 @@ def _rename_locked(anchor: _StrPath, lvl: Path, *, others: Sequence[str], slug: 
         warnings.append("old body kept: %s took a line of %s while it was being renamed - "
                         "rename it there too" % (", ".join(late), slug))
         return None
-    try:
-        if src_body.is_file():
-            archive = us.central_facts_dir(anchor).parent / ".archive"
-            archive.mkdir(parents=True, exist_ok=True)
-            # Waits out a reader holding the body open, as relocate's archive does: left in
-            # place, the next `add` of the old slug adopts it and the fact answers to that name
-            # again.
-            sig.retry_while_shared(src_body.rename, us.free_archive_path(archive, slug + ".md"))
-    except OSError as exc:
-        warnings.append("old body left in place (archive failed: %s)" % exc)
+    failure = _retire_body(anchor, slug, "renamed to %s" % to_slug)
+    if failure is not None:
+        warnings.append("old body left in place, recorded as retired: the next add of %s "
+                        "archives it first (%s)" % (slug, failure))
     return None
 
 
@@ -5523,13 +5794,13 @@ def _main(argv: Sequence[str] | None = None) -> int:
         # CURRENT descriptor - its pointer block's, else the legacy CLAUDE.md block ensure_level
         # would harvest, else none - before ensure_level writes anything, so a refused call leaves
         # no level behind and no legacy block moved.
-        with sig.memory_lock(local):
+        with _hold_level_for_setup(_ask_git_first(args.proj)) as held:
             current, stored_in = _current_scope(args.proj)
             try:
                 scope_keeping_topics(current, scope.strip(), stored_in=stored_in)
             except (TopicRefusal, tp.InvalidTopic) as exc:
                 return _refused(exc)
-            ensure_level(args.proj, _locked=True)     # make sure the pointer block exists first
+            ensure_level(args.proj, _held=held)      # make sure the pointer block exists first
             text = read_store_text(local)
             old_scope, pointers = us.parse_pointer_index(text)
             try:
@@ -5569,6 +5840,10 @@ def _main(argv: Sequence[str] | None = None) -> int:
                   "UTF-8): %s [%s]" % (why, level))
         for level, why in rep.refused_levels:
             print(_REFUSED_LEVEL_LINE % (why, level))
+        for slug in rep.retirements_finished:
+            print("    ~ finished a retirement: %s" % slug)
+        for slug, why in rep.retirements_held:
+            print("    ! retired body still in facts/, not archived: %s [%s]" % (slug, why))
         # heal could not do its job at an unreadable level, so "done" would be a lie there
         return 2 if rep.unreadable else 0
 

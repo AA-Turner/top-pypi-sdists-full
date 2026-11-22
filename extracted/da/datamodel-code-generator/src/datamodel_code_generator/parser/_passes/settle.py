@@ -14,10 +14,10 @@ from typing import TYPE_CHECKING, Any
 
 from typing_extensions import Protocol, TypeVar
 
-from datamodel_code_generator import Error
 from datamodel_code_generator._document_reader import nesting_limit
 from datamodel_code_generator._message_text import counted
 from datamodel_code_generator._model_keys import ModelKey, model_key_of
+from datamodel_code_generator._shared_types import Error
 from datamodel_code_generator._url_redaction import named_location, redact_reference
 from datamodel_code_generator.model.base import DataModel, sort_data_models_for_mro
 from datamodel_code_generator.parser._graph_ids import keyed_models
@@ -46,13 +46,13 @@ from datamodel_code_generator.reference import _UNMATCHED_MODEL_NAME_KEYS_REPORT
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Mapping
 
-    from datamodel_code_generator import (
+    from datamodel_code_generator._user_keys import ConstructionKeys
+    from datamodel_code_generator.enums import (
         AllExportsCollisionStrategy,
         AllExportsScope,
         ModuleSplitMode,
         ReadOnlyWriteOnlyModelType,
     )
-    from datamodel_code_generator._user_keys import ConstructionKeys
     from datamodel_code_generator.parser._graph_ids import KeyedModels
     from datamodel_code_generator.parser._passes._state import ConfigT, SettleRun, SortedDataModels, _ConstNarrowing
     from datamodel_code_generator.parser.generation import GenerationIndex, GenerationStore
@@ -115,8 +115,9 @@ class SettleHost(RecursionFactsHost, GenerationStoreHost, RootModelTypeHost, Pro
 
     def _prepare_parse_config(
         self,
-        with_import: bool | None,  # noqa: FBT001
-        disable_future_imports: bool,  # noqa: FBT001
+        *,
+        with_import: bool | None,
+        disable_future_imports: bool,
         all_exports_scope: AllExportsScope | None,
         all_exports_collision_strategy: AllExportsCollisionStrategy | None,
         module_split_mode: ModuleSplitMode | None,
@@ -184,7 +185,7 @@ def _reference_set(paths: Iterable[str]) -> str:
     return f"frozenset({{{listed}}})" if listed else "frozenset()"
 
 
-def sort_data_models(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915
+def sort_data_models(  # noqa: PLR0912, PLR0914, PLR0915
     unsorted_data_models: list[DataModel],
     sorted_data_models: SortedDataModels | None = None,
     require_update_action_models: list[ModelKey] | None = None,
@@ -430,11 +431,11 @@ def report_parse_diagnostics(parser: SettleHost[Any], run: SettleRun[Any]) -> No
 def prepare_run_parse_config(parser: SettleHost[ConfigT], run: SettleRun[ConfigT]) -> None:
     """Prepare the configuration of output modules from the arguments of ``parse()``."""
     run.config = parser._prepare_parse_config(
-        run.args.with_import,
-        run.args.disable_future_imports,
-        run.args.all_exports_scope,
-        run.args.all_exports_collision_strategy,
-        run.args.module_split_mode,
+        with_import=run.args.with_import,
+        disable_future_imports=run.args.disable_future_imports,
+        all_exports_scope=run.args.all_exports_scope,
+        all_exports_collision_strategy=run.args.all_exports_collision_strategy,
+        module_split_mode=run.args.module_split_mode,
     )
 
 

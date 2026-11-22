@@ -382,7 +382,12 @@ class AnyAPI:
         except ValueError:
             body = None
         if response.status_code != 200:
-            raise _account.map_error(response.status_code, body, request_id)
+            raise _account.map_error(
+                response.status_code,
+                body,
+                request_id,
+                _transport.whole_retry_after(response),
+            )
         return body
 
     def balance(self) -> Balance:
@@ -447,5 +452,10 @@ def agent_signup(
         parsed = None
     # The gateway returns 200 for agent signup; accept 200 only (SPEC S7).
     if response.status_code != 200:
-        raise _account.map_error(response.status_code, parsed, request_id)
+        raise _account.map_error(
+            response.status_code,
+            parsed,
+            request_id,
+            _transport.whole_retry_after(response),
+        )
     return _account.parse_signup(parsed)

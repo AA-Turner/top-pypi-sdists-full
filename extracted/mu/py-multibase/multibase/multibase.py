@@ -57,17 +57,25 @@ ENCODINGS = [
     Encoding("base256emoji", "🚀".encode(), Base256EmojiConverter()),
 ]
 
-ENCODINGS_LOOKUP = {}
+_ENCODINGS_BY_NAME: dict[str, Encoding] = {}
+_ENCODINGS_BY_CODE: dict[bytes, Encoding] = {}
 for codec in ENCODINGS:
-    ENCODINGS_LOOKUP[codec.encoding] = codec
-    ENCODINGS_LOOKUP[codec.code] = codec
+    _ENCODINGS_BY_NAME[codec.encoding] = codec
+    _ENCODINGS_BY_CODE[codec.code] = codec
+
+# Backward-compatible alias for private importers (mixed str/bytes keys).
+ENCODINGS_LOOKUP: dict[str | bytes, Encoding] = {}
+for _name, _codec in _ENCODINGS_BY_NAME.items():
+    ENCODINGS_LOOKUP[_name] = _codec
+for _code, _codec in _ENCODINGS_BY_CODE.items():
+    ENCODINGS_LOOKUP[_code] = _codec
 
 
 def encode(encoding, data):
     """
     Encodes the given data using the encoding that is specified
 
-    :param str encoding: encoding to use, should be one of the supported encoding
+    :param str encoding: encoding name to use (for example ``"base16"``), not a prefix byte
     :param data: data to encode
     :type data: str or bytes
     :return: multibase encoded data
@@ -76,7 +84,8 @@ def encode(encoding, data):
     """
     data = ensure_bytes(data, "utf8")
     try:
-        return ENCODINGS_LOOKUP[encoding].code + ENCODINGS_LOOKUP[encoding].converter.encode(data)
+        codec = _ENCODINGS_BY_NAME[encoding]
+        return codec.code + codec.converter.encode(data)
     except KeyError:
         raise UnsupportedEncodingError(f"Encoding {encoding} not supported.")
 
@@ -94,13 +103,13 @@ def get_codec(data):
     # Check for base256emoji first (4-byte UTF-8 prefix)
     if len(data) >= 4:
         emoji_prefix = data[:4]
-        if emoji_prefix in ENCODINGS_LOOKUP:
-            return ENCODINGS_LOOKUP[emoji_prefix]
+        if emoji_prefix in _ENCODINGS_BY_CODE:
+            return _ENCODINGS_BY_CODE[emoji_prefix]
 
     # Check for single-byte prefixes
     try:
         key = data[:CODE_LENGTH]
-        codec = ENCODINGS_LOOKUP[key]
+        codec = _ENCODINGS_BY_CODE[key]
     except KeyError:
         raise InvalidMultibaseStringError(f"Can not determine encoding for {data}")
     else:
@@ -119,7 +128,8 @@ def is_encoded(data):
     try:
         get_codec(data)
         return True
-    except (ValueError, InvalidMultibaseStringError):
+    except ValueError:
+        # InvalidMultibaseStringError subclasses ValueError
         return False
 
 
@@ -127,12 +137,12 @@ def is_encoding_supported(encoding):
     """
     Check if an encoding is supported.
 
-    :param encoding: encoding name to check
+    :param encoding: encoding name to check (for example ``"base16"``), not a prefix byte
     :type encoding: str
     :return: True if encoding is supported, False otherwise
     :rtype: bool
     """
-    return encoding in ENCODINGS_LOOKUP
+    return encoding in _ENCODINGS_BY_NAME
 
 
 def list_encodings():
@@ -149,15 +159,15 @@ def get_encoding_info(encoding):
     """
     Get information about a specific encoding.
 
-    :param encoding: encoding name
+    :param encoding: encoding name (for example ``"base16"``), not a prefix byte
     :type encoding: str
     :return: Encoding namedtuple with encoding, code, and converter
     :rtype: Encoding
     :raises UnsupportedEncodingError: if encoding is not supported
     """
-    if encoding not in ENCODINGS_LOOKUP:
+    if encoding not in _ENCODINGS_BY_NAME:
         raise UnsupportedEncodingError(f"Encoding {encoding} not supported.")
-    return ENCODINGS_LOOKUP[encoding]
+    return _ENCODINGS_BY_NAME[encoding]
 
 
 def decode(data, return_encoding=False):
@@ -192,6 +202,31 @@ def decode(data, return_encoding=False):
         raise DecodingError(f"Failed to decode multibase data: {e}") from e
 
 
+def encoder_by_name(name_or_prefix):
+    """
+    Create an Encoder from a name or single-character prefix.
+
+    :param name_or_prefix: encoding name or prefix character
+    :type name_or_prefix: str
+    :return: an Encoder instance
+    :rtype: Encoder
+    :raises TypeError: if ``name_or_prefix`` is not a ``str``
+    :raises UnsupportedEncodingError: if the encoding is not supported
+    """
+    if not isinstance(name_or_prefix, str):
+        raise TypeError(f"name_or_prefix must be str, got {type(name_or_prefix).__name__}")
+
+    if name_or_prefix in _ENCODINGS_BY_NAME:
+        return Encoder(name_or_prefix)
+
+    prefix_bytes = name_or_prefix.encode("utf-8")
+    codec = _ENCODINGS_BY_CODE.get(prefix_bytes)
+    if codec is not None:
+        return Encoder(codec.encoding)
+
+    raise UnsupportedEncodingError(f"Encoding {name_or_prefix!r} not supported.")
+
+
 class Encoder:
     """Reusable encoder for a specific encoding."""
 
@@ -199,14 +234,24 @@ class Encoder:
         """
         Initialize an encoder for a specific encoding.
 
-        :param encoding: encoding name to use
+        :param encoding: encoding name to use (for example ``"base16"``), not a prefix byte
         :type encoding: str
         :raises UnsupportedEncodingError: if encoding is not supported
         """
-        if encoding not in ENCODINGS_LOOKUP:
+        if encoding not in _ENCODINGS_BY_NAME:
             raise UnsupportedEncodingError(f"Encoding {encoding} not supported.")
         self.encoding = encoding
-        self._codec = ENCODINGS_LOOKUP[encoding]
+        self._codec = _ENCODINGS_BY_NAME[encoding]
+
+    @property
+    def code(self) -> bytes:
+        """
+        The multibase prefix byte for this encoding.
+
+        :return: prefix byte
+        :rtype: bytes
+        """
+        return self._codec.code
 
     def encode(self, data):
         """

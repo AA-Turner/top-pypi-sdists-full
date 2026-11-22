@@ -31,8 +31,9 @@ from virtualenv.run import cli_run
 from virtualenv.seed.embed.via_app_data.pip_install.base import PipInstall, shell_shebang
 from virtualenv.seed.embed.via_app_data.pip_install.copy import CopyPipInstall
 from virtualenv.seed.embed.via_app_data.pip_install.symlink import SymlinkPipInstall
-from virtualenv.seed.wheels.embed import BUNDLE_FOLDER, BUNDLE_SUPPORT, get_embed_wheel
+from virtualenv.seed.wheels.embed import BUNDLE_FOLDER, BUNDLE_SHA256, BUNDLE_SUPPORT, get_embed_wheel
 from virtualenv.util.path import safe_delete
+from virtualenv.version import __version__
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -1090,15 +1091,15 @@ def read_only_dir(directory):
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="Windows only applies R/O to files")
-def test_read_only_app_data_extracts_from_populated_house(temp_app_data: Path) -> None:
+def test_read_only_app_data_reuses_extracted_embed_wheel(temp_app_data: Path) -> None:
     wheel: Final[Path] = get_embed_wheel("pip", f"{sys.version_info.major}.{sys.version_info.minor}").path
-    (house := temp_app_data / "wheel" / "house").mkdir(parents=True)
-    copy2(wheel, house / wheel.name)
+    (unzip := temp_app_data / "unzip" / __version__).mkdir(parents=True)
+    copy2(wheel, unzip / wheel.name)
     app_data: Final[ReadOnlyAppData] = ReadOnlyAppData(str(temp_app_data))
 
     # this is how a zipapp makes its embedded wheels available, see ensure_extracted
-    with read_only_dir(temp_app_data), app_data.extract(wheel, lambda: app_data.house) as extracted:
-        assert extracted == app_data.house / wheel.name
+    with read_only_dir(temp_app_data), app_data.extract(wheel, None) as extracted:
+        assert extracted == unzip / wheel.name
 
 
 @pytest.mark.slow
@@ -1158,6 +1159,32 @@ def test_populated_read_only_cache_and_copied_app_data(tmp_path, current_fastest
     # should succeed with special flag when read-only
     with read_only_dir(temp_app_data):
         assert cli_run(["--read-only-app-data", *cmd])
+
+
+@pytest.mark.skipif(os.name != "posix" or os.geteuid() == 0, reason="directory permissions that bind the current user")
+@pytest.mark.skipif(not fs_supports_symlink(), reason="symlinks are unavailable")
+def test_linked_seed_image_refuses_writes_and_can_be_reset(tmp_path: Path, temp_app_data: Path) -> None:
+    arguments: Final[list[str]] = ["--symlink-app-data", "--activators", "", str(tmp_path / "venv")]
+    linked: Final[Path] = cli_run(arguments).creator.purelib / "pip" / "__init__.py"
+    image: Final[Path] = linked.resolve()
+
+    with pytest.raises(PermissionError):
+        linked.unlink()
+
+    cli_run(["--reset-app-data", *arguments])
+    assert (image.exists(), linked.resolve() == image, any(temp_app_data.rglob("*.dist-info"))) == (True, True, True)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX file permission bits")
+@pytest.mark.usefixtures("temp_app_data")
+def test_copied_seed_is_writable_from_read_only_image(tmp_path: Path, temp_app_data: Path) -> None:
+    copied: Final[Path] = cli_run(["--activators", "", str(tmp_path / "venv")]).creator.purelib / "pip"
+    image: Final[Path] = next(temp_app_data.rglob("CopyPipInstall/*/pip"))
+
+    modes: Final[list[int]] = [
+        path.stat().st_mode & 0o222 for path in (image, image / "__init__.py", copied, copied / "__init__.py")
+    ]
+    assert modes == [0, 0, 0o200, 0o200]
 
 
 @pytest.mark.slow
@@ -1308,7 +1335,7 @@ def test_seed_image_build_replaces_leftovers(tmp_path: Path, leftover: str, file
     cache: Final[Path] = tmp_path / "cache"
     version: Final[str] = PythonInfo.current_system().version_release_str
     path: Final[Path] = (
-        cache / "wheel" / version / "image" / "1" / leftover.format(Path(BUNDLE_SUPPORT[version]["pip"]).stem)
+        cache / "wheel" / version / "image" / "1" / leftover.format(BUNDLE_SHA256[BUNDLE_SUPPORT[version]["pip"]])
     )
     path.mkdir(parents=True)
     for name in files:
@@ -1322,6 +1349,28 @@ def test_seed_image_build_replaces_leftovers(tmp_path: Path, leftover: str, file
     ]
     purelib: Final[Path] = cli_run([*args, "--pip", "embed"], setup_logging=False).creator.purelib
     assert (path.exists(), (next(purelib.glob("pip-*.dist-info")) / "RECORD").is_file()) == (kept, True)
+
+
+def test_seed_image_uses_selected_wheel_contents(tmp_path: Path) -> None:
+    def seed(build: str) -> str:
+        with zipfile.ZipFile(tmp_path / "pip-99-py3-none-any.whl", "w") as archive:
+            archive.writestr("pip-99.dist-info/METADATA", "Name: pip\nVersion: 99\n")
+            archive.writestr("pip-99.dist-info/RECORD", "")
+            archive.writestr("build.txt", build)
+        session = cli_run([
+            str(tmp_path / build),
+            "--app-data",
+            str(tmp_path / "cache"),
+            "--extra-search-dir",
+            str(tmp_path),
+            "--pip",
+            "99",
+            "--no-periodic-update",
+            "--no-setuptools",
+        ])
+        return (session.creator.purelib / "build.txt").read_text(encoding="utf-8")
+
+    assert (seed("first"), seed("second")) == ("first", "second")
 
 
 def test_seed_image_build_direct_call(tmp_path: Path) -> None:

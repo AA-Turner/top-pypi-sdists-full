@@ -27,9 +27,9 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Collection, Generator, Iterable, Mapping, Sequence
     from pathlib import Path
 
-    from datamodel_code_generator import AllExportsCollisionStrategy, AllExportsScope, ModuleSplitMode
     from datamodel_code_generator._requirements import PydanticFloor
     from datamodel_code_generator._warning_control import ShownWarning
+    from datamodel_code_generator.enums import AllExportsCollisionStrategy, AllExportsScope, ModuleSplitMode
     from datamodel_code_generator.format import CodeFormatter
     from datamodel_code_generator.imports import Import, Imports
     from datamodel_code_generator.model._decisions.collapse_eligibility import LaterHolderFacts
@@ -404,7 +404,7 @@ def settle_diagnostics_reported_once() -> Generator[None]:
         yield
 
 
-def settle_diagnostics_suppressed(suppress_parse_warnings: bool) -> bool:  # noqa: FBT001
+def settle_diagnostics_suppressed(*, suppress_parse_warnings: bool) -> bool:
     """Return whether a parse leaves out the settle diagnostics: a parse again does after one that reported them.
 
     A parse again outside a generation run (``settle_diagnostics_reported_once``) always leaves them out.

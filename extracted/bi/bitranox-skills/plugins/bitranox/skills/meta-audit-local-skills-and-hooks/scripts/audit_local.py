@@ -34,6 +34,7 @@ Error (2) is anything that leaves the answer about a tree that was not read: a -
 """
 
 import argparse
+import io
 import json
 import re
 import sys
@@ -408,7 +409,7 @@ def cmd_check(args, out=None, err=None):
 
 
 def build_parser():
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(description=(__doc__ or "audit_local").splitlines()[0])
     subs = parser.add_subparsers(dest="command", required=True)
     targets = subs.add_parser("targets", help="list the skill dirs no plugin ships, then exit")
     targets.add_argument("--root", action="append", default=[],
@@ -437,6 +438,8 @@ def _tolerant_stdio():
     """Replace what the console encoding cannot carry instead of crashing on it: a Windows pipe
     is cp1252, and one CJK path would otherwise end the report with a traceback."""
     for stream in (sys.stdout, sys.stderr):
+        if not isinstance(stream, io.TextIOWrapper):
+            continue
         try:
             stream.reconfigure(errors="replace")
         except (AttributeError, ValueError, OSError):

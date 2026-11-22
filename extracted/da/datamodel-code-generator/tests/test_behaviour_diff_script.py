@@ -13,18 +13,32 @@ import re
 import subprocess
 import sys
 from contextlib import redirect_stderr, redirect_stdout
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from io import StringIO
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
 import pytest
+import tomllib
 
 from scripts import behaviour_diff, declared_changes
-from scripts._behaviour_classify import Allowlist, Side, classify_base_skipped, classify_cell, diff
-from scripts._behaviour_signature import Context, _pydantic_item, canonical, example_value, meta_items
-from scripts._change_records import covers_block
+from scripts._behaviour_classify import (
+    Allowlist,
+    CellEvidence,
+    Change,
+    Side,
+    change_lines,
+    classify_base_skipped,
+    classify_cell,
+    covers,
+    diff,
+    judge,
+    kinds,
+    rule_b,
+)
+from scripts._behaviour_signature import TARGETS_FLAG, Context, _pydantic_item, canonical, example_value, meta_items
+from scripts._change_records import Category, CellKind, CellSelector, Record, covers_block, read_records
 from tests.capabilities import needs
 from tests.conftest import assert_output
 from tests.units import REFS_HEADER
@@ -590,7 +604,7 @@ def test_report_stale_entries_by_tier(case: str) -> None:
     result = SimpleNamespace(
         cell=cell, verdict=SimpleNamespace(cls="same", accepted_by=set(), notes=[]), base_skip=None
     )
-    gate = SimpleNamespace(allowlist=allowlist, loaded_allowlist=allowlist, cache=SimpleNamespace(hits=0))
+    gate = SimpleNamespace(allowlist=allowlist, loaded_allowlist=allowlist, cache=SimpleNamespace(hits=0), plan=None)
     index, _, total = shard.partition("/")
     ns = SimpleNamespace(
         base="0.86.0",
@@ -693,7 +707,7 @@ def test_report_base_skipped_cells_and_stale_entries(case: str) -> None:
     cell = SimpleNamespace(label="tests/data/a.json", backend="pydantic_v2.BaseModel", option_label="default")
     verdict = SimpleNamespace(cls="base-skipped" if used else "same", accepted_by=set(), notes=[])
     result = SimpleNamespace(cell=cell, verdict=verdict, base_skip=0 if used else None)
-    gate = SimpleNamespace(allowlist=allowlist, loaded_allowlist=allowlist, cache=SimpleNamespace(hits=0))
+    gate = SimpleNamespace(allowlist=allowlist, loaded_allowlist=allowlist, cache=SimpleNamespace(hits=0), plan=None)
     ns = SimpleNamespace(
         base=base,
         tier=tier,
@@ -728,7 +742,7 @@ def test_report_stale_entries_of_a_shard(case: str) -> None:
     verdict = SimpleNamespace(cls="same", accepted_by=set(), notes=[])
     result = SimpleNamespace(cell=cell, verdict=verdict, base_skip=allowlist.skip_for(label, "0.86.0"))
     run = behaviour_diff.place([(name, cell.backend) for name in run_labels], allowlist, "0.86.0")
-    gate = SimpleNamespace(allowlist=allowlist, loaded_allowlist=allowlist, cache=SimpleNamespace(hits=0))
+    gate = SimpleNamespace(allowlist=allowlist, loaded_allowlist=allowlist, cache=SimpleNamespace(hits=0), plan=None)
     index, _, total = shard.partition("/")
     ns = SimpleNamespace(
         base="0.86.0",
@@ -846,6 +860,58 @@ def test_preset_option_sets() -> None:
     ]
     sets = behaviour_diff.preset_option_sets(presets, ["pydantic_v2.BaseModel", "typing.TypedDict", "msgspec.Struct"])
     assert_output("".join(f"{backend} {' '.join(options)}\n" for backend, options in sets))
+
+
+FAMILY_CELL_CASES = {
+    "the PR tier": ("pr", ("pydantic_v2.BaseModel", "msgspec.Struct")),
+    "the nightly tier": ("nightly", ("pydantic_v2.BaseModel", "msgspec.Struct")),
+    "types without the targets' type": ("pr", ("msgspec.Struct",)),
+}
+"""The tier and the output model types of each family cell case."""
+
+
+@pytest.mark.parametrize("case", sorted(FAMILY_CELL_CASES))
+def test_family_cells_of_each_tier(case: str) -> None:
+    """The PR tier runs a shape for its types with default options, the nightly tier the full product of each type.
+
+    The client (its body's fields as arguments too) and the server of the shape's OpenAPI spelling run for
+    pydantic_v2.BaseModel with no other option in both tiers, and not at all where the types lack it.
+    """
+    tier, types = FAMILY_CELL_CASES[case]
+    presets = ["standard-py310-20261017", "standard-py312-20260909", "standard-py314-20261017"]
+    shapes: list[behaviour_diff.FamilyCase] = [{"label": "family:f/k=v", "key": "k"}]
+    pairs = behaviour_diff.tier_product(tier, types, presets)
+    cells = behaviour_diff.family_cells(shapes, Path("root"), pairs)
+    assert_output("".join(f"{c.input.as_posix()} | {c.backend} | {c.option_label} | {c.kind}\n" for c in cells))
+
+
+FAMILY_MODE_CASES = {
+    "fail": ('families = "fail"\n', "fail"),
+    "report": ('families = "report"\n', "report"),
+    "no key": ("", "report"),
+    "no file": (None, "report"),
+}
+"""The text of the allowlist file of each case (None: no file) and the mode its family cells take."""
+
+
+@pytest.mark.allow_direct_assert("the mode is the oracle of the key, never a stored output a fix run accepts")
+@pytest.mark.parametrize("case", sorted(FAMILY_MODE_CASES))
+def test_families_key_judges_or_reports_the_family_cells(case: str, tmp_path: Path) -> None:
+    """The `families` key judges the family cells with `fail`; `report`, no key and no file report them only."""
+    text, mode = FAMILY_MODE_CASES[case]
+    path = tmp_path / "allowlist.toml"
+    if text is not None:
+        path.write_text(f'base = "0.1.0"\n{text}', encoding="utf-8")
+    assert behaviour_diff.families_judged(path) == (mode == "fail")
+
+
+def test_families_key_refuses_another_value(tmp_path: Path) -> None:
+    """A `families` value other than `report` or `fail` stops the gate."""
+    path = tmp_path / "allowlist.toml"
+    path.write_text('families = "warn"\n', encoding="utf-8")
+    with pytest.raises(SystemExit) as refused:
+        behaviour_diff.families_judged(path)
+    assert_output(f"{refused.value}\n".replace(str(path), "<allowlist>"))
 
 
 SIGNATURE_CASES: dict[str, tuple[str, dict[str, str], list[dict[str, Any]] | None]] = {
@@ -1059,10 +1125,10 @@ def test_signature(case: str, tmp_path: Path) -> None:
     assert_output(json.dumps(json.loads(result.stdout), indent=2, sort_keys=True) + "\n")
 
 
-def test_guide_changes_are_built_not_read_from_the_repository() -> None:
-    """The gate names accepted changes from a fresh build of the guide data; no committed or local file is needed."""
-    changes = behaviour_diff.guide_changes()
-    assert_output(json.dumps({"titled": bool(changes) and all(entry["id"] and entry["title"] for entry in changes)}))
+def test_guide_names_accepted_changes_by_the_records() -> None:
+    """The gate names accepted changes by the titles of the change records of docs/data/migration."""
+    titled = [record.id for record in read_records(behaviour_diff.MIGRATION_DATA) if record.title]
+    assert_output(json.dumps({"titled": bool(titled)}))
 
 
 def test_candidate_payload_path_does_not_import_the_guide_builder() -> None:
@@ -1350,13 +1416,13 @@ TREE_CASES: dict[str, tuple[str, dict[str, str], dict[str, str]]] = {
 }
 
 
-def _tree_signature(files: dict[str, str], backend: str, directory: Path) -> dict[str, Any]:
+def _tree_signature(files: dict[str, str], backend: str, directory: Path, *, targets: bool = False) -> dict[str, Any]:
     for name, text in files.items():
         (directory / name).parent.mkdir(parents=True, exist_ok=True)
         (directory / name).write_text(text, encoding="utf-8")
-    target = directory / ("model.py" if "model.py" in files else "pkg")
+    target = directory if targets else directory / ("model.py" if "model.py" in files else "pkg")
     result = subprocess.run(
-        [sys.executable, "-I", str(SIGNATURE_SCRIPT), str(target), backend],
+        [sys.executable, "-I", str(SIGNATURE_SCRIPT), str(target), backend, *([TARGETS_FLAG] if targets else [])],
         capture_output=True,
         text=True,
         check=True,
@@ -1377,6 +1443,49 @@ def test_classify_trees(case: str, tmp_path: Path) -> None:
         for name, files in (("base", base_files), ("cand", candidate_files))
     ]
     verdict = classify_cell(*sides, input_path=case, backend=backend, allowlist=Allowlist("0.86.0"))
+    assert_output(json.dumps({**asdict(verdict), "accepted_by": sorted(verdict.accepted_by)}, indent=2) + "\n")
+
+
+TARGET_MODEL = "from pydantic import BaseModel\n\n\nclass Holder(BaseModel):\n    f: list[str | None] | None = None\n"
+TARGET_RESOURCE = (
+    "from __future__ import annotations\n\nimport model\n\n\nclass Resource:\n"
+    '    """The operations of a stand-in client."""\n\n'
+    "    def check(self, *, f: list[str | None] | None = None) -> model.Holder:\n"
+    '        """Send a holder."""\n'
+    "        return model.Holder(f=f)\n"
+)
+TARGET_TREE = {
+    "model.py": TARGET_MODEL,
+    "client/__init__.py": "from .resource import Resource\n",
+    "client/resource.py": TARGET_RESOURCE,
+}
+"""A run's models and the stand-in client package the run writes beside them, which imports them as `model`."""
+TARGET_TREE_CASES = {
+    "a client argument whose annotation drops the None of its items": {
+        **TARGET_TREE,
+        "client/resource.py": TARGET_RESOURCE.replace("f: list[str | None] | None", "f: list[str] | None"),
+    },
+    "a client module that no longer imports": {
+        **TARGET_TREE,
+        "client/resource.py": TARGET_RESOURCE.replace("import model\n", "import model\n\nmodel.Missing\n"),
+    },
+    "the same client": TARGET_TREE,
+}
+"""The candidate tree of each case; the base is `TARGET_TREE`."""
+
+
+@pytest.mark.parametrize("case", sorted(TARGET_TREE_CASES))
+def test_classify_target_trees(case: str, tmp_path: Path) -> None:
+    """A run that writes a target package beside its models is signed with it: a change of the target alone shows.
+
+    The client's callables are part of its signature, so an argument's annotation that changes is a `signature`
+    change and a client module that no longer imports an import error, while the models stay the same.
+    """
+    sides = [
+        Side(generated=True, signature=_tree_signature(files, "pydantic_v2.BaseModel", tmp_path / name, targets=True))
+        for name, files in (("base", TARGET_TREE), ("cand", TARGET_TREE_CASES[case]))
+    ]
+    verdict = classify_cell(*sides, input_path=case, backend="pydantic_v2.BaseModel", allowlist=Allowlist("0.86.0"))
     assert_output(json.dumps({**asdict(verdict), "accepted_by": sorted(verdict.accepted_by)}, indent=2) + "\n")
 
 
@@ -1931,6 +2040,251 @@ def test_identity_evidence_oracle(case: str, tmp_path: Path) -> None:
     assert_output("\n".join([f"exit={code}", *lines]).replace(commit[:9], "<sha>") + "\n")
 
 
+PICK_CATALOG_INPUTS = ("plain.json", "deprecated.json", "warns.json")
+"""The fixtures of the identity oracle's catalog: only `deprecated.json` takes the changed branch."""
+PICK_CASES = {
+    "the pick adds the cell that takes the change": (True, "complete"),
+    "without a catalog the tier runs alone": (False, "incomplete"),
+}
+"""Whether the identity oracle's catalog exists, and the verdict of the plain selection with `--pick` on it."""
+
+
+@pytest.mark.allow_direct_assert(
+    "an oracle case fails on its own verdict, never through a stored output a fix run accepts"
+)
+@needs("posix")
+@needs("sys-monitoring")
+@pytest.mark.parametrize("case", sorted(PICK_CASES))
+def test_identity_with_a_pick(case: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """`--pick` adds the catalog's cells that run the change to the selection, which stays; without one it says so.
+
+    The catalog (`catalog`, recorded on the base commit) holds the cells of three fixtures; the selection of the plain
+    fixture alone takes no changed branch, the picked `deprecated.json` does, so the run is complete with both.
+    """
+    exists, wanted = PICK_CASES[case]
+    argv, commit = _identity_argv(tmp_path, "tests/data/jsonschema/plain.json")
+    catalog = tmp_path / "catalog.json.gz"
+    if exists:
+        monkeypatch.setenv(behaviour_diff.REPOSITORY_ENV, str(tmp_path / "repo"))
+        selects = [arg for name in PICK_CATALOG_INPUTS for arg in ("--select", f"tests/data/jsonschema/{name}")]
+        with redirect_stdout(StringIO()):
+            behaviour_diff.main([
+                "catalog",
+                str(catalog),
+                commit,
+                *selects,
+                "-j",
+                "1",
+                "--cache-dir",
+                str(tmp_path / "cache"),
+            ])
+    stdout = StringIO()
+    with redirect_stdout(stdout), redirect_stderr(StringIO()):
+        code = behaviour_diff.main([*argv, "--pick", str(catalog)])
+    rows = [json.loads(line) for line in (tmp_path / "cells.jsonl").read_text(encoding="utf-8").splitlines()]
+    lines = [
+        line
+        for line in stdout.getvalue().splitlines()
+        if line.startswith(("pick: cell", "pick: no", "evidence: complete", "evidence: incomplete"))
+    ]
+    complete = code == 0 and "evidence: complete" in lines
+    incomplete = code == 1 and any(line.startswith("evidence: incomplete") for line in lines)
+    verdict = "complete" if complete else "incomplete" if incomplete else f"exit={code}"
+    assert verdict == wanted, stdout.getvalue()
+    text = "\n".join([f"exit={code}", *lines, *sorted(row["input"] for row in rows)]) + "\n"
+    assert_output(text.replace(commit[:12], "<sha>").replace(str(tmp_path), "TMP"))
+
+
+FAKE_FAMILY_LIBRARY = '''"""A stand-in family library: one family, a shape per document of the stand-in generator."""
+
+from dataclasses import dataclass
+
+DOCUMENTS = {DOCUMENTS}
+
+
+@dataclass(frozen=True)
+class Shape:
+    """A shape: its family, its parameters and its document."""
+
+    family: str
+    params: tuple
+    document: dict
+
+    @property
+    def openapi(self):
+        """The OpenAPI spelling: the same document, marked."""
+        return {**self.document, "openapi": "3.1.0"}
+
+
+class Family:
+    """The one family of the stand-in library."""
+
+    def shapes(self):
+        """Return a shape per document."""
+        return tuple(Shape("fake", (("kind", kind),), document) for kind, document in DOCUMENTS.items())
+
+
+FAMILIES = {"fake": Family()}
+'''
+FAKE_FAMILY_DOCUMENTS = {
+    "plain": {"type": "str"},
+    "raw": {"type": "bytes"},
+    "deprecated": {"type": "int", "deprecated": "old"},
+}
+"""The shapes of the stand-in family library: a plain one, one whose output the candidate of a case changes, and one
+that takes the deprecation branch."""
+FAKE_RAW = FAKE_FIRST.replace(
+    'MODEL.format(spec["type"]),', 'MODEL.format(spec["type"]).replace(": bytes", ": bytes  # raw"),'
+)
+"""A candidate that changes the output of a `bytes` field only, which the stand-in family library has and no fixture."""
+
+
+FAKE_UNLISTED_LIBRARY = FAKE_FAMILY_LIBRARY.replace(
+    "\n    @property\n    def openapi(self):\n"
+    '        """The OpenAPI spelling: the same document, marked."""\n'
+    '        return {**self.document, "openapi": "3.1.0"}\n',
+    "",
+)
+"""A stand-in library the gate cannot list: its shapes have no OpenAPI spelling, as the library had before the gate's
+family cells."""
+
+
+def _family_library(repo: Path, documents: dict[str, dict[str, str]], text: str = FAKE_FAMILY_LIBRARY) -> None:
+    """Write a stand-in family library (`text`) into a checkout, in the packages the gate imports it from."""
+    library = repo / "tests" / "main" / "shape_families"
+    library.mkdir(parents=True, exist_ok=True)
+    for package in (repo / "tests", repo / "tests" / "main", library):
+        (package / "__init__.py").write_text("", encoding="utf-8")
+    (library / "families.py").write_text(text.replace("{DOCUMENTS}", repr(documents)), encoding="utf-8")
+
+
+def _family_lines(argv: list[str], cells: Path, prefixes: tuple[str, ...]) -> list[str]:
+    """Run the gate and return its exit status, the lines that start with `prefixes`, and each `--json` cell."""
+    stdout = StringIO()
+    with redirect_stdout(stdout), redirect_stderr(StringIO()):
+        code = behaviour_diff.main(argv)
+    rows = [json.loads(line) for line in cells.read_text(encoding="utf-8").splitlines()]
+    return [
+        f"exit={code}",
+        *(line for line in stdout.getvalue().splitlines() if line.startswith(prefixes)),
+        *sorted(f"cell: {row['input']} | {row['file_type']} | {row['class']}" for row in rows),
+    ]
+
+
+FAMILY_REPORT_CASES = {
+    "the family cells report only": ("report", FAKE_FAMILY_LIBRARY),
+    "the family cells fail": ("fail", FAKE_FAMILY_LIBRARY),
+    "a candidate without the library": ("fail", None),
+    "a library the gate cannot list, reported only": ("report", FAKE_UNLISTED_LIBRARY),
+    "a library the gate cannot list, judged": ("fail", FAKE_UNLISTED_LIBRARY),
+}
+"""The `families` key of each identity run of a candidate that changes a family cell, and the candidate's library."""
+
+
+@needs("posix")
+@needs("sys-monitoring")
+@pytest.mark.parametrize("case", sorted(FAMILY_REPORT_CASES))
+def test_identity_reports_family_cells_until_the_key_judges_them(case: str, tmp_path: Path) -> None:
+    """A selection that names the family cells runs each shape of the candidate's library, its targets too.
+
+    The candidate changes the output of the family cell that has a `bytes` field. With `families = "report"` the run
+    prints that cell and the classes of the family cells apart and passes; their rows stay out of `--json`. With
+    `fail` the cell is a violation of the run. The targets need options the stand-in generator lacks (`opt-in`). A
+    candidate without the library has no family cells, and says so. A library the gate cannot list is one family cell
+    that fails, with the listing's error: reported only, it leaves the run passing; judged, it fails the run.
+    """
+    mode, library = FAMILY_REPORT_CASES[case]
+    repo = tmp_path / "repo"
+    commits = _fake_generator(repo, ["first"], None)
+    (repo / "src" / "datamodel_code_generator" / "__main__.py").write_text(FAKE_RAW, encoding="utf-8")
+    if library is not None:
+        _family_library(repo, FAKE_FAMILY_DOCUMENTS, library)
+    allowlist = tmp_path / "allowlist.toml"
+    allowlist.write_text(f'base = "0.1.0"\nfamilies = "{mode}"\n', encoding="utf-8")
+    argv = ["gate", commits[0], str(repo), "--types", "pydantic_v2.BaseModel", "--candidate-python", sys.executable]
+    argv += ["--cache-dir", str(tmp_path / "cache"), "--allowlist", str(allowlist), "--identity", "-j", "1"]
+    argv += ["--select", "tests/data/jsonschema/plain.json", "--select", "family:*"]
+    prefixes = ("family", "families", "violation:", "    ", "summary:", "evidence: complete", "evidence: incomplete")
+    lines = _family_lines([*argv, "--json", str(tmp_path / "cells.jsonl")], tmp_path / "cells.jsonl", prefixes)
+    assert_output("\n".join(lines).replace(str(tmp_path), "TMP").replace(commits[0][:9], "<sha>") + "\n")
+
+
+PICK_FAMILY_CASES = {
+    "a judged family cell runs the change": ("fail", FAKE_FAMILY_DOCUMENTS, "complete"),
+    "a family cell the run reports only adds no evidence": ("report", FAKE_FAMILY_DOCUMENTS, "incomplete"),
+    "a shape the library dropped is left out": ("fail", {"plain": {"type": "str"}}, "incomplete"),
+}
+"""The `families` key of each identity run with a pick, the candidate's family library and the run's verdict."""
+
+
+@pytest.mark.allow_direct_assert(
+    "an oracle case fails on its own verdict, never through a stored output a fix run accepts"
+)
+@needs("posix")
+@needs("sys-monitoring")
+@pytest.mark.parametrize("case", sorted(PICK_FAMILY_CASES))
+def test_identity_picks_family_cells(case: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A catalog records the family cells its selection names, and `--pick` reads them like the fixture cells.
+
+    Only the family shape that takes the deprecation branch runs the change; the selection of the plain fixture does
+    not. A judged family cell the pick adds completes the evidence; one the run reports only adds none, and a picked
+    shape the candidate's library no longer has is left out.
+    """
+    mode, documents, wanted = PICK_FAMILY_CASES[case]
+    argv, commit = _identity_argv(tmp_path, "tests/data/jsonschema/plain.json")
+    repo = tmp_path / "repo"
+    _family_library(repo, FAKE_FAMILY_DOCUMENTS)
+    monkeypatch.setenv(behaviour_diff.REPOSITORY_ENV, str(repo))
+    catalog = tmp_path / "catalog.json.gz"
+    selects = ["--select", "tests/data/jsonschema/plain.json", "--select", "family:*"]
+    with redirect_stdout(StringIO()):
+        behaviour_diff.main([
+            "catalog",
+            str(catalog),
+            commit,
+            *selects,
+            "-j",
+            "1",
+            "--cache-dir",
+            str(tmp_path / "cache"),
+        ])
+    _family_library(repo, documents)
+    allowlist = tmp_path / "allowlist.toml"
+    allowlist.write_text(f'families = "{mode}"\n', encoding="utf-8")
+    prefixes = ("pick: cell", "pick: no", "families", "evidence: complete", "evidence: incomplete")
+    argv += ["--pick", str(catalog), "--allowlist", str(allowlist)]
+    lines = _family_lines(argv, tmp_path / "cells.jsonl", prefixes)
+    verdict = "complete" if "evidence: complete" in lines else "incomplete" if lines[0] == "exit=1" else lines[0]
+    assert verdict == wanted, lines
+    assert_output("\n".join(lines).replace(commit[:12], "<sha>").replace(str(tmp_path), "TMP") + "\n")
+
+
+@needs("posix", "no-sys-monitoring")
+def test_catalog_refuses_an_interpreter_without_sys_monitoring(tmp_path: Path) -> None:
+    """`catalog` refuses Python 3.11, which records nothing a cell ran, before any worker: no catalog of no keys."""
+    out = tmp_path / "catalog.json.gz"
+    with pytest.raises(SystemExit) as refused:
+        behaviour_diff.main(["catalog", str(out), "--select", "no/such/input", "--cache-dir", str(tmp_path / "cache")])
+    assert_output(f"{refused.value}\nwritten: {out.exists()}\n")
+
+
+BASE_ARGUMENT_CASES = {
+    "verdicts and a pick": ["gate", "v1", "--verdicts", "v.json", "--pick", "c.json.gz", "--check"],
+    "joined values": ["gate", "--verdicts=v.json", "--pick=c.json.gz", "-j", "2"],
+    "unique prefixes": ["gate", "--verd", "v.json", "--pi", "c.json.gz", "--projects", "p.json"],
+    "neither": ["gate", "v1", "--identity"],
+    "a checkout named like an option after --": ["gate", "v1", "--pick", "c.json.gz", "--check", "--", "--pick"],
+}
+"""Arguments of a head's gate: its base's gate gets them without the head-only options."""
+
+
+@pytest.mark.parametrize("case", sorted(BASE_ARGUMENT_CASES))
+def test_base_gate_gets_no_head_only_option(case: str) -> None:
+    """The base's gate gets the head's arguments without `--verdicts` and `--pick`, or a prefix of either, and value."""
+    argv = BASE_ARGUMENT_CASES[case]
+    assert_output(f"{argv} -> {behaviour_diff.base_arguments(argv)}\n")
+
+
 @pytest.mark.allow_direct_assert(
     "an oracle case fails on its own verdict, never through a stored output a fix run accepts"
 )
@@ -1950,7 +2304,9 @@ def test_gate_refuses_a_side_that_is_no_revision(tmp_path: Path) -> None:
 
     BASE is a released version or a revision of the candidate's repository, CANDIDATE a directory or a revision of
     this repository. A CANDIDATE directory whose `src` holds no package stops the gate too: the interpreter would run
-    its own package instead; one whose package does not import stops it with the exit status of its worker.
+    its own package instead; one whose package does not import stops it with the exit status of its worker. A
+    revision BASE with `--base-python` stops it: the plan reads the revision's tree, which the installed release is
+    not.
     """
     repo = tmp_path / "repo"
     _fake_generator(repo, ["first"], None)
@@ -1958,7 +2314,12 @@ def test_gate_refuses_a_side_that_is_no_revision(tmp_path: Path) -> None:
     (empty / "tests" / "data" / "jsonschema").mkdir(parents=True)
     (empty / "tests" / "data" / "jsonschema" / "plain.json").write_text("{}", encoding="utf-8")
     installed = ["--base-python", sys.executable, "--types", "pydantic_v2.BaseModel"]
-    cases = (("no-such-revision", str(repo), []), ("0.0.0", "no-such-revision", []), ("0.0.0", str(empty), installed))
+    cases = (
+        ("no-such-revision", str(repo), []),
+        ("0.0.0", "no-such-revision", []),
+        ("0.0.0", str(empty), installed),
+        ("HEAD", str(repo), installed),
+    )
     refusals = []
     for base, candidate, extra in cases:
         with pytest.raises(SystemExit) as error, redirect_stderr(StringIO()), redirect_stdout(StringIO()):
@@ -2300,12 +2661,21 @@ VALIDATOR = """
 
 
 def main(argv):
-    """Write one model of the schema's `type`, changed as the `CHANGES` of its `name` under the given options say."""
+    """Write one model of the schema's `type`, changed as the `CHANGES` of its `name` under the given options say.
+
+    A preset of another target Python than `--target-python-version` is refused, as the package's.
+    """
     ns = arg_parser.parse_args(argv)
+    if ns.preset and ns.target_python_version and f"py{ns.target_python_version.replace('.', '')}" not in ns.preset:
+        print(f"Error: --preset {ns.preset} targets another Python than {ns.target_python_version}")
+        return 1
     spec = json.loads(Path(ns.input).read_text(encoding="utf-8"))
     effects = [effect for name, when, effect in CHANGES if name == spec["name"] and when in (None, *argv)]
     if "fail" in spec and "fixed" not in effects:
         print(f"Error: {spec['fail']}")
+        return 1
+    if "break" in effects:
+        print("Error: broken")
         return 1
     if ("memory" in spec and "fixed" not in effects) or "memory" in effects:
         raise MemoryError
@@ -2328,6 +2698,14 @@ def main(argv):
         (out.parent / "notes.txt").write_text("notes\\n", encoding="utf-8")
     return 0
 '''
+CELLS_VERSION = """def get_version():
+    try:
+        from datamodel_code_generator._version import __version__
+    except ImportError:
+        return "0.0.0"
+    return __version__
+"""
+"""The stand-in's version lookup, as the package's: the version file a revision's tree gets, else `0.0.0`."""
 CELLS_HARNESS = {
     "tests/__init__.py": "",
     "tests/main/__init__.py": "",
@@ -2452,7 +2830,7 @@ def _cells_input(name: str, **spec: object) -> dict[str, str]:
 CELLS_REFACTOR = _cells_src(helper="HELPER = 1\n")
 """A source change that changes no output."""
 CELLS_RELEASE = {
-    f"{CELLS_PACKAGE}/__init__.py": "",
+    f"{CELLS_PACKAGE}/__init__.py": CELLS_VERSION,
     f"{CELLS_PACKAGE}/arguments.py": CELLS_ARGUMENTS,
     f"{CELLS_PACKAGE}/__main__.py": CELLS_MAIN,
     **_cells_src(),
@@ -2538,8 +2916,10 @@ class CellsCase:
     The release is tagged; `base` is main's next commit, `layer` a lower stack layer on it (the PR's base), `head` the
     PR; `main` is a commit main takes after the PR forked. `against` names the gate's base: the PR's `base` (the
     layer's tip), main's tip, the release tag, a commit no history has (`unknown`) or one of another history
-    (`orphan`). `records` also runs `declared_changes.py check` on the PR, which fails the harness labels the
-    gate refuses. `shape` names, in words, the rule the case pins or the passing shape it keeps.
+    (`orphan`). `records` also runs `declared_changes.py check` on the PR with the gate's verdicts (`--verdicts`),
+    which must give the gate's verdict: it fails the harness labels the gate refuses. `shards` runs the gate as that
+    many shards, one after another, with the same `--verdicts` file. `shape` names, in words, the rule the case pins or
+    the passing shape it keeps.
     """
 
     verdict: str
@@ -2552,6 +2932,7 @@ class CellsCase:
     against: str = "base"
     tier: str = "pr"
     records: bool = False
+    shards: int = 1
 
 
 COMMENT_PLAIN = _cells_src(("plain", None, "comment"))
@@ -2562,6 +2943,50 @@ CHECKED = _cells_input("checked", type="int", validator=True)
 MEMORY = _cells_input("memory", type="int", memory=True)
 FAILS = _cells_input("fails", type="int", fail="boom")
 PLAIN_MODULE = f"{CELLS_EXPECTED}/main/jsonschema/plain.py"
+FAST_PATH_LIST = "main/cli_fast_paths/fast_paths_load_these_modules[help].txt"
+FAST_PATH_REFUSAL = "main/cli_fast_paths/parsed_fast_paths_refuse_the_options_of_the_skill_installer.result.txt"
+FAST_PATH_RELEASE = {
+    "tests/main/test_cli_fast_paths.refs": _cells_refs({
+        "test_fast_paths_load_these_modules": [f"help\t{FAST_PATH_LIST}"],
+        "test_parsed_fast_paths_refuse_the_options_of_the_skill_installer": [f"\t{FAST_PATH_REFUSAL}"],
+    }),
+    f"{CELLS_EXPECTED}/{FAST_PATH_LIST}": '{"package": ["pkg", "pkg.arguments"]}\n',
+    f"{CELLS_EXPECTED}/{FAST_PATH_REFUSAL}": '{"code": 2, "stderr": "Error: --skill-scope requires --install-skill"}\n',
+}
+"""The stored module list of a CLI fast path (an internal trace, #7155) and one of its refusals (a notice)."""
+SECOND_MODULE = f"{CELLS_EXPECTED}/main/jsonschema/second.py"
+SECOND_REFS = "tests/main/test_second.refs"
+SECOND_OWN = {
+    SECOND_REFS: _cells_refs({"test_second": ["\tmain/jsonschema/second.py"]}),
+    SECOND_MODULE: CELLS_MODULE.format("int  # note"),
+}
+"""A second stored module of its own, its output the plain module with a comment."""
+SECOND_SHARED = {SECOND_REFS: _cells_refs({"test_second": ["\tmain/jsonschema/second.py\t= main/jsonschema/plain.py"]})}
+"""The same label, its output now the stored file of the plain module."""
+SECOND_FLOAT = {SECOND_REFS: SECOND_OWN[SECOND_REFS], SECOND_MODULE: CELLS_MODULE.format("float")}
+"""The second module with the other type, a file of its own."""
+SECOND_VARIANTS = {
+    SECOND_REFS: _cells_refs({
+        "test_second": [
+            "\tmain/jsonschema/second.py\t@python=3.14",
+            "\tmain/jsonschema/second.py\t@python=3.15\t= main/jsonschema/plain.py",
+        ]
+    })
+}
+"""The same label under two storages: its own file under one Python, the plain module's under another."""
+BASE_GATE_PROBE = """import os
+import sys
+from pathlib import Path
+
+checkout = Path(os.environ.get("BEHAVIOUR_DIFF_REPOSITORY", "/nonexistent"))
+sys.exit(0 if (checkout / "docs" / "notes.md").exists() else 1)
+"""
+"""A base's gate that passes only when it runs for the PR's checkout, which has `docs/notes.md`."""
+BASE_GATE_VERDICTS = """import sys
+
+sys.exit(any(arg.startswith("--verd") for arg in sys.argv))
+"""
+"""A base's gate from before `--verdicts`: it refuses the option."""
 CELLS_CASES: dict[str, CellsCase] = {
     "pass: no src change": CellsCase("pass", "no src change, the shortcut", {"docs/notes.md": "notes\n"}),
     "pass: a refactor, every cell equal": CellsCase(
@@ -2580,6 +3005,21 @@ CELLS_CASES: dict[str, CellsCase] = {
         | {PLAIN_MODULE: CELLS_MODULE.format("int  # note")}
         | _record("plain-note", "output-text", _cells("plain.json"), covers=("main/jsonschema/plain.py",)),
     ),
+    "pass: output-text whose payload cases both sides refuse alike": CellsCase(
+        "pass",
+        "output-text, payload cases refused alike",
+        _cells_src(("plain", None, "comment"), ("plain", "Payload", "break"))
+        | _record("plain-note", "output-text", _cells("plain.json")),
+        release=_cells_src(("plain", "Payload", "break")),
+    ),
+    "pass: output-text with a covered stored module that has no payloads": CellsCase(
+        "pass",
+        "output-text, covered stored module without payloads",
+        COMMENT_PLAIN
+        | {PLAIN_MODULE: "VALUE = 1  # note\n"}
+        | _record("plain-note", "output-text", _cells("plain.json"), covers=("main/jsonschema/plain.py",)),
+        release={PLAIN_MODULE: "VALUE = 1\n"},
+    ),
     "pass: output-text with an added stored module": CellsCase(
         "pass",
         "output-text, added module",
@@ -2594,6 +3034,24 @@ CELLS_CASES: dict[str, CellsCase] = {
         "pass",
         "options * covers the preset cells",
         _cells_src(("plain", "--preset", "comment")) | _record("preset-note", "output-text", _cells("plain.json")),
+    ),
+    "pass: a selector glob ending in ** names the files below it": CellsCase(
+        "pass",
+        "a final ** names files on every Python",
+        _cells_src(("plain", "--keyword-only", "comment"))
+        | _record("plain-note", "output-text", _cells("**", options=[["--keyword-only"]])),
+    ),
+    "pass: a selector's inline option names the cell the tiers run": CellsCase(
+        "pass",
+        "inline option spelling",
+        _cells_src(("plain", "--preset", "comment"))
+        | _record("preset-note", "output-text", _cells("plain.json", options=[["--preset=standard-py310-20260101"]])),
+    ),
+    "pass: the base's gate runs for the PR's checkout": CellsCase(
+        "pass",
+        "oracle files, the base's gate runs for the checkout",
+        {"scripts/behaviour_diff.py": BASE_GATE_PROBE + "# changed\n", "docs/notes.md": "notes\n"},
+        release={"scripts/behaviour_diff.py": BASE_GATE_PROBE},
     ),
     "pass: crash-fix": CellsCase(
         "pass",
@@ -2659,6 +3117,12 @@ CELLS_CASES: dict[str, CellsCase] = {
         | OUTPUT_TEXT_OTHER
         | _record("other-float", "decided-change", _cells("other.json", aspects=["type"], match=r"str -> float")),
     ),
+    "pass: the base's gate gets no --verdicts": CellsCase(
+        "pass",
+        "oracle files, the base's gate refuses --verdicts",
+        {"scripts/behaviour_diff.py": BASE_GATE_VERDICTS + "# changed\n"},
+        release={"scripts/behaviour_diff.py": BASE_GATE_VERDICTS},
+    ),
     "pass: an oracle-file change runs the base's gate, which passes": CellsCase(
         "pass",
         "oracle files, the base's gate passes",
@@ -2685,6 +3149,41 @@ CELLS_CASES: dict[str, CellsCase] = {
         CELLS_REFACTOR
         | {PLAIN_MODULE: CELLS_MODULE.format("int  # note")}
         | _record("plain-test", "harness", covers=("main/jsonschema/plain.py",)),
+        records=True,
+    ),
+    "pass: harness covers a modified module the proof holds for, in two shards": CellsCase(
+        "pass",
+        "harness, modified module the proof holds for, the gate run as two shards with one verdicts file",
+        CELLS_REFACTOR
+        | {PLAIN_MODULE: CELLS_MODULE.format("int  # note")}
+        | _record("plain-test", "harness", covers=("main/jsonschema/plain.py",)),
+        records=True,
+        shards=2,
+    ),
+    "pass: harness covers a changed module list of a CLI fast path": CellsCase(
+        "pass",
+        "harness, the modules a CLI fast path imports (#7155)",
+        CELLS_REFACTOR
+        | {f"{CELLS_EXPECTED}/{FAST_PATH_LIST}": '{"package": ["pkg"]}\n'}
+        | _record("fast-path-test", "harness", covers=(FAST_PATH_LIST,)),
+        release=FAST_PATH_RELEASE,
+        records=True,
+    ),
+    "pass: harness covers a label that becomes shared and keeps its behaviour": CellsCase(
+        "pass",
+        "harness, a label that becomes shared, the proof holds",
+        CELLS_REFACTOR
+        | SECOND_SHARED
+        | {SECOND_MODULE: None}
+        | _record("second-test", "harness", covers=("main/jsonschema/second.py",)),
+        release=SECOND_OWN,
+        records=True,
+    ),
+    "pass: harness covers a label that leaves a shared file and keeps its behaviour": CellsCase(
+        "pass",
+        "harness, a label that splits from a shared file, the proof holds",
+        CELLS_REFACTOR | SECOND_OWN | _record("second-test", "harness", covers=("main/jsonschema/second.py",)),
+        release=SECOND_SHARED,
         records=True,
     ),
     "pass: harness covers an added label": CellsCase(
@@ -2740,6 +3239,18 @@ CELLS_CASES: dict[str, CellsCase] = {
         | _record(
             "client-float", "experimental", _cells("plain.json", options=[["--generate-client", "--use-annotated"]])
         ),
+    ),
+    "fail: output-text whose payload values change under an inline preset": CellsCase(
+        "fail",
+        "output-text, payload values change under an inline preset",
+        _cells_src(("plain", "--preset", "comment"), ("plain", "Payload", "type:float"))
+        | _record("preset-note", "output-text", _cells("plain.json", options=[["--preset=standard-py310-20260101"]])),
+    ),
+    "fail: experimental covers no head that stops": CellsCase(
+        "fail",
+        "experimental, the head stops",
+        _cells_src(("plain", "--generate-client", "memory"))
+        | _record("client-memory", "experimental", _cells("plain.json", options=[["--generate-client"]])),
     ),
     "fail: notice outside its match": CellsCase(
         "fail",
@@ -2808,6 +3319,18 @@ CELLS_CASES: dict[str, CellsCase] = {
         {"scripts/behaviour_diff.py": "import sys\n\nsys.exit(0)\n"},
         release={"scripts/behaviour_diff.py": "import sys\n\nsys.exit(1)\n"},
     ),
+    "fail: a change to the stored-module side runs the base's gate, which fails": CellsCase(
+        "fail",
+        "stored-module side changed, the base's gate fails",
+        {"scripts/_stored_module.py": "# weakened\n"},
+        release={"scripts/behaviour_diff.py": "import sys\n\nsys.exit(1)\n"},
+    ),
+    "fail: a change to the source model beside a covered change runs the base's gate": CellsCase(
+        "fail",
+        "source model changed beside covered cells, the base's gate fails",
+        COMMENT_OTHER | OUTPUT_TEXT_OTHER | {"scripts/_source_model.py": "# weakened\n"},
+        release={"scripts/behaviour_diff.py": "import sys\n\nsys.exit(1)\n"},
+    ),
     "fail: selectors added to a record of the base": CellsCase(
         "fail",
         "selectors added to a record of the base",
@@ -2843,6 +3366,39 @@ CELLS_CASES: dict[str, CellsCase] = {
         CELLS_REFACTOR
         | {PLAIN_MODULE: CELLS_MODULE.format("float")}
         | _record("plain-test", "harness", covers=("main/jsonschema/plain.py",)),
+        records=True,
+    ),
+    "fail: harness covers a label that becomes shared and changes its behaviour": CellsCase(
+        "fail",
+        "harness, a label that becomes shared, the proof fails",
+        CELLS_REFACTOR
+        | SECOND_SHARED
+        | {SECOND_MODULE: None}
+        | _record("second-test", "harness", covers=("main/jsonschema/second.py",)),
+        release=SECOND_FLOAT,
+        records=True,
+    ),
+    "fail: harness covers a label that leaves a shared file and changes its behaviour": CellsCase(
+        "fail",
+        "harness, a label that splits from a shared file with new content, the proof fails",
+        CELLS_REFACTOR | SECOND_FLOAT | _record("second-test", "harness", covers=("main/jsonschema/second.py",)),
+        release=SECOND_SHARED,
+        records=True,
+    ),
+    "fail: harness covers a label that compares several stored files": CellsCase(
+        "fail",
+        "harness, a label with several stored outputs, the proof cannot read them",
+        CELLS_REFACTOR | SECOND_VARIANTS | _record("second-test", "harness", covers=("main/jsonschema/second.py",)),
+        release=SECOND_OWN,
+        records=True,
+    ),
+    "fail: harness covers a changed refusal of a CLI fast path": CellsCase(
+        "fail",
+        "harness, a CLI fast path's refusal changed",
+        CELLS_REFACTOR
+        | {f"{CELLS_EXPECTED}/{FAST_PATH_REFUSAL}": '{"code": 0, "stderr": ""}\n'}
+        | _record("fast-path-refusal", "harness", covers=(FAST_PATH_REFUSAL,)),
+        release=FAST_PATH_RELEASE,
         records=True,
     ),
     "fail: harness covers a modified listing": CellsCase(
@@ -2895,47 +3451,6 @@ CELLS_CASES: dict[str, CellsCase] = {
     ),
 }
 """Every fail-closed rule of the cell gate and every passing shape it must keep, with the verdict it must give."""
-ALLOWLIST_ONLY = "fails: a behaviour change needs an allowlist entry; a revision base reads none"
-REPLAYED = "passes: the records check sends harness labels to its replay list, which it never fails"
-CELLS_NOT_BUILT: dict[str, str] = {
-    "fail: a base without a merge base": "passes: it compares the given revision, whatever its history",
-    "fail: a fragment of the tag covers nothing": "passes: records are not read",
-    "fail: a fragment that does not parse": "passes: records are not read",
-    "fail: a kind no covering record admits": "passes: warnings are not compared, and the comment is no behaviour",
-    "fail: a nondeterministic head": "passes: it does not run the head twice",
-    "fail: a selector naming an unreleased option": "passes: records are not read",
-    "fail: a selector naming an unreleased preset": "passes: records are not read",
-    "fail: a selector that matches equal cells only": "passes: records are not read",
-    "fail: a selector that matches no input": "passes: records are not read",
-    "fail: an empty input list": "passes: records are not read",
-    "fail: an oracle-file change runs the base's gate, which fails": "passes: it does not run the base's gate",
-    "fail: an unknown backend": "passes: records are not read",
-    "fail: an unknown key in cells": "passes: records are not read",
-    "fail: cells in a harness record": "passes: records are not read",
-    "fail: cells without a src change": "passes: records are not read",
-    "fail: crash-fix on a cell that was no crash": "passes: records are not read; the comment is no behaviour",
-    "fail: experimental whose companion differs": "passes: the PR tier runs neither option",
-    "fail: harness covers a modified listing": REPLAYED,
-    "fail: harness covers a modified module the proof fails for": REPLAYED,
-    "fail: malformed options": "passes: records are not read",
-    "fail: notice outside its match": "passes: warnings are not compared",
-    "fail: output-text against rule (b)": "passes: the signatures are equal; rule (b) does not exist yet",
-    "fail: output-text whose covered module fails the proof": "passes: records are not read",
-    "fail: output-text whose covered payload companion changed": "passes: records are not read",
-    "fail: output-text whose payload verdicts change": "passes: a fixture cell runs no payload cells",
-    "fail: output-text with a differing non-model file": "passes: the differing file holds no behaviour",
-    "fail: output-text without cells": "passes: records are not read",
-    "fail: selectors added to a record of the base": "passes: records are not read",
-    "fail: the release run's stale selector": "passes: records are not read",
-    "pass: a decision record beside an output-text record": ALLOWLIST_ONLY,
-    "pass: a lagging branch is judged from its merge base": "fails: it compares main's tip, not the merge base",
-    "pass: decided-change inside aspects and match": ALLOWLIST_ONLY,
-}
-"""The cases the gate does not judge yet as the cell gate must, with what it does instead.
-
-They are not collected: the change that builds a case's check moves it out of this table. The collected cases give
-the cell gate's verdict on the gate as it is, many only because it reads no records yet.
-"""
 
 
 def _cells_write(repo: Path, files: dict[str, str | None]) -> None:
@@ -2978,11 +3493,15 @@ def _cells_exit(run: Callable[[], int], log: StringIO) -> int:
         with redirect_stdout(log), redirect_stderr(log):
             return run()
     except SystemExit as stopped:
+        log.write(f"{stopped.code}\n" * (not isinstance(stopped.code, int)))
         return stopped.code if isinstance(stopped.code, int) else 1
 
 
 def cells_verdict(case: CellsCase, tmp_path: Path) -> tuple[str, str]:
-    """Run the gate (and, for `records`, the records check) as CI runs it and return the verdict and the log."""
+    """Run the gate (and, for `records`, the records check) as CI runs it and return the verdict and the log.
+
+    The verdict is `split` where the records check and the gate disagree.
+    """
     repo = tmp_path / "repo"
     against = _cells_project(case, repo)[case.against]
     projects = tmp_path / "projects.json"
@@ -2991,21 +3510,731 @@ def cells_verdict(case: CellsCase, tmp_path: Path) -> tuple[str, str]:
     allowlist.write_text(f'base = "{CELLS_TAG}"\n', encoding="utf-8")
     argv = ["gate", against, str(repo), "--tier", case.tier, "--check", "--candidate-python", sys.executable]
     argv += ["--cache-dir", str(tmp_path / "cache"), "--projects", str(projects), "--allowlist", str(allowlist)]
+    argv += ["--verdicts", str(verdicts := tmp_path / "verdicts.json")]
     log = StringIO()
-    codes = {"gate": _cells_exit(lambda: behaviour_diff.main([*argv, "-j", "2"]), log)}
+    shards = [
+        _cells_exit(
+            lambda index=index: behaviour_diff.main([*argv, "-j", "2", "--shard", f"{index}/{case.shards}"]), log
+        )
+        for index in range(1, case.shards + 1)
+    ]
+    codes = {"gate": max(shards)}
     if case.records:
-        check = ["check", "--base", against, "--head", "HEAD", "--tag", CELLS_TAG]
+        check = ["check", "--base", against, "--head", "HEAD", "--tag", CELLS_TAG, "--verdicts", str(verdicts)]
         codes["records"] = _cells_exit(lambda: declared_changes.main(check, repo=repo), log)
-    verdict = "pass" if set(codes.values()) == {0} else "fail"
+    verdicts_given = {"pass" if code == 0 else "fail" for code in codes.values()}
+    verdict = verdicts_given.pop() if len(verdicts_given) == 1 else "split"
     return verdict, f"{codes}\n{log.getvalue()}"
+
+
+@needs("posix")
+def test_guide_runs_the_gate_of_the_release(tmp_path: Path) -> None:
+    """Without `--cells`, `guide` runs the gate of the release against the previous one and writes its page."""
+    repo = tmp_path / "repo"
+    _cells_project(CellsCase("pass", "release run", base=COMMENT_OTHER | OUTPUT_TEXT_OTHER), repo)
+    release = _git("rev-parse", CELLS_TAG, cwd=repo)
+    projects = tmp_path / "projects.json"
+    projects.write_text('{"projects": []}', encoding="utf-8")
+    allowlist = tmp_path / "allowlist.toml"
+    allowlist.write_text(f'base = "{CELLS_TAG}"\n', encoding="utf-8")
+    argv = ["guide", release, "0.2.0", "--candidate", str(repo), "-j", "2"]
+    argv += ["--candidate-python", sys.executable, "--cache-dir", str(tmp_path / "cache")]
+    argv += ["--projects", str(projects), "--allowlist", str(allowlist)]
+    with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+        code = behaviour_diff.main([*argv, "--docs", str(page := tmp_path / "page.json")])
+    assert_output(f"exit={code}\n{page.read_text(encoding='utf-8').replace(release, 'RELEASE')}")
+
+
+@pytest.mark.allow_direct_assert("the shipped table's keys are the oracle, never a stored output a fix run accepts")
+def test_shipped_allowlist_accepts_nothing() -> None:
+    """Change records judge every differing cell: the shipped table keeps its `base`, `[[base_skip]]` and `families`."""
+    table = tomllib.loads(behaviour_diff.DEFAULT_ALLOWLIST.read_text(encoding="utf-8"))
+    assert set(table) <= {"base", "base_skip", behaviour_diff.FAMILIES_KEY}, sorted(table)
 
 
 @pytest.mark.allow_direct_assert(
     "an oracle case fails on its own verdict, never through a stored output a fix run accepts"
 )
 @needs("posix")
-@pytest.mark.parametrize("case", sorted(CELLS_CASES.keys() - CELLS_NOT_BUILT.keys()))
+@pytest.mark.parametrize("case", sorted(CELLS_CASES))
 def test_cells_oracle(case: str, tmp_path: Path) -> None:
     """The gate gives each oracle case the verdict of the cell gate: a case that fails, fails on that verdict."""
     verdict, log = cells_verdict(CELLS_CASES[case], tmp_path)
     assert verdict == CELLS_CASES[case].verdict, log
+
+
+REPORT_LINES = (
+    "violation:",
+    "    ",
+    "records:",
+    "covered:",
+    "signature only",
+    "payload cases both sides refused",
+    "stored modules with no payloads",
+    "uncovered",
+    "[[change.cells]]",
+    "input",
+    "back",
+    "options",
+    "# ",
+)
+
+
+@needs("posix")
+@pytest.mark.parametrize(
+    "case",
+    [
+        "fail: an uncovered differing cell",
+        "pass: decided-change inside aspects and match",
+        "pass: output-text whose payload cases both sides refuse alike",
+        "pass: output-text with a covered stored module that has no payloads",
+    ],
+)
+def test_cells_report(case: str, tmp_path: Path) -> None:
+    """The gate reports each violation, the records that covered cells and a block for the cells none covers.
+
+    The block is a starting `[[change.cells]]` table per input, with the aspects and a `match` of the change lines.
+    """
+    _, log = cells_verdict(CELLS_CASES[case], tmp_path)
+    lines = [line for line in log.splitlines() if line.startswith(REPORT_LINES)]
+    assert_output("\n".join(sorted(set(lines), key=lines.index)) + "\n")
+
+
+@pytest.mark.allow_direct_assert(
+    "an oracle case fails on its own verdict, never through a stored output a fix run accepts"
+)
+@needs("posix")
+def test_cells_stored_side_that_draws_nothing_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A stored module whose head side wrote no draws (the timeout, a crash) fails its proof; it is no empty pass."""
+    draw = behaviour_diff.stored_side
+
+    def stopped(
+        gate: behaviour_diff.Gate, target: Path, backend: str, values: Path | None
+    ) -> behaviour_diff.StoredSide:
+        return {} if values is None and target.parent.name == "head" else draw(gate, target, backend, values)
+
+    monkeypatch.setattr(behaviour_diff, "stored_side", stopped)
+    verdict, log = cells_verdict(CELLS_CASES["pass: output-text with a covered stored module"], tmp_path)
+    assert verdict == "fail", log
+    assert "wrote no draws" in log, log
+
+
+@pytest.mark.allow_direct_assert(
+    "an oracle case fails on its own verdict, never through a stored output a fix run accepts"
+)
+@needs("posix")
+def test_cells_selector_over_the_cell_limit_is_refused(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A selector that names more cells than the limit stops the gate with a message that names the record."""
+    case = CELLS_CASES["pass: options * covers the preset cells"]
+    monkeypatch.setattr(behaviour_diff, "SELECTOR_CELL_LIMIT", 10)
+    verdict, log = cells_verdict(case, tmp_path)
+    assert verdict == "fail", log
+    assert "entry preset-note: cells 1 names" in log, log
+    assert "narrow its input, backends or options" in log, log
+
+
+FACTS_BASE = (0, (("model.py", "a1"),), "w1", "o1")
+KINDS_CASES = {
+    "equal": FACTS_BASE,
+    "a file's hash": (0, (("model.py", "a2"),), "w1", "o1"),
+    "the file set": (0, (("model.py", "a1"), ("pkg/__init__.py", "b1")), "w1", "o1"),
+    "the exit status": (1, (("model.py", "a1"),), "w1", "o1"),
+    "the warnings": (0, (("model.py", "a1"),), "w2", "o1"),
+    "the other facts": (0, (("model.py", "a1"),), "w1", "o2"),
+    "everything": (2, (), "w2", "o2"),
+}
+
+
+@pytest.mark.parametrize("case", sorted(KINDS_CASES))
+def test_kinds(case: str) -> None:
+    """A cell's difference has the kinds of the facts that differ: output, exit, warnings and messages."""
+    assert_output(json.dumps(sorted(kinds(FACTS_BASE, KINDS_CASES[case]))) + "\n")
+
+
+@pytest.mark.parametrize(
+    "facts",
+    ['[0, [["model.py", "a1"]], "w1", "o1", "outside"]', '[0, [["model.py", "a1"]], "w1"]'],
+    ids=["a fifth element", "a missing element"],
+)
+def test_kinds_refuses_facts_of_another_length(facts: str) -> None:
+    """Facts of another length are refused: an element no kind reads would never show as a difference."""
+    base = json.loads(facts)
+    with pytest.raises(ValueError, match="4 elements") as raised:
+        kinds(base, base)
+    assert_output(f"{raised.value}\n")
+
+
+TYPE_CHANGE = Change("__init__", "Model", "type", "int -> float", "a")
+WARNING = ["DeprecationWarning", "mind the gap", "datamodel_code_generator.parser"]
+OTHER_WARNING = ["UserWarning", "other", "datamodel_code_generator"]
+Warnings = tuple[list[list[str]], list[list[str]]]
+CHANGE_LINE_CASES: dict[str, tuple[list[Change], tuple[int, int], Warnings, tuple[str, str]]] = {
+    "nothing differs": ([], (0, 0), ([], []), ("", "")),
+    "behaviour changes, a new name left out": (
+        [TYPE_CHANGE, Change("__init__", "Other", "name-added", "added")],
+        (0, 0),
+        ([], []),
+        ("", ""),
+    ),
+    "the exit status": ([], (1, 0), ([], []), ("", "")),
+    "a warning added and one removed": ([], (0, 0), ([WARNING, OTHER_WARNING], [WARNING, WARNING]), ("", "")),
+    "a warning removed": ([], (0, 0), ([WARNING], []), ("", "")),
+    "the warnings in another order": ([], (0, 0), ([WARNING, OTHER_WARNING], [OTHER_WARNING, WARNING]), ("", "")),
+    "a message line added": ([], (0, 0), ([], []), ("Error: one\n", "Error: one\nError: two\nhint\n")),
+    "a message line removed": ([], (0, 0), ([], []), ("Error: one\nError: two\n", "Error: one\n")),
+    "a message line printed once more": ([], (0, 0), ([], []), ("Error: one\n", "Error: one\nError: one\n")),
+    "the message lines in another order": ([], (0, 0), ([], []), ("a\nb\n", "b\na\n")),
+}
+
+
+def test_change_refuses_an_aspect_the_records_cannot_name() -> None:
+    """A change's aspect is one a record's selector can name, so a new aspect is added to the records' list first."""
+    with pytest.raises(ValueError, match="ASPECTS") as raised:
+        Change("__init__", "Model", "colour", "red -> blue")
+    assert_output(f"{raised.value}\n")
+
+
+@pytest.mark.parametrize("case", sorted(CHANGE_LINE_CASES))
+def test_change_lines(case: str) -> None:
+    """A cell's change lines: its behaviour changes, then its exit, warning and message lines."""
+    changes, exits, warnings, messages = CHANGE_LINE_CASES[case]
+    lines = change_lines(changes, exits=exits, warnings=warnings, messages=messages)
+    assert_output(json.dumps(lines, indent=1) + "\n")
+
+
+def _selector(glob: str, backends: list[str] | None = None, options: list[list[str]] | None = None) -> CellSelector:
+    """Return a selector as a `[[change.cells]]` table gives it; no `backends` or `options` is `"*"`."""
+    listed = None if options is None else tuple(map(tuple, options))
+    return CellSelector((glob,), None if backends is None else tuple(backends), listed)
+
+
+def _lines(glob: str, aspects: tuple[str, ...] | None = None, match: str | None = None) -> CellSelector:
+    """Return a selector of every backend and option set whose cells' change lines hold its aspects and match."""
+    return CellSelector((glob,), aspects=aspects, match=match)
+
+
+def _cell(
+    label: str = "tests/data/jsonschema/plain.json",
+    backend: str = "pydantic_v2.BaseModel",
+    options: tuple[str, ...] = (),
+    file_type: str = "jsonschema",
+) -> behaviour_diff.Cell:
+    return behaviour_diff.Cell(ROOT / label, label, file_type, backend, options)
+
+
+COVERS_CASES: dict[str, tuple[CellSelector, behaviour_diff.Cell]] = {
+    "the input file": (_selector("tests/data/jsonschema/plain.json"), _cell()),
+    "another input file": (_selector("tests/data/jsonschema/other.json"), _cell()),
+    "a folder's file by *": (_selector("tests/data/jsonschema/*"), _cell()),
+    "not a file below a folder by *": (_selector("tests/data/*"), _cell()),
+    "a file below a folder by **": (_selector("tests/data/**"), _cell()),
+    "the folder itself by **": (_selector("tests/data/jsonschema/**"), _cell("tests/data/jsonschema")),
+    "a part by a pattern": (_selector("tests/data/*/pl?in.[jy]son"), _cell()),
+    "a listed backend": (_selector("tests/data/**", backends=["msgspec.Struct"]), _cell(backend="msgspec.Struct")),
+    "an unlisted backend": (_selector("tests/data/**", backends=["msgspec.Struct"]), _cell()),
+    "the default option set": (_selector("tests/data/**", options=[[], ["--use-annotated"]]), _cell()),
+    "a listed option set": (
+        _selector("tests/data/**", options=[["--use-annotated", "--keyword-only"]]),
+        _cell(options=("--use-annotated", "--keyword-only")),
+    ),
+    "an option set in another order": (
+        _selector("tests/data/**", options=[["--keyword-only", "--use-annotated"]]),
+        _cell(options=("--use-annotated", "--keyword-only")),
+    ),
+    "every option set": (_selector("tests/data/**"), _cell(options=("--preset", "standard-py314-20260101"))),
+    "the input file type": (replace(_selector("tests/data/**"), input_file_type="jsonschema"), _cell()),
+    "another input file type": (replace(_selector("tests/data/**"), input_file_type="openapi"), _cell()),
+    "no input file type, a cell of another type than its folder": (
+        _selector("tests/data/**"),
+        _cell("tests/data/jsonschema/plain.json", file_type="openapi"),
+    ),
+    "the input file type named, a cell of another type than its folder": (
+        replace(_selector("tests/data/**"), input_file_type="openapi"),
+        _cell("tests/data/jsonschema/plain.json", file_type="openapi"),
+    ),
+    "no input file type, a cell outside tests/data": (_selector("docs/**"), _cell("docs/plain.json")),
+}
+
+
+@pytest.mark.parametrize("case", sorted(COVERS_CASES))
+def test_covers(case: str) -> None:
+    """A selector covers a run cell whose input its globs name over the tree, with a listed backend and option set."""
+    assert_output(json.dumps(covers(*COVERS_CASES[case])) + "\n")
+
+
+MODEL_TEXT = '''"""Models."""
+
+from __future__ import annotations
+
+from typing import Annotated
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+class Model(BaseModel):
+    model_config = ConfigDict(extra="forbid", title="Model")
+    a: int  # the count
+    b: list[int] = Field(default_factory=lambda: [1])
+
+    @field_validator("a")
+    @classmethod
+    def check(cls, value: int) -> int:
+        return value
+'''
+ROOT_UNION_TEXT = """from __future__ import annotations
+
+from typing import Optional, Union
+
+from pydantic import BaseModel, RootModel
+
+
+class Model(RootModel[Union[int, float, str]]):
+    root: Union[int, float, str]
+
+
+class Holder(BaseModel):
+    a: Union[int, str]
+    b: Optional[int] = None
+    c: list[int | str | None] = []
+"""
+SWAP_MODEL = """
+
+@dataclass
+class Model:
+    a: list[int] = field(default_factory=lambda: [1])
+    b: list[int] = field(default_factory=lambda: [2])
+    c: Union[int, str] = 0
+    d: Union[str, int] = 0
+
+    @property
+    def e(self) -> int:
+        return 1
+
+    @e.setter
+    def e(self, value: int) -> None:
+        pass
+"""
+SWAP_OTHER = """
+
+@dataclass
+class Other:
+    f: int = 0
+"""
+SWAP_IMPORTS = "from dataclasses import dataclass, field\nfrom typing import Union\n"
+SWAP_TEXT = SWAP_IMPORTS + SWAP_MODEL + SWAP_OTHER
+ALIAS_X = "X = Union[int, str]\n"
+ALIAS_Y = "Y = Union[\n    str,\n    int,\n]\n"
+ALIAS_TEXT = "from typing import Union\n" + ALIAS_X + ALIAS_Y
+RULE_B_OLD = {
+    "the members of a root model's union in another order": ROOT_UNION_TEXT,
+    "the members of a field's union in another order": ROOT_UNION_TEXT,
+    "a nested union flattened": ROOT_UNION_TEXT,
+    "a union spelled otherwise with the same members": ROOT_UNION_TEXT,
+    "an import moved past a statement it shadows": (
+        "from pydantic import BaseModel\nField = 1\nfrom pydantic import Field\n"
+    ),
+    "two fields' default factories traded": SWAP_TEXT,
+    "two fields' union orders traded": SWAP_TEXT,
+    "two classes in another order": SWAP_TEXT,
+    "two aliases' union orders traded": ALIAS_TEXT,
+    "two aliases in another order": ALIAS_TEXT,
+    "a getter's and a setter's bodies traded": SWAP_TEXT,
+}
+RULE_B_CASES: dict[str, tuple[str, bool]] = {
+    "the members of a root model's union in another order": (
+        ROOT_UNION_TEXT.replace("Union[int, float, str]", "Union[str, float, int]"),
+        True,
+    ),
+    "the members of a field's union in another order": (
+        ROOT_UNION_TEXT.replace("a: Union[int, str]", "a: Union[str, int]"),
+        True,
+    ),
+    "a nested union flattened": (ROOT_UNION_TEXT.replace("a: Union[int, str]", "a: Union[int, Union[str]]"), True),
+    "a union spelled otherwise with the same members": (
+        ROOT_UNION_TEXT.replace("b: Optional[int]", "b: int | None").replace(
+            "c: list[int | str | None]", "c: list[Union[int, str, None]]"
+        ),
+        True,
+    ),
+    "an import moved past a statement it shadows": (
+        "from pydantic import BaseModel\nfrom pydantic import Field\nField = 1\n",
+        False,
+    ),
+    "two fields' default factories traded": (
+        SWAP_TEXT.replace("lambda: [1]", "lambda: [0]").replace("lambda: [2]", "lambda: [1]").replace("[0]", "[2]"),
+        True,
+    ),
+    "two fields' union orders traded": (
+        SWAP_TEXT
+        .replace("Union[int, str]", "Union[0]")
+        .replace("Union[str, int]", "Union[int, str]")
+        .replace("Union[0]", "Union[str, int]"),
+        True,
+    ),
+    "two classes in another order": (SWAP_IMPORTS + SWAP_OTHER + SWAP_MODEL, True),
+    "two aliases' union orders traded": (
+        ALIAS_TEXT.replace("Union[int, str]", "Union[str, int]").replace("str,\n    int,", "int,\n    str,"),
+        True,
+    ),
+    "two aliases in another order": ("from typing import Union\n" + ALIAS_Y + ALIAS_X, True),
+    "a getter's and a setter's bodies traded": (
+        SWAP_TEXT
+        .replace("        return 1\n", "        pass0\n")
+        .replace("        pass\n", "        return 1\n")
+        .replace("pass0", "pass"),
+        True,
+    ),
+    "same text": (MODEL_TEXT, False),
+    "docstrings and comments": (
+        MODEL_TEXT
+        .replace('"""Models."""', '"""Other models."""')
+        .replace("  # the count", "")
+        .replace("class Model(BaseModel):\n", 'class Model(BaseModel):\n    """A model."""\n\n'),
+        False,
+    ),
+    "the order of the imports": (
+        MODEL_TEXT.replace(
+            "from typing import Annotated\n\nfrom pydantic import BaseModel, ConfigDict, Field, field_validator",
+            "from pydantic import field_validator, Field, ConfigDict, BaseModel\nfrom typing import Annotated",
+        ),
+        False,
+    ),
+    "a field type, the signatures differ": (MODEL_TEXT.replace("a: int", "a: float"), False),
+    "a field default spelled otherwise, the signatures equal": (
+        MODEL_TEXT.replace(
+            "b: list[int] = Field(default_factory=lambda: [1])",
+            "b: list[int] = Field(default_factory=lambda: [1], description='d')",
+        ),
+        True,
+    ),
+    "a default factory's body, the signatures equal": (MODEL_TEXT.replace("lambda: [1]", "lambda: [2]"), True),
+    "a validator's body, the signatures equal": (MODEL_TEXT.replace("return value", "return value + 1"), True),
+    "a decorator, the signatures equal": (
+        MODEL_TEXT.replace('@field_validator("a")', '@field_validator("a", mode="before")'),
+        True,
+    ),
+    "a configuration key the signature does not list": (MODEL_TEXT.replace('title="Model"', 'title="Other"'), True),
+    "a configuration key the signature lists": (MODEL_TEXT.replace('extra="forbid"', 'extra="allow"'), True),
+    "a class keyword the signature does not list": (
+        MODEL_TEXT.replace("class Model(BaseModel):", "class Model(BaseModel, defer_build=True):"),
+        True,
+    ),
+    "a Config class key": (MODEL_TEXT + "\n    class Config:\n        title = 'x'\n", True),
+    "a configuration dictionary that unpacks another": (
+        MODEL_TEXT.replace('ConfigDict(extra="forbid", title="Model")', '{**BASE, "title": "Model"}'),
+        True,
+    ),
+    "a configuration of a name": (MODEL_TEXT.replace('ConfigDict(extra="forbid", title="Model")', "BASE"), True),
+    "a configuration dictionary": (
+        MODEL_TEXT.replace('ConfigDict(extra="forbid", title="Model")', '{"extra": "forbid", "title": "Other"}'),
+        True,
+    ),
+    "text that does not parse": (MODEL_TEXT + "\nclass (:\n", True),
+}
+
+
+@pytest.mark.parametrize("case", sorted(RULE_B_CASES))
+def test_rule_b(case: str) -> None:
+    """Rule (b) holds on two texts of a model module, or does not.
+
+    It holds on equal trees apart from docstrings, comments and import order, or on equal signatures with equal bodies,
+    lambdas, decorators and configuration keys the signature does not list.
+    """
+    new, signature_equal = RULE_B_CASES[case]
+    assert_output(json.dumps(rule_b(RULE_B_OLD.get(case, MODEL_TEXT), new, signature_equal=signature_equal)) + "\n")
+
+
+EVERY_CELL = _selector("tests/data/**")
+
+
+def _judged(
+    category: str | None, *cells: CellSelector, affects: tuple[tuple[str, tuple[str, ...]], ...] = ()
+) -> Record:
+    """Return a record of a category whose selectors are `cells` (by default every cell of the fixtures)."""
+    category_value = Category(category) if category else None
+    return Record(str(category), frozenset(), category=category_value, cells=cells or (EVERY_CELL,), affects=affects)
+
+
+NO_BEHAVIOUR = CellEvidence("no-behaviour", model_files=True, rule_b=True, payloads=True, companion_equal=True)
+TYPE_LINE = "[type] Model:a: int -> float"
+DECIDED = _judged("decided-change", _lines("tests/data/**", aspects=("type",), match="int -> float"))
+OUTPUT, EXIT, WARNINGS, MESSAGES = CellKind.OUTPUT, CellKind.EXIT, CellKind.WARNINGS, CellKind.MESSAGES
+JUDGE_CASES: dict[str, tuple[list[Record], set[CellKind], CellEvidence, behaviour_diff.Cell]] = {
+    "no record": ([], {OUTPUT}, NO_BEHAVIOUR, _cell()),
+    "no selector covers the cell": (
+        [_judged("output-text", _selector("tests/data/**", backends=["msgspec.Struct"]))],
+        {OUTPUT},
+        NO_BEHAVIOUR,
+        _cell(),
+    ),
+    "output-text holds": ([_judged("output-text")], {OUTPUT}, NO_BEHAVIOUR, _cell()),
+    "output-text on a warning too": ([_judged("output-text")], {OUTPUT, WARNINGS}, NO_BEHAVIOUR, _cell()),
+    "output-text on a behaviour change": (
+        [_judged("output-text")],
+        {OUTPUT},
+        replace(NO_BEHAVIOUR, cls="violation", lines=(TYPE_LINE,)),
+        _cell(),
+    ),
+    "output-text on a non-model file": (
+        [_judged("output-text")],
+        {OUTPUT},
+        replace(NO_BEHAVIOUR, model_files=False),
+        _cell(),
+    ),
+    "output-text without a signature": (
+        [_judged("output-text")],
+        {OUTPUT},
+        replace(NO_BEHAVIOUR, signature_failed=True),
+        _cell(),
+    ),
+    "output-text against rule (b)": ([_judged("output-text")], {OUTPUT}, replace(NO_BEHAVIOUR, rule_b=False), _cell()),
+    "output-text with differing payload cells": (
+        [_judged("output-text")],
+        {OUTPUT},
+        replace(NO_BEHAVIOUR, payloads=False),
+        _cell(),
+    ),
+    "crash-fix holds": (
+        [_judged("crash-fix")],
+        {OUTPUT, EXIT, MESSAGES},
+        CellEvidence("crash-fix", lines=("[exit] 1 -> 0",), exits=(1, 0)),
+        _cell(),
+    ),
+    "crash-fix on a cell that now fails": (
+        [_judged("crash-fix")],
+        {OUTPUT, EXIT},
+        CellEvidence("crash-fix", exits=(0, 1)),
+        _cell(),
+    ),
+    "crash-fix on a cell that was no crash": ([_judged("crash-fix")], {OUTPUT}, NO_BEHAVIOUR, _cell()),
+    "decided-change inside its aspects and match": (
+        [DECIDED],
+        {OUTPUT},
+        CellEvidence("violation", lines=(TYPE_LINE,)),
+        _cell(),
+    ),
+    "decided-change with a line outside its match": (
+        [DECIDED],
+        {OUTPUT},
+        CellEvidence("violation", lines=(TYPE_LINE, "[default] Model:b: None -> '1'")),
+        _cell(),
+    ),
+    "decided-change with a line outside its aspects": (
+        [_judged("default-fix", _lines("tests/data/**", aspects=("default",)))],
+        {OUTPUT},
+        CellEvidence("violation", lines=(TYPE_LINE,)),
+        _cell(),
+    ),
+    "decided-change with lines its two selectors match": (
+        [
+            _judged(
+                "decided-change",
+                _lines("tests/data/**", match="int -> float"),
+                _lines("tests/data/*/plain.json", aspects=("default",)),
+            )
+        ],
+        {OUTPUT},
+        CellEvidence("violation", lines=(TYPE_LINE, "[default] Model:b: None -> '1'")),
+        _cell(),
+    ),
+    "decided-change on a no-behaviour cell": ([DECIDED], {OUTPUT}, NO_BEHAVIOUR, _cell()),
+    "a decision beside a failing output-text record": (
+        [_judged("output-text"), DECIDED],
+        {OUTPUT},
+        CellEvidence("violation", lines=(TYPE_LINE,)),
+        _cell(),
+    ),
+    "a failing output-text record beside a notice that admits nothing of the cell": (
+        [_judged("output-text"), _judged("notice", _lines("tests/data/**", match="float"))],
+        {OUTPUT},
+        CellEvidence("violation", lines=(TYPE_LINE,), model_files=True, rule_b=True, payloads=True),
+        _cell(),
+    ),
+    "output-text and notice on a text change with a warning": (
+        [_judged("output-text"), _judged("notice", _lines("tests/data/**", match="gap"))],
+        {OUTPUT, WARNINGS},
+        replace(NO_BEHAVIOUR, lines=("[warning] added DeprecationWarning: mind the gap",)),
+        _cell(),
+    ),
+    "output-text and notice on a text change with a message": (
+        [_judged("output-text"), _judged("notice", _lines("tests/data/**", match="gap"))],
+        {OUTPUT, MESSAGES},
+        replace(NO_BEHAVIOUR, lines=("[message] added mind the gap",)),
+        _cell(),
+    ),
+    "output-text and notice on a text change with a warning and an exit difference": (
+        [_judged("output-text"), _judged("notice", _lines("tests/data/**", match="gap"))],
+        {OUTPUT, WARNINGS, EXIT},
+        replace(
+            NO_BEHAVIOUR, lines=("[exit] 0 -> 1", "[warning] added DeprecationWarning: mind the gap"), exits=(0, 1)
+        ),
+        _cell(),
+    ),
+    "output-text and notice on a text change with a warning outside the notice's match": (
+        [_judged("output-text"), _judged("notice", _lines("tests/data/**", match="gap"))],
+        {OUTPUT, WARNINGS},
+        replace(NO_BEHAVIOUR, lines=("[warning] added UserWarning: other",)),
+        _cell(),
+    ),
+    "output-text and notice on a behaviour change with a warning": (
+        [_judged("output-text"), _judged("notice", _lines("tests/data/**", match="gap"))],
+        {OUTPUT, WARNINGS},
+        replace(NO_BEHAVIOUR, cls="violation", lines=(TYPE_LINE, "[warning] added DeprecationWarning: mind the gap")),
+        _cell(),
+    ),
+    "two decisions, each line selected by one": (
+        [DECIDED, _judged("default-fix", _lines("tests/data/**", aspects=("default",)))],
+        {OUTPUT},
+        CellEvidence("violation", lines=(TYPE_LINE, "[default] Model:b: None -> '1'")),
+        _cell(),
+    ),
+    "two decisions of one category, each line selected by one": (
+        [DECIDED, replace(DECIDED, id="other-decided-change", cells=(_lines("tests/data/**", aspects=("default",)),))],
+        {OUTPUT},
+        CellEvidence("violation", lines=(TYPE_LINE, "[default] Model:b: None -> '1'")),
+        _cell(),
+    ),
+    "two decisions and a line neither selects": (
+        [DECIDED, _judged("default-fix", _lines("tests/data/**", aspects=("default",)))],
+        {OUTPUT},
+        CellEvidence("violation", lines=(TYPE_LINE, "[default] Model:b: None -> '1'", "[enum] Model:c: 'x' -> 'y'")),
+        _cell(),
+    ),
+    "a decision and a notice, a warning line only the notice selects": (
+        [DECIDED, _judged("notice", _lines("tests/data/**", match="gap"))],
+        {OUTPUT, WARNINGS},
+        CellEvidence("violation", lines=(TYPE_LINE, "[warning] added DeprecationWarning: mind the gap")),
+        _cell(),
+    ),
+    "two decisions, a line selected only by a selector of another cell": (
+        [DECIDED, _judged("default-fix", _lines("tests/data/*/other.json", aspects=("default",)))],
+        {OUTPUT},
+        CellEvidence("violation", lines=(TYPE_LINE, "[default] Model:b: None -> '1'")),
+        _cell(),
+    ),
+    "experimental by its option, an equal companion": (
+        [_judged("experimental", affects=(("experimental", ("cli-option.generate-client",)),))],
+        {OUTPUT},
+        CellEvidence("violation", lines=(TYPE_LINE,), companion_equal=True),
+        _cell(options=("--generate-client", "--use-annotated")),
+    ),
+    "experimental by its input type": (
+        [_judged("experimental", affects=(("experimental", ("input-format.avro",)),))],
+        {OUTPUT, MESSAGES},
+        CellEvidence("violation", lines=(TYPE_LINE,), companion_equal=True),
+        _cell("tests/data/avro/plain.avsc", file_type="avro"),
+    ),
+    "experimental whose companion differs": (
+        [_judged("experimental", affects=(("experimental", ("cli-option.generate-client",)),))],
+        {OUTPUT},
+        CellEvidence("violation", lines=(TYPE_LINE,)),
+        _cell(options=("--generate-client", "--use-annotated")),
+    ),
+    "experimental without its feature in the cell": (
+        [_judged("experimental", affects=(("experimental", ("cli-option.generate-client",)),))],
+        {OUTPUT},
+        CellEvidence("violation", lines=(TYPE_LINE,), companion_equal=True),
+        _cell(options=("--use-annotated",)),
+    ),
+    "notice inside its match": (
+        [_judged("notice", _lines("tests/data/**", match="mind the gap"))],
+        {WARNINGS, MESSAGES},
+        CellEvidence("same", lines=("[warning] added DeprecationWarning: mind the gap", "[message] mind the gap")),
+        _cell(),
+    ),
+    "notice outside its match": (
+        [_judged("notice", _lines("tests/data/**", match="mind the gap"))],
+        {WARNINGS},
+        CellEvidence("same", lines=("[warning] added UserWarning: other",)),
+        _cell(),
+    ),
+    "notice on an exit difference too": (
+        [_judged("notice", _lines("tests/data/**", match="gap")), _judged("api")],
+        {EXIT, MESSAGES},
+        CellEvidence("violation", lines=("[exit] 0 -> 2", "[message] gap"), exits=(0, 2)),
+        _cell(),
+    ),
+    "api for a removed option it names": (
+        [_judged("api", affects=(("options", ("--old-flag",)),))],
+        {EXIT, MESSAGES},
+        CellEvidence("violation", exits=(0, 2), removed=frozenset({"--old-flag"})),
+        _cell(options=("--old-flag",)),
+    ),
+    "api for a removed option it does not name": (
+        [_judged("api", affects=(("options", ("--other-flag",)),))],
+        {EXIT, MESSAGES},
+        CellEvidence("violation", exits=(0, 2), removed=frozenset({"--old-flag"})),
+        _cell(options=("--old-flag",)),
+    ),
+    "no differing kind": ([_judged("output-text")], set(), NO_BEHAVIOUR, _cell()),
+    "a notice for messages that show in no line": (
+        [_judged("notice", _lines("tests/data/**", match="gap"))],
+        {MESSAGES},
+        CellEvidence("same"),
+        _cell(),
+    ),
+    "a notice for warnings that show in no line": (
+        [_judged("notice", _lines("tests/data/**", match="gap"))],
+        {WARNINGS},
+        CellEvidence("same"),
+        _cell(),
+    ),
+    "a notice for a message line it matches": (
+        [_judged("notice", _lines("tests/data/**", match="gap"))],
+        {MESSAGES},
+        CellEvidence("same", lines=("[message] mind the gap",)),
+        _cell(),
+    ),
+    "a notice matching only the last of the message lines added": (
+        [_judged("notice", _lines("tests/data/**", match="gap"))],
+        {MESSAGES},
+        CellEvidence(
+            "same", lines=change_lines([], messages=("Error: one\n", "Error: one\nError: two\nmind the gap\n"))
+        ),
+        _cell(),
+    ),
+    "a notice when a signature could not be taken": (
+        [_judged("notice", _lines("tests/data/**", match="gap"))],
+        {WARNINGS},
+        CellEvidence("same", lines=("[warning] added UserWarning: gap",), signature_failed=True),
+        _cell(),
+    ),
+    "a decision for messages that show in no line": (
+        [DECIDED],
+        {OUTPUT, MESSAGES},
+        CellEvidence("violation", lines=(TYPE_LINE,)),
+        _cell(),
+    ),
+    "a decision for an exit status that shows in no line": (
+        [_judged("default-fix", _lines("tests/data/**", aspects=("type", "exit")))],
+        {OUTPUT, EXIT},
+        CellEvidence("violation", lines=(TYPE_LINE,), exits=(0, 1)),
+        _cell(),
+    ),
+    "a decision for the exit line it names": (
+        [_judged("default-fix", _lines("tests/data/**", aspects=("type", "exit")))],
+        {OUTPUT, EXIT},
+        CellEvidence("violation", lines=(TYPE_LINE, "[exit] 0 -> 1"), exits=(0, 1)),
+        _cell(),
+    ),
+    "a decision when both signatures failed": (
+        [_judged("default-fix", _lines("tests/data/**", match="int -> float"))],
+        {OUTPUT},
+        CellEvidence("both-fail", signature_failed=True),
+        _cell(),
+    ),
+    "a record without a category": ([_judged(None)], {OUTPUT}, NO_BEHAVIOUR, _cell()),
+    "a harness record": ([_judged("harness")], {OUTPUT}, NO_BEHAVIOUR, _cell()),
+}
+
+
+@pytest.mark.parametrize("case", sorted(JUDGE_CASES))
+def test_judge(case: str) -> None:
+    """A differing cell passes when the records that cover it admit each kind of its difference with their evidence.
+
+    A decision's, an experimental or a crash-fix record's holding evidence covers the kinds it admits alone.
+    """
+    records, found, evidence, cell = JUDGE_CASES[case]
+    verdict = judge(cell, frozenset(found), records, evidence)
+    output = {**asdict(verdict), "accepted_by": [records[index].id for index in sorted(verdict.accepted_by)]}
+    assert_output(json.dumps(output, indent=1) + "\n")

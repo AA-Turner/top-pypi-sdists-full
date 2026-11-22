@@ -1934,6 +1934,25 @@ def _profile_summary(
     }
 
 
+def libero_preview(env: Any) -> tuple[Callable[[Any], None], Callable[[], None]]:
+    """run_sim's LIBERO viewer window for a runner of its own: a call that shows an
+    observation's agent | wrist view, and the call that closes the window."""
+    return (lambda obs: _render_preview_frame(_policy_preview_frame(env, obs))), _close_preview
+
+
+def libero_viewer(env: Any, view: bool,
+                  preview: Callable[[Any], tuple[Callable, Callable]] | None = None,
+                  print_fn: Callable[[str], None] = print,
+                  ) -> tuple[Callable[[Any], None] | None, Callable[[], None]]:
+    """The viewer of a LIBERO runner of its own (Isaac 0.5 and Verne V0.5 LIBERO): (show,
+    close), from ``preview(env)`` (by default run_sim's window); without ``view``, no show and
+    a close that does nothing."""
+    if not view:
+        return None, lambda: None
+    print_fn("Live viewer: local window (agent | wrist).")
+    return (preview or libero_preview)(env)
+
+
 def _render_preview_frame(frame: Any) -> None:
     import cv2
 

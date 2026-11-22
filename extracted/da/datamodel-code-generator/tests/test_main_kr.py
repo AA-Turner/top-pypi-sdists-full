@@ -45,7 +45,6 @@ from tests.conftest import (
     assert_error_message,
     assert_httpx_get_kwargs,
     assert_output,
-    create_assert_file_content,
     freeze_time,
     stored_expected,
     validate_generated_code,
@@ -70,7 +69,6 @@ from tests.main.conftest import (
 
 EXPECTED_MAIN_KR_PATH = DATA_PATH / "expected" / "main_kr"
 EXPECTED_OUTPUT_FORMAT_JSON_PATH = EXPECTED_MAIN_KR_PATH / "output_format_json"
-EXPECTED_EMPTY_OUTPUT_PATH = DATA_PATH / "expected" / "__init__.py"
 JOBS_PYPROJECT_TEMPLATE = DATA_PATH / "config" / "pyproject_jobs.toml"
 FALSE_BOOLEAN_OPTIONAL_ACTIONS_PYPROJECT = DATA_PATH / "config" / "false_boolean_optional_actions.toml"
 GENERATE_PROMPT_JSON_ARGS = [
@@ -88,8 +86,6 @@ GENERATE_PROMPT_JSON_ARGS = [
     "json",
 ]
 GENERATE_PROMPT_JSON_SCHEMA_ARGS = ["--output-format-json-schema", "generate-prompt"]
-
-assert_file_content = create_assert_file_content(EXPECTED_MAIN_KR_PATH)
 
 
 OUTPUT_FILE_PLACEHOLDER = "<OUTPUT_FILE>"
@@ -164,8 +160,6 @@ def test_main(output_file: Path) -> None:
         input_path=OPEN_API_DATA_PATH / "api.yaml",
         output_path=output_file,
         input_file_type=None,
-        assert_func=assert_file_content,
-        expected_file="main/output.py",
     )
 
 
@@ -176,8 +170,6 @@ def test_main_base_class(output_file: Path, tmp_path: Path) -> None:
         input_path=OPEN_API_DATA_PATH / "api.yaml",
         output_path=output_file,
         input_file_type=None,
-        assert_func=assert_file_content,
-        expected_file=EXPECTED_MAIN_KR_PATH / "main_base_class" / "output.py",
         extra_args=["--base-class", "custom_module.Base"],
         copy_files=[(DATA_PATH / "pyproject.toml", tmp_path / "pyproject.toml")],
     )
@@ -190,8 +182,6 @@ def test_target_python_version(output_file: Path) -> None:
         input_path=OPEN_API_DATA_PATH / "api.yaml",
         output_path=output_file,
         input_file_type=None,
-        assert_func=assert_file_content,
-        expected_file=EXPECTED_MAIN_KR_PATH / "target_python_version" / "output.py",
         extra_args=["--target-python-version", f"3.{MIN_VERSION}"],
     )
 
@@ -202,7 +192,6 @@ def test_main_modular(output_dir: Path) -> None:
         run_main_and_assert(
             input_path=OPEN_API_DATA_PATH / "modular.yaml",
             output_path=output_dir,
-            expected_directory=EXPECTED_MAIN_KR_PATH / "main_modular",
             extra_args=["--fail-on-multi-module-stdout"],
         )
 
@@ -215,7 +204,8 @@ def test_main_modular_no_file(capsys: pytest.CaptureFixture[str]) -> None:
         ["--input", str(OPEN_API_DATA_PATH / "modular.yaml")],
         expected_exit=Exit.OK,
         capsys=capsys,
-        expected_stdout_path=EXPECTED_MAIN_KR_PATH / "main_modular_no_file" / "output.py",
+        derived_stdout=True,
+        stdout_suffix=".py",
     )
 
 
@@ -237,10 +227,10 @@ def test_main_fail_on_multi_module_stdout(input_path: Path, capsys: pytest.Captu
             "--fail-on-multi-module-stdout",
         ],
         expected_exit=Exit.ERROR,
-        capsys=capsys,
-        expected_stdout_path=EXPECTED_EMPTY_OUTPUT_PATH,
-        expected_stderr_path=EXPECTED_MAIN_KR_PATH / "multi_module_stdout" / "error.txt",
     )
+    captured = capsys.readouterr()
+    assert_output(captured.out, name="stdout", suffix=".py")
+    assert_output(captured.err, name="stderr")
 
 
 @pytest.mark.isolate_builtin_formatter_config
@@ -273,7 +263,8 @@ def test_fail_on_multi_module_stdout_single_file(capsys: pytest.CaptureFixture[s
         ],
         expected_exit=Exit.OK,
         capsys=capsys,
-        expected_stdout_path=DATA_PATH / "expected" / "main" / "person.py",
+        derived_stdout=True,
+        stdout_suffix=".py",
         assert_no_stderr=True,
     )
 
@@ -295,21 +286,18 @@ def test_main_modular_json_no_file(capsys: pytest.CaptureFixture[str]) -> None:
         ],
         expected_exit=Exit.OK,
         capsys=capsys,
-        expected_stdout_path=EXPECTED_OUTPUT_FORMAT_JSON_PATH / "generation_modular_stdout.txt",
+        derived_stdout=True,
         assert_no_stderr=True,
     )
 
 
 def test_single_module_mapping_text_stdout(capsys: pytest.CaptureFixture[str]) -> None:
     """Preserve valid text stdout for a generated mapping with one module."""
-    expected_path = EXPECTED_MAIN_KR_PATH / "single_module_mapping" / "output.py"
-    _write_generated_result(
-        {("model.py",): stored_expected(expected_path).read_text().removesuffix("\n")},
-        None,
-        fail_on_multi_module_stdout=True,
-    )
+    module = "class Model:\n    pass"
+    _write_generated_result({("model.py",): module}, None, fail_on_multi_module_stdout=True)
 
-    _assert_captured_output(capsys, expected_stdout_path=expected_path, assert_no_stderr=True)
+    _assert_captured_output(capsys, derived_stdout=True, stdout_suffix=".py", assert_no_stderr=True)
+    assert_output(f"{module}\n", name="stdout", suffix=".py")
 
 
 def test_main_modular_filename(output_file: Path) -> None:
@@ -330,7 +318,7 @@ def test_main_no_file(capsys: pytest.CaptureFixture[str], tmp_path: Path, monkey
         run_main_and_assert(
             input_path=OPEN_API_DATA_PATH / "api.yaml",
             output_path=None,
-            expected_stdout_path=EXPECTED_MAIN_KR_PATH / "main_no_file" / "output.py",
+            stdout_suffix=".py",
             capsys=capsys,
             expected_stderr=inferred_message.format("openapi") + "\n",
         )
@@ -350,7 +338,7 @@ def test_main_custom_template_dir(
         run_main_and_assert(
             input_path=OPEN_API_DATA_PATH / "api.yaml",
             output_path=None,
-            expected_stdout_path=EXPECTED_MAIN_KR_PATH / "main_custom_template_dir" / "output.py",
+            stdout_suffix=".py",
             capsys=capsys,
             extra_args=[
                 "--custom-template-dir",
@@ -370,8 +358,6 @@ def test_pyproject(output_file: Path, tmp_path: Path) -> None:
         input_path=OPEN_API_DATA_PATH / "api.yaml",
         output_path=output_file,
         input_file_type=None,
-        assert_func=assert_file_content,
-        expected_file="pyproject/output.py",
         copy_files=[(DATA_PATH / "project" / "pyproject.toml", tmp_path / "pyproject.toml")],
     )
 
@@ -405,31 +391,10 @@ input-file-type = "jsonschema"
     with input_file.open("w") as f:
         f.write(input_data)
 
-    expected_output = """# generated by datamodel-codegen:
-#   filename:  schema.json
-
-from __future__ import annotations
-
-from enum import Enum
-from typing import Any
-
-from pydantic import RootModel
-
-
-class Model(RootModel[Any]):
-    root: Any
-
-
-class MyEnum(Enum):
-    MEMBER_1 = 'MEMBER_1'
-    member_2 = 'member_2'
-"""
-
     output_file: Path = tmp_path / "output.py"
     run_main_and_assert(
         input_path=input_file,
         output_path=output_file,
-        expected_output=expected_output,
         extra_args=["--disable-timestamp"],
     )
 
@@ -449,8 +414,6 @@ strict-types = ["str"]
             input_path=(OPEN_API_DATA_PATH / "api.yaml").resolve(),
             output_path=output_file.resolve(),
             input_file_type=None,
-            assert_func=assert_file_content,
-            expected_file=EXPECTED_MAIN_KR_PATH / "pyproject" / "output.strictstr.py",
         )
 
 
@@ -463,7 +426,7 @@ schema definitions and adds it as a docstring to the generated class. This is
 useful for preserving documentation from your schema in the generated code.""",
     input_schema="openapi/api_multiline_docstrings.yaml",
     cli_args=["--use-schema-description"],
-    golden_output="main_kr/main_use_schema_description/output.py",
+    golden_output="main_kr/main_use_schema_description.py",
     related_options=["--use-field-description", "--use-inline-field-description"],
 )
 @freeze_time("2019-07-26")
@@ -478,8 +441,6 @@ def test_main_use_schema_description(output_file: Path) -> None:
         input_path=OPEN_API_DATA_PATH / "api_multiline_docstrings.yaml",
         output_path=output_file,
         input_file_type=None,
-        assert_func=assert_file_content,
-        expected_file=EXPECTED_MAIN_KR_PATH / "main_use_schema_description" / "output.py",
         extra_args=["--use-schema-description"],
     )
 
@@ -496,8 +457,6 @@ def test_main_docstring_special_chars(output_file: Path) -> None:
         input_path=OPEN_API_DATA_PATH / "docstring_special_chars.yaml",
         output_path=output_file,
         input_file_type=None,
-        assert_func=assert_file_content,
-        expected_file=EXPECTED_MAIN_KR_PATH / "main_docstring_special_chars" / "output.py",
         extra_args=["--use-schema-description", "--use-field-description"],
     )
 
@@ -511,7 +470,7 @@ schema fields as the `description` parameter in Pydantic Field(). This
 provides documentation that is accessible via model schema and OpenAPI docs.""",
     input_schema="openapi/api_multiline_docstrings.yaml",
     cli_args=["--use-field-description"],
-    golden_output="main_kr/main_use_field_description/output.py",
+    golden_output="main_kr/main_use_field_description.py",
     related_options=["--use-schema-description", "--use-inline-field-description"],
 )
 @freeze_time("2022-11-11")
@@ -526,8 +485,6 @@ def test_main_use_field_description(output_file: Path) -> None:
         input_path=OPEN_API_DATA_PATH / "api_multiline_docstrings.yaml",
         output_path=output_file,
         input_file_type=None,
-        assert_func=assert_file_content,
-        expected_file=EXPECTED_MAIN_KR_PATH / "main_use_field_description" / "output.py",
         extra_args=["--use-field-description"],
     )
 
@@ -541,7 +498,7 @@ schema fields as inline comments after each field definition. This provides
 documentation without using Field() wrappers.""",
     input_schema="openapi/api_multiline_docstrings.yaml",
     cli_args=["--use-inline-field-description"],
-    golden_output="main_kr/main_use_inline_field_description/output.py",
+    golden_output="main_kr/main_use_inline_field_description.py",
     related_options=["--use-field-description", "--use-schema-description"],
 )
 @freeze_time("2022-11-11")
@@ -556,8 +513,6 @@ def test_main_use_inline_field_description(output_file: Path) -> None:
         input_path=OPEN_API_DATA_PATH / "api_multiline_docstrings.yaml",
         output_path=output_file,
         input_file_type=None,
-        assert_func=assert_file_content,
-        expected_file=EXPECTED_MAIN_KR_PATH / "main_use_inline_field_description" / "output.py",
         extra_args=["--use-inline-field-description"],
     )
 
@@ -571,7 +526,7 @@ property from schema fields as docstrings. This provides documentation that
 is visible in IDE intellisense.""",
     input_schema="jsonschema/extras.json",
     cli_args=["--use-field-description-example"],
-    golden_output="main_kr/main_use_field_description_example/output.py",
+    golden_output="main_kr/main_use_field_description_example.py",
     related_options=["--use-field-description", "--use-inline-field-description"],
 )
 @freeze_time("2022-11-11")
@@ -586,8 +541,6 @@ def test_main_use_field_description_example(output_file: Path) -> None:
         input_path=JSON_SCHEMA_DATA_PATH / "extras.json",
         output_path=output_file,
         input_file_type=None,
-        assert_func=assert_file_content,
-        expected_file=EXPECTED_MAIN_KR_PATH / "main_use_field_description_example" / "output.py",
         extra_args=["--use-field-description-example"],
     )
 
@@ -599,8 +552,6 @@ def test_main_use_field_description_example_dataclass(output_file: Path) -> None
         input_path=JSON_SCHEMA_DATA_PATH / "single_line_description_with_example.json",
         output_path=output_file,
         input_file_type=None,
-        assert_func=assert_file_content,
-        expected_file=EXPECTED_MAIN_KR_PATH / "main_use_field_description_example_dataclass" / "output.py",
         extra_args=["--use-field-description-example", "--output-model-type", "dataclasses.dataclass"],
     )
 
@@ -613,7 +564,7 @@ When both `--use-field-description` and `--use-field-description-example` are us
 the docstring includes both the description and example(s).""",
     input_schema="jsonschema/extras.json",
     cli_args=["--use-field-description", "--use-field-description-example"],
-    golden_output="main_kr/main_use_field_description_with_example/output.py",
+    golden_output="main_kr/main_use_field_description_with_example.py",
     related_options=["--use-inline-field-description"],
 )
 @freeze_time("2022-11-11")
@@ -627,8 +578,6 @@ def test_main_use_field_description_with_example(output_file: Path) -> None:
         input_path=JSON_SCHEMA_DATA_PATH / "extras.json",
         output_path=output_file,
         input_file_type=None,
-        assert_func=assert_file_content,
-        expected_file=EXPECTED_MAIN_KR_PATH / "main_use_field_description_with_example" / "output.py",
         extra_args=["--use-field-description", "--use-field-description-example"],
     )
 
@@ -641,7 +590,7 @@ When both `--use-inline-field-description` and `--use-field-description-example`
 multi-line descriptions and examples are included in the docstring.""",
     input_schema="jsonschema/multiline_description_with_example.json",
     cli_args=["--use-inline-field-description", "--use-field-description-example"],
-    golden_output="main_kr/main_use_inline_field_description_with_example/output.py",
+    golden_output="main_kr/main_use_inline_field_description_with_example.py",
     related_options=["--use-field-description"],
 )
 @freeze_time("2022-11-11")
@@ -655,8 +604,6 @@ def test_main_use_inline_field_description_with_example(output_file: Path) -> No
         input_path=JSON_SCHEMA_DATA_PATH / "multiline_description_with_example.json",
         output_path=output_file,
         input_file_type=None,
-        assert_func=assert_file_content,
-        expected_file=EXPECTED_MAIN_KR_PATH / "main_use_inline_field_description_with_example" / "output.py",
         extra_args=["--use-inline-field-description", "--use-field-description-example"],
     )
 
@@ -672,8 +619,6 @@ def test_main_use_inline_field_description_example_only(output_file: Path) -> No
         input_path=JSON_SCHEMA_DATA_PATH / "single_line_description_with_example.json",
         output_path=output_file,
         input_file_type=None,
-        assert_func=assert_file_content,
-        expected_file=EXPECTED_MAIN_KR_PATH / "main_use_inline_field_description_example_only" / "output.py",
         extra_args=["--use-inline-field-description", "--use-field-description-example"],
     )
 
@@ -688,8 +633,6 @@ def test_main_use_field_description_example_multiple(output_file: Path) -> None:
         input_path=JSON_SCHEMA_DATA_PATH / "multiple_examples.json",
         output_path=output_file,
         input_file_type=None,
-        assert_func=assert_file_content,
-        expected_file=EXPECTED_MAIN_KR_PATH / "main_use_field_description_example_multiple" / "output.py",
         extra_args=["--use-field-description-example"],
     )
 
@@ -716,25 +659,10 @@ components:
     input_file = tmp_path / "myschema.yaml"
     input_file.write_text(input_data, encoding="utf_8")
 
-    expected_output = """# generated by datamodel-codegen:
-#   filename:  myschema.yaml
-
-from __future__ import annotations
-
-from enum import Enum
-
-
-class EnumSystems(Enum):
-    LINUX = 'linux'
-    OSX = 'osx'
-    WINDOWS = 'windows'
-"""
-
     output_file: Path = tmp_path / "output.py"
     run_main_and_assert(
         input_path=input_file,
         output_path=output_file,
-        expected_output=expected_output,
         extra_args=[
             "--output-model-type",
             "pydantic_v2.BaseModel",
@@ -767,25 +695,10 @@ components:
     input_file = tmp_path / "myschema.yaml"
     input_file.write_text(input_data, encoding="utf_8")
 
-    expected_output = """# generated by datamodel-codegen:
-#   filename:  myschema.yaml
-
-from __future__ import annotations
-
-from enum import Enum
-
-
-class EnumSystems(str, Enum):
-    LINUX = 'linux'
-    OSX = 'osx'
-    WINDOWS = 'windows'
-"""
-
     output_file: Path = tmp_path / "output.py"
     run_main_and_assert(
         input_path=input_file,
         output_path=output_file,
-        expected_output=expected_output,
         extra_args=[
             "--output-model-type",
             "pydantic_v2.BaseModel",
@@ -802,7 +715,6 @@ def test_capitalise_enum_members_builtin_conflict(output_file: Path) -> None:
     run_main_and_assert(
         input_path=JSON_SCHEMA_DATA_PATH / "enum_builtin_conflict.json",
         output_path=output_file,
-        assert_func=assert_file_content,
         input_file_type="jsonschema",
         extra_args=[
             "--output-model-type",
@@ -818,7 +730,6 @@ def test_capitalise_enum_members_and_use_subclass_enum_builtin_conflict(output_f
     run_main_and_assert(
         input_path=JSON_SCHEMA_DATA_PATH / "enum_builtin_conflict_two.json",
         output_path=output_file,
-        assert_func=assert_file_content,
         input_file_type="jsonschema",
         extra_args=[
             "--output-model-type",
@@ -835,7 +746,6 @@ def test_use_subclass_enum_builtin_conflict_no_capitalise(output_file: Path) -> 
     run_main_and_assert(
         input_path=JSON_SCHEMA_DATA_PATH / "enum_builtin_conflict_two.json",
         output_path=output_file,
-        assert_func=assert_file_content,
         input_file_type="jsonschema",
         extra_args=[
             "--output-model-type",
@@ -851,7 +761,6 @@ def test_no_subclass_enum_no_capitalise_builtin_names(output_file: Path) -> None
     run_main_and_assert(
         input_path=JSON_SCHEMA_DATA_PATH / "enum_builtin_conflict_two.json",
         output_path=output_file,
-        assert_func=assert_file_content,
         input_file_type="jsonschema",
         extra_args=[
             "--output-model-type",
@@ -859,9 +768,6 @@ def test_no_subclass_enum_no_capitalise_builtin_names(output_file: Path) -> None
             "--disable-timestamp",
         ],
     )
-
-
-EXPECTED_GENERATE_PYPROJECT_CONFIG_PATH = EXPECTED_MAIN_KR_PATH / "generate_pyproject_config"
 
 
 @pytest.mark.cli_doc(
@@ -872,7 +778,7 @@ The `--generate-pyproject-config` flag outputs a pyproject.toml configuration
 snippet based on the provided CLI arguments. This is useful for converting
 a working CLI command into a reusable configuration file.""",
     cli_args=["--generate-pyproject-config", "--input", "schema.yaml", "--output", "model.py"],
-    expected_stdout="main_kr/generate_pyproject_config/basic.txt",
+    expected_stdout="main_kr/generate_pyproject_config_basic.stdout.txt",
 )
 def test_generate_pyproject_config_basic(capsys: pytest.CaptureFixture[str]) -> None:
     """Generate pyproject.toml configuration from CLI arguments.
@@ -890,7 +796,7 @@ def test_generate_pyproject_config_basic(capsys: pytest.CaptureFixture[str]) -> 
             "model.py",
         ],
         capsys=capsys,
-        expected_stdout_path=EXPECTED_GENERATE_PYPROJECT_CONFIG_PATH / "basic.txt",
+        derived_stdout=True,
     )
 
 
@@ -904,7 +810,7 @@ def test_generate_pyproject_config_with_boolean_options(capsys: pytest.CaptureFi
             "--collapse-root-models",
         ],
         capsys=capsys,
-        expected_stdout_path=EXPECTED_GENERATE_PYPROJECT_CONFIG_PATH / "boolean_options.txt",
+        derived_stdout=True,
     )
 
 
@@ -918,7 +824,7 @@ def test_generate_pyproject_config_with_list_options(capsys: pytest.CaptureFixtu
             "int",
         ],
         capsys=capsys,
-        expected_stdout_path=EXPECTED_GENERATE_PYPROJECT_CONFIG_PATH / "list_options.txt",
+        derived_stdout=True,
     )
 
 
@@ -927,7 +833,7 @@ def test_generate_pyproject_config_with_float_option(capsys: pytest.CaptureFixtu
     run_main_with_args(
         ["--generate-pyproject-config", "--http-timeout", "1.5"],
         capsys=capsys,
-        expected_stdout_path=EXPECTED_GENERATE_PYPROJECT_CONFIG_PATH / "float_option.txt",
+        derived_stdout=True,
         assert_no_stderr=True,
     )
 
@@ -935,17 +841,17 @@ def test_generate_pyproject_config_with_float_option(capsys: pytest.CaptureFixtu
 def test_generate_pyproject_config_float_round_trip(tmp_path: Path, output_file: Path) -> None:
     """Preserve normal output when generated floating-point config is used."""
     config_output = generate_pyproject_config(Namespace(http_timeout=1.5))
-    assert_output(config_output, EXPECTED_GENERATE_PYPROJECT_CONFIG_PATH / "float_option_helper.txt")
+    assert_output(config_output, name="config")
     tomllib.loads(config_output)
-    expected_output_path = DATA_PATH / "expected" / "main" / "person.py"
 
     run_main_and_assert(
         input_path=JSON_SCHEMA_DATA_PATH / "person.json",
         output_path=output_file,
         input_file_type="jsonschema",
         extra_args=["--disable-timestamp", "--http-timeout", "1.5"],
+        name="model",
     )
-    assert_output(output_file.read_text(encoding="utf-8"), expected_output_path)
+    assert_output(output_file.read_text(encoding="utf-8"), name="model", suffix=".py")
 
     config_output_file = tmp_path / "from_config.py"
     (tmp_path / "pyproject.toml").write_text(config_output, encoding="utf-8")
@@ -955,9 +861,10 @@ def test_generate_pyproject_config_float_round_trip(tmp_path: Path, output_file:
             output_path=config_output_file,
             input_file_type="jsonschema",
             extra_args=["--disable-timestamp"],
+            name="model",
         )
 
-    assert_output(config_output_file.read_text(encoding="utf-8"), expected_output_path)
+    assert_output(config_output_file.read_text(encoding="utf-8"), name="model", suffix=".py")
 
 
 def test_pyproject_delimited_list_options_accept_toml_lists(tmp_path: Path, output_file: Path) -> None:
@@ -998,7 +905,7 @@ def test_generate_pyproject_config_with_multiple_options(capsys: pytest.CaptureF
             "bytes",
         ],
         capsys=capsys,
-        expected_stdout_path=EXPECTED_GENERATE_PYPROJECT_CONFIG_PATH / "multiple_options.txt",
+        derived_stdout=True,
     )
 
 
@@ -1011,7 +918,7 @@ def test_generate_pyproject_config_excludes_meta_options(capsys: pytest.CaptureF
             "schema.yaml",
         ],
         capsys=capsys,
-        expected_stdout_path=EXPECTED_GENERATE_PYPROJECT_CONFIG_PATH / "excludes_meta_options.txt",
+        derived_stdout=True,
     )
 
 
@@ -1046,7 +953,7 @@ def test_generate_pyproject_config_with_enum_option(capsys: pytest.CaptureFixtur
             "all",
         ],
         capsys=capsys,
-        expected_stdout_path=EXPECTED_GENERATE_PYPROJECT_CONFIG_PATH / "enum_option.txt",
+        derived_stdout=True,
     )
 
 
@@ -1064,11 +971,8 @@ def test_generate_pyproject_config_escapes_toml_strings(capsys: pytest.CaptureFi
             "X-Path: C:\\tmp",
         ],
         capsys=capsys,
-        expected_stdout_path=EXPECTED_GENERATE_PYPROJECT_CONFIG_PATH / "escapes_toml_strings.txt",
+        derived_stdout=True,
     )
-
-
-EXPECTED_GENERATE_CLI_COMMAND_PATH = EXPECTED_MAIN_KR_PATH / "generate_cli_command"
 
 
 @pytest.mark.cli_doc(
@@ -1083,7 +987,7 @@ configuration issues or sharing commands with others.""",
 input = "schema.yaml"
 output = "model.py"
 """,
-    expected_stdout="main_kr/generate_cli_command/basic.txt",
+    expected_stdout="main_kr/generate_cli_command_basic.stdout.txt",
 )
 def test_generate_cli_command_basic(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """Generate CLI command from pyproject.toml configuration.
@@ -1100,11 +1004,7 @@ output = "model.py"
     (tmp_path / "pyproject.toml").write_text(pyproject_toml)
 
     with chdir(tmp_path):
-        run_main_with_args(
-            ["--generate-cli-command"],
-            capsys=capsys,
-            expected_stdout_path=EXPECTED_GENERATE_CLI_COMMAND_PATH / "basic.txt",
-        )
+        run_main_with_args(["--generate-cli-command"], capsys=capsys, derived_stdout=True)
 
 
 def test_generate_cli_command_with_boolean_options(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -1118,11 +1018,7 @@ collapse-root-models = true
     (tmp_path / "pyproject.toml").write_text(pyproject_toml)
 
     with chdir(tmp_path):
-        run_main_with_args(
-            ["--generate-cli-command"],
-            capsys=capsys,
-            expected_stdout_path=EXPECTED_GENERATE_CLI_COMMAND_PATH / "boolean_options.txt",
-        )
+        run_main_with_args(["--generate-cli-command"], capsys=capsys, derived_stdout=True)
 
 
 def test_generate_cli_command_with_list_options(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -1134,11 +1030,7 @@ strict-types = ["str", "int"]
     (tmp_path / "pyproject.toml").write_text(pyproject_toml)
 
     with chdir(tmp_path):
-        run_main_with_args(
-            ["--generate-cli-command"],
-            capsys=capsys,
-            expected_stdout_path=EXPECTED_GENERATE_CLI_COMMAND_PATH / "list_options.txt",
-        )
+        run_main_with_args(["--generate-cli-command"], capsys=capsys, derived_stdout=True)
 
 
 def test_generate_cli_command_writes_an_empty_list_as_the_option_off(
@@ -1200,11 +1092,7 @@ strict-types = ["str", "bytes"]
     (tmp_path / "pyproject.toml").write_text(pyproject_toml)
 
     with chdir(tmp_path):
-        run_main_with_args(
-            ["--generate-cli-command"],
-            capsys=capsys,
-            expected_stdout_path=EXPECTED_GENERATE_CLI_COMMAND_PATH / "multiple_options.txt",
-        )
+        run_main_with_args(["--generate-cli-command"], capsys=capsys, derived_stdout=True)
 
 
 def test_generate_cli_command_no_config(tmp_path: Path) -> None:
@@ -1226,11 +1114,7 @@ use-specialized-enum = false
     (tmp_path / "pyproject.toml").write_text(pyproject_toml)
 
     with chdir(tmp_path):
-        run_main_with_args(
-            ["--generate-cli-command"],
-            capsys=capsys,
-            expected_stdout_path=EXPECTED_GENERATE_CLI_COMMAND_PATH / "no_use_specialized_enum.txt",
-        )
+        run_main_with_args(["--generate-cli-command"], capsys=capsys, derived_stdout=True)
 
 
 def test_generate_cli_command_with_spaces_in_values(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -1244,11 +1128,7 @@ http-headers = ["Authorization: Bearer token", "X-Custom: value"]
     (tmp_path / "pyproject.toml").write_text(pyproject_toml)
 
     with chdir(tmp_path):
-        run_main_with_args(
-            ["--generate-cli-command"],
-            capsys=capsys,
-            expected_stdout_path=EXPECTED_GENERATE_CLI_COMMAND_PATH / "spaces_in_values.txt",
-        )
+        run_main_with_args(["--generate-cli-command"], capsys=capsys, derived_stdout=True)
 
 
 def test_generate_cli_command_with_false_boolean(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -1261,11 +1141,7 @@ snake-case-field = false
     (tmp_path / "pyproject.toml").write_text(pyproject_toml)
 
     with chdir(tmp_path):
-        run_main_with_args(
-            ["--generate-cli-command"],
-            capsys=capsys,
-            expected_stdout_path=EXPECTED_GENERATE_CLI_COMMAND_PATH / "false_boolean.txt",
-        )
+        run_main_with_args(["--generate-cli-command"], capsys=capsys, derived_stdout=True)
 
 
 def test_generate_cli_command_with_false_boolean_optional_actions(
@@ -1275,11 +1151,7 @@ def test_generate_cli_command_with_false_boolean_optional_actions(
     shutil.copy(FALSE_BOOLEAN_OPTIONAL_ACTIONS_PYPROJECT, tmp_path / "pyproject.toml")
 
     with chdir(tmp_path):
-        run_main_with_args(
-            ["--generate-cli-command"],
-            capsys=capsys,
-            expected_stdout_path=EXPECTED_GENERATE_CLI_COMMAND_PATH / "false_boolean_optional_actions.txt",
-        )
+        run_main_with_args(["--generate-cli-command"], capsys=capsys, derived_stdout=True)
 
 
 def test_generate_cli_command_json_with_false_boolean_optional_actions(
@@ -1292,16 +1164,16 @@ def test_generate_cli_command_json_with_false_boolean_optional_actions(
         run_main_with_args(
             ["--generate-cli-command", "--output-format", "json"],
             capsys=capsys,
-            expected_stdout_path=EXPECTED_OUTPUT_FORMAT_JSON_PATH / "cli_command_false_boolean_optional_actions.txt",
+            derived_stdout=True,
             assert_no_stderr=True,
         )
 
 
 @pytest.mark.parametrize(
-    ("input_name", "output_model_type", "expected_file"),
+    ("input_name", "output_model_type"),
     [
-        ("person.json", "pydantic_v2.BaseModel", "generate_cli_command/no_use_union_operator.py"),
-        ("typed_dict_closed.json", "typing.TypedDict", "generate_cli_command/no_use_closed_typed_dict.py"),
+        ("person.json", "pydantic_v2.BaseModel"),
+        ("typed_dict_closed.json", "typing.TypedDict"),
     ],
 )
 def test_generate_cli_command_reconstructs_false_boolean_optional_actions(
@@ -1309,7 +1181,6 @@ def test_generate_cli_command_reconstructs_false_boolean_optional_actions(
     capsys: pytest.CaptureFixture[str],
     input_name: str,
     output_model_type: str,
-    expected_file: str,
 ) -> None:
     """Test reconstructed CLI commands retain false BooleanOptionalAction behavior."""
     shutil.copy(JSON_SCHEMA_DATA_PATH / input_name, tmp_path / "schema.json")
@@ -1333,8 +1204,8 @@ def test_generate_cli_command_reconstructs_false_boolean_optional_actions(
             str(command_output),
         ])
 
-    assert_file_content(config_output, expected_file)
-    assert_file_content(command_output, expected_file)
+    assert_output(config_output.read_text(encoding="utf-8"), name="model", suffix=".py")
+    assert_output(command_output.read_text(encoding="utf-8"), name="model", suffix=".py")
     validate_generated_code(config_output.read_text(), str(config_output), do_exec=True)
     validate_generated_code(command_output.read_text(), str(command_output), do_exec=True)
 
@@ -1352,11 +1223,7 @@ external-ref-mapping = {"../common/a b.yaml" = "pkg.models", "$HOME/other.yaml" 
     (tmp_path / "pyproject.toml").write_text(pyproject_toml, encoding="utf-8")
 
     with chdir(tmp_path):
-        run_main_with_args(
-            ["--generate-cli-command"],
-            capsys=capsys,
-            expected_stdout_path=EXPECTED_GENERATE_CLI_COMMAND_PATH / "mapping_options.txt",
-        )
+        run_main_with_args(["--generate-cli-command"], capsys=capsys, derived_stdout=True)
 
 
 def test_generate_cli_command_skips_empty_external_ref_mapping(
@@ -1371,11 +1238,7 @@ external-ref-mapping = {}
     (tmp_path / "pyproject.toml").write_text(pyproject_toml, encoding="utf-8")
 
     with chdir(tmp_path):
-        run_main_with_args(
-            ["--generate-cli-command"],
-            capsys=capsys,
-            expected_stdout_path=EXPECTED_GENERATE_CLI_COMMAND_PATH / "empty_external_ref_mapping.txt",
-        )
+        run_main_with_args(["--generate-cli-command"], capsys=capsys, derived_stdout=True)
 
 
 def test_generate_cli_command_reconstructs_mapping_options(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -1396,8 +1259,8 @@ def test_generate_cli_command_reconstructs_mapping_options(tmp_path: Path, capsy
             str(command_output),
         ])
 
-    assert_file_content(config_output, "generate_cli_command/mapping_round_trip.py")
-    assert_file_content(command_output, "generate_cli_command/mapping_round_trip.py")
+    assert_output(config_output.read_text(encoding="utf-8"), name="model", suffix=".py")
+    assert_output(command_output.read_text(encoding="utf-8"), name="model", suffix=".py")
     validate_generated_code(command_output.read_text(), str(command_output), do_exec=True)
 
 
@@ -1420,8 +1283,8 @@ def test_generate_cli_command_reconstructs_external_ref_mapping_with_equals_path
             str(command_output),
         ])
 
-    assert_file_content(config_output, "generate_cli_command/external_ref_mapping_round_trip.py")
-    assert_file_content(command_output, "generate_cli_command/external_ref_mapping_round_trip.py")
+    assert_output(config_output.read_text(encoding="utf-8"), name="model", suffix=".py")
+    assert_output(command_output.read_text(encoding="utf-8"), name="model", suffix=".py")
 
 
 def test_generate_cli_command_excludes_excluded_options(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -1437,14 +1300,7 @@ disable-warnings = true
     (tmp_path / "pyproject.toml").write_text(pyproject_toml)
 
     with chdir(tmp_path):
-        run_main_with_args(
-            ["--generate-cli-command"],
-            capsys=capsys,
-            expected_stdout_path=EXPECTED_GENERATE_CLI_COMMAND_PATH / "excluded_options.txt",
-        )
-
-
-EXPECTED_PYPROJECT_PROFILE_PATH = EXPECTED_MAIN_KR_PATH / "pyproject_profile"
+        run_main_with_args(["--generate-cli-command"], capsys=capsys, derived_stdout=True)
 
 
 @pytest.mark.skipif(
@@ -1482,8 +1338,6 @@ snake-case-field = true
         run_main_and_assert(
             input_path=input_file,
             output_path=output_file.resolve(),
-            assert_func=assert_file_content,
-            expected_file=EXPECTED_PYPROJECT_PROFILE_PATH / "with_profile.py",
             extra_args=["--profile", "api", "--disable-timestamp"],
         )
 
@@ -1583,8 +1437,6 @@ enable-version-header = true
         run_main_and_assert(
             input_path=input_file,
             output_path=output_file.resolve(),
-            assert_func=assert_file_content,
-            expected_file=EXPECTED_PYPROJECT_PROFILE_PATH / "ignore_pyproject.py",
             extra_args=["--ignore-pyproject", "--disable-timestamp"],
         )
 
@@ -1726,8 +1578,6 @@ strict-types = ["bytes"]
         run_main_and_assert(
             input_path=input_file,
             output_path=output_file.resolve(),
-            assert_func=assert_file_content,
-            expected_file=EXPECTED_PYPROJECT_PROFILE_PATH / "shallow_merge.py",
             extra_args=["--profile", "api", "--disable-timestamp"],
         )
 
@@ -1746,11 +1596,7 @@ target-python-version = "3.11"
     (tmp_path / "pyproject.toml").write_text(pyproject_toml)
 
     with chdir(tmp_path):
-        run_main_with_args(
-            ["--profile", "api", "--generate-cli-command"],
-            capsys=capsys,
-            expected_stdout_path=EXPECTED_GENERATE_CLI_COMMAND_PATH / "with_profile.txt",
-        )
+        run_main_with_args(["--profile", "api", "--generate-cli-command"], capsys=capsys, derived_stdout=True)
 
 
 def test_pyproject_job_runs_selected_profile(jobs_project: dict[str, Path], tmp_path: Path) -> None:
@@ -1759,7 +1605,7 @@ def test_pyproject_job_runs_selected_profile(jobs_project: dict[str, Path], tmp_
         run_main_with_args(["--job", "strict", "--formatters", "builtin"])
 
     _assert_file_does_not_exist(jobs_project["plain"])
-    assert_file_content(jobs_project["strict"], "jobs/strict.py")
+    assert_output(jobs_project["strict"].read_text(encoding="utf-8"), suffix=".py")
 
 
 def test_pyproject_jobs_run_in_toml_declaration_order(jobs_project: dict[str, Path], tmp_path: Path) -> None:
@@ -1767,8 +1613,8 @@ def test_pyproject_jobs_run_in_toml_declaration_order(jobs_project: dict[str, Pa
     with chdir(tmp_path):
         run_main_with_args(["--job", "strict", "--job", "plain", "--output-format", "json", "--formatters", "builtin"])
 
-    assert_output(jobs_project["plain"].read_text(encoding="utf-8"), DATA_PATH / "expected" / "main" / "person.py")
-    assert_file_content(jobs_project["strict"], "jobs/strict.py")
+    assert_output(jobs_project["plain"].read_text(encoding="utf-8"), name="plain", suffix=".py")
+    assert_output(jobs_project["strict"].read_text(encoding="utf-8"), name="strict", suffix=".py")
 
 
 def test_pyproject_all_jobs_runs_every_job(jobs_project: dict[str, Path], tmp_path: Path) -> None:
@@ -1776,8 +1622,8 @@ def test_pyproject_all_jobs_runs_every_job(jobs_project: dict[str, Path], tmp_pa
     with chdir(tmp_path):
         run_main_with_args(["--all-jobs", "--formatters", "builtin"])
 
-    assert_output(jobs_project["plain"].read_text(encoding="utf-8"), DATA_PATH / "expected" / "main" / "person.py")
-    assert_file_content(jobs_project["strict"], "jobs/strict.py")
+    assert_output(jobs_project["plain"].read_text(encoding="utf-8"), name="plain", suffix=".py")
+    assert_output(jobs_project["strict"].read_text(encoding="utf-8"), name="strict", suffix=".py")
 
 
 def test_selected_jobs_defensively_rejects_all_jobs_with_named_job() -> None:
@@ -1801,7 +1647,7 @@ def test_pyproject_job_command_header_uses_batch_invocation(jobs_project: dict[s
     with chdir(tmp_path):
         run_main_with_args(["--job", "strict", "--formatters", "builtin"])
 
-    assert_file_content(jobs_project["strict"], "jobs/strict_command_header.py")
+    assert_output(jobs_project["strict"].read_text(encoding="utf-8"), suffix=".py")
 
 
 def test_pyproject_jobs_check_does_not_write_output(jobs_project: dict[str, Path], tmp_path: Path) -> None:
@@ -1812,7 +1658,7 @@ def test_pyproject_jobs_check_does_not_write_output(jobs_project: dict[str, Path
         jobs_project["strict"].write_text("stale\n", encoding="utf-8")
         run_main_with_args(["--all-jobs", "--check", "--formatters", "builtin"], expected_exit=Exit.DIFF)
 
-    assert_file_content(jobs_project["strict"], "jobs/stale.py")
+    assert_output(jobs_project["strict"].read_text(encoding="utf-8"), suffix=".py")
 
 
 @pytest.mark.usefixtures("jobs_project")
@@ -1824,8 +1670,8 @@ def test_pyproject_jobs_json_is_one_ordered_payload(tmp_path: Path, capsys: pyte
     output = capsys.readouterr().out
     payload = json.loads(output)
     relative_outputs = [Path(job["result"]["output"]).relative_to(tmp_path).as_posix() for job in payload["jobs"]]
-    assert_output("\n".join(relative_outputs) + "\n", EXPECTED_MAIN_KR_PATH / "jobs" / "ordered_outputs.txt")
-    assert_output(_batch_json_summary(output), EXPECTED_MAIN_KR_PATH / "jobs" / "json_generation.txt")
+    assert_output("\n".join(relative_outputs) + "\n", name="ordered_outputs")
+    assert_output(_batch_json_summary(output), name="json_generation")
 
 
 @pytest.mark.parametrize("separator", ["\u2028", "\u2029", "\u0085"], ids=["u2028", "u2029", "u0085"])
@@ -1863,7 +1709,7 @@ def test_pyproject_jobs_json_reports_check_results(
             ["--all-jobs", "--check", "--output-format", "json", "--formatters", "builtin"], expected_exit=Exit.DIFF
         )
 
-    assert_output(_batch_json_summary(capsys.readouterr().out), EXPECTED_MAIN_KR_PATH / "jobs" / "json_check.txt")
+    assert_output(_batch_json_summary(capsys.readouterr().out))
 
 
 @pytest.mark.parametrize(
@@ -1890,7 +1736,8 @@ def test_pyproject_jobs_json_rejects_invalid_inner_payload_without_stdout(
             ["--all-jobs", "--output-format", "json", "--formatters", "builtin"],
             expected_exit=Exit.ERROR,
             capsys=capsys,
-            expected_stdout_path=EXPECTED_EMPTY_OUTPUT_PATH,
+            derived_stdout=True,
+            stdout_suffix=".py",
             expected_stderr_contains=error,
         )
 
@@ -1913,7 +1760,8 @@ def test_pyproject_jobs_json_publish_failure_has_no_batch_payload(
             ["--all-jobs", "--output-format", "json", "--formatters", "builtin"],
             expected_exit=Exit.ERROR,
             capsys=capsys,
-            expected_stdout_path=EXPECTED_EMPTY_OUTPUT_PATH,
+            derived_stdout=True,
+            stdout_suffix=".py",
             expected_stderr_contains="could not publish batch output",
         )
 
@@ -1936,7 +1784,8 @@ def test_pyproject_jobs_json_spool_failure_has_no_batch_payload(
             ["--all-jobs", "--output-format", "json", "--formatters", "builtin"],
             expected_exit=Exit.ERROR,
             capsys=capsys,
-            expected_stdout_path=EXPECTED_EMPTY_OUTPUT_PATH,
+            derived_stdout=True,
+            stdout_suffix=".py",
             expected_stderr_contains="could not spool batch JSON output",
         )
 
@@ -2011,7 +1860,8 @@ emit-model-metadata = "{metadata_paths[1].as_posix()}"
             [*selection, *cli_diff, "--output-format", "json", "--formatters", "builtin"],
             expected_exit=Exit.ERROR,
             capsys=capsys,
-            expected_stdout_path=EXPECTED_EMPTY_OUTPUT_PATH,
+            derived_stdout=True,
+            stdout_suffix=".py",
             expected_stderr_contains="--diff-against cannot be used with --job or --all-jobs",
         )
 
@@ -2054,7 +1904,7 @@ output = "{output_path.as_posix()}"
             (DATA_PATH / "config" / "input_diff_relative_license.json").resolve().as_posix(),
         ])
 
-    assert_file_content(output_path, "jobs/custom_formatter.py")
+    assert_output(output_path.read_text(encoding="utf-8"), suffix=".py")
 
 
 @pytest.mark.parametrize(
@@ -2104,8 +1954,8 @@ def test_pyproject_jobs_report_batch_watch_startup_error(
             expected_stderr_contains="batch watcher startup failed",
         )
 
-    assert_output(jobs_project["plain"].read_text(encoding="utf-8"), DATA_PATH / "expected" / "main" / "person.py")
-    assert_file_content(jobs_project["strict"], "jobs/strict.py")
+    assert_output(jobs_project["plain"].read_text(encoding="utf-8"), name="plain", suffix=".py")
+    assert_output(jobs_project["strict"].read_text(encoding="utf-8"), name="strict", suffix=".py")
 
 
 @pytest.mark.allow_direct_assert
@@ -2317,7 +2167,7 @@ output = "{output_path.as_posix()}"
     with chdir(tmp_path):
         run_main_with_args(["--job", "api", "--formatters", "builtin"])
 
-    assert_output(output_path.read_text(encoding="utf-8"), DATA_PATH / "expected" / "main" / "person.py")
+    assert_output(output_path.read_text(encoding="utf-8"), suffix=".py")
 
 
 def test_pyproject_job_rejects_hyphenated_input_model(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -2523,9 +2373,7 @@ output = "{reader_output.as_posix()}"
             expected_stderr_contains="overlaps input for job",
         )
 
-    assert_output(
-        protected_input.read_text(encoding="utf-8") + "\n", EXPECTED_MAIN_KR_PATH / "jobs" / "protected_schema.txt"
-    )
+    assert_output(protected_input.read_text(encoding="utf-8") + "\n")
     _assert_file_does_not_exist(reader_output)
 
 
@@ -2601,10 +2449,8 @@ output = "{(tmp_path / "invalid.py").as_posix()}"
         _assert_file_does_not_exist(good_output)
         _assert_file_does_not_exist(metadata_output)
     else:
-        assert_output(good_output.read_text(encoding="utf-8"), EXPECTED_MAIN_KR_PATH / "jobs" / "stale_output.txt")
-        assert_output(
-            metadata_output.read_text(encoding="utf-8"), EXPECTED_MAIN_KR_PATH / "jobs" / "stale_metadata.txt"
-        )
+        assert_output(good_output.read_text(encoding="utf-8"), name="stale_output")
+        assert_output(metadata_output.read_text(encoding="utf-8"), name="stale_metadata")
 
 
 def test_pyproject_jobs_publish_model_metadata(tmp_path: Path) -> None:
@@ -2628,9 +2474,9 @@ emit-model-metadata = "{metadata_path.as_posix()}"
     with chdir(tmp_path):
         run_main_with_args(["--all-jobs", "--formatters", "builtin"])
 
-    assert_output(output_path.read_text(encoding="utf-8"), DATA_PATH / "expected" / "main" / "person.py")
+    assert_output(output_path.read_text(encoding="utf-8"), suffix=".py")
     metadata_version = json.loads(metadata_path.read_text(encoding="utf-8"))["version"]
-    assert_output(f"{metadata_version}\n", EXPECTED_MAIN_KR_PATH / "jobs" / "metadata_version.txt")
+    assert_output(f"{metadata_version}\n", name="version")
 
 
 def test_pyproject_jobs_directory_output_overlays_generated_files(tmp_path: Path) -> None:
@@ -2655,10 +2501,8 @@ output = "{output_path.as_posix()}"
     with chdir(tmp_path):
         run_main_with_args(["--all-jobs", "--formatters", "builtin"])
 
-    assert_output(extra_file.read_text(encoding="utf-8"), EXPECTED_MAIN_KR_PATH / "jobs" / "stale.py")
-    assert_output(
-        (output_path / "__init__.py").read_text(encoding="utf-8"), EXPECTED_MAIN_KR_PATH / "jobs" / "modular_init.py"
-    )
+    assert_output(extra_file.read_text(encoding="utf-8"), name="extra", suffix=".py")
+    assert_output((output_path / "__init__.py").read_text(encoding="utf-8"), name="init", suffix=".py")
 
 
 @needs("symlinks")
@@ -2695,12 +2539,8 @@ output = "{(tmp_path / "reader.py").as_posix()}"
             expected_stderr_contains="overlaps input for job 'reader'",
         )
 
-    assert_output(
-        hardlinked_output.read_text(encoding="utf-8") + "\n", EXPECTED_MAIN_KR_PATH / "jobs" / "protected_schema.txt"
-    )
-    assert_output(
-        external_input.read_text(encoding="utf-8") + "\n", EXPECTED_MAIN_KR_PATH / "jobs" / "protected_schema.txt"
-    )
+    assert_output(hardlinked_output.read_text(encoding="utf-8") + "\n", name="schema")
+    assert_output(external_input.read_text(encoding="utf-8") + "\n", name="schema")
 
 
 @needs("symlinks")
@@ -2740,9 +2580,7 @@ input-file-type = "jsonschema"
             expected_stderr_contains="generated file escapes its output path",
         )
 
-    assert_output(
-        protected_input.read_text(encoding="utf-8") + "\n", EXPECTED_MAIN_KR_PATH / "jobs" / "protected_schema.txt"
-    )
+    assert_output(protected_input.read_text(encoding="utf-8") + "\n")
     _assert_file_does_not_exist(reader_output)
 
 
@@ -2804,7 +2642,7 @@ def test_pyproject_jobs_rejects_output_ancestor_swap_between_validation_and_publ
     input_path.write_text((OPEN_API_DATA_PATH / "modular.yaml").read_text(encoding="utf-8"), encoding="utf-8")
     output_root.mkdir()
     attacker_root.mkdir()
-    stale_output = stored_expected(EXPECTED_MAIN_KR_PATH / "jobs" / "stale.py").read_text(encoding="utf-8")
+    stale_output = "stale\n"
     (output_root / "keep.py").write_text(stale_output, encoding="utf-8")
     (attacker_root / "models.py").write_text(stale_output, encoding="utf-8")
     (tmp_path / "pyproject.toml").write_text(
@@ -2837,10 +2675,8 @@ output = "{output_root.as_posix()}"
         )
 
     assert input_path.read_text(encoding="utf-8") == (OPEN_API_DATA_PATH / "modular.yaml").read_text(encoding="utf-8")
-    assert_output((original_root / "keep.py").read_text(encoding="utf-8"), EXPECTED_MAIN_KR_PATH / "jobs" / "stale.py")
-    assert_output(
-        (attacker_root / "models.py").read_text(encoding="utf-8"), EXPECTED_MAIN_KR_PATH / "jobs" / "stale.py"
-    )
+    assert_output((original_root / "keep.py").read_text(encoding="utf-8"), name="stale", suffix=".py")
+    assert_output((attacker_root / "models.py").read_text(encoding="utf-8"), name="stale", suffix=".py")
     assert list(original_root.glob(".*.bak")) == []
     assert list(attacker_root.glob(".*.bak")) == []
     assert list(tmp_path.glob(".datamodel-codegen-*")) == []
@@ -2921,7 +2757,7 @@ def test_pyproject_jobs_publish_first_replacement_failure_removes_backup(
     with pytest.raises(OSError, match="simulated first replacement failure"):
         _publish_staged_files([(staged_file, target)])
 
-    assert_output(target.read_text(encoding="utf-8"), EXPECTED_MAIN_KR_PATH / "jobs" / "stale.py")
+    assert_output(target.read_text(encoding="utf-8"), suffix=".py")
     assert list(tmp_path.glob(".target.py.*.bak")) == []
 
 
@@ -2952,9 +2788,7 @@ def test_pyproject_jobs_failed_replacement_discards_unchanged_symlink_backup(
     original_target = tmp_path / "original.py"
     output_link = tmp_path / "output.py"
     staged_file.write_text("generated\n", encoding="utf-8")
-    original_target.write_text(
-        stored_expected(EXPECTED_MAIN_KR_PATH / "jobs" / "stale.py").read_text(encoding="utf-8"), encoding="utf-8"
-    )
+    original_target.write_text("stale\n", encoding="utf-8")
     output_link.symlink_to(original_target)
 
     def fail_staged_replace(
@@ -2971,8 +2805,8 @@ def test_pyproject_jobs_failed_replacement_discards_unchanged_symlink_backup(
         _publish_staged_files([(staged_file, output_link)])
 
     assert output_link.is_symlink()
-    assert_output(output_link.read_text(encoding="utf-8"), EXPECTED_MAIN_KR_PATH / "jobs" / "stale.py")
-    assert_output(original_target.read_text(encoding="utf-8"), EXPECTED_MAIN_KR_PATH / "jobs" / "stale.py")
+    assert_output(output_link.read_text(encoding="utf-8"), name="stale", suffix=".py")
+    assert_output(original_target.read_text(encoding="utf-8"), name="stale", suffix=".py")
     assert list(tmp_path.glob(".output.py.*.bak")) == []
 
 
@@ -3065,7 +2899,7 @@ def test_copy_backup_without_fchmod(tmp_path: Path, monkeypatch: pytest.MonkeyPa
 
     backup = publication_module._backup_existing_target(target)
 
-    assert_output(backup.read_text(encoding="utf-8"), EXPECTED_MAIN_KR_PATH / "jobs" / "stale.py")
+    assert_output(backup.read_text(encoding="utf-8"), suffix=".py")
 
 
 @pytest.mark.allow_direct_assert
@@ -3088,7 +2922,7 @@ def test_pyproject_jobs_partial_copy_backup_failure_removes_backup(
     with pytest.raises(OSError, match="simulated partial copy failure"):
         publication_module._backup_existing_target(target)
 
-    assert_output(target.read_text(encoding="utf-8"), EXPECTED_MAIN_KR_PATH / "jobs" / "stale.py")
+    assert_output(target.read_text(encoding="utf-8"), name="stale", suffix=".py")
     assert list(tmp_path.glob(".target.py.*.bak")) == []
 
     staged_file = tmp_path / "generated.py"
@@ -3097,7 +2931,7 @@ def test_pyproject_jobs_partial_copy_backup_failure_removes_backup(
     with pytest.raises(OSError, match="simulated partial copy failure"):
         _publish_staged_files([(staged_file, target)])
 
-    assert_output(target.read_text(encoding="utf-8"), EXPECTED_MAIN_KR_PATH / "jobs" / "stale.py")
+    assert_output(target.read_text(encoding="utf-8"), name="stale", suffix=".py")
     assert list(tmp_path.glob(".target.py.*.bak")) == []
 
 
@@ -3126,9 +2960,7 @@ def test_pyproject_jobs_post_publish_check_does_not_recreate_missing_parent(
         _publish_staged_files([(staged_file, target)])
 
     assert not target_parent.exists()
-    assert_output(
-        (detached_parent / "target.py").read_text(encoding="utf-8"), EXPECTED_MAIN_KR_PATH / "jobs" / "stale.py"
-    )
+    assert_output((detached_parent / "target.py").read_text(encoding="utf-8"), suffix=".py")
     assert list(detached_parent.glob(".target.py.*.bak")) == []
 
 
@@ -3492,7 +3324,7 @@ output = "{output_path.as_posix()}"
     with chdir(tmp_path):
         run_main_with_args(["--all-jobs", "--formatters", "builtin"])
 
-    assert_output(output_path.read_text(encoding="utf-8"), DATA_PATH / "expected" / "main" / "person.py")
+    assert_output(output_path.read_text(encoding="utf-8"), suffix=".py")
     output_path.chmod(0o640)
 
     with chdir(tmp_path):
@@ -3618,7 +3450,6 @@ emit-model-metadata = "{metadata_output.as_posix()}"
 
     assert_output(
         capsys.readouterr().err,
-        EXPECTED_MAIN_KR_PATH / "jobs" / "staging_anchor_cleanup_error.txt",
     )
     _assert_file_does_not_exist(first_output)
     _assert_file_does_not_exist(second_output)
@@ -3661,8 +3492,8 @@ output = "{output.as_posix()}"
     with chdir(tmp_path):
         run_main_with_args(["--all-jobs", "--formatters", "builtin"], expected_exit=Exit.ERROR)
 
-    assert_output(capsys.readouterr().err, EXPECTED_MAIN_KR_PATH / "jobs" / "staging_cleanup_error.txt")
-    assert_output(output.read_text(encoding="utf-8"), DATA_PATH / "expected" / "main" / "person.py")
+    assert_output(capsys.readouterr().err)
+    assert_output(output.read_text(encoding="utf-8"), name="model", suffix=".py")
 
 
 @pytest.mark.allow_direct_assert
@@ -3707,7 +3538,7 @@ output = "{output.as_posix()}"
     with chdir(tmp_path), pytest.raises(RuntimeError, match="simulated runner failure"):
         run_main_with_args(["--all-jobs", "--formatters", "builtin"])
 
-    assert_output(capsys.readouterr().err, EXPECTED_MAIN_KR_PATH / "jobs" / "staging_cleanup_error.txt")
+    assert_output(capsys.readouterr().err)
     _assert_file_does_not_exist(output)
 
 
@@ -3955,7 +3786,7 @@ original-field-name-delimiter = "_"
 
 def test_help_shows_new_options() -> None:
     """Test that profile and job selection options appear in help."""
-    assert_output(arg_parser.format_help(), EXPECTED_MAIN_KR_PATH / "help_shows_new_options.txt")
+    assert_output(arg_parser.format_help())
 
 
 @pytest.mark.skipif(
@@ -3990,8 +3821,6 @@ target-python-version = "3.11"
         run_main_and_assert(
             input_path=input_file,
             output_path=output_file.resolve(),
-            assert_func=assert_file_content,
-            expected_file=EXPECTED_PYPROJECT_PROFILE_PATH / "inherits_base.py",
             extra_args=["--profile", "api", "--disable-timestamp"],
         )
 
@@ -4029,8 +3858,6 @@ target-python-version = "3.11"
         run_main_and_assert(
             input_path=input_file,
             output_path=output_file.resolve(),
-            assert_func=assert_file_content,
-            expected_file=EXPECTED_PYPROJECT_PROFILE_PATH / "cli_override.py",
             extra_args=[
                 "--profile",
                 "api",
@@ -4079,7 +3906,7 @@ target-python-version = "3.11"
                 "--disable-timestamp",
             ],
         )
-        assert_file_content(output_file, EXPECTED_PYPROJECT_PROFILE_PATH / "ignore_pyproject_with_profile.py")
+        assert_output(output_file.read_text(encoding="utf-8"), suffix=".py")
 
 
 def test_profile_without_pyproject_errors(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -4104,8 +3931,6 @@ def test_allof_with_description_generates_class_not_alias(output_file: Path) -> 
         input_path=OPEN_API_DATA_PATH / "allof_with_description_only.yaml",
         output_path=output_file,
         input_file_type=None,
-        assert_func=assert_file_content,
-        expected_file=EXPECTED_MAIN_KR_PATH / "main_allof_with_description_only" / "output.py",
         extra_args=[
             "--output-model-type",
             "pydantic_v2.BaseModel",
@@ -4123,7 +3948,7 @@ types for numeric fields that have a `multipleOf` constraint. This ensures
 precise decimal arithmetic when validating values against the constraint.""",
     input_schema="jsonschema/use_decimal_for_multiple_of.json",
     cli_args=["--use-decimal-for-multiple-of"],
-    golden_output="main_kr/use_decimal_for_multiple_of/output.py",
+    golden_output="main_kr/use_decimal_for_multiple_of.py",
 )
 @LEGACY_BLACK_SKIP
 @freeze_time("2019-07-26")
@@ -4138,8 +3963,6 @@ def test_use_decimal_for_multiple_of(output_file: Path) -> None:
         input_path=JSON_SCHEMA_DATA_PATH / "use_decimal_for_multiple_of.json",
         output_path=output_file,
         input_file_type="jsonschema",
-        assert_func=assert_file_content,
-        expected_file=EXPECTED_MAIN_KR_PATH / "use_decimal_for_multiple_of" / "output.py",
         extra_args=["--use-decimal-for-multiple-of"],
     )
 
@@ -4156,7 +3979,7 @@ If you need a different datetime class for `date-time` fields, use
 [`--output-datetime-class`](#output-datetime-class).""",
     input_schema="jsonschema/use_pendulum.json",
     cli_args=["--use-pendulum"],
-    golden_output="main_kr/use_pendulum/output.py",
+    golden_output="main_kr/use_pendulum.py",
 )
 @freeze_time("2019-07-26")
 def test_use_pendulum(output_file: Path) -> None:
@@ -4174,8 +3997,6 @@ def test_use_pendulum(output_file: Path) -> None:
         input_path=JSON_SCHEMA_DATA_PATH / "use_pendulum.json",
         output_path=output_file,
         input_file_type="jsonschema",
-        assert_func=assert_file_content,
-        expected_file=EXPECTED_MAIN_KR_PATH / "use_pendulum" / "output.py",
         extra_args=["--use-pendulum"],
     )
 
@@ -4190,7 +4011,7 @@ types for fields with minimum: 0 or maximum: 0 constraints, instead of using
 conint/confloat with ge/le parameters.""",
     input_schema="jsonschema/use_non_positive_negative.json",
     cli_args=["--use-non-positive-negative-number-constrained-types"],
-    golden_output="main_kr/use_non_positive_negative/output.py",
+    golden_output="main_kr/use_non_positive_negative_number_constrained_types.py",
 )
 @freeze_time("2019-07-26")
 def test_use_non_positive_negative_number_constrained_types(output_file: Path) -> None:
@@ -4199,8 +4020,6 @@ def test_use_non_positive_negative_number_constrained_types(output_file: Path) -
         input_path=JSON_SCHEMA_DATA_PATH / "use_non_positive_negative.json",
         output_path=output_file,
         input_file_type="jsonschema",
-        assert_func=assert_file_content,
-        expected_file=EXPECTED_MAIN_KR_PATH / "use_non_positive_negative" / "output.py",
         extra_args=["--use-non-positive-negative-number-constrained-types"],
     )
 
@@ -4212,8 +4031,6 @@ def test_use_non_positive_negative_number_constrained_types_with_use_annotated(o
         input_path=JSON_SCHEMA_DATA_PATH / "use_non_positive_negative.json",
         output_path=output_file,
         input_file_type="jsonschema",
-        assert_func=assert_file_content,
-        expected_file=EXPECTED_MAIN_KR_PATH / "use_non_positive_negative_with_use_annotated" / "output.py",
         extra_args=["--use-non-positive-negative-number-constrained-types", "--use-annotated"],
     )
 
@@ -4228,7 +4045,7 @@ are included. Use this with `--openapi-scopes parameters` to generate parameter
 models that include both path and query parameters.""",
     input_schema="openapi/include_path_parameters.yaml",
     cli_args=["--include-path-parameters", "--openapi-scopes", "schemas", "paths", "parameters"],
-    golden_output="main_kr/include_path_parameters/output.py",
+    golden_output="main_kr/include_path_parameters.py",
 )
 @freeze_time("2019-07-26")
 def test_include_path_parameters(output_file: Path) -> None:
@@ -4243,8 +4060,6 @@ def test_include_path_parameters(output_file: Path) -> None:
         input_path=OPEN_API_DATA_PATH / "include_path_parameters.yaml",
         output_path=output_file,
         input_file_type="openapi",
-        assert_func=assert_file_content,
-        expected_file=EXPECTED_MAIN_KR_PATH / "include_path_parameters" / "output.py",
         extra_args=["--include-path-parameters", "--openapi-scopes", "schemas", "paths", "parameters"],
     )
 
@@ -4259,8 +4074,8 @@ fields are renamed to Python-safe names with `Field(alias='original-name')`.
 With this flag, only Python-safe names are used without aliases.""",
     input_schema="jsonschema/no_alias.json",
     cli_args=["--no-alias"],
-    golden_output="main_kr/no_alias/with_option.py",
-    comparison_output="main_kr/no_alias/without_option.py",
+    golden_output="main_kr/no_alias.py",
+    comparison_output="main_kr/no_alias_without_option.py",
 )
 @freeze_time("2019-07-26")
 def test_no_alias(output_file: Path) -> None:
@@ -4275,8 +4090,6 @@ def test_no_alias(output_file: Path) -> None:
         input_path=JSON_SCHEMA_DATA_PATH / "no_alias.json",
         output_path=output_file,
         input_file_type="jsonschema",
-        assert_func=assert_file_content,
-        expected_file=EXPECTED_MAIN_KR_PATH / "no_alias" / "with_option.py",
         extra_args=["--no-alias"],
     )
 
@@ -4290,8 +4103,8 @@ instead of `alias`. This allows setting values using the Pythonic field name whi
 serializing to the original JSON property name.""",
     input_schema="jsonschema/no_alias.json",
     cli_args=["--use-serialization-alias", "--output-model-type", "pydantic_v2.BaseModel"],
-    golden_output="main_kr/use_serialization_alias/output.py",
-    comparison_output="main_kr/no_alias/without_option.py",
+    golden_output="main_kr/use_serialization_alias.py",
+    comparison_output="main_kr/no_alias_without_option.py",
 )
 @freeze_time("2019-07-26")
 def test_use_serialization_alias(output_file: Path) -> None:
@@ -4305,8 +4118,6 @@ def test_use_serialization_alias(output_file: Path) -> None:
         input_path=JSON_SCHEMA_DATA_PATH / "no_alias.json",
         output_path=output_file,
         input_file_type="jsonschema",
-        assert_func=assert_file_content,
-        expected_file=EXPECTED_MAIN_KR_PATH / "use_serialization_alias" / "output.py",
         extra_args=["--use-serialization-alias", "--output-model-type", "pydantic_v2.BaseModel"],
     )
 
@@ -4320,8 +4131,8 @@ header with custom text. This is useful for adding copyright notices, license
 headers, or other metadata to generated files.""",
     input_schema="jsonschema/no_alias.json",
     cli_args=["--custom-file-header", "# Copyright 2024 MyCompany"],
-    golden_output="main_kr/custom_file_header/with_option.py",
-    comparison_output="main_kr/no_alias/without_option.py",
+    golden_output="main_kr/custom_file_header.py",
+    comparison_output="main_kr/no_alias_without_option.py",
 )
 @freeze_time("2019-07-26")
 def test_custom_file_header(output_file: Path) -> None:
@@ -4335,8 +4146,6 @@ def test_custom_file_header(output_file: Path) -> None:
         input_path=JSON_SCHEMA_DATA_PATH / "no_alias.json",
         output_path=output_file,
         input_file_type="jsonschema",
-        assert_func=assert_file_content,
-        expected_file=EXPECTED_MAIN_KR_PATH / "custom_file_header" / "with_option.py",
         extra_args=["--custom-file-header", "# Copyright 2024 MyCompany"],
     )
 
@@ -4348,8 +4157,6 @@ def test_no_alias_without_option(output_file: Path) -> None:
         input_path=JSON_SCHEMA_DATA_PATH / "no_alias.json",
         output_path=output_file,
         input_file_type="jsonschema",
-        assert_func=assert_file_content,
-        expected_file=EXPECTED_MAIN_KR_PATH / "no_alias" / "without_option.py",
     )
 
 
@@ -4367,7 +4174,7 @@ a local file. The `--http-headers` flag adds request headers in
         "--http-headers",
         "Authorization:Bearer token",
     ],
-    golden_output="main_kr/url_with_headers/output.py",
+    golden_output="main_kr/http_ignore_tls.py",
 )
 @freeze_time("2019-07-26")
 def test_url_with_http_headers(mock_httpx_get: HttpxGetMockFactory, output_file: Path) -> None:
@@ -4385,8 +4192,6 @@ def test_url_with_http_headers(mock_httpx_get: HttpxGetMockFactory, output_file:
         url="https://api.example.com/schema.json",
         output_path=output_file,
         input_file_type="jsonschema",
-        assert_func=assert_file_content,
-        expected_file=EXPECTED_MAIN_KR_PATH / "url_with_headers" / "output.py",
         extra_args=["--http-headers", "Authorization:Bearer token"],
     )
     assert_httpx_get_kwargs(mock_get, headers=[("Authorization", "Bearer token")])
@@ -4408,7 +4213,7 @@ URL path are used as the relative path under the schema store. For example,
         "--http-local-ref-path",
         "schemas",
     ],
-    golden_output="main_kr/http_local_ref_path/output.py",
+    golden_output="main_kr/http_local_ref_path_cli_doc.py",
 )
 @freeze_time("2019-07-26")
 def test_http_local_ref_path_cli_doc(mock_httpx_get: HttpxGetMockFactory, output_file: Path, tmp_path: Path) -> None:
@@ -4433,8 +4238,6 @@ def test_http_local_ref_path_cli_doc(mock_httpx_get: HttpxGetMockFactory, output
         url="https://api.example.com/schema.json",
         output_path=output_file,
         input_file_type="jsonschema",
-        assert_func=assert_file_content,
-        expected_file=EXPECTED_MAIN_KR_PATH / "http_local_ref_path" / "output.py",
         extra_args=["--http-local-ref-path", str(schema_store)],
     )
     assert_httpx_get_kwargs(mock_get)
@@ -4452,7 +4255,7 @@ the URL and pass `--allow-private-network`; otherwise use a local schema file
 or public endpoint.""",
     input_schema="jsonschema/pet_simple.json",
     cli_args=["--url", "http://127.0.0.1/schema.json", "--allow-private-network"],
-    golden_output="main_kr/allow_private_network/output.py",
+    golden_output="main_kr/allow_private_network_cli_doc.py",
 )
 @freeze_time("2019-07-26")
 def test_allow_private_network_cli_doc(mock_httpx_get: HttpxGetMockFactory, output_file: Path) -> None:
@@ -4464,8 +4267,6 @@ def test_allow_private_network_cli_doc(mock_httpx_get: HttpxGetMockFactory, outp
         url="http://127.0.0.1/schema.json",
         output_path=output_file,
         input_file_type="jsonschema",
-        assert_func=assert_file_content,
-        expected_file="allow_private_network/output.py",
         extra_args=["--allow-private-network"],
     )
     assert_httpx_get_kwargs(mock_get, expected_url="http://127.0.0.1/schema.json")
@@ -4480,7 +4281,7 @@ OpenAPI, GraphQL, etc.). Multiple input files can be specified to merge
 schemas. Required unless using `--url` to fetch schema from a URL.""",
     input_schema="jsonschema/pet_simple.json",
     cli_args=["--input", "pet_simple.json", "--output", "output.py"],
-    golden_output="main_kr/input_output/output.py",
+    golden_output="main_kr/custom_formatters_kwargs_inline_json_option.py",
 )
 @freeze_time("2019-07-26")
 def test_input_option(output_file: Path) -> None:
@@ -4494,8 +4295,6 @@ def test_input_option(output_file: Path) -> None:
         input_path=JSON_SCHEMA_DATA_PATH / "pet_simple.json",
         output_path=output_file,
         input_file_type="jsonschema",
-        assert_func=assert_file_content,
-        expected_file=EXPECTED_MAIN_KR_PATH / "input_output" / "output.py",
     )
 
 
@@ -4509,7 +4308,7 @@ It can be either a file path (single-file output) or a directory path
 is written to stdout.""",
     input_schema="jsonschema/pet_simple.json",
     cli_args=["--input", "pet_simple.json", "--output", "output.py"],
-    golden_output="main_kr/input_output/output.py",
+    golden_output="main_kr/custom_formatters_kwargs_inline_json_option.py",
 )
 @freeze_time("2019-07-26")
 def test_output_option(output_file: Path) -> None:
@@ -4524,8 +4323,6 @@ def test_output_option(output_file: Path) -> None:
         input_path=JSON_SCHEMA_DATA_PATH / "pet_simple.json",
         output_path=output_file,
         input_file_type="jsonschema",
-        assert_func=assert_file_content,
-        expected_file=EXPECTED_MAIN_KR_PATH / "input_output" / "output.py",
     )
 
 
@@ -4539,7 +4336,7 @@ for schemas containing non-ASCII characters (e.g., Japanese, Chinese).
 Default is UTF-8, which is the standard encoding for JSON and most modern text files.""",
     input_schema="jsonschema/encoding_test.json",
     cli_args=["--encoding", "utf-8"],
-    golden_output="main_kr/encoding/output.py",
+    golden_output="main_kr/encoding_option.py",
 )
 @freeze_time("2019-07-26")
 def test_encoding_option(output_file: Path) -> None:
@@ -4554,8 +4351,6 @@ def test_encoding_option(output_file: Path) -> None:
         input_path=JSON_SCHEMA_DATA_PATH / "encoding_test.json",
         output_path=output_file,
         input_file_type="jsonschema",
-        assert_func=assert_file_content,
-        expected_file=EXPECTED_MAIN_KR_PATH / "encoding" / "output.py",
         extra_args=["--encoding", "utf-8"],
     )
 
@@ -4574,7 +4369,7 @@ The future builtin default reduces installation dependencies and version constra
 See the formatter guides for installation and custom-template limitations.""",
     input_schema="jsonschema/pet_simple.json",
     cli_args=["--formatters", "isort"],
-    golden_output="main_kr/formatters/output.py",
+    golden_output="main_kr/formatters_option.py",
 )
 @freeze_time("2019-07-26")
 def test_formatters_option(output_file: Path) -> None:
@@ -4589,8 +4384,6 @@ def test_formatters_option(output_file: Path) -> None:
         input_path=JSON_SCHEMA_DATA_PATH / "pet_simple.json",
         output_path=output_file,
         input_file_type="jsonschema",
-        assert_func=assert_file_content,
-        expected_file=EXPECTED_MAIN_KR_PATH / "formatters" / "output.py",
         extra_args=["--formatters", "isort"],
     )
 
@@ -4635,7 +4428,7 @@ Note: This option is primarily used with --custom-formatters to pass
 configuration to user-defined formatter modules.""",
     input_schema="jsonschema/pet_simple.json",
     cli_args=["--custom-formatters-kwargs", "formatter_kwargs.json"],
-    golden_output="main_kr/input_output/output.py",
+    golden_output="main_kr/custom_formatters_kwargs_inline_json_option.py",
 )
 @freeze_time("2019-07-26")
 def test_custom_formatters_kwargs_option(output_file: Path) -> None:
@@ -4654,8 +4447,6 @@ def test_custom_formatters_kwargs_option(output_file: Path) -> None:
         input_path=JSON_SCHEMA_DATA_PATH / "pet_simple.json",
         output_path=output_file,
         input_file_type="jsonschema",
-        assert_func=assert_file_content,
-        expected_file=EXPECTED_MAIN_KR_PATH / "input_output" / "output.py",
         extra_args=["--custom-formatters-kwargs", str(kwargs)],
     )
 
@@ -4667,8 +4458,6 @@ def test_custom_formatters_kwargs_inline_json_option(output_file: Path) -> None:
         input_path=JSON_SCHEMA_DATA_PATH / "pet_simple.json",
         output_path=output_file,
         input_file_type="jsonschema",
-        assert_func=assert_file_content,
-        expected_file=EXPECTED_MAIN_KR_PATH / "input_output" / "output.py",
         extra_args=["--custom-formatters-kwargs", "{}"],
     )
 
@@ -4682,7 +4471,7 @@ when fetching schemas from HTTPS URLs. This is useful for development
 environments with self-signed certificates. Not recommended for production.""",
     input_schema="jsonschema/pet_simple.json",
     cli_args=["--url", "https://api.example.com/schema.json", "--http-ignore-tls"],
-    golden_output="main_kr/url_with_headers/output.py",
+    golden_output="main_kr/http_ignore_tls.py",
 )
 @freeze_time("2019-07-26")
 def test_http_ignore_tls(mock_httpx_get: HttpxGetMockFactory, output_file: Path) -> None:
@@ -4699,8 +4488,6 @@ def test_http_ignore_tls(mock_httpx_get: HttpxGetMockFactory, output_file: Path)
         url="https://api.example.com/schema.json",
         output_path=output_file,
         input_file_type="jsonschema",
-        assert_func=assert_file_content,
-        expected_file="url_with_headers/output.py",
         extra_args=["--http-ignore-tls"],
     )
     assert_httpx_get_kwargs(mock_get, verify=False)
@@ -4716,7 +4503,7 @@ or format parameters. Format: `key=value`. Multiple parameters can be
 specified: `--http-query-parameters version=v2 format=json`.""",
     input_schema="jsonschema/pet_simple.json",
     cli_args=["--url", "https://api.example.com/schema.json", "--http-query-parameters", "version=v2", "format=json"],
-    golden_output="main_kr/url_with_headers/output.py",
+    golden_output="main_kr/http_ignore_tls.py",
 )
 @freeze_time("2019-07-26")
 def test_http_query_parameters(mock_httpx_get: HttpxGetMockFactory, output_file: Path) -> None:
@@ -4734,8 +4521,6 @@ def test_http_query_parameters(mock_httpx_get: HttpxGetMockFactory, output_file:
         url="https://api.example.com/schema.json",
         output_path=output_file,
         input_file_type="jsonschema",
-        assert_func=assert_file_content,
-        expected_file="url_with_headers/output.py",
         extra_args=["--http-query-parameters", "version=v2", "format=json"],
     )
     assert_httpx_get_kwargs(mock_get, params_contains={"version": "v2", "format": "json"})
@@ -4750,7 +4535,7 @@ when fetching schemas from URLs. Useful for slow servers or large schemas.
 Default is 30 seconds.""",
     input_schema="jsonschema/pet_simple.json",
     cli_args=["--url", "https://api.example.com/schema.json", "--http-timeout", "60"],
-    golden_output="main_kr/url_with_headers/output.py",
+    golden_output="main_kr/http_ignore_tls.py",
 )
 @freeze_time("2019-07-26")
 def test_http_timeout(mock_httpx_get: HttpxGetMockFactory, output_file: Path) -> None:
@@ -4767,8 +4552,6 @@ def test_http_timeout(mock_httpx_get: HttpxGetMockFactory, output_file: Path) ->
         url="https://api.example.com/schema.json",
         output_path=output_file,
         input_file_type="jsonschema",
-        assert_func=assert_file_content,
-        expected_file="url_with_headers/output.py",
         extra_args=["--http-timeout", "60"],
     )
     assert_httpx_get_kwargs(mock_get, timeout=60.0)
@@ -4833,7 +4616,7 @@ REMOTE_LOCKED_OPTION_DESCRIPTION = (
         "--lockfile",
         "datamodel-codegen.lock",
     ],
-    golden_output="main_kr/url_with_headers/output.py",
+    golden_output="main_kr/http_ignore_tls.py",
     related_options=["--url", "--http-local-ref-path", "--update-lock", "--locked"],
 )
 @freeze_time("2019-07-26")
@@ -4852,8 +4635,6 @@ def test_lockfile_remote_lock_cli_doc(
         url=schema_url,
         output_path=output_file,
         input_file_type="jsonschema",
-        assert_func=assert_file_content,
-        expected_file=EXPECTED_MAIN_KR_PATH / "url_with_headers" / "output.py",
         extra_args=["--update-lock", "--lockfile", str(lockfile)],
     )
     assert len(json.loads(lockfile.read_text(encoding="utf-8"))["resources"]) == 1
@@ -4870,7 +4651,7 @@ def test_lockfile_remote_lock_cli_doc(
         "--lockfile",
         "datamodel-codegen.lock",
     ],
-    golden_output="main_kr/url_with_headers/output.py",
+    golden_output="main_kr/http_ignore_tls.py",
     related_options=["--url", "--http-local-ref-path", "--lockfile"],
 )
 @freeze_time("2019-07-26")
@@ -4889,8 +4670,6 @@ def test_update_remote_lock_cli_doc(
         url=schema_url,
         output_path=output_file,
         input_file_type="jsonschema",
-        assert_func=assert_file_content,
-        expected_file=EXPECTED_MAIN_KR_PATH / "url_with_headers" / "output.py",
         extra_args=["--update-lock", "--lockfile", str(lockfile)],
     )
     assert len(json.loads(lockfile.read_text(encoding="utf-8"))["resources"]) == 1
@@ -4907,7 +4686,7 @@ def test_update_remote_lock_cli_doc(
         "--lockfile",
         "datamodel-codegen.lock",
     ],
-    golden_output="main_kr/url_with_headers/output.py",
+    golden_output="main_kr/http_ignore_tls.py",
     related_options=["--url", "--http-local-ref-path", "--lockfile"],
 )
 @freeze_time("2019-07-26")
@@ -4927,16 +4706,14 @@ def test_locked_remote_lock_cli_doc(
         url=schema_url,
         output_path=output_file,
         input_file_type="jsonschema",
-        assert_func=assert_file_content,
-        expected_file=EXPECTED_MAIN_KR_PATH / "url_with_headers" / "output.py",
+        name="output",
         extra_args=[*common_args, "--update-lock"],
     )
     run_main_url_and_assert(
         url=schema_url,
         output_path=output_file,
         input_file_type="jsonschema",
-        assert_func=assert_file_content,
-        expected_file=EXPECTED_MAIN_KR_PATH / "url_with_headers" / "output.py",
+        name="output",
         extra_args=[*common_args, "--locked"],
     )
 
@@ -4951,8 +4728,8 @@ when you want to override project defaults with CLI arguments, or when
 testing without project configuration.""",
     input_schema="jsonschema/ignore_pyproject_example.json",
     cli_args=["--ignore-pyproject"],
-    golden_output="main_kr/ignore_pyproject/output.py",
-    comparison_output="main_kr/pyproject_profile/with_profile.py",
+    golden_output="main_kr/ignore_pyproject_cli_doc.py",
+    comparison_output="main_kr/pyproject_with_profile.py",
 )
 @freeze_time("2019-07-26")
 def test_ignore_pyproject_cli_doc(output_file: Path, tmp_path: Path) -> None:
@@ -4987,8 +4764,6 @@ snake-case-field = true
         run_main_and_assert(
             input_path=input_file,
             output_path=output_file.resolve(),
-            assert_func=assert_file_content,
-            expected_file=EXPECTED_MAIN_KR_PATH / "ignore_pyproject" / "output.py",
             extra_args=["--ignore-pyproject", "--disable-timestamp"],
         )
 
@@ -5005,7 +4780,7 @@ deduplicated models that are referenced from multiple files. Default is
 Note: This option only affects modular output with tree-level model reuse.""",
     input_schema="jsonschema/pet_simple.json",
     cli_args=["--shared-module-name", "my_shared"],
-    golden_output="main_kr/input_output/output.py",
+    golden_output="main_kr/custom_formatters_kwargs_inline_json_option.py",
 )
 @freeze_time("2019-07-26")
 def test_shared_module_name(output_file: Path) -> None:
@@ -5023,8 +4798,6 @@ def test_shared_module_name(output_file: Path) -> None:
         input_path=JSON_SCHEMA_DATA_PATH / "pet_simple.json",
         output_path=output_file,
         input_file_type="jsonschema",
-        assert_func=assert_file_content,
-        expected_file=EXPECTED_MAIN_KR_PATH / "input_output" / "output.py",
         extra_args=["--shared-module-name", "my_shared"],
     )
 
@@ -5042,7 +4815,7 @@ Note: This option primarily affects modular output where imports between
 modules are generated. For single-file output, the difference is minimal.""",
     input_schema="jsonschema/pet_simple.json",
     cli_args=["--use-exact-imports"],
-    golden_output="main_kr/input_output/output.py",
+    golden_output="main_kr/custom_formatters_kwargs_inline_json_option.py",
 )
 @freeze_time("2019-07-26")
 def test_use_exact_imports(output_file: Path) -> None:
@@ -5061,8 +4834,6 @@ def test_use_exact_imports(output_file: Path) -> None:
         input_path=JSON_SCHEMA_DATA_PATH / "pet_simple.json",
         output_path=output_file,
         input_file_type="jsonschema",
-        assert_func=assert_file_content,
-        expected_file=EXPECTED_MAIN_KR_PATH / "input_output" / "output.py",
         extra_args=["--use-exact-imports"],
     )
 
@@ -5083,7 +4854,7 @@ This affects import statements and type annotation syntax in generated code.""",
     input_schema="jsonschema/person.json",
     cli_args=["--target-python-version", "3.10", "--use-standard-collections"],
     version_outputs={
-        "3.10": "main_kr/target_python_version/py310.py",
+        "3.10": "main_kr/target_python_version_outputs.py",
     },
     primary=True,
 )
@@ -5105,8 +4876,6 @@ def test_target_python_version_outputs(output_file: Path) -> None:
     run_main_and_assert(
         input_path=JSON_SCHEMA_DATA_PATH / "person.json",
         output_path=output_file,
-        assert_func=assert_file_content,
-        expected_file=EXPECTED_MAIN_KR_PATH / "target_python_version" / "py310.py",
         extra_args=["--target-python-version", "3.10", "--use-standard-collections"],
     )
 
@@ -5143,7 +4912,7 @@ See [Output Model Types](../output-model-types.md#targeting-a-pydantic-version) 
         "--output-model-type",
         "pydantic_v2.BaseModel",
     ],
-    golden_output="main_kr/target_pydantic_version/v2_11.py",
+    golden_output="main_kr/target_pydantic_version.py",
     primary=True,
 )
 @freeze_time("2019-07-26")
@@ -5156,8 +4925,6 @@ def test_target_pydantic_version(output_file: Path) -> None:
     run_main_and_assert(
         input_path=JSON_SCHEMA_DATA_PATH / "person.json",
         output_path=output_file,
-        assert_func=assert_file_content,
-        expected_file=EXPECTED_MAIN_KR_PATH / "target_pydantic_version" / "v2_11.py",
         extra_args=[
             "--target-pydantic-version",
             "2.11",
@@ -5183,7 +4950,7 @@ def test_generate_prompt_basic(capsys: pytest.CaptureFixture[str]) -> None:
         ["--generate-prompt"],
         expected_exit=Exit.OK,
         capsys=capsys,
-        expected_stdout_path=EXPECTED_MAIN_KR_PATH / "generate_prompt" / "basic.txt",
+        derived_stdout=True,
     )
 
 
@@ -5194,7 +4961,7 @@ def test_generate_prompt_with_question(capsys: pytest.CaptureFixture[str]) -> No
         ["--generate-prompt", question],
         expected_exit=Exit.OK,
         capsys=capsys,
-        expected_stdout_path=EXPECTED_MAIN_KR_PATH / "generate_prompt" / "with_question.txt",
+        derived_stdout=True,
     )
 
 
@@ -5212,7 +4979,7 @@ def test_generate_prompt_with_options(capsys: pytest.CaptureFixture[str]) -> Non
         ],
         expected_exit=Exit.OK,
         capsys=capsys,
-        expected_stdout_path=EXPECTED_MAIN_KR_PATH / "generate_prompt" / "with_options.txt",
+        derived_stdout=True,
     )
 
 
@@ -5230,7 +4997,7 @@ def test_generate_prompt_with_list_options(capsys: pytest.CaptureFixture[str]) -
         ],
         expected_exit=Exit.OK,
         capsys=capsys,
-        expected_stdout_path=EXPECTED_MAIN_KR_PATH / "generate_prompt" / "with_list_options.txt",
+        derived_stdout=True,
     )
 
 
@@ -5240,7 +5007,7 @@ def test_generate_prompt_json(capsys: pytest.CaptureFixture[str]) -> None:
         GENERATE_PROMPT_JSON_ARGS,
         expected_exit=Exit.OK,
         capsys=capsys,
-        expected_stdout_path=EXPECTED_MAIN_KR_PATH / "generate_prompt" / "json_output.txt",
+        derived_stdout=True,
         assert_no_stderr=True,
     )
 
@@ -5251,15 +5018,16 @@ def test_output_format_json_schema_generate_prompt(capsys: pytest.CaptureFixture
         GENERATE_PROMPT_JSON_SCHEMA_ARGS,
         expected_exit=Exit.OK,
         capsys=capsys,
-        expected_stdout_path=EXPECTED_MAIN_KR_PATH / "generate_prompt" / "json_schema.txt",
+        derived_stdout=True,
         assert_no_stderr=True,
     )
 
 
-def test_output_format_json_schema_validates_generate_prompt_json() -> None:
+def test_output_format_json_schema_validates_generate_prompt_json(capsys: pytest.CaptureFixture[str]) -> None:
     """Test prompt JSON output conforms to its emitted JSON Schema."""
-    schema = json.loads(stored_expected(EXPECTED_MAIN_KR_PATH / "generate_prompt" / "json_schema.txt").read_text())
-    payload = json.loads(stored_expected(EXPECTED_MAIN_KR_PATH / "generate_prompt" / "json_output.txt").read_text())
+    run_main_with_args(GENERATE_PROMPT_JSON_SCHEMA_ARGS)
+    schema = json.loads(capsys.readouterr().out)
+    payload = json.loads(stored_expected(EXPECTED_MAIN_KR_PATH / "generate_prompt_json.stdout.txt").read_text())
 
     jsonschema.validate(instance=payload, schema=schema)
 
@@ -5273,7 +5041,7 @@ def test_output_format_json_schema_generation(capsys: pytest.CaptureFixture[str]
         ],
         expected_exit=Exit.OK,
         capsys=capsys,
-        expected_stdout_path=EXPECTED_OUTPUT_FORMAT_JSON_PATH / "generation_schema.txt",
+        derived_stdout=True,
         assert_no_stderr=True,
     )
 
@@ -5287,7 +5055,7 @@ def test_output_format_json_schema_model_metadata(capsys: pytest.CaptureFixture[
         ],
         expected_exit=Exit.OK,
         capsys=capsys,
-        expected_stdout_path=EXPECTED_OUTPUT_FORMAT_JSON_PATH / "model_metadata_schema.txt",
+        derived_stdout=True,
         assert_no_stderr=True,
     )
 
@@ -5301,7 +5069,7 @@ def test_output_format_json_schema_structured_output(capsys: pytest.CaptureFixtu
         ],
         expected_exit=Exit.OK,
         capsys=capsys,
-        expected_stdout_path=EXPECTED_OUTPUT_FORMAT_JSON_PATH / "structured_output_schema.txt",
+        derived_stdout=True,
         assert_no_stderr=True,
     )
 
@@ -5315,15 +5083,19 @@ def test_output_format_json_schema_config(capsys: pytest.CaptureFixture[str]) ->
         ],
         expected_exit=Exit.OK,
         capsys=capsys,
-        expected_stdout_path=EXPECTED_OUTPUT_FORMAT_JSON_PATH / "config_schema.txt",
+        derived_stdout=True,
         assert_no_stderr=True,
     )
 
 
 def test_output_format_json_schema_validates_generation_json() -> None:
     """Test generation JSON output conforms to its emitted JSON Schema."""
-    schema = json.loads(stored_expected(EXPECTED_OUTPUT_FORMAT_JSON_PATH / "generation_schema.txt").read_text())
-    payload = json.loads(stored_expected(EXPECTED_OUTPUT_FORMAT_JSON_PATH / "generation_stdout.txt").read_text())
+    schema = json.loads(
+        stored_expected(EXPECTED_MAIN_KR_PATH / "output_format_json_schema_generation.stdout.txt").read_text()
+    )
+    payload = json.loads(
+        stored_expected(EXPECTED_MAIN_KR_PATH / "output_format_json_generation_stdout.stdout.txt").read_text()
+    )
 
     jsonschema.validate(instance=payload, schema=schema)
 
@@ -5337,8 +5109,6 @@ def test_output_format_json_schema_validates_model_metadata_json(
         input_path=JSON_SCHEMA_DATA_PATH / "model_metadata_base_model_name.json",
         output_path=output_file,
         input_file_type="jsonschema",
-        assert_func=assert_file_content,
-        expected_file=DATA_PATH / "expected" / "main" / "jsonschema" / "model_metadata_base_model_name.py",
         extra_args=[
             "--emit-model-metadata",
             str(metadata_path),
@@ -5374,7 +5144,6 @@ def test_output_format_json_json_ready_values() -> None:
     })
     assert_output(
         f"{json.dumps(payload, indent=2, ensure_ascii=False)}\n",
-        EXPECTED_OUTPUT_FORMAT_JSON_PATH / "json_ready_values.txt",
     )
 
 
@@ -5385,7 +5154,7 @@ def test_output_format_json_generation_mapping_payload() -> None:
             ("models", "user.py"): "class User:\n    pass\n",
         })
     )
-    assert_output(f"{output}\n", EXPECTED_OUTPUT_FORMAT_JSON_PATH / "generation_mapping_payload.txt")
+    assert_output(f"{output}\n")
 
 
 def test_output_format_json_normalizes_multiple_generation_output_paths(output_file: Path) -> None:
@@ -5399,7 +5168,7 @@ def test_output_format_json_normalizes_multiple_generation_output_paths(output_f
     })
     assert_output(
         _normalize_generation_json_output_path(disk_output, output_file, OUTPUT_FILE_PLACEHOLDER),
-        EXPECTED_OUTPUT_FORMAT_JSON_PATH / "generation_output_path_normalized.txt",
+        name="generation_output_path_normalized",
     )
     stdout_output = json.dumps({
         "output": None,
@@ -5410,38 +5179,42 @@ def test_output_format_json_normalizes_multiple_generation_output_paths(output_f
     })
     assert_output(
         _normalize_generation_json_output_path(stdout_output, output_file, OUTPUT_FILE_PLACEHOLDER),
-        EXPECTED_OUTPUT_FORMAT_JSON_PATH / "generation_stdout_path_normalized.txt",
+        name="generation_stdout_path_normalized",
     )
 
 
 @pytest.mark.parametrize(
     "payload_name",
     [
-        "generation_stdout.txt",
-        "generation_output_file.txt",
-        "generation_output_directory.txt",
-        "pyproject_config.txt",
-        "cli_command.txt",
-        "list_deprecations.txt",
-        "list_experimental.txt",
-        "check_success.txt",
-        "check_missing_output.txt",
-        "check_output_file_difference_json.txt",
-        "check_output_directory_differences_json.txt",
+        "output_format_json_generation_stdout.stdout.txt",
+        "output_format_json_generation_output_file.txt",
+        "output_format_json_generation_output_directory.txt",
+        "output_format_json_generate_pyproject_config.stdout.txt",
+        "output_format_json_generate_cli_command.stdout.txt",
+        "output_format_json_list_deprecations.stdout.txt",
+        "output_format_json_list_experimental.stdout.txt",
+        "output_format_json_check_success.stdout.txt",
+        "output_format_json_check_missing_output_directory.stdout.txt",
+        "output_format_json_check_output_file_difference.txt",
+        "output_format_json_check_output_directory_differences.txt",
     ],
 )
 def test_output_format_json_schema_validates_structured_json(payload_name: str) -> None:
     """Test structured JSON outputs conform to their emitted JSON Schema."""
-    schema = json.loads(stored_expected(EXPECTED_OUTPUT_FORMAT_JSON_PATH / "structured_output_schema.txt").read_text())
-    payload = json.loads(stored_expected(EXPECTED_OUTPUT_FORMAT_JSON_PATH / payload_name).read_text())
+    schema = json.loads(
+        stored_expected(EXPECTED_MAIN_KR_PATH / "output_format_json_schema_structured_output.stdout.txt").read_text()
+    )
+    payload = json.loads(stored_expected(EXPECTED_MAIN_KR_PATH / payload_name).read_text())
 
     jsonschema.validate(instance=payload, schema=schema)
 
 
 def test_output_format_json_schema_validates_prompt_json_as_structured_output() -> None:
     """Test prompt JSON output also conforms to the structured-output JSON Schema."""
-    schema = json.loads(stored_expected(EXPECTED_OUTPUT_FORMAT_JSON_PATH / "structured_output_schema.txt").read_text())
-    payload = json.loads(stored_expected(EXPECTED_MAIN_KR_PATH / "generate_prompt" / "json_output.txt").read_text())
+    schema = json.loads(
+        stored_expected(EXPECTED_MAIN_KR_PATH / "output_format_json_schema_structured_output.stdout.txt").read_text()
+    )
+    payload = json.loads(stored_expected(EXPECTED_MAIN_KR_PATH / "generate_prompt_json.stdout.txt").read_text())
 
     jsonschema.validate(instance=payload, schema=schema)
 
@@ -5460,7 +5233,7 @@ def test_output_format_json_generation_stdout(capsys: pytest.CaptureFixture[str]
         ],
         expected_exit=Exit.OK,
         capsys=capsys,
-        expected_stdout_path=EXPECTED_OUTPUT_FORMAT_JSON_PATH / "generation_stdout.txt",
+        derived_stdout=True,
         assert_no_stderr=True,
     )
 
@@ -5479,7 +5252,7 @@ def test_output_format_json_generate_pyproject_config(capsys: pytest.CaptureFixt
         ],
         expected_exit=Exit.OK,
         capsys=capsys,
-        expected_stdout_path=EXPECTED_OUTPUT_FORMAT_JSON_PATH / "pyproject_config.txt",
+        derived_stdout=True,
         assert_no_stderr=True,
     )
 
@@ -5490,7 +5263,7 @@ def test_output_format_json_generate_pyproject_config_with_float_option(capsys: 
         ["--generate-pyproject-config", "--http-timeout", "1.5", "--output-format", "json"],
         expected_exit=Exit.OK,
         capsys=capsys,
-        expected_stdout_path=EXPECTED_OUTPUT_FORMAT_JSON_PATH / "pyproject_config_float.txt",
+        derived_stdout=True,
         assert_no_stderr=True,
     )
 
@@ -5507,7 +5280,6 @@ def test_generate_pyproject_config_helper_uses_default_formatter() -> None:
                 output_format_json_schema="structured-output",
             )
         ),
-        EXPECTED_GENERATE_PYPROJECT_CONFIG_PATH / "helper_default_formatter.txt",
     )
 
 
@@ -5529,7 +5301,7 @@ output = "model.py"
             ],
             expected_exit=Exit.OK,
             capsys=capsys,
-            expected_stdout_path=EXPECTED_OUTPUT_FORMAT_JSON_PATH / "cli_command.txt",
+            derived_stdout=True,
             assert_no_stderr=True,
         )
 
@@ -5544,7 +5316,7 @@ def test_output_format_json_list_deprecations(capsys: pytest.CaptureFixture[str]
         ],
         expected_exit=Exit.OK,
         capsys=capsys,
-        expected_stdout_path=EXPECTED_OUTPUT_FORMAT_JSON_PATH / "list_deprecations.txt",
+        derived_stdout=True,
         assert_no_stderr=True,
     )
 
@@ -5560,7 +5332,7 @@ def test_output_format_json_list_experimental(capsys: pytest.CaptureFixture[str]
         ],
         expected_exit=Exit.OK,
         capsys=capsys,
-        expected_stdout_path=EXPECTED_OUTPUT_FORMAT_JSON_PATH / "list_experimental.txt",
+        derived_stdout=True,
         assert_no_stderr=True,
     )
 
@@ -5582,12 +5354,11 @@ def test_output_format_json_generation_output_file(capsys: pytest.CaptureFixture
         expected_exit=Exit.OK,
     )
     captured = capsys.readouterr()
-    assert_output(captured.err, EXPECTED_EMPTY_OUTPUT_PATH)
+    assert_output(captured.err, name="stderr", suffix=".py")
     assert_output(
         _normalize_generation_json_output_path(captured.out, output_file, OUTPUT_FILE_PLACEHOLDER),
-        EXPECTED_OUTPUT_FORMAT_JSON_PATH / "generation_output_file.txt",
     )
-    assert_file_content(output_file, EXPECTED_MAIN_KR_PATH / "main_no_file" / "output.py")
+    assert_output(output_file.read_text(encoding="utf-8"), name="model", suffix=".py")
 
 
 @freeze_time(TIMESTAMP)
@@ -5607,12 +5378,11 @@ def test_output_format_json_generation_output_directory(capsys: pytest.CaptureFi
         expected_exit=Exit.OK,
     )
     captured = capsys.readouterr()
-    assert_output(captured.err, EXPECTED_EMPTY_OUTPUT_PATH)
+    assert_output(captured.err, name="stderr", suffix=".py")
     assert_output(
         _normalize_generation_json_output_path(captured.out, output_dir, OUTPUT_DIR_PLACEHOLDER),
-        EXPECTED_OUTPUT_FORMAT_JSON_PATH / "generation_output_directory.txt",
     )
-    assert_directory_content(output_dir, EXPECTED_MAIN_KR_PATH / "main_modular")
+    assert_directory_content(output_dir)
 
 
 def test_output_format_json_check_success(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -5647,7 +5417,7 @@ def test_output_format_json_check_success(tmp_path: Path, capsys: pytest.Capture
             ],
             expected_exit=Exit.OK,
             capsys=capsys,
-            expected_stdout_path=EXPECTED_OUTPUT_FORMAT_JSON_PATH / "check_success.txt",
+            derived_stdout=True,
             assert_no_stderr=True,
         )
 
@@ -5670,7 +5440,7 @@ def test_output_format_json_check_missing_output_directory(tmp_path: Path, capsy
             ],
             expected_exit=Exit.DIFF,
             capsys=capsys,
-            expected_stdout_path=EXPECTED_OUTPUT_FORMAT_JSON_PATH / "check_missing_output.txt",
+            derived_stdout=True,
             assert_no_stderr=True,
         )
 
@@ -5699,9 +5469,8 @@ def test_output_format_json_check_missing_output_file(tmp_path: Path, capsys: py
     captured = capsys.readouterr()
     assert_output(
         captured.out.replace((tmp_path / output_path).resolve().as_posix(), OUTPUT_FILE_PLACEHOLDER),
-        EXPECTED_OUTPUT_FORMAT_JSON_PATH / "check_missing_output_file.txt",
     )
-    assert_output(captured.err, EXPECTED_EMPTY_OUTPUT_PATH)
+    assert_output(captured.err, name="stderr", suffix=".py")
 
 
 def test_output_format_json_check_output_file_difference(
@@ -5730,9 +5499,8 @@ def test_output_format_json_check_output_file_difference(
     captured = capsys.readouterr()
     assert_output(
         captured.out.replace((tmp_path / output_path).as_posix(), OUTPUT_FILE_PLACEHOLDER),
-        EXPECTED_OUTPUT_FORMAT_JSON_PATH / "check_output_file_difference_json.txt",
     )
-    assert_output(captured.err, EXPECTED_EMPTY_OUTPUT_PATH)
+    assert_output(captured.err, name="stderr", suffix=".py")
 
 
 def test_output_format_json_check_output_directory_differences(
@@ -5763,9 +5531,8 @@ def test_output_format_json_check_output_directory_differences(
     captured = capsys.readouterr()
     assert_output(
         captured.out.replace((tmp_path / output_dir).as_posix(), OUTPUT_DIR_PLACEHOLDER),
-        EXPECTED_OUTPUT_FORMAT_JSON_PATH / "check_output_directory_differences_json.txt",
     )
-    assert_output(captured.err, EXPECTED_EMPTY_OUTPUT_PATH)
+    assert_output(captured.err, name="stderr", suffix=".py")
 
 
 def test_output_format_json_check_text_reports_output_file_difference(
@@ -5792,9 +5559,8 @@ def test_output_format_json_check_text_reports_output_file_difference(
     captured = capsys.readouterr()
     assert_output(
         captured.out.replace((tmp_path / output_path).as_posix(), OUTPUT_FILE_PLACEHOLDER),
-        EXPECTED_OUTPUT_FORMAT_JSON_PATH / "check_output_file_difference_text.txt",
     )
-    assert_output(captured.err, EXPECTED_EMPTY_OUTPUT_PATH)
+    assert_output(captured.err, name="stderr", suffix=".py")
 
 
 def test_output_format_json_check_text_reports_output_directory_differences(
@@ -5820,7 +5586,7 @@ def test_output_format_json_check_text_reports_output_directory_differences(
             ],
             expected_exit=Exit.DIFF,
             capsys=capsys,
-            expected_stdout_path=EXPECTED_OUTPUT_FORMAT_JSON_PATH / "check_output_directory_differences_text.txt",
+            derived_stdout=True,
             assert_no_stderr=True,
         )
 
@@ -5840,8 +5606,8 @@ def test_output_format_json_rejects_watch(capsys: pytest.CaptureFixture[str]) ->
         expected_exit=Exit.ERROR,
     )
     captured = capsys.readouterr()
-    assert_output(captured.out, EXPECTED_EMPTY_OUTPUT_PATH)
-    assert_output(captured.err, EXPECTED_OUTPUT_FORMAT_JSON_PATH / "watch_incompatible.txt")
+    assert_output(captured.out, name="stdout", suffix=".py")
+    assert_output(captured.err)
 
 
 @freeze_time("2019-07-26")
@@ -5868,8 +5634,6 @@ extends = "_base"
         run_main_and_assert(
             input_path=input_file,
             output_path=output_file.resolve(),
-            assert_func=assert_file_content,
-            expected_file=EXPECTED_PYPROJECT_PROFILE_PATH / "extends_single.py",
             extra_args=["--profile", "api", "--disable-timestamp"],
         )
 
@@ -5901,8 +5665,6 @@ extends = ["_snake", "_constraints"]
         run_main_and_assert(
             input_path=input_file,
             output_path=output_file.resolve(),
-            assert_func=assert_file_content,
-            expected_file=EXPECTED_PYPROJECT_PROFILE_PATH / "extends_multiple.py",
             extra_args=["--profile", "api", "--disable-timestamp"],
         )
 
@@ -5935,8 +5697,6 @@ extends = "_middle"
         run_main_and_assert(
             input_path=input_file,
             output_path=output_file.resolve(),
-            assert_func=assert_file_content,
-            expected_file=EXPECTED_PYPROJECT_PROFILE_PATH / "extends_chain.py",
             extra_args=["--profile", "api", "--disable-timestamp"],
         )
 
@@ -6038,8 +5798,6 @@ snake-case-field = false
         run_main_and_assert(
             input_path=input_file,
             output_path=output_file.resolve(),
-            assert_func=assert_file_content,
-            expected_file=EXPECTED_PYPROJECT_PROFILE_PATH / "extends_override.py",
             extra_args=["--profile", "api", "--disable-timestamp"],
         )
 

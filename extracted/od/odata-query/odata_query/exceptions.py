@@ -40,6 +40,32 @@ class ParsingException(ODataSyntaxError):
         super().__init__(f"Failed to parse at: {token}")
 
 
+class InvalidQueryOptionException(ODataException):
+    """
+    Thrown when the value of a query option such as ``top`` or ``skip`` is
+    invalid.
+    """
+
+    def __init__(self, option_name: str, value: Any):
+        self.option_name = option_name
+        self.value = value
+        super().__init__(
+            f"Query option '{option_name}' must be a non-negative integer, "
+            f"got {value!r}."
+        )
+
+
+class InvalidOrderByException(ODataException):
+    """
+    Thrown when ``orderby`` refers to something that cannot be sorted on, such
+    as a collection or a related entity instead of a primitive value.
+    """
+
+    def __init__(self, field_name: str, reason: str):
+        self.field_name = field_name
+        super().__init__(f"Cannot order by '{field_name}': {reason}.")
+
+
 class FunctionCallException(ODataException):
     """
     Base class for errors in function calls.

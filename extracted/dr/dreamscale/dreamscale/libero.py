@@ -145,6 +145,31 @@ def stamped_for_model(observation: LiberoObservation, model: str) -> LiberoObser
     return observation
 
 
+def on_camera_views(observation: LiberoObservation, cameras: Sequence) -> object:
+    """The observation for a model that reads LIBERO under its deployment's own camera keys
+    (Isaac 0.5 LIBERO): each camera's frame by its view (``primary`` the agent view,
+    ``wrist`` the wrist), rotated 180 degrees as LeRobot's LIBERO processor rotates the
+    render, and the 8-value state, as ``dreamscale sim libero`` sends it."""
+    from dreamscale import robot
+
+    if observation.agent_frame.ndim != 3:
+        raise observation_error(
+            "agent_frames", "a window of frames", "the latest frame of each camera")
+    frames = {"primary": observation.agent_frame, "wrist": observation.wrist_frame}
+    by_key = {}
+    for camera in cameras:
+        if camera.view not in frames:
+            raise observation_error(
+                "observation", f"a LIBERO observation for camera {camera.key!r} ({camera.view})",
+                "a deployment whose cameras are LIBERO's primary (agent) and wrist views")
+        by_key[camera.key] = np.ascontiguousarray(frames[camera.view][::-1, ::-1])
+    return robot.observation(
+        cameras=by_key, state=observation.state,
+        actions_remaining=observation.actions_remaining,
+        capture_time_ns=observation.capture_time_ns,
+    )
+
+
 def _window(name: str, frames) -> np.ndarray:
     if isinstance(frames, np.ndarray):
         frames = list(frames) if frames.ndim == 4 else [frames]

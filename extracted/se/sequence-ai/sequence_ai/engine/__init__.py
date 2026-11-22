@@ -5,7 +5,7 @@ The inference layer of sequence-ai: components for serving a robot policy fast o
 your code.
 
     serve          a policy server in one call: your model as a function (or a batch function), served to robots
-                   elsewhere, with the batcher below and the network's server side on by default (sequence_ai.serve)
+                   elsewhere, with the batcher below and the network's server side on by default (what `seq serve` runs)
     optimize       your policy made faster, each speed-up turned on only once its outputs are checked on your own
                    observations; serve() runs it by default (sequence_ai.engine.optimize)
     cuda_graphs    a torch module your model calls many times per run, replayed from CUDA graphs captured from its

@@ -6,6 +6,7 @@ import pathlib
 import sys
 
 from gp_sphinx.config import make_linkcode_resolve, merge_sphinx_config
+from gp_sphinx.defaults import DEFAULT_SPHINX_FONT_PRELOAD
 
 import libtmux
 
@@ -14,6 +15,7 @@ cwd = pathlib.Path(__file__).parent
 project_root = cwd.parent
 project_src = project_root / "src"
 
+sys.path.insert(0, str(project_root))
 sys.path.insert(0, str(project_src))
 
 # package data
@@ -31,6 +33,7 @@ conf = merge_sphinx_config(
     light_logo="img/libtmux.svg",
     dark_logo="img/libtmux.svg",
     extra_extensions=[
+        "docs._ext.tmux_capabilities",
         "sphinx_autodoc_api_style",
         "sphinx_autodoc_pytest_fixtures",
         "sphinx.ext.todo",
@@ -49,11 +52,17 @@ conf = merge_sphinx_config(
         ),
     },
     html_favicon="_static/favicon.ico",
-    html_css_files=["css/custom.css"],
+    html_css_files=["css/custom.css", "css/site-bars.css"],
+    html_js_files=[("js/site-bars.js", {"defer": "defer"})],
+    # The top bar sets its wordmark in IBM Plex Mono 600.
+    sphinx_font_preload=[
+        *DEFAULT_SPHINX_FONT_PRELOAD,
+        ("IBM Plex Mono", 600, "normal"),
+    ],
     html_extra_path=["manifest.json"],
     rediraffe_redirects="redirects.txt",
     # AGENTS.md (+ its CLAUDE.md symlink) is agent guidance, not a site
     # page; keep Sphinx from treating it as an orphan document.
-    exclude_patterns=["_build", "AGENTS.md", "CLAUDE.md"],
+    exclude_patterns=["_build", "_ext", "AGENTS.md", "CLAUDE.md"],
 )
 globals().update(conf)

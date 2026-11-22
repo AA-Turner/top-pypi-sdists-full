@@ -92,6 +92,17 @@ def risky(value: object) -> int:  # pragma: no cover
     module = importlib.import_module("json")  # ty: ignore[unresolved-import]
     secret = getattr(module, "_default_encoder", None)  # pyright: ignore[reportPrivateUsage]
     return cast("int", secret)  # type: ignore[return-value]  # pragma: win32 cover
+
+
+def silenced(items: list[int]) -> None:
+    items.insert(0, 1)  # heki: ignore
+    items.pop(0)  # heki: ignore[OPT103, list-front-pop]
+    items.sort()  # noqa: OPT110, E501
+    items.reverse()  # noqa: write-owner-violation
+    items.clear()  # noqa: PLC0415 - MUT201
+    items.append(1)  # noqa
+    items.append(2)  # heki: ignore[MUT201
+    items.append(3)  # heki: ignore[]
 """,
     "tests/test_d.py": FUTURE
     + """
@@ -113,12 +124,30 @@ from pathlib import Path
 JUSTIFIED_VIOLATIONS: dict[str, tuple[str, ...]] = {"group": ("rule:tests/test_d.py",)}
 FROZEN_EXEMPT_FILES = frozenset({Path("test_d.py")})
 """,
-    "scripts/check_architecture_boundaries.py": 'DEFAULT_ALLOWLIST = {("a", "b"): "reason"}\n',
+    "scripts/check_architecture_boundaries.py": 'DEFAULT_ALLOWLIST = {("a", "b"): Entry("reason")}\n',
 }
 HOST_BASELINE = """["src/pkg/a.py"."run"]
 "host._cache" = 1
 "host._size" = 1
 """
+HEKI_BASELINE = """version = 2
+
+[[entries]]
+path = "src/pkg/a.py"
+qualname = "run"
+rule_code = "MUT201"
+target = "Model.fields"
+count = 1
+"""
+HEKI_ENVIRONMENT = """
+[[entries]]
+path = "src/pkg/a.py"
+qualname = "<module>"
+rule_code = "EFF201"
+target = "no-environment-reads:reads-environment"
+count = 1
+"""
+"""A baseline entry of the environment boundary, whose sites count under their own key."""
 ALLOWLIST = 'FROZEN_EXEMPT_FILES = frozenset({"a.py"})\n'
 HOOK_START = """repos:
 - repo: https://github.com/astral-sh/ruff-pre-commit
@@ -184,13 +213,13 @@ def _stored_lists(lists: dict[str, object]) -> dict[str, str]:
     """Return a ``.refs`` file whose test stores one list per item, and the lists; a string names another's list.
 
     A key ``<item>@<predicate>`` is the item's override for the environments of the predicate, and ``<item>#<name>``
-    another output the test stores for the item under ``<name>``.
+    another output the test stores for the item under the role ``<name>``.
     """
     records, files = [], {}
     for key, value in lists.items():
         key_item, _, other = key.partition("#")
         item, _, predicate = key_item.partition("@")
-        label = f"lists/{other}[{item}].txt" if other else f"lists/{STORED_NAME}[{item}].txt"
+        label = f"lists/{STORED_NAME}[{item}]{f'.{other}' if other else ''}.txt"
         storage = f"lists/{STORED_NAME}[{value}].txt" if isinstance(value, str) else label.replace(item, key_item, 1)
         environment = f"\t@{predicate}" if predicate else ""
         shared = f"\t= {storage}" if storage != label else ""
@@ -333,66 +362,6 @@ def two() -> int:
 """A module with a stopgap comment, a to-do comment and directives (a shebang, an encoding line, noqa, a pragma)."""
 COMMENTS_MOVED = FUTURE + "\n\n" + COMMENTS.removeprefix(FUTURE)
 """The same comments with other line numbers: no key rises."""
-ENV_PROBES = (
-    FUTURE
-    + """import os
-import sys
-from importlib import util
-
-try:
-    import tomllib
-except ImportError:
-    tomllib = None
-try:
-    import tomli
-except ImportError:
-    import tomllib as tomli
-
-OLD = sys.version_info < (3, 12)
-WINDOWS = sys.platform == "win32" or os.name == "nt"
-HOME = os.environ.get("HOME")
-EDITOR = os.getenv("EDITOR")
-FOUND = util.find_spec("yaml")
-"""
-)
-"""Two guarded imports and six reads of the environment; the fallback import and the module reads count nothing."""
-BROAD_TRY = (
-    FUTURE
-    + """def load() -> None:
-    try:
-        import csv
-        from json import dumps
-    except Exception:
-        return
-    try:
-        import io
-    except BaseException:
-        return
-    csv.reader(io.StringIO(dumps(1)))
-"""
-)
-"""Lazy imports inside a broad ``try``: ordinary imports, no environment probes."""
-MORE_PROBES = (
-    FUTURE
-    + """import platform
-import sys
-from importlib import import_module
-
-try:
-    from yaml import CDumper, CSafeLoader
-except ImportError:
-    CDumper = CSafeLoader = None
-
-try:
-    import_module("orjson")
-except ModuleNotFoundError:
-    pass
-
-HEX = sys.hexversion
-SYSTEM = platform.system()
-"""
-)
-"""A guarded ``from`` import of two names, a guarded ``import_module``, ``sys.hexversion`` and ``platform.system()``."""
 PROSE_COMMENTS = (
     FUTURE
     + """VALUE = 1  # value type: int for now
@@ -573,14 +542,6 @@ CASES = {
         "head": {"src/pkg/c.py": COMMENTS_MOVED},
         "args": ["--enforce"],
     },
-    "environment-probes": {"head": {"src/pkg/e.py": ENV_PROBES}, "args": ["--enforce"]},
-    "environment-probes-unchanged": {
-        "base": {"src/pkg/e.py": ENV_PROBES},
-        "head": {"src/pkg/e.py": ENV_PROBES},
-        "args": ["--enforce"],
-    },
-    "environment-probes-broad-try": {"head": {"src/pkg/e.py": BROAD_TRY}, "args": ["--enforce"]},
-    "environment-probes-more": {"head": {"src/pkg/e.py": MORE_PROBES}, "args": ["--enforce"]},
     "stopgap-comments-prose": {"head": {"src/pkg/c.py": PROSE_COMMENTS}, "args": ["--enforce"]},
     "expected-reported-only": {"head": {"tests/test_a.refs": EXPECTED_REFS}, "args": ["--enforce"]},
     "moved-line": {"head": {"src/pkg/a.py": FUTURE + NAME, "src/pkg/b.py": FUTURE + SIZE}, "args": ["--enforce"]},
@@ -676,12 +637,52 @@ def show(flag: bool) -> None:
         "head": {"scripts/host_private_access_baseline.toml": '["src/pkg/a.py"."run"]\n"host._x" = "two"\n'},
         "args": ["--enforce"],
     },
+    "heki-baseline-grows": {
+        "base": {"scripts/heki_baseline.toml": HEKI_BASELINE},
+        "head": {
+            "scripts/heki_baseline.toml": HEKI_BASELINE.replace("count = 1", "count = 2")
+            + HEKI_BASELINE.removeprefix("version = 2\n").replace('"run"', '"stop"')
+        },
+        "args": ["--enforce"],
+    },
+    "heki-baseline-environment-swap": {
+        "base": {"scripts/heki_baseline.toml": HEKI_BASELINE.replace("count = 1", "count = 2") + HEKI_ENVIRONMENT},
+        "head": {"scripts/heki_baseline.toml": HEKI_BASELINE + HEKI_ENVIRONMENT.replace("count = 1", "count = 2")},
+        "args": ["--enforce"],
+    },
+    "heki-baseline-shrinks": {
+        "base": {"scripts/heki_baseline.toml": HEKI_BASELINE.replace("count = 1", "count = 3")},
+        "head": {"scripts/heki_baseline.toml": HEKI_BASELINE},
+        "args": ["--enforce"],
+    },
+    "heki-baseline-unreadable": {
+        "head": {"scripts/heki_baseline.toml": "version = 2\n[[entries]\n"},
+        "args": ["--enforce"],
+    },
+    "heki-baseline-unreadable-count": {
+        "head": {"scripts/heki_baseline.toml": HEKI_BASELINE.replace("count = 1", 'count = "one"')},
+        "args": ["--enforce"],
+    },
+    "heki-baseline-unreadable-shape": {
+        "head": {"scripts/heki_baseline.toml": "version = 2\nentries = 3\n"},
+        "args": ["--enforce"],
+    },
     "allowlist-unreadable": {
         "base": {"tests/assert_helper_allowlists.py": ALLOWLIST},
         "head": {
             "tests/assert_helper_allowlists.py": 'FROZEN_EXEMPT_FILES = frozenset(f"{n}.py" for n in ("a", "b"))\n'
             'JUSTIFIED_VIOLATIONS = {}\nJUSTIFIED_VIOLATIONS.update({"g": ("x", "y")})\n'
         },
+        "args": ["--enforce"],
+    },
+    "allowlist-dict-value-not-written-out": {
+        "base": {"tests/assert_helper_allowlists.py": 'JUSTIFIED_VIOLATIONS = {"g": ("x",)}\n'},
+        "head": {"tests/assert_helper_allowlists.py": 'JUSTIFIED_VIOLATIONS = {"g": tuple(["x", "y", "z"])}\n'},
+        "args": ["--enforce"],
+    },
+    "allowlist-dict-of-constants": {
+        "base": {"tests/assert_helper_allowlists.py": 'JUSTIFIED_VIOLATIONS = {"g": ("x",)}\n'},
+        "head": {"tests/assert_helper_allowlists.py": 'JUSTIFIED_VIOLATIONS = {"g": "x", "h": "y"}\n'},
         "args": ["--enforce"],
     },
     "any-uses": {"head": {"src/pkg/c.py": ANY_USES}, "args": ["--enforce"]},

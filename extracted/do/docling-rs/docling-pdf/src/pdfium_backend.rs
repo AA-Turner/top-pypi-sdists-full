@@ -26,9 +26,10 @@ pub struct TextCell {
 impl TextCell {
     /// The cell's width per character: the scale of what it draws. Its
     /// height is the font's claim instead — ascent plus descent, which some
-    /// faces inflate far past the glyphs (#1129: Cambria's regular face
-    /// declares 3117 / -2464, a 5.6 em box around every line) — so a rule
-    /// about lines that has to hold on such a font measures against this.
+    /// faces inflate far past the glyphs (#1129: 3117 / -2464, a 5.6 em box
+    /// around every line, where the descriptor gives no cap height to scale
+    /// them back by, `textparse::font_ascent_descent`) — so a rule about
+    /// lines that has to hold on such a font measures against this.
     pub(crate) fn mean_advance(&self) -> f32 {
         (self.r - self.l).abs() / self.text.trim().chars().count().max(1) as f32
     }
@@ -1518,6 +1519,25 @@ pub(crate) struct Glyph {
     /// Drawn in an invisible text rendering mode (`Tr` 3 or 7) — an OCR
     /// layer over a scan. Only the script-position stage reads it (#1005).
     pub(crate) invisible: bool,
+    /// Letter-spaced from the glyph before it: the two are letters of one
+    /// word a typesetter set apart with a space glyph between them, which
+    /// the text parser took out (`textparse::drop_letter_spacing_spaces`,
+    /// #1139). The gap is still on the page, so the word contraction is
+    /// told it is no word boundary (`dp_lines::tracked_gaps`).
+    pub(crate) spaced: bool,
+    /// The box of the clip in force when the glyph was drawn, `[x0, y0, x1,
+    /// y1]` in the glyph's own frame — the intersection of every `W` / `W*`
+    /// capture's box, saved and restored with `q` / `Q` (docling-parse's
+    /// `clip_bbox`, docling-parse#443, #1150). A glyph fitted into a table
+    /// cell is clipped to it; a clip boundary that cuts a glyph separates
+    /// lines and words (`dp_lines`). `None`: no clip.
+    pub(crate) clip: Option<[f32; 4]>,
+    /// A hash of the glyph's quad at full (`f64`) precision, 0 when
+    /// unknown. docling-parse's exact-overprint pass compares the quads'
+    /// doubles (#1151): a column drawn twice through two matrices that
+    /// differ by 1e-5 pt is two copies there, though the `f32` boxes above
+    /// are equal — `newspaper-00` reads both.
+    pub(crate) exact: u64,
 }
 
 impl Glyph {

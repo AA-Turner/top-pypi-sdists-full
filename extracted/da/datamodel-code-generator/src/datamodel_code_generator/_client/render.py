@@ -41,7 +41,13 @@ from datamodel_code_generator._client.naming import (
 )
 from datamodel_code_generator._client.plan import member_parts, reachable, success_media, success_response
 from datamodel_code_generator._client.polling import STATES, PollingSpec
-from datamodel_code_generator._client.protocols import COUNTED_CONTINUATIONS, POLL_INTERVAL
+from datamodel_code_generator._client.protocols import (
+    COUNTED_CONTINUATIONS,
+    MESSAGE_CODECS,
+    POLL_INTERVAL,
+    selector_record,
+    target_record,
+)
 from datamodel_code_generator._client.runtime import (
     Capabilities,
     compresses,
@@ -70,6 +76,7 @@ from datamodel_code_generator._runtime.client.options import DEFAULT_RETRY, DEFA
 from datamodel_code_generator._runtime.client.retry import IdempotencyPlan
 from datamodel_code_generator._runtime.model_codecs.media import NO_CONTENT, media_kind, media_range
 from datamodel_code_generator._runtime.model_codecs.parameters import PATH_SAFE, percent_encoded
+from datamodel_code_generator._runtime.protocols import pagination
 from datamodel_code_generator._runtime.protocols.caches import CACHED_STATUSES
 from datamodel_code_generator._runtime.protocols.options import _KIND_OPTIONS
 from datamodel_code_generator._runtime.protocols.pagination import _DEFAULTS as _PAGE_LIMITS
@@ -843,7 +850,7 @@ class _CallShape:
     signature: tuple[Parameter, ...]
     route: str
 
-    def function(  # noqa: PLR0913, PLR0917
+    def function(  # noqa: PLR0917
         self,
         plan: str,
         name: str,
@@ -1276,7 +1283,7 @@ _BINDERS: Final[dict[str, tuple[str, str]]] = {
 class _Resources(_Typing):
     """Render the root clients and the resource modules with their typed operation methods."""
 
-    def __init__(  # noqa: PLR0913
+    def __init__(
         self,
         plan: ClientPlan,
         accessors: dict[TypeUseId, UseAccessors],
@@ -1537,7 +1544,7 @@ class _Resources(_Typing):
             keyword_argument(item.name, _example(item, spec)) for item in arguments if item.default == "required"
         )
 
-    def call_shape(  # noqa: PLR0913
+    def call_shape(
         self,
         module: TargetModule,
         spec: OperationSpec,
@@ -1786,7 +1793,7 @@ class _Resources(_Typing):
             variants.append(((_Argument("response_media_type", "str"),), self.successes(spec)))
         return variants, (parameters, self.successes(spec))
 
-    def branches(  # noqa: PLR0913
+    def branches(
         self,
         module: TargetModule,
         spec: OperationSpec,
@@ -2525,7 +2532,7 @@ class _Helpers:  # noqa: PLR0904 - It renders every helper kind of a package.
         )
 
     @staticmethod
-    def accessor(  # noqa: PLR0913, PLR0917
+    def accessor(  # noqa: PLR0917
         module: TargetModule, name: str, data: str, returns: str, what: str, steps: tuple[ItemStep, ...]
     ) -> Accessor:
         """Return a typed accessor reading a value through its steps, returning None where an optional step is None."""
@@ -2550,15 +2557,11 @@ class _Helpers:  # noqa: PLR0904 - It renders every helper kind of a package.
     @staticmethod
     def selector(module: TargetModule, selector: Mapping[str, Any]) -> str:
         """Return the runtime record of a selector."""
-        from datamodel_code_generator._client.protocols import selector_record  # noqa: PLC0415
-
         return runtime_record(module.local, selector_record(selector))
 
     @staticmethod
     def target(module: TargetModule, target: Mapping[str, Any]) -> str:
         """Return the runtime record of a request target."""
-        from datamodel_code_generator._client.protocols import target_record  # noqa: PLC0415
-
         return runtime_record(module.local, target_record(target))
 
     def binding(self, module: TargetModule, binding: Mapping[str, Any]) -> str:
@@ -2581,9 +2584,6 @@ class _Helpers:  # noqa: PLR0904 - It renders every helper kind of a package.
     @staticmethod
     def continuation(module: TargetModule, spec: PaginationSpec) -> str:
         """Return the runtime record of a helper's cursor, offset, page-number, next-URL, or Link continuation."""
-        from datamodel_code_generator._client.protocols import selector_record, target_record  # noqa: PLC0415
-        from datamodel_code_generator._runtime.protocols import pagination  # noqa: PLC0415
-
         continuation = spec.continuation
         if (kind := continuation["kind"]) == "link":
             plan = pagination.LinkPlan(header=continuation["header"], rel=continuation["rel"])
@@ -2791,7 +2791,7 @@ class _Helpers:  # noqa: PLR0904 - It renders every helper kind of a package.
         """Return the docstring of a helper's class: its name, kind, and its operation's route."""
         return f"The {spec.helper.name} {_helper_noun(spec.helper.kind)} of {_route(spec.operation)}."
 
-    def leaf(  # noqa: PLR0913
+    def leaf(
         self,
         module: TargetModule,
         index: int,
@@ -3158,8 +3158,6 @@ class _Helpers:  # noqa: PLR0904 - It renders every helper kind of a package.
 
         The type of several messages is the union of theirs, each member once.
         """
-        from datamodel_code_generator._client.protocols import MESSAGE_CODECS  # noqa: PLC0415
-
         if not routes:
             return module.name("typing", "Never")
         if len(routes) == 1:
@@ -3246,7 +3244,7 @@ class _Helpers:  # noqa: PLR0904 - It renders every helper kind of a package.
 class ClientRenderer:
     """Render every module of one client package from its plan, codec plan, and wire plan."""
 
-    def __init__(  # noqa: PLR0913
+    def __init__(
         self,
         *,
         config: ClientGenerationConfig,

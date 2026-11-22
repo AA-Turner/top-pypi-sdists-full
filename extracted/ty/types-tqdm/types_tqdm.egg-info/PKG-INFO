@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-tqdm
-Version: 4.70.0.20261106
+Version: 4.70.0.20261122
 Summary: Typing stubs for tqdm
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -39,12 +39,12 @@ directory.
 
 This package was tested with the following type checkers:
 * [mypy](https://www.mypy-lang.org/) 2.4.1
-* [pyrefly](https://pyrefly.org/) 1.4.0
+* [pyrefly](https://pyrefly.org/) 1.4.1
 * [pyright](https://microsoft.github.io/pyright/) 1.1.414
-* [ty](https://docs.astral.sh/ty/) 0.0.94
+* [ty](https://docs.astral.sh/ty/) 0.0.104
 
 It was generated from typeshed commit
-[`64c9da7d22492efa44d1ca06b8d82c1bf6aed74f`](https://github.com/python/typeshed/commit/64c9da7d22492efa44d1ca06b8d82c1bf6aed74f).
+[`567e5e3e4276a6b05127b6347d80f809d123e35e`](https://github.com/python/typeshed/commit/567e5e3e4276a6b05127b6347d80f809d123e35e).
 
 ## Optional dependencies
 

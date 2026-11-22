@@ -38,9 +38,11 @@ class _CapabilityPragmas(CoveragePlugin):
         excluded = [
             rf"# pragma: {'lacks' if present else 'needs'} {name}\b" for name, present in sorted(CAPABILITIES.items())
         ]
-        self._extend(config, "report:exclude_lines", [*excluded, *_ALWAYS_EXCLUDED])
+        # A forked child exits through os._exit without writing coverage data, so no job in the matrix can see these.
+        always_excluded: tuple[str, ...] = (r"# pragma: forked child\b",)
+        self._extend(config, "report:exclude_lines", [*excluded, *always_excluded])
         # A guarded clause header only ever takes one arc, as covdefaults already assumes for its own pragmas.
-        self._extend(config, "report:partial_branches", [_CAPABILITY_PRAGMA, *_ALWAYS_EXCLUDED])
+        self._extend(config, "report:partial_branches", [_CAPABILITY_PRAGMA, *always_excluded])
         unrunnable = [
             pattern
             for name, patterns in sorted(_CAPABILITY_MODULES.items())
@@ -60,24 +62,30 @@ class _CapabilityPragmas(CoveragePlugin):
 
 #: Modules a missing capability makes unrunnable in full; marking every line would restate one module-level gate.
 _CAPABILITY_MODULES: Final[MappingProxyType[str, tuple[str, ...]]] = MappingProxyType({
-    "posix-hard-link": (
-        "*/tests/test_read_write_private_link.py",
-        "*\\tests\\test_read_write_private_link.py",
-    ),
+    "posix-hard-link": ("*/tests/sqlite/test_links*.py", "*/tests/sqlite/link_support.py"),
     "hard-link": (
-        "*/tests/test_strict_soft*.py",
-        "*/tests\\test_strict_soft*.py",
-        "*/tests/soft_rw/*.py",
-        "*\\tests\\soft_rw\\*.py",
-        "*/filelock/_strict.py",
-        "*\\filelock\\_strict.py",
-        "*/filelock/_soft_rw/*.py",
-        "*\\filelock\\_soft_rw\\*.py",
+        "*/tests/soft/read_write/*.py",
+        "*/tests/soft/strict/claim_records.py",
+        "*/tests/soft/strict/filesystem_faults.py",
+        "*/tests/soft/strict/test_claims.py",
+        "*/tests/soft/strict/test_compatibility.py",
+        "*/tests/soft/strict/test_directories*.py",
+        "*/tests/soft/strict/test_lock*.py",
+        "*/tests/soft/strict/test_publication*.py",
+        "*/tests/soft/strict/test_recovery.py",
+        "*/tests/soft/strict/test_scan*.py",
+        "*/tests/soft/strict/test_sentinel.py",
+        "*/tests/soft/strict/test_windows*.py",
+        "*/filelock/_soft/_read_write/*.py",
+        "*/filelock/_soft/_strict/_claims.py",
+        "*/filelock/_soft/_strict/_directories.py",
+        "*/filelock/_soft/_strict/_lock.py",
+        "*/filelock/_soft/_strict/_publication.py",
+        "*/filelock/_soft/_strict/_release.py",
+        "*/filelock/_soft/_strict/_scan.py",
+        "*/filelock/_soft/_strict/_sentinel.py",
     ),
 })
-
-#: A forked child exits through os._exit without writing coverage data, so no job in the matrix can see these.
-_ALWAYS_EXCLUDED: Final[tuple[str, ...]] = (r"# pragma: forked child\b",)
 
 _CAPABILITY_PRAGMA: Final[str] = rf"# pragma: (needs|lacks) ({'|'.join(sorted(CAPABILITIES))})\b"
 

@@ -653,6 +653,70 @@ def test_a_bound_release_from_another_assignment_is_refused_and_this_ones_is_fin
         assert provider.assigned == 1
 
 
+def advertised_flags(server: FakeServer, count: int) -> list[int]:
+    flags: list[int] = []
+    deadline = time.monotonic() + 3
+    while len(flags) < count and time.monotonic() < deadline:
+        flags.extend(
+            int.from_bytes(wire.parse_long_spatial(message).payload[:4], "little")
+            for message in server.messages()
+            if message[0] == MessageType.CLIENT_CAPABILITIES
+        )
+    return flags
+
+
+def test_own_media_echo_asks_for_the_speakers_own_voice_and_video(server: FakeServer) -> None:
+    # CrowdyCPP 0.90.0: a v0.48.0 server sends a speaker its own spatial voice and video only
+    # when its capabilities carry kOwnMediaEcho (bit 2).
+    with ReplicationConnection(
+        Provider(server), token(), app_id=7, **{**QUIET, "advertise_capabilities": True}
+    ):
+        (flags,) = advertised_flags(server, 1)
+        assert flags & 0b100 == 0
+    with ReplicationConnection(
+        Provider(server),
+        token(),
+        app_id=7,
+        **{**QUIET, "advertise_capabilities": True, "own_media_echo": True},
+    ) as connection:
+        (flags,) = advertised_flags(server, 1)
+        assert flags == 0b111
+        # On a live session each change is advertised at once; a repeat sends nothing.
+        connection.set_own_media_echo(False)
+        assert advertised_flags(server, 1) == [0b011]
+        connection.set_own_media_echo(False)
+        connection.set_own_media_echo(True)
+        assert advertised_flags(server, 1) == [0b111]
+
+
+def speaker_lists(server: FakeServer, count: int) -> list[bytes]:
+    bodies: list[bytes] = []
+    deadline = time.monotonic() + 3
+    while len(bodies) < count and time.monotonic() < deadline:
+        bodies.extend(
+            bytes(wire.parse_long_spatial(message).payload)
+            for message in server.messages()
+            if message[0] == 47
+        )
+    return bodies
+
+
+def test_set_speakers_sends_each_changed_kind(server: FakeServer) -> None:
+    # CrowdyCPP 0.91.0: a v0.49.0 server delivers voice and video only from the speakers named.
+    a, b = "a" * 32, "b" * 32
+    with ReplicationConnection(
+        Provider(server), token(), app_id=7, **{**QUIET, "advertise_capabilities": True}
+    ) as connection:
+        connection.set_speakers(voice=[a, b])
+        assert speaker_lists(server, 1) == [bytes([1, 2, 0, 0]) + a.encode() + b.encode()]
+        connection.set_speakers(video=[])
+        assert speaker_lists(server, 1) == [bytes([0, 0, 1, 0])]
+        connection.set_speakers(voice=None)
+        assert speaker_lists(server, 1) == [bytes([2, 0, 0, 0])]
+        with pytest.raises(CrowdyReplicationError):
+            connection.set_speakers(voice=["too-short"])
+
+
 def bound_ack(nonce: bytes, key: str = TOKEN) -> bytes:
     prefix = bytes([MessageType.CONTROL_BOUND_ACK]) + nonce
     return prefix + hmac.new(key.encode("latin-1"), prefix, hashlib.sha256).digest()

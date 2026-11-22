@@ -50,7 +50,7 @@ import shutil
 import sys
 from collections.abc import Callable, Container, Iterable, Mapping, Sequence
 from pathlib import Path
-from typing import TypedDict
+from typing import NamedTuple, TypedDict
 
 # reuse the UUID-native engine (single source of truth for the on-disk format) from the hooks dir
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "hooks"))
@@ -1177,44 +1177,86 @@ def find_appended_type_damage(anchor: _StrPath, unreadable: list[str] | None = N
     return out
 
 
+REPAIR_ATTEMPTS = 3
+"""How often --repair-appended-type reads a damaged body and tries its write before it reports the
+fact as skipped: each refusal means another writer changed the body in between (`BodyChanged`),
+so a fact still changing after three reads is left for the next run rather than raced."""
+
+
+class _Repair(NamedTuple):
+    """What one damaged body's repair came to: `kind` when it was written, `why` when skipped,
+    neither when the damage was gone on a read (another writer fixed or replaced the body)."""
+
+    kind: str | None = None
+    why: str | None = None
+
+
+def _repair_one(level: str, top: Path, name: str, dry_run: bool,
+                reread: Callable[[_StrPath], str]) -> _Repair:
+    """Repair `name`'s body at `level` (see `repair_appended_type`): read it, derive the prose and
+    the kind from that read, and write them only while the stored body is still that read."""
+    for _attempt in range(REPAIR_ATTEMPTS):
+        raw = reread(us.body_path(top, name))
+        damage = appended_type_damage(raw)
+        if damage is None:                       # repaired or rewritten since the scan: no damage
+            return _Repair()
+        prose, appended = damage
+        kind = ME.body_type(raw) or appended
+        if dry_run:
+            return _Repair(kind=kind)
+        try:
+            # An empty title and hook with must_exist keep the ones stored when the level lock is
+            # taken, so a retitle or hook change since the walk stands; expect_body refuses a
+            # write derived from a body another writer has changed since this read.
+            ME.upsert_entry(level, title="", hook="", body=prose, type_=kind, slug=name,
+                            allow_pinned_overwrite=True, must_exist=True, expect_body=raw)
+        except ME.UnknownSlug:
+            return _Repair(why=f"its pointer left {level} after the scan - run the repair again")
+        except ME.BodyChanged:
+            continue
+        return _Repair(kind=kind)
+    return _Repair(why=f"its body kept changing while it was repaired ({REPAIR_ATTEMPTS} reads) - "
+                       "run the repair again")
+
+
 def repair_appended_type(anchor: _StrPath, dry_run: bool = False, *,
                          read: Callable[[_StrPath], str] | None = None
                          ) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
     """Re-frame every damaged body through the engine: the prose with the appended block removed,
     under a real frame carrying the kind (the real frame's own kind when the body has one, else the
-    appended one). Title, hook and pin come from the pointer and are kept.
+    appended one). Title, hook and pin come from the pointer and are kept: the write is the
+    engine's update-only upsert (`must_exist`), which reads the title and hook under the level
+    lock it writes under. Passing the title and hook read at the start of this walk wrote them
+    back over a retitle or a hook change that landed in between.
 
     Returns (repaired [(slug, kind)], skipped [(name, why)]). A body no pointer names, or a sharded
-    one, is skipped: there is no title or hook to re-frame it with. A body whose damage is gone
-    when it is read again (a writer changed it after the scan) needs no repair: it is neither
-    repaired nor skipped, and nothing is written for it.
+    one, is skipped: there is no title or hook to re-frame it with. So is a fact whose line left
+    its level after the walk read it (moved or archived): the update-only write refuses it rather
+    than create it anew. A body whose damage is gone when it is read again (a writer changed it
+    after the scan) needs no repair: it is neither repaired nor skipped, and nothing is written
+    for it. The new body and kind are derived from that read, so the write refuses a body changed
+    since (`expect_body`) and the body is read again, up to `REPAIR_ATTEMPTS` reads; a body still
+    changing after the last is skipped.
 
     `read` is the seam the body is re-read through (the engine's `read_store_text` when omitted),
     resolved at call time."""
     reread = read or ME.read_store_text
     top = Path(anchor)
-    owners: dict[str, tuple[str, ME.Entry]] = {}
+    owners: dict[str, str] = {}
     for lvl in _all_curated_levels(top):
         for e in ME.read_store(str(lvl))[1]:
-            owners.setdefault(e.slug, (lvl, e))
+            owners.setdefault(e.slug, lvl)
     repaired: list[tuple[str, str]] = []
     skipped: list[tuple[str, str]] = []
     for name in find_appended_type_damage(top):
         if _is_sharded_body_name(name) or name not in owners:
             skipped.append((name, "no pointer names this body - re-home it first (--rehome)"))
             continue
-        level, entry = owners[name]
-        raw = reread(us.body_path(top, name))
-        damage = appended_type_damage(raw)
-        if damage is None:                       # repaired or rewritten since the scan: no damage
-            continue
-        prose, appended = damage
-        kind = ME.body_type(raw) or appended
-        if not dry_run:
-            ME.add_or_update_entry(str(level), title=entry.title, hook=entry.hook, body=prose,
-                                   type_=kind, slug=name, allow_over_cap_hook=True,
-                                   allow_pinned_overwrite=True)
-        repaired.append((name, kind))
+        done = _repair_one(owners[name], top, name, dry_run, reread)
+        if done.why is not None:
+            skipped.append((name, done.why))
+        elif done.kind is not None:
+            repaired.append((name, done.kind))
     return repaired, skipped
 
 

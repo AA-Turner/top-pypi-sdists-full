@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 import pytest
 from capabilities import CAPABILITIES
 
-from filelock._util import exchange_supported
+from filelock._filesystem import exchange_supported
 
 if TYPE_CHECKING:
     from typing import Final
@@ -59,6 +59,10 @@ NEEDS_FILE_MODE: Final[pytest.MarkDecorator] = pytest.mark.skipif(
 NEEDS_FOREIGN_STICKY_TMP: Final[pytest.MarkDecorator] = pytest.mark.skipif(
     not CAPABILITIES["foreign-sticky-tmp"],
     reason="a node of another account is refused only under a sticky parent this account does not own",
+)
+
+NEEDS_USER_NAMESPACES: Final[pytest.MarkDecorator] = pytest.mark.skipif(
+    sys.platform not in {"linux", "android"}, reason="user namespaces exist only on Linux"
 )
 
 NEEDS_FILE_PERMISSIONS: Final[pytest.MarkDecorator] = pytest.mark.skipif(
@@ -122,6 +126,8 @@ XFAIL_WITHOUT_COROUTINE_CANCELLATION: Final[pytest.MarkDecorator] = pytest.mark.
     strict=False,
 )
 
+WINDOWS_ONLY: Final[pytest.MarkDecorator] = pytest.mark.skipif(sys.platform != "win32", reason="Windows only")
+
 __all__ = [
     "NEEDS_AUDIT_EVENTS",
     "NEEDS_CLASS_COLLECTION",
@@ -141,5 +147,6 @@ __all__ = [
     "NEEDS_SYMLINK",
     "NEEDS_UNLINK_OPEN_FILE",
     "SKIP_ON_UNRELIABLE_PROCESS_SYNC",
+    "WINDOWS_ONLY",
     "XFAIL_WITHOUT_COROUTINE_CANCELLATION",
 ]

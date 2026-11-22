@@ -195,6 +195,10 @@ NOT_MODELLED: dict[str, dict[str, str]] = {
             "a scenario document's way to an EntityFilter (its generated "
             "builder); a scenario builds the EntityFilter itself"
         ),
+        "map_area_from_fields": (
+            "a scenario document's way to a MapArea (its generated "
+            "builder); a scenario builds the MapArea itself"
+        ),
     },
     f"{_PACKAGE}.constants": {
         "tick_multiple": (
@@ -318,13 +322,15 @@ NOT_MODELLED: dict[str, dict[str, str]] = {
         ),
     },
     f"{_PACKAGE}.rerun": _each(
-        "INSTALL_HINT RECORDING_SUFFIX RerunConversion RerunUnavailableError "
-        "convert_outputs latest main report require_converter",
+        "INSTALL_HINT RECORDING_SUFFIX RerunStrictUnsupportedError "
+        "RerunUnavailableError check_strict_coverage convert_outputs latest "
+        "main report require_converter written_records",
         "makes Rerun recordings of a run's trajectory logs with the "
         "autoware-carla-scenario-rerun package, which the runner does after a "
         "run (rerun.enabled), not a scenario; the model declares only the "
-        "RerunConverter the checked runner hands each log to and "
-        "recording_path, which names the recording it makes",
+        "RerunConverter the checked runner hands each log to, the "
+        "RerunConversion records its wait() returns, and recording_path, "
+        "which names the recording it makes",
     ),
     f"{_PACKAGE}.hils.config": _each(
         "CLOCKS PHASES HilsConfigError InputSource InputSpec SensorSpec StepSpec",
@@ -346,7 +352,7 @@ NOT_MODELLED: dict[str, dict[str, str]] = {
         "DATASET_SUFFIX INSTALL_HINT INTENSITY_SCALE LIDAR_CHANNEL T4Settings "
         "T4UnavailableError active_recording camera_channel category_of "
         "dataset_path ego_rear_axle opencv_of_ftheta offer_driver_sensors "
-        "offered_rear_axle require_writer t4_lidar_points withdraw_driver_sensors",
+        "require_writer t4_lidar_points withdraw_driver_sensors",
         "writes a run as a T4 dataset with the autoware-carla-scenario-t4 "
         "package, which the runner does (t4.enabled), not a scenario; the "
         "model declares only the T4Recorder and T4Recording the checked "
@@ -748,6 +754,14 @@ NOT_MODELLED_MEMBERS: dict[str, dict[str, str]] = {
             "whether rerun.lidar or rerun.cameras is set, which the converter's "
             "start_sensors checks itself; the checked runner calls "
             "start_sensors and stop_sensors whatever it is"
+        ),
+    },
+    "RerunConversion": {
+        "stats": (
+            "what the converter returned for the log (a dict of mixed "
+            "values: ticks, actors, the record types and fields it skipped), "
+            "which Codon cannot express; the run's report reads it, not a "
+            "scenario, which reads whether the conversion went (ok, error)"
         ),
     },
     "T4SceneExporter": _members(

@@ -90,7 +90,11 @@ import tomllib
 import traceback
 import xml.etree.ElementTree as ET
 import sys
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
+from types import ModuleType
+from typing import Any, TypeIs
 
 _HOOKS_DIR = Path(__file__).resolve().parent
 if str(_HOOKS_DIR) not in sys.path:
@@ -110,7 +114,44 @@ import skill_frontmatter  # noqa: E402
 is_gated_command = shell_text.is_gated_command
 
 
-def _git(root, *args, env=None):
+def _is_json_object(value: object) -> TypeIs[dict[str, Any]]:
+    """True for a decoded JSON object; its keys are str by JSON's own grammar."""
+    return isinstance(value, dict)
+
+
+def _is_tuple(value: object) -> TypeIs[tuple[object, ...]]:
+    return isinstance(value, tuple)
+
+
+#: A path argument: a str or anything os.fspath turns into one.
+type StrPath = str | os.PathLike[str]
+#: A mapping decoded from JSON (a hook event, a manifest), whose values are checked where used.
+type JsonObject = Mapping[str, Any]
+#: An environment handed to a git child process; None inherits this process's.
+type Env = Mapping[str, str] | None
+#: A repo-relative path filter.
+type PathFilter = Callable[[str], bool]
+#: One regular file a listing names: (blob sha, repo-relative path).
+type Blob = tuple[str, str]
+#: subprocess.run, or a stand-in for it, run in text mode.
+type Runner = Callable[..., subprocess.CompletedProcess[str]]
+#: One markdown table row: (leading whitespace, blockquote prefix, the row text).
+type TableRow = tuple[str, str, str]
+#: A mirrored skill's comparable files: repo-relative posix path -> bytes.
+type Files = dict[str, bytes]
+#: Reads one side of a mirrored skill pair from its skill directory.
+type FilesReader = Callable[[StrPath], Files]
+#: (paths a checkout changed since a fork point, a reader of one such path's local bytes).
+type LocalChanges = tuple[set[str], Callable[[str], bytes | None]]
+#: (differing paths, sample diff lines of SKILL.md) between two readings of a mirrored pair.
+type Differences = tuple[list[str], list[str]]
+#: Receives one audit record per decision refusal.
+type RefusalLog = Callable[[dict[str, str]], None]
+#: (one checkout's refusal lines for a skill, the audit records those refusals gave).
+type Refusal = tuple[list[str], list[dict[str, str]]]
+
+
+def _git(root: StrPath, *args: str, env: Env = None) -> tuple[int, str, str]:
     try:
         out = subprocess.run(["git", *args], cwd=str(root), capture_output=True, text=True,
                              encoding="utf-8", errors="replace", env=env)
@@ -119,7 +160,7 @@ def _git(root, *args, env=None):
         return 1, "", ""
 
 
-def _git_paths(root, subcommand, *args, env=None):
+def _git_paths(root: StrPath, subcommand: str, *args: str, env: Env = None) -> tuple[int, list[str]]:
     """Enumerate paths from git NUL-separated, so no path is ever C-quoted.
 
     Without `-z`, git renders any non-ASCII path through `core.quotePath`: the caller receives the
@@ -140,19 +181,19 @@ def _git_paths(root, subcommand, *args, env=None):
     return 0, [os.fsdecode(p) for p in out.stdout.split(b"\0") if p]
 
 
-def repo_root(start=None):
+def repo_root(start: StrPath | None = None) -> Path | None:
     rc, out, _ = _git(Path(start) if start else Path.cwd(), "rev-parse", "--show-toplevel")
     if rc == 0 and out.strip():
         return Path(out.strip())
     return None
 
 
-def hook_root(event):
+def hook_root(event: JsonObject) -> Path | None:
     """The repository a gated hook command lands in, or None; see `hook_landing`."""
     return hook_landing(event)[0]
 
 
-def hook_landing(event):
+def hook_landing(event: JsonObject) -> tuple[Path | None, bool]:
     """(the repository a gated hook command lands in or None, whether that was a FALLBACK guess).
 
     A hook runs where the SESSION sits, not where `cd <repo> && git commit` or `git -C <repo> push`
@@ -171,9 +212,11 @@ def hook_landing(event):
     the session's repository was judged instead, so a block can say so: measured 2026-10-19, such a
     fallback blocked a commit for a repository it was not touching, and the message gave no hint.
     """
-    command = (event.get("tool_input") or {}).get("command") or ""
+    tool_input: JsonObject = event.get("tool_input") or {}
+    command: str = tool_input.get("command") or ""
     base = os.path.normpath(event.get("cwd") or os.getcwd())
-    target = shell_text.git_verb_dir(command, base, shell_text.GATED_GIT_VERBS, event.get("tool_name"))
+    target = shell_text.git_verb_dir(command, base, shell_text.GATED_GIT_VERBS,
+                                     event.get("tool_name"))
     if target and os.path.normcase(target) == os.path.normcase(base):
         return repo_root(), False
     if not target or not os.path.isdir(target):
@@ -181,7 +224,7 @@ def hook_landing(event):
     return repo_root(target), False
 
 
-def is_bitranox_skills(root):
+def is_bitranox_skills(root: Path) -> bool:
     pj = root / "plugins" / "bitranox" / ".claude-plugin" / "plugin.json"
     if not pj.is_file():
         return False
@@ -191,7 +234,7 @@ def is_bitranox_skills(root):
         return False
 
 
-def _packages(root):
+def _packages(root: Path) -> list[Path]:
     """The hooks dir plus each skill dir - the units that must carry tests."""
     base = root / "plugins" / "bitranox"
     pkgs = [base / "hooks"]
@@ -201,20 +244,20 @@ def _packages(root):
     return [p for p in pkgs if p.is_dir()]
 
 
-def check_tests_exist(root):
+def check_tests_exist(root: Path) -> list[str]:
     missing = [p.relative_to(root).as_posix() for p in hc.packages_missing_tests(_packages(root))]
     if missing:
         return ["These packages ship .py but have no tests/test_*.py:"] + [f"  {m}" for m in missing]
     return []
 
 
-def check_json_valid(root):
+def check_json_valid(root: Path) -> list[str]:
     targets = [
         root / "plugins" / "bitranox" / ".claude-plugin" / "plugin.json",
         root / ".claude-plugin" / "marketplace.json",
         root / "plugins" / "bitranox" / "hooks" / "hooks.json",
     ]
-    bad = []
+    bad: list[str] = []
     for t in targets:
         if not t.is_file():
             continue
@@ -231,15 +274,16 @@ _LF_SUFFIXES = (".py", ".sh", ".json", ".jsonl")
 _REGULAR_MODES = frozenset({"100644", "100755"})
 
 
-def _lf_checked(rel):
+def _lf_checked(rel: str) -> bool:
     return rel.endswith(_LF_SUFFIXES)
 
 
-def _listed_blobs(root, args, env=None, keep=_lf_checked):
+def _listed_blobs(root: StrPath, args: Sequence[str], env: Env = None,
+                  keep: PathFilter = _lf_checked) -> tuple[int, list[Blob]]:
     """(rc, [(sha, path)]) of the regular files `ls-files -s` or `ls-tree -r` lists whose path
     ``keep`` accepts (default: the LF-checked suffixes)."""
     rc, rows = _git_paths(root, *args, env=env)
-    found = []
+    found: list[Blob] = []
     for row in rows:
         meta, _, rel = row.partition("\t")
         fields = meta.split()
@@ -248,7 +292,7 @@ def _listed_blobs(root, args, env=None, keep=_lf_checked):
     return rc, list(dict.fromkeys(found))     # an unmerged path is listed once per stage
 
 
-def _shipped_blobs(root, stage, keep=_lf_checked):
+def _shipped_blobs(root: Path, stage: Stage, keep: PathFilter = _lf_checked) -> tuple[int, list[Blob]]:
     """(rc, [(sha, path)]) of the blobs a commit or push at ``stage`` ships: HEAD's on a push, the
     index's on a commit, and the selection's on a commit that takes files from disk itself
     (`CommitSelection`; the index when git cannot build it, as `shipped_files` does). Only paths
@@ -262,7 +306,7 @@ def _shipped_blobs(root, stage, keep=_lf_checked):
     return _listed_blobs(root, ("ls-files", "-s"), keep=keep)
 
 
-def _read_blobs(root, blobs):
+def _read_blobs(root: StrPath, blobs: Sequence[Blob]) -> list[bytes] | None:
     """The bytes of each ``(sha, path)`` in ``blobs``, in order, read in ONE `git cat-file
     --batch`; None when git cannot read them all."""
     if not blobs:
@@ -274,7 +318,8 @@ def _read_blobs(root, blobs):
         return None
     if out.returncode != 0:
         return None
-    data, at, contents = out.stdout, 0, []
+    data, at = out.stdout, 0
+    contents: list[bytes] = []
     for _blob in blobs:
         end = data.find(b"\n", at)
         header = data[at:end].split()
@@ -286,7 +331,7 @@ def _read_blobs(root, blobs):
     return contents
 
 
-def _blobs_with_crlf(root, blobs):
+def _blobs_with_crlf(root: StrPath, blobs: Sequence[Blob]) -> list[str] | None:
     """The paths among ``blobs`` whose blob holds a CRLF; None when git cannot read them."""
     contents = _read_blobs(root, blobs)
     if contents is None:
@@ -294,7 +339,7 @@ def _blobs_with_crlf(root, blobs):
     return [rel for (_sha, rel), data in zip(blobs, contents, strict=True) if b"\r\n" in data]
 
 
-def check_lf_endings(root, stage=None):
+def check_lf_endings(root: Path, stage: Stage | None = None) -> list[str]:
     """Refuse CRLF in a .py/.sh/.json BLOB the commit or push ships (``stage``, default the index).
 
     The blob, never the checkout ([620]): under Git for Windows' default core.autocrlf=true an LF
@@ -313,7 +358,7 @@ _BENIGN_DUPLICATE_BASENAMES = frozenset({"conftest.py"})
 _VENDORED_DIRNAMES = frozenset({"demos", "examples"})
 
 
-def _table_checker(root):
+def _table_checker(root: Path) -> ModuleType | None:
     """The skill's own ragged-row detector, imported rather than re-implemented.
 
     A second copy of the fence-walking would drift from the one that ships, and then the gate would
@@ -330,7 +375,7 @@ def _table_checker(root):
     return module
 
 
-def check_ragged_tables(root):
+def check_ragged_tables(root: Path) -> list[str]:
     """No shipped markdown may hold a table row whose cell count differs from its header.
 
     Maintainer-only, and enforced HERE rather than by changing the tool's default: making
@@ -348,9 +393,9 @@ def check_ragged_tables(root):
     rc, paths = _git_paths(root, "ls-files", "*.md")
     if rc != 0:
         return []
-    findings = []
+    findings: list[str] = []
     for rel in paths:
-        warnings = []
+        warnings: list[str] = []
         absolute = root / rel
         try:
             module.reformat_file(absolute, check_only=True, warnings=warnings)
@@ -369,7 +414,7 @@ def check_ragged_tables(root):
         if findings else []
 
 
-def check_duplicate_basenames(root):
+def check_duplicate_basenames(root: Path) -> list[str]:
     """Two shipped .py files must not share a basename.
 
     Python resolves an import to the FIRST match on sys.path, so with two same-named modules the
@@ -385,7 +430,7 @@ def check_duplicate_basenames(root):
     rc, paths = _git_paths(root, "ls-files", "*.py")
     if rc != 0:
         return []                                     # cannot enumerate -> do not block
-    by_name = {}
+    by_name: dict[str, list[str]] = {}
     for rel in paths:
         parts = Path(rel).parts
         if _VENDORED_DIRNAMES.intersection(parts):
@@ -410,36 +455,11 @@ def check_duplicate_basenames(root):
 CHANGELOG_NAME = "CHANGELOG.md"
 
 
-def _plugin_version_pair(root):
-    """`(old, new)` plugin.json version across origin/master, or None when undecidable.
-
-    None means "cannot answer" - no origin/master to compare against, or a manifest that will
-    not parse on either side - and every caller treats that as skip-do-not-block, which is the
-    gate's standing rule: being unable to read something is not evidence of a violation.
-    """
-    rc, _, _ = _git(root, "rev-parse", "--verify", "origin/master")
-    if rc != 0:
-        return None
-    pj_rel = "plugins/bitranox/.claude-plugin/plugin.json"
-    try:
-        new_v = json.loads((root / pj_rel).read_text(encoding="utf-8")).get("version")
-    except Exception:  # noqa: BLE001
-        return None
-    rc, old_blob, _ = _git(root, "show", f"origin/master:{pj_rel}")
-    if rc != 0:
-        return None
-    try:
-        old_v = json.loads(old_blob).get("version")
-    except Exception:  # noqa: BLE001
-        return None
-    return old_v, new_v
-
-
 _PLUGIN_DIR = "plugins/bitranox"
 _PLUGIN_JSON = _PLUGIN_DIR + "/.claude-plugin/plugin.json"
 
 
-def _version_in(data):
+def _version_in(data: str | bytes) -> Any:
     """The `version` a plugin.json's bytes name, or None when they do not parse as one."""
     try:
         return json.loads(data).get("version")
@@ -447,17 +467,17 @@ def _version_in(data):
         return None
 
 
-def _git_version(root, commit):
+def _git_version(root: StrPath, commit: str) -> Any:
     """The plugin.json version at ``commit``, or None."""
     rc, blob, _ = _git(root, "show", f"{commit}:{_PLUGIN_JSON}")
     return None if rc else _version_in(blob)
 
 
-def _shipped_plugin_change(root, stage, base):
+def _shipped_plugin_change(root: Path, stage: Stage, base: str) -> tuple[list[str], Any] | None:
     """(plugins/ paths ``stage`` ships changed since ``base``, the plugin.json version it ships),
     or None when git cannot say. Only what the commit or push carries counts: an unstaged edit
     or an untracked file is no part of it (a `CommitSelection` is staged by git first)."""
-    def diff_and_version(env=None):
+    def diff_and_version(env: Env = None) -> tuple[list[str], Any] | None:
         if _is_commit(stage):
             rc, changed = _git_paths(root, "diff", "--cached", "--name-only", "--no-renames", base,
                                      "--", _PLUGIN_DIR, env=env)
@@ -478,7 +498,7 @@ def _shipped_plugin_change(root, stage, base):
     return diff_and_version()
 
 
-def _unstaged_bump_hint(root, stage, staged_v):
+def _unstaged_bump_hint(root: StrPath, stage: Stage, staged_v: object) -> list[str]:
     """A line naming a bump that sits in the working tree but not in the index, else nothing.
 
     Only a plain index commit can leave it behind: a pathspec commit (`CommitSelection`) stages
@@ -496,7 +516,7 @@ def _unstaged_bump_hint(root, stage, staged_v):
             "pyproject.toml) so the commit carries the bump."]
 
 
-def check_version_bumped(root, stage=None):
+def check_version_bumped(root: Path, stage: Stage | None = None) -> list[str]:
     """Does this change ship a plugin version an installed clone will see move?
 
     The marketplace updates by `git pull` and an install moves only when plugin.json's version
@@ -545,7 +565,7 @@ def check_version_bumped(root, stage=None):
     return []
 
 
-def changelog_documents(root, version):
+def changelog_documents(root: Path, version: str) -> bool | None:
     """Whether CHANGELOG.md carries a heading for `version`; None when there is no changelog.
 
     Two heading shapes ship in this file - the current `## [5.290.0]` and the older
@@ -571,7 +591,7 @@ class VersionUnreadable(Exception):
     """
 
 
-def pyproject_version(root):
+def pyproject_version(root: Path) -> Any:
     """The version declared in pyproject.toml.
 
     Returns None ONLY when there is no pyproject.toml at all, which means this checkout is not a
@@ -596,7 +616,7 @@ def pyproject_version(root):
     return version
 
 
-def check_version_sync(root):
+def check_version_sync(root: Path) -> list[str]:
     """pyproject.toml and plugin.json must name the SAME version.
 
     They are two copies because the build backend cannot read the plugin manifest, and the
@@ -641,7 +661,7 @@ def check_version_sync(root):
     ]
 
 
-def check_changelog_current_version(root):
+def check_changelog_current_version(root: Path) -> list[str]:
     """The version plugin.json NAMES must have a CHANGELOG entry - whatever put it there.
 
     Deliberately not a diff: it asks nothing about what changed, so it cannot go quiet for want
@@ -675,7 +695,7 @@ def check_changelog_current_version(root):
     ]
 
 
-def check_skills_index(root):
+def check_skills_index(root: Path) -> list[str]:
     """Every skill NAME the meta-using-bitranox-skills orientation list mentions must be a real
     skill dir (a rename/removal cannot leave a dangling entry). The reverse direction is
     deliberately NOT enforced: the roster is category names + exemplars, and the injected
@@ -689,7 +709,7 @@ def check_skills_index(root):
     except OSError:
         return []
     # Collect backtick-quoted skill names from the bullet lines of the domains section.
-    listed = set()
+    listed: set[str] = set()
     in_section = False
     for line in text.splitlines():
         if line.startswith("## "):
@@ -712,7 +732,7 @@ _CREDIT_RX = re.compile(r"(?m)^>\s*Adapted from .+\(.+\)\.")
 _NOTICE_HEADING_RX = re.compile(r"(?m)^###\s+([a-z][a-z0-9-]+)\s*$")
 
 
-def check_attribution(root):
+def check_attribution(root: Path) -> list[str]:
     """Keep license-attribution credit lines and THIRD_PARTY_NOTICES.md entries in sync.
 
     A skill adapted from a third-party source carries a `> Adapted from <src> (<LICENSE>).`
@@ -725,7 +745,7 @@ def check_attribution(root):
     notices = root / "plugins" / "bitranox" / "THIRD_PARTY_NOTICES.md"
     if not skills_dir.is_dir():
         return []
-    credited = set()
+    credited: set[str] = set()
     for sk in sorted(skills_dir.iterdir()):
         md = sk / "SKILL.md"
         if sk.is_dir() and md.is_file():
@@ -734,7 +754,7 @@ def check_attribution(root):
                     credited.add(sk.name)
             except OSError:
                 continue
-    noticed = set()
+    noticed: set[str] = set()
     if notices.is_file():
         try:
             noticed = set(_NOTICE_HEADING_RX.findall(notices.read_text(encoding="utf-8")))
@@ -742,7 +762,7 @@ def check_attribution(root):
             noticed = set()
     if not credited and not noticed:
         return []
-    msgs = []
+    msgs: list[str] = []
     missing = sorted(credited - noticed)
     orphan = sorted(noticed - credited)
     if missing:
@@ -754,7 +774,7 @@ def check_attribution(root):
     return msgs
 
 
-def _load_taxonomy(root):
+def _load_taxonomy(root: Path) -> dict[str, Any] | None:
     tax = root / "plugins" / "bitranox" / "skill-taxonomy.json"
     try:
         data = json.loads(tax.read_text(encoding="utf-8"))
@@ -762,10 +782,10 @@ def _load_taxonomy(root):
         return None
     # Valid JSON of the wrong shape (a list) is as invalid as a parse error; read as a dict it
     # crashed the whole gate on `.get`.
-    return data if isinstance(data, dict) else None
+    return data if _is_json_object(data) else None
 
 
-def check_skill_naming(root):
+def check_skill_naming(root: Path) -> list[str]:
     """Every skill dir must use an approved category prefix from skill-taxonomy.json.
 
     Names are <category>-[<sub>-]<name>; the top-level <category> must be a key in the registry's
@@ -778,11 +798,12 @@ def check_skill_naming(root):
     tax = _load_taxonomy(root)
     if not skills_dir.is_dir() or not tax:
         return []
-    cats = set((tax.get("categories") or {}).keys())
-    legacy = set(tax.get("legacy") or [])
+    categories: JsonObject = tax.get("categories") or {}
+    cats: set[str] = set(categories.keys())
+    legacy: set[str] = set(tax.get("legacy") or [])
     if not cats:
         return []
-    bad = []
+    bad: list[str] = []
     for d in sorted(skills_dir.iterdir()):
         if not (d.is_dir() and (d / "SKILL.md").is_file()):
             continue
@@ -806,7 +827,7 @@ _SENSITIVE_NAME_RX = re.compile(
 )
 
 
-def _denylist_terms(root):
+def _denylist_terms(root: Path) -> list[str]:
     """Maintainer's private-infra terms, loaded from a LOCAL (gitignored / out-of-repo) file so
     the terms themselves are never published in this shipped hook. Absent on contributor/CI
     machines -> that part of the scan is simply skipped (the maintainer's pre-commit catches it)."""
@@ -826,7 +847,7 @@ def _denylist_terms(root):
 _SECRET_SCAN_CAP = 2_000_000
 
 
-def _read_capped(path, cap):
+def _read_capped(path: StrPath, cap: int) -> bytes | None:
     """The bytes of `path`, or None when it cannot be read or holds more than `cap` bytes.
 
     The size is decided before the content is loaded: a skipped file must not cost its whole
@@ -842,7 +863,7 @@ def _read_capped(path, cap):
     return None if len(raw) > cap else raw
 
 
-def check_secrets(root):
+def check_secrets(root: Path) -> list[str]:
     """Block credentials, private keys, sensitive files, and (locally) denylisted infra terms.
     Runs on every commit and PR, so the credential class of leak can never land. The judgment
     class (generic vs real IPs/domains) is left to the documented human/agent security review."""
@@ -850,7 +871,7 @@ def check_secrets(root):
     if rc != 0:
         return []
     deny = [(t, t.lower()) for t in _denylist_terms(root)]
-    findings = []
+    findings: list[str] = []
     for rel in paths:
         if _SENSITIVE_NAME_RX.search(rel):
             findings.append(f"  {rel}: sensitive filename")
@@ -880,13 +901,13 @@ def check_secrets(root):
 _PIP_TO_IMPORT = {"pyyaml": "yaml"}
 
 
-def ci_test_dependencies(root):
+def ci_test_dependencies(root: Path) -> list[str]:
     """The packages CI installs before pytest, read from the workflow so the two cannot drift."""
     try:
         text = (root / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     except OSError:
         return []  # no workflow, so no claim about CI parity to make
-    names = []
+    names: list[str] = []
     for line in text.splitlines():
         stripped = line.strip()
         if not stripped.startswith("pip install "):
@@ -895,7 +916,7 @@ def ci_test_dependencies(root):
     return names
 
 
-def module_installed(module):
+def module_installed(module: str) -> bool:
     """True if `module` can be found by the interpreter that will run pytest."""
     try:
         return importlib.util.find_spec(module) is not None
@@ -917,19 +938,19 @@ class _CouldNotRun(str):
     the one list every check already returns, so the hook-mode printer needs no change."""
 
 
-def could_not_run(lines):
+def could_not_run(lines: Sequence[str]) -> list[str]:
     """Mark `lines` as a could-not-run failure (the first line carries the tag)."""
     if not lines:
         return []
     return [_CouldNotRun(lines[0]), *lines[1:]]
 
 
-def is_could_not_run(lines):
+def is_could_not_run(lines: Iterable[str]) -> bool:
     """True when any line in `lines` was marked by `could_not_run`."""
     return any(isinstance(line, _CouldNotRun) for line in lines)
 
 
-def check_test_dependencies(root, is_installed=None):
+def check_test_dependencies(root: Path, is_installed: Callable[[str], bool] | None = None) -> list[str]:
     """Name a missing test dependency, rather than letting it surface as somebody's failed assert."""
     probe = is_installed or module_installed
     declared = ci_test_dependencies(root)
@@ -974,14 +995,17 @@ class SuiteLauncher:
 
     __slots__ = ("argv", "env")
 
-    def __init__(self, argv, env=None):
-        self.argv, self.env = list(argv), env
+    def __init__(self, argv: Iterable[str], env: Env = None) -> None:
+        self.argv: list[str] = list(argv)
+        self.env: Env = env
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "SuiteLauncher(%r)" % (self.argv,)
 
 
-def pytest_interpreter(root, is_installed=None, which=shutil.which, run=subprocess.run):
+def pytest_interpreter(root: Path, is_installed: Callable[[str], bool] | None = None,
+                       which: Callable[[str], str | None] = shutil.which,
+                       run: Runner = subprocess.run) -> tuple[SuiteLauncher, list[str]]:
     """(`SuiteLauncher` for the suite, could-not-run lines) for the marketplace at ``root``.
 
     The python3 this gate starts on is the SESSION's choice: launched from inside another project's
@@ -1007,7 +1031,7 @@ def pytest_interpreter(root, is_installed=None, which=shutil.which, run=subproce
     return launcher, []
 
 
-def _uv_launcher(uv, declared):
+def _uv_launcher(uv: str, declared: Sequence[str]) -> SuiteLauncher:
     """`uv run` with the CI set, as a `SuiteLauncher` whose environment has no VIRTUAL_ENV.
 
     --no-project: the marketplace's pyproject is not the test set, and syncing it would rewrite its
@@ -1019,7 +1043,7 @@ def _uv_launcher(uv, declared):
     return SuiteLauncher(argv, {k: v for k, v in os.environ.items() if k != "VIRTUAL_ENV"})
 
 
-def _launcher_lacks(launcher, root, modules, run):
+def _launcher_lacks(launcher: SuiteLauncher, root: Path, modules: Sequence[str], run: Runner) -> str:
     """Why ``launcher`` cannot run the suite (a could-not line), or "" when it has every module."""
     try:
         out = run([*launcher.argv, "-c", _PROBE_SCRIPT, *modules], cwd=str(root), env=launcher.env,
@@ -1060,12 +1084,12 @@ _PYTEST_SUMMARY_RX = re.compile(
 _ANSI_RX = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 
 
-def _without_ansi(text):
+def _without_ansi(text: str) -> str:
     """``text`` with its ANSI escape sequences removed."""
     return _ANSI_RX.sub("", text)
 
 
-def expected_collected(root):
+def expected_collected(root: StrPath) -> int:
     """The recorded size of the suite, or 0 when there is no baseline to compare against."""
     try:
         raw = (Path(root) / "plugins" / "bitranox" / "hooks" / BASELINE_FILE).read_text(encoding="utf-8")
@@ -1074,7 +1098,7 @@ def expected_collected(root):
         return 0
 
 
-def pytest_argv(root, paths, launcher=None):
+def pytest_argv(root: StrPath, paths: Iterable[StrPath], launcher: SuiteLauncher | None = None) -> list[str]:
     """The exact pytest command the gate runs, so CI can invoke it without duplicating flags.
 
     import-mode=importlib keys modules by full path rather than basename. check_duplicate_basenames
@@ -1092,7 +1116,7 @@ def pytest_argv(root, paths, launcher=None):
     ]
 
 
-def junit_total(path):
+def junit_total(path: StrPath) -> int | None:
     """Total tests recorded in a pytest junit report, or None if it cannot be read.
 
     The count comes from the report rather than from scraped stdout because --pytest-only
@@ -1113,7 +1137,7 @@ def junit_total(path):
     return total
 
 
-def floor_problems(report, baseline):
+def floor_problems(report: StrPath, baseline: int) -> list[str]:
     """Fail closed: an unknown count is not evidence the suite ran."""
     if not baseline:
         return []  # no baseline recorded yet, so there is nothing to compare against
@@ -1138,7 +1162,7 @@ PYTEST_FAILURES_SHOWN = 60
 _FAILURE_LINE_MAX = 300
 
 
-def _junit_node_id(case):
+def _junit_node_id(case: ET.Element) -> str:
     """The pytest node id of a junit (xunit1) `testcase`, rebuilt from its file, classname and name."""
     file, classname, name = case.get("file") or "", case.get("classname") or "", case.get("name") or ""
     if not file:
@@ -1148,7 +1172,7 @@ def _junit_node_id(case):
     return "::".join([file.replace("\\", "/"), *([inner.replace(".", "::")] if inner else []), name])
 
 
-def _first_error_line(element):
+def _first_error_line(element: ET.Element) -> str:
     """The first `E ` line of a junit failure or error, else the first line of its message."""
     for line in (element.text or "").splitlines():
         if line.startswith("E ") and line[1:].strip():
@@ -1157,13 +1181,13 @@ def _first_error_line(element):
     return (message.splitlines()[0] if message else element.tag)[:_FAILURE_LINE_MAX]
 
 
-def _junit_testcases(report):
+def _junit_testcases(report: StrPath) -> Iterator[ET.Element]:
     """Yield each `testcase` element of a junit report as it is parsed, then drop it.
 
     A testcase is removed from its parent once yielded, so memory holds the element being read,
     not every testcase seen so far: `clear()` alone leaves each emptied element attached to its
     testsuite (about 90 bytes apiece, 17 MB at 200,000 cases). Raises OSError or ET.ParseError."""
-    stack = []
+    stack: list[ET.Element] = []
     for event, element in ET.iterparse(str(report), events=("start", "end")):
         if event == "start":
             stack.append(element)
@@ -1176,7 +1200,7 @@ def _junit_testcases(report):
                 stack[-1].remove(element)
 
 
-def failure_report(report, text=""):
+def failure_report(report: StrPath, text: str = "") -> list[str]:
     """Lines naming every failed or errored test of a junit report, or [] when it cannot be read.
 
     The run's output tail used to be the whole report: measured 2026-11-17, a run with 69 failures
@@ -1187,7 +1211,9 @@ def failure_report(report, text=""):
     the rest counted. Streamed (`_junit_testcases`), so memory holds the listed lines and the
     tally, never the report: a growth-ratio test pins it.
     """
-    shown, tally, counts = [], {}, {"failure": 0, "error": 0}
+    shown: list[str] = []
+    tally: dict[str, int] = {}
+    counts = {"failure": 0, "error": 0}
     try:
         for case in _junit_testcases(report):
             bad = next((child for child in case if child.tag in ("failure", "error")), None)
@@ -1220,7 +1246,8 @@ def failure_report(report, text=""):
     return lines
 
 
-def check_pytest(root, paths, baseline=0, launcher=None):
+def check_pytest(root: Path, paths: Iterable[Path], baseline: int = 0,
+                 launcher: SuiteLauncher | None = None) -> list[str]:
     target = [p for p in paths if p.exists()]
     if not target:
         return []  # hook mode pointed at a tests dir that is absent: the one legitimate empty case
@@ -1229,7 +1256,8 @@ def check_pytest(root, paths, baseline=0, launcher=None):
         return _check_pytest_run(root, target, report, baseline, launcher)
 
 
-def _check_pytest_run(root, target, report, baseline, launcher=None):
+def _check_pytest_run(root: Path, target: Sequence[Path], report: Path, baseline: int,
+                      launcher: SuiteLauncher | None = None) -> list[str]:
     # xunit1 adds each test's `file`, which `failure_report` needs to rebuild the node id.
     cmd = pytest_argv(root, target, launcher) + ["--junitxml=" + str(report),
                                                  "-o", "junit_family=xunit1"]
@@ -1270,7 +1298,7 @@ _SKILLS_DIR = "plugins/bitranox/skills"
 _SKILL_MD_RX = re.compile(r"^%s/([^/]+)/SKILL\.md$" % re.escape(_SKILLS_DIR))
 
 
-def _merge_base(root):
+def _merge_base(root: StrPath) -> str | None:
     """The commit HEAD forked from origin/master, or None when there is none to diff from.
 
     None covers more than a missing ref: an unborn HEAD, and a HEAD that shares no history with
@@ -1283,7 +1311,7 @@ def _merge_base(root):
     return sha if rc == 0 and sha else None
 
 
-def _changed_vs_origin(root):
+def _changed_vs_origin(root: StrPath) -> list[str] | None:
     """Worktree+index+untracked paths changed since HEAD forked from origin/master.
 
     The base is the merge-base, not origin's tip: diffed against the tip, a checkout that is
@@ -1303,7 +1331,7 @@ def _changed_vs_origin(root):
     return list(dict.fromkeys(changed + staged + untracked))
 
 
-def _shipping_candidates(root, stage):
+def _shipping_candidates(root: StrPath, stage: Stage) -> list[str] | None:
     """The paths a change at ``stage`` may ship a change to since the merge-base, or None.
 
     `_changed_vs_origin`, and on a push also the paths its commits change (`_pushed_changes`): a
@@ -1321,7 +1349,7 @@ def _shipping_candidates(root, stage):
     return changed if rc else list(dict.fromkeys(changed + pushed))
 
 
-def _table_rows(lines, tool):
+def _table_rows(lines: Sequence[str], tool: ModuleType) -> list[TableRow | None]:
     """Per line: (leading whitespace, blockquote prefix, row) for a markdown table row, else None.
 
     Decided the way the formatter decides it (`_reformat_lines`), with its own fence scanner, so a
@@ -1332,10 +1360,10 @@ def _table_rows(lines, tool):
     front_end = -1
     if lines and lines[0].strip() == "---":
         front_end = next((i for i in range(1, len(lines)) if lines[i].strip() == "---"), len(lines))
-    rows = []
+    rows: list[TableRow | None] = []
     in_table = False
     for index, (line, cls) in enumerate(zip(lines, tool.classify_lines(lines))):
-        found = None
+        found: TableRow | None = None
         if index > front_end and cls.kind == tool.TEXT:
             bq_prefix, content = tool.strip_blockquote(line.strip())
             is_row = content.startswith("|") and "|" in content[1:]
@@ -1348,7 +1376,8 @@ def _table_rows(lines, tool):
     return rows
 
 
-def _row_problem(number, old_row, new_row, is_separator, tool):
+def _row_problem(number: int, old_row: TableRow | None, new_row: TableRow | None,
+                 is_separator: bool, tool: ModuleType) -> str | None:
     """Why the changed line `number` is more than padding, or None when it is padding only."""
     if old_row is None or new_row is None:
         return "line %d is not a table row" % number
@@ -1363,7 +1392,7 @@ def _row_problem(number, old_row, new_row, is_separator, tool):
     return "line %d: the alignment of a column changed" % number
 
 
-def table_padding_problem(old, new, tool):
+def table_padding_problem(old: str, new: str, tool: ModuleType) -> str | None:
     """Return why `new` differs from `old` by more than table padding, or None when it does not.
 
     Table padding only means: the same line count, every changed line a table row on both sides
@@ -1388,7 +1417,7 @@ def table_padding_problem(old, new, tool):
     return None
 
 
-def _merge_base_text(root, rel):
+def _merge_base_text(root: StrPath, rel: str) -> str | None:
     """The text of `rel` at the merge-base as a checkout here would write it, or None.
 
     The fork point, not origin's tip: the candidate list is diffed from the merge-base, and in a
@@ -1400,7 +1429,7 @@ def _merge_base_text(root, rel):
     return None if data is None else data.decode("utf-8", errors="replace")
 
 
-def _would_reformat(tool, data):
+def _would_reformat(tool: ModuleType, data: bytes) -> bool:
     """True when the formatter would rewrite the SKILL.md bytes ``data``.
 
     `reformat_file` is the only public check and it takes a path, so the bytes go through a scratch
@@ -1413,7 +1442,8 @@ def _would_reformat(tool, data):
         return tool.reformat_file(path, check_only=True)
 
 
-def table_repad_problem(root, rel, shipped, read_original=None):
+def table_repad_problem(root: Path, rel: str, shipped: bytes | None,
+                        read_original: Callable[[str], str | None] | None = None) -> str | None:
     """Why the changed SKILL.md `rel` is NOT a waivable table re-pad, or None when it is.
 
     The waiver exists because the reformat-md-tables hook rewrites a non-canonical table in every
@@ -1427,7 +1457,8 @@ def table_repad_problem(root, rel, shipped, read_original=None):
     tool = _table_checker(root)
     if tool is None:
         return "the table formatter is not shipped here, so a re-pad cannot be proven"
-    old = (read_original or (lambda path: _merge_base_text(root, path)))(rel)
+    reader: Callable[[str], str | None] = read_original or (lambda path: _merge_base_text(root, path))
+    old = reader(rel)
     if old is None:
         return "it has no version at its merge-base with origin/master to compare against"
     if shipped is None:
@@ -1471,7 +1502,7 @@ _FENCE_ANY_INDENT = re.compile(r"^[ \t]*(`{3,}|~{3,})(.*)$")
 _LIST_MARKER = re.compile(r"^[ \t]*(?:[-*+]|[0-9]{1,9}[.)])(?:[ \t]+|$)")
 
 
-def _fence_step(fence, found):
+def _fence_step(fence: str | None, found: re.Match[str] | None) -> tuple[str | None, bool]:
     """The open fence after a line whose fence match is ``found``, and whether that line is part
     of a fence: (fence, hidden). ``fence`` is the opener's run, None outside a fence.
 
@@ -1487,7 +1518,7 @@ def _fence_step(fence, found):
     return None, False
 
 
-def _unfenced_lines(text, fence_rx=_FENCE):
+def _unfenced_lines(text: str, fence_rx: re.Pattern[str] = _FENCE) -> Iterator[str]:
     """Yield the lines of `text` outside fenced code blocks, as a Markdown reader sees them.
 
     A fence never closed hides the rest of the file, as it does from a Markdown reader. By default
@@ -1500,13 +1531,13 @@ def _unfenced_lines(text, fence_rx=_FENCE):
             yield line
 
 
-def _indent(line):
+def _indent(line: str) -> int:
     """The width of ``line``'s leading whitespace, a tab counted as four columns."""
     wide = line.expandtabs(4)
     return len(wide) - len(wide.lstrip())
 
 
-def _statement_lines(text):
+def _statement_lines(text: str) -> Iterator[str]:
     """Yield the lines of `text` a Markdown reader shows as prose: outside every code block.
 
     Stricter than `_unfenced_lines`, which `has_open_checkbox` keeps because hiding a line there
@@ -1517,7 +1548,8 @@ def _statement_lines(text):
     indents; a list marker, or a line after a blank one, indented less than an item's content
     leaves that item (any other line runs on lazily as a paragraph continuation).
     """
-    items, paragraph = [], False                   # content indents; a paragraph is open
+    items: list[int] = []                          # content indents
+    paragraph = False                              # a paragraph is open
     for line in _unfenced_lines(text, _FENCE_ANY_INDENT):
         if not line.strip():
             paragraph = False
@@ -1534,14 +1566,14 @@ def _statement_lines(text):
         yield line
 
 
-def _content_indent(marker):
+def _content_indent(marker: str) -> int:
     """The content indent of a list item whose marker and following whitespace are ``marker``;
     a marker ending the line puts the content one column past it."""
     width = len(marker.expandtabs(4))
     return width if marker[-1:] in (" ", "\t") else width + 1
 
 
-def has_open_checkbox(text):
+def has_open_checkbox(text: str) -> bool:
     """True when `text` has an unticked task-list item outside a fenced code block.
 
     A bare substring test for `[ ]` refused a fully ticked checklist whose line QUOTED an open-item
@@ -1551,7 +1583,7 @@ def has_open_checkbox(text):
     return any(_OPEN_TASK.match(line) for line in _unfenced_lines(text))
 
 
-def _shipped_review_files(root, name, arts, stage):
+def _shipped_review_files(root: Path, name: str, arts: Iterable[str], stage: Stage) -> dict[str, bytes]:
     """The SKILL.md, the ledger and the co-changed checklists ``arts`` of skill ``name``, as
     ``stage`` ships them.
 
@@ -1565,12 +1597,12 @@ def _shipped_review_files(root, name, arts, stage):
     return shipped_files(root / _SKILLS_DIR / name, stage, ignore=lambda rel: rel not in wanted)
 
 
-def _shipped_skill_md(root, name, stage):
+def _shipped_skill_md(root: Path, name: str, stage: Stage) -> bytes | None:
     """The bytes of skill ``name``'s SKILL.md as ``stage`` ships it, or None when it ships none."""
     return _shipped_review_files(root, name, (), stage).get("SKILL.md")
 
 
-def _skill_mds_shipping_a_change(root, changed, stage):
+def _skill_mds_shipping_a_change(root: Path, changed: Iterable[str], stage: Stage) -> list[str]:
     """``changed`` without the SKILL.md paths whose bytes, as ``stage`` ships them, equal the
     merge-base's.
 
@@ -1583,7 +1615,7 @@ def _skill_mds_shipping_a_change(root, changed, stage):
     base = _merge_base(root)
     if base is None:
         return list(changed)
-    kept = []
+    kept: list[str] = []
     for path in changed:
         match = _SKILL_MD_RX.match(path)
         if match and (_shipped_skill_md(root, match.group(1), stage)
@@ -1593,7 +1625,7 @@ def _skill_mds_shipping_a_change(root, changed, stage):
     return kept
 
 
-def _ids_missing_from(ledger, named):
+def _ids_missing_from(ledger: bytes, named: Iterable[str]) -> set[str]:
     """The ids of ``named`` no entry of the ledger bytes carries, read one line at a time.
 
     Nothing is missing from a ledger that does not parse: `check_skill_decisions` refuses that
@@ -1610,7 +1642,8 @@ def _ids_missing_from(ledger, named):
     return missing
 
 
-def _decisions_line_failures(name, texts, ledger, *, unreadable=False):
+def _decisions_line_failures(name: str, texts: Iterable[str], ledger: bytes, *,
+                             unreadable: bool = False) -> list[str]:
     """Why the shipped co-changed checklist ``texts`` of skill ``name`` do not state what it
     decided.
 
@@ -1644,7 +1677,9 @@ def _decisions_line_failures(name, texts, ledger, *, unreadable=False):
             % (name, ", ".join(missing), _SKILLS_DIR, name, skill_decisions.LEDGER_REL)]
 
 
-def skill_review_failures(root, changed, read_original=None, stage=None):
+def skill_review_failures(root: Path, changed: Sequence[str],
+                          read_original: Callable[[str], str | None] | None = None,
+                          stage: Stage | None = None) -> list[str]:
     """A changed SKILL.md needs a co-changed, fully-checked .skillwriter/checklist-*.md - the
     skill-writer procedure's committed receipt. Prose discipline gets cherry-picked; a required
     artifact does not. One of those checklists also says what the change decided
@@ -1658,7 +1693,7 @@ def skill_review_failures(root, changed, read_original=None, stage=None):
     the merge-base text, or None; it defaults to reading git and is a parameter so tests need
     no remote."""
     stage = STAGE_INDEX if stage is None else stage
-    fails = []
+    fails: list[str] = []
     names = sorted({m.group(1) for p in changed for m in [_SKILL_MD_RX.match(p)] if m})
     for name in names:
         prefix = "%s/%s/.skillwriter/" % (_SKILLS_DIR, name)
@@ -1686,13 +1721,15 @@ def skill_review_failures(root, changed, read_original=None, stage=None):
     return fails
 
 
-def _shipped_checklist_texts(arts, shipped, skill_prefix):
+def _shipped_checklist_texts(arts: Iterable[str], shipped: Mapping[str, bytes],
+                             skill_prefix: str) -> tuple[list[str], list[str]]:
     """(the decoded texts of the shipped checklists ``arts``, the refusals reading them gave).
 
     A checklist is decoded strictly, as the ledger is: a non-UTF-8 one is refused by name rather
     than read with a replacement character, and an open checkbox in one is refused too.
     """
-    texts, problems = [], []
+    texts: list[str] = []
+    problems: list[str] = []
     for a in arts:
         try:
             text = shipped[a[len(skill_prefix):]].decode("utf-8")
@@ -1707,7 +1744,7 @@ def _shipped_checklist_texts(arts, shipped, skill_prefix):
     return texts, problems
 
 
-def check_skill_review(root, stage=None):
+def check_skill_review(root: Path, stage: Stage | None = None) -> list[str]:
     """`skill_review_failures` for every SKILL.md whose text, as ``stage`` ships it, is changed."""
     stage = STAGE_INDEX if stage is None else stage
     changed = _shipping_candidates(root, stage)
@@ -1717,7 +1754,7 @@ def check_skill_review(root, stage=None):
     return skill_review_failures(root, shipping, stage=stage)
 
 
-def _shipped_description(root, name, stage):
+def _shipped_description(root: Path, name: str, stage: Stage) -> str | None:
     """The `description:` of skill ``name``'s SKILL.md as ``stage`` ships it, or None.
 
     Decoded as `skill_frontmatter.read_text` decodes a file, then read by the same field reader, so
@@ -1729,7 +1766,7 @@ def _shipped_description(root, name, stage):
     return skill_frontmatter.field(skill_frontmatter.frontmatter_block(text), "description")
 
 
-def cso_failures(root, changed, stage=None):
+def cso_failures(root: Path, changed: Iterable[str], stage: Stage | None = None) -> list[str]:
     """A changed skill description must be a single-line plain YAML scalar, trigger-first
     ('Use when ...'), and yield distinctive keywords - that is what makes it router-derivable
     and findable (the CSO rules). Block scalars (`>-`/`|`) and quoted scalars leak their
@@ -1738,7 +1775,7 @@ def cso_failures(root, changed, stage=None):
     The description is read as ``stage`` ships the SKILL.md (default the index), never from the
     working tree; a skill whose SKILL.md the stage does not ship has none to lint."""
     stage = STAGE_INDEX if stage is None else stage
-    fails = []
+    fails: list[str] = []
     for p in changed:
         m = _SKILL_MD_RX.match(p)
         if not m:
@@ -1750,7 +1787,7 @@ def cso_failures(root, changed, stage=None):
     return fails
 
 
-def _shipped_skill_mds(root, stage):
+def _shipped_skill_mds(root: Path, stage: Stage) -> dict[str, bytes] | None:
     """{skill name: SKILL.md bytes} for every skill dir's SKILL.md that ``stage`` ships, or None
     when git cannot list or read them (not a repository, no commit for a push to read)."""
     rc, blobs = _shipped_blobs(root, stage, keep=lambda rel: bool(_SKILL_MD_RX.match(rel)))
@@ -1759,11 +1796,12 @@ def _shipped_skill_mds(root, stage):
     contents = _read_blobs(root, blobs)
     if contents is None:
         return None
-    return {_SKILL_MD_RX.match(rel).group(1): data
-            for (_sha, rel), data in zip(blobs, contents, strict=True)}
+    # Every listed path matched when ``keep`` selected it; the match is taken again for its name.
+    return {m.group(1): data for (_sha, rel), data in zip(blobs, contents, strict=True)
+            if (m := _SKILL_MD_RX.match(rel))}
 
 
-def frontmatter_failures(root, stage=None):
+def frontmatter_failures(root: Path, stage: Stage | None = None) -> list[str]:
     """EVERY shipped SKILL.md must have front matter a parser accepts, and only ONE of them.
 
     `cso_failures` above cannot reach this: it lints the description that `frontmatter_description`
@@ -1793,11 +1831,11 @@ def frontmatter_failures(root, stage=None):
         return hc.frontmatter_problems(scratch)
 
 
-def check_frontmatter(root, stage=None):
+def check_frontmatter(root: Path, stage: Stage | None = None) -> list[str]:
     return frontmatter_failures(root, stage=stage)
 
 
-def _toolbox_nudge_module(root):
+def _toolbox_nudge_module(root: Path) -> ModuleType | None:
     """The shipped `toolbox-nudge.py`, loaded from its path (the filename is hyphenated).
 
     Loaded rather than restated: the rules and the exemptions are the hook's own data, so the gate
@@ -1814,7 +1852,7 @@ def _toolbox_nudge_module(root):
     return module
 
 
-def toolbox_rule_coverage_failures(root, nudge=None):
+def toolbox_rule_coverage_failures(root: Path, nudge: ModuleType | None = None) -> list[str]:
     """Every shipped toolbox tool must have a nudge rule, or a RECORDED reason it has none.
 
     Like `frontmatter_failures` this sweeps the WHOLE scripts dir rather than the changed paths,
@@ -1835,9 +1873,9 @@ def toolbox_rule_coverage_failures(root, nudge=None):
         return []
     scripts_dir = root / _SKILLS_DIR / "compuse-toolbox" / "scripts"
     shipped = {p.stem for p in sorted(scripts_dir.glob("*.py")) if not p.stem.startswith("_")}
-    ruled = nudge.ruled_tools()
+    ruled: set[str] = nudge.ruled_tools()
     exempt = nudge.NO_COMMAND_SHAPE
-    fails = []
+    fails: list[str] = []
     for tool in sorted(shipped - ruled - set(exempt)):
         fails.append(
             "skills/compuse-toolbox/scripts/%s.py ships with no PreToolUse nudge rule and no "
@@ -1854,7 +1892,7 @@ def toolbox_rule_coverage_failures(root, nudge=None):
     # opinion is advice, which is the failure this whole check exists to avoid one level up.
     for tool in sorted(exempt):
         entry = exempt[tool]
-        if not (isinstance(entry, tuple) and len(entry) == 2 and all(
+        if not (_is_tuple(entry) and len(entry) == 2 and all(
                 isinstance(part, str) and part.strip() for part in entry)):
             fails.append(
                 "toolbox-nudge.py NO_COMMAND_SHAPE['%s'] must be a (reason, evidence) pair with "
@@ -1864,11 +1902,11 @@ def toolbox_rule_coverage_failures(root, nudge=None):
     return fails
 
 
-def check_toolbox_rule_coverage(root):
+def check_toolbox_rule_coverage(root: Path) -> list[str]:
     return toolbox_rule_coverage_failures(root)
 
 
-def check_cso(root, stage=None):
+def check_cso(root: Path, stage: Stage | None = None) -> list[str]:
     """`cso_failures` for every SKILL.md whose text, as ``stage`` ships it, is changed."""
     stage = STAGE_INDEX if stage is None else stage
     changed = _shipping_candidates(root, stage)
@@ -1892,7 +1930,7 @@ _SELF_INSTALL_RX = re.compile(r"/plugin marketplace add|/plugin install", re.I)
 _H1_PAREN_RX = re.compile(r"(?<!\s)\s*\([^()]*\)\s*$")
 
 
-def _public_tree(root):
+def _public_tree(root: StrPath) -> Path | None:
     """Return the shared `public/` tree holding the tool repos, or None off this machine."""
 
     for parent in Path(root).resolve().parents:
@@ -1901,7 +1939,7 @@ def _public_tree(root):
     return None
 
 
-def _marketplace_public(root):
+def _marketplace_public(root: StrPath) -> Path | None:
     """The `public/` tree a marketplace checkout at `root` compares its twins in, or None.
 
     A linked worktree may sit outside the tree (a scratch directory), and then its own parents
@@ -1911,7 +1949,7 @@ def _marketplace_public(root):
     return _public_tree(root) or _public_tree(_checkouts(root)[1])
 
 
-def normalise_mirror(text):
+def normalise_mirror(text: str) -> str:
     """Return the comparable body of a mirrored SKILL.md.
 
     Three divergences are by convention, not drift, so they are erased rather than
@@ -1926,7 +1964,7 @@ def normalise_mirror(text):
     """
 
     source = text.splitlines()
-    lines = []
+    lines: list[str] = []
     index = 0
     while index < len(source):
         line = source[index]
@@ -1964,12 +2002,12 @@ MIRROR_IGNORED_DIRS = {".skillwriter", "__pycache__", ".pytest_cache", ".git", "
 _PUBLISHED_REFS = ("origin/HEAD", "origin/master", "origin/main")
 
 
-def _mirror_ignored(rel):
+def _mirror_ignored(rel: str) -> bool:
     return bool(MIRROR_IGNORED_DIRS & set(rel.split("/")))
 
 
-def _working_tree_files(skill_dir, *, ignore=_mirror_ignored):
-    found = {}
+def _working_tree_files(skill_dir: StrPath, *, ignore: PathFilter = _mirror_ignored) -> dict[str, bytes]:
+    found: dict[str, bytes] = {}
     for path in sorted(Path(skill_dir).rglob("*")):
         if not path.is_file():
             continue
@@ -1979,7 +2017,7 @@ def _working_tree_files(skill_dir, *, ignore=_mirror_ignored):
     return found
 
 
-def _published_commit(directory):
+def _published_commit(directory: StrPath) -> str | None:
     for ref in _PUBLISHED_REFS:
         rc, out, _ = _git(directory, "rev-parse", "--verify", "-q", ref + "^{commit}")
         if rc == 0 and out.strip():
@@ -1987,7 +2025,7 @@ def _published_commit(directory):
     return None
 
 
-def _checked_out_bytes(directory, commit, rel, env=None):
+def _checked_out_bytes(directory: StrPath, commit: str, rel: str, env: Env = None) -> bytes | None:
     """A file of ``commit`` exactly as a checkout here would write it (eol and filters applied).
 
     ``commit`` "" names the INDEX (``:./rel``), which is what the next commit will carry; with
@@ -2011,42 +2049,69 @@ def _checked_out_bytes(directory, commit, rel, env=None):
 STAGE_INDEX, STAGE_HEAD = "index", "HEAD"
 
 
-class CommitSelection:
-    """A `git commit` that takes files from the WORKING TREE itself: `-a`, `-i <paths>` or `<paths>`.
+@dataclass(frozen=True, slots=True)
+class AddStep:
+    """One plain `git add` that runs in the same command before its commit: the directory it runs
+    in and its operands, replayed by `_stage_selection` exactly as written."""
 
-    Such a commit stages what it names only when it runs, so the index a PreToolUse gate reads
+    where: str
+    operands: tuple[str, ...]
+
+
+class CommitSelection:
+    """A `git commit` whose shipped files the index read before the command does not show.
+
+    Such a commit stages files only when the command runs, so the index a PreToolUse gate reads
     beforehand is not what it ships. Measured 2026-10-24: `git commit -F msg -- <paths>` with no
-    `git add` was refused as DRIFT quoting the old SKILL.md while the files on disk were in sync.
-    Git defines the selection, and `_selected_files` has git build it:
+    `git add` was refused as DRIFT quoting the old SKILL.md while the files on disk were in sync;
+    measured 2026-11-21: `git add <files> && git commit` passed with an unbumped plugin version,
+    because the index read before the add held none of the change. Git defines the selection, and
+    `_selection_index` has git build it:
 
     * ``all`` (`-a`): the index, with every tracked file re-staged from disk.
     * ``only`` (`<paths>`, `-o`): HEAD, with the named paths staged from disk, so a change staged
       elsewhere is NOT in this commit.
     * ``include`` (`-i <paths>`): the index, with the named files re-staged from disk.
+    * ``index`` (a plain commit after `git add` statements): the index as those adds leave it.
 
     ``where`` is the directory the commit runs in, which the pathspecs are relative to.
+    ``staged_first`` are the plain `git add` statements before the commit, replayed on a copy of
+    the index first (an ``only`` commit ignores them: it starts from HEAD).
 
     Not seen by any PreToolUse reading, this one or the index: a `pre-commit` hook that edits and
-    stages files, and environment the command's git gets but this hook does not (a `GIT_*`
-    variable or `GIT_CONFIG_*` injected into the shell from outside the command text).
+    stages files, a script that stages files itself, and environment the command's git gets but
+    this hook does not (a `GIT_*` variable or `GIT_CONFIG_*` injected into the shell from outside
+    the command text).
     """
 
-    __slots__ = ("mode", "pathspecs", "where")
+    __slots__ = ("mode", "pathspecs", "staged_first", "where")
 
-    def __init__(self, mode, pathspecs=(), where=None):
-        self.mode, self.pathspecs, self.where = mode, tuple(pathspecs), where
+    def __init__(self, mode: str, pathspecs: Iterable[str] = (), where: StrPath | None = None,
+                 staged_first: Iterable[AddStep] = ()) -> None:
+        self.mode = mode
+        self.pathspecs: tuple[str, ...] = tuple(pathspecs)
+        self.where = where
+        self.staged_first: tuple[AddStep, ...] = tuple(staged_first)
 
-    def __repr__(self):
-        return "CommitSelection(%r, %r, %r)" % (self.mode, self.pathspecs, self.where)
+    def __repr__(self) -> str:
+        return "CommitSelection(%r, %r, %r, %r)" % (self.mode, self.pathspecs, self.where,
+                                                    self.staged_first)
 
 
-def _is_commit(stage):
+#: What a gated command ships from the side being committed: `STAGE_INDEX`, `STAGE_HEAD`, or a
+#: commit that takes its own files (`CommitSelection`).
+type Stage = str | CommitSelection
+
+
+def _is_commit(stage: Stage | None) -> bool:
     """True for any stage a COMMIT ships (the index, or a `CommitSelection`), False for a push."""
     return stage == STAGE_INDEX or isinstance(stage, CommitSelection)
 
 
-def _selection_top(skill_dir, selection):
+def _selection_top(skill_dir: StrPath, selection: CommitSelection) -> str | None:
     """The repository top both the skill and the commit live in, or None if they differ or git fails."""
+    if selection.where is None:
+        return None                          # no directory to ask git in: it cannot say either
     rc_top, here_top, _ = _git(skill_dir, "rev-parse", "--show-toplevel")
     rc_where, where_top, _ = _git(selection.where, "rev-parse", "--show-toplevel")
     if rc_top or rc_where or os.path.normcase(here_top.strip()) != os.path.normcase(where_top.strip()):
@@ -2054,7 +2119,8 @@ def _selection_top(skill_dir, selection):
     return here_top.strip()
 
 
-def _stage_selection(selection, top, real_index, temp_index, env):
+def _stage_selection(selection: CommitSelection, top: str, real_index: str, temp_index: str,
+                     env: Mapping[str, str]) -> bool:
     """Build in ``temp_index`` what ``selection`` commits, with git's own staging; False if git fails.
 
     The same plumbing the commit runs: `add -u` re-stages tracked files for `-a` and `-i`, and a
@@ -2062,10 +2128,13 @@ def _stage_selection(selection, top, real_index, temp_index, env):
     HEAD (so a path `git rm` removed is removed here too). A partial commit keeps HEAD's blob for a
     skip-worktree entry (sparse checkout), which a HEAD-built index cannot know, so any such match
     gives False and the index reading."""
+    where = selection.where
+    if where is None:
+        return False                         # `_selection_top` already refused it
     if selection.mode == "only":
-        rc_m, named = _git_paths(selection.where, "ls-files", "--full-name", "--with-tree=HEAD", "--",
+        rc_m, named = _git_paths(where, "ls-files", "--full-name", "--with-tree=HEAD", "--",
                                  *selection.pathspecs)
-        rc_t, tagged = _git_paths(selection.where, "ls-files", "-t", "--full-name", "--", *selection.pathspecs)
+        rc_t, tagged = _git_paths(where, "ls-files", "-t", "--full-name", "--", *selection.pathspecs)
         if rc_m or rc_t or any(row.startswith("S ") for row in tagged):
             return False
         if _git(top, "read-tree", "HEAD", env=env)[0]:
@@ -2073,13 +2142,38 @@ def _stage_selection(selection, top, real_index, temp_index, env):
         return not named or _git(top, "update-index", "--add", "--remove", "--", *named, env=env)[0] == 0
     if not os.path.isfile(real_index):
         return False
-    shutil.copyfile(real_index, temp_index)
+    # copy2, not copyfile: git trusts an entry's stat data only while the index file's own mtime
+    # is newer than the entry ("racy git"). A copy stamped now makes a same-size edit from the
+    # second of the last commit look clean to a whole-second build (macOS git), so the add and
+    # -a below would not stage it.
+    shutil.copy2(real_index, temp_index)
+    if not _replay_adds(selection.staged_first, top, env):
+        return False
+    if selection.mode == "index":
+        return True
     specs = ("--", ":/") if selection.mode == "all" else ("--", *selection.pathspecs)
-    return _git(selection.where, "add", "-u", *specs, env=env)[0] == 0
+    return _git(where, "add", "-u", *specs, env=env)[0] == 0
+
+
+def _replay_adds(adds: Sequence[AddStep], top: str, env: Mapping[str, str]) -> bool:
+    """Run each `git add` of the command into the temp index ``env`` names; False if one fails.
+
+    An add whose directory lies in another repository stages nothing here and is skipped. One that
+    fails (a missing path, an ignored file) stops the real command at that add too, so the reading
+    falls back rather than guessing what a half-run command ships."""
+    for step in adds:
+        rc, step_top, _ = _git(step.where, "rev-parse", "--show-toplevel")
+        if rc:
+            return False
+        if os.path.normcase(step_top.strip()) != os.path.normcase(top):
+            continue
+        if _git(step.where, "add", *step.operands, env=env)[0]:
+            return False
+    return True
 
 
 @contextlib.contextmanager
-def _selection_index(directory, selection):
+def _selection_index(directory: StrPath, selection: CommitSelection) -> Iterator[dict[str, str] | None]:
     """Yield the git environment whose index holds what ``selection`` commits, or None.
 
     Git builds the selection itself, in a throwaway index (`GIT_INDEX_FILE`), and callers read it
@@ -2104,7 +2198,7 @@ def _selection_index(directory, selection):
         yield env if _stage_selection(selection, top, real_index.strip(), temp_index, env) else None
 
 
-def _git_anchor(skill_dir):
+def _git_anchor(skill_dir: Path) -> tuple[Path, str]:
     """(an existing directory to run git in, ``skill_dir`` as a pathspec relative to it).
 
     The skill dir itself with pathspec ".", or, for a dir gone from disk, its nearest existing
@@ -2117,7 +2211,7 @@ def _git_anchor(skill_dir):
     return here, skill_dir.relative_to(here).as_posix()
 
 
-def _under(sub, path):
+def _under(sub: str, path: str) -> str | None:
     """``path`` (relative to the git anchor) relative to the skill dir ``sub``, or None if
     outside it."""
     if sub == ".":
@@ -2125,7 +2219,8 @@ def _under(sub, path):
     return path[len(sub) + 1:] if path.startswith(sub + "/") else None
 
 
-def _selected_files(skill_dir, selection, *, ignore=_mirror_ignored):
+def _selected_files(skill_dir: StrPath, selection: CommitSelection, *,
+                    ignore: PathFilter = _mirror_ignored) -> dict[str, bytes] | None:
     """`shipped_files` for a `CommitSelection`, or None when git cannot say what it takes."""
     here, sub = _git_anchor(Path(skill_dir))
     with _selection_index(here, selection) as env:
@@ -2134,7 +2229,7 @@ def _selected_files(skill_dir, selection, *, ignore=_mirror_ignored):
         rc_l, listed = _git_paths(here, "ls-files", "--", sub, env=env)
         if rc_l:
             return None
-        found = {}
+        found: dict[str, bytes] = {}
         for path in dict.fromkeys(listed):
             rel = _under(sub, path)
             if rel is None or ignore(rel):
@@ -2146,7 +2241,7 @@ def _selected_files(skill_dir, selection, *, ignore=_mirror_ignored):
         return dict(sorted(found.items()))
 
 
-def shipped_files(skill_dir, stage, *, ignore=_mirror_ignored):
+def shipped_files(skill_dir: StrPath, stage: Stage, *, ignore: PathFilter = _mirror_ignored) -> Files:
     """Map every comparable file of a mirrored skill to the bytes a commit or push SHIPS.
 
     The side being committed is judged by what its commit carries, never by its working tree: an
@@ -2174,7 +2269,7 @@ def shipped_files(skill_dir, stage, *, ignore=_mirror_ignored):
                                                   "--", sub)
     if rc:
         return _working_tree_files(skill_dir, ignore=ignore)
-    found = {}
+    found: Files = {}
     for path in dict.fromkeys(listed):           # an unmerged path is listed once per stage
         rel = _under(sub, path)
         if rel is None or ignore(rel):
@@ -2186,7 +2281,8 @@ def shipped_files(skill_dir, stage, *, ignore=_mirror_ignored):
     return dict(sorted(found.items()))
 
 
-def _on_published(skill_dir, local_since, fallback, ignore=_mirror_ignored):
+def _on_published(skill_dir: StrPath, local_since: Callable[[str], LocalChanges | None],
+                  fallback: Callable[[], Files], ignore: PathFilter = _mirror_ignored) -> Files:
     """The published ref's files, each one the checkout changed since forking replaced by its local copy.
 
     ``local_since(base)`` returns ``(paths, read)`` - the paths changed here since the fork point
@@ -2205,7 +2301,7 @@ def _on_published(skill_dir, local_since, fallback, ignore=_mirror_ignored):
     if rc_up or local is None:
         return fallback()
     paths, read = local
-    found = {}
+    found: Files = {}
     for rel in upstream:
         if rel in paths or ignore(rel):
             continue
@@ -2220,13 +2316,13 @@ def _on_published(skill_dir, local_since, fallback, ignore=_mirror_ignored):
     return dict(sorted(found.items()))
 
 
-def _changed_since(skill_dir, base, *upto):
+def _changed_since(skill_dir: StrPath, base: str, *upto: str) -> tuple[int, list[str]]:
     # --no-renames: with rename detection on, a moved file lists only its NEW name, and the old one
     # would be read back from the published ref as a file that still exists.
     return _git_paths(skill_dir, "diff", "--name-only", "--relative", "--no-renames", base, *upto, "--", ".")
 
 
-def mirror_files(skill_dir):
+def mirror_files(skill_dir: StrPath) -> Files:
     """Map every comparable file of a mirrored skill to its NEWEST bytes, by relative posix path.
 
     The reading of the AUDITS (`--mirrors`, `--mirror-of`); the commit and push gates read
@@ -2246,7 +2342,7 @@ def mirror_files(skill_dir):
 
     skill_dir = Path(skill_dir)
 
-    def local_since(base):
+    def local_since(base: str) -> LocalChanges | None:
         rc_ed, edited = _changed_since(skill_dir, base)
         rc_un, untracked = _git_paths(skill_dir, "ls-files", "--others", "--exclude-standard", "--", ".")
         if rc_ed or rc_un:
@@ -2257,7 +2353,7 @@ def mirror_files(skill_dir):
     return _on_published(skill_dir, local_since, lambda: _working_tree_files(skill_dir))
 
 
-def published_files(skill_dir, *, ignore=_mirror_ignored):
+def published_files(skill_dir: StrPath, *, ignore: PathFilter = _mirror_ignored) -> Files:
     """Map every comparable file of a mirrored skill to what its repo has PUBLISHED or COMMITTED.
 
     The reading of the side a commit or push is NOT being made in: its published ref, with every
@@ -2270,7 +2366,7 @@ def published_files(skill_dir, *, ignore=_mirror_ignored):
 
     skill_dir = Path(skill_dir)
 
-    def local_since(base):
+    def local_since(base: str) -> LocalChanges | None:
         rc_ed, edited = _changed_since(skill_dir, base, "HEAD")
         if rc_ed:
             return None
@@ -2285,7 +2381,7 @@ def published_files(skill_dir, *, ignore=_mirror_ignored):
 STALE_REF_DAYS = 7
 
 
-def _clone_time(common):
+def _clone_time(common: StrPath) -> float | None:
     """The clone's own timestamp from the first entry of `logs/HEAD`, or None."""
     try:
         first = (Path(common) / "logs" / "HEAD").read_text(encoding="utf-8", errors="replace").split("\n", 1)[0]
@@ -2295,7 +2391,7 @@ def _clone_time(common):
         return None
 
 
-def ref_age_days(directory, now=None):
+def ref_age_days(directory: StrPath, now: float | None = None) -> float | None:
     """Days since the repository holding `directory` last fetched its remote, or None if unknown.
 
     FETCH_HEAD is rewritten by every fetch and pull, a no-op one included, so its mtime is the last
@@ -2309,7 +2405,7 @@ def ref_age_days(directory, now=None):
     common = Path(out.strip())
     if not common.is_absolute():
         common = Path(directory) / common
-    stamps = []
+    stamps: list[float] = []
     for candidate in [common / "FETCH_HEAD", *sorted((common / "worktrees").glob("*/FETCH_HEAD"))]:
         try:
             stamps.append(candidate.stat().st_mtime)
@@ -2322,12 +2418,12 @@ def ref_age_days(directory, now=None):
     return max(0.0, ((time.time() if now is None else now) - max(stamps)) / 86400)
 
 
-def stale_ref_notes(directories):
+def stale_ref_notes(directories: Iterable[StrPath]) -> list[str]:
     """One line per directory whose published ref was last fetched over STALE_REF_DAYS ago.
 
     Read-only by design: the gates never fetch (a network call inside a commit hook), so the most
     they can do is say how old the text they compared against is."""
-    notes = []
+    notes: list[str] = []
     for directory in directories:
         age = ref_age_days(directory)
         if age is not None and age > STALE_REF_DAYS:
@@ -2337,12 +2433,13 @@ def stale_ref_notes(directories):
     return notes
 
 
-def _mirror_readers(committing, stage):
+def _mirror_readers(committing: str | None,
+                    stage: Stage) -> tuple[FilesReader, FilesReader, tuple[str, ...]]:
     """(marketplace reader, twin reader, sides whose published ref is read) for one comparison."""
     if committing is None:
         return mirror_files, mirror_files, ("marketplace", "twin")
 
-    def shipped(skill_dir):
+    def shipped(skill_dir: StrPath) -> Files:
         return shipped_files(skill_dir, stage)
 
     if committing == "marketplace":
@@ -2350,9 +2447,11 @@ def _mirror_readers(committing, stage):
     return published_files, shipped, ("marketplace",)
 
 
-def _mirror_differences(mine_files, their_files):
+def _mirror_differences(mine_files: Mapping[str, bytes],
+                        their_files: Mapping[str, bytes]) -> tuple[list[str], list[str]]:
     """(differing paths, sample diff lines of SKILL.md) between the marketplace and twin readings."""
-    differing, sample = [], []
+    differing: list[str] = []
+    sample: list[str] = []
     for rel in sorted(set(mine_files) | set(their_files)):
         mine, theirs = mine_files.get(rel), their_files.get(rel)
         if mine is None:
@@ -2373,7 +2472,8 @@ def _mirror_differences(mine_files, their_files):
     return differing, sample
 
 
-def _matches_uncommitted_other_side(committing, here_dir, twin_dir, mine_files, their_files):
+def _matches_uncommitted_other_side(committing: str | None, here_dir: Path, twin_dir: Path,
+                                    mine_files: Files, their_files: Files) -> bool:
     """True when the side being committed matches the OTHER side's uncommitted text exactly.
 
     A change made to both copies of a mirrored skill could otherwise commit on neither side first:
@@ -2386,7 +2486,8 @@ def _matches_uncommitted_other_side(committing, here_dir, twin_dir, mine_files, 
     return bool(mine_files and their_files) and not _mirror_differences(mine_files, their_files)[0]
 
 
-def _fixed_on_disk(committing, here_dir, twin_dir, mine_files, their_files):
+def _fixed_on_disk(committing: str | None, here_dir: Path, twin_dir: Path, mine_files: Files,
+                   their_files: Files) -> bool:
     """True when the committing side's WORKING TREE already matches the other side's reading.
 
     A commit is judged on what it takes (the index, or its `CommitSelection`), so a fix that sits
@@ -2403,20 +2504,21 @@ def _fixed_on_disk(committing, here_dir, twin_dir, mine_files, their_files):
 _UNSTAGED_MARK = "is modified but not staged"
 
 
-def _unstaged_message(name, skill_dir, differing, stage):
+def _unstaged_message(name: str, skill_dir: Path, differing: Sequence[str], stage: Stage) -> str:
     """The refusal for a commit whose mirror fix is on disk but not in what the commit takes."""
     named = isinstance(stage, CommitSelection) and stage.mode in ("only", "include")
-    # "Earlier" because the gate judges the whole command before any of it runs: a `git add` in
-    # the same command as the commit is not in the index the gate reads.
     remedy = ("name it among the commit's paths too - this commit takes only the paths it names"
-              if named else "git add it in an earlier, separate command, then commit again")
+              if named else "git add it, then commit again")
     return ("skills/%s: %s %s in %s - the file on disk already matches its twin, but what this "
             "commit takes does not. Nothing needs regenerating: %s."
             % (name, ", ".join(differing[:6]), _UNSTAGED_MARK, skill_dir, remedy))
 
 
-def mirror_failures(root, names, committing=None, stage=STAGE_INDEX, notices=None, twins=None,
-                    mirrors=None, log=None):
+def mirror_failures(root: StrPath, names: Iterable[str], committing: str | None = None,
+                    stage: Stage = STAGE_INDEX, notices: list[str] | None = None,
+                    twins: Mapping[str, StrPath] | None = None,
+                    mirrors: Mapping[str, str] | None = None,
+                    log: RefusalLog | None = None) -> list[str]:
     """Return a failure per mirrored skill in ``names`` whose twin has drifted.
 
     A mirrored skill is a DIRECTORY. Several pairs ship `references/` and `scripts/` beside their
@@ -2461,7 +2563,7 @@ def mirror_failures(root, names, committing=None, stage=STAGE_INDEX, notices=Non
     read_here, read_twin, from_published = _mirror_readers(committing, stage)
     # An audit (committing None) already reads both sides at their newest text, so it never matches here.
     lenient = _is_commit(stage) and notices is not None
-    fails = []
+    fails: list[str] = []
     for name in sorted(names):
         relative = mirrors.get(name)
         if relative is None:
@@ -2485,7 +2587,9 @@ def mirror_failures(root, names, committing=None, stage=STAGE_INDEX, notices=Non
                 if committing == "marketplace" else False)
         if held:
             continue
-        if lenient and _matches_uncommitted_other_side(committing, here_dir, twin_dir, mine_files, their_files):
+        # ``lenient`` is only ever True with ``notices`` given; the test states it for the reader.
+        if lenient and notices is not None and _matches_uncommitted_other_side(
+                committing, here_dir, twin_dir, mine_files, their_files):
             other = twin_dir if committing == "marketplace" else here_dir
             notices.append(
                 "skills/%s matches its twin only through uncommitted text at %s, so this commit is "
@@ -2520,13 +2624,14 @@ def mirror_failures(root, names, committing=None, stage=STAGE_INDEX, notices=Non
     return fails
 
 
-def _difference_size(differences):
+def _difference_size(differences: Differences) -> tuple[int, int]:
     """How far apart two readings are: (differing files, changed SKILL.md lines), smaller is closer."""
     differing, sample = differences
     return len(differing), len(sample)
 
 
-def _closest_twin_checkout(twin_dir, mine_files, published, lenient):
+def _closest_twin_checkout(twin_dir: Path, mine_files: Files, published: Differences,
+                           lenient: bool) -> tuple[Path, str, Differences] | None:
     """(checkout, reading, differences) of the tool-repo checkout CLOSER to the marketplace text
     than the twin's published reading ``published``, or None when none is.
 
@@ -2538,10 +2643,12 @@ def _closest_twin_checkout(twin_dir, mine_files, published, lenient):
     committed text ``published`` already is) and every other one `_tool_worktrees` names, each at
     its committed text and, on a commit (``lenient``), at its uncommitted text too - the readings a
     commit accepts (`_twin_held_in_tool_worktree`, `_matches_uncommitted_other_side`)."""
-    best, best_size = None, _difference_size(published)
-    candidates = [(twin_dir, None)] + [(other, published_files(other)) for other in _tool_worktrees(twin_dir)]
+    best: tuple[Path, str, Differences] | None = None
+    best_size = _difference_size(published)
+    candidates: list[tuple[Path, Files | None]] = [(twin_dir, None)]
+    candidates += [(other, published_files(other)) for other in _tool_worktrees(twin_dir)]
     for other, committed in candidates:
-        readings = [] if committed is None else [("committed", committed)]
+        readings: list[tuple[str, Files]] = [] if committed is None else [("committed", committed)]
         if lenient:
             readings.append(("uncommitted", mirror_files(other)))
         for kind, files in readings:
@@ -2553,7 +2660,7 @@ def _closest_twin_checkout(twin_dir, mine_files, published, lenient):
     return best
 
 
-def _tool_worktrees(twin_dir):
+def _tool_worktrees(twin_dir: Path) -> list[Path]:
     """The same twin directory in every OTHER checkout of the tool repo holding it: its main
     checkout and each linked worktree, as `git worktree list` names them, that carries the skill."""
     top, main = _checkouts(twin_dir)
@@ -2564,7 +2671,7 @@ def _tool_worktrees(twin_dir):
     rc, out, _ = _git(main, "worktree", "list", "--porcelain", "-z")
     if rc:
         return []
-    found = []
+    found: list[Path] = []
     for field in out.split("\0"):
         if not field.startswith("worktree "):
             continue
@@ -2574,7 +2681,8 @@ def _tool_worktrees(twin_dir):
     return found
 
 
-def _twin_held_in_tool_worktree(name, twin_dir, mine_files, lenient, notices):
+def _twin_held_in_tool_worktree(name: str, twin_dir: Path, mine_files: Files, lenient: bool,
+                                notices: list[str] | None) -> bool:
     """True when another checkout of the tool repo holds the twin text the marketplace ships.
 
     The mirror of what a tool-repo commit already accepts from marketplace worktrees: the twin
@@ -2593,9 +2701,11 @@ def _twin_held_in_tool_worktree(name, twin_dir, mine_files, lenient, notices):
                                "marketplace change is published." % (name, other))
             return True
         if lenient and not _mirror_differences(mine_files, mirror_files(other))[0]:
-            notices.append("skills/%s matches its twin only through uncommitted text at %s, so "
-                           "this commit is allowed; commit that side next - a push from either "
-                           "repo is refused until both sides are committed." % (name, other))
+            if notices is not None:
+                notices.append("skills/%s matches its twin only through uncommitted text at %s, "
+                               "so this commit is allowed; commit that side next - a push from "
+                               "either repo is refused until both sides are committed."
+                               % (name, other))
             return True
     return False
 
@@ -2605,21 +2715,21 @@ def _twin_held_in_tool_worktree(name, twin_dir, mine_files, lenient, notices):
 _SKILL_FILE_RX = re.compile(r"^%s/([^/]+)/" % re.escape(_SKILLS_DIR))
 
 
-def _index_changes(root, env=None):
+def _index_changes(root: StrPath, env: Env = None) -> tuple[int, list[str]]:
     """Paths the index (``env``'s, else the real one) changes against HEAD; all of it before a first commit."""
     if _git(root, "rev-parse", "--verify", "-q", "HEAD")[0]:
         return _git_paths(root, "ls-files", env=env)
     return _git_paths(root, "diff", "--cached", "--name-only", "--no-renames", "HEAD", env=env)
 
 
-def _pushed_changes(root, published="origin/master"):
+def _pushed_changes(root: StrPath, published: str | None = "origin/master") -> tuple[int, list[str]]:
     """(rc, paths) the commits since ``published`` change; rc non-zero when there is no such ref."""
     if not published or _git(root, "rev-parse", "--verify", "-q", published)[0]:
         return 1, []
     return _git_paths(root, "diff", "--name-only", "--no-renames", published + "...HEAD")
 
 
-def _commit_changes(root, stage):
+def _commit_changes(root: StrPath, stage: Stage) -> tuple[int, list[str]]:
     """(rc, paths) a COMMIT at ``stage`` changes against HEAD: its staged index, or its selection.
 
     When git cannot build a `CommitSelection`, the working tree's changes count too: the commit
@@ -2635,7 +2745,8 @@ def _commit_changes(root, stage):
     return rc_i or rc_w, staged + unstaged
 
 
-def check_skill_mirrors(root, stage=STAGE_INDEX, notices=None, publishes=False, mirrors=None):
+def check_skill_mirrors(root: Path, stage: Stage = STAGE_INDEX, notices: list[str] | None = None,
+                        publishes: bool = False, mirrors: Mapping[str, str] | None = None) -> list[str]:
     """Gate the mirrored twin of every skill this change ships a change to.
 
     Scoped to what the change SHIPS, like the review and description checks:
@@ -2660,13 +2771,14 @@ def check_skill_mirrors(root, stage=STAGE_INDEX, notices=None, publishes=False, 
                            notices=notices, mirrors=mirrors)
 
 
-def _shipped_changes(root, stage, publishes, published="origin/master"):
+def _shipped_changes(root: StrPath, stage: Stage, publishes: bool,
+                     published: str | None = "origin/master") -> tuple[int, list[str]]:
     """(rc, repo-relative paths) a gated command at ``stage`` ships; rc non-zero when git cannot say.
 
     A commit counts the files its own selection changes against HEAD (`_commit_changes`); a push
     the files its commits change since ``published``; a commit whose command also ``publishes``
     both, since the push sends the unpushed commits under it as well."""
-    changed = []
+    changed: list[str] = []
     if _is_commit(stage):
         rc, changed = _commit_changes(root, stage)
         if rc:
@@ -2686,11 +2798,11 @@ def _shipped_changes(root, stage, publishes, published="origin/master"):
 _DECISION_IGNORED = frozenset({"__pycache__", ".pytest_cache", ".git", ".ruff_cache"})
 
 
-def _decision_ignored(rel):
+def _decision_ignored(rel: str) -> bool:
     return bool(_DECISION_IGNORED & set(rel.split("/")))
 
 
-def _log_decision_refusal(record):
+def _log_decision_refusal(record: Mapping[str, str]) -> None:
     """Append one refusal to the machine-local audit log; a log that cannot be written is
     skipped."""
     try:
@@ -2704,7 +2816,7 @@ def _log_decision_refusal(record):
         pass
 
 
-def _ledger_lines(data):
+def _ledger_lines(data: bytes) -> Iterator[bytes]:
     """Yield the lines of the ledger bytes ``data``, each with its b"\\n", splitting on b"\\n" only.
 
     The reading `skill_decisions.file_lines` gives a file on disk: bytes, so `parse_entries`
@@ -2720,7 +2832,8 @@ def _ledger_lines(data):
         start = end
 
 
-def _append_only_problem(root, ledger_rel, shipped, base, fork_rel=None):
+def _append_only_problem(root: StrPath, ledger_rel: str, shipped: bytes, base: str | None,
+                         fork_rel: str | None = None) -> str | None:
     """Why ``shipped`` is not the fork point's ledger plus appended lines, or None when it is.
 
     ``fork_rel`` is where the fork point kept this ledger when its skill was renamed since
@@ -2741,7 +2854,7 @@ def _append_only_problem(root, ledger_rel, shipped, base, fork_rel=None):
     return None
 
 
-def _stage_renames(root, stage, base):
+def _stage_renames(root: StrPath, stage: Stage, base: str) -> list[tuple[str, str]]:
     """(old, new) for every path ``stage`` ships moved since ``base``, as git's `-M` pairs them.
 
     The index on a commit (a `CommitSelection` through its throwaway index, the plain index when
@@ -2753,7 +2866,8 @@ def _stage_renames(root, stage, base):
         selecting = isinstance(stage, CommitSelection)
         with (_selection_index(root, stage) if selecting else contextlib.nullcontext()) as env:
             rc, out = _git_paths(root, *args, "--cached", base, env=env)
-    pairs, at = [], 0
+    pairs: list[tuple[str, str]] = []
+    at = 0
     while not rc and at < len(out):
         status = out[at][:1]
         if status == "R" and at + 2 < len(out):
@@ -2762,7 +2876,8 @@ def _stage_renames(root, stage, base):
     return pairs
 
 
-def _renamed_skills(root, stage, base, names):
+def _renamed_skills(root: StrPath, stage: Stage, base: str | None,
+                    names: Sequence[str]) -> dict[str, str]:
     """{new name: old name} for each skill of ``names`` new since ``base`` that a rename made.
 
     A skill counts as renamed when git pairs its SKILL.md or its ledger (`_stage_renames`) with
@@ -2779,7 +2894,7 @@ def _renamed_skills(root, stage, base, names):
     _, at_base = _git_paths(root, "ls-tree", "-r", "--name-only", base, "--", *mds.values())
     new = {name for name, md in mds.items() if md not in at_base}
     identity = ("SKILL.md", skill_decisions.LEDGER_REL)
-    found = {}
+    found: dict[str, str] = {}
     for old, moved in _stage_renames(root, stage, base) if new else ():
         a, b = _SKILL_FILE_RX.match(old), _SKILL_FILE_RX.match(moved)
         if a and b and b.group(1) in new and a.group(1) != b.group(1) \
@@ -2788,7 +2903,8 @@ def _renamed_skills(root, stage, base, names):
     return found
 
 
-def _decision_message(name, finding, ledger_rel, where="staged with this change"):
+def _decision_message(name: str, finding: skill_decisions.Finding, ledger_rel: str,
+                      where: str = "staged with this change") -> str:
     """One refusal line for ``finding``; ``where`` says where the superseding entry must land."""
     if finding.anchor:
         return ("skills/%s: %s\n  The rule's earlier decision is recorded with a reason. If the "
@@ -2803,7 +2919,8 @@ def _decision_message(name, finding, ledger_rel, where="staged with this change"
     return "skills/%s: %s: %s" % (name, ledger_rel, finding.render())
 
 
-def _judge_skill(root, name, files, base, log, fork_name=None):
+def _judge_skill(root: StrPath, name: str, files: Mapping[str, bytes], base: str | None,
+                 log: RefusalLog, fork_name: str | None = None) -> list[str]:
     """The refusals for skill ``name`` as its ``files`` ship; each one is also handed to ``log``.
 
     ``fork_name`` is the name the skill had at the fork point when a rename made it
@@ -2813,7 +2930,7 @@ def _judge_skill(root, name, files, base, log, fork_name=None):
     ledger_rel = "%s/%s/%s" % (_SKILLS_DIR, name, skill_decisions.LEDGER_REL)
     fork_rel = "%s/%s/%s" % (_SKILLS_DIR, fork_name or name, skill_decisions.LEDGER_REL)
     ledger = files.get(skill_decisions.LEDGER_REL, b"")
-    refusals = []                                   # (entry id, problem, message)
+    refusals: list[tuple[str, str, str]] = []       # (entry id, problem, message)
     breach = _append_only_problem(root, ledger_rel, ledger, base, fork_rel)
     if breach:
         refusals.append(("", breach, "skills/%s: %s" % (name, breach)))
@@ -2827,12 +2944,12 @@ def _judge_skill(root, name, files, base, log, fork_name=None):
     return [message for _entry_id, _problem, message in refusals]
 
 
-def _finding_problem(finding):
+def _finding_problem(finding: skill_decisions.Finding) -> str:
     """The audit record's ``problem`` for ``finding``: its problem, then the anchor it lost."""
     return finding.problem + (" %r" % finding.anchor if finding.anchor else "")
 
 
-def _refusal_record(name, entry_id, problem):
+def _refusal_record(name: str, entry_id: str, problem: str) -> dict[str, str]:
     """One audit log record for a decision refusal of skill ``name``."""
     return {"time": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "skill": name,
             "entry_id": entry_id, "problem": problem}
@@ -2843,7 +2960,8 @@ def _refusal_record(name, entry_id, problem):
 _MARKETPLACE_LEDGER = "the marketplace ledger"
 
 
-def _twin_decision_failures(name, here_dir, twin_files, log=None):
+def _twin_decision_failures(name: str, here_dir: Path, twin_files: Mapping[str, bytes],
+                            log: RefusalLog | None = None) -> list[str]:
     """The refusals the marketplace skill ``here_dir``'s ledger gives the twin text ``twin_files``.
 
     The twin is the same skill under its own repo's name, so a decision recorded in the marketplace
@@ -2871,12 +2989,13 @@ def _twin_decision_failures(name, here_dir, twin_files, log=None):
     findings = skill_decisions.check_ledger(lambda: _ledger_lines(ledger),
                                             skill_decisions.corpus_text(files))
     notes = "".join("\n  " + note for note in stale_ref_notes([here_dir])) if findings else ""
-    for finding in findings if log else ():
-        log(_refusal_record(name, finding.entry_id, _finding_problem(finding)))
+    if log:
+        for finding in findings:
+            log(_refusal_record(name, finding.entry_id, _finding_problem(finding)))
     return [_decision_message(name, finding, shown, where) + notes for finding in findings]
 
 
-def _skills_with_a_ledger(root, names, base):
+def _skills_with_a_ledger(root: Path, names: Iterable[str], base: str | None) -> list[str]:
     """The skills among ``names`` whose ledger exists anywhere a gated command could read it.
 
     On disk (a commit taking files itself), in the index (a commit), at HEAD (a push) or at the
@@ -2886,7 +3005,7 @@ def _skills_with_a_ledger(root, names, base):
     rels = {name: "%s/%s/%s" % (_SKILLS_DIR, name, skill_decisions.LEDGER_REL) for name in names}
     if not rels:
         return []
-    found = set()
+    found: set[str] = set()
     trees = ["HEAD"] + ([base] if base else [])
     for args in [("ls-files",)] + [("ls-tree", "-r", "--name-only", tree) for tree in trees]:
         _, listed = _git_paths(root, *args, "--", *rels.values())
@@ -2894,7 +3013,8 @@ def _skills_with_a_ledger(root, names, base):
     return [name for name, rel in rels.items() if rel in found or (root / rel).is_file()]
 
 
-def check_skill_decisions(root, stage=STAGE_INDEX, *, log=None):
+def check_skill_decisions(root: Path, stage: Stage = STAGE_INDEX, *,
+                          log: RefusalLog | None = None) -> list[str]:
     """Refuse a commit or push whose SHIPPED text of a touched skill breaks its decision ledger.
 
     A refusal is a live rule anchor gone from the skill's Markdown, a ledger line present at the
@@ -2921,14 +3041,14 @@ def check_skill_decisions(root, stage=STAGE_INDEX, *, log=None):
     names = sorted({m.group(1) for m in (_SKILL_FILE_RX.match(p) for p in changed) if m})
     renamed = _renamed_skills(root, stage, base, names)
     judged = set(_skills_with_a_ledger(root, names, base)) | set(renamed)
-    fails = []
+    fails: list[str] = []
     for name in (n for n in names if n in judged):
         files = shipped_files(root / _SKILLS_DIR / name, stage, ignore=_decision_ignored)
         fails += _judge_skill(root, name, files, base, log, renamed.get(name))
     return fails
 
 
-def check_all_skill_decisions(root):
+def check_all_skill_decisions(root: Path) -> list[str]:
     """The CI sweep: every ledger on disk against its skill's files as checked out on disk.
 
     Both are read from the working tree (`file_lines`, `corpus_from_dir`), not from the index or
@@ -2938,7 +3058,7 @@ def check_all_skill_decisions(root):
     `run_checks` runs both in CI; on a push the merge-base is HEAD, so only a pull request (and
     the hook and pre-push gate) gives that half something to diff.
     """
-    fails = []
+    fails: list[str] = []
     for path in sorted((root / _SKILLS_DIR).glob("*/" + skill_decisions.LEDGER_REL)):
         skill_dir = path.parent.parent
         findings = skill_decisions.check_ledger(lambda p=path: skill_decisions.file_lines(p),
@@ -2948,19 +3068,21 @@ def check_all_skill_decisions(root):
     return fails
 
 
-def command_publishes(command, tool_name=None):
+def command_publishes(command: str, tool_name: str | None = None) -> bool:
     """True when a statement in ``command`` is a `git push` or a `gh pr create`.
 
     Segmented and anchored like `shell_text.is_gated_command`, heredoc bodies dropped, so a push
     named as DATA does not count."""
-    for _at, seg in shell_text.iter_segments(shell_text.strip_heredoc_bodies(command or ""), tool_name):
+    stripped = shell_text.strip_heredoc_bodies(command or "")
+    for _at, seg in shell_text.iter_segments(stripped, tool_name):
         seg = seg.strip().lstrip("(").strip()
-        if shell_text.is_git_verb(seg, {"push"}, tool_name or "Bash") or shell_text.PR_RE.match(seg):
+        if (shell_text.is_git_verb(seg, {"push"}, tool_name or "Bash")
+                or shell_text.PR_RE.match(seg)):
             return True
     return False
 
 
-def mirror_stage(command, tool_name=None, cwd=None):
+def mirror_stage(command: str, tool_name: str | None = None, cwd: str | None = None) -> Stage:
     """What a gated command ships of the repo it runs in: the index for a commit, else HEAD.
 
     A command that commits anywhere commits the index first, and any push after it in the same
@@ -2968,10 +3090,13 @@ def mirror_stage(command, tool_name=None, cwd=None):
     alone publishes HEAD. Segmented exactly like `shell_text.is_gated_command`, heredoc bodies
     dropped, so a commit named as DATA does not count.
 
-    A commit that takes files from the working tree itself (`-a`, a pathspec, `-i`) gives a
-    `CommitSelection` instead; its pathspecs resolve from the directory the commit runs in, which
-    `cwd` (where the session sits) leads to. Anything the text cannot settle gives the index."""
-    for _at, seg in shell_text.iter_segments(shell_text.strip_heredoc_bodies(command or ""), tool_name):
+    A commit that takes files from the working tree itself (`-a`, a pathspec, `-i`), or that plain
+    `git add` statements before it change, gives a `CommitSelection` instead; its pathspecs resolve
+    from the directory the commit runs in, which `cwd` (where the session sits) leads to. Anything
+    the text cannot settle gives the index; where that index would not be what the commit ships,
+    `chained_commit_refusal` refuses the command instead."""
+    stripped = shell_text.strip_heredoc_bodies(command or "")
+    for _at, seg in shell_text.iter_segments(stripped, tool_name):
         seg = seg.strip().lstrip("(").strip()
         if shell_text.is_git_verb(seg, {"commit"}, tool_name or "Bash"):
             return _commit_selection(seg, command, tool_name or "Bash", cwd) or STAGE_INDEX
@@ -3001,7 +3126,7 @@ _COMMIT_SHORT_FLAGS = frozenset("aoiqvsnez")
 _SHELL_REWRITES = frozenset("*?[]{}#<>|&;$`\\~!@")
 
 
-def _commit_selection(segment, command, tool, cwd):
+def _commit_selection(segment: str, command: str, tool: str, cwd: str | None) -> CommitSelection | None:
     """The `CommitSelection` of one `git commit` statement, or None for the plain index commit.
 
     Only the plainest shape is read, because every other one was shown to make the reading differ
@@ -3009,14 +3134,25 @@ def _commit_selection(segment, command, tool, cwd):
     <options> [--] <paths>` with no leading assignment or launcher, no other global option (`git
     --icase-pathspecs` and `GIT_*_PATHSPECS=` change pathspec matching), no character the shell
     rewrites (`_SHELL_REWRITES`), and the only `git commit` in the command (a second one commits
-    the index), with nothing before it but `cd <absolute dir>` (`_commit_is_plainly_placed`). Also
-    None for `-p`/`--interactive`, `--pathspec-from-file`, an option this reader does not know, `-a`
-    with paths (git refuses it), a `..` in a `-C` or `cd` path, or no readable directory. None is
-    the old reading, so not knowing is never laxer."""
+    the index). Before it, `_commit_prelude` allows `cd <absolute dir>`, plain `git add`
+    statements (replayed as ``staged_first``) and git statements that change neither index nor
+    files; a commit taking files from disk also allows nothing else. Also None for
+    `-p`/`--interactive`, `--pathspec-from-file`, an option this reader does not know, `-a` with
+    paths (git refuses it), a `..` in a `-C` or `cd` path, or no readable directory.
+
+    None is the index reading, which is LAXER than the truth wherever a statement before the
+    commit changes what it ships: `chained_commit_refusal` refuses exactly those commands, so the
+    hook never judges them on the index."""
     if tool != "Bash":
         return None
-    segment, command = _without_output_redirections(segment), _assignments_resolved(command)
-    if any(c in _SHELL_REWRITES for c in segment) or not _commit_is_plainly_placed(command, tool):
+    resolved = _assignments_resolved(command)
+    prelude = _commit_prelude(command, tool, cwd)
+    if prelude is None or prelude.refusal is not None or _commit_count(resolved, tool) != 1:
+        return None
+    # The prelude's copy of the statement carries the command's literal variables expanded.
+    segment = _without_output_redirections(prelude.commit or segment)
+    rewrites = any(c in _SHELL_REWRITES for c in segment)
+    if rewrites and not prelude.adds:
         return None
     try:
         tokens = shell_text.split_for_tool(segment, tool)
@@ -3027,12 +3163,18 @@ def _commit_selection(segment, command, tool, cwd):
     if parsed is None:
         return None
     flags, pathspecs = parsed
-    where = _commit_dir(command, cwd, tool)
-    if where is None or ("a" in flags and pathspecs) or not ("a" in flags or pathspecs):
+    where = _commit_dir(resolved, cwd, tool)
+    if where is None or ("a" in flags and pathspecs):
+        return None
+    if not ("a" in flags or pathspecs):
+        # A quoted message may hold a character the shell rewrites; with no pathspec and no `-a`
+        # this commit takes the index whatever the message says.
+        return CommitSelection("index", (), where, prelude.adds) if prelude.adds else None
+    if rewrites or not prelude.only_cd_and_add:
         return None
     if "a" in flags:
-        return CommitSelection("all", (), where)
-    return CommitSelection("include" if "i" in flags else "only", pathspecs, where)
+        return CommitSelection("all", (), where, prelude.adds)
+    return CommitSelection("include" if "i" in flags else "only", pathspecs, where, prelude.adds)
 
 
 # An OUTPUT redirection on the commit statement (`> log`, `>> $S/log`, `2>&1`, `&> log`): it moves
@@ -3041,7 +3183,7 @@ def _commit_selection(segment, command, tool, cwd):
 _OUTPUT_REDIRECTION = re.compile(r"(?<!\S)(?:\d*>&\d+-?|(?:\d*|&)>>?[ \t]*[^\s;&|<>()]+)")
 
 
-def _without_output_redirections(segment):
+def _without_output_redirections(segment: str) -> str:
     """``segment`` with its output redirections cut out, so they neither read as pathspecs nor
     send it to the index reading. Measured 2026-10-29: `git commit -q -F msg <paths> > log 2>&1`
     was judged on the index, which still held the OLD SKILL.md the commit was about to replace,
@@ -3058,19 +3200,22 @@ _CD_VARIABLE = re.compile(r"\A\s*cd\s+(?:\$([A-Za-z_]\w*)|\$\{([A-Za-z_]\w*)\}|\
                           r"|\"\$\{([A-Za-z_]\w*)\}\")\s*\Z")
 
 
-def _assignments_resolved(command):
+def _assignments_resolved(command: str) -> str:
     """``command`` with plain literal assignments before its commit folded into the `cd` that reads them.
 
     `B=/abs; cd $B && git commit ...` names its directory as surely as `cd /abs && ...`, and is the
     common shape. Only a statement that is ONE `NAME=value` word with no character the shell
     rewrites, NAME not `GIT_*` (a `GIT_*` shell variable is not exported, but reading one as
     harmless is the kind of guess the plain reading refuses), is folded; anything else is kept as
-    written, so `_commit_is_plainly_placed` still refuses it."""
-    pieces, previous, known, commit_seen = [], 0, {}, False
+    written, so `_commit_prelude` still counts it as a statement it cannot read past."""
+    pieces: list[tuple[str, str]] = []
+    known: dict[str, str] = {}
+    previous, commit_seen = 0, False
     text = shell_text.strip_heredoc_bodies(command or "")
     for at, segment in shell_text.iter_segments(text, "Bash"):
         separator, previous = text[previous:at], at + len(segment)
-        if not commit_seen and shell_text.is_git_verb(segment.strip().lstrip("(").strip(), {"commit"}, "Bash"):
+        if not commit_seen and shell_text.is_git_verb(segment.strip().lstrip("(").strip(),
+                                                      {"commit"}, "Bash"):
             commit_seen = True
         if not commit_seen:
             literal = _literal_assignment(segment)
@@ -3085,7 +3230,7 @@ def _assignments_resolved(command):
     return "".join(separator + segment for separator, segment in pieces)
 
 
-def _literal_assignment(segment):
+def _literal_assignment(segment: str) -> tuple[str, str] | None:
     """(NAME, value) when ``segment`` is one plain `NAME=value` word, else None."""
     if any(c in _SHELL_REWRITES for c in segment):
         return None
@@ -3099,26 +3244,291 @@ def _literal_assignment(segment):
     return match.group(1), match.group(2)
 
 
-def _commit_is_plainly_placed(command, tool):
-    """True when the command holds exactly one `git commit` and only `cd <absolute dir>` runs before it.
+def _commit_count(command: str, tool: str) -> int:
+    """How many `git commit` statements ``command`` holds, heredoc bodies dropped."""
+    return sum(1 for _at, seg in shell_text.iter_segments(
+        shell_text.strip_heredoc_bodies(command or ""), tool)
+        if shell_text.is_git_verb(seg.strip().lstrip("(").strip(), {"commit"}, tool))
+
+
+#: git verbs that change the index or the files a later commit takes. Before a commit, every one
+#: but a plain `git add` (which the gate replays) gives a refusal.
+_INDEX_CHANGING_VERBS = frozenset({
+    "add", "rm", "mv", "restore", "reset", "update-index", "apply", "checkout", "switch", "stash",
+    "read-tree", "merge", "pull", "rebase", "cherry-pick", "revert", "am", "clean",
+    "checkout-index", "sparse-checkout"})
+#: `git add` options the replay reproduces as written: none asks a question, opens an editor or
+#: reads a pathspec file. `--chmod=` is accepted by its prefix.
+_ADD_FLAG_OPTS = frozenset({
+    "-A", "--all", "--no-all", "-u", "--update", "-f", "--force", "-N", "--intent-to-add", "-v",
+    "--verbose", "-n", "--dry-run", "--ignore-removal", "--no-ignore-removal", "--renormalize",
+    "--ignore-errors", "--ignore-missing", "--sparse"})
+_ADD_SHORT_FLAGS = frozenset("AufNvn")
+
+
+@dataclass(frozen=True, slots=True)
+class Prelude:
+    """What runs before a command's first `git commit`, as far as what the commit ships goes.
+
+    ``adds`` are the plain `git add` statements, in order. ``only_cd_and_add`` is False once any
+    statement but `cd <absolute dir>`, a plain add or a git statement that changes neither index
+    nor files ran (`make test`, `sed -i`). ``first_other`` is the first such statement.
+    ``refusal`` is set when the gate cannot replay what runs before the commit. ``commit`` is the
+    commit statement itself, with the same literal variables expanded."""
+
+    adds: tuple[AddStep, ...]
+    only_cd_and_add: bool
+    first_other: str
+    refusal: str | None
+    commit: str = ""
+
+
+def _prelude_refusal(statement: str, why: str) -> str:
+    """The refusal for ``statement`` before a commit, naming the route that works."""
+    return ("repo-gate: this command runs `%s` before its `git commit`, and %s. The gate reads what "
+            "a commit ships before any statement of the command runs, so it cannot see what that "
+            "statement changes: run `%s` in its own call first, then commit."
+            % (statement, why, statement))
+
+
+def _commit_prelude(command: str, tool: str, cwd: str | None) -> Prelude | None:
+    """Read the statements before ``command``'s first `git commit`; None when it has none.
 
     The hook reads the disk BEFORE any statement runs, so a statement ahead of the commit that
     writes a file (`git restore`, `cp`, `sed -i`, a formatter) or changes how git matches a pathspec
     (`export GIT_ICASE_PATHSPECS=1`) makes the reading differ from what git commits. Measured by
-    adversarial review, 2026-10-24. Statements after the commit run after it and do not matter."""
-    commits = 0
-    for _at, seg in shell_text.iter_segments(shell_text.strip_heredoc_bodies(command or ""), tool):
-        seg = seg.strip()
+    adversarial review, 2026-10-24. A plain `git add` is replayed instead (`_plain_add`), since
+    git can stage it again in a throwaway index; any other statement that changes the index, and
+    any statement at all before an add, is a refusal. Statements after the commit run after it
+    and do not matter. None for a non-Bash tool or an unknown cwd: no reading, no refusal."""
+    if tool != "Bash" or cwd is None:
+        return None
+    text = shell_text.strip_heredoc_bodies(command or "")
+    here, adds, first_other = cwd, [], ""
+    known: dict[str, str] = {}
+    for _at, raw in shell_text.iter_segments(text, tool):
+        whole = _expand_known(raw.strip(), known)
+        literal = _literal_assignment(whole)         # `S=$P/skills` once P is known
+        if literal is not None:
+            known[literal[0]] = literal[1]
+            continue
+        seg = whole.lstrip("(").strip()
         if not seg:
             continue
-        if shell_text.is_git_verb(seg.lstrip("(").strip(), {"commit"}, tool):
-            commits += 1
-        elif commits == 0 and not _is_plain_cd(seg):
+        if shell_text.is_git_verb(seg, {"commit"}, tool):
+            return Prelude(tuple(adds), not first_other, first_other, None, seg)
+        if _is_plain_cd(whole):
+            landing = shell_text.resolve_path(shell_text.split_for_tool(whole, tool)[1], here, tool)
+            if landing is not None:
+                here = os.path.normpath(landing)
+                continue
+            first_other = first_other or seg         # a Git Bash mount: where it lands is unknown
+            continue
+        if shell_text.is_git_verb(seg, {"add"}, tool):
+            refusal = _add_refusal(seg, here, first_other, adds)
+            if refusal is not None:
+                return Prelude(tuple(adds), False, first_other or seg, refusal)
+            continue
+        if shell_text.is_git_verb(seg, _INDEX_CHANGING_VERBS, tool):
+            why = "that changes the index or the files the commit takes"
+            return Prelude(tuple(adds), False, seg, _prelude_refusal(seg, why))
+        if not _is_git_statement(seg) and not _is_read_only(whole, here):
+            first_other = first_other or seg
+    return None
+
+
+#: Programs that write no file themselves; their output redirections are judged separately.
+#: Measured over a week of real bitranox-skills commits: before this list, 47 of 65 refusals came
+#: from such statements (a `printf` writing the commit message to a temp file, a `grep` check).
+_READ_ONLY_PROGRAMS = frozenset({
+    "grep", "egrep", "fgrep", "wc", "head", "tail", "cat", "echo", "printf", "test", "[", "true",
+    "false", "ls", "pwd", "date", "sort", "uniq", "cut", "tr", "diff", "cmp", "stat",
+    "mkdir"})                                        # git tracks no directory, only files
+
+
+def _is_read_only(segment: str, here: str) -> bool:
+    """True when ``segment`` runs a `_READ_ONLY_PROGRAMS` program with no expansion, and every
+    output redirection targets /dev/null or a path (resolved from ``here``) outside the
+    repository ``here`` lies in. A `$`, a backquote or a `(` outside quotes can expand into anything, so it is not."""
+    masked = shell_text.mask_data_regions(segment, tool_name="Bash")
+    if any(c in masked for c in "$`("):
+        return False
+    try:
+        tokens = shell_text.split_for_tool(_without_output_redirections(segment), "Bash")
+    except ValueError:
+        return False
+    while tokens and (prefix := _ASSIGNMENT_WORD.match(tokens[0])) is not None:
+        if prefix.group(1).upper().startswith("GIT_"):
+            return False                             # changes what git reads or matches
+        tokens = tokens[1:]                          # `LC_ALL=C grep ...`: the program is grep
+    if not tokens or shell_text.basename_for_tool(tokens[0], "Bash") not in _READ_ONLY_PROGRAMS:
+        return False
+    top: str | None = None
+    for match in _OUTPUT_REDIRECTION.finditer(masked):
+        text = segment[match.start():match.end()].strip()
+        if re.fullmatch(r"\d*>&\d+-?", text):
+            continue                                 # `2>&1` moves a stream, writes no file
+        try:
+            target = shlex.split(re.sub(r"\A(?:\d*|&)>>?[ \t]*", "", text))[0]
+        except (ValueError, IndexError):
             return False
-    return commits == 1
+        if target == "/dev/null":
+            continue
+        landing = shell_text.resolve_path(target, here, "Bash")
+        if landing is None:
+            return False                             # a Git Bash mount whose landing is unknown
+        if top is None:
+            rc, out, _ = _git(here, "rev-parse", "--show-toplevel")
+            top = "" if rc else os.path.normcase(out.strip())
+        if top and os.path.normcase(os.path.normpath(landing)).startswith(top + os.sep):
+            return False
+    return True
 
 
-def _is_plain_cd(segment):
+_VARIABLE_REF = re.compile(r"\$(?:\{([A-Za-z_]\w*)\}|([A-Za-z_]\w*))")
+
+
+def _expand_known(segment: str, known: dict[str, str]) -> str:
+    """``segment`` with each `$NAME` / `${NAME}` of a ``known`` literal replaced by its value.
+
+    The values come from plain `NAME=value` statements earlier in the command
+    (`_literal_assignment`: no character the shell rewrites, never `GIT_*`), so textual
+    replacement splits words exactly as the shell's expansion does. A reference inside single
+    quotes is left alone, as the shell leaves it. A name the segment also uses as a bare word
+    (`read H`, `for H in`) is forgotten first: its value from then on is not the literal one."""
+    try:
+        words = set(shell_text.split_for_tool(segment, "Bash"))
+    except ValueError:
+        words = set()
+    for name in words & known.keys():
+        del known[name]
+    out, quote, at = [], "", 0
+    while at < len(segment):
+        char = segment[at]
+        if char in "'\"" and quote in ("", char) and not (quote == '"' and char == "'"):
+            quote = "" if quote == char else char
+        elif char == "$" and quote != "'":
+            match = _VARIABLE_REF.match(segment, at)
+            name = match and (match.group(1) or match.group(2))
+            if match and name in known:
+                out.append(known[name])
+                at = match.end()
+                continue
+        out.append(char)
+        at += 1
+    return "".join(out)
+
+
+def _add_refusal(segment: str, here: str, first_other: str, adds: list[AddStep]) -> str | None:
+    """Append ``segment``'s `AddStep` to ``adds``; the refusal when the gate cannot replay it."""
+    if first_other:
+        why = "that can change the files the `git add` after it stages"
+        return _prelude_refusal(first_other, why)
+    step = _plain_add(segment, here)
+    if step is None:
+        why = ("the gate cannot replay that `git add` (an interactive option, a pathspec file, an "
+               "option it does not know, or a character the shell rewrites)")
+        return _prelude_refusal(segment, why)
+    adds.append(step)
+    return None
+
+
+def _is_git_statement(segment: str) -> bool:
+    """True when ``segment`` runs git itself (`git status`, `git -C d log`)."""
+    try:
+        tokens = shell_text.split_for_tool(segment, "Bash")
+    except ValueError:
+        return False
+    return bool(tokens) and shell_text.basename_for_tool(tokens[0], "Bash") == "git"
+
+
+def _plain_add(segment: str, here: str) -> AddStep | None:
+    """The `AddStep` of a `git [-C <dir>]... add <options> [--] <paths>` statement run from
+    ``here``, or None for any shape the replay would not reproduce: a character the shell rewrites
+    (an unquoted glob is expanded by the shell, a quoted one by git), a leading assignment or
+    launcher, a `..` in a `-C` path, or an option outside `_ADD_FLAG_OPTS`."""
+    segment = _without_output_redirections(segment)
+    if any(c in _SHELL_REWRITES for c in segment):
+        return None
+    try:
+        tokens = shell_text.split_for_tool(segment, "Bash")
+    except ValueError:
+        return None
+    if not tokens or shell_text.basename_for_tool(tokens[0], "Bash") != "git":
+        return None
+    at, where = 1, here
+    while at + 1 < len(tokens) and tokens[at] == "-C":
+        if _climbs(tokens[at + 1]):
+            return None
+        landing = shell_text.resolve_path(tokens[at + 1], where, "Bash")
+        if landing is None:
+            return None
+        where = os.path.normpath(landing)
+        at += 2
+    if at >= len(tokens) or tokens[at] != "add":
+        return None
+    operands = tuple(str(t) for t in tokens[at + 1:])
+    return AddStep(where, operands) if _add_options_known(operands) else None
+
+
+def _add_options_known(operands: Sequence[str]) -> bool:
+    """True when every option before `--` among ``operands`` is one the replay reproduces."""
+    for token in operands:
+        if token == "--":
+            return True
+        if token.startswith("--"):
+            if token not in _ADD_FLAG_OPTS and not token.startswith("--chmod="):
+                return False
+        elif token.startswith("-") and token != "-":
+            if not all(letter in _ADD_SHORT_FLAGS for letter in token[1:]):
+                return False
+    return True
+
+
+def chained_commit_refusal(command: str, tool: str | None, cwd: str | None) -> str | None:
+    """Why the hook must refuse ``command`` instead of judging its commit, or None.
+
+    The hook judges a commit before any statement of its command runs. A plain `git add` before
+    the commit is replayed (`CommitSelection.staged_first`); a refusal is the answer when the
+    gate cannot know what the commit will ship: a git statement before it that changes the index
+    (`git rm`, `git restore --staged`, an interactive add), any statement before a `git add`, any
+    statement but a cd or a plain add before a commit that takes files from disk (`-a`, paths),
+    and a commit after a `git add` whose own statement the gate cannot read. A plain commit after
+    a statement that is not git (`make test && git commit`) still takes the index and is judged on
+    it."""
+    tool = tool or "Bash"
+    prelude = _commit_prelude(command, tool, cwd)
+    if prelude is None:
+        return None
+    if prelude.refusal is not None:
+        return prelude.refusal
+    segment = prelude.commit
+    if prelude.adds and _commit_selection(segment, command, tool, cwd) is None:
+        why = "the gate cannot read this commit's statement well enough to replay the add before it"
+        return _prelude_refusal(_shown(prelude.adds), why)
+    if not prelude.only_cd_and_add and _commit_takes_from_disk(segment):
+        why = "that can change the files this commit takes from disk"
+        return _prelude_refusal(prelude.first_other, why)
+    return None
+
+
+def _shown(adds: Sequence[AddStep]) -> str:
+    """The `git add` statements of ``adds`` as one line, for a refusal."""
+    return " && ".join("git add " + shlex.join(step.operands) for step in adds)
+
+
+def _commit_takes_from_disk(segment: str) -> bool:
+    """True when the commit statement ``segment`` names paths or `-a` (as far as its words show)."""
+    try:
+        tokens = shell_text.split_for_tool(_without_output_redirections(segment), "Bash")
+    except ValueError:
+        return False
+    operands = _plain_commit_operands(tokens)
+    parsed = None if operands is None else _parse_commit_operands(operands)
+    return parsed is not None and ("a" in parsed[0] or bool(parsed[1]))
+
+
+def _is_plain_cd(segment: str) -> bool:
     """`cd <absolute path>` with no shell rewriting and no `..`, so the text names where it lands."""
     if any(c in _SHELL_REWRITES for c in segment):
         return False
@@ -3130,13 +3540,13 @@ def _is_plain_cd(segment):
             and not _climbs(tokens[1]))
 
 
-def _climbs(path):
+def _climbs(path: str) -> bool:
     """True for a path with a `..` component: git chdir()s physically, so `-C link/..` lands in the
     parent of the link's TARGET while the text names the link's parent."""
     return ".." in path.replace("\\", "/").split("/")
 
 
-def _plain_commit_operands(tokens):
+def _plain_commit_operands(tokens: Sequence[str]) -> Sequence[str] | None:
     """The operands of `git [-C <dir>]... commit ...`, or None for any other prefix."""
     if not tokens or shell_text.basename_for_tool(tokens[0], "Bash") != "git":
         return None
@@ -3150,15 +3560,17 @@ def _plain_commit_operands(tokens):
     return tokens[at + 1:]
 
 
-def _commit_dir(command, cwd, tool):
+def _commit_dir(command: str, cwd: str | None, tool: str) -> str | None:
     if cwd is None:
         return None
     return shell_text.git_verb_dir(command, cwd, {"commit"}, tool)
 
 
-def _parse_commit_operands(operands):
+def _parse_commit_operands(operands: Sequence[str]) -> tuple[set[str], list[str]] | None:
     """({'a', 'i', ...} selection flags seen, pathspecs) of `git commit`'s operands, or None if unknowable."""
-    flags, pathspecs, at = set(), [], 0
+    flags: set[str] = set()
+    pathspecs: list[str] = []
+    at = 0
     while at < len(operands):
         token = operands[at]
         at += 1
@@ -3184,7 +3596,7 @@ def _parse_commit_operands(operands):
     return flags, pathspecs
 
 
-def _parse_short_cluster(cluster, flags):
+def _parse_short_cluster(cluster: str, flags: set[str]) -> int | None:
     """Read one `-abc` cluster into ``flags``; the count of following tokens it consumes, or None."""
     for index, letter in enumerate(cluster):
         rest = cluster[index + 1:]
@@ -3204,25 +3616,26 @@ _PUSH_VALUE_OPTS = frozenset({"-o", "--push-option", "--repo", "--receive-pack",
 _PUSH_BRANCH_OPTS = frozenset({"--all", "--branches", "--mirror", "--follow-tags"})
 
 
-def _is_tag_ref(repo, name):
+def _is_tag_ref(repo: StrPath, name: str) -> bool:
     """True when `name` resolves in `repo` as a tag and NOT as a branch (ambiguous is not a tag)."""
     if name.startswith("refs/tags/"):
         return True
     if not name or name.startswith("refs/"):
         return False
 
-    def exists(ref):
+    def exists(ref: str) -> bool:
         return subprocess.run(["git", "-C", str(repo), "show-ref", "--verify", "--quiet", ref],
                               capture_output=True).returncode == 0
     return exists("refs/tags/" + name) and not exists("refs/heads/" + name)
 
 
-def _push_sends_only_tags(operands, repo):
+def _push_sends_only_tags(operands: Sequence[str], repo: StrPath) -> bool:
     """True when one `git push` statement's operands can send nothing but tags.
 
     The shell's redirections are dropped first: `2>&1` or `> push.log` is not a refspec ([880])."""
     operands = shell_text.drop_redirections(operands)
-    positional, tags_flag, i = [], False, 0
+    positional: list[str] = []
+    tags_flag, i = False, 0
     while i < len(operands):
         tok = operands[i]
         if tok in _PUSH_VALUE_OPTS:
@@ -3247,7 +3660,7 @@ def _push_sends_only_tags(operands, repo):
     return True
 
 
-def pushes_only_tags(command, repo, tool_name=None):
+def pushes_only_tags(command: str, repo: StrPath, tool_name: str | None = None) -> bool:
     """True when every gated statement in `command` is a `git push` that can send only tags.
 
     A tag ships no SKILL.md to installers - a marketplace serves its default branch - so the
@@ -3261,12 +3674,14 @@ def pushes_only_tags(command, repo, tool_name=None):
     command lands in; a name the tokenizer mangled resolves to nothing and therefore stays gated.
     """
     found_push = False
-    for _at, seg in shell_text.iter_segments(shell_text.strip_heredoc_bodies(command or ""), tool_name):
+    stripped = shell_text.strip_heredoc_bodies(command or "")
+    for _at, seg in shell_text.iter_segments(stripped, tool_name):
         seg = seg.strip().lstrip("(").strip()
-        if shell_text.PR_RE.match(seg) or shell_text.is_git_verb(seg, {"commit"}, tool_name or "Bash"):
+        if (shell_text.PR_RE.match(seg)
+                or shell_text.is_git_verb(seg, {"commit"}, tool_name or "Bash")):
             return False
         operands = shell_text.git_verb_operands(shell_text.argv_for_match(seg, tool_name or "Bash"),
-                                                {"push"}, tool_name or "Bash")
+                                                    {"push"}, tool_name or "Bash")
         if operands is None:
             continue
         if not _push_sends_only_tags(operands, repo):
@@ -3275,7 +3690,7 @@ def pushes_only_tags(command, repo, tool_name=None):
     return found_push
 
 
-def _marketplace_checkout(public):
+def _marketplace_checkout(public: Path) -> Path:
     """The marketplace checkout a mirror is compared against: the one being run from, if any.
 
     Measured 2026-09-27: run from a worktree on origin/master while the main checkout sat 194
@@ -3291,7 +3706,7 @@ def _marketplace_checkout(public):
     return public / "KI" / "bitranox-skills"
 
 
-def _other_marketplace_checkouts(marketplace):
+def _other_marketplace_checkouts(marketplace: StrPath) -> list[Path]:
     """Every other checkout of the marketplace repository at `marketplace`: its main checkout and
     each linked worktree, as `git worktree list` names them, that holds the skills tree.
 
@@ -3304,7 +3719,8 @@ def _other_marketplace_checkouts(marketplace):
     rc, out, _ = _git(main, "worktree", "list", "--porcelain", "-z")
     if rc:
         return []
-    seen, found = {Path(marketplace).resolve()}, []
+    seen = {Path(marketplace).resolve()}
+    found: list[Path] = []
     for field in out.split("\0"):
         if not field.startswith("worktree "):
             continue
@@ -3315,7 +3731,7 @@ def _other_marketplace_checkouts(marketplace):
     return found
 
 
-def _checkouts(directory):
+def _checkouts(directory: StrPath) -> tuple[Path, Path]:
     """(top level of the worktree holding `directory`, main checkout of its repository).
 
     A linked worktree (`git worktree add`, such as `.claude/worktrees/<name>`) is the same repository
@@ -3335,7 +3751,8 @@ def _checkouts(directory):
     return top, (common.parent if common.name == ".git" else top)
 
 
-def _tool_repo_twins(tool_repo, mirrors=None):
+def _tool_repo_twins(tool_repo: StrPath,
+                     mirrors: Mapping[str, str] | None = None) -> tuple[Path | None, dict[str, Path]]:
     """(public tree, {skill name: twin dir as checked out here}) for the tool repo at `tool_repo`.
 
     MIRRORED_SKILLS names a twin by its path in the MAIN checkout, so ownership is decided there, and
@@ -3353,7 +3770,7 @@ def _tool_repo_twins(tool_repo, mirrors=None):
     if public is None:
         return None, {}
     scope = main / here.relative_to(top) if here.is_relative_to(top) else main
-    twins = {}
+    twins: dict[str, Path] = {}
     for name, rel in (MIRRORED_SKILLS if mirrors is None else mirrors).items():
         twin = (public / rel).resolve()
         if twin.is_relative_to(scope):
@@ -3361,7 +3778,7 @@ def _tool_repo_twins(tool_repo, mirrors=None):
     return public, twins
 
 
-def audit_mirror_of(tool_repo, mirrors=None):
+def audit_mirror_of(tool_repo: StrPath, mirrors: Mapping[str, str] | None = None) -> int:
     """Print the state of the mirrored pair belonging to one tool repo.
 
     The counterpart to ``--mirrors`` for the other side of the mirror: a release pipeline
@@ -3395,7 +3812,7 @@ def audit_mirror_of(tool_repo, mirrors=None):
     return 1 if fails else 0
 
 
-def audit_mirrors(root, mirrors=None):
+def audit_mirrors(root: Path, mirrors: Mapping[str, str] | None = None) -> int:
     """Print the state of every mirrored pair. Returns the number of findings.
 
     A finding is a drifted pair or a twin MIRRORED_SKILLS does not list: unlisted, that pair is
@@ -3435,7 +3852,7 @@ def audit_mirrors(root, mirrors=None):
     return drifted + len(unlisted)
 
 
-def _description(path):
+def _description(path: Path) -> str:
     """Return a SKILL.md's description collapsed to one line, "" when it has none.
 
     The same reader as the CSO lint and the builders (`hc.frontmatter_description`), so a twin is
@@ -3443,7 +3860,7 @@ def _description(path):
     return hc.frontmatter_description(path) or ""
 
 
-def _in_main_checkout(path, public):
+def _in_main_checkout(path: Path, public: Path) -> Path | None:
     """`path` mapped into the main checkout when it lies in a linked worktree, else None.
 
     A peer's `git worktree add` beside a listed tool repo carries the same skill, and is the
@@ -3472,7 +3889,8 @@ def _in_main_checkout(path, public):
     return None
 
 
-def unlisted_mirrors(root, public, mirrors=None):
+def unlisted_mirrors(root: StrPath, public: Path,
+                     mirrors: Mapping[str, str] | None = None) -> list[tuple[str, str]]:
     """Return (marketplace skill, repo path) pairs that look mirrored but are not listed.
 
     A skill and its twin keep the same description by convention, so an exact match on
@@ -3481,13 +3899,13 @@ def unlisted_mirrors(root, public, mirrors=None):
     coding-python-layered-config went unchecked until a scan found it.
     """
     listed = {(public / rel).resolve() for rel in (MIRRORED_SKILLS if mirrors is None else mirrors).values()}
-    catalog = {}
+    catalog: dict[str, str] = {}
     for skill in sorted((Path(root) / "plugins" / "bitranox" / "skills").glob("*/SKILL.md")):
         description = _description(skill)
         if description:
             catalog.setdefault(description, skill.parent.name)
 
-    found = []
+    found: list[tuple[str, str]] = []
     for pattern in ("*/*/skills/*/SKILL.md", "*/*/*/skills/*/SKILL.md"):
         for twin in sorted(public.glob(pattern)):
             if "bitranox-skills" in twin.parts:
@@ -3513,7 +3931,8 @@ _CLAUDE_PLUGIN_STEPS = (
 )
 
 
-def check_claude_plugin(root, which=shutil.which, run=subprocess.run):
+def check_claude_plugin(root: Path, which: Callable[[str], str | None] = shutil.which,
+                        run: Runner = subprocess.run) -> list[str]:
     """Run `claude plugin validate` and the mod's `claude plugin test`, where `claude` is installed.
 
     Local only in practice: a CI runner has no `claude`, so there the check is skipped and SAYS so
@@ -3526,7 +3945,7 @@ def check_claude_plugin(root, which=shutil.which, run=subprocess.run):
         print("  claude plugin: skipped - no `claude` on PATH, so neither the manifests were validated "
               "nor register.test.ts run")
         return []
-    failures = []
+    failures: list[str] = []
     for label, args in _CLAUDE_PLUGIN_STEPS:
         try:
             out = run([claude, *args], cwd=str(root), capture_output=True, text=True, encoding="utf-8",
@@ -3556,15 +3975,20 @@ class GateParts:
 
     __slots__ = ("mirrors", "pytest_check", "plugin_check", "which")
 
-    def __init__(self, mirrors=None, pytest_check=None, plugin_check=None, which=None):
-        self.mirrors = MIRRORED_SKILLS if mirrors is None else mirrors
-        self.pytest_check = pytest_check or check_pytest
-        self.plugin_check = plugin_check or check_claude_plugin
-        self.which = which or shutil.which
+    def __init__(self, mirrors: Mapping[str, str] | None = None,
+                 pytest_check: Callable[..., list[str]] | None = None,
+                 plugin_check: Callable[[Path], list[str]] | None = None,
+                 which: Callable[[str], str | None] | None = None) -> None:
+        self.mirrors: Mapping[str, str] = MIRRORED_SKILLS if mirrors is None else mirrors
+        self.pytest_check: Callable[..., list[str]] = pytest_check or check_pytest
+        self.plugin_check: Callable[[Path], list[str]] = plugin_check or check_claude_plugin
+        self.which: Callable[[str], str | None] = which or shutil.which
 
 
-def run_checks(root, ci, full_pytest=None, run_pytest=True, baseline=0, mirror_at=STAGE_INDEX,
-               notices=None, publishes=False, is_installed=None, parts=None):
+def run_checks(root: Path, ci: bool, full_pytest: bool | None = None, run_pytest: bool = True,
+               baseline: int = 0, mirror_at: Stage = STAGE_INDEX, notices: list[str] | None = None,
+               publishes: bool = False, is_installed: Callable[[str], bool] | None = None,
+               parts: GateParts | None = None) -> list[str]:
     """`ci` picks the CHECK SET (CI omits the maintainer-only ones); `full_pytest` picks the pytest
     SCOPE and defaults to `ci`. They are separate axes because a pre-push is BOTH: the maintainer
     (so version-bump, skill-review and mirrors apply) and the last gate before CI (so it runs the
@@ -3579,7 +4003,7 @@ def run_checks(root, ci, full_pytest=None, run_pytest=True, baseline=0, mirror_a
     parts = parts or GateParts()
     if full_pytest is None:
         full_pytest = ci
-    failures = []
+    failures: list[str] = []
     failures += check_tests_exist(root)
     failures += check_json_valid(root)
     failures += check_lf_endings(root, stage=mirror_at)
@@ -3636,7 +4060,8 @@ def run_checks(root, ci, full_pytest=None, run_pytest=True, baseline=0, mirror_a
     return failures
 
 
-def _tool_repo_touched(root, stage, publishes, twins):
+def _tool_repo_touched(root: StrPath, stage: Stage, publishes: bool,
+                       twins: Mapping[str, Path]) -> set[str]:
     """The names in ``twins`` whose skill directory a tool-repo commit or push SHIPS a change to.
 
     The tool-repo side of `check_skill_mirrors`' scoping ([800]): pre-existing drift in a skill this
@@ -3654,8 +4079,9 @@ def _tool_repo_touched(root, stage, publishes, twins):
     return {name for name, twin in twins.items() if any(path.is_relative_to(twin) for path in shipped)}
 
 
-def gate_tool_repo_mirror(root, stage=STAGE_INDEX, guessed=False, publishes=False, mirrors=None,
-                          log=None):
+def gate_tool_repo_mirror(root: Path | None, stage: Stage = STAGE_INDEX, guessed: bool = False,
+                          publishes: bool = False, mirrors: Mapping[str, str] | None = None,
+                          log: RefusalLog | None = None) -> int:
     """Check the mirror of a skill edited in its OWN repo, before it is committed or pushed.
 
     `main` has already read the event and confirmed it is a gated command, and `root` is the
@@ -3711,12 +4137,15 @@ def gate_tool_repo_mirror(root, stage=STAGE_INDEX, guessed=False, publishes=Fals
     candidates = [marketplace]
     if _is_commit(stage):
         candidates += _other_marketplace_checkouts(marketplace)
-    notices, fails, unpushed = [], [], set()
+    notices: list[str] = []
+    fails: list[str] = []
+    unpushed: set[str] = set()
     log = log or _log_decision_refusal
     for name in mine:
-        refusals = []
+        refusals: list[Refusal] = []
         for candidate in candidates:
-            found, records = [], []
+            found: list[str] = []
+            records: list[dict[str, str]] = []
             failed = mirror_failures(candidate, {name}, committing="twin", stage=stage, notices=found,
                                      twins=twins, mirrors=mirrors, log=records.append)
             if not failed:
@@ -3745,7 +4174,7 @@ def gate_tool_repo_mirror(root, stage=STAGE_INDEX, guessed=False, publishes=Fals
     # Refused by the marketplace ledger alone: every failure naming it is a decision refusal.
     decided = {name for name in blocked
                if all(_MARKETPLACE_LEDGER in f for f in fails if name in f)}
-    lines = []
+    lines: list[str] = []
     for name in mine:
         verdict = ("UNPUSHED" if name in unpushed else "UNSTAGED" if name in unstaged else
                    "DECISION" if name in decided else "DRIFT" if name in blocked else "in sync")
@@ -3768,7 +4197,7 @@ def gate_tool_repo_mirror(root, stage=STAGE_INDEX, guessed=False, publishes=Fals
     return shell_text.refuse("\n".join(lines))
 
 
-def _refusal_to_report(refusals):
+def _refusal_to_report(refusals: Sequence[Refusal]) -> Refusal:
     """The (failures, decision records) of one marketplace checkout's refusal, the one to show.
 
     The checkout a push would read (the first) by default. But when another checkout refused only
@@ -3783,7 +4212,8 @@ def _refusal_to_report(refusals):
     return refusals[0]
 
 
-def _unpushed_holder(marketplace, name, stage, twins, mirrors):
+def _unpushed_holder(marketplace: StrPath, name: str, stage: Stage, twins: Mapping[str, StrPath],
+                     mirrors: Mapping[str, str]) -> tuple[Path, str] | None:
     """(checkout, branch) of a marketplace linked worktree whose COMMITTED text matches this push, or None.
 
     A push reads the marketplace at what its main checkout published or committed, so it is refused
@@ -3799,7 +4229,7 @@ def _unpushed_holder(marketplace, name, stage, twins, mirrors):
     return None
 
 
-def _unpushed_message(name, checkout, branch):
+def _unpushed_message(name: str, checkout: StrPath, branch: str) -> str:
     """The refusal for a twin committed in a marketplace worktree but not published: push, do not regenerate."""
     return ("skills/%s matches its twin as committed in the marketplace worktree %s (branch %s), but "
             "that commit is not on the marketplace's published master, which a push is judged "
@@ -3815,7 +4245,7 @@ _FALLBACK_NOTE = ("repo-gate: the directory this command runs git in could not b
                   "rooted path, /tmp included, through its mount table, which the gate cannot read.")
 
 
-def _say_unverifiable(names, marketplace):
+def _say_unverifiable(names: Iterable[str], marketplace: StrPath) -> None:
     """Tell the model the mirror could not be checked, rather than exiting 0 in silence."""
 
     note = (
@@ -3826,7 +4256,7 @@ def _say_unverifiable(names, marketplace):
     _say_context([note])
 
 
-def _say_context(notes):
+def _say_context(notes: Sequence[str] | None) -> None:
     """Pass ``notes`` to the model on the one exit-0 channel it reads; print nothing for none."""
 
     if notes:
@@ -3835,7 +4265,7 @@ def _say_context(notes):
 
 
 
-def main(parts=None):
+def main(parts: GateParts | None = None) -> int:
     """The gate's entry point for every mode; ``parts`` replaces its collaborators (`GateParts`)."""
     parts = parts or GateParts()
     args = sys.argv[1:]
@@ -3896,7 +4326,13 @@ def main(parts=None):
 
     hook_mode = not (ci or pre_push or mirrors)
     # A git pre-push hook pushes commits, so it reads HEAD; hook mode reads what its command ships.
-    stage, publishes = STAGE_HEAD, False
+    stage: Stage = STAGE_HEAD
+    publishes = False
+    # Bound for every mode: only hook mode reads a command, and the branches that use these are
+    # reached in hook mode alone.
+    event: Mapping[str, Any] = {}
+    command = ""
+    prelude_refusal: str | None = None
     if hook_mode:
         # A real git pre-push hook receives REF LINES on stdin, never a Claude Code event, so only
         # hook mode parses it - read that way, a pre-push would fail the parse and pass by accident
@@ -3906,11 +4342,14 @@ def main(parts=None):
             event = json.load(sys.stdin)
         except Exception:  # noqa: BLE001
             return 0
-        command = (event.get("tool_input") or {}).get("command") or ""
+        tool_input: JsonObject = event.get("tool_input") or {}
+        command = tool_input.get("command") or ""
         if not is_gated_command(command, event.get("tool_name")):
             return 0
         root, guessed = hook_landing(event)
-        stage = mirror_stage(command, event.get("tool_name"), os.path.normpath(event.get("cwd") or os.getcwd()))
+        session_cwd = os.path.normpath(event.get("cwd") or os.getcwd())
+        stage = mirror_stage(command, event.get("tool_name"), session_cwd)
+        prelude_refusal = chained_commit_refusal(command, event.get("tool_name"), session_cwd)
         publishes = command_publishes(command, event.get("tool_name"))
     else:
         root, guessed = repo_root(), False
@@ -3933,14 +4372,19 @@ def main(parts=None):
                               "not checked - a tag ships no SKILL.md to installers. Sync the twin "
                               "before pushing the branch."])
             return 0
+        if prelude_refusal is not None and root is not None and _tool_repo_twins(root, parts.mirrors)[1]:
+            return shell_text.refuse(prelude_refusal)
         return gate_tool_repo_mirror(root, stage, guessed, publishes, parts.mirrors)
+
+    if prelude_refusal is not None:
+        return shell_text.refuse(prelude_refusal)
 
     if mirrors:
         # The full sweep the commit gate deliberately does not do: it reports every pair,
         # including the ones no current change touches.
         return 1 if audit_mirrors(root, parts.mirrors) else 0
 
-    notices = [] if hook_mode else None
+    notices: list[str] | None = [] if hook_mode else None
     failures = run_checks(root, ci, full_pytest=ci or pre_push,
                           run_pytest=run_pytest, baseline=expected_collected(root), mirror_at=stage,
                           notices=notices, publishes=publishes, parts=parts)
@@ -3966,7 +4410,7 @@ def main(parts=None):
 _CLI_FLAGS = ("--ci", "--pre-push", "--mirrors", "--mirror-of", "--pytest-only", "--print-test-deps")
 
 
-def entry(run=None):
+def entry(run: Callable[[], int] | None = None) -> int:
     """Run `main` (or ``run``) under the exit contract of the mode it was started in.
 
     Hook mode must never wedge a turn, so a crash there passes (0). A CLI mode is read by CI and

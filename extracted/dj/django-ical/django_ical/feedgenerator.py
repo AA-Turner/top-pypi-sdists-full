@@ -24,7 +24,7 @@ Sample usage:
 >>> fp.close()
 
 For definitions of the iCalendar format see:
-http://www.ietf.org/rfc/rfc2445.txt
+https://www.rfc-editor.org/rfc/rfc2445.txt
 """
 
 from icalendar import Calendar, Event, Todo
@@ -42,7 +42,7 @@ FEED_FIELD_MAP = (
     (
         "ttl",
         "x-published-ttl",
-    ),  # See format here: http://www.rfc-editor.org/rfc/rfc2445.txt (sec 4.3.6)
+    ),  # See format here: https://www.rfc-editor.org/rfc/rfc2445.txt (sec 4.3.6)
 )
 
 ITEM_ELEMENT_FIELD_MAP = (
@@ -69,7 +69,8 @@ ITEM_ELEMENT_FIELD_MAP = (
     ("attendee", "attendee"),
     ("valarm", None),
     # additional properties supported by the Todo class (VTODO calendar component).
-    # see https://icalendar.readthedocs.io/en/latest/_modules/icalendar/cal.html#Todo
+    # see
+    # https://icalendar.readthedocs.io/en/latest/reference/api/icalendar.cal.todo.html
     ("completed", "completed"),
     ("percent_complete", "percent-complete"),
     ("priority", "priority"),
@@ -98,6 +99,29 @@ ITEM_ELEMENT_FIELD_MAP = (
     ("sequence", "sequence"),
     ("request_status", "request-status"),
 )
+
+
+def has_parameters(value):
+    """
+    Check if the value is a ``(value, parameters)`` pair.
+    """
+    return isinstance(value, tuple) and len(value) == 2 and isinstance(value[1], dict)
+
+
+def add_attachments(element, efield, val):
+    """
+    Add one attachment or a list or tuple of attachments to the element.
+
+    An attachment is either a plain value or a ``(value, parameters)`` pair.
+    """
+    if has_parameters(val) or not isinstance(val, (list, tuple)):
+        val = [val]
+    for attachment in val:
+        if has_parameters(attachment):
+            element.add(efield, attachment[0], parameters=attachment[1])
+        else:
+            element.add(efield, attachment)
+
 
 class ICal20Feed(SyndicationFeed):
     """
@@ -146,6 +170,8 @@ class ICal20Feed(SyndicationFeed):
                     elif ifield == "valarm":
                         for list_item in val:
                             element.add_component(list_item)
+                    elif ifield == "attach":
+                        add_attachments(element, efield, val)
                     else:
                         element.add(efield, val)
             calendar.add_component(element)

@@ -9,6 +9,7 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 from ..models.issue_relation import IssueRelation
+from ..types import UNSET, Unset
 
 
 
@@ -39,6 +40,10 @@ class ClosingIssue:
                 settings or in a repo the dashboard does not track, the page opens
                 no pop-up and shows a plain note over the list. The note has no
                 forge link, since the dashboard knows nothing else about the issue.
+            title (str | Unset): The issue's title as the board holds it, so a client can show it
+                on hover. Left out when the dashboard does not hold the issue
+                (closed, in a repo it does not track), and a client then words
+                the pill without it. Text, never markup.
      """
 
     relation: IssueRelation
@@ -46,6 +51,7 @@ class ClosingIssue:
     number: int
     url: str
     page_url: str
+    title: str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -63,6 +69,8 @@ class ClosingIssue:
 
         page_url = self.page_url
 
+        title = self.title
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -73,6 +81,8 @@ class ClosingIssue:
             "url": url,
             "pageUrl": page_url,
         })
+        if title is not UNSET:
+            field_dict["title"] = title
 
         return field_dict
 
@@ -94,12 +104,15 @@ class ClosingIssue:
 
         page_url = d.pop("pageUrl")
 
+        title = d.pop("title", UNSET)
+
         closing_issue = cls(
             relation=relation,
             repo=repo,
             number=number,
             url=url,
             page_url=page_url,
+            title=title,
         )
 
 

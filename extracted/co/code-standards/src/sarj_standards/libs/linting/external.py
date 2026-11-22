@@ -79,6 +79,11 @@ from .runner import GroupedPaths, accepts_hook_path, group_paths
 from .shell_policy import SHELLCHECK_ARGS
 
 
+_MILLISECONDS_PER_SECOND = 1_000
+_KIB_FACTOR = 1024
+_REDACTED_MESSAGE_CHARS = 1024
+
+
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator, Mapping, Sequence
     from typing import BinaryIO
@@ -699,7 +704,7 @@ def _invoke_oxlint(
         report,
         analyzer_id=AnalyzerId("oxlint"),
         invocation_id=invocation,
-        duration_ms=round((monotonic() - started) * 1_000),
+        duration_ms=round((monotonic() - started) * _MILLISECONDS_PER_SECOND),
         file_count=report.file_count or file_count,
     )
 
@@ -1157,7 +1162,7 @@ def _invoke_text_tool(
             diagnostics=diagnostics,
             analyzer_id=AnalyzerId(name),
             invocation_id=InvocationId(name),
-            duration_ms=round((monotonic() - started) * 1_000),
+            duration_ms=round((monotonic() - started) * _MILLISECONDS_PER_SECOND),
             file_count=file_count,
         )
     except (OSError, TypeError, ValueError, RecursionError, json.JSONDecodeError, subprocess.SubprocessError) as exc:
@@ -1168,7 +1173,7 @@ def _invoke_text_tool(
             issues=(issue,),
             analyzer_id=AnalyzerId(name),
             invocation_id=InvocationId(name),
-            duration_ms=round((monotonic() - started) * 1_000),
+            duration_ms=round((monotonic() - started) * _MILLISECONDS_PER_SECOND),
             file_count=file_count,
         )
 
@@ -1205,7 +1210,7 @@ def _invoke_detekt(
             diagnostics=diagnostics,
             analyzer_id=AnalyzerId("detekt"),
             invocation_id=InvocationId("detekt"),
-            duration_ms=round((monotonic() - started) * 1_000),
+            duration_ms=round((monotonic() - started) * _MILLISECONDS_PER_SECOND),
             file_count=file_count,
         )
     except (OSError, TypeError, ValueError, RecursionError, json.JSONDecodeError, subprocess.SubprocessError) as exc:
@@ -1216,7 +1221,7 @@ def _invoke_detekt(
             issues=(issue,),
             analyzer_id=AnalyzerId("detekt"),
             invocation_id=InvocationId("detekt"),
-            duration_ms=round((monotonic() - started) * 1_000),
+            duration_ms=round((monotonic() - started) * _MILLISECONDS_PER_SECOND),
             file_count=file_count,
         )
 
@@ -1779,7 +1784,7 @@ def _invoke_deptry_projects(
                         issues=(issue,),
                         analyzer_id=AnalyzerId("deptry"),
                         invocation_id=invocation_id,
-                        duration_ms=round((monotonic() - started) * 1_000),
+                        duration_ms=round((monotonic() - started) * _MILLISECONDS_PER_SECOND),
                         file_count=len(scoped_files),
                     )
                 )
@@ -1797,7 +1802,7 @@ def _invoke_deptry_projects(
                         issues=(issue,),
                         analyzer_id=AnalyzerId("deptry"),
                         invocation_id=invocation_id,
-                        duration_ms=round((monotonic() - started) * 1_000),
+                        duration_ms=round((monotonic() - started) * _MILLISECONDS_PER_SECOND),
                         file_count=len(scoped_files),
                     )
                 )
@@ -1809,7 +1814,7 @@ def _invoke_deptry_projects(
                     diagnostics=diagnostics,
                     analyzer_id=AnalyzerId("deptry"),
                     invocation_id=invocation_id,
-                    duration_ms=round((monotonic() - started) * 1_000),
+                    duration_ms=round((monotonic() - started) * _MILLISECONDS_PER_SECOND),
                     file_count=len(scoped_files),
                 )
             )
@@ -1822,7 +1827,7 @@ def _invoke_deptry_projects(
                     issues=(issue,),
                     analyzer_id=AnalyzerId("deptry"),
                     invocation_id=invocation_id,
-                    duration_ms=round((monotonic() - started) * 1_000),
+                    duration_ms=round((monotonic() - started) * _MILLISECONDS_PER_SECOND),
                     file_count=len(scoped_files),
                 )
             )
@@ -1854,9 +1859,8 @@ def _shell_source_reports(
         return CachedResult(tuple(reports))
 
     def shell_file_inputs() -> Iterator[str]:
-        # ShellCheck follows sources only among its inputs (no -x) and shfmt
-        # ignores EditorConfig when given printer flags, so these files are all
-        # either tool reads.
+        # ShellCheck follows sources only among its inputs (no -x) and shfmt ignores EditorConfig when given printer
+        # flags, so these files are all either tool reads.
         if executor_capabilities(runner).tool_resolution is not ToolResolution.LOCAL:
             msg = "only locally resolved shell tools have a provable identity"
             raise UnknownInputsError(msg)
@@ -2242,7 +2246,7 @@ def process_request(
 
 
 def run_process_input(argv: Sequence[str], *, cwd: Path, source: str, timeout_seconds: float = 10) -> ProcessOutput:
-    if len(source.encode("utf-8")) > 1024 * 1024:
+    if len(source.encode("utf-8")) > _KIB_FACTOR * _KIB_FACTOR:
         msg = "analyzer source exceeds the 1 MiB input limit"
         raise OutputLimitError(msg)
     return DEFAULT_EXECUTOR.run(
@@ -2251,7 +2255,7 @@ def run_process_input(argv: Sequence[str], *, cwd: Path, source: str, timeout_se
             cwd=cwd,
             timeout_seconds=timeout_seconds,
             input_bytes=source.encode("utf-8"),
-            max_input_bytes=1024 * 1024,
+            max_input_bytes=_KIB_FACTOR * _KIB_FACTOR,
         )
     )
 
@@ -2565,7 +2569,7 @@ def _invoke(
             rule_executions=report.rule_executions,
             analyzer_id=AnalyzerId(name),
             invocation_id=InvocationId(name if invocation_id is None else f"{name}:{invocation_id}"),
-            duration_ms=round((monotonic() - started) * 1_000),
+            duration_ms=round((monotonic() - started) * _MILLISECONDS_PER_SECOND),
             file_count=file_count,
             version=version if report.completion is Completion.COMPLETE else None,
         )
@@ -2578,7 +2582,7 @@ def _invoke(
             issues=(issue,),
             analyzer_id=AnalyzerId(name),
             invocation_id=InvocationId(name if invocation_id is None else f"{name}:{invocation_id}"),
-            duration_ms=round((monotonic() - started) * 1_000),
+            duration_ms=round((monotonic() - started) * _MILLISECONDS_PER_SECOND),
             file_count=file_count,
         )
 
@@ -2827,11 +2831,8 @@ def parse_mobsfscan(  # ruff: ignore[too-many-locals] -- protocol normalization 
     errors = _array(report.get("errors", []), "mobsfscan errors")
     if expected_paths is not None:
         _validate_mobsfscan_coverage(report, root, expected_paths)
-    # Semgrep 1.177.0 does not yet parse Swift's `#Preview` macro. It reports a
-    # warning-only PartialParsing record while still scanning the complete file.
-    # Permit only that exact, known parser limitation and only when the caller
-    # requested and proved exact selected-file coverage above. Every other
-    # engine error remains fatal.
+    # Only Semgrep 1.177.0's warning-only Swift #Preview PartialParsing record is permitted with proven exact coverage;
+    # every other engine error remains fatal.
     tolerated_partial_parsing = expected_paths is not None and all(
         _is_tolerated_swift_partial_parsing(raw_error) for raw_error in errors
     )
@@ -3073,7 +3074,7 @@ def _react_doctor_path(item: _ReactDoctorDiagnostic, directory: Path, root: Path
     resolved = (raw_path if raw_path.is_absolute() else directory / raw_path).resolve()
     try:
         resolved.relative_to(root.resolve())
-    except ValueError as exc:
+    except ValueError as exc:  # sarj-noqa: SARJ585 -- Reject boundary paths without printing absolute private roots.
         msg = "React Doctor reported a path outside the repository root"
         raise ValueError(msg) from exc
     return resolved
@@ -3147,9 +3148,8 @@ def _deptry_argv(project: Path, scoped_files: Sequence[str]) -> tuple[str, ...]:
 
 
 def _deptry_scan_roots(project: Path, scoped_files: Sequence[str]) -> tuple[str, ...]:
-    # DEP002 compares project dependencies with its complete import graph. A
-    # selected maintenance script must also scan the package sources explicitly
-    # owned by this wheel, even when those sources have a nested pyproject.
+    # DEP002 compares project dependencies with its complete import graph. A selected maintenance script must also scan
+    # the package sources explicitly owned by this wheel, even when those sources have a nested pyproject.
     packages = _deptry_declared_packages(project)
     roots = {package.path.relative_to(project).as_posix() for package in packages}
     for raw_file in scoped_files:
@@ -3283,7 +3283,7 @@ def _contained_path(value: str, root: Path) -> str:
     resolved = (path if path.is_absolute() else root / path).resolve()
     try:
         resolved.relative_to(root)
-    except ValueError as exc:
+    except ValueError as exc:  # sarj-noqa: SARJ585 -- Reject boundary paths without printing absolute private roots.
         msg = "analysis path is outside the repository root"
         raise ValueError(msg) from exc
     return str(resolved)
@@ -3346,7 +3346,7 @@ def _reported_path(value: str, root: Path) -> Path:
     resolved = (path if path.is_absolute() else root / path).resolve()
     try:
         resolved.relative_to(root.resolve())
-    except ValueError as exc:
+    except ValueError as exc:  # sarj-noqa: SARJ585 -- Reject boundary paths without printing absolute private roots.
         msg = "analyzer reported a path outside the repository root"
         raise ValueError(msg) from exc
     return resolved
@@ -3407,7 +3407,7 @@ def _severity_text(value: str) -> Severity:
 def _relative(path: Path, root: Path) -> str:
     try:
         return path.resolve().relative_to(root.resolve()).as_posix()
-    except ValueError as exc:
+    except ValueError as exc:  # sarj-noqa: SARJ585 -- Reject boundary paths without printing absolute private roots.
         msg = "analyzer reported a path outside the repository root"
         raise ValueError(msg) from exc
 
@@ -3423,7 +3423,7 @@ def redact_message(value: str, root: Path) -> str:
     )
     message = re.sub(r"(?<![\w:./])/(?:[^\s:]+/?)+", "<path>", message)
     message = re.sub(r"\b[A-Za-z]:\\[^\s]+", "<path>", message)
-    return message[:1024]
+    return message[:_REDACTED_MESSAGE_CHARS]
 
 
 def _validate_mobsfscan_coverage(report: dict[str, object], root: Path, expected_paths: Sequence[str]) -> None:

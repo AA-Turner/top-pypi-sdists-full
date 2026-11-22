@@ -1557,6 +1557,23 @@ def test_favorite_eval_errors_match_execution(monkeypatch, query: str | None, ar
     assert eval_result.command is None
 
 
+def test_subst_favorite_query_args_with_two_digit_parameters() -> None:
+    query = 'select ' + ', '.join(f'${i}' for i in range(1, 12))
+    args = [f'v{i}' for i in range(1, 12)]
+    assert io_commands.subst_favorite_query_args(query, args) == [
+        'select ' + ', '.join(args),
+        None,
+    ]
+    assert io_commands.subst_favorite_query_args('select $1, $10', ['x']) == [
+        None,
+        'missing substitution for $10 in query:\n  select x, $10',
+    ]
+    assert io_commands.subst_favorite_query_args('select $10', ['x']) == [
+        None,
+        'query does not have substitution parameter $1:\n  select $10',
+    ]
+
+
 def test_list_substitute_save_delete_and_redirect_state(tmp_path: Path, monkeypatch) -> None:
     empty_favorites = FakeFavoriteQueries()
     monkeypatch.setattr(io_commands.FavoriteQueries, 'instance', empty_favorites, raising=False)
@@ -1874,6 +1891,17 @@ def test_execute_system_clear_returns_no_result(monkeypatch, command: str) -> No
 
     assert io_commands.execute_system_command(command) == []
     assert calls == [[part for part in command.split() if part != '-r']]
+
+
+def test_execute_system_command_undecodable_output(monkeypatch) -> None:
+    monkeypatch.setattr(io_commands.locale, 'getpreferredencoding', lambda do_setlocale: 'utf-8')
+    process = FakeProcess(stdout=b'caf\xe9 ok', stderr=b'', returncode=0)
+    monkeypatch.setattr(io_commands.subprocess, 'Popen', lambda command, stdout, stderr: process)
+
+    result = io_commands.execute_system_command('echo x')[0]
+
+    assert result.preamble == 'caf\ufffd ok'
+    assert result.status is None
 
 
 def test_execute_system_command_nonraw_paths(monkeypatch) -> None:

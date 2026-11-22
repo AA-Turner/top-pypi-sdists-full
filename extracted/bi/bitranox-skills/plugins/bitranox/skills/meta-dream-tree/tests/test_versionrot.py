@@ -8,7 +8,9 @@ A fact like "fixed in bmk 3.13.0" stays correct as a sentence and wrong as a les
 * be able to say "nothing superseded" over a non-empty store, and refuse a scan of zero facts.
 """
 
+import ast
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -422,3 +424,52 @@ class TestPypiAsksOnlyAboutPackageMentions:
         # "processes" is only the nearest unknown word behind "fixed in", not the version's owner.
         text = "It rebuilt under running processes (fixed in 3.13.0)."
         assert self._ask([text], versionrot.Registry()) == []
+
+
+def _names_imported_from(source: Path, module: str) -> set[str]:
+    """Every name any `from <module> import ...` in `source` takes, function-local ones included."""
+    tree = ast.parse(source.read_text(encoding="utf-8"))
+    return {alias.name for node in ast.walk(tree)
+            if isinstance(node, ast.ImportFrom) and node.module == module
+            for alias in node.names}
+
+
+def _declared_all(source: Path) -> set[str]:
+    """The names a module's top-level `__all__` literal declares, read without importing it."""
+    for node in ast.parse(source.read_text(encoding="utf-8")).body:
+        if isinstance(node, ast.Assign) and any(
+                isinstance(t, ast.Name) and t.id == "__all__" for t in node.targets):
+            names = ast.literal_eval(node.value)
+            assert isinstance(names, (list, tuple)), names
+            return {str(name) for name in names}
+    raise AssertionError(f"{source.name} declares no __all__")
+
+
+def test_every_name_taken_from_statusrot_is_its_public_api() -> None:
+    # A private helper reached across modules is a contract nobody declared: a rename in
+    # statusrot would break this scanner with nothing on statusrot's side saying it is used.
+    source = Path(versionrot.__file__)
+    taken = _names_imported_from(source, "statusrot")
+    assert taken, "versionrot no longer imports from statusrot; this test has nothing to check"
+    declared = _declared_all(source.with_name("statusrot.py"))
+    assert taken <= declared, sorted(taken - declared)
+
+
+def test_help_works_under_python_oo() -> None:
+    """`python -OO` strips docstrings: the old fallback `(__doc__ or "")` had no first line to
+    take, so every run died with an IndexError before reading an argument."""
+    proc = subprocess.run([sys.executable, "-OO", versionrot.__file__, "--help"],
+                          capture_output=True, text=True, encoding="utf-8", errors="replace")
+    assert proc.returncode == 0 and "usage:" in proc.stdout, proc.stdout + proc.stderr
+
+
+def test_a_real_scan_answers_the_same_under_python_oo(tmp_path: Path) -> None:
+    """A real scan under -OO must report exactly what it reports with docstrings kept."""
+    root = _store(tmp_path, {"stale": ("When X, know it was fixed in bmk 3.13.0.", "The race.")})
+    args = [versionrot.__file__, "scan", "--chain", str(root), "--current", "bmk=3.21.1", "--json"]
+    runs = [subprocess.run([sys.executable, *flags, *args], capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", check=False)
+            for flags in ([], ["-OO"])]
+    plain, stripped = runs
+    assert plain.returncode == 1, plain.stdout + plain.stderr
+    assert (stripped.returncode, stripped.stdout) == (plain.returncode, plain.stdout), stripped.stderr

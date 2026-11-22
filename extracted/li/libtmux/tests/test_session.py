@@ -27,7 +27,7 @@ if t.TYPE_CHECKING:
     try:
         from _pytest.raises import RaisesExc
     except ImportError:
-        from _pytest.python_api import RaisesContext  # type: ignore[attr-defined]
+        from _pytest.python_api import RaisesContext  # type: ignore[import-not-found]
 
         RaisesExc: TypeAlias = RaisesContext[Exception]  # type: ignore[no-redef]
 
@@ -782,3 +782,50 @@ def test_kill_session_group(server: Server) -> None:
     else:
         with pytest.warns(UserWarning, match="group requires tmux 3.7"):
             session.kill(group=True)
+
+
+def test_kill_window_by_name_stays_in_its_session(server: Server) -> None:
+    """A window name is resolved in the session ``kill_window`` was called on.
+
+    tmux resolves a bare name in the most recently used session, so the
+    session under test is the one that is *not* the latest.
+    """
+    first = server.new_session("first_session")
+    latest = server.new_session("latest_session")
+    first.new_window(window_name="shared")
+    kept = latest.new_window(window_name="shared")
+
+    first.kill_window("shared")
+
+    assert first.windows.filter(window_name="shared") == []
+    assert [w.window_id for w in latest.windows.filter(window_name="shared")] == [
+        kept.window_id,
+    ]
+
+
+def test_rename_session_name_starting_with_a_dash(session: Session) -> None:
+    """A session name that starts with ``-`` is a name, not a flag."""
+    session.rename_session("-renamed")
+
+    assert session.session_name == "-renamed"
+    assert session.server.sessions.get(session_id=session.session_id) is not None
+
+
+def test_environment_name_starting_with_a_dash(session: Session) -> None:
+    """A variable name that starts with ``-`` is set, unset and removed.
+
+    tmux prints a removed variable as ``-NAME``, so the listing cannot tell
+    such a name from a removed one; the single-variable form is read instead.
+    """
+
+    def show() -> list[str]:
+        return session.cmd("show-environment", "--", "-dash").stdout
+
+    session.set_environment("-dash", "value")
+    assert show() == ["-dash=value"]
+
+    session.unset_environment("-dash")
+    assert show() == []
+
+    session.remove_environment("-dash")
+    assert show() == ["--dash"]

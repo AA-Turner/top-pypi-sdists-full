@@ -96,7 +96,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
     from pathlib import Path
 
-    from datamodel_code_generator import DataclassArguments
+    from datamodel_code_generator.enums import DataclassArguments
     from datamodel_code_generator.imports import Import
     from datamodel_code_generator.model._decisions.assignment import AssignmentRow
     from datamodel_code_generator.model._render_plan import FieldRenderPlan
@@ -141,7 +141,7 @@ class DataClass(_DataclassReuseMixin, _PydanticV2Model):
     _OVERWRITES_REGEX_ENGINE: ClassVar[bool] = True
     _FOLLOWS_PATTERN_REFERENCES: ClassVar[bool] = True
 
-    def __init__(  # noqa: PLR0913
+    def __init__(
         self,
         *,
         reference: Reference,
@@ -501,7 +501,7 @@ class DataModelField(DataModelFieldV2):
         """Drop Annotated when dataclass metadata moves to the assignment.
 
         Row ``legacy.pdc-annotated-strip``: the import goes whenever the dataclass must see the field's metadata, also
-        when the type hint itself writes ``Annotated`` (``NameError`` at import); the module import plan (RP15) keeps
+        when the type hint itself writes ``Annotated`` (``NameError`` at import); the module import plan keeps
         the imports the rendered text uses and deletes the row.
         """
         imports = super().imports

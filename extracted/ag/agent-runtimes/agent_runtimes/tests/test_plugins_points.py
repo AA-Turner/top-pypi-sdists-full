@@ -1,12 +1,12 @@
 # Copyright (c) 2025-2026 Datalayer, Inc.
 # Distributed under the terms of the Modified BSD License.
 
-"""The session's contribution points and `loop plugins`.
+"""The session's contribution points and `agent plugins`.
 
 The five points of the `agent-runtimes` reactor extension, the built-in
 plugin contributing today's implementations, a malformed or duplicate
 contribution refused at the seam naming the plugin while the host runs
-with the rest, and `loop plugins [<name>]` listing every extension, its
+with the rest, and `agent plugins [<name>]` listing every extension, its
 contributions and what was refused — one name given, that one alone, a
 failed entry point with its entry point and error.
 """
@@ -23,6 +23,7 @@ from typer.testing import CliRunner
 
 from agent_runtimes.plugins import host, points
 from agent_runtimes.plugins.extension import extension
+from agent_runtimes.plugins.harnesses import harness_plugin_name
 from agent_runtimes.plugins.points import (
     HARNESSES,
     POINTS,
@@ -78,17 +79,19 @@ def test_the_points_are_registered_at_start(platform: PluginPlatform) -> None:
     [held] = [e for e in platform.list_extensions() if e["name"] == host.EXTENSION]
     assert held["plugins"] == [
         host.BUILTIN_PLUGIN,
+        *(harness_plugin_name(harness) for harness in HARNESS_CATALOGUE),
         "agent-runtimes.organization-harnesses",
     ]
     [manifest] = [
         p for p in platform.list_plugins() if p["name"] == host.BUILTIN_PLUGIN
     ]
     assert manifest["contribution_points"] == [point.id for point in POINTS]
-    # The catalogue contributes itself, each harness under its id.
+    # The catalogue contributes itself, each harness under its id, by its own plugin.
     harnesses = host.accepted(platform, HARNESSES)
     assert {c.id for c in harnesses} == set(HARNESS_CATALOGUE)
     assert all(
-        isinstance(c.value, HarnessContribution) and c.plugin == host.BUILTIN_PLUGIN
+        isinstance(c.value, HarnessContribution)
+        and c.plugin == harness_plugin_name(c.id)
         for c in harnesses
     )
     # Registered twice: once.
@@ -130,7 +133,7 @@ def test_a_malformed_contribution_is_refused_naming_the_plugin_and_the_host_runs
         or "not a HarnessContribution" in refused[("harness", "aider")]
     )
     assert refused[("harness", "codex")] == (
-        "broken-one contributes harness 'codex', which agent-runtimes.sessions contributed first: one harness per id."
+        "broken-one contributes harness 'codex', which agent-runtimes.harnesses.codex contributed first: one harness per id."
     )
     assert "not a SessionStore" in refused[("session.store", "memory")]
     assert "not a SessionFormat" in refused[("session.format", "omnigent-jsonl/1")]
@@ -140,7 +143,7 @@ def test_a_malformed_contribution_is_refused_naming_the_plugin_and_the_host_runs
     )
     # The host runs with the rest: the catalogue's codex is the one read.
     [codex] = [c for c in host.accepted(platform, HARNESSES) if c.id == "codex"]
-    assert codex.plugin == host.BUILTIN_PLUGIN
+    assert codex.plugin == harness_plugin_name("codex")
     assert "aider" not in {c.id for c in host.accepted(platform, HARNESSES)}
 
 
@@ -193,16 +196,18 @@ def broken(tmp_path: Path) -> Iterator[Path]:
         importlib.invalidate_caches()
 
 
-def test_loop_plugins_lists_extensions_contributions_and_what_was_refused(
+def test_agent_plugins_lists_extensions_contributions_and_what_was_refused(
     platform: PluginPlatform, broken: Path
 ) -> None:
     assert host.discover(platform, TEST_GROUP) == []
     described = host.describe_plugins(platform)
     assert [e["name"] for e in described["extensions"]] == [host.EXTENSION]
-    plugin, organization = described["extensions"][0]["plugins"]
+    plugin, *harnesses, organization = described["extensions"][0]["plugins"]
     assert plugin["name"] == host.BUILTIN_PLUGIN and plugin["enabled"]
     assert organization["contributions"] == []
-    assert {(c["point"], c["id"]) for c in plugin["contributions"]} >= {
+    assert {
+        (c["point"], c["id"]) for each in harnesses for c in each["contributions"]
+    } >= {
         ("harness", "claude-code"),
         ("harness", "codex"),
     }
@@ -217,7 +222,8 @@ def test_loop_plugins_lists_extensions_contributions_and_what_was_refused(
     assert lines[0].startswith(
         "agent-runtimes 1.0.0 — The session as the unit of agent-runtimes"
     )
-    assert lines[1].startswith(f"  {host.BUILTIN_PLUGIN}: harness (claude-code)")
+    assert lines[1].startswith(f"  {host.BUILTIN_PLUGIN}: session.store (record)")
+    assert lines[2] == "  agent-runtimes.harnesses.claude-code: harness (claude-code)"
     assert lines[-2:] == [
         "Refused:",
         "  broken-one (entry point broken_one:extension): ImportError: aider is not installed",
@@ -261,6 +267,7 @@ def test_a_contribution_is_its_extension_s_when_registered_through_it() -> None:
     assert delivered.name == host.EXTENSION
     assert [manifest.name for manifest, _ in delivered.plugins] == [
         host.BUILTIN_PLUGIN,
+        *(harness_plugin_name(harness) for harness in HARNESS_CATALOGUE),
         "agent-runtimes.organization-harnesses",
     ]
     assert points.HOOK_EVENTS == (
@@ -277,7 +284,7 @@ def test_a_contribution_is_its_extension_s_when_registered_through_it() -> None:
 # --- the catalogue behind the point ------------------------------------------
 
 
-def test_a_plugins_harness_is_listed_by_loop_harnesses_and_resolved_by_harness_agent(
+def test_a_plugins_harness_is_listed_by_agent_harnesses_and_resolved_by_harness_agent(
     platform: PluginPlatform,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -320,7 +327,7 @@ def test_a_plugins_harness_is_listed_by_loop_harnesses_and_resolved_by_harness_a
     out = re.sub(r"\x1b\[[0-9;]*m", "", capsys.readouterr().out)
     assert (
         "Aider" in out
-        and "loop --harness aider" in out
+        and "agent --harness aider" in out
         and "Contributed by: aider-harness" in out
     )
     assert (
@@ -337,7 +344,7 @@ def test_a_plugins_harness_is_listed_by_loop_harnesses_and_resolved_by_harness_a
     [refusal] = host.refusals(platform)
     assert refusal.plugin == "aider-again" and refusal.contribution_id == "claude-code"
     [claude] = [c for c in host.accepted(platform, HARNESSES) if c.id == "claude-code"]
-    assert claude.plugin == host.BUILTIN_PLUGIN
+    assert claude.plugin == harness_plugin_name("claude-code")
     with pytest.raises(
         HarnessRefused,
         match="There is no harness named 'nope': one of aider, claude-code, codex",

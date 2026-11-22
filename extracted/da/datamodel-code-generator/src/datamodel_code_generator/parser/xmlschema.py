@@ -20,11 +20,11 @@ from xml.etree import ElementTree as ET  # noqa: S405
 
 from typing_extensions import Unpack
 
-from datamodel_code_generator import Error
 from datamodel_code_generator._caches import BoundedLru, SeenKeys
 from datamodel_code_generator._format_types import DatetimeClassType
 from datamodel_code_generator._json_schema import definition_ref, json_nodes
 from datamodel_code_generator._name_words import first_upper
+from datamodel_code_generator._shared_types import Error
 from datamodel_code_generator._xmlschema_detection import XML_SCHEMA_NAMESPACE, XML_SCHEMA_TAG
 from datamodel_code_generator._xmlschema_detection import is_xml_schema_text as _is_xml_schema_text
 from datamodel_code_generator.enums import VersionMode, XMLSchemaVersion
@@ -325,7 +325,7 @@ def _xml_schema_cache_entry_is_fresh(entry: _XMLSchemaDataCacheEntry) -> bool:
     return all(path.is_file() and _digest_path(path) == digest for path, digest in entry.dependencies)
 
 
-def _load_xml_schema_data_from_path(  # noqa: PLR0913
+def _load_xml_schema_data_from_path(
     path: Path,
     base_path: Path,
     encoding: str,
@@ -411,7 +411,7 @@ def convert_xml_schema_data(
     )
 
 
-def _convert_xml_schema_data(  # noqa: PLR0913
+def _convert_xml_schema_data(
     raw_schema: Any,
     *,
     base_path: Path | None = None,
@@ -441,7 +441,7 @@ def _convert_xml_schema_data(  # noqa: PLR0913
 
 
 class _XMLSchemaConverter:
-    def __init__(  # noqa: PLR0913
+    def __init__(
         self,
         base_path: Path,
         encoding: str,
@@ -487,7 +487,7 @@ class _XMLSchemaConverter:
 
     def convert(self, source: Source, *, placeholder_title: bool = True) -> dict[str, YamlValue]:
         if source.raw_data is not None:
-            if not isinstance(source.raw_data, dict):  # pragma: no cover
+            if not isinstance(source.raw_data, dict):  # pragma: no cover - not proven unreachable
                 msg = f"Expected dict, got {type(source.raw_data).__name__}"
                 raise TypeError(msg)
             return source.raw_data
@@ -642,6 +642,10 @@ class _XMLSchemaConverter:
         return max_version is None or processor_version < max_version
 
     def _parse_schema(self, text: str, source_path: Path) -> ET.Element:
+        """Return the root element of a schema document, recording the namespaces in scope at each element.
+
+        ``iterparse`` yields only the events it is asked for, so an event that is no namespace event starts an element.
+        """
         try:
             root: ET.Element | None = None
             active_namespaces: dict[str, str] = {}
@@ -664,12 +668,12 @@ class _XMLSchemaConverter:
                         if root is None:
                             root = element
                         self._element_namespaces[id(element)] = active_namespaces.copy()
-                    case _:  # pragma: no cover
+                    case _:  # pragma: no cover - not proven unreachable
                         pass
         except ET.ParseError as exc:
             msg = f"Invalid XML Schema document {source_path}: {exc}"
             raise Error(msg) from exc
-        if root is None:  # pragma: no cover
+        if root is None:  # pragma: no cover - not proven unreachable
             msg = f"Invalid XML Schema document {source_path}: empty document"
             raise Error(msg)
         if root.tag != XML_SCHEMA_TAG:
@@ -779,7 +783,7 @@ class _XMLSchemaConverter:
     def _build_definition(self, key: DefinitionKey) -> JsonSchema:
         if key in self._built_definitions:
             return self._built_definitions[key]
-        if key in self._building_definitions:  # pragma: no cover
+        if key in self._building_definitions:  # pragma: no cover - not proven unreachable: a type that refers to itself
             return {"$ref": self._ref(key)}
         self._building_definitions.add(key)
         qname_key = key[1:]
@@ -870,7 +874,7 @@ class _XMLSchemaConverter:
             schema["x-xsd-abstract"] = True
         return schema
 
-    def _apply_value_constraint(  # noqa: PLR0913, PLR0917
+    def _apply_value_constraint(  # noqa: PLR0917
         self,
         schema: JsonSchema,
         kind: str,
@@ -966,7 +970,7 @@ class _XMLSchemaConverter:
             restriction.get("base"), _first_xsd_child(restriction, "simpleType"), restriction, seen
         )
 
-    def _warn_invalid_default(  # noqa: PLR0913, PLR0917
+    def _warn_invalid_default(  # noqa: PLR0917
         self,
         kind: str,
         name: str | None,
@@ -1415,7 +1419,7 @@ class _XMLSchemaConverter:
         current = schema.get(key)
         schema[key] = current * value if isinstance(current, int) else value
 
-    def _builtin_qname(self, qname: str, element: ET.Element | None) -> tuple[bool, QNameKey]:
+    def _builtin_qname(self, qname: str, element: ET.Element) -> tuple[bool, QNameKey]:
         """Return whether a qname names a built-in type, and the key of the type it resolves to.
 
         A name in the XML Schema namespace does, and so does an unprefixed name of a built-in type that no type of
@@ -1430,7 +1434,7 @@ class _XMLSchemaConverter:
             and key not in self.complex_types
         ), key
 
-    def _schema_for_qname(self, qname: str, element: ET.Element | None = None) -> JsonSchema:
+    def _schema_for_qname(self, qname: str, element: ET.Element) -> JsonSchema:
         builtin, key = self._builtin_qname(qname, element)
         if builtin:
             return self._builtin_type_schema(_local_name(qname), default=STRING_SCHEMA)
@@ -1444,22 +1448,20 @@ class _XMLSchemaConverter:
             schema["x-python-type"] = "datetime"
         return schema
 
-    def _qname_namespace(self, qname: str, element: ET.Element | None = None) -> str | None:
+    def _qname_namespace(self, qname: str, element: ET.Element) -> str | None:
         if ":" not in qname:
             return None
         prefix = qname.split(":", maxsplit=1)[0]
         return self._namespaces_for(element).get(prefix)
 
-    def _qname_key(self, qname: str, element: ET.Element | None = None) -> QNameKey:
+    def _qname_key(self, qname: str, element: ET.Element) -> QNameKey:
         return (self._qname_namespace(qname, element), _local_name(qname))
 
-    def _resolve_key(
-        self,
-        qname: str | QNameKey,
-        *registries: dict[QNameKey, ET.Element],
-        element: ET.Element | None = None,
-    ) -> QNameKey:
-        key = qname if isinstance(qname, tuple) else self._qname_key(qname, element)
+    def _resolve_key(self, qname: str, *registries: dict[QNameKey, ET.Element], element: ET.Element) -> QNameKey:
+        return self._resolve_registered_key(self._qname_key(qname, element), *registries)
+
+    @staticmethod
+    def _resolve_registered_key(key: QNameKey, *registries: dict[QNameKey, ET.Element]) -> QNameKey:
         if any(key in registry for registry in registries):
             return key
         namespace, local = key
@@ -1471,7 +1473,7 @@ class _XMLSchemaConverter:
         return key
 
     def _resolved_referenced_elements(self) -> set[QNameKey]:
-        resolved = {self._resolve_key(ref, self.elements) for ref in self.referenced_elements}
+        resolved = {self._resolve_registered_key(ref, self.elements) for ref in self.referenced_elements}
         for ref in tuple(resolved):
             resolved.update(self.substitution_groups.get(ref, set()))
         return resolved
@@ -1497,9 +1499,7 @@ class _XMLSchemaConverter:
     def _element_ref(self, key: QNameKey) -> str:
         return self._ref(self._element_definition_key(key))
 
-    def _namespaces_for(self, element: ET.Element | None) -> dict[str, str]:
-        if element is None:  # pragma: no cover
-            return self.namespaces
+    def _namespaces_for(self, element: ET.Element) -> dict[str, str]:
         return self._element_namespaces.get(id(element), self.namespaces)
 
     @staticmethod
@@ -1564,7 +1564,7 @@ class XMLSchemaParser(JsonSchemaParser):
                         yield self._source_from_xml_path(file_path)
                 else:
                     yield self._source_from_xml_path(path)
-            case list() as paths:  # pragma: no cover
+            case list() as paths:
                 for path in paths:
                     yield self._source_from_xml_path(path)
             case _:

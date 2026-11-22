@@ -11,7 +11,6 @@ from urllib.parse import ParseResult  # noqa: TC003 - Public annotations support
 
 from typing_extensions import Unpack, override
 
-from datamodel_code_generator import Error, OpenAPIScope, SchemaParseError
 from datamodel_code_generator._document_reader import descend, string_key
 from datamodel_code_generator._json_pointer import document_part
 from datamodel_code_generator._openapi_objects import COMPONENT_ROLES
@@ -24,11 +23,13 @@ from datamodel_code_generator._openapi_paths import (
     path_item_operations,
 )
 from datamodel_code_generator._records import record
+from datamodel_code_generator._shared_types import Error, SchemaParseError
 from datamodel_code_generator._site_facts import EMPTY_SITE, Projection, TypeUseRole, site_facts_of
 from datamodel_code_generator._source import YamlValue  # noqa: TC001 - Public annotations support get_type_hints().
 from datamodel_code_generator._target_unicode import replace_non_word
 from datamodel_code_generator._types import OpenAPIParserConfigDict  # noqa: TC001 - Public annotations support get_type_hints().
 from datamodel_code_generator.config import OpenAPIParserConfig  # noqa: TC001 - Public annotations support get_type_hints().
+from datamodel_code_generator.enums import OpenAPIScope
 from datamodel_code_generator.parser import _schema_refs
 from datamodel_code_generator.parser._api_reference import (
     ApiModelResolver,
@@ -211,7 +212,7 @@ class ApiOpenAPIParser(OpenAPIParser):
         return super()._get_model_name(stripped, method, suffix)
 
     @contextmanager
-    def _schema_frame(  # noqa: PLR0913
+    def _schema_frame(
         self,
         name: str,
         path: list[str],
@@ -434,7 +435,7 @@ class ApiOpenAPIParser(OpenAPIParser):
         models = self._get_model_by_json_pointer(raw, tokens, ref)
         self._parse_raw_at(tokens[-1], models, [*path_parts, "#", *tokens], self._member_location(raw, *tokens))
 
-    def _parse_file(  # noqa: PLR0913
+    def _parse_file(
         self,
         raw: dict[str, YamlValue],
         obj_name: str,
@@ -558,7 +559,7 @@ class ApiOpenAPIParser(OpenAPIParser):
                 self._parse_raw_or_validated_obj(name, raw, path, validated)
             self._processed_declarations.add(declaration)
 
-    def _acquire_item_schema(  # ruff: ignore[too-many-arguments]
+    def _acquire_item_schema(
         self,
         name: str,
         item: YamlValue,
@@ -973,7 +974,7 @@ class ApiOpenAPIParser(OpenAPIParser):
         use_site = self.declaration_frames[-1].root_use_site if self.declaration_frames else None
         self.ignored_declarations.append(ApiIgnoredDeclaration(declaration, use_site, reason, owner, media, wire_name))
 
-    def _ignores_content_type(  # noqa: PLR0913, PLR0917
+    def _ignores_content_type(  # noqa: PLR0917
         self,
         holder: dict[str, YamlValue],
         headers: dict[str, YamlValue],

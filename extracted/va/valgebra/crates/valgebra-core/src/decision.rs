@@ -37,7 +37,7 @@ use crate::verdict::{Relation, Verdict};
 
 use crate::oracle::{denotes_a_set_within, has_complementary_pair};
 use constraints::constraint_entailed;
-use emptiness::{ReadBack, class_with_attributes, narrowed_meet, the_rules_find_a_value};
+use emptiness::{ReadBack, ReadFor, class_with_attributes, narrowed_meet, the_rules_find_a_value};
 use literals::{
     a_union_spilled_past_as_a_table, finite_meet_below, finite_set, finite_set_below,
     spilled_past_a_table, spills_past_a_table, the_constant_speaks_for_the_literal,
@@ -131,6 +131,19 @@ pub(crate) const RESPELLING_AGAIN: u32 = 65_536;
 /// **This bound is cost.** No step counts a lowering, so this is what holds how
 /// many of them one asking reads: sixty-four under [`RESPELLING`].
 const LEAF_READING: u32 = 64;
+
+/// The units the goals holding a reference that one query declines are lowered
+/// with between them ([`Schema::a_goal_declined`]): one build's allowance,
+/// [`WORK`], for every such goal of the query rather than for each.
+///
+/// **This bound is cost.** Each goal's lowering arms builds of its own, so
+/// without it a query reading many goals spends a build's allowance on each: a
+/// meet of two recursive records over the JSON values declines many goals
+/// holding the fixpoint, each of which spends its allowance and answers nothing.
+/// A goal holding no reference is lowered under its builds' own allowances:
+/// drawn from this pool too, such goals lose answers over the record, mapping
+/// and `TypedDict` families, the refusal [`budget::under`] records.
+const GOALS_WORK: u64 = crate::descr::lower::WORK;
 
 thread_local! {
     /// Whether a split of a pair on a set is under way on this thread
@@ -484,6 +497,26 @@ pub(crate) fn kind_reading(
     }
 }
 
+/// The narrowed meet of `members` with no definitions and no oracle, or `None`
+/// where nothing narrows: the laws hold it to membership.
+#[cfg(test)]
+pub(crate) fn narrowed_meet_of(members: &[Schema]) -> Option<Schema> {
+    let budget = Budget::new(DECISION_BUDGET);
+    narrowed_meet(
+        members,
+        &Cx::new(&NoLeafRelations, &[], &budget),
+        ReadFor::Relation,
+    )
+}
+
+/// The record a meet's length bounds leave, with no definitions and no oracle:
+/// the laws hold it to membership.
+#[cfg(test)]
+pub(crate) fn the_record_a_length_leaves_of(members: &[Schema]) -> Option<Schema> {
+    let budget = Budget::new(DECISION_BUDGET);
+    records::the_record_a_length_leaves(members, &Cx::new(&NoLeafRelations, &[], &budget))
+}
+
 /// Spend one unit of `budget`; returns `false` when it is already exhausted, the
 /// signal a budgeted decision uses to stop and report the conservative answer.
 pub(super) fn spend(budget: &Budget) -> bool {
@@ -633,7 +666,7 @@ fn flat_members(members: &[Schema]) -> impl Iterator<Item = &Schema> {
 fn a_meet_respelled_below(members: &Members, other: &Schema, cx: &mut Cx<'_>) -> Relation {
     let query = cx.query();
     if NARROWING.with(Cell::get) == query {
-        return narrowed_meet(members, cx)
+        return narrowed_meet(members, cx, ReadFor::Relation)
             .map_or(Relation::Unknown, |narrowed| {
                 narrowed.is_subtype_rec(other, cx)
             })
@@ -652,7 +685,7 @@ fn a_meet_respelled_below(members: &Members, other: &Schema, cx: &mut Cx<'_>) ->
     if let Some(answer) = asked {
         return answer;
     }
-    let answer = narrowed_meet(members, cx)
+    let answer = narrowed_meet(members, cx, ReadFor::Relation)
         .map_or(Relation::Unknown, |narrowed| {
             let allowance = Budget::new(given);
             let _open = Narrowing::open(query);
@@ -1217,15 +1250,17 @@ impl Schema {
         Relation::Fails
     }
 
-    /// The rules asked once more, a goal they decline read by the sets where no
-    /// reference stands in the way.
+    /// The rules asked once more, a goal they decline read by the sets where
+    /// [`Self::a_goal_declined`] reads it.
     ///
     /// The whole pair's set reading stops at what it cannot lower or at a cut,
     /// and it stops for all of the pair: `tuple[bool, R]` below `tuple[Annotated[int,
     /// Lt(8)], R]` holds a reference at one position, and the leaf at the other is
     /// a question the sets answer on their own. Both deciders are sound, so a
     /// part's answer composes through the rules as any other does. A reference on
-    /// neither side is cut nowhere, so the reading is the set itself.
+    /// neither side is cut nowhere, so the reading is the set itself, and a goal
+    /// holding one is read where a connective tops it, the cut proving it as it
+    /// proves a pair.
     ///
     /// Asked last of a pair everything else declined. A goal the rules decline
     /// is the common case on the way to an answer another rule gives, and asked
@@ -1273,22 +1308,42 @@ impl Schema {
         }
     }
 
-    /// A goal the rules declined: what the sets answer of one with no reference
-    /// on either side where the query reads its leaves, charged [`LEAF_READING`]
-    /// steps, since no step counts a lowering. A difference the sets read inhabited
-    /// holds the value a refutation stands on, so no witness is asked of it. Out of
-    /// line, as a declined goal is the path this is on: the rules' answers read one
-    /// test.
+    /// A goal the rules declined: what the sets answer of it where the query reads
+    /// its leaves, charged [`LEAF_READING`] steps, since no step counts a lowering.
+    /// A difference the sets read inhabited holds the value a refutation stands
+    /// on, so no witness is asked of it. Out of line, as a declined goal is the
+    /// path this is on: the rules' answers read one test.
+    ///
+    /// **A goal holding a reference is read where a connective tops one side.**
+    /// The rules read a meet member by member and a union branch by branch, where
+    /// the sets read the normal form, every union distributed [FCB08, Def. 4.1].
+    /// So `list[int] & (list[bool] | ~list[int | str]) & J` is below
+    /// `list[bool]` on the clause `list[int] & ~list[int | str]` being empty,
+    /// which no member and no branch says alone: the complement is of no member
+    /// and of no whole kind. The sets cut the reference once and prove through
+    /// the cut [AC93, §3.4]. A goal topped by a constructor or a reference is the
+    /// rules' to take apart, into goals of its parts, each read here where it
+    /// declines, and a pair of references is decided on their trail: read whole,
+    /// such goals cost two lists of lists around a back edge, a hundred deep, seven
+    /// times the query's time and answer nothing
+    /// (`a_second_asking_does_not_read_the_whole_pair_again`).
     ///
     /// Read once a query and held ([`Leaves`]), and charged each time it is asked,
     /// so the memo changes no answer and no allowance: a query relating two
     /// recursions over lists of patterns asked the sets of 8 pairs 346 times.
     #[inline(never)]
     fn a_goal_declined(&self, other: &Schema, cx: &mut Cx<'_>) -> Relation {
+        let connective = |schema: &Schema| {
+            matches!(
+                schema,
+                Schema::Intersection(_) | Schema::Union(_) | Schema::Complement(_)
+            )
+        };
         if !cx.reads_leaves
             || (core::ptr::eq(self, cx.read_whole.0) && core::ptr::eq(other, cx.read_whole.1))
-            || self.has_reference()
-            || other.has_reference()
+            || (!connective(self)
+                && !connective(other)
+                && (self.has_reference() || other.has_reference()))
         {
             return Relation::Unknown;
         }
@@ -1296,11 +1351,28 @@ impl Schema {
             a_bound_is_met();
             return Relation::Unknown;
         }
-        let key = (cx.query(), self.clone(), other.clone());
+        let query = cx.query();
+        let key = (query, self.clone(), other.clone());
         if let Some(answer) = LEAVES.with_borrow(|held| held.get(&key).copied()) {
             return answer;
         }
-        let answer = self.descriptor_contained_in(other, cx.oracle, cx.defs);
+        let answer = if self.has_reference() || other.has_reference() {
+            let left = match GOALS_POOL.get() {
+                (owner, left) if owner == query => left,
+                _ => GOALS_WORK,
+            };
+            if left == 0 {
+                a_bound_is_met();
+                return Relation::Unknown;
+            }
+            let (answer, left) = budget::pooled(left, || {
+                self.descriptor_contained_in(other, cx.oracle, cx.defs)
+            });
+            GOALS_POOL.set((query, left));
+            answer
+        } else {
+            self.descriptor_contained_in(other, cx.oracle, cx.defs)
+        };
         LEAVES.with_borrow_mut(|held| {
             if held.len() >= READINGS_HELD {
                 held.clear();
@@ -2881,6 +2953,23 @@ impl Schema {
             },
             _ => Relation::Unknown,
         }
+        .or_else(|| {
+            // Below the record its length bounds leave, a proof: the meet is
+            // below that record, which leaves out a member of another shape.
+            // Read only of a meet holding a refinement, which a meet of a class
+            // and its attributes never does.
+            if members
+                .iter()
+                .any(|member| matches!(member, Schema::Refine { .. }))
+            {
+                records::the_record_a_length_leaves(members, cx)
+                    .map_or(Relation::Unknown, |record| {
+                        record.is_subtype_rec(other, cx).proof_only()
+                    })
+            } else {
+                Relation::Unknown
+            }
+        })
         .or_else(|| self.unstructured(other, cx))
         .or_else(|| self.below_a_reference(other, cx))
     }
@@ -3340,8 +3429,8 @@ pub(super) struct Cx<'a> {
     /// The number this query's set readings are memoized under, given at the
     /// first one; zero until then ([`Readings`]).
     query: Cell<u64>,
-    /// Whether a goal the rules decline is read by the sets, where no reference
-    /// stands in the way ([`Schema::decided_by_its_leaves`]).
+    /// Whether a goal the rules decline is read by the sets
+    /// ([`Schema::decided_by_its_leaves`]).
     reads_leaves: bool,
     /// The pair whose whole the sets have read, which a goal read by the sets does
     /// not read again; no pair where null.
@@ -3423,6 +3512,9 @@ const READINGS_HELD: usize = 4096;
 thread_local! {
     /// The readings of the queries on this thread, by query number.
     static READINGS: RefCell<Readings> = RefCell::new(Readings::default());
+    /// The query whose declined goals [`GOALS_WORK`] last drew on, and the units
+    /// left to them.
+    static GOALS_POOL: Cell<(u64, u64)> = const { Cell::new((0, 0)) };
     /// The pairs the last askings on this thread read by the sets, by query number.
     static LEAVES: RefCell<Leaves> = RefCell::new(Leaves::default());
     /// The values the last askings on this thread read by the sets, by query number.

@@ -8,6 +8,7 @@ code generation.
 from __future__ import annotations
 
 import contextlib
+import importlib
 import operator
 import re
 from abc import ABC, abstractmethod
@@ -38,18 +39,7 @@ from warnings import warn
 from pydantic import BaseModel, ConfigDict
 from typing_extensions import Unpack, final
 
-from datamodel_code_generator import (
-    AllExportsCollisionStrategy,
-    AllExportsScope,
-    AllOfClassHierarchy,
-    AllOfMergeMode,
-    Error,
-    FieldTypeCollisionStrategy,
-    ModuleSplitMode,
-    ReadOnlyWriteOnlyModelType,
-    ReuseScope,
-)
-from datamodel_code_generator import cached_path_exists as cached_path_exists
+from datamodel_code_generator._caches import cached_path_exists as cached_path_exists
 from datamodel_code_generator._constraint_applicability import (
     overridden_declared_constraints as overridden_declared_constraints,
 )
@@ -90,6 +80,7 @@ from datamodel_code_generator._reference_graph import (
 from datamodel_code_generator._requirements import REQUIREMENTS as REQUIREMENTS
 from datamodel_code_generator._shared_types import (
     DefaultPutDict,
+    Error,
     LiteralType,
 )
 from datamodel_code_generator._source import YamlValue as YamlValue
@@ -118,9 +109,17 @@ from datamodel_code_generator._user_keys import TypeOverrideLookups as _TypeOver
 from datamodel_code_generator._user_keys import class_scope as _class_scope_of
 from datamodel_code_generator._warning_control import quiet
 from datamodel_code_generator.enums import (
+    AllExportsCollisionStrategy,
+    AllExportsScope,
+    AllOfClassHierarchy,
+    AllOfMergeMode,
     ConstructorFieldOrder,
     DefaultValueType,
+    FieldTypeCollisionStrategy,
+    ModuleSplitMode,
     NamingStrategy,
+    ReadOnlyWriteOnlyModelType,
+    ReuseScope,
     StrictTypes,
 )
 from datamodel_code_generator.imports import (
@@ -158,8 +157,6 @@ from datamodel_code_generator.parser import _inheritance_check, _init_exports, _
 from datamodel_code_generator.parser._field_copies import (
     _copy_data_model_field,
     _copy_resolved_inherited_field,
-    _get_inherited_type_modifiers,  # noqa: F401  # Preserve the established parser.base export.
-    _merge_data_type_modifiers,  # noqa: F401  # Preserve the established parser.base export.
 )
 from datamodel_code_generator.parser._field_rows import (
     FIELD_OPTIONS_LEFT_OUT,
@@ -191,12 +188,6 @@ from datamodel_code_generator.parser._passes import plans as _plans
 from datamodel_code_generator.parser._passes import render_prep as _render_prep
 from datamodel_code_generator.parser._passes._import_aliases import alias_shadowed_imports
 from datamodel_code_generator.parser._passes._import_edges import NO_IMPORT_CYCLE_SEEDS, ImportCycleSeeds
-from datamodel_code_generator.parser._passes._keys import (
-    _DEFERRED_INHERITED_CLASS_KEY,  # noqa: F401  # Preserve the established parser.base export.
-    _DEFERRED_INHERITED_FIELD_KEY,  # noqa: F401  # Preserve the established parser.base export.
-    _DEFERRED_INHERITED_TYPE_KEY,  # noqa: F401  # Preserve the established parser.base export.
-    _RAW_SCHEMA_DEFAULT_KEY,  # noqa: F401  # Preserve the established parser.base export.
-)
 from datamodel_code_generator.parser._passes._name_allocation import scheme_resolver
 from datamodel_code_generator.parser._passes._shared import (
     DiscriminatorValue,
@@ -245,6 +236,7 @@ from datamodel_code_generator.parser._pipeline import PARSE_CALLER, Runner, pars
 from datamodel_code_generator.parser._schema_graph import SCHEMA_GRAPH
 from datamodel_code_generator.parser._serialize_as_any import SERIALIZE_AS_ANY_FOR_EVERY_SUBCLASS
 from datamodel_code_generator.parser._stdout_repair import _TOP_LEVEL_FUTURE_IMPORT_PATTERN
+from datamodel_code_generator.parser._str_like_unions import MERGE_MSGSPEC_STR_LIKE_UNION_MEMBERS
 from datamodel_code_generator.parser._tag_plan import (
     TagCapabilities,
     TagPlan,
@@ -550,7 +542,7 @@ class Result(BaseModel):
 
     body: str
     future_imports: str = ""
-    source: Optional[Path] = None  # noqa: UP045
+    source: Optional[Path] = None
 
 
 class Source(BaseModel):
@@ -732,6 +724,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
     _DECISION_PASSES: ClassVar[tuple[DecisionPass[Any], ...]] = (
         OMIT_HELD_NULL,
         SERIALIZE_AS_ANY_FOR_EVERY_SUBCLASS,
+        MERGE_MSGSPEC_STR_LIKE_UNION_MEMBERS,
         OMIT_UNTAKEN_UNION_CONSTRAINTS,
         WRITE_UNIQUE_ITEMS_AS_SETS,
         OMIT_INCOMPLETE_MODEL_DEFAULTS,
@@ -756,7 +749,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         """Return the immutable settings for the current facade-managed run."""
         return self._run_context or _DEFAULT_PARSER_RUN_CONTEXT
 
-    def configure_run_context(  # noqa: PLR0913
+    def configure_run_context(
         self,
         *,
         diagnostic_source_path: Path | None = None,
@@ -924,7 +917,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
             else None,
         )
 
-    def _take_field_aliases(  # noqa: PLR0913
+    def _take_field_aliases(
         self,
         field: DataModelFieldBase,
         name: str,
@@ -971,8 +964,6 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         Uses _config_class_name class variable to dynamically import the config class.
         Subclasses should set _config_class_name to their config class name.
         """
-        import importlib  # noqa: PLC0415
-
         module = importlib.import_module("datamodel_code_generator.config")
         return getattr(module, cls._config_class_name)
 
@@ -1119,6 +1110,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
             use_serialize_as_any=config.use_serialize_as_any,
         )
         self.data_type_manager.use_untyped_value_type(config.untyped_value_type)
+        self.data_type_manager.use_target_pydantic_version(config.target_pydantic_version)
         self.data_type_manager.omit_redundant_constraints = config.omit_redundant_constraints
         self.data_type_manager.read_length_keywords_by_type = config.read_length_keywords_by_type
         self.data_type_manager.read_msgspec_union_bounds_exactly = config.read_msgspec_union_bounds_exactly
@@ -1240,6 +1232,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         self.use_specialized_enum: bool = config.use_specialized_enum
         self.strict_nullable: bool = config.strict_nullable
         self.omit_redundant_reference_null: bool = config.omit_redundant_reference_null
+        self.merge_msgspec_str_like_union_members: bool = config.merge_msgspec_str_like_union_members
         self.keep_reference_null_on_merged_models: bool = config.keep_reference_null_on_merged_models
         self.use_generic_container_types: bool = config.use_generic_container_types
         self.use_union_operator: bool = config.use_union_operator
@@ -1389,7 +1382,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         self.http_timeout: float | None = self._source_context.http_timeout
         self._remote_response_observer = self._source_context.remote_response_observer
         self.use_annotated: bool = config.use_annotated
-        if self.use_annotated and not self.field_constraints:  # pragma: no cover
+        if self.use_annotated and not self.field_constraints:
             msg = "`use_annotated=True` has to be used with `field_constraints=True`"
             raise Exception(msg)  # noqa: TRY002
         self._output_model_context = OutputModelContext.from_generation_types(
@@ -1448,6 +1441,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         self.read_yaml_1_1_numbers_as_text = config.read_yaml_1_1_numbers_as_text
         self.use_single_value_enum_as_const = config.use_single_value_enum_as_const
         self.read_format_as_annotation = config.read_format_as_annotation
+        self.read_uuid6_uuid7_uuid8_formats = config.read_uuid6_uuid7_uuid8_formats
         self.read_const_beside_enum = config.read_const_beside_enum
         self.known_third_party = config.known_third_party
         self.custom_formatter = config.custom_formatters
@@ -1511,7 +1505,6 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
                 return None, validation_aliases
             case single_alias:
                 return single_alias, None
-        raise AssertionError  # pragma: no cover
 
     def _effective_default_state(
         self,
@@ -1753,8 +1746,6 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         """Resolve base class(es) with priority: base_class_map (each name of a scope) > customBasePath > base_class."""
 
         def normalize(value: str | list[str] | None) -> str | list[str] | None:
-            if value is None:  # pragma: no cover
-                return None
             if isinstance(value, list):
                 result = list(dict.fromkeys(v for v in value if isinstance(v, str) and v))
                 if not result:
@@ -2154,8 +2145,9 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
 
     def _uses_deferred_annotations(
         self,
-        with_import: bool | None,  # noqa: FBT001
-        disable_future_imports: bool,  # noqa: FBT001
+        *,
+        with_import: bool | None,
+        disable_future_imports: bool,
     ) -> bool:
         """Return whether generated annotations use deferred evaluation."""
         if (
@@ -2244,14 +2236,17 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
 
     def _prepare_parse_config(
         self,
-        with_import: bool | None,  # noqa: FBT001
-        disable_future_imports: bool,  # noqa: FBT001
+        *,
+        with_import: bool | None,
+        disable_future_imports: bool,
         all_exports_scope: AllExportsScope | None,
         all_exports_collision_strategy: AllExportsCollisionStrategy | None,
         module_split_mode: ModuleSplitMode | None,
     ) -> ParseConfig:
         """Prepare configuration for the parse operation."""
-        use_deferred_annotations = self._uses_deferred_annotations(with_import, disable_future_imports)
+        use_deferred_annotations = self._uses_deferred_annotations(
+            with_import=with_import, disable_future_imports=disable_future_imports
+        )
         self._quotes_hidden_types = disable_future_imports or not with_import
 
         if (
@@ -2427,7 +2422,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
             state.model_path_to_module_name,
         )
 
-    def _process_single_module(  # noqa: PLR0913, PLR0917
+    def _process_single_module(  # noqa: PLR0917
         self,
         module_: ModulePath,
         models: list[DataModel],
@@ -2532,14 +2527,15 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
                 )
                 model_imports[model] = prepared_imports
 
-    def _finalize_modules(  # noqa: PLR0913, PLR0917
+    def _finalize_modules(
         self,
         contexts: list[ModuleContext],
         unused_models: list[DataModel],
         model_to_module_models: dict[DataModel, tuple[ModulePath, list[DataModel]]],
         module_to_import: dict[ModulePath, Imports],
         forwarder_modules: Collection[ModulePath],
-        with_import: bool,  # noqa: FBT001
+        *,
+        with_import: bool,
         config: ParseConfig,
         internal_modules: set[ModulePath],
         model_path_to_module_name: dict[str, str],
@@ -2604,7 +2600,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         for ctx in contexts:
             _set_nested_model_default_factory_order(ctx.models, cast("NestedFactoryMetadata", metadata))
 
-    def _generate_module_output(  # noqa: PLR0913, PLR0917
+    def _generate_module_output(  # noqa: PLR0917
         self,
         ctx: ModuleContext,
         config: ParseConfig,
@@ -2723,7 +2719,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         shared_imports_str: str,
     ) -> None:
         """Generate exports for empty __init__.py files."""
-        if (scope := config.all_exports_scope) is None:  # pragma: no cover
+        if (scope := config.all_exports_scope) is None:  # pragma: no cover - not proven unreachable
             return
         processed_init_modules = {ctx.module for ctx in contexts if is_package_init(ctx.module[-1])}
         for init_module, init_result in list(results.items()):
@@ -2881,7 +2877,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         with quiet():
             callback()
 
-    def parse(  # noqa: PLR0913, PLR0917
+    def parse(  # noqa: PLR0917
         self,
         with_import: bool | None = True,  # noqa: FBT001, FBT002
         format_: bool | None = True,  # noqa: FBT001, FBT002
@@ -2906,7 +2902,9 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
                 collect_model_metadata,
             ),
             suppress_parse_warnings=suppress_parse_warnings,
-            suppress_settle_diagnostics=_state.settle_diagnostics_suppressed(suppress_parse_warnings),
+            suppress_settle_diagnostics=_state.settle_diagnostics_suppressed(
+                suppress_parse_warnings=suppress_parse_warnings
+            ),
             default_build_code_formatter=Parser._build_code_formatter,
             result_type=Result,
         )

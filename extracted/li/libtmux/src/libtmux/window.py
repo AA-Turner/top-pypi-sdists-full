@@ -15,7 +15,12 @@ import typing as t
 import warnings
 
 from libtmux._internal.query_list import QueryList
-from libtmux.common import has_gte_version, raise_if_stderr, tmux_cmd
+from libtmux.common import (
+    escape_trailing_separator,
+    has_gte_version,
+    raise_if_stderr,
+    tmux_cmd,
+)
 from libtmux.constants import (
     RESIZE_ADJUSTMENT_DIRECTION_FLAG_MAP,
     OptionScope,
@@ -32,19 +37,14 @@ from .common import PaneDict, WindowOptionDict
 from .options import OptionsMixin
 
 if t.TYPE_CHECKING:
-    import sys
     import types
+    from typing import Self
 
     from libtmux._internal.types import StrPath
 
     from .common import PaneDict, WindowOptionDict
     from .server import Server
     from .session import Session
-
-    if sys.version_info >= (3, 11):
-        from typing import Self
-    else:
-        from typing_extensions import Self
 
 
 logger = logging.getLogger(__name__)
@@ -60,9 +60,105 @@ class Window(
 
     Holds :class:`Pane` objects.
 
+    **Reading it.** Every field is a tmux format token read when the window was
+    listed or last refreshed, and is ``None`` when tmux gave no value.
+    :meth:`~libtmux.Window.refresh` rewrites the fields in place and raises
+    :exc:`~libtmux.exc.TmuxObjectDoesNotExist` when the window has gone.
+
+    - Identity: :attr:`~libtmux.Window.window_id`, :attr:`~libtmux.Window.id`
+    - Name and position: :attr:`~libtmux.Window.window_name`,
+      :attr:`~libtmux.Window.name`, :attr:`~libtmux.Window.window_index`,
+      :attr:`~libtmux.Window.index`
+    - Size: :attr:`~libtmux.Window.width`, :attr:`~libtmux.Window.height`
+    - Re-read from tmux: :meth:`~libtmux.Window.refresh`
+
+    **Finding it.** :meth:`~libtmux.Window.from_window_id` asks tmux for one window
+    and raises :exc:`~libtmux.exc.TmuxObjectDoesNotExist` when it is not there.
+    :meth:`~libtmux.Window.from_env` resolves the window of the pane this process
+    runs inside, and raises :exc:`~libtmux.exc.NotInsideTmux` outside one.
+
+    - By ID: :meth:`~libtmux.Window.from_window_id`
+    - The window you run inside: :meth:`~libtmux.Window.from_env`
+    - From a listing: :attr:`~libtmux.Server.windows`,
+      :attr:`~libtmux.Session.windows`
+
+    **Finding its neighbours.** A window can sit in several sessions.
+    :attr:`~libtmux.Window.session` is the session recorded on this instance, and
+    :attr:`~libtmux.Window.linked_sessions` lists every one that holds the window,
+    each once, and is empty when either listing it needs fails.
+    :attr:`~libtmux.Window.active_pane` is ``None`` when no pane is active.
+
+    - Parent: :attr:`~libtmux.Window.session`
+    - Every session holding it: :attr:`~libtmux.Window.linked_sessions`
+    - Panes: :attr:`~libtmux.Window.panes`, :attr:`~libtmux.Window.active_pane`
+    - Panes filtered by tmux: :meth:`~libtmux.Window.search_panes`
+
+    **Splitting and arranging.** :meth:`~libtmux.Window.split` divides the active
+    pane, beneath it by default, and returns the new :class:`~libtmux.Pane`.
+    Passing both ``size`` and ``percentage`` raises :exc:`ValueError`, and flags
+    newer than the running tmux warn and are ignored. A layout name and a layout
+    flag together raise :exc:`ValueError` in
+    :meth:`~libtmux.Window.select_layout`. Floating panes need tmux 3.7 or later.
+
+    - Split: :meth:`~libtmux.Window.split`, :meth:`~libtmux.Window.new_pane`
+    - Apply a layout: :meth:`~libtmux.Window.select_layout`
+    - Cycle through the presets: :meth:`~libtmux.Window.next_layout`,
+      :meth:`~libtmux.Window.previous_layout`
+    - Rotate the panes: :meth:`~libtmux.Window.rotate`
+    - Resize the window: :meth:`~libtmux.Window.resize`
+    - Choose the active pane: :meth:`~libtmux.Window.select_pane`,
+      :meth:`~libtmux.Window.last_pane`
+
+    **Linking and moving.** :meth:`~libtmux.Window.link` shows the window in
+    another session as well, and :meth:`~libtmux.Window.unlink` removes it from the
+    current one. :meth:`~libtmux.Window.move_window` with ``renumber=True`` only
+    renumbers the windows and moves nothing.
+
+    - Show it in another session: :meth:`~libtmux.Window.link`
+    - Remove it from this session: :meth:`~libtmux.Window.unlink`
+    - Move it: :meth:`~libtmux.Window.move_window`
+    - Exchange two windows: :meth:`~libtmux.Window.swap`
+    - Make it current: :meth:`~libtmux.Window.select`
+    - New window next to it: :meth:`~libtmux.Window.new_window`
+
+    **Changing it.** :meth:`~libtmux.Window.rename_window` refreshes the window and
+    returns it. :meth:`~libtmux.Window.respawn` documents ``kill=True`` as required
+    if the window is still active.
+
+    - Rename: :meth:`~libtmux.Window.rename_window`
+    - Restart what it runs: :meth:`~libtmux.Window.respawn`
+    - Destroy it: :meth:`~libtmux.Window.kill`
+
+    **Options and hooks.** An option or hook call acts on the window scope by
+    default. The setters return the window, so calls chain, and an unknown or
+    invalid name raises :exc:`~libtmux.exc.OptionError` or one of its subclasses.
+
+    - Options: :meth:`~libtmux.Window.show_options`,
+      :meth:`~libtmux.Window.show_option`, :meth:`~libtmux.Window.set_option`,
+      :meth:`~libtmux.Window.unset_option`
+    - Hooks: :meth:`~libtmux.Window.show_hooks`,
+      :meth:`~libtmux.Window.show_hook`, :meth:`~libtmux.Window.set_hook`,
+      :meth:`~libtmux.Window.unset_hook`, :meth:`~libtmux.Window.run_hook`
+
     Parameters
     ----------
     session : :class:`Session`
+
+    Attributes
+    ----------
+    default_option_scope : OptionScope | None
+        Scope :class:`~libtmux.options.OptionsMixin` falls back to when an
+        option call leaves ``scope`` unset. ``OptionScope.Window`` sends
+        ``set-option`` and ``show-options`` with tmux's ``-w`` flag; ``None``
+        sends no scope flag, which tmux resolves as session scope.
+    default_hook_scope : OptionScope | None
+        Scope :class:`~libtmux.hooks.HooksMixin` falls back to when a hook
+        call leaves ``scope`` unset. ``OptionScope.Window`` sends ``set-hook``
+        and ``show-hooks`` with tmux's ``-w`` flag; ``None`` sends no scope
+        flag, which tmux resolves as session scope.
+    server : Server
+        Server the window was queried from, and the connection every command
+        and refresh runs over.
 
     Examples
     --------
@@ -253,10 +349,13 @@ class Window(
 
         Examples
         --------
-        >>> socket_path = server.cmd(
+        >>> socket_path = server.cmd(  # doctest: +HIDE
         ...     "display-message", "-p", "-t", pane.pane_id, "#{socket_path}"
         ... ).stdout[0]
-        >>> env = {"TMUX": f"{socket_path},1,0", "TMUX_PANE": pane.pane_id}
+        >>> env = {  # doctest: +HIDE
+        ...     "TMUX": f"{socket_path},1,0",
+        ...     "TMUX_PANE": pane.pane_id,
+        ... }
 
         >>> Window.from_env(env)
         Window(@1 1:..., Session($1 ...))
@@ -489,7 +588,9 @@ class Window(
         Parameters
         ----------
         target_pane : str
-            'target_pane', '-U' ,'-D', '-L', '-R', or '-l'.
+            'target_pane', '-U' ,'-D', '-L', '-R', or '-l'. A pane index
+            selects within this window; any other target is passed to tmux
+            as given.
 
         Returns
         -------
@@ -498,6 +599,9 @@ class Window(
         if target_pane in {"-l", "-U", "-D", "-L", "-R"}:
             proc = self.cmd("select-pane", target_pane)
         else:
+            if isinstance(target_pane, int) or target_pane.isdigit():
+                # tmux resolves a bare index in its own current window.
+                target_pane = f"{self.window_id}.{target_pane}"
             proc = self.cmd("select-pane", target=target_pane)
 
         raise_if_stderr(proc, "select-pane")
@@ -636,12 +740,16 @@ class Window(
             Environment variables for the new pane (``-e``).
         width : int, optional
             Width in cells (``-x``).
+            Includes borders on tmux 3.8+.
         height : int, optional
             Height in cells (``-y``).
+            Includes borders on tmux 3.8+.
         x : int, optional
             X position in cells (``-X``).
+            Places the outer border on tmux 3.8+.
         y : int, optional
             Y position in cells (``-Y``).
+            Places the outer border on tmux 3.8+.
         zoom : bool, optional
             Zoom the pane (``-Z``).
         empty : bool, optional
@@ -1113,11 +1221,11 @@ class Window(
 
         if start_directory is not None:
             start_path = pathlib.Path(start_directory).expanduser()
-            tmux_args += (f"-c{start_path}",)
+            tmux_args += (escape_trailing_separator(f"-c{start_path}"),)
 
         if environment:
             for k, v in environment.items():
-                tmux_args += (f"-e{k}={v}",)
+                tmux_args += (escape_trailing_separator(f"-e{k}={v}"),)
 
         if shell:
             tmux_args += (shell,)
@@ -1321,10 +1429,10 @@ class Window(
             tmux_args += ("-d", str(delay))
 
         if format_string is not None:
-            tmux_args += ("-F", format_string)
+            tmux_args += ("-F", escape_trailing_separator(format_string))
 
         if cmd:
-            tmux_args += (cmd,)
+            tmux_args += ("--", escape_trailing_separator(cmd))
 
         proc = self.cmd("display-message", *tmux_args)
         if proc.stderr:
@@ -1360,7 +1468,7 @@ class Window(
         lex.escape = " "
         lex.whitespace_split = False
 
-        proc = self.cmd("rename-window", new_name)
+        proc = self.cmd("rename-window", "--", escape_trailing_separator(new_name))
         raise_if_stderr(proc, "rename-window")
 
         self.window_name = new_name

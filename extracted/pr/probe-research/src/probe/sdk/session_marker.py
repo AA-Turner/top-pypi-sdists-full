@@ -5213,7 +5213,56 @@ def _capture_reason(state: dict | None) -> str:
     reason = capture.get("reason")
     if not (isinstance(reason, str) and reason) or "\n" in reason or "\r" in reason:
         return ""
+    if reason == NOT_STARTED_REASON and _is_still_starting(capture):
+        return ""  # Probe is still taking the chat: no note until its grace ends (`get_starting_until`)
     return reason
+
+
+#: Capture's `not started` (`probe.cli.capture.state.REASONS`).
+NOT_STARTED_REASON = "not started"
+#: A `not started` this soon after the chat's switch moved (its start's seed included), or after the Probe service
+#: started, is Probe still taking the chat, not a fault: the line shows no note until then (Richard, 2026-11-21).
+CAPTURE_SWITCH_GRACE_S = 10.0
+CAPTURE_SERVICE_GRACE_S = 30.0
+#: The capture reading's key for when that grace ends (epoch seconds), written beside a `not started`.
+STARTING_UNTIL_KEY = "starting_until"
+#: ...and for when this run of `not started` readings began (epoch seconds): the grace never outlasts it by more
+#: than CAPTURE_SERVICE_GRACE_S, so a service restarting in a loop, or a switch written again and again, cannot keep
+#: a chat nothing records from saying so.
+NOT_STARTED_SINCE_KEY = "not_started_since"
+
+
+def get_starting_until(session_id: str, service_lock: "str | os.PathLike[str] | None" = None,
+                       now: "float | None" = None, since: "float | None" = None) -> "float | None":
+    """When a `not started` reading of this chat stops being Probe still taking it (epoch seconds), else None.
+    Two stats: the chat's switch file, written when it moved or was seeded, and the service's lock file
+    (`service_lock`), which each service rewrites as it starts; `since` (NOT_STARTED_SINCE_KEY) caps it.
+    Never raises."""
+    now = time.time() if now is None else now
+    if not valid_session_id(session_id):
+        return None
+    ends = []
+    for path, grace in ((state_path(session_id), CAPTURE_SWITCH_GRACE_S), (service_lock, CAPTURE_SERVICE_GRACE_S)):
+        try:
+            ends.append(os.stat(path).st_mtime + grace)
+        except (OSError, TypeError, ValueError):
+            continue
+    end = min(max(ends, default=now), now + CAPTURE_SERVICE_GRACE_S)  # a file dated ahead never hides it longer
+    if _is_epoch(since):
+        end = min(end, since + CAPTURE_SERVICE_GRACE_S)
+    return end if end > now else None
+
+
+def _is_still_starting(capture: dict) -> bool:
+    """Does this `not started` reading carry a `starting_until` still ahead (`get_starting_until`), and no further
+    ahead than its writer could have put it (a marker edited or dated ahead never hides the note longer)?"""
+    until = capture.get(STARTING_UNTIL_KEY)
+    now = time.time()
+    return _is_epoch(until) and now < until <= now + CAPTURE_SERVICE_GRACE_S
+
+
+def _is_epoch(value: object) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
 
 
 #: How to fix each capture reason (`probe.cli.capture.state.REASONS`) and each daemon reason (`DAEMON_REASON_WORDS`):

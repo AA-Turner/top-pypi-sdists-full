@@ -71,6 +71,11 @@ from sarj_standards.libs.typed_containers import is_object_mapping
 from sarj_standards.libs.yaml_boundary import compose_yaml, mapping_items, parse_yaml, scalar_value, sequence_items
 
 
+_FAILURE_PREVIEW_CHARS = 4_000
+_PORCELAIN_PATH_OFFSET = 3
+_BINARY_PROBE_BYTES = 8_192
+
+
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Sequence
 
@@ -461,8 +466,8 @@ def _timeout_output_tail(output: str | bytes | None) -> str:
     if isinstance(output, bytes):
         # TimeoutExpired may contain bytes even when text=True. A partial UTF-8
         # sequence must not conceal the original command failure.
-        return output[-4000:].decode("utf-8", errors="replace")
-    return output[-4000:] if output else ""
+        return output[-_FAILURE_PREVIEW_CHARS:].decode("utf-8", errors="replace")
+    return output[-_FAILURE_PREVIEW_CHARS:] if output else ""
 
 
 @dataclass(frozen=True)
@@ -1201,7 +1206,7 @@ def changed_paths(
         if len(record) < PORCELAIN_RECORD_MINIMUM:
             msg = "git returned an invalid porcelain status record"
             raise RolloutError(msg)
-        state, path = record[:2], record[3:]
+        state, path = record[:2], record[_PORCELAIN_PATH_OFFSET:]
         if "R" in state or ("D" in state and path not in deletions):
             msg = f"update may not delete or rename files: {path}"
             raise RolloutError(msg)
@@ -1253,7 +1258,7 @@ def reject_git_metadata(
         if candidate.is_symlink() or untracked_executable:
             msg = f"update may not create symlinks or executable files: {relative}"
             raise RolloutError(msg)
-        if candidate.is_file() and b"\0" in candidate.read_bytes()[:8192]:
+        if candidate.is_file() and b"\0" in candidate.read_bytes()[:_BINARY_PROBE_BYTES]:
             msg = f"update may not add or modify binary files: {relative}"
             raise RolloutError(msg)
 
@@ -2289,7 +2294,7 @@ def process_failure_detail(error: subprocess.CalledProcessError) -> str:
     stdout: object = error.stdout  # pyright: ignore[reportAny] - subprocess exception boundary
     stderr: object = error.stderr  # pyright: ignore[reportAny] - subprocess exception boundary
     values = [value.strip() for value in (stdout, stderr) if isinstance(value, str) and value]
-    return ("\n".join(values)[-4000:] or str(error)).strip()
+    return ("\n".join(values)[-_FAILURE_PREVIEW_CHARS:] or str(error)).strip()
 
 
 def prepare_branch(
@@ -2340,10 +2345,8 @@ def prepare_branch(
 
 
 def react_doctor_policy_snapshot(repo: Path) -> ReactDoctorPolicy:
-    # Capture the pre-update policy through the same compatibility boundary used
-    # by setup/update. Fleet consumers can legitimately still be on the prior
-    # manifest schema; the rollout is responsible for migrating them before the
-    # strict current-schema loader is used below.
+    # Capture old policy through the setup/update compatibility loader; migrate prior consumer schemas before strict
+    # current-schema validation.
     adopted = load_consumer_manifest(repo, for_setup=True)
     if adopted is None:
         return ReactDoctorPolicy(None, None)
@@ -2445,10 +2448,8 @@ def _apply_one(  # ruff: ignore[too-many-locals] - one transaction binds verific
         return existing
     if dry_run:
         return Outcome(consumer, WouldCreateBranch(rollout_branch(version)))
-    # Consumer package managers can leave short-lived background cleanup work
-    # behind after their command exits. The hosted runner discards this
-    # workspace, so a best-effort temporary-directory cleanup must never mask
-    # the rollout outcome or prevent later consumers from being reconciled.
+    # Hosted package managers can leave cleanup children briefly alive; best-effort temporary cleanup must preserve
+    # rollout outcomes and later reconciliation.
     with tempfile.TemporaryDirectory(prefix="standards-rollout-", ignore_cleanup_errors=True) as temporary:
         repo = Path(temporary) / "repo"
         report("cloning consumer")
@@ -2644,7 +2645,7 @@ def _apply_one(  # ruff: ignore[too-many-locals] - one transaction binds verific
             )
             if verification_failure_detail:
                 failures.append("consumer verification failed:\n" + verification_failure_detail)
-        verification_failure = "\n\n".join(failures)[-4000:]
+        verification_failure = "\n\n".join(failures)[-_FAILURE_PREVIEW_CHARS:]
         branch_paths = committed_paths(repo, consumer.branch, runner, deletions=deletions)
         allowed_workflow_paths = pin_workflow_paths | canonical_commit_policy_workflow_paths(repo, branch_paths)
         _validate_rollout_retirements(repo, retired_rewrites)
@@ -2717,7 +2718,7 @@ def update_consumer_bundle(
                 raise RolloutError(msg)
             break
         # Keep retry classification independent of the human-readable excerpt's stream budgets.
-        detail = verification_output(result)[-4000:]
+        detail = verification_output(result)[-_FAILURE_PREVIEW_CHARS:]
         missing_release = (
             "No solution found when resolving tool dependencies" in detail
             and re.search(rf"there is no version of code-standards=={re.escape(version)}(?:\s|$)", detail) is not None
@@ -2727,10 +2728,8 @@ def update_consumer_bundle(
             result.check_returncode()
         sys.stderr.write(f"Waiting for Code Standards {version} in the consumer package index\n")
         sleep(RELEASE_VISIBILITY_DELAY.total_seconds())
-    # The exact, refreshed consumer probe already resolved this bundle. Hand
-    # that evidence to this update alone so its CLI does not resolve it again.
-    # The CLI still rejects an executing-version mismatch, installs consumer
-    # dependencies and performs its complete preflight/postflight checks.
+    # Only this exact update reuses refreshed resolution proof; executing-version checks, dependency installation and
+    # full preflight/postflight remain required.
     update_environment = {**environment, "SARJ_STANDARDS_BOOTSTRAPPED": "1"}
     options = ("--preserve-baselines",) if preserve_baselines else ()
     runner.run((*tool_prefix, *tool, "update", "--to", version, *options), cwd=repo, env=update_environment)
@@ -3925,7 +3924,7 @@ def consumer_work_runner(
             raise
         detail = process_failure_detail(exc) if isinstance(exc, subprocess.CalledProcessError) else str(exc)
         raise ConsumerBaseMovedError(
-            _movement_detail(consumer, base_sha, watched, phase) + "\n" + detail[-4000:]
+            _movement_detail(consumer, base_sha, watched, phase) + "\n" + detail[-_FAILURE_PREVIEW_CHARS:]
         ) from exc
     if watched.moved_to is not None:
         raise ConsumerBaseMovedError(_movement_detail(consumer, base_sha, watched, phase))

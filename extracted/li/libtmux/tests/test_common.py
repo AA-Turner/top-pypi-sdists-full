@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import locale
 import logging
+import pathlib
 import re
+import subprocess
 import sys
+import textwrap
 import typing as t
 
 import pytest
@@ -637,6 +640,50 @@ def test_version_validation(
         assert isinstance(has_version(mock_version), bool)
 
 
+def test_minimum_tmux_is_3_3a(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Tmux 3.3a is accepted and tmux 3.2a is refused.
+
+    ``get_version`` drops the patch letter, so 3.3a reports as 3.3 and 3.2a
+    as 3.2. It is replaced here because the suite runs one tmux build and the
+    comparison is the behaviour under test.
+    """
+    assert libtmux.common.TMUX_MIN_VERSION == "3.3a"
+
+    monkeypatch.setattr(
+        libtmux.common,
+        "get_version",
+        lambda tmux_bin=None: LooseVersion("3.3"),
+    )
+    assert has_minimum_version()
+
+    monkeypatch.setattr(
+        libtmux.common,
+        "get_version",
+        lambda tmux_bin=None: LooseVersion("3.2"),
+    )
+    with pytest.raises(exc.VersionTooLow, match=r"3\.3a and greater"):
+        has_minimum_version()
+
+
+def test_no_gate_compares_at_or_below_the_minimum() -> None:
+    """No version gate in the library names a release every supported tmux has.
+
+    A gate at or below the minimum can never take its fallback on a supported
+    tmux, so it is dead code that reads as live compatibility.
+    """
+    minimum = LooseVersion(re.sub(r"[a-z-]", "", libtmux.common.TMUX_MIN_VERSION))
+    gate = re.compile(r'has_(?:gte|gt|lte|lt)_version\(\s*"([^"]+)"')
+    stale: list[str] = []
+    for path in sorted(pathlib.Path(libtmux.__file__).parent.rglob("*.py")):
+        stale.extend(
+            f"{path.name}: {release}"
+            for release in gate.findall(path.read_text(encoding="utf-8"))
+            if LooseVersion(release) <= minimum
+        )
+
+    assert stale == []
+
+
 def test_tmux_cmd_pre_execution_logging(
     caplog: pytest.LogCaptureFixture,
     server: Server,
@@ -762,3 +809,54 @@ def test_tmux_cmd_format_separator_survives_non_utf8_locale(
     result = parse_output(line, "list-sessions", tmux_version)
     assert isinstance(result, dict)
     assert "session_id" in result
+
+
+def test_import_without_stdout_encoding() -> None:
+    """Importing libtmux works when ``sys.stdout`` has no ``encoding``.
+
+    Embedders such as editors replace ``sys.stdout`` with objects that lack
+    the attribute. A fresh interpreter is used because the import under test
+    happens once per process.
+    """
+    code = textwrap.dedent(
+        """
+        import sys
+
+        class Stdout:
+            def write(self, text):
+                return len(text)
+
+            def flush(self):
+                pass
+
+        sys.stdout = Stdout()
+        import libtmux
+        """,
+    )
+
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_logged_command_line_masks_environment_values(
+    session: Session,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Environment values are masked in the logged command line; names stay."""
+    caplog.set_level(logging.DEBUG, logger="libtmux.common")
+
+    session.set_environment("API_TOKEN", "hunter2")
+    session.new_window(environment={"OTHER_TOKEN": "swordfish"})
+
+    logged = [r.tmux_cmd for r in caplog.records if hasattr(r, "tmux_cmd")]
+    assert logged
+    assert not [line for line in logged if "hunter2" in line or "swordfish" in line]
+    assert [line for line in logged if "API_TOKEN" in line]
+    assert [line for line in logged if "OTHER_TOKEN=***" in line]
+    assert session.show_environment()["API_TOKEN"] == "hunter2"

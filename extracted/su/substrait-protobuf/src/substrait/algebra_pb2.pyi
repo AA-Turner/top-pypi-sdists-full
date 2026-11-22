@@ -1687,6 +1687,39 @@ class TopNRel(google.protobuf.message.Message):
 Global___TopNRel: typing_extensions.TypeAlias = TopNRel
 
 @typing.final
+class TableFunctionRel(google.protobuf.message.Message):
+    """Invokes a table function and returns its generated rows.
+    This leaf relation has no local input row.
+    """
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    COMMON_FIELD_NUMBER: builtins.int
+    FUNCTION_FIELD_NUMBER: builtins.int
+    ADVANCED_EXTENSION_FIELD_NUMBER: builtins.int
+    @property
+    def common(self) -> Global___RelCommon: ...
+    @property
+    def function(self) -> Global___TableFunction:
+        """Required function call. Its output struct fields form the relation's
+        columns in field order.
+        """
+
+    @property
+    def advanced_extension(self) -> substrait.extensions.extensions_pb2.AdvancedExtension: ...
+    def __init__(
+        self,
+        *,
+        common: Global___RelCommon | None = ...,
+        function: Global___TableFunction | None = ...,
+        advanced_extension: substrait.extensions.extensions_pb2.AdvancedExtension | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["advanced_extension", b"advanced_extension", "common", b"common", "function", b"function"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["advanced_extension", b"advanced_extension", "common", b"common", "function", b"function"]) -> None: ...
+
+Global___TableFunctionRel: typing_extensions.TypeAlias = TableFunctionRel
+
+@typing.final
 class RelRoot(google.protobuf.message.Message):
     """A relation with output field names.
 
@@ -1742,6 +1775,7 @@ class Rel(google.protobuf.message.Message):
     WRITE_FIELD_NUMBER: builtins.int
     DDL_FIELD_NUMBER: builtins.int
     UPDATE_FIELD_NUMBER: builtins.int
+    TABLE_FUNCTION_FIELD_NUMBER: builtins.int
     HASH_JOIN_FIELD_NUMBER: builtins.int
     MERGE_JOIN_FIELD_NUMBER: builtins.int
     NESTED_LOOP_JOIN_FIELD_NUMBER: builtins.int
@@ -1790,6 +1824,8 @@ class Rel(google.protobuf.message.Message):
     @property
     def update(self) -> Global___UpdateRel: ...
     @property
+    def table_function(self) -> Global___TableFunctionRel: ...
+    @property
     def hash_join(self) -> Global___HashJoinRel:
         """Physical relations"""
 
@@ -1825,6 +1861,7 @@ class Rel(google.protobuf.message.Message):
         write: Global___WriteRel | None = ...,
         ddl: Global___DdlRel | None = ...,
         update: Global___UpdateRel | None = ...,
+        table_function: Global___TableFunctionRel | None = ...,
         hash_join: Global___HashJoinRel | None = ...,
         merge_join: Global___MergeJoinRel | None = ...,
         nested_loop_join: Global___NestedLoopJoinRel | None = ...,
@@ -1834,9 +1871,9 @@ class Rel(google.protobuf.message.Message):
         top_n: Global___TopNRel | None = ...,
         detached_rel_ordinal: builtins.int = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["aggregate", b"aggregate", "cross", b"cross", "ddl", b"ddl", "detached_rel_ordinal", b"detached_rel_ordinal", "exchange", b"exchange", "expand", b"expand", "extension_leaf", b"extension_leaf", "extension_multi", b"extension_multi", "extension_single", b"extension_single", "fetch", b"fetch", "filter", b"filter", "hash_join", b"hash_join", "join", b"join", "lateral_join", b"lateral_join", "merge_join", b"merge_join", "nested_loop_join", b"nested_loop_join", "project", b"project", "read", b"read", "reference", b"reference", "rel_type", b"rel_type", "set", b"set", "sort", b"sort", "top_n", b"top_n", "update", b"update", "window", b"window", "write", b"write"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["aggregate", b"aggregate", "cross", b"cross", "ddl", b"ddl", "detached_rel_ordinal", b"detached_rel_ordinal", "exchange", b"exchange", "expand", b"expand", "extension_leaf", b"extension_leaf", "extension_multi", b"extension_multi", "extension_single", b"extension_single", "fetch", b"fetch", "filter", b"filter", "hash_join", b"hash_join", "join", b"join", "lateral_join", b"lateral_join", "merge_join", b"merge_join", "nested_loop_join", b"nested_loop_join", "project", b"project", "read", b"read", "reference", b"reference", "rel_type", b"rel_type", "set", b"set", "sort", b"sort", "top_n", b"top_n", "update", b"update", "window", b"window", "write", b"write"]) -> None: ...
-    def WhichOneof(self, oneof_group: typing.Literal["rel_type", b"rel_type"]) -> typing.Literal["read", "filter", "fetch", "aggregate", "sort", "join", "lateral_join", "project", "set", "extension_single", "extension_multi", "extension_leaf", "cross", "reference", "write", "ddl", "update", "hash_join", "merge_join", "nested_loop_join", "window", "exchange", "expand", "top_n", "detached_rel_ordinal"] | None: ...
+    def HasField(self, field_name: typing.Literal["aggregate", b"aggregate", "cross", b"cross", "ddl", b"ddl", "detached_rel_ordinal", b"detached_rel_ordinal", "exchange", b"exchange", "expand", b"expand", "extension_leaf", b"extension_leaf", "extension_multi", b"extension_multi", "extension_single", b"extension_single", "fetch", b"fetch", "filter", b"filter", "hash_join", b"hash_join", "join", b"join", "lateral_join", b"lateral_join", "merge_join", b"merge_join", "nested_loop_join", b"nested_loop_join", "project", b"project", "read", b"read", "reference", b"reference", "rel_type", b"rel_type", "set", b"set", "sort", b"sort", "table_function", b"table_function", "top_n", b"top_n", "update", b"update", "window", b"window", "write", b"write"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["aggregate", b"aggregate", "cross", b"cross", "ddl", b"ddl", "detached_rel_ordinal", b"detached_rel_ordinal", "exchange", b"exchange", "expand", b"expand", "extension_leaf", b"extension_leaf", "extension_multi", b"extension_multi", "extension_single", b"extension_single", "fetch", b"fetch", "filter", b"filter", "hash_join", b"hash_join", "join", b"join", "lateral_join", b"lateral_join", "merge_join", b"merge_join", "nested_loop_join", b"nested_loop_join", "project", b"project", "read", b"read", "reference", b"reference", "rel_type", b"rel_type", "set", b"set", "sort", b"sort", "table_function", b"table_function", "top_n", b"top_n", "update", b"update", "window", b"window", "write", b"write"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["rel_type", b"rel_type"]) -> typing.Literal["read", "filter", "fetch", "aggregate", "sort", "join", "lateral_join", "project", "set", "extension_single", "extension_multi", "extension_leaf", "cross", "reference", "write", "ddl", "update", "table_function", "hash_join", "merge_join", "nested_loop_join", "window", "exchange", "expand", "top_n", "detached_rel_ordinal"] | None: ...
 
 Global___Rel: typing_extensions.TypeAlias = Rel
 
@@ -3033,6 +3070,10 @@ class Expression(google.protobuf.message.Message):
         fixed_char: builtins.str
         fixed_binary: builtins.bytes
         uuid: builtins.bytes
+        """Exactly 16 bytes in network byte order (big-endian), matching consecutive
+        hexadecimal byte pairs in the UUID string with hyphens omitted.
+        Any 128-bit value is allowed; UUID version and variant bits are unrestricted.
+        """
         nullable: builtins.bool
         """Whether the literal_type above should be treated as a nullable type.
         Applies to all members of the literal_type oneof EXCEPT:
@@ -4575,6 +4616,59 @@ class Expression(google.protobuf.message.Message):
     def WhichOneof(self, oneof_group: typing.Literal["rex_type", b"rex_type"]) -> typing.Literal["literal", "selection", "scalar_function", "window_function", "if_then", "switch_expression", "singular_or_list", "multi_or_list", "cast", "subquery", "nested", "dynamic_parameter", "lambda", "lambda_invocation", "execution_context_variable", "detached_expression_ordinal", "named_lambda_reference"] | None: ...
 
 Global___Expression: typing_extensions.TypeAlias = Expression
+
+@typing.final
+class TableFunction(google.protobuf.message.Message):
+    """A table function call that produces zero or more rows per invocation."""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    FUNCTION_REFERENCE_FIELD_NUMBER: builtins.int
+    ARGUMENTS_FIELD_NUMBER: builtins.int
+    OPTIONS_FIELD_NUMBER: builtins.int
+    SCHEMA_FIELD_NUMBER: builtins.int
+    function_reference: builtins.int
+    """Points to a function_anchor in this plan referring to a table function
+    in an extension YAML file.
+    """
+    @property
+    def arguments(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[Global___FunctionArgument]:
+        """Arguments must match the selected YAML implementation's signature,
+        including any variadic arguments:
+         - Value arguments use FunctionArgument.value.
+         - Type arguments use FunctionArgument.type.
+         - Enum arguments use FunctionArgument.enum, matching an allowed option
+           case-insensitively.
+        """
+
+    @property
+    def options(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[Global___FunctionOption]:
+        """Behavioral preferences following the options declared by the YAML
+        implementation, with the same rules as scalar function options.
+        """
+
+    @property
+    def schema(self) -> substrait.type_pb2.Type.Struct:
+        """Required concrete output schema. Nullability must be NULLABILITY_REQUIRED.
+        Its fields represent the generated columns, and every output row must
+        conform to this type. If the YAML implementation declares a schema expression,
+        this must match that expression evaluated with the bound argument types.
+        Otherwise, the producer determines the type using argument values, external
+        information, or other function-specific knowledge.
+        """
+
+    def __init__(
+        self,
+        *,
+        function_reference: builtins.int = ...,
+        arguments: collections.abc.Iterable[Global___FunctionArgument] | None = ...,
+        options: collections.abc.Iterable[Global___FunctionOption] | None = ...,
+        schema: substrait.type_pb2.Type.Struct | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["schema", b"schema"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["arguments", b"arguments", "function_reference", b"function_reference", "options", b"options", "schema", b"schema"]) -> None: ...
+
+Global___TableFunction: typing_extensions.TypeAlias = TableFunction
 
 @typing.final
 class DynamicParameter(google.protobuf.message.Message):

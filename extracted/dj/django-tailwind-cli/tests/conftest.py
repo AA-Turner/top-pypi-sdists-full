@@ -11,12 +11,13 @@ from unittest.mock import MagicMock, Mock
 import pytest
 from pytest_mock import MockerFixture
 
-from tests.helpers import install_fake_cli
+from tests.helpers import answer_release_lookup, install_fake_cli
 
-# Deliberately not FALLBACK_VERSION: if the two matched, a test could not tell
-# "the fixture answered" from "the lookup failed and fell back". Tests that care
-# about a specific version pin it themselves.
-LATEST_RELEASE_URL = "https://github.com/tailwindlabs/tailwindcss/releases/tag/v4.2.7"
+# Deliberately not FALLBACK_VERSION or FALLBACK_DAISY_UI_VERSION: if they matched, a test
+# could not tell "the fixture answered" from "the lookup failed and fell back". Tests that
+# care about a specific version pin it themselves.
+LATEST_TAILWIND_VERSION = "4.2.7"
+LATEST_DAISY_UI_VERSION = "5.7.1"
 
 
 @pytest.fixture(autouse=True)
@@ -76,6 +77,20 @@ def reset_binary_version_cache() -> Iterator[None]:
 
 
 @pytest.fixture(autouse=True)
+def reset_release_lookup_cache() -> Iterator[None]:
+    """Keep the per-process latest-release lookup from leaking between tests.
+
+    ``_fetch_latest_version`` is a process-global ``functools.cache``. A test that patches the lookup
+    would otherwise read the answer an earlier test's patch gave.
+    """
+    from django_tailwind_cli.config import _fetch_latest_version  # pyright: ignore[reportPrivateUsage]
+
+    _fetch_latest_version.cache_clear()
+    yield
+    _fetch_latest_version.cache_clear()
+
+
+@pytest.fixture(autouse=True)
 def patch_version_lookup(request: pytest.FixtureRequest, mocker: MockerFixture) -> None:
     """Answer the "what is the latest release" lookup without a network call.
 
@@ -86,7 +101,7 @@ def patch_version_lookup(request: pytest.FixtureRequest, mocker: MockerFixture) 
         return
     mocker.patch(
         "django_tailwind_cli.utils.http.fetch_redirect_location",
-        return_value=(True, LATEST_RELEASE_URL),
+        side_effect=answer_release_lookup(tailwind=LATEST_TAILWIND_VERSION, daisy_ui=LATEST_DAISY_UI_VERSION),
     )
 
 

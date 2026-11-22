@@ -1,10 +1,12 @@
 # Copyright 2012-2023, Andrey Kislyuk and argcomplete contributors.
 # Licensed under the Apache License. See https://github.com/kislyuk/argcomplete for more info.
 
+from __future__ import annotations
+
 import argparse
 import os
 import subprocess
-from collections.abc import Callable, Generator, Iterable, Mapping
+from collections.abc import Callable, Generator, Iterable
 from shlex import quote
 from typing import Final
 
@@ -32,12 +34,12 @@ class BaseCompleter:
 
 
 class ChoicesCompleter(BaseCompleter):
-    choices: Final[Mapping[str, str | bytes]]
+    choices: Final[Iterable[object]]
 
-    def __init__(self, choices: Mapping[str, str | bytes]) -> None:
+    def __init__(self, choices: Iterable[object]) -> None:
         self.choices = choices
 
-    def _convert(self, choice):
+    def _convert(self, choice: object) -> str:
         if not isinstance(choice, str):
             choice = str(choice)
         return choice
@@ -74,21 +76,20 @@ class FilesCompleter(BaseCompleter):
                 # correctly in older versions and calling bind makes them available. For details, see
                 # https://savannah.gnu.org/support/index.php?111125
                 files = _call(
-                    ["bash", "-c", "bind; compgen -A directory -- {p}".format(p=quote(prefix))],
+                    ["bash", "-c", f"bind; compgen -A directory -- {quote(prefix)}"],
                     stderr=subprocess.DEVNULL,
                 )
                 completion += [f + "/" for f in files]
             for x in self.allowednames:
-                completion += _call(
-                    ["bash", "-c", "bind; compgen -A file -X '!*.{0}' -- {p}".format(x, p=quote(prefix))],
+                files = _call(
+                    ["bash", "-c", f"bind; compgen -A file -X '!*.{x}' -- {quote(prefix)}"],
                     stderr=subprocess.DEVNULL,
                 )
+                completion += [f for f in files if not os.path.isdir(os.path.expanduser(f))]
         else:
-            completion += _call(
-                ["bash", "-c", "bind; compgen -A file -- {p}".format(p=quote(prefix))], stderr=subprocess.DEVNULL
-            )
+            completion += _call(["bash", "-c", f"bind; compgen -A file -- {quote(prefix)}"], stderr=subprocess.DEVNULL)
             anticomp = _call(
-                ["bash", "-c", "bind; compgen -A directory -- {p}".format(p=quote(prefix))],
+                ["bash", "-c", f"bind; compgen -A directory -- {quote(prefix)}"],
                 stderr=subprocess.DEVNULL,
             )
             completion = list(set(completion) - set(anticomp))
@@ -115,15 +116,16 @@ class _FilteredFilesCompleter(BaseCompleter):
         """
         Provide completions on prefix
         """
+        prefix_dir = os.path.dirname(prefix)
         # Expand a leading "~" so that filesystem operations below work on a
         # real path (os.listdir("~") would otherwise raise FileNotFoundError).
-        expanded_prefix = os.path.expanduser(prefix)
-        target_dir = os.path.dirname(expanded_prefix)
+        # The completions keep the directory as typed, so that they still start with the prefix.
+        target_dir = os.path.expanduser(prefix_dir)
         try:
             names = os.listdir(target_dir or ".")
         except Exception:
             return  # empty iterator
-        incomplete_part = os.path.basename(expanded_prefix)
+        incomplete_part = os.path.basename(prefix)
         # Iterate on target_dir entries and filter on given predicate
         for name in names:
             if not name.startswith(incomplete_part):
@@ -131,7 +133,8 @@ class _FilteredFilesCompleter(BaseCompleter):
             candidate = os.path.join(target_dir, name)
             if not self.predicate(candidate):
                 continue
-            yield candidate + "/" if os.path.isdir(candidate) else candidate
+            completion = os.path.join(prefix_dir, name)
+            yield completion + "/" if os.path.isdir(candidate) else completion
 
 
 class DirectoriesCompleter(_FilteredFilesCompleter):

@@ -1,5 +1,6 @@
 use crate::args::{ArgSchema, CoercionPolicy, ShapeKind};
 use crate::function::{FnCaps, Function, FunctionResolution};
+use crate::function_contract::{FunctionContextDependence, FunctionSemanticContract};
 use crate::traits::{ArgumentHandle, FunctionContext};
 use formualizer_common::{ArgKind, ExcelError, ExcelErrorKind, LiteralValue, PackedSheetCell};
 use formualizer_parse::parser::ReferenceType;
@@ -676,7 +677,6 @@ pub struct OffsetFn;
 /// ```yaml,sandbox
 /// title: "Move one row down and one column right"
 /// grid:
-///   A1: 10
 ///   B2: 42
 /// formula: '=OFFSET(A1,1,1)'
 /// expected: 42
@@ -685,10 +685,8 @@ pub struct OffsetFn;
 /// ```yaml,sandbox
 /// title: "Offset and resize a range"
 /// grid:
-///   A1: 1
 ///   A2: 2
 ///   A3: 3
-///   B1: 4
 ///   B2: 5
 ///   B3: 6
 /// formula: '=SUM(OFFSET(A1,1,0,2,2))'
@@ -884,57 +882,6 @@ enum IndirectR1C1 {
     NotCoordinate,
 }
 
-/// Converts text into a reference and returns the referenced value or range.
-///
-/// `INDIRECT` lets formulas build references dynamically from strings such as `"A1"` or
-/// `"Sheet2!B3:C5"`.
-///
-/// # Remarks
-/// - `a1_style` defaults to `TRUE` (A1 style parsing).
-/// - `a1_style=FALSE` (R1C1 parsing) is currently not implemented and returns `#N/IMPL!`.
-/// - Invalid or unresolved references return `#REF!`.
-/// - The function is volatile because target references can change without direct dependency links.
-///
-/// # Examples
-/// ```yaml,sandbox
-/// title: "Resolve a direct cell reference"
-/// grid:
-///   A1: 99
-/// formula: '=INDIRECT("A1")'
-/// expected: 99
-/// ```
-///
-/// ```yaml,sandbox
-/// title: "Resolve a range and aggregate it"
-/// grid:
-///   A1: 5
-///   A2: 7
-///   A3: 9
-/// formula: '=SUM(INDIRECT("A1:A3"))'
-/// expected: 21
-/// ```
-///
-/// ```yaml,docs
-/// related:
-///   - ADDRESS
-///   - INDEX
-///   - OFFSET
-/// faq:
-///   - q: "What happens if a1_style is FALSE?"
-///     a: "R1C1 parsing is not implemented here yet, so INDIRECT(...,FALSE) returns #N/IMPL!."
-///   - q: "How are bad reference strings reported?"
-///     a: "If the text cannot be parsed or resolved to a valid reference, INDIRECT returns #REF!."
-/// ```
-/// [formualizer-docgen:schema:start]
-/// Name: INDIRECT
-/// Type: IndirectFn
-/// Min args: 1
-/// Max args: 2
-/// Variadic: false
-/// Signature: INDIRECT(arg1: text@scalar, arg2?: logical|number@scalar)
-/// Arg schema: arg1{kinds=text,required=true,shape=scalar,by_ref=false,coercion=None,max=None,repeating=None,default=false}; arg2{kinds=logical|number,required=false,shape=scalar,by_ref=false,coercion=Logical,max=None,repeating=None,default=true}
-/// Caps: PURE, VOLATILE, RETURNS_REFERENCE, DYNAMIC_DEPENDENCY
-/// [formualizer-docgen:schema:end]
 impl IndirectFn {
     /// Validate the cell/range portion of an R1C1 request before selecting the
     /// unavailable dialect. Coordinates are checked against the formula origin;
@@ -1020,6 +967,59 @@ impl IndirectFn {
     }
 }
 
+/// Converts text into a reference and returns the referenced value or range.
+///
+/// `INDIRECT` lets formulas build references dynamically from strings such as `"A1"` or
+/// `"Sheet2!B3:C5"`.
+///
+/// # Remarks
+/// - `a1_style` defaults to `TRUE` (A1 style parsing).
+/// - Invalid or unresolved references return `#REF!`.
+/// - The function is volatile because target references can change without direct dependency links.
+///
+/// # Differences from Excel
+/// R1C1 cell and range references selected with `a1_style=FALSE` return `#N/IMPL!` in Formualizer.
+///
+/// # Examples
+/// ```yaml,sandbox
+/// title: "Resolve a direct cell reference"
+/// grid:
+///   A1: 99
+/// formula: '=INDIRECT("A1")'
+/// expected: 99
+/// ```
+///
+/// ```yaml,sandbox
+/// title: "Resolve a range and aggregate it"
+/// grid:
+///   A1: 5
+///   A2: 7
+///   A3: 9
+/// formula: '=SUM(INDIRECT("A1:A3"))'
+/// expected: 21
+/// ```
+///
+/// ```yaml,docs
+/// related:
+///   - ADDRESS
+///   - INDEX
+///   - OFFSET
+/// faq:
+///   - q: "What happens if a1_style is FALSE?"
+///     a: "R1C1 cell and range references are unsupported. Defined names and table references can still resolve with either flag."
+///   - q: "How are bad reference strings reported?"
+///     a: "If the text cannot be parsed or resolved to a valid reference, INDIRECT returns #REF!."
+/// ```
+/// [formualizer-docgen:schema:start]
+/// Name: INDIRECT
+/// Type: IndirectFn
+/// Min args: 1
+/// Max args: 2
+/// Variadic: false
+/// Signature: INDIRECT(arg1: text@scalar, arg2?: logical|number@scalar)
+/// Arg schema: arg1{kinds=text,required=true,shape=scalar,by_ref=false,coercion=None,max=None,repeating=None,default=false}; arg2{kinds=logical|number,required=false,shape=scalar,by_ref=false,coercion=Logical,max=None,repeating=None,default=true}
+/// Caps: PURE, VOLATILE, RETURNS_REFERENCE, DYNAMIC_DEPENDENCY
+/// [formualizer-docgen:schema:end]
 impl Function for IndirectFn {
     fn caps(&self) -> FnCaps {
         FnCaps::PURE | FnCaps::RETURNS_REFERENCE | FnCaps::VOLATILE | FnCaps::DYNAMIC_DEPENDENCY
@@ -1342,6 +1342,111 @@ impl Function for AnchorArrayFn {
 }
 
 #[derive(Debug)]
+pub struct SingleFn;
+
+/// Returns a single value from its argument by implicit intersection.
+///
+/// `SINGLE(x)` is the stored form of the implicit-intersection operator `@x`
+/// (files written by Excel store `_xlfn.SINGLE(x)`). Both evaluate the same
+/// way: a reference, written or returned by a function such as `INDEX` or
+/// `OFFSET`, selects the cell on the formula's row (for a column) or column
+/// (for a row), and a computed array gives its top-left value.
+///
+/// # Remarks
+/// - A multi-row, multi-column reference selects the cell at the formula's
+///   row and column.
+/// - `#VALUE!` when the formula cell is outside the reference's rows or
+///   columns.
+/// - The result never spills: an array constant or an array-returning
+///   function such as `SEQUENCE` gives only its top-left value.
+///
+/// # Formula example
+/// ```excel
+/// # returns: 1
+/// =SINGLE({1,2;3,4})
+/// ```
+///
+/// ```yaml,docs
+/// related:
+///   - ANCHORARRAY
+///   - INDEX
+/// faq:
+///   - q: "How does SINGLE relate to @?"
+///     a: "They are the same operation: @A1:A10 is written as _xlfn.SINGLE(A1:A10) in stored files, and both return one value by implicit intersection."
+/// ```
+///
+/// [formualizer-docgen:schema:start]
+/// Name: SINGLE
+/// Type: SingleFn
+/// Min args: 1
+/// Max args: 1
+/// Variadic: false
+/// Signature: SINGLE(arg1: any@range)
+/// Arg schema: arg1{kinds=any,required=true,shape=range,by_ref=false,coercion=None,max=None,repeating=None,default=false}
+/// Caps: PURE
+/// [formualizer-docgen:schema:end]
+impl Function for SingleFn {
+    fn caps(&self) -> FnCaps {
+        FnCaps::PURE
+    }
+    fn name(&self) -> &'static str {
+        "SINGLE"
+    }
+    fn min_args(&self) -> usize {
+        1
+    }
+    fn semantic_contract(&self, _arity: usize) -> Option<FunctionSemanticContract> {
+        // The result depends on the formula cell, as for `@`.
+        let mut contract = FunctionSemanticContract::trusted_builtin_default(None);
+        contract.context = FunctionContextDependence::PlacementDependent;
+        Some(contract)
+    }
+    fn arg_schema(&self) -> &'static [ArgSchema] {
+        use std::sync::LazyLock;
+        static SCHEMA: LazyLock<Vec<ArgSchema>> = LazyLock::new(|| {
+            vec![ArgSchema {
+                kinds: smallvec::smallvec![ArgKind::Any],
+                required: true,
+                by_ref: false,
+                shape: ShapeKind::Range,
+                coercion: CoercionPolicy::None,
+                max: None,
+                repeating: None,
+                default: None,
+            }]
+        });
+        &SCHEMA
+    }
+
+    // Skip eager argument validation: it would resolve a reference-returning
+    // operand through `eval_reference` before `eval` evaluates it again as a
+    // value.
+    fn dispatch<'a, 'b, 'c>(
+        &self,
+        args: &'c [ArgumentHandle<'a, 'b>],
+        ctx: &dyn FunctionContext<'b>,
+    ) -> Result<crate::traits::CalcValue<'b>, ExcelError> {
+        self.eval(args, ctx)
+    }
+
+    fn eval<'a, 'b, 'c>(
+        &self,
+        args: &'c [ArgumentHandle<'a, 'b>],
+        _ctx: &dyn FunctionContext<'b>,
+    ) -> Result<crate::traits::CalcValue<'b>, ExcelError> {
+        if args.len() != 1 {
+            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                ExcelError::new(ExcelErrorKind::Value)
+                    .with_message("SINGLE takes exactly one argument"),
+            )));
+        }
+        Ok(crate::traits::CalcValue::Scalar(
+            args[0].implicit_intersection()?,
+        ))
+    }
+}
+
+#[derive(Debug)]
 pub struct HyperlinkFn;
 
 /// Returns the friendly name of a hyperlink, or its link location when no name is given.
@@ -1349,9 +1454,9 @@ pub struct HyperlinkFn;
 /// The returned value is `friendly_name` when the second argument is present,
 /// otherwise `link_location`.
 ///
-/// Known divergence: the friendly name is always returned as text, whereas
-/// Excel passes numbers and booleans through with their original type, so
-/// `=ISNUMBER(HYPERLINK("x",1))` is FALSE here and TRUE in Excel.
+/// # Differences from Excel
+/// Formualizer returns the friendly name as text. Excel passes numbers and booleans through
+/// with their original type, so `=ISNUMBER(HYPERLINK("x",1))` is FALSE in Formualizer and TRUE in Excel.
 ///
 /// ```yaml,sandbox
 /// title: "Hyperlink with a friendly name"
@@ -1459,6 +1564,7 @@ pub fn register_builtins() {
     crate::function_registry::register_builtin(std::sync::Arc::new(IndirectFn));
     crate::function_registry::register_builtin(std::sync::Arc::new(HyperlinkFn));
     crate::function_registry::register_builtin(std::sync::Arc::new(AnchorArrayFn));
+    crate::function_registry::register_builtin(std::sync::Arc::new(SingleFn));
 }
 
 #[cfg(test)]

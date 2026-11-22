@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-gdb"
-version = "16.3.0.20261116"
+version = "16.3.0.20261122"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for gdb"
@@ -30,10 +30,10 @@ This package was tested with the following type checkers:
 * [mypy](https://www.mypy-lang.org/) 2.4.1
 * [pyrefly](https://pyrefly.org/) 1.4.1
 * [pyright](https://microsoft.github.io/pyright/) 1.1.414
-* [ty](https://docs.astral.sh/ty/) 0.0.99
+* [ty](https://docs.astral.sh/ty/) 0.0.104
 
 It was generated from typeshed commit
-[`8e21ebd653f6cad1ef9e6518bd81833d39c2c863`](https://github.com/python/typeshed/commit/8e21ebd653f6cad1ef9e6518bd81833d39c2c863).
+[`567e5e3e4276a6b05127b6347d80f809d123e35e`](https://github.com/python/typeshed/commit/567e5e3e4276a6b05127b6347d80f809d123e35e).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

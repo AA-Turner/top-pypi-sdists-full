@@ -6,7 +6,8 @@ rows need, in their order, as an Enum lookup or a variant's mapped tags cost mor
 that read the facts from the live objects are listed in ``docs/architecture.md``.
 
 The rows named ``legacy-*`` keep today's output where passes or backends disagree on a tag; the fix of each deletes
-its row (G05): ``legacy-literal-only`` and ``legacy-nested-root-model-tag`` (``FieldTagSite``),
+its row (the tag decision for a variant that several unions share): ``legacy-literal-only`` and
+``legacy-nested-root-model-tag`` (``FieldTagSite``),
 ``legacy-python-equality`` (``TagIdentity``), ``legacy-any-key`` (``MappingPathRule``) and the rows in the docstrings
 of ``redeclared_tag_field``, ``tagged_union_discriminator`` and ``struct_tag_field``.
 """
@@ -344,7 +345,7 @@ def field_source_name(*, name: str | None, original_name: str | None, alias: str
     return original_name if original_name is not None else alias or name
 
 
-def tag_field_matches(  # noqa: PLR0913
+def tag_field_matches(
     mode: TagFieldMatch,
     wanted: str,
     /,
@@ -368,8 +369,7 @@ def tag_field_matches(  # noqa: PLR0913
             return wanted in {name, original_name}
         case "original-or-unaliased-python-name":
             return original_name == wanted or (original_name is None and name == python_name)
-        case _:  # pragma: no cover
-            return assert_never(mode)
+    assert_never(mode)
 
 
 def tag_field_kept(

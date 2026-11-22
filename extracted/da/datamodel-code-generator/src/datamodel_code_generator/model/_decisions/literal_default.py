@@ -8,7 +8,7 @@ gives the type of a const, for the field hook and for the L1 const type, which r
 list or ``nullable`` (under ``--strict-nullable``) adds beside it.
 
 The rows named ``legacy-*`` keep today's output where sources or backends disagree on a fixed value's default or
-nullability; the fix of each (G12b, which also moves the decision after the facts it reads are final) deletes its row.
+nullability; the fix of each (which also moves the decision after the facts it reads are final) deletes its row.
 """
 
 from __future__ import annotations
@@ -120,7 +120,7 @@ def const_type(value: object, /, *, bool_literals: bool = True) -> ConstType:
     return "literal" if is_literal_kind(kind, bool_literals=bool_literals) else "value"
 
 
-def decide_literal_default(  # ruff: ignore[too-many-arguments]
+def decide_literal_default(
     source: LiteralSource,
     value: Any,
     /,
@@ -163,7 +163,7 @@ def decide_literal_default(  # ruff: ignore[too-many-arguments]
     )
 
 
-def _const_row(  # ruff: ignore[too-many-arguments]
+def _const_row(
     value: Any, *, required: bool, has_default: bool, default: Any, nullable: bool | None, null: bool | None
 ) -> LiteralDefault:
     """Return the ``const`` rows of ``decide_literal_default``; ``null``: the schema type admits null."""
@@ -188,7 +188,7 @@ def _one_literal_row(value: Any, *, required: bool, nullable: bool | None, null:
     return LiteralDefault(rule, value, writes_default=True, required=False, not_null=True)
 
 
-def _tag_row(  # ruff: ignore[too-many-arguments]
+def _tag_row(
     source: Literal["tag", "written-tag"],
     value: Any,
     *,

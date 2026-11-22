@@ -744,36 +744,45 @@ class DockerAutowareLauncher:
         timeout = _BUILD_LOCK_TIMEOUT_S
         deadline = time.monotonic() + timeout
         waiting = False
-        while True:
-            try:
-                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                return fd
-            except BlockingIOError:
-                pass
-            except OSError as exc:
-                os.close(fd)
-                logger.warning(
-                    "Building %s without a lock (%s): another run may build "
-                    "it at the same time",
-                    self._workspace,
-                    exc,
-                )
-                return -1
-            if time.monotonic() >= deadline:
-                os.close(fd)
-                raise AutowareStackError(
-                    f"Another run has been building {self._workspace} for "
-                    f"more than {timeout:.0f} s (it holds {path}); not "
-                    "building it beside it"
-                )
-            if not waiting:
-                logger.info(
-                    "Waiting for another run to finish building %s (%s)",
-                    self._workspace,
-                    path,
-                )
-                waiting = True
-            time.sleep(_BUILD_LOCK_POLL_S)
+        # Closed on anything raised while it waits (the timeout, a
+        # KeyboardInterrupt, SIGTERM's exception): the caller's try/finally
+        # only starts once this returns.  Closed in one place only, so an
+        # interrupt cannot close it twice (the second time, perhaps, a
+        # descriptor another thread has opened since).
+        try:
+            while True:
+                try:
+                    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    return fd
+                except BlockingIOError:
+                    pass
+                except OSError as exc:
+                    logger.warning(
+                        "Building %s without a lock (%s): another run may build "
+                        "it at the same time",
+                        self._workspace,
+                        exc,
+                    )
+                    break
+                if time.monotonic() >= deadline:
+                    raise AutowareStackError(
+                        f"Another run has been building {self._workspace} for "
+                        f"more than {timeout:.0f} s (it holds {path}); not "
+                        "building it beside it"
+                    )
+                if not waiting:
+                    logger.info(
+                        "Waiting for another run to finish building %s (%s)",
+                        self._workspace,
+                        path,
+                    )
+                    waiting = True
+                time.sleep(_BUILD_LOCK_POLL_S)
+        except BaseException:
+            os.close(fd)
+            raise
+        os.close(fd)
+        return -1
 
     def _unlock_workspace(self, fd: int) -> None:
         """Let the build lock *fd* (from :meth:`_lock_workspace`) go."""
@@ -925,34 +934,43 @@ class DockerAutowareLauncher:
             log_path.parent.mkdir(parents=True, exist_ok=True)
             log = log_path.open("w", encoding="utf-8")
         try:
-            process: subprocess.Popen[str] = subprocess.Popen(  # noqa: S603 - argv comes from the user's own config
-                argv,
-                env=env,
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                # gcc echoes source lines, any bytes: replace what is not
-                # UTF-8 rather than abort the build mid-stream (#1346).
-                encoding="utf-8",
-                errors="replace",
-            )
+            try:
+                process: subprocess.Popen[str] = subprocess.Popen(  # noqa: S603 - argv comes from the user's own config
+                    argv,
+                    env=env,
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    # gcc echoes source lines, any bytes: replace what is not
+                    # UTF-8 rather than abort the build mid-stream (#1346).
+                    encoding="utf-8",
+                    errors="replace",
+                )
+            except OSError as exc:
+                # Only starting it: a failure to write its output (a full
+                # disk, a closed pipe) is not docker failing to run (#2321).
+                raise AutowareStackError(
+                    f"Could not run {self._config.docker!r}: {exc}"
+                ) from exc
             try:
                 assert process.stdout is not None  # noqa: S101 - stdout=PIPE
                 for line in process.stdout:
                     sys.stdout.write(line)
                     if log is not None:
                         log.write(line)
+            except OSError as exc:
+                # Writing the output failed (a closed pipe, a full disk): end
+                # the command rather than leave it running, and its pipe
+                # open, behind this process (#2187).
+                _end_process(process)
+                raise AutowareStackError(
+                    f"Could not stream the output of {self._config.docker!r}: {exc}"
+                ) from exc
             except BaseException:
-                # Writing the output failed (a closed pipe, a full disk) or
-                # the run was interrupted: end the command rather than leave
-                # it running, and its pipe open, behind this process (#2187).
+                # The run was interrupted: end the command too (#2187).
                 _end_process(process)
                 raise
             return process.wait()
-        except OSError as exc:
-            raise AutowareStackError(
-                f"Could not run {self._config.docker!r}: {exc}"
-            ) from exc
         finally:
             if log is not None:
                 log.close()

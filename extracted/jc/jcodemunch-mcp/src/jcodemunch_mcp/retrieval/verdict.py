@@ -218,6 +218,120 @@ def coverage_is_incomplete(coverage: Optional[dict]) -> bool:
     return bool(coverage) and coverage.get("complete") is False
 
 
+def search_text_cut_short(res: Optional[dict]) -> list[str]:
+    """Why a ``search_text`` answer did not search everything, or ``[]``.
+
+    THE one reading of a text scan's completeness (LEDGER L-309), shared by
+    every in-process consumer that treats the matches as the whole set: the
+    Grep-answer hook, which answers in Grep's place, and the deletion
+    investigator, which reads "no other file" as no other use. Each kept its
+    own list, and each list missed a signal: the investigator read none of
+    these, and the hook never read ``index_withheld``, which is the only
+    signal of a file withheld for size when the scan found something
+    (``verdict.coverage`` is attached only to an absent or degraded answer).
+
+    Read from the body and from ``_meta``, which only the dispatcher strips.
+    Unknown coverage (``complete is None``) is not a cut. A withheld file is
+    a cut unless ``index_withheld.in_scope`` is False: the count is repo-wide,
+    and search_text names whether any withheld file matches its scope.
+    """
+    if not isinstance(res, dict):
+        return ["the answer is not a search result"]
+    if res.get("error"):
+        return ["the search returned an error"]
+    meta = res.get("_meta") or {}
+    verdict = meta.get("verdict") or {}
+    reasons: list[str] = []
+    if res.get("truncated"):
+        reasons.append("the match list was cut at its limit")
+    if res.get("timed_out"):
+        reasons.append("the scan stopped at its time budget")
+    if verdict.get("incomplete"):
+        reasons.append("some files in scope could not be read")
+    if coverage_is_incomplete(verdict.get("coverage")):
+        reasons.append("the index coverage is incomplete")
+    if meta.get("index_truncated"):
+        reasons.append(
+            "the index holds only part of the repo's files (max_folder_files cap)"
+        )
+    withheld = meta.get("index_withheld")
+    # `in_scope` is False only when the stored names prove no withheld file
+    # matches the search's scope; an unknown scope counts as a cut.
+    if withheld and not (isinstance(withheld, dict) and withheld.get("in_scope") is False):
+        reasons.append("the index withholds files over max_file_size in this scope")
+    return reasons
+
+
+def mark_no_exact_match(
+    result: dict,
+    query: str,
+    index,
+    *,
+    rows_key: str = "results",
+) -> None:
+    """Mark, in the BODY, an identifier query that no symbol is named.
+
+    ⚠⚠ `_meta.exact_match` already says this (v1.108.173), and `meta_fields: []`
+    is the shipped default, which strips `_meta`: a default install got ten
+    ranked rows and no marker. A reason placed in `_meta` is deleted on a default
+    install, so this one rides the channel the zero-row case already uses --
+    `negative_evidence` and the `⚠ warning` key, which every compact encoder
+    carries (`schema_driven.UNIVERSAL_BODY_JSON`).
+
+    Every exit that returns rows calls this: `search_symbols`' lexical, semantic
+    and fusion exits, and `get_ranked_context`'s ranked and fusion exits
+    (LEDGER L-284, `rows_key="context_items"`). It lives here, one layer below
+    both, so the next tool that ranks symbols for a query inherits it. Rows
+    and their order are not touched.
+
+    ⚠ The warning claims the INDEX has no symbol of that name, so the page is
+    not enough: a filter (`kind=`, `file_pattern=`, ...) or a similarity ranking
+    can leave an exact or a prefix match off the page. The index is classified
+    with the SAME rule as the page (`exact_match_report`, one definition of
+    exact and prefix), so `exact`/`prefix` in the marker are index counts. The
+    page is checked first; the index walk runs only on this rare path.
+
+    ⚠ NOT an absence. Rows were returned, an `ok` verdict state is downgraded to
+    `low_confidence` (the lexical exit's v1.108.173 rule, which the semantic and
+    fusion exits never had, so they said `ok` beside "No symbol named X"), and
+    `session_journal._ABSENCE_VERDICTS` does not list `no_exact_match`, so
+    nothing downstream may cite it as proof.
+    """
+    rows = result.get(rows_key) or []
+    if not rows:
+        return
+    from .query_shape import exact_match_report as _exact_match_report
+
+    page = _exact_match_report(query, rows)
+    if page is None or page["found"]:
+        return
+    report = _exact_match_report(query, index.symbols)
+    if report is None or report["found"] or report["exact"] or report["prefix"]:
+        return
+
+    queried = report["queried"]
+    verdict = (result.get("_meta") or {}).get("verdict")
+    if isinstance(verdict, dict) and verdict.get("state") == "ok":
+        verdict["state"] = "low_confidence"
+        verdict["note"] = page["note"]
+    marker = {
+        "verdict": "no_exact_match",
+        "queried": queried,
+        "exact": report["exact"],
+        "prefix": report["prefix"],
+    }
+    prior = result.get("negative_evidence")
+    if isinstance(prior, dict):
+        # A weak-score `low_confidence_matches` block already said "verify";
+        # this says why. Its scan counts and suggestions are kept.
+        marker.update({k: v for k, v in prior.items() if k not in marker})
+    result["negative_evidence"] = marker
+    result["⚠ warning"] = (
+        f"No symbol named '{queried[:80]}' is in this index; "
+        f"these results share words with it only."
+    )
+
+
 def _attach_coverage(verdict: dict, coverage: Optional[dict]) -> None:
     """Attach coverage disclosure to absent/degraded verdicts (in place).
 

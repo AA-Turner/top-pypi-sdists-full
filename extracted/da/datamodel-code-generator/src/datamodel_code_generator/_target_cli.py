@@ -7,9 +7,9 @@ import sys
 import traceback
 from functools import partial
 from pathlib import Path, PurePosixPath
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, TypeAlias, cast
 
-from datamodel_code_generator import Error, InvalidClassNameError
+from datamodel_code_generator._cli_messages import _invalid_class_name_message
 from datamodel_code_generator._module_paths import is_package_init
 from datamodel_code_generator._option_names import (
     config_table,
@@ -19,25 +19,38 @@ from datamodel_code_generator._option_names import (
     toml_table,
     toml_text,
 )
+from datamodel_code_generator._output_comparison import (
+    ComparisonDifference,
+    OutputComparison,
+    OutputComparisonOptions,
+    _compare_generated_outputs,
+    _write_comparison_output,
+)
 from datamodel_code_generator._paths import names_directory
 from datamodel_code_generator._project_config import profile_table_keys
+from datamodel_code_generator._shared_types import Error, InvalidClassNameError
 from datamodel_code_generator._target_documents import shown
 from datamodel_code_generator.enums import _ExitCode
 from datamodel_code_generator.python_literal import stable_repr
 
 if TYPE_CHECKING:
     from argparse import Namespace
-    from collections.abc import Iterable, Iterator, Sequence
+    from collections.abc import Callable, Iterable, Iterator, Sequence
 
-    from datamodel_code_generator.__main__ import ComparisonDifference, OutputComparison
     from datamodel_code_generator._api_generation import PlannedTarget
     from datamodel_code_generator._api_types import GeneratedArtifact, GeneratedProject, NextSteps
     from datamodel_code_generator._publication import StagedFile
     from datamodel_code_generator._structured_output import ImpliedPayload, TargetPayload
     from datamodel_code_generator._target_config import TargetConfig
+    from datamodel_code_generator.config import GenerateConfig
+
+    TargetSettings: TypeAlias = Callable[[object, Sequence[str], Path | None], GenerateConfig]
+    """Return the model settings a target runs with from the CLI config, its arguments and its models lockfile."""
+    TargetPublication: TypeAlias = Callable[[object, Path | None, tuple[str, PlannedTarget, str | None]], int | None]
+    """Publish a single run's planned target with its notice as a batch of one; return the exit code of a failure."""
 
 
-def run_target(  # noqa: PLR0913, PLR0917
+def run_target(  # noqa: PLR0917
     args: Sequence[str],
     namespace: Namespace,
     config: Any,
@@ -47,6 +60,8 @@ def run_target(  # noqa: PLR0913, PLR0917
     job: str = "",
     *,
     announce: bool = False,
+    settings: TargetSettings,
+    publish: TargetPublication,
 ) -> int:
     """Generate or check the selected target from the finalized CLI config, reporting errors like model runs.
 
@@ -55,6 +70,7 @@ def run_target(  # noqa: PLR0913, PLR0917
     models record into the batch's remote `lock`; a job that checks its target appends it without a notice, so that
     later jobs are refused the server packages it plans as when they write them. A single run publishes its target as
     a batch of one, so a failed publication is reported as for the model runs that publish through the same journal.
+    The command line hands over how it derives the model `settings` and how it `publish`es that batch.
 
     The config already holds the settings the target implied, which no option, key, or preset set (`_implied`); the
     JSON payloads name them under `target.implied`. After a run that succeeds and is to `announce` them, stderr shows
@@ -65,13 +81,24 @@ def run_target(  # noqa: PLR0913, PLR0917
 
     kind, selector = _target_side(config)
     if config.preset is not None and (problem := python_problem(config, kind)) is not None:
-        print(f"Error: --target-python-version: {problem}", file=sys.stderr)  # noqa: T201
+        print(f"Error: --target-python-version: {problem}", file=sys.stderr)
         return _ExitCode.ERROR
     if requirement := model_requirement(config, selector):
-        print(f"Error: {requirement}", file=sys.stderr)  # noqa: T201
+        print(f"Error: {requirement}", file=sys.stderr)
         return _ExitCode.ERROR
     try:
-        return _run(args, namespace, config, pyproject_path, batch, lock, job, announce=announce)
+        return _run(
+            args,
+            namespace,
+            config,
+            pyproject_path,
+            batch,
+            lock,
+            job,
+            announce=announce,
+            settings=settings,
+            publish=publish,
+        )
     except Exception as error:  # noqa: BLE001
         from datamodel_code_generator._target_selection import keyed  # noqa: PLC0415
 
@@ -81,7 +108,7 @@ def run_target(  # noqa: PLR0913, PLR0917
 
 def _print_notice(notice: str | None) -> None:
     if notice is not None:
-        print(notice, file=sys.stderr)  # noqa: T201
+        print(notice, file=sys.stderr)
 
 
 def _implied(config: Any) -> dict[str, Any]:
@@ -89,7 +116,7 @@ def _implied(config: Any) -> dict[str, Any]:
     return {name: json_ready(getattr(config, name)) for name in config._run_options.staged_by("implied-target")}  # noqa: SLF001
 
 
-def _implied_notice(  # noqa: PLR0913
+def _implied_notice(
     args: Sequence[str], config: Any, namespace: Namespace, pyproject: Path | None, job: str, *, announce: bool
 ) -> str | None:
     """Return how to set the implied settings: the command with their options, or the lines of the table to add.
@@ -120,7 +147,7 @@ def _target_side(config: Any) -> tuple[str, str]:
     return ("fastapi", "--generate-server") if config.generate_client is None else ("client", "--generate-client")
 
 
-def _run(  # noqa: PLR0913, PLR0917
+def _run(  # noqa: PLR0917
     args: Sequence[str],
     namespace: Namespace,
     config: Any,
@@ -130,14 +157,9 @@ def _run(  # noqa: PLR0913, PLR0917
     job: str,
     *,
     announce: bool,
+    settings: TargetSettings,
+    publish: TargetPublication,
 ) -> int:
-    from datamodel_code_generator.__main__ import (  # noqa: PLC0415
-        _publish_or_error,
-        _single_job_plan,
-        _stage_job_plans,
-        _target_settings,
-        _write_comparison_output,
-    )
     from datamodel_code_generator._api_generation import (  # noqa: PLC0415
         implied_conflict,
         plan_target,
@@ -149,7 +171,7 @@ def _run(  # noqa: PLR0913, PLR0917
 
     lockfile = models_lockfile(config, pyproject_path)
     generator, target = target_of(config, partial(_base, config, pyproject_path))
-    effective = _target_settings(config, args, lockfile)
+    effective = settings(config, args, lockfile)
     if batch is not None:
         effective.resolve_remote_lock(lock)
     if (source := config.url or config.input) is None:
@@ -199,17 +221,15 @@ def _run(  # noqa: PLR0913, PLR0917
         )
         _join(batch, job, planned, _next_step(target, planned.project, notice))
         if json_output:
-            print(_target_json(planned.project, config, target))  # noqa: T201
+            print(_target_json(planned.project, config, target))
         return _ExitCode.OK
     planned = plan_target(source, model_config=effective, config=target, generator=generator, publish=True)
     project = planned.project
     output = _target_json(project, config, target) if json_output else None
-    (staged,) = _stage_job_plans((_single_job_plan(config, pyproject_path),))
-    cast("list[Any]", staged.targets).append((job, planned, _next_step(target, project, notice)))
-    if (failure := _publish_or_error((staged,))) is not None:
+    if (failure := publish(config, pyproject_path, (job, planned, _next_step(target, project, notice)))) is not None:
         return int(failure)
     if output is not None:
-        print(output)  # noqa: T201
+        print(output)
     return _ExitCode.OK
 
 
@@ -234,7 +254,7 @@ def publish_targets(files: Iterable[StagedFile], targets: Sequence[tuple[str, Pl
     written = [(job, planned, notice) for job, planned, notice in targets if notice is not None]
     publish_planned(files, [(job, planned) for job, planned, _ in written])
     for _, _, notice in written:
-        print(notice, file=sys.stderr)  # noqa: T201
+        print(notice, file=sys.stderr)
 
 
 def _shown(path: Path) -> str:
@@ -360,11 +380,6 @@ def _compare_target(
     """
     from tempfile import TemporaryDirectory  # noqa: PLC0415
 
-    from datamodel_code_generator.__main__ import (  # noqa: PLC0415
-        OutputComparison,
-        OutputComparisonOptions,
-        _compare_generated_outputs,
-    )
     from datamodel_code_generator._api_generation import file_encoding  # noqa: PLC0415
 
     nested = _nested(models, target)
@@ -572,8 +587,6 @@ def _failure(error: Exception, namespace: Namespace, config: Any) -> None:
     """Preserve model CLI error hints and unexpected-error tracebacks."""
     message = str(error)
     if isinstance(error, InvalidClassNameError):
-        from datamodel_code_generator.__main__ import _invalid_class_name_message  # noqa: PLC0415
-
         message = _invalid_class_name_message(error, namespace, config.class_name)
     elif isinstance(error, UnicodeDecodeError):
         message = f"Unable to decode input using encoding {stable_repr(config.encoding)}: {error}"
@@ -581,6 +594,6 @@ def _failure(error: Exception, namespace: Namespace, config: Any) -> None:
         from datamodel_code_generator.remote_lock import RemoteLockError  # noqa: PLC0415
 
         if not isinstance(error, RemoteLockError):
-            print("".join(traceback.format_exception(error)), file=sys.stderr)  # noqa: T201
+            print("".join(traceback.format_exception(error)), file=sys.stderr)
             return
-    print(f"Error: {message}", file=sys.stderr)  # noqa: T201
+    print(f"Error: {message}", file=sys.stderr)

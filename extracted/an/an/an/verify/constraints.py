@@ -78,8 +78,10 @@ The core's constraints:
   (warning). :func:`av_offset_fault` is the pure function under it. Dialogue and
   lip-sync consistency are not built.
 - ``cue_event``: a shot sound cue timed by a hold event (``at: {when: musket,
-  event: land}``) names an event the compiled shot has (error, listing the
-  item's events, else an ``info`` line with its second).
+  event: land}``) names an event the compiled shot has, and one timed by an
+  authored change (``at: {when: book/body, changes: state, to: page_l}``,
+  an#815) a ``set`` or ``tween`` the shot has (error, listing what there is,
+  else an ``info`` line with its second).
 - ``light`` (catalogue D1): under the scene's one ``meta.light``, a member whose
   art declares ``metadata.shaded_side`` (or ``overrides.shaded_side``) is shaded
   on the side facing away from it, read where that side faces on screen as the
@@ -113,6 +115,7 @@ __all__ = [
     "OBJECT_PERMANENCE",
     "HELD_ITEM",
     "RIGIDITY",
+    "LETTERING",
     "MOTION_STYLE",
     "GRAVITY",
     "gravity_of",
@@ -1871,13 +1874,17 @@ def check_causality(ctx: Any) -> None:
     ]
     if not cues:
         return
+    from an.stage import draws_on_stage
+
     doc = compiled_shot(ctx)
-    if doc is None:
-        return
+    if doc is None and draws_on_stage(ctx.shot):
+        return  # a stage shot that did not compile: `not_compiled` says so
     from an.sound_anchors import SoundAnchorError, anchor_in_document
 
     for j, cue in cues:
         where = f"{ctx.path}/sounds/{j}"
+        if doc is None and cue.cause.changes is None:
+            continue  # a crossing or an event needs the picture
         try:
             cause_t = anchor_in_document(
                 doc,
@@ -1886,6 +1893,8 @@ def check_causality(ctx: Any) -> None:
                 fps=_fps(ctx),
                 duration=ctx.shot.duration,
                 where=where,
+                shot=ctx.shot,
+                mall=ctx.stores,
             )
         except SoundAnchorError as e:
             ctx.report.add("error", f"{where}/cause", str(e))
@@ -1911,6 +1920,8 @@ def check_causality(ctx: Any) -> None:
             + (
                 f"{{when: {cue.cause.when}, event: {cue.cause.event}}}`."
                 if cue.cause.event is not None
+                else _change_text(cue.cause)
+                if cue.cause.changes is not None
                 else "{when: ..., reaches: ...}`."
             ),
         )
@@ -1923,27 +1934,56 @@ CAUSALITY = Constraint(
 )
 
 
+def _change_text(anchor: Any) -> str:
+    """A ``changes`` anchor as the YAML a cue's ``at`` would say (``to``
+    quoted, so ``on`` stays a string when pasted back)."""
+    import json
+
+    to = f", to: {json.dumps(anchor.to)}" if anchor.to is not None else ""
+    nth = f", nth: {anchor.nth}" if anchor.nth != 1 else ""
+    return f"{{when: {anchor.when}, changes: {anchor.changes}{to}{nth}}}`."
+
+
 def check_cue_event(ctx: Any) -> None:
     """The core's ``cue_event`` check: each shot cue timed by a hold event
-    (``at: {when: musket, event: land}``) names one the shot has; it says when."""
+    (``at: {when: musket, event: land}``) or by an authored change
+    (``at: {when: book/body, changes: state, to: page_l}``, an#815) names one
+    the shot has; it says when."""
     from an.ir.schema import CueAnchor
 
     cues = [
         (j, c)
         for j, c in enumerate(ctx.shot.sounds)
-        if isinstance(c.at, CueAnchor) and c.at.event is not None
+        if isinstance(c.at, CueAnchor)
+        and (c.at.event is not None or c.at.changes is not None)
     ]
     if not cues:
         return
+    # An authored change is read from the shot's actions: it needs the compiled
+    # document only for its play extent (none, in a shot no stage draws: the
+    # default extent). A stage shot that did not compile: `not_compiled` says so.
+    from an.stage import draws_on_stage
+
     doc = compiled_shot(ctx)
-    if doc is None:
+    if doc is None and draws_on_stage(ctx.shot):
         return
-    from an.sound_anchors import SoundAnchorError, event_in_document
+    from an.sound_anchors import SoundAnchorError, anchor_in_document
 
     for j, cue in cues:
         where = f"{ctx.path}/sounds/{j}/at"
+        if doc is None and cue.at.event is not None:
+            continue  # a shot that did not compile: `not_compiled` says so
         try:
-            t = event_in_document(doc, cue.at, shot_id=ctx.shot.id, where=where)
+            t = anchor_in_document(
+                doc,
+                cue.at,
+                shot_id=ctx.shot.id,
+                fps=_fps(ctx),
+                duration=ctx.shot.duration,
+                where=where,
+                shot=ctx.shot,
+                mall=ctx.stores,
+            )
         except SoundAnchorError as e:
             ctx.report.add("error", where, str(e))
             continue
@@ -1957,7 +1997,7 @@ def check_cue_event(ctx: Any) -> None:
 CUE_EVENT = Constraint(
     "cue_event",
     check_cue_event,
-    description="a sound cue timed by a hold event (`at: {when: item, event: land}`) names an event the shot has",
+    description="a sound cue timed by a hold event (`at: {when: item, event: land}`) or an authored change (`at: {when: node, changes: state}`) names one the shot has",
 )
 
 
@@ -2236,6 +2276,95 @@ LIGHT = Constraint(
 )
 
 
+# -----------------------------------------------------------------------------
+# lettering (an#819): art with lettering never reads backwards
+# -----------------------------------------------------------------------------
+
+
+def check_lettering(ctx: Any) -> None:
+    """The core's ``lettering`` check (an#819): a member whose art declares
+    ``metadata.lettering: true`` and is drawn mirrored on the set (its own or a
+    parent's mirror: carried, placed, fallen, flipped by hand) reads backwards
+    unless the ``mirror_states`` pass swapped that drawing to its mirror state:
+    one warning per member, saying from when. The drawings judged are those a
+    declared mirror state applies to (its lettered ones), or every drawing of
+    art that declares none (a one-drawing sign included). A shot the stage
+    does not draw, or that does not compile, is not judged."""
+    from an.stage.mirror_states import (
+        applicable_pairs,
+        declares_lettering,
+        drawing_states,
+        mirror_channel_targets,
+        mirror_states_of,
+    )
+    from an.stage.solve import _node_index, frame_times
+
+    def store_doc(e):
+        return ((ctx.stores or {}).get(e.store) or {}).get(e.ref) if e.store else None
+
+    declared = [
+        (e, doc) for e in ctx.shot.entities if declares_lettering(doc := store_doc(e))
+    ]
+    if not declared:
+        return
+    doc = compiled_shot(ctx)
+    if doc is None:
+        return
+    times = frame_times(ctx.shot.duration, fps=doc.meta.fps, step_hz=doc.meta.step_hz)
+    swapped = mirror_channel_targets(doc)
+    nodes = _node_index(doc)
+    for e, art in declared:
+        try:
+            states = mirror_states_of(art)
+        except ValueError:
+            continue  # malformed: the compile refused it, `not_compiled` says so
+
+        def pairs(s):
+            sets = nodes[s.path].visual.asset_sets or {}
+            return applicable_pairs(states, sets.get(s.swap_set, ()))
+
+        def lettered(s):
+            if not states:
+                return True
+            sets = nodes[s.path].visual.asset_sets or {}
+            return any(applicable_pairs(states, keys) for keys in sets.values())
+
+        def reads(s):  # swapped by the pass to a mirror drawing
+            return (s.path, s.swap_set) in swapped and s.key in pairs(s).values()
+
+        backwards = next(
+            (
+                s
+                for s in drawing_states(doc, e.id, times, swap_sets_only=False)
+                if s.mirrored and lettered(s) and not reads(s)
+            ),
+            None,
+        )
+        if backwards is None:
+            continue
+        shown = (
+            f"drawing {backwards.key!r}"
+            if backwards.key
+            else f"drawing {backwards.path!r}"
+        )
+        ctx.report.add(
+            "warning",
+            f"{ctx.path}/entities",
+            f"{e.id!r} has lettering and is drawn mirrored from {backwards.t:.2f} s "
+            f"showing {shown}, with no mirror state swapped in: it reads backwards. "
+            "Give the art a drawing with the lettering flipped back, in the same swap "
+            f"set, and declare it (`metadata.mirror_states: {{{backwards.key or '<key>'}: "
+            "<its mirror key>}`), or keep the member from being mirrored.",
+        )
+
+
+LETTERING = Constraint(
+    "lettering",
+    check_lettering,
+    description="art that declares lettering is never drawn mirrored without its mirror drawing (an#819)",
+)
+
+
 #: The core's constraints, in the order their checks run within a stage.
 CONSTRAINTS: tuple[Constraint, ...] = (
     CONTINUITY,
@@ -2250,6 +2379,7 @@ CONSTRAINTS: tuple[Constraint, ...] = (
     CAUSALITY,
     CUE_EVENT,
     LIGHT,
+    LETTERING,
 )
 
 

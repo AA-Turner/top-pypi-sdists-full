@@ -15,13 +15,13 @@
 //! answers read; it is not the thing the contract is about.
 
 use std::cell::{Cell, RefCell};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use pyo3::PyTypeInfo;
 use pyo3::exceptions::PyBaseException;
 use pyo3::intern;
 use pyo3::prelude::*;
-use pyo3::sync::PyOnceLock;
+use pyo3::sync::{MutexExt, PyOnceLock};
 use pyo3::types::{
     PyBool, PyByteArray, PyBytes, PyComplex, PyDict, PyFloat, PyFrozenSet, PyInt, PyList, PyRange,
     PySet, PyString, PyTuple, PyType,
@@ -371,7 +371,30 @@ pub(crate) fn is_exact_rational(ty: &Bound<'_, PyType>) -> PyResult<bool> {
 /// where `module` is not imported. Asked of every bound a refinement over the
 /// integers compares, a `KeyError` made and dropped a bound was a third of
 /// the time an emptiness over the JSON value took.
-fn is_stdlib_class(ty: &Bound<'_, PyType>, module: &'static str, name: &str) -> PyResult<bool> {
+/// `operand` as the walk orders it beside `other`: the `Decimal` an exact float
+/// equals where `other` is the standard library's `Decimal`, and itself
+/// otherwise. `Decimal.from_float` is exact and reads no context, where a float
+/// compared with a `Decimal` reads the thread's, whose `FloatOperation` trap
+/// makes the comparison raise.
+fn as_the_walk_orders<'py>(
+    operand: &Bound<'py, PyAny>,
+    other: &Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyAny>> {
+    if operand.is_exact_instance_of::<PyFloat>()
+        && is_stdlib_class(&other.get_type(), "decimal", "Decimal")?
+    {
+        return other
+            .get_type()
+            .call_method1(intern!(operand.py(), "from_float"), (operand,));
+    }
+    Ok(operand.clone())
+}
+
+pub(crate) fn is_stdlib_class(
+    ty: &Bound<'_, PyType>,
+    module: &'static str,
+    name: &str,
+) -> PyResult<bool> {
     let modules = SYS_MODULES
         .import(ty.py(), "sys", "modules")?
         .cast::<PyDict>()?;
@@ -733,6 +756,27 @@ impl PoolRelations<'_, '_> {
             }
         }
         every
+    }
+
+    /// Whether one of `values` is a member of `subject` and not of `supertype`,
+    /// each walk finishing without a stop: a value of the difference, which
+    /// refutes `subject <= supertype` [FCB08, §4.1].
+    ///
+    /// Asked in three answers as [`Self::admits_every`] asks: a value the
+    /// subject's walk stopped on is no member of it, and one the supertype's
+    /// walk stopped on is no value outside it, so neither refutes.
+    pub(crate) fn finds_outside(
+        &self,
+        subject: &Schema,
+        supertype: &Schema,
+        values: &[Bound<'_, PyAny>],
+    ) -> bool {
+        let inside = build_index(self.py, subject, self.definitions, self.literals);
+        let outside = build_index(self.py, supertype, self.definitions, self.literals);
+        values.iter().any(|value| {
+            self.is_member_under(supertype, value, &outside) == Some(false)
+                && self.is_member_under(subject, value, &inside) == Some(true)
+        })
     }
 
     /// [`Self::is_member`] under an `index` built for `schema`, for a probe
@@ -1291,77 +1335,357 @@ struct NamespaceReading {
 /// direction. `__slots__` is found among the items rather than asked for,
 /// because asking a namespace without it raises a `KeyError` for every
 /// class that has none.
+///
+/// A class's reading is kept across queries ([`KeptNamespace`]) and handed
+/// back where the namespace still holds the same names, each read as the same
+/// member: the reading is built from those alone, so it is the one this would
+/// build again, and what a fresh reading spends past them -- a copy of each
+/// name, their sort, the namespace built from them -- is not spent.
 fn read_namespace<'py>(
     base: &Bound<'py, PyAny>,
     generic: bool,
     descriptors: &mut Descriptors<'py>,
 ) -> PyResult<NamespaceReading> {
     let py = base.py();
-    let mut entries = Vec::new();
-    let mut slots = None;
-    for item in namespace_by_type(base)?
-        .call_method0(intern!(py, "items"))?
-        .try_iter()?
+    let namespace = namespace_by_type(base)?;
+    let kept = if generic {
+        None
+    } else {
+        KeptNamespace::of(base)
+    };
+    if let Some(kept) = kept
+        && kept.holds(&namespace, base, descriptors)?
     {
+        return Ok(kept.reading.clone());
+    }
+    let mut entries = Vec::new();
+    for item in namespace.call_method0(intern!(py, "items"))?.try_iter()? {
         let (name, value) = item?.extract::<(Bound<'py, PyAny>, Bound<'py, PyAny>)>()?;
-        let Ok(name) = name.cast_into::<PyString>() else {
-            continue;
-        };
-        let name: Box<str> = name.to_str()?.into();
-        if &*name == "__slots__" {
-            slots = Some(value.clone());
+        if let Ok(name) = name.cast_into::<PyString>() {
+            entries.push((name, value));
         }
-        entries.push((name, value));
+    }
+    let mut texts = Vec::with_capacity(entries.len());
+    let mut slots = None;
+    for (name, value) in &entries {
+        let text: Box<str> = name.to_str()?.into();
+        if &*text == "__slots__" {
+            slots = Some(value);
+        }
+        texts.push(text);
     }
     // The slots are read before the names they are checked against, so the
     // loop over the namespace runs none of the class's code but its
     // descriptors' types.
-    let slots = match &slots {
+    let keep = !generic
+        && entries
+            .iter()
+            .all(|(name, _)| name.is_exact_instance_of::<PyString>())
+        && slots.is_none_or(|slots| slots_run_no_code(slots));
+    let slots = match slots {
         Some(slots) => slot_names(slots)?,
         None => Vec::new(),
     };
     let (mut carries_dict, mut getattr, mut getattribute) = (false, false, false);
-    let mut names = Vec::new();
-    for (name, value) in entries {
-        match &*name {
+    let mut names = Vec::with_capacity(entries.len());
+    let mut members = Vec::with_capacity(if keep { entries.len() } else { 0 });
+    for ((name, value), text) in entries.iter().zip(texts) {
+        match &*text {
             "__dict__" => carries_dict = true,
             "__getattr__" => getattr = true,
             "__getattribute__" => getattribute = !generic,
             _ => {}
         }
-        let member = if slots.contains(&name) && is_own_slot(&value, base)? {
-            Member::Slot
-        } else if is_data_descriptor(&value, descriptors)? {
-            Member::Descriptor
-        } else {
-            Member::Plain
-        };
-        names.push((name, member));
+        let member = member_of(&text, value, base, &slots, descriptors)?;
+        if keep {
+            // A name no slot is read off its value's type alone, so where that
+            // type is a builtin one, which no assignment reaches and no
+            // release frees, the same type is the same member.
+            let ty = value.get_type();
+            let builtin = (!slots.contains(&text)
+                && &*text != "__slots__"
+                && builtin_descriptor(&ty)?.is_some())
+            .then(|| ty.as_ptr() as usize);
+            members.push((name.clone().unbind(), member, builtin));
+        }
+        names.push((text, member));
     }
-    Ok(NamespaceReading {
+    let reading = NamespaceReading {
         names: Arc::new(Namespace::new(names)),
         carries_dict,
         getattr,
         getattribute,
-    })
+    };
+    if keep {
+        let slots_at = entries
+            .iter()
+            .position(|(name, _)| name.to_str().is_ok_and(|name| name == "__slots__"));
+        KeptNamespace::keep(
+            base,
+            members.into(),
+            slots_at,
+            slots.into(),
+            reading.clone(),
+        );
+    }
+    Ok(reading)
+}
+
+/// What `value`, held under `name` in `base`'s namespace, is to an instance:
+/// a slot where the namespace's `__slots__` names it and it is the member
+/// descriptor Python laid down for `base`, a descriptor where it is a data
+/// descriptor, and plain otherwise.
+fn member_of<'py>(
+    name: &str,
+    value: &Bound<'py, PyAny>,
+    base: &Bound<'py, PyAny>,
+    slots: &[Box<str>],
+    descriptors: &mut Descriptors<'py>,
+) -> PyResult<Member> {
+    Ok(
+        if slots.iter().any(|slot| &**slot == name) && is_own_slot(value, base)? {
+            Member::Slot
+        } else if is_data_descriptor(value, descriptors)? {
+            Member::Descriptor
+        } else {
+            Member::Plain
+        },
+    )
+}
+
+/// Whether `slots`, a namespace's `__slots__`, is read running no code: an
+/// exact `str`, or an exact tuple of exact strings. Reading any other runs its
+/// iteration, which a check finding a member moved would run a second time
+/// before the namespace is read afresh, so a namespace holding one is read
+/// afresh every time, as it is without a reading kept.
+fn slots_run_no_code(slots: &Bound<'_, PyAny>) -> bool {
+    slots.is_exact_instance_of::<PyString>()
+        || slots.cast::<PyTuple>().is_ok_and(|names| {
+            slots.is_exact_instance_of::<PyTuple>()
+                && names
+                    .iter()
+                    .all(|name| name.is_exact_instance_of::<PyString>())
+        })
+}
+
+/// How many classes' namespace readings [`KeptNamespace`] holds at once. Past
+/// it the readings kept are dropped and kept again as they are read: a program
+/// that makes a class per call fills the table with classes it no longer
+/// holds, and each entry is a few names and one reading.
+pub(crate) const MAX_KEPT_NAMESPACES: usize = 256;
+
+/// A class's own namespace as last read: each name in the namespace's order
+/// with the member it was read as, and the reading built from them.
+///
+/// Kept by the class's address and checked against the namespace each time it
+/// is handed back ([`holds`](Self::holds)): an assignment to the class, a
+/// deletion or an insertion moves a name or a member, or leaves every name read
+/// as it was, and then the reading is the one reading them again builds.
+/// It holds strings alone, which reach no class and no value, so a class a
+/// program drops is freed as it would be without it, and an address reused by
+/// another class is a namespace checked like any other.
+struct KeptNamespace {
+    /// Each name with the member it was read as, in the namespace's order, and
+    /// the address of its value's type where that is a builtin type and the
+    /// name no slot.
+    members: Box<[KeptMember]>,
+    /// Where among them `__slots__` stands, if it does.
+    slots_at: Option<usize>,
+    /// The names it lists.
+    slots: Box<[Box<str>]>,
+    /// The reading built from them.
+    reading: NamespaceReading,
+}
+
+/// One name of a [`KeptNamespace`]: the name, the member it was read as, and
+/// the address of its value's type where that is a builtin type and the name
+/// no slot.
+type KeptMember = (Py<PyString>, Member, Option<usize>);
+
+/// The [`KeptNamespace`] of each class read, by its address.
+static KEPT_NAMESPACES: PyOnceLock<Mutex<FxHashMap<usize, Arc<KeptNamespace>>>> = PyOnceLock::new();
+
+impl KeptNamespace {
+    /// The reading kept for the class at `base`'s address, if one is.
+    fn of(base: &Bound<'_, PyAny>) -> Option<Arc<Self>> {
+        let py = base.py();
+        let kept = KEPT_NAMESPACES.get_or_init(py, Mutex::default);
+        let table = kept.lock_py_attached(py).ok()?;
+        table.get(&(base.as_ptr() as usize)).cloned()
+    }
+
+    /// Keep `reading`, built from `members`, for the class at `base`'s
+    /// address. What the table drops is dropped once the lock is released,
+    /// since a string's release is the interpreter's to run.
+    fn keep(
+        base: &Bound<'_, PyAny>,
+        members: Box<[KeptMember]>,
+        slots_at: Option<usize>,
+        slots: Box<[Box<str>]>,
+        reading: NamespaceReading,
+    ) {
+        let py = base.py();
+        let kept = KEPT_NAMESPACES.get_or_init(py, Mutex::default);
+        let Ok(mut table) = kept.lock_py_attached(py) else {
+            return;
+        };
+        let key = base.as_ptr() as usize;
+        let dropped = if table.len() >= MAX_KEPT_NAMESPACES && !table.contains_key(&key) {
+            std::mem::take(&mut *table)
+        } else {
+            FxHashMap::default()
+        };
+        let replaced = table.insert(
+            key,
+            Arc::new(Self {
+                members,
+                slots_at,
+                slots,
+                reading,
+            }),
+        );
+        drop(table);
+        drop((dropped, replaced));
+    }
+
+    /// Whether `namespace`, `base`'s as it stands, holds the names this was
+    /// read from, in their order, each read as the same member: then the
+    /// reading built from them is the one reading them again would build.
+    ///
+    /// Read as the namespace is iterated, and over on the first name or member
+    /// that moved. A name whose value's type was a builtin one is the same
+    /// member where its value's type is that type, and any other is read as a
+    /// reading reads it, against the slots this was read with, which the
+    /// namespace's `__slots__` is held to where it stands.
+    fn holds<'py>(
+        &self,
+        namespace: &Bound<'py, PyAny>,
+        base: &Bound<'py, PyAny>,
+        descriptors: &mut Descriptors<'py>,
+    ) -> PyResult<bool> {
+        let py = base.py();
+        let mut at = 0;
+        for item in namespace.call_method0(intern!(py, "items"))?.try_iter()? {
+            let (name, value) = item?.extract::<(Bound<'py, PyAny>, Bound<'py, PyAny>)>()?;
+            let Ok(name) = name.cast_into::<PyString>() else {
+                continue;
+            };
+            let Some((kept, member, builtin)) = self.members.get(at) else {
+                return Ok(false);
+            };
+            let kept = kept.bind(py);
+            let same = name.is(kept)
+                || (name.is_exact_instance_of::<PyString>() && name.to_str()? == kept.to_str()?);
+            if !same
+                || (self.slots_at == Some(at)
+                    && !(slots_run_no_code(&value) && *slot_names(&value)? == *self.slots))
+            {
+                return Ok(false);
+            }
+            at += 1;
+            let unchanged = if let Some(ty) = builtin {
+                value.get_type_ptr() as usize == *ty
+            } else {
+                let text = if self.slots.is_empty() {
+                    ""
+                } else {
+                    kept.to_str()?
+                };
+                member_of(text, &value, base, &self.slots, descriptors)? == *member
+            };
+            if !unchanged {
+                return Ok(false);
+            }
+        }
+        Ok(at == self.members.len())
+    }
 }
 
 /// Whether `value` is a data descriptor: its type defines `__set__` or
 /// `__delete__`, so it answers a read whatever an instance's dictionary holds.
-/// Asked of each type once per class read, through `descriptors`.
+/// Asked of each type once per class read, through `descriptors`, and of the
+/// builtin types a namespace's values most often are once per process
+/// ([`builtin_descriptor`]).
 fn is_data_descriptor<'py>(
     value: &Bound<'py, PyAny>,
     descriptors: &mut Descriptors<'py>,
 ) -> PyResult<bool> {
     let ty = value.get_type();
+    if let Some(answer) = builtin_descriptor(&ty)? {
+        return Ok(answer);
+    }
     if let Some((_, answer)) = descriptors.iter().find(|(seen, _)| seen.is(&ty)) {
         return Ok(*answer);
     }
-    let py = value.py();
-    let answer =
-        special_has(&ty, intern!(py, "__set__"))? || special_has(&ty, intern!(py, "__delete__"))?;
+    let answer = special_has(&ty, intern!(ty.py(), "__set__"))?
+        || special_has(&ty, intern!(ty.py(), "__delete__"))?;
     descriptors.push((ty, answer));
     Ok(answer)
+}
+
+/// Whether `ty` is a data descriptor's type, where `ty` is one of the builtin
+/// types a class's namespace holds values of -- a function, a string, a dict,
+/// the descriptors serving `__dict__`, a slot and a property -- or `None` for
+/// any other type.
+///
+/// Each is a static type, whose namespace no assignment reaches on any
+/// interpreter this builds for (`types.FunctionType.__set__ = f` raises on
+/// `CPython` 3.11 to 3.15 and `PyPy` 3.11 and 3.12), so the answer read on
+/// first sight is the one every later reading would take, and it is read once
+/// for the process: a dataclass's namespace holds a dozen values of seven of
+/// these types, each of which a reading would otherwise ask in turn.
+fn builtin_descriptor(ty: &Bound<'_, PyType>) -> PyResult<Option<bool>> {
+    static BUILTIN: PyOnceLock<Box<[(usize, bool)]>> = PyOnceLock::new();
+    let py = ty.py();
+    let builtin = BUILTIN.get_or_try_init(py, || {
+        let types = py.import("types")?;
+        let mut read = Vec::new();
+        let named = [
+            "FunctionType",
+            "GetSetDescriptorType",
+            "NoneType",
+            "MemberDescriptorType",
+            "BuiltinFunctionType",
+            "MethodDescriptorType",
+            "WrapperDescriptorType",
+            "ClassMethodDescriptorType",
+            "MappingProxyType",
+        ];
+        let mut classes = vec![
+            PyString::type_object(py).into_any(),
+            PyDict::type_object(py).into_any(),
+            PyTuple::type_object(py).into_any(),
+            PyInt::type_object(py).into_any(),
+        ];
+        for name in named {
+            if let Some(class) = types.getattr_opt(name)? {
+                classes.push(class);
+            }
+        }
+        for name in ["property", "classmethod", "staticmethod"] {
+            classes.push(py.import("builtins")?.getattr(name)?);
+        }
+        classes.extend([
+            PyFloat::type_object(py).into_any(),
+            PyBool::type_object(py).into_any(),
+            PyBytes::type_object(py).into_any(),
+            PyList::type_object(py).into_any(),
+            PyFrozenSet::type_object(py).into_any(),
+            PySet::type_object(py).into_any(),
+        ]);
+        for class in classes {
+            let class = class.cast_into::<PyType>()?;
+            let answer = special_has(&class, intern!(py, "__set__"))?
+                || special_has(&class, intern!(py, "__delete__"))?;
+            read.push((class.as_ptr() as usize, answer));
+        }
+        Ok::<_, PyErr>(read.into_boxed_slice())
+    })?;
+    let at = ty.as_ptr() as usize;
+    Ok(builtin
+        .iter()
+        .find(|(class, _)| *class == at)
+        .map(|(_, answer)| *answer))
 }
 
 impl<'py> PoolRelations<'py, '_> {
@@ -1528,14 +1852,19 @@ impl<'py> PoolRelations<'py, '_> {
     ///
     /// The float is the nearest one, and comparing it with the value says which
     /// side it landed on. So a value below the smallest float is read beside
-    /// zero, and a `Decimal` under the `FloatOperation` trap, which refuses the
-    /// comparison, is not read, as the walk refuses it.
+    /// zero. A float is compared with a `Decimal` as the `Decimal` it equals
+    /// ([`as_the_walk_orders`]), as the walk compares a value with one, so the
+    /// reading is the same under the `FloatOperation` trap as outside it.
     fn rational(&self, slot: usize) -> Option<Operand> {
         let value = self.literals.get(slot)?.bind(self.py);
         let ty = value.get_type();
         if !(ty.is(PyInt::type_object(self.py)) || self.heard(is_exact_rational(&ty))?) {
             return None;
         }
+        let beside = |number: f64| {
+            let float = PyFloat::new(self.py, number).into_any();
+            self.heard(as_the_walk_orders(&float, value))
+        };
         if !self.heard(value.ge(-WIDE))? {
             return None;
         }
@@ -1551,9 +1880,9 @@ impl<'py> PoolRelations<'py, '_> {
             .heard(value.call_method0(intern!(self.py, "__float__")))?
             .extract::<f64>()
             .ok()?;
-        let (below, above) = if self.heard(value.lt(nearest))? {
+        let (below, above) = if self.heard(value.lt(beside(nearest)?))? {
             (nearest.next_down(), nearest)
-        } else if self.heard(value.gt(nearest))? {
+        } else if self.heard(value.gt(beside(nearest)?))? {
             (nearest, nearest.next_up())
         } else {
             (nearest, nearest)
@@ -2052,6 +2381,11 @@ impl LeafRelations for PoolRelations<'_, '_> {
         }) {
             return None;
         }
+        // A float against the standard library's `Decimal` is ordered as the
+        // `Decimal` it equals, as the walk compares a value with such a bound,
+        // so the order does not read the thread's `Decimal` context.
+        let left = self.heard(as_the_walk_orders(left, right))?;
+        let right = self.heard(as_the_walk_orders(right, &left))?;
         self.heard(left.compare(right))
     }
 

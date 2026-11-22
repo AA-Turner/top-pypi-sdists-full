@@ -13,6 +13,7 @@ from numbers_parser import (
     RGB,
     BackgroundImage,
     Border,
+    BorderType,
     Cell,
     CellBorder,
     Document,
@@ -32,6 +33,7 @@ from numbers_parser.constants import (
     DEFAULT_ROW_COUNT,
     DEFAULT_ROW_HEIGHT,
 )
+from numbers_parser.generated import TSTArchives_pb2 as TSTArchives
 from numbers_parser.xrefs import CellRange
 
 
@@ -1169,3 +1171,65 @@ def test_issue_283(configurable_save_file: Path) -> None:
             and ref.component_identifier == author_storage_id
         ]
         assert len(author_refs) == 1, f"Missing author reference in sheet {sheet_index}"
+
+
+def test_issue_305(configurable_save_file: Path) -> None:
+    """Adding a smaller table must not truncate the first table's UID map."""
+    doc = Document(num_rows=10, num_cols=4)
+    doc.sheets[0].add_table("Second Table", num_rows=3, num_cols=2)
+
+    doc.save(configurable_save_file)
+
+    reloaded = Document(configurable_save_file)
+    t1 = reloaded.sheets[0].tables[0]
+    t2 = reloaded.sheets[0].tables["Second Table"]
+
+    t1_uid_id = reloaded._model.table_model(t1._table_id).base_column_row_uids.identifier
+    t2_uid_id = reloaded._model.table_model(t2._table_id).base_column_row_uids.identifier
+    assert t1_uid_id != t2_uid_id
+
+    t1_uid_map = reloaded._model.get_object(t1_uid_id, TSTArchives.ColumnRowUIDMapArchive)
+    t2_uid_map = reloaded._model.get_object(t2_uid_id, TSTArchives.ColumnRowUIDMapArchive)
+
+    assert len(t1_uid_map.sorted_row_uids) == 10
+    assert len(t1_uid_map.sorted_column_uids) == 4
+    assert len(t2_uid_map.sorted_row_uids) == 3
+    assert len(t2_uid_map.sorted_column_uids) == 2
+
+
+def test_issue_307(configurable_save_file: Path) -> None:
+    """Table.write() must preserve existing borders, styles, and comments."""
+    doc = Document(num_header_rows=0, num_header_cols=0, num_rows=4, num_cols=2)
+    table = doc.sheets[0].tables[0]
+
+    right_border = Border(3.0, RGB(0, 0, 255), BorderType.DOTS)
+    table.write(0, 0, "Left")
+    table.set_cell_border(0, 0, "right", right_border)
+    table.write(0, 1, "Right")
+
+    top_border = Border(2.0, RGB(255, 0, 0), BorderType.SOLID)
+    table.set_cell_border(1, 0, "top", top_border)
+    table.write(1, 0, "Bordered")
+
+    style = doc.add_style(name="Highlight", bg_color=RGB(255, 255, 0))
+    table.write(2, 0, "Initial", style=style)
+    table.write(2, 0, "Updated")
+
+    table.write(3, 0, "Commented")
+    table.add_comment(3, 0, "Keep this comment", author="Tester")
+    table.write(3, 0, "Updated comment cell")
+
+    doc.save(configurable_save_file)
+
+    reloaded = Document(configurable_save_file)
+    t = reloaded.sheets[0].tables[0]
+
+    assert t.cell(0, 0).border.right == right_border
+    assert t.cell(0, 1).border.left == right_border
+    assert t.cell(1, 0).border.top == top_border
+    assert t.cell(2, 0).value == "Updated"
+    assert t.cell(2, 0).style.name == "Highlight"
+    assert t.cell(2, 0).style.bg_color == RGB(255, 255, 0)
+    assert t.cell(3, 0).value == "Updated comment cell"
+    assert len(t.cell(3, 0).comments) == 1
+    assert t.cell(3, 0).comments[0].text == "Keep this comment"

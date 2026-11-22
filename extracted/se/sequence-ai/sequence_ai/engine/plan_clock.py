@@ -290,9 +290,9 @@ class PlanClock:
 
     # ── the act path: cheap, and never waits on a plan ──
     def observe(self, episode_id: str, step: int, *, wake: bool = False) -> None:
-        """Note a new observation of the episode - its number in the episode `step` (the stream's frame number) - and wake
-        the scheduler when it makes the episode due again; the first one starts its planning. `wake`: it holds a key of
-        wake_on, so the episode is planned at once, or the moment its plan in flight returns."""
+        """Note a new observation of the episode - its number in the episode `step` (the stream's frame number) - and
+        wake the scheduler when it makes the episode due again; the first one starts its planning. `wake`: it holds a
+        key of wake_on, so the episode is planned at once, or the moment its plan in flight returns."""
         now = self._clock()
         with self._cv:
             e = self._episodes.get(episode_id)

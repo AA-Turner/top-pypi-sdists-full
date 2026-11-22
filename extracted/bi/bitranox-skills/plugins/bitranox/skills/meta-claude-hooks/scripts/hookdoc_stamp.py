@@ -30,6 +30,7 @@ error, so it is false only on exit 2.
 
 import argparse
 import hashlib
+import io
 import json
 import re
 import sys
@@ -1125,7 +1126,7 @@ def cmd_baseline(args: argparse.Namespace) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     skill = skill_dir()
-    p = argparse.ArgumentParser(prog="hookdoc_stamp", description=__doc__.split("\n")[0])
+    p = argparse.ArgumentParser(prog="hookdoc_stamp", description=(__doc__ or "hookdoc_stamp").split("\n")[0])
     p.add_argument("--json", action="store_true", help="emit the JSON envelope on stdout")
     sub = p.add_subparsers(dest="command", required=True)
 
@@ -1192,8 +1193,10 @@ def _reconfigure_stdio() -> None:
     """A reason carrying a path the console code page cannot encode must print, not crash: on
     Windows a redirected stdout is the ANSI page, and the crash turned BROKEN (2) into a traceback."""
     for stream in (sys.stdout, sys.stderr):
+        if not isinstance(stream, io.TextIOWrapper):
+            continue
         try:
-            stream.reconfigure(errors="backslashreplace")  # type: ignore[union-attr]
+            stream.reconfigure(errors="backslashreplace")
         except (AttributeError, ValueError, OSError):
             continue
 

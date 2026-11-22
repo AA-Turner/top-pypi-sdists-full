@@ -111,43 +111,41 @@ class SchedulerManager:
 
         await self.queries.insert_schedule({k: v.next_in() for k, v in self.registry.items()})
 
+        finished = asyncio.Event()
         async with (
             self.queries.driver,
             # Outside the TaskManager so it keeps beating until running schedules drain.
-            tm.cancel_on_exit(asyncio.create_task(self._heartbeat_loop())),
-            tm.TaskManager() as task_manager,
+            tm.cancel_on_exit(asyncio.create_task(self._heartbeat_loop(finished))),
         ):
-            while not self.shutdown.is_set():
-                scheduled = await self.queries.fetch_schedule(
-                    {k: v.next_in() for k, v in self.registry.items()}
-                )
-                for schedule in scheduled:
-                    task_manager.add(
-                        asyncio.create_task(
-                            self.dispatch(
-                                self.registry[
-                                    models.CronExpressionEntrypoint(
-                                        schedule.entrypoint,
-                                        schedule.expression,
-                                    )
-                                ],
-                                schedule,
-                            ),
-                        )
-                    )
+            try:
+                async with tm.TaskManager() as task_manager:
+                    await self._poll_schedules(task_manager)
+            finally:
+                finished.set()
+                # Let the heartbeat finish cooperatively before cancelling any pending I/O.
+                await asyncio.sleep(0)
 
-                # Under the one-second cron resolution: a full second of slack woke the
-                # loop after the next tick of an every-second schedule had passed.
-                leeway = timedelta(milliseconds=100)
-                wait = (
-                    min(x.next_in() for x in self.registry.values())
-                    if self.registry
-                    else timedelta(seconds=1)
-                )
+    async def _poll_schedules(self, task_manager: tm.TaskManager) -> None:
+        while not self.shutdown.is_set():
+            due = {key: executor.next_in() for key, executor in self.registry.items()}
+            for schedule in await self.queries.fetch_schedule(due):
+                key = models.CronExpressionEntrypoint(schedule.entrypoint, schedule.expression)
+                task = asyncio.create_task(self.dispatch(self.registry[key], schedule))
+                task_manager.add(task)
+            await self._wait_for_next_tick()
 
-                with suppress(TimeoutError):
-                    async with asyncio.timeout((wait + leeway).total_seconds()):
-                        await self.shutdown.wait()
+    async def _wait_for_next_tick(self) -> None:
+        # Under the one-second cron resolution: a full second of slack woke the
+        # loop after the next tick of an every-second schedule had passed.
+        leeway = timedelta(milliseconds=100)
+        delay = (
+            min(executor.next_in() for executor in self.registry.values())
+            if self.registry
+            else timedelta(seconds=1)
+        )
+        with suppress(TimeoutError):
+            async with asyncio.timeout((delay + leeway).total_seconds()):
+                await self.shutdown.wait()
 
     async def dispatch(
         self,
@@ -183,13 +181,12 @@ class SchedulerManager:
                 self.queries.set_schedule_queued({schedule.id}),
             )
 
-    async def _heartbeat_loop(self) -> None:
-        """Send batched heartbeat updates for all active schedules.
+    async def _heartbeat_loop(self, finished: asyncio.Event) -> None:
+        """Send heartbeats until schedule fetching and dispatch have finished.
 
-        Runs past shutdown while dispatches are in flight; a schedule whose
-        heartbeat goes stale can be picked again and run twice.
+        A schedule whose heartbeat goes stale can be picked again and run twice.
         """
-        while not self.shutdown.is_set() or self.active_heartbeat_ids:
+        while not finished.is_set():
             if self.active_heartbeat_ids:
                 try:
                     await self.queries.update_schedule_heartbeat(
@@ -197,9 +194,6 @@ class SchedulerManager:
                     )
                 except Exception:
                     logconfig.logger.exception("Failed to update schedule heartbeat")
-            if self.shutdown.is_set():
-                await asyncio.sleep(1.0)
-                continue
             with suppress(TimeoutError):
                 async with asyncio.timeout(1.0):
-                    await self.shutdown.wait()
+                    await finished.wait()

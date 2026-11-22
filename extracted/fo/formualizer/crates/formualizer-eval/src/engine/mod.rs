@@ -930,8 +930,8 @@ pub struct EvalConfig {
     pub spill: SpillConfig,
 
     /// Cycle handling configuration (detection mode + policy). Defaults to
-    /// `CycleDetection::Static` (today's stamp-every-static-SCC behavior);
-    /// `CycleDetection::Runtime` is opt-in (RFC #112).
+    /// `CycleDetection::Runtime` (RFC #112): only a live cycle gets the
+    /// policy verdict. `CycleDetection::Static` stamps every static SCC.
     pub cycle: CycleConfig,
 
     /// Use dynamic topological ordering (Pearce-Kelly algorithm).
@@ -968,6 +968,12 @@ pub struct EvalConfig {
     /// When set, the engine will compact computed overlays into base lanes when the
     /// estimated usage exceeds this cap.
     pub max_overlay_memory_bytes: Option<usize>,
+
+    /// Optional cap on retained changelog events and undo/redo history stacks.
+    ///
+    /// `None` keeps history unbounded; `Some(n)` retains at most `n` events/actions
+    /// using FIFO eviction.
+    pub max_changelog_events: Option<usize>,
 
     /// Workbook date system: Excel 1900 (default) or 1904.
     pub date_system: DateSystem,
@@ -1081,6 +1087,7 @@ impl Default for EvalConfig {
             delta_overlay_enabled: true,
             write_formula_overlay_enabled: true,
             max_overlay_memory_bytes: None,
+            max_changelog_events: None,
             date_system: DateSystem::Excel1900,
             temporal_egress: TemporalEgress::default(),
             formula_parse_policy: FormulaParsePolicy::Strict,
@@ -1146,6 +1153,12 @@ impl EvalConfig {
     #[inline]
     pub fn with_delta_overlay(mut self, enable: bool) -> Self {
         self.delta_overlay_enabled = enable;
+        self
+    }
+
+    #[inline]
+    pub fn with_max_changelog_events(mut self, max: Option<usize>) -> Self {
+        self.max_changelog_events = max;
         self
     }
 
@@ -1285,13 +1298,13 @@ impl CycleConfig {
 /// How statically-cyclic SCCs are treated at evaluation time.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum CycleDetection {
-    /// Today's behavior: every static SCC is stamped `#CIRC!`. Compat escape
-    /// hatch; no live-edge machinery runs.
-    #[default]
+    /// Every static SCC is stamped `#CIRC!` without being evaluated, the
+    /// default before #570. Compat switch; no live-edge machinery runs.
     Static,
     /// Static SCCs are candidates; members are evaluated with live-edge
     /// recording and only *live* cycles get the policy verdict. Phantom
     /// (live-acyclic) SCCs produce ordinary values (discussion #99).
+    #[default]
     Runtime,
 }
 

@@ -21,7 +21,6 @@ from typing import TYPE_CHECKING, Any, Final, Literal, TypeAlias, cast, get_args
 
 from typing_extensions import Protocol, Unpack
 
-from datamodel_code_generator import CollapseRootModelsNameStrategy, FieldTypeCollisionStrategy
 from datamodel_code_generator._constraint_applicability import (
     ITEM_COUNT_KEYWORDS,
     STRING_KEYWORDS,
@@ -55,6 +54,7 @@ from datamodel_code_generator._reference_graph import (
 from datamodel_code_generator._requirements import python_target_meets
 from datamodel_code_generator._shared_types import _CollapseRootModelsRecursionError
 from datamodel_code_generator._user_keys import class_field_key, class_key, model_type_override, record_written_as
+from datamodel_code_generator.enums import CollapseRootModelsNameStrategy, FieldTypeCollisionStrategy
 from datamodel_code_generator.imports import IMPORT_OPTIONAL, IMPORT_UNION, Import
 from datamodel_code_generator.model._decisions.collapse_eligibility import (
     CollapseSiteFacts,
@@ -647,7 +647,7 @@ class DroppedRootModelUsersHost(ReferenceUsersHost, Protocol):
 class ModuleLoopHost(RecursionFactsHost, TagPlanHost, Protocol[ConfigT, ContextT, ResultT]):
     """The hook and run state of the parser that processing the output modules one by one calls and writes."""
 
-    def _process_single_module(  # noqa: PLR0913, PLR0917
+    def _process_single_module(  # noqa: PLR0917
         self,
         module_: ModulePath,
         models: list[DataModel],
@@ -1375,7 +1375,7 @@ def collapse_module_root_models(parser: CollapseHost, state: ModuleStateView) ->
         raise _CollapseRootModelsRecursionError from exc
 
 
-def collapse_root_models(  # noqa: PLR0913, PLR0917
+def collapse_root_models(  # noqa: PLR0917
     parser: CollapseHost,
     models: list[DataModel],
     unused_models: list[DataModel],
@@ -1707,7 +1707,6 @@ def collapse_root_models_in_scope(  # noqa: PLR0912, PLR0914, PLR0915
                     root_type_model.reference, data_type
                 )
 
-                replacement_context = None
                 shared_holders: tuple[DataType, ...] = ()
                 if isinstance(field_ := data_type.parent, parser.data_model_field_type):
                     # for field
@@ -1777,11 +1776,9 @@ def collapse_root_models_in_scope(  # noqa: PLR0912, PLR0914, PLR0915
                         replacement_kind="nested",
                         holders=(shared_holders, kept_holders),
                     )
-                else:  # pragma: no cover
+                else:  # pragma: no cover - not proven unreachable
                     continue
 
-                if replacement_context is None:  # pragma: no cover
-                    continue
                 model_field.inherit_unconstrained_union_members(root_type_field)
                 model_field.inherit_untaken_constraints(
                     root_type_field, whole_type=isinstance(field_, parser.data_model_field_type)
@@ -2379,12 +2376,12 @@ def get_collapsed_unions(
         return unions
     index = model.fields.index(field)
     for duplicate in duplicates:
-        if len(duplicate.fields) != len(model.fields):  # pragma: no cover
+        if len(duplicate.fields) != len(model.fields):  # pragma: no cover - not proven unreachable
             continue
         duplicate_field = duplicate.fields[index]
         if not isinstance(discriminator := duplicate_field.extras.get("discriminator"), dict) or len(
             data_types := duplicate_field.data_type.data_types
-        ) != len(field.data_type.data_types):  # pragma: no cover
+        ) != len(field.data_type.data_types):  # pragma: no cover - not proven unreachable
             continue
         unions.append((
             site_display_name(parser, duplicate, duplicate_field),
@@ -2567,7 +2564,7 @@ def _adopt_keyless_references(
     return source
 
 
-def rename_named_type(  # noqa: PLR0913, PLR0917
+def rename_named_type(  # noqa: PLR0917
     parser: ModulesHost,
     field: DataModelFieldBase,
     reference: Reference,
@@ -2603,7 +2600,7 @@ def rename_named_type(  # noqa: PLR0913, PLR0917
     class_names.add(source.class_name)
 
 
-def family_hides_named_type(  # noqa: PLR0913
+def family_hides_named_type(
     parser: ModulesHost,
     model: DataModel,
     field_name: str | None,

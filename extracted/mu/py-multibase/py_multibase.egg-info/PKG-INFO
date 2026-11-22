@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: py-multibase
-Version: 2.0.0
+Version: 2.1.0
 Summary: Multibase implementation for Python
 Author-email: Dhruv Baldawa <dhruv@dhruvb.com>
 License: MIT
 Project-URL: Homepage, https://github.com/multiformats/py-multibase
-Project-URL: Download, https://github.com/multiformats/py-multibase/tarball/2.0.0
+Project-URL: Download, https://github.com/multiformats/py-multibase/tarball/2.1.0
 Keywords: multibase
 Classifier: Development Status :: 2 - Pre-Alpha
 Classifier: Intended Audience :: Developers
@@ -22,15 +22,17 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: AUTHORS.rst
 Requires-Dist: python-baseconv<2.0,>=1.2.0
-Requires-Dist: six<2.0,>=1.10.0
 Requires-Dist: morphys<2.0,>=1.0
 Provides-Extra: dev
 Requires-Dist: Sphinx>=5.0.0; extra == "dev"
 Requires-Dist: build>=0.9.0; extra == "dev"
 Requires-Dist: bump-my-version>=1.2.0; extra == "dev"
+Requires-Dist: hypothesis; extra == "dev"
 Requires-Dist: mypy; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: pyrefly==1.5.0; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-benchmark; extra == "dev"
 Requires-Dist: pytest-runner; extra == "dev"
 Requires-Dist: ruff; extra == "dev"
 Requires-Dist: towncrier<25,>=24; extra == "dev"
@@ -99,10 +101,14 @@ Sample Usage
     b'hello world'
 
     >>> # Using reusable Encoder/Decoder classes
-    >>> from multibase import Encoder, Decoder
+    >>> from multibase import Encoder, Decoder, encoder_by_name
     >>> encoder = Encoder('base64')
     >>> encoded1 = encoder.encode('data1')
     >>> encoded2 = encoder.encode('data2')
+
+    >>> # Or resolve by name or single-character prefix
+    >>> encoder = encoder_by_name('base64')
+    >>> encoder = encoder_by_name('m')
 
     >>> decoder = Decoder()
     >>> decoded = decoder.decode(encoded1)

@@ -8,6 +8,8 @@
 Activate the generic bash-completion script or zsh completion autoload function for the argcomplete module.
 """
 
+from __future__ import annotations
+
 import argparse
 import os
 import shutil
@@ -36,7 +38,11 @@ parser: argparse.ArgumentParser = argparse.ArgumentParser(
     description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
 )
 parser.add_argument("-y", "--yes", help="automatically answer yes for all questions", action="store_true")
-parser.add_argument("--dest", help='Specify the shell completion modules directory to install into, or "-" for stdout')
+parser.add_argument(
+    "--dest",
+    type=os.path.expanduser,
+    help='Specify the shell completion modules directory to install into, or "-" for stdout',
+)
 parser.add_argument("--user", help="Install into user directory", action="store_true")
 argcomplete.autocomplete(parser)
 args = None
@@ -102,10 +108,8 @@ def get_consent() -> bool:
         res = input("OK to proceed? [y/n] ")
         if res.lower() not in {"y", "n", "yes", "no"}:
             print('Please answer "yes" or "no".', file=sys.stderr)
-        elif res.lower() in {"y", "yes"}:
-            return True
-        else:
-            return False
+            continue
+        return res.lower() in {"y", "yes"}
 
 
 def append_to_config_file(path: str | os.PathLike[str], shellcode: str) -> None:

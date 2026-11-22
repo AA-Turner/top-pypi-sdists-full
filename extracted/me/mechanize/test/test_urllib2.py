@@ -1247,6 +1247,26 @@ class HandlerTests(mechanize._testcase.TestCase):
         h.http_request(req)
         self.assertTrue(rfpc.calls == [])
 
+    def test_robots_scheme_change(self):
+        rfpc = MockRobotFileParserClass()
+        handler = mechanize.HTTPRobotRulesProcessor(rfpc)
+        opener = OpenerDirector()
+        opener.add_handler(handler)
+
+        for scheme in ("http", "https", "http"):
+            rfpc.clear()
+            url = scheme + "://example.com/page"
+            handler.http_request(Request(url))
+            self.assertIn(("set_url", scheme + "://example.com/robots.txt"),
+                          rfpc.calls)
+            self.assertIn("read", rfpc.calls)
+
+            # A different path on the same origin still uses cached rules.
+            rfpc.clear()
+            url = scheme + "://example.com/another-page"
+            handler.http_request(Request(url))
+            self.assertEqual(rfpc.calls, [("can_fetch", "", url)])
+
     def test_redirected_robots_txt(self):
         # redirected robots.txt fetch shouldn't result in another attempted
         # robots.txt fetch to check the redirection is allowed!
@@ -1515,6 +1535,75 @@ class HandlerTests(mechanize._testcase.TestCase):
         o = build_test_opener(hh, hdeh, hrh, cp)
         o.open("http://www.example.com/")
         self.assertFalse(hh.req.has_header("Cookie"))
+
+    def test_redirect_strips_credentials_cross_origin(self):
+        h = HTTPRedirectHandler()
+        o = h.parent = MockOpener()
+        from_url = "http://example.com/a.html"
+        cases = [
+            ("http://example.com/b.html", True),
+            ("http://EXAMPLE.com:80/b.html", True),
+            ("http://other.example.com/b.html", False),
+            ("http://example.com:8080/b.html", False),
+            ("https://example.com/b.html", False),
+            ("http://example.com:bad/b.html", False),
+        ]
+        for to_url, same_origin in cases:
+            for code in 301, 302, 303, 307, 308:
+                req = Request(from_url)
+                req.add_header("Authorization", "Basic c2VjcmV0")
+                req.add_header("Cookie", "session=secret")
+                req.add_header("Proxy-Authorization", "Basic cHJveHk=")
+                req.add_header("Nonsense", "viking=withhold")
+                h.http_error_302(req, MockFile(), code, "Blah",
+                                 http_message({"location": to_url}))
+                newreq = o.req
+                self.assertEqual(newreq.get_full_url(), to_url)
+                self.assertEqual(newreq.has_header("Authorization"),
+                                 same_origin, (to_url, code))
+                self.assertEqual(newreq.has_header("Cookie"), same_origin,
+                                 (to_url, code))
+                self.assertTrue(newreq.has_header("Proxy-authorization"))
+                self.assertEqual(newreq.get_header("Nonsense"),
+                                 "viking=withhold")
+
+    def test_basic_auth_not_sent_on_redirect(self):
+        # credentials from add_password() must not follow a redirect
+        # issued after the 401 retry
+        class AuthThenRedirectHandler(mechanize.BaseHandler):
+            def __init__(self, location):
+                self.location = location
+                self.requests = []
+
+            def http_open(self, req):
+                import copy
+                self.requests.append(copy.deepcopy(req))
+                if req.get_host() == "a.example.com":
+                    if not req.has_header("Authorization"):
+                        hdr = 'WWW-Authenticate: Basic realm="r"\r\n\r\n'
+                        code = 401
+                    else:
+                        hdr = "Location: %s\r\n\r\n" % self.location
+                        code = 302
+                    msg = create_response_info(BytesIO(
+                        hdr.encode("iso-8859-1")))
+                    return self.parent.error(
+                        "http", req, test_response(), code, "Blah", msg)
+                return test_response("", [], req.get_full_url())
+
+        for location in ("http://b.example.com/",
+                         "http://a.example.com:8080/"):
+            hh = AuthThenRedirectHandler(location)
+            ah = mechanize.HTTPBasicAuthHandler()
+            ah.add_password("r", "http://a.example.com/", "user", "pw")
+            o = build_test_opener(hh, mechanize.HTTPDefaultErrorHandler(),
+                                  HTTPRedirectHandler(), ah)
+            o.open("http://a.example.com/")
+            self.assertEqual(
+                [r.get_full_url() for r in hh.requests],
+                ["http://a.example.com/", "http://a.example.com/", location])
+            self.assertTrue(hh.requests[1].has_header("Authorization"))
+            self.assertFalse(hh.requests[2].has_header("Authorization"))
 
     def test_proxy(self):
         o = OpenerDirector()
@@ -1912,6 +2001,21 @@ class RequestTests(unittest.TestCase):
         self.assertEqual(r.get_method(), 'GET')
         self.assertEqual(r.get_data(), None)
         self.assertEqual(r.get_full_url(), 'https://example.com?a=1')
+
+    def test_get_data_before_fragment(self):
+        for suffix, expected in (
+                ('#section', '?a=two+words#section'),
+                ('?old=1#section', '?old=1&a=two+words#section'),
+                ('#section?question', '?a=two+words#section?question'),
+                ('#', '?a=two+words')):
+            url = 'https://example.com/path'
+            request = Request(url + suffix, data={'a': 'two words'},
+                              method='GET')
+            self.assertEqual(request.get_full_url(), url + expected)
+            self.assertEqual(request.get_selector(),
+                             '/path' + expected.split('#', 1)[0])
+            self.assertIsNone(request.get_data())
+            self.assertEqual(request.get_method(), 'GET')
 
 
 if __name__ == "__main__":

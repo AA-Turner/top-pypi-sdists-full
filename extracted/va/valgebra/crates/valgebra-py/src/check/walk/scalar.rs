@@ -11,11 +11,13 @@
 //! see the note there for what routing the arms through here costs and what
 //! test holds the two statements together.
 
+use std::cmp::Ordering;
 use std::ops::ControlFlow;
 
 use jiter::JsonValue;
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::PyBaseException;
+use pyo3::intern;
 use pyo3::prelude::*;
 use pyo3::types::{
     PyBool, PyBytes, PyDict, PyFloat, PyFrozenSet, PyInt, PyList, PySet, PyString, PyTuple,
@@ -29,8 +31,8 @@ use super::{
     Base, Frame, const_at, fold, held_len, is_fatal, member, operand_at, predicate_at,
     reads_its_length, record_fatal, record_if_fatal, record_stop, stop, stopped,
 };
-use crate::check::ctx::{Ctx, MAX_RECURSION_DEPTH};
-use crate::check::index::{Exact, LeafPlan, Number, matches_unindexed, ordered};
+use crate::check::ctx::{Ctx, MAX_RECURSION_DEPTH, WalkState};
+use crate::check::index::{Exact, LeafPlan, Number, Regex, matches_unindexed, ordered};
 use crate::check::violation::{mismatch, summarize_in, summarize_value};
 use crate::codes::{
     Code, GREATER_THAN, GREATER_THAN_EQUAL, LESS_THAN, LESS_THAN_EQUAL, LITERAL_ERROR, MULTIPLE_OF,
@@ -38,6 +40,7 @@ use crate::codes::{
 };
 use crate::errors::{SUMMARY_CHARS, shorten, stored};
 use crate::input::Value;
+use crate::oracle::is_stdlib_class;
 
 /// A schema whose membership is decided by the value alone.
 ///
@@ -492,8 +495,18 @@ fn is_multiple_of(value: &Bound<'_, PyAny>, operand: &Bound<'_, PyAny>) -> PyRes
     value.rem(operand)?.eq(0)
 }
 
-/// Run a user predicate and report whether it returned a truthy result.
-fn predicate_passes(value: &Bound<'_, PyAny>, predicate: &Bound<'_, PyAny>) -> PyResult<bool> {
+/// Run a user predicate and report whether it returned a truthy result,
+/// where the thread's stack has room for the Python it runs: before 3.14, off
+/// musl, `WalkState::room_for_python` asks.
+fn predicate_passes(
+    value: &Bound<'_, PyAny>,
+    predicate: &Bound<'_, PyAny>,
+    state: &WalkState,
+) -> PyResult<bool> {
+    #[cfg(all(not(PyPy), not(Py_3_14), not(target_env = "musl")))]
+    state.room_for_python()?;
+    #[cfg(any(PyPy, Py_3_14, target_env = "musl"))]
+    let _ = state;
     predicate.call1((value,))?.is_truthy()
 }
 
@@ -609,6 +622,92 @@ pub(super) fn machine_range(
     Some((least, most))
 }
 
+/// The floats every one of `constraints` admits, where each is an order bound
+/// whose operand the index holds as a float ([`float_operand`]), and `None`
+/// elsewhere: a bound the rich comparison must read.
+///
+/// An exact `float` under such a bound is the two floats compared
+/// ([`floats_compared`]), so the bounds together are an interval of floats,
+/// each end open or closed. Read once for a list ([`float_range_list`]), as
+/// [`machine_range`] is for integers: an element is then its two comparisons,
+/// with no constraint's dispatch and no read of the index around them.
+///
+/// [`float_operand`]: crate::check::index::ValidatorIndex::float_operand
+/// [`float_range_list`]: super::sequence
+#[inline(never)]
+pub(super) fn float_range(constraints: &[Constraint], ctx: Ctx<'_>) -> Option<FloatRange> {
+    let float = |index: &OperandIx| {
+        ctx.index
+            .float_operand(index.get())
+            .filter(|operand| !operand.is_nan())
+    };
+    let mut range = FloatRange::EVERY;
+    for constraint in constraints {
+        match constraint {
+            Constraint::Ge(i) => range.raise_floor(float(i)?, false),
+            Constraint::Gt(i) => range.raise_floor(float(i)?, true),
+            Constraint::Le(i) => range.lower_ceiling(float(i)?, false),
+            Constraint::Lt(i) => range.lower_ceiling(float(i)?, true),
+            _ => return None,
+        }
+    }
+    Some(range)
+}
+
+/// An interval of floats, each end open or closed ([`float_range`]).
+#[derive(Clone, Copy)]
+pub(super) struct FloatRange {
+    floor: f64,
+    floor_open: bool,
+    ceiling: f64,
+    ceiling_open: bool,
+}
+
+impl FloatRange {
+    /// Every float but `nan`, which no order bound admits.
+    const EVERY: Self = Self {
+        floor: f64::NEG_INFINITY,
+        floor_open: false,
+        ceiling: f64::INFINITY,
+        ceiling_open: false,
+    };
+
+    /// The range narrowed by a lower bound at `floor`, open where it is `>`.
+    fn raise_floor(&mut self, floor: f64, open: bool) {
+        match floor.partial_cmp(&self.floor) {
+            Some(Ordering::Greater) => (self.floor, self.floor_open) = (floor, open),
+            Some(Ordering::Equal) => self.floor_open |= open,
+            _ => {}
+        }
+    }
+
+    /// The range narrowed by an upper bound at `ceiling`, open where it is `<`.
+    fn lower_ceiling(&mut self, ceiling: f64, open: bool) {
+        match ceiling.partial_cmp(&self.ceiling) {
+            Some(Ordering::Less) => (self.ceiling, self.ceiling_open) = (ceiling, open),
+            Some(Ordering::Equal) => self.ceiling_open |= open,
+            _ => {}
+        }
+    }
+
+    /// Whether `number` lies in the range: each bound's comparison, so `nan`
+    /// lies in none.
+    #[inline]
+    pub(super) fn holds(self, number: f64) -> bool {
+        let above = if self.floor_open {
+            number > self.floor
+        } else {
+            number >= self.floor
+        };
+        let below = if self.ceiling_open {
+            number < self.ceiling
+        } else {
+            number <= self.ceiling
+        };
+        above && below
+    }
+}
+
 /// The lengths every one of `constraints` admits, as an inclusive range, where
 /// each is a length bound, and `None` elsewhere: a bound the range does not say.
 ///
@@ -626,6 +725,44 @@ pub(super) fn length_range(constraints: &[Constraint]) -> Option<(usize, usize)>
         }
     }
     Some((least, most))
+}
+
+/// The one pattern among `constraints`, as the index compiled it, and the range
+/// of lengths the rest admit, where every other constraint is a length bound;
+/// `None` for two patterns, any other constraint, or a pattern the index does not
+/// hold, which [`check_constraint`] compiles itself.
+///
+/// Read once for a list ([`pattern_list`](super::sequence)), as
+/// [`length_range`] is: an element's check finds its pattern in the index by the
+/// pattern's address at every element.
+pub(super) fn pattern_range<'i>(
+    constraints: &[Constraint],
+    ctx: &Ctx<'i>,
+) -> Option<(&'i Regex, (usize, usize))> {
+    let (mut program, mut least, mut most) = (None, 0, usize::MAX);
+    for constraint in constraints {
+        match constraint {
+            Constraint::Regex(pattern) if program.is_none() => {
+                program = Some(&**ctx.index.regexes.get(&(pattern.as_ptr() as usize))?);
+            }
+            Constraint::MinLen(n) => least = least.max(*n),
+            Constraint::MaxLen(n) => most = most.min(*n),
+            _ => return None,
+        }
+    }
+    Some((program?, (least, most)))
+}
+
+/// `value`'s text, where it is an exact `str` that holds no lone surrogate, the
+/// text a pattern matches.
+#[inline]
+pub(super) fn exact_text<'v>(value: &'v Bound<'_, PyAny>) -> Option<&'v str> {
+    value
+        .cast_exact::<PyString>()
+        .ok()?
+        .to_str()
+        .map_err(set_aside)
+        .ok()
 }
 
 /// The length of `value`, where it is an exact `str`.
@@ -942,9 +1079,7 @@ fn order_bound(
     let ok = match floats_compared(value, index, op, &frame.ctx) {
         Some(ok) => ok,
         None => decided(
-            value
-                .rich_compare(bound, op)
-                .and_then(|answer| answer.is_truthy()),
+            compared(value, bound, index, op, &frame.ctx),
             py,
             &frame.ctx,
         ),
@@ -957,6 +1092,48 @@ fn order_bound(
         order_refused(op, bound, value, frame);
     }
     ok
+}
+
+/// What the order bound `op` with `bound` makes of `value`, by Python's rich
+/// comparison: of the value itself, or, for an exact `float` under the
+/// standard library's `Decimal`, of the `Decimal` it equals.
+///
+/// Python compares a float with a `Decimal` exactly, and through the thread's
+/// `Decimal` context: a `FloatOperation` trap there makes the comparison raise,
+/// and a raise refuses the value, so compared directly `0.75` would be outside
+/// `Ge(Decimal("0.25"))` under the trap and inside it outside, and the report
+/// would name `0.75` below `0.25`. `Decimal.from_float` is exact and silent
+/// under the trap, and the two `Decimal`s compare as the float and the
+/// `Decimal` do outside it, so the set is the one the bound writes whatever the
+/// context. The index marks such an operand ([`decimal_operand`]), and a slot
+/// it does not hold asks the operand's class.
+///
+/// Out of line, with the index's `Decimal` marks in a table beside its floats:
+/// inlined into [`order_bound`] over one table of both, the question reads the
+/// refined-float shape 3.19% over its base, and out of line beside a table of
+/// its own 0.80% under (`scripts/perf_gate.py --binding-refined-float`).
+///
+/// [`decimal_operand`]: crate::check::index::ValidatorIndex::decimal_operand
+#[inline(never)]
+fn compared(
+    value: &Bound<'_, PyAny>,
+    bound: &Bound<'_, PyAny>,
+    index: OperandIx,
+    op: CompareOp,
+    ctx: &Ctx<'_>,
+) -> PyResult<bool> {
+    let decimal = value.is_exact_instance_of::<PyFloat>()
+        && match ctx.index.decimal_operand(index.get()) {
+            Some(held) => held,
+            None => is_stdlib_class(&bound.get_type(), "decimal", "Decimal")?,
+        };
+    if decimal {
+        let exact = bound
+            .get_type()
+            .call_method1(intern!(value.py(), "from_float"), (value,))?;
+        return exact.rich_compare(bound, op)?.is_truthy();
+    }
+    value.rich_compare(bound, op)?.is_truthy()
 }
 
 /// What the order bound `op` makes of `value` as two floats compared, where
@@ -1006,35 +1183,35 @@ fn check_constraint(
     frame: &mut Frame<'_, '_>,
 ) -> bool {
     let py = value.py();
-    match constraint {
-        Constraint::Ge(i) => order_bound(value, *i, CompareOp::Ge, frame),
-        Constraint::Gt(i) => order_bound(value, *i, CompareOp::Gt, frame),
-        Constraint::Le(i) => order_bound(value, *i, CompareOp::Le, frame),
-        Constraint::Lt(i) => order_bound(value, *i, CompareOp::Lt, frame),
+    let (index, op) = match constraint {
+        Constraint::Ge(i) => (*i, CompareOp::Ge),
+        Constraint::Gt(i) => (*i, CompareOp::Gt),
+        Constraint::Le(i) => (*i, CompareOp::Le),
+        Constraint::Lt(i) => (*i, CompareOp::Lt),
         Constraint::MinLen(n) => {
             let len = stored_len(value, &frame.ctx);
             let ok = decided(len.map(|len| len >= *n), py, &frame.ctx);
-            explained(ok, TOO_SHORT, || Expected::Length(">=", *n), value, frame)
+            return explained(ok, TOO_SHORT, || Expected::Length(">=", *n), value, frame);
         }
         Constraint::MaxLen(n) => {
             let len = stored_len(value, &frame.ctx);
             let ok = decided(len.map(|len| len <= *n), py, &frame.ctx);
-            explained(ok, TOO_LONG, || Expected::Length("<=", *n), value, frame)
+            return explained(ok, TOO_LONG, || Expected::Length("<=", *n), value, frame);
         }
         Constraint::MultipleOf(i) => {
             let Some(operand) = operand_at(frame.ctx, *i, py) else {
                 return false;
             };
             let ok = decided(is_multiple_of(value, operand), py, &frame.ctx);
-            explained(
+            return explained(
                 ok,
                 MULTIPLE_OF,
                 || Expected::Multiple(operand),
                 value,
                 frame,
-            )
+            );
         }
-        Constraint::Predicate(i) => check_predicate(*i, value, frame),
+        Constraint::Predicate(i) => return check_predicate(*i, value, frame),
         Constraint::Regex(pattern) => {
             // Native fast path: the precompiled, anchored pattern matches the
             // borrowed string UTF-8 in Rust. A non-string never matches (the base
@@ -1058,15 +1235,22 @@ fn check_constraint(
                     Some(compiled) => compiled.is_match(text),
                     None => matches_unindexed(pattern, text),
                 });
-            explained(
+            return explained(
                 matched,
                 STRING_PATTERN_MISMATCH,
                 || Expected::Pattern(pattern),
                 value,
                 frame,
-            )
+            );
         }
+    };
+    // A float under a bound the index holds as a float, which admits it, pays
+    // no call: the two floats are compared here, and `order_bound` is asked
+    // only where they decline or refuse, for the report.
+    if floats_compared(value, index, op, &frame.ctx) == Some(true) {
+        return true;
     }
+    order_bound(value, index, op, frame)
 }
 
 /// What one constraint asks, as its own failure names it, for a label naming the
@@ -1131,7 +1315,7 @@ fn check_predicate(index: PredIx, value: &Bound<'_, PyAny>, frame: &mut Frame<'_
     let Some(predicate) = predicate_at(ctx, index, py) else {
         return false;
     };
-    let (ok, code, expected) = match predicate_passes(value, predicate) {
+    let (ok, code, expected) = match predicate_passes(value, predicate, ctx.state) {
         Ok(passed) => (
             passed,
             PREDICATE_FAILED,

@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Any
 
 from mashumaro import DataClassDictMixin
 from mashumaro.config import BaseConfig
+
+_LOGGER = logging.getLogger(__name__)
+_WARNED_MALFORMED_FIXED_MODES: set[tuple[str, str, str]] = set()
 
 
 class OnectaModel(DataClassDictMixin):
@@ -362,22 +366,59 @@ class _IntegerFixedMode(OnectaModel):
     @classmethod
     def __pre_deserialize__(cls, data: dict[str, Any]) -> dict[str, Any]:
         """Reject fractional fixed-mode values instead of truncating them."""
-        for key in ("value", "minValue", "maxValue", "stepValue"):
-            value = data.get(key)
-            if value is None:
-                continue
-            if (
-                isinstance(value, bool)
-                or not isinstance(value, int | float)
-                or (isinstance(value, float) and not value.is_integer())
-            ):
-                raise ValueError(f"{key} must be an integer")
+        if invalid_field := _invalid_integer_fixed_mode_field(data):
+            raise ValueError(f"{invalid_field} must be an integer")
         return data
 
 
 @dataclass(slots=True)
 class FanSpeedMode(_IntegerFixedMode):
     """Integer fan-speed mode."""
+
+
+def _without_invalid_integer_modes(data: dict[str, Any], *, control: str) -> dict[str, Any]:
+    """Ignore malformed fixed-mode entries without rejecting their device."""
+    data = dict(data)
+    modes = data.get("modes")
+    if not isinstance(modes, dict):
+        return data
+
+    valid_modes: dict[str, Any] = {}
+    for name, mode in modes.items():
+        mode_name = str(name)
+        invalid_field = _invalid_integer_fixed_mode_field(mode) if isinstance(mode, dict) else None
+        if isinstance(mode, dict) and invalid_field is None:
+            valid_modes[name] = mode
+            continue
+
+        warning_key = (control, mode_name, invalid_field or "definition")
+        if warning_key not in _WARNED_MALFORMED_FIXED_MODES:
+            _WARNED_MALFORMED_FIXED_MODES.add(warning_key)
+            _LOGGER.warning(
+                "Ignoring malformed fixed %s mode %s (invalid %s)",
+                control,
+                mode_name,
+                invalid_field or "definition",
+            )
+    data["modes"] = valid_modes
+    return data
+
+
+def _invalid_integer_fixed_mode_field(data: dict[str, Any]) -> str | None:
+    """Return the first fixed-mode field that is not a whole number."""
+    for key in ("value", "minValue", "maxValue", "stepValue"):
+        value = data.get(key)
+        if key == "value" and value is None:
+            return key
+        if value is None:
+            continue
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, int | float)
+            or (isinstance(value, float) and not value.is_integer())
+        ):
+            return key
+    return None
 
 
 @dataclass(slots=True)
@@ -391,6 +432,11 @@ class FanSpeed(OnectaModel):
         """Mashumaro configuration."""
 
         aliases = {"current_mode": "currentMode"}
+
+    @classmethod
+    def __pre_deserialize__(cls, data: dict[str, Any]) -> dict[str, Any]:
+        """Ignore malformed fixed-speed entries without rejecting the device."""
+        return _without_invalid_integer_modes(data, control="fan speed")
 
 
 @dataclass(slots=True)
@@ -409,6 +455,11 @@ class FanDirectionAxis(OnectaModel):
         """Mashumaro configuration."""
 
         aliases = {"current_mode": "currentMode"}
+
+    @classmethod
+    def __pre_deserialize__(cls, data: dict[str, Any]) -> dict[str, Any]:
+        """Ignore malformed fixed-direction entries without rejecting the device."""
+        return _without_invalid_integer_modes(data, control="fan direction")
 
 
 @dataclass(slots=True)

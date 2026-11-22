@@ -56,6 +56,11 @@ class SettingsResponse:
             forgejo_o_auth_connected (bool): Whether a Forgejo account is linked with OAuth. Like `forgejoTokenSet`
                 it says only that one is on file; the access and refresh tokens are
                 never returned. A linked account wins over a pasted token.
+            github_o_auth_configured (bool): Whether this server has the GitHub App's OAuth client
+                (`GITHUB_APP_CLIENT_ID` and `GITHUB_APP_CLIENT_SECRET`), so
+                `POST /api/v1/connections/github` can work at all.
+            github_o_auth_connected (bool): Whether a GitHub account is linked through the GitHub App's user
+                sign-in. The access and refresh tokens are never returned.
             webhook_token (str): Identifies this user in a webhook URL
                 (`/api/webhooks/{provider}/{webhookToken}`). Generated on
                 first visit to Settings and stable after that.
@@ -124,6 +129,8 @@ class SettingsResponse:
     forgejo_token_set: bool
     forgejo_o_auth_configured: bool
     forgejo_o_auth_connected: bool
+    github_o_auth_configured: bool
+    github_o_auth_connected: bool
     webhook_token: str
     webhook_secret: str
     renovate_rebase_label: str
@@ -158,6 +165,10 @@ class SettingsResponse:
         forgejo_o_auth_configured = self.forgejo_o_auth_configured
 
         forgejo_o_auth_connected = self.forgejo_o_auth_connected
+
+        github_o_auth_configured = self.github_o_auth_configured
+
+        github_o_auth_connected = self.github_o_auth_connected
 
         webhook_token = self.webhook_token
 
@@ -206,6 +217,8 @@ class SettingsResponse:
             "forgejoTokenSet": forgejo_token_set,
             "forgejoOAuthConfigured": forgejo_o_auth_configured,
             "forgejoOAuthConnected": forgejo_o_auth_connected,
+            "githubOAuthConfigured": github_o_auth_configured,
+            "githubOAuthConnected": github_o_auth_connected,
             "webhookToken": webhook_token,
             "webhookSecret": webhook_secret,
             "renovateRebaseLabel": renovate_rebase_label,
@@ -245,6 +258,10 @@ class SettingsResponse:
         forgejo_o_auth_configured = d.pop("forgejoOAuthConfigured")
 
         forgejo_o_auth_connected = d.pop("forgejoOAuthConnected")
+
+        github_o_auth_configured = d.pop("githubOAuthConfigured")
+
+        github_o_auth_connected = d.pop("githubOAuthConnected")
 
         webhook_token = d.pop("webhookToken")
 
@@ -293,6 +310,8 @@ class SettingsResponse:
             forgejo_token_set=forgejo_token_set,
             forgejo_o_auth_configured=forgejo_o_auth_configured,
             forgejo_o_auth_connected=forgejo_o_auth_connected,
+            github_o_auth_configured=github_o_auth_configured,
+            github_o_auth_connected=github_o_auth_connected,
             webhook_token=webhook_token,
             webhook_secret=webhook_secret,
             renovate_rebase_label=renovate_rebase_label,

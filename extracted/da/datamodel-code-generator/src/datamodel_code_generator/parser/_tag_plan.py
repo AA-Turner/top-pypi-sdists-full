@@ -63,11 +63,12 @@ from typing import TYPE_CHECKING, Any, Final, Literal, TypeAlias, cast, final
 
 from typing_extensions import Protocol
 
-from datamodel_code_generator import Error
 from datamodel_code_generator._constraint_applicability import TAG_LITERAL_UNTAKEN_KEYWORD
+from datamodel_code_generator._internal_utils import to_hashable
 from datamodel_code_generator._model_keys import model_key_of, ref_branch_schema_of
 from datamodel_code_generator._records import mutable_record, record
 from datamodel_code_generator._reference_graph import EdgeKind
+from datamodel_code_generator._shared_types import Error
 from datamodel_code_generator.model._decisions.enum_kind import values_no_literal_holds
 from datamodel_code_generator.model._decisions.tag_value import (
     SCALAR_TAG_TYPES,
@@ -822,7 +823,7 @@ def _merged_tags(sites: Sequence[_MergeSite]) -> dict[tuple[int, str], tuple[Dis
     }
 
 
-def tags_of_variant(  # noqa: PLR0913
+def tags_of_variant(
     source: VariantTagSource,
     variant: DataModel,
     field_name: str,
@@ -1275,7 +1276,7 @@ def _site_tag_keys(
     names the validity mode of ``site_reading`` gives (``ValidityMode``).
     """
     enum_member_tags = reading.enum_member_tags
-    if has_any_variant(data_types):  # pragma: no cover
+    if has_any_variant(data_types):
         return "dropped-any"
     property_name = site_reading.names.property_name
     declared = site_tag_values(
@@ -2075,7 +2076,7 @@ class TagPlan:
             self.first_tags[key] = VariantTags(variant, property_name, values, union_name, {})
             self.union_written.add(key)
 
-    def record_collapsed_tags(  # noqa: PLR0913
+    def record_collapsed_tags(
         self,
         variant: DataModel,
         union_name: str,
@@ -2127,7 +2128,6 @@ def declared_union_tags(model: DataModel) -> tuple[HashableComparable, ...]:
         ]
     ):
         return ()
-    from datamodel_code_generator._internal_utils import to_hashable  # noqa: PLC0415
 
     return tuple(
         (

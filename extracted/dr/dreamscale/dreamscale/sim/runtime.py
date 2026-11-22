@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import sys
 import time
+import types
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
@@ -287,6 +288,12 @@ def _import_robosuite() -> Any:
     # Python emits this during source compilation, using the filename as the
     # warning module (DeprecationWarning on 3.11, SyntaxWarning on 3.12+).
     # Keep the filter local to this import and this exact logo.
+    #
+    # robosuite.macros imports robosuite.macros_private and, when that file is missing (as in
+    # every pip install), logs three "No private macro file found!" warnings. An empty module
+    # in its place keeps robosuite's own defaults and silences them, without writing into the
+    # user's site-packages. A user's own macros_private.py still wins.
+    _stub_missing_robosuite_macros()
     with warnings.catch_warnings():
         for category in (DeprecationWarning, SyntaxWarning):
             warnings.filterwarnings(
@@ -297,6 +304,21 @@ def _import_robosuite() -> Any:
                 module=r".*[/\\]robosuite[/\\]__init__$",
             )
         return importlib.import_module("robosuite")
+
+
+_MACROS_PRIVATE = "robosuite.macros_private"
+
+
+def _stub_missing_robosuite_macros() -> None:
+    if _MACROS_PRIVATE in sys.modules:
+        return
+    spec = importlib.util.find_spec("robosuite")
+    if spec is None or not spec.submodule_search_locations:
+        return
+    if any((Path(root) / "macros_private.py").exists()
+           for root in spec.submodule_search_locations):
+        return
+    sys.modules[_MACROS_PRIVATE] = types.ModuleType(_MACROS_PRIVATE)
 
 
 def ensure_sim_ready() -> None:

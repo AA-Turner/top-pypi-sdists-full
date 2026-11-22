@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: code_sandboxes
-Version: 1.12.1
+Version: 1.12.4
 Project-URL: Home, https://github.com/datalayer/code-sandboxes
 Author-email: Datalayer <info@datalayer.io>
 License: BSD 3-Clause License
@@ -41,7 +41,7 @@ Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.10
 Requires-Dist: faker
-Requires-Dist: jupyter-kernel-client>=1.0.2
+Requires-Dist: jupyter-kernel-client>=1.0.3
 Requires-Dist: jupyter-server
 Requires-Dist: jupyter-server-client
 Requires-Dist: pydantic>=2.0

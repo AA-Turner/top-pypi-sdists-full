@@ -2,7 +2,7 @@
 # Distributed under the terms of the Modified BSD License.
 
 """The harness catalogue over HTTP: ``GET /api/v1/harnesses``
-answers what ``loop harnesses`` prints — the accepted ``harness``
+answers what ``agent harnesses`` prints — the accepted ``harness``
 contributions with their terms, register entry, capabilities and ACP launch
 — and ``GET /api/v1/harnesses/{id}`` one of them, or a refusal in a sentence.
 """
@@ -49,7 +49,7 @@ def test_the_catalogue_is_listed_with_terms_register_and_capabilities(
     assert claude["terms"]["served_to_third_parties"] == "api_key_only"
     assert claude["capabilities"]["resume"] in {"none", "load", "native"}
     assert claude["acp"]["command"] == "npx"
-    assert claude["contributed_by"] == "agent-runtimes.sessions"
+    assert claude["contributed_by"] == "agent-runtimes.harnesses.claude-code"
 
 
 def test_one_harness_is_answered_and_an_unknown_one_refused_in_a_sentence(

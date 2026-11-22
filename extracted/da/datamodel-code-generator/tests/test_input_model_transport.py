@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
 
@@ -19,8 +18,6 @@ from datamodel_code_generator.input_model import _transport_python_type_expr, lo
 from datamodel_code_generator.input_model_result import LoadedInputModelSchema, PythonTypeSchemaAnnotation
 from datamodel_code_generator.parser.jsonschema import JsonSchemaObject, JsonSchemaParser
 from tests.conftest import assert_output
-
-EXPECTED_INPUT_MODEL_PATH = Path(__file__).parent / "data" / "expected" / "main" / "input_model"
 
 
 @pytest.mark.allow_direct_assert
@@ -113,7 +110,7 @@ def test_load_model_schema_public_contract_keeps_rendered_json_types() -> None:
     if "<datamodel-code-generator-python-type:" in rendered:  # pragma: no cover
         pytest.fail("Private Python type token leaked through load_model_schema()")
 
-    assert_output(rendered, EXPECTED_INPUT_MODEL_PATH / "structured_annotations_schema.txt")
+    assert_output(rendered)
 
 
 def test_load_model_schema_public_dict_contract_stays_json_compatible() -> None:
@@ -125,23 +122,19 @@ def test_load_model_schema_public_dict_contract_stays_json_compatible() -> None:
 
     assert_output(
         f"{json.dumps(schema, indent=2, sort_keys=True)}\n",
-        EXPECTED_INPUT_MODEL_PATH / "dict_public_schema.txt",
     )
 
 
 @pytest.mark.parametrize(
-    ("python_type", "expected_file"),
+    "python_type",
     [
-        pytest.param(PythonTypeName("int"), "transport_property_names.py", id="integer"),
-        pytest.param(PythonTypeName("bool"), "transport_property_names_bool.py", id="boolean"),
-        pytest.param(PythonTypeName("str"), "transport_property_names_string.py", id="string"),
-        pytest.param(PythonTypeName("float"), "transport_property_names_string.py", id="unsupported"),
+        pytest.param(PythonTypeName("int"), id="integer"),
+        pytest.param(PythonTypeName("bool"), id="boolean"),
+        pytest.param(PythonTypeName("str"), id="string"),
+        pytest.param(PythonTypeName("float"), id="unsupported"),
     ],
 )
-def test_input_model_transport_property_names_uses_expression(
-    python_type: PythonTypeName,
-    expected_file: str,
-) -> None:
+def test_input_model_transport_property_names_uses_expression(python_type: PythonTypeName) -> None:
     """Transport supported key types and preserve the string fallback for unsupported ones."""
     collector = PythonTypeExpressionCollector()
     token = collector.add(python_type)
@@ -155,7 +148,7 @@ def test_input_model_transport_property_names_uses_expression(
     generated = generate(loaded, input_file_type=InputFileType.JsonSchema, disable_timestamp=True, formatters=[])
     if not isinstance(generated, str):  # pragma: no cover
         pytest.fail(f"Expected one generated module, got {type(generated)!r}")
-    assert_output(f"{generated}\n", EXPECTED_INPUT_MODEL_PATH / expected_file)
+    assert_output(f"{generated}\n", suffix=".py")
 
 
 def test_input_model_transport_property_names_survives_schema_copy() -> None:
@@ -181,7 +174,7 @@ def test_input_model_transport_property_names_survives_schema_copy() -> None:
         generated = generate(source, input_file_type=InputFileType.JsonSchema, disable_timestamp=True, formatters=[])
         if not isinstance(generated, str):  # pragma: no cover
             pytest.fail(f"Expected one generated module, got {type(generated)!r}")
-        assert_output(f"{generated}\n", EXPECTED_INPUT_MODEL_PATH / "transport_property_names_pattern.py")
+        assert_output(f"{generated}\n", name="model", suffix=".py")
 
 
 def test_input_model_transport_externalizes_field_metadata() -> None:
@@ -204,7 +197,7 @@ def test_input_model_transport_externalizes_field_metadata() -> None:
     )
     if not isinstance(generated, str):  # pragma: no cover
         pytest.fail(f"Expected one generated module, got {type(generated)!r}")
-    assert_output(f"{generated}\n", EXPECTED_INPUT_MODEL_PATH / "transport_metadata.py")
+    assert_output(f"{generated}\n", suffix=".py")
 
 
 def test_input_model_transport_externalizes_schema_extensions() -> None:
@@ -222,7 +215,7 @@ def test_input_model_transport_externalizes_schema_extensions() -> None:
 
         assert_output(
             f"{json.dumps(parser.extra_template_data['#'], indent=2, sort_keys=True)}\n",
-            EXPECTED_INPUT_MODEL_PATH / "transport_schema_extras.txt",
+            name="extras",
         )
 
 
@@ -250,7 +243,7 @@ def test_input_model_transport_survives_local_ref_and_allof_merges() -> None:
     generated = generate(loaded, input_file_type=InputFileType.JsonSchema, disable_timestamp=True, formatters=[])
     if not isinstance(generated, str):  # pragma: no cover
         pytest.fail(f"Expected one generated module, got {type(generated)!r}")
-    assert_output(f"{generated}\n", EXPECTED_INPUT_MODEL_PATH / "transport_local_inheritance.py")
+    assert_output(f"{generated}\n", suffix=".py")
 
 
 @pytest.mark.allow_direct_assert
@@ -274,7 +267,7 @@ def test_input_model_transport_survives_external_ref() -> None:
     generated = generate(loaded, input_file_type=InputFileType.JsonSchema, disable_timestamp=True, formatters=[])
     if not isinstance(generated, str):  # pragma: no cover
         pytest.fail(f"Expected one generated module, got {type(generated)!r}")
-    assert_output(f"{generated}\n", EXPECTED_INPUT_MODEL_PATH / "transport_external_ref.py")
+    assert_output(f"{generated}\n", suffix=".py")
 
 
 def test_input_model_transport_parses_only_external_raw_python_type() -> None:
@@ -294,7 +287,7 @@ def test_input_model_transport_parses_only_external_raw_python_type() -> None:
     generated = generate(loaded, input_file_type=InputFileType.JsonSchema, disable_timestamp=True, formatters=[])
     if not isinstance(generated, str):  # pragma: no cover
         pytest.fail(f"Expected one generated module, got {type(generated)!r}")
-    assert_output(f"{generated}\n", EXPECTED_INPUT_MODEL_PATH / "transport_external_python_type.py")
+    assert_output(f"{generated}\n", suffix=".py")
 
 
 @pytest.mark.allow_direct_assert

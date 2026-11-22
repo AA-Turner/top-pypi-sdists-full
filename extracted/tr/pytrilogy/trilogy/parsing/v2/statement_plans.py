@@ -23,6 +23,7 @@ from trilogy.core.statements.author import (
     PropertiesDeclarationStatement,
     PublishStatement,
     RawSQLStatement,
+    RollupSelectStatement,
     RowsetDerivationStatement,
     SelectStatement,
     ShowStatement,
@@ -349,6 +350,14 @@ class _SelectLikeStatementPlan(StatementPlanBase, Generic[_SelectLikeT]):
             selects.append(self.output)
         elif isinstance(self.output, MultiSelectStatement):
             selects.extend(self.output.selects)
+        # a spread call's arm defines the names the statement shows
+        selects.extend(
+            arm
+            for select in list(selects)
+            if select.source is not None
+            and isinstance(select.source.select, RollupSelectStatement)
+            for arm in select.source.select.selects
+        )
         for select in selects:
             intersection = select.locally_derived.intersection(pre_keys)
             if not intersection:

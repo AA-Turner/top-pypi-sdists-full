@@ -110,8 +110,9 @@ from __future__ import annotations
 import logging
 import math
 import random
+import subprocess
 from pathlib import Path
-from typing import Any, ClassVar, Collection, Optional, Union
+from typing import IO, Any, ClassVar, Collection, Optional, Union
 
 from ...constants import EGO_ROLE_NAME
 from ...entity_role import canonical_role_name
@@ -119,7 +120,7 @@ from ...coordinate.map_manager import run_carla_map
 from ...utils.clearance import HIDDEN_BELOW_M, actor_box_centre
 from ...utils.traffic_light import traffic_light_state_name
 from ...utils.vehicles import is_emergency_vehicle_type
-from ...visibility import driver_quantile, sight_speed_at, world_visibility
+from ...visibility import world_visibility
 from ...world_reset import episode_of
 from ..base import (
     crossing_safe_speed,
@@ -145,7 +146,14 @@ from ..parameters import (
     VehicleParameters,
 )
 from ..mesoscopic import MesoscopicTraffic
-from .mesosim import MesoRoads, SumoMesoscopicTraffic, build_mesoscopic_model
+from .mesosim import (
+    MesoRoads,
+    SumoMesoscopicTraffic,
+    build_mesoscopic_model,
+    drop_traci_connection,
+    start_sumo,
+    stop_sumo,
+)
 from ..traffic_manager import TrafficManagerBackend
 from .config import SumoBackendConfig
 from .geometry import (
@@ -156,6 +164,16 @@ from .geometry import (
     origin_to_box_centre,
     sumo_to_carla,
     sumo_xy_to_carla,
+)
+
+# Re-exported: the backend's pure helpers live in the checked .geometry
+# (#2306); hybrid and the tests import them from here.
+from .geometry import (
+    _lane_step as _lane_step,
+    _safe_weights_prefix as _safe_weights_prefix,
+    _sight_cap as _sight_cap,
+    _sumo_velocity as _sumo_velocity,
+    world_opendrive as world_opendrive,
 )
 from .network import (
     SignalTable,
@@ -176,17 +194,14 @@ from .options import (
     LANE_CHANGE_SETTLED_M as LANE_CHANGE_SETTLED_M,
     MOTORCYCLE_TYPE as MOTORCYCLE_TYPE,
     OUTPUT_SUFFIX as OUTPUT_SUFFIX,
-    _ADDITIONAL_OPTIONS as _ADDITIONAL_OPTIONS,
     _BICYCLE_TYPE as _BICYCLE_TYPE,
     _EMERGENCY as _EMERGENCY,
     _LANE_CHANGE_MODE_DEFAULT as _LANE_CHANGE_MODE_DEFAULT,
     _LANE_CHANGE_MODE_EXTERNAL as _LANE_CHANGE_MODE_EXTERNAL,
     _LANE_CHANGE_MODE_STRATEGIC as _LANE_CHANGE_MODE_STRATEGIC,
     _PASSENGER as _PASSENGER,
-    _ROUTE_OPTIONS as _ROUTE_OPTIONS,
     _SPEED_MODE_DEFAULT as _SPEED_MODE_DEFAULT,
     _SPEED_MODE_EXTERNAL as _SPEED_MODE_EXTERNAL,
-    _SPEED_MODE_RED_LIGHT as _SPEED_MODE_RED_LIGHT,
     _SPEED_MODE_RIGHT_OF_WAY as _SPEED_MODE_RIGHT_OF_WAY,
     _SPEED_MODE_THROUGH_JUNCTION as _SPEED_MODE_THROUGH_JUNCTION,
     _SUMO_CLASSES as _SUMO_CLASSES,
@@ -324,36 +339,15 @@ _BACKGROUND_LENGTH_M = 4.6
 _BACKGROUND_ROUTE_EDGES = 40
 #: How far from a pedestrian an edge to add its person on is looked for, m.
 _PERSON_EDGE_RADIUS_M = 50.0
+#: The label of SUMO's TraCI connection: traci's own default, the one its
+#: module-level functions use.
+_TRACI_LABEL = "default"
 
 
-def _sight_cap(sumo_id: str, seen: float, held: tuple[float, float, float]) -> float:
-    """The maximum speed (m/s) *sumo_id*'s driver keeps in *seen* metres,
-    from *held*: its own maximum speed, deceleration and tau -- the weather
-    rules' ``sight_speed`` at the driver's own quantile, scaled to the
-    vehicle's braking and reaction."""
-    own, decel, tau = held
-    limit = sight_speed_at(seen, driver_quantile(sumo_id), decel, tau)
-    # Never to a standstill: a car in thick fog still creeps on.  Nor above
-    # its own: a background vehicle capped below the creep keeps its cap
-    # (#967).
-    return min(own, max(limit, 1.0))
-
-
-def _safe_weights_prefix(net_file: Path) -> Path:
-    """The prefix of the safe-weight files beside *net_file*, as roadgen names
-    them: ``network.safe`` (``network.safe.src.xml`` ...) beside
-    ``network.net.xml`` (:func:`.network.build_network`)."""
-    name = net_file.name
-    if name.endswith(".net.xml"):
-        return net_file.with_name(name[: -len(".net.xml")] + ".safe")
-    return net_file.with_suffix(".safe")
-
-
-def _sumo_velocity(speed: float, angle_deg: float) -> tuple[float, float]:
-    """A velocity in SUMO's frame from a speed and SUMO's angle (degrees
-    clockwise from north)."""
-    heading = math.radians(angle_deg)
-    return speed * math.sin(heading), speed * math.cos(heading)
+def _is_gui(binary: str) -> bool:
+    """Whether *binary* is sumo-gui (``sumo-gui``, ``sumo-gui.exe``, a path
+    to either), which shows the run in a window."""
+    return Path(binary).name.lower().startswith("sumo-gui")
 
 
 def _load_traci(use_libsumo: bool) -> Any:
@@ -442,11 +436,6 @@ def _runs_along(shape: Any, offset: float, heading: float) -> bool:
 #: length is what sets how fast it crosses (a vehicle's own default to 1 m/s).
 _CROSSING_MAX_LATERAL_SPEED_MPS = 10.0
 _CROSSING_LATERAL_ACCEL_MPS2 = 100.0
-
-
-def _lane_step(direction: LaneChangeDirection) -> int:
-    """The lane index one lane to *direction*: SUMO counts from the right kerb."""
-    return 1 if direction is LaneChangeDirection.LEFT else -1
 
 
 class _LaneChangeRequest:
@@ -663,6 +652,12 @@ class SumoTrafficBackend(TrafficBackend):
         #: ``close`` still closes the connection (#1216).  Not ``_started``,
         #: which says start() has put the run's vehicles into SUMO.
         self._connected = False
+        #: SUMO's process and its standard error when it runs through TraCI
+        #: (libsumo runs it in this process): started by _start_traci().
+        self._sumo_process: Optional[subprocess.Popen[bytes]] = None
+        self._sumo_stderr: Optional[IO[bytes]] = None
+        #: Whether that SUMO is sumo-gui, which close() leaves open.
+        self._sumo_gui = False
         self._failures = 0
         #: Simulated seconds at which tick gave up stepping SUMO, ``None``
         #: while it has not: the result records it (describe(), #2082).
@@ -1137,10 +1132,13 @@ class SumoTrafficBackend(TrafficBackend):
             # anything else recorded on CARLA's (camera frames, a rosbag).
             self._clock_log = (out / "clock.csv").open("w")
             self._clock_log.write("sumo_time,carla_elapsed_seconds,carla_frame\n")
-        try:
-            self._traci.start(cmd)
-        except Exception as exc:
-            raise TrafficBackendError(f"SUMO did not start: {exc}") from exc
+        if self._traci.__name__ == "libsumo":
+            try:
+                self._traci.start(cmd)
+            except Exception as exc:
+                raise TrafficBackendError(f"SUMO did not start: {exc}") from exc
+        else:
+            self._start_traci(cmd)
         self._connected = True
         self._running = True
         logger.info("SUMO started on %s", self._network.net_file)
@@ -1152,6 +1150,63 @@ class SumoTrafficBackend(TrafficBackend):
             )
         if self._tm_drives_scenario:
             self._tm.prepare(context)
+
+    def _start_traci(self, cmd: list[str]) -> None:
+        """Start SUMO (*cmd*) as a process and connect TraCI's module-level
+        connection to it.
+
+        Not ``traci.start``: that launches a new SUMO for each of its 60
+        tries, leaves every one running when it fails, and keeps SUMO's
+        standard error out of its message (#2321).  A failed try here leaves
+        no connection registered under the label, and a failed start no SUMO.
+
+        Raises:
+            TrafficBackendError: If SUMO did not start, with the end of what it
+                wrote to its standard error.
+        """
+        traci = self._traci
+        try:
+            traci.getConnection(_TRACI_LABEL)
+        except Exception:  # noqa: BLE001 - none registered
+            # A TraCIException, but not always traci.exceptions' class:
+            # importing libsumo replaces that one with its own.
+            pass
+        else:
+            raise TrafficBackendError(
+                f"SUMO did not start: TraCI connection {_TRACI_LABEL!r} is already active"
+            )
+
+        def connect(port: int, process: subprocess.Popen[bytes]) -> None:
+            try:
+                # One try each: traci sleeps a second between its own.
+                traci.init(port, numRetries=0, label=_TRACI_LABEL, proc=process)
+            except BaseException:
+                # A handshake that failed after connecting left the label
+                # registered, and the next try (or start) refused.
+                drop_traci_connection(traci, _TRACI_LABEL)
+                raise
+
+        # SUMO's standard output stays the run's, as with traci.start.
+        _, self._sumo_process, self._sumo_stderr = start_sumo(cmd, connect, stdout=None)
+        self._sumo_gui = _is_gui(cmd[0])
+
+    def _stop_sumo_process(self) -> None:
+        """Reap SUMO's process (killing it if it does not exit once its
+        connection is closed) and close its standard error.
+
+        Not a sumo-gui still open: without ``--quit-on-end`` it stays open
+        after the run, for the user to look at the end of it, as it did when
+        traci.start ran it; closing its window ends it.
+        """
+        process, self._sumo_process = self._sumo_process, None
+        stderr, self._sumo_stderr = self._sumo_stderr, None
+        if self._sumo_gui and process is not None and process.poll() is None:
+            logger.info(
+                "sumo-gui (pid %d) stays open after the run; close it to end it",
+                process.pid,
+            )
+            process = None
+        stop_sumo(process, stderr, kill=False)
 
     def adopt(self, entity: Any) -> None:
         """Remember *entity*; it joins SUMO when the run starts, an emergency
@@ -1549,6 +1604,7 @@ class SumoTrafficBackend(TrafficBackend):
                     self._traci.close(False)
             except Exception as exc:  # noqa: BLE001 - teardown must go on
                 logger.debug("SUMO close: %s", exc)
+        self._stop_sumo_process()
         self._connected = False
         self._running = False
         if self._meso is not None and self._level_changes != [0, 0]:
@@ -5451,23 +5507,6 @@ class SumoTrafficBackend(TrafficBackend):
             self._config.warmup_s,
             len(self._ambient),
         )
-
-
-def world_opendrive(context: TrafficContext, who: str) -> str:
-    """The OpenDRIVE of *context*'s world: its file, else the world's map.
-
-    Raises:
-        TrafficBackendUnavailable: The run has neither (*who* needs it).
-    """
-    if context.xodr_path is not None and Path(context.xodr_path).is_file():
-        return Path(context.xodr_path).read_text()
-    if context.world is None:
-        raise TrafficBackendUnavailable(
-            f"{who} needs the world's OpenDRIVE, and the run has neither a world "
-            "nor an OpenDRIVE file"
-        )
-    # The run's map where one is held: get_map() builds a whole new one.
-    return str(run_carla_map(context.world).to_opendrive())
 
 
 def _carla_road_height(world: Any, x: float, y: float) -> Optional[float]:

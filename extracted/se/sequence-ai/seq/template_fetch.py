@@ -1,16 +1,19 @@
 """
 `seq init` for the official templates: fetch one version's code from the platform and unpack it into a directory.
 
-In one sentence: `seq init pi05-droid[@stable|@beta|@v<N>] my_pi05_user` asks the platform for that template's code
-(GET /v1/templates/{name}/code?ref=…, no key needed) → unpacks the archive into ./my_pi05_user → writes the user's own
+In one sentence: `seq init pi05-droid[@v<N>] my_pi05_user` asks the platform for that template's code - its one
+version, or the version named (GET /v1/templates/{name}/code[?ref=v<N>], no key needed) → unpacks the archive into
+./my_pi05_user → writes the user's own
 deployment name into its policy.py → `seq deploy my_pi05_user` deploys it. The template repo is the source:
 a new version there reaches users without an SDK release.
 
 The platform is the only source: the SDK carries no copies of any template, so one that cannot be fetched is an error
 that says why, never an older copy written instead.
 
-With no channel named, `seq init` writes only a version this sequence-ai deploys: the stable when it does, else the
-newest version that does (deploy_check, newest_deployable), and says so. A channel or version named is written as named.
+A template has one version, the one `seq init --list` shows; `@v<N>` names an exact one. With sequence-cloud
+installed, `seq init` says when this sequence-ai cannot deploy the version it wrote (deploy_check).
+
+
 """
 from __future__ import annotations
 
@@ -18,6 +21,7 @@ import contextlib
 import io
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tarfile
@@ -31,7 +35,7 @@ from seq.errors import raise_for, unreachable
 from sequence_ai._core.mock_gate import is_mock
 from sequence_ai._core.names import segment
 from sequence_ai._core.transport import _version
-from sequence_ai.errors import Conflict, InternalError, InvalidRequest, NotFound
+from sequence_ai.errors import Conflict, InternalError, InvalidRequest
 
 _REF = re.compile(r"^(?P<name>[a-z0-9][a-z0-9-]*)(?:@(?P<ref>[a-z0-9]+))?$")
 
@@ -45,7 +49,7 @@ KINDS = ("policy", "benchmark", "adapter")
 ENTRIES = {"policy": "policy.py", "benchmark": "benchmark.py", "adapter": "adapter.py"}
 def lines_by_kind(rows: list[dict]) -> list[str]:
     """The templates of GET /v1/templates (its `data`), one heading per kind — policy, benchmark, adapter, then any kind
-    the platform names that this SDK does not know — each template with the version its channels point at. What
+    the platform names that this SDK does not know — each template on a line of its own with its one version. What
     `seq init --list` prints."""
     kind_of = lambda r: r.get("kind") or "other"
     kinds = list(KINDS) + sorted({kind_of(r) for r in rows} - set(KINDS))
@@ -53,8 +57,8 @@ def lines_by_kind(rows: list[dict]) -> list[str]:
     for kind in kinds:
         mine = sorted((r for r in rows if kind_of(r) == kind), key=lambda r: r["name"])
         out.append(f"{kind} templates:")
-        out += [f"  {r['name']:16} stable={r.get('stable') or '—':5} beta={r.get('beta') or '—'}" for r in mine] \
-            or ["  (none)"]
+
+        out += [f"  {r['name']:16} {r.get('version') or '—'}".rstrip() for r in mine] or ["  (none)"]
     return out
 
 
@@ -118,12 +122,23 @@ def entry_name(dest: Path, entry: str) -> str | None:
     return next((f.name for f in found if f.path == entry), None)
 
 
+def names_a_template(spec: str) -> bool:
+    """Whether `spec` has a template name's form - a name, an `@` and a word after it or not - whatever that word is:
+    split_ref says what is wrong with one whose word is no version."""
+    return bool(_REF.match(spec or ""))
+
+
 def split_ref(spec: str) -> tuple[str, str | None]:
-    """`pi05-droid@beta` → ("pi05-droid", "beta"); no `@` → ("pi05-droid", None): no channel named, which `seq init`
-    reads as the stable when this sequence-ai deploys it, else the newest version it does."""
+    """`pi05-droid@v12` → ("pi05-droid", "v12"); no `@` → ("pi05-droid", None): the template's one version. A template
+    has no channels, so a word after `@` that is no version - `@stable`, `@beta` - is refused with the two ways there
+    are.
+    """
     m = _REF.match(spec or "")
     if not m:
-        raise InvalidRequest(f"{spec!r} is not a template name (e.g. pi05-droid, pi05-droid@stable, pi05-droid@beta)")
+        raise InvalidRequest(f"{spec!r} is not a template name (e.g. pi05-droid, or pi05-droid@v12 for one version)")
+    if m["ref"] is not None and not _NUMBERED.fullmatch(m["ref"]):
+        raise InvalidRequest(f"{spec!r}: a template has one version, so there is no @{m['ref']}: write {m['name']} for "
+                             f"it, or {m['name']}@v<N> for an exact version")
     return m["name"], m["ref"]
 
 
@@ -156,15 +171,16 @@ def list_remote(base_url: str | None = None) -> list[dict]:
     return r.json()["data"]
 
 
-def fetch(name: str, ref: str, base_url: str | None = None) -> tuple[bytes, str] | None:
-    """(archive bytes, version) of one template version; None when the platform has no such template. A template it
-    has without that channel or version is NotFound, as the platform says it."""
+def fetch(name: str, ref: str | None = None, base_url: str | None = None) -> tuple[bytes, str] | None:
+    """(archive bytes, version) of template `name`'s one version, or of the version `ref` names (v<N>); None when the
+    platform has no such template. A template it has without that version is NotFound, as the platform says it."""
     from seq._http import RetryReads
 
     base = _base(base_url)
     try:
         with httpx.Client(headers=_headers(), timeout=60, transport=RetryReads()) as client:
-            r = client.get(f"{base}/v1/templates/{segment(name)}/code", params={"ref": ref})
+
+            r = client.get(f"{base}/v1/templates/{segment(name)}/code", params={"ref": ref} if ref else None)
     except httpx.TransportError as exc:
         raise unreachable(base, exc) from None
     if r.status_code == 404:
@@ -172,7 +188,10 @@ def fetch(name: str, ref: str, base_url: str | None = None) -> tuple[bytes, str]
         if "no template" in str(detail):
             return None
     raise_for(r)
-    return r.content, r.headers.get("X-Template-Version", ref)
+    version = r.headers.get("X-Template-Version") or ref
+    if not version:
+        raise InternalError(f"the platform sent {name}'s code without saying which version it is")
+    return r.content, version
 
 
 @contextlib.contextmanager
@@ -219,6 +238,51 @@ def unpack(archive: bytes, dest: Path, *, template: str, deploy_name: str) -> li
         text = policy.read_text()
         policy.write_text(text.replace(f'name="{template}"', f'name="{deploy_name}"', 1))
     return written
+
+
+
+
+def cache_dir() -> Path:
+    """Where `seq serve <template>` keeps a template's code, a folder a version (<template>/v<N>), beside the weights
+    `seq serve` keeps (weights_get.cache_dir)."""
+    return Path.home() / ".cache" / "sequence-ai" / "templates"
+
+
+def held(name: str, version: str) -> Path | None:
+    """The folder of version `version` of template `name` kept here, or None: a folder there is always whole (keep)."""
+    folder = cache_dir() / name / version
+    return folder if folder.is_dir() else None
+
+
+def keep(archive: bytes, name: str, version: str) -> Path:
+    """
+    One version of template `name` unpacked into the cache as `seq init` writes it under the template's own name: the
+    folder `seq serve <template>` serves.
+
+    In one sentence: the version's folder already there → it, untouched → else the archive unpacked (unpack, with its
+    own checks) into a folder of its own beside the version's → moved into place in one rename → a rename another `seq
+    serve` beat to it leaves that one's folder, and this one is removed.
+
+    WHY one rename: a serve stopped mid-unpack, or two started at once, never leaves a folder there that holds part of a
+    version, which held() would hand the next serve as whole.
+    """
+    folder = cache_dir() / name / version
+    if folder.is_dir():
+        return folder
+    folder.parent.mkdir(parents=True, exist_ok=True)
+
+    staging = Path(tempfile.mkdtemp(prefix=f".{version}-", dir=folder.parent))
+    try:
+        unpack(archive, staging / name, template=name, deploy_name=name)
+        try:
+            os.rename(staging / name, folder)
+        except OSError:
+
+            if not folder.is_dir():
+                raise
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
+    return folder
 
 
 
@@ -285,41 +349,3 @@ def check_archive(archive: bytes, name: str) -> str | None:
         dest = Path(tmp) / name
         unpack(archive, dest, template=name, deploy_name=name)
         return deploy_check(dest)
-
-
-def _number(version: str | None) -> int | None:
-    """v20 → 20; None for a missing or unnumbered version."""
-    m = _NUMBERED.fullmatch(version or "")
-    return int(m[1]) if m else None
-
-
-def newest_deployable(name: str, *, besides: str,
-                      base_url: str | None = None) -> tuple[bytes, str, str | None] | None:
-    """
-    The newest version of template `name` this sequence-ai deploys, other than `besides` (one already found not to):
-    (archive, version, the channel that points at it or None), or None when none does.
-
-    Looked for among the versions the platform offers a person: its beta and every version under it down to its
-    stable, newest first. The platform lists no versions, so each is asked for by number; one it has withdrawn answers
-    not found and one it says needs a newer sequence-ai is refused, and both are passed over. Each is checked as
-    deploy_check checks it.
-
-    """
-    row = next((r for r in list_remote(base_url) if r.get("name") == name), None) or {}
-    stable, beta = row.get("stable"), row.get("beta")
-    low, high = _number(stable), _number(beta) or _number(stable)
-    if low is None or high is None:
-        return None
-    for n in range(high, low - 1, -1):
-        version = f"v{n}"
-        if version == besides:
-            continue
-        try:
-            got = fetch(name, version, base_url)
-        except (NotFound, InvalidRequest):
-            continue
-        if got is None:
-            return None
-        if check_archive(got[0], name) is None:
-            return got[0], got[1], "beta" if got[1] == beta else "stable" if got[1] == stable else None
-    return None

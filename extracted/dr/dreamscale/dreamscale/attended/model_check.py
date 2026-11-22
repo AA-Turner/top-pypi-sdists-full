@@ -16,9 +16,6 @@ from dreamscale.doctor import CheckResult
 from dreamscale.model_names import public_model
 from dreamscale.policy.config import OptimizationConfig
 
-# Placement probes that must name a provider for the model to have candidates.
-_PROBE_OPTIONS = {"perceptron-isaac05-yam": {"provider": "modal"}}
-
 
 def supported_models(embodiment) -> tuple[str, ...]:
     return (*embodiment.policy_models, *(LLM_MODELS if embodiment.llm_profile else ()))
@@ -60,7 +57,6 @@ async def cloud_checks(
                 if not is_llm:
                     await control.probe_candidates(
                         model, optimization_config=OptimizationConfig(rtc="auto"),
-                        **_PROBE_OPTIONS.get(model, {}),
                     )
             results = [CheckResult(
                 name,

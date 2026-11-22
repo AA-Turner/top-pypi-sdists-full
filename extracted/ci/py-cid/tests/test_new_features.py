@@ -10,6 +10,7 @@ from cid import (
     CIDSet,
     CIDv0,
     CIDv1,
+    Undef,
     V0Builder,
     V1Builder,
     extract_encoding,
@@ -19,6 +20,7 @@ from cid import (
     must_parse,
     parse_ipfs_path,
 )
+from cid.cid import _UndefCID
 
 
 @pytest.fixture
@@ -202,7 +204,9 @@ class TestCIDSet:
         cid_set = CIDSet()
         cid_set.add(cidv0)
         assert cid_set.has(cidv0)
-        assert not cid_set.has(CIDv0(b"different"))
+        different_digest = hashlib.sha256(b"different").digest()
+        different_mh = multihash.encode(different_digest, "sha2-256")
+        assert not cid_set.has(CIDv0(different_mh))
 
     def test_cid_set_remove(self, cidv0):
         """CIDSet.remove: removes CID from set"""
@@ -260,12 +264,34 @@ class TestCIDSet:
         assert cidv0 in collected
         assert cidv1 in collected
 
+    def test_cid_set_for_each_error_propagation(self, cidv0, cidv1):
+        """CIDSet.for_each: stops and propagates error"""
+        cid_set = CIDSet()
+        cid_set.add(cidv0)
+        cid_set.add(cidv1)
+
+        def failing_func(cid):
+            raise ValueError("test error")
+
+        result = cid_set.for_each(failing_func)
+        assert isinstance(result, ValueError)
+        assert str(result) == "test error"
+
+        def returning_func(cid):
+            return TypeError("return error")
+
+        result2 = cid_set.for_each(returning_func)
+        assert isinstance(result2, TypeError)
+        assert str(result2) == "return error"
+
     def test_cid_set_contains(self, cidv0):
         """CIDSet.__contains__: supports 'in' operator"""
         cid_set = CIDSet()
         cid_set.add(cidv0)
         assert cidv0 in cid_set
-        assert CIDv0(b"different") not in cid_set
+        different_digest = hashlib.sha256(b"different").digest()
+        different_mh = multihash.encode(different_digest, "sha2-256")
+        assert CIDv0(different_mh) not in cid_set
 
     def test_cid_set_iter(self, cidv0, cidv1):
         """CIDSet.__iter__: makes set iterable"""
@@ -295,6 +321,37 @@ class TestDefined:
     def test_defined_cidv1(self, cidv1):
         """BaseCID.defined: returns True for valid CIDv1"""
         assert cidv1.defined() is True
+
+
+class TestUndef:
+    """Tests for Undef sentinel"""
+
+    def test_undef_defined_is_false(self):
+        assert Undef.defined() is False
+
+    def test_undef_bool_is_false(self):
+        assert bool(Undef) is False
+
+    def test_undef_repr_and_str(self):
+        assert repr(Undef) == "CID.Undef"
+        assert str(Undef) == "CID.Undef"
+
+    def test_undef_is_singleton(self):
+        assert Undef is Undef
+        assert _UndefCID() is Undef
+
+    def test_undef_equality(self, cidv0):
+        assert Undef == Undef
+        assert Undef == _UndefCID()
+        assert Undef != cidv0
+
+    def test_undef_hashable(self):
+        assert Undef in {Undef}
+        mapping = {Undef: "unset"}
+        assert mapping[Undef] == "unset"
+
+    def test_undef_not_cid_instance(self):
+        assert not isinstance(Undef, (CIDv0, CIDv1))
 
 
 class TestFromReader:

@@ -10,6 +10,7 @@ from ..types import UNSET, Unset
 
 from ..models.ci_status import CIStatus
 from ..models.forge import Forge
+from ..types import UNSET, Unset
 from typing import cast
 
 if TYPE_CHECKING:
@@ -119,6 +120,8 @@ class LinkedPullRequest:
                 holding a workflow run on the head commit until someone approves
                 it. A client says "waiting for approval" rather than "check
                 failed" while it is true. Always present; false on Forgejo.
+            title (str | Unset): The pull request's title, so a client can show it on hover. Text,
+                never markup. Left out when empty.
      """
 
     forge: Forge
@@ -129,6 +132,7 @@ class LinkedPullRequest:
     ci: CIStatus
     checks: CheckCounts
     awaiting_workflow_approval: bool
+    title: str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -153,6 +157,8 @@ class LinkedPullRequest:
 
         awaiting_workflow_approval = self.awaiting_workflow_approval
 
+        title = self.title
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -166,6 +172,8 @@ class LinkedPullRequest:
             "checks": checks,
             "awaitingWorkflowApproval": awaiting_workflow_approval,
         })
+        if title is not UNSET:
+            field_dict["title"] = title
 
         return field_dict
 
@@ -200,6 +208,8 @@ class LinkedPullRequest:
 
         awaiting_workflow_approval = d.pop("awaitingWorkflowApproval")
 
+        title = d.pop("title", UNSET)
+
         linked_pull_request = cls(
             forge=forge,
             repo=repo,
@@ -209,6 +219,7 @@ class LinkedPullRequest:
             ci=ci,
             checks=checks,
             awaiting_workflow_approval=awaiting_workflow_approval,
+            title=title,
         )
 
 

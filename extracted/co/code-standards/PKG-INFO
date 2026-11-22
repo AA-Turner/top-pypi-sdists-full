@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: code-standards
-Version: 9.75.0
+Version: 9.83.0
 Summary: One deterministic quality gate for Sarj Python, TypeScript, Swift, Kotlin, shell, SQL, IaC, and repository policy.
 Project-URL: Homepage, https://code-standards.sarj.ai/
 Project-URL: Documentation, https://code-standards.sarj.ai/cli/
@@ -31,10 +31,10 @@ Requires-Dist: pyyaml==6.0.3
 Requires-Dist: referencing==0.37.0
 Requires-Dist: repo-standards==8.6.0
 Requires-Dist: ruff==0.17.5
-Requires-Dist: sarj-iac-lint==0.47.0
-Requires-Dist: sarj-python-lint==1.149.1
-Requires-Dist: sarj-rule-contracts==0.8.1
-Requires-Dist: sarj-sql-lint==0.48.3
+Requires-Dist: sarj-iac-lint==0.48.2
+Requires-Dist: sarj-python-lint==1.155.0
+Requires-Dist: sarj-rule-contracts==0.8.2
+Requires-Dist: sarj-sql-lint==0.50.3
 Requires-Dist: shellcheck-py==0.11.0.1; (sys_platform == 'darwin' and platform_machine == 'arm64') or (sys_platform == 'darwin' and platform_machine == 'x86_64') or (sys_platform == 'linux' and platform_machine == 'x86_64') or (sys_platform == 'win32' and platform_machine == 'AMD64')
 Requires-Dist: sqlfluff==4.2.2
 Requires-Dist: typer==0.27.3

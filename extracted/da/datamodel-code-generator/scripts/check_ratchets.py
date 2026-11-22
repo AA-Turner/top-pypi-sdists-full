@@ -14,6 +14,12 @@ the area is ``src``, ``tests``, ``scripts`` or ``other``; keys of configuration 
   ruff configuration file (``ruff.toml``, ``.ruff.toml``, a nested ``pyproject.toml`` with ``[tool.ruff]``).
 - ``pragma:no-cover``, ``pragma:no-branch``, ``pragma:conditional-cover``, ``ty-ignore:<rule>``,
   ``pyright-ignore:<rule>`` and ``type-ignore:<code>`` comments, read with ``tokenize``.
+- ``heki-ignore:<rule>``: ``# heki: ignore`` comments, bare (``BARE``) or per listed rule, and ``# noqa`` comments,
+  bare (``BARE``) or naming a heki rule, which heki reads as suppressions too. A rule is named by its code
+  (``EFF101``, ``MUT201``, ``DATA101``, ``OPT110``) or its name (``write-owner-violation``; anywhere after
+  ``noqa:``, or inside ``heki: ignore[...]``) and counts under the rule's code. A bracketed list that is not closed
+  or names no rule silences nothing in heki and counts none. A ``noqa`` also counts under ``ruff:`` where ruff
+  would report the finding. The source model reports the ``heki: ignore`` comments as suppressions of tool ``heki``.
 - ``cast``, ``any`` (``Any`` inside an annotation or a ``cast`` target), ``getattr-private`` (a constant private
   name given to ``getattr`` and its siblings), ``dynamic-import``, ``filterwarnings-ignore``, ``no-type-check`` and
   ``abnormal-path`` (the test marker), read with ``ast``.
@@ -44,18 +50,16 @@ the area is ``src``, ``tests``, ``scripts`` or ``other``; keys of configuration 
   ``comment:plain@src`` the other plain comments (a directive such as ``noqa``, a pragma, a type ignore, a shebang or
   an encoding line is none). A comment that explains a hard line is legitimate, so the budget is today's count, paid
   by turning another comment into a docstring.
-- ``env-probe@src``: the places where the package reads the environment it runs in: a guarded import (an import
-  statement or ``import_module`` call in the body of a ``try`` with a handler for ``ImportError`` or
-  ``ModuleNotFoundError``, one probe per statement; ``except Exception`` makes an ordinary lazy import), the version
-  and platform reads of the source model's tables, ``os.environ``, ``os.getenv`` and ``importlib.util.find_spec``,
-  read with the source model by origin. Output that depends on the
-  environment cost review rounds, so the count may stay or fall, never rise.
 - ``expected:env-override`` and ``expected:conditional``: the ``.refs`` lines that carry an environment predicate
   (``@...``) and those marked conditional (``?``), per sidecar. They are reported in the table and never fail.
 - Entries: ty rules below error, coverage ``omit`` and ``exclude`` lists (by text), pytest ``ignore`` warning filters
   and the direct-assert exemption list, the generation store allowlist, the host baseline
-  (``allowlist:host-private-access``, the sum of its access counts), and the allowlists of the test style and
-  architecture checks (``allowlist:<NAME>:unreadable`` when one is written in a form this script cannot read).
+  (``allowlist:host-private-access``, the sum of its access counts), heki's baseline (the sum of the site counts of
+  its entries: ``allowlist:heki-baseline:EFF201`` for the reads of the environment the package runs in, which no other
+  key budgets, ``allowlist:heki-baseline`` for the rest), and the allowlists of the test style and architecture
+  checks, the callers of decision homes that no row lists (``allowlist:UNLISTED_CALLERS``) and the bypasses of builder
+  homes (``allowlist:BUILDER_BYPASSES``) (``allowlist:<NAME>:unreadable`` when one is written in a form this script
+  cannot read).
 - ``stored-list:<test>:items``, ``stored-list:<test>:lines`` and ``stored-list:<test>:blind``: the lists that a test
   of ``STORED_LISTS`` stores per item (through its ``.refs`` file), which may only shrink. ``items`` counts the
   records, an item's default and each environment's override (``@<predicate>``), which is never a rise. ``lines``
@@ -113,11 +117,11 @@ import tomllib
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from scripts._import_cycles import import_cycles
-from scripts._source_model import _PLATFORMS, _VERSIONS, SourceModule
+from scripts._source_model import SourceModule
 from scripts.check_source_rules import RULES
 from scripts.check_source_rules import Tree as SourceTree
 from scripts.check_source_rules import run as run_source_rules
-from tests.units import RefsIndex, derived_siblings, is_derived_label
+from tests.units import RefsIndex, derived_file_name, derived_siblings, is_derived_label
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -125,6 +129,16 @@ if TYPE_CHECKING:
 SCRIPT = "scripts/check_ratchets.py"
 STORE_ALLOWLIST = "scripts/generation_store_allowlist.toml"
 HOST_BASELINE = "scripts/host_private_access_baseline.toml"
+HEKI_BASELINE = "scripts/heki_baseline.toml"
+HEKI_OWN_KEY_RULES = frozenset({"EFF201"})
+"""The heki rules whose baseline sites count under a key of their own: no other key budgets them, so a new site cannot
+be paid for by a site of another rule."""
+ENVIRONMENT_ADVICE = (
+    "Output must not depend on the environment the generator runs in: key the decision on an option or a static rule, "
+    "not on the interpreter, the platform, a variable or an installed package. A read that belongs to the runtime "
+    "itself (an optional dependency) is paid for by removing another one."
+)
+"""How to fix a read of the environment: the advice of its key, and the help of heki's environment boundary."""
 EXPECTED_ROOT = "tests/data/expected"
 TESTS_ROOT = "tests"
 STORED_LIST = "stored-list"
@@ -160,7 +174,53 @@ CHUNK = 200
 PRAGMA = re.compile(r"\bpragma:\s*(no\s+cover|no\s+branch|\S+(?:\s+no)?\s+cover)\b")
 PRAGMA_KINDS = {"no cover": "no-cover", "no branch": "no-branch"}
 TYPE_IGNORE = re.compile(r"\b(ty|pyright|type):\s*ignore\b(?:\[([^\]]*)\])?")
-COMMENT_HINT = re.compile(r"pragma:|ignore")
+HEKI_IGNORE = re.compile(r"\bheki:\s*ignore\b(?!\[[^\]]*$)(?:\[([^\]]*)\])?", re.IGNORECASE)
+HEKI_NOQA = re.compile(r"#\s*noqa(?![\w-])(?::(.*))?", re.IGNORECASE)
+HEKI_RULES = {
+    "cached-property-stale-mutation": "MUT101",
+    "summary-effect-regression": "MUT103",
+    "iterator-double-consumption": "MUT106",
+    "hash-attr-mutation": "MUT107",
+    "readonly-type-mutation": "MUT108",
+    "write-without-invalidation": "MUT109",
+    "readonly-param-mutation": "MUT110",
+    "cached-property-stale-read": "MUT111",
+    "conditional-ownership-mutation": "MUT112",
+    "iterated-container-mutation": "MUT113",
+    "cached-result-mutation": "MUT114",
+    "write-owner-violation": "MUT201",
+    "readonly-return-mutation": "MUT202",
+    "read-owner-violation": "MUT203",
+    "call-owner-violation": "MUT204",
+    "unresolved-guarded-write": "MUT205",
+    "unresolved-guarded-read": "MUT206",
+    "unresolved-guarded-call": "MUT207",
+    "async-blocking-call": "EFF101",
+    "async-possibly-blocking-call": "EFF111",
+    "loop-unpooled-client": "EFF102",
+    "loop-db-query": "EFF103",
+    "loop-possible-db-query": "EFF113",
+    "async-blocking-fs": "EFF105",
+    "lock-or-tx-held-across-io": "EFF106",
+    "lock-reacquired-while-held": "EFF109",
+    "exclusive-object-fanout": "EFF110",
+    "unretained-async-task": "EFF107",
+    "effect-boundary-violation": "EFF201",
+    "loop-carried-concat": "DATA101",
+    "list-quadratic-concat": "OPT101",
+    "set-dict-quadratic-merge": "OPT102",
+    "immutable-quadratic-concat": "OPT103",
+    "loop-linear-membership": "OPT110",
+    "loop-linear-dedup": "OPT111",
+    "loop-linear-list-lookup": "OPT112",
+    "nested-loop-equijoin": "OPT113",
+    "list-front-pop": "OPT120",
+    "list-front-insert": "OPT121",
+    "loop-invariant-container-rebuild": "OPT130",
+}
+"""The rules of heki 0.2.0 by name (``heki rule --all``): a suppression may name a rule by its code or its name."""
+HEKI_CODE = re.compile(r"(?:EFF|MUT|DATA|OPT)\d{3}", re.IGNORECASE)
+COMMENT_HINT = re.compile(r"pragma:|ignore|noqa", re.IGNORECASE)
 CALL_HINT = re.compile(
     r"cast|attr\(|attrgetter|__getattribute__|import_module|__import__|filterwarnings|simplefilter|catch_warnings"
     r"|abnormal_path|no_type_check|\bAny\b"
@@ -230,11 +290,12 @@ ALLOWLISTS = (
         }),
     ),
     ("tests/generated_import_closure_allowlist.py", frozenset({"UNBOUND_NAME_VIOLATIONS"})),
+    ("tests/decision_home_allowlist.py", frozenset({"UNLISTED_CALLERS", "BUILDER_BYPASSES"})),
     ("scripts/check_architecture_boundaries.py", frozenset({"DEFAULT_ALLOWLIST"})),
     ("tests/test_checks_are_run.py", frozenset({"UNREACHED"})),
 )
 PLAIN_COMMENT_AREAS = frozenset({"src"})
-"""The areas whose plain comments and environment probes are counted."""
+"""The areas whose plain comments are counted."""
 TODO_MARKER = re.compile(r"\b(?:TODO|FIXME|XXX|HACK)\b")
 COMMENT_DIRECTIVE = re.compile(
     r"^#(?:!|\s*-\*-|\s*(?:vim?|coding)[:=]|\s*(?:type|ty|pyright|mypy|pylint|isort|fmt)\s*:)", re.IGNORECASE
@@ -243,10 +304,6 @@ COMMENT_DIRECTIVE = re.compile(
 
 Comments the source model reports as suppressions (``noqa``, ``pragma``, ``ruff:``, type ignores) are directives too.
 """
-ENV_PROBES = frozenset({*_VERSIONS, *_PLATFORMS, "os.environ", "os.getenv", "importlib.util.find_spec"})
-"""The dotted origins whose reads depend on the environment: the source model's version and platform tables, etc."""
-IMPORT_ERRORS = frozenset({"builtins.ImportError", "builtins.ModuleNotFoundError"})
-"""The exceptions whose handler makes a ``try`` around an import a probe (``Exception`` makes it an ordinary guard)."""
 REPORT_ONLY = frozenset({"expected"})
 """The kinds of keys that are reported in the table and never fail."""
 ADVICE = {
@@ -268,14 +325,11 @@ ADVICE = {
         "nobody tracks."
     ),
     "comment": "Say it in the docstring or fix it: a comment that only explains a stopgap hides the stopgap.",
-    "env-probe": (
-        "Output must not depend on the environment the generator runs in: key the decision on an option or a "
-        "static rule, not on the interpreter, the platform, a variable or an installed package. A probe that "
-        "belongs to the runtime itself (an optional dependency) is paid for by removing another one."
-    ),
     "ty-ignore": "Fix the type error or the annotation instead of ignoring it.",
     "pyright-ignore": "pyright checks only generated packages: drop the comment outside `_runtime`, or fix the type.",
     "type-ignore": "Fix the type error or the annotation instead of ignoring it.",
+    "heki-ignore": "Fix the finding or the contract instead of silencing heki on the line; the baseline only shrinks.",
+    "allowlist:heki-baseline:EFF201": ENVIRONMENT_ADVICE,
     "cast": "Narrow the type with isinstance, an annotation or a TypeGuard instead of cast().",
     "any": "Name the type (a Protocol, a TypeVar, object or a union) instead of Any.",
     "no-type-check": "Fix the annotations instead of switching the type checker off for the function.",
@@ -622,6 +676,11 @@ def _ruff_tally(tally: Tally, root: Path, files: list[str], ruff: list[str], pyp
         tally.add(f"ruff:{code}@{_area(path)}", path, line)
 
 
+def _heki_rule(word: str) -> str:
+    """Return the code of a heki rule named by its code or its name, else the word as written."""
+    return word.upper() if HEKI_CODE.fullmatch(word) else HEKI_RULES.get(word.lower(), word)
+
+
 def _comment_keys(text: str) -> list[str]:
     pragmas = [
         f"pragma:{PRAGMA_KINDS.get(' '.join(match[1].split()), 'conditional-cover')}" for match in PRAGMA.finditer(text)
@@ -631,7 +690,15 @@ def _comment_keys(text: str) -> list[str]:
         for match in TYPE_IGNORE.finditer(text)
         for rule in (match[2] or "").split(",")
     ]
-    return [*pragmas, *ignores]
+    heki: list[str] = []
+    for match in HEKI_IGNORE.finditer(text):
+        listed = None if match[1] is None else [rule.strip() for rule in match[1].split(",") if rule.strip()]
+        heki += ["heki-ignore:BARE"] if listed is None else [f"heki-ignore:{_heki_rule(rule)}" for rule in listed]
+    for match in HEKI_NOQA.finditer(text):
+        words = re.findall(r"[\w-]+", match[1] or "")
+        rules = [rule for word in words if HEKI_CODE.fullmatch(rule := _heki_rule(word))]
+        heki += [f"heki-ignore:{rule}" for rule in rules] if words else ["heki-ignore:BARE"]
+    return [*pragmas, *ignores, *heki]
 
 
 def _private_name(node: ast.expr) -> bool:
@@ -784,58 +851,20 @@ def comment_sites(model: SourceModule) -> tuple[list[int], list[int]]:
     return plain, todo
 
 
-def _catches_import_error(model: SourceModule, node: ast.AST) -> bool:
-    """Return whether a ``try`` has a handler that names ``ImportError`` or ``ModuleNotFoundError`` by origin."""
-    if not isinstance(node, (ast.Try, ast.TryStar)):
-        return False
-    return any(
-        isinstance(part, ast.expr) and model.origin(part) in IMPORT_ERRORS
-        for handler in node.handlers
-        if handler.type is not None
-        for part in (handler.type.elts if isinstance(handler.type, ast.Tuple) else [handler.type])
-    )
-
-
-def _guarded_by_import_error(model: SourceModule, guard: tuple) -> bool:
-    return any(condition.branch == "body" and _catches_import_error(model, condition.node) for condition in guard)
-
-
-def env_probe_sites(model: SourceModule) -> list[int]:
-    """Return the lines where a module reads the environment it runs in, by origin through the source model.
-
-    A guarded import (an import statement or ``import_module`` call in the body of a ``try`` with a handler for
-    ``ImportError``; one probe per statement) and each read of one of `ENV_PROBES`.
-    """
-    nodes = list(ast.walk(model.tree))
-    reads = [reference.node for reference in model.references if reference.context == "load"]
-    reads += [node for node in nodes if isinstance(node, ast.Attribute) and isinstance(node.ctx, ast.Load)]
-    lines = [node.lineno for node in reads if model.origin(node) in ENV_PROBES]
-    guarded = {found.node for found in model.imports if _guarded_by_import_error(model, found.guard)}
-    guarded |= {
-        site.node
-        for site in model.dynamic_sites
-        if site.kind == "import-module" and _guarded_by_import_error(model, site.guard)
-    }
-    return sorted([*lines, *(node.lineno for node in guarded)])
-
-
 def _comment_tally(tally: Tally, root: Path, files: list[str]) -> None:
-    """Count the plain and to-do comments and the environment probes of the package, through the source model."""
+    """Count the plain and to-do comments of the package, through the source model."""
     for path in files:
         if not path.endswith((".py", ".pyi")) or path.startswith(UNCHECKED) or _area(path) not in PLAIN_COMMENT_AREAS:
             continue
         try:
             model = SourceModule((root / path).read_text(encoding="utf-8", errors="replace"), path)
             plain, todo = comment_sites(model)
-            probes = env_probe_sites(model)
         except (SyntaxError, ValueError):
             continue
         for line in plain:
             tally.add(f"comment:plain@{_area(path)}", path, line)
         for line in todo:
             tally.add("comment:todo", path, line)
-        for line in probes:
-            tally.add(f"env-probe@{_area(path)}", path, line)
 
 
 def _expected_tally(tally: Tally, root: Path) -> None:
@@ -874,17 +903,29 @@ def _ruff_files(tally: Tally, root: Path, files: list[str]) -> None:
             tally.add(f"ruff-config:file:{path}", path)
 
 
+def _is_one_entry(value: ast.expr) -> bool:
+    """Return whether a dict value is a constant or a record built by a class (``Entry(...)``): one entry, not many."""
+    if isinstance(value, ast.Call):
+        callee = ast.unparse(value.func)
+        return callee.isidentifier() and callee[:1].isupper()
+    return isinstance(value, ast.Constant)
+
+
 def _entries(node: ast.expr) -> list[ast.expr] | None:
     """Return the entries of an allowlist literal, or None where it is not one this script can read.
 
-    The entries are the elements, or the members of a dict's collection values.
+    The entries are the elements, or the members of a dict's collection values, or the keys of a dict whose values are
+    all constants or records (``Entry(...)``). A dict with any other value (``tuple([...])``, ``a + b``, a name) is
+    not readable: its members could be counted only by running it, and counting its keys would hide them.
     """
     value = node.args[0] if isinstance(node, ast.Call) and node.args else node
     if isinstance(value, ast.Dict):
         groups = [item.elts for item in value.values if isinstance(item, (ast.Tuple, ast.List, ast.Set))]
         if len(groups) == len(value.values):
             return [entry for group in groups for entry in group]
-        return [key for key in value.keys if key is not None]
+        if all(_is_one_entry(item) for item in value.values):
+            return [key for key in value.keys if key is not None]
+        return None
     return list(value.elts) if isinstance(value, (ast.Tuple, ast.List, ast.Set)) else None
 
 
@@ -921,6 +962,24 @@ def _host_baseline_tally(tally: Tally, root: Path) -> None:
             tally.add(key, HOST_BASELINE)
 
 
+def _heki_baseline_tally(tally: Tally, root: Path) -> None:
+    """Count the sites of heki's baseline, those of `HEKI_OWN_KEY_RULES` under a key per rule.
+
+    A file that is not entries with integer counts is unreadable.
+    """
+    file = root / HEKI_BASELINE
+    try:
+        entries = tomllib.loads(file.read_text(encoding="utf-8")).get("entries", []) if file.is_file() else []
+        counted = [(entry.get("count"), entry.get("rule_code")) for entry in entries]
+    except (tomllib.TOMLDecodeError, AttributeError, TypeError):
+        counted = [(None, None)]
+    for count, rule in counted:
+        own = f":{rule}" if rule in HEKI_OWN_KEY_RULES else ""
+        key = "allowlist:heki-baseline" + (own if type(count) is int else ":unreadable")
+        for _ in range(count if type(count) is int else 1):
+            tally.add(key, HEKI_BASELINE)
+
+
 def _config_tally(tally: Tally, root: Path, pyproject: dict) -> None:
     """Count the configuration entries and allowlist entries that switch a check off."""
     tool = pyproject.get("tool", {})
@@ -944,6 +1003,7 @@ def _config_tally(tally: Tally, root: Path, pyproject: dict) -> None:
     for _ in pytest.get("ini_options", {}).get("assert_helper_direct_assert_exempt_files", []):
         tally.add("allowlist:direct-assert-exempt-files", "pyproject.toml")
     _host_baseline_tally(tally, root)
+    _heki_baseline_tally(tally, root)
     for value in _toml_leaves(root, STORE_ALLOWLIST):
         counted = isinstance(value, int)
         for _ in range(value if counted else 1):
@@ -977,11 +1037,13 @@ def _stored_lines(path: Path) -> list[str] | None:
 def _stored_list_tally(tally: Tally, root: Path) -> None:
     """Count the items and lines of the stored lists, reading each record's storage through its ``.refs`` file.
 
-    Only the records of the test's own list count: the other outputs it stores for an item, such as the warnings of
-    its generation, are no list of gaps.
+    Only the records of the test's own list count, the output the harness names after the item with no role: the
+    other outputs it stores for an item under a role, such as the ``warnings`` of its generation, are no list of gaps.
     """
     for sidecar, test in STORED_LISTS:
         path = root / sidecar
+        stem = PurePosixPath(sidecar).stem.removeprefix("test_")
+        siblings = derived_siblings(test, _module_tests(root, path.with_suffix(".py")))
         section = ""
         for raw in path.read_text(encoding="utf-8").splitlines() if path.is_file() else []:
             if raw.startswith("["):
@@ -989,7 +1051,7 @@ def _stored_list_tally(tally: Tally, root: Path) -> None:
             if section != test or raw.startswith(("[", "#")):
                 continue
             item, label, *flags = raw.split("\t")
-            if not label.rpartition("/")[2].startswith(f"{test.removeprefix('test_')}["):
+            if label.rpartition("/")[2] != derived_file_name(stem, test, item, siblings, suffix=".txt"):
                 continue
             storage = next((flag.removeprefix("= ") for flag in flags if flag.startswith("= ")), label)
             environment = next((flag for flag in flags if flag.startswith("@")), "")

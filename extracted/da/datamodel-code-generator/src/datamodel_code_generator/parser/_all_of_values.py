@@ -16,7 +16,6 @@ from typing import TYPE_CHECKING, Any, Final, Literal, TypeAlias, cast
 
 from typing_extensions import Protocol, final
 
-from datamodel_code_generator import AllOfClassHierarchy, AllOfMergeMode, SchemaParseError
 from datamodel_code_generator._constraint_applicability import all_of_root_keyword_kinds
 from datamodel_code_generator._json_schema import (
     DEFINITION_KEYS,
@@ -27,7 +26,9 @@ from datamodel_code_generator._json_schema import (
 )
 from datamodel_code_generator._model_keys import FIELDLESS_SITE_KEY
 from datamodel_code_generator._regex_syntax import is_portable_pattern
+from datamodel_code_generator._shared_types import SchemaParseError
 from datamodel_code_generator._url_redaction import named_location
+from datamodel_code_generator.enums import AllOfClassHierarchy, AllOfMergeMode
 from datamodel_code_generator.model._decisions.enum_kind import holds_inherited_member_value, holds_member_value
 from datamodel_code_generator.model.enum import Enum, enum_value_base
 from datamodel_code_generator.parser import _lightweight_types, _schema_refs, _value_keywords
@@ -881,7 +882,7 @@ def handle_allof_root_model_with_constraints(  # noqa: PLR0911, PLR0912, PLR0915
 
     constraint_items: list[JsonSchemaObject] = []
     for item in obj.allOf:
-        if not isinstance(item, JsonSchemaObject):  # pragma: no cover
+        if not isinstance(item, JsonSchemaObject):  # pragma: no cover - not proven unreachable
             continue
         if item.ref:
             continue
@@ -1482,7 +1483,7 @@ def holds_union_member(parser: SchemaRefsHost, schema: JsonSchemaObject, seen: f
     return False
 
 
-def _member_conjunctions(  # noqa: PLR0913
+def _member_conjunctions(
     parser: AllOfValuesHost,
     item: JsonSchemaObject | bool,  # noqa: FBT001
     where: str,

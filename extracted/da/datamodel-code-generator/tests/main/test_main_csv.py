@@ -8,12 +8,10 @@ import pytest
 
 from datamodel_code_generator import InputFileType, InvalidFileFormatError, generate
 from datamodel_code_generator.__main__ import Exit
-from tests.conftest import create_assert_file_content
 from tests.main.conftest import (
     BACKEND_GOLDEN_CASES,
     BACKEND_GOLDEN_TARGET_ARGS,
     CSV_DATA_PATH,
-    EXPECTED_CSV_PATH,
     JSON_DATA_PATH,
     YAML_DATA_PATH,
     run_main_and_assert,
@@ -23,17 +21,12 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-assert_file_content = create_assert_file_content(EXPECTED_CSV_PATH)
-
-
 def test_csv_file(output_file: Path) -> None:
     """Test CSV file input code generation."""
     run_main_and_assert(
         input_path=CSV_DATA_PATH / "simple.csv",
         output_path=output_file,
         input_file_type="csv",
-        assert_func=assert_file_content,
-        expected_file="csv_file_simple.py",
     )
 
 
@@ -48,8 +41,6 @@ def test_main_csv_output_model_types(
         input_path=CSV_DATA_PATH / "backend_matrix.csv",
         output_path=output_file,
         input_file_type="csv",
-        assert_func=assert_file_content,
-        expected_file=f"output_model_types/backend_matrix_{expected_name}.py",
         extra_args=[*BACKEND_GOLDEN_TARGET_ARGS, "--output-model-type", output_model_type],
         force_exec_validation=True,
         importable_module_name=f"generated_csv_{expected_name}",
@@ -62,8 +53,6 @@ def test_csv_file_auto_detection(output_file: Path, capsys: pytest.CaptureFixtur
     run_main_and_assert(
         input_path=CSV_DATA_PATH / "simple.csv",
         output_path=output_file,
-        assert_func=assert_file_content,
-        expected_file="csv_file_simple.py",
         capsys=capsys,
         expected_stderr_contains="The input file type was determined to be: csv",
     )
@@ -99,8 +88,6 @@ def test_csv_stdin(monkeypatch: pytest.MonkeyPatch, output_file: Path) -> None:
         output_path=output_file,
         monkeypatch=monkeypatch,
         input_file_type="csv",
-        assert_func=assert_file_content,
-        expected_file="csv_stdin_simple.py",
     )
 
 
@@ -110,8 +97,6 @@ def test_csv_file_missing_trailing_cell(output_file: Path) -> None:
         input_path=CSV_DATA_PATH / "missing_trailing_cell.csv",
         output_path=output_file,
         input_file_type="csv",
-        assert_func=assert_file_content,
-        expected_file="csv_file_missing_trailing_cell.py",
     )
 
 
@@ -121,8 +106,6 @@ def test_csv_file_extra_trailing_cell(output_file: Path) -> None:
         input_path=CSV_DATA_PATH / "extra_trailing_cell.csv",
         output_path=output_file,
         input_file_type="csv",
-        assert_func=assert_file_content,
-        expected_file="csv_file_extra_trailing_cell.py",
     )
 
 

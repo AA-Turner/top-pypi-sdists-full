@@ -2,7 +2,7 @@
 
 __author__ = """Dhruv Baldawa"""
 __email__ = "dhruv@dhruvb.com"
-__version__ = "3.0.0"
+__version__ = "4.0.0"
 
 from .exceptions import (
     HashComputationError,
@@ -13,8 +13,15 @@ from .exceptions import (
 )
 from .funcs import Func, FuncReg, IdentityHash, ShakeHash
 from .multihash import (
+    Cast,
+    MHFromBytes,
     Multihash,
+    MultihashReader,
     MultihashSet,
+    MultihashWriter,
+    NewReader,
+    NewWriter,
+    cast,
     coerce_code,
     decode,
     digest,
@@ -26,6 +33,9 @@ from .multihash import (
     is_app_code,
     is_valid,
     is_valid_code,
+    mh_from_bytes,
+    new_reader,
+    new_writer,
     sum,
     sum_stream,
     to_b58_string,
@@ -33,17 +43,24 @@ from .multihash import (
 )
 
 __all__ = [
+    "Cast",
     "Func",
     "FuncReg",
     "HashComputationError",
     "IdentityHash",
     "InvalidMultihashError",
+    "MHFromBytes",
     "Multihash",
     "MultihashError",
+    "MultihashReader",
     "MultihashSet",
+    "MultihashWriter",
+    "NewReader",
+    "NewWriter",
     "ShakeHash",
     "TruncationError",
     "UnsupportedCodeError",
+    "cast",
     "coerce_code",
     "decode",
     "digest",
@@ -55,6 +72,9 @@ __all__ = [
     "is_app_code",
     "is_valid",
     "is_valid_code",
+    "mh_from_bytes",
+    "new_reader",
+    "new_writer",
     "sum",
     "sum_stream",
     "to_b58_string",

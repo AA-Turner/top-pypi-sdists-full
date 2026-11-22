@@ -572,6 +572,31 @@ pub fn drop_contained_regulars(regions: &mut Vec<Region>) {
     });
 }
 
+/// Drop layout `table` / `document_index` regions. docling 2.150 with
+/// `do_table_structure=False` still emits an empty table
+/// (`PageAssembleModel`, `text=""`, no cells). This port drops the region
+/// instead and keeps the words as text — a deliberate divergence. The
+/// geometric grid is the other case, TableFormer requested and its files
+/// missing, and that path keeps the regions.
+pub fn release_unstructured_tables(regions: &mut Vec<Region>) {
+    regions.retain(|r| !is_table_like(r.label));
+}
+
+/// [`release_unstructured_tables`] once OCR has read the page: drop the table
+/// regions, give their words — which nothing claims any more — orphan text
+/// regions, and re-run the containment drop. On a digital page the words are
+/// the text layer's; on a scan, the `ocr_table_words` crops OCR made while
+/// the table regions still existed. Releasing before that crop loses a scan's
+/// table text when the text detector model is absent.
+pub fn release_unstructured_tables_after_ocr(regions: &mut Vec<Region>, cells: &[TextCell]) {
+    if !regions.iter().any(|r| is_table_like(r.label)) {
+        return;
+    }
+    release_unstructured_tables(regions);
+    add_orphan_regions(regions, cells);
+    drop_contained_regulars(regions);
+}
+
 /// docling's `_set_cluster_children` for pictures: a regular region (one that
 /// claims cells) whose box is > 80 % inside a picture's box
 /// (`intersection_over_self`) is that picture's child — not a page element
@@ -2927,7 +2952,9 @@ fn cells_text_keep_wrap(inside: Vec<&TextCell>) -> String {
         // unless it ends with `-`. A dash-ending line whose last word and the
         // next line's first word are both alphanumeric is a wrapped word: the
         // dash is dropped and the lines fuse (`platforms-` + `reflects` →
-        // `platformsreflects`, `pp. 545-` + `561` → `545561`). Any other
+        // `platformsreflects`) — unless that last word is one character or
+        // the next line opens on a digit (docling#4387: `n-` + `octanal` →
+        // `n-octanal`, `pp. 545-` + `561` → `545-561`). Any other
         // dash-ending line — e.g. the *bare* `-` cell a superscript ORCID or an
         // inline `–` bullet splits off (its word list is empty, so the fuse
         // test fails) — keeps its dash and still takes no trailing space:
@@ -2943,16 +2970,15 @@ fn cells_text_keep_wrap(inside: Vec<&TextCell>) -> String {
             // glyph): an empty line would double the separator.
             .filter(|t| !t.is_empty())
             .collect();
-        let last_word_alnum = |s: &str| {
+        // docling's `\b[\w]+\b` words of a line: runs of letters, digits
+        // and `_`.
+        let words = |s: &str| {
             s.split(|c: char| !(c.is_alphanumeric() || c == '_'))
-                .rfind(|w| !w.is_empty())
-                .is_some_and(|w| w.chars().all(char::is_alphanumeric))
+                .filter(|w| !w.is_empty())
+                .map(str::to_owned)
+                .collect::<Vec<_>>()
         };
-        let first_word_alnum = |s: &str| {
-            s.split(|c: char| !(c.is_alphanumeric() || c == '_'))
-                .find(|w| !w.is_empty())
-                .is_some_and(|w| w.chars().all(char::is_alphanumeric))
-        };
+        let alnum = |w: &str| w.chars().all(char::is_alphanumeric);
         let mut out = String::new();
         for (i, t) in texts.iter().enumerate() {
             if i > 0 {
@@ -2981,7 +3007,17 @@ fn cells_text_keep_wrap(inside: Vec<&TextCell>) -> String {
                     // keeps its dash and the line break's space (#920).
                     out.push(' ');
                 } else if dashish && attached {
-                    if last_word_alnum(prev) && first_word_alnum(t) {
+                    // docling#4387: a hyphen no hyphenation rule could have
+                    // placed belongs to the word and stays — after a
+                    // one-character token (`n-` / `octanal`) or before a
+                    // continuation opening on a digit (`15137-` / `15145`,
+                    // `6-methyl-` / `5-hepten-2-one`).
+                    let (pw, nw) = (words(prev), words(t));
+                    let fuses = pw.last().is_some_and(|w| alnum(w) && w.chars().count() > 1)
+                        && nw.first().is_some_and(|w| {
+                            alnum(w) && !w.chars().next().is_some_and(|c| c.is_ascii_digit())
+                        });
+                    if fuses {
                         out.pop(); // wrapped word: fuse without the dash
                     }
                     // an attached dash never takes a separating space
@@ -3093,12 +3129,14 @@ fn code_region_text(region: &Region, cells: &[TextCell]) -> String {
 /// text can be, when it is the line its characters account for.
 ///
 /// A cell's box is as tall as the font's ascent and descent say, and some
-/// faces inflate those far past the glyphs — Cambria's regular face declares
-/// 3117 / -2464, so each of its lines sits in a 5.6 em box and overlaps the
-/// four lines around it (#1129). Taken at its word, that height merged three
-/// or four lines of a table cell into one "row" in top-edge order (the
-/// second line ahead of the first, whose bold face has honest metrics) and
-/// would merge columns under 75 pt apart.
+/// faces inflate those far past the glyphs — 3117 / -2464, each line in a
+/// 5.6 em box that overlaps the four lines around it (#1129). Taken at its
+/// word, that height merged three or four lines of a table cell into one
+/// "row" in top-edge order (the second line ahead of the first, whose bold
+/// face has honest metrics) and would merge columns under 75 pt apart.
+/// (Where the descriptor has a cap height, the parser scales such metrics
+/// back as docling-parse does — the issue's Cambria is a 1.19 em box now,
+/// `textparse::font_ascent_descent` — so this is for the face without one.)
 ///
 /// Text averages about half an em per character, so [`LINE_PER_ADVANCE`]
 /// mean advances is a normal line's height. A box over [`INFLATED_BOX`]
@@ -3116,9 +3154,9 @@ fn line_height(c: &TextCell) -> f32 {
 
 /// Where a cell's line starts, for putting cells in reading order: the box
 /// top — or, for an inflated box ([`line_height`]), the top of the line
-/// centred in it. Such a box starts well above its text (Cambria's regular
-/// face: 20 pt), so by box tops the second line of a cell came before a
-/// first line set in a face with honest metrics.
+/// centred in it. Such a box starts well above its text (#1129's face:
+/// 20 pt), so by box tops the second line of a cell came before a first
+/// line set in a face with honest metrics.
 fn line_top(c: &TextCell) -> f32 {
     let lh = line_height(c);
     if lh < (c.b - c.t).abs() {
@@ -4425,6 +4463,7 @@ pub fn assemble_page(
                     loc,
                     Node::Table(Table {
                         footnotes: Vec::new(),
+                        footnotes_as_runs: false,
                         rows,
                         location: None,
                         structure,
@@ -4902,6 +4941,25 @@ pub(crate) enum Continuations {
     Lines,
 }
 
+/// docling#4387 (`ReadingOrderModel`, `_TOKEN_BEFORE_HYPHEN_RE`): a hard
+/// hyphen ending a paragraph fragment belongs to the word when the token
+/// before it is one character (`n-` / `octanal`) or the continuation opens on
+/// a digit (`6-methyl-` / `5-hepten-2-one`) — no hyphenation rule places
+/// either. The fragments then join without a space and the hyphen stays.
+/// A hyphen after a space (`cost is -`) is no such token.
+fn hyphen_belongs_to_word(a: &str, b: &str) -> bool {
+    let Some(stem) = a.strip_suffix('-') else {
+        return false;
+    };
+    let token: String = stem
+        .chars()
+        .rev()
+        .take_while(|c| c.is_alphanumeric() || *c == '_')
+        .collect();
+    !token.is_empty()
+        && (token.chars().count() == 1 || b.chars().next().is_some_and(|c| c.is_ascii_digit()))
+}
+
 pub(crate) fn merge_continuations(nodes: &mut Vec<Node>, how: Continuations) {
     merge_open_paragraphs(nodes, how);
     strip_wrap_marks(nodes);
@@ -4973,9 +5031,17 @@ fn merge_open_paragraphs(nodes: &mut Vec<Node>, how: Continuations) {
             // its space; docling fuses these (`Warteund`), a deliberate
             // divergence (docs/MIGRATION.md).
             let elliptical = !a.ends_with('\u{ad}') && starts_with_conjunction(&b);
-            let merged = match a.strip_suffix('\u{ad}').or_else(|| a.strip_suffix('-')) {
-                Some(stem) if !elliptical => format!("{stem}{b}"),
-                _ => format!("{a} {b}"),
+            // A hyphen that belongs to the word (docling#4387: after a
+            // one-character token, or before a digit) stays, and the
+            // fragments still join without a space.
+            let merged = match a.strip_suffix('\u{ad}') {
+                Some(stem) => format!("{stem}{b}"),
+                None if elliptical => format!("{a} {b}"),
+                None if hyphen_belongs_to_word(&a, &b) => format!("{a}{b}"),
+                None => match a.strip_suffix('-') {
+                    Some(stem) => format!("{stem}{b}"),
+                    None => format!("{a} {b}"),
+                },
             };
             // Keep node i's provenance wrapper; docling's merged paragraph keeps
             // the first fragment's geometry as its primary location — and, from
@@ -5002,6 +5068,7 @@ fn merge_open_paragraphs(nodes: &mut Vec<Node>, how: Continuations) {
                             docling_core::text_char_len(&merged),
                         ],
                         page_skip,
+                        exact: None,
                     })
                 }
                 _ => None,
@@ -5683,13 +5750,15 @@ mod tests {
         assert_eq!(super::region_text(&region, &numeral), "들어가며 1");
     }
 
-    /// #1129: the issue page's table, as the text layer hands it over. Its
-    /// headings are Cambria Bold (honest metrics, 12 pt boxes); the body is
-    /// Cambria regular, whose declared ascent and descent put every line in a
-    /// 50 pt box on lines 10.5 pt apart. Rows clustered by those heights held
-    /// three or four lines each, in box-top order — the second body line
-    /// ahead of the heading over it. By the line each cell really is, the
-    /// grid is the table's lines, in order, in their two columns.
+    /// #1129: the issue page's table, as the text layer handed it over when
+    /// the font's metrics were taken unscaled (a face without a cap height
+    /// still is). Its headings are Cambria Bold (honest metrics, 12 pt
+    /// boxes); the body is Cambria regular, whose declared ascent and descent
+    /// put every line in a 50 pt box on lines 10.5 pt apart. Rows clustered
+    /// by those heights held three or four lines each, in box-top order —
+    /// the second body line ahead of the heading over it. By the line each
+    /// cell really is, the grid is the table's lines, in order, in their two
+    /// columns.
     #[test]
     fn geometric_table_reads_a_tall_box_font_line_by_line() {
         let cells = vec![
@@ -6897,6 +6966,36 @@ mod tests {
         assert_eq!(lines, [page(1), para("the definition of lists in scope")]);
     }
 
+    /// docling#4387 (`test_readingorder_hyphenated_merges.py`): a paragraph
+    /// merge keeps a hyphen that belongs to the word — after a one-character
+    /// token, or before a digit — and joins without a space; a wrapped word
+    /// still fuses, a soft hyphen always does, and the #920 elliptical
+    /// compound before a conjunction keeps its space.
+    #[test]
+    fn paragraph_merge_keeps_a_hyphen_that_belongs_to_the_word() {
+        let merged = |a: &str, b: &str| {
+            let mut nodes = vec![para(a), para(b)];
+            merge_continuations(&mut nodes, Continuations::Lines);
+            nodes
+        };
+        assert_eq!(merged("algo-", "rithms"), [para("algorithms")]);
+        assert_eq!(merged("algo\u{ad}", "rithms"), [para("algorithms")]);
+        assert_eq!(
+            merged("undecanal or n-", "tridecanal"),
+            [para("undecanal or n-tridecanal")]
+        );
+        assert_eq!(
+            merged("Warte-", "und Behaltefristen"),
+            [para("Warte- und Behaltefristen")]
+        );
+        assert_eq!(merged("A-", "und B-Seite"), [para("A- und B-Seite")]);
+        // The digit case, at the join itself (our merge gate only takes a
+        // lowercase continuation, as before).
+        assert!(super::hyphen_belongs_to_word("6-methyl-", "5-hepten-2-one"));
+        assert!(!super::hyphen_belongs_to_word("cost is -", "5.00 USD"));
+        assert!(!super::hyphen_belongs_to_word("algo-", "rithms"));
+    }
+
     /// #1127: a paragraph joined across page breaks keeps every fragment's
     /// box — docling's merged item has one `prov` per page, each with its
     /// `charspan` into the joined text — and the Markdown is unchanged.
@@ -6934,6 +7033,7 @@ mod tests {
                 prev_end: head,
                 span: [head + 1, stem],
                 page_skip: 1,
+                exact: None,
             }
         );
         assert_eq!(
@@ -6943,6 +7043,7 @@ mod tests {
                 prev_end: stem,
                 span: [stem, total],
                 page_skip: 2,
+                exact: None,
             }
         );
         // Streamed a page at a time, the same.
@@ -6984,14 +7085,17 @@ mod tests {
         assert_eq!(next["prov"].as_array().unwrap().len(), 1);
         assert_eq!(next["prov"][0]["page_no"], 8);
 
-        // Every other serializer reads the markers as nothing.
+        // The Markdown reads the markers as nothing; DocLang writes the
+        // paragraph as a thread of its three boxes (#1207).
         let mut plain = docling_core::DoclingDocument::new("t");
         plain.nodes = merged
             .into_iter()
             .filter(|n| !matches!(n, Node::ProvContinuation { .. }))
             .collect();
         assert_eq!(doc.export_to_markdown(), plain.export_to_markdown());
-        assert_eq!(doc.export_to_doclang(), plain.export_to_doclang());
+        let doclang = doc.export_to_doclang();
+        assert_eq!(doclang.matches("<thread thread_id=\"1\"/>").count(), 3);
+        assert!(!doclang.contains("thread_id=\"2\""));
     }
 
     fn item(text: &str) -> Node {
@@ -7222,11 +7326,27 @@ mod tests {
             cells_text(vec![&line("algo-", 0.0), &line("rithms", 12.0)]),
             "algorithms"
         );
-        // `pp. 545-` / `561`: attached, digits count as alnum → `545561` (upstream).
+        // docling#4387: a hyphen no hyphenation rule could have placed stays,
+        // with no space — before a continuation opening on a digit …
         assert_eq!(
             cells_text(vec![&line("pp. 545-", 0.0), &line("561", 12.0)]),
-            "pp. 545561"
+            "pp. 545-561"
         );
+        for (a, b, want) in [
+            ("6-methyl-", "5-hepten-2-one", "6-methyl-5-hepten-2-one"),
+            ("COVID-", "19 cases", "COVID-19 cases"),
+            // … or after a one-character token.
+            (
+                "undecanal or n-",
+                "tridecanal, from each blend",
+                "undecanal or n-tridecanal, from each blend",
+            ),
+            ("i-", "butyric acid", "i-butyric acid"),
+            // An underscore-bearing token is no split word (unchanged).
+            ("foo_bar-", "baz", "foo_bar-baz"),
+        ] {
+            assert_eq!(cells_text(vec![&line(a, 0.0), &line(b, 12.0)]), want);
+        }
         // A dash after whitespace — a separator or a lone `-` cell — is kept and
         // the lines take the ordinary joining space.
         assert_eq!(
@@ -7965,5 +8085,168 @@ mod tests {
                 "مارس"
             ]
         );
+    }
+
+    /// Tables off, on a Texas oversize permit whose company name, permit
+    /// number, US DOT number, plate, and route have been blanked
+    /// (`tests/data/tx_osow_anonymized.pdf`). Layout still marked four
+    /// tables; these are the boxes docling.rs 2.84.0 drew, bottom-left page
+    /// points. docling emits an empty table. This port keeps `Axle:` and
+    /// `Miles` as text. Those are the words the grid used to swallow.
+    #[test]
+    fn tables_off_keeps_permit_words_as_boxed_text() {
+        use crate::layout::Region;
+        use crate::textparse::PageTextParser;
+
+        // (page index, l, top, r, bottom) in a bottom-left origin.
+        const TABLES_BL: [(usize, f32, f32, f32, f32); 4] = [
+            (0, 37.19, 552.56, 352.12, 483.49),
+            (1, 30.21, 304.24, 567.11, 105.25),
+            (2, 29.05, 715.37, 567.11, 106.89),
+            (3, 30.21, 712.08, 567.11, 615.05),
+        ];
+
+        let bytes = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/data/tx_osow_anonymized.pdf"
+        ))
+        .expect("anonymized permit");
+        let mut parser = PageTextParser::open(&bytes).expect("permit text layer");
+        assert_eq!(parser.page_count(), 4);
+
+        let mut axle_text = false;
+        let mut miles_text = false;
+        let mut axle_table = false;
+        let mut miles_table = false;
+
+        for page_i in 0..parser.page_count() {
+            let page = parser.text_page(page_i);
+            let h = page.height;
+            let mut regions: Vec<Region> = TABLES_BL
+                .into_iter()
+                .filter(|t| t.0 == page_i)
+                .map(|(_, l, top, r, bottom)| Region {
+                    label: "table",
+                    score: 0.9,
+                    l,
+                    t: h - top,
+                    r,
+                    b: h - bottom,
+                })
+                .collect();
+            // Tables off, after OCR: the text layer is already in `page.cells`.
+            // The same helper the pipeline calls once the table crops exist.
+            super::release_unstructured_tables_after_ocr(&mut regions, &page.cells);
+            let n = regions.len();
+            let (nodes, _) =
+                super::assemble_page(&page, regions, &vec![None; n], &vec![None; n], None);
+            for node in &nodes {
+                note_permit_words(
+                    node,
+                    false,
+                    &mut axle_text,
+                    &mut miles_text,
+                    &mut axle_table,
+                    &mut miles_table,
+                );
+            }
+        }
+
+        assert!(
+            axle_text && miles_text && !axle_table && !miles_table,
+            "Axle: text={axle_text} table={axle_table}; Miles text={miles_text} table={miles_table}"
+        );
+    }
+
+    /// A scan has no text layer. OCR reads the table crop while the region
+    /// still exists and appends those cells. Releasing the region first drops
+    /// the crop, and without the text detector the words are gone.
+    #[test]
+    fn tables_off_keeps_scanned_table_words_as_text() {
+        use crate::layout::Region;
+        use crate::pdfium_backend::{PdfPage, TextCell};
+
+        let cells = vec![TextCell {
+            text: "Axle:".into(),
+            l: 40.0,
+            t: 100.0,
+            r: 90.0,
+            b: 112.0,
+        }];
+        let mut regions = vec![Region {
+            label: "table",
+            score: 0.9,
+            l: 30.0,
+            t: 90.0,
+            r: 220.0,
+            b: 180.0,
+        }];
+        assert!(
+            regions.iter().any(|r| r.label == "table"),
+            "the table region has to survive until OCR has read its crop"
+        );
+        super::release_unstructured_tables_after_ocr(&mut regions, &cells);
+        assert!(regions
+            .iter()
+            .all(|r| r.label != "table" && r.label != "document_index"));
+        let page = PdfPage::from_cells(600.0, 800.0, 1.0, cells);
+        let n = regions.len();
+        let (nodes, _) = super::assemble_page(&page, regions, &vec![None; n], &vec![None; n], None);
+        let mut axle_text = false;
+        let mut axle_table = false;
+        let mut miles_text = false;
+        let mut miles_table = false;
+        for node in &nodes {
+            note_permit_words(
+                node,
+                false,
+                &mut axle_text,
+                &mut miles_text,
+                &mut axle_table,
+                &mut miles_table,
+            );
+        }
+        assert!(
+            axle_text && !axle_table,
+            "scanned Axle: text={axle_text} table={axle_table}"
+        );
+    }
+
+    fn note_permit_words(
+        node: &docling_core::Node,
+        located: bool,
+        axle_text: &mut bool,
+        miles_text: &mut bool,
+        axle_table: &mut bool,
+        miles_table: &mut bool,
+    ) {
+        match node {
+            docling_core::Node::Located { inner, .. } => {
+                note_permit_words(inner, true, axle_text, miles_text, axle_table, miles_table);
+            }
+            docling_core::Node::Table(table) => {
+                for cell in table.rows.iter().flatten() {
+                    if cell.contains("Axle:") {
+                        *axle_table = true;
+                    }
+                    if cell.contains("Miles") {
+                        *miles_table = true;
+                    }
+                }
+            }
+            docling_core::Node::Paragraph { text }
+            | docling_core::Node::Heading { text, .. }
+            | docling_core::Node::ListItem { text, .. }
+                if located =>
+            {
+                if text.contains("Axle:") {
+                    *axle_text = true;
+                }
+                if text.contains("Miles") {
+                    *miles_text = true;
+                }
+            }
+            _ => {}
+        }
     }
 }

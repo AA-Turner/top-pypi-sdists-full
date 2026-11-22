@@ -24,9 +24,6 @@
 "data_type._is_container" = 1
 "data_type._materialize_render_state" = 2
 
-["src/datamodel_code_generator/parser/_field_copies.py"."_copy_resolved_inherited_field"]
-"current_type._wraps_one_list" = 1
-
 ["src/datamodel_code_generator/parser/_field_copies.py"."_get_inherited_type_modifiers"]
 "data_type._wraps_one_list" = 1
 
@@ -139,9 +136,6 @@
 "self.data_model_type._KEEPS_INHERITED_FIELD_TYPES" = 1
 "self.data_model_type._READ_BY_PYDANTIC" = 2
 
-["src/datamodel_code_generator/parser/_passes/_warnings.py"."warn_as_module"]
-"sys._getframe" = 2
-
 ["src/datamodel_code_generator/parser/_passes/cross_module.py"."apply_generic_base_class"]
 "model._additional_imports" = 2
 
@@ -156,9 +150,6 @@
 
 ["src/datamodel_code_generator/parser/_passes/imports.py"."_definition_reads"]
 "model._setting_data_types_read_at_definition" = 1
-
-["src/datamodel_code_generator/parser/_passes/imports.py"."_msgspec_member_slots"]
-"leaf._writes_nothing_of_its_own" = 1
 
 ["src/datamodel_code_generator/parser/_passes/imports.py"."_pydantic_read_aliases"]
 "field._render_plan" = 1
@@ -305,7 +296,7 @@
 ["src/datamodel_code_generator/parser/_pipeline.py"."parse_caller"]
 "sys._getframe" = 1
 
-["src/datamodel_code_generator/parser/_pipeline.py"."stacklevel_at_parse_caller"]
+["src/datamodel_code_generator/parser/_pipeline.py"."warn_at_parse_caller"]
 "sys._getframe" = 1
 
 ["src/datamodel_code_generator/parser/_python_type_imports.py"."_collect_data_type_imports"]

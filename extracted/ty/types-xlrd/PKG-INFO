@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-xlrd
-Version: 2.0.0.20260518
+Version: 2.0.0.20261122
 Summary: Typing stubs for xlrd
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -31,8 +31,10 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 2.1.0
-* [pyright](https://github.com/microsoft/pyright) 1.1.409
+* [mypy](https://www.mypy-lang.org/) 2.4.1
+* [pyrefly](https://pyrefly.org/) 1.4.1
+* [pyright](https://microsoft.github.io/pyright/) 1.1.414
+* [ty](https://docs.astral.sh/ty/) 0.0.104
 
 It was generated from typeshed commit
-[`3402466d17144ed7edfc92940c6973167ba285af`](https://github.com/python/typeshed/commit/3402466d17144ed7edfc92940c6973167ba285af).
+[`567e5e3e4276a6b05127b6347d80f809d123e35e`](https://github.com/python/typeshed/commit/567e5e3e4276a6b05127b6347d80f809d123e35e).

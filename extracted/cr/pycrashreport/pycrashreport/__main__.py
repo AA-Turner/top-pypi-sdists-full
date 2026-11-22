@@ -6,9 +6,9 @@ from apple_symbols import KernelSymbols
 from rich.console import Console
 
 from pycrashreport.crash_report import (
-    KernelModeCrashReport,
-    PanicProcess,
+    StackshotReportBase,
     get_crash_report_from_file,
+    render_processes,
 )
 
 app = typer.Typer(add_completion=False)
@@ -21,14 +21,14 @@ def main(
         Optional[Path],
         typer.Option(
             help="Kernelcache of the firmware the device ran (as found in its IPSW), to name the "
-            "kernel images of a panic."
+            "kernel images of a panic or a stackshot."
         ),
     ] = None,
     kernel_signatures: Annotated[
         Optional[Path],
         typer.Option(
             help="Directory of `ipsw` kernel symbolication signatures (the `kernel` directory of "
-            "https://github.com/blacktop/symbolicator), to name the kernel functions of a panic. "
+            "https://github.com/blacktop/symbolicator), to name the kernel functions of a panic or a stackshot. "
             "Requires --kernelcache and the `ipsw` tool."
         ),
     ] = None,
@@ -37,13 +37,26 @@ def main(
         typer.Option(
             "--process",
             "-p",
-            help="Name or pid of a process of a panic to print the call stack of every thread of. "
+            help="Name or pid of a process of a panic, a stackshot or a spindump report to print "
+            "the call stacks of. "
             "May be given several times.",
         ),
     ] = None,
     all_processes: Annotated[
         bool,
-        typer.Option("--all", help="Print the threads of every process of a panic."),
+        typer.Option(
+            "--all",
+            help="Print the call stacks of every process of a panic, a stackshot or a spindump report, "
+            "or of every thread of a crash.",
+        ),
+    ] = False,
+    running: Annotated[
+        bool,
+        typer.Option(
+            "--running",
+            "-r",
+            help="Print the threads of a panic or a stackshot which were on a CPU.",
+        ),
     ] = False,
 ) -> None:
     """
@@ -55,29 +68,22 @@ def main(
     if kernel_signatures is not None and kernelcache is None:
         raise typer.BadParameter("--kernel-signatures requires --kernelcache")
     report = get_crash_report_from_file(file)
-    if kernelcache is not None and isinstance(report, KernelModeCrashReport):
+    if kernelcache is not None and isinstance(report, StackshotReportBase):
         try:
             report.kernel_symbols = KernelSymbols.load(kernelcache, kernel_signatures)
         except OSError as e:
             raise typer.BadParameter(
                 f"Reading the kernel symbols of {kernelcache} failed: {e}"
             ) from e
-    processes: list[PanicProcess] = []
-    if process or all_processes:
-        if not isinstance(report, KernelModeCrashReport):
-            raise typer.BadParameter("--process and --all apply to panic reports only")
-        if all_processes:
-            processes = report.processes
-        for requested in process or []:
-            found = report.find_processes(requested)
-            if not found:
-                raise typer.BadParameter(f"The report holds no process {requested}")
-            processes += [entry for entry in found if entry not in processes]
+    try:
+        processes = render_processes(report, process or [], all_processes, running)
+    except ValueError as e:
+        raise typer.BadParameter(str(e)) from e
     # printed as a renderable, so colors follow the terminal: none when the output is piped
     console = Console(highlight=False)
     console.print(report, soft_wrap=True)
-    if processes and isinstance(report, KernelModeCrashReport):
-        console.print(report.render_processes(processes), soft_wrap=True)
+    if processes is not None:
+        console.print(processes, soft_wrap=True)
 
 
 def cli() -> None:

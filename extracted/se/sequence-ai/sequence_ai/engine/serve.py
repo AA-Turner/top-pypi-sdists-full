@@ -1,14 +1,15 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 General Sequences Company
 # SPDX-License-Identifier: Apache-2.0
 """
-A policy server in one call: your model as a function, served to robots elsewhere.
+A policy server in one call: your model as a function, served to robots elsewhere - what `seq serve` runs a
+@seq.policy class on.
 
-    import sequence_ai
+    from sequence_ai.engine.serve import serve
 
     def policy(observation):                     # your model: one observation in, what the robot needs out
         return {"actions": model(observation["image"], observation["state"])}
 
-    sequence_ai.serve(policy, port=8000, example=observation)
+    serve(policy, port=8000, example=observation)
 
 On the robot, sequence_ai.connect("http://<this machine>:8000") gives the same Policy a deployed policy's name gives:
 observe(observation) as the robot makes each, act() when it wants an answer.
@@ -30,6 +31,9 @@ What each part does by default, and how to change it:
     the robot's stream   each robot's observations and acts on one WebSocket (GET /stream), each        -
                          message answered as a request; the robot pinged every 60 s, let go 20 s after
                          a ping it did not answer; X-Seq-Act-Formats names it on every answer
+    an act sent twice    run once: the same act under its request id (X-Seq-Request-Id) - on another     -
+                         of the robot's lines, or sent again after its answer was lost - is handed
+                         the first's answer, while it runs and for KEPT_S after
     observations         kept by episode, in order, the robot's Video, Depth and Tactile items turned    -
                          back into the arrays they were; one that is missing is asked for again, an
                          act waiting for it (engine.data_plane, engine.stream)
@@ -38,7 +42,8 @@ What each part does by default, and how to change it:
                          (server, version, up_s, pid, policy, and the speed-ups on: optimized)
     identity             X-Seq-Server: sequence-ai/<version> on every response                        -
     warm-up              with `example`, the policy runs on it twice at each batch size before        example=None
-                         /ping says ready, and GET /example hands it out
+                         /ping says ready, and GET /example hands it out; with hz, a warning where
+                         its answer holds fewer steps than a robot plays of each
     speed-ups            during the warm-up, those that keep the policy's outputs exactly as they     cuda_graphs=False
                          are - CUDA graphs of its modules, and of its whole run - each checked on     whole_graph=False
                          `example` (or `examples`) and kept where it is faster (engine.optimize);
@@ -120,9 +125,10 @@ from typing import Any, Callable, Iterable, Optional
 from .._core.outside import HEADER as OUTSIDE_HEADER
 from .._core.outside import LEFT_HEADER
 from ..network import msgpack_io
+from ..network.loop import steps as _steps
 from . import ranks as _ranks
 from . import recorder as _record
-from . import slack
+from . import slack, split_trials
 
 try:                                    # the platform's data plane, where sequence-base is installed (Python 3.10+)
     from .data_plane import Refused as _Refused
@@ -145,6 +151,11 @@ LIMIT = 64 << 20                  # the most bytes a request's body, and each it
 KEEP_ALIVE_S = 300                # how long an idle connection is kept open: a robot paused for minutes resumes on it
 RETRY_AFTER_S = 1                 # what a ping during the warm-up says to wait
 FAILED_SAID_S = 3.0               # how long a server whose warm-up failed answers /ping 500, why, before it stops
+# How long an act's answer is kept for the same act sent again under its request id, and the most answers and bytes of
+# them kept at once - the oldest go first past either: a robot sends an act again within its own deadline
+KEPT_S, KEPT_MOST, KEPT_BYTES = 40.0, 1024, 64 * 2**20
+# The codes of a refusal the policy itself gave - it ran, and raised or ran out of time: kept as the act's answer
+_RAN = frozenset({"policy_error", "timeout"})
 # A robot's stream (GET /stream): how often the server pings the robot, and how long it waits for the pong before it
 # lets the stream go - a robot whose network went holds it no longer than that. The robot's own pings, every 0.1 s
 # while it is idle, keep it warm.
@@ -155,6 +166,7 @@ SERVER_HEADER = "X-Seq-Server"    # what the server says it is, on every respons
 _TEXT = b"text/plain; charset=utf-8"
 _JSON = b"application/json"
 _SESSION = b"x-seq-session"
+_RID = b"x-seq-request-id"
 _SERVER = SERVER_HEADER.lower().encode()
 # What X-Seq-Act-Formats names on every answer - the platform's own words: the stream's format, and that the policy
 # reads each act's newest observation alone, so a robot leaves out a frame a newer one stood behind before it was sent
@@ -363,6 +375,64 @@ def _plays(hz: Any, valid: Any, replan_at: Any, wait_s: Any) -> Optional[tuple]:
     return play, plays
 
 
+def _refusal(refused: Any) -> tuple:
+    """A refusal as an answer to send: (status, its ErrorBody, JSON, Retry-After where it says when to ask again)."""
+    extra = [(b"retry-after", str(max(1, int(-(-refused.retry_after_s // 1)))).encode())] \
+        if refused.retry_after_s is not None else []
+    return refused.status, refused.body(), _JSON, extra
+
+
+def _sender(scope) -> Optional[tuple]:
+    """Who sent an act, as its answer is kept for: its request id (X-Seq-Request-Id), its robot (X-Seq-Session) and
+    what it was authorized with - None for an act that names no request id, which runs each time it is sent."""
+    rid = _header(scope, _RID).decode("latin-1").strip()
+    if not rid or len(rid) > SESSION_MAX:
+        return None
+    return rid, _header(scope, _SESSION).decode("latin-1").strip(), _header(scope, b"authorization")
+
+
+def _policy_gave(answer: tuple) -> bool:
+    """Whether an act's answer is the policy's own - an answer, or its failure (_RAN) - and not a refusal before it ran,
+    which the robot acts on and sends the act again after."""
+    status, payload, content_type = answer[:3]
+    if 200 <= status < 300:
+        return True
+    try:
+        return content_type == _JSON and json.loads(payload).get("code") in _RAN
+    except (ValueError, AttributeError):
+        return False
+
+
+class _Kept:
+    """The answers acts were given, by who sent each (_sender), kept KEPT_S after each - the oldest go first past
+    KEPT_MOST answers or KEPT_BYTES of them."""
+
+    def __init__(self, clock: Callable[[], float] = time.monotonic) -> None:
+        self._clock = clock
+        self._answers: "collections.OrderedDict[tuple, tuple]" = collections.OrderedDict()   # sender -> (until, answer)
+        self._bytes = 0
+
+    def keep(self, sender: tuple, answer: tuple) -> None:
+        self._expire()
+        old = self._answers.pop(sender, None)
+        if old is not None:
+            self._bytes -= len(old[1][1])
+        self._answers[sender] = (self._clock() + KEPT_S, answer)
+        self._bytes += len(answer[1])
+        while self._answers and (len(self._answers) > KEPT_MOST or self._bytes > KEPT_BYTES):
+            self._bytes -= len(self._answers.popitem(last=False)[1][1][1])
+
+    def get(self, sender: tuple) -> Optional[tuple]:
+        self._expire()
+        kept = self._answers.get(sender)
+        return None if kept is None else kept[1]
+
+    def _expire(self) -> None:
+        now = self._clock()
+        while self._answers and next(iter(self._answers.values()))[0] <= now:
+            self._bytes -= len(self._answers.popitem(last=False)[1][1][1])
+
+
 def _robot(scope) -> Optional[str]:
     """The robot an act names (SESSION_HEADER): None for none, or for a name longer than SESSION_MAX."""
     name = _header(scope, _SESSION).decode("latin-1").strip()
@@ -407,7 +477,8 @@ class App:
                  action_chunk_replan_at: Optional[int] = None, max_wait_for_batch: Optional[float] = None,
                  examples: Optional[list] = None, cuda_graphs: Optional[bool] = None,
                  whole_graph: Optional[bool] = None, torch_compile: bool = False, fused_kernels: bool = False,
-                 tensorrt: bool = False, precision: Optional[str] = None, tolerance: Any = None) -> None:
+                 tensorrt: bool = False, precision: Optional[str] = None, tolerance: Any = None,
+                 cfg_parallel: bool = False, pipeline_parallel: bool = False) -> None:
         if not callable(policy):
             hint = ": an object with an infer method is served as policy.infer" if hasattr(policy, "infer") else ""
             raise TypeError(f"serve() takes the policy as a function, an observation in and its output out; it was "
@@ -425,6 +496,8 @@ class App:
                              "times on the example: pass example=, an observation as a robot sends it")
         # the robots it schedules by their answers' slack: with hz (and action_chunk_valid_len or _replan_at), else None
         self._fleet = None if played is None else _Fleet(*played, sizes=list(self._sizes or (1,)))
+        # which of the two said how many steps of an answer a robot plays, for the warm-up's check of the answer
+        self._steps_named = "action_chunk_valid_len" if action_chunk_valid_len is not None else "action_chunk_replan_at"
         hold = first = None
         if self._fleet is not None:
             aligner, sizes = self._fleet.aligner, list(self._sizes or (1,))
@@ -440,11 +513,16 @@ class App:
         self._example_body = None if example is None else msgpack_io.pack(example)
         # what the warm-up checks the speed-ups on, and which it tries (engine.optimize); what it kept, for /ping
         self._examples = [example] if example is not None and not examples else list(examples or [])
-        from .optimize import check_switches   # a switch that changes the outputs, without a tolerance: said now
+        from .optimize import check_switches  # a switch that changes the outputs, without a tolerance: said now
 
         self._speedups = check_switches(cuda_graphs=cuda_graphs, whole_graph=whole_graph, torch_compile=torch_compile,
                                         fused_kernels=fused_kernels, tensorrt=tensorrt, precision=precision,
-                                        tolerance=tolerance)
+                                        tolerance=tolerance, cfg_parallel=cfg_parallel,
+                                        pipeline_parallel=pipeline_parallel)
+        self._cfg_patches: list = []       # cfg_parallel's, put in place on this rank (engine.cfg_parallel)
+        # pipeline_parallel's split of this rank's policy and what it was made from (engine.pipeline_parallel)
+        self._pp_split: Any = None
+        self._pp_spec: Optional[dict] = None
         self._trying = self._speedups["precision"] is not None or any(
             self._speedups[name] or self._speedups[name] is None
             for name in ("cuda_graphs", "whole_graph", "torch_compile", "fused_kernels", "tensorrt"))
@@ -458,6 +536,9 @@ class App:
             self._plane.copy.on_frame = lambda episode, seq, frame: self._window.observe(
                 self._robots.get(episode, ""), episode, seq, frame)
         self._robots: "collections.OrderedDict[str, str]" = collections.OrderedDict()   # episode -> its robot's session
+        # each act running by who sent it (_sender), and the answers acts were given (_Kept): an act runs once
+        self._running: dict = {}
+        self._kept = _Kept()
         self._formats = f"{STREAM_FORMAT}, {LATEST_FORMAT}".encode()
         self._intake = StreamIntake(self._http, headers=self._stream_headers, authorized=self._may_open,
                                     carried=(b"authorization", b"x-seq-session", b"user-agent", b"host"))
@@ -504,6 +585,8 @@ class App:
     def _call_here(self, items: list) -> list:
         """_call, on this process's policy alone - rank 0's own part, and each other rank's when rank 0 sends it."""
         started = time.perf_counter()
+        if self._pp_split is not None:
+            self._pp_split.begin()             # a new act: its first call of the blocks runs whole, on every rank
         if self._sizes is None:
             outputs = [self._policy(items[0])]
         else:
@@ -566,6 +649,22 @@ class App:
             except Exception as e:  # noqa: BLE001 (the policy raised on an example in eager mode, as it would below)
                 self._fail(e)
                 return
+        if self._speedups["cfg_parallel"]:         # its trial runs every call and every toggle on every rank
+            try:
+                examples = [_own(msgpack_io.unpack(msgpack_io.pack(observation))) for observation in self._examples]
+                tried = await loop.run_in_executor(self._thread, split_trials.cfg_trial, self, examples)
+            except Exception as e:  # noqa: BLE001 (the policy raised on an example in eager mode, or a rank left)
+                self._fail(e)
+                return
+            self.optimized = _with_tried(self.optimized, tried)
+        if self._speedups["pipeline_parallel"]:    # its trial too: every call and every toggle on every rank
+            try:
+                examples = [_own(msgpack_io.unpack(msgpack_io.pack(observation))) for observation in self._examples]
+                tried = await loop.run_in_executor(self._thread, split_trials.pp_trial, self, examples)
+            except Exception as e:  # noqa: BLE001 (the policy raised on an example in eager mode, or a rank left)
+                self._fail(e)
+                return
+            self.optimized = _with_tried(self.optimized, tried)
         runs = 2 if self._fleet is None else 1 + slack.RUNS       # timed as slack.measure times a size
         try:
             for n in self._sizes or [1]:
@@ -587,6 +686,7 @@ class App:
                     log.info("warm-up: %s took %s, then %s at the median of %d", what, _duration(took[0]),
                              _duration(sorted(took[1:])[len(took[1:]) // 2]), len(took) - 1)
             if self._fleet is not None:
+                self._say_short(answered[0][0])
                 self._fleet.timed()
                 seats, _ = await self._fleet.count([])
                 self._fleet.capacity = seats
@@ -598,14 +698,42 @@ class App:
         self._state = "ready"
         log.info("ready")
 
+    def _say_short(self, output: Any) -> None:
+        """A warning where the policy's answer to the example holds fewer steps than its robots are timed to play of
+        each answer (action_chunk_valid_len, else action_chunk_replan_at): each robot would run out of steps before its
+        next answer comes, and the warm-up would say ready all the same. Its steps are as network.loop.steps reads them;
+        an answer it cannot read them from is not checked."""
+        try:
+            rows = len(_steps(output))
+        except (TypeError, ValueError):
+            return
+        steps = self._fleet.plays["action_chunk_valid_len"]
+        if rows >= steps:
+            return
+        declared = (f"the {steps} it declares valid (action_chunk_valid_len)"
+                    if self._steps_named == "action_chunk_valid_len"
+                    else f"the {steps} it plays before asking for the next (action_chunk_replan_at)")
+        log.warning("the policy answers %d step%s, fewer than %s: its robots run out of steps before the next answer "
+                    "comes", rows, "" if rows == 1 else "s", declared)
+
     def _optimize(self, examples: list) -> dict:
         """On the policy's thread: the speed-ups tried on `examples`, each read back from msgpack as a robot's
-        observation is (engine.optimize), and its report."""
+        observation is (engine.optimize), and its report. A copy of a @seq.policy class's (engine.episodes.PolicyCopy)
+        names the call they are tried on, `checked`: its policy's act function called directly, as the platform tries
+        a version's. Its own call holds the policy further down than optimize looks for the policy's modules; they are
+        changed in place, so that call then serves what was kept."""
         from .optimize import optimize
 
-        said = optimize(self._policy, examples, batch=self._sizes, say=lambda line: log.info("%s", line),
-                        **self._speedups)
+        speedups = {name: value for name, value in self._speedups.items()
+                    if name not in ("cfg_parallel", "pipeline_parallel")}
+        said = optimize(self._checked(), examples, batch=self._sizes, say=lambda line: log.info("%s", line),
+                        **speedups)
         return said.report
+
+    def _checked(self) -> Any:
+        """What the speed-ups look for the policy's modules in: the copy's call where it names one (`checked`), and a
+        policy served with no copy of a class's: the policy itself."""
+        return getattr(self._plane.copy, "checked", None) or self._policy
 
     def _fail(self, e: BaseException) -> None:
         self.failure = e
@@ -784,26 +912,55 @@ class App:
         newest observation once the `seq` before it are in; answered {"outputs": what the policy returned}, in msgpack
         where the robot asks for it (Accept), else JSON - or the platform's refusal (ErrorBody). `said`: what the act
         says of its robot (_said), which is seated - or refused unavailable for NOT_SEATED_REASON, with why - before the
-        act waits for its observation."""
+        act waits for its observation. An act that names its request id runs once (_sender): the same act again - on
+        another of the robot's lines, or sent again after its answer was lost - is handed the first's answer, waiting
+        for it while it runs, and for KEPT_S after (_Kept)."""
+        sender = _sender(scope)
+        if sender is None:
+            await self._send_answer(send, await self._act_answer(scope, body, began, said))
+            return
+        run = self._running.get(sender)
+        if run is None:
+            kept = self._kept.get(sender)
+            if kept is not None:
+                await self._send_answer(send, kept)
+                return
+            # a task of its own: it runs on - and the same act sent again is still handed its answer - when this
+            # request's client goes before it ends
+            run = asyncio.ensure_future(self._act_answer(scope, body, began, said))
+            self._running[sender] = run
+            run.add_done_callback(lambda done: self._ran(sender, done))
+        await self._send_answer(send, await asyncio.shield(run))
+
+    def _ran(self, sender: tuple, run: "asyncio.Future") -> None:
+        """An act's run ended: no longer running, and its answer kept for the same act sent again where the policy gave
+        it (_policy_gave)."""
+        if self._running.get(sender) is run:
+            del self._running[sender]
+        if not run.cancelled() and run.exception() is None and _policy_gave(run.result()):
+            self._kept.keep(sender, run.result())
+
+    async def _send_answer(self, send, answer: tuple) -> None:
+        status, payload, content_type, extra = answer
+        await self._respond(send, status, payload, content_type=content_type, extra=extra)
+
+    async def _act_answer(self, scope, body: bytes, began: float, said: Optional[tuple]) -> tuple:
+        """_act_call's answer to one act, as (status, body, its content type, the headers it adds)."""
         try:
             call = json.loads(body)
             if not isinstance(call, dict):
                 raise ValueError("an act's body is a JSON object")
         except ValueError as e:
-            await self._refuse(send, _Refused("INVALID_REQUEST", f"the act does not read: {e}",
-                                              details={"reason": "body"}))
-            return
+            return _refusal(_Refused("INVALID_REQUEST", f"the act does not read: {e}", details={"reason": "body"}))
         episode = call.get("episode_id")
         robot = _header(scope, _SESSION).decode("latin-1")
         if self._group is not None and self._group.halted is not None:   # no rank answers alone: said before it waits
-            await self._refuse(send, _Refused("UNAVAILABLE", f"this server's ranks serve no more: {self._group.halted}",
-                                              details={"reason": "crashed"}))
-            return
+            return _refusal(_Refused("UNAVAILABLE", f"this server's ranks serve no more: {self._group.halted}",
+                                     details={"reason": "crashed"}))
         if said is not None:
             refused = await self._fleet.admit(said[0], said[1])
             if refused is not None:
-                await self._refuse(send, _Refused("UNAVAILABLE", refused, details={"reason": NOT_SEATED_REASON}))
-                return
+                return _refusal(_Refused("UNAVAILABLE", refused, details={"reason": NOT_SEATED_REASON}))
         try:
             if call.get("call") == "act" and "inputs" not in call:     # the call alone, as the platform's worker
                 observation = _own(await self._plane.act(episode, call.get("seq")))
@@ -815,13 +972,12 @@ class App:
                 raise _Refused("INVALID_REQUEST", 'an act\'s body is {"call": "act", "episode_id", "seq"}: it '
                                "carries no data, which goes by POST /observe", details={"reason": "call"})
         except _Refused as e:
-            await self._refuse(send, e)
-            return
+            return _refusal(e)
         wants = msgpack_io.MEDIA_TYPE.encode() in _header(scope, b"accept").lower()
         status, payload, content_type = await self._policy_on(
             observation, robot=robot, episode=episode if isinstance(episode, str) else None, step=call.get("seq"),
             binary=wants, began=began, said=said)
-        await self._respond(send, status, payload, content_type=content_type)
+        return status, payload, content_type, ()
 
     async def _episode_end(self, scope, receive, send) -> None:
         """POST /act/episode_end {"episode_id"}: everything kept of the episode goes - {"ok": true, "episode_id"}."""
@@ -839,9 +995,7 @@ class App:
         await self._respond(send, 200, json.dumps({"ok": True, "episode_id": episode}).encode(), content_type=_JSON)
 
     async def _refuse(self, send, refused: Any) -> None:
-        extra = [(b"retry-after", str(max(1, int(-(-refused.retry_after_s // 1)))).encode())] \
-            if refused.retry_after_s is not None else []
-        await self._respond(send, refused.status, refused.body(), content_type=_JSON, extra=extra)
+        await self._send_answer(send, _refusal(refused))
 
     async def _policy_on(self, observation: Any, *, robot: str = "", episode: Optional[str] = None,
                          step: Optional[int] = None, binary: bool = True,
@@ -940,6 +1094,14 @@ async def _body(receive, limit: int) -> Optional[bytes]:
     return b"".join(chunks)
 
 
+def _with_tried(optimized: dict, tried: dict) -> dict:
+    """What the warm-up kept, with a trial's report added (cfg_parallel's, pipeline_parallel's): its switches and what
+    it turned on after the ones before it."""
+    return {**optimized, **{k: v for k, v in tried.items() if k not in ("on", "switches")},
+            "on": list(optimized.get("on") or []) + list(tried["on"]),
+            "switches": {**(optimized.get("switches") or {}), **tried["switches"]}}
+
+
 def _own(value: Any) -> Any:
     """`value` with each read-only numpy array in it - in dicts, lists and tuples - as a writable copy, the policy's
     own.
@@ -1014,15 +1176,16 @@ def serve(policy: Callable[[Any], Any], *, host: Optional[str] = None, port: int
           action_chunk_replan_at: Optional[int] = None, max_wait_for_batch: Optional[float] = None,
           examples: Optional[list] = None, cuda_graphs: Optional[bool] = None, whole_graph: Optional[bool] = None,
           torch_compile: bool = False, fused_kernels: bool = False, tensorrt: bool = False,
-          precision: Optional[str] = None, tolerance: Any = None) -> None:
+          precision: Optional[str] = None, tolerance: Any = None, cfg_parallel: bool = False,
+          pipeline_parallel: bool = False) -> None:
     """
     Serve `policy` to robots elsewhere until the process is stopped (Ctrl-C), the module's docstring having what each
     part does by default:
 
-        sequence_ai.serve(policy, port=8000, example=observation)                        # one observation per call
-        sequence_ai.serve(policy_on_a_list, batch=[1, 2, 4, 8], example=observation)     # a list per call
-        sequence_ai.serve(policy_on_a_list, batch=[1, 2, 4], example=observation,        # each robot by its own time
-                          hz=20, action_chunk_valid_len=15, action_chunk_replan_at=8)
+        serve(policy, port=8000, example=observation)                                    # one observation per call
+        serve(policy_on_a_list, batch=[1, 2, 4, 8], example=observation)                 # a list per call
+        serve(policy_on_a_list, batch=[1, 2, 4], example=observation,                    # each robot by its own time
+              hz=20, action_chunk_valid_len=15, action_chunk_replan_at=8)
 
     policy     a function: an observation in - a dict, as the robot sent it, numpy arrays as arrays, each its own to
                write into - and what the robot gets back out: a dict, an array, a list; torch tensors and JAX arrays
@@ -1050,6 +1213,14 @@ def serve(policy: Callable[[Any], Any], *, host: Optional[str] = None, port: int
     tolerance  the difference you accept from eager mode's outputs for the switches above: a number (the largest
                absolute difference), or {"max_abs": ..., "mean_abs": ..., "cosine": ...}; one of them on without it
                is refused (ValueError) before the server starts
+    cfg_parallel  True, on a server of two processes (torchrun --nproc-per-node 2): the policy's model called with its
+               guidance's two halves in one batch runs one half in each, tried during rank 0's warm-up and kept where
+               its outputs stay within `tolerance` and acts are faster (engine.cfg_parallel)
+    pipeline_parallel  True, on a server of two processes or more (torchrun --nproc-per-node N): the run of blocks the
+               policy's model calls one after another split into one stage a process, each call of it passed through
+               the stages in parts - a diffusion transformer's tokens in patches, or rows of its batch - tried during
+               rank 0's warm-up and kept where its outputs stay within `tolerance` and acts are faster
+               (engine.pipeline_parallel)
     copy       the copy of the policy each episode's frames go to (engine.episodes.PolicyCopy: a @seq.policy class's
                episodes, observe function, on_episode and plans, as a deployment's worker runs them); `policy` is then
                its call - `seq serve` gives both
@@ -1074,7 +1245,8 @@ def serve(policy: Callable[[Any], Any], *, host: Optional[str] = None, port: int
               action_chunk_valid_len=action_chunk_valid_len, action_chunk_replan_at=action_chunk_replan_at,
               max_wait_for_batch=max_wait_for_batch, examples=examples, cuda_graphs=cuda_graphs,
               whole_graph=whole_graph, torch_compile=torch_compile, fused_kernels=fused_kernels, tensorrt=tensorrt,
-              precision=precision, tolerance=tolerance)
+              precision=precision, tolerance=tolerance, cfg_parallel=cfg_parallel,
+              pipeline_parallel=pipeline_parallel)
     if app._group is not None and not app._group.leads:
         _follow(app, log_level)                       # a rank other than 0: no port of robots', rank 0's calls alone
         return
@@ -1126,6 +1298,11 @@ def _follow(app: App, log_level: Optional[str]) -> None:
     def run_one(op: str, args: list) -> Any:
         if op == "call":                              # a batch of acts, or the warm-up's
             return app._thread.submit(app._call_here, app._unwire(args[0])).result()
+        if op == "cfg_parallel":                      # the split put in place, or taken out, as on rank 0
+            return app._thread.submit(split_trials.cfg_toggle, app, *args).result()
+        if op == "pipeline_parallel":                 # the blocks' stages put in place, or taken out, as on rank 0
+            app._thread.submit(split_trials.pp_toggle, app, *args).result()
+            return None
         fn = app._mirrored.get(op)                    # an episode's frames to its observe function, its end, ...
         if fn is None:
             raise ValueError(f"rank 0 sent a call this rank does not know: {op!r}")
@@ -1247,9 +1424,9 @@ def _loopback(sock: socket.socket) -> bool:
 
 
 def _log_with(level: Optional[str]) -> None:
-    """This module's lines through uvicorn's own handler, at its level, where nothing else is set up to show them. A root
-    logger that would drop them counts as nothing: one a library set up at WARNING on import, as absl does for a JAX
-    policy, would hide the warm-up and "ready" lines."""
+    """This module's lines through uvicorn's own handler, at its level, where nothing else is set up to show them. A
+    root logger that would drop them counts as nothing: one a library set up at WARNING on import, as absl does for a
+    JAX policy, would hide the warm-up and "ready" lines."""
     if level is None or log.handlers or logging.getLogger("sequence_ai").handlers:
         return
     wanted = logging.getLevelName(level.upper()) if isinstance(level, str) else level

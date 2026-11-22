@@ -114,6 +114,25 @@ class TestPrefix:
         assert prefix.codec == "raw"
         assert prefix.mh_type == "sha2-512"
 
+    @pytest.mark.parametrize(
+        "mh_type",
+        [
+            "sha2-256",
+            "sha2-512",
+            "sha3-256",
+            "sha3-512",
+            "blake2b-256",
+            "identity",
+        ],
+    )
+    def test_prefix_sum_various_hash_types(self, mh_type):
+        """Prefix.sum: correctly creates CID from various hash types"""
+        prefix = Prefix.v1(codec="raw", mh_type=mh_type)
+        cid = prefix.sum(b"hello world")
+        assert isinstance(cid, CIDv1)
+        assert cid.codec == "raw"
+        assert cid.prefix().mh_type == mh_type
+
 
 class TestCIDPrefix:
     """Tests for CID.prefix() method"""

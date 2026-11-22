@@ -406,6 +406,159 @@ class TestTreeTraversal:
         expected = f'(60,25) {localized_control_type} "Dark"  [action: {action}]'
         assert line.endswith(expected + ("  [selected]" if is_selected else ""))
 
+    @pytest.mark.parametrize("is_dom", [False, True], ids=["window", "web page"])
+    def test_field_scrolled_out_of_view_is_not_listed_at_the_origin(
+        self, tree_instance, monkeypatch, is_dom
+    ):
+        """The walk keeps edit fields that UIA reports off-screen. One scrolled below its window,
+        or below the visible part of its page, has nothing on screen: clipped, its box is empty
+        and its center (0,0), where Click and Type with its label would go. One on screen stays.
+        """
+        name_field = _make_edit_child("Name", Rect(10, 10, 410, 50))
+        comment_field = _make_edit_child("Comment", Rect(10, 900, 410, 940))
+        form = _make_pane_parent()
+        children = {id(form): [name_field, comment_field]}
+        monkeypatch.setattr(
+            "windows_mcp.tree.service.CachedControlHelper.get_cached_children",
+            lambda node, cache_request: children.get(id(node), []),
+        )
+        monkeypatch.setattr("windows_mcp.tree.service.AccessibleRoleNames", {42: "Text"})
+
+        root = SemanticNode(control_type="Desktop", element_type="desktop", name="Desktop")
+        window = SemanticNode(
+            control_type="Window", element_type="window", name="Feedback", window_name="Feedback"
+        )
+        root.add_child(window)
+        if is_dom:
+            tree_instance.dom_bounding_box = make_box(0, 0, 800, 600)  # the visible page
+        interactive_nodes, dom_interactive_nodes = [], []
+
+        tree_instance.tree_traversal(
+            form,
+            Rect(0, 0, 800, 600),
+            "Feedback",
+            is_dom,  # is_browser: a page is walked in a browser window
+            interactive_nodes,
+            [],
+            dom_interactive_nodes,
+            [],
+            is_dom=is_dom,
+            current_semantic_node=None if is_dom else window,
+        )
+
+        listed = dom_interactive_nodes if is_dom else interactive_nodes
+        assert [(node.name, node.center.to_string()) for node in listed] == [("Name", "(210,30)")]
+        if not is_dom:
+            assert TreeState(semantic_tree_root=root).semantic_tree_to_string().splitlines() == [
+                "desktop",
+                '    └── window "Feedback"',
+                '        └── (210,30) edit "Name"  [action: fill]',
+            ]
+
+    def test_tree_lines_show_the_labels_of_the_listed_elements(self, tree_instance, monkeypatch):
+        """Each element the walk lists shows its label in the tree: its place in
+        interactive_nodes, which holds an edit's word nodes too, or for a scrollable pane its
+        place after them. Click(label=N) and the annotated screenshot use the same numbers."""
+        edit = MagicMock(spec=EditControl)
+        edit.CachedIsOffscreen = False
+        edit.CachedControlTypeName = "EditControl"
+        edit.CachedIsControlElement = True
+        edit.CachedBoundingRectangle = Rect(10, 70, 410, 110)
+        edit.CachedIsEnabled = True
+        edit.CachedHasKeyboardFocus = False
+        edit.CachedName = "Notes"
+        edit.CachedLocalizedControlType = "edit"
+        edit.CachedAcceleratorKey = ""
+        edit.CachedHelpText = ""
+        edit.CachedIsPassword = False
+        edit.GetAllWordBoundingBoxes.return_value = [
+            ("hello", [Rect(20, 80, 60, 100)]),
+            ("world", [Rect(70, 80, 110, 100)]),
+        ]
+        edit.GetPattern.return_value = None
+        cached_values = {
+            PropertyId.LegacyIAccessibleRoleProperty: 42,
+            PropertyId.LegacyIAccessibleValueProperty: "hello world",
+        }
+        edit.GetCachedPropertyValue.side_effect = cached_values.get
+        save = _make_button_child("Save", 10)
+        pane = _make_pane_parent()
+        pane.CachedName = "Editor"
+        pane.CachedAutomationId = ""
+        pane.CachedLocalizedControlType = "pane"
+        pane.CachedHasKeyboardFocus = False
+        pane.GetCachedPattern.return_value = SimpleNamespace(
+            VerticallyScrollable=True,
+            HorizontallyScrollable=False,
+            VerticalScrollPercent=0.0,
+            HorizontalScrollPercent=0,
+        )
+        children = {id(pane): [save, edit]}
+        monkeypatch.setattr(
+            "windows_mcp.tree.service.CachedControlHelper.get_cached_children",
+            lambda node, cache_request: children.get(id(node), []),
+        )
+        monkeypatch.setattr(
+            "windows_mcp.tree.service.random_point_within_bounding_box",
+            lambda node, scale_factor: (250, 250),
+        )
+        monkeypatch.setattr(
+            "windows_mcp.tree.service.AccessibleRoleNames", {42: "Text", 43: "PushButton"}
+        )
+        monkeypatch.delenv("WINDOWS_MCP_MERGE_WORD_NODES", raising=False)
+
+        root = SemanticNode(control_type="Desktop", element_type="desktop", name="Desktop")
+        window = SemanticNode(
+            control_type="Window", element_type="window", name="Notepad", window_name="Notepad"
+        )
+        root.add_child(window)
+        interactive_nodes, scrollable_nodes = [], []
+
+        tree_instance.tree_traversal(
+            pane,
+            Rect(0, 0, 500, 500),
+            "Notepad",
+            False,
+            interactive_nodes,
+            scrollable_nodes,
+            [],
+            [],
+            current_semantic_node=window,
+        )
+
+        listed = [node.name for node in interactive_nodes + scrollable_nodes]
+        assert listed == ["Notes", "hello", "world", "Save", "Editor"]
+        tree_state = TreeState(
+            interactive_nodes=interactive_nodes,
+            scrollable_nodes=scrollable_nodes,
+            semantic_tree_root=root,
+        )
+        assert tree_state.semantic_tree_to_string().splitlines() == [
+            "desktop",
+            '    └── window "Notepad"',
+            '        ├── [#4] (250,250) pane "Editor"  [action: click]  [v:0.0%]',
+            '        ├── [#0] (210,90) edit "Notes"  [action: fill]  [value:"hello world"]',
+            '        ├── [#1] (40,90) word "hello"  [action: click]',
+            '        ├── [#2] (90,90) word "world"  [action: click]',
+            '        └── [#3] (30,35) button "Save"  [action: click]',
+        ]
+
+
+def _make_edit_child(name: str, rect: Rect) -> MagicMock:
+    child = MagicMock()
+    child.CachedIsOffscreen = True  # as UIA reports a field scrolled out of view
+    child.CachedControlTypeName = "EditControl"
+    child.CachedIsControlElement = True
+    child.CachedBoundingRectangle = rect
+    child.CachedIsEnabled = True
+    child.CachedHasKeyboardFocus = False
+    child.CachedName = child.Name = name
+    child.CachedLocalizedControlType = "edit"
+    child.CachedAcceleratorKey = ""
+    child.CachedHelpText = ""
+    child.GetCachedPropertyValue.return_value = 42
+    return child
+
 
 def _make_button_child(name: str, left: int) -> MagicMock:
     child = MagicMock()
@@ -945,6 +1098,8 @@ class TestProcessExclusion:
         )
         # Retries sleep between attempts; irrelevant here and slow in a test.
         monkeypatch.setattr("windows_mcp.tree.service.sleep", lambda seconds: None)
+        # 200 stands for a window that still exists, so its failures are retried.
+        monkeypatch.setattr("windows_mcp.tree.service.win32gui.IsWindow", lambda handle: True)
 
         def failing_get_nodes(self, handle, is_browser=False, wait_time=0, use_dom=False):
             attempts.append(handle)

@@ -126,7 +126,7 @@ parser.add_argument(
 parser.add_argument(
     "--json",
     action="store_true",
-    help="With inspect, available, or verify, print JSON",
+    help="With list, inspect, available, or verify, print JSON",
 )
 
 parser.add_argument(
@@ -178,7 +178,7 @@ def installed_releases(root):
         except OSError:
             continue
         for name in names:
-            match = re.fullmatch(r"ensembl(?:-.+-)?(\d+|\d{4}_(?:0[1-9]|1[0-2]))", name)
+            match = re.fullmatch(r"ensembl(?:-rapid|-.+-)?(\d+|\d{4}_(?:0[1-9]|1[0-2]))", name)
             if match:
                 releases.add(match.group(1))
     return sorted(releases, key=_release_sort_key)
@@ -403,7 +403,7 @@ def available_catalogue(args):
         (r["release"], r.get("assembly_name") or r.get("assembly_accession"), r["provider"],
          r["coverage"], "subset" if r["subset"] else
          "; ".join(c["relationship"] + " to " + str(c["numbered"]) for c in r["comparisons"])
-         or ("frozen" if r["kind"] == "numbered" else "uncompared"),
+         or ("frozen" if r["kind"] == "numbered" else ("pinned" if r["kind"] == "pinned" else "uncompared")),
          "yes" if r["latest"] else "") for r in rows
     ])
 
@@ -555,15 +555,16 @@ def inspect_genomes(genomes, check_genome_fasta=False, json_output=False):
 
 
 def _ensembl_releases():
-    """Every numbered release, plus dated releases with a cache directory."""
+    """Every numbered release, plus dated and pinned releases with a cache directory."""
     from .ensembl_release import EnsemblRelease
+    from .pinned_genomes import cached_pinned_genomes
     from .species import Species
 
     numbered = [
         EnsemblRelease(release, species=species)
         for species, release in Species.all_species_release_pairs()
     ]
-    return numbered + _cached_dated_releases()
+    return numbered + _cached_dated_releases() + cached_pinned_genomes()
 
 
 def _cached_dated_releases():
@@ -592,8 +593,15 @@ def collect_all_installed_ensembl_releases():
     )
 
 
-def format_installed_genomes(check_genome_fasta=False, use_color=None):
-    """A table of genomes in the local cache, or a note that there are none."""
+def _installed_genome_rows(check_genome_fasta=False):
+    """Return installed genomes as a list of dicts with absolute paths.
+
+    Each dict has the keys: ``species``, ``assembly``, ``release``,
+    ``annotation``, ``reference_dna``, and ``cache_directory``.  Values are
+    plain strings (or ``None`` when a field is absent) so the caller can
+    render them as a table or serialise them as JSON without further
+    conversion.
+    """
     from pathlib import Path
 
     from .download_cache import NON_GENOME_CACHE_DIRECTORIES, cache_root
@@ -609,15 +617,14 @@ def format_installed_genomes(check_genome_fasta=False, use_color=None):
         if not _has_data(annotation, dna):
             continue  # Possibly a custom genome with the same name; listed below.
         ensembl_directories.add(os.path.normpath(directory))
-        rows.append((
-            _species_display_name(genome.species),
-            genome.reference_name,
-            str(genome.release),
-            annotation if annotation not in (None, "missing") else "-",
-            dna or "-",
-            _display_path(directory),
-        ))
-    rows.sort(key=lambda row: (row[0], row[1], _release_sort_key(row[2])))
+        rows.append({
+            "species": _species_display_name(genome.species),
+            "assembly": genome.reference_name,
+            "release": str(genome.release),
+            "annotation": annotation if annotation not in (None, "missing") else None,
+            "reference_dna": dna or None,
+            "cache_directory": os.fspath(directory),
+        })
     # Custom genomes (e.g. install --gtf ...) live beside Ensembl releases.
     root = Path(cache_root())
     for reference in _subdirectories(root):
@@ -635,18 +642,48 @@ def format_installed_genomes(check_genome_fasta=False, use_color=None):
                 species, release = "custom", directory.name
             else:
                 species, release = _other_genome_labels(reference.name, directory.name)
-            rows.append((
-                species,
-                reference.name,
-                release,
-                annotation or "-",
-                dna or "-",
-                _display_path(directory),
-            ))
+            rows.append({
+                "species": species,
+                "assembly": reference.name,
+                "release": release,
+                "annotation": annotation or None,
+                "reference_dna": dna or None,
+                "cache_directory": os.fspath(directory),
+            })
+    rows.sort(key=lambda r: (r["species"], r["assembly"], _release_sort_key(r["release"])))
+    return rows, root
+
+
+def format_installed_genomes(check_genome_fasta=False, use_color=None):
+    """A table of genomes in the local cache, or a note that there are none."""
+    rows, root = _installed_genome_rows(check_genome_fasta=check_genome_fasta)
     if not rows:
         return "No genomes installed in %s" % _display_path(root)
     header = ("Species", "Assembly", "Release", "Annotation", "Reference DNA", "Location")
-    return _format_table(header, rows, use_color)
+    table_rows = [
+        (
+            r["species"],
+            r["assembly"],
+            r["release"],
+            r["annotation"] or "-",
+            r["reference_dna"] or "-",
+            _display_path(r["cache_directory"]),
+        )
+        for r in rows
+    ]
+    return _format_table(header, table_rows, use_color)
+
+
+def format_installed_genomes_json(check_genome_fasta=False):
+    """The same inventory as :func:`format_installed_genomes`, serialised as JSON.
+
+    Returns a JSON string (array of objects) with keys ``species``,
+    ``assembly``, ``release``, ``annotation``, ``reference_dna``, and
+    ``cache_directory``.  ``annotation`` and ``reference_dna`` are ``null``
+    when the respective file is absent.
+    """
+    rows, _ = _installed_genome_rows(check_genome_fasta=check_genome_fasta)
+    return json.dumps(rows, indent=2)
 
 
 def _newest_release(species_name):
@@ -655,6 +692,70 @@ def _newest_release(species_name):
 
     species = find_species_by_name(species_name)
     return max(end for _, end in species.reference_assemblies.values())
+
+
+def _select_pinned_genome(args):
+    """Return a single-element list with a PinnedGenome if args select a pinned assembly, else None."""
+    from .pinned_genomes import PinnedGenome, lookup_pinned_alias, resolve_pinned_assembly
+    from .species import find_species_by_name
+
+    reference_name = args.reference_name
+    assembly = getattr(args, "assembly", None)
+    accession = getattr(args, "assembly_accession", None)
+    selectors = [value for value in (reference_name, assembly, accession) if value is not None]
+    if not any(lookup_pinned_alias(value) is not None for value in selectors):
+        return None
+
+    resolved = None
+    for value in selectors:
+        candidate = resolve_pinned_assembly(value)
+        if resolved is not None and candidate.name != resolved.name:
+            raise ValueError(
+                "Conflicting assembly selectors: %s vs %s"
+                % (resolved.reference_name, candidate.reference_name)
+            )
+        resolved = candidate
+
+    if args.species:
+        expected = find_species_by_name(resolved.species)
+        for species_name in args.species:
+            species = find_species_by_name(species_name)
+            if species != expected:
+                raise ValueError(
+                    "Reference %s belongs to %s, not %s"
+                    % (resolved.reference_name, expected.latin_name, species.latin_name)
+                )
+
+    provider = getattr(args, "provider", None)
+    if provider is not None and provider != resolved.annotation_name:
+        raise ValueError(
+            "Pinned assembly %s uses provider %s, not %s"
+            % (resolved.reference_name, resolved.annotation_name, provider)
+        )
+    if getattr(args, "include_alt", None) is not None:
+        raise ValueError("--include-alt applies only to dated Ensembl Platform releases")
+    if getattr(args, "server", None) or args.custom_mirror:
+        raise ValueError("Pinned assemblies use checksum-verified URLs and cannot be combined with --server or --custom-mirror")
+    if (args.with_genome_fasta or args.only_genome_fasta) and not args.genome_fasta_path:
+        raise ValueError(
+            "Pinned assembly %s requires --genome-fasta-path for reference DNA"
+            % resolved.reference_name
+        )
+
+    for version in args.release:
+        if version != "latest" and str(version) != str(resolved.annotation_version):
+            raise ValueError(
+                "%s has one pinned annotation (%s %s); release %s is not available"
+                % (resolved.reference_name, resolved.annotation_name, resolved.annotation_version, version)
+            )
+
+    return [
+        PinnedGenome(
+            resolved.name,
+            genome_fasta_path_or_url=args.genome_fasta_path,
+            cache_directory_path=getattr(args, "cache_directory", None),
+        )
+    ]
 
 
 def all_combinations_of_ensembl_genomes(args):
@@ -669,6 +770,10 @@ def all_combinations_of_ensembl_genomes(args):
     from .ensembl_release import EnsemblRelease
     from .reference_name import find_species_by_reference, normalize_reference_name
     from .species import find_species_by_name
+
+    pinned = _select_pinned_genome(args)
+    if pinned is not None:
+        return pinned
 
     assembly = getattr(args, "assembly", None)
     accession = getattr(args, "assembly_accession", None)
@@ -868,16 +973,24 @@ def format_available_species(use_color=None, dated_releases=None):
     def _w(values, fallback):
         return max((len(v) for v in values), default=fallback)
 
+    from .pinned_genomes import pinned_assemblies
+    pinned_items = pinned_assemblies()
+    pinned_by_species = {}
+    for item in pinned_items:
+        pinned_by_species.setdefault(item.species, []).append(item)
+
     name_w = _w([_species_display_name(s) for s in all_species], 8)
     asm_w = _w(
-        [asm for s in all_species for asm in s.reference_assemblies], 8
+        [asm for s in all_species for asm in s.reference_assemblies]
+        + [item.reference_name for item in pinned_items],
+        8,
     )
     rng_w = _w(
         [
             _format_release_range(start, end)
             for s in all_species
             for (start, end) in s.reference_assemblies.values()
-        ],
+        ] + ["%s (pinned)" % item.annotation_version for item in pinned_items],
         8,
     )
     latin_w = _w([s.latin_name for s in all_species], 8)
@@ -941,6 +1054,17 @@ def format_available_species(use_color=None, dated_releases=None):
                         latin_cell,
                     )
                 )
+            for item in pinned_by_species.get(species.latin_name, ()):
+                lines.append(
+                    "%-*s%-*s%-*s%-*s%s"
+                    % (
+                        col_name, "",
+                        col_asm, item.reference_name,
+                        col_rng, "%s (pinned)" % item.annotation_version,
+                        col_dates, "",
+                        "",
+                    )
+                )
     if any(
         dates_cell(species, asm) == "?"
         for species in all_species for asm in species.reference_assemblies
@@ -952,6 +1076,7 @@ def format_available_species(use_color=None, dated_releases=None):
 
 def _genome_description(genome):
     from .ensembl_release import EnsemblRelease
+    from .pinned_genomes import PinnedGenome
 
     if isinstance(genome, EnsemblRelease):
         species = genome.species
@@ -959,6 +1084,12 @@ def _genome_description(genome):
             species.synonyms[0] if species.synonyms else species.latin_name
         ) if species is not None else "assembly"
         return "%s %s release %s" % (name, genome.reference_name, genome.release)
+    if isinstance(genome, PinnedGenome):
+        species = genome.species
+        name = (
+            species.synonyms[0] if species.synonyms else species.latin_name
+        ) if species is not None else "assembly"
+        return "%s %s %s %s" % (name, genome.reference_name, genome.annotation_name, genome.annotation_version)
     description = "%s %s" % (genome.reference_name, genome.annotation_name)
     if genome.annotation_version is not None:
         description += " %s" % genome.annotation_version
@@ -1047,8 +1178,8 @@ def validate_arguments(action, json_output, refresh, check_remote, releases):
     ValueError
         With the usage message when a flag does not fit the action.
     """
-    if json_output and action not in ("inspect", "available", "verify"):
-        raise ValueError("--json requires inspect, available, or verify")
+    if json_output and action not in ("list", "inspect", "available", "verify"):
+        raise ValueError("--json requires list, inspect, available, or verify")
     if refresh and action != "available":
         raise ValueError("--refresh requires available")
     if check_remote and action != "verify":
@@ -1140,9 +1271,7 @@ def run_available(args):
 
 
 def require_ensembl_releases(genomes):
-    """Check that every genome is an Ensembl release, as ``verify`` requires.
-
-    Only Ensembl releases have upstream checksum manifests to verify against.
+    """Check that every genome supports checksum verification (EnsemblRelease or PinnedGenome).
 
     Parameters
     ----------
@@ -1152,11 +1281,12 @@ def require_ensembl_releases(genomes):
     Raises
     ------
     ValueError
-        If any genome is not an ``EnsemblRelease``.
+        If any genome is neither an ``EnsemblRelease`` nor a ``PinnedGenome``.
     """
     from .ensembl_release import EnsemblRelease
+    from .pinned_genomes import PinnedGenome
 
-    if any(not isinstance(g, EnsemblRelease) for g in genomes):
+    if any(not isinstance(g, (EnsemblRelease, PinnedGenome)) for g in genomes):
         raise ValueError("verify requires an Ensembl release; use inspect for custom sources")
 
 
@@ -1276,7 +1406,10 @@ def run(argv=None):
     ):
         parser.error("%s requires an explicit --release" % args.action)
     if args.action == "list":
-        print(format_installed_genomes(check_genome_fasta=args.check_genome_fasta))
+        if args.json:
+            print(format_installed_genomes_json(check_genome_fasta=args.check_genome_fasta))
+        else:
+            print(format_installed_genomes(check_genome_fasta=args.check_genome_fasta))
         return
     if args.action == "available":
         try:

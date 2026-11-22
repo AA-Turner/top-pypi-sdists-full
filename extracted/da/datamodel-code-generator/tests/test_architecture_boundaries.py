@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import runpy
 import subprocess
 import sys
@@ -19,7 +20,6 @@ from tests.conftest import assert_output
 
 ROOT = Path(__file__).parents[1]
 FIXTURE_ROOT = Path(__file__).parent / "data" / "architecture_boundaries"
-EXPECTED_ROOT = Path(__file__).parent / "data" / "expected" / "architecture_boundaries"
 CHECKER_FILES = ("check_architecture_boundaries.py", "_import_cycles.py", "_source_model.py")
 """The guard and the modules it reads imports with, as a copy of the guard in a tree needs them."""
 
@@ -38,7 +38,6 @@ def test_source_tree_respects_architecture_boundaries() -> None:
 
     assert_output(
         check_architecture_boundaries.format_report(violations),
-        EXPECTED_ROOT / "clean.txt",
     )
 
 
@@ -67,31 +66,21 @@ def test_architecture_boundary_detector_reports_cross_layer_dependencies() -> No
 
     assert_output(
         check_architecture_boundaries.format_report(violations),
-        EXPECTED_ROOT / "violations.txt",
     )
 
 
 @pytest.mark.parametrize(
-    ("fixture", "expected"),
+    "fixture",
     [
-        (
-            FIXTURE_ROOT / "shared_model_dynamic_import" / "forbidden.py",
-            EXPECTED_ROOT / "shared_model_dynamic_import.txt",
-        ),
-        (FIXTURE_ROOT / "shared_model_dynamic_import" / "allowed.py", EXPECTED_ROOT / "clean.txt"),
+        pytest.param(FIXTURE_ROOT / "shared_model_dynamic_import" / "forbidden.py", id="shared_model_dynamic_import"),
+        pytest.param(FIXTURE_ROOT / "shared_model_dynamic_import" / "allowed.py", id="clean"),
     ],
 )
-def test_architecture_boundary_detector_handles_shared_model_dynamic_imports(
-    fixture: Path,
-    expected: Path,
-) -> None:
+def test_architecture_boundary_detector_handles_shared_model_dynamic_imports(fixture: Path) -> None:
     """Reject concrete dynamic imports while allowing shadowed aliases without a target."""
     violations = check_architecture_boundaries.check_files([(fixture, "shared-model")], allowlist={})
 
-    assert_output(
-        check_architecture_boundaries.format_report(violations),
-        expected,
-    )
+    assert_output(check_architecture_boundaries.format_report(violations))
 
 
 def test_architecture_boundary_detector_fails_closed_where_the_source_model_cannot_read(tmp_path: Path) -> None:
@@ -122,6 +111,19 @@ def test_architecture_boundary_detector_reports_a_dependency_the_source_model_re
     )
 
     assert_output(report.replace(tmp_path.resolve().as_posix(), "TMP").replace(tmp_path.as_posix(), "TMP"))
+
+
+def test_architecture_boundary_detector_rejects_root_and_main_imports(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Fail each read of a root name or of __main__ below the root, in every import form and attribute read.
+
+    Submodules read through the root pass, and so do the root's own re-exports and __main__ reading the root; a root
+    binding that shadows a submodule, a name its ``__getattr__`` serves and the root reading __main__ fail.
+    """
+    package = FIXTURE_ROOT / "root_import" / "datamodel_code_generator"
+    monkeypatch.setattr(check_architecture_boundaries, "SOURCE_ROOT", package)
+    violations = check_architecture_boundaries.check_paths([package], allowlist={})
+
+    assert_output(check_architecture_boundaries.format_report(violations))
 
 
 def test_architecture_boundary_source_classification() -> None:
@@ -163,7 +165,7 @@ def test_architecture_boundary_source_classification() -> None:
         for path in paths
     )
 
-    assert_output(classification, EXPECTED_ROOT / "classifications.txt")
+    assert_output(classification)
 
 
 def test_host_private_access_allows_only_declared_host_members() -> None:
@@ -311,7 +313,6 @@ def test_architecture_boundary_detector_allows_shared_and_composition_model_depe
 
     assert_output(
         check_architecture_boundaries.format_report(violations),
-        EXPECTED_ROOT / "clean.txt",
     )
 
 
@@ -333,7 +334,6 @@ def test_architecture_boundary_detector_reports_stale_allowlist_entries() -> Non
 
     assert_output(
         check_architecture_boundaries.format_report(violations),
-        EXPECTED_ROOT / "stale_allowlist.txt",
     )
 
 
@@ -355,7 +355,6 @@ def test_reference_allowlist_is_symbol_specific() -> None:
 
     assert_output(
         check_architecture_boundaries.format_report(violations),
-        EXPECTED_ROOT / "reference_allowlist.txt",
     )
 
 
@@ -385,14 +384,18 @@ def test_architecture_boundary_allowlist_contract_and_file_discovery(tmp_path: P
         ),
     )
 
-    assert_output("\n".join(messages) + "\n", EXPECTED_ROOT / "allowlist_contract.txt")
+    assert_output("\n".join(messages) + "\n")
 
 
 def test_architecture_boundary_cli_reports_actionable_failures(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """Exercise the clean CLI, an abnormal dependency, and the executable entry point."""
+    """Exercise the clean CLI, an abnormal dependency, and the executable entry point.
+
+    The failure in a source file is stored by its file and symbol (the ``in`` part), not by its line and column, so
+    an edit above it in that file leaves the stored output as it is.
+    """
     success_code = check_architecture_boundaries.main([str(ROOT / "src" / "datamodel_code_generator")])
     clean_output = capsys.readouterr()
 
@@ -404,7 +407,7 @@ def test_architecture_boundary_cli_reports_actionable_failures(
     )
     monkeypatch.delitem(check_architecture_boundaries.DEFAULT_ALLOWLIST, legacy_key)
     failure_code = check_architecture_boundaries.main([str(ROOT / "src" / "datamodel_code_generator" / "reference.py")])
-    failure_output = capsys.readouterr()
+    failure_by_symbol = re.sub(r"^(src/[^:]+):\d+:\d+:", r"\1:", capsys.readouterr().err, flags=re.MULTILINE)
     monkeypatch.undo()
 
     monkeypatch.setattr(sys, "argv", [str(ROOT / "scripts" / "check_architecture_boundaries.py")])
@@ -418,12 +421,11 @@ def test_architecture_boundary_cli_reports_actionable_failures(
             f"clean stdout: {clean_output.out!r}\n"
             f"clean stderr: {clean_output.err!r}\n"
             f"failure exit: {failure_code}\n"
-            f"{failure_output.err}"
+            f"{failure_by_symbol}"
             f"entrypoint exit: {exit_info.value.code}\n"
             f"entrypoint stdout: {entrypoint_output.out!r}\n"
             f"entrypoint stderr: {entrypoint_output.err!r}\n"
         ),
-        EXPECTED_ROOT / "cli.txt",
     )
 
 
@@ -439,25 +441,17 @@ def test_architecture_boundary_cli_checks_the_full_source_tree() -> None:
 
     assert_output(
         f"exit: {completed.returncode}\nstdout: {completed.stdout!r}\nstderr:\n{completed.stderr}",
-        EXPECTED_ROOT / "cli_subprocess.txt",
     )
 
 
 @pytest.mark.parametrize(
-    ("fixture", "expected"),
+    "fixture",
     [
-        (FIXTURE_ROOT / "shared_model" / "forbidden.py", EXPECTED_ROOT / "cli_subprocess_forbidden.txt"),
-        (
-            FIXTURE_ROOT / "shared_model_dynamic_import" / "forbidden.py",
-            EXPECTED_ROOT / "cli_subprocess_shared_model_dynamic_import.txt",
-        ),
+        pytest.param(FIXTURE_ROOT / "shared_model" / "forbidden.py", id="forbidden"),
+        pytest.param(FIXTURE_ROOT / "shared_model_dynamic_import" / "forbidden.py", id="shared_model_dynamic_import"),
     ],
 )
-def test_architecture_boundary_cli_reports_shared_model_backend_access(
-    tmp_path: Path,
-    fixture: Path,
-    expected: Path,
-) -> None:
+def test_architecture_boundary_cli_reports_shared_model_backend_access(tmp_path: Path, fixture: Path) -> None:
     """Run the executable guard against isolated shared-model backend access fixtures."""
     script_path = _copy_checker(tmp_path)
     source_path = tmp_path / "src" / "datamodel_code_generator" / "model" / "base.py"
@@ -472,7 +466,4 @@ def test_architecture_boundary_cli_reports_shared_model_backend_access(
         text=True,
     )
 
-    assert_output(
-        f"exit: {completed.returncode}\nstdout: {completed.stdout!r}\nstderr:\n{completed.stderr}",
-        expected,
-    )
+    assert_output(f"exit: {completed.returncode}\nstdout: {completed.stdout!r}\nstderr:\n{completed.stderr}")

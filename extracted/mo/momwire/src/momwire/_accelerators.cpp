@@ -33,6 +33,7 @@ PYBIND11_MODULE(MOMWIRE_MODULE_NAME, m) {
     register_bspline(m);
     register_sinusoidal(m);
     register_sinusoidal_nec4(m);
+    register_sinusoidal_far(m);
     register_somm(m);
     register_mw568(m);
     register_razor(m);
@@ -44,7 +45,6 @@ PYBIND11_MODULE(MOMWIRE_MODULE_NAME, m) {
     register_phi_reduce(m);
     register_solve_prep(m);
     register_sin_pair_reuse(m);
-    register_fill_report(m);
     register_qp_pairs(m);
     register_exact_kernel(m);
     register_exact_kernel_point(m);

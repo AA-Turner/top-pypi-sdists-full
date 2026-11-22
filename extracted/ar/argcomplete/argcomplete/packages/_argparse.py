@@ -5,6 +5,8 @@
 
 # This file contains argparse introspection utilities used in the course of argcomplete execution.
 
+from __future__ import annotations
+
 from argparse import (
     ONE_OR_MORE,
     OPTIONAL,
@@ -18,16 +20,24 @@ from argparse import (
     _get_action_name,
     _SubParsersAction,
 )
+from copy import copy
 from gettext import gettext
-from typing import Dict, List, Optional, Set, Tuple, Union, cast
+from typing import cast
 
-_OptionTuple = Union[
-    Tuple[Optional[Action], str, Optional[str]],
-    Tuple[Optional[Action], str, Optional[str], Optional[str]],
-]
-_OptionTupleEntry = Union[_OptionTuple, List[_OptionTuple]]
+_OptionTuple = tuple[Action | None, str, str | None] | tuple[Action | None, str, str | None, str | None]
+_OptionTupleEntry = _OptionTuple | list[_OptionTuple]
 
-_num_consumed_args: Dict[Action, int] = {}
+_num_consumed_args: dict[Action, int] = {}
+
+
+def get_num_consumed_args(action: Action) -> int:
+    """Return the number of completed values assigned to an action during completion.
+
+    Call this from a completer with its ``action`` argument. The word being
+    completed is excluded. For repeated options, the count refers to the current
+    occurrence, not the total number of values from earlier occurrences.
+    """
+    return _num_consumed_args.get(action, 0)
 
 
 def action_is_satisfied(action):
@@ -45,7 +55,7 @@ def action_is_satisfied(action):
     if action.nargs is None:
         return num_consumed_args == 1
 
-    assert isinstance(action.nargs, int), 'failed to handle a possible nargs value: %r' % action.nargs
+    assert isinstance(action.nargs, int), f'failed to handle a possible nargs value: {action.nargs!r}'
     return num_consumed_args == action.nargs
 
 
@@ -58,7 +68,7 @@ def action_is_open(action):
     if action.nargs == OPTIONAL or action.nargs is None:
         return num_consumed_args == 0
 
-    assert isinstance(action.nargs, int), 'failed to handle a possible nargs value: %r' % action.nargs
+    assert isinstance(action.nargs, int), f'failed to handle a possible nargs value: {action.nargs!r}'
     return num_consumed_args < action.nargs
 
 
@@ -81,17 +91,26 @@ class IntrospectiveArgumentParser(ArgumentParser):
     except for the lines that contain the string "Added by argcomplete".
     '''
 
+    def _get_partial_num_consumed_args(self, action: Action, arg_strings_pattern: str) -> int:
+        # Let argparse match the unfinished action without requiring all its
+        # values. Copy it so its declared nargs and normal parsing stay intact.
+        partial_action = copy(action)
+        partial_action.nargs = ZERO_OR_MORE
+        arg_count = self._match_argument(partial_action, arg_strings_pattern)
+        return arg_strings_pattern[:arg_count].count("A")
+
     def _parse_known_args(self, arg_strings, namespace, intermixed=False, **kwargs):
         _num_consumed_args.clear()  # Added by argcomplete
         self._argcomplete_namespace = namespace
-        self.active_actions: List[Action] = []  # Added by argcomplete
+        self.active_actions: list[Action] = []  # Added by argcomplete
+        self.final_option: Action | None = None  # Added by argcomplete. Value-taking option in the final token, if any.
         # replace arg strings that are file references
         if self.fromfile_prefix_chars is not None:
             arg_strings = self._read_args_from_files(arg_strings)
 
         # map all mutually exclusive arguments to the other arguments
         # they can't occur with
-        action_conflicts: Dict[Action, List[Action]] = {}
+        action_conflicts: dict[Action, list[Action]] = {}
         self._action_conflicts = action_conflicts  # Added by argcomplete
         for mutex_group in self._mutually_exclusive_groups:
             group_actions = mutex_group._group_actions
@@ -103,7 +122,7 @@ class IntrospectiveArgumentParser(ArgumentParser):
         # find all option indices, and determine the arg_string_pattern
         # which has an 'O' if there is an option at an index,
         # an 'A' if there is an argument, or a '-' if there is a '--'
-        option_string_indices: Dict[int, _OptionTupleEntry] = {}
+        option_string_indices: dict[int, _OptionTupleEntry] = {}
         arg_string_pattern_parts = []
         arg_strings_iter = iter(arg_strings)
         for i, arg_string in enumerate(arg_strings_iter):
@@ -126,10 +145,11 @@ class IntrospectiveArgumentParser(ArgumentParser):
 
         # join the pieces together to form the pattern
         arg_strings_pattern = ''.join(arg_string_pattern_parts)
+        options_ended = '-' in arg_strings_pattern  # Added by argcomplete: the cursor follows a '--' separator.
 
         # converts arg strings to the appropriate and then takes the action
-        seen_actions: Set[Action] = set()
-        seen_non_default_actions: Set[Action] = set()
+        seen_actions: set[Action] = set()
+        seen_non_default_actions: set[Action] = set()
         self._seen_non_default_actions = seen_non_default_actions  # Added by argcomplete
 
         def take_action(action, argument_strings, option_string=None):
@@ -180,7 +200,7 @@ class IntrospectiveArgumentParser(ArgumentParser):
             # identify additional optionals in the same arg string
             # (e.g. -xyz is the same as -x -y -z if no args are required)
             match_argument = self._match_argument
-            action_tuples: List[Tuple[Action, List[str], str]] = []
+            action_tuples: list[tuple[Action, list[str], str]] = []
             while True:
                 # if we found no optional action, skip it
                 if action is None:
@@ -229,9 +249,17 @@ class IntrospectiveArgumentParser(ArgumentParser):
                 else:
                     start = start_index + 1
                     selected_patterns = arg_strings_pattern[start:]
-                    self.active_actions = [action]  # Added by argcomplete
+                    self.active_actions = [] if options_ended else [action]  # Added by argcomplete
+                    if not selected_patterns and action.nargs != 0:  # Added by argcomplete
+                        self.final_option = action  # Added by argcomplete
                     _num_consumed_args[action] = 0  # Added by argcomplete
-                    arg_count = match_argument(action, selected_patterns)
+                    try:
+                        arg_count = match_argument(action, selected_patterns)
+                    except ArgumentError:
+                        # Fixed nargs can be incomplete at the cursor. Preserve
+                        # the already entered values even though parsing stops.
+                        _num_consumed_args[action] = self._get_partial_num_consumed_args(action, selected_patterns)
+                        raise
                     stop = start + arg_count
                     args = arg_strings[start:stop]
 
@@ -240,7 +268,7 @@ class IntrospectiveArgumentParser(ArgumentParser):
                     # it wouldn't be able to consume any more args)
                     _num_consumed_args[action] = len(args)
                     if not action_is_open(action):
-                        self.active_actions.remove(action)
+                        self.active_actions.clear()  # Added by argcomplete
                     # End added by argcomplete
 
                     action_tuples.append((action, args, option_string))
@@ -270,8 +298,16 @@ class IntrospectiveArgumentParser(ArgumentParser):
                 self.active_actions.append(action)  # Added by argcomplete
             for action, arg_count in zip(positionals, arg_counts):
                 args = arg_strings[start_index : start_index + arg_count]
+                # Begin added by argcomplete
+                # The matcher includes the '--' separator in its token count.
+                # Ordinary positionals only receive values; PARSER/REMAINDER
+                # can retain '--' as part of their arguments.
+                if action.nargs in (PARSER, REMAINDER):
+                    _num_consumed_args[action] = arg_count
+                else:
+                    _num_consumed_args[action] = arg_strings_pattern[start_index : start_index + arg_count].count("A")
+                # End added by argcomplete
                 start_index += arg_count
-                _num_consumed_args[action] = len(args)  # Added by argcomplete
                 take_action(action, args)
 
             # slice off the Positionals that we just parsed and return the
@@ -322,14 +358,20 @@ class IntrospectiveArgumentParser(ArgumentParser):
 
         if positionals:
             self.active_actions.append(positionals[0])  # Added by argcomplete
+            # Begin added by argcomplete
+            action = positionals[0]
+            if isinstance(action.nargs, int):
+                _num_consumed_args[action] = self._get_partial_num_consumed_args(
+                    action, arg_strings_pattern[stop_index:]
+                )
+            # End added by argcomplete
             self.error(gettext('too few arguments'))
 
         # make sure all required actions were present
         for action in self._actions:
-            if action.required:
-                if action not in seen_actions:
-                    name = _get_action_name(action)
-                    self.error(gettext('argument %s is required') % name)
+            if action.required and action not in seen_actions:
+                name = _get_action_name(action)
+                self.error(gettext('argument %s is required') % name)
 
         # make sure all required groups had one option present
         for group in self._mutually_exclusive_groups:

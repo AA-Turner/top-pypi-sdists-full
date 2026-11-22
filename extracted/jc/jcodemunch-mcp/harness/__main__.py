@@ -778,12 +778,14 @@ DELEGATED = {
     "token.per_repo_rise_max": "benchmarks/harness/run_benchmark.py --floor (bench tier, network)",
     "coverage.min": "pytest --cov-fail-under (full tier)",
     "suite.fast_seconds": "this runner, fast tier wall clock",
+    "suite.fast_seconds_ci": "harness fast tier on a GitHub-hosted runner",
     "suite.full_seconds": "this runner, full tier wall clock",
     "ci.skips_ubuntu": "this runner / pr-gate.yml full tier, pytest summary",
     "ci.skips_windows": "this runner / pr-gate.yml full tier, pytest summary",
     "ci.skips_macos": "this runner on macOS, full tier, pytest summary",
     "suite.full_seconds_ci_windows": "harness full tier on a GitHub windows runner",
     "suite.full_seconds_ci_ubuntu_ctrace": "harness full tier on a GitHub ubuntu runner where coverage runs its C tracer",
+    "suite.full_seconds_ci_ubuntu_sysmon": "harness full tier on a GitHub ubuntu runner where coverage runs its sysmon core",
     "suite.fast_skips_max": "harness fast tier, pytest summary",
 }
 
@@ -919,6 +921,19 @@ def _coverage_core() -> str | None:
         return None
 
 
+def _fast_wall_floor_id() -> str:
+    """Which fast-tier wall Floor this runner is judged by.
+
+    `suite.fast_seconds` was set from one 49.35 s fast tier on the measuring
+    box. CI fast-tier legs ran 42 to 93 s over two weeks, 48 to 93 s on one day,
+    and two failed it with every test passing (#1502), so a GitHub-hosted runner has
+    its own Floor (2026-11-21). Every non-CI run keeps the tighter one.
+    """
+    if os.environ.get("GITHUB_ACTIONS"):
+        return "suite.fast_seconds_ci"
+    return "suite.fast_seconds"
+
+
 def _full_wall_floor_id() -> str:
     """Which full-tier wall Floor this runner is judged by.
 
@@ -927,14 +942,20 @@ def _full_wall_floor_id() -> str:
     (Python 3.10 and 3.11, where `sys.monitoring` is not usable) has its own
     Floor (L-232): the 3.10 leg's median sat just under the shared one and
     tripped it with every test passing, and the 3.11 leg runs the same tracer.
-    A sysmon ubuntu leg and every non-CI run keep `suite.full_seconds`. An
-    unknown core keeps the shared Floor, the tighter of the two.
+    A sysmon ubuntu leg has its own Floor too (2026-11-21): main.yml's 3.12
+    leg failed the shared one on three of eight runs with every test passing.
+    Every non-CI run keeps `suite.full_seconds`. An unknown core keeps the
+    shared Floor, the tightest of the three.
     """
     if os.environ.get("GITHUB_ACTIONS"):
         if sys.platform.startswith("win"):
             return "suite.full_seconds_ci_windows"
-        if sys.platform.startswith("linux") and _coverage_core() == "ctrace":
-            return "suite.full_seconds_ci_ubuntu_ctrace"
+        if sys.platform.startswith("linux"):
+            core = _coverage_core()
+            if core == "ctrace":
+                return "suite.full_seconds_ci_ubuntu_ctrace"
+            if core == "sysmon":
+                return "suite.full_seconds_ci_ubuntu_sysmon"
     return "suite.full_seconds"
 
 
@@ -1002,8 +1023,9 @@ def tier_fast(result: dict) -> bool:
     for u in TIERS.get("unclear", []):
         print(f"REVIEW  {u['path']}: {u['question']}")
     wall = time.perf_counter() - t0
-    fl = T.floor("suite.fast_seconds")
-    print(T.verdict_line("suite.fast_seconds", round(wall, 2)))
+    fid = _fast_wall_floor_id()
+    fl = T.floor(fid)
+    print(T.verdict_line(fid, round(wall, 2)))
     if wall > fl:
         ok = False
     result["tiers"]["fast"] = {

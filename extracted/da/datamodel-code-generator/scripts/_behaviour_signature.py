@@ -316,7 +316,7 @@ def _default_text(value: object, factory: object = None) -> str:
     return "<obj>" if " at 0x" in text else text
 
 
-def _field(  # ruff: ignore[too-many-arguments]
+def _field(
     ctx: Context,
     annotation: object,
     *,
@@ -554,8 +554,15 @@ def _dataclass_item(cls: type[DataclassInstance], ctx: Context) -> dict[str, Any
     return {"kind": kind, "bases": _bases(cls), "fields": fields, "positional": _positional(cls)}
 
 
-def item_signature(name: str, obj: object, ctx: Context) -> dict[str, Any]:  # ruff: ignore[too-many-return-statements]
-    """Return the behaviour signature of one public name."""
+def item_signature(  # ruff: ignore[too-many-return-statements]
+    name: str, obj: object, ctx: Context, *, callables: bool = False
+) -> dict[str, Any]:
+    """Return the behaviour signature of one public name.
+
+    With `callables` (the modules of a target package: a client, a server) a plain class also lists the
+    signatures of its methods and a function its own (`_callable_text`): their parameters are the target's
+    behaviour, as the fields are a model's.
+    """
     if isinstance(obj, type):
         if obj.__name__ != name or not ctx.own(obj):
             return {"kind": "alias", "type": canonical(obj, ctx, meta=True)}
@@ -569,7 +576,7 @@ def item_signature(name: str, obj: object, ctx: Context) -> dict[str, Any]:  # r
             return _struct_item(obj, ctx)
         if dataclasses.is_dataclass(obj):
             return _dataclass_item(obj, ctx)
-        return {"kind": "class", "bases": _bases(obj)}
+        return {"kind": "class", "bases": _bases(obj), **({"methods": _methods(obj)} if callables else {})}
     if (
         type(obj).__name__ == "TypeAliasType"
         or typing.get_origin(obj) is not None
@@ -578,8 +585,43 @@ def item_signature(name: str, obj: object, ctx: Context) -> dict[str, Any]:  # r
     ):
         return {"kind": "alias", "type": canonical(obj, ctx, meta=True)}
     if callable(obj):
-        return {"kind": "function"}
+        return {"kind": "function", **({"signature": _callable_text(obj)} if callables else {})}
     return {"kind": "other", "type": type(obj).__name__}
+
+
+def _annotation_text(annotation: object) -> str:
+    """Return an annotation as text: a postponed one as written, none as empty."""
+    if annotation is inspect.Parameter.empty:
+        return ""
+    return annotation if isinstance(annotation, str) else inspect.formatannotation(annotation)
+
+
+def _callable_text(obj: Callable[..., object]) -> str:
+    """Return a callable's parameters (kind, name, annotation, default) and return annotation as text.
+
+    Defaults read as `_default_text` writes them, so a sentinel's address never differs between two runs.
+    """
+    try:
+        signature = inspect.signature(obj)
+    except (TypeError, ValueError):
+        return "<no signature>"
+    parameters = [
+        f"{parameter.kind.name} {parameter.name}"
+        + (f": {annotation}" if (annotation := _annotation_text(parameter.annotation)) else "")
+        + ("" if parameter.default is parameter.empty else f" = {_default_text(parameter.default)}")
+        for parameter in signature.parameters.values()
+    ]
+    return f"({', '.join(parameters)}) -> {_annotation_text(signature.return_annotation)}"
+
+
+def _methods(cls: type) -> dict[str, str]:
+    """Return the signature of each method a class defines: its public ones, `__init__` and `__call__`."""
+    methods = {}
+    for name, member in vars(cls).items():
+        function = getattr(member, "__func__", member)
+        if inspect.isfunction(function) and (not name.startswith("_") or name in {"__init__", "__call__"}):
+            methods[name] = _callable_text(function)
+    return methods
 
 
 def defined_names(tree: ast.Module) -> list[str]:
@@ -598,6 +640,8 @@ def defined_names(tree: ast.Module) -> list[str]:
 
 
 TREE_ROOT = [""]
+TARGETS_FLAG = "--targets"
+"""The command-line flag of a run whose target packages are signed beside its models (`run_signature`)."""
 
 
 def _error_text(kind: str, message: str, limit: int) -> str:
@@ -792,15 +836,17 @@ def _usability(
     return "adapters", results, probes
 
 
-def module_signature(module: types.ModuleType, source: str, output_model_type: str) -> dict[str, Any]:
-    """Return the signature of one imported module."""
+def module_signature(
+    module: types.ModuleType, source: str, output_model_type: str, *, callables: bool = False
+) -> dict[str, Any]:
+    """Return the signature of one imported module; with `callables` its callables' too (`item_signature`)."""
     ctx = Context(module)
     items: dict[str, Any] = {}
     for name in defined_names(ast.parse(source)):
         if name not in module.__dict__:
             continue
         try:
-            items[name] = item_signature(name, module.__dict__[name], ctx)
+            items[name] = item_signature(name, module.__dict__[name], ctx, callables=callables)
         except Exception as exc:  # ruff: ignore[blind-except] - an introspection failure makes the name unusable
             items[name] = {"kind": "error", "error": _short_error(exc, 120)}
     signature: dict[str, Any] = {"names": sorted(items), "items": items}
@@ -912,6 +958,49 @@ def _import_file(path: Path) -> types.ModuleType:
     return module
 
 
+def _import_module(name: str) -> types.ModuleType:
+    """Import one module of a generated package by its dotted name."""
+    return importlib.import_module(name)
+
+
+def model_types(path: Path) -> dict[str, type]:
+    """Return the public classes a stored module file or package directory defines, by `<module>:<name>`.
+
+    The modules of a package are imported as the signature imports them, with the package's parent on the path.
+    """
+    path = path.resolve()
+    sys.path.insert(0, str(path.parent))
+    if path.is_dir():
+        files = [file for file in sorted(path.rglob("*.py")) if "__pycache__" not in file.parts]
+        names = [
+            ".".join([
+                path.name,
+                *(part for part in file.relative_to(path).with_suffix("").parts if part != "__init__"),
+            ])
+            for file in files
+        ]
+        modules = [_import_module(name) for name in names]
+    else:
+        modules = [_import_file(path)]
+    return {
+        f"{module.__name__}:{name}": value
+        for module in modules
+        for name, value in vars(module).items()
+        if isinstance(value, type) and value.__module__ == module.__name__ and not name.startswith("_")
+    }
+
+
+def model_verdicts(target: type, output_model_type: str, values: list[object]) -> list[list[str | None]]:
+    """Return the verdict of each value against one model and the fingerprint digest of each accepted one."""
+    validate, rejection = _validator(target, output_model_type)
+    found: list[list[str | None]] = []
+    for value in values:
+        verdict, parsed = _verdict(validate, rejection, value)
+        digest = hashlib.sha256(json.dumps(fingerprint(parsed), sort_keys=True).encode()).hexdigest()[:16]
+        found.append([verdict, digest if verdict == "accept" else None])
+    return found
+
+
 PRELOADED = ("pydantic", "msgspec", "typing_extensions")
 FIRST_IMPORT_CODE = """
 import contextlib, importlib, json, sys
@@ -953,8 +1042,10 @@ def first_import_errors(names: list[str], root: str) -> dict[str, str]:
     return {name: message for name, message in zip(names, messages, strict=False) if message}
 
 
-def signature_of(path: Path, output_model_type: str, payloads: list[dict[str, Any]] | None = None) -> dict[str, Any]:
-    """Return the signature of a generated module file or package directory."""
+def signature_of(
+    path: Path, output_model_type: str, payloads: list[dict[str, Any]] | None = None, *, callables: bool = False
+) -> dict[str, Any]:
+    """Return the signature of a generated module file or package directory (`callables`: `item_signature`)."""
     warnings.simplefilter("ignore")
     path = path.resolve()
     TREE_ROOT[0] = str(path.parent)
@@ -983,20 +1074,43 @@ def signature_of(path: Path, output_model_type: str, payloads: list[dict[str, An
             package[key] = {"import_error": f"imported first: {first[name]}"}
             continue
         try:
-            module = importlib.import_module(name)
+            module = _import_module(name)
         except Exception as exc:  # ruff: ignore[blind-except] - a failed import is the result
             package[key] = {"import_error": _short_error(exc, 200)}
             continue
-        package[key] = module_signature(module, file.read_text(encoding="utf-8"), output_model_type)
+        package[key] = module_signature(
+            module, file.read_text(encoding="utf-8"), output_model_type, callables=callables
+        )
     return {"package": package}
 
 
+def run_signature(root: Path, output_model_type: str, payloads: list[dict[str, object]] | None) -> dict[str, object]:
+    """Return the signature of a run that writes target packages (a client, a server) beside its models.
+
+    One package signature: the models (`model.py`) as the module `model`, and each module of each package of
+    the run's directory (a directory with `__init__.py`) by its dotted name, with its callables. The targets
+    import the models as `model`, the name the models module is imported by.
+    """
+    modules = {"model": signature_of(root / "model.py", output_model_type, payloads)}
+    for package in sorted(path for path in root.iterdir() if (path / "__init__.py").is_file()):
+        signed = signature_of(package, output_model_type, callables=True)["package"]
+        modules |= {f"{package.name}.{key}": value for key, value in signed.items()}
+    return {"package": modules}
+
+
 def main(argv: list[str]) -> int:
-    """Print the signature of the tree named on the command line."""
+    """Print the signature of the tree named on the command line.
+
+    `TREE BACKEND [PAYLOADS] [--targets]`: with `--targets` TREE is a run's directory whose target packages
+    are signed beside its models (`run_signature`).
+    """
     sys.dont_write_bytecode = True
     sys.set_int_max_str_digits(0)
-    payloads = json.loads(Path(argv[2]).read_text(encoding="utf-8")) if len(argv) > 2 else None  # ruff: ignore[magic-value-comparison]
-    print(json.dumps(signature_of(Path(argv[0]), argv[1], payloads)))
+    targets = TARGETS_FLAG in argv
+    tree, backend, *rest = [arg for arg in argv if arg != TARGETS_FLAG]
+    payloads = json.loads(Path(rest[0]).read_text(encoding="utf-8")) if rest else None
+    sign = run_signature if targets else signature_of
+    print(json.dumps(sign(Path(tree), backend, payloads)))
     return 0
 
 

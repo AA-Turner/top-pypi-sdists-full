@@ -15,7 +15,14 @@ import warnings
 
 from libtmux import exc
 from libtmux._internal.env import pane_id_from_env
-from libtmux.common import get_version_str, has_gte_version, raise_if_stderr, tmux_cmd
+from libtmux._internal.support.capabilities import capability_since
+from libtmux.common import (
+    escape_trailing_separator,
+    get_version_str,
+    has_gte_version,
+    raise_if_stderr,
+    tmux_cmd,
+)
 from libtmux.constants import (
     PANE_DIRECTION_FLAG_MAP,
     RESIZE_ADJUSTMENT_DIRECTION_FLAG_MAP,
@@ -29,19 +36,14 @@ from libtmux.neo import Obj, fetch_obj
 from libtmux.options import OptionsMixin
 
 if t.TYPE_CHECKING:
-    import sys
     import types
+    from typing import Self
 
     from libtmux._internal.types import StrPath
 
     from .server import Server
     from .session import Session
     from .window import Window
-
-    if sys.version_info >= (3, 11):
-        from typing import Self
-    else:
-        from typing_extensions import Self
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +58,115 @@ class Pane(
 
     ``Pane`` instances can send commands directly to a pane, or traverse
     between linked tmux objects.
+
+    **Reading it.** Every field is a tmux format token read when the pane was
+    listed or last refreshed, and is ``None`` when tmux gave no value.
+    :meth:`~libtmux.Pane.refresh` rewrites the fields in place and raises
+    :exc:`~libtmux.exc.TmuxObjectDoesNotExist` when the pane has gone. The edge
+    properties convert tmux's flags to bools.
+
+    - Identity: :attr:`~libtmux.Pane.pane_id`, :attr:`~libtmux.Pane.id`
+    - Position: :attr:`~libtmux.Pane.pane_index`, :attr:`~libtmux.Pane.index`
+    - Size: :attr:`~libtmux.Pane.width`, :attr:`~libtmux.Pane.height`
+    - Edges: :attr:`~libtmux.Pane.at_top`, :attr:`~libtmux.Pane.at_bottom`,
+      :attr:`~libtmux.Pane.at_left`, :attr:`~libtmux.Pane.at_right`
+    - Title: :attr:`~libtmux.Pane.title`
+    - Re-read from tmux: :meth:`~libtmux.Pane.refresh`
+
+    **Finding it.** :meth:`~libtmux.Pane.from_pane_id` asks tmux for one pane and
+    raises :exc:`~libtmux.exc.TmuxObjectDoesNotExist` when it is not there.
+    :meth:`~libtmux.Pane.from_env` returns the pane this process runs inside, read
+    from ``$TMUX`` and ``$TMUX_PANE``, and raises :exc:`~libtmux.exc.NotInsideTmux`
+    outside one.
+
+    - By ID: :meth:`~libtmux.Pane.from_pane_id`
+    - The pane you run inside: :meth:`~libtmux.Pane.from_env`
+    - From a listing: :attr:`~libtmux.Server.panes`,
+      :attr:`~libtmux.Window.panes`
+
+    **Finding its parents.** Each access asks tmux.
+
+    - Parents: :attr:`~libtmux.Pane.window`, :attr:`~libtmux.Pane.session`
+
+    **Sending input.** :meth:`~libtmux.Pane.send_keys` presses Enter after the
+    keys unless ``enter=False``, and sends them literally with ``literal=True``.
+    Called without keys it needs ``reset``, ``repeat`` or ``copy_mode_cmd``, and
+    raises :exc:`ValueError` otherwise.
+
+    - Send keys: :meth:`~libtmux.Pane.send_keys`
+    - Press Enter: :meth:`~libtmux.Pane.enter`
+    - Paste a buffer: :meth:`~libtmux.Pane.paste_buffer`
+    - Send the prefix key: :meth:`~libtmux.Pane.send_prefix`
+
+    **Reading output.** :meth:`~libtmux.Pane.capture_pane` returns a list with one
+    string per row. ``start`` and ``end`` count from the first visible line, with
+    negative numbers reaching into the history, ``-`` for the start of the history
+    as ``start`` and for the end of the visible pane as ``end``. With ``to_buffer``
+    it stores the capture in a tmux buffer and returns ``None``. A flag newer than
+    the running tmux warns and is ignored.
+
+    - Capture rows: :meth:`~libtmux.Pane.capture_pane`
+    - Ask tmux for a format: :meth:`~libtmux.Pane.display_message`
+
+    **Splitting and arranging.** :meth:`~libtmux.Pane.split` divides this exact
+    pane, beneath it by default, and returns the new pane. Passing both ``size``
+    and ``percentage`` raises :exc:`ValueError`. A resize takes an adjustment, a
+    height and width, or zoom, and a height or width given as text must be digits
+    or a percentage.
+
+    - Split: :meth:`~libtmux.Pane.split`, :meth:`~libtmux.Pane.new_pane`
+    - Resize: :meth:`~libtmux.Pane.resize`, :meth:`~libtmux.Pane.set_width`,
+      :meth:`~libtmux.Pane.set_height`
+    - Exchange two panes: :meth:`~libtmux.Pane.swap`
+    - Move it into another window: :meth:`~libtmux.Pane.join`,
+      :meth:`~libtmux.Pane.move`
+    - Move it into a window of its own: :meth:`~libtmux.Pane.break_pane`
+    - Make it active: :meth:`~libtmux.Pane.select`
+
+    **Modes, pipes and history.** :meth:`~libtmux.Pane.pipe` copies the pane's
+    output to a shell command, and stops piping when given no command.
+    :meth:`~libtmux.Pane.clear_history` forgets the scrollback, and
+    :meth:`~libtmux.Pane.reset` also resets the terminal state.
+
+    - Copy mode: :meth:`~libtmux.Pane.copy_mode`
+    - Pipe output: :meth:`~libtmux.Pane.pipe`
+    - Scrollback and screen: :meth:`~libtmux.Pane.clear_history`,
+      :meth:`~libtmux.Pane.clear`, :meth:`~libtmux.Pane.reset`
+    - Title: :meth:`~libtmux.Pane.set_title`
+
+    **Changing it.** :meth:`~libtmux.Pane.respawn` documents ``kill=True`` as
+    required if the pane is still active. :meth:`~libtmux.Pane.kill` takes
+    ``all_except`` to kill every other pane in the window instead.
+
+    - Restart what it runs: :meth:`~libtmux.Pane.respawn`
+    - Destroy it: :meth:`~libtmux.Pane.kill`
+
+    **Options and hooks.** An option or hook call acts on the pane scope by
+    default. The setters return the pane, so calls chain, and an unknown or
+    invalid name raises :exc:`~libtmux.exc.OptionError` or one of its subclasses.
+
+    - Options: :meth:`~libtmux.Pane.show_options`,
+      :meth:`~libtmux.Pane.show_option`, :meth:`~libtmux.Pane.set_option`,
+      :meth:`~libtmux.Pane.unset_option`
+    - Hooks: :meth:`~libtmux.Pane.show_hooks`, :meth:`~libtmux.Pane.show_hook`,
+      :meth:`~libtmux.Pane.set_hook`, :meth:`~libtmux.Pane.unset_hook`,
+      :meth:`~libtmux.Pane.run_hook`
+
+    Attributes
+    ----------
+    default_option_scope : OptionScope | None
+        Scope :class:`~libtmux.options.OptionsMixin` falls back to when an
+        option call leaves ``scope`` unset. ``OptionScope.Pane`` sends
+        ``set-option`` and ``show-options`` with tmux's ``-p`` flag; ``None``
+        sends no scope flag, which tmux resolves as session scope.
+    default_hook_scope : OptionScope | None
+        Scope :class:`~libtmux.hooks.HooksMixin` falls back to when a hook
+        call leaves ``scope`` unset. ``OptionScope.Pane`` sends ``set-hook``
+        and ``show-hooks`` with tmux's ``-p`` flag; ``None`` sends no scope
+        flag, which tmux resolves as session scope.
+    server : Server
+        Server the pane was queried from, and the connection every command
+        and refresh runs over.
 
     Examples
     --------
@@ -238,10 +349,13 @@ class Pane(
 
         Examples
         --------
-        >>> socket_path = server.cmd(
+        >>> socket_path = server.cmd(  # doctest: +HIDE
         ...     "display-message", "-p", "-t", pane.pane_id, "#{socket_path}"
         ... ).stdout[0]
-        >>> env = {"TMUX": f"{socket_path},1,0", "TMUX_PANE": pane.pane_id}
+        >>> env = {  # doctest: +HIDE
+        ...     "TMUX": f"{socket_path},1,0",
+        ...     "TMUX_PANE": pane.pane_id,
+        ... }
 
         >>> Pane.from_env(env)
         Pane(%1 Window(@1 1:..., Session($1 ...)))
@@ -622,7 +736,10 @@ class Pane(
         if preserve_trailing:
             cmd.append("-N")
         if trim_trailing:
-            if has_gte_version("3.4", tmux_bin=self.server.tmux_bin):
+            if has_gte_version(
+                capability_since("capture-trim-blank-cells"),
+                tmux_bin=self.server.tmux_bin,
+            ):
                 cmd.append("-T")
             else:
                 warnings.warn(
@@ -634,7 +751,9 @@ class Pane(
         if quiet:
             cmd.append("-q")
         if mode_screen:
-            if has_gte_version("3.6", tmux_bin=self.server.tmux_bin):
+            if has_gte_version(
+                capability_since("capture-mode-screen"), tmux_bin=self.server.tmux_bin
+            ):
                 cmd.append("-M")
             else:
                 warnings.warn(
@@ -644,7 +763,9 @@ class Pane(
         if pending:
             cmd.append("-P")
         if hyperlinks:
-            if has_gte_version("3.7", tmux_bin=self.server.tmux_bin):
+            if has_gte_version(
+                capability_since("capture-line-flags"), tmux_bin=self.server.tmux_bin
+            ):
                 cmd.append("-H")
             else:
                 warnings.warn(
@@ -652,7 +773,9 @@ class Pane(
                     stacklevel=2,
                 )
         if line_numbers:
-            if has_gte_version("3.7", tmux_bin=self.server.tmux_bin):
+            if has_gte_version(
+                capability_since("capture-line-flags"), tmux_bin=self.server.tmux_bin
+            ):
                 cmd.append("-L")
             else:
                 warnings.warn(
@@ -660,7 +783,9 @@ class Pane(
                     stacklevel=2,
                 )
         if line_flags:
-            if has_gte_version("3.7", tmux_bin=self.server.tmux_bin):
+            if has_gte_version(
+                capability_since("capture-line-flags"), tmux_bin=self.server.tmux_bin
+            ):
                 cmd.append("-F")
             else:
                 warnings.warn(
@@ -734,7 +859,8 @@ class Pane(
 
             .. versionadded:: 0.56
         hex_keys : bool, optional
-            Send keys as hex values (``-H`` flag).
+            Send keys as hex values (``-H`` flag). Separate bytes with
+            whitespace, e.g. ``"41 42"``; each byte is sent as its own argument.
 
             .. versionadded:: 0.56
         target_client : str, optional
@@ -825,7 +951,13 @@ class Pane(
             self.cmd("send-keys", *tmux_args)
             return
         else:
-            self.cmd("send-keys", *tmux_args, prefix + cmd)
+            # tmux reads one byte per argument under -H.
+            keys = (
+                (prefix + cmd).split()
+                if hex_keys
+                else [escape_trailing_separator(prefix + cmd)]
+            )
+            self.cmd("send-keys", *tmux_args, "--", *keys)
 
         if enter and copy_mode_cmd is None:
             self.enter()
@@ -979,10 +1111,10 @@ class Pane(
             tmux_args += ("-d", str(delay))
 
         if format_string is not None:
-            tmux_args += ("-F", format_string)
+            tmux_args += ("-F", escape_trailing_separator(format_string))
 
         if cmd:
-            tmux_args += (cmd,)
+            tmux_args += ("--", escape_trailing_separator(cmd))
 
         proc = self.cmd("display-message", *tmux_args)
         if proc.stderr:
@@ -1336,14 +1468,14 @@ class Pane(
 
         if start_directory:
             start_path = pathlib.Path(start_directory).expanduser()
-            tmux_args += (f"-c{start_path}",)
+            tmux_args += (escape_trailing_separator(f"-c{start_path}"),)
 
         if not attach:
             tmux_args += ("-d",)
 
         if environment:
             for k, v in environment.items():
-                tmux_args += (f"-e{k}={v}",)
+                tmux_args += (escape_trailing_separator(f"-e{k}={v}"),)
 
         if empty:
             if has_gte_version("3.7", tmux_bin=self.server.tmux_bin):
@@ -1364,7 +1496,7 @@ class Pane(
             if has_gte_version("3.7", tmux_bin=self.server.tmux_bin):
                 for flag, value in styling.items():
                     if value is not None:
-                        tmux_args += (flag, value)
+                        tmux_args += (flag, escape_trailing_separator(value))
                 if keep:
                     tmux_args += ("-k",)
             else:
@@ -1374,7 +1506,7 @@ class Pane(
                 )
 
         if shell:
-            tmux_args += (shell,)
+            tmux_args += (escape_trailing_separator(shell),)
 
         pane_cmd = self.cmd("split-window", *tmux_args, target=target)
 
@@ -1452,12 +1584,16 @@ class Pane(
             Environment variables for the new pane (``-e`` flag).
         width : int, optional
             Width of the floating pane in cells (``-x`` flag).
+            Includes the border on tmux 3.8+; ``pane_width`` reports content cells.
         height : int, optional
             Height of the floating pane in cells (``-y`` flag).
+            Includes the border on tmux 3.8+; ``pane_height`` reports content cells.
         x : int, optional
             X position of the floating pane in cells (``-X`` flag).
+            Places the outer border on tmux 3.8+; ``pane_x`` reports content position.
         y : int, optional
             Y position of the floating pane in cells (``-Y`` flag).
+            Places the outer border on tmux 3.8+; ``pane_y`` reports content position.
         zoom : bool, optional
             Zoom the pane (``-Z`` flag).
         empty : bool, optional
@@ -1496,7 +1632,9 @@ class Pane(
         >>> is_floating
         '1'
         """
-        if not has_gte_version("3.7", tmux_bin=self.server.tmux_bin):
+        if not has_gte_version(
+            capability_since("floating-pane"), tmux_bin=self.server.tmux_bin
+        ):
             msg = "new_pane (floating panes) requires tmux 3.7+"
             raise exc.LibTmuxException(msg)
 
@@ -1515,13 +1653,13 @@ class Pane(
         if zoom:
             tmux_args += ("-Z",)
         if style is not None:
-            tmux_args += ("-s", style)
+            tmux_args += ("-s", escape_trailing_separator(style))
         if active_border_style is not None:
-            tmux_args += ("-S", active_border_style)
+            tmux_args += ("-S", escape_trailing_separator(active_border_style))
         if inactive_border_style is not None:
-            tmux_args += ("-R", inactive_border_style)
+            tmux_args += ("-R", escape_trailing_separator(inactive_border_style))
         if message is not None:
-            tmux_args += ("-m", message)
+            tmux_args += ("-m", escape_trailing_separator(message))
         if keep:
             tmux_args += ("-k",)
 
@@ -1529,20 +1667,20 @@ class Pane(
 
         if start_directory:
             start_path = pathlib.Path(start_directory).expanduser()
-            tmux_args += (f"-c{start_path}",)
+            tmux_args += (escape_trailing_separator(f"-c{start_path}"),)
 
         if not attach:
             tmux_args += ("-d",)
 
         if environment:
             for k, v in environment.items():
-                tmux_args += (f"-e{k}={v}",)
+                tmux_args += (escape_trailing_separator(f"-e{k}={v}"),)
 
         if empty:
             tmux_args += ("-E",)
 
         if shell:
-            tmux_args += (shell,)
+            tmux_args += (escape_trailing_separator(shell),)
 
         pane_cmd = self.cmd("new-pane", *tmux_args, target=target)
 
@@ -1628,7 +1766,7 @@ class Pane(
         >>> pane.pane_title
         'my-title'
         """
-        proc = self.cmd("select-pane", "-T", title)
+        proc = self.cmd("select-pane", "-T", escape_trailing_separator(title))
         raise_if_stderr(proc, "select-pane")
         self.refresh()
         return self
@@ -1665,9 +1803,8 @@ class Pane(
     ) -> None:
         """Display a popup overlay via ``$ tmux display-popup``.
 
-        Requires tmux 3.2+ and an attached client. Use
-        :class:`~libtmux._internal.control_mode.ControlMode` in tests to provide
-        a client.
+        Requires an attached terminal client. On tmux 3.8+,
+        a control client returns without opening the popup or running its command.
 
         Parameters
         ----------
@@ -1696,18 +1833,18 @@ class Pane(
         start_directory : str or PathLike, optional
             Working directory (``-d`` flag).
         title : str, optional
-            Popup title (``-T`` flag). Requires tmux 3.3+.
+            Popup title (``-T`` flag).
         border_lines : str, optional
-            Border line style (``-b`` flag). Requires tmux 3.3+.
+            Border line style (``-b`` flag).
         style : str, optional
-            Popup style (``-s`` flag). Requires tmux 3.3+.
+            Popup style (``-s`` flag).
         border_style : str, optional
-            Border style (``-S`` flag). Requires tmux 3.3+.
+            Border style (``-S`` flag).
         environment : dict, optional
-            Environment variables (``-e`` flag). Requires tmux 3.3+.
+            Environment variables (``-e`` flag).
         no_border : bool, optional
             Open the popup without a border (``-B`` flag). If
-            *border_lines* is also set, tmux ignores it. Requires tmux 3.3+.
+            *border_lines* is also set, tmux ignores it.
         close_on_any_key : bool, optional
             Dismiss the popup on any key press once the inner
             command has exited (``-k`` flag). Requires tmux 3.6+.
@@ -1717,12 +1854,10 @@ class Pane(
 
         Examples
         --------
-        Not directly testable — popup rendering requires a TTY-backed client.
-        Control-mode provides an attached client for invocation but the popup
-        itself is not visible or verifiable.
+        Closing an absent popup is harmless, including on a control client:
 
         >>> with control_mode() as ctl:
-        ...     pane.display_popup(command='true', close_on_exit=True)
+        ...     pane.display_popup(close_existing=True)
         """
         if close_on_exit and close_on_success:
             msg = (
@@ -1760,62 +1895,26 @@ class Pane(
 
         if start_directory is not None:
             start_path = pathlib.Path(start_directory).expanduser()
-            tmux_args += ("-d", str(start_path))
+            tmux_args += ("-d", escape_trailing_separator(str(start_path)))
 
         if title is not None:
-            if has_gte_version("3.3", tmux_bin=self.server.tmux_bin):
-                tmux_args += ("-T", title)
-            else:
-                warnings.warn(
-                    "title requires tmux 3.3+, ignoring",
-                    stacklevel=2,
-                )
+            tmux_args += ("-T", escape_trailing_separator(title))
 
         if border_lines is not None:
-            if has_gte_version("3.3", tmux_bin=self.server.tmux_bin):
-                tmux_args += ("-b", border_lines)
-            else:
-                warnings.warn(
-                    "border_lines requires tmux 3.3+, ignoring",
-                    stacklevel=2,
-                )
+            tmux_args += ("-b", escape_trailing_separator(border_lines))
 
         if style is not None:
-            if has_gte_version("3.3", tmux_bin=self.server.tmux_bin):
-                tmux_args += ("-s", style)
-            else:
-                warnings.warn(
-                    "style requires tmux 3.3+, ignoring",
-                    stacklevel=2,
-                )
+            tmux_args += ("-s", escape_trailing_separator(style))
 
         if border_style is not None:
-            if has_gte_version("3.3", tmux_bin=self.server.tmux_bin):
-                tmux_args += ("-S", border_style)
-            else:
-                warnings.warn(
-                    "border_style requires tmux 3.3+, ignoring",
-                    stacklevel=2,
-                )
+            tmux_args += ("-S", escape_trailing_separator(border_style))
 
         if environment:
-            if has_gte_version("3.3", tmux_bin=self.server.tmux_bin):
-                for k, v in environment.items():
-                    tmux_args += (f"-e{k}={v}",)
-            else:
-                warnings.warn(
-                    "environment requires tmux 3.3+, ignoring",
-                    stacklevel=2,
-                )
+            for k, v in environment.items():
+                tmux_args += (escape_trailing_separator(f"-e{k}={v}"),)
 
         if no_border:
-            if has_gte_version("3.3", tmux_bin=self.server.tmux_bin):
-                tmux_args += ("-B",)
-            else:
-                warnings.warn(
-                    "no_border requires tmux 3.3+, ignoring",
-                    stacklevel=2,
-                )
+            tmux_args += ("-B",)
 
         if close_on_any_key:
             if has_gte_version("3.6", tmux_bin=self.server.tmux_bin):
@@ -1836,7 +1935,7 @@ class Pane(
                 )
 
         if command is not None:
-            tmux_args += (command,)
+            tmux_args += (escape_trailing_separator(command),)
 
         proc = self.cmd("display-popup", *tmux_args)
 
@@ -1897,7 +1996,9 @@ class Pane(
             tmux_args += ("-s", separator)
 
         if no_vis:
-            if has_gte_version("3.7", tmux_bin=self.server.tmux_bin):
+            if has_gte_version(
+                capability_since("paste-buffer-no-vis"), tmux_bin=self.server.tmux_bin
+            ):
                 tmux_args += ("-S",)
             else:
                 warnings.warn(
@@ -1950,7 +2051,7 @@ class Pane(
             tmux_args += ("-o",)
 
         if command is not None:
-            tmux_args += (command,)
+            tmux_args += (escape_trailing_separator(command),)
 
         proc = self.cmd("pipe-pane", *tmux_args)
 
@@ -1985,7 +2086,7 @@ class Pane(
         source_pane : str, optional
             Source pane whose contents should be displayed in copy
             mode (``-s`` flag). Lets you scroll/copy from another
-            pane's history. Requires tmux 3.2+.
+            pane's history.
 
         Examples
         --------
@@ -2132,7 +2233,7 @@ class Pane(
             tmux_args += ("-r",)
 
         if format_string is not None:
-            tmux_args += ("-F", format_string)
+            tmux_args += ("-F", escape_trailing_separator(format_string))
 
         if filter_expression is not None:
             tmux_args += ("-f", filter_expression)
@@ -2264,14 +2365,14 @@ class Pane(
 
         if start_directory is not None:
             start_path = pathlib.Path(start_directory).expanduser()
-            tmux_args += (f"-c{start_path}",)
+            tmux_args += (escape_trailing_separator(f"-c{start_path}"),)
 
         if environment:
             for k, v in environment.items():
-                tmux_args += (f"-e{k}={v}",)
+                tmux_args += (escape_trailing_separator(f"-e{k}={v}"),)
 
         if shell:
-            tmux_args += (shell,)
+            tmux_args += (escape_trailing_separator(shell),)
 
         proc = self.cmd("respawn-pane", *tmux_args)
 
@@ -2425,7 +2526,7 @@ class Pane(
         detach: bool = True,
         window_name: str | None = None,
     ) -> Window:
-        """Break this pane out into a new window via ``$ tmux break-pane``.
+        """Break this pane out into its own window via ``$ tmux break-pane``.
 
         Parameters
         ----------
@@ -2437,7 +2538,8 @@ class Pane(
         Returns
         -------
         :class:`Window`
-            The newly created window containing the pane.
+            The window containing the pane after the break. tmux moves the
+            existing window when this is its only pane.
 
         Examples
         --------
@@ -2468,8 +2570,18 @@ class Pane(
         proc = self.server.cmd("break-pane", *tmux_args)
 
         raise_if_stderr(proc, "break-pane")
+        if proc.returncode != 0:
+            msg = f"tmux exited with status {proc.returncode}"
+            raise exc.LibTmuxException(msg, subcommand="break-pane")
 
-        window_id = proc.stdout[0].strip()
+        window_id = proc.stdout[0].strip() if proc.stdout else None
+        if not window_id:
+            # tmux through 3.5 relinks a sole pane before printing its window ID.
+            self.refresh()
+            window_id = self.window_id
+            if not window_id:
+                msg = "tmux moved the pane but its destination window is unknown"
+                raise exc.LibTmuxException(msg, subcommand="break-pane")
 
         from libtmux.window import Window
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: tmuxp
-Version: 1.76.0
+Version: 1.78.0
 Summary: Session manager for tmux, which allows users to save and load tmux sessions through simple configuration files.
 Project-URL: Bug Tracker, https://github.com/tmux-python/tmuxp/issues
 Project-URL: Documentation, https://tmuxp.git-pull.com
@@ -17,7 +17,6 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -25,8 +24,8 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: System :: Shells
 Classifier: Topic :: Utilities
-Requires-Python: <4.0,>=3.10
-Requires-Dist: libtmux~=0.62.0
+Requires-Python: <4.0,>=3.11
+Requires-Dist: libtmux~=0.64.0
 Requires-Dist: pyyaml>=6.0
 Description-Content-Type: text/markdown
 
@@ -318,6 +317,13 @@ See the [Quickstart](https://tmuxp.git-pull.com/quickstart/).
 Want to learn more about tmux itself? [Read The Tao of Tmux
 online](https://tmuxp.git-pull.com/about_tmux/).
 
+## AI policy
+
+Use these packages with AI tools as you like. When contributing, check what you
+submit and wait for a maintainer's invitation before preparing a pull request.
+See the [AI policy](https://libtmux.org/en/meta/ai-policy/), also kept as
+[AI_POLICY.md](https://github.com/libtmux/.github/blob/HEAD/AI_POLICY.md).
+
 ## Attribution
 
 Please use the following BibTeX template to cite tmuxp in scientific discourse:
@@ -343,7 +349,7 @@ See donation options at <https://tony.sh/support.html>.
 # Project details
 
 - tmux support: 3.2+
-- python support: >= 3.10, pypy, pypy3
+- python support: >= 3.11, pypy, pypy3
 - Source: <https://github.com/tmux-python/tmuxp>
 - Docs: <https://tmuxp.git-pull.com>
 - API: <https://tmuxp.git-pull.com/internals/api/>

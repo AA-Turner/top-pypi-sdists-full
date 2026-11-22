@@ -71,6 +71,7 @@ from .edges import (
     lineage_edges,
     lineage_predecessors,
     lineage_subgraph,
+    only_a_set,
     remove_edge,
 )
 from .extent_ownership import (
@@ -887,6 +888,7 @@ def _consumer_required_input_grain(
     # filter's per-row CASE at a merge that lacks the aggregate arg). Drop it.
     grain: set[str] = set(attrs[gid].grain_components) - set(attrs[gid].primary_members)
     row_preds = row_parents(group_graph, group_edges, gid)
+    filtered = sum(attrs[p].derivation == Derivation.FILTER for p in row_preds)
     for pred in row_preds:
         # beside paired facts, a row derivation on its own slice joins the
         # rest on its grain, as an aggregate parent does
@@ -921,13 +923,17 @@ def _consumer_required_input_grain(
                 continue
             grain |= pred_grain
         elif (
-            attrs[pred].derivation == Derivation.UNNEST
-            and attrs[gid].derivation in GROUPING_DERIVATIONS
+            attrs[gid].derivation in GROUPING_DERIVATIONS
             and len(row_preds) > 1
+            and (
+                attrs[pred].derivation == Derivation.UNNEST
+                or (attrs[pred].derivation == Derivation.FILTER and filtered > 1)
+            )
         ):
             # an unnest beside the rows it expands pairs with them on their
             # identity; on the grouping key alone, every row of a group meets
-            # every element (`Unnest.coarse_pair_overcounts`)
+            # every element (`Unnest.coarse_pair_overcounts`). So do two
+            # filtered row streams (`Rows.coarse_pair_squares`)
             grain |= attrs[gid].aggregate_input_grain
     return pairing_keys(grain)
 
@@ -2724,6 +2730,9 @@ def _regraft_candidate(
         for pred in lineage_predecessors(group_graph, group_edges, gid):
             pred_outputs |= sets.outputs_of(pred)
     my_ancestors = nx.ancestors(group_graph, gid)
+    paired_downstream = any(
+        reader != FINAL_NODE_ID for reader in group_graph.successors(gid)
+    )
     best_gid: str | None = None
     best_score: tuple[int, ...] = ()
     for candidate in group_graph.nodes:
@@ -2734,6 +2743,9 @@ def _regraft_candidate(
             continue
         if cattrs.label != current.label:
             continue
+        # a set holds only the rows its own condition kept
+        if only_a_set(group_graph, group_edges, candidate):
+            continue
         candidate_ancestors = nx.ancestors(group_graph, candidate)
         if not (my_ancestors & candidate_ancestors):
             continue
@@ -2743,6 +2755,15 @@ def _regraft_candidate(
         if not covered:
             continue
         full = covered >= needed
+        # a redirect onto grouped rows keeps only their keys: a reader pairing
+        # `gid` with other rows on its own grain finds none of it there
+        if (
+            full
+            and paired_downstream
+            and cattrs.derivation in GROUPING_DERIVATIONS
+            and not pairing_keys(grain) <= sets.outputs_of(candidate)
+        ):
+            continue
         if not full:
             # Partial spine: join-bearing, so gate for safety only. Any
             # non-ROOT/BASIC sibling at the BASIC's exact grain (1:1, no fan-out)

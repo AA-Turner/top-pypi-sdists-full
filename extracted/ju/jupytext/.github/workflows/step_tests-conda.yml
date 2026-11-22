@@ -15,13 +15,16 @@ permissions:
 jobs:
   test-conda:
     name: >
-      ${{ matrix.os }} (${{ matrix.dependency-mode }} dependencies)
+      ${{ matrix.target.os }} (${{ matrix.dependency-mode }} dependencies)
     strategy:
       fail-fast: false
       matrix:
-        os: [ 'ubuntu-latest', 'macos-latest', 'windows-latest' ]
+        target:
+          - { os: ubuntu-latest, platform: linux-64 }
+          - { os: macos-latest, platform: osx-arm64 }
+          - { os: windows-latest, platform: win-64 }
         dependency-mode: [ 'locked', 'latest' ]
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.target.os }}
     # We still need to run pixi bash as we need it for Windows. Ensure to prefix
     # command with pixi so that we can pixi environment
     defaults:
@@ -35,16 +38,21 @@ jobs:
           persist-credentials: false
 
       - name: Install pixi
-        uses: prefix-dev/setup-pixi@d3f436a425481402e6a95a1d1fc10331c708cd9e # v0.10.2
+        uses: prefix-dev/setup-pixi@9936258fee697aff89b3fed6ca1f80a382ef694e # v0.11.3
         with:
-          pixi-version: v0.68.0
+          pixi-version: v0.84.2
           cache: true
           activate-environment: default
           environments: "default build"
 
       - name: Update pixi environment
         if: matrix.dependency-mode == 'latest'
-        run: pixi update
+        shell: bash
+        # Each runner tests only its own platform. Serial solves avoid exhausting
+        # runner memory while resolving the Conda and PyPI dependency graphs.
+        run: >-
+          pixi update --environment default --environment build
+          --platform ${{ matrix.target.platform }} --concurrent-solves 1
 
       - name: Build JupyterLab extension
         run: pixi run -e build build-labextension
@@ -59,7 +67,7 @@ jobs:
           HATCH_BUILD_HOOKS_ENABLE=true python -m pip install -e .
 
           # Install a Jupyter Kernel
-          python -m ipykernel install --name jupytext-ci --user
+          python -m ipykernel install --name python_kernel --user
 
           # Test with pytest
           pytest -n logical --cov --cov-report=xml

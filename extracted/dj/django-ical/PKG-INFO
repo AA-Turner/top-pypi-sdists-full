@@ -1,45 +1,48 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-ical
-Version: 1.9.2
+Version: 1.10.0
 Summary: iCal feeds for Django based on Django's syndication feed framework.
-Home-page: https://github.com/jazzband/django-ical
 Author: Ian Lewis
-Author-email: security@jazzband.com
-Maintainer: Jazzband
-Maintainer-email: security@jazzband.com
-License: MIT License
-Keywords: ical calendar django syndication feed
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/django-commons/django-ical
+Keywords: ical,calendar,django,syndication,feed
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Environment :: Plugins
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 3.2
-Classifier: Framework :: Django :: 4.0
-Classifier: Framework :: Django :: 4.1
+Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.11
+Description-Content-Type: text/x-rst
 License-File: LICENSE
+Requires-Dist: django>=5.2
+Requires-Dist: icalendar>=4.0.3
+Requires-Dist: django-recurrence>=1.11.1
+Dynamic: license-file
 
 django-ical
 ===========
 
-|pypi| |docs| |build| |coverage| |jazzband|
+|pypi| |docs| |build| |django-commons|
 
 django-ical is a simple library/framework for creating
-`iCal <http://www.ietf.org/rfc/rfc2445.txt>`_
+`iCal <https://www.rfc-editor.org/rfc/rfc2445.txt>`_
 feeds based in Django's
-`syndication feed framework <https://docs.djangoproject.com/en/3.0/ref/contrib/syndication/>`_.
+`syndication feed framework <https://docs.djangoproject.com/en/stable/ref/contrib/syndication/>`_.
 
 This documentation is modeled after the documentation for the syndication feed
 framework so you can think of it as a simple extension.
@@ -49,7 +52,7 @@ able to be able to use django-ical fairly quickly. It works the same way as
 the Django syndication framework but adds a few extension properties to
 support iCalendar feeds.
 
-django-ical uses the `icalendar <http://pypi.python.org/pypi/icalendar/>`_ library
+django-ical uses the `icalendar <https://pypi.org/project/icalendar/>`_ library
 under the hood to generate iCalendar feeds.
 
 Documentation
@@ -67,23 +70,36 @@ https://django-ical.readthedocs.io/en/latest/
 .. |docs| image:: https://readthedocs.org/projects/django-ical/badge/?version=latest
     :alt: Documentation Status
     :scale: 100%
-    :target: http://django-ical.readthedocs.io/en/latest/?badge=latest
+    :target: https://django-ical.readthedocs.io/en/latest/?badge=latest
 
-.. |build| image:: https://github.com/jazzband/django-ical/workflows/Test/badge.svg
-   :target: https://github.com/jazzband/django-ical/actions
+.. |build| image:: https://github.com/django-commons/django-ical/actions/workflows/test.yml/badge.svg
+   :target: https://github.com/django-commons/django-ical/actions/workflows/test.yml
    :alt: GitHub Actions
 
-.. |coverage| image:: https://codecov.io/gh/jazzband/django-ical/branch/master/graph/badge.svg
-   :target: https://codecov.io/gh/jazzband/django-ical
-   :alt: Coverage
-
-.. |jazzband| image:: https://jazzband.co/static/img/badge.svg
-   :target: https://jazzband.co/
-   :alt: Jazzband
+.. |django-commons| image:: https://img.shields.io/badge/Django%20Commons-organization-blue
+   :target: https://github.com/django-commons/
+   :alt: Django Commons
 
 
 Changes
 =======
+
+
+1.10.0 (2026-11-21)
+-------------------
+
+- Require Python 3.11 or newer and Django 5.2 or newer.
+- Add support for Python 3.12, 3.13, 3.14 and 3.15, PyPy 3.11 and
+  Django 5.2, 6.0 and 6.1.
+- Support the ``ATTACH`` property in feed items (#79).
+  [Fire162]
+- Add the changelog to the published docs and fix broken links.
+- Run tests through Django directly, correct the QA and Django development
+  environments, and preserve each environment's selected Django version.
+- Switched to trusted publisher release process with Django Commons.
+- Switch from Jazzband org to Django Commons.
+- Fix the time zone test failing with ``KeyError: 'TZID'`` on systems
+  without legacy time zone names such as ``US/Eastern`` (#69).
 
 
 1.9.2 (2023-06-12)

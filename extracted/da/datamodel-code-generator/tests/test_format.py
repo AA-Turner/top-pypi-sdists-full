@@ -52,7 +52,8 @@ BLACK_VERSION_DEPENDENT_NORMALIZED_EXPECTED_FILES = {
     "main/jsonschema/custom_file_header_path_prepend_multi_file/order.py",
     "main/jsonschema/custom_file_header_path_prepend_multi_file/product.py",
     "main/jsonschema/custom_file_header_path_prepend_multi_file/user.py",
-    "main/openapi/custom_file_header_with_docstring_and_import.py",
+    "main/openapi/main_openapi/main_custom_file_header_with_docstring_and_import[False].model.py",
+    "main/openapi/main_openapi/main_custom_file_header_with_docstring_and_import[True].model/api.py",
 }
 BUILTIN_FORMATTER_LOCAL_CONSTANTS = {
     "DEFAULT_LINE_LENGTH",
@@ -63,7 +64,6 @@ BUILTIN_FORMATTER_LOCAL_CONSTANTS = {
     "TYPE_ALIAS_INLINE_ARGUMENT_COUNT",
     "STRING_PREFIX_PATTERN",
 }
-BUILTIN_FORMATTER_EXPECTED_PATH = Path(__file__).parent / "data" / "expected" / "builtin_formatter"
 BUILTIN_STRING_NORMALIZATION_INPUT_PATH = (
     Path(__file__).parent / "data" / "python" / "builtin_formatter_string_normalization.txt"
 )
@@ -71,9 +71,6 @@ BUILTIN_WRAP_STRING_LITERAL_INPUT_PATH = (
     Path(__file__).parent / "data" / "python" / "builtin_formatter_wrap_string_literal.txt"
 )
 BUILTIN_PEP695_INVALID_INPUT_PATH = Path(__file__).parent / "data" / "python" / "builtin_formatter_pep695_invalid.txt"
-BUILTIN_PEP695_INVALID_EXPECTED_PATH = BUILTIN_FORMATTER_EXPECTED_PATH / (
-    "pep695_invalid.txt" if sys.version_info[:2] >= (3, 12) else "pep695_invalid_legacy.txt"
-)
 BUILTIN_QUALIFIED_HEADS_INPUT_PATH = Path(__file__).parent / "data" / "python" / "builtin_formatter_qualified_heads.txt"
 
 
@@ -317,7 +314,6 @@ def test_builtin_generated_formatter_edge_cases() -> None:
 
     assert_output(
         f"{formatted_output}\n",
-        BUILTIN_FORMATTER_EXPECTED_PATH / "generated_edge_cases.txt",
     )
 
 
@@ -1676,10 +1672,7 @@ def test_builtin_formatter_string_normalization_preserves_pep695_invalid_errors(
         else:
             formatted_cases.append(f"[{name}]\n{source}")
 
-    assert_output(
-        "\n".join(formatted_cases),
-        BUILTIN_PEP695_INVALID_EXPECTED_PATH,
-    )
+    assert_output("\n".join(formatted_cases))
 
 
 def test_builtin_formatter_keeps_target_identifiers_and_joiners_alike_on_every_python() -> None:
@@ -1709,7 +1702,6 @@ def test_builtin_formatter_keeps_target_identifiers_and_joiners_alike_on_every_p
             apply_builtin_formatter(compatibility, python_version=PythonVersion.PY_315),
             apply_builtin_formatter(joined_names, python_version=PythonVersion.PY_313),
         )),
-        BUILTIN_FORMATTER_EXPECTED_PATH / "target_identifiers.txt",
     )
 
 
@@ -1724,7 +1716,6 @@ def test_builtin_formatter_groups_each_module_of_an_import_by_target() -> None:
             apply_builtin_formatter(code, python_version=version)
             for version in (PythonVersion.PY_310, PythonVersion.PY_311)
         ),
-        BUILTIN_FORMATTER_EXPECTED_PATH / "import_modules_by_target.txt",
     )
 
 
@@ -2256,7 +2247,6 @@ def test_builtin_formatter_blank_line_guard_skips_tokenize_without_multiline_str
 
     assert_output(
         f"{builtin_formatter._normalize_top_level_blank_lines(code)}\n",
-        BUILTIN_FORMATTER_EXPECTED_PATH / "blank_line_normalization.txt",
     )
 
 
@@ -3604,7 +3594,7 @@ def test_generate_with_ruff_batch_formatting(tmp_path: Path) -> None:
 
     with (
         mock.patch("datamodel_code_generator.format.CodeFormatter._find_ruff_path", return_value=FAKE_RUFF_PATH),
-        mock.patch("datamodel_code_generator.format.subprocess.run") as mock_run,
+        mock.patch("datamodel_code_generator._process.subprocess.run") as mock_run,
     ):
         mock_run.return_value.returncode = 0
         datamodel_code_generator.generate(
@@ -3651,7 +3641,7 @@ def test_generate_with_ruff_batch_formatting_and_explicit_type_checking_imports(
 
     with (
         mock.patch("datamodel_code_generator.format.CodeFormatter._find_ruff_path", return_value=FAKE_RUFF_PATH),
-        mock.patch("datamodel_code_generator.format.subprocess.run") as mock_run,
+        mock.patch("datamodel_code_generator._process.subprocess.run") as mock_run,
     ):
         mock_run.return_value.returncode = 0
         datamodel_code_generator.generate(

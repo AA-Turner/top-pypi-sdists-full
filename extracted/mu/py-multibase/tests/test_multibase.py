@@ -13,6 +13,8 @@ from multibase import (
     UnsupportedEncodingError,
     decode,
     encode,
+    encoder_by_name,
+    get_codec,
     get_encoding_info,
     is_encoded,
     is_encoding_supported,
@@ -128,6 +130,20 @@ def test_decode(_, data, encoded_data):
     assert decode(encoded_data) == ensure_bytes(data)
 
 
+def test_decode_base32_case_insensitive():
+    # base32 (prefix 'b', lowercase alphabet), decoding uppercase payload
+    assert decode("bMZXW6") == b"foo"
+
+    # base32upper (prefix 'B', uppercase alphabet), decoding lowercase payload
+    assert decode("Bmzxw6") == b"foo"
+
+    # base32pad (prefix 'c', lowercase alphabet), decoding uppercase payload
+    assert decode("cMZXW6====") == b"foo"
+
+    # base32hex (prefix 'v', lowercase alphabet), decoding uppercase payload
+    assert decode("vCPNMU") == b"foo"
+
+
 @pytest.mark.parametrize("encoded_data", INCORRECT_ENCODED_DATA)
 def test_decode_incorrect_encoding(encoded_data):
     with pytest.raises(InvalidMultibaseStringError) as excinfo:
@@ -157,6 +173,9 @@ def test_is_encoding_supported():
     assert is_encoding_supported("base64")
     assert is_encoding_supported("base16")
     assert not is_encoding_supported("base999")
+    # Prefix bytes are not encoding names
+    assert not is_encoding_supported(b"f")
+    assert not is_encoding_supported(b"m")
 
 
 def test_list_encodings():
@@ -179,17 +198,63 @@ def test_get_encoding_info():
     with pytest.raises(UnsupportedEncodingError):
         get_encoding_info("base999")
 
+    with pytest.raises(UnsupportedEncodingError):
+        get_encoding_info(b"m")
+
+
+def test_name_apis_reject_prefix_bytes():
+    """Name-based APIs must not accept multibase prefix bytes as encoding names."""
+    with pytest.raises(UnsupportedEncodingError):
+        encode(b"f", b"hello")
+
+    with pytest.raises(UnsupportedEncodingError):
+        Encoder(b"m")
+
+
+def test_get_codec_resolves_prefix_codes():
+    """get_codec still resolves single-byte and emoji prefixes via the code map."""
+    assert get_codec(b"f796573").encoding == "base16"
+    assert get_codec(b"mSGVsbG8=").encoding == "base64"
+    emoji_encoded = encode("base256emoji", b"hi")
+    assert get_codec(emoji_encoded).encoding == "base256emoji"
+
 
 def test_encoder_class():
     """Test Encoder class."""
     encoder = Encoder("base64")
     assert encoder.encoding == "base64"
+    assert encoder.code == b"m"
 
     encoded = encoder.encode("hello")
     assert encoded.startswith(b"m")
 
     with pytest.raises(UnsupportedEncodingError):
         Encoder("base999")
+
+
+def test_encoder_by_name():
+    """Test encoder_by_name factory function."""
+    enc1 = encoder_by_name("base16")
+    assert enc1.encoding == "base16"
+    assert enc1.encode(b"hi").startswith(b"f")
+
+    enc2 = encoder_by_name("f")
+    assert enc2.encoding == "base16"
+
+    enc3 = encoder_by_name("🚀")
+    assert enc3.encoding == "base256emoji"
+
+    with pytest.raises(UnsupportedEncodingError):
+        encoder_by_name("base999")
+
+    with pytest.raises(UnsupportedEncodingError):
+        encoder_by_name("?")
+
+    with pytest.raises(TypeError):
+        encoder_by_name(b"f")
+
+    with pytest.raises(TypeError):
+        encoder_by_name(None)
 
 
 def test_decoder_class():

@@ -11,7 +11,8 @@ from functools import partial
 from operator import itemgetter
 from typing import TYPE_CHECKING, Any, Literal, TypeAlias, cast, get_args
 
-from datamodel_code_generator import SchemaParseError, is_swagger_2
+from pydantic import ValidationError
+
 from datamodel_code_generator._constraint_applicability import (
     LENGTH_KEYWORDS,
     NUMBER_BOUND_KEYWORDS,
@@ -43,6 +44,8 @@ from datamodel_code_generator._openapi_paths import (
     path_key_row,
     path_selected,
 )
+from datamodel_code_generator._shared_types import SchemaParseError
+from datamodel_code_generator._source import is_swagger_2
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
@@ -444,8 +447,6 @@ def _operation_schemas(
 
 def _is_inline_object_body(schema: object) -> bool:
     """Return whether ``--openapi-as-definitions paths-bodies`` changes the model of a paths or webhooks body."""
-    from pydantic import ValidationError  # noqa: PLC0415
-
     from datamodel_code_generator.parser.jsonschema import JsonSchemaObject  # noqa: PLC0415
     from datamodel_code_generator.parser.openapi import is_inline_object_body, is_object_map_body  # noqa: PLC0415
 
@@ -742,7 +743,7 @@ class _Walker:
             self.name_parents[name].add(parent)
             parents[name].add(parent)
 
-    def walk(  # noqa: PLR0913
+    def walk(
         self, node: object, *, parent: str, name: str, depth: int, component: str, at_property: bool = False
     ) -> None:
         """Walk one inline schema reached under a parent model through a property (``at_property``) or keyword."""

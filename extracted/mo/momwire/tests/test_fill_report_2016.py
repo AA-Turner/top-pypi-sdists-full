@@ -205,14 +205,16 @@ def test_a_batched_sweep_counts_its_frequencies():
 
 def test_no_census_without_the_option(monkeypatch):
     calls = []
-    real_razor, real_plan = acc.razor_reuse_plan, pr.build_plan
+    real_razor, real_plan = acc.razor_reuse_plan, acc.sin_pair_reuse_plan
     monkeypatch.setattr(
         acc,
         "razor_reuse_plan",
         lambda *a, **k: calls.append("razor") or real_razor(*a, **k),
     )
     monkeypatch.setattr(
-        pr, "build_plan", lambda *a, **k: calls.append("sin") or real_plan(*a, **k)
+        acc,
+        "sin_pair_reuse_plan",
+        lambda *a, **k: calls.append("sin") or real_plan(*a, **k),
     )
     real_check = BSplineSolver._pair_reuse_plan_checked
     monkeypatch.setattr(
@@ -314,11 +316,15 @@ def test_bspline_offset_edges_alone_are_served():
     reconciles(reuse)
 
 
-def test_the_families_on_bspline_say_what_they_cannot_count():
+def test_the_families_on_bspline_count_the_ground_image():
+    # momwire#2068: the image is its own family (it used to be uncounted).
     deck = yagi(height=6.0)
     s = BSplineSolver(**deck, pair_reuse=hint_of(deck), ground_z=0.0)
     s.compute_impedance()
-    assert s.fill_report()["reuse"]["uncounted"] == ["image"]
+    reuse = s.fill_report()["reuse"]
+    assert reuse["uncounted"] == []
+    assert set(reuse["families"]) == {"direct", "image"}
+    reconciles(reuse)
 
 
 # ------------------------------------------- reporting what was served
@@ -399,7 +405,7 @@ def test_an_evicted_sinusoidal_plan_reads_unavailable_and_is_not_rebuilt(monkeyp
     def build(*_a, **_k):
         raise AssertionError("reading the report ran a census")
 
-    monkeypatch.setattr(pr, "build_plan", build)
+    monkeypatch.setattr(acc, "sin_pair_reuse_plan", build)
     pr.clear_shared_plans()
     s._sin_reuse_plans.clear()
     assert set(s.fill_report()["reuse"]["wires"]) == {"unavailable"}

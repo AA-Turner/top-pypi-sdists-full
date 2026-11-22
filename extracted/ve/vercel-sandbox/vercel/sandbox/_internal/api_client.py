@@ -38,18 +38,20 @@ from vercel._internal.core.http import (
     StreamingResponse,
     extract_structured_error,
 )
+from vercel._internal.core.region import ResolvedRegion
 from vercel._internal.core.time import MILLISECOND, parse_duration, to_ms_int
 from vercel._internal.core.url import format_url_path
 from vercel.sandbox._internal.errors import (
     SandboxApiError,
     SandboxResponseError,
-    SandboxStreamError,
 )
 from vercel.sandbox._internal.log_stream import (
-    _CommandLogPayload,
+    COMMAND_STREAM_MEDIA_TYPE,
+    _command_output,
+    _command_stream_items,
     _is_transient_error,
+    _ItemType,
     _iter_command_logs,
-    _ndjson_lines,
     _OutputOffsets,
     _TruncatedStreamError,
 )
@@ -83,12 +85,9 @@ from vercel.sandbox._internal.options import (
     SandboxCredentialsFactory,
 )
 from vercel.sandbox._internal.process_output import ProcessOutputRouter
-from vercel.sandbox._internal.region import ResolvedRegion
 from vercel.sandbox._internal.retry import _RETRIES, AsyncSleep, _with_request_retries
 from vercel.sandbox._internal.state import (
     CompletedProcessState,
-    DrivesPageState,
-    DriveState,
     InteractiveSessionState,
     ProcessState,
     RuntimeSessionsPageState,
@@ -322,21 +321,6 @@ class _QuerySessionsRequest(_ApiRequestModel):
 
 class _QuerySnapshotsRequest(_QuerySessionsRequest):
     pass
-
-
-class _GetOrCreateDriveRequest(_ApiRequestModel):
-    project_id: str = Field(serialization_alias="projectId")
-    max_size_bytes: int | None = Field(default=None, serialization_alias="maxSizeBytes")
-    region: str | None = None
-
-
-class _QueryDrivesRequest(_ApiRequestModel):
-    project_id: str = Field(serialization_alias="projectId")
-    limit: int | None = None
-    cursor: str | None = None
-    sort_by: str | None = Field(default=None, serialization_alias="sortBy")
-    sort_order: str | None = Field(default=None, serialization_alias="sortOrder")
-    name_prefix: str | None = Field(default=None, serialization_alias="namePrefix")
 
 
 class _CreateSnapshotRequest(_ApiRequestModel):
@@ -585,46 +569,6 @@ class _SnapshotPayload(_ApiModel):
     )
 
 
-class _DrivePayload(_ApiModel):
-    id: str
-    parent_drive_id: str | None = Field(
-        default=None,
-        validation_alias=AliasChoices("parent_drive_id", "parentDriveId"),
-        serialization_alias="parentDriveId",
-    )
-    root_drive_id: str | None = Field(
-        default=None,
-        validation_alias=AliasChoices("root_drive_id", "rootDriveId"),
-        serialization_alias="rootDriveId",
-    )
-    name: str
-    project_id: str = Field(
-        validation_alias=AliasChoices("project_id", "projectId"),
-        serialization_alias="projectId",
-    )
-    region: str
-    max_size_bytes: int = Field(
-        validation_alias=AliasChoices("max_size_bytes", "maxSizeBytes"),
-        serialization_alias="maxSizeBytes",
-    )
-    current_session_id: str | None = Field(
-        default=None,
-        validation_alias=AliasChoices("current_session_id", "currentSessionId"),
-        serialization_alias="currentSessionId",
-    )
-    current_sandbox_name: str | None = Field(
-        default=None,
-        validation_alias=AliasChoices("current_sandbox_name", "currentSandboxName"),
-        serialization_alias="currentSandboxName",
-    )
-    created_at: int = Field(
-        validation_alias=AliasChoices("created_at", "createdAt"), serialization_alias="createdAt"
-    )
-    updated_at: int = Field(
-        validation_alias=AliasChoices("updated_at", "updatedAt"), serialization_alias="updatedAt"
-    )
-
-
 class _Pagination(_ApiModel):
     count: int
     next: str | None = None
@@ -808,23 +752,6 @@ class _SnapshotsResponse(_ApiModel):
     pagination: _Pagination | None = None
 
 
-class _DriveResponse(_ApiModel):
-    drive: _DrivePayload | None = None
-
-    def to_drive(self) -> DriveState:
-        if self.drive is None:
-            raise SandboxResponseError(
-                "Sandbox API response is missing object field 'drive'",
-                data=self.model_dump(by_alias=True),
-            )
-        return _drive_state(self.drive)
-
-
-class _DrivesResponse(_ApiModel):
-    drives: list[_DrivePayload]
-    pagination: _Pagination | None = None
-
-
 def _route_state(payload: _SandboxRoutePayload) -> SandboxRouteState:
     return SandboxRouteState(
         url=payload.url,
@@ -950,22 +877,6 @@ def _snapshot_state(payload: _SnapshotPayload) -> SnapshotState:
     )
 
 
-def _drive_state(payload: _DrivePayload) -> DriveState:
-    return DriveState(
-        parent_drive_id=payload.parent_drive_id,
-        root_drive_id=payload.root_drive_id,
-        id=payload.id,
-        name=payload.name,
-        project_id=payload.project_id,
-        region=payload.region,
-        max_size_bytes=payload.max_size_bytes,
-        current_session_id=payload.current_session_id,
-        current_sandbox_name=payload.current_sandbox_name,
-        created_at=payload.created_at,
-        updated_at=payload.updated_at,
-    )
-
-
 def _drop_none(data: Mapping[str, JSONValue | None]) -> JSONObject:
     return {key: value for key, value in data.items() if value is not None}
 
@@ -978,27 +889,6 @@ def _validate_response(model: type[ResponseModelT], data: JSONObject) -> Respons
             "Sandbox API response did not match the expected shape",
             data=data,
         ) from exc
-
-
-def _parse_run_process_record(line: str, *, terminated: bool = True) -> JSONObject:
-    try:
-        record = json.loads(line)
-    except json.JSONDecodeError as exc:
-        if not terminated:
-            raise _TruncatedStreamError(
-                "Sandbox process response ended in the middle of a record",
-                data=line,
-            ) from exc
-        raise SandboxResponseError(
-            "Sandbox process response included malformed NDJSON",
-            data=line,
-        ) from exc
-    if not isinstance(record, dict):
-        raise SandboxResponseError(
-            "Sandbox process response included a non-object NDJSON record",
-            data=record,
-        )
-    return cast(JSONObject, record)
 
 
 class _RunProcessInterrupted(Exception):
@@ -1671,102 +1561,6 @@ class SandboxApiClient:
         )
         return _validate_response(_CreateSnapshotResponse, data).to_snapshot_and_session()
 
-    async def fork_drive(self, *, name: str, fork_name: str) -> DriveState:
-        credentials = await self._credentials_factory()
-        data = await self._request_json(
-            "POST",
-            format_url_path("v2/sandboxes/drives/{name}/fork", name=name),
-            credentials=credentials,
-            params={"projectId": credentials.project_id},
-            body={"name": fork_name},
-        )
-        return _validate_response(_DriveResponse, data).to_drive()
-
-    async def get_drive(self, *, name_or_id: str) -> DriveState:
-        credentials = await self._credentials_factory()
-        data = await self._request_json(
-            "GET",
-            format_url_path("v2/sandboxes/drives/{name_or_id}", name_or_id=name_or_id),
-            credentials=credentials,
-            params={"projectId": credentials.project_id},
-        )
-        return _validate_response(_DriveResponse, data).to_drive()
-
-    async def get_or_create_drive(
-        self,
-        *,
-        name: str,
-        max_size_bytes: int | None = None,
-        region: ResolvedRegion | None = None,
-    ) -> tuple[DriveState, bool]:
-        credentials = await self._credentials_factory()
-        request = _GetOrCreateDriveRequest(
-            project_id=credentials.project_id,
-            max_size_bytes=max_size_bytes,
-            region=region,
-        )
-        response = await self._request(
-            "POST",
-            format_url_path("v2/sandboxes/drives/{name}", name=name),
-            credentials=credentials,
-            body=JSONBody(request.to_api_dict()),
-            headers={"content-type": "application/json"},
-        )
-        try:
-            data = response.json()
-        except ValueError as exc:
-            raise SandboxResponseError(
-                "Sandbox API response body could not be decoded as JSON"
-            ) from exc
-        if not isinstance(data, dict):
-            raise SandboxResponseError("Sandbox API response must be a JSON object", data=data)
-        drive = _validate_response(_DriveResponse, cast(JSONObject, data)).to_drive()
-        return drive, response.status_code == 201
-
-    async def query_drives(
-        self,
-        *,
-        limit: int | None = None,
-        cursor: str | None = None,
-        sort_by: str | None = None,
-        sort_order: str | None = None,
-        name_prefix: str | None = None,
-    ) -> DrivesPageState:
-        credentials = await self._credentials_factory()
-        request = _QueryDrivesRequest(
-            project_id=credentials.project_id,
-            limit=limit,
-            cursor=cursor,
-            sort_by=sort_by,
-            sort_order=sort_order,
-            name_prefix=name_prefix,
-        )
-        data = await self._request_json(
-            "GET",
-            "v2/sandboxes/drives",
-            credentials=credentials,
-            params=request.to_api_dict(),
-        )
-        response = _validate_response(_DrivesResponse, data)
-        return DrivesPageState(
-            drives=tuple(_drive_state(drive) for drive in response.drives),
-            next_cursor=response.pagination.next if response.pagination is not None else None,
-        )
-
-    async def delete_drive(
-        self,
-        *,
-        name: str,
-    ) -> DriveState:
-        credentials = await self._credentials_factory()
-        data = await self._request_json(
-            "DELETE",
-            format_url_path("v2/sandboxes/drives/{name}", name=name),
-            credentials=credentials,
-            params={"projectId": credentials.project_id},
-        )
-        return _validate_response(_DriveResponse, data).to_drive()
-
     async def query_snapshots(
         self,
         *,
@@ -1883,7 +1677,7 @@ class SandboxApiClient:
             credentials=credentials,
             params={"wait": "true", "logs": "true"},
             body=JSONBody(request.to_api_dict()),
-            headers={"connection": "close"},
+            headers={"connection": "close", "accept": COMMAND_STREAM_MEDIA_TYPE},
             timeout=NO_TIMEOUT,
             retries=0,
         )
@@ -1894,12 +1688,16 @@ class SandboxApiClient:
         on_start_failed = False
         try:
             try:
-                async for line, terminated in _ndjson_lines(response):
-                    if not line.strip():
-                        continue
-                    record = _parse_run_process_record(line, terminated=terminated)
-                    if "command" in record:
-                        process = _validate_response(_CommandResponse, record).to_command()
+                async for item_type, payload in _command_stream_items(response):
+                    if item_type == _ItemType.COMMAND:
+                        if not isinstance(payload, dict):
+                            raise SandboxResponseError(
+                                "Sandbox process response included malformed process metadata",
+                                data=payload,
+                            )
+                        process = _validate_response(
+                            _CommandResponse, {"command": payload}
+                        ).to_command()
                         if initial is None:
                             initial = process
                             if on_start is not None:
@@ -1923,31 +1721,23 @@ class SandboxApiClient:
                         else:
                             raise SandboxResponseError(
                                 "Sandbox process response included extra process metadata",
-                                data=record,
+                                data=payload,
                             )
                         continue
 
-                    stream = record.get("stream")
-                    data = record.get("data")
-                    if (stream == "stdout" or stream == "stderr") and isinstance(data, str):
-                        if initial is None or final is not None:
-                            raise SandboxResponseError(
-                                "Sandbox process response included output outside process metadata",
-                                data=record,
-                            )
-                        event = _CommandLogPayload.model_validate(record).to_log()
-                        output_router.route(event)
-                        delivered.advance(event.stream, len(event.data))
-                        continue
-                    if stream == "error" and isinstance(data, dict):
-                        code = data.get("code")
-                        message = data.get("message")
-                        if isinstance(code, str) and isinstance(message, str):
-                            raise SandboxStreamError(message, code=code)
-                    raise SandboxResponseError(
-                        "Sandbox process response included an unexpected NDJSON record",
-                        data=record,
-                    )
+                    event = _command_output(item_type, payload)
+                    if event is None:
+                        raise SandboxResponseError(
+                            "Sandbox process response included an unexpected item",
+                            data=[item_type, payload],
+                        )
+                    if initial is None or final is not None:
+                        raise SandboxResponseError(
+                            "Sandbox process response included output outside process metadata",
+                            data=[item_type, payload],
+                        )
+                    output_router.route(event)
+                    delivered.advance(event.stream, len(event.data))
             finally:
                 await response.aclose()
             if initial is not None and final is None:
@@ -2166,7 +1956,7 @@ class SandboxApiClient:
                 command_id=command_id,
             ),
             credentials=credentials,
-            headers={"connection": "close"},
+            headers={"connection": "close", "accept": COMMAND_STREAM_MEDIA_TYPE},
             timeout=NO_TIMEOUT,
             retries=0,
         )

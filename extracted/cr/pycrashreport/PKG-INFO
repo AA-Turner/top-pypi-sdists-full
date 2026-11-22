@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pycrashreport
-Version: 2.3.0
+Version: 2.5.1
 Summary: Pure python3 for parsing Apple's crash reports
 Author-email: doronz88 <doron88@gmail.com>
 Maintainer-email: doronz88 <doron88@gmail.com>
@@ -20,7 +20,7 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: apple-symbols
+Requires-Dist: apple-symbols>=0.0.2
 Requires-Dist: rich
 Requires-Dist: typer
 Provides-Extra: test
@@ -36,6 +36,9 @@ Currently supported crash types:
 
 - User mode crash reports
 - Kernel mode crash reports
+- Stackshots (`stacks-*.ips`, as sysdiagnose takes)
+- Spindump reports of a process over a resource limit (`*.diskwrites_resource-*.ips`,
+  `*.cpu_resource-*.ips`, `*.wakeups_resource-*.ips`)
 
 All other crash reports will parse only basic metadata information.
 
@@ -78,6 +81,30 @@ instead of a path.
 A report class is picked by bug type. To parse another one, subclass `CrashReportBase` and list
 the bug types it handles in `BUG_TYPES`.
 
+## Userland crashes
+
+A crash tells its process, what ended it and which thread crashed, before the registers and the
+call stack of that thread. `--all` lists the call stack of every other thread as well:
+
+```
+Process: avconferenced (pid 469) /usr/libexec/avconferenced
+Parent: launchd (pid 1)
+Device: iPhone19,4 (24B91034)
+Exception: EXC_CRASH (SIGABRT)
+Exception Codes: 0x0000000000000000, 0x0000000000000000
+Termination: SIGNAL, Abort trap: 6, by backboardd (pid 73)
+Crashed thread: 0, tid 8152, queue com.apple.main-thread
+```
+
+From Python: `report.process_name`, `.pid`, `.process_path`, `.parent_name`, `.parent_pid`,
+`.signal`, `.exception_codes`, `.termination` (as the report gives it), `.termination_reason` (the
+line above) and `.threads`, each with its `tid`, `name`, `queue`, `crashed` and `frames`. A report
+in the older text format has no `threads`.
+
+A thread the report gives no call stack of has nothing to unwind: an idle worker of a dispatch
+queue, for one, is parked in the kernel. It gets where it would resume as its only frame
+(`start_wqthread + 0x0`).
+
 ## Exit reasons
 
 A panic over a process which may not exit only gives the numbers of its exit reason. They are
@@ -119,6 +146,40 @@ pycrashreport panic-full.ips -p logd -p 1
 pycrashreport panic-full.ips --all
 ```
 
+## Stackshots
+
+A stackshot carries the same processes and threads as a panic, of a system which keeps running. It
+is summarized by why it was taken, the device, memory and the frontmost process; `-p`, `--all` and
+`--running` (`-r`, only the threads which were on a CPU) print call stacks, each thread with its
+state, what it waits on, its priority and the time it ran. `--kernelcache` and
+`--kernel-signatures` name its kernel frames like those of a panic:
+
+```shell
+pycrashreport stacks.ips -p SpringBoard
+pycrashreport stacks.ips --running --kernelcache kernelcache.release.iphone17 --kernel-signatures symbolicator/kernel
+```
+
+From Python, the report is a tree of plain objects: processes, their threads, and the frames of
+each thread. `StackshotCrashReport` and `KernelModeCrashReport` share it (both are a
+`StackshotReportBase`):
+
+```python
+from pycrashreport.crash_report import parse_report
+
+report = parse_report("/path/to/stacks.ips")
+print(report.reason, report.product_type, report.build_version, report.memory_status.pages["free"])
+
+for process in report.frontmost_processes:  # also .processes, .running_processes, .get_process(pid),
+    print(process.name, process.pid, process.parent_pid, process.resident_memory_bytes, process.flags)
+    for thread in process.threads:          # .find_processes("name or pid")
+        print(thread.tid, thread.name, thread.state, thread.wait_info, thread.sched_priority)
+        for frame in thread.frames:         # or .kernel_frames / .user_frames
+            print(hex(frame.address), frame.image, frame.symbol, frame.symbol_offset)
+```
+
+A field the objects do not have is still at hand as the report gave it, in `process.raw` and
+`thread.raw`.
+
 ```python
 from pathlib import Path
 
@@ -132,16 +193,48 @@ for frame in report.panicked_thread_frames:
     print(frame.image, frame.symbol, frame.symbol_offset)
 ```
 
+## Spindump reports
+
+A process which went over its limit of disk writes, CPU or wakeups gets a report of the samples
+taken of it meanwhile, with not one of its frames named. It is summarized by the event and the
+heaviest stack of the process, its frames named given the Xcode DeviceSupport of the device; `-p`
+and `--all` print the call tree of the processes sampled, each frame after its count of samples:
+
+```
+Event: disk writes
+Process: siriactionsd (pid 140)
+Writes: 1073.75 MB of file backed memory dirtied over 67 seconds (16.05 MB per second average), exceeding limit of 12.43 KB per second over 86400 seconds
+Heaviest stack:
+	17  [libsqlite3.dylib] 0x1b25765b0 (sqlite3_step + 0x3bc)
+	17  [libsystem_kernel.dylib] 0x24c697b54 (guarded_pwrite_np + 0x8)
+```
+
+```python
+report = parse_report("/path/to/siriactionsd.diskwrites_resource.ips")
+print(report.event, report.command, report.pid, report.fields["Writes"])
+for frame in report.heaviest_stack:
+    print(frame.count, frame.image, frame.symbol, frame.symbol_offset)
+for process in report.processes:            # also .target_process, .get_process(pid), .find_processes()
+    for depth, frame in process.walk():     # or process.frames and frame.children
+        print("  " * depth, frame.count, frame.image, hex(frame.address or 0), frame.symbol or frame.note)
+```
+
+`render_processes(report, processes, all_processes, running)` renders what `-p`, `--all` and
+`--running` print, for whichever kind of report holds processes.
+
 # Usage examples
 
 ## iOS crash dumps
 
 ```
-➜  pycrashreport git:(master) ✗ pycrashreport /tmp/itunescloudd-2021-10-22-001453.ips
-13917FF0-E1B1-4652-84C2-85516D101DFE 2021-10-22 00:14:53.00 +0300
-/tmp/itunescloudd-2021-10-22-001453.ips
+➜  pycrashreport tests/user_mode_crash_report_ios14_non_symbolicated_abort.ips
+13917FF0-E1B1-4652-84C2-85516D101DFE 2021-10-22 00:14:53
+tests/user_mode_crash_report_ios14_non_symbolicated_abort.ips
 
+Process: itunescloudd [692] /System/Library/PrivateFrameworks/iTunesCloud.framework/Support/itunescloudd
+Device: iPhone11,8 (18H17)
 Exception: EXC_CRASH (SIGABRT)
+Exception Codes: 0x0000000000000000, 0x0000000000000000
 Application Specific Information: abort() called
 Registers:
       x0 = 0x0000000000000000       x1 = 0x0000000000000000       x2 = 0x0000000000000000       x3 = 0x0000000000000000
@@ -155,32 +248,38 @@ Registers:
       pc = 0x00000001c3e1a334     cpsr = 0x0000000040000000      esr = 0x0000000056000080
 
 Frames:
-	[libsystem_kernel.dylib] 0x1c3df1000 + 0x29334
-	[libsystem_pthread.dylib] 0x1e189f000 + 0x2a9c
-	[libsystem_c.dylib] 0x19ef2e000 + 0x77b84
-	[libc++abi.dylib] 0x1aa804000 + 0x13bb8
-	[libc++abi.dylib] 0x1aa804000 + 0x4ec8
-	[libobjc.A.dylib] 0x1aa70e000 + 0x705c
-	[libc++abi.dylib] 0x1aa804000 + 0x12fa0
-	[libc++abi.dylib] 0x1aa804000 + 0x12f2c
-	[libdispatch.dylib] 0x1957c7000 + 0x4830
-	[libdispatch.dylib] 0x1957c7000 + 0x7cf4
-	[libdispatch.dylib] 0x1957c7000 + 0x7384
-	[libdispatch.dylib] 0x1957c7000 + 0x15fe0
-	[libdispatch.dylib] 0x1957c7000 + 0x167d8
-	[libsystem_pthread.dylib] 0x1e189f000 + 0x3768
-	[libsystem_pthread.dylib] 0x1e189f000 + 0xa74c
+        [libsystem_kernel.dylib] 0x1c3df1000 + 0x29334
+        [libsystem_pthread.dylib] 0x1e189f000 + 0x2a9c
+        [libsystem_c.dylib] 0x19ef2e000 + 0x77b84
+        [libc++abi.dylib] 0x1aa804000 + 0x13bb8
+        [libc++abi.dylib] 0x1aa804000 + 0x4ec8
+        [libobjc.A.dylib] 0x1aa70e000 + 0x705c
+        [libc++abi.dylib] 0x1aa804000 + 0x12fa0
+        [libc++abi.dylib] 0x1aa804000 + 0x12f2c
+        [libdispatch.dylib] 0x1957c7000 + 0x4830
+        [libdispatch.dylib] 0x1957c7000 + 0x7cf4
+        [libdispatch.dylib] 0x1957c7000 + 0x7384
+        [libdispatch.dylib] 0x1957c7000 + 0x15fe0
+        [libdispatch.dylib] 0x1957c7000 + 0x167d8
+        [libsystem_pthread.dylib] 0x1e189f000 + 0x3768
+        [libsystem_pthread.dylib] 0x1e189f000 + 0xa74c
 ```
 
 ## macOS intel dumps
 
 ```
-➜  pycrashreport git:(master) ✗ pycrashreport tests/crash_report_monterey_non_symbolicated.ips
-051760D9-97FF-475F-8B61-B0FDFB04D484 2022-01-06 15:09:22.00 +0200
-tests/crash_report_monterey_non_symbolicated.ips
+➜  pycrashreport tests/user_mode_crash_report_monterey_non_symbolicated.ips
+051760D9-97FF-475F-8B61-B0FDFB04D484 2022-01-06 15:09:22
+tests/user_mode_crash_report_monterey_non_symbolicated.ips
 
-Exception: EXC_BAD_ACCESS
+Process: sleep (pid 10277) /bin/sleep
+Parent: zsh (pid 10192)
+Device: MacBookPro15,1 (21C52)
+Exception: EXC_BAD_ACCESS (SIGSEGV)
 Exception Subtype: KERN_INVALID_ADDRESS at 0x0000000000000000
+Exception Codes: 0x0000000000000001, 0x0000000000000000
+Termination: SIGNAL, Segmentation fault: 11, by exc handler (pid 10277)
+Crashed thread: 0, tid 135513, queue com.apple.main-thread
 
 Registers:
      r13 = 0x00007ff7ba6a86e8      rax = 0x0000000000000004   rflags = 0x0000000000010247      cpu = 0x0000000000000008
@@ -191,8 +290,8 @@ Registers:
      rcx = 0x00007ff7ba6a85a8      rdi = 0x0000000000001403
 
 Frames:
-	[None] 0x0 + 0x0
-	[/usr/lib/system/libsystem_c.dylib] 0x7ff80c65c000 + 0x108a9 (nanosleep + 0xc4)
-	[/bin/sleep] 0x105857000 + 0x3dd2
-	[/usr/lib/dyld] 0x113f47000 + 0x54fe (start + 0x1ce)
+        [None] 0x0
+        [/usr/lib/system/libsystem_c.dylib] 0x7ff80c65c000 + 0x108a9 (nanosleep + 0xc4)
+        [/bin/sleep] 0x105857000 + 0x3dd2
+        [/usr/lib/dyld] 0x113f47000 + 0x54fe (start + 0x1ce)
 ```

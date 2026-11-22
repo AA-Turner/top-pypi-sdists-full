@@ -25,7 +25,8 @@ fn parts(rows: &str) -> BTreeMap<String, String> {
 }
 fn pack(parts: &BTreeMap<String, String>) -> Vec<u8> {
     let mut z = ZipWriter::new(Cursor::new(Vec::new()));
-    z.set_comment("archive-comment");
+    z.set_comment("archive-comment")
+        .expect("fixture archive comment");
     let options = zip::write::SimpleFileOptions::default()
         .unix_permissions(0o640)
         .last_modified_time(zip::DateTime::from_date_and_time(2020, 1, 2, 3, 4, 6).unwrap());
@@ -125,6 +126,9 @@ fn source_policy_boundary_modes_and_unverified_producers_prevent_false_complete(
     use formualizer_workbook::{CalculationDeferredReason, IoError, SourceCalculationCoverage};
     for formula in [
         "CELL(\"format\",B1)",
+        // Source bytes carry no host identity, so the workbook path is unknown.
+        "CELL(\"filename\",B1)",
+        "CELL(\"filename\")",
         "IF(TRUE,SUM,AVERAGE)",
         "HSTACK(SUM,AVERAGE)",
         "TEXT(1,\"[>0]yyyy;0\")",
@@ -753,6 +757,48 @@ fn workbook_partial_internal_cycle_and_zero_sample_scope_are_truthful() {
     assert!(!member(&cycle.bytes, SHEET).contains("<v>"));
 }
 
+/// #570: loops that never execute recalculate. `CELL("filename",A1)` in A1
+/// reads no value, and A4 reads B4 only through an `IF` branch not taken.
+/// Under `Static` both loops were #CIRC!, which has no cache encoding.
+#[test]
+fn loops_that_never_execute_recalculate() {
+    use formualizer_workbook::{SourceCalculationCoverage, SourceModeVerification};
+    let input = pack(&parts(concat!(
+        r#"<row r="1"><c r="A1" t="str"><f>CELL("filename",A1)</f><v>stale</v></c>"#,
+        r#"<c r="B1" t="str"><f>A1</f><v>stale</v></c></row>"#,
+        r#"<row r="3"><c r="A3"><v>0</v></c></row>"#,
+        r#"<row r="4"><c r="A4"><f>IF(A3=1,B4,5)</f><v>0</v></c>"#,
+        r#"<c r="B4"><f>A4+1</f><v>0</v></c></row>"#,
+    )));
+    let out = recalculate_xlsx_bytes(&input, XlsxRecalculateOptions::default()).unwrap();
+    assert_eq!(out.formula_cells, 4);
+    assert_eq!(out.cache_cells_changed, 4);
+    let mut x = Xlsx::new(Cursor::new(&out.bytes)).unwrap();
+    let range = x.worksheet_range("Sheet1").unwrap();
+    assert_eq!(range.get_value((3, 0)), Some(&Data::Float(5.0)));
+    assert_eq!(range.get_value((3, 1)), Some(&Data::Float(6.0)));
+    // Source bytes carry no workbook path: `filename` is #VALUE! and the only
+    // coverage gap.
+    let value = Data::Error(cached_reader::CellErrorType::Value);
+    assert_eq!(range.get_value((0, 0)), Some(&value));
+    assert_eq!(range.get_value((0, 1)), Some(&value));
+    assert_eq!(out.coverage, SourceCalculationCoverage::Partial);
+    let modes = &out.operation_diagnostics.function_modes;
+    assert_eq!(modes.len(), 1, "{modes:?}");
+    assert_eq!(
+        (modes[0].name.as_str(), modes[0].mode.as_str()),
+        ("CELL", "filename")
+    );
+    assert_eq!(modes[0].verification, SourceModeVerification::Unavailable);
+    assert_eq!(
+        out.operation_diagnostics
+            .unavailable_functions
+            .keys()
+            .collect::<Vec<_>>(),
+        ["CELL"]
+    );
+}
+
 #[test]
 fn parse_refusal_precedes_any_coverage_deferral() {
     use formualizer_workbook::IoError;
@@ -1062,7 +1108,10 @@ fn inert_sheets_keep_scope_order_and_original_parts() {
         }
         let zip = ZipArchive::new(Cursor::new(&out.bytes)).unwrap();
         assert_eq!(zip.len(), p.len());
-        assert!(!zip.file_names().any(|n| n.contains("__inert_sheet")));
+        assert!(
+            !zip.file_names()
+                .any(|n| n.expect("fixture ZIP entry name").contains("__inert_sheet"))
+        );
         for (name, original) in &p {
             if !name.starts_with("xl/worksheets/") {
                 assert_eq!(member(&out.bytes, name), *original);
@@ -1390,15 +1439,19 @@ fn stale_cache_and_untouched_members_and_metadata() {
     for i in 0..before.len() {
         let a = before.by_index(i).unwrap();
         let b = after.by_index(i).unwrap();
-        assert_eq!(a.name(), b.name());
+        assert_eq!(
+            a.name().expect("fixture ZIP entry name"),
+            b.name().expect("fixture ZIP entry name")
+        );
         assert_eq!(a.last_modified(), b.last_modified());
         assert_eq!(a.unix_mode(), b.unix_mode());
         assert_eq!(a.compression(), b.compression());
-        if a.name() != SHEET {
+        if a.name().expect("fixture ZIP entry name") != SHEET {
             assert_eq!(
-                &input[a.data_start() as usize..(a.data_start() + a.compressed_size()) as usize],
-                &out.bytes
-                    [b.data_start() as usize..(b.data_start() + b.compressed_size()) as usize]
+                &input[a.data_start().unwrap() as usize
+                    ..(a.data_start().unwrap() + a.compressed_size()) as usize],
+                &out.bytes[b.data_start().unwrap() as usize
+                    ..(b.data_start().unwrap() + b.compressed_size()) as usize]
             );
         }
     }
@@ -1841,8 +1894,10 @@ fn multiple_changed_members_relocate_growing_and_shrinking_payloads() {
     let a = before.by_name("zz/opaque.bin").unwrap();
     let b = after.by_name("zz/opaque.bin").unwrap();
     assert_eq!(
-        &input[a.data_start() as usize..(a.data_start() + a.compressed_size()) as usize],
-        &out.bytes[b.data_start() as usize..(b.data_start() + b.compressed_size()) as usize]
+        &input[a.data_start().unwrap() as usize
+            ..(a.data_start().unwrap() + a.compressed_size()) as usize],
+        &out.bytes[b.data_start().unwrap() as usize
+            ..(b.data_start().unwrap() + b.compressed_size()) as usize]
     );
     assert_eq!(data(&out.bytes, 0), Data::Float(2.0));
     assert_eq!(

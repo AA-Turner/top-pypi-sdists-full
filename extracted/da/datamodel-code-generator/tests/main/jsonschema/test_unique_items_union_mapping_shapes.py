@@ -15,7 +15,6 @@ from tests.main.conftest import (
     run_generate_and_assert,
     run_main_and_assert,
 )
-from tests.main.jsonschema.conftest import EXPECTED_JSON_SCHEMA_PATH
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -34,7 +33,6 @@ def test_main_jsonschema_unique_items_union_mapping_shapes(output_file: Path) ->
     }
     run_generate_and_assert(
         input_=schema,
-        expected_file=EXPECTED_JSON_SCHEMA_PATH / "unique_items_union_mapping_shapes.py",
         **generate_kwargs,
     )
     generate(input_=schema, output=output_file, **generate_kwargs)
@@ -89,7 +87,6 @@ def test_main_jsonschema_unique_items_union_mapping_root() -> None:
     }
     run_generate_and_assert(
         input_=schema,
-        expected_file=EXPECTED_JSON_SCHEMA_PATH / "unique_items_union_mapping_root.py",
         **generate_kwargs,
     )
 
@@ -107,7 +104,6 @@ def test_main_jsonschema_unique_items_union_ref_mapping(output_file: Path) -> No
     }
     run_generate_and_assert(
         input_=schema,
-        expected_file=EXPECTED_JSON_SCHEMA_PATH / "unique_items_union_ref_mapping.py",
         **generate_kwargs,
     )
     generate(input_=schema, output=output_file, **generate_kwargs)
@@ -141,7 +137,6 @@ def test_main_jsonschema_unique_items_union_ref_mapping_root(output_file: Path) 
     }
     run_generate_and_assert(
         input_=schema,
-        expected_file=EXPECTED_JSON_SCHEMA_PATH / "unique_items_union_ref_mapping_root.py",
         **generate_kwargs,
     )
     generate(input_=schema, output=output_file, **generate_kwargs)
@@ -216,7 +211,6 @@ def test_main_jsonschema_unique_items_union_const_root(output_file: Path) -> Non
     }
     run_generate_and_assert(
         input_=schema,
-        expected_file=EXPECTED_JSON_SCHEMA_PATH / "unique_items_union_const_root.py",
         **generate_kwargs,
     )
     generate(input_=schema, output=output_file, **generate_kwargs)
@@ -245,7 +239,6 @@ def test_main_jsonschema_unique_items_union_enum_root(output_file: Path) -> None
     }
     run_generate_and_assert(
         input_=schema,
-        expected_file=EXPECTED_JSON_SCHEMA_PATH / "unique_items_union_enum_root.py",
         **generate_kwargs,
     )
     generate(input_=schema, output=output_file, **generate_kwargs)
@@ -261,7 +254,30 @@ def test_main_jsonschema_unique_items_union_enum_root(output_file: Path) -> None
     )
 
 
-def test_main_jsonschema_unique_items_union_ref_sibling_dialects(output_file: Path) -> None:
+@pytest.mark.parametrize(
+    ("filename", "model_name", "valid_json", "invalid_json", "expected_error_type"),
+    [
+        pytest.param(
+            "unique_items_union_ref_sibling_draft7.json",
+            "UniqueItemsUnionRefSiblingDraft7",
+            "[1,1]",
+            '"scalar"',
+            "list_type",
+            id="draft7",
+        ),
+        pytest.param(
+            "unique_items_union_ref_sibling_2020.json",
+            "UniqueItemsUnionRefSibling2020",
+            "[1,2]",
+            "[1,1]",
+            "value_error",
+            id="2020-12",
+        ),
+    ],
+)
+def test_main_jsonschema_unique_items_union_ref_sibling_dialects(
+    output_file: Path, filename: str, model_name: str, valid_json: str, invalid_json: str, expected_error_type: str
+) -> None:
     """Honor the draft-specific JSON Schema meaning of keywords beside ``$ref``."""
     generate_kwargs = {
         "input_file_type": InputFileType.JsonSchema,
@@ -270,37 +286,16 @@ def test_main_jsonschema_unique_items_union_ref_sibling_dialects(output_file: Pa
         "disable_timestamp": True,
         "formatters": [Formatter.BUILTIN],
     }
-    for filename, model_name, valid_json, invalid_json, expected_error_type in (
-        (
-            "unique_items_union_ref_sibling_draft7.json",
-            "UniqueItemsUnionRefSiblingDraft7",
-            "[1,1]",
-            '"scalar"',
-            "list_type",
-        ),
-        (
-            "unique_items_union_ref_sibling_2020.json",
-            "UniqueItemsUnionRefSibling2020",
-            "[1,2]",
-            "[1,1]",
-            "value_error",
-        ),
-    ):
-        schema = json.loads((JSON_SCHEMA_DATA_PATH / filename).read_text())
-        run_generate_and_assert(
-            input_=schema,
-            input_filename=filename,
-            expected_file=EXPECTED_JSON_SCHEMA_PATH / filename.replace(".json", ".py"),
-            **generate_kwargs,
-        )
-        generate(input_=schema, output=output_file, input_filename=filename, **generate_kwargs)
-        assert_generated_model_json_validation(
-            output_file,
-            module_name=filename.removesuffix(".json"),
-            model_name=model_name,
-            valid_json=valid_json,
-            invalid_json=invalid_json,
-            expected_error_type=expected_error_type,
-            expected_attribute_path=("root",),
-            expected_attribute_value=[1, 1] if valid_json == "[1,1]" else [1, 2],
-        )
+    schema = json.loads((JSON_SCHEMA_DATA_PATH / filename).read_text())
+    run_generate_and_assert(input_=schema, input_filename=filename, **generate_kwargs)
+    generate(input_=schema, output=output_file, input_filename=filename, **generate_kwargs)
+    assert_generated_model_json_validation(
+        output_file,
+        module_name=filename.removesuffix(".json"),
+        model_name=model_name,
+        valid_json=valid_json,
+        invalid_json=invalid_json,
+        expected_error_type=expected_error_type,
+        expected_attribute_path=("root",),
+        expected_attribute_value=[1, 1] if valid_json == "[1,1]" else [1, 2],
+    )

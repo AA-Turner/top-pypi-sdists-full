@@ -475,8 +475,31 @@ def _capture_reading(session_id: str, agent: str | None = None) -> dict:
     return {"running": False, "reason": reading}
 
 
+def _get_capture_reading(session_id: str, agent: "str | None", marker) -> dict:
+    """`_capture_reading`, a `not started` carrying when Probe stops counting as still taking the chat
+    (`starting_until`: its switch moved, or the service started, moments ago), so the line shows no
+    note until then (`_session_marker.get_starting_until`, Richard 2026-11-21). The run of `not started`
+    readings keeps when it began (`not_started_since`, from the last marker), so the grace ends at most
+    CAPTURE_SERVICE_GRACE_S after it whatever re-dates the files."""
+    reading = _capture_reading(session_id, agent)
+    if reading.get("reason") != NOT_STARTED_REASON:
+        return reading
+    try:
+        now = time.time()
+        before = (marker._read_marker(session_id) or {}).get("capture") or {}
+        since = before.get(marker.NOT_STARTED_SINCE_KEY) if before.get("reason") == NOT_STARTED_REASON else None
+        if not marker._is_epoch(since) or since > now:
+            since = now
+        until = marker.get_starting_until(session_id, _service_lock(), now=now, since=since)
+    except Exception:  # noqa: BLE001 - an older marker copy or an unreadable path: the reading as it was
+        return reading
+    return {**reading, marker.NOT_STARTED_SINCE_KEY: since, **({} if until is None else {marker.STARTING_UNTIL_KEY: until})}
+
+
 #: `capture_state.OFF_REASON`: the session's switch reads `off`.
 OFF_REASON = "Probe is off"
+#: Capture's `not started` (`_session_marker.NOT_STARTED_REASON`): no watcher, no recorder of the session.
+NOT_STARTED_REASON = "not started"
 #: `capture_state.TURNED_OFF_REASON` / `AWAITING_REASON`: `.disabled` is a chosen off, or a
 #: sign-in's lock whose exact text is `capture_marker.AWAITING_CONFIRMATION` (pinned by a test).
 TURNED_OFF_REASON = "turned off"
@@ -675,7 +698,7 @@ def refresh(session_id: str, agent: str | None = None, *, core=None, marker=None
         # the segment read a green "tracking" while nothing reached the server
         # (`probe session status` and `probe doctor` said so; release gate C8).
         state = dict(marker._read_marker(session_id) or marker.from_session_work({}))
-        state["capture"] = _capture_reading(session_id, agent)
+        state["capture"] = _get_capture_reading(session_id, agent, marker)
         marker.write(session_id, state)
         return
     state = marker.from_session_work(work)
@@ -688,7 +711,7 @@ def refresh(session_id: str, agent: str | None = None, *, core=None, marker=None
     # goes in with the identity it qualifies; with no answer (above) it is
     # written alone, beside the last good read's project or none, since "not
     # capturing session transcript" is worth saying even with no project named.
-    state["capture"] = _capture_reading(session_id, agent)
+    state["capture"] = _get_capture_reading(session_id, agent, marker)
     marker.write(session_id, state)
 
 

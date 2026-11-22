@@ -1557,21 +1557,27 @@ impl Function for IsOddFn {
     }
 }
 
-/// ERROR.TYPE(error_val) - Returns a number corresponding to an error type
-/// Returns:
-///   1 = #NULL!
-///   2 = #DIV/0!
-///   3 = #VALUE!
-///   4 = #REF!
-///   5 = #NAME?
-///   6 = #NUM!
-///   7 = #N/A
-///   8 = #GETTING_DATA (not commonly used)
-///   #N/A if the value is not an error
-///
-/// NOTE: Error codes 9-13 are non-standard extensions for internal error types.
 #[derive(Debug)]
 pub struct ErrorTypeFn;
+fn error_type_code(kind: ExcelErrorKind) -> i64 {
+    match kind {
+        ExcelErrorKind::Null => 1,
+        ExcelErrorKind::Div => 2,
+        ExcelErrorKind::Value => 3,
+        ExcelErrorKind::Ref => 4,
+        ExcelErrorKind::Name => 5,
+        ExcelErrorKind::Num => 6,
+        ExcelErrorKind::Na => 7,
+        ExcelErrorKind::Error => 8,
+        ExcelErrorKind::NImpl => 9,
+        ExcelErrorKind::Spill => 10,
+        ExcelErrorKind::Calc => 11,
+        ExcelErrorKind::Circ => 12,
+        ExcelErrorKind::Cancelled => 13,
+        _ => 8,
+    }
+}
+
 /// Returns the numeric code for a specific error value.
 ///
 /// # Remarks
@@ -1602,35 +1608,6 @@ pub struct ErrorTypeFn;
 ///   - q: "What if the input is not an error value?"
 ///     a: "ERROR.TYPE returns #N/A when the input is not an error."
 /// ```
-/// [formualizer-docgen:schema:start]
-/// Name: ERROR.TYPE
-/// Type: ErrorTypeFn
-/// Min args: 1
-/// Max args: 1
-/// Variadic: false
-/// Signature: ERROR.TYPE(arg1: any@scalar)
-/// Arg schema: arg1{kinds=any,required=true,shape=scalar,by_ref=false,coercion=None,max=None,repeating=None,default=false}
-/// Caps: PURE
-/// [formualizer-docgen:schema:end]
-fn error_type_code(kind: ExcelErrorKind) -> i64 {
-    match kind {
-        ExcelErrorKind::Null => 1,
-        ExcelErrorKind::Div => 2,
-        ExcelErrorKind::Value => 3,
-        ExcelErrorKind::Ref => 4,
-        ExcelErrorKind::Name => 5,
-        ExcelErrorKind::Num => 6,
-        ExcelErrorKind::Na => 7,
-        ExcelErrorKind::Error => 8,
-        ExcelErrorKind::NImpl => 9,
-        ExcelErrorKind::Spill => 10,
-        ExcelErrorKind::Calc => 11,
-        ExcelErrorKind::Circ => 12,
-        ExcelErrorKind::Cancelled => 13,
-        _ => 8,
-    }
-}
-
 /// [formualizer-docgen:schema:start]
 /// Name: ERROR.TYPE
 /// Type: ErrorTypeFn
@@ -1769,13 +1746,28 @@ pub struct CellFn;
 /// - `"col"`      — the 1-based column of the upper-left cell
 /// - `"row"`      — the 1-based row of the upper-left cell
 /// - `"type"`     — `"b"` for a blank cell, `"l"` for text, `"v"` for any value
+/// - `"filename"` — the directory, `[file name]` and sheet name of the reference
+///   (the formula's own sheet without one), e.g. `C:\dir\[Book1.xlsx]Sheet1`,
+///   from the path the host gave `Engine::set_workbook_path`. An empty path
+///   means a workbook never saved, which gives empty text. With no path the
+///   workbook's identity is unknown, which gives `#VALUE!`: opening a file does
+///   not publish where it is stored.
 ///
-/// Other `info_type` values (`format`, `filename`, `parentheses`, `prefix`,
-/// `protect`, `width`) and calls without a reference return `#VALUE!`, as do
-/// 3-D references and a non-reference argument for `address`, `col` or `row`.
+/// Other `info_type` values (`format`, `parentheses`, `prefix`, `protect`,
+/// `width`) and calls without a reference (except `filename`) return
+/// `#VALUE!`, as do 3-D references and a non-reference argument for
+/// `address`, `col`, `row` or `filename`.
 /// An argument that evaluates to an error propagates that error unchanged.
 ///
-/// Known divergence: `CELL("contents", <blank cell>)` produces `Empty` in-graph
+/// # Differences from Excel
+/// Without a reference Excel's `filename` names the sheet of
+/// the cell selected at calculation time. There is no selection state here, so
+/// it names the formula's own sheet.
+/// Operation diagnostics report both gaps: a call without a reference as the
+/// `implicit_active_cell_reference` mode, even with a path, and any call as the
+/// `filename` mode while the workbook's identity is unknown.
+///
+/// `CELL("contents", <blank cell>)` produces `Empty` in-graph
 /// where Excel produces numeric `0`, so `ISBLANK(CELL("contents",Z99))` is TRUE
 /// here and FALSE in Excel; tracked in #333 and to be resolved with the #319
 /// blank-coercion variant study.
@@ -1800,7 +1792,7 @@ pub struct CellFn;
 ///   - ISREF
 /// faq:
 ///   - q: "Which info types does CELL support?"
-///     a: "contents, address, col, row and type. Unsupported info types return #VALUE!."
+///     a: "contents, address, col, row, type and filename. Unsupported info types return #VALUE!."
 /// ```
 /// [formualizer-docgen:schema:start]
 /// Name: CELL
@@ -1822,6 +1814,15 @@ impl Function for CellFn {
     fn min_args(&self) -> usize {
         1
     }
+    // Inspect the reference without eagerly evaluating its value: only the
+    // `contents` and `type` info types read it (`cell_top_left`).
+    fn dispatch<'a, 'b, 'c>(
+        &self,
+        args: &'c [ArgumentHandle<'a, 'b>],
+        ctx: &dyn FunctionContext<'b>,
+    ) -> Result<CalcValue<'b>, ExcelError> {
+        self.eval(args, ctx)
+    }
     fn semantic_contract(&self, arity: usize) -> Option<FunctionSemanticContract> {
         Some(workbook_metadata_contract(self.dependency_contract(arity)))
     }
@@ -1840,6 +1841,9 @@ impl Function for CellFn {
         args: &'c [ArgumentHandle<'a, 'b>],
         ctx: &dyn FunctionContext<'b>,
     ) -> Result<CalcValue<'b>, ExcelError> {
+        if args.is_empty() || args.len() > 2 {
+            return arity_error();
+        }
         let info_type = match args[0].value()?.into_literal() {
             LiteralValue::Error(e) => return Ok(scalar(LiteralValue::Error(e))),
             LiteralValue::Text(t) => t.to_ascii_lowercase(),
@@ -1869,6 +1873,22 @@ impl Function for CellFn {
                         mode: "implicit_active_cell_reference",
                     },
                 );
+            }
+            // `filename` names the formula's own sheet (Excel: the selected
+            // cell's sheet, a state that does not exist here); the other info
+            // types give #VALUE!, which keeps the result well-defined.
+            if info_type == "filename" {
+                // An unknown workbook identity is its own gap, as with a
+                // reference: the #VALUE! is not Excel's answer.
+                if ctx.workbook_path().is_none() {
+                    ctx.report_unavailable_operation(
+                        crate::operation_diagnostics::UnavailableOperation::UnimplementedFunctionMode {
+                            name: self.name().into(),
+                            mode: "filename",
+                        },
+                    );
+                }
+                return Ok(scalar(cell_filename(ctx, ctx.current_sheet())));
             }
             return Ok(scalar(LiteralValue::Error(ExcelError::new_value())));
         }
@@ -1915,7 +1935,10 @@ impl Function for CellFn {
         let col = cell.coord.col() + 1;
         let unsupported_mode = match info_type.as_str() {
             "color" => Some("color"),
-            "filename" => Some("filename"),
+            // A host-supplied identity (`Engine::set_workbook_path`), even an
+            // explicitly unsaved one, answers `filename`; without it the
+            // #VALUE! below is a gap, not Excel's answer.
+            "filename" => ctx.workbook_path().is_none().then_some("filename"),
             "format" => Some("format"),
             "parentheses" => Some("parentheses"),
             "prefix" => Some("prefix"),
@@ -1948,7 +1971,28 @@ impl Function for CellFn {
             }
             "col" => Ok(scalar(LiteralValue::Int(col as i64))),
             "row" => Ok(scalar(LiteralValue::Int(row as i64))),
+            "filename" => {
+                let sheet = ctx
+                    .sheet_name_by_id(cell.sheet_id)
+                    .or_else(|| reference_sheet(&reference))
+                    .unwrap_or_else(|| ctx.current_sheet());
+                Ok(scalar(cell_filename(ctx, sheet)))
+            }
             _ => Ok(scalar(LiteralValue::Error(ExcelError::new_value()))),
+        }
+    }
+}
+
+/// `CELL("filename")`: `dir\[file]sheet` from the host's workbook path (split at
+/// its last `\` or `/`), empty text for an empty path (never saved), or `#VALUE!`
+/// when the workbook's identity is unknown.
+fn cell_filename(ctx: &dyn FunctionContext<'_>, sheet: &str) -> LiteralValue {
+    match ctx.workbook_path() {
+        None => LiteralValue::Error(ExcelError::new_value()),
+        Some("") => LiteralValue::Text(String::new()),
+        Some(path) => {
+            let split = path.rfind(['\\', '/']).map_or(0, |i| i + 1);
+            LiteralValue::Text(format!("{}[{}]{sheet}", &path[..split], &path[split..]))
         }
     }
 }

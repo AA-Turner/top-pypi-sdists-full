@@ -266,7 +266,7 @@ class WindowNameSpecialCharFixture(t.NamedTuple):
 
 # The tmux 3.7 point release briefly rejected ':' and '.' in window names,
 # then reverted it in 3.7a as "overly pernickety" (tmux commit 166267c8).
-# Every tmux libtmux supports -- 3.2a-3.6 and 3.7a onward -- accepts them.
+# Every tmux libtmux supports -- 3.3a-3.6 and 3.7a onward -- accepts them.
 WINDOW_NAME_SPECIAL_CHAR_FIXTURES: list[WindowNameSpecialCharFixture] = [
     WindowNameSpecialCharFixture(test_id="colon", window_name="project:frontend"),
     WindowNameSpecialCharFixture(test_id="period", window_name="app-v1.0"),
@@ -1191,13 +1191,6 @@ def test_window_display_message_target_client(
     session: Session,
 ) -> None:
     """``target_client`` is plumbed through as ``-c``."""
-    from libtmux.common import has_gte_version
-
-    if not has_gte_version("3.3"):
-        pytest.skip(
-            "display-message -p via control-mode client unreliable on tmux 3.2a"
-        )
-
     window = session.active_window
     with control_mode() as ctl:
         result = window.display_message(
@@ -1332,3 +1325,46 @@ def test_new_pane(session: Session) -> None:
     else:
         with pytest.raises(exc.LibTmuxException, match=r"new_pane .*requires tmux 3.7"):
             window.new_pane(width=40, height=10)
+
+
+def test_select_pane_index_targets_its_own_window(server: Server) -> None:
+    """A pane index selects within the window it was asked of.
+
+    tmux resolves a bare index against the most recently used session, so
+    the window under test belongs to the session that is *not* the latest.
+    """
+    first = server.new_session("first_session")
+    latest = server.new_session("latest_session")
+    window, other = first.active_window, latest.active_window
+    for each in (window, other):
+        each.split()
+        each.refresh()
+    assert window.active_pane is not None
+    assert other.active_pane is not None
+    other_before = other.active_pane.pane_id
+    wanted = next(
+        pane for pane in window.panes if pane.pane_id != window.active_pane.pane_id
+    )
+    assert wanted.pane_index is not None
+
+    selected = window.select_pane(int(wanted.pane_index))
+
+    assert selected is not None
+    assert selected.pane_id == wanted.pane_id
+    other.refresh()
+    assert other.active_pane is not None
+    assert other.active_pane.pane_id == other_before
+
+
+def test_rename_window_name_starting_with_a_dash(session: Session) -> None:
+    """A window name that starts with ``-`` is a name, not a flag."""
+    window = session.active_window
+
+    window.rename_window("-renamed")
+
+    assert window.window_name == "-renamed"
+
+
+def test_window_display_message_text_starting_with_a_dash(session: Session) -> None:
+    """Message text that starts with ``-`` is printed, not read as a flag."""
+    assert session.active_window.display_message("-p", get_text=True) == ["-p"]

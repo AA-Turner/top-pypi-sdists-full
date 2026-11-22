@@ -190,16 +190,33 @@ def _parent_materialized_addrs(parent: CTE | UnionCTE) -> set[str]:
     return {addr for addr, sources in parent.source_map.items() if sources}
 
 
+def _unjoined_feeders(cte: CTE) -> set[str]:
+    """Set feeders of `cte` that are neither its FROM nor a side of a join."""
+    feeders = {name for names in cte.existence_source_map.values() for name in names}
+    joined = {cte.base_alias}
+    for join in cte.joins or []:
+        for side in (getattr(join, "left", None), getattr(join, "right", None)):
+            name = getattr(side, "name", None)
+            if name:
+                joined.add(name)
+    return feeders - joined
+
+
 def _rendered_source_columns(parent: CTE) -> set[str]:
     """Addresses `parent` reads from an upstream CTE that renders them. A
     column its source hides (`hide_unused_concepts`) is no column to filter
     on: pushing onto it renders a WHERE over a missing column, and the pass
     that drops the pushed copy re-arms the push, so the plan never settles."""
     hidden = {p.name: p.hidden_concepts for p in parent.parent_ctes}
+    # nor is a set it reads by subselect a source of its rows, whatever other
+    # column the set's CTE outputs: a feeder outside the FROM renders none
+    # (`Rewrite.moved_membership_reads_its_set`)
+    feeders = _unjoined_feeders(parent)
     return {
         address
         for address, sources in parent.source_map.items()
-        if sources and not all(address in hidden.get(s, ()) for s in sources)
+        if sources
+        and not all(address in hidden.get(s, ()) or s in feeders for s in sources)
     }
 
 
@@ -974,6 +991,20 @@ def _atom_covered_by_applicable_parents(
     return all(_parent_covers_condition(p, atom) for p in relevant_parents)
 
 
+def _set_feeders(cte: CTE) -> set[str]:
+    """Parents `cte` reads only as a subselect: one enforcing an atom filters
+    its own set, never `cte`'s rows (a set written in the select, planned under
+    the WHERE its host is also under)."""
+    feeders = {name for names in cte.existence_source_map.values() for name in names}
+    rows = {
+        name
+        for address, names in cte.source_map.items()
+        if address not in cte.existence_source_map
+        for name in names
+    }
+    return feeders - rows
+
+
 def _defers_to_join_upgrade(cte: CTE) -> bool:
     """Whether atom removal on `cte` should wait for join types to settle.
 
@@ -1026,7 +1057,7 @@ def _pushdown_removal(
     # that exposes its concepts is redundant.
     if not after_join_upgrades and _defers_to_join_upgrade(cte):
         return None
-    existence_set = set(existence_only)
+    existence_set = set(existence_only) | _set_feeders(cte)
     if (
         isinstance(condition, BuildConditional)
         and condition.operator == BooleanOperator.AND

@@ -15,7 +15,6 @@ if TYPE_CHECKING:
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "build_docs_examples.py"
-EXPECTED_DOCS_EXAMPLES_PATH = ROOT / "tests" / "data" / "expected" / "docs_examples"
 
 
 def test_build_docs_examples_check_is_up_to_date() -> None:
@@ -30,37 +29,32 @@ def test_docs_examples_use_rendered_clients(capsys: pytest.CaptureFixture[str]) 
 
     assert_output(
         f"return={result}\nstdout:\n{captured.out}stderr:\n{captured.err}",
-        EXPECTED_DOCS_EXAMPLES_PATH / "main_check_up_to_date.txt",
     )
 
 
-def test_pagination_docs_example(tmp_path: Path) -> None:
+def test_pagination_docs_example() -> None:
     """Pagination renders its tested client recipe with the exact committed documentation text."""
     example = next(
         example
         for example in build_docs_examples.docs_examples()
         if example.example_id == "python-client.pagination.helper"
     )
-    content = example.path.read_text(encoding="utf-8")
-    expected_path = tmp_path / "pagination-docs.txt"
-    expected_path.write_text(content, encoding="utf-8")
-    updated, _ = build_docs_examples.replace_example(content, example)
+    updated, _ = build_docs_examples.replace_example(example.path.read_text(encoding="utf-8"), example)
 
-    assert_output(updated, expected_path)
+    assert_output(updated, against=example.path)
 
 
 def test_docs_examples_registry() -> None:
     """Docs example registry exposes stable generated section IDs."""
     output = "".join(f"{example.example_id}: {example.path.name}\n" for example in build_docs_examples.docs_examples())
 
-    assert_output(output, EXPECTED_DOCS_EXAMPLES_PATH / "docs_examples_registry.txt")
+    assert_output(output)
 
 
 def test_reuse_scope_tree_example() -> None:
     """Directory examples render a stable tree and representative files."""
     assert_output(
         build_docs_examples.render_reuse_scope_tree_example(),
-        EXPECTED_DOCS_EXAMPLES_PATH / "reuse_scope_tree_example.txt",
     )
 
 
@@ -104,7 +98,7 @@ def test_docs_example_render_helpers(tmp_path: Path) -> None:
         ),
     ))
 
-    assert_output(output, EXPECTED_DOCS_EXAMPLES_PATH / "docs_example_render_helpers.txt")
+    assert_output(output)
 
 
 def test_main_check_reports_up_to_date(
@@ -136,7 +130,6 @@ def test_main_check_reports_up_to_date(
             f"return={result}\nstdout:\n{captured.out}stderr:\n{captured.err}",
             tmp_path,
         ),
-        EXPECTED_DOCS_EXAMPLES_PATH / "main_check_up_to_date.txt",
     )
 
 
@@ -178,7 +171,6 @@ def test_update_docs_examples_write_mode(
             f"content:\n{docs_path.read_text(encoding='utf-8')}",
             tmp_path,
         ),
-        EXPECTED_DOCS_EXAMPLES_PATH / "update_docs_examples_write_mode.txt",
     )
 
 
@@ -212,7 +204,6 @@ def test_update_docs_examples_check_reports_all_problems(
             f"return={result}\nstdout:\n{captured.out}stderr:\n{captured.err}",
             tmp_path,
         ),
-        EXPECTED_DOCS_EXAMPLES_PATH / "update_docs_examples_check_problems.txt",
     )
 
 

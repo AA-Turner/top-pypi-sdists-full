@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from datamodel_code_generator import PythonVersion
 from datamodel_code_generator.deprecations import (
     DEPRECATIONS,
     Deprecation,
@@ -22,8 +23,6 @@ from datamodel_code_generator.deprecations import (
     warn_deprecated,
 )
 from tests.conftest import assert_output, assert_warnings_do_not_contain
-
-EXPECTED_DEPRECATIONS_PATH = Path(__file__).parent / "data" / "expected" / "deprecations"
 
 
 def test_deprecation_registry_has_stable_required_metadata() -> None:
@@ -126,7 +125,6 @@ def test_scheduled_deprecation_release_note_and_warning(monkeypatch: pytest.Monk
     assert_warnings_do_not_contain(recorded_warnings, scheduled.message)
     assert_output(
         render_release_note_deprecations("8.0.0"),
-        EXPECTED_DEPRECATIONS_PATH / "scheduled_release_notes.txt",
     )
 
 
@@ -134,6 +132,12 @@ def test_warn_deprecated_uses_registered_message() -> None:
     """Warning helpers emit the registered message and category."""
     with pytest.warns(DeprecationWarning, match=deprecation_message("cli.parent-scoped-naming")):
         warn_deprecated("cli.parent-scoped-naming")
+
+
+def test_python_version_has_type_alias_warns_and_answers() -> None:
+    """The deprecated ``PythonVersion.has_type_alias`` warns with its registered message and still answers."""
+    with pytest.warns(DeprecationWarning, match=deprecation_message("python-api.python-version-has-type-alias")):
+        assert PythonVersion.PY_311.has_type_alias is True
 
 
 def _emit_deprecation_warning() -> None:
@@ -169,5 +173,4 @@ def test_dependency_notice_release_comparisons() -> None:
     )
     assert_output(
         "\n".join(f"{version}: {_dependency_version_is_legacy(version, tuple(minimum))}" for version, minimum in cases),
-        EXPECTED_DEPRECATIONS_PATH / "dependency_versions.txt",
     )

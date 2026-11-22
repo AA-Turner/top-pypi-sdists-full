@@ -299,6 +299,13 @@ def parse_jupytext_args(args=None):
         type=str,
         help="Execute the notebook at the given path (defaults to the notebook parent directory)",
     )
+    parser.add_argument(
+        "--show-output",
+        action="store_true",
+        help="When executing the notebook with --execute, print the stdout and stderr "
+        "output of each cell to stderr as the cell runs (the outputs are still saved "
+        "in the notebook).",
+    )
 
     parser.add_argument(
         "--quiet",
@@ -386,6 +393,9 @@ def jupytext(args=None, *, notary=None):
 
     if args.run_path:
         args.execute = True
+
+    if args.show_output and not args.execute:
+        raise ValueError("--show-output can only be used together with --execute")
 
     if (args.test or args.test_strict) and not args.output_format and not args.output and not args.sync:
         raise ValueError("Please provide one of --to, --output or --sync")
@@ -510,6 +520,28 @@ def jupytext(args=None, *, notary=None):
             notary_to_close.store.close()
 
 
+def execute_preprocessor(show_output=False, **kwargs):
+    """Return a nbconvert ExecutePreprocessor. With show_output=True, the stream outputs
+    of each cell are echoed to stderr as they arrive, so that they never mix with a
+    notebook written to stdout"""
+    from nbconvert.preprocessors import ExecutePreprocessor
+
+    if not show_output:
+        return ExecutePreprocessor(**kwargs)
+
+    class ShowOutputExecutePreprocessor(ExecutePreprocessor):
+        def output(self, outs, msg, display_id, cell_index):
+            out = super().output(outs, msg, display_id, cell_index)
+            if out is not None and out.get("output_type") == "stream":
+                # Keep the [jupytext] messages on stdout in order with the cell outputs
+                sys.stdout.flush()
+                sys.stderr.write(out.get("text", ""))
+                sys.stderr.flush()
+            return out
+
+    return ShowOutputExecutePreprocessor(**kwargs)
+
+
 def jupytext_single_file(nb_file, args, log, notary):
     """Apply the jupytext command, with given arguments, to a single file"""
     if nb_file == "-" and args.sync:
@@ -632,6 +664,7 @@ def jupytext_single_file(nb_file, args, log, notary):
 
     # Read paired notebooks
     nb_files = [nb_file, nb_dest]
+    inputs_nb_file = None
     outputs_nb_file = None
     if args.sync:
         # If we are also setting the formats, we take the information
@@ -746,9 +779,7 @@ def jupytext_single_file(nb_file, args, log, notary):
             resources = {}
 
         try:
-            from nbconvert.preprocessors import ExecutePreprocessor
-
-            exec_proc = ExecutePreprocessor(timeout=None, kernel_name=kernel_name)
+            exec_proc = execute_preprocessor(show_output=args.show_output, timeout=None, kernel_name=kernel_name)
             exec_proc.preprocess(notebook, resources=resources)
         except (ImportError, RuntimeError) as err:
             if args.pre_commit_mode:
@@ -856,6 +887,16 @@ def jupytext_single_file(nb_file, args, log, notary):
                 timestamp_checker.check_timestamp(path)
 
                 modified = new_content != current_content
+                # Preserve the Python source when serialization only adds a final newline.
+                if (
+                    modified
+                    and path == inputs_nb_file
+                    and not nb_dest
+                    and not args.pipe
+                    and ext == ".py"
+                    and _only_adds_final_newline(current_content, new_content)
+                ):
+                    modified = False
                 if modified and args.show_changes:
                     diff = compare(
                         new_content,
@@ -1199,6 +1240,10 @@ class TimestampChecker:
 _callback_on_lazy_write = None
 
 
+def _only_adds_final_newline(original: str, serialized: str) -> bool:
+    return not original.endswith("\n") and serialized == original + "\n"
+
+
 def load_paired_notebook(
     notebook,
     fmt,
@@ -1242,7 +1287,7 @@ def load_paired_notebook(
                 timestamp_checker.get_and_check_timestamp(alt_path)
                 nb = read(alt_path, fmt=alt_fmt, config=config)
                 alt_text = writes(nb, fmt=fmt0, config=config)
-                if alt_text != text0:
+                if alt_text != text0 and not (fmt0["extension"] == ".py" and _only_adds_final_newline(text0, alt_text)):
                     diff = compare(alt_text, text0, alt_path, path0, return_diff=True)
                     raise InconsistentVersions(
                         f"{shlex.quote(alt_path)} and {shlex.quote(path0)} are inconsistent.\n"

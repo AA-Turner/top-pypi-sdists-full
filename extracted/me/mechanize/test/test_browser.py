@@ -2,8 +2,10 @@
 """Tests for mechanize.Browser."""
 
 import copy
+import gzip
 import os
 import re
+import struct
 from io import BytesIO
 from unittest import TestCase
 
@@ -769,6 +771,83 @@ class BrowserTests(TestCase):
         h = r.info()
         self.assertFalse(h.getheaders('content-encoding'))
         self.assertFalse(h.getheaders('content-length'))
+
+    def test_gzip_extra_field(self):
+        data = b'compressed response with an optional header'
+        compressed = b''.join(compress_readable_output(BytesIO(data)))
+        for size in (0, 4, 260):
+            # RFC 1952 stores XLEN as a little-endian 16-bit integer.
+            extra = b'XY' + struct.pack('<H', size - 4) + b'x' * (size - 4) if size else b''
+            encoded = (compressed[:3] + b'\x04' + compressed[4:10] +
+                       struct.pack('<H', len(extra)) + extra + compressed[10:])
+            with gzip.GzipFile(fileobj=BytesIO(encoded)) as decoded:
+                self.assertEqual(decoded.read(), data)
+            response = MockResponse('https://example.com/', data=encoded,
+                                    info={'Content-Encoding': 'gzip'})
+            response = HTTPGzipProcessor().https_response(
+                mechanize.Request(response.geturl()), response)
+            self.assertEqual(response.read(), data)
+
+    def test_gzip_zero_padding(self):
+        class ShortReads(BytesIO):
+            def read(self, size=-1):
+                return BytesIO.read(self, min(size, 7) if size >= 0 else size)
+
+        for data in (b'', b'compressed response with trailing padding'):
+            output = BytesIO()
+            with gzip.GzipFile(fileobj=output, mode='wb') as writer:
+                writer.write(data)
+            for padding in (0, 1, 2048):
+                encoded = output.getvalue() + b'\0' * padding
+                for stream in (BytesIO, ShortReads):
+                    response = MockResponse('https://example.com/',
+                                            info={'Content-Encoding': 'gzip'})
+                    response.fp = stream(encoded)
+                    response = HTTPGzipProcessor().https_response(
+                        mechanize.Request(response.geturl()), response)
+                    self.assertEqual(response.read(3) + response.read(), data)
+                    self.assertEqual(response.read(), b'')
+
+    def test_gzip_padding_does_not_hide_bad_crc(self):
+        encoded = b''.join(compress_readable_output(BytesIO(b'payload')))
+        encoded = encoded[:-8] + b'\0' * 4 + encoded[-4:] + b'\0'
+        response = MockResponse('https://example.com/', data=encoded,
+                                info={'Content-Encoding': 'gzip'})
+        response = HTTPGzipProcessor().https_response(
+            mechanize.Request(response.geturl()), response)
+        with self.assertRaises(ValueError):
+            response.read()
+
+    def test_gzip_nonzero_trailing_data(self):
+        def gz(data):
+            return b''.join(compress_readable_output(BytesIO(data)))
+
+        class ShortReads(BytesIO):
+            def read(self, size=-1):
+                return BytesIO.read(self, min(size, 7) if size >= 0 else size)
+
+        for encoded in (
+                gz(b'first') + gz(b'second'),  # multiple members
+                gz(b'payload') + b'garbage',
+                gz(b'payload') + b'\0' * 2048 + b'x',  # beyond first read
+        ):
+            for stream in (BytesIO, ShortReads):
+                response = MockResponse('https://example.com/',
+                                        info={'Content-Encoding': 'gzip'})
+                response.fp = stream(encoded)
+                response = HTTPGzipProcessor().https_response(
+                    mechanize.Request(response.geturl()), response)
+                with self.assertRaises(ValueError):
+                    response.read()
+
+    def test_gzip_truncated_trailer(self):
+        encoded = b''.join(compress_readable_output(BytesIO(b'payload')))
+        response = MockResponse('https://example.com/', data=encoded[:-1],
+                                info={'Content-Encoding': 'gzip'})
+        response = HTTPGzipProcessor().https_response(
+            mechanize.Request(response.geturl()), response)
+        with self.assertRaises(EOFError):
+            response.read()
 
 
 class ResponseTests(TestCase):

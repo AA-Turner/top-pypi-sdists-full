@@ -13,15 +13,23 @@ import typing as t
 
 import pytest
 
+from libtmux import exc
+from libtmux.common import TMUX_MIN_VERSION
+from libtmux.formats import FORMAT_SEPARATOR
 from libtmux.neo import (
     _CONTEXT_ONLY_TOKENS,
     FIELD_VERSION,
     SCOPES_BY_LIST_CMD,
     Obj,
     _is_target_not_found_error,
+    _normalize_tmux_version,
+    _split_records,
     _token_scope,
     get_output_format,
 )
+
+if t.TYPE_CHECKING:
+    from libtmux.session import Session
 
 
 class TargetNotFoundFixture(t.NamedTuple):
@@ -87,33 +95,26 @@ def test_is_target_not_found_error(
     assert _is_target_not_found_error(stderr_text) is expected
 
 
-def test_pane_dead_signal_gated_to_3_3() -> None:
-    """``pane_dead_signal`` first registered in tmux 3.3.
+def test_exit_tokens_are_listed_at_the_minimum_tmux() -> None:
+    """``pane_dead_signal`` and ``pane_dead_time`` need no gate at the minimum.
 
-    The format-table entry sits in ``format.c`` from commit a3d92093
-    ("Add remain-on-exit-format"), first tagged in tmux 3.3. Emitting
-    it on tmux 3.2a hydrates the field with the literal ``#{...}``
-    text rather than an empty value, which downstream code interprets
-    as a live signal — a real footgun.
+    Both tokens registered in tmux 3.3, the release before the 3.3a minimum.
     """
-    assert FIELD_VERSION["pane_dead_signal"] == "3.3"
-    fields_old, _ = get_output_format("list-panes", "3.2a")
-    assert "pane_dead_signal" not in fields_old
-    fields_new, _ = get_output_format("list-panes", "3.3")
-    assert "pane_dead_signal" in fields_new
+    fields, _ = get_output_format("list-panes", TMUX_MIN_VERSION)
+
+    assert "pane_dead_signal" in fields
+    assert "pane_dead_time" in fields
 
 
-def test_pane_dead_time_gated_to_3_3() -> None:
-    """``pane_dead_time`` first registered in tmux 3.3.
+def test_gated_tokens_are_newer_than_the_minimum_tmux() -> None:
+    """Every gated format token arrived after the minimum tmux."""
+    minimum = _normalize_tmux_version(
+        TMUX_MIN_VERSION.rstrip("abcdefghijklmnopqrstuvwxyz")
+    )
 
-    Same provenance as ``pane_dead_signal`` — both tokens shipped in
-    the same upstream commit, so they share a version floor.
-    """
-    assert FIELD_VERSION["pane_dead_time"] == "3.3"
-    fields_old, _ = get_output_format("list-panes", "3.2a")
-    assert "pane_dead_time" not in fields_old
-    fields_new, _ = get_output_format("list-panes", "3.3")
-    assert "pane_dead_time" in fields_new
+    assert all(
+        _normalize_tmux_version(release) > minimum for release in FIELD_VERSION.values()
+    )
 
 
 def test_field_version_keys_are_obj_fields() -> None:
@@ -258,3 +259,89 @@ def test_every_obj_field_classifies_to_known_scope() -> None:
         "(add them to _SCOPE_OVERRIDES, _SCOPE_PREFIXES, "
         f"_UNIVERSAL_TOKENS, or _CONTEXT_ONLY_TOKENS): {unclassified}"
     )
+
+
+class SplitRecordsFixture(t.NamedTuple):
+    """Test fixture for :func:`_split_records`."""
+
+    test_id: str
+    values: list[list[str]]
+
+
+SPLIT_RECORDS_FIXTURES: list[SplitRecordsFixture] = [
+    SplitRecordsFixture("single_clean_record", [["a", "b", "c"]]),
+    SplitRecordsFixture("two_clean_records", [["a", "b", "c"], ["d", "e", "f"]]),
+    SplitRecordsFixture("newline_in_first_field", [["a\nx", "b", "c"]]),
+    SplitRecordsFixture("newline_in_middle_field", [["a", "b\nx", "c"]]),
+    SplitRecordsFixture("newline_in_last_field", [["a", "b", "c\nx"]]),
+    SplitRecordsFixture("consecutive_newlines", [["a", "b\n\n\nx", "c"]]),
+    SplitRecordsFixture(
+        "poisoned_record_between_clean_ones",
+        [["a", "b", "c"], ["d", "e\npath", "f"], ["g", "h", "i"]],
+    ),
+    SplitRecordsFixture("empty_values", [["", "", ""]]),
+]
+
+
+@pytest.mark.parametrize(
+    SplitRecordsFixture._fields,
+    SPLIT_RECORDS_FIXTURES,
+    ids=[fixture.test_id for fixture in SPLIT_RECORDS_FIXTURES],
+)
+def test_split_records_round_trips_newlines(
+    test_id: str,
+    values: list[list[str]],
+) -> None:
+    """A newline inside a value must not split its record.
+
+    tmux emits one record per line, so a value containing a newline --
+    ``pane_current_path`` under a directory whose name has one -- used
+    to arrive as two short fragments and fail ``parse_output``'s strict
+    ``zip``. Because every pane row carries ``pane_current_path``, that
+    broke enumeration for the whole server, not just the one pane.
+    """
+    assert test_id
+    field_count = len(values[0])
+    # Rebuild exactly what tmux writes: each record's fields, every one
+    # terminated by the separator, and records terminated by newlines.
+    stdout_text = "".join(
+        "".join(f"{value}{FORMAT_SEPARATOR}" for value in record) + "\n"
+        for record in values
+    )
+    stdout = stdout_text.split("\n")
+    while stdout and stdout[-1] == "":
+        stdout.pop()
+
+    records = _split_records(stdout, field_count)
+
+    assert len(records) == len(values)
+    for record, expected in zip(records, values, strict=True):
+        parsed = record.split(FORMAT_SEPARATOR)[:-1]
+        assert parsed == expected
+
+
+def test_split_records_reports_a_forged_separator() -> None:
+    """A value carrying the separator is named, not a ``zip`` message."""
+    stdout = [f"a{FORMAT_SEPARATOR}b{FORMAT_SEPARATOR}c{FORMAT_SEPARATOR}"]
+
+    with pytest.raises(exc.LibTmuxException, match="could not be parsed"):
+        _split_records(stdout, 2)
+
+
+def test_split_records_handles_no_objects() -> None:
+    """An empty listing yields no records rather than a bogus one."""
+    assert _split_records([], 5) == []
+
+
+def test_refresh_clears_a_field_tmux_emptied(session: Session) -> None:
+    """A field tmux reports as empty stops holding its earlier value."""
+    pane = session.active_window.active_pane
+    assert pane is not None
+
+    pane.cmd("select-pane", "-T", "titled")
+    pane.refresh()
+    assert pane.pane_title == "titled"
+
+    pane.cmd("select-pane", "-T", "")
+    pane.refresh()
+    assert pane.pane_title is None

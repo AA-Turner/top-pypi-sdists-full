@@ -99,6 +99,11 @@ class Sandbox:
         mode: The mode the sandbox runs in, such as ``"recorded"`` or
             ``"read-real-write-fake"``, shown on the replay trace. ``None``
             (default) shows none.
+        load: ``load(ctx, value)`` builds the starting state from this
+            sandbox's entry in the replay's sandbox store (the end state the
+            trace's last replay wrote, or the store's seed). When the store
+            has an entry, it is used instead of ``start``. ``None`` (default)
+            starts from the entry as it is.
     """
 
     name: str
@@ -107,6 +112,18 @@ class Sandbox:
     start: Callable[[SandboxStartCtx], Any] | None = None
     integration: str | None = None
     mode: str | None = None
+    load: Callable[[SandboxStartCtx, Any], Any] | None = None
+
+
+def _as_stored(_start_ctx: SandboxStartCtx, value: Any) -> Any:
+    return value
+
+
+@dataclass(frozen=True)
+class SandboxStoreBinding:
+    name: str
+    read: Callable[[], dict[str, dict[str, Any]]]
+    write: Callable[[dict[str, Any]], Any]
 
 
 def _ensure_json(name: str, state: Any) -> None:
@@ -129,8 +146,10 @@ class SandboxSession:
     client: Any
     make_start_ctx: Callable[[Sandbox], SandboxStartCtx]
     trace_started_at: str | None = None
+    store: SandboxStoreBinding | None = None
     started: float = field(default_factory=time.monotonic)
     _states: dict[str, Any] = field(default_factory=dict)
+    _stored_entries: dict[str, dict[str, Any]] | None = None
     _reports: dict[str, dict[str, Any]] = field(default_factory=dict)
     _failures: list[BaseException] = field(default_factory=list)
     _lock: threading.RLock = field(default_factory=threading.RLock)
@@ -188,7 +207,13 @@ class SandboxSession:
         if sandbox.name in self._states:
             return self._states[sandbox.name]
         start_ctx = self.make_start_ctx(sandbox)
-        state = (sandbox.start or recorded_state)(start_ctx)
+        entry = self._stored_entry(sandbox.name)
+        if entry is None:
+            state = (sandbox.start or recorded_state)(start_ctx)
+        else:
+            state = (sandbox.load or _as_stored)(
+                start_ctx, copy.deepcopy(entry.get("state"))
+            )
         _ensure_json(sandbox.name, state)
         self._states[sandbox.name] = state
         report: dict[str, Any] = {
@@ -196,6 +221,14 @@ class SandboxSession:
             "traceStartedAt": start_ctx.trace_started_at,
             "calls": 0,
         }
+        if self.store is not None:
+            started_from = None
+            if entry is not None:
+                started_from = "seed" if entry.get("traceId") is None else "trace"
+            report["sandboxStore"] = {
+                "name": self.store.name,
+                "startedFrom": started_from,
+            }
         if sandbox.mode is not None:
             report["mode"] = sandbox.mode
         if sandbox.integration in getattr(self.client, "_disabled_integrations", ()):
@@ -206,6 +239,21 @@ class SandboxSession:
         self._reports[sandbox.name] = report
         attach_report({SANDBOX_REPORT_CONTEXT_KEY: report})
         return state
+
+    def _stored_entry(self, name: str) -> dict[str, Any] | None:
+        if self.store is None:
+            return None
+        if self._stored_entries is None:
+            self._stored_entries = self.store.read()
+        return self._stored_entries.get(name)
+
+    def save_to_store(self) -> None:
+        if self.store is None:
+            return
+        with self._lock:
+            states = dict(self._states)
+        if states:
+            self.store.write(states)
 
 
 def _never(_node: SpanNodeMeta) -> bool:

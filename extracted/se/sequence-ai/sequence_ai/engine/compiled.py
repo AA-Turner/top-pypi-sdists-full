@@ -16,8 +16,8 @@ Each returns the function optimize() puts in front of the module's own forward; 
                     input shape, kept in ~/.cache/sequence-ai/compile so a later start reads them
     tensorrt        the module built into a TensorRT engine for the inputs it was called with, float32 with TF32
                     off unless the module given is a float16 copy; the engine kept in ~/.cache/sequence-ai/tensorrt
-                    by GPU model, input shapes, versions and weights, so a later start loads it (pip install
-                    sequence-ai[tensorrt])
+                    by GPU model, input shapes, versions and weights, so a later start loads it (the
+                    torch-tensorrt made for your torch: tensorrt_install())
     dtype_copy      a copy of the module in float16 (or float32), run by cast_around: its floating-point inputs
                     cast to the copy's dtype, its outputs back to the module's own; the module keeps its weights
 
@@ -35,9 +35,11 @@ from __future__ import annotations
 
 import copy as _copy
 import hashlib
+import importlib.metadata
 import os
-from pathlib import Path
+import re
 from collections.abc import MutableMapping
+from pathlib import Path
 from typing import Any, Callable
 
 __all__ = ["torch_compile", "tensorrt", "dtype_copy", "cast_around", "own_forward", "CACHE"]
@@ -59,6 +61,20 @@ def torch_compile(module: Any, *, cache: Path = CACHE / "compile") -> Callable:
     return torch.compile(own_forward(module), dynamic=False)
 
 
+def tensorrt_install() -> str:
+    """The pip line that installs TensorRT for the torch installed here: torch-tensorrt makes each release for one torch
+    minor version (torch-tensorrt 2.9 for torch 2.9) and brings the TensorRT it needs, so no version suits every torch.
+    The torch version is read from its installed package's metadata: torch is not imported."""
+    try:
+        made = re.match(r"(\d+)\.(\d+)", importlib.metadata.version("torch"))
+    except importlib.metadata.PackageNotFoundError:
+        made = None
+    if made is None:
+        return 'pip install torch first, then the torch-tensorrt made for it ("torch-tensorrt==X.Y.*" for torch X.Y)'
+    minor = f"{made.group(1)}.{made.group(2)}"
+    return f'pip install "torch-tensorrt=={minor}.*" (the one for your torch {minor})'
+
+
 def tensorrt(module: Any, args: tuple, kwargs: dict, *, cache: Path = CACHE / "tensorrt",
              say: Callable[[str], Any] = print) -> Callable:
     """The module built by TensorRT for inputs like `args` and `kwargs` (one call's, as the module got them), as a
@@ -78,7 +94,7 @@ def tensorrt(module: Any, args: tuple, kwargs: dict, *, cache: Path = CACHE / "t
     try:
         import torch_tensorrt
     except ImportError:
-        raise RuntimeError("TensorRT is not installed: pip install sequence-ai[tensorrt]") from None
+        raise RuntimeError(f"TensorRT is not installed: {tensorrt_install()}") from None
     flat, inputs, call = _positional(module, args, kwargs)
     dtype = next((p.dtype for p in module.parameters() if p.is_floating_point()), torch.float32)
     key = _engine_key(module, args, kwargs, str(dtype), getattr(torch_tensorrt, "__version__", "?"))

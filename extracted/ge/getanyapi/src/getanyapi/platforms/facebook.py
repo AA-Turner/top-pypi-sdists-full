@@ -2996,7 +2996,7 @@ class FacebookNamespace:
         List the Meta Ad Library ads a company is running by page ID or company name
         (creative text, format, platforms, and run dates) with cursor pagination.
 
-        Price: $0.0011 per request.
+        Price: $0.00109 per request.
 
         Example:
             res = client.facebook.company_ads(pageId="15087023444", sortBy="recent")
@@ -3672,7 +3672,7 @@ class FacebookNamespace:
         Search public Facebook posts by keyword, optionally filtered by location,
         and get structured post records (text, author, engagement).
 
-        Price: $0.03 per request.
+        Price: $0.016 per request.
 
         Example:
             res = client.facebook.search_posts(limit=3, query="nike")
@@ -3851,7 +3851,7 @@ class AsyncFacebookNamespace:
         List the Meta Ad Library ads a company is running by page ID or company name
         (creative text, format, platforms, and run dates) with cursor pagination.
 
-        Price: $0.0011 per request.
+        Price: $0.00109 per request.
 
         Example:
             res = client.facebook.company_ads(pageId="15087023444", sortBy="recent")
@@ -4527,7 +4527,7 @@ class AsyncFacebookNamespace:
         Search public Facebook posts by keyword, optionally filtered by location,
         and get structured post records (text, author, engagement).
 
-        Price: $0.03 per request.
+        Price: $0.016 per request.
 
         Example:
             res = client.facebook.search_posts(limit=3, query="nike")

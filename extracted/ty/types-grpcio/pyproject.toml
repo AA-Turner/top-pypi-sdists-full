@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-grpcio"
-version = "1.85.0.20261028"
+version = "1.85.0.20261122"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for grpcio"
@@ -29,13 +29,13 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://www.mypy-lang.org/) 2.4.0
-* [pyrefly](https://pyrefly.org/) 1.4.0
+* [mypy](https://www.mypy-lang.org/) 2.4.1
+* [pyrefly](https://pyrefly.org/) 1.4.1
 * [pyright](https://microsoft.github.io/pyright/) 1.1.414
-* [ty](https://docs.astral.sh/ty/) 0.0.89
+* [ty](https://docs.astral.sh/ty/) 0.0.104
 
 It was generated from typeshed commit
-[`17cbf254205549ccdcf886fadf8c265e634ad596`](https://github.com/python/typeshed/commit/17cbf254205549ccdcf886fadf8c265e634ad596).
+[`567e5e3e4276a6b05127b6347d80f809d123e35e`](https://github.com/python/typeshed/commit/567e5e3e4276a6b05127b6347d80f809d123e35e).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

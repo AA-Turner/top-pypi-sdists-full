@@ -12,16 +12,18 @@ import re
 from collections import defaultdict
 from copy import deepcopy
 from dataclasses import replace
+from decimal import Decimal
 from itertools import chain
 from typing import TYPE_CHECKING, Any, Final, Literal, NamedTuple, TypeAlias, TypeVar, cast
 
-from typing_extensions import Protocol, final, override
+from typing_extensions import Protocol, assert_type, final, override
 
 from datamodel_code_generator._constraint_applicability import TYPE_DEPENDENT_CONSTRAINTS_KEY
 from datamodel_code_generator._container_kinds import (
     ARRAYS,
     CONTAINER_FLAGS,
     CONTAINERS,
+    ITEM_CONTAINERS,
     MAPPINGS,
     SETS,
     UNHASHABLE_CONTAINERS,
@@ -94,19 +96,24 @@ from datamodel_code_generator.reference import (
     schema_path_of,
     unique_items_of,
 )
-from datamodel_code_generator.types import DataType, DefaultValueRecipe, union_members
+from datamodel_code_generator.types import (
+    DataType,
+    DefaultValueRecipe,
+    _union_members,
+    _UnionNodeT,
+    union_members,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Collection, Iterable, Iterator, Mapping, Sequence
 
     from typing_extensions import Unpack
 
-    from datamodel_code_generator import AllOfMergeMode, ReuseScope
     from datamodel_code_generator._container_kinds import ContainerSlot
     from datamodel_code_generator._format_types import PythonVersion
     from datamodel_code_generator._model_keys import ModelKey
     from datamodel_code_generator._user_keys import ClassScope
-    from datamodel_code_generator.enums import DefaultValueType, TargetPydanticVersion
+    from datamodel_code_generator.enums import AllOfMergeMode, DefaultValueType, ReuseScope, TargetPydanticVersion
     from datamodel_code_generator.imports import Imports
     from datamodel_code_generator.model._decisions.tag_value import EnumTagMembers, FieldTagSite, TagFieldMatch
     from datamodel_code_generator.model._render_plan import AssignmentFacts
@@ -267,8 +274,6 @@ def _detach_deferred_inherited_field_parents(field: DataModelFieldBase) -> None:
     field.parent = None
     clear_parents(field.data_type)
     match field.__dict__.get(_DEFERRED_INHERITED_TYPE_KEY):
-        case DataType() as deferred_type:
-            clear_parents(deferred_type)
         case _InheritedTypeModifiers(list_wrapper=DataType() as list_wrapper):
             clear_parents(list_wrapper)
 
@@ -294,7 +299,7 @@ def _restore_inherited_field_names_for_unique_aliases(
         for colliding_field in fields:
             if colliding_field is field or colliding_field.name != inherited_name:
                 continue
-            if (  # pragma: no cover - each schema object owns one field per wire name
+            if (  # pragma: no cover - not proven unreachable
                 colliding_field.original_name == original_name or field.name is None
             ):
                 continue
@@ -635,8 +640,6 @@ def normalize_default_value_constraints(
     import_overrides: dict[str, str] | None,
 ) -> bool:
     """Keep backend-declared runtime constraint values structured until alias resolution."""
-    from decimal import Decimal  # noqa: PLC0415
-
     normalized = False
     for model, _, data_type in iter_models_field_data_types(models):
         if (
@@ -650,8 +653,7 @@ def normalize_default_value_constraints(
             import_overrides, annotation_import, descriptor.constructor_import
         ):
             continue
-        if descriptor.recipe is not DefaultValueRecipe.Decimal:  # pragma: no cover - future backend recipe
-            continue
+        assert_type(descriptor.recipe, Literal[DefaultValueRecipe.Decimal])
         kwargs = data_type.kwargs
         for key, value in kwargs.items():
             if not isinstance(value, Decimal):
@@ -1332,6 +1334,20 @@ class _FieldTagFacts:
 
 def _is_discriminator_wrapper(model: DataModel) -> bool:
     return model.IS_ALIAS or model.IS_ROOT_MODEL
+
+
+def msgspec_union_members(data_type: _UnionNodeT) -> Sequence[_UnionNodeT]:
+    """Return the members of the union a type writes: its own, or the items of a list, set or map of several types.
+
+    Such a container writes its items as a union inside it; the items of a tuple are its positions instead. The msgspec
+    decoding warnings (``imports.py:warn_about_msgspec_decoding``) read it for a ``DataType``, the decision of
+    ``--merge-msgspec-str-like-union-members`` (``parser/_str_like_unions.py``) for a view of one.
+    """
+    if members := _union_members(data_type):
+        return members
+    if len(data_type.data_types) > 1 and (data_type in ITEM_CONTAINERS or data_type in MAPPINGS):
+        return data_type.data_types
+    return ()
 
 
 def _iter_discriminator_data_types(

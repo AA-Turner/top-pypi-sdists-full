@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+from collections import defaultdict
 from pathlib import PurePosixPath
 import re
 from typing import TYPE_CHECKING, NamedTuple, final, override
@@ -259,9 +260,8 @@ def _is_exempt(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
     # Owned constructors are ordinary calls; other dunders have fixed Python protocols.
     if name != "__init__" and name.startswith("__") and name.endswith("__"):
         return True
-    # A variadic constructor commonly forwards a third-party/base signature;
-    # syntax alone cannot prove that making its named prefix keyword-only is
-    # compatible with the inherited API.
+    # A variadic constructor commonly forwards a third-party/base signature; syntax alone cannot prove that making its
+    # named prefix keyword-only is compatible with the inherited API.
     if name == "__init__" and (node.args.vararg is not None or node.args.kwarg is not None):
         return True
     if name.startswith(_EXEMPT_NAME_PREFIXES):
@@ -348,12 +348,12 @@ def _swap_prone_annotation(args: ast.arguments) -> _SwapProneGroup | None:
     params = list(args.args)
     if params and params[0].arg in {"self", "cls"}:
         params = params[1:]
-    groups: dict[str, list[str]] = {}
+    groups: dict[str, list[str]] = defaultdict(list)
     for p in params:
         if _is_dunder_prefixed(p.arg):
             continue
         if isinstance(ann := p.annotation, ast.Name) and ann.id in _PRIMITIVES:
-            groups.setdefault(ann.id, []).append(p.arg)
+            groups[ann.id].append(p.arg)
     for name, arg_names in sorted(groups.items(), key=lambda kv: -len(kv[1])):
         if (
             len(arg_names) >= _MIN_SAME_TYPE
@@ -487,9 +487,8 @@ def _is_conventional_order(arg_names: list[str]) -> bool:
 
 _NUMERIC_SUFFIX_RE = re.compile(r"_?\d+$")
 
-#: `policy_id_a` / `policy_id_b` — the alphabetic spelling of the same symmetry.
-#: The underscore is required, so `a`/`b` and `s`/`d` keep firing: there the
-#: whole name is the label and the call site really cannot tell them apart.
+#: `policy_id_a` / `policy_id_b` — the alphabetic spelling of the same symmetry. The underscore is required, so `a`/`b`
+#: and `s`/`d` keep firing: there the whole name is the label and the call site really cannot tell them apart.
 _LETTER_SUFFIX_RE = re.compile(r"_[a-z]$")
 
 

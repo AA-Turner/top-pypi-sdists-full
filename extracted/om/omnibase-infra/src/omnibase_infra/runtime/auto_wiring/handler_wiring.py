@@ -124,7 +124,7 @@ from omnibase_infra.handlers.boot_topic_provisioning import (
     provision_unattached_publish_topics,
 )
 from omnibase_infra.handlers.contract_dispatch_cost import attach_contract_dispatcher
-from omnibase_infra.handlers.entry_method_offload import invoke_entry_method
+from omnibase_infra.handlers.entry_method_offload import invoke_entry_method, yield_each
 from omnibase_infra.handlers.handler_projection_derived_write import (
     HandlerProjectionDerivedWrite,
 )
@@ -132,6 +132,11 @@ from omnibase_infra.handlers.handler_projection_write_cursor import (
     HandlerProjectionWriteCursor,
 )
 from omnibase_infra.handlers.projection_failure_classification import is_content_failure
+from omnibase_infra.handlers.topic_migration_dependencies import (
+    TOPIC_MIGRATION_EXECUTOR_DEPS,
+    required_handler_init_params,
+    warm_topic_migration_scan,
+)
 from omnibase_infra.models.dispatch.model_injected_request import ModelInjectedRequest
 from omnibase_infra.models.model_contract_hotload_lane_overlay import (
     lane_defers_topics_to_first_request,
@@ -510,7 +515,6 @@ _BOUND_SWEEP_MIN_INTERVAL_SECONDS = 15.0
 # identifier (the row's primary-key column), so it is validated the same way
 # StateStoreAdapter validates its table name before interpolating it into SQL.
 _STATE_IO_KEY_PATTERN = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
-_TOPIC_MIGRATION_EXECUTOR_DEPS = frozenset({"provisioner", "drain_proof_gate"})
 _DELEGATION_INFERENCE_INTENT_MODULE = "omnibase_core.models.delegation.wire"
 _DELEGATION_INFERENCE_INTENT_NAME = "ModelInferenceIntent"
 _DELEGATION_INFERENCE_INTENT_DISCRIMINATOR = "llm_inference"
@@ -8577,22 +8581,6 @@ def _derive_handler_entry_key(entry: ModelHandlerRoutingEntry) -> str:
     return f"{handler_name}.{safe_op}"
 
 
-def _required_handler_init_params(handler_cls: type) -> frozenset[str]:
-    """Return required constructor parameter names for a handler class."""
-    sig = inspect.signature(handler_cls)
-    return frozenset(
-        name
-        for name, param in sig.parameters.items()
-        if name != "self"
-        and param.kind
-        in {
-            inspect.Parameter.POSITIONAL_OR_KEYWORD,
-            inspect.Parameter.KEYWORD_ONLY,
-        }
-        and param.default is inspect.Parameter.empty
-    )
-
-
 def _should_skip_sync_container_resolution(handler_cls: type) -> bool:
     """Return True when sync container resolution is unnecessary for handler_cls.
 
@@ -8601,7 +8589,7 @@ def _should_skip_sync_container_resolution(handler_cls: type) -> bool:
     dependencies. In both cases, calling a sync container from runtime-managed
     async boot is unnecessary and can trip ``asyncio.run()`` crashes.
     """
-    required_params = _required_handler_init_params(handler_cls)
+    required_params = required_handler_init_params(handler_cls)
     return not required_params or required_params <= frozenset(
         {
             "event_bus",
@@ -8996,7 +8984,7 @@ def _materialize_known_handler_dependencies(
         }
     )
     requires_delegation_port = _handler_requires_delegation_dispatch_port(handler_cls)
-    required_params = _required_handler_init_params(handler_cls)
+    required_params = required_handler_init_params(handler_cls)
     requires_event_publisher = "event_publisher" in constructor_params
     requires_event_consumer = "event_consumer" in constructor_params
     if (
@@ -9028,14 +9016,14 @@ def _materialize_known_handler_dependencies(
         )
     # An empty set is a subset too. Optional runtime ports must not construct
     # migration services: the provisioner scans the installed contract tree.
-    if required_params and required_params <= _TOPIC_MIGRATION_EXECUTOR_DEPS:
+    if required_params and required_params <= TOPIC_MIGRATION_EXECUTOR_DEPS:
         available.update(_build_topic_migration_executor_dependencies())
     if not (
         requires_event_publisher
         or requires_event_consumer
         or required_params & {"container", "ownership_query", "dispatch_port"}
         or ("dispatch_port" in constructor_params and requires_delegation_port)
-        or (required_params and required_params <= _TOPIC_MIGRATION_EXECUTOR_DEPS)
+        or (required_params and required_params <= TOPIC_MIGRATION_EXECUTOR_DEPS)
     ):
         return materialized_explicit_dependencies
     if "dispatch_port" in constructor_params and requires_delegation_port:
@@ -9973,7 +9961,7 @@ async def wire_from_manifest(
     # can skip its container Step 3 entirely for these handlers.
     pre_resolved_handlers: dict[str, object] = {}
     if container is not None:
-        for contract in manifest.contracts:
+        async for contract in yield_each(manifest.contracts):
             if _is_raw_event_projection_contract(
                 contract
             ) and not _raw_event_projection_enabled(
@@ -10016,8 +10004,11 @@ async def wire_from_manifest(
     prepared_contracts: list[PreparedContractWiring] = []
     failed_results: list[ModelContractWiringResult] = []
     dispatcher_coverage_failed_gaps: list[str] = []
-    for contract in manifest.contracts:
+    async for contract in yield_each(manifest.contracts):
         try:
+            await warm_topic_migration_scan(
+                contract, _contracts_root_for_runtime_dependencies()
+            )
             prepared = _prepare_contract_wiring(
                 contract=contract,
                 dispatch_engine=dispatch_engine,

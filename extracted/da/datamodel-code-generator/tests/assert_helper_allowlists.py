@@ -12,16 +12,17 @@ from pathlib import Path
 
 JUSTIFIED_VIOLATIONS: dict[str, tuple[str, ...]] = {
     "command-output": (
-        "embedded-source:tests/data/expected/main/generation_platform/client/cli/check-edited.txt",
-        "embedded-source:tests/data/expected/main/generation_platform/fastapi/cli/check-model-readme.txt",
-        "embedded-source:tests/data/expected/main/generation_platform/fastapi/cli/check-model.txt",
-        "embedded-source:tests/data/expected/main/generation_platform/fastapi/cli/check/foreign.json",
-        "embedded-source:tests/data/expected/main/generation_platform/fastapi/cli/check/foreign.txt",
-        "embedded-source:tests/data/expected/main/generation_platform/fastapi/cli/configured.txt",
-        "embedded-source:tests/data/expected/main/generation_platform/fastapi/cli/json/models-in-package.txt",
-        "embedded-source:tests/data/expected/main/generation_platform/fastapi/cli/json/modular.txt",
-        "embedded-source:tests/data/expected/main/generation_platform/fastapi/cli/json/package-in-models.txt",
+        "embedded-source:tests/data/expected/api_generation/client_cli/generate.stdout.txt",
+        "embedded-source:tests/data/expected/api_generation/fastapi_cli/check_outputs[json-foreign].stdout.json",
+        "embedded-source:tests/data/expected/api_generation/fastapi_cli/check_outputs[text-foreign].stdout.txt",
+        "embedded-source:tests/data/expected/api_generation/fastapi_cli/config_values[loaded].txt",
+        "embedded-source:tests/data/expected/api_generation/fastapi_cli/generate.2.stdout.txt",
+        "embedded-source:tests/data/expected/api_generation/fastapi_cli/generate.stdout.txt",
+        "embedded-source:tests/data/expected/api_generation/fastapi_cli/generation_json[absolute].payload.txt",
+        "embedded-source:tests/data/expected/api_generation/fastapi_cli/generation_json[models-in-package].payload.txt",
+        "embedded-source:tests/data/expected/api_generation/fastapi_cli/generation_json[package-in-models].payload.txt",
     ),
+    "decision-cores": ("private-import:tests/model/test_decision_cores.py",),
     "fixture-inputs": (
         "assertion-helper:tests/data/python/input_model/same_schema_a.py",
         "assertion-helper:tests/data/python/input_model/same_schema_b.py",
@@ -122,12 +123,12 @@ FROZEN_VIOLATIONS: dict[str, tuple[str, ...]] = {
         "private-import:tests/api_generation/test_target_generation.py::datamodel_code_generator._publication",
     ),
     "embedded-sources": (
-        "embedded-source:tests/data/expected/main/generation_platform/client/fields-shared-refs.txt",
-        "embedded-source:tests/data/expected/main/generation_platform/client/input-cycle-reference.txt",
-        "embedded-source:tests/data/expected/main/generation_platform/targets/format.txt",
-        "embedded-source:tests/data/expected/main/generation_platform/targets/include-paths.txt",
-        "embedded-source:tests/data/expected/main/generation_platform/targets/layout-embedded.txt",
-        "embedded-source:tests/data/expected/main/generation_platform/targets/path-items.txt",
+        "embedded-source:tests/data/expected/api_generation/client_fields_shared_refs/client_fields_shared_refs.txt",
+        "embedded-source:tests/data/expected/api_generation/client_generation/client_input[input-cycle-reference].txt",
+        "embedded-source:tests/data/expected/api_generation/target_generation/target_render[include-paths].txt",
+        "embedded-source:tests/data/expected/api_generation/target_generation/target_render[layout-embedded].txt",
+        "embedded-source:tests/data/expected/api_generation/target_generation/target_render[path-items].txt",
+        "embedded-source:tests/data/expected/api_generation/target_generation/target_render_timestamp.txt",
     ),
 }
 LEGACY_VIOLATIONS: dict[str, tuple[str, ...]] = {
@@ -135,7 +136,6 @@ LEGACY_VIOLATIONS: dict[str, tuple[str, ...]] = {
         "disguised-assert:tests/cli_doc/test_cli_doc_coverage.py::TestCLIDocCoverage.test_all_options_have_cli_doc_markers",
         "disguised-assert:tests/cli_doc/test_cli_doc_coverage.py::TestCLIDocCoverage.test_meta_options_not_manual",
         "disguised-assert:tests/main/graphql/test_main_graphql.py::test_main_graphql_builtin_scalar_template_data_is_non_executing",
-        "disguised-assert:tests/main/jsonschema/test_main_jsonschema.py::assert_schema_required_group_validator_not_generated",
         "disguised-assert:tests/main/jsonschema/test_main_jsonschema.py::test_generate_schema_validators_invalid_base_class_name_public_api",
         "disguised-assert:tests/main/jsonschema/test_main_jsonschema.py::test_main_dataclass_nested_mapping_defaults_require_constructor_arguments",
         "disguised-assert:tests/main/jsonschema/test_main_jsonschema.py::test_main_defer_forward_nested_model_default_factories",
@@ -174,7 +174,6 @@ LEGACY_VIOLATIONS: dict[str, tuple[str, ...]] = {
         "disguised-assert:tests/main/test_parsed_source_cache_parity.py::_input_file_type_option",
         "disguised-assert:tests/main/test_parsed_source_cache_parity.py::_mutate_cached_schema",
         "disguised-assert:tests/main/test_payload_validation.py::test_generated_payload_backend_rejects_representative_schema_invalid_payloads",
-        "disguised-assert:tests/main/test_payload_validation.py::test_generated_pydantic_v2_model_rejects_schema_invalid_payloads",
         "disguised-assert:tests/main/test_payload_validation.py::test_payload_backend_full_matrix_exclusions_are_classified",
         "disguised-assert:tests/main/test_payload_validation.py::test_payload_backend_representative_matrix_is_classified",
         "disguised-assert:tests/main/test_payload_validation.py::test_payload_rejection_oracle_covers_supported_policy_constraints",
@@ -418,7 +417,6 @@ LEGACY_VIOLATIONS: dict[str, tuple[str, ...]] = {
         "private-import:tests/main/test_main_general.py::datamodel_code_generator._template_data",
         "private-import:tests/main/test_main_general.py::datamodel_code_generator.config._rebuild_config_model",
         "private-import:tests/main/test_main_input_diff.py::datamodel_code_generator.__main__._compare_generated_outputs",
-        "private-import:tests/main/test_main_input_diff.py::datamodel_code_generator.__main__._output_comparison_policy",
         "private-import:tests/main/test_main_input_diff.py::datamodel_code_generator.__main__._write_comparison_output",
         "private-import:tests/main/test_main_watch.py::datamodel_code_generator.__main__._main",
         "private-import:tests/main/test_main_watch.py::datamodel_code_generator.__main__._plan_jobs",
@@ -469,7 +467,6 @@ LEGACY_VIOLATIONS: dict[str, tuple[str, ...]] = {
         "private-import:tests/model/test_base.py::datamodel_code_generator.model.base._MAX_CUSTOM_TEMPLATE_SIGNATURES",
         "private-import:tests/model/test_base.py::datamodel_code_generator.model.base._MAX_MISSING_CUSTOM_TEMPLATE_SUBDIRS",
         "private-import:tests/model/test_base.py::datamodel_code_generator.model.base._RenderedDataModelField",
-        "private-import:tests/model/test_base.py::datamodel_code_generator.model.base._annotation_typing_import_names",
         "private-import:tests/model/test_base.py::datamodel_code_generator.model.base._clear_custom_template_caches",
         "private-import:tests/model/test_base.py::datamodel_code_generator.model.base._get_custom_template_signature",
         "private-import:tests/model/test_base.py::datamodel_code_generator.model.base._get_environment",
@@ -498,15 +495,8 @@ LEGACY_VIOLATIONS: dict[str, tuple[str, ...]] = {
         "private-import:tests/parser/test_base.py::datamodel_code_generator._python_type_binding",
         "private-import:tests/parser/test_base.py::datamodel_code_generator.model.runtime_validation._make_internal_schema_runtime_validation",
         "private-import:tests/parser/test_base.py::datamodel_code_generator.parser._passes._shared",
-        "private-import:tests/parser/test_base.py::datamodel_code_generator.parser.base._DEFERRED_INHERITED_CLASS_KEY",
-        "private-import:tests/parser/test_base.py::datamodel_code_generator.parser.base._DEFERRED_INHERITED_FIELD_KEY",
-        "private-import:tests/parser/test_base.py::datamodel_code_generator.parser.base._DEFERRED_INHERITED_TYPE_KEY",
-        "private-import:tests/parser/test_base.py::datamodel_code_generator.parser.base._RAW_SCHEMA_DEFAULT_KEY",
         "private-import:tests/parser/test_base.py::datamodel_code_generator.parser.base._copy_data_model_field",
         "private-import:tests/parser/test_base.py::datamodel_code_generator.parser.base._copy_data_type",
-        "private-import:tests/parser/test_base.py::datamodel_code_generator.parser.base._copy_resolved_inherited_field",
-        "private-import:tests/parser/test_base.py::datamodel_code_generator.parser.base._get_inherited_type_modifiers",
-        "private-import:tests/parser/test_base.py::datamodel_code_generator.parser.base._merge_data_type_modifiers",
         "private-import:tests/parser/test_builtin_formatter_contract.py::datamodel_code_generator._builtin_formatter",
         "private-import:tests/parser/test_default_put_dict.py::datamodel_code_generator._shared_types",
         "private-import:tests/parser/test_generation.py::datamodel_code_generator.parser.generation._GenerationModelList",
@@ -516,8 +506,6 @@ LEGACY_VIOLATIONS: dict[str, tuple[str, ...]] = {
         "private-import:tests/parser/test_jsonschema.py::datamodel_code_generator.http._get_http_stack",
         "private-import:tests/parser/test_jsonschema.py::datamodel_code_generator.http._get_httpx",
         "private-import:tests/parser/test_jsonschema.py::datamodel_code_generator.model.runtime_validation._make_internal_schema_runtime_validation",
-        "private-import:tests/parser/test_jsonschema.py::datamodel_code_generator.parser.jsonschema._get_json_value_type",
-        "private-import:tests/parser/test_jsonschema.py::datamodel_code_generator.parser.jsonschema._get_union_variant_name",
         "private-import:tests/parser/test_jsonschema.py::datamodel_code_generator.parser.jsonschema._json_literal_values_equal",
         "private-import:tests/parser/test_jsonschema.py::datamodel_code_generator.parser.jsonschema._validate_schema_python_import_path",
         "private-import:tests/parser/test_model_behavior_capabilities.py::datamodel_code_generator.model.base._has_field_assignment",
@@ -1112,6 +1100,12 @@ ALLOWLISTS = {
 ALLOWLIST_GROUP_REASONS = {
     "command-output": (
         "Command-line output that prints generated files, as a user sees it, compared with what the command prints."
+    ),
+    "decision-cores": (
+        "The cores of the decision tables (constraint applicability, null facts, msgspec struct tags) are pure "
+        "functions that no public entry point reaches alone; the decision cores check enumerates each one's domain "
+        "against its oracle, the validator or msgspec, beside the tables that read the same decisions through whole "
+        "generations."
     ),
     "fixture-inputs": (
         "Modules that stand in for source, plugin, or user model code inside a fixture, which the code under test "

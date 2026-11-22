@@ -21,7 +21,6 @@ from typing import TYPE_CHECKING, Any, Final, Literal, TypeAlias, cast
 
 from typing_extensions import Protocol, Sentinel, final
 
-from datamodel_code_generator import AllOfMergeMode
 from datamodel_code_generator._constraint_applicability import (
     ITEM_COUNT_KEYWORDS,
     NUMBER_KEYWORDS,
@@ -43,6 +42,7 @@ from datamodel_code_generator._mro import linearize, sort_descendants_first
 from datamodel_code_generator._records import mutable_record, record
 from datamodel_code_generator._url_redaction import named_location
 from datamodel_code_generator._warning_control import quiet
+from datamodel_code_generator.enums import AllOfMergeMode
 from datamodel_code_generator.model import DataModel, DataModelFieldBase
 from datamodel_code_generator.model.base import _field_source_name, get_inherited_fields
 from datamodel_code_generator.parser import _rw_split, _schema_refs, _value_keywords
@@ -531,7 +531,7 @@ class InheritedSchemasHost(RwSplitHost, Protocol):
     ) -> DataType | None:
         """Get the data type for an inherited property from parent schemas."""
 
-    def _take_field_aliases(  # noqa: PLR0913
+    def _take_field_aliases(
         self,
         field: DataModelFieldBase,
         name: str,
@@ -790,7 +790,7 @@ def get_flattenable_inherited_constraint_items(
                 return None
         case "anyOf" | "oneOf":
             items = [item for item in raw_items if item is not False]
-        case _:  # pragma: no cover
+        case _:  # pragma: no cover - not proven unreachable
             return None
     if len(items) != 1:
         return None
@@ -910,7 +910,7 @@ def is_partial_inherited_property(
     return True
 
 
-def is_partial_inherited_nested_value(  # noqa: PLR0913
+def is_partial_inherited_nested_value(
     parser: InheritedSchemasHost,
     child: object,
     parent: object,
@@ -1072,7 +1072,7 @@ def get_nested_inherited_active(
     return active
 
 
-def merge_inherited_union_branch(  # noqa: PLR0913
+def merge_inherited_union_branch(
     parser: InheritedSchemasHost,
     parent: object,
     child: dict[str, Any],
@@ -2064,7 +2064,7 @@ def get_inherited_field_owner_reference(
         return reference
 
     source_path, marker, fragment = reference.path.partition("#")
-    if not marker:  # pragma: no cover
+    if not marker:  # pragma: no cover - not proven unreachable
         return reference
     path = [f"{source_path}#", *fragment.removeprefix("/").split("/")]
     return parser.model_resolver.add(
@@ -2178,14 +2178,14 @@ def iter_inherited_schema_objects(
 ) -> Iterator[tuple[JsonSchemaObject, frozenset[_TargetNode], str]]:
     """Yield inherited schema objects not visited yet, with the visited schema nodes they add to."""
     for base in sort_inherited_base_classes_for_mro(parser, base_classes):
-        if not base.path:  # pragma: no cover
+        if not base.path:  # pragma: no cover - not proven unreachable
             continue
         resolved_ref = base.path
         try:
             parent_schema = load_inherited_schema_object(parser, resolved_ref)
-        except RecursionError:  # pragma: no cover
+        except RecursionError:  # pragma: no cover - a RecursionError must pass the broad guard below
             raise
-        except Exception:  # pragma: no cover  # noqa: BLE001, S112
+        except Exception:  # noqa: BLE001, S112  # pragma: no cover - a broken inherited base is skipped
             continue
         if (node := _schema_node(parent_schema, resolved_ref)) in visited:
             continue
@@ -2263,7 +2263,7 @@ def get_inherited_field_schema(
     )
 
 
-def build_missing_required_field(  # noqa: PLR0913, PLR0917
+def build_missing_required_field(  # noqa: PLR0917
     parser: InheritedSchemasHost,
     required_field_name: str,
     excludes: set[str],

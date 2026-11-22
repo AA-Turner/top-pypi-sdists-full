@@ -55,8 +55,10 @@ from bitfab.sandbox import (
     Sandbox,
     SandboxSession,
     SandboxStartCtx,
+    SandboxStoreBinding,
 )
 from bitfab.sandbox_modes import SandboxModeSetting, resolve_sandboxes
+from bitfab.sandbox_stores import write_sandbox_store
 from bitfab.selective_replay import (
     SelectiveReplayOptions,
     SelectiveReplayRuntime,
@@ -1006,6 +1008,7 @@ def replay(
     mock_override: MockOverrideInput | list[MockOverrideInput] | None = None,
     sandboxes: list[Sandbox] | None = None,
     sandbox_modes: Mapping[str, SandboxModeSetting] | None = None,
+    sandbox_store: str | None = None,
     experimental_selective_replay: SelectiveReplayOptions | None = None,
     adapt_inputs: (
         Callable[
@@ -1216,6 +1219,15 @@ def replay(
             a service left out keeps the mode it runs in without this option
             (Gmail: ``"recorded"``). A sandbox set here cannot also be passed
             in ``sandboxes``.
+        sandbox_store: The name of a sandbox store to replay against (see
+            :class:`~bitfab.sandbox_stores.SandboxStoresClient`). Each trace
+            has its own state in the store: a sandbox starts from the replayed
+            trace's state for it (what its last replay wrote), else from the
+            store's seed, else from the original trace as usual, and its end
+            state is written back for that trace when the item finishes, so
+            the next replay of the same trace sees it. Replay traces are
+            linked to the store. ``None`` (default) keeps each sandbox's state
+            to its item.
         experimental_selective_replay: Opt-in must_run manifest. The server
             protects required subtrees and ancestors, combining assertion targets
             and recorded reuse eligibility.
@@ -1611,6 +1623,7 @@ def replay(
                     carried_over_items=carried_over_items,
                     experimental_selective_replay=experimental_selective_replay,
                     sandboxes=resolved_sandboxes,
+                    sandbox_store=sandbox_store,
                 )
             )
         reported_items = [*carried_over_items, *result_items]
@@ -1737,6 +1750,7 @@ def replay(
                 f"unavailable and they cannot be judged."
             )
 
+    _link_sandbox_store(client, sandbox_store, reported_items)
     result = _replay_result(
         reported_items, experiment_id, full_experiment_url, resolved_attempts
     )
@@ -2230,6 +2244,7 @@ def execute_replay_item(
     mock_override: MockOverrideInput | list[MockOverrideInput] | None = None,
     sandboxes: list[Sandbox] | None = None,
     sandbox_modes: Mapping[str, SandboxModeSetting] | None = None,
+    sandbox_store: str | None = None,
     adapt_inputs: (
         Callable[
             [list[Any], dict[str, Any], AdaptContext], tuple[list[Any], dict[str, Any]]
@@ -2272,6 +2287,7 @@ def execute_replay_item(
             dry_run=dry_run,
             attempt=attempt,
             sandboxes=resolve_sandboxes(sandboxes, sandbox_modes),
+            sandbox_store=sandbox_store,
         )
     )
     if not dry_run:
@@ -2494,6 +2510,7 @@ async def _run_replay_async(
     carried_over_items: list[ReplayItem] | None = None,
     experimental_selective_replay: SelectiveReplayOptions | None = None,
     sandboxes: list[Sandbox] | None = None,
+    sandbox_store: str | None = None,
 ) -> list[ReplayItem]:
     """Process all replay items concurrently using asyncio.gather."""
     _validate_max_concurrency(max_concurrency)
@@ -2682,6 +2699,7 @@ async def _run_replay_async(
                 attempt=attempt,
                 experimental_selective_replay=experimental_selective_replay,
                 sandboxes=sandboxes,
+                sandbox_store=sandbox_store,
             )
             await report_finish(result[0], result[1], replayed_trace_id, attempt)
             return result
@@ -2722,6 +2740,7 @@ async def _process_item_async(
     attempt: int = 0,
     experimental_selective_replay: SelectiveReplayOptions | None = None,
     sandboxes: list[Sandbox] | None = None,
+    sandbox_store: str | None = None,
 ) -> tuple[ReplayItem, bool]:
     """Fetch span data and execute a single replay item.
 
@@ -2880,6 +2899,7 @@ async def _process_item_async(
             attempt=attempt,
             selective_replay=selective,
             sandboxes=sandboxes,
+            sandbox_store=sandbox_store,
             trace_started_at=span.get("startedAt"),
             load_recorded_spans=_recorded_span_loader(
                 client, original_span_id, tree_root
@@ -3033,6 +3053,7 @@ def _sandbox_session(
     trace_started_at: str | None,
     attempt: int,
     load_recorded_spans: Callable[[str | None], list[RecordedSpan]],
+    store: SandboxStoreBinding | None = None,
 ) -> SandboxSession:
     def make_start_ctx(sandbox: Sandbox) -> SandboxStartCtx:
         return SandboxStartCtx(
@@ -3049,7 +3070,45 @@ def _sandbox_session(
         client=client,
         make_start_ctx=make_start_ctx,
         trace_started_at=trace_started_at,
+        store=store,
     )
+
+
+SANDBOX_STORE_LINK_BATCH = 500
+
+
+def _sandbox_store_binding(
+    client: Any, sandbox_store: str | None, trace_id: str | None
+) -> SandboxStoreBinding | None:
+    if sandbox_store is None or client is None or trace_id is None:
+        return None
+
+    def read() -> dict[str, dict[str, Any]]:
+        found = client.sandbox_stores.get(sandbox_store, trace_id=trace_id)
+        return {entry["sandbox"]: entry for entry in (found or {}).get("entries", [])}
+
+    def write(states: dict[str, Any]) -> Any:
+        return write_sandbox_store(client.http_client, sandbox_store, trace_id, states)
+
+    return SandboxStoreBinding(name=sandbox_store, read=read, write=write)
+
+
+def _link_sandbox_store(
+    client: Any, sandbox_store: str | None, items: list[ReplayItem]
+) -> None:
+    trace_ids = [item["trace_id"] for item in items if item.get("trace_id")]
+    if sandbox_store is None or not trace_ids:
+        return
+    try:
+        for start in range(0, len(trace_ids), SANDBOX_STORE_LINK_BATCH):
+            client.sandbox_stores.link_traces(
+                sandbox_store, trace_ids[start : start + SANDBOX_STORE_LINK_BATCH]
+            )
+    except Exception as error:
+        logger.error(
+            f"Bitfab: the replay traces could not be linked to the sandbox store "
+            f"{sandbox_store!r}: {error}"
+        )
 
 
 def _tree_nodes(root: dict[str, Any]) -> list[dict[str, Any]]:
@@ -3149,6 +3208,7 @@ async def _execute_item_async(
     attempt: int = 0,
     selective_replay: SelectiveReplayRuntime | None = None,
     sandboxes: list[Sandbox] | None = None,
+    sandbox_store: str | None = None,
     trace_started_at: str | None = None,
     load_recorded_spans: Callable[[str | None], list[RecordedSpan]] | None = None,
     client: Any = None,
@@ -3237,6 +3297,7 @@ async def _execute_item_async(
             trace_started_at,
             attempt,
             load_recorded_spans or (lambda _name: []),
+            _sandbox_store_binding(client, sandbox_store, source_bitfab_trace_id),
         )
     token = _replay_context.set(replay_ctx)
     running = contextlib.ExitStack()
@@ -3286,6 +3347,11 @@ async def _execute_item_async(
             except RuntimeError as error:
                 replay_error = error
         session = replay_ctx.get(SANDBOX_SESSION_KEY)
+        if session is not None:
+            try:
+                session.save_to_store()
+            except Exception as error:
+                session.fail(error)
         sandbox_failure = session.failure() if session is not None else None
         if sandbox_failure is not None and replay_error is None:
             replay_error = sandbox_failure

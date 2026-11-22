@@ -12,8 +12,8 @@ observe() and act(): a Link (sequence_ai.network.connect) or a policy sequence_a
 `read()` returns the robot's observation now; `step(action)` moves the robot by one of an answer's steps; `hz` is how
 many steps it plays a second; `replan_at` is how many steps after an act was sent the next act is sent. Optional:
 `valid_steps`, how many of an answer's steps may be played (all of them when not given); `done()`, checked after each
-step, to stop; `steps_of(answer)`, the answer's steps (by default the answer itself when it is a list or an array, or the
-only array or list in a dict, or its "actions"). It returns how many steps it played.
+step, to stop; `steps_of(answer)`, the answer's steps (by default the answer itself when it is a list or an array, or
+the only array or list in a dict, or its "actions"). It returns how many steps it played.
 
 In one sentence: an act is sent on a thread of its own (a connection takes one act at a time) → its answer's steps play
 at `hz`, counted from when that act was sent → `replan_at` steps after it was sent the next act is sent, and the steps
@@ -57,8 +57,9 @@ def play(policy: Any, *, read: Callable[[], Any], step: Callable[[Any], Any], hz
          clock: Callable[[], float] = time.monotonic, sleep: Callable[[float], Any] = time.sleep) -> int:
     """Play the policy's answers on the robot, asking for each next one while the last plays (the module's docstring).
     Returns how many steps were played. An error of an act - or of `read` on its thread - is raised here, once the act
-    that met it is waited for; so is one of `step` or `done`. Before it returns, an act still in flight is waited for, so
-    the caller may close the connection next. `ready`: call the policy's wait_until_ready() first, where it has one."""
+    that met it is waited for; so is one of `step` or `done`. Before it returns, an act still in flight is waited for,
+    so the caller may close the connection next. `ready`: call the policy's wait_until_ready() first, where it has
+    one."""
     if hz <= 0:
         raise ValueError(f"hz must be positive, got {hz}")
     if replan_at < 0:

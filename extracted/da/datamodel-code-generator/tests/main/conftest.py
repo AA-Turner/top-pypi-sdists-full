@@ -45,20 +45,14 @@ from datamodel_code_generator.arguments import arg_parser
 from datamodel_code_generator.format import Formatter, PythonVersion, PythonVersionMin, is_supported_in_black
 from tests.conftest import (
     _CURRENT_ITEMS,
-    AssertFileContent,
     _compare_derived,
-    _compare_expected,
-    _infer_expected_file,
+    _derived_output_role,
     _normalize_line_endings,
     _output_tree,
     _validation_stats,
-    assert_directory_content,
     assert_generate_wrote_file,
     assert_inputs_not_mutated,
-    assert_output,
     assert_warnings_contain,
-    default_output_count,
-    expected_root,
     freeze_time,
     validate_generated_code,
 )
@@ -215,11 +209,6 @@ def target_pydantic_args(target_pydantic_version: str | None) -> list[str]:
     return [] if target_pydantic_version is None else ["--target-pydantic-version", target_pydantic_version]
 
 
-def target_pydantic_expected_suffix(target_pydantic_version: str | None) -> str:
-    """Name the expected output for a target; an unset target shares the newest target's output."""
-    return "target_2" if target_pydantic_version == "2" else "target_2_12"
-
-
 UNSET_TARGET_PYDANTIC_VERSION = TargetPydanticVersion.V2_12.value
 """The oldest Pydantic an unset target runs on: the newest forms, but MISSING keeps its experimental import."""
 
@@ -254,10 +243,6 @@ DEFAULT_VALUES_DATA_PATH: Path = DATA_PATH / "default_values"
 EXPECTED_OPENAPI_PATH: Path = EXPECTED_MAIN_PATH / "openapi"
 EXPECTED_ASYNC_API_PATH: Path = EXPECTED_MAIN_PATH / "asyncapi"
 EXPECTED_JSON_SCHEMA_PATH: Path = EXPECTED_MAIN_PATH / "jsonschema"
-EXPECTED_GRAPHQL_PATH: Path = EXPECTED_MAIN_PATH / "graphql"
-EXPECTED_XML_SCHEMA_PATH: Path = EXPECTED_MAIN_PATH / "xmlschema"
-EXPECTED_PROTOBUF_PATH: Path = EXPECTED_MAIN_PATH / "protobuf"
-EXPECTED_AVRO_PATH: Path = EXPECTED_MAIN_PATH / "avro"
 EXPECTED_JSON_PATH: Path = EXPECTED_MAIN_PATH / "json"
 EXPECTED_CSV_PATH: Path = EXPECTED_MAIN_PATH / "csv"
 
@@ -371,17 +356,15 @@ def _assert_exit_code(return_code: Exit, expected_exit: Exit, context: str) -> N
 def _assert_captured_output(
     capsys: pytest.CaptureFixture[str] | None,
     *,
-    expected_stdout_path: Path | None = None,
     expected_stderr: str | None = None,
-    expected_stderr_path: Path | None = None,
     expected_stderr_contains: str | None = None,
     assert_no_stderr: bool = False,
     derived_stdout: bool = False,
+    stdout_suffix: str = ".txt",
+    name: str | None = None,
 ) -> None:
     if not any((
-        expected_stdout_path is not None,
         expected_stderr is not None,
-        expected_stderr_path is not None,
         expected_stderr_contains is not None,
         assert_no_stderr,
         derived_stdout,
@@ -390,14 +373,12 @@ def _assert_captured_output(
     if capsys is None:  # pragma: no cover
         pytest.fail("capsys is required when captured output assertions are set")
     captured = capsys.readouterr()
-    if expected_stdout_path is not None:
-        assert_output(captured.out, expected_stdout_path)
     if derived_stdout:
-        _compare_derived(_normalize_line_endings(captured.out), role=_derived_output_role(".stdout"), suffix=".txt")
+        _compare_derived(
+            _normalize_line_endings(captured.out), role=_derived_output_role(".stdout", name), suffix=stdout_suffix
+        )
     if expected_stderr is not None and captured.err != expected_stderr:  # pragma: no cover
         pytest.fail(f"Expected stderr:\n{expected_stderr}\n\nActual stderr:\n{captured.err}")
-    if expected_stderr_path is not None:
-        assert_output(captured.err, expected_stderr_path)
     if expected_stderr_contains is not None and expected_stderr_contains not in captured.err:  # pragma: no cover
         pytest.fail(f"Expected stderr to contain: {expected_stderr_contains!r}\n\nActual stderr:\n{captured.err}")
     if assert_no_stderr and captured.err:  # pragma: no cover
@@ -734,12 +715,11 @@ def run_main_with_args(
     *,
     expected_exit: Exit = Exit.OK,
     capsys: pytest.CaptureFixture[str] | None = None,
-    expected_stdout_path: Path | None = None,
     expected_stderr: str | None = None,
-    expected_stderr_path: Path | None = None,
     expected_stderr_contains: str | None = None,
     assert_no_stderr: bool = False,
     derived_stdout: bool = False,
+    stdout_suffix: str = ".txt",
     use_parsed_source_cache: bool = True,
     use_builtin_default_formatter: bool = True,
     isolate_model_template_cache: bool = False,
@@ -750,12 +730,11 @@ def run_main_with_args(
         args: Command line arguments to pass to main()
         expected_exit: Expected exit code (default: Exit.OK)
         capsys: pytest capsys fixture for capturing output assertions
-        expected_stdout_path: Path to file with expected stdout content
         expected_stderr: Exact expected stderr
-        expected_stderr_path: Path to file with expected stderr content
         expected_stderr_contains: Expected stderr substring
         assert_no_stderr: Assert stderr is empty
         derived_stdout: Compare stdout with the output pytest stores for the test
+        stdout_suffix: Suffix of the stored stdout for derived_stdout (default: ".txt")
         use_parsed_source_cache: Enable the process-local parsed source cache for generation-style commands
         use_builtin_default_formatter: Add the test-suite builtin formatter default when applicable
         isolate_model_template_cache: Clear cached Jinja model templates before and after execution
@@ -781,12 +760,11 @@ def run_main_with_args(
     _assert_exit_code(return_code, expected_exit, f"Args: {args}")
     _assert_captured_output(
         capsys,
-        expected_stdout_path=expected_stdout_path,
         expected_stderr=expected_stderr,
-        expected_stderr_path=expected_stderr_path,
         expected_stderr_contains=expected_stderr_contains,
         assert_no_stderr=assert_no_stderr,
         derived_stdout=derived_stdout,
+        stdout_suffix=stdout_suffix,
     )
     return return_code
 
@@ -796,7 +774,6 @@ def run_main_with_system_exit(
     *,
     expected_code: int | Exit,
     capsys: pytest.CaptureFixture[str] | None = None,
-    expected_stdout_path: Path | None = None,
     expected_stderr: str | None = None,
     expected_stderr_contains: str | None = None,
     assert_no_stderr: bool = False,
@@ -821,7 +798,6 @@ def run_main_with_system_exit(
         pytest.fail(f"Expected SystemExit code {expected_code!r}, got {exc_info.value.code!r}\nArgs: {args}")
     _assert_captured_output(
         capsys,
-        expected_stdout_path=expected_stdout_path,
         expected_stderr=expected_stderr,
         expected_stderr_contains=expected_stderr_contains,
         assert_no_stderr=assert_no_stderr,
@@ -876,15 +852,16 @@ def run_generate_file_and_assert(
     input_path: Path,
     output_path: Path,
     input_file_type: InputFileType | None = None,
-    assert_func: AssertFileContent | None = None,
-    expected_file: str | Path | None = None,
-    expected_directory: Path | None = None,
     transform: Callable[[str], str] | None = None,
     expected_warnings: Sequence[str] | None = None,
     unchanged_inputs: Mapping[str, object] | None = None,
+    name: str | None = None,
     **generate_kwargs: Any,
 ) -> None:
-    """Execute generate() for a path input and assert file or directory output."""
+    """Execute generate() for a path input and assert file or directory output.
+
+    ``name`` names the output pytest stores; two runs under one name must write equal output.
+    """
     __tracebackhide__ = True
 
     input_: Path = input_path
@@ -918,18 +895,7 @@ def run_generate_file_and_assert(
                 )
             assert_warnings_contain(warning_records, *expected_warnings)
 
-    if expected_directory is not None:
-        assert_directory_content(output_path, expected_directory)
-    elif assert_func is None:
-        _compare_output(output_path, expected_file, transform)
-    else:
-        if expected_file is None:
-            frame = inspect.currentframe()
-            assert frame is not None
-            assert frame.f_back is not None
-            expected_file = _infer_expected_file(frame.f_back.f_code.co_name)
-            del frame
-        assert_func(output_path, expected_file, transform=transform)
+    _compare_output(output_path, transform, name=name)
     with _enable_test_parsed_source_cache(), assert_inputs_not_mutated(unchanged_inputs):
         _assert_builtin_generate_formatter_parity(
             input_=input_,
@@ -942,14 +908,18 @@ def run_generate_file_and_assert(
 def run_generate_and_assert(
     *,
     input_: Any,
-    expected_file: Path | None = None,
     expected_error: type[Exception] | None = None,
     expected_error_match: str | None = None,
     assert_input_unchanged: bool = False,
     unchanged_inputs: Mapping[str, object] | None = None,
+    name: str | None = None,
     **generate_kwargs: Any,
 ) -> None:
-    """Execute generate() and assert returned text, written text, or an expected error."""
+    """Execute generate() and assert returned text, written text, or an expected error.
+
+    An expected error without ``expected_error_match`` compares the error text with the output pytest stores for the
+    test. ``name`` names a stored output; two runs under one name must give equal output.
+    """
     __tracebackhide__ = True
 
     guarded_inputs = dict(unchanged_inputs or {})
@@ -961,8 +931,10 @@ def run_generate_and_assert(
         if expected_error is not None:
             with pytest.raises(expected_error, match=expected_error_match) as error:
                 generate(input_=input_, **options)
-            if expected_file is not None:
-                assert_output(f"{error.value}\n", expected_file)
+            if expected_error_match is None:
+                _compare_derived(
+                    _normalize_line_endings(f"{error.value}\n"), role=_derived_output_role(name=name), suffix=".txt"
+                )
             return
         result = generate(input_=input_, **options)
     if isinstance(config := generate_kwargs.get("config"), GenerateConfig):
@@ -974,51 +946,36 @@ def run_generate_and_assert(
         result = output_path.read_text(encoding=encoding)
     if not isinstance(result, str):  # pragma: no cover
         pytest.fail(f"Expected generate() to return str, got {type(result).__name__}")
-    if expected_file is None:
-        _compare_derived(_normalize_line_endings(result), role=_derived_output_role(), suffix=".py")
-        return
-    assert_output(result, expected_file)
+    _compare_derived(_normalize_line_endings(result), role=_derived_output_role(name=name), suffix=".py")
 
 
 def _compare_output(
     output_path: Path,
-    expected_file: str | Path | None,
     transform: Callable[[str], str] | None,
     encoding: str = "utf-8",
+    *,
+    name: str | None = None,
 ) -> None:
-    """Compare a generated file or directory with ``expected_file``, or with the output stored under the test's name.
+    """Compare a generated file or directory with the output stored under the test's name.
 
-    A relative ``expected_file`` is relative to tests/data/expected; a directory output compares the whole tree.
-    Without ``expected_file``, a test's second and later outputs are stored as ``<name>.2<suffix>`` and so on, and a
-    path generation did not write is not compared.
+    A directory output compares the whole tree. A test's second and later outputs are stored as
+    ``<name>.2<suffix>`` and so on (an output given ``name="x"`` as ``<name>.x<suffix>``), and a path generation did
+    not write is not compared.
     """
     __tracebackhide__ = True
-    expected = None if expected_file is None else expected_root() / expected_file
-    if expected is None and not output_path.exists():
+    if not output_path.exists():
         return
-    role = "" if expected is not None else _derived_output_role()
+    role = _derived_output_role(name=name)
     if output_path.is_dir():
         tree = {
             relative: _normalize_line_endings(transform(text)) if transform else text
             for relative, text in _output_tree(output_path, "*", encoding).items()
         }
-        if expected is None:
-            _compare_derived(tree, role=role, tree=True)
-        else:
-            _compare_expected(expected, tree, pattern="*")
+        _compare_derived(tree, role=role, tree=True)
         return
     content = output_path.read_text(encoding=encoding)
     value = _normalize_line_endings(transform(content) if transform else content)
-    if expected is None:
-        _compare_derived(value, role=role, suffix=output_path.suffix)
-    else:
-        _compare_expected(expected, value)
-
-
-def _derived_output_role(role: str = "") -> str:
-    """Return the role of the running test's next unnamed output of a kind: ``role``, then ``.2<role>``, ..."""
-    count = default_output_count(role)
-    return role if count == 1 else f".{count}{role}"
+    _compare_derived(value, role=role, suffix=output_path.suffix)
 
 
 def run_main_and_assert(  # noqa: PLR0912
@@ -1029,23 +986,19 @@ def run_main_and_assert(  # noqa: PLR0912
     extra_args: Sequence[str] | None = None,
     expected_exit: Exit = Exit.OK,
     # Output verification options (use one)
-    assert_func: AssertFileContent | None = None,
-    expected_file: str | Path | None = None,
-    expected_output: str | None = None,
-    expected_directory: Path | None = None,
-    output_to_expected: Sequence[tuple[str, str | Path]] | None = None,
     file_should_not_exist: Path | Sequence[Path] | None = None,
     output_should_not_exist: bool = False,
     # Verification options
-    ignore_whitespace: bool = False,
     transform: Callable[[str], str] | None = None,
     # Capture options
     capsys: pytest.CaptureFixture[str] | None = None,
-    expected_stdout_path: Path | None = None,
     expected_stderr: str | None = None,
-    expected_stderr_path: Path | None = None,
     expected_stderr_contains: str | None = None,
     assert_no_stderr: bool = False,
+    derived_stdout: bool = False,
+    stdout_suffix: str = ".txt",
+    # Name of the outputs pytest stores for the test
+    name: str | None = None,
     # Other options
     copy_files: CopyFilesMapping | None = None,
     # stdin options
@@ -1080,24 +1033,24 @@ def run_main_and_assert(  # noqa: PLR0912
         copy_files: Files to copy before running
 
     Output verification (use one):
-        assert_func + expected_file: Compare with expected file using assert function
-        expected_output: Compare with string directly
-        expected_directory: Compare entire directory
-        output_to_expected: Compare multiple files
         file_should_not_exist: Assert a file does NOT exist
         output_should_not_exist: Assert output_path does NOT exist
 
     Verification modifiers:
-        ignore_whitespace: Ignore whitespace when comparing (for expected_output)
         transform: Transform output before comparison
 
     Capture verification:
         capsys: pytest capsys fixture
-        expected_stdout_path: Compare stdout with file
         expected_stderr: Assert exact stderr match
-        expected_stderr_path: Compare stderr with file
         expected_stderr_contains: Assert stderr contains string
         assert_no_stderr: Assert stderr is empty
+        derived_stdout: Compare stdout with the output pytest stores for the test, also when output_path is set
+            (a stdout-only run without another stdout or output check always does)
+        stdout_suffix: Suffix of the stored stdout (default: ".txt")
+
+    Stored output names:
+        name: Names the outputs pytest stores for this run (``<test>.<name><suffix>``) instead of numbering them;
+            two runs of one test under one name must give equal output
 
     Code validation options:
         skip_code_validation: Skip all code validation (compile and exec)
@@ -1113,20 +1066,11 @@ def run_main_and_assert(  # noqa: PLR0912
         runtime_validation_data: Data passed to model_validate on the generated model
     """
     __tracebackhide__ = True
-    output_verification_requested = any((
-        assert_func is not None,
-        expected_file is not None,
-        expected_output is not None,
-        expected_directory is not None,
-        output_to_expected is not None,
-        file_should_not_exist is not None,
-        output_should_not_exist,
-    ))
-    derived_stdout = (
+    compare_stdout = derived_stdout or (
         output_path is None
         and expected_exit == Exit.OK
-        and expected_stdout_path is None
-        and not output_verification_requested
+        and file_should_not_exist is None
+        and not output_should_not_exist
     )
     runtime_validation_options = (
         runtime_validation_module,
@@ -1177,7 +1121,7 @@ def run_main_and_assert(  # noqa: PLR0912
         with (
             _enable_test_parsed_source_cache(),
             _builtin_default_formatter_config(output_path, enabled=use_builtin_default),
-            redirect_stdout(io.StringIO()) if derived_stdout and capsys is None else nullcontext() as stdout,
+            redirect_stdout(io.StringIO()) if compare_stdout and capsys is None else nullcontext() as stdout,
         ):
             return_code = main(args)
     # Standard file input
@@ -1189,33 +1133,18 @@ def run_main_and_assert(  # noqa: PLR0912
     _assert_exit_code(return_code, expected_exit, f"Input: {input_path}")
     if stdout is not None:
         _compare_derived(
-            _normalize_line_endings(stdout.getvalue()), role=_derived_output_role(".stdout"), suffix=".txt"
+            _normalize_line_endings(stdout.getvalue()), role=_derived_output_role(".stdout", name), suffix=stdout_suffix
         )
 
     _assert_captured_output(
         capsys,
-        expected_stdout_path=expected_stdout_path,
         expected_stderr=expected_stderr,
-        expected_stderr_path=expected_stderr_path,
         expected_stderr_contains=expected_stderr_contains,
         assert_no_stderr=assert_no_stderr,
-        derived_stdout=derived_stdout and capsys is not None,
+        derived_stdout=(compare_stdout and capsys is not None) or (derived_stdout and stdout is None),
+        stdout_suffix=stdout_suffix,
+        name=name,
     )
-
-    output_verification_modes = (
-        int(assert_func is not None and output_to_expected is None)
-        + int(expected_output is not None)
-        + int(expected_directory is not None)
-        + int(output_to_expected is not None)
-        + int(file_should_not_exist is not None)
-        + int(output_should_not_exist)
-    )
-    if output_verification_modes > 1:  # pragma: no cover
-        pytest.fail(
-            "Output verification options are mutually exclusive; use exactly one of "
-            "standalone assert_func, expected_output, expected_directory, output_to_expected, "
-            "file_should_not_exist, or output_should_not_exist"
-        )
 
     if output_should_not_exist:
         if output_path is None:  # pragma: no cover
@@ -1236,40 +1165,13 @@ def run_main_and_assert(  # noqa: PLR0912
         return
 
     # Output verification
-    if expected_directory is not None:
-        if output_path is None:  # pragma: no cover
-            pytest.fail("output_path is required when using expected_directory")
-        assert_directory_content(output_path, expected_directory)
-    elif output_to_expected is not None:
-        if output_path is None:  # pragma: no cover
-            pytest.fail("output_path is required when using output_to_expected")
-        if assert_func is None:  # pragma: no cover
-            pytest.fail("assert_func is required when using output_to_expected")
-        for output_relative, exp_file in output_to_expected:
-            assert_func(output_path / output_relative, exp_file)
-    elif expected_output is not None:
-        if output_path is None:  # pragma: no cover
-            pytest.fail("output_path is required when using expected_output")
-        actual_output = output_path.read_text(encoding="utf-8")
-        if ignore_whitespace:
-            if "".join(actual_output.split()) != "".join(expected_output.split()):  # pragma: no cover
-                pytest.fail(
-                    f"Output mismatch (ignoring whitespace)\nExpected:\n{expected_output}\n\nActual:\n{actual_output}"
-                )
-        elif actual_output != expected_output:  # pragma: no cover
-            pytest.fail(f"Output mismatch\nExpected:\n{expected_output}\n\nActual:\n{actual_output}")
-    elif assert_func is not None:
-        if output_path is None:  # pragma: no cover
-            pytest.fail("output_path is required when using assert_func")
-        if expected_file is None:
-            frame = inspect.currentframe()
-            assert frame is not None
-            assert frame.f_back is not None
-            expected_file = _infer_expected_file(frame.f_back.f_code.co_name)
-            del frame
-        assert_func(output_path, expected_file, transform=transform)
-    elif output_path is not None:
-        _compare_output(output_path, expected_file, transform, _get_argument_value(extra_args, "--encoding") or "utf-8")
+    if output_path is not None:
+        _compare_output(
+            output_path,
+            transform,
+            _get_argument_value(extra_args, "--encoding") or "utf-8",
+            name=name,
+        )
 
     with _enable_test_parsed_source_cache():
         _assert_builtin_cli_formatter_parity(
@@ -1643,12 +1545,11 @@ def assert_generated_model_json_validation(
     expected_attribute_value: Any = None,
     expected_keyword_only_fields: Collection[str] | None = None,
     expected_repr: str | None = None,
-    expected_repr_path: Path | None = None,
     invalid_keyword_arguments: Sequence[tuple[Mapping[str, Any], str]] = (),
 ) -> None:
     """Import a generated module and validate JSON data through a generated Pydantic model or dataclass.
 
-    The repr of the parsed value equals ``expected_repr``, or the expected file ``expected_repr_path`` as one line.
+    The repr of the parsed value equals ``expected_repr``.
     """
     with _generated_model(output_path, module_name, model_name) as model:
         validate_json = _model_json_validator(model)
@@ -1688,8 +1589,6 @@ def assert_generated_model_json_validation(
 
         if expected_repr is not None and repr(parsed) != expected_repr:  # pragma: no cover
             pytest.fail(f"Expected repr {expected_repr!r}, got {parsed!r}", pytrace=False)
-        if expected_repr_path is not None:
-            assert_output(f"{parsed!r}\n", expected_repr_path)
 
         _assert_model_json_invalid(validate_json, invalid_json, expected_error_type)
         for keyword_arguments, keyword_error_type in invalid_keyword_arguments:
@@ -1714,11 +1613,10 @@ def run_main_url_and_assert(
     url: str,
     output_path: Path,
     input_file_type: InputFileTypeLiteral | None,
-    assert_func: AssertFileContent,
-    expected_file: str | Path,
     extra_args: Sequence[str] | None = None,
     transform: Callable[[str], str] | None = None,
     force_exec_validation: bool = False,
+    name: str | None = None,
 ) -> None:
     """Execute main() with URL input and assert output.
 
@@ -1726,16 +1624,20 @@ def run_main_url_and_assert(
         url: URL to fetch schema from
         output_path: Path to output file
         input_file_type: Type of input file (openapi, jsonschema, graphql, etc.)
-        assert_func: The assert_file_content function to use for verification
-        expected_file: Expected output filename
         extra_args: Additional CLI arguments
         transform: Optional function to transform output before comparison
         force_exec_validation: Run exec() even when target Python version differs from
             the test environment (only effective when target <= runtime).
+        name: Names the output pytest stores (``<test>.<name><suffix>``) instead of numbering it
     """
     __tracebackhide__ = True
     return_code = _run_main_url(url, output_path, input_file_type, extra_args=extra_args)
     _assert_exit_code(return_code, Exit.OK, f"URL: {url}")
-    assert_func(output_path, expected_file, transform=transform)
+    _compare_output(
+        output_path,
+        transform,
+        _get_argument_value(extra_args, "--encoding") or "utf-8",
+        name=name,
+    )
 
     _validate_output_files(output_path, extra_args, force_exec_validation=force_exec_validation)

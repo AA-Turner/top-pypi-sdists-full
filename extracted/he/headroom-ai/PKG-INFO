@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: headroom-ai
-Version: 0.44.0
+Version: 0.45.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
@@ -17,7 +17,7 @@ Requires-Dist: pydantic>=2.0.0
 Requires-Dist: litellm>=1.96.2,<2.0
 Requires-Dist: click>=8.5.0
 Requires-Dist: rich>=13.0.0
-Requires-Dist: opentelemetry-api>=1.45.1
+Requires-Dist: opentelemetry-api>=1.45.2
 Requires-Dist: ast-grep-cli>=0.30.0,!=0.44.1
 Requires-Dist: pyyaml>=6.0
 Requires-Dist: tomlkit>=0.15.2,<1.0
@@ -35,7 +35,7 @@ Requires-Dist: tree-sitter>=0.26.0,<0.27 ; extra == 'code'
 Requires-Dist: pytest>=7.0.0 ; extra == 'dev'
 Requires-Dist: pytest-cov>=4.0.0 ; extra == 'dev'
 Requires-Dist: pytest-asyncio>=0.21.0 ; extra == 'dev'
-Requires-Dist: ruff==0.17.3 ; extra == 'dev'
+Requires-Dist: ruff==0.17.4 ; extra == 'dev'
 Requires-Dist: mypy>=1.0.0 ; extra == 'dev'
 Requires-Dist: pre-commit>=3.0.0 ; extra == 'dev'
 Requires-Dist: openai>=1.0.0 ; extra == 'dev'
@@ -118,6 +118,8 @@ Requires-Dist: headroom-ai[lean] ; extra == 'sandbox'
 Requires-Dist: openpyxl>=3.1.0 ; extra == 'spreadsheet'
 Requires-Dist: xlrd>=2.0.1 ; extra == 'spreadsheet'
 Requires-Dist: strands-agents>=0.1.0 ; extra == 'strands'
+Requires-Dist: pystray>=0.19.5 ; extra == 'tray'
+Requires-Dist: pillow>=12.3.0 ; extra == 'tray'
 Requires-Dist: hnswlib>=0.8.0 ; extra == 'vector'
 Requires-Dist: google-cloud-aiplatform>=1.38 ; extra == 'vertex'
 Requires-Dist: onnxruntime>=1.24.0 ; (python_full_version >= '3.11' and platform_machine != 'x86_64' and extra == 'voice') or (python_full_version >= '3.11' and sys_platform != 'darwin' and extra == 'voice')
@@ -154,6 +156,7 @@ Provides-Extra: reports
 Provides-Extra: sandbox
 Provides-Extra: spreadsheet
 Provides-Extra: strands
+Provides-Extra: tray
 Provides-Extra: vector
 Provides-Extra: vertex
 Provides-Extra: voice

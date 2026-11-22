@@ -26,7 +26,9 @@ namespace somm_core {
 // (tb, ta) mapped to (sb, sa) -- and throws std::invalid_argument otherwise.
 // The source blocks are filled once into a cache of at most `max_jf_bytes`
 // (0: the 64 MiB default); a map whose cache would not fit is not used.
-// `copied` reports the segment pairs served from the cache.
+// `copied` reports the TARGET segment pairs served from the cache (a source
+// pair's walk entries are read from it too, momwire#2073, and counted in
+// `RemainderCounts::copied` only).
 struct PairReuse {
     std::ptrdiff_t n_edges = 0;
     const int64_t *edge_seg0 = nullptr;  // (n_edges)
@@ -34,6 +36,21 @@ struct PairReuse {
     const int32_t *seg_edge = nullptr;   // (nsI): the edge of each segment, -1 none
     const int32_t *src = nullptr;        // (n_edges * n_edges)
     long long copied = 0;                // out
+};
+
+// What the symmetric route did, for the fill report (momwire#2068), counted
+// in ORDERED segment-pair entries: `walked` the entries the tile walk formed
+// (a segment in two tiles' support halos is walked in both, so this can pass
+// ns^2), `copied` those of them read from the pair-reuse cache -- a target's
+// copy or, since momwire#2073, a source pair's own block, which the walk no
+// longer forms again -- and `cached` the entries filled into that cache up
+// front (0 when no map was used). The kernel evaluated
+// `walked - copied + cached` entries. Tallied per tile pair
+// and per cache block, never inside the per-pair loop.
+struct RemainderCounts {
+    long long walked = 0;
+    long long copied = 0;
+    long long cached = 0;
 };
 
 // Q (nI, nJ) C order: obs_nodes (nsI, q, 3), obs_tang (nsI, 3), W_obs
@@ -51,7 +68,7 @@ void remainder_bspline_Q(const somm_proj::GridView &G, double ground_z, double k
                          const int64_t *loc_I, const double *pI, std::ptrdiff_t nI,
                          const int64_t *loc_J, const double *pJ, std::ptrdiff_t nJ, bool symmetric,
                          size_t max_jf_bytes, std::complex<double> *Q, uintptr_t cancel_flag,
-                         PairReuse *reuse = nullptr);
+                         PairReuse *reuse = nullptr, RemainderCounts *counts = nullptr);
 
 // Where the symmetric route puts each finished Q[m, n] (momwire#1798), so the
 // dense block need not be held beside the matrix it lands in. `fold` 0
@@ -81,6 +98,6 @@ void remainder_bspline_Q_sink(const somm_proj::GridView &G, double ground_z, dou
                               std::ptrdiff_t ns, std::ptrdiff_t q, int d1, const int64_t *loc,
                               const double *polys, std::ptrdiff_t nb, size_t max_jf_bytes,
                               const RemainderSink &sink, uintptr_t cancel_flag,
-                              PairReuse *reuse = nullptr);
+                              PairReuse *reuse = nullptr, RemainderCounts *counts = nullptr);
 
 }  // namespace somm_core

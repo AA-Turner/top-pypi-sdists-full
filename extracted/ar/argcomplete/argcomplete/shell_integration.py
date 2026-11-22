@@ -3,6 +3,8 @@
 # files with source copies of this package and derivative works is **REQUIRED** as specified by the Apache License.
 # See https://github.com/kislyuk/argcomplete for more info.
 
+from __future__ import annotations
+
 from collections.abc import Iterable
 from shlex import quote
 
@@ -43,6 +45,14 @@ _python_argcomplete%(function_suffix)s() {
             _ARGCOMPLETE_SHELL="zsh" \
             _ARGCOMPLETE_SUPPRESS_SPACE=1 \
             __python_argcomplete_run ${script:-${words[1]}}))
+        # Keep the typed tilde in the word and let _describe quote the rest.
+        local tilde_prefix='~'
+        [[ $PREFIX != '~'* && $PREFIX == *'=~'* ]] && tilde_prefix="${PREFIX%%%%=*}=~"
+        if [[ -z ${compstate[quote]} && $PREFIX == "$tilde_prefix"* && ${words[CURRENT]} == "$tilde_prefix"* &&
+              -z "${completions[@]:#"$tilde_prefix"*}" ]]; then
+            compset -p "${#tilde_prefix}"
+            completions=("${completions[@]#"$tilde_prefix"}")
+        fi
         local nosort=()
         local nospace=()
         if is-at-least 5.8; then
@@ -121,17 +131,19 @@ Register-ArgumentCompleter -Native -CommandName %(executable)s -ScriptBlock {
     $env:COMP_LINE = $wordToComplete
     $env:COMP_POINT = $cursorPosition
     $env:_ARGCOMPLETE = 1
-    $env:_ARGCOMPLETE_SUPPRESS_SPACE = 0
+    $env:_ARGCOMPLETE_SUPPRESS_SPACE = 1
     $env:_ARGCOMPLETE_IFS = "`n"
     $env:_ARGCOMPLETE_SHELL = "powershell"
     %(argcomplete_script)s 2>&1 | Out-Null
 
-    Get-Content $completion_file | ForEach-Object {
-        [System.Management.Automation.CompletionResult]::new($_, $_, "ParameterValue", $_)
+    Get-Content -Encoding UTF8 $completion_file | ForEach-Object {
+        $escaped = [System.Management.Automation.Language.CodeGeneration]::EscapeSingleQuotedStringContent($_)
+        $quoted = "'" + $escaped + "'"
+        [System.Management.Automation.CompletionResult]::new($quoted, $_, "ParameterValue", $_)
     }
     Remove-Item $completion_file, Env:\_ARGCOMPLETE_STDOUT_FILENAME, Env:\ARGCOMPLETE_USE_TEMPFILES, Env:\COMP_LINE, Env:\COMP_POINT, Env:\_ARGCOMPLETE, Env:\_ARGCOMPLETE_SUPPRESS_SPACE, Env:\_ARGCOMPLETE_IFS, Env:\_ARGCOMPLETE_SHELL
 }
-"""  # noqa: E501
+"""
 
 shell_codes = {"bash": bashcode, "tcsh": tcshcode, "fish": fishcode, "powershell": powershell_code}
 
@@ -172,12 +184,12 @@ def shellcode(
         else:
             script = ""
             function_suffix = ""
-        code = bashcode % dict(
-            complete_opts=complete_options,
-            executables=executables_list,
-            argcomplete_script=script,
-            function_suffix=function_suffix,
-        )
+        code = bashcode % {
+            "complete_opts": complete_options,
+            "executables": executables_list,
+            "argcomplete_script": script,
+            "function_suffix": function_suffix,
+        }
     elif shell == "fish":
         code = ""
         for executable in executables:
@@ -185,17 +197,17 @@ def shellcode(
             completion_arg = "--path" if "/" in executable else "--command"  # use path for absolute paths
             function_name = executable.replace("/", "_")  # / not allowed in function name
 
-            code += fishcode % dict(
-                executable=executable,
-                argcomplete_script=script,
-                completion_arg=completion_arg,
-                function_name=function_name,
-            )
+            code += fishcode % {
+                "executable": executable,
+                "argcomplete_script": script,
+                "completion_arg": completion_arg,
+                "function_name": function_name,
+            }
     elif shell == "powershell":
         code = ""
         for executable in executables:
             script = argcomplete_script or executable
-            code += powershell_code % dict(executable=executable, argcomplete_script=script)
+            code += powershell_code % {"executable": executable, "argcomplete_script": script}
 
     else:
         code = ""
@@ -204,6 +216,6 @@ def shellcode(
             # If no script was specified, default to the executable being completed.
             if not script:
                 script = executable
-            code += shell_codes.get(shell, "") % dict(executable=executable, argcomplete_script=script)
+            code += shell_codes.get(shell, "") % {"executable": executable, "argcomplete_script": script}
 
     return code

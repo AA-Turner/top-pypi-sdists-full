@@ -64,6 +64,56 @@ def test_socket_path_not_derived_from_socket_name() -> None:
     assert myserver.socket_path is None
 
 
+def test_repr_socket_path_honors_tmux_tmpdir(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: pathlib.Path,
+) -> None:
+    """A default ``Server()`` reprs the socket tmux resolves, not ``/tmp``.
+
+    Regression for #723: the repr hard-coded ``/tmp/tmux-<euid>/default``, so
+    under any ``$TMUX_TMPDIR`` it named a socket the object was not using.
+    """
+    monkeypatch.delenv("TMUX", raising=False)
+    monkeypatch.setenv("TMUX_TMPDIR", str(tmp_path))
+
+    myserver = Server()
+
+    socket_path = tmp_path / f"tmux-{os.geteuid()}" / "default"
+    assert repr(myserver) == f"Server(socket_path={socket_path})"
+
+
+def test_repr_socket_path_resolves_a_symlinked_tmpdir(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: pathlib.Path,
+) -> None:
+    """A symlinked ``$TMUX_TMPDIR`` reprs the path tmux reports, not the link.
+
+    tmux resolves the socket directory before binding, so the link's own
+    length is not what a socket has to fit in. Reporting the unresolved path
+    would name a socket tmux never creates.
+    """
+    target = tmp_path / "target"
+    target.mkdir()
+    link = tmp_path / "link"
+    link.symlink_to(target)
+    monkeypatch.delenv("TMUX", raising=False)
+    monkeypatch.setenv("TMUX_TMPDIR", str(link))
+
+    myserver = Server()
+
+    socket_path = target.resolve() / f"tmux-{os.geteuid()}" / "default"
+    assert repr(myserver) == f"Server(socket_path={socket_path})"
+
+
+def test_repr_socket_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A named socket reprs its name, whatever ``$TMUX_TMPDIR`` says."""
+    monkeypatch.setenv("TMUX_TMPDIR", "/nonexistent-tmux-tmpdir")
+
+    myserver = Server(socket_name="libtmux_test_repr")
+
+    assert repr(myserver) == "Server(socket_name=libtmux_test_repr)"
+
+
 def test_config(server: Server) -> None:
     """``-f`` file for tmux(1) configuration."""
     myserver = Server(config_file="test")
@@ -659,13 +709,13 @@ def test_command_prompt(
 @pytest.mark.parametrize(
     ("kwargs", "expected_flag", "min_tmux_version"),
     [
-        ({"expand_format": True}, "-F", "3.3"),
+        ({"expand_format": True}, "-F", None),
         ({"literal": True}, "-l", "3.6"),
         # -e is master-only (upstream 1e5f93b7); not in any 3.6 release
         ({"bspace_exit": True}, "-e", "3.7"),
         ({"no_freeze": True}, "-C", "3.7"),
     ],
-    ids=["expand_format_v33", "literal_v36", "bspace_exit", "no_freeze"],
+    ids=["expand_format", "literal_v36", "bspace_exit", "no_freeze"],
 )
 def test_command_prompt_extra_flags(
     kwargs: dict[str, t.Any],
@@ -767,7 +817,7 @@ DISPLAY_MENU_CASES: list[DisplayMenuCase] = [
         test_id="with_stay_open",
         items=_MENU_ITEM,
         kwargs={"stay_open": True},
-        min_tmux_version="3.2",
+        min_tmux_version=None,
     ),
     DisplayMenuCase(
         test_id="with_selected_style_v34",
@@ -916,11 +966,6 @@ def test_suspend_client(
 
 def test_server_access_list(server: Server) -> None:
     """Test Server.server_access() list mode."""
-    from libtmux.common import has_gte_version
-
-    if not has_gte_version("3.3"):
-        pytest.skip("server-access added in tmux 3.3")
-
     server.new_session(session_name="access_test")
     result = server.server_access(list_access=True)
     assert isinstance(result, list)
@@ -928,11 +973,6 @@ def test_server_access_list(server: Server) -> None:
 
 def test_server_access_read_only_write_mutex(server: Server) -> None:
     """``read_only`` and ``write`` are mutually exclusive."""
-    from libtmux.common import has_gte_version
-
-    if not has_gte_version("3.3"):
-        pytest.skip("server-access added in tmux 3.3")
-
     with pytest.raises(ValueError, match="mutually exclusive"):
         server.server_access(allow="someuser", read_only=True, write=True)
 
@@ -947,11 +987,6 @@ def test_server_access_argv(
     testing of the side-effect would tie the suite to system config.
     Verify the constructed argv instead.
     """
-    from libtmux.common import has_gte_version
-
-    if not has_gte_version("3.3"):
-        pytest.skip("server-access added in tmux 3.3")
-
     captured: list[tuple[str, ...]] = []
     real_cmd = server.cmd
 
@@ -1075,11 +1110,6 @@ def test_show_messages_terminals_jobs(server: Server) -> None:
 
 def test_show_prompt_history(server: Server) -> None:
     """Test Server.show_prompt_history() returns history."""
-    from libtmux.common import has_gte_version
-
-    if not has_gte_version("3.3"):
-        pytest.skip("show-prompt-history added in tmux 3.3")
-
     server.new_session(session_name="showph_test")
     result = server.show_prompt_history()
     assert isinstance(result, list)
@@ -1087,11 +1117,6 @@ def test_show_prompt_history(server: Server) -> None:
 
 def test_clear_prompt_history(server: Server) -> None:
     """Test Server.clear_prompt_history() clears history."""
-    from libtmux.common import has_gte_version
-
-    if not has_gte_version("3.3"):
-        pytest.skip("clear-prompt-history added in tmux 3.3")
-
     server.new_session(session_name="clearph_test")
     server.clear_prompt_history()
     # Verify specific type can be cleared
@@ -1694,17 +1719,9 @@ def test_server_display_message_flags(
     tmux dispatches ``display-message -p`` output through a client; the wrapper
     omits ``-t <pane-id>`` but still needs a client to receive stdout. The
     headless test environment provides one via :class:`ControlMode`.
-
-    Skipped on tmux 3.2a: ``display-message -p -c <control-mode-client>``
-    returns empty stdout on that release (output dispatch via a control-mode
-    client was unreliable until later versions).
     """
     from libtmux.common import has_gte_version
 
-    if not has_gte_version("3.3"):
-        pytest.skip(
-            "display-message -p via control-mode client unreliable on tmux 3.2a"
-        )
     if min_tmux_version and not has_gte_version(min_tmux_version):
         pytest.skip(f"Requires tmux {min_tmux_version}+")
 
@@ -1736,13 +1753,6 @@ def test_server_display_message_target_client(
     server: Server,
 ) -> None:
     """``target_client`` is plumbed through as ``-c``; get_text=True returns stdout."""
-    from libtmux.common import has_gte_version
-
-    if not has_gte_version("3.3"):
-        pytest.skip(
-            "display-message -p via control-mode client unreliable on tmux 3.2a"
-        )
-
     with control_mode() as ctl:
         result = server.display_message(
             "#{version}", get_text=True, target_client=ctl.client_name
@@ -1765,3 +1775,36 @@ def test_server_display_message_warns_on_tmux_error(
     """
     with pytest.warns(UserWarning, match="only one of -F or argument"):
         server.display_message("x", get_text=True, format_string="#{version}")
+
+
+def test_set_buffer_data_starting_with_a_dash(session: Session) -> None:
+    """Buffer data that starts with ``-`` is stored, not read as a flag."""
+    server = session.server
+
+    server.set_buffer("-a", buffer_name="dash_data")
+
+    assert server.show_buffer(buffer_name="dash_data") == "-a"
+
+
+def test_run_shell_command_starting_with_a_dash(
+    session: Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A shell command that starts with ``-`` follows ``--`` in the argv.
+
+    ``Server.cmd`` is replaced to read the argv: what a shell does with a
+    command line that starts with ``-`` depends on the shell.
+    """
+    server = session.server
+    seen: list[tuple[t.Any, ...]] = []
+
+    def record(cmd: str, *args: t.Any, **kwargs: t.Any) -> t.Any:
+        seen.append((cmd, *args))
+        return real_cmd("display-message", "-p", "")
+
+    real_cmd = server.cmd
+    monkeypatch.setattr(server, "cmd", record)
+
+    server.run_shell("-b")
+
+    assert seen == [("run-shell", "--", "-b")]

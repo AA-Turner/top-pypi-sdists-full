@@ -16,9 +16,11 @@ from multihash import (
     MultihashSet,
     ShakeHash,
     TruncationError,
+    cast,
     decode,
     digest,
     from_json,
+    mh_from_bytes,
     sum,
     sum_stream,
 )
@@ -150,6 +152,19 @@ class TestTruncationTestCase:
         mh = digest(b"hello", Func.sha2_256, length=16)
         assert mh.verify(b"hello") is True
         assert mh.verify(b"world") is False
+
+    def test_identity_hash_length_must_match(self):
+        """Identity hash length must equal data length when length is set."""
+        mh = sum(b"hello", Func.identity, length=5)
+        assert mh.digest == b"hello"
+
+        with pytest.raises(TruncationError, match="identity hash"):
+            sum(b"hello", Func.identity, length=3)
+
+    def test_identity_hash_length_must_match_sum_stream(self):
+        """sum_stream rejects mismatched identity truncation length."""
+        with pytest.raises(TruncationError, match="identity hash"):
+            sum_stream(BytesIO(b"hello"), Func.identity, length=3)
 
 
 class TestShakeFunctionsTestCase:
@@ -537,6 +552,27 @@ class TestMultihashSetTestCase:
         mh_set.Remove(mh1)
         assert mh_set.Has(mh1) is False
 
+    def test_visit(self):
+        """Test Visit/visit add-if-absent semantics."""
+        mh_set = MultihashSet()
+        mh1 = sum(b"file1", Func.sha2_256)
+        assert mh_set.visit(mh1) is True
+        assert mh_set.Visit(mh1) is False
+        assert len(mh_set) == 1
+
+    def test_for_each(self):
+        """Test ForEach/for_each iteration and error propagation."""
+        mh1 = sum(b"a", Func.sha2_256)
+        mh2 = sum(b"b", Func.sha2_256)
+        mh_set = MultihashSet([mh1, mh2])
+        collected = []
+        assert mh_set.for_each(lambda mh: collected.append(mh)) is None
+        assert len(collected) == 2
+
+        err = mh_set.ForEach(lambda mh: (_ for _ in ()).throw(ValueError("stop")))
+        assert isinstance(err, ValueError)
+        assert str(err) == "stop"
+
     def test_multihash_set_clear(self):
         """Test clearing MultihashSet."""
         mh1 = sum(b"file1", Func.sha2_256)
@@ -885,3 +921,69 @@ class TestStreamReadWriteTestCase:
         finally:
             # Clean up
             FuncReg.unregister(app_code)
+
+
+class TestCastAndMhFromBytesTestCase:
+    """Tests for cast() and mh_from_bytes()."""
+
+    def test_cast_valid(self):
+        mh = sum(b"hello", Func.sha2_256)
+        encoded = mh.encode()
+        casted = cast(encoded)
+        assert casted == decode(encoded)
+        assert casted.digest == mh.digest
+
+    def test_cast_rejects_trailing_data(self):
+        mh = sum(b"hello", Func.sha2_256)
+        with pytest.raises(ValueError):
+            cast(mh.encode() + b"extra")
+
+    def test_mh_from_bytes_with_trailing(self):
+        mh = sum(b"hello", Func.sha2_256)
+        encoded = mh.encode()
+        buf = encoded + b"trailing-bytes"
+        consumed, parsed = mh_from_bytes(buf)
+        assert consumed == len(encoded)
+        assert parsed.digest == mh.digest
+        assert parsed.code == mh.code
+
+    def test_mh_from_bytes_exact(self):
+        mh = sum(b"hello", Func.sha2_256)
+        encoded = mh.encode()
+        consumed, parsed = mh_from_bytes(encoded)
+        assert consumed == len(encoded)
+        assert parsed == decode(encoded)
+
+    def test_go_aliases(self):
+        from multihash import Cast, MHFromBytes
+
+        mh = sum(b"hello", Func.sha2_256)
+        encoded = mh.encode()
+        assert Cast(encoded) == cast(encoded)
+        assert MHFromBytes(encoded) == mh_from_bytes(encoded)
+
+
+class TestMultihashReaderWriterTestCase:
+    """Tests for MultihashReader / MultihashWriter wrappers."""
+
+    def test_writer_reader_roundtrip(self):
+        from multihash import new_reader, new_writer
+
+        mh1 = sum(b"one", Func.sha2_256)
+        mh2 = sum(b"two", Func.sha2_256)
+        stream = BytesIO()
+        writer = new_writer(stream)
+        writer.write_multihash(mh1)
+        writer.WriteMultihash(mh2)
+
+        stream.seek(0)
+        reader = new_reader(stream)
+        assert reader.read_multihash() == mh1
+        assert reader.ReadMultihash() == mh2
+
+    def test_new_reader_writer_aliases(self):
+        from multihash import NewReader, NewWriter
+
+        stream = BytesIO()
+        assert type(NewWriter(stream)).__name__ == "MultihashWriter"
+        assert type(NewReader(stream)).__name__ == "MultihashReader"

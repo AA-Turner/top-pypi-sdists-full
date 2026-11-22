@@ -149,7 +149,18 @@ def parse_signup(body: Any) -> AgentSignupResult:
     return AgentSignupResult.model_validate(body)
 
 
-def map_error(status: int, body: object, request_id: str | None) -> AnyAPIError:
+def map_error(
+    status: int,
+    body: object,
+    request_id: str | None,
+    retry_after_seconds: int | None = None,
+) -> AnyAPIError:
     """Map a non-2xx account/catalog response to the frozen error hierarchy."""
     message, code = error_details(body, status)
-    return error_for_status(status, message, request_id=request_id, code=code)
+    return error_for_status(
+        status,
+        message,
+        request_id=request_id,
+        code=code,
+        retry_after_seconds=retry_after_seconds,
+    )

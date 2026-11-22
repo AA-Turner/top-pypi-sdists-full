@@ -577,7 +577,12 @@ recurrence.widget.Widget.prototype = {
     },
 
     update: function() {
+        var currentVal = this.textarea.value;
         this.textarea.value = this.data.serialize();
+        if (currentVal !== this.textarea.value) {
+            var event = new Event('change', {bubbles: true});
+            this.textarea.dispatchEvent(event);
+        }
     }
 };
 
@@ -1276,8 +1281,9 @@ recurrence.widget.RuleMonthlyForm.prototype = {
 
 		// use the last four cells to provide negative
 		// day indexes
-                cell.innerHTML = number<=31 ? number : number-36;
-                if (this.rule.bymonthday.indexOf(number) > -1)
+                var day = number<=31 ? number : number-36;
+                cell.innerHTML = day;
+                if (this.rule.bymonthday.indexOf(day) > -1)
                     recurrence.widget.add_class(cell, 'active');
                 cell.onclick = function () {
                     if (monthday_grid.disabled)

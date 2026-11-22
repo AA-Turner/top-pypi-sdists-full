@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-polib"
-version = "1.2.0.20261115"
+version = "1.2.0.20261122"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for polib"
@@ -28,10 +28,10 @@ This package was tested with the following type checkers:
 * [mypy](https://www.mypy-lang.org/) 2.4.1
 * [pyrefly](https://pyrefly.org/) 1.4.1
 * [pyright](https://microsoft.github.io/pyright/) 1.1.414
-* [ty](https://docs.astral.sh/ty/) 0.0.99
+* [ty](https://docs.astral.sh/ty/) 0.0.104
 
 It was generated from typeshed commit
-[`4d46730008bc0fcb5c1bed24183789955eb54b6a`](https://github.com/python/typeshed/commit/4d46730008bc0fcb5c1bed24183789955eb54b6a).
+[`567e5e3e4276a6b05127b6347d80f809d123e35e`](https://github.com/python/typeshed/commit/567e5e3e4276a6b05127b6347d80f809d123e35e).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

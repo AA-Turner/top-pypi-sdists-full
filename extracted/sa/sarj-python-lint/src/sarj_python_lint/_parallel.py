@@ -14,6 +14,9 @@ from sarj_python_lint.rules._paths import clear_path_caches
 from sarj_python_lint.rules._project_index import ProjectIndexSet
 
 
+_BUFFERED_ITEMS_PER_WORKER = 4
+
+
 if TYPE_CHECKING:
     from sarj_python_lint._prepared_sources import PreparedSourceSnapshot
     from sarj_python_lint.rules._project_index import ProjectSourceSnapshot
@@ -137,12 +140,8 @@ def check_parallel(
     source_inputs: PreparedSourceInputs | None = None,
     frozen: FrozenResolutions | None = None,
 ) -> list[Diagnostic] | None:
-    # The untouched parent rules/session remain the serial fallback. Workers
-    # receive the same complete project snapshot and selected source strings.
-    # Select the untouched serial session before a large batch can require a
-    # complete parallel pass followed by the same quota-sensitive serial replay.
-    # A frozen resolution cache has already spent that quota, so its remaining
-    # files only need the module quota check below.
+    # Workers share the complete immutable snapshot. Choose serial fallback before replay exhausts resolution quota;
+    # frozen caches need only module-quota checks.
     if frozen is None and len(loaded) >= LOCAL_SOURCE_CACHE_LIMIT:
         return None
     source_snapshot = None if source_inputs is None else source_inputs.source_snapshot()
@@ -182,7 +181,7 @@ def check_parallel(
             )
             for path, source in loaded.items()
         )
-        for result in pool.map(_check_file, items, chunksize=1, buffersize=workers * 4):
+        for result in pool.map(_check_file, items, chunksize=1, buffersize=workers * _BUFFERED_ITEMS_PER_WORKER):
             # Drain actual results after either replay signal so a later worker
             # failure cannot be disguised as a clean serial replay.
             if needs_serial:

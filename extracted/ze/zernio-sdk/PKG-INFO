@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: zernio-sdk
-Version: 1.4.1925
+Version: 1.4.1958
 Summary: The official Python library for the Zernio API
 Project-URL: Homepage, https://zernio.com
 Project-URL: Documentation, https://docs.zernio.com
@@ -257,6 +257,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `accounts.get_all_accounts_health()` | Check accounts health |
 | `accounts.list_accounts()` | List accounts |
 | `accounts.list_business_partners()` | List partner businesses of the Page |
+| `accounts.list_gohighlevel_audience_syncs()` | List HighLevel tag audience syncs |
 | `accounts.list_hub_spot_contact_properties()` | List HubSpot contact properties |
 | `accounts.list_tik_tok_commercial_music()` | List trending commercial music |
 | `accounts.get_account()` | Get account |
@@ -264,6 +265,8 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `accounts.get_account_posts()` | List posts published on the platform |
 | `accounts.get_bluesky_settings()` | Get Bluesky account settings |
 | `accounts.get_follower_stats()` | Get follower stats |
+| `accounts.get_gohighlevel_funnel_tracking()` | Get HighLevel funnel tracking |
+| `accounts.get_gohighlevel_settings()` | Get HighLevel account settings |
 | `accounts.get_google_business_review()` | Get a review |
 | `accounts.get_google_business_reviews()` | Get reviews |
 | `accounts.get_hub_spot_settings()` | Get HubSpot account settings |
@@ -275,6 +278,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `accounts.get_tik_tok_creator_info()` | Get TikTok creator info |
 | `accounts.update_account()` | Update account |
 | `accounts.update_bluesky_settings()` | Update Bluesky account settings |
+| `accounts.update_gohighlevel_settings()` | Update HighLevel account settings |
 | `accounts.update_hub_spot_settings()` | Update HubSpot account settings |
 | `accounts.update_salesforce_settings()` | Update Salesforce account settings |
 | `accounts.update_slack_settings()` | Update Slack account settings |
@@ -287,6 +291,10 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `accounts.reply_to_google_business_review()` | Reply to a review |
 | `accounts.revoke_business_partner()` | Revoke a partner business from the Page |
 | `accounts.search_tik_tok_locations()` | Search TikTok location tags |
+| `accounts.send_gohighlevel_past_won_deals()` | Send past HighLevel won deals as conversions |
+| `accounts.start_gohighlevel_audience_sync()` | Sync a HighLevel tag to ad audiences |
+| `accounts.stop_gohighlevel_audience_sync()` | Stop a HighLevel tag audience sync |
+| `accounts.verify_gohighlevel_funnel_tracking()` | Check the Zernio tag on a HighLevel funnel page |
 
 ### Profiles
 | Method | Description |
@@ -449,6 +457,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `connect.get_email_connect_url()` | Get a hosted link to connect any mailbox |
 | `connect.get_facebook_pages()` | List Facebook pages |
 | `connect.get_gmb_locations()` | List Google Business Profile locations |
+| `connect.get_gohighlevel_connect_url()` | Get HighLevel OAuth connect URL |
 | `connect.get_google_analytics_connect_url()` | Get Google Analytics OAuth connect URL |
 | `connect.get_google_search_console_connect_url()` | Get Google Search Console OAuth connect URL |
 | `connect.get_hub_spot_connect_url()` | Get HubSpot OAuth connect URL |
@@ -614,6 +623,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `ad_accounts.assign_page_user()` | Assign a user to a Page |
 | `ad_accounts.attach_ad_label()` | Attach a Google Ads label |
 | `ad_accounts.detach_ad_label()` | Detach a Google Ads label |
+| `ad_accounts.edit_ad_negative_keyword_list_keywords()` | Add or remove negative list keywords |
 | `ad_accounts.hide_ad_comment()` | Hide or unhide an ad comment |
 | `ad_accounts.invite_ad_account_to_manager()` | Invite a client account to a manager |
 | `ad_accounts.invite_ad_account_user()` | Invite a user to an ad account by email |
@@ -722,6 +732,8 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `ad_campaigns.duplicate_ad()` | Duplicate an ad |
 | `ad_campaigns.duplicate_ad_campaign()` | Duplicate a campaign |
 | `ad_campaigns.duplicate_ad_set()` | Duplicate an ad set |
+| `ad_campaigns.edit_campaign_negative_keyword_lists()` | Attach or detach campaign negative lists |
+| `ad_campaigns.edit_campaign_negative_keywords()` | Add or remove campaign-level negative keywords |
 | `ad_campaigns.edit_google_asset_group_assets()` | Link or unlink asset group assets |
 | `ad_campaigns.remove_ad_group_assets()` | Remove ad-group assets |
 | `ad_campaigns.remove_ad_keyword()` | Remove a Search keyword |
@@ -1112,6 +1124,16 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 |--------|-------------|
 | `content_retention.get_content_retention()` | Get content retention mode |
 | `content_retention.update_content_retention()` | Turn zero content retention on or off |
+
+### Conversion Audit
+| Method | Description |
+|--------|-------------|
+| `conversion_audit.list_conversion_audit_monitors()` | List watched domains |
+| `conversion_audit.create_conversion_audit_monitor()` | Watch a domain |
+| `conversion_audit.get_latest_conversion_audit()` | Get a host's latest stored conversion audit |
+| `conversion_audit.get_meta_conversion_audit()` | Audit a connected Meta pixel from inside Events Manager |
+| `conversion_audit.delete_conversion_audit_monitor()` | Stop watching a domain |
+| `conversion_audit.audit_conversion_tracking()` | Audit a site's ad conversion tracking |
 
 ### Conversions
 | Method | Description |

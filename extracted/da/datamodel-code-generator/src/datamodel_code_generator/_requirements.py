@@ -114,6 +114,7 @@ PydanticConstruct: TypeAlias = Literal[
     "pydantic.protected_namespaces",
     "pydantic.type_alias_module_namespace",
     "pydantic.annotated_forward_ref",
+    "pydantic.uuid_version_types",
     "pydantic.validate_by_name",
     "pydantic.validate_by_alias",
     "pydantic.serialize_by_alias",
@@ -254,6 +255,7 @@ _ROWS: Final[tuple[Requirement, ...]] = (
     Requirement("pydantic.protected_namespaces", "pydantic", "2.10"),
     Requirement("pydantic.type_alias_module_namespace", "pydantic", "2.10"),
     Requirement("pydantic.annotated_forward_ref", "pydantic", "2.11"),
+    Requirement("pydantic.uuid_version_types", "pydantic", "2.11", label="UUID6, UUID7 and UUID8"),
     Requirement(
         "pydantic.validate_by_name",
         "pydantic",
@@ -386,18 +388,15 @@ def refused_bytes_pattern_message(owners: Sequence[str]) -> str:
 
 def form_path(construct: Construct) -> str:
     """Return the import that ``construct`` writes on a target that has it."""
-    return _import_path(REQUIREMENTS[construct].form, construct)
+    path = REQUIREMENTS[construct].form
+    assert path is not None
+    return path
 
 
 def backport_path(construct: Construct) -> str:
     """Return the import that stands in for ``construct`` on a target before its minimum."""
-    return _import_path(REQUIREMENTS[construct].backport, construct)
-
-
-def _import_path(path: str | None, construct: Construct) -> str:
-    if path is None:  # pragma: no cover
-        msg = f"the requirement row {construct!r} names no such import"
-        raise LookupError(msg)
+    path = REQUIREMENTS[construct].backport
+    assert path is not None
     return path
 
 

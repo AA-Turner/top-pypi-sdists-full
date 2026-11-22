@@ -40,8 +40,8 @@ from .escape_sequences import (_SEQUENCE_CLASSIFY,
 
 # In 'parse' mode, strings longer than this are checked for cursor-movement
 # controls (BS, TAB, CR, cursor sequences); when absent, mode downgrades to
-# 'ignore' to skip character-by-character parsing. The detection scan cost is
-# negligible for long strings but wasted on short ones like labels or headings.
+# 'ignore' to skip character-by-character parsing. The detection scan is quick
+# for long strings but wasted on short ones like labels or headings.
 _WIDTH_FAST_PATH_MIN_LEN = 20
 
 # Translation table to strip C0/C1 control characters for fast 'ignore' mode.
@@ -83,7 +83,7 @@ def width(
     Return printable width of text containing many kinds of control codes and sequences.
 
     Unlike :func:`wcswidth`, this function handles most control characters and many popular terminal
-    output sequences.  Never returns -1.
+    output sequences.  The returned width is always non-negative.
 
     :param text: String to measure.
     :param control_codes: How to handle control characters and sequences:
@@ -218,6 +218,7 @@ def width(
     last_measured_ucs = -1
     last_measured_w = 0
     prev_was_virama = False
+    ri_unpaired = False
     _max_extent_before = 0
     cluster_start = -1
     col_before_cluster = 0
@@ -229,6 +230,8 @@ def width(
 
     while idx < text_len:
         char = text[idx]
+        ri_unpaired_before = ri_unpaired
+        ri_unpaired = False
 
         # 1. ESC sequences
         if char == '\x1b':
@@ -421,12 +424,8 @@ def width(
         # 7. Regional Indicator & Fitzpatrick (both above BMP)
         if ucs > 0xFFFF:
             if ucs in _REGIONAL_INDICATOR_SET:
-                ri_before = 0
-                j = idx - 1
-                while j >= 0 and ord(text[j]) in _REGIONAL_INDICATOR_SET:
-                    ri_before += 1
-                    j -= 1
-                if ri_before % 2 == 1 and not (_narrower and _bisearch(ucs, _narrower)):
+                ri_unpaired = not ri_unpaired_before
+                if ri_unpaired_before and not (_narrower and _bisearch(ucs, _narrower)):
                     last_measured_ucs = ucs
                     idx += 1
                     continue

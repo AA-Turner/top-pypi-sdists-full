@@ -2,17 +2,14 @@
 deployed in a region (``dreamscale endpoints`` and ``dreamscale checkpoints`` are the older
 names for the same commands).
 
-`deployments create hf://owner/repo` builds a deployment from a Hugging Face fine-tune with
-the embodiment it serves: a preset (`--preset bimanual_yam|so101`), the repo's own deployment
-adapter (detected), or your own shapes (`--camera key=view`, `--image-size HxW`, `--chunk`,
-`--hz`, ...), in `--region <id>` (a region from the server's list, e.g. us-west).
+`deployments create hf://owner/repo --base <base>` builds a deployment from a Hugging Face
+fine-tune (or a local folder) on one of the deployment bases (``deploy_bases``), with the
+robot it serves, in `--region <id>` (a region from the server's list, e.g. us-west).
 Dreamscale checks the architecture, builds the embodiment from the checkpoint's training stats
-and runs it once on a server before it serves.
-Run it with `dreamscale.connect("perceptron-isaac05", deployment="ckpt_…")`; a server starts
-when a robot connects. Mirrors sessions_cmd.py: async inner + sync wrapper, client closed in
-finally.
+and runs it once on a server before it serves; a server starts when a robot connects. Mirrors
+sessions_cmd.py: async inner + sync wrapper, client closed in finally.
 
-`--base pi0.5` deploys a π0.5 fine-tune (openpi or LeRobot) instead: a preset robot
+`--base pi0.5` (the default) deploys a π0.5 fine-tune (openpi or LeRobot) instead: a preset robot
 (`--preset bimanual_yam|so101|arx5|blank`) or `--camera key=slot`, the checkpoint
 (`--path checkpoints/55000`, default the latest), its geometry and its RTC method, each
 detected from the repo where it can be and editable. Run it with
@@ -38,25 +35,20 @@ from dreamscale import deploy_bases, errors, local_checkpoint, tables
 from dreamscale.config import load_config
 from dreamscale.control import ControlPlaneClient
 from dreamscale.deploy_bases import Base  # noqa: F401 - its CLI name
-from dreamscale.deploy_bases.isaac05_legacy import CLI_ALIAS
 from dreamscale.integrations import hugging_face
 from dreamscale.model_names import internal_model, is_account_ref, public_model
 from dreamscale.policy.deployment import joint_actions
 
-DEFAULT_MODEL = "perceptron-isaac05-yam"
 # A deployment's slug (the control plane's rule): what a bare name must look like to be one.
 _SLUG = re.compile(r"[a-z0-9][a-z0-9.-]{1,46}[a-z0-9]")
 _DEPLOYMENT_ID = re.compile(r"ckpt_[0-9a-f]{24}")
-BASE_MODEL = "perceptron-isaac05"
 POLL_S = 5.0
-PRESETS = ("bimanual_yam", "so101")
 # A region id as the server names them (us-west, japan, …); the server says which are live.
 _REGION_ID = re.compile(r"^[a-z][a-z0-9-]{0,30}[a-z0-9]$")
 # Where control planes from before regions built every deployment.
 DEFAULT_REGION = "us-west"
 # `--region auto` (the default): the nearest region the base serves, measured from here.
 AUTO_REGION = "auto"
-ISAAC = CLI_ALIAS
 # Every name `--base` takes (aliases too), each base's presets and build steps, and its label:
 # one per deployment base (deploy_bases).
 _BASE_NAMES = deploy_bases.names()
@@ -119,15 +111,14 @@ def base_name_of(checkpoint: dict) -> str | None:
     doesn't know (a newer control plane's), which is never treated as another base."""
     model = checkpoint.get("base_model") or checkpoint.get("model")
     for base in deploy_bases.BASES:
-        if (base.claims_model and model == base.name) or model in base.row_models:
+        if base.claims_model and model == base.name:
             return base.name
     claimed = deploy_bases.claiming(checkpoint)
     if claimed is not None:
         return claimed.name
     named = checkpoint.get("base_model")
     if named is None:
-        # Early endpoint records could omit all model and format fields.
-        return BASE_MODEL if not model and not checkpoint.get("source_format") else None
+        return None
     return _BASE_NAMES.get(internal_model(str(named)).lower())
 
 
@@ -605,68 +596,6 @@ def parse_cameras(values: list[str] | None) -> list[dict] | None:
     return cameras
 
 
-def parse_image_size(value: str | None) -> list[int] | None:
-    """`--image-size HxW` (height first, as the model's image_hw)."""
-    if not value:
-        return None
-    height, sep, width = value.lower().partition("x")
-    if not sep or not height.isdigit() or not width.isdigit():
-        raise ValueError(f"--image-size takes HEIGHTxWIDTH (e.g. 360x640), got {value!r}")
-    return [int(height), int(width)]
-
-
-def build_embodiment(
-    *,
-    preset: str | None,
-    detected: dict | None,
-    cameras: list[dict] | None = None,
-    image_size: list[int] | None = None,
-    action_dim: int | None = None,
-    state_dim: int | None = None,
-    chunk: int | None = None,
-    hz: float | None = None,
-    dataset: str | None = None,
-    context: int | None = None,
-) -> dict:
-    """A preset or the repo's detected embodiment, with any flags on top (the control
-    plane fills a preset's fields; editing any of them makes the embodiment custom)."""
-    if preset not in (None, "custom", *PRESETS):
-        raise ValueError(f"--preset is one of {', '.join(PRESETS)} or custom")
-    base: dict = {"preset": preset} if preset in PRESETS else dict(detected or {})
-    overrides = {
-        "cameras": cameras, "image_size": image_size, "action_dim": action_dim,
-        "state_dim": state_dim, "executed_actions": chunk, "action_hz": hz,
-        "dataset": dataset, "n_obs_steps": context,
-    }
-    embodiment = {**base, **{k: v for k, v in overrides.items() if v is not None}}
-    if dataset is not None and dataset != base.get("dataset"):
-        # Another dataset has its own stats entries; the detected scope no longer applies.
-        embodiment.pop("normalization_scope", None)
-    if preset == "custom" or (preset not in PRESETS and embodiment):
-        embodiment["preset"] = "custom"
-    if not embodiment.get("preset") or (
-        embodiment["preset"] == "custom"
-        and not all(embodiment.get(k) for k in ("cameras", "image_size", "dataset"))
-    ):
-        raise ValueError(
-            "name the robot: --preset bimanual_yam|so101, or a repo with a deployment "
-            "adapter, or --camera key=view ... --image-size HxW --dataset NAME"
-        )
-    return embodiment
-
-
-def detect_embodiment(
-    *,
-    repo: str,
-    revision: str | None,
-    hf_token: str | None,
-    client_factory: Callable[..., Any] = ControlPlaneClient,
-) -> dict | None:
-    token = hugging_face.token(hf_token)
-    _, found = _inspect_with_status(client_factory, repo, revision, token, print)
-    return found.get("detected")
-
-
 def _inspect_with_status(
     client_factory: Callable[..., Any],
     repo: str,
@@ -674,18 +603,14 @@ def _inspect_with_status(
     token: str | None,
     print_fn: Callable[[str], None],
     *,
-    base: str = BASE_MODEL,
+    base: str,
     path: str | None = None,
 ) -> tuple[str, dict]:
     """Inspect, with a ticking line while the repo is read (a cold read takes a while).
     Returns the base the repo was read as, and what the server found."""
     printer, _ = _printer(print_fn)
     try:
-        printer(
-            f"Reading {repo}'s deployment adapter and training stats: 0s elapsed"
-            if base == BASE_MODEL
-            else f"Reading {repo}'s checkpoint and training stats: 0s elapsed"
-        )
+        printer(f"Reading {repo}'s checkpoint and training stats: 0s elapsed")
         return asyncio.run(_inspect_as(client_factory, repo, revision, token, base, path))
     finally:
         if printer is not print_fn:
@@ -747,14 +672,6 @@ def _upload_checkpoint(
                          **({"base_model": base_model} if base_model is not None else {}))
 
 
-def _may_be_another_base(error: errors.DreamscaleError) -> bool:
-    """A π0.5 refusal that another base might read (not auth, credits or an outage)."""
-    return not (
-        isinstance(error, errors.AuthError | errors.CreditsError | errors.ServerError)
-        or error.code in ("rate_limited", "deployments_unavailable")
-    )
-
-
 async def _inspect_as(
     client_factory: Callable[..., Any],
     repo: str,
@@ -769,10 +686,6 @@ async def _inspect_as(
             return base, await client.inspect_endpoint_repo(
                 repo, revision=revision, hf_token=token, model=base,
                 **({"path": path} if path is not None else {}),
-            )
-        if base == BASE_MODEL:
-            return BASE_MODEL, await client.inspect_endpoint_repo(
-                repo, revision=revision, hf_token=token
             )
         # Any other (auto too): the Detect of the base named, if it has one, else the
         # default base's.
@@ -930,7 +843,7 @@ def run_inspect(
 def run_add(
     *,
     repo: str | None,
-    model: str = DEFAULT_MODEL,
+    model: str,
     revision: str | None = None,
     name: str | None = None,
     hf_token: str | None = None,
@@ -1367,12 +1280,10 @@ async def _use(client_factory: Callable[..., Any], checkpoint: str, model: str |
     client = _client(client_factory)
     try:
         if model is None:
-            # A checkpoint belongs to one model; `base` without --model means the default model.
-            model = (
-                DEFAULT_MODEL
-                if checkpoint == "base"
-                else (await client.get_checkpoint(checkpoint))["model"]
-            )
+            # A checkpoint belongs to one model; `base` names none of its own.
+            if checkpoint == "base":
+                raise _invalid("`base` belongs to no one model", "add --model <model>")
+            model = (await client.get_checkpoint(checkpoint))["model"]
         return await client.set_default_checkpoint(model, checkpoint)
     finally:
         await client.close()

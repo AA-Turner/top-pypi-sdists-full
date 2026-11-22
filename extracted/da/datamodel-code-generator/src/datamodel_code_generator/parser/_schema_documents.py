@@ -34,14 +34,15 @@ from urllib.parse import ParseResult, unquote, urljoin, urlparse
 
 from typing_extensions import Protocol
 
-from datamodel_code_generator import Error, InvalidClassNameError, InvalidFileFormatError, JsonSchemaVersion
 from datamodel_code_generator._document_reader import member_key, refuse_oversized_document
 from datamodel_code_generator._json_pointer import document_part, is_pointer_fragment, pointer_tokens
 from datamodel_code_generator._json_schema import DEFINITION_KEYS, NAMESPACE_DEFINITION_KEYS, subschema_entries
 from datamodel_code_generator._openapi_objects import held_schemas
 from datamodel_code_generator._paths import file_uri, file_uri_path, files_under
+from datamodel_code_generator._shared_types import Error, InvalidClassNameError, InvalidFileFormatError
 from datamodel_code_generator._source import _load_parser_source_data_from_path_bytes, load_data
 from datamodel_code_generator._url_redaction import redact_url
+from datamodel_code_generator.enums import JsonSchemaVersion
 from datamodel_code_generator.parser._null_facts import dump_null_sources, resolve_null_facts
 from datamodel_code_generator.parser._schema_graph import (
     ConvertedRefs,
@@ -531,7 +532,7 @@ class SchemaDocumentsHost(SchemaResourcesHost, Protocol):
     def _parse_dynamic_specializations(self) -> None:
         """Parse pending specialized models iteratively, outside of any specialization being parsed."""
 
-    def _parse_file(  # noqa: PLR0913
+    def _parse_file(
         self,
         raw: dict[str, Any],
         obj_name: str,
@@ -716,7 +717,7 @@ def load_ref_data_from_local_http_file(parser: SchemaDocumentsHost, path: Path, 
 def get_ref_body_from_local_http_path(parser: SchemaDocumentsHost, ref: str) -> dict[str, YamlValue]:
     assert parser.http_local_ref_path is not None
     parsed = urlparse(ref)
-    if parsed.scheme not in {"http", "https"}:  # pragma: no cover
+    if parsed.scheme not in {"http", "https"}:  # pragma: no cover - not proven unreachable
         msg = f"Unsupported local HTTP $ref URL: {redact_url(ref)}"
         raise Error(msg)
 
@@ -995,7 +996,7 @@ def loads_document(parser: SchemaResourcesHost, absolute: str) -> bool:
     return file_uri_path(document_part(absolute)).is_file()
 
 
-def rewrite_schema_resource_refs(  # noqa: PLR0913, PLR0917
+def rewrite_schema_resource_refs(  # noqa: PLR0917
     parser: SchemaDocumentsHost,
     schema: dict[str, Any],
     document: str,

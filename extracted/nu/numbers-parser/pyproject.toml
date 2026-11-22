@@ -24,7 +24,7 @@ classifiers = [
 description = "Read and write Apple Numbers spreadsheets"
 name = "numbers-parser"
 readme = "README.md"
-version = "4.23.1"
+version = "4.23.2"
 
 [project.urls]
 repository = "https://github.com/masaccio/numbers-parser"
@@ -80,10 +80,11 @@ bootstrap = [
     "mypy-protobuf>=5.1.0",
 ]
 visualcheck = [
+    "coverage>=7.14.0",
     "osascript>=0.0.27",
     "pillow>=13.0.0",
     "pixelmatch>=0.4.0",
-    "pymupdf>=1.28.2",
+    "pymupdf-lite>=2.1",
     "rich>=15.0.0",
 ]
 

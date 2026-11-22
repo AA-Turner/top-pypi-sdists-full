@@ -109,6 +109,7 @@ from bitfab.replay_branch import DbBranchOptions, ReplayBranch
 from bitfab.replay_interrupt import ReplayInterrupt
 from bitfab.sandbox import SANDBOX_FIXTURE_PREFIX, SANDBOX_SESSION_KEY, Sandbox
 from bitfab.sandbox_modes import SandboxModeSetting
+from bitfab.sandbox_stores import SandboxStoresClient
 from bitfab.selective_replay import SelectiveReplayOptions, json_fingerprint
 from bitfab.serialize import (
     exceeds_readable_budget,
@@ -1549,6 +1550,7 @@ class Bitfab:
         self.verdicts = VerdictsClient(self.http_client)
         self.graders = GradersClient(self.http_client)
         self.experiments = ExperimentsClient(self.http_client)
+        self.sandbox_stores = SandboxStoresClient(self.http_client)
         # Overrides registered via register_mock_override(); applied to every
         # replay after any per-call mock_override (per-call wins). See replay().
         self._mock_overrides: list[MockOverride] = []
@@ -2390,6 +2392,7 @@ class Bitfab:
         mock_override: Union[MockOverrideInput, list[MockOverrideInput]] | None = None,
         sandboxes: list[Sandbox] | None = None,
         sandbox_modes: Mapping[str, SandboxModeSetting] | None = None,
+        sandbox_store: str | None = None,
         experimental_selective_replay: SelectiveReplayOptions | None = None,
         adapt_inputs: Callable[
             [list[Any], dict[str, Any], AdaptContext], tuple[list[Any], dict[str, Any]]
@@ -2583,6 +2586,14 @@ class Bitfab:
                 keeps the mode it runs in without this option (Gmail:
                 ``"recorded"``). A sandbox set here cannot also be passed in
                 ``sandboxes``.
+            sandbox_store: The name of a sandbox store to replay against
+                (see :attr:`sandbox_stores`). Each trace has its own state in
+                the store: a sandbox starts from the replayed trace's state
+                for it, else from the store's seed, else from the original
+                trace, and writes its end state back for that trace when the
+                item finishes, so the next replay of the same trace sees it.
+                Replay traces are linked to the store. ``None`` (default)
+                keeps each sandbox's state to its item.
             experimental_selective_replay: Opt-in must_run manifest. The
                 server protects required subtrees and ancestors, combining them
                 with each trace's assertions and recorded
@@ -2715,6 +2726,7 @@ class Bitfab:
             mock_override=mock_override,
             sandboxes=sandboxes,
             sandbox_modes=sandbox_modes,
+            sandbox_store=sandbox_store,
             experimental_selective_replay=experimental_selective_replay,
             adapt_inputs=adapt_inputs,
             db_branch=db_branch,

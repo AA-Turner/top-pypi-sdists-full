@@ -2593,10 +2593,15 @@ def reads_bare_aggregate(
 
 
 def window_orders_by_bare_aggregate(window: Any, environment: Environment) -> bool:
-    """A window ordered by an aggregate with no `by`: its order is read at the
-    select grain, so the window is a value per select-grain tuple."""
-    return isinstance(window, (NumberingWindowItem, NavigationWindowItem)) and any(
-        reads_bare_aggregate(o.expr, environment) for o in window.order_by
+    """A window ordered by, or reading, an aggregate with no `by`: that value
+    is read at the select grain, so the window is a value per select-grain
+    tuple."""
+    if not isinstance(window, (NumberingWindowItem, NavigationWindowItem)):
+        return False
+    if any(reads_bare_aggregate(o.expr, environment) for o in window.order_by):
+        return True
+    return isinstance(window, NavigationWindowItem) and reads_bare_aggregate(
+        window.content, environment
     )
 
 
@@ -3548,6 +3553,27 @@ class UnionSelectLineage(MultiSelectLineage):
             ConceptRef(address=item.aligned_concept, datatype=DataType.UNKNOWN)
             for item in self.align.items
         ]
+
+
+@dataclass
+class RollupSelectLineage(UnionSelectLineage):
+    """Relational `rollup`/`cube`/`grouping sets` TVF: the rows of ONE arm
+    select computed at every grouping set of its `by rollup (...)` spec.
+
+    Its outputs are new concepts bound positionally to the arm's columns: a
+    rolled key is a dimension of this relation whose subtotal NULL is a value,
+    so nothing outside the arm tracks grouping-set padding. `grouping` is the
+    arm's spec, in arm addresses."""
+
+    grouping: AggregateGrouping | None = None
+
+    def with_namespace(self, namespace: str) -> RollupSelectLineage:
+        base = super().with_namespace(namespace)
+        assert isinstance(base, RollupSelectLineage)
+        base.grouping = (
+            self.grouping.with_namespace(namespace) if self.grouping else None
+        )
+        return base
 
 
 @dataclass

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pgqueuer
-Version: 2.0.0
+Version: 2.1.0
 Summary: PostgreSQL-backed background job and task queue for Python.
 Author: JeyBee
 License: MIT License

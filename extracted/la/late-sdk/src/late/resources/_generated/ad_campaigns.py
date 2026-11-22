@@ -351,6 +351,7 @@ class AdCampaignsResource:
         ad_set_id: str,
         keywords: list[Any],
         *,
+        idempotency_key: str | None = None,
         negative: bool | None = False,
     ) -> dict[str, Any]:
         """Add Search ad-group keywords"""
@@ -362,12 +363,16 @@ class AdCampaignsResource:
                 "negative": negative,
             }
         )
-        return self._client._post("/v1/ads/keywords", data=payload)
+        headers: dict[str, str] = {}
+        if idempotency_key is not None:
+            headers["Idempotency-Key"] = idempotency_key
+        return self._client._post("/v1/ads/keywords", data=payload, headers=headers)
 
     def update_ad_keyword(
         self,
         keyword_id: str,
         *,
+        idempotency_key: str | None = None,
         status: str | None = None,
         cpc_bid: float | None = None,
     ) -> dict[str, Any]:
@@ -380,7 +385,9 @@ class AdCampaignsResource:
         )
         return self._client._patch(f"/v1/ads/keywords/{keyword_id}", data=payload)
 
-    def remove_ad_keyword(self, keyword_id: str) -> dict[str, Any]:
+    def remove_ad_keyword(
+        self, keyword_id: str, *, idempotency_key: str | None = None
+    ) -> dict[str, Any]:
         """Remove a Search keyword"""
         return self._client._delete(f"/v1/ads/keywords/{keyword_id}")
 
@@ -487,7 +494,12 @@ class AdCampaignsResource:
         return self._client._post("/v1/ads/campaigns", data=payload, headers=headers)
 
     def update_ad_campaign_status(
-        self, campaign_id: str, status: str, platform: str
+        self,
+        campaign_id: str,
+        status: str,
+        platform: str,
+        *,
+        idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         """Pause or resume a campaign"""
         payload = self._build_body(
@@ -576,6 +588,7 @@ class AdCampaignsResource:
         campaign_id: str,
         platform: str,
         *,
+        idempotency_key: str | None = None,
         account_id: str | None = None,
         bid_strategy: Any | None = None,
         bid_amount: float | None = None,
@@ -647,7 +660,12 @@ class AdCampaignsResource:
         )
 
     def replace_campaign_negative_keywords(
-        self, campaign_id: str, keywords: list[Any], *, platform: str | None = None
+        self,
+        campaign_id: str,
+        keywords: list[Any],
+        *,
+        idempotency_key: str | None = None,
+        platform: str | None = None,
     ) -> dict[str, Any]:
         """Replace campaign-level negative keywords"""
         payload = self._build_body(
@@ -660,8 +678,33 @@ class AdCampaignsResource:
             f"/v1/ads/campaigns/{campaign_id}/negative-keywords", data=payload
         )
 
+    def edit_campaign_negative_keywords(
+        self,
+        campaign_id: str,
+        *,
+        idempotency_key: str | None = None,
+        platform: str | None = None,
+        add: list[Any] | None = None,
+        remove: list[Any] | None = None,
+    ) -> dict[str, Any]:
+        """Add or remove campaign-level negative keywords"""
+        payload = self._build_body(
+            {
+                "platform": platform,
+                "add": add,
+                "remove": remove,
+            }
+        )
+        return self._client._patch(
+            f"/v1/ads/campaigns/{campaign_id}/negative-keywords", data=payload
+        )
+
     def bulk_update_ad_campaign_status(
-        self, status: str, campaigns: list[dict[str, Any]]
+        self,
+        status: str,
+        campaigns: list[dict[str, Any]],
+        *,
+        idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         """Pause or resume many campaigns"""
         payload = self._build_body(
@@ -670,7 +713,12 @@ class AdCampaignsResource:
                 "campaigns": campaigns,
             }
         )
-        return self._client._post("/v1/ads/campaigns/bulk-status", data=payload)
+        headers: dict[str, str] = {}
+        if idempotency_key is not None:
+            headers["Idempotency-Key"] = idempotency_key
+        return self._client._post(
+            "/v1/ads/campaigns/bulk-status", data=payload, headers=headers
+        )
 
     def duplicate_ad_campaign(
         self,
@@ -904,6 +952,7 @@ class AdCampaignsResource:
         ad_set_id: str,
         platform: str,
         *,
+        idempotency_key: str | None = None,
         budget: dict[str, Any] | None = None,
         status: str | None = None,
         name: str | None = None,
@@ -967,7 +1016,12 @@ class AdCampaignsResource:
         )
 
     def update_ad_set_status(
-        self, ad_set_id: str, status: str, platform: str
+        self,
+        ad_set_id: str,
+        status: str,
+        platform: str,
+        *,
+        idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         """Pause or resume a single ad set"""
         payload = self._build_body(
@@ -1099,9 +1153,12 @@ class AdCampaignsResource:
         self,
         ad_id: str,
         *,
+        idempotency_key: str | None = None,
         headlines: list[Any] | None = None,
         descriptions: list[Any] | None = None,
         final_urls: list[str] | None = None,
+        path1: str | None = None,
+        path2: str | None = None,
         asset_group: Any | None = None,
         demand_gen: Any | None = None,
         status: str | None = None,
@@ -1116,6 +1173,8 @@ class AdCampaignsResource:
                 "headlines": headlines,
                 "descriptions": descriptions,
                 "finalUrls": final_urls,
+                "path1": path1,
+                "path2": path2,
                 "assetGroup": asset_group,
                 "demandGen": demand_gen,
                 "status": status,
@@ -1131,7 +1190,9 @@ class AdCampaignsResource:
         """Cancel an ad"""
         return self._client._delete(f"/v1/ads/{ad_id}")
 
-    def update_ad_status(self, ad_id: str, status: str) -> dict[str, Any]:
+    def update_ad_status(
+        self, ad_id: str, status: str, *, idempotency_key: str | None = None
+    ) -> dict[str, Any]:
         """Pause or resume a single ad"""
         payload = self._build_body(
             {
@@ -1395,7 +1456,12 @@ class AdCampaignsResource:
         )
 
     def replace_campaign_negative_keyword_lists(
-        self, campaign_id: str, list_ids: list[str], *, platform: str | None = None
+        self,
+        campaign_id: str,
+        list_ids: list[str],
+        *,
+        idempotency_key: str | None = None,
+        platform: str | None = None,
     ) -> dict[str, Any]:
         """Replace campaign negative lists"""
         payload = self._build_body(
@@ -1405,6 +1471,27 @@ class AdCampaignsResource:
             }
         )
         return self._client._put(
+            f"/v1/ads/campaigns/{campaign_id}/negative-keyword-lists", data=payload
+        )
+
+    def edit_campaign_negative_keyword_lists(
+        self,
+        campaign_id: str,
+        *,
+        idempotency_key: str | None = None,
+        platform: str | None = None,
+        add: list[str] | None = None,
+        remove: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Attach or detach campaign negative lists"""
+        payload = self._build_body(
+            {
+                "platform": platform,
+                "add": add,
+                "remove": remove,
+            }
+        )
+        return self._client._patch(
             f"/v1/ads/campaigns/{campaign_id}/negative-keyword-lists", data=payload
         )
 
@@ -2214,6 +2301,7 @@ class AdCampaignsResource:
         ad_set_id: str,
         keywords: list[Any],
         *,
+        idempotency_key: str | None = None,
         negative: bool | None = False,
     ) -> dict[str, Any]:
         """Add Search ad-group keywords (async)"""
@@ -2225,12 +2313,18 @@ class AdCampaignsResource:
                 "negative": negative,
             }
         )
-        return await self._client._apost("/v1/ads/keywords", data=payload)
+        headers: dict[str, str] = {}
+        if idempotency_key is not None:
+            headers["Idempotency-Key"] = idempotency_key
+        return await self._client._apost(
+            "/v1/ads/keywords", data=payload, headers=headers
+        )
 
     async def aupdate_ad_keyword(
         self,
         keyword_id: str,
         *,
+        idempotency_key: str | None = None,
         status: str | None = None,
         cpc_bid: float | None = None,
     ) -> dict[str, Any]:
@@ -2245,7 +2339,9 @@ class AdCampaignsResource:
             f"/v1/ads/keywords/{keyword_id}", data=payload
         )
 
-    async def aremove_ad_keyword(self, keyword_id: str) -> dict[str, Any]:
+    async def aremove_ad_keyword(
+        self, keyword_id: str, *, idempotency_key: str | None = None
+    ) -> dict[str, Any]:
         """Remove a Search keyword (async)"""
         return await self._client._adelete(f"/v1/ads/keywords/{keyword_id}")
 
@@ -2354,7 +2450,12 @@ class AdCampaignsResource:
         )
 
     async def aupdate_ad_campaign_status(
-        self, campaign_id: str, status: str, platform: str
+        self,
+        campaign_id: str,
+        status: str,
+        platform: str,
+        *,
+        idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         """Pause or resume a campaign (async)"""
         payload = self._build_body(
@@ -2445,6 +2546,7 @@ class AdCampaignsResource:
         campaign_id: str,
         platform: str,
         *,
+        idempotency_key: str | None = None,
         account_id: str | None = None,
         bid_strategy: Any | None = None,
         bid_amount: float | None = None,
@@ -2520,7 +2622,12 @@ class AdCampaignsResource:
         )
 
     async def areplace_campaign_negative_keywords(
-        self, campaign_id: str, keywords: list[Any], *, platform: str | None = None
+        self,
+        campaign_id: str,
+        keywords: list[Any],
+        *,
+        idempotency_key: str | None = None,
+        platform: str | None = None,
     ) -> dict[str, Any]:
         """Replace campaign-level negative keywords (async)"""
         payload = self._build_body(
@@ -2533,8 +2640,33 @@ class AdCampaignsResource:
             f"/v1/ads/campaigns/{campaign_id}/negative-keywords", data=payload
         )
 
+    async def aedit_campaign_negative_keywords(
+        self,
+        campaign_id: str,
+        *,
+        idempotency_key: str | None = None,
+        platform: str | None = None,
+        add: list[Any] | None = None,
+        remove: list[Any] | None = None,
+    ) -> dict[str, Any]:
+        """Add or remove campaign-level negative keywords (async)"""
+        payload = self._build_body(
+            {
+                "platform": platform,
+                "add": add,
+                "remove": remove,
+            }
+        )
+        return await self._client._apatch(
+            f"/v1/ads/campaigns/{campaign_id}/negative-keywords", data=payload
+        )
+
     async def abulk_update_ad_campaign_status(
-        self, status: str, campaigns: list[dict[str, Any]]
+        self,
+        status: str,
+        campaigns: list[dict[str, Any]],
+        *,
+        idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         """Pause or resume many campaigns (async)"""
         payload = self._build_body(
@@ -2543,7 +2675,12 @@ class AdCampaignsResource:
                 "campaigns": campaigns,
             }
         )
-        return await self._client._apost("/v1/ads/campaigns/bulk-status", data=payload)
+        headers: dict[str, str] = {}
+        if idempotency_key is not None:
+            headers["Idempotency-Key"] = idempotency_key
+        return await self._client._apost(
+            "/v1/ads/campaigns/bulk-status", data=payload, headers=headers
+        )
 
     async def aduplicate_ad_campaign(
         self,
@@ -2779,6 +2916,7 @@ class AdCampaignsResource:
         ad_set_id: str,
         platform: str,
         *,
+        idempotency_key: str | None = None,
         budget: dict[str, Any] | None = None,
         status: str | None = None,
         name: str | None = None,
@@ -2842,7 +2980,12 @@ class AdCampaignsResource:
         )
 
     async def aupdate_ad_set_status(
-        self, ad_set_id: str, status: str, platform: str
+        self,
+        ad_set_id: str,
+        status: str,
+        platform: str,
+        *,
+        idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         """Pause or resume a single ad set (async)"""
         payload = self._build_body(
@@ -2976,9 +3119,12 @@ class AdCampaignsResource:
         self,
         ad_id: str,
         *,
+        idempotency_key: str | None = None,
         headlines: list[Any] | None = None,
         descriptions: list[Any] | None = None,
         final_urls: list[str] | None = None,
+        path1: str | None = None,
+        path2: str | None = None,
         asset_group: Any | None = None,
         demand_gen: Any | None = None,
         status: str | None = None,
@@ -2993,6 +3139,8 @@ class AdCampaignsResource:
                 "headlines": headlines,
                 "descriptions": descriptions,
                 "finalUrls": final_urls,
+                "path1": path1,
+                "path2": path2,
                 "assetGroup": asset_group,
                 "demandGen": demand_gen,
                 "status": status,
@@ -3008,7 +3156,9 @@ class AdCampaignsResource:
         """Cancel an ad (async)"""
         return await self._client._adelete(f"/v1/ads/{ad_id}")
 
-    async def aupdate_ad_status(self, ad_id: str, status: str) -> dict[str, Any]:
+    async def aupdate_ad_status(
+        self, ad_id: str, status: str, *, idempotency_key: str | None = None
+    ) -> dict[str, Any]:
         """Pause or resume a single ad (async)"""
         payload = self._build_body(
             {
@@ -3280,7 +3430,12 @@ class AdCampaignsResource:
         )
 
     async def areplace_campaign_negative_keyword_lists(
-        self, campaign_id: str, list_ids: list[str], *, platform: str | None = None
+        self,
+        campaign_id: str,
+        list_ids: list[str],
+        *,
+        idempotency_key: str | None = None,
+        platform: str | None = None,
     ) -> dict[str, Any]:
         """Replace campaign negative lists (async)"""
         payload = self._build_body(
@@ -3290,6 +3445,27 @@ class AdCampaignsResource:
             }
         )
         return await self._client._aput(
+            f"/v1/ads/campaigns/{campaign_id}/negative-keyword-lists", data=payload
+        )
+
+    async def aedit_campaign_negative_keyword_lists(
+        self,
+        campaign_id: str,
+        *,
+        idempotency_key: str | None = None,
+        platform: str | None = None,
+        add: list[str] | None = None,
+        remove: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Attach or detach campaign negative lists (async)"""
+        payload = self._build_body(
+            {
+                "platform": platform,
+                "add": add,
+                "remove": remove,
+            }
+        )
+        return await self._client._apatch(
             f"/v1/ads/campaigns/{campaign_id}/negative-keyword-lists", data=payload
         )
 

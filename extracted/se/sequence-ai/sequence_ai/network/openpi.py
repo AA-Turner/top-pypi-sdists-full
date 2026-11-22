@@ -102,10 +102,10 @@ class Kept:
 
 def connect(host: str = "0.0.0.0", port: Optional[int] = None, *, api_key: Optional[str] = None,
             wait_s: float = 600.0) -> Any:
-    """openpi_client's WebsocketClientPolicy(host, port, api_key), made once its server answers the handshake. openpi_client
-    waits for a server that is not listening yet; this waits as well for one that listens and has not answered yet -
-    loading its policy, or running another robot's first inference on its event loop - which openpi_client gives up on
-    at once with TimeoutError. TimeoutError past `wait_s` seconds."""
+    """openpi_client's WebsocketClientPolicy(host, port, api_key), made once its server answers the handshake.
+    openpi_client waits for a server that is not listening yet; this waits as well for one that listens and has not
+    answered yet - loading its policy, or running another robot's first inference on its event loop - which
+    openpi_client gives up on at once with TimeoutError. TimeoutError past `wait_s` seconds."""
     from openpi_client import websocket_client_policy
 
     end = time.monotonic() + wait_s
@@ -309,8 +309,9 @@ def patch(*, every_s: float = ping.EVERY_S, timeout_s: Optional[float] = None, s
 USAGE = """usage: python -m sequence_ai.network.openpi SCRIPT [ARGUMENTS...]
 
 Runs SCRIPT - openpi's scripts/serve_policy.py, unchanged - as `python SCRIPT ARGUMENTS...` runs it, with openpi's
-policy server changed first (patch()): each robot pinged every 100 ms while no inference runs, and each picture a robot sends as JPEG handed to
-the policy as the array it reads. Run it where openpi's server runs, from its repository and in its environment:
+policy server changed first (patch()): each robot pinged every 100 ms while no inference runs, and each picture a robot
+sends as JPEG handed to the policy as the array it reads. Run it where openpi's server runs, from its repository and in
+its environment:
 
     uv run python -m sequence_ai.network.openpi scripts/serve_policy.py --env=DROID"""
 

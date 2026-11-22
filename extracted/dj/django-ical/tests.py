@@ -6,11 +6,10 @@ def main():
     """
     Standalone Django model test with a 'memory-only-django-installation'.
     You can play with a django model without a complete django app installation.
-    http://www.djangosnippets.org/snippets/1044/
+    https://djangosnippets.org/snippets/1044/
     """
 
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "test_settings")
-    print(os.environ)
 
     import django
     from django.conf import settings

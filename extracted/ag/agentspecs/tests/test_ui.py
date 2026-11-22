@@ -8,7 +8,7 @@ Every UI spec is one plugin of agent-runtimes, well formed, and names only
 renderers of the ``ui-renderers`` catalogue; every renderer is well formed;
 the old shape — a renderer listed as a UI — is refused wherever it is said,
 with no compatibility reading. That each UI spec is its plugin's registration,
-and each plugin of the Loop editor has one, is agent-runtimes' test
+and each plugin of the Agent editor has one, is agent-runtimes' test
 (``src/apps/__tests__/ui-specs.test.ts``): the registrations are there.
 """
 
@@ -54,8 +54,39 @@ def test_a_ui_spec_is_a_reactor_plugin_named_for_its_file():
     folders = [spec.folder for spec in catalogue.values()]
     assert len(set(folders)) == len(folders)
     for spec in catalogue.values():
-        assert spec.plugin.startswith("@datalayer/loop-plugin-"), spec.id
+        assert spec.plugin.startswith("@datalayer/agent-plugin-"), spec.id
         assert spec.name and spec.description.strip() and spec.emoji, spec.id
+
+
+def test_a_ui_spec_says_where_its_plugin_is():
+    """Each spec names its implementation: the package, a module under the plugin's folder, the export.
+
+    A plugin registered per instance is exported as what makes it: a factory per
+    application, a list per source or UI spec.
+    """
+    for spec in ui.UI_CATALOGUE.values():
+        implementation = spec.implementation
+        assert implementation.package == "@datalayer/agent-runtimes", spec.id
+        assert implementation.module == f"lib/apps/plugins/{spec.folder}", spec.id
+        assert implementation.export, spec.id
+        assert implementation.backend is None, spec.id
+    assert ui.UI_CATALOGUE["chat"].implementation.export == "ChatPlugin"
+    assert ui.UI_CATALOGUE["app-page"].implementation.kind is ui.UiImplementationKind.FACTORY
+    assert ui.UI_CATALOGUE["canvas-parts"].implementation.kind is ui.UiImplementationKind.PLUGINS
+
+
+def test_a_ui_spec_may_name_its_backend_plugin():
+    good = _yaml("ui", "a2ui-surface")
+    spec = ui.UiSpec.model_validate(
+        {
+            **good,
+            "implementation": {
+                **good["implementation"],
+                "backend": {"package": "agent-runtimes", "entry_point": "agent_runtimes.reactor_extension:plugin"},
+            },
+        }
+    )
+    assert spec.implementation.backend.entry_point == "agent_runtimes.reactor_extension:plugin"
 
 
 def test_only_a2ui_surface_renders_the_catalog_of_components():
@@ -79,6 +110,67 @@ def test_the_schema_and_the_reference_are_the_specs():
         ({"plugin": "chat"}, "not the name of a Reactor plugin"),
         ({"settings": {"type": "string"}}, "JSON Schema of an object"),
         ({"enabled": True}, "Extra inputs"),
+        ({"implementation": {"package": "Not A Package", "module": "lib/x", "export": "X"}}, "not an npm package"),
+        ({"implementation": {"package": "@a/b", "module": "./lib/x", "export": "X"}}, "not a module path"),
+        ({"implementation": {"package": "@a/b", "module": "lib/x.ts", "export": "X"}}, "not a module path"),
+        ({"implementation": {"package": "@a/b", "module": "lib/x", "export": "not-a-name"}}, "not a JavaScript export"),
+        (
+            {
+                "implementation": {
+                    "package": "@a/b",
+                    "module": "lib/x",
+                    "export": "X",
+                    "backend": {"package": "b", "entry_point": "no colon"},
+                }
+            },
+            "not an entry point",
+        ),
+        (
+            {
+                "implementation": {
+                    "package": "@a/b",
+                    "module": "lib/x",
+                    "export": "X",
+                    "backend": {"package": "b", "entry_point": "agent_runtimes..reactor_extension:plugin"},
+                }
+            },
+            "not an entry point",
+        ),
+        (
+            {
+                "implementation": {
+                    "package": "@a/b",
+                    "module": "lib/x",
+                    "export": "X",
+                    "backend": {"package": "b", "entry_point": "agent_runtimes.reactor_extension:plugin."},
+                }
+            },
+            "not an entry point",
+        ),
+        (
+            {
+                "implementation": {
+                    "package": "@a/b",
+                    "module": "lib/x",
+                    "export": "X",
+                    "backend": {"package": "b", "entry_point": ".a:b"},
+                }
+            },
+            "not an entry point",
+        ),
+        (
+            {
+                "implementation": {
+                    "package": "@a/b",
+                    "module": "lib/x",
+                    "export": "X",
+                    "backend": {"package": "b", "entry_point": "a:.b"},
+                }
+            },
+            "not an entry point",
+        ),
+        ({"per": "application"}, "its export is a factory"),
+        ({"per": "source"}, "its export is a list of plugins"),
     ],
 )
 def test_a_ui_spec_refuses(change, why):
@@ -308,5 +400,70 @@ def test_each_seed_agent_and_its_demo_bring_the_composer(agent, demo):
     app = load_apps()[demo]
     assert "composer-portal" in [choice.plugin for choice in app.ui], demo
     composer = ui.UI_CATALOGUE["composer-portal"]
-    assert composer.plugin == "@datalayer/loop-plugin-composer-portal"
+    assert composer.plugin == "@datalayer/agent-plugin-composer-portal"
     assert [p.value for p in composer.placements][0] == "toolbar"
+
+
+def test_every_application_has_the_composer_unless_it_leaves_it_out():
+    """Every application's chat has the Composer button, listed in `ui` or not (the user, 21 November 2026),
+    unless its spec leaves it out with `interface.composer_portal_disabled`; never both said."""
+    from agentspecs.apps import COMPOSER_PORTAL, load_apps
+
+    assert COMPOSER_PORTAL == "composer-portal" and COMPOSER_PORTAL in ui.UI_CATALOGUE
+    base = {"id": "notes", "name": "Notes", "kind": "chat", "agent": "a"}
+    assert AppSpec.model_validate(base).interface.composer_portal_disabled is False
+    left_out = AppSpec.model_validate({**base, "interface": {"composer_portal_disabled": True}})
+    assert left_out.interface.composer_portal_disabled is True
+    assert COMPOSER_PORTAL not in [choice.plugin for choice in left_out.ui]
+    with pytest.raises(ValidationError, match="leaves it out"):
+        AppSpec.model_validate(
+            {
+                **base,
+                "ui": [{"plugin": "chat"}, {"plugin": COMPOSER_PORTAL}],
+                "interface": {"composer_portal_disabled": True},
+            }
+        )
+    with pytest.raises(ValidationError):
+        AppSpec.model_validate({**base, "interface": {"composer_portal_disabled": "maybe"}})
+    # The catalogue's applications all have it today: none leaves it out.
+    assert not [app.id for app in load_apps().values() if app.interface.composer_portal_disabled]
+
+
+def test_every_application_has_the_plugins_manager_unless_it_leaves_it_out():
+    """Every application has the plugins manager's button in its chat's footer, listed in `ui` or not (the user,
+    21 November 2026: "all our apps should render with that plugin"), unless its spec leaves it out with
+    `interface.plugin_manager_disabled`; never both said."""
+    from agentspecs.apps import PLUGIN_MANAGER, load_apps
+
+    assert PLUGIN_MANAGER == "plugin-manager" and PLUGIN_MANAGER in ui.UI_CATALOGUE
+    manager = ui.UI_CATALOGUE[PLUGIN_MANAGER]
+    assert manager.plugin == "@datalayer/agent-plugin-plugin-manager"
+    assert [p.value for p in manager.placements][0] == "footer"
+    # The one Slot it fills is the one its description puts it in (the chat's footer row under the prompt
+    # since 22 November 2026), read from the spec rather than pinned here.
+    (slot,) = manager.contributions.slots
+    assert slot.startswith("agent.") and f"(`{slot}`" in manager.description, slot
+    assert manager.implementation.model_dump(exclude_none=True) == {
+        "package": "@datalayer/agent-runtimes",
+        "module": "lib/apps/plugins/plugin-manager",
+        "export": "pluginManagerPlugin",
+        "kind": "factory",
+    }
+    base = {"id": "notes", "name": "Notes", "kind": "chat", "agent": "a"}
+    assert AppSpec.model_validate(base).interface.plugin_manager_disabled is False
+    left_out = AppSpec.model_validate({**base, "interface": {"plugin_manager_disabled": True}})
+    assert left_out.interface.plugin_manager_disabled is True
+    with pytest.raises(ValidationError, match="leaves it out"):
+        AppSpec.model_validate(
+            {
+                **base,
+                "ui": [{"plugin": "chat"}, {"plugin": PLUGIN_MANAGER}],
+                "interface": {"plugin_manager_disabled": True},
+            }
+        )
+    with pytest.raises(ValidationError):
+        AppSpec.model_validate({**base, "interface": {"plugin_manager_disabled": "maybe"}})
+    # None of the catalogue's applications lists it or leaves it out today: each has it by default.
+    for app in load_apps().values():
+        assert not app.interface.plugin_manager_disabled, app.id
+        assert PLUGIN_MANAGER not in [choice.plugin for choice in app.ui], app.id

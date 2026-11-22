@@ -189,6 +189,16 @@ paths = [
 tests = ["tests/test_behaviour_diff_script.py"]
 
 [[rule]]
+id = "shape-family-listing"
+incident = "a family library the behaviour gate cannot list (no `Shape.openapi`) crashed the gate's family cells, and no selected test ran the gate's listing of the real library"
+paths = ["tests/main/shape_families/*", "scripts/behaviour_diff.py"]
+tests = [
+  "tests/main/test_shape_families.py::test_gate_lists_every_shape_of_the_library",
+  "tests/main/test_shape_families.py::test_families_enumerate_their_stated_bound",
+  "tests/main/test_shape_families.py::test_openapi_spelling_carries_each_shape",
+]
+
+[[rule]]
 id = "source-model-importers"
 prs = [7170]
 incident = "a new importer of the source model failed the test that wants a rule for every importer only on hosted CI"
@@ -337,7 +347,13 @@ envs = ["nightly-tier"]
 id = "platform-observations-windows"
 prs = [7037]
 incident = "stored call counts of a platform output changed and their Windows variants came only from a dispatch run"
-paths = ["tests/data/expected/main/generation_platform/*"]
+paths = [
+  "tests/data/expected/main/generation_platform/*",
+  "tests/data/expected/main/generation_api_contract/*",
+  "tests/data/expected/api_generation/*",
+  "tests/data/expected/model_codecs/*",
+  "tests/data/expected/parser/openapi_scope/*",
+]
 status = "M"
 envs = ["dispatch"]
 
@@ -353,7 +369,7 @@ envs = ["dispatch"]
 id = "docs-examples-stored-outputs"
 prs = [7222, 7223]
 incident = "renaming stored outputs under main/ broke the docs examples that read them by name, which no selected test built"
-paths = ["tests/data/expected/main/*"]
+paths = ["tests/data/expected/main/*", "tests/data/expected/api_generation/client_generation/*"]
 exclude = ["tests/data/expected/main/generation_platform/*"]
 tests = ["tests/test_build_docs_examples_script.py"]
 
@@ -363,3 +379,9 @@ prs = [7221]
 incident = "a new module under scripts/ changed what `python -m scripts.where` prints; the stored answers failed only on hosted CI"
 paths = ["scripts/*.py"]
 tests = ["tests/test_where_script.py"]
+
+[[rule]]
+id = "src-heki-baseline"
+incident = "the review of the environment boundary's move to heki: a change under src/ that added a read of the environment passed the local quick check, because no selected test ran heki and the baseline file it counts did not change"
+paths = ["src/*"]
+tests = ["tests/test_build_heki_contracts_script.py::test_the_package_has_no_heki_finding_beyond_the_baseline"]

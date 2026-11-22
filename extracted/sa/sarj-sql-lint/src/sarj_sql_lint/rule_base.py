@@ -38,6 +38,9 @@ type Statement = list[StatementFragment]
 """A statement as `(lineno, text)` fragments — one per source line it spans."""
 
 
+_DUMP_HEADER_CHARS = 1024
+
+
 class SourceLocation(NamedTuple):
     line: int
     column: int
@@ -113,7 +116,7 @@ def is_explicit_dump_file(source: str, path: Path | None = None) -> bool:
 def is_dump_file(source: str, path: Path | None = None) -> bool:
     if is_explicit_dump_file(source, path):
         return True
-    header = source[:1024].lower()
+    header = source[:_DUMP_HEADER_CHARS].lower()
     if "set statement_timeout = 0;" not in header or "set lock_timeout = 0;" not in header:
         return False
     code = mask_sql(header, mask_dollar_literals=True)
@@ -321,9 +324,8 @@ def has_dbmate_directive(source: str, directive: str) -> bool:
 # Drizzle writes this separator between statements in every migration it emits.
 _GENERATED_MIGRATION_SENTINEL = "--> statement-breakpoint"
 
-# A directory holding one of these is the root of a generator-owned migration
-# tree: Prisma writes `migration_lock.toml`, Drizzle writes `meta/_journal.json`,
-# Atlas writes `atlas.sum`.
+# A directory holding one of these is the root of a generator-owned migration tree: Prisma writes `migration_lock.toml`,
+# Drizzle writes `meta/_journal.json`, Atlas writes `atlas.sum`.
 _GENERATED_MIGRATION_MARKERS = ("migration_lock.toml", "atlas.sum")
 
 _MAX_MARKER_ASCENT = 12
@@ -386,9 +388,8 @@ def is_postgres_migration(path: Path, source: str) -> bool:
     dialect = declared_dialect(source)
     if dialect is not None:
         return dialect == "postgresql"
-    # Dbmate/Goose/Liquibase directives establish migration intent even when a
-    # small PostgreSQL seed uses no dialect-exclusive syntax. Supabase is a
-    # PostgreSQL migration root by contract. Ambiguous plain SQL stays silent.
+    # Dbmate/Goose/Liquibase directives establish migration intent even when a small PostgreSQL seed uses no
+    # dialect-exclusive syntax. Supabase is a PostgreSQL migration root by contract. Ambiguous plain SQL stays silent.
     return source_directive or is_postgres_source(path, source)
 
 

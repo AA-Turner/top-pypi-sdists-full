@@ -39,6 +39,8 @@ class SettingsSummary:
             forgejo_token_set (bool):
             forgejo_o_auth_configured (bool):
             forgejo_o_auth_connected (bool):
+            github_o_auth_configured (bool):
+            github_o_auth_connected (bool):
             webhook_configured (bool): Whether this user's webhook token and secret exist. They are
                 created the first time the Settings page reads
                 `GET /api/v1/settings`, never by this read, so this is false for a
@@ -68,6 +70,8 @@ class SettingsSummary:
     forgejo_token_set: bool
     forgejo_o_auth_configured: bool
     forgejo_o_auth_connected: bool
+    github_o_auth_configured: bool
+    github_o_auth_connected: bool
     webhook_configured: bool
     renovate_rebase_label: str
     renovate_authors: list[str]
@@ -101,6 +105,10 @@ class SettingsSummary:
         forgejo_o_auth_configured = self.forgejo_o_auth_configured
 
         forgejo_o_auth_connected = self.forgejo_o_auth_connected
+
+        github_o_auth_configured = self.github_o_auth_configured
+
+        github_o_auth_connected = self.github_o_auth_connected
 
         webhook_configured = self.webhook_configured
 
@@ -145,6 +153,8 @@ class SettingsSummary:
             "forgejoTokenSet": forgejo_token_set,
             "forgejoOAuthConfigured": forgejo_o_auth_configured,
             "forgejoOAuthConnected": forgejo_o_auth_connected,
+            "githubOAuthConfigured": github_o_auth_configured,
+            "githubOAuthConnected": github_o_auth_connected,
             "webhookConfigured": webhook_configured,
             "renovateRebaseLabel": renovate_rebase_label,
             "renovateAuthors": renovate_authors,
@@ -180,6 +190,10 @@ class SettingsSummary:
         forgejo_o_auth_configured = d.pop("forgejoOAuthConfigured")
 
         forgejo_o_auth_connected = d.pop("forgejoOAuthConnected")
+
+        github_o_auth_configured = d.pop("githubOAuthConfigured")
+
+        github_o_auth_connected = d.pop("githubOAuthConnected")
 
         webhook_configured = d.pop("webhookConfigured")
 
@@ -226,6 +240,8 @@ class SettingsSummary:
             forgejo_token_set=forgejo_token_set,
             forgejo_o_auth_configured=forgejo_o_auth_configured,
             forgejo_o_auth_connected=forgejo_o_auth_connected,
+            github_o_auth_configured=github_o_auth_configured,
+            github_o_auth_connected=github_o_auth_connected,
             webhook_configured=webhook_configured,
             renovate_rebase_label=renovate_rebase_label,
             renovate_authors=renovate_authors,

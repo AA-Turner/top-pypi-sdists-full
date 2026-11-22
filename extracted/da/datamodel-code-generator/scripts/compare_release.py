@@ -46,6 +46,7 @@ import argparse
 import builtins
 import contextlib
 import difflib
+import dis
 import functools
 import hashlib
 import importlib
@@ -72,7 +73,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Generator
+    from collections.abc import Callable, Generator, Iterable, Mapping
     from types import CodeType, FrameType, ModuleType
 
 Record = dict[str, Any]
@@ -95,7 +96,7 @@ PROCESS_STATE_OPTIONS = frozenset({"--debug"})
 worker of such a run is closed after it, as after running out of memory, so later runs do not inherit it."""
 RECYCLE = 200
 """Jobs a worker runs before a new one takes its place, which bounds the memory and the state a worker gathers."""
-CACHE_FORMAT = 5
+CACHE_FORMAT = 7
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE = "datamodel_code_generator"
 RELEASE = re.compile(r"\d+(?:\.\d+)+")
@@ -711,8 +712,291 @@ def _outside(args: list[str], root: str) -> list[str]:
     return sorted(str(path) for path in paths if not path.is_relative_to(os.path.realpath(root)))
 
 
+_UNSEEN = "\0"
+FREE_TOOLS = (5, 2, 1, 0)
+"""The `sys.monitoring` tool ids a recorder may take, the first free one: the tracer holds 3 and 4."""
+SUB_LINE = sys.version_info >= (3, 14)
+"""Whether a recorder keys what ran finer than a line (`_Recorder`): ``BRANCH_LEFT`` and ``BRANCH_RIGHT`` (3.14+)."""
+BRANCHES = frozenset({"POP_JUMP_IF_FALSE", "POP_JUMP_IF_TRUE", "POP_JUMP_IF_NONE", "POP_JUMP_IF_NOT_NONE", "FOR_ITER"})
+"""The instructions whose two ways `sys.monitoring` reports (``BRANCH_LEFT``, ``BRANCH_RIGHT``)."""
+NO_FALL_THROUGH = frozenset({
+    "JUMP_FORWARD",
+    "JUMP_BACKWARD",
+    "JUMP_BACKWARD_NO_INTERRUPT",
+    "RETURN_VALUE",
+    "RAISE_VARARGS",
+    "RERAISE",
+})
+"""The instructions after which the next instruction runs only where something jumps to it."""
+
+
+def instruction_place(code: CodeType, offset: int) -> str | None:
+    """Return the sub-line key of a code object's instruction at `offset`: its source span and its name.
+
+    None for an instruction without a whole span. The spans and names are those of the running interpreter's
+    compiler: a catalog's sub-line keys hold for the version that recorded them.
+    """
+    raw, positions = _units(code)
+    if offset // 2 >= len(positions) or None in (position := positions[offset // 2]):
+        return None
+    line, last, column, end = position
+    return f"{line}:{column}-{last}:{end} {dis.opname[raw[offset]]}"
+
+
+@functools.cache
+def _units(code: CodeType) -> tuple[bytes, list[tuple[int | None, int | None, int | None, int | None]]]:
+    """Return a code object's bytecode and the position of each of its code units, read once."""
+    return code.co_code, list(code.co_positions())
+
+
+def start_place(code: CodeType) -> str:
+    """Return the sub-line key of a code object's start: its first position (`_first_position`) and its qualname.
+
+    The qualname tells it from the code object around it, which may start at the same position.
+    """
+    return "{}:{} {}".format(*_first_position(code), code.co_qualname)
+
+
+@functools.cache
+def _flow(code: CodeType) -> tuple[list[dis.Instruction], dict[int, set[str]], frozenset[int], int]:
+    """Return a code object's instructions, the names of those that jump to each, its handlers and where it starts.
+
+    It starts at its last ``RESUME`` at the start of its body (the low bits of the argument 0), where ``PY_START``
+    reports it: a generator's runs its setup before (`dis` documents the argument).
+    """
+    instructions = list(dis.get_instructions(code))
+    jumpers: dict[int, set[str]] = {}
+    for item in instructions:
+        if (target := getattr(item, "jump_target", None)) is not None:
+            jumpers.setdefault(target, set()).add(item.opname)
+    handlers = frozenset(entry.target for entry in getattr(dis.Bytecode(code), "exception_entries", ()))
+    starts = [index for index, item in enumerate(instructions) if item.opname == "RESUME" and not (item.arg or 0) & 3]
+    return instructions, jumpers, handlers, starts[-1] if starts else -1
+
+
+def entry_places(code: CodeType, offset: int) -> list[tuple[str, str]] | None:
+    """Return the sub-line keys of which a run that ran the instruction at `offset` recorded one (`_Recorder`).
+
+    The instruction runs where a run enters the straight stretch of instructions that ends at it, at its first
+    instruction or at a branch's destination inside it: a ``start`` key (the code object's first position) for the
+    stretch that starts the code object, else the ``arm`` key of each instruction of the stretch. A branch's left way
+    is the instruction after it, or after its ``NOT_TAKEN``. None where a way into the stretch reports no event:
+    something falls through or jumps into it, an exception does, or a generator resumes into it after a ``yield``
+    (a run that stopped at the yield never runs on); or where nothing in it has a place.
+    """
+    instructions, jumpers, handlers, start = _flow(code)
+    at = next((index for index, item in enumerate(instructions) if item.offset == offset), -1)
+    stretch: list[int] = []
+    for index in range(at, start - 1, -1):
+        item = instructions[index]
+        stretch.append(item.offset)
+        entered = jumpers.get(item.offset, set())
+        resumed = item.opname == "RESUME" and index != start
+        if item.offset in handlers or entered - BRANCHES or resumed:
+            return None
+        if index == start:
+            return None if entered else [("start", start_place(code))]
+        previous = instructions[index - 1].opname
+        left = previous in BRANCHES or (
+            previous == "NOT_TAKEN" and index > 1 and instructions[index - 2].opname in BRANCHES
+        )
+        if left or previous in NO_FALL_THROUGH or entered:
+            if not left and (previous not in NO_FALL_THROUGH or not entered):
+                return None
+            found = [("arm", place) for kept in stretch if (place := instruction_place(code, kept)) is not None]
+            return found or None
+    return None
+
+
+class _Recorder:
+    """Record what the runs of a worker run: lines, code objects that start, files opened (`Runner.lines`).
+
+    `scripts/_cell_catalog.py` builds its catalog from these records. Each `sys.monitoring` event (``LINE``,
+    ``PY_START``) records once and disables itself; a fork inherits what is disabled, so in a fork of a worker that
+    imported the CLI under the recorder a job records only what it ran beyond that import (`settle` returns it as the
+    worker's startup). The worker then imports every other module of the package (`modules`, `keep`), so no job pays
+    the imports: what importing a module ran (lines and code objects by the module they are in, files by the module
+    that opened them) counts for each job that uses the module: runs its code or imports it, and for the modules
+    importing it imported. An ``open`` of a package file counts unless the import system opens it to load a module.
+    Only what runs between `begin` and `end` counts. It never runs beside the tracer: a ``LINE`` callback that
+    disables itself drops the ``INSTRUCTION`` event of the line's first instruction. Where the interpreter reports
+    branches (`SUB_LINE`), it also keys what ran finer than a line: the first position of each code object that
+    started (``start``) and the instruction each branch taken led to (``arm``, `instruction_place`), which tell apart
+    two code objects or two arms of one line (`entry_places` reads them back).
+    """
+
+    def __init__(self, package: Path) -> None:
+        """Start recording, for the package below `package`, on the first free tool id."""
+        self.package = os.path.normpath(package) + os.sep
+        self.paths: dict[str, str | None] = {}
+        self.lines: dict[str, set[int]] = {}
+        self.codes: dict[str, set[str]] = {}
+        self.files: dict[str, set[str]] = {}
+        self.starts: dict[str, set[str]] = {}
+        self.arms: dict[str, set[str]] = {}
+        self.requested: set[str] = set()
+        self.names: dict[str, str] = {}
+        self.requires: dict[str, set[str]] = {}
+        self.imported: tuple[Mapping[str, Iterable[int | str]], ...] = ({}, {}, {}, {}, {})
+        self.active = True
+        monitoring = sys.monitoring
+        self.disable = monitoring.DISABLE
+        events = monitoring.events
+        self.tool = next(tool for tool in FREE_TOOLS if monitoring.get_tool(tool) is None)
+        monitoring.use_tool_id(self.tool, "compare_release lines")
+        monitoring.register_callback(self.tool, events.LINE, self._line)
+        monitoring.register_callback(self.tool, events.PY_START, self._start)
+        wanted = events.LINE | events.PY_START
+        for name in ("BRANCH_LEFT", "BRANCH_RIGHT") if SUB_LINE else ():
+            monitoring.register_callback(self.tool, getattr(events, name), self._branch)
+            wanted |= getattr(events, name)
+        monitoring.set_events(self.tool, wanted)
+        sys.addaudithook(self._audit)
+
+    def _path(self, filename: str) -> str | None:
+        if (path := self.paths.get(filename, _UNSEEN)) is _UNSEEN:
+            normal = os.path.normpath(filename)
+            path = Path(normal[len(self.package) :]).as_posix() if normal.startswith(self.package) else None
+            self.paths[filename] = path
+        return path
+
+    def _line(self, code: CodeType, line: int) -> object:
+        if not self.active:
+            return None
+        if (path := self._path(code.co_filename)) is not None:
+            self.lines.setdefault(path, set()).add(line)
+        return self.disable
+
+    def _start(self, code: CodeType, _: int) -> object:
+        if not self.active:
+            return None
+        if (path := self._path(code.co_filename)) is not None:
+            self.codes.setdefault(path, set()).add(code.co_qualname)
+            if SUB_LINE:
+                self.starts.setdefault(path, set()).add(start_place(code))
+        return self.disable
+
+    def _branch(self, code: CodeType, _: int, destination: int) -> object:
+        if not self.active:
+            return None
+        if (path := self._path(code.co_filename)) is not None and (place := instruction_place(code, destination)):
+            self.arms.setdefault(path, set()).add(place)
+        return self.disable
+
+    def _audit(self, event: str, args: tuple[object, ...]) -> None:
+        if event != "open" or not self.active or not args or not isinstance(args[0], (str, os.PathLike)):
+            return
+        if (path := self._path(os.fspath(args[0]))) is None:
+            return
+        frame = inspect.currentframe()
+        caller = frame.f_back if frame is not None else None
+        if caller is not None and "importlib._bootstrap" in caller.f_code.co_filename:
+            return
+        opener = None
+        while caller is not None and (opener := self._path(caller.f_code.co_filename)) is None:
+            caller = caller.f_back
+        self.files.setdefault(opener or "", set()).add(path)
+
+    def _request(self, importer: object, name: str, items: object) -> None:
+        """Count the modules of the package an import of `name` (and of its `items`) asks for, by its importer."""
+        if name != PACKAGE and not name.startswith(f"{PACKAGE}."):
+            return
+        parts = name.split(".")
+        names = {".".join(parts[:end]) for end in range(1, len(parts) + 1)}
+        if isinstance(items, (list, tuple)):
+            names.update(f"{name}.{item}" for item in items if isinstance(item, str))
+        self.requested.update(names)
+        if isinstance(importer, str):
+            self.requires.setdefault(importer, set()).update(names)
+
+    def _hook_imports(self) -> None:
+        """Route `import` statements and `importlib.import_module` through `_request`."""
+        original_import, original_module = builtins.__import__, importlib.import_module
+
+        def import_(name: str, *args: object, **kwargs: object) -> object:
+            given = dict(zip(IMPORT_ARGUMENTS, args, strict=False)) | kwargs
+            namespace, level = given.get("globals"), given.get("level", 0)
+            importer = namespace.get("__name__") if isinstance(namespace, dict) else None
+            absolute = name
+            if isinstance(level, int) and level and isinstance(namespace, dict):
+                anchor = str(namespace.get("__package__") or "").rsplit(".", level - 1)[0]
+                absolute = f"{anchor}.{name}" if name else anchor
+            self._request(importer, absolute, given.get("fromlist"))
+            return original_import(name, *args, **kwargs)
+
+        def import_module(name: str, package: str | None = None) -> ModuleType:
+            with contextlib.suppress(ImportError, ValueError):
+                self._request(None, importlib.util.resolve_name(name, package), ())
+            return original_module(name, package)
+
+        for hook in (import_, import_module):
+            hook.__code__ = hook.__code__.replace(co_filename="<compare_release lines importlib._bootstrap hook>")
+        builtins.__import__ = import_
+        importlib.import_module = import_module
+
+    def settle(self) -> Record:
+        """End the record of the CLI's import and return it; what runs next is the import of the other modules."""
+        startup = self.keys()
+        self.begin()
+        self.requires = {}
+        self._hook_imports()
+        root = Path(self.package)
+        for path in sorted(root.rglob("*.py")):
+            parts = path.relative_to(root).with_suffix("").parts
+            self.names[".".join((PACKAGE, *parts)).removesuffix(".__init__")] = path.relative_to(root).as_posix()
+        return startup
+
+    @property
+    def modules(self) -> list[str]:
+        """The modules of the package a worker imports before its first job: all but `_runtime`, which is copied."""
+        return [name for name, path in self.names.items() if "_runtime" not in Path(path).parts]
+
+    def keep(self) -> None:
+        """Keep what importing the modules ran, by module (`keys`)."""
+        self.imported = (self.lines, self.codes, self.starts, self.arms, self.files)
+
+    def begin(self) -> None:
+        """Start a job's record."""
+        self.lines, self.codes, self.files, self.starts, self.arms = {}, {}, {}, {}, {}
+        self.requested, self.active = set(), True
+
+    def end(self) -> None:
+        """End a job's record: what runs next (the comparator's own checks) does not count."""
+        self.active = False
+
+    def _used(self) -> set[str]:
+        """Return the paths of the modules the record used and of those their imports imported."""
+        pending = [name for name, path in self.names.items() if path in self.lines or path in self.codes]
+        pending += self.requested
+        seen: set[str] = set()
+        while pending:
+            if (name := pending.pop()) not in seen:
+                seen.add(name)
+                pending += self.requires.get(name, ())
+        return {self.names[name] for name in seen if name in self.names}
+
+    def keys(self) -> Record:
+        """Return what the record holds, as JSON, with what importing each module it used ran."""
+        kept: list[Mapping[str, Iterable[int | str]]] = [self.lines, self.codes, self.starts, self.arms]
+        found = [{path: set(items) for path, items in record.items()} for record in kept]
+        files = set().union(*self.files.values())
+        used = self._used()
+        for record, imported in zip(found, self.imported, strict=False):
+            for path in used:
+                record.setdefault(path, set()).update(imported.get(path, ()))
+        files.update(*(self.imported[-1].get(path, ()) for path in used))
+        names = ("line", "code", "start", "arm") if SUB_LINE else ("line", "code")
+        keys: Record = {
+            name: {path: sorted(items) for path, items in sorted(record.items()) if items}
+            for name, record in zip(names, found, strict=False)
+        }
+        return keys | {"file": sorted(files)} | ({"python": "{}.{}".format(*sys.version_info[:2])} if SUB_LINE else {})
+
+
 _TRACER: list[_Tracer] = []
 """The tracer of this worker, where its runner gave probes and the interpreter has `sys.monitoring`."""
+_RECORDER: list[_Recorder] = []
+"""The recorder of this worker, where its runner asked for `lines` (`Runner.lines`)."""
 
 
 def _generate_recorded(job: Record, main: Callable[[list[str]], object]) -> int:
@@ -729,20 +1013,23 @@ def _generate_recorded(job: Record, main: Callable[[list[str]], object]) -> int:
     re.purge()
     recorder = _WarningRecorder()
     main_file = sys.modules["datamodel_code_generator.__main__"].__file__ or ""
-    for tracer in _TRACER:
+    for tracer in (*_TRACER, *_RECORDER):
         tracer.begin()
     with _handled_exceptions(main_file) as caught, warnings.catch_warnings():
         warnings.simplefilter("default", PendingDeprecationWarning)
         warnings.simplefilter("default", DeprecationWarning)
         warnings.filters.insert(0, ("always", None, Warning, recorder, 0))
         warnings.showwarning = recorder.show
-        with _memory_cap(job.get("memory_mb", 0)):
-            code = _exit_code(main, job["args"])
-        for tracer in _TRACER:
+        with _memory_cap(job.get("memory_mb", 0)) as over_cap:
+            code = OUT_OF_MEMORY if over_cap else _exit_code(main, job["args"])
+        if over_cap:
+            sys.stderr.write("MemoryError\n")  # what a run out of memory prints last
+        for tracer in (*_TRACER, *_RECORDER):
             tracer.end()
         handled = [f"{type(exception).__module__}.{type(exception).__qualname__}" for exception in caught]
     facts = {"warnings": recorder.records, "handled": handled, "outside": _outside(job["args"], job["out"])}
     facts["ran"] = next((tracer.ran() for tracer in _TRACER), None)
+    facts["keys"] = next((recorder.keys() for recorder in _RECORDER), None)
     partial = record.with_name(record.name + ".tmp")
     partial.write_text(json.dumps(facts), encoding="utf-8")
     partial.replace(record)
@@ -750,24 +1037,36 @@ def _generate_recorded(job: Record, main: Callable[[list[str]], object]) -> int:
 
 
 @contextlib.contextmanager
-def _memory_cap(limit_mb: int) -> Generator[None, None, None]:
+def _memory_cap(limit_mb: int) -> Generator[bool, None, None]:
     """Cap the data memory of this process (`RLIMIT_DATA`) at `limit_mb` while the block runs (0: no cap).
 
     The cap counts the whole worker, which recycling bounds; where the platform refuses it (macOS), the run goes
-    uncapped.
+    uncapped. The block gets whether the worker already holds more than the cap (`VmData`, the number the kernel checks
+    a new mapping against): its allocations then fail wherever the freed memory of its heap does not cover them, so
+    the run would end in a MemoryError, a SystemError of some C call or a crash, by chance. Such a run is stopped
+    where it would start.
     """
     if not limit_mb:
-        yield
+        yield False
         return
     import resource  # ruff: ignore[import-outside-top-level] - POSIX only, like the fork of an import check
 
     limits = resource.getrlimit(resource.RLIMIT_DATA)
+    data_kb = _data_kb()  # read before the cap: under it, even reading a file can run out of memory
     with contextlib.suppress(ValueError, OSError):
         resource.setrlimit(resource.RLIMIT_DATA, (limit_mb << 20, limits[1]))
+    held = resource.getrlimit(resource.RLIMIT_DATA)[0] == limit_mb << 20
     try:
-        yield
+        yield held and data_kb > limit_mb << 10
     finally:
         resource.setrlimit(resource.RLIMIT_DATA, limits)
+
+
+def _data_kb() -> int:
+    """Return the data memory this process holds in kB, as `VmData` shows it (0 where there is no `/proc`)."""
+    status = Path("/proc/self/status")
+    text = status.read_text(encoding="ascii") if status.exists() else ""
+    return next((int(line.split()[1]) for line in text.splitlines() if line.startswith("VmData:")), 0)
 
 
 @contextlib.contextmanager
@@ -801,43 +1100,66 @@ def _job_scope(job: Record) -> Generator[None, None, None]:
 def _run_job(job: Record, main: Callable[[list[str]], object]) -> int:
     """Run one job and return its exit code: a generation in this worker, an import check in a fresh child.
 
-    An import check runs the generated code, which has to leave nothing behind, so it gets a child of its own.
+    An import check runs the generated code, which has to leave nothing behind, so it gets a child of its own; so
+    does a recorded generation (`lines`), so that what it records depends on no job before it. The child enables
+    the recorder's events again: code that ran while the worker warmed up (a function an import called) has them
+    disabled in every fork, and a cell that runs it again must show it.
     """
-    if job["kind"] == "generate":
+    if job["kind"] == "generate" and not _RECORDER:
         with _job_scope(job):
             return _generate_recorded(job, main)
     if (pid := os.fork()) == 0:  # pragma: no cover - child process
         code = 1
         try:
+            if _RECORDER:
+                sys.monitoring.restart_events()  # events of code the warm-up ran are disabled
             with _job_scope(job):
-                code = _import_modules(job["out"])
+                code = _generate_recorded(job, main) if job["kind"] == "generate" else _import_modules(job["out"])
         finally:
             os._exit(code)
     return os.waitstatus_to_exitcode(os.waitpid(pid, 0)[1])
 
 
 def _worker() -> None:
-    """Serve jobs: the first line on stdin holds the probes to trace (`Worker`), each later one is a job.
+    """Serve jobs: the first line on stdin holds the probes to trace and whether to record lines (`Worker`).
 
-    The tracer is installed before the package is imported, so the import of the CLI is measured too.
+    Each later line is a job. The tracer or the recorder is installed before the package is imported, so the import
+    of the CLI is measured too; a recorder reports what that import ran as the worker's `startup`.
     """
     sys.argv[0] = "datamodel-codegen"
-    probes = json.loads(sys.stdin.readline() or "{}").get("probes")
-    if probes is not None and hasattr(sys, "monitoring"):
+    asked = json.loads(sys.stdin.readline() or "{}")
+    probes = asked.get("probes")
+    if (probes is not None or asked.get("lines")) and hasattr(sys, "monitoring"):
         spec = importlib.util.find_spec("datamodel_code_generator")
         package = Path(spec.origin if spec and spec.origin else "").parent
-        _TRACER.append(tracer := _Tracer(package, probes))
-        _track_imports(tracer)
+        if probes is not None:
+            _TRACER.append(tracer := _Tracer(package, probes))
+            _track_imports(tracer)
+        else:
+            _RECORDER.append(_Recorder(package))
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         from datamodel_code_generator.__main__ import main  # ruff: ignore[import-outside-top-level] - imported once per worker
 
-        for name in WARM_IMPORTS:
+        startup = next((recorder.settle() for recorder in _RECORDER), None)
+        for name in (*WARM_IMPORTS, *(module for recorder in _RECORDER for module in recorder.modules)):
             with contextlib.suppress(ImportError):
                 importlib.import_module(name)
+        for recorder in _RECORDER:
+            recorder.keep()
     # Importing the CLI installs its own SIGINT handler; a worker stops on SIGINT, the driver by closing its stdin.
     signal.signal(signal.SIGINT, signal.SIG_DFL)
-    ready = {"package": sys.modules["datamodel_code_generator"].__file__, "measured": bool(_TRACER)}
+    package = sys.modules["datamodel_code_generator"]
+    version = ""
+    tracers = [*_TRACER, *_RECORDER]
+    was_active = [tracer.active for tracer in tracers]
+    for tracer in tracers:
+        tracer.active = False  # the lookup is the comparator's own: no generation is credited with its code
+    with contextlib.suppress(Exception):  # a stand-in package or a tree without a version file reports none
+        version = package.get_version()
+    for tracer, active in zip(tracers, was_active, strict=True):
+        tracer.active = active
+    ready = {"package": package.__file__, "measured": bool(_TRACER), "startup": startup, "version": version}
     sys.stdout.write(json.dumps(ready) + "\n")
     sys.stdout.flush()
     for line in sys.stdin:
@@ -866,13 +1188,20 @@ class Worker:
     """A warm worker process for one interpreter; `jobs` counts the jobs it was given."""
 
     def __init__(
-        self, python: Path, env: dict[str, str], package: Path | None, probes: list[Record] | None = None
+        self,
+        python: Path,
+        env: dict[str, str],
+        package: Path | None,
+        probes: list[Record] | None = None,
+        *,
+        lines: bool = False,
     ) -> None:
         """Start the worker with Python's default warning filters, which its runs show warnings under.
 
         It refuses a datamodel-code-generator imported from outside `package` (any where None). Both paths are
         normalized, not resolved: a side's package path and its `package` come from the same unresolved path. It
-        traces `probes` (`Runner.probes`) from before it imports the package, where the interpreter can (`measured`).
+        traces `probes` (`Runner.probes`) from before it imports the package, where the interpreter can (`measured`),
+        or records what its runs run (`lines`, `Runner.lines`; `startup` is what importing the CLI ran).
         """
         self.process = subprocess.Popen(
             [str(python), str(Path(__file__).resolve()), "--worker"],
@@ -883,7 +1212,7 @@ class Worker:
         )
         stdin = self.process.stdin
         assert stdin is not None
-        stdin.write(json.dumps({"probes": probes}) + "\n")
+        stdin.write(json.dumps({"probes": probes, "lines": lines}) + "\n")
         stdin.flush()
         self.jobs = 0
         if (ready := self._reply()) is None:
@@ -892,6 +1221,8 @@ class Worker:
             raise RuntimeError(msg)
         self.package = Path(os.path.normpath(Path(ready["package"]).absolute())).parent
         self.measured = bool(ready.get("measured"))
+        self.startup: Record | None = ready.get("startup")
+        self.version = str(ready.get("version") or "")
         if package is not None and not self.package.is_relative_to(os.path.normpath(package.absolute())):
             self.close()
             msg = f"{python} imports datamodel_code_generator from {self.package}, not from below {package}"
@@ -948,9 +1279,11 @@ class Outcome:
     `datamodel_code_generator.__main__` caught; paths of the run's directory, output and package read `<tmp>`,
     `<output>` and `<package>`. `first` holds these facts of a refused single-file attempt before a modular run.
     `tree` is every file the run wrote below its directory, which is its working directory too, so an output written
-    to a relative path (a client's package) is compared; `outside` the outputs its arguments name elsewhere
+    to a relative path (a client's package) is compared, with those paths and the side's version lines normalised
+    (`_tree`); `outside` the outputs its arguments name elsewhere
     (`_outside`). `ran` are the probes of its runner (`Runner.probes`, by index) the run ran, over both attempts; None
-    where none were asked for or the interpreter cannot tell.
+    where none were asked for or the interpreter cannot tell. `keys` are what each attempt ran where its runner
+    records lines (`Runner.lines`, `scripts/_cell_catalog.py`).
     """
 
     ok: bool
@@ -965,6 +1298,7 @@ class Outcome:
     first: Record = field(default_factory=dict)
     outside: list[str] = field(default_factory=list)
     ran: list[int] | None = None
+    keys: list[Record] | None = None
 
     def stopped(self) -> bool:
         """Whether the timeout or the memory cap stopped the run: another cap may let it finish."""
@@ -1046,7 +1380,7 @@ def _environment_name(base: str, python_version: str, pins: list[str]) -> str:
     return f"{base}-py{python_version}-{key}"
 
 
-def _built(root: Path, build: Callable[[], object]) -> Path:
+def built(root: Path, build: Callable[[], object]) -> Path:
     """Return `root` once `build` has filled it, built once under a lock: another run may be building the same.
 
     A root without its `.complete` mark (a build that stopped half way) is removed and built again.
@@ -1067,7 +1401,7 @@ def _base_python(version: str, candidate: Path, cache_dir: Path) -> Path:
     """Install the release next to the candidate's other packages, pinned to the same versions."""
     python_version, pins = _candidate_packages(candidate)
     root = cache_dir / "venvs" / _environment_name(version, python_version, pins)
-    return _built(root, lambda: _install_base(version, python_version, pins, root)) / "bin" / "python"
+    return built(root, lambda: _install_base(version, python_version, pins, root)) / "bin" / "python"
 
 
 def _install_base(version: str, python_version: str, pins: list[str], root: Path) -> None:
@@ -1135,7 +1469,7 @@ def source_tree(revision: str, cache_dir: Path, repo: Path = ROOT, paths: tuple[
     The version file is not in the repository (the build hook writes it), so it is written here.
     """
     root = cache_dir / "trees" / "-".join((revision, *paths))
-    return _built(root, lambda: _extract(revision, repo, paths, root))
+    return built(root, lambda: _extract(revision, repo, paths, root))
 
 
 @dataclass(frozen=True)
@@ -1180,12 +1514,31 @@ def resolve_base(spec: str, candidate: Path, cache_dir: Path, repo: Path = ROOT)
     return Base(candidate, source, name, revision, source)
 
 
-def _tree(path: Path) -> dict[str, str]:
-    """Return every file below a run's directory by its relative path, outside hidden and cache directories."""
-    return {
+def _tree(path: Path, paths: tuple[Path, Path, Path] | None = None, version: str = "") -> dict[str, str]:
+    """Return every file below a run's directory by its relative path, outside hidden and cache directories.
+
+    With `paths` (the run's output, directory and package: `_relative`) the text of each file reads the same on each
+    run and side, and with a `version` its header line reads the same on each side (`_versioned`).
+    """
+    tree = {
         file.relative_to(path).as_posix(): file.read_text(encoding="utf-8", errors="surrogateescape")
         for file in _hashed_files(path)
     }
+    return {name: _versioned(_relative(text, *paths) if paths else text, version) for name, text in tree.items()}
+
+
+def _versioned(text: str, version: str) -> str:
+    """Return `text` with the version line of the package's headers and of `--version` as `<version>`.
+
+    Only the lines the package writes change: `#   version:   <version>` (`--enable-version-header`) and
+    `datamodel-codegen <version>` (`--version`). A replacement of every occurrence would also change a schema literal
+    that equals the version, and it could never hide a difference the lines do not show.
+    """
+    if not version:
+        return text
+    for line in (r"#   version:   ", r"datamodel-codegen "):
+        text = re.sub(rf"(?m)^{line}{re.escape(version)}$", f"{line}<version>", text)
+    return text
 
 
 def _relative(text: str, out: Path, tmp: Path, package: Path) -> str:
@@ -1215,9 +1568,9 @@ def ran_out_of_memory(last_line: str) -> bool:
     )
 
 
-def _attempt(rc: int, log: Path, record: Path, paths: tuple[Path, Path, Path]) -> Record:
+def _attempt(rc: int, log: Path, record: Path, paths: tuple[Path, Path, Path], version: str = "") -> Record:
     """Return what one attempt of a run showed (`Outcome`); `paths` are its output, directory and package."""
-    printed = TRACEBACK_FRAMES.sub("", log.read_text(encoding="utf-8", errors="replace"))
+    printed = _versioned(TRACEBACK_FRAMES.sub("", log.read_text(encoding="utf-8", errors="replace")), version)
     recorded = json.loads(text) if record.exists() and (text := record.read_text(encoding="utf-8")) else {}
     return {
         "code": rc,
@@ -1228,6 +1581,7 @@ def _attempt(rc: int, log: Path, record: Path, paths: tuple[Path, Path, Path]) -
         "handled": recorded.get("handled", []),
         "outside": [_relative(path, *paths) for path in recorded.get("outside", [])],
         "ran": recorded.get("ran"),
+        "keys": recorded.get("keys"),
     }
 
 
@@ -1240,7 +1594,8 @@ class Runner:
         """Prepare a runner; workers start lazily. `memory_mb` caps the data memory of a worker's run (0: no cap).
 
         `probes` are the probes of this side's changed code objects (`changed_units`) each outcome reports as run or
-        not (`Outcome.ran`); None asks for none. `measured` turns false once a worker cannot trace them.
+        not (`Outcome.ran`); None asks for none. `measured` turns false once a worker cannot trace them. `lines` makes
+        the workers record what each run ran instead (`Outcome.keys`; each run in a fork of its worker).
         """
         self.side = side
         self.env = env
@@ -1249,6 +1604,7 @@ class Runner:
         self.memory_mb = memory_mb
         self.recycle = RECYCLE
         self.probes: list[Record] | None = None
+        self.lines = False
         self.measured = True
         self.workers: dict[int, Worker] = {}
         self.lock = threading.Lock()
@@ -1269,7 +1625,7 @@ class Runner:
         ):
             if worker is not None:
                 worker.close()
-            worker = Worker(self.side.python, self.env, self.side.package, self.probes)
+            worker = Worker(self.side.python, self.env, self.side.package, self.probes, lines=self.lines)
             with self.lock:
                 self.workers[thread] = worker
                 self.measured = self.measured and (worker.measured or self.probes is None)
@@ -1295,21 +1651,24 @@ class Runner:
         rc = (worker := self._worker(fresh=fresh)).run(job)
         first: Record = {}
         if rc != 0 and any(text in log.read_text(encoding="utf-8", errors="replace") for text in MODULAR_OUTPUT_ERRORS):
-            first = _attempt(rc, log, record, (out, tmp, worker.package))
+            first = _attempt(rc, log, record, (out, tmp, worker.package), worker.version)
             job["args"] = [*args, "--output", str(out / "pkg")]
             rc = (worker := self._worker(fresh=fresh)).run(job)
         if rc > 0 and self.memory_mb and ran_out_of_memory(_last_line(log)):
             rc = OUT_OF_MEMORY
         if rc == OUT_OF_MEMORY or fresh:
             worker.close()
-        facts = _attempt(rc, log, record, (out, tmp, worker.package)) | {"first": first}
+        paths = (out, tmp, worker.package)
+        facts = _attempt(rc, log, record, paths, worker.version) | {"first": first}
         if (earlier := first.pop("ran", None)) is not None:
             facts["ran"] = sorted({*earlier, *(facts["ran"] or [])})
+        attempts = [first.pop("keys", None), facts.pop("keys")]
+        facts["keys"] = [keys for keys in attempts if keys is not None] or None
         if rc != 0:
             return Outcome(
                 ok=False,
                 error=self._error(rc, log),
-                tree=_tree(out),
+                tree=_tree(out, paths, worker.version),
                 import_error="",
                 cacheable=rc > 0 and rc != OUT_OF_MEMORY,
                 **facts,
@@ -1320,7 +1679,8 @@ class Runner:
             job = {"kind": "import", "cwd": str(tmp), "log": str(import_log), "timeout": self.timeout, "out": str(out)}
             if (rc := self._worker().run(job)) != 0:
                 import_error = self._error(rc, import_log)
-        return Outcome(ok=True, error="", tree=_tree(out), import_error=import_error, cacheable=rc >= 0, **facts)
+        tree = _tree(out, paths, worker.version)
+        return Outcome(ok=True, error="", tree=tree, import_error=import_error, cacheable=rc >= 0, **facts)
 
     def _error(self, rc: int, log: Path) -> str:
         if rc == -signal.SIGALRM:
@@ -1527,17 +1887,24 @@ def _digest(text: str) -> str:
     return hashlib.blake2b(text.encode("utf-8", "surrogateescape"), digest_size=16).hexdigest()
 
 
+OUTSIDE_PREFIX = "<outside>/"
+"""The prefix of the name an output written outside the run's directory has among a cell's files (`cell_facts`)."""
+
 Facts = tuple[int, tuple[tuple[str, str], ...], str, str]
-"""What one side of a run proved (`_facts`): exit status, each output file's hash, its warnings' and others' hash."""
+"""What one side of a run proved (`cell_facts`): exit status, each output file's hash, its warnings' and others'
+hash."""
 
 
-def _facts(outcome: Outcome) -> Facts:
+def cell_facts(outcome: Outcome) -> Facts:
     """Return what a cell's run proved: its exit status, each file's hash, its warnings' hash, its other facts' hash.
 
+    The files are the run's output files and, under `OUTSIDE_PREFIX`, the outputs its arguments wrote elsewhere
+    (`Outcome.outside`: their paths, as they are the only thing known of them), so a difference in either is output.
     The other facts are the exceptions it handled, its messages, the single output file's refusal and the error of
     its import check (empty where it passed or `--import-check` is off, which holds for every cell of a run).
     """
-    files = tuple((sys.intern(name), _digest(text)) for name, text in sorted(outcome.tree.items()))
+    written = outcome.tree | {f"{OUTSIDE_PREFIX}{path}": "" for path in outcome.outside}
+    files = tuple((sys.intern(name), _digest(text)) for name, text in sorted(written.items()))
     other = json.dumps([outcome.handled, outcome.messages, outcome.first, outcome.import_error], sort_keys=True)
     return outcome.code, files, _digest(json.dumps(outcome.warnings)), _digest(other)
 
@@ -1562,7 +1929,7 @@ ALWAYS_COUNTED = (True, True, False, False)
 SIDE_NAMES = {"base": "base", "head": "head"}
 
 
-def _lines_of(where: str) -> set[int]:
+def lines_of(where: str) -> set[int]:
     """Return the lines a probe's source span (`L:C-L:C,...`) covers."""
     found: set[int] = set()
     for span in where.split(","):
@@ -1579,7 +1946,7 @@ class Evidence:
     An input group is the directory of its inputs, whether they are files or directories (modular inputs), the output
     model type and the option set. A run is compared where both sides generated and wrote all their output in the
     run's directory (`Outcome.outside`): a run that failed on one side or both, or wrote elsewhere, compared nothing,
-    and the probes its sides ran do not count. Per run it keeps what the run proved (`_facts`: exit status and
+    and the probes its sides ran do not count. Per run it keeps what the run proved (`cell_facts`: exit status and
     hashes), so its size grows with neither the outputs nor the change; per side the probes compared runs ran.
     """
 
@@ -1612,7 +1979,7 @@ class Evidence:
                 "failed on both sides" if not base.ok and not candidate.ok else "failed on one side"
             )
         refused = refused_on_head(base, candidate)
-        before, after = _facts(base), _facts(candidate)
+        before, after = cell_facts(base), cell_facts(candidate)
         with self.lock:
             self.groups.setdefault(group, [0] * len(GROUP_COUNTS))[kind] += 1
             self.cells[name] = (group, not kind, before, before if after == before else after)
@@ -1688,7 +2055,7 @@ class Evidence:
             and missing[unit["index"]]
             and unit not in unmeasurable
             and all(
-                _lines_of(probe["where"]) & (tests or {}).get(unit["path"], set()) for probe in missing[unit["index"]]
+                lines_of(probe["where"]) & (tests or {}).get(unit["path"], set()) for probe in missing[unit["index"]]
             )
         ]
         unrun = [unit for unit in units if missing[unit["index"]] and unit not in tested and unit not in unmeasurable]

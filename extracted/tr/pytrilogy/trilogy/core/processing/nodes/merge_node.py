@@ -11,6 +11,7 @@ from trilogy.core.models.build import (
     BuildConcept,
     BuildConceptArgs,
     BuildDatasource,
+    BuildFilterItem,
     BuildGrain,
     BuildOrderBy,
     nonstandard_grouping_lineage,
@@ -281,6 +282,18 @@ def _planned_source_pairs(
                 | grains[right]
             )
     return out
+
+
+def _supplied_elsewhere(
+    source: QueryDatasource | BuildDatasource,
+    sources: Iterable[QueryDatasource | BuildDatasource],
+) -> set[str]:
+    return {
+        c.address
+        for other in sources
+        if other is not source
+        for c in other.output_concepts
+    }
 
 
 def _forced_seed(forced: JoinType | None, ranks: dict[str, int]) -> str | None:
@@ -792,7 +805,10 @@ class MergeNode(StrategyNode):
         return force_group, grain_forced
 
     def _existence_only(
-        self, source: QueryDatasource | BuildDatasource, merge_outputs: set[str]
+        self,
+        source: QueryDatasource | BuildDatasource,
+        merge_outputs: set[str],
+        elsewhere: set[str],
     ) -> bool:
         """`source` only feeds this merge's memberships: every row output it
         provides is an existence concept. Incidental extra columns must not
@@ -803,12 +819,26 @@ class MergeNode(StrategyNode):
         its own semijoin probe is likewise incidental: the feeder reaches its
         rows through the EXISTS subselect, not a row join. A feeder exposing
         OTHER coalescing keys is a real bridge row source and stays a join
-        candidate."""
+        candidate. So is the column a filtered set is drawn from (`city` of
+        `city ? c`): a feeder grouped on it holds the set, not rows. And a
+        column the set's own condition reads, when another source of the
+        merge supplies it: the feeder's copy holds only the kept rows."""
         existence = {c.address for c in self.existence_concepts}
         out_addrs = {y.address for y in source.output_concepts}
         provided = out_addrs & existence
         if not provided:
             return False
+        sets = [
+            c.lineage
+            for c in self.existence_concepts
+            if c.address in provided and isinstance(c.lineage, BuildFilterItem)
+        ]
+        existence |= {
+            s.content.address for s in sets if isinstance(s.content, BuildConcept)
+        }
+        existence |= {
+            a.address for s in sets for a in s.where.concept_arguments
+        } & elsewhere
         coalescing = self.environment.domain_graph.coalescing_relation_members()
         probe_keys = {
             k
@@ -843,6 +873,7 @@ class MergeNode(StrategyNode):
         lookup_keys: set[str] = set()
         row_keys: set[str] = set()
         for parent, source in zip(self.parents, parent_sources):
+            elsewhere = _supplied_elsewhere(source, parent_sources)
             key = source.identifier
             if isinstance(source, QueryDatasource) and key not in merged:
                 key = by_shape.setdefault(source.shape, key)
@@ -851,7 +882,7 @@ class MergeNode(StrategyNode):
                 held.get(key, frozenset()),
                 parent,
                 self.planned_pairs,
-                self._existence_only(source, merge_output_addresses),
+                self._existence_only(source, merge_output_addresses, elsewhere),
             )
             if key in merged:
                 logger.info(
@@ -872,7 +903,11 @@ class MergeNode(StrategyNode):
             merged.values(), key=lambda source: source.identifier
         )
         existence_final = [
-            x for x in final_datasets if self._existence_only(x, merge_output_addresses)
+            x
+            for x in final_datasets
+            if self._existence_only(
+                x, merge_output_addresses, _supplied_elsewhere(x, final_datasets)
+            )
         ]
         joined_sources = {
             k: v for k, v in merged.items() if all(v is not x for x in existence_final)

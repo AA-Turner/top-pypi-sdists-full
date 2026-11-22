@@ -10,14 +10,17 @@ belongs to no PR. :meth:`coord.ci_store.CiStore.list_runs_for_branch` closes
 that; this module is the CLI surface over it plus the two capabilities that
 already existed but had no verb: per-run job detail and per-PR checks.
 
-Read-only throughout — mirrors ``coord issue view``/``coord issue list``'s
-posture (see ``coord/commands/issues.py``): every subcommand here talks to
-the configured :class:`~coord.ci_store.CiStore` directly, the same way those
-two call ``github_ops`` directly, rather than routing through the daemon —
-there is no write here for the daemon seam to arbitrate. This is also what
-lets a worker (``gh`` deny-listed by policy, not by host capability) inspect
-CI state without asking the coordinator to relay it by hand: ``coord ci
-...`` is the sanctioned command, not a raw ``gh`` invocation.
+Every subcommand here talks to the configured
+:class:`~coord.ci_store.CiStore` directly — the same way ``coord issue
+view``/``coord issue list`` call ``github_ops`` directly (see
+``coord/commands/issues.py``) — rather than routing through the daemon.
+``rerun`` is this module's one write, and it needs no board arbitration:
+unlike an issue/milestone edit, a CI rerun touches no board state the
+daemon seam exists to serialize, only a third-party CI backend's own run
+state. This is also what lets a worker (``gh`` deny-listed by policy, not
+by host capability) inspect and re-trigger CI without asking the
+coordinator to relay it by hand: ``coord ci ...`` is the sanctioned
+command, not a raw ``gh`` invocation.
 """
 
 from __future__ import annotations
@@ -208,3 +211,115 @@ def ci_checks_cmd(repo: str, pr: int, as_json: bool, config_path: Path) -> None:
     for c in checks:
         marker = " FAILED" if c.status == "completed" and _conclusion_is_failing(c.conclusion) else ""
         click.echo(f"{c.name}\t{c.status}\t{c.conclusion or '-'}{marker}\t{c.url}")
+
+
+@ci_group.command(
+    "rerun",
+    help=(
+        "Re-run CI for a PR — the coord equivalent of `gh run rerun`. "
+        "REPO is the local repo name from coordinator.yml; PR is the PR "
+        "number.\n\n"
+        "With no flags, reruns every distinct Actions run behind the PR's "
+        "current checks. --failed narrows to only the currently-failing "
+        "run ids. --run ID reruns exactly that run id, bypassing PR-check "
+        "discovery entirely; add --job ID to narrow further to a single "
+        "job within that run. --stuck (requires --run and --job) marks "
+        "this as a manual auto-heal escalation for a checks/jobs desync — "
+        "the exact command the merge-queue sweep recommends once its own "
+        "bounded auto-rerun budget is exhausted.\n\n"
+        "This is the sanctioned seam for triggering a CI rerun — call this "
+        "instead of a raw `gh run rerun` invocation."
+    ),
+)
+@click.argument("repo")
+@click.argument("pr", type=int)
+@click.option("--failed", is_flag=True, help="Rerun only the currently-failing run ids.")
+@click.option(
+    "--run", "run_id", default=None,
+    help="Rerun exactly this run id, bypassing PR-check discovery. Mutually exclusive with --failed.",
+)
+@click.option(
+    "--job", "job_id", default=None,
+    help="With --run, narrow to a single job id within that run.",
+)
+@click.option(
+    "--stuck", "stuck", is_flag=True,
+    help=(
+        "Mark this as the manual escalation for a checks/jobs desync "
+        "(#4070/#4071) — requires --run and --job."
+    ),
+)
+@_CONFIG_OPTION
+def ci_rerun_cmd(
+    repo: str,
+    pr: int,
+    failed: bool,
+    run_id: str | None,
+    job_id: str | None,
+    stuck: bool,
+    config_path: Path,
+) -> None:
+    if failed and run_id is not None:
+        click.echo("error: --failed and --run are mutually exclusive", err=True)
+        sys.exit(1)
+    if job_id is not None and run_id is None:
+        click.echo("error: --job requires --run", err=True)
+        sys.exit(1)
+    if stuck and (run_id is None or job_id is None):
+        click.echo("error: --stuck requires --run and --job", err=True)
+        sys.exit(1)
+
+    cfg = _load_config(config_path)
+    slug = _resolve_repo_slug(cfg, repo)
+
+    try:
+        if run_id is not None and job_id is not None:
+            # The single-job primitive is explicit-id-scoped, not PR-scoped
+            # discovery like rerun_for_pr/rerun_failed_for_pr below —
+            # duck-typed the same way those two are, so a CiStore backend
+            # that doesn't support it (no GitHub Actions run/job model
+            # behind it) declines rather than erroring deep inside a
+            # backend-specific call.
+            ci_store = _build_ci_store(cfg)
+            rerun_job = getattr(ci_store, "rerun_job", None)
+            if rerun_job is None:
+                click.echo(
+                    f"error: {type(ci_store).__name__} does not support "
+                    "single-job reruns",
+                    err=True,
+                )
+                sys.exit(1)
+            ok = rerun_job(slug, run_id, job_id)
+        elif run_id is not None:
+            # Explicit-run-id rerun, bypassing PR-check discovery — duck-typed
+            # exactly like the --job branch above, so a non-GitHub backend
+            # (or the `type: none` opt-out) declines rather than this command
+            # silently talking to GitHub regardless of `ci_store.type`.
+            ci_store = _build_ci_store(cfg)
+            rerun_run = getattr(ci_store, "rerun_run", None)
+            if rerun_run is None:
+                click.echo(
+                    f"error: {type(ci_store).__name__} does not support "
+                    "explicit run-id reruns",
+                    err=True,
+                )
+                sys.exit(1)
+            ok = rerun_run(slug, run_id)
+        elif failed:
+            ci_store = _build_ci_store(cfg)
+            ok = ci_store.rerun_failed_for_pr(slug, pr)
+        else:
+            ci_store = _build_ci_store(cfg)
+            ok = ci_store.rerun_for_pr(slug, pr)
+    except Exception as e:  # noqa: BLE001
+        click.echo(f"error: ci rerun failed: {e}", err=True)
+        sys.exit(1)
+
+    target = f"{slug}#{pr}"
+    if run_id is not None:
+        target = f"{slug} run {run_id}" + (f" job {job_id}" if job_id is not None else "")
+    label = "stuck-check rerun" if stuck else "rerun"
+    if not ok:
+        click.echo(f"{label} failed for {target}", err=True)
+        sys.exit(1)
+    click.echo(f"{label} triggered for {target}")

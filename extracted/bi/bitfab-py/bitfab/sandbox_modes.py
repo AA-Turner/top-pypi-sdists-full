@@ -31,6 +31,32 @@ RECORDED = "recorded"
 SandboxModeSetting = bool | str
 
 
+def _stored_mode(value: Any) -> str:
+    if isinstance(value, dict) and value.get("mode") == READ_REAL_WRITE_FAKE:
+        return READ_REAL_WRITE_FAKE
+    return RECORDED
+
+
+def _refuse_other_mode(value: Any, mode: str) -> None:
+    stored = _stored_mode(value)
+    if stored != mode:
+        raise ValueError(
+            f'The sandbox store holds a Gmail mailbox from mode="{stored}", and '
+            f'this replay runs the Gmail sandbox in mode="{mode}". Replay in '
+            f'mode="{stored}", or seed the store\'s Gmail entry again.'
+        )
+
+
+def _load_live(_ctx: SandboxStartCtx, value: Any) -> Any:
+    _refuse_other_mode(value, READ_REAL_WRITE_FAKE)
+    return value
+
+
+def _load_recorded(ctx: SandboxStartCtx, value: Any) -> Any:
+    _refuse_other_mode(value, RECORDED)
+    return as_mailboxes(ctx, value)
+
+
 def gmail_sandbox(
     start: Callable[[SandboxStartCtx], Any] | None = None,
     account: Callable[[Any], str | None] | None = None,
@@ -112,6 +138,7 @@ def gmail_sandbox(
             start=start_live(live),
             integration="gmail",
             mode=READ_REAL_WRITE_FAKE,
+            load=_load_live,
         )
     if mode != RECORDED:
         raise ValueError(
@@ -131,6 +158,7 @@ def gmail_sandbox(
         start=lambda ctx: as_mailboxes(ctx, chosen(ctx)),
         integration="gmail",
         mode=RECORDED,
+        load=_load_recorded,
     )
 
 

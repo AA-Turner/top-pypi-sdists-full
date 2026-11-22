@@ -1624,6 +1624,12 @@ class NumbersModel(Cacheable):
 
         # Build a minimal table duplicating references from the source table
         from_table_refs = field_references(from_table)
+        uid_map_id, _ = self.objects.create_object_from_dict(
+            "CalculationEngine",
+            {},
+            TSTArchives.ColumnRowUIDMapArchive,
+        )
+        from_table_refs["base_column_row_uids"] = {"identifier": uid_map_id}
         table_model_id, table_model = self.objects.create_object_from_dict(
             "CalculationEngine",
             {
@@ -2347,7 +2353,7 @@ class NumbersModel(Cacheable):
                 payload_entries = payload_storage.table_para_style.entries
                 table_list_styles = payload_storage.table_list_style.entries
                 offsets = [e.character_index for e in payload_entries]
-                table_list_style = None
+
                 for i, offset in enumerate(offsets):
                     if i == len(offsets) - 1:
                         bullets.append(cell_text[offset:])
@@ -2359,20 +2365,22 @@ class NumbersModel(Cacheable):
                     if i < len(table_list_styles):
                         table_list_style = table_list_styles[i]
 
-                    if table_list_style is None:
-                        bullet_char = None
+                    # table_list_style cannot be None
+                    table_list_style = cast(
+                        "TSWPArchives.ObjectAttributeTable.ObjectAttribute",
+                        table_list_style,
+                    )
+                    bullet_style = self.get_object(
+                        table_list_style.object.identifier,
+                        TSWPArchives.ListStyleArchive,
+                    )
+                    if len(bullet_style.strings) > 0:
+                        bullet_char = bullet_style.strings[0]
+                    elif len(bullet_style.number_types) > 0:
+                        number_type = bullet_style.number_types[0]
+                        bullet_char = formatted_number(number_type, i)
                     else:
-                        bullet_style = self.get_object(
-                            table_list_style.object.identifier,
-                            TSWPArchives.ListStyleArchive,
-                        )
-                        if len(bullet_style.strings) > 0:
-                            bullet_char = bullet_style.strings[0]
-                        elif len(bullet_style.number_types) > 0:
-                            number_type = bullet_style.number_types[0]
-                            bullet_char = formatted_number(number_type, i)
-                        else:
-                            bullet_char = None
+                        bullet_char = None
 
                     bullet_chars.append(bullet_char)
 
@@ -2383,7 +2391,9 @@ class NumbersModel(Cacheable):
                     "bullet_chars": bullet_chars,
                     "hyperlinks": hyperlinks,
                 }
-        return None
+
+        # Never reached
+        return None  # pragma: no cover
 
     def table_comments(self, table_id: int, key: int) -> list[Comment]:
         """Resolve a comment ID to a list of Comment objects."""
@@ -3236,7 +3246,7 @@ class NumbersModel(Cacheable):
         """Keep UID maps and dependency bounds in sync with data dimensions."""
         table_model = self.table_model(table_id)
 
-        def _update_map(uid_map_ref: TSPMessages.Reference) -> None:  # noqa: C901
+        def _update_map(uid_map_ref: TSPMessages.Reference) -> None:
             """Update map."""
             if not uid_map_ref or uid_map_ref.identifier == 0:
                 return
@@ -3249,13 +3259,9 @@ class NumbersModel(Cacheable):
 
             if num_cols > len(col_uuids):
                 col_uuids.extend([NumbersUUID() for _ in range(num_cols - len(col_uuids))])
-            elif num_cols < len(col_uuids):
-                col_uuids = col_uuids[:num_cols]
 
             if num_rows > len(row_uuids):
                 row_uuids.extend([NumbersUUID() for _ in range(num_rows - len(row_uuids))])
-            elif num_rows < len(row_uuids):
-                row_uuids = row_uuids[:num_rows]
 
             sorted_col_uuids = sorted(col_uuids, key=lambda x: x.int)
             sorted_row_uuids = sorted(row_uuids, key=lambda x: x.int)

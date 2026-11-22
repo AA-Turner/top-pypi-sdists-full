@@ -1,8 +1,10 @@
 """Tests for TrafficFlowManager — caching, validation, and response shaping."""
 
+import copy
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from unifi_core.exceptions import UniFiAuthError
 from unifi_core.network.managers.traffic_flow_manager import TrafficFlowManager
 from unifi_core.network.models.traffic_flows import TrafficFlowQuery
 
@@ -144,6 +146,13 @@ async def test_statistics_shapes_response():
     assert result["top_applications"][0]["application_id"] == 470
     assert result["top_applications"][0]["application_name"] is None
     assert result["top_blocked_policies"][0]["policy_name"] == "Region Blocking"
+    assert result["dpi_name_resolution"] == {
+        "status": "unavailable",
+        "resolved_count": 0,
+        "total_count": 1,
+        "reason": "dpi_catalogue_unavailable",
+        "remediation": "The DPI catalogue could not be read; retry later. IDs and byte counts are complete.",
+    }
 
 
 @pytest.mark.asyncio
@@ -169,6 +178,13 @@ async def test_statistics_enriches_names_without_changing_v2_values():
             "category_name": "Media streaming services",
         }
     ]
+    assert result["dpi_name_resolution"] == {
+        "status": "resolved",
+        "resolved_count": 1,
+        "total_count": 1,
+        "reason": None,
+        "remediation": None,
+    }
 
 
 @pytest.mark.asyncio
@@ -200,6 +216,53 @@ async def test_statistics_catalog_failure_is_best_effort_and_cached():
     ]
     assert conn.request.await_count == 1
     assert dpi_catalog.calls == 1
+    assert first["dpi_name_resolution"]["status"] == "unavailable"
+    assert first["dpi_name_resolution"]["reason"] == "dpi_catalogue_unavailable"
+    assert "API key unavailable" not in str(first)
+
+
+@pytest.mark.asyncio
+async def test_statistics_missing_api_key_reports_remediation():
+    class NoKeyDpiCatalog:
+        async def get_full_dpi_catalog(self):
+            raise UniFiAuthError("no Network API key configured")
+
+    conn = _make_connection(response=_STATS_RESPONSE)
+    conn.tls_env_prefix = "NETWORK"
+    mgr = TrafficFlowManager(conn, dpi_manager=NoKeyDpiCatalog())
+
+    result = await mgr.get_traffic_flow_statistics(period="DAY", top=30)
+
+    assert result["top_applications"][0]["application_name"] is None
+    assert result["top_applications"][0]["application_id"] == 470
+    assert result["dpi_name_resolution"] == {
+        "status": "unavailable",
+        "resolved_count": 0,
+        "total_count": 1,
+        "reason": "network_api_key_required",
+        "remediation": (
+            "Set UNIFI_NETWORK_API_KEY (or UNIFI_API_KEY) to a valid Network API key so the DPI catalogue "
+            "can be read; application/category IDs and byte counts are complete without it."
+        ),
+    }
+
+
+@pytest.mark.asyncio
+async def test_statistics_without_applications_reports_no_resolution():
+    response = dict(_STATS_RESPONSE)
+    response["top_all_traffic_by_application"] = []
+
+    class UnusedDpiCatalog:
+        async def get_full_dpi_catalog(self):  # pragma: no cover - must not be called
+            raise AssertionError("catalogue read without applications")
+
+    for dpi_manager in (None, UnusedDpiCatalog()):
+        conn = _make_connection(response=response)
+        result = await TrafficFlowManager(conn, dpi_manager=dpi_manager).get_traffic_flow_statistics(
+            period="DAY", top=30
+        )
+        assert result["top_applications"] == []
+        assert result["dpi_name_resolution"] is None
 
 
 @pytest.mark.asyncio
@@ -246,6 +309,16 @@ async def test_statistics_preserves_order_and_resolves_partial_catalog_matches()
             "category_name": None,
         },
     ]
+    # No entry has both names, but some names were found.
+    assert result["dpi_name_resolution"] == {
+        "status": "partial",
+        "resolved_count": 0,
+        "total_count": 3,
+        "reason": "not_in_dpi_catalogue",
+        "remediation": (
+            "The controller's public DPI catalogue does not list these applications; IDs and byte counts are complete."
+        ),
+    }
 
 
 @pytest.mark.asyncio
@@ -269,6 +342,8 @@ async def test_statistics_ignores_boolean_catalog_ids():
 
     assert result["top_applications"][0]["application_name"] is None
     assert result["top_applications"][1]["category_name"] is None
+    assert result["dpi_name_resolution"]["status"] == "unresolved"
+    assert result["dpi_name_resolution"]["resolved_count"] == 0
 
 
 @pytest.mark.asyncio
@@ -288,3 +363,63 @@ async def test_statistics_handles_list_wrapped_and_empty():
         result = await mgr.get_traffic_flow_statistics(period="HOUR", top=10)
         assert isinstance(result["top_clients"], list)
         assert isinstance(result["allowed_count_by_risk"], dict)
+
+
+@pytest.mark.asyncio
+async def test_statistics_missing_api_key_without_env_prefix_names_the_controller_record():
+    """A caller without server env vars (the API server) is told to fix the controller record."""
+
+    class NoKeyDpiCatalog:
+        async def get_full_dpi_catalog(self):
+            raise UniFiAuthError("no Network API key configured")
+
+    conn = _make_connection(response=_STATS_RESPONSE)
+    conn.tls_env_prefix = None
+    mgr = TrafficFlowManager(conn, dpi_manager=NoKeyDpiCatalog())
+
+    result = await mgr.get_traffic_flow_statistics(period="DAY", top=30)
+
+    resolution = result["dpi_name_resolution"]
+    assert resolution["reason"] == "network_api_key_required"
+    assert "this controller's configuration" in resolution["remediation"]
+    assert "UNIFI_" not in resolution["remediation"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "catalog,expected_names",
+    [
+        (
+            {"applications": [{"id": (4 << 16) | 470, "name": "Example Stream"}], "categories": []},
+            ("Example Stream", None),
+        ),
+        (
+            {"applications": [], "categories": [{"id": 4, "name": "Media streaming services"}]},
+            (None, "Media streaming services"),
+        ),
+    ],
+    ids=["application-only", "category-only"],
+)
+async def test_statistics_single_name_match_is_partial_not_resolved(catalog, expected_names):
+    class OneSidedDpiCatalog:
+        async def get_full_dpi_catalog(self):
+            return copy.deepcopy(catalog)
+
+    conn = _make_connection(response=_STATS_RESPONSE)
+    mgr = TrafficFlowManager(conn, dpi_manager=OneSidedDpiCatalog())
+
+    result = await mgr.get_traffic_flow_statistics(period="DAY", top=30)
+
+    assert len(result["top_applications"]) == 1
+    application = result["top_applications"][0]
+    assert (application["application_name"], application["category_name"]) == expected_names
+    assert application["application_id"] == 470
+    assert result["dpi_name_resolution"] == {
+        "status": "partial",
+        "resolved_count": 0,
+        "total_count": 1,
+        "reason": "not_in_dpi_catalogue",
+        "remediation": (
+            "The controller's public DPI catalogue does not list these applications; IDs and byte counts are complete."
+        ),
+    }

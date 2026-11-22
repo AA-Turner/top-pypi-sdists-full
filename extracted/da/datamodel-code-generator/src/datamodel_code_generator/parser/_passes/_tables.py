@@ -16,9 +16,8 @@ from typing import TYPE_CHECKING, Any, cast
 
 from typing_extensions import Protocol
 
-from datamodel_code_generator import ReuseScope
 from datamodel_code_generator._naming_hint import collecting_class_names
-from datamodel_code_generator.enums import DefaultValueType
+from datamodel_code_generator.enums import DefaultValueType, ReuseScope
 from datamodel_code_generator.model.base import DataModel, _refresh_custom_template_paths
 from datamodel_code_generator.model.type_alias import TypeAliasBase
 from datamodel_code_generator.parser import _type_overrides
@@ -148,14 +147,15 @@ class PipelineHost(
     def _check_model_inheritance(self, contexts: Sequence[Any]) -> None:
         """Reject invalid builtin inheritance."""
 
-    def _finalize_modules(  # noqa: PLR0913, PLR0917
+    def _finalize_modules(
         self,
         contexts: list[Any],
         unused_models: list[DataModel],
         model_to_module_models: dict[DataModel, tuple[ModulePath, list[DataModel]]],
         module_to_import: dict[ModulePath, Imports],
         forwarder_modules: Collection[ModulePath],
-        with_import: bool,  # noqa: FBT001
+        *,
+        with_import: bool,
         config: Any,
         internal_modules: set[ModulePath],
         model_path_to_module_name: dict[str, str],
@@ -176,7 +176,7 @@ class PipelineHost(
     def _set_typed_extra_annotation_mode(self, *, use_deferred_annotations: bool) -> None:
         """Let the selected output configure its annotation representation."""
 
-    def _uses_deferred_annotations(self, with_import: bool | None, disable_future_imports: bool) -> bool:  # noqa: FBT001
+    def _uses_deferred_annotations(self, *, with_import: bool | None, disable_future_imports: bool) -> bool:
         """Return whether the modules defer the evaluation of their annotations."""
 
 
@@ -538,7 +538,7 @@ PIPELINE: tuple[StepLike[PipelineHost, _PipelineRun[Any, Any, Any]], ...] = (
                 "set_typed_extra_annotation_mode",
                 lambda self, run: self._set_typed_extra_annotation_mode(
                     use_deferred_annotations=self._uses_deferred_annotations(
-                        run.args.with_import, run.args.disable_future_imports
+                        with_import=run.args.with_import, disable_future_imports=run.args.disable_future_imports
                     )
                 ),
             ),
@@ -788,10 +788,10 @@ PIPELINE: tuple[StepLike[PipelineHost, _PipelineRun[Any, Any, Any]], ...] = (
                     run.model_to_module_models,
                     run.module_to_import,
                     run.forwarder_map,
-                    bool(run.args.with_import),
-                    run.config,
-                    run.internal_modules,
-                    run.model_path_to_module_name,
+                    with_import=bool(run.args.with_import),
+                    config=run.config,
+                    internal_modules=run.internal_modules,
+                    model_path_to_module_name=run.model_path_to_module_name,
                 ),
             ),
         ),
@@ -813,7 +813,9 @@ PIPELINE: tuple[StepLike[PipelineHost, _PipelineRun[Any, Any, Any]], ...] = (
             ),
             PassSpec(
                 "record_model_placement",
-                lambda self, run: imports.record_model_placement(self, run.contexts, bool(run.internal_modules)),
+                lambda self, run: imports.record_model_placement(
+                    self, run.contexts, has_internal_modules=bool(run.internal_modules)
+                ),
                 when=lambda self, _: self.typed_nullable_maps or self.run_context.untyped_nullable_maps,
             ),
             PassSpec("check_model_inheritance", lambda self, run: self._check_model_inheritance(run.contexts)),
@@ -848,7 +850,9 @@ PIPELINE: tuple[StepLike[PipelineHost, _PipelineRun[Any, Any, Any]], ...] = (
             ),
             PassSpec(
                 "warn_about_msgspec_decoding",
-                lambda self, run: imports.warn_about_msgspec_decoding(self, run.contexts),
+                lambda self, run: imports.warn_about_msgspec_decoding(
+                    self, run.contexts, run.decisions.merged_str_like_unions
+                ),
                 when=lambda self, _: self.data_model_type.REQUIRES_TAGGED_UNION_DISCRIMINATOR,
             ),
             PassSpec(

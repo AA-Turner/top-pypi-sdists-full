@@ -21,7 +21,10 @@ PAYLOAD_VALIDATION_FILE = "tests/main/test_payload_validation.py"
 SPLIT_NODE_FILES = frozenset({
     PAYLOAD_VALIDATION_FILE,
     "tests/api_generation/test_client_bindings.py",
+    "tests/main/test_decision_tables.py",
     "tests/main/test_schema_intersection_shapes.py",
+    "tests/main/test_shape_families.py",
+    "tests/main/test_shape_family_invariants.py",
 })
 PART_PATTERN = re.compile(r"(?P<base>.+)@[1-9][0-9]*/[1-9][0-9]*")
 RECIPE_VERSION = 1

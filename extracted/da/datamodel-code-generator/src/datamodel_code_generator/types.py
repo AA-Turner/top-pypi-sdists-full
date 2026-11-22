@@ -81,6 +81,7 @@ from datamodel_code_generator._module_paths import dotted_name
 from datamodel_code_generator._parse_memo import PARSE_MEMO, rendering_memo
 from datamodel_code_generator._python_syntax import call_text, keyword_argument, subscript_text
 from datamodel_code_generator._records import record
+from datamodel_code_generator._requirements import pydantic_target_meets
 from datamodel_code_generator.enums import DefaultValueType, TargetPydanticVersion
 from datamodel_code_generator.imports import (
     IMPORT_ABC_MAPPING,
@@ -217,6 +218,8 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
     from types import ModuleType
 
+    from typing_extensions import Self
+
     from datamodel_code_generator._parse_memo import ParseMemo
     from datamodel_code_generator._python_type_annotation import PythonTypeExpr
     from datamodel_code_generator._python_type_binding import BoundPythonType
@@ -268,7 +271,7 @@ class UnionIntFloat:
         """Initialize with an int or float value."""
         self.value: int | float = value
 
-    def __int__(self) -> int:  # pragma: no cover
+    def __int__(self) -> int:
         """Convert value to int."""
         return int(self.value)
 
@@ -299,9 +302,9 @@ class UnionIntFloat:
     @classmethod
     def validate(cls, v: Any) -> UnionIntFloat:
         """Validate and convert value to UnionIntFloat."""
-        if isinstance(v, UnionIntFloat):  # pragma: no cover
+        if isinstance(v, UnionIntFloat):
             return v
-        if not isinstance(v, (int, float)):  # pragma: no cover
+        if not isinstance(v, (int, float)):
             try:
                 int(v)
                 return cls(v)
@@ -544,7 +547,7 @@ def _remove_none_from_union(type_: str, *, use_union_operator: bool) -> str:  # 
     part = current_part.strip()
     if current_part and part != NONE:
         # only UNION_PREFIX might be nested but not union_operator
-        if not use_union_operator and part.startswith(UNION_PREFIX):  # pragma: no cover
+        if not use_union_operator and part.startswith(UNION_PREFIX):  # pragma: no cover - not proven unreachable
             part = _remove_none_from_union(part, use_union_operator=False)
         parts.append(part)
 
@@ -617,23 +620,65 @@ def build_union(
     return data_type(data_types=kept, **values)
 
 
+class _UnionNode(Protocol):
+    """A node of a type tree as the union walk reads it: a ``DataType``, or a view of one (``DataTypeView``)."""
+
+    @property
+    def data_types(self) -> Sequence[Self]:
+        """The member or item types."""
+
+    @property
+    def _writes_nothing_of_its_own(self) -> bool:
+        """Whether the type writes no text, names no model and is no container, so only its members write."""
+
+
+_UnionNodeT = TypeVar("_UnionNodeT", bound=_UnionNode)
+
+
+def _union_members(data_type: _UnionNodeT) -> Sequence[_UnionNodeT]:
+    """Return the members of the union a type is at its top level, or nothing when it is no union there.
+
+    A container of several items is no union at its top level: it writes the union of its items inside it.
+    ``union_members`` reads it for a ``DataType``, a decision for a view of one.
+    """
+    if len(data_type.data_types) < 2 or data_type in CONTAINERS:  # noqa: PLR2004
+        return ()
+    return data_type.data_types
+
+
+def _written_union_members(data_types: Iterable[_UnionNodeT]) -> Iterator[_UnionNodeT]:
+    """Yield the members of a union as written, spreading each member that is a union at its top level.
+
+    ``written_union_members`` reads them for ``DataType`` nodes, a decision for views of them.
+    """
+    for data_type in data_types:
+        if members := _union_members(data_type):
+            yield from _written_union_members(members)
+        else:
+            yield data_type
+
+
+def _written_member(data_type: _UnionNodeT) -> _UnionNodeT:
+    """Return the member a type is written as: the type, or the member of a type that only holds one member.
+
+    The msgspec decoding warnings read it for a ``DataType``, a decision for a view of one.
+    """
+    while data_type._writes_nothing_of_its_own and len(data_type.data_types) == 1:  # noqa: SLF001
+        data_type = data_type.data_types[0]
+    return data_type
+
+
 def union_members(data_type: DataType) -> Sequence[DataType]:
     """Return the members of the union a type is at its top level, or nothing when it is no union there.
 
     A container of several items is no union at its top level: it writes the union of its items inside it.
     """
-    if len(data_type.data_types) < 2 or data_type._is_container:  # noqa: PLR2004, SLF001
-        return ()
-    return data_type.data_types
+    return _union_members(data_type)
 
 
 def written_union_members(data_types: Iterable[DataType]) -> Iterator[DataType]:
     """Yield the members of a union as written, spreading each member that is a union at its top level."""
-    for data_type in data_types:
-        if members := union_members(data_type):
-            yield from written_union_members(members)
-        else:
-            yield data_type
+    return _written_union_members(data_types)
 
 
 def is_data_model_field(obj: object) -> TypeIs[DataModelFieldBase]:
@@ -679,12 +724,12 @@ class DataType(_BaseModel):  # noqa: PLR0904
         defer_build=True,
     )
 
-    type: Optional[str] = None  # noqa: UP045
-    reference: Optional[Reference] = None  # noqa: UP045
+    type: Optional[str] = None
+    reference: Optional[Reference] = None
     data_types: list[DataType] = Field(default_factory=list)
     is_func: bool = False
-    kwargs: Optional[dict[str, Any]] = None  # noqa: UP045
-    import_: Optional[Import] = None  # noqa: UP045
+    kwargs: Optional[dict[str, Any]] = None
+    import_: Optional[Import] = None
     python_type: _BoundPythonTypeField | None = Field(default=None, exclude=True, repr=False)
     python_version: PythonVersion = PythonVersionMin
     is_optional: bool = False
@@ -696,19 +741,19 @@ class DataType(_BaseModel):  # noqa: PLR0904
     is_sequence: bool = False
     is_tuple: bool = False
     tuple_item_count: int | None = Field(default=None, ge=0)
-    given_container: Optional[GivenContainerName] = None  # noqa: UP045
+    given_container: Optional[GivenContainerName] = None
     is_custom_type: bool = False
-    literals: list[Union[StrictBool, StrictInt, StrictStr]] = Field(default_factory=list)  # noqa: UP007
+    literals: list[Union[StrictBool, StrictInt, StrictStr]] = Field(default_factory=list)
     enum_member_literals: list[tuple[str, str]] = Field(default_factory=list)  # [(EnumClassName, member_name), ...]
-    enum_member_tag_values: tuple[Union[StrictBool, StrictInt, StrictStr], ...] = ()  # noqa: UP007
+    enum_member_tag_values: tuple[Union[StrictBool, StrictInt, StrictStr], ...] = ()
     """The values written after ``enum_member_literals``, ``Literal[Kind.a, 'a']``: the tags a payload carries for
     members of a plain Enum, which equal no value (``parser/_tag_plan.py:writes_member_values``)."""
     use_standard_collections: bool = False
     use_generic_container: bool = False
     use_union_operator: bool = False
     preserve_union_member_order: bool = False
-    alias: Optional[str] = None  # noqa: UP045
-    parent: Union[DataModelFieldBase, DataType, None] = None  # noqa: UP007
+    alias: Optional[str] = None
+    parent: Union[DataModelFieldBase, DataType, None] = None
 
     @field_validator("python_type")
     @classmethod
@@ -725,10 +770,10 @@ class DataType(_BaseModel):  # noqa: PLR0904
 
     children: list[DataType] = Field(default_factory=list)
     strict: bool = False
-    dict_key: Optional[DataType] = None  # noqa: UP045
+    dict_key: Optional[DataType] = None
     treat_dot_as_module: bool = False
     use_serialize_as_any: bool = False
-    discriminator: Optional[str] = None  # noqa: UP045
+    discriminator: Optional[str] = None
 
     _exclude_fields: ClassVar[set[str]] = {"parent", "children"}
     _pass_fields: ClassVar[set[str]] = {"parent", "children", "data_types", "reference"}
@@ -778,15 +823,15 @@ class DataType(_BaseModel):  # noqa: PLR0904
             name,
             base,
             self.python_version,
-            self.use_standard_collections,
-            self.use_generic_container,
-            self.use_union_operator,
-            self.treat_dot_as_module,
-            self.use_serialize_as_any,
+            use_standard_collections=self.use_standard_collections,
+            use_generic_container=self.use_generic_container,
+            use_union_operator=self.use_union_operator,
+            treat_dot_as_module=self.treat_dot_as_module,
+            use_serialize_as_any=self.use_serialize_as_any,
         )
 
     @classmethod
-    def from_import(  # noqa: PLR0913
+    def from_import(
         cls: builtins.type[DataTypeT],
         import_: Import,
         *,
@@ -822,7 +867,7 @@ class DataType(_BaseModel):  # noqa: PLR0904
 
     def replace_reference(self, reference: Reference | None) -> None:
         """Replace this DataType's reference with a new one."""
-        if not self.reference:  # pragma: no cover
+        if not self.reference:
             msg = f"`{self.__class__.__name__}.replace_reference()` can't be called when `reference` field is empty."
             raise Exception(msg)  # noqa: TRY002
         drop_child(self.reference, self)
@@ -853,11 +898,11 @@ class DataType(_BaseModel):  # noqa: PLR0904
         """
         parent = self.parent
         self.parent = None
-        if parent is not None:  # pragma: no cover
+        if parent is not None:
             new_data_type.parent = parent
             if is_data_model_field(parent):
                 parent.data_type = new_data_type
-            elif isinstance(parent, DataType):  # pragma: no cover
+            else:
                 parent.data_types = [new_data_type if d is self else d for d in parent.data_types]
 
     @property
@@ -1019,7 +1064,7 @@ class DataType(_BaseModel):  # noqa: PLR0904
 
     def __init__(self, **values: Any) -> None:
         """Initialize DataType with validation and reference setup."""
-        if not TYPE_CHECKING:  # pragma: no cover
+        if not TYPE_CHECKING:  # pragma: no branch
             super().__init__(**values)
         _link_parts(self)
 
@@ -1177,7 +1222,7 @@ class DataType(_BaseModel):  # noqa: PLR0904
         """Return whether the type is the plain type ``None``."""
         return self.type == NONE and not (self.alias or self.reference or self.data_types or self.is_func)
 
-    def _optional_hint(self, type_: str, use_union_operator: bool) -> str:  # noqa: FBT001
+    def _optional_hint(self, type_: str, *, use_union_operator: bool) -> str:
         """Write the hint with its None, except for the name of an alias of None, which is None already."""
         if use_union_operator and self.names_none_alias:
             return type_
@@ -1207,17 +1252,34 @@ class DataType(_BaseModel):  # noqa: PLR0904
         """
         return self._rendered_null_source() is not None
 
+    @property
+    def items_admit_none(self) -> bool:
+        """Return whether the union a container writes of its several items includes None, inside the container.
+
+        A tuple writes its items one by one, and an item that is the one type of a container holds its own None.
+        """
+        core = _nullability_core()
+        return (
+            self._is_container
+            and not self.is_tuple
+            and core.takes_item_null(
+                keeps_member_order=self.preserve_union_member_order, member_count=len(self.data_types)
+            )
+            and any(self._member_nulls(core))
+        )
+
     def _rendered_null_source(self) -> NullSource | None:
         """Return why the rendered type hint includes None, reading the members of a union only when they decide."""
         core = _nullability_core()
-        members = self.data_types
         return core.rendered_nullability(
             own=self.is_optional,
             reference=self.adds_reference_null,
-            member_nulls=(member._gives_member_null(core) for member in members)  # noqa: SLF001
-            if self._takes_member_null(core)
-            else (),
+            member_nulls=self._member_nulls(core) if self._takes_member_null(core) else (),
         )
+
+    def _member_nulls(self, core: ModuleType) -> Iterator[bool]:
+        """Return, for each member, whether it gives the union of the members its None (``member_null``)."""
+        return (member._gives_member_null(core) for member in self.data_types)  # noqa: SLF001
 
     def _takes_member_null(self, core: ModuleType) -> bool:
         """Return whether the type, as a union, takes over the None of its members."""
@@ -1260,7 +1322,7 @@ class DataType(_BaseModel):  # noqa: PLR0904
             case "empty-union":
                 self.import_ = self.import_ or IMPORT_ANY
                 return
-            case _:  # pragma: no cover
+            case _:  # pragma: no cover - the match covers every write
                 assert_never(write)
         self.is_optional = True
         if null == "reference":
@@ -1531,7 +1593,7 @@ def _render_apply(expr: TypeApply) -> tuple[str, NullSource | None]:
         text = node._get_wrapped_alias_type_hint(text)  # noqa: SLF001
     if (container := expr.container) is not None:
         if member_null:
-            text = node._optional_hint(text, node.use_union_operator)  # noqa: SLF001
+            text = node._optional_hint(text, use_union_operator=node.use_union_operator)  # noqa: SLF001
         member_null = merged_null = False
         if expr.mapping:
             key = STR if expr.key is None else render_type_expr(expr.key)
@@ -1544,7 +1606,7 @@ def _render_apply(expr: TypeApply) -> tuple[str, NullSource | None]:
         text = stable_repr(text) if '"' in text or "\\" in text else f'"{text}"'
     null = _hint_null(node, reference=expr.form != "base", member_null=merged_null)
     if null is not None and (member_null or null != "member") and text != ANY:
-        return node._optional_hint(text, node.use_union_operator), null  # noqa: SLF001
+        return node._optional_hint(text, use_union_operator=node.use_union_operator), null  # noqa: SLF001
     if not expr.base and node.is_func and node.kwargs:
         return call_text(text, (keyword_argument(k, represent_python_value(v)) for k, v in node.kwargs.items())), null
     return text, null
@@ -1713,6 +1775,9 @@ class Types(Enum):
     null = auto()
     array = auto()
     any = auto()
+    uuid6 = auto()
+    uuid7 = auto()
+    uuid8 = auto()
 
 
 _object_new = object.__new__
@@ -1867,15 +1932,16 @@ def written_type_name(data_type: DataType) -> str | None:
 
 
 @cache
-def _create_context_data_type(  # noqa: PLR0913, PLR0917
+def _create_context_data_type(
     model_name: str,
     base: type[DataType],
     python_version: PythonVersion,
-    use_standard_collections: bool,  # noqa: FBT001
-    use_generic_container: bool,  # noqa: FBT001
-    use_union_operator: bool,  # noqa: FBT001
-    treat_dot_as_module: bool | None,  # noqa: FBT001
-    use_serialize_as_any: bool,  # noqa: FBT001
+    *,
+    use_standard_collections: bool,
+    use_generic_container: bool,
+    use_union_operator: bool,
+    treat_dot_as_module: bool | None,
+    use_serialize_as_any: bool,
 ) -> type[DataType]:
     """Create or reuse a DataType subclass with context-specific defaults.
 
@@ -2100,6 +2166,8 @@ class DataTypeManager(ABC):
         _applicability.BASE_OUTPUT.target_number_keywords
     )
     """Number keywords a type takes once the target version of the output model has a construct, by the type's path."""
+    _TARGET_TYPE_FALLBACKS: ClassVar[Mapping[Types, tuple[PydanticConstruct, Import]]] = MappingProxyType({})
+    """The import a type of the type map takes where the target Pydantic version lacks the construct it needs."""
     ANNOTATION_UNIONS_TAKE_CONSTRAINTS: ClassVar[bool] = _applicability.BASE_OUTPUT.annotation_unions_take
     FIXED_TUPLES_TAKE_LENGTH: ClassVar[bool] = _applicability.BASE_OUTPUT.fixed_tuples_take_length
     LITERALS_TAKE_CONSTRAINTS: ClassVar[bool] = _applicability.BASE_OUTPUT.literals_take
@@ -2115,7 +2183,7 @@ class DataTypeManager(ABC):
     type_map: dict[Types, DataType]
     """The type of each schema type and format, which the type managers of the outputs build."""
 
-    def __init__(  # noqa: PLR0913, PLR0917
+    def __init__(  # noqa: PLR0917
         self,
         python_version: PythonVersion = PythonVersionMin,
         use_standard_collections: bool = False,  # noqa: FBT001, FBT002
@@ -2154,11 +2222,11 @@ class DataTypeManager(ABC):
             "ContextDataType",
             DataType,
             python_version,
-            use_standard_collections,
-            use_generic_container_types,
-            use_union_operator,
-            treat_dot_as_module,
-            use_serialize_as_any,
+            use_standard_collections=use_standard_collections,
+            use_generic_container=use_generic_container_types,
+            use_union_operator=use_union_operator,
+            treat_dot_as_module=treat_dot_as_module,
+            use_serialize_as_any=use_serialize_as_any,
         )
 
     def _context_class(self, name: str, base: type[DataType]) -> type[DataType]:
@@ -2167,11 +2235,11 @@ class DataTypeManager(ABC):
             name,
             base,
             self.python_version,
-            self.use_standard_collections,
-            self.use_generic_container_types,
-            self.use_union_operator,
-            self.treat_dot_as_module,
-            self.use_serialize_as_any,
+            use_standard_collections=self.use_standard_collections,
+            use_generic_container=self.use_generic_container_types,
+            use_union_operator=self.use_union_operator,
+            treat_dot_as_module=self.treat_dot_as_module,
+            use_serialize_as_any=self.use_serialize_as_any,
         )
 
     def use_untyped_value_type(self, untyped_value_type: str | None) -> None:
@@ -2191,6 +2259,17 @@ class DataTypeManager(ABC):
             type_map[types] = _valid_data_type(
                 cls, data_types=[untyped_value_data_type(cls, untyped_value)], **{container: True}
             )
+
+    def use_target_pydantic_version(self, target_pydantic_version: TargetPydanticVersion | None) -> None:
+        """Write each type of ``_TARGET_TYPE_FALLBACKS`` whose construct the target Pydantic lacks as its fallback.
+
+        The target is set after construction, as --untyped-value-type is, so a type manager with the constructor of
+        an older release keeps working.
+        """
+        type_map = self.type_map
+        for types, (construct, fallback) in self._TARGET_TYPE_FALLBACKS.items():
+            if not pydantic_target_meets(construct, target_pydantic_version):
+                type_map[types] = _valid_import_type(type(type_map[types]), fallback)
 
     @abstractmethod
     def get_data_type(self, types: Types, **kwargs: Any) -> DataType:
@@ -2375,7 +2454,7 @@ class DataTypeManager(ABC):
         return frozenset(keywords)
 
     @classmethod
-    def _constraint_keywords(  # noqa: PLR0911, PLR0913
+    def _constraint_keywords(  # noqa: PLR0911
         cls,
         data_type: DataTypeView,
         target_version: tuple[int, int],

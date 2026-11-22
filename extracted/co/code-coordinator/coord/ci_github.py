@@ -67,6 +67,14 @@ _BUCKET_CONCLUSIONS: dict[str, str] = {
 # concern.
 _RUN_ID_RE = re.compile(r"/runs/(\d+)")
 
+# #4070: the job-URL shape the comment above already names
+# (".../actions/runs/{run_id}/job/{job_id}") — distinct from `_RUN_ID_RE`,
+# which matches the run id present in EITHER URL shape. Only a check whose
+# link already points at a specific job (typically one that's in flight, or
+# has a single job behind it) matches; a bare run URL leaves `CheckRun.
+# job_id` at its `""` default, same as any other non-Actions check link.
+_JOB_ID_RE = re.compile(r"/runs/\d+/job/(\d+)")
+
 
 # #3114: bound on the log excerpt threaded into a ci-fix briefing — "last
 # ~200 lines or ~8KB, whichever is smaller" per the issue's fix shape. A
@@ -439,6 +447,18 @@ def _run_id_from_link(link: str) -> str:
     return match.group(1) if match else ""
 
 
+def _job_id_from_link(link: str) -> str:
+    """Extract the numeric Actions *job* id from a `gh pr checks` `link` URL
+    (#4070), or ``""`` when *link* is a bare run URL (no job breakdown yet)
+    or isn't an Actions link at all.
+
+    Mirrors :func:`_run_id_from_link` one level down — see this module's
+    ``_RUN_ID_RE`` comment for the two URL shapes `gh pr checks` emits.
+    """
+    match = _JOB_ID_RE.search(link or "")
+    return match.group(1) if match else ""
+
+
 def _normalize_bucket(bucket: str) -> str:
     """Lowercase/None-safe normalisation of gh's ``bucket`` field, shared by
     :func:`_status_from_bucket` and :func:`_conclusion_from_bucket` so the two
@@ -692,6 +712,58 @@ class GitHubCi:
                 self._jobs_cache.pop((repo, str(run_id)), None)
         return all_ok and any_ok
 
+    def rerun_job(self, repo: str, run_id: str, job_id: str) -> bool:
+        """Re-run a single job *job_id* within Actions run *run_id* on
+        *repo* via ``gh run rerun <run_id> --job <job_id>``.
+
+        The explicit-id counterpart to `rerun_for_pr`/`rerun_failed_for_pr`
+        above: those two discover run ids by reading a PR's checks and
+        rerun whole runs (or whole failed-job sets per run); this skips
+        discovery entirely and reruns exactly the one job the caller
+        already knows about — `coord ci rerun REPO PR --run ID --job ID`,
+        or any other caller holding a job id from :meth:`list_jobs_for_run`.
+
+        Thin wrapper over :func:`github_ops.rerun_workflow_run_job` — same
+        best-effort contract: ``True`` only on a clean (exit 0) rerun,
+        ``False`` on any failure rather than raising.
+
+        Invalidates this run's cached :meth:`list_jobs_for_run` entry on
+        success, same reasoning as `rerun_for_pr`'s own cache invalidation
+        — a stale pre-rerun job/step snapshot read within ``cache_ttl``
+        right after a successful rerun would misreport the job as still in
+        its old state. Does not touch the PR checks cache: this method is
+        never told which PR (if any) the run belongs to.
+        """
+        ok = github_ops.rerun_workflow_run_job(repo, run_id, job_id)
+        if ok:
+            self._jobs_cache.pop((repo, str(run_id)), None)
+        return ok
+
+    def rerun_run(self, repo: str, run_id: str) -> bool:
+        """Re-run the whole of Actions run *run_id* on *repo* via
+        ``gh run rerun <run_id>``, bypassing PR-check discovery entirely.
+
+        The explicit-id counterpart to :meth:`rerun_for_pr`: that method
+        discovers run ids by reading a PR's checks and reruns every
+        distinct one; this skips discovery and reruns exactly the one run
+        id the caller already knows about — ``coord ci rerun REPO PR
+        --run ID`` with no ``--job``, or any other caller holding a run id
+        from :meth:`list_runs_for_branch`.
+
+        Thin wrapper over :func:`github_ops.rerun_workflow_run` — same
+        best-effort contract: ``True`` only on a clean (exit 0) rerun,
+        ``False`` on any failure rather than raising.
+
+        Invalidates this run's cached :meth:`list_jobs_for_run` entry on
+        success, same reasoning as :meth:`rerun_job`'s own cache
+        invalidation. Does not touch any PR's checks cache: this method is
+        never told which PR (if any) the run belongs to.
+        """
+        ok = github_ops.rerun_workflow_run(repo, run_id)
+        if ok:
+            self._jobs_cache.pop((repo, str(run_id)), None)
+        return ok
+
     def list_jobs_for_run(self, repo: str, run_id: str) -> list["JobRun"]:
         """Job/step detail for Actions run *run_id* on *repo* via ``gh api``
         (#1892) — backs :func:`coord.ci_store.is_verdictless_job`.
@@ -747,6 +819,7 @@ class GitHubCi:
                     runner_name=str(entry.get("runner_name") or ""),
                     steps=steps,
                     job_id=str(entry.get("id", "") or ""),
+                    status=str(entry.get("status") or ""),
                 )
             )
         return jobs
@@ -859,6 +932,7 @@ class GitHubCi:
                 run_id=_run_id_from_link(str(entry.get("link", ""))),
                 started_at=_parse_ts(entry.get("startedAt")),
                 completed_at=_parse_ts(entry.get("completedAt")),
+                job_id=_job_id_from_link(str(entry.get("link", ""))),
             )
             for entry in raw
             if isinstance(entry, dict)

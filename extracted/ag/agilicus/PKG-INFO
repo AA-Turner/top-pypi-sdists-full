@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agilicus
-Version: 1.451.16
+Version: 1.451.17
 Summary: Agilicus SDK
 License: MIT
 License-File: LICENSE.txt
@@ -32,7 +32,7 @@ Requires-Dist: pem (>=23.1.0,<24.0.0)
 Requires-Dist: prettytable (>=3.19.0)
 Requires-Dist: prometheus_client (>=0.26.0) ; extra == "billing"
 Requires-Dist: python_dateutil (>2.5.3)
-Requires-Dist: pyyaml (>=6.0.3)
+Requires-Dist: pyyaml (>=6.0.4)
 Requires-Dist: requests (>=2.34.2,<3.0.0)
 Requires-Dist: shortuuid (>=1.0.13)
 Requires-Dist: six (>=1.17.0)

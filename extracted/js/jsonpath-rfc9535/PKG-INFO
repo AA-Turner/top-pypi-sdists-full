@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: jsonpath-rfc9535
-Version: 2.0.2
+Version: 2.1.0
 Summary: RFC 9535 - JSONPath: Query Expressions for JSON in Python
 Project-URL: Documentation, https://jg-rp.github.io/python-jsonpath-rfc9535/
 Project-URL: Issues, https://github.com/jg-rp/python-jsonpath-rfc9535/issues
@@ -13,9 +13,10 @@ Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.12
-Requires-Dist: iregexp-check>=0.1.4
 Requires-Dist: regex
 Description-Content-Type: text/markdown
 

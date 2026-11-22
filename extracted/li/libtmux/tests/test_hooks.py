@@ -6,6 +6,7 @@ import typing as t
 
 import pytest
 
+from libtmux import exc
 from libtmux._internal.constants import Hooks
 from libtmux._internal.sparse_array import SparseArray
 from libtmux.common import has_gte_version
@@ -106,91 +107,90 @@ def test_hooks_raw_cmd(
     )
     assert session.cmd("show-hooks", "-s", "session-renamed[0]").stdout == []
 
-    if has_gte_version("3.2"):
-        #
-        # Window
-        #
-        set_hook_proc = window.cmd(
-            "set-hook",
-            "-w",
-            "session-renamed[0]",
-            "set -g status-left-style bg=red",
-        )
+    #
+    # Window
+    #
+    set_hook_proc = window.cmd(
+        "set-hook",
+        "-w",
+        "session-renamed[0]",
+        "set -g status-left-style bg=red",
+    )
 
-        assert not set_hook_proc.stdout
-        assert not set_hook_proc.stderr
+    assert not set_hook_proc.stdout
+    assert not set_hook_proc.stderr
 
-        show_hooks_proc = server.cmd(
-            "show-hooks",
-            "session-renamed[0]",
-        )
+    show_hooks_proc = server.cmd(
+        "show-hooks",
+        "session-renamed[0]",
+    )
 
-        assert "set-option -g status-left-style bg=red" in show_hooks_proc.stdout[0]
+    assert "set-option -g status-left-style bg=red" in show_hooks_proc.stdout[0]
 
-        # Window: Unset
+    # Window: Unset
 
-        # Window: Unset: Index
-        set_hook_proc = window.cmd(
-            "set-hook",
-            "-w",
-            "-u",
-            "session-renamed[0]",
-        )
-        assert window.cmd("show-hooks", "-w", "session-renamed[0]").stdout == [
-            "session-renamed[0] ",
-        ]
+    # Window: Unset: Index
+    set_hook_proc = window.cmd(
+        "set-hook",
+        "-w",
+        "-u",
+        "session-renamed[0]",
+    )
+    assert window.cmd("show-hooks", "-w", "session-renamed[0]").stdout == [
+        "session-renamed[0] ",
+    ]
 
-        # Window: Unset variable
-        set_hook_proc = window.cmd(
-            "set-hook",
-            "-w",
-            "-u",
-            "session-renamed",
-        )
-        assert window.cmd("show-hooks", "-w", "session-renamed[0]").stdout == []
+    # Window: Unset variable
+    set_hook_proc = window.cmd(
+        "set-hook",
+        "-w",
+        "-u",
+        "session-renamed",
+    )
+    assert window.cmd("show-hooks", "-w", "session-renamed[0]").stdout == []
 
-        #
-        # Pane
-        #
-        set_hook_proc = pane.cmd(
-            "set-hook",
-            "-p",
-            "session-renamed[0]",
-            "set -g status-left-style bg=red",
-        )
+    #
+    # Pane
+    #
+    set_hook_proc = pane.cmd(
+        "set-hook",
+        "-p",
+        "session-renamed[0]",
+        "set -g status-left-style bg=red",
+    )
 
-        assert not set_hook_proc.stdout
-        assert not set_hook_proc.stderr
+    assert not set_hook_proc.stdout
+    assert not set_hook_proc.stderr
 
-        show_hooks_proc = server.cmd(
-            "show-hooks",
-            "-p",
-            "session-renamed[0]",
-        )
+    show_hooks_proc = server.cmd(
+        "show-hooks",
+        "-p",
+        "session-renamed[0]",
+    )
 
-        assert "set-option -g status-left-style bg=red" in show_hooks_proc.stdout[0]
+    assert "set-option -g status-left-style bg=red" in show_hooks_proc.stdout[0]
 
-        # Pane: Unset
+    # Pane: Unset
 
-        # Pane: Unset: Index
-        set_hook_proc = pane.cmd(
-            "set-hook",
-            "-p",
-            "-u",
-            "session-renamed[0]",
-        )
-        assert pane.cmd("show-hooks", "-p", "session-renamed[0]").stdout == [
-            "session-renamed[0] ",
-        ]
+    # Pane: Unset: Index
+    set_hook_proc = pane.cmd(
+        "set-hook",
+        "-p",
+        "-u",
+        "session-renamed[0]",
+    )
+    assert pane.cmd("show-hooks", "-p", "session-renamed[0]").stdout == [
+        "session-renamed[0] ",
+    ]
 
-        # Pane: Unset variable
-        set_hook_proc = pane.cmd(
-            "set-hook",
-            "-p",
-            "-u",
-            "session-renamed",
-        )
-        assert pane.cmd("show-hooks", "-p", "session-renamed[0]").stdout == []
+    # Pane: Unset variable
+    set_hook_proc = pane.cmd(
+        "set-hook",
+        "-p",
+        "-u",
+        "session-renamed",
+    )
+    assert pane.cmd("show-hooks", "-p", "session-renamed[0]").stdout == []
 
 
 def test_hooks_dataclass(
@@ -315,6 +315,7 @@ class HookTestCase(t.NamedTuple):
     hook: str  # tmux hook name (hyphenated)
     min_version: str = "3.0"  # Minimum tmux version required
     xfail_reason: str | None = None  # Mark as expected failure with reason
+    removed_version: str | None = None
 
 
 # --- Alert Hooks ---
@@ -381,7 +382,7 @@ AFTER_HOOKS: list[HookTestCase] = [
     HookTestCase("after_new_window", "after-new-window"),
     HookTestCase("after_paste_buffer", "after-paste-buffer"),
     HookTestCase("after_pipe_pane", "after-pipe-pane"),
-    HookTestCase("after_queue", "after-queue"),
+    HookTestCase("after_queue", "after-queue", removed_version="3.8"),
     HookTestCase("after_refresh_client", "after-refresh-client"),
     HookTestCase("after_rename_session", "after-rename-session"),
     HookTestCase("after_rename_window", "after-rename-window"),
@@ -416,7 +417,39 @@ NEW_HOOKS: list[HookTestCase] = [
 
 # Combine all hook test cases
 ALL_HOOK_TEST_CASES: list[HookTestCase] = (
-    ALERT_HOOKS + CLIENT_HOOKS + SESSION_HOOKS + WINDOW_HOOKS + PANE_HOOKS + AFTER_HOOKS
+    ALERT_HOOKS
+    + CLIENT_HOOKS
+    + SESSION_HOOKS
+    + WINDOW_HOOKS
+    + PANE_HOOKS
+    + AFTER_HOOKS
+    + [
+        HookTestCase(name.replace("-", "_"), name, "3.8")
+        for name in (
+            "after-swap-window",
+            "client-closed",
+            "client-created",
+            "marked-pane-changed",
+            "pane-activity",
+            "pane-bell",
+            "pane-command-finished",
+            "pane-command-started",
+            "pane-created",
+            "pane-mode-entered",
+            "pane-mode-exited",
+            "pane-moved",
+            "pane-prompt-closed",
+            "pane-prompt-opened",
+            "pane-resized",
+            "pane-shell-prompt",
+            "session-added-to-group",
+            "session-removed-from-group",
+            "window-closed",
+            "window-created",
+            "window-unzoomed",
+            "window-zoomed",
+        )
+    ]
 )
 
 
@@ -451,6 +484,11 @@ def test_hook_set_show_unset_cycle(server: Server, test_case: HookTestCase) -> N
 
     hook_cmd = "display-message 'test hook fired'"
 
+    if test_case.removed_version and has_gte_version(test_case.removed_version):
+        with pytest.raises(exc.InvalidOption, match="invalid option"):
+            session.set_hook(f"{test_case.hook}[0]", hook_cmd)
+        return
+
     # Test set_hook (using session-level hook which works on all tmux versions)
     session.set_hook(f"{test_case.hook}[0]", hook_cmd)
 
@@ -467,6 +505,7 @@ def test_hook_set_show_unset_cycle(server: Server, test_case: HookTestCase) -> N
     assert "display-message" in hook_value[0], (
         f"Expected 'display-message' in hook value, got: {hook_value[0]}"
     )
+    assert session.show_hook(f"{test_case.hook}[0]") == hook_value[0]
 
     # Test unset_hook
     session.unset_hook(f"{test_case.hook}[0]")
@@ -850,9 +889,6 @@ def test_show_hooks_stores_string_values(
 
 def test_run_hook_basic(server: Server) -> None:
     """Test run_hook() method exists and can be called without error."""
-    if not has_gte_version("3.2"):
-        pytest.skip("Requires tmux >= 3.2")
-
     session = server.new_session(session_name="test_run_hook")
 
     # Set a hook first

@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import contextlib
+import json
+import marshal
+import re
 import sys
 from contextvars import ContextVar
 from dataclasses import dataclass
@@ -18,8 +21,9 @@ from datamodel_code_generator._context_scope import context_values
 from datamodel_code_generator._module_paths import is_package_init
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable, Iterator
+    from collections.abc import Callable, Iterable, Iterator, Mapping
     from contextlib import AbstractContextManager
+    from typing import Any
 
 # Pydantic 2.5 cannot build schemas from stdlib TypeAliasType on Python 3.12.
 if sys.version_info >= (3, 14):
@@ -266,6 +270,21 @@ def _load_yaml_dict_from_path_cached(
         return load_yaml_dict(stream)
 
 
+def is_openapi(data: Mapping[str, Any]) -> bool:
+    """Check if the data dict is an OpenAPI specification."""
+    return "openapi" in data
+
+
+def is_swagger_2(data: Mapping[str, Any]) -> bool:
+    """Check if the data dict is a Swagger 2.0 document: its root has a `swagger` key and no `openapi` key."""
+    return "swagger" in data and not is_openapi(data)
+
+
+def is_asyncapi(data: Mapping[str, Any]) -> bool:
+    """Check if the data dict is an AsyncAPI specification."""
+    return "asyncapi" in data
+
+
 def _first_significant_text_char(text: str) -> str | None:
     for char in text:
         if char not in _IGNORED_TEXT_PREFIX_CHARS:
@@ -282,7 +301,6 @@ def _load_json(text: str) -> YamlValue:
     """Decode text as JSON; the text of a decoded input is not decoded again (``decoding_from``)."""
     if (decoded := _decoded_input_of(text, "json")) is not None:
         return decoded.value
-    import json  # noqa: PLC0415
 
     return json.loads(text)
 
@@ -291,7 +309,6 @@ def _load_json_document(text: str) -> YamlValue | None:
     """Return the value of text when it is a JSON document, or None when it is not (it may still be YAML)."""
     if not _is_json_text(text):
         return None
-    import json  # noqa: PLC0415
 
     try:
         return _load_json(text)
@@ -308,7 +325,6 @@ def _has_protobuf_declaration(text: str) -> bool:
     """Recognize an explicit Protobuf declaration before attempting YAML decoding."""
     if _first_significant_text_char(text) not in {"s", "e", "/"}:
         return False
-    import re  # noqa: PLC0415
 
     return re.match(_PROTOBUF_DECLARATION_PATTERN, text) is not None
 
@@ -375,8 +391,6 @@ def _load_cached_parser_source_data(cache_key: _ParserSourceDataCacheKey) -> Yam
         if (cached_data := _parser_source_data_cache.recent(cache_key)) is None:
             return None
 
-    import marshal  # noqa: PLC0415
-
     from datamodel_code_generator.util import note_yaml_numbers_held  # noqa: PLC0415
 
     # Entries are process-local values emitted by marshal.dumps below, never external bytes.
@@ -389,8 +403,6 @@ def _store_parser_source_data(
     cache_key: _ParserSourceDataCacheKey, load: Callable[[str], YamlValue], text: str
 ) -> YamlValue:
     """Decode ``text`` with ``load`` and cache the value with the count of YAML 1.1-only numbers the document held."""
-    import marshal  # noqa: PLC0415
-
     from datamodel_code_generator.util import yaml_numbers_held  # noqa: PLC0415
 
     held = yaml_numbers_held()
@@ -407,8 +419,6 @@ def _store_parser_source_data(
 
 def _load_parser_source_data_from_bytes(path: Path, data: bytes, encoding: str, digest: str | None) -> YamlValue:
     """Decode JSON by suffix, else YAML; with a ``digest``, memoize each decode per parser backend and YAML reading."""
-    import json  # noqa: PLC0415
-
     from datamodel_code_generator.util import get_yaml_backend, yaml_number_reading_key  # noqa: PLC0415
 
     text = data.decode(encoding)

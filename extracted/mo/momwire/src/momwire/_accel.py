@@ -385,6 +385,10 @@ acc, LOADED, VARIANT = _load()
 _CANCELLABLE_KERNELS = (
     # momwire#1644: the NEC-4 dialect's kernel (`_accel_sinusoidal_nec4.cpp`).
     "sinusoidal_field_tensor_nec4",
+    # NEC-2's interaction approximation (`_accel_sinusoidal_far.cpp`).
+    "sinusoidal_field_tensor_far",
+    "sinusoidal_field_tensor_refl_far",
+    "sinusoidal_far_overlay",
     "assemble_Z_bspline",
     "assemble_Z_bspline_windowed",
     "assemble_Z_bspline_weighted_windowed",
@@ -394,6 +398,9 @@ _CANCELLABLE_KERNELS = (
     "sinusoidal_field_tensor_refl",
     "sinusoidal_field_tensor_cplx",
     "point_field_tensor_cplx_staged",
+    # momwire#2069: the fill's rows with the contraction fused in, which
+    # polls the same flag per observer row.
+    "sinusoidal_fill_rows",
     # The extended-kernel twins take and poll the same flag. `_ek` was left off
     # this tuple when momwire#245 added it, so a cancelled EK solve surfaced the
     # raw ``AcceleratorAborted`` instead of ``SolveAborted``; #259 adds both

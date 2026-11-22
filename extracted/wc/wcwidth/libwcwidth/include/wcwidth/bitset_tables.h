@@ -80,9 +80,23 @@ extern const uint8_t WCWIDTH_INCB_EXTEND_POOL[];
 #define WCWIDTH_INCB_EXTEND_INDEX_LEN 3583
 #define WCWIDTH_INCB_EXTEND_POOL_LEN 2496
 
+extern const uint8_t WCWIDTH_LINEBREAK_EAST_ASIAN_INDEX[];
+extern const uint8_t WCWIDTH_LINEBREAK_EAST_ASIAN_POOL[];
+#define WCWIDTH_LINEBREAK_EAST_ASIAN_MIN 0x01100u
+#define WCWIDTH_LINEBREAK_EAST_ASIAN_MAX 0x3FFFDu
+#define WCWIDTH_LINEBREAK_EAST_ASIAN_INDEX_LEN 1007
+#define WCWIDTH_LINEBREAK_EAST_ASIAN_POOL_LEN 1216
+
+extern const uint8_t WCWIDTH_LINEBREAK_SA_CM_INDEX[];
+extern const uint8_t WCWIDTH_LINEBREAK_SA_CM_POOL[];
+#define WCWIDTH_LINEBREAK_SA_CM_MIN 0x00E31u
+#define WCWIDTH_LINEBREAK_SA_CM_MAX 0x1172Bu
+#define WCWIDTH_LINEBREAK_SA_CM_INDEX_LEN 265
+#define WCWIDTH_LINEBREAK_SA_CM_POOL_LEN 288
+
 static inline bool
-wcwidth_bitset_get(uint32_t ucs, uint32_t min, uint32_t max,
-                   const uint8_t *index, const uint8_t *pool)
+wcwidth_bitset_get(uint32_t ucs, uint32_t min, uint32_t max, const uint8_t *index,
+                   const uint8_t *pool)
 {
     uint32_t offset;
     unsigned page;
@@ -92,8 +106,7 @@ wcwidth_bitset_get(uint32_t ucs, uint32_t min, uint32_t max,
     }
     offset = ucs - min;
     page = index[offset >> WCWIDTH_BITSET_SHIFT];
-    return (pool[(page << 5) + ((offset & 0xFFu) >> 3)]
-            & (uint8_t)(1u << (offset & 7u))) != 0;
+    return (pool[(page << 5) + ((offset & 0xFFu) >> 3)] & (uint8_t) (1u << (offset & 7u))) != 0;
 }
 
 #ifdef __cplusplus

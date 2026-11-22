@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: datamodel-code-generator
-Version: 0.99.0
+Version: 0.100.0
 Summary: Datamodel Code Generator
 Project-URL: Homepage, https://github.com/datamodel-code-generator/datamodel-code-generator
 Project-URL: Source, https://github.com/datamodel-code-generator/datamodel-code-generator
@@ -82,7 +82,7 @@ Description-Content-Type: text/markdown
 
 # datamodel-code-generator
 
-🚀 Generate Python data models from schema definitions in seconds.
+🚀 Generate Python models, typed clients and FastAPI servers (experimental) from schemas, deterministically, with `--check` for drift.
 
 📚 [Documentation](https://datamodel-code-generator.koxudaxi.dev/) ·
 🧪 [Playground](https://datamodel-code-generator.koxudaxi.dev/playground/) ·
@@ -111,7 +111,10 @@ Description-Content-Type: text/markdown
   </picture>
 </p>
 
-Pick any one of the supported inputs and pick the Python model style you want as output.
+Pick any one of the supported inputs and pick the Python model style you want as output. From OpenAPI (and, for
+clients, AsyncAPI), the same run can also write a typed client or a FastAPI server package (experimental).
+Generation is deterministic with a [preset](https://datamodel-code-generator.koxudaxi.dev/presets/), which turns the header timestamp off, and
+`datamodel-codegen --check` exits with 1 when the files on disk differ from what the schema generates, so CI catches drift.
 `--input-model path/to/file.py:ClassName` can even retarget an existing Pydantic, dataclass, or TypedDict class defined
 in another Python file to a different output type.
 
@@ -210,11 +213,11 @@ datamodel-codegen \
   --input schema.json \
   --input-file-type jsonschema \
   --output-model-type pydantic_v2.BaseModel \
-  --preset standard-py312-20261118 \
+  --preset standard-py312-20261120 \
   --output model.py
 ```
 
-This quick start uses `standard-py312-20261118` as the modern Python 3.12 baseline.
+This quick start uses `standard-py312-20261120` as the modern Python 3.12 baseline.
 Preset names include the target Python version: `py312` means Python 3.12.
 
 See [CLI Reference](https://datamodel-code-generator.koxudaxi.dev/cli-reference/) for all options. See [Presets](https://datamodel-code-generator.koxudaxi.dev/presets/),
@@ -222,7 +225,7 @@ See [CLI Reference](https://datamodel-code-generator.koxudaxi.dev/cli-reference/
 [`--output-model-type`](https://datamodel-code-generator.koxudaxi.dev/cli-reference/model-customization/#output-model-type) for this command.
 
 For more schema-aware output that preserves schema-authored names, reuses models, and embeds generated
-documentation, use [`practical-py312-20261118`](https://datamodel-code-generator.koxudaxi.dev/presets/#practical-py312-20261118).
+documentation, use [`practical-py312-20261120`](https://datamodel-code-generator.koxudaxi.dev/presets/#practical-py312-20261120).
 
 **Not sure which options fit your schema?** Add `--recommend-options` to the command above (experimental). It
 analyses the schema and prints the options to add on top of the latest preset with the reason for each, and a ready
@@ -450,7 +453,7 @@ datamodel-codegen \
   --input-file-type openapi \
   --openapi-scopes schemas api \
   --output-model-type pydantic_v2.BaseModel \
-  --preset standard-py312-20261118 \
+  --preset standard-py312-20261120 \
   --output app/models.py \
   --generate-server fastapi \
   --server-output app/server \
@@ -463,7 +466,7 @@ datamodel-codegen \
   --input-file-type openapi \
   --openapi-scopes schemas api \
   --output-model-type pydantic_v2.BaseModel \
-  --preset standard-py312-20261118 \
+  --preset standard-py312-20261120 \
   --output app/models.py \
   --generate-client httpx2 \
   --client-output app/client \

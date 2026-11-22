@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, Final
 
 from typing_extensions import override
 
@@ -80,6 +80,9 @@ from datamodel_code_generator.model.pydantic_v2.imports import (
     IMPORT_UUID3,
     IMPORT_UUID4,
     IMPORT_UUID5,
+    IMPORT_UUID6,
+    IMPORT_UUID7,
+    IMPORT_UUID8,
 )
 from datamodel_code_generator.model.pydantic_v2.imports import IMPORT_SECRET_STR as IMPORT_SECRET_STR
 from datamodel_code_generator.model.types import standard_primitive_type_map_factory
@@ -111,6 +114,13 @@ if TYPE_CHECKING:
 
 
 # --- Shared Pydantic type helpers ---
+
+_UUID_VERSION_IMPORTS: Final[Mapping[Types, Import]] = MappingProxyType({
+    Types.uuid6: IMPORT_UUID6,
+    Types.uuid7: IMPORT_UUID7,
+    Types.uuid8: IMPORT_UUID8,
+})
+"""The Pydantic types of the UUID versions that ``pydantic.uuid_version_types`` needs, by the type of their format."""
 
 
 def type_map_factory(
@@ -144,6 +154,7 @@ def type_map_factory(
         Types.uuid3: _valid_import_type(data_type, IMPORT_UUID3),
         Types.uuid4: _valid_import_type(data_type, IMPORT_UUID4),
         Types.uuid5: _valid_import_type(data_type, IMPORT_UUID5),
+        **{types: _valid_import_type(data_type, import_) for types, import_ in _UUID_VERSION_IMPORTS.items()},
         Types.ulid: _valid_import_type(data_type, IMPORT_ULID),
         Types.uri: _valid_import_type(data_type, IMPORT_ANYURL),
         Types.hostname: _valid_import_type(
@@ -225,6 +236,10 @@ class DataTypeManager(_DataTypeManagerBase):
     TARGET_NUMBER_KEYWORDS: ClassVar[Mapping[str, tuple[PydanticConstruct, frozenset[str]]]] = (
         _applicability.PYDANTIC_OUTPUT.target_number_keywords
     )
+    _TARGET_TYPE_FALLBACKS: ClassVar[Mapping[Types, tuple[PydanticConstruct, Import]]] = MappingProxyType(
+        dict.fromkeys(_UUID_VERSION_IMPORTS, ("pydantic.uuid_version_types", IMPORT_UUID))
+    )
+    """``uuid.UUID``, the type of format ``uuid2`` too, for the UUID versions 6 to 8 before Pydantic 2.11."""
     _WRITES_CONSTRAINED_TYPES: ClassVar[bool] = _applicability.PYDANTIC_OUTPUT.writes_constrained_types
     REGEX_ENGINES: ClassVar[frozenset[str]] = _applicability.PYDANTIC_OUTPUT.regex_engines
     DEFAULT_VALUE_DESCRIPTORS = MappingProxyType({
@@ -234,7 +249,7 @@ class DataTypeManager(_DataTypeManagerBase):
     SUPPORTS_ANNOTATED_CONSTRAINTS: ClassVar[bool] = True
     ANNOTATED_CONSTRAINTS_CONTEXT: ClassVar[object | None] = _ANNOTATED_CONSTRAINTS_CONTEXT
 
-    def __init__(  # noqa: PLR0913, PLR0917
+    def __init__(  # noqa: PLR0917
         self,
         python_version: PythonVersion = PythonVersionMin,
         use_standard_collections: bool = False,  # noqa: FBT001, FBT002
@@ -298,11 +313,11 @@ class DataTypeManager(_DataTypeManagerBase):
             "PydanticV2ContextDataType",
             PydanticV2DataType,
             python_version,
-            use_standard_collections,
-            use_generic_container_types,
-            use_union_operator,
-            treat_dot_as_module,
-            use_serialize_as_any,
+            use_standard_collections=use_standard_collections,
+            use_generic_container=use_generic_container_types,
+            use_union_operator=use_union_operator,
+            treat_dot_as_module=treat_dot_as_module,
+            use_serialize_as_any=use_serialize_as_any,
         )
 
     @property
@@ -311,7 +326,7 @@ class DataTypeManager(_DataTypeManagerBase):
         """Return True: Pydantic checks the ``pattern`` of the ``constr`` or ``StringConstraints`` key type."""
         return True
 
-    def type_map_factory(  # noqa: PLR0913, PLR0917
+    def type_map_factory(  # noqa: PLR0917
         self,
         data_type: type[DataType],
         strict_types: Sequence[StrictTypes],
@@ -509,7 +524,7 @@ class DataTypeManager(_DataTypeManagerBase):
             strict=strict,
         )
 
-    def _encoded_text_type(  # noqa: PLR0913
+    def _encoded_text_type(
         self,
         name: str,
         base: type[DataType],
